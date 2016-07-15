@@ -325,8 +325,164 @@ class Coroutine(W_Root):
         return space.wrap("<coroutine object %s at 0x%s>" %
                           (code_name, addrstring))
     
-    #def close
-    #w_close = space.getattr(w_yf, space.wrap("close"))
+    def descr_close(self):
+        """x.close(arg) -> raise GeneratorExit inside generator."""
+        space = self.space
+        try:
+            w_retval = self.throw(space.w_GeneratorExit, space.w_None,
+                                  space.w_None)
+        except OperationError as e:
+            if e.match(space, space.w_StopIteration) or \
+                    e.match(space, space.w_GeneratorExit):
+                return space.w_None
+            raise
+
+        if w_retval is not None:
+            raise oefmt(space.w_RuntimeError,
+                        "coroutine ignored GeneratorExit")
+            
+    def descr_throw(self, w_type, w_val=None, w_tb=None):
+        """x.throw(typ[,val[,tb]]) -> raise exception in generator,
+return next yielded value or raise StopIteration."""
+        if w_val is None:
+            w_val = self.space.w_None
+        return self.throw(w_type, w_val, w_tb)
+    
+    def _get_yield_from(self):
+        # Probably a hack (but CPython has the same):
+        # If the current frame is stopped in a "yield from",
+        # return the paused generator.
+        if not self.frame:
+            return None
+        co_code = self.frame.pycode.co_code
+        opcode = ord(co_code[self.frame.last_instr + 1])
+        if opcode == YIELD_FROM:
+            return self.frame.peekvalue()
+    
+    def throw(self, w_type, w_val, w_tb):
+        space = self.space
+
+        w_yf = self._get_yield_from()
+        if w_yf is not None:
+            # Paused in a "yield from", pass the throw to the inner generator.
+            return self._throw_delegate(space, w_yf, w_type, w_val, w_tb)
+        else:
+            # Not paused in a "yield from", quit this generator
+            return self._throw_here(space, w_type, w_val, w_tb)
+        
+    def _throw_delegate(self, space, w_yf, w_type, w_val, w_tb):
+        if space.is_w(w_type, space.w_GeneratorExit):
+            try:
+                w_close = space.getattr(w_yf, space.wrap("close"))
+            except OperationError as e:
+                if not e.match(space, space.w_AttributeError):
+                    e.write_unraisable(space, "generator.close()")
+            else:
+                self.running = True
+                try:
+                    space.call_function(w_close)
+                except OperationError as operr:
+                    self.running = False
+                    return self.send_ex(space.w_None, operr)
+                finally:
+                    self.running = False
+            return self._throw_here(space, w_type, w_val, w_tb)
+        else:
+            try:
+                w_throw = space.getattr(w_yf, space.wrap("throw"))
+            except OperationError as e:
+                if not e.match(space, space.w_AttributeError):
+                    raise
+                return self._throw_here(space, w_type, w_val, w_tb)
+            self.running = True
+            try:
+                return space.call_function(w_throw, w_type, w_val, w_tb)
+            except OperationError as operr:
+                self.running = False
+                # Pop subiterator from stack.
+                w_subiter = self.frame.popvalue()
+                assert space.is_w(w_subiter, w_yf)
+                # Termination repetition of YIELD_FROM
+                self.frame.last_instr += 1
+                if operr.match(space, space.w_StopIteration):
+                    operr.normalize_exception(space)
+                    w_val = space.getattr(operr.get_w_value(space),
+                                          space.wrap("value"))
+                    return self.send_ex(w_val)
+                else:
+                    return self.send_ex(space.w_None, operr)
+            finally:
+                self.running = False
+
+    def _throw_here(self, space, w_type, w_val, w_tb):
+        from pypy.interpreter.pytraceback import check_traceback
+
+        msg = "throw() third argument must be a traceback object"
+        if space.is_none(w_tb):
+            tb = None
+        else:
+            tb = check_traceback(space, w_tb, msg)
+
+        operr = OperationError(w_type, w_val, tb)
+        operr.normalize_exception(space)
+        if tb is None:
+            tb = space.getattr(operr.get_w_value(space),
+                               space.wrap('__traceback__'))
+            if not space.is_w(tb, space.w_None):
+                operr.set_traceback(tb)
+        return self.send_ex(space.w_None, operr)
+    
+    def send_ex(self, w_arg, operr=None):
+        pycode = self.pycode
+        if pycode is not None:
+            if jit.we_are_jitted() and should_not_inline(pycode):
+                generatorentry_driver.jit_merge_point(gen=self, w_arg=w_arg,
+                                                    operr=operr, pycode=pycode)
+        return self._send_ex(w_arg, operr)
+
+    def _send_ex(self, w_arg, operr):
+        space = self.space
+        if self.running:
+            raise oefmt(space.w_ValueError, "generator already executing")
+        frame = self.frame
+        if frame is None:
+            # xxx a bit ad-hoc, but we don't want to go inside
+            # execute_frame() if the frame is actually finished
+            if operr is None:
+                operr = OperationError(space.w_StopIteration, space.w_None)
+            raise operr
+
+        last_instr = jit.promote(frame.last_instr)
+        if last_instr == -1:
+            if w_arg and not space.is_w(w_arg, space.w_None):
+                raise oefmt(space.w_TypeError,
+                            "can't send non-None value to a just-started "
+                            "generator")
+        else:
+            if not w_arg:
+                w_arg = space.w_None
+        self.running = True
+        try:
+            try:
+                w_result = frame.execute_frame(w_arg, operr)
+            except OperationError:
+                # errors finish a frame
+                self.frame = None
+                raise
+            # if the frame is now marked as finished, it was RETURNed from
+            if frame.frame_finished_execution:
+                self.frame = None
+                if space.is_none(w_result):
+                    # Delay exception instantiation if we can
+                    raise OperationError(space.w_StopIteration, space.w_None)
+                else:
+                    raise OperationError(space.w_StopIteration,
+                                         space.newtuple([w_result]))
+            else:
+                return w_result     # YIELDed
+        finally:
+            frame.f_backref = jit.vref_None
+            self.running = False
 
 
 def get_printable_location_genentry(bytecode):
