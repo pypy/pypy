@@ -81,3 +81,8 @@ More slots are still TBD, like tp_print and richcmp
 .. branch: json-surrogates
 
 Align json module decode with the cpython's impl, fixes issue 2345
+
+.. branch: issue2343
+
+Copy CPython's logic more closely for handling of ``__instancecheck__()``
+and ``__subclasscheck__()``.  Fixes issue 2343.
