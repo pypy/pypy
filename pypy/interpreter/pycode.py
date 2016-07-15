@@ -12,7 +12,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.astcompiler.consts import (
     CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS, CO_NESTED,
-    CO_GENERATOR, CO_KILL_DOCSTRING, CO_YIELD_INSIDE_TRY)
+    CO_GENERATOR, CO_COROUTINE, CO_KILL_DOCSTRING, CO_YIELD_INSIDE_TRY)
 from pypy.tool import dis3
 from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
 from rpython.rlib.rarithmetic import intmask

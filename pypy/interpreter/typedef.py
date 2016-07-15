@@ -798,7 +798,7 @@ GeneratorIterator.typedef = TypeDef("generator",
 assert not GeneratorIterator.typedef.acceptable_as_base_class  # no __new__
 
 Coroutine.typedef = TypeDef("coroutine",
-    __repr__   = interp2app(GeneratorIterator.descr__repr__),
+    __repr__   = interp2app(Coroutine.descr__repr__),
     __reduce__   = interp2app(GeneratorIterator.descr__reduce__),
     __setstate__ = interp2app(GeneratorIterator.descr__setstate__),
     __next__   = interp2app(GeneratorIterator.descr_next,

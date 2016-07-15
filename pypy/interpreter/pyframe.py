@@ -243,6 +243,9 @@ class PyFrame(W_Root):
         if self.getcode().co_flags & pycode.CO_GENERATOR:
             from pypy.interpreter.generator import GeneratorIterator
             return self.space.wrap(GeneratorIterator(self))
+        elif self.getcode().co_flags & pycode.CO_COROUTINE:
+            from pypy.interpreter.generator import Coroutine
+            return self.space.wrap(Coroutine(self))
         else:
             return self.execute_frame()
 
