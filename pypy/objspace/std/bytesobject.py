@@ -18,6 +18,7 @@ from pypy.objspace.std.stringmethods import StringMethods
 from pypy.objspace.std.unicodeobject import (
     decode_object, unicode_from_encoded_object,
     unicode_from_string, getdefaultencoding)
+from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT
 
 
 class W_AbstractBytesObject(W_Root):
@@ -30,12 +31,26 @@ class W_AbstractBytesObject(W_Root):
             return True
         if self.user_overridden_class or w_other.user_overridden_class:
             return False
-        return space.str_w(self) is space.str_w(w_other)
+        s1 = space.str_w(self)
+        s2 = space.str_w(w_other)
+        if len(s2) > 1:
+            return s1 is s2
+        else:            # strings of len <= 1 are unique-ified
+            return s1 == s2
 
     def immutable_unique_id(self, space):
         if self.user_overridden_class:
             return None
-        return space.wrap(compute_unique_id(space.str_w(self)))
+        s = space.str_w(self)
+        if len(s) > 1:
+            uid = compute_unique_id(s)
+        else:            # strings of len <= 1 are unique-ified
+            if len(s) == 1:
+                base = ord(s[0])     # base values 0-255
+            else:
+                base = 256           # empty string: base value 256
+            uid = (base << IDTAG_SHIFT) | IDTAG_SPECIAL
+        return space.wrap(uid)
 
     def unicode_w(self, space):
         # Use the default encoding.
@@ -564,7 +579,7 @@ class W_BytesObject(W_AbstractBytesObject):
     def descr_str(self, space):
         if type(self) is W_BytesObject:
             return self
-        return wrapstr(space, self._value)
+        return W_BytesObject(self._value)
 
     def descr_hash(self, space):
         x = compute_hash(self._value)
@@ -710,8 +725,8 @@ class W_BytesObject(W_AbstractBytesObject):
         l = space.listview_bytes(w_list)
         if l is not None:
             if len(l) == 1:
-                return space.wrap(l[0])
-            return space.wrap(self._val(space).join(l))
+                return space.newbytes(l[0])
+            return space.newbytes(self._val(space).join(l))
         return self._StringMethods_descr_join(space, w_list)
 
     _StringMethods_descr_split = descr_split
@@ -843,12 +858,8 @@ def _create_list_from_bytes(value):
 W_BytesObject.EMPTY = W_BytesObject('')
 
 
-def wrapstr(space, s):
-    return W_BytesObject(s)
-
-
 W_BytesObject.typedef = TypeDef(
-    "str", basestring_typedef,
+    "str", basestring_typedef, None, "read",
     __new__ = interp2app(W_BytesObject.descr_new),
     __doc__ = """str(object='') -> string
 

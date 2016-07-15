@@ -825,3 +825,13 @@ def test_c_memcpy():
     assert charp2str(p2) == "helLD"
     free_charp(p1)
     free_charp(p2)
+
+def test_sign_when_casting_uint_to_larger_int():
+    from rpython.rtyper.lltypesystem import rffi
+    from rpython.rlib.rarithmetic import r_uint32, r_uint64
+    #
+    value = 0xAAAABBBB
+    assert cast(lltype.SignedLongLong, r_uint32(value)) == value
+    if hasattr(rffi, '__INT128_T'):
+        value = 0xAAAABBBBCCCCDDDD
+        assert cast(rffi.__INT128_T, r_uint64(value)) == value

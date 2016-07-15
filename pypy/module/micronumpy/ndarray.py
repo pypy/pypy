@@ -254,7 +254,7 @@ class __extend__(W_NDimArray):
                 idx = space.str_w(w_idx)
                 return self.getfield(space, idx)
         if space.is_w(w_idx, space.w_Ellipsis):
-            return self
+            return self.descr_view(space, space.type(self))
         elif isinstance(w_idx, W_NDimArray) and w_idx.get_dtype().is_bool():
             if w_idx.ndims() > 0:
                 w_ret = self.getitem_filter(space, w_idx)
@@ -977,8 +977,7 @@ class __extend__(W_NDimArray):
     def descr_view(self, space, w_dtype=None, w_type=None):
         if not w_type and w_dtype:
             try:
-                if space.is_true(space.issubtype(
-                        w_dtype, space.gettypefor(W_NDimArray))):
+                if space.issubtype_w(w_dtype, space.gettypefor(W_NDimArray)):
                     w_type = w_dtype
                     w_dtype = None
             except OperationError as e:

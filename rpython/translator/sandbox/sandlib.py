@@ -530,6 +530,9 @@ class VirtualizedSandboxedProc(SandboxedProc):
     def do_ll_os__ll_os_unlink(self, vpathname):
         raise OSError(errno.EPERM, "write access denied")
 
+    def do_ll_os__ll_os_mkdir(self, vpathname, mode=None):
+        raise OSError(errno.EPERM, "write access denied")
+
     def do_ll_os__ll_os_getuid(self):
         return UID
     do_ll_os__ll_os_geteuid = do_ll_os__ll_os_getuid

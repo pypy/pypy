@@ -659,6 +659,7 @@ def test_direct_arrayitems():
         a[3] = 30
         a[4] = 40
         b0 = direct_arrayitems(a)
+        assert typeOf(b0) == Ptr(FixedSizeArray(Signed, 1))
         b1 = direct_ptradd(b0, 1)
         b2 = direct_ptradd(b1, 1)
         b3 = direct_ptradd(b0, 3)

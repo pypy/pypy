@@ -243,6 +243,9 @@ class W_Root(object):
     def unicode_w(self, space):
         self._typed_unwrap_error(space, "unicode")
 
+    def bytearray_list_of_chars_w(self, space):
+        self._typed_unwrap_error(space, "bytearray")
+
     def int_w(self, space, allow_conversion=True):
         # note that W_IntObject.int_w has a fast path and W_FloatObject.int_w
         # raises w_TypeError
@@ -1031,7 +1034,7 @@ class ObjSpace(object):
         return (None, None)
 
     def newlist_bytes(self, list_s):
-        return self.newlist([self.wrap(s) for s in list_s])
+        return self.newlist([self.newbytes(s) for s in list_s])
 
     def newlist_unicode(self, list_u):
         return self.newlist([self.wrap(u) for u in list_u])
@@ -1215,7 +1218,7 @@ class ObjSpace(object):
 
     def abstract_issubclass_w(self, w_cls1, w_cls2):
         # Equivalent to 'issubclass(cls1, cls2)'.
-        return self.is_true(self.issubtype(w_cls1, w_cls2))
+        return self.issubtype_w(w_cls1, w_cls2)
 
     def abstract_isinstance_w(self, w_obj, w_cls):
         # Equivalent to 'isinstance(obj, cls)'.
@@ -1237,16 +1240,16 @@ class ObjSpace(object):
     def exception_is_valid_obj_as_class_w(self, w_obj):
         if not self.isinstance_w(w_obj, self.w_type):
             return False
-        return self.is_true(self.issubtype(w_obj, self.w_BaseException))
+        return self.issubtype_w(w_obj, self.w_BaseException)
 
     def exception_is_valid_class_w(self, w_cls):
-        return self.is_true(self.issubtype(w_cls, self.w_BaseException))
+        return self.issubtype_w(w_cls, self.w_BaseException)
 
     def exception_getclass(self, w_obj):
         return self.type(w_obj)
 
     def exception_issubclass_w(self, w_cls1, w_cls2):
-        return self.is_true(self.issubtype(w_cls1, w_cls2))
+        return self.issubtype_w(w_cls1, w_cls2)
 
     def new_exception_class(self, *args, **kwargs):
         "NOT_RPYTHON; convenience method to create excceptions in modules"
@@ -1530,7 +1533,7 @@ class ObjSpace(object):
         # unclear if there is any use at all for getting the bytes in
         # the unicode buffer.)
         try:
-            return self.str_w(w_obj)
+            return self.bytes_w(w_obj)
         except OperationError as e:
             if not e.match(self, self.w_TypeError):
                 raise

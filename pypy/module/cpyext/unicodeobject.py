@@ -77,7 +77,9 @@ def unicode_realize(space, py_obj):
     """
     py_uni = rffi.cast(PyUnicodeObject, py_obj)
     s = rffi.wcharpsize2unicode(py_uni.c_str, py_uni.c_length)
-    w_obj = space.wrap(s)
+    w_type = from_ref(space, rffi.cast(PyObject, py_obj.c_ob_type))
+    w_obj = space.allocate_instance(unicodeobject.W_UnicodeObject, w_type)
+    w_obj.__init__(s)
     py_uni.c_hash = space.hash_w(w_obj)
     track_reference(space, py_obj, w_obj)
     return w_obj
@@ -88,8 +90,9 @@ def unicode_dealloc(space, py_obj):
     Py_DecRef(space, py_unicode.c_defenc)
     if py_unicode.c_str:
         lltype.free(py_unicode.c_str, flavor="raw")
-    from pypy.module.cpyext.object import PyObject_dealloc
-    PyObject_dealloc(space, py_obj)
+
+    from pypy.module.cpyext.object import _dealloc
+    _dealloc(space, py_obj)
 
 @cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
 def Py_UNICODE_ISSPACE(space, ch):
@@ -225,7 +228,7 @@ def PyUnicode_AsUnicode(space, ref):
     buffer, NULL if unicode is not a Unicode object."""
     # Don't use PyUnicode_Check, it will realize the object :-(
     w_type = from_ref(space, rffi.cast(PyObject, ref.c_ob_type))
-    if not space.is_true(space.issubtype(w_type, space.w_unicode)):
+    if not space.issubtype_w(w_type, space.w_unicode):
         raise oefmt(space.w_TypeError, "expected unicode object")
     return PyUnicode_AS_UNICODE(space, rffi.cast(rffi.VOIDP, ref))
 
@@ -369,10 +372,10 @@ def PyUnicode_Decode(space, s, size, encoding, errors):
     if not encoding:
         # This tracks CPython 2.7, in CPython 3.4 'utf-8' is hardcoded instead
         encoding = PyUnicode_GetDefaultEncoding(space)
+    w_str = space.newbytes(rffi.charpsize2str(s, size))
     w_encoding = space.wrap(rffi.charp2str(encoding))
-    w_str = space.wrap(rffi.charpsize2str(s, size))
     if errors:
-        w_errors = space.wrap(rffi.charp2str(errors))
+        w_errors = space.newbytes(rffi.charp2str(errors))
     else:
         w_errors = None
     return space.call_method(w_str, 'decode', w_encoding, w_errors)
@@ -424,7 +427,7 @@ def PyUnicode_FromEncodedObject(space, w_obj, encoding, errors):
 @cpython_api([CONST_STRING], PyObject)
 def PyUnicode_FromString(space, s):
     """Create a Unicode object from an UTF-8 encoded null-terminated char buffer"""
-    w_str = space.wrap(rffi.charp2str(s))
+    w_str = space.newbytes(rffi.charp2str(s))
     return space.call_method(w_str, 'decode', space.wrap("utf-8"))
 
 @cpython_api([CONST_STRING, Py_ssize_t], PyObject, result_is_ll=True)
@@ -492,7 +495,7 @@ def make_conversion_functions(suffix, encoding):
         encoded string s. Return NULL if an exception was raised by
         the codec.
         """
-        w_s = space.wrap(rffi.charpsize2str(s, size))
+        w_s = space.newbytes(rffi.charpsize2str(s, size))
         if errors:
             w_errors = space.wrap(rffi.charp2str(errors))
         else:
@@ -671,7 +674,7 @@ def PyUnicode_Compare(space, w_left, w_right):
 @cpython_api([PyObject, PyObject], PyObject)
 def PyUnicode_Concat(space, w_left, w_right):
     """Concat two strings giving a new Unicode string."""
-    return space.call_method(w_left, '__add__', w_right)
+    return space.add(w_left, w_right)
 
 @cpython_api([rffi.CWCHARP, rffi.CWCHARP, Py_ssize_t], lltype.Void)
 def Py_UNICODE_COPY(space, target, source, length):

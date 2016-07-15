@@ -355,8 +355,8 @@ class W_GenericBox(W_NumpyObject):
     def descr_view(self, space, w_dtype):
         from pypy.module.micronumpy.descriptor import W_Dtype
         try:
-            subclass = space.is_true(space.issubtype(
-                w_dtype, space.gettypefor(W_NDimArray)))
+            subclass = space.issubtype_w(w_dtype,
+                                         space.gettypefor(W_NDimArray))
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 subclass = False

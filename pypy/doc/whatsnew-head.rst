@@ -1,107 +1,88 @@
-=========================
-What's new in PyPy 5.1+
-=========================
+==========================
+What's new in PyPy2.7 5.3+
+==========================
 
-.. this is a revision shortly after release-5.1
-.. startrev: aa60332382a1
+.. this is a revision shortly after release-pypy2.7-v5.3
+.. startrev: 873218a739f1
 
-.. branch: techtonik/introductionrst-simplify-explanation-abo-1460879168046
+.. 418b05f95db5
+Improve CPython compatibility for ``is``. Now code like ``if x is ():``
+works the same way as it does on CPython.  See http://pypy.readthedocs.io/en/latest/cpython_differences.html#object-identity-of-primitive-values-is-and-id .
 
-.. branch: gcheader-decl
+.. pull request #455
+Add sys.{get,set}dlopenflags, for cpyext extensions.
 
-Reduce the size of generated C sources.
+.. branch: fix-gen-dfa
 
+Resolves an issue with the generator script to build the dfa for Python syntax.
 
-.. branch: remove-objspace-options
+.. branch: z196-support
 
-Remove a number of options from the build process that were never tested and
-never set. Fix a performance bug in the method cache.
+Fixes a critical issue in the register allocator and extends support on s390x.
+PyPy runs and translates on the s390x revisions z10 (released February 2008, experimental)
+and z196 (released August 2010) in addition to zEC12 and z13.
+To target e.g. z196 on a zEC12 machine supply CFLAGS="-march=z196" to your shell environment.
 
-.. branch: bitstring
+.. branch: s390x-5.3-catchup
 
-JIT: use bitstrings to compress the lists of read or written descrs
-that we attach to EffectInfo.  Fixes a problem we had in
-remove-objspace-options.
+Implement the backend related changes for s390x.
 
-.. branch: cpyext-for-merge
+.. branch: incminimark-ll_assert
+.. branch: vmprof-openbsd
 
-Update cpyext C-API support After this branch, we are almost able to support 
-upstream numpy via cpyext, so we created (yet another) fork of numpy at 
-github.com/pypy/numpy with the needed changes. Among the significant changes 
-to cpyext:
-  - allow c-snippet tests to be run with -A so we can verify we are compatible
-  - fix many edge cases exposed by fixing tests to run with -A
-  - issequence() logic matches cpython
-  - make PyStringObject and PyUnicodeObject field names compatible with cpython
-  - add prelminary support for PyDateTime_*
-  - support PyComplexObject, PyFloatObject, PyDict_Merge, PyDictProxy,
-    PyMemoryView_*, _Py_HashDouble, PyFile_AsFile, PyFile_FromFile,
-  - PyAnySet_CheckExact, PyUnicode_Concat
-  - improve support for PyGILState_Ensure, PyGILState_Release, and thread
-    primitives, also find a case where CPython will allow thread creation
-    before PyEval_InitThreads is run, dissallow on PyPy 
-  - create a PyObject-specific list strategy
-  - rewrite slot assignment for typeobjects
-  - improve tracking of PyObject to rpython object mapping
-  - support tp_as_{number, sequence, mapping, buffer} slots
+.. branch: testing-cleanup
 
-(makes the pypy-c bigger; this was fixed subsequently by the
-share-cpyext-cpython-api branch)
+Simplify handling of interp-level tests and make it more forward-
+compatible.
 
-.. branch: share-mapdict-methods-2
+.. branch: pyfile-tell
+Sync w_file with the c-level FILE* before returning FILE* in PyFile_AsFile
 
-Reduce generated code for subclasses by using the same function objects in all
-generated subclasses.
+.. branch: rw-PyString_AS_STRING
+Allow rw access to the char* returned from PyString_AS_STRING, also refactor
+PyStringObject to look like cpython's and allow subclassing PyString_Type and
+PyUnicode_Type
 
-.. branch: share-cpyext-cpython-api
+.. branch: save_socket_errno
 
-.. branch: cpyext-auto-gil
+Bug fix: if ``socket.socket()`` failed, the ``socket.error`` did not show
+the errno of the failing system call, but instead some random previous
+errno.
 
-CPyExt tweak: instead of "GIL not held when a CPython C extension module
-calls PyXxx", we now silently acquire/release the GIL.  Helps with
-CPython C extension modules that call some PyXxx() functions without
-holding the GIL (arguably, they are theorically buggy).
+.. branch: PyTuple_Type-subclass
 
-.. branch: cpyext-test-A
+Refactor PyTupleObject to look like cpython's and allow subclassing 
+PyTuple_Type
 
-Get the cpyext tests to pass with "-A" (i.e. when tested directly with
-CPython).
+.. branch: call-via-pyobj
 
-.. branch: oefmt
+Use offsets from PyTypeObject to find actual c function to call rather than
+fixed functions, allows function override after PyType_Ready is called
 
-.. branch: cpyext-werror
+.. branch: issue2335
 
-Compile c snippets with -Werror in cpyext
+Avoid exhausting the stack in the JIT due to successive guard
+failures in the same Python function ending up as successive levels of
+RPython functions, while at app-level the traceback is very short
 
-.. branch: gc-del-3
+.. branch: use-madv-free
 
-Add rgc.FinalizerQueue, documented in pypy/doc/discussion/finalizer-order.rst.
-It is a more flexible way to make RPython finalizers.
+Try harder to memory to the OS.  See e.g. issue #2336.  Note that it does
+not show up as a reduction of the VIRT column in ``top``, and the RES
+column might also not show the reduction, particularly on Linux >= 4.5 or
+on OS/X: it uses MADV_FREE, which only marks the pages as returnable to
+the OS if the memory is low.
 
-.. branch: unpacking-cpython-shortcut
+.. branch: cpyext-slotdefs2
 
-.. branch: cleanups
+Fill in more slots when creating a PyTypeObject from a W_TypeObject
+More slots are still TBD, like tp_print and richcmp
 
-.. branch: cpyext-more-slots
+.. branch: json-surrogates
 
-.. branch: use-gc-del-3
+Align json module decode with the cpython's impl, fixes issue 2345
 
-Use the new rgc.FinalizerQueue mechanism to clean up the handling of
-``__del__`` methods.  Fixes notably issue #2287.  (All RPython
-subclasses of W_Root need to use FinalizerQueue now.)
+.. branch: issue2343
 
-.. branch: ufunc-outer
-
-Implement ufunc.outer on numpypy
-
-.. branch: verbose-imports
-
-Support ``pypy -v``: verbose imports.  It does not log as much as
-cpython, but it should be enough to help when debugging package layout
-problems.
-
-.. branch: cpyext-macros-cast
-
-Fix some warnings when compiling CPython C extension modules
-
-.. branch: syntax_fix
+Copy CPython's logic more closely for handling of ``__instancecheck__()``
+and ``__subclasscheck__()``.  Fixes issue 2343.

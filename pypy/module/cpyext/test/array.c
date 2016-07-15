@@ -1502,7 +1502,7 @@ an array of some other type.");
 static PyObject *
 array_reduce(arrayobject *array)
 {
-    PyObject *dict, *result, *list;
+    PyObject *dict, *result, *list, *mod, *obj;
 
     dict = PyObject_GetAttrString((PyObject *)array, "__dict__");
     if (dict == NULL) {
@@ -1511,6 +1511,18 @@ array_reduce(arrayobject *array)
         PyErr_Clear();
         dict = Py_None;
         Py_INCREF(dict);
+    }
+    /* Return a tuple of (callable object, typecode, values, state) */
+    mod = PyImport_ImportModule("array");
+    if (mod == NULL) {
+        Py_DECREF(dict);
+        return NULL;
+    }
+    obj = PyObject_GetAttrString(mod, "_reconstruct");
+    Py_DECREF(mod);
+    if (obj == NULL) {
+        Py_DECREF(dict);
+        return NULL;
     }
     /* Unlike in Python 3.x, we never use the more efficient memory
      * representation of an array for pickling.  This is unfortunately
@@ -1524,7 +1536,7 @@ array_reduce(arrayobject *array)
         return NULL;
     }
     result = Py_BuildValue(
-        "O(cO)O", Py_TYPE(array), array->ob_descr->typecode, list, dict);
+        "O(cO)O", obj, array->ob_descr->typecode, list, dict);
     Py_DECREF(list);
     Py_DECREF(dict);
     return result;
@@ -1846,6 +1858,110 @@ array_ass_subscr(arrayobject* self, PyObject* item, PyObject* value)
     }
 }
 
+static PyObject*
+array_multiply(PyObject* obj1, PyObject* obj2)
+{
+    if (PyList_Check(obj1) && ((arrayobject*)obj2)->ob_descr->typecode == 'i' && Py_SIZE(obj2) == 1)
+    {
+        int ii, nn;
+        int n = PyList_Size(obj1);
+        PyObject *v = getarrayitem(obj2, 0);
+        int i = ((PyIntObject*)v)->ob_ival;
+        PyObject * ret = PyList_New(n*i);
+        for (ii = 0; ii < i; ii++)
+            for (nn = 0; nn < n; nn++)
+            {
+                v = PyList_GetItem(obj1, nn);
+                PyList_SetItem(ret, nn+ii*n, v);
+            }
+        return ret;
+    }
+    else if (PyList_Check(obj2) && ((arrayobject*)obj1)->ob_descr->typecode == 'i' && Py_SIZE(obj1) == 1)
+    {
+        int ii, nn;
+        int n = PyList_Size(obj2);
+        PyObject *v = getarrayitem(obj1, 0);
+        int i = ((PyIntObject*)v)->ob_ival;
+        PyObject * ret = PyList_New(n*i);
+        for (ii = 0; ii < i; ii++)
+            for (nn = 0; nn < n; nn++)
+            {
+                v = PyList_GetItem(obj2, nn);
+                PyList_SetItem(ret, nn+ii*n, v);
+            }
+        return ret;
+    }
+    else if(obj1->ob_type == &Arraytype)
+        fprintf(stderr, "\nCannot multiply array of type %c and %s\n",
+            ((arrayobject*)obj1)->ob_descr->typecode, obj2->ob_type->tp_name); 
+    else if(obj2->ob_type == &Arraytype)
+        fprintf(stderr, "\nCannot multiply array of type %c and %s\n",
+            ((arrayobject*)obj2)->ob_descr->typecode, obj1->ob_type->tp_name); 
+    Py_INCREF(Py_NotImplemented);
+    return Py_NotImplemented;
+}
+
+static PyNumberMethods array_as_number = {
+    (binaryfunc)NULL, /* nb_add*/
+    (binaryfunc)NULL, /* nb_subtract */
+    (binaryfunc)array_multiply, /* nb_multiply */
+    (binaryfunc)NULL, /* nb_divide */
+};
+
+static PyObject*
+array_base_multiply(PyObject* obj1, PyObject* obj2)
+{
+    if (PyList_Check(obj1) && ((arrayobject*)obj2)->ob_descr->typecode == 'i' && Py_SIZE(obj2) == 1)
+    {
+        int nn;
+        int n = PyList_Size(obj1);
+        PyObject *v = getarrayitem(obj2, 0);
+        int i = ((PyIntObject*)v)->ob_ival;
+        PyObject * ret = PyList_New(n);
+        for (nn = 0; nn < n; nn++)
+        {
+            v = PyList_GetItem(obj1, nn);
+            if (PyInt_Check(v))
+                PyList_SetItem(ret, nn, PyLong_FromLong(i * ((PyIntObject*)v)->ob_ival));
+            else
+                PyList_SetItem(ret, nn, v);
+        }
+        return ret;
+    }
+    else if (PyList_Check(obj2) && ((arrayobject*)obj1)->ob_descr->typecode == 'i' && Py_SIZE(obj1) == 1)
+    {
+        int nn;
+        int n = PyList_Size(obj2);
+        PyObject *v = getarrayitem(obj1, 0);
+        int i = ((PyIntObject*)v)->ob_ival;
+        PyObject * ret = PyList_New(n);
+        for (nn = 0; nn < n; nn++)
+        {
+            v = PyList_GetItem(obj2, nn);
+            if (PyInt_Check(v))
+                PyList_SetItem(ret, nn, PyLong_FromLong(i * ((PyIntObject*)v)->ob_ival));
+            else
+                PyList_SetItem(ret, nn, v);
+        }
+        return ret;
+    }
+    else if(obj1->ob_type == &Arraytype)
+        fprintf(stderr, "\nCannot multiply array of type %c and %s\n",
+            ((arrayobject*)obj1)->ob_descr->typecode, obj2->ob_type->tp_name); 
+    else if(obj2->ob_type == &Arraytype)
+        fprintf(stderr, "\nCannot multiply array of type %c and %s\n",
+            ((arrayobject*)obj2)->ob_descr->typecode, obj1->ob_type->tp_name); 
+    Py_INCREF(Py_NotImplemented);
+    return Py_NotImplemented;
+}
+
+static PyNumberMethods array_base_as_number = {
+    (binaryfunc)NULL, /* nb_add*/
+    (binaryfunc)NULL, /* nb_subtract */
+    (binaryfunc)array_base_multiply, /* nb_multiply */
+    (binaryfunc)NULL, /* nb_divide */
+};
+
 static PyMappingMethods array_as_mapping = {
     (lenfunc)array_length,
     (binaryfunc)array_subscr,
@@ -1916,6 +2032,11 @@ array_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     char c;
     PyObject *initial = NULL, *it = NULL;
     struct arraydescr *descr;
+    if (type == NULL)
+    {
+        /* when called from _reconstruct */
+        type = &Arraytype;
+    }
 
     if (type == &Arraytype && !_PyArg_NoKeywords("array.array()", kwds))
         return NULL;
@@ -2017,6 +2138,18 @@ array_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     return NULL;
 }
 
+static PyObject *
+_reconstruct(PyTypeObject *type, PyObject *args)
+{
+    return array_new(type, args, NULL);
+}
+
+static PyObject *
+switch_multiply(void)
+{
+    Arraytype.tp_as_number->nb_multiply = array_base_multiply;
+    Py_RETURN_NONE;
+};
 
 PyDoc_STRVAR(module_doc,
 "This module defines an object type which can efficiently represent\n\
@@ -2084,6 +2217,49 @@ itemsize -- the length in bytes of one array item\n\
 
 static PyObject *array_iter(arrayobject *ao);
 
+static PyTypeObject ArrayBasetype = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "array.basearray",
+    sizeof(arrayobject),
+    0,
+    (destructor)array_dealloc,                  /* tp_dealloc */
+    0,                                          /* tp_print */
+    0,                                          /* tp_getattr */
+    0,                                          /* tp_setattr */
+    0,                                          /* tp_compare */
+    (reprfunc)array_repr,                       /* tp_repr */
+    &array_base_as_number,                      /* tp_as_number*/
+    &array_as_sequence,                         /* tp_as_sequence*/
+    &array_as_mapping,                          /* tp_as_mapping*/
+    0,                                          /* tp_hash */
+    0,                                          /* tp_call */
+    0,                                          /* tp_str */
+    PyObject_GenericGetAttr,                    /* tp_getattro */
+    0,                                          /* tp_setattro */
+    &array_as_buffer,                           /* tp_as_buffer*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | 
+    Py_TPFLAGS_HAVE_WEAKREFS | Py_TPFLAGS_CHECKTYPES,  /* tp_flags */
+    arraytype_doc,                              /* tp_doc */
+    0,                                          /* tp_traverse */
+    0,                                          /* tp_clear */
+    array_richcompare,                          /* tp_richcompare */
+    offsetof(arrayobject, weakreflist),         /* tp_weaklistoffset */
+    (getiterfunc)array_iter,                    /* tp_iter */
+    0,                                          /* tp_iternext */
+    array_methods,                              /* tp_methods */
+    0,                                          /* tp_members */
+    array_getsets,                              /* tp_getset */
+    0,                                          /* tp_base */
+    0,                                          /* tp_dict */
+    0,                                          /* tp_descr_get */
+    0,                                          /* tp_descr_set */
+    0,                                          /* tp_dictoffset */
+    0,                                          /* tp_init */
+    PyType_GenericAlloc,                        /* tp_alloc */
+    array_new,                                  /* tp_new */
+    PyObject_Del,                               /* tp_free */
+};
+
 static PyTypeObject Arraytype = {
     PyVarObject_HEAD_INIT(NULL, 0)
     "array.array",
@@ -2095,7 +2271,7 @@ static PyTypeObject Arraytype = {
     0,                                          /* tp_setattr */
     0,                                          /* tp_compare */
     (reprfunc)array_repr,                       /* tp_repr */
-    0,                                          /* tp_as_number*/
+    &array_as_number,                           /* tp_as_number*/
     &array_as_sequence,                         /* tp_as_sequence*/
     &array_as_mapping,                          /* tp_as_mapping*/
     0,                                          /* tp_hash */
@@ -2104,7 +2280,8 @@ static PyTypeObject Arraytype = {
     PyObject_GenericGetAttr,                    /* tp_getattro */
     0,                                          /* tp_setattro */
     &array_as_buffer,                           /* tp_as_buffer*/
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HAVE_WEAKREFS,  /* tp_flags */
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | 
+    Py_TPFLAGS_HAVE_WEAKREFS | Py_TPFLAGS_CHECKTYPES,  /* tp_flags */
     arraytype_doc,                              /* tp_doc */
     0,                                          /* tp_traverse */
     0,                                          /* tp_clear */
@@ -2223,6 +2400,8 @@ static PyTypeObject PyArrayIter_Type = {
 
 /* No functions in array module. */
 static PyMethodDef a_methods[] = {
+    {"_reconstruct",   (PyCFunction)_reconstruct, METH_VARARGS, NULL},
+    {"switch_multiply",   (PyCFunction)switch_multiply, METH_NOARGS, NULL},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
@@ -2237,15 +2416,19 @@ initarray(void)
 {
     PyObject *m;
 
+    ArrayBasetype.ob_type = &PyType_Type;
+    Arraytype.tp_base = &ArrayBasetype;
     Arraytype.ob_type = &PyType_Type;
     PyArrayIter_Type.ob_type = &PyType_Type;
     m = Py_InitModule3("array", a_methods, module_doc);
     if (m == NULL)
         return;
 
-    Py_INCREF((PyObject *)&Arraytype);
+    if (PyType_Ready(&ArrayBasetype) < 0)
+        return;
+    if (PyType_Ready(&Arraytype) < 0)
+        return;
     PyModule_AddObject(m, "ArrayType", (PyObject *)&Arraytype);
-    Py_INCREF((PyObject *)&Arraytype);
     PyModule_AddObject(m, "array", (PyObject *)&Arraytype);
-    /* No need to check the error here, the caller will do that */
+    PyModule_AddObject(m, "arraybase", (PyObject *)&ArrayBasetype);
 }

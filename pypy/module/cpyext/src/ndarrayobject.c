@@ -1,7 +1,7 @@
 
 #include "Python.h"
 #include "pypy_numpy.h"
-#include "numpy/arrayobject.h"
+#include "_numpypy/numpy/arrayobject.h"
 #include <string.h>   /* memset, memcpy */
 
 void 

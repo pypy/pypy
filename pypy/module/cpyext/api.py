@@ -4,7 +4,7 @@ import atexit
 
 import py
 
-from pypy.conftest import pypydir
+from pypy import pypydir
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import ll2ctypes
@@ -161,12 +161,13 @@ def copy_header_files(dstdir, copy_numpy_headers):
 
     if copy_numpy_headers:
         try:
-            dstdir.mkdir('numpy')
+            dstdir.mkdir('_numpypy')
+            dstdir.mkdir('_numpypy/numpy')
         except py.error.EEXIST:
             pass
-        numpy_dstdir = dstdir / 'numpy'
+        numpy_dstdir = dstdir / '_numpypy' / 'numpy'
 
-        numpy_include_dir = include_dir / 'numpy'
+        numpy_include_dir = include_dir / '_numpypy' / 'numpy'
         numpy_headers = numpy_include_dir.listdir('*.h') + numpy_include_dir.listdir('*.inl')
         _copy_header_files(numpy_headers, numpy_dstdir)
 
@@ -706,7 +707,7 @@ def build_type_checkers(type_name, cls=None):
         w_obj_type = space.type(w_obj)
         w_type = get_w_type(space)
         return (space.is_w(w_obj_type, w_type) or
-                space.is_true(space.issubtype(w_obj_type, w_type)))
+                space.issubtype_w(w_obj_type, w_type))
     def check_exact(space, w_obj):
         "Implements the Py_Xxx_CheckExact function"
         w_obj_type = space.type(w_obj)
@@ -799,6 +800,21 @@ def unexpected_exception(funcname, e, tb):
         pypy_debug_catch_fatal_exception()
         assert False
 
+def _restore_gil_state(pygilstate_release, gilstate, gil_release, _gil_auto, tid):
+    from rpython.rlib import rgil
+    # see "Handling of the GIL" above
+    assert cpyext_glob_tid_ptr[0] == 0
+    if pygilstate_release:
+        from pypy.module.cpyext import pystate
+        unlock = (gilstate == pystate.PyGILState_UNLOCKED)
+    else:
+        unlock = gil_release or _gil_auto
+    if unlock:
+        rgil.release()
+    else:
+        cpyext_glob_tid_ptr[0] = tid
+
+
 def make_wrapper_second_level(space, argtypesw, restype,
                               result_kind, error_value, gil):
     from rpython.rlib import rgil
@@ -826,6 +842,7 @@ def make_wrapper_second_level(space, argtypesw, restype,
     def wrapper_second_level(callable, pname, *args):
         from pypy.module.cpyext.pyobject import make_ref, from_ref, is_pyobj
         from pypy.module.cpyext.pyobject import as_pyobj
+        from pypy.module.cpyext import pystate
         # we hope that malloc removal removes the newtuple() that is
         # inserted exactly here by the varargs specializer
 
@@ -838,7 +855,6 @@ def make_wrapper_second_level(space, argtypesw, restype,
             rgil.acquire()
             assert cpyext_glob_tid_ptr[0] == 0
         elif pygilstate_ensure:
-            from pypy.module.cpyext import pystate
             if cpyext_glob_tid_ptr[0] == tid:
                 cpyext_glob_tid_ptr[0] = 0
                 args += (pystate.PyGILState_LOCKED,)
@@ -849,6 +865,10 @@ def make_wrapper_second_level(space, argtypesw, restype,
             if cpyext_glob_tid_ptr[0] != tid:
                 no_gil_error(pname)
             cpyext_glob_tid_ptr[0] = 0
+        if pygilstate_release:
+            gilstate = rffi.cast(lltype.Signed, args[-1])
+        else:
+            gilstate = pystate.PyGILState_IGNORE
 
         rffi.stackcounter.stacks_counter += 1
         llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
@@ -918,24 +938,13 @@ def make_wrapper_second_level(space, argtypesw, restype,
 
         except Exception as e:
             unexpected_exception(pname, e, tb)
+            _restore_gil_state(pygilstate_release, gilstate, gil_release, _gil_auto, tid)
             return fatal_value
 
         assert lltype.typeOf(retval) == restype
         rffi.stackcounter.stacks_counter -= 1
 
-        # see "Handling of the GIL" above
-        assert cpyext_glob_tid_ptr[0] == 0
-        if pygilstate_release:
-            from pypy.module.cpyext import pystate
-            arg = rffi.cast(lltype.Signed, args[-1])
-            unlock = (arg == pystate.PyGILState_UNLOCKED)
-        else:
-            unlock = gil_release or _gil_auto
-        if unlock:
-            rgil.release()
-        else:
-            cpyext_glob_tid_ptr[0] = tid
-
+        _restore_gil_state(pygilstate_release, gilstate, gil_release, _gil_auto, tid)
         return retval
 
     wrapper_second_level._dont_inline_ = True
@@ -1201,8 +1210,6 @@ class StaticObjectBuilder:
         cpyext_type_init = self.cpyext_type_init
         self.cpyext_type_init = None
         for pto, w_type in cpyext_type_init:
-            if space.is_w(w_type, space.w_str):
-                pto.c_tp_itemsize = 1
             finish_type_1(space, pto)
             finish_type_2(space, pto, w_type)
 
@@ -1428,7 +1435,7 @@ def setup_library(space):
                                             prefix=prefix)
     code = "#include <Python.h>\n"
     if use_micronumpy:
-        code += "#include <pypy_numpy.h> /* api.py line 1290 */"
+        code += "#include <pypy_numpy.h> /* api.py line 1290 */\n"
     code  += "\n".join(functions)
 
     eci = build_eci(False, export_symbols, code, use_micronumpy)
@@ -1511,7 +1518,7 @@ def load_extension_module(space, path, name):
     try:
         ll_libname = rffi.str2charp(path)
         try:
-            dll = rdynload.dlopen(ll_libname)
+            dll = rdynload.dlopen(ll_libname, space.sys.dlopenflags)
         finally:
             lltype.free(ll_libname, flavor='raw')
     except rdynload.DLOpenError as e:

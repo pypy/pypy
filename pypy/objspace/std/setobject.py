@@ -6,6 +6,7 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std.bytesobject import W_BytesObject
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
+from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT
 
 from rpython.rlib.objectmodel import r_dict
 from rpython.rlib.objectmodel import iterkeys_with_hash, contains_with_hash
@@ -574,6 +575,23 @@ set_typedef = W_SetObject.typedef
 
 class W_FrozensetObject(W_BaseSetObject):
     hash = 0
+
+    def is_w(self, space, w_other):
+        if not isinstance(w_other, W_FrozensetObject):
+            return False
+        if self is w_other:
+            return True
+        if self.user_overridden_class or w_other.user_overridden_class:
+            return False
+        # empty frozensets are unique-ified
+        return 0 == w_other.length() == self.length()
+
+    def immutable_unique_id(self, space):
+        if self.user_overridden_class or self.length() > 0:
+            return None
+        # empty frozenset: base value 259
+        uid = (259 << IDTAG_SHIFT) | IDTAG_SPECIAL
+        return space.wrap(uid)
 
     def _newobj(self, space, w_iterable):
         """Make a new frozenset by taking ownership of 'w_iterable'."""

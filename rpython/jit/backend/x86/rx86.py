@@ -558,6 +558,9 @@ class AbstractX86CodeBuilder(object):
     DIV_r = insn(rex_w, '\xF7', register(1), '\xF0')
     IDIV_r = insn(rex_w, '\xF7', register(1), '\xF8')
 
+    MUL_r = insn(rex_w, '\xF7', orbyte(4<<3), register(1), '\xC0')
+    MUL_b = insn(rex_w, '\xF7', orbyte(4<<3), stack_bp(1))
+
     IMUL_rr = insn(rex_w, '\x0F\xAF', register(1, 8), register(2), '\xC0')
     IMUL_rb = insn(rex_w, '\x0F\xAF', register(1, 8), stack_bp(2))
 

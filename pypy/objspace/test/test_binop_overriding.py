@@ -73,7 +73,7 @@ class AppTestBinopCombinations:
                 if C is not object:
                     setattr(C, name, f)
                 override_in_hier(n-1)
-                if C is not object:        
+                if C is not object:
                     delattr(C, name)
 
         override_in_hier()
@@ -105,7 +105,7 @@ class AppTestBinopCombinations:
         if not self.appdirect:
             skip("slow test, should be run as appdirect test")
         Base, do_test = self.helpers
-         
+
         class X(Base):
             pass
         class Y(X):
@@ -116,7 +116,7 @@ class AppTestBinopCombinations:
         assert not fail
 
     def test_binop_combinations_sub(self):
-        Base, do_test = self.helpers        
+        Base, do_test = self.helpers
         class X(Base):
             pass
         class Y(X):
@@ -124,13 +124,13 @@ class AppTestBinopCombinations:
 
         fail = do_test(X, Y, 'sub', lambda x,y: x-y)
         #print len(fail)
-        assert not fail        
+        assert not fail
 
     def test_binop_combinations_pow(self):
         if not self.appdirect:
             skip("slow test, should be run as appdirect test")
         Base, do_test = self.helpers
-        
+
         class X(Base):
             pass
         class Y(X):
@@ -138,13 +138,13 @@ class AppTestBinopCombinations:
 
         fail = do_test(X, Y, 'pow', lambda x,y: x**y)
         #print len(fail)
-        assert not fail        
+        assert not fail
 
     def test_binop_combinations_more_exhaustive(self):
         if not self.appdirect:
             skip("very slow test, should be run as appdirect test")
         Base, do_test = self.helpers
-        
+
         class X(Base):
             pass
 

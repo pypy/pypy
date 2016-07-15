@@ -6,6 +6,7 @@ from rpython.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
 from rpython.rlib.rarithmetic import ovfcheck, r_int64, intmask, int_between
 from rpython.rlib import objectmodel
 from rpython.rtyper.test.tool import BaseRtypingTest
+from rpython.flowspace.model import summary
 
 
 class TestSnippet(object):
@@ -380,12 +381,30 @@ class TestRint(BaseRtypingTest):
             except OverflowError:
                 return 1
             return a
+        t, rtyper, graph = self.gengraph(f, [int])
+        assert summary(graph).get('int_add_nonneg_ovf') == 2
         res = self.interpret(f, [-3])
         assert res == 144
         res = self.interpret(f, [sys.maxint-50])
         assert res == 1
         res = self.interpret(f, [sys.maxint])
         assert res == 0
+
+    def test_int_py_div_nonnegargs(self):
+        def f(x, y):
+            assert x >= 0
+            assert y >= 0
+            return x // y
+        res = self.interpret(f, [1234567, 123])
+        assert res == 1234567 // 123
+
+    def test_int_py_mod_nonnegargs(self):
+        def f(x, y):
+            assert x >= 0
+            assert y >= 0
+            return x % y
+        res = self.interpret(f, [1234567, 123])
+        assert res == 1234567 % 123
 
     def test_cast_to_float_exc_check(self):
         def f(x):

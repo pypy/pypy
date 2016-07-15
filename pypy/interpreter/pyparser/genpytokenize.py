@@ -191,7 +191,7 @@ def makePyPseudoDFA ():
                               newArcPair(states, EMPTY),
                               pseudoExtras, number, funny, contStr, name))
     dfaStates, dfaAccepts = nfaToDfa(states, *pseudoToken)
-    return DFA(dfaStates, dfaAccepts)
+    return DFA(dfaStates, dfaAccepts), dfaStates
 
 # ______________________________________________________________________
 
@@ -205,7 +205,9 @@ def makePyEndDFAMap ():
                              newArcPair(states, DEFAULT),
                              any(states, notGroupStr(states, "'\\")))),
                    newArcPair(states, "'"))
-    singleDFA = DFA(*nfaToDfa(states, *single))
+    states, accepts = nfaToDfa(states, *single)
+    singleDFA = DFA(states, accepts)
+    states_singleDFA = states
     states = []
     double = chain(states,
                    any(states, notGroupStr(states, '"\\')),
@@ -215,7 +217,9 @@ def makePyEndDFAMap ():
                              newArcPair(states, DEFAULT),
                              any(states, notGroupStr(states, '"\\')))),
                    newArcPair(states, '"'))
-    doubleDFA = DFA(*nfaToDfa(states, *double))
+    states, accepts = nfaToDfa(states, *double)
+    doubleDFA = DFA(states, accepts)
+    states_doubleDFA = states
     states = []
     single3 = chain(states,
                     any(states, notGroupStr(states, "'\\")),
@@ -230,7 +234,9 @@ def makePyEndDFAMap ():
                                           notChainStr(states, "''"))),
                               any(states, notGroupStr(states, "'\\")))),
                     chainStr(states, "'''"))
-    single3DFA = NonGreedyDFA(*nfaToDfa(states, *single3))
+    states, accepts = nfaToDfa(states, *single3)
+    single3DFA = NonGreedyDFA(states, accepts)
+    states_single3DFA = states
     states = []
     double3 = chain(states,
                     any(states, notGroupStr(states, '"\\')),
@@ -245,9 +251,11 @@ def makePyEndDFAMap ():
                                           notChainStr(states, '""'))),
                               any(states, notGroupStr(states, '"\\')))),
                     chainStr(states, '"""'))
-    double3DFA = NonGreedyDFA(*nfaToDfa(states, *double3))
-    map = {"'" : singleDFA,
-           '"' : doubleDFA,
+    states, accepts = nfaToDfa(states, *double3)
+    double3DFA = NonGreedyDFA(states, accepts)
+    states_double3DFA = states
+    map = {"'" : (singleDFA, states_singleDFA),
+           '"' : (doubleDFA, states_doubleDFA),
            "r" : None,
            "R" : None,
            "u" : None,
@@ -257,30 +265,35 @@ def makePyEndDFAMap ():
     for uniPrefix in ("", "u", "U", "b", "B", ):
         for rawPrefix in ("", "r", "R"):
             prefix = uniPrefix + rawPrefix
-            map[prefix + "'''"] = single3DFA
-            map[prefix + '"""'] = double3DFA
+            map[prefix + "'''"] = (single3DFA, states_single3DFA)
+            map[prefix + '"""'] = (double3DFA, states_double3DFA)
     return map
 
 # ______________________________________________________________________
 
-def output(name, dfa_class, dfa):
+def output(name, dfa_class, dfa, states):
     import textwrap
+    lines = []
     i = 0
     for line in textwrap.wrap(repr(dfa.accepts), width = 50):
         if i == 0:
-            print "accepts =", line
+            lines.append("accepts = ")
         else:
-            print "          ", line
+            lines.append("           ")
+        lines.append(line)
+        lines.append("\n")
         i += 1
     import StringIO
-    print "states = ["
-    for numstate, state in enumerate(dfa.states):
-        print "    #", numstate
+    lines.append("states = [\n")
+    for numstate, state in enumerate(states):
+        lines.append("    # ")
+        lines.append(str(numstate))
+        lines.append('\n')
         s = StringIO.StringIO()
         i = 0
         for k, v in sorted(state.items()):
             i += 1
-            if k == '\x00default':
+            if k == DEFAULT:
                 k = "automata.DEFAULT"
             else:
                 k = repr(k)
@@ -298,22 +311,28 @@ def output(name, dfa_class, dfa):
         for line in text:
             line = line.replace('::', ': ')
             if i == 0:
-                print '    {' + line
+                lines.append('    {')
             else:
-                print '     ' + line
+                lines.append('     ')
+            lines.append(line)
+            lines.append('\n')
             i += 1
-    print "    ]"
-    print "%s = automata.%s(states, accepts)" % (name, dfa_class)
-    print
+    lines.append("    ]\n")
+    lines.append("%s = automata.%s(states, accepts)\n" % (name, dfa_class))
+    return ''.join(lines)
 
 def main ():
-    pseudoDFA = makePyPseudoDFA()
-    output("pseudoDFA", "DFA", pseudoDFA)
+    pseudoDFA, states_pseudoDFA = makePyPseudoDFA()
+    print output("pseudoDFA", "DFA", pseudoDFA, states_pseudoDFA)
     endDFAMap = makePyEndDFAMap()
-    output("double3DFA", "NonGreedyDFA", endDFAMap['"""'])
-    output("single3DFA", "NonGreedyDFA", endDFAMap["'''"])
-    output("singleDFA", "DFA", endDFAMap["'"])
-    output("doubleDFA", "DFA", endDFAMap['"'])
+    dfa, states = endDFAMap['"""']
+    print output("double3DFA", "NonGreedyDFA", dfa, states)
+    dfa, states = endDFAMap["'''"]
+    print output("single3DFA", "NonGreedyDFA", dfa, states)
+    dfa, states = endDFAMap["'"]
+    print output("singleDFA", "DFA", dfa, states)
+    dfa, states = endDFAMap["\""]
+    print output("doubleDFA", "DFA", dfa, states)
 
 # ______________________________________________________________________
 
