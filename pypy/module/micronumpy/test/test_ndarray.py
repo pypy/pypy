@@ -202,7 +202,6 @@ class TestNumArrayDirect(object):
 
 
 class AppTestNumArray(BaseNumpyAppTest):
-    spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
 
     def w_CustomIndexObject(self, index):
         class CustomIndexObject(object):
@@ -2655,7 +2654,8 @@ class AppTestNumArray(BaseNumpyAppTest):
 
 
 class AppTestNumArrayFromBuffer(BaseNumpyAppTest):
-    spaceconfig = dict(usemodules=["micronumpy", "array", "mmap"])
+    spaceconfig = dict(usemodules=["micronumpy", "array", "mmap", 
+                                   'struct', 'binascii'])
 
     def setup_class(cls):
         from rpython.tool.udir import udir
@@ -3579,7 +3579,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
 
 
 class AppTestSupport(BaseNumpyAppTest):
-    spaceconfig = {'usemodules': ['micronumpy', 'array']}
+    spaceconfig = {'usemodules': ["micronumpy", "array", 'struct', 'binascii']}
 
     def setup_class(cls):
         import struct
@@ -3869,7 +3869,6 @@ class AppTestRepr(BaseNumpyAppTest):
 
 
 class AppTestRecordDtype(BaseNumpyAppTest):
-    spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
 
     def test_zeros(self):
         from numpy import zeros, void
