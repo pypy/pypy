@@ -554,6 +554,7 @@ static inline int mutex2_lock_timeout(mutex2_t *mutex, double delay) {
 //#define pypy_lock_test_and_set(ptr, value)  see thread_pthread.h
 #define atomic_increment(ptr)          __sync_add_and_fetch(ptr, 1)
 #define atomic_decrement(ptr)          __sync_sub_and_fetch(ptr, 1)
+#define RPy_CompilerMemoryBarrier()    asm("":::"memory")
 #define HAVE_PTHREAD_ATFORK            1
 
 #include "src/asm.h"   /* for RPy_YieldProcessor() */

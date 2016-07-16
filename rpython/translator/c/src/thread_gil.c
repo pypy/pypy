@@ -157,7 +157,7 @@ void RPyGilAcquireSlowPath(long old_fastgil)
                 break;
             }
             RPy_YieldProcessor();
-            asm volatile("":::"memory");   /* compiler memory barrier */
+            RPy_CompilerMemoryBarrier();
 
             if (!RPY_FASTGIL_LOCKED(rpy_fastgil)) {
                 old_fastgil = pypy_lock_test_and_set(&rpy_fastgil, 1);
