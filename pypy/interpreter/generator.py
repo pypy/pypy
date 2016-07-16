@@ -326,7 +326,7 @@ class Coroutine(W_Root):
                           (code_name, addrstring))
     
     def descr_close(self):
-        """x.close(arg) -> raise GeneratorExit inside generator."""
+        """x.close(arg) -> raise GeneratorExit inside coroutine."""
         space = self.space
         try:
             w_retval = self.throw(space.w_GeneratorExit, space.w_None,
@@ -342,8 +342,8 @@ class Coroutine(W_Root):
                         "coroutine ignored GeneratorExit")
             
     def descr_throw(self, w_type, w_val=None, w_tb=None):
-        """x.throw(typ[,val[,tb]]) -> raise exception in generator,
-return next yielded value or raise StopIteration."""
+        """x.throw(typ[,val[,tb]]) -> raise exception in coroutine,
+return next iterated value or raise StopIteration."""
         if w_val is None:
             w_val = self.space.w_None
         return self.throw(w_type, w_val, w_tb)
@@ -443,7 +443,7 @@ return next yielded value or raise StopIteration."""
     def _send_ex(self, w_arg, operr):
         space = self.space
         if self.running:
-            raise oefmt(space.w_ValueError, "generator already executing")
+            raise oefmt(space.w_ValueError, "coroutine already executing")
         frame = self.frame
         if frame is None:
             # xxx a bit ad-hoc, but we don't want to go inside
@@ -457,7 +457,7 @@ return next yielded value or raise StopIteration."""
             if w_arg and not space.is_w(w_arg, space.w_None):
                 raise oefmt(space.w_TypeError,
                             "can't send non-None value to a just-started "
-                            "generator")
+                            "coroutine")
         else:
             if not w_arg:
                 w_arg = space.w_None
@@ -483,6 +483,36 @@ return next yielded value or raise StopIteration."""
         finally:
             frame.f_backref = jit.vref_None
             self.running = False
+        
+    def descr_gi_frame(self, space):
+        if self.frame is not None and not self.frame.frame_finished_execution:
+            return self.frame
+        else:
+            return space.w_None
+
+    def descr_gi_code(self, space):
+        return self.pycode
+
+    def descr__name__(self, space):
+        if self.pycode is None:
+            code_name = '<finished>'
+        else:
+            code_name = self.pycode.co_name
+        return space.wrap(code_name)
+    
+    def _finalize_(self):
+        # This is only called if the CO_YIELD_INSIDE_TRY flag is set
+        # on the code object.  If the frame is still not finished and
+        # finally or except blocks are present at the current
+        # position, then raise a GeneratorExit.  Otherwise, there is
+        # no point.
+        if self.frame is not None:
+            block = self.frame.lastblock
+            while block is not None:
+                if not isinstance(block, LoopBlock):
+                    self.descr_close()
+                    break
+                block = block.previous
 
 
 def get_printable_location_genentry(bytecode):
