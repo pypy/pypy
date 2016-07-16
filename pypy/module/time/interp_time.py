@@ -163,7 +163,6 @@ class CConfig:
     has_gettimeofday = platform.Has('gettimeofday')
     has_clock_gettime = platform.Has('clock_gettime')
     CLOCK_PROF = platform.DefinedConstantInteger('CLOCK_PROF')
-    HAVE_CLOCK = platform.DefinedConstantInteger("HAVE_CLOCK")
 
 CLOCK_CONSTANTS = ['CLOCK_HIGHRES', 'CLOCK_MONOTONIC', 'CLOCK_MONOTONIC_RAW',
                    'CLOCK_PROCESS_CPUTIME_ID', 'CLOCK_REALTIME',
@@ -232,7 +231,6 @@ CLOCKS_PER_SEC = cConfig.CLOCKS_PER_SEC
 HAS_CLOCK_GETTIME = cConfig.has_clock_gettime
 HAS_CLOCK_HIGHRES = cConfig.CLOCK_HIGHRES is not None
 HAS_CLOCK_MONOTONIC = cConfig.CLOCK_MONOTONIC is not None
-HAS_CLOCK = _WIN or cConfig.HAVE_CLOCK
 HAS_MONOTONIC = (_WIN or _MACOSX or
                  (HAS_CLOCK_GETTIME and (HAS_CLOCK_HIGHRES or HAS_CLOCK_MONOTONIC)))
 clock_t = cConfig.clock_t
@@ -1036,29 +1034,28 @@ else:
                     return space.wrap(cpu_time / rposix.CLOCK_TICKS_PER_SECOND)
         return clock(space)
 
-if HAS_CLOCK:
-    _clock = external('clock', [], clock_t)
-    def clock(space, w_info=None):
-        """clock() -> floating point number
+_clock = external('clock', [], clock_t)
+def clock(space, w_info=None):
+    """clock() -> floating point number
 
-        Return the CPU time or real time since the start of the process or since
-        the first call to clock().  This has as much precision as the system
-        records."""
-        if _WIN:
-            try:
-                return win_perf_counter(space, w_info=w_info)
-            except ValueError:
-                pass
-            value = _clock()
-            # Is this casting correct?
-            if value == rffi.cast(clock_t, -1):
-                raise oefmt(space.w_RuntimeError,
-                            "the processor time used is not available or its value"
-                            "cannot be represented")
-            if w_info is not None:
-                _setinfo(space, w_info,
-                         "clock()", 1.0 / CLOCKS_PER_SEC, True, False)
-            return space.wrap((1.0 * value) / CLOCKS_PER_SEC)
+    Return the CPU time or real time since the start of the process or since
+    the first call to clock().  This has as much precision as the system
+    records."""
+    if _WIN:
+        try:
+            return win_perf_counter(space, w_info=w_info)
+        except ValueError:
+            pass
+        value = _clock()
+        # Is this casting correct?
+        if value == rffi.cast(clock_t, -1):
+            raise oefmt(space.w_RuntimeError,
+                        "the processor time used is not available or its value"
+                        "cannot be represented")
+        if w_info is not None:
+            _setinfo(space, w_info,
+                     "clock()", 1.0 / CLOCKS_PER_SEC, True, False)
+        return space.wrap((1.0 * value) / CLOCKS_PER_SEC)
 
 
 def _setinfo(space, w_info, impl, res, mono, adj):
