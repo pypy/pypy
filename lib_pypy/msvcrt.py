@@ -13,8 +13,9 @@ import sys
 if sys.platform != 'win32':
     raise ImportError("The 'msvcrt' module is only available on Windows")
 
+import _rawffi
 from _pypy_winbase_cffi import ffi as _ffi
-_lib = _ffi.dlopen('msvcrt')
+_lib = _ffi.dlopen(_rawffi.get_libc().name)
 
 import errno
 

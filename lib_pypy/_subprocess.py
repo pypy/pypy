@@ -27,7 +27,9 @@ _INVALID_HANDLE_VALUE = _ffi.cast("HANDLE", -1)
 class _handle(object):
     def __init__(self, c_handle):
         # 'c_handle' is a cffi cdata of type HANDLE, which is basically 'void *'
-        self.c_handle = _ffi.gc(c_handle, _kernel32.CloseHandle)
+        self.c_handle = c_handle
+        if int(self) != -1:
+            self.c_handle = _ffi.gc(self.c_handle, _kernel32.CloseHandle)
 
     def __int__(self):
         return int(_ffi.cast("intptr_t", self.c_handle))
@@ -111,17 +113,19 @@ def CreateProcess(name, command_line, process_attr, thread_attr,
     return _handle(pi.hProcess), _handle(pi.hThread), pi.dwProcessId, pi.dwThreadId
 
 def WaitForSingleObject(handle, milliseconds):
-    res = _kernel32.WaitForSingleObject(int(handle), milliseconds)
-
+    # CPython: the first argument is expected to be an integer.
+    res = _kernel32.WaitForSingleObject(_ffi.cast("HANDLE", handle),
+                                        milliseconds)
     if res < 0:
         raise _WinError()
 
     return res
 
 def GetExitCodeProcess(handle):
+    # CPython: the first argument is expected to be an integer.
     code = _ffi.new("DWORD[1]")
 
-    res = _kernel32.GetExitCodeProcess(int(handle), code)
+    res = _kernel32.GetExitCodeProcess(_ffi.cast("HANDLE", handle), code)
 
     if not res:
         raise _WinError()
