@@ -1041,16 +1041,16 @@ def clock(space, w_info=None):
             return win_perf_counter(space, w_info=w_info)
         except ValueError:
             pass
-        value = _clock()
-        # Is this casting correct?
-        if value == rffi.cast(clock_t, -1):
-            raise oefmt(space.w_RuntimeError,
-                        "the processor time used is not available or its value"
-                        "cannot be represented")
-        if w_info is not None:
-            _setinfo(space, w_info,
-                     "clock()", 1.0 / CLOCKS_PER_SEC, True, False)
-        return space.wrap((1.0 * value) / CLOCKS_PER_SEC)
+    value = _clock()
+    # Is this casting correct?
+    if value == rffi.cast(clock_t, -1):
+        raise oefmt(space.w_RuntimeError,
+                    "the processor time used is not available or its value"
+                    "cannot be represented")
+    if w_info is not None:
+        _setinfo(space, w_info,
+                 "clock()", 1.0 / CLOCKS_PER_SEC, True, False)
+    return space.wrap((1.0 * value) / CLOCKS_PER_SEC)
 
 
 def _setinfo(space, w_info, impl, res, mono, adj):
