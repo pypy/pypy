@@ -13,8 +13,8 @@ import sys
 if sys.platform != 'win32':
     raise ImportError("The 'msvcrt' module is only available on Windows")
 
-from _msvcrt_cffi import ffi
-lib = ffi.dlopen('msvcrt')
+from _pypy_winbase_cffi import ffi as _ffi
+_lib = _ffi.dlopen('msvcrt')
 
 import errno
 
@@ -23,7 +23,7 @@ except ImportError: builtinify = validate_fd = lambda f: f
 
 
 def _ioerr():
-    e = ffi.errno
+    e = _ffi.errno
     raise IOError(e, errno.errorcode[e])
 
 
@@ -35,7 +35,7 @@ def open_osfhandle(fd, flags):
     flags parameter should be a bitwise OR of os.O_APPEND, os.O_RDONLY,
     and os.O_TEXT. The returned file descriptor may be used as a parameter
     to os.fdopen() to create a file object."""
-    fd = lib._open_osfhandle(fd, flags)
+    fd = _lib._open_osfhandle(fd, flags)
     if fd == -1:
         _ioerr()
     return fd
@@ -50,7 +50,7 @@ def get_osfhandle(fd):
         validate_fd(fd)
     except OSError as e:
         raise IOError(*e.args)
-    result = lib._get_osfhandle(fd)
+    result = _lib._get_osfhandle(fd)
     if result == -1:
         _ioerr()
     return result
@@ -62,7 +62,7 @@ def setmode(fd, flags):
     Set the line-end translation mode for the file descriptor fd. To set
     it to text mode, flags should be os.O_TEXT; for binary, it should be
     os.O_BINARY."""
-    flags = lib._setmode(fd, flags)
+    flags = _lib._setmode(fd, flags)
     if flags == -1:
         _ioerr()
     return flags
@@ -80,44 +80,44 @@ def locking(fd, mode, nbytes):
     below. Multiple regions in a file may be locked at the same time, but
     may not overlap. Adjacent regions are not merged; they must be unlocked
     individually."""
-    rv = lib._locking(fd, mode, nbytes)
+    rv = _lib._locking(fd, mode, nbytes)
     if rv != 0:
         _ioerr()
 
 # Console I/O routines
 
-kbhit = lib._kbhit
+kbhit = _lib._kbhit
 
 @builtinify
 def getch():
-    return chr(lib._getch())
+    return chr(_lib._getch())
 
 @builtinify
 def getwch():
-    return unichr(lib._getwch())
+    return unichr(_lib._getwch())
 
 @builtinify
 def getche():
-    return chr(lib._getche())
+    return chr(_lib._getche())
 
 @builtinify
 def getwche():
-    return unichr(lib._getwche())
+    return unichr(_lib._getwche())
 
 @builtinify
 def putch(ch):
-    lib._putch(ord(ch))
+    _lib._putch(ord(ch))
 
 @builtinify
 def putwch(ch):
-    lib._putwch(ord(ch))
+    _lib._putwch(ord(ch))
 
 @builtinify
 def ungetch(ch):
-    if lib._ungetch(ord(ch)) == -1:   # EOF
+    if _lib._ungetch(ord(ch)) == -1:   # EOF
         _ioerr()
 
 @builtinify
 def ungetwch(ch):
-    if lib._ungetwch(ord(ch)) == -1:   # EOF
+    if _lib._ungetwch(ord(ch)) == -1:   # EOF
         _ioerr()
