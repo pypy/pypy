@@ -970,8 +970,11 @@ if _WIN:
              lltype.scoped_alloc(rwin32.FILETIME) as exit_time, \
              lltype.scoped_alloc(rwin32.FILETIME) as kernel_time, \
              lltype.scoped_alloc(rwin32.FILETIME) as user_time:
-            GetProcessTimes(current_process, creation_time, exit_time,
-                            kernel_time, user_time)
+            worked = GetProcessTimes(current_process, creation_time, exit_time,
+                                     kernel_time, user_time)
+            if not worked:
+                raise wrap_windowserror(space,
+                    rwin32.lastSavedWindowsError("GetProcessTimes"))
             kernel_time2 = (kernel_time.c_dwLowDateTime |
                             r_ulonglong(kernel_time.c_dwHighDateTime) << 32)
             user_time2 = (user_time.c_dwLowDateTime |
