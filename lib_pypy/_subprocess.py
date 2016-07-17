@@ -80,6 +80,14 @@ def DuplicateHandle(source_process, source, target_process, access, inherit, opt
 
     return _handle(target[0])
 
+def _z(input):
+    if input is None:
+        return _ffi.NULL
+    if isinstance(input, basestring):
+        return str(input)
+    raise TypeError("string/unicode/None expected, got %r" % (
+        type(input).__name__,))
+
 def CreateProcess(name, command_line, process_attr, thread_attr,
                   inherit, flags, env, start_dir, startup_info):
     si = _ffi.new("STARTUPINFO *")
@@ -104,13 +112,9 @@ def CreateProcess(name, command_line, process_attr, thread_attr,
     else:
         envbuf = _ffi.NULL
 
-    if name is None: name = _ffi.NULL
-    if command_line is None: command_line = _ffi.NULL
-    if start_dir is None: start_dir = _ffi.NULL
-
-    res = _kernel32.CreateProcessA(name, command_line, _ffi.NULL,
+    res = _kernel32.CreateProcessA(_z(name), _z(command_line), _ffi.NULL,
                                    _ffi.NULL, inherit, flags, envbuf,
-                                   start_dir, si, pi)
+                                   _z(start_dir), si, pi)
 
     if not res:
         raise _WinError()
