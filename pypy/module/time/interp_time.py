@@ -4,7 +4,7 @@ from pypy.interpreter.error import OperationError, oefmt, strerror as _strerror,
 from pypy.interpreter.gateway import unwrap_spec
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import intmask, r_ulonglong, r_longfloat
-from rpython.rlib.rtime import (win_perf_counter, TIMEB, c_ftime,
+from rpython.rlib.rtime import (TIMEB, c_ftime,
                                 GETTIMEOFDAY_NO_TZ, TIMEVAL,
                                 HAVE_GETTIMEOFDAY, HAVE_FTIME)
 from rpython.rlib import rposix, rtime
@@ -926,18 +926,13 @@ if _WIN:
         rffi.INT)
     def win_perf_counter(space, w_info=None):
         with lltype.scoped_alloc(rffi.CArray(rffi.lltype.SignedLongLong), 1) as a:
-            failed = False
+            succeeded = True
             if time_state.divisor == 0.0:
                 QueryPerformanceCounter(a)
                 time_state.counter_start = a[0]
-                # This is returnng 0 here on my windows 7 box
-                # when testing untranslated. rlib/rtime.py ignores the
-                # return value. I do get back a reasonable value...
-                # XXX: What is wrong here?
-                #failed = QueryPerformanceFrequency(a)
-                QueryPerformanceFrequency(a)
+                succeeded = QueryPerformanceFrequency(a)
                 time_state.divisor = float(a[0])
-            if not failed and time_state.divisor != 0.0:
+            if succeeded and time_state.divisor != 0.0:
                 QueryPerformanceCounter(a)
                 diff = a[0] - time_state.counter_start
             else:
