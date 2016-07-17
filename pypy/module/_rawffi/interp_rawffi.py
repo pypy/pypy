@@ -2,6 +2,7 @@ import sys
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.typedef import interp_attrproperty
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 
 from rpython.rlib.clibffi import *
@@ -237,6 +238,7 @@ W_CDLL.typedef = TypeDef(
     __new__     = interp2app(descr_new_cdll),
     ptr         = interp2app(W_CDLL.ptr),
     getaddressindll = interp2app(W_CDLL.getaddressindll),
+    name        = interp_attrproperty('name', W_CDLL),
     __doc__     = """ C Dynamically loaded library
 use CDLL(libname) to create a handle to a C library (the argument is processed
 the same way as dlopen processes it). On such a library you can call:
