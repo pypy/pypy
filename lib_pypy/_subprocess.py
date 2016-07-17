@@ -35,14 +35,14 @@ class _handle(object):
     def Detach(self):
         h = int(self)
         if h != -1:
-            _ffi.gc(None, self.c_handle)
+            _ffi.gc(self.c_handle, None)
             self.c_handle = _INVALID_HANDLE_VALUE
         return h
 
     def Close(self):
         if int(self) != -1:
             _kernel32.CloseHandle(self.c_handle)
-            _ffi.gc(None, self.c_handle)
+            _ffi.gc(self.c_handle, None)
             self.c_handle = _INVALID_HANDLE_VALUE
 
 def CreatePipe(attributes, size):
@@ -108,7 +108,7 @@ def CreateProcess(name, command_line, process_attr, thread_attr,
     if not res:
         raise _WinError()
 
-    return _handle(pi.hProcess), _handle(pi.hThread), pi.dwProcessID, pi.dwThreadID
+    return _handle(pi.hProcess), _handle(pi.hThread), pi.dwProcessId, pi.dwThreadId
 
 def WaitForSingleObject(handle, milliseconds):
     res = _kernel32.WaitForSingleObject(int(handle), milliseconds)
@@ -145,7 +145,7 @@ def GetStdHandle(stdhandle):
         return None
     else:
         # note: returns integer, not handle object
-        return res
+        return int(_handle(res))
 
 STD_INPUT_HANDLE = -10
 STD_OUTPUT_HANDLE = -11
