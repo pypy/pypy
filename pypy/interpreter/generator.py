@@ -506,6 +506,13 @@ return next iterated value or raise StopIteration."""
         # finally or except blocks are present at the current
         # position, then raise a GeneratorExit.  Otherwise, there is
         # no point.
+        # If coroutine was never awaited on issue a RuntimeWarning.
+        if self.pycode is not None:
+            if self.frame is not None:
+                if self.frame.fget_f_lasti(frame).int_w(frame.space) == -1:
+                    raise oefmt(space.w_RuntimeWarning,
+                                "coroutine '%s' was never awaited",
+                                self.pycode.co_name)
         if self.frame is not None:
             block = self.frame.lastblock
             while block is not None:
