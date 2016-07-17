@@ -7,7 +7,8 @@
 # can't use a preexisting PyPy to do that, then running this
 # file should work as long as 'subprocess' is not imported
 # by cffi.  I had to hack in 'cffi._pycparser' to move an
-#'import subprocess' to the inside of a function.
+#'import subprocess' to the inside of a function.  (Also,
+# CPython+CFFI should work as well.)
 #
 # This module supports both msvcrt.py and _subprocess.py.
 
