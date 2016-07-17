@@ -34,18 +34,23 @@ class _handle(object):
     def __int__(self):
         return int(_ffi.cast("intptr_t", self.c_handle))
 
+    def __repr__(self):
+        return '<_subprocess.handle %d at 0x%x>' % (int(self), id(self))
+
     def Detach(self):
         h = int(self)
         if h != -1:
-            _ffi.gc(self.c_handle, None)
+            c_handle = self.c_handle
             self.c_handle = _INVALID_HANDLE_VALUE
+            _ffi.gc(c_handle, None)
         return h
 
     def Close(self):
         if int(self) != -1:
-            _kernel32.CloseHandle(self.c_handle)
-            _ffi.gc(self.c_handle, None)
+            c_handle = self.c_handle
             self.c_handle = _INVALID_HANDLE_VALUE
+            _ffi.gc(c_handle, None)
+            _kernel32.CloseHandle(c_handle)
 
 def CreatePipe(attributes, size):
     handles = _ffi.new("HANDLE[2]")
@@ -149,7 +154,7 @@ def GetStdHandle(stdhandle):
         return None
     else:
         # note: returns integer, not handle object
-        return int(_handle(res))
+        return int(_ffi.cast("intptr_t", res))
 
 STD_INPUT_HANDLE = -10
 STD_OUTPUT_HANDLE = -11
