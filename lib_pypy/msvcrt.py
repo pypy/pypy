@@ -13,7 +13,9 @@ import sys
 if sys.platform != 'win32':
     raise ImportError("The 'msvcrt' module is only available on Windows")
 
-from _msvcrt_cffi import ffi, lib
+from _msvcrt_cffi import ffi
+lib = ffi.dlopen('msvcrt')
+
 import errno
 
 try: from __pypy__ import builtinify, validate_fd
@@ -65,11 +67,7 @@ def setmode(fd, flags):
         _ioerr()
     return flags
 
-LK_UNLCK = lib.LK_UNLCK
-LK_LOCK = lib.LK_LOCK
-LK_NBLCK = lib.LK_NBLCK
-LK_RLCK = lib.RLCK
-LK_NBRLCK = lib.LK_NBRLCK
+LK_UNLCK, LK_LOCK, LK_NBLCK, LK_RLCK, LK_NBRLCK = range(5)
 
 @builtinify
 def locking(fd, mode, nbytes):
@@ -89,20 +87,37 @@ def locking(fd, mode, nbytes):
 # Console I/O routines
 
 kbhit = lib._kbhit
-getch = lib._getch
-getwch = lib._getwch
-getche = lib._getche
-getwche = lib._getwche
-putch = lib._putch
-putwch = lib._putwch      # xxx CPython accepts a unicode str of length > 1 and
-                          # discards the other characters, but only in putwch()
+
+@builtinify
+def getch():
+    return chr(lib._getch())
+
+@builtinify
+def getwch():
+    return unichr(lib._getwch())
+
+@builtinify
+def getche():
+    return chr(lib._getche())
+
+@builtinify
+def getwche():
+    return unichr(lib._getwche())
+
+@builtinify
+def putch(ch):
+    lib._putch(ord(ch))
+
+@builtinify
+def putwch(ch):
+    lib._putwch(ord(ch))
 
 @builtinify
 def ungetch(ch):
-    if lib._ungetch(ch) == lib.EOF:
+    if lib._ungetch(ord(ch)) == -1:   # EOF
         _ioerr()
 
 @builtinify
 def ungetwch(ch):
-    if lib._ungetwch(ch) == lib.EOF:
+    if lib._ungetwch(ord(ch)) == -1:   # EOF
         _ioerr()
