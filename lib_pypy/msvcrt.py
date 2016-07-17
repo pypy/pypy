@@ -7,26 +7,36 @@ still useful routines.
 # XXX incomplete: implemented only functions needed by subprocess.py
 # PAC: 2010/08 added MS locking for Whoosh
 
-import ctypes
-import errno
-from ctypes_support import standard_c_lib as _c
-from ctypes_support import get_errno
+# 07/2016: rewrote in CFFI
 
-try:
-    open_osfhandle = _c._open_osfhandle
-except AttributeError: # we are not on windows
-    raise ImportError
+import sys
+if sys.platform != 'win32':
+    raise ImportError("The 'msvcrt' module is only available on Windows")
+
+from _msvcrt_cffi import ffi, lib
+import errno
 
 try: from __pypy__ import builtinify, validate_fd
 except ImportError: builtinify = validate_fd = lambda f: f
 
 
-open_osfhandle.argtypes = [ctypes.c_int, ctypes.c_int]
-open_osfhandle.restype = ctypes.c_int
+def _ioerr():
+    e = ffi.errno
+    raise IOError(e, errno.errorcode[e])
 
-_get_osfhandle = _c._get_osfhandle
-_get_osfhandle.argtypes = [ctypes.c_int]
-_get_osfhandle.restype = ctypes.c_int
+
+@builtinify
+def open_osfhandle(fd, flags):
+    """"open_osfhandle(handle, flags) -> file descriptor
+
+    Create a C runtime file descriptor from the file handle handle. The
+    flags parameter should be a bitwise OR of os.O_APPEND, os.O_RDONLY,
+    and os.O_TEXT. The returned file descriptor may be used as a parameter
+    to os.fdopen() to create a file object."""
+    fd = lib._open_osfhandle(fd, flags)
+    if fd == -1:
+        _ioerr()
+    return fd
 
 @builtinify
 def get_osfhandle(fd):
@@ -38,62 +48,61 @@ def get_osfhandle(fd):
         validate_fd(fd)
     except OSError as e:
         raise IOError(*e.args)
-    return _get_osfhandle(fd)
+    result = lib._get_osfhandle(fd)
+    if result == -1:
+        _ioerr()
+    return result
 
-setmode = _c._setmode
-setmode.argtypes = [ctypes.c_int, ctypes.c_int]
-setmode.restype = ctypes.c_int
+@builtinify
+def setmode(fd, flags):
+    """setmode(fd, mode) -> Previous mode
 
-LK_UNLCK, LK_LOCK, LK_NBLCK, LK_RLCK, LK_NBRLCK = range(5)
+    Set the line-end translation mode for the file descriptor fd. To set
+    it to text mode, flags should be os.O_TEXT; for binary, it should be
+    os.O_BINARY."""
+    flags = lib._setmode(fd, flags)
+    if flags == -1:
+        _ioerr()
+    return flags
 
-_locking = _c._locking
-_locking.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_int]
-_locking.restype = ctypes.c_int
+LK_UNLCK = lib.LK_UNLCK
+LK_LOCK = lib.LK_LOCK
+LK_NBLCK = lib.LK_NBLCK
+LK_RLCK = lib.RLCK
+LK_NBRLCK = lib.LK_NBRLCK
 
 @builtinify
 def locking(fd, mode, nbytes):
-    '''lock or unlock a number of bytes in a file.'''
-    rv = _locking(fd, mode, nbytes)
+    """"locking(fd, mode, nbytes) -> None
+
+    Lock part of a file based on file descriptor fd from the C runtime.
+    Raises IOError on failure. The locked region of the file extends from
+    the current file position for nbytes bytes, and may continue beyond
+    the end of the file. mode must be one of the LK_* constants listed
+    below. Multiple regions in a file may be locked at the same time, but
+    may not overlap. Adjacent regions are not merged; they must be unlocked
+    individually."""
+    rv = lib._locking(fd, mode, nbytes)
     if rv != 0:
-        e = get_errno()
-        raise IOError(e, errno.errorcode[e])
+        _ioerr()
 
 # Console I/O routines
 
-kbhit = _c._kbhit
-kbhit.argtypes = []
-kbhit.restype = ctypes.c_int
+kbhit = lib._kbhit
+getch = lib._getch
+getwch = lib._getwch
+getche = lib._getche
+getwche = lib._getwche
+putch = lib._putch
+putwch = lib._putwch      # xxx CPython accepts a unicode str of length > 1 and
+                          # discards the other characters, but only in putwch()
 
-getch = _c._getch
-getch.argtypes = []
-getch.restype = ctypes.c_char
+@builtinify
+def ungetch(ch):
+    if lib._ungetch(ch) == lib.EOF:
+        _ioerr()
 
-getwch = _c._getwch
-getwch.argtypes = []
-getwch.restype = ctypes.c_wchar
-
-getche = _c._getche
-getche.argtypes = []
-getche.restype = ctypes.c_char
-
-getwche = _c._getwche
-getwche.argtypes = []
-getwche.restype = ctypes.c_wchar
-
-putch = _c._putch
-putch.argtypes = [ctypes.c_char]
-putch.restype = None
-
-putwch = _c._putwch
-putwch.argtypes = [ctypes.c_wchar]
-putwch.restype = None
-
-ungetch = _c._ungetch
-ungetch.argtypes = [ctypes.c_char]
-ungetch.restype = None
-
-ungetwch = _c._ungetwch
-ungetwch.argtypes = [ctypes.c_wchar]
-ungetwch.restype = None
-
-del ctypes
+@builtinify
+def ungetwch(ch):
+    if lib._ungetwch(ch) == lib.EOF:
+        _ioerr()

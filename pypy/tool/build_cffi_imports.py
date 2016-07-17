@@ -14,6 +14,7 @@ cffi_build_scripts = {
     "gdbm": "_gdbm_build.py"  if sys.platform != "win32" else None,
     "pwdgrp": "_pwdgrp_build.py" if sys.platform != "win32" else None,
     "resource": "_resource_build.py" if sys.platform != "win32" else None,
+    "msvcrt": "_msvcrt_build.py" if sys.platform == "win32" else None,
     "xx": None,    # for testing: 'None' should be completely ignored
     }
 
