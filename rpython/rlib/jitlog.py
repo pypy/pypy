@@ -191,10 +191,12 @@ for mark, in marks:
 
 if __name__ == "__main__":
     print("# generated constants from rpython/rlib/jitlog.py")
-    print 'MARK_JITLOG_START = chr(%s)' % hex(0x10)
+    print 'MARK_JITLOG_START = struct.pack("b", "%s")' % hex(0x10)
     for mark, in marks:
-        print '%s = chr(%s)' % ('MARK_' + mark, hex(globals()['MARK_' + mark]))
-    print 'MARK_JITLOG_END = chr(%s)' % hex(start)
+        nmr = globals()['MARK_' + mark]
+        h = hex(ord(nmr))
+        print '%s = struct.pack("b", "%s")' % ('MARK_' + mark, h)
+    print 'MARK_JITLOG_END = struct.pack("b", "%s")' % hex(start)
     for key,value in locals().items():
         if key.startswith("MP_"):
             print '%s = (%s,"%s")' % (key, hex(value[0]), value[1])
