@@ -1091,6 +1091,29 @@ class AppTestTypeObject:
         C()    # the lookup of '__new__' succeeds in 'int',
                # but the lookup of '__init__' fails
 
+    def test_instancecheck(self):
+        assert int.__instancecheck__(42) is True
+        assert int.__instancecheck__(42.0) is False
+        class Foo:
+            __class__ = int
+        assert int.__instancecheck__(Foo()) is False
+        class Bar(object):
+            __class__ = int
+        assert int.__instancecheck__(Bar()) is True
+
+    def test_subclasscheck(self):
+        assert int.__subclasscheck__(bool) is True
+        assert int.__subclasscheck__(float) is False
+        class Foo:
+            __class__ = int
+        assert int.__subclasscheck__(Foo) is False
+        class Bar(object):
+            __class__ = int
+        assert int.__subclasscheck__(Bar) is False
+        class AbstractClass(object):
+            __bases__ = (int,)
+        assert int.__subclasscheck__(AbstractClass()) is True
+
 
 class AppTestWithMethodCacheCounter:
     spaceconfig = {"objspace.std.withmethodcachecounter": True}
@@ -1290,5 +1313,3 @@ class AppTestComparesByIdentity:
         assert not self.compares_by_identity(X)
         del X.__eq__
         assert self.compares_by_identity(X)
-
-

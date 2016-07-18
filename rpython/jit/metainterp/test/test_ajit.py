@@ -4470,6 +4470,28 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
 
         self.meta_interp(f, [])
 
+    def test_issue2335_recursion(self):
+        # Reproduces issue #2335: same as issue #2200, but the workaround
+        # in c4c54cb69aba was not enough.
+        driver = JitDriver(greens=["level"], reds=["i"])
+        def enter(level, i):
+            if level == 0:
+                f(1)     # recursive call
+            driver.can_enter_jit(level=level, i=i)
+        def f(level):
+            i = 0 if level == 0 else 298
+            while True:
+                driver.jit_merge_point(level=level, i=i)
+                i += 1
+                if i >= 300:
+                    return i
+                promote(i + 1)   # a failing guard
+                enter(level, i)
+        def main():
+            set_param(None, 'trace_eagerness', 999999)
+            f(0)
+        self.meta_interp(main, [])
+
     def test_pending_setarrayitem_with_indirect_constant_index(self):
         driver = JitDriver(greens=[], reds='auto')
         class X:
