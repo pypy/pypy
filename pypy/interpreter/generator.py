@@ -315,6 +315,48 @@ class Coroutine(W_Root):
         self.running = False
         if self.pycode.co_flags & CO_YIELD_INSIDE_TRY:
             self.register_finalizer(self.space)
+    
+    def descr__reduce__(self, space):
+        from pypy.interpreter.mixedmodule import MixedModule
+        w_mod    = space.getbuiltinmodule('_pickle_support')
+        mod      = space.interp_w(MixedModule, w_mod)
+        new_inst = mod.get('coroutine_new')
+        w        = space.wrap
+        if self.frame:
+            w_frame = self.frame._reduce_state(space)
+        else:
+            w_frame = space.w_None
+
+        tup = [
+            w_frame,
+            w(self.running),
+            ]
+
+        return space.newtuple([new_inst, space.newtuple([]),
+                               space.newtuple(tup)])
+
+    def descr__setstate__(self, space, w_args):
+        from rpython.rlib.objectmodel import instantiate
+        args_w = space.unpackiterable(w_args)
+        w_framestate, w_running = args_w
+        if space.is_w(w_framestate, space.w_None):
+            self.frame = None
+            self.space = space
+            self.pycode = None
+        else:
+            frame = instantiate(space.FrameClass)   # XXX fish
+            frame.descr__setstate__(space, w_framestate)
+            Coroutine.__init__(self, frame)
+        self.running = self.space.is_true(w_running)
+
+    def descr__iter__(self):
+        """x.__iter__() <==> iter(x)"""
+        return self.space.wrap(self)
+
+    def descr_send(self, w_arg=None):
+        """send(arg) -> send 'arg' into coroutine,
+return next yielded value or raise StopIteration."""
+        return self.send_ex(w_arg)
 
     def descr__repr__(self, space):
         if self.pycode is None:
@@ -324,6 +366,10 @@ class Coroutine(W_Root):
         addrstring = self.getaddrstring(space)
         return space.wrap("<coroutine object %s at 0x%s>" %
                           (code_name, addrstring))
+    
+    def descr_next(self):
+        """x.__next__() <==> next(x)"""
+        return self.send_ex(self.space.w_None)
     
     def descr_close(self):
         """x.close(arg) -> raise GeneratorExit inside coroutine."""
@@ -509,7 +555,7 @@ return next iterated value or raise StopIteration."""
         # If coroutine was never awaited on issue a RuntimeWarning.
         if self.pycode is not None:
             if self.frame is not None:
-                if self.frame.fget_f_lasti(frame).int_w(frame.space) == -1:
+                if self.frame.fget_f_lasti(self.frame).int_w(self.space) == -1:
                     raise oefmt(space.w_RuntimeWarning,
                                 "coroutine '%s' was never awaited",
                                 self.pycode.co_name)
@@ -520,6 +566,8 @@ return next iterated value or raise StopIteration."""
                     self.descr_close()
                     break
                 block = block.previous
+    
+    
 
 
 def get_printable_location_genentry(bytecode):
