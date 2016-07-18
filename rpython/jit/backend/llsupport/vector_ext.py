@@ -195,6 +195,13 @@ class VectorExt(object):
         self._enabled = False
         self.register_size = 0 # in bytes
         self.horizontal_operations = False
+        self._setup = False
+
+    def is_setup(self):
+        return self._setup
+
+    def setup_once(self):
+        raise NotImplementedError
 
     def enable(self, vec_size, accum=False):
         self._enabled = vec_size != 0

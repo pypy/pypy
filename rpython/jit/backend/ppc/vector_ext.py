@@ -20,6 +20,7 @@ import rpython.jit.backend.ppc.locations as l
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.jit.codewriter import longlong
+from rpython.jit.backend.ppc.detect_feature import detect_vsx
 
 def not_implemented(msg):
     msg = '[ppc/vector_ext] %s\n' % msg
@@ -64,7 +65,11 @@ def flush_vec_cc(asm, regalloc, condition, size, result_loc):
         asm.mc.vsel(resval, zeros, ones, resval)
 
 class AltiVectorExt(VectorExt):
-    pass
+    def setup_once(self, asm):
+        if detect_vsx():
+            self.vector_ext.enable(16, accum=True)
+            asm.setup_once_vector()
+        self._setup = True
 
 class VectorAssembler(object):
     _mixin_ = True

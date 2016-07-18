@@ -45,9 +45,6 @@ class PPC_CPU(AbstractLLCPU):
     @rgc.no_release_gil
     def setup_once(self):
         self.assembler.setup_once()
-        if detect_vsx():
-            self.vector_ext.enable(16, accum=True)
-            self.assembler.setup_once_vector()
 
     @rgc.no_release_gil
     def finish_once(self):

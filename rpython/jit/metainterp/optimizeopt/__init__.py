@@ -46,6 +46,10 @@ def build_opt_chain(metainterp_sd, enable_opts):
         or 'heap' not in enable_opts or 'pure' not in enable_opts):
         optimizations.append(OptSimplify(unroll))
 
+    cpu = metainterp_sd.cpu
+    if not cpu.vector_ext.is_setup():
+        cpu.vector_ext.setup_once()
+
     return optimizations, unroll
 
 def optimize_trace(metainterp_sd, jitdriver_sd, compile_data, memo=None):
