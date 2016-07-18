@@ -15,10 +15,12 @@ SYSTEM = platform.system()
 def detect_vsx_linux():
     with open('/proc/self/auxv', 'rb') as fd:
         while True:
-            buf = fd.read(16)
-            if not buf:
+            buf = fd.read(8)
+            buf2 = fd.read(8)
+            if not buf or not buf2:
                 break
-            key, value = runpack("LL", buf)
+            key = runpack("L", buf)
+            value = runpack("L", buf2)
             if key == AT_HWCAP:
                 if value & PPC_FEATURE_HAS_ALTIVEC:
                     return True
