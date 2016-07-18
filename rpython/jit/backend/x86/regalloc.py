@@ -884,6 +884,8 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             if oopspecindex == EffectInfo.OS_MATH_READ_TIMESTAMP:
                 return self._consider_math_read_timestamp(op)
         self._consider_call(op)
+        if oopspecindex == EffectInfo.OS_RAW_MALLOC_VARSIZE_CHAR:
+            self.assembler.propagate_memoryerror_if_eax_is_null()
     consider_call_i = _consider_real_call
     consider_call_r = _consider_real_call
     consider_call_f = _consider_real_call

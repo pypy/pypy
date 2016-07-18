@@ -292,9 +292,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         return rawstart
 
     def _build_propagate_exception_path(self):
-        if not self.cpu.propagate_exception_descr:
-            return      # not supported (for tests, or non-translated)
-        #
         self.mc = codebuf.MachineCodeBlockWrapper()
         self.mc.force_frame_size(DEFAULT_FRAME_BYTES)
         #
@@ -303,7 +300,11 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self._store_and_reset_exception(self.mc, eax)
         ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
         self.mc.MOV_br(ofs, eax.value)
-        propagate_exception_descr = rffi.cast(lltype.Signed,
+        if not self.cpu.propagate_exception_descr:
+            # for tests, or non-translated
+            propagate_exception_descr = 0
+        else:
+            propagate_exception_descr = rffi.cast(lltype.Signed,
                   cast_instance_to_gcref(self.cpu.propagate_exception_descr))
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
         self.mc.MOV(RawEbpLoc(ofs), imm(propagate_exception_descr))
