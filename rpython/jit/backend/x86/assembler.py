@@ -300,11 +300,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self._store_and_reset_exception(self.mc, eax)
         ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
         self.mc.MOV_br(ofs, eax.value)
-        if not self.cpu.propagate_exception_descr:
-            # for tests, or non-translated
-            propagate_exception_descr = 0
-        else:
-            propagate_exception_descr = rffi.cast(lltype.Signed,
+        propagate_exception_descr = rffi.cast(lltype.Signed,
                   cast_instance_to_gcref(self.cpu.propagate_exception_descr))
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
         self.mc.MOV(RawEbpLoc(ofs), imm(propagate_exception_descr))
@@ -1520,15 +1516,9 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
     # ----------
 
-    def genop_call_malloc_gc(self, op, arglocs, result_loc):
-        self._genop_call(op, arglocs, result_loc)
-        self.propagate_memoryerror_if_eax_is_null()
-
-    def propagate_memoryerror_if_eax_is_null(self):
-        # if self.propagate_exception_path == 0 (tests), this may jump to 0
-        # and segfaults.  too bad.  the alternative is to continue anyway
-        # with eax==0, but that will segfault too.
-        self.mc.TEST_rr(eax.value, eax.value)
+    def genop_discard_check_memory_error(self, op, arglocs):
+        reg = arglocs[0]
+        self.mc.TEST(reg, reg)
         if WORD == 4:
             self.mc.J_il(rx86.Conditions['Z'], self.propagate_exception_path)
             self.mc.add_pending_relocation()

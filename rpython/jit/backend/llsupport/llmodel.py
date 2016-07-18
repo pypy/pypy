@@ -408,8 +408,8 @@ class AbstractLLCPU(AbstractCPU):
         deadframe = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, deadframe)
         descr = deadframe.jf_descr
         res = history.AbstractDescr.show(self, descr)
-        if not we_are_translated():     # for missing propagate_exception_descr
-            if res is None:
+        if not we_are_translated():   # tests only: for missing
+            if res is None:           # propagate_exception_descr
                 raise MissingLatestDescrError
         assert isinstance(res, history.AbstractFailDescr)
         return res

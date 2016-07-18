@@ -884,8 +884,6 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             if oopspecindex == EffectInfo.OS_MATH_READ_TIMESTAMP:
                 return self._consider_math_read_timestamp(op)
         self._consider_call(op)
-        if oopspecindex == EffectInfo.OS_RAW_MALLOC_VARSIZE_CHAR:
-            self.assembler.propagate_memoryerror_if_eax_is_null()
     consider_call_i = _consider_real_call
     consider_call_r = _consider_real_call
     consider_call_f = _consider_real_call
@@ -904,9 +902,10 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     consider_call_release_gil_i = _consider_call_release_gil
     consider_call_release_gil_f = _consider_call_release_gil
     consider_call_release_gil_n = _consider_call_release_gil
-    
-    def consider_call_malloc_gc(self, op):
-        self._consider_call(op)
+
+    def consider_check_memory_error(self, op):
+        x = self.rm.make_sure_var_in_reg(op.getarg(0))
+        self.perform_discard(op, [x])
 
     def _consider_call_assembler(self, op):
         locs = self.locs_for_call_assembler(op)

@@ -4392,24 +4392,11 @@ class LLtypeBackendTest(BaseBackendTest):
                          'float', descr=calldescr)
             assert longlong.getrealfloat(res) == expected
 
-    def test_raw_malloc_out_of_memory(self):
-        def failing_malloc(size):
-            return 0
-        effectinfo = EffectInfo([], [], [], [], [], [],
-                                EffectInfo.EF_CAN_RAISE,
-                                EffectInfo.OS_RAW_MALLOC_VARSIZE_CHAR)
-        FPTR = self.Ptr(self.FuncType([lltype.Signed], lltype.Signed))
-        func_ptr = llhelper(FPTR, failing_malloc)
-        FUNC = deref(FPTR)
-        funcbox = self.get_funcbox(self.cpu, func_ptr)
-        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                                         effectinfo)
-        # Executing a CALL_I to the OS_RAW_MALLOC_VARSIZE_CHAR should
-        # be special-cased so that a return value of 0 triggers a
-        # get-out-of-loop MemoryError, like a failing CALL_MALLOC_GC
-        py.test.raises(MissingLatestDescrError,
-            self.execute_operation, rop.CALL_I,
-            [funcbox, InputArgInt(12345)], 'void', descr=calldescr)
+    def test_check_memory_error(self):
+        self.execute_operation(
+                       rop.CHECK_MEMORY_ERROR, [InputArgInt(12345)], 'void')
+        py.test.raises(MissingLatestDescrError, self.execute_operation,
+                       rop.CHECK_MEMORY_ERROR, [InputArgInt(0)], 'void')
 
     def test_compile_loop_with_target(self):
         looptoken = JitCellToken()
