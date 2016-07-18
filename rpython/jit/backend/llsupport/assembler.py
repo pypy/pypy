@@ -74,6 +74,7 @@ class BaseAssembler(object):
         self.memcpy_addr = 0
         self.memset_addr = 0
         self.rtyper = cpu.rtyper
+        # do not rely on this attribute if you test for jitlog
         self._debug = False
         self.loop_run_counters = []
 
@@ -131,12 +132,12 @@ class BaseAssembler(object):
 
         self._build_stack_check_slowpath()
         self._build_release_gil(gc_ll_descr.gcrootmap)
+        # do not rely on the attribute _debug for jitlog
         if not self._debug:
             # if self._debug is already set it means that someone called
             # set_debug by hand before initializing the assembler. Leave it
             # as it is
-            should_debug = have_debug_prints_for('jit-backend-counts') or \
-                           _get_vmprof().cintf.jitlog_enabled()
+            should_debug = have_debug_prints_for('jit-backend-counts'))
             self.set_debug(should_debug)
         # when finishing, we only have one value at [0], the rest dies
         self.gcmap_for_finish = lltype.malloc(jitframe.GCMAP, 1,
@@ -346,7 +347,7 @@ class BaseAssembler(object):
 
     @specialize.argtype(1)
     def _inject_debugging_code(self, looptoken, operations, tp, number):
-        if self._debug:
+        if self._debug or _get_vmprof().cintf.jitlog_enabled():
             newoperations = []
             self._append_debugging_code(newoperations, tp, number, None)
             for op in operations:
