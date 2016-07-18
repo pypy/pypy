@@ -14,6 +14,8 @@ ovfcheck check on CPython whether the result of a signed
          integer operation did overflow
 ovfcheck_float_to_int
          convert to an integer or raise OverflowError
+ovfcheck_float_to_longlong
+         convert to a longlong or raise OverflowError
 r_longlong
          like r_int but double word size
 r_ulonglong
@@ -182,6 +184,18 @@ def ovfcheck(r):
 # int(float(i)) != i  because of rounding issues.
 # These are the minimum and maximum float value that can
 # successfully be casted to an int.
+
+# The following values are not quite +/-sys.maxint.
+# Note the "<= x <" here, as opposed to "< x <" above.
+# This is justified by test_typed in translator/c/test.
+def ovfcheck_float_to_longlong(x):
+    from rpython.rlib.rfloat import isnan
+    if isnan(x):
+        raise OverflowError
+    if -9223372036854776832.0 <= x < 9223372036854775296.0:
+        return r_longlong(x)
+    raise OverflowError
+
 if sys.maxint == 2147483647:
     def ovfcheck_float_to_int(x):
         from rpython.rlib.rfloat import isnan
@@ -191,16 +205,8 @@ if sys.maxint == 2147483647:
             return int(x)
         raise OverflowError
 else:
-    # The following values are not quite +/-sys.maxint.
-    # Note the "<= x <" here, as opposed to "< x <" above.
-    # This is justified by test_typed in translator/c/test.
     def ovfcheck_float_to_int(x):
-        from rpython.rlib.rfloat import isnan
-        if isnan(x):
-            raise OverflowError
-        if -9223372036854776832.0 <= x < 9223372036854775296.0:
-            return int(x)
-        raise OverflowError
+        return int(ovfcheck_float_to_longlong(x))
 
 def compute_restype(self_type, other_type):
     if self_type is other_type:

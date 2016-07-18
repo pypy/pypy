@@ -53,3 +53,43 @@ errno.
 
 Refactor PyTupleObject to look like cpython's and allow subclassing 
 PyTuple_Type
+
+.. branch: call-via-pyobj
+
+Use offsets from PyTypeObject to find actual c function to call rather than
+fixed functions, allows function override after PyType_Ready is called
+
+.. branch: issue2335
+
+Avoid exhausting the stack in the JIT due to successive guard
+failures in the same Python function ending up as successive levels of
+RPython functions, while at app-level the traceback is very short
+
+.. branch: use-madv-free
+
+Try harder to memory to the OS.  See e.g. issue #2336.  Note that it does
+not show up as a reduction of the VIRT column in ``top``, and the RES
+column might also not show the reduction, particularly on Linux >= 4.5 or
+on OS/X: it uses MADV_FREE, which only marks the pages as returnable to
+the OS if the memory is low.
+
+.. branch: cpyext-slotdefs2
+
+Fill in more slots when creating a PyTypeObject from a W_TypeObject
+More slots are still TBD, like tp_print and richcmp
+
+.. branch: json-surrogates
+
+Align json module decode with the cpython's impl, fixes issue 2345
+
+.. branch: issue2343
+
+Copy CPython's logic more closely for handling of ``__instancecheck__()``
+and ``__subclasscheck__()``.  Fixes issue 2343.
+
+.. branch: msvcrt-cffi
+
+Rewrite the Win32 dependencies of 'subprocess' to use cffi instead
+of ctypes. This avoids importing ctypes in many small programs and
+scripts, which in turn avoids enabling threads (because ctypes
+creates callbacks at import time, and callbacks need threads).

@@ -90,7 +90,7 @@ class W_CTypeStructOrUnion(W_CType):
         self.force_lazy_struct()
         space = self.space
         try:
-            cfield = self._fields_dict[fieldname]
+            cfield = self._getcfield_const(fieldname)
         except KeyError:
             raise OperationError(space.w_KeyError, space.wrap(fieldname))
         if cfield.bitshift >= 0:

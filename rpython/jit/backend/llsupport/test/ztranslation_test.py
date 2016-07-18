@@ -41,7 +41,7 @@ class TranslationTest(CCompiledMixin):
 
         eci = ExternalCompilationInfo(post_include_bits=['''
 #define pypy_my_fabs(x)  fabs(x)
-'''])
+'''], includes=['math.h'])
         myabs1 = rffi.llexternal('pypy_my_fabs', [lltype.Float],
                                  lltype.Float, macro=True, releasegil=False,
                                  compilation_info=eci)
