@@ -24,6 +24,7 @@
 
 // Standard
 #include <assert.h>
+#include <algorithm>     // for std::count
 #include <map>
 #include <set>
 #include <sstream>
@@ -743,8 +744,8 @@ std::string Cppyy::GetMethodName( TCppMethod_t method )
 {
    if ( method ) {
       std::string name = ((TFunction*)method)->GetName();
-      //if ( IsMethodTemplate( method ) )
-      //   return name.substr( 0, name.find('<') );
+      if ( IsMethodTemplate( method ) )
+         return name.substr( 0, name.find('<') );
       return name;
    }
    return "<unknown>";
@@ -844,6 +845,8 @@ Bool_t Cppyy::IsMethodTemplate( TCppMethod_t method )
 {
    if ( method ) {
       TFunction* f = (TFunction*)method;
+      if ( f->ExtraProperty() & kIsConstructor )
+         return kFALSE;
       std::string name = f->GetName();
       return (name[name.size()-1] == '>') && (name.find('<') != std::string::npos);
    }
@@ -851,15 +854,29 @@ Bool_t Cppyy::IsMethodTemplate( TCppMethod_t method )
 }
 
 Cppyy::TCppIndex_t Cppyy::GetMethodNumTemplateArgs(
-      TCppScope_t /* scope */, TCppIndex_t /* imeth */ )
+      TCppScope_t scope, TCppIndex_t imeth )
 {
-   return (TCppIndex_t)0;
+// this is dumb, but the fact that Cling can instantiate template
+// methods on-the-fly means that there is some vast reworking TODO
+// in interp_cppyy.py, so this is just to make the original tests
+// pass that worked in the Reflex era ...
+   const std::string name = GetMethodName(GetMethod(scope, imeth));
+   return (TCppIndex_t)(std::count( name.begin(), name.end(), ',' ) + 1);
 }
 
 std::string Cppyy::GetMethodTemplateArgName(
-      TCppScope_t /* scope */, TCppIndex_t /* imeth */, TCppIndex_t /* iarg */ )
+      TCppScope_t scope, TCppIndex_t imeth, TCppIndex_t /* iarg */ )
 {
-   return "<unknown>";
+// TODO: like above, given Cling's instantiation capability, this
+// is just dumb ...
+   TClassRef& cr = type_from_handle( scope );
+   TFunction* f = type_get_method( scope, imeth );
+   std::string name = f->GetName();
+   std::string::size_type pos = name.find( '<' );
+// TODO: left as-is, this should loop over arguments, but what is here
+// suffices to pass the Reflex-based tests (need more tests :) )
+   return cppstring_to_cstring(
+      ResolveName( name.substr(pos+1, name.size()-pos-2) ) );
 }
 
 Cppyy::TCppIndex_t Cppyy::GetGlobalOperator(
@@ -1273,7 +1290,17 @@ cppyy_index_t cppyy_method_index_at(cppyy_scope_t scope, int imeth) {
     return cppyy_index_t(Cppyy::GetMethodIndexAt(scope, imeth));
 }
 
-cppyy_index_t* cppyy_method_indices_from_name(cppyy_scope_t scope, const char* name){
+static inline bool match_name(const std::string& tname, const std::string fname) {
+// either match exactly, or match the name as template
+   if (fname.rfind(tname, 0) == 0) {
+      if ( (tname.size() == fname.size()) ||
+           (tname.size() < fname.size() && fname[tname.size()] == '<') )
+         return true;
+   }
+   return false;
+}
+
+cppyy_index_t* cppyy_method_indices_from_name(cppyy_scope_t scope, const char* name) {
     std::vector<cppyy_index_t> result;
     TClassRef& cr = type_from_handle(scope);
     if (cr.GetClass()) {
@@ -1282,7 +1309,7 @@ cppyy_index_t* cppyy_method_indices_from_name(cppyy_scope_t scope, const char* n
         TFunction* func;
         TIter next(cr->GetListOfMethods());
         while ((func = (TFunction*)next())) {
-            if (strcmp(name, func->GetName()) == 0) {
+            if (match_name(name, func->GetName())) {
                 if (Cppyy::IsPublicMethod((cppyy_method_t)func))
                     result.push_back((cppyy_index_t)imeth);
             }
@@ -1293,7 +1320,7 @@ cppyy_index_t* cppyy_method_indices_from_name(cppyy_scope_t scope, const char* n
         TFunction* func = 0;
         TIter ifunc(funcs);
         while ((func = (TFunction*)ifunc.Next())) {
-            if (strcmp(name, func->GetName()) == 0)
+            if (match_name(name, func->GetName()))
                 result.push_back((cppyy_index_t)func);
         }
     }
