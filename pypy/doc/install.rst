@@ -39,17 +39,16 @@ and not move the binary there, else PyPy would not be able to find its
 library.
 
 If you want to install 3rd party libraries, the most convenient way is
-to install pip_ (unless you want to install virtualenv as explained
-below; then you can directly use pip inside virtualenvs):
+to install pip_ using ensurepip_ (unless you want to install virtualenv as 
+explained below; then you can directly use pip inside virtualenvs):
 
 .. code-block:: console
 
-    $ curl -O https://bootstrap.pypa.io/get-pip.py
-    $ ./pypy-2.1/bin/pypy get-pip.py
-    $ ./pypy-2.1/bin/pip install pygments  # for example
+    $ ./pypy-xxx/bin/pypy -m ensurepip
+    $ ./pypy-xxx/bin/pip install pygments  # for example
 
-Third party libraries will be installed in ``pypy-2.1/site-packages``, and
-the scripts in ``pypy-2.1/bin``.
+Third party libraries will be installed in ``pypy-xxx/site-packages``, and
+the scripts in ``pypy-xxx/bin``.
 
 
 Installing using virtualenv
@@ -61,7 +60,7 @@ then install PyPy both from a precompiled tarball or from a mercurial
 checkout::
 
 	# from a tarball
-	$ virtualenv -p /opt/pypy-c-jit-41718-3fb486695f20-linux/bin/pypy my-pypy-env
+	$ virtualenv -p /opt/pypy-xxx/bin/pypy my-pypy-env
 
 	# from the mercurial checkout
 	$ virtualenv -p /path/to/pypy/pypy/translator/goal/pypy-c my-pypy-env
@@ -69,7 +68,7 @@ checkout::
 Note that bin/python is now a symlink to bin/pypy.
 
 .. _pip: http://pypi.python.org/pypi/pip
-
+.. _ensurepip: https://docs.python.org/2.7/library/ensurepip.html
 
 Building PyPy yourself
 ~~~~~~~~~~~~~~~~~~~~~~
