@@ -986,5 +986,6 @@ def cpu_simplify_scale(cpu, index_box, factor, offset):
                 index_box = ResOperation(rop.INT_MUL,
                         [index_box, ConstInt(factor)])
             factor = 1
-        return factor, offset, index_box
+            return factor, offset, index_box
+        return factor, offset, None
 
