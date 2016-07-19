@@ -16,14 +16,10 @@ ifeq ($(DUMMY),t)
 else
   ifeq ($(ROOTSYS),)
     genreflex=genreflex
-    cppflags=-I$(ROOTSYS)/include -L$(ROOTSYS)/lib64 -L$(ROOTSYS)/lib
+    cppflags=-pthread -std=c++11 -m64 -I./include -L./lib64 -L./lib
   else
     genreflex=$(ROOTSYS)/bin/genreflex
-    ifeq ($(wildcard $(ROOTSYS)/include),)       # standard locations used?
-      cppflags=-I$(shell root-config --incdir) -L$(shell root-config --libdir)
-    else
-      cppflags=-I$(ROOTSYS)/include -L$(ROOTSYS)/lib64 -L$(ROOTSYS)/lib
-    endif
+    cppflags=$(shell $(ROOTSYS)/bin/root-config --cflags) $(shell $(ROOTSYS)/bin/root-config --ldflags)
   endif
 endif
 
@@ -34,7 +30,7 @@ endif
 
 ifeq ($(DUMMY),t)
   cppflags2=-O3 -fPIC -rdynamic
-else ifeq ($(CINT),t)
+else ifeq ($(CLING),t)
   cppflags2=-O3 -fPIC -rdynamic
 else
   ifeq ($(shell $(genreflex) --help | grep -- --with-methptrgetter),)
@@ -46,13 +42,12 @@ else
   endif
 endif
 
-ifeq ($(CINT),t)
-%Dict.so: %_cint.cxx %.cxx
-	g++ -o $@ $^ -shared $(cppflags) $(cppflags2)
-	rlibmap -f -o $*Dict.rootmap -l $@ -c $*_LinkDef.h
+ifeq ($(CLING),t)
+%Dict.so: %.h %.cxx %_cling.cxx
+	g++ -o $@ $*.cxx $*_cling.cxx -shared $(cppflags) $(cppflags2)
 
-%_cint.cxx: %.h %_LinkDef.h
-	rootcint -f $@ -c $*.h $*_LinkDef.h
+%_cling.cxx: %.h %_LinkDef.h
+	rootcling -f $@ -rml $*Dict.so -rmf $*Dict.rootmap -c $*.h $*_LinkDef.h
 
 else ifeq ($(DUMMY),t)
 %Dict.so: %.cxx
@@ -67,7 +62,7 @@ else # reflex
 
 endif
 
-ifeq ($(CINT),)
+ifeq ($(CLING),)
 ifeq ($(DUMMY),)
 # TODO: methptrgetter causes these tests to crash, so don't use it for now
 std_streamsDict.so: std_streams.cxx std_streams.h std_streams.xml
@@ -78,4 +73,4 @@ endif
 
 .PHONY: clean
 clean:
-	-rm -f $(dicts) $(subst .so,.rootmap,$(dicts)) $(subst Dict.so,_rflx_rdict.pcm,$(dicts)) $(wildcard *_cint.h)
+	-rm -f $(dicts) $(subst .so,.rootmap,$(dicts)) $(subst Dict.so,_rflx_rdict.pcm,$(dicts)) $(subst Dict.so,_rflx.cpp,$(dicts)) $(subst Dict.so,_cling.h,$(dicts)) $(subst Dict.so,_cling.cxx,$(dicts)) $(subst Dict.so,_cling_rdict.pcm,$(dicts)) $(wildcard *.pyc)
