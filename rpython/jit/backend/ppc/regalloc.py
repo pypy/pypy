@@ -603,8 +603,6 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
                 loc = self.loc(accuminfo.getoriginal())
                 args[i] = loc
                 accuminfo = accuminfo.next()
-
-        self.possibly_free_vars(op.getfailargs())
         return args
 
     def load_condition_into_cc(self, box):
