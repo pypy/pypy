@@ -67,7 +67,7 @@ def flush_vec_cc(asm, regalloc, condition, size, result_loc):
 class AltiVectorExt(VectorExt):
     def setup_once(self, asm):
         if detect_vsx():
-            self.vector_ext.enable(16, accum=True)
+            self.enable(16, accum=True)
             asm.setup_once_vector()
         self._setup = True
 

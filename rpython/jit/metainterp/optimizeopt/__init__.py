@@ -48,7 +48,7 @@ def build_opt_chain(metainterp_sd, enable_opts):
 
     cpu = metainterp_sd.cpu
     if not cpu.vector_ext.is_setup():
-        cpu.vector_ext.setup_once()
+        cpu.vector_ext.setup_once(cpu.assembler)
 
     return optimizations, unroll
 
