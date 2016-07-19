@@ -1523,8 +1523,8 @@ class LLFrame(object):
 
     def execute_check_memory_error(self, descr, value):
         if not value:
-            from rpython.jit.backend.llmodel import MissingLatestDescrError
-            raise MissingLatestDescrError
+            from rpython.jit.backend.llsupport import llmodel
+            raise llmodel.MissingLatestDescrError
 
 
 def _getdescr(op):
