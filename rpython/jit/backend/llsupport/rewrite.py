@@ -1,5 +1,5 @@
 from rpython.rlib import rgc
-from rpython.rlib.objectmodel import we_are_translated, r_dict
+from rpython.rlib.objectmodel import we_are_translated, r_dict, always_inline
 from rpython.rlib.rarithmetic import ovfcheck, highest_bit
 from rpython.rtyper.lltypesystem import llmemory, lltype, rstr
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
@@ -159,8 +159,8 @@ class GcRewriterAssembler(object):
 
     def _emit_mul_if_factor_offset_not_supported(self, index_box,
                                                  factor, offset):
-        factor, offset, new_index_box = cpu_simplify_scale(self.cpu, index_box, factor, offset)
-        if new_index_box is not None and index_box is not new_index_box:
+        factor, offset, new_index_box, emit = cpu_simplify_scale(self.cpu, index_box, factor, offset)
+        if emit:
             self.emit_op(new_index_box)
         return factor, offset, new_index_box
 
@@ -956,11 +956,12 @@ class GcRewriterAssembler(object):
             self.gcrefs_recently_loaded[index] = load_op
         return load_op
 
+@always_inline
 def cpu_simplify_scale(cpu, index_box, factor, offset):
     # Returns (factor, offset, index_box, [ops]) where index_box is either
     # a non-constant BoxInt or None.
     if isinstance(index_box, ConstInt):
-        return 1, index_box.value * factor + offset, None
+        return 1, index_box.value * factor + offset, None, False
     else:
         if factor != 1 and factor not in cpu.load_supported_factors:
             # the factor is supported by the cpu
@@ -972,6 +973,6 @@ def cpu_simplify_scale(cpu, index_box, factor, offset):
             else:
                 index_box = ResOperation(rop.INT_MUL,
                         [index_box, ConstInt(factor)])
-            factor = 1
-        return factor, offset, index_box
+            return 1, offset, index_box, True
+        return factor, offset, index_box, False
 

@@ -274,7 +274,7 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
                     self.vrm.possibly_free_var(var)
             elif var.type == FLOAT:
                 self.fprm.possibly_free_var(var)
-            elif var.type == INT:
+            else:
                 self.rm.possibly_free_var(var)
 
     def possibly_free_vars(self, vars):

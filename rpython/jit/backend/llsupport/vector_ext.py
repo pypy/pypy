@@ -114,8 +114,8 @@ class LoadRestrict(OpRestrict):
              opnum in (rop.GETARRAYITEM_RAW_I, rop.GETARRAYITEM_RAW_F):
             itemsize, ofs, sign = unpack_arraydescr(op.getdescr())
             index_box = op.getarg(1)
-            _, _, changed = cpu_simplify_scale(state.cpu, index_box, itemsize, ofs)
-            if changed is not index_box:
+            _, _, changed, emit = cpu_simplify_scale(state.cpu, index_box, itemsize, ofs)
+            if emit:
                 state.oplist.append(changed)
                 op.setarg(1, changed)
 
@@ -133,8 +133,8 @@ class StoreRestrict(OpRestrict):
         if opnum in (rop.SETARRAYITEM_GC, rop.SETARRAYITEM_RAW):
             itemsize, basesize, _ = unpack_arraydescr(op.getdescr())
             index_box = op.getarg(1)
-            _, _, changed = cpu_simplify_scale(state.cpu, index_box, itemsize, basesize)
-            if changed is not index_box:
+            _, _, changed, emit = cpu_simplify_scale(state.cpu, index_box, itemsize, basesize)
+            if emit:
                 state.oplist.append(changed)
                 op.setarg(1, changed)
 
