@@ -71,7 +71,7 @@ class FakeBuffer(FakeBase):
 class FakeException(FakeType):
     def __init__(self, name):
         FakeType.__init__(self, name)
-        self.message = name
+        self.msg = name
 
 class FakeUserDelAction(object):
     def __init__(self, space):
@@ -210,6 +210,7 @@ class TestFastPathJIT(LLJitMixin):
         f()
         space = FakeSpace()
         result = self.meta_interp(f, [], listops=True, backendopt=True, listcomp=True)
+        # TODO: this currently succeeds even as there is no fast path implemented?!
         self.check_jitcell_token_count(1)
 
     def test01_simple(self):

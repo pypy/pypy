@@ -36,7 +36,11 @@ def load_dictionary(space, name):
            raise OperationError(space.w_RuntimeError, space.wrap(str("could not load dictionary " + name)))
 
     except rdynload.DLOpenError as e:
-        raise OperationError(space.w_RuntimeError, space.wrap(str(e.msg)))
+        if hasattr(space, "fake"):      # FakeSpace fails e.msg (?!)
+            errmsg = "failed to load cdll"
+        else:
+            errmsg = e.msg
+        raise OperationError(space.w_RuntimeError, space.wrap(str(errmsg)))
     return W_CPPLibrary(space, cdll)
 
 class State(object):
@@ -1037,7 +1041,8 @@ class W_CPPInstance(W_Root):
         self._opt_register_finalizer()
 
     def _opt_register_finalizer(self):
-        if self.python_owns and not self.finalizer_registered:
+        if self.python_owns and not self.finalizer_registered \
+               and not hasattr(self.space, "fake"):
             self.register_finalizer(self.space)
             self.finalizer_registered = True
 
