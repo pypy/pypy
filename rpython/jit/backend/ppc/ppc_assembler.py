@@ -413,7 +413,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         # Check that we don't get NULL; if we do, we always interrupt the
         # current loop, as a "good enough" approximation (same as
         # emit_call_malloc_gc()).
-        self.propagate_memoryerror_if_r3_is_null()
+        self.propagate_memoryerror_if_reg_is_null(r.r3)
 
         mc.mtlr(r.RCS1.value)     # restore LR
         self._pop_core_regs_from_jitframe(mc, saved_regs)
@@ -595,9 +595,6 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
             self.wb_slowpath[withcards + 2 * withfloats] = rawstart
 
     def _build_propagate_exception_path(self):
-        if not self.cpu.propagate_exception_descr:
-            return
-
         self.mc = PPCBuilder()
         #
         # read and reset the current exception
@@ -1340,11 +1337,8 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         pmc.b(offset)    # jump always
         pmc.overwrite()
 
-    def propagate_memoryerror_if_r3_is_null(self):
-        # if self.propagate_exception_path == 0 (tests), this may jump to 0
-        # and segfaults.  too bad.  the alternative is to continue anyway
-        # with r3==0, but that will segfault too.
-        self.mc.cmp_op(0, r.r3.value, 0, imm=True)
+    def propagate_memoryerror_if_reg_is_null(self, reg_loc):
+        self.mc.cmp_op(0, reg_loc.value, 0, imm=True)
         self.mc.b_cond_abs(self.propagate_exception_path, c.EQ)
 
     def write_new_force_index(self):

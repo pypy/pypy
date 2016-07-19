@@ -405,6 +405,9 @@ class AbstractLLCPU(AbstractCPU):
         deadframe = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, deadframe)
         descr = deadframe.jf_descr
         res = history.AbstractDescr.show(self, descr)
+        if not we_are_translated():   # tests only: for missing
+            if res is None:           # propagate_exception_descr
+                raise MissingLatestDescrError
         assert isinstance(res, history.AbstractFailDescr)
         return res
 
@@ -812,6 +815,9 @@ class AbstractLLCPU(AbstractCPU):
         # the 'i' return value is ignored (and nonsense anyway)
         calldescr.call_stub_i(func, args_i, args_r, args_f)
 
+
+class MissingLatestDescrError(Exception):
+    """For propagate_exception_descr in untranslated tests."""
 
 final_descr_rd_locs = [rffi.cast(rffi.USHORT, 0)]
 history.BasicFinalDescr.rd_locs = final_descr_rd_locs

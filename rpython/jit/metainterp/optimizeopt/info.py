@@ -400,6 +400,12 @@ class RawBufferPtrInfo(AbstractRawPtrInfo):
 
     def _force_elements(self, op, optforce, descr):
         self.size = -1
+        # at this point we have just written the
+        # 'op = CALL_I(..., OS_RAW_MALLOC_VARSIZE_CHAR)'.
+        # Emit now a CHECK_MEMORY_ERROR resop.
+        check_op = ResOperation(rop.CHECK_MEMORY_ERROR, [op])
+        optforce.emit_operation(check_op)
+        #
         buffer = self._get_buffer()
         for i in range(len(buffer.offsets)):
             # write the value

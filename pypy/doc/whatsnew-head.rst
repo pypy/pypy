@@ -86,3 +86,10 @@ Align json module decode with the cpython's impl, fixes issue 2345
 
 Copy CPython's logic more closely for handling of ``__instancecheck__()``
 and ``__subclasscheck__()``.  Fixes issue 2343.
+
+.. branch: msvcrt-cffi
+
+Rewrite the Win32 dependencies of 'subprocess' to use cffi instead
+of ctypes. This avoids importing ctypes in many small programs and
+scripts, which in turn avoids enabling threads (because ctypes
+creates callbacks at import time, and callbacks need threads).

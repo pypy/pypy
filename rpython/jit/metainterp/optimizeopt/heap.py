@@ -345,7 +345,8 @@ class OptHeap(Optimization):
             opnum == rop.ENTER_PORTAL_FRAME or   # no effect whatsoever
             opnum == rop.LEAVE_PORTAL_FRAME or   # no effect whatsoever
             opnum == rop.COPYSTRCONTENT or       # no effect on GC struct/array
-            opnum == rop.COPYUNICODECONTENT):    # no effect on GC struct/array
+            opnum == rop.COPYUNICODECONTENT or   # no effect on GC struct/array
+            opnum == rop.CHECK_MEMORY_ERROR):    # may only abort the whole loop
             return
         if rop.is_call(op.opnum):
             if rop.is_call_assembler(op.getopnum()):

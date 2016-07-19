@@ -544,6 +544,14 @@ def putenv(space, name, value):
         raise oefmt(space.w_ValueError,
                     "the environment variable is longer than %d bytes",
                     _MAX_ENV)
+    if _WIN32 and not objectmodel.we_are_translated() and value == '':
+        # special case: on Windows, _putenv("NAME=") really means that
+        # we want to delete NAME.  So that's what the os.environ[name]=''
+        # below will do after translation.  But before translation, it
+        # will cache the environment value '' instead of <missing> and
+        # then return that.  We need to avoid that.
+        del os.environ[name]
+        return
     try:
         os.environ[name] = value
     except OSError as e:
