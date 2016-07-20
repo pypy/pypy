@@ -195,6 +195,11 @@ class W_MemoryView(W_Root):
                    "is internally %r" % (self.buf,))
             raise OperationError(space.w_ValueError, space.wrap(msg))
         return space.wrap(rffi.cast(lltype.Signed, ptr))
+    
+    def descr_cast(self, space, *args, **kwds):
+        kwlist = ["format", "shape", None]
+        ndim = 1
+        self._check_released(space)
 
 
 W_MemoryView.typedef = TypeDef(
@@ -213,6 +218,7 @@ Create a new memoryview object which references the given object.
     __enter__   = interp2app(W_MemoryView.descr_enter),
     __exit__    = interp2app(W_MemoryView.descr_exit),
     __weakref__ = make_weakref_descr(W_MemoryView),
+    cast        = interp2app(W_MemoryView.descr_cast),
     tobytes     = interp2app(W_MemoryView.descr_tobytes),
     tolist      = interp2app(W_MemoryView.descr_tolist),
     release     = interp2app(W_MemoryView.descr_release),
