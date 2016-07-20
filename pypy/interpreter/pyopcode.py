@@ -1448,6 +1448,7 @@ class __extend__(pyframe.PyFrame):
     
     def GET_AITER(self, oparg, next_instr):
         w_iterable = self.popvalue()
+        import pdb; pdb.set_trace()
         self.pushvalue(w_iterable)
     
     def GET_ANEXT(self, oparg, next_instr):

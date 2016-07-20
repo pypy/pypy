@@ -28,8 +28,10 @@ MAGIC = 20031017
 
 if sys.maxint > 2**32:
     MAXREPEAT = int(2**32 - 1)
+    MAXGROUPS = int(2**31 - 1)
 else:
     MAXREPEAT = int(2**31 - 1)
+    MAXGROUPS = int((2**31 / sys.maxint / 2) - 1)
 
 # In _sre.c this is bytesize of the code word type of the C implementation.
 # There it's 2 for normal Python builds and more for wide unicode builds (large 

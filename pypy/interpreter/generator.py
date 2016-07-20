@@ -567,7 +567,12 @@ return next iterated value or raise StopIteration."""
                     break
                 block = block.previous
     
-    
+    def _GetAwaitableIter(self, o):
+        import pdb; pdb.set_trace()
+        if isinstance(o, Coroutine):
+            return o
+        getter = None
+        
 
 
 def get_printable_location_genentry(bytecode):
