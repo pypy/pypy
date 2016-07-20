@@ -24,6 +24,7 @@ def set_unicode_db(newunicodedb):
 #### Constants
 
 # Identifying as _sre from Python 2.3 and onwards (at least up to 2.7)
+# UPDATE: change was necessary for Python 3.4 changes
 MAGIC = 20140917
 
 if sys.maxint > 2**32:
