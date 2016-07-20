@@ -24,7 +24,7 @@ def set_unicode_db(newunicodedb):
 #### Constants
 
 # Identifying as _sre from Python 2.3 and onwards (at least up to 2.7)
-MAGIC = 20031017
+MAGIC = 20140917
 
 if sys.maxint > 2**32:
     MAXREPEAT = int(2**32 - 1)
