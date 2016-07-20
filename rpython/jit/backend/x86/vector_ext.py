@@ -16,7 +16,7 @@ from rpython.jit.metainterp.resoperation import (rop, ResOperation,
 from rpython.rlib.objectmodel import we_are_translated, always_inline
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem import lltype
-from rpython.jit.backend.x86 import rx86
+from rpython.jit.backend.x86 import rx86, detect_feature
 
 # duplicated for easy migration, def in assembler.py as well
 # DUP START
@@ -35,13 +35,16 @@ def not_implemented(msg):
 
 class X86VectorExt(VectorExt):
     def setup_once(self, asm):
-        if cpu_feature.detect_sse4_1():
+        if detect_feature.detect_sse4_1():
             self.enable(16, accum=True)
             asm.setup_once_vector()
         self._setup = True
 
 class VectorAssemblerMixin(object):
     _mixin_ = True
+
+    def setup_once_vector(self):
+        pass
 
     def genop_guard_vec_guard_true(self, guard_op, guard_token, locs, resloc):
         self.implement_guard(guard_token)
