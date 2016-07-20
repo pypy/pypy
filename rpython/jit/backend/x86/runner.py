@@ -7,6 +7,7 @@ from rpython.jit.backend.x86.regalloc import gpr_reg_mgr_cls, xmm_reg_mgr_cls
 from rpython.jit.backend.x86.profagent import ProfileAgent
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
 from rpython.jit.backend.x86 import regloc
+from rpython.jit.backend.x86.vector_ext import X86VectorExt
 
 import sys
 

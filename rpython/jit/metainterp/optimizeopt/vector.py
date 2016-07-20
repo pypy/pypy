@@ -314,6 +314,9 @@ class VectorizingOptimizer(Optimizer):
             assert isinstance(descr, ResumeDescr)
             copied_op.setdescr(descr.clone())
             failargs = renamer.rename_failargs(copied_op, clone=True)
+            if not we_are_translated():
+                for arg in failargs:
+                    assert not arg.is_constant()
             copied_op.setfailargs(failargs)
 
     def linear_find_smallest_type(self, loop):
@@ -550,7 +553,11 @@ class VectorizingOptimizer(Optimizer):
             if op.getdescr():
                 descr.copy_all_attributes_from(op.getdescr())
             op.setdescr(descr)
-        op.setfailargs(loop.label.getarglist_copy())
+        arglistcopy = loop.label.getarglist_copy()
+        if not we_are_translated():
+            for arg in arglistcopy:
+                assert not arg.is_constant()
+        op.setfailargs(arglistcopy)
 
 class CostModel(object):
     """ Utility to estimate the savings for the new trace loop.
