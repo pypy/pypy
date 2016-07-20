@@ -1361,6 +1361,30 @@ class BaseTestVectorize(VecTestHelper):
             'guard_true(i100) [p0, i0]',
         ], trace)
 
+    def test_guard_failarg_do_not_rename_to_const(Self):
+        # Loop -2 (pre vectorize) : noopt with 15 ops
+        trace = self.parse_loop("""
+        []
+        label(p0, p1, p2, p3, p4, i5, i6, p7, p8, p9, p10, i11, i12, f13, p14, p15, i16, i17, descr=TargetToken(70367324045984))
+        debug_merge_point(0, 0, '(numpy_call2_inc_out_right: no get_printable_location)')
+        i19 = int_and(i6, 7)
+        i20 = int_is_zero(i19)
+        guard_true(i20, descr=<ResumeGuardDescr object at 0x3fffab60d7b0>) [p7, p3, p2, p1, p0, p8, p10, i11, i19, i6, i12, i5, p4]
+        f21 = raw_load_f(i12, i6, descr=<ArrayF 8>)
+        guard_not_invalidated(descr=<ResumeGuardCopiedDescr object at 0x3fffab5fcde8>) [p7, p3, p2, p1, p0, p8, p10, i11, i19, i6, i12, i5, p4]
+        f22 = float_mul(f21, f13)
+        raw_store(i16, i6, f22, descr=<ArrayF 8>)
+        i24 = int_add(i5, 1)
+        i26 = int_add(i6, 8)
+        i27 = int_ge(i24, i17)
+        guard_false(i27, descr=<ResumeGuardDescr object at 0x3fffab60d818>) [i17, i24, p7, p3, p2, p1, p0, i26, None, p4]
+        debug_merge_point(0, 0, '(numpy_call2_inc_out_right: no get_printable_location)')
+        jump(p0, p1, p2, p3, p4, i24, i26, p7, p8, p9, p10, 1, i12, f13, p14, p15, i16, i17, descr=TargetToken(70367324045984))
+        """)
+        vopt = self.schedule(trace)
+        import pdb; pdb.set_trace()
+
+
 
 class TestLLtype(BaseTestVectorize, LLtypeMixin):
     pass

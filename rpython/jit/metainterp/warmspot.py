@@ -33,7 +33,7 @@ from rpython.rlib.entrypoint import all_jit_entrypoints,\
 # Bootstrapping
 
 def apply_jit(translator, backend_name="auto", inline=False,
-              vec=False, enable_opts=ALL_OPTS_NAMES, **kwds):
+              vec=True, enable_opts=ALL_OPTS_NAMES, **kwds):
     if 'CPUClass' not in kwds:
         from rpython.jit.backend.detect_cpu import getcpuclass
         kwds['CPUClass'] = getcpuclass(backend_name)

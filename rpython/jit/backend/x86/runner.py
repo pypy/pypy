@@ -145,17 +145,13 @@ class CPU386_NO_SSE2(CPU386):
     supports_longlong = False
 
 class CPU_X86_64(AbstractX86CPU):
+    vector_ext = X86VectorExt()
+
     backend_name = 'x86_64'
     NUM_REGS = 16
     CALLEE_SAVE_REGISTERS = [regloc.ebx, regloc.r12, regloc.r13, regloc.r14, regloc.r15]
 
     IS_64_BIT = True
     HAS_CODEMAP = True
-
-class CPU_X86_64_SSE4(CPU_X86_64):
-    vector_ext = X86VectorExt()
-    #vector_extension = True
-    #vector_register_size = 16
-    #vector_horizontal_operations = True
 
 CPU = CPU386
