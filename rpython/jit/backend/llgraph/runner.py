@@ -330,6 +330,7 @@ class LLGraphCPU(model.AbstractCPU):
     is_llgraph = True
     vector_ext = VectorExt()
     vector_ext.enable(16, accum=True)
+    load_supported_factors = (1,2,4,8)
 
     def __init__(self, rtyper, stats=None, *ignored_args, **kwds):
         model.AbstractCPU.__init__(self)

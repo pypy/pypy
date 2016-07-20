@@ -1,12 +1,13 @@
 from rpython.jit.backend.llsupport.rewrite import cpu_simplify_scale
 from rpython.jit.backend.llsupport.descr import (unpack_arraydescr,
-        unpack_fielddescr, unpack_interiorfielddescr)
+        unpack_fielddescr, unpack_interiorfielddescr, ArrayDescr)
 from rpython.rlib.objectmodel import specialize, always_inline
 from rpython.jit.metainterp.history import (VECTOR, FLOAT, INT)
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.optimizeopt.schedule import (forwarded_vecinfo,
         failnbail_transformation)
 from rpython.jit.metainterp.jitexc import NotAVectorizeableLoop
+from rpython.rlib.objectmodel import we_are_translated
 
 class TypeRestrict(object):
     ANY_TYPE = '\x00'
@@ -112,7 +113,12 @@ class LoadRestrict(OpRestrict):
         opnum = op.getopnum()
         if rop.is_getarrayitem(opnum) or \
              opnum in (rop.GETARRAYITEM_RAW_I, rop.GETARRAYITEM_RAW_F):
-            itemsize, ofs, sign = unpack_arraydescr(op.getdescr())
+            descr = op.getdescr()
+            if not we_are_translated() and not isinstance(descr, ArrayDescr):
+                itemsize = descr.get_item_size_in_bytes()
+                ofs = 0
+            else:
+                itemsize, ofs, _ = unpack_arraydescr(op.getdescr())
             index_box = op.getarg(1)
             _, _, changed, emit = cpu_simplify_scale(state.cpu, index_box, itemsize, ofs)
             if emit:
@@ -131,7 +137,12 @@ class StoreRestrict(OpRestrict):
     def check_operation(self, state, pack, op):
         opnum = op.getopnum()
         if opnum in (rop.SETARRAYITEM_GC, rop.SETARRAYITEM_RAW):
-            itemsize, basesize, _ = unpack_arraydescr(op.getdescr())
+            descr = op.getdescr()
+            if not we_are_translated() and not isinstance(descr, ArrayDescr):
+                itemsize = descr.get_item_size_in_bytes()
+                basesize= 0
+            else:
+                itemsize, basesize, _ = unpack_arraydescr(op.getdescr())
             index_box = op.getarg(1)
             _, _, changed, emit = cpu_simplify_scale(state.cpu, index_box, itemsize, basesize)
             if emit:
