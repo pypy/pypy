@@ -197,18 +197,40 @@ class W_MemoryView(W_Root):
         return space.wrap(rffi.cast(lltype.Signed, ptr))
     
     def get_native_fmtchar(self, fmt):
+        from rpython.rtyper.lltypesystem import rffi
+        from sys import getsizeof
         size = -1
-        if fmt[0] == '@':
-            f = fmt[1]
+        if fmt._val(fmt)[0] == '@':
+            f = fmt._val(fmt)[1]
         else:
-            f = fmt[0]
+            f = fmt._val(fmt)[0]
         if f == 'c' or f == 'b' or f == 'B':
-            size = size
+            size = rffi.sizeof(rffi.CHAR)
+        elif f == 'h' or f == 'H':
+            size = rffi.sizeof(rffi.SHORT)
+        elif f == 'i' or f == 'I':
+            size = rffi.sizeof(rffi.INT)
+        elif f == 'l' or f == 'L':
+            size = rffi.sizeof(rffi.LONG)
+        elif f == 'q' or f == 'Q':
+            size = rffi.sizeof(rffi.LONGLONG)
+        elif f == 'n' or f == 'N':
+            size = getsizeof(rffi.r_ssize_t)
+        elif f == 'f':
+            size = rffi.sizeof(rffi.FLOAT)
+        elif f == 'd':
+            size = rffi.sizeof(rffi.DOUBLE)
+        elif f == '?':
+            size = rffi.sizeof(rffi.CHAR)
+        elif f == 'P':
+            size = rffi.sizeof(rffi.VOIDP)
+        return size
     
     def descr_cast(self, space, w_args, **w_kwds):
         self._check_released(space)
-        self.format = w_args
-        return self
+        newitemsize = self.get_native_fmtchar(w_args)
+        mv = W_MemoryView(self.buf, w_args, newitemsize)
+        return mv
 
 
 W_MemoryView.typedef = TypeDef(
