@@ -200,10 +200,10 @@ class W_MemoryView(W_Root):
         from rpython.rtyper.lltypesystem import rffi
         from sys import getsizeof
         size = -1
-        if fmt._val(fmt)[0] == '@':
-            f = fmt._val(fmt)[1]
+        if fmt[0] == '@':
+            f = fmt[1]
         else:
-            f = fmt._val(fmt)[0]
+            f = fmt[0]
         if f == 'c' or f == 'b' or f == 'B':
             size = rffi.sizeof(rffi.CHAR)
         elif f == 'h' or f == 'H':
@@ -228,8 +228,8 @@ class W_MemoryView(W_Root):
     
     def descr_cast(self, space, w_args, **w_kwds):
         self._check_released(space)
-        newitemsize = self.get_native_fmtchar(w_args)
-        mv = W_MemoryView(self.buf, w_args, newitemsize)
+        newitemsize = self.get_native_fmtchar(w_args._val(w_args))
+        mv = W_MemoryView(self.buf, w_args._val(w_args), newitemsize)
         return mv
 
 
