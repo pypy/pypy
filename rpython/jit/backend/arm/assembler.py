@@ -82,9 +82,6 @@ class AssemblerARM(ResOpAssembler):
         self.failure_recovery_code = [0, 0, 0, 0]
 
     def _build_propagate_exception_path(self):
-        if not self.cpu.propagate_exception_descr:
-            return      # not supported (for tests, or non-translated)
-        #
         mc = InstrBuilder(self.cpu.cpuinfo.arch_version)
         self._store_and_reset_exception(mc, r.r0)
         ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
@@ -372,9 +369,9 @@ class AssemblerARM(ResOpAssembler):
             self._write_barrier_fastpath(mc, wbdescr, [r.fp], array=False,
                                          is_frame=True)
 
-    def propagate_memoryerror_if_r0_is_null(self):
-        # see ../x86/assembler.py:propagate_memoryerror_if_eax_is_null
-        self.mc.CMP_ri(r.r0.value, 0)
+    def propagate_memoryerror_if_reg_is_null(self, reg_loc):
+        # see ../x86/assembler.py:genop_discard_check_memory_error()
+        self.mc.CMP_ri(reg_loc.value, 0)
         self.mc.B(self.propagate_exception_path, c=c.EQ)
 
     def _push_all_regs_to_jitframe(self, mc, ignored_regs, withfloats,
