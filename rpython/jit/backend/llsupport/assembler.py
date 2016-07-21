@@ -137,7 +137,7 @@ class BaseAssembler(object):
             # if self._debug is already set it means that someone called
             # set_debug by hand before initializing the assembler. Leave it
             # as it is
-            should_debug = have_debug_prints_for('jit-backend-counts'))
+            should_debug = have_debug_prints_for('jit-backend-counts')
             self.set_debug(should_debug)
         # when finishing, we only have one value at [0], the rest dies
         self.gcmap_for_finish = lltype.malloc(jitframe.GCMAP, 1,
