@@ -196,10 +196,19 @@ class W_MemoryView(W_Root):
             raise OperationError(space.w_ValueError, space.wrap(msg))
         return space.wrap(rffi.cast(lltype.Signed, ptr))
     
-    def descr_cast(self, space, *args, **kwds):
-        kwlist = ["format", "shape", None]
-        ndim = 1
+    def get_native_fmtchar(self, fmt):
+        size = -1
+        if fmt[0] == '@':
+            f = fmt[1]
+        else:
+            f = fmt[0]
+        if f == 'c' or f == 'b' or f == 'B':
+            size = size
+    
+    def descr_cast(self, space, w_args, **w_kwds):
         self._check_released(space)
+        self.format = w_args
+        return self
 
 
 W_MemoryView.typedef = TypeDef(
