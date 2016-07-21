@@ -411,7 +411,9 @@ class BaseAssembler(object):
         length = len(self.loop_run_counters)
         for i in range(length):
             struct = self.loop_run_counters[i]
-            _log_jit_counter(struct)
+            # only log if it has been executed
+            if struct.i > 0:
+                _log_jit_counter(struct)
             # reset the counter, flush in a later point in time will
             # add up the counters!
             struct.i = 0

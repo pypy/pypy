@@ -6,6 +6,7 @@ from rpython.rlib.debug import debug_start, debug_stop, debug_print, have_debug_
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib import rstack
 from rpython.rlib.jit import JitDebugInfo, Counters, dont_look_inside
+from rpython.rlib.rvmprof.rvmprof import _get_vmprof
 from rpython.conftest import option
 
 from rpython.jit.metainterp.resoperation import ResOperation, rop,\
@@ -544,6 +545,7 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type,
     operations = get_deep_immutable_oplist(loop.operations)
     metainterp_sd.profiler.start_backend()
     debug_start("jit-backend")
+    log = have_debug_prints() or _get_vmprof().cintf.jitlog_enabled()
     try:
         loopname = jitdriver_sd.warmstate.get_location_str(greenkey)
         unique_id = jitdriver_sd.warmstate.get_unique_id(greenkey)
@@ -551,7 +553,7 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type,
                                   loop.inputargs,
                                   operations, original_jitcell_token,
                                   name=loopname,
-                                  log=have_debug_prints(),
+                                  log=log,
                                   memo=memo)
     finally:
         debug_stop("jit-backend")
@@ -595,10 +597,11 @@ def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
     operations = get_deep_immutable_oplist(operations)
     metainterp_sd.profiler.start_backend()
     debug_start("jit-backend")
+    log = have_debug_prints() or _get_vmprof().cintf.jitlog_enabled()
     try:
         asminfo = do_compile_bridge(metainterp_sd, faildescr, inputargs,
                                     operations,
-                                    original_loop_token, have_debug_prints(),
+                                    original_loop_token, log,
                                     memo)
     finally:
         debug_stop("jit-backend")
