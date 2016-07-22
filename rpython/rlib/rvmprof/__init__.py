@@ -35,11 +35,5 @@ def get_unique_id(code):
 def enable(fileno, interval):
     _get_vmprof().enable(fileno, interval)
 
-def enable_jitlog(fileno):
-    _get_vmprof().enable_jitlog(fileno)
-
 def disable():
     _get_vmprof().disable()
-
-def disable_jitlog():
-    _get_vmprof().disable_jitlog()

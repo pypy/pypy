@@ -13,7 +13,7 @@ from rpython.rlib.objectmodel import specialize, compute_unique_id
 from rpython.rlib.jitlog import _log_jit_counter
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref, llhelper
 from rpython.rtyper.lltypesystem import rffi, lltype
-from rpython.rlib.rvmprof.rvmprof import _get_vmprof
+from rpython.rlib.rjitlog import rjitlog
 
 DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER',
     # 'b'ridge, 'l'abel or # 'e'ntry point
@@ -347,7 +347,7 @@ class BaseAssembler(object):
 
     @specialize.argtype(1)
     def _inject_debugging_code(self, looptoken, operations, tp, number):
-        if self._debug or _get_vmprof().cintf.jitlog_enabled():
+        if self._debug or rjitlog.jitlog_enabled():
             newoperations = []
             self._append_debugging_code(newoperations, tp, number, None)
             for op in operations:

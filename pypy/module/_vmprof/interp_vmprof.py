@@ -73,7 +73,7 @@ def enable(space, fileno, period):
 def enable_jitlog(space, fileno):
     """ Enable PyPy's logging facility. """
     try:
-        rvmprof.enable_jitlog(fileno)
+        rjitlog.enable_jitlog(fileno)
     except rvmprof.VMProfError, e:
         raise VMProfError(space, e)
 

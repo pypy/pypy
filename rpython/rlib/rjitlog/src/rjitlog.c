@@ -1,8 +1,25 @@
+#define _GNU_SOURCE 1
+
+#ifdef RPYTHON_LL2CTYPES
+/* only for testing: ll2ctypes sets RPY_EXTERN from the command-line */
+#ifndef RPY_EXTERN
+#define RPY_EXTERN RPY_EXPORTED
+#endif
+#ifdef _WIN32
+#define RPY_EXPORTED __declspec(dllexport)
+#else
+#define RPY_EXPORTED  extern __attribute__((visibility("default")))
+#endif
+#endif
+
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <unistd.h>
+#include <errno.h>
 
 static int jitlog_fd = -1;
 static int jitlog_ready = 0;

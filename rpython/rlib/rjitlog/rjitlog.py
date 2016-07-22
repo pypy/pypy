@@ -1,9 +1,14 @@
+import py
+import sys
 import sys
 import weakref
 import struct
 import os
-
-from rpython.rlib.rvmprof.rvmprof import _get_vmprof
+from rpython.rlib import jit
+from rpython.tool.udir import udir
+from rpython.tool.version import rpythonroot
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.jit.metainterp import resoperation as resoperations
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.history import ConstInt, ConstFloat
@@ -14,6 +19,58 @@ from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.jit_hooks import register_helper
 from rpython.annotator import model as annmodel
+
+
+ROOT = py.path.local(rpythonroot).join('rpython', 'rlib', 'rjitlog')
+SRC = ROOT.join('src')
+
+_libs = []
+if sys.platform.startswith('linux'):
+    _libs = ['dl']
+eci_kwds = dict(
+    include_dirs = [SRC],
+    includes = ['rjitlog.h'],
+    libraries = _libs,
+    separate_module_files = [SRC.join('rjitlog.c')],
+    post_include_bits=['#define RPYTHON_JITLOG\n'],
+    )
+eci = ExternalCompilationInfo(**eci_kwds)
+
+# jit log functions
+jitlog_init = rffi.llexternal("jitlog_init", [rffi.INT],
+                              rffi.CCHARP, compilation_info=eci)
+jitlog_try_init_using_env = rffi.llexternal("jitlog_try_init_using_env",
+                              [], lltype.Void, compilation_info=eci)
+jitlog_write_marked = rffi.llexternal("jitlog_write_marked",
+                              [rffi.CCHARP, rffi.INT],
+                              lltype.Void, compilation_info=eci,
+                              releasegil=False)
+jitlog_enabled = rffi.llexternal("jitlog_enabled", [], rffi.INT,
+                                 compilation_info=eci,
+                                 releasegil=False)
+jitlog_teardown = rffi.llexternal("jitlog_teardown", [], lltype.Void,
+                                  compilation_info=eci)
+
+class JitlogError(Exception):
+    def __init__(self, msg):
+        self.msg = msg
+    def __str__(self):
+        return self.msg
+
+@jit.dont_look_inside
+def enable_jitlog(fileno):
+    # initialize the jit log
+    from rpython.rlib import jitlog as jl
+    p_error = jitlog_init(fileno)
+    if p_error:
+        raise JitlogError(rffi.charp2str(p_error))
+    blob = jl.assemble_header()
+    jitlog_write_marked(jl.MARK_JITLOG_HEADER + blob, len(blob) + 1)
+
+def disable_jitlog():
+    from rpython.rlib.jitlog import stats_flush_trace_counts
+    stats_flush_trace_counts(None)
+    jitlog_teardown()
 
 @register_helper(None)
 def stats_flush_trace_counts(warmrunnerdesc):
@@ -77,7 +134,6 @@ def encode_type(type, value):
         return encode_le_32bit(value)
     else:
         raise NotImplementedError
-
 
 # more variable parameters
 MP_STR = (0x0, "s")
@@ -232,8 +288,7 @@ def assemble_header():
     return ''.join(content)
 
 def _log_jit_counter(struct):
-    cintf = _get_vmprof().cintf
-    if not cintf.jitlog_enabled():
+    if not jitlog_enabled():
         return
     # addr is either a number (trace_id), or the address
     # of the descriptor. for entries it is a the trace_id,
@@ -241,35 +296,34 @@ def _log_jit_counter(struct):
     list = [MARK_JITLOG_COUNTER, encode_le_addr(struct.number),
             struct.type, encode_le_64bit(struct.i)]
     content = ''.join(list)
-    cintf.jitlog_write_marked(content, len(content))
+    jitlog_write_marked(content, len(content))
 
-class VMProfJitLogger(object):
+class JitLogger(object):
     def __init__(self, cpu=None):
         self.cpu = cpu
         self.memo = {}
         self.trace_id = -1
         self.metainterp_sd = None
-        self.cintf = _get_vmprof().cintf
         # legacy
         self.logger_ops = None
         self.logger_noopt = None
 
     def setup_once(self):
-        if self.cintf.jitlog_enabled():
+        if jitlog_enabled():
             return
-        self.cintf.jitlog_try_init_using_env()
-        if not self.cintf.jitlog_enabled():
+        jitlog_try_init_using_env()
+        if not jitlog_enabled():
             return
         blob = assemble_header()
-        self.cintf.jitlog_write_marked(MARK_JITLOG_HEADER + blob, len(blob) + 1)
+        jitlog_write_marked(MARK_JITLOG_HEADER + blob, len(blob) + 1)
 
     def finish(self):
-        self.cintf.jitlog_teardown()
+        jitlog_teardown()
 
     def start_new_trace(self, metainterp_sd, faildescr=None, entry_bridge=False):
         # even if the logger is not enabled, increment the trace id
         self.trace_id += 1
-        if not self.cintf.jitlog_enabled():
+        if not jitlog_enabled():
             return
         self.metainterp_sd = metainterp_sd
         content = [encode_le_addr(self.trace_id)]
@@ -283,20 +337,20 @@ class VMProfJitLogger(object):
         self._write_marked(MARK_START_TRACE, ''.join(content))
 
     def trace_aborted(self):
-        if not self.cintf.jitlog_enabled():
+        if not jitlog_enabled():
             return
         self._write_marked(MARK_ABORT_TRACE, encode_le_64bit(self.trace_id))
 
     def _write_marked(self, mark, line):
         if not we_are_translated():
-            assert self.cintf.jitlog_enabled()
-        self.cintf.jitlog_write_marked(mark + line, len(line) + 1)
+            assert jitlog_enabled()
+        jitlog_write_marked(mark + line, len(line) + 1)
 
     def log_jit_counter(self, struct):
-        _log_jit_counter(self.cintf, struct)
+        _log_jit_counter(struct)
 
     def log_trace(self, tag, metainterp_sd, mc, memo=None):
-        if not self.cintf.jitlog_enabled():
+        if not jitlog_enabled():
             return EMPTY_TRACE_LOG
         assert self.metainterp_sd is not None
         if memo is None:
@@ -304,7 +358,7 @@ class VMProfJitLogger(object):
         return LogTrace(tag, memo, self.metainterp_sd, mc, self)
 
     def log_patch_guard(self, descr_number, addr):
-        if not self.cintf.jitlog_enabled():
+        if not jitlog_enabled():
             return
         le_descr_number = encode_le_addr(descr_number)
         le_addr = encode_le_addr(addr)

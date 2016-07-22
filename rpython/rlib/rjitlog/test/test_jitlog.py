@@ -4,8 +4,7 @@ from rpython.jit.metainterp.optimizeopt.util import equaloplists
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.backend.model import AbstractCPU
 from rpython.jit.metainterp.history import ConstInt, ConstPtr
-from rpython.rlib.jitlog import (encode_str, encode_le_16bit, encode_le_64bit)
-from rpython.rlib import jitlog as jl
+from rpython.rlib.rjitlog import rjitlog as jl
 
 class FakeLog(object):
     def __init__(self):
@@ -43,11 +42,11 @@ class TestLogger(object):
         return FakeMetaInterpSd()
 
     def test_debug_merge_point(self, tmpdir):
-        logger = jl.VMProfJitLogger()
+        logger = jl.JitLogger()
         file = tmpdir.join('binary_file')
         file.ensure()
         fd = file.open('wb')
-        logger.cintf.jitlog_init(fd.fileno())
+        jl.jitlog_init(fd.fileno())
         logger.start_new_trace(self.make_metainterp_sd())
         log_trace = logger.log_trace(jl.MARK_TRACE, None, None)
         op = ResOperation(rop.DEBUG_MERGE_POINT, [ConstInt(0), ConstInt(0), ConstInt(0)])
@@ -62,11 +61,11 @@ class TestLogger(object):
                          (jl.MARK_INPUT_ARGS) + jl.encode_str('') + \
                          (jl.MARK_INIT_MERGE_POINT) + b'\x05\x00\x01s\x00i\x08s\x00i\x10s' + \
                          (jl.MARK_MERGE_POINT) + \
-                         b'\xff' + encode_str('/home/pypy/jit.py') + \
-                         b'\x00' + encode_le_64bit(0) + \
-                         b'\xff' + encode_str('enclosed') + \
-                         b'\x00' + encode_le_64bit(99) + \
-                         b'\xff' + encode_str('DEL')
+                         b'\xff' + jl.encode_str('/home/pypy/jit.py') + \
+                         b'\x00' + jl.encode_le_64bit(0) + \
+                         b'\xff' + jl.encode_str('enclosed') + \
+                         b'\x00' + jl.encode_le_64bit(99) + \
+                         b'\xff' + jl.encode_str('DEL')
 
     def test_common_prefix(self):
         fakelog = FakeLog()

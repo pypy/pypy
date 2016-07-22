@@ -122,21 +122,6 @@ class VMProf(object):
             raise VMProfError(os.strerror(rposix.get_saved_errno()))
         self.is_enabled = True
 
-    @jit.dont_look_inside
-    def enable_jitlog(self, fileno):
-        # initialize the jit log
-        from rpython.rlib import jitlog as jl
-        p_error = self.cintf.jitlog_init(fileno)
-        if p_error:
-            raise VMProfError(rffi.charp2str(p_error))
-        blob = jl.assemble_header()
-        self.cintf.jitlog_write_marked(jl.MARK_JITLOG_HEADER + blob, len(blob) + 1)
-
-    def disable_jitlog(self):
-        from rpython.rlib.jitlog import stats_flush_trace_counts
-        stats_flush_trace_counts(None)
-        self.cintf.jitlog_teardown()
-
     def disable(self):
         """Disable vmprof.
         Raises VMProfError if something goes wrong.
