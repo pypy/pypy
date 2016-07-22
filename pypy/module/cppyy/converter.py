@@ -744,7 +744,7 @@ def _build_basic_converters():
 
     type_info = (
         (rffi.LONG,       ("long", "long int"),                        'l'),
-        (rffi.LONGLONG,   ("long long", "long long int", "Long64_t"),  'k'),
+        (rffi.LONGLONG,   ("long long", "long long int", "Long64_t"),  'q'),
     )
 
     for c_type, names, c_tc in type_info:
@@ -765,7 +765,7 @@ def _build_basic_converters():
         (rffi.USHORT,     ("unsigned short", "unsigned short int"),                            'H'),
         (rffi.UINT,       ("unsigned", "unsigned int"),                                        'I'),
         (rffi.ULONG,      ("unsigned long", "unsigned long int"),                              'L'),
-        (rffi.ULONGLONG,  ("unsigned long long", "unsigned long long int", "ULong64_t"),       'K'),
+        (rffi.ULONGLONG,  ("unsigned long long", "unsigned long long int", "ULong64_t"),       'Q'),
     )
 
     for c_type, names, c_tc in type_info:
@@ -787,17 +787,18 @@ _build_basic_converters()
 def _build_array_converters():
     "NOT_RPYTHON"
     array_info = (
-        ('b', rffi.sizeof(rffi.UCHAR),  ("bool",)),    # is debatable, but works ...
-        ('h', rffi.sizeof(rffi.SHORT),  ("short int", "short")),
-        ('H', rffi.sizeof(rffi.USHORT), ("unsigned short int", "unsigned short")),
-        ('i', rffi.sizeof(rffi.INT),    ("int",)),
-        ('I', rffi.sizeof(rffi.UINT),   ("unsigned int", "unsigned")),
-        ('l', rffi.sizeof(rffi.LONG),   ("long int", "long")),
-        ('L', rffi.sizeof(rffi.ULONG),  ("unsigned long int", "unsigned long")),
-        ('k', rffi.sizeof(rffi.LONGLONG),("long long", "long long int", "Long64_t")),
-        ('K', rffi.sizeof(rffi.ULONGLONG),("unsigned long long", "unsigned long long int", "ULong64_t")),
-        ('f', rffi.sizeof(rffi.FLOAT),  ("float",)),
-        ('d', rffi.sizeof(rffi.DOUBLE), ("double",)),
+        ('b', rffi.sizeof(rffi.UCHAR),      ("bool",)),    # is debatable, but works ...
+        ('h', rffi.sizeof(rffi.SHORT),      ("short int", "short")),
+        ('H', rffi.sizeof(rffi.USHORT),     ("unsigned short int", "unsigned short")),
+        ('i', rffi.sizeof(rffi.INT),        ("int",)),
+        ('I', rffi.sizeof(rffi.UINT),       ("unsigned int", "unsigned")),
+        ('l', rffi.sizeof(rffi.LONG),       ("long int", "long")),
+        ('L', rffi.sizeof(rffi.ULONG),      ("unsigned long int", "unsigned long")),
+        ('q', rffi.sizeof(rffi.LONGLONG),   ("long long", "long long int", "Long64_t")),
+        ('Q', rffi.sizeof(rffi.ULONGLONG),  ("unsigned long long", "unsigned long long int", "ULong64_t")),
+        ('f', rffi.sizeof(rffi.FLOAT),      ("float",)),
+        ('d', rffi.sizeof(rffi.DOUBLE),     ("double",)),
+        ('g', rffi.sizeof(rffi.LONGDOUBLE), ("long double",)),
     )
 
     for tcode, tsize, names in array_info:
