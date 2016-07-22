@@ -10,6 +10,11 @@
 #else
 #define RPY_EXPORTED  extern __attribute__((visibility("default")))
 #endif
+#else
+#include "common_header.h"
+#include "structdef.h"
+#include "src/threadlocal.h"
+#include "rjitlog.h"
 #endif
 
 #include <string.h>

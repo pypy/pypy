@@ -10,10 +10,9 @@ from rpython.rlib.debug import (debug_start, debug_stop, have_debug_prints_for,
                                 debug_print)
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib.objectmodel import specialize, compute_unique_id
-from rpython.rlib.jitlog import _log_jit_counter
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref, llhelper
 from rpython.rtyper.lltypesystem import rffi, lltype
-from rpython.rlib.rjitlog import rjitlog
+from rpython.rlib.rjitlog import rjitlog as jl
 
 DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER',
     # 'b'ridge, 'l'abel or # 'e'ntry point
@@ -347,7 +346,7 @@ class BaseAssembler(object):
 
     @specialize.argtype(1)
     def _inject_debugging_code(self, looptoken, operations, tp, number):
-        if self._debug or rjitlog.jitlog_enabled():
+        if self._debug or jl.jitlog_enabled():
             newoperations = []
             self._append_debugging_code(newoperations, tp, number, None)
             for op in operations:
@@ -413,7 +412,7 @@ class BaseAssembler(object):
             struct = self.loop_run_counters[i]
             # only log if it has been executed
             if struct.i > 0:
-                _log_jit_counter(struct)
+                jl._log_jit_counter(struct)
             # reset the counter, flush in a later point in time will
             # add up the counters!
             struct.i = 0

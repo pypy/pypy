@@ -57,6 +57,12 @@ class JitlogError(Exception):
     def __str__(self):
         return self.msg
 
+@register_helper(None)
+def stats_flush_trace_counts(warmrunnerdesc):
+    if not we_are_translated():
+        return # first param is None untranslated
+    warmrunnerdesc.metainterp_sd.cpu.assembler.flush_trace_counters()
+
 @jit.dont_look_inside
 def enable_jitlog(fileno):
     # initialize the jit log
@@ -64,16 +70,12 @@ def enable_jitlog(fileno):
     if p_error:
         raise JitlogError(rffi.charp2str(p_error))
     blob = assemble_header()
-    jitlog_write_marked(jl.MARK_JITLOG_HEADER + blob, len(blob) + 1)
+    jitlog_write_marked(MARK_JITLOG_HEADER + blob, len(blob) + 1)
 
 def disable_jitlog():
-    from rpython.rlib.jitlog import stats_flush_trace_counts
     stats_flush_trace_counts(None)
     jitlog_teardown()
 
-@register_helper(None)
-def stats_flush_trace_counts(warmrunnerdesc):
-    warmrunnerdesc.metainterp_sd.cpu.assembler.flush_trace_counters()
 
 def commonprefix(a,b):
     "Given a list of pathnames, returns the longest common leading component"

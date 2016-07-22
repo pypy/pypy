@@ -9,7 +9,7 @@ from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.metainterp.history import (Const, VOID, ConstInt)
 from rpython.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT
 from rpython.jit.metainterp.compile import ResumeGuardDescr
-from rpython.rlib.jitlog import MARK_TRACE_ASM
+from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
@@ -540,7 +540,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             looptoken._x86_ops_offset = ops_offset
         looptoken._ll_function_addr = rawstart + functionpos
         if logger:
-            log = logger.log_trace(MARK_TRACE_ASM, None, self.mc)
+            log = logger.log_trace(jl.MARK_TRACE_ASM, None, self.mc)
             log.write(inputargs, operations, ops_offset=ops_offset)
 
             # legacy
@@ -612,7 +612,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         frame_depth = max(self.current_clt.frame_info.jfi_frame_depth,
                           frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
         if logger:
-            log = logger.log_trace(MARK_TRACE_ASM, None, self.mc)
+            log = logger.log_trace(jl.MARK_TRACE_ASM, None, self.mc)
             log.write(inputargs, operations, ops_offset)
             # log that the already written bridge is stitched to a descr!
             logger.log_patch_guard(descr_number, rawstart)
