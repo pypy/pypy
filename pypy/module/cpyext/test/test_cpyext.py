@@ -126,7 +126,14 @@ def compile_extension_module_applevel(space, modname, include_dirs=[],
             source_strings=source_strings,
             compile_extra=compile_extra,
             link_extra=link_extra)
-    return str(soname)
+    from imp import get_suffixes, C_EXTENSION
+    pydname = soname
+    for suffix, mode, typ in get_suffixes():
+        if typ == C_EXTENSION:
+            pydname = soname.new(purebasename=modname, ext=suffix)
+            soname.rename(pydname)
+            break
+    return str(pydname)
 
 def freeze_refcnts(self):
     rawrefcount._dont_free_any_more()
