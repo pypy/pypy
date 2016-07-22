@@ -279,6 +279,7 @@ def generate_tokens(lines, flags):
                         punct = tokens.OP
                     token_list.append((punct, token, lnum, start, line))
                     last_comment = ''
+                last_token = token
             else:
                 start = whiteSpaceDFA.recognize(line, pos)
                 if start < 0:
@@ -290,7 +291,6 @@ def generate_tokens(lines, flags):
                 token_list.append(tok)
                 last_comment = ''
                 pos = pos + 1
-            last_token = token
 
     lnum -= 1
     if not (flags & consts.PyCF_DONT_IMPLY_DEDENT):
