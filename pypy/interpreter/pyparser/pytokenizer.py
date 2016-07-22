@@ -96,6 +96,7 @@ def generate_tokens(lines, flags):
     altindents = [0]
     last_comment = ''
     parenlevstart = (0, 0, "")
+    last_token = ''
 
     # make the annotator happy
     endDFA = DUMMY_DFA
@@ -253,9 +254,9 @@ def generate_tokens(lines, flags):
                     if not verify_identifier(token):
                         raise TokenError("invalid character in identifier",
                                          line, lnum, start + 1, token_list)
-                    if token == 'async':
+                    if token == 'async' and not last_token == 'def':
                         token_list.append((tokens.ASYNC, token, lnum, start, line))
-                    elif token == 'await':
+                    elif token == 'await' and not last_token == 'def':
                         token_list.append((tokens.AWAIT, token, lnum, start, line))
                     else:
                         token_list.append((tokens.NAME, token, lnum, start, line))
@@ -289,6 +290,7 @@ def generate_tokens(lines, flags):
                 token_list.append(tok)
                 last_comment = ''
                 pos = pos + 1
+            last_token = token
 
     lnum -= 1
     if not (flags & consts.PyCF_DONT_IMPLY_DEDENT):
