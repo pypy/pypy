@@ -69,19 +69,6 @@ def enable(space, fileno, period):
     except rvmprof.VMProfError as e:
         raise VMProfError(space, e)
 
-@unwrap_spec(fileno=int)
-def enable_jitlog(space, fileno):
-    """ Enable PyPy's logging facility. """
-    try:
-        rjitlog.enable_jitlog(fileno)
-    except rvmprof.VMProfError, e:
-        raise VMProfError(space, e)
-
-@jit.dont_look_inside
-def disable_jitlog(space):
-    """ Disable PyPy's logging facility. """
-    rvmprof.disable_jitlog()
-
 def write_all_code_objects(space):
     """ Needed on cpython, just empty function here
     """
