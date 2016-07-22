@@ -5,7 +5,8 @@ This is transformed to become a JIT by code elsewhere: rpython/jit/*
 
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.jit import JitDriver, hint, we_are_jitted, dont_look_inside
-from rpython.rlib import jit, jit_hooks, jitlog as jl
+from rpython.rlib import jit, jit_hooks
+from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.rlib.jit import current_trace_length, unroll_parameters,\
      JitHookInterface
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref

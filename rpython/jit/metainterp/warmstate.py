@@ -6,7 +6,7 @@ from rpython.jit.metainterp import resoperation, history, jitexc
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.rlib.debug import have_debug_prints_for
 from rpython.rlib.jit import PARAMETERS
-from rpython.rlib import jitlog as jl
+from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.objectmodel import specialize, we_are_translated, r_dict
 from rpython.rlib.rarithmetic import intmask, r_uint

@@ -3,7 +3,7 @@ from rpython.tool.udir import udir
 from rpython.rlib.jit import JitDriver, unroll_parameters, set_param
 from rpython.rlib.jit import PARAMETERS, dont_look_inside
 from rpython.rlib.jit import promote, _get_virtualizable_token
-from rpython.rlib import jit_hooks, rposix, jitlog
+from rpython.rlib import jit_hooks, rposix
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rthread import ThreadLocalReference, ThreadLocalField
 from rpython.jit.backend.detect_cpu import getcpuclass
@@ -12,7 +12,7 @@ from rpython.jit.codewriter.policy import StopAtXPolicy
 from rpython.config.config import ConfigError
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib import jitlog
+from rpython.rlib.rjitlog import rjitlog as jl
 
 
 class TranslationTest(CCompiledMixin):
@@ -49,9 +49,9 @@ class TranslationTest(CCompiledMixin):
                                  lltype.Float, macro=True, releasegil=True,
                                  compilation_info=eci)
 
-        @jitlog.returns(jitlog.MP_FILENAME,
-                        jitlog.MP_LINENO,
-                        jitlog.MP_INDEX)
+        @jl.returns(jl.MP_FILENAME,
+                    jl.MP_LINENO,
+                    jl.MP_INDEX)
         def get_location():
             return ("/home.py",0,0)
 
@@ -253,7 +253,7 @@ class TranslationTestJITStats(CCompiledMixin):
         def main():
             jit_hooks.stats_set_debug(None, True)
             f()
-            jitlog.stats_flush_trace_counts(None)
+            jl.stats_flush_trace_counts(None)
             return 0
 
         res = self.meta_interp(main, [])

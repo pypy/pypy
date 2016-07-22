@@ -589,7 +589,7 @@ class WarmRunnerDesc(object):
                 assert hasattr(jd.jitdriver.get_location, '_loc_types'), """
                 You must decorate your get_location function:
 
-                from rpython.rlib import jitlog as jl
+                from rpython.rlib.rjitlog import rjitlog as jl
                 @jl.returns(jl.MP_FILENAME, jl.MP_XXX, ...)
                 def get_loc(your, green, keys):
                     name = "x.txt" # extract it from your green keys

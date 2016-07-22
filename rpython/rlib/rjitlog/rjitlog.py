@@ -60,11 +60,10 @@ class JitlogError(Exception):
 @jit.dont_look_inside
 def enable_jitlog(fileno):
     # initialize the jit log
-    from rpython.rlib import jitlog as jl
     p_error = jitlog_init(fileno)
     if p_error:
         raise JitlogError(rffi.charp2str(p_error))
-    blob = jl.assemble_header()
+    blob = assemble_header()
     jitlog_write_marked(jl.MARK_JITLOG_HEADER + blob, len(blob) + 1)
 
 def disable_jitlog():

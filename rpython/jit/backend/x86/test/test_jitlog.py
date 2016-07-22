@@ -5,7 +5,7 @@ from rpython.jit.tool.oparser import pure_parse
 from rpython.jit.metainterp import logger
 from rpython.jit.metainterp.typesystem import llhelper
 from rpython.rlib.jitlog import JITLOG_VERSION_16BIT_LE
-from rpython.rlib import jitlog as jl
+from rpython.rlib.rjitlog import rjitlog as jl
 from StringIO import StringIO
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
 from rpython.jit.metainterp.history import AbstractDescr, JitCellToken, BasicFailDescr, BasicFinalDescr
