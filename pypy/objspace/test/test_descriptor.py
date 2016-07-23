@@ -147,9 +147,14 @@ class AppTest_Descriptor:
             pass
         class mylong(long):
             pass
+        class myfloat(float):
+            pass
 
         assert hash(-1) == -2
         assert hash(-1L) == -2
+        assert hash(-1.0) == -2
+        assert hash(-1 + 0j) == -2
         assert hash(myint(-1)) == -2
         assert hash(mylong(-1)) == -2
+        assert hash(myfloat(-1.0)) == -2
 
