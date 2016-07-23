@@ -4,7 +4,7 @@
 #  define HAVE_SIGNAL_H
 #endif
 
-#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || defined(__DragonFly__)
   #ifdef __i386__
     #define PC_FROM_UCONTEXT uc_mcontext.mc_eip
   #else
