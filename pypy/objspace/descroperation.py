@@ -433,8 +433,9 @@ class DescrOperation(object):
             return w_result
         elif space.is_w(w_resulttype, space.w_long):
             # bug 2346 (return -2 for a hashvalue of -1)
-            if space.bigint_w(w_result) == -1:
-                return space.hash(space.wrap(-2))
+            w_h = space.hash(w_result)
+            if space.int_w(w_h) == -1:
+                return space.wrap(-2)
             return space.hash(w_result)
         elif space.isinstance_w(w_result, space.w_int):
             # be careful about subclasses of 'int'...
@@ -448,9 +449,10 @@ class DescrOperation(object):
             # be careful about subclasses of 'long'...
             bigint = space.bigint_w(w_result)
             # bug 2346 (return -2 for a hashvalue of -1)
-            if bigint == -1:
-                bigint = -2
-            return space.wrap(bigint.hash())
+            h = bigint.hash()
+            if h == -1:
+                h = -2
+            return space.wrap(h)
         else:
             raise oefmt(space.w_TypeError,
                         "__hash__() should return an int or long")

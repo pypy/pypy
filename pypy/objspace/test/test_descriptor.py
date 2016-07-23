@@ -152,6 +152,12 @@ class AppTest_Descriptor:
         class myHashClass(object):
             def __hash__(self):
                 return -1
+        class myHashClass2(object):
+            def __hash__(self):
+                return -1L
+        class myHashClass3(object):
+            def __hash__(self):
+                return -10**100
 
         assert hash(-1) == -2
         assert hash(-1L) == -2
@@ -161,3 +167,5 @@ class AppTest_Descriptor:
         assert hash(mylong(-1)) == -2
         assert hash(myfloat(-1.0)) == -2
         assert hash(myHashClass()) == -2
+        assert hash(myHashClass2()) == -2
+        assert hash(myHashClass3()) == hash(-10**100)
