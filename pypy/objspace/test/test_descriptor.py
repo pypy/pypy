@@ -149,6 +149,9 @@ class AppTest_Descriptor:
             pass
         class myfloat(float):
             pass
+        class myHashClass(object):
+            def __hash__(self):
+                return -1
 
         assert hash(-1) == -2
         assert hash(-1L) == -2
@@ -157,4 +160,4 @@ class AppTest_Descriptor:
         assert hash(myint(-1)) == -2
         assert hash(mylong(-1)) == -2
         assert hash(myfloat(-1.0)) == -2
-
+        assert hash(myHashClass()) == -2
