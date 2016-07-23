@@ -1030,9 +1030,16 @@ class __extend__(pyframe.PyFrame):
         raise Yield
 
     def YIELD_FROM(self, oparg, next_instr):
+        from pypy.interpreter.astcompiler import consts
         space = self.space
         w_value = self.popvalue()
         w_gen = self.peekvalue()
+        if w_gen.descr_gi_code(w_gen).co_flags & consts.CO_COROUTINE and
+           not self.pycode.co_flags & (consts.CO_COROUTINE |
+                                   consts.CO_ITERABLE_COROUTINE):
+            raise oefmt(self.space.w_TypeError,
+                        "cannot 'yield from' a coroutine object "
+                        "from a generator")
         try:
             if space.is_none(w_value):
                 w_retval = space.next(w_gen)
@@ -1416,10 +1423,14 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_dict)
     
     def GET_YIELD_FROM_ITER(self, oparg, next_instr):
+        from pypy.interpreter.astcompiler import consts
         w_iterable = self.popvalue()
         w_iterator = self.space.iter(w_iterable)
-        #ec = space.getexecutioncontext()
-        #flags = ec.compiler.getcodeflags(self.pycode)
+        if not self.pycode.co_flags & (consts.CO_COROUTINE |
+                                   consts.CO_ITERABLE_COROUTINE):
+            raise oefmt(self.space.w_TypeError,
+                        "cannot 'yield from' a coroutine object "
+                        "in a non-coroutine generator")
         self.pushvalue(w_iterator)
     
     def GET_AWAITABLE(self, oparg, next_instr):
