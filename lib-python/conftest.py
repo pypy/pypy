@@ -452,7 +452,7 @@ testmap = [
     RegrTest('test_userstring.py', core=True),
     RegrTest('test_uu.py'),
     RegrTest('test_uuid.py'),
-    RegrTest('test_venv.py'),
+    RegrTest('test_venv.py', usemodules="struct"),
     RegrTest('test_wait3.py', usemodules="thread"),
     RegrTest('test_wait4.py', usemodules="thread"),
     RegrTest('test_warnings.py', core=True),
