@@ -425,16 +425,31 @@ class DescrOperation(object):
                         "'%T' objects are unhashable", w_obj)
         w_result = space.get_and_call_function(w_hash, w_obj)
         w_resulttype = space.type(w_result)
+        
         if space.is_w(w_resulttype, space.w_int):
+            # bug 2346 (return -2 for a hashvalue of -1)
+            if space.int_w(w_result) == -1:
+                return space.wrap(-2)
             return w_result
         elif space.is_w(w_resulttype, space.w_long):
+            # bug 2346 (return -2 for a hashvalue of -1)
+            if space.bigint_w(w_result) == -1:
+                return space.hash(space.wrap(-2))
             return space.hash(w_result)
         elif space.isinstance_w(w_result, space.w_int):
             # be careful about subclasses of 'int'...
-            return space.wrap(space.int_w(w_result))
+            # return space.wrap(space.int_w(w_result))
+            int_result = space.int_w(w_result)
+            # bug 2346 (return -2 for a hashvalue of -1)
+            if int_result == -1:
+                int_result == -2
+            return space.wrap(int_result)
         elif space.isinstance_w(w_result, space.w_long):
             # be careful about subclasses of 'long'...
             bigint = space.bigint_w(w_result)
+            # bug 2346 (return -2 for a hashvalue of -1)
+            if bigint == -1:
+                bigint = -2
             return space.wrap(bigint.hash())
         else:
             raise oefmt(space.w_TypeError,

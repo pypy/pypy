@@ -141,3 +141,15 @@ class AppTest_Descriptor:
                 return myint(15)
         assert hash(I()) == 15
         assert type(hash(I())) is int
+        
+        # check hashing of -1 to -2
+        class myint(int):
+            pass
+        class mylong(long):
+            pass
+
+        assert hash(-1) == -2
+        assert hash(-1L) == -2
+        assert hash(myint(-1)) == -2
+        assert hash(mylong(-1)) == -2
+
