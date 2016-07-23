@@ -409,7 +409,7 @@ class DescrOperation(object):
                 if not e.match(space, space.w_StopIteration):
                     raise
                 return space.w_False
-            if space.eq_w(w_next, w_item):
+            if space.eq_w(w_item, w_next):
                 return space.w_True
 
     def hash(space, w_obj):
