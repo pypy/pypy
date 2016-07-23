@@ -436,7 +436,7 @@ class DescrOperation(object):
             w_h = space.hash(w_result)
             if space.int_w(w_h) == -1:
                 return space.wrap(-2)
-            return space.hash(w_result)
+            return w_h
         elif space.isinstance_w(w_result, space.w_int):
             # be careful about subclasses of 'int'...
             int_result = space.int_w(w_result)
