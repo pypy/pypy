@@ -439,7 +439,6 @@ class DescrOperation(object):
             return space.hash(w_result)
         elif space.isinstance_w(w_result, space.w_int):
             # be careful about subclasses of 'int'...
-            # return space.wrap(space.int_w(w_result))
             int_result = space.int_w(w_result)
             # bug 2346 (return -2 for a hashvalue of -1)
             if int_result == -1:
