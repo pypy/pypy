@@ -27,7 +27,7 @@ int pypy_main_function(int argc, char *argv[]) __attribute__((__noinline__));
 #  include "forwarddecl.h"
 # endif
 
-#if defined(MS_WINDOWS) && defined(RPY_SANDBOXED)
+#if defined(MS_WINDOWS)
 #  include <stdio.h>
 #  include <fcntl.h>
 #  include <io.h>
