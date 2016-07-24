@@ -633,9 +633,17 @@ class AssemblerARM(ResOpAssembler):
                     'loop.asm')
 
         ops_offset = self.mc.ops_offset
-        if logger is not None:
-            logger.log_loop(inputargs, operations, 0, "rewritten",
-                            name=loopname, ops_offset=ops_offset)
+
+        if logger:
+            log = logger.log_trace(jl.MARK_TRACE_ASM, None, self.mc)
+            log.write(inputargs, operations, ops_offset=ops_offset)
+
+            # legacy
+            if logger.logger_ops:
+                logger.logger_ops.log_loop(inputargs, operations, 0,
+                                           "rewritten", name=loopname,
+                                           ops_offset=ops_offset)
+
         self.teardown()
 
         debug_start("jit-backend-addr")
@@ -735,9 +743,18 @@ class AssemblerARM(ResOpAssembler):
                           frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
         self.fixup_target_tokens(rawstart)
         self.update_frame_depth(frame_depth)
+
         if logger:
-            logger.log_bridge(inputargs, operations, "rewritten", faildescr,
-                              ops_offset=ops_offset)
+            log = logger.log_trace(jl.MARK_TRACE_ASM, None, self.mc)
+            log.write(inputargs, operations, ops_offset)
+            # log that the already written bridge is stitched to a descr!
+            logger.log_patch_guard(descr_number, rawstart)
+
+            # legacy
+            if logger.logger_ops:
+                logger.logger_ops.log_bridge(inputargs, operations, "rewritten",
+                                          faildescr, ops_offset=ops_offset)
+
         self.teardown()
 
         return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos)

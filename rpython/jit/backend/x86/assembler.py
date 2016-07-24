@@ -613,6 +613,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         ops_offset = self.mc.ops_offset
         frame_depth = max(self.current_clt.frame_info.jfi_frame_depth,
                           frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
+
         if logger:
             log = logger.log_trace(jl.MARK_TRACE_ASM, None, self.mc)
             log.write(inputargs, operations, ops_offset)
@@ -623,6 +624,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             if logger.logger_ops:
                 logger.logger_ops.log_bridge(inputargs, operations, "rewritten",
                                           faildescr, ops_offset=ops_offset)
+
         self.fixup_target_tokens(rawstart)
         self.update_frame_depth(frame_depth)
         self.teardown()
