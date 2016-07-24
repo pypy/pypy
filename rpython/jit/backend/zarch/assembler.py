@@ -32,6 +32,7 @@ from rpython.rlib.longlong2float import float2longlong
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
 from rpython.rlib.jit import AsmInfo
+from rpython.rlib.rjitlog import rjitlog as jl
 
 class JitFrameTooDeep(Exception):
     pass
