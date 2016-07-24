@@ -1034,9 +1034,9 @@ class __extend__(pyframe.PyFrame):
         space = self.space
         w_value = self.popvalue()
         w_gen = self.peekvalue()
-        if w_gen.descr_gi_code(w_gen).co_flags & consts.CO_COROUTINE and
+        if (w_gen.descr_gi_code(w_gen).co_flags & consts.CO_COROUTINE and
            not self.pycode.co_flags & (consts.CO_COROUTINE |
-                                   consts.CO_ITERABLE_COROUTINE):
+                                   consts.CO_ITERABLE_COROUTINE)):
             raise oefmt(self.space.w_TypeError,
                         "cannot 'yield from' a coroutine object "
                         "from a generator")
