@@ -6,7 +6,6 @@ from rpython.config.translationoption import SUPPORT__THREAD
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.debug import ll_assert, have_debug_prints, debug_flush
-from rpython.rlib.jitlog import stats_flush_trace_counts
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
 from rpython.rlib.debug import debug_offset, have_debug_prints_for
 from rpython.rlib.entrypoint import entrypoint_highlevel, secondary_entrypoints

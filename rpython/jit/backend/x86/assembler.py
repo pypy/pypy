@@ -539,15 +539,17 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             looptoken._x86_fullsize = full_size
             looptoken._x86_ops_offset = ops_offset
         looptoken._ll_function_addr = rawstart + functionpos
+
         if logger:
             log = logger.log_trace(jl.MARK_TRACE_ASM, None, self.mc)
             log.write(inputargs, operations, ops_offset=ops_offset)
 
             # legacy
             if logger.logger_ops:
-                logger.logger_ops.log_loop(inputargs, operations, 0, "rewritten",
-                                        name=loopname, ops_offset=ops_offset)
-        
+                logger.logger_ops.log_loop(inputargs, operations, 0,
+                                           "rewritten", name=loopname,
+                                           ops_offset=ops_offset)
+
         self.fixup_target_tokens(rawstart)
         self.teardown()
         # oprofile support
