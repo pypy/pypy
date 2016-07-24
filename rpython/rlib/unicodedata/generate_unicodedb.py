@@ -894,7 +894,7 @@ def lookup_with_alias(name, with_named_sequence=False):
 
     casefolds = {}
     for code, char in table.enum_chars():
-        if char.casefolding:
+        if char.casefolding and char.casefolding != [char.lower]:
             casefolds[code] = char.casefolding
     writeDict(outfile, '_casefolds', casefolds, base_mod)
     print >> outfile, '''

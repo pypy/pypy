@@ -7291,15 +7291,6 @@ def lookup_with_alias(name, with_named_sequence=False):
         return code
 
 _casefolds = {
-1318: [1319],
-42592: [42593],
-42893: [613],
-42896: [42897],
-42912: [42913],
-42914: [42915],
-42916: [42917],
-42918: [42919],
-42920: [42921],
 }
 
 _casefolds_corrected = {
