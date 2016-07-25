@@ -23,7 +23,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 #include <errno.h>
 
 static int jitlog_fd = -1;
@@ -37,16 +39,21 @@ int jitlog_enabled()
 
 RPY_EXTERN
 void jitlog_try_init_using_env(void) {
+    char * filename;
     if (jitlog_ready) { return; }
 
-    char *filename = getenv("JITLOG");
+    filename = getenv("JITLOG");
 
     if (filename && filename[0]) {
         // mode is 775
+#ifdef _WIN32
+        int mode = _S_IWRITE | _S_IREAD | _S_IEXEC;
+#else        
         mode_t mode = S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH;
+#endif
         jitlog_fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, mode);
         if (jitlog_fd == -1) {
-            dprintf(2, "could not open '%s': ", filename);
+            fprintf(stderr, "could not open '%s': ", filename);
             perror(NULL);
             exit(-1);
         }
