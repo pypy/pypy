@@ -394,6 +394,7 @@ def writeDbRecord(outfile, table):
     IS_XID_START = 1024
     IS_XID_CONTINUE = 2048
     IS_PRINTABLE = 4096 # PEP 3138
+    IS_CASE_IGNORABLE = 8192
 
     # Create the records
     db_records = {}
@@ -426,6 +427,8 @@ def writeDbRecord(outfile, table):
             flags |= IS_XID_START
         if "XID_Continue" in char.properties:
             flags |= IS_XID_CONTINUE
+        if "Case_Ignorable" in char.properties:
+            flags |= IS_CASE_IGNORABLE
         char.db_record = (char.category, char.bidirectional, char.east_asian_width, flags)
         db_records[char.db_record] = 1
     db_records = db_records.keys()
@@ -434,6 +437,7 @@ def writeDbRecord(outfile, table):
     for record in db_records:
         print >> outfile, '%r,'%(record,)
     print >> outfile, ']'
+    assert len(db_records) <= 256, "too many db_records!"
     print >> outfile, '_db_pgtbl = ('
     pages = []
     line = []
@@ -485,6 +489,7 @@ def _get_record(code):
     print >> outfile, 'def isxidcontinue(code): return _get_record(code)[3] & %d != 0'% (IS_XID_CONTINUE)
     print >> outfile, 'def isprintable(code): return _get_record(code)[3] & %d != 0'% IS_PRINTABLE
     print >> outfile, 'def mirrored(code): return _get_record(code)[3] & %d != 0'% IS_MIRRORED
+    print >> outfile, 'def iscaseignorable(code): return _get_record(code)[3] & %d != 0'% IS_CASE_IGNORABLE
 
 def write_character_names(outfile, table, base_mod):
 

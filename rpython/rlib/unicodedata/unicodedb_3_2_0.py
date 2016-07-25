@@ -17448,6 +17448,7 @@ def isxidstart(code): return _get_record(code)[3] & 1024 != 0
 def isxidcontinue(code): return _get_record(code)[3] & 2048 != 0
 def isprintable(code): return _get_record(code)[3] & 4096 != 0
 def mirrored(code): return _get_record(code)[3] & 512 != 0
+def iscaseignorable(code): return _get_record(code)[3] & 8192 != 0
 _decimal = {
 178: 2,
 179: 3,
