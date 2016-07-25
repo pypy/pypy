@@ -1,6 +1,5 @@
 import py
 import sys
-import sys
 import weakref
 import struct
 import os
@@ -281,8 +280,11 @@ IS_32_BIT = sys.maxint == 2**31-1
 def assemble_header():
     version = JITLOG_VERSION_16BIT_LE
     count = len(resoperations.opname)
+    is_32bit = chr(0x1)
+    if not IS_32_BIT:
+        is_32bit = chr(0x0)
     content = [version, MARK_RESOP_META,
-               encode_le_16bit(count)]
+               is_32bit, encode_le_16bit(count)]
     for opnum, opname in resoperations.opname.items():
         content.append(encode_le_16bit(opnum))
         content.append(encode_str(opname.lower()))
