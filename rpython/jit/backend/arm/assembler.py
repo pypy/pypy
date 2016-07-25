@@ -29,6 +29,7 @@ from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.jit.backend.arm import callbuilder
 from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rlib.rjitlog import rjitlog as jl
 
 class AssemblerARM(ResOpAssembler):
 
