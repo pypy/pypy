@@ -426,7 +426,7 @@ def writeDbRecord(outfile, table):
             flags |= IS_XID_START
         if "XID_Continue" in char.properties:
             flags |= IS_XID_CONTINUE
-        char.db_record = (char.category, char.bidirectional, char.east_asian_width, flags, char.combining)
+        char.db_record = (char.category, char.bidirectional, char.east_asian_width, flags)
         db_records[char.db_record] = 1
     db_records = db_records.keys()
     db_records.sort()
@@ -485,7 +485,6 @@ def _get_record(code):
     print >> outfile, 'def isxidcontinue(code): return _get_record(code)[3] & %d != 0'% (IS_XID_CONTINUE)
     print >> outfile, 'def isprintable(code): return _get_record(code)[3] & %d != 0'% IS_PRINTABLE
     print >> outfile, 'def mirrored(code): return _get_record(code)[3] & %d != 0'% IS_MIRRORED
-    print >> outfile, 'def combining(code): return _get_record(code)[4]'
 
 def write_character_names(outfile, table, base_mod):
 
@@ -907,6 +906,23 @@ def casefold_lookup(code):
             return base_mod._casefolds.get(code, None)
         else:
             return None
+'''
+
+    combining = {}
+    for code, char in table.enum_chars():
+        if char.combining:
+            combining[code] = char.combining
+    writeDict(outfile, '_combining', combining, base_mod)
+    print >> outfile, '''
+
+def combining(code):
+    try:
+        return _combining[code]
+    except KeyError:
+        if base_mod is not None and code not in _combining_corrected:
+            return base_mod._combining.get(code, 0)
+        else:
+            return 0
 '''
 
 
