@@ -302,6 +302,10 @@ return next yielded value or raise StopIteration."""
                     self.descr_close()
                     break
                 block = block.previous
+    
+    def _GetAwaitableIter(self, o):
+        #look at typeobject.c, change to self.space.lookup(w_manager, "__await__")
+        return o
 
 
 class Coroutine(W_Root):
@@ -568,10 +572,7 @@ return next iterated value or raise StopIteration."""
                 block = block.previous
     
     def _GetAwaitableIter(self, o):
-        import pdb; pdb.set_trace()
-        if isinstance(o, Coroutine):
-            return o
-        getter = None
+        return o
         
 
 

@@ -1031,15 +1031,17 @@ class __extend__(pyframe.PyFrame):
 
     def YIELD_FROM(self, oparg, next_instr):
         from pypy.interpreter.astcompiler import consts
+        from pypy.interpreter.generator import Coroutine
         space = self.space
         w_value = self.popvalue()
         w_gen = self.peekvalue()
-        if (w_gen.descr_gi_code(w_gen).co_flags & consts.CO_COROUTINE and
-           not self.pycode.co_flags & (consts.CO_COROUTINE |
-                                   consts.CO_ITERABLE_COROUTINE)):
-            raise oefmt(self.space.w_TypeError,
-                        "cannot 'yield from' a coroutine object "
-                        "from a generator")
+        if isinstance(w_gen, Coroutine):
+            if (w_gen.descr_gi_code(w_gen).co_flags & consts.CO_COROUTINE and
+               not self.pycode.co_flags & (consts.CO_COROUTINE |
+                                       consts.CO_ITERABLE_COROUTINE)):
+                raise oefmt(self.space.w_TypeError,
+                            "cannot 'yield from' a coroutine object "
+                            "from a generator")
         try:
             if space.is_none(w_value):
                 w_retval = space.next(w_gen)
@@ -1424,13 +1426,15 @@ class __extend__(pyframe.PyFrame):
     
     def GET_YIELD_FROM_ITER(self, oparg, next_instr):
         from pypy.interpreter.astcompiler import consts
+        from pypy.interpreter.generator import Coroutine
         w_iterable = self.popvalue()
+        if isinstance(w_iterable, Coroutine):
+            if not self.pycode.co_flags & (consts.CO_COROUTINE |
+                                       consts.CO_ITERABLE_COROUTINE):
+                raise oefmt(self.space.w_TypeError,
+                            "cannot 'yield from' a coroutine object "
+                            "in a non-coroutine generator")
         w_iterator = self.space.iter(w_iterable)
-        if not self.pycode.co_flags & (consts.CO_COROUTINE |
-                                   consts.CO_ITERABLE_COROUTINE):
-            raise oefmt(self.space.w_TypeError,
-                        "cannot 'yield from' a coroutine object "
-                        "in a non-coroutine generator")
         self.pushvalue(w_iterator)
     
     def GET_AWAITABLE(self, oparg, next_instr):
@@ -1459,7 +1463,6 @@ class __extend__(pyframe.PyFrame):
     
     def GET_AITER(self, oparg, next_instr):
         w_iterable = self.popvalue()
-        import pdb; pdb.set_trace()
         self.pushvalue(w_iterable)
     
     def GET_ANEXT(self, oparg, next_instr):
