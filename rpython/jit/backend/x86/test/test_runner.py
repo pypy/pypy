@@ -590,11 +590,11 @@ class TestDebuggingAssembler(object):
             self.cpu.compile_loop(ops.inputargs, ops.operations, looptoken)
             self.cpu.execute_token(looptoken, 0)
             # check debugging info
-            struct = self.cpu.assembler.loop_run_counters[0]
+            struct = self.cpu.assembler.get_loop_run_counters(0)
             assert struct.i == 1
-            struct = self.cpu.assembler.loop_run_counters[1]
+            struct = self.cpu.assembler.get_loop_run_counters(1)
             assert struct.i == 1
-            struct = self.cpu.assembler.loop_run_counters[2]
+            struct = self.cpu.assembler.get_loop_run_counters(2)
             assert struct.i == 9
             self.cpu.finish_once()
         finally:

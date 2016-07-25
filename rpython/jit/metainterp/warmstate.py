@@ -6,6 +6,7 @@ from rpython.jit.metainterp import resoperation, history, jitexc
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.rlib.debug import have_debug_prints_for
 from rpython.rlib.jit import PARAMETERS
+from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.objectmodel import specialize, we_are_translated, r_dict
 from rpython.rlib.rarithmetic import intmask, r_uint
@@ -703,8 +704,35 @@ class WarmEnterState(object):
             drivername = jitdriver.name
         else:
             drivername = '<unknown jitdriver>'
-        get_location_ptr = self.jitdriver_sd._get_printable_location_ptr
-        if get_location_ptr is None:
+        # get_location returns 
+        get_location_ptr = getattr(self.jitdriver_sd, '_get_location_ptr', None)
+        if get_location_ptr is not None:
+            types = self.jitdriver_sd._get_loc_types
+            unwrap_greenkey = self.make_unwrap_greenkey()
+            unrolled_types = unrolling_iterable(enumerate(types))
+            def get_location(greenkey):
+                greenargs = unwrap_greenkey(greenkey)
+                fn = support.maybe_on_top_of_llinterp(rtyper, get_location_ptr)
+                value_tuple = fn(*greenargs)
+                values = []
+                for i, (sem_type,gen_type) in unrolled_types:
+                    if gen_type == "s":
+                        value = getattr(value_tuple, 'item' + str(i))
+                        values.append(jl.wrap(sem_type,gen_type,hlstr(value)))
+                    elif gen_type == "i":
+                        value = getattr(value_tuple, 'item' + str(i))
+                        values.append(jl.wrap(sem_type,gen_type,intmask(value)))
+                    else:
+                        raise NotImplementedError
+                return values
+            self.get_location_types = list(types)
+            self.get_location = get_location
+        else:
+            self.get_location_types = None
+            self.get_location = None
+        #
+        printable_loc_ptr = self.jitdriver_sd._get_printable_location_ptr
+        if printable_loc_ptr is None:
             missing = '(%s: no get_printable_location)' % drivername
             def get_location_str(greenkey):
                 return missing
@@ -720,7 +748,7 @@ class WarmEnterState(object):
                 if not have_debug_prints_for("jit-"):
                     return missing
                 greenargs = unwrap_greenkey(greenkey)
-                fn = support.maybe_on_top_of_llinterp(rtyper, get_location_ptr)
+                fn = support.maybe_on_top_of_llinterp(rtyper, printable_loc_ptr)
                 llres = fn(*greenargs)
                 if not we_are_translated() and isinstance(llres, str):
                     return llres
