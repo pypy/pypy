@@ -92,7 +92,12 @@ def commonprefix(a,b):
 
 @always_inline
 def encode_str(string):
-    return encode_le_32bit(len(string)) + string
+    val = len(string)
+    return ''.join([chr((val >> 0) & 0xff),
+                    chr((val >> 8) & 0xff),
+                    chr((val >> 16) & 0xff),
+                    chr((val >> 24) & 0xff),
+                    string])
 
 @always_inline
 def encode_le_16bit(val):
@@ -131,7 +136,7 @@ def encode_type(type, value):
     elif type == "i":
         return encode_le_32bit(value)
     elif type == "h":
-        return encode_le_32bit(value)
+        return encode_le_16bit(value)
     else:
         raise NotImplementedError
 
