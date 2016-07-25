@@ -413,11 +413,13 @@ def writeDbRecord(outfile, table):
             flags |= IS_DIGIT
         if char.decimal is not None:
             flags |= IS_DECIMAL
-        if char.category == "Lu":
+        if char.category == "Lu" or (table.upper_lower_from_properties and
+                                     "Uppercase" in char.properties):
             flags |= IS_UPPER
         if char.category == "Lt":
             flags |= IS_TITLE
-        if char.category == "Ll":
+        if char.category == "Ll" or (table.upper_lower_from_properties and
+                                     "Lowercase" in char.properties):
             flags |= IS_LOWER
         if char.mirrored:
             flags |= IS_MIRRORED
@@ -968,6 +970,7 @@ def main():
                  for (name, filename) in filenames.items())
 
     table = read_unicodedata(files)
+    table.upper_lower_from_properties = (options.unidata_version >= '6')
     print >> outfile, '# UNICODE CHARACTER DATABASE'
     print >> outfile, '# This file was generated with the command:'
     print >> outfile, '#    ', ' '.join(sys.argv)
