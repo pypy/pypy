@@ -55,9 +55,9 @@ class TestLogger(object):
         fd.close()
         logger.finish()
         binary = file.read()
-        assert binary == (jl.MARK_START_TRACE) + jl.encode_le_addr(0) + \
+        assert binary == (jl.MARK_START_TRACE) + jl.encode_le_addr(1) + \
                          jl.encode_str('loop') + jl.encode_le_addr(0) + \
-                         (jl.MARK_TRACE) + jl.encode_le_addr(0) + \
+                         (jl.MARK_TRACE) + jl.encode_le_64bit(1) + \
                          (jl.MARK_INPUT_ARGS) + jl.encode_str('') + \
                          (jl.MARK_INIT_MERGE_POINT) + b'\x05\x00\x01s\x00i\x08s\x00i\x10s' + \
                          (jl.MARK_MERGE_POINT) + \

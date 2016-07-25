@@ -436,7 +436,8 @@ class LogTrace(BaseLogTrace):
 
     def write(self, args, ops, ops_offset={}):
         log = self.logger
-        log._write_marked(self.tag, encode_le_64bit(self.logger.trace_id))
+        tid = self.logger.trace_id
+        log._write_marked(self.tag, encode_le_64bit(tid))
 
         # input args
         str_args = [self.var_to_str(arg) for arg in args]
