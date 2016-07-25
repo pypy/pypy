@@ -93,3 +93,7 @@ Rewrite the Win32 dependencies of 'subprocess' to use cffi instead
 of ctypes. This avoids importing ctypes in many small programs and
 scripts, which in turn avoids enabling threads (because ctypes
 creates callbacks at import time, and callbacks need threads).
+
+.. branch: new-jit-log
+
+The new logging facility that integrates with and adds features to vmprof.com.
