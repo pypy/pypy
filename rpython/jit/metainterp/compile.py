@@ -348,9 +348,8 @@ def compile_retrace(metainterp, greenkey, start,
     jitdriver_sd = metainterp.jitdriver_sd
     history = metainterp.history
     #
-    faildescr = resumekey.guard_op.getdescr()
     metainterp_sd.jitlog.start_new_trace(metainterp_sd,
-            faildescr=faildescr, entry_bridge=False)
+            faildescr=resumekey, entry_bridge=False)
     #
     loop_jitcell_token = metainterp.get_procedure_token(greenkey)
     assert loop_jitcell_token
@@ -1052,9 +1051,8 @@ def compile_trace(metainterp, resumekey, runtime_boxes):
     metainterp_sd = metainterp.staticdata
     jitdriver_sd = metainterp.jitdriver_sd
     #
-    resumekey.guard_op.getdescr()
     metainterp_sd.jitlog.start_new_trace(metainterp_sd,
-            faildescr=faildescr, entry_bridge=False)
+            faildescr=resumekey, entry_bridge=False)
     #
     if isinstance(resumekey, ResumeAtPositionDescr):
         inline_short_preamble = False
