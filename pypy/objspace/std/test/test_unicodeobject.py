@@ -978,10 +978,20 @@ class AppTestUnicodeString:
         raises(TypeError, 'u"".encode("utf-8", None)')
 
     def test_casefold(self):
-        assert 'hello'.casefold() == 'hello'
-        assert 'hELlo'.casefold() == 'hello'
-        assert 'ß'.casefold() == 'ss'
-        assert 'ﬁ'.casefold() == 'fi'
-        assert '\u03a3'.casefold() == '\u03c3'
-        assert 'A\u0345\u03a3'.casefold() == 'a\u03b9\u03c3'
-        assert '\u00b5'.casefold() == '\u03bc'
+        assert u'hello'.casefold() == u'hello'
+        assert u'hELlo'.casefold() == u'hello'
+        assert u'ß'.casefold() == u'ss'
+        assert u'ﬁ'.casefold() == u'fi'
+        assert u'\u03a3'.casefold() == u'\u03c3'
+        assert u'A\u0345\u03a3'.casefold() == u'a\u03b9\u03c3'
+        assert u'\u00b5'.casefold() == u'\u03bc'
+
+    def test_lower_3a3(self):
+        # Special case for GREEK CAPITAL LETTER SIGMA U+03A3
+        assert u'\u03a3'.lower() == u'\u03c3'
+        assert u'\u0345\u03a3'.lower() == u'\u0345\u03c3'
+        assert u'A\u0345\u03a3'.lower() == u'a\u0345\u03c2'
+        assert u'A\u0345\u03a3a'.lower() == u'a\u0345\u03c3a'
+        assert u'A\u0345\u03a3'.lower() == u'a\u0345\u03c2'
+        assert u'A\u03a3\u0345'.lower() == u'a\u03c2\u0345'
+        assert u'\u03a3\u0345 '.lower() == u'\u03c3\u0345 '

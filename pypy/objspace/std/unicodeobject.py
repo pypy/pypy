@@ -173,13 +173,42 @@ class W_UnicodeObject(W_Root):
         return u''.join([unichr(x) for x in
                          unicodedb.toupper_full(ord(ch))])
 
-    def _lower(self, ch):
+    def _lower_in_str(self, value, i):
+        ch = value[i]
+        if ord(ch) == 0x3A3:
+            # Obscure special case.
+            return self._handle_capital_sigma(value, i)
         return u''.join([unichr(x) for x in
                          unicodedb.tolower_full(ord(ch))])
 
     def _title(self, ch):
         return u''.join([unichr(x) for x in
                          unicodedb.totitle_full(ord(ch))])
+
+    def _handle_capital_sigma(self, value, i):
+        # U+03A3 is in the Final_Sigma context when, it is found like this:
+        #\p{cased} \p{case-ignorable}* U+03A3 not(\p{case-ignorable}* \p{cased})
+        # where \p{xxx} is a character with property xxx.
+        j = i - 1
+        while j >= 0:
+            ch = value[j]
+            if not unicodedb.iscaseignorable(ord(ch)):
+                break
+            j -= 1
+        final_sigma = j >= 0 and unicodedb.iscased(ord(ch))
+        if final_sigma:
+            j = i + 1
+            length = len(value)
+            while j < length:
+                ch = value[j]
+                if not unicodedb.iscaseignorable(ord(ch)):
+                    break
+                j += 1
+            final_sigma = j == length or not unicodedb.iscased(ord(ch))
+        if final_sigma:
+            return unichr(0x3C2)
+        else:
+            return unichr(0x3C3)
 
     def _newlist_unwrapped(self, space, lst):
         return space.newlist_unicode(lst)
