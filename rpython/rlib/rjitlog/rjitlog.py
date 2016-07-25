@@ -340,7 +340,7 @@ class JitLogger(object):
     def trace_aborted(self):
         if not jitlog_enabled():
             return
-        self._write_marked(MARK_ABORT_TRACE, encode_le_64bit(self.trace_id))
+        self._write_marked(MARK_ABORT_TRACE, encode_le_addr(self.trace_id))
 
     def _write_marked(self, mark, line):
         if not we_are_translated():
