@@ -305,7 +305,7 @@ class JitLogger(object):
     def __init__(self, cpu=None):
         self.cpu = cpu
         self.memo = {}
-        self.trace_id = -1
+        self.trace_id = 0
         self.metainterp_sd = None
         # legacy
         self.logger_ops = None
