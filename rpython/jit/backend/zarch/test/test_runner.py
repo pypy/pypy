@@ -26,4 +26,4 @@ class TestZARCH(LLtypeBackendTest):
 
     add_loop_instructions = "lg; lgr; larl; agr; cgfi; jge; j;$"
     bridge_loop_instructions = "lg; cgfi; jnl; lghi; " \
-                               "(lgfi|iilf);( iihf;)? (lgfi|iilf);( iihf;)? basr; larl; (lgfi|iilf);( iihf;)? br;$"
+                               "(lgfi|iilf);( iihf;)? (lgfi|iilf);( iihf;)? stg; basr; larl; (lgfi|iilf);( iihf;)? br;$"

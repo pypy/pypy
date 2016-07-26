@@ -78,7 +78,7 @@ def compile_extension_module(space, modname, include_dirs=[],
     else:
         libraries = []
         if sys.platform.startswith('linux'):
-            compile_extra = ["-Werror", "-g", "-O0", "-fPIC"]
+            compile_extra = ["-Werror", "-g", "-O0", "-Wp,-U_FORTIFY_SOURCE", "-fPIC"]
             link_extra = ["-g"]
         else:
             compile_extra = link_extra = None
@@ -129,6 +129,7 @@ def compile_extension_module_applevel(space, modname, include_dirs=[],
     return str(soname)
 
 def freeze_refcnts(self):
+    rawrefcount._dont_free_any_more()
     return #ZZZ
     state = self.space.fromcache(RefcountState)
     self.frozen_refcounts = {}

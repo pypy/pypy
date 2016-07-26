@@ -309,17 +309,15 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
 
         # signature of this _frame_realloc_slowpath function:
         #   * on entry, r0 is the new size
-        #   * on entry, r1 is the gcmap
         #   * no managed register must be modified
 
-        ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
-        mc.STG(r.SCRATCH, l.addr(ofs2, r.SPP))
+        # caller already did push_gcmap(store=True)
 
         self._push_core_regs_to_jitframe(mc, r.MANAGED_REGS)
         self._push_fp_regs_to_jitframe(mc)
 
 
-        # First argument is SPP (= r31), which is the jitframe
+        # First argument is SPP, which is the jitframe
         mc.LGR(r.r2, r.SPP)
 
         # no need to move second argument (frame_depth),
@@ -347,6 +345,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             mc.load(r.r5, r.r5, 0)
             mc.store(r.r2, r.r5, -WORD)
 
+        self.pop_gcmap(mc) # cancel the push_gcmap(store=True) in the caller
         self._pop_core_regs_from_jitframe(mc, r.MANAGED_REGS)
         self._pop_fp_regs_from_jitframe(mc)
 
@@ -386,14 +385,12 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # signature of these cond_call_slowpath functions:
         #   * on entry, r11 contains the function to call
         #   * r2, r3, r4, r5 contain arguments for the call
-        #   * r0 is the gcmap
+        #   * gcmap is pushed
         #   * the old value of these regs must already be stored in the jitframe
         #   * on exit, all registers are restored from the jitframe
 
         mc = InstrBuilder()
         self.mc = mc
-        ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
-        mc.STG(r.SCRATCH2, l.addr(ofs2,r.SPP))
         mc.store_link()
         mc.push_std_frame()
 
@@ -411,6 +408,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
                        reg is not r.r4 and
                        reg is not r.r5 and
                        reg is not r.r11]
+        # the caller already did push_gcmap(store=True)
         self._push_core_regs_to_jitframe(mc, regs)
         if supports_floats:
             self._push_fp_regs_to_jitframe(mc)
@@ -420,6 +418,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # Finish
         self._reload_frame_if_necessary(mc)
 
+        self.pop_gcmap(mc) # cancel the push_gcmap(store=True) in the caller
         self._pop_core_regs_from_jitframe(mc, saved_regs)
         if supports_floats:
             self._pop_fp_regs_from_jitframe(mc)
@@ -449,12 +448,11 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         mc.store_link()
         mc.push_std_frame()
         #
-        ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
-        mc.STG(r.r1, l.addr(ofs2, r.SPP))
         saved_regs = [reg for reg in r.MANAGED_REGS
                           if reg is not r.RES and reg is not r.RSZ]
         self._push_core_regs_to_jitframe(mc, saved_regs)
         self._push_fp_regs_to_jitframe(mc)
+        # the caller already did push_gcmap(store=True)
         #
         if kind == 'fixed':
             addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
@@ -588,7 +586,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         #       sum -> (14 bytes)
         mc.write('\x00'*14)
         mc.load_imm(r.RETURN, self._frame_realloc_slowpath)
-        self.load_gcmap(mc, r.r1, gcmap)
+        self.push_gcmap(mc, gcmap, store=True)
         mc.raw_call()
 
         self.frame_depth_to_patch.append((patch_pos, mc.currpos()))
@@ -685,6 +683,8 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         #    name = "Loop # %s: %s" % (looptoken.number, loopname)
         #    self.cpu.profile_agent.native_code_written(name,
         #                                               rawstart, full_size)
+        #print(hex(rawstart+looppos))
+        #import pdb; pdb.set_trace()
         return AsmInfo(ops_offset, rawstart + looppos,
                        size_excluding_failure_stuff - looppos, rawstart)
 
@@ -866,6 +866,10 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         self.load_gcmap(mc, r.SCRATCH, gcmap)
         ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
         mc.STG(r.SCRATCH, l.addr(ofs, r.SPP))
+
+    def pop_gcmap(self, mc):
+        ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
+        mc.LG(r.SCRATCH, l.addr(ofs, r.SPP))
 
     def break_long_loop(self):
         # If the loop is too long, the guards in it will jump forward
@@ -1339,7 +1343,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
 
         # new value of nursery_free_adr in RSZ and the adr of the new object
         # in RES.
-        self.load_gcmap(mc, r.r1, gcmap)
+        self.push_gcmap(mc, gcmap, store=True)
         mc.branch_absolute(self.malloc_slowpath)
 
         # here r1 holds nursery_free_addr
@@ -1375,7 +1379,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
 
         # new value of nursery_free_adr in RSZ and the adr of the new object
         # in RES.
-        self.load_gcmap(mc, r.r1, gcmap)
+        self.push_gcmap(mc, gcmap, store=True)
         mc.branch_absolute(self.malloc_slowpath)
 
         offset = mc.currpos() - fast_jmp_pos
@@ -1468,7 +1472,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         pmc.overwrite()
         #
         # save the gcmap
-        self.load_gcmap(mc, r.r1, gcmap)
+        self.push_gcmap(mc, gcmap, store=True)
         #
         # load the function into r14 and jump
         if kind == rewrite.FLAG_ARRAY:

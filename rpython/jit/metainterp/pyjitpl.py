@@ -829,8 +829,11 @@ class MIFrame(object):
                                        mutatefielddescr, orgpc):
         from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
         cpu = self.metainterp.cpu
+        if self.metainterp.heapcache.is_quasi_immut_known(fielddescr, box):
+            return
         descr = QuasiImmutDescr(cpu, box.getref_base(), fielddescr,
                                 mutatefielddescr)
+        self.metainterp.heapcache.quasi_immut_now_known(fielddescr, box)
         self.metainterp.history.record(rop.QUASIIMMUT_FIELD, [box],
                                        None, descr=descr)
         self.metainterp.generate_guard(rop.GUARD_NOT_INVALIDATED,
@@ -2540,7 +2543,13 @@ class MetaInterp(object):
             elif box.type == history.REF: args.append(box.getref_base())
             elif box.type == history.FLOAT: args.append(box.getfloatstorage())
             else: assert 0
-        self.jitdriver_sd.warmstate.execute_assembler(loop_token, *args)
+        res = self.jitdriver_sd.warmstate.execute_assembler(loop_token, *args)
+        kind = history.getkind(lltype.typeOf(res))
+        if kind == 'void':  raise jitexc.DoneWithThisFrameVoid()
+        if kind == 'int':   raise jitexc.DoneWithThisFrameInt(res)
+        if kind == 'ref':   raise jitexc.DoneWithThisFrameRef(self.cpu, res)
+        if kind == 'float': raise jitexc.DoneWithThisFrameFloat(res)
+        raise AssertionError(kind)
 
     def prepare_resume_from_failure(self, deadframe, inputargs, resumedescr):
         exception = self.cpu.grab_exc_value(deadframe)

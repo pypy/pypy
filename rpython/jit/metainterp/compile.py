@@ -620,23 +620,28 @@ class DoneWithThisFrameDescrVoid(_DoneWithThisFrameDescr):
         raise jitexc.DoneWithThisFrameVoid()
 
 class DoneWithThisFrameDescrInt(_DoneWithThisFrameDescr):
+    def get_result(self, cpu, deadframe):
+        return cpu.get_int_value(deadframe, 0)
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         assert jitdriver_sd.result_type == history.INT
-        result = metainterp_sd.cpu.get_int_value(deadframe, 0)
-        raise jitexc.DoneWithThisFrameInt(result)
+        cpu = metainterp_sd.cpu
+        raise jitexc.DoneWithThisFrameInt(self.get_result(cpu, deadframe))
 
 class DoneWithThisFrameDescrRef(_DoneWithThisFrameDescr):
+    def get_result(self, cpu, deadframe):
+        return cpu.get_ref_value(deadframe, 0)
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         assert jitdriver_sd.result_type == history.REF
         cpu = metainterp_sd.cpu
-        result = cpu.get_ref_value(deadframe, 0)
-        raise jitexc.DoneWithThisFrameRef(cpu, result)
+        raise jitexc.DoneWithThisFrameRef(cpu, self.get_result(cpu, deadframe))
 
 class DoneWithThisFrameDescrFloat(_DoneWithThisFrameDescr):
+    def get_result(self, cpu, deadframe):
+        return cpu.get_float_value(deadframe, 0)
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         assert jitdriver_sd.result_type == history.FLOAT
-        result = metainterp_sd.cpu.get_float_value(deadframe, 0)
-        raise jitexc.DoneWithThisFrameFloat(result)
+        cpu = metainterp_sd.cpu
+        raise jitexc.DoneWithThisFrameFloat(self.get_result(cpu, deadframe))
 
 class ExitFrameWithExceptionDescrRef(_DoneWithThisFrameDescr):
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):

@@ -171,10 +171,7 @@ def _setup_ctypes_cache():
             _length_ = 2
             @property
             def value(self):
-                if sys.byteorder == 'little':
-                    res = self[0] | (self[1] << 64)
-                else:
-                    res = self[1] | (self[0] << 64)
+                res = self[0] | (self[1] << 64)
                 if res >= (1 << 127):
                     res -= 1 << 128
                 return res

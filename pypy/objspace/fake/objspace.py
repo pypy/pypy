@@ -205,6 +205,9 @@ class FakeObjSpace(ObjSpace):
     def newbytes(self, x):
         return w_some_obj()
 
+    def newunicode(self, x):
+        return w_some_obj()
+
     def wrap(self, x):
         if not we_are_translated():
             if isinstance(x, gateway.interp2app):
