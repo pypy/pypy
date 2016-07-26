@@ -1,4 +1,5 @@
 import py
+import sys
 from rpython.jit.tool.oparser import pure_parse
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
 from rpython.jit.metainterp.resoperation import ResOperation, rop
@@ -51,9 +52,8 @@ class TestLogger(object):
         log_trace = logger.log_trace(jl.MARK_TRACE, None, None)
         op = ResOperation(rop.DEBUG_MERGE_POINT, [ConstInt(0), ConstInt(0), ConstInt(0)])
         log_trace.write([], [op])
-        #the next line will close 'fd'
+        #the next line will close 'fd', instead of logger.finish()
         fd.close()
-        logger.finish()
         binary = file.read()
         is_32bit = chr(sys.maxint == 2**31-1)
         assert binary == (jl.MARK_START_TRACE) + jl.encode_le_addr(1) + \
