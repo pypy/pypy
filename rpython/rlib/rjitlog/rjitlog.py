@@ -288,8 +288,8 @@ def assemble_header():
     is_32bit = chr(0x1)
     if not IS_32_BIT:
         is_32bit = chr(0x0)
-    content = [version, MARK_RESOP_META,
-               is_32bit, encode_le_16bit(count)]
+    content = [version, is_32bit, MARK_RESOP_META,
+               encode_le_16bit(count)]
     for opnum, opname in resoperations.opname.items():
         content.append(encode_le_16bit(opnum))
         content.append(encode_str(opname.lower()))
