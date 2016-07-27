@@ -8,14 +8,12 @@ from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
-from pypy.interpreter.error import OperationError, oefmt
-from rpython.rlib.rarithmetic import r_longlong, ovfcheck
+from pypy.interpreter.error import oefmt
+from rpython.rlib.rarithmetic import (
+    r_longlong, ovfcheck, ovfcheck_float_to_longlong)
 
 # Force the declaration of the type 'thread.LockType' for RPython
 #import pypy.module.thread.rpython.exttable
-
-LONGLONG_MAX = r_longlong(2 ** (r_longlong.BITS-1) - 1)
-TIMEOUT_MAX = LONGLONG_MAX
 
 RPY_LOCK_FAILURE, RPY_LOCK_ACQUIRED, RPY_LOCK_INTR = range(3)
 
@@ -31,10 +29,12 @@ def parse_acquire_args(space, blocking, timeout):
     elif timeout == -1.0:
         microseconds = -1
     else:
-        timeout *= 1e6
-        if timeout > float(TIMEOUT_MAX):
+        # 0.0 => 0.0, but otherwise tends to round up
+        timeout = timeout * 1e6 + 0.999
+        try:
+            microseconds = ovfcheck_float_to_longlong(timeout)
+        except OverflowError:
             raise oefmt(space.w_OverflowError, "timeout value is too large")
-        microseconds = r_longlong(timeout)
     return microseconds
 
 
@@ -47,7 +47,8 @@ def acquire_timed(space, lock, microseconds):
             # Run signal handlers if we were interrupted
             space.getexecutioncontext().checksignals()
             if microseconds >= 0:
-                microseconds = r_longlong(endtime - (time.time() * 1e6))
+                microseconds = r_longlong((endtime - (time.time() * 1e6))
+                                          + 0.999)
                 # Check for negative values, since those mean block
                 # forever
                 if microseconds <= 0:
@@ -172,7 +173,7 @@ class W_RLock(W_Root):
         the lock, the method will wait for the lock to be released,
         take it and then return True.
         (note: the blocking operation is not interruptible.)
-        
+
         In all other cases, the method will return True immediately.
         Precisely, if the current thread already holds the lock, its
         internal counter is simply incremented. If nobody holds the lock,
@@ -199,14 +200,14 @@ class W_RLock(W_Root):
             self.rlock_count = 1
 
         return space.wrap(r)
-            
+
 
     def release_w(self, space):
         """Release the lock, allowing another thread that is blocked waiting for
         the lock to acquire the lock.  The lock must be in the locked state,
         and must be locked by the same thread that unlocks it; otherwise a
         `RuntimeError` is raised.
-        
+
         Do note that if the lock was acquire()d several times in a row by the
         current thread, release() needs to be called as many times for the lock
         to be available for other threads."""

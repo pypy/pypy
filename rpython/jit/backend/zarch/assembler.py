@@ -32,6 +32,7 @@ from rpython.rlib.longlong2float import float2longlong
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
 from rpython.rlib.jit import AsmInfo
+from rpython.rlib.rjitlog import rjitlog as jl
 
 class JitFrameTooDeep(Exception):
     pass
@@ -356,9 +357,6 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         self.mc = None
 
     def _build_propagate_exception_path(self):
-        if not self.cpu.propagate_exception_descr:
-            return
-
         self.mc = InstrBuilder()
         #
         # read and reset the current exception
@@ -487,7 +485,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # Check that we don't get NULL; if we do, we always interrupt the
         # current loop, as a "good enough" approximation (same as
         # emit_call_malloc_gc()).
-        self.propagate_memoryerror_if_r2_is_null(True)
+        self.propagate_memoryerror_if_reg_is_null(r.r2, True)
 
         self._pop_core_regs_from_jitframe(mc, saved_regs)
         self._pop_fp_regs_from_jitframe(mc)
@@ -672,9 +670,16 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             looptoken._zarch_rawstart = rawstart
             looptoken._zarch_fullsize = full_size
             looptoken._zarch_ops_offset = ops_offset
+
         if logger:
-            logger.log_loop(inputargs, operations, 0, "rewritten",
-                            name=loopname, ops_offset=ops_offset)
+            log = logger.log_trace(jl.MARK_TRACE_ASM, None, self.mc)
+            log.write(inputargs, operations, ops_offset=ops_offset)
+
+            # legacy
+            if logger.logger_ops:
+                logger.logger_ops.log_loop(inputargs, operations, 0,
+                                           "rewritten", name=loopname,
+                                           ops_offset=ops_offset)
 
         self.fixup_target_tokens(rawstart)
         self.teardown()
@@ -739,9 +744,18 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         ops_offset = self.mc.ops_offset
         frame_depth = max(self.current_clt.frame_info.jfi_frame_depth,
                           frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
+
         if logger:
-            logger.log_bridge(inputargs, operations, "rewritten",
-                              ops_offset=ops_offset)
+            log = logger.log_trace(jl.MARK_TRACE_ASM, None, self.mc)
+            log.write(inputargs, operations, ops_offset)
+            # log that the already written bridge is stitched to a descr!
+            logger.log_patch_guard(descr_number, rawstart)
+
+            # legacy
+            if logger.logger_ops:
+                logger.logger_ops.log_bridge(inputargs, operations, "rewritten",
+                                          faildescr, ops_offset=ops_offset)
+
         self.fixup_target_tokens(rawstart)
         self.update_frame_depth(frame_depth)
         self.teardown()
@@ -797,12 +811,12 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             self.mc.BRC(condition, l.imm(off)) # branch over XGR
             self.mc.XGR(result_loc, result_loc)
 
-    def propagate_memoryerror_if_r2_is_null(self, pop_one_stackframe=False):
+    def propagate_memoryerror_if_reg_is_null(self, reg, pop_one_stackframe=False):
         # if self.propagate_exception_path == 0 (tests), this may jump to 0
         # and segfaults.  too bad.  the alternative is to continue anyway
-        # with r2==0, but that will segfault too.
+        # with reg==0, but that will segfault too.
         jmp_pos = self.mc.get_relative_pos()
-        # bails to propagate exception path if r2 != 0
+        # bails to propagate exception path if reg != 0
         self.mc.reserve_cond_jump()
 
         self.mc.load_imm(r.RETURN, self.propagate_exception_path)
@@ -812,7 +826,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
 
         curpos = self.mc.currpos()
         pmc = OverwritingBuilder(self.mc, jmp_pos, 1)
-        pmc.CGIJ(r.r2, l.imm(0), c.NE, l.imm(curpos - jmp_pos))
+        pmc.CGIJ(reg, l.imm(0), c.NE, l.imm(curpos - jmp_pos))
         pmc.overwrite()
 
     def regalloc_push(self, loc, already_pushed):

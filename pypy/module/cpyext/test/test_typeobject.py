@@ -710,7 +710,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         x = list(it)
         assert x == [1]
 
-    def test_bool(self):
+    def test_intlike(self):
         module = self.import_extension('foo', [
             ("newInt", "METH_VARARGS",
              """
@@ -720,10 +720,6 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 if (!PyArg_ParseTuple(args, "i", &intval))
                     return NULL;
 
-                IntLike_Type.tp_flags |= Py_TPFLAGS_DEFAULT;
-                IntLike_Type.tp_as_number = &intlike_as_number;
-                intlike_as_number.nb_bool = intlike_nb_bool;
-                if (PyType_Ready(&IntLike_Type) < 0) return NULL;
                 intObj = PyObject_New(IntLikeObject, &IntLike_Type);
                 if (!intObj) {
                     return NULL;
@@ -731,8 +727,23 @@ class AppTestSlots(AppTestCpythonExtensionBase):
 
                 intObj->value = intval;
                 return (PyObject *)intObj;
-             """)],
-            """
+             """),
+            ("check", "METH_VARARGS", """
+                IntLikeObject *intObj;
+                int intval, isint;
+
+                if (!PyArg_ParseTuple(args, "i", &intval))
+                    return NULL;
+                intObj = PyObject_New(IntLikeObject, &IntLike_Type);
+                if (!intObj) {
+                    return NULL;
+                }
+                intObj->value = intval;
+                isint = PyNumber_Check((PyObject*)intObj);
+                Py_DECREF((PyObject*)intObj);
+                return PyLong_FromLong(isint);
+            """),
+            ], prologue= """
             typedef struct
             {
                 PyObject_HEAD
@@ -751,6 +762,13 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 return v->value;
             }
 
+            static PyObject*
+            intlike_nb_int(PyObject* o)
+            {
+                IntLikeObject *v = (IntLikeObject*)o;
+                return PyLong_FromLong(v->value);
+            }
+
             PyTypeObject IntLike_Type = {
                 PyObject_HEAD_INIT(0)
                 /*ob_size*/             0,
@@ -758,11 +776,19 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 /*tp_basicsize*/        sizeof(IntLikeObject),
             };
             static PyNumberMethods intlike_as_number;
+            """, more_init="""
+            IntLike_Type.tp_flags |= Py_TPFLAGS_DEFAULT;
+            IntLike_Type.tp_as_number = &intlike_as_number;
+            intlike_as_number.nb_bool = intlike_nb_nonzero;
+            intlike_as_number.nb_int = intlike_nb_int;
+            PyType_Ready(&IntLike_Type);
             """)
         assert not bool(module.newInt(0))
         assert bool(module.newInt(1))
         raises(SystemError, bool, module.newInt(-1))
         raises(ValueError, bool, module.newInt(-42))
+        val = module.check(10);
+        assert val == 1
 
     def test_mathfunc(self):
         module = self.import_extension('foo', [

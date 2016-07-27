@@ -377,10 +377,12 @@ In more details:
 * If the bug involves Closed Source components, or just too many Open
   Source components to install them all ourselves, then maybe you can
   give us some temporary ssh access to a machine where the bug can be
-  reproduced.
+  reproduced.  Or, maybe we can download a VirtualBox or VMWare
+  virtual machine where the problem occurs.
 
-* If giving us access would require us to sign a NDA, then we can
-  consider a commerical support contract for a small sum of money.
+* If giving us access would require us to use tools other than ssh,
+  make appointments, or sign a NDA, then we can consider a commerical
+  support contract for a small sum of money.
 
 * If even that is not possible for you, then sorry, we can't help.
 

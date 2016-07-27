@@ -7,6 +7,7 @@ from rpython.jit.metainterp.optimizeopt.vstring import OptString
 from rpython.jit.metainterp.optimizeopt.simplify import OptSimplify
 from rpython.jit.metainterp.optimizeopt.pure import OptPure
 from rpython.jit.metainterp.optimizeopt.earlyforce import OptEarlyForce
+from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.rlib.jit import PARAMETERS, ENABLE_ALL_OPTS
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
@@ -53,6 +54,9 @@ def optimize_trace(metainterp_sd, jitdriver_sd, compile_data, memo=None):
     """
     debug_start("jit-optimize")
     try:
+        # mark that a new trace has been started
+        log = metainterp_sd.jitlog.log_trace(jl.MARK_TRACE, metainterp_sd, None)
+        log.write_trace(compile_data.trace)
         if compile_data.log_noopt:
             metainterp_sd.logger_noopt.log_loop_from_trace(compile_data.trace, memo=memo)
         if memo is None:

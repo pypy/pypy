@@ -397,7 +397,7 @@ class DescrOperation(object):
                 if not e.match(space, space.w_StopIteration):
                     raise
                 return space.w_False
-            if space.eq_w(w_next, w_item):
+            if space.eq_w(w_item, w_next):
                 return space.w_True
 
     def sequence_count(space, w_container, w_item):
@@ -467,21 +467,6 @@ class DescrOperation(object):
     @specialize.arg_or_var(2)
     def isinstance(space, w_inst, w_type):
         return space.wrap(space.isinstance_w(w_inst, w_type))
-
-    def issubtype_allow_override(space, w_sub, w_type):
-        w_check = space.lookup(w_type, "__subclasscheck__")
-        if w_check is None:
-            raise oefmt(space.w_TypeError, "issubclass not supported here")
-        return space.get_and_call_function(w_check, w_type, w_sub)
-
-    def isinstance_allow_override(space, w_inst, w_type):
-        if space.type(w_inst) is w_type:
-            return space.w_True # fast path copied from cpython
-        w_check = space.lookup(w_type, "__instancecheck__")
-        if w_check is not None:
-            return space.get_and_call_function(w_check, w_type, w_inst)
-        else:
-            return space.isinstance(w_inst, w_type)
 
 
 # helpers

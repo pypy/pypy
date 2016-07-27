@@ -12,6 +12,7 @@ from rpython.jit.codewriter.policy import StopAtXPolicy
 from rpython.config.config import ConfigError
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib.rjitlog import rjitlog as jl
 
 
 class TranslationTest(CCompiledMixin):
@@ -40,7 +41,7 @@ class TranslationTest(CCompiledMixin):
 
         eci = ExternalCompilationInfo(post_include_bits=['''
 #define pypy_my_fabs(x)  fabs(x)
-'''])
+'''], includes=['math.h'])
         myabs1 = rffi.llexternal('pypy_my_fabs', [lltype.Float],
                                  lltype.Float, macro=True, releasegil=False,
                                  compilation_info=eci)
@@ -48,9 +49,16 @@ class TranslationTest(CCompiledMixin):
                                  lltype.Float, macro=True, releasegil=True,
                                  compilation_info=eci)
 
+        @jl.returns(jl.MP_FILENAME,
+                    jl.MP_LINENO,
+                    jl.MP_INDEX)
+        def get_location():
+            return ("/home.py",0,0)
+
         jitdriver = JitDriver(greens = [],
                               reds = ['total', 'frame', 'j'],
-                              virtualizables = ['frame'])
+                              virtualizables = ['frame'],
+                              get_location = get_location)
         def f(i, j):
             for param, _ in unroll_parameters:
                 defl = PARAMETERS[param]
@@ -233,6 +241,23 @@ class TranslationTestJITStats(CCompiledMixin):
         assert res == 2
         # one for loop and one for the prologue, no unrolling
 
+    def test_flush_trace_counts(self):
+        driver = JitDriver(greens = [], reds = ['i'])
+
+        def f():
+            i = 0
+            while i < 100000:
+                driver.jit_merge_point(i=i)
+                i += 1
+
+        def main():
+            jit_hooks.stats_set_debug(None, True)
+            f()
+            jl.stats_flush_trace_counts(None)
+            return 0
+
+        res = self.meta_interp(main, [])
+        assert res == 0
 
 class TranslationRemoveTypePtrTest(CCompiledMixin):
     CPUClass = getcpuclass()

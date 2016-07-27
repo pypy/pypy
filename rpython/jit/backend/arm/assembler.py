@@ -14,7 +14,7 @@ from rpython.jit.backend.arm.regalloc import (Regalloc,
     CoreRegisterManager, check_imm_arg, VFPRegisterManager,
     operations as regalloc_operations)
 from rpython.jit.backend.llsupport import jitframe, rewrite
-from rpython.jit.backend.llsupport.assembler import DEBUG_COUNTER, BaseAssembler
+from rpython.jit.backend.llsupport.assembler import BaseAssembler
 from rpython.jit.backend.llsupport.regalloc import get_scale, valid_addressing_size
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.model import CompiledLoopToken
@@ -29,6 +29,7 @@ from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.jit.backend.arm import callbuilder
 from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rlib.rjitlog import rjitlog as jl
 
 class AssemblerARM(ResOpAssembler):
 
@@ -82,9 +83,6 @@ class AssemblerARM(ResOpAssembler):
         self.failure_recovery_code = [0, 0, 0, 0]
 
     def _build_propagate_exception_path(self):
-        if not self.cpu.propagate_exception_descr:
-            return      # not supported (for tests, or non-translated)
-        #
         mc = InstrBuilder(self.cpu.cpuinfo.arch_version)
         self._store_and_reset_exception(mc, r.r0)
         ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
@@ -372,9 +370,9 @@ class AssemblerARM(ResOpAssembler):
             self._write_barrier_fastpath(mc, wbdescr, [r.fp], array=False,
                                          is_frame=True)
 
-    def propagate_memoryerror_if_r0_is_null(self):
-        # see ../x86/assembler.py:propagate_memoryerror_if_eax_is_null
-        self.mc.CMP_ri(r.r0.value, 0)
+    def propagate_memoryerror_if_reg_is_null(self, reg_loc):
+        # see ../x86/assembler.py:genop_discard_check_memory_error()
+        self.mc.CMP_ri(reg_loc.value, 0)
         self.mc.B(self.propagate_exception_path, c=c.EQ)
 
     def _push_all_regs_to_jitframe(self, mc, ignored_regs, withfloats,
@@ -636,9 +634,17 @@ class AssemblerARM(ResOpAssembler):
                     'loop.asm')
 
         ops_offset = self.mc.ops_offset
-        if logger is not None:
-            logger.log_loop(inputargs, operations, 0, "rewritten",
-                            name=loopname, ops_offset=ops_offset)
+
+        if logger:
+            log = logger.log_trace(jl.MARK_TRACE_ASM, None, self.mc)
+            log.write(inputargs, operations, ops_offset=ops_offset)
+
+            # legacy
+            if logger.logger_ops:
+                logger.logger_ops.log_loop(inputargs, operations, 0,
+                                           "rewritten", name=loopname,
+                                           ops_offset=ops_offset)
+
         self.teardown()
 
         debug_start("jit-backend-addr")
@@ -738,9 +744,18 @@ class AssemblerARM(ResOpAssembler):
                           frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
         self.fixup_target_tokens(rawstart)
         self.update_frame_depth(frame_depth)
+
         if logger:
-            logger.log_bridge(inputargs, operations, "rewritten", faildescr,
-                              ops_offset=ops_offset)
+            log = logger.log_trace(jl.MARK_TRACE_ASM, None, self.mc)
+            log.write(inputargs, operations, ops_offset)
+            # log that the already written bridge is stitched to a descr!
+            logger.log_patch_guard(descr_number, rawstart)
+
+            # legacy
+            if logger.logger_ops:
+                logger.logger_ops.log_bridge(inputargs, operations, "rewritten",
+                                          faildescr, ops_offset=ops_offset)
+
         self.teardown()
 
         return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos)

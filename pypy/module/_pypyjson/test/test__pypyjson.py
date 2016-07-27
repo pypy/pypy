@@ -183,6 +183,12 @@ class AppTest(object):
         res = _pypyjson.loads('"z\\ud834\\udd20x"')
         assert res == expected
 
+    def test_surrogate_pair(self):
+        import _pypyjson
+        json = '{"a":"\\uD83D"}'
+        res = _pypyjson.loads(json)
+        assert res == {u'a': u'\ud83d'}
+
     def test_tab_in_string_should_fail(self):
         import _pypyjson
         # http://json.org/JSON_checker/test/fail25.json

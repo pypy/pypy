@@ -2604,6 +2604,13 @@ array_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 }
 
 
+static PyObject *
+switch_multiply(void)
+{
+    Arraytype.tp_as_number->nb_multiply = array_base_multiply;
+    Py_RETURN_NONE;
+};
+
 PyDoc_STRVAR(module_doc,
 "This module defines an object type which can efficiently represent\n\
 an array of basic values: characters, integers, floating point\n\
@@ -2855,6 +2862,7 @@ static PyTypeObject PyArrayIter_Type = {
 static PyMethodDef a_methods[] = {
     {"_array_reconstructor", array_reconstructor, METH_VARARGS,
      PyDoc_STR("Internal. Used for pickling support.")},
+    {"switch_multiply",   (PyCFunction)switch_multiply, METH_NOARGS, NULL},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
