@@ -800,7 +800,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             IntLike_Type.tp_as_number = &intlike_as_number;
             intlike_as_number.nb_nonzero = intlike_nb_nonzero;
             intlike_as_number.nb_int = intlike_nb_int;
-            if (PyType_Ready(&IntLike_Type) < 0) return NULL;
+            PyType_Ready(&IntLike_Type);
             """)
         assert not bool(module.newInt(0))
         assert bool(module.newInt(1))

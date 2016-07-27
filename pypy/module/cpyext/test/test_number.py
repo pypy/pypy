@@ -151,7 +151,6 @@ class AppTestCNumber(AppTestCpythonExtensionBase):
              '''
                 PyObject *obj = PyTuple_GET_ITEM(args, 0);
                 int val = PyNumber_Check(obj);
-                Py_DECREF(obj);
                 return PyInt_FromLong(val);
             ''')])
         val = mod.test_PyNumber_Check(10)
