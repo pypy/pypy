@@ -960,5 +960,5 @@ elif _MS_WINDOWS:
             rffi.cast(rffi.SIZE_T, map_size),
             rffi.cast(DWORD, MEM_RESET),
             rffi.cast(DWORD, PAGE_READWRITE))
-        from rpython.rlib import debug
-        debug.debug_print("madvise_free:", r)
+        #from rpython.rlib import debug
+        #debug.debug_print("madvise_free:", r)

@@ -153,7 +153,7 @@ class W_AbstractTupleObject(W_Root):
     @jit.unroll_safe
     def _descr_contains_unroll_safe(self, space, w_obj):
         for w_item in self.tolist():
-            if space.eq_w(w_item, w_obj):
+            if space.eq_w(w_obj, w_item):
                 return space.w_True
         return space.w_False
 
@@ -161,7 +161,7 @@ class W_AbstractTupleObject(W_Root):
         tp = space.type(w_obj)
         for w_item in self.tolist():
             contains_jmp.jit_merge_point(tp=tp)
-            if space.eq_w(w_item, w_obj):
+            if space.eq_w(w_obj, w_item):
                 return space.w_True
         return space.w_False
 

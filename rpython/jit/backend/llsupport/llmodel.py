@@ -110,7 +110,7 @@ class AbstractLLCPU(AbstractCPU):
                      unique_id=0, log=True, name='', logger=None):
         return self.assembler.assemble_loop(jd_id, unique_id, logger, name,
                                             inputargs, operations,
-                                            looptoken, log=log)
+                                            looptoken, log)
 
     def stitch_bridge(self, faildescr, target):
         self.assembler.stitch_bridge(faildescr, target)

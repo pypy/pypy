@@ -37,6 +37,7 @@ from rpython.jit.backend.ppc import callbuilder
 from rpython.rlib.jit import AsmInfo
 from rpython.rlib.objectmodel import compute_unique_id
 from rpython.rlib.rarithmetic import r_uint
+from rpython.rlib.rjitlog import rjitlog as jl
 
 memcpy_fn = rffi.llexternal('memcpy', [llmemory.Address, llmemory.Address,
                                        rffi.SIZE_T], lltype.Void,
@@ -795,9 +796,16 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
             looptoken._ppc_fullsize = full_size
             looptoken._ppc_ops_offset = ops_offset
         looptoken._ll_function_addr = rawstart
+
         if logger:
-            logger.log_loop(inputargs, operations, 0, "rewritten",
-                            name=loopname, ops_offset=ops_offset)
+            log = logger.log_trace(jl.MARK_TRACE_ASM, None, self.mc)
+            log.write(inputargs, operations, ops_offset=ops_offset)
+
+            # legacy
+            if logger.logger_ops:
+                logger.logger_ops.log_loop(inputargs, operations, 0,
+                                           "rewritten", name=loopname,
+                                           ops_offset=ops_offset)
 
         self.fixup_target_tokens(rawstart)
         self.teardown()
@@ -868,9 +876,18 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         ops_offset = self.mc.ops_offset
         frame_depth = max(self.current_clt.frame_info.jfi_frame_depth,
                           frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
+
         if logger:
-            logger.log_bridge(inputargs, operations, "rewritten",
-                              ops_offset=ops_offset)
+            log = logger.log_trace(jl.MARK_TRACE_ASM, None, self.mc)
+            log.write(inputargs, operations, ops_offset)
+            # log that the already written bridge is stitched to a descr!
+            logger.log_patch_guard(descr_number, rawstart)
+
+            # legacy
+            if logger.logger_ops:
+                logger.logger_ops.log_bridge(inputargs, operations, "rewritten",
+                                          faildescr, ops_offset=ops_offset)
+
         self.fixup_target_tokens(rawstart)
         self.update_frame_depth(frame_depth)
         self.teardown()

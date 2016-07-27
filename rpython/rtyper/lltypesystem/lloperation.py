@@ -541,17 +541,17 @@ LL_OPERATIONS = {
     'threadlocalref_enum':  LLOp(sideeffects=False),  # enum all threadlocalrefs
 
     # __________ debugging __________
-    'debug_view':           LLOp(),
-    'debug_print':          LLOp(canrun=True),
-    'debug_start':          LLOp(canrun=True),
-    'debug_stop':           LLOp(canrun=True),
-    'have_debug_prints':    LLOp(canrun=True),
-    'have_debug_prints_for':LLOp(canrun=True),
-    'debug_offset':         LLOp(canrun=True),
-    'debug_flush':          LLOp(canrun=True),
-    'debug_assert':         LLOp(tryfold=True),
-    'debug_fatalerror':     LLOp(canrun=True),
-    'debug_llinterpcall':   LLOp(canraise=(Exception,)),
+    'debug_view':               LLOp(),
+    'debug_print':              LLOp(canrun=True),
+    'debug_start':              LLOp(canrun=True),
+    'debug_stop':               LLOp(canrun=True),
+    'have_debug_prints':        LLOp(canrun=True),
+    'have_debug_prints_for':    LLOp(canrun=True),
+    'debug_offset':             LLOp(canrun=True),
+    'debug_flush':              LLOp(canrun=True),
+    'debug_assert':             LLOp(tryfold=True),
+    'debug_fatalerror':         LLOp(canrun=True),
+    'debug_llinterpcall':       LLOp(canraise=(Exception,)),
                                     # Python func call 'res=arg[0](*arg[1:])'
                                     # in backends, abort() or whatever is fine
     'debug_start_traceback':   LLOp(),

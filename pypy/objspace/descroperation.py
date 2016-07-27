@@ -409,7 +409,7 @@ class DescrOperation(object):
                 if not e.match(space, space.w_StopIteration):
                     raise
                 return space.w_False
-            if space.eq_w(w_next, w_item):
+            if space.eq_w(w_item, w_next):
                 return space.w_True
 
     def hash(space, w_obj):
@@ -425,17 +425,25 @@ class DescrOperation(object):
                         "'%T' objects are unhashable", w_obj)
         w_result = space.get_and_call_function(w_hash, w_obj)
         w_resulttype = space.type(w_result)
+
+        # issue 2346 : returns now -2 for hashing -1 like cpython
         if space.is_w(w_resulttype, space.w_int):
+            if space.int_w(w_result) == -1:
+                return space.wrap(-2)
             return w_result
-        elif space.is_w(w_resulttype, space.w_long):
-            return space.hash(w_result)
         elif space.isinstance_w(w_result, space.w_int):
             # be careful about subclasses of 'int'...
-            return space.wrap(space.int_w(w_result))
+            int_result = space.int_w(w_result)
+            if int_result == -1:
+                int_result == -2
+            return space.wrap(int_result)
         elif space.isinstance_w(w_result, space.w_long):
             # be careful about subclasses of 'long'...
             bigint = space.bigint_w(w_result)
-            return space.wrap(bigint.hash())
+            h = bigint.hash()
+            if h == -1:
+                h = -2
+            return space.wrap(h)
         else:
             raise oefmt(space.w_TypeError,
                         "__hash__() should return an int or long")

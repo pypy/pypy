@@ -32,6 +32,7 @@ from rpython.rlib.longlong2float import float2longlong
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
 from rpython.rlib.jit import AsmInfo
+from rpython.rlib.rjitlog import rjitlog as jl
 
 class JitFrameTooDeep(Exception):
     pass
@@ -669,9 +670,16 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             looptoken._zarch_rawstart = rawstart
             looptoken._zarch_fullsize = full_size
             looptoken._zarch_ops_offset = ops_offset
+
         if logger:
-            logger.log_loop(inputargs, operations, 0, "rewritten",
-                            name=loopname, ops_offset=ops_offset)
+            log = logger.log_trace(jl.MARK_TRACE_ASM, None, self.mc)
+            log.write(inputargs, operations, ops_offset=ops_offset)
+
+            # legacy
+            if logger.logger_ops:
+                logger.logger_ops.log_loop(inputargs, operations, 0,
+                                           "rewritten", name=loopname,
+                                           ops_offset=ops_offset)
 
         self.fixup_target_tokens(rawstart)
         self.teardown()
@@ -736,9 +744,18 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         ops_offset = self.mc.ops_offset
         frame_depth = max(self.current_clt.frame_info.jfi_frame_depth,
                           frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
+
         if logger:
-            logger.log_bridge(inputargs, operations, "rewritten",
-                              ops_offset=ops_offset)
+            log = logger.log_trace(jl.MARK_TRACE_ASM, None, self.mc)
+            log.write(inputargs, operations, ops_offset)
+            # log that the already written bridge is stitched to a descr!
+            logger.log_patch_guard(descr_number, rawstart)
+
+            # legacy
+            if logger.logger_ops:
+                logger.logger_ops.log_bridge(inputargs, operations, "rewritten",
+                                          faildescr, ops_offset=ops_offset)
+
         self.fixup_target_tokens(rawstart)
         self.update_frame_depth(frame_depth)
         self.teardown()
