@@ -871,8 +871,15 @@ def _new_int(space, w_inttype, w_x, w_base=None):
             return _from_intlike(space, w_inttype, space.trunc(w_value))
         elif space.isinstance_w(w_value, space.w_unicode):
             from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
-            return _string_to_int_or_long(space, w_inttype, w_value,
-                                          unicode_to_decimal_w(space, w_value))
+            try:
+                b = unicode_to_decimal_w(space, w_value)
+            except OperationError as e:
+                if not e.match(space, space.w_UnicodeEncodeError):
+                    raise
+                raise oefmt(space.w_ValueError,
+                            "int() called with a string containing a "
+                            "lone surrogate")
+            return _string_to_int_or_long(space, w_inttype, w_value, b)
         elif (space.isinstance_w(w_value, space.w_bytearray) or
               space.isinstance_w(w_value, space.w_bytes)):
             return _string_to_int_or_long(space, w_inttype, w_value,
