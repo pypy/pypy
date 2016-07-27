@@ -585,12 +585,12 @@ class AppTestItertools:
         assert list(b) == ['a', 'b', 'c']
         assert list(c) == ['a', 'b', 'c']
         a, = itertools.tee('abc', 1)
-        x = a.next()
+        x = next(a)
         assert x == 'a'
         b = a.__copy__()
-        x = a.next()
+        x = next(a)
         assert x == 'b'
-        x = b.next()
+        x = next(b)
         assert x == 'b'
 
     def test_tee_function_uses_copy(self):

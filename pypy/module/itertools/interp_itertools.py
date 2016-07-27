@@ -844,7 +844,7 @@ class W_TeeChainedListNode(W_Root):
     def __init__(self, space):
         self.w_next = None
         self.w_obj = None
-    
+
     def reduce_w(self, space):
         list_w = []
         node = self
@@ -912,7 +912,7 @@ class W_TeeIterable(W_Root):
 
     def copy_w(self):
         space = self.space
-        tee_iter = W_TeeIterable(space, self.w_iterator, self.chained_list)
+        tee_iter = W_TeeIterable(space, self.w_iterator, self.w_chained_list)
         return space.wrap(tee_iter)
 
     def reduce_w(self):
@@ -921,7 +921,7 @@ class W_TeeIterable(W_Root):
                                     self.space.newtuple([
                                         self.w_iterator,
                                         self.w_chained_list])
-                                    ]) 
+                                    ])
     def setstate_w(self, w_state):
         state = self.space.unpackiterable(w_state)
         num_args = len(state)

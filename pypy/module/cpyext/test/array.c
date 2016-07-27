@@ -2374,15 +2374,11 @@ array_base_multiply(PyObject* obj1, PyObject* obj2)
         int nn;
         int n = PyList_Size(obj1);
         PyObject *v = getarrayitem(obj2, 0);
-        int i = ((PyIntObject*)v)->ob_ival;
         PyObject * ret = PyList_New(n);
         for (nn = 0; nn < n; nn++)
         {
             v = PyList_GetItem(obj1, nn);
-            if (PyInt_Check(v))
-                PyList_SetItem(ret, nn, PyLong_FromLong(i * ((PyIntObject*)v)->ob_ival));
-            else
-                PyList_SetItem(ret, nn, v);
+            PyList_SetItem(ret, nn, v);
         }
         return ret;
     }
@@ -2391,15 +2387,11 @@ array_base_multiply(PyObject* obj1, PyObject* obj2)
         int nn;
         int n = PyList_Size(obj2);
         PyObject *v = getarrayitem(obj1, 0);
-        int i = ((PyIntObject*)v)->ob_ival;
         PyObject * ret = PyList_New(n);
         for (nn = 0; nn < n; nn++)
         {
             v = PyList_GetItem(obj2, nn);
-            if (PyInt_Check(v))
-                PyList_SetItem(ret, nn, PyLong_FromLong(i * ((PyIntObject*)v)->ob_ival));
-            else
-                PyList_SetItem(ret, nn, v);
+            PyList_SetItem(ret, nn, v);
         }
         return ret;
     }
@@ -2898,7 +2890,7 @@ PyInit_array(void)
         return NULL;
 
     if (PyType_Ready(&ArrayBasetype) < 0)
-        return;
+        return NULL;
     PyModule_AddObject(m, "ArrayType", (PyObject *)&Arraytype);
     PyModule_AddObject(m, "array", (PyObject *)&Arraytype);
     PyModule_AddObject(m, "arraybase", (PyObject *)&ArrayBasetype);
