@@ -190,21 +190,24 @@ class W_UnicodeObject(W_Root):
         #\p{cased} \p{case-ignorable}* U+03A3 not(\p{case-ignorable}* \p{cased})
         # where \p{xxx} is a character with property xxx.
         j = i - 1
+        final_sigma = False
         while j >= 0:
             ch = value[j]
-            if not unicodedb.iscaseignorable(ord(ch)):
-                break
-            j -= 1
-        final_sigma = j >= 0 and unicodedb.iscased(ord(ch))
+            if unicodedb.iscaseignorable(ord(ch)):
+                j -= 1
+                continue
+            final_sigma = unicodedb.iscased(ord(ch))
+            break
         if final_sigma:
             j = i + 1
             length = len(value)
             while j < length:
                 ch = value[j]
-                if not unicodedb.iscaseignorable(ord(ch)):
-                    break
-                j += 1
-            final_sigma = j == length or not unicodedb.iscased(ord(ch))
+                if unicodedb.iscaseignorable(ord(ch)):
+                    j += 1
+                    continue
+                final_sigma = not unicodedb.iscased(ord(ch))
+                break
         if final_sigma:
             return unichr(0x3C2)
         else:
