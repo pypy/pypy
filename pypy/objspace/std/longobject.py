@@ -404,8 +404,7 @@ def _hash_long(space, v):
         while x >= HASH_MODULUS:
             x -= HASH_MODULUS
         i -= 1
-    x = intmask(intmask(x) * v.sign)
-    return -2 if x == -1 else x
+    return intmask(intmask(x) * v.sign)
 
 
 def newlong(space, bigint):

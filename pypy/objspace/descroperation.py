@@ -450,14 +450,14 @@ class DescrOperation(object):
             if space.int_w(w_result) == -1:
                 return space.wrap(-2)
             return w_result
-        elif isinstance(w_result, W_IntObject):
-            result = space.int_w(w_result)
-            if result == -1:
-                result = -2
-            return space.newint(result)
-        # a non W_IntObject int, assume long-like
-        assert isinstance(w_result, W_AbstractIntObject)
-        return w_result.descr_hash(space)
+        if not isinstance(w_result, W_IntObject):
+            # a non W_IntObject int, assume long-like
+            assert isinstance(w_result, W_AbstractIntObject)
+            w_result = w_result.descr_hash(space)
+        result = space.int_w(w_result)
+        if result == -1:
+            result = -2
+        return space.newint(result)
 
     def issubtype_w(space, w_sub, w_type):
         return space._type_issubtype(w_sub, w_type)
