@@ -276,7 +276,7 @@ bool operator!=( const some_comparable& c1, const some_comparable& c2 );
 //===========================================================================
 extern double my_global_double;    // a couple of globals for access testing
 extern double my_global_array[500];
-
+extern double* my_global_ptr;
 
 //===========================================================================
 class some_class_with_data {       // for life-line and identity testing

@@ -956,6 +956,7 @@ std::string Cppyy::GetDatamemberType( TCppScope_t scope, TCppIndex_t idata )
       TGlobal* gbl = g_globalvars[ idata ];
       std::string fullType = gbl->GetFullTypeName();
       if ( fullType[fullType.size()-1] == '*' && \
+           !dynamic_cast<TGlobalMappedFunction*>(gbl) && \
            fullType.find( "char", 0, 4 ) == std::string::npos )
          fullType.append( "*" );
       else if ( (int)gbl->GetArrayDim() > 1 )
