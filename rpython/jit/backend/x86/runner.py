@@ -64,10 +64,6 @@ class AbstractX86CPU(AbstractLLCPU):
         if self.HAS_CODEMAP:
             self.codemap.setup()
         self.assembler.setup_once()
-        if self.vector_ext:
-            # TODO
-            pass
-            #self.vector_ext.
 
     @rgc.no_release_gil
     def finish_once(self):

@@ -59,7 +59,7 @@ class VectorAssemblerMixin(object):
         assert isinstance(arg, VectorOp)
         size = arg.bytesize
         temp = X86_64_XMM_SCRATCH_REG
-        load = arg.bytesize * arg.count - self.cpu.vector_register_size
+        load = arg.bytesize * arg.count - self.cpu.vector_ext.register_size
         assert load <= 0
         if true:
             self.mc.PXOR(temp, temp)
