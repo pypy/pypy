@@ -1466,12 +1466,16 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_result)
     
     def GET_AITER(self, oparg, next_instr):
-        w_iterable = self.popvalue()
-        self.pushvalue(w_iterable)
+        w_obj = self.popvalue()
+        w_iter = w_obj.aiter()
+        w_awaitable = w_iter._GetAwaitableIter()
+        self.pushvalue(w_awaitable)
     
     def GET_ANEXT(self, oparg, next_instr):
-        w_iterable = self.popvalue()
-        self.pushvalue(w_iterable)
+        w_aiter = self.popvalue()
+        w_next_iter = w_aiter.anext()
+        w_awaitable = w_next_iter._GetAwaitableIter()
+        self.pushvalue(w_awaitable)
         
 ### ____________________________________________________________ ###
 
