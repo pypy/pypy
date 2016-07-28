@@ -1426,20 +1426,24 @@ class __extend__(pyframe.PyFrame):
     
     def GET_YIELD_FROM_ITER(self, oparg, next_instr):
         from pypy.interpreter.astcompiler import consts
-        from pypy.interpreter.generator import Coroutine
+        from pypy.interpreter.generator import GeneratorIterator, Coroutine
         w_iterable = self.popvalue()
         if isinstance(w_iterable, Coroutine):
             if not self.pycode.co_flags & (consts.CO_COROUTINE |
                                        consts.CO_ITERABLE_COROUTINE):
+                #'iterable' coroutine is used in a 'yield from' expression
+                #of a regular generator
                 raise oefmt(self.space.w_TypeError,
                             "cannot 'yield from' a coroutine object "
                             "in a non-coroutine generator")
-        w_iterator = self.space.iter(w_iterable)
-        self.pushvalue(w_iterator)
+        elif not isinstance(w_iterable, GeneratorIterator):
+            w_iterator = self.space.iter(w_iterable)
+            self.pushvalue(w_iterator)
     
     def GET_AWAITABLE(self, oparg, next_instr):
         w_iterable = self.popvalue()
-        self.pushvalue(w_iterable)
+        w_iter = w_iterable._GetAwaitableIter()
+        self.pushvalue(w_iter)
     
     def SETUP_ASYNC_WITH(self, offsettoend, next_instr):
         res = self.popvalue()
