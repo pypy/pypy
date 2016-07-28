@@ -26,8 +26,7 @@ def parse_acquire_args(space, blocking, timeout):
     elif timeout == -1.0:
         microseconds = -1
     else:
-        # 0.0 => 0.0, but otherwise tends to round up
-        timeout = timeout * 1e6 + 0.999
+        timeout *= 1e6
         try:
             microseconds = ovfcheck_float_to_longlong(timeout)
         except OverflowError:

@@ -81,7 +81,7 @@ class AppTestLock(GenericTestThread):
             else:
                 got_ovf = False
                 lock.release()
-            assert (i, got_ovf) == (i, int(timeout * 1e6 + 0.999) > maxint)
+            assert (i, got_ovf) == (i, int(timeout * 1e6) > maxint)
 
     @py.test.mark.xfail(machine()=='s390x', reason='may fail under heavy load')
     def test_ping_pong(self):
