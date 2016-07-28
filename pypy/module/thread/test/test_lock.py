@@ -61,18 +61,15 @@ class AppTestLock(GenericTestThread):
         assert lock.acquire(False) is False
         assert lock.acquire(True, timeout=.1) is False
 
-    def test_py3k_acquire_timeout_overflow(self):
-        import thread
-        lock = thread.allocate_lock()
-        if not hasattr(lock, '_py3k_acquire'):
-            skip("missing lock._py3k_acquire()")
+    def test_timeout_overflow(self):
+        import _thread
+        lock = _thread.allocate_lock()
         maxint = 2**63 - 1
-        boundary = int(maxint * 1e-6)
         for i in [-100000, -10000, -1000, -100, -10, -1, 0,
                   1, 10, 100, 1000, 10000, 100000]:
             timeout = (maxint + i) * 1e-6
             try:
-                lock._py3k_acquire(True, timeout=timeout)
+                lock.acquire(True, timeout=timeout)
             except OverflowError:
                 got_ovf = True
             else:
