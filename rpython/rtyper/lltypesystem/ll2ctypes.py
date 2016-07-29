@@ -250,7 +250,9 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
 
         if not A._hints.get('nolength'):
             _fields_ = [('length', lentype),
-                        ('items',  max_n * ctypes_item)]
+                        ('items',
+                           (max_n + A._hints.get('extra_item_after_alloc', 0))
+                           * ctypes_item)]
         else:
             _fields_ = [('items',  max_n * ctypes_item)]
 
