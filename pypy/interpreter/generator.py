@@ -319,6 +319,12 @@ class Coroutine(W_Root):
         self.running = False
         if self.pycode.co_flags & CO_YIELD_INSIDE_TRY:
             self.register_finalizer(self.space)
+
+    def descr__await__(self, space):
+        # implement this function:
+        # https://github.com/python/cpython/blob/3.5/Objects/genobject.c#L786
+        # you need a new CoroutineWrapper object + CoroutineWrapperType
+        pass
     
     def descr__reduce__(self, space):
         from pypy.interpreter.mixedmodule import MixedModule
