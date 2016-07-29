@@ -64,13 +64,6 @@ typedef PY_LONG_LONG        Py_intptr_t;
 #   error "Python needs a typedef for Py_uintptr_t in pyport.h."
 #endif /* HAVE_UINTPTR_T */
 
-/* Py_hash_t is the same size as a pointer. */
-#define SIZEOF_PY_HASH_T SIZEOF_SIZE_T
-typedef Py_ssize_t Py_hash_t;
-/* Py_uhash_t is the unsigned equivalent needed to calculate numeric hash. */
-#define SIZEOF_PY_UHASH_T SIZEOF_SIZE_T
-typedef size_t Py_uhash_t;
-
 
 /*******************************
  * stat() and fstat() fiddling *
