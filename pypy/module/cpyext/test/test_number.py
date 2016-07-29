@@ -15,7 +15,7 @@ class TestIterator(BaseApiTest):
         assert api.PyNumber_Check(space.wraplong(-12L))
         assert api.PyNumber_Check(space.wrap(12.1))
         assert not api.PyNumber_Check(space.wrap('12'))
-        assert not api.PyNumber_Check(space.wrap(1+3j))
+        assert api.PyNumber_Check(space.wrap(1+3j))
 
     def test_number_long(self, space, api):
         w_l = api.PyNumber_Long(space.wrap(123))
