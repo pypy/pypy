@@ -13,7 +13,7 @@ class AppTestSTMLocal(test_local.AppTestLocal):
         """)
 
 
-def test_direct_call_to_become_inevitable():
+def test_direct_call_to_become_inevitable(monkeypatch):
     # this test directly checks if we call rstm.become_inevitable() in the
     # right places (before modifying the real threadlocal). Could possibly be
     # tested in a better way...
@@ -33,8 +33,8 @@ def test_direct_call_to_become_inevitable():
     call_counter = [0]
     def fake_become_inevitable():
         call_counter[0] += 1
-    rstm.become_inevitable = fake_become_inevitable
 
+    monkeypatch.setattr(rstm, 'become_inevitable', fake_become_inevitable)
     space = FakeSpace()
 
     l = STMThreadLocals(space)
