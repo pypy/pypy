@@ -57,8 +57,8 @@ def p_recursive_isinstance_w(space, w_inst, w_cls):
     try:
         w_abstractclass = space.getattr(w_inst, space.wrap('__class__'))
     except OperationError as e:
-        if e.async(space):      # ignore most exceptions
-            raise
+        if not e.match(space, space.w_AttributeError):
+            raise       # propagate other errors
         return False
     else:
         return p_abstract_issubclass_w(space, w_abstractclass, w_cls)
@@ -72,8 +72,8 @@ def p_recursive_isinstance_type_w(space, w_inst, w_type):
     try:
         w_abstractclass = space.getattr(w_inst, space.wrap('__class__'))
     except OperationError as e:
-        if e.async(space):      # ignore most exceptions
-            raise
+        if not e.match(space, space.w_AttributeError):
+            raise       # propagate other errors
     else:
         if w_abstractclass is not space.type(w_inst):
             if space.isinstance_w(w_abstractclass, space.w_type):
