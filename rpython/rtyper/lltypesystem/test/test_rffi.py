@@ -835,3 +835,11 @@ def test_sign_when_casting_uint_to_larger_int():
     if hasattr(rffi, '__INT128_T'):
         value = 0xAAAABBBBCCCCDDDD
         assert cast(rffi.__INT128_T, r_uint64(value)) == value
+
+def test_scoped_nonmovingbuffer_final_null():
+    s = 'bar'
+    with scoped_nonmovingbuffer_final_null(s) as buf:
+        assert buf[0] == 'b'
+        assert buf[1] == 'a'
+        assert buf[2] == 'r'
+        assert buf[3] == '\x00'

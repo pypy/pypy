@@ -819,6 +819,11 @@ def make_string_mappings(strtype):
         First bool returned indicates if 'data' was pinned. Second bool returned
         indicates if we did a raw alloc because pinning failed. Both bools
         should never be true at the same time.
+
+        For strings (not unicodes), the len()th character of the resulting
+        raw buffer is available, but not initialized.  Use
+        get_nonmovingbuffer_final_null() instead of get_nonmovingbuffer()
+        to get a regular null-terminated "char *".
         """
 
         lldata = llstrtype(data)
@@ -829,6 +834,7 @@ def make_string_mappings(strtype):
             if rgc.pin(data):
                 pinned = True
             else:
+                count += has_final_null_char(TYPEP)
                 buf = lltype.malloc(TYPEP.TO, count, flavor='raw')
                 copy_string_to_raw(lldata, buf, 0, count)
                 return buf, pinned, True
@@ -845,6 +851,14 @@ def make_string_mappings(strtype):
         # pinned.
     get_nonmovingbuffer._always_inline_ = 'try' # get rid of the returned tuple
     get_nonmovingbuffer._annenforceargs_ = [strtype]
+
+    @jit.dont_look_inside
+    def get_nonmovingbuffer_final_null(data):
+        buf, is_pinned, is_raw = get_nonmovingbuffer(data)
+        buf[len(data)] = lastchar
+        return buf, is_pinned, is_raw
+    get_nonmovingbuffer_final_null._always_inline_ = 'try'
+    get_nonmovingbuffer_final_null._annenforceargs_ = [strtype]
 
     # (str, char*, bool, bool) -> None
     # Can't inline this because of the raw address manipulation.
@@ -947,18 +961,19 @@ def make_string_mappings(strtype):
 
     return (str2charp, free_charp, charp2str,
             get_nonmovingbuffer, free_nonmovingbuffer,
+            get_nonmovingbuffer_final_null,
             alloc_buffer, str_from_buffer, keep_buffer_alive_until_here,
             charp2strn, charpsize2str, str2chararray, str2rawmem,
             )
 
 (str2charp, free_charp, charp2str,
- get_nonmovingbuffer, free_nonmovingbuffer,
+ get_nonmovingbuffer, free_nonmovingbuffer, get_nonmovingbuffer_final_null,
  alloc_buffer, str_from_buffer, keep_buffer_alive_until_here,
  charp2strn, charpsize2str, str2chararray, str2rawmem,
  ) = make_string_mappings(str)
 
 (unicode2wcharp, free_wcharp, wcharp2unicode,
- get_nonmoving_unicodebuffer, free_nonmoving_unicodebuffer,
+ get_nonmoving_unicodebuffer, free_nonmoving_unicodebuffer, __not_usable,
  alloc_unicodebuffer, unicode_from_buffer, keep_unicodebuffer_alive_until_here,
  wcharp2unicoden, wcharpsize2unicode, unicode2wchararray, unicode2rawmem,
  ) = make_string_mappings(unicode)
@@ -1195,6 +1210,19 @@ class scoped_nonmovingbuffer:
         self.data = data
     def __enter__(self):
         self.buf, self.pinned, self.is_raw = get_nonmovingbuffer(self.data)
+        return self.buf
+    def __exit__(self, *args):
+        free_nonmovingbuffer(self.data, self.buf, self.pinned, self.is_raw)
+    __init__._always_inline_ = 'try'
+    __enter__._always_inline_ = 'try'
+    __exit__._always_inline_ = 'try'
+
+class scoped_nonmovingbuffer_final_null:
+    def __init__(self, data):
+        self.data = data
+    def __enter__(self):
+        self.buf, self.pinned, self.is_raw = (
+            get_nonmovingbuffer_final_null(self.data))
         return self.buf
     def __exit__(self, *args):
         free_nonmovingbuffer(self.data, self.buf, self.pinned, self.is_raw)

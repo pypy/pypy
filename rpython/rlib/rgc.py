@@ -1279,7 +1279,7 @@ def ll_write_final_null_char(s):
     """
     from rpython.rtyper.lltypesystem import rffi
     PSTR = lltype.typeOf(s)
-    _check_final_null_char(PSTR)
+    assert has_final_null_char(PSTR) == 1
     n = llmemory.offsetof(PSTR.TO, 'chars')
     n += llmemory.itemoffsetof(PSTR.TO.chars, 0)
     n = llmemory.raw_malloc_usage(n)
@@ -1289,5 +1289,5 @@ def ll_write_final_null_char(s):
     ptr[n] = '\x00'
 
 @specialize.memo()
-def _check_final_null_char(PSTR):
-    assert PSTR.TO.chars._hints.get('extra_item_after_alloc', 0) == 1
+def has_final_null_char(PSTR):
+    return PSTR.TO.chars._hints.get('extra_item_after_alloc', 0)
