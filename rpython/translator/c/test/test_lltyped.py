@@ -1004,7 +1004,6 @@ class TestLowLevelType(object):
 
     def test_extra_item_after_alloc(self):
         from rpython.rlib import rgc
-        from rpython.rlib.objectmodel import compute_hash
         from rpython.rtyper.lltypesystem import lltype
         from rpython.rtyper.lltypesystem import rstr
         # all STR objects should be allocated with enough space for one
