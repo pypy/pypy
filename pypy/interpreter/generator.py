@@ -309,7 +309,8 @@ return next yielded value or raise StopIteration."""
         if w_iterable.pycode.co_flags & consts.CO_ITERABLE_COROUTINE:
             return self
         #look at typeobject.c, change to self.space.lookup(w_manager, "__await__")
-        res = self.descr__await__(space)
+        space.lookup(self, "__await__")
+        res = space.get_and_call_function(w_enter, None)
         return self
 
 
