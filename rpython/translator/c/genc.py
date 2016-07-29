@@ -515,7 +515,7 @@ class CStandaloneBuilder(CBuilder):
                 else:
                     mk.definition('DEBUGFLAGS', '-O1 -g')
         if self.translator.platform.name == 'msvc':
-            mk.rule('debug_target', '$(DEFAULT_TARGET)', 'rem')
+            mk.rule('debug_target', '$(DEFAULT_TARGET) $(WTARGET)', 'rem')
         else:
             mk.rule('debug_target', '$(DEFAULT_TARGET)', '#')
         mk.write()
