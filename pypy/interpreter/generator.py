@@ -2,6 +2,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.pyopcode import LoopBlock
 from pypy.interpreter.pycode import CO_YIELD_INSIDE_TRY
+from pypy.interpreter.astcompiler import consts
 from rpython.rlib import jit
 
 
@@ -303,9 +304,13 @@ return next yielded value or raise StopIteration."""
                     break
                 block = block.previous
     
-    def _GetAwaitableIter(self, o):
+    def _GetAwaitableIter(self, space):
+        #check if coroutine
+        if w_iterable.pycode.co_flags & consts.CO_ITERABLE_COROUTINE:
+            return self
         #look at typeobject.c, change to self.space.lookup(w_manager, "__await__")
-        return o
+        res = self.descr__await__(space)
+        return self
 
 
 class Coroutine(W_Root):
@@ -324,7 +329,7 @@ class Coroutine(W_Root):
         # implement this function:
         # https://github.com/python/cpython/blob/3.5/Objects/genobject.c#L786
         # you need a new CoroutineWrapper object + CoroutineWrapperType
-        pass
+        return self
     
     def descr__reduce__(self, space):
         from pypy.interpreter.mixedmodule import MixedModule
@@ -577,8 +582,8 @@ return next iterated value or raise StopIteration."""
                     break
                 block = block.previous
     
-    def _GetAwaitableIter(self, o):
-        return o
+    def _GetAwaitableIter(self, space):
+        return self
         
 
 
