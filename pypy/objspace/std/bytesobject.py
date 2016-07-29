@@ -451,6 +451,9 @@ class W_BytesObject(W_AbstractBytesObject):
         return self._value
 
     def str_w(self, space):
+        # WARNING: _cffi_backend/ctypeptr.py depends on the fact that
+        # w_obj.str_w() called twice on the same object returns the
+        # exact same string object!
         return self._value
 
     def buffer_w(self, space, flags):

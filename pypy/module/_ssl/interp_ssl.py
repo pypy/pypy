@@ -135,7 +135,7 @@ class SSLNpnProtocols(object):
 
     def __init__(self, ctx, protos):
         self.protos = protos
-        self.buf, self.pinned, self.is_raw = rffi.get_nonmovingbuffer(protos)
+        self.buf, self.bufflag = rffi.get_nonmovingbuffer(protos)
         NPN_STORAGE.set(rffi.cast(lltype.Unsigned, self.buf), self)
 
         # set both server and client callbacks, because the context
@@ -147,7 +147,7 @@ class SSLNpnProtocols(object):
 
     def __del__(self):
         rffi.free_nonmovingbuffer(
-            self.protos, self.buf, self.pinned, self.is_raw)
+            self.protos, self.buf, self.bufflag)
 
     @staticmethod
     def advertiseNPN_cb(s, data_ptr, len_ptr, args):
@@ -181,7 +181,7 @@ class SSLAlpnProtocols(object):
 
     def __init__(self, ctx, protos):
         self.protos = protos
-        self.buf, self.pinned, self.is_raw = rffi.get_nonmovingbuffer(protos)
+        self.buf, self.bufflag = rffi.get_nonmovingbuffer(protos)
         ALPN_STORAGE.set(rffi.cast(lltype.Unsigned, self.buf), self)
 
         with rffi.scoped_str2charp(protos) as protos_buf:
@@ -193,7 +193,7 @@ class SSLAlpnProtocols(object):
 
     def __del__(self):
         rffi.free_nonmovingbuffer(
-            self.protos, self.buf, self.pinned, self.is_raw)
+            self.protos, self.buf, self.bufflag)
 
     @staticmethod
     def selectALPN_cb(s, out_ptr, outlen_ptr, client, client_len, args):

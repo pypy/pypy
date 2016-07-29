@@ -177,9 +177,12 @@ class W_CTypeFunc(W_CTypePtrBase):
                 if isinstance(argtype, W_CTypePointer):
                     data = rffi.ptradd(buffer, cif_descr.exchange_args[i])
                     flag = get_mustfree_flag(data)
+                    raw_cdata = rffi.cast(rffi.CCHARPP, data)[0]
                     if flag == 1:
-                        raw_cdata = rffi.cast(rffi.CCHARPP, data)[0]
                         lltype.free(raw_cdata, flavor='raw')
+                    elif flag >= 4:
+                        value = args_w[i].str_w(space)
+                        rffi.free_nonmovingbuffer(value, raw_cdata, chr(flag))
             lltype.free(buffer, flavor='raw')
             keepalive_until_here(args_w)
         return w_res

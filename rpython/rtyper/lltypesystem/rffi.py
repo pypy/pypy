@@ -816,9 +816,10 @@ def make_string_mappings(strtype):
         string is already nonmovable or could be pinned.  Must be followed by a
         free_nonmovingbuffer call.
 
-        First bool returned indicates if 'data' was pinned. Second bool returned
-        indicates if we did a raw alloc because pinning failed. Both bools
-        should never be true at the same time.
+        Also returns a char:
+         * \4: no pinning, returned pointer is inside 'data' which is nonmovable
+         * \5: 'data' was pinned, returned pointer is inside
+         * \6: pinning failed, returned pointer is raw malloced
 
         For strings (not unicodes), the len()th character of the resulting
         raw buffer is available, but not initialized.  Use
@@ -829,15 +830,16 @@ def make_string_mappings(strtype):
         lldata = llstrtype(data)
         count = len(data)
 
-        pinned = False
-        if rgc.can_move(data):
+        if not rgc.can_move(data):
+            flag = '\x04'
+        else:
             if rgc.pin(data):
-                pinned = True
+                flag = '\x05'
             else:
-                count += has_final_null_char(TYPEP)
-                buf = lltype.malloc(TYPEP.TO, count, flavor='raw')
+                buf = lltype.malloc(TYPEP.TO, count + (TYPEP is CCHARP),
+                                    flavor='raw')
                 copy_string_to_raw(lldata, buf, 0, count)
-                return buf, pinned, True
+                return buf, '\x06'
                 # ^^^ raw malloc used to get a nonmovable copy
         #
         # following code is executed if:
@@ -846,7 +848,7 @@ def make_string_mappings(strtype):
         data_start = cast_ptr_to_adr(lldata) + \
             offsetof(STRTYPE, 'chars') + itemoffsetof(STRTYPE.chars, 0)
 
-        return cast(TYPEP, data_start), pinned, False
+        return cast(TYPEP, data_start), flag
         # ^^^ already nonmovable. Therefore it's not raw allocated nor
         # pinned.
     get_nonmovingbuffer._always_inline_ = 'try' # get rid of the returned tuple
@@ -854,28 +856,28 @@ def make_string_mappings(strtype):
 
     @jit.dont_look_inside
     def get_nonmovingbuffer_final_null(data):
-        buf, is_pinned, is_raw = get_nonmovingbuffer(data)
+        buf, flag = get_nonmovingbuffer(data)
         buf[len(data)] = lastchar
-        return buf, is_pinned, is_raw
+        return buf, flag
     get_nonmovingbuffer_final_null._always_inline_ = 'try'
     get_nonmovingbuffer_final_null._annenforceargs_ = [strtype]
 
-    # (str, char*, bool, bool) -> None
+    # (str, char*, char) -> None
     # Can't inline this because of the raw address manipulation.
     @jit.dont_look_inside
-    def free_nonmovingbuffer(data, buf, is_pinned, is_raw):
+    def free_nonmovingbuffer(data, buf, flag):
         """
-        Keep 'data' alive and unpin it if it was pinned ('is_pinned' is true).
-        Otherwise free the non-moving copy ('is_raw' is true).
+        Keep 'data' alive and unpin it if it was pinned (flag==\5).
+        Otherwise free the non-moving copy (flag==\6).
         """
-        if is_pinned:
+        if flag == '\x05':
             rgc.unpin(data)
-        if is_raw:
+        if flag == '\x06':
             lltype.free(buf, flavor='raw')
-        # if is_pinned and is_raw are false: data was already nonmovable,
+        # if flag == '\x04': data was already nonmovable,
         # we have nothing to clean up
         keepalive_until_here(data)
-    free_nonmovingbuffer._annenforceargs_ = [strtype, None, bool, bool]
+    free_nonmovingbuffer._annenforceargs_ = [strtype, None, None]
 
     # int -> (char*, str, int)
     # Can't inline this because of the raw address manipulation.
@@ -1209,10 +1211,10 @@ class scoped_nonmovingbuffer:
     def __init__(self, data):
         self.data = data
     def __enter__(self):
-        self.buf, self.pinned, self.is_raw = get_nonmovingbuffer(self.data)
+        self.buf, self.flag = get_nonmovingbuffer(self.data)
         return self.buf
     def __exit__(self, *args):
-        free_nonmovingbuffer(self.data, self.buf, self.pinned, self.is_raw)
+        free_nonmovingbuffer(self.data, self.buf, self.flag)
     __init__._always_inline_ = 'try'
     __enter__._always_inline_ = 'try'
     __exit__._always_inline_ = 'try'
@@ -1221,11 +1223,10 @@ class scoped_nonmovingbuffer_final_null:
     def __init__(self, data):
         self.data = data
     def __enter__(self):
-        self.buf, self.pinned, self.is_raw = (
-            get_nonmovingbuffer_final_null(self.data))
+        self.buf, self.flag = get_nonmovingbuffer_final_null(self.data)
         return self.buf
     def __exit__(self, *args):
-        free_nonmovingbuffer(self.data, self.buf, self.pinned, self.is_raw)
+        free_nonmovingbuffer(self.data, self.buf, self.flag)
     __init__._always_inline_ = 'try'
     __enter__._always_inline_ = 'try'
     __exit__._always_inline_ = 'try'
@@ -1234,10 +1235,10 @@ class scoped_nonmoving_unicodebuffer:
     def __init__(self, data):
         self.data = data
     def __enter__(self):
-        self.buf, self.pinned, self.is_raw = get_nonmoving_unicodebuffer(self.data)
+        self.buf, self.flag = get_nonmoving_unicodebuffer(self.data)
         return self.buf
     def __exit__(self, *args):
-        free_nonmoving_unicodebuffer(self.data, self.buf, self.pinned, self.is_raw)
+        free_nonmoving_unicodebuffer(self.data, self.buf, self.flag)
     __init__._always_inline_ = 'try'
     __enter__._always_inline_ = 'try'
     __exit__._always_inline_ = 'try'
