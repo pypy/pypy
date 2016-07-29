@@ -390,11 +390,23 @@ def _sizeof_int(TYPE, n):
     else:
         raise Exception("don't know how to take the size of a %r"%TYPE)
 
+@specialize.memo()
+def extra_item_after_alloc(ARRAY):
+    assert isinstance(ARRAY, lltype.Array)
+    return ARRAY._hints.get('extra_item_after_alloc', 0)
+
 @specialize.arg(0)
 def sizeof(TYPE, n=None):
+    """Return the symbolic size of TYPE.
+    For a Struct with no varsized part, it must be called with n=None.
+    For an Array or a Struct with a varsized part, it is the number of items.
+    There is a special case to return 1 more than requested if the array
+    has the hint 'extra_item_after_alloc' set to 1.
+    """
     if n is None:
         return _sizeof_none(TYPE)
     elif isinstance(TYPE, lltype.Array):
+        n += extra_item_after_alloc(TYPE)
         return itemoffsetof(TYPE) + _sizeof_none(TYPE.OF) * n
     else:
         return _sizeof_int(TYPE, n)
