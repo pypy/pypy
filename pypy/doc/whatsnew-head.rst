@@ -101,3 +101,7 @@ The new logging facility that integrates with and adds features to vmprof.com.
 .. branch: jitlog-32bit
 
 Resolve issues to use the new logging facility on a 32bit system
+
+.. branch: ep2016sprint
+
+Trying harder to make hash(-1) return -2, like it does on CPython

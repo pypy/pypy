@@ -264,8 +264,19 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
                     ret = PyLong_FromLong(-1);
                 Py_DECREF(obj);
                 return ret;
+             """),
+            ("has_oct", "METH_NOARGS",
+             """
+                PyObject *ret, *obj = PyLong_FromLong(42);
+                if (obj->ob_type->tp_as_number->nb_oct)
+                    ret = obj->ob_type->tp_as_number->nb_oct(obj);
+                else
+                    ret = PyLong_FromLong(-1);
+                Py_DECREF(obj);
+                return ret;
              """)])
         assert module.has_sub() == 0
         assert module.has_pow() == 0
         assert module.has_hex() == '0x2aL'
+        assert module.has_oct() == '052L'
                 
