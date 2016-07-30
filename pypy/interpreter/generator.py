@@ -310,8 +310,8 @@ return next yielded value or raise StopIteration."""
             return self
         w_await = space.lookup(self, "__await__")
         if w_await is None:
-            raise oefmt(space.w_TypeError,
-                        "object %s can't be used in 'await' expression",
+            raise oefmt(space.w_AttributeError,
+                        "object %T does not have __await__ method",
                         self)
         res = space.get_and_call_function(w_await, None)
         if res is not None:

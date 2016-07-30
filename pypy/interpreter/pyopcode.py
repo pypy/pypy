@@ -1467,14 +1467,32 @@ class __extend__(pyframe.PyFrame):
     
     def GET_AITER(self, oparg, next_instr):
         w_obj = self.popvalue()
-        w_iter = w_obj.aiter()
+        w_func = self.space.lookup(w_obj, "__aiter__")
+        if w_func is None:
+            raise oefmt(space.w_AttributeError,
+                        "object %T does not have __aiter__ method",
+                        w_obj)
+        w_iter = space.get_and_call_function(w_func, None)
         w_awaitable = w_iter._GetAwaitableIter(self.space)
+        if w_awaitable is None:
+            raise oefmt(space.w_TypeError,
+                        "'async for' received an invalid object "
+                        "from __aiter__: %T", w_iter)
         self.pushvalue(w_awaitable)
     
     def GET_ANEXT(self, oparg, next_instr):
         w_aiter = self.popvalue()
-        w_next_iter = w_aiter.anext()
+        w_func = self.space.lookup(w_aiter, "__anext__")
+        if w_func is None:
+            raise oefmt(space.w_AttributeError,
+                        "object %T does not have __anext__ method",
+                        w_aiter)
+        w_next_iter = space.get_and_call_function(w_func, None)
         w_awaitable = w_next_iter._GetAwaitableIter(self.space)
+        if w_awaitable is None:
+            raise oefmt(space.w_TypeError,
+                        "'async for' received an invalid object "
+                        "from __anext__: %T", w_next_iter)
         self.pushvalue(w_awaitable)
         
 ### ____________________________________________________________ ###
