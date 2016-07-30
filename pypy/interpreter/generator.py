@@ -305,13 +305,25 @@ return next yielded value or raise StopIteration."""
                 block = block.previous
     
     def _GetAwaitableIter(self, space):
-        #check if coroutine
-        if w_iterable.pycode.co_flags & consts.CO_ITERABLE_COROUTINE:
+        #check if generator is a coroutine
+        if self.pycode.co_flags & consts.CO_ITERABLE_COROUTINE:
             return self
-        #look at typeobject.c, change to self.space.lookup(w_manager, "__await__")
-        space.lookup(self, "__await__")
-        res = space.get_and_call_function(w_enter, None)
-        return self
+        w_await = space.lookup(self, "__await__")
+        if w_await is None:
+            raise oefmt(space.w_TypeError,
+                        "object %s can't be used in 'await' expression",
+                        self)
+        res = space.get_and_call_function(w_await, None)
+        if res is not None:
+            if (isinstance(res, Coroutine) or
+                res.pycode.co_flags & consts.CO_ITERABLE_COROUTINE):
+                raise oefmt(space.w_TypeError,
+                            "__await__() returned a coroutine")
+            elif space.lookup(self, "__next__") is None:
+                raise oefmt(space.w_TypeError,
+                        "__await__() returned non-iterator "
+                        "of type '%T'", res)
+        return res
 
 
 class Coroutine(W_Root):

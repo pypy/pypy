@@ -1442,7 +1442,7 @@ class __extend__(pyframe.PyFrame):
     
     def GET_AWAITABLE(self, oparg, next_instr):
         w_iterable = self.popvalue()
-        w_iter = w_iterable._GetAwaitableIter()
+        w_iter = w_iterable._GetAwaitableIter(self.space)
         self.pushvalue(w_iter)
     
     def SETUP_ASYNC_WITH(self, offsettoend, next_instr):
@@ -1468,13 +1468,13 @@ class __extend__(pyframe.PyFrame):
     def GET_AITER(self, oparg, next_instr):
         w_obj = self.popvalue()
         w_iter = w_obj.aiter()
-        w_awaitable = w_iter._GetAwaitableIter()
+        w_awaitable = w_iter._GetAwaitableIter(self.space)
         self.pushvalue(w_awaitable)
     
     def GET_ANEXT(self, oparg, next_instr):
         w_aiter = self.popvalue()
         w_next_iter = w_aiter.anext()
-        w_awaitable = w_next_iter._GetAwaitableIter()
+        w_awaitable = w_next_iter._GetAwaitableIter(self.space)
         self.pushvalue(w_awaitable)
         
 ### ____________________________________________________________ ###
