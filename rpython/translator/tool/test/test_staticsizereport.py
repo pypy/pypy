@@ -67,7 +67,7 @@ class TestStaticSizeReport(object):
             (4 * S + 2 * P) +      # struct dicttable
             (S + 2 * 8192) +       # indexes, length 8192, rffi.USHORT
             (S + (S + S) * 3840) + # entries, length 3840
-            (S + S + 5) * 3840)    # 3840 strings with 5 chars each
+            (S + S + 6) * 3840)    # 3840 strings with 5 chars each (+1 final)
         assert guess_size(func.builder.db, fixarrayvalnode, set()) == 100 * rffi.sizeof(lltype.Signed) + 1 * rffi.sizeof(lltype.Signed)
         assert guess_size(func.builder.db, dynarrayvalnode, set()) == 100 * rffi.sizeof(lltype.Signed) + 2 * rffi.sizeof(lltype.Signed) + 1 * rffi.sizeof(rffi.VOIDP)
 
