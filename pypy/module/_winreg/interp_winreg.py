@@ -218,7 +218,7 @@ KEY_SET_VALUE access."""
         subkey = None
     else:
         subkey = space.str_w(w_subkey)
-    with rffi.scoped_str2charp(value) as dataptr:
+    with rffi.scoped_view_charp(value) as dataptr:
         ret = rwinreg.RegSetValue(hkey, subkey, rwinreg.REG_SZ, dataptr, len(value))
         if ret != 0:
             raiseWindowsError(space, ret, 'RegSetValue')
