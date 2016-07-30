@@ -864,9 +864,10 @@ def make_string_mappings(strtype):
 
     @jit.dont_look_inside
     def get_nonmovingbuffer_final_null(data):
-        buf, flag = get_nonmovingbuffer(data)
+        tup = get_nonmovingbuffer(data)
+        buf, flag = tup
         buf[len(data)] = lastchar
-        return buf, flag
+        return tup
     get_nonmovingbuffer_final_null._always_inline_ = 'try'
     get_nonmovingbuffer_final_null._annenforceargs_ = [strtype]
 
