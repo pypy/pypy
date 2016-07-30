@@ -1269,11 +1269,11 @@ W_UnicodeObject.EMPTY = W_UnicodeObject(u'')
 # In CPython3 the call to PyUnicode_EncodeDecimal has been replaced to a call
 # to _PyUnicode_TransformDecimalAndSpaceToASCII, which is much simpler.
 # We do that here plus the final step of encoding the result to utf-8.
-# This final step corresponds to encode_utf8 *without* allow_surrogates.
-# In float.__new__() and complex.__new__(), a lone surrogate will throw
-# an app-level UnicodeEncodeError.  In long.__new__(), though, CPython3
-# gives inconsistently a ValueError, so we handle that case in intobject.py.
-def unicode_to_decimal_w(space, w_unistr):
+# This final step corresponds to encode_utf8. In float.__new__() and
+# complex.__new__(), a lone surrogate will throw an app-level
+# UnicodeEncodeError.
+
+def unicode_to_decimal_w(space, w_unistr, allow_surrogates=False):
     if not isinstance(w_unistr, W_UnicodeObject):
         raise oefmt(space.w_TypeError, "expected unicode, got '%T'", w_unistr)
     unistr = w_unistr._value
@@ -1290,7 +1290,7 @@ def unicode_to_decimal_w(space, w_unistr):
                 pass
         result[i] = unichr(uchr)
     return unicodehelper.encode_utf8(space, u''.join(result),
-                                     allow_surrogates=False)
+                                     allow_surrogates=allow_surrogates)
 
 
 _repr_function, _ = make_unicode_escape_function(

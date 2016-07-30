@@ -422,6 +422,3 @@ class AppTestLong:
         assert a is not b
         b -= 1
         assert a is b
-
-    def test_invalid_surrogate(self):
-        raises(ValueError, int, u"\u8000")

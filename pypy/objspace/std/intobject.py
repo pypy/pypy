@@ -871,14 +871,7 @@ def _new_int(space, w_inttype, w_x, w_base=None):
             return _from_intlike(space, w_inttype, space.trunc(w_value))
         elif space.isinstance_w(w_value, space.w_unicode):
             from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
-            try:
-                b = unicode_to_decimal_w(space, w_value)
-            except OperationError as e:
-                if not e.match(space, space.w_UnicodeEncodeError):
-                    raise
-                raise oefmt(space.w_ValueError,
-                            "int() called with a string containing a "
-                            "lone surrogate")
+            b = unicode_to_decimal_w(space, w_value, allow_surrogates=True)
             return _string_to_int_or_long(space, w_inttype, w_value, b)
         elif (space.isinstance_w(w_value, space.w_bytearray) or
               space.isinstance_w(w_value, space.w_bytes)):
@@ -906,7 +899,7 @@ def _new_int(space, w_inttype, w_x, w_base=None):
 
         if space.isinstance_w(w_value, space.w_unicode):
             from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
-            s = unicode_to_decimal_w(space, w_value)
+            s = unicode_to_decimal_w(space, w_value, allow_surrogates=True)
         else:
             try:
                 s = space.bufferstr_w(w_value)
