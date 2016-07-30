@@ -232,40 +232,36 @@ def llexternal(name, args, result, _callable=None,
             call_external_function = jit.dont_look_inside(
                 call_external_function)
 
+    def _oops():
+        raise AssertionError("can't pass (any more) a unicode string"
+                             " directly to a VOIDP argument")
+    _oops._annspecialcase_ = 'specialize:memo'
+
     unrolling_arg_tps = unrolling_iterable(enumerate(args))
     def wrapper(*args):
         real_args = ()
+        # XXX 'to_free' leaks if an allocation fails with MemoryError
+        # and was not the first in this function
         to_free = ()
         for i, TARGET in unrolling_arg_tps:
             arg = args[i]
-            freeme = None
-            if TARGET == CCHARP:
+            if TARGET == CCHARP or TARGET is VOIDP:
                 if arg is None:
                     arg = lltype.nullptr(CCHARP.TO)   # None => (char*)NULL
-                    freeme = arg
+                    to_free = to_free + (arg, '\x04')
                 elif isinstance(arg, str):
-                    arg = str2charp(arg)
-                    # XXX leaks if a str2charp() fails with MemoryError
-                    # and was not the first in this function
-                    freeme = arg
+                    tup = get_nonmovingbuffer_final_null(arg)
+                    to_free = to_free + tup
+                    arg = tup[0]
+                elif isinstance(arg, unicode):
+                    _oops()
             elif TARGET == CWCHARP:
                 if arg is None:
                     arg = lltype.nullptr(CWCHARP.TO)   # None => (wchar_t*)NULL
-                    freeme = arg
+                    to_free = to_free + (arg,)
                 elif isinstance(arg, unicode):
                     arg = unicode2wcharp(arg)
-                    # XXX leaks if a unicode2wcharp() fails with MemoryError
-                    # and was not the first in this function
-                    freeme = arg
-            elif TARGET is VOIDP:
-                if arg is None:
-                    arg = lltype.nullptr(VOIDP.TO)
-                elif isinstance(arg, str):
-                    arg = str2charp(arg)
-                    freeme = arg
-                elif isinstance(arg, unicode):
-                    arg = unicode2wcharp(arg)
-                    freeme = arg
+                    to_free = to_free + (arg,)
             elif _isfunctype(TARGET) and not _isllptr(arg):
                 # XXX pass additional arguments
                 use_gil = invoke_around_handlers
@@ -283,11 +279,23 @@ def llexternal(name, args, result, _callable=None,
                            or TARGET is lltype.Bool)):
                         arg = cast(TARGET, arg)
             real_args = real_args + (arg,)
-            to_free = to_free + (freeme,)
         res = call_external_function(*real_args)
+        j = 0
         for i, TARGET in unrolling_arg_tps:
-            if to_free[i]:
-                lltype.free(to_free[i], flavor='raw')
+            arg = args[i]
+            if TARGET == CCHARP or TARGET is VOIDP:
+                if arg is None:
+                    j = j + 2
+                elif isinstance(arg, str):
+                    free_nonmovingbuffer(arg, to_free[j], to_free[j+1])
+                    j = j + 2
+            elif TARGET == CWCHARP:
+                if arg is None:
+                    j = j + 1
+                elif isinstance(arg, unicode):
+                    free_wcharp(to_free[j])
+                    j = j + 1
+        assert j == len(to_free)
         if rarithmetic.r_int is not r_int:
             if result is INT:
                 return cast(lltype.Signed, res)
@@ -833,7 +841,7 @@ def make_string_mappings(strtype):
         if not rgc.can_move(data):
             flag = '\x04'
         else:
-            if rgc.pin(data):
+            if we_are_translated() and rgc.pin(data):
                 flag = '\x05'
             else:
                 buf = lltype.malloc(TYPEP.TO, count + (TYPEP is CCHARP),
@@ -1219,9 +1227,15 @@ class scoped_nonmovingbuffer:
     __enter__._always_inline_ = 'try'
     __exit__._always_inline_ = 'try'
 
-class scoped_nonmovingbuffer_final_null:
+class scoped_view_charp:
+    """Returns a 'char *' that (tries to) point inside the given RPython
+    string (which must not be None).  You can replace scoped_str2charp()
+    with scoped_view_charp() in all places that guarantee that the
+    content of the 'char[]' array will not be modified.
+    """
     def __init__(self, data):
         self.data = data
+    __init__._annenforceargs_ = [None, annmodel.SomeString(can_be_None=False)]
     def __enter__(self):
         self.buf, self.flag = get_nonmovingbuffer_final_null(self.data)
         return self.buf

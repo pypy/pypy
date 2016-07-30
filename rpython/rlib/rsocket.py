@@ -963,7 +963,7 @@ class RSocket(object):
         self.settimeout(timeout)
 
     def setsockopt(self, level, option, value):
-        with rffi.scoped_str2charp(value) as buf:
+        with rffi.scoped_view_charp(value) as buf:
             res = _c.socketsetsockopt(self.fd, level, option,
                                       rffi.cast(rffi.VOIDP, buf),
                                       len(value))

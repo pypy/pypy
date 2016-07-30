@@ -163,7 +163,7 @@ def make_env_impls(win32=False):
         return result
 
     def getenv_llimpl(name):
-        with traits.scoped_str2charp(name) as l_name:
+        with traits.scoped_view_charp(name) as l_name:
             l_result = getenv(l_name)
             return traits.charp2str(l_result) if l_result else None
 
@@ -206,7 +206,7 @@ if hasattr(__import__(os.name), 'unsetenv'):
                                   save_err=rffi.RFFI_SAVE_ERRNO)
 
     def unsetenv_llimpl(name):
-        with rffi.scoped_str2charp(name) as l_name:
+        with rffi.scoped_view_charp(name) as l_name:
             error = rffi.cast(lltype.Signed, os_unsetenv(l_name))
         if error:
             from rpython.rlib import rposix

@@ -836,9 +836,9 @@ def test_sign_when_casting_uint_to_larger_int():
         value = 0xAAAABBBBCCCCDDDD
         assert cast(rffi.__INT128_T, r_uint64(value)) == value
 
-def test_scoped_nonmovingbuffer_final_null():
+def test_scoped_view_charp():
     s = 'bar'
-    with scoped_nonmovingbuffer_final_null(s) as buf:
+    with scoped_view_charp(s) as buf:
         assert buf[0] == 'b'
         assert buf[1] == 'a'
         assert buf[2] == 'r'
