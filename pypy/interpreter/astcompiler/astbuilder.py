@@ -409,25 +409,6 @@ class ASTBuilder(object):
         return ast.Try(body, handlers, otherwise, finally_suite,
                        try_node.get_lineno(), try_node.get_column())
 
-    def handle_with_stmt(self, with_node):
-        body = self.handle_suite(with_node.get_child(-1))
-        i = with_node.num_children() - 1
-        while True:
-            i -= 2
-            item = with_node.get_child(i)
-            test = self.handle_expr(item.get_child(0))
-            if item.num_children() == 3:
-                target = self.handle_expr(item.get_child(2))
-                self.set_context(target, ast.Store)
-            else:
-                target = None
-            wi = ast.With(test, target, body, with_node.get_lineno(),
-                          with_node.get_column())
-            if i == 1:
-                break
-            body = [wi]
-        return wi
-
     def handle_with_item(self, item_node):
         test = self.handle_expr(item_node.get_child(0))
         if item_node.num_children() == 3:
