@@ -304,8 +304,15 @@ class ArrayItemsOffset(AddressOffset):
         return cast_ptr_to_adr(p)
 
     def raw_memcopy(self, srcadr, dstadr):
-        # should really copy the length field, but we can't
-        pass
+        # copy the length field, if we can
+        srclen = srcadr.ptr._obj.getlength()
+        dstlen = dstadr.ptr._obj.getlength()
+        if dstlen != srclen:
+            assert dstlen > srclen, "can't increase the length"
+            # a decrease in length occurs in the GC tests when copying a STR:
+            # the copy is initially allocated with really one extra char,
+            # the 'extra_item_after_alloc', and must be fixed.
+            dstadr.ptr._obj.shrinklength(srclen)
 
 
 class ArrayLengthOffset(AddressOffset):
@@ -1048,7 +1055,7 @@ def _reccopy(source, dest):
                 _reccopy(subsrc, subdst)
             else:
                 # this is a hack XXX de-hack this
-                llvalue = source._obj.getitem(i, uninitialized_ok=True)
+                llvalue = source._obj.getitem(i, uninitialized_ok=2)
                 if not isinstance(llvalue, lltype._uninitialized):
                     dest._obj.setitem(i, llvalue)
     elif isinstance(T, lltype.Struct):
