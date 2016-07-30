@@ -1673,25 +1673,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         dest_addr = AddressLoc(base_loc, ofs_loc, scale, offset_loc.value)
         self.save_into_mem(dest_addr, value_loc, size_loc)
 
-    def genop_discard_strsetitem(self, op, arglocs):
-        base_loc, ofs_loc, val_loc = arglocs
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
-                                              self.cpu.translate_support_code)
-        assert itemsize == 1
-        dest_addr = AddressLoc(base_loc, ofs_loc, 0, basesize)
-        self.mc.MOV8(dest_addr, val_loc.lowest8bits())
-
-    def genop_discard_unicodesetitem(self, op, arglocs):
-        base_loc, ofs_loc, val_loc = arglocs
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
-                                              self.cpu.translate_support_code)
-        if itemsize == 4:
-            self.mc.MOV32(AddressLoc(base_loc, ofs_loc, 2, basesize), val_loc)
-        elif itemsize == 2:
-            self.mc.MOV16(AddressLoc(base_loc, ofs_loc, 1, basesize), val_loc)
-        else:
-            assert 0, itemsize
-
     # genop_discard_setfield_raw = genop_discard_setfield_gc
 
     def genop_math_read_timestamp(self, op, arglocs, resloc):

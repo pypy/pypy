@@ -994,6 +994,7 @@ class StrOpAssembler(object):
             basesize, itemsize, _ = symbolic.get_array_token(rstr.STR,
                                         self.cpu.translate_support_code)
             assert itemsize == 1
+            basesize -= 1     # for the extra null character
             scale = 0
 
         self._emit_load_for_copycontent(r.r0, src_ptr_loc, src_ofs_loc, scale)
