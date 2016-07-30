@@ -381,6 +381,7 @@ def build_slot_tp_function(space, typedef, name):
                           ('tp_as_number.c_nb_invert', '__invert__'),
                           ('tp_as_number.c_nb_index', '__index__'),
                           ('tp_as_number.c_nb_hex', '__hex__'),
+                          ('tp_as_number.c_nb_oct', '__oct__'),
                           ('tp_str', '__str__'),
                           ('tp_repr', '__repr__'),
                           ('tp_iter', '__iter__'),
