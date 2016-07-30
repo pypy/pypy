@@ -1427,7 +1427,7 @@ class __extend__(pyframe.PyFrame):
     def GET_YIELD_FROM_ITER(self, oparg, next_instr):
         from pypy.interpreter.astcompiler import consts
         from pypy.interpreter.generator import GeneratorIterator, Coroutine
-        w_iterable = self.popvalue()
+        w_iterable = self.peekvalue()
         if isinstance(w_iterable, Coroutine):
             if not self.pycode.co_flags & (consts.CO_COROUTINE |
                                        consts.CO_ITERABLE_COROUTINE):
@@ -1438,12 +1438,12 @@ class __extend__(pyframe.PyFrame):
                             "in a non-coroutine generator")
         elif not isinstance(w_iterable, GeneratorIterator):
             w_iterator = self.space.iter(w_iterable)
-            self.pushvalue(w_iterator)
+            self.settopvalue(w_iterator)
     
     def GET_AWAITABLE(self, oparg, next_instr):
-        w_iterable = self.popvalue()
+        w_iterable = self.peekvalue()
         w_iter = w_iterable._GetAwaitableIter(self.space)
-        self.pushvalue(w_iter)
+        self.settopvalue(w_iter)
     
     def SETUP_ASYNC_WITH(self, offsettoend, next_instr):
         res = self.popvalue()
@@ -1466,7 +1466,7 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_result)
     
     def GET_AITER(self, oparg, next_instr):
-        w_obj = self.popvalue()
+        w_obj = self.peekvalue()
         w_func = self.space.lookup(w_obj, "__aiter__")
         if w_func is None:
             raise oefmt(space.w_AttributeError,
@@ -1478,10 +1478,10 @@ class __extend__(pyframe.PyFrame):
             raise oefmt(space.w_TypeError,
                         "'async for' received an invalid object "
                         "from __aiter__: %T", w_iter)
-        self.pushvalue(w_awaitable)
+        self.settopvalue(w_awaitable)
     
     def GET_ANEXT(self, oparg, next_instr):
-        w_aiter = self.popvalue()
+        w_aiter = self.peekvalue()
         w_func = self.space.lookup(w_aiter, "__anext__")
         if w_func is None:
             raise oefmt(space.w_AttributeError,
