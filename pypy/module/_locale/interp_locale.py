@@ -126,13 +126,9 @@ def strcoll(space, w_s1, w_s2):
         space.isinstance_w(w_s2, space.w_str)):
 
         s1, s2 = space.str_w(w_s1), space.str_w(w_s2)
-        s1_c = rffi.str2charp(s1)
-        s2_c = rffi.str2charp(s2)
-        try:
-            return space.wrap(_strcoll(s1_c, s2_c))
-        finally:
-            rffi.free_charp(s1_c)
-            rffi.free_charp(s2_c)
+        with rffi.scoped_view_charp(s1) as s1_c:
+            with rffi.scoped_view_charp(s2) as s2_c:
+                return space.wrap(_strcoll(s1_c, s2_c))
 
     s1, s2 = space.unicode_w(w_s1), space.unicode_w(w_s2)
 
@@ -155,21 +151,15 @@ def strxfrm(space, s):
     n1 = len(s) + 1
 
     buf = lltype.malloc(rffi.CCHARP.TO, n1, flavor="raw", zero=True)
-    s_c = rffi.str2charp(s)
-    try:
+    with rffi.scoped_view_charp(s) as s_c:
         n2 = _strxfrm(buf, s_c, n1) + 1
-    finally:
-        rffi.free_charp(s_c)
     if n2 > n1:
         # more space needed
         lltype.free(buf, flavor="raw")
         buf = lltype.malloc(rffi.CCHARP.TO, intmask(n2),
                             flavor="raw", zero=True)
-        s_c = rffi.str2charp(s)
-        try:
+        with rffi.scoped_view_charp(s) as s_c:
             _strxfrm(buf, s_c, n2)
-        finally:
-            rffi.free_charp(s_c)
 
     val = rffi.charp2str(buf)
     lltype.free(buf, flavor="raw")
@@ -198,11 +188,8 @@ if rlocale.HAVE_LIBINTL:
     def gettext(space, msg):
         """gettext(msg) -> string
         Return translation of msg."""
-        msg_c = rffi.str2charp(msg)
-        try:
+        with rffi.scoped_view_charp(msg) as msg_c:
             return space.wrap(rffi.charp2str(_gettext(msg_c)))
-        finally:
-            rffi.free_charp(msg_c)
 
     _dgettext = rlocale.external('dgettext', [rffi.CCHARP, rffi.CCHARP], rffi.CCHARP)
 
@@ -212,28 +199,21 @@ if rlocale.HAVE_LIBINTL:
         Return translation of msg in domain."""
         if space.is_w(w_domain, space.w_None):
             domain = None
-            msg_c = rffi.str2charp(msg)
-            try:
+            with rffi.scoped_view_charp(msg) as msg_c:
                 result = _dgettext(domain, msg_c)
                 # note that 'result' may be the same pointer as 'msg_c',
                 # so it must be converted to an RPython string *before*
                 # we free msg_c.
                 result = rffi.charp2str(result)
-            finally:
-                rffi.free_charp(msg_c)
         else:
             domain = space.str_w(w_domain)
-            domain_c = rffi.str2charp(domain)
-            msg_c = rffi.str2charp(msg)
-            try:
-                result = _dgettext(domain_c, msg_c)
-                # note that 'result' may be the same pointer as 'msg_c',
-                # so it must be converted to an RPython string *before*
-                # we free msg_c.
-                result = rffi.charp2str(result)
-            finally:
-                rffi.free_charp(domain_c)
-                rffi.free_charp(msg_c)
+            with rffi.scoped_view_charp(domain) as domain_c:
+                with rffi.scoped_view_charp(msg) as msg_c:
+                    result = _dgettext(domain_c, msg_c)
+                    # note that 'result' may be the same pointer as 'msg_c',
+                    # so it must be converted to an RPython string *before*
+                    # we free msg_c.
+                    result = rffi.charp2str(result)
 
         return space.wrap(result)
 
@@ -247,29 +227,22 @@ if rlocale.HAVE_LIBINTL:
 
         if space.is_w(w_domain, space.w_None):
             domain = None
-            msg_c = rffi.str2charp(msg)
-            try:
+            with rffi.scoped_view_charp(msg) as msg_c:
                 result = _dcgettext(domain, msg_c, rffi.cast(rffi.INT, category))
                 # note that 'result' may be the same pointer as 'msg_c',
                 # so it must be converted to an RPython string *before*
                 # we free msg_c.
                 result = rffi.charp2str(result)
-            finally:
-                rffi.free_charp(msg_c)
         else:
             domain = space.str_w(w_domain)
-            domain_c = rffi.str2charp(domain)
-            msg_c = rffi.str2charp(msg)
-            try:
-                result = _dcgettext(domain_c, msg_c,
-                                    rffi.cast(rffi.INT, category))
-                # note that 'result' may be the same pointer as 'msg_c',
-                # so it must be converted to an RPython string *before*
-                # we free msg_c.
-                result = rffi.charp2str(result)
-            finally:
-                rffi.free_charp(domain_c)
-                rffi.free_charp(msg_c)
+            with rffi.scoped_view_charp(domain) as domain_c:
+                with rffi.scoped_view_charp(msg) as msg_c:
+                    result = _dcgettext(domain_c, msg_c,
+                                        rffi.cast(rffi.INT, category))
+                    # note that 'result' may be the same pointer as 'msg_c',
+                    # so it must be converted to an RPython string *before*
+                    # we free msg_c.
+                    result = rffi.charp2str(result)
 
         return space.wrap(result)
 
@@ -286,15 +259,12 @@ if rlocale.HAVE_LIBINTL:
             result = rffi.charp2str(result)
         else:
             domain = space.str_w(w_domain)
-            domain_c = rffi.str2charp(domain)
-            try:
+            with rffi.scoped_view_charp(domain) as domain_c:
                 result = _textdomain(domain_c)
                 # note that 'result' may be the same pointer as 'domain_c'
                 # (maybe?) so it must be converted to an RPython string
                 # *before* we free domain_c.
                 result = rffi.charp2str(result)
-            finally:
-                rffi.free_charp(domain_c)
 
         return space.wrap(result)
 
@@ -309,20 +279,13 @@ if rlocale.HAVE_LIBINTL:
 
         if space.is_w(w_dir, space.w_None):
             dir = None
-            domain_c = rffi.str2charp(domain)
-            try:
+            with rffi.scoped_view_charp(domain) as domain_c:
                 dirname = _bindtextdomain(domain_c, dir)
-            finally:
-                rffi.free_charp(domain_c)
         else:
             dir = space.str_w(w_dir)
-            domain_c = rffi.str2charp(domain)
-            dir_c = rffi.str2charp(dir)
-            try:
-                dirname = _bindtextdomain(domain_c, dir_c)
-            finally:
-                rffi.free_charp(domain_c)
-                rffi.free_charp(dir_c)
+            with rffi.scoped_view_charp(domain) as domain_c:
+                with rffi.scoped_view_charp(dir) as dir_c:
+                    dirname = _bindtextdomain(domain_c, dir_c)
 
         if not dirname:
             errno = rposix.get_saved_errno()
@@ -340,20 +303,13 @@ if rlocale.HAVE_LIBINTL:
 
             if space.is_w(w_codeset, space.w_None):
                 codeset = None
-                domain_c = rffi.str2charp(domain)
-                try:
+                with rffi.scoped_view_charp(domain) as domain_c:
                     result = _bind_textdomain_codeset(domain_c, codeset)
-                finally:
-                    rffi.free_charp(domain_c)
             else:
                 codeset = space.str_w(w_codeset)
-                domain_c = rffi.str2charp(domain)
-                codeset_c = rffi.str2charp(codeset)
-                try:
-                    result = _bind_textdomain_codeset(domain_c, codeset_c)
-                finally:
-                    rffi.free_charp(domain_c)
-                    rffi.free_charp(codeset_c)
+                with rffi.scoped_view_charp(domain) as domain_c:
+                    with rffi.scoped_view_charp(codeset) as codeset_c:
+                        result = _bind_textdomain_codeset(domain_c, codeset_c)
 
             if not result:
                 return space.w_None

@@ -52,13 +52,13 @@ class JSONDecoder(object):
         # 1) we automatically get the '\0' sentinel at the end of the string,
         #    which means that we never have to check for the "end of string"
         # 2) we can pass the buffer directly to strtod
-        self.ll_chars = rffi.str2charp(s)
+        self.ll_chars, self.buf_flag = rffi.get_nonmovingbuffer_final_null(s)
         self.end_ptr = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
         self.pos = 0
         self.last_type = TYPE_UNKNOWN
 
     def close(self):
-        rffi.free_charp(self.ll_chars)
+        rffi.free_nonmovingbuffer(self.s, self.ll_chars, self.buf_flag)
         lltype.free(self.end_ptr, flavor='raw')
 
     def getslice(self, start, end):

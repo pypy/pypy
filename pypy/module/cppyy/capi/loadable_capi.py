@@ -65,6 +65,7 @@ class W_RCTypeFunc(ctypefunc.W_CTypeFunc):
                 else:    # only other use is sring
                     n = len(obj._string)
                     assert raw_string == rffi.cast(rffi.CCHARP, 0)
+                    # XXX could use rffi.get_nonmovingbuffer_final_null()
                     raw_string = rffi.str2charp(obj._string)
                     data = rffi.cast(rffi.CCHARPP, data)
                     data[0] = raw_string

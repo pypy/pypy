@@ -228,7 +228,7 @@ if HAVE_OPENSSL_RAND:
 
         Mix string into the OpenSSL PRNG state.  entropy (a float) is a lower
         bound on the entropy contained in string."""
-        with rffi.scoped_str2charp(string) as buf:
+        with rffi.get_nonmovingbuffer(string) as buf:
             libssl_RAND_add(buf, len(string), entropy)
 
     def RAND_status(space):
