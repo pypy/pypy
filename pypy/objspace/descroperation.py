@@ -446,17 +446,14 @@ class DescrOperation(object):
 
         from pypy.objspace.std.intobject import (
             W_AbstractIntObject, W_IntObject)
-        if type(w_result) is W_IntObject:
-            if space.int_w(w_result) == -1:
-                return space.wrap(-2)
-            return w_result
         if not isinstance(w_result, W_IntObject):
             # a non W_IntObject int, assume long-like
             assert isinstance(w_result, W_AbstractIntObject)
             w_result = w_result.descr_hash(space)
         result = space.int_w(w_result)
-        if result == -1:
-            result = -2
+        # turn -1 into -2 without using a condition, which would
+        # create a potential bridge in the JIT
+        result -= (result == -1)
         return space.newint(result)
 
     def issubtype_w(space, w_sub, w_type):
