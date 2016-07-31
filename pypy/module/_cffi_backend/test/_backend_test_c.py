@@ -3340,6 +3340,8 @@ def test_from_buffer_not_str_unicode():
     except ImportError:
         pass
     else:
+        # from_buffer(buffer(b"foo")) does not work, because it's not
+        # implemented on pypy; only from_buffer(b"foo") works.
         py.test.raises(TypeError, from_buffer, BCharA, buffer(b"foo"))
         py.test.raises(TypeError, from_buffer, BCharA, buffer(u+"foo"))
     try:
