@@ -697,6 +697,9 @@ class _array_of_unknown_length(_parentable_mixin, lltype._parentable):
         # we have no clue, so we allow whatever index
         return 0, maxint
 
+    def shrinklength(self, newlength):
+        raise NotImplementedError
+
     def getitem(self, index, uninitialized_ok=False):
         res = self._storage.contents._getitem(index, boundscheck=False)
         if isinstance(self._TYPE.OF, lltype.ContainerType):
