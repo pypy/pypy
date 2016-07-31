@@ -15,7 +15,7 @@ from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.tool.rfficache import platform, sizeof_c_type
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.annlowlevel import llhelper
-from rpython.rlib.objectmodel import we_are_translated, translated_to_c
+from rpython.rlib.objectmodel import we_are_translated, we_are_translated_to_c
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder, assert_str0
 from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import llmemory
@@ -837,10 +837,10 @@ def make_string_mappings(strtype):
         lldata = llstrtype(data)
         count = len(data)
 
-        if translated_to_c and not rgc.can_move(data):
+        if we_are_translated_to_c() and not rgc.can_move(data):
             flag = '\x04'
         else:
-            if translated_to_c and rgc.pin(data):
+            if we_are_translated_to_c() and rgc.pin(data):
                 flag = '\x05'
             else:
                 buf = lltype.malloc(TYPEP.TO, count + (TYPEP is CCHARP),
