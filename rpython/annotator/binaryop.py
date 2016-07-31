@@ -201,8 +201,8 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
         return SomeInteger(nonneg=int1.nonneg and int2.nonneg,
                            knowntype=knowntype)
 
-    or_ = xor = mul = _clone(union, [])
-    mul_ovf = _clone(union, [OverflowError])
+    or_ = xor = add = mul = _clone(union, [])
+    add_ovf = mul_ovf = _clone(union, [OverflowError])
     div = floordiv = mod = _clone(union, [ZeroDivisionError])
     div_ovf= floordiv_ovf = mod_ovf = _clone(union, [ZeroDivisionError, OverflowError])
 
@@ -213,16 +213,6 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
 
     inplace_div = div
     inplace_truediv = truediv
-
-    def add((int1, int2)):
-        # propagate const-ness to help 'tup[j + 1]'
-        result = pair(int1, int2)._add_base()
-        if int1.is_immutable_constant() and int2.is_immutable_constant():
-            result.const = int1.const + int2.const
-        return result
-    add.can_only_throw = []
-    _add_base = union    # and not another union() from a subclass
-    add_ovf = _clone(add, [OverflowError])
 
     def sub((int1, int2)):
         knowntype = rarithmetic.compute_restype(int1.knowntype, int2.knowntype)

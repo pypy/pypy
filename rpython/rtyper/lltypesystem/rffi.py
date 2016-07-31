@@ -280,22 +280,21 @@ def llexternal(name, args, result, _callable=None,
                         arg = cast(TARGET, arg)
             real_args = real_args + (arg,)
         res = call_external_function(*real_args)
-        j = 0
         for i, TARGET in unrolling_arg_tps:
             arg = args[i]
             if TARGET == CCHARP or TARGET is VOIDP:
                 if arg is None:
-                    j = j + 2
+                    to_free = to_free[2:]
                 elif isinstance(arg, str):
-                    free_nonmovingbuffer(arg, to_free[j], to_free[j+1])
-                    j = j + 2
+                    free_nonmovingbuffer(arg, to_free[0], to_free[1])
+                    to_free = to_free[2:]
             elif TARGET == CWCHARP:
                 if arg is None:
-                    j = j + 1
+                    to_free = to_free[1:]
                 elif isinstance(arg, unicode):
-                    free_wcharp(to_free[j])
-                    j = j + 1
-        assert j == len(to_free)
+                    free_wcharp(to_free[0])
+                    to_free = to_free[1:]
+        assert len(to_free) == 0
         if rarithmetic.r_int is not r_int:
             if result is INT:
                 return cast(lltype.Signed, res)

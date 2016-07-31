@@ -1004,22 +1004,6 @@ class TestAnnotateTestCase:
             a.build_types(f, [])
         # if you want to get a r_uint, you have to be explicit about it
 
-    def test_add_constant(self):
-        def f(a):
-            return a + 5
-        a = self.RPythonAnnotator()
-        s = annmodel.SomeInteger(nonneg=True)
-        s.const = 12
-        s = a.build_types(f, [s])
-        assert s.const == 17
-
-    def test_add_bools(self):
-        def f(a):
-            return (a > 2) + (a < 6)
-        a = self.RPythonAnnotator()
-        s = a.build_types(f, [int])
-        assert s.knowntype is int
-
     def test_add_different_ints(self):
         def f(a, b):
             return a + b
