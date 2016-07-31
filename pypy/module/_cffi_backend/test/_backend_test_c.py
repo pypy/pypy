@@ -3330,7 +3330,10 @@ def test_from_buffer_not_str_unicode():
     BChar = new_primitive_type("char")
     BCharP = new_pointer_type(BChar)
     BCharA = new_array_type(BCharP, None)
-    py.test.raises(TypeError, from_buffer, BCharA, b"foo")
+    p1 = from_buffer(BCharA, b"foo")
+    assert p1 == from_buffer(BCharA, b"foo")
+    import gc; gc.collect()
+    assert p1 == from_buffer(BCharA, b"foo")
     py.test.raises(TypeError, from_buffer, BCharA, u+"foo")
     try:
         from __builtin__ import buffer
