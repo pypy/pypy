@@ -1472,7 +1472,7 @@ class __extend__(pyframe.PyFrame):
             raise oefmt(space.w_AttributeError,
                         "object %T does not have __aiter__ method",
                         w_obj)
-        w_iter = space.get_and_call_function(w_func, None)
+        w_iter = space.get_and_call_function(w_func, w_obj)
         w_awaitable = w_iter._GetAwaitableIter(self.space)
         if w_awaitable is None:
             raise oefmt(space.w_TypeError,
@@ -1487,7 +1487,7 @@ class __extend__(pyframe.PyFrame):
             raise oefmt(space.w_AttributeError,
                         "object %T does not have __anext__ method",
                         w_aiter)
-        w_next_iter = space.get_and_call_function(w_func, None)
+        w_next_iter = space.get_and_call_function(w_func, w_aiter)
         w_awaitable = w_next_iter._GetAwaitableIter(self.space)
         if w_awaitable is None:
             raise oefmt(space.w_TypeError,

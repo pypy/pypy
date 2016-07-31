@@ -313,7 +313,7 @@ return next yielded value or raise StopIteration."""
             raise oefmt(space.w_AttributeError,
                         "object %T does not have __await__ method",
                         self)
-        res = space.get_and_call_function(w_await, None)
+        res = space.get_and_call_function(w_await, self)
         if res is not None:
             if (isinstance(res, Coroutine) or
                 res.pycode.co_flags & consts.CO_ITERABLE_COROUTINE):
