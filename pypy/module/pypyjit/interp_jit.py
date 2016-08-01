@@ -54,7 +54,7 @@ def get_location(next_instr, is_being_profiled, bytecode):
     name = bytecode.co_name
     if not name:
         name = ""
-    line = offset2lineno(bytecode, next_instr)
+    line = offset2lineno(bytecode, intmask(next_instr))
     return (bytecode.co_filename, line,
             name, intmask(next_instr), opname)
 
