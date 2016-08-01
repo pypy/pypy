@@ -2,7 +2,7 @@ from rpython.jit.backend.llsupport.rewrite import cpu_simplify_scale
 from rpython.jit.backend.llsupport.descr import (unpack_arraydescr,
         unpack_fielddescr, unpack_interiorfielddescr, ArrayDescr)
 from rpython.rlib.objectmodel import specialize, always_inline
-from rpython.jit.metainterp.history import (VECTOR, FLOAT, INT)
+from rpython.jit.metainterp.history import (VECTOR, FLOAT, INT, ConstInt)
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.optimizeopt.schedule import (forwarded_vecinfo,
         failnbail_transformation)
@@ -72,7 +72,7 @@ class OpRestrict(object):
         self.argument_restrictions = argument_restris
 
     def check_operation(self, state, pack, op):
-        pass
+        return None
 
     def crop_vector(self, op, newsize, size):
         return newsize, size
@@ -111,19 +111,25 @@ class GuardRestrict(OpRestrict):
 class LoadRestrict(OpRestrict):
     def check_operation(self, state, pack, op):
         opnum = op.getopnum()
+        descr = op.getdescr()
+        if not we_are_translated() and not isinstance(descr, ArrayDescr):
+            itemsize = descr.get_item_size_in_bytes()
+            ofs = 0
+        else:
+            itemsize, ofs, _ = unpack_arraydescr(op.getdescr())
+        args = [op.getarg(0), op.getarg(1), ConstInt(1), ConstInt(ofs)]
         if rop.is_getarrayitem(opnum) or \
              opnum in (rop.GETARRAYITEM_RAW_I, rop.GETARRAYITEM_RAW_F):
-            descr = op.getdescr()
-            if not we_are_translated() and not isinstance(descr, ArrayDescr):
-                itemsize = descr.get_item_size_in_bytes()
-                ofs = 0
-            else:
-                itemsize, ofs, _ = unpack_arraydescr(op.getdescr())
             index_box = op.getarg(1)
-            _, _, changed, emit = cpu_simplify_scale(state.cpu, index_box, itemsize, ofs)
+            scale, offset, changed, emit = cpu_simplify_scale(state.cpu, index_box, itemsize, ofs)
+            args[2] = ConstInt(scale)
+            args[3] = ConstInt(offset)
             if emit:
                 state.oplist.append(changed)
-                op.setarg(1, changed)
+                args[1] = changed
+
+        return args
+
 
     def opcount_filling_vector_register(self, op, vec_reg_size):
         assert rop.is_primitive_load(op.opnum)
@@ -136,18 +142,22 @@ class StoreRestrict(OpRestrict):
 
     def check_operation(self, state, pack, op):
         opnum = op.getopnum()
+        descr = op.getdescr()
+        if not we_are_translated() and not isinstance(descr, ArrayDescr):
+            itemsize = descr.get_item_size_in_bytes()
+            ofs = 0
+        else:
+            itemsize, ofs, _ = unpack_arraydescr(op.getdescr())
+        args = [op.getarg(0), op.getarg(1), op.getarg(2), ConstInt(1), ConstInt(ofs)]
         if opnum in (rop.SETARRAYITEM_GC, rop.SETARRAYITEM_RAW):
-            descr = op.getdescr()
-            if not we_are_translated() and not isinstance(descr, ArrayDescr):
-                itemsize = descr.get_item_size_in_bytes()
-                basesize= 0
-            else:
-                itemsize, basesize, _ = unpack_arraydescr(op.getdescr())
             index_box = op.getarg(1)
-            _, _, changed, emit = cpu_simplify_scale(state.cpu, index_box, itemsize, basesize)
+            scale, offset, changed, emit = cpu_simplify_scale(state.cpu, index_box, itemsize, ofs)
+            args[3] = ConstInt(scale)
+            args[4] = ConstInt(offset)
             if emit:
                 state.oplist.append(changed)
-                op.setarg(1, changed)
+                args[1] = changed
+        return args
 
     def must_crop_vector(self, op, index):
         vecinfo = forwarded_vecinfo(op.getarg(index))
@@ -185,6 +195,7 @@ class OpMatchSizeTypeFirst(OpRestrict):
                 raise NotAVectorizeableLoop()
             if curvecinfo.datatype != datatype:
                 raise NotAVectorizeableLoop()
+        return None
 
 TR_ANY = TypeRestrict()
 TR_ANY_FLOAT = TypeRestrict(FLOAT)

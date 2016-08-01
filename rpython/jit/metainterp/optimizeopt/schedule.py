@@ -220,11 +220,17 @@ def turn_into_vector(state, pack):
     left = pack.leftmost()
     oprestrict = state.cpu.vector_ext.get_operation_restriction(left)
     if oprestrict is not None:
-        oprestrict.check_operation(state, pack, left)
-    args = left.getarglist_copy()
+        newargs = oprestrict.check_operation(state, pack, left)
+        if newargs:
+            args = newargs
+        else:
+            args = left.getarglist_copy()
+    else:
+        args = left.getarglist_copy()
     prepare_arguments(state, oprestrict, pack, args)
     vecop = VecOperation(left.vector, args, left,
                          pack.numops(), left.getdescr())
+
     for i,node in enumerate(pack.operations):
         op = node.getoperation()
         if op.returns_void():

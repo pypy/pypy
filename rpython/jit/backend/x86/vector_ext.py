@@ -150,26 +150,11 @@ class VectorAssemblerMixin(object):
 
         not_implemented("reduce sum for %s not impl." % arg)
 
-    # TODO remove
-    #def _genop_vec_getarrayitem(self, op, arglocs, resloc):
-    #    # considers item scale (raw_load does not)
-    #    base_loc, ofs_loc, size_loc, ofs, integer_loc, aligned_loc = arglocs
-    #    scale = get_scale(size_loc.value)
-    #    src_addr = addr_add(base_loc, ofs_loc, ofs.value, scale)
-    #    self._vec_load(resloc, src_addr, integer_loc.value,
-    #                   size_loc.value, aligned_loc.value)
-    #
-    #genop_vec_getarrayitem_raw_i = _genop_vec_getarrayitem
-    #genop_vec_getarrayitem_raw_f = _genop_vec_getarrayitem
-    #
-    #genop_vec_getarrayitem_gc_i = _genop_vec_getarrayitem
-    #genop_vec_getarrayitem_gc_f = _genop_vec_getarrayitem
-
     def _genop_vec_load(self, op, arglocs, resloc):
-        base_loc, ofs_loc, size_loc, ofs, integer_loc, aligned_loc = arglocs
-        src_addr = addr_add(base_loc, ofs_loc, ofs.value, 0)
+        base_loc, ofs_loc, size_loc, scale, ofs, integer_loc = arglocs
+        src_addr = addr_add(base_loc, ofs_loc, ofs.value, scale.value)
         self._vec_load(resloc, src_addr, integer_loc.value,
-                       size_loc.value, aligned_loc.value)
+                       size_loc.value, False)
 
     genop_vec_load_i = _genop_vec_load
     genop_vec_load_f = _genop_vec_load
@@ -187,23 +172,12 @@ class VectorAssemblerMixin(object):
             elif itemsize == 8:
                 self.mc.MOVUPD(resloc, src_addr)
 
-    # TODO remove
-    #def _genop_discard_vec_setarrayitem(self, op, arglocs):
-    #    # considers item scale (raw_store does not)
-    #    base_loc, ofs_loc, value_loc, size_loc, baseofs, integer_loc, aligned_loc = arglocs
-    #    scale = get_scale(size_loc.value)
-    #    dest_loc = addr_add(base_loc, ofs_loc, baseofs.value, scale)
-    #    self._vec_store(dest_loc, value_loc, integer_loc.value,
-    #                    size_loc.value, aligned_loc.value)
-
-    #genop_discard_vec_setarrayitem_raw = _genop_discard_vec_setarrayitem
-    #genop_discard_vec_setarrayitem_gc = _genop_discard_vec_setarrayitem
-
     def genop_discard_vec_store(self, op, arglocs):
-        base_loc, ofs_loc, value_loc, size_loc, baseofs, integer_loc, aligned_loc = arglocs
-        dest_loc = addr_add(base_loc, ofs_loc, baseofs.value, 0)
+        base_loc, ofs_loc, value_loc, size_loc, scale,\
+                baseofs, integer_loc = arglocs
+        dest_loc = addr_add(base_loc, ofs_loc, baseofs.value, scale.value)
         self._vec_store(dest_loc, value_loc, integer_loc.value,
-                        size_loc.value, aligned_loc.value)
+                        size_loc.value, False)
 
     @always_inline
     def _vec_store(self, dest_loc, value_loc, integer, itemsize, aligned):
@@ -550,20 +524,17 @@ class VectorRegallocMixin(object):
         assert isinstance(descr, ArrayDescr)
         assert not descr.is_array_of_pointers() and \
                not descr.is_array_of_structs()
-        itemsize, ofs, _ = unpack_arraydescr(descr)
+        itemsize, _, _ = unpack_arraydescr(descr)
         integer = not (descr.is_array_of_floats() or descr.getconcrete_type() == FLOAT)
-        aligned = False
         args = op.getarglist()
+        scale = get_scale(op.getarg(2).getint())
+        ofs = op.getarg(3).getint()
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
         ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
         result_loc = self.force_allocate_reg(op)
-        self.perform(op, [base_loc, ofs_loc, imm(itemsize), imm(ofs),
-                          imm(integer), imm(aligned)], result_loc)
+        self.perform(op, [base_loc, ofs_loc, imm(itemsize), imm(scale),
+                          imm(ofs), imm(integer)], result_loc)
 
-    #consider_vec_getarrayitem_raw_i = _consider_vec_getarrayitem
-    #consider_vec_getarrayitem_raw_f = _consider_vec_getarrayitem
-    #consider_vec_getarrayitem_gc_i = _consider_vec_getarrayitem
-    #consider_vec_getarrayitem_gc_f = _consider_vec_getarrayitem
     consider_vec_load_i = _consider_vec_load
     consider_vec_load_f = _consider_vec_load
 
@@ -573,20 +544,18 @@ class VectorRegallocMixin(object):
         assert isinstance(descr, ArrayDescr)
         assert not descr.is_array_of_pointers() and \
                not descr.is_array_of_structs()
-        itemsize, ofs, _ = unpack_arraydescr(descr)
+        itemsize, _, _ = unpack_arraydescr(descr)
         args = op.getarglist()
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
         value_loc = self.make_sure_var_in_reg(op.getarg(2), args)
         ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
+        scale = get_scale(op.getarg(3).getint())
+        ofs = op.getarg(4).getint()
 
-        integer = not (descr.is_array_of_floats() or descr.getconcrete_type() == FLOAT)
-        aligned = False
-        self.perform_discard(op, [base_loc, ofs_loc, value_loc,
-                                 imm(itemsize), imm(ofs), imm(integer), imm(aligned)])
-
-    #consider_vec_setarrayitem_raw = _consider_vec_setarrayitem
-    #consider_vec_setarrayitem_gc = _consider_vec_setarrayitem
-    #consider_vec_store = _consider_vec_setarrayitem
+        integer = not (descr.is_array_of_floats() or \
+                       descr.getconcrete_type() == FLOAT)
+        self.perform_discard(op, [base_loc, ofs_loc, value_loc, imm(itemsize),
+                                  imm(scale), imm(ofs), imm(integer)])
 
     def consider_vec_arith(self, op):
         lhs = op.getarg(0)

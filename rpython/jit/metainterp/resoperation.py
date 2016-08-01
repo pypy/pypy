@@ -1077,7 +1077,7 @@ _oplist = [
     'GETARRAYITEM_GC/2d/rfi',
     'GETARRAYITEM_RAW/2d/fi',
     'RAW_LOAD/2d/fi',
-    'VEC_LOAD/2d/fi',
+    'VEC_LOAD/4d/fi',
     '_RAW_LOAD_LAST',
 
     'GETINTERIORFIELD_GC/2d/rfi',
@@ -1112,7 +1112,7 @@ _oplist = [
     'SETARRAYITEM_GC/3d/n',
     'SETARRAYITEM_RAW/3d/n',
     'RAW_STORE/3d/n',
-    'VEC_STORE/3d/n',
+    'VEC_STORE/5d/n',
     '_RAW_STORE_LAST',
     'SETINTERIORFIELD_GC/3d/n',
     'SETINTERIORFIELD_RAW/3d/n',    # right now, only used by tests
