@@ -46,7 +46,7 @@ def get_unique_id(next_instr, is_being_profiled, bytecode):
             jl.MP_SCOPE, jl.MP_INDEX, jl.MP_OPCODE)
 def get_location(next_instr, is_being_profiled, bytecode):
     from pypy.tool.stdlib_opcode import opcode_method_names
-    from pypy.tool.error import offset2lineno
+    from rpython.tool.error import offset2lineno
     bcindex = ord(bytecode.co_code[next_instr])
     opname = ""
     if 0 <= bcindex < len(opcode_method_names):
