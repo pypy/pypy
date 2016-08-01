@@ -1215,6 +1215,11 @@ class AppTestFfi:
         assert a[0] == b'd'
         a.free()
 
+    def test_cdll_name(self):
+        import _rawffi
+        lib = _rawffi.CDLL(self.lib_name)
+        assert lib.name == self.lib_name
+
 
 class AppTestAutoFree:
     spaceconfig = dict(usemodules=['_rawffi', 'struct'])

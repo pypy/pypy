@@ -965,7 +965,20 @@ class TestCompiler:
         """
         self.simple_test(source, 'ok', 1)
 
-    def test_remove_docstring(self):
+    @py.test.mark.parametrize('expr, result', [
+        ("f1.__doc__", None),
+        ("f2.__doc__", 'docstring'),
+        ("f2()", 'docstring'),
+        ("f3.__doc__", None),
+        ("f3()", 'bar'),
+        ("C1.__doc__", None),
+        ("C2.__doc__", 'docstring'),
+        ("C3.field", 'not docstring'),
+        ("C4.field", 'docstring'),
+        ("C4.__doc__", 'docstring'),
+        ("C4.__doc__", 'docstring'),
+        ("__doc__", None),])
+    def test_remove_docstring(self, expr, result):
         source = '"module_docstring"\n' + """if 1:
         def f1():
             'docstring'
@@ -989,19 +1002,7 @@ class TestCompiler:
         code_w.remove_docstrings(self.space)
         dict_w = self.space.newdict();
         code_w.exec_code(self.space, dict_w, dict_w)
-
-        yield self.check, dict_w, "f1.__doc__", None
-        yield self.check, dict_w, "f2.__doc__", 'docstring'
-        yield self.check, dict_w, "f2()", 'docstring'
-        yield self.check, dict_w, "f3.__doc__", None
-        yield self.check, dict_w, "f3()", 'bar'
-        yield self.check, dict_w, "C1.__doc__", None
-        yield self.check, dict_w, "C2.__doc__", 'docstring'
-        yield self.check, dict_w, "C3.field", 'not docstring'
-        yield self.check, dict_w, "C4.field", 'docstring'
-        yield self.check, dict_w, "C4.__doc__", 'docstring'
-        yield self.check, dict_w, "C4.__doc__", 'docstring'
-        yield self.check, dict_w, "__doc__", None
+        self.check(dict_w, expr, result)
 
     def test_assert_skipping(self):
         space = self.space

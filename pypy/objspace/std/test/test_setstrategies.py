@@ -9,7 +9,7 @@ class TestW_SetStrategies:
 
     def wrapped(self, l, bytes=False):
         if bytes:
-            items_w = [self.space.wrapbytes(x) for x in l]
+            items_w = [self.space.newbytes(x) for x in l]
         else:
             items_w = [self.space.wrap(x) for x in l]
         return W_ListObject(self.space, items_w)

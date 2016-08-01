@@ -122,7 +122,7 @@ class W_CTypePtrOrArray(W_CType):
                         s = rffi.charp2str(ptr)
                     else:
                         s = rffi.charp2strn(ptr, length)
-                    return space.wrapbytes(s)
+                    return space.newbytes(s)
                 #
                 # pointer to a wchar_t: builds and returns a unicode
                 if self.is_unichar_ptr_or_array():
@@ -131,7 +131,7 @@ class W_CTypePtrOrArray(W_CType):
                         u = rffi.wcharp2unicode(cdata)
                     else:
                         u = rffi.wcharp2unicoden(cdata, length)
-                    return space.wrap(u)
+                    return space.newunicode(u)
         #
         return W_CType.string(self, cdataobj, maxlen)
 

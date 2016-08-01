@@ -313,8 +313,10 @@ def getaddrinfo_pydotorg(i, result):
     assert isinstance(lst, list)
     found = False
     for family, socktype, protocol, canonname, addr in lst:
-        if addr.get_host() == '104.130.43.121':
+        if addr.get_host() in ('104.130.43.121', '23.253.135.79'):
             found = True
+        elif family == AF_INET:
+            print 'pydotorg changed to', addr.get_host()
     result[i] += found
 
 def test_getaddrinfo_pydotorg():
@@ -589,3 +591,15 @@ def test_translate_netdb_lock_thread():
         return 0
     fc = compile(f, [], thread=True)
     assert fc() == 0
+
+def test_socket_saves_errno(tmpdir):
+    # ensure errno is set to a known value...
+    unconnected_sock = RSocket()
+    e = py.test.raises(CSocketError, unconnected_sock.recv, 1024)
+    # ...which is ENOTCONN
+    assert e.value.errno == errno.ENOTCONN
+
+    e = py.test.raises(CSocketError,
+                       RSocket,
+                       family=AF_INET, type=SOCK_STREAM, proto=SOL_UDP)
+    assert e.value.errno in (errno.EPROTOTYPE, errno.EPROTONOSUPPORT)

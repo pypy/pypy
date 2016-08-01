@@ -133,7 +133,7 @@ class W_AbstractIntObject(W_Root):
                         "can't convert negative int to unsigned")
         except OverflowError:
             raise oefmt(space.w_OverflowError, "int too big to convert")
-        return space.wrapbytes(byte_string)
+        return space.newbytes(byte_string)
 
     def descr_round(self, space, w_ndigits=None):
         """Rounding an Integral returns itself.
@@ -872,8 +872,8 @@ def _new_int(space, w_inttype, w_x, w_base=None):
             return _from_intlike(space, w_inttype, space.trunc(w_value))
         elif space.isinstance_w(w_value, space.w_unicode):
             from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
-            return _string_to_int_or_long(space, w_inttype, w_value,
-                                          unicode_to_decimal_w(space, w_value))
+            b = unicode_to_decimal_w(space, w_value, allow_surrogates=True)
+            return _string_to_int_or_long(space, w_inttype, w_value, b)
         elif (space.isinstance_w(w_value, space.w_bytearray) or
               space.isinstance_w(w_value, space.w_bytes)):
             return _string_to_int_or_long(space, w_inttype, w_value,
@@ -900,7 +900,7 @@ def _new_int(space, w_inttype, w_x, w_base=None):
 
         if space.isinstance_w(w_value, space.w_unicode):
             from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
-            s = unicode_to_decimal_w(space, w_value)
+            s = unicode_to_decimal_w(space, w_value, allow_surrogates=True)
         else:
             try:
                 s = space.bufferstr_w(w_value)
@@ -1030,5 +1030,4 @@ def _hash_int(a):
     if x >= HASH_MODULUS:
         x -= HASH_MODULUS
 
-    x = intmask(intmask(x) * sign)
-    return -2 if x == -1 else x
+    return intmask(intmask(x) * sign)

@@ -48,7 +48,7 @@ class AppTestFfi:
             ]
         cls.w_test_data = w_test_data = space.wrap(test_data)
         w_btest = space.newtuple([space.wrap("Raw data"),
-                                  space.wrapbytes("binary\x00data"),
+                                  space.newbytes("binary\x00data"),
                                   space.wrap(_winreg.REG_BINARY)])
         w_test_data.append(w_btest)
 

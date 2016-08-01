@@ -25,31 +25,15 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
             ("test_Size", "METH_NOARGS",
              """
                  PyObject* s = PyBytes_FromString("Hello world");
-                 int result = 0;
-                 size_t expected_size;
+                 int result = PyBytes_Size(s);
 
-                 if(PyBytes_Size(s) == 11) {
-                     result = 1;
-                 }
-                 #ifdef PYPY_VERSION
-                    expected_size = sizeof(void*)*7;
-                 #elif defined Py_DEBUG
-                    expected_size = 53;
-                 #else
-                    expected_size = 37;
-                 #endif
-                 if(s->ob_type->tp_basicsize != expected_size)
-                 {
-                     printf("tp_basicsize==%zd\\n", s->ob_type->tp_basicsize);
-                     result = 0;
-                 }
                  Py_DECREF(s);
-                 return PyBool_FromLong(result);
+                 return PyLong_FromLong(result);
              """),
             ("test_Size_exception", "METH_NOARGS",
              """
                  PyObject* f = PyFloat_FromDouble(1.0);
-                 Py_ssize_t size = PyBytes_Size(f);
+                 PyBytes_Size(f);
 
                  Py_DECREF(f);
                  return NULL;
@@ -72,7 +56,6 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
              """
                  PyObject *s, *t;
                  char* c;
-                 Py_ssize_t len;
 
                  s = PyBytes_FromStringAndSize(NULL, 4);
                  if (s == NULL)
@@ -81,7 +64,7 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
                  if (t == NULL)
                     return NULL;
                  Py_DECREF(t);
-                 c = PyBytes_AsString(s);
+                 c = PyBytes_AS_STRING(s);
                  c[0] = 'a';
                  c[1] = 'b';
                  c[2] = 0;
@@ -100,7 +83,6 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
                 PyObject *base;
                 PyTypeObject * type;
                 PyObject *obj;
-                char * p_str;
                 base = PyBytes_FromString("test");
                 if (PyBytes_GET_SIZE(base) != 4)
                     return PyLong_FromLong(-PyBytes_GET_SIZE(base));
@@ -115,7 +97,15 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
                 Py_INCREF(obj);
                 return obj;
              """),
+            ('alloc_rw', "METH_NOARGS",
+             '''
+                PyObject *obj = _PyObject_NewVar(&PyBytes_Type, 10);
+                memcpy(PyBytes_AS_STRING(obj), "works", 6);
+                return (PyObject*)obj;
+             '''),
             ])
+        s = module.alloc_rw()
+        assert s == b'works' + b'\x00' * 5
         s = module.tpalloc()
         assert s == b'\x00' * 10
 
@@ -123,9 +113,10 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("getbytes", "METH_NOARGS",
              """
-                 PyObject* s1 = PyBytes_FromStringAndSize("test", 4);
-                 char* c = PyBytes_AsString(s1);
-                 PyObject* s2 = PyBytes_FromStringAndSize(c, 4);
+                 char *c;
+                 PyObject* s2, *s1 = PyBytes_FromStringAndSize("test", 4);
+                 c = PyBytes_AsString(s1);
+                 s2 = PyBytes_FromStringAndSize(c, 4);
                  Py_DECREF(s1);
                  return s2;
              """),
@@ -196,43 +187,43 @@ class TestBytes(BaseApiTest):
     def test_bytes_resize(self, space, api):
         py_str = new_empty_str(space, 10)
         ar = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
-        py_str.c_buffer[0] = 'a'
-        py_str.c_buffer[1] = 'b'
-        py_str.c_buffer[2] = 'c'
+        py_str.c_ob_sval[0] = 'a'
+        py_str.c_ob_sval[1] = 'b'
+        py_str.c_ob_sval[2] = 'c'
         ar[0] = rffi.cast(PyObject, py_str)
         api._PyBytes_Resize(ar, 3)
         py_str = rffi.cast(PyBytesObject, ar[0])
         assert py_str.c_ob_size == 3
-        assert py_str.c_buffer[1] == 'b'
-        assert py_str.c_buffer[3] == '\x00'
+        assert py_str.c_ob_sval[1] == 'b'
+        assert py_str.c_ob_sval[3] == '\x00'
         # the same for growing
         ar[0] = rffi.cast(PyObject, py_str)
         api._PyBytes_Resize(ar, 10)
         py_str = rffi.cast(PyBytesObject, ar[0])
         assert py_str.c_ob_size == 10
-        assert py_str.c_buffer[1] == 'b'
-        assert py_str.c_buffer[10] == '\x00'
+        assert py_str.c_ob_sval[1] == 'b'
+        assert py_str.c_ob_sval[10] == '\x00'
         Py_DecRef(space, ar[0])
         lltype.free(ar, flavor='raw')
 
     def test_Concat(self, space, api):
-        ref = make_ref(space, space.wrapbytes('abc'))
+        ref = make_ref(space, space.newbytes('abc'))
         ptr = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
         ptr[0] = ref
         prev_refcnt = ref.c_ob_refcnt
-        api.PyBytes_Concat(ptr, space.wrapbytes('def'))
+        api.PyBytes_Concat(ptr, space.newbytes('def'))
         assert ref.c_ob_refcnt == prev_refcnt - 1
         assert space.bytes_w(from_ref(space, ptr[0])) == 'abcdef'
         api.PyBytes_Concat(ptr, space.w_None)
         assert not ptr[0]
         api.PyErr_Clear()
         ptr[0] = lltype.nullptr(PyObject.TO)
-        api.PyBytes_Concat(ptr, space.wrapbytes('def')) # should not crash
+        api.PyBytes_Concat(ptr, space.newbytes('def')) # should not crash
         lltype.free(ptr, flavor='raw')
 
     def test_ConcatAndDel(self, space, api):
-        ref1 = make_ref(space, space.wrapbytes('abc'))
-        ref2 = make_ref(space, space.wrapbytes('def'))
+        ref1 = make_ref(space, space.newbytes('abc'))
+        ref2 = make_ref(space, space.newbytes('def'))
         ptr = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
         ptr[0] = ref1
         prev_refcnf = ref2.c_ob_refcnt
@@ -241,7 +232,7 @@ class TestBytes(BaseApiTest):
         assert ref2.c_ob_refcnt == prev_refcnf - 1
         Py_DecRef(space, ptr[0])
         ptr[0] = lltype.nullptr(PyObject.TO)
-        ref2 = make_ref(space, space.wrapbytes('foo'))
+        ref2 = make_ref(space, space.newbytes('foo'))
         prev_refcnf = ref2.c_ob_refcnt
         api.PyBytes_ConcatAndDel(ptr, ref2) # should not crash
         assert ref2.c_ob_refcnt == prev_refcnf - 1
@@ -251,30 +242,29 @@ class TestBytes(BaseApiTest):
         bufp = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
         lenp = lltype.malloc(Py_ssize_tP.TO, 1, flavor='raw')
 
-        w_text = space.wrapbytes("text")
+        w_text = space.newbytes("text")
         ref = make_ref(space, w_text)
         prev_refcnt = ref.c_ob_refcnt
         assert api.PyObject_AsCharBuffer(ref, bufp, lenp) == 0
         assert ref.c_ob_refcnt == prev_refcnt
         assert lenp[0] == 4
         assert rffi.charp2str(bufp[0]) == 'text'
-
         lltype.free(bufp, flavor='raw')
         lltype.free(lenp, flavor='raw')
         api.Py_DecRef(ref)
 
     def test_eq(self, space, api):
-        assert 1 == api._PyBytes_Eq(space.wrapbytes("hello"), space.wrapbytes("hello"))
-        assert 0 == api._PyBytes_Eq(space.wrapbytes("hello"), space.wrapbytes("world"))
+        assert 1 == api._PyBytes_Eq(space.newbytes("hello"), space.newbytes("hello"))
+        assert 0 == api._PyBytes_Eq(space.newbytes("hello"), space.newbytes("world"))
 
     def test_join(self, space, api):
-        w_sep = space.wrapbytes('<sep>')
-        w_seq = space.newtuple([space.wrapbytes('a'), space.wrapbytes('b')])
+        w_sep = space.newbytes('<sep>')
+        w_seq = space.newtuple([space.newbytes('a'), space.newbytes('b')])
         w_joined = api._PyBytes_Join(w_sep, w_seq)
         assert space.bytes_w(w_joined) == 'a<sep>b'
 
     def test_FromObject(self, space, api):
-        w_obj = space.wrapbytes("test")
+        w_obj = space.newbytes("test")
         assert space.eq_w(w_obj, api.PyBytes_FromObject(w_obj))
         w_obj = space.call_function(space.w_bytearray, w_obj)
         assert space.eq_w(w_obj, api.PyBytes_FromObject(w_obj))

@@ -1,5 +1,6 @@
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
+
 class AppTestStringObject(AppTestCpythonExtensionBase):
     def test_basic(self):
         module = self.import_extension('foo', [
@@ -16,23 +17,9 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
              """
                  PyObject* s = PyByteArray_FromStringAndSize("Hello world", 12);
                  int result = 0;
-                 size_t expected_size;
 
                  if(PyByteArray_Size(s) == 12) {
                      result = 1;
-                 }
-                 #ifdef PYPY_VERSION
-                    expected_size = sizeof(void*)*3;
-                 #elif defined Py_DEBUG
-                    expected_size = 64;
-                 #else
-                    expected_size = 48;
-                 #endif
-                 if(s->ob_type->tp_basicsize != expected_size)
-                 {
-                     printf("tp_basicsize==%ld\\n",
-                            (long)s->ob_type->tp_basicsize); 
-                     result = 0;
                  }
                  Py_DECREF(s);
                  return PyBool_FromLong(result);
@@ -53,7 +40,6 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
              """
                  PyObject *s, *t;
                  char* c;
-                 Py_ssize_t len;
 
                  s = PyByteArray_FromStringAndSize(NULL, 4);
                  if (s == NULL)
@@ -84,7 +70,6 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
             ("mutable", "METH_NOARGS",
              """
                 PyObject *base;
-                char * p_str;
                 base = PyByteArray_FromStringAndSize("test", 10);
                 if (PyByteArray_GET_SIZE(base) != 10)
                     return PyLong_FromLong(-PyByteArray_GET_SIZE(base));
@@ -102,11 +87,12 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("getbytearray", "METH_NOARGS",
              """
-                 PyObject* s1 = PyByteArray_FromStringAndSize("test", 4);
+                 const char *c;
+                 PyObject *s2, *s1 = PyByteArray_FromStringAndSize("test", 4);
                  if (s1 == NULL)
                      return NULL;
-                 const char* c = PyByteArray_AsString(s1);
-                 PyObject* s2 = PyByteArray_FromStringAndSize(c, 4);
+                 c = PyByteArray_AsString(s1);
+                 s2 = PyByteArray_FromStringAndSize(c, 4);
                  Py_DECREF(s1);
                  return s2;
              """),

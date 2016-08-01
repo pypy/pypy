@@ -9,7 +9,7 @@ from pypy.interpreter.gateway import (
 from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std.sliceobject import (W_SliceObject, unwrap_start_stop,
     normalize_simple_slice)
-from pypy.objspace.std.util import negate
+from pypy.objspace.std.util import negate, IDTAG_SPECIAL, IDTAG_SHIFT
 from rpython.rlib import jit
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.rarithmetic import intmask
@@ -37,6 +37,23 @@ hash_driver = jit.JitDriver(
 
 class W_AbstractTupleObject(W_Root):
     __slots__ = ()
+
+    def is_w(self, space, w_other):
+        if not isinstance(w_other, W_AbstractTupleObject):
+            return False
+        if self is w_other:
+            return True
+        if self.user_overridden_class or w_other.user_overridden_class:
+            return False
+        # empty tuples are unique-ified
+        return 0 == w_other.length() == self.length()
+
+    def immutable_unique_id(self, space):
+        if self.user_overridden_class or self.length() > 0:
+            return None
+        # empty tuple: base value 258
+        uid = (258 << IDTAG_SHIFT) | IDTAG_SPECIAL
+        return space.wrap(uid)
 
     def __repr__(self):
         """representation for debugging purposes"""
@@ -138,7 +155,7 @@ class W_AbstractTupleObject(W_Root):
     @jit.unroll_safe
     def _descr_contains_unroll_safe(self, space, w_obj):
         for w_item in self.tolist():
-            if space.eq_w(w_item, w_obj):
+            if space.eq_w(w_obj, w_item):
                 return space.w_True
         return space.w_False
 
@@ -146,7 +163,7 @@ class W_AbstractTupleObject(W_Root):
         tp = space.type(w_obj)
         for w_item in self.tolist():
             contains_jmp.jit_merge_point(tp=tp)
-            if space.eq_w(w_item, w_obj):
+            if space.eq_w(w_obj, w_item):
                 return space.w_True
         return space.w_False
 

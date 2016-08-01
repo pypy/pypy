@@ -111,7 +111,7 @@ def fcntl(space, w_fd, op, w_arg):
             if rv < 0:
                 raise _get_error(space, "fcntl")
             arg = rffi.charpsize2str(ll_arg, len(arg))
-            return space.wrapbytes(arg)
+            return space.newbytes(arg)
         finally:
             lltype.free(ll_arg, flavor='raw')
 
@@ -225,7 +225,7 @@ def ioctl(space, w_fd, op, w_arg, mutate_flag=-1):
             if mutate_flag != 0:
                 rwbuffer.setslice(0, arg)
                 return space.wrap(rv)
-            return space.wrapbytes(arg)
+            return space.newbytes(arg)
         finally:
             lltype.free(ll_arg, flavor='raw')
 
@@ -246,7 +246,7 @@ def ioctl(space, w_fd, op, w_arg, mutate_flag=-1):
             if rv < 0:
                 raise _get_error(space, "ioctl")
             arg = rffi.charpsize2str(ll_arg, len(arg))
-            return space.wrapbytes(arg)
+            return space.newbytes(arg)
         finally:
             lltype.free(ll_arg, flavor='raw')
 

@@ -352,7 +352,7 @@ class BufferedMixin:
         self._writer_reset_buf()
 
     def _write(self, space, data):
-        w_data = space.wrapbytes(data)
+        w_data = space.newbytes(data)
         while True:
             try:
                 w_written = space.call_method(self.w_raw, "write", w_data)
@@ -424,7 +424,7 @@ class BufferedMixin:
         else:
             raise oefmt(space.w_ValueError,
                         "read length must be positive or -1")
-        return space.wrapbytes(res)
+        return space.newbytes(res)
 
     @unwrap_spec(size=int)
     def peek_w(self, space, size=0):
@@ -441,7 +441,7 @@ class BufferedMixin:
             have = self._readahead()
             if have > 0:
                 data = ''.join(self.buffer[self.pos:self.pos+have])
-                return space.wrapbytes(data)
+                return space.newbytes(data)
 
             # Fill the buffer from the raw stream, and copy it to the result
             self._reader_reset_buf()
@@ -451,7 +451,7 @@ class BufferedMixin:
                 size = 0
             self.pos = 0
             data = ''.join(self.buffer[:size])
-            return space.wrapbytes(data)
+            return space.newbytes(data)
 
     @unwrap_spec(size=int)
     def read1_w(self, space, size):
@@ -461,7 +461,7 @@ class BufferedMixin:
         if size < 0:
             raise oefmt(space.w_ValueError, "read length must be positive")
         if size == 0:
-            return space.wrapbytes("")
+            return space.newbytes("")
 
         with self.lock:
             # Return up to n bytes.  If at least one byte is buffered, we only
@@ -489,7 +489,7 @@ class BufferedMixin:
             endpos = self.pos + size
             data = ''.join(self.buffer[self.pos:endpos])
             self.pos = endpos
-            return space.wrapbytes(data)
+            return space.newbytes(data)
 
     def _read_all(self, space):
         "Read all the file, don't update the cache"
@@ -522,7 +522,7 @@ class BufferedMixin:
             current_size += size
             if self.abs_pos != -1:
                 self.abs_pos += size
-        return space.wrapbytes(builder.build())
+        return space.newbytes(builder.build())
 
     def _raw_read(self, space, buffer, start, length):
         length = intmask(length)
@@ -653,11 +653,11 @@ class BufferedMixin:
         else:
             pos = -1
         if pos >= 0:
-            w_res = space.wrapbytes(''.join(self.buffer[self.pos:pos+1]))
+            w_res = space.newbytes(''.join(self.buffer[self.pos:pos+1]))
             self.pos = pos + 1
             return w_res
         if have == limit:
-            w_res = space.wrapbytes(''.join(self.buffer[self.pos:self.pos+have]))
+            w_res = space.newbytes(''.join(self.buffer[self.pos:self.pos+have]))
             self.pos += have
             return w_res
 
@@ -699,7 +699,7 @@ class BufferedMixin:
                 written += have
                 if limit >= 0:
                     limit -= have
-            return space.wrapbytes(''.join(chunks))
+            return space.newbytes(''.join(chunks))
 
     # ____________________________________________________
     # Write methods
@@ -943,7 +943,7 @@ class W_BufferedRWPair(W_BufferedIOBase):
     w_writer = None
 
     @unwrap_spec(buffer_size=int)
-    def descr_init(self, space, w_reader, w_writer, 
+    def descr_init(self, space, w_reader, w_writer,
                    buffer_size=DEFAULT_BUFFER_SIZE):
         try:
             self.w_reader = W_BufferedReader(space)

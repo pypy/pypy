@@ -19,16 +19,12 @@ def PyIndex_Check(space, w_obj):
 def PyNumber_Check(space, w_obj):
     """Returns 1 if the object o provides numeric protocols, and false otherwise.
     This function always succeeds."""
-    try:
-        space.float_w(w_obj)
+    # According to CPython, this means: w_obj is not None, and
+    # the type of w_obj has got a method __int__ or __float__.
+    if w_obj is None:
+        return 0
+    if space.lookup(w_obj, '__int__') or space.lookup(w_obj, '__float__'):
         return 1
-    except OperationError:
-        pass
-    try:
-        space.int_w(w_obj)
-        return 1
-    except OperationError:
-        pass
     return 0
 
 @cpython_api([PyObject, PyObject], Py_ssize_t, error=-1)

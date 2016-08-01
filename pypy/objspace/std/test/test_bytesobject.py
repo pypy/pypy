@@ -4,30 +4,30 @@ class TestW_BytesObject:
         pass
 
     def test_bytes_w(self):
-        assert self.space.bytes_w(self.space.wrapbytes("foo")) == "foo"
+        assert self.space.bytes_w(self.space.newbytes("foo")) == "foo"
 
     def test_equality(self):
-        w = self.space.wrapbytes
+        w = self.space.newbytes
         assert self.space.eq_w(w('abc'), w('abc'))
         assert not self.space.eq_w(w('abc'), w('def'))
 
     def test_order_cmp(self):
         space = self.space
-        w = space.wrapbytes
+        w = space.newbytes
         assert self.space.is_true(space.lt(w('a'), w('b')))
         assert self.space.is_true(space.lt(w('a'), w('ab')))
         assert self.space.is_true(space.le(w('a'), w('a')))
         assert self.space.is_true(space.gt(w('a'), w('')))
 
     def test_truth(self):
-        w = self.space.wrapbytes
+        w = self.space.newbytes
         assert self.space.is_true(w('non-empty'))
         assert not self.space.is_true(w(''))
 
     def test_getitem(self):
         space = self.space
         w = space.wrap
-        w_str = space.wrapbytes('abc')
+        w_str = space.newbytes('abc')
         assert space.eq_w(space.getitem(w_str, w(0)), w(ord('a')))
         assert space.eq_w(space.getitem(w_str, w(-1)), w(ord('c')))
         self.space.raises_w(space.w_IndexError,
@@ -38,7 +38,7 @@ class TestW_BytesObject:
     def test_slice(self):
         space = self.space
         w = space.wrap
-        wb = space.wrapbytes
+        wb = space.newbytes
         w_str = wb('abc')
 
         w_slice = space.newslice(w(0), w(0), space.w_None)
@@ -67,7 +67,7 @@ class TestW_BytesObject:
                 return
         w_None = space.w_None
         w = space.wrap
-        wb = space.wrapbytes
+        wb = space.newbytes
         w_str = wb('hello')
 
         w_slice = space.newslice(w_None, w_None, w(1))
@@ -83,7 +83,7 @@ class TestW_BytesObject:
         assert self.space.eq_w(space.getitem(w_str, w_slice), wb('el'))
 
     def test_listview_bytes_int(self):
-        w_bytes = self.space.wrapbytes('abcd')
+        w_bytes = self.space.newbytes('abcd')
         # list(b'abcd') is a list of numbers
         assert self.space.listview_bytes(w_bytes) == None
         assert self.space.listview_int(w_bytes) == [97, 98, 99, 100]

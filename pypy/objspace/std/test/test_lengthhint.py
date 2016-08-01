@@ -68,12 +68,12 @@ class TestLengthHint:
         self._test_length_hint(self.space.wrap(self.ITEMS))
 
     def test_bytes(self):
-        self._test_length_hint(self.space.wrapbytes('P' * self.SIZE))
+        self._test_length_hint(self.space.newbytes('P' * self.SIZE))
 
     def test_bytearray(self):
         space = self.space
         w_bytearray = space.call_function(space.w_bytearray,
-                                          space.wrapbytes('P' * self.SIZE))
+                                          space.newbytes('P' * self.SIZE))
         self._test_length_hint(w_bytearray)
 
     def test_str(self):

@@ -108,3 +108,9 @@ def get_thread_info(space):
     ]
     w_thread_info = app.wget(space, "thread_info")
     return space.call_function(w_thread_info, space.newtuple(info_w))
+
+def getdlopenflags(space):
+    return space.wrap(space.sys.dlopenflags)
+
+def setdlopenflags(space, w_flags):
+    space.sys.dlopenflags = space.int_w(w_flags)

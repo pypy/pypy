@@ -1129,7 +1129,7 @@ class TestAstBuilder:
         assert space.eq_w(s.s, space.wrap("hi implicitly extra"))
         s = self.get_first_expr("b'hi' b' implicitly' b' extra'")
         assert isinstance(s, ast.Bytes)
-        assert space.eq_w(s.s, space.wrapbytes("hi implicitly extra"))
+        assert space.eq_w(s.s, space.newbytes("hi implicitly extra"))
         raises(SyntaxError, self.get_first_expr, "b'hello' 'world'")
         sentence = u"Die Männer ärgen sich!"
         source = u"# coding: utf-7\nstuff = '%s'" % (sentence,)
@@ -1184,7 +1184,7 @@ class TestAstBuilder:
         s = ast_from_node(space, tree, info).body[0].value
         assert isinstance(s, ast.Str)
         assert space.eq_w(s.s, space.wrap(u'Ç'))
- 
+
     def test_string_bug(self):
         space = self.space
         source = '# -*- encoding: utf8 -*-\nstuff = "x \xc3\xa9 \\n"\n'

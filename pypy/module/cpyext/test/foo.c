@@ -4,6 +4,15 @@
 #if PY_MAJOR_VERSION >= 3
     #define PyInt_FromLong PyLong_FromLong
     #define PyInt_AsLong PyLong_AsLong
+    #define PyThing_FromStringAndSize PyUnicode_FromStringAndSize
+    #define PyThing_FromString PyUnicode_FromString
+    #define PyThing_Check PyUnicode_Check
+    #define _PyThing_AsString _PyUnicode_AsString
+#else
+    #define PyThing_FromStringAndSize PyString_FromStringAndSize
+    #define PyThing_FromString PyString_FromString
+    #define PyThing_Check PyString_Check
+    #define _PyThing_AsString PyString_AsString
 #endif
 
 typedef struct {
@@ -47,15 +56,6 @@ newfooobject(void)
 
 
 /* foo methods */
-
-static void
-foo_dealloc(fooobject *foop)
-{
-    PyObject_Del(foop);
-}
-
-
-/* foo methods-as-attributes */
 
 static PyObject *
 foo_copy(fooobject *self)
@@ -102,7 +102,7 @@ static PyMethodDef foo_methods[] = {
 static PyObject *
 foo_get_name(PyObject *self, void *closure)
 {
-    return PyUnicode_FromStringAndSize("Foo Example", 11);
+    return PyThing_FromStringAndSize("Foo Example", 11);
 }
 
 static PyObject *
@@ -128,7 +128,7 @@ foo_repr(PyObject *self)
 {
     PyObject *format;
 
-    format = PyUnicode_FromString("<Foo>");
+    format = PyThing_FromString("<Foo>");
     if (format == NULL) return NULL;
     return format;
 }
@@ -144,11 +144,11 @@ static int
 foo_setattro(fooobject *self, PyObject *name, PyObject *value)
 {
     char *name_str;
-    if (!PyUnicode_Check(name)) {
+    if (!PyThing_Check(name)) {
         PyErr_SetObject(PyExc_AttributeError, name);
         return -1;
     }
-    name_str = _PyUnicode_AsString(name);
+    name_str = _PyThing_AsString(name);
     if (strcmp(name_str, "set_foo") == 0)
     {
         long v = PyInt_AsLong(value);
@@ -200,7 +200,7 @@ static PyTypeObject footype = {
     sizeof(fooobject),       /*tp_size*/
     0,                       /*tp_itemsize*/
     /* methods */
-    (destructor)foo_dealloc, /*tp_dealloc*/
+    0,                       /*tp_dealloc*/
     0,                       /*tp_print*/
     0,                       /*tp_getattr*/
     0,                       /*tp_setattr*/
@@ -468,9 +468,9 @@ static int initerrtype_init(PyObject *self, PyObject *args, PyObject *kwargs) {
 PyTypeObject InitErrType = {
     PyObject_HEAD_INIT(NULL)
     0,
-    "foo.InitErr",
-    sizeof(PyObject),
-    0,
+    "foo.InitErrType",
+    sizeof(PyObject),/*tp_basicsize*/
+    0,          /*tp_itemsize*/
     0,          /*tp_dealloc*/
     0,          /*tp_print*/
     0,          /*tp_getattr*/
@@ -513,12 +513,12 @@ PyTypeObject InitErrType = {
     0,          /*tp_dictoffset*/
 
     initerrtype_init,          /*tp_init*/
-    0,          /*tp_alloc  will be set to PyType_GenericAlloc in module init*/
+    0,          /*tp_alloc*/
     0,          /*tp_new*/
-    0,          /*tp_free  Low-level free-memory routine */
-    0,          /*tp_is_gc For PyObject_IS_GC */
+    0,          /*tp_free*/
+    0,          /*tp_is_gc*/
     0,          /*tp_bases*/
-    0,          /*tp_mro method resolution order */
+    0,          /*tp_mro*/
     0,          /*tp_cache*/
     0,          /*tp_subclasses*/
     0           /*tp_weaklist*/
@@ -634,9 +634,26 @@ static PyTypeObject CustomType = {
     (destructor)custom_dealloc, /*tp_dealloc*/
 };
 
+static PyTypeObject TupleLike = {
+    PyObject_HEAD_INIT(NULL)
+    0,
+    "foo.TupleLike",         /*tp_name*/
+    sizeof(PyObject),        /*tp_size*/
+};
+
+
 static PyObject *size_of_instances(PyObject *self, PyObject *t)
 {
     return PyInt_FromLong(((PyTypeObject *)t)->tp_basicsize);
+}
+
+
+static PyObject * is_TupleLike(PyObject *self, PyObject * t)
+{
+    int tf = t->ob_type == &TupleLike;
+    if (t->ob_type->tp_itemsize == 0)
+        return PyInt_FromLong(-1);
+    return PyInt_FromLong(tf);
 }
 
 /* List of functions exported by this module */
@@ -645,10 +662,11 @@ static PyMethodDef foo_functions[] = {
     {"new",        (PyCFunction)foo_new, METH_NOARGS, NULL},
     {"newCustom",  (PyCFunction)newCustom, METH_NOARGS, NULL},
     {"size_of_instances", (PyCFunction)size_of_instances, METH_O, NULL},
+    {"is_TupleLike", (PyCFunction)is_TupleLike, METH_O, NULL},
     {NULL,        NULL}    /* Sentinel */
 };
 
-
+#if PY_MAJOR_VERSION >= 3
 static struct PyModuleDef moduledef = {
     PyModuleDef_HEAD_INIT,
     "foo",
@@ -660,6 +678,7 @@ static struct PyModuleDef moduledef = {
     NULL,
     NULL,
 };
+#define INITERROR return NULL
 
 /* Initialize this module. */
 #ifdef __GNUC__
@@ -670,8 +689,30 @@ extern __declspec(dllexport)
 
 PyMODINIT_FUNC
 PyInit_foo(void)
+
+#else
+
+#define INITERROR return
+
+/* Initialize this module. */
+#ifdef __GNUC__
+extern __attribute__((visibility("default")))
+#else
+extern __declspec(dllexport)
+#endif
+
+PyMODINIT_FUNC
+initfoo(void)
+#endif
 {
-    PyObject *m, *d;
+    PyObject *d;
+#if PY_MAJOR_VERSION >= 3
+    PyObject *module = PyModule_Create(&moduledef);
+#else
+    PyObject *module = Py_InitModule("foo", foo_functions);
+#endif
+    if (module == NULL)
+        INITERROR;
 
     footype.tp_new = PyType_GenericNew;
 
@@ -680,53 +721,60 @@ PyInit_foo(void)
     MetaType.tp_base = &PyType_Type;
 
     if (PyType_Ready(&footype) < 0)
-        return NULL;
+        INITERROR;
     if (PyType_Ready(&UnicodeSubtype) < 0)
-        return NULL;
+        INITERROR;
     if (PyType_Ready(&UnicodeSubtype2) < 0)
-        return NULL;
+        INITERROR;
     if (PyType_Ready(&MetaType) < 0)
-        return NULL;
+        INITERROR;
     if (PyType_Ready(&InitErrType) < 0)
-        return NULL;
+        INITERROR;
     if (PyType_Ready(&SimplePropertyType) < 0)
-        return NULL;
+        INITERROR;
 
     SimplePropertyType.tp_new = PyType_GenericNew;
     InitErrType.tp_new = PyType_GenericNew;
 
     CustomType.ob_type = &MetaType;
     if (PyType_Ready(&CustomType) < 0)
-        return NULL;
+        INITERROR;
 
     UnicodeSubtype3.tp_flags = Py_TPFLAGS_DEFAULT;
     UnicodeSubtype3.tp_base = &UnicodeSubtype;
     UnicodeSubtype3.tp_bases = Py_BuildValue("(OO)", &UnicodeSubtype,
                                                     &CustomType);
     if (PyType_Ready(&UnicodeSubtype3) < 0)
-        return NULL;
+        INITERROR;
 
-    m = PyModule_Create(&moduledef);
-    if (m == NULL)
-        return NULL;
-    d = PyModule_GetDict(m);
+    TupleLike.tp_flags = Py_TPFLAGS_DEFAULT;
+    TupleLike.tp_base = &PyTuple_Type;
+    if (PyType_Ready(&TupleLike) < 0)
+        INITERROR;
+
+
+    d = PyModule_GetDict(module);
     if (d == NULL)
-        return NULL;
+        INITERROR;
     if (PyDict_SetItemString(d, "fooType", (PyObject *)&footype) < 0)
-        return NULL;
+        INITERROR;
     if (PyDict_SetItemString(d, "UnicodeSubtype", (PyObject *) &UnicodeSubtype) < 0)
-        return NULL;
+        INITERROR;
     if (PyDict_SetItemString(d, "UnicodeSubtype2", (PyObject *) &UnicodeSubtype2) < 0)
-        return NULL;
+        INITERROR;
     if (PyDict_SetItemString(d, "UnicodeSubtype3", (PyObject *) &UnicodeSubtype3) < 0)
-        return NULL;
+        INITERROR;
     if (PyDict_SetItemString(d, "MetaType", (PyObject *) &MetaType) < 0)
-        return NULL;
+        INITERROR;
     if (PyDict_SetItemString(d, "InitErrType", (PyObject *) &InitErrType) < 0)
-        return NULL;
+        INITERROR;
     if (PyDict_SetItemString(d, "Property", (PyObject *) &SimplePropertyType) < 0)
-        return NULL;
+        INITERROR;
     if (PyDict_SetItemString(d, "Custom", (PyObject *) &CustomType) < 0)
-        return NULL;
-    return m;
+        INITERROR;
+    if (PyDict_SetItemString(d, "TupleLike", (PyObject *) &TupleLike) < 0)
+        INITERROR;
+#if PY_MAJOR_VERSION >=3
+    return module;
+#endif
 }

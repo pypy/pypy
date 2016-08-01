@@ -55,7 +55,7 @@ def _pack(space, format, args_w):
 
 @unwrap_spec(format=str)
 def pack(space, format, args_w):
-    return space.wrapbytes(_pack(space, format, args_w))
+    return space.newbytes(_pack(space, format, args_w))
 
 
 # XXX inefficient

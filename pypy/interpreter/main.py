@@ -19,7 +19,7 @@ def ensure__main__(space):
 def compilecode(space, source, filename, cmd='exec'):
     w = space.wrap
     w_code = space.builtin.call(
-        'compile', space.wrapbytes(source), space.wrap_fsdecoded(filename),
+        'compile', space.newbytes(source), space.wrap_fsdecoded(filename),
         w(cmd), w(0), w(0))
     pycode = space.interp_w(eval.Code, w_code)
     return pycode

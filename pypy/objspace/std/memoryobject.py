@@ -70,7 +70,7 @@ class W_MemoryView(W_Root):
 
     def descr_tobytes(self, space):
         self._check_released(space)
-        return space.wrapbytes(self.as_str())
+        return space.newbytes(self.as_str())
 
     def descr_tolist(self, space):
         self._check_released(space)

@@ -46,7 +46,7 @@ def tcgetattr(space, w_fd):
     iflag, oflag, cflag, lflag, ispeed, ospeed, cc = tup
     l_w = [space.wrap(i) for i in [iflag, oflag, cflag, lflag, ispeed, ospeed]]
     # last one need to be chosen carefully
-    cc_w = [space.wrapbytes(i) for i in cc]
+    cc_w = [space.newbytes(i) for i in cc]
     if lflag & rtermios.ICANON:
         cc_w[rtermios.VMIN] = space.wrap(ord(cc[rtermios.VMIN][0]))
         cc_w[rtermios.VTIME] = space.wrap(ord(cc[rtermios.VTIME][0]))

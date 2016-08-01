@@ -439,7 +439,7 @@ class Regalloc(BaseRegalloc):
     prepare_int_lshift = helper.prepare_binary_op
     prepare_int_rshift = helper.prepare_binary_op
     prepare_uint_rshift = helper.prepare_binary_op
-    prepare_uint_mul_high = helper.prepare_int_mul_ovf
+    prepare_uint_mul_high = helper.prepare_binary_op
 
     prepare_int_add_ovf = helper.prepare_binary_op
     prepare_int_sub_ovf = helper.prepare_binary_op
@@ -533,8 +533,9 @@ class Regalloc(BaseRegalloc):
         res = self.rm.force_allocate_reg(op)
         return [res]
 
-    def prepare_call_malloc_gc(self, op):
-        return self._prepare_call(op)
+    def prepare_check_memory_error(self, op):
+        loc = self.ensure_reg(op.getarg(0))
+        return [loc]
 
     def _prepare_guard(self, op, args=None):
         if args is None:

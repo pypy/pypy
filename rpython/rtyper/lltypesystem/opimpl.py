@@ -580,6 +580,9 @@ def _normalize(x):
             return hlstr(x)
     return x
 
+def op_debug_flush_log():
+    debug.debug_flush_log()
+
 def op_debug_print(*args):
     debug.debug_print(*map(_normalize, args))
 

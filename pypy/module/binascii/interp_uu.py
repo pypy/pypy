@@ -55,7 +55,7 @@ def a2b_uu(space, ascii):
     remaining = length - res.getlength()
     if remaining > 0:
         res.append_multiple_char('\x00', remaining)
-    return space.wrapbytes(res.build())
+    return space.newbytes(res.build())
 
 # ____________________________________________________________
 
@@ -87,4 +87,4 @@ def b2a_uu(space, bin):
         res.append(chr(0x20 +  (C & 0x3F)))
 
     res.append('\n')
-    return space.wrapbytes(res.build())
+    return space.newbytes(res.build())

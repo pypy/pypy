@@ -212,6 +212,24 @@ class BoehmGcPolicy(BasicGcPolicy):
             compile_extra=['-DPYPY_USING_BOEHM_GC'],
             ))
 
+        gct = self.db.gctransformer
+        gct.finalizer_triggers = tuple(gct.finalizer_triggers)  # stop changing
+        sourcelines = ['']
+        for trig in gct.finalizer_triggers:
+            sourcelines.append('RPY_EXTERN void %s(void);' % (
+                self.db.get(trig),))
+        sourcelines.append('')
+        sourcelines.append('void (*boehm_fq_trigger[])(void) = {')
+        for trig in gct.finalizer_triggers:
+            sourcelines.append('\t%s,' % (self.db.get(trig),))
+        sourcelines.append('\tNULL')
+        sourcelines.append('};')
+        sourcelines.append('struct boehm_fq_s *boehm_fq_queues[%d];' % (
+            len(gct.finalizer_triggers) or 1,))
+        sourcelines.append('')
+        eci = eci.merge(ExternalCompilationInfo(
+            separate_module_sources=['\n'.join(sourcelines)]))
+
         return eci
 
     def gc_startup_code(self):

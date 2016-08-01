@@ -1,6 +1,5 @@
 from rpython.jit.backend.arm import conditions as c
 from rpython.jit.backend.arm import registers as r
-from rpython.jit.backend.arm.support import arm_int_div
 from rpython.jit.backend.arm.assembler import AssemblerARM
 from rpython.jit.backend.arm.locations import imm
 from rpython.jit.backend.arm.test.support import run_asm
@@ -179,19 +178,6 @@ class TestRunningAssembler(object):
         self.a.mc.BL(call_addr)
         self.a.gen_func_epilog()
         assert run_asm(self.a) == 133
-
-    def test_division(self):
-        self.a.gen_func_prolog()
-        self.a.mc.MOV_ri(r.r0.value, 123)
-        self.a.mc.MOV_ri(r.r1.value, 2)
-
-        # call to div
-        self.a.mc.PUSH(range(2, 12))
-        div_addr = rffi.cast(lltype.Signed, arm_int_div)
-        self.a.mc.BL(div_addr)
-        self.a.mc.POP(range(2, 12))
-        self.a.gen_func_epilog()
-        assert run_asm(self.a) == 61
 
     def test_bl_with_conditional_exec(self):
         functype = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed))

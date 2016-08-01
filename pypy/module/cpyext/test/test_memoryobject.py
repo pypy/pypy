@@ -8,7 +8,7 @@ class TestMemoryViewObject(BaseApiTest):
                                   space.wrap((2, 7)))):
             py.test.skip("unsupported before Python 2.7")
 
-        w_hello = space.wrapbytes("hello")
+        w_hello = space.newbytes("hello")
         w_view = api.PyMemoryView_FromObject(w_hello)
         w_bytes = space.call_method(w_view, "tobytes")
         assert space.unwrap(w_bytes) == "hello"
@@ -20,8 +20,6 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
                  """
                  Py_buffer buf;
                  PyObject *str = PyBytes_FromString("hello, world.");
-                 PyObject *result;
-
                  if (PyBuffer_FillInfo(&buf, str, PyBytes_AsString(str), 13,
                                        0, 0)) {
                      return NULL;

@@ -250,7 +250,7 @@ def marshal_bytes(space, w_str, m):
 
 @unmarshaller(TYPE_STRING)
 def unmarshal_bytes(space, u, tc):
-    return space.wrapbytes(u.get_str())
+    return space.newbytes(u.get_str())
 
 @unmarshaller(TYPE_STRINGREF)
 def unmarshal_stringref(space, u, tc):

@@ -1025,9 +1025,8 @@ class AllocOpAssembler(object):
 
     _mixin_ = True
 
-    def emit_call_malloc_gc(self, op, arglocs, regalloc):
-        self._emit_call(op, arglocs)
-        self.propagate_memoryerror_if_r3_is_null()
+    def emit_check_memory_error(self, op, arglocs, regalloc):
+        self.propagate_memoryerror_if_reg_is_null(arglocs[0])
 
     def emit_call_malloc_nursery(self, op, arglocs, regalloc):
         # registers r.RES and r.RSZ are allocated for this call

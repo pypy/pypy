@@ -802,6 +802,21 @@ def unexpected_exception(funcname, e, tb):
         pypy_debug_catch_fatal_exception()
         assert False
 
+def _restore_gil_state(pygilstate_release, gilstate, gil_release, _gil_auto, tid):
+    from rpython.rlib import rgil
+    # see "Handling of the GIL" above
+    assert cpyext_glob_tid_ptr[0] == 0
+    if pygilstate_release:
+        from pypy.module.cpyext import pystate
+        unlock = (gilstate == pystate.PyGILState_UNLOCKED)
+    else:
+        unlock = gil_release or _gil_auto
+    if unlock:
+        rgil.release()
+    else:
+        cpyext_glob_tid_ptr[0] = tid
+
+
 def make_wrapper_second_level(space, argtypesw, restype,
                               result_kind, error_value, gil):
     from rpython.rlib import rgil
@@ -829,6 +844,7 @@ def make_wrapper_second_level(space, argtypesw, restype,
     def wrapper_second_level(callable, pname, *args):
         from pypy.module.cpyext.pyobject import make_ref, from_ref, is_pyobj
         from pypy.module.cpyext.pyobject import as_pyobj
+        from pypy.module.cpyext import pystate
         # we hope that malloc removal removes the newtuple() that is
         # inserted exactly here by the varargs specializer
 
@@ -841,7 +857,6 @@ def make_wrapper_second_level(space, argtypesw, restype,
             rgil.acquire()
             assert cpyext_glob_tid_ptr[0] == 0
         elif pygilstate_ensure:
-            from pypy.module.cpyext import pystate
             if cpyext_glob_tid_ptr[0] == tid:
                 cpyext_glob_tid_ptr[0] = 0
                 args += (pystate.PyGILState_LOCKED,)
@@ -852,6 +867,10 @@ def make_wrapper_second_level(space, argtypesw, restype,
             if cpyext_glob_tid_ptr[0] != tid:
                 no_gil_error(pname)
             cpyext_glob_tid_ptr[0] = 0
+        if pygilstate_release:
+            gilstate = rffi.cast(lltype.Signed, args[-1])
+        else:
+            gilstate = pystate.PyGILState_IGNORE
 
         rffi.stackcounter.stacks_counter += 1
         llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
@@ -921,24 +940,13 @@ def make_wrapper_second_level(space, argtypesw, restype,
 
         except Exception as e:
             unexpected_exception(pname, e, tb)
+            _restore_gil_state(pygilstate_release, gilstate, gil_release, _gil_auto, tid)
             return fatal_value
 
         assert lltype.typeOf(retval) == restype
         rffi.stackcounter.stacks_counter -= 1
 
-        # see "Handling of the GIL" above
-        assert cpyext_glob_tid_ptr[0] == 0
-        if pygilstate_release:
-            from pypy.module.cpyext import pystate
-            arg = rffi.cast(lltype.Signed, args[-1])
-            unlock = (arg == pystate.PyGILState_UNLOCKED)
-        else:
-            unlock = gil_release or _gil_auto
-        if unlock:
-            rgil.release()
-        else:
-            cpyext_glob_tid_ptr[0] = tid
-
+        _restore_gil_state(pygilstate_release, gilstate, gil_release, _gil_auto, tid)
         return retval
 
     wrapper_second_level._dont_inline_ = True
@@ -1204,8 +1212,6 @@ class StaticObjectBuilder:
         cpyext_type_init = self.cpyext_type_init
         self.cpyext_type_init = None
         for pto, w_type in cpyext_type_init:
-            if space.is_w(w_type, space.w_str):
-                pto.c_tp_itemsize = 1
             finish_type_1(space, pto)
             finish_type_2(space, pto, w_type)
 
@@ -1516,7 +1522,7 @@ def load_extension_module(space, path, name):
     try:
         ll_libname = rffi.str2charp(path)
         try:
-            dll = rdynload.dlopen(ll_libname)
+            dll = rdynload.dlopen(ll_libname, space.sys.dlopenflags)
         finally:
             lltype.free(ll_libname, flavor='raw')
     except rdynload.DLOpenError as e:

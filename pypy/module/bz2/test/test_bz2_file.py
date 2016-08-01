@@ -42,7 +42,7 @@ def setup_module(mod):
 
     mod.TEXT = 'root:x:0:0:root:/root:/bin/bash\nbin:x:1:1:bin:/bin:\ndaemon:x:2:2:daemon:/sbin:\nadm:x:3:4:adm:/var/adm:\nlp:x:4:7:lp:/var/spool/lpd:\nsync:x:5:0:sync:/sbin:/bin/sync\nshutdown:x:6:0:shutdown:/sbin:/sbin/shutdown\nhalt:x:7:0:halt:/sbin:/sbin/halt\nmail:x:8:12:mail:/var/spool/mail:\nnews:x:9:13:news:/var/spool/news:\nuucp:x:10:14:uucp:/var/spool/uucp:\noperator:x:11:0:operator:/root:\ngames:x:12:100:games:/usr/games:\ngopher:x:13:30:gopher:/usr/lib/gopher-data:\nftp:x:14:50:FTP User:/var/ftp:/bin/bash\nnobody:x:65534:65534:Nobody:/home:\npostfix:x:100:101:postfix:/var/spool/postfix:\nniemeyer:x:500:500::/home/niemeyer:/bin/bash\npostgres:x:101:102:PostgreSQL Server:/var/lib/pgsql:/bin/bash\nmysql:x:102:103:MySQL server:/var/lib/mysql:/bin/bash\nwww:x:103:104::/var/www:/bin/false\n'
     mod.DATA = DATA
-    mod.DATA_CRLF = DATA_CRLF 
+    mod.DATA_CRLF = DATA_CRLF
     mod.create_temp_file = create_temp_file
     mod.decompress = decompress
     mod.create_broken_temp_file = create_broken_temp_file
@@ -58,11 +58,11 @@ class AppTestBZ2File: #(CheckAllocation):
     }
 
     def setup_class(cls):
-        cls.w_TEXT = cls.space.wrapbytes(TEXT)
+        cls.w_TEXT = cls.space.newbytes(TEXT)
         cls.DATA = DATA
-        cls.w_DATA = cls.space.wrapbytes(DATA)
+        cls.w_DATA = cls.space.newbytes(DATA)
         cls.DATA_CRLF = DATA_CRLF
-        cls.w_DATA_CRLF = cls.space.wrapbytes(DATA_CRLF)
+        cls.w_DATA_CRLF = cls.space.newbytes(DATA_CRLF)
         cls.temppath = str(py.test.ensuretemp("bz2").join("foo"))
         cls.w_temppath = cls.space.wrap(cls.temppath)
         if cls.runappdirect:
@@ -78,14 +78,14 @@ class AppTestBZ2File: #(CheckAllocation):
 
             @gateway.unwrap_spec(data=bytes)
             def decompress_w(space, data):
-                return space.wrapbytes(decompress(cls, data))
+                return space.newbytes(decompress(cls, data))
             cls.w_decompress = cls.space.wrap(gateway.interp2app(decompress_w))
 
             def create_broken_temp_file_w():
                 create_broken_temp_file(cls)
             cls.w_create_broken_temp_file = cls.space.wrap(
                 gateway.interp2app(create_broken_temp_file_w))
-        cls.w_random_data = cls.space.wrapbytes(RANDOM_DATA)
+        cls.w_random_data = cls.space.newbytes(RANDOM_DATA)
 
         cls.space.appexec([], """(): import warnings""")  # Work around a recursion limit
 
@@ -407,7 +407,7 @@ class AppTestBZ2File: #(CheckAllocation):
 
 
 # has_cmdline_bunzip2 = sys.platform not in ("win32", "os2emx", "riscos")
-# 
+#
 # if has_cmdline_bunzip2:
 #     def decompress(self, data):
 #         pop = popen2.Popen3("bunzip2", capturestderr=1)
@@ -418,7 +418,7 @@ class AppTestBZ2File: #(CheckAllocation):
 #         if pop.wait() != 0:
 #             ret = bz2.decompress(data)
 #         return ret
-# 
+#
 # else:
 #     # popen2.Popen3 doesn't exist on Windows, and even if it did, bunzip2
 #     # isn't available to run.

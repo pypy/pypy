@@ -18,7 +18,7 @@ def decode_error_handler(space):
                                        startingpos, endingpos):
         raise OperationError(space.w_UnicodeDecodeError,
                              space.newtuple([space.wrap(encoding),
-                                             space.wrapbytes(s),
+                                             space.newbytes(s),
                                              space.wrap(startingpos),
                                              space.wrap(endingpos),
                                              space.wrap(msg)]))
@@ -111,7 +111,7 @@ def fsencode(space, w_uni):
         return space.call_method(w_uni, 'encode',
                                  getfilesystemencoding(space),
                                  space.wrap('surrogateescape'))
-    return space.wrapbytes(bytes)
+    return space.newbytes(bytes)
 
 def encode(space, w_data, encoding=None, errors='strict'):
     from pypy.objspace.std.unicodeobject import encode_object
@@ -141,9 +141,7 @@ def decode_utf8(space, string, allow_surrogates=False):
     return result
 
 def encode_utf8(space, uni, allow_surrogates=False):
-    # Note that this function never raises UnicodeEncodeError,
-    # since surrogate pairs are allowed.
-    # This is not the case with Python3.
+    # Note that Python3 tends to forbid lone surrogates
     return runicode.unicode_encode_utf_8(
         uni, len(uni), "strict",
         errorhandler=encode_error_handler(space),

@@ -8,7 +8,7 @@ class AppTestBZ2File:
         if not cls.runappdirect:
             py.test.skip("skipping this very slow test; try 'pypy-c -A'")
         largetest_bz2 = py.path.local(__file__).dirpath().join("largetest.bz2")
-        cls.w_compressed_data = cls.space.wrapbytes(largetest_bz2.read('rb'))
+        cls.w_compressed_data = cls.space.newbytes(largetest_bz2.read('rb'))
 
     def test_decompress(self):
         from bz2 import decompress

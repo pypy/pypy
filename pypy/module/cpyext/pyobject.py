@@ -7,7 +7,7 @@ from rpython.rtyper.extregistry import ExtRegistryEntry
 from pypy.module.cpyext.api import (
     cpython_api, bootstrap_function, PyObject, PyObjectP, ADDR,
     CANNOT_FAIL, Py_TPFLAGS_HEAPTYPE, PyTypeObjectPtr, is_PyObject,
-    INTERPLEVEL_API)
+    INTERPLEVEL_API, PyVarObject)
 from pypy.module.cpyext.state import State
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.objspace.std.objectobject import W_ObjectObject
@@ -47,13 +47,16 @@ class BaseCpyTypedescr(object):
             size = pytype.c_tp_basicsize
         else:
             size = rffi.sizeof(self.basestruct)
-        if itemcount and w_type is not space.w_str:
+        if pytype.c_tp_itemsize:
             size += itemcount * pytype.c_tp_itemsize
         assert size >= rffi.sizeof(PyObject.TO)
         buf = lltype.malloc(rffi.VOIDP.TO, size,
                             flavor='raw', zero=True,
                             add_memory_pressure=True)
         pyobj = rffi.cast(PyObject, buf)
+        if pytype.c_tp_itemsize:
+            pyvarobj = rffi.cast(PyVarObject, pyobj)
+            pyvarobj.c_ob_size = itemcount
         pyobj.c_ob_refcnt = 1
         #pyobj.c_ob_pypy_link should get assigned very quickly
         pyobj.c_ob_type = pytype
@@ -152,13 +155,18 @@ def get_typedescr(typedef):
 class InvalidPointerException(Exception):
     pass
 
-def create_ref(space, w_obj, itemcount=0):
+def create_ref(space, w_obj):
     """
     Allocates a PyObject, and fills its fields with info from the given
     interpreter object.
     """
     w_type = space.type(w_obj)
+    pytype = rffi.cast(PyTypeObjectPtr, as_pyobj(space, w_type))
     typedescr = get_typedescr(w_obj.typedef)
+    if pytype.c_tp_itemsize != 0:
+        itemcount = space.len_w(w_obj) # PyBytesObject and subclasses
+    else:
+        itemcount = 0
     py_obj = typedescr.allocate(space, w_type, itemcount=itemcount)
     track_reference(space, py_obj, w_obj)
     #

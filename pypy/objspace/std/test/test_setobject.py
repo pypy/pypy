@@ -87,7 +87,7 @@ class TestW_SetObject:
         from pypy.objspace.std.floatobject import W_FloatObject
 
         w = self.space.wrap
-        wb = self.space.wrapbytes
+        wb = self.space.newbytes
         intstr = self.space.fromcache(IntegerSetStrategy)
         tmp_func = intstr.get_storage_from_list
         # test if get_storage_from_list is no longer used
@@ -130,7 +130,7 @@ class TestW_SetObject:
 
     def test_listview_bytes_int_on_set(self):
         w = self.space.wrap
-        wb = self.space.wrapbytes
+        wb = self.space.newbytes
 
         w_a = W_SetObject(self.space)
         _initialize_set(self.space, w_a, wb("abcdefg"))
@@ -482,7 +482,7 @@ class AppTestAppSetTest:
                 self.s = s
             def __repr__(self):
                 return repr(self.s)
-        
+
         s = set([1, 2, 3])
         s.add(A(s))
         therepr = repr(s)
@@ -573,6 +573,39 @@ class AppTestAppSetTest:
             assert (c in s) == (c in word)
         raises(TypeError, s.__contains__, [])
 
+        logger = []
+
+        class Foo(object):
+
+            def __init__(self, value, name=None):
+                self.value = value
+                self.name = name or value
+
+            def __repr__(self):
+                return '<Foo %s>' % self.name
+
+            def __eq__(self, other):
+                logger.append((self, other))
+                return self.value == other.value
+
+            def __hash__(self):
+                return 42  # __eq__ will be used given all objects' hashes clash
+
+        foo1, foo2, foo3 = Foo(1), Foo(2), Foo(3)
+        foo42 = Foo(42)
+        foo_set = {foo1, foo2, foo3}
+        del logger[:]
+        foo42 in foo_set
+        logger_copy = set(logger[:])  # prevent re-evaluation during pytest error print
+        assert logger_copy == {(foo3, foo42), (foo2, foo42), (foo1, foo42)}
+
+        del logger[:]
+        foo2_bis = Foo(2, '2 bis')
+        foo2_bis in foo_set
+        logger_copy = set(logger[:])  # prevent re-evaluation during pytest error print
+        assert (foo2, foo2_bis) in logger_copy
+        assert logger_copy.issubset({(foo1, foo2_bis), (foo2, foo2_bis), (foo3, foo2_bis)})
+
     def test_remove(self):
         s = set('abc')
         s.remove('a')
@@ -596,7 +629,7 @@ class AppTestAppSetTest:
                 assert v1 == v2
             else:
                 assert False, 'Expected KeyError'
-        
+
     def test_singleton_empty_frozenset(self):
         class Frozenset(frozenset):
             pass
@@ -1023,7 +1056,7 @@ class AppTestAppSetTest:
         s2 = myset.pop()
         assert s2 == s
         assert s2 is s
-        
+
     def test_intersect_frozenset_set(self):
         # worked before
         assert type(frozenset([2]) & set([1, 2])) is frozenset
@@ -1080,4 +1113,4 @@ class AppTestAppSetTest:
         items = set(new)
         assert len(items) == 2
         items.add(first)
-        assert items == set(d)        
+        assert items == set(d)

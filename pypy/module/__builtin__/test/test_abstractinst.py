@@ -226,3 +226,26 @@ class AppTestAbstractInst:
         c = C()
         assert isinstance(c, C)
         assert not called
+
+    def test_instancecheck_exception_not_eaten(self):
+        class M(object):
+            def __instancecheck__(self, obj):
+                raise TypeError("foobar")
+
+        e = raises(TypeError, isinstance, 42, M())
+        assert str(e.value) == "foobar"
+
+    def test_issubclass_exception_not_eaten(self):
+        class M(object):
+            def __subclasscheck__(self, subcls):
+                raise TypeError("foobar")
+
+        e = raises(TypeError, issubclass, 42, M())
+        assert str(e.value) == "foobar"
+
+    def test_issubclass_no_fallback(self):
+        class M(object):
+            def __subclasscheck__(self, subcls):
+                return False
+
+        assert issubclass(42, M()) is False

@@ -17,8 +17,9 @@ from pypy.module.unicodedata import unicodedb
 from pypy.objspace.std import newformat
 from pypy.objspace.std.formatting import mod_format
 from pypy.objspace.std.stringmethods import StringMethods
+from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT
 
-__all__ = ['W_UnicodeObject', 'wrapunicode', 'encode_object', 'decode_object',
+__all__ = ['W_UnicodeObject', 'encode_object', 'decode_object',
            'unicode_from_object', 'unicode_to_decimal_w']
 
 
@@ -51,12 +52,26 @@ class W_UnicodeObject(W_Root):
             return True
         if self.user_overridden_class or w_other.user_overridden_class:
             return False
-        return space.unicode_w(self) is space.unicode_w(w_other)
+        s1 = space.unicode_w(self)
+        s2 = space.unicode_w(w_other)
+        if len(s2) > 1:
+            return s1 is s2
+        else:            # strings of len <= 1 are unique-ified
+            return s1 == s2
 
     def immutable_unique_id(self, space):
         if self.user_overridden_class:
             return None
-        return space.wrap(compute_unique_id(space.unicode_w(self)))
+        s = space.unicode_w(self)
+        if len(s) > 1:
+            uid = compute_unique_id(s)
+        else:            # strings of len <= 1 are unique-ified
+            if len(s) == 1:
+                base = ~ord(s[0])      # negative base values
+            else:
+                base = 257       # empty unicode string: base value 257
+            uid = (base << IDTAG_SHIFT) | IDTAG_SPECIAL
+        return space.wrap(uid)
 
     def unicode_w(self, space):
         return self._value
@@ -158,13 +173,45 @@ class W_UnicodeObject(W_Root):
         return u''.join([unichr(x) for x in
                          unicodedb.toupper_full(ord(ch))])
 
-    def _lower(self, ch):
+    def _lower_in_str(self, value, i):
+        ch = value[i]
+        if ord(ch) == 0x3A3:
+            # Obscure special case.
+            return self._handle_capital_sigma(value, i)
         return u''.join([unichr(x) for x in
                          unicodedb.tolower_full(ord(ch))])
 
     def _title(self, ch):
         return u''.join([unichr(x) for x in
                          unicodedb.totitle_full(ord(ch))])
+
+    def _handle_capital_sigma(self, value, i):
+        # U+03A3 is in the Final_Sigma context when, it is found like this:
+        #\p{cased} \p{case-ignorable}* U+03A3 not(\p{case-ignorable}* \p{cased})
+        # where \p{xxx} is a character with property xxx.
+        j = i - 1
+        final_sigma = False
+        while j >= 0:
+            ch = value[j]
+            if unicodedb.iscaseignorable(ord(ch)):
+                j -= 1
+                continue
+            final_sigma = unicodedb.iscased(ord(ch))
+            break
+        if final_sigma:
+            j = i + 1
+            length = len(value)
+            while j < length:
+                ch = value[j]
+                if unicodedb.iscaseignorable(ord(ch)):
+                    j += 1
+                    continue
+                final_sigma = not unicodedb.iscased(ord(ch))
+                break
+        if final_sigma:
+            return unichr(0x3C2)
+        else:
+            return unichr(0x3C3)
 
     def _newlist_unwrapped(self, space, lst):
         return space.newlist_unicode(lst)
@@ -268,7 +315,7 @@ class W_UnicodeObject(W_Root):
         if space.is_w(space.type(self), space.w_unicode):
             return self
         # Subtype -- return genuine unicode string with the same value.
-        return space.wrap(space.unicode_w(self))
+        return space.newunicode(space.unicode_w(self))
 
     def descr_hash(self, space):
         x = compute_hash(self._value)
@@ -399,6 +446,19 @@ class W_UnicodeObject(W_Root):
     def _join_check_item(self, space, w_obj):
         return not space.isinstance_w(w_obj, space.w_unicode)
 
+    def descr_casefold(self, space):
+        value = self._val(space)
+        builder = self._builder(len(value))
+        for c in value:
+            c_ord = ord(c)
+            folded = unicodedb.casefold_lookup(c_ord)
+            if folded is None:
+                builder.append(unichr(unicodedb.tolower(c_ord)))
+            else:
+                for r in folded:
+                    builder.append(unichr(r))
+        return self._new(builder.build())
+
     def descr_isdecimal(self, space):
         return self._is_generic(space, '_isdecimal')
 
@@ -450,10 +510,6 @@ class W_UnicodeObject(W_Root):
         return len(prefix) == 0
 
 
-def wrapunicode(space, uni):
-    return W_UnicodeObject(uni)
-
-
 def _isidentifier(u):
     if not u:
         return False
@@ -495,12 +551,12 @@ def encode_object(space, w_object, encoding, errors):
             if encoding is None or encoding == 'utf-8':
                 u = space.unicode_w(w_object)
                 eh = unicodehelper.encode_error_handler(space)
-                return space.wrapbytes(unicode_encode_utf_8(
+                return space.newbytes(unicode_encode_utf_8(
                         u, len(u), errors, errorhandler=eh))
             elif encoding == 'ascii':
                 u = space.unicode_w(w_object)
                 eh = unicodehelper.encode_error_handler(space)
-                return space.wrapbytes(unicode_encode_ascii(
+                return space.newbytes(unicode_encode_ascii(
                         u, len(u), errors, errorhandler=eh))
         except unicodehelper.RUnicodeEncodeError as ue:
             raise wrap_encode_error(space, ue)
@@ -804,6 +860,12 @@ class UnicodeDocstrings:
         and there is at least one character in S, False otherwise.
         """
 
+    def casefold():
+        """S.casefold() -> str
+
+        Return a version of S suitable for caseless comparisons.
+        """
+
     def isdecimal():
         """S.isdecimal() -> bool
 
@@ -1094,6 +1156,8 @@ W_UnicodeObject.typedef = TypeDef(
 
     capitalize = interp2app(W_UnicodeObject.descr_capitalize,
                             doc=UnicodeDocstrings.capitalize.__doc__),
+    casefold = interp2app(W_UnicodeObject.descr_casefold,
+                            doc=UnicodeDocstrings.casefold.__doc__),
     center = interp2app(W_UnicodeObject.descr_center,
                         doc=UnicodeDocstrings.center.__doc__),
     count = interp2app(W_UnicodeObject.descr_count,
@@ -1203,9 +1267,13 @@ W_UnicodeObject.EMPTY = W_UnicodeObject(u'')
 # using the same logic as PyUnicode_EncodeDecimal, as CPython 2.7 does.
 #
 # In CPython3 the call to PyUnicode_EncodeDecimal has been replaced to a call
-# to PyUnicode_TransformDecimalToASCII, which is much simpler. Here, we do the
-# equivalent plus the final step of encoding the result to utf-8.
-def unicode_to_decimal_w(space, w_unistr):
+# to _PyUnicode_TransformDecimalAndSpaceToASCII, which is much simpler.
+# We do that here plus the final step of encoding the result to utf-8.
+# This final step corresponds to encode_utf8. In float.__new__() and
+# complex.__new__(), a lone surrogate will throw an app-level
+# UnicodeEncodeError.
+
+def unicode_to_decimal_w(space, w_unistr, allow_surrogates=False):
     if not isinstance(w_unistr, W_UnicodeObject):
         raise oefmt(space.w_TypeError, "expected unicode, got '%T'", w_unistr)
     unistr = w_unistr._value
@@ -1221,7 +1289,8 @@ def unicode_to_decimal_w(space, w_unistr):
             except KeyError:
                 pass
         result[i] = unichr(uchr)
-    return unicodehelper.encode_utf8(space, u''.join(result), allow_surrogates=True)
+    return unicodehelper.encode_utf8(space, u''.join(result),
+                                     allow_surrogates=allow_surrogates)
 
 
 _repr_function, _ = make_unicode_escape_function(
