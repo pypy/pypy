@@ -415,13 +415,6 @@ class ASTBuilder(object):
         return ast.Try(body, handlers, otherwise, finally_suite,
                        try_node.get_lineno(), try_node.get_column())
 
-    def handle_with_stmt(self, with_node, is_async):
-            if is_async:
-                wi = ast.AsyncWith(test, target, body, with_node.get_lineno(),
-                              with_node.get_column())
-            else:
-                wi = ast.With(test, target, body, with_node.get_lineno(),
-                              with_node.get_column())
     def handle_with_item(self, item_node):
         test = self.handle_expr(item_node.get_child(0))
         if item_node.num_children() == 3:
