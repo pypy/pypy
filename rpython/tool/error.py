@@ -158,6 +158,8 @@ def debug(drv, use_pdb=True):
 
 @jit.elidable
 def offset2lineno(c, stopat):
+    # even position in lnotab denote byte increments, odd line increments.
+    # see dis.findlinestarts in the python std. library for more details
     tab = c.co_lnotab
     line = c.co_firstlineno
     addr = 0
