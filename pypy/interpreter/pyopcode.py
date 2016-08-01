@@ -1443,7 +1443,7 @@ class __extend__(pyframe.PyFrame):
     def GET_AWAITABLE(self, oparg, next_instr):
         from pypy.objspace.std.noneobject import W_NoneObject
         if isinstance(self.peekvalue(), W_NoneObject):
-            #switch NoneObject with iterable on stack
+            #switch NoneObject with iterable on stack (kind of a dirty fix)
             w_firstnone = self.popvalue()
             w_i = self.popvalue()
             self.pushvalue(w_firstnone)
