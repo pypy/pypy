@@ -105,3 +105,7 @@ Resolve issues to use the new logging facility on a 32bit system
 .. branch: ep2016sprint
 
 Trying harder to make hash(-1) return -2, like it does on CPython
+
+.. branch: jitlog-exact-source-lines
+
+Log exact line positions in debug merge points.
