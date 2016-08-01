@@ -10,7 +10,7 @@ from rpython.jit.backend.x86.regloc import (FrameLoc, RegLoc, ConstFloatLoc,
     xmm5, xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14,
     X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG, AddressLoc)
 from rpython.jit.backend.llsupport.vector_ext import VectorExt
-from rpython.jit.backend.llsupport.regalloc import get_scale, TempVar
+from rpython.jit.backend.llsupport.regalloc import get_scale, TempVar, NoVariableToSpill
 from rpython.jit.metainterp.resoperation import (rop, ResOperation,
         VectorOp, VectorGuardOp)
 from rpython.rlib.objectmodel import we_are_translated, always_inline
@@ -317,7 +317,7 @@ class VectorAssemblerMixin(object):
         # register, and we emit a load from the cc into this register.
 
         if resloc is ebp:
-            self.assembler.guard_success_cc = condition
+            self.guard_success_cc = rev_cond
         else:
             assert lhsloc is xmm0
             maskloc = X86_64_XMM_SCRATCH_REG
@@ -654,7 +654,11 @@ class VectorRegallocMixin(object):
             # do we have a free register?
             if len(xrm.free_regs) == 0:
                 # spill a non forbidden variable
-                self._spill_var(candidate_to_spill, forbidden_vars, None)
+                if not candidate_to_spill:
+                    raise NoVariableToSpill
+                reg = xrm.reg_bindings[candidate_to_spill]
+                xrm._spill_var(candidate_to_spill, forbidden_vars, None)
+                xrm.free_regs.append(reg)
             loc = xrm.free_regs.pop()
             self.assembler.mov(selected_reg, loc)
             reg = xrm.reg_bindings.get(arg, None)
