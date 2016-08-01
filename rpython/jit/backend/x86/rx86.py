@@ -793,6 +793,7 @@ class AbstractX86CodeBuilder(object):
 
     PTEST_xx = xmminsn('\x66', rex_nw, '\x0F\x38\x17', register(1,8), register(2), '\xC0')
     PBLENDW_xxi = xmminsn('\x66', rex_nw, '\x0F\x3A\x0E', register(1,8), register(2), '\xC0', immediate(3, 'b'))
+    PBLENDVB_xx = xmminsn('\x66', rex_nw, '\x0F\x38\x10', register(1,8), register(2), '\xC0')
     CMPPD_xxi = xmminsn('\x66', rex_nw, '\x0F\xC2', register(1,8), register(2), '\xC0', immediate(3, 'b'))
     CMPPS_xxi = xmminsn(        rex_nw, '\x0F\xC2', register(1,8), register(2), '\xC0', immediate(3, 'b'))
 

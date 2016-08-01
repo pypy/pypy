@@ -10,7 +10,7 @@ from rpython.jit.backend.x86.regloc import (FrameLoc, RegLoc, ConstFloatLoc,
     xmm5, xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14,
     X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG, AddressLoc)
 from rpython.jit.backend.llsupport.vector_ext import VectorExt
-from rpython.jit.backend.llsupport.regalloc import get_scale
+from rpython.jit.backend.llsupport.regalloc import get_scale, TempVar
 from rpython.jit.metainterp.resoperation import (rop, ResOperation,
         VectorOp, VectorGuardOp)
 from rpython.rlib.objectmodel import we_are_translated, always_inline
@@ -32,6 +32,14 @@ def not_implemented(msg):
         llop.debug_print(lltype.Void, msg)
     raise NotImplementedError(msg)
 # DUP END
+
+class TempVector(TempVar):
+    def __init__(self, type):
+        self.type = type
+    def is_vector(self):
+        return True
+    def __repr__(self):
+        return "<TempVector At %s>" % (id(self),)
 
 class X86VectorExt(VectorExt):
     def setup_once(self, asm):
@@ -292,29 +300,50 @@ class VectorAssemblerMixin(object):
             self.mc.XORPD(src, heap(self.float_const_neg_addr))
 
     def genop_vec_float_eq(self, op, arglocs, resloc):
-        _, rhsloc, sizeloc = arglocs
+        lhsloc, rhsloc, sizeloc = arglocs
         size = sizeloc.value
         if size == 4:
-            self.mc.CMPPS_xxi(resloc.value, rhsloc.value, 0) # 0 means equal
+            self.mc.CMPPS_xxi(lhsloc.value, rhsloc.value, 0) # 0 means equal
         else:
-            self.mc.CMPPD_xxi(resloc.value, rhsloc.value, 0)
+            self.mc.CMPPD_xxi(lhsloc.value, rhsloc.value, 0)
+        self.flush_vec_cc(rx86.Conditions["E"], lhsloc, resloc, sizeloc.value)
+
+    def flush_vec_cc(self, rev_cond, lhsloc, resloc, size):
+        # After emitting an instruction that leaves a boolean result in
+        # a condition code (cc), call this.  In the common case, result_loc
+        # will be set to SPP by the regalloc, which in this case means
+        # "propagate it between this operation and the next guard by keeping
+        # it in the cc".  In the uncommon case, result_loc is another
+        # register, and we emit a load from the cc into this register.
+
+        if resloc is ebp:
+            self.guard_success_cc = condition
+        else:
+            assert lhsloc is xmm0
+            maskloc = X86_64_XMM_SCRATCH_REG
+            self.mc.MOVAPD(maskloc, heap(self.element_ones[get_scale(size)]))
+            self.mc.PXOR(resloc, resloc)
+            # note that xmm0 contains true false for each element by the last compare operation
+            self.mc.PBLENDVB_xx(resloc.value, maskloc.value)
 
     def genop_vec_float_ne(self, op, arglocs, resloc):
-        _, rhsloc, sizeloc = arglocs
+        lhsloc, rhsloc, sizeloc = arglocs
         size = sizeloc.value
         # b(100) == 1 << 2 means not equal
         if size == 4:
-            self.mc.CMPPS_xxi(resloc.value, rhsloc.value, 1 << 2)
+            self.mc.CMPPS_xxi(lhsloc.value, rhsloc.value, 1 << 2)
         else:
-            self.mc.CMPPD_xxi(resloc.value, rhsloc.value, 1 << 2)
+            self.mc.CMPPD_xxi(lhsloc.value, rhsloc.value, 1 << 2)
+        self.flush_vec_cc(rx86.Conditions("NE"), lhsloc, resloc, sizeloc.value)
 
     def genop_vec_int_eq(self, op, arglocs, resloc):
-        _, rhsloc, sizeloc = arglocs
+        lhsloc, rhsloc, sizeloc = arglocs
         size = sizeloc.value
-        self.mc.PCMPEQ(resloc, rhsloc, size)
+        self.mc.PCMPEQ(lhsloc, rhsloc, size)
+        self.flush_vec_cc(rx86.Conditions("E"), lhsloc, resloc, sizeloc.value)
 
     def genop_vec_int_ne(self, op, arglocs, resloc):
-        _, rhsloc, sizeloc = arglocs
+        lhsloc, rhsloc, sizeloc = arglocs
         size = sizeloc.value
         self.mc.PCMPEQ(resloc, rhsloc, size)
         temp = X86_64_XMM_SCRATCH_REG
@@ -325,6 +354,7 @@ class VectorAssemblerMixin(object):
         # 11 11 11 11
         # ----------- pxor
         # 00 11 00 00
+        self.flush_vec_cc(rx86.Conditions("NE"), lhsloc, resloc, sizeloc.value)
 
     def genop_vec_int_signext(self, op, arglocs, resloc):
         srcloc, sizeloc, tosizeloc = arglocs
@@ -599,9 +629,55 @@ class VectorRegallocMixin(object):
         lhs = op.getarg(0)
         assert isinstance(lhs, VectorOp)
         args = op.getarglist()
+        # we need to use xmm0
+        lhsloc = self.enforce_var_in_vector_reg(op.getarg(0), args, selected_reg=xmm0)
         rhsloc = self.make_sure_var_in_reg(op.getarg(1), args)
-        lhsloc = self.xrm.force_result_in_reg(op, op.getarg(0), args)
-        self.perform(op, [lhsloc, rhsloc, imm(lhs.bytesize)], lhsloc)
+        resloc = self.force_allocate_vector_reg_or_cc(op)
+        self.perform(op, [lhsloc, rhsloc, imm(lhs.bytesize)], resloc)
+
+    def enforce_var_in_vector_reg(self, arg, forbidden_vars, selected_reg):
+        """ Enforce the allocation in a specific register. This can even be a forbidden
+            register. If it is forbidden, it will be moved to another register.
+            Use with caution, currently this is only used for the vectorization backend
+            instructions.
+        """
+        xrm = self.xrm
+        if selected_reg not in xrm.free_regs:
+            variable = None
+            candidate_to_spill = None
+            for var, reg in self.xrm.reg_bindings.items():
+                if reg is selected_reg:
+                    variable = var
+                else:
+                    if var not in forbidden_vars:
+                        candidate_to_spill = var
+            # do we have a free register?
+            if len(xrm.free_regs) == 0:
+                # spill a non forbidden variable
+                self._spill_var(candidate_to_spill, forbidden_vars, None)
+            loc = xrm.free_regs.pop()
+            self.assembler.mov(selected_reg, loc)
+            reg = xrm.reg_bindings.get(arg, None)
+            if reg:
+                xrm.free_regs.append(reg)
+                self.assembler.mov(reg, selected_reg)
+            xrm.reg_bindings[arg] = selected_reg
+            xrm.reg_bindings[variable] = loc
+
+            return selected_reg
+        return self.make_sure_var_in_reg(arg, forbidden_vars, selected_reg=selected_reg)
+
+    def force_allocate_vector_reg_or_cc(self, var):
+        assert var.type == INT
+        if self.next_op_can_accept_cc(self.operations, self.rm.position):
+            # hack: return the ebp location to mean "lives in CC".  This
+            # ebp will not actually be used, and the location will be freed
+            # after the next op as usual.
+            self.xrm.force_allocate_frame_reg(var)
+            return ebp
+        else:
+            # else, return a regular register (not ebp).
+            return self.xrm.force_allocate_reg(var)
 
     consider_vec_float_ne = consider_vec_float_eq
     consider_vec_int_eq = consider_vec_float_eq

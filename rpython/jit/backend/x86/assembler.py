@@ -108,9 +108,20 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         single_neg_const = '\x00\x00\x00\x80\x00\x00\x00\x80\x00\x00\x00\x80\x00\x00\x00\x80'
         zero_const = '\x00' * 16
         #
+        two_64bit_ones = '\x01\x00\x00\x00\x00\x00\x00\x00' * 2
+        four_32bit_ones = '\x01\x00\x00\x00' * 4
+        eight_16bit_ones = '\x01\x00' * 8
+        sixteen_8bit_ones = '\x01' * 16
+
+
+
+
+
+        #
         data = neg_const + abs_const + \
                single_neg_const + single_abs_const + \
-               zero_const
+               zero_const + sixteen_8bit_ones + eight_16bit_ones + \
+               four_32bit_ones + two_64bit_ones
         datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr, [])
         float_constants = datablockwrapper.malloc_aligned(len(data), alignment=16)
         datablockwrapper.done()
@@ -122,6 +133,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.single_float_const_neg_addr = float_constants + 32
         self.single_float_const_abs_addr = float_constants + 48
         self.expand_byte_mask_addr = float_constants + 64
+        self.element_ones = [float_constants + 80 + 16*i for i in range(4)]
 
     def set_extra_stack_depth(self, mc, value):
         if self._is_asmgcc():
