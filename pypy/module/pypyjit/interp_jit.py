@@ -42,6 +42,22 @@ def get_unique_id(next_instr, is_being_profiled, bytecode):
     from rpython.rlib import rvmprof
     return rvmprof.get_unique_id(bytecode)
 
+@jit.elidable
+def offset2lineno(bytecode, stopat):
+    # see dis.findlinestarts for an explanation. This function is copied from
+    # rpython/tool/error.py
+    # lnotab is a list of [byte inc, line inc, ...]
+    # even position denote byte increments, odd line increments...
+    tab = bytecode.co_lnotab
+    line = bytecode.co_firstlineno
+    addr = 0
+    for i in range(0, len(tab), 2):
+        addr = addr + ord(tab[i])
+        if addr > stopat:
+            break
+        line = line + ord(tab[i+1])
+    return line
+
 @jl.returns(jl.MP_FILENAME, jl.MP_LINENO,
             jl.MP_SCOPE, jl.MP_INDEX, jl.MP_OPCODE)
 def get_location(next_instr, is_being_profiled, bytecode):
@@ -53,7 +69,8 @@ def get_location(next_instr, is_being_profiled, bytecode):
     name = bytecode.co_name
     if not name:
         name = ""
-    return (bytecode.co_filename, bytecode.co_firstlineno,
+    line = offset2lineno(bytecode, next_instr)
+    return (bytecode.co_filename, line,
             name, intmask(next_instr), opname)
 
 def should_unroll_one_iteration(next_instr, is_being_profiled, bytecode):
