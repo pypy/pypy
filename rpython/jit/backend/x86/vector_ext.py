@@ -317,7 +317,7 @@ class VectorAssemblerMixin(object):
         # register, and we emit a load from the cc into this register.
 
         if resloc is ebp:
-            self.guard_success_cc = condition
+            self.assembler.guard_success_cc = condition
         else:
             assert lhsloc is xmm0
             maskloc = X86_64_XMM_SCRATCH_REG
@@ -334,13 +334,13 @@ class VectorAssemblerMixin(object):
             self.mc.CMPPS_xxi(lhsloc.value, rhsloc.value, 1 << 2)
         else:
             self.mc.CMPPD_xxi(lhsloc.value, rhsloc.value, 1 << 2)
-        self.flush_vec_cc(rx86.Conditions("NE"), lhsloc, resloc, sizeloc.value)
+        self.flush_vec_cc(rx86.Conditions["NE"], lhsloc, resloc, sizeloc.value)
 
     def genop_vec_int_eq(self, op, arglocs, resloc):
         lhsloc, rhsloc, sizeloc = arglocs
         size = sizeloc.value
         self.mc.PCMPEQ(lhsloc, rhsloc, size)
-        self.flush_vec_cc(rx86.Conditions("E"), lhsloc, resloc, sizeloc.value)
+        self.flush_vec_cc(rx86.Conditions["E"], lhsloc, resloc, sizeloc.value)
 
     def genop_vec_int_ne(self, op, arglocs, resloc):
         lhsloc, rhsloc, sizeloc = arglocs
@@ -354,7 +354,7 @@ class VectorAssemblerMixin(object):
         # 11 11 11 11
         # ----------- pxor
         # 00 11 00 00
-        self.flush_vec_cc(rx86.Conditions("NE"), lhsloc, resloc, sizeloc.value)
+        self.flush_vec_cc(rx86.Conditions["NE"], lhsloc, resloc, sizeloc.value)
 
     def genop_vec_int_signext(self, op, arglocs, resloc):
         srcloc, sizeloc, tosizeloc = arglocs
