@@ -1441,6 +1441,13 @@ class __extend__(pyframe.PyFrame):
             self.settopvalue(w_iterator)
     
     def GET_AWAITABLE(self, oparg, next_instr):
+        from pypy.objspace.std.noneobject import W_NoneObject
+        if isinstance(self.peekvalue(), W_NoneObject):
+            #switch NoneObject with iterable on stack
+            w_firstnone = self.popvalue()
+            w_i = self.popvalue()
+            self.pushvalue(w_firstnone)
+            self.pushvalue(w_i)
         w_iterable = self.peekvalue()
         w_iter = w_iterable._GetAwaitableIter(self.space)
         self.settopvalue(w_iter)
