@@ -274,6 +274,8 @@ class VectorAssemblerMixin(object):
     def genop_vec_int_xor(self, op, arglocs, resloc):
         self.mc.PXOR(resloc, arglocs[0])
 
+    genop_vec_float_xor = genop_vec_int_xor
+
     genop_vec_float_arith = """
     def genop_vec_float_{type}(self, op, arglocs, resloc):
         loc0, loc1, itemsize_loc = arglocs
@@ -639,6 +641,7 @@ class VectorRegallocMixin(object):
     consider_vec_int_and = consider_vec_logic
     consider_vec_int_or = consider_vec_logic
     consider_vec_int_xor = consider_vec_logic
+    consider_vec_float_xor = consider_vec_logic
     del consider_vec_logic
 
     def consider_vec_pack_i(self, op):
