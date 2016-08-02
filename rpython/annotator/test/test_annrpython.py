@@ -4623,6 +4623,14 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         a.build_types(main, [int])
 
+    def test_string_mod_nonconstant(self):
+        def f(x):
+            return x % 5
+        a = self.RPythonAnnotator()
+        e = py.test.raises(AnnotatorError, a.build_types, f, [str])
+        assert ('string formatting requires a constant string/unicode'
+                in str(e.value))
+
 
 def g(n):
     return [0, 1, 2, n]

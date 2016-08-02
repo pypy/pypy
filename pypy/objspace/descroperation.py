@@ -424,29 +424,20 @@ class DescrOperation(object):
             raise oefmt(space.w_TypeError,
                         "'%T' objects are unhashable", w_obj)
         w_result = space.get_and_call_function(w_hash, w_obj)
-        w_resulttype = space.type(w_result)
 
         # issue 2346 : returns now -2 for hashing -1 like cpython
-        if space.is_w(w_resulttype, space.w_int):
-            if space.int_w(w_result) == -1:
-                return space.wrap(-2)
-            return w_result
-        elif space.isinstance_w(w_result, space.w_int):
-            # be careful about subclasses of 'int'...
-            int_result = space.int_w(w_result)
-            if int_result == -1:
-                int_result == -2
-            return space.wrap(int_result)
+        if space.isinstance_w(w_result, space.w_int):
+            h = space.int_w(w_result)
         elif space.isinstance_w(w_result, space.w_long):
-            # be careful about subclasses of 'long'...
             bigint = space.bigint_w(w_result)
             h = bigint.hash()
-            if h == -1:
-                h = -2
-            return space.wrap(h)
         else:
             raise oefmt(space.w_TypeError,
                         "__hash__() should return an int or long")
+        # turn -1 into -2 without using a condition, which would
+        # create a potential bridge in the JIT
+        h -= (h == -1)
+        return space.wrap(h)
 
     def cmp(space, w_v, w_w):
 

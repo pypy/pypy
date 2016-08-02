@@ -812,8 +812,10 @@ def typeOf(val):
         if tp is long:
             if -maxint-1 <= val <= maxint:
                 return Signed
-            else:
+            elif longlongmask(val) == val:
                 return SignedLongLong
+            else:
+                raise OverflowError("integer %r is out of bounds" % (val,))
         if tp is bool:
             return Bool
         if issubclass(tp, base_int):
