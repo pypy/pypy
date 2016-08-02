@@ -116,4 +116,6 @@ Allocate all RPython strings with one extra byte, normally unused.
 It is used to hold a final zero in case we need some ``char *``
 representation of the string, together with checks like ``not
 can_move()`` or object pinning. Main new thing that this allows:
-``ffi.from_buffer(string)``.
+``ffi.from_buffer(string)`` in CFFI.  Additionally, and most
+importantly, CFFI calls that take directly a string as argument don't
+copy the string any more---this is like CFFI on CPython.
