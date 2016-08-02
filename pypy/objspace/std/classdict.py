@@ -38,7 +38,7 @@ W_DictProxyObject.typedef = TypeDef(
 )
 
 
-class DictProxyStrategy(DictStrategy):
+class ClassDictStrategy(DictStrategy):
     """Exposes a W_TypeObject.dict_w at app-level.
 
     Uses getdictvalue() and setdictvalue() to access items.
@@ -142,7 +142,7 @@ def _wrapkey(space, key):
     # keys are utf-8 encoded identifiers from type's dict_w
     return space.wrap(key.decode('utf-8'))
 
-create_iterator_classes(DictProxyStrategy)
+create_iterator_classes(ClassDictStrategy)
 
 
 class MappingProxyStrategy(DictStrategy):
