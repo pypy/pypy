@@ -5,7 +5,7 @@ import unicodedata
 import py
 
 from rpython.rlib.unicodedata import (
-    unicodedb_3_2_0, unicodedb_5_2_0, unicodedb_6_0_0)
+    unicodedb_3_2_0, unicodedb_5_2_0, unicodedb_6_0_0, unicodedb_6_2_0)
 
 
 class TestUnicodeData(object):
@@ -99,6 +99,19 @@ class TestUnicodeData(object):
         assert unicodedb_5_2_0.lookup('BENZENE RING WITH CIRCLE') == 9187
         py.test.raises(KeyError, unicodedb_3_2_0.lookup, 'BENZENE RING WITH CIRCLE')
         py.test.raises(KeyError, unicodedb_3_2_0.name, 9187)
+
+    def test_casefolding(self):
+        assert unicodedb_6_2_0.casefold_lookup(223) == [115, 115]
+        assert unicodedb_6_2_0.casefold_lookup(976) == [946]
+        assert unicodedb_5_2_0.casefold_lookup(42592) == None
+        # 1010 has been remove between 3.2.0 and 5.2.0
+        assert unicodedb_3_2_0.casefold_lookup(1010) == [963]
+        assert unicodedb_5_2_0.casefold_lookup(1010) == None
+        # 7838 has been added in 5.2.0
+        assert unicodedb_3_2_0.casefold_lookup(7838) == None
+        assert unicodedb_5_2_0.casefold_lookup(7838) == [115, 115]
+        # Only lookup who cannot be resolved by `lower` are stored in database
+        assert unicodedb_3_2_0.casefold_lookup(ord('E')) == None
 
 
 class TestUnicodeData600(object):
