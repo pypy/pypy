@@ -16,7 +16,7 @@ from rpython.tool import runsubprocess
 from pypy.tool.pytest import appsupport
 from pypy.tool.pytest.objspace import gettestobjspace
 from rpython.tool.udir import udir
-from pypy.conftest import PyPyClassCollector, pypydir
+from pypy import pypydir
 from inspect import getmro
 
 pypyroot = os.path.dirname(pypydir)
