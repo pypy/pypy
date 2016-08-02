@@ -12,7 +12,7 @@
 #ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
 #endif
-#if defined(HAVE_SYS_STAT_H) && defined(__FreeBSD__)
+#if defined(__FreeBSD__)
 #include <sys/stat.h>
 #endif
 #ifdef HAVE_SYS_SYSCALL_H
