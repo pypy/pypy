@@ -7,7 +7,7 @@ from pypy.objspace.std.dictmultiobject import (
 from pypy.objspace.std.typeobject import unwrap_cell
 
 
-class DictProxyStrategy(DictStrategy):
+class ClassDictStrategy(DictStrategy):
     erase, unerase = rerased.new_erasing_pair("dictproxy")
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
@@ -112,4 +112,4 @@ class DictProxyStrategy(DictStrategy):
     def wrapvalue(space, value):
         return unwrap_cell(space, value)
 
-create_iterator_classes(DictProxyStrategy)
+create_iterator_classes(ClassDictStrategy)

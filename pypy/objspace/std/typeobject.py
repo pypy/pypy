@@ -486,11 +486,11 @@ class W_TypeObject(W_Root):
             del self.lazyloaders
 
     def getdict(self, space): # returning a dict-proxy!
-        from pypy.objspace.std.dictproxyobject import DictProxyStrategy
+        from pypy.objspace.std.classdict import ClassDictStrategy
         from pypy.objspace.std.dictmultiobject import W_DictObject
         if self.lazyloaders:
             self._cleanup_()    # force un-lazification
-        strategy = space.fromcache(DictProxyStrategy)
+        strategy = space.fromcache(ClassDictStrategy)
         storage = strategy.erase(self)
         return W_DictObject(space, strategy, storage)
 
