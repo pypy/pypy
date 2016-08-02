@@ -1022,7 +1022,10 @@ else:
             with lltype.scoped_alloc(rposix.TMS) as tms:
                 ret = rposix.c_times(tms)
                 if rffi.cast(lltype.Signed, ret) != -1:
-                    cpu_time = float(tms.c_tms_utime + tms.c_tms_stime)
+                    cpu_time = float(rffi.cast(lltype.Signed,
+                                               tms.c_tms_utime) +
+                                     rffi.cast(lltype.Signed,
+                                               tms.c_tms_stime))
                     if w_info is not None:
                         _setinfo(space, w_info, "times()",
                                  1.0 / rposix.CLOCK_TICKS_PER_SECOND,
@@ -1044,7 +1047,7 @@ def clock(space, w_info=None):
             pass
     value = _clock()
     # Is this casting correct?
-    if value == rffi.cast(rposix.CLOCK_T, -1):
+    if intmask(value) == intmask(rffi.cast(rposix.CLOCK_T, -1)):
         raise oefmt(space.w_RuntimeError,
                     "the processor time used is not available or its value"
                     "cannot be represented")
