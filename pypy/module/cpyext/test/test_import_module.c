@@ -1,17 +1,20 @@
 #include "Python.h"
 /* Initialize this module. */
 
-PyMODINIT_FUNC
-inittest_import_module(void)
-{
-	PyObject *m, *d;
+static struct PyModuleDef moduledef = {
+    PyModuleDef_HEAD_INIT,
+    "test_import_module",
+    NULL,
+    -1,
+    NULL, NULL, NULL, NULL, NULL
+};
 
-	m = Py_InitModule("test_import_module", NULL);
-	if (m == NULL)
-	    return;
-	d = PyModule_GetDict(m);
-	if (d) {
-        PyDict_SetItemString(d, "TEST", (PyObject *) Py_None);
-    }
-   	/* No need to check the error here, the caller will do that */
+PyMODINIT_FUNC
+PyInit_test_import_module(void)
+{
+    PyObject* m = PyModule_Create(&moduledef);
+    if (m == NULL)
+	    return NULL;
+    PyModule_AddObject(m, "TEST", (PyObject *) Py_None);
+    return m;
 }
