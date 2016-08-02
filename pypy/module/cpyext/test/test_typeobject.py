@@ -779,7 +779,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             """, more_init="""
             IntLike_Type.tp_flags |= Py_TPFLAGS_DEFAULT;
             IntLike_Type.tp_as_number = &intlike_as_number;
-            intlike_as_number.nb_bool = intlike_nb_nonzero;
+            intlike_as_number.nb_bool = intlike_nb_bool;
             intlike_as_number.nb_int = intlike_nb_int;
             PyType_Ready(&IntLike_Type);
             """)
