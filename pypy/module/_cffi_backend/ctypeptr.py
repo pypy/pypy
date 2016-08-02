@@ -261,13 +261,12 @@ class W_CTypePointer(W_CTypePtrBase):
         else:
             return lltype.nullptr(rffi.CCHARP.TO)
 
-    def _prepare_pointer_call_argument(self, w_init, cdata):
+    def _prepare_pointer_call_argument(self, w_init, cdata, keepalives, i):
         space = self.space
         if self.accept_str and space.isinstance_w(w_init, space.w_str):
             # special case to optimize strings passed to a "char *" argument
-            # WARNING: this relies on the fact that w_init.str_w() returns
-            # always the same object for the same w_init!
             value = w_init.str_w(space)
+            keepalives[i] = value
             buf, buf_flag = rffi.get_nonmovingbuffer_final_null(value)
             rffi.cast(rffi.CCHARPP, cdata)[0] = buf
             return ord(buf_flag)    # 4, 5 or 6
@@ -307,10 +306,11 @@ class W_CTypePointer(W_CTypePtrBase):
         rffi.cast(rffi.CCHARPP, cdata)[0] = result
         return 1
 
-    def convert_argument_from_object(self, cdata, w_ob):
+    def convert_argument_from_object(self, cdata, w_ob, keepalives, i):
         from pypy.module._cffi_backend.ctypefunc import set_mustfree_flag
         result = (not isinstance(w_ob, cdataobj.W_CData) and
-                  self._prepare_pointer_call_argument(w_ob, cdata))
+                  self._prepare_pointer_call_argument(w_ob, cdata,
+                                                      keepalives, i))
         if result == 0:
             self.convert_from_object(cdata, w_ob)
         set_mustfree_flag(cdata, result)
