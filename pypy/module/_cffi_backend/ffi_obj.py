@@ -353,7 +353,7 @@ containing large quantities of raw data in some other format, like
 'array.array' or numpy arrays."""
         #
         w_ctchara = newtype._new_chara_type(self.space)
-        return func.from_buffer(self.space, w_ctchara, w_python_buffer)
+        return func._from_buffer(self.space, w_ctchara, w_python_buffer)
 
 
     @unwrap_spec(w_arg=W_CData)

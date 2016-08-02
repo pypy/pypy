@@ -157,11 +157,13 @@ class W_CTypeFunc(W_CTypePtrBase):
         mustfree_max_plus_1 = 0
         buffer = lltype.malloc(rffi.CCHARP.TO, size, flavor='raw')
         try:
+            keepalives = [None] * len(args_w)    # None or strings
             for i in range(len(args_w)):
                 data = rffi.ptradd(buffer, cif_descr.exchange_args[i])
                 w_obj = args_w[i]
                 argtype = self.fargs[i]
-                if argtype.convert_argument_from_object(data, w_obj):
+                if argtype.convert_argument_from_object(data, w_obj,
+                                                        keepalives, i):
                     # argtype is a pointer type, and w_obj a list/tuple/str
                     mustfree_max_plus_1 = i + 1
 
@@ -177,9 +179,13 @@ class W_CTypeFunc(W_CTypePtrBase):
                 if isinstance(argtype, W_CTypePointer):
                     data = rffi.ptradd(buffer, cif_descr.exchange_args[i])
                     flag = get_mustfree_flag(data)
+                    raw_cdata = rffi.cast(rffi.CCHARPP, data)[0]
                     if flag == 1:
-                        raw_cdata = rffi.cast(rffi.CCHARPP, data)[0]
                         lltype.free(raw_cdata, flavor='raw')
+                    elif flag >= 4:
+                        value = keepalives[i]
+                        assert value is not None
+                        rffi.free_nonmovingbuffer(value, raw_cdata, chr(flag))
             lltype.free(buffer, flavor='raw')
             keepalive_until_here(args_w)
         return w_res
