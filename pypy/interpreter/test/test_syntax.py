@@ -99,7 +99,13 @@ INVALID = splitcases("""
     
     async def foo():
         await await fut
-
+    
+    await x
+    
+    def foo(): async for a in b: pass
+    
+    def foo(): async with a: pass
+    
 """)
 
 
