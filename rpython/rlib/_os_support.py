@@ -20,7 +20,6 @@ class StringTraits(object):
     charp2str = staticmethod(rffi.charp2str)
     charpsize2str = staticmethod(rffi.charpsize2str)
     scoped_str2charp = staticmethod(rffi.scoped_str2charp)
-    scoped_view_charp = staticmethod(rffi.scoped_view_charp)
     str2charp = staticmethod(rffi.str2charp)
     free_charp = staticmethod(rffi.free_charp)
     scoped_alloc_buffer = staticmethod(rffi.scoped_alloc_buffer)
@@ -56,8 +55,6 @@ class UnicodeTraits(object):
     charpsize2str = staticmethod(rffi.wcharpsize2unicode)
     str2charp = staticmethod(rffi.unicode2wcharp)
     scoped_str2charp = staticmethod(rffi.scoped_unicode2wcharp)
-    scoped_view_charp = staticmethod(rffi.scoped_unicode2wcharp)
-    # ^^^ XXX there is no unicode variant of rffi.scoped_view_charp
     free_charp = staticmethod(rffi.free_wcharp)
     scoped_alloc_buffer = staticmethod(rffi.scoped_alloc_unicodebuffer)
 
