@@ -185,12 +185,12 @@ class AppTestObject:
             skip("cannot run this test as apptest")
         for u in [u"", u"a", u"aa"]:
             assert id(self.unwrap_wrap_unicode(u)) == id(u)
-            s = str(u)
-            assert id(self.unwrap_wrap_str(s)) == id(s)
+            s = u.encode()
+            assert id(self.unwrap_wrap_bytes(s)) == id(s)
         #
-        assert id('') == (256 << 4) | 11     # always
+        assert id(b'') == (256 << 4) | 11     # always
         assert id(u'') == (257 << 4) | 11
-        assert id('a') == (ord('a') << 4) | 11
+        assert id(b'a') == (ord('a') << 4) | 11
         assert id(u'\u1234') == ((~0x1234) << 4) | 11
 
     def test_id_of_tuples(self):
@@ -243,13 +243,13 @@ class AppTestObject:
         l = []
         def add(s, u):
             l.append(s)
-            l.append(self.unwrap_wrap_str(s))
+            l.append(self.unwrap_wrap_bytes(s))
             l.append(s[:1] + s[1:])
             l.append(u)
             l.append(self.unwrap_wrap_unicode(u))
             l.append(u[:1] + u[1:])
         for i in range(3, 18):
-            add(str(i), unicode(i))
+            add(str(i).encode(), str(i))
         add(b"s", u"s")
         add(b"", u"")
 
