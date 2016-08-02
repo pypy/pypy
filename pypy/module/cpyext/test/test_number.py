@@ -1,5 +1,6 @@
 from rpython.rtyper.lltypesystem import lltype
 from pypy.module.cpyext.test.test_api import BaseApiTest
+from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
 class TestIterator(BaseApiTest):
     def test_check(self, space, api):
@@ -63,7 +64,9 @@ class TestIterator(BaseApiTest):
         assert 9 == space.unwrap(
             api.PyNumber_InPlacePower(space.wrap(3), space.wrap(2), space.w_None))
 
-    def test_PyNumber_Check(self):        
+
+class AppTestCNumber(AppTestCpythonExtensionBase):
+    def test_PyNumber_Check(self):
         mod = self.import_extension('foo', [
             ("test_PyNumber_Check", "METH_VARARGS",
              '''
