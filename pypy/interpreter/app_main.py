@@ -79,10 +79,16 @@ def run_toplevel(f, *fargs, **fkwds):
     sys.stdout if needed, etc.
     """
     try:
+        from __pypy__ import revdb_stop
+    except ImportError:
+        revdb_stop = None
+    try:
         # run it
         try:
             f(*fargs, **fkwds)
         finally:
+            if revdb_stop:
+                revdb_stop()
             sys.settrace(None)
             sys.setprofile(None)
 

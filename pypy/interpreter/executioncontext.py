@@ -89,7 +89,7 @@ class ExecutionContext(object):
             jit.virtual_ref_finish(frame_vref, frame)
             if self.space.config.translation.reverse_debugger:
                 from pypy.interpreter.reverse_debugging import leave_call
-                leave_call(self.topframeref(), frame)
+                leave_call(self.topframeref(), got_exception)
 
     # ________________________________________________________________
 

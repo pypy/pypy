@@ -134,6 +134,9 @@ class RevDebugControl(object):
         elif break_at[0] == 'W':
             kind = 'watchpoint'
             name = self.pgroup.all_breakpoints.sources.get(num, '??')
+        elif num == -3:
+            kind = 'stoppoint'
+            name = 'explicit stop'
         else:
             kind = '?????point'
             name = repr(break_at)
@@ -191,9 +194,11 @@ class RevDebugControl(object):
         printing = []
         for num in b.regular_breakpoint_nums():
             kind, name = self._bp_kind(num)
-            printing.append('%s %s %d: %s' % (
+            printing.append('%s %s%s: %s' % (
                 'Reverse-hit' if backward else 'Hit',
-                kind, num, name))
+                kind,
+                '' if kind == 'stoppoint' else ' %d' % (num,),
+                name))
         self.print_extra_pending_info = '\n'.join(printing)
         if self.pgroup.get_current_time() != b.time:
             target_time = b.time

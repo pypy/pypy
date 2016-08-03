@@ -74,12 +74,16 @@ def enter_call(caller_frame, callee_frame):
     if code.co_revdb_linestarts is None:
         build_co_revdb_linestarts(code)
 
-def leave_call(caller_frame, callee_frame):
+def leave_call(caller_frame, got_exception):
     if dbstate.breakpoint_stack_id != 0 and caller_frame is not None:
         if dbstate.breakpoint_stack_id == revdb.get_unique_id(caller_frame):
             revdb.breakpoint(-2)
     if we_are_translated():
-        stop_point_activate(-2)
+        stop_point_activate(-2 + got_exception)
+
+def stop_point():
+    if we_are_translated():
+        revdb.breakpoint(-3)
 
 
 def jump_backward(frame, jumpto):
@@ -418,10 +422,12 @@ def command_backtrace(cmd, extra):
     if cmd.c_arg1 == 0:
         revdb.send_output("%s:\n" % (
             file_and_lineno(frame, frame.get_last_lineno()),))
-        if revdb.current_place() == -2:
-            prompt = "<<"
+        if revdb.current_place() == -2:   # <= this is the arg to stop_point()
+            prompt = "<<"     # return
+        elif revdb.current_place() == -1:
+            prompt = "!!"     # exceptional return
         else:
-            prompt = "> "
+            prompt = "> "     # plain line
         display_function_part(frame, max_lines_before=8, max_lines_after=5,
                               prompt=prompt)
     elif cmd.c_arg1 == 2:

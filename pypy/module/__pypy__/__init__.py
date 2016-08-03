@@ -129,3 +129,6 @@ class Module(MixedModule):
             features = detect_cpu.getcpufeatures(model)
             self.extra_interpdef('jit_backend_features',
                                     'space.wrap(%r)' % features)
+        if self.space.config.translation.reverse_debugger:
+            self.extra_interpdef('revdb_stop',
+                                 'interp_magic.revdb_stop')
