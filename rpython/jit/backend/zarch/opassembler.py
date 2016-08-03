@@ -991,6 +991,7 @@ class MemoryOpAssembler(object):
             basesize, itemsize, _ = symbolic.get_array_token(rstr.STR,
                                         self.cpu.translate_support_code)
             assert itemsize == 1
+            basesize -= 1     # for the extra null character
             scale = 0
 
         # src and src_len are tmp registers

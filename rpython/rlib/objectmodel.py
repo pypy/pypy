@@ -281,6 +281,10 @@ class CDefinedIntSymbolic(Symbolic):
         return lltype.Signed
 
 malloc_zero_filled = CDefinedIntSymbolic('MALLOC_ZERO_FILLED', default=0)
+_translated_to_c = CDefinedIntSymbolic('1 /*_translated_to_c*/', default=0)
+
+def we_are_translated_to_c():
+    return we_are_translated() and _translated_to_c
 
 # ____________________________________________________________
 

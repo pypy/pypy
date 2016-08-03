@@ -647,6 +647,9 @@ class TestFramework(RewriteTests):
         """)
 
     def test_rewrite_assembler_newstr_newunicode(self):
+        # note: strdescr.basesize already contains the extra final character,
+        # so that's why newstr(14) is rounded up to 'basesize+15' and not
+        # 'basesize+16'.
         self.check_rewrite("""
             [i2]
             p0 = newstr(14)
@@ -657,12 +660,12 @@ class TestFramework(RewriteTests):
         """, """
             [i2]
             p0 = call_malloc_nursery(                                \
-                      %(strdescr.basesize + 16 * strdescr.itemsize + \
+                      %(strdescr.basesize + 15 * strdescr.itemsize + \
                         unicodedescr.basesize + 10 * unicodedescr.itemsize)d)
             gc_store(p0, 0,  %(strdescr.tid)d, %(tiddescr.field_size)s)
             gc_store(p0, %(strlendescr.offset)s, 14, %(strlendescr.field_size)s)
             gc_store(p0, 0,  0, %(strhashdescr.field_size)s)
-            p1 = nursery_ptr_increment(p0, %(strdescr.basesize + 16 * strdescr.itemsize)d)
+            p1 = nursery_ptr_increment(p0, %(strdescr.basesize + 15 * strdescr.itemsize)d)
             gc_store(p1, 0,  %(unicodedescr.tid)d, %(tiddescr.field_size)s)
             gc_store(p1, %(unicodelendescr.offset)s, 10, %(unicodelendescr.field_size)s)
             gc_store(p1, 0,  0, %(unicodehashdescr.field_size)s)
@@ -1240,14 +1243,14 @@ class TestFramework(RewriteTests):
         #               'i3 = gc_load_i(p0,i5,%(unicodedescr.itemsize)d)'],
         [True,  (4,),  'i3 = strgetitem(p0,i1)' '->'
                        'i3 = gc_load_indexed_i(p0,i1,1,'
-                       '%(strdescr.basesize)d,1)'],
+                       '%(strdescr.basesize-1)d,1)'],
         #[False, (4,),  'i3 = strgetitem(p0,i1)' '->'
-        #               'i5 = int_add(i1, %(strdescr.basesize)d);'
+        #               'i5 = int_add(i1, %(strdescr.basesize-1)d);'
         #               'i3 = gc_load_i(p0,i5,1)'],
         ## setitem str/unicode
         [True, (4,),  'i3 = strsetitem(p0,i1,0)' '->'
                       'i3 = gc_store_indexed(p0,i1,0,1,'
-                               '%(strdescr.basesize)d,1)'],
+                               '%(strdescr.basesize-1)d,1)'],
         [True, (2,4), 'i3 = unicodesetitem(p0,i1,0)' '->'
                       'i3 = gc_store_indexed(p0,i1,0,'
                                  '%(unicodedescr.itemsize)d,'

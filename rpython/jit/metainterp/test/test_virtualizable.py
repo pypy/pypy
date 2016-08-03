@@ -1381,7 +1381,7 @@ class ImplicitVirtualizableTests(object):
             return result
 
         def indirection(arg):
-            return interp(arg)
+            return interp(arg) + 1
 
         def run_interp(n):
             f = hint(Frame(n), access_directly=True)

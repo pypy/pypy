@@ -1268,3 +1268,26 @@ def ll_nonmovable_raw_ptr_for_resizable_list(ll_list):
     ptr = lltype.direct_arrayitems(array)
     # ptr is a Ptr(FixedSizeArray(Char, 1)).  Cast it to a rffi.CCHARP
     return rffi.cast(rffi.CCHARP, ptr)
+
+@jit.dont_look_inside
+@no_collect
+@specialize.ll()
+def ll_write_final_null_char(s):
+    """'s' is a low-level STR; writes a terminating NULL character after
+    the other characters in 's'.  Warning, this only works because of
+    the 'extra_item_after_alloc' hack inside the definition of STR.
+    """
+    from rpython.rtyper.lltypesystem import rffi
+    PSTR = lltype.typeOf(s)
+    assert has_final_null_char(PSTR) == 1
+    n = llmemory.offsetof(PSTR.TO, 'chars')
+    n += llmemory.itemoffsetof(PSTR.TO.chars, 0)
+    n = llmemory.raw_malloc_usage(n)
+    n += len(s.chars)
+    # no GC operation from here!
+    ptr = rffi.cast(rffi.CCHARP, s)
+    ptr[n] = '\x00'
+
+@specialize.memo()
+def has_final_null_char(PSTR):
+    return PSTR.TO.chars._hints.get('extra_item_after_alloc', 0)

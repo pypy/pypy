@@ -83,7 +83,7 @@ class W_CType(W_Root):
         raise oefmt(space.w_TypeError, "cannot initialize cdata '%s'",
                     self.name)
 
-    def convert_argument_from_object(self, cdata, w_ob):
+    def convert_argument_from_object(self, cdata, w_ob, keepalives, i):
         self.convert_from_object(cdata, w_ob)
         return False
 

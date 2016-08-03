@@ -192,9 +192,11 @@ class OpMatchSizeTypeFirst(OpRestrict):
                 continue
             curvecinfo = forwarded_vecinfo(arg)
             if curvecinfo.bytesize != bytesize:
-                raise NotAVectorizeableLoop()
+                raise NotAVectorizeableLoop("op match size first type failed %d != %d" % \
+                        (curvecinfo.bytesize != bytesize))
             if curvecinfo.datatype != datatype:
-                raise NotAVectorizeableLoop()
+                raise NotAVectorizeableLoop("op match size first type failed (datatype). %s != %s" % \
+                        (curvecinfo.datatype != datatype))
         return None
 
 TR_ANY = TypeRestrict()

@@ -253,8 +253,11 @@ class ArrayDefNode(NodeWithDependencies):
             yield '\t' + cdecl(typename, fname) + ';'
         if not self.ARRAY._hints.get('nolength', False):
             yield '\tlong length;'
+        varlength = self.varlength
+        if varlength is not None:
+            varlength += self.ARRAY._hints.get('extra_item_after_alloc', 0)
         line = '%s;' % cdecl(self.itemtypename,
-                             'items[%s]' % deflength(self.varlength))
+                             'items[%s]' % deflength(varlength))
         if self.ARRAY.OF is Void:    # strange
             line = '/* array of void */'
             if self.ARRAY._hints.get('nolength', False):

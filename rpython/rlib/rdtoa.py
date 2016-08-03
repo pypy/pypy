@@ -56,21 +56,23 @@ def strtod(input):
         raise MemoryError
     end_ptr = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
     try:
-        ll_input = rffi.str2charp(input)
+        # note: don't use the class scoped_view_charp here, it
+        # break some tests because this function is used by the GC
+        ll_input, flag = rffi.get_nonmovingbuffer_final_null(input)
         try:
             result = dg_strtod(ll_input, end_ptr)
 
             endpos = (rffi.cast(lltype.Signed, end_ptr[0]) -
                       rffi.cast(lltype.Signed, ll_input))
-
-            if endpos == 0 or endpos < len(input):
-                raise ValueError("invalid input at position %d" % (endpos,))
-
-            return result
         finally:
-            rffi.free_charp(ll_input)
+            rffi.free_nonmovingbuffer(input, ll_input, flag)
     finally:
         lltype.free(end_ptr, flavor='raw')
+
+    if endpos == 0 or endpos < len(input):
+        raise ValueError("invalid input at position %d" % (endpos,))
+
+    return result
 
 lower_special_strings = ['inf', '+inf', '-inf', 'nan']
 upper_special_strings = ['INF', '+INF', '-INF', 'NAN']

@@ -96,7 +96,8 @@ def bytes_attach(space, py_obj, w_obj):
         raise oefmt(space.w_ValueError,
             "bytes_attach called on object with ob_size %d but trying to store %d",
             py_str.c_ob_size, len(s))
-    rffi.c_memcpy(py_str.c_ob_sval, rffi.str2charp(s), len(s))
+    with rffi.scoped_nonmovingbuffer(s) as s_ptr:
+        rffi.c_memcpy(py_str.c_ob_sval, s_ptr, len(s))
     py_str.c_ob_sval[len(s)] = '\0'
     py_str.c_ob_shash = space.hash_w(w_obj)
     py_str.c_ob_sstate = rffi.cast(rffi.INT, 1) # SSTATE_INTERNED_MORTAL

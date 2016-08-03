@@ -146,12 +146,14 @@ def optimize_vector(trace, metainterp_sd, jitdriver_sd, warmstate,
         #
         info.label_op = loop.label
         return info, loop.finaloplist(jitcell_token=jitcell_token, reset_label_token=False)
-    except NotAVectorizeableLoop:
+    except NotAVectorizeableLoop as e:
         debug_stop("vec-opt-loop")
+        debug_print("failed to vectorize loop. reason: %s" % str(e))
         # vectorization is not possible
         return loop_info, version.loop.finaloplist()
     except NotAProfitableLoop:
         debug_stop("vec-opt-loop")
+        debug_print("failed to vectorize loop, cost model indicated it is not profitable")
         # cost model says to skip this loop
         return loop_info, version.loop.finaloplist()
     except Exception as e:
@@ -231,7 +233,8 @@ class VectorizingOptimizer(Optimizer):
         if vsize == 0 or byte_count == 0 or loop.label.getopnum() != rop.LABEL:
             # stop, there is no chance to vectorize this trace
             # we cannot optimize normal traces (if there is no label)
-            raise NotAVectorizeableLoop()
+            raise NotAVectorizeableLoop("vsize %d byte_count %d not label? %d" % \
+                    (vsize, byte_count, loop.label.getopnum() != rop.LABEL))
 
         # find index guards and move to the earliest position
         graph = self.analyse_index_calculations(loop)
@@ -253,7 +256,7 @@ class VectorizingOptimizer(Optimizer):
         state = VecScheduleState(graph, self.packset, self.cpu, costmodel)
         self.schedule(state)
         if not state.profitable():
-            raise NotAProfitableLoop()
+            raise NotAProfitableLoop
         return graph.index_vars
 
     def unroll_loop_iterations(self, loop, unroll_count):
@@ -429,7 +432,7 @@ class VectorizingOptimizer(Optimizer):
             intersecting edges.
         """
         if len(self.packset.packs) == 0:
-            raise NotAVectorizeableLoop()
+            raise NotAVectorizeableLoop("packset is empty")
         i = 0
         j = 0
         end_ij = len(self.packset.packs)
@@ -661,7 +664,7 @@ class PackSet(object):
                 if forward and origin_pack.is_accumulating():
                     # in this case the splitted accumulator must
                     # be combined. This case is not supported
-                    raise NotAVectorizeableLoop()
+                    raise NotAVectorizeableLoop("splitted accum must be flushed here (not supported)")
                 #
                 if self.contains_pair(lnode, rnode):
                     return None

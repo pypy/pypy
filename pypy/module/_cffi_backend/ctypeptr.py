@@ -14,8 +14,8 @@ from pypy.module._cffi_backend.ctypeobj import W_CType
 
 
 class W_CTypePtrOrArray(W_CType):
-    _attrs_            = ['ctitem', 'can_cast_anything', 'length']
-    _immutable_fields_ = ['ctitem', 'can_cast_anything', 'length']
+    _attrs_            = ['ctitem', 'can_cast_anything', 'accept_str', 'length']
+    _immutable_fields_ = ['ctitem', 'can_cast_anything', 'accept_str', 'length']
     length = -1
 
     def __init__(self, space, size, extra, extra_position, ctitem,
@@ -28,6 +28,9 @@ class W_CTypePtrOrArray(W_CType):
         #  - for functions, it is the return type
         self.ctitem = ctitem
         self.can_cast_anything = could_cast_anything and ctitem.cast_anything
+        self.accept_str = (self.can_cast_anything or
+                            (ctitem.is_primitive_integer and
+                             ctitem.size == rffi.sizeof(lltype.Char)))
 
     def is_unichar_ptr_or_array(self):
         return isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveUniChar)
@@ -70,9 +73,7 @@ class W_CTypePtrOrArray(W_CType):
                 pass
             else:
                 self._convert_array_from_listview(cdata, space.listview(w_ob))
-        elif (self.can_cast_anything or
-              (self.ctitem.is_primitive_integer and
-               self.ctitem.size == rffi.sizeof(lltype.Char))):
+        elif self.accept_str:
             if not space.isinstance_w(w_ob, space.w_str):
                 raise self._convert_error("str or list or tuple", w_ob)
             s = space.str_w(w_ob)
@@ -260,8 +261,16 @@ class W_CTypePointer(W_CTypePtrBase):
         else:
             return lltype.nullptr(rffi.CCHARP.TO)
 
-    def _prepare_pointer_call_argument(self, w_init, cdata):
+    def _prepare_pointer_call_argument(self, w_init, cdata, keepalives, i):
         space = self.space
+        if self.accept_str and space.isinstance_w(w_init, space.w_str):
+            # special case to optimize strings passed to a "char *" argument
+            value = w_init.str_w(space)
+            keepalives[i] = value
+            buf, buf_flag = rffi.get_nonmovingbuffer_final_null(value)
+            rffi.cast(rffi.CCHARPP, cdata)[0] = buf
+            return ord(buf_flag)    # 4, 5 or 6
+        #
         if (space.isinstance_w(w_init, space.w_list) or
             space.isinstance_w(w_init, space.w_tuple)):
             length = space.int_w(space.len(w_init))
@@ -297,10 +306,11 @@ class W_CTypePointer(W_CTypePtrBase):
         rffi.cast(rffi.CCHARPP, cdata)[0] = result
         return 1
 
-    def convert_argument_from_object(self, cdata, w_ob):
+    def convert_argument_from_object(self, cdata, w_ob, keepalives, i):
         from pypy.module._cffi_backend.ctypefunc import set_mustfree_flag
         result = (not isinstance(w_ob, cdataobj.W_CData) and
-                  self._prepare_pointer_call_argument(w_ob, cdata))
+                  self._prepare_pointer_call_argument(w_ob, cdata,
+                                                      keepalives, i))
         if result == 0:
             self.convert_from_object(cdata, w_ob)
         set_mustfree_flag(cdata, result)

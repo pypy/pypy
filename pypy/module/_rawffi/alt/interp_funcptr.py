@@ -20,7 +20,8 @@ if os.name == 'nt':
     def _getfunc(space, CDLL, w_name, w_argtypes, w_restype):
         argtypes_w, argtypes, w_restype, restype = unpack_argtypes(
             space, w_argtypes, w_restype)
-        if space.isinstance_w(w_name, space.w_str):
+        if (space.isinstance_w(w_name, space.w_str) or
+                space.isinstance_w(w_name, space.w_unicode)):
             name = space.str_w(w_name)
             try:
                 func = CDLL.cdll.getpointer(name, argtypes, restype,
