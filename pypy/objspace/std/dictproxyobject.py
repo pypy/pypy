@@ -2,6 +2,7 @@
 # type.__dict__, so PyDictProxy_New has to use a custom read-only mapping.
 
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import TypeDef, interp2app
 
@@ -10,6 +11,18 @@ class W_DictProxyObject(W_Root):
 
     def __init__(self, w_mapping):
         self.w_mapping = w_mapping
+
+    @staticmethod
+    def descr_new(space, w_type, w_mapping):
+        if (not space.lookup(w_mapping, "__getitem__") or
+                space.isinstance_w(w_mapping, space.w_list) or
+                space.isinstance_w(w_mapping, space.w_tuple)):
+            raise oefmt(space.w_TypeError,
+                        "mappingproxy() argument must be a mapping, not %T", w_mapping)
+        return W_DictProxyObject(w_mapping)
+
+    def descr_init(self, space, __args__):
+        pass
 
     def descr_len(self, space):
         return space.len(self.w_mapping)
@@ -27,7 +40,8 @@ class W_DictProxyObject(W_Root):
         return space.str(self.w_mapping)
 
     def descr_repr(self, space):
-        return space.repr(self.w_mapping)
+        return space.newunicode(u"mappingproxy(%s)" %
+                                (space.unicode_w(space.repr(self.w_mapping)),))
 
     @unwrap_spec(w_default=WrappedDefault(None))
     def get_w(self, space, w_key, w_default):
@@ -47,6 +61,8 @@ class W_DictProxyObject(W_Root):
 
 W_DictProxyObject.typedef = TypeDef(
     'mappingproxy',
+    __new__=interp2app(W_DictProxyObject.descr_new),
+    __init__=interp2app(W_DictProxyObject.descr_init),
     __len__=interp2app(W_DictProxyObject.descr_len),
     __getitem__=interp2app(W_DictProxyObject.descr_getitem),
     __contains__=interp2app(W_DictProxyObject.descr_contains),
