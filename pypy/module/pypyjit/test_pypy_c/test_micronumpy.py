@@ -51,6 +51,10 @@ class TestMicroNumPy(BaseTestPyPyC):
         log = self.run(main, [], vec=0)
         assert log.result == vlog.result
         assert log.result == result
+        assert log.jit_summary.vecopt_tried == 0
+        assert log.jit_summary.vecopt_success == 0
+        assert vlog.jit_summary.vecopt_tried > 0
+        assert vlog.jit_summary.vecopt_success > 0
 
 
     arith_comb = [
@@ -88,6 +92,10 @@ class TestMicroNumPy(BaseTestPyPyC):
         log = self.run(main, [], vec=0)
         assert log.result == vlog.result
         assert log.result == result
+        assert log.jit_summary.vecopt_tried == 0
+        assert log.jit_summary.vecopt_success == 0
+        assert vlog.jit_summary.vecopt_tried > 0
+        assert vlog.jit_summary.vecopt_success > 0
 
     def test_reduce_logical_xor(self):
         def main():

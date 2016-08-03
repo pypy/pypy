@@ -148,7 +148,7 @@ def optimize_vector(trace, metainterp_sd, jitdriver_sd, warmstate,
         return info, loop.finaloplist(jitcell_token=jitcell_token, reset_label_token=False)
     except NotAVectorizeableLoop as e:
         debug_stop("vec-opt-loop")
-        debug_print("failed to vectorize loop. reason: %s" % str(e))
+        debug_print("failed to vectorize loop. reason: %s" % e.msg)
         # vectorization is not possible
         return loop_info, version.loop.finaloplist()
     except NotAProfitableLoop:
