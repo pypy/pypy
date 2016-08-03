@@ -1857,6 +1857,7 @@ class MetaInterpStaticData(object):
             self.jitlog.setup_once()
             debug_print(self.jit_starting_line)
             self.cpu.setup_once()
+            self.cpu.vector_ext.setup_once(self.cpu.assembler)
             if not self.profiler.initialized:
                 self.profiler.start()
                 self.profiler.initialized = True
