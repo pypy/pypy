@@ -175,9 +175,13 @@ if 1:
         self.parse("await = 1")
         self.parse("def async(): pass")
         #async for
-        self.parse("async def foo(): async for a in b: pass")
+        self.parse("""async def foo():
+    async for a in b:
+        pass""")
         #async with
-        self.parse("async def foo(): async with a: pass")
+        self.parse("""async def foo():
+    async with a:
+        pass""")
 
 class TestPythonParserWithSpace:
 
