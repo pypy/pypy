@@ -170,6 +170,7 @@ if 1:
 
     def test_async_await(self):
         self.parse("async def coro(): await func")
+        py.test.raises(SyntaxError, self.parse, 'await x')
         #Test as var and func name
         self.parse("async = 1")
         self.parse("await = 1")
@@ -178,10 +179,14 @@ if 1:
         self.parse("""async def foo():
     async for a in b:
         pass""")
+        py.test.raises(SyntaxError, self.parse, 'def foo(): async for a in b: pass')
         #async with
         self.parse("""async def foo():
     async with a:
         pass""")
+        py.test.raises(SyntaxError, self.parse, 'def foo(): async with a: pass')
+        
+        
 
 class TestPythonParserWithSpace:
 
