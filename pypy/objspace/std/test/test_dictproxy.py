@@ -9,42 +9,20 @@ class AppTestUserObject:
         assert 'a' in NotEmpty.__dict__
         assert 'a' in NotEmpty.__dict__.keys()
         assert 'b' not in NotEmpty.__dict__
-        NotEmpty.__dict__['b'] = 4
-        assert NotEmpty.b == 4
-        del NotEmpty.__dict__['b']
         assert NotEmpty.__dict__.get("b") is None
+        raises(TypeError, "NotEmpty.__dict__['b'] = 4")
         raises(TypeError, 'NotEmpty.__dict__[15] = "y"')
-        raises(KeyError, 'del NotEmpty.__dict__[15]')
+        raises(TypeError, 'del NotEmpty.__dict__[15]')
 
-        assert NotEmpty.__dict__.setdefault("string", 1) == 1
-        assert NotEmpty.__dict__.setdefault("string", 2) == 1
-        assert NotEmpty.string == 1
-        raises(TypeError, 'NotEmpty.__dict__.setdefault(15, 1)')
-
-    def test_dictproxy_popitem(self):
-        class A(object):
-            a = 42
-        seen = 0
-        try:
-            while True:
-                key, value = A.__dict__.popitem()
-                if key == 'a':
-                    assert value == 42
-                    seen += 1
-        except KeyError:
-            pass
-        assert seen == 1
+        raises(AttributeError, 'NotEmpty.__dict__.setdefault')
 
     def test_dictproxy_getitem(self):
         class NotEmpty(object):
             a = 1
         assert 'a' in NotEmpty.__dict__
-        class substr(str): pass
+        class substr(str):
+            pass
         assert substr('a') in NotEmpty.__dict__
-        # the following are only for py2
-        ## assert u'a' in NotEmpty.__dict__
-        ## assert NotEmpty.__dict__[u'a'] == 1
-        ## assert u'\xe9' not in NotEmpty.__dict__
 
     def test_dictproxyeq(self):
         class a(object):
@@ -63,9 +41,9 @@ class AppTestUserObject:
         class a(object):
             pass
         s1 = repr(a.__dict__)
-        s2 = str(a.__dict__)
-        assert s1 == s2
         assert s1.startswith('mappingproxy({') and s1.endswith('})')
+        s2 = str(a.__dict__)
+        assert s1 == 'mappingproxy(%s)' % s2
 
     def test_immutable_dict_on_builtin_type(self):
         raises(TypeError, "int.__dict__['a'] = 1")
@@ -100,4 +78,3 @@ class AppTestUserObject:
 
 class AppTestUserObjectMethodCache(AppTestUserObject):
     spaceconfig = {"objspace.std.withmethodcachecounter": True}
-
