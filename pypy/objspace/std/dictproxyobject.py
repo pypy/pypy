@@ -59,6 +59,19 @@ class W_DictProxyObject(W_Root):
     def copy_w(self, space):
         return space.call_method(self.w_mapping, "copy")
 
+cmp_methods = {}
+def make_cmp_method(op):
+    def descr_op(self, space, w_other):
+        return getattr(space, op)(self.w_mapping, w_other)
+    descr_name = 'descr_' + op
+    descr_op.__name__ = descr_name
+    setattr(W_DictProxyObject, descr_name, descr_op)
+    cmp_methods['__%s__' % op] = interp2app(getattr(W_DictProxyObject, descr_name))
+
+for op in ['eq', 'ne', 'gt', 'ge', 'lt', 'le']:
+    make_cmp_method(op)
+
+
 W_DictProxyObject.typedef = TypeDef(
     'mappingproxy',
     __new__=interp2app(W_DictProxyObject.descr_new),
@@ -73,5 +86,6 @@ W_DictProxyObject.typedef = TypeDef(
     keys=interp2app(W_DictProxyObject.keys_w),
     values=interp2app(W_DictProxyObject.values_w),
     items=interp2app(W_DictProxyObject.items_w),
-    copy=interp2app(W_DictProxyObject.copy_w)
+    copy=interp2app(W_DictProxyObject.copy_w),
+    **cmp_methods
 )
