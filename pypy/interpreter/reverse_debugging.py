@@ -78,12 +78,14 @@ def leave_call(caller_frame, callee_frame):
     if dbstate.breakpoint_stack_id != 0 and caller_frame is not None:
         if dbstate.breakpoint_stack_id == revdb.get_unique_id(caller_frame):
             revdb.breakpoint(-2)
+    if we_are_translated():
+        stop_point_activate(-2)
 
 
 def jump_backward(frame, jumpto):
     # When we see a jump backward, we set 'f_revdb_nextline_instr' in
     # such a way that the next instruction, at 'jumpto', will trigger
-    # stop_point_at_start_of_line().  We have to trigger it even if
+    # stop_point_activate().  We have to trigger it even if
     # 'jumpto' is not actually a start of line.  For example, after a
     # 'while foo:', the body ends with a JUMP_ABSOLUTE which
     # jumps back to the *second* opcode of the while.
@@ -117,12 +119,12 @@ def potential_stop_point(frame):
         if ch == 0:
             pass   # we are at the start of a line now
         else:
-            # We are not, so don't call stop_point_at_start_of_line().
+            # We are not, so don't call stop_point_activate().
             # We still have to fill f_revdb_nextline_instr.
             call_stop_point_at_line = False
     #
     if call_stop_point_at_line:
-        stop_point_at_start_of_line()
+        stop_point_activate()
         cur += 1
         ch = ord(co_revdb_linestarts[cur])
     #
@@ -199,7 +201,7 @@ class NonStandardCode(object):
 non_standard_code = NonStandardCode()
 
 
-def stop_point_at_start_of_line():
+def stop_point_activate(place=0):
     if revdb.watch_save_state():
         any_watch_point = False
         space = dbstate.space
@@ -219,7 +221,7 @@ def stop_point_at_start_of_line():
         revdb.watch_restore_state(any_watch_point)
         if watch_id != -1:
             revdb.breakpoint(watch_id)
-    revdb.stop_point()
+    revdb.stop_point(place)
 
 
 def load_metavar(index):
@@ -382,7 +384,8 @@ def show_frame(frame, lineno=0, indent=''):
         indent))
     revdb.send_linecache(frame.getcode().co_filename, lineno)
 
-def display_function_part(frame, max_lines_before, max_lines_after):
+def display_function_part(frame, max_lines_before, max_lines_after,
+                          prompt="> "):
     code = frame.getcode()
     if code.co_filename.startswith('<builtin>'):
         return
@@ -400,7 +403,7 @@ def display_function_part(frame, max_lines_before, max_lines_after):
     #
     for i in range(first_lineno, final_lineno + 1):
         if i == current_lineno:
-            revdb.send_output("> ")
+            revdb.send_output(prompt)
         else:
             revdb.send_output("  ")
         revdb.send_linecache(code.co_filename, i, strip=False)
@@ -415,7 +418,12 @@ def command_backtrace(cmd, extra):
     if cmd.c_arg1 == 0:
         revdb.send_output("%s:\n" % (
             file_and_lineno(frame, frame.get_last_lineno()),))
-        display_function_part(frame, max_lines_before=8, max_lines_after=5)
+        if revdb.current_place() == -2:
+            prompt = "<<"
+        else:
+            prompt = "> "
+        display_function_part(frame, max_lines_before=8, max_lines_after=5,
+                              prompt=prompt)
     elif cmd.c_arg1 == 2:
         display_function_part(frame, max_lines_before=1000,max_lines_after=1000)
     else:

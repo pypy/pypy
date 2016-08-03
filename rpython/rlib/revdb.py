@@ -26,14 +26,14 @@ ANSWER_NEXTNID  = 22
 ANSWER_WATCH    = 23
 
 
-def stop_point():
+def stop_point(place=0):
     """Indicates a point in the execution of the RPython program where
     the reverse-debugger can stop.  When reverse-debugging, we see
     the "time" as the index of the stop-point that happened.
     """
     if we_are_translated():
         if fetch_translated_config().translation.reverse_debugger:
-            llop.revdb_stop_point(lltype.Void)
+            llop.revdb_stop_point(lltype.Void, place)
 
 def register_debug_command(command, lambda_func):
     """Register the extra RPython-implemented debug command."""
@@ -74,6 +74,12 @@ def currently_created_objects():
     a lower unique id; all objects created afterwards will have a
     unique id greater or equal."""
     return llop.revdb_get_value(lltype.SignedLongLong, 'u')
+
+def current_place():
+    """For RPython debug commands: the value of the 'place' argument
+    passed to stop_point().
+    """
+    return llop.revdb_get_value(lltype.Signed, 'p')
 
 ## @specialize.arg(1)
 ## def go_forward(time_delta, callback):

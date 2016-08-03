@@ -145,14 +145,17 @@ void rpy_reverse_db_teardown(void)
 
 static void record_stop_point(void);
 static void replay_stop_point(void);
+static long current_place;
 
 RPY_EXTERN
-void rpy_reverse_db_stop_point(void)
+void rpy_reverse_db_stop_point(long place)
 {
     if (!RPY_RDB_REPLAY)
         record_stop_point();
-    else
+    else {
+        current_place = place;
         replay_stop_point();
+    }
 }
 
 
@@ -1244,6 +1247,8 @@ long long rpy_reverse_db_get_value(char value_id)
         return (flag_io_disabled == FID_REGULAR_MODE ?
                 rpy_revdb.unique_id_seen :
                 saved_state.unique_id_seen);
+    case 'p':       /* current_place() */
+        return current_place;
     default:
         return -1;
     }

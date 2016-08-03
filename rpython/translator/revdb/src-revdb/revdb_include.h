@@ -129,9 +129,9 @@ RPY_EXTERN void seeing_uid(uint64_t uid);
         _RPY_REVDB_PRUID();                                             \
     } while (0)
 
-#define OP_REVDB_STOP_POINT(r)                                          \
+#define OP_REVDB_STOP_POINT(place, r)                                   \
     if (++rpy_revdb.stop_point_seen == rpy_revdb.stop_point_break)      \
-        rpy_reverse_db_stop_point()
+        rpy_reverse_db_stop_point(place)
 
 #define OP_REVDB_SEND_ANSWER(cmd, arg1, arg2, arg3, ll_string, r)       \
     rpy_reverse_db_send_answer(cmd, arg1, arg2, arg3, ll_string)
@@ -176,7 +176,7 @@ RPY_EXTERN void seeing_uid(uint64_t uid);
 
 RPY_EXTERN void rpy_reverse_db_flush(void);
 RPY_EXTERN void rpy_reverse_db_fetch(const char *file, int line);
-RPY_EXTERN void rpy_reverse_db_stop_point(void);
+RPY_EXTERN void rpy_reverse_db_stop_point(long place);
 RPY_EXTERN void rpy_reverse_db_send_answer(int cmd, int64_t arg1, int64_t arg2,
                                            int64_t arg3, RPyString *extra);
 RPY_EXTERN Signed rpy_reverse_db_identityhash(struct pypy_header0 *obj);

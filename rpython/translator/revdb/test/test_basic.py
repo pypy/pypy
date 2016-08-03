@@ -341,6 +341,8 @@ class TestDebugCommands(InteractiveTests):
             if extra == 'get-value':
                 revdb.send_answer(100, revdb.current_time(),
                                        revdb.total_time())
+            if extra == 'current-place':
+                revdb.send_answer(200, revdb.current_place())
             ## if extra == 'go-fw':
             ##     revdb.go_forward(1, went_fw)
             ## if cmdline == 'set-break-after-0':
@@ -375,7 +377,7 @@ class TestDebugCommands(InteractiveTests):
             for i, op in enumerate(argv[1:]):
                 dbstate.stuff = Stuff()
                 dbstate.stuff.x = i + 1000
-                revdb.stop_point()
+                revdb.stop_point(i * 10)
                 print op
                 if i == 1:
                     if os.fork() == 0:    # child
@@ -418,6 +420,18 @@ class TestDebugCommands(InteractiveTests):
         child = self.replay()
         child.send(Message(1, extra='get-value'))
         child.expect(100, 1, 3)
+
+    def test_current_place(self):
+        child = self.replay()
+        child.send(Message(1, extra='current-place'))
+        child.expect(200, 0)
+        child.expect(42, 1, -43, -44, 'current-place')
+        child.expect(ANSWER_READY, 1, Ellipsis)
+        child.send(Message(CMD_FORWARD, 2))
+        child.expect(ANSWER_READY, 3, Ellipsis)
+        child.send(Message(1, extra='current-place'))
+        child.expect(200, 20)
+        child.expect(42, 1, -43, -44, 'current-place')
 
     ## def test_go_fw(self):
     ##     child = self.replay()
