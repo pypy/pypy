@@ -212,7 +212,7 @@ def returns(*args):
         return method
     return decor
 
-JITLOG_VERSION = 1
+JITLOG_VERSION = 2
 JITLOG_VERSION_16BIT_LE = struct.pack("<H", JITLOG_VERSION)
 
 marks = [
@@ -331,7 +331,7 @@ class JitLogger(object):
     def finish(self):
         jitlog_teardown()
 
-    def start_new_trace(self, metainterp_sd, faildescr=None, entry_bridge=False):
+    def start_new_trace(self, metainterp_sd, faildescr=None, entry_bridge=False, jd_name=""):
         # even if the logger is not enabled, increment the trace id
         self.trace_id += 1
         if not jitlog_enabled():
@@ -345,6 +345,7 @@ class JitLogger(object):
         else:
             content.append(encode_str('loop'))
             content.append(encode_le_addr(int(entry_bridge)))
+        content.append(encode_str(jd_name))
         self._write_marked(MARK_START_TRACE, ''.join(content))
 
     def trace_aborted(self):
