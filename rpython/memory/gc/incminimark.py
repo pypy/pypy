@@ -1633,6 +1633,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # have been modified and need rescanning.
             self.old_objects_pointing_to_young.foreach(
                 self._add_to_more_objects_to_trace, None)
+            # Old black objects pointing to pinned objects that may no
+            # longer be pinned now: careful,
+            # _visit_old_objects_pointing_to_pinned() will move the
+            # previously-pinned object, and that creates a white object.
+            # We prevent the "black->white" situation by forcing the
+            # old black object to become gray again.
+            self.old_objects_pointing_to_pinned.foreach(
+                self._add_to_more_objects_to_trace_if_black, None)
         #
         # First, find the roots that point to young objects.  All nursery
         # objects found are copied out of the nursery, and the occasional
@@ -2143,6 +2151,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
         ll_assert(not self.is_in_nursery(obj), "unexpected nursery obj here")
         self.header(obj).tid &= ~GCFLAG_VISITED
         self.more_objects_to_trace.append(obj)
+
+    def _add_to_more_objects_to_trace_if_black(self, obj, ignored):
+        if self.header(obj).tid & GCFLAG_VISITED:
+            self._add_to_more_objects_to_trace(obj, ignored)
 
     def minor_and_major_collection(self):
         # First, finish the current major gc, if there is one in progress.
