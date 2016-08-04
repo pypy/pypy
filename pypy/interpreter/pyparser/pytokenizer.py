@@ -273,17 +273,11 @@ def generate_tokens(lines, flags):
                     elif token == 'async':                 # async token, look ahead
                         #ahead token
                         if pos < max:
-                            as_pseudomatch = pseudoDFA.recognize(line, pos)
-                            as_start = whiteSpaceDFA.recognize(line, pos)
-                            if as_start < 0:
-                                as_start = pos
-                            as_end = as_pseudomatch
-            
-                            if as_start == as_end:
-                                raise TokenError("Unknown character", line,
-                                                 lnum, as_start + 1, token_list)
-            
-                            ahead_token = line[as_start:as_end]
+                            async_end = pseudoDFA.recognize(line, pos)
+                            assert async_end >= 3
+                            async_start = async_end - 3
+                            assert async_start >= 0
+                            ahead_token = line[async_start:async_end]
                             if ahead_token == 'def':
                                 async_def = True
                                 async_def_indent = indents[-1]

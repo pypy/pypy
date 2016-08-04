@@ -668,6 +668,8 @@ _static_opcode_stack_effects = {
 
     # TODO 
     ops.BUILD_LIST_FROM_ARG: 1,
+    # TODO
+    ops.LOAD_CLASSDEREF: 1,
 }
 
 

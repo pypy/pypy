@@ -226,10 +226,11 @@ class W_MemoryView(W_Root):
             size = rffi.sizeof(rffi.VOIDP)
         return size
     
-    def descr_cast(self, space, w_args, **w_kwds):
-        self._check_released(space)
-        newitemsize = self.get_native_fmtchar(w_args._val(w_args))
-        mv = W_MemoryView(self.buf, w_args._val(w_args), newitemsize)
+    def descr_cast(self, space, w_args, w_kwds):
+        # XXX fixme. does not do anything near cpython (see memoryobjet.c memory_cast)
+        #self._check_released(space)
+        #newitemsize = self.get_native_fmtchar(w_args._val(w_args))
+        return W_MemoryView(self.buf, self.format, self.itemsize)
         return mv
 
 
