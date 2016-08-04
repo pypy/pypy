@@ -1051,8 +1051,9 @@ def compile_trace(metainterp, resumekey, runtime_boxes):
     metainterp_sd = metainterp.staticdata
     jitdriver_sd = metainterp.jitdriver_sd
     #
+    jd_name = jitdriver_sd.jitdriver.name
     metainterp_sd.jitlog.start_new_trace(metainterp_sd,
-            faildescr=resumekey, entry_bridge=False)
+            faildescr=resumekey, entry_bridge=False, jd_name=jd_name)
     #
     if isinstance(resumekey, ResumeAtPositionDescr):
         inline_short_preamble = False
