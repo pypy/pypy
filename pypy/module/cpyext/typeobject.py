@@ -192,7 +192,7 @@ def methoddescr_attach(space, py_obj, w_obj):
     py_methoddescr.c_d_method = w_obj.ml
 
 def classmethoddescr_realize(space, obj):
-    # XXX NOT TESTED When is this ever called? 
+    # XXX NOT TESTED When is this ever called?
     method = rffi.cast(lltype.Ptr(PyMethodDef), obj)
     w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
     w_obj = space.allocate_instance(W_PyCClassMethodObject, w_type)
@@ -201,7 +201,7 @@ def classmethoddescr_realize(space, obj):
     return w_obj
 
 def methoddescr_realize(space, obj):
-    # XXX NOT TESTED When is this ever called? 
+    # XXX NOT TESTED When is this ever called?
     method = rffi.cast(lltype.Ptr(PyMethodDef), obj)
     w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
     w_obj = space.allocate_instance(W_PyCMethodObject, w_type)
@@ -272,12 +272,12 @@ def update_all_slots(space, w_type, pto):
         if len(slot_names) == 1:
             if not getattr(pto, slot_names[0]):
                 setattr(pto, slot_names[0], slot_func_helper)
-        elif (w_type.getname(space) in ('list', 'tuple') and 
+        elif (w_type.getname(space) in ('list', 'tuple') and
               slot_names[0] == 'c_tp_as_number'):
             # XXX hack - hwo can we generalize this? The problem is method
             # names like __mul__ map to more than one slot, and we have no
             # convenient way to indicate which slots CPython have filled
-            # 
+            #
             # We need at least this special case since Numpy checks that
             # (list, tuple) do __not__ fill tp_as_number
             pass
@@ -767,8 +767,8 @@ def finish_type_2(space, pto, w_obj):
 
     if w_obj.is_cpytype():
         Py_DecRef(space, pto.c_tp_dict)
-        w_dict = w_obj.getdict(space)
-        pto.c_tp_dict = make_ref(space, w_dict)
+    w_dict = w_obj.getdict(space)
+    pto.c_tp_dict = make_ref(space, w_dict)
 
 @cpython_api([PyTypeObjectPtr, PyTypeObjectPtr], rffi.INT_real, error=CANNOT_FAIL)
 def PyType_IsSubtype(space, a, b):
