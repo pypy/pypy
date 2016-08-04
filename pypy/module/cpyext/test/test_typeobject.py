@@ -277,9 +277,23 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
                      args->ob_type->tp_dict, "copy");
                  Py_INCREF(method);
                  return method;
-             ''')])
+             '''),
+            ("get_type_dict", "METH_O",
+             '''
+                PyObject* value = args->ob_type->tp_dict;
+                if (value == NULL) value = Py_None;
+                Py_INCREF(value);
+                return value;
+             '''),
+            ])
         obj = foo.new()
         assert module.read_tp_dict(obj) == foo.fooType.copy
+        assert type(module.get_type_dict(obj)) is dict
+        d = module.get_type_dict(1)
+        assert type(d) is dict
+        d["_some_attribute"] = 1
+        assert int._some_attribute == 1
+        del d["_some_attribute"]
 
     def test_custom_allocation(self):
         foo = self.import_module("foo")
