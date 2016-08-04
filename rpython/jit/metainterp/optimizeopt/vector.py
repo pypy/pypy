@@ -26,6 +26,7 @@ from rpython.rlib import listsort
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
 from rpython.rlib.jit import Counters
+from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.jit.backend.llsupport.symbolic import (WORD as INT_WORD,
         SIZEOF_FLOAT as FLOAT_WORD)
@@ -146,9 +147,8 @@ def optimize_vector(trace, metainterp_sd, jitdriver_sd, warmstate,
         #
         info.label_op = loop.label
         return info, loop.finaloplist(jitcell_token=jitcell_token, reset_label_token=False)
-    except NotAVectorizeableLoop as e:
+    except NotAVectorizeableLoop:
         debug_stop("vec-opt-loop")
-        debug_print("failed to vectorize loop. reason: %s" % e.msg)
         # vectorization is not possible
         return loop_info, version.loop.finaloplist()
     except NotAProfitableLoop:
@@ -160,8 +160,6 @@ def optimize_vector(trace, metainterp_sd, jitdriver_sd, warmstate,
         debug_stop("vec-opt-loop")
         debug_print("failed to vectorize loop. THIS IS A FATAL ERROR!")
         if we_are_translated():
-            from rpython.rtyper.lltypesystem import lltype
-            from rpython.rtyper.lltypesystem.lloperation import llop
             llop.debug_print_traceback(lltype.Void)
         else:
             raise
@@ -230,12 +228,17 @@ class VectorizingOptimizer(Optimizer):
         self.linear_find_smallest_type(loop)
         byte_count = self.smallest_type_bytes
         vsize = self.vector_ext.vec_size()
-        if vsize == 0 or byte_count == 0 or loop.label.getopnum() != rop.LABEL:
-            # stop, there is no chance to vectorize this trace
+        # stop, there is no chance to vectorize this trace
             # we cannot optimize normal traces (if there is no label)
-            raise NotAVectorizeableLoop("vsize %d byte_count %d not label? %d" % \
-                    (vsize, byte_count, loop.label.getopnum() != rop.LABEL))
-
+        if vsize == 0:
+            debug_print("vector size is zero")
+            raise NotAVectorizeableLoop
+        if byte_count == 0:
+            debug_print("could not find smallest type")
+            raise NotAVectorizeableLoop
+        if loop.label.getopnum() != rop.LABEL:
+            debug_print("not a loop, can only vectorize loops")
+            raise NotAVectorizeableLoop
         # find index guards and move to the earliest position
         graph = self.analyse_index_calculations(loop)
         if graph is not None:
@@ -432,7 +435,8 @@ class VectorizingOptimizer(Optimizer):
             intersecting edges.
         """
         if len(self.packset.packs) == 0:
-            raise NotAVectorizeableLoop("packset is empty")
+            debug_print("packset is empty")
+            raise NotAVectorizeableLoop
         i = 0
         j = 0
         end_ij = len(self.packset.packs)
@@ -664,7 +668,8 @@ class PackSet(object):
                 if forward and origin_pack.is_accumulating():
                     # in this case the splitted accumulator must
                     # be combined. This case is not supported
-                    raise NotAVectorizeableLoop("splitted accum must be flushed here (not supported)")
+                    debug_print("splitted accum must be flushed here (not supported)")
+                    raise NotAVectorizeableLoop
                 #
                 if self.contains_pair(lnode, rnode):
                     return None

@@ -8,6 +8,9 @@ from rpython.jit.metainterp.optimizeopt.schedule import (forwarded_vecinfo,
         failnbail_transformation)
 from rpython.jit.metainterp.jitexc import NotAVectorizeableLoop
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rtyper.lltypesystem import lltype
+from rpython.rlib.debug import debug_print
 
 class TypeRestrict(object):
     ANY_TYPE = '\x00'
@@ -192,11 +195,11 @@ class OpMatchSizeTypeFirst(OpRestrict):
                 continue
             curvecinfo = forwarded_vecinfo(arg)
             if curvecinfo.bytesize != bytesize:
-                raise NotAVectorizeableLoop("op match size first type failed %d != %d" % \
-                        (curvecinfo.bytesize != bytesize))
+                debug_print("op match size first type failed")
+                raise NotAVectorizeableLoop
             if curvecinfo.datatype != datatype:
-                raise NotAVectorizeableLoop("op match size first type failed (datatype). %s != %s" % \
-                        (curvecinfo.datatype != datatype))
+                debug_print("op match size first type failed (datatype)")
+                raise NotAVectorizeableLoop
         return None
 
 TR_ANY = TypeRestrict()

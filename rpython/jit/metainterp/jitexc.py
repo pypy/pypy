@@ -62,10 +62,8 @@ class ContinueRunningNormally(JitException):
             self.red_int, self.red_ref, self.red_float)
 
 class NotAVectorizeableLoop(JitException):
-    def __init__(self, msg="<empty>"):
-        self.msg = msg
     def __str__(self):
-        return 'NotAVectorizeableLoop(%s)' % self.msg
+        return 'NotAVectorizeableLoop()'
 
 class NotAProfitableLoop(JitException):
     def __str__(self):
