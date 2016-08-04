@@ -293,12 +293,21 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
             ])
         obj = foo.new()
         assert module.read_tp_dict(obj) == foo.fooType.copy
-        assert type(module.get_type_dict(obj)) is dict
-        d = module.get_type_dict(1)
+        d = module.get_type_dict(obj)
         assert type(d) is dict
         d["_some_attribute"] = 1
-        assert int._some_attribute == 1
+        assert type(obj)._some_attribute == 1
         del d["_some_attribute"]
+
+        d = module.get_type_dict(1)
+        assert type(d) is dict
+        try:
+            d["_some_attribute"] = 1
+        except TypeError:  # on PyPy, int.__dict__ is really immutable
+            pass
+        else:
+            assert int._some_attribute == 1
+            del d["_some_attribute"]
 
     def test_custom_allocation(self):
         foo = self.import_module("foo")
