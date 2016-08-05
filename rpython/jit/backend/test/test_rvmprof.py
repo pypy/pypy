@@ -35,6 +35,7 @@ class BaseRVMProfTest(object):
         def get_name(code):
             return "foo"
 
+        _get_vmprof().use_weaklist = False
         register_code_object_class(CodeObj, get_name)
 
         @vmprof_execute_code("main", get_code_fn,
@@ -49,7 +50,6 @@ class BaseRVMProfTest(object):
                 llfn()
 
         def main(n):
-            vmprof = _get_vmprof()
             codes = [CodeObj("main"), CodeObj("not main")]
             for code in codes:
                 register_code(code, get_name)

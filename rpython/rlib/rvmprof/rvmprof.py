@@ -29,6 +29,8 @@ class VMProf(object):
 
     _immutable_fields_ = ['is_enabled?']
 
+    use_weaklist = True # False for tests
+
     def __init__(self):
         "NOT_RPYTHON: use _get_vmprof()"
         self._code_classes = set()
@@ -56,7 +58,7 @@ class VMProf(object):
             self._code_unique_id = uid
             if self.is_enabled:
                 self._write_code_registration(uid, full_name_func(code))
-            else:
+            elif self.use_weaklist:
                 code._vmprof_weak_list.add_handle(code)
 
     def register_code_object_class(self, CodeClass, full_name_func):
@@ -86,7 +88,8 @@ class VMProf(object):
         class WeakCodeObjectList(RWeakListMixin):
             def __init__(self):
                 self.initialize()
-        CodeClass._vmprof_weak_list = WeakCodeObjectList()
+        if self.use_weaklist:
+            CodeClass._vmprof_weak_list = WeakCodeObjectList()
         #
         def gather_all_code_objs():
             all_code_wrefs = CodeClass._vmprof_weak_list.get_all_handles()
