@@ -9,8 +9,8 @@ from rpython.jit.codewriter.policy import JitPolicy
 
 class BaseRVMProfTest(object):
     def test_one(self):
-        py.test.skip("needs thread-locals in the JIT, which is only available "
-                     "after translation")
+#        py.test.skip("needs thread-locals in the JIT, which is only available "
+#                     "after translation")
         visited = []
 
         def helper():
