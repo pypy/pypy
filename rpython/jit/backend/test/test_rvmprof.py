@@ -14,22 +14,22 @@ class BaseRVMProfTest(object):
         visited = []
 
         def helper():
+            trace = []
             stack = cintf.vmprof_tl_stack.getraw()
-            print stack
-            if stack:
-                # not during tracing
-                visited.append(stack.c_value)
-            else:
-                visited.append(0)
+            while stack:
+                trace.append((stack.c_kind, stack.c_value))
+                stack = stack.c_next
+            visited.append(trace)
 
         llfn = llhelper(lltype.Ptr(lltype.FuncType([], lltype.Void)), helper)
 
         driver = jit.JitDriver(greens=['code'], reds='auto')
 
         class CodeObj(object):
-            pass
+            def __init__(self, name):
+                self.name = name
 
-        def get_code_fn(code, arg):
+        def get_code_fn(codes, code, arg):
             return code
 
         def get_name(code):
@@ -39,18 +39,21 @@ class BaseRVMProfTest(object):
 
         @vmprof_execute_code("main", get_code_fn,
                              _hack_update_stack_untranslated=True)
-        def f(code, n):
+        def f(codes, code, n):
             i = 0
             while i < n:
                 driver.jit_merge_point(code=code)
+                if code.name == "main":
+                    f(codes, codes[1], 5)
                 i += 1
                 llfn()
 
         def main(n):
             vmprof = _get_vmprof()
-            code = CodeObj()
-            register_code(code, get_name)
-            return f(code, n)
+            codes = [CodeObj("main"), CodeObj("not main")]
+            for code in codes:
+                register_code(code, get_name)
+            return f(codes, codes[0], n)
 
         class Hooks(jit.JitHookInterface):
             def after_compile(self, debug_info):
