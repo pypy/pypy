@@ -512,7 +512,11 @@ def command_stackid(cmd, extra):
         uid = 0
     else:
         uid = revdb.get_unique_id(frame)
-    revdb.send_answer(revdb.ANSWER_STACKID, uid)
+    if revdb.current_place() == -2:
+        hidden_level = 1      # hide the "<<" events from next/bnext commands
+    else:
+        hidden_level = 0
+    revdb.send_answer(revdb.ANSWER_STACKID, uid, hidden_level)
 lambda_stackid = lambda: command_stackid
 
 

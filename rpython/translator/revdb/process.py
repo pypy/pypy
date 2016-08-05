@@ -587,8 +587,14 @@ class ReplayProcessGroup(object):
     def edit_breakpoints(self):
         return self.all_breakpoints
 
-    def get_stack_id(self, is_parent):
+    def _stack_id(self, is_parent=0):
         self.active.send(Message(CMD_STACKID, is_parent))
-        msg = self.active.expect(ANSWER_STACKID, Ellipsis)
+        msg = self.active.expect(ANSWER_STACKID, Ellipsis, Ellipsis)
         self.active.expect_ready()
-        return msg.arg1
+        return msg
+
+    def get_stack_id(self, is_parent):
+        return self._stack_id(is_parent).arg1
+
+    def get_hiddenpos_level(self):
+        return self._stack_id().arg2

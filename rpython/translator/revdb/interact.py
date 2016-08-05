@@ -237,47 +237,61 @@ class RevDebugControl(object):
 
     def command_next(self, argument):
         """Run forward for one step, skipping calls"""
-        stack_id = self.pgroup.get_stack_id(is_parent=False)
-        with self._stack_id_break(stack_id):
-            b = self.move_forward(1)
-        while b is not None:
-            # if we hit a regular breakpoint, stop
-            if any(b.regular_breakpoint_nums()):
-                return
-            # we hit only calls and returns inside stack_id.  If the
-            # last one of these is a "return", then we're now back inside
-            # stack_id, so stop
-            if b.nums[-1] == -2:
-                return
-            # else, the last one is a "call", so we entered another frame.
-            # Continue running until the next call/return event occurs
-            # inside stack_id
+        while True:
+            stack_id = self.pgroup.get_stack_id(is_parent=False)
             with self._stack_id_break(stack_id):
-                b = self.move_forward(self.pgroup.get_max_time() -
-                                      self.pgroup.get_current_time())
-            # and then look at that 'b' again (closes the loop)
+                b = self.move_forward(1)
+            while b is not None:
+                # if we hit a regular breakpoint, stop
+                if any(b.regular_breakpoint_nums()):
+                    return
+                # we hit only calls and returns inside stack_id.  If the
+                # last one of these is a "return", then we're now back inside
+                # stack_id, so stop
+                if b.nums[-1] == -2:
+                    break
+                # else, the last one is a "call", so we entered another frame.
+                # Continue running until the next call/return event occurs
+                # inside stack_id
+                with self._stack_id_break(stack_id):
+                    b = self.move_forward(self.pgroup.get_max_time() -
+                                          self.pgroup.get_current_time())
+                # and then look at that 'b' again (closes the loop)
+
+            # we might be at a "<<" position on the same line as before,
+            # which returns a get_hiddenpos_level() value of 1.  Continue
+            # until we reach a get_hiddenpos_level() value of 0.
+            if b is None or self.pgroup.get_hiddenpos_level() == 0:
+                break
     command_n = command_next
 
     def command_bnext(self, argument):
         """Run backward for one step, skipping calls"""
-        stack_id = self.pgroup.get_stack_id(is_parent=False)
-        with self._stack_id_break(stack_id):
-            b = self.move_backward(1)
-        while b is not None:
-            # if we hit a regular breakpoint, stop
-            if any(b.regular_breakpoint_nums()):
-                return
-            # we hit only calls and returns inside stack_id.  If the
-            # first one of these is a "call", then we're now back inside
-            # stack_id, so stop
-            if b.nums[0] == -1:
-                return
-            # else, the first one is a "return", so before, we were
-            # inside a different frame.  Continue running until the next
-            # call/return event occurs inside stack_id
+        while True:
+            stack_id = self.pgroup.get_stack_id(is_parent=False)
             with self._stack_id_break(stack_id):
-                b = self.move_backward(self.pgroup.get_current_time() - 1)
-            # and then look at that 'b' again (closes the loop)
+                b = self.move_backward(1)
+            while b is not None:
+                # if we hit a regular breakpoint, stop
+                if any(b.regular_breakpoint_nums()):
+                    return
+                # we hit only calls and returns inside stack_id.  If the
+                # first one of these is a "call", then we're now back inside
+                # stack_id, so stop
+                if b.nums[0] == -1:
+                    break
+                # else, the first one is a "return", so before, we were
+                # inside a different frame.  Continue running until the next
+                # call/return event occurs inside stack_id
+                with self._stack_id_break(stack_id):
+                    b = self.move_backward(self.pgroup.get_current_time() - 1)
+                # and then look at that 'b' again (closes the loop)
+
+            # we might be at a "<<" position on the same line as before,
+            # which returns a get_hiddenpos_level() value of 1.  Continue
+            # until we reach a get_hiddenpos_level() value of 0.
+            if self.pgroup.get_hiddenpos_level() == 0:
+                break
     command_bn = command_bnext
 
     def command_finish(self, argument):
