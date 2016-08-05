@@ -198,7 +198,6 @@ class W_MemoryView(W_Root):
     
     def get_native_fmtchar(self, fmt):
         from rpython.rtyper.lltypesystem import rffi
-        from sys import getsizeof
         size = -1
         if fmt[0] == '@':
             f = fmt[1]
@@ -215,7 +214,7 @@ class W_MemoryView(W_Root):
         elif f == 'q' or f == 'Q':
             size = rffi.sizeof(rffi.LONGLONG)
         elif f == 'n' or f == 'N':
-            size = getsizeof(rffi.r_ssize_t)
+            size = rffi.sizeof(rffi.SIZE_T)
         elif f == 'f':
             size = rffi.sizeof(rffi.FLOAT)
         elif f == 'd':
@@ -225,13 +224,13 @@ class W_MemoryView(W_Root):
         elif f == 'P':
             size = rffi.sizeof(rffi.VOIDP)
         return size
-    
-    def descr_cast(self, space, w_args, w_kwds):
+
+    def descr_cast(self, space, w_format, w_shape=None):
         # XXX fixme. does not do anything near cpython (see memoryobjet.c memory_cast)
-        #self._check_released(space)
-        #newitemsize = self.get_native_fmtchar(w_args._val(w_args))
-        return W_MemoryView(self.buf, self.format, self.itemsize)
-        return mv
+        self._check_released(space)
+        fmt = space.str_w(w_format)
+        newitemsize = self.get_native_fmtchar(fmt)
+        return W_MemoryView(self.buf, fmt, newitemsize)
 
 
 W_MemoryView.typedef = TypeDef(

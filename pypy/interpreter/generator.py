@@ -581,12 +581,13 @@ return next iterated value or raise StopIteration."""
         # position, then raise a GeneratorExit.  Otherwise, there is
         # no point.
         # If coroutine was never awaited on issue a RuntimeWarning.
-        if self.pycode is not None:
-            if self.frame is not None:
-                if self.frame.fget_f_lasti(self.frame).int_w(self.space) == -1:
-                    raise oefmt(space.w_RuntimeWarning,
-                                "coroutine '%s' was never awaited",
-                                self.pycode.co_name)
+        if self.pycode is not None and \
+           self.frame is not None and \
+           self.frame.last_instr == -1:
+            # XXX PyErr_Occured in condition?
+            raise oefmt(self.space.w_RuntimeWarning,
+                        "coroutine '%s' was never awaited",
+                        self.pycode.co_name)
         if self.frame is not None:
             block = self.frame.lastblock
             while block is not None:
