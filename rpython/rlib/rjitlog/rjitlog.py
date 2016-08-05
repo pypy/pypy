@@ -509,7 +509,9 @@ class LogTrace(BaseLogTrace):
         """ an operation is written as follows:
             <marker> <opid (16 bit)> \
                      <len (32 bit)> \
-                     <res_val>,<arg_0>,...,<arg_n>,<descr>
+                     <res_val>,<arg_0>,...,<arg_n> \
+                     <descr>
+                     <failarg_0>,...<failarg_n>
             The marker indicates if the last argument is
             a descr or a normal argument.
         """
@@ -518,16 +520,21 @@ class LogTrace(BaseLogTrace):
         le_opnum = encode_le_16bit(op.getopnum())
         str_res = self.var_to_str(op)
         line = ','.join([str_res] + str_args)
+        failargslist = op.getfailargs()
+        failargs = ''
+        if failargslist:
+            failargs = ','.join([self.var_to_str(farg) for farg in failargslist])
+        #
         if descr:
             descr_str = descr.repr_of_descr()
             line = line + ',' + descr_str
             string = encode_str(line)
             descr_number = compute_unique_id(descr)
             le_descr_number = encode_le_addr(descr_number)
-            return MARK_RESOP_DESCR, le_opnum + string + le_descr_number
+            return MARK_RESOP_DESCR, le_opnum + string + le_descr_number + encode_str(failargs)
         else:
             string = encode_str(line)
-            return MARK_RESOP, le_opnum + string
+            return MARK_RESOP, le_opnum + string + encode_str(failargs)
 
 
     def write_core_dump(self, operations, i, op, ops_offset):
@@ -579,6 +586,8 @@ class LogTrace(BaseLogTrace):
         return ''.join(dump)
 
     def var_to_str(self, arg):
+        if arg is None:
+            return '-'
         try:
             mv = self.memo[arg]
         except KeyError:
