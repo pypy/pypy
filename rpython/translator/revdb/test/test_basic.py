@@ -395,6 +395,7 @@ class TestDebugCommands(InteractiveTests):
     def test_io_not_permitted(self):
         child = self.replay(stderr=subprocess.PIPE)
         child.send(Message(1, extra='oops'))
+        child.expect(ANSWER_ATTEMPT_IO)
         child.close()
         err = self.subproc.stderr.read()
         assert err.endswith(': Attempted to do I/O or access raw memory\n')

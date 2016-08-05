@@ -9,7 +9,6 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <ctype.h>
-#include <setjmp.h>
 #include <signal.h>
 #include <search.h>
 
@@ -38,7 +37,7 @@
 
 #define FID_REGULAR_MODE           'R'
 #define FID_SAVED_STATE            'S'
-#define FID_JMPBUF_PROTECTED       'J'
+#define FID_POTENTIAL_IO           'I'
 
 
 typedef struct {
@@ -566,6 +565,7 @@ void rpy_reverse_db_callback_loc(int locnum)
 #define ANSWER_FORKED     (-22)
 #define ANSWER_AT_END     (-23)
 #define ANSWER_BREAKPOINT (-24)
+#define ANSWER_ATTEMPT_IO (-25)
 
 #define RECORD_BKPT_NUM   50
 
@@ -575,7 +575,6 @@ static int rpy_rev_sockfd;
 static const char *rpy_rev_filename;
 static uint64_t interactive_break = 1, finalizer_break = -1, uid_break = -1;
 static uint64_t total_stop_points;
-static jmp_buf jmp_buf_cancel_execution;
 static void (*pending_after_forward)(void);
 static RPyString *empty_string;
 static uint64_t last_recorded_breakpoint_loc;
@@ -858,13 +857,12 @@ void rpy_reverse_db_fetch(const char *file, int line)
         */
         fprintf(stderr, "%s:%d: Attempted to do I/O or access raw memory\n",
                 file, line);
-        if (flag_io_disabled == FID_JMPBUF_PROTECTED) {
-            longjmp(jmp_buf_cancel_execution, 1);
-        }
-        else {
+        if (flag_io_disabled != FID_POTENTIAL_IO) {
             fprintf(stderr, "but we are not in a jmpbuf_protected section\n");
             exit(1);
         }
+        write_answer(ANSWER_ATTEMPT_IO, 0, 0, 0);
+        exit(0);
     }
 }
 
@@ -916,23 +914,24 @@ static void restore_state(void)
     set_revdb_breakpoints();
 }
 
-static void protect_jmpbuf(void)
+static void protect_potential_io(void)
 {
-    change_flag_io_disabled(FID_SAVED_STATE, FID_JMPBUF_PROTECTED);
+    change_flag_io_disabled(FID_SAVED_STATE, FID_POTENTIAL_IO);
     saved_exc[0] = pypy_g_ExcData.ed_exc_type;
     saved_exc[1] = pypy_g_ExcData.ed_exc_value;
     pypy_g_ExcData.ed_exc_type = NULL;
     pypy_g_ExcData.ed_exc_value = NULL;
 }
 
-static void unprotect_jmpbuf(void)
+static void unprotect_potential_io(void)
 {
-    change_flag_io_disabled(FID_JMPBUF_PROTECTED, FID_SAVED_STATE);
+    change_flag_io_disabled(FID_POTENTIAL_IO, FID_SAVED_STATE);
     if (pypy_g_ExcData.ed_exc_type != NULL) {
         fprintf(stderr, "Command crashed with %.*s\n",
                 (int)(pypy_g_ExcData.ed_exc_type->ov_name->rs_chars.length),
                 pypy_g_ExcData.ed_exc_type->ov_name->rs_chars.items);
-        exit(1);
+        write_answer(ANSWER_ATTEMPT_IO, 1, 0, 0);
+        exit(0);
     }
     pypy_g_ExcData.ed_exc_type = saved_exc[0];
     pypy_g_ExcData.ed_exc_value = saved_exc[1];
@@ -942,10 +941,9 @@ static void execute_rpy_function(rpy_revdb_command_fn func,
                                  rpy_revdb_command_t *cmd,
                                  RPyString *extra)
 {
-    protect_jmpbuf();
-    if (setjmp(jmp_buf_cancel_execution) == 0)
-        func(cmd, extra);
-    unprotect_jmpbuf();
+    protect_potential_io();
+    func(cmd, extra);
+    unprotect_potential_io();
 }
 
 static void check_at_end(uint64_t stop_points)
@@ -1267,10 +1265,9 @@ uint64_t rpy_reverse_db_unique_id_break(void *new_object)
 
     save_state();
     if (rpy_revdb_commands.rp_alloc) {
-        protect_jmpbuf();
-        if (setjmp(jmp_buf_cancel_execution) == 0)
-            rpy_revdb_commands.rp_alloc(uid, new_object);
-        unprotect_jmpbuf();
+        protect_potential_io();
+        rpy_revdb_commands.rp_alloc(uid, new_object);
+        unprotect_potential_io();
     }
     uid_break = *++future_next_id;
     restore_state();

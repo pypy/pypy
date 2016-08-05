@@ -48,6 +48,10 @@ ANSWER_AT_END     = -23
 # if breakpoint_mode=='i': ignored, never sent
 ANSWER_BREAKPOINT = -24
 
+# sent after an Attempted to do I/O or access raw memory, as the last message
+ANSWER_ATTEMPT_IO = -25
+
+
 # print one line of a file to the console, for CMD_PRINT
 #    Message(ANSWER_LINECACHE, linenum, extra=filename)
 ANSWER_LINECACHE  = 19

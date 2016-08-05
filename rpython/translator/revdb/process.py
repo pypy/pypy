@@ -57,6 +57,10 @@ class AllBreakpoints(object):
         return a
 
 
+class RecreateSubprocess(Exception):
+    pass
+
+
 class ReplayProcess(object):
     """Represent one replaying subprocess.
 
@@ -207,6 +211,8 @@ class ReplayProcess(object):
                     pgroup.all_printed_objects_lst.append(uid)
                 sys.stdout.write('$%d = ' % nid)
                 sys.stdout.flush()
+            elif msg.cmd == ANSWER_ATTEMPT_IO:
+                raise RecreateSubprocess
             else:
                 print >> sys.stderr, "unexpected %r" % (msg,)
 
@@ -441,7 +447,8 @@ class ReplayProcessGroup(object):
 
     def _resume(self, from_time):
         clone_me = self.paused[from_time]
-        self.active.close()
+        if self.active is not None:
+            self.active.close()
         self.active = clone_me.clone()
 
     def jump_in_time(self, target_time):
@@ -534,6 +541,12 @@ class ReplayProcessGroup(object):
             self.active.send(Message(CMD_ATTACHID, nid, uid, int(watch_env)))
             self.active.expect_ready()
 
+    def recreate_subprocess(self):
+        # recreate a subprocess at the current time
+        time = self.get_current_time()
+        self.active = None
+        self.jump_in_time(time)
+
     def print_cmd(self, expression, nids=[]):
         """Print an expression.
         """
@@ -545,7 +558,10 @@ class ReplayProcessGroup(object):
         self.active.tainted = True
         self.attach_printed_objects(uids, watch_env=False)
         self.active.send(Message(CMD_PRINT, extra=expression))
-        self.active.print_text_answer(pgroup=self)
+        try:
+            self.active.print_text_answer(pgroup=self)
+        except RecreateSubprocess:
+            self.recreate_subprocess()
 
     def show_backtrace(self, complete=1):
         """Show the backtrace.
@@ -553,14 +569,20 @@ class ReplayProcessGroup(object):
         if complete:
             self.active.tainted = True
         self.active.send(Message(CMD_BACKTRACE, complete))
-        self.active.print_text_answer()
+        try:
+            self.active.print_text_answer()
+        except RecreateSubprocess:
+            self.recreate_subprocess()
 
     def show_locals(self):
         """Show the locals.
         """
         self.active.tainted = True
         self.active.send(Message(CMD_LOCALS))
-        self.active.print_text_answer()
+        try:
+            self.active.print_text_answer()
+        except RecreateSubprocess:
+            self.recreate_subprocess()
 
     def edit_breakpoints(self):
         return self.all_breakpoints
