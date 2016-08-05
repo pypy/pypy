@@ -46,8 +46,9 @@ class BaseRVMProfTest(object):
                 driver.jit_merge_point(code=code)
                 if code.name == "main":
                     f(codes, codes[1], 5)
+                else:
+                    llfn()
                 i += 1
-                llfn()
 
         def main(n):
             codes = [CodeObj("main"), CodeObj("not main")]
