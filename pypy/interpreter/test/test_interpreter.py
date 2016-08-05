@@ -256,7 +256,18 @@ class TestInterpreter:
             return a, b, c, d
         """
         assert self.codetest(code, "f", [1, 2], {"d" : 4, "c" : 3}) == (1, 2, 3, 4)
-
+    
+    def test_build_map_unpack(self):
+        code = """
+        def f():
+            return {'x': 1, **{'y': 2}}
+        def g():
+            return {**()}
+        """
+        assert self.codetest(code, "f", []) == {'x': 1, 'y': 2}
+        res = self.codetest(code, 'g', [])
+        assert "TypeError:" in res
+        assert "'tuple' object is not a mapping" in res
 
 
 class AppTestInterpreter: 
