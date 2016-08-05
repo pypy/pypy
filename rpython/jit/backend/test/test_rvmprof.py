@@ -45,7 +45,7 @@ class BaseRVMProfTest(object):
             while i < n:
                 driver.jit_merge_point(code=code)
                 if code.name == "main":
-                    f(codes, codes[1], 5)
+                    f(codes, codes[1], 1)
                 else:
                     llfn()
                 i += 1
@@ -65,7 +65,7 @@ class BaseRVMProfTest(object):
         null = lltype.nullptr(cintf.VMPROFSTACK)
         cintf.vmprof_tl_stack.setraw(null)
         self.meta_interp(main, [10], policy=JitPolicy(hooks))
-        print visited
+        assert visited[:3] == [[(1, 12), (1, 8)], [(1, 12), (1, 8)], [(1, 12), (1, 8)]]
         #v = set(visited)
         #assert 0 in v
         #v.remove(0)
