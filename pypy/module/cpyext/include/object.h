@@ -505,7 +505,6 @@ manually remove this flag though!
 #define PyType_HasFeature(t,f)  (((t)->tp_flags & (f)) != 0)
 
 /* objimpl.h ----------------------------------------------*/
-#define PyObject_DEL PyObject_Del
 #define PyObject_New(type, typeobj) \
 		( (type *) _PyObject_New(typeobj) )
 #define PyObject_NewVar(type, typeobj, n) \
@@ -562,13 +561,22 @@ typedef union _gc_head {
 #define PyObject_TypeCheck(ob, tp) \
     ((ob)->ob_type == (tp) || PyType_IsSubtype((ob)->ob_type, (tp)))
 
-#define Py_TRASHCAN_SAFE_BEGIN(pyObj)
-#define Py_TRASHCAN_SAFE_END(pyObj)
+#define Py_TRASHCAN_SAFE_BEGIN(pyObj) do {
+#define Py_TRASHCAN_SAFE_END(pyObj)   ; } while(0);
+/* note: the ";" at the start of Py_TRASHCAN_SAFE_END is needed
+   if the code has a label in front of the macro call */
 
 /* Copied from CPython ----------------------------- */
 PyAPI_FUNC(int) PyObject_AsReadBuffer(PyObject *, const void **, Py_ssize_t *);
 PyAPI_FUNC(int) PyObject_AsWriteBuffer(PyObject *, void **, Py_ssize_t *);
 PyAPI_FUNC(int) PyObject_CheckReadBuffer(PyObject *);
+
+#define PyObject_MALLOC         PyObject_Malloc
+#define PyObject_REALLOC        PyObject_Realloc
+#define PyObject_FREE           PyObject_Free
+#define PyObject_Del            PyObject_Free
+#define PyObject_DEL            PyObject_Free
+
 
 
 /* PyPy internal ----------------------------------- */

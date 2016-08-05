@@ -8,7 +8,7 @@ import dis, imp, struct, types, new, sys, os
 
 from pypy.interpreter import eval
 from pypy.interpreter.signature import Signature
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.astcompiler.consts import (
     CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS, CO_NESTED,
@@ -110,10 +110,11 @@ class PyCode(eval.Code):
         if code_hook is not None:
             try:
                 self.space.call_function(code_hook, self)
-            except OperationError, e:
+            except OperationError as e:
                 e.write_unraisable(self.space, "new_code_hook()")
 
     def _initialize(self):
+        from pypy.objspace.std.mapdict import init_mapdict_cache
         if self.co_cellvars:
             argcount = self.co_argcount
             assert argcount >= 0     # annotator hint
@@ -149,9 +150,7 @@ class PyCode(eval.Code):
 
         self._compute_flatcall()
 
-        if self.space.config.objspace.std.withmapdict:
-            from pypy.objspace.std.mapdict import init_mapdict_cache
-            init_mapdict_cache(self)
+        init_mapdict_cache(self)
 
     def _init_ready(self):
         "This is a hook for the vmprof module, which overrides this method."
@@ -163,7 +162,10 @@ class PyCode(eval.Code):
         # When translating PyPy, freeze the file name
         #     <builtin>/lastdirname/basename.py
         # instead of freezing the complete translation-time path.
-        filename = self.co_filename.lstrip('<').rstrip('>')
+        filename = self.co_filename
+        if filename.startswith('<builtin>'):
+            return
+        filename = filename.lstrip('<').rstrip('>')
         if filename.lower().endswith('.pyc'):
             filename = filename[:-1]
         basename = os.path.basename(filename)
@@ -372,14 +374,13 @@ class PyCode(eval.Code):
                           lnotab, w_freevars=None, w_cellvars=None,
                           magic=default_magic):
         if argcount < 0:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("code: argcount must not be negative"))
+            raise oefmt(space.w_ValueError,
+                        "code: argcount must not be negative")
         if nlocals < 0:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("code: nlocals must not be negative"))
+            raise oefmt(space.w_ValueError,
+                        "code: nlocals must not be negative")
         if not space.isinstance_w(w_constants, space.w_tuple):
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("Expected tuple for constants"))
+            raise oefmt(space.w_TypeError, "Expected tuple for constants")
         consts_w = space.fixedview(w_constants)
         names = unpack_str_tuple(space, w_names)
         varnames = unpack_str_tuple(space, w_varnames)
@@ -407,14 +408,14 @@ class PyCode(eval.Code):
             w(self.co_nlocals),
             w(self.co_stacksize),
             w(self.co_flags),
-            w(self.co_code),
+            space.newbytes(self.co_code),
             space.newtuple(self.co_consts_w),
             space.newtuple(self.co_names_w),
             space.newtuple([w(v) for v in self.co_varnames]),
             w(self.co_filename),
             w(self.co_name),
             w(self.co_firstlineno),
-            w(self.co_lnotab),
+            space.newbytes(self.co_lnotab),
             space.newtuple([w(v) for v in self.co_freevars]),
             space.newtuple([w(v) for v in self.co_cellvars]),
             w(self.magic),

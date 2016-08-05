@@ -93,7 +93,7 @@ class Bootstrapper(object):
         try:
             bootstrapper.run(space, w_callable, args)
             # done
-        except Exception, e:
+        except Exception as e:
             # oups! last-level attempt to recover.
             try:
                 STDERR = 2
@@ -130,7 +130,7 @@ class Bootstrapper(object):
         space.threadlocals.enter_thread(space)
         try:
             space.call_args(w_callable, args)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_SystemExit):
                 ident = rthread.get_ident()
                 where = 'thread %d started by ' % ident
@@ -148,6 +148,9 @@ def setup_threads(space):
     space.threadlocals.setup_threads(space)
     bootstrapper.setup(space)
 
+def threads_initialized(space):
+    return space.threadlocals.threads_initialized()
+
 
 def reinit_threads(space):
     "Called in the child process after a fork()"
@@ -161,7 +164,6 @@ def reinit_threads(space):
     if w_threading is not None:
         space.call_method(w_threading, "_after_fork")
 
-
 def start_new_thread(space, w_callable, w_args, w_kwargs=None):
     """Start a new thread and return its identifier.  The thread will call the
 function with positional arguments from the tuple args and keyword arguments
@@ -171,14 +173,11 @@ when the function raises an unhandled exception; a stack trace will be
 printed unless the exception is SystemExit."""
     setup_threads(space)
     if not space.isinstance_w(w_args, space.w_tuple):
-        raise OperationError(space.w_TypeError,
-                space.wrap("2nd arg must be a tuple"))
+        raise oefmt(space.w_TypeError, "2nd arg must be a tuple")
     if w_kwargs is not None and not space.isinstance_w(w_kwargs, space.w_dict):
-        raise OperationError(space.w_TypeError,
-                space.wrap("optional 3rd arg must be a dictionary"))
+        raise oefmt(space.w_TypeError, "optional 3rd arg must be a dictionary")
     if not space.is_true(space.callable(w_callable)):
-        raise OperationError(space.w_TypeError,
-                space.wrap("first arg must be callable"))
+        raise oefmt(space.w_TypeError, "first arg must be callable")
 
     args = Arguments.frompacked(space, w_args, w_kwargs)
     bootstrapper.acquire(space, w_callable, args)
@@ -225,8 +224,7 @@ requiring allocation in multiples of the system memory page size
 (4kB pages are common; using multiples of 4096 for the stack size is
 the suggested approach in the absence of more specific information)."""
     if size < 0:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("size must be 0 or a positive value"))
+        raise oefmt(space.w_ValueError, "size must be 0 or a positive value")
     old_size = rthread.get_stacksize()
     error = rthread.set_stacksize(size)
     if error == -1:

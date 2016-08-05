@@ -591,7 +591,9 @@ class __extend__(pairtype(AbstractStringRepr, IntegerRepr)):
 
 class __extend__(pairtype(IntegerRepr, AbstractStringRepr)):
     def rtype_mul((r_int, r_str), hop):
-        return pair(r_str, r_int).rtype_mul(hop)
+        str_repr = r_str.repr
+        v_int, v_str = hop.inputargs(Signed, str_repr)
+        return hop.gendirectcall(r_str.ll.ll_str_mul, v_str, v_int)
     rtype_inplace_mul = rtype_mul
 
 

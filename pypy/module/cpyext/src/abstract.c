@@ -326,3 +326,9 @@ PyObject_CallFunctionObjArgs(PyObject *callable, ...)
     return tmp;
 }
 
+/* for binary compatibility with 5.1 */
+PyAPI_FUNC(void) PyPyObject_Del(PyObject *);
+void PyPyObject_Del(PyObject *op)
+{
+    PyObject_FREE(op);
+}

@@ -3,7 +3,7 @@ from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.eval import (
     Py_single_input, Py_file_input, Py_eval_input, PyCompilerFlags)
-from pypy.module.cpyext.api import fopen, fclose, fileno, Py_ssize_tP
+from pypy.module.cpyext.api import c_fopen, c_fclose, c_fileno, Py_ssize_tP
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.astcompiler import consts
 from rpython.tool.udir import udir
@@ -130,19 +130,19 @@ class TestEval(BaseApiTest):
     def test_run_file(self, space, api):
         filepath = udir / "cpyext_test_runfile.py"
         filepath.write("raise ZeroDivisionError")
-        fp = fopen(str(filepath), "rb")
+        fp = c_fopen(str(filepath), "rb")
         filename = rffi.str2charp(str(filepath))
         w_globals = w_locals = space.newdict()
         api.PyRun_File(fp, filename, Py_file_input, w_globals, w_locals)
-        fclose(fp)
+        c_fclose(fp)
         assert api.PyErr_Occurred() is space.w_ZeroDivisionError
         api.PyErr_Clear()
 
         # try again, but with a closed file
-        fp = fopen(str(filepath), "rb")
-        os.close(fileno(fp))
+        fp = c_fopen(str(filepath), "rb")
+        os.close(c_fileno(fp))
         api.PyRun_File(fp, filename, Py_file_input, w_globals, w_locals)
-        fclose(fp)
+        c_fclose(fp)
         assert api.PyErr_Occurred() is space.w_IOError
         api.PyErr_Clear()
 

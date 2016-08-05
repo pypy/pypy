@@ -5,7 +5,7 @@ This module exports a set of operators as functions. E.g. operator.add(x,y) is
 equivalent to x+y.
 '''
 
-import types
+import __pypy__
 
 
 def countOf(a,b):
@@ -39,27 +39,18 @@ def indexOf(a, b):
         index += 1
     raise ValueError('sequence.index(x): x not in sequence')
 
-def isMappingType(obj,):
-    'isMappingType(a) -- Return True if a has a mapping type, False otherwise.'
-    if isinstance(obj, types.InstanceType):
-        return hasattr(obj, '__getitem__')
-    return hasattr(obj, '__getitem__') and not hasattr(obj, '__getslice__')
-
 def isNumberType(obj,):
     'isNumberType(a) -- Return True if a has a numeric type, False otherwise.'
-    return hasattr(obj, '__int__') or hasattr(obj, '__float__')
-
-def isSequenceType(obj,):
-    'isSequenceType(a) -- Return True if a has a sequence type, False otherwise.'
-    if isinstance(obj, dict):
-        return False
-    return hasattr(obj, '__getitem__')
+    return (__pypy__.lookup_special(obj, '__int__') is not None or
+            __pypy__.lookup_special(obj, '__float__') is not None)
 
 def repeat(obj, num):
     'repeat(a, b) -- Return a * b, where a is a sequence, and b is an integer.'
+    import operator
+
     if not isinstance(num, (int, long)):
         raise TypeError('an integer is required')
-    if not isSequenceType(obj):
+    if not operator.isSequenceType(obj):
         raise TypeError("non-sequence object can't be repeated")
 
     return obj * num
@@ -81,16 +72,14 @@ def _resolve_attr_chain(chain, obj, idx=0):
 
 class attrgetter(object):
     def __init__(self, attr, *attrs):
-        if (
-            not isinstance(attr, basestring) or
-            not all(isinstance(a, basestring) for a in attrs)
-        ):
-            def _raise_typeerror(obj):
-                raise TypeError(
-                    "argument must be a string, not %r" % type(attr).__name__
-                )
-            self._call = _raise_typeerror
-        elif attrs:
+        if not isinstance(attr, basestring):
+            self._error(attr)
+            return
+        if attrs:
+            for a in attrs:
+                if not isinstance(a, basestring):
+                    self._error(a)
+                    return
             self._multi_attrs = [
                 a.split(".") for a in [attr] + list(attrs)
             ]
@@ -101,6 +90,13 @@ class attrgetter(object):
         else:
             self._single_attr = attr.split(".")
             self._call = self._single_attrgetter
+
+    def _error(self, attr):
+        def _raise_typeerror(obj):
+            raise TypeError(
+                "attribute name must be a string, not %r" % type(attr).__name__
+            )
+        self._call = _raise_typeerror
 
     def __call__(self, obj):
         return self._call(obj)

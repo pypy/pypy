@@ -27,12 +27,13 @@ def init(dealloc_trigger_callback=None):
     """NOT_RPYTHON: set up rawrefcount with the GC.  This is only used
     for tests; it should not be called at all during translation.
     """
-    global _p_list, _o_list, _adr2pypy, _pypy2ob
+    global _p_list, _o_list, _adr2pypy, _pypy2ob, _pypy2ob_rev
     global _d_list, _dealloc_trigger_callback
     _p_list = []
     _o_list = []
     _adr2pypy = [None]
     _pypy2ob = {}
+    _pypy2ob_rev = {}
     _d_list = []
     _dealloc_trigger_callback = dealloc_trigger_callback
 
@@ -40,9 +41,11 @@ def create_link_pypy(p, ob):
     "NOT_RPYTHON: a link where the PyPy object contains some or all the data"
     #print 'create_link_pypy\n\t%s\n\t%s' % (p, ob)
     assert p not in _pypy2ob
-    #assert not ob.c_ob_pypy_link
+    assert ob._obj not in _pypy2ob_rev
+    assert not ob.c_ob_pypy_link
     ob.c_ob_pypy_link = _build_pypy_link(p)
     _pypy2ob[p] = ob
+    _pypy2ob_rev[ob._obj] = p
     _p_list.append(ob)
 
 def create_link_pyobj(p, ob):
@@ -50,7 +53,8 @@ def create_link_pyobj(p, ob):
        from_obj() will not work on this 'p'."""
     #print 'create_link_pyobj\n\t%s\n\t%s' % (p, ob)
     assert p not in _pypy2ob
-    #assert not ob.c_ob_pypy_link
+    assert ob._obj not in _pypy2ob_rev
+    assert not ob.c_ob_pypy_link
     ob.c_ob_pypy_link = _build_pypy_link(p)
     _o_list.append(ob)
 
@@ -60,6 +64,7 @@ def from_obj(OB_PTR_TYPE, p):
     if ob is None:
         return lltype.nullptr(OB_PTR_TYPE.TO)
     assert lltype.typeOf(ob) == OB_PTR_TYPE
+    assert _pypy2ob_rev[ob._obj] is p
     return ob
 
 def to_obj(Class, ob):
@@ -106,8 +111,10 @@ def _collect(track_allocation=True):
             new_p_list.append(ob)
         else:
             p = detach(ob, wr_p_list)
-            del _pypy2ob[p]
-            del p
+            ob_test = _pypy2ob.pop(p)
+            p_test = _pypy2ob_rev.pop(ob_test._obj)
+            assert p_test is p
+            del p, p_test
         ob = None
     _p_list = Ellipsis
 
@@ -151,6 +158,10 @@ def _collect(track_allocation=True):
         p = attach(ob, wr, _p_list)
         if p is not None:
             _pypy2ob[p] = ob
+    _pypy2ob_rev.clear()       # rebuild this dict from scratch
+    for p, ob in _pypy2ob.items():
+        assert ob._obj not in _pypy2ob_rev
+        _pypy2ob_rev[ob._obj] = p
     _o_list = []
     for ob, wr in wr_o_list:
         attach(ob, wr, _o_list)

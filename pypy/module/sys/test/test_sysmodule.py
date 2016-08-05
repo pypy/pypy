@@ -42,12 +42,12 @@ class AppTestAppSysTests:
     def test_sys_exc_info(self):
         try:
             raise Exception
-        except Exception,e:
+        except Exception as e:
             import sys
             exc_type,exc_val,tb = sys.exc_info()
         try:
             raise Exception   # 5 lines below the previous one
-        except Exception,e2:
+        except Exception as e2:
             exc_type2,exc_val2,tb2 = sys.exc_info()
         assert exc_type ==Exception
         assert exc_val ==e
@@ -58,14 +58,14 @@ class AppTestAppSysTests:
     def test_dynamic_attributes(self):
         try:
             raise Exception
-        except Exception,e:
+        except Exception as e:
             import sys
             exc_type = sys.exc_type
             exc_val = sys.exc_value
             tb = sys.exc_traceback
         try:
             raise Exception   # 7 lines below the previous one
-        except Exception,e2:
+        except Exception as e2:
             exc_type2 = sys.exc_type
             exc_val2 = sys.exc_value
             tb2 = sys.exc_traceback
@@ -83,7 +83,7 @@ class AppTestAppSysTests:
             etype, val, tb = sys.exc_info()
             assert isinstance(val, etype)
         else:
-            raise AssertionError, "ZeroDivisionError not caught"
+            raise AssertionError("ZeroDivisionError not caught")
 
     def test_io(self):
         import sys
@@ -200,7 +200,7 @@ class AppTestSysModulePortedFromCPython:
         raises(TypeError, eh)
         try:
             raise ValueError(42)
-        except ValueError, exc:
+        except ValueError as exc:
             eh(*sys.exc_info())
 
         sys.stderr = savestderr
@@ -218,7 +218,7 @@ class AppTestSysModulePortedFromCPython:
             eh = sys.__excepthook__
             try:
                 raise ValueError(42)
-            except ValueError, exc:
+            except ValueError as exc:
                 eh(*sys.exc_info())
         finally:
             traceback.print_exception = original_print_exception
@@ -249,7 +249,7 @@ class AppTestSysModulePortedFromCPython:
             eh = sys.__excepthook__
             try:
                 raise ValueError(input)
-            except ValueError, exc:
+            except ValueError as exc:
                 eh(*sys.exc_info())
 
             sys.stderr = savestderr
@@ -280,8 +280,8 @@ class AppTestSysModulePortedFromCPython:
 
         def clear():
             try:
-                raise ValueError, 42
-            except ValueError, exc:
+                raise ValueError(42)
+            except ValueError as exc:
                 clear_check(exc)
 
         # Raise an exception and check that it can be cleared
@@ -290,8 +290,8 @@ class AppTestSysModulePortedFromCPython:
         # Verify that a frame currently handling an exception is
         # unaffected by calling exc_clear in a nested frame.
         try:
-            raise ValueError, 13
-        except ValueError, exc:
+            raise ValueError(13)
+        except ValueError as exc:
             typ1, value1, traceback1 = sys.exc_info()
             clear()
             typ2, value2, traceback2 = sys.exc_info()
@@ -311,53 +311,53 @@ class AppTestSysModulePortedFromCPython:
         # call without argument
         try:
             sys.exit(0)
-        except SystemExit, exc:
+        except SystemExit as exc:
             assert exc.code == 0
         except:
-            raise AssertionError, "wrong exception"
+            raise AssertionError("wrong exception")
         else:
-            raise AssertionError, "no exception"
+            raise AssertionError("no exception")
 
         # call with tuple argument with one entry
         # entry will be unpacked
         try:
             sys.exit(42)
-        except SystemExit, exc:
+        except SystemExit as exc:
             assert exc.code == 42
         except:
-            raise AssertionError, "wrong exception"
+            raise AssertionError("wrong exception")
         else:
-            raise AssertionError, "no exception"
+            raise AssertionError("no exception")
 
         # call with integer argument
         try:
             sys.exit((42,))
-        except SystemExit, exc:
+        except SystemExit as exc:
             assert exc.code == 42
         except:
-            raise AssertionError, "wrong exception"
+            raise AssertionError("wrong exception")
         else:
-            raise AssertionError, "no exception"
+            raise AssertionError("no exception")
 
         # call with string argument
         try:
             sys.exit("exit")
-        except SystemExit, exc:
+        except SystemExit as exc:
             assert exc.code == "exit"
         except:
-            raise AssertionError, "wrong exception"
+            raise AssertionError("wrong exception")
         else:
-            raise AssertionError, "no exception"
+            raise AssertionError("no exception")
 
         # call with tuple argument with two entries
         try:
             sys.exit((17, 23))
-        except SystemExit, exc:
+        except SystemExit as exc:
             assert exc.code == (17, 23)
         except:
-            raise AssertionError, "wrong exception"
+            raise AssertionError("wrong exception")
         else:
-            raise AssertionError, "no exception"
+            raise AssertionError("no exception")
 
     def test_getdefaultencoding(self):
         import sys
@@ -445,14 +445,12 @@ class AppTestSysModulePortedFromCPython:
 
     def test_dlopenflags(self):
         import sys
-        if hasattr(sys, "setdlopenflags"):
-            assert hasattr(sys, "getdlopenflags")
-            raises(TypeError, sys.getdlopenflags, 42)
-            oldflags = sys.getdlopenflags()
-            raises(TypeError, sys.setdlopenflags)
-            sys.setdlopenflags(oldflags+1)
-            assert sys.getdlopenflags() == oldflags+1
-            sys.setdlopenflags(oldflags)
+        raises(TypeError, sys.getdlopenflags, 42)
+        oldflags = sys.getdlopenflags()
+        raises(TypeError, sys.setdlopenflags)
+        sys.setdlopenflags(oldflags+1)
+        assert sys.getdlopenflags() == oldflags+1
+        sys.setdlopenflags(oldflags)
 
     def test_refcount(self):
         import sys
@@ -610,7 +608,7 @@ class AppTestSysModulePortedFromCPython:
 class AppTestSysSettracePortedFromCpython(object):
     def test_sys_settrace(self):
         import sys
-        
+
         class Tracer:
             def __init__(self):
                 self.events = []
@@ -648,7 +646,7 @@ class AppTestSysSettracePortedFromCpython(object):
         def settrace_and_raise(tracefunc):
             try:
                 _settrace_and_raise(tracefunc)
-            except RuntimeError, exc:
+            except RuntimeError as exc:
                 pass
 
         settrace_and_raise.events = [(2, 'exception'),

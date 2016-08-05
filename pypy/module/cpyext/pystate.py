@@ -3,6 +3,7 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.pyobject import PyObject, Py_DecRef, make_ref, from_ref
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import rthread
+from rpython.rlib.objectmodel import we_are_translated
 
 PyInterpreterStateStruct = lltype.ForwardReference()
 PyInterpreterState = lltype.Ptr(PyInterpreterStateStruct)
@@ -52,7 +53,8 @@ def PyEval_InitThreads(space):
 def PyEval_ThreadsInitialized(space):
     if not space.config.translation.thread:
         return 0
-    return 1
+    from pypy.module.thread import os_thread
+    return int(os_thread.threads_initialized(space))
 
 # XXX: might be generally useful
 def encapsulator(T, flavor='raw', dealloc=None):
@@ -166,8 +168,16 @@ def PyThreadState_Get(space):
     state = space.fromcache(InterpreterState)
     return state.get_thread_state(space)
 
-@cpython_api([], PyObject, error=CANNOT_FAIL)
+@cpython_api([], PyObject, result_is_ll=True, error=CANNOT_FAIL)
 def PyThreadState_GetDict(space):
+    """Return a dictionary in which extensions can store thread-specific state
+    information.  Each extension should use a unique key to use to store state in
+    the dictionary.  It is okay to call this function when no current thread state
+    is available. If this function returns NULL, no exception has been raised and
+    the caller should assume no current thread state is available.
+
+    Previously this could only be called when a current thread is active, and NULL
+    meant that an exception was raised."""
     state = space.fromcache(InterpreterState)
     return state.get_thread_state(space).c_dict
 
@@ -195,18 +205,63 @@ def PyEval_ReleaseThread(space, tstate):
     compile time."""
 
 PyGILState_STATE = rffi.INT
+PyGILState_LOCKED = 0
+PyGILState_UNLOCKED = 1
+PyGILState_IGNORE = 2
 
-@cpython_api([], PyGILState_STATE, error=CANNOT_FAIL, gil="acquire")
-def PyGILState_Ensure(space):
-    # XXX XXX XXX THIS IS A VERY MINIMAL IMPLEMENTATION THAT WILL HAPPILY
-    # DEADLOCK IF CALLED TWICE ON THE SAME THREAD, OR CRASH IF CALLED IN A
-    # NEW THREAD.  We should very carefully follow what CPython does instead.
-    return rffi.cast(PyGILState_STATE, 0)
+ExecutionContext.cpyext_gilstate_counter_noleave = 0
 
-@cpython_api([PyGILState_STATE], lltype.Void, gil="release")
-def PyGILState_Release(space, state):
-    # XXX XXX XXX We should very carefully follow what CPython does instead.
-    pass
+def _workaround_cpython_untranslated(space):
+    # Workaround when not translated.  The problem is that
+    # space.threadlocals.get_ec() is based on "thread._local", but
+    # CPython will clear a "thread._local" as soon as CPython's
+    # PyThreadState goes away.  This occurs even if we're in a thread
+    # created from C and we're going to call some more Python code
+    # from this thread.  This case shows up in
+    # test_pystate.test_frame_tstate_tracing.
+    def get_possibly_deleted_ec():
+        ec1 = space.threadlocals.raw_thread_local.get()
+        ec2 = space.threadlocals._valuedict.get(rthread.get_ident(), None)
+        if ec1 is None and ec2 is not None:
+            space.threadlocals.raw_thread_local.set(ec2)
+        return space.threadlocals.__class__.get_ec(space.threadlocals)
+    space.threadlocals.get_ec = get_possibly_deleted_ec
+
+
+@cpython_api([], PyGILState_STATE, error=CANNOT_FAIL, gil="pygilstate_ensure")
+def PyGILState_Ensure(space, previous_state):
+    # The argument 'previous_state' is not part of the API; it is inserted
+    # by make_wrapper() and contains PyGILState_LOCKED/UNLOCKED based on
+    # the previous GIL state.
+    must_leave = space.threadlocals.try_enter_thread(space)
+    ec = space.getexecutioncontext()
+    if not must_leave:
+        # This is a counter of how many times we called try_enter_thread()
+        # and it returned False.  In PyGILState_Release(), if this counter
+        # is greater than zero, we decrement it; only if the counter is
+        # already zero do we call leave_thread().
+        ec.cpyext_gilstate_counter_noleave += 1
+    else:
+        # This case is for when we just built a fresh threadlocals.
+        # We should only see it when we are in a new thread with no
+        # PyPy code below.
+        assert previous_state == PyGILState_UNLOCKED
+        assert ec.cpyext_gilstate_counter_noleave == 0
+        if not we_are_translated():
+            _workaround_cpython_untranslated(space)
+    #
+    return rffi.cast(PyGILState_STATE, previous_state)
+
+@cpython_api([PyGILState_STATE], lltype.Void, gil="pygilstate_release")
+def PyGILState_Release(space, oldstate):
+    oldstate = rffi.cast(lltype.Signed, oldstate)
+    ec = space.getexecutioncontext()
+    if ec.cpyext_gilstate_counter_noleave > 0:
+        ec.cpyext_gilstate_counter_noleave -= 1
+    else:
+        assert ec.cpyext_gilstate_counter_noleave == 0
+        assert oldstate == PyGILState_UNLOCKED
+        space.threadlocals.leave_thread(space)
 
 @cpython_api([], PyInterpreterState, error=CANNOT_FAIL)
 def PyInterpreterState_Head(space):

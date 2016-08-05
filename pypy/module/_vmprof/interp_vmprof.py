@@ -3,7 +3,7 @@ from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.baseobjspace import W_Root
-from rpython.rlib import rvmprof
+from rpython.rlib import rvmprof, jit
 
 # ____________________________________________________________
 
@@ -66,7 +66,7 @@ def enable(space, fileno, period):
     #               space.w_RuntimeWarning)
     try:
         rvmprof.enable(fileno, period)
-    except rvmprof.VMProfError, e:
+    except rvmprof.VMProfError as e:
         raise VMProfError(space, e)
 
 def write_all_code_objects(space):
@@ -80,5 +80,5 @@ def disable(space):
     """
     try:
         rvmprof.disable()
-    except rvmprof.VMProfError, e:
+    except rvmprof.VMProfError as e:
         raise VMProfError(space, e)

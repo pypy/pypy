@@ -3,7 +3,7 @@ from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib import rfloat, runicode
 from rpython.rtyper.lltypesystem import lltype, rffi
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import oefmt
 from pypy.interpreter import unicodehelper
 
 OVF_DIGITS = len(str(sys.maxint))
@@ -360,10 +360,11 @@ class JSONDecoder(object):
         hexdigits = self.getslice(start, i)
         try:
             val = int(hexdigits, 16)
-            if val & 0xfc00 == 0xd800:
+            if sys.maxunicode > 65535 and 0xd800 <= val <= 0xdfff:
                 # surrogate pair
-                val = self.decode_surrogate_pair(i, val)
-                i += 6
+                if self.ll_chars[i] == '\\' and self.ll_chars[i+1] == 'u':
+                    val = self.decode_surrogate_pair(i, val)
+                    i += 6
         except ValueError:
             self._raise("Invalid \uXXXX escape (char %d)", i-1)
             return # help the annotator to know that we'll never go beyond
@@ -375,8 +376,9 @@ class JSONDecoder(object):
         return i
 
     def decode_surrogate_pair(self, i, highsurr):
-        if self.ll_chars[i] != '\\' or self.ll_chars[i+1] != 'u':
-            self._raise("Unpaired high surrogate at char %d", i)
+        """ uppon enter the following must hold:
+              chars[i] == "\\" and chars[i+1] == "u"
+        """
         i += 2
         hexdigits = self.getslice(i, i+4)
         lowsurr = int(hexdigits, 16) # the possible ValueError is caugth by the caller
@@ -384,8 +386,8 @@ class JSONDecoder(object):
 
 def loads(space, w_s):
     if space.isinstance_w(w_s, space.w_unicode):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("Expected utf8-encoded str, got unicode"))
+        raise oefmt(space.w_TypeError,
+                    "Expected utf8-encoded str, got unicode")
     s = space.str_w(w_s)
     decoder = JSONDecoder(space, s)
     try:

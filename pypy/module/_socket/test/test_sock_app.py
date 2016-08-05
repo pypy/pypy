@@ -731,13 +731,11 @@ class AppTestPacket:
 
 class AppTestSocketTCP:
     HOST = 'localhost'
-
-    def setup_class(cls):
-        cls.space = space
+    spaceconfig = {'usemodules': ['_socket', 'array']}
 
     def setup_method(self, method):
-        w_HOST = space.wrap(self.HOST)
-        self.w_serv = space.appexec([w_socket, w_HOST],
+        w_HOST = self.space.wrap(self.HOST)
+        self.w_serv =self.space.appexec([w_socket, w_HOST],
             '''(_socket, HOST):
             serv = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
             serv.bind((HOST, 0))
@@ -747,7 +745,7 @@ class AppTestSocketTCP:
 
     def teardown_method(self, method):
         if hasattr(self, 'w_serv'):
-            space.appexec([self.w_serv], '(serv): serv.close()')
+            self.space.appexec([self.w_serv], '(serv): serv.close()')
             self.w_serv = None
 
     def test_timeout(self):
@@ -793,6 +791,7 @@ class AppTestSocketTCP:
         try:
             while 1:
                 count += cli.send(b'foobar' * 70)
+                assert count < 100000
         except timeout:
             pass
         t.recv(count)
@@ -862,8 +861,7 @@ class AppTestSocketTCP:
 
 
 class AppTestErrno:
-    def setup_class(cls):
-        cls.space = space
+    spaceconfig = {'usemodules': ['_socket']}
 
     def test_errno(self):
         from socket import socket, AF_INET, SOCK_STREAM, error

@@ -90,12 +90,11 @@ class W_CTypeStructOrUnion(W_CType):
         self.force_lazy_struct()
         space = self.space
         try:
-            cfield = self._fields_dict[fieldname]
+            cfield = self._getcfield_const(fieldname)
         except KeyError:
             raise OperationError(space.w_KeyError, space.wrap(fieldname))
         if cfield.bitshift >= 0:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("not supported for bitfields"))
+            raise oefmt(space.w_TypeError, "not supported for bitfields")
         return (cfield.ctype, cfield.offset)
 
     def _copy_from_same(self, cdata, w_ob):
@@ -172,6 +171,12 @@ class W_CTypeStructOrUnion(W_CType):
                 pass
         return W_CType.getcfield(self, attr)
 
+    def cdata_dir(self):
+        if self.size < 0:
+            return []
+        self.force_lazy_struct()
+        return self._fields_dict.keys()
+
 
 class W_CTypeStruct(W_CTypeStructOrUnion):
     kind = "struct"
@@ -243,8 +248,8 @@ class W_CField(W_Root):
                     varsize = ovfcheck(itemsize * varsizelength)
                     size = ovfcheck(self.offset + varsize)
                 except OverflowError:
-                    raise OperationError(space.w_OverflowError,
-                        space.wrap("array size would overflow a ssize_t"))
+                    raise oefmt(space.w_OverflowError,
+                                "array size would overflow a ssize_t")
                 assert size >= 0
                 return max(size, optvarsize)
             # if 'value' was only an integer, get_new_array_length() returns

@@ -13,6 +13,7 @@ from rpython.jit.metainterp.jitprof import EmptyProfiler
 from rpython.jit.metainterp.logger import Logger
 from rpython.jit.metainterp.optimizeopt.util import args_dict
 from rpython.jit.metainterp.resoperation import rop, OpHelpers, GuardResOp
+from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.rlib import nonconst, rstack
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.rlib.debug import have_debug_prints, make_sure_not_resized
@@ -201,11 +202,10 @@ class MIFrame(object):
 
     # ------------------------------
 
-    for _opimpl in ['int_add', 'int_sub', 'int_mul', 'int_floordiv', 'int_mod',
+    for _opimpl in ['int_add', 'int_sub', 'int_mul',
                     'int_and', 'int_or', 'int_xor', 'int_signext',
                     'int_rshift', 'int_lshift', 'uint_rshift',
                     'uint_lt', 'uint_le', 'uint_gt', 'uint_ge',
-                    'uint_floordiv',
                     'float_add', 'float_sub', 'float_mul', 'float_truediv',
                     'float_lt', 'float_le', 'float_eq',
                     'float_ne', 'float_gt', 'float_ge',
@@ -830,8 +830,11 @@ class MIFrame(object):
                                        mutatefielddescr, orgpc):
         from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
         cpu = self.metainterp.cpu
+        if self.metainterp.heapcache.is_quasi_immut_known(fielddescr, box):
+            return
         descr = QuasiImmutDescr(cpu, box.getref_base(), fielddescr,
                                 mutatefielddescr)
+        self.metainterp.heapcache.quasi_immut_now_known(fielddescr, box)
         self.metainterp.history.record(rop.QUASIIMMUT_FIELD, [box],
                                        None, descr=descr)
         self.metainterp.generate_guard(rop.GUARD_NOT_INVALIDATED,
@@ -1758,8 +1761,12 @@ class MetaInterpStaticData(object):
         self.cpu = cpu
         self.stats = self.cpu.stats
         self.options = options
+        self.jitlog = jl.JitLogger(self.cpu)
         self.logger_noopt = Logger(self)
         self.logger_ops = Logger(self, guard_number=True)
+        # legacy loggers
+        self.jitlog.logger_noopt = self.logger_noopt
+        self.jitlog.logger_ops = self.logger_ops
 
         self.profiler = ProfilerClass()
         self.profiler.cpu = cpu
@@ -1838,11 +1845,16 @@ class MetaInterpStaticData(object):
         self.cpu.propagate_exception_descr = exc_descr
         #
         self.globaldata = MetaInterpGlobalData(self)
+
+    def finish_setup_descrs(self):
+        from rpython.jit.codewriter import effectinfo
         self.all_descrs = self.cpu.setup_descrs()
+        effectinfo.compute_bitstrings(self.all_descrs)
 
     def _setup_once(self):
         """Runtime setup needed by the various components of the JIT."""
         if not self.globaldata.initialized:
+            self.jitlog.setup_once()
             debug_print(self.jit_starting_line)
             self.cpu.setup_once()
             if not self.profiler.initialized:
@@ -1919,7 +1931,6 @@ class MetaInterpGlobalData(object):
         self.initialized = False
         self.indirectcall_dict = None
         self.addr2name = None
-        self.loopnumbering = 0
 
 # ____________________________________________________________
 
@@ -2030,7 +2041,7 @@ class MetaInterp(object):
         else:
             try:
                 self.compile_done_with_this_frame(resultbox)
-            except SwitchToBlackhole, stb:
+            except SwitchToBlackhole as stb:
                 self.aborted_tracing(stb.reason)
             sd = self.staticdata
             result_type = self.jitdriver_sd.result_type
@@ -2063,7 +2074,7 @@ class MetaInterp(object):
             self.popframe()
         try:
             self.compile_exit_frame_with_exception(self.last_exc_box)
-        except SwitchToBlackhole, stb:
+        except SwitchToBlackhole as stb:
             self.aborted_tracing(stb.reason)
         raise jitexc.ExitFrameWithExceptionRef(self.cpu, lltype.cast_opaque_ptr(llmemory.GCREF, excvalue))
 
@@ -2096,7 +2107,7 @@ class MetaInterp(object):
             guard_op = self.history.record(opnum, moreargs,
                                            lltype.nullptr(llmemory.GCREF.TO))
         else:
-            guard_op = self.history.record(opnum, moreargs, None)            
+            guard_op = self.history.record(opnum, moreargs, None)
         self.capture_resumedata(resumepc)
         # ^^^ records extra to history
         self.staticdata.profiler.count_ops(opnum, Counters.GUARDS)
@@ -2250,7 +2261,7 @@ class MetaInterp(object):
 
     def execute_raised(self, exception, constant=False):
         if isinstance(exception, jitexc.JitException):
-            raise jitexc.JitException, exception      # go through
+            raise exception      # go through
         llexception = jitexc.get_llexception(self.cpu, exception)
         self.execute_ll_raised(llexception, constant)
 
@@ -2363,7 +2374,7 @@ class MetaInterp(object):
         self.seen_loop_header_for_jdindex = -1
         try:
             self.interpret()
-        except SwitchToBlackhole, stb:
+        except SwitchToBlackhole as stb:
             self.run_blackhole_interp_to_cancel_tracing(stb)
         assert False, "should always raise"
 
@@ -2400,7 +2411,7 @@ class MetaInterp(object):
             if self.resumekey_original_loop_token is None:   # very rare case
                 raise SwitchToBlackhole(Counters.ABORT_BRIDGE)
             self.interpret()
-        except SwitchToBlackhole, stb:
+        except SwitchToBlackhole as stb:
             self.run_blackhole_interp_to_cancel_tracing(stb)
         assert False, "should always raise"
 
@@ -2537,7 +2548,13 @@ class MetaInterp(object):
             elif box.type == history.REF: args.append(box.getref_base())
             elif box.type == history.FLOAT: args.append(box.getfloatstorage())
             else: assert 0
-        self.jitdriver_sd.warmstate.execute_assembler(loop_token, *args)
+        res = self.jitdriver_sd.warmstate.execute_assembler(loop_token, *args)
+        kind = history.getkind(lltype.typeOf(res))
+        if kind == 'void':  raise jitexc.DoneWithThisFrameVoid()
+        if kind == 'int':   raise jitexc.DoneWithThisFrameInt(res)
+        if kind == 'ref':   raise jitexc.DoneWithThisFrameRef(self.cpu, res)
+        if kind == 'float': raise jitexc.DoneWithThisFrameFloat(res)
+        raise AssertionError(kind)
 
     def prepare_resume_from_failure(self, deadframe, inputargs, resumedescr):
         exception = self.cpu.grab_exc_value(deadframe)
@@ -3272,7 +3289,7 @@ def _get_opimpl_method(name, argcodes):
                 print '\tpyjitpl: %s(%s)' % (name, ', '.join(map(repr, args))),
             try:
                 resultbox = unboundmethod(self, *args)
-            except Exception, e:
+            except Exception as e:
                 if self.debug:
                     print '-> %s!' % e.__class__.__name__
                 raise

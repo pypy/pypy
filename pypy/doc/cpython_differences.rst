@@ -315,13 +315,28 @@ integers ``x``. The rule applies for the following types:
 
  - ``complex``
 
+ - ``str`` (empty or single-character strings only)
+
+ - ``unicode`` (empty or single-character strings only)
+
+ - ``tuple`` (empty tuples only)
+
+ - ``frozenset`` (empty frozenset only)
+
 This change requires some changes to ``id`` as well. ``id`` fulfills the
 following condition: ``x is y <=> id(x) == id(y)``. Therefore ``id`` of the
 above types will return a value that is computed from the argument, and can
 thus be larger than ``sys.maxint`` (i.e. it can be an arbitrary long).
 
-Notably missing from the list above are ``str`` and ``unicode``.  If your
-code relies on comparing strings with ``is``, then it might break in PyPy.
+Note that strings of length 2 or greater can be equal without being
+identical.  Similarly, ``x is (2,)`` is not necessarily true even if
+``x`` contains a tuple and ``x == (2,)``.  The uniqueness rules apply
+only to the particular cases described above.  The ``str``, ``unicode``,
+``tuple`` and ``frozenset`` rules were added in PyPy 5.4; before that, a
+test like ``if x is "?"`` or ``if x is ()`` could fail even if ``x`` was
+equal to ``"?"`` or ``()``.  The new behavior added in PyPy 5.4 is
+closer to CPython's, which caches precisely the empty tuple/frozenset,
+and (generally but not always) the strings and unicodes of length <= 1.
 
 Note that for floats there "``is``" only one object per "bit pattern"
 of the float.  So ``float('nan') is float('nan')`` is true on PyPy,
@@ -386,6 +401,14 @@ Miscellaneous
   True on unbound method objects but False on method-wrappers or slot
   wrappers.  On PyPy we can't tell the difference, so
   ``ismethod([].__add__) == ismethod(list.__add__) == True``.
+
+* in CPython, the built-in types have attributes that can be
+  implemented in various ways.  Depending on the way, if you try to
+  write to (or delete) a read-only (or undeletable) attribute, you get
+  either a ``TypeError`` or an ``AttributeError``.  PyPy tries to
+  strike some middle ground between full consistency and full
+  compatibility here.  This means that a few corner cases don't raise
+  the same exception, like ``del (lambda:None).__closure__``.
 
 * in pure Python, if you write ``class A(object): def f(self): pass``
   and have a subclass ``B`` which doesn't override ``f()``, then

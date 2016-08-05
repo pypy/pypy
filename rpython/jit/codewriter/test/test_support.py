@@ -3,7 +3,6 @@ from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.annlowlevel import llstr
 from rpython.flowspace.model import Variable, Constant, SpaceOperation
 from rpython.jit.codewriter.support import decode_builtin_call, LLtypeHelpers
-from rpython.jit.codewriter.support import _ll_1_int_abs
 
 def newconst(x):
     return Constant(x, lltype.typeOf(x))
@@ -136,6 +135,7 @@ def test_streq_lengthok():
     py.test.raises(AttributeError, func, llstr(None), p2)
 
 def test_int_abs():
+    from rpython.jit.codewriter.support import _ll_1_int_abs
     assert _ll_1_int_abs(0) == 0
     assert _ll_1_int_abs(1) == 1
     assert _ll_1_int_abs(10) == 10
@@ -143,3 +143,14 @@ def test_int_abs():
     assert _ll_1_int_abs(-1) == 1
     assert _ll_1_int_abs(-10) == 10
     assert _ll_1_int_abs(-sys.maxint) == sys.maxint
+
+def test_int_floordiv_mod():
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    from rpython.jit.codewriter.support import _ll_2_int_floordiv, _ll_2_int_mod
+    for x in range(-6, 7):
+        for y in range(-3, 4):
+            if y != 0:
+                assert (_ll_2_int_floordiv(x, y) ==
+                        llop.int_floordiv(lltype.Signed, x, y))
+                assert (_ll_2_int_mod(x, y) ==
+                        llop.int_mod(lltype.Signed, x, y))

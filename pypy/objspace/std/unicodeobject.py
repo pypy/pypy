@@ -18,6 +18,7 @@ from pypy.objspace.std import newformat
 from pypy.objspace.std.basestringtype import basestring_typedef
 from pypy.objspace.std.formatting import mod_format
 from pypy.objspace.std.stringmethods import StringMethods
+from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT
 
 __all__ = ['W_UnicodeObject', 'wrapunicode', 'plain_str2unicode',
            'encode_object', 'decode_object', 'unicode_from_object',
@@ -28,22 +29,22 @@ class W_UnicodeObject(W_Root):
     import_from_mixin(StringMethods)
     _immutable_fields_ = ['_value']
 
-    def __init__(w_self, unistr):
+    def __init__(self, unistr):
         assert isinstance(unistr, unicode)
-        w_self._value = unistr
+        self._value = unistr
 
-    def __repr__(w_self):
+    def __repr__(self):
         """representation for debugging purposes"""
-        return "%s(%r)" % (w_self.__class__.__name__, w_self._value)
+        return "%s(%r)" % (self.__class__.__name__, self._value)
 
-    def unwrap(w_self, space):
+    def unwrap(self, space):
         # for testing
-        return w_self._value
+        return self._value
 
-    def create_if_subclassed(w_self):
-        if type(w_self) is W_UnicodeObject:
-            return w_self
-        return W_UnicodeObject(w_self._value)
+    def create_if_subclassed(self):
+        if type(self) is W_UnicodeObject:
+            return self
+        return W_UnicodeObject(self._value)
 
     def is_w(self, space, w_other):
         if not isinstance(w_other, W_UnicodeObject):
@@ -52,12 +53,26 @@ class W_UnicodeObject(W_Root):
             return True
         if self.user_overridden_class or w_other.user_overridden_class:
             return False
-        return space.unicode_w(self) is space.unicode_w(w_other)
+        s1 = space.unicode_w(self)
+        s2 = space.unicode_w(w_other)
+        if len(s2) > 1:
+            return s1 is s2
+        else:            # strings of len <= 1 are unique-ified
+            return s1 == s2
 
     def immutable_unique_id(self, space):
         if self.user_overridden_class:
             return None
-        return space.wrap(compute_unique_id(space.unicode_w(self)))
+        s = space.unicode_w(self)
+        if len(s) > 1:
+            uid = compute_unique_id(s)
+        else:            # strings of len <= 1 are unique-ified
+            if len(s) == 1:
+                base = ~ord(s[0])      # negative base values
+            else:
+                base = 257       # empty unicode string: base value 257
+            uid = (base << IDTAG_SHIFT) | IDTAG_SPECIAL
+        return space.wrap(uid)
 
     def str_w(self, space):
         return space.str_w(space.str(self))
@@ -73,13 +88,13 @@ class W_UnicodeObject(W_Root):
         return StringBuffer(builder.build())
 
     def writebuf_w(self, space):
-        raise OperationError(space.w_TypeError, space.wrap(
-            "cannot use unicode as modifiable buffer"))
+        raise oefmt(space.w_TypeError,
+                    "cannot use unicode as modifiable buffer")
 
     charbuf_w = str_w
 
-    def listview_unicode(w_self):
-        return _create_list_from_unicode(w_self._value)
+    def listview_unicode(self):
+        return _create_list_from_unicode(self._value)
 
     def ord(self, space):
         if len(self._value) != 1:
@@ -451,7 +466,7 @@ def encode_object(space, w_object, encoding, errors):
                     return space.wrap(unicode_encode_utf_8(
                             u, len(u), None, errorhandler=eh,
                             allow_surrogates=True))
-            except unicodehelper.RUnicodeEncodeError, ue:
+            except unicodehelper.RUnicodeEncodeError as ue:
                 raise OperationError(space.w_UnicodeEncodeError,
                                      space.newtuple([
                     space.wrap(ue.encoding),

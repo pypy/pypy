@@ -96,7 +96,7 @@ class ASDLScanner(spark.GenericScanner, object):
 
     def t_default(self, s):
         r" . +"
-        raise ValueError, "unmatched input: %s" % `s`
+        raise ValueError("unmatched input: %s" % `s`)
 
 class ASDLParser(spark.GenericParser, object):
     def __init__(self):
@@ -377,7 +377,7 @@ def parse(file):
     tokens = scanner.tokenize(buf)
     try:
         return parser.parse(tokens)
-    except ASDLSyntaxError, err:
+    except ASDLSyntaxError as err:
         print err
         lines = buf.split("\n")
         print lines[err.lineno - 1] # lines starts at 0, files at 1

@@ -64,6 +64,25 @@ class AppTestLock(GenericTestThread):
         else:
             assert self.runappdirect, "missing lock._py3k_acquire()"
 
+    def test_py3k_acquire_timeout_overflow(self):
+        import thread
+        lock = thread.allocate_lock()
+        if not hasattr(lock, '_py3k_acquire'):
+            skip("missing lock._py3k_acquire()")
+        maxint = 2**63 - 1
+        boundary = int(maxint * 1e-6)
+        for i in [-100000, -10000, -1000, -100, -10, -1, 0,
+                  1, 10, 100, 1000, 10000, 100000]:
+            timeout = (maxint + i) * 1e-6
+            try:
+                lock._py3k_acquire(True, timeout=timeout)
+            except OverflowError:
+                got_ovf = True
+            else:
+                got_ovf = False
+                lock.release()
+            assert (i, got_ovf) == (i, int(timeout * 1e6) > maxint)
+
     @py.test.mark.xfail(machine()=='s390x', reason='may fail under heavy load')
     def test_ping_pong(self):
         # The purpose of this test is that doing a large number of ping-pongs

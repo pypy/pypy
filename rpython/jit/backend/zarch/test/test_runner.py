@@ -25,5 +25,5 @@ class TestZARCH(LLtypeBackendTest):
         return cpu
 
     add_loop_instructions = "lg; lgr; larl; agr; cgfi; jge; j;$"
-    bridge_loop_instructions = "larl; lg; cgfi; jnl; lghi; " \
-                               "(lgfi|iilf);( iihf;)? (lgfi|iilf);( iihf;)? basr; (lgfi|iilf);( iihf;)? br;$"
+    bridge_loop_instructions = "lg; cgfi; jnl; lghi; " \
+                               "(lgfi|iilf);( iihf;)? (lgfi|iilf);( iihf;)? stg; basr; larl; (lgfi|iilf);( iihf;)? br;$"

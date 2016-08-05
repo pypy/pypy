@@ -1,10 +1,12 @@
 from rpython.rlib import rgc
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, r_dict
 from rpython.rlib.rarithmetic import ovfcheck, highest_bit
 from rpython.rtyper.lltypesystem import llmemory, lltype, rstr
+from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.jit.metainterp import history
 from rpython.jit.metainterp.history import ConstInt, ConstPtr
 from rpython.jit.metainterp.resoperation import ResOperation, rop, OpHelpers
+from rpython.jit.metainterp.typesystem import rd_eq, rd_hash
 from rpython.jit.codewriter import heaptracker
 from rpython.jit.backend.llsupport.symbolic import (WORD,
         get_array_token)
@@ -24,7 +26,8 @@ class BridgeExceptionNotFirst(Exception):
 class GcRewriterAssembler(object):
     """ This class performs the following rewrites on the list of operations:
 
-     - Turn all NEW_xxx to either a CALL_MALLOC_GC, or a CALL_MALLOC_NURSERY
+     - Turn all NEW_xxx to either a CALL_R/CHECK_MEMORY_ERROR,
+       or a CALL_MALLOC_NURSERY,
        followed by SETFIELDs in order to initialize their GC fields.  The
        two advantages of CALL_MALLOC_NURSERY is that it inlines the common
        path, and we need only one such operation to allocate several blocks
@@ -94,21 +97,28 @@ class GcRewriterAssembler(object):
         op = self.get_box_replacement(op)
         orig_op = op
         replaced = False
+        opnum = op.getopnum()
+        keep = (opnum == rop.JIT_DEBUG)
         for i in range(op.numargs()):
             orig_arg = op.getarg(i)
             arg = self.get_box_replacement(orig_arg)
+            if isinstance(arg, ConstPtr) and bool(arg.value) and not keep:
+                arg = self.remove_constptr(arg)
             if orig_arg is not arg:
                 if not replaced:
-                    op = op.copy_and_change(op.getopnum())
+                    op = op.copy_and_change(opnum)
                     orig_op.set_forwarded(op)
                     replaced = True
                 op.setarg(i, arg)
-        if rop.is_guard(op.opnum):
+        if rop.is_guard(opnum):
             if not replaced:
-                op = op.copy_and_change(op.getopnum())
+                op = op.copy_and_change(opnum)
                 orig_op.set_forwarded(op)
             op.setfailargs([self.get_box_replacement(a, True)
                             for a in op.getfailargs()])
+        if rop.is_guard(opnum) or opnum == rop.FINISH:
+            llref = cast_instance_to_gcref(op.getdescr())
+            self.gcrefs_output_list.append(llref)
         self._newops.append(op)
 
     def replace_op_with(self, op, newop):
@@ -283,6 +293,7 @@ class GcRewriterAssembler(object):
             basesize, itemsize, ofs_length = get_array_token(rstr.STR,
                                                  self.cpu.translate_support_code)
             assert itemsize == 1
+            basesize -= 1     # for the extra null character
             self.emit_gc_load_or_indexed(op, op.getarg(0), op.getarg(1),
                                          itemsize, itemsize, basesize, NOT_SIGNED)
         elif opnum == rop.UNICODEGETITEM:
@@ -294,6 +305,7 @@ class GcRewriterAssembler(object):
             basesize, itemsize, ofs_length = get_array_token(rstr.STR,
                                                  self.cpu.translate_support_code)
             assert itemsize == 1
+            basesize -= 1     # for the extra null character
             self.emit_gc_store_or_indexed(op, op.getarg(0), op.getarg(1), op.getarg(2),
                                          itemsize, itemsize, basesize)
         elif opnum == rop.UNICODESETITEM:
@@ -304,13 +316,16 @@ class GcRewriterAssembler(object):
         return False
 
 
-    def rewrite(self, operations):
+    def rewrite(self, operations, gcrefs_output_list):
         # we can only remember one malloc since the next malloc can possibly
         # collect; but we can try to collapse several known-size mallocs into
         # one, both for performance and to reduce the number of write
         # barriers.  We do this on each "basic block" of operations, which in
         # this case means between CALLs or unknown-size mallocs.
         #
+        self.gcrefs_output_list = gcrefs_output_list
+        self.gcrefs_map = None
+        self.gcrefs_recently_loaded = None
         operations = self.remove_bridge_exception(operations)
         self._changed_op = None
         for i in range(len(operations)):
@@ -333,8 +348,7 @@ class GcRewriterAssembler(object):
             elif rop.can_malloc(op.opnum):
                 self.emitting_an_operation_that_can_collect()
             elif op.getopnum() == rop.LABEL:
-                self.emitting_an_operation_that_can_collect()
-                self._known_lengths.clear()
+                self.emit_label()
             # ---------- write barriers ----------
             if self.gc_ll_descr.write_barrier_descr is not None:
                 if op.getopnum() == rop.SETFIELD_GC:
@@ -704,16 +718,17 @@ class GcRewriterAssembler(object):
         self._delayed_zero_setfields.clear()
 
     def _gen_call_malloc_gc(self, args, v_result, descr):
-        """Generate a CALL_MALLOC_GC with the given args."""
+        """Generate a CALL_R/CHECK_MEMORY_ERROR with the given args."""
         self.emitting_an_operation_that_can_collect()
-        op = ResOperation(rop.CALL_MALLOC_GC, args, descr=descr)
+        op = ResOperation(rop.CALL_R, args, descr=descr)
         self.replace_op_with(v_result, op)
         self.emit_op(op)
+        self.emit_op(ResOperation(rop.CHECK_MEMORY_ERROR, [op]))
         # In general, don't add v_result to write_barrier_applied:
         # v_result might be a large young array.
 
     def gen_malloc_fixedsize(self, size, typeid, v_result):
-        """Generate a CALL_MALLOC_GC(malloc_fixedsize_fn, ...).
+        """Generate a CALL_R(malloc_fixedsize_fn, ...).
         Used on Boehm, and on the framework GC for large fixed-size
         mallocs.  (For all I know this latter case never occurs in
         practice, but better safe than sorry.)
@@ -733,7 +748,7 @@ class GcRewriterAssembler(object):
         self.remember_write_barrier(v_result)
 
     def gen_boehm_malloc_array(self, arraydescr, v_num_elem, v_result):
-        """Generate a CALL_MALLOC_GC(malloc_array_fn, ...) for Boehm."""
+        """Generate a CALL_R(malloc_array_fn, ...) for Boehm."""
         addr = self.gc_ll_descr.get_malloc_fn_addr('malloc_array')
         self._gen_call_malloc_gc([ConstInt(addr),
                                   ConstInt(arraydescr.basesize),
@@ -744,7 +759,7 @@ class GcRewriterAssembler(object):
                                  self.gc_ll_descr.malloc_array_descr)
 
     def gen_malloc_array(self, arraydescr, v_num_elem, v_result):
-        """Generate a CALL_MALLOC_GC(malloc_array_fn, ...) going either
+        """Generate a CALL_R(malloc_array_fn, ...) going either
         to the standard or the nonstandard version of the function."""
         #
         if (arraydescr.basesize == self.gc_ll_descr.standard_array_basesize
@@ -771,13 +786,13 @@ class GcRewriterAssembler(object):
         self._gen_call_malloc_gc(args, v_result, calldescr)
 
     def gen_malloc_str(self, v_num_elem, v_result):
-        """Generate a CALL_MALLOC_GC(malloc_str_fn, ...)."""
+        """Generate a CALL_R(malloc_str_fn, ...)."""
         addr = self.gc_ll_descr.get_malloc_fn_addr('malloc_str')
         self._gen_call_malloc_gc([ConstInt(addr), v_num_elem], v_result,
                                  self.gc_ll_descr.malloc_str_descr)
 
     def gen_malloc_unicode(self, v_num_elem, v_result):
-        """Generate a CALL_MALLOC_GC(malloc_unicode_fn, ...)."""
+        """Generate a CALL_R(malloc_unicode_fn, ...)."""
         addr = self.gc_ll_descr.get_malloc_fn_addr('malloc_unicode')
         self._gen_call_malloc_gc([ConstInt(addr), v_num_elem], v_result,
                                  self.gc_ll_descr.malloc_unicode_descr)
@@ -940,3 +955,37 @@ class GcRewriterAssembler(object):
                 operations[start+2].getopnum() == rop.RESTORE_EXCEPTION):
                 return operations[:start] + operations[start+3:]
         return operations
+
+    def emit_label(self):
+        self.emitting_an_operation_that_can_collect()
+        self._known_lengths.clear()
+        self.gcrefs_recently_loaded = None
+
+    def _gcref_index(self, gcref):
+        if self.gcrefs_map is None:
+            self.gcrefs_map = r_dict(rd_eq, rd_hash)
+        try:
+            return self.gcrefs_map[gcref]
+        except KeyError:
+            pass
+        index = len(self.gcrefs_output_list)
+        self.gcrefs_map[gcref] = index
+        self.gcrefs_output_list.append(gcref)
+        return index
+
+    def remove_constptr(self, c):
+        """Remove all ConstPtrs, and replace them with load_from_gc_table.
+        """
+        # Note: currently, gcrefs_recently_loaded is only cleared in
+        # LABELs.  We'd like something better, like "don't spill it",
+        # but that's the wrong level...
+        index = self._gcref_index(c.value)
+        if self.gcrefs_recently_loaded is None:
+            self.gcrefs_recently_loaded = {}
+        try:
+            load_op = self.gcrefs_recently_loaded[index]
+        except KeyError:
+            load_op = ResOperation(rop.LOAD_FROM_GC_TABLE, [ConstInt(index)])
+            self._newops.append(load_op)
+            self.gcrefs_recently_loaded[index] = load_op
+        return load_op

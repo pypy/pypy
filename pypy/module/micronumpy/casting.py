@@ -3,7 +3,7 @@
 from rpython.rlib import jit
 from rpython.rlib.signature import signature, types as ann
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.interpreter.error import oefmt, OperationError
+from pypy.interpreter.error import OperationError, oefmt
 
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy import constants as NPY
@@ -326,7 +326,7 @@ def scalar2dtype(space, w_obj):
     elif space.isinstance_w(w_obj, space.w_long):
         try:
             space.int_w(w_obj)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, space.w_OverflowError):
                 if space.is_true(space.le(w_obj, space.wrap(0))):
                     return int64_dtype

@@ -1,4 +1,6 @@
-import py
+import sys
+
+import py, pytest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
 
@@ -22,8 +24,6 @@ class AppTestVersion(AppTestCpythonExtensionBase):
             PyModule_AddIntConstant(m, "py_major_version", PY_MAJOR_VERSION);
             PyModule_AddIntConstant(m, "py_minor_version", PY_MINOR_VERSION);
             PyModule_AddIntConstant(m, "py_micro_version", PY_MICRO_VERSION);
-            PyModule_AddStringConstant(m, "pypy_version", PYPY_VERSION);
-            PyModule_AddIntConstant(m, "pypy_version_num", PYPY_VERSION_NUM);
         }
         """
         module = self.import_module(name='foo', init=init)
@@ -31,6 +31,18 @@ class AppTestVersion(AppTestCpythonExtensionBase):
         assert module.py_major_version == sys.version_info.major
         assert module.py_minor_version == sys.version_info.minor
         assert module.py_micro_version == sys.version_info.micro
+
+    @pytest.mark.skipif('__pypy__' not in sys.builtin_module_names, reason='pypy only test')
+    def test_pypy_versions(self):
+        import sys
+        init = """
+        if (Py_IsInitialized()) {
+            PyObject *m = Py_InitModule("foo", NULL);
+            PyModule_AddStringConstant(m, "pypy_version", PYPY_VERSION);
+            PyModule_AddIntConstant(m, "pypy_version_num", PYPY_VERSION_NUM);
+        }
+        """
+        module = self.import_module(name='foo', init=init)
         v = sys.pypy_version_info
         s = '%d.%d.%d' % (v[0], v[1], v[2])
         if v.releaselevel != 'final':

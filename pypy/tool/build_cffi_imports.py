@@ -13,6 +13,7 @@ cffi_build_scripts = {
     "syslog": "_syslog_build.py" if sys.platform != "win32" else None,
     "gdbm": "_gdbm_build.py"  if sys.platform != "win32" else None,
     "pwdgrp": "_pwdgrp_build.py" if sys.platform != "win32" else None,
+    "resource": "_resource_build.py" if sys.platform != "win32" else None,
     "xx": None,    # for testing: 'None' should be completely ignored
     }
 
@@ -61,8 +62,8 @@ if __name__ == '__main__':
     print >> sys.stderr, "There should be no failures here"
     failures = create_cffi_import_libraries(exename, options, basedir)
     if len(failures) > 0:
-        print 'failed to build', [f[1] for f in failures]
-        assert False
+        print '*** failed to build', [f[1] for f in failures]
+        sys.exit(1)
 
     # monkey patch a failure, just to test
     print >> sys.stderr, 'This line should be followed by a traceback'

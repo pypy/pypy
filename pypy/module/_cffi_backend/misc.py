@@ -1,6 +1,6 @@
 from __future__ import with_statement
 
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize
@@ -132,7 +132,7 @@ def as_long_long(space, w_ob):
         return space.int_w(w_ob)
     try:
         bigint = space.bigint_w(w_ob, allow_conversion=False)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise
         if _is_a_float(space, w_ob):
@@ -149,7 +149,7 @@ def as_long(space, w_ob):
         return space.int_w(w_ob)
     try:
         bigint = space.bigint_w(w_ob, allow_conversion=False)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise
         if _is_a_float(space, w_ob):
@@ -172,7 +172,7 @@ def as_unsigned_long_long(space, w_ob, strict):
         return r_ulonglong(value)
     try:
         bigint = space.bigint_w(w_ob, allow_conversion=False)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise
         if strict and _is_a_float(space, w_ob):
@@ -197,7 +197,7 @@ def as_unsigned_long(space, w_ob, strict):
         return r_uint(value)
     try:
         bigint = space.bigint_w(w_ob, allow_conversion=False)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise
         if strict and _is_a_float(space, w_ob):
@@ -256,7 +256,7 @@ _is_nonnull_longdouble = rffi.llexternal(
 def is_nonnull_longdouble(cdata):
     return _is_nonnull_longdouble(read_raw_longdouble_data(cdata))
 def is_nonnull_float(cdata, size):
-    return read_raw_float_data(cdata, size) != 0.0
+    return read_raw_float_data(cdata, size) != 0.0    # note: True if a NaN
 
 def object_as_bool(space, w_ob):
     # convert and cast a Python object to a boolean.  Accept an integer
@@ -285,8 +285,7 @@ def object_as_bool(space, w_ob):
     try:
         return _standard_object_as_bool(space, w_io)
     except _NotStandardObject:
-        raise OperationError(space.w_TypeError,
-                             space.wrap("integer/float expected"))
+        raise oefmt(space.w_TypeError, "integer/float expected")
 
 # ____________________________________________________________
 
@@ -300,8 +299,7 @@ def get_new_array_length(space, w_value):
     else:
         explicitlength = space.getindex_w(w_value, space.w_OverflowError)
         if explicitlength < 0:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("negative array length"))
+            raise oefmt(space.w_ValueError, "negative array length")
         return (space.w_None, explicitlength)
 
 # ____________________________________________________________

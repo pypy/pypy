@@ -1,16 +1,17 @@
 import sys
 
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.baseobjspace import W_Root, SpaceCache
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from pypy.module.cpyext.api import (
     cpython_api, bootstrap_function, PyObject, PyObjectP, ADDR,
     CANNOT_FAIL, Py_TPFLAGS_HEAPTYPE, PyTypeObjectPtr, is_PyObject,
-    INTERPLEVEL_API)
+    INTERPLEVEL_API, PyVarObject)
 from pypy.module.cpyext.state import State
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.objspace.std.objectobject import W_ObjectObject
-from rpython.rlib.objectmodel import specialize, we_are_translated
+from rpython.rlib.objectmodel import specialize
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib import rawrefcount
@@ -46,14 +47,18 @@ class BaseCpyTypedescr(object):
             size = pytype.c_tp_basicsize
         else:
             size = rffi.sizeof(self.basestruct)
-        if itemcount:
+        if pytype.c_tp_itemsize:
             size += itemcount * pytype.c_tp_itemsize
         assert size >= rffi.sizeof(PyObject.TO)
         buf = lltype.malloc(rffi.VOIDP.TO, size,
                             flavor='raw', zero=True,
                             add_memory_pressure=True)
         pyobj = rffi.cast(PyObject, buf)
+        if pytype.c_tp_itemsize:
+            pyvarobj = rffi.cast(PyVarObject, pyobj)
+            pyvarobj.c_ob_size = itemcount
         pyobj.c_ob_refcnt = 1
+        #pyobj.c_ob_pypy_link should get assigned very quickly
         pyobj.c_ob_type = pytype
         return pyobj
 
@@ -62,7 +67,15 @@ class BaseCpyTypedescr(object):
 
     def realize(self, space, obj):
         w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
-        w_obj = space.allocate_instance(self.W_BaseObject, w_type)
+        try:
+            w_obj = space.allocate_instance(self.W_BaseObject, w_type)
+        except OperationError as e:
+            if e.match(space, space.w_TypeError):
+                raise oefmt(space.w_SystemError,
+                            "cpyext: don't know how to make a '%N' object "
+                            "from a PyObject",
+                            w_type)
+            raise
         track_reference(space, obj, w_obj)
         return w_obj
 
@@ -92,7 +105,7 @@ def make_typedescr(typedef, **kw):
 
         if tp_alloc:
             def allocate(self, space, w_type, itemcount=0):
-                return tp_alloc(space, w_type)
+                return tp_alloc(space, w_type, itemcount)
 
         if tp_dealloc:
             def get_dealloc(self, space):
@@ -142,24 +155,18 @@ def get_typedescr(typedef):
 class InvalidPointerException(Exception):
     pass
 
-DEBUG_REFCOUNT = False
-
-def debug_refcount(*args, **kwargs):
-    frame_stackdepth = kwargs.pop("frame_stackdepth", 2)
-    assert not kwargs
-    frame = sys._getframe(frame_stackdepth)
-    print >>sys.stderr, "%25s" % (frame.f_code.co_name, ),
-    for arg in args:
-        print >>sys.stderr, arg,
-    print >>sys.stderr
-
-def create_ref(space, w_obj, itemcount=0):
+def create_ref(space, w_obj):
     """
     Allocates a PyObject, and fills its fields with info from the given
     interpreter object.
     """
     w_type = space.type(w_obj)
+    pytype = rffi.cast(PyTypeObjectPtr, as_pyobj(space, w_type))
     typedescr = get_typedescr(w_obj.typedef)
+    if pytype.c_tp_itemsize != 0:
+        itemcount = space.len_w(w_obj) # PyBytesObject and subclasses
+    else:
+        itemcount = 0
     py_obj = typedescr.allocate(space, w_type, itemcount=itemcount)
     track_reference(space, py_obj, w_obj)
     #
@@ -182,10 +189,6 @@ def track_reference(space, py_obj, w_obj):
     # XXX looks like a PyObject_GC_TRACK
     assert py_obj.c_ob_refcnt < rawrefcount.REFCNT_FROM_PYPY
     py_obj.c_ob_refcnt += rawrefcount.REFCNT_FROM_PYPY
-    if DEBUG_REFCOUNT:
-        debug_refcount("MAKREF", py_obj, w_obj)
-        assert w_obj
-        assert py_obj
     rawrefcount.create_link_pypy(w_obj, py_obj)
 
 
@@ -209,11 +212,6 @@ def from_ref(space, ref):
     w_type = from_ref(space, ref_type)
     assert isinstance(w_type, W_TypeObject)
     return get_typedescr(w_type.layout.typedef).realize(space, ref)
-
-
-def debug_collect():
-    rawrefcount._collect()
-
 
 def as_pyobj(space, w_obj):
     """
@@ -326,6 +324,7 @@ def Py_DecRef(space, obj):
 @cpython_api([PyObject], lltype.Void)
 def _Py_NewReference(space, obj):
     obj.c_ob_refcnt = 1
+    # XXX is it always useful to create the W_Root object here?
     w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
     assert isinstance(w_type, W_TypeObject)
     get_typedescr(w_type.layout.typedef).realize(space, obj)

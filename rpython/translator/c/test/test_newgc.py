@@ -3,6 +3,7 @@ import inspect
 import os
 import sys
 import subprocess
+import random
 
 import py
 
@@ -69,7 +70,7 @@ class UsingFrameworkTest(object):
             if not fullname.startswith('define'):
                 continue
             keyword = option.keyword
-            if keyword.startswith('test_'):
+            if keyword.startswith('test_') and not keyword.endswith(':'):
                 keyword = keyword[len('test_'):]
                 if keyword not in fullname:
                     continue
@@ -93,6 +94,7 @@ class UsingFrameworkTest(object):
                     funcs1.append(func)
             assert name not in name_to_func
             name_to_func[name] = len(name_to_func)
+        assert name_to_func
 
         def allfuncs(name, arg):
             num = name_to_func[name]
@@ -1466,6 +1468,52 @@ class TestSemiSpaceGC(UsingFrameworkTest, snippet.SemiSpaceGCTestDefines):
     def test_nursery_hash_base(self):
         res = self.run('nursery_hash_base')
         assert res >= 195
+
+    def define_extra_item_after_alloc(cls):
+        from rpython.rtyper.lltypesystem import rstr
+        # all STR objects should be allocated with enough space for
+        # one extra char.  Check this with our GCs.  Use strings of 8,
+        # 16 and 24 chars because if the extra char is missing,
+        # writing to it is likely to cause corruption in nearby
+        # structures.
+        sizes = [random.choice([8, 16, 24]) for i in range(100)]
+        A = lltype.Struct('A', ('x', lltype.Signed))
+        prebuilt = [(rstr.mallocstr(sz),
+                     lltype.malloc(A, flavor='raw', immortal=True))
+                        for sz in sizes]
+        k = 0
+        for i, (s, a) in enumerate(prebuilt):
+            a.x = i
+            for i in range(len(s.chars)):
+                k += 1
+                if k == 256:
+                    k = 1
+                s.chars[i] = chr(k)
+
+        def check(lst):
+            hashes = []
+            for i, (s, a) in enumerate(lst):
+                assert a.x == i
+                rgc.ll_write_final_null_char(s)
+            for i, (s, a) in enumerate(lst):
+                assert a.x == i     # check it was not overwritten
+        def fn():
+            check(prebuilt)
+            lst1 = []
+            for i, sz in enumerate(sizes):
+                s = rstr.mallocstr(sz)
+                a = lltype.malloc(A, flavor='raw')
+                a.x = i
+                lst1.append((s, a))
+            check(lst1)
+            for _, a in lst1:
+                lltype.free(a, flavor='raw')
+            return 42
+        return fn
+
+    def test_extra_item_after_alloc(self):
+        res = self.run('extra_item_after_alloc')
+        assert res == 42
 
 
 class TestGenerationalGC(TestSemiSpaceGC):

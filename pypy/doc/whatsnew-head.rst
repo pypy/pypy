@@ -1,38 +1,121 @@
-=========================
-What's new in PyPy 5.0.+
-=========================
+==========================
+What's new in PyPy2.7 5.3+
+==========================
 
-.. this is a revision shortly after release-5.0
-.. startrev: b238b48f9138
+.. this is a revision shortly after release-pypy2.7-v5.3
+.. startrev: 873218a739f1
 
-.. branch: s390x-backend
+.. 418b05f95db5
+Improve CPython compatibility for ``is``. Now code like ``if x is ():``
+works the same way as it does on CPython.  See http://pypy.readthedocs.io/en/latest/cpython_differences.html#object-identity-of-primitive-values-is-and-id .
 
-The jit compiler backend implementation for the s390x architecutre.
-The backend manages 64-bit values in the literal pool of the assembly instead of loading them as immediates.
-It includes a simplification for the operation 'zero_array'. Start and length parameters are bytes instead of size.
+.. pull request #455
+Add sys.{get,set}dlopenflags, for cpyext extensions.
 
-.. branch: remove-py-log
+.. branch: fix-gen-dfa
 
-Replace py.log with something simpler, which should speed up logging
+Resolves an issue with the generator script to build the dfa for Python syntax.
 
-.. branch: where_1_arg
+.. branch: z196-support
 
-Implemented numpy.where for 1 argument (thanks sergem)
+Fixes a critical issue in the register allocator and extends support on s390x.
+PyPy runs and translates on the s390x revisions z10 (released February 2008, experimental)
+and z196 (released August 2010) in addition to zEC12 and z13.
+To target e.g. z196 on a zEC12 machine supply CFLAGS="-march=z196" to your shell environment.
 
-.. branch: fix_indexing_by_numpy_int
+.. branch: s390x-5.3-catchup
 
-Implement yet another strange numpy indexing compatibility; indexing by a scalar 
-returns a scalar
+Implement the backend related changes for s390x.
 
-.. branch: fix_transpose_for_list_v3
+.. branch: incminimark-ll_assert
+.. branch: vmprof-openbsd
 
-Allow arguments to transpose to be sequences
+.. branch: testing-cleanup
 
-.. branch: jit-leaner-frontend
+Simplify handling of interp-level tests and make it more forward-
+compatible.
 
-Improve the tracing speed in the frontend as well as heapcache by using a more compact representation
-of traces
+.. branch: pyfile-tell
+Sync w_file with the c-level FILE* before returning FILE* in PyFile_AsFile
 
-.. branch: win32-lib-name
+.. branch: rw-PyString_AS_STRING
+Allow rw access to the char* returned from PyString_AS_STRING, also refactor
+PyStringObject to look like cpython's and allow subclassing PyString_Type and
+PyUnicode_Type
 
-.. branch: remove-frame-forcing-in-executioncontext
+.. branch: save_socket_errno
+
+Bug fix: if ``socket.socket()`` failed, the ``socket.error`` did not show
+the errno of the failing system call, but instead some random previous
+errno.
+
+.. branch: PyTuple_Type-subclass
+
+Refactor PyTupleObject to look like cpython's and allow subclassing 
+PyTuple_Type
+
+.. branch: call-via-pyobj
+
+Use offsets from PyTypeObject to find actual c function to call rather than
+fixed functions, allows function override after PyType_Ready is called
+
+.. branch: issue2335
+
+Avoid exhausting the stack in the JIT due to successive guard
+failures in the same Python function ending up as successive levels of
+RPython functions, while at app-level the traceback is very short
+
+.. branch: use-madv-free
+
+Try harder to memory to the OS.  See e.g. issue #2336.  Note that it does
+not show up as a reduction of the VIRT column in ``top``, and the RES
+column might also not show the reduction, particularly on Linux >= 4.5 or
+on OS/X: it uses MADV_FREE, which only marks the pages as returnable to
+the OS if the memory is low.
+
+.. branch: cpyext-slotdefs2
+
+Fill in more slots when creating a PyTypeObject from a W_TypeObject
+More slots are still TBD, like tp_print and richcmp
+
+.. branch: json-surrogates
+
+Align json module decode with the cpython's impl, fixes issue 2345
+
+.. branch: issue2343
+
+Copy CPython's logic more closely for handling of ``__instancecheck__()``
+and ``__subclasscheck__()``.  Fixes issue 2343.
+
+.. branch: msvcrt-cffi
+
+Rewrite the Win32 dependencies of 'subprocess' to use cffi instead
+of ctypes. This avoids importing ctypes in many small programs and
+scripts, which in turn avoids enabling threads (because ctypes
+creates callbacks at import time, and callbacks need threads).
+
+.. branch: new-jit-log
+
+The new logging facility that integrates with and adds features to vmprof.com.
+
+.. branch: jitlog-32bit
+
+Resolve issues to use the new logging facility on a 32bit system
+
+.. branch: ep2016sprint
+
+Trying harder to make hash(-1) return -2, like it does on CPython
+
+.. branch: jitlog-exact-source-lines
+
+Log exact line positions in debug merge points.
+
+.. branch: null_byte_after_str
+
+Allocate all RPython strings with one extra byte, normally unused.
+It is used to hold a final zero in case we need some ``char *``
+representation of the string, together with checks like ``not
+can_move()`` or object pinning. Main new thing that this allows:
+``ffi.from_buffer(string)`` in CFFI.  Additionally, and most
+importantly, CFFI calls that take directly a string as argument don't
+copy the string any more---this is like CFFI on CPython.

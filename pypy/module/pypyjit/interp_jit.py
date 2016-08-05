@@ -6,6 +6,7 @@ This is transformed to become a JIT by code elsewhere: rpython/jit/*
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.jit import JitDriver, hint, we_are_jitted, dont_look_inside
 from rpython.rlib import jit, jit_hooks
+from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.rlib.jit import current_trace_length, unroll_parameters,\
      JitHookInterface
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
@@ -41,6 +42,21 @@ def get_unique_id(next_instr, is_being_profiled, bytecode):
     from rpython.rlib import rvmprof
     return rvmprof.get_unique_id(bytecode)
 
+@jl.returns(jl.MP_FILENAME, jl.MP_LINENO,
+            jl.MP_SCOPE, jl.MP_INDEX, jl.MP_OPCODE)
+def get_location(next_instr, is_being_profiled, bytecode):
+    from pypy.tool.stdlib_opcode import opcode_method_names
+    from rpython.tool.error import offset2lineno
+    bcindex = ord(bytecode.co_code[next_instr])
+    opname = ""
+    if 0 <= bcindex < len(opcode_method_names):
+        opname = opcode_method_names[bcindex]
+    name = bytecode.co_name
+    if not name:
+        name = ""
+    line = offset2lineno(bytecode, intmask(next_instr))
+    return (bytecode.co_filename, line,
+            name, intmask(next_instr), opname)
 
 def should_unroll_one_iteration(next_instr, is_being_profiled, bytecode):
     return (bytecode.co_flags & CO_GENERATOR) != 0
@@ -51,6 +67,7 @@ class PyPyJitDriver(JitDriver):
     virtualizables = ['frame']
 
 pypyjitdriver = PyPyJitDriver(get_printable_location = get_printable_location,
+                              get_location = get_location,
                               get_unique_id = get_unique_id,
                               should_unroll_one_iteration =
                               should_unroll_one_iteration,
@@ -136,8 +153,7 @@ def set_param(space, __args__):
         try:
             jit.set_user_param(None, text)
         except ValueError:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("error in JIT parameters string"))
+            raise oefmt(space.w_ValueError, "error in JIT parameters string")
     for key, w_value in kwds_w.items():
         if key == 'enable_opts':
             jit.set_param(None, 'enable_opts', space.str_w(w_value))

@@ -22,6 +22,8 @@ MODIFY_COMPLEX_OBJ = [ (rop.SETARRAYITEM_GC, 0, 1)
                      , (rop.UNICODESETITEM, 0, -1)
                      ]
 
+UNROLLED_MODIFY_COMPLEX_OBJ = unrolling_iterable(MODIFY_COMPLEX_OBJ)
+
 LOAD_COMPLEX_OBJ = [ (rop.GETARRAYITEM_GC_I, 0, 1)
                    , (rop.GETARRAYITEM_GC_F, 0, 1)
                    , (rop.GETARRAYITEM_GC_R, 0, 1)
@@ -39,6 +41,8 @@ LOAD_COMPLEX_OBJ = [ (rop.GETARRAYITEM_GC_I, 0, 1)
                    , (rop.GETFIELD_RAW_F, 0, -1)
                    , (rop.GETFIELD_RAW_R, 0, -1)
                    ]
+
+UNROLLED_LOAD_COMPLEX_OBJ = unrolling_iterable(LOAD_COMPLEX_OBJ)
 
 class Path(object):
     def __init__(self,path):
@@ -202,7 +206,7 @@ class Node(object):
         args = []
         op = self.op
         if self.modifies_complex_object():
-            for opnum, i, j in unrolling_iterable(MODIFY_COMPLEX_OBJ):
+            for opnum, i, j in UNROLLED_MODIFY_COMPLEX_OBJ: #unrolling_iterable(MODIFY_COMPLEX_OBJ):
                 if op.getopnum() == opnum:
                     op_args = op.getarglist()
                     if j == -1:
@@ -723,7 +727,7 @@ class DependencyGraph(object):
         if node.loads_from_complex_object():
             # If this complex object load operation loads an index that has been
             # modified, the last modification should be used to put a def-use edge.
-            for opnum, i, j in unrolling_iterable(LOAD_COMPLEX_OBJ):
+            for opnum, i, j in UNROLLED_LOAD_COMPLEX_OBJ:
                 if opnum == op.getopnum():
                     cobj = op.getarg(i)
                     if j != -1:
@@ -929,10 +933,10 @@ class IntegralForwardModification(object):
     """
     exec py.code.Source(multiplicative_func_source
             .format(name='INT_MUL', op='*', tgt='mul', cop='*')).compile()
-    exec py.code.Source(multiplicative_func_source
-            .format(name='INT_FLOORDIV', op='*', tgt='div', cop='/')).compile()
-    exec py.code.Source(multiplicative_func_source
-            .format(name='UINT_FLOORDIV', op='*', tgt='div', cop='/')).compile()
+    #exec py.code.Source(multiplicative_func_source
+    #        .format(name='INT_PY_DIV', op='*', tgt='div', cop='/')).compile()
+    #exec py.code.Source(multiplicative_func_source
+    #        .format(name='UINT_FLOORDIV', op='*', tgt='div', cop='/')).compile()
     del multiplicative_func_source
 
     array_access_source = """
@@ -1042,9 +1046,11 @@ class IndexVar(AbstractValue):
             var = ResOperation(rop.INT_MUL, args)
             opt.emit_operation(var)
         if self.coefficient_div != 1:
-            args = [var, ConstInt(self.coefficient_div)]
-            var = ResOperation(rop.INT_FLOORDIV, args)
-            opt.emit_operation(var)
+            assert 0   # XXX for now; should never be the case with handling
+                       # of INT_PY_DIV commented out in this file...
+            #args = [var, ConstInt(self.coefficient_div)]
+            #var = ResOperation(rop.INT_FLOORDIV, args)
+            #opt.emit_operation(var)
         if self.constant > 0:
             args = [var, ConstInt(self.constant)]
             var = ResOperation(rop.INT_ADD, args)

@@ -586,11 +586,6 @@ OBJ_NAME_do_all = external(
 HASH_MALLOC_SIZE = EVP_MD_SIZE + EVP_MD_CTX_SIZE \
         + rffi.sizeof(EVP_MD) * 2 + 208
 
-OBJ_NAME_CALLBACK = lltype.Ptr(lltype.FuncType(
-        [OBJ_NAME, rffi.VOIDP], lltype.Void))
-OBJ_NAME_do_all = external(
-    'OBJ_NAME_do_all', [rffi.INT, OBJ_NAME_CALLBACK, rffi.VOIDP], lltype.Void)
-
 def init_ssl():
     libssl_SSL_load_error_strings()
     libssl_SSL_library_init()

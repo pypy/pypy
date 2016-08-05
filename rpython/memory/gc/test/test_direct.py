@@ -8,7 +8,7 @@ see as the list of roots (stack and prebuilt objects).
 
 import py
 from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.memory.gctypelayout import TypeLayoutBuilder
+from rpython.memory.gctypelayout import TypeLayoutBuilder, FIN_HANDLER_ARRAY
 from rpython.rlib.rarithmetic import LONG_BIT, is_valid_int
 from rpython.memory.gc import minimark, incminimark
 from rpython.memory.gctypelayout import zero_gc_pointers_inside, zero_gc_pointers
@@ -84,7 +84,9 @@ class BaseDirectGCTest(object):
         self.gc.set_root_walker(self.rootwalker)
         self.layoutbuilder = TypeLayoutBuilder(self.GCClass)
         self.get_type_id = self.layoutbuilder.get_type_id
-        self.layoutbuilder.initialize_gc_query_function(self.gc)
+        gcdata = self.layoutbuilder.initialize_gc_query_function(self.gc)
+        ll_handlers = lltype.malloc(FIN_HANDLER_ARRAY, 0, immortal=True)
+        gcdata.finalizer_handlers = llmemory.cast_ptr_to_adr(ll_handlers)
         self.gc.setup()
 
     def consider_constant(self, p):
@@ -552,6 +554,7 @@ class TestMiniMarkGCSimple(DirectGCTest):
         assert res # we optimized it
         assert hdr_dst.tid & minimark.GCFLAG_TRACK_YOUNG_PTRS == 0 # and we copied the flag
         #
+        self.gc.card_page_indices = 128     # force > 0
         hdr_src.tid |= minimark.GCFLAG_TRACK_YOUNG_PTRS
         hdr_dst.tid |= minimark.GCFLAG_TRACK_YOUNG_PTRS
         hdr_src.tid |= minimark.GCFLAG_HAS_CARDS
@@ -617,7 +620,7 @@ class TestIncrementalMiniMarkGCSimple(TestMiniMarkGCSimple):
         oldhdr = self.gc.header(llmemory.cast_ptr_to_adr(oldobj))
         assert oldhdr.tid & incminimark.GCFLAG_VISITED == 0
 
-        self.gc.minor_collection()
+        self.gc._minor_collection()
         self.gc.visit_all_objects_step(1)
 
         assert oldhdr.tid & incminimark.GCFLAG_VISITED
@@ -628,7 +631,7 @@ class TestIncrementalMiniMarkGCSimple(TestMiniMarkGCSimple):
 
         assert self.gc.header(self.gc.old_objects_pointing_to_young.tolist()[0]) == oldhdr
 
-        self.gc.minor_collection()
+        self.gc._minor_collection()
         self.gc.debug_check_consistency()
 
     def test_sweeping_simple(self):

@@ -348,19 +348,30 @@ class LLHelperEntry(extregistry.ExtRegistryEntry):
     _about_ = llhelper
 
     def compute_result_annotation(self, s_F, s_callable):
+        from rpython.annotator.description import FunctionDesc
         assert s_F.is_constant()
-        assert s_callable.is_constant()
+        assert isinstance(s_callable, annmodel.SomePBC)
         F = s_F.const
         FUNC = F.TO
         args_s = [lltype_to_annotation(T) for T in FUNC.ARGS]
-        key = (llhelper, s_callable.const)
-        s_res = self.bookkeeper.emulate_pbc_call(key, s_callable, args_s)
-        assert lltype_to_annotation(FUNC.RESULT).contains(s_res)
+        for desc in s_callable.descriptions:
+            assert isinstance(desc, FunctionDesc)
+            assert desc.pyobj is not None
+            if s_callable.is_constant():
+                assert s_callable.const is desc.pyobj
+            key = (llhelper, desc.pyobj)
+            s_res = self.bookkeeper.emulate_pbc_call(key, s_callable, args_s)
+            assert lltype_to_annotation(FUNC.RESULT).contains(s_res)
         return SomePtr(F)
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
-        return hop.args_r[1].get_unique_llfn()
+        if hop.args_s[1].is_constant():
+            return hop.args_r[1].get_unique_llfn()
+        else:
+            F = hop.args_s[0].const
+            assert hop.args_r[1].lowleveltype == F
+            return hop.inputarg(hop.args_r[1], 1)
 
 # ____________________________________________________________
 
@@ -471,6 +482,15 @@ def cast_instance_to_gcref(instance):
     return lltype.cast_opaque_ptr(llmemory.GCREF,
                                   cast_instance_to_base_ptr(instance))
 
+@specialize.argtype(0)
+def cast_nongc_instance_to_base_ptr(instance):
+    from rpython.rtyper.rclass import NONGCOBJECTPTR
+    return cast_object_to_ptr(NONGCOBJECTPTR, instance)
+
+@specialize.argtype(0)
+def cast_nongc_instance_to_adr(instance):
+    return llmemory.cast_ptr_to_adr(cast_nongc_instance_to_base_ptr(instance))
+
 class CastObjectToPtrEntry(extregistry.ExtRegistryEntry):
     _about_ = cast_object_to_ptr
 
@@ -512,12 +532,20 @@ def cast_base_ptr_to_instance(Class, ptr):
                                   % (ptr, Class))
     return ptr
 
+cast_base_ptr_to_nongc_instance = cast_base_ptr_to_instance
+
 @specialize.arg(0)
 def cast_gcref_to_instance(Class, ptr):
     """Reverse the hacking done in cast_instance_to_gcref()."""
     from rpython.rtyper.rclass import OBJECTPTR
     ptr = lltype.cast_opaque_ptr(OBJECTPTR, ptr)
     return cast_base_ptr_to_instance(Class, ptr)
+
+@specialize.arg(0)
+def cast_adr_to_nongc_instance(Class, ptr):
+    from rpython.rtyper.rclass import NONGCOBJECTPTR
+    ptr = llmemory.cast_adr_to_ptr(ptr, NONGCOBJECTPTR)
+    return cast_base_ptr_to_nongc_instance(Class, ptr)
 
 class CastBasePtrToInstanceEntry(extregistry.ExtRegistryEntry):
     _about_ = cast_base_ptr_to_instance

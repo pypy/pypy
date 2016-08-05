@@ -133,6 +133,12 @@ class TestFunctions(BaseCTypesTestChecker):
         # You cannot assing character format codes as restype any longer
         raises(TypeError, setattr, f, "restype", "i")
 
+    def test_unicode_function_name(self):
+        f = dll[u'_testfunc_i_bhilfd']
+        f.argtypes = [c_byte, c_short, c_int, c_long, c_float, c_double]
+        f.restype = c_int
+        result = f(1, 2, 3, 4, 5.0, 6.0)
+        assert result == 21
 
     def test_truncate_python_longs(self):
         f = dll._testfunc_i_bhilfd
