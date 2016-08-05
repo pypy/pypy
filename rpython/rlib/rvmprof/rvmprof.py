@@ -25,6 +25,10 @@ class VMProfError(Exception):
     def __str__(self):
         return self.msg
 
+class FakeWeakCodeObjectList(object):
+    def add_handle(self, handle):
+        pass
+
 class VMProf(object):
 
     _immutable_fields_ = ['is_enabled?']
@@ -90,6 +94,8 @@ class VMProf(object):
                 self.initialize()
         if self.use_weaklist:
             CodeClass._vmprof_weak_list = WeakCodeObjectList()
+        else:
+            CodeClass._vmprof_weak_list = FakeWeakCodeObjectList()
         #
         def gather_all_code_objs():
             all_code_wrefs = CodeClass._vmprof_weak_list.get_all_handles()
