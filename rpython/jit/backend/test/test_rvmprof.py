@@ -37,7 +37,8 @@ class BaseRVMProfTest(object):
 
         register_code_object_class(CodeObj, get_name)
 
-        @vmprof_execute_code("main", get_code_fn)
+        @vmprof_execute_code("main", get_code_fn,
+                             _hack_update_stack_untranslated=True)
         def f(code, n):
             i = 0
             while i < n:
@@ -46,7 +47,6 @@ class BaseRVMProfTest(object):
                 llfn()
 
         def main(n):
-            cintf.vmprof_tl_stack.setraw(null)   # make it empty
             vmprof = _get_vmprof()
             code = CodeObj()
             register_code(code, get_name)
@@ -59,6 +59,7 @@ class BaseRVMProfTest(object):
         hooks = Hooks()
 
         null = lltype.nullptr(cintf.VMPROFSTACK)
+        cintf.vmprof_tl_stack.setraw(null)
         self.meta_interp(main, [10], policy=JitPolicy(hooks))
         print visited
         #v = set(visited)

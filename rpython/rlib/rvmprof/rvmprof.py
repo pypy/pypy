@@ -4,7 +4,7 @@ from rpython.rlib import jit, rposix
 from rpython.rlib.rvmprof import cintf
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
-from rpython.rtyper.lltypesystem import rffi, llmemory
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.rweaklist import RWeakListMixin
 
@@ -140,7 +140,8 @@ class VMProf(object):
         if self.cintf.vmprof_register_virtual_function(name, uid, 500000) < 0:
             raise VMProfError("vmprof buffers full!  disk full or too slow")
 
-def vmprof_execute_code(name, get_code_fn, result_class=None):
+def vmprof_execute_code(name, get_code_fn, result_class=None,
+                        _hack_update_stack_untranslated=False):
     """Decorator to be used on the function that interprets a code object.
 
     'name' must be a unique name.
@@ -150,6 +151,18 @@ def vmprof_execute_code(name, get_code_fn, result_class=None):
 
     'result_class' is ignored (backward compatibility).
     """
+    if _hack_update_stack_untranslated:
+        from rpython.rtyper.annlowlevel import llhelper
+        enter_code = llhelper(lltype.Ptr(
+            lltype.FuncType([lltype.Signed], cintf.PVMPROFSTACK)),
+            cintf.enter_code)
+        leave_code = llhelper(lltype.Ptr(
+            lltype.FuncType([cintf.PVMPROFSTACK], lltype.Void)),
+            cintf.leave_code)
+    else:
+        enter_code = cintf.enter_code
+        leave_code = cintf.leave_code
+
     def decorate(func):
         try:
             _get_vmprof()
@@ -161,11 +174,11 @@ def vmprof_execute_code(name, get_code_fn, result_class=None):
             # JIT cannot see through it.
             if not jit.we_are_jitted():
                 unique_id = get_code_fn(*args)._vmprof_unique_id
-                x = cintf.enter_code(unique_id)
+                x = enter_code(unique_id)
                 try:
                     return func(*args)
                 finally:
-                    cintf.leave_code(x)
+                    leave_code(x)
             else:
                 return func(*args)
 
