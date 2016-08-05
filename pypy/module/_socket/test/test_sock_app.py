@@ -455,11 +455,11 @@ class AppTestSocket:
           File ".*", line .*, in fn
         """, msg)
         #
-        # check with track_resources enabled in the destructor BUT with a
-        # file which was created when track_resources was disabled
+        # track_resources is enabled after the construction of the socket. in
+        # this case, the socket is not registered for finalization at all, so
+        # we don't see a message
         msg = fn(False, True)
-        assert self.regex_search("WARNING: unclosed <socket object, .*>", msg)
-        assert "Created at" not in msg
+        assert msg == ''
 
 
     def test_socket_close_error(self):

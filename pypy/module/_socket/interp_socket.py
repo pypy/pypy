@@ -159,16 +159,11 @@ class W_Socket(W_Root):
         register_socket(space, sock)
         if self.space.sys.track_resources:
             self.w_tb = self.space.format_traceback()
+            self.register_finalizer(space)
 
-    def __del__(self):
+    def _finalize_(self):
         is_open = self.sock.fd >= 0
         if is_open and self.space.sys.track_resources:
-            self.enqueue_for_destruction(self.space, W_Socket.destructor,
-                                         '__del__ method of ')
-
-    def destructor(self):
-        assert isinstance(self, W_Socket)
-        if self.space.sys.track_resources:
             w_repr = self.space.repr(self)
             str_repr = self.space.str_w(w_repr)
             w_msg = self.space.wrap("WARNING: unclosed " + str_repr)
