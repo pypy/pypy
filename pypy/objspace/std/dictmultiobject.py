@@ -592,16 +592,15 @@ class EmptyDictStrategy(DictStrategy):
         return self.erase(None)
 
     def switch_to_correct_strategy(self, w_dict, w_key):
-        from pypy.objspace.std.intobject import W_IntObject
         if type(w_key) is self.space.StringObjectCls:
             self.switch_to_bytes_strategy(w_dict)
             return
         elif type(w_key) is self.space.UnicodeObjectCls:
             self.switch_to_unicode_strategy(w_dict)
             return
-        elif type(w_key) is W_IntObject:
+        elif type(w_key) is self.space.IntObjectCls:
             self.switch_to_int_strategy(w_dict)
-        if self.space.compares_by_identity(w_key):
+        elif self.space.compares_by_identity(w_key):
             self.switch_to_identity_strategy(w_dict)
         else:
             self.switch_to_object_strategy(w_dict)

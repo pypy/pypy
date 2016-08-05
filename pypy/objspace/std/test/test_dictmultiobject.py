@@ -1108,10 +1108,14 @@ class FakeSpace:
     w_float = float
     StringObjectCls = FakeString
     UnicodeObjectCls = FakeUnicode
+    IntObjectCls = int
     w_dict = W_DictObject
     iter = iter
     fixedview = list
     listview  = list
+
+    def compares_by_identity(self, w_obj):
+        return False # safe default
 
 class Config:
     class objspace:
