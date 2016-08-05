@@ -253,13 +253,13 @@ def set_metavar(index, w_obj):
 # ____________________________________________________________
 
 
-def fetch_cur_frame():
+def fetch_cur_frame(silent=False):
     ec = dbstate.space.threadlocals.get_ec()
     if ec is None:
         frame = None
     else:
         frame = ec.topframeref()
-    if frame is None:
+    if frame is None and not silent:
         revdb.send_output("No stack.\n")
     return frame
 
@@ -388,8 +388,9 @@ def show_frame(frame, lineno=0, indent=''):
         indent))
     revdb.send_linecache(frame.getcode().co_filename, lineno)
 
-def display_function_part(frame, max_lines_before, max_lines_after,
-                          prompt="> "):
+def display_function_part(frame, max_lines_before, max_lines_after):
+    if frame is None:
+        return
     code = frame.getcode()
     if code.co_filename.startswith('<builtin>'):
         return
@@ -407,33 +408,33 @@ def display_function_part(frame, max_lines_before, max_lines_after,
     #
     for i in range(first_lineno, final_lineno + 1):
         if i == current_lineno:
+            if revdb.current_place() == -2: # <= this is the arg to stop_point()
+                prompt = "<< "     # return
+            elif revdb.current_place() == -1:
+                prompt = "!! "     # exceptional return
+            else:
+                prompt = " > "     # plain line
             revdb.send_output(prompt)
         else:
-            revdb.send_output("  ")
+            revdb.send_output("   ")
         revdb.send_linecache(code.co_filename, i, strip=False)
     #
     if ellipsis_after:
         revdb.send_output("...\n")
 
 def command_backtrace(cmd, extra):
-    frame = fetch_cur_frame()
-    if frame is None:
-        return
+    frame = fetch_cur_frame(silent=True)
     if cmd.c_arg1 == 0:
-        revdb.send_output("%s:\n" % (
-            file_and_lineno(frame, frame.get_last_lineno()),))
-        if revdb.current_place() == -2:   # <= this is the arg to stop_point()
-            prompt = "<<"     # return
-        elif revdb.current_place() == -1:
-            prompt = "!!"     # exceptional return
-        else:
-            prompt = "> "     # plain line
-        display_function_part(frame, max_lines_before=8, max_lines_after=5,
-                              prompt=prompt)
+        if frame is not None:
+            revdb.send_output("%s:\n" % (
+                file_and_lineno(frame, frame.get_last_lineno()),))
+        display_function_part(frame, max_lines_before=8, max_lines_after=5)
     elif cmd.c_arg1 == 2:
         display_function_part(frame, max_lines_before=1000,max_lines_after=1000)
     else:
         revdb.send_output("Current call stack (most recent call last):\n")
+        if frame is None:
+            revdb.send_output("  (empty)\n")
         frames = []
         while frame is not None:
             frames.append(frame)
@@ -505,7 +506,7 @@ lambda_watchvalues = lambda: command_watchvalues
 
 
 def command_stackid(cmd, extra):
-    frame = fetch_cur_frame()
+    frame = fetch_cur_frame(silent=True)
     if frame is not None and cmd.c_arg1 != 0:     # parent_flag
         frame = dbstate.space.getexecutioncontext().getnextframe_nohidden(frame)
     if frame is None:
