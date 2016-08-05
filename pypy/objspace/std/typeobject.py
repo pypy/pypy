@@ -346,7 +346,7 @@ class W_TypeObject(W_Root):
     def deldictvalue(self, space, key):
         if self.lazyloaders:
             self._cleanup_()    # force un-lazification
-        if not self.is_heaptype():
+        if not (self.is_heaptype() or self.is_cpytype()):
             raise oefmt(space.w_TypeError,
                         "can't delete attributes on type object '%N'", self)
         try:
