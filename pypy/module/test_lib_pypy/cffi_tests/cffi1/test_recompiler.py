@@ -1920,6 +1920,18 @@ def test_bool_in_cpp():
     lib = verify(ffi, "test_bool_in_cpp", "char f(void) { return 2; }")
     assert lib.f() == 1
 
+def test_bool_in_cpp_2():
+    ffi = FFI()
+    ffi.cdef('int add(int a, int b);')
+    lib = verify(ffi, "test_bool_bug_cpp", '''
+        typedef bool _Bool;  /* there is a Windows header with this line */
+        int add(int a, int b)
+        {
+            return a + b;
+        }''', source_extension='.cpp')
+    c = lib.add(2, 3)
+    assert c == 5
+
 def test_struct_field_opaque():
     ffi = FFI()
     ffi.cdef("struct a { struct b b; };")

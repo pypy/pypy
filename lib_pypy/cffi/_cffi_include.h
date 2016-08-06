@@ -42,7 +42,9 @@ extern "C" {
 #  include <stdint.h>
 # endif
 # if _MSC_VER < 1800   /* MSVC < 2013 */
-   typedef unsigned char _Bool;
+#  ifndef __cplusplus
+    typedef unsigned char _Bool;
+#  endif
 # endif
 #else
 # include <stdint.h>
