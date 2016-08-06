@@ -23,13 +23,13 @@ class BaseRVMProfTest(object):
 
         llfn = llhelper(lltype.Ptr(lltype.FuncType([], lltype.Void)), helper)
 
-        driver = jit.JitDriver(greens=['code'], reds='auto')
+        driver = jit.JitDriver(greens=['code'], reds=['c', 'i', 'n', 'codes'])
 
         class CodeObj(object):
             def __init__(self, name):
                 self.name = name
 
-        def get_code_fn(codes, code, arg):
+        def get_code_fn(codes, code, arg, c):
             return code
 
         def get_name(code):
@@ -40,21 +40,26 @@ class BaseRVMProfTest(object):
 
         @vmprof_execute_code("main", get_code_fn,
                              _hack_update_stack_untranslated=True)
-        def f(codes, code, n):
+        def f(codes, code, n, c):
             i = 0
             while i < n:
-                driver.jit_merge_point(code=code)
+                driver.jit_merge_point(code=code, c=c, i=i, codes=codes, n=n)
                 if code.name == "main":
-                    f(codes, codes[1], 1)
+                    c = f(codes, codes[1], 1, c)
+                    driver.can_enter_jit(code=code, c=c, i=i, codes=codes, n=n)
                 else:
                     llfn()
+                    c -= 1
+                    if c < 0:
+                        llfn() # bridge
                 i += 1
+            return c
 
         def main(n):
             codes = [CodeObj("main"), CodeObj("not main")]
             for code in codes:
                 register_code(code, get_name)
-            return f(codes, codes[0], n)
+            return f(codes, codes[0], n, 8)
 
         class Hooks(jit.JitHookInterface):
             def after_compile(self, debug_info):
@@ -64,8 +69,9 @@ class BaseRVMProfTest(object):
 
         null = lltype.nullptr(cintf.VMPROFSTACK)
         cintf.vmprof_tl_stack.setraw(null)
-        self.meta_interp(main, [10], policy=JitPolicy(hooks))
+        self.meta_interp(main, [30], policy=JitPolicy(hooks), inline=True)
         assert visited[:3] == [[(1, 12), (1, 8)], [(1, 12), (1, 8)], [(1, 12), (1, 8)]]
+        print visited
         #v = set(visited)
         #assert 0 in v
         #v.remove(0)
