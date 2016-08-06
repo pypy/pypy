@@ -1453,6 +1453,15 @@ class MIFrame(object):
             metainterp.history.record(rop.VIRTUAL_REF_FINISH,
                                       [vrefbox, nullbox], None)
 
+    @arguments("int", "box")
+    def opimpl_rvmprof_code(self, leaving, box_unique_id):
+        from rpython.rlib.rvmprof import cintf
+        unique_id = box_unique_id.getint()
+        if not leaving:
+            cintf.enter_code(unique_id)
+        else:
+            cintf.leave_code_check(unique_id)
+
     # ------------------------------
 
     def setup_call(self, argboxes):

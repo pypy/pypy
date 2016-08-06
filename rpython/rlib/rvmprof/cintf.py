@@ -6,7 +6,7 @@ from rpython.tool.version import rpythonroot
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform as platform
-from rpython.rlib import rthread
+from rpython.rlib import rthread, jit
 
 class VMProfPlatformUnsupported(Exception):
     pass
@@ -86,6 +86,22 @@ do_use_eci = rffi.llexternal_use_eci(
     ExternalCompilationInfo(includes=['vmprof_stack.h'],
                             include_dirs = [SRC]))
 
+# JIT notes:
+#
+# - When running JIT-generated assembler code, we have different custom
+#   code to build the VMPROFSTACK, so the functions below are not used.
+#
+# - The jitcode for decorated_function() in rvmprof.py still contains
+#   calls to these two oopspec functions, which are represented with
+#   the 'rvmprof_code' jitcode opcode.
+#
+# - When meta-interpreting, the 'rvmprof_code' opcode causes pyjitpl
+#   to call enter_code()/leave_code_check(), but otherwise
+#   'rvmprof_code' is ignored, i.e. doesn't produce any resop.
+#
+# - Blackhole: ...
+
+@jit.oopspec("rvmprof.enter_code(unique_id)")
 def enter_code(unique_id):
     do_use_eci()
     s = lltype.malloc(VMPROFSTACK, flavor='raw')
@@ -95,6 +111,12 @@ def enter_code(unique_id):
     vmprof_tl_stack.setraw(s)
     return s
 
-def leave_code(s):
+@jit.oopspec("rvmprof.leave_code(s, unique_id)")
+def leave_code(s, unique_id):
     vmprof_tl_stack.setraw(s.c_next)
     lltype.free(s, flavor='raw')
+
+def leave_code_check(unique_id):
+    s = vmprof_tl_stack.getraw()
+    assert s.c_value == unique_id
+    leave_code(s, unique_id)

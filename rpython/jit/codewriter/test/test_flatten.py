@@ -140,7 +140,6 @@ class TestFlatten:
 
     def encoding_test(self, func, args, expected,
                       transform=False, liveness=False, cc=None, jd=None):
-        
         graphs = self.make_graphs(func, args)
         #graphs[0].show()
         if transform:
@@ -1111,6 +1110,20 @@ class TestFlatten:
                            transform=True)
         assert str(e.value).startswith("A virtualizable array is passed aroun")
         assert "<Descr>" in str(e.value)
+
+    def test_rvmprof_code(self):
+        from rpython.rlib.rvmprof import cintf
+        class MyFakeCallControl(FakeCallControl):
+            def guess_call_kind(self, op):
+                return 'builtin'
+        def f(x):
+            s = cintf.enter_code(x)
+            cintf.leave_code(s, x)
+        self.encoding_test(f, [42], """
+            rvmprof_code $0, %i0
+            rvmprof_code $1, %i0
+            void_return
+        """, transform=True, cc=MyFakeCallControl())
 
 
 def check_force_cast(FROM, TO, operations, value):

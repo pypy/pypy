@@ -1501,6 +1501,10 @@ class BlackholeInterpreter(object):
     def bhimpl_copyunicodecontent(cpu, src, dst, srcstart, dststart, length):
         cpu.bh_copyunicodecontent(src, dst, srcstart, dststart, length)
 
+    @arguments("i", "i")
+    def bhimpl_rvmprof_code(leaving, unique_id):
+        pass #import pdb;pdb.set_trace()
+
     # ----------
     # helpers to resume running in blackhole mode when a guard failed
 

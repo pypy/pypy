@@ -452,6 +452,8 @@ class Transformer(object):
             prepare = self._handle_math_sqrt_call
         elif oopspec_name.startswith('rgc.'):
             prepare = self._handle_rgc_call
+        elif oopspec_name.startswith('rvmprof.'):
+            prepare = self._handle_rvmprof_call
         elif oopspec_name.endswith('dict.lookup'):
             # also ordereddict.lookup
             prepare = self._handle_dict_lookup_call
@@ -2078,6 +2080,22 @@ class Transformer(object):
             return self._handle_oopspec_call(op, args, EffectInfo.OS_SHRINK_ARRAY, EffectInfo.EF_CAN_RAISE)
         else:
             raise NotImplementedError(oopspec_name)
+
+    def _handle_rvmprof_call(self, op, oopspec_name, args):
+        if oopspec_name == 'rvmprof.enter_code':
+            leaving = 0
+        elif oopspec_name == 'rvmprof.leave_code':
+            leaving = 1
+        else:
+            raise NotImplementedError(oopspec_name)
+        c_leaving = Constant(leaving, lltype.Signed)
+        v_uniqueid = op.args[-1]
+        ops = [SpaceOperation('rvmprof_code', [c_leaving, v_uniqueid], None)]
+        if op.result.concretetype is not lltype.Void:
+            c_null = Constant(lltype.nullptr(op.result.concretetype.TO),
+                              op.result.concretetype)
+            ops.append(c_null)
+        return ops
 
     def rewrite_op_ll_read_timestamp(self, op):
         op1 = self.prepare_builtin_call(op, "ll_read_timestamp", [])

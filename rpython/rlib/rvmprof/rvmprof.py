@@ -1,6 +1,6 @@
 import sys, os
 from rpython.rlib.objectmodel import specialize, we_are_translated
-from rpython.rlib import jit, rposix
+from rpython.rlib import rposix
 from rpython.rlib.rvmprof import cintf
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
@@ -162,12 +162,19 @@ def vmprof_execute_code(name, get_code_fn, result_class=None,
     """
     if _hack_update_stack_untranslated:
         from rpython.rtyper.annlowlevel import llhelper
-        enter_code = llhelper(lltype.Ptr(
+        from rpython.rlib import jit
+        enter_code_untr = llhelper(lltype.Ptr(
             lltype.FuncType([lltype.Signed], cintf.PVMPROFSTACK)),
             cintf.enter_code)
-        leave_code = llhelper(lltype.Ptr(
-            lltype.FuncType([cintf.PVMPROFSTACK], lltype.Void)),
+        leave_code_untr = llhelper(lltype.Ptr(
+            lltype.FuncType([cintf.PVMPROFSTACK, lltype.Signed], lltype.Void)),
             cintf.leave_code)
+        @jit.oopspec("rvmprof.enter_code(unique_id)")
+        def enter_code(unique_id):
+            return enter_code_untr(unique_id)
+        @jit.oopspec("rvmprof.leave_code(s)")
+        def leave_code(s, unique_id):
+            leave_code_untr(s, unique_id)
     else:
         enter_code = cintf.enter_code
         leave_code = cintf.leave_code
@@ -179,17 +186,12 @@ def vmprof_execute_code(name, get_code_fn, result_class=None,
             return func
 
         def decorated_function(*args):
-            # If we are being JITted, we want to skip the trampoline, else the
-            # JIT cannot see through it.
-            if not jit.we_are_jitted():
-                unique_id = get_code_fn(*args)._vmprof_unique_id
-                x = enter_code(unique_id)
-                try:
-                    return func(*args)
-                finally:
-                    leave_code(x)
-            else:
+            unique_id = get_code_fn(*args)._vmprof_unique_id
+            x = enter_code(unique_id)
+            try:
                 return func(*args)
+            finally:
+                leave_code(x, unique_id)
 
         decorated_function.__name__ = func.__name__ + '_rvmprof'
         return decorated_function
