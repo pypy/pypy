@@ -1374,10 +1374,10 @@ class __extend__(pyframe.PyFrame):
         w_sum = self.unpack_helper(itemcount, next_instr)
         self.pushvalue(self.space.newlist(w_sum))
         
-    def getFuncDesc(func):
-        if self.space.type(aaa).name.decode('utf-8') == 'method':
+    def getFuncDesc(self, func):
+        if self.space.type(func).name.decode('utf-8') == 'method':
             return "()"
-        elif self.space.type(aaa).name.decode('utf-8') == 'function':
+        elif self.space.type(func).name.decode('utf-8') == 'function':
             return "()"
         else:
             return " object";
@@ -1403,7 +1403,7 @@ class __extend__(pyframe.PyFrame):
                     err_fun = self.peekvalue(num_maps + function_location-1)
                     err_arg = self.space.unicode_w(keys.getitem(j))
                     raise oefmt(self.space.w_TypeError,
-                        "%N%s got multiple values for keyword argument %s", err_fun, getFuncDesc(err_fun), err_arg)
+                        "%N%s got multiple values for keyword argument '%s'", err_fun, self.getFuncDesc(err_fun), err_arg)
             self.space.call_method(w_dict, 'update', w_item)
         while num_maps != 0:
             self.popvalue()
