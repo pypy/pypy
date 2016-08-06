@@ -59,7 +59,7 @@ extern "C" {
 
 #ifdef __cplusplus
 # ifndef _Bool
-#  define _Bool bool   /* semi-hackish: C++ has no _Bool; bool is builtin */
+   typedef bool _Bool;   /* semi-hackish: C++ has no _Bool; bool is builtin */
 # endif
 #endif
 
