@@ -275,6 +275,8 @@ class Recompiler:
     def write_c_source_to_f(self, f, preamble):
         self._f = f
         prnt = self._prnt
+        if self.ffi._embedding is None:
+            prnt('#define Py_LIMITED_API')
         #
         # first the '#include' (actually done by inlining the file's content)
         lines = self._rel_readlines('_cffi_include.h')
@@ -683,13 +685,11 @@ class Recompiler:
             rng = range(len(tp.args))
             for i in rng:
                 prnt('  PyObject *arg%d;' % i)
-            prnt('  PyObject **aa;')
             prnt()
-            prnt('  aa = _cffi_unpack_args(args, %d, "%s");' % (len(rng), name))
-            prnt('  if (aa == NULL)')
+            prnt('  if (!PyArg_UnpackTuple(args, "%s", %d, %d, %s))' % (
+                name, len(rng), len(rng),
+                ', '.join(['&arg%d' % i for i in rng])))
             prnt('    return NULL;')
-            for i in rng:
-                prnt('  arg%d = aa[%d];' % (i, i))
         prnt()
         #
         for i, type in enumerate(tp.args):
@@ -862,6 +862,8 @@ class Recompiler:
             enumfields = list(tp.enumfields())
             for fldname, fldtype, fbitsize, fqual in enumfields:
                 fldtype = self._field_type(tp, fldname, fldtype)
+                self._check_not_opaque(fldtype,
+                                       "field '%s.%s'" % (tp.name, fldname))
                 # cname is None for _add_missing_struct_unions() only
                 op = OP_NOOP
                 if fbitsize >= 0:
@@ -910,6 +912,13 @@ class Recompiler:
             StructUnionExpr(tp.name, type_index, flags, size, align, comment,
                             first_field_index, c_fields))
         self._seen_struct_unions.add(tp)
+
+    def _check_not_opaque(self, tp, location):
+        while isinstance(tp, model.ArrayType):
+            tp = tp.item
+        if isinstance(tp, model.StructOrUnion) and tp.fldtypes is None:
+            raise TypeError(
+                "%s is of an opaque type (not declared in cdef())" % location)
 
     def _add_missing_struct_unions(self):
         # not very nice, but some struct declarations might be missing

@@ -196,20 +196,6 @@ static PyObject *_cffi_init(const char *module_name, Py_ssize_t version,
     return NULL;
 }
 
-_CFFI_UNUSED_FN
-static PyObject **_cffi_unpack_args(PyObject *args_tuple, Py_ssize_t expected,
-                                    const char *fnname)
-{
-    if (PyTuple_GET_SIZE(args_tuple) != expected) {
-        PyErr_Format(PyExc_TypeError,
-                     "%.150s() takes exactly %zd arguments (%zd given)",
-                     fnname, expected, PyTuple_GET_SIZE(args_tuple));
-        return NULL;
-    }
-    return &PyTuple_GET_ITEM(args_tuple, 0);   /* pointer to the first item,
-                                                  the others follow */
-}
-
 /**********  end CPython-specific section  **********/
 #else
 _CFFI_UNUSED_FN
