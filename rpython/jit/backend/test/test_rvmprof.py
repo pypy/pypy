@@ -125,17 +125,20 @@ class BaseRVMProfTest(object):
                              _hack_update_stack_untranslated=True)
         def f(codes, code, n, c):
             i = 0
-            while i < n:
+            while True:
                 driver.jit_merge_point(code=code, c=c, i=i, codes=codes, n=n)
+                if i >= n:
+                    break
+                i += 1
                 if code.name == "main":
                     try:
                         f(codes, codes[1], 1, c)
                     except MyExc as e:
                         c = e.c
+                    driver.can_enter_jit(code=code, c=c, i=i, codes=codes, n=n)
                 else:
                     llfn()
                     c -= 1
-                i += 1
             jit.promote(c + 5)     # failing guard
             raise MyExc(c)
 

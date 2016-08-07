@@ -376,7 +376,6 @@ class BlackholeInterpreter(object):
                 self.position = target
                 return
             if opcode == self.op_rvmprof_code:
-                import pdb;pdb.set_trace()
                 # do the 'jit_rvmprof_code(1)' for rvmprof, but then
                 # continue popping frames.  Decode jit_rvmprof_code
                 # manually here.
