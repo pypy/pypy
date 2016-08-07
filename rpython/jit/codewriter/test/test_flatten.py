@@ -1115,23 +1115,22 @@ class TestFlatten:
         from rpython.rlib.rvmprof import cintf
         class MyFakeCallControl(FakeCallControl):
             def guess_call_kind(self, op):
-                if '_code' in repr(op):
+                if 'jitted' in repr(op):
                     return 'builtin'
                 return 'residual'
         class X:
             pass
-        def g():
+        def g(x, y):
             debug.debug_print("foo")
             return X()
-        g._dont_inline_ = True
-        def f(x):
-            cintf.jit_rvmprof_code(0, x)
-            res = g()
-            cintf.jit_rvmprof_code(1, x)
-            return res
-        self.encoding_test(f, [42], """
+        @jit.oopspec("rvmprof.jitted(unique_id)")
+        def decorated_jitted_function(unique_id, *args):
+            return g(*args)
+        def f(id, x, y):
+            return decorated_jitted_function(id, x, y)
+        self.encoding_test(f, [42, 56, 74], """
             rvmprof_code $0, %i0
-            residual_call_r_r $<* fn g>, R[], <Descr> -> %r0
+            residual_call_ir_r $<* fn g>, I[%i1, %i2], R[], <Descr> -> %r0
             -live-
             rvmprof_code $1, %i0
             ref_return %r0

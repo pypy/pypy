@@ -55,7 +55,6 @@ class BaseRVMProfTest(object):
                 driver.jit_merge_point(code=code, c=c, i=i, codes=codes, n=n)
                 if code.name == "main":
                     c = f(codes, codes[1], 1, c)
-                    driver.can_enter_jit(code=code, c=c, i=i, codes=codes, n=n)
                 else:
                     llfn()
                     c -= 1
@@ -67,6 +66,46 @@ class BaseRVMProfTest(object):
             for code in codes:
                 register_code(code, get_name)
             return f(codes, codes[0], n, 8)
+
+        null = lltype.nullptr(cintf.VMPROFSTACK)
+        cintf.vmprof_tl_stack.setraw(null)
+        self.meta_interp(main, [30], inline=True)
+        assert visited[:3] == [[(1, 12), (1, 8)], [(1, 12), (1, 8)], [(1, 12), (1, 8)]]
+
+
+    def test_leaving_with_exception(self):
+        visited, llfn, CodeObj, get_code_fn, get_name = self.misc
+        driver = jit.JitDriver(greens=['code'], reds=['c', 'i', 'n', 'codes'])
+
+        class MyExc(Exception):
+            def __init__(self, c):
+                self.c = c
+
+        @vmprof_execute_code("main", get_code_fn,
+                             _hack_update_stack_untranslated=True)
+        def f(codes, code, n, c):
+            i = 0
+            while i < n:
+                driver.jit_merge_point(code=code, c=c, i=i, codes=codes, n=n)
+                if code.name == "main":
+                    try:
+                        f(codes, codes[1], 1, c)
+                    except MyExc as e:
+                        c = e.c
+                else:
+                    llfn()
+                    c -= 1
+                i += 1
+            raise MyExc(c)
+
+        def main(n):
+            codes = [CodeObj("main"), CodeObj("not main")]
+            for code in codes:
+                register_code(code, get_name)
+            try:
+                f(codes, codes[0], n, 8)
+            except MyExc as e:
+                return e.c
 
         null = lltype.nullptr(cintf.VMPROFSTACK)
         cintf.vmprof_tl_stack.setraw(null)

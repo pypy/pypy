@@ -178,12 +178,9 @@ def vmprof_execute_code(name, get_code_fn, result_class=None,
         except cintf.VMProfPlatformUnsupported:
             return func
 
+        @jit.oopspec("rvmprof.jitted(unique_id)")
         def decorated_jitted_function(unique_id, *args):
-            cintf.jit_rvmprof_code(0, unique_id)
-            res = func(*args)
-            cintf.jit_rvmprof_code(1, unique_id)   # no 'finally:', see cintf.py
-            return res
-        decorated_jitted_function._dont_inline_ = True
+            return func(*args)
 
         def decorated_function(*args):
             unique_id = get_code_fn(*args)._vmprof_unique_id
@@ -195,7 +192,6 @@ def vmprof_execute_code(name, get_code_fn, result_class=None,
                     leave_code(x)
             else:
                 return decorated_jitted_function(unique_id, *args)
-        decorated_function._always_inline_ = True
 
         decorated_function.__name__ = func.__name__ + '_rvmprof'
         return decorated_function
