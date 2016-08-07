@@ -24,11 +24,15 @@ Options and arguments (and corresponding environment variables):
 -V     : print the Python version number and exit (also --version)
 -W arg : warning control; arg is action:message:category:module:lineno
          also PYTHONWARNINGS=arg
+-X arg : set implementation-specific option
 file   : program read from script file
 -      : program read from stdin (default; interactive mode if a tty)
 arg ...: arguments passed to program in sys.argv[1:]
+
 PyPy options and arguments:
 --info : print translation information about this PyPy executable
+-X track-resources : track the creation of files and sockets and display
+                     a warning if they are not closed explicitly
 """
 # Missing vs CPython: PYTHONHOME, PYTHONCASEOK
 USAGE2 = """
@@ -229,6 +233,14 @@ def set_jit_option(options, jitparam, *args):
         import pypyjit
         pypyjit.set_param(jitparam)
 
+def set_runtime_options(options, Xparam, *args):
+    if Xparam == 'track-resources':
+        sys.pypy_set_track_resources(True)
+    else:
+        print >> sys.stderr, 'usage: %s -X [options]' % (get_sys_executable(),)
+        print >> sys.stderr, '[options] can be: track-resources'
+        raise SystemExit
+
 class CommandLineError(Exception):
     pass
 
@@ -404,6 +416,7 @@ cmdline_options = {
     '--info':    (print_info,      None),
     '--jit':     (set_jit_option,  Ellipsis),
     '-funroll-loops': (funroll_loops, None),
+    '-X':        (set_runtime_options, Ellipsis),
     '--':        (end_options,     None),
     }
 
