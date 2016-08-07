@@ -116,7 +116,7 @@ Fixing this difference to CPython is essentially impossible without forcing a
 reference-counting approach to garbage collection.  The effect that you
 get in CPython has clearly been described as a side-effect of the
 implementation and not a language design decision: programs relying on
-this are basically bogus.  It would a too strong restriction to try to enforce
+this are basically bogus.  It would be a too strong restriction to try to enforce
 CPython's behavior in a language spec, given that it has no chance to be
 adopted by Jython or IronPython (or any other port of Python to Java or
 .NET).
