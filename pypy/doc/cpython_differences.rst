@@ -99,17 +99,24 @@ Differences related to garbage collection strategies
 
 The garbage collectors used or implemented by PyPy are not based on
 reference counting, so the objects are not freed instantly when they are no
-longer reachable.  The most obvious effect of this is that files are not
+longer reachable.  The most obvious effect of this is that files (and sockets, etc) are not
 promptly closed when they go out of scope.  For files that are opened for
 writing, data can be left sitting in their output buffers for a while, making
 the on-disk file appear empty or truncated.  Moreover, you might reach your
 OS's limit on the number of concurrently opened files.
 
-Fixing this is essentially impossible without forcing a
+If you are debugging a case where a file in your program is not closed
+properly, you can use the ``-X track-resources`` command line option. If it is
+given, a ``ResourceWarning`` is produced for every file and socket that the
+garbage collector closes. The warning will contain the stack trace of the
+position where the file or socket was created, to make it easier to see which
+parts of the program don't close files explicitly.
+
+Fixing this difference to CPython is essentially impossible without forcing a
 reference-counting approach to garbage collection.  The effect that you
 get in CPython has clearly been described as a side-effect of the
 implementation and not a language design decision: programs relying on
-this are basically bogus.  It would anyway be insane to try to enforce
+this are basically bogus.  It would a too strong restriction to try to enforce
 CPython's behavior in a language spec, given that it has no chance to be
 adopted by Jython or IronPython (or any other port of Python to Java or
 .NET).
@@ -134,7 +141,7 @@ of Python.
 
 Here are some more technical details.  This issue affects the precise
 time at which ``__del__`` methods are called, which
-is not reliable in PyPy (nor Jython nor IronPython).  It also means that
+is not reliable or timely in PyPy (nor Jython nor IronPython).  It also means that
 **weak references** may stay alive for a bit longer than expected.  This
 makes "weak proxies" (as returned by ``weakref.proxy()``) somewhat less
 useful: they will appear to stay alive for a bit longer in PyPy, and
