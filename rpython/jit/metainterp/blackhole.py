@@ -375,6 +375,16 @@ class BlackholeInterpreter(object):
                 target = ord(code[position+1]) | (ord(code[position+2])<<8)
                 self.position = target
                 return
+            if opcode == self.op_rvmprof_code:
+                import pdb;pdb.set_trace()
+                # do the 'jit_rvmprof_code(1)' for rvmprof, but then
+                # continue popping frames.  Decode jit_rvmprof_code
+                # manually here.
+                from rpython.rlib.rvmprof import cintf
+                arg1 = self.registers_i[ord(code[position + 1])]
+                arg2 = self.registers_i[ord(code[position + 2])]
+                assert arg1 == 1
+                cintf.jit_rvmprof_code(arg1, arg2)
         # no 'catch_exception' insn follows: just reraise
         reraise(e)
 
