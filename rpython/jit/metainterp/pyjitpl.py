@@ -74,8 +74,6 @@ class MIFrame(object):
         self.parent_snapshot = None
         # counter for unrolling inlined loops
         self.unroll_iterations = 1
-        # rvmprof
-        self.rvmprof_unique_id = -1
 
     @specialize.arg(3)
     def copy_constants(self, registers, constants, ConstClass):
@@ -2080,8 +2078,8 @@ class MetaInterp(object):
                     frame.pc = target
                     raise ChangeFrame
                 if opcode == self.staticdata.op_rvmprof_code:
-                    # do the 'jit_rvmprof_code(1)' for rvmprof, but then
-                    # continue popping frames.  Decode jit_rvmprof_code
+                    # call the 'jit_rvmprof_code(1)' for rvmprof, but then
+                    # continue popping frames.  Decode the 'rvmprof_code' insn
                     # manually here.
                     from rpython.rlib.rvmprof import cintf
                     arg1 = frame.registers_i[ord(code[position + 1])].getint()

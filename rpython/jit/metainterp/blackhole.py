@@ -376,8 +376,8 @@ class BlackholeInterpreter(object):
                 self.position = target
                 return
             if opcode == self.op_rvmprof_code:
-                # do the 'jit_rvmprof_code(1)' for rvmprof, but then
-                # continue popping frames.  Decode jit_rvmprof_code
+                # call the 'jit_rvmprof_code(1)' for rvmprof, but then
+                # continue popping frames.  Decode the 'rvmprof_code' insn
                 # manually here.
                 from rpython.rlib.rvmprof import cintf
                 arg1 = self.registers_i[ord(code[position + 1])]
