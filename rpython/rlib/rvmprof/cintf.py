@@ -123,22 +123,22 @@ def leave_code(s):
 #   done by a special case in pyjitpl.py and blackhole.py.  The point
 #   is that the above simple pattern can be detected by the blackhole
 #   interp, when it first rebuilds all the intermediate RPython
-#   frames; at that point it needs to call jit_enter_code() on all
+#   frames; at that point it needs to call jit_rvmprof_code(0) on all
 #   intermediate RPython frames, so it does pattern matching to
 #   recognize when it must call that and with which 'unique_id' value.
 #
 # - The jitcode opcode 'rvmprof_code' doesn't produce any resop.  When
-#   meta-interpreting, it causes pyjitpl to call jit_enter_code() or
-#   jit_leave_code().  As mentioned above, there is logic to call
-#   jit_leave_code() even if we exit with an exception, even though
-#   there is no 'catch_exception'.  There is similar logic inside
-#   the blackhole interpreter.
+#   meta-interpreting, it causes pyjitpl to call jit_rvmprof_code().
+#   As mentioned above, there is logic to call jit_rvmprof_code(1)
+#   even if we exit with an exception, even though there is no
+#   'catch_exception'.  There is similar logic inside the blackhole
+#   interpreter.
 
 
-def jit_enter_code(unique_id):
-    enter_code(unique_id)    # ignore the return value
-
-def jit_leave_code(unique_id):
-    s = vmprof_tl_stack.getraw()
-    assert s.c_value == unique_id
-    leave_code(s)
+def jit_rvmprof_code(leaving, unique_id):
+    if leaving == 0:
+        enter_code(unique_id)    # ignore the return value
+    else:
+        s = vmprof_tl_stack.getraw()
+        assert s.c_value == unique_id
+        leave_code(s)

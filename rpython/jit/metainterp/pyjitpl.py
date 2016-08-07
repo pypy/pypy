@@ -2080,9 +2080,14 @@ class MetaInterp(object):
                     frame.pc = target
                     raise ChangeFrame
                 if opcode == self.staticdata.op_rvmprof_code:
-                    # do the 'leave_code' for rvmprof, but then continue
-                    # popping frames
-                    import pdb;pdb.set_trace()
+                    # do the 'jit_rvmprof_code(1)' for rvmprof, but then
+                    # continue popping frames.  Decode jit_rvmprof_code
+                    # manually here.
+                    from rpython.rlib.rvmprof import cintf
+                    arg1 = frame.registers_i[ord(code[position+1])].getint()
+                    arg2 = frame.registers_i[ord(code[position+2])].getint()
+                    assert arg1 == 1
+                    cintf.jit_rvmprof_code(arg1, arg2)
             self.popframe()
         try:
             self.compile_exit_frame_with_exception(self.last_exc_box)
