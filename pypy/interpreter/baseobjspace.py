@@ -1764,6 +1764,40 @@ class ObjSpace(object):
             _warnings.warn(msg, warningcls, stacklevel=stacklevel)
         """)
 
+    def resource_warning(self, w_msg, w_tb):
+        self.appexec([w_msg, w_tb],
+                     """(msg, tb):
+            import sys
+            print >> sys.stderr, msg
+            if tb:
+                print >> sys.stderr, "Created at (most recent call last):"
+                print >> sys.stderr, tb
+        """)
+
+    def format_traceback(self):
+        # we need to disable track_resources before calling the traceback
+        # module. Else, it tries to open more files to format the traceback,
+        # the file constructor will call space.format_traceback etc., in an
+        # inifite recursion
+        flag = self.sys.track_resources
+        self.sys.track_resources = False
+        try:
+            return self.appexec([],
+                         """():
+                import sys, traceback
+                # the "1" is because we don't want to show THIS code
+                # object in the traceback
+                try:
+                    f = sys._getframe(1)
+                except ValueError:
+                    # this happens if you call format_traceback at the very beginning
+                    # of startup, when there is no bottom code object
+                    return '<no stacktrace available>'
+                return "".join(traceback.format_stack(f))
+            """)
+        finally:
+            self.sys.track_resources = flag
+
 
 class AppExecCache(SpaceCache):
     def build(cache, source):

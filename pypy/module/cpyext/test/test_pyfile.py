@@ -1,5 +1,4 @@
 from pypy.conftest import option
-from pypy.module.cpyext.api import fopen, fclose, fwrite
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.object import Py_PRINT_RAW
@@ -133,6 +132,15 @@ class AppTestPyFile(AppTestCpythonExtensionBase):
                     return PyLong_FromLong(0);
                 return PyLong_FromLong(ftell(fp));
              """),
+            ("read_10", "METH_O",
+             """
+                char s[10];
+                FILE * fp = PyFile_AsFile(args);
+                if (fp == NULL)
+                    return PyLong_FromLong(0);
+                fread(s, 1, 10, fp);
+                return PyLong_FromLong(ftell(fp));
+             """),
             ])
         filename = self.udir + "/_test_file"
         with open(filename, 'w') as fid:
@@ -142,5 +150,12 @@ class AppTestPyFile(AppTestCpythonExtensionBase):
             t_py = fid.tell()
             assert t_py == 80
             t_c = module.get_c_tell(fid)
-        assert t_c == t_py
+            assert t_c == t_py
+            print '-------- tell ',t_c
+            t_c = module.read_10(fid)
+            assert t_c == t_py + 10
+            print '-------- tell ',t_c
+            t_py = fid.tell()
+            assert t_c == t_py, 'after a fread, c level ftell(fp) %d but PyFile.tell() %d' % (t_c, t_py)
+
 
