@@ -2084,8 +2084,8 @@ class MetaInterp(object):
                     # continue popping frames.  Decode jit_rvmprof_code
                     # manually here.
                     from rpython.rlib.rvmprof import cintf
-                    arg1 = frame.registers_i[ord(code[position+1])].getint()
-                    arg2 = frame.registers_i[ord(code[position+2])].getint()
+                    arg1 = frame.registers_i[ord(code[position + 1])].getint()
+                    arg2 = frame.registers_i[ord(code[position + 2])].getint()
                     assert arg1 == 1
                     cintf.jit_rvmprof_code(arg1, arg2)
             self.popframe()

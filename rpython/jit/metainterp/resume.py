@@ -1343,6 +1343,7 @@ def blackhole_from_resumedata(blackholeinterpbuilder, jitcodes,
         jitcode = jitcodes[jitcode_pos]
         curbh.setposition(jitcode, pc)
         resumereader.consume_one_section(curbh)
+        curbh.handle_rvmprof_enter()
     return curbh
 
 def force_from_resumedata(metainterp_sd, storage, deadframe, vinfo, ginfo):

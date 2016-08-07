@@ -64,6 +64,7 @@ class BlackholeInterpBuilder(object):
             assert self._insns[value] is None
             self._insns[value] = key
         self.op_catch_exception = insns.get('catch_exception/L', -1)
+        self.op_rvmprof_code = insns.get('rvmprof_code/ii', -1)
         #
         all_funcs = []
         for key in self._insns:
@@ -270,6 +271,7 @@ class BlackholeInterpreter(object):
         self.dispatch_loop      = builder.dispatch_loop
         self.descrs             = builder.descrs
         self.op_catch_exception = builder.op_catch_exception
+        self.op_rvmprof_code    = builder.op_rvmprof_code
         self.count_interpreter  = count_interpreter
         #
         if we_are_translated():
@@ -375,6 +377,20 @@ class BlackholeInterpreter(object):
                 return
         # no 'catch_exception' insn follows: just reraise
         reraise(e)
+
+    def handle_rvmprof_enter(self):
+        code = self.jitcode.code
+        position = self.position
+        opcode = ord(code[position])
+        if opcode == self.op_rvmprof_code:
+            arg1 = self.registers_i[ord(code[position + 1])]
+            arg2 = self.registers_i[ord(code[position + 2])]
+            if arg1 == 1:
+                # we are resuming at a position that will do a
+                # jit_rvmprof_code(1), when really executed.  That's a
+                # hint for the need for a jit_rvmprof_code(0).
+                from rpython.rlib.rvmprof import cintf
+                cintf.jit_rvmprof_code(0, arg2)
 
     def copy_constants(self, registers, constants):
         """Copy jitcode.constants[0] to registers[255],
@@ -1503,7 +1519,8 @@ class BlackholeInterpreter(object):
 
     @arguments("i", "i")
     def bhimpl_rvmprof_code(leaving, unique_id):
-        pass #import pdb;pdb.set_trace()
+        from rpython.rlib.rvmprof import cintf
+        cintf.jit_rvmprof_code(leaving, unique_id)
 
     # ----------
     # helpers to resume running in blackhole mode when a guard failed
