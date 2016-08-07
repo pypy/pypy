@@ -124,3 +124,7 @@ copy the string any more---this is like CFFI on CPython.
 
 Add a new command line option -X track-resources which will produce
 ResourceWarnings when the GC closes unclosed files and sockets.
+
+.. branch: cpyext-realloc
+
+Implement PyObject_Realloc
