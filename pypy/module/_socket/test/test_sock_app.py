@@ -1,5 +1,5 @@
 import sys, os
-import py
+import pytest
 from pypy.tool.pytest.objspace import gettestobjspace
 from pypy.interpreter.gateway import interp2app
 from pypy.module._file.test.test_file import regex_search
@@ -14,8 +14,6 @@ def setup_module(mod):
     mod.w_socket = space.appexec([], "(): import _socket as m; return m")
     mod.path = udir.join('fd')
     mod.path.write('fo')
-    mod.raises = py.test.raises # make raises available from app-level tests
-    mod.skip = py.test.skip
 
 def test_gethostname():
     host = space.appexec([w_socket], "(_socket): return _socket.gethostname()")
@@ -43,7 +41,7 @@ def test_gethostbyaddr():
     for host in ["localhost", "127.0.0.1", "::1"]:
         if host == "::1" and not ipv6:
             from pypy.interpreter.error import OperationError
-            with py.test.raises(OperationError):
+            with pytest.raises(OperationError):
                 space.appexec([w_socket, space.wrap(host)],
                               "(_socket, host): return _socket.gethostbyaddr(host)")
             continue
@@ -59,14 +57,14 @@ def test_getservbyname():
     assert space.unwrap(port) == 25
     # 1 arg version
     if sys.version_info < (2, 4):
-        py.test.skip("getservbyname second argument is not optional before python 2.4")
+        pytest.skip("getservbyname second argument is not optional before python 2.4")
     port = space.appexec([w_socket, space.wrap(name)],
                         "(_socket, name): return _socket.getservbyname(name)")
     assert space.unwrap(port) == 25
 
 def test_getservbyport():
     if sys.version_info < (2, 4):
-        py.test.skip("getservbyport does not exist before python 2.4")
+        pytest.skip("getservbyport does not exist before python 2.4")
     port = 25
     # 2 args version
     name = space.appexec([w_socket, space.wrap(port)],
@@ -99,7 +97,7 @@ def test_getprotobyname():
 def test_fromfd():
     # XXX review
     if not hasattr(socket, 'fromfd'):
-        py.test.skip("No socket.fromfd on this platform")
+        pytest.skip("No socket.fromfd on this platform")
     orig_fd = path.open()
     fd = space.appexec([w_socket, space.wrap(orig_fd.fileno()),
             space.wrap(socket.AF_INET), space.wrap(socket.SOCK_STREAM),
@@ -159,7 +157,7 @@ def test_aton_ntoa():
 
 def test_pton_ntop_ipv4():
     if not hasattr(socket, 'inet_pton'):
-        py.test.skip('No socket.inet_pton on this platform')
+        pytest.skip('No socket.inet_pton on this platform')
     tests = [
         ("123.45.67.89", "\x7b\x2d\x43\x59"),
         ("0.0.0.0", "\x00" * 4),
@@ -175,9 +173,9 @@ def test_pton_ntop_ipv4():
 
 def test_ntop_ipv6():
     if not hasattr(socket, 'inet_pton'):
-        py.test.skip('No socket.inet_pton on this platform')
+        pytest.skip('No socket.inet_pton on this platform')
     if not socket.has_ipv6:
-        py.test.skip("No IPv6 on this platform")
+        pytest.skip("No IPv6 on this platform")
     tests = [
         ("\x00" * 16, "::"),
         ("\x01" * 16, ":".join(["101"] * 8)),
@@ -196,9 +194,9 @@ def test_ntop_ipv6():
 
 def test_pton_ipv6():
     if not hasattr(socket, 'inet_pton'):
-        py.test.skip('No socket.inet_pton on this platform')
+        pytest.skip('No socket.inet_pton on this platform')
     if not socket.has_ipv6:
-        py.test.skip("No IPv6 on this platform")
+        pytest.skip("No IPv6 on this platform")
     tests = [
         ("\x00" * 16, "::"),
         ("\x01" * 16, ":".join(["101"] * 8)),
@@ -217,7 +215,7 @@ def test_pton_ipv6():
         assert space.unwrap(w_packed) == packed
 
 def test_has_ipv6():
-    py.test.skip("has_ipv6 is always True on PyPy for now")
+    pytest.skip("has_ipv6 is always True on PyPy for now")
     res = space.appexec([w_socket], "(_socket): return _socket.has_ipv6")
     assert space.unwrap(res) == socket.has_ipv6
 
@@ -231,7 +229,7 @@ def test_getaddrinfo():
     w_l = space.appexec([w_socket, space.wrap(host), space.wrap(port)],
                         "(_socket, host, port): return _socket.getaddrinfo(host, long(port))")
     assert space.unwrap(w_l) == info
-    py.test.skip("Unicode conversion is too slow")
+    pytest.skip("Unicode conversion is too slow")
     w_l = space.appexec([w_socket, space.wrap(unicode(host)), space.wrap(port)],
                         "(_socket, host, port): return _socket.getaddrinfo(host, port)")
     assert space.unwrap(w_l) == info
@@ -252,7 +250,7 @@ def test_unknown_addr_as_object():
 def test_addr_raw_packet():
     from pypy.module._socket.interp_socket import addr_as_object
     if not hasattr(rsocket._c, 'sockaddr_ll'):
-        py.test.skip("posix specific test")
+        pytest.skip("posix specific test")
     # HACK: To get the correct interface number of lo, which in most cases is 1,
     # but can be anything (i.e. 39), we need to call the libc function
     # if_nametoindex to get the correct index
@@ -690,11 +688,11 @@ class AppTestSocket:
 class AppTestNetlink:
     def setup_class(cls):
         if not hasattr(os, 'getpid'):
-            py.test.skip("AF_NETLINK needs os.getpid()")
+            pytest.skip("AF_NETLINK needs os.getpid()")
         w_ok = space.appexec([], "(): import _socket; " +
                                  "return hasattr(_socket, 'AF_NETLINK')")
         if not space.is_true(w_ok):
-            py.test.skip("no AF_NETLINK on this platform")
+            pytest.skip("no AF_NETLINK on this platform")
         cls.space = space
 
     def test_connect_to_kernel_netlink_routing_socket(self):
@@ -710,11 +708,11 @@ class AppTestNetlink:
 class AppTestPacket:
     def setup_class(cls):
         if not hasattr(os, 'getuid') or os.getuid() != 0:
-            py.test.skip("AF_PACKET needs to be root for testing")
+            pytest.skip("AF_PACKET needs to be root for testing")
         w_ok = space.appexec([], "(): import _socket; " +
                                  "return hasattr(_socket, 'AF_PACKET')")
         if not space.is_true(w_ok):
-            py.test.skip("no AF_PACKET on this platform")
+            pytest.skip("no AF_PACKET on this platform")
         cls.space = space
 
     def test_convert_between_tuple_and_sockaddr_ll(self):

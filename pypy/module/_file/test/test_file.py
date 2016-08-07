@@ -1,5 +1,5 @@
 from __future__ import with_statement
-import py, os, errno
+import pytest, os, errno
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 
 def getfile(space):
@@ -26,7 +26,7 @@ class AppTestFile(object):
 
     def setup_class(cls):
         cls.w_temppath = cls.space.wrap(
-            str(py.test.ensuretemp("fileimpl").join("foo.txt")))
+            str(pytest.ensuretemp("fileimpl").join("foo.txt")))
         cls.w_file = getfile(cls.space)
         cls.w_regex_search = cls.space.wrap(interp2app(regex_search))
 
@@ -388,7 +388,7 @@ class AppTestNonblocking(object):
         cls.old_read = os.read
 
         if cls.runappdirect:
-            py.test.skip("works with internals of _file impl on py.py")
+            pytest.skip("works with internals of _file impl on py.py")
         def read(fd, n=None):
             if fd != 424242:
                 return cls.old_read(fd, n)
@@ -427,9 +427,9 @@ class AppTestConcurrency(object):
 
     def setup_class(cls):
         if not cls.runappdirect:
-            py.test.skip("likely to deadlock when interpreted by py.py")
+            pytest.skip("likely to deadlock when interpreted by py.py")
         cls.w_temppath = cls.space.wrap(
-            str(py.test.ensuretemp("fileimpl").join("concurrency.txt")))
+            str(pytest.ensuretemp("fileimpl").join("concurrency.txt")))
         cls.w_file = getfile(cls.space)
 
     def test_concurrent_writes(self):
@@ -540,7 +540,7 @@ class AppTestFile25:
 
     def setup_class(cls):
         cls.w_temppath = cls.space.wrap(
-            str(py.test.ensuretemp("fileimpl").join("foo.txt")))
+            str(pytest.ensuretemp("fileimpl").join("foo.txt")))
         cls.w_file = getfile(cls.space)
 
     def test___enter__(self):
