@@ -235,8 +235,9 @@ class AppTestObject(AppTestCpythonExtensionBase):
         assert type(x) is int
         assert x == -424344
 
-    @pytest.mark.skipif(True, reason='realloc not fully implemented')
     def test_object_realloc(self):
+        if not self.runappdirect:
+            skip('no untranslated support for realloc')
         module = self.import_extension('foo', [
             ("realloctest", "METH_NOARGS",
              """
