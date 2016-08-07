@@ -414,6 +414,7 @@ class AppTestSocket:
         if os.name != 'nt':
             raises(OSError, os.close, fileno)
 
+    @pytest.mark.skipif("config.option.runappdirect")
     def test_track_resources(self):
         import os, gc, sys, cStringIO
         import _socket

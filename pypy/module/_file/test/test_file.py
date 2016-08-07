@@ -218,6 +218,9 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
         assert exc.value.filename == os.curdir
 
     def test_encoding_errors(self):
+        import sys
+        if '__pypy__' not in sys.builtin_module_names:
+            pytest.skip("pypy only test")
         import _file
 
         with self.file(self.temppath, "w") as f:
@@ -266,6 +269,7 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
         if '__pypy__' in sys.builtin_module_names:
             assert repr(self.temppath) in g.getvalue()
 
+    @pytest.mark.skipif("config.option.runappdirect")
     def test_track_resources(self):
         import os, gc, sys, cStringIO
         if '__pypy__' not in sys.builtin_module_names:
@@ -308,6 +312,7 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
         assert self.regex_search("WARNING: unclosed file: <open file .*>", msg)
         assert "Created at" not in msg
 
+    @pytest.mark.skipif("config.option.runappdirect")
     def test_track_resources_dont_crash(self):
         import os, gc, sys, cStringIO
         if '__pypy__' not in sys.builtin_module_names:
