@@ -184,6 +184,8 @@ def vmprof_execute_code(name, get_code_fn, result_class=None,
 
         def decorated_function(*args):
             unique_id = get_code_fn(*args)._vmprof_unique_id
+            unique_id = rffi.cast(lltype.Signed, unique_id) 
+            # ^^^ removes the "known non-negative" hint for annotation
             if not jit.we_are_jitted():
                 x = enter_code(unique_id)
                 try:
