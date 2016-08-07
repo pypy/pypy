@@ -236,6 +236,8 @@ class AppTestObject(AppTestCpythonExtensionBase):
         assert x == -424344
 
     def test_object_realloc(self):
+        if not self.runappdirect:
+            skip('no untranslated support for realloc')
         module = self.import_extension('foo', [
             ("realloctest", "METH_NOARGS",
              """
