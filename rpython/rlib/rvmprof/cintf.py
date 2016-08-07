@@ -86,22 +86,6 @@ do_use_eci = rffi.llexternal_use_eci(
     ExternalCompilationInfo(includes=['vmprof_stack.h'],
                             include_dirs = [SRC]))
 
-# JIT notes:
-#
-# - When running JIT-generated assembler code, we have different custom
-#   code to build the VMPROFSTACK, so the functions below are not used.
-#
-# - The jitcode for decorated_function() in rvmprof.py still contains
-#   calls to these two oopspec functions, which are represented with
-#   the 'rvmprof_code' jitcode opcode.
-#
-# - When meta-interpreting, the 'rvmprof_code' opcode causes pyjitpl
-#   to call enter_code()/leave_code_check(), but otherwise
-#   'rvmprof_code' is ignored, i.e. doesn't produce any resop.
-#
-# - Blackhole: ...
-
-@jit.oopspec("rvmprof.enter_code(unique_id)")
 def enter_code(unique_id):
     do_use_eci()
     s = lltype.malloc(VMPROFSTACK, flavor='raw')
@@ -111,12 +95,52 @@ def enter_code(unique_id):
     vmprof_tl_stack.setraw(s)
     return s
 
-@jit.oopspec("rvmprof.leave_code(s, unique_id)")
-def leave_code(s, unique_id):
+def leave_code(s):
     vmprof_tl_stack.setraw(s.c_next)
     lltype.free(s, flavor='raw')
 
-def leave_code_check(unique_id):
-    s = vmprof_tl_stack.getraw()
-    assert s.c_value == unique_id
-    leave_code(s, unique_id)
+#
+# JIT notes:
+#
+# - When running JIT-generated assembler code, we have different custom
+#   code to build the VMPROFSTACK, so the functions above are not used.
+#   (It uses kind == VMPROF_JITTED_TAG and the VMPROFSTACK is allocated
+#   in the C stack.)
+#
+# - The jitcode for decorated_jitted_function() in rvmprof.py, if
+#   we_are_jitted() calls the oopspec'ed function jit_rvmprof_code(),
+#   which turns into a simple jitcode opcode.  The jitcode has a
+#   simple structure:
+#
+#        rvmprof_code(0, unique_id)
+#        res = inline_call FUNC
+#        rvmprof_code(1, unique_id)
+#
+#   with no catch_exception logic for a "finally:" block.  Instead the
+#   blackhole interp looks for this simple pattern.  This is needed
+#   because, when a guard fails, the blackhole interp first rebuilds
+#   all the intermediate RPython frames; at that point it needs to
+#   call enter_code() on all intermediate RPython frames, so it does
+#   pattern matching to recognize frames and learn about unique_id.
+#
+# - The jitcode opcode 'rvmprof_code' doesn't produce any resop.  When
+#   meta-interpreting, it causes pyjitpl to call jit_enter_code(), and
+#   jit_leave_code().  There is logic to call jit_leave_code() even if
+#   we exit with an exception, even though there is no
+#   'catch_exception'.
+#
+# - When blackholing, the call to jit_enter_code() occurs imediately
+#   as described above.  For calling jit_leave_code(), we use the same
+#   logic, detecting when we need to call it even though there is no
+#   'catch_exception'.
+
+@jit.oopspec("rvmprof.code(leaving, unique_id)")
+def jit_rvmprof_code(leaving, unique_id):
+    """Marker for the JIT.  Also called directly from the metainterp and
+    the blackhole interp."""
+    if not leaving:
+        enter_code(unique_id)    # ignore the return value
+    else:
+        s = vmprof_tl_stack.getraw()
+        assert s.c_value == unique_id
+        leave_code(s)

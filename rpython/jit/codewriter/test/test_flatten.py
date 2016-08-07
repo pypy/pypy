@@ -14,7 +14,7 @@ from rpython.translator.unsimplify import varoftype
 from rpython.rlib.rarithmetic import ovfcheck, r_uint, r_longlong, r_ulonglong
 from rpython.rlib.jit import dont_look_inside, _we_are_jitted, JitDriver
 from rpython.rlib.objectmodel import keepalive_until_here
-from rpython.rlib import jit
+from rpython.rlib import jit, debug
 
 
 class FakeRegAlloc:
@@ -1115,14 +1115,26 @@ class TestFlatten:
         from rpython.rlib.rvmprof import cintf
         class MyFakeCallControl(FakeCallControl):
             def guess_call_kind(self, op):
-                return 'builtin'
+                if '_code' in repr(op):
+                    return 'builtin'
+                return 'residual'
+        class X:
+            pass
+        def g():
+            debug.debug_print("foo")
+            return X()
+        g._dont_inline_ = True
         def f(x):
-            s = cintf.enter_code(x)
-            cintf.leave_code(s, x)
+            cintf.jit_rvmprof_code(0, x)
+            res = g()
+            cintf.jit_rvmprof_code(1, x)
+            return res
         self.encoding_test(f, [42], """
             rvmprof_code $0, %i0
+            residual_call_r_r $<* fn g>, R[], <Descr> -> %r0
+            -live-
             rvmprof_code $1, %i0
-            void_return
+            ref_return %r0
         """, transform=True, cc=MyFakeCallControl())
 
 

@@ -74,6 +74,8 @@ class MIFrame(object):
         self.parent_snapshot = None
         # counter for unrolling inlined loops
         self.unroll_iterations = 1
+        # rvmprof
+        self.rvmprof_unique_id = -1
 
     @specialize.arg(3)
     def copy_constants(self, registers, constants, ConstClass):
@@ -1456,11 +1458,7 @@ class MIFrame(object):
     @arguments("int", "box")
     def opimpl_rvmprof_code(self, leaving, box_unique_id):
         from rpython.rlib.rvmprof import cintf
-        unique_id = box_unique_id.getint()
-        if not leaving:
-            cintf.enter_code(unique_id)
-        else:
-            cintf.leave_code_check(unique_id)
+        cintf.jit_rvmprof_code(leaving, box_unique_id.getint())
 
     # ------------------------------
 
@@ -1813,6 +1811,7 @@ class MetaInterpStaticData(object):
             opimpl = _get_opimpl_method(name, argcodes)
             self.opcode_implementations[value] = opimpl
         self.op_catch_exception = insns.get('catch_exception/L', -1)
+        self.op_rvmprof_code = insns.get('rvmprof_code/ii', -1)
 
     def setup_descrs(self, descrs):
         self.opcode_descrs = descrs
@@ -2080,6 +2079,10 @@ class MetaInterp(object):
                     target = ord(code[position+1]) | (ord(code[position+2])<<8)
                     frame.pc = target
                     raise ChangeFrame
+                if opcode == self.staticdata.op_rvmprof_code:
+                    # do the 'leave_code' for rvmprof, but then continue
+                    # popping frames
+                    import pdb;pdb.set_trace()
             self.popframe()
         try:
             self.compile_exit_frame_with_exception(self.last_exc_box)

@@ -2082,20 +2082,10 @@ class Transformer(object):
             raise NotImplementedError(oopspec_name)
 
     def _handle_rvmprof_call(self, op, oopspec_name, args):
-        if oopspec_name == 'rvmprof.enter_code':
-            leaving = 0
-        elif oopspec_name == 'rvmprof.leave_code':
-            leaving = 1
-        else:
+        if oopspec_name != 'rvmprof.code':
             raise NotImplementedError(oopspec_name)
-        c_leaving = Constant(leaving, lltype.Signed)
-        v_uniqueid = op.args[-1]
-        ops = [SpaceOperation('rvmprof_code', [c_leaving, v_uniqueid], None)]
-        if op.result.concretetype is not lltype.Void:
-            c_null = Constant(lltype.nullptr(op.result.concretetype.TO),
-                              op.result.concretetype)
-            ops.append(c_null)
-        return ops
+        c_leaving, v_uniqueid = args
+        return SpaceOperation('rvmprof_code', [c_leaving, v_uniqueid], None)
 
     def rewrite_op_ll_read_timestamp(self, op):
         op1 = self.prepare_builtin_call(op, "ll_read_timestamp", [])
