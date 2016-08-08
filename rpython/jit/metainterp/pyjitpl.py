@@ -1458,6 +1458,20 @@ class MIFrame(object):
         from rpython.rlib.rvmprof import cintf
         cintf.jit_rvmprof_code(leaving, box_unique_id.getint())
 
+    def handle_rvmprof_enter_on_resume(self):
+        code = self.bytecode
+        position = self.pc
+        opcode = ord(code[position])
+        if opcode == self.metainterp.staticdata.op_rvmprof_code:
+            arg1 = self.registers_i[ord(code[position + 1])].getint()
+            arg2 = self.registers_i[ord(code[position + 2])].getint()
+            if arg1 == 1:
+                # we are resuming at a position that will do a
+                # jit_rvmprof_code(1), when really executed.  That's a
+                # hint for the need for a jit_rvmprof_code(0).
+                from rpython.rlib.rvmprof import cintf
+                cintf.jit_rvmprof_code(0, arg2)
+
     # ------------------------------
 
     def setup_call(self, argboxes):

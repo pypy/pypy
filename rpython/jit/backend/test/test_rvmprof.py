@@ -139,7 +139,8 @@ class BaseRVMProfTest(object):
                 else:
                     llfn()
                     c -= 1
-            jit.promote(c + 5)     # failing guard
+            if c & 1:      # a failing guard
+                pass
             raise MyExc(c)
 
         def main(n):

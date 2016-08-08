@@ -1058,6 +1058,7 @@ def rebuild_from_resumedata(metainterp, storage, deadframe,
         f.setup_resume_at_op(pc)
         resumereader.consume_boxes(f.get_current_position_info(),
                                    f.registers_i, f.registers_r, f.registers_f)
+        f.handle_rvmprof_enter_on_resume()
     return resumereader.liveboxes, virtualizable_boxes, virtualref_boxes
 
 
