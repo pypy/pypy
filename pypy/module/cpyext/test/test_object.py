@@ -245,12 +245,11 @@ class AppTestObject(AppTestCpythonExtensionBase):
                  char *copy, *orig = PyObject_MALLOC(12);
                  memcpy(orig, "hello world", 12);
                  copy = PyObject_REALLOC(orig, 15);
+                 /* realloc() takes care of freeing orig, if changed */
                  if (copy == NULL)
                      Py_RETURN_NONE;
                  ret = PyString_FromStringAndSize(copy, 12);
-                 if (copy != orig)
-                     PyObject_Free(copy);
-                 PyObject_Free(orig);
+                 PyObject_Free(copy);
                  return ret;
              """)])
         x = module.realloctest()
