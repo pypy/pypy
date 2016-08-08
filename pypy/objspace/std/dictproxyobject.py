@@ -1,5 +1,8 @@
-# Read-only proxy for mappings. PyPy does not have a separate type for
-# type.__dict__, so PyDictProxy_New has to use a custom read-only mapping.
+"""
+Read-only proxy for mappings.
+
+Its main use is as the return type of cls.__dict__.
+"""
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import oefmt
@@ -18,7 +21,8 @@ class W_DictProxyObject(W_Root):
                 space.isinstance_w(w_mapping, space.w_list) or
                 space.isinstance_w(w_mapping, space.w_tuple)):
             raise oefmt(space.w_TypeError,
-                        "mappingproxy() argument must be a mapping, not %T", w_mapping)
+                        "mappingproxy() argument must be a mapping, not %T",
+                        w_mapping)
         return W_DictProxyObject(w_mapping)
 
     def descr_init(self, space, __args__):
