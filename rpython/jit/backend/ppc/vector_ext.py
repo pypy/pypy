@@ -92,83 +92,35 @@ class VectorAssembler(object):
         self.VEC_DOUBLE_WORD_ONES = mem
 
     def emit_vec_load_f(self, op, arglocs, regalloc):
-        resloc, baseloc, indexloc, size_loc, ofs, integer_loc, aligned_loc = arglocs
+        resloc, baseloc, indexloc, size_loc, ofs, integer_loc = arglocs
         indexloc = self._apply_offset(indexloc, ofs)
         itemsize = size_loc.value
-        if itemsize == 4:
+        if integer_loc.value:
+            self.mc.lxvd2x(resloc.value, indexloc.value, baseloc.value)
+        elif itemsize == 4:
             self.mc.lxvw4x(resloc.value, indexloc.value, baseloc.value)
         elif itemsize == 8:
             self.mc.lxvd2x(resloc.value, indexloc.value, baseloc.value)
+        else:
+            not_implemented("vec_load_f itemsize %d" % itemsize)
 
-    def emit_vec_load_i(self, op, arglocs, regalloc):
-        resloc, baseloc, indexloc, size_loc, ofs, \
-            Vhiloc, Vloloc, Vploc, tloc = arglocs
-        indexloc = self._apply_offset(indexloc, ofs)
-        Vlo = Vloloc.value
-        Vhi = Vhiloc.value
-        self.mc.lvx(Vhi, indexloc.value, baseloc.value)
-        Vp = Vploc.value
-        t = tloc.value
-        if IS_BIG_ENDIAN:
-            self.mc.lvsl(Vp, indexloc.value, baseloc.value)
-        else:
-            self.mc.lvsr(Vp, indexloc.value, baseloc.value)
-        self.mc.addi(t, baseloc.value, 16)
-        self.mc.lvx(Vlo, indexloc.value, t)
-        if IS_BIG_ENDIAN:
-            self.mc.vperm(resloc.value, Vhi, Vlo, Vp)
-        else:
-            self.mc.vperm(resloc.value, Vlo, Vhi, Vp)
+    emit_vec_load_i = emit_vec_load_f
 
     def emit_vec_store(self, op, arglocs, regalloc):
         baseloc, indexloc, valueloc, sizeloc, baseofs, \
-            integer_loc, aligned_loc = arglocs
+            integer_loc = arglocs
         indexloc = self._apply_offset(indexloc, baseofs)
         assert baseofs.value == 0
         if integer_loc.value:
-            Vloloc = regalloc.vrm.get_scratch_reg(type=INT)
-            Vhiloc = regalloc.vrm.get_scratch_reg(type=INT)
-            Vploc = regalloc.vrm.get_scratch_reg(type=INT)
-            tloc = regalloc.rm.get_scratch_reg()
-            V1sloc = regalloc.vrm.get_scratch_reg(type=INT)
-            V1s = V1sloc.value
-            V0sloc = regalloc.vrm.get_scratch_reg(type=INT)
-            V0s = V0sloc.value
-            Vmaskloc = regalloc.vrm.get_scratch_reg(type=INT)
-            Vmask = Vmaskloc.value
-            Vlo = Vhiloc.value
-            Vhi = Vloloc.value
-            Vp = Vploc.value
-            t = tloc.value
-            Vs = valueloc.value
-            # UFF, that is a lot of code for storing unaligned!
-            # probably a lot of room for improvement (not locally,
-            # but in general for the algorithm)
-            self.mc.lvx(Vhi, indexloc.value, baseloc.value)
-            #self.mc.lvsr(Vp, indexloc.value, baseloc.value)
-            if IS_BIG_ENDIAN:
-                self.mc.lvsr(Vp, indexloc.value, baseloc.value)
-            else:
-                self.mc.lvsl(Vp, indexloc.value, baseloc.value)
-            self.mc.addi(t, baseloc.value, 16)
-            self.mc.lvx(Vlo, indexloc.value, t)
-            self.mc.vspltisb(V1s, -1)
-            self.mc.vspltisb(V0s, 0)
-            if IS_BIG_ENDIAN:
-                self.mc.vperm(Vmask, V0s, V1s, Vp)
-            else:
-                self.mc.vperm(Vmask, V1s, V0s, Vp)
-            self.mc.vperm(Vs, Vs, Vs, Vp)
-            self.mc.vsel(Vlo, Vs, Vlo, Vmask)
-            self.mc.vsel(Vhi, Vhi, Vs, Vmask)
-            self.mc.stvx(Vlo, indexloc.value, t)
-            self.mc.stvx(Vhi, indexloc.value, baseloc.value)
+            self.mc.stxvd2x(valueloc.value, indexloc.value, baseloc.value)
         else:
             itemsize = sizeloc.value
             if itemsize == 4:
                 self.mc.stxvw4x(valueloc.value, indexloc.value, baseloc.value)
             elif itemsize == 8:
                 self.mc.stxvd2x(valueloc.value, indexloc.value, baseloc.value)
+            else:
+                not_implemented("vec_store itemsize %d" % itemsize)
 
     def emit_vec_int_add(self, op, arglocs, regalloc):
         resloc, loc0, loc1, size_loc = arglocs
@@ -631,7 +583,6 @@ class VectorRegalloc(object):
                not descr.is_array_of_structs()
         itemsize, ofs, _ = unpack_arraydescr(descr)
         integer = not (descr.is_array_of_floats() or descr.getconcrete_type() == FLOAT)
-        aligned = False
         args = op.getarglist()
         a0 = op.getarg(0)
         a1 = op.getarg(1)
@@ -639,28 +590,9 @@ class VectorRegalloc(object):
         ofs_loc = self.ensure_reg(a1)
         result_loc = self.force_allocate_vector_reg(op)
         return [result_loc, base_loc, ofs_loc, imm(itemsize), imm(ofs),
-                imm(integer), imm(aligned)]
+                imm(integer)]
 
-    def _prepare_load_i(self, op):
-        descr = op.getdescr()
-        assert isinstance(descr, ArrayDescr)
-        assert not descr.is_array_of_pointers() and \
-               not descr.is_array_of_structs()
-        itemsize, ofs, _ = unpack_arraydescr(descr)
-        args = op.getarglist()
-        a0 = op.getarg(0)
-        a1 = op.getarg(1)
-        base_loc = self.ensure_reg(a0)
-        ofs_loc = self.ensure_reg(a1)
-        result_loc = self.force_allocate_vector_reg(op)
-        tloc = self.rm.get_scratch_reg()
-        Vhiloc = self.vrm.get_scratch_reg(type=INT)
-        Vloloc = self.vrm.get_scratch_reg(type=INT)
-        Vploc = self.vrm.get_scratch_reg(type=INT)
-        return [result_loc, base_loc, ofs_loc, imm(itemsize), imm(ofs),
-                Vhiloc, Vloloc, Vploc, tloc]
-
-    prepare_vec_load_i = _prepare_load_i
+    prepare_vec_load_i = _prepare_load
     prepare_vec_load_f = _prepare_load
 
     def prepare_vec_arith(self, op):
@@ -720,9 +652,8 @@ class VectorRegalloc(object):
         valueloc = self.ensure_vector_reg(a2)
 
         integer = not (descr.is_array_of_floats() or descr.getconcrete_type() == FLOAT)
-        aligned = False
         return [baseloc, ofsloc, valueloc,
-                imm(itemsize), imm(ofs), imm(integer), imm(aligned)]
+                imm(itemsize), imm(ofs), imm(integer)]
 
     def prepare_vec_int_signext(self, op):
         assert isinstance(op, VectorOp)

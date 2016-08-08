@@ -531,6 +531,8 @@ class VectorAssemblerMixin(object):
                             self.mc.SHUFPD_xxi(resloc.value, resloc.value, 1)
                             self.mc.UNPCKHPD(resloc, srcloc)
                         # if they are equal nothing is to be done
+        else:
+            not_implemented("pack/unpack for size %d", size)
 
     genop_vec_unpack_f = genop_vec_pack_f
 

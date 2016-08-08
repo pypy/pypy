@@ -18,6 +18,13 @@ from rpython.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
 from rpython.rlib.objectmodel import (specialize, is_annotation_constant,
         always_inline)
 from rpython.jit.backend.detect_cpu import getcpuclass
+from rpython.jit.tool.oparser import parse
+from rpython.jit.metainterp.history import (AbstractFailDescr,
+                                            AbstractDescr,
+                                            BasicFailDescr, BasicFinalDescr,
+                                            JitCellToken, TargetToken,
+                                            ConstInt, ConstPtr,
+                                            Const, ConstFloat)
 
 CPU = getcpuclass()
 
@@ -78,7 +85,6 @@ class VectorizeTests(object):
     enable_opts = 'intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll'
 
     def setup_method(self, method):
-        import pdb; pdb.set_trace()
         if not self.supports_vector_ext():
             py.test.skip("this cpu %s has no implemented vector backend" % CPU)
 
@@ -717,6 +723,81 @@ class VectorizeTests(object):
             return breaks
         res = self.meta_interp(f, [22], vec_all=True, vec_guard_ratio=5)
         assert res == f(22)
+
+    def run_unpack(self, unpack, vector_type, assignments, float=True):
+        vars = {'v':0,'f':0,'i':0}
+        def newvar(type):
+            c = vars[type]
+            vars[type] = c + 1
+            if type == 'v':
+                return type + str(c) + vector_type
+            return type + str(c)
+        targettoken = TargetToken()
+        finaldescr = BasicFinalDescr(1)
+        args = []
+        args_values = []
+        pack = []
+        suffix = 'f' if float else 'i'
+        for var, vals in assignments.items():
+            v = newvar('v')
+            pack.append('%s = vec_%s()' % (v, suffix))
+            for i,val in enumerate(vals):
+                args_values.append(val)
+                f = newvar('f')
+                args.append(f)
+                count = 1
+                # create a new variable
+                vo = v
+                v = newvar('v')
+                pack.append('%s = vec_pack_%s(%s, %s, %d, %d)' % \
+                            (v, suffix, vo, f, i, count))
+            vars['x'] = v
+        packs = '\n        '.join(pack)
+        resvar = suffix + '{'+suffix+'}'
+        source = '''
+        [{args}]
+        label({args}, descr=targettoken)
+        {packs}
+        {unpack}
+        finish({resvar}, descr=finaldescr)
+        '''.format(args=','.join(args),packs=packs, unpack=unpack.format(**vars),
+                   resvar=resvar.format(**vars))
+        loop = parse(source, namespace={'targettoken': targettoken,
+                                        'finaldescr': finaldescr})
+
+        cpu = self.CPUClass(rtyper=None, stats=None)
+        cpu.setup_once()
+        #
+        looptoken = JitCellToken()
+        cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        deadframe = cpu.execute_token(looptoken, *args_values)
+        print(source)
+        if float:
+            return cpu.get_float_value(deadframe, 0)
+        else:
+            return cpu.get_int_value(deadframe, 0)
+
+    def test_unpack(self):
+        # double unpack
+        assert self.run_unpack("f{f} = vec_unpack_f({x}, 0, 1)",
+                               "[2xf64]", {'x': (1.2,-1)}) == 1.2
+        assert self.run_unpack("f{f} = vec_unpack_f({x}, 1, 1)",
+                               "[2xf64]", {'x': (50.33,4321.0)}) == 4321.0
+        # int64
+        assert self.run_unpack("i{i} = vec_unpack_i({x}, 0, 1)",
+                               "[2xi64]", {'x': (11,12)}, float=False) == 11
+        assert self.run_unpack("i{i} = vec_unpack_i({x}, 1, 1)",
+                               "[2xi64]", {'x': (14,15)}, float=False) == 15
+
+        ## integer unpack (byte)
+        for i in range(16):
+            op = "i{i} = vec_unpack_i({x}, %d, 1)" % i
+            assert self.run_unpack(op, "[16xi8]", {'x': [127,1]*8}, float=False) == (127 if i%2==0 else 1)
+            if i < 8:
+                assert self.run_unpack(op, "[2xi16]", {'x': [2**15-1,0]*4}, float=False) == (2**15-1 if i%2==0 else 0)
+            if i < 4:
+                assert self.run_unpack(op, "[2xi32]", {'x': [2**31-1,0]*4}, float=False) == (2**31-1 if i%2==0 else 0)
+
 
 class TestLLtype(LLJitMixin, VectorizeTests):
     pass
