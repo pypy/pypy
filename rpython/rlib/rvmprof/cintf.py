@@ -98,9 +98,6 @@ def enter_code(unique_id):
 
 def leave_code(s):
     if not we_are_translated():
-        # xxx this assertion may be false in the presence of
-        # stacklets, but let's assume we never run untranslated
-        # tests with stacklets and rvmprof
         assert vmprof_tl_stack.getraw() == s
     vmprof_tl_stack.setraw(s.c_next)
     lltype.free(s, flavor='raw')
@@ -143,9 +140,17 @@ def jit_rvmprof_code(leaving, unique_id):
         enter_code(unique_id)    # ignore the return value
     else:
         s = vmprof_tl_stack.getraw()
-        #assert s.c_value == unique_id and s.c_kind == VMPROF_CODE_TAG
-        #^^^ this is false in the presence of stacklets.
-        # we get random nonsense then; let's say it's ok for now
-        # and avoid crashing.
-        if s.c_value == unique_id and s.c_kind == VMPROF_CODE_TAG:
-            leave_code(s)
+        assert s.c_value == unique_id and s.c_kind == VMPROF_CODE_TAG
+        leave_code(s)
+
+#
+# stacklet support
+
+def save_rvmprof_stack():
+    return vmprof_tl_stack.get_or_make_raw()
+
+def empty_rvmprof_stack():
+    vmprof_tl_stack.setraw(lltype.nullptr(VMPROFSTACK))
+
+def restore_rvmprof_stack(x):
+    vmprof_tl_stack.setraw(x)
