@@ -209,6 +209,7 @@ class OptPure(Optimization):
         return False
 
     def optimize_GUARD_COMPATIBLE(self, op):
+        from rpython.jit.metainterp.compile import GuardCompatibleDescr
         arg0 = self.get_box_replacement(op.getarg(0))
         if arg0.is_constant():
             # already subject of guard_value
@@ -238,6 +239,10 @@ class OptPure(Optimization):
                 op.getarg(1))
             self.emit_operation(op)
             info.mark_last_guard(self.optimizer)
+            descr = op.getdescr()
+            assert isinstance(descr, GuardCompatibleDescr)
+            info._compatibility_conditions.attach_to_descr(
+                    descr, op, self.optimizer)
 
     def optimize_GUARD_NO_EXCEPTION(self, op):
         if self.last_emitted_operation is REMOVED:

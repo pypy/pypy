@@ -35,6 +35,7 @@ class CompatibilityCondition(object):
         self.jump_target = -1
         self.frozen = False
 
+
     def frozen_copy(self):
         res = CompatibilityCondition(self.known_valid)
         res.conditions = self.conditions[:]
@@ -176,6 +177,48 @@ class CompatibilityCondition(object):
                 else:
                     return False
         return True
+
+    def attach_to_descr(self, descr, guard_value_op, optimizer):
+        from rpython.jit.metainterp.resoperation import AbstractResOp
+        assert descr._compatibility_conditions is None
+        descr._compatibility_conditions = self
+        try:
+            descr.failarg_index = guard_value_op.getfailargs().index(
+                    guard_value_op.getarg(0))
+        except ValueError:
+            return # too bad
+        arg = guard_value_op.getarg(0)
+        if not isinstance(arg, AbstractResOp):
+            return
+        if arg.getopnum() not in (rop.GETFIELD_GC_R, rop.GETFIELD_GC_I, rop.GETFIELD_GC_F):
+            return
+        # again, a bit of pattern matching. The trace quite often looks like this:
+        # x = getfield(obj, <fielddescr>)
+        # guard_compatible(x) [x, obj]
+
+        # if this guard fails, we lose the connection between obj and x, which
+        # means that the new bridge will do two things: a guard_compatible on
+        # x, then later do the read again and have a guard_compatible on the
+        # newly read field. This is bad, because one guard_compatible would be
+        # enough. Thus we keep track of this connection, and seed the heapcache
+        # when starting to trace the bridge with that info.
+
+        source_op = arg.getarg(0)
+        try:
+            source_index = guard_value_op.getfailargs().index(source_op)
+        except ValueError:
+            return
+        fielddescr = arg.getdescr()
+        # check whether the same getfield would still yield the same result at
+        # this point in the trace
+        optheap = optimizer.optheap
+        structinfo = optheap.getptrinfo(source_op)
+        cf = optheap.field_cache(fielddescr)
+        field = cf.getfield_from_cache(optheap, structinfo, fielddescr)
+        if field is arg:
+            # yay! we can pass this info on
+            descr.source_failarg_index = source_index
+            descr.source_fielddescr = fielddescr
 
     def repr_of_conditions(self, argrepr="?"):
         return "\n".join([cond.repr(argrepr) for cond in self.conditions])

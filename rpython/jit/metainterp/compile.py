@@ -1097,6 +1097,10 @@ class GuardCompatibleDescr(ResumeGuardDescr):
         # XXX it would be better to patch the guard properly in the backend,
         # but later
         self.fallback_jump_target = 0
+        # the next two attributes are for tracking where the guarded value came
+        # from
+        self.source_failarg_index = -1
+        self.source_fielddescr = None
 
     def find_compatible(self, cpu, ref):
         """ callback for the CPU: given a value ref, it returns:
@@ -1125,13 +1129,21 @@ class GuardCompatibleDescr(ResumeGuardDescr):
         # to this descr
         compat_cond = None
         if self.failarg_index != -1:
-            arg = new_loop.inputargs[self.failarg_index]
             firstop = new_loop.operations[0]
+            opindex = 0
+            if self.source_fielddescr:
+                assert firstop.getopnum() == rop.GETFIELD_GC_R
+                assert firstop.getdescr() is self.source_fielddescr
+                arg = firstop
+                opindex = 1
+                firstop = new_loop.operations[1]
+            else:
+                arg = new_loop.inputargs[self.failarg_index]
             if (firstop.getopnum() == rop.GUARD_COMPATIBLE and
                     firstop.getarg(0) is arg):
                 # a guard_compatible about the same box
                 # remove it, it doesn't have to be checked in the bridge
-                del new_loop.operations[0]
+                del new_loop.operations[opindex]
                 newdescr = firstop.getdescr()
                 assert isinstance(newdescr, GuardCompatibleDescr)
                 compat_cond = newdescr._compatibility_conditions
@@ -1150,16 +1162,11 @@ class GuardCompatibleDescr(ResumeGuardDescr):
             self.fallback_jump_target = asminfo.asmaddr
         return asminfo
 
-    def make_a_counter_per_value(self, guard_value_op, index):
-        try:
-            self.failarg_index = guard_value_op.getfailargs().index(
-                    guard_value_op.getarg(0))
-        except ValueError:
-            pass # we don't set the failarg_index, too bad
-
+    def make_a_counter_per_value(self, guard_op, index):
+        pass
         # this is not actually enabling the counter_per_value logic,
         # which right now gives bad results with a GUARD_COMPATIBLE
-        #ResumeGuardDescr.make_a_counter_per_value(self, guard_value_op, index)
+        #ResumeGuardDescr.make_a_counter_per_value(self, guard_op, index)
 
     def repr_of_conditions(self, argrepr="?"):
         if self._compatibility_conditions:

@@ -731,10 +731,11 @@ class Optimizer(Optimization):
             op = self._maybe_replace_guard_value(op, descr)
         elif op.getopnum() == rop.GUARD_COMPATIBLE:
             # XXX randomly stuff things into the descr
-            info = self.getptrinfo(op.getarg(0))
-            assert isinstance(descr, compile.GuardCompatibleDescr)
-            if info is not None and info._compatibility_conditions:
-                descr._compatibility_conditions = info._compatibility_conditions
+            #info = self.getptrinfo(op.getarg(0))
+            #assert isinstance(descr, compile.GuardCompatibleDescr)
+            #if info is not None and info._compatibility_conditions:
+            #    info._compatibility_conditions.attach_to_descr(descr, op, self)
+            pass
         return op
 
     def _maybe_replace_guard_value(self, op, descr):

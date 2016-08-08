@@ -618,7 +618,8 @@ class TestCompatible(LLJitMixin):
         class Map(object):
             _immutable_fields_ = ['version?']
 
-            def __init__(self):
+            def __init__(self, num):
+                self.num = num
                 self.version = Version()
                 self.dct = {}
 
@@ -642,10 +643,10 @@ class TestCompatible(LLJitMixin):
                 map = jit.hint(map, promote_compatible=True)
                 return map.lookup_version(name)
 
-        m1 = Map()
+        m1 = Map(1)
         m1.dct['a'] = 1
         m1.dct['b'] = 2
-        m2 = Map()
+        m2 = Map(2)
         m2.dct['a'] = 1
         m2.dct['b'] = 2
         m2.dct['c'] = 5
@@ -656,7 +657,7 @@ class TestCompatible(LLJitMixin):
         driver = jit.JitDriver(greens = [], reds = ['n', 'res', 'p'])
 
         def f(n, p):
-            res = 0
+            res = p.map.num
             while n > 0:
                 driver.jit_merge_point(n=n, p=p, res=res)
                 res += p.lookup('a')

@@ -1047,7 +1047,22 @@ class AbstractResumeDataReader(object):
 
 def rebuild_from_resumedata(metainterp, storage, deadframe,
                             virtualizable_info, greenfield_info):
+    from rpython.jit.metainterp.compile import GuardCompatibleDescr
     resumereader = ResumeDataBoxReader(storage, deadframe, metainterp)
+    # this is a gross and terrible HACK
+    # it should be replaced with something significantly more general
+    sourcebox = None
+    if isinstance(storage, GuardCompatibleDescr) and storage.source_fielddescr:
+        assert storage.source_failarg_index >= 0
+        assert storage.failarg_index >= 0
+        sourcebox = resumereader.decode_box(tag(storage.source_failarg_index, TAGBOX), REF)
+        resbox = metainterp.execute_and_record(
+                rop.GETFIELD_GC_R, storage.source_fielddescr, sourcebox)
+        assert resumereader.liveboxes[storage.failarg_index] is None
+        oldbox = resumereader.decode_box(tag(storage.failarg_index, TAGBOX), REF)
+        assert resbox.getref_base() == oldbox.getref_base()
+        resumereader.liveboxes[storage.failarg_index] = resbox
+    # end hack
     boxes = resumereader.consume_vref_and_vable_boxes(virtualizable_info,
                                                       greenfield_info)
     virtualizable_boxes, virtualref_boxes = boxes
