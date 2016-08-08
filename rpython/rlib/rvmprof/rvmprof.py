@@ -46,6 +46,7 @@ class VMProf(object):
     def _cleanup_(self):
         self.is_enabled = False
 
+    @jit.dont_look_inside
     @specialize.argtype(1)
     def register_code(self, code, full_name_func):
         """Register the code object.  Call when a new code object is made.
@@ -87,6 +88,8 @@ class VMProf(object):
         if CodeClass in self._code_classes:
             return
         CodeClass._vmprof_unique_id = 0     # default value: "unknown"
+        immut = CodeClass.__dict__.get('_immutable_fields_', [])
+        CodeClass._immutable_fields_ = list(immut) + ['_vmprof_unique_id']
         self._code_classes.add(CodeClass)
         #
         class WeakCodeObjectList(RWeakListMixin):
@@ -111,6 +114,7 @@ class VMProf(object):
         prev = self._gather_all_code_objs
         self._gather_all_code_objs = gather_all_code_objs
 
+    @jit.dont_look_inside
     def enable(self, fileno, interval):
         """Enable vmprof.  Writes go to the given 'fileno'.
         The sampling interval is given by 'interval' as a number of
@@ -131,6 +135,7 @@ class VMProf(object):
             raise VMProfError(os.strerror(rposix.get_saved_errno()))
         self.is_enabled = True
 
+    @jit.dont_look_inside
     def disable(self):
         """Disable vmprof.
         Raises VMProfError if something goes wrong.
