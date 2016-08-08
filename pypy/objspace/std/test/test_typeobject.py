@@ -970,7 +970,6 @@ class AppTestTypeObject:
         raises(TypeError, setattr, list, 'foobar', 42)
         raises(TypeError, delattr, dict, 'keys')
         raises(TypeError, 'int.__dict__["a"] = 1')
-        raises(TypeError, 'int.__dict__.clear()')
 
     def test_nontype_in_mro(self):
         class OldStyle:
@@ -1028,10 +1027,9 @@ class AppTestTypeObject:
             pass
 
         a = A()
+        d = A.__dict__
         A.x = 1
-        assert A.__dict__["x"] == 1
-        A.__dict__['x'] = 5
-        assert A.x == 5
+        assert d["x"] == 1
 
     def test_we_already_got_one_1(self):
         # Issue #2079: highly obscure: CPython complains if we say

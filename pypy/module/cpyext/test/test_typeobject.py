@@ -277,9 +277,41 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
                      args->ob_type->tp_dict, "copy");
                  Py_INCREF(method);
                  return method;
-             ''')])
+             '''),
+            ("get_type_dict", "METH_O",
+             '''
+                PyObject* value = args->ob_type->tp_dict;
+                if (value == NULL) value = Py_None;
+                Py_INCREF(value);
+                return value;
+             '''),
+            ])
         obj = foo.new()
         assert module.read_tp_dict(obj) == foo.fooType.copy
+        d = module.get_type_dict(obj)
+        assert type(d) is dict
+        d["_some_attribute"] = 1
+        assert type(obj)._some_attribute == 1
+        del d["_some_attribute"]
+
+        class A(object):
+            pass
+        obj = A()
+        d = module.get_type_dict(obj)
+        assert type(d) is dict
+        d["_some_attribute"] = 1
+        assert type(obj)._some_attribute == 1
+        del d["_some_attribute"]
+
+        d = module.get_type_dict(1)
+        assert type(d) is dict
+        try:
+            d["_some_attribute"] = 1
+        except TypeError:  # on PyPy, int.__dict__ is really immutable
+            pass
+        else:
+            assert int._some_attribute == 1
+            del d["_some_attribute"]
 
     def test_custom_allocation(self):
         foo = self.import_module("foo")
@@ -347,6 +379,21 @@ class TestTypes(BaseApiTest):
         assert from_ref(space, py_type.c_tp_mro).wrappeditems is w_class.mro_w
 
         api.Py_DecRef(ref)
+
+    def test_type_dict(self, space, api):
+        w_class = space.appexec([], """():
+            class A(object):
+                pass
+            return A
+            """)
+        ref = make_ref(space, w_class)
+
+        py_type = rffi.cast(PyTypeObjectPtr, ref)
+        w_dict = from_ref(space, py_type.c_tp_dict)
+        w_name = space.newunicode(u'a')
+        space.setitem(w_dict, w_name, space.wrap(1))
+        assert space.int_w(space.getattr(w_class, w_name)) == 1
+        space.delitem(w_dict, w_name)
 
     def test_multiple_inheritance(self, space, api):
         w_class = space.appexec([], """():
