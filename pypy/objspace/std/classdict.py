@@ -85,7 +85,8 @@ class ClassDictStrategy(DictStrategy):
         return space.newlist_bytes(self.unerase(w_dict.dstorage).dict_w.keys())
 
     def values(self, w_dict):
-        return [unwrap_cell(self.space, w_value) for w_value in self.unerase(w_dict.dstorage).dict_w.itervalues()]
+        return [unwrap_cell(self.space, w_value) for w_value in
+                self.unerase(w_dict.dstorage).dict_w.itervalues()]
 
     def items(self, w_dict):
         space = self.space
@@ -103,12 +104,16 @@ class ClassDictStrategy(DictStrategy):
 
     def getiterkeys(self, w_dict):
         return self.unerase(w_dict.dstorage).dict_w.iterkeys()
+
     def getitervalues(self, w_dict):
         return self.unerase(w_dict.dstorage).dict_w.itervalues()
+
     def getiteritems_with_hash(self, w_dict):
         return iteritems_with_hash(self.unerase(w_dict.dstorage).dict_w)
+
     def wrapkey(space, key):
         return space.wrap(key)
+
     def wrapvalue(space, value):
         return unwrap_cell(space, value)
 
