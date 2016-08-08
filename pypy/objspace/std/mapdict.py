@@ -348,7 +348,7 @@ class AbstractAttribute(object):
         return w_res
 
     @jit.elidable_compatible(quasi_immut_field_name_for_second_arg="version")
-    def _type_issubtype(self, version, w_type):
+    def _type_issubtype(self, version, w_type, w_type_version):
         from pypy.objspace.std.typeobject import _issubtype
         return _issubtype(self.terminator.w_cls, w_type)
 
@@ -1173,7 +1173,7 @@ def mapdict_type_isinstance(space, w_obj, w_type):
             if map.version is not None:
                 version_tag = w_type.version_tag()
                 if version_tag is not None:
-                    return map._type_issubtype(w_type)
+                    return map._type_issubtype(w_type, version_tag)
     return space.type(w_obj).issubtype(w_type)
 
 def mapdict_compares_by_identity(space, w_obj):
