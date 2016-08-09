@@ -6,7 +6,7 @@ The rest, dealing with variables in optimized ways, is in nestedscope.py.
 
 from rpython.rlib import jit, rstackovf, rstring
 from rpython.rlib.debug import check_nonneg
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, always_inline
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.tool.sourcetools import func_with_new_name
 
@@ -44,6 +44,26 @@ def binaryoperation(operationname):
     opimpl.binop = operationname
 
     return func_with_new_name(opimpl, "opcode_impl_for_%s" % operationname)
+
+def get_func_desc(space, func):
+    if isinstance(func,function.Function):
+        return "()"
+    elif isinstance(func, function.Method):
+        return "()"
+    else:
+        return " object";
+
+@always_inline
+def list_unpack_helper(frame, itemcount):
+    space = frame.space
+    w_sum = space.newlist([], sizehint=itemcount)
+    for i in range(itemcount, 0, -1):
+        w_item = frame.peekvalue(i-1)
+        w_sum.extend(w_item)
+    while itemcount != 0:
+        frame.popvalue()
+        itemcount -= 1
+    return w_sum
 
 
 opcodedesc = bytecode_spec.opcodedesc
@@ -1351,74 +1371,73 @@ class __extend__(pyframe.PyFrame):
             self.space.call_method(w_set, 'add', w_item)
         self.pushvalue(w_set)
 
-    def unpack_helper(self, itemcount, next_instr):
-        w_sum = []
+    def BUILD_SET_UNPACK(self, itemcount, next_instr):
+        space = self.space
+        w_sum = space.newset()
         for i in range(itemcount, 0, -1):
             w_item = self.peekvalue(i-1)
-            items = self.space.fixedview(w_item)
-            w_sum.extend(items)
+            # cannot use w_sum.update, w_item might not be a set
+            iterator = w_item.itervalues()
+            while True:
+                w_value = iterator.next_value()
+                if w_value is None:
+                    break
+                w_sum.add(w_value)
         while itemcount != 0:
             self.popvalue()
             itemcount -= 1
-        return w_sum
-
-    def BUILD_SET_UNPACK(self, itemcount, next_instr):
-        w_sum = self.unpack_helper(itemcount, next_instr)
-        self.pushvalue(self.space.newset(w_sum))
+        self.pushvalue(w_sum)
 
     def BUILD_TUPLE_UNPACK(self, itemcount, next_instr):
-        w_sum = self.unpack_helper(itemcount, next_instr)
-        self.pushvalue(self.space.newtuple(w_sum))
-        
+        w_list = list_unpack_helper(self, itemcount)
+        items = [w_obj for w_obj in w_list.getitems_unroll()]
+        self.pushvalue(self.space.newtuple(items))
+
     def BUILD_LIST_UNPACK(self, itemcount, next_instr):
-        w_sum = self.unpack_helper(itemcount, next_instr)
-        self.pushvalue(self.space.newlist(w_sum))
-        
-    def getFuncDesc(self, func):
-        if self.space.type(func).name.decode('utf-8') == 'method':
-            return "()"
-        elif self.space.type(func).name.decode('utf-8') == 'function':
-            return "()"
-        else:
-            return " object";
-    
+        w_sum = list_unpack_helper(self, itemcount)
+        self.pushvalue(w_sum)
+
     def BUILD_MAP_UNPACK_WITH_CALL(self, itemcount, next_instr):
+        space = self.space
         num_maps = itemcount & 0xff
         function_location = (itemcount>>8) & 0xff
-        w_dict = self.space.newdict()
-        dict_class = w_dict.__class__
+        w_dict = space.newdict()
         for i in range(num_maps, 0, -1):
             w_item = self.peekvalue(i-1)
-            if not issubclass(w_item.__class__, dict_class):
-                raise oefmt(self.space.w_TypeError,
+            if not space.ismapping_w(w_item):
+                raise oefmt(space.w_TypeError,
                         "'%T' object is not a mapping", w_item)
-            num_items = w_item.length()
-            keys = w_item.w_keys()
-            for j in range(num_items):
-                if self.space.type(keys.getitem(j)).name.decode('utf-8') == 'method':
+            iterator = w_item.iterkeys()
+            while True:
+                w_key = iterator.next_key()
+                if w_key is None:
+                    break
+                if not isinstance(w_key, space.UnicodeObjectCls):
                     err_fun = self.peekvalue(num_maps + function_location-1)
-                    raise oefmt(self.space.w_TypeError,
-                        "%N%s keywords must be strings", err_fun, getFuncDesc(err_fun))
-                if self.space.is_true(self.space.contains(w_dict,keys.getitem(j))):
+                    raise oefmt(space.w_TypeError,
+                        "%N%s keywords must be strings", err_fun,
+                                                         get_func_desc(space, err_fun))
+                if space.is_true(space.contains(w_dict,w_key)):
                     err_fun = self.peekvalue(num_maps + function_location-1)
-                    err_arg = self.space.unicode_w(keys.getitem(j))
-                    raise oefmt(self.space.w_TypeError,
-                        "%N%s got multiple values for keyword argument '%s'", err_fun, self.getFuncDesc(err_fun), err_arg)
-            self.space.call_method(w_dict, 'update', w_item)
+                    err_arg = w_key
+                    raise oefmt(space.w_TypeError,
+                        "%N%s got multiple values for keyword argument '%s'",
+                          err_fun, get_func_desc(space, err_fun), space.str_w(err_arg))
+            space.call_method(w_dict, 'update', w_item)
         while num_maps != 0:
             self.popvalue()
             num_maps -= 1
         self.pushvalue(w_dict)
-        
+
     def BUILD_MAP_UNPACK(self, itemcount, next_instr):
-        w_dict = self.space.newdict()
-        dict_class = w_dict.__class__
+        space = self.space
+        w_dict = space.newdict()
         for i in range(itemcount, 0, -1):
             w_item = self.peekvalue(i-1)
-            if not issubclass(w_item.__class__, dict_class):
+            if not space.ismapping_w(w_item):
                 raise oefmt(self.space.w_TypeError,
                         "'%T' object is not a mapping", w_item)
-            self.space.call_method(w_dict, 'update', w_item)
+            space.call_method(w_dict, 'update', w_item)
         while itemcount != 0:
             self.popvalue()
             itemcount -= 1

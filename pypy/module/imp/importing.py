@@ -85,6 +85,7 @@ def importhook(space, modulename, w_globals=None, w_locals=None, w_fromlist=None
         pathname = "<frozen %s>" % modulename
         code_w = ec.compiler.compile(source, pathname, 'exec', 0)
         w_mod = add_module(space, space.wrap(modulename))
+        assert isinstance(w_mod, Module) # XXX why is that necessary?
         space.setitem(space.sys.get('modules'), w_mod.w_name, w_mod)
         space.setitem(w_mod.w_dict, space.wrap('__name__'), w_mod.w_name)
         code_w.exec_code(space, w_mod.w_dict, w_mod.w_dict)

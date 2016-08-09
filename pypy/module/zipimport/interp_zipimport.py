@@ -82,7 +82,7 @@ class W_ZipCache(W_Root):
                    for key in self.cache.keys()]
         return space.newlist(items_w)
 
-    def iterkeys(self, space):
+    def iteratekeys(self, space):
         return space.iter(self.keys(space))
 
     def itervalues(self, space):
@@ -106,11 +106,11 @@ W_ZipCache.typedef = TypeDef(
     'zip_dict',
     __getitem__ = interp2app(W_ZipCache.getitem),
     __contains__ = interp2app(W_ZipCache.contains),
-    __iter__ = interp2app(W_ZipCache.iterkeys),
+    __iter__ = interp2app(W_ZipCache.iteratekeys),
     items = interp2app(W_ZipCache.items),
     iteritems = interp2app(W_ZipCache.iteritems),
     keys = interp2app(W_ZipCache.keys),
-    iterkeys = interp2app(W_ZipCache.iterkeys),
+    iterkeys = interp2app(W_ZipCache.iteratekeys),
     values = interp2app(W_ZipCache.values),
     itervalues = interp2app(W_ZipCache.itervalues),
     clear = interp2app(W_ZipCache.clear),
