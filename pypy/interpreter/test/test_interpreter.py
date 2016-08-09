@@ -256,7 +256,63 @@ class TestInterpreter:
             return a, b, c, d
         """
         assert self.codetest(code, "f", [1, 2], {"d" : 4, "c" : 3}) == (1, 2, 3, 4)
-
+    
+    def test_build_set_unpack(self):
+        code = """ def f():
+            return {*range(4), 4, *(5, 6, 7)}
+        """
+        space = self.space
+        res = self.codetest(code, "f", [])
+        l_res = space.call_function(space.w_list, res)
+        assert space.unwrap(l_res) == [0, 1, 2, 3, 4, 5, 6, 7]
+        
+    def test_build_tuple_unpack(self):
+        code = """ def f():
+            return (*range(4), 4)
+        """
+        assert self.codetest(code, "f", []) == (0, 1, 2, 3, 4)
+    
+    def test_build_list_unpack(self):
+        code = """ def f():
+            return [*range(4), 4]
+        """
+        assert self.codetest(code, "f", []) == [0, 1, 2, 3, 4]
+    
+    def test_build_map_unpack(self):
+        code = """
+        def f():
+            return {'x': 1, **{'y': 2}}
+        def g():
+            return {**()}
+        """
+        assert self.codetest(code, "f", []) == {'x': 1, 'y': 2}
+        res = self.codetest(code, 'g', [])
+        assert "TypeError:" in res
+        assert "'tuple' object is not a mapping" in res
+    
+    def test_build_map_unpack_with_call(self):
+        code = """
+        def f(a,b,c,d):
+            return a+b,c+d
+        def g1():
+            return f(**{'a': 1, 'c': 3}, **{'b': 2, 'd': 4})
+        def g2():
+            return f(**{'a': 1, 'c': 3}, **[])
+        def g3():
+            return f(**{'a': 1, 'c': 3}, **{1: 3})
+        def g4():
+            return f(**{'a': 1, 'c': 3}, **{'a': 2})
+        """
+        assert self.codetest(code, "g1", []) == (3, 7)
+        resg2 = self.codetest(code, 'g2', [])
+        assert "TypeError:" in resg2
+        assert "'list' object is not a mapping" in resg2
+        resg3 = self.codetest(code, 'g3', [])
+        assert "TypeError:" in resg3
+        assert "keywords must be strings" in resg3
+        resg4 = self.codetest(code, 'g4', [])
+        assert "TypeError:" in resg4
+        assert "f() got multiple values for keyword argument 'a'" in resg4
 
 
 class AppTestInterpreter: 

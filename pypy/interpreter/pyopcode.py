@@ -18,7 +18,6 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.pycode import PyCode, BytecodeCorruption
 from pypy.tool.stdlib_opcode import bytecode_spec
-from pypy.objspace.std.dictmultiobject import W_DictMultiObject
 
 CANNOT_CATCH_MSG = ("catching classes that don't inherit from BaseException "
                     "is not allowed in 3.x")
@@ -1391,9 +1390,8 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_sum)
 
     def BUILD_TUPLE_UNPACK(self, itemcount, next_instr):
-        space = self.space
         w_sum_list = list_unpack_helper(self, itemcount)
-        self.pushvalue(space.newtuple(w_sum_list))
+        self.pushvalue(self.space.newtuple(w_sum_list))
 
     def BUILD_LIST_UNPACK(self, itemcount, next_instr):
         w_sum = list_unpack_helper(self, itemcount)
