@@ -1407,7 +1407,7 @@ class __extend__(pyframe.PyFrame):
             if not space.ismapping_w(w_item):
                 raise oefmt(space.w_TypeError,
                         "'%T' object is not a mapping", w_item)
-            iterator = w_item.iterkeys(w_item)
+            iterator = w_item.iterkeys()
             while True:
                 w_key = iterator.next_key()
                 if w_key is None:
