@@ -354,7 +354,17 @@ class AbstractAttribute(object):
 
     @jit.elidable_compatible(quasi_immut_field_name_for_second_arg="version")
     def _type_compares_by_identity(self, version):
-        return self.terminator.w_cls.compares_by_identity()
+        from pypy.objspace.descroperation import object_hash, type_eq
+        assert version is not None
+        # code duplication with W_TypeObject.compares_by_identity
+        # but we can't use that
+        default_hash = object_hash(self.space)
+        my_eq = self._type_lookup_pure('__eq__')
+        overrides_eq = (my_eq and my_eq is not type_eq(self.space))
+        overrides_eq_cmp_or_hash = (overrides_eq or
+                                    self._type_lookup_pure('__cmp__') or
+                                    self._type_lookup_pure('__hash__') is not default_hash)
+        return not overrides_eq_cmp_or_hash
 
 class Terminator(AbstractAttribute):
     _immutable_fields_ = ['w_cls']
