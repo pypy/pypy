@@ -11,6 +11,7 @@
 #include <ctype.h>
 #include <signal.h>
 #include <search.h>
+#include <sched.h>
 
 #ifdef __linux__
 #  define HAVE_PERSONALITY
@@ -119,17 +120,27 @@ void rpy_reverse_db_setup(int *argc_p, char **argv_p[])
         setup_record_mode(*argc_p, *argv_p);
 }
 
+static void reverse_db_lock_and_flush(void)
+{
+    _RPY_REVDB_LOCK();
+    rpy_reverse_db_flush();
+    _RPY_REVDB_UNLOCK();
+}
+
 RPY_EXTERN
 void rpy_reverse_db_teardown(void)
 {
     uint64_t stop_points;
-    if (RPY_RDB_REPLAY) {
+    if (!RPY_RDB_REPLAY) {
+        _RPY_REVDB_LOCK();
+    }
+    else {
         /* hack: prevents RPY_REVDB_EMIT() from calling
            rpy_reverse_db_fetch(), which has nothing more to fetch now */
         rpy_revdb.buf_limit += 1;
     }
-    RPY_REVDB_EMIT(stop_points = rpy_revdb.stop_point_seen; ,
-                   uint64_t _e, stop_points);
+    _RPY_REVDB_EMIT_L(stop_points = rpy_revdb.stop_point_seen; ,
+                      uint64_t _e, stop_points, /*must_lock=*/0);
 
     if (!RPY_RDB_REPLAY) {
         rpy_reverse_db_flush();
@@ -137,6 +148,7 @@ void rpy_reverse_db_teardown(void)
             close(rpy_rev_fileno);
             rpy_rev_fileno = -1;
         }
+        _RPY_REVDB_UNLOCK();
     }
     else
         check_at_end(stop_points);
@@ -207,7 +219,7 @@ static void setup_record_mode(int argc, char *argv[])
                     filename);
             abort();
         }
-        atexit(rpy_reverse_db_flush);
+        atexit(reverse_db_lock_and_flush);
 
         write_all(RDB_SIGNATURE, strlen(RDB_SIGNATURE));
         for (i = 0; i < argc; i++) {
@@ -244,8 +256,12 @@ static void setup_record_mode(int argc, char *argv[])
 
 static void flush_buffer(void)
 {
+    /* must be called with the lock held */
+    ssize_t full_size;
+    assert(rpy_revdb.lock);
+
     /* write the current buffer content to the OS */
-    ssize_t full_size = rpy_revdb.buf_p - rpy_rev_buffer;
+    full_size = rpy_revdb.buf_p - rpy_rev_buffer;
     rpy_revdb.buf_p = rpy_rev_buffer + sizeof(int16_t);
     if (rpy_rev_fileno >= 0)
         write_all(rpy_rev_buffer, full_size);
@@ -253,18 +269,35 @@ static void flush_buffer(void)
 
 static ssize_t current_packet_size(void)
 {
+    /* must be called with the lock held */
     return rpy_revdb.buf_p - (rpy_rev_buffer + sizeof(int16_t));
 }
 
 RPY_EXTERN
 void rpy_reverse_db_flush(void)
 {
-    ssize_t content_size = current_packet_size();
+    /* must be called with the lock held */
+    ssize_t content_size;
+    assert(rpy_revdb.lock);
+
+    content_size = current_packet_size();
     if (content_size != 0) {
         char *p = rpy_rev_buffer;
         assert(0 < content_size && content_size <= 32767);
         *(int16_t *)p = content_size;
         flush_buffer();
+    }
+}
+
+RPY_EXTERN
+void rpy_reverse_db_lock_acquire(void)
+{
+    while (1) {
+        if (rpy_revdb.lock == 0) {
+            if (pypy_lock_test_and_set(&rpy_revdb.lock, 1) == 0)
+                break;   /* done */
+        }
+        sched_yield();
     }
 }
 
@@ -303,6 +336,7 @@ static void record_stop_point(void)
     int64_t done;
 
     /* Write an ASYNC_FINALIZER_TRIGGER packet */
+    _RPY_REVDB_LOCK();
     rpy_reverse_db_flush();
     assert(current_packet_size() == 0);
 
@@ -310,6 +344,7 @@ static void record_stop_point(void)
     memcpy(rpy_revdb.buf_p, &rpy_revdb.stop_point_seen, sizeof(uint64_t));
     rpy_revdb.buf_p += sizeof(uint64_t);
     flush_buffer();
+    _RPY_REVDB_UNLOCK();
 
     /* Invoke all Boehm finalizers.  For new-style finalizers, this
        will only cause them to move to the queues, where
@@ -364,8 +399,10 @@ Signed rpy_reverse_db_identityhash(struct pypy_header0 *obj)
 
 static uint64_t recording_offset(void)
 {
+    /* must be called with the lock held */
     off_t base_offset;
     ssize_t extra_size = rpy_revdb.buf_p - rpy_rev_buffer;
+    assert(rpy_revdb.lock);
 
     if (rpy_rev_fileno < 0)
         return 1;
@@ -379,7 +416,10 @@ static uint64_t recording_offset(void)
 
 static void patch_prev_offset(int64_t offset, char old, char new)
 {
+    /* must be called with the lock held */
     off_t base_offset;
+    assert(rpy_revdb.lock);
+
     if (rpy_rev_fileno < 0)
         return;
     base_offset = lseek(rpy_rev_fileno, 0, SEEK_CUR);
@@ -452,14 +492,18 @@ void *rpy_reverse_db_weakref_create(void *target)
         /* Emit WEAKREF_AFTERWARDS_DEAD, but remember where we emit it.
            If we deref the weakref and it is still alive, we will patch
            it with WEAKREF_AFTERWARDS_ALIVE. */
-        if (!RPY_RDB_REPLAY)
+        if (!RPY_RDB_REPLAY) {
+            _RPY_REVDB_LOCK();
             r->re_off_prev = recording_offset();
+        }
         else
             r->re_off_prev = 1;    /* any number > 0 */
 
-        RPY_REVDB_EMIT(alive = WEAKREF_AFTERWARDS_DEAD;, char _e, alive);
+        _RPY_REVDB_EMIT_L(alive = WEAKREF_AFTERWARDS_DEAD;, char _e, alive,
+                          /*must_lock=*/0);
 
         if (!RPY_RDB_REPLAY) {
+            _RPY_REVDB_UNLOCK();
             OP_BOEHM_DISAPPEARING_LINK(&r->re_addr, target, /*nothing*/);
         }
         else {
@@ -498,13 +542,18 @@ void *rpy_reverse_db_weakref_deref(void *weakref)
         else {
             char alive;
             if (!RPY_RDB_REPLAY) {
+                _RPY_REVDB_LOCK();
                 patch_prev_offset(r->re_off_prev, WEAKREF_AFTERWARDS_DEAD,
                                                   WEAKREF_AFTERWARDS_ALIVE);
                 r->re_off_prev = recording_offset();
             }
-            RPY_REVDB_EMIT(alive = WEAKREF_AFTERWARDS_DEAD;, char _e, alive);
+            _RPY_REVDB_EMIT_L(alive = WEAKREF_AFTERWARDS_DEAD;, char _e, alive,
+                              /*must_lock=*/0);
 
-            if (RPY_RDB_REPLAY) {
+            if (!RPY_RDB_REPLAY) {
+                _RPY_REVDB_UNLOCK();
+            }
+            else {
                 switch (alive) {
                 case WEAKREF_AFTERWARDS_DEAD:
                     r->re_addr = NULL;
@@ -527,8 +576,10 @@ void rpy_reverse_db_callback_loc(int locnum)
     locnum += 300;
     assert(locnum < 0xFC00);
     if (!RPY_RDB_REPLAY) {
-        _RPY_REVDB_EMIT_RECORD(unsigned char _e, (locnum >> 8));
-        _RPY_REVDB_EMIT_RECORD(unsigned char _e, (locnum & 0xFF));
+        _RPY_REVDB_LOCK();
+        _RPY_REVDB_EMIT_RECORD_L(unsigned char _e, (locnum >> 8));
+        _RPY_REVDB_EMIT_RECORD_L(unsigned char _e, (locnum & 0xFF));
+        _RPY_REVDB_UNLOCK();
     }
 }
 

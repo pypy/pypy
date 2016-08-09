@@ -1,21 +1,21 @@
 #include <string.h>
+#include "src/thread.h"
 
-/* By default, this makes an executable which supports both recording
-   and replaying.  It should help avoid troubles like using for
-   replaying an executable that is slightly different than the one
-   used for recording.  In theory you can compile with
-   -DRPY_RDB_REPLAY=0 or -DRPY_RDB_REPLAY=1 to get only one version
-   compiled for it, which should be slightly faster (not tested so
-   far).
-*/
+/************************************************************
+ ***  RevDB --- record and replay debugging               ***
+ ************************************************************/
+
 
 typedef struct {
 #ifndef RPY_RDB_REPLAY
     bool_t replay;
 #define RPY_RDB_REPLAY   rpy_revdb.replay
 #define RPY_RDB_DYNAMIC_REPLAY
+#else
+# error "explicit RPY_RDB_REPLAY: not really supported"
 #endif
     bool_t watch_enabled;
+    long lock;
     char *buf_p, *buf_limit, *buf_readend;
     uint64_t stop_point_seen, stop_point_break;
     uint64_t unique_id_seen, unique_id_break;
@@ -59,7 +59,19 @@ RPY_EXTERN void seeing_uid(uint64_t uid);
 #endif
 
 
-#define _RPY_REVDB_EMIT_RECORD(decl_e, variable)                        \
+/* Acquire/release the lock around EMIT_RECORD, because it may be
+   called without holding the GIL.  Note that we're always
+   single-threaded during replaying: the lock is only useful during
+   recording. */
+#define _RPY_REVDB_LOCK()                                               \
+    if (pypy_lock_test_and_set(&rpy_revdb.lock, 1) != 0)                \
+        rpy_reverse_db_lock_acquire();
+
+#define _RPY_REVDB_UNLOCK()                                             \
+    pypy_lock_release(&rpy_revdb.lock)
+
+
+#define _RPY_REVDB_EMIT_RECORD_L(decl_e, variable)                      \
         {                                                               \
             decl_e = variable;                                          \
             _RPY_REVDB_PRINT("write", _e);                              \
@@ -81,12 +93,17 @@ RPY_EXTERN void seeing_uid(uint64_t uid);
             variable = _e;                                              \
         }
 
-#define RPY_REVDB_EMIT(normal_code, decl_e, variable)                   \
+#define _RPY_REVDB_EMIT_L(normal_code, decl_e, variable, must_lock)     \
     if (!RPY_RDB_REPLAY) {                                              \
         normal_code                                                     \
-        _RPY_REVDB_EMIT_RECORD(decl_e, variable)                        \
+        if (must_lock) _RPY_REVDB_LOCK();                               \
+        _RPY_REVDB_EMIT_RECORD_L(decl_e, variable)                      \
+        if (must_lock) _RPY_REVDB_UNLOCK();                             \
     } else                                                              \
         _RPY_REVDB_EMIT_REPLAY(decl_e, variable)
+
+#define RPY_REVDB_EMIT(normal_code, decl_e, variable)                   \
+    _RPY_REVDB_EMIT_L(normal_code, decl_e, variable, 1)
 
 #define RPY_REVDB_EMIT_VOID(normal_code)                                \
     if (!RPY_RDB_REPLAY) { normal_code } else { }
@@ -94,8 +111,10 @@ RPY_EXTERN void seeing_uid(uint64_t uid);
 #define RPY_REVDB_CALL(call_code, decl_e, variable)                     \
     if (!RPY_RDB_REPLAY) {                                              \
         call_code                                                       \
-        _RPY_REVDB_EMIT_RECORD(unsigned char _e, 0xFC)                  \
-        _RPY_REVDB_EMIT_RECORD(decl_e, variable)                        \
+        _RPY_REVDB_LOCK();                                              \
+        _RPY_REVDB_EMIT_RECORD_L(unsigned char _e, 0xFC)                \
+        _RPY_REVDB_EMIT_RECORD_L(decl_e, variable)                      \
+        _RPY_REVDB_UNLOCK();                                            \
     } else {                                                            \
         unsigned char _re;                                              \
         _RPY_REVDB_EMIT_REPLAY(unsigned char _e, _re)                   \
@@ -107,7 +126,9 @@ RPY_EXTERN void seeing_uid(uint64_t uid);
 #define RPY_REVDB_CALL_VOID(call_code)                                  \
     if (!RPY_RDB_REPLAY) {                                              \
         call_code                                                       \
-        _RPY_REVDB_EMIT_RECORD(unsigned char _e, 0xFC)                  \
+        _RPY_REVDB_LOCK();                                              \
+        _RPY_REVDB_EMIT_RECORD_L(unsigned char _e, 0xFC)                \
+        _RPY_REVDB_UNLOCK();                                            \
     }                                                                   \
     else {                                                              \
         unsigned char _re;                                              \
@@ -174,7 +195,7 @@ RPY_EXTERN void seeing_uid(uint64_t uid);
 #define RPY_REVDB_CAST_PTR_TO_INT(obj)   (((struct pypy_header0 *)obj)->h_uid)
 
 
-RPY_EXTERN void rpy_reverse_db_flush(void);
+RPY_EXTERN void rpy_reverse_db_flush(void);  /* must be called with the lock */
 RPY_EXTERN void rpy_reverse_db_fetch(const char *file, int line);
 RPY_EXTERN void rpy_reverse_db_stop_point(long place);
 RPY_EXTERN void rpy_reverse_db_send_answer(int cmd, int64_t arg1, int64_t arg2,
@@ -193,5 +214,6 @@ RPY_EXTERN void rpy_reverse_db_register_destructor(void *obj, void(*)(void *));
 RPY_EXTERN void rpy_reverse_db_call_destructor(void *obj);
 RPY_EXTERN void rpy_reverse_db_invoke_callback(unsigned char);
 RPY_EXTERN void rpy_reverse_db_callback_loc(int);
+RPY_EXTERN void rpy_reverse_db_lock_acquire(void);
 
 /* ------------------------------------------------------------ */
