@@ -59,7 +59,6 @@ def list_unpack_helper(frame, itemcount):
     w_sum = space.newlist([], sizehint=itemcount)
     for i in range(itemcount, 0, -1):
         w_item = frame.peekvalue(i-1)
-        #items = frame.space.fixedview(w_item)
         w_sum.extend(w_item)
     while itemcount != 0:
         frame.popvalue()
@@ -1390,8 +1389,9 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_sum)
 
     def BUILD_TUPLE_UNPACK(self, itemcount, next_instr):
-        w_sum_list = list_unpack_helper(self, itemcount)
-        self.pushvalue(self.space.newtuple(w_sum_list))
+        w_list = list_unpack_helper(self, itemcount)
+        items = [w_obj for w_obj in w_list.getitems_unroll()]
+        self.pushvalue(self.space.newtuple(items))
 
     def BUILD_LIST_UNPACK(self, itemcount, next_instr):
         w_sum = list_unpack_helper(self, itemcount)
@@ -1407,7 +1407,7 @@ class __extend__(pyframe.PyFrame):
             if not space.ismapping_w(w_item):
                 raise oefmt(space.w_TypeError,
                         "'%T' object is not a mapping", w_item)
-            iterator = w_item.iterkeys()
+            iterator = w_item.iterkeys(w_item)
             while True:
                 w_key = iterator.next_key()
                 if w_key is None:
