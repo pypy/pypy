@@ -137,6 +137,11 @@ RPY_EXTERN void seeing_uid(uint64_t uid);
             rpy_reverse_db_invoke_callback(_re);                        \
     }
 
+#define RPY_REVDB_CALL_GILCTRL(call_code)                               \
+    if (!RPY_RDB_REPLAY) {                                              \
+        call_code                                                       \
+    }
+
 #define RPY_REVDB_CALLBACKLOC(locnum)                                   \
     rpy_reverse_db_callback_loc(locnum)
 

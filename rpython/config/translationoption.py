@@ -284,7 +284,6 @@ translation_optiondescription = OptionDescription(
                requires=[('translation.split_gc_address_space', True),
                          ('translation.jit', False),
                          ('translation.gc', 'boehm'),
-                         ('translation.thread', False),
                          ('translation.continuation', False)]),
 ])
 

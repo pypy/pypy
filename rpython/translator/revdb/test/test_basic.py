@@ -86,13 +86,13 @@ class RDB(object):
         return self.cur == len(self.buffer)
 
     def write_call(self, expected_string):
-        x = self.next()   # raw_malloc: the pointer we got
-        self.same_thread()
+        x = self.next()     # raw_malloc: the pointer we got
+        self.same_stack()   # write
         x = self.next(); assert x == len(expected_string)
-        self.same_thread()
+        self.same_stack()   # errno
         x = self.next('i'); assert x == 0      # errno
 
-    def same_thread(self):
+    def same_stack(self):
         x = self.next('c'); assert x == '\xFC'
 
 

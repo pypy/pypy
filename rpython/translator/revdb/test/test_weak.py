@@ -203,7 +203,7 @@ class TestRecording(BaseRecordingTests):
                 assert time == i + 1
                 y = intmask(rdb.next('q')); assert y == -1
                 triggered = True
-            rdb.same_thread()
+            rdb.same_stack()
             j = rdb.next()
             assert j == i + 1000000 * triggered
             if triggered:
@@ -215,7 +215,7 @@ class TestRecording(BaseRecordingTests):
                     assert uid > 0 and uid not in uid_seen
                     uid_seen.add(uid)
                     lst.append(uid)
-                rdb.same_thread()
+                rdb.same_stack()
                 totals.append((lst, intmask(rdb.next())))
         x = rdb.next('q'); assert x == 3000    # number of stop points
         #
@@ -245,13 +245,13 @@ class TestRecording(BaseRecordingTests):
                     assert x != -1
                     assert x not in seen_uids
                     seen_uids.add(x)
-                    rdb.same_thread()
+                    rdb.same_stack()
                     y = intmask(rdb.next())
                     assert y == -7      # from the __del__
                     x = intmask(rdb.next())
                     if x == -1:
                         break
-            rdb.same_thread()
+            rdb.same_stack()
             x = rdb.next()
             assert x == len(seen_uids)
         assert len(seen_uids) == int(out)

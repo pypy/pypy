@@ -35,6 +35,7 @@
 #define WEAKREF_AFTERWARDS_ALIVE   ((char)0xeb)
 
 #define ASYNC_FINALIZER_TRIGGER    ((int16_t)0xff46)
+#define ASYNC_THREAD_SWITCH        ((int16_t)0xff54)
 
 #define FID_REGULAR_MODE           'R'
 #define FID_SAVED_STATE            'S'
@@ -55,6 +56,8 @@ rpy_revdb_t rpy_revdb;
 static char rpy_rev_buffer[16384];    /* max. 32768 */
 int rpy_rev_fileno = -1;
 static char flag_io_disabled = FID_REGULAR_MODE;
+static pthread_t current_logged_thread;
+static bool_t current_logged_thread_seen;
 
 
 static void setup_record_mode(int argc, char *argv[]);
@@ -321,6 +324,21 @@ static void fq_trigger(void)
 
 static long in_invoke_finalizers;
 
+static void emit_async_block(int async_code, uint64_t content)
+{
+    char *p = rpy_rev_buffer;
+
+    _RPY_REVDB_LOCK();
+    rpy_reverse_db_flush();
+    assert(current_packet_size() == 0);
+
+    *(int16_t *)p = async_code;
+    memcpy(rpy_revdb.buf_p, &content, sizeof(uint64_t));
+    rpy_revdb.buf_p += sizeof(uint64_t);
+    flush_buffer();
+    _RPY_REVDB_UNLOCK();
+}
+
 static void record_stop_point(void)
 {
     /* ===== FINALIZERS =====
@@ -332,19 +350,10 @@ static void record_stop_point(void)
        conceptually just *after* the stop point.
      */
     int i;
-    char *p = rpy_rev_buffer;
     int64_t done;
 
     /* Write an ASYNC_FINALIZER_TRIGGER packet */
-    _RPY_REVDB_LOCK();
-    rpy_reverse_db_flush();
-    assert(current_packet_size() == 0);
-
-    *(int16_t *)p = ASYNC_FINALIZER_TRIGGER;
-    memcpy(rpy_revdb.buf_p, &rpy_revdb.stop_point_seen, sizeof(uint64_t));
-    rpy_revdb.buf_p += sizeof(uint64_t);
-    flush_buffer();
-    _RPY_REVDB_UNLOCK();
+    emit_async_block(ASYNC_FINALIZER_TRIGGER, rpy_revdb.stop_point_seen);
 
     /* Invoke all Boehm finalizers.  For new-style finalizers, this
        will only cause them to move to the queues, where
@@ -362,6 +371,26 @@ static void record_stop_point(void)
     /* Now we're back in normal mode.  We trigger the finalizer 
        queues here. */
     fq_trigger();
+}
+
+RPY_EXTERN
+void rpy_reverse_db_thread_switch(void)
+{
+    /* called at the end of _RPyGilAcquire(), when there was
+       potentially a thread switch.  If there actually was, emit an
+       ASYNC_THREAD_SWITCH block. */
+    pthread_t tself;
+    assert(!RPY_RDB_REPLAY);
+
+    tself = pthread_self();
+    if (!current_logged_thread_seen) {
+        current_logged_thread = tself;
+        current_logged_thread_seen = 1;
+    }
+    else if (!pthread_equal(tself, current_logged_thread)) {
+        emit_async_block(ASYNC_THREAD_SWITCH, (uint64_t)tself);
+        current_logged_thread = tself;
+    }
 }
 
 RPY_EXTERN

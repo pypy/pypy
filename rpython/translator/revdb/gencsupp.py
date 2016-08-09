@@ -82,9 +82,10 @@ def emit_residual_call(funcgen, call_code, v_result, expr_result):
                '_revdb_do_all_calls_', False):
         return call_code   # a hack for ll_call_destructor() to mean
                            # that the calls should really be done
-    # haaaaack
+    #
+    # hack: we don't need the flag for at least these two common functions
     if call_code in ('RPyGilRelease();', 'RPyGilAcquire();'):
-        return '/* ' + call_code + ' */'
+        return 'RPY_REVDB_CALL_GILCTRL(%s);' % (call_code,)
     #
     tp = funcgen.lltypename(v_result)
     if tp == 'void @':
