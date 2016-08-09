@@ -193,75 +193,76 @@ class FunctionCodeGenerator(object):
                 yield line
 
     def gen_block(self, block):
-        myblocknum = self.blocknum[block]
-        if block in self.inlinable_blocks:
-            # debug comment
-            yield '/* block%d: (inlined) */' % myblocknum
-        else:
-            yield 'block%d:' % myblocknum
-        if block in self.innerloops:
-            for line in self.gen_while_loop_hack(block):
-                yield line
-            return
-        for i, op in enumerate(block.operations):
-            for line in self.gen_op(op):
-                yield line
-        if len(block.exits) == 0:
-            assert len(block.inputargs) == 1
-            # regular return block
-            retval = self.expr(block.inputargs[0])
-            if self.exception_policy != "exc_helper":
-                yield 'RPY_DEBUG_RETURN();'
-            yield 'return %s;' % retval
-            return
-        elif block.exitswitch is None:
-            # single-exit block
-            assert len(block.exits) == 1
-            for op in self.gen_link(block.exits[0]):
-                yield op
-        else:
-            assert not block.canraise
-            # block ending in a switch on a value
-            TYPE = self.lltypemap(block.exitswitch)
-            if TYPE == Bool:
-                expr = self.expr(block.exitswitch)
-                for link in block.exits[:0:-1]:
-                    assert link.exitcase in (False, True)
-                    if not link.exitcase:
-                        expr = '!' + expr
-                    yield 'if (%s) {' % expr
-                    for op in self.gen_link(link):
-                        yield '\t' + op
-                    yield '}'
-                link = block.exits[0]
-                assert link.exitcase in (False, True)
-                for op in self.gen_link(link):
-                    yield op
-            elif TYPE in (Signed, Unsigned, SignedLongLong,
-                            UnsignedLongLong, Char, UniChar):
-                defaultlink = None
-                expr = self.expr(block.exitswitch)
-                yield 'switch (%s) {' % self.expr(block.exitswitch)
-                for link in block.exits:
-                    if link.exitcase == 'default':
-                        defaultlink = link
-                        continue
-                    yield 'case %s:' % self.db.get(link.llexitcase)
-                    for op in self.gen_link(link):
-                        yield '\t' + op
-                    # 'break;' not needed, as gen_link ends in a 'goto'
-                # Emit default case
-                yield 'default:'
-                if defaultlink is None:
-                    yield '\tassert(!"bad switch!!"); abort();'
-                else:
-                    for op in self.gen_link(defaultlink):
-                        yield '\t' + op
-
-                yield '}'
+        if 1:      # (preserve indentation)
+            myblocknum = self.blocknum[block]
+            if block in self.inlinable_blocks:
+                # debug comment
+                yield '/* block%d: (inlined) */' % myblocknum
             else:
-                raise TypeError("exitswitch type not supported"
-                                "  Got %r" % (TYPE,))
+                yield 'block%d:' % myblocknum
+            if block in self.innerloops:
+                for line in self.gen_while_loop_hack(block):
+                    yield line
+                return
+            for i, op in enumerate(block.operations):
+                for line in self.gen_op(op):
+                    yield line
+            if len(block.exits) == 0:
+                assert len(block.inputargs) == 1
+                # regular return block
+                retval = self.expr(block.inputargs[0])
+                if self.exception_policy != "exc_helper":
+                    yield 'RPY_DEBUG_RETURN();'
+                yield 'return %s;' % retval
+                return
+            elif block.exitswitch is None:
+                # single-exit block
+                assert len(block.exits) == 1
+                for op in self.gen_link(block.exits[0]):
+                    yield op
+            else:
+                assert not block.canraise
+                # block ending in a switch on a value
+                TYPE = self.lltypemap(block.exitswitch)
+                if TYPE == Bool:
+                    expr = self.expr(block.exitswitch)
+                    for link in block.exits[:0:-1]:
+                        assert link.exitcase in (False, True)
+                        if not link.exitcase:
+                            expr = '!' + expr
+                        yield 'if (%s) {' % expr
+                        for op in self.gen_link(link):
+                            yield '\t' + op
+                        yield '}'
+                    link = block.exits[0]
+                    assert link.exitcase in (False, True)
+                    for op in self.gen_link(link):
+                        yield op
+                elif TYPE in (Signed, Unsigned, SignedLongLong,
+                              UnsignedLongLong, Char, UniChar):
+                    defaultlink = None
+                    expr = self.expr(block.exitswitch)
+                    yield 'switch (%s) {' % self.expr(block.exitswitch)
+                    for link in block.exits:
+                        if link.exitcase == 'default':
+                            defaultlink = link
+                            continue
+                        yield 'case %s:' % self.db.get(link.llexitcase)
+                        for op in self.gen_link(link):
+                            yield '\t' + op
+                        # 'break;' not needed, as gen_link ends in a 'goto'
+                    # Emit default case
+                    yield 'default:'
+                    if defaultlink is None:
+                        yield '\tassert(!"bad switch!!"); abort();'
+                    else:
+                        for op in self.gen_link(defaultlink):
+                            yield '\t' + op
+
+                    yield '}'
+                else:
+                    raise TypeError("exitswitch type not supported"
+                                    "  Got %r" % (TYPE,))
 
     def gen_link(self, link):
         "Generate the code to jump across the given Link."
