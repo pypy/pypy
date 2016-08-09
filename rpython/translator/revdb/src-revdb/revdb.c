@@ -56,8 +56,8 @@ rpy_revdb_t rpy_revdb;
 static char rpy_rev_buffer[16384];    /* max. 32768 */
 int rpy_rev_fileno = -1;
 static char flag_io_disabled = FID_REGULAR_MODE;
-static pthread_t current_logged_thread;
-static bool_t current_logged_thread_seen;
+__thread bool_t rpy_active_thread;
+static bool_t *rpy_active_thread_ptr;
 
 
 static void setup_record_mode(int argc, char *argv[]);
@@ -254,6 +254,9 @@ static void setup_record_mode(int argc, char *argv[])
     rpy_revdb.buf_limit = rpy_rev_buffer + sizeof(rpy_rev_buffer) - 32;
     rpy_revdb.unique_id_seen = 1;
 
+    rpy_active_thread = 1;
+    rpy_active_thread_ptr = &rpy_active_thread;
+
     pthread_atfork(NULL, NULL, close_revdb_fileno_in_fork_child);
 }
 
@@ -292,18 +295,6 @@ void rpy_reverse_db_flush(void)
     }
 }
 
-RPY_EXTERN
-void rpy_reverse_db_lock_acquire(void)
-{
-    while (1) {
-        if (rpy_revdb.lock == 0) {
-            if (pypy_lock_test_and_set(&rpy_revdb.lock, 1) == 0)
-                break;   /* done */
-        }
-        sched_yield();
-    }
-}
-
 void boehm_gc_finalizer_notifier(void)
 {
     /* This is called by Boehm when there are pending finalizers.
@@ -339,6 +330,24 @@ static void emit_async_block(int async_code, uint64_t content)
     _RPY_REVDB_UNLOCK();
 }
 
+RPY_EXTERN
+void rpy_reverse_db_lock_acquire(void)
+{
+    assert(!RPY_RDB_REPLAY);
+    while (1) {
+        if (rpy_revdb.lock == 0) {
+            if (pypy_lock_test_and_set(&rpy_revdb.lock, 1) == 0)
+                break;   /* done */
+        }
+        sched_yield();
+    }
+    /* we have acquired the lock here */
+    *rpy_active_thread_ptr = 0;
+    rpy_active_thread = 1;
+    rpy_active_thread_ptr = &rpy_active_thread;
+    emit_async_block(ASYNC_THREAD_SWITCH, (uint64_t)pthread_self());
+}
+
 static void record_stop_point(void)
 {
     /* ===== FINALIZERS =====
@@ -371,26 +380,6 @@ static void record_stop_point(void)
     /* Now we're back in normal mode.  We trigger the finalizer 
        queues here. */
     fq_trigger();
-}
-
-RPY_EXTERN
-void rpy_reverse_db_thread_switch(void)
-{
-    /* called at the end of _RPyGilAcquire(), when there was
-       potentially a thread switch.  If there actually was, emit an
-       ASYNC_THREAD_SWITCH block. */
-    pthread_t tself;
-    assert(!RPY_RDB_REPLAY);
-
-    tself = pthread_self();
-    if (!current_logged_thread_seen) {
-        current_logged_thread = tself;
-        current_logged_thread_seen = 1;
-    }
-    else if (!pthread_equal(tself, current_logged_thread)) {
-        emit_async_block(ASYNC_THREAD_SWITCH, (uint64_t)tself);
-        current_logged_thread = tself;
-    }
 }
 
 RPY_EXTERN

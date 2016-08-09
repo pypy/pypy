@@ -23,6 +23,7 @@ typedef struct {
 
 RPY_EXTERN rpy_revdb_t rpy_revdb;
 RPY_EXTERN int rpy_rev_fileno;
+RPY_EXTERN __thread bool_t rpy_active_thread;
 
 
 /* ------------------------------------------------------------ */
@@ -64,7 +65,8 @@ RPY_EXTERN void seeing_uid(uint64_t uid);
    single-threaded during replaying: the lock is only useful during
    recording. */
 #define _RPY_REVDB_LOCK()                                               \
-    if (pypy_lock_test_and_set(&rpy_revdb.lock, 1) != 0)                \
+    if (!rpy_active_thread ||                                           \
+            pypy_lock_test_and_set(&rpy_revdb.lock, 1) != 0)            \
         rpy_reverse_db_lock_acquire();
 
 #define _RPY_REVDB_UNLOCK()                                             \
