@@ -862,23 +862,30 @@ class RSocket(object):
         string."""
         self.wait_for_data(False)
         with rffi.scoped_alloc_buffer(buffersize) as buf:
-            read_bytes = _c.socketrecv(self.fd,
-                                       rffi.cast(rffi.VOIDP, buf.raw),
-                                       buffersize, flags)
+            read_bytes = _c.socketrecv(self.fd, buf.raw, buffersize, flags)
             if read_bytes >= 0:
                 return buf.str(read_bytes)
         raise self.error_handler()
 
     def recvinto(self, rwbuffer, nbytes, flags=0):
-        buf = self.recv(nbytes, flags)
-        rwbuffer.setslice(0, buf)
-        return len(buf)
+        try:
+            rwbuffer.get_raw_address()
+        except ValueError:
+            buf = self.recv(nbytes, flags)
+            rwbuffer.setslice(0, buf)
+            return len(buf)
+        else:
+            self.wait_for_data(False)
+            raw = rwbuffer.get_raw_address()
+            read_bytes = _c.socketrecv(self.fd, raw, nbytes, flags)
+            if read_bytes >= 0:
+                return read_bytes
+            raise self.error_handler()
 
     @jit.dont_look_inside
     def recvfrom(self, buffersize, flags=0):
         """Like recv(buffersize, flags) but also return the sender's
         address."""
-        read_bytes = -1
         self.wait_for_data(False)
         with rffi.scoped_alloc_buffer(buffersize) as buf:
             address, addr_p, addrlen_p = self._addrbuf()
@@ -899,9 +906,30 @@ class RSocket(object):
         raise self.error_handler()
 
     def recvfrom_into(self, rwbuffer, nbytes, flags=0):
-        buf, addr = self.recvfrom(nbytes, flags)
-        rwbuffer.setslice(0, buf)
-        return len(buf), addr
+        try:
+            rwbuffer.get_raw_address()
+        except ValueError:
+            buf, addr = self.recvfrom(nbytes, flags)
+            rwbuffer.setslice(0, buf)
+            return len(buf), addr
+        else:
+            self.wait_for_data(False)
+            address, addr_p, addrlen_p = self._addrbuf()
+            try:
+                raw = rwbuffer.get_raw_address()
+                read_bytes = _c.recvfrom(self.fd, raw, nbytes, flags,
+                                         addr_p, addrlen_p)
+                addrlen = rffi.cast(lltype.Signed, addrlen_p[0])
+            finally:
+                lltype.free(addrlen_p, flavor='raw')
+                address.unlock()
+            if read_bytes >= 0:
+                if addrlen:
+                    address.addrlen = addrlen
+                else:
+                    address = None
+                return (read_bytes, address)
+            raise self.error_handler()
 
     def send_raw(self, dataptr, length, flags=0):
         """Send data from a CCHARP buffer."""
