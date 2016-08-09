@@ -173,7 +173,6 @@ class FunctionCodeGenerator(object):
 
     def cfunction_body(self):
         graph = self.graph
-        # yield 'goto block0;'    # to avoid a warning "this label is not used"
 
         # Locate blocks with a single predecessor, which can be written
         # inline in place of a "goto":
