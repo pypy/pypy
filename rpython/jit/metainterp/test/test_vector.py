@@ -754,17 +754,36 @@ class VectorizeTests(object):
             vars['x'] = v
         packs = '\n        '.join(pack)
         resvar = suffix + '{'+suffix+'}'
+
+        # format the resoperations, take care that the lhs of =
+        # is formated later with a new variable name
+        unpackops = unpack
+        if isinstance(unpack, str):
+            unpackops = [unpack]
+        unpacksf = []
+        for up in unpackops:
+            lhs, rhs = up.split("=")
+            rhsf = rhs.format(**vars)
+            newvar('i'); newvar('f'); newvar('v')
+            lhsf = lhs.format(**vars)
+            unpacksf.append(lhsf + '=' + rhsf)
+        unpacks = '\n        '.join(unpacksf)
+
         source = '''
         [{args}]
         label({args}, descr=targettoken)
         {packs}
-        {unpack}
+        {unpacks}
         finish({resvar}, descr=finaldescr)
-        '''.format(args=','.join(args),packs=packs, unpack=unpack.format(**vars),
+        '''.format(args=','.join(args),packs=packs, unpacks=unpacks,
                    resvar=resvar.format(**vars))
-        loop = parse(source, namespace={'targettoken': targettoken,
-                                        'finaldescr': finaldescr})
+        print(source)
+        return self._compile_and_run(source, args_values, float,
+                ns={'targettoken': targettoken, 'finaldescr': finaldescr})
 
+
+    def _compile_and_run(self, source, args_values, float=True, ns={}):
+        loop = parse(source, namespace=ns)
         cpu = self.CPUClass(rtyper=None, stats=None)
         cpu.setup_once()
         #
@@ -792,11 +811,37 @@ class VectorizeTests(object):
         ## integer unpack (byte)
         for i in range(16):
             op = "i{i} = vec_unpack_i({x}, %d, 1)" % i
-            assert self.run_unpack(op, "[16xi8]", {'x': [127,1]*8}, float=False) == (127 if i%2==0 else 1)
+            assert self.run_unpack(op, "[16xi8]", {'x': [127,1]*8}, float=False) == \
+                   (127 if i%2==0 else 1)
             if i < 8:
-                assert self.run_unpack(op, "[2xi16]", {'x': [2**15-1,0]*4}, float=False) == (2**15-1 if i%2==0 else 0)
+                assert self.run_unpack(op, "[8xi16]", {'x': [2**15-1,0]*4}, float=False) == \
+                       (2**15-1 if i%2==0 else 0)
             if i < 4:
-                assert self.run_unpack(op, "[2xi32]", {'x': [2**31-1,0]*4}, float=False) == (2**31-1 if i%2==0 else 0)
+                assert self.run_unpack(op, "[4xi32]", {'x': [2**31-1,0]*4}, float=False) == \
+                       (2**31-1 if i%2==0 else 0)
+
+    def test_unpack_several(self):
+        # count == 2
+        values = [1,2,3,4]
+        for i,v in enumerate(values):
+            j = (i // 2) * 2
+            op = ["v{v}[2xi32] = vec_unpack_i({x}, %d, 2)" % j,
+                  "i{i} = vec_unpack_i(v{v}[2xi32], %d, 1)" % i]
+            assert self.run_unpack(op, "[4xi32]", {'x': values}, float=False) == v
+
+        values = [1,2,3,4,5,6,7,8]
+        for i,v in enumerate(values):
+            j = (i // 4) * 4
+            op = ["v{v}[4xi16] = vec_unpack_i({x}, %d, 4)" % j,
+                  "i{i} = vec_unpack_i(v{v}[4xi16], %d, 1)" % i]
+            assert self.run_unpack(op, "[8xi16]", {'x': values}, float=False) == v
+
+        values = [1,2,3,4,5,6,7,8] * 2
+        for i,v in enumerate(values):
+            j = (i // 8) * 8
+            op = ["v{v}[8xi8] = vec_unpack_i({x}, %d, 8)" % j,
+                  "i{i} = vec_unpack_i(v{v}[8xi8], %d, 1)" % i]
+            assert self.run_unpack(op, "[16xi8]", {'x': values}, float=False) == v
 
 
 class TestLLtype(LLJitMixin, VectorizeTests):
