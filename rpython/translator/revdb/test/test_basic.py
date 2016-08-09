@@ -13,6 +13,9 @@ from rpython.translator.revdb.message import *
 from rpython.translator.revdb.process import ReplayProcess
 
 
+ASYNC_THREAD_SWITCH = 0xff54 - 2**16
+
+
 class RDB(object):
     def __init__(self, filename, expected_argv):
         with open(filename, 'rb') as f:
@@ -30,6 +33,7 @@ class RDB(object):
         self.argc = self.read1('i')
         self.argv = self.read1('P')
         self.current_packet_end = self.cur
+        self.main_thread_id = self.switch_thread()
         self.read_check_argv(expected_argv)
 
     def read1(self, mode):
@@ -95,15 +99,22 @@ class RDB(object):
     def same_stack(self):
         x = self.next('c'); assert x == '\xFC'
 
+    def switch_thread(self, expected=None):
+        th, = self.special_packet(ASYNC_THREAD_SWITCH, 'q')
+        if expected is not None:
+            assert th == expected
+        return th
+
 
 def compile(self, entry_point, backendopt=True,
-            withsmallfuncsets=None, shared=False):
+            withsmallfuncsets=None, shared=False, thread=False):
     t = Translation(entry_point, None, gc="boehm")
     self.t = t
     t.set_backend_extra_options(c_debug_defines=True)
     t.config.translation.reverse_debugger = True
     t.config.translation.lldebug0 = True
     t.config.translation.shared = shared
+    t.config.translation.thread = thread
     if withsmallfuncsets is not None:
         t.config.translation.withsmallfuncsets = withsmallfuncsets
     if not backendopt:

@@ -35,8 +35,8 @@ RPY_EXTERN void rpy_reverse_db_teardown(void);
 #  define _RPY_REVDB_PRINT(mode, _e)                                    \
     if (rpy_rev_fileno >= 0) {                                          \
         fprintf(stderr,                                                 \
-                "%s:%d: %0*llx\n",                                      \
-                __FILE__, __LINE__, 2 * sizeof(_e),                     \
+                "%s %s:%d: %0*llx\n",                                   \
+                mode, __FILE__, __LINE__, 2 * sizeof(_e),               \
                 ((unsigned long long)_e) & ((2ULL << (8*sizeof(_e)-1)) - 1)); \
     }
 #endif
@@ -47,7 +47,7 @@ RPY_EXTERN void seeing_uid(uint64_t uid);
     if (rpy_rev_fileno >= 0) {                                          \
         seeing_uid(uid);                                                \
         fprintf(stderr,                                                 \
-                "%s:%d: obj %llu\n",                                    \
+                "[nobj] %s:%d: obj %llu\n",                             \
                 __FILE__, __LINE__, (unsigned long long) uid);          \
     }
 #endif
@@ -76,7 +76,7 @@ RPY_EXTERN void seeing_uid(uint64_t uid);
 #define _RPY_REVDB_EMIT_RECORD_L(decl_e, variable)                      \
         {                                                               \
             decl_e = variable;                                          \
-            _RPY_REVDB_PRINT("write", _e);                              \
+            _RPY_REVDB_PRINT("[ wr ]", _e);                             \
             memcpy(rpy_revdb.buf_p, &_e, sizeof(_e));                   \
             if ((rpy_revdb.buf_p += sizeof(_e)) > rpy_revdb.buf_limit)  \
                 rpy_reverse_db_flush();                                 \
@@ -89,7 +89,7 @@ RPY_EXTERN void seeing_uid(uint64_t uid);
             char *_end1 = _src + sizeof(_e);                            \
             memcpy(&_e, _src, sizeof(_e));                              \
             rpy_revdb.buf_p = _end1;                                    \
-            _RPY_REVDB_PRINT("read", _e);                               \
+            _RPY_REVDB_PRINT("[read]", _e);                             \
             if (_end1 >= rpy_revdb.buf_limit)                           \
                 rpy_reverse_db_fetch(__FILE__, __LINE__);               \
             variable = _e;                                              \

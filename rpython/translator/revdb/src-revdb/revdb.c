@@ -254,7 +254,7 @@ static void setup_record_mode(int argc, char *argv[])
     rpy_revdb.buf_limit = rpy_rev_buffer + sizeof(rpy_rev_buffer) - 32;
     rpy_revdb.unique_id_seen = 1;
 
-    rpy_active_thread = 1;
+    rpy_active_thread = 0;  /* write an ASYNC_THREAD_SWITCH first in the log */
     rpy_active_thread_ptr = &rpy_active_thread;
 
     pthread_atfork(NULL, NULL, close_revdb_fileno_in_fork_child);
@@ -317,9 +317,10 @@ static long in_invoke_finalizers;
 
 static void emit_async_block(int async_code, uint64_t content)
 {
+    /* must be called with the lock held */
     char *p = rpy_rev_buffer;
+    assert(rpy_revdb.lock);
 
-    _RPY_REVDB_LOCK();
     rpy_reverse_db_flush();
     assert(current_packet_size() == 0);
 
@@ -327,12 +328,12 @@ static void emit_async_block(int async_code, uint64_t content)
     memcpy(rpy_revdb.buf_p, &content, sizeof(uint64_t));
     rpy_revdb.buf_p += sizeof(uint64_t);
     flush_buffer();
-    _RPY_REVDB_UNLOCK();
 }
 
 RPY_EXTERN
 void rpy_reverse_db_lock_acquire(void)
 {
+    uint64_t pself;
     assert(!RPY_RDB_REPLAY);
     while (1) {
         if (rpy_revdb.lock == 0) {
@@ -345,7 +346,9 @@ void rpy_reverse_db_lock_acquire(void)
     *rpy_active_thread_ptr = 0;
     rpy_active_thread = 1;
     rpy_active_thread_ptr = &rpy_active_thread;
-    emit_async_block(ASYNC_THREAD_SWITCH, (uint64_t)pthread_self());
+    pself = (uint64_t)pthread_self();
+    emit_async_block(ASYNC_THREAD_SWITCH, pself);
+    _RPY_REVDB_PRINT("[THRD]", pself);
 }
 
 static void record_stop_point(void)
@@ -362,7 +365,9 @@ static void record_stop_point(void)
     int64_t done;
 
     /* Write an ASYNC_FINALIZER_TRIGGER packet */
+    _RPY_REVDB_LOCK();
     emit_async_block(ASYNC_FINALIZER_TRIGGER, rpy_revdb.stop_point_seen);
+    _RPY_REVDB_UNLOCK();
 
     /* Invoke all Boehm finalizers.  For new-style finalizers, this
        will only cause them to move to the queues, where
@@ -854,6 +859,18 @@ static void fetch_more(ssize_t keep, ssize_t expected_size)
     /* rpy_revdb.buf_limit is not set */
 }
 
+static uint64_t fetch_async_block(void)
+{
+    ssize_t full_packet_size = sizeof(int16_t) + sizeof(int64_t);
+    ssize_t keep = rpy_revdb.buf_readend - rpy_revdb.buf_p;
+    uint64_t result;
+    if (keep < full_packet_size)
+        fetch_more(keep, full_packet_size);
+    memcpy(&result, rpy_revdb.buf_p + sizeof(int16_t), sizeof(int64_t));
+    rpy_revdb.buf_p += full_packet_size;
+    return result;
+}
+
 RPY_EXTERN
 void rpy_reverse_db_fetch(const char *file, int line)
 {
@@ -871,6 +888,7 @@ void rpy_reverse_db_fetch(const char *file, int line)
             exit(1);
         }
 
+     read_next_packet:
         keep = rpy_revdb.buf_readend - rpy_revdb.buf_p;
         assert(keep >= 0);
 
@@ -892,11 +910,7 @@ void rpy_reverse_db_fetch(const char *file, int line)
                                     "ASYNC_FINALIZER_TRIGGER\n");
                     exit(1);
                 }
-                full_packet_size = sizeof(int16_t) + sizeof(int64_t);
-                if (keep < full_packet_size)
-                    fetch_more(keep, full_packet_size);
-                memcpy(&bp, rpy_revdb.buf_p + sizeof(int16_t), sizeof(int64_t));
-                rpy_revdb.buf_p += full_packet_size;
+                bp = fetch_async_block();
                 if (bp <= rpy_revdb.stop_point_seen) {
                     fprintf(stderr, "invalid finalizer break point\n");
                     exit(1);
@@ -907,6 +921,10 @@ void rpy_reverse_db_fetch(const char *file, int line)
                    that finalizer_break point. */
                 rpy_revdb.buf_limit = rpy_revdb.buf_p;
                 return;
+
+            case ASYNC_THREAD_SWITCH:
+                fetch_async_block();
+                goto read_next_packet;
 
             default:
                 fprintf(stderr, "bad packet header %d\n", (int)header);
