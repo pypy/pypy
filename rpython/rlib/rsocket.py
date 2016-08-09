@@ -878,6 +878,7 @@ class RSocket(object):
             self.wait_for_data(False)
             raw = rwbuffer.get_raw_address()
             read_bytes = _c.socketrecv(self.fd, raw, nbytes, flags)
+            keepalive_until_here(rwbuffer)
             if read_bytes >= 0:
                 return read_bytes
             raise self.error_handler()
@@ -919,6 +920,7 @@ class RSocket(object):
                 raw = rwbuffer.get_raw_address()
                 read_bytes = _c.recvfrom(self.fd, raw, nbytes, flags,
                                          addr_p, addrlen_p)
+                keepalive_until_here(rwbuffer)
                 addrlen = rffi.cast(lltype.Signed, addrlen_p[0])
             finally:
                 lltype.free(addrlen_p, flavor='raw')
