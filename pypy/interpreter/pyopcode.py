@@ -45,10 +45,10 @@ def binaryoperation(operationname):
 
     return func_with_new_name(opimpl, "opcode_impl_for_%s" % operationname)
 
-def get_func_desc(func):
-    if self.space.type(func) is function.Function:
+def get_func_desc(space, func):
+    if isinstance(func,function.Function):
         return "()"
-    elif self.space.type(func) is function.Method:
+    elif isinstance(func, function.Method):
         return "()"
     else:
         return " object";
@@ -1404,7 +1404,7 @@ class __extend__(pyframe.PyFrame):
         w_dict = space.newdict()
         for i in range(num_maps, 0, -1):
             w_item = self.peekvalue(i-1)
-            if space.lookup(w_item, '__getitem__') is None:
+            if not space.ismapping_w(w_item):
                 raise oefmt(space.w_TypeError,
                         "'%T' object is not a mapping", w_item)
             iterator = w_item.iterkeys()
@@ -1416,13 +1416,13 @@ class __extend__(pyframe.PyFrame):
                     err_fun = self.peekvalue(num_maps + function_location-1)
                     raise oefmt(space.w_TypeError,
                         "%N%s keywords must be strings", err_fun,
-                                                         get_func_desc(err_fun))
+                                                         get_func_desc(space, err_fun))
                 if space.is_true(space.contains(w_dict,w_key)):
                     err_fun = self.peekvalue(num_maps + function_location-1)
                     err_arg = w_key
                     raise oefmt(space.w_TypeError,
-                        "%N%s got multiple values for keyword argument %s",
-                          err_fun, get_func_desc(err_fun), err_arg)
+                        "%N%s got multiple values for keyword argument '%s'",
+                          err_fun, get_func_desc(space, err_fun), space.str_w(err_arg))
             space.call_method(w_dict, 'update', w_item)
         while num_maps != 0:
             self.popvalue()
@@ -1434,7 +1434,7 @@ class __extend__(pyframe.PyFrame):
         w_dict = space.newdict()
         for i in range(itemcount, 0, -1):
             w_item = self.peekvalue(i-1)
-            if space.lookup(w_item, '__getitem__') is None:
+            if not space.ismapping_w(w_item):
                 raise oefmt(self.space.w_TypeError,
                         "'%T' object is not a mapping", w_item)
             space.call_method(w_dict, 'update', w_item)
