@@ -72,6 +72,9 @@ class AppTestUserObject:
         assert 'z' not in proxy
         assert repr(proxy) == 'dict_proxy(%r)' % mapping
         assert proxy.keys() == mapping.keys()
+        assert list(proxy.iterkeys()) == proxy.keys()
+        assert list(proxy.itervalues()) == proxy.values()
+        assert list(proxy.iteritems()) == proxy.items()
         raises(TypeError, "proxy['a'] = 4")
         raises(TypeError, "del proxy['a']")
         raises(AttributeError, "proxy.clear()")

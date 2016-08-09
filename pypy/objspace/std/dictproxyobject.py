@@ -48,11 +48,20 @@ class W_DictProxyObject(W_Root):
     def keys_w(self, space):
         return space.call_method(self.w_mapping, "keys")
 
+    def descr_iterkeys(self, space):
+        return space.call_method(self.w_mapping, "iterkeys")
+
     def values_w(self, space):
         return space.call_method(self.w_mapping, "values")
 
+    def descr_itervalues(self, space):
+        return space.call_method(self.w_mapping, "itervalues")
+
     def items_w(self, space):
         return space.call_method(self.w_mapping, "items")
+
+    def descr_iteritems(self, space):
+        return space.call_method(self.w_mapping, "iteritems")
 
     def copy_w(self, space):
         return space.call_method(self.w_mapping, "copy")
@@ -82,8 +91,11 @@ W_DictProxyObject.typedef = TypeDef(
     __repr__=interp2app(W_DictProxyObject.descr_repr),
     get=interp2app(W_DictProxyObject.get_w),
     keys=interp2app(W_DictProxyObject.keys_w),
+    iterkeys=interp2app(W_DictProxyObject.descr_iterkeys),
     values=interp2app(W_DictProxyObject.values_w),
+    itervalues=interp2app(W_DictProxyObject.descr_itervalues),
     items=interp2app(W_DictProxyObject.items_w),
+    iteritems=interp2app(W_DictProxyObject.descr_iteritems),
     copy=interp2app(W_DictProxyObject.copy_w),
     **cmp_methods
 )
