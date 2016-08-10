@@ -31,7 +31,8 @@ RPY_EXTERN __thread bool_t rpy_active_thread;
 RPY_EXTERN void rpy_reverse_db_setup(int *argc_p, char **argv_p[]);
 RPY_EXTERN void rpy_reverse_db_teardown(void);
 
-#if 0    /* enable to print locations to stderr of all the EMITs */
+/* enable to print locations to stderr of all the EMITs */
+#ifdef RPY_REVDB_PRINT_ALL
 #  define _RPY_REVDB_PRINT(mode, _e)                                    \
     if (rpy_rev_fileno >= 0) {                                          \
         fprintf(stderr,                                                 \
@@ -41,7 +42,8 @@ RPY_EXTERN void rpy_reverse_db_teardown(void);
     }
 #endif
 
-#if 0    /* enable to print all mallocs to stderr */
+/* enable to print all mallocs to stderr */
+#ifdef RPY_REVDB_PRINT_ALL
 RPY_EXTERN void seeing_uid(uint64_t uid);
 #  define _RPY_REVDB_PRUID()                                            \
     if (rpy_rev_fileno >= 0) {                                          \
@@ -140,6 +142,20 @@ RPY_EXTERN void seeing_uid(uint64_t uid);
             rpy_reverse_db_invoke_callback(_re);                        \
     }
 
+#define RPY_REVDB_CALL_GIL(call_code)                                   \
+    if (!RPY_RDB_REPLAY) {                                              \
+        call_code                                                       \
+        _RPY_REVDB_LOCK();                                              \
+        _RPY_REVDB_EMIT_RECORD_L(unsigned char _e, 0xFD)                \
+        _RPY_REVDB_UNLOCK();                                            \
+    }                                                                   \
+    else {                                                              \
+        unsigned char _re;                                              \
+        _RPY_REVDB_EMIT_REPLAY(unsigned char _e, _re)                   \
+        if (_re != 0xFD)                                                \
+            rpy_reverse_db_bad_acquire_gil();                           \
+    }
+
 #define RPY_REVDB_CALL_GILCTRL(call_code)                               \
     if (!RPY_RDB_REPLAY) {                                              \
         call_code                                                       \
@@ -223,5 +239,6 @@ RPY_EXTERN void rpy_reverse_db_call_destructor(void *obj);
 RPY_EXTERN void rpy_reverse_db_invoke_callback(unsigned char);
 RPY_EXTERN void rpy_reverse_db_callback_loc(int);
 RPY_EXTERN void rpy_reverse_db_lock_acquire(bool_t lock_contention);
+RPY_EXTERN void rpy_reverse_db_bad_acquire_gil(void);
 
 /* ------------------------------------------------------------ */
