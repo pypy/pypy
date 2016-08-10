@@ -65,10 +65,11 @@ RPY_EXTERN void seeing_uid(uint64_t uid);
    single-threaded during replaying: the lock is only useful during
    recording. */
 #define _RPY_REVDB_LOCK()                                               \
-    if (!rpy_active_thread ||                                           \
-            pypy_lock_test_and_set(&rpy_revdb.lock, 1) != 0)            \
-        rpy_reverse_db_lock_acquire();
-
+    {                                                                   \
+        bool_t _lock_contention = pypy_lock_test_and_set(&rpy_revdb.lock, 1); \
+        if (_lock_contention || !rpy_active_thread)                     \
+            rpy_reverse_db_lock_acquire(_lock_contention);              \
+    }
 #define _RPY_REVDB_UNLOCK()                                             \
     pypy_lock_release(&rpy_revdb.lock)
 
@@ -221,6 +222,6 @@ RPY_EXTERN void rpy_reverse_db_register_destructor(void *obj, void(*)(void *));
 RPY_EXTERN void rpy_reverse_db_call_destructor(void *obj);
 RPY_EXTERN void rpy_reverse_db_invoke_callback(unsigned char);
 RPY_EXTERN void rpy_reverse_db_callback_loc(int);
-RPY_EXTERN void rpy_reverse_db_lock_acquire(void);
+RPY_EXTERN void rpy_reverse_db_lock_acquire(bool_t lock_contention);
 
 /* ------------------------------------------------------------ */

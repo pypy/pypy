@@ -331,11 +331,11 @@ static void emit_async_block(int async_code, uint64_t content)
 }
 
 RPY_EXTERN
-void rpy_reverse_db_lock_acquire(void)
+void rpy_reverse_db_lock_acquire(bool_t lock_contention)
 {
     uint64_t pself;
     assert(!RPY_RDB_REPLAY);
-    while (1) {
+    while (lock_contention) {
         if (rpy_revdb.lock == 0) {
             if (pypy_lock_test_and_set(&rpy_revdb.lock, 1) == 0)
                 break;   /* done */
