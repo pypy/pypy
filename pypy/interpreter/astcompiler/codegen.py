@@ -441,8 +441,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # 4. load class name
         self.load_const(self.space.wrap(cls.name.decode('utf-8')))
         # 5. generate the rest of the code for the call
-        self._make_call(2,
-                        cls.bases, cls.keywords)
+        self._make_call(2, cls.bases, cls.keywords)
         # 6. apply decorators
         if cls.decorator_list:
             for i in range(len(cls.decorator_list)):
@@ -1348,8 +1347,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if self._optimize_method_call(call):
             return
         call.func.walkabout(self)
-        self._make_call(0,
-                        call.args, call.keywords)
+        self._make_call(0, call.args, call.keywords)
     
     def _call_has_no_star_args(self, call):
         if call.args is not None:

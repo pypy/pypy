@@ -1056,7 +1056,7 @@ class __extend__(pyframe.PyFrame):
         w_value = self.popvalue()
         w_gen = self.peekvalue()
         if isinstance(w_gen, Coroutine):
-            if (w_gen.descr_gi_code(w_gen).co_flags & consts.CO_COROUTINE and
+            if (w_gen.descr_gi_code(space).co_flags & consts.CO_COROUTINE and
                not self.pycode.co_flags & (consts.CO_COROUTINE |
                                        consts.CO_ITERABLE_COROUTINE)):
                 raise oefmt(self.space.w_TypeError,
@@ -1479,27 +1479,29 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(res)
     
     def BEFORE_ASYNC_WITH(self, oparg, next_instr):
+        space = self.space
         w_manager = self.peekvalue()
-        w_enter = self.space.lookup(w_manager, "__aenter__")
-        w_descr = self.space.lookup(w_manager, "__aexit__")
+        w_enter = space.lookup(w_manager, "__aenter__")
+        w_descr = space.lookup(w_manager, "__aexit__")
         if w_enter is None or w_descr is None:
-            raise oefmt(self.space.w_AttributeError,
+            raise oefmt(space.w_AttributeError,
                         "'%T' object is not a context manager (no __aenter__/"
                         "__aexit__ method)", w_manager)
-        w_exit = self.space.get(w_descr, w_manager)
+        w_exit = space.get(w_descr, w_manager)
         self.settopvalue(w_exit)
-        w_result = self.space.get_and_call_function(w_enter, w_manager)
+        w_result = space.get_and_call_function(w_enter, w_manager)
         self.pushvalue(w_result)
     
     def GET_AITER(self, oparg, next_instr):
+        space = self.space
         w_obj = self.peekvalue()
-        w_func = self.space.lookup(w_obj, "__aiter__")
+        w_func = space.lookup(w_obj, "__aiter__")
         if w_func is None:
             raise oefmt(space.w_AttributeError,
                         "object %T does not have __aiter__ method",
                         w_obj)
         w_iter = space.get_and_call_function(w_func, w_obj)
-        w_awaitable = w_iter._GetAwaitableIter(self.space)
+        w_awaitable = w_iter._GetAwaitableIter(space)
         if w_awaitable is None:
             raise oefmt(space.w_TypeError,
                         "'async for' received an invalid object "
@@ -1507,14 +1509,15 @@ class __extend__(pyframe.PyFrame):
         self.settopvalue(w_awaitable)
     
     def GET_ANEXT(self, oparg, next_instr):
+        space = self.space
         w_aiter = self.peekvalue()
-        w_func = self.space.lookup(w_aiter, "__anext__")
+        w_func = space.lookup(w_aiter, "__anext__")
         if w_func is None:
             raise oefmt(space.w_AttributeError,
                         "object %T does not have __anext__ method",
                         w_aiter)
         w_next_iter = space.get_and_call_function(w_func, w_aiter)
-        w_awaitable = w_next_iter._GetAwaitableIter(self.space)
+        w_awaitable = w_next_iter._GetAwaitableIter(space)
         if w_awaitable is None:
             raise oefmt(space.w_TypeError,
                         "'async for' received an invalid object "

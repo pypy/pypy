@@ -4,6 +4,7 @@ from pypy.interpreter import error
 from pypy.interpreter.pyparser.pygram import syms, tokens
 from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.interpreter.pyparser import parsestring
+from rpython.rlib.objectmodel import always_inline
 
 
 def ast_from_node(space, node, compile_info):
@@ -1169,6 +1170,7 @@ class ASTBuilder(object):
                 raise
             return self.space.call_function(self.space.w_float, w_num_str)
 
+    @always_inline
     def handle_dictelement(self, node, i):
         if node.get_child(i).type == tokens.DOUBLESTAR:
             key = None
@@ -1178,7 +1180,7 @@ class ASTBuilder(object):
             key = self.handle_expr(node.get_child(i))
             value = self.handle_expr(node.get_child(i+2))
             i += 3
-        return [i,key,value]
+        return (i,key,value)
     
     def handle_atom(self, atom_node):
         first_child = atom_node.get_child(0)
@@ -1374,10 +1376,7 @@ class ASTBuilder(object):
                            set_maker.get_column())
 
     def handle_dictcomp(self, dict_maker):
-        dictelement = self.handle_dictelement(dict_maker, 0)
-        i = dictelement[0]
-        key = dictelement[1]
-        value = dictelement[2]
+        i, key, value = self.handle_dictelement(dict_maker, 0)
         comps = self.comprehension_helper(dict_maker.get_child(i))
         return ast.DictComp(key, value, comps, dict_maker.get_lineno(),
                             dict_maker.get_column())
@@ -1387,10 +1386,9 @@ class ASTBuilder(object):
         values = []
         i = 0
         while i < node.num_children():
-            dictelement = self.handle_dictelement(node, i)
-            i = dictelement[0]
-            keys.append(dictelement[1])
-            values.append(dictelement[2])
+            i, key, value = self.handle_dictelement(node, i)
+            keys.append(key)
+            values.append(value)
             i += 1
         return ast.Dict(keys, values, node.get_lineno(), node.get_column())
     

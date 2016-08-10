@@ -85,7 +85,7 @@ class W_ZipCache(W_Root):
     def iteratekeys(self, space):
         return space.iter(self.keys(space))
 
-    def itervalues(self, space):
+    def iteratevalues(self, space):
         return space.iter(self.values(space))
 
     def iteritems(self, space):
@@ -112,7 +112,7 @@ W_ZipCache.typedef = TypeDef(
     keys = interp2app(W_ZipCache.keys),
     iterkeys = interp2app(W_ZipCache.iteratekeys),
     values = interp2app(W_ZipCache.values),
-    itervalues = interp2app(W_ZipCache.itervalues),
+    itervalues = interp2app(W_ZipCache.iteratevalues),
     clear = interp2app(W_ZipCache.clear),
     __delitem__ = interp2app(W_ZipCache.delitem),
 )
