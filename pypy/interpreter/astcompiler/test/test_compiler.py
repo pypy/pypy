@@ -1075,6 +1075,13 @@ class TestCompiler:
                 return a, b, c
         """
         yield self.st, func, "f()", (1, [2, 3], 4)
+        func = """def f():
+            b = [4,5,6]
+            c = 7
+            a = [*b, c]
+            return a
+        """
+        yield self.st, func, "f()", [4, 5, 6, 7]
 
     def test_extended_unpacking_fail(self):
         exc = py.test.raises(SyntaxError, self.simple_test, "*a, *b = [1, 2]",
@@ -1084,9 +1091,6 @@ class TestCompiler:
                              "[*b, *c] = range(10)", None, None).value
         assert exc.msg == "two starred expressions in assignment"
 
-        exc = py.test.raises(SyntaxError, self.simple_test, "a = [*b, c]",
-                             None, None).value
-        assert exc.msg == "can use starred expression only as assignment target"
         exc = py.test.raises(SyntaxError, self.simple_test, "for *a in x: pass",
                              None, None).value
         assert exc.msg == "starred assignment target must be in a list or tuple"
