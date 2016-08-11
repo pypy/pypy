@@ -778,6 +778,10 @@ def gen_threadlocal_structdef(f, database):
     for field in fields:
         print >> f, ('#define RPY_TLOFS_%s  offsetof(' % field.fieldname +
                      'struct pypy_threadlocal_s, %s)' % field.fieldname)
+    if fields:
+        print >> f, '#define RPY_TLOFSFIRST  RPY_TLOFS_%s' % fields[0].fieldname
+    else:
+        print >> f, '#define RPY_TLOFSFIRST  sizeof(struct pypy_threadlocal_s)'
     print >> f, 'struct pypy_threadlocal_s {'
     print >> f, '\tint ready;'
     print >> f, '\tchar *stack_end;'

@@ -169,3 +169,41 @@ class TestThreadInteractive(InteractiveTests):
             child.expect(ANSWER_READY, i, Ellipsis)
         child.send(Message(CMD_FORWARD, 1))
         child.expect(ANSWER_AT_END)
+
+
+class TestThreadLocal(InteractiveTests):
+    expected_stop_points = 1
+
+    def setup_class(cls):
+        from rpython.translator.revdb.test.test_basic import compile, run
+        class EC(object):
+            def __init__(self, value):
+                self.value = value
+        raw_thread_local = rthread.ThreadLocalReference(EC)
+
+        def bootstrap():
+            rthread.gc_thread_start()
+            _sleep(1)
+            ec = EC(4567)
+            raw_thread_local.set(ec)
+            revdb.stop_point()
+            print raw_thread_local.get().value
+            assert raw_thread_local.get() is ec
+            rthread.gc_thread_die()
+
+        def main(argv):
+            ec = EC(12)
+            raw_thread_local.set(ec)
+            rthread.start_new_thread(bootstrap, ())
+            _sleep(2)
+            print raw_thread_local.get().value
+            assert raw_thread_local.get() is ec
+            return 9
+
+        compile(cls, main, backendopt=False, thread=True)
+        assert run(cls, '') == '4567\n12\n'
+
+    def test_go_threadlocal(self):
+        child = self.replay()
+        child.send(Message(CMD_FORWARD, 1))
+        child.expect(ANSWER_AT_END)

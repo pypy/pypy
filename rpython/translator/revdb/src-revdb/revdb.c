@@ -26,6 +26,7 @@
 #include "revdb_def.h"
 #include "src/rtyper.h"
 #include "src/mem.h"
+#include "src/threadlocal.h"
 #include "src-revdb/revdb_include.h"
 
 #define RDB_SIGNATURE   "RevDB:"
@@ -673,6 +674,7 @@ struct replay_thread_main_s {
 struct replay_thread_s {
     uint64_t tid;
     stacklet_handle h;
+    struct pypy_threadlocal_s tloc;
 };
 
 static stacklet_handle replay_thread_main(stacklet_handle h, void *arg)
@@ -737,6 +739,7 @@ int rpy_reverse_db_main(Signed entry_point(Signed, char**),
            can switch it away at any point later */
         struct replay_thread_main_s m;
         stacklet_handle h;
+        struct pypy_threadlocal_s *real_tloc = NULL;
         m.entry_point = entry_point;
         m.argc = argc;
         m.argv = argv;
@@ -750,6 +753,10 @@ int rpy_reverse_db_main(Signed entry_point(Signed, char**),
         while (1) {
             struct replay_thread_s *node, **item, dummy;
 
+            if (real_tloc == NULL) {
+                _OP_THREADLOCALREF_ADDR_SIGHANDLER(real_tloc);
+            }
+
             if (h == NULL)
                 goto out_of_memory;
 
@@ -761,6 +768,12 @@ int rpy_reverse_db_main(Signed entry_point(Signed, char**),
                     goto out_of_memory;
                 node->tid = current_thread_id;
                 node->h = h;
+                /* save the thread-locals, if any */
+                if (real_tloc != NULL)
+                    node->tloc = *real_tloc;
+                else
+                    memset(&node->tloc, 0, sizeof(node->tloc));
+
                 item = tsearch(node, &thread_tree_root, compare_replay_thread);
                 if (item == NULL)
                     goto out_of_memory;
@@ -780,6 +793,9 @@ int rpy_reverse_db_main(Signed entry_point(Signed, char**),
             item = tfind(&dummy, &thread_tree_root, compare_replay_thread);
             if (item == NULL) {
                 /* it's a new thread, start it now */
+                if (real_tloc != NULL)
+                    memset(((char *)real_tloc) + RPY_TLOFSFIRST, 0,
+                           sizeof(struct pypy_threadlocal_s) - RPY_TLOFSFIRST);
                 h = stacklet_new(st_thread, replay_thread_sub, NULL);
             }
             else {
@@ -787,6 +803,8 @@ int rpy_reverse_db_main(Signed entry_point(Signed, char**),
                 assert(node->tid == target_thread_id);
                 h = node->h;
                 tdelete(node, &thread_tree_root, compare_replay_thread);
+                if (real_tloc != NULL)
+                    *real_tloc = node->tloc;
                 free(node);
 
                 h = stacklet_switch(h);
@@ -1068,7 +1086,10 @@ void rpy_reverse_db_fetch(const char *file, int line)
                 target_thread_id = fetch_async_block();
                 _RPY_REVDB_PRINT("[THRD]", target_thread_id);
                 rpy_revdb.buf_limit = rpy_revdb.buf_p;
-                st_outer_controller_h = stacklet_switch(st_outer_controller_h);
+                if (target_thread_id != current_thread_id) {
+                    st_outer_controller_h = stacklet_switch(
+                                                st_outer_controller_h);
+                }
                 if (rpy_revdb.buf_limit == rpy_revdb.buf_p)
                     rpy_reverse_db_fetch(__FILE__, __LINE__);
                 return;
