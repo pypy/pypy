@@ -1388,7 +1388,7 @@ class __extend__(pyframe.PyFrame):
             itemcount -= 1
         return w_sum
 
-
+    @jit.unroll_safe
     def BUILD_TUPLE_UNPACK(self, itemcount, next_instr):
         w_list = self.list_unpack_helper(itemcount)
         items = [w_obj for w_obj in w_list.getitems_unroll()]
