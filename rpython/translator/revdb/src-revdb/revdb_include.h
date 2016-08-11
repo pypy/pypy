@@ -103,17 +103,21 @@ RPY_EXTERN void seeing_uid(uint64_t uid);
             variable = _e;                                              \
         }
 
-#define _RPY_REVDB_EMIT_L(normal_code, decl_e, variable, must_lock)     \
+#define _RPY_REVDB_EMIT_L(normal_code, decl_e, variable)                \
     if (!RPY_RDB_REPLAY) {                                              \
         normal_code                                                     \
-        if (must_lock) _RPY_REVDB_LOCK();                               \
         _RPY_REVDB_EMIT_RECORD_L(decl_e, variable)                      \
-        if (must_lock) _RPY_REVDB_UNLOCK();                             \
     } else                                                              \
         _RPY_REVDB_EMIT_REPLAY(decl_e, variable)
 
 #define RPY_REVDB_EMIT(normal_code, decl_e, variable)                   \
-    _RPY_REVDB_EMIT_L(normal_code, decl_e, variable, 1)
+    if (!RPY_RDB_REPLAY) {                                              \
+        normal_code                                                     \
+        _RPY_REVDB_LOCK();                                              \
+        _RPY_REVDB_EMIT_RECORD_L(decl_e, variable)                      \
+        _RPY_REVDB_UNLOCK();                                            \
+    } else                                                              \
+        _RPY_REVDB_EMIT_REPLAY(decl_e, variable)
 
 #define RPY_REVDB_EMIT_VOID(normal_code)                                \
     if (!RPY_RDB_REPLAY) { normal_code } else { }

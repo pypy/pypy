@@ -131,7 +131,8 @@ static void reverse_db_lock_and_flush(void)
     _RPY_REVDB_UNLOCK();
 }
 
-static void reverse_db_teardown(void)
+RPY_EXTERN
+void rpy_reverse_db_teardown(void)
 {
     uint64_t stop_points;
     if (!RPY_RDB_REPLAY) {
@@ -142,8 +143,8 @@ static void reverse_db_teardown(void)
            rpy_reverse_db_fetch(), which has nothing more to fetch now */
         rpy_revdb.buf_limit += 1;
     }
-    _RPY_REVDB_EMIT_L(stop_points = rpy_revdb.stop_point_seen; ,
-                      uint64_t _e, stop_points, /*must_lock=*/0);
+    _RPY_REVDB_EMIT_L(stop_points = rpy_revdb.stop_point_seen;,
+                      uint64_t _e, stop_points);
 
     if (!RPY_RDB_REPLAY) {
         rpy_reverse_db_flush();
@@ -523,8 +524,7 @@ void *rpy_reverse_db_weakref_create(void *target)
         else
             r->re_off_prev = 1;    /* any number > 0 */
 
-        _RPY_REVDB_EMIT_L(alive = WEAKREF_AFTERWARDS_DEAD;, char _e, alive,
-                          /*must_lock=*/0);
+        _RPY_REVDB_EMIT_L(alive = WEAKREF_AFTERWARDS_DEAD;, char _e, alive);
 
         if (!RPY_RDB_REPLAY) {
             _RPY_REVDB_UNLOCK();
@@ -571,8 +571,7 @@ void *rpy_reverse_db_weakref_deref(void *weakref)
                                                   WEAKREF_AFTERWARDS_ALIVE);
                 r->re_off_prev = recording_offset();
             }
-            _RPY_REVDB_EMIT_L(alive = WEAKREF_AFTERWARDS_DEAD;, char _e, alive,
-                              /*must_lock=*/0);
+            _RPY_REVDB_EMIT_L(alive = WEAKREF_AFTERWARDS_DEAD;, char _e, alive);
 
             if (!RPY_RDB_REPLAY) {
                 _RPY_REVDB_UNLOCK();
@@ -684,7 +683,7 @@ static stacklet_handle replay_thread_main(stacklet_handle h, void *arg)
     m->entry_point(m->argc, m->argv);
 
     /* main thread finished, program stops */
-    reverse_db_teardown();
+    rpy_reverse_db_teardown();
 
     /* unreachable */
     abort();
@@ -730,7 +729,7 @@ int rpy_reverse_db_main(Signed entry_point(Signed, char**),
 {
     if (!RPY_RDB_REPLAY) {
         int exitcode = (int)entry_point(argc, argv);
-        reverse_db_teardown();
+        rpy_reverse_db_teardown();
         return exitcode;
     }
     else {
