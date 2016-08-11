@@ -663,6 +663,7 @@ static void *finalizer_tree, *destructor_tree;
 static stacklet_thread_handle st_thread;
 static stacklet_handle st_outer_controller_h;
 static uint64_t current_thread_id, target_thread_id;
+static uint64_t current_thread_num, next_thread_num;
 static void *thread_tree_root;
 
 
@@ -672,7 +673,7 @@ struct replay_thread_main_s {
     char **argv;
 };
 struct replay_thread_s {
-    uint64_t tid;
+    uint64_t tid, tnum;
     stacklet_handle h;
     struct pypy_threadlocal_s tloc;
 };
@@ -754,7 +755,9 @@ int rpy_reverse_db_main(Signed entry_point(Signed, char**),
             struct replay_thread_s *node, **item, dummy;
 
             if (real_tloc == NULL) {
-                _OP_THREADLOCALREF_ADDR_SIGHANDLER(real_tloc);
+                char *p;
+                _OP_THREADLOCALREF_ADDR_SIGHANDLER(p);
+                real_tloc = (struct pypy_threadlocal_s *)p;
             }
 
             if (h == NULL)
@@ -767,6 +770,7 @@ int rpy_reverse_db_main(Signed entry_point(Signed, char**),
                 if (!node)
                     goto out_of_memory;
                 node->tid = current_thread_id;
+                node->tnum = current_thread_num;
                 node->h = h;
                 /* save the thread-locals, if any */
                 if (real_tloc != NULL)
@@ -793,6 +797,7 @@ int rpy_reverse_db_main(Signed entry_point(Signed, char**),
             item = tfind(&dummy, &thread_tree_root, compare_replay_thread);
             if (item == NULL) {
                 /* it's a new thread, start it now */
+                current_thread_num = next_thread_num++;
                 if (real_tloc != NULL)
                     memset(((char *)real_tloc) + RPY_TLOFSFIRST, 0,
                            sizeof(struct pypy_threadlocal_s) - RPY_TLOFSFIRST);
@@ -801,6 +806,7 @@ int rpy_reverse_db_main(Signed entry_point(Signed, char**),
             else {
                 node = *item;
                 assert(node->tid == target_thread_id);
+                current_thread_num = node->tnum;
                 h = node->h;
                 tdelete(node, &thread_tree_root, compare_replay_thread);
                 if (real_tloc != NULL)
@@ -957,6 +963,8 @@ static void setup_replay_mode(int *argc_p, char **argv_p[])
         exit(1);
     }
     current_thread_id = h.main_thread_id;
+    current_thread_num = 0;
+    next_thread_num = 1;
     if (h.ptr1 != &rpy_reverse_db_stop_point ||
         h.ptr2 != &rpy_revdb) {
         fprintf(stderr,
@@ -1389,7 +1397,7 @@ static void replay_stop_point(void)
             write_answer(ANSWER_READY,
                          saved_state.stop_point_seen,
                          saved_state.unique_id_seen,
-                         0);
+                         current_thread_num);
             read_sock(&cmd, sizeof(cmd));
 
             char extra[cmd.extra_size + 1];

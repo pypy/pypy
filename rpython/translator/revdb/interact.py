@@ -37,10 +37,19 @@ class RevDebugControl(object):
     def interact(self):
         last_command = 'help'
         previous_time = None
+        previous_thread = 0
         while True:
             last_time = self.pgroup.get_current_time()
             if last_time != previous_time:
                 print
+                if self.pgroup.get_current_thread() != previous_thread:
+                    previous_thread = self.pgroup.get_current_thread()
+                    if previous_thread == 0:
+                        print ('-------------------- in the main thread '
+                               '--------------------')
+                    else:
+                        print ('-------------------- in non-main thread '
+                               '#%d --------------------' % (previous_thread,))
                 self.pgroup.update_watch_values()
                 last_time = self.pgroup.get_current_time()
             if self.print_extra_pending_info:
@@ -49,6 +58,7 @@ class RevDebugControl(object):
             if last_time != previous_time:
                 self.pgroup.show_backtrace(complete=0)
                 previous_time = last_time
+
             prompt = '(%d)$ ' % last_time
             try:
                 cmdline = raw_input(prompt).strip()

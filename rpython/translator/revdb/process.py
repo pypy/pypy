@@ -120,12 +120,13 @@ class ReplayProcess(object):
         return msg
 
     def expect_ready(self):
-        msg = self.expect(ANSWER_READY, Ellipsis, Ellipsis)
+        msg = self.expect(ANSWER_READY, Ellipsis, Ellipsis, Ellipsis)
         self.update_times(msg)
 
     def update_times(self, msg):
         self.current_time = msg.arg1
         self.currently_created_objects = msg.arg2
+        self.current_thread = msg.arg3
 
     def clone(self):
         """Fork this subprocess.  Returns a new ReplayProcess() that is
@@ -252,10 +253,13 @@ class ReplayProcessGroup(object):
     def get_currently_created_objects(self):
         return self.active.currently_created_objects
 
+    def get_current_thread(self):
+        return self.active.current_thread
+
     def _check_current_time(self, time):
         assert self.get_current_time() == time
         self.active.send(Message(CMD_FORWARD, 0))
-        return self.active.expect(ANSWER_READY, time, Ellipsis)
+        return self.active.expect(ANSWER_READY, time, Ellipsis, Ellipsis)
 
     def get_max_time(self):
         return self.total_stop_points

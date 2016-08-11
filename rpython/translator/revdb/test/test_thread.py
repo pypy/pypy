@@ -166,13 +166,14 @@ class TestThreadInteractive(InteractiveTests):
         child = self.replay()
         for i in range(2, 6):
             child.send(Message(CMD_FORWARD, 1))
-            child.expect(ANSWER_READY, i, Ellipsis)
+            child.expect(ANSWER_READY, i, Ellipsis,
+                         (i & 1) ^ 1)    # thread number: either 0 or 1 here
         child.send(Message(CMD_FORWARD, 1))
         child.expect(ANSWER_AT_END)
 
 
 class TestThreadLocal(InteractiveTests):
-    expected_stop_points = 1
+    expected_stop_points = 2
 
     def setup_class(cls):
         from rpython.translator.revdb.test.test_basic import compile, run
@@ -192,6 +193,7 @@ class TestThreadLocal(InteractiveTests):
             rthread.gc_thread_die()
 
         def main(argv):
+            revdb.stop_point()
             ec = EC(12)
             raw_thread_local.set(ec)
             rthread.start_new_thread(bootstrap, ())
@@ -205,5 +207,7 @@ class TestThreadLocal(InteractiveTests):
 
     def test_go_threadlocal(self):
         child = self.replay()
+        child.send(Message(CMD_FORWARD, 1))
+        child.expect(ANSWER_READY, 2, Ellipsis, 1)
         child.send(Message(CMD_FORWARD, 1))
         child.expect(ANSWER_AT_END)
