@@ -591,6 +591,13 @@ class RDBSignalActionFlag(AbstractActionFlag):
     # This class is tweaked to generate one byte per _SIG_TICKER_COUNT
     # bytecodes, at the expense of not reacting to signals instantly.
 
+    # Threads: after 10'000 calls to decrement_ticker(), it should
+    # return -1.  It should also return -1 if there was a signal.
+    # This is done by calling _update_ticker_from_signals() every 100
+    # calls, and invoking rsignal.pypysig_check_and_reset(); this in
+    # turn returns -1 if there was a signal or if it was called 100
+    # times.
+
     _SIG_TICKER_COUNT = 100
     _ticker = 0
     _ticker_count = _SIG_TICKER_COUNT * 10
@@ -610,10 +617,10 @@ class RDBSignalActionFlag(AbstractActionFlag):
             if c < 0:
                 c = self._update_ticker_from_signals()
             self._ticker_count = c
-        if self.has_bytecode_counter:    # this 'if' is constant-folded
-            print ("RDBSignalActionFlag: has_bytecode_counter: "
-                   "not supported for now")
-            raise NotImplementedError
+        #if self.has_bytecode_counter:    # this 'if' is constant-folded
+        #    print ("RDBSignalActionFlag: has_bytecode_counter: "
+        #           "not supported for now")
+        #    raise NotImplementedError
         return self._ticker
 
     def _update_ticker_from_signals(self):

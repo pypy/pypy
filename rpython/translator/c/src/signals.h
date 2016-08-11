@@ -39,8 +39,9 @@ void *pypysig_getaddr_occurred(void);
 
 inline static char pypysig_check_and_reset(void) {
     /* used by reverse_debugging */
-    char result = pypysig_counter.value < 0;
-    pypysig_counter.value = 0;
+    char result = --pypysig_counter.value < 0;
+    if (result)
+        pypysig_counter.value = 100;
     return result;
 }
 
