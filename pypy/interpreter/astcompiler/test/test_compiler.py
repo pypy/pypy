@@ -779,9 +779,19 @@ class TestCompiler:
         py.test.raises(SyntaxError, self.simple_test, "int(base=10, '2')",
                        None, None)
 
-    def test_crap_after_starargs(self):
-        source = "call(*args, *args)"
-        py.test.raises(SyntaxError, self.simple_test, source, None, None)
+    def test_starargs_after_starargs(self):
+        #allowed since PEP 448 "Additional Unpacking Generalizations"
+        source = py.code.Source("""
+        def call(*arg):
+            ret = []
+            for i in arg:
+                ret.append(i)
+            return ret
+        
+        args = [4,5,6]
+        res = call(*args, *args)
+        """)
+        self.simple_test(source, 'res', [4,5,6,4,5,6])
 
     def test_not_a_name(self):
         source = "call(a, b, c, 3=3)"

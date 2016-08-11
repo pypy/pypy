@@ -1214,6 +1214,14 @@ class __extend__(pyframe.PyFrame):
                     break
                 w_value = self.popvalue()
                 w_key = self.popvalue()
+                # temporary (dirty) fix: if star-arg occurs after kwarg,
+                # arg order is reversed on stack
+                from pypy.objspace.std.listobject import W_ListObject
+                if isinstance(w_key, W_ListObject):
+                    w_key_temp = w_key
+                    w_key = w_value
+                    w_value = w_star
+                    w_star = w_key_temp
                 key = self.space.identifier_w(w_key)
                 keywords[n_keywords] = key
                 keywords_w[n_keywords] = w_value
