@@ -326,6 +326,12 @@ return next yielded value or raise StopIteration."""
                         "of type '%T'", res)
         return res
 
+def get_printable_coroutine_location_genentry(bytecode):
+    return '%s <coroutine>' % (bytecode.get_repr(),)
+coroutineentry_driver = jit.JitDriver(greens=['pycode'],
+                                      reds=['gen', 'w_arg', 'operr'],
+                                      get_printable_location = get_printable_coroutine_location_genentry,
+                                      name='coroutineentry')
 
 class Coroutine(W_Root):
     "A coroutine object."
@@ -511,8 +517,8 @@ return next iterated value or raise StopIteration."""
         pycode = self.pycode
         if pycode is not None:
             if jit.we_are_jitted() and should_not_inline(pycode):
-                generatorentry_driver.jit_merge_point(gen=self, w_arg=w_arg,
-                                                    operr=operr, pycode=pycode)
+                coroutineentry_driver.jit_merge_point(gen=self, w_arg=w_arg,
+                                                      operr=operr, pycode=pycode)
         return self._send_ex(w_arg, operr)
 
     def _send_ex(self, w_arg, operr):
