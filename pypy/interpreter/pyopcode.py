@@ -1343,6 +1343,7 @@ class __extend__(pyframe.PyFrame):
         raise BytecodeCorruption("unknown opcode, ofs=%d, code=%d, name=%s" %
                                  (ofs, ord(c), name) )
 
+    @jit.unroll_safe
     def BUILD_MAP(self, itemcount, next_instr):
         w_dict = self.space.newdict()
         for i in range(itemcount):
@@ -1359,6 +1360,7 @@ class __extend__(pyframe.PyFrame):
             self.space.call_method(w_set, 'add', w_item)
         self.pushvalue(w_set)
 
+    @jit.unroll_safe
     def BUILD_SET_UNPACK(self, itemcount, next_instr):
         space = self.space
         w_sum = space.newset()
@@ -1398,6 +1400,7 @@ class __extend__(pyframe.PyFrame):
         w_sum = self.list_unpack_helper(itemcount)
         self.pushvalue(w_sum)
 
+    @jit.unroll_safe
     def BUILD_MAP_UNPACK_WITH_CALL(self, itemcount, next_instr):
         space = self.space
         num_maps = itemcount & 0xff
@@ -1430,6 +1433,7 @@ class __extend__(pyframe.PyFrame):
             num_maps -= 1
         self.pushvalue(w_dict)
 
+    @jit.unroll_safe
     def BUILD_MAP_UNPACK(self, itemcount, next_instr):
         space = self.space
         w_dict = space.newdict()
