@@ -366,7 +366,6 @@ class ThreadLocalReference(ThreadLocalField):
         ThreadLocalReference._COUNT += 1
         ThreadLocalField.__init__(self, lltype.Signed, 'tlref%d' % unique_id,
                                   loop_invariant=loop_invariant)
-        setraw = self.setraw
         offset = self._offset
 
         def get():
@@ -383,10 +382,10 @@ class ThreadLocalReference(ThreadLocalField):
         def set(value):
             assert isinstance(value, Cls) or value is None
             if we_are_translated():
-                from rpython.rtyper.annlowlevel import cast_instance_to_gcref
-                gcref = cast_instance_to_gcref(value)
-                value = lltype.cast_ptr_to_int(gcref)
-                setraw(value)
+                from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
+                ptr = cast_instance_to_base_ptr(value)
+                _threadlocalref_seeme(self)
+                llop.threadlocalref_store(lltype.Void, offset, ptr)
                 rgc.register_custom_trace_hook(TRACETLREF, _lambda_trace_tlref)
                 rgc.ll_writebarrier(_tracetlref_obj)
             else:
