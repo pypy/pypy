@@ -316,7 +316,8 @@ return next yielded value or raise StopIteration."""
         res = space.get_and_call_function(w_await, self)
         if res is not None:
             if (isinstance(res, Coroutine) or
-                res.pycode.co_flags & consts.CO_ITERABLE_COROUTINE):
+                (isinstance(res, GeneratorIterator) and \
+                 res.pycode.co_flags & consts.CO_ITERABLE_COROUTINE)):
                 raise oefmt(space.w_TypeError,
                             "__await__() returned a coroutine")
             elif space.lookup(self, "__next__") is None:

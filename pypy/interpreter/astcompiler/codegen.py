@@ -1047,7 +1047,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_Const(self, const):
         self.update_position(const.lineno)
-        self.load_const(const.value)
+        self.load_const(const.obj)
 
     def visit_Ellipsis(self, e):
         self.load_const(self.space.w_Ellipsis)

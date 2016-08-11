@@ -65,7 +65,7 @@ class __extend__(ast.Ellipsis):
 class __extend__(ast.Const):
 
     def as_constant(self):
-        return self.value
+        return self.obj
 
 class __extend__(ast.Index):
     def as_constant(self):

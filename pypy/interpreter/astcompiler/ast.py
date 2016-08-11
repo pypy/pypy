@@ -16,7 +16,7 @@ def check_string(space, w_obj):
     if not (space.isinstance_w(w_obj, space.w_str) or
             space.isinstance_w(w_obj, space.w_unicode)):
         raise oefmt(space.w_TypeError,
-                   "AST string must be of type str or unicode")
+                    "AST string must be of type str or unicode")
     return w_obj
 
 def get_field(space, w_node, name, optional):
@@ -2568,7 +2568,7 @@ class Bytes(expr):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Bytes)
-        w_s = self.s.to_object(space)  # bytes
+        w_s = self.s  # bytes
         space.setattr(w_node, space.wrap('s'), w_s)
         w_lineno = space.wrap(self.lineno)  # int
         space.setattr(w_node, space.wrap('lineno'), w_lineno)
@@ -2581,7 +2581,7 @@ class Bytes(expr):
         w_s = get_field(space, w_node, 's', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _s = bytes.from_object(space, w_s)
+        _s = check_string(space, w_s)
         if _s is None:
             raise_required_value(space, w_node, 's')
         _lineno = space.int_w(w_lineno)
@@ -2593,8 +2593,8 @@ State.ast_type('Bytes', 'expr', ['s'])
 
 class NameConstant(expr):
 
-    def __init__(self, value, lineno, col_offset):
-        self.value = value
+    def __init__(self, single, lineno, col_offset):
+        self.single = single
         expr.__init__(self, lineno, col_offset)
 
     def walkabout(self, visitor):
@@ -2605,8 +2605,8 @@ class NameConstant(expr):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_NameConstant)
-        w_value = self.value.to_object(space)  # singleton
-        space.setattr(w_node, space.wrap('value'), w_value)
+        w_single = self.single  # singleton
+        space.setattr(w_node, space.wrap('single'), w_single)
         w_lineno = space.wrap(self.lineno)  # int
         space.setattr(w_node, space.wrap('lineno'), w_lineno)
         w_col_offset = space.wrap(self.col_offset)  # int
@@ -2615,17 +2615,17 @@ class NameConstant(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        w_value = get_field(space, w_node, 'value', False)
+        w_single = get_field(space, w_node, 'single', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _value = singleton.from_object(space, w_value)
-        if _value is None:
-            raise_required_value(space, w_node, 'value')
+        _single = w_single
+        if _single is None:
+            raise_required_value(space, w_node, 'single')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return NameConstant(_value, _lineno, _col_offset)
+        return NameConstant(_single, _lineno, _col_offset)
 
-State.ast_type('NameConstant', 'expr', ['value'])
+State.ast_type('NameConstant', 'expr', ['single'])
 
 
 class Ellipsis(expr):
@@ -2952,8 +2952,8 @@ State.ast_type('Tuple', 'expr', ['elts', 'ctx'])
 
 class Const(expr):
 
-    def __init__(self, value, lineno, col_offset):
-        self.value = value
+    def __init__(self, obj, lineno, col_offset):
+        self.obj = obj
         expr.__init__(self, lineno, col_offset)
 
     def walkabout(self, visitor):
@@ -2964,8 +2964,8 @@ class Const(expr):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Const)
-        w_value = self.value  # object
-        space.setattr(w_node, space.wrap('value'), w_value)
+        w_obj = self.obj  # object
+        space.setattr(w_node, space.wrap('obj'), w_obj)
         w_lineno = space.wrap(self.lineno)  # int
         space.setattr(w_node, space.wrap('lineno'), w_lineno)
         w_col_offset = space.wrap(self.col_offset)  # int
@@ -2974,17 +2974,17 @@ class Const(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        w_value = get_field(space, w_node, 'value', False)
+        w_obj = get_field(space, w_node, 'obj', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _value = w_value
-        if _value is None:
-            raise_required_value(space, w_node, 'value')
+        _obj = w_obj
+        if _obj is None:
+            raise_required_value(space, w_node, 'obj')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return Const(_value, _lineno, _col_offset)
+        return Const(_obj, _lineno, _col_offset)
 
-State.ast_type('Const', 'expr', ['value'])
+State.ast_type('Const', 'expr', ['obj'])
 
 
 class expr_context(AST):

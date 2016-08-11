@@ -152,15 +152,15 @@ class AstValidator(ast.ASTVisitor):
 
     def visit_arguments(self, node):
         self.visit_sequence(node.args)
-        if node.varargannotation:
-            if not node.vararg:
-                raise ValidationError("varargannotation but no vararg on arguments")
-            self._validate_expr(node.varargannotation)
+        # XXX py3.5 missing if node.varargannotation:
+        # XXX py3.5 missing     if not node.vararg:
+        # XXX py3.5 missing         raise ValidationError("varargannotation but no vararg on arguments")
+        # XXX py3.5 missing     self._validate_expr(node.varargannotation)
         self.visit_sequence(node.kwonlyargs)
-        if node.kwargannotation:
-            if not node.kwarg:
-                raise ValidationError("kwargannotation but no kwarg on arguments")
-            self._validate_expr(node.kwargannotation)
+        # XXX py3.5 missing if node.kwargannotation:
+        # XXX py3.5 missing     if not node.kwarg:
+        # XXX py3.5 missing         raise ValidationError("kwargannotation but no kwarg on arguments")
+        # XXX py3.5 missing     self._validate_expr(node.kwargannotation)
         if self._len(node.defaults) > self._len(node.args):
             raise ValidationError("more positional defaults than args on arguments")
         if self._len(node.kw_defaults) != self._len(node.kwonlyargs):
@@ -184,10 +184,10 @@ class AstValidator(ast.ASTVisitor):
         self._validate_exprs(node.bases)
         self.visit_sequence(node.keywords)
         self._validate_exprs(node.decorator_list)
-        if node.starargs:
-            self._validate_expr(node.starargs)
-        if node.kwargs:
-            self._validate_expr(node.kwargs)
+        # XXX py3.5 missing if node.starargs:
+        # XXX py3.5 missing   self._validate_expr(node.starargs)
+        # XXX py3.5 missing if node.kwargs:
+        # XXX py3.5 missing     self._validate_expr(node.kwargs)
 
     def visit_Return(self, node):
         if node.value:
@@ -373,10 +373,10 @@ class AstValidator(ast.ASTVisitor):
         self._validate_expr(node.func)
         self._validate_exprs(node.args)
         self.visit_sequence(node.keywords)
-        if node.starargs:
-            self._validate_expr(node.starargs)
-        if node.kwargs:
-            self._validate_expr(node.kwargs)
+        # XXX py3.5 missing if node.starargs:
+        # XXX py3.5 missing     self._validate_expr(node.starargs)
+        # XXX py3.5 missing if node.kwargs:
+        # XXX py3.5 missing     self._validate_expr(node.kwargs)
 
     def visit_Num(self, node):
         space = self.space
