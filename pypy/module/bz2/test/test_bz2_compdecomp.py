@@ -44,13 +44,13 @@ class AppTestBZ2Compressor(CheckAllocation):
     spaceconfig = dict(usemodules=('bz2', 'time', 'struct'))
 
     def setup_class(cls):
-        cls.w_TEXT = cls.space.wrapbytes(TEXT)
+        cls.w_TEXT = cls.space.newbytes(TEXT)
         if cls.runappdirect:
             cls.w_decompress = decompress
         else:
             @gateway.unwrap_spec(data=bytes)
             def decompress_w(space, data):
-                return space.wrapbytes(decompress(cls, data))
+                return space.newbytes(decompress(cls, data))
             cls.w_decompress = cls.space.wrap(gateway.interp2app(decompress_w))
         cls.w_HUGE_OK = cls.space.wrap(HUGE_OK)
 
@@ -120,9 +120,9 @@ class AppTestBZ2Decompressor(CheckAllocation):
     spaceconfig = dict(usemodules=('bz2', 'time', 'struct'))
 
     def setup_class(cls):
-        cls.w_TEXT = cls.space.wrapbytes(TEXT)
-        cls.w_DATA = cls.space.wrapbytes(DATA)
-        cls.w_BUGGY_DATA = cls.space.wrapbytes(BUGGY_DATA)
+        cls.w_TEXT = cls.space.newbytes(TEXT)
+        cls.w_DATA = cls.space.newbytes(DATA)
+        cls.w_BUGGY_DATA = cls.space.newbytes(BUGGY_DATA)
 
         cls.space.appexec([], """(): import warnings""")  # Work around a recursion limit
 
@@ -205,14 +205,14 @@ class AppTestBZ2ModuleFunctions(CheckAllocation):
     spaceconfig = dict(usemodules=('bz2', 'time'))
 
     def setup_class(cls):
-        cls.w_TEXT = cls.space.wrapbytes(TEXT)
-        cls.w_DATA = cls.space.wrapbytes(DATA)
+        cls.w_TEXT = cls.space.newbytes(TEXT)
+        cls.w_DATA = cls.space.newbytes(DATA)
         if cls.runappdirect:
             cls.w_decompress = decompress
         else:
             @gateway.unwrap_spec(data=bytes)
             def decompress_w(space, data):
-                return space.wrapbytes(decompress(cls, data))
+                return space.newbytes(decompress(cls, data))
             cls.w_decompress = cls.space.wrap(gateway.interp2app(decompress_w))
         cls.w_HUGE_OK = cls.space.wrap(HUGE_OK)
 

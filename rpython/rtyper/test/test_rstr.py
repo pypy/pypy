@@ -972,6 +972,13 @@ class AbstractTestRstr(BaseRtypingTest):
             s.count(s, -10)
         py.test.raises(AnnotatorError, self.interpret, f, ())
 
+    def test_count_in_empty_string(self):
+        const = self.const
+        def fn():
+            return const('').count(const('ab'))
+        res = self.interpret(fn, [])
+        assert res == 0
+
     def test_getitem_exc(self):
         const = self.const
         def f(x):

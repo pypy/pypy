@@ -95,7 +95,7 @@ class TinyObjSpace(object):
             return list(self.wrap(item) for item in obj)
         return obj
 
-    def wrapbytes(self, obj):
+    def newbytes(self, obj):
         return obj
 
     def unpackiterable(self, itr):

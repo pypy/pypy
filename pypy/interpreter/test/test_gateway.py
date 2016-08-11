@@ -471,12 +471,12 @@ class TestGateway:
         space = self.space
         w = space.wrap
         def f(filename):
-            return space.wrapbytes(filename)
+            return space.newbytes(filename)
         app_f = gateway.interp2app_temp(f, unwrap_spec=['fsencode'])
         w_app_f = space.wrap(app_f)
         assert space.eq_w(
             space.call_function(w_app_f, w(u'\udc80')),
-            space.wrapbytes('\x80'))
+            space.newbytes('\x80'))
 
     def test_interp2app_unwrap_spec_typechecks(self):
         from rpython.rlib.rarithmetic import r_longlong
@@ -801,7 +801,7 @@ class TestGateway:
         w_g = space.wrap(gateway.interp2app_temp(g))
         args = argument.Arguments(space, [])
         w_res = space.call_args(w_g, args)
-        assert space.eq_w(w_res, space.wrapbytes('foo'))
+        assert space.eq_w(w_res, space.newbytes('foo'))
 
 
 class AppTestPyTestMark:

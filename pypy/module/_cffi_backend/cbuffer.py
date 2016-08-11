@@ -55,9 +55,9 @@ class MiniBuffer(W_Root):
         start, stop, step, size = space.decode_index4(w_index,
                                                       self.buffer.getlength())
         if step == 0:
-            return space.wrapbytes(self.buffer.getitem(start))
+            return space.newbytes(self.buffer.getitem(start))
         res = self.buffer.getslice(start, stop, step, size)
-        return space.wrapbytes(res)
+        return space.newbytes(res)
 
     def descr_setitem(self, space, w_index, w_newstring):
         start, stop, step, size = space.decode_index4(w_index,

@@ -218,6 +218,7 @@ class AppTestBytesArray:
 
         check(bytearray(b'abc').replace(b'b', bytearray(b'd')), b'adc')
         check(bytearray(b'abc').replace(b'b', b'd'), b'adc')
+        check(bytearray(b'').replace(b'a', b'ab'), b'')
 
         check(bytearray(b'abc').upper(), b'ABC')
         check(bytearray(b'ABC').lower(), b'abc')

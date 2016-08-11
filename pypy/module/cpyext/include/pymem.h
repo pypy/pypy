@@ -1,5 +1,11 @@
 #include <stdlib.h>
 
+#ifndef Py_PYMEM_H
+#define Py_PYMEM_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define PyMem_MALLOC(n)		malloc((n) ? (n) : 1)
 #define PyMem_REALLOC(p, n)	realloc((p), (n) ? (n) : 1)
@@ -44,3 +50,9 @@ PyAPI_FUNC(void *) PyMem_Malloc(size_t);
  */
 #define PyMem_Del               PyMem_Free
 #define PyMem_DEL               PyMem_FREE
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* !Py_PYMEM_H */

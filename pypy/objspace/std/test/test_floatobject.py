@@ -149,6 +149,8 @@ class AppTestAppFloatTest:
         assert float(memoryview(b"inf")) == inf
         assert float(bytearray(b"inf")) == inf
 
+        raises(UnicodeEncodeError, float, u"\ud800")
+
     def test_float_unicode(self):
         # u00A0 and u2000 are some kind of spaces
         assert 42.75 == float(chr(0x00A0)+str("42.75")+chr(0x2000))

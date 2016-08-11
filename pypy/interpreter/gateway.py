@@ -958,7 +958,7 @@ class interp2app(W_Root):
             elif name != '__args__' and name != 'args_w':
                 spec = unwrap_spec[i]
                 if isinstance(defaultval, str) and spec not in [str]:
-                    defs_w.append(space.wrapbytes(defaultval))
+                    defs_w.append(space.newbytes(defaultval))
                 else:
                     defs_w.append(space.wrap(defaultval))
         if self._code._unwrap_spec:
@@ -978,7 +978,7 @@ class interp2app(W_Root):
                 if isinstance(spec, WrappedDefault):
                     default_value = spec.default_value
                     if isinstance(default_value, str):
-                        w_default = space.wrapbytes(default_value)
+                        w_default = space.newbytes(default_value)
                     else:
                         w_default = space.wrap(default_value)
                     assert isinstance(w_default, W_Root)

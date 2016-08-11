@@ -73,9 +73,17 @@ void pypy_debug_alloc_results(void)
 
 #ifdef PYPY_USING_BOEHM_GC
 
+struct boehm_fq_s {
+    void *obj;
+    struct boehm_fq_s *next;
+};
+RPY_EXTERN void (*boehm_fq_trigger[])(void);
+
 int boehm_gc_finalizer_lock = 0;
 void boehm_gc_finalizer_notifier(void)
 {
+    int i;
+
     boehm_gc_finalizer_lock++;
     while (GC_should_invoke_finalizers()) {
         if (boehm_gc_finalizer_lock > 1) {
@@ -86,6 +94,11 @@ void boehm_gc_finalizer_notifier(void)
         }
         GC_invoke_finalizers();
     }
+
+    i = 0;
+    while (boehm_fq_trigger[i])
+        boehm_fq_trigger[i++]();
+
     boehm_gc_finalizer_lock--;
 }
 
@@ -99,6 +112,28 @@ void boehm_gc_startup_code(void)
     GC_finalizer_notifier = &boehm_gc_finalizer_notifier;
     GC_finalize_on_demand = 1;
     GC_set_warn_proc(mem_boehm_ignore);
+}
+
+void boehm_fq_callback(void *obj, void *rawfqueue)
+{
+    struct boehm_fq_s **fqueue = rawfqueue;
+    struct boehm_fq_s *node = GC_malloc(sizeof(void *) * 2);
+    if (!node)
+        return;   /* ouch, too bad */
+    node->obj = obj;
+    node->next = *fqueue;
+    *fqueue = node;
+}
+
+void *boehm_fq_next_dead(struct boehm_fq_s **fqueue)
+{
+    struct boehm_fq_s *node = *fqueue;
+    if (node != NULL) {
+        *fqueue = node->next;
+        return node->obj;
+    }
+    else
+        return NULL;
 }
 #endif /* BOEHM GC */
 

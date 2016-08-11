@@ -7,8 +7,6 @@ import py, pytest
 from pypy import pypydir
 from pypy.interpreter import gateway
 from rpython.rtyper.lltypesystem import lltype, ll2ctypes
-from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.translator import platform
 from rpython.translator.gensupp import uniquemodulename
 from rpython.tool.udir import udir
 from pypy.module.cpyext import api
@@ -18,20 +16,7 @@ from rpython.tool.identity_dict import identity_dict
 from rpython.tool import leakfinder
 from rpython.rlib import rawrefcount
 
-def setup_module(module):
-    if os.name == 'nt':
-        # Do not open dreaded dialog box on segfault
-        import ctypes
-        SEM_NOGPFAULTERRORBOX = 0x0002 # From MSDN
-        old_err_mode = ctypes.windll.kernel32.GetErrorMode()
-        new_err_mode = old_err_mode | SEM_NOGPFAULTERRORBOX
-        ctypes.windll.kernel32.SetErrorMode(new_err_mode)
-        module.old_err_mode = old_err_mode
-
-def teardown_module(module):
-    if os.name == 'nt':
-        import ctypes
-        ctypes.windll.kernel32.SetErrorMode(module.old_err_mode)
+from .support import c_compile
 
 @api.cpython_api([], api.PyObject)
 def PyPy_Crash1(space):
@@ -46,7 +31,30 @@ class TestApi:
         assert 'PyModule_Check' in api.FUNCTIONS
         assert api.FUNCTIONS['PyModule_Check'].argtypes == [api.PyObject]
 
-def compile_extension_module(space, modname, include_dirs=[], **kwds):
+def convert_sources_to_files(sources, dirname):
+    files = []
+    for i, source in enumerate(sources):
+        filename = dirname / ('source_%d.c' % i)
+        with filename.open('w') as f:
+            f.write(str(source))
+        files.append(filename)
+    return files
+
+def create_so(modname, include_dirs, source_strings=None, source_files=None,
+        compile_extra=None, link_extra=None, libraries=None):
+    dirname = (udir/uniquemodulename('module')).ensure(dir=1)
+    if source_strings:
+        assert not source_files
+        files = convert_sources_to_files(source_strings, dirname)
+        source_files = files
+    soname = c_compile(source_files, outputfilename=str(dirname/modname),
+        compile_extra=compile_extra, link_extra=link_extra,
+        include_dirs=include_dirs,
+        libraries=libraries)
+    return soname
+
+def compile_extension_module(space, modname, include_dirs=[],
+        source_files=None, source_strings=None):
     """
     Build an extension module and return the filename of the resulting native
     code file.
@@ -60,38 +68,36 @@ def compile_extension_module(space, modname, include_dirs=[], **kwds):
     state = space.fromcache(State)
     api_library = state.api_lib
     if sys.platform == 'win32':
-        kwds["libraries"] = [api_library]
+        libraries = [api_library]
         # '%s' undefined; assuming extern returning int
-        kwds["compile_extra"] = ["/we4013"]
+        compile_extra = ["/we4013"]
         # prevent linking with PythonXX.lib
         w_maj, w_min = space.fixedview(space.sys.get('version_info'), 5)[:2]
-        kwds["link_extra"] = ["/NODEFAULTLIB:Python%d%d.lib" %
+        link_extra = ["/NODEFAULTLIB:Python%d%d.lib" %
                               (space.int_w(w_maj), space.int_w(w_min))]
-    elif sys.platform == 'darwin':
-        kwds["link_files"] = [str(api_library + '.dylib')]
     else:
-        kwds["link_files"] = [str(api_library + '.so')]
+        libraries = []
         if sys.platform.startswith('linux'):
-            kwds["compile_extra"]=["-Werror", "-g", "-O0"]
-            kwds["link_extra"]=["-g"]
+            compile_extra = ["-Werror", "-g", "-O0", "-Wp,-U_FORTIFY_SOURCE", "-fPIC"]
+            link_extra = ["-g"]
+        else:
+            compile_extra = link_extra = None
 
     modname = modname.split('.')[-1]
-    eci = ExternalCompilationInfo(
-        include_dirs=api.include_dirs + include_dirs,
-        **kwds
-        )
-    eci = eci.convert_sources_to_files()
-    dirname = (udir/uniquemodulename('module')).ensure(dir=1)
-    soname = platform.platform.compile(
-        [], eci,
-        outputfilename=str(dirname/modname),
-        standalone=False)
+    soname = create_so(modname,
+            include_dirs=api.include_dirs + include_dirs,
+            source_files=source_files,
+            source_strings=source_strings,
+            compile_extra=compile_extra,
+            link_extra=link_extra,
+            libraries=libraries)
     from pypy.module.imp.importing import get_so_extension
     pydname = soname.new(purebasename=modname, ext=get_so_extension(space))
     soname.rename(pydname)
     return str(pydname)
 
-def compile_extension_module_applevel(space, modname, include_dirs=[], **kwds):
+def compile_extension_module_applevel(space, modname, include_dirs=[],
+        source_files=None, source_strings=None):
     """
     Build an extension module and return the filename of the resulting native
     code file.
@@ -103,27 +109,34 @@ def compile_extension_module_applevel(space, modname, include_dirs=[], **kwds):
     build the module (so specify your source with one of those).
     """
     if sys.platform == 'win32':
-        kwds["compile_extra"] = ["/we4013"]
-        kwds["link_extra"] = ["/LIBPATH:" + os.path.join(sys.exec_prefix, 'libs')]
+        compile_extra = ["/we4013"]
+        link_extra = ["/LIBPATH:" + os.path.join(sys.exec_prefix, 'libs')]
     elif sys.platform == 'darwin':
+        compile_extra = link_extra = None
         pass
     elif sys.platform.startswith('linux'):
-            kwds["compile_extra"]=["-O0", "-g","-Werror=implicit-function-declaration"]
+        compile_extra = [
+            "-O0", "-g", "-Werror=implicit-function-declaration", "-fPIC"]
+        link_extra = None
 
     modname = modname.split('.')[-1]
-    eci = ExternalCompilationInfo(
-        include_dirs = [space.include_dir] + include_dirs,
-        **kwds
-        )
-    eci = eci.convert_sources_to_files()
-    dirname = (udir/uniquemodulename('module')).ensure(dir=1)
-    soname = platform.platform.compile(
-        [], eci,
-        outputfilename=str(dirname/modname),
-        standalone=False)
-    return str(soname)
+    soname = create_so(modname,
+            include_dirs=[space.include_dir] + include_dirs,
+            source_files=source_files,
+            source_strings=source_strings,
+            compile_extra=compile_extra,
+            link_extra=link_extra)
+    from imp import get_suffixes, C_EXTENSION
+    pydname = soname
+    for suffix, mode, typ in get_suffixes():
+        if typ == C_EXTENSION:
+            pydname = soname.new(purebasename=modname, ext=suffix)
+            soname.rename(pydname)
+            break
+    return str(pydname)
 
 def freeze_refcnts(self):
+    rawrefcount._dont_free_any_more()
     return #ZZZ
     state = self.space.fromcache(RefcountState)
     self.frozen_refcounts = {}
@@ -286,8 +299,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 separate_module_sources = []
             pydname = self.compile_extension_module(
                 space, name,
-                separate_module_files=separate_module_files,
-                separate_module_sources=separate_module_sources)
+                source_files=separate_module_files,
+                source_strings=separate_module_sources)
             return space.wrap(pydname)
 
         @gateway.unwrap_spec(name=str, init='str_or_None', body=str,
@@ -330,16 +343,16 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 """ % dict(name=name, init=init, body=body,
                            PY_SSIZE_T_CLEAN='#define PY_SSIZE_T_CLEAN'
                                             if PY_SSIZE_T_CLEAN else '')
-                kwds = dict(separate_module_sources=[code])
+                kwds = dict(source_strings=[code])
             else:
                 assert not PY_SSIZE_T_CLEAN
                 if filename is None:
                     filename = name
                 filename = py.path.local(pypydir) / 'module' \
                         / 'cpyext'/ 'test' / (filename + ".c")
-                kwds = dict(separate_module_files=[filename])
-            kwds['include_dirs'] = include_dirs
-            mod = self.compile_extension_module(space, name, **kwds)
+                kwds = dict(source_files=[filename])
+            mod = self.compile_extension_module(space, name,
+                    include_dirs=include_dirs, **kwds)
 
             if load_it:
                 if self.runappdirect:
@@ -352,7 +365,11 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                         space.sys.get('modules'),
                         space.wrap(name))
             else:
-                return os.path.dirname(mod)
+                path = os.path.dirname(mod)
+                if self.runappdirect:
+                    return path
+                else:
+                    return space.wrap(path)
 
         @gateway.unwrap_spec(mod=str, name=str)
         def reimport_module(space, mod, name):
@@ -400,8 +417,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             init = """PyObject *mod = PyModule_Create(&moduledef);"""
             if more_init:
                 init += more_init
-            else:
-                init += "\nreturn mod;"
+            init += "\nreturn mod;"
             return import_module(space, name=modname, init=init, body=body,
                                  w_include_dirs=w_include_dirs,
                                  PY_SSIZE_T_CLEAN=PY_SSIZE_T_CLEAN)
@@ -995,7 +1011,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             ('bar', 'METH_NOARGS',
              '''
              /* reuse a name that is #defined in structmember.h */
-             int RO;
+             int RO = 0; (void)RO;
              Py_RETURN_NONE;
              '''
              ),

@@ -55,6 +55,7 @@ def setup():
                                             [rffi.INT], lltype.Void,
                                             compilation_info=eci,
                                             _nowrapper=True)
+
     return CInterface(locals())
 
 

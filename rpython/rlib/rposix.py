@@ -220,7 +220,7 @@ def closerange(fd_low, fd_high):
             pass
 
 if _WIN32:
-    includes = ['io.h', 'sys/utime.h', 'sys/types.h']
+    includes = ['io.h', 'sys/utime.h', 'sys/types.h', 'process.h']
     libraries = []
 else:
     if sys.platform.startswith(('darwin', 'netbsd', 'openbsd')):
@@ -704,10 +704,10 @@ c_execv = external('execv', [rffi.CCHARP, rffi.CCHARPP], rffi.INT,
 c_execve = external('execve',
                     [rffi.CCHARP, rffi.CCHARPP, rffi.CCHARPP], rffi.INT,
                     save_err=rffi.RFFI_SAVE_ERRNO)
-c_spawnv = external('spawnv',
+c_spawnv = external(UNDERSCORE_ON_WIN32 + 'spawnv',
                     [rffi.INT, rffi.CCHARP, rffi.CCHARPP], rffi.INT,
                     save_err=rffi.RFFI_SAVE_ERRNO)
-c_spawnve = external('spawnve',
+c_spawnve = external(UNDERSCORE_ON_WIN32 + 'spawnve',
                     [rffi.INT, rffi.CCHARP, rffi.CCHARPP, rffi.CCHARPP],
                      rffi.INT,
                      save_err=rffi.RFFI_SAVE_ERRNO)

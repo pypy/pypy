@@ -16,7 +16,6 @@ from rpython.tool import runsubprocess
 from pypy.tool.pytest import appsupport
 from pypy.tool.pytest.objspace import gettestobjspace
 from rpython.tool.udir import udir
-from pypy.conftest import PyPyClassCollector
 from pypy import pypydir
 from inspect import getmro
 
@@ -33,7 +32,6 @@ class AppError(Exception):
     def __init__(self, excinfo):
         self.excinfo = excinfo
 
-marker = py.test.mark.applevel
 
 def py3k_repr(value):
     "return the repr() that py3k would give for an object."""
@@ -199,10 +197,6 @@ def extract_docstring_if_empty_function(fn):
 
 
 class AppTestFunction(py.test.collect.Function):
-    def __init__(self, *args, **kwargs):
-        super(AppTestFunction, self).__init__(*args, **kwargs)
-        self._request.applymarker(marker)
-
     def _prunetraceback(self, traceback):
         return traceback
 
@@ -303,7 +297,7 @@ class AppClassInstance(py.test.collect.Instance):
             self.w_instance = space.call_function(w_class)
 
 
-class AppClassCollector(PyPyClassCollector):
+class AppClassCollector(py.test.Class):
     Instance = AppClassInstance
 
     def setup(self):

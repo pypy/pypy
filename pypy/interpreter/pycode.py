@@ -12,7 +12,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.astcompiler.consts import (
     CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS, CO_NESTED,
-    CO_GENERATOR, CO_KILL_DOCSTRING, CO_YIELD_INSIDE_TRY)
+    CO_GENERATOR, CO_COROUTINE, CO_KILL_DOCSTRING, CO_YIELD_INSIDE_TRY)
 from pypy.tool import dis3
 from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
 from rpython.rlib.rarithmetic import intmask
@@ -27,6 +27,7 @@ class BytecodeCorruption(Exception):
 
 def unpack_str_tuple(space,w_str_tuple):
     return [space.str_w(w_el) for w_el in space.unpackiterable(w_str_tuple)]
+
 
 # Magic numbers for the bytecode version in code objects.
 # See comments in pypy/module/imp/importing.
@@ -420,14 +421,14 @@ class PyCode(eval.Code):
             w(self.co_nlocals),
             w(self.co_stacksize),
             w(self.co_flags),
-            space.wrapbytes(self.co_code),
+            space.newbytes(self.co_code),
             space.newtuple(self.co_consts_w),
             space.newtuple(self.co_names_w),
             space.newtuple([w(v) for v in self.co_varnames]),
             w(self.co_filename),
             w(self.co_name),
             w(self.co_firstlineno),
-            space.wrapbytes(self.co_lnotab),
+            space.newbytes(self.co_lnotab),
             space.newtuple([w(v) for v in self.co_freevars]),
             space.newtuple([w(v) for v in self.co_cellvars]),
             w(self.magic),
@@ -448,7 +449,7 @@ class PyCode(eval.Code):
         space = self.space
         # co_name should be an identifier
         name = self.co_name.decode('utf-8')
-        fn = space.fsdecode_w(space.wrapbytes(self.co_filename))
+        fn = space.fsdecode_w(space.newbytes(self.co_filename))
         return space.wrap(u'<code object %s at 0x%s, file "%s", line %d>' % (
             name, unicode(self.getaddrstring(space)), fn,
             -1 if self.co_firstlineno == 0 else self.co_firstlineno))

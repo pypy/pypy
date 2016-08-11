@@ -166,7 +166,7 @@ def test_ntop_ipv6():
         ("\x00" * 10 + "\xff\xff\x01\x02\x03\x04", "::ffff:1.2.3.4"),
     ]
     for packed, ip in tests:
-        w_ip = space.appexec([w_socket, space.wrapbytes(packed)],
+        w_ip = space.appexec([w_socket, space.newbytes(packed)],
             "(_socket, packed): return _socket.inet_ntop(_socket.AF_INET6, packed)")
         if ip is not None:   # else don't check for the precise representation
             assert space.unwrap(w_ip) == ip
@@ -205,13 +205,13 @@ def test_getaddrinfo():
     host = b"localhost"
     port = 25
     info = socket.getaddrinfo(host, port)
-    w_l = space.appexec([w_socket, space.wrapbytes(host), space.wrap(port)],
+    w_l = space.appexec([w_socket, space.newbytes(host), space.wrap(port)],
                         "(_socket, host, port): return _socket.getaddrinfo(host, port)")
     assert space.unwrap(w_l) == info
     w_l = space.appexec([w_socket, space.wrap(host), space.wrap(port)],
                         "(_socket, host, port): return _socket.getaddrinfo(host, port)")
     assert space.unwrap(w_l) == info
-    w_l = space.appexec([w_socket, space.wrapbytes(host), space.wrap('smtp')],
+    w_l = space.appexec([w_socket, space.newbytes(host), space.wrap('smtp')],
                         "(_socket, host, port): return _socket.getaddrinfo(host, port)")
     assert space.unwrap(w_l) == socket.getaddrinfo(host, 'smtp')
 
@@ -694,13 +694,11 @@ class AppTestPacket:
 
 class AppTestSocketTCP:
     HOST = 'localhost'
-
-    def setup_class(cls):
-        cls.space = space
+    spaceconfig = {'usemodules': ['_socket', 'array']}
 
     def setup_method(self, method):
-        w_HOST = space.wrap(self.HOST)
-        self.w_serv = space.appexec([w_HOST],
+        w_HOST = self.space.wrap(self.HOST)
+        self.w_serv = self.space.appexec([w_HOST],
             '''(HOST):
             import _socket
             serv = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
@@ -711,7 +709,7 @@ class AppTestSocketTCP:
 
     def teardown_method(self, method):
         if hasattr(self, 'w_serv'):
-            space.appexec([self.w_serv], '(serv): serv.close()')
+            self.space.appexec([self.w_serv], '(serv): serv.close()')
             self.w_serv = None
 
     def test_timeout(self):
@@ -830,8 +828,7 @@ class AppTestSocketTCP:
 
 
 class AppTestErrno:
-    def setup_class(cls):
-        cls.space = space
+    spaceconfig = {'usemodules': ['_socket']}
 
     def test_errno(self):
         from socket import socket, AF_INET, SOCK_STREAM, error

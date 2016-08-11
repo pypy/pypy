@@ -246,7 +246,7 @@ class W_IOBase(W_Root):
             if read[-1] == '\n':
                 break
 
-        return space.wrapbytes(builder.build())
+        return space.newbytes(builder.build())
 
     def readlines_w(self, space, w_hint=None):
         hint = convert_size(space, w_hint)
@@ -361,7 +361,7 @@ class W_RawIOBase(W_IOBase):
             if not data:
                 break
             builder.append(data)
-        return space.wrapbytes(builder.build())
+        return space.newbytes(builder.build())
 
 W_RawIOBase.typedef = TypeDef(
     '_io._RawIOBase', W_IOBase.typedef,

@@ -160,7 +160,7 @@ class W_IncrementalNewlineDecoder(W_Root):
             w_buffer, w_flag = space.unpackiterable(w_state, 2)
             flag = space.r_longlong_w(w_flag)
         else:
-            w_buffer = space.wrapbytes("")
+            w_buffer = space.newbytes("")
             flag = 0
         flag <<= 1
         if self.pendingcr:
@@ -832,7 +832,7 @@ class W_TextIOWrapper(W_TextIOBase):
         while True:
             try:
                 space.call_method(self.w_buffer, "write",
-                                  space.wrapbytes(pending_bytes))
+                                  space.newbytes(pending_bytes))
             except OperationError as e:
                 if trap_eintr(space, e):
                     continue
@@ -861,7 +861,7 @@ class W_TextIOWrapper(W_TextIOBase):
             space.call_method(self.w_decoder, "reset")
         else:
             space.call_method(self.w_decoder, "setstate",
-                              space.newtuple([space.wrapbytes(""),
+                              space.newtuple([space.newbytes(""),
                                               space.wrap(cookie.dec_flags)]))
 
     def _encoder_setstate(self, space, cookie):
@@ -1010,7 +1010,7 @@ class W_TextIOWrapper(W_TextIOBase):
             i = 0
             while i < len(input):
                 w_decoded = space.call_method(self.w_decoder, "decode",
-                                              space.wrapbytes(input[i]))
+                                              space.newbytes(input[i]))
                 check_decoded(space, w_decoded)
                 chars_decoded += len(space.unicode_w(w_decoded))
 

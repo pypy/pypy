@@ -85,13 +85,13 @@ def parsestr(space, encoding, s):
 
     if rawmode or '\\' not in substr:
         if not unicode_literal:
-            return space.wrapbytes(substr)
+            return space.newbytes(substr)
         else:
             v = unicodehelper.decode_utf8(space, substr)
             return space.wrap(v)
 
     v = PyString_DecodeEscape(space, substr, 'strict', encoding)
-    return space.wrapbytes(v)
+    return space.newbytes(v)
 
 def decode_unicode_utf8(space, s, ps, q):
     # ****The Python 2.7 version, producing UTF-32 escapes****

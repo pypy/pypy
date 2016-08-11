@@ -1056,7 +1056,7 @@ class ObjSpace(object):
         return (None, None)
 
     def newlist_bytes(self, list_s):
-        return self.newlist([self.wrapbytes(s) for s in list_s])
+        return self.newlist([self.newbytes(s) for s in list_s])
 
     def newlist_unicode(self, list_u):
         return self.newlist([self.wrap(u) for u in list_u])
@@ -1072,7 +1072,7 @@ class ObjSpace(object):
         return make_empty_list_with_size(self, sizehint)
 
     def wrap_fsdecoded(self, x):
-        return self.fsdecode(self.wrapbytes(x))
+        return self.fsdecode(self.newbytes(x))
 
     @jit.unroll_safe
     def exception_match(self, w_exc_type, w_check_class):

@@ -67,3 +67,14 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
                                 b'\x02\0\0\0'
                                 b'\x03\0\0\0'
                                 b'\x04\0\0\0')
+
+    def test_binop_mul_impl(self):
+        # check that rmul is called
+        module = self.import_module(name='array')
+        arr = module.array('i', [2])
+        res = [1, 2, 3] * arr
+        assert res == [1, 2, 3, 1, 2, 3]
+        module.switch_multiply()
+        res = [1, 2, 3] * arr
+        assert res == [2, 4, 6]
+        

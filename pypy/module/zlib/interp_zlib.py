@@ -62,7 +62,7 @@ def compress(space, string, level=rzlib.Z_DEFAULT_COMPRESSION):
             rzlib.deflateEnd(stream)
     except rzlib.RZlibError as e:
         raise zlib_error(space, e.msg)
-    return space.wrapbytes(result)
+    return space.newbytes(result)
 
 
 @unwrap_spec(string='bufferstr', wbits="c_int", bufsize=int)
@@ -84,7 +84,7 @@ def decompress(space, string, wbits=rzlib.MAX_WBITS, bufsize=0):
             rzlib.inflateEnd(stream)
     except rzlib.RZlibError as e:
         raise zlib_error(space, e.msg)
-    return space.wrapbytes(result)
+    return space.newbytes(result)
 
 
 class ZLibObject(W_Root):
@@ -158,7 +158,7 @@ class Compress(ZLibObject):
                 self.unlock()
         except rzlib.RZlibError as e:
             raise zlib_error(space, e.msg)
-        return space.wrapbytes(result)
+        return space.newbytes(result)
 
     @unwrap_spec(mode="c_int")
     def flush(self, space, mode=rzlib.Z_FINISH):
@@ -187,7 +187,7 @@ class Compress(ZLibObject):
                 self.unlock()
         except rzlib.RZlibError as e:
             raise zlib_error(space, e.msg)
-        return space.wrapbytes(result)
+        return space.newbytes(result)
 
 
 @unwrap_spec(level=int, method=int, wbits=int, memLevel=int, strategy=int)
@@ -294,7 +294,7 @@ class Decompress(ZLibObject):
         string, finished, unused_len = result
         self.eof = finished
         self._save_unconsumed_input(data, finished, unused_len)
-        return space.wrapbytes(string)
+        return space.newbytes(string)
 
     def flush(self, space, w_length=None):
         """
@@ -320,7 +320,7 @@ class Decompress(ZLibObject):
         else:
             string, finished, unused_len = result
             self._save_unconsumed_input(data, finished, unused_len)
-        return space.wrapbytes(string)
+        return space.newbytes(string)
 
 
 @unwrap_spec(wbits=int)

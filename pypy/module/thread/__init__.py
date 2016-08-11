@@ -4,7 +4,7 @@ from pypy.interpreter.mixedmodule import MixedModule
 
 class Module(MixedModule):
     applevel_name = '_thread'
-    
+
     appleveldefs = {
     }
 
@@ -21,8 +21,9 @@ class Module(MixedModule):
         'allocate':               'os_lock.allocate_lock',  # obsolete synonym
         'LockType':               'os_lock.Lock',
         'RLock':                  'os_lock.W_RLock',
+        '_set_sentinel':          'os_lock.set_sentinel',
         '_local':                 'os_local.Local',
-        'TIMEOUT_MAX':            'space.wrap(float(os_lock.TIMEOUT_MAX) / 1000000.0)',
+        'TIMEOUT_MAX':            'space.wrap(float(os_lock.TIMEOUT_MAX // 1000000))',
         'error':                  'space.fromcache(error.Cache).w_error',
     }
 

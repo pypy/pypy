@@ -5188,6 +5188,25 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, ops)
 
+    def test_int_and_positive(self):
+        ops = """
+        [i0, i1]
+        i2 = int_ge(i1, 0)
+        guard_true(i2) []
+        i3 = int_and(i0, i1)
+        i4 = int_ge(i3, 0)
+        guard_true(i4) []
+        jump(i3)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_ge(i1, 0)
+        guard_true(i2) []
+        i3 = int_and(i0, i1)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_int_or_cmp_above_bounds(self):
         ops = """
         [p0,p1]

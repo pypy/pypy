@@ -27,7 +27,7 @@ def get_magic(space):
     c = x & 0xff
     x >>= 8
     d = x & 0xff
-    return space.wrapbytes(chr(a) + chr(b) + chr(c) + chr(d))
+    return space.newbytes(chr(a) + chr(b) + chr(c) + chr(d))
 
 def get_tag(space):
     """get_tag() -> string

@@ -9,7 +9,6 @@ extern "C" {
 #include <stdarg.h>
 
 #define PyBytes_GET_SIZE(op) PyBytes_Size(op)
-#define PyBytes_AS_STRING(op) PyBytes_AsString(op)
 
 /*
 Type PyStringObject represents a character string.  An extra zero byte is
@@ -35,24 +34,20 @@ functions should be applied to nil objects.
    Together, these sped cpython up by up to 20%, and since they are part of the
    "public" interface PyPy must reimpliment them. */
 
-
-
 typedef struct {
     PyObject_VAR_HEAD
     long ob_shash;
     int ob_sstate;
-    char * buffer; /* change the name from cpython so all non-api c access is thwarted */
+    char ob_sval[1]; 
 
     /* Invariants 
-     * (not relevant in PyPy, all stringobjects are backed by a pypy object)
-     *     buffer contains space for 'ob_size+1' elements.
-     *     buffer[ob_size] == 0.
+     *     ob_sval contains space for 'ob_size+1' elements.
+     *     ob_sval[ob_size] == 0.
      *     ob_shash is the hash of the string or -1 if not computed yet.
      *     ob_sstate != 0 iff the string object is in stringobject.c's
      *       'interned' dictionary; in this case the two references
      *       from 'interned' to this object are *not counted* in ob_refcnt.
      */
-
 } PyBytesObject;
 
 #define SSTATE_NOT_INTERNED 0

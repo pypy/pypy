@@ -144,11 +144,13 @@ def test_int_abs():
     assert _ll_1_int_abs(-10) == 10
     assert _ll_1_int_abs(-sys.maxint) == sys.maxint
 
-def test_int_floordiv():
+def test_int_floordiv_mod():
     from rpython.rtyper.lltypesystem.lloperation import llop
-    from rpython.jit.codewriter.support import _ll_2_int_floordiv
+    from rpython.jit.codewriter.support import _ll_2_int_floordiv, _ll_2_int_mod
     for x in range(-6, 7):
         for y in range(-3, 4):
             if y != 0:
                 assert (_ll_2_int_floordiv(x, y) ==
                         llop.int_floordiv(lltype.Signed, x, y))
+                assert (_ll_2_int_mod(x, y) ==
+                        llop.int_mod(lltype.Signed, x, y))

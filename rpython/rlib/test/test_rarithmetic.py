@@ -401,10 +401,15 @@ def test_int_force_ge_zero():
 
 @given(strategies.integers(min_value=0, max_value=sys.maxint),
        strategies.integers(min_value=1, max_value=sys.maxint))
-def test_int_c_div(x, y):
+def test_int_c_div_mod(x, y):
     assert int_c_div(~x, y) == -(abs(~x) // y)
     assert int_c_div( x,-y) == -(x // y)
+    if (x, y) == (sys.maxint, 1):
+        py.test.skip("would overflow")
     assert int_c_div(~x,-y) == +(abs(~x) // y)
+    for x1 in [x, ~x]:
+        for y1 in [y, -y]:
+            assert int_c_div(x1, y1) * y1 + int_c_mod(x1, y1) == x1
 
 # these can't be prebuilt on 32bit
 U1 = r_ulonglong(0x0102030405060708L)

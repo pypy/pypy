@@ -345,13 +345,13 @@ def interp_attrproperty(name, cls, doc=None):
 def interp_attrproperty_bytes(name, cls, doc=None):
     "NOT_RPYTHON: initialization-time only"
     def fget(space, obj):
-        return space.wrapbytes(getattr(obj, name))
+        return space.newbytes(getattr(obj, name))
     return GetSetProperty(fget, cls=cls, doc=doc)
 
 def interp_attrproperty_fsdecode(name, cls, doc=None):
     "NOT_RPYTHON: initialization-time only"
     def fget(space, obj):
-        return space.fsdecode(space.wrapbytes(getattr(obj, name)))
+        return space.fsdecode(space.newbytes(getattr(obj, name)))
     return GetSetProperty(fget, cls=cls, doc=doc)
 
 def interp_attrproperty_w(name, cls, doc=None):
@@ -466,7 +466,7 @@ from pypy.interpreter.module import Module
 from pypy.interpreter.function import (Function, Method, StaticMethod,
     ClassMethod, BuiltinFunction, descr_function_get)
 from pypy.interpreter.pytraceback import PyTraceback
-from pypy.interpreter.generator import GeneratorIterator
+from pypy.interpreter.generator import GeneratorIterator, Coroutine
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.special import NotImplemented, Ellipsis
 
@@ -796,6 +796,26 @@ GeneratorIterator.typedef = TypeDef("generator",
     __weakref__ = make_weakref_descr(GeneratorIterator),
 )
 assert not GeneratorIterator.typedef.acceptable_as_base_class  # no __new__
+
+Coroutine.typedef = TypeDef("coroutine",
+    __repr__   = interp2app(Coroutine.descr__repr__),
+    __reduce__   = interp2app(Coroutine.descr__reduce__),
+    __setstate__ = interp2app(Coroutine.descr__setstate__),
+    send       = interp2app(Coroutine.descr_send,
+                            descrmismatch='send'),
+    throw      = interp2app(Coroutine.descr_throw,
+                            descrmismatch='throw'),
+    close      = interp2app(Coroutine.descr_close,
+                            descrmismatch='close'),
+    __await__  = interp2app(Coroutine.descr__await__,
+                            descrmismatch='__await__'),
+    gi_running = interp_attrproperty('running', cls=Coroutine),
+    gi_frame   = GetSetProperty(Coroutine.descr_gi_frame),
+    gi_code    = GetSetProperty(Coroutine.descr_gi_code),
+    __name__   = GetSetProperty(Coroutine.descr__name__),
+    __weakref__ = make_weakref_descr(Coroutine),
+)
+assert not Coroutine.typedef.acceptable_as_base_class  # no __new__
 
 Cell.typedef = TypeDef("cell",
     __total_ordering__ = 'auto',

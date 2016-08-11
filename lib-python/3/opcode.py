@@ -85,7 +85,10 @@ def_op('BINARY_TRUE_DIVIDE', 27)
 def_op('INPLACE_FLOOR_DIVIDE', 28)
 def_op('INPLACE_TRUE_DIVIDE', 29)
 
-def_op('STORE_MAP', 54)
+def_op('GET_AITER', 50)
+def_op('GET_ANEXT', 51)
+def_op('BEFORE_ASYNC_WITH', 52)
+
 def_op('INPLACE_ADD', 55)
 def_op('INPLACE_SUBTRACT', 56)
 def_op('INPLACE_MULTIPLY', 57)
@@ -100,11 +103,12 @@ def_op('BINARY_XOR', 65)
 def_op('BINARY_OR', 66)
 def_op('INPLACE_POWER', 67)
 def_op('GET_ITER', 68)
-def_op('STORE_LOCALS', 69)
+def_op('GET_YIELD_FROM_ITER', 69)
 
 def_op('PRINT_EXPR', 70)
 def_op('LOAD_BUILD_CLASS', 71)
 def_op('YIELD_FROM', 72)
+def_op('GET_AWAITABLE', 73)
 
 def_op('INPLACE_LSHIFT', 75)
 def_op('INPLACE_RSHIFT', 76)
@@ -195,6 +199,11 @@ jrel_op('SETUP_WITH', 143)
 def_op('LIST_APPEND', 145)
 def_op('SET_ADD', 146)
 def_op('MAP_ADD', 147)
+
+def_op('LOAD_CLASSDEREF', 148)
+hasfree.append(148)
+
+jrel_op('SETUP_ASYNC_WITH', 154)
 
 def_op('EXTENDED_ARG', 144)
 EXTENDED_ARG = 144

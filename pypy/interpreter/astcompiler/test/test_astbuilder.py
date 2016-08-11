@@ -1129,7 +1129,7 @@ class TestAstBuilder:
         assert space.eq_w(s.s, space.wrap("hi implicitly extra"))
         s = self.get_first_expr("b'hi' b' implicitly' b' extra'")
         assert isinstance(s, ast.Bytes)
-        assert space.eq_w(s.s, space.wrapbytes("hi implicitly extra"))
+        assert space.eq_w(s.s, space.newbytes("hi implicitly extra"))
         raises(SyntaxError, self.get_first_expr, "b'hello' 'world'")
         sentence = u"Die Männer ärgen sich!"
         source = u"# coding: utf-7\nstuff = '%s'" % (sentence,)
@@ -1184,7 +1184,7 @@ class TestAstBuilder:
         s = ast_from_node(space, tree, info).body[0].value
         assert isinstance(s, ast.Str)
         assert space.eq_w(s.s, space.wrap(u'Ç'))
- 
+
     def test_string_bug(self):
         space = self.space
         source = '# -*- encoding: utf8 -*-\nstuff = "x \xc3\xa9 \\n"\n'
@@ -1338,3 +1338,63 @@ class TestAstBuilder:
         assert isinstance(expr.left, ast.Name)
         assert isinstance(expr.right, ast.Name)
         # imatmul is tested earlier search for @=
+    
+    def test_asyncFunctionDef(self):
+        mod = self.get_ast("async def f():\n await something()")
+        assert isinstance(mod, ast.Module)
+        assert len(mod.body) == 1
+        asyncdef = mod.body[0]
+        assert isinstance(asyncdef, ast.AsyncFunctionDef)
+        assert asyncdef.name == 'f'
+        assert asyncdef.args.args == None
+        assert len(asyncdef.body) == 1
+        expr = asyncdef.body[0]
+        assert isinstance(expr, ast.Expr)
+        exprvalue = expr.value
+        assert isinstance(exprvalue, ast.Await)
+        awaitvalue = exprvalue.value
+        assert isinstance(awaitvalue, ast.Call)
+        func = awaitvalue.func
+        assert isinstance(func, ast.Name)
+        assert func.id == 'something'
+        assert func.ctx == ast.Load
+    
+    def test_asyncFor(self):
+        mod = self.get_ast("async def f():\n async for e in i: 1\n else: 2")
+        assert isinstance(mod, ast.Module)
+        assert len(mod.body) == 1
+        asyncdef = mod.body[0]
+        assert isinstance(asyncdef, ast.AsyncFunctionDef)
+        assert asyncdef.name == 'f'
+        assert asyncdef.args.args == None
+        assert len(asyncdef.body) == 1
+        asyncfor = asyncdef.body[0]
+        assert isinstance(asyncfor, ast.AsyncFor)
+        assert isinstance(asyncfor.target, ast.Name)
+        assert isinstance(asyncfor.iter, ast.Name)
+        assert len(asyncfor.body) == 1
+        assert isinstance(asyncfor.body[0], ast.Expr)
+        assert isinstance(asyncfor.body[0].value, ast.Num)
+        assert len(asyncfor.orelse) == 1
+        assert isinstance(asyncfor.orelse[0], ast.Expr)
+        assert isinstance(asyncfor.orelse[0].value, ast.Num)
+    
+    def test_asyncWith(self):
+        mod = self.get_ast("async def f():\n async with a as b: 1")
+        assert isinstance(mod, ast.Module)
+        assert len(mod.body) == 1
+        asyncdef = mod.body[0]
+        assert isinstance(asyncdef, ast.AsyncFunctionDef)
+        assert asyncdef.name == 'f'
+        assert asyncdef.args.args == None
+        assert len(asyncdef.body) == 1
+        asyncwith = asyncdef.body[0]
+        assert isinstance(asyncwith, ast.AsyncWith)
+        assert len(asyncwith.items) == 1
+        asyncitem = asyncwith.items[0]
+        assert isinstance(asyncitem, ast.withitem)
+        assert isinstance(asyncitem.context_expr, ast.Name)
+        assert isinstance(asyncitem.optional_vars, ast.Name)
+        assert len(asyncwith.body) == 1
+        assert isinstance(asyncwith.body[0], ast.Expr)
+        assert isinstance(asyncwith.body[0].value, ast.Num)

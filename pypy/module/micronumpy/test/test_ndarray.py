@@ -2605,17 +2605,11 @@ class AppTestNumArray(BaseNumpyAppTest):
         import numpy as np
         import sys
         a = np.array(1.5)
-        if '__pypy__' in sys.builtin_module_names:
-            assert a[...] is a
-        else:
-            assert a[...].base is a
+        assert a[...].base is a
         a[...] = 2.5
         assert a == 2.5
         a = np.array([1, 2, 3])
-        if '__pypy__' in sys.builtin_module_names:
-            assert a[...] is a
-        else:
-            assert a[...].base is a
+        assert a[...].base is a
         a[...] = 4
         assert (a == [4, 4, 4]).all()
         assert a[..., 0] == 4

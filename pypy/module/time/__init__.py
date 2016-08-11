@@ -1,6 +1,7 @@
 
 from pypy.interpreter.mixedmodule import MixedModule
-from .interp_time import CLOCK_CONSTANTS, HAS_CLOCK_GETTIME, cConfig
+from .interp_time import (CLOCK_CONSTANTS, HAS_CLOCK_GETTIME, cConfig,
+                          HAS_MONOTONIC)
 import os
 
 _WIN = os.name == "nt"
@@ -19,7 +20,6 @@ class Module(MixedModule):
         'strftime': 'interp_time.strftime',
         'sleep' : 'interp_time.sleep',
         '_STRUCT_TM_ITEMS': 'space.wrap(interp_time._STRUCT_TM_ITEMS)',
-        'monotonic': 'interp_time.monotonic',
         'perf_counter': 'interp_time.perf_counter',
         'process_time': 'interp_time.process_time',
     }
@@ -28,6 +28,8 @@ class Module(MixedModule):
         interpleveldefs['clock_gettime'] = 'interp_time.clock_gettime'
         interpleveldefs['clock_settime'] = 'interp_time.clock_settime'
         interpleveldefs['clock_getres'] = 'interp_time.clock_getres'
+    if HAS_MONOTONIC:
+        interpleveldefs['monotonic'] = 'interp_time.monotonic'
     if os.name == "posix":
         interpleveldefs['tzset'] = 'interp_time.tzset'
 

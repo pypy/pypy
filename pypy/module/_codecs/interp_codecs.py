@@ -36,10 +36,10 @@ class CodecState(object):
             w_errorhandler = lookup_error(space, errors)
             if decode:
                 w_cls = space.w_UnicodeDecodeError
-                w_input = space.wrapbytes(input)
+                w_input = space.newbytes(input)
             else:
                 w_cls = space.w_UnicodeEncodeError
-                w_input = space.wrap(input)
+                w_input = space.newunicode(input)
             w_exc =  space.call_function(
                 w_cls,
                 space.wrap(encoding),
@@ -313,7 +313,7 @@ def surrogatepass_errors(space, w_exc):
             res += chr(0xe0 | (ch >> 12))
             res += chr(0x80 | ((ch >> 6) & 0x3f))
             res += chr(0x80 | (ch & 0x3f))
-        return space.newtuple([space.wrapbytes(res), w_end])
+        return space.newtuple([space.newbytes(res), w_end])
     elif space.isinstance_w(w_exc, space.w_UnicodeDecodeError):
         start = space.int_w(space.getattr(w_exc, space.wrap('start')))
         obj = space.bytes_w(space.getattr(w_exc, space.wrap('object')))
@@ -355,7 +355,7 @@ def surrogateescape_errors(space, w_exc):
                 # Not a UTF-8b surrogate, fail with original exception
                 raise OperationError(space.type(w_exc), w_exc)
             res += chr(ch - 0xdc00)
-        return space.newtuple([space.wrapbytes(res), w_end])
+        return space.newtuple([space.newbytes(res), w_end])
     elif space.isinstance_w(w_exc, space.w_UnicodeDecodeError):
         consumed = 0
         start = space.int_w(space.getattr(w_exc, space.wrap('start')))
@@ -426,7 +426,7 @@ def encode(space, w_obj, w_encoding=None, errors='strict'):
 @unwrap_spec(errors='str_or_None')
 def readbuffer_encode(space, w_data, errors='strict'):
     s = space.getarg_w('s#', w_data)
-    return space.newtuple([space.wrapbytes(s), space.wrap(len(s))])
+    return space.newtuple([space.newbytes(s), space.wrap(len(s))])
 
 @unwrap_spec(errors=str)
 def decode(space, w_obj, w_encoding=None, errors='strict'):
@@ -484,7 +484,7 @@ def make_encoder_wrapper(name):
         state = space.fromcache(CodecState)
         func = getattr(runicode, rname)
         result = func(uni, len(uni), errors, state.encode_error_handler)
-        return space.newtuple([space.wrapbytes(result), space.wrap(len(uni))])
+        return space.newtuple([space.newbytes(result), space.wrap(len(uni))])
     wrap_encoder.func_name = rname
     globals()[name] = wrap_encoder
 
@@ -544,7 +544,7 @@ if hasattr(runicode, 'str_decode_mbcs'):
         result = runicode.unicode_encode_mbcs(
             uni, len(uni), errors, state.encode_error_handler,
             force_replace=False)
-        return space.newtuple([space.wrapbytes(result), space.wrap(len(uni))])
+        return space.newtuple([space.newbytes(result), space.wrap(len(uni))])
 
     @unwrap_spec(string='bufferstr', errors='str_or_None',
                  w_final=WrappedDefault(False))
@@ -569,7 +569,7 @@ def utf_8_encode(space, uni, errors="strict"):
     result = runicode.unicode_encode_utf_8(
         uni, len(uni), errors, state.encode_error_handler,
         allow_surrogates=False)
-    return space.newtuple([space.wrapbytes(result), space.wrap(len(uni))])
+    return space.newtuple([space.newbytes(result), space.wrap(len(uni))])
 
 @unwrap_spec(string='bufferstr', errors='str_or_None',
              w_final = WrappedDefault(False))
@@ -735,7 +735,7 @@ def charmap_encode(space, uni, errors="strict", w_mapping=None):
     result = runicode.unicode_encode_charmap(
         uni, len(uni), errors,
         state.encode_error_handler, mapping)
-    return space.newtuple([space.wrapbytes(result), space.wrap(len(uni))])
+    return space.newtuple([space.newbytes(result), space.wrap(len(uni))])
 
 
 @unwrap_spec(chars=unicode)
@@ -833,11 +833,11 @@ def unicode_internal_encode(space, w_uni, errors="strict"):
         state = space.fromcache(CodecState)
         result = runicode.unicode_encode_unicode_internal(
             uni, len(uni), errors, state.encode_error_handler)
-        return space.newtuple([space.wrapbytes(result), space.wrap(len(uni))])
+        return space.newtuple([space.newbytes(result), space.wrap(len(uni))])
     else:
         # special case for this codec: bytes are returned as is
         string = space.readbuf_w(w_uni).as_str()
-        return space.newtuple([space.wrapbytes(string), space.wrap(len(string))])
+        return space.newtuple([space.newbytes(string), space.wrap(len(string))])
 
 # ____________________________________________________________
 # support for the "string escape" translation
@@ -848,11 +848,11 @@ def escape_encode(space, w_data, errors='strict'):
     data = space.bytes_w(w_data)
     from pypy.objspace.std.bytesobject import string_escape_encode
     result = string_escape_encode(data, False)
-    return space.newtuple([space.wrapbytes(result), space.wrap(len(data))])
+    return space.newtuple([space.newbytes(result), space.wrap(len(data))])
 
 @unwrap_spec(errors='str_or_None')
 def escape_decode(space, w_data, errors='strict'):
     data = space.getarg_w('s#', w_data)
     from pypy.interpreter.pyparser.parsestring import PyString_DecodeEscape
     result = PyString_DecodeEscape(space, data, errors, None)
-    return space.newtuple([space.wrapbytes(result), space.wrap(len(data))])
+    return space.newtuple([space.newbytes(result), space.wrap(len(data))])

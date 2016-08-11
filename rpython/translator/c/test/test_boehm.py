@@ -393,20 +393,38 @@ class TestUsingBoehm(AbstractGCTestClass):
         assert res[3] == compute_hash(d)
         assert res[4] == compute_hash(("Hi", None, (7.5, 2, d)))
 
-    def test_finalizer_queue_is_at_least_ignored(self):
+    def test_finalizer_queue(self):
         class A(object):
-            pass
+            def __init__(self, i):
+                self.i = i
+        class Glob:
+            triggered = 0
+        glob = Glob()
         class FQ(rgc.FinalizerQueue):
             Class = A
+            triggered = 0
             def finalizer_trigger(self):
-                debug.debug_print("hello!")    # not called so far
+                glob.triggered += 1
         fq = FQ()
         #
         def fn():
-            fq.register_finalizer(A())
+            for i in range(1000):
+                fq.register_finalizer(A(i))
             rgc.collect()
             rgc.collect()
-            fq.next_dead()
+            if glob.triggered == 0:
+                print "not triggered!"
+                return 50
+            seen = {}
+            while True:
+                a = fq.next_dead()
+                if a is None:
+                    break
+                assert a.i not in seen
+                seen[a.i] = True
+            if len(seen) < 500:
+                print "seen only %d!" % len(seen)
+                return 51
             return 42
 
         f = self.getcompiled(fn)

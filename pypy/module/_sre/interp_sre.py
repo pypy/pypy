@@ -14,7 +14,7 @@ from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 # Constants and exposed functions
 
 from rpython.rlib.rsre import rsre_core
-from rpython.rlib.rsre.rsre_char import MAGIC, CODESIZE, MAXREPEAT, getlower, set_unicode_db
+from rpython.rlib.rsre.rsre_char import MAGIC, CODESIZE, MAXREPEAT, MAXGROUPS, getlower, set_unicode_db
 
 
 @unwrap_spec(char_ord=int, flags=int)
@@ -36,12 +36,12 @@ set_unicode_db(pypy.objspace.std.unicodeobject.unicodedb)
 def slice_w(space, ctx, start, end, w_default):
     if 0 <= start <= end:
         if isinstance(ctx, rsre_core.BufMatchContext):
-            return space.wrapbytes(ctx._buffer.getslice(start, end, 1,
+            return space.newbytes(ctx._buffer.getslice(start, end, 1,
                                                         end-start))
         if isinstance(ctx, rsre_core.StrMatchContext):
-            return space.wrapbytes(ctx._string[start:end])
+            return space.newbytes(ctx._string[start:end])
         elif isinstance(ctx, rsre_core.UnicodeMatchContext):
-            return space.wrap(ctx._unicodestr[start:end])
+            return space.newunicode(ctx._unicodestr[start:end])
         else:
             # unreachable
             raise SystemError
@@ -346,15 +346,15 @@ class W_SRE_Pattern(W_Root):
                               strbuilder, unicodebuilder, last_pos, ctx.end)
         if use_builder:
             if strbuilder is not None:
-                return space.wrapbytes(strbuilder.build()), n
+                return space.newbytes(strbuilder.build()), n
             else:
                 assert unicodebuilder is not None
-                return space.wrap(unicodebuilder.build()), n
+                return space.newunicode(unicodebuilder.build()), n
         else:
             if space.isinstance_w(w_string, space.w_unicode):
-                w_emptystr = space.wrap(u'')
+                w_emptystr = space.newunicode(u'')
             else:
-                w_emptystr = space.wrapbytes('')
+                w_emptystr = space.newbytes('')
             w_item = space.call_method(w_emptystr, 'join',
                                        space.newlist(sublist_w))
             return w_item, n
@@ -584,11 +584,11 @@ class W_SRE_Match(W_Root):
     def fget_string(self, space):
         ctx = self.ctx
         if isinstance(ctx, rsre_core.BufMatchContext):
-            return space.wrapbytes(ctx._buffer.as_str())
+            return space.newbytes(ctx._buffer.as_str())
         elif isinstance(ctx, rsre_core.StrMatchContext):
-            return space.wrapbytes(ctx._string)
+            return space.newbytes(ctx._string)
         elif isinstance(ctx, rsre_core.UnicodeMatchContext):
-            return space.wrap(ctx._unicodestr)
+            return space.newunicode(ctx._unicodestr)
         else:
             raise SystemError
 

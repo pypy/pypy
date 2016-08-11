@@ -41,7 +41,7 @@ def _w_copy_grouping(space, text):
 
 def charp2uni(space, s):
     "Convert a char* pointer to unicode according to the current locale"
-    w_bytes = space.wrapbytes(rffi.charp2str(s))
+    w_bytes = space.newbytes(rffi.charp2str(s))
     # XXX use mbstowcs()
     return space.call_method(w_bytes, "decode", space.wrap("utf-8"))
 

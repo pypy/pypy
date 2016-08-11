@@ -44,10 +44,10 @@ class TestW_LongObject:
 class AppTestLong:
 
     def w__long(self, obj):
-        import sys
         # XXX: currently returns a W_LongObject but might return
         # W_IntObject in the future
-        return obj + sys.maxsize - sys.maxsize
+        huge = 1 << 65
+        return obj + huge - huge
 
     def test_trunc(self):
         import math
@@ -237,23 +237,30 @@ class AppTestLong:
     def test_hash(self):
         import sys
         modulus = sys.hash_info.modulus
-        for x in ([self._long(i) for i in range(200)] +
-                  [self._long(1234567890123456789),
-                   1234567890123456789, 18446743523953737727,
+        def longhash(x):
+            return hash(self._long(x))
+        for x in (list(range(200)) +
+                  [1234567890123456789, 18446743523953737727,
                    987685321987685321987685321987685321987685321,
                    10**50]):
             y = x % modulus
-            assert hash(x) == hash(y)
-            assert hash(-x) == hash(-y)
-        assert hash(modulus - 1) == modulus - 1
-        assert hash(modulus) == 0
-        assert hash(modulus + 1) == 1
+            assert longhash(x) == longhash(y)
+            assert longhash(-x) == longhash(-y)
+        assert longhash(modulus - 1) == modulus - 1
+        assert longhash(modulus) == 0
+        assert longhash(modulus + 1) == 1
 
-        assert hash(-1) == -2
+        assert longhash(-1) == -2
         value = -(modulus + 1)
-        assert hash(value) == -2
-        assert hash(value * 2 + 1) == -2
-        assert hash(value * 4 + 3) == -2
+        assert longhash(value) == -2
+        assert longhash(value * 2 + 1) == -2
+        assert longhash(value * 4 + 3) == -2
+
+    def test_hash_2(self):
+        class AAA:
+            def __hash__(a):
+                return self._long(-1)
+        assert hash(AAA()) == -2
 
     def test_math_log(self):
         import math

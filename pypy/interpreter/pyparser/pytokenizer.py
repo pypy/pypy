@@ -96,6 +96,9 @@ def generate_tokens(lines, flags):
     altindents = [0]
     last_comment = ''
     parenlevstart = (0, 0, "")
+    async_def = False
+    async_def_nl = False
+    async_def_indent = 0
 
     # make the annotator happy
     endDFA = DUMMY_DFA
@@ -181,6 +184,10 @@ def generate_tokens(lines, flags):
                     raise TokenIndentationError(err, line, lnum, 0, token_list)
                 if altcolumn != altindents[-1]:
                     raise TabError(lnum, pos, line)
+            if async_def_nl and async_def_indent >= indents[-1]:
+                async_def = False
+                async_def_nl = False
+                async_def_indent = 0
 
         else:                                  # continued statement
             if not line:
@@ -214,6 +221,8 @@ def generate_tokens(lines, flags):
                     last_comment = ''
                 elif initial in '\r\n':
                     if parenlev <= 0:
+                        if async_def:
+                            async_def_nl = True
                         tok = (tokens.NEWLINE, last_comment, lnum, start, line)
                         token_list.append(tok)
                     last_comment = ''
@@ -253,7 +262,32 @@ def generate_tokens(lines, flags):
                     if not verify_identifier(token):
                         raise TokenError("invalid character in identifier",
                                          line, lnum, start + 1, token_list)
-                    token_list.append((tokens.NAME, token, lnum, start, line))
+
+                    if async_def:                          # inside 'async def' function
+                        if token == 'async':
+                            token_list.append((tokens.ASYNC, token, lnum, start, line))
+                        elif token == 'await':
+                            token_list.append((tokens.AWAIT, token, lnum, start, line))
+                        else:
+                            token_list.append((tokens.NAME, token, lnum, start, line))
+                    elif token == 'async':                 # async token, look ahead
+                        #ahead token
+                        if pos < max:
+                            async_end = pseudoDFA.recognize(line, pos)
+                            assert async_end >= 3
+                            async_start = async_end - 3
+                            assert async_start >= 0
+                            ahead_token = line[async_start:async_end]
+                            if ahead_token == 'def':
+                                async_def = True
+                                async_def_indent = indents[-1]
+                                token_list.append((tokens.ASYNC, token, lnum, start, line))
+                            else:
+                                token_list.append((tokens.NAME, token, lnum, start, line))
+                        else:
+                            token_list.append((tokens.NAME, token, lnum, start, line))
+                    else:
+                        token_list.append((tokens.NAME, token, lnum, start, line))
                     last_comment = ''
                 elif initial == '\\':                      # continued stmt
                     continued = 1

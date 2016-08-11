@@ -25,7 +25,7 @@ class SyntaxError(Exception):
                                            'replace')
             w_text = space.wrap(text)
         if self.filename is not None:
-            w_filename = space.fsdecode(space.wrapbytes(self.filename))
+            w_filename = space.fsdecode(space.newbytes(self.filename))
         return space.newtuple([space.wrap(self.msg),
                                space.newtuple([w_filename,
                                                space.wrap(self.lineno),

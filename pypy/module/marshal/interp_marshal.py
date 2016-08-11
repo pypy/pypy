@@ -29,7 +29,7 @@ def dumps(space, w_data, w_version):
 by dump(data, file)."""
     m = StringMarshaller(space, space.int_w(w_version))
     m.dump_w_obj(w_data)
-    return space.wrapbytes(m.get_value())
+    return space.newbytes(m.get_value())
 
 def load(space, w_f):
     """Read one value from the file 'f' and return it."""
@@ -82,7 +82,7 @@ class FileWriter(AbstractReaderWriter):
 
     def write(self, data):
         space = self.space
-        space.call_function(self.func, space.wrapbytes(data))
+        space.call_function(self.func, space.newbytes(data))
 
 
 class FileReader(AbstractReaderWriter):

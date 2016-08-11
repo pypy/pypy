@@ -478,14 +478,12 @@ class AppTestSysModulePortedFromCPython:
 
     def test_dlopenflags(self):
         import sys
-        if hasattr(sys, "setdlopenflags"):
-            assert hasattr(sys, "getdlopenflags")
-            raises(TypeError, sys.getdlopenflags, 42)
-            oldflags = sys.getdlopenflags()
-            raises(TypeError, sys.setdlopenflags)
-            sys.setdlopenflags(oldflags+1)
-            assert sys.getdlopenflags() == oldflags+1
-            sys.setdlopenflags(oldflags)
+        raises(TypeError, sys.getdlopenflags, 42)
+        oldflags = sys.getdlopenflags()
+        raises(TypeError, sys.setdlopenflags)
+        sys.setdlopenflags(oldflags+1)
+        assert sys.getdlopenflags() == oldflags+1
+        sys.setdlopenflags(oldflags)
 
     def test_refcount(self):
         import sys
@@ -661,7 +659,7 @@ class AppTestSysModulePortedFromCPython:
 class AppTestSysSettracePortedFromCpython(object):
     def test_sys_settrace(self):
         import sys
-        
+
         class Tracer:
             def __init__(self):
                 self.events = []

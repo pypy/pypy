@@ -3,7 +3,7 @@ import sys
 import py
 
 from rpython.tool.udir import udir
-from pypy.conftest import pypydir
+from pypy import pypydir
 from pypy.module.posix.interp_posix import convert_seconds
 
 class TestPexpect(object):

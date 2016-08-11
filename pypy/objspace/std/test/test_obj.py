@@ -19,7 +19,7 @@ class AppTestObject:
             return space.wrap(space.unicode_w(w_obj))
         cls.w_unwrap_wrap_unicode = space.wrap(gateway.interp2app(w_unwrap_wrap_unicode))
         def w_unwrap_wrap_bytes(space, w_obj):
-            return space.wrapbytes(space.bytes_w(w_obj))
+            return space.newbytes(space.bytes_w(w_obj))
         cls.w_unwrap_wrap_bytes = space.wrap(gateway.interp2app(w_unwrap_wrap_bytes))
 
     def test_hash_builtin(self):
@@ -183,17 +183,36 @@ class AppTestObject:
     def test_id_on_strs(self):
         if self.appdirect:
             skip("cannot run this test as apptest")
-        u = "a"
-        assert id(self.unwrap_wrap_unicode(u)) == id(u)
-        s = b"a"
-        assert id(self.unwrap_wrap_bytes(s)) == id(s)
+        for u in [u"", u"a", u"aa"]:
+            assert id(self.unwrap_wrap_unicode(u)) == id(u)
+            s = u.encode()
+            assert id(self.unwrap_wrap_bytes(s)) == id(s)
+        #
+        assert id(b'') == (256 << 4) | 11     # always
+        assert id(u'') == (257 << 4) | 11
+        assert id(b'a') == (ord('a') << 4) | 11
+        assert id(u'\u1234') == ((~0x1234) << 4) | 11
+
+    def test_id_of_tuples(self):
+        l = []
+        x = (l,)
+        assert id(x) != id((l,))          # no caching at all
+        if self.appdirect:
+            skip("cannot run this test as apptest")
+        assert id(()) == (258 << 4) | 11     # always
+
+    def test_id_of_frozensets(self):
+        x = frozenset([4])
+        assert id(x) != id(frozenset([4]))          # no caching at all
+        if self.appdirect:
+            skip("cannot run this test as apptest")
+        assert id(frozenset()) == (259 << 4) | 11     # always
+        assert id(frozenset([])) == (259 << 4) | 11   # always
 
     def test_identity_vs_id_primitives(self):
-        if self.cpython_apptest:
-            skip("cpython behaves differently")
         import sys
-        l = list(range(-10, 10))
-        for i in range(10):
+        l = list(range(-10, 10, 2))
+        for i in [0, 1, 3]:
             l.append(float(i))
             l.append(i + 0.1)
             l.append(i + sys.maxsize)
@@ -202,18 +221,15 @@ class AppTestObject:
             l.append(i - 1j)
             l.append(1 + i * 1j)
             l.append(1 - i * 1j)
-            s = str(i)
-            l.append(s)
-            u = bytes(s, 'ascii')
-            l.append(u)
+            l.append((i,))
+            l.append(frozenset([i]))
         l.append(-0.0)
         l.append(None)
         l.append(True)
         l.append(False)
-        s = "s"
-        l.append(s)
-        s = b"s"
-        l.append(s)
+        l.append(())
+        l.append(tuple([]))
+        l.append(frozenset())
 
         for i, a in enumerate(l):
             for b in l[i:]:
@@ -224,21 +240,18 @@ class AppTestObject:
     def test_identity_vs_id_str(self):
         if self.appdirect:
             skip("cannot run this test as apptest")
-        import sys
-        l = list(range(-10, 10))
-        for i in range(10):
-            s = bytes(i)
+        l = []
+        def add(s, u):
             l.append(s)
             l.append(self.unwrap_wrap_bytes(s))
-            u = str(s)
+            l.append(s[:1] + s[1:])
             l.append(u)
             l.append(self.unwrap_wrap_unicode(u))
-        s = b"s"
-        l.append(s)
-        l.append(self.unwrap_wrap_bytes(s))
-        s = "s"
-        l.append(s)
-        l.append(self.unwrap_wrap_unicode(s))
+            l.append(u[:1] + u[1:])
+        for i in range(3, 18):
+            add(str(i).encode(), str(i))
+        add(b"s", u"s")
+        add(b"", u"")
 
         for i, a in enumerate(l):
             for b in l[i:]:

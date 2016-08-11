@@ -6,6 +6,7 @@ This is transformed to become a JIT by code elsewhere: rpython/jit/*
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.jit import JitDriver, hint, we_are_jitted, dont_look_inside
 from rpython.rlib import jit, jit_hooks
+from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.rlib.jit import current_trace_length, unroll_parameters,\
      JitHookInterface
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
@@ -42,6 +43,19 @@ def get_unique_id(next_instr, is_being_profiled, bytecode):
     from rpython.rlib import rvmprof
     return rvmprof.get_unique_id(bytecode)
 
+@jl.returns(jl.MP_FILENAME, jl.MP_LINENO,
+            jl.MP_SCOPE, jl.MP_INDEX, jl.MP_OPCODE)
+def get_location(next_instr, is_being_profiled, bytecode):
+    from pypy.tool.stdlib_opcode import opcode_method_names
+    bcindex = ord(bytecode.co_code[next_instr])
+    opname = ""
+    if 0 <= bcindex < len(opcode_method_names):
+        opname = opcode_method_names[bcindex]
+    name = bytecode.co_name
+    if not name:
+        name = ""
+    return (bytecode.co_filename, bytecode.co_firstlineno,
+            name, intmask(next_instr), opname)
 
 def should_unroll_one_iteration(next_instr, is_being_profiled, bytecode):
     return (bytecode.co_flags & CO_GENERATOR) != 0
@@ -52,6 +66,7 @@ class PyPyJitDriver(JitDriver):
     virtualizables = ['frame']
 
 pypyjitdriver = PyPyJitDriver(get_printable_location = get_printable_location,
+                              get_location = get_location,
                               get_unique_id = get_unique_id,
                               should_unroll_one_iteration =
                               should_unroll_one_iteration,

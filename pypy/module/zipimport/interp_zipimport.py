@@ -82,10 +82,10 @@ class W_ZipCache(W_Root):
                    for key in self.cache.keys()]
         return space.newlist(items_w)
 
-    def iterkeys(self, space):
+    def iteratekeys(self, space):
         return space.iter(self.keys(space))
 
-    def itervalues(self, space):
+    def iteratevalues(self, space):
         return space.iter(self.values(space))
 
     def iteritems(self, space):
@@ -106,13 +106,13 @@ W_ZipCache.typedef = TypeDef(
     'zip_dict',
     __getitem__ = interp2app(W_ZipCache.getitem),
     __contains__ = interp2app(W_ZipCache.contains),
-    __iter__ = interp2app(W_ZipCache.iterkeys),
+    __iter__ = interp2app(W_ZipCache.iteratekeys),
     items = interp2app(W_ZipCache.items),
     iteritems = interp2app(W_ZipCache.iteritems),
     keys = interp2app(W_ZipCache.keys),
-    iterkeys = interp2app(W_ZipCache.iterkeys),
+    iterkeys = interp2app(W_ZipCache.iteratekeys),
     values = interp2app(W_ZipCache.values),
-    itervalues = interp2app(W_ZipCache.itervalues),
+    itervalues = interp2app(W_ZipCache.iteratevalues),
     clear = interp2app(W_ZipCache.clear),
     __delitem__ = interp2app(W_ZipCache.delitem),
 )
@@ -287,7 +287,7 @@ class W_ZipImporter(W_Root):
         filename = self._find_relative_path(filename)
         try:
             data = self.zip_file.read(filename)
-            return space.wrapbytes(data)
+            return space.newbytes(data)
         except (KeyError, OSError, BadZipfile):
             raise oefmt(space.w_IOError, "Error reading file")
         except RZlibError as e:

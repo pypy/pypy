@@ -113,7 +113,7 @@ class MultibyteIncrementalEncoder(MultibyteIncrementalBase):
         pos = c_codecs.pypy_cjk_enc_inbuf_consumed(self.encodebuf)
         assert 0 <= pos <= len(object)
         self.pending = object[pos:]
-        return space.wrapbytes(output)
+        return space.newbytes(output)
 
 
 @unwrap_spec(errors="str_or_None")

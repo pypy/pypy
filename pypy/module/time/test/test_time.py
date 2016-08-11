@@ -275,6 +275,7 @@ class AppTestTime:
         # input to [w]strftime is not kosher.
         if os.name == 'nt':
             raises(ValueError, time.strftime, '%f')
+            return
         elif sys.platform == 'darwin' or 'bsd' in sys.platform:
             # darwin strips % of unknown format codes
             # http://bugs.python.org/issue9811

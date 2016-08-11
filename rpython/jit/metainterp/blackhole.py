@@ -1143,45 +1143,35 @@ class BlackholeInterpreter(object):
 
     @arguments("cpu", "i", "R", "d", returns="i")
     def bhimpl_residual_call_r_i(cpu, func, args_r, calldescr):
-        workaround2200.active = True
         return cpu.bh_call_i(func, None, args_r, None, calldescr)
     @arguments("cpu", "i", "R", "d", returns="r")
     def bhimpl_residual_call_r_r(cpu, func, args_r, calldescr):
-        workaround2200.active = True
         return cpu.bh_call_r(func, None, args_r, None, calldescr)
     @arguments("cpu", "i", "R", "d")
     def bhimpl_residual_call_r_v(cpu, func, args_r, calldescr):
-        workaround2200.active = True
         return cpu.bh_call_v(func, None, args_r, None, calldescr)
 
     @arguments("cpu", "i", "I", "R", "d", returns="i")
     def bhimpl_residual_call_ir_i(cpu, func, args_i, args_r, calldescr):
-        workaround2200.active = True
         return cpu.bh_call_i(func, args_i, args_r, None, calldescr)
     @arguments("cpu", "i", "I", "R", "d", returns="r")
     def bhimpl_residual_call_ir_r(cpu, func, args_i, args_r, calldescr):
-        workaround2200.active = True
         return cpu.bh_call_r(func, args_i, args_r, None, calldescr)
     @arguments("cpu", "i", "I", "R", "d")
     def bhimpl_residual_call_ir_v(cpu, func, args_i, args_r, calldescr):
-        workaround2200.active = True
         return cpu.bh_call_v(func, args_i, args_r, None, calldescr)
 
     @arguments("cpu", "i", "I", "R", "F", "d", returns="i")
     def bhimpl_residual_call_irf_i(cpu, func, args_i,args_r,args_f,calldescr):
-        workaround2200.active = True
         return cpu.bh_call_i(func, args_i, args_r, args_f, calldescr)
     @arguments("cpu", "i", "I", "R", "F", "d", returns="r")
     def bhimpl_residual_call_irf_r(cpu, func, args_i,args_r,args_f,calldescr):
-        workaround2200.active = True
         return cpu.bh_call_r(func, args_i, args_r, args_f, calldescr)
     @arguments("cpu", "i", "I", "R", "F", "d", returns="f")
     def bhimpl_residual_call_irf_f(cpu, func, args_i,args_r,args_f,calldescr):
-        workaround2200.active = True
         return cpu.bh_call_f(func, args_i, args_r, args_f, calldescr)
     @arguments("cpu", "i", "I", "R", "F", "d")
     def bhimpl_residual_call_irf_v(cpu, func, args_i,args_r,args_f,calldescr):
-        workaround2200.active = True
         return cpu.bh_call_v(func, args_i, args_r, args_f, calldescr)
 
     # conditional calls - note that they cannot return stuff
@@ -1209,54 +1199,44 @@ class BlackholeInterpreter(object):
 
     @arguments("cpu", "j", "R", returns="i")
     def bhimpl_inline_call_r_i(cpu, jitcode, args_r):
-        workaround2200.active = True
         return cpu.bh_call_i(jitcode.get_fnaddr_as_int(),
                              None, args_r, None, jitcode.calldescr)
     @arguments("cpu", "j", "R", returns="r")
     def bhimpl_inline_call_r_r(cpu, jitcode, args_r):
-        workaround2200.active = True
         return cpu.bh_call_r(jitcode.get_fnaddr_as_int(),
                              None, args_r, None, jitcode.calldescr)
     @arguments("cpu", "j", "R")
     def bhimpl_inline_call_r_v(cpu, jitcode, args_r):
-        workaround2200.active = True
         return cpu.bh_call_v(jitcode.get_fnaddr_as_int(),
                              None, args_r, None, jitcode.calldescr)
 
     @arguments("cpu", "j", "I", "R", returns="i")
     def bhimpl_inline_call_ir_i(cpu, jitcode, args_i, args_r):
-        workaround2200.active = True
         return cpu.bh_call_i(jitcode.get_fnaddr_as_int(),
                              args_i, args_r, None, jitcode.calldescr)
     @arguments("cpu", "j", "I", "R", returns="r")
     def bhimpl_inline_call_ir_r(cpu, jitcode, args_i, args_r):
-        workaround2200.active = True
         return cpu.bh_call_r(jitcode.get_fnaddr_as_int(),
                              args_i, args_r, None, jitcode.calldescr)
     @arguments("cpu", "j", "I", "R")
     def bhimpl_inline_call_ir_v(cpu, jitcode, args_i, args_r):
-        workaround2200.active = True
         return cpu.bh_call_v(jitcode.get_fnaddr_as_int(),
                              args_i, args_r, None, jitcode.calldescr)
 
     @arguments("cpu", "j", "I", "R", "F", returns="i")
     def bhimpl_inline_call_irf_i(cpu, jitcode, args_i, args_r, args_f):
-        workaround2200.active = True
         return cpu.bh_call_i(jitcode.get_fnaddr_as_int(),
                              args_i, args_r, args_f, jitcode.calldescr)
     @arguments("cpu", "j", "I", "R", "F", returns="r")
     def bhimpl_inline_call_irf_r(cpu, jitcode, args_i, args_r, args_f):
-        workaround2200.active = True
         return cpu.bh_call_r(jitcode.get_fnaddr_as_int(),
                              args_i, args_r, args_f, jitcode.calldescr)
     @arguments("cpu", "j", "I", "R", "F", returns="f")
     def bhimpl_inline_call_irf_f(cpu, jitcode, args_i, args_r, args_f):
-        workaround2200.active = True
         return cpu.bh_call_f(jitcode.get_fnaddr_as_int(),
                              args_i, args_r, args_f, jitcode.calldescr)
     @arguments("cpu", "j", "I", "R", "F")
     def bhimpl_inline_call_irf_v(cpu, jitcode, args_i, args_r, args_f):
-        workaround2200.active = True
         return cpu.bh_call_v(jitcode.get_fnaddr_as_int(),
                              args_i, args_r, args_f, jitcode.calldescr)
 
@@ -1543,8 +1523,6 @@ class BlackholeInterpreter(object):
             if not self.nextblackholeinterp:
                 self._exit_frame_with_exception(current_exc)
             return current_exc
-        finally:
-            workaround2200.active = False
         #
         # pass the frame's return value to the caller
         caller = self.nextblackholeinterp
@@ -1717,10 +1695,3 @@ def convert_and_run_from_pyjitpl(metainterp, raising_exception=False):
     #
     _run_forever(firstbh, current_exc)
 convert_and_run_from_pyjitpl._dont_inline_ = True
-
-# ____________________________________________________________
-
-class WorkaroundIssue2200(object):
-    pass
-workaround2200 = WorkaroundIssue2200()
-workaround2200.active = False

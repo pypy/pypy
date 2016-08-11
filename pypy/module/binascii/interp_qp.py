@@ -57,7 +57,7 @@ def a2b_qp(space, data, header=0):
             if header and c == '_':
                 c = ' '
             odata.append(c)
-    return space.wrapbytes(odata.build())
+    return space.newbytes(odata.build())
 
 # ____________________________________________________________
 
@@ -160,4 +160,4 @@ both encoded.  When quotetabs is set, space and tabs are encoded."""
                 odata.append(c)
                 inp += 1
 
-    return space.wrapbytes(odata.build())
+    return space.newbytes(odata.build())

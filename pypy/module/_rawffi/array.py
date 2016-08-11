@@ -181,7 +181,7 @@ class W_ArrayInstance(W_DataInstance):
         start, stop = self.decodeslice(space, w_slice)
         ll_buffer = self.ll_buffer
         result = [ll_buffer[i] for i in range(start, stop)]
-        return space.wrapbytes(''.join(result))
+        return space.newbytes(''.join(result))
 
     def setslice(self, space, w_slice, w_value):
         start, stop = self.decodeslice(space, w_slice)

@@ -19,7 +19,7 @@ def gethostname(space):
         res = rsocket.gethostname()
     except SocketError as e:
         raise converted_error(space, e)
-    return space.fsdecode(space.wrapbytes(res))
+    return space.fsdecode(space.newbytes(res))
 
 @unwrap_spec(host=str)
 def gethostbyname(space, host):
@@ -224,7 +224,7 @@ def inet_aton(space, ip):
         buf = rsocket.inet_aton(ip)
     except SocketError as e:
         raise converted_error(space, e)
-    return space.wrapbytes(buf)
+    return space.newbytes(buf)
 
 @unwrap_spec(packed="bufferstr")
 def inet_ntoa(space, packed):
@@ -249,7 +249,7 @@ def inet_pton(space, family, ip):
         buf = rsocket.inet_pton(family, ip)
     except SocketError as e:
         raise converted_error(space, e)
-    return space.wrapbytes(buf)
+    return space.newbytes(buf)
 
 @unwrap_spec(family=int, packed="bufferstr")
 def inet_ntop(space, family, packed):

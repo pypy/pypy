@@ -503,6 +503,34 @@ class AppTestListObject(object):
         assert not l.__contains__(-20)
         assert not l.__contains__(-21)
 
+        logger = []
+
+        class Foo(object):
+
+            def __init__(self, value, name=None):
+                self.value = value
+                self.name = name or value
+
+            def __repr__(self):
+                return '<Foo %s>' % self.name
+
+            def __eq__(self, other):
+                logger.append((self, other))
+                return self.value == other.value
+
+        foo1, foo2, foo3 = Foo(1), Foo(2), Foo(3)
+        foo42 = Foo(42)
+        foo_list = [foo1, foo2, foo3]
+        foo42 in foo_list
+        logger_copy = logger[:]  # prevent re-evaluation during pytest error print
+        assert logger_copy == [(foo42, foo1), (foo42, foo2), (foo42, foo3)]
+
+        del logger[:]
+        foo2_bis = Foo(2, '2 bis')
+        foo2_bis in foo_list
+        logger_copy = logger[:]  # prevent re-evaluation during pytest error print
+        assert logger_copy == [(foo2_bis, foo1), (foo2_bis, foo2)]
+
     def test_call_list(self):
         assert list('') == []
         assert list('abc') == ['a', 'b', 'c']

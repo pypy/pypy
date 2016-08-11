@@ -36,7 +36,7 @@ class StringMethods(object):
         in frm is mapped to the byte at the same position in to.
         The bytes objects frm and to must be of the same length.
         """
-        from pypy.objspace.std.bytesobject import makebytesdata_w, wrapstr
+        from pypy.objspace.std.bytesobject import makebytesdata_w
 
         base_table = [chr(i) for i in range(256)]
         list_from = makebytesdata_w(space, w_from)
@@ -51,7 +51,7 @@ class StringMethods(object):
             char_to = list_to[i]
             base_table[pos_from] = char_to
 
-        return wrapstr(space, ''.join(base_table))
+        return space.newbytes(''.join(base_table))
 
     def _multi_chr(self, c):
         return c
@@ -152,7 +152,7 @@ class StringMethods(object):
         builder = self._builder(len(value))
         builder.append(self._upper(value[0]))
         for i in range(1, len(value)):
-            builder.append(self._lower(value[i]))
+            builder.append(self._lower_in_str(value, i))
         return self._new(builder.build())
 
     @unwrap_spec(width=int, w_fillchar=WrappedDefault(' '))
@@ -181,7 +181,8 @@ class StringMethods(object):
             return space.newint(value.count(sub, start, end))
         else:
             res = count(value, sub, start, end)
-            return space.wrap(max(res, 0))
+            assert res >= 0
+        return space.wrap(res)
 
     def descr_decode(self, space, w_encoding=None, w_errors=None):
         from pypy.objspace.std.unicodeobject import (
@@ -451,8 +452,12 @@ class StringMethods(object):
         value = self._val(space)
         builder = self._builder(len(value))
         for i in range(len(value)):
-            builder.append(self._lower(value[i]))
+            builder.append(self._lower_in_str(value, i))
         return self._new(builder.build())
+
+    def _lower_in_str(self, value, i):
+        # overridden in unicodeobject.py
+        return self._lower(value[i])
 
     def descr_partition(self, space, w_sub):
         from pypy.objspace.std.bytearrayobject import W_BytearrayObject
@@ -698,7 +703,7 @@ class StringMethods(object):
         for i in range(len(selfvalue)):
             ch = selfvalue[i]
             if self._isupper(ch):
-                builder.append(self._lower(ch))
+                builder.append(self._lower_in_str(selfvalue, i))
             elif self._islower(ch):
                 builder.append(self._upper(ch))
             else:
@@ -715,11 +720,12 @@ class StringMethods(object):
     def title(self, value):
         builder = self._builder(len(value))
         previous_is_cased = False
-        for ch in value:
+        for i in range(len(value)):
+            ch = value[i]
             if not previous_is_cased:
                 builder.append(self._title(ch))
             else:
-                builder.append(self._lower(ch))
+                builder.append(self._lower_in_str(value, i))
             previous_is_cased = self._iscased(ch)
         return builder.build()
 

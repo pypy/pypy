@@ -78,7 +78,7 @@ def test_long_more(space):
         interp_marshal.marshal(space, w_obj, m)
         assert ''.join(m.seen) == expected
         #
-        u = interp_marshal.StringUnmarshaller(space, space.wrapbytes(expected))
+        u = interp_marshal.StringUnmarshaller(space, space.newbytes(expected))
         w_long = u.load_w_obj()
         assert space.eq_w(w_long, w_obj)
 

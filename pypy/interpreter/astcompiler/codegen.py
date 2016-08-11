@@ -387,6 +387,31 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             for i in range(len(func.decorator_list)):
                 self.emit_op_arg(ops.CALL_FUNCTION, 1)
         self.name_op(func.name, ast.Store)
+    
+    def visit_AsyncFunctionDef(self, func):
+        self.update_position(func.lineno, True)
+        # Load decorators first, but apply them after the function is created.
+        self.visit_sequence(func.decorator_list)
+        args = func.args
+        assert isinstance(args, ast.arguments)
+        kw_default_count = 0
+        if args.kwonlyargs:
+            kw_default_count = self._visit_kwonlydefaults(args)
+        self.visit_sequence(args.defaults)
+        num_annotations = self._visit_annotations(func, args, func.returns)
+        num_defaults = len(args.defaults) if args.defaults is not None else 0
+        oparg = num_defaults
+        oparg |= kw_default_count << 8
+        oparg |= num_annotations << 16
+        code, qualname = self.sub_scope(AsyncFunctionCodeGenerator, func.name, func,
+                                        func.lineno)
+        code.co_flags |= consts.CO_COROUTINE
+        self._make_function(code, oparg, qualname=qualname)
+        # Apply decorators.
+        if func.decorator_list:
+            for i in range(len(func.decorator_list)):
+                self.emit_op_arg(ops.CALL_FUNCTION, 1)
+        self.name_op(func.name, ast.Store)
 
     def visit_Lambda(self, lam):
         self.update_position(lam.lineno)
@@ -416,8 +441,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # 4. load class name
         self.load_const(self.space.wrap(cls.name.decode('utf-8')))
         # 5. generate the rest of the code for the call
-        self._make_call(2,
-                        cls.bases, cls.keywords)
+        self._make_call(2, cls.bases, cls.keywords)
         # 6. apply decorators
         if cls.decorator_list:
             for i in range(len(cls.decorator_list)):
@@ -565,6 +589,60 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.pop_frame_block(F_BLOCK_LOOP, start)
         self.visit_sequence(fr.orelse)
         self.use_next_block(end)
+    
+    def visit_AsyncFor(self, fr):
+        self.update_position(fr.lineno, True)
+        b_try = self.new_block()
+        b_except = self.new_block()
+        b_end = self.new_block()
+        b_after_try = self.new_block()
+        b_try_cleanup = self.new_block()
+        b_after_loop = self.new_block()
+        b_after_loop_else = self.new_block()
+        self.emit_jump(ops.SETUP_LOOP, b_after_loop)
+        self.push_frame_block(F_BLOCK_LOOP, b_try)
+        fr.iter.walkabout(self)
+        self.emit_op(ops.GET_AITER)
+        self.load_const(self.space.w_None)
+        self.emit_op(ops.YIELD_FROM)
+        self.use_next_block(b_try)
+        # This adds another line, so each for iteration can be traced.
+        self.lineno_set = False
+        self.emit_jump(ops.SETUP_EXCEPT, b_except)
+        self.push_frame_block(F_BLOCK_EXCEPT, b_try)
+        self.emit_op(ops.GET_ANEXT)
+        self.load_const(self.space.w_None)
+        self.emit_op(ops.YIELD_FROM)
+        fr.target.walkabout(self)
+        self.emit_op(ops.POP_BLOCK)
+        self.pop_frame_block(F_BLOCK_EXCEPT, b_try)
+        self.emit_jump(ops.JUMP_FORWARD, b_after_try)
+        self.use_next_block(b_except)
+        self.emit_op(ops.POP_TOP)
+        self.emit_op_name(ops.LOAD_GLOBAL, self.names, "StopIterError")
+        self.emit_op_arg(ops.COMPARE_OP, 10)
+        self.emit_jump(ops.POP_JUMP_IF_FALSE, b_try_cleanup, True)
+        
+        self.emit_op(ops.POP_TOP)
+        self.emit_op(ops.POP_TOP)
+        self.emit_op(ops.POP_TOP)
+        self.emit_op(ops.POP_EXCEPT) # for SETUP_EXCEPT
+        self.emit_op(ops.POP_BLOCK) # for SETUP_LOOP
+        self.emit_jump(ops.JUMP_ABSOLUTE, b_after_loop_else, True)
+        
+        self.use_next_block(b_try_cleanup)
+        self.emit_op(ops.END_FINALLY)
+        self.use_next_block(b_after_try)
+        self.visit_sequence(fr.body)
+        self.emit_jump(ops.JUMP_ABSOLUTE, b_try, True)
+        self.emit_op(ops.POP_BLOCK) # for SETUP_LOOP
+        self.pop_frame_block(F_BLOCK_LOOP, b_try)
+        self.use_next_block(b_after_loop)
+        self.emit_jump(ops.JUMP_ABSOLUTE, b_end, True)
+        self.use_next_block(b_after_loop_else)
+        self.visit_sequence(fr.orelse)
+        
+        self.use_next_block(b_end)
 
     def visit_While(self, wh):
         self.update_position(wh.lineno, True)
@@ -863,6 +941,44 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op(ops.END_FINALLY)
         self.pop_frame_block(F_BLOCK_FINALLY_END, cleanup)
 
+    def visit_AsyncWith(self, wih):
+        self.update_position(wih.lineno, True)
+        self.handle_asyncwithitem(wih, 0)
+
+    def handle_asyncwithitem(self, wih, pos):
+        body_block = self.new_block()
+        cleanup = self.new_block()
+        witem = wih.items[pos]
+        witem.context_expr.walkabout(self)
+        self.emit_op(ops.BEFORE_ASYNC_WITH)
+        self.emit_op(ops.GET_AWAITABLE)
+        self.load_const(self.space.w_None)
+        self.emit_op(ops.YIELD_FROM)
+        self.emit_jump(ops.SETUP_ASYNC_WITH, cleanup)
+        self.use_next_block(body_block)
+        self.push_frame_block(F_BLOCK_FINALLY, body_block)
+        if witem.optional_vars:
+            witem.optional_vars.walkabout(self)
+        else:
+            self.emit_op(ops.POP_TOP)
+        if pos == len(wih.items) - 1:
+            self.visit_sequence(wih.body)
+        else:
+            self.handle_asyncwithitem(wih, pos + 1)
+        self.emit_op(ops.POP_BLOCK)
+        self.pop_frame_block(F_BLOCK_FINALLY, body_block)
+        self.load_const(self.space.w_None)
+        self.use_next_block(cleanup)
+        self.push_frame_block(F_BLOCK_FINALLY_END, cleanup)
+        self.emit_op(ops.WITH_CLEANUP_START)
+        self.emit_op(ops.GET_AWAITABLE)
+        self.load_const(self.space.w_None)
+        self.emit_op(ops.YIELD_FROM)
+        self.emit_op(ops.WITH_CLEANUP_FINISH)
+        self.emit_op(ops.END_FINALLY)
+        self.pop_frame_block(F_BLOCK_FINALLY_END, cleanup)
+
+
     def visit_Raise(self, rais):
         self.update_position(rais.lineno, True)
         arg = 0
@@ -906,7 +1022,14 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def visit_YieldFrom(self, yfr):
         self.update_position(yfr.lineno)
         yfr.value.walkabout(self)
-        self.emit_op(ops.GET_ITER)
+        self.emit_op(ops.GET_YIELD_FROM_ITER)
+        self.load_const(self.space.w_None)
+        self.emit_op(ops.YIELD_FROM)
+    
+    def visit_Await(self, aw):
+        self.update_position(aw.lineno)
+        aw.value.walkabout(self)
+        self.emit_op(ops.GET_AWAITABLE)
         self.load_const(self.space.w_None)
         self.emit_op(ops.YIELD_FROM)
 
@@ -924,7 +1047,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_Const(self, const):
         self.update_position(const.lineno)
-        self.load_const(const.value)
+        self.load_const(const.obj)
 
     def visit_Ellipsis(self, e):
         self.load_const(self.space.w_Ellipsis)
@@ -1186,7 +1309,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     nsubkwargs += 1
                 elif nsubkwargs:
                     # A keyword argument and we already have a dict.
-                    self.load_const(kw.arg)
+                    self.load_const(self.space.wrap(kw.arg.decode('utf-8')))
                     kw.value.walkabout(self)
                     nseen += 1
                 else:
@@ -1224,8 +1347,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if self._optimize_method_call(call):
             return
         call.func.walkabout(self)
-        self._make_call(0,
-                        call.args, call.keywords)
+        self._make_call(0, call.args, call.keywords)
     
     def _call_has_no_star_args(self, call):
         if call.args is not None:
@@ -1440,6 +1562,21 @@ class FunctionCodeGenerator(AbstractFunctionCodeGenerator):
             for i in range(start, len(func.body)):
                 func.body[i].walkabout(self)
 
+class AsyncFunctionCodeGenerator(AbstractFunctionCodeGenerator):
+
+    def _compile(self, func):
+        assert isinstance(func, ast.AsyncFunctionDef)
+        has_docstring = self.ensure_docstring_constant(func.body)
+        start = 1 if has_docstring else 0
+        args = func.args
+        assert isinstance(args, ast.arguments)
+        if args.args:
+            self.argcount = len(args.args)
+        if args.kwonlyargs:
+            self.kwonlyargcount = len(args.kwonlyargs)
+        if func.body:
+            for i in range(start, len(func.body)):
+                func.body[i].walkabout(self)
 
 class LambdaCodeGenerator(AbstractFunctionCodeGenerator):
 

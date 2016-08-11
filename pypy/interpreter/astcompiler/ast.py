@@ -16,7 +16,7 @@ def check_string(space, w_obj):
     if not (space.isinstance_w(w_obj, space.w_str) or
             space.isinstance_w(w_obj, space.w_unicode)):
         raise oefmt(space.w_TypeError,
-                   "AST string must be of type str or unicode")
+                    "AST string must be of type str or unicode")
     return w_obj
 
 def get_field(space, w_node, name, optional):
@@ -314,6 +314,8 @@ class stmt(AST):
             return None
         if space.isinstance_w(w_node, get(space).w_FunctionDef):
             return FunctionDef.from_object(space, w_node)
+        if space.isinstance_w(w_node, get(space).w_AsyncFunctionDef):
+            return AsyncFunctionDef.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_ClassDef):
             return ClassDef.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_Return):
@@ -326,12 +328,16 @@ class stmt(AST):
             return AugAssign.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_For):
             return For.from_object(space, w_node)
+        if space.isinstance_w(w_node, get(space).w_AsyncFor):
+            return AsyncFor.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_While):
             return While.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_If):
             return If.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_With):
             return With.from_object(space, w_node)
+        if space.isinstance_w(w_node, get(space).w_AsyncWith):
+            return AsyncWith.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_Raise):
             return Raise.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_Try):
@@ -432,6 +438,82 @@ class FunctionDef(stmt):
         return FunctionDef(_name, _args, _body, _decorator_list, _returns, _lineno, _col_offset)
 
 State.ast_type('FunctionDef', 'stmt', ['name', 'args', 'body', 'decorator_list', 'returns'])
+
+
+class AsyncFunctionDef(stmt):
+
+    def __init__(self, name, args, body, decorator_list, returns, lineno, col_offset):
+        self.name = name
+        self.args = args
+        self.body = body
+        self.decorator_list = decorator_list
+        self.returns = returns
+        stmt.__init__(self, lineno, col_offset)
+
+    def walkabout(self, visitor):
+        visitor.visit_AsyncFunctionDef(self)
+
+    def mutate_over(self, visitor):
+        self.args = self.args.mutate_over(visitor)
+        if self.body:
+            visitor._mutate_sequence(self.body)
+        if self.decorator_list:
+            visitor._mutate_sequence(self.decorator_list)
+        if self.returns:
+            self.returns = self.returns.mutate_over(visitor)
+        return visitor.visit_AsyncFunctionDef(self)
+
+    def to_object(self, space):
+        w_node = space.call_function(get(space).w_AsyncFunctionDef)
+        w_name = space.wrap(self.name.decode('utf-8'))  # identifier
+        space.setattr(w_node, space.wrap('name'), w_name)
+        w_args = self.args.to_object(space)  # arguments
+        space.setattr(w_node, space.wrap('args'), w_args)
+        if self.body is None:
+            body_w = []
+        else:
+            body_w = [node.to_object(space) for node in self.body] # stmt
+        w_body = space.newlist(body_w)
+        space.setattr(w_node, space.wrap('body'), w_body)
+        if self.decorator_list is None:
+            decorator_list_w = []
+        else:
+            decorator_list_w = [node.to_object(space) for node in self.decorator_list] # expr
+        w_decorator_list = space.newlist(decorator_list_w)
+        space.setattr(w_node, space.wrap('decorator_list'), w_decorator_list)
+        w_returns = self.returns.to_object(space) if self.returns is not None else space.w_None  # expr
+        space.setattr(w_node, space.wrap('returns'), w_returns)
+        w_lineno = space.wrap(self.lineno)  # int
+        space.setattr(w_node, space.wrap('lineno'), w_lineno)
+        w_col_offset = space.wrap(self.col_offset)  # int
+        space.setattr(w_node, space.wrap('col_offset'), w_col_offset)
+        return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        w_name = get_field(space, w_node, 'name', False)
+        w_args = get_field(space, w_node, 'args', False)
+        w_body = get_field(space, w_node, 'body', False)
+        w_decorator_list = get_field(space, w_node, 'decorator_list', False)
+        w_returns = get_field(space, w_node, 'returns', True)
+        w_lineno = get_field(space, w_node, 'lineno', False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False)
+        _name = space.identifier_w(w_name)
+        if _name is None:
+            raise_required_value(space, w_node, 'name')
+        _args = arguments.from_object(space, w_args)
+        if _args is None:
+            raise_required_value(space, w_node, 'args')
+        body_w = space.unpackiterable(w_body)
+        _body = [stmt.from_object(space, w_item) for w_item in body_w]
+        decorator_list_w = space.unpackiterable(w_decorator_list)
+        _decorator_list = [expr.from_object(space, w_item) for w_item in decorator_list_w]
+        _returns = expr.from_object(space, w_returns) if w_returns is not None else None
+        _lineno = space.int_w(w_lineno)
+        _col_offset = space.int_w(w_col_offset)
+        return AsyncFunctionDef(_name, _args, _body, _decorator_list, _returns, _lineno, _col_offset)
+
+State.ast_type('AsyncFunctionDef', 'stmt', ['name', 'args', 'body', 'decorator_list', 'returns'])
 
 
 class ClassDef(stmt):
@@ -771,6 +853,76 @@ class For(stmt):
 State.ast_type('For', 'stmt', ['target', 'iter', 'body', 'orelse'])
 
 
+class AsyncFor(stmt):
+
+    def __init__(self, target, iter, body, orelse, lineno, col_offset):
+        self.target = target
+        self.iter = iter
+        self.body = body
+        self.orelse = orelse
+        stmt.__init__(self, lineno, col_offset)
+
+    def walkabout(self, visitor):
+        visitor.visit_AsyncFor(self)
+
+    def mutate_over(self, visitor):
+        self.target = self.target.mutate_over(visitor)
+        self.iter = self.iter.mutate_over(visitor)
+        if self.body:
+            visitor._mutate_sequence(self.body)
+        if self.orelse:
+            visitor._mutate_sequence(self.orelse)
+        return visitor.visit_AsyncFor(self)
+
+    def to_object(self, space):
+        w_node = space.call_function(get(space).w_AsyncFor)
+        w_target = self.target.to_object(space)  # expr
+        space.setattr(w_node, space.wrap('target'), w_target)
+        w_iter = self.iter.to_object(space)  # expr
+        space.setattr(w_node, space.wrap('iter'), w_iter)
+        if self.body is None:
+            body_w = []
+        else:
+            body_w = [node.to_object(space) for node in self.body] # stmt
+        w_body = space.newlist(body_w)
+        space.setattr(w_node, space.wrap('body'), w_body)
+        if self.orelse is None:
+            orelse_w = []
+        else:
+            orelse_w = [node.to_object(space) for node in self.orelse] # stmt
+        w_orelse = space.newlist(orelse_w)
+        space.setattr(w_node, space.wrap('orelse'), w_orelse)
+        w_lineno = space.wrap(self.lineno)  # int
+        space.setattr(w_node, space.wrap('lineno'), w_lineno)
+        w_col_offset = space.wrap(self.col_offset)  # int
+        space.setattr(w_node, space.wrap('col_offset'), w_col_offset)
+        return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        w_target = get_field(space, w_node, 'target', False)
+        w_iter = get_field(space, w_node, 'iter', False)
+        w_body = get_field(space, w_node, 'body', False)
+        w_orelse = get_field(space, w_node, 'orelse', False)
+        w_lineno = get_field(space, w_node, 'lineno', False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False)
+        _target = expr.from_object(space, w_target)
+        if _target is None:
+            raise_required_value(space, w_node, 'target')
+        _iter = expr.from_object(space, w_iter)
+        if _iter is None:
+            raise_required_value(space, w_node, 'iter')
+        body_w = space.unpackiterable(w_body)
+        _body = [stmt.from_object(space, w_item) for w_item in body_w]
+        orelse_w = space.unpackiterable(w_orelse)
+        _orelse = [stmt.from_object(space, w_item) for w_item in orelse_w]
+        _lineno = space.int_w(w_lineno)
+        _col_offset = space.int_w(w_col_offset)
+        return AsyncFor(_target, _iter, _body, _orelse, _lineno, _col_offset)
+
+State.ast_type('AsyncFor', 'stmt', ['target', 'iter', 'body', 'orelse'])
+
+
 class While(stmt):
 
     def __init__(self, test, body, orelse, lineno, col_offset):
@@ -947,6 +1099,60 @@ class With(stmt):
         return With(_items, _body, _lineno, _col_offset)
 
 State.ast_type('With', 'stmt', ['items', 'body'])
+
+
+class AsyncWith(stmt):
+
+    def __init__(self, items, body, lineno, col_offset):
+        self.items = items
+        self.body = body
+        stmt.__init__(self, lineno, col_offset)
+
+    def walkabout(self, visitor):
+        visitor.visit_AsyncWith(self)
+
+    def mutate_over(self, visitor):
+        if self.items:
+            visitor._mutate_sequence(self.items)
+        if self.body:
+            visitor._mutate_sequence(self.body)
+        return visitor.visit_AsyncWith(self)
+
+    def to_object(self, space):
+        w_node = space.call_function(get(space).w_AsyncWith)
+        if self.items is None:
+            items_w = []
+        else:
+            items_w = [node.to_object(space) for node in self.items] # withitem
+        w_items = space.newlist(items_w)
+        space.setattr(w_node, space.wrap('items'), w_items)
+        if self.body is None:
+            body_w = []
+        else:
+            body_w = [node.to_object(space) for node in self.body] # stmt
+        w_body = space.newlist(body_w)
+        space.setattr(w_node, space.wrap('body'), w_body)
+        w_lineno = space.wrap(self.lineno)  # int
+        space.setattr(w_node, space.wrap('lineno'), w_lineno)
+        w_col_offset = space.wrap(self.col_offset)  # int
+        space.setattr(w_node, space.wrap('col_offset'), w_col_offset)
+        return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        w_items = get_field(space, w_node, 'items', False)
+        w_body = get_field(space, w_node, 'body', False)
+        w_lineno = get_field(space, w_node, 'lineno', False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False)
+        items_w = space.unpackiterable(w_items)
+        _items = [withitem.from_object(space, w_item) for w_item in items_w]
+        body_w = space.unpackiterable(w_body)
+        _body = [stmt.from_object(space, w_item) for w_item in body_w]
+        _lineno = space.int_w(w_lineno)
+        _col_offset = space.int_w(w_col_offset)
+        return AsyncWith(_items, _body, _lineno, _col_offset)
+
+State.ast_type('AsyncWith', 'stmt', ['items', 'body'])
 
 
 class Raise(stmt):
@@ -1450,6 +1656,8 @@ class expr(AST):
             return DictComp.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_GeneratorExp):
             return GeneratorExp.from_object(space, w_node)
+        if space.isinstance_w(w_node, get(space).w_Await):
+            return Await.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_Yield):
             return Yield.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_YieldFrom):
@@ -2037,6 +2245,44 @@ class GeneratorExp(expr):
 State.ast_type('GeneratorExp', 'expr', ['elt', 'generators'])
 
 
+class Await(expr):
+
+    def __init__(self, value, lineno, col_offset):
+        self.value = value
+        expr.__init__(self, lineno, col_offset)
+
+    def walkabout(self, visitor):
+        visitor.visit_Await(self)
+
+    def mutate_over(self, visitor):
+        self.value = self.value.mutate_over(visitor)
+        return visitor.visit_Await(self)
+
+    def to_object(self, space):
+        w_node = space.call_function(get(space).w_Await)
+        w_value = self.value.to_object(space)  # expr
+        space.setattr(w_node, space.wrap('value'), w_value)
+        w_lineno = space.wrap(self.lineno)  # int
+        space.setattr(w_node, space.wrap('lineno'), w_lineno)
+        w_col_offset = space.wrap(self.col_offset)  # int
+        space.setattr(w_node, space.wrap('col_offset'), w_col_offset)
+        return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        w_value = get_field(space, w_node, 'value', False)
+        w_lineno = get_field(space, w_node, 'lineno', False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False)
+        _value = expr.from_object(space, w_value)
+        if _value is None:
+            raise_required_value(space, w_node, 'value')
+        _lineno = space.int_w(w_lineno)
+        _col_offset = space.int_w(w_col_offset)
+        return Await(_value, _lineno, _col_offset)
+
+State.ast_type('Await', 'expr', ['value'])
+
+
 class Yield(expr):
 
     def __init__(self, value, lineno, col_offset):
@@ -2322,7 +2568,7 @@ class Bytes(expr):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Bytes)
-        w_s = self.s.to_object(space)  # bytes
+        w_s = self.s  # bytes
         space.setattr(w_node, space.wrap('s'), w_s)
         w_lineno = space.wrap(self.lineno)  # int
         space.setattr(w_node, space.wrap('lineno'), w_lineno)
@@ -2335,7 +2581,7 @@ class Bytes(expr):
         w_s = get_field(space, w_node, 's', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _s = bytes.from_object(space, w_s)
+        _s = check_string(space, w_s)
         if _s is None:
             raise_required_value(space, w_node, 's')
         _lineno = space.int_w(w_lineno)
@@ -2347,8 +2593,8 @@ State.ast_type('Bytes', 'expr', ['s'])
 
 class NameConstant(expr):
 
-    def __init__(self, value, lineno, col_offset):
-        self.value = value
+    def __init__(self, single, lineno, col_offset):
+        self.single = single
         expr.__init__(self, lineno, col_offset)
 
     def walkabout(self, visitor):
@@ -2359,8 +2605,8 @@ class NameConstant(expr):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_NameConstant)
-        w_value = self.value.to_object(space)  # singleton
-        space.setattr(w_node, space.wrap('value'), w_value)
+        w_single = self.single  # singleton
+        space.setattr(w_node, space.wrap('single'), w_single)
         w_lineno = space.wrap(self.lineno)  # int
         space.setattr(w_node, space.wrap('lineno'), w_lineno)
         w_col_offset = space.wrap(self.col_offset)  # int
@@ -2369,17 +2615,17 @@ class NameConstant(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        w_value = get_field(space, w_node, 'value', False)
+        w_single = get_field(space, w_node, 'single', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _value = singleton.from_object(space, w_value)
-        if _value is None:
-            raise_required_value(space, w_node, 'value')
+        _single = w_single
+        if _single is None:
+            raise_required_value(space, w_node, 'single')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return NameConstant(_value, _lineno, _col_offset)
+        return NameConstant(_single, _lineno, _col_offset)
 
-State.ast_type('NameConstant', 'expr', ['value'])
+State.ast_type('NameConstant', 'expr', ['single'])
 
 
 class Ellipsis(expr):
@@ -2706,8 +2952,8 @@ State.ast_type('Tuple', 'expr', ['elts', 'ctx'])
 
 class Const(expr):
 
-    def __init__(self, value, lineno, col_offset):
-        self.value = value
+    def __init__(self, obj, lineno, col_offset):
+        self.obj = obj
         expr.__init__(self, lineno, col_offset)
 
     def walkabout(self, visitor):
@@ -2718,8 +2964,8 @@ class Const(expr):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Const)
-        w_value = self.value  # object
-        space.setattr(w_node, space.wrap('value'), w_value)
+        w_obj = self.obj  # object
+        space.setattr(w_node, space.wrap('obj'), w_obj)
         w_lineno = space.wrap(self.lineno)  # int
         space.setattr(w_node, space.wrap('lineno'), w_lineno)
         w_col_offset = space.wrap(self.col_offset)  # int
@@ -2728,17 +2974,17 @@ class Const(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        w_value = get_field(space, w_node, 'value', False)
+        w_obj = get_field(space, w_node, 'obj', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _value = w_value
-        if _value is None:
-            raise_required_value(space, w_node, 'value')
+        _obj = w_obj
+        if _obj is None:
+            raise_required_value(space, w_node, 'obj')
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
-        return Const(_value, _lineno, _col_offset)
+        return Const(_obj, _lineno, _col_offset)
 
-State.ast_type('Const', 'expr', ['value'])
+State.ast_type('Const', 'expr', ['obj'])
 
 
 class expr_context(AST):
@@ -3596,6 +3842,8 @@ class ASTVisitor(object):
         return self.default_visitor(node)
     def visit_FunctionDef(self, node):
         return self.default_visitor(node)
+    def visit_AsyncFunctionDef(self, node):
+        return self.default_visitor(node)
     def visit_ClassDef(self, node):
         return self.default_visitor(node)
     def visit_Return(self, node):
@@ -3608,11 +3856,15 @@ class ASTVisitor(object):
         return self.default_visitor(node)
     def visit_For(self, node):
         return self.default_visitor(node)
+    def visit_AsyncFor(self, node):
+        return self.default_visitor(node)
     def visit_While(self, node):
         return self.default_visitor(node)
     def visit_If(self, node):
         return self.default_visitor(node)
     def visit_With(self, node):
+        return self.default_visitor(node)
+    def visit_AsyncWith(self, node):
         return self.default_visitor(node)
     def visit_Raise(self, node):
         return self.default_visitor(node)
@@ -3657,6 +3909,8 @@ class ASTVisitor(object):
     def visit_DictComp(self, node):
         return self.default_visitor(node)
     def visit_GeneratorExp(self, node):
+        return self.default_visitor(node)
+    def visit_Await(self, node):
         return self.default_visitor(node)
     def visit_Yield(self, node):
         return self.default_visitor(node)
@@ -3732,6 +3986,13 @@ class GenericASTVisitor(ASTVisitor):
         if node.returns:
             node.returns.walkabout(self)
 
+    def visit_AsyncFunctionDef(self, node):
+        node.args.walkabout(self)
+        self.visit_sequence(node.body)
+        self.visit_sequence(node.decorator_list)
+        if node.returns:
+            node.returns.walkabout(self)
+
     def visit_ClassDef(self, node):
         self.visit_sequence(node.bases)
         self.visit_sequence(node.keywords)
@@ -3759,6 +4020,12 @@ class GenericASTVisitor(ASTVisitor):
         self.visit_sequence(node.body)
         self.visit_sequence(node.orelse)
 
+    def visit_AsyncFor(self, node):
+        node.target.walkabout(self)
+        node.iter.walkabout(self)
+        self.visit_sequence(node.body)
+        self.visit_sequence(node.orelse)
+
     def visit_While(self, node):
         node.test.walkabout(self)
         self.visit_sequence(node.body)
@@ -3770,6 +4037,10 @@ class GenericASTVisitor(ASTVisitor):
         self.visit_sequence(node.orelse)
 
     def visit_With(self, node):
+        self.visit_sequence(node.items)
+        self.visit_sequence(node.body)
+
+    def visit_AsyncWith(self, node):
         self.visit_sequence(node.items)
         self.visit_sequence(node.body)
 
@@ -3856,6 +4127,9 @@ class GenericASTVisitor(ASTVisitor):
     def visit_GeneratorExp(self, node):
         node.elt.walkabout(self)
         self.visit_sequence(node.generators)
+
+    def visit_Await(self, node):
+        node.value.walkabout(self)
 
     def visit_Yield(self, node):
         if node.value:

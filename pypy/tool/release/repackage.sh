@@ -1,9 +1,9 @@
 # Edit these appropriately before running this script
 maj=5
 min=3
-rev=0
+rev=1
 branchname=release-$maj.x  # ==OR== release-$maj.$min.x
-tagname=release-pypy2.7-v$maj.$min  # ==OR== release-$maj.$min
+tagname=release-pypy2.7-v$maj.$min.$rev  # ==OR== release-$maj.$min
 
 echo checking hg log -r $branchname
 hg log -r $branchname || exit 1

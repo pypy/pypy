@@ -6,7 +6,7 @@ The rest, dealing with variables in optimized ways, is in nestedscope.py.
 
 from rpython.rlib import jit, rstackovf, rstring
 from rpython.rlib.debug import check_nonneg
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, always_inline
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.tool.sourcetools import func_with_new_name
 
@@ -44,6 +44,14 @@ def binaryoperation(operationname):
     opimpl.binop = operationname
 
     return func_with_new_name(opimpl, "opcode_impl_for_%s" % operationname)
+
+def get_func_desc(space, func):
+    if isinstance(func,function.Function):
+        return "()"
+    elif isinstance(func, function.Method):
+        return "()"
+    else:
+        return " object";
 
 
 opcodedesc = bytecode_spec.opcodedesc
@@ -418,6 +426,18 @@ class __extend__(pyframe.PyFrame):
                 self.YIELD_VALUE(oparg, next_instr)
             elif opcode == opcodedesc.YIELD_FROM.index:
                 self.YIELD_FROM(oparg, next_instr)
+            elif opcode == opcodedesc.GET_YIELD_FROM_ITER.index:
+                self.GET_YIELD_FROM_ITER(oparg, next_instr)
+            elif opcode == opcodedesc.GET_AWAITABLE.index:
+                self.GET_AWAITABLE(oparg, next_instr)
+            elif opcode == opcodedesc.SETUP_ASYNC_WITH.index:
+                self.SETUP_ASYNC_WITH(oparg, next_instr)
+            elif opcode == opcodedesc.BEFORE_ASYNC_WITH.index:
+                self.BEFORE_ASYNC_WITH(oparg, next_instr)
+            elif opcode == opcodedesc.GET_AITER.index:
+                self.GET_AITER(oparg, next_instr)
+            elif opcode == opcodedesc.GET_ANEXT.index:
+                self.GET_ANEXT(oparg, next_instr)
             else:
                 self.MISSING_OPCODE(oparg, next_instr)
 
@@ -1018,9 +1038,18 @@ class __extend__(pyframe.PyFrame):
         raise Yield
 
     def YIELD_FROM(self, oparg, next_instr):
+        from pypy.interpreter.astcompiler import consts
+        from pypy.interpreter.generator import Coroutine
         space = self.space
         w_value = self.popvalue()
         w_gen = self.peekvalue()
+        if isinstance(w_gen, Coroutine):
+            if (w_gen.descr_gi_code(space).co_flags & consts.CO_COROUTINE and
+               not self.pycode.co_flags & (consts.CO_COROUTINE |
+                                       consts.CO_ITERABLE_COROUTINE)):
+                raise oefmt(self.space.w_TypeError,
+                            "cannot 'yield from' a coroutine object "
+                            "from a generator")
         try:
             if space.is_none(w_value):
                 w_retval = space.next(w_gen)
@@ -1185,6 +1214,14 @@ class __extend__(pyframe.PyFrame):
                     break
                 w_value = self.popvalue()
                 w_key = self.popvalue()
+                # temporary (dirty) fix: if star-arg occurs after kwarg,
+                # arg order is reversed on stack
+                from pypy.objspace.std.listobject import W_ListObject
+                if isinstance(w_key, W_ListObject):
+                    w_key_temp = w_key
+                    w_key = w_value
+                    w_value = w_star
+                    w_star = w_key_temp
                 key = self.space.identifier_w(w_key)
                 keywords[n_keywords] = key
                 keywords_w[n_keywords] = w_value
@@ -1314,6 +1351,7 @@ class __extend__(pyframe.PyFrame):
         raise BytecodeCorruption("unknown opcode, ofs=%d, code=%d, name=%s" %
                                  (ofs, ord(c), name) )
 
+    @jit.unroll_safe
     def BUILD_MAP(self, itemcount, next_instr):
         w_dict = self.space.newdict()
         for i in range(itemcount):
@@ -1330,79 +1368,174 @@ class __extend__(pyframe.PyFrame):
             self.space.call_method(w_set, 'add', w_item)
         self.pushvalue(w_set)
 
-    def unpack_helper(self, itemcount, next_instr):
-        w_sum = []
+    @jit.unroll_safe
+    def BUILD_SET_UNPACK(self, itemcount, next_instr):
+        space = self.space
+        w_sum = space.newset()
         for i in range(itemcount, 0, -1):
             w_item = self.peekvalue(i-1)
-            items = self.space.fixedview(w_item)
-            w_sum.extend(items)
+            # cannot use w_sum.update, w_item might not be a set
+            iterator = w_item.itervalues()
+            while True:
+                w_value = iterator.next_value()
+                if w_value is None:
+                    break
+                w_sum.add(w_value)
         while itemcount != 0:
             self.popvalue()
             itemcount -= 1
+        self.pushvalue(w_sum)
+
+    @jit.unroll_safe
+    def list_unpack_helper(frame, itemcount):
+        space = frame.space
+        w_sum = space.newlist([], sizehint=itemcount)
+        for i in range(itemcount, 0, -1):
+            w_item = frame.peekvalue(i-1)
+            w_sum.extend(w_item)
+        while itemcount != 0:
+            frame.popvalue()
+            itemcount -= 1
         return w_sum
 
-    def BUILD_SET_UNPACK(self, itemcount, next_instr):
-        w_sum = self.unpack_helper(itemcount, next_instr)
-        self.pushvalue(self.space.newset(w_sum))
-
+    @jit.unroll_safe
     def BUILD_TUPLE_UNPACK(self, itemcount, next_instr):
-        w_sum = self.unpack_helper(itemcount, next_instr)
-        self.pushvalue(self.space.newtuple(w_sum))
-        
+        w_list = self.list_unpack_helper(itemcount)
+        items = [w_obj for w_obj in w_list.getitems_unroll()]
+        self.pushvalue(self.space.newtuple(items))
+
     def BUILD_LIST_UNPACK(self, itemcount, next_instr):
-        w_sum = self.unpack_helper(itemcount, next_instr)
-        self.pushvalue(self.space.newlist(w_sum))
-    
-    def getFuncDesc(func):
-        if self.space.type(aaa).name.decode('utf-8') == 'method':
-            return "()"
-        elif self.space.type(aaa).name.decode('utf-8') == 'function':
-            return "()"
-        else:
-            return " object";
-    
+        w_sum = self.list_unpack_helper(itemcount)
+        self.pushvalue(w_sum)
+
+    @jit.unroll_safe
     def BUILD_MAP_UNPACK_WITH_CALL(self, itemcount, next_instr):
+        space = self.space
         num_maps = itemcount & 0xff
         function_location = (itemcount>>8) & 0xff
-        w_dict = self.space.newdict()
-        dict_class = w_dict.__class__
+        w_dict = space.newdict()
         for i in range(num_maps, 0, -1):
             w_item = self.peekvalue(i-1)
-            if not issubclass(w_item.__class__, dict_class):
-                raise oefmt(self.space.w_TypeError,
+            if not space.ismapping_w(w_item):
+                raise oefmt(space.w_TypeError,
                         "'%T' object is not a mapping", w_item)
-            num_items = w_item.length()
-            keys = w_item.w_keys()
-            for j in range(num_items):
-                if self.space.type(keys.getitem(j)).name.decode('utf-8') == 'method':
+            iterator = w_item.iterkeys()
+            while True:
+                w_key = iterator.next_key()
+                if w_key is None:
+                    break
+                if not isinstance(w_key, space.UnicodeObjectCls):
                     err_fun = self.peekvalue(num_maps + function_location-1)
-                    raise oefmt(self.space.w_TypeError,
-                        "%N%s keywords must be strings", err_fun, getFuncDesc(err_fun))
-                if self.space.is_true(self.space.contains(w_dict,keys.getitem(j))):
+                    raise oefmt(space.w_TypeError,
+                        "%N%s keywords must be strings", err_fun,
+                                                         get_func_desc(space, err_fun))
+                if space.is_true(space.contains(w_dict,w_key)):
                     err_fun = self.peekvalue(num_maps + function_location-1)
-                    err_arg = self.space.unicode_w(keys.getitem(j))
-                    raise oefmt(self.space.w_TypeError,
-                        "%N%s got multiple values for keyword argument %s", err_fun, getFuncDesc(err_fun), err_arg)
-            self.space.call_method(w_dict, 'update', w_item)
+                    err_arg = w_key
+                    raise oefmt(space.w_TypeError,
+                        "%N%s got multiple values for keyword argument '%s'",
+                          err_fun, get_func_desc(space, err_fun), space.str_w(err_arg))
+            space.call_method(w_dict, 'update', w_item)
         while num_maps != 0:
             self.popvalue()
             num_maps -= 1
         self.pushvalue(w_dict)
-        
+
+    @jit.unroll_safe
     def BUILD_MAP_UNPACK(self, itemcount, next_instr):
-        w_dict = self.space.newdict()
-        dict_class = w_dict.__class__
+        space = self.space
+        w_dict = space.newdict()
         for i in range(itemcount, 0, -1):
             w_item = self.peekvalue(i-1)
-            if not issubclass(w_item.__class__, dict_class):
+            if not space.ismapping_w(w_item):
                 raise oefmt(self.space.w_TypeError,
                         "'%T' object is not a mapping", w_item)
-            self.space.call_method(w_dict, 'update', w_item)
+            space.call_method(w_dict, 'update', w_item)
         while itemcount != 0:
             self.popvalue()
             itemcount -= 1
         self.pushvalue(w_dict)
-        
+    
+    def GET_YIELD_FROM_ITER(self, oparg, next_instr):
+        from pypy.interpreter.astcompiler import consts
+        from pypy.interpreter.generator import GeneratorIterator, Coroutine
+        w_iterable = self.peekvalue()
+        if isinstance(w_iterable, Coroutine):
+            if not self.pycode.co_flags & (consts.CO_COROUTINE |
+                                       consts.CO_ITERABLE_COROUTINE):
+                #'iterable' coroutine is used in a 'yield from' expression
+                #of a regular generator
+                raise oefmt(self.space.w_TypeError,
+                            "cannot 'yield from' a coroutine object "
+                            "in a non-coroutine generator")
+        elif not isinstance(w_iterable, GeneratorIterator):
+            w_iterator = self.space.iter(w_iterable)
+            self.settopvalue(w_iterator)
+    
+    def GET_AWAITABLE(self, oparg, next_instr):
+        from pypy.objspace.std.noneobject import W_NoneObject
+        if isinstance(self.peekvalue(), W_NoneObject):
+            #switch NoneObject with iterable on stack (kind of a dirty fix)
+            w_firstnone = self.popvalue()
+            w_i = self.popvalue()
+            self.pushvalue(w_firstnone)
+            self.pushvalue(w_i)
+        w_iterable = self.peekvalue()
+        w_iter = w_iterable._GetAwaitableIter(self.space)
+        self.settopvalue(w_iter)
+    
+    def SETUP_ASYNC_WITH(self, offsettoend, next_instr):
+        res = self.popvalue()
+        block = WithBlock(self.valuestackdepth,
+                          next_instr + offsettoend, self.lastblock)
+        self.lastblock = block
+        self.pushvalue(res)
+    
+    def BEFORE_ASYNC_WITH(self, oparg, next_instr):
+        space = self.space
+        w_manager = self.peekvalue()
+        w_enter = space.lookup(w_manager, "__aenter__")
+        w_descr = space.lookup(w_manager, "__aexit__")
+        if w_enter is None or w_descr is None:
+            raise oefmt(space.w_AttributeError,
+                        "'%T' object is not a context manager (no __aenter__/"
+                        "__aexit__ method)", w_manager)
+        w_exit = space.get(w_descr, w_manager)
+        self.settopvalue(w_exit)
+        w_result = space.get_and_call_function(w_enter, w_manager)
+        self.pushvalue(w_result)
+    
+    def GET_AITER(self, oparg, next_instr):
+        space = self.space
+        w_obj = self.peekvalue()
+        w_func = space.lookup(w_obj, "__aiter__")
+        if w_func is None:
+            raise oefmt(space.w_AttributeError,
+                        "object %T does not have __aiter__ method",
+                        w_obj)
+        w_iter = space.get_and_call_function(w_func, w_obj)
+        w_awaitable = w_iter._GetAwaitableIter(space)
+        if w_awaitable is None:
+            raise oefmt(space.w_TypeError,
+                        "'async for' received an invalid object "
+                        "from __aiter__: %T", w_iter)
+        self.settopvalue(w_awaitable)
+    
+    def GET_ANEXT(self, oparg, next_instr):
+        space = self.space
+        w_aiter = self.peekvalue()
+        w_func = space.lookup(w_aiter, "__anext__")
+        if w_func is None:
+            raise oefmt(space.w_AttributeError,
+                        "object %T does not have __anext__ method",
+                        w_aiter)
+        w_next_iter = space.get_and_call_function(w_func, w_aiter)
+        w_awaitable = w_next_iter._GetAwaitableIter(space)
+        if w_awaitable is None:
+            raise oefmt(space.w_TypeError,
+                        "'async for' received an invalid object "
+                        "from __anext__: %T", w_next_iter)
+        self.pushvalue(w_awaitable)
         
 ### ____________________________________________________________ ###
 

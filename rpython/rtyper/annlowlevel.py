@@ -348,19 +348,30 @@ class LLHelperEntry(extregistry.ExtRegistryEntry):
     _about_ = llhelper
 
     def compute_result_annotation(self, s_F, s_callable):
+        from rpython.annotator.description import FunctionDesc
         assert s_F.is_constant()
-        assert s_callable.is_constant()
+        assert isinstance(s_callable, annmodel.SomePBC)
         F = s_F.const
         FUNC = F.TO
         args_s = [lltype_to_annotation(T) for T in FUNC.ARGS]
-        key = (llhelper, s_callable.const)
-        s_res = self.bookkeeper.emulate_pbc_call(key, s_callable, args_s)
-        assert lltype_to_annotation(FUNC.RESULT).contains(s_res)
+        for desc in s_callable.descriptions:
+            assert isinstance(desc, FunctionDesc)
+            assert desc.pyobj is not None
+            if s_callable.is_constant():
+                assert s_callable.const is desc.pyobj
+            key = (llhelper, desc.pyobj)
+            s_res = self.bookkeeper.emulate_pbc_call(key, s_callable, args_s)
+            assert lltype_to_annotation(FUNC.RESULT).contains(s_res)
         return SomePtr(F)
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
-        return hop.args_r[1].get_unique_llfn()
+        if hop.args_s[1].is_constant():
+            return hop.args_r[1].get_unique_llfn()
+        else:
+            F = hop.args_s[0].const
+            assert hop.args_r[1].lowleveltype == F
+            return hop.inputarg(hop.args_r[1], 1)
 
 # ____________________________________________________________
 

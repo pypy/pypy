@@ -13,7 +13,7 @@ class AppTestFrameObject(AppTestCpythonExtensionBase):
                  PyObject *empty_bytes = PyBytes_FromString("");
                  PyObject *empty_tuple = PyTuple_New(0);
                  PyCodeObject *py_code;
-                 PyFrameObject *py_frame;
+                 PyFrameObject *py_frame = NULL;
 
                  py_code = PyCode_New(
                      0,            /*int argcount,*/

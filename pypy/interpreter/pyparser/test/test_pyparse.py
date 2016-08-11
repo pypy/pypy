@@ -174,6 +174,25 @@ if 1:
         self.parse('{**{}, 3:4, **{5:6, 7:8}}')
         self.parse('f(2, *a, *b, **b, **c, **d)')
 
+    def test_async_await(self):
+        self.parse("async def coro(): await func")
+        py.test.raises(SyntaxError, self.parse, 'await x')
+        #Test as var and func name
+        self.parse("async = 1")
+        self.parse("await = 1")
+        self.parse("def async(): pass")
+        #async for
+        self.parse("""async def foo():
+    async for a in b:
+        pass""")
+        py.test.raises(SyntaxError, self.parse, 'def foo(): async for a in b: pass')
+        #async with
+        self.parse("""async def foo():
+    async with a:
+        pass""")
+        py.test.raises(SyntaxError, self.parse, 'def foo(): async with a: pass')
+        
+        
 
 class TestPythonParserWithSpace:
 

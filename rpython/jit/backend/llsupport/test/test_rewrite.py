@@ -254,8 +254,9 @@ class TestBoehm(RewriteTests):
             jump()
         """, """
             [p1]
-            p0 = call_malloc_gc(ConstClass(malloc_fixedsize), %(sdescr.size)d,\
-                                descr=malloc_fixedsize_descr)
+            p0 = call_r(ConstClass(malloc_fixedsize), %(sdescr.size)d,\
+                        descr=malloc_fixedsize_descr)
+            check_memory_error(p0)
             jump()
         """)
 
@@ -267,10 +268,12 @@ class TestBoehm(RewriteTests):
             jump()
         """, """
             []
-            p0 = call_malloc_gc(ConstClass(malloc_fixedsize), %(sdescr.size)d,\
-                                descr=malloc_fixedsize_descr)
-            p1 = call_malloc_gc(ConstClass(malloc_fixedsize), %(sdescr.size)d,\
-                                descr=malloc_fixedsize_descr)
+            p0 = call_r(ConstClass(malloc_fixedsize), %(sdescr.size)d,\
+                        descr=malloc_fixedsize_descr)
+            check_memory_error(p0)
+            p1 = call_r(ConstClass(malloc_fixedsize), %(sdescr.size)d,\
+                        descr=malloc_fixedsize_descr)
+            check_memory_error(p1)
             jump()
         """)
 
@@ -281,16 +284,17 @@ class TestBoehm(RewriteTests):
             jump()
         """, """
             []
-            p0 = call_malloc_gc(ConstClass(malloc_array),   \
+            p0 = call_r(ConstClass(malloc_array),           \
                                 %(adescr.basesize)d,        \
                                 10,                         \
                                 %(adescr.itemsize)d,        \
                                 %(adescr.lendescr.offset)d, \
                                 descr=malloc_array_descr)
+            check_memory_error(p0)
             jump()
         """)
 ##      should ideally be:
-##            p0 = call_malloc_gc(ConstClass(malloc_fixedsize), \
+##            p0 = call_r(ConstClass(malloc_fixedsize), \
 ##                                %(adescr.basesize + 10 * adescr.itemsize)d, \
 ##                                descr=malloc_fixedsize_descr)
 ##            setfield_gc(p0, 10, descr=alendescr)
@@ -302,12 +306,13 @@ class TestBoehm(RewriteTests):
             jump()
         """, """
             [i1]
-            p0 = call_malloc_gc(ConstClass(malloc_array),   \
+            p0 = call_r(ConstClass(malloc_array),   \
                                 %(adescr.basesize)d,        \
                                 i1,                         \
                                 %(adescr.itemsize)d,        \
                                 %(adescr.lendescr.offset)d, \
                                 descr=malloc_array_descr)
+            check_memory_error(p0)
             jump()
         """)
 
@@ -318,8 +323,9 @@ class TestBoehm(RewriteTests):
             jump()
         """, """
             [p1]
-            p0 = call_malloc_gc(ConstClass(malloc_fixedsize), 102, \
+            p0 = call_r(ConstClass(malloc_fixedsize), 102, \
                                 descr=malloc_fixedsize_descr)
+            check_memory_error(p0)
             gc_store(p0, 0, ConstClass(o_vtable), %(vtable_descr.field_size)s)
             jump()
         """)
@@ -331,12 +337,13 @@ class TestBoehm(RewriteTests):
             jump()
         """, """
             [i1]
-            p0 = call_malloc_gc(ConstClass(malloc_array), \
+            p0 = call_r(ConstClass(malloc_array),         \
                                 %(strdescr.basesize)d,    \
                                 i1,                       \
                                 %(strdescr.itemsize)d,    \
                                 %(strlendescr.offset)d,   \
                                 descr=malloc_array_descr)
+            check_memory_error(p0)
             jump()
         """)
 
@@ -347,16 +354,17 @@ class TestBoehm(RewriteTests):
             jump()
         """, """
             [i1]
-            p0 = call_malloc_gc(ConstClass(malloc_array),   \
+            p0 = call_r(ConstClass(malloc_array),           \
                                 %(unicodedescr.basesize)d,  \
                                 10,                         \
                                 %(unicodedescr.itemsize)d,  \
                                 %(unicodelendescr.offset)d, \
                                 descr=malloc_array_descr)
+            check_memory_error(p0)
             jump()
         """)
 ##      should ideally be:
-##            p0 = call_malloc_gc(ConstClass(malloc_fixedsize),   \
+##            p0 = call_r(ConstClass(malloc_fixedsize),           \
 ##                                %(unicodedescr.basesize +       \
 ##                                  10 * unicodedescr.itemsize)d, \
 ##                                descr=malloc_fixedsize_descr)
@@ -545,11 +553,12 @@ class TestFramework(RewriteTests):
             jump(i0)
         """, """
             [i0, p1]
-            p0 = call_malloc_gc(ConstClass(malloc_array_nonstandard), \
+            p0 = call_r(ConstClass(malloc_array_nonstandard),         \
                                 64, 8,                                \
                                 %(nonstd_descr.lendescr.offset)d,     \
                                 6464, i0,                             \
                                 descr=malloc_array_nonstandard_descr)
+            check_memory_error(p0)
             cond_call_gc_wb_array(p0, i0, descr=wbdescr)
             gc_store_indexed(p0, i0, p1, 8, 64, 8)
             jump(i0)
@@ -563,9 +572,10 @@ class TestFramework(RewriteTests):
             jump()
         """, """
             []
-            p0 = call_malloc_gc(ConstClass(malloc_array), 1,  \
+            p0 = call_r(ConstClass(malloc_array), 1,          \
                                 %(bdescr.tid)d, 103,          \
                                 descr=malloc_array_descr)
+            check_memory_error(p0)
             jump()
         """)
 
@@ -601,9 +611,10 @@ class TestFramework(RewriteTests):
             jump()
         """, """
             []
-            p0 = call_malloc_gc(ConstClass(malloc_array), 1, \
+            p0 = call_r(ConstClass(malloc_array), 1,         \
                                 %(bdescr.tid)d, 20000000,    \
                                 descr=malloc_array_descr)
+            check_memory_error(p0)
             jump()
         """)
 
@@ -628,8 +639,9 @@ class TestFramework(RewriteTests):
             jump()
         """, """
             [p1]
-            p0 = call_malloc_gc(ConstClass(malloc_big_fixedsize), 104, 9315, \
+            p0 = call_r(ConstClass(malloc_big_fixedsize), 104, 9315, \
                                 descr=malloc_big_fixedsize_descr)
+            check_memory_error(p0)
             gc_store(p0, 0,  0, %(vtable_descr.field_size)s)
             jump()
         """)

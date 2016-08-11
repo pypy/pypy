@@ -1016,7 +1016,7 @@ class BytesDictStrategy(AbstractTypedStrategy, DictStrategy):
     unerase = staticmethod(unerase)
 
     def wrap(self, unwrapped):
-        return self.space.wrapbytes(unwrapped)
+        return self.space.newbytes(unwrapped)
 
     def unwrap(self, wrapped):
         return self.space.bytes_w(wrapped)
@@ -1056,7 +1056,7 @@ class BytesDictStrategy(AbstractTypedStrategy, DictStrategy):
         return self.space.newlist_bytes(self.listview_bytes(w_dict))
 
     def wrapkey(space, key):
-        return space.wrapbytes(key)
+        return space.newbytes(key)
 
     ##@jit.look_inside_iff(lambda self, w_dict:
     ##                     w_dict_unrolling_heuristic(w_dict))

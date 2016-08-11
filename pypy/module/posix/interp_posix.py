@@ -260,7 +260,7 @@ def read(space, fd, buffersize):
     except OSError as e:
         raise wrap_oserror(space, e)
     else:
-        return space.wrapbytes(s)
+        return space.newbytes(s)
 
 @unwrap_spec(fd=c_int)
 def write(space, fd, w_data):
@@ -672,7 +672,7 @@ def _getfullpathname(space, w_path):
         else:
             path = space.str0_w(w_path)
             fullpath = rposix.getfullpathname(path)
-            w_fullpath = space.wrapbytes(fullpath)
+            w_fullpath = space.newbytes(fullpath)
     except OSError as e:
         raise wrap_oserror2(space, e, w_path)
     else:
@@ -685,7 +685,7 @@ def getcwdb(space):
     except OSError as e:
         raise wrap_oserror(space, e)
     else:
-        return space.wrapbytes(cur)
+        return space.newbytes(cur)
 
 if _WIN32:
     def getcwd(space):
@@ -762,7 +762,7 @@ def getlogin(space):
         cur = os.getlogin()
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.fsdecode(space.wrapbytes(cur))
+    return space.fsdecode(space.newbytes(cur))
 
 # ____________________________________________________________
 
@@ -818,7 +818,7 @@ if _WIN32:
 else:
     def _convertenviron(space, w_env):
         for key, value in os.environ.items():
-            space.setitem(w_env, space.wrapbytes(key), space.wrapbytes(value))
+            space.setitem(w_env, space.newbytes(key), space.newbytes(value))
 
     def putenv(space, w_name, w_value):
         """Change or add an environment variable."""
@@ -884,7 +884,7 @@ On some platforms, path may also be specified as an open file descriptor;
         if _WIN32:
             result_w[i] = space.wrap(result[i])
         else:
-            w_bytes = space.wrapbytes(result[i])
+            w_bytes = space.newbytes(result[i])
             result_w[i] = space.fsdecode(w_bytes)
     return space.newlist(result_w)
 
@@ -1168,7 +1168,7 @@ dir_fd may not be implemented on your platform.
             result = call_rposix(rposix.readlink, path)
     except OSError as e:
         raise wrap_oserror2(space, e, path.w_path)
-    w_result = space.wrapbytes(result)
+    w_result = space.newbytes(result)
     if space.isinstance_w(path.w_path, space.w_unicode):
         return space.fsdecode(w_result)
     return w_result
@@ -1515,7 +1515,7 @@ def uname(space):
         r = os.uname()
     except OSError as e:
         raise wrap_oserror(space, e)
-    l_w = [space.fsdecode(space.wrapbytes(i))
+    l_w = [space.fsdecode(space.newbytes(i))
            for i in [r[0], r[1], r[2], r[3], r[4]]]
     w_tuple = space.newtuple(l_w)
     w_uname_result = space.getattr(space.getbuiltinmodule(os.name),
@@ -1846,7 +1846,7 @@ for name in rposix.WAIT_MACROS:
 @unwrap_spec(fd=c_int)
 def ttyname(space, fd):
     try:
-        return space.fsdecode(space.wrapbytes(os.ttyname(fd)))
+        return space.fsdecode(space.newbytes(os.ttyname(fd)))
     except OSError as e:
         raise wrap_oserror(space, e)
 
@@ -2031,7 +2031,7 @@ def urandom(space, n):
     """
     context = get(space).random_context
     try:
-        return space.wrapbytes(rurandom.urandom(context, n))
+        return space.newbytes(rurandom.urandom(context, n))
     except OSError as e:
         raise wrap_oserror(space, e)
 
@@ -2040,7 +2040,7 @@ def ctermid(space):
 
     Return the name of the controlling terminal for this process.
     """
-    return space.fsdecode(space.wrapbytes(os.ctermid()))
+    return space.fsdecode(space.newbytes(os.ctermid()))
 
 @unwrap_spec(fd=c_int)
 def device_encoding(space, fd):

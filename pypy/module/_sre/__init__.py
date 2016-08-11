@@ -9,6 +9,7 @@ class Module(MixedModule):
         'CODESIZE':       'space.wrap(interp_sre.CODESIZE)',
         'MAGIC':          'space.wrap(interp_sre.MAGIC)',
         'MAXREPEAT':      'space.wrap(interp_sre.MAXREPEAT)',
+        'MAXGROUPS':      'space.wrap(interp_sre.MAXGROUPS)',
         'compile':        'interp_sre.W_SRE_Pattern',
         'getlower':       'interp_sre.w_getlower',
         'getcodesize':    'interp_sre.w_getcodesize',

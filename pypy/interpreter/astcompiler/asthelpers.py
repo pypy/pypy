@@ -152,7 +152,7 @@ class __extend__(ast.Const):
 
     def as_node_list(self, space):
         try:
-            values_w = space.unpackiterable(self.value)
+            values_w = space.unpackiterable(self.obj)
         except OperationError:
             return None
         line = self.lineno

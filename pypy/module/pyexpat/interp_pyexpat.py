@@ -589,7 +589,7 @@ getting the advantage of providing document type information to the parser.
         # Yes, supports only 8bit encodings
         translationmap = space.unicode_w(
             space.call_method(
-                space.wrapbytes(self.all_chars), "decode",
+                space.newbytes(self.all_chars), "decode",
                 space.wrap(name), space.wrap("replace")))
 
         if len(translationmap) != 256:

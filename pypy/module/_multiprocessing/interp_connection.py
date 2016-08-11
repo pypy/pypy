@@ -123,9 +123,9 @@ class W_BaseConnection(W_Root):
             space, self.BUFFER_SIZE, maxlength)
         try:
             if newbuf:
-                return space.wrapbytes(rffi.charpsize2str(newbuf, res))
+                return space.newbytes(rffi.charpsize2str(newbuf, res))
             else:
-                return space.wrapbytes(rffi.charpsize2str(self.buffer, res))
+                return space.newbytes(rffi.charpsize2str(self.buffer, res))
         finally:
             if newbuf:
                 rffi.free_charp(newbuf)
@@ -139,7 +139,7 @@ class W_BaseConnection(W_Root):
             space, length - offset, PY_SSIZE_T_MAX)
         try:
             if newbuf:
-                raise BufferTooShort(space, space.wrapbytes(
+                raise BufferTooShort(space, space.newbytes(
                     rffi.charpsize2str(newbuf, res)))
             rwbuffer.setslice(offset, rffi.charpsize2str(self.buffer, res))
         finally:
@@ -167,9 +167,9 @@ class W_BaseConnection(W_Root):
             space, self.BUFFER_SIZE, PY_SSIZE_T_MAX)
         try:
             if newbuf:
-                w_received = space.wrapbytes(rffi.charpsize2str(newbuf, res))
+                w_received = space.newbytes(rffi.charpsize2str(newbuf, res))
             else:
-                w_received = space.wrapbytes(rffi.charpsize2str(self.buffer, res))
+                w_received = space.newbytes(rffi.charpsize2str(self.buffer, res))
         finally:
             if newbuf:
                 rffi.free_charp(newbuf)

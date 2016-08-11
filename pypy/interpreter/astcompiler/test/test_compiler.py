@@ -779,9 +779,19 @@ class TestCompiler:
         py.test.raises(SyntaxError, self.simple_test, "int(base=10, '2')",
                        None, None)
 
-    def test_crap_after_starargs(self):
-        source = "call(*args, *args)"
-        py.test.raises(SyntaxError, self.simple_test, source, None, None)
+    def test_starargs_after_starargs(self):
+        #allowed since PEP 448 "Additional Unpacking Generalizations"
+        source = py.code.Source("""
+        def call(*arg):
+            ret = []
+            for i in arg:
+                ret.append(i)
+            return ret
+        
+        args = [4,5,6]
+        res = call(*args, *args)
+        """)
+        self.simple_test(source, 'res', [4,5,6,4,5,6])
 
     def test_not_a_name(self):
         source = "call(a, b, c, 3=3)"
@@ -965,7 +975,20 @@ class TestCompiler:
         """
         self.simple_test(source, 'ok', 1)
 
-    def test_remove_docstring(self):
+    @py.test.mark.parametrize('expr, result', [
+        ("f1.__doc__", None),
+        ("f2.__doc__", 'docstring'),
+        ("f2()", 'docstring'),
+        ("f3.__doc__", None),
+        ("f3()", 'bar'),
+        ("C1.__doc__", None),
+        ("C2.__doc__", 'docstring'),
+        ("C3.field", 'not docstring'),
+        ("C4.field", 'docstring'),
+        ("C4.__doc__", 'docstring'),
+        ("C4.__doc__", 'docstring'),
+        ("__doc__", None),])
+    def test_remove_docstring(self, expr, result):
         source = '"module_docstring"\n' + """if 1:
         def f1():
             'docstring'
@@ -989,19 +1012,7 @@ class TestCompiler:
         code_w.remove_docstrings(self.space)
         dict_w = self.space.newdict();
         code_w.exec_code(self.space, dict_w, dict_w)
-
-        yield self.check, dict_w, "f1.__doc__", None
-        yield self.check, dict_w, "f2.__doc__", 'docstring'
-        yield self.check, dict_w, "f2()", 'docstring'
-        yield self.check, dict_w, "f3.__doc__", None
-        yield self.check, dict_w, "f3()", 'bar'
-        yield self.check, dict_w, "C1.__doc__", None
-        yield self.check, dict_w, "C2.__doc__", 'docstring'
-        yield self.check, dict_w, "C3.field", 'not docstring'
-        yield self.check, dict_w, "C4.field", 'docstring'
-        yield self.check, dict_w, "C4.__doc__", 'docstring'
-        yield self.check, dict_w, "C4.__doc__", 'docstring'
-        yield self.check, dict_w, "__doc__", None
+        self.check(dict_w, expr, result)
 
     def test_assert_skipping(self):
         space = self.space
@@ -1064,6 +1075,13 @@ class TestCompiler:
                 return a, b, c
         """
         yield self.st, func, "f()", (1, [2, 3], 4)
+        func = """def f():
+            b = [4,5,6]
+            c = 7
+            a = [*b, c]
+            return a
+        """
+        yield self.st, func, "f()", [4, 5, 6, 7]
 
     def test_extended_unpacking_fail(self):
         exc = py.test.raises(SyntaxError, self.simple_test, "*a, *b = [1, 2]",
@@ -1073,9 +1091,6 @@ class TestCompiler:
                              "[*b, *c] = range(10)", None, None).value
         assert exc.msg == "two starred expressions in assignment"
 
-        exc = py.test.raises(SyntaxError, self.simple_test, "a = [*b, c]",
-                             None, None).value
-        assert exc.msg == "can use starred expression only as assignment target"
         exc = py.test.raises(SyntaxError, self.simple_test, "for *a in x: pass",
                              None, None).value
         assert exc.msg == "starred assignment target must be in a list or tuple"

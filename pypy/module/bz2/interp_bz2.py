@@ -295,7 +295,7 @@ class W_BZ2Compressor(W_Root):
         datasize = len(data)
 
         if datasize == 0:
-            return self.space.wrapbytes("")
+            return self.space.newbytes("")
 
         if not self.running:
             raise oefmt(self.space.w_ValueError,
@@ -320,7 +320,7 @@ class W_BZ2Compressor(W_Root):
                         out.prepare_next_chunk()
 
                 res = out.make_result_string()
-                return self.space.wrapbytes(res)
+                return self.space.newbytes(res)
 
     def flush(self):
         if not self.running:
@@ -340,7 +340,7 @@ class W_BZ2Compressor(W_Root):
                     out.prepare_next_chunk()
 
             res = out.make_result_string()
-            return self.space.wrapbytes(res)
+            return self.space.newbytes(res)
 
 W_BZ2Compressor.typedef = TypeDef("_bz2.BZ2Compressor",
     __doc__ = W_BZ2Compressor.__doc__,
@@ -417,7 +417,7 @@ class W_BZ2Decompressor(W_Root):
             raise oefmt(self.space.w_EOFError,
                         "end of stream was already found")
         if data == '':
-            return self.space.wrapbytes('')
+            return self.space.newbytes('')
 
         in_bufsize = len(data)
 
@@ -446,7 +446,7 @@ class W_BZ2Decompressor(W_Root):
                         out.prepare_next_chunk()
 
                 res = out.make_result_string()
-                return self.space.wrapbytes(res)
+                return self.space.newbytes(res)
 
 
 W_BZ2Decompressor.typedef = TypeDef("_bz2.BZ2Decompressor",

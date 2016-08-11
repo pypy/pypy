@@ -1,5 +1,6 @@
 from rpython.rtyper.lltypesystem import lltype
 from pypy.module.cpyext.test.test_api import BaseApiTest
+from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
 class TestIterator(BaseApiTest):
     def test_check(self, space, api):
@@ -12,7 +13,7 @@ class TestIterator(BaseApiTest):
         assert api.PyNumber_Check(space.wraplong(-12L))
         assert api.PyNumber_Check(space.wrap(12.1))
         assert not api.PyNumber_Check(space.wrap('12'))
-        assert not api.PyNumber_Check(space.wrap(1+3j))
+        assert api.PyNumber_Check(space.wrap(1+3j))
 
     def test_number_long(self, space, api):
         w_l = api.PyNumber_Long(space.wrap(123))
@@ -62,3 +63,16 @@ class TestIterator(BaseApiTest):
             api.PyNumber_Power(space.wrap(3), space.wrap(2), space.wrap(5)))
         assert 9 == space.unwrap(
             api.PyNumber_InPlacePower(space.wrap(3), space.wrap(2), space.w_None))
+
+
+class AppTestCNumber(AppTestCpythonExtensionBase):
+    def test_PyNumber_Check(self):
+        mod = self.import_extension('foo', [
+            ("test_PyNumber_Check", "METH_VARARGS",
+             '''
+                PyObject *obj = PyTuple_GET_ITEM(args, 0);
+                int val = PyNumber_Check(obj);
+                return PyLong_FromLong(val);
+            ''')])
+        val = mod.test_PyNumber_Check(10)
+        assert val == 1

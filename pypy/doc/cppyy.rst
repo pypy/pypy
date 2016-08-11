@@ -122,7 +122,7 @@ Then run the translation to build ``pypy-c``::
     $ hg up reflex-support         # optional
 
     # This example shows python, but using pypy-c is faster and uses less memory
-    $ python rpython/translator/goal/translate.py --opt=jit pypy/goal/targetpypystandalone --withmod-cppyy
+    $ python rpython/bin/rpython --opt=jit pypy/goal/targetpypystandalone --withmod-cppyy
 
 This will build a ``pypy-c`` that includes the cppyy module, and through that,
 Reflex support.

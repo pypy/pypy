@@ -774,7 +774,7 @@ class ListStrategy(object):
         tp = space.type(w_item)
         while i < stop and i < w_list.length():
             find_jmp.jit_merge_point(tp=tp)
-            if space.eq_w(w_list.getitem(i), w_item):
+            if space.eq_w(w_item, w_list.getitem(i)):
                 return i
             i += 1
         raise ValueError
@@ -1948,7 +1948,7 @@ class BytesListStrategy(ListStrategy):
     _none_value = None
 
     def wrap(self, stringval):
-        return self.space.wrapbytes(stringval)
+        return self.space.newbytes(stringval)
 
     def unwrap(self, w_string):
         return self.space.bytes_w(w_string)

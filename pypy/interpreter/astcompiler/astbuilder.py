@@ -4,6 +4,7 @@ from pypy.interpreter import error
 from pypy.interpreter.pyparser.pygram import syms, tokens
 from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.interpreter.pyparser import parsestring
+from rpython.rlib.objectmodel import always_inline
 
 
 def ast_from_node(space, node, compile_info):
@@ -353,7 +354,7 @@ class ASTBuilder(object):
         return ast.While(loop_test, body, otherwise, while_node.get_lineno(),
                          while_node.get_column())
 
-    def handle_for_stmt(self, for_node):
+    def handle_for_stmt(self, for_node, is_async):
         target_node = for_node.get_child(1)
         target_as_exprlist = self.handle_exprlist(target_node, ast.Store)
         if target_node.num_children() == 1:
@@ -367,8 +368,12 @@ class ASTBuilder(object):
             otherwise = self.handle_suite(for_node.get_child(8))
         else:
             otherwise = None
-        return ast.For(target, expr, body, otherwise, for_node.get_lineno(),
-                       for_node.get_column())
+        if is_async:
+            return ast.AsyncFor(target, expr, body, otherwise, for_node.get_lineno(),
+                                for_node.get_column())
+        else:
+            return ast.For(target, expr, body, otherwise, for_node.get_lineno(),
+                           for_node.get_column())
 
     def handle_except_clause(self, exc, body):
         test = None
@@ -411,25 +416,6 @@ class ASTBuilder(object):
         return ast.Try(body, handlers, otherwise, finally_suite,
                        try_node.get_lineno(), try_node.get_column())
 
-    def handle_with_stmt(self, with_node):
-        body = self.handle_suite(with_node.get_child(-1))
-        i = with_node.num_children() - 1
-        while True:
-            i -= 2
-            item = with_node.get_child(i)
-            test = self.handle_expr(item.get_child(0))
-            if item.num_children() == 3:
-                target = self.handle_expr(item.get_child(2))
-                self.set_context(target, ast.Store)
-            else:
-                target = None
-            wi = ast.With(test, target, body, with_node.get_lineno(),
-                          with_node.get_column())
-            if i == 1:
-                break
-            body = [wi]
-        return wi
-
     def handle_with_item(self, item_node):
         test = self.handle_expr(item_node.get_child(0))
         if item_node.num_children() == 3:
@@ -439,11 +425,16 @@ class ASTBuilder(object):
             target = None
         return ast.withitem(test, target)
 
-    def handle_with_stmt(self, with_node):
+    def handle_with_stmt(self, with_node, is_async):
         body = self.handle_suite(with_node.get_child(-1))
         items = [self.handle_with_item(with_node.get_child(i))
                  for i in range(1, with_node.num_children()-2, 2)]
-        return ast.With(items, body, with_node.get_lineno(), with_node.get_column())
+        if is_async:
+            return ast.AsyncWith(items, body, with_node.get_lineno(),
+                                 with_node.get_column())
+        else:
+            return ast.With(items, body, with_node.get_lineno(),
+                            with_node.get_column())
 
     def handle_classdef(self, classdef_node, decorators=None):
         name_node = classdef_node.get_child(1)
@@ -475,7 +466,7 @@ class ASTBuilder(object):
             return [self.handle_expr(bases_node.get_child(0))]
         return self.get_expression_list(bases_node)
 
-    def handle_funcdef(self, funcdef_node, decorators=None):
+    def handle_funcdef_impl(self, funcdef_node, is_async, decorators=None):
         name_node = funcdef_node.get_child(1)
         name = self.new_identifier(name_node.get_value())
         self.check_forbidden_name(name, name_node)
@@ -486,8 +477,29 @@ class ASTBuilder(object):
             returns = self.handle_expr(funcdef_node.get_child(4))
             suite += 2
         body = self.handle_suite(funcdef_node.get_child(suite))
-        return ast.FunctionDef(name, args, body, decorators, returns,
-                               funcdef_node.get_lineno(), funcdef_node.get_column())
+        if is_async:
+            return ast.AsyncFunctionDef(name, args, body, decorators, returns,
+                                        funcdef_node.get_lineno(), funcdef_node.get_column())
+        else:
+            return ast.FunctionDef(name, args, body, decorators, returns,
+                                   funcdef_node.get_lineno(), funcdef_node.get_column())
+
+    def handle_async_funcdef(self, node, decorators=None):
+        return self.handle_funcdef_impl(node.get_child(1), 1, decorators)
+    
+    def handle_funcdef(self, node, decorators=None):
+        return self.handle_funcdef_impl(node, 0, decorators)
+    
+    def handle_async_stmt(self, node):
+        ch = node.get_child(1)
+        if ch.type == syms.funcdef:
+            return self.handle_funcdef_impl(ch, 1)
+        elif ch.type == syms.with_stmt:
+            return self.handle_with_stmt(ch, 1)
+        elif ch.type == syms.for_stmt:
+            return self.handle_for_stmt(ch, 1)
+        else:
+            raise AssertionError("invalid async statement")
 
     def handle_decorated(self, decorated_node):
         decorators = self.handle_decorators(decorated_node.get_child(0))
@@ -496,6 +508,8 @@ class ASTBuilder(object):
             node = self.handle_funcdef(definition, decorators)
         elif definition.type == syms.classdef:
             node = self.handle_classdef(definition, decorators)
+        elif definition.type == syms.async_funcdef:
+            node = self.handle_async_funcdef(definition, decorators)
         else:
             raise AssertionError("unkown decorated")
         node.lineno = decorated_node.get_lineno()
@@ -694,17 +708,19 @@ class ASTBuilder(object):
             elif stmt_type == syms.while_stmt:
                 return self.handle_while_stmt(stmt)
             elif stmt_type == syms.for_stmt:
-                return self.handle_for_stmt(stmt)
+                return self.handle_for_stmt(stmt, 0)
             elif stmt_type == syms.try_stmt:
                 return self.handle_try_stmt(stmt)
             elif stmt_type == syms.with_stmt:
-                return self.handle_with_stmt(stmt)
+                return self.handle_with_stmt(stmt, 0)
             elif stmt_type == syms.funcdef:
                 return self.handle_funcdef(stmt)
             elif stmt_type == syms.classdef:
                 return self.handle_classdef(stmt)
             elif stmt_type == syms.decorated:
                 return self.handle_decorated(stmt)
+            elif stmt_type == syms.async_stmt:
+                return self.handle_async_stmt(stmt)
             else:
                 raise AssertionError("unhandled compound statement")
         else:
@@ -923,18 +939,35 @@ class ASTBuilder(object):
             raise AssertionError("invalid factor node")
         return ast.UnaryOp(op, expr, factor_node.get_lineno(), factor_node.get_column())
 
-    def handle_power(self, power_node):
-        atom_expr = self.handle_atom(power_node.get_child(0))
-        if power_node.num_children() == 1:
+    def handle_atom_expr(self, atom_node):
+        start = 0
+        num_ch = atom_node.num_children()
+        if atom_node.get_child(0).type == tokens.AWAIT:
+            start = 1
+        atom_expr = self.handle_atom(atom_node.get_child(start))
+        if num_ch == 1:
             return atom_expr
-        for i in range(1, power_node.num_children()):
-            trailer = power_node.get_child(i)
+        if start and num_ch == 2:
+            return ast.Await(atom_expr, atom_node.get_lineno(),
+                             atom_node.get_column())
+        for i in range(start+1, num_ch):
+            trailer = atom_node.get_child(i)
             if trailer.type != syms.trailer:
                 break
             tmp_atom_expr = self.handle_trailer(trailer, atom_expr)
             tmp_atom_expr.lineno = atom_expr.lineno
             tmp_atom_expr.col_offset = atom_expr.col_offset
             atom_expr = tmp_atom_expr
+        if start:
+            return ast.Await(atom_expr, atom_node.get_lineno(),
+                             atom_node.get_column())
+        else:
+            return atom_expr
+    
+    def handle_power(self, power_node):
+        atom_expr = self.handle_atom_expr(power_node.get_child(0))
+        if power_node.num_children() == 1:
+            return atom_expr
         if power_node.get_child(-1).type == syms.factor:
             right = self.handle_expr(power_node.get_child(-1))
             atom_expr = ast.BinOp(atom_expr, ast.Pow, right, power_node.get_lineno(),
@@ -1137,6 +1170,7 @@ class ASTBuilder(object):
                 raise
             return self.space.call_function(self.space.w_float, w_num_str)
 
+    @always_inline
     def handle_dictelement(self, node, i):
         if node.get_child(i).type == tokens.DOUBLESTAR:
             key = None
@@ -1146,7 +1180,7 @@ class ASTBuilder(object):
             key = self.handle_expr(node.get_child(i))
             value = self.handle_expr(node.get_child(i+2))
             i += 3
-        return [i,key,value]
+        return (i,key,value)
     
     def handle_atom(self, atom_node):
         first_child = atom_node.get_child(0)
@@ -1342,10 +1376,7 @@ class ASTBuilder(object):
                            set_maker.get_column())
 
     def handle_dictcomp(self, dict_maker):
-        dictelement = self.handle_dictelement(dict_maker, 0)
-        i = dictelement[0]
-        key = dictelement[1]
-        value = dictelement[2]
+        i, key, value = self.handle_dictelement(dict_maker, 0)
         comps = self.comprehension_helper(dict_maker.get_child(i))
         return ast.DictComp(key, value, comps, dict_maker.get_lineno(),
                             dict_maker.get_column())
@@ -1355,10 +1386,9 @@ class ASTBuilder(object):
         values = []
         i = 0
         while i < node.num_children():
-            dictelement = self.handle_dictelement(node, i)
-            i = dictelement[0]
-            keys.append(dictelement[1])
-            values.append(dictelement[2])
+            i, key, value = self.handle_dictelement(node, i)
+            keys.append(key)
+            values.append(value)
             i += 1
         return ast.Dict(keys, values, node.get_lineno(), node.get_column())
     

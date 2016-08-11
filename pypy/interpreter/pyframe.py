@@ -240,7 +240,10 @@ class PyFrame(W_Root):
 
     def run(self):
         """Start this frame's execution."""
-        if self.getcode().co_flags & pycode.CO_GENERATOR:
+        if self.getcode().co_flags & pycode.CO_COROUTINE:
+            from pypy.interpreter.generator import Coroutine
+            return self.space.wrap(Coroutine(self))
+        elif self.getcode().co_flags & pycode.CO_GENERATOR:
             from pypy.interpreter.generator import GeneratorIterator
             return self.space.wrap(GeneratorIterator(self))
         else:

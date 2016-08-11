@@ -363,10 +363,11 @@ class JSONDecoder(object):
         hexdigits = self.getslice(start, i)
         try:
             val = int(hexdigits, 16)
-            if val & 0xfc00 == 0xd800:
+            if sys.maxunicode > 65535 and 0xd800 <= val <= 0xdfff:
                 # surrogate pair
-                val = self.decode_surrogate_pair(i, val)
-                i += 6
+                if self.ll_chars[i] == '\\' and self.ll_chars[i+1] == 'u':
+                    val = self.decode_surrogate_pair(i, val)
+                    i += 6
         except ValueError:
             self._raise("Invalid \uXXXX escape (char %d)", i-1)
             return # help the annotator to know that we'll never go beyond
@@ -378,8 +379,9 @@ class JSONDecoder(object):
         return i
 
     def decode_surrogate_pair(self, i, highsurr):
-        if self.ll_chars[i] != '\\' or self.ll_chars[i+1] != 'u':
-            self._raise("Unpaired high surrogate at char %d", i)
+        """ uppon enter the following must hold:
+              chars[i] == "\\" and chars[i+1] == "u"
+        """
         i += 2
         hexdigits = self.getslice(i, i+4)
         lowsurr = int(hexdigits, 16) # the possible ValueError is caugth by the caller

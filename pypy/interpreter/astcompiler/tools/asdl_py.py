@@ -130,7 +130,7 @@ class ASTNodeVisitor(ASDLVisitor):
             if field.opt:
                 wrapper += " if %s is not None else space.w_None" % (value,)
             return wrapper
-        elif field.type in ("object", "string"):
+        elif field.type in ("object", "singleton", "string", "bytes"):
             return value
         elif field.type in ("int", "bool"):
             return "space.wrap(%s)" % (value,)
@@ -145,9 +145,9 @@ class ASTNodeVisitor(ASDLVisitor):
     def get_value_extractor(self, field, value):
         if field.type in self.data.simple_types:
             return "%s.from_object(space, %s)" % (field.type, value)
-        elif field.type in ("object",):
+        elif field.type in ("object","singleton"):
             return value
-        elif field.type in ("string",):
+        elif field.type in ("string","bytes"):
             return "check_string(space, %s)" % (value,)
         elif field.type in ("identifier",):
             if field.opt:
@@ -422,7 +422,7 @@ def check_string(space, w_obj):
     if not (space.isinstance_w(w_obj, space.w_str) or
             space.isinstance_w(w_obj, space.w_unicode)):
         raise oefmt(space.w_TypeError,
-                   "AST string must be of type str or unicode")
+                    "AST string must be of type str or unicode")
     return w_obj
 
 def get_field(space, w_node, name, optional):

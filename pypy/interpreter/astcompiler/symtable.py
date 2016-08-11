@@ -88,6 +88,16 @@ class Scope(object):
         """Called when a yield is found."""
         raise SyntaxError("'yield' outside function", yield_node.lineno,
                           yield_node.col_offset)
+    
+    def note_yieldFrom(self, yieldFrom_node):
+        """Called when a yield from is found."""
+        raise SyntaxError("'yield' outside function", yieldFrom_node.lineno,
+                          yieldFrom_node.col_offset)
+    
+    def note_await(self, await_node):
+        """Called when await is found."""
+        raise SyntaxError("'await' outside function", await_node.lineno,
+                          await_node.col_offset)
 
     def note_return(self, ret):
         """Called when a return statement is found."""
@@ -224,6 +234,10 @@ class ModuleScope(Scope):
     def __init__(self):
         Scope.__init__(self, "top")
 
+    def note_await(self, await_node):
+        raise SyntaxError("'await' outside async function", await_node.lineno,
+                          await_node.col_offset)
+
 
 class FunctionScope(Scope):
 
@@ -249,6 +263,15 @@ class FunctionScope(Scope):
         self.is_generator = True
         if self._in_try_body_depth > 0:
             self.has_yield_inside_try = True
+    
+    def note_yieldFrom(self, yield_node):
+        self.is_generator = True
+        if self._in_try_body_depth > 0:
+            self.has_yield_inside_try = True
+            
+    def note_await(self, await_node):
+        raise SyntaxError("'await' outside async function", await_node.lineno,
+                          await_node.col_offset)
 
     def note_return(self, ret):
         if ret.value:
@@ -281,6 +304,22 @@ class FunctionScope(Scope):
     def _check_optimization(self):
         if (self.has_free or self.child_has_free) and not self.optimized:
             raise AssertionError("unknown reason for unoptimization")
+
+class AsyncFunctionScope(FunctionScope):
+
+    def __init__(self, name, lineno, col_offset):
+        FunctionScope.__init__(self, name, lineno, col_offset)
+
+    def note_yield(self, yield_node):
+        raise SyntaxError("'yield' inside async function", yield_node.lineno,
+                          yield_node.col_offset)
+
+    def note_yieldFrom(self, yield_node):
+        raise SyntaxError("'yield from' inside async function", yield_node.lineno,
+                          yield_node.col_offset)
+        
+    def note_await(self, await_node):
+        pass
 
 
 class ClassScope(Scope):
@@ -373,6 +412,25 @@ class SymtableBuilder(ast.GenericASTVisitor):
         func.args.walkabout(self)
         self.visit_sequence(func.body)
         self.pop_scope()
+    
+    def visit_AsyncFunctionDef(self, func):
+        self.note_symbol(func.name, SYM_ASSIGNED)
+        # Function defaults and decorators happen in the outer scope.
+        args = func.args
+        assert isinstance(args, ast.arguments)
+        self.visit_sequence(args.defaults)
+        self.visit_kwonlydefaults(args.kw_defaults)
+        self._visit_annotations(func)
+        self.visit_sequence(func.decorator_list)
+        new_scope = AsyncFunctionScope(func.name, func.lineno, func.col_offset)
+        self.push_scope(new_scope, func)
+        func.args.walkabout(self)
+        self.visit_sequence(func.body)
+        self.pop_scope()
+    
+    def visit_Await(self, aw):
+        self.scope.note_await(aw)
+        ast.GenericASTVisitor.visit_Await(self, aw)
 
     def visit_Return(self, ret):
         self.scope.note_return(ret)
@@ -424,7 +482,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
         ast.GenericASTVisitor.visit_Yield(self, yie)
 
     def visit_YieldFrom(self, yfr):
-        self.scope.note_yield(yfr)
+        self.scope.note_yieldFrom(yfr)
         ast.GenericASTVisitor.visit_YieldFrom(self, yfr)
 
     def visit_Global(self, glob):
@@ -507,6 +565,13 @@ class SymtableBuilder(ast.GenericASTVisitor):
         witem.context_expr.walkabout(self)
         if witem.optional_vars:
             witem.optional_vars.walkabout(self)
+    
+    def visit_AsyncWith(self, aw):
+        self.scope.new_temporary_name()
+        self.visit_sequence(aw.items)
+        self.scope.note_try_start(aw)
+        self.visit_sequence(aw.body)
+        self.scope.note_try_end(aw)
 
     def visit_arguments(self, arguments):
         scope = self.scope

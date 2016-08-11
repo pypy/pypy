@@ -22,15 +22,6 @@ class TestPyPyTests:
         assert len(failed) == 2
         assert "app_test_something" in passed[0].nodeid
         assert "test_method_app" in passed[1].nodeid
-
-    def test_runappdirect(self, testdir):
-        sorter = testdir.inline_run(innertest, '-m', 'applevel -docstring',
-                                    '--runappdirect')
-        passed, skipped, failed = sorter.listoutcomes()
-        assert len(passed) == 4
-        print passed
-        assert "app_test_something" in passed[0].nodeid
-        assert "test_method_app" in passed[1].nodeid
         
     def test_docstring_in_methods(self, testdir): 
         sorter = testdir.inline_run("-k", "AppTestSomething and test_code_in_docstring",

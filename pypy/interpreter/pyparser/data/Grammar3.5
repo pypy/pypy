@@ -21,10 +21,9 @@ eval_input: testlist NEWLINE* ENDMARKER
 
 decorator: '@' dotted_name [ '(' [arglist] ')' ] NEWLINE
 decorators: decorator+
-decorated: decorators (classdef | funcdef)
-# | async_funcdef)
+decorated: decorators (classdef | funcdef | async_funcdef)
 
-# async_funcdef: ASYNC funcdef
+async_funcdef: ASYNC funcdef
 funcdef: 'def' NAME parameters ['->' test] ':' suite
 
 parameters: '(' [typedargslist] ')'
@@ -69,9 +68,8 @@ global_stmt: 'global' NAME (',' NAME)*
 nonlocal_stmt: 'nonlocal' NAME (',' NAME)*
 assert_stmt: 'assert' test [',' test]
 
-compound_stmt: if_stmt | while_stmt | for_stmt | try_stmt | with_stmt | funcdef | classdef | decorated
-# | async_stmt
-# async_stmt: ASYNC (funcdef | with_stmt | for_stmt)
+compound_stmt: if_stmt | while_stmt | for_stmt | try_stmt | with_stmt | funcdef | classdef | decorated | async_stmt
+async_stmt: ASYNC (funcdef | with_stmt | for_stmt)
 if_stmt: 'if' test ':' suite ('elif' test ':' suite)* ['else' ':' suite]
 while_stmt: 'while' test ':' suite ['else' ':' suite]
 for_stmt: 'for' exprlist 'in' testlist ':' suite ['else' ':' suite]
@@ -105,9 +103,8 @@ shift_expr: arith_expr (('<<'|'>>') arith_expr)*
 arith_expr: term (('+'|'-') term)*
 term: factor (('*'|'@'|'/'|'%'|'//') factor)*
 factor: ('+'|'-'|'~') factor | power
-# power: atom_expr ['**' factor]
-power: atom trailer* ['**' factor]
-# atom_expr: [AWAIT] atom trailer*
+power: atom_expr ['**' factor]
+atom_expr: [AWAIT] atom trailer*
 atom: ('(' [yield_expr|testlist_comp] ')' |
        '[' [testlist_comp] ']' |
        '{' [dictorsetmaker] '}' |
@@ -119,8 +116,6 @@ subscript: test | [test] ':' [test] [sliceop]
 sliceop: ':' [test]
 exprlist: (expr|star_expr) (',' (expr|star_expr))* [',']
 testlist: test (',' test)* [',']
-#dictorsetmaker: ( (test ':' test (comp_for | (',' test ':' test)* [','])) |
-#                  (test (comp_for | (',' test)* [','])) )
 dictorsetmaker: ( ((test ':' test | '**' expr)
                    (comp_for | (',' (test ':' test | '**' expr))* [','])) |
                   ((test | star_expr)
@@ -128,9 +123,6 @@ dictorsetmaker: ( ((test ':' test | '**' expr)
 
 classdef: 'class' NAME ['(' [arglist] ')'] ':' suite
 
-#arglist: (argument ',')* (argument [',']
-#                         |'*' test (',' argument)* [',' '**' test] 
-#                         |'**' test)
 arglist: argument (',' argument)*  [',']
 
 # The reason that keywords are test nodes instead of NAME is that using NAME
@@ -142,7 +134,6 @@ arglist: argument (',' argument)*  [',']
 # Illegal combinations and orderings are blocked in ast.c:
 # multiple (test comp_for) arguements are blocked; keyword unpackings
 # that precede iterable unpackings are blocked; etc.
-#argument: test [comp_for] | test '=' test  # Really [keyword '='] test
 argument: ( test [comp_for] |
             test '=' test |
             '**' test |

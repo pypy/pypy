@@ -1,6 +1,7 @@
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter.error import OperationError
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib import rdynload
 import sys
 
 _WIN = sys.platform == 'win32'
@@ -18,6 +19,7 @@ class Module(MixedModule):
         self.defaultencoding = "utf-8"
         self.filesystemencoding = None
         self.debug = True
+        self.dlopenflags = rdynload._dlopen_default_mode()
 
     interpleveldefs = {
         '__name__'              : '(space.wrap("sys"))',
@@ -79,6 +81,8 @@ class Module(MixedModule):
         'int_info'              : 'system.get_int_info(space)',
         'hash_info'             : 'system.get_hash_info(space)',
         'float_repr_style'      : 'system.get_float_repr_style(space)',
+        'getdlopenflags'        : 'system.getdlopenflags',
+        'setdlopenflags'        : 'system.setdlopenflags',
         }
 
     if sys.platform == 'win32':

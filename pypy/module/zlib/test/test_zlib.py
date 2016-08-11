@@ -23,9 +23,9 @@ class AppTestZlib(object):
         """
         cls.w_zlib = cls.space.getbuiltinmodule('zlib')
         expanded = b'some bytes which will be compressed'
-        cls.w_expanded = cls.space.wrapbytes(expanded)
-        cls.w_compressed = cls.space.wrapbytes(zlib.compress(expanded))
-        cls.w_LICENSE = cls.space.wrapbytes(
+        cls.w_expanded = cls.space.newbytes(expanded)
+        cls.w_compressed = cls.space.newbytes(zlib.compress(expanded))
+        cls.w_LICENSE = cls.space.newbytes(
             py.path.local(pypy.__file__).dirpath().dirpath()
             .join('LICENSE').read())
 

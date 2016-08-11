@@ -40,7 +40,7 @@ def create_builder(name, strtype, builder_cls):
             s = self.builder.build()
             self.builder = None
             if strtype is str:
-                return space.wrapbytes(s)
+                return space.newbytes(s)
             else:
                 return space.wrap(s)
 

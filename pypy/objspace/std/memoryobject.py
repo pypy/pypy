@@ -70,7 +70,7 @@ class W_MemoryView(W_Root):
 
     def descr_tobytes(self, space):
         self._check_released(space)
-        return space.wrapbytes(self.as_str())
+        return space.newbytes(self.as_str())
 
     def descr_tolist(self, space):
         self._check_released(space)
@@ -195,6 +195,42 @@ class W_MemoryView(W_Root):
                    "is internally %r" % (self.buf,))
             raise OperationError(space.w_ValueError, space.wrap(msg))
         return space.wrap(rffi.cast(lltype.Signed, ptr))
+    
+    def get_native_fmtchar(self, fmt):
+        from rpython.rtyper.lltypesystem import rffi
+        size = -1
+        if fmt[0] == '@':
+            f = fmt[1]
+        else:
+            f = fmt[0]
+        if f == 'c' or f == 'b' or f == 'B':
+            size = rffi.sizeof(rffi.CHAR)
+        elif f == 'h' or f == 'H':
+            size = rffi.sizeof(rffi.SHORT)
+        elif f == 'i' or f == 'I':
+            size = rffi.sizeof(rffi.INT)
+        elif f == 'l' or f == 'L':
+            size = rffi.sizeof(rffi.LONG)
+        elif f == 'q' or f == 'Q':
+            size = rffi.sizeof(rffi.LONGLONG)
+        elif f == 'n' or f == 'N':
+            size = rffi.sizeof(rffi.SIZE_T)
+        elif f == 'f':
+            size = rffi.sizeof(rffi.FLOAT)
+        elif f == 'd':
+            size = rffi.sizeof(rffi.DOUBLE)
+        elif f == '?':
+            size = rffi.sizeof(rffi.CHAR)
+        elif f == 'P':
+            size = rffi.sizeof(rffi.VOIDP)
+        return size
+
+    def descr_cast(self, space, w_format, w_shape=None):
+        # XXX fixme. does not do anything near cpython (see memoryobjet.c memory_cast)
+        self._check_released(space)
+        fmt = space.str_w(w_format)
+        newitemsize = self.get_native_fmtchar(fmt)
+        return W_MemoryView(self.buf, fmt, newitemsize)
 
 
 W_MemoryView.typedef = TypeDef(
@@ -213,6 +249,7 @@ Create a new memoryview object which references the given object.
     __enter__   = interp2app(W_MemoryView.descr_enter),
     __exit__    = interp2app(W_MemoryView.descr_exit),
     __weakref__ = make_weakref_descr(W_MemoryView),
+    cast        = interp2app(W_MemoryView.descr_cast),
     tobytes     = interp2app(W_MemoryView.descr_tobytes),
     tolist      = interp2app(W_MemoryView.descr_tolist),
     release     = interp2app(W_MemoryView.descr_release),

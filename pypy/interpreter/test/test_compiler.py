@@ -612,6 +612,24 @@ def test():
         space.exec_(code, w_d, w_d)
         w_res = space.getitem(w_d, space.wrap('res'))
         assert space.eq_w(w_res, space.wrap("var"))
+    
+    def test_yield_from(self):
+        space = self.space
+        snippet = str(py.code.Source(r'''
+            def f():
+                def generator2():
+                    yield 8
+                def generator():
+                    yield from generator2()
+                return next(generator())
+            res = f()
+        '''))
+        code = self.compiler.compile(snippet, '<tmp>', 'exec', 0)
+        space = self.space
+        w_d = space.newdict()
+        space.exec_(code, w_d, w_d)
+        w_res = space.getitem(w_d, space.wrap('res'))
+        assert space.eq_w(w_res, space.wrap(8))
 
     def test_dont_inherit_flag(self):
         # this test checks that compile() don't inherit the __future__ flags
