@@ -83,18 +83,19 @@ def emit_residual_call(funcgen, call_code, v_result, expr_result):
         return call_code   # a hack for ll_call_destructor() to mean
                            # that the calls should really be done
     #
-    # hack: we don't need the flag for at least this common function
-    if call_code == 'RPyGilAcquire();':
-        return 'RPY_REVDB_CALL_GILCTRL(%s);' % (call_code,)
-    if call_code == 'RPyGilRelease();':
+    if call_code in ('RPyGilAcquire();', 'RPyGilRelease();'):
         # Could also work with a regular RPY_REVDB_CALL_VOID, but we
-        # use a different byte (0xFD instead of 0xFC) to detect more
-        # sync misses.  In a single-threaded environment this 0xFD
+        # use a different byte (0xFD, 0xFE instead of 0xFC) to detect more
+        # sync misses.  In a single-threaded environment this 0xFD or 0xFE
         # byte is not needed at all, but in a multi-threaded
         # environment it ensures that during replaying, just after
-        # reading the 0xFD, we switch to a different thread if needed
+        # reading the 0xFD or 0xFE, we switch to a different thread if needed
         # (actually implemented with stacklets).
-        return 'RPY_REVDB_CALL_GIL(%s);' % (call_code,)
+        if call_code == 'RPyGilAcquire();':
+            byte = '0xFD'
+        else:
+            byte = '0xFE'
+        return 'RPY_REVDB_CALL_GIL(%s, %s);' % (call_code, byte)
     #
     tp = funcgen.lltypename(v_result)
     if tp == 'void @':

@@ -15,7 +15,7 @@ typedef struct {
 # error "explicit RPY_RDB_REPLAY: not really supported"
 #endif
     bool_t watch_enabled;
-    long lock;
+    int lock;
     char *buf_p, *buf_limit, *buf_readend;
     uint64_t stop_point_seen, stop_point_break;
     uint64_t unique_id_seen, unique_id_break;
@@ -23,7 +23,7 @@ typedef struct {
 
 RPY_EXTERN rpy_revdb_t rpy_revdb;
 RPY_EXTERN int rpy_rev_fileno;
-RPY_EXTERN __thread bool_t rpy_active_thread;
+RPY_EXTERN __thread int rpy_active_thread;
 
 
 /* ------------------------------------------------------------ */
@@ -66,11 +66,15 @@ RPY_EXTERN void seeing_uid(uint64_t uid);
 /* Acquire/release the lock around EMIT_RECORD, because it may be
    called without holding the GIL.  Note that we're always
    single-threaded during replaying: the lock is only useful during
-   recording. */
+   recording.  
+
+   Implementation trick: use 'a >= b' to mean 'a || !b' (the two
+   variables can only take the values 0 or 1).
+*/
 #define _RPY_REVDB_LOCK()                                               \
     {                                                                   \
-        bool_t _lock_contention = pypy_lock_test_and_set(&rpy_revdb.lock, 1); \
-        if (_lock_contention || !rpy_active_thread)                     \
+        int _lock_contention = pypy_lock_test_and_set(&rpy_revdb.lock, 1); \
+        if (_lock_contention >= rpy_active_thread)                      \
             rpy_reverse_db_lock_acquire(_lock_contention);              \
     }
 #define _RPY_REVDB_UNLOCK()                                             \
@@ -143,17 +147,17 @@ RPY_EXTERN void seeing_uid(uint64_t uid);
             rpy_reverse_db_invoke_callback(_re);                        \
     }
 
-#define RPY_REVDB_CALL_GIL(call_code)                                   \
+#define RPY_REVDB_CALL_GIL(call_code, byte)                             \
     if (!RPY_RDB_REPLAY) {                                              \
         call_code                                                       \
         _RPY_REVDB_LOCK();                                              \
-        _RPY_REVDB_EMIT_RECORD_L(unsigned char _e, 0xFD)                \
+        _RPY_REVDB_EMIT_RECORD_L(unsigned char _e, byte)                \
         _RPY_REVDB_UNLOCK();                                            \
     }                                                                   \
     else {                                                              \
         unsigned char _re;                                              \
         _RPY_REVDB_EMIT_REPLAY(unsigned char _e, _re)                   \
-        if (_re != 0xFD)                                                \
+        if (_re != byte)                                                \
             rpy_reverse_db_bad_acquire_gil();                           \
     }
 

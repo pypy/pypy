@@ -41,34 +41,40 @@ class TestThreadRecording(BaseRecordingTests):
         th_B = rdb.switch_thread()
         assert th_B != th_A
         b = rdb.next('!h'); assert 300 <= b < 310   # "callback": start thread
+        rdb.gil_acquire()
         rdb.gil_release()
 
         rdb.switch_thread(th_A)
         rdb.same_stack()      # start_new_thread returns
         x = rdb.next(); assert x == th_B    # result is the 'th_B' id
+        rdb.gil_acquire()
         rdb.gil_release()
 
         rdb.switch_thread(th_B)
-        rdb.same_stack()      # sleep()
+        rdb.same_stack()      # sleep() (finishes here)
         rdb.next('i')         # sleep()
+        rdb.gil_acquire()
         rdb.write_call("BB\n")
         rdb.gil_release()
 
         rdb.switch_thread(th_A)
         rdb.same_stack()      # sleep()
         rdb.next('i')         # sleep()
+        rdb.gil_acquire()
         rdb.write_call("AAAA\n")
         rdb.gil_release()
 
         rdb.switch_thread(th_B)
         rdb.same_stack()      # sleep()
         rdb.next('i')         # sleep()
+        rdb.gil_acquire()
         rdb.write_call("BBB\n")
         rdb.gil_release()
 
         rdb.switch_thread(th_A)
         rdb.same_stack()      # sleep()
         rdb.next('i')         # sleep()
+        rdb.gil_acquire()
         rdb.write_call("AAAA\n")
         rdb.done()
 

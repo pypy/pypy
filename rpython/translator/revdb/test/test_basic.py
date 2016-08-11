@@ -95,12 +95,16 @@ class RDB(object):
         x = self.next(); assert x == len(expected_string)
         self.same_stack()   # errno
         x = self.next('i'); assert x == 0      # errno
+        self.gil_acquire()
 
     def same_stack(self):
         x = self.next('c'); assert x == '\xFC'
 
-    def gil_release(self):
+    def gil_acquire(self):
         x = self.next('c'); assert x == '\xFD'
+
+    def gil_release(self):
+        x = self.next('c'); assert x == '\xFE'
 
     def switch_thread(self, expected=None):
         th, = self.special_packet(ASYNC_THREAD_SWITCH, 'q')

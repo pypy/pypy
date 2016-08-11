@@ -57,8 +57,8 @@ rpy_revdb_t rpy_revdb;
 static char rpy_rev_buffer[16384];    /* max. 32768 */
 int rpy_rev_fileno = -1;
 static char flag_io_disabled = FID_REGULAR_MODE;
-__thread bool_t rpy_active_thread;
-static bool_t *rpy_active_thread_ptr;
+__thread int rpy_active_thread;
+static int *rpy_active_thread_ptr;
 
 
 static void setup_record_mode(int argc, char *argv[]);
@@ -1680,7 +1680,8 @@ void rpy_reverse_db_invoke_callback(unsigned char e)
 RPY_EXTERN
 void rpy_reverse_db_bad_acquire_gil(void)
 {
-    fprintf(stderr, "out of sync: unexpected byte in log (at acquire_gil)\n");
+    fprintf(stderr, "out of sync: unexpected byte in log "
+                    " (at acquire_gil or release_gil)\n");
     exit(1);
 }
 
