@@ -44,9 +44,10 @@
 
 typedef struct {
     Signed version;
-    uint64_t reserved1, reserved2;
+    uint64_t main_thread_id;
+    uint64_t reserved2;
     void *ptr1, *ptr2;
-    int reversed3;
+    int reserved3;
     int argc;
     char **argv;
 } rdb_header_t;
@@ -130,8 +131,7 @@ static void reverse_db_lock_and_flush(void)
     _RPY_REVDB_UNLOCK();
 }
 
-RPY_EXTERN
-void rpy_reverse_db_teardown(void)
+static void reverse_db_teardown(void)
 {
     uint64_t stop_points;
     if (!RPY_RDB_REPLAY) {
@@ -237,6 +237,7 @@ static void setup_record_mode(int argc, char *argv[])
         h.ptr2 = &rpy_revdb;
         h.argc = argc;
         h.argv = argv;
+        h.main_thread_id = (uint64_t)pthread_self();
         write_all((const char *)&h, sizeof(h));
 
         /* write the whole content of rpy_rdb_struct */
@@ -254,7 +255,7 @@ static void setup_record_mode(int argc, char *argv[])
     rpy_revdb.buf_limit = rpy_rev_buffer + sizeof(rpy_rev_buffer) - 32;
     rpy_revdb.unique_id_seen = 1;
 
-    rpy_active_thread = 0;  /* write an ASYNC_THREAD_SWITCH first in the log */
+    rpy_active_thread = 1;
     rpy_active_thread_ptr = &rpy_active_thread;
 
     pthread_atfork(NULL, NULL, close_revdb_fileno_in_fork_child);
@@ -625,6 +626,7 @@ void rpy_reverse_db_callback_loc(int locnum)
 */
 
 #include "src-revdb/fd_recv.c"
+#include "src/stacklet/stacklet.c"   /* for replaying threads */
 
 #define INIT_VERSION_NUMBER   0xd80100
 
@@ -657,6 +659,148 @@ static int last_recorded_breakpoint_nums[RECORD_BKPT_NUM];
 static char breakpoint_mode = 'i';
 static uint64_t *future_ids, *future_next_id;
 static void *finalizer_tree, *destructor_tree;
+
+static stacklet_thread_handle st_thread;
+static stacklet_handle st_outer_controller_h;
+static uint64_t current_thread_id, target_thread_id;
+static void *thread_tree_root;
+
+
+struct replay_thread_main_s {
+    Signed (*entry_point)(Signed, char **);
+    int argc;
+    char **argv;
+};
+struct replay_thread_s {
+    uint64_t tid;
+    stacklet_handle h;
+};
+
+static stacklet_handle replay_thread_main(stacklet_handle h, void *arg)
+{
+    /* main thread starts */
+    struct replay_thread_main_s *m = arg;
+    st_outer_controller_h = h;
+    m->entry_point(m->argc, m->argv);
+
+    /* main thread finished, program stops */
+    reverse_db_teardown();
+
+    /* unreachable */
+    abort();
+}
+
+static void replay_invoke_callback(unsigned char e);
+
+static stacklet_handle replay_thread_sub(stacklet_handle h, void *ignored)
+{
+    /* A non-main thread starts.  What is does is invoke a "callback",
+       which is the argument passed to rthread.ll_start_new_thread().
+       We get it here because the first thing stored in the log about
+       this thread should be a callback identifier.
+    */
+    unsigned char e1;
+    st_outer_controller_h = h;
+
+    if (rpy_revdb.buf_limit >= rpy_revdb.buf_p)
+        rpy_reverse_db_fetch(__FILE__, __LINE__);
+
+    _RPY_REVDB_EMIT_REPLAY(unsigned char _e, e1)
+    replay_invoke_callback(e1);
+
+    /* the thread finishes here.  Return to the outer controller. */
+    return st_outer_controller_h;
+}
+
+static int compare_replay_thread(const void *a, const void *b)
+{
+    uint64_t ta = ((const struct replay_thread_s *)a)->tid;
+    uint64_t tb = ((const struct replay_thread_s *)b)->tid;
+    if (ta < tb)
+        return -1;
+    if (ta == tb)
+        return 0;
+    else
+        return 1;
+}
+
+RPY_EXTERN
+int rpy_reverse_db_main(Signed entry_point(Signed, char**),
+                        int argc, char **argv)
+{
+    if (!RPY_RDB_REPLAY) {
+        int exitcode = (int)entry_point(argc, argv);
+        reverse_db_teardown();
+        return exitcode;
+    }
+    else {
+        /* start the entry point inside a new stacklet, so that we
+           can switch it away at any point later */
+        struct replay_thread_main_s m;
+        stacklet_handle h;
+        m.entry_point = entry_point;
+        m.argc = argc;
+        m.argv = argv;
+        h = stacklet_new(st_thread, replay_thread_main, &m);
+
+        /* We reach this point only if we start a second thread.  This
+           is done by revdb_switch_thread(), which switches back to
+           'st_outer_controller_h'.  This is the outer controller
+           loop.
+        */
+        attach_gdb();
+        while (1) {
+            struct replay_thread_s *node, **item, dummy;
+
+            if (h == NULL)
+                goto out_of_memory;
+
+            if (h != EMPTY_STACKLET_HANDLE) {
+                /* save 'h' as the stacklet handle for the thread
+                   'current_thread_id' */
+                node = malloc(sizeof(struct replay_thread_s));
+                if (!node)
+                    goto out_of_memory;
+                node->tid = current_thread_id;
+                node->h = h;
+                item = tsearch(node, &thread_tree_root, compare_replay_thread);
+                if (item == NULL)
+                    goto out_of_memory;
+
+                if (*item != node) {
+                    fprintf(stderr, "thread switch: duplicate thread\n");
+                    exit(1);
+                }
+            }
+            else {
+                /* current_thread_id terminated */
+            }
+
+            /* fetch out (and delete) the handle for the target thread */
+            current_thread_id = target_thread_id;
+            dummy.tid = target_thread_id;
+            item = tfind(&dummy, &thread_tree_root, compare_replay_thread);
+            if (item == NULL) {
+                /* it's a new thread, start it now */
+                h = stacklet_new(st_thread, replay_thread_sub, NULL);
+            }
+            else {
+                node = *item;
+                assert(node->tid == target_thread_id);
+                h = node->h;
+                tdelete(node, &thread_tree_root, compare_replay_thread);
+                free(node);
+
+                h = stacklet_switch(h);
+            }
+        }
+        abort(); /* unreachable */
+
+    out_of_memory:
+        fprintf(stderr, "thread switch: out of memory\n");
+        exit(1);
+    }
+}
 
 RPY_EXTERN
 void attach_gdb(void)
@@ -796,6 +940,7 @@ static void setup_replay_mode(int *argc_p, char **argv_p[])
                 (long)h.version, (long)RDB_VERSION);
         exit(1);
     }
+    current_thread_id = h.main_thread_id;
     if (h.ptr1 != &rpy_reverse_db_stop_point ||
         h.ptr2 != &rpy_revdb) {
         fprintf(stderr,
@@ -833,6 +978,7 @@ static void setup_replay_mode(int *argc_p, char **argv_p[])
     set_revdb_breakpoints();
 
     empty_string = make_rpy_string(0);
+    st_thread = stacklet_newthread();  /* replaying doesn't use real threads */
 
     write_answer(ANSWER_INIT, INIT_VERSION_NUMBER, total_stop_points, 0);
 
@@ -887,8 +1033,6 @@ void rpy_reverse_db_fetch(const char *file, int line)
             fprintf(stderr, "bad log format: incomplete packet\n");
             exit(1);
         }
-
-     read_next_packet:
         keep = rpy_revdb.buf_readend - rpy_revdb.buf_p;
         assert(keep >= 0);
 
@@ -923,8 +1067,13 @@ void rpy_reverse_db_fetch(const char *file, int line)
                 return;
 
             case ASYNC_THREAD_SWITCH:
-                fetch_async_block();
-                goto read_next_packet;
+                target_thread_id = fetch_async_block();
+                _RPY_REVDB_PRINT("[THRD]", target_thread_id);
+                rpy_revdb.buf_limit = rpy_revdb.buf_p;
+                st_outer_controller_h = stacklet_switch(st_outer_controller_h);
+                if (rpy_revdb.buf_limit == rpy_revdb.buf_p)
+                    rpy_reverse_db_fetch(__FILE__, __LINE__);
+                return;
 
             default:
                 fprintf(stderr, "bad packet header %d\n", (int)header);
@@ -1157,7 +1306,6 @@ static void command_future_ids(rpy_revdb_command_t *cmd, char *extra)
         memcpy(future_ids, extra, cmd->extra_size);
         future_ids[cmd->extra_size / sizeof(uint64_t)] = 0;
         uid_break = *future_ids;
-        //attach_gdb();
     }
     future_next_id = future_ids;
 }
@@ -1501,6 +1649,22 @@ static void *callbacklocs[] = {
     RPY_CALLBACKLOCS     /* macro from revdb_def.h */
 };
 
+static void replay_invoke_callback(unsigned char e)
+{
+    unsigned long index;
+    unsigned char e2;
+    void (*pfn)(void);
+    _RPY_REVDB_EMIT_REPLAY(unsigned char _e, e2)
+    index = (e << 8) | e2;
+    index -= 300;
+    if (index >= (sizeof(callbacklocs) / sizeof(callbacklocs[0]))) {
+        fprintf(stderr, "bad callback index %lx\n", index);
+        exit(1);
+    }
+    pfn = callbacklocs[index];
+    pfn();
+}
+
 RPY_EXTERN
 void rpy_reverse_db_invoke_callback(unsigned char e)
 {
@@ -1509,19 +1673,7 @@ void rpy_reverse_db_invoke_callback(unsigned char e)
        callback identifier. */
 
     do {
-        unsigned long index;
-        unsigned char e2;
-        void (*pfn)(void);
-        _RPY_REVDB_EMIT_REPLAY(unsigned char _e, e2)
-        index = (e << 8) | e2;
-        index -= 300;
-        if (index >= (sizeof(callbacklocs) / sizeof(callbacklocs[0]))) {
-            fprintf(stderr, "bad callback index\n");
-            exit(1);
-        }
-        pfn = callbacklocs[index];
-        pfn();
-
+        replay_invoke_callback(e);
         _RPY_REVDB_EMIT_REPLAY(unsigned char _e, e)
     } while (e != 0xFC);
 }

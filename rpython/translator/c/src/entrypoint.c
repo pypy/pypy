@@ -101,10 +101,10 @@ int pypy_main_function(int argc, char *argv[])
 
     RPython_StartupCode();
 
+#ifndef RPY_REVERSE_DEBUGGER
     exitcode = STANDALONE_ENTRY_POINT(argc, argv);
-
-#ifdef RPY_REVERSE_DEBUGGER
-    rpy_reverse_db_teardown();
+#else
+    exitcode = rpy_reverse_db_main(STANDALONE_ENTRY_POINT, argc, argv);
 #endif
 
     pypy_debug_alloc_results();

@@ -63,19 +63,19 @@ class TestRecording(BaseRecordingTests):
         self.compile(main, backendopt=False)
         out = self.run('Xx')
         rdb = self.fetch_rdb([self.exename, 'Xx'])
+        rdb.gil_release()
         rdb.same_stack()                        # callmesimple()
         x = rdb.next('i'); assert x == 55555
-        rdb.gil_acquire()
         rdb.write_call('55555\n')
+        rdb.gil_release()
         b = rdb.next('!h'); assert 300 <= b < 310  # -> callback
         x = rdb.next('i'); assert x == 40       # arg n
-        rdb.gil_acquire()
+        rdb.gil_release()
         x = rdb.next('!h'); assert x == b       # -> callback
         x = rdb.next('i'); assert x == 3        # arg n
-        rdb.gil_acquire()
+        rdb.gil_release()
         rdb.same_stack()                        # <- return in main thread
         x = rdb.next('i'); assert x == 4000 * 300   # return from callme()
-        rdb.gil_acquire()
         rdb.write_call('%s\n' % (4000 * 300,))
         x = rdb.next('q'); assert x == 0      # number of stop points
         assert rdb.done()
@@ -85,17 +85,17 @@ class TestRecording(BaseRecordingTests):
         self.compile(main, backendopt=False)
         out = self.run('Xx')
         rdb = self.fetch_rdb([self.exename, 'Xx'])
+        rdb.gil_release()
         b = rdb.next('!h'); assert 300 <= b < 310  # -> callback
         x = rdb.next('i'); assert x == 40       # arg n
-        rdb.gil_acquire()
         rdb.write_call('40\n')
+        rdb.gil_release()
         x = rdb.next('!h'); assert x == b       # -> callback again
         x = rdb.next('i'); assert x == 3        # arg n
-        rdb.gil_acquire()
         rdb.write_call('3\n')
+        rdb.gil_release()
         rdb.same_stack()                        # -> return in main thread
         x = rdb.next('i'); assert x == 120      # <- return from callme()
-        rdb.gil_acquire()
         rdb.write_call('120\n')
         x = rdb.next('q'); assert x == 2        # number of stop points
         assert rdb.done()

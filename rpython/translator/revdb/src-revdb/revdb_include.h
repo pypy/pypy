@@ -29,7 +29,8 @@ RPY_EXTERN __thread bool_t rpy_active_thread;
 /* ------------------------------------------------------------ */
 
 RPY_EXTERN void rpy_reverse_db_setup(int *argc_p, char **argv_p[]);
-RPY_EXTERN void rpy_reverse_db_teardown(void);
+RPY_EXTERN int rpy_reverse_db_main(Signed entry_point(Signed, char**),
+                                   int argc, char **argv);
 
 /* enable to print locations to stderr of all the EMITs */
 #ifdef RPY_REVDB_PRINT_ALL
@@ -92,7 +93,7 @@ RPY_EXTERN void seeing_uid(uint64_t uid);
             char *_end1 = _src + sizeof(_e);                            \
             memcpy(&_e, _src, sizeof(_e));                              \
             rpy_revdb.buf_p = _end1;                                    \
-            _RPY_REVDB_PRINT("[read]", _e);                             \
+            _RPY_REVDB_PRINT("[ rd ]", _e);                             \
             if (_end1 >= rpy_revdb.buf_limit)                           \
                 rpy_reverse_db_fetch(__FILE__, __LINE__);               \
             variable = _e;                                              \

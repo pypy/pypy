@@ -25,7 +25,7 @@ class RDB(object):
         assert header == 'RevDB:\t' + '\t'.join(expected_argv) + '\n\x00'
         #
         x = self.read1('P'); assert x == 0x00FF0003
-        x = self.read1('P'); assert x == 0
+        x = self.read1('P'); self.main_thread_id = x
         x = self.read1('P'); assert x == 0
         x = self.read1('P'); #assert x == &rpy_reverse_db_stop_point
         x = self.read1('P'); #assert x == &rpy_revdb
@@ -33,7 +33,6 @@ class RDB(object):
         self.argc = self.read1('i')
         self.argv = self.read1('P')
         self.current_packet_end = self.cur
-        self.main_thread_id = self.switch_thread()
         self.read_check_argv(expected_argv)
 
     def read1(self, mode):
@@ -91,16 +90,16 @@ class RDB(object):
 
     def write_call(self, expected_string):
         x = self.next()     # raw_malloc: the pointer we got
+        self.gil_release()
         self.same_stack()   # write
         x = self.next(); assert x == len(expected_string)
         self.same_stack()   # errno
         x = self.next('i'); assert x == 0      # errno
-        self.gil_acquire()
 
     def same_stack(self):
         x = self.next('c'); assert x == '\xFC'
 
-    def gil_acquire(self):
+    def gil_release(self):
         x = self.next('c'); assert x == '\xFD'
 
     def switch_thread(self, expected=None):
