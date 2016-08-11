@@ -53,18 +53,6 @@ def get_func_desc(space, func):
     else:
         return " object";
 
-@always_inline
-def list_unpack_helper(frame, itemcount):
-    space = frame.space
-    w_sum = space.newlist([], sizehint=itemcount)
-    for i in range(itemcount, 0, -1):
-        w_item = frame.peekvalue(i-1)
-        w_sum.extend(w_item)
-    while itemcount != 0:
-        frame.popvalue()
-        itemcount -= 1
-    return w_sum
-
 
 opcodedesc = bytecode_spec.opcodedesc
 HAVE_ARGUMENT = bytecode_spec.HAVE_ARGUMENT
@@ -1388,13 +1376,26 @@ class __extend__(pyframe.PyFrame):
             itemcount -= 1
         self.pushvalue(w_sum)
 
+    @jit.unroll_safe
+    def list_unpack_helper(frame, itemcount):
+        space = frame.space
+        w_sum = space.newlist([], sizehint=itemcount)
+        for i in range(itemcount, 0, -1):
+            w_item = frame.peekvalue(i-1)
+            w_sum.extend(w_item)
+        while itemcount != 0:
+            frame.popvalue()
+            itemcount -= 1
+        return w_sum
+
+
     def BUILD_TUPLE_UNPACK(self, itemcount, next_instr):
-        w_list = list_unpack_helper(self, itemcount)
+        w_list = self.list_unpack_helper(itemcount)
         items = [w_obj for w_obj in w_list.getitems_unroll()]
         self.pushvalue(self.space.newtuple(items))
 
     def BUILD_LIST_UNPACK(self, itemcount, next_instr):
-        w_sum = list_unpack_helper(self, itemcount)
+        w_sum = self.list_unpack_helper(itemcount)
         self.pushvalue(w_sum)
 
     def BUILD_MAP_UNPACK_WITH_CALL(self, itemcount, next_instr):
