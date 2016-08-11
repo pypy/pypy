@@ -203,6 +203,7 @@ class TestRecording(BaseRecordingTests):
                 assert time == i + 1
                 y = intmask(rdb.next('q')); assert y == -1
                 triggered = True
+            rdb.gil_release()
             rdb.same_stack()
             j = rdb.next()
             assert j == i + 1000000 * triggered
@@ -215,6 +216,7 @@ class TestRecording(BaseRecordingTests):
                     assert uid > 0 and uid not in uid_seen
                     uid_seen.add(uid)
                     lst.append(uid)
+                rdb.gil_release()
                 rdb.same_stack()
                 totals.append((lst, intmask(rdb.next())))
         x = rdb.next('q'); assert x == 3000    # number of stop points
