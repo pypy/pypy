@@ -263,7 +263,7 @@ class InteractiveTests(object):
         s1, s2 = socket.socketpair()
         subproc = subprocess.Popen(
             [str(self.exename), '--revdb-replay', str(self.rdbname),
-             str(s2.fileno())], **kwds)
+             str(s2.fileno())], preexec_fn=s1.close, **kwds)
         s2.close()
         self.subproc = subproc
         child = ReplayProcess(subproc.pid, s1)

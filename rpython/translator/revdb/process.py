@@ -228,7 +228,7 @@ class ReplayProcessGroup(object):
         s1, s2 = socket.socketpair()
         initial_subproc = subprocess.Popen(
             [executable, '--revdb-replay', revdb_log_filename,
-             str(s2.fileno())])
+             str(s2.fileno())], preexec_fn=s1.close)
         s2.close()
         child = ReplayProcess(initial_subproc.pid, s1,
                               linecacheoutput=linecacheoutput)
