@@ -56,7 +56,7 @@ translation_modules.update([
 ])
 
 reverse_debugger_disable_modules = set([
-    "thread", "_continuation", "_vmprof", "_multiprocessing",
+    "_continuation", "_vmprof", "_multiprocessing",
     ])
 
 # XXX this should move somewhere else, maybe to platform ("is this posixish"
