@@ -748,7 +748,6 @@ int rpy_reverse_db_main(Signed entry_point(Signed, char**),
            'st_outer_controller_h'.  This is the outer controller
            loop.
         */
-        attach_gdb();
         while (1) {
             struct replay_thread_s *node, **item, dummy;
 
