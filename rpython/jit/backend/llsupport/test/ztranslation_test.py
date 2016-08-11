@@ -3,7 +3,7 @@ from rpython.tool.udir import udir
 from rpython.rlib.jit import JitDriver, unroll_parameters, set_param
 from rpython.rlib.jit import PARAMETERS, dont_look_inside
 from rpython.rlib.jit import promote, _get_virtualizable_token
-from rpython.rlib import jit_hooks, rposix
+from rpython.rlib import jit_hooks, rposix, rgc
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rthread import ThreadLocalReference, ThreadLocalField
 from rpython.jit.backend.detect_cpu import getcpuclass
@@ -11,7 +11,7 @@ from rpython.jit.backend.test.support import CCompiledMixin
 from rpython.jit.codewriter.policy import StopAtXPolicy
 from rpython.config.config import ConfigError
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi, rstr
 from rpython.rlib.rjitlog import rjitlog as jl
 
 
@@ -29,6 +29,7 @@ class TranslationTest(CCompiledMixin):
         # - floats neg and abs
         # - cast_int_to_float
         # - llexternal with macro=True
+        # - extra place for the zero after STR instances
 
         class BasicFrame(object):
             _virtualizable_ = ['i']
@@ -56,7 +57,7 @@ class TranslationTest(CCompiledMixin):
             return ("/home.py",0,0)
 
         jitdriver = JitDriver(greens = [],
-                              reds = ['total', 'frame', 'j'],
+                              reds = ['total', 'frame', 'prev_s', 'j'],
                               virtualizables = ['frame'],
                               get_location = get_location)
         def f(i, j):
@@ -68,9 +69,12 @@ class TranslationTest(CCompiledMixin):
             total = 0
             frame = Frame(i)
             j = float(j)
+            prev_s = rstr.mallocstr(16)
             while frame.i > 3:
-                jitdriver.can_enter_jit(frame=frame, total=total, j=j)
-                jitdriver.jit_merge_point(frame=frame, total=total, j=j)
+                jitdriver.can_enter_jit(frame=frame, total=total, j=j,
+                                        prev_s=prev_s)
+                jitdriver.jit_merge_point(frame=frame, total=total, j=j,
+                                          prev_s=prev_s)
                 _get_virtualizable_token(frame)
                 total += frame.i
                 if frame.i >= 20:
@@ -82,6 +86,11 @@ class TranslationTest(CCompiledMixin):
                 k = myabs1(myabs2(j))
                 if k - abs(j):  raise ValueError
                 if k - abs(-j): raise ValueError
+                s = rstr.mallocstr(16)
+                rgc.ll_write_final_null_char(s)
+                rgc.ll_write_final_null_char(prev_s)
+                if (frame.i & 3) == 0:
+                    prev_s = s
             return chr(total % 253)
         #
         class Virt2(object):

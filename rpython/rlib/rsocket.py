@@ -846,69 +846,97 @@ class RSocket(object):
         if res < 0:
             raise self.error_handler()
 
+    def wait_for_data(self, for_writing):
+        timeout = self._select(for_writing)
+        if timeout != 0:
+            if timeout == 1:
+                raise SocketTimeout
+            else:
+                raise self.error_handler()
+
     def recv(self, buffersize, flags=0):
         """Receive up to buffersize bytes from the socket.  For the optional
         flags argument, see the Unix manual.  When no data is available, block
         until at least one byte is available or until the remote end is closed.
         When the remote end is closed and all data is read, return the empty
         string."""
-        timeout = self._select(False)
-        if timeout == 1:
-            raise SocketTimeout
-        elif timeout == 0:
-            with rffi.scoped_alloc_buffer(buffersize) as buf:
-                read_bytes = _c.socketrecv(self.fd,
-                                           rffi.cast(rffi.VOIDP, buf.raw),
-                                           buffersize, flags)
-                if read_bytes >= 0:
-                    return buf.str(read_bytes)
+        self.wait_for_data(False)
+        with rffi.scoped_alloc_buffer(buffersize) as buf:
+            read_bytes = _c.socketrecv(self.fd, buf.raw, buffersize, flags)
+            if read_bytes >= 0:
+                return buf.str(read_bytes)
         raise self.error_handler()
 
     def recvinto(self, rwbuffer, nbytes, flags=0):
-        buf = self.recv(nbytes, flags)
-        rwbuffer.setslice(0, buf)
-        return len(buf)
+        try:
+            rwbuffer.get_raw_address()
+        except ValueError:
+            buf = self.recv(nbytes, flags)
+            rwbuffer.setslice(0, buf)
+            return len(buf)
+        else:
+            self.wait_for_data(False)
+            raw = rwbuffer.get_raw_address()
+            read_bytes = _c.socketrecv(self.fd, raw, nbytes, flags)
+            keepalive_until_here(rwbuffer)
+            if read_bytes >= 0:
+                return read_bytes
+            raise self.error_handler()
 
     @jit.dont_look_inside
     def recvfrom(self, buffersize, flags=0):
         """Like recv(buffersize, flags) but also return the sender's
         address."""
-        read_bytes = -1
-        timeout = self._select(False)
-        if timeout == 1:
-            raise SocketTimeout
-        elif timeout == 0:
-            with rffi.scoped_alloc_buffer(buffersize) as buf:
-                address, addr_p, addrlen_p = self._addrbuf()
-                try:
-                    read_bytes = _c.recvfrom(self.fd, buf.raw, buffersize, flags,
-                                             addr_p, addrlen_p)
-                    addrlen = rffi.cast(lltype.Signed, addrlen_p[0])
-                finally:
-                    lltype.free(addrlen_p, flavor='raw')
-                    address.unlock()
-                if read_bytes >= 0:
-                    if addrlen:
-                        address.addrlen = addrlen
-                    else:
-                        address = None
-                    data = buf.str(read_bytes)
-                    return (data, address)
+        self.wait_for_data(False)
+        with rffi.scoped_alloc_buffer(buffersize) as buf:
+            address, addr_p, addrlen_p = self._addrbuf()
+            try:
+                read_bytes = _c.recvfrom(self.fd, buf.raw, buffersize, flags,
+                                         addr_p, addrlen_p)
+                addrlen = rffi.cast(lltype.Signed, addrlen_p[0])
+            finally:
+                lltype.free(addrlen_p, flavor='raw')
+                address.unlock()
+            if read_bytes >= 0:
+                if addrlen:
+                    address.addrlen = addrlen
+                else:
+                    address = None
+                data = buf.str(read_bytes)
+                return (data, address)
         raise self.error_handler()
 
     def recvfrom_into(self, rwbuffer, nbytes, flags=0):
-        buf, addr = self.recvfrom(nbytes, flags)
-        rwbuffer.setslice(0, buf)
-        return len(buf), addr
+        try:
+            rwbuffer.get_raw_address()
+        except ValueError:
+            buf, addr = self.recvfrom(nbytes, flags)
+            rwbuffer.setslice(0, buf)
+            return len(buf), addr
+        else:
+            self.wait_for_data(False)
+            address, addr_p, addrlen_p = self._addrbuf()
+            try:
+                raw = rwbuffer.get_raw_address()
+                read_bytes = _c.recvfrom(self.fd, raw, nbytes, flags,
+                                         addr_p, addrlen_p)
+                keepalive_until_here(rwbuffer)
+                addrlen = rffi.cast(lltype.Signed, addrlen_p[0])
+            finally:
+                lltype.free(addrlen_p, flavor='raw')
+                address.unlock()
+            if read_bytes >= 0:
+                if addrlen:
+                    address.addrlen = addrlen
+                else:
+                    address = None
+                return (read_bytes, address)
+            raise self.error_handler()
 
     def send_raw(self, dataptr, length, flags=0):
         """Send data from a CCHARP buffer."""
-        res = -1
-        timeout = self._select(True)
-        if timeout == 1:
-            raise SocketTimeout
-        elif timeout == 0:
-            res = _c.send(self.fd, dataptr, length, flags)
+        self.wait_for_data(True)
+        res = _c.send(self.fd, dataptr, length, flags)
         if res < 0:
             raise self.error_handler()
         return res
@@ -942,15 +970,11 @@ class RSocket(object):
     def sendto(self, data, flags, address):
         """Like send(data, flags) but allows specifying the destination
         address.  (Note that 'flags' is mandatory here.)"""
-        res = -1
-        timeout = self._select(True)
-        if timeout == 1:
-            raise SocketTimeout
-        elif timeout == 0:
-            addr = address.lock()
-            res = _c.sendto(self.fd, data, len(data), flags,
-                            addr, address.addrlen)
-            address.unlock()
+        self.wait_for_data(True)
+        addr = address.lock()
+        res = _c.sendto(self.fd, data, len(data), flags,
+                        addr, address.addrlen)
+        address.unlock()
         if res < 0:
             raise self.error_handler()
         return res

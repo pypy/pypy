@@ -1453,6 +1453,25 @@ class MIFrame(object):
             metainterp.history.record(rop.VIRTUAL_REF_FINISH,
                                       [vrefbox, nullbox], None)
 
+    @arguments("int", "box")
+    def opimpl_rvmprof_code(self, leaving, box_unique_id):
+        from rpython.rlib.rvmprof import cintf
+        cintf.jit_rvmprof_code(leaving, box_unique_id.getint())
+
+    def handle_rvmprof_enter_on_resume(self):
+        code = self.bytecode
+        position = self.pc
+        opcode = ord(code[position])
+        if opcode == self.metainterp.staticdata.op_rvmprof_code:
+            arg1 = self.registers_i[ord(code[position + 1])].getint()
+            arg2 = self.registers_i[ord(code[position + 2])].getint()
+            if arg1 == 1:
+                # we are resuming at a position that will do a
+                # jit_rvmprof_code(1), when really executed.  That's a
+                # hint for the need for a jit_rvmprof_code(0).
+                from rpython.rlib.rvmprof import cintf
+                cintf.jit_rvmprof_code(0, arg2)
+
     # ------------------------------
 
     def setup_call(self, argboxes):
@@ -1804,6 +1823,7 @@ class MetaInterpStaticData(object):
             opimpl = _get_opimpl_method(name, argcodes)
             self.opcode_implementations[value] = opimpl
         self.op_catch_exception = insns.get('catch_exception/L', -1)
+        self.op_rvmprof_code = insns.get('rvmprof_code/ii', -1)
 
     def setup_descrs(self, descrs):
         self.opcode_descrs = descrs
@@ -2071,6 +2091,15 @@ class MetaInterp(object):
                     target = ord(code[position+1]) | (ord(code[position+2])<<8)
                     frame.pc = target
                     raise ChangeFrame
+                if opcode == self.staticdata.op_rvmprof_code:
+                    # call the 'jit_rvmprof_code(1)' for rvmprof, but then
+                    # continue popping frames.  Decode the 'rvmprof_code' insn
+                    # manually here.
+                    from rpython.rlib.rvmprof import cintf
+                    arg1 = frame.registers_i[ord(code[position + 1])].getint()
+                    arg2 = frame.registers_i[ord(code[position + 2])].getint()
+                    assert arg1 == 1
+                    cintf.jit_rvmprof_code(arg1, arg2)
             self.popframe()
         try:
             self.compile_exit_frame_with_exception(self.last_exc_box)

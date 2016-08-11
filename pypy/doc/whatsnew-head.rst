@@ -105,3 +105,26 @@ Resolve issues to use the new logging facility on a 32bit system
 .. branch: ep2016sprint
 
 Trying harder to make hash(-1) return -2, like it does on CPython
+
+.. branch: jitlog-exact-source-lines
+
+Log exact line positions in debug merge points.
+
+.. branch: null_byte_after_str
+
+Allocate all RPython strings with one extra byte, normally unused.
+It is used to hold a final zero in case we need some ``char *``
+representation of the string, together with checks like ``not
+can_move()`` or object pinning. Main new thing that this allows:
+``ffi.from_buffer(string)`` in CFFI.  Additionally, and most
+importantly, CFFI calls that take directly a string as argument don't
+copy the string any more---this is like CFFI on CPython.
+
+.. branch: resource_warning
+
+Add a new command line option -X track-resources which will produce
+ResourceWarnings when the GC closes unclosed files and sockets.
+
+.. branch: cpyext-realloc
+
+Implement PyObject_Realloc

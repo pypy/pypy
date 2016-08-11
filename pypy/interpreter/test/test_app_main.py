@@ -209,6 +209,13 @@ class TestParseCommandLine:
         self.check(['-c', 'pass'], {'PYTHONNOUSERSITE': '1'}, sys_argv=['-c'],
                    run_command='pass', **expected)
 
+    def test_track_resources(self, monkeypatch):
+        myflag = [False]
+        def pypy_set_track_resources(flag):
+            myflag[0] = flag
+        monkeypatch.setattr(sys, 'pypy_set_track_resources', pypy_set_track_resources, raising=False)
+        self.check(['-X', 'track-resources'], {}, sys_argv=[''], run_stdin=True)
+        assert myflag[0] == True
 
 class TestInteraction:
     """
@@ -1152,4 +1159,3 @@ class AppTestAppMain:
             # assert it did not crash
         finally:
             sys.path[:] = old_sys_path
-

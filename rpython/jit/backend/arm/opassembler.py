@@ -883,6 +883,7 @@ class ResOpAssembler(BaseAssembler):
             ofs_items, itemsize, _ = symbolic.get_array_token(rstr.STR,
                                               self.cpu.translate_support_code)
             assert itemsize == 1
+            ofs_items -= 1     # for the extra null character
             scale = 0
         self._gen_address(resloc, baseloc, ofsloc, scale, ofs_items)
 
