@@ -92,6 +92,9 @@ def current_place():
 def breakpoint(num):
     llop.revdb_breakpoint(lltype.Void, num)
 
+def set_thread_breakpoint(tnum):
+    llop.revdb_set_thread_breakpoint(lltype.Void, tnum)
+
 @specialize.argtype(0)
 def get_unique_id(x):
     """Returns the creation number of the object 'x'.  For objects created

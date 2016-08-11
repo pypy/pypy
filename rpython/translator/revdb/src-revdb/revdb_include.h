@@ -227,6 +227,9 @@ RPY_EXTERN void seeing_uid(uint64_t uid);
    we'll just return the UID. */
 #define RPY_REVDB_CAST_PTR_TO_INT(obj)   (((struct pypy_header0 *)obj)->h_uid)
 
+#define OP_REVDB_SET_THREAD_BREAKPOINT(tnum, r)                         \
+    rpy_reverse_db_set_thread_breakpoint(tnum)
+
 
 RPY_EXTERN void rpy_reverse_db_flush(void);  /* must be called with the lock */
 RPY_EXTERN void rpy_reverse_db_fetch(const char *file, int line);
@@ -249,5 +252,6 @@ RPY_EXTERN void rpy_reverse_db_invoke_callback(unsigned char);
 RPY_EXTERN void rpy_reverse_db_callback_loc(int);
 RPY_EXTERN void rpy_reverse_db_lock_acquire(bool_t lock_contention);
 RPY_EXTERN void rpy_reverse_db_bad_acquire_gil(void);
+RPY_EXTERN void rpy_reverse_db_set_thread_breakpoint(int64_t tnum);
 
 /* ------------------------------------------------------------ */

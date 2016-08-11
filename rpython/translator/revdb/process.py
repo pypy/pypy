@@ -31,15 +31,17 @@ class AllBreakpoints(object):
         self.watchuids = {}    # {small number: [uid...]}
         self.stack_id = 0      # breaks when leaving/entering a frame from/to
                                # the frame identified by 'stack_id'
+        self.thread_num = -1   # breaks when leaving/entering the thread_num
 
     def __repr__(self):
-        return 'AllBreakpoints(%r, %r, %r, %r)' % (
+        return 'AllBreakpoints(%r, %r, %r, %r, %r)' % (
             self.num2break, self.watchvalues, self.watchuids,
-            self.stack_id)
+            self.stack_id, self.thread_num)
 
     def compare(self, other):
         if (self.num2break == other.num2break and
-            self.stack_id == other.stack_id):
+            self.stack_id == other.stack_id and
+            self.thread_num == other.thread_num):
             if self.watchvalues == other.watchvalues:
                 return 2     # completely equal
             else:
@@ -48,12 +50,14 @@ class AllBreakpoints(object):
             return 0     # different
 
     def is_empty(self):
-        return len(self.num2break) == 0 and self.stack_id == 0
+        return (len(self.num2break) == 0 and self.stack_id == 0
+                                         and self.thread_num == -1)
 
     def duplicate(self):
         a = AllBreakpoints()
         a.num2break.update(self.num2break)
         a.stack_id = self.stack_id
+        a.thread_num = self.thread_num
         return a
 
 
@@ -392,8 +396,9 @@ class ReplayProcessGroup(object):
         if cmp == 0:
             flat = [num2break.get(n, '\x00') for n in range(N)]
             arg1 = self.all_breakpoints.stack_id
+            arg2 = self.all_breakpoints.thread_num
             extra = ''.join(flat)
-            self.active.send(Message(CMD_BREAKPOINTS, arg1, extra=extra))
+            self.active.send(Message(CMD_BREAKPOINTS, arg1, arg2, extra=extra))
             self.active.expect_ready()
         else:
             assert cmp == 1

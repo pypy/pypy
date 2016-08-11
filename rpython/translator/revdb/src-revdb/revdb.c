@@ -663,7 +663,7 @@ static void *finalizer_tree, *destructor_tree;
 static stacklet_thread_handle st_thread;
 static stacklet_handle st_outer_controller_h;
 static uint64_t current_thread_id, target_thread_id;
-static uint64_t current_thread_num, next_thread_num;
+static uint64_t current_thread_num, next_thread_num, break_thread_num;
 static void *thread_tree_root;
 
 
@@ -724,6 +724,13 @@ static int compare_replay_thread(const void *a, const void *b)
         return 0;
     else
         return 1;
+}
+
+static void set_current_thread_num(uint64_t tnum)
+{
+    if (break_thread_num == current_thread_num || break_thread_num == tnum)
+        rpy_reverse_db_breakpoint(-4);
+    current_thread_num = tnum;
 }
 
 RPY_EXTERN
@@ -797,7 +804,7 @@ int rpy_reverse_db_main(Signed entry_point(Signed, char**),
             item = tfind(&dummy, &thread_tree_root, compare_replay_thread);
             if (item == NULL) {
                 /* it's a new thread, start it now */
-                current_thread_num = next_thread_num++;
+                set_current_thread_num(next_thread_num++);
                 if (real_tloc != NULL)
                     memset(((char *)real_tloc) + RPY_TLOFSFIRST, 0,
                            sizeof(struct pypy_threadlocal_s) - RPY_TLOFSFIRST);
@@ -806,7 +813,7 @@ int rpy_reverse_db_main(Signed entry_point(Signed, char**),
             else {
                 node = *item;
                 assert(node->tid == target_thread_id);
-                current_thread_num = node->tnum;
+                set_current_thread_num(node->tnum);
                 h = node->h;
                 tdelete(node, &thread_tree_root, compare_replay_thread);
                 if (real_tloc != NULL)
@@ -965,6 +972,7 @@ static void setup_replay_mode(int *argc_p, char **argv_p[])
     current_thread_id = h.main_thread_id;
     current_thread_num = 0;
     next_thread_num = 1;
+    break_thread_num = (uint64_t)-1;
     if (h.ptr1 != &rpy_reverse_db_stop_point ||
         h.ptr2 != &rpy_revdb) {
         fprintf(stderr,
@@ -1711,6 +1719,12 @@ void rpy_reverse_db_bad_acquire_gil(void)
     fprintf(stderr, "out of sync: unexpected byte in log "
                     " (at acquire_gil or release_gil)\n");
     exit(1);
+}
+
+RPY_EXTERN
+void rpy_reverse_db_set_thread_breakpoint(int64_t tnum)
+{
+    break_thread_num = (uint64_t)tnum;
 }
 
 

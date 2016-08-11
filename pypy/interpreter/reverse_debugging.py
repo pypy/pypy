@@ -479,6 +479,7 @@ lambda_locals = lambda: command_locals
 def command_breakpoints(cmd, extra):
     space = dbstate.space
     dbstate.breakpoint_stack_id = cmd.c_arg1
+    revdb.set_thread_breakpoint(cmd.c_arg2)
     funcnames = None
     watch_progs = []
     with non_standard_code:

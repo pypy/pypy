@@ -45,7 +45,7 @@ class RevDebugControl(object):
                 if self.pgroup.get_current_thread() != previous_thread:
                     previous_thread = self.pgroup.get_current_thread()
                     if previous_thread == 0:
-                        print ('-------------------- in the main thread '
+                        print ('-------------------- in main thread #0 '
                                '--------------------')
                     else:
                         print ('-------------------- in non-main thread '
@@ -147,6 +147,9 @@ class RevDebugControl(object):
         elif num == -3:
             kind = 'stoppoint'
             name = 'explicit stop'
+        elif num == -4:
+            kind = 'switchpoint'
+            name = 'thread switch'
         else:
             kind = '?????point'
             name = repr(break_at)
@@ -245,6 +248,17 @@ class RevDebugControl(object):
         finally:
             b.stack_id = 0
 
+    @contextmanager
+    def _thread_num_break(self, thread_num):
+        # add temporarily a breakpoint that hits when we enter/leave
+        # the given thread
+        b = self.pgroup.edit_breakpoints()
+        b.thread_num = thread_num
+        try:
+            yield
+        finally:
+            b.thread_num = -1
+
     def command_next(self, argument):
         """Run forward for one step, skipping calls"""
         while True:
@@ -308,7 +322,7 @@ class RevDebugControl(object):
         """Run forward until the current function finishes"""
         stack_id = self.pgroup.get_stack_id(is_parent=True)
         if stack_id == 0:
-            print 'No stack.'
+            print 'No caller.'
         else:
             with self._stack_id_break(stack_id):
                 self.command_continue('')
@@ -317,7 +331,7 @@ class RevDebugControl(object):
         """Run backward until the current function is called"""
         stack_id = self.pgroup.get_stack_id(is_parent=True)
         if stack_id == 0:
-            print 'No stack.'
+            print 'No caller.'
         else:
             with self._stack_id_break(stack_id):
                 self.command_bcontinue('')
@@ -332,6 +346,31 @@ class RevDebugControl(object):
         """Run backward"""
         self.move_backward(self.pgroup.get_current_time() - 1)
     command_bc = command_bcontinue
+
+    def _cmd_thread(self, argument, cmd_continue):
+        argument = argument.lstrip('#')
+        if argument:
+            arg = int(argument)
+            if arg == self.pgroup.get_current_thread():
+                print 'Thread #%d is already the current one.' % (arg,)
+                return
+        else:
+            # use the current thread number to detect switches to any
+            # other thread (this works because revdb.c issues a
+            # breakpoint whenever there is a switch FROM or TO the
+            # thread '#arg').
+            arg = self.pgroup.get_current_thread()
+        #
+        with self._thread_num_break(arg):
+            cmd_continue('')
+
+    def command_nthread(self, argument):
+        """Run forward until thread switch (optionally to #ARG)"""
+        self._cmd_thread(argument, self.command_continue)
+
+    def command_bthread(self, argument):
+        """Run backward until thread switch (optionally to #ARG)"""
+        self._cmd_thread(argument, self.command_bcontinue)
 
     def command_print(self, argument):
         """Print an expression or execute a line of code"""

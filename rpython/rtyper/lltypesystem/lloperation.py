@@ -583,6 +583,7 @@ LL_OPERATIONS = {
     'revdb_weakref_create': LLOp(),
     'revdb_weakref_deref':  LLOp(),
     'revdb_call_destructor': LLOp(),
+    'revdb_set_thread_breakpoint': LLOp(),
 }
 # ***** Run test_lloperation after changes. *****
 
