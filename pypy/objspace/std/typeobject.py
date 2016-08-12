@@ -1288,8 +1288,9 @@ def mro_error(space, orderlists):
     cycle.append(candidate)
     cycle.reverse()
     names = [cls.getname(space) for cls in cycle]
-    raise oefmt(space.w_TypeError,
-                "cycle among base classes: %s", ' < '.join(names))
+    # Can't use oefmt() here, since names is a list of unicodes
+    raise OperationError(space.w_TypeError, space.newunicode(
+        u"cycle among base classes: " + u' < '.join(names)))
 
 
 class TypeCache(SpaceCache):
