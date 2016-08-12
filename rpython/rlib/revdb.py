@@ -7,7 +7,7 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.annlowlevel import llhelper, hlstr
 from rpython.rtyper.annlowlevel import cast_gcref_to_instance
-from rpython.rtyper.lltypesystem import rffi
+from rpython.rtyper.lltypesystem import lltype, rffi
 
 
 CMD_PRINT       = 1
@@ -80,6 +80,14 @@ def current_place():
     passed to stop_point().
     """
     return llop.revdb_get_value(lltype.Signed, 'p')
+
+def flag_io_disabled():
+    """Returns True if we're in the debugger typing commands."""
+    if we_are_translated():
+        if fetch_translated_config().translation.reverse_debugger:
+            flag = llop.revdb_get_value(lltype.Signed, 'i')
+            return flag != ord('R')  # FID_REGULAR_MODE
+    return False
 
 ## @specialize.arg(1)
 ## def go_forward(time_delta, callback):
@@ -203,3 +211,22 @@ class RegisterDebugCommand(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
+
+
+# ____________________________________________________________
+
+# Emulation for strtod() and dtoa() when running debugger commands
+# (we can't easily just call C code there).  The emulation can return
+# a crude result.  Hack hack hack.
+
+_INVALID_STRTOD = -3.46739514239368e+113
+
+def emulate_strtod(input):
+    d = llop.revdb_strtod(lltype.Float, input)
+    if d == _INVALID_STRTOD:
+        raise ValueError
+    return d
+
+def emulate_dtoa(value):
+    s = llop.revdb_dtoa(lltype.Ptr(rstr.STR), value)
+    return hlstr(s)

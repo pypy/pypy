@@ -230,6 +230,12 @@ RPY_EXTERN void seeing_uid(uint64_t uid);
 #define OP_REVDB_SET_THREAD_BREAKPOINT(tnum, r)                         \
     rpy_reverse_db_set_thread_breakpoint(tnum)
 
+#define OP_REVDB_STRTOD(s, r)                                           \
+    r = rpy_reverse_db_strtod(s)
+
+#define OP_REVDB_DTOA(d, r)                                             \
+    r = rpy_reverse_db_dtoa(d)
+
 
 RPY_EXTERN void rpy_reverse_db_flush(void);  /* must be called with the lock */
 RPY_EXTERN void rpy_reverse_db_fetch(const char *file, int line);
@@ -253,5 +259,7 @@ RPY_EXTERN void rpy_reverse_db_callback_loc(int);
 RPY_EXTERN void rpy_reverse_db_lock_acquire(bool_t lock_contention);
 RPY_EXTERN void rpy_reverse_db_bad_acquire_gil(void);
 RPY_EXTERN void rpy_reverse_db_set_thread_breakpoint(int64_t tnum);
+RPY_EXTERN double rpy_reverse_db_strtod(RPyString *s);
+RPY_EXTERN RPyString *rpy_reverse_db_dtoa(double d);
 
 /* ------------------------------------------------------------ */

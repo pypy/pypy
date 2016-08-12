@@ -1,6 +1,6 @@
 import py, sys
 from cStringIO import StringIO
-from rpython.rlib import revdb
+from rpython.rlib import revdb, rdtoa
 from rpython.rlib.debug import debug_print, ll_assert
 from rpython.rtyper.annlowlevel import cast_gcref_to_instance
 from rpython.translator.revdb.message import *
@@ -47,6 +47,10 @@ class TestReplayProcessGroup:
                 stuff = dbstate.stuff
             elif extra == '$0':
                 stuff = dbstate.metavar
+            elif extra == '2.35':
+                val = rdtoa.strtod('2.35')
+                revdb.send_output(rdtoa.dtoa(val))
+                return
             else:
                 assert False
             uid = revdb.get_unique_id(stuff)
@@ -199,3 +203,9 @@ class TestReplayProcessGroup:
         group = self.test_print_cmd()
         group.jump_in_time(2)
         self._check_watchpoint_expr(group, must_exist=1)
+
+    def test_rdtoa(self):
+        group = ReplayProcessGroup(str(self.exename), self.rdbname)
+        with stdout_capture() as buf:
+            group.print_cmd('2.35')
+        assert buf.getvalue() == "2.35"

@@ -1523,6 +1523,8 @@ long long rpy_reverse_db_get_value(char value_id)
                 saved_state.unique_id_seen);
     case 'p':       /* current_place() */
         return current_place;
+    case 'i':       /* flag_io_disabled() */
+        return flag_io_disabled;
     default:
         return -1;
     }
@@ -1732,6 +1734,39 @@ RPY_EXTERN
 void rpy_reverse_db_set_thread_breakpoint(int64_t tnum)
 {
     break_thread_num = (uint64_t)tnum;
+}
+
+#define INVALID_STRTOD  (-3.46739514239368e+113)
+
+RPY_EXTERN
+double rpy_reverse_db_strtod(RPyString *s)
+{
+    /* approximate hacks only */
+    double result;
+    char *endptr = NULL;
+    char buffer[8192];
+    size_t size = RPyString_Size(s);
+
+    if (size >= sizeof(buffer))
+        return INVALID_STRTOD;
+    memcpy(buffer, _RPyString_AsString(s), size);
+    buffer[size] = '\0';
+    result = strtod(buffer, &endptr);
+    if (endptr == NULL || *endptr != '\0')
+        return INVALID_STRTOD;
+    return result;
+}
+
+RPY_EXTERN RPyString *rpy_reverse_db_dtoa(double d)
+{
+    char buffer[128];
+    RPyString *result;
+    int size;
+    size = snprintf(buffer, sizeof(buffer), "%g", d);
+    if (size < 0) size = 0;   /* XXX? */
+    result = make_rpy_string(size);
+    memcpy(_RPyString_AsString(result), buffer, size);
+    return result;
 }
 
 

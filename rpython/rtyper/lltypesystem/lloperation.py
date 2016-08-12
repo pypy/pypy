@@ -584,6 +584,8 @@ LL_OPERATIONS = {
     'revdb_weakref_deref':  LLOp(),
     'revdb_call_destructor': LLOp(),
     'revdb_set_thread_breakpoint': LLOp(),
+    'revdb_strtod':         LLOp(sideeffects=False),
+    'revdb_dtoa':           LLOp(sideeffects=False),
 }
 # ***** Run test_lloperation after changes. *****
 
