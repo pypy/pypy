@@ -4,7 +4,7 @@ import py
 import sys
 
 from rpython.translator import cdir
-from rpython.rlib import jit, rposix
+from rpython.rlib import jit, rposix, revdb
 from rpython.rlib.rfloat import INFINITY, NAN, isfinite, isinf, isnan
 from rpython.rlib.rposix import UNDERSCORE_ON_WIN32
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -221,6 +221,8 @@ def ll_math_ldexp(x, exp):
 def ll_math_modf(x):
     # some platforms don't do the right thing for NaNs and
     # infinities, so we take care of special cases directly.
+    if revdb.flag_io_disabled():
+        return revdb.emulate_modf(x)
     if not isfinite(x):
         if isnan(x):
             return (x, x)

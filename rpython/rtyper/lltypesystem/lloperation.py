@@ -586,6 +586,7 @@ LL_OPERATIONS = {
     'revdb_set_thread_breakpoint': LLOp(),
     'revdb_strtod':         LLOp(sideeffects=False),
     'revdb_dtoa':           LLOp(sideeffects=False),
+    'revdb_modf':           LLOp(sideeffects=False),
 }
 # ***** Run test_lloperation after changes. *****
 

@@ -236,6 +236,13 @@ RPY_EXTERN void seeing_uid(uint64_t uid);
 #define OP_REVDB_DTOA(d, r)                                             \
     r = rpy_reverse_db_dtoa(d)
 
+#define OP_REVDB_MODF(x, index, r)                                      \
+    do {                                                                \
+        double _r0, _r1;                                                \
+        _r0 = modf(x, &_r1);                                            \
+        r = (index == 0) ? _r0 : _r1;                                   \
+    } while (0)
+
 
 RPY_EXTERN void rpy_reverse_db_flush(void);  /* must be called with the lock */
 RPY_EXTERN void rpy_reverse_db_fetch(const char *file, int line);

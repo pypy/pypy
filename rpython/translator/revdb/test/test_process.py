@@ -1,4 +1,4 @@
-import py, sys
+import py, sys, math
 from cStringIO import StringIO
 from rpython.rlib import revdb, rdtoa
 from rpython.rlib.debug import debug_print, ll_assert
@@ -49,7 +49,9 @@ class TestReplayProcessGroup:
                 stuff = dbstate.metavar
             elif extra == '2.35':
                 val = rdtoa.strtod('2.35')
-                revdb.send_output(rdtoa.dtoa(val))
+                valx, valy = math.modf(val)
+                revdb.send_output(rdtoa.dtoa(valx) + '\n')
+                revdb.send_output(rdtoa.dtoa(valy) + '\n')
                 return
             else:
                 assert False
@@ -208,4 +210,4 @@ class TestReplayProcessGroup:
         group = ReplayProcessGroup(str(self.exename), self.rdbname)
         with stdout_capture() as buf:
             group.print_cmd('2.35')
-        assert buf.getvalue() == "2.35"
+        assert buf.getvalue() == "0.35\n2.0\n"

@@ -1759,11 +1759,18 @@ double rpy_reverse_db_strtod(RPyString *s)
 
 RPY_EXTERN RPyString *rpy_reverse_db_dtoa(double d)
 {
-    char buffer[128];
+    char buffer[128], *p;
     RPyString *result;
     int size;
-    size = snprintf(buffer, sizeof(buffer), "%g", d);
-    if (size < 0) size = 0;   /* XXX? */
+    size = snprintf(buffer, sizeof(buffer) - 3, "%g", d);
+    if (size < 0)
+        size = 0;
+    for (p = buffer; '0' <= *p && *p <= '9'; p++) {
+    }
+    if (*p == 0) {    /* a pure integer */
+        buffer[size++] = '.';
+        buffer[size++] = '0';
+    }
     result = make_rpy_string(size);
     memcpy(_RPyString_AsString(result), buffer, size);
     return result;

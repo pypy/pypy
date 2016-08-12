@@ -232,3 +232,7 @@ def emulate_dtoa(value):
     s = hlstr(s)
     assert s is not None
     return s
+
+def emulate_modf(x):
+    return (llop.revdb_modf(lltype.Float, x, 0),
+            llop.revdb_modf(lltype.Float, x, 1))
