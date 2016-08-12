@@ -1536,6 +1536,7 @@ uint64_t rpy_reverse_db_unique_id_break(void *new_object)
     save_state();
     if (rpy_revdb_commands.rp_alloc) {
         protect_potential_io();
+        /* invoke the "ALLOCATING" callback from RPython */
         rpy_revdb_commands.rp_alloc(uid, new_object);
         unprotect_potential_io();
     }

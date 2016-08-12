@@ -41,7 +41,6 @@ def setup_revdb(space):
     """
     assert space.config.translation.reverse_debugger
     dbstate.space = space
-    dbstate.w_future = space.w_Ellipsis    # a random prebuilt object
 
     make_sure_not_resized(dbstate.watch_progs)
     make_sure_not_resized(dbstate.metavars)
@@ -228,6 +227,9 @@ def stop_point_activate(place=0):
     revdb.stop_point(place)
 
 
+def future_object(space):
+    return space.w_Ellipsis    # a random prebuilt object
+
 def load_metavar(index):
     assert index >= 0
     space = dbstate.space
@@ -236,7 +238,7 @@ def load_metavar(index):
     if w_var is None:
         raise oefmt(space.w_NameError, "no constant object '$%d'",
                     index)
-    if w_var is dbstate.w_future:
+    if w_var is future_object(space):
         raise oefmt(space.w_RuntimeError,
                     "'$%d' refers to an object created later in time",
                     index)
@@ -543,7 +545,7 @@ def command_attachid(cmd, extra):
     except KeyError:
         # uid not found, probably a future object
         dbstate.watch_futures[uid] = index_metavar
-        w_obj = dbstate.w_future
+        w_obj = future_object(space)
     set_metavar(index_metavar, w_obj)
 lambda_attachid = lambda: command_attachid
 

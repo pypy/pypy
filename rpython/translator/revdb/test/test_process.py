@@ -1,10 +1,21 @@
-import py
+import py, sys
+from cStringIO import StringIO
 from rpython.rlib import revdb
-from rpython.rlib.debug import debug_print
+from rpython.rlib.debug import debug_print, ll_assert
+from rpython.rtyper.annlowlevel import cast_gcref_to_instance
 from rpython.translator.revdb.message import *
 from rpython.translator.revdb.process import ReplayProcessGroup, Breakpoint
 
 from hypothesis import given, strategies
+
+
+class stdout_capture(object):
+    def __enter__(self):
+        self.old_stdout = sys.stdout
+        sys.stdout = self.buffer = StringIO()
+        return self.buffer
+    def __exit__(self, *args):
+        sys.stdout = self.old_stdout
 
 
 class TestReplayProcessGroup:
@@ -17,6 +28,10 @@ class TestReplayProcessGroup:
 
         class DBState:
             break_loop = -2
+            stuff = None
+            metavar = None
+            printed_stuff = None
+            watch_future = -1
         dbstate = DBState()
 
         def blip(cmd, extra):
@@ -27,8 +42,46 @@ class TestReplayProcessGroup:
             revdb.send_answer(42, cmd.c_cmd, -43, -44, extra)
         lambda_blip = lambda: blip
 
+        def command_print(cmd, extra):
+            if extra == 'print-me':
+                stuff = dbstate.stuff
+            elif extra == '$0':
+                stuff = dbstate.metavar
+            else:
+                assert False
+            uid = revdb.get_unique_id(stuff)
+            ll_assert(uid > 0, "uid == 0")
+            revdb.send_nextnid(uid)   # outputs '$NUM = '
+            revdb.send_output('stuff\n')
+            dbstate.printed_stuff = stuff
+        lambda_print = lambda: command_print
+
+        def command_attachid(cmd, extra):
+            index_metavar = cmd.c_arg1
+            uid = cmd.c_arg2
+            ll_assert(index_metavar == 0, "index_metavar != 0")  # in this test
+            dbstate.metavar = dbstate.printed_stuff
+            if dbstate.metavar is None:
+                # uid not found, probably a future object
+                dbstate.watch_future = uid
+        lambda_attachid = lambda: command_attachid
+
+        def command_allocating(uid, gcref):
+            stuff = cast_gcref_to_instance(Stuff, gcref)
+            # 'stuff' is just allocated; 'stuff.x' is not yet initialized
+            dbstate.printed_stuff = stuff
+            if dbstate.watch_future != -1:
+                ll_assert(dbstate.watch_future == uid,
+                          "watch_future out of sync")
+                dbstate.watch_future = -1
+                dbstate.metavar = stuff
+        lambda_allocating = lambda: command_allocating
+
         def main(argv):
             revdb.register_debug_command(100, lambda_blip)
+            revdb.register_debug_command(CMD_PRINT, lambda_print)
+            revdb.register_debug_command(CMD_ATTACHID, lambda_attachid)
+            revdb.register_debug_command("ALLOCATING", lambda_allocating)
             for i, op in enumerate(argv[1:]):
                 dbstate.stuff = Stuff()
                 dbstate.stuff.x = i + 1000
@@ -87,3 +140,26 @@ class TestReplayProcessGroup:
         group.active.expect(42, 100, -43, -44, 'set-breakpoint')
         group.active.expect(ANSWER_READY, 1, Ellipsis)
         group.go_forward(10, 'i')    # does not raise Breakpoint
+
+    def test_print_cmd(self):
+        group = ReplayProcessGroup(str(self.exename), self.rdbname)
+        group.go_forward(1)
+        assert group.get_current_time() == 2
+        with stdout_capture() as buf:
+            group.print_cmd('print-me')
+        assert buf.getvalue() == "$0 = stuff\n"
+        return group
+
+    def test_print_metavar(self):
+        group = self.test_print_cmd()
+        with stdout_capture() as buf:
+            group.print_cmd('$0', nids=[0])
+        assert buf.getvalue() == "$0 = stuff\n"
+
+    def test_jump_and_print_metavar(self):
+        group = self.test_print_cmd()
+        assert group.is_tainted()
+        group.jump_in_time(2)
+        with stdout_capture() as buf:
+            group.print_cmd('$0', nids=[0])
+        assert buf.getvalue() == "$0 = stuff\n"
