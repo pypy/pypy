@@ -35,59 +35,79 @@ class RevDebugControl(object):
         self.print_extra_pending_info = None
 
     def interact(self):
-        last_command = 'help'
-        previous_time = None
-        previous_thread = 0
+        self.last_command = 'help'
+        self.previous_time = None
+        self.previous_thread = 0
         while True:
-            last_time = self.pgroup.get_current_time()
-            if last_time != previous_time:
-                print
-                if self.pgroup.get_current_thread() != previous_thread:
-                    previous_thread = self.pgroup.get_current_thread()
-                    if previous_thread == 0:
-                        print ('-------------------- in main thread #0 '
-                               '--------------------')
-                    else:
-                        print ('-------------------- in non-main thread '
-                               '#%d --------------------' % (previous_thread,))
-                self.pgroup.update_watch_values()
-                last_time = self.pgroup.get_current_time()
-            if self.print_extra_pending_info:
-                print self.print_extra_pending_info
-                self.print_extra_pending_info = None
-            if last_time != previous_time:
-                self.pgroup.show_backtrace(complete=0)
-                previous_time = last_time
+            prompt = self.print_lines_before_prompt()
+            try:
+                while True:
+                    cmdline = self.display_prompt(prompt)
+                    self.run_command(cmdline)
+                    prompt = self.print_lines_before_prompt()
+            except KeyboardInterrupt:
+                self.pgroup.recreate_subprocess(self.previous_time or 1)
+                self.last_command = ''
+                self.previous_thread = '?'
+                self.previous_time = '?'
 
-            prompt = '(%d)$ ' % last_time
+    def print_lines_before_prompt(self):
+        last_time = self.pgroup.get_current_time()
+        if last_time != self.previous_time:
+            print
+            if self.pgroup.get_current_thread() != self.previous_thread:
+                self.previous_thread = self.pgroup.get_current_thread()
+                if self.previous_thread == 0:
+                    print ('-------------------- in main thread #0 '
+                           '--------------------')
+                else:
+                    print ('-------------------- in non-main thread '
+                           '#%d --------------------' % (self.previous_thread,))
+            self.pgroup.update_watch_values()
+            last_time = self.pgroup.get_current_time()
+        if self.print_extra_pending_info:
+            print self.print_extra_pending_info
+            self.print_extra_pending_info = None
+        if last_time != self.previous_time:
+            self.pgroup.show_backtrace(complete=0)
+            self.previous_time = last_time
+        prompt = '(%d)$ ' % last_time
+        return prompt
+
+    def display_prompt(self, prompt):
+        try:
+            cmdline = raw_input(prompt).strip()
+        except EOFError:
+            print
+            cmdline = 'quit'
+        if not cmdline:
+            cmdline = self.last_command
+        return cmdline
+
+    def run_command(self, cmdline):
+        match = r_cmdline.match(cmdline)
+        if not match:
+            return
+        self.last_command = cmdline
+        command, argument = match.groups()
+        try:
+            runner = getattr(self, 'command_' + command)
+        except AttributeError:
+            print >> sys.stderr, "no command '%s', try 'help'" % (command,)
+        else:
             try:
-                cmdline = raw_input(prompt).strip()
-            except EOFError:
-                print
-                cmdline = 'quit'
-            if not cmdline:
-                cmdline = last_command
-            match = r_cmdline.match(cmdline)
-            if not match:
-                continue
-            last_command = cmdline
-            command, argument = match.groups()
-            try:
-                runner = getattr(self, 'command_' + command)
-            except AttributeError:
-                print >> sys.stderr, "no command '%s', try 'help'" % (command,)
-            else:
-                try:
-                    runner(argument)
-                except Exception as e:
-                    traceback.print_exc()
-                    print >> sys.stderr
-                    print >> sys.stderr, 'Something went wrong.  You are now',
-                    print >> sys.stderr, 'in a pdb; press Ctrl-D to continue.'
-                    import pdb; pdb.post_mortem(sys.exc_info()[2])
-                    print >> sys.stderr
-                    print >> sys.stderr, 'You are back running %s.' % (
-                        sys.argv[0],)
+                runner(argument)
+            except KeyboardInterrupt:
+                raise
+            except Exception as e:
+                traceback.print_exc()
+                print >> sys.stderr
+                print >> sys.stderr, 'Something went wrong.  You are now',
+                print >> sys.stderr, 'in a pdb; press Ctrl-D to continue.'
+                import pdb; pdb.post_mortem(sys.exc_info()[2])
+                print >> sys.stderr
+                print >> sys.stderr, 'You are back running %s.' % (
+                    sys.argv[0],)
 
     def command_help(self, argument):
         """Display commands summary"""

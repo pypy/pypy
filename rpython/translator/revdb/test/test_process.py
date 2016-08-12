@@ -1,4 +1,4 @@
-import py, sys, math
+import py, sys, math, os, subprocess, time
 from cStringIO import StringIO
 from rpython.rlib import revdb, rdtoa
 from rpython.rlib.debug import debug_print, ll_assert
@@ -55,6 +55,14 @@ class TestReplayProcessGroup:
                 xx, yy = math.frexp(val)
                 revdb.send_output(rdtoa.dtoa(xx) + '\n')
                 revdb.send_output('%d\n' % yy)
+                return
+            elif extra == 'very-long-loop':
+                i = 0
+                total = 0
+                while i < 2000000000:
+                    total += revdb.flag_io_disabled()
+                    i += 1
+                revdb.send_output(str(total))
                 return
             else:
                 assert False
@@ -214,3 +222,16 @@ class TestReplayProcessGroup:
         with stdout_capture() as buf:
             group.print_cmd('2.35')
         assert buf.getvalue() == "0.35\n2.0\n0.5875\n2\n"
+
+    def test_ctrl_c(self):
+        localdir = os.path.dirname(__file__)
+        args = [sys.executable, os.path.join(localdir, 'ctrl_c.py'),
+                '\x7f'.join(sys.path),
+                str(self.exename), self.rdbname]
+        t1 = time.time()
+        result = subprocess.check_output(args)
+        t2 = time.time()
+        print 'subprocess returned with captured stdout:\n%r' % (result,)
+        assert result == 'all ok\n'
+        # should take two times ~0.8 seconds if correctly interrupted
+        assert t2 - t1 < 3.0

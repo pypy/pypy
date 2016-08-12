@@ -132,11 +132,11 @@ class ReplayProcess(object):
         self.currently_created_objects = msg.arg2
         self.current_thread = msg.arg3
 
-    def clone(self):
+    def clone(self, activate=False):
         """Fork this subprocess.  Returns a new ReplayProcess() that is
         an identical copy.
         """
-        self.send(Message(CMD_FORK))
+        self.send(Message(CMD_FORK, int(activate)))
         s1, s2 = socket.socketpair()
         ancillary.send_fds(self.control_socket.fileno(), [s2.fileno()])
         s2.close()
@@ -459,7 +459,7 @@ class ReplayProcessGroup(object):
         clone_me = self.paused[from_time]
         if self.active is not None:
             self.active.close()
-        self.active = clone_me.clone()
+        self.active = clone_me.clone(activate=True)
 
     def jump_in_time(self, target_time):
         """Jump in time at the given 'target_time'.
@@ -561,11 +561,13 @@ class ReplayProcessGroup(object):
             self.active.send(Message(CMD_ATTACHID, nid, uid, int(watch_env)))
             self.active.expect_ready()
 
-    def recreate_subprocess(self):
-        # recreate a subprocess at the current time
-        time = self.get_current_time()
+    def recreate_subprocess(self, target_time=None):
+        # recreate a subprocess at the given time, or by default the
+        # current time
+        if target_time is None:
+            target_time = self.get_current_time()
         self.active = None
-        self.jump_in_time(time)
+        self.jump_in_time(target_time)
 
     def print_cmd(self, expression, nids=[]):
         """Print an expression.

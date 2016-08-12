@@ -1249,7 +1249,7 @@ static void check_at_end(uint64_t stop_points)
     exit(0);
 }
 
-static void command_fork(void)
+static void command_fork(int activate)
 {
     int child_sockfd;
     int child_pid;
@@ -1271,6 +1271,11 @@ static void command_fork(void)
             exit(1);
         }
         rpy_rev_sockfd = child_sockfd;
+
+        /* The 'activate' flag of CMD_FORK tells if the child process
+           must die or not when receiving SIGINT.  Active children
+           die; inactive children (stored in 'pgroup.paused') don't. */
+        signal(SIGINT, activate ? SIG_DFL : SIG_IGN);
 
         /* Close and re-open the revdb log file in the child process.
            This is the simplest way I found to give 'rpy_rev_fileno'
@@ -1422,7 +1427,7 @@ static void replay_stop_point(void)
             switch (cmd.cmd) {
 
             case CMD_FORK:
-                command_fork();
+                command_fork(cmd.arg1);
                 break;
 
             case CMD_QUIT:
