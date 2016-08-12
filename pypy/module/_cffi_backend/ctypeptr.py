@@ -267,7 +267,7 @@ class W_CTypePointer(W_CTypePtrBase):
         space = self.space
         if self.accept_str and space.isinstance_w(w_init, space.w_str):
             # special case to optimize strings passed to a "char *" argument
-            value = w_init.str_w(space)
+            value = space.bytes_w(w_init)
             keepalives[i] = value
             buf, buf_flag = rffi.get_nonmovingbuffer_final_null(value)
             rffi.cast(rffi.CCHARPP, cdata)[0] = buf
