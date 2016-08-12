@@ -229,4 +229,6 @@ def emulate_strtod(input):
 
 def emulate_dtoa(value):
     s = llop.revdb_dtoa(lltype.Ptr(rstr.STR), value)
-    return hlstr(s)
+    s = hlstr(s)
+    assert s is not None
+    return s
