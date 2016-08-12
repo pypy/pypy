@@ -1375,10 +1375,11 @@ class __extend__(pyframe.PyFrame):
         for i in range(itemcount, 0, -1):
             w_item = self.peekvalue(i-1)
             # cannot use w_sum.update, w_item might not be a set
-            iterator = w_item.itervalues()
+            iterator = space.iter(w_item)
             while True:
-                w_value = iterator.next_value()
-                if w_value is None:
+                try:
+                    w_value = space.next(iterator)
+                except OperationError:
                     break
                 w_sum.add(w_value)
         while itemcount != 0:
