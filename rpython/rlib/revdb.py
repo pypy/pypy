@@ -236,3 +236,7 @@ def emulate_dtoa(value):
 def emulate_modf(x):
     return (llop.revdb_modf(lltype.Float, x, 0),
             llop.revdb_modf(lltype.Float, x, 1))
+
+def emulate_frexp(x):
+    return (llop.revdb_frexp(lltype.Float, x, 0),
+            int(llop.revdb_frexp(lltype.Float, x, 1)))

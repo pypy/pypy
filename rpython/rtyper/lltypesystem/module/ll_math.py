@@ -185,6 +185,8 @@ def ll_math_frexp(x):
         mantissa = x
         exponent = 0
     else:
+        if revdb.flag_io_disabled():
+            return revdb.emulate_frexp(x)
         exp_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
         try:
             mantissa = math_frexp(x, exp_p)

@@ -52,6 +52,9 @@ class TestReplayProcessGroup:
                 valx, valy = math.modf(val)
                 revdb.send_output(rdtoa.dtoa(valx) + '\n')
                 revdb.send_output(rdtoa.dtoa(valy) + '\n')
+                xx, yy = math.frexp(val)
+                revdb.send_output(rdtoa.dtoa(xx) + '\n')
+                revdb.send_output('%d\n' % yy)
                 return
             else:
                 assert False
@@ -210,4 +213,4 @@ class TestReplayProcessGroup:
         group = ReplayProcessGroup(str(self.exename), self.rdbname)
         with stdout_capture() as buf:
             group.print_cmd('2.35')
-        assert buf.getvalue() == "0.35\n2.0\n"
+        assert buf.getvalue() == "0.35\n2.0\n0.5875\n2\n"
