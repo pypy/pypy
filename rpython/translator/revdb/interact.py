@@ -46,7 +46,11 @@ class RevDebugControl(object):
                     self.run_command(cmdline)
                     prompt = self.print_lines_before_prompt()
             except KeyboardInterrupt:
-                self.pgroup.recreate_subprocess(self.previous_time or 1)
+                rtime = self.previous_time or 1
+                print
+                print 'KeyboardInterrupt: restoring state at time %d...' % (
+                    rtime,)
+                self.pgroup.recreate_subprocess(rtime)
                 self.last_command = ''
                 self.previous_thread = '?'
                 self.previous_time = '?'
