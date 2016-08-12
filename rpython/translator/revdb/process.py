@@ -447,6 +447,7 @@ class ReplayProcessGroup(object):
 
     def check_watchpoint_expr(self, compiled_code, nids=None):
         if nids:
+            self.ensure_nids_to_uids(nids)
             uids = self.nids_to_uids(nids)
             self.attach_printed_objects(uids, watch_env=True)
         self.active.send(Message(CMD_CHECKWATCH, extra=compiled_code))
@@ -542,6 +543,16 @@ class ReplayProcessGroup(object):
             uids.append(uid)
         return uids
 
+    def ensure_nids_to_uids(self, nids):
+        # Take the objects listed in nids which are alive at the
+        # current time, and return a list of uids of them.  This
+        # might require some replaying.
+        uids = []
+        if nids:
+            uids = self.nids_to_uids(nids, skip_futures=True)
+            self.ensure_printed_objects(uids)
+        return uids
+
     def attach_printed_objects(self, uids, watch_env):
         for uid in uids:
             nid = self.all_printed_objects[uid]
@@ -559,11 +570,7 @@ class ReplayProcessGroup(object):
     def print_cmd(self, expression, nids=[]):
         """Print an expression.
         """
-        uids = []
-        if nids:
-            uids = self.nids_to_uids(nids, skip_futures=True)
-            self.ensure_printed_objects(uids)
-        #
+        uids = self.ensure_nids_to_uids(nids)
         self.active.tainted = True
         self.attach_printed_objects(uids, watch_env=False)
         self.active.send(Message(CMD_PRINT, extra=expression))
