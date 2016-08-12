@@ -77,11 +77,28 @@ class TestReplayProcessGroup:
                 dbstate.metavar = stuff
         lambda_allocating = lambda: command_allocating
 
+        def command_compilewatch(cmd, expression):
+            revdb.send_watch("marshalled_code", ok_flag=1)
+        lambda_compilewatch = lambda: command_compilewatch
+
+        def command_checkwatch(cmd, marshalled_code):
+            assert marshalled_code == "marshalled_code"
+            # check that $0 exists
+            if dbstate.metavar is not None:
+                revdb.send_watch("ok, stuff exists\n", ok_flag=1)
+            else:
+                revdb.send_watch("stuff does not exist!\n", ok_flag=0)
+        lambda_checkwatch = lambda: command_checkwatch
+
         def main(argv):
             revdb.register_debug_command(100, lambda_blip)
             revdb.register_debug_command(CMD_PRINT, lambda_print)
             revdb.register_debug_command(CMD_ATTACHID, lambda_attachid)
             revdb.register_debug_command("ALLOCATING", lambda_allocating)
+            revdb.register_debug_command(revdb.CMD_COMPILEWATCH,
+                                         lambda_compilewatch)
+            revdb.register_debug_command(revdb.CMD_CHECKWATCH,
+                                         lambda_checkwatch)
             for i, op in enumerate(argv[1:]):
                 dbstate.stuff = Stuff()
                 dbstate.stuff.x = i + 1000
@@ -150,16 +167,35 @@ class TestReplayProcessGroup:
         assert buf.getvalue() == "$0 = stuff\n"
         return group
 
-    def test_print_metavar(self):
-        group = self.test_print_cmd()
+    def _print_metavar(self, group):
         with stdout_capture() as buf:
             group.print_cmd('$0', nids=[0])
         assert buf.getvalue() == "$0 = stuff\n"
+
+    def test_print_metavar(self):
+        group = self.test_print_cmd()
+        self._print_metavar(group)
 
     def test_jump_and_print_metavar(self):
         group = self.test_print_cmd()
         assert group.is_tainted()
         group.jump_in_time(2)
-        with stdout_capture() as buf:
-            group.print_cmd('$0', nids=[0])
-        assert buf.getvalue() == "$0 = stuff\n"
+        self._print_metavar(group)
+
+    def _check_watchpoint_expr(self, group, must_exist):
+        ok_flag, compiled_code = group.compile_watchpoint_expr("$0")
+        assert ok_flag == 1
+        assert compiled_code == "marshalled_code"
+        nids = [0]
+        ok_flag, text = group.check_watchpoint_expr(compiled_code, nids)
+        print text
+        assert ok_flag == must_exist
+
+    def test_check_watchpoint_expr(self):
+        group = self.test_print_cmd()
+        self._check_watchpoint_expr(group, must_exist=1)
+
+    def test_jump_and_check_watchpoint_expr(self):
+        group = self.test_print_cmd()
+        group.jump_in_time(2)
+        self._check_watchpoint_expr(group, must_exist=1)
