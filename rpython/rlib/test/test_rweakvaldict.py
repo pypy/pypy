@@ -180,3 +180,36 @@ def test_bogus_makekey():
         RWeakValueDictionary(str, X).get("foobar")
         RWeakValueDictionary(int, Y).get(42)
     interpret(g, [])
+
+def test_key_instance():
+    class K(object):
+        pass
+    keys = [K(), K(), K()]
+
+    def g(d):
+        assert d.get(keys[3]) is None
+        x1 = X(); x2 = X(); x3 = X()
+        d.set(keys[0], x1)
+        d.set(keys[1], x2)
+        d.set(keys[2], x3)
+        assert d.get(keys[0]) is x1
+        assert d.get(keys[1]) is x2
+        assert d.get(keys[2]) is x3
+        assert d.get(keys[3]) is None
+        return x1, x3    # x2 dies
+    def f():
+        keys.append(K())
+        d = RWeakValueDictionary(K, X)
+        x1, x3 = g(d)
+        rgc.collect(); rgc.collect()
+        assert d.get(keys[0]) is x1
+        assert d.get(keys[1]) is None
+        assert d.get(keys[2]) is x3
+        assert d.get(keys[3]) is None
+        d.set(keys[0], None)
+        assert d.get(keys[0]) is None
+        assert d.get(keys[1]) is None
+        assert d.get(keys[2]) is x3
+        assert d.get(keys[3]) is None
+    f()
+    interpret(f, [])
