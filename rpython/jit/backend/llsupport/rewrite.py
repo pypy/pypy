@@ -293,6 +293,7 @@ class GcRewriterAssembler(object):
             basesize, itemsize, ofs_length = get_array_token(rstr.STR,
                                                  self.cpu.translate_support_code)
             assert itemsize == 1
+            basesize -= 1     # for the extra null character
             self.emit_gc_load_or_indexed(op, op.getarg(0), op.getarg(1),
                                          itemsize, itemsize, basesize, NOT_SIGNED)
         elif opnum == rop.UNICODEGETITEM:
@@ -304,6 +305,7 @@ class GcRewriterAssembler(object):
             basesize, itemsize, ofs_length = get_array_token(rstr.STR,
                                                  self.cpu.translate_support_code)
             assert itemsize == 1
+            basesize -= 1     # for the extra null character
             self.emit_gc_store_or_indexed(op, op.getarg(0), op.getarg(1), op.getarg(2),
                                          itemsize, itemsize, basesize)
         elif opnum == rop.UNICODESETITEM:

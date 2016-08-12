@@ -930,6 +930,7 @@ def type_isinstance(w_obj, space, w_inst):
         abstractinst.p_recursive_isinstance_type_w(space, w_inst, w_obj))
 
 def type_get_dict(space, w_cls):
+    w_cls = _check(space, w_cls)
     from pypy.objspace.std.dictproxyobject import W_DictProxyObject
     w_dict = w_cls.getdict(space)
     if w_dict is None:
@@ -1287,8 +1288,8 @@ def mro_error(space, orderlists):
     cycle.append(candidate)
     cycle.reverse()
     names = [cls.getname(space) for cls in cycle]
-    raise OperationError(space.w_TypeError, space.wrap(
-        u"cycle among base classes: " + u' < '.join(names)))
+    raise oefmt(space.w_TypeError,
+                "cycle among base classes: %s", ' < '.join(names))
 
 
 class TypeCache(SpaceCache):

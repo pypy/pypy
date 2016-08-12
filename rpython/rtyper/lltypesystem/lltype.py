@@ -1926,14 +1926,29 @@ class _array(_parentable):
         return 0, stop
 
     def getitem(self, index, uninitialized_ok=False):
-        v = self.items[index]
+        try:
+            v = self.items[index]
+        except IndexError:
+            if (index == len(self.items) and uninitialized_ok == 2 and
+                self._TYPE._hints.get('extra_item_after_alloc')):
+                # special case: reading the extra final char returns
+                # an uninitialized, if 'uninitialized_ok==2'
+                return _uninitialized(self._TYPE.OF)
+            raise
         if isinstance(v, _uninitialized) and not uninitialized_ok:
             raise UninitializedMemoryAccess("%r[%s]"%(self, index))
         return v
 
     def setitem(self, index, value):
         assert typeOf(value) == self._TYPE.OF
-        self.items[index] = value
+        try:
+            self.items[index] = value
+        except IndexError:
+            if (index == len(self.items) and value == '\x00' and
+                self._TYPE._hints.get('extra_item_after_alloc')):
+                # special case: writing NULL to the extra final char
+                return
+            raise
 
 assert not '__dict__' in dir(_array)
 assert not '__dict__' in dir(_struct)

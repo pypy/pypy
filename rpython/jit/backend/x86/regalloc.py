@@ -1219,6 +1219,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             ofs_items, itemsize, _ = symbolic.get_array_token(rstr.STR,
                                                   self.translate_support_code)
             assert itemsize == 1
+            ofs_items -= 1     # for the extra null character
             scale = 0
         self.assembler.load_effective_addr(ofsloc, ofs_items, scale,
                                            resloc, baseloc)

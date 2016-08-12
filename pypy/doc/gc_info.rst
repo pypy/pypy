@@ -14,10 +14,9 @@ several environment variables:
     Defaults to 1/2 of your cache or ``4M``.
     Small values (like 1 or 1KB) are useful for debugging.
 
-``PYPY_GC_NURSERY_CLEANUP``
-    The interval at which nursery is cleaned up. Must
-    be smaller than the nursery size and bigger than the
-    biggest object we can allotate in the nursery.
+``PYPY_GC_NURSERY_DEBUG``
+    If set to non-zero, will fill nursery with garbage, to help
+    debugging.
 
 ``PYPY_GC_INCREMENT_STEP``
     The size of memory marked during the marking step.  Default is size of
@@ -62,3 +61,8 @@ several environment variables:
     use.
     Values are ``0`` (off), ``1`` (on major collections) or ``2`` (also
     on minor collections).
+
+``PYPY_GC_MAX_PINNED``
+    The maximal number of pinned objects at any point in time.  Defaults
+    to a conservative value depending on nursery size and maximum object
+    size inside the nursery.  Useful for debugging by setting it to 0.

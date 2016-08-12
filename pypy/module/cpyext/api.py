@@ -11,6 +11,9 @@ from rpython.rtyper.lltypesystem import ll2ctypes
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.objectmodel import we_are_translated, keepalive_until_here
 from rpython.rlib.objectmodel import dont_inline
+from rpython.rlib.rfile import (FILEP, c_fread, c_fclose, c_fwrite, 
+        c_fdopen, c_fileno,
+        c_fopen)# for tests
 from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.gensupp import NameManager
@@ -84,44 +87,32 @@ assert CONST_WSTRING is not rffi.CWCHARP
 assert CONST_WSTRING == rffi.CWCHARP
 
 # FILE* interface
-FILEP = rffi.COpaquePtr('FILE')
 
 if sys.platform == 'win32':
     dash = '_'
 else:
     dash = ''
-fileno = rffi.llexternal(dash + 'fileno', [FILEP], rffi.INT)
-fopen = rffi.llexternal('fopen', [CONST_STRING, CONST_STRING], FILEP)
-fdopen = rffi.llexternal(dash + 'fdopen', [rffi.INT, CONST_STRING],
-                  FILEP, save_err=rffi.RFFI_SAVE_ERRNO)
 
-_fclose = rffi.llexternal('fclose', [FILEP], rffi.INT)
 def fclose(fp):
-    if not is_valid_fd(fileno(fp)):
+    if not is_valid_fd(c_fileno(fp)):
         return -1
-    return _fclose(fp)
+    return c_fclose(fp)
 
-_fwrite = rffi.llexternal('fwrite',
-                         [rffi.VOIDP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
-                         rffi.SIZE_T)
 def fwrite(buf, sz, n, fp):
-    validate_fd(fileno(fp))
-    return _fwrite(buf, sz, n, fp)
+    validate_fd(c_fileno(fp))
+    return c_fwrite(buf, sz, n, fp)
 
-_fread = rffi.llexternal('fread',
-                        [rffi.VOIDP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
-                        rffi.SIZE_T)
 def fread(buf, sz, n, fp):
-    validate_fd(fileno(fp))
-    return _fread(buf, sz, n, fp)
+    validate_fd(c_fileno(fp))
+    return c_fread(buf, sz, n, fp)
 
 _feof = rffi.llexternal('feof', [FILEP], rffi.INT)
 def feof(fp):
-    validate_fd(fileno(fp))
+    validate_fd(c_fileno(fp))
     return _feof(fp)
 
 def is_valid_fp(fp):
-    return is_valid_fd(fileno(fp))
+    return is_valid_fd(c_fileno(fp))
 
 pypy_decl = 'pypy_decl.h'
 
