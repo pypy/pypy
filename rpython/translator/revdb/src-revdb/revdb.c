@@ -978,12 +978,18 @@ static void setup_replay_mode(int *argc_p, char **argv_p[])
         fprintf(stderr,
                 "\n"
                 "In the replaying process, the addresses are different than\n"
-                "in the recording process.  We don't support this case for\n"
-                "now, sorry.  On Linux, check if Address Space Layout\n"
-                "Randomization (ASLR) is enabled, and disable it with:\n"
+                "in the recording process.  Make sure that the executable\n"
+                "\n"
+                "    %s\n"
+                "\n"
+                "is the same one as the one that was used during recording.\n"
+                "If it is, then you may be hitting an issue with Address\n"
+                "Space Layout Randomization.  On Linux, ASLR should be\n"
+                "automatically disabled, but just in case, the following\n"
+                "command disables it manually:\n"
                 "\n"
                 "    echo 0 | sudo tee /proc/sys/kernel/randomize_va_space\n"
-                "\n");
+                "\n", argv[0]);
         exit(1);
     }
     *argc_p = h.argc;
@@ -1129,7 +1135,7 @@ void rpy_reverse_db_fetch(const char *file, int line)
         fprintf(stderr, "%s:%d: Attempted to do I/O or access raw memory\n",
                 file, line);
         if (flag_io_disabled != FID_POTENTIAL_IO) {
-            fprintf(stderr, "but we are not in a jmpbuf_protected section\n");
+            fprintf(stderr, "but we are not in a protected section\n");
             exit(1);
         }
         write_answer(ANSWER_ATTEMPT_IO, 0, 0, 0);
