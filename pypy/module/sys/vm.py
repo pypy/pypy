@@ -61,13 +61,6 @@ def getrecursionlimit(space):
     """
     return space.wrap(space.sys.recursionlimit)
 
-@unwrap_spec(flag=bool)
-def set_track_resources(space, flag):
-    space.sys.track_resources = flag
-
-def get_track_resources(space):
-    return space.wrap(space.sys.track_resources)
-
 @unwrap_spec(interval=int)
 def setcheckinterval(space, interval):
     """Tell the Python interpreter to check for asynchronous events every

@@ -134,7 +134,7 @@ class TestObjSpace:
         assert self.space.lookup(w_instance, "gobbledygook") is None
         w_instance = self.space.appexec([], """():
             class Lookup(object):
-                "bla" 
+                "bla"
             return Lookup()""")
         assert self.space.str_w(self.space.lookup(w_instance, "__doc__")) == "bla"
 
@@ -148,7 +148,7 @@ class TestObjSpace:
         assert is_callable(w_func)
         w_lambda_func = self.space.appexec([], "(): return lambda: True")
         assert is_callable(w_lambda_func)
-        
+
         w_instance = self.space.appexec([], """():
             class Call(object):
                 def __call__(self): pass
@@ -308,7 +308,7 @@ class TestObjSpace:
 
     def test_call_obj_args(self):
         from pypy.interpreter.argument import Arguments
-        
+
         space = self.space
 
         w_f = space.appexec([], """():
@@ -333,7 +333,7 @@ class TestObjSpace:
         assert w_x is w_9
         assert w_y is w_1
 
-        w_res = space.call_obj_args(w_a, w_9, Arguments(space, []))        
+        w_res = space.call_obj_args(w_a, w_9, Arguments(space, []))
         assert w_res is w_9
 
     def test_compare_by_iteration(self):
@@ -383,7 +383,7 @@ class TestObjSpace:
         assert not space.isabstractmethod_w(space.getattr(w_B, space.wrap('g')))
         assert not space.isabstractmethod_w(space.getattr(w_B, space.wrap('h')))
 
-class TestModuleMinimal: 
+class TestModuleMinimal:
     def test_sys_exists(self):
         assert self.space.sys
 
@@ -458,28 +458,3 @@ class TestModuleMinimal:
         space.finish()
         # assert that we reach this point without getting interrupted
         # by the OperationError(NameError)
-
-    def test_format_traceback(self):
-        from pypy.tool.pytest.objspace import maketestobjspace
-        from pypy.interpreter.gateway import interp2app
-        #
-        def format_traceback(space):
-            return space.format_traceback()
-        #
-        space = maketestobjspace()
-        w_format_traceback = space.wrap(interp2app(format_traceback))
-        w_tb = space.appexec([w_format_traceback], """(format_traceback):
-            def foo():
-                return bar()
-            def bar():
-                return format_traceback()
-            return foo()
-        """)
-        tb = space.str_w(w_tb)
-        expected = '\n'.join([
-            '  File "?", line 6, in anonymous',  # this is the appexec code object
-            '  File "?", line 3, in foo',
-            '  File "?", line 5, in bar',
-            ''
-        ])
-        assert tb == expected
