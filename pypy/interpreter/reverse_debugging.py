@@ -321,18 +321,52 @@ def revdb_displayhook(space, w_obj):
     revdb.send_output(s)
     revdb.send_output("\n")
 
+@gateway.unwrap_spec(name='str0', level=int)
+def revdb_importhook(space, name, w_globals=None,
+                     w_locals=None, w_fromlist=None, level=-1):
+    # Incredibly simplified version of __import__, which only returns
+    # already-imported modules and doesn't call any custom import
+    # hooks.  Recognizes only absolute imports.  With a 'fromlist'
+    # argument that is a non-empty list, returns the module 'name3' if
+    # the 'name' argument is 'name1.name2.name3'.  With an empty or
+    # None 'fromlist' argument, returns the module 'name1' instead.
+    return space.appexec([space.wrap(name), w_fromlist or space.w_None,
+                          space.wrap(level), space.wrap(space.sys)],
+    """(name, fromlist, level, sys):
+        if level > 0:
+            raise ImportError("only absolute imports are "
+                               "supported in the debugger")
+        basename = name.split('.')[0]
+        try:
+            basemod = sys.modules[basename]
+            mod = sys.modules[name]
+        except KeyError:
+            raise ImportError("'%s' not found or not imported yet "
+                    "(the debugger can't import new modules, "
+                    "and only supports absolute imports)" % (name,))
+        if fromlist:
+            return mod
+        return basemod
+    """)
+
 @specialize.memo()
 def get_revdb_displayhook(space):
     return space.wrap(gateway.interp2app(revdb_displayhook))
+
+@specialize.memo()
+def get_revdb_importhook(space):
+    return space.wrap(gateway.interp2app(revdb_importhook))
 
 
 def prepare_print_environment(space):
     assert not dbstate.standard_code
     w_revdb_output = space.wrap(W_RevDBOutput(space))
     w_displayhook = get_revdb_displayhook(space)
+    w_import = get_revdb_importhook(space)
     space.sys.setdictvalue(space, 'stdout', w_revdb_output)
     space.sys.setdictvalue(space, 'stderr', w_revdb_output)
     space.sys.setdictvalue(space, 'displayhook', w_displayhook)
+    space.builtin.setdictvalue(space, '__import__', w_import)
 
 def command_print(cmd, expression):
     frame = fetch_cur_frame()
