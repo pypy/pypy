@@ -128,3 +128,13 @@ ResourceWarnings when the GC closes unclosed files and sockets.
 .. branch: cpyext-realloc
 
 Implement PyObject_Realloc
+
+.. branch: inline-blocks
+
+Improve a little bit the readability of the generated C code
+
+.. branch: improve-vmprof-testing
+
+Improved vmprof support: now tries hard to not miss any Python-level
+frame in the captured stacks, even if there is the metainterp or
+blackhole interp involved.  Also fix the stacklet (greenlet) support.
