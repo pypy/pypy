@@ -138,3 +138,9 @@ Improve a little bit the readability of the generated C code
 Improved vmprof support: now tries hard to not miss any Python-level
 frame in the captured stacks, even if there is the metainterp or
 blackhole interp involved.  Also fix the stacklet (greenlet) support.
+
+.. branch: py2-mappingproxy
+
+``type.__dict__`` now returns a ``dict_proxy`` object, like on CPython.
+Previously it returned what looked like a regular dict object (but it
+was already read-only).
