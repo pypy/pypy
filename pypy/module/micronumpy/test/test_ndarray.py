@@ -3633,6 +3633,14 @@ class AppTestSupport(BaseNumpyAppTest):
         #assert a.base is data.__buffer__
         assert a.tostring() == 'abc'
 
+    def test_memoryview(self):
+        import numpy as np
+        x = np.array([1, 2, 3, 4, 5], dtype='i')
+        y = memoryview('abc')
+        assert y.format == 'B'
+        y = memoryview(x)
+        assert y.format == 'i'
+
     def test_fromstring(self):
         import sys
         from numpy import fromstring, dtype
