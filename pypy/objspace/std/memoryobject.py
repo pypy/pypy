@@ -100,22 +100,22 @@ class W_MemoryView(W_Root):
         return space.wrap(self.buf.getlength())
 
     def w_get_format(self, space):
-        return space.wrap("B")
+        return space.wrap(self.buf.getformat())
 
     def w_get_itemsize(self, space):
-        return space.wrap(1)
+        return space.wrap(self.buf.getitemsize())
 
     def w_get_ndim(self, space):
-        return space.wrap(1)
+        return space.wrap(self.buf.getndim())
 
     def w_is_readonly(self, space):
         return space.wrap(self.buf.readonly)
 
     def w_get_shape(self, space):
-        return space.newtuple([space.wrap(self.getlength())])
+        return space.newtuple([space.wrap(x) for x in self.buf.getshape()])
 
     def w_get_strides(self, space):
-        return space.newtuple([space.wrap(1)])
+        return space.newtuple([space.wrap(x) for x in self.buf.getstrides()])
 
     def w_get_suboffsets(self, space):
         # I've never seen anyone filling this field
