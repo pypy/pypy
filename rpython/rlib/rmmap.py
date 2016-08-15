@@ -155,6 +155,8 @@ if _POSIX:
     c_mmap, c_mmap_safe = external('mmap', [PTR, size_t, rffi.INT, rffi.INT,
                                    rffi.INT, off_t], PTR, macro=True,
                                    save_err_on_unsafe=rffi.RFFI_SAVE_ERRNO)
+    c_mprotect, _ = external('mprotect',
+                             [PTR, size_t, rffi.INT], rffi.INT)
     # 'mmap' on linux32 is a macro that calls 'mmap64'
     _, c_munmap_safe = external('munmap', [PTR, size_t], rffi.INT)
     c_msync, _ = external('msync', [PTR, size_t, rffi.INT], rffi.INT,
@@ -707,11 +709,21 @@ if _POSIX:
 
     def alloc_hinted(hintp, map_size):
         flags = MAP_PRIVATE | MAP_ANONYMOUS
-        prot = PROT_EXEC | PROT_READ | PROT_WRITE
+        prot = PROT_READ | PROT_WRITE
         if we_are_translated():
             flags = NonConstant(flags)
             prot = NonConstant(prot)
         return c_mmap_safe(hintp, map_size, prot, flags, -1, 0)
+
+    def set_pages_executable(addr, size):
+        rv = c_mprotect(addr, size, PROT_EXEC | PROT_READ)
+        if rv < 0:
+            debug.fatalerror_notb("set_pages_executable failed")
+
+    def set_pages_writable(addr, size):
+        rv = c_mprotect(addr, size, PROT_WRITE | PROT_READ)
+        if rv < 0:
+            debug.fatalerror_notb("set_pages_executable failed")
 
     def clear_large_memory_chunk_aligned(addr, map_size):
         addr = rffi.cast(PTR, addr)
@@ -950,6 +962,9 @@ elif _MS_WINDOWS:
         # ignore errors, just try
         return res
     alloc._annenforceargs_ = (int,)
+
+    def set_pages_executable(addr, size):
+        pass # XXX not implemented on windows
 
     def free(ptr, map_size):
         VirtualFree_safe(ptr, 0, MEM_RELEASE)
