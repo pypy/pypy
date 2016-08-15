@@ -284,7 +284,7 @@ def get_executor(space, name):
         elif compound == '**' or compound == '*&':
             return InstancePtrPtrExecutor(space, cppclass)
     elif capi.c_is_enum(space, clean_name):
-        return _executors['unsigned int'](space, None)
+        return _executors['internal_enum_type_t'](space, None)
 
     # 4) additional special cases
     if compound == '*':
