@@ -310,11 +310,15 @@ class W_CData(W_Root):
                             self.ctype.name, ct.name)
             #
             itemsize = ct.ctitem.size
-            if itemsize <= 0:
-                itemsize = 1
             with self as ptr1, w_other as ptr2:
                 diff = (rffi.cast(lltype.Signed, ptr1) -
-                        rffi.cast(lltype.Signed, ptr2)) // itemsize
+                        rffi.cast(lltype.Signed, ptr2))
+            if itemsize > 1:
+                if diff % itemsize:
+                    raise oefmt(space.w_ValueError,
+                        "pointer subtraction: the distance between the two "
+                        "pointers is not a multiple of the item size")
+                diff //= itemsize
             return space.wrap(diff)
         #
         return self._add_or_sub(w_other, -1)
