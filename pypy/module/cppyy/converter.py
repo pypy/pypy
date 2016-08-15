@@ -428,9 +428,10 @@ class VoidPtrConverter(TypeConverter):
             address[0] = rffi.cast(rffi.VOIDP, self._unwrap_object(space, w_value))
 
 class VoidPtrPtrConverter(TypeConverter):
-    _immutable_fields_ = ['uses_local']
+    _immutable_fields_ = ['uses_local', 'typecode']
 
     uses_local = True
+    typecode = 'a'
 
     def convert_argument(self, space, w_obj, address, call_local):
         x = rffi.cast(rffi.VOIDPP, address)
@@ -441,7 +442,7 @@ class VoidPtrPtrConverter(TypeConverter):
         except TypeError:
             r[0] = rffi.cast(rffi.VOIDP, get_rawobject(space, w_obj))
         x[0] = rffi.cast(rffi.VOIDP, call_local)
-        ba[capi.c_function_arg_typeoffset(space)] = 'a'
+        ba[capi.c_function_arg_typeoffset(space)] = self.typecode
 
     def finalize_call(self, space, w_obj, call_local):
         r = rffi.cast(rffi.VOIDPP, call_local)
@@ -451,8 +452,9 @@ class VoidPtrPtrConverter(TypeConverter):
             pass             # no set on buffer/array/None
 
 class VoidPtrRefConverter(VoidPtrPtrConverter):
-    _immutable_fields_ = ['uses_local']
+    _immutable_fields_ = ['uses_local', 'typecode']
     uses_local = True
+    typecode   = 'V'
 
 class InstanceRefConverter(TypeConverter):
     _immutable_fields_ = ['libffitype', 'typecode', 'cppclass']
