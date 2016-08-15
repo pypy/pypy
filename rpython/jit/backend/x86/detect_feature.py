@@ -1,17 +1,20 @@
 import sys
 import struct
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib.rmmap import alloc, free
+from rpython.rlib.rmmap import alloc, free, set_pages_executable
+
+CPU_INFO_SZ = 4096
 
 def cpu_info(instr):
-    data = alloc(4096)
+    data = alloc(CPU_INFO_SZ)
     pos = 0
     for c in instr:
         data[pos] = c
         pos += 1
+    set_pages_executable(data, CPU_INFO_SZ)
     fnptr = rffi.cast(lltype.Ptr(lltype.FuncType([], lltype.Signed)), data)
     code = fnptr()
-    free(data, 4096)
+    free(data, CPU_INFO_SZ)
     return code
 
 def detect_sse2():
