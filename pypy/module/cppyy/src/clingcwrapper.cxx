@@ -698,7 +698,7 @@ Cppyy::TCppIndex_t Cppyy::GetMethodIndexAt( TCppScope_t scope, TCppIndex_t imeth
    TClassRef& cr = type_from_handle (scope);
    if (cr.GetClass())
       return (TCppIndex_t)imeth;
-   assert(handle == (TCppType_t)GLOBAL_HANDLE);
+   assert(scope == (TCppType_t)GLOBAL_HANDLE);
    return imeth;
 }
 
