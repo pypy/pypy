@@ -74,5 +74,10 @@ def register_pythonizations(space):
     "NOT_RPYTHON"
     pass
 
+def _method_alias(space, w_pycppclass, m1, m2):
+    space.setattr(w_pycppclass, space.wrap(m1),
+                  space.getattr(w_pycppclass, space.wrap(m2)))
+
 def pythonize(space, name, w_pycppclass):
-    pass
+    if name == "string":
+        _method_alias(space, w_pycppclass, "_cppyy_as_builtin", "c_str")

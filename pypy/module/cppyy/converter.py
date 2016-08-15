@@ -583,7 +583,9 @@ class StdStringConverter(InstanceConverter):
         capi.c_destruct(space, self.cppclass, rffi.cast(capi.C_OBJECT, rffi.cast(rffi.VOIDPP, arg)[0]))
 
 class StdStringRefConverter(InstancePtrConverter):
-    _immutable_fields_ = ['cppclass']
+    _immutable_fields_ = ['cppclass', 'typecode']
+
+    typecode    = 'V'
 
     def __init__(self, space, extra):
         from pypy.module.cppyy import interp_cppyy
