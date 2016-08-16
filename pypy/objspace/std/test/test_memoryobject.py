@@ -18,6 +18,7 @@ class AppTestMemoryView:
         assert len(w) == 2
         exc = raises(NotImplementedError, "v[0:2:2]")
         assert str(exc.value) == ""
+        exc = raises(TypeError, "memoryview('foobar')")
 
     def test_rw(self):
         data = bytearray(b'abcefg')
@@ -161,3 +162,6 @@ class AppTestMemoryView:
         raises(ValueError, memoryview(b"foobar")._pypy_raw_address)
         a = memoryview(bytearray(b"foobar"))._pypy_raw_address()
         assert a != 0
+
+    def test_hex(self):
+        assert memoryview(b"abc").hex() == u'616263'

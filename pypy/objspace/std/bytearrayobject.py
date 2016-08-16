@@ -491,6 +491,24 @@ def _hexstring_to_array(space, s):
         i += 2
     return data
 
+HEXDIGITS = "0123456789abcdef"
+PY_SIZE_T_MAX = 2**(rffi.sizeof(rffi.SIZE_T)*8)-1
+
+def _array_to_hexstring(space, buf):
+    length = buf.getlength()
+    hexstring = StringBuilder(length*2)
+
+    if length > PY_SIZE_T_MAX/2:
+        raise OperationError(space.w_MemoryError)
+
+    for i in range(length):
+        byte = ord(buf.getitem(i))
+        c = (byte >> 4 & 0xf)
+        hexstring.append(HEXDIGITS[c])
+        c = (byte & 0xf)
+        hexstring.append(HEXDIGITS[c])
+
+    return space.wrap(hexstring.build())
 
 class BytearrayDocstrings:
     """bytearray(iterable_of_ints) -> bytearray
