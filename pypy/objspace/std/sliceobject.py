@@ -153,10 +153,12 @@ class W_SliceObject(W_Root):
         S. Out of bounds indices are clipped in a manner consistent with the
         handling of normal slices.
         """
-        length = space.getindex_w(w_length, space.w_OverflowError)
-        start, stop, step = self.indices3(space, length)
-        return space.newtuple([space.wrap(start), space.wrap(stop),
-                               space.wrap(step)])
+        # like CPython 3.5, we duplicate this whole functionality for
+        # this rarely-used method instead of using the existing logic
+        # in indices3(), just to support 'slice(a,b,c).indices(d)' where
+        # all of a, b, c and d are very large integers.
+        return app_indices(space, self.w_start, self.w_stop,
+                           self.w_step, w_length)
 
 
 def slicewprop(name):
@@ -248,3 +250,68 @@ def normalize_simple_slice(space, length, w_start, w_stop):
     elif start > stop:
         start = stop
     return start, stop
+
+
+app = gateway.applevel("""
+    from operator import index
+
+    def evaluate_slice_index(x):
+        try:
+            return index(x)
+        except TypeError:
+            raise TypeError("slice indices must be integers or "
+                            "None or have an __index__ method")
+
+    def _getlongindices(start, stop, step, length):
+        if step is None:
+            step = 1
+        else:
+            step = evaluate_slice_index(step)
+            if step == 0:
+                raise ValueError("slice step cannot be zero")
+
+        # Find lower and upper bounds for start and stop.
+        if step < 0:
+            lower = -1
+            upper = length - 1
+        else:
+            lower = 0
+            upper = length
+
+        # Compute start.
+        if start is None:
+            start = upper if step < 0 else lower
+        else:
+            start = evaluate_slice_index(start)
+            if start < 0:
+                start += length
+                if start < lower:
+                    start = lower
+            else:
+                if start > upper:
+                    start = upper
+
+        # Compute stop.
+        if stop is None:
+            stop = lower if step < 0 else upper
+        else:
+            stop = evaluate_slice_index(stop)
+            if stop < 0:
+                stop += length
+                if stop < lower:
+                    stop = lower
+            else:
+                if stop > upper:
+                    stop = upper
+
+        return (start, stop, step)
+
+    def indices(start, stop, step, length):
+        length = index(length)
+        if length < 0:
+            raise ValueError("length should not be negative")
+        return _getlongindices(start, stop, step, length)
+
+""", filename=__file__)
+
+app_indices = app.interphook("indices")

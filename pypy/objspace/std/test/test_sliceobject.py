@@ -111,11 +111,11 @@ class AppTest_SliceObject:
         assert slice(-2 ** 200, -2 ** 100, 1).indices(1000) == (0, 0, 1)
         assert slice(2 ** 100, 0, -1).indices(1000) == (999, 0, -1)
         assert slice(2 ** 100, -2 ** 100, -1).indices(1000) == (999, -1, -1)
-        start, stop, step = slice(0, 1000, 2 ** 200).indices(1000)
-        assert start == 0
-        assert stop == 1000
-        assert step >= 1000
-        raises(OverflowError, "slice(0, 1000, 1).indices(2 ** 100)")
+        assert slice(0, 1000, 2 ** 200).indices(1000) == (0, 1000, 2 ** 200)
+        assert slice(0, 1000, 1).indices(2 ** 100) == (0, 1000, 1)
 
     def test_reduce(self):
         assert slice(1, 2, 3).__reduce__() == (slice, (1, 2, 3))
+
+    def test_indices_negative_length(self):
+        raises(ValueError, "slice(0, 1000, 1).indices(-1)")
