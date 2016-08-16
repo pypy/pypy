@@ -441,6 +441,9 @@ class W_BytearrayObject(W_Root):
     def descr_copy(self, space):
         return self._new(self.data[:])
 
+    def descr_hex(self, space):
+        return _array_to_hexstring(space, self.data, len(self.data), True)
+
 
 # ____________________________________________________________
 # helpers for slow paths, moved out because they contain loops
@@ -494,15 +497,22 @@ def _hexstring_to_array(space, s):
 HEXDIGITS = "0123456789abcdef"
 PY_SIZE_T_MAX = 2**(rffi.sizeof(rffi.SIZE_T)*8)-1
 
-def _array_to_hexstring(space, buf):
-    length = buf.getlength()
+@specialize.arg(3) # raw access
+def _array_to_hexstring(space, buf, len=0, rawaccess=False):
+    if rawaccess:
+        length = len
+    else:
+        length = buf.getlength()
     hexstring = StringBuilder(length*2)
 
     if length > PY_SIZE_T_MAX/2:
         raise OperationError(space.w_MemoryError)
 
     for i in range(length):
-        byte = ord(buf.getitem(i))
+        if rawaccess:
+            byte = ord(buf[i])
+        else:
+            byte = ord(buf.getitem(i))
         c = (byte >> 4 & 0xf)
         hexstring.append(HEXDIGITS[c])
         c = (byte & 0xf)
@@ -944,6 +954,12 @@ class BytearrayDocstrings:
         of the specified width.  B is never truncated.
         """
 
+    def hex():
+        """B.hex() -> unicode
+        Return a string object containing two hexadecimal digits
+        for each byte in the instance B.
+        """
+
 
 W_BytearrayObject.typedef = TypeDef(
     "bytearray",
@@ -1093,6 +1109,8 @@ W_BytearrayObject.typedef = TypeDef(
                        doc=BytearrayDocstrings.clear.__doc__),
     copy = interp2app(W_BytearrayObject.descr_copy,
                          doc=BytearrayDocstrings.copy.__doc__),
+    hex = interp2app(W_BytearrayObject.descr_hex,
+                           doc=BytearrayDocstrings.hex.__doc__),
 )
 W_BytearrayObject.typedef.flag_sequence_bug_compat = True
 

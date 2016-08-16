@@ -870,3 +870,10 @@ class AppTestBytesObject:
             def __int__(self):
                 return 42
         raises(TypeError, bytes, A())
+
+    def test_hex(self):
+        assert bytes('santa claus', 'ascii').hex() == "73616e746120636c617573"
+        assert bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73]).hex() == \
+               "73616e746120636c617573"
+        assert bytes(64).hex() == "00"*64
+
