@@ -523,3 +523,7 @@ class AppTestBytesArray:
         result = bytearray.maketrans(b'abc', b'xyz')
         assert result == table
         assert type(result) is bytes
+
+    def test_hex(self):
+        assert bytearray(b'santa claus').hex() == "73616e746120636c617573"
+
