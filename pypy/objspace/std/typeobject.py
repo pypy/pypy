@@ -1076,9 +1076,14 @@ def create_slot(w_self, w_slot_name, slot_name, index_next_extra_slot):
     # create member
     slot_name = mangle(slot_name, w_self.name)
     if slot_name in w_self.dict_w:
-        raise oefmt(space.w_ValueError,
-                    "%R in __slots__ conflicts with class variable",
-                    w_slot_name)
+        w_prev = w_self.dict_w[slot_name]
+        if isinstance(w_prev, Member) and w_prev.w_cls is w_self:
+            pass   # special case: duplicate __slots__ entry, ignored
+                   # (e.g. occurs in datetime.py, fwiw)
+        else:
+            raise oefmt(space.w_ValueError,
+                        "%R in __slots__ conflicts with class variable",
+                        w_slot_name)
     else:
         # Force interning of slot names.
         slot_name = space.str_w(space.new_interned_str(slot_name))
