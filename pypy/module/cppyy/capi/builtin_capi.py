@@ -158,14 +158,16 @@ def c_call_r(space, cppmethod, cppobject, nargs, args):
     return _c_call_r(cppmethod, cppobject, nargs, args)
 _c_call_s = rffi.llexternal(
     "cppyy_call_s",
-    [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP, rffi.INTP], rffi.CCHARP,
+    [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP, rffi.SIZE_TP], rffi.CCHARP,
     releasegil=ts_call,
     compilation_info=backend.eci)
 def c_call_s(space, cppmethod, cppobject, nargs, args):
-    length = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
-    cstr = _c_call_s(cppmethod, cppobject, nargs, args, length)
-    cstr_len = int(length[0])
-    lltype.free(length, flavor='raw')
+    length = lltype.malloc(rffi.SIZE_TP.TO, 1, flavor='raw')
+    try:
+        cstr = _c_call_s(cppmethod, cppobject, nargs, args, length)
+        cstr_len = int(length[0])
+    finally:
+        lltype.free(length, flavor='raw')
     return cstr, cstr_len
 
 _c_constructor = rffi.llexternal(
@@ -548,11 +550,11 @@ _c_charp2stdstring = rffi.llexternal(
     [rffi.CCHARP, rffi.SIZE_T], C_OBJECT,
     releasegil=ts_helper,
     compilation_info=backend.eci)
-def c_charp2stdstring(space, svalue, sz):
-    charp = rffi.str2charp(svalue)
-    result = _c_charp2stdstring(charp, sz)
-    rffi.free_charp(charp)
-    return result
+def c_charp2stdstring(space, pystr, sz):
+    cstr = rffi.str2charp(pystr)
+    cppstr = _c_charp2stdstring(cstr, sz)
+    rffi.free_charp(cstr)
+    return cppstr
 _c_stdstring2stdstring = rffi.llexternal(
     "cppyy_stdstring2stdstring",
     [C_OBJECT], C_OBJECT,

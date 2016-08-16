@@ -1,8 +1,12 @@
 import py, os
 
+from pypy.interpreter.gateway import interp2app, unwrap_spec
+
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.rtyper.lltypesystem import rffi
+from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import libffi, rdynload
+
+from pypy.module.cppyy.capi.capi_types import C_OBJECT
 
 __all__ = ['identify', 'std_string_name', 'eci', 'c_load_dictionary']
 
@@ -68,11 +72,42 @@ def c_load_dictionary(name):
     pch = _c_load_dictionary(name)
     return pch
 
+_c_stdstring2charp = rffi.llexternal(
+    "cppyy_stdstring2charp",
+    [C_OBJECT, rffi.SIZE_TP], rffi.CCHARP,
+    releasegil=ts_helper,
+    compilation_info=eci)
+def c_stdstring2charp(space, cppstr):
+    sz = lltype.malloc(rffi.SIZE_TP.TO, 1, flavor='raw')
+    try:
+        cstr = _c_stdstring2charp(cppstr, sz)
+        cstr_len = int(sz[0])
+    finally:
+        lltype.free(sz, flavor='raw')
+    return rffi.charpsize2str(cstr, cstr_len)
 
-# Cling-specific pythonizations
+# pythonizations
+def stdstring_c_str(space, w_self):
+    """Return a python string taking into account \0"""
+
+    from pypy.module.cppyy import interp_cppyy
+    cppstr = space.interp_w(interp_cppyy.W_CPPInstance, w_self, can_be_None=False)
+    return space.wrap(c_stdstring2charp(space, cppstr._rawobject))
+
+# setup pythonizations for later use at run-time
+_pythonizations = {}
 def register_pythonizations(space):
     "NOT_RPYTHON"
-    pass
+
+    allfuncs = [
+
+        ### std::string
+        stdstring_c_str,
+
+    ]
+
+    for f in allfuncs:
+        _pythonizations[f.__name__] = space.wrap(interp2app(f))
 
 def _method_alias(space, w_pycppclass, m1, m2):
     space.setattr(w_pycppclass, space.wrap(m1),
@@ -80,4 +115,6 @@ def _method_alias(space, w_pycppclass, m1, m2):
 
 def pythonize(space, name, w_pycppclass):
     if name == "string":
+        space.setattr(w_pycppclass, space.wrap("c_str"), _pythonizations["stdstring_c_str"])
         _method_alias(space, w_pycppclass, "_cppyy_as_builtin", "c_str")
+        _method_alias(space, w_pycppclass, "__str__",           "c_str")

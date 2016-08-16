@@ -479,7 +479,7 @@ void* Cppyy::CallR( TCppMethod_t method, TCppObject_t self, void* args )
 }
 
 Char_t* Cppyy::CallS(
-      TCppMethod_t method, TCppObject_t self, void* args, int* length )
+      TCppMethod_t method, TCppObject_t self, void* args, size_t* length )
 {
    char* cstr = nullptr;
    TClassRef cr("std::string");
@@ -1202,9 +1202,9 @@ void* cppyy_call_r(cppyy_method_t method, cppyy_object_t self, int nargs, void* 
 }
 
 char* cppyy_call_s(
-        cppyy_method_t method, cppyy_object_t self, int nargs, void* args, int* length) {
+        cppyy_method_t method, cppyy_object_t self, int nargs, void* args, size_t* lsz) {
     std::vector<TParameter> parvec = vsargs_to_parvec(args, nargs);
-    return Cppyy::CallS(method, (void*)self, &parvec, length);
+    return Cppyy::CallS(method, (void*)self, &parvec, lsz);
 }
 
 cppyy_object_t cppyy_constructor(cppyy_method_t method, cppyy_type_t klass, int nargs, void* args) {
@@ -1463,8 +1463,13 @@ void cppyy_free(void* ptr) {
     free(ptr);
 }
 
-cppyy_object_t cppyy_charp2stdstring(const char* str, size_t sz){
+cppyy_object_t cppyy_charp2stdstring(const char* str, size_t sz) {
     return (cppyy_object_t)new std::string(str, sz);
+}
+
+char* cppyy_stdstring2charp(cppyy_object_t ptr, size_t* lsz) {
+    *lsz = ((std::string*)ptr)->size();
+    return (char*)((std::string*)ptr)->data();
 }
 
 cppyy_object_t cppyy_stdstring2stdstring(cppyy_object_t ptr){

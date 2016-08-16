@@ -59,7 +59,7 @@ extern "C" {
     RPY_EXTERN
     void*  cppyy_call_r(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
     RPY_EXTERN
-    char*  cppyy_call_s(cppyy_method_t method, cppyy_object_t self, int nargs, void* args, int* length);
+    char*  cppyy_call_s(cppyy_method_t method, cppyy_object_t self, int nargs, void* args, size_t* length);
 
     RPY_EXTERN
     cppyy_object_t cppyy_constructor(cppyy_method_t method, cppyy_type_t klass, int nargs, void* args);
@@ -178,6 +178,8 @@ extern "C" {
 
     RPY_EXTERN
     cppyy_object_t cppyy_charp2stdstring(const char* str, size_t sz);
+    RPY_EXTERN
+    char* cppyy_stdstring2charp(cppyy_object_t ptr, size_t* lsz);
     RPY_EXTERN
     cppyy_object_t cppyy_stdstring2stdstring(cppyy_object_t ptr);
 
