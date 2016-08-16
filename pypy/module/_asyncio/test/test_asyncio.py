@@ -20,6 +20,9 @@ class AppTestAsyncIO(object):
         """
     
     def test_asynchronous_context_managers(self):
+        # it is important that "releasing lock A" happens before "holding lock B"
+        # or the other way around, but it is not allowed that both coroutines
+        # hold the lock at the same time
         """
 import encodings.idna
 import asyncio
