@@ -21,12 +21,31 @@ from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.jit.codewriter import longlong
 from rpython.jit.backend.ppc.detect_feature import detect_vsx
+from rpython.rlib.objectmodel import always_inline
 
 def not_implemented(msg):
     msg = '[ppc/vector_ext] %s\n' % msg
     if we_are_translated():
         llop.debug_print(lltype.Void, msg)
     raise NotImplementedError(msg)
+
+@always_inline
+def permi(v1, v2):
+    """ permute immediate for big and little endian """
+    # if v1 == 0 unpacks index 0 of param 1
+    # if v1 == 1 unpacks index 1 of param 1
+    # if v2 == 0 unpacks index 0 of param 2
+    # if v2 == 1 unpacks index 1 of param 2
+    mask = 0
+    if IS_BIG_ENDIAN:
+        not_implemented("no big endian support (yet)")
+    else:
+        if v1 == 0: mask |= 0b01
+        if v1 == 1: mask |= 0b00
+        if v2 == 0: mask |= 0b10
+        if v2 == 1: mask |= 0b00
+    return mask
+
 
 def flush_vec_cc(asm, regalloc, condition, size, result_loc):
     # After emitting an instruction that leaves a boolean result in
@@ -448,9 +467,12 @@ class VectorAssembler(object):
         size = op.bytesize
         if size == 8:
             if resultloc.is_vector_reg(): # vector <- reg
-                self.mc.load_imm(r.SCRATCH, PARAM_SAVE_AREA_OFFSET)
+                self.mc.load_imm(r.SCRATCH2, PARAM_SAVE_AREA_OFFSET)
                 self.mc.stvx(vector, r.SCRATCH2.value, r.SP.value)
-                self.mc.store(src, r.SP.value, PARAM_SAVE_AREA_OFFSET+8*residx)
+                idx = residx
+                if not IS_BIG_ENDIAN:
+                    idx = 1 - idx
+                self.mc.store(src, r.SP.value, PARAM_SAVE_AREA_OFFSET+8*idx)
                 self.mc.lvx(res, r.SCRATCH2.value, r.SP.value)
             else:
                 not_implemented("64 bit float")
@@ -463,29 +485,32 @@ class VectorAssembler(object):
 
     def emit_vec_unpack_i(self, op, arglocs, regalloc):
         assert isinstance(op, VectorOp)
-        resloc, srcloc, idxloc, countloc = arglocs
+        resloc, srcloc, idxloc, countloc, sizeloc = arglocs
         idx = idxloc.value
         res = resloc.value
         src = srcloc.value
-        size = op.bytesize
+        size = sizeloc.value
         count = countloc.value
         if count == 1:
             assert srcloc.is_vector_reg()
             assert not resloc.is_vector_reg()
             off = PARAM_SAVE_AREA_OFFSET
             self.mc.load_imm(r.SCRATCH2, off)
-            off = off + size*idx
             self.mc.stvx(src, r.SCRATCH2.value, r.SP.value)
+            off = off + size * idx
             if size == 8:
                 self.mc.load(res, r.SP.value, off+size*idx)
+                return
             elif size == 4:
                 self.mc.lwa(res, r.SP.value, off)
+                return
             elif size == 2:
                 self.mc.lha(res, r.SP.value, off)
+                return
             elif size == 1:
                 self.mc.lbz(res, r.SP.value, off)
                 self.mc.extsb(res, res)
-            return
+                return
 
         not_implemented("%d bit integer, count %d" % \
                        (size*8, count))
@@ -500,42 +525,44 @@ class VectorAssembler(object):
         residx = residxloc.value
         srcidx = srcidxloc.value
         size = op.bytesize
-        assert size == 8
         # srcloc is always a floating point register f, this means it is
         # vsr[0] == valueof(f)
         if srcidx == 0:
             if residx == 0:
-                # r = (s[0], r[1])
-                if IS_BIG_ENDIAN:
-                    self.mc.xxspltd(res, src, vec, 0b10)
-                else:
-                    self.mc.xxspltd(res, src, vec, 0b01)
+                # r = (s[0], v[1])
+                self.mc.xxpermdi(res, src, vec, permi(0,1))
             else:
                 assert residx == 1
-                # r = (r[0], s[0])
-                if IS_BIG_ENDIAN:
-                    self.mc.xxspltd(res, vec, src, 0b00)
-                else:
-                    self.mc.xxspltd(res, vec, src, 0b11)
+                # r = (v[0], s[0])
+                self.mc.xxpermdi(res, vec, src, permi(1,1))
         else:
             assert srcidx == 1
             if residx == 0:
-                # r = (s[1], r[1])
-                if IS_BIG_ENDIAN:
-                    self.mc.xxspltd(res, src, vec, 0b11)
-                else:
-                    self.mc.xxspltd(res, src, vec, 0b00)
+                # r = (s[1], v[1])
+                self.mc.xxpermdi(res, src, vec, permi(1,1))
             else:
                 assert residx == 1
-                # r = (r[0], s[1])
-                if IS_BIG_ENDIAN:
-                    self.mc.xxspltd(res, vec, src, 0b10)
-                else:
-                    self.mc.xxspltd(res, vec, src, 0b01)
+                # r = (v[0], s[1])
+                self.mc.xxpermdi(res, vec, src, permi(0,1))
 
     def emit_vec_unpack_f(self, op, arglocs, regalloc):
-        resloc, srcloc, idxloc, countloc = arglocs
-        self.emit_vec_pack_f(op, [resloc, srcloc, srcloc, imm(0), idxloc, countloc], regalloc)
+        assert isinstance(op, VectorOp)
+        resloc, srcloc, srcidxloc, countloc = arglocs
+        res = resloc.value
+        src = srcloc.value
+        srcidx = srcidxloc.value
+        size = op.bytesize
+        # srcloc is always a floating point register f, this means it is
+        # vsr[0] == valueof(f)
+        if srcidx == 0:
+            # r = (s[0], s[1])
+            self.mc.xxpermdi(res, src, src, permi(0,1))
+            return
+        else:
+            # r = (s[1], s[0])
+            self.mc.xxpermdi(res, src, src, permi(1,0))
+            return
+        not_implemented("unpack for combination src %d -> res %d" % (srcidx, residx))
 
     def emit_vec_cast_float_to_int(self, op, arglocs, regalloc):
         res, l0 = arglocs
@@ -700,7 +727,10 @@ class VectorRegalloc(object):
         assert not arg.is_vector()
         srcloc = self.ensure_reg(arg)
         vloc = self.ensure_vector_reg(op.getarg(0))
-        resloc = self.force_allocate_vector_reg(op)
+        if op.is_vector():
+            resloc = self.force_allocate_vector_reg(op)
+        else:
+            resloc = self.force_allocate_reg(op)
         residx = index.value # where to put it in result?
         srcidx = 0
         return [resloc, vloc, srcloc, imm(residx), imm(srcidx), imm(count.value)]
@@ -722,11 +752,13 @@ class VectorRegalloc(object):
         assert isinstance(count, ConstInt)
         arg = op.getarg(0)
         if arg.is_vector():
-            srcloc = self.ensure_vector_reg(op.getarg(0))
+            srcloc = self.ensure_vector_reg(arg)
         else:
-            srcloc = self.ensure_reg(op.getarg(0))
+            # unpack
+            srcloc = self.ensure_reg(arg0)
+        size = arg.bytesize
         resloc = self.force_allocate_reg(op)
-        return [resloc, srcloc, imm(index.value), imm(count.value)]
+        return [resloc, srcloc, imm(index.value), imm(count.value), imm(size)]
 
     def expand_float(self, size, box):
         adr = self.assembler.datablockwrapper.malloc_aligned(16, 16)

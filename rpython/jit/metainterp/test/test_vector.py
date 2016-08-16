@@ -743,7 +743,7 @@ class VectorizeTests(object):
             pack.append('%s = vec_%s()' % (v, suffix))
             for i,val in enumerate(vals):
                 args_values.append(val)
-                f = newvar('f')
+                f = newvar(suffix)
                 args.append(f)
                 count = 1
                 # create a new variable
@@ -789,6 +789,7 @@ class VectorizeTests(object):
         #
         looptoken = JitCellToken()
         cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        import pdb; pdb.set_trace()
         deadframe = cpu.execute_token(looptoken, *args_values)
         print(source)
         if float:
@@ -796,26 +797,30 @@ class VectorizeTests(object):
         else:
             return cpu.get_int_value(deadframe, 0)
 
-    def test_unpack(self):
+    def test_unpack_f(self):
         # double unpack
         assert self.run_unpack("f{f} = vec_unpack_f({x}, 0, 1)",
-                               "[2xf64]", {'x': (1.2,-1)}) == 1.2
+                               "[2xf64]", {'x': (1.2,-1.0)}) == 1.2
         assert self.run_unpack("f{f} = vec_unpack_f({x}, 1, 1)",
                                "[2xf64]", {'x': (50.33,4321.0)}) == 4321.0
+    def test_unpack_i64(self):
         # int64
         assert self.run_unpack("i{i} = vec_unpack_i({x}, 0, 1)",
                                "[2xi64]", {'x': (11,12)}, float=False) == 11
         assert self.run_unpack("i{i} = vec_unpack_i({x}, 1, 1)",
                                "[2xi64]", {'x': (14,15)}, float=False) == 15
 
-        ## integer unpack (byte)
+    def test_unpack_i(self):
         for i in range(16):
+            # i8
             op = "i{i} = vec_unpack_i({x}, %d, 1)" % i
             assert self.run_unpack(op, "[16xi8]", {'x': [127,1]*8}, float=False) == \
                    (127 if i%2==0 else 1)
+            # i16
             if i < 8:
                 assert self.run_unpack(op, "[8xi16]", {'x': [2**15-1,0]*4}, float=False) == \
                        (2**15-1 if i%2==0 else 0)
+            # i32
             if i < 4:
                 assert self.run_unpack(op, "[4xi32]", {'x': [2**31-1,0]*4}, float=False) == \
                        (2**31-1 if i%2==0 else 0)

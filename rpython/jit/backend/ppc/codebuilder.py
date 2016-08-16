@@ -660,7 +660,7 @@ class BasicPPCAssembler(object):
     # splat high of A, and high of B
     xxspltdh = XX3_splat(60, XO13=10, OE=0, DM=0b11)
     # generic splat
-    xxspltd = XX3_splat(60, XO13=10, OE=0)
+    xxpermdi = XX3_splat(60, XO13=10, OE=0)
 
     xxlxor = XX3(60, XO9=154)
     xxlor = XX3(60, XO9=146)
