@@ -146,7 +146,7 @@ class State(object):
             'call_d'       : ([c_method, c_object, c_int, c_voidp],   c_double),
 
             'call_r'       : ([c_method, c_object, c_int, c_voidp],   c_voidp),
-            # call_s actually takes an intp as last parameter, but this will do
+            # call_s actually takes an size_t* as last parameter, but this will do
             'call_s'       : ([c_method, c_object, c_int, c_voidp, c_voidp],    c_ccharp),
 
             'constructor'  : ([c_method, c_object, c_int, c_voidp],   c_object),
@@ -337,8 +337,8 @@ def c_call_r(space, cppmethod, cppobject, nargs, cargs):
     args = [_Arg(h=cppmethod), _Arg(h=cppobject), _Arg(l=nargs), _Arg(vp=cargs)]
     return _cdata_to_ptr(space, call_capi(space, 'call_r', args))
 def c_call_s(space, cppmethod, cppobject, nargs, cargs):
-    length = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
-    args = [_Arg(h=cppmethod), _Arg(h=cppobject), _Arg(l=nargs), _Arg(vp=cargs), _Args(vp=length)]
+    length = lltype.malloc(rffi.SIZE_TP.TO, 1, flavor='raw')
+    args = [_Arg(h=cppmethod), _Arg(h=cppobject), _Arg(l=nargs), _Arg(vp=cargs), _Arg(vp=length)]
     cstr = call_capi(space, 'call_s', args)
     cstr_len = int(length[0])
     lltype.free(length, flavor='raw')
@@ -373,7 +373,7 @@ def c_is_namespace(space, scope):
     return space.bool_w(call_capi(space, 'is_namespace', [_Arg(h=scope)]))
 def c_is_template(space, name):
     return space.bool_w(call_capi(space, 'is_template', [_Arg(s=name)]))
-def c_is_abstract(space, scope):
+def c_is_abstract(space, cpptype):
     return space.bool_w(call_capi(space, 'is_abstract', [_Arg(h=cpptype)]))
 def c_is_enum(space, name):
     return space.bool_w(call_capi(space, 'is_enum', [_Arg(s=name)]))
@@ -525,13 +525,53 @@ def charp2str_free(space, cdata):
 def c_charp2stdstring(space, svalue, sz):
     return _cdata_to_cobject(
         space, call_capi(space, 'charp2stdstring', [_Arg(s=svalue), _Arg(l=sz)]))
+_c_stdstring2charp = rffi.llexternal(
+    "cppyy_stdstring2charp",
+    [C_OBJECT, rffi.SIZE_TP], rffi.CCHARP,
+    releasegil=ts_helper,
+    compilation_info=eci)
+def c_stdstring2charp(space, cppstr):
+    sz = lltype.malloc(rffi.SIZE_TP.TO, 1, flavor='raw')
+    try:
+        cstr = call_capi(space, 'stdstring2charp', [_Arg(h=cppstr), _Arg(vp=sz)])
+        cstr_len = int(sz[0])
+    finally:
+        lltype.free(sz, flavor='raw')
+    return rffi.charpsize2str(cstr, cstr_len)
 def c_stdstring2stdstring(space, cppobject):
     return _cdata_to_cobject(space, call_capi(space, 'stdstring2stdstring', [_Arg(h=cppobject)]))
 
-# loadable-capi-specific pythonizations (none, as the capi isn't known until runtime)
+
+# TODO: factor these out ...
+# pythonizations
+def stdstring_c_str(space, w_self):
+    """Return a python string taking into account \0"""
+
+    from pypy.module.cppyy import interp_cppyy
+    cppstr = space.interp_w(interp_cppyy.W_CPPInstance, w_self, can_be_None=False)
+    return space.wrap(c_stdstring2charp(space, cppstr._rawobject))
+
+# setup pythonizations for later use at run-time
+_pythonizations = {}
 def register_pythonizations(space):
     "NOT_RPYTHON"
-    pass
+
+    allfuncs = [
+
+        ### std::string
+        stdstring_c_str,
+
+    ]
+
+    for f in allfuncs:
+        _pythonizations[f.__name__] = space.wrap(interp2app(f))
+
+def _method_alias(space, w_pycppclass, m1, m2):
+    space.setattr(w_pycppclass, space.wrap(m1),
+                  space.getattr(w_pycppclass, space.wrap(m2)))
 
 def pythonize(space, name, w_pycppclass):
-    pass
+    if name == "string":
+        space.setattr(w_pycppclass, space.wrap("c_str"), _pythonizations["stdstring_c_str"])
+        _method_alias(space, w_pycppclass, "_cppyy_as_builtin", "c_str")
+        _method_alias(space, w_pycppclass, "__str__",           "c_str")

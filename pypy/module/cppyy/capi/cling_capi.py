@@ -86,6 +86,7 @@ def c_stdstring2charp(space, cppstr):
         lltype.free(sz, flavor='raw')
     return rffi.charpsize2str(cstr, cstr_len)
 
+# TODO: factor these out ...
 # pythonizations
 def stdstring_c_str(space, w_self):
     """Return a python string taking into account \0"""
