@@ -232,6 +232,11 @@ class W_MemoryView(W_Root):
         newitemsize = self.get_native_fmtchar(fmt)
         return W_MemoryView(self.buf, fmt, newitemsize)
 
+    def descr_hex(self, space):
+        from pypy.objspace.std.bytearrayobject import _array_to_hexstring
+        self._check_released(space)
+        return _array_to_hexstring(space, self.buf)
+
 
 W_MemoryView.typedef = TypeDef(
     "memoryview",
@@ -250,6 +255,7 @@ Create a new memoryview object which references the given object.
     __exit__    = interp2app(W_MemoryView.descr_exit),
     __weakref__ = make_weakref_descr(W_MemoryView),
     cast        = interp2app(W_MemoryView.descr_cast),
+    hex         = interp2app(W_MemoryView.descr_hex),
     tobytes     = interp2app(W_MemoryView.descr_tobytes),
     tolist      = interp2app(W_MemoryView.descr_tolist),
     release     = interp2app(W_MemoryView.descr_release),
