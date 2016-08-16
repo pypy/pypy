@@ -96,12 +96,15 @@ if os.name == 'nt':
             return 0;
         }
     ''',]
+    post_include_bits=['RPY_EXTERN int _PyVerify_fd(int);']
 else:
     separate_module_sources = []
+    post_include_bits = []
     includes=['errno.h','stdio.h']
 errno_eci = ExternalCompilationInfo(
     includes=includes,
     separate_module_sources=separate_module_sources,
+    post_include_bits=post_include_bits,
 )
 
 # Direct getters/setters, don't use directly!
