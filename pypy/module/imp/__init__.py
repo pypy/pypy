@@ -12,7 +12,7 @@ class Module(MixedModule):
 
         'get_magic':       'interp_imp.get_magic',
         'get_tag':         'interp_imp.get_tag',
-        'load_dynamic':    'interp_imp.load_dynamic',
+        'create_dynamic':  'interp_imp.create_dynamic',
         'create_builtin':  'interp_imp.create_builtin',
         'init_frozen':     'interp_imp.init_frozen',
         'is_builtin':      'interp_imp.is_builtin',
