@@ -44,5 +44,11 @@ try:
 finally:
     loop.close()
 
-assert cor.res == "- coro 1: waiting for lock - coro 1: holding the lock - coro 2: waiting for lock - coro 1: releasing the lock - coro 2: holding the lock - coro 2: releasing the lock -"
+assert "coro 1: waiting for lock" in cor.res
+assert "coro 1: holding the lock" in cor.res
+assert "coro 1: releasing the lock" in cor.res
+assert "coro 2: waiting for lock" in cor.res
+assert "coro 2: holding the lock" in cor.res
+assert "coro 2: releasing the lock" in cor.res
+assert cor.res.find("coro 1: releasing the lock") < cor.res.find("coro 2: holding the lock")
         """
