@@ -19,6 +19,7 @@ class Module(MixedModule):
         self.defaultencoding = "utf-8"
         self.filesystemencoding = None
         self.debug = True
+        self.track_resources = False
         self.dlopenflags = rdynload._dlopen_default_mode()
 
     interpleveldefs = {

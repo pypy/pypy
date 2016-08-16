@@ -519,12 +519,10 @@ class EnumType(StructOrUnionOrEnum):
             smallest_value = min(self.enumvalues)
             largest_value = max(self.enumvalues)
         else:
-            import warnings
-            warnings.warn("%r has no values explicitly defined; next version "
-                          "will refuse to guess which integer type it is "
-                          "meant to be (unsigned/signed, int/long)"
-                          % self._get_c_name())
-            smallest_value = largest_value = 0
+            raise api.CDefError("%r has no values explicitly defined: "
+                                "refusing to guess which integer type it is "
+                                "meant to be (unsigned/signed, int/long)"
+                % self._get_c_name())
         if smallest_value < 0:   # needs a signed type
             sign = 1
             candidate1 = PrimitiveType("int")

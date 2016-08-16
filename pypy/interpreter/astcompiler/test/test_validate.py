@@ -38,9 +38,8 @@ class TestASTValidator:
         self.mod(m, "must have Load context", "eval")
 
     def _check_arguments(self, fac, check):
-        def arguments(args=None, vararg=None, varargannotation=None,
-                      kwonlyargs=None, kwarg=None, kwargannotation=None,
-                      defaults=None, kw_defaults=None):
+        def arguments(args=None, vararg=None, kwonlyargs=None,
+                      kw_defaults=None, kwarg=None, defaults=None):
             if args is None:
                 args = []
             if kwonlyargs is None:
@@ -49,20 +48,12 @@ class TestASTValidator:
                 defaults = []
             if kw_defaults is None:
                 kw_defaults = []
-            args = ast.arguments(args, vararg, varargannotation, kwonlyargs,
-                                 kwarg, kwargannotation, defaults, kw_defaults)
+            args = ast.arguments(args, vararg, kwonlyargs,
+                                 kw_defaults, kwarg, defaults)
             return fac(args)
         args = [ast.arg("x", ast.Name("x", ast.Store, 0, 0))]
         check(arguments(args=args), "must have Load context")
-        check(arguments(varargannotation=ast.Num(self.space.wrap(3), 0, 0)),
-              "varargannotation but no vararg")
-        check(arguments(varargannotation=ast.Name("x", ast.Store, 0, 0), vararg="x"),
-                         "must have Load context")
         check(arguments(kwonlyargs=args), "must have Load context")
-        check(arguments(kwargannotation=ast.Num(self.space.wrap(42), 0, 0)),
-                       "kwargannotation but no kwarg")
-        check(arguments(kwargannotation=ast.Name("x", ast.Store, 0, 0),
-                          kwarg="x"), "must have Load context")
         check(arguments(defaults=[ast.Num(self.space.wrap(3), 0, 0)]),
                        "more positional defaults than args")
         check(arguments(kw_defaults=[ast.Num(self.space.wrap(4), 0, 0)]),
@@ -77,7 +68,7 @@ class TestASTValidator:
                           "must have Load context")
 
     def test_funcdef(self):
-        a = ast.arguments([], None, None, [], None, None, [], [])
+        a = ast.arguments([], None, [], [], None, [])
         f = ast.FunctionDef("x", a, [], [], None, 0, 0)
         self.stmt(f, "empty body on FunctionDef")
         f = ast.FunctionDef("x", a, [ast.Pass(0, 0)], [ast.Name("x", ast.Store, 0, 0)],
@@ -91,8 +82,7 @@ class TestASTValidator:
         self._check_arguments(fac, self.stmt)
 
     def test_classdef(self):
-        def cls(bases=None, keywords=None, starargs=None, kwargs=None,
-                body=None, decorator_list=None):
+        def cls(bases=None, keywords=None, body=None, decorator_list=None):
             if bases is None:
                 bases = []
             if keywords is None:
@@ -101,15 +91,11 @@ class TestASTValidator:
                 body = [ast.Pass(0, 0)]
             if decorator_list is None:
                 decorator_list = []
-            return ast.ClassDef("myclass", bases, keywords, starargs,
-                                kwargs, body, decorator_list, 0, 0)
+            return ast.ClassDef("myclass", bases, keywords,
+                                body, decorator_list, 0, 0)
         self.stmt(cls(bases=[ast.Name("x", ast.Store, 0, 0)]),
                   "must have Load context")
         self.stmt(cls(keywords=[ast.keyword("x", ast.Name("x", ast.Store, 0, 0))]),
-                  "must have Load context")
-        self.stmt(cls(starargs=ast.Name("x", ast.Store, 0, 0)),
-                  "must have Load context")
-        self.stmt(cls(kwargs=ast.Name("x", ast.Store, 0, 0)),
                   "must have Load context")
         self.stmt(cls(body=[]), "empty body on ClassDef")
         self.stmt(cls(body=[None]), "None disallowed")
@@ -250,7 +236,7 @@ class TestASTValidator:
         self.expr(u, "must have Load context")
 
     def test_lambda(self):
-        a = ast.arguments([], None, None, [], None, None, [], [])
+        a = ast.arguments([], None, [], [], None, [])
         self.expr(ast.Lambda(a, ast.Name("x", ast.Store, 0, 0), 0, 0),
                   "must have Load context")
         def fac(args):
@@ -343,20 +329,12 @@ class TestASTValidator:
         func = ast.Name("x", ast.Load, 0, 0)
         args = [ast.Name("y", ast.Load, 0, 0)]
         keywords = [ast.keyword("w", ast.Name("z", ast.Load, 0, 0))]
-        stararg = ast.Name("p", ast.Load, 0, 0)
-        kwarg = ast.Name("q", ast.Load, 0, 0)
-        call = ast.Call(ast.Name("x", ast.Store, 0, 0), args, keywords, stararg,
-                        kwarg, 0, 0)
+        call = ast.Call(ast.Name("x", ast.Store, 0, 0), args, keywords, 0, 0)
         self.expr(call, "must have Load context")
-        call = ast.Call(func, [None], keywords, stararg, kwarg, 0, 0)
+        call = ast.Call(func, [None], keywords, 0, 0)
         self.expr(call, "None disallowed")
         bad_keywords = [ast.keyword("w", ast.Name("z", ast.Store, 0, 0))]
-        call = ast.Call(func, args, bad_keywords, stararg, kwarg, 0, 0)
-        self.expr(call, "must have Load context")
-        call = ast.Call(func, args, keywords, ast.Name("z", ast.Store, 0, 0), kwarg, 0, 0)
-        self.expr(call, "must have Load context")
-        call = ast.Call(func, args, keywords, stararg,
-                        ast.Name("w", ast.Store, 0, 0), 0, 0)
+        call = ast.Call(func, args, bad_keywords, 0, 0)
         self.expr(call, "must have Load context")
 
     def test_num(self):

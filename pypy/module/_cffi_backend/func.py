@@ -1,7 +1,8 @@
 from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
-from rpython.rlib.objectmodel import keepalive_until_here
+from rpython.rlib.objectmodel import keepalive_until_here, we_are_translated
+from rpython.rlib import jit
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
@@ -132,16 +133,65 @@ def from_buffer(space, w_ctype, w_x):
         raise oefmt(space.w_TypeError,
                     "needs 'char[]', got '%s'", w_ctype.name)
     #
+    return _from_buffer(space, w_ctype, w_x)
+
+def _from_buffer(space, w_ctype, w_x):
     buf = _fetch_as_read_buffer(space, w_x)
-    try:
-        _cdata = buf.get_raw_address()
-    except ValueError:
-        raise oefmt(space.w_TypeError,
-                    "from_buffer() got a '%T' object, which supports the "
-                    "buffer interface but cannot be rendered as a plain "
-                    "raw address on PyPy", w_x)
+    if space.isinstance_w(w_x, space.w_str):
+        _cdata = get_raw_address_of_string(space, w_x)
+    else:
+        try:
+            _cdata = buf.get_raw_address()
+        except ValueError:
+            raise oefmt(space.w_TypeError,
+                        "from_buffer() got a '%T' object, which supports the "
+                        "buffer interface but cannot be rendered as a plain "
+                        "raw address on PyPy", w_x)
     #
     return cdataobj.W_CDataFromBuffer(space, _cdata, w_ctype, buf, w_x)
+
+# ____________________________________________________________
+
+class RawBytes(object):
+    def __init__(self, string):
+        self.ptr = rffi.str2charp(string, track_allocation=False)
+    def __del__(self):
+        rffi.free_charp(self.ptr, track_allocation=False)
+
+class RawBytesCache(object):
+    def __init__(self, space):
+        from pypy.interpreter.baseobjspace import W_Root
+        from rpython.rlib import rweakref
+        self.wdict = rweakref.RWeakKeyDictionary(W_Root, RawBytes)
+
+@jit.dont_look_inside
+def get_raw_address_of_string(space, w_x):
+    """Special case for ffi.from_buffer(string).  Returns a 'char *' that
+    is valid as long as the string object is alive.  Two calls to
+    ffi.from_buffer(same_string) are guaranteed to return the same pointer.
+    """
+    from rpython.rtyper.annlowlevel import llstr
+    from rpython.rtyper.lltypesystem.rstr import STR
+    from rpython.rtyper.lltypesystem import llmemory
+    from rpython.rlib import rgc
+
+    cache = space.fromcache(RawBytesCache)
+    rawbytes = cache.wdict.get(w_x)
+    if rawbytes is None:
+        data = space.str_w(w_x)
+        if we_are_translated() and not rgc.can_move(data):
+            lldata = llstr(data)
+            data_start = (llmemory.cast_ptr_to_adr(lldata) +
+                          rffi.offsetof(STR, 'chars') +
+                          llmemory.itemoffsetof(STR.chars, 0))
+            data_start = rffi.cast(rffi.CCHARP, data_start)
+            data_start[len(data)] = '\x00'   # write the final extra null
+            return data_start
+        rawbytes = RawBytes(data)
+        cache.wdict.set(w_x, rawbytes)
+    return rawbytes.ptr
+
+# ____________________________________________________________
 
 
 def unsafe_escaping_ptr_for_ptr_or_array(w_cdata):

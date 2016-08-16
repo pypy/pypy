@@ -11,7 +11,6 @@ import sys
 from distutils.core import Command
 from distutils.errors import *
 from distutils.sysconfig import customize_compiler, get_python_version
-from distutils.sysconfig import get_config_h_filename
 from distutils.dep_util import newer_group
 from distutils.extension import Extension
 from distutils.util import get_platform
@@ -30,6 +29,7 @@ def show_compilers ():
     show_compilers()
 
 def _get_c_extension_suffix():
+    import importlib
     suffixes = importlib.machinery.EXTENSION_SUFFIXES
     return suffixes[0] if suffixes else None
 
@@ -204,6 +204,7 @@ class build_ext(Command):
             # this allows distutils on windows to work in the source tree
             if 0:
                 # pypy has no config_h_filename directory
+                from distutils.sysconfig import get_config_h_filename
                 self.include_dirs.append(os.path.dirname(get_config_h_filename()))
             _sys_home = getattr(sys, '_home', None)
             if _sys_home:

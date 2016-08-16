@@ -167,6 +167,12 @@ if 1:
         py.test.raises(SyntaxError, self.parse, 'f()\n# blah\nblah()', "single")
         py.test.raises(SyntaxError, self.parse, 'f()\nxy # blah\nblah()', "single")
         py.test.raises(SyntaxError, self.parse, 'x = 5 # comment\nx = 6\n', "single")
+    
+    def test_unpack(self):
+        self.parse('[*{2}, 3, *[4]]')
+        self.parse('{*{2}, 3, *[4]}')
+        self.parse('{**{}, 3:4, **{5:6, 7:8}}')
+        self.parse('f(2, *a, *b, **b, **c, **d)')
 
     def test_async_await(self):
         self.parse("async def coro(): await func")
