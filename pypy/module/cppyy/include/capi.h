@@ -179,7 +179,7 @@ extern "C" {
     RPY_EXTERN
     cppyy_object_t cppyy_charp2stdstring(const char* str, size_t sz);
     RPY_EXTERN
-    char* cppyy_stdstring2charp(cppyy_object_t ptr, size_t* lsz);
+    const char* cppyy_stdstring2charp(cppyy_object_t ptr, size_t* lsz);
     RPY_EXTERN
     cppyy_object_t cppyy_stdstring2stdstring(cppyy_object_t ptr);
 

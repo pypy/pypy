@@ -3,6 +3,7 @@ from rpython.rlib import jit, jit_libffi, libffi, rdynload, objectmodel
 from rpython.rlib.rarithmetic import r_singlefloat
 from rpython.tool import leakfinder
 
+from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import oefmt
 
 from pypy.module._cffi_backend import ctypefunc, ctypeprim, cdataobj, misc
@@ -218,6 +219,8 @@ class State(object):
             'free'                     : ([c_voidp],                  c_void),
 
             'charp2stdstring'          : ([c_ccharp, c_size_t],       c_object),
+            #stdstring2charp  actually takes an size_t* as last parameter, but this will do
+            'stdstring2charp'          : ([c_ccharp, c_voidp],        c_ccharp),
             'stdstring2stdstring'      : ([c_object],                 c_object),
         }
 
@@ -525,11 +528,6 @@ def charp2str_free(space, cdata):
 def c_charp2stdstring(space, svalue, sz):
     return _cdata_to_cobject(
         space, call_capi(space, 'charp2stdstring', [_Arg(s=svalue), _Arg(l=sz)]))
-_c_stdstring2charp = rffi.llexternal(
-    "cppyy_stdstring2charp",
-    [C_OBJECT, rffi.SIZE_TP], rffi.CCHARP,
-    releasegil=ts_helper,
-    compilation_info=eci)
 def c_stdstring2charp(space, cppstr):
     sz = lltype.malloc(rffi.SIZE_TP.TO, 1, flavor='raw')
     try:
