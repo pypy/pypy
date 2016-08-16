@@ -2,8 +2,7 @@ from pypy.interpreter.mixedmodule import MixedModule
 
 class Module(MixedModule):
     """
-    This module provides the components needed to build your own
-    __import__ function.
+    (Extremely) low-level import machinery bits as used by importlib and imp.
     """
     applevel_name = '_imp'
 
