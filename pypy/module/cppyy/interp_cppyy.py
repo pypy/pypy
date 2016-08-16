@@ -544,6 +544,8 @@ class W_CPPOverload(W_Root):
         errmsg = 'none of the %d overloaded methods succeeded. Full details:' % len(self.functions)
         if hasattr(self.space, "fake"):     # FakeSpace fails errorstr (see below)
             raise OperationError(self.space.w_TypeError, self.space.wrap(errmsg))
+        w_exc_type = None
+        all_same_type = True
         for i in range(len(self.functions)):
             cppyyfunc = self.functions[i]
             try:
@@ -552,6 +554,10 @@ class W_CPPOverload(W_Root):
                 # special case if there's just one function, to prevent clogging the error message
                 if len(self.functions) == 1:
                     raise
+                if w_exc_type is None:
+                    w_exc_type = e.w_type
+                elif all_same_type and not e.match(self.space, w_exc_type):
+                    all_same_type = False
                 errmsg += '\n  '+cppyyfunc.signature()+' =>\n'
                 errmsg += '    '+e.errorstr(self.space)
             except Exception as e:
@@ -560,7 +566,10 @@ class W_CPPOverload(W_Root):
                 errmsg += '\n  '+cppyyfunc.signature()+' =>\n'
                 errmsg += '    Exception: '+str(e)
 
-        raise OperationError(self.space.w_TypeError, self.space.wrap(errmsg))
+        if all_same_type and w_exc_type is not None:
+            raise OperationError(w_exc_type, self.space.wrap(errmsg))
+        else:
+            raise OperationError(self.space.w_TypeError, self.space.wrap(errmsg))
 
     def signature(self):
         sig = self.functions[0].signature()
