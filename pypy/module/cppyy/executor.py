@@ -195,8 +195,10 @@ class InstanceExecutor(InstancePtrExecutor):
 class StdStringExecutor(InstancePtrExecutor):
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
-        cstr_result = capi.c_call_s(space, cppmethod, cppthis, num_args, args)
-        return space.wrap(capi.charp2str_free(space, cstr_result))
+        cstr, cstr_len = capi.c_call_s(space, cppmethod, cppthis, num_args, args)
+        string = rffi.charpsize2str(cstr, cstr_len)
+        capi.c_free(rffi.cast(rffi.VOIDP, cstr))
+        return space.wrap(string)
 
     def execute_libffi(self, space, cif_descr, funcaddr, buffer):
         from pypy.module.cppyy.interp_cppyy import FastCallNotPossible

@@ -158,11 +158,15 @@ def c_call_r(space, cppmethod, cppobject, nargs, args):
     return _c_call_r(cppmethod, cppobject, nargs, args)
 _c_call_s = rffi.llexternal(
     "cppyy_call_s",
-    [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.CCHARP,
+    [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP, rffi.INTP], rffi.CCHARP,
     releasegil=ts_call,
     compilation_info=backend.eci)
 def c_call_s(space, cppmethod, cppobject, nargs, args):
-    return _c_call_s(cppmethod, cppobject, nargs, args)
+    length = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+    cstr = _c_call_s(cppmethod, cppobject, nargs, args, length)
+    cstr_len = int(length[0])
+    lltype.free(length, flavor='raw')
+    return cstr, cstr_len
 
 _c_constructor = rffi.llexternal(
     "cppyy_constructor",

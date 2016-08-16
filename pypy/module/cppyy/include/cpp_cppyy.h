@@ -62,7 +62,7 @@ namespace Cppyy {
    Double_t     CallD( TCppMethod_t method, TCppObject_t self, void* args );
    LongDouble_t CallLD( TCppMethod_t method, TCppObject_t self, void* args );
    void*        CallR( TCppMethod_t method, TCppObject_t self, void* args );
-   Char_t*      CallS( TCppMethod_t method, TCppObject_t self, void* args );
+   Char_t*      CallS( TCppMethod_t method, TCppObject_t self, void* args, int* length );
    TCppObject_t CallConstructor( TCppMethod_t method, TCppType_t type, void* args );
    void         CallDestructor( TCppType_t type, TCppObject_t self );
    TCppObject_t CallO( TCppMethod_t method, TCppObject_t self, void* args, TCppType_t result_type );

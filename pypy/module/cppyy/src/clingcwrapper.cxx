@@ -113,10 +113,10 @@ Cppyy::TCppScope_t declaring_scope( Cppyy::TCppMethod_t method )
 }
 
 static inline
-char* cppstring_to_cstring( const std::string& name ) {
-   char* name_char = (char*)malloc(name.size() + 1 );
-   strcpy( name_char, name.c_str() );
-   return name_char;
+char* cppstring_to_cstring( const std::string& cppstr ) {
+   char* cstr = (char*)malloc( cppstr.size() + 1 );
+   memcpy( cstr, cppstr.c_str(), cppstr.size() + 1 );
+   return cstr;
 }
 
 
@@ -478,12 +478,20 @@ void* Cppyy::CallR( TCppMethod_t method, TCppObject_t self, void* args )
    return nullptr;
 }
 
-Char_t* Cppyy::CallS( TCppMethod_t method, TCppObject_t self, void* args )
+Char_t* Cppyy::CallS(
+      TCppMethod_t method, TCppObject_t self, void* args, int* length )
 {
-   Char_t* s = nullptr;
-   if ( FastCall( method, args, (void*)self, &s ) )
-      return s;
-   return nullptr;
+   char* cstr = nullptr;
+   TClassRef cr("std::string");
+   std::string* cppresult = (std::string*)malloc( sizeof(std::string) );
+   if ( FastCall( method, args, self, (void*)cppresult ) ) {
+	  cstr = cppstring_to_cstring( *cppresult );
+      *length = cppresult->size();
+      cppresult->std::string::~string();
+   } else
+      *length = 0;
+   free( (void*)cppresult ); 
+   return cstr;
 }
 
 Cppyy::TCppObject_t Cppyy::CallConstructor(
@@ -1188,20 +1196,20 @@ double cppyy_call_d(cppyy_method_t method, cppyy_object_t self, int nargs, void*
     return (double)Cppyy::CallD(method, (void*)self, &parvec);
 }
 
-void*  cppyy_call_r(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
+void* cppyy_call_r(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
     std::vector<TParameter> parvec = vsargs_to_parvec(args, nargs);
     return (void*)Cppyy::CallR(method, (void*)self, &parvec);
 }
 
-char*  cppyy_call_s(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
+char* cppyy_call_s(
+        cppyy_method_t method, cppyy_object_t self, int nargs, void* args, int* length) {
     std::vector<TParameter> parvec = vsargs_to_parvec(args, nargs);
-    return cppstring_to_cstring(Cppyy::CallS(method, (void*)self, &parvec));
+    return Cppyy::CallS(method, (void*)self, &parvec, length);
 }
 
 cppyy_object_t cppyy_constructor(cppyy_method_t method, cppyy_type_t klass, int nargs, void* args) {
     std::vector<TParameter> parvec = vsargs_to_parvec(args, nargs);
     return cppyy_object_t(Cppyy::CallConstructor(method, klass, &parvec));
-//    return cppyy_object_t(Cppyy::CallConstructor(method, klass, args));
 }
 
 cppyy_object_t cppyy_call_o(cppyy_method_t method, cppyy_object_t self, int nargs, void* args, cppyy_type_t result_type) {

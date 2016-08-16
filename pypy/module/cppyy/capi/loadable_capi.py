@@ -146,7 +146,8 @@ class State(object):
             'call_d'       : ([c_method, c_object, c_int, c_voidp],   c_double),
 
             'call_r'       : ([c_method, c_object, c_int, c_voidp],   c_voidp),
-            'call_s'       : ([c_method, c_object, c_int, c_voidp],   c_ccharp),
+            # call_s actually takes an intp as last parameter, but this will do
+            'call_s'       : ([c_method, c_object, c_int, c_voidp, c_voidp],    c_ccharp),
 
             'constructor'  : ([c_method, c_object, c_int, c_voidp],   c_object),
             'call_o'       : ([c_method, c_object, c_int, c_voidp, c_type],     c_object),
@@ -336,8 +337,12 @@ def c_call_r(space, cppmethod, cppobject, nargs, cargs):
     args = [_Arg(h=cppmethod), _Arg(h=cppobject), _Arg(l=nargs), _Arg(vp=cargs)]
     return _cdata_to_ptr(space, call_capi(space, 'call_r', args))
 def c_call_s(space, cppmethod, cppobject, nargs, cargs):
-    args = [_Arg(h=cppmethod), _Arg(h=cppobject), _Arg(l=nargs), _Arg(vp=cargs)]
-    return call_capi(space, 'call_s', args)
+    length = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+    args = [_Arg(h=cppmethod), _Arg(h=cppobject), _Arg(l=nargs), _Arg(vp=cargs), _Args(vp=length)]
+    cstr = call_capi(space, 'call_s', args)
+    cstr_len = int(length[0])
+    lltype.free(length, flavor='raw')
+    return cstr, cstr_len
 
 def c_constructor(space, cppmethod, cppobject, nargs, cargs):
     args = [_Arg(h=cppmethod), _Arg(h=cppobject), _Arg(l=nargs), _Arg(vp=cargs)]
