@@ -572,3 +572,12 @@ def test_renameat(tmpdir):
         os.close(dirfd)
     assert tmpdir.join('file').check(exists=False)
     assert tmpdir.join('file2').check(exists=True)
+
+def test_set_inheritable():
+    fd1, fd2 = os.pipe()
+    rposix.set_inheritable(fd1, True)
+    assert rposix.get_inheritable(fd1) == True
+    rposix.set_inheritable(fd1, False)
+    assert rposix.get_inheritable(fd1) == False
+    os.close(fd1)
+    os.close(fd2)

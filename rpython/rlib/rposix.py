@@ -2046,3 +2046,40 @@ if HAVE_MKNODAT:
     def mknodat(path, mode, device, dir_fd=AT_FDCWD):
         error = c_mknodat(dir_fd, path, mode, device)
         handle_posix_error('mknodat', error)
+
+
+eci_inheritable = eci.merge(ExternalCompilationInfo(
+    separate_module_sources=["""
+RPY_EXTERN
+int rpy_set_inheritable(int fd, int inheritable)
+{
+    /* XXX minimal impl. XXX */
+    int request = inheritable ? FIONCLEX : FIOCLEX;
+    return ioctl(fd, request, NULL);
+}
+RPY_EXTERN
+int rpy_get_inheritable(int fd)
+{
+    int flags = fcntl(fd, F_GETFD, 0);
+    if (flags == -1)
+        return -1;
+    return !(flags & FD_CLOEXEC);
+}
+    """],
+    post_include_bits=['RPY_EXTERN int rpy_set_inheritable(int, int);']))
+
+c_set_inheritable = external('rpy_set_inheritable', [rffi.INT, rffi.INT],
+                             rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
+                             compilation_info=eci_inheritable)
+c_get_inheritable = external('rpy_get_inheritable', [rffi.INT],
+                             rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
+                             compilation_info=eci_inheritable)
+
+def set_inheritable(fd, inheritable):
+    error = c_set_inheritable(fd, inheritable)
+    handle_posix_error('set_inheritable', error)
+
+def get_inheritable(fd):
+    res = c_get_inheritable(fd)
+    res = handle_posix_error('get_inheritable', res)
+    return res != 0
