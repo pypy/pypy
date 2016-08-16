@@ -507,7 +507,7 @@ def _array_to_hexstring(space, buf, len=0, rawaccess=False):
     hexstring = StringBuilder(length*2)
 
     if length > PY_SIZE_T_MAX/2:
-        raise OperationError(space.w_MemoryError)
+        raise OperationError(space.w_MemoryError, space.w_None)
 
     for i in range(length):
         if rawaccess:
