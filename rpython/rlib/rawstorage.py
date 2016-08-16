@@ -48,8 +48,7 @@ from rpython.jit.backend import detect_cpu
 try:
     cpuname = detect_cpu.autodetect()
     misaligned_is_fine = cpuname.startswith('x86') or \
-                         cpuname.startswith('s390x') or \
-                         cpuname.startswith('ppc')
+                         cpuname.startswith('s390x')
     del cpuname
 except detect_cpu.ProcessorAutodetectError:
     misaligned_is_fine = False
