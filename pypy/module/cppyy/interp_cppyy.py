@@ -17,10 +17,11 @@ class FastCallNotPossible(Exception):
     pass
 
 # overload priorities: lower is preferred
-priority = { 'void*'  : 100,
-             'void**' : 100,
-             'float'  :  30,
-             'double' :  10, }
+priority = { 'void*'         : 100,
+             'void**'        : 100,
+             'float'         :  30,
+             'double'        :  10,
+             'const string&' :   1, } # solves a specific string ctor overload
 
 from rpython.rlib.listsort import make_timsort_class
 CPPMethodBaseTimSort = make_timsort_class()
