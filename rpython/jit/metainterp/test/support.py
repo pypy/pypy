@@ -64,6 +64,10 @@ def _get_jitcodes(testself, CPUClass, func, values,
     testself.all_graphs = graphs
     result_kind = history.getkind(graphs[0].getreturnvar().concretetype)[0]
 
+
+    class FakeJitDriver:
+        name = 'fakejitdriver'
+
     class FakeJitDriverSD:
         num_green_args = 0
         portal_graph = graphs[0]
@@ -72,6 +76,7 @@ def _get_jitcodes(testself, CPUClass, func, values,
         result_type = result_kind
         portal_runner_ptr = "???"
         vec = False
+        jitdriver = FakeJitDriver()
 
     stats = history.Stats(None)
     cpu = CPUClass(rtyper, stats, None, False)
