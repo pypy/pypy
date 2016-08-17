@@ -31,7 +31,7 @@ class TestBasic(test_basic.Jit386Mixin, test_vector.VectorizeTests):
 class TestAssembler(BaseTestAssembler):
 
     def imm_4_int32(self, a, b, c, d):
-        adr = self.xrm.assembler.datablockwrapper.malloc_aligned(16, 16)
+        adr = self.xrm.assembler.malloc_aligned(16, 16)
         ptr = rffi.cast(rffi.CArrayPtr(rffi.INT), adr)
         ptr[0] = rffi.r_int(a)
         ptr[1] = rffi.r_int(b)

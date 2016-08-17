@@ -275,9 +275,7 @@ class BlockBuilderMixin(object):
         size = self.get_relative_pos()
         align = self.ALIGN_MATERIALIZE
         size = (size + align - 1) & ~(align - 1)   # round up
-        malloced = cpu.asmmemmgr.malloc_code(size)
-        rawstart = malloced[0]
-        rawstop = malloced[1]
+        rawstart, rawstop = cpu.asmmemmgr.malloc_code(size)
         assert (rawstart & (align - 1)) == 0, (
             "malloc_code() not aligned to a multiple of ALIGN_MATERIALIZE")
         assert (rawstart & 1) == 0
