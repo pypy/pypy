@@ -2,8 +2,7 @@ from pypy.interpreter.mixedmodule import MixedModule
 
 class Module(MixedModule):
     """
-    This module provides the components needed to build your own
-    __import__ function.
+    (Extremely) low-level import machinery bits as used by importlib and imp.
     """
     applevel_name = '_imp'
 
@@ -12,7 +11,7 @@ class Module(MixedModule):
 
         'get_magic':       'interp_imp.get_magic',
         'get_tag':         'interp_imp.get_tag',
-        'load_dynamic':    'interp_imp.load_dynamic',
+        'create_dynamic':  'interp_imp.create_dynamic',
         'create_builtin':  'interp_imp.create_builtin',
         'init_frozen':     'interp_imp.init_frozen',
         'is_builtin':      'interp_imp.is_builtin',

@@ -209,7 +209,6 @@ class TestParseCommandLine:
         self.check(['-c', 'pass'], {'PYTHONNOUSERSITE': '1'}, sys_argv=['-c'],
                    run_command='pass', **expected)
 
-
 class TestInteraction:
     """
     These tests require pexpect (UNIX-only).
@@ -1152,4 +1151,3 @@ class AppTestAppMain:
             # assert it did not crash
         finally:
             sys.path[:] = old_sys_path
-

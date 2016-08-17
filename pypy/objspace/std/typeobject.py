@@ -930,6 +930,7 @@ def type_isinstance(w_obj, space, w_inst):
         abstractinst.p_recursive_isinstance_type_w(space, w_inst, w_obj))
 
 def type_get_dict(space, w_cls):
+    w_cls = _check(space, w_cls)
     from pypy.objspace.std.dictproxyobject import W_DictProxyObject
     w_dict = w_cls.getdict(space)
     if w_dict is None:
@@ -1075,9 +1076,14 @@ def create_slot(w_self, w_slot_name, slot_name, index_next_extra_slot):
     # create member
     slot_name = mangle(slot_name, w_self.name)
     if slot_name in w_self.dict_w:
-        raise oefmt(space.w_ValueError,
-                    "%R in __slots__ conflicts with class variable",
-                    w_slot_name)
+        w_prev = w_self.dict_w[slot_name]
+        if isinstance(w_prev, Member) and w_prev.w_cls is w_self:
+            pass   # special case: duplicate __slots__ entry, ignored
+                   # (e.g. occurs in datetime.py, fwiw)
+        else:
+            raise oefmt(space.w_ValueError,
+                        "%R in __slots__ conflicts with class variable",
+                        w_slot_name)
     else:
         # Force interning of slot names.
         slot_name = space.str_w(space.new_interned_str(slot_name))
@@ -1287,7 +1293,8 @@ def mro_error(space, orderlists):
     cycle.append(candidate)
     cycle.reverse()
     names = [cls.getname(space) for cls in cycle]
-    raise OperationError(space.w_TypeError, space.wrap(
+    # Can't use oefmt() here, since names is a list of unicodes
+    raise OperationError(space.w_TypeError, space.newunicode(
         u"cycle among base classes: " + u' < '.join(names)))
 
 

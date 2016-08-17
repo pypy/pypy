@@ -54,11 +54,13 @@ class AppTestImpModule:
         finally:
             del sys.path[0]
 
-    def test_load_dynamic(self):
+    def test_create_dynamic(self):
         import imp
-        raises(ImportError, imp.load_dynamic, 'foo', 'bar')
-        raises(ImportError, imp.load_dynamic, 'foo', 'bar',
-               open(self.file_module))
+        class FakeSpec:
+            name = 'foo'
+            origin = 'this/path/does/not/exist'
+        raises(ImportError, imp.create_dynamic, FakeSpec())
+        raises(ImportError, imp.create_dynamic, FakeSpec(), "unused")
 
     def test_suffixes(self):
         import imp

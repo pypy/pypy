@@ -50,17 +50,13 @@ def get_file(space, w_file, filename, filemode):
         fd = space.int_w(space.call_method(w_iobase, 'fileno'))
         return streamio.fdopen_as_stream(fd, filemode)
 
-@unwrap_spec(filename='fsencode')
-def load_dynamic(space, w_modulename, filename, w_file=None):
+def create_dynamic(space, w_spec, w_file=None):
     if not importing.has_so_extension(space):
         raise oefmt(space.w_ImportError, "Not implemented")
-
-    # the next line is mandatory to init cpyext
-    space.getbuiltinmodule("cpyext")
-
-    from pypy.module.cpyext.api import load_extension_module
-    load_extension_module(space, filename, space.str_w(w_modulename))
-
+    w_modulename = space.getattr(w_spec, space.wrap("name"))
+    w_path = space.getattr(w_spec, space.wrap("origin"))
+    filename = space.fsencode_w(w_path)
+    importing.load_c_extension(space, filename, space.str_w(w_modulename))
     return importing.check_sys_modules(space, w_modulename)
 
 def create_builtin(space, w_spec):

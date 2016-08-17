@@ -894,6 +894,9 @@ def pipe(space):
         fd1, fd2 = os.pipe()
     except OSError as e:
         raise wrap_oserror(space, e)
+    # XXX later, use rposix.pipe2() if available!
+    rposix.set_inheritable(fd1, False)
+    rposix.set_inheritable(fd2, False)
     return space.newtuple([space.wrap(fd1), space.wrap(fd2)])
 
 @unwrap_spec(mode=c_int, dir_fd=DirFD(rposix.HAVE_FCHMODAT),

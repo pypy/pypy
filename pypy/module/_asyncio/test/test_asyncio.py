@@ -18,3 +18,31 @@ class AppTestAsyncIO(object):
         loop.run_until_complete(f())
         print("done with async loop")
         """
+    
+    def test_asynchronous_context_managers(self):
+        """
+import encodings.idna
+import asyncio
+
+class Corotest(object):
+    def __init__(self):
+        self.res = "-"
+    
+    async def coro(self, name, lock):
+        self.res += ' coro {}: waiting for lock -'.format(name)
+        async with lock:
+            self.res += ' coro {}: holding the lock -'.format(name)
+            await asyncio.sleep(1)
+            self.res += ' coro {}: releasing the lock -'.format(name)
+
+cor = Corotest()
+loop = asyncio.get_event_loop()
+lock = asyncio.Lock()
+coros = asyncio.gather(cor.coro(1, lock), cor.coro(2, lock))
+try:
+    loop.run_until_complete(coros)
+finally:
+    loop.close()
+
+assert cor.res == "- coro 1: waiting for lock - coro 1: holding the lock - coro 2: waiting for lock - coro 1: releasing the lock - coro 2: holding the lock - coro 2: releasing the lock -"
+        """

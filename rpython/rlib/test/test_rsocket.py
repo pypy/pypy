@@ -119,25 +119,111 @@ def test_socketpair():
     s1.close()
     s2.close()
 
-def test_socketpair_recvinto():
+def test_socketpair_recvinto_1():
     class Buffer:
         def setslice(self, start, string):
             self.x = string
 
-        def as_str(self):
-            return self.x
+        def get_raw_address(self):
+            raise ValueError
 
     if sys.platform == "win32":
         py.test.skip('No socketpair on Windows')
     s1, s2 = socketpair()
     buf = Buffer()
     s1.sendall('?')
-    s2.recvinto(buf, 1)
-    assert buf.as_str() == '?'
+    n = s2.recvinto(buf, 1)
+    assert n == 1
+    assert buf.x == '?'
     count = s2.send('x'*99)
     assert 1 <= count <= 99
-    s1.recvinto(buf, 100)
-    assert buf.as_str() == 'x'*count
+    n = s1.recvinto(buf, 100)
+    assert n == count
+    assert buf.x == 'x'*count
+    s1.close()
+    s2.close()
+
+def test_socketpair_recvinto_2():
+    class Buffer:
+        def __init__(self):
+            self._p = lltype.malloc(rffi.CCHARP.TO, 100, flavor='raw',
+                                    track_allocation=False)
+
+        def _as_str(self, count):
+            return rffi.charpsize2str(self._p, count)
+
+        def get_raw_address(self):
+            return self._p
+
+    if sys.platform == "win32":
+        py.test.skip('No socketpair on Windows')
+    s1, s2 = socketpair()
+    buf = Buffer()
+    s1.sendall('?')
+    n = s2.recvinto(buf, 1)
+    assert n == 1
+    assert buf._as_str(1) == '?'
+    count = s2.send('x'*99)
+    assert 1 <= count <= 99
+    n = s1.recvinto(buf, 100)
+    assert n == count
+    assert buf._as_str(n) == 'x'*count
+    s1.close()
+    s2.close()
+
+def test_socketpair_recvfrom_into_1():
+    class Buffer:
+        def setslice(self, start, string):
+            self.x = string
+
+        def get_raw_address(self):
+            raise ValueError
+
+    if sys.platform == "win32":
+        py.test.skip('No socketpair on Windows')
+    s1, s2 = socketpair()
+    buf = Buffer()
+    s1.sendall('?')
+    n, addr = s2.recvfrom_into(buf, 1)
+    assert n == 1
+    assert addr is None
+    assert buf.x == '?'
+    count = s2.send('x'*99)
+    assert 1 <= count <= 99
+    n, addr = s1.recvfrom_into(buf, 100)
+    assert n == count
+    assert addr is None
+    assert buf.x == 'x'*count
+    s1.close()
+    s2.close()
+
+def test_socketpair_recvfrom_into_2():
+    class Buffer:
+        def __init__(self):
+            self._p = lltype.malloc(rffi.CCHARP.TO, 100, flavor='raw',
+                                    track_allocation=False)
+
+        def _as_str(self, count):
+            return rffi.charpsize2str(self._p, count)
+
+        def get_raw_address(self):
+            return self._p
+
+    if sys.platform == "win32":
+        py.test.skip('No socketpair on Windows')
+    s1, s2 = socketpair()
+    buf = Buffer()
+    s1.sendall('?')
+    n, addr = s2.recvfrom_into(buf, 1)
+    assert n == 1
+    assert addr is None
+    assert buf._as_str(1) == '?'
+    count = s2.send('x'*99)
+    assert 1 <= count <= 99
+    n, addr = s1.recvfrom_into(buf, 100)
+    assert n == count
+    assert addr is None
+    assert buf._as_str(n) == 'x'*count
     s1.close()
     s2.close()
 

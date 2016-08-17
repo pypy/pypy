@@ -378,8 +378,8 @@ def setcopyright():
         license = "See https://www.python.org/psf/license/"
         licenseargs = (license, files, dirs)
 
-    builtins.credits = _Printer("credits", credits)
-    builtins.license = _Printer("license", *licenseargs)
+    builtins.credits = _sitebuiltins._Printer("credits", credits)
+    builtins.license = _sitebuiltins._Printer("license", *licenseargs)
 
 def sethelper():
     builtins.help = _sitebuiltins._Helper()
