@@ -190,15 +190,16 @@ class BaseAssembler(object):
                            track_allocation=False)
         s1 = s2 = rffi.cast(lltype.Signed, p1)
         if (s1 & (alignment - 1)) != 0:   # bah, try again
-            lltype.free(p1, flavor='raw')
-            p1 = lltype.malloc(rffi.CCHARP.TO, size + (alignment - 1),
-                               flavor='raw')
+            lltype.free(p1, flavor='raw', track_allocation=False)
+            p1 = lltype.malloc(rffi.CCHARP.TO, size + (alignment - WORD),
+                               flavor='raw', track_allocation=False)
             s1 = s2 = rffi.cast(lltype.Signed, p1)
-            s2 = (s2 + alignment - 1) & ~(alignment - 1)
+            assert s2 & (WORD - 1) == 0   # must return a word-aligned result
+            s2 = (s2 + alignment - WORD) & ~(alignment - WORD)
         assert self.allblocks is not None
         assert (s1 & 1) == 0   # must be even
-        self.allblocks.append(s1)
-        return s2
+        self.allblocks.append(s1)    # s1 is the address to call free() on
+        return s2                    # s2 is the suitably-aligned result
 
     def set_debug(self, v):
         r = self._debug
