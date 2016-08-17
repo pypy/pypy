@@ -178,6 +178,14 @@ class BaseAssembler(object):
         return clt.asmmemmgr_gcreftracers
 
     def malloc_aligned(self, size, alignment=WORD):
+        """Return a pointer (as an integer) to a malloc()ed piece of
+        data of the given size, with the given alignment (a power of
+        two).  An entry is added to self.allblocks, which should be
+        get_asmmemmgr_blocks(looptoken), so the memory is free()d when
+        the looptoken is freed.  Should be suitable for very small
+        allocations, e.g. two or three WORDs, because the management
+        data saved is only one WORD.
+        """
         p1 = lltype.malloc(rffi.CCHARP.TO, size, flavor='raw',
                            track_allocation=False)
         s1 = s2 = rffi.cast(lltype.Signed, p1)

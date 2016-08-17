@@ -57,7 +57,7 @@ class TestRegallocPushPop(object):
         self.xrm = X86XMMRegisterManager(None, assembler=asm)
         callback(asm)
         asm.mc.RET()
-        rawstart = asm.materialize_loop(looptoken)
+        rawstart = asm.materialize_loop()
         #
         F = ctypes.CFUNCTYPE(ctypes.c_long)
         fn = ctypes.cast(rawstart, F)
