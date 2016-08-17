@@ -619,7 +619,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_jump(ops.JUMP_FORWARD, b_after_try)
         self.use_next_block(b_except)
         self.emit_op(ops.POP_TOP)
-        self.emit_op_name(ops.LOAD_GLOBAL, self.names, "StopIterError")
+        self.emit_op_name(ops.LOAD_GLOBAL, self.names, "StopAsyncIteration")
         self.emit_op_arg(ops.COMPARE_OP, 10)
         self.emit_jump(ops.POP_JUMP_IF_FALSE, b_try_cleanup, True)
         

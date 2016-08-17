@@ -1,4 +1,5 @@
 class AppTestAsyncIO(object):
+    """These tests are based on the async-await syntax of Python 3.5."""
     
     spaceconfig = dict(usemodules=["select","_socket","thread","signal",
                                    "struct","_multiprocessing","array",
@@ -9,14 +10,19 @@ class AppTestAsyncIO(object):
         # the problem occured at await asyncio.open_connection
         # after calling run_until_complete
         """
-        import encodings.idna
-        import asyncio
-        async def f():
-            reader, writer = await asyncio.open_connection('example.com', 80)
-        
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(f())
-        print("done with async loop")
+import encodings.idna
+import asyncio
+
+async def f():
+    reader, writer = await asyncio.open_connection('example.com', 80)
+    writer.write(b'a')
+    async for line in reader:
+        print('>>>', line)
+    writer.close()
+
+loop = asyncio.get_event_loop()
+loop.run_until_complete(f())
+print("done with async loop")
         """
     
     def test_asynchronous_context_managers(self):

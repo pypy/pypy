@@ -64,6 +64,7 @@ BaseException
       +-- ReferenceError
       +-- RuntimeError
       |    +-- NotImplementedError
+      +-- StopAsyncIteration
       +-- SyntaxError
       |    +-- IndentationError
       |         +-- TabError
@@ -832,6 +833,9 @@ the Python version, and the hardware/OS platform and version.""")
 
 W_AssertionError = _new_exception('AssertionError', W_Exception,
                                   """Assertion failed.""")
+
+W_StopAsyncIteration = _new_exception('StopAsyncIteration', W_Exception,
+                                  """Signal the end from iterator.__anext__().""")
 
 class W_UnicodeDecodeError(W_UnicodeError):
     """Unicode decoding error."""
