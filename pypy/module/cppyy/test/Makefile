@@ -19,7 +19,7 @@ else
     cppflags=-pthread -std=c++11 -m64 -I./include -L./lib64 -L./lib
   else
     genreflex=$(ROOTSYS)/bin/genreflex
-    cppflags=$(shell $(ROOTSYS)/bin/root-config --cflags) $(shell $(ROOTSYS)/bin/root-config --ldflags)
+    cppflags=$(shell $(ROOTSYS)/bin/root-config --cflags) $(shell $(ROOTSYS)/bin/root-config --ldflags) -L$(shell $(ROOTSYS)/bin/root-config --libdir) -lCore
   endif
 endif
 
