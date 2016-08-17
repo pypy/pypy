@@ -68,13 +68,13 @@ class X86XMMRegisterManager(RegisterManager):
     save_around_call_regs = all_regs
 
     def convert_to_imm(self, c):
-        adr = self.assembler.datablockwrapper.malloc_aligned(8, 8)
+        adr = self.assembler.malloc_aligned(8, 8)
         x = c.getfloatstorage()
         rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[0] = x
         return ConstFloatLoc(adr)
 
     def convert_to_imm_16bytes_align(self, c):
-        adr = self.assembler.datablockwrapper.malloc_aligned(16, 16)
+        adr = self.assembler.malloc_aligned(16, 16)
         x = c.getfloatstorage()
         y = longlong.ZEROF
         rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[0] = x
@@ -89,14 +89,14 @@ class X86XMMRegisterManager(RegisterManager):
         return loc
 
     def expand_double_float(self, f):
-        adr = self.assembler.datablockwrapper.malloc_aligned(16, 16)
+        adr = self.assembler.malloc_aligned(16, 16)
         fs = f.getfloatstorage()
         rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[0] = fs
         rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[1] = fs
         return ConstFloatLoc(adr)
 
     def expand_single_float(self, f):
-        adr = self.assembler.datablockwrapper.malloc_aligned(16, 16)
+        adr = self.assembler.malloc_aligned(16, 16)
         fs = rffi.cast(lltype.SingleFloat, f.getfloatstorage())
         rffi.cast(rffi.CArrayPtr(lltype.SingleFloat), adr)[0] = fs
         rffi.cast(rffi.CArrayPtr(lltype.SingleFloat), adr)[1] = fs

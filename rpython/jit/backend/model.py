@@ -287,6 +287,13 @@ class CompiledLoopToken(object):
     asmmemmgr_blocks = None
     asmmemmgr_gcreftracers = None
 
+    # asmmemmgr_blocks is a list of integers with the following structure:
+    #  - a pointer, which is an even number
+    #  - optionally an end-pointer minus 1, which is an odd number
+    # If a pointer is followed by a size, together they describe the
+    # start and stop of a piece of code.  In the other case, it is
+    # simply a piece of data that must be free()d.
+
     def __init__(self, cpu, number):
         cpu.tracker.total_compiled_loops += 1
         self.cpu = cpu

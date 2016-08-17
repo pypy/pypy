@@ -177,6 +177,21 @@ class BaseAssembler(object):
             clt.asmmemmgr_gcreftracers = []
         return clt.asmmemmgr_gcreftracers
 
+    def malloc_aligned(self, size, alignment=WORD):
+        p1 = lltype.malloc(rffi.CCHARP.TO, size, flavor='raw',
+                           track_allocation=False)
+        s1 = s2 = rffi.cast(lltype.Signed, p1)
+        if (s1 & (alignment - 1)) != 0:   # bah, try again
+            lltype.free(p1, flavor='raw')
+            p1 = lltype.malloc(rffi.CCHARP.TO, size + (alignment - 1),
+                               flavor='raw')
+            s1 = s2 = rffi.cast(lltype.Signed, p1)
+            s2 = (s2 + alignment - 1) & ~(alignment - 1)
+        assert self.allblocks is not None
+        assert (s1 & 1) == 0   # must be even
+        self.allblocks.append(s1)
+        return s2
+
     def set_debug(self, v):
         r = self._debug
         self._debug = v
@@ -490,7 +505,6 @@ class BaseAssembler(object):
     def _is_asmgcc(self):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         return bool(gcrootmap) and not gcrootmap.is_shadow_stack
-
 
 def debug_bridge(descr_number, rawstart, codeendpos):
     debug_start("jit-backend-addr")

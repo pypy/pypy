@@ -29,14 +29,17 @@ class AsmMemoryManager(object):
         """Returns stats for rlib.jit.jit_hooks.stats_asmmemmgr_*()."""
         return (self.total_memory_allocated, self.total_mallocs)
 
-    def malloc(self, minsize, maxsize):
+    def malloc_code(self, size):
         """Allocate executable memory, between minsize and maxsize bytes,
         and return a pair (start, stop).  Does not perform any rounding
-        of minsize and maxsize.
+        of 'size'; the interesting property is that if all calls to
+        malloc_code() are done with a size that is a multiple of 2**N,
+        then they also return (start, stop) pointers that are aligned
+        to 2**N.
         """
-        result = self._allocate_block(minsize)
+        result = self._allocate_block(size)
         (start, stop) = result
-        smaller_stop = start + maxsize
+        smaller_stop = start + size
         if smaller_stop + self.min_fragment <= stop:
             self._add_free_block(smaller_stop, stop)
             stop = smaller_stop
@@ -44,27 +47,11 @@ class AsmMemoryManager(object):
         self.total_mallocs += r_uint(stop - start)
         return result   # pair (start, stop)
 
-    def free(self, start, stop):
+    def free_code(self, start, stop):
         """Free a block (start, stop) returned by a previous malloc()."""
         if r_uint is not None:
             self.total_mallocs -= r_uint(stop - start)
         self._add_free_block(start, stop)
-
-    def open_malloc(self, minsize):
-        """Allocate at least minsize bytes.  Returns (start, stop)."""
-        result = self._allocate_block(minsize)
-        (start, stop) = result
-        self.total_mallocs += r_uint(stop - start)
-        return result
-
-    def open_free(self, middle, stop):
-        """Used for freeing the end of an open-allocated block of memory."""
-        if stop - middle >= self.min_fragment:
-            self.total_mallocs -= r_uint(stop - middle)
-            self._add_free_block(middle, stop)
-            return True
-        else:
-            return False    # too small to record
 
     def _allocate_large_block(self, minsize):
         # Compute 'size' from 'minsize': it must be rounded up to
@@ -161,40 +148,6 @@ class AsmMemoryManager(object):
             for data, size in self._allocated:
                 rmmap.free(data, size)
         self._allocated = None
-
-
-class MachineDataBlockWrapper(object):
-    def __init__(self, asmmemmgr, allblocks):
-        self.asmmemmgr = asmmemmgr
-        self.allblocks = allblocks
-        self.rawstart    = 0
-        self.rawposition = 0
-        self.rawstop     = 0
-
-    def done(self):
-        if self.rawstart != 0:
-            if self.asmmemmgr.open_free(self.rawposition, self.rawstop):
-                self.rawstop = self.rawposition
-            self.allblocks.append((self.rawstart, self.rawstop))
-            self.rawstart    = 0
-            self.rawposition = 0
-            self.rawstop     = 0
-
-    def _allocate_next_block(self, minsize):
-        self.done()
-        self.rawstart, self.rawstop = self.asmmemmgr.open_malloc(minsize)
-        self.rawposition = self.rawstart
-
-    def malloc_aligned(self, size, alignment):
-        p = self.rawposition
-        p = (p + alignment - 1) & (-alignment)
-        if p + size > self.rawstop:
-            self._allocate_next_block(size + alignment - 1)
-            p = self.rawposition
-            p = (p + alignment - 1) & (-alignment)
-            assert p + size <= self.rawstop
-        self.rawposition = p + size
-        return p
 
 
 class BlockBuilderMixin(object):
@@ -321,11 +274,16 @@ class BlockBuilderMixin(object):
     def materialize(self, cpu, allblocks, gcrootmap=None):
         size = self.get_relative_pos()
         align = self.ALIGN_MATERIALIZE
-        size += align - 1
-        malloced = cpu.asmmemmgr.malloc(size, size)
-        allblocks.append(malloced)
+        size = (size + align - 1) & ~(align - 1)   # round up
+        malloced = cpu.asmmemmgr.malloc_code(size)
         rawstart = malloced[0]
-        rawstart = (rawstart + align - 1) & (-align)
+        rawstop = malloced[1]
+        assert (rawstart & (align - 1)) == 0, (
+            "malloc_code() not aligned to a multiple of ALIGN_MATERIALIZE")
+        assert (rawstart & 1) == 0
+        assert (rawstop & 1) == 0
+        allblocks.append(rawstart)
+        allblocks.append(rawstop - 1)
         self.rawstart = rawstart
         self.copy_to_raw_memory(rawstart)
         if self.gcroot_markers is not None:

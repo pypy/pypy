@@ -256,11 +256,23 @@ class AbstractLLCPU(AbstractCPU):
         blocks = compiled_loop_token.asmmemmgr_blocks
         if blocks is not None:
             compiled_loop_token.asmmemmgr_blocks = None
-            for rawstart, rawstop in blocks:
-                self.gc_ll_descr.freeing_block(rawstart, rawstop)
-                self.asmmemmgr.free(rawstart, rawstop)
-                if self.HAS_CODEMAP:
-                    self.codemap.free_asm_block(rawstart, rawstop)
+            # see the description in ../model.py about asmmemmgr_blocks
+            i = len(blocks)
+            while i > 0:
+                i -= 1
+                pp = blocks[i]
+                if pp & 1:   # odd number, that's the stop after a start
+                    rawstop = pp + 1
+                    i -= 1
+                    assert i >= 0
+                    rawstart = blocks[i]
+                    self.gc_ll_descr.freeing_block(rawstart, rawstop)
+                    self.asmmemmgr.free_code(rawstart, rawstop)
+                    if self.HAS_CODEMAP:
+                        self.codemap.free_asm_block(rawstart, rawstop)
+                else:
+                    lltype.free(rffi.cast(rffi.CCHARP, pp), flavor='raw',
+                                track_allocation=False)
 
     def force(self, addr_of_force_token):
         frame = rffi.cast(jitframe.JITFRAMEPTR, addr_of_force_token)

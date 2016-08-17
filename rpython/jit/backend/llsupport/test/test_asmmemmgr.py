@@ -1,6 +1,5 @@
 import random
 from rpython.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
-from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
 from rpython.jit.backend.llsupport.codemap import CodemapStorage
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -63,16 +62,15 @@ def test_malloc_without_fragment():
                               num_indices=5)
     memmgr._add_free_block(10, 18)
     memmgr._add_free_block(20, 30)
-    for minsize in range(1, 11):
-        for maxsize in range(minsize, 14):
-            (start, stop) = memmgr.malloc(minsize, maxsize)
-            if minsize <= 8:
-                assert (start, stop) == (10, 18)
-            else:
-                assert (start, stop) == (20, 30)
-            memmgr._add_free_block(start, stop)
+    for size in range(1, 11):
+        (start, stop) = memmgr.malloc_code(size)
+        if size <= 8:
+            assert (start, stop) == (10, 18)
+        else:
+            assert (start, stop) == (20, 30)
+        memmgr._add_free_block(start, stop)
     memmgr._add_free_block(40, 49)
-    (start, stop) = memmgr.malloc(10, 10)
+    (start, stop) = memmgr.malloc_code(10)
     assert (start, stop) == (20, 30)
 
 def test_malloc_with_fragment():
@@ -80,7 +78,7 @@ def test_malloc_with_fragment():
         memmgr = AsmMemoryManager(min_fragment=8,
                                   num_indices=5)
         memmgr._add_free_block(12, 44)
-        (start, stop) = memmgr.malloc(reqsize, reqsize)
+        (start, stop) = memmgr.malloc_code(reqsize)
         if reqsize + 8 <= 32:
             assert (start, stop) == (12, 12 + reqsize)
             assert memmgr.free_blocks == {stop: 44}
@@ -108,7 +106,7 @@ class TestAsmMemoryManager:
         for i in range(100):
             while self.asmmemmgr.total_memory_allocated < 16384:
                 reqsize = random.randrange(1, 200)
-                (start, stop) = self.asmmemmgr.malloc(reqsize, reqsize)
+                (start, stop) = self.asmmemmgr.malloc_code(reqsize)
                 assert reqsize <= stop - start < reqsize + 8
                 assert self.asmmemmgr.total_memory_allocated in [8192, 16384]
             self.teardown_method(None)
@@ -124,19 +122,15 @@ class TestAsmMemoryManager:
             if got and (random.random() < 0.4 or len(got) == 1000):
                 # free
                 start, stop = got.pop(random.randrange(0, len(got)))
-                self.asmmemmgr.free(start, stop)
+                self.asmmemmgr.free_code(start, stop)
                 real_use -= (stop - start)
                 assert real_use >= 0
             #
             else:
                 # allocate
                 reqsize = random.randrange(1, 200)
-                if random.random() < 0.5:
-                    reqmaxsize = reqsize
-                else:
-                    reqmaxsize = reqsize + random.randrange(0, 200)
-                (start, stop) = self.asmmemmgr.malloc(reqsize, reqmaxsize)
-                assert reqsize <= stop - start < reqmaxsize + 8
+                (start, stop) = self.asmmemmgr.malloc_code(reqsize)
+                assert reqsize <= stop - start < reqsize + 8
                 for otherstart, otherstop in got:           # no overlap
                     assert otherstop <= start or stop <= otherstart
                 got.append((start, stop))
@@ -182,11 +176,11 @@ class TestAsmMemoryManager:
         assert p[3] == 'y'
         assert p[4] == 'Z'
         assert p[5] == 'z'
-        # 'allblocks' should be one block of length 6 + 15
-        # (15 = alignment - 1) containing the range(rawstart, rawstart + 6)
-        [(blockstart, blockend)] = allblocks
-        assert blockend == blockstart + 6 + (mc.ALIGN_MATERIALIZE - 1)
-        assert blockstart <= rawstart < rawstart + 6 <= blockend
+        # 'allblocks' should be one block of length 16 (= 6 rounded up)
+        # starting at 'rawstart'
+        [blockstart, blockend] = allblocks
+        assert blockend == blockstart + 15  # is odd, one less than real stop
+        assert blockstart == rawstart
         assert puts == [(rawstart + 2, ['a', 'b', 'c', 'd']),
                         (rawstart + 4, ['e', 'f', 'g'])]
 
@@ -232,41 +226,3 @@ def test_blockbuildermixin(translated=True):
 
 def test_blockbuildermixin2():
     test_blockbuildermixin(translated=False)
-
-def test_machinedatablock():
-    ops = []
-    class FakeMemMgr:
-        _addr = 1597
-        def open_malloc(self, minsize):
-            result = (self._addr, self._addr + 100)
-            ops.append(('malloc', minsize) + result)
-            self._addr += 200
-            return result
-        def open_free(self, frm, to):
-            ops.append(('free', frm, to))
-            return to - frm >= 8
-    #
-    allblocks = []
-    md = MachineDataBlockWrapper(FakeMemMgr(), allblocks)
-    p = md.malloc_aligned(26, 16)
-    assert p == 1600
-    assert ops == [('malloc', 26 + 15, 1597, 1697)]
-    del ops[:]
-    #
-    p = md.malloc_aligned(26, 16)
-    assert p == 1632
-    p = md.malloc_aligned(26, 16)
-    assert p == 1664
-    assert allblocks == []
-    assert ops == []
-    #
-    p = md.malloc_aligned(27, 16)
-    assert p == 1808
-    assert allblocks == [(1597, 1697)]
-    assert ops == [('free', 1690, 1697),
-                   ('malloc', 27 + 15, 1797, 1897)]
-    del ops[:]
-    #
-    md.done()
-    assert allblocks == [(1597, 1697), (1797, 1835)]
-    assert ops == [('free', 1835, 1897)]

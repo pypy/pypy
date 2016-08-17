@@ -4,7 +4,6 @@ import py
 
 from rpython.jit.backend.llsupport import symbolic, jitframe, rewrite
 from rpython.jit.backend.llsupport.assembler import (GuardToken, BaseAssembler, debug_bridge)
-from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.metainterp.history import (Const, VOID, ConstInt)
 from rpython.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT
@@ -62,12 +61,14 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.malloc_slowpath_varsize = 0
         self.wb_slowpath = [0, 0, 0, 0, 0]
         self.setup_failure_recovery()
-        self.datablockwrapper = None
         self.stack_check_slowpath = 0
         self.propagate_exception_path = 0
         self.teardown()
 
     def setup_once(self):
+        # make a list that will be forgotten at the first setup(), for
+        # allocating the few immortal pieces of data now
+        self.allblocks = []
         BaseAssembler.setup_once(self)
         if self.cpu.supports_floats:
             support.ensure_sse2_floats()
@@ -82,13 +83,9 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             self.pending_memoryerror_trampoline_from = []
             self.error_trampoline_64 = 0
         self.mc = codebuf.MachineCodeBlockWrapper()
-        #assert self.datablockwrapper is None --- but obscure case
-        # possible, e.g. getting MemoryError and continuing
-        allblocks = self.get_asmmemmgr_blocks(looptoken)
-        self.datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr,
-                                                        allblocks)
         self.target_tokens_currently_compiling = {}
         self.frame_depth_to_patch = []
+        self.allblocks = self.get_asmmemmgr_blocks(looptoken)
 
     def teardown(self):
         self.pending_guard_tokens = None
@@ -96,6 +93,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             self.pending_memoryerror_trampoline_from = None
         self.mc = None
         self.current_clt = None
+        self.allblocks = None
 
     def _build_float_constants(self):
         # 0x80000000000000008000000000000000
@@ -111,9 +109,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         data = neg_const + abs_const + \
                single_neg_const + single_abs_const + \
                zero_const
-        datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr, [])
-        float_constants = datablockwrapper.malloc_aligned(len(data), alignment=16)
-        datablockwrapper.done()
+        float_constants = self.malloc_aligned(len(data), alignment=16)
         addr = rffi.cast(rffi.CArrayPtr(lltype.Char), float_constants)
         for i in range(len(data)):
             addr[i] = data[i]
@@ -484,8 +480,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         if self.cpu.HAS_CODEMAP:
             self.codemap_builder.enter_portal_frame(jd_id, unique_id,
                                                     self.mc.get_relative_pos())
-        frame_info = self.datablockwrapper.malloc_aligned(
-            jitframe.JITFRAMEINFO_SIZE, alignment=WORD)
+        frame_info = self.malloc_aligned(jitframe.JITFRAMEINFO_SIZE)
         clt.frame_info = rffi.cast(jitframe.JITFRAMEINFOPTR, frame_info)
         clt.frame_info.clear() # for now
 
@@ -647,11 +642,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         assert isinstance(faildescr, ResumeGuardDescr)
         assert asminfo.rawstart != 0
         self.mc = codebuf.MachineCodeBlockWrapper()
-        allblocks = self.get_asmmemmgr_blocks(looptoken)
-        self.datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr,
-                                                   allblocks)
-        frame_info = self.datablockwrapper.malloc_aligned(
-            jitframe.JITFRAMEINFO_SIZE, alignment=WORD)
+        frame_info = self.malloc_aligned(jitframe.JITFRAMEINFO_SIZE)
 
         self.mc.force_frame_size(DEFAULT_FRAME_BYTES)
         # if accumulation is saved at the guard, we need to update it here!
@@ -717,8 +708,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         elif IS_X86_32:
             # allocate the gc table right now.  This lets us write
             # machine code with absolute 32-bit addressing.
-            self.gc_table_addr = self.datablockwrapper.malloc_aligned(
-                gcref_table_size, alignment=WORD)
+            self.gc_table_addr = self.malloc_aligned(gcref_table_size)
         #
         self.setup_gcrefs_list(allgcrefs)
 
@@ -854,11 +844,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         mc.copy_to_raw_memory(adr)
 
     def materialize_loop(self, looptoken):
-        self.datablockwrapper.done()      # finish using cpu.asmmemmgr
-        self.datablockwrapper = None
-        allblocks = self.get_asmmemmgr_blocks(looptoken)
         size = self.mc.get_relative_pos()
-        res = self.mc.materialize(self.cpu, allblocks,
+        res = self.mc.materialize(self.cpu, self.allblocks,
                                   self.cpu.gc_ll_descr.gcrootmap)
         if self.cpu.HAS_CODEMAP:
             self.cpu.codemap.register_codemap(
