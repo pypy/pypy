@@ -72,25 +72,6 @@ def prepare_float_cmp(self, op, fcond):
     res = self.force_allocate_reg_or_cc(op)
     return [loc1, loc2, res]
 
-def prepare_op_by_helper_call(name):
-    def f(self, op, fcond):
-        assert fcond is not None
-        a0 = op.getarg(0)
-        a1 = op.getarg(1)
-        arg1 = self.rm.make_sure_var_in_reg(a0, selected_reg=r.r0)
-        arg2 = self.rm.make_sure_var_in_reg(a1, selected_reg=r.r1)
-        assert arg1 == r.r0
-        assert arg2 == r.r1
-        if not isinstance(a0, Const) and self.stays_alive(a0):
-            self.force_spill_var(a0)
-        self.possibly_free_vars_for_op(op)
-        self.free_temp_vars()
-        self.after_call(op)
-        self.possibly_free_var(op)
-        return []
-    f.__name__ = name
-    return f
-
 def prepare_int_cmp(self, op, fcond):
     assert fcond is not None
     boxes = list(op.getarglist())

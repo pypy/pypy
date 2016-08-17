@@ -348,7 +348,7 @@ class TestArgumentsNormal(object):
         excinfo = py.test.raises(OperationError, Arguments, space, [],
                                  ["a"], [1], w_starstararg={None: 1})
         assert excinfo.value.w_type is TypeError
-        assert excinfo.value._w_value is not None
+        assert excinfo.value._w_value is None
         excinfo = py.test.raises(OperationError, Arguments, space, [],
                                  ["a"], [1], w_starstararg={valuedummy: 1})
         assert excinfo.value.w_type is ValueError
@@ -618,14 +618,14 @@ class TestErrorHandling(object):
         space = self.space
         try:
             Arguments(space, [], w_stararg=space.wrap(42))
-        except OperationError, e:
+        except OperationError as e:
             msg = space.str_w(space.str(e.get_w_value(space)))
             assert msg == "argument after * must be a sequence, not int"
         else:
             assert 0, "did not raise"
         try:
             Arguments(space, [], w_starstararg=space.wrap(42))
-        except OperationError, e:
+        except OperationError as e:
             msg = space.str_w(space.str(e.get_w_value(space)))
             assert msg == "argument after ** must be a mapping, not int"
         else:
@@ -688,3 +688,21 @@ class AppTestArgument:
         def f(x): pass
         e = raises(TypeError, "f(**{u'ü' : 19})")
         assert "?" in str(e.value)
+
+    def test_starstarargs_dict_subclass(self):
+        def f(**kwargs):
+            return kwargs
+        class DictSubclass(dict):
+            def __iter__(self):
+                yield 'x'
+        # CPython, as an optimization, looks directly into dict internals when
+        # passing one via **kwargs.
+        x =DictSubclass()
+        assert f(**x) == {}
+        x['a'] = 1
+        assert f(**x) == {'a': 1}
+
+    def test_starstarargs_module_dict(self):
+        def f(**kwargs):
+            return kwargs
+        assert f(**globals()) == globals()

@@ -1,4 +1,5 @@
-# hypothesis is used for test generation on untranslated jit tests
+cffi>=1.4.0
+
+# hypothesis is used for test generation on untranslated tests
 hypothesis
-enum>=0.4.6 # is a dependency, but old pip does not pick it up
 enum34>=1.1.2

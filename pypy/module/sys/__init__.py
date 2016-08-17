@@ -1,6 +1,7 @@
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter.error import OperationError
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib import rdynload
 import sys
 
 _WIN = sys.platform == 'win32'
@@ -19,6 +20,8 @@ class Module(MixedModule):
         self.defaultencoding = "ascii"
         self.filesystemencoding = None
         self.debug = True
+        self.track_resources = False
+        self.dlopenflags = rdynload._dlopen_default_mode()
 
     interpleveldefs = {
         '__name__'              : '(space.wrap("sys"))',
@@ -53,6 +56,8 @@ class Module(MixedModule):
         '_current_frames'       : 'currentframes._current_frames',
         'setrecursionlimit'     : 'vm.setrecursionlimit',
         'getrecursionlimit'     : 'vm.getrecursionlimit',
+        'pypy_set_track_resources' : 'vm.set_track_resources',
+        'pypy_get_track_resources' : 'vm.get_track_resources',
         'setcheckinterval'      : 'vm.setcheckinterval',
         'getcheckinterval'      : 'vm.getcheckinterval',
         'exc_info'              : 'vm.exc_info',
@@ -85,7 +90,9 @@ class Module(MixedModule):
 
         'float_info'            : 'system.get_float_info(space)',
         'long_info'             : 'system.get_long_info(space)',
-        'float_repr_style'      : 'system.get_float_repr_style(space)'
+        'float_repr_style'      : 'system.get_float_repr_style(space)',
+        'getdlopenflags'        : 'system.getdlopenflags',
+        'setdlopenflags'        : 'system.setdlopenflags',
         }
 
     if sys.platform == 'win32':
@@ -121,7 +128,7 @@ class Module(MixedModule):
         w_modules = self.get('modules')
         try:
             return space.getitem(w_modules, space.wrap(name))
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_KeyError):
                 raise
             return None

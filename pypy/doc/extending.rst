@@ -79,7 +79,7 @@ most cross-language call overhead.
 :doc:`Full details <cppyy>` are `available here <cppyy>`.
 
 .. _installed separately: http://cern.ch/wlav/reflex-2013-08-14.tar.bz2
-.. _Reflex: http://root.cern.ch/drupal/content/reflex
+.. _Reflex: https://root.cern.ch/how/how-use-reflex
 
 
 RPython Mixed Modules

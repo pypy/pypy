@@ -125,6 +125,9 @@ class Repr(object):
                 self, value))
         return value
 
+    def special_uninitialized_value(self):
+        return None
+
     def get_ll_eq_function(self):
         """Return an eq(x,y) function to use to compare two low-level
         values of this Repr.

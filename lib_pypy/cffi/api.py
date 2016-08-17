@@ -299,6 +299,23 @@ class FFI(object):
         """
         return self._backend.string(cdata, maxlen)
 
+    def unpack(self, cdata, length):
+        """Unpack an array of C data of the given length, 
+        returning a Python string/unicode/list.
+
+        If 'cdata' is a pointer to 'char', returns a byte string.
+        It does not stop at the first null.  This is equivalent to:
+        ffi.buffer(cdata, length)[:]
+
+        If 'cdata' is a pointer to 'wchar_t', returns a unicode string.
+        'length' is measured in wchar_t's; it is not the size in bytes.
+
+        If 'cdata' is a pointer to anything else, returns a list of
+        'length' items.  This is a faster equivalent to:
+        [cdata[i] for i in range(length)]
+        """
+        return self._backend.unpack(cdata, length)
+
     def buffer(self, cdata, size=-1):
         """Return a read-write buffer object that references the raw C data
         pointed to by the given 'cdata'.  The 'cdata' must be a pointer or
@@ -315,8 +332,8 @@ class FFI(object):
     def from_buffer(self, python_buffer):
         """Return a <cdata 'char[]'> that points to the data of the
         given Python object, which must support the buffer interface.
-        Note that this is not meant to be used on the built-in types str,
-        unicode, or bytearray (you can build 'char[]' arrays explicitly)
+        Note that this is not meant to be used on the built-in types
+        str or unicode (you can build 'char[]' arrays explicitly)
         but only on objects containing large quantities of raw data
         in some other format, like 'array.array' or numpy arrays.
         """
@@ -380,20 +397,7 @@ class FFI(object):
         data.  Later, when this new cdata object is garbage-collected,
         'destructor(old_cdata_object)' will be called.
         """
-        try:
-            gcp = self._backend.gcp
-        except AttributeError:
-            pass
-        else:
-            return gcp(cdata, destructor)
-        #
-        with self._lock:
-            try:
-                gc_weakrefs = self.gc_weakrefs
-            except AttributeError:
-                from .gc_weakref import GcWeakrefs
-                gc_weakrefs = self.gc_weakrefs = GcWeakrefs(self)
-            return gc_weakrefs.build(cdata, destructor)
+        return self._backend.gcp(cdata, destructor)
 
     def _get_cached_btype(self, type):
         assert self._lock.acquire(False) is False
@@ -720,6 +724,26 @@ class FFI(object):
     def def_extern(self, *args, **kwds):
         raise ValueError("ffi.def_extern() is only available on API-mode FFI "
                          "objects")
+
+    def list_types(self):
+        """Returns the user type names known to this FFI instance.
+        This returns a tuple containing three lists of names:
+        (typedef_names, names_of_structs, names_of_unions)
+        """
+        typedefs = []
+        structs = []
+        unions = []
+        for key in self._parser._declarations:
+            if key.startswith('typedef '):
+                typedefs.append(key[8:])
+            elif key.startswith('struct '):
+                structs.append(key[7:])
+            elif key.startswith('union '):
+                unions.append(key[6:])
+        typedefs.sort()
+        structs.sort()
+        unions.sort()
+        return (typedefs, structs, unions)
 
 
 def _load_backend_lib(backend, name, flags):

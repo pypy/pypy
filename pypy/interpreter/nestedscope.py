@@ -1,7 +1,7 @@
 from rpython.tool.uid import uid
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.mixedmodule import MixedModule
 
 
@@ -78,4 +78,4 @@ class Cell(W_Root):
         try:
             return self.get()
         except ValueError:
-            raise OperationError(space.w_ValueError, space.wrap("Cell is empty"))
+            raise oefmt(space.w_ValueError, "Cell is empty")

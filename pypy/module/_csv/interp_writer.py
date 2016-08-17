@@ -49,7 +49,7 @@ class W_Writer(W_Root):
                 try:
                     space.float_w(w_field)    # is it an int/long/float?
                     quoted = False
-                except OperationError, e:
+                except OperationError as e:
                     if e.async(space):
                         raise
                     quoted = True
@@ -124,7 +124,7 @@ class W_Writer(W_Root):
         while True:
             try:
                 w_seq = space.next(w_iter)
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(space, space.w_StopIteration):
                     break
                 raise

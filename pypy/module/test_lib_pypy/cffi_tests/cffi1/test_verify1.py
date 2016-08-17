@@ -695,25 +695,14 @@ def test_nonfull_enum():
     assert ffi.string(ffi.cast('enum ee', 11)) == "EE2"
     assert ffi.string(ffi.cast('enum ee', -10)) == "EE3"
     #
-    # try again
-    ffi.verify("enum ee { EE1=10, EE2, EE3=-10, EE4 };")
-    assert ffi.string(ffi.cast('enum ee', 11)) == "EE2"
-    #
     assert ffi.typeof("enum ee").relements == {'EE1': 10, 'EE2': 11, 'EE3': -10}
     assert ffi.typeof("enum ee").elements == {10: 'EE1', 11: 'EE2', -10: 'EE3'}
 
 def test_full_enum():
     ffi = FFI()
     ffi.cdef("enum ee { EE1, EE2, EE3 };")
-    ffi.verify("enum ee { EE1, EE2, EE3 };")
-    py.test.raises(VerificationError, ffi.verify, "enum ee { EE1, EE2 };")
-    # disabled: for now, we always accept and fix transparently constant values
-    #e = py.test.raises(VerificationError, ffi.verify,
-    #                   "enum ee { EE1, EE3, EE2 };")
-    #assert str(e.value) == 'enum ee: EE2 has the real value 2, not 1'
-    # extra items cannot be seen and have no bad consequence anyway
-    lib = ffi.verify("enum ee { EE1, EE2, EE3, EE4 };")
-    assert lib.EE3 == 2
+    lib = ffi.verify("enum ee { EE1, EE2, EE3 };")
+    assert [lib.EE1, lib.EE2, lib.EE3] == [0, 1, 2]
 
 def test_enum_usage():
     ffi = FFI()

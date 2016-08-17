@@ -578,7 +578,7 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
         else:
             try:
                 buf = space.charbuf_w(w_value)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_TypeError):
                     raise
                 raise oefmt(space.w_TypeError,

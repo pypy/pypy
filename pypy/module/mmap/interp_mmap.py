@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError, wrap_oserror
+from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -33,7 +33,7 @@ class W_MMap(W_Root):
         self.check_valid()
         try:
             return self.space.wrap(self.mmap.read_byte())
-        except RValueError, v:
+        except RValueError as v:
             raise mmap_error(self.space, v)
 
     def readline(self):
@@ -78,7 +78,7 @@ class W_MMap(W_Root):
         self.check_valid()
         try:
             self.mmap.seek(pos, whence)
-        except RValueError, v:
+        except RValueError as v:
             raise mmap_error(self.space, v)
 
     def tell(self):
@@ -89,7 +89,7 @@ class W_MMap(W_Root):
         self.check_valid()
         try:
             return self.space.wrap(self.mmap.file_size())
-        except OSError, e:
+        except OSError as e:
             raise mmap_error(self.space, e)
 
     def write(self, w_data):
@@ -98,7 +98,7 @@ class W_MMap(W_Root):
         self.check_writeable()
         try:
             self.mmap.write(data)
-        except RValueError, v:
+        except RValueError as v:
             raise mmap_error(self.space, v)
 
     @unwrap_spec(byte=str)
@@ -107,7 +107,7 @@ class W_MMap(W_Root):
         self.check_writeable()
         try:
             self.mmap.write_byte(byte)
-        except RMMapError, v:
+        except RMMapError as v:
             raise mmap_error(self.space, v)
 
     @unwrap_spec(offset=int, size=int)
@@ -115,9 +115,9 @@ class W_MMap(W_Root):
         self.check_valid()
         try:
             return self.space.wrap(self.mmap.flush(offset, size))
-        except RValueError, v:
+        except RValueError as v:
             raise mmap_error(self.space, v)
-        except OSError, e:
+        except OSError as e:
             raise mmap_error(self.space, e)
 
     @unwrap_spec(dest=int, src=int, count=int)
@@ -126,7 +126,7 @@ class W_MMap(W_Root):
         self.check_writeable()
         try:
             self.mmap.move(dest, src, count)
-        except RValueError, v:
+        except RValueError as v:
             raise mmap_error(self.space, v)
 
     @unwrap_spec(newsize=int)
@@ -135,9 +135,9 @@ class W_MMap(W_Root):
         self.check_resizeable()
         try:
             self.mmap.resize(newsize)
-        except OSError, e:
+        except OSError as e:
             raise mmap_error(self.space, e)
-        except RValueError, e:
+        except RValueError as e:
             # obscure: in this case, RValueError translates to an app-level
             # SystemError.
             raise OperationError(self.space.w_SystemError,
@@ -149,19 +149,19 @@ class W_MMap(W_Root):
     def check_valid(self):
         try:
             self.mmap.check_valid()
-        except RValueError, v:
+        except RValueError as v:
             raise mmap_error(self.space, v)
 
     def check_writeable(self):
         try:
             self.mmap.check_writeable()
-        except RMMapError, v:
+        except RMMapError as v:
             raise mmap_error(self.space, v)
 
     def check_resizeable(self):
         try:
             self.mmap.check_resizeable()
-        except RMMapError, v:
+        except RMMapError as v:
             raise mmap_error(self.space, v)
 
     def descr_getitem(self, w_index):
@@ -191,14 +191,13 @@ class W_MMap(W_Root):
         start, stop, step, length = space.decode_index4(w_index, self.mmap.size)
         if step == 0:  # index only
             if len(value) != 1:
-                raise OperationError(space.w_ValueError,
-                                     space.wrap("mmap assignment must be "
-                                                "single-character string"))
+                raise oefmt(space.w_ValueError,
+                            "mmap assignment must be single-character string")
             self.mmap.setitem(start, value)
         else:
             if len(value) != length:
-                raise OperationError(space.w_ValueError,
-                          space.wrap("mmap slice assignment is wrong size"))
+                raise oefmt(space.w_ValueError,
+                            "mmap slice assignment is wrong size")
             if step == 1:
                 self.mmap.setslice(start, value)
             else:
@@ -237,12 +236,12 @@ class W_MMap(W_Root):
         elif j > self.mmap.size:
             j = self.mmap.size
         if not space.isinstance_w(w_item, space.w_str):
-            raise OperationError(space.w_IndexError, space.wrap(
-                "mmap slice assignment must be a string"))
+            raise oefmt(space.w_IndexError,
+                        "mmap slice assignment must be a string")
         value = space.realstr_w(w_item)
         if len(value) != (j - i):
-            raise OperationError(space.w_IndexError, space.wrap(
-                "mmap slice assignment is wrong size"))
+            raise oefmt(space.w_IndexError,
+                        "mmap slice assignment is wrong size")
         self.check_writeable()
         self.mmap.setslice(i, value)
 
@@ -258,9 +257,9 @@ if rmmap._POSIX:
             W_MMap.__init__(self, space,
                             rmmap.mmap(fileno, length, flags, prot, access,
                                        offset))
-        except OSError, e:
+        except OSError as e:
             raise mmap_error(space, e)
-        except RMMapError, e:
+        except RMMapError as e:
             raise mmap_error(space, e)
         return space.wrap(self)
 
@@ -275,13 +274,13 @@ elif rmmap._MS_WINDOWS:
             W_MMap.__init__(self, space,
                             rmmap.mmap(fileno, length, tagname, access,
                                        offset))
-        except OSError, e:
+        except OSError as e:
             raise mmap_error(space, e)
-        except RMMapError, e:
+        except RMMapError as e:
             raise mmap_error(space, e)
         return space.wrap(self)
 
-W_MMap.typedef = TypeDef("mmap.mmap",
+W_MMap.typedef = TypeDef("mmap.mmap", None, None, "read-write",
     __new__ = interp2app(mmap),
     close = interp2app(W_MMap.close),
     read_byte = interp2app(W_MMap.read_byte),
@@ -319,11 +318,9 @@ class Cache:
 
 def mmap_error(space, e):
     if isinstance(e, RValueError):
-        return OperationError(space.w_ValueError,
-                              space.wrap(e.message))
+        return OperationError(space.w_ValueError, space.wrap(e.message))
     elif isinstance(e, RTypeError):
-        return OperationError(space.w_TypeError,
-                              space.wrap(e.message))
+        return OperationError(space.w_TypeError, space.wrap(e.message))
     elif isinstance(e, OSError):
         w_error = space.fromcache(Cache).w_error
         return wrap_oserror(space, e, w_exception_class=w_error)
@@ -370,12 +367,12 @@ class MMapBuffer(Buffer):
     def check_valid(self):
         try:
             self.mmap.check_valid()
-        except RValueError, v:
+        except RValueError as v:
             raise mmap_error(self.space, v)
 
     def check_valid_writeable(self):
         try:
             self.mmap.check_valid()
             self.mmap.check_writeable()
-        except RMMapError, v:
+        except RMMapError as v:
             raise mmap_error(self.space, v)

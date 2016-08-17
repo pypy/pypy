@@ -500,7 +500,7 @@ class TestLibffiCall(BaseFfiTest):
                 exec s in glob, loc
             except TypeError:
                 pass
-            except LLException, e:
+            except LLException as e:
                 if str(e) != "<LLException 'TypeError'>":
                     raise
             else:
@@ -581,10 +581,10 @@ class TestLibffiCall(BaseFfiTest):
             func = (libfoo, '_std_diff_xy@8', [types.sint, types.signed], types.sint)
             try:
                 self.call(func, [50, 8], lltype.Signed)
-            except ValueError, e:
+            except ValueError as e:
                 assert e.message == 'Procedure called with not enough ' + \
                      'arguments (8 bytes missing) or wrong calling convention'
-            except LLException, e:
+            except LLException as e:
                 #jitted code raises this
                 assert str(e) == "<LLException 'StackCheckError'>"
             else:

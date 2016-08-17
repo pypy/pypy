@@ -114,7 +114,7 @@ class NonNullPtrInfo(PtrInfo):
         assert self.get_last_guard(optimizer).is_guard()
 
     def make_guards(self, op, short, optimizer):
-        op = ResOperation(rop.GUARD_NONNULL, [op], None)
+        op = ResOperation(rop.GUARD_NONNULL, [op])
         short.append(op)
 
 class AbstractVirtualPtrInfo(NonNullPtrInfo):
@@ -144,7 +144,8 @@ class AbstractVirtualPtrInfo(NonNullPtrInfo):
             op.set_forwarded(None)
             optforce.emit_operation(op)
             newop = optforce.getlastop()
-            op.set_forwarded(newop)
+            if newop is not op:
+                op.set_forwarded(newop)
             newop.set_forwarded(self)
             descr = self.descr
             self._is_virtual = False
@@ -326,17 +327,17 @@ class InstancePtrInfo(AbstractStructPtrInfo):
 
     def make_guards(self, op, short, optimizer):
         if self._known_class is not None:
-            short.append(ResOperation(rop.GUARD_NONNULL, [op], None))
+            short.append(ResOperation(rop.GUARD_NONNULL, [op]))
             if not optimizer.cpu.remove_gctypeptr:
-                short.append(ResOperation(rop.GUARD_IS_OBJECT, [op], None))
+                short.append(ResOperation(rop.GUARD_IS_OBJECT, [op]))
             short.append(ResOperation(rop.GUARD_CLASS,
-                                      [op, self._known_class], None))
+                                      [op, self._known_class]))
         elif self.descr is not None:
-            short.append(ResOperation(rop.GUARD_NONNULL, [op], None))
+            short.append(ResOperation(rop.GUARD_NONNULL, [op]))
             if not optimizer.cpu.remove_gctypeptr:
-                short.append(ResOperation(rop.GUARD_IS_OBJECT, [op], None))
+                short.append(ResOperation(rop.GUARD_IS_OBJECT, [op]))
             short.append(ResOperation(rop.GUARD_SUBCLASS, [op,
-                            ConstInt(self.descr.get_vtable())], None))
+                            ConstInt(self.descr.get_vtable())]))
         else:
             AbstractStructPtrInfo.make_guards(self, op, short, optimizer)
 
@@ -349,8 +350,8 @@ class StructPtrInfo(AbstractStructPtrInfo):
         if self.descr is not None:
             c_typeid = ConstInt(self.descr.get_type_id())
             short.extend([
-                ResOperation(rop.GUARD_NONNULL, [op], None),
-                ResOperation(rop.GUARD_GC_TYPE, [op, c_typeid], None)
+                ResOperation(rop.GUARD_NONNULL, [op]),
+                ResOperation(rop.GUARD_GC_TYPE, [op, c_typeid])
             ])
 
     @specialize.argtype(1)
@@ -399,6 +400,12 @@ class RawBufferPtrInfo(AbstractRawPtrInfo):
 
     def _force_elements(self, op, optforce, descr):
         self.size = -1
+        # at this point we have just written the
+        # 'op = CALL_I(..., OS_RAW_MALLOC_VARSIZE_CHAR)'.
+        # Emit now a CHECK_MEMORY_ERROR resop.
+        check_op = ResOperation(rop.CHECK_MEMORY_ERROR, [op])
+        optforce.emit_operation(check_op)
+        #
         buffer = self._get_buffer()
         for i in range(len(buffer.offsets)):
             # write the value
@@ -592,7 +599,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
     def make_guards(self, op, short, optimizer):
         AbstractVirtualPtrInfo.make_guards(self, op, short, optimizer)
         c_type_id = ConstInt(self.descr.get_type_id())
-        short.append(ResOperation(rop.GUARD_GC_TYPE, [op, c_type_id], None))
+        short.append(ResOperation(rop.GUARD_GC_TYPE, [op, c_type_id]))
         if self.lenbound is not None:
             lenop = ResOperation(rop.ARRAYLEN_GC, [op], descr=self.descr)
             short.append(lenop)

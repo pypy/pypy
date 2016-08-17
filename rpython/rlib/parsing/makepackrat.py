@@ -632,7 +632,7 @@ class MetaPackratParser(type):
         p = PyPackratSyntaxParser(source)
         try:
             t = p.file()
-        except BacktrackException, exc:
+        except BacktrackException as exc:
             print exc.error.nice_error_message("<docstring>", source)
             lineno, _ = exc.error.get_line_column(source)
             errorline = source.split("\n")[lineno]

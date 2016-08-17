@@ -5,6 +5,7 @@ from rpython.rlib import objectmodel
 from rpython.translator.c.test.test_boehm import AbstractGCTestClass
 from rpython.rtyper.lltypesystem import lltype, rffi
 import py
+import platform
 
 def test_lock():
     l = allocate_lock()
@@ -92,6 +93,8 @@ class AbstractThreadTests(AbstractGCTestClass):
         res = fn()
         assert res == 42
 
+    @py.test.mark.xfail(platform.machine() == 's390x',
+                        reason='may fail this test under heavy load')
     def test_gc_locking(self):
         import time
         from rpython.rlib.debug import ll_assert
@@ -284,7 +287,12 @@ class TestUsingFramework(AbstractThreadTests):
             wr_from_thread.seen = False
             start_new_thread(thread_entry_point, ())
             wr1 = f()
-            time.sleep(0.5)
+            count = 0
+            while True:
+                time.sleep(0.5)
+                if wr_from_thread.seen or count >= 50:
+                    break
+                count += 1
             assert wr_from_thread.seen is True
             wr2 = wr_from_thread.wr
             import gc; gc.collect()      # wr2() should be collected here

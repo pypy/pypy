@@ -1,4 +1,4 @@
-import py
+import py, pytest
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.module.cpyext.state import State
@@ -59,7 +59,7 @@ class BaseApiTest(LeakCheckingTest):
         state = self.space.fromcache(State)
         try:
             state.check_and_raise_exception()
-        except OperationError, e:
+        except OperationError as e:
             print e.errorstr(self.space)
             raise
 
@@ -100,7 +100,8 @@ class TestConversion(BaseApiTest):
         PyPy_TypedefTest2(space, ppos)
         lltype.free(ppos, flavor='raw')
 
-
+@pytest.mark.skipif(os.environ.get('USER')=='root', 
+                    reason='root can write to all files')
 def test_copy_header_files(tmpdir):
     api.copy_header_files(tmpdir, True)
     def check(name):

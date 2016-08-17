@@ -1,3 +1,4 @@
+import py
 from rpython.rtyper.lltypesystem import lltype
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.translator.backendopt.writeanalyze import WriteAnalyzer, top_set
@@ -312,6 +313,39 @@ class TestLLtypeReadWriteAnalyze(BaseTest):
         assert struct2 == "struct"
         assert name2.endswith("x")
         assert T1 == T2
+
+    def test_cutoff(self):
+        py.test.skip("cutoff: disabled")
+        from rpython.rlib.unroll import unrolling_iterable
+        cutoff = 20
+        attrs = unrolling_iterable(["s%s" % i for i in range(cutoff + 5)])
+
+        class A(object):
+            def __init__(self, y):
+                for attr in attrs:
+                    setattr(self, attr, y)
+            def f(self):
+                self.x = 1
+                res = 0
+                for attr in attrs:
+                    res += getattr(self, attr)
+                return res
+
+        def h(flag):
+            obj = A(flag)
+            return obj.f()
+
+        t, wa = self.translate(h, [int])
+        wa.cutoff = cutoff
+        hgraph = graphof(t, h)
+        op_call_f = hgraph.startblock.operations[-1]
+
+        # check that we fished the expected ops
+        assert op_call_f.opname == "direct_call"
+        assert op_call_f.args[0].value._obj._name == 'A.f'
+
+        result = wa.analyze(op_call_f)
+        assert result is top_set
 
     def test_contains(self):
         def g(x, y, z):

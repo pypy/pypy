@@ -1,5 +1,4 @@
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
-from rpython.rlib import rgc
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
 from rpython.jit.backend.llsupport.regalloc import FrameManager, \
         RegisterManager, TempVar, compute_vars_longevity, BaseRegalloc, \
@@ -8,7 +7,7 @@ from rpython.jit.backend.arm import registers as r
 from rpython.jit.backend.arm import conditions as c
 from rpython.jit.backend.arm import locations
 from rpython.jit.backend.arm.locations import imm, get_fp_offset
-from rpython.jit.backend.arm.helper.regalloc import (prepare_op_by_helper_call,
+from rpython.jit.backend.arm.helper.regalloc import (
                                                     prepare_unary_cmp,
                                                     prepare_op_ri,
                                                     prepare_int_cmp,
@@ -398,9 +397,9 @@ class Regalloc(BaseRegalloc):
         else:
             self.rm.force_spill_var(var)
 
-    def before_call(self, force_store=[], save_all_regs=False):
-        self.rm.before_call(force_store, save_all_regs)
-        self.vfprm.before_call(force_store, save_all_regs)
+    def before_call(self, save_all_regs=False):
+        self.rm.before_call(save_all_regs=save_all_regs)
+        self.vfprm.before_call(save_all_regs=save_all_regs)
 
     def _sync_var(self, v):
         if v.type == FLOAT:
@@ -468,6 +467,8 @@ class Regalloc(BaseRegalloc):
         self.possibly_free_var(op)
         return [reg1, reg2, res]
 
+    prepare_op_uint_mul_high = prepare_op_int_mul
+
     def prepare_op_int_force_ge_zero(self, op, fcond):
         argloc = self.make_sure_var_in_reg(op.getarg(0))
         resloc = self.force_allocate_reg(op, [op.getarg(0)])
@@ -478,10 +479,6 @@ class Regalloc(BaseRegalloc):
         numbytes = op.getarg(1).getint()
         resloc = self.force_allocate_reg(op)
         return [argloc, imm(numbytes), resloc]
-
-    prepare_op_int_floordiv = prepare_op_by_helper_call('int_floordiv')
-    prepare_op_int_mod = prepare_op_by_helper_call('int_mod')
-    prepare_op_uint_floordiv = prepare_op_by_helper_call('unit_floordiv')
 
     prepare_op_int_and = prepare_op_ri('int_and')
     prepare_op_int_or = prepare_op_ri('int_or')
@@ -530,7 +527,7 @@ class Regalloc(BaseRegalloc):
                             EffectInfo.OS_LLONG_AND,
                             EffectInfo.OS_LLONG_OR,
                             EffectInfo.OS_LLONG_XOR):
-                if self.cpu.cpuinfo.arch_version >= 7:
+                if self.cpu.cpuinfo.neon:
                     args = self._prepare_llong_binop_xx(op, fcond)
                     self.perform_extra(op, args, fcond)
                     return
@@ -555,8 +552,7 @@ class Regalloc(BaseRegalloc):
     prepare_op_call_f = _prepare_op_call
     prepare_op_call_n = _prepare_op_call
 
-    def _prepare_call(self, op, force_store=[], save_all_regs=False,
-                      first_arg_index=1):
+    def _prepare_call(self, op, save_all_regs=False, first_arg_index=1):
         args = [None] * (op.numargs() + 3)
         calldescr = op.getdescr()
         assert isinstance(calldescr, CallDescr)
@@ -574,22 +570,33 @@ class Regalloc(BaseRegalloc):
         args[1] = imm(size)
         args[2] = sign_loc
 
-        args[0] = self._call(op, args, force_store, save_all_regs)
+        effectinfo = calldescr.get_extra_info()
+        if save_all_regs:
+            gc_level = 2
+        elif effectinfo is None or effectinfo.check_can_collect():
+            gc_level = 1
+        else:
+            gc_level = 0
+
+        args[0] = self._call(op, args, gc_level)
         return args
 
-    def _call(self, op, arglocs, force_store=[], save_all_regs=False):
-        # spill variables that need to be saved around calls
-        self.vfprm.before_call(force_store, save_all_regs=save_all_regs)
-        if not save_all_regs:
-            gcrootmap = self.cpu.gc_ll_descr.gcrootmap
-            if gcrootmap and gcrootmap.is_shadow_stack:
-                save_all_regs = 2
-        self.rm.before_call(force_store, save_all_regs=save_all_regs)
+    def _call(self, op, arglocs, gc_level):
+        # spill variables that need to be saved around calls:
+        # gc_level == 0: callee cannot invoke the GC
+        # gc_level == 1: can invoke GC, save all regs that contain pointers
+        # gc_level == 2: can force, save all regs
+        save_all_regs = gc_level == 2
+        self.vfprm.before_call(save_all_regs=save_all_regs)
+        if gc_level == 1 and self.cpu.gc_ll_descr.gcrootmap:
+            save_all_regs = 2
+        self.rm.before_call(save_all_regs=save_all_regs)
         resloc = self.after_call(op)
         return resloc
 
-    def prepare_op_call_malloc_gc(self, op, fcond):
-        return self._prepare_call(op)
+    def prepare_op_check_memory_error(self, op, fcond):
+        argloc = self.make_sure_var_in_reg(op.getarg(0))
+        return [argloc]
 
     def _prepare_llong_binop_xx(self, op, fcond):
         # arg 0 is the address of the function
@@ -627,16 +634,11 @@ class Regalloc(BaseRegalloc):
     def prepare_op_finish(self, op, fcond):
         # the frame is in fp, but we have to point where in the frame is
         # the potential argument to FINISH
-        descr = op.getdescr()
-        fail_descr = cast_instance_to_gcref(descr)
-        # we know it does not move, but well
-        rgc._make_sure_does_not_move(fail_descr)
-        fail_descr = rffi.cast(lltype.Signed, fail_descr)
         if op.numargs() == 1:
             loc = self.make_sure_var_in_reg(op.getarg(0))
-            locs = [loc, imm(fail_descr)]
+            locs = [loc]
         else:
-            locs = [imm(fail_descr)]
+            locs = []
         return locs
 
     def load_condition_into_cc(self, box):
@@ -892,10 +894,16 @@ class Regalloc(BaseRegalloc):
     prepare_op_same_as_r = _prepare_op_same_as
     prepare_op_same_as_f = _prepare_op_same_as
 
+    def prepare_op_load_from_gc_table(self, op, fcond):
+        resloc = self.force_allocate_reg(op)
+        return [resloc]
+
     def prepare_op_call_malloc_nursery(self, op, fcond):
         size_box = op.getarg(0)
         assert isinstance(size_box, ConstInt)
         size = size_box.getint()
+        # hint: try to move unrelated registers away from r0 and r1 now
+        self.rm.spill_or_move_registers_before_call([r.r0, r.r1])
 
         self.rm.force_allocate_reg(op, selected_reg=r.r0)
         t = TempInt()
@@ -919,6 +927,7 @@ class Regalloc(BaseRegalloc):
         # sizeloc must be in a register, but we can free it now
         # (we take care explicitly of conflicts with r0 or r1)
         sizeloc = self.rm.make_sure_var_in_reg(size_box)
+        self.rm.spill_or_move_registers_before_call([r.r0, r.r1]) # sizeloc safe
         self.rm.possibly_free_var(size_box)
         #
         self.rm.force_allocate_reg(op, selected_reg=r.r0)
@@ -946,6 +955,11 @@ class Regalloc(BaseRegalloc):
         arraydescr = op.getdescr()
         length_box = op.getarg(2)
         assert not isinstance(length_box, Const) # we cannot have a const here!
+        # can only use spill_or_move_registers_before_call() as a hint if
+        # we are sure that length_box stays alive and won't be freed now
+        # (it should always be the case, see below, but better safe than sorry)
+        if self.rm.stays_alive(length_box):
+            self.rm.spill_or_move_registers_before_call([r.r0, r.r1])
         # the result will be in r0
         self.rm.force_allocate_reg(op, selected_reg=r.r0)
         # we need r1 as a temporary
@@ -1072,7 +1086,7 @@ class Regalloc(BaseRegalloc):
     def _prepare_op_call_assembler(self, op, fcond):
         locs = self.locs_for_call_assembler(op)
         tmploc = self.get_scratch_reg(INT, selected_reg=r.r0)
-        resloc = self._call(op, locs + [tmploc], save_all_regs=True)
+        resloc = self._call(op, locs + [tmploc], gc_level=2)
         return locs + [resloc, tmploc]
 
     prepare_op_call_assembler_i = _prepare_op_call_assembler

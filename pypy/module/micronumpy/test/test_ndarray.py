@@ -1878,7 +1878,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert map(isnan, e) == [False, False, False, True, False]
         assert map(isinf, e) == [False, False, True, False, False]
         assert e.argmax() == 3
-        # numpy preserves value for uint16 -> cast_as_float16 -> 
+        # numpy preserves value for uint16 -> cast_as_float16 ->
         #     convert_to_float64 -> convert_to_float16 -> uint16
         #  even for float16 various float16 nans
         all_f16 = arange(0xfe00, 0xffff, dtype='uint16')
@@ -2608,23 +2608,17 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = np.arange(6).reshape(2,3)
         i = np.dtype('int32').type(0)
         assert (a[0] == a[i]).all()
-        
+
 
     def test_ellipsis_indexing(self):
         import numpy as np
         import sys
         a = np.array(1.5)
-        if '__pypy__' in sys.builtin_module_names:
-            assert a[...] is a
-        else:
-            assert a[...].base is a
+        assert a[...].base is a
         a[...] = 2.5
         assert a == 2.5
         a = np.array([1, 2, 3])
-        if '__pypy__' in sys.builtin_module_names:
-            assert a[...] is a
-        else:
-            assert a[...].base is a
+        assert a[...].base is a
         a[...] = 4
         assert (a == [4, 4, 4]).all()
         assert a[..., 0] == 4
@@ -2960,6 +2954,36 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (a.transpose() == b).all()
         assert (a.transpose(None) == b).all()
 
+    def test_transpose_arg_tuple(self):
+        import numpy as np
+        a = np.arange(24).reshape(2, 3, 4)
+        transpose_args = a.transpose(1, 2, 0)
+
+        transpose_test = a.transpose((1, 2, 0))
+
+        assert transpose_test.shape == (3, 4, 2)
+        assert (transpose_args == transpose_test).all()
+
+    def test_transpose_arg_list(self):
+        import numpy as np
+        a = np.arange(24).reshape(2, 3, 4)
+        transpose_args = a.transpose(1, 2, 0)
+
+        transpose_test = a.transpose([1, 2, 0])
+
+        assert transpose_test.shape == (3, 4, 2)
+        assert (transpose_args == transpose_test).all()
+
+    def test_transpose_arg_array(self):
+        import numpy as np
+        a = np.arange(24).reshape(2, 3, 4)
+        transpose_args = a.transpose(1, 2, 0)
+
+        transpose_test = a.transpose(np.array([1, 2, 0]))
+
+        assert transpose_test.shape == (3, 4, 2)
+        assert (transpose_args == transpose_test).all()
+
     def test_transpose_error(self):
         import numpy as np
         a = np.arange(24).reshape(2, 3, 4)
@@ -2967,6 +2991,11 @@ class AppTestMultiDim(BaseNumpyAppTest):
         raises(ValueError, a.transpose, 1, 0, 3)
         raises(ValueError, a.transpose, 1, 0, 1)
         raises(TypeError, a.transpose, 1, 0, '2')
+
+    def test_transpose_unexpected_argument(self):
+        import numpy as np
+        a = np.array([[1, 2], [3, 4], [5, 6]])
+        raises(TypeError, 'a.transpose(axes=(1,2,0))')
 
     def test_flatiter(self):
         from numpy import array, flatiter, arange, zeros
@@ -3437,6 +3466,21 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a.itemset(1, 2, 100)
         assert a[1, 2] == 100
 
+    def test_index_int(self):
+        import numpy as np
+        a = np.array([10, 20, 30], dtype='int64')
+        res = a[np.int64(1)]
+        assert isinstance(res, np.int64)
+        assert res == 20
+        res = a[np.int32(0)]
+        assert isinstance(res, np.int64)
+        assert res == 10
+
+        b = a.astype(float)
+        res = b[np.int64(1)]
+        assert res == 20.0
+        assert isinstance(res, np.float64)
+
     def test_index(self):
         import numpy as np
         a = np.array([1], np.uint16)
@@ -3447,6 +3491,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
             exc = raises(TypeError, a.__index__)
             assert exc.value.message == 'only integer arrays with one element ' \
                                         'can be converted to an index'
+
 
     def test_int_array_index(self):
         from numpy import array

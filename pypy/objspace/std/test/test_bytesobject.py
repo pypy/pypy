@@ -3,31 +3,31 @@ class TestW_BytesObject:
     def teardown_method(self, method):
         pass
 
-    def test_str_w(self):
-        assert self.space.str_w(self.space.wrap("foo")) == "foo"
+    def test_bytes_w(self):
+        assert self.space.bytes_w(self.space.newbytes("foo")) == "foo"
 
     def test_equality(self):
-        w = self.space.wrap
+        w = self.space.newbytes
         assert self.space.eq_w(w('abc'), w('abc'))
         assert not self.space.eq_w(w('abc'), w('def'))
 
     def test_order_cmp(self):
         space = self.space
-        w = space.wrap
+        w = space.newbytes
         assert self.space.is_true(space.lt(w('a'), w('b')))
         assert self.space.is_true(space.lt(w('a'), w('ab')))
         assert self.space.is_true(space.le(w('a'), w('a')))
         assert self.space.is_true(space.gt(w('a'), w('')))
 
     def test_truth(self):
-        w = self.space.wrap
+        w = self.space.newbytes
         assert self.space.is_true(w('non-empty'))
         assert not self.space.is_true(w(''))
 
     def test_getitem(self):
         space = self.space
         w = space.wrap
-        w_str = w('abc')
+        w_str = space.newbytes('abc')
         assert self.space.eq_w(space.getitem(w_str, w(0)), w('a'))
         assert self.space.eq_w(space.getitem(w_str, w(-1)), w('c'))
         self.space.raises_w(space.w_IndexError,
@@ -38,25 +38,26 @@ class TestW_BytesObject:
     def test_slice(self):
         space = self.space
         w = space.wrap
-        w_str = w('abc')
+        wb = space.newbytes
+        w_str = wb('abc')
 
         w_slice = space.newslice(w(0), w(0), space.w_None)
-        assert self.space.eq_w(space.getitem(w_str, w_slice), w(''))
+        assert self.space.eq_w(space.getitem(w_str, w_slice), wb(''))
 
         w_slice = space.newslice(w(0), w(1), space.w_None)
-        assert self.space.eq_w(space.getitem(w_str, w_slice), w('a'))
+        assert self.space.eq_w(space.getitem(w_str, w_slice), wb('a'))
 
         w_slice = space.newslice(w(0), w(10), space.w_None)
-        assert self.space.eq_w(space.getitem(w_str, w_slice), w('abc'))
+        assert self.space.eq_w(space.getitem(w_str, w_slice), wb('abc'))
 
         w_slice = space.newslice(space.w_None, space.w_None, space.w_None)
-        assert self.space.eq_w(space.getitem(w_str, w_slice), w('abc'))
+        assert self.space.eq_w(space.getitem(w_str, w_slice), wb('abc'))
 
         w_slice = space.newslice(space.w_None, w(-1), space.w_None)
-        assert self.space.eq_w(space.getitem(w_str, w_slice), w('ab'))
+        assert self.space.eq_w(space.getitem(w_str, w_slice), wb('ab'))
 
         w_slice = space.newslice(w(-1), space.w_None, space.w_None)
-        assert self.space.eq_w(space.getitem(w_str, w_slice), w('c'))
+        assert self.space.eq_w(space.getitem(w_str, w_slice), wb('c'))
 
     def test_extended_slice(self):
         space = self.space
@@ -66,23 +67,24 @@ class TestW_BytesObject:
                 return
         w_None = space.w_None
         w = space.wrap
-        w_str = w('hello')
+        wb = space.newbytes
+        w_str = wb('hello')
 
         w_slice = space.newslice(w_None, w_None, w(1))
-        assert self.space.eq_w(space.getitem(w_str, w_slice), w('hello'))
+        assert self.space.eq_w(space.getitem(w_str, w_slice), wb('hello'))
 
         w_slice = space.newslice(w_None, w_None, w(-1))
-        assert self.space.eq_w(space.getitem(w_str, w_slice), w('olleh'))
+        assert self.space.eq_w(space.getitem(w_str, w_slice), wb('olleh'))
 
         w_slice = space.newslice(w_None, w_None, w(2))
-        assert self.space.eq_w(space.getitem(w_str, w_slice), w('hlo'))
+        assert self.space.eq_w(space.getitem(w_str, w_slice), wb('hlo'))
 
         w_slice = space.newslice(w(1), w_None, w(2))
-        assert self.space.eq_w(space.getitem(w_str, w_slice), w('el'))
+        assert self.space.eq_w(space.getitem(w_str, w_slice), wb('el'))
 
     def test_listview_bytes(self):
-        w_str = self.space.wrap('abcd')
-        assert self.space.listview_bytes(w_str) == list("abcd")
+        w_bytes = self.space.newbytes('abcd')
+        assert self.space.listview_bytes(w_bytes) == list("abcd")
 
 class AppTestBytesObject:
 
@@ -103,29 +105,36 @@ class AppTestBytesObject:
             assert result == "a foo b"
             assert isinstance(result, cls)
 
+    def test_format_wrongtype(self):
+        for int_format in '%d', '%o', '%x':
+            exc_info = raises(TypeError, int_format.__mod__, '123')
+            expected = int_format + ' format: a number is required, not str'
+            assert str(exc_info.value) == expected
+
     def test_split(self):
-        assert "".split() == []
-        assert "".split('x') == ['']
-        assert " ".split() == []
-        assert "a".split() == ['a']
+        assert b"".split() == []
+        assert b"".split(b'x') == [b'']
+        assert b" ".split() == []
+        assert b"a".split() == [b'a']
         assert "a".split("a", 1) == ['', '']
-        assert " ".split(" ", 1) == ['', '']
-        assert "aa".split("a", 2) == ['', '', '']
-        assert " a ".split() == ['a']
-        assert "a b c".split() == ['a','b','c']
-        assert 'this is the split function'.split() == ['this', 'is', 'the', 'split', 'function']
-        assert 'a|b|c|d'.split('|') == ['a', 'b', 'c', 'd']
-        assert 'a|b|c|d'.split('|', 2) == ['a', 'b', 'c|d']
-        assert 'a b c d'.split(None, 1) == ['a', 'b c d']
-        assert 'a b c d'.split(None, 2) == ['a', 'b', 'c d']
-        assert 'a b c d'.split(None, 3) == ['a', 'b', 'c', 'd']
-        assert 'a b c d'.split(None, 4) == ['a', 'b', 'c', 'd']
-        assert 'a b c d'.split(None, 0) == ['a b c d']
-        assert 'a  b  c  d'.split(None, 2) == ['a', 'b', 'c  d']
-        assert 'a b c d '.split() == ['a', 'b', 'c', 'd']
-        assert 'a//b//c//d'.split('//') == ['a', 'b', 'c', 'd']
-        assert 'endcase test'.split('test') == ['endcase ', '']
-        raises(ValueError, 'abc'.split, '')
+        assert b" ".split(b" ", 1) == [b'', b'']
+        assert b"aa".split(b"a", 2) == [b'', b'', b'']
+        assert b" a ".split() == [b'a']
+        assert b"a b c".split() == [b'a',b'b',b'c']
+        assert b'this is the split function'.split() == [
+            b'this', b'is', b'the', b'split', b'function']
+        assert b'a|b|c|d'.split(b'|') == [b'a', b'b', b'c', b'd']
+        assert b'a|b|c|d'.split(b'|', 2) == [b'a', b'b', b'c|d']
+        assert b'a b c d'.split(None, 1) == [b'a', b'b c d']
+        assert b'a b c d'.split(None, 2) == [b'a', b'b', b'c d']
+        assert b'a b c d'.split(None, 3) == [b'a', b'b', b'c', b'd']
+        assert b'a b c d'.split(None, 4) == [b'a', b'b', b'c', b'd']
+        assert b'a b c d'.split(None, 0) == [b'a b c d']
+        assert b'a  b  c  d'.split(None, 2) == [b'a', b'b', b'c  d']
+        assert b'a b c d '.split() == [b'a', b'b', b'c', b'd']
+        assert b'a//b//c//d'.split(b'//') == [b'a', b'b', b'c', b'd']
+        assert b'endcase test'.split(b'test') == [b'endcase ', b'']
+        raises(ValueError, b'abc'.split, b'')
 
     def test_rsplit(self):
         assert "".rsplit() == []
@@ -135,100 +144,100 @@ class AppTestBytesObject:
         assert " ".rsplit(" ", 1) == ['', '']
         assert "aa".rsplit("a", 2) == ['', '', '']
         assert " a ".rsplit() == ['a']
-        assert "a b c".rsplit() == ['a','b','c']
+        assert b"a b c".rsplit() == [b'a',b'b',b'c']
         assert 'this is the rsplit function'.rsplit() == ['this', 'is', 'the', 'rsplit', 'function']
-        assert 'a|b|c|d'.rsplit('|') == ['a', 'b', 'c', 'd']
-        assert 'a|b|c|d'.rsplit('|', 2) == ['a|b', 'c', 'd']
-        assert 'a b c d'.rsplit(None, 1) == ['a b c', 'd']
-        assert 'a b c d'.rsplit(None, 2) == ['a b', 'c', 'd']
-        assert 'a b c d'.rsplit(None, 3) == ['a', 'b', 'c', 'd']
-        assert 'a b c d'.rsplit(None, 4) == ['a', 'b', 'c', 'd']
-        assert 'a b c d'.rsplit(None, 0) == ['a b c d']
-        assert 'a  b  c  d'.rsplit(None, 2) == ['a  b', 'c', 'd']
-        assert 'a b c d '.rsplit() == ['a', 'b', 'c', 'd']
-        assert 'a//b//c//d'.rsplit('//') == ['a', 'b', 'c', 'd']
-        assert 'endcase test'.rsplit('test') == ['endcase ', '']
-        raises(ValueError, 'abc'.rsplit, '')
+        assert b'a|b|c|d'.rsplit(b'|') == [b'a', b'b', b'c', b'd']
+        assert b'a|b|c|d'.rsplit(b'|', 2) == [b'a|b', b'c', b'd']
+        assert b'a b c d'.rsplit(None, 1) == [b'a b c', b'd']
+        assert b'a b c d'.rsplit(None, 2) == [b'a b', b'c', b'd']
+        assert b'a b c d'.rsplit(None, 3) == [b'a', b'b', b'c', b'd']
+        assert b'a b c d'.rsplit(None, 4) == [b'a', b'b', b'c', b'd']
+        assert b'a b c d'.rsplit(None, 0) == [b'a b c d']
+        assert b'a  b  c  d'.rsplit(None, 2) == [b'a  b', b'c', b'd']
+        assert b'a b c d '.rsplit() == [b'a', b'b', b'c', b'd']
+        assert b'a//b//c//d'.rsplit(b'//') == [b'a', b'b', b'c', b'd']
+        assert b'endcase test'.rsplit(b'test') == [b'endcase ', b'']
+        raises(ValueError, b'abc'.rsplit, b'')
 
     def test_split_splitchar(self):
         assert "/a/b/c".split('/') == ['','a','b','c']
 
     def test_title(self):
-        assert "brown fox".title() == "Brown Fox"
-        assert "!brown fox".title() == "!Brown Fox"
-        assert "bROWN fOX".title() == "Brown Fox"
-        assert "Brown Fox".title() == "Brown Fox"
-        assert "bro!wn fox".title() == "Bro!Wn Fox"
+        assert b"brown fox".title() == b"Brown Fox"
+        assert b"!brown fox".title() == b"!Brown Fox"
+        assert b"bROWN fOX".title() == b"Brown Fox"
+        assert b"Brown Fox".title() == b"Brown Fox"
+        assert b"bro!wn fox".title() == b"Bro!Wn Fox"
 
     def test_istitle(self):
-        assert "".istitle() == False
-        assert "!".istitle() == False
-        assert "!!".istitle() == False
-        assert "brown fox".istitle() == False
-        assert "!brown fox".istitle() == False
-        assert "bROWN fOX".istitle() == False
-        assert "Brown Fox".istitle() == True
-        assert "bro!wn fox".istitle() == False
-        assert "Bro!wn fox".istitle() == False
-        assert "!brown Fox".istitle() == False
-        assert "!Brown Fox".istitle() == True
-        assert "Brow&&&&N Fox".istitle() == True
-        assert "!Brow&&&&n Fox".istitle() == False
+        assert b"".istitle() == False
+        assert b"!".istitle() == False
+        assert b"!!".istitle() == False
+        assert b"brown fox".istitle() == False
+        assert b"!brown fox".istitle() == False
+        assert b"bROWN fOX".istitle() == False
+        assert b"Brown Fox".istitle() == True
+        assert b"bro!wn fox".istitle() == False
+        assert b"Bro!wn fox".istitle() == False
+        assert b"!brown Fox".istitle() == False
+        assert b"!Brown Fox".istitle() == True
+        assert b"Brow&&&&N Fox".istitle() == True
+        assert b"!Brow&&&&n Fox".istitle() == False
 
     def test_capitalize(self):
-        assert "brown fox".capitalize() == "Brown fox"
-        assert ' hello '.capitalize() == ' hello '
-        assert 'Hello '.capitalize() == 'Hello '
-        assert 'hello '.capitalize() == 'Hello '
-        assert 'aaaa'.capitalize() == 'Aaaa'
-        assert 'AaAa'.capitalize() == 'Aaaa'
+        assert b"brown fox".capitalize() == b"Brown fox"
+        assert b' hello '.capitalize() == b' hello '
+        assert b'Hello '.capitalize() == b'Hello '
+        assert b'hello '.capitalize() == b'Hello '
+        assert b'aaaa'.capitalize() == b'Aaaa'
+        assert b'AaAa'.capitalize() == b'Aaaa'
 
     def test_rjust(self):
-        s = "abc"
+        s = b"abc"
         assert s.rjust(2) == s
         assert s.rjust(3) == s
-        assert s.rjust(4) == " " + s
-        assert s.rjust(5) == "  " + s
-        assert 'abc'.rjust(10) == '       abc'
-        assert 'abc'.rjust(6) == '   abc'
-        assert 'abc'.rjust(3) == 'abc'
-        assert 'abc'.rjust(2) == 'abc'
-        assert 'abc'.rjust(5, '*') == '**abc'     # Python 2.4
+        assert s.rjust(4) == b" " + s
+        assert s.rjust(5) == b"  " + s
+        assert b'abc'.rjust(10) == b'       abc'
+        assert b'abc'.rjust(6) == b'   abc'
+        assert b'abc'.rjust(3) == b'abc'
+        assert b'abc'.rjust(2) == b'abc'
+        assert b'abc'.rjust(5, b'*') == b'**abc'     # Python 2.4
         raises(TypeError, 'abc'.rjust, 5, 'xx')
 
     def test_ljust(self):
-        s = "abc"
+        s = b"abc"
         assert s.ljust(2) == s
         assert s.ljust(3) == s
-        assert s.ljust(4) == s + " "
-        assert s.ljust(5) == s + "  "
-        assert 'abc'.ljust(10) == 'abc       '
-        assert 'abc'.ljust(6) == 'abc   '
-        assert 'abc'.ljust(3) == 'abc'
-        assert 'abc'.ljust(2) == 'abc'
-        assert 'abc'.ljust(5, '*') == 'abc**'     # Python 2.4
+        assert s.ljust(4) == s + b" "
+        assert s.ljust(5) == s + b"  "
+        assert b'abc'.ljust(10) == b'abc       '
+        assert b'abc'.ljust(6) == b'abc   '
+        assert b'abc'.ljust(3) == b'abc'
+        assert b'abc'.ljust(2) == b'abc'
+        assert b'abc'.ljust(5, b'*') == b'abc**'     # Python 2.4
         raises(TypeError, 'abc'.ljust, 6, '')
 
     def test_replace(self):
-        assert 'one!two!three!'.replace('!', '@', 1) == 'one@two!three!'
-        assert 'one!two!three!'.replace('!', '') == 'onetwothree'
-        assert 'one!two!three!'.replace('!', '@', 2) == 'one@two@three!'
-        assert 'one!two!three!'.replace('!', '@', 3) == 'one@two@three@'
-        assert 'one!two!three!'.replace('!', '@', 4) == 'one@two@three@'
-        assert 'one!two!three!'.replace('!', '@', 0) == 'one!two!three!'
-        assert 'one!two!three!'.replace('!', '@') == 'one@two@three@'
-        assert 'one!two!three!'.replace('x', '@') == 'one!two!three!'
-        assert 'one!two!three!'.replace('x', '@', 2) == 'one!two!three!'
-        assert 'abc'.replace('', '-') == '-a-b-c-'
-        assert 'abc'.replace('', '-', 3) == '-a-b-c'
-        assert 'abc'.replace('', '-', 0) == 'abc'
-        assert ''.replace('', '') == ''
-        assert ''.replace('', 'a') == 'a'
-        assert 'abc'.replace('ab', '--', 0) == 'abc'
-        assert 'abc'.replace('xy', '--') == 'abc'
-        assert '123'.replace('123', '') == ''
-        assert '123123'.replace('123', '') == ''
-        assert '123x123'.replace('123', '') == 'x'
+        assert b'one!two!three!'.replace(b'!', b'@', 1) == b'one@two!three!'
+        assert b'one!two!three!'.replace(b'!', b'') == b'onetwothree'
+        assert b'one!two!three!'.replace(b'!', b'@', 2) == b'one@two@three!'
+        assert b'one!two!three!'.replace(b'!', b'@', 3) == b'one@two@three@'
+        assert b'one!two!three!'.replace(b'!', b'@', 4) == b'one@two@three@'
+        assert b'one!two!three!'.replace(b'!', b'@', 0) == b'one!two!three!'
+        assert b'one!two!three!'.replace(b'!', b'@') == b'one@two@three@'
+        assert b'one!two!three!'.replace(b'x', b'@') == b'one!two!three!'
+        assert b'one!two!three!'.replace(b'x', b'@', 2) == b'one!two!three!'
+        assert b'abc'.replace(b'', b'-') == b'-a-b-c-'
+        assert b'abc'.replace(b'', b'-', 3) == b'-a-b-c'
+        assert b'abc'.replace(b'', b'-', 0) == b'abc'
+        assert b''.replace(b'', b'') == b''
+        assert b''.replace(b'', b'a') == b'a'
+        assert b'abc'.replace(b'ab', b'--', 0) == b'abc'
+        assert b'abc'.replace(b'xy', b'--') == b'abc'
+        assert b'123'.replace(b'123', b'') == b''
+        assert b'123123'.replace(b'123', b'') == b''
+        assert b'123x123'.replace(b'123', b'') == b'x'
 
     def test_replace_buffer(self):
         assert 'one'.replace(buffer('o'), buffer('n'), 1) == 'nne'
@@ -239,23 +248,23 @@ class AppTestBytesObject:
         assert s.strip() == "a b"
         assert s.rstrip() == " a b"
         assert s.lstrip() == "a b "
-        assert 'xyzzyhelloxyzzy'.strip('xyz') == 'hello'
-        assert 'xyzzyhelloxyzzy'.lstrip('xyz') == 'helloxyzzy'
-        assert 'xyzzyhelloxyzzy'.rstrip('xyz') == 'xyzzyhello'
+        assert b'xyzzyhelloxyzzy'.strip(b'xyz') == b'hello'
+        assert b'xyzzyhelloxyzzy'.lstrip(b'xyz') == b'helloxyzzy'
+        assert b'xyzzyhelloxyzzy'.rstrip(b'xyz') == b'xyzzyhello'
 
     def test_zfill(self):
-        assert '123'.zfill(2) == '123'
-        assert '123'.zfill(3) == '123'
-        assert '123'.zfill(4) == '0123'
-        assert '+123'.zfill(3) == '+123'
-        assert '+123'.zfill(4) == '+123'
-        assert '+123'.zfill(5) == '+0123'
-        assert '-123'.zfill(3) == '-123'
-        assert '-123'.zfill(4) == '-123'
-        assert '-123'.zfill(5) == '-0123'
-        assert ''.zfill(3) == '000'
-        assert '34'.zfill(1) == '34'
-        assert '34'.zfill(4) == '0034'
+        assert b'123'.zfill(2) == b'123'
+        assert b'123'.zfill(3) == b'123'
+        assert b'123'.zfill(4) == b'0123'
+        assert b'+123'.zfill(3) == b'+123'
+        assert b'+123'.zfill(4) == b'+123'
+        assert b'+123'.zfill(5) == b'+0123'
+        assert b'-123'.zfill(3) == b'-123'
+        assert b'-123'.zfill(4) == b'-123'
+        assert b'-123'.zfill(5) == b'-0123'
+        assert b''.zfill(3) == b'000'
+        assert b'34'.zfill(1) == b'34'
+        assert b'34'.zfill(4) == b'0034'
 
     def test_center(self):
         s="a b"
@@ -269,251 +278,251 @@ class AppTestBytesObject:
         assert s.center(7) == "  a b  "
         assert s.center(8) == "  a b   "
         assert s.center(9) == "   a b   "
-        assert 'abc'.center(10) == '   abc    '
-        assert 'abc'.center(6) == ' abc  '
-        assert 'abc'.center(3) == 'abc'
-        assert 'abc'.center(2) == 'abc'
-        assert 'abc'.center(5, '*') == '*abc*'     # Python 2.4
-        raises(TypeError, 'abc'.center, 4, 'cba')
-        assert ' abc'.center(7) == '   abc '
+        assert b'abc'.center(10) == b'   abc    '
+        assert b'abc'.center(6) == b' abc  '
+        assert b'abc'.center(3) == b'abc'
+        assert b'abc'.center(2) == b'abc'
+        assert b'abc'.center(5, b'*') == b'*abc*'     # Python 2.4
+        raises(TypeError, b'abc'.center, 4, b'cba')
+        assert b' abc'.center(7) == b'   abc '
 
     def test_count(self):
-        assert "".count("x") ==0
-        assert "".count("") ==1
-        assert "Python".count("") ==7
-        assert "ab aaba".count("ab") ==2
-        assert 'aaa'.count('a') == 3
-        assert 'aaa'.count('b') == 0
-        assert 'aaa'.count('a', -1) == 1
-        assert 'aaa'.count('a', -10) == 3
-        assert 'aaa'.count('a', 0, -1) == 2
-        assert 'aaa'.count('a', 0, -10) == 0
-        assert 'ababa'.count('aba') == 1
+        assert b"".count(b"x") ==0
+        assert b"".count(b"") ==1
+        assert b"Python".count(b"") ==7
+        assert b"ab aaba".count(b"ab") ==2
+        assert b'aaa'.count(b'a') == 3
+        assert b'aaa'.count(b'b') == 0
+        assert b'aaa'.count(b'a', -1) == 1
+        assert b'aaa'.count(b'a', -10) == 3
+        assert b'aaa'.count(b'a', 0, -1) == 2
+        assert b'aaa'.count(b'a', 0, -10) == 0
+        assert b'ababa'.count(b'aba') == 1
 
     def test_startswith(self):
-        assert 'ab'.startswith('ab') is True
-        assert 'ab'.startswith('a') is True
-        assert 'ab'.startswith('') is True
-        assert 'x'.startswith('a') is False
-        assert 'x'.startswith('x') is True
-        assert ''.startswith('') is True
-        assert ''.startswith('a') is False
-        assert 'x'.startswith('xx') is False
-        assert 'y'.startswith('xx') is False
+        assert b'ab'.startswith(b'ab') is True
+        assert b'ab'.startswith(b'a') is True
+        assert b'ab'.startswith(b'') is True
+        assert b'x'.startswith(b'a') is False
+        assert b'x'.startswith(b'x') is True
+        assert b''.startswith(b'') is True
+        assert b''.startswith(b'a') is False
+        assert b'x'.startswith(b'xx') is False
+        assert b'y'.startswith(b'xx') is False
 
     def test_startswith_more(self):
-        assert 'ab'.startswith('a', 0) is True
-        assert 'ab'.startswith('a', 1) is False
-        assert 'ab'.startswith('b', 1) is True
-        assert 'abc'.startswith('bc', 1, 2) is False
-        assert 'abc'.startswith('c', -1, 4) is True
+        assert b'ab'.startswith(b'a', 0) is True
+        assert b'ab'.startswith(b'a', 1) is False
+        assert b'ab'.startswith(b'b', 1) is True
+        assert b'abc'.startswith(b'bc', 1, 2) is False
+        assert b'abc'.startswith(b'c', -1, 4) is True
 
     def test_startswith_too_large(self):
-        assert 'ab'.startswith('b', 1) is True
-        assert 'ab'.startswith('', 2) is True
-        assert 'ab'.startswith('', 3) is False
-        assert 'ab'.endswith('b', 1) is True
-        assert 'ab'.endswith('', 2) is True
-        assert 'ab'.endswith('', 3) is False
+        assert b'ab'.startswith(b'b', 1) is True
+        assert b'ab'.startswith(b'', 2) is True
+        assert b'ab'.startswith(b'', 3) is False
+        assert b'ab'.endswith(b'b', 1) is True
+        assert b'ab'.endswith(b'', 2) is True
+        assert b'ab'.endswith(b'', 3) is False
 
     def test_startswith_tuples(self):
-        assert 'hello'.startswith(('he', 'ha'))
-        assert not 'hello'.startswith(('lo', 'llo'))
-        assert 'hello'.startswith(('hellox', 'hello'))
-        assert not 'hello'.startswith(())
-        assert 'helloworld'.startswith(('hellowo', 'rld', 'lowo'), 3)
-        assert not 'helloworld'.startswith(('hellowo', 'ello', 'rld'), 3)
-        assert 'hello'.startswith(('lo', 'he'), 0, -1)
-        assert not 'hello'.startswith(('he', 'hel'), 0, 1)
-        assert 'hello'.startswith(('he', 'hel'), 0, 2)
-        raises(TypeError, 'hello'.startswith, (42,))
+        assert b'hello'.startswith((b'he', b'ha'))
+        assert not b'hello'.startswith((b'lo', b'llo'))
+        assert b'hello'.startswith((b'hellox', b'hello'))
+        assert not b'hello'.startswith(())
+        assert b'helloworld'.startswith((b'hellowo', b'rld', b'lowo'), 3)
+        assert not b'helloworld'.startswith((b'hellowo', b'ello', b'rld'), 3)
+        assert b'hello'.startswith((b'lo', b'he'), 0, -1)
+        assert not b'hello'.startswith((b'he', b'hel'), 0, 1)
+        assert b'hello'.startswith((b'he', b'hel'), 0, 2)
+        raises(TypeError, b'hello'.startswith, (42,))
 
     def test_endswith(self):
-        assert 'ab'.endswith('ab') is True
-        assert 'ab'.endswith('b') is True
-        assert 'ab'.endswith('') is True
-        assert 'x'.endswith('a') is False
-        assert 'x'.endswith('x') is True
-        assert ''.endswith('') is True
-        assert ''.endswith('a') is False
-        assert 'x'.endswith('xx') is False
-        assert 'y'.endswith('xx') is False
+        assert b'ab'.endswith(b'ab') is True
+        assert b'ab'.endswith(b'b') is True
+        assert b'ab'.endswith(b'') is True
+        assert b'x'.endswith(b'a') is False
+        assert b'x'.endswith(b'x') is True
+        assert b''.endswith(b'') is True
+        assert b''.endswith(b'a') is False
+        assert b'x'.endswith(b'xx') is False
+        assert b'y'.endswith(b'xx') is False
 
     def test_endswith_more(self):
-        assert 'abc'.endswith('ab', 0, 2) is True
-        assert 'abc'.endswith('bc', 1) is True
-        assert 'abc'.endswith('bc', 2) is False
-        assert 'abc'.endswith('b', -3, -1) is True
+        assert b'abc'.endswith(b'ab', 0, 2) is True
+        assert b'abc'.endswith(b'bc', 1) is True
+        assert b'abc'.endswith(b'bc', 2) is False
+        assert b'abc'.endswith(b'b', -3, -1) is True
 
     def test_endswith_tuple(self):
-        assert not 'hello'.endswith(('he', 'ha'))
-        assert 'hello'.endswith(('lo', 'llo'))
-        assert 'hello'.endswith(('hellox', 'hello'))
-        assert not 'hello'.endswith(())
-        assert 'helloworld'.endswith(('hellowo', 'rld', 'lowo'), 3)
-        assert not 'helloworld'.endswith(('hellowo', 'ello', 'rld'), 3, -1)
-        assert 'hello'.endswith(('hell', 'ell'), 0, -1)
-        assert not 'hello'.endswith(('he', 'hel'), 0, 1)
-        assert 'hello'.endswith(('he', 'hell'), 0, 4)
-        raises(TypeError, 'hello'.endswith, (42,))
+        assert not b'hello'.endswith((b'he', b'ha'))
+        assert b'hello'.endswith((b'lo', b'llo'))
+        assert b'hello'.endswith((b'hellox', b'hello'))
+        assert not b'hello'.endswith(())
+        assert b'helloworld'.endswith((b'hellowo', b'rld', b'lowo'), 3)
+        assert not b'helloworld'.endswith((b'hellowo', b'ello', b'rld'), 3, -1)
+        assert b'hello'.endswith((b'hell', b'ell'), 0, -1)
+        assert not b'hello'.endswith((b'he', b'hel'), 0, 1)
+        assert b'hello'.endswith((b'he', b'hell'), 0, 4)
+        raises(TypeError, b'hello'.endswith, (42,))
 
     def test_expandtabs(self):
         import sys
 
-        assert 'abc\rab\tdef\ng\thi'.expandtabs() ==    'abc\rab      def\ng       hi'
-        assert 'abc\rab\tdef\ng\thi'.expandtabs(8) ==   'abc\rab      def\ng       hi'
-        assert 'abc\rab\tdef\ng\thi'.expandtabs(4) ==   'abc\rab  def\ng   hi'
-        assert 'abc\r\nab\tdef\ng\thi'.expandtabs(4) == 'abc\r\nab  def\ng   hi'
-        assert 'abc\rab\tdef\ng\thi'.expandtabs() ==    'abc\rab      def\ng       hi'
-        assert 'abc\rab\tdef\ng\thi'.expandtabs(8) ==   'abc\rab      def\ng       hi'
-        assert 'abc\r\nab\r\ndef\ng\r\nhi'.expandtabs(4) == 'abc\r\nab\r\ndef\ng\r\nhi'
+        assert b'abc\rab\tdef\ng\thi'.expandtabs() ==    b'abc\rab      def\ng       hi'
+        assert b'abc\rab\tdef\ng\thi'.expandtabs(8) ==   b'abc\rab      def\ng       hi'
+        assert b'abc\rab\tdef\ng\thi'.expandtabs(4) ==   b'abc\rab  def\ng   hi'
+        assert b'abc\r\nab\tdef\ng\thi'.expandtabs(4) == b'abc\r\nab  def\ng   hi'
+        assert b'abc\rab\tdef\ng\thi'.expandtabs() ==    b'abc\rab      def\ng       hi'
+        assert b'abc\rab\tdef\ng\thi'.expandtabs(8) ==   b'abc\rab      def\ng       hi'
+        assert b'abc\r\nab\r\ndef\ng\r\nhi'.expandtabs(4) == b'abc\r\nab\r\ndef\ng\r\nhi'
 
-        s = 'xy\t'
-        assert s.expandtabs() == 'xy      '
+        s = b'xy\t'
+        assert s.expandtabs() == b'xy      '
 
-        s = '\txy\t'
-        assert s.expandtabs() == '        xy      '
-        assert s.expandtabs(1) == ' xy '
-        assert s.expandtabs(2) == '  xy  '
-        assert s.expandtabs(3) == '   xy '
+        s = b'\txy\t'
+        assert s.expandtabs() == b'        xy      '
+        assert s.expandtabs(1) == b' xy '
+        assert s.expandtabs(2) == b'  xy  '
+        assert s.expandtabs(3) == b'   xy '
 
-        assert 'xy'.expandtabs() == 'xy'
-        assert ''.expandtabs() == ''
+        assert b'xy'.expandtabs() == b'xy'
+        assert b''.expandtabs() == b''
 
-        raises(OverflowError, "t\tt\t".expandtabs, sys.maxint)
+        raises(OverflowError, b"t\tt\t".expandtabs, sys.maxint)
 
     def test_expandtabs_overflows_gracefully(self):
         import sys
         if sys.maxint > (1 << 32):
             skip("Wrong platform")
-        raises((MemoryError, OverflowError), 't\tt\t'.expandtabs, sys.maxint)
+        raises((MemoryError, OverflowError), b't\tt\t'.expandtabs, sys.maxint)
 
     def test_expandtabs_0(self):
         assert 'x\ty'.expandtabs(0) == 'xy'
         assert 'x\ty'.expandtabs(-42) == 'xy'
 
     def test_splitlines(self):
-        s = ""
+        s = b""
         assert s.splitlines() == []
         assert s.splitlines() == s.splitlines(1)
-        s = "a + 4"
-        assert s.splitlines() == ['a + 4']
+        s = b"a + 4"
+        assert s.splitlines() == [b'a + 4']
         # The following is true if no newline in string.
         assert s.splitlines() == s.splitlines(1)
-        s = "a + 4\nb + 2"
-        assert s.splitlines() == ['a + 4', 'b + 2']
-        assert s.splitlines(1) == ['a + 4\n', 'b + 2']
-        s="ab\nab\n \n  x\n\n\n"
-        assert s.splitlines() ==['ab',    'ab',  ' ',   '  x',   '',    '']
+        s = b"a + 4\nb + 2"
+        assert s.splitlines() == [b'a + 4', b'b + 2']
+        assert s.splitlines(1) == [b'a + 4\n', b'b + 2']
+        s = b"ab\nab\n \n  x\n\n\n"
+        assert s.splitlines() ==[b'ab',    b'ab',  b' ',   b'  x',   b'',    b'']
         assert s.splitlines() ==s.splitlines(0)
-        assert s.splitlines(1) ==['ab\n', 'ab\n', ' \n', '  x\n', '\n', '\n']
-        s="\none\n\two\nthree\n\n"
-        assert s.splitlines() ==['', 'one', '\two', 'three', '']
-        assert s.splitlines(1) ==['\n', 'one\n', '\two\n', 'three\n', '\n']
+        assert s.splitlines(1) ==[b'ab\n', b'ab\n', b' \n', b'  x\n', b'\n', b'\n']
+        s = b"\none\n\two\nthree\n\n"
+        assert s.splitlines() ==[b'', b'one', b'\two', b'three', b'']
+        assert s.splitlines(1) ==[b'\n', b'one\n', b'\two\n', b'three\n', b'\n']
         # Split on \r and \r\n too
-        assert '12\r34\r\n56'.splitlines() == ['12', '34', '56']
-        assert '12\r34\r\n56'.splitlines(1) == ['12\r', '34\r\n', '56']
+        assert b'12\r34\r\n56'.splitlines() == [b'12', b'34', b'56']
+        assert b'12\r34\r\n56'.splitlines(1) == [b'12\r', b'34\r\n', b'56']
 
     def test_find(self):
-        assert 'abcdefghiabc'.find('abc') == 0
-        assert 'abcdefghiabc'.find('abc', 1) == 9
-        assert 'abcdefghiabc'.find('def', 4) == -1
-        assert 'abcdef'.find('', 13) == -1
-        assert 'abcdefg'.find('def', 5, None) == -1
-        assert 'abcdef'.find('d', 6, 0) == -1
-        assert 'abcdef'.find('d', 3, 3) == -1
-        raises(TypeError, 'abcdef'.find, 'd', 1.0)
+        assert b'abcdefghiabc'.find(b'abc') == 0
+        assert b'abcdefghiabc'.find(b'abc', 1) == 9
+        assert b'abcdefghiabc'.find(b'def', 4) == -1
+        assert b'abcdef'.find(b'', 13) == -1
+        assert b'abcdefg'.find(b'def', 5, None) == -1
+        assert b'abcdef'.find(b'd', 6, 0) == -1
+        assert b'abcdef'.find(b'd', 3, 3) == -1
+        raises(TypeError, b'abcdef'.find, b'd', 1.0)
 
     def test_index(self):
         from sys import maxint
-        assert 'abcdefghiabc'.index('') == 0
-        assert 'abcdefghiabc'.index('def') == 3
-        assert 'abcdefghiabc'.index('abc') == 0
-        assert 'abcdefghiabc'.index('abc', 1) == 9
-        assert 'abcdefghiabc'.index('def', -4*maxint, 4*maxint) == 3
-        assert 'abcdefgh'.index('def', 2, None) == 3
-        assert 'abcdefgh'.index('def', None, None) == 3
-        raises(ValueError, 'abcdefghiabc'.index, 'hib')
-        raises(ValueError, 'abcdefghiab'.index, 'abc', 1)
-        raises(ValueError, 'abcdefghi'.index, 'ghi', 8)
-        raises(ValueError, 'abcdefghi'.index, 'ghi', -1)
-        raises(TypeError, 'abcdefghijklmn'.index, 'abc', 0, 0.0)
-        raises(TypeError, 'abcdefghijklmn'.index, 'abc', -10.0, 30)
+        assert b'abcdefghiabc'.index(b'') == 0
+        assert b'abcdefghiabc'.index(b'def') == 3
+        assert b'abcdefghiabc'.index(b'abc') == 0
+        assert b'abcdefghiabc'.index(b'abc', 1) == 9
+        assert b'abcdefghiabc'.index(b'def', -4*maxint, 4*maxint) == 3
+        assert b'abcdefgh'.index(b'def', 2, None) == 3
+        assert b'abcdefgh'.index(b'def', None, None) == 3
+        raises(ValueError, b'abcdefghiabc'.index, b'hib')
+        raises(ValueError, b'abcdefghiab'.index, b'abc', 1)
+        raises(ValueError, b'abcdefghi'.index, b'ghi', 8)
+        raises(ValueError, b'abcdefghi'.index, b'ghi', -1)
+        raises(TypeError, b'abcdefghijklmn'.index, b'abc', 0, 0.0)
+        raises(TypeError, b'abcdefghijklmn'.index, b'abc', -10.0, 30)
 
     def test_rfind(self):
-        assert 'abc'.rfind('', 4) == -1
-        assert 'abcdefghiabc'.rfind('abc') == 9
-        assert 'abcdefghiabc'.rfind('') == 12
-        assert 'abcdefghiabc'.rfind('abcd') == 0
-        assert 'abcdefghiabc'.rfind('abcz') == -1
-        assert 'abc'.rfind('', 0) == 3
-        assert 'abc'.rfind('', 3) == 3
-        assert 'abcdefgh'.rfind('def', 2, None) == 3
+        assert b'abc'.rfind(b'', 4) == -1
+        assert b'abcdefghiabc'.rfind(b'abc') == 9
+        assert b'abcdefghiabc'.rfind(b'') == 12
+        assert b'abcdefghiabc'.rfind(b'abcd') == 0
+        assert b'abcdefghiabc'.rfind(b'abcz') == -1
+        assert b'abc'.rfind(b'', 0) == 3
+        assert b'abc'.rfind(b'', 3) == 3
+        assert b'abcdefgh'.rfind(b'def', 2, None) == 3
 
     def test_rindex(self):
         from sys import maxint
-        assert 'abcdefghiabc'.rindex('') == 12
-        assert 'abcdefghiabc'.rindex('def') == 3
-        assert 'abcdefghiabc'.rindex('abc') == 9
-        assert 'abcdefghiabc'.rindex('abc', 0, -1) == 0
-        assert 'abcdefghiabc'.rindex('abc', -4*maxint, 4*maxint) == 9
-        raises(ValueError, 'abcdefghiabc'.rindex, 'hib')
-        raises(ValueError, 'defghiabc'.rindex, 'def', 1)
-        raises(ValueError, 'defghiabc'.rindex, 'abc', 0, -1)
-        raises(ValueError, 'abcdefghi'.rindex, 'ghi', 0, 8)
-        raises(ValueError, 'abcdefghi'.rindex, 'ghi', 0, -1)
-        raises(TypeError, 'abcdefghijklmn'.rindex, 'abc', 0, 0.0)
-        raises(TypeError, 'abcdefghijklmn'.rindex, 'abc', -10.0, 30)
+        assert b'abcdefghiabc'.rindex(b'') == 12
+        assert b'abcdefghiabc'.rindex(b'def') == 3
+        assert b'abcdefghiabc'.rindex(b'abc') == 9
+        assert b'abcdefghiabc'.rindex(b'abc', 0, -1) == 0
+        assert b'abcdefghiabc'.rindex(b'abc', -4*maxint, 4*maxint) == 9
+        raises(ValueError, b'abcdefghiabc'.rindex, b'hib')
+        raises(ValueError, b'defghiabc'.rindex, b'def', 1)
+        raises(ValueError, b'defghiabc'.rindex, b'abc', 0, -1)
+        raises(ValueError, b'abcdefghi'.rindex, b'ghi', 0, 8)
+        raises(ValueError, b'abcdefghi'.rindex, b'ghi', 0, -1)
+        raises(TypeError, b'abcdefghijklmn'.rindex, b'abc', 0, 0.0)
+        raises(TypeError, b'abcdefghijklmn'.rindex, b'abc', -10.0, 30)
 
 
     def test_partition(self):
 
-        assert ('this is the par', 'ti', 'tion method') == \
-            'this is the partition method'.partition('ti')
+        assert (b'this is the par', b'ti', b'tion method') == \
+            b'this is the partition method'.partition(b'ti')
 
         # from raymond's original specification
-        S = 'http://www.python.org'
-        assert ('http', '://', 'www.python.org') == S.partition('://')
-        assert ('http://www.python.org', '', '') == S.partition('?')
-        assert ('', 'http://', 'www.python.org') == S.partition('http://')
-        assert ('http://www.python.', 'org', '') == S.partition('org')
+        S = b'http://www.python.org'
+        assert (b'http', b'://', b'www.python.org') == S.partition(b'://')
+        assert (b'http://www.python.org', b'', b'') == S.partition(b'?')
+        assert (b'', b'http://', b'www.python.org') == S.partition(b'http://')
+        assert (b'http://www.python.', b'org', b'') == S.partition(b'org')
 
-        raises(ValueError, S.partition, '')
+        raises(ValueError, S.partition, b'')
         raises(TypeError, S.partition, None)
 
     def test_rpartition(self):
 
-        assert ('this is the rparti', 'ti', 'on method') == \
-            'this is the rpartition method'.rpartition('ti')
+        assert (b'this is the rparti', b'ti', b'on method') == \
+            b'this is the rpartition method'.rpartition(b'ti')
 
         # from raymond's original specification
-        S = 'http://www.python.org'
-        assert ('http', '://', 'www.python.org') == S.rpartition('://')
-        assert ('', '', 'http://www.python.org') == S.rpartition('?')
-        assert ('', 'http://', 'www.python.org') == S.rpartition('http://')
-        assert ('http://www.python.', 'org', '') == S.rpartition('org')
+        S = b'http://www.python.org'
+        assert (b'http', b'://', b'www.python.org') == S.rpartition(b'://')
+        assert (b'', b'', b'http://www.python.org') == S.rpartition(b'?')
+        assert (b'', b'http://', b'www.python.org') == S.rpartition(b'http://')
+        assert (b'http://www.python.', b'org', b'') == S.rpartition(b'org')
 
-        raises(ValueError, S.rpartition, '')
+        raises(ValueError, S.rpartition, b'')
         raises(TypeError, S.rpartition, None)
 
     def test_split_maxsplit(self):
-        assert "/a/b/c".split('/', 2) == ['','a','b/c']
-        assert "a/b/c".split("/") == ['a', 'b', 'c']
-        assert " a ".split(None, 0) == ['a ']
-        assert " a ".split(None, 1) == ['a']
-        assert " a a ".split(" ", 0) == [' a a ']
-        assert " a a ".split(" ", 1) == ['', 'a a ']
+        assert b"/a/b/c".split(b'/', 2) == [b'',b'a',b'b/c']
+        assert b"a/b/c".split(b"/") == [b'a', b'b', b'c']
+        assert b" a ".split(None, 0) == [b'a ']
+        assert b" a ".split(None, 1) == [b'a']
+        assert b" a a ".split(b" ", 0) == [b' a a ']
+        assert b" a a ".split(b" ", 1) == [b'', b'a a ']
 
     def test_join(self):
-        assert ", ".join(['a', 'b', 'c']) == "a, b, c"
-        assert "".join([]) == ""
-        assert "-".join(['a', 'b']) == 'a-b'
-        text = 'text'
-        assert "".join([text]) == text
-        assert " -- ".join([text]) is text
-        raises(TypeError, ''.join, 1)
-        raises(TypeError, ''.join, [1])
-        raises(TypeError, ''.join, [[1]])
+        assert b", ".join([b'a', b'b', b'c']) == b"a, b, c"
+        assert b"".join([]) == b""
+        assert b"-".join([b'a', b'b']) == b'a-b'
+        text = b'text'
+        assert b"".join([text]) is text
+        assert b" -- ".join([text]) is text
+        raises(TypeError, b''.join, 1)
+        raises(TypeError, b''.join, [1])
+        raises(TypeError, b''.join, [[1]])
 
     def test_unicode_join_str_arg_ascii(self):
         raises(UnicodeDecodeError, u''.join, ['\xc3\xa1'])
@@ -570,68 +579,68 @@ class AppTestBytesObject:
                     return unicode("fooled you!")
                 return self.it.next()
 
-        f = ('a\n', 'b\n', 'c\n')
+        f = (b'a\n', b'b\n', b'c\n')
         got = " - ".join(OhPhooey(f))
         assert got == unicode("a\n - b\n - fooled you! - c\n")
 
     def test_lower(self):
-        assert "aaa AAA".lower() == "aaa aaa"
-        assert "".lower() == ""
+        assert b"aaa AAA".lower() == b"aaa aaa"
+        assert b"".lower() == b""
 
     def test_upper(self):
-        assert "aaa AAA".upper() == "AAA AAA"
-        assert "".upper() == ""
+        assert b"aaa AAA".upper() == b"AAA AAA"
+        assert b"".upper() == b""
 
     def test_isalnum(self):
-        assert "".isalnum() == False
-        assert "!Bro12345w&&&&n Fox".isalnum() == False
-        assert "125 Brown Foxes".isalnum() == False
-        assert "125BrownFoxes".isalnum() == True
+        assert b"".isalnum() == False
+        assert b"!Bro12345w&&&&n Fox".isalnum() == False
+        assert b"125 Brown Foxes".isalnum() == False
+        assert b"125BrownFoxes".isalnum() == True
 
     def test_isalpha(self):
-        assert "".isalpha() == False
-        assert "!Bro12345w&&&&nFox".isalpha() == False
-        assert "Brown Foxes".isalpha() == False
-        assert "125".isalpha() == False
+        assert b"".isalpha() == False
+        assert b"!Bro12345w&&&&nFox".isalpha() == False
+        assert b"Brown Foxes".isalpha() == False
+        assert b"125".isalpha() == False
 
     def test_isdigit(self):
-        assert "".isdigit() == False
-        assert "!Bro12345w&&&&nFox".isdigit() == False
-        assert "Brown Foxes".isdigit() == False
-        assert "125".isdigit() == True
+        assert b"".isdigit() == False
+        assert b"!Bro12345w&&&&nFox".isdigit() == False
+        assert b"Brown Foxes".isdigit() == False
+        assert b"125".isdigit() == True
 
     def test_isspace(self):
-        assert "".isspace() == False
-        assert "!Bro12345w&&&&nFox".isspace() == False
-        assert " ".isspace() ==  True
-        assert "\t\t\b\b\n".isspace() == False
-        assert "\t\t".isspace() == True
-        assert "\t\t\r\r\n".isspace() == True
+        assert b"".isspace() == False
+        assert b"!Bro12345w&&&&nFox".isspace() == False
+        assert b" ".isspace() ==  True
+        assert b"\t\t\b\b\n".isspace() == False
+        assert b"\t\t".isspace() == True
+        assert b"\t\t\r\r\n".isspace() == True
 
     def test_islower(self):
-        assert "".islower() == False
-        assert " ".islower() ==  False
-        assert "\t\t\b\b\n".islower() == False
-        assert "b".islower() == True
-        assert "bbb".islower() == True
-        assert "!bbb".islower() == True
-        assert "BBB".islower() == False
-        assert "bbbBBB".islower() == False
+        assert b"".islower() == False
+        assert b" ".islower() ==  False
+        assert b"\t\t\b\b\n".islower() == False
+        assert b"b".islower() == True
+        assert b"bbb".islower() == True
+        assert b"!bbb".islower() == True
+        assert b"BBB".islower() == False
+        assert b"bbbBBB".islower() == False
 
     def test_isupper(self):
-        assert "".isupper() == False
-        assert " ".isupper() ==  False
-        assert "\t\t\b\b\n".isupper() == False
-        assert "B".isupper() == True
-        assert "BBB".isupper() == True
-        assert "!BBB".isupper() == True
-        assert "bbb".isupper() == False
-        assert "BBBbbb".isupper() == False
+        assert b"".isupper() == False
+        assert b" ".isupper() ==  False
+        assert b"\t\t\b\b\n".isupper() == False
+        assert b"B".isupper() == True
+        assert b"BBB".isupper() == True
+        assert b"!BBB".isupper() == True
+        assert b"bbb".isupper() == False
+        assert b"BBBbbb".isupper() == False
 
 
     def test_swapcase(self):
-        assert "aaa AAA 111".swapcase() == "AAA aaa 111"
-        assert "".swapcase() == ""
+        assert b"aaa AAA 111".swapcase() == b"AAA aaa 111"
+        assert b"".swapcase() == b""
 
     def test_translate(self):
         def maketrans(origin, image):
@@ -644,25 +653,25 @@ class AppTestBytesObject:
             tbl = ''.join(L)
             return tbl
 
-        table = maketrans('abc', 'xyz')
-        assert 'xyzxyz' == 'xyzabcdef'.translate(table, 'def')
+        table = maketrans(b'abc', b'xyz')
+        assert b'xyzxyz' == b'xyzabcdef'.translate(table, b'def')
         exc = raises(TypeError, "'xyzabcdef'.translate(memoryview(table), 'def')")
         assert str(exc.value) == 'expected a character buffer object'
 
-        table = maketrans('a', 'A')
-        assert 'Abc' == 'abc'.translate(table)
-        assert 'xyz' == 'xyz'.translate(table)
-        assert 'yz' ==  'xyz'.translate(table, 'x')
+        table = maketrans(b'a', b'A')
+        assert b'Abc' == b'abc'.translate(table)
+        assert b'xyz' == b'xyz'.translate(table)
+        assert b'yz' ==  b'xyz'.translate(table, b'x')
 
-        raises(ValueError, 'xyz'.translate, 'too short', 'strip')
-        raises(ValueError, 'xyz'.translate, 'too short')
-        raises(ValueError, 'xyz'.translate, 'too long'*33)
+        raises(ValueError, b'xyz'.translate, b'too short', b'strip')
+        raises(ValueError, b'xyz'.translate, b'too short')
+        raises(ValueError, b'xyz'.translate, b'too long'*33)
 
-        assert 'yz' == 'xyz'.translate(None, 'x')     # 2.6
+        assert b'yz' == b'xyz'.translate(None, b'x')     # 2.6
 
     def test_iter(self):
         l=[]
-        for i in iter("42"):
+        for i in iter(b"42"):
             l.append(i)
         assert l == ['4','2']
 
@@ -686,10 +695,10 @@ class AppTestBytesObject:
         assert repr(chr(2))   =="'\\x02'"
 
     def test_contains(self):
-        assert '' in 'abc'
-        assert 'a' in 'abc'
-        assert 'ab' in 'abc'
-        assert not 'd' in 'abc'
+        assert b'' in b'abc'
+        assert b'a' in b'abc'
+        assert b'ab' in b'abc'
+        assert not b'd' in b'abc'
         raises(TypeError, 'a'.__contains__, 1)
 
     def test_decode(self):
@@ -709,17 +718,17 @@ class AppTestBytesObject:
         assert hash('hello world!') & 0x7fffffff == 0x2f0bb411
 
     def test_buffer(self):
-        x = "he"
-        x += "llo"
+        x = b"he"
+        x += b"llo"
         b = buffer(x)
         assert len(b) == 5
         assert b[-1] == "o"
-        assert b[:] == "hello"
-        assert b[1:0] == ""
+        assert b[:] == b"hello"
+        assert b[1:0] == b""
         raises(TypeError, "b[3] = 'x'")
 
     def test_getnewargs(self):
-        assert  "foo".__getnewargs__() == ("foo",)
+        assert  b"foo".__getnewargs__() == (b"foo",)
 
     def test_subclass(self):
         class S(str):
@@ -769,24 +778,24 @@ class AppTestBytesObject:
         import sys
         if sys.maxint > 2**31-1:
             skip("Wrong platform")
-        s = "a" * (2**16)
-        raises(OverflowError, s.replace, "", s)
+        s = b"a" * (2**16)
+        raises(OverflowError, s.replace, b"", s)
 
     def test_getslice(self):
         assert "foobar".__getslice__(4, 4321) == "ar"
-        s = "abc"
-        assert s[:] == "abc"
-        assert s[1:] == "bc"
-        assert s[:2] == "ab"
-        assert s[1:2] == "b"
-        assert s[-2:] == "bc"
-        assert s[:-1] == "ab"
-        assert s[-2:2] == "b"
-        assert s[1:-1] == "b"
-        assert s[-2:-1] == "b"
+        s = b"abc"
+        assert s[:] == b"abc"
+        assert s[1:] == b"bc"
+        assert s[:2] == b"ab"
+        assert s[1:2] == b"b"
+        assert s[-2:] == b"bc"
+        assert s[:-1] == b"ab"
+        assert s[-2:2] == b"b"
+        assert s[1:-1] == b"b"
+        assert s[-2:-1] == b"b"
 
     def test_no_len_on_str_iter(self):
-        iterable = "hello"
+        iterable = b"hello"
         raises(TypeError, len, iter(iterable))
 
     def test___radd__(self):
@@ -795,13 +804,3 @@ class AppTestBytesObject:
                 return 42
         x = Foo()
         assert "hello" + x == 42
-
-class AppTestPrebuilt(AppTestBytesObject):
-    spaceconfig = {"objspace.std.withprebuiltchar": True}
-
-class AppTestShare(AppTestBytesObject):
-    spaceconfig = {"objspace.std.sharesmallstr": True}
-
-class AppTestPrebuiltShare(AppTestBytesObject):
-    spaceconfig = {"objspace.std.withprebuiltchar": True,
-                   "objspace.std.sharesmallstr": True}

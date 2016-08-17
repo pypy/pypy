@@ -162,7 +162,8 @@ class StringMethods(object):
             buffer = _get_buffer(space, w_sub)
             res = count(value, buffer, start, end)
 
-        return space.wrap(max(res, 0))
+        assert res >= 0
+        return space.wrap(res)
 
     def descr_decode(self, space, w_encoding=None, w_errors=None):
         from pypy.objspace.std.unicodeobject import (

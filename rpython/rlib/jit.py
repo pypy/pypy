@@ -604,7 +604,27 @@ class JitDriver(object):
                  get_printable_location=None, confirm_enter_jit=None,
                  can_never_inline=None, should_unroll_one_iteration=None,
                  name='jitdriver', check_untranslated=True, vectorize=False,
-                 get_unique_id=None, is_recursive=False):
+                 get_unique_id=None, is_recursive=False, get_location=None):
+        """ NOT_RPYTHON
+            get_location:
+              The return value is designed to provide enough information to express the
+              state of an interpreter when invoking jit_merge_point.
+              For a bytecode interperter such as PyPy this includes, filename, line number,
+              function name, and more information. However, it should also be able to express
+              the same state for an interpreter that evaluates an AST.
+              return paremter:
+                0 -> filename. An absolute path specifying the file the interpreter invoked.
+                               If the input source is no file it should start with the
+                               prefix: "string://<name>"
+                1 -> line number. The line number in filename. This should at least point to
+                                  the enclosing name. It can however point to the specific
+                                  source line of the instruction executed by the interpreter.
+                2 -> enclosing name. E.g. the function name.
+                3 -> index. 64 bit number indicating the execution progress. It can either be
+                     an offset to byte code, or an index to the node in an AST
+                4 -> operation name. a name further describing the current program counter.
+                     this can be either a byte code name or the name of an AST node
+        """
         if greens is not None:
             self.greens = greens
         self.name = name
@@ -638,6 +658,7 @@ class JitDriver(object):
         assert get_jitcell_at is None, "get_jitcell_at no longer used"
         assert set_jitcell_at is None, "set_jitcell_at no longer used"
         self.get_printable_location = get_printable_location
+        self.get_location = get_location
         if get_unique_id is None:
             get_unique_id = lambda *args: 0
         self.get_unique_id = get_unique_id
@@ -782,6 +803,12 @@ def set_param_to_default(driver, name):
     """Reset one of the tunable JIT parameters to its default value."""
     _set_param(driver, name, None)
 
+class TraceLimitTooHigh(Exception):
+    """ This is raised when the trace limit is too high for the chosen
+    opencoder model, recompile your interpreter with 'big' as
+    jit_opencoder_model
+    """
+
 def set_user_param(driver, text):
     """Set the tunable JIT parameters from a user-supplied string
     following the format 'param=value,param=value', or 'off' to
@@ -809,6 +836,8 @@ def set_user_param(driver, text):
             for name1, _ in unroll_parameters:
                 if name1 == name and name1 != 'enable_opts':
                     try:
+                        if name1 == 'trace_limit' and int(value) > 2**14:
+                            raise TraceLimitTooHigh
                         set_param(driver, name1, int(value))
                     except ValueError:
                         raise
@@ -870,6 +899,7 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
         driver = self.instance.im_self
         h = self.annotate_hook
         h(driver.get_printable_location, driver.greens, **kwds_s)
+        h(driver.get_location, driver.greens, **kwds_s)
 
     def annotate_hook(self, func, variables, args_s=[], **kwds_s):
         if func is None:
@@ -1059,6 +1089,14 @@ class JitHookInterface(object):
     of JIT running like JIT loops compiled, aborts etc.
     An instance of this class will be available as policy.jithookiface.
     """
+    # WARNING: You should make a single prebuilt instance of a subclass
+    # of this class.  You can, before translation, initialize some
+    # attributes on this instance, and then read or change these
+    # attributes inside the methods of the subclass.  But this prebuilt
+    # instance *must not* be seen during the normal annotation/rtyping
+    # of the program!  A line like ``pypy_hooks.foo = ...`` must not
+    # appear inside your interpreter's RPython code.
+
     def on_abort(self, reason, jitdriver, greenkey, greenkey_repr, logops, operations):
         """ A hook called each time a loop is aborted with jitdriver and
         greenkey where it started, reason is a string why it got aborted

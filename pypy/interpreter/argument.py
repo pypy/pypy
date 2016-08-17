@@ -84,7 +84,7 @@ class Arguments(object):
         space = self.space
         try:
             args_w = space.fixedview(w_stararg)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, space.w_TypeError):
                 raise oefmt(space.w_TypeError,
                             "argument after * must be a sequence, not %T",
@@ -111,7 +111,7 @@ class Arguments(object):
         else:
             try:
                 w_keys = space.call_method(w_starstararg, "keys")
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(space, space.w_AttributeError):
                     raise oefmt(space.w_TypeError,
                                 "argument after ** must be a mapping, not %T",
@@ -134,11 +134,11 @@ class Arguments(object):
         """The simplest argument parsing: get the 'argcount' arguments,
         or raise a real ValueError if the length is wrong."""
         if self.keywords:
-            raise ValueError, "no keyword arguments expected"
+            raise ValueError("no keyword arguments expected")
         if len(self.arguments_w) > argcount:
-            raise ValueError, "too many arguments (%d expected)" % argcount
+            raise ValueError("too many arguments (%d expected)" % argcount)
         elif len(self.arguments_w) < argcount:
-            raise ValueError, "not enough arguments (%d expected)" % argcount
+            raise ValueError("not enough arguments (%d expected)" % argcount)
         return self.arguments_w
 
     def firstarg(self):
@@ -279,7 +279,7 @@ class Arguments(object):
         try:
             self._match_signature(w_firstarg,
                                   scope_w, signature, defaults_w, 0)
-        except ArgErr, e:
+        except ArgErr as e:
             raise oefmt(self.space.w_TypeError, "%s() %s", fnname, e.getmsg())
         return signature.scope_length()
 
@@ -301,7 +301,7 @@ class Arguments(object):
         """
         try:
             return self._parse(w_firstarg, signature, defaults_w, blindargs)
-        except ArgErr, e:
+        except ArgErr as e:
             raise oefmt(self.space.w_TypeError, "%s() %s", fnname, e.getmsg())
 
     @staticmethod
@@ -352,11 +352,9 @@ def _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keywords,
     for w_key in keys_w:
         try:
             key = space.str_w(w_key)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, space.w_TypeError):
-                raise OperationError(
-                    space.w_TypeError,
-                    space.wrap("keywords must be strings"))
+                raise oefmt(space.w_TypeError, "keywords must be strings")
             if e.match(space, space.w_UnicodeEncodeError):
                 # Allow this to pass through
                 key = None

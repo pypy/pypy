@@ -3,7 +3,7 @@ operations. This is the place to look for all the computations that iterate
 over all the array elements.
 """
 import py
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from rpython.rlib import jit
 from rpython.rlib.rstring import StringBuilder
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -199,7 +199,7 @@ call_many_to_many_driver = jit.JitDriver(
     reds='auto')
 
 def call_many_to_many(space, shape, func, in_dtypes, out_dtypes, in_args, out_args):
-    # out must hav been built. func needs no calc_type, is usually an
+    # out must have been built. func needs no calc_type, is usually an
     # external ufunc
     nin = len(in_args)
     in_iters = [None] * nin
@@ -806,7 +806,6 @@ def getitem_array_int(space, arr, res, iter_shape, indexes_w, prefix_w):
     indexlen = len(indexes_w)
     dtype = arr.get_dtype()
     iter = PureShapeIter(iter_shape, indexes_w)
-    indexlen = len(indexes_w)
     while not iter.done():
         getitem_int_driver.jit_merge_point(shapelen=shapelen, indexlen=indexlen,
                                            dtype=dtype, prefixlen=prefixlen)
@@ -888,8 +887,8 @@ def choose(space, arr, choices, shape, dtype, out, mode):
         index = support.index_w(space, arr_iter.getitem(arr_state))
         if index < 0 or index >= len(iterators):
             if mode == NPY.RAISE:
-                raise OperationError(space.w_ValueError, space.wrap(
-                    "invalid entry in choice array"))
+                raise oefmt(space.w_ValueError,
+                            "invalid entry in choice array")
             elif mode == NPY.WRAP:
                 index = index % (len(iterators))
             else:

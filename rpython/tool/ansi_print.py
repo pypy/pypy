@@ -50,9 +50,9 @@ class AnsiLogger(object):
     # some more methods used by sandlib
     call      = _make_method(':call', (34,))
     result    = _make_method(':result', (34,))
-    exception = _make_method(':exception', (34,)),
-    vpath     = _make_method(':vpath', (35,)),
-    timeout   = _make_method('', (1, 31)),
+    exception = _make_method(':exception', (34,))
+    vpath     = _make_method(':vpath', (35,))
+    timeout   = _make_method('', (1, 31))
 
     # directly calling the logger writes "[name] text" with no particular color
     __call__ = _make_method('', ())
@@ -67,6 +67,8 @@ class AnsiLogger(object):
 
     def dot(self):
         """Output a mandelbrot dot to the terminal."""
+        if not isatty():
+            return
         global wrote_dot
         if not wrote_dot:
             mandelbrot_driver.reset()

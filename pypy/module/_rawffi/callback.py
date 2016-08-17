@@ -59,7 +59,7 @@ def callback(ll_args, ll_res, ll_userdata):
                         ptr = rffi.ptradd(ptr, n)
                         break
             unwrap_value(space, write_ptr, ptr, 0, letter, w_res)
-    except OperationError, e:
+    except OperationError as e:
         tbprint(space, space.wrap(e.get_traceback()),
                 space.wrap(e.errorstr(space)))
         # force the result to be zero

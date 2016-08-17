@@ -72,7 +72,7 @@ class HeapOp(AbstractShortOp):
         pop = PreambleOp(self.res, preamble_op, invented_name)
         assert not opinfo.is_virtual()
         descr = self.getfield_op.getdescr()
-        if g.is_getfield():
+        if rop.is_getfield(g.opnum):
             cf = optheap.field_cache(descr)
             opinfo.setfield(preamble_op.getdescr(), self.res, pop,
                             optheap, cf)
@@ -92,7 +92,7 @@ class HeapOp(AbstractShortOp):
         preamble_arg = sb.produce_arg(sop.getarg(0))
         if preamble_arg is None:
             return None
-        if sop.is_getfield():
+        if rop.is_getfield(sop.opnum):
             preamble_op = ResOperation(sop.getopnum(), [preamble_arg],
                                        descr=sop.getdescr())
         else:
@@ -117,7 +117,7 @@ class PureOp(AbstractShortOp):
             op.set_forwarded(self.res)
         else:
             op = self.res
-        if preamble_op.is_call():
+        if rop.is_call(preamble_op.opnum):
             optpure.extra_call_pure.append(PreambleOp(op, preamble_op,
                                                       invented_name))
         else:
@@ -132,7 +132,7 @@ class PureOp(AbstractShortOp):
             if newarg is None:
                 return None
             arglist.append(newarg)
-        if op.is_call():
+        if rop.is_call(op.opnum):
             opnum = OpHelpers.call_pure_for_descr(op.getdescr())
         else:
             opnum = op.getopnum()
@@ -396,7 +396,7 @@ class AbstractShortPreambleBuilder(object):
                 arg.set_forwarded(None)
         self.short.append(preamble_op)
         if preamble_op.is_ovf():
-            self.short.append(ResOperation(rop.GUARD_NO_OVERFLOW, [], None))
+            self.short.append(ResOperation(rop.GUARD_NO_OVERFLOW, []))
         info = preamble_op.get_forwarded()
         preamble_op.set_forwarded(None)
         if optimizer is not None:

@@ -3,9 +3,6 @@ import py
 
 class AppTestIdentitySet(object):
 
-    # needed for compares_by_identity
-    spaceconfig = {"objspace.std.withidentitydict": True}
-
     def setup_class(cls):
         from pypy.objspace.std import identitydict
         if cls.runappdirect:

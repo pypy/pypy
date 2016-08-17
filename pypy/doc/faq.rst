@@ -106,20 +106,33 @@ recommend that you use the cffi_ module to interface with C code.
 For information on which third party extensions work (or do not work)
 with PyPy see the `compatibility wiki`_.
 
+For more information about how we manage refcounting semamtics see 
+rawrefcount_
+
 .. _compatibility wiki: https://bitbucket.org/pypy/compatibility/wiki/Home
 .. _cffi: http://cffi.readthedocs.org/
+.. _rawrefcount: discussion/rawrefcount.html   
 
 
 On which platforms does PyPy run?
 ---------------------------------
 
-PyPy is regularly and extensively tested on Linux machines. It mostly
-works on Mac and Windows: it is tested there, but most of us are running
-Linux so fixes may depend on 3rd-party contributions.  PyPy's JIT
-works on x86 (32-bit or 64-bit) and on ARM (ARMv6 or ARMv7).
-Support for POWER (64-bit) is stalled at the moment.
+PyPy currently supports:
 
-To bootstrap from sources, PyPy can use either CPython (2.6 or 2.7) or
+  * **x86** machines on most common operating systems
+    (Linux 32/64 bits, Mac OS X 64 bits, Windows 32 bits, OpenBSD, FreeBSD),
+  
+  * newer **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux,
+  
+  * big- and little-endian variants of **PPC64** running Linux,
+
+  * **s390x** running Linux
+
+PyPy is regularly and extensively tested on Linux machines. It
+works on Mac and Windows: it is tested there, but most of us are running
+Linux so fixes may depend on 3rd-party contributions.
+
+To bootstrap from sources, PyPy can use either CPython 2.7 or
 another (e.g. older) PyPy.  Cross-translation is not really supported:
 e.g. to build a 32-bit PyPy, you need to have a 32-bit environment.
 Cross-translation is only explicitly supported between a 32-bit Intel
@@ -322,3 +335,60 @@ privileges:
 
 This will disable SELinux's protection and allow PyPy to configure correctly.
 Be sure to enable it again if you need it!
+
+
+How should I report a bug?
+--------------------------
+
+Our bug tracker is here: https://bitbucket.org/pypy/pypy/issues/
+
+Missing features or incompatibilities with CPython are considered
+bugs, and they are welcome.  (See also our list of `known
+incompatibilities`__.)
+
+.. __: http://pypy.org/compat.html
+
+For bugs of the kind "I'm getting a PyPy crash or a strange
+exception", please note that: **We can't do anything without
+reproducing the bug ourselves**.  We cannot do anything with
+tracebacks from gdb, or core dumps.  This is not only because the
+standard PyPy is compiled without debug symbols.  The real reason is
+that a C-level traceback is usually of no help at all in PyPy.
+Debugging PyPy can be annoying.
+
+In more details:
+
+* First, please give the exact PyPy version, and the OS.
+
+* It might help focus our search if we know if the bug can be
+  reproduced on a "``pypy --jit off``" or not.  If "``pypy --jit
+  off``" always works, then the problem might be in the JIT.
+  Otherwise, we know we can ignore that part.
+
+* If you got the bug using only Open Source components, please give a
+  step-by-step guide that we can follow to reproduce the problem
+  ourselves.  Don't assume we know anything about any program other
+  than PyPy.  We would like a guide that we can follow point by point
+  (without guessing or having to figure things out)
+  on a machine similar to yours, starting from a bare PyPy, until we
+  see the same problem.  (If you can, you can try to reduce the number
+  of steps and the time it needs to run, but that is not mandatory.)
+
+* If the bug involves Closed Source components, or just too many Open
+  Source components to install them all ourselves, then maybe you can
+  give us some temporary ssh access to a machine where the bug can be
+  reproduced.  Or, maybe we can download a VirtualBox or VMWare
+  virtual machine where the problem occurs.
+
+* If giving us access would require us to use tools other than ssh,
+  make appointments, or sign a NDA, then we can consider a commerical
+  support contract for a small sum of money.
+
+* If even that is not possible for you, then sorry, we can't help.
+
+Of course, you can try to debug the problem yourself, and we can help
+you get started if you ask on the #pypy IRC channel, but be prepared:
+debugging an annoying PyPy problem usually involves quite a lot of gdb
+in auto-generated C code, and at least some knowledge about the
+various components involved, from PyPy's own RPython source code to
+the GC and possibly the JIT.

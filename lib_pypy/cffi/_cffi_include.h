@@ -42,7 +42,9 @@ extern "C" {
 #  include <stdint.h>
 # endif
 # if _MSC_VER < 1800   /* MSVC < 2013 */
-   typedef unsigned char _Bool;
+#  ifndef __cplusplus
+    typedef unsigned char _Bool;
+#  endif
 # endif
 #else
 # include <stdint.h>
@@ -55,6 +57,12 @@ extern "C" {
 # define _CFFI_UNUSED_FN  __attribute__((unused))
 #else
 # define _CFFI_UNUSED_FN  /* nothing */
+#endif
+
+#ifdef __cplusplus
+# ifndef _Bool
+   typedef bool _Bool;   /* semi-hackish: C++ has no _Bool; bool is builtin */
+# endif
 #endif
 
 /**********  CPython-specific section  **********/
@@ -188,20 +196,6 @@ static PyObject *_cffi_init(const char *module_name, Py_ssize_t version,
   failure:
     Py_XDECREF(module);
     return NULL;
-}
-
-_CFFI_UNUSED_FN
-static PyObject **_cffi_unpack_args(PyObject *args_tuple, Py_ssize_t expected,
-                                    const char *fnname)
-{
-    if (PyTuple_GET_SIZE(args_tuple) != expected) {
-        PyErr_Format(PyExc_TypeError,
-                     "%.150s() takes exactly %zd arguments (%zd given)",
-                     fnname, expected, PyTuple_GET_SIZE(args_tuple));
-        return NULL;
-    }
-    return &PyTuple_GET_ITEM(args_tuple, 0);   /* pointer to the first item,
-                                                  the others follow */
 }
 
 /**********  end CPython-specific section  **********/

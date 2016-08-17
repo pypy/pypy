@@ -68,7 +68,7 @@ class PackFormatIterator(FormatIterator):
             if space.lookup(w_obj, '__index__'):
                 try:
                     w_index = space.index(w_obj)
-                except OperationError, e:
+                except OperationError as e:
                     if not e.match(space, space.w_TypeError):
                         raise
                     pass

@@ -2,6 +2,9 @@
 #define Py_PYTHON_H
 
 /* Compat stuff */
+#ifdef __GNUC__
+#define _GNU_SOURCE 1
+#endif
 #ifndef _WIN32
 # include <inttypes.h>
 # include <stdint.h>
@@ -52,7 +55,6 @@
 #ifndef DL_IMPORT
 #       define DL_IMPORT(RTYPE) RTYPE
 #endif
-
 #include <stdlib.h>
 
 #ifndef _WIN32
@@ -106,15 +108,18 @@ typedef long Py_ssize_t;
 #include "pythonrun.h"
 #include "pyerrors.h"
 #include "sysmodule.h"
+#include "bytearrayobject.h"
 #include "stringobject.h"
 #include "descrobject.h"
 #include "tupleobject.h"
 #include "dictobject.h"
 #include "intobject.h"
 #include "listobject.h"
+#include "longobject.h"
 #include "unicodeobject.h"
 #include "compile.h"
 #include "frameobject.h"
+#include "memoryobject.h"
 #include "eval.h"
 #include "pymem.h"
 #include "pycobject.h"
@@ -132,7 +137,18 @@ typedef long Py_ssize_t;
 /* Missing definitions */
 #include "missing.h"
 
-#include <pypy_decl.h>
+/* The declarations of most API functions are generated in a separate file */
+/* Don't include them while building PyPy, RPython also generated signatures
+ * which are similar but not identical. */
+#ifndef PYPY_STANDALONE
+#ifdef __cplusplus
+extern "C" {
+#endif
+  #include <pypy_decl.h>
+#ifdef __cplusplus
+}
+#endif
+#endif  /* PYPY_STANDALONE */
 
 /* Define macros for inline documentation. */
 #define PyDoc_VAR(name) static char name[]

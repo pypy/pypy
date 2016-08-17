@@ -21,7 +21,7 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.signature import Signature
 from pypy.interpreter.baseobjspace import (W_Root, ObjSpace, SpaceCache,
     DescrMismatch)
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.function import ClassMethod, FunctionWithFixedCode
 from rpython.rlib import rstackovf
 from rpython.rlib.objectmodel import we_are_translated
@@ -686,7 +686,7 @@ class BuiltinCode(Code):
                                                   self.descrmismatch_op,
                                                   self.descr_reqcls,
                                                   args)
-        except Exception, e:
+        except Exception as e:
             self.handle_exception(space, e)
             w_result = None
         if w_result is None:
@@ -699,14 +699,13 @@ class BuiltinCode(Code):
                 raise
             raise e
         except KeyboardInterrupt:
-            raise OperationError(space.w_KeyboardInterrupt,
-                                 space.w_None)
+            raise OperationError(space.w_KeyboardInterrupt, space.w_None)
         except MemoryError:
             raise OperationError(space.w_MemoryError, space.w_None)
-        except rstackovf.StackOverflow, e:
+        except rstackovf.StackOverflow as e:
             rstackovf.check_stack_overflow()
-            raise OperationError(space.w_RuntimeError,
-                                space.wrap("maximum recursion depth exceeded"))
+            raise oefmt(space.w_RuntimeError,
+                        "maximum recursion depth exceeded")
         except RuntimeError:   # not on top of py.py
             raise OperationError(space.w_RuntimeError, space.w_None)
 
@@ -725,7 +724,7 @@ class BuiltinCodePassThroughArguments0(BuiltinCode):
                                                   self.descrmismatch_op,
                                                   self.descr_reqcls,
                                                   args)
-        except Exception, e:
+        except Exception as e:
             self.handle_exception(space, e)
             w_result = None
         if w_result is None:
@@ -746,7 +745,7 @@ class BuiltinCodePassThroughArguments1(BuiltinCode):
                                                   self.descrmismatch_op,
                                                   self.descr_reqcls,
                                                   args.prepend(w_obj))
-        except Exception, e:
+        except Exception as e:
             self.handle_exception(space, e)
             w_result = None
         if w_result is None:
@@ -762,9 +761,8 @@ class BuiltinCode0(BuiltinCode):
         try:
             w_result = self.fastfunc_0(space)
         except DescrMismatch:
-            raise OperationError(space.w_SystemError,
-                                 space.wrap("unexpected DescrMismatch error"))
-        except Exception, e:
+            raise oefmt(space.w_SystemError, "unexpected DescrMismatch error")
+        except Exception as e:
             self.handle_exception(space, e)
             w_result = None
         if w_result is None:
@@ -784,7 +782,7 @@ class BuiltinCode1(BuiltinCode):
                                           self.descrmismatch_op,
                                           self.descr_reqcls,
                                           Arguments(space, [w1]))
-        except Exception, e:
+        except Exception as e:
             self.handle_exception(space, e)
             w_result = None
         if w_result is None:
@@ -804,7 +802,7 @@ class BuiltinCode2(BuiltinCode):
                                           self.descrmismatch_op,
                                           self.descr_reqcls,
                                           Arguments(space, [w1, w2]))
-        except Exception, e:
+        except Exception as e:
             self.handle_exception(space, e)
             w_result = None
         if w_result is None:
@@ -824,7 +822,7 @@ class BuiltinCode3(BuiltinCode):
                                           self.descrmismatch_op,
                                           self.descr_reqcls,
                                           Arguments(space, [w1, w2, w3]))
-        except Exception, e:
+        except Exception as e:
             self.handle_exception(space, e)
             w_result = None
         if w_result is None:
@@ -845,7 +843,7 @@ class BuiltinCode4(BuiltinCode):
                                           self.descr_reqcls,
                                           Arguments(space,
                                                     [w1, w2, w3, w4]))
-        except Exception, e:
+        except Exception as e:
             self.handle_exception(space, e)
             w_result = None
         if w_result is None:

@@ -32,6 +32,7 @@ class MultiArrayModule(MixedModule):
         'set_string_function': 'appbridge.set_string_function',
         'typeinfo': 'descriptor.get_dtype_cache(space).w_typeinfo',
         'nditer': 'nditer.W_NDIter',
+        'broadcast': 'broadcast.W_Broadcast',
 
         'set_docstring': 'support.descr_set_docstring',
         'VisibleDeprecationWarning': 'support.W_VisibleDeprecationWarning',

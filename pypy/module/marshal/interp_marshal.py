@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, unwrap_spec
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import rstackovf
@@ -60,8 +60,7 @@ class AbstractReaderWriter(object):
 
     def raise_eof(self):
         space = self.space
-        raise OperationError(space.w_EOFError, space.wrap(
-            'EOF read where object expected'))
+        raise oefmt(space.w_EOFError, "EOF read where object expected")
 
     def finished(self):
         pass
@@ -78,11 +77,11 @@ class FileWriter(AbstractReaderWriter):
         try:
             self.func = space.getattr(w_f, space.wrap('write'))
             # XXX how to check if it is callable?
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_AttributeError):
                 raise
-            raise OperationError(space.w_TypeError, space.wrap(
-            'marshal.dump() 2nd arg must be file-like object'))
+            raise oefmt(space.w_TypeError,
+                        "marshal.dump() 2nd arg must be file-like object")
 
     def write(self, data):
         space = self.space
@@ -95,11 +94,11 @@ class FileReader(AbstractReaderWriter):
         try:
             self.func = space.getattr(w_f, space.wrap('read'))
             # XXX how to check if it is callable?
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_AttributeError):
                 raise
-            raise OperationError(space.w_TypeError, space.wrap(
-            'marshal.load() arg must be file-like object'))
+            raise oefmt(space.w_TypeError,
+                        "marshal.load() arg must be file-like object")
 
     def read(self, n):
         space = self.space
@@ -416,8 +415,7 @@ class Unmarshaller(_Base):
         tc = self.get1()
         w_ret = self._dispatch[ord(tc)](space, self, tc)
         if w_ret is None and not allow_null:
-            raise OperationError(space.w_TypeError, space.wrap(
-                'NULL object in marshal data'))
+            raise oefmt(space.w_TypeError, "NULL object in marshal data")
         return w_ret
 
     def load_w_obj(self):
@@ -442,8 +440,7 @@ class Unmarshaller(_Base):
             res_w[idx] = w_ret
             idx += 1
         if w_ret is None:
-            raise OperationError(space.w_TypeError, space.wrap(
-                'NULL object in marshal data'))
+            raise oefmt(space.w_TypeError, "NULL object in marshal data")
         return res_w
 
     def get_list_w(self):
@@ -463,8 +460,7 @@ class StringUnmarshaller(Unmarshaller):
 
     def raise_eof(self):
         space = self.space
-        raise OperationError(space.w_EOFError, space.wrap(
-            'EOF read where object expected'))
+        raise oefmt(space.w_EOFError, "EOF read where object expected")
 
     def get(self, n):
         pos = self.bufpos

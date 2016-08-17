@@ -2,7 +2,7 @@ import math
 import sys
 
 from rpython.rlib import rfloat
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 
 class State:
     def __init__(self, space):
@@ -22,11 +22,9 @@ def math1(space, f, w_x):
     try:
         y = f(x)
     except OverflowError:
-        raise OperationError(space.w_OverflowError,
-                             space.wrap("math range error"))
+        raise oefmt(space.w_OverflowError, "math range error")
     except ValueError:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("math domain error"))
+        raise oefmt(space.w_ValueError, "math domain error")
     return space.wrap(y)
 math1._annspecialcase_ = 'specialize:arg(1)'
 
@@ -35,11 +33,9 @@ def math1_w(space, f, w_x):
     try:
         r = f(x)
     except OverflowError:
-        raise OperationError(space.w_OverflowError,
-                             space.wrap("math range error"))
+        raise oefmt(space.w_OverflowError, "math range error")
     except ValueError:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("math domain error"))
+        raise oefmt(space.w_ValueError, "math domain error")
     return r
 math1_w._annspecialcase_ = 'specialize:arg(1)'
 
@@ -49,11 +45,9 @@ def math2(space, f, w_x, w_snd):
     try:
         r = f(x, snd)
     except OverflowError:
-        raise OperationError(space.w_OverflowError,
-                             space.wrap("math range error"))
+        raise oefmt(space.w_OverflowError, "math range error")
     except ValueError:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("math domain error"))
+        raise oefmt(space.w_ValueError, "math domain error")
     return space.wrap(r)
 math2._annspecialcase_ = 'specialize:arg(1)'
 
@@ -98,7 +92,7 @@ def ldexp(space, w_x,  w_i):
         space.isinstance_w(w_i, space.w_long)):
         try:
             exp = space.int_w(w_i)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_OverflowError):
                 raise
             if space.is_true(space.lt(w_i, space.wrap(0))):
@@ -106,16 +100,13 @@ def ldexp(space, w_x,  w_i):
             else:
                 exp = sys.maxint
     else:
-        raise OperationError(space.w_TypeError,
-                             space.wrap("integer required for second argument"))
+        raise oefmt(space.w_TypeError, "integer required for second argument")
     try:
         r = math.ldexp(x, exp)
     except OverflowError:
-        raise OperationError(space.w_OverflowError,
-                             space.wrap("math range error"))
+        raise oefmt(space.w_OverflowError, "math range error")
     except ValueError:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("math domain error"))
+        raise oefmt(space.w_ValueError, "math domain error")
     return space.wrap(r)
 
 def hypot(space, w_x, w_y):
@@ -196,11 +187,9 @@ def _log_any(space, w_x, base):
                     den = math.log(base)
                     result /= den
     except OverflowError:
-        raise OperationError(space.w_OverflowError,
-                             space.wrap('math range error'))
+        raise oefmt(space.w_OverflowError, "math range error")
     except ValueError:
-        raise OperationError(space.w_ValueError,
-                             space.wrap('math domain error'))
+        raise oefmt(space.w_ValueError, "math domain error")
     return space.wrap(result)
 
 def log(space, w_x, w_base=None):
@@ -315,7 +304,7 @@ def fsum(space, w_iterable):
     while True:
         try:
             w_value = space.next(w_iter)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_StopIteration):
                 raise
             break
@@ -336,8 +325,7 @@ def fsum(space, w_iterable):
         if v != 0.0:
             if not rfloat.isfinite(v):
                 if rfloat.isfinite(original):
-                    raise OperationError(space.w_OverflowError,
-                                         space.wrap("intermediate overflow"))
+                    raise oefmt(space.w_OverflowError, "intermediate overflow")
                 if rfloat.isinf(original):
                     inf_sum += original
                 special_sum += original
@@ -346,7 +334,7 @@ def fsum(space, w_iterable):
                 partials.append(v)
     if special_sum != 0.0:
         if rfloat.isnan(inf_sum):
-            raise OperationError(space.w_ValueError, space.wrap("-inf + inf"))
+            raise oefmt(space.w_ValueError, "-inf + inf")
         return space.wrap(special_sum)
     hi = 0.0
     if partials:

@@ -35,41 +35,13 @@ class TestIntResOpZARCH(object):
         fail = self.cpu.get_latest_descr(deadframe)
         assert fail == finishdescr # ensures that guard is not taken!
 
-    def test_double_evenodd_pair(self):
-        code = """
-        [i0]
-        i1 = int_floordiv(i0, 2)
-        i2 = int_floordiv(i0, 3)
-        i3 = int_floordiv(i0, 4)
-        i4 = int_floordiv(i0, 5)
-        i5 = int_floordiv(i0, 6)
-        i6 = int_floordiv(i0, 7)
-        i7 = int_floordiv(i0, 8)
-        i8 = int_le(i1, 0)
-        guard_true(i8) [i1,i2,i3,i4,i5,i6,i7]
-        finish(i0, descr=faildescr)
-        """
-        # the guard forces 3 spills because after 4 divisions
-        # all even slots of the managed registers are full
-        loop = parse(code, namespace={'faildescr': BasicFinalDescr(1)})
-        looptoken = JitCellToken()
-        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
-        deadframe = self.cpu.execute_token(looptoken, 100)
-        fail = self.cpu.get_latest_descr(deadframe)
-        for i in range(2,9):
-            assert self.cpu.get_int_value(deadframe, i-2) == 100//i
-
-
-
     @py.test.mark.parametrize('value', [2,3,15,2**16])
     def test_evenodd_pair_extensive(self, value):
         instrs = []
         failargs = []
         values = []
         j = 0
-        mapping = (('int_floordiv',lambda x,y: x // y),
-                   ('int_mod', lambda x,y: x % y),
-                   ('int_mul_ovf', lambda x,y: x * y))
+        mapping = (('int_mul_ovf', lambda x,y: x * y),)
         for i in range(20):
             name, func = mapping[j]
             instrs.append("i{d} = {i}(i0, {d})".format(d=i+1, i=name))

@@ -11,7 +11,7 @@ def gettestobjspace(**kwds):
     """
     try:
         config = make_config(option,**kwds)
-    except ConflictConfigError, e:
+    except ConflictConfigError as e:
         # this exception is typically only raised if a module is not available.
         # in this case the test should be skipped
         py.test.skip(str(e))
@@ -28,6 +28,8 @@ def gettestobjspace(**kwds):
 def maketestobjspace(config=None):
     if config is None:
         config = make_config(option)
+    if config.objspace.usemodules.thread:
+        config.translation.thread = True
     space = make_objspace(config)
     space.startup() # Initialize all builtin modules
     space.setitem(space.builtin.w_dict, space.wrap('AssertionError'),
@@ -126,3 +128,5 @@ class TinyObjSpace(object):
     def is_w(self, obj1, obj2):
         return obj1 is obj2
 
+    def setitem(self, obj, key, value):
+        obj[key] = value

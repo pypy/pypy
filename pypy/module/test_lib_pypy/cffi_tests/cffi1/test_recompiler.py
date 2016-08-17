@@ -417,8 +417,11 @@ def test_open_array_in_struct():
 
 def test_math_sin_type():
     ffi = FFI()
-    ffi.cdef("double sin(double);")
-    lib = verify(ffi, 'test_math_sin_type', '#include <math.h>')
+    ffi.cdef("double sin(double); void *xxtestfunc();")
+    lib = verify(ffi, 'test_math_sin_type', """
+        #include <math.h>
+        void *xxtestfunc(void) { return 0; }
+    """)
     # 'lib.sin' is typed as a <built-in method> object on lib
     assert ffi.typeof(lib.sin).cname == "double(*)(double)"
     # 'x' is another <built-in method> object on lib, made very indirectly
@@ -428,7 +431,16 @@ def test_math_sin_type():
     # present on built-in functions on CPython; must be emulated on PyPy:
     assert lib.sin.__name__ == 'sin'
     assert lib.sin.__module__ == '_CFFI_test_math_sin_type'
-    assert lib.sin.__doc__ == 'direct call to the C function of the same name'
+    assert lib.sin.__doc__ == (
+        "double sin(double);\n"
+        "\n"
+        "CFFI C function from _CFFI_test_math_sin_type.lib")
+
+    assert ffi.typeof(lib.xxtestfunc).cname == "void *(*)()"
+    assert lib.xxtestfunc.__doc__ == (
+        "void *xxtestfunc();\n"
+        "\n"
+        "CFFI C function from _CFFI_test_math_sin_type.lib")
 
 def test_verify_anonymous_struct_with_typedef():
     ffi = FFI()
@@ -840,9 +852,12 @@ def test_unpack_args():
     assert str(e2.value) == "foo0() takes no arguments (2 given)"
     assert str(e3.value) == "foo1() takes exactly one argument (0 given)"
     assert str(e4.value) == "foo1() takes exactly one argument (2 given)"
-    assert str(e5.value) == "foo2() takes exactly 2 arguments (0 given)"
-    assert str(e6.value) == "foo2() takes exactly 2 arguments (1 given)"
-    assert str(e7.value) == "foo2() takes exactly 2 arguments (3 given)"
+    assert str(e5.value) in ["foo2 expected 2 arguments, got 0",
+                             "foo2() takes exactly 2 arguments (0 given)"]
+    assert str(e6.value) in ["foo2 expected 2 arguments, got 1",
+                             "foo2() takes exactly 2 arguments (1 given)"]
+    assert str(e7.value) in ["foo2 expected 2 arguments, got 3",
+                             "foo2() takes exactly 2 arguments (3 given)"]
 
 def test_address_of_function():
     ffi = FFI()
@@ -1156,8 +1171,8 @@ def test_import_from_lib():
     assert MYFOO == 42
     assert hasattr(lib, '__dict__')
     assert lib.__all__ == ['MYFOO', 'mybar']   # but not 'myvar'
-    assert lib.__name__ == repr(lib)
-    assert lib.__class__ is type(lib)
+    assert lib.__name__ == '_CFFI_test_import_from_lib.lib'
+    assert lib.__class__ is type(sys)   # !! hack for help()
 
 def test_macro_var_callback():
     ffi = FFI()
@@ -1511,7 +1526,9 @@ def test_extern_python_1():
             void boz(void);
         }
     """)
-    lib = verify(ffi, 'test_extern_python_1', "")
+    lib = verify(ffi, 'test_extern_python_1', """
+        static void baz(int, int);   /* forward */
+    """)
     assert ffi.typeof(lib.bar) == ffi.typeof("int(*)(int, int)")
     with FdWriteCapture() as f:
         res = lib.bar(4, 5)
@@ -1744,3 +1761,205 @@ def test_extern_python_stdcall():
     lib.mycb1 = lib.foo
     assert lib.mycb1(200) == 242
     assert lib.indirect_call(300) == 342
+
+def test_extern_python_plus_c():
+    ffi = FFI()
+    ffi.cdef("""
+        extern "Python+C" int foo(int);
+        extern "C +\tPython" int bar(int);
+        int call_me(int);
+    """)
+    lib = verify(ffi, 'test_extern_python_plus_c', """
+        int foo(int);
+        #ifdef __GNUC__
+        __attribute__((visibility("hidden")))
+        #endif
+        int bar(int);
+
+        static int call_me(int x) {
+            return foo(x) - bar(x);
+        }
+    """)
+    #
+    @ffi.def_extern()
+    def foo(x):
+        return x * 42
+    @ffi.def_extern()
+    def bar(x):
+        return x * 63
+    assert lib.foo(100) == 4200
+    assert lib.bar(100) == 6300
+    assert lib.call_me(100) == -2100
+
+def test_introspect_function():
+    ffi = FFI()
+    ffi.cdef("float f1(double);")
+    lib = verify(ffi, 'test_introspect_function', """
+        float f1(double x) { return x; }
+    """)
+    assert dir(lib) == ['f1']
+    FUNC = ffi.typeof(lib.f1)
+    assert FUNC.kind == 'function'
+    assert FUNC.args[0].cname == 'double'
+    assert FUNC.result.cname == 'float'
+    assert ffi.typeof(ffi.addressof(lib, 'f1')) is FUNC
+
+def test_introspect_global_var():
+    ffi = FFI()
+    ffi.cdef("float g1;")
+    lib = verify(ffi, 'test_introspect_global_var', """
+        float g1;
+    """)
+    assert dir(lib) == ['g1']
+    FLOATPTR = ffi.typeof(ffi.addressof(lib, 'g1'))
+    assert FLOATPTR.kind == 'pointer'
+    assert FLOATPTR.item.cname == 'float'
+
+def test_introspect_global_var_array():
+    ffi = FFI()
+    ffi.cdef("float g1[100];")
+    lib = verify(ffi, 'test_introspect_global_var_array', """
+        float g1[100];
+    """)
+    assert dir(lib) == ['g1']
+    FLOATARRAYPTR = ffi.typeof(ffi.addressof(lib, 'g1'))
+    assert FLOATARRAYPTR.kind == 'pointer'
+    assert FLOATARRAYPTR.item.kind == 'array'
+    assert FLOATARRAYPTR.item.length == 100
+    assert ffi.typeof(lib.g1) is FLOATARRAYPTR.item
+
+def test_introspect_integer_const():
+    ffi = FFI()
+    ffi.cdef("#define FOO 42")
+    lib = verify(ffi, 'test_introspect_integer_const', """
+        #define FOO 42
+    """)
+    assert dir(lib) == ['FOO']
+    assert lib.FOO == ffi.integer_const('FOO') == 42
+
+def test_introspect_typedef():
+    ffi = FFI()
+    ffi.cdef("typedef int foo_t;")
+    lib = verify(ffi, 'test_introspect_typedef', """
+        typedef int foo_t;
+    """)
+    assert ffi.list_types() == (['foo_t'], [], [])
+    assert ffi.typeof('foo_t').kind == 'primitive'
+    assert ffi.typeof('foo_t').cname == 'int'
+
+def test_introspect_typedef_multiple():
+    ffi = FFI()
+    ffi.cdef("typedef signed char a_t, c_t, g_t, b_t;")
+    lib = verify(ffi, 'test_introspect_typedef_multiple', """
+        typedef signed char a_t, c_t, g_t, b_t;
+    """)
+    assert ffi.list_types() == (['a_t', 'b_t', 'c_t', 'g_t'], [], [])
+
+def test_introspect_struct():
+    ffi = FFI()
+    ffi.cdef("struct foo_s { int a; };")
+    lib = verify(ffi, 'test_introspect_struct', """
+        struct foo_s { int a; };
+    """)
+    assert ffi.list_types() == ([], ['foo_s'], [])
+    assert ffi.typeof('struct foo_s').kind == 'struct'
+    assert ffi.typeof('struct foo_s').cname == 'struct foo_s'
+
+def test_introspect_union():
+    ffi = FFI()
+    ffi.cdef("union foo_s { int a; };")
+    lib = verify(ffi, 'test_introspect_union', """
+        union foo_s { int a; };
+    """)
+    assert ffi.list_types() == ([], [], ['foo_s'])
+    assert ffi.typeof('union foo_s').kind == 'union'
+    assert ffi.typeof('union foo_s').cname == 'union foo_s'
+
+def test_introspect_struct_and_typedef():
+    ffi = FFI()
+    ffi.cdef("typedef struct { int a; } foo_t;")
+    lib = verify(ffi, 'test_introspect_struct_and_typedef', """
+        typedef struct { int a; } foo_t;
+    """)
+    assert ffi.list_types() == (['foo_t'], [], [])
+    assert ffi.typeof('foo_t').kind == 'struct'
+    assert ffi.typeof('foo_t').cname == 'foo_t'
+
+def test_introspect_included_type():
+    SOURCE = """
+        typedef signed char schar_t;
+        struct sint_t { int x; };
+    """
+    ffi1 = FFI()
+    ffi1.cdef(SOURCE)
+    ffi2 = FFI()
+    ffi2.include(ffi1)
+    verify(ffi1, "test_introspect_included_type_parent", SOURCE)
+    verify(ffi2, "test_introspect_included_type", SOURCE)
+    assert ffi1.list_types() == ffi2.list_types() == (
+            ['schar_t'], ['sint_t'], [])
+
+def test_introspect_order():
+    ffi = FFI()
+    ffi.cdef("union CFFIaaa { int a; }; typedef struct CFFIccc { int a; } CFFIb;")
+    ffi.cdef("union CFFIg   { int a; }; typedef struct CFFIcc  { int a; } CFFIbbb;")
+    ffi.cdef("union CFFIaa  { int a; }; typedef struct CFFIa   { int a; } CFFIbb;")
+    verify(ffi, "test_introspect_order", """
+        union CFFIaaa { int a; }; typedef struct CFFIccc { int a; } CFFIb;
+        union CFFIg   { int a; }; typedef struct CFFIcc  { int a; } CFFIbbb;
+        union CFFIaa  { int a; }; typedef struct CFFIa   { int a; } CFFIbb;
+    """)
+    assert ffi.list_types() == (['CFFIb', 'CFFIbb', 'CFFIbbb'],
+                                ['CFFIa', 'CFFIcc', 'CFFIccc'],
+                                ['CFFIaa', 'CFFIaaa', 'CFFIg'])
+
+def test_bool_in_cpp():
+    # this works when compiled as C, but in cffi < 1.7 it fails as C++
+    ffi = FFI()
+    ffi.cdef("bool f(void);")
+    lib = verify(ffi, "test_bool_in_cpp", "char f(void) { return 2; }")
+    assert lib.f() == 1
+
+def test_bool_in_cpp_2():
+    ffi = FFI()
+    ffi.cdef('int add(int a, int b);')
+    lib = verify(ffi, "test_bool_bug_cpp", '''
+        typedef bool _Bool;  /* there is a Windows header with this line */
+        int add(int a, int b)
+        {
+            return a + b;
+        }''', source_extension='.cpp')
+    c = lib.add(2, 3)
+    assert c == 5
+
+def test_struct_field_opaque():
+    ffi = FFI()
+    ffi.cdef("struct a { struct b b; };")
+    e = py.test.raises(TypeError, verify,
+                       ffi, "test_struct_field_opaque", "?")
+    assert str(e.value) == ("struct a: field 'a.b' is of an opaque"
+                            " type (not declared in cdef())")
+    ffi = FFI()
+    ffi.cdef("struct a { struct b b[2]; };")
+    e = py.test.raises(TypeError, verify,
+                       ffi, "test_struct_field_opaque", "?")
+    assert str(e.value) == ("struct a: field 'a.b' is of an opaque"
+                            " type (not declared in cdef())")
+    ffi = FFI()
+    ffi.cdef("struct a { struct b b[]; };")
+    e = py.test.raises(TypeError, verify,
+                       ffi, "test_struct_field_opaque", "?")
+    assert str(e.value) == ("struct a: field 'a.b' is of an opaque"
+                            " type (not declared in cdef())")
+
+def test_function_arg_opaque():
+    py.test.skip("can currently declare a function with an opaque struct "
+                 "as argument, but AFAICT it's impossible to call it later")
+
+def test_function_returns_opaque():
+    ffi = FFI()
+    ffi.cdef("struct a foo(int);")
+    e = py.test.raises(TypeError, verify,
+                       ffi, "test_function_returns_opaque", "?")
+    assert str(e.value) == ("function foo: 'struct a' is used as result type,"
+                            " but is opaque")

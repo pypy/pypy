@@ -142,7 +142,7 @@ def test_reraise_exception():
             raise_something(n)
         except A:
             raise     # go through
-        except Exception, e:
+        except Exception as e:
             return 100
         return -1
 

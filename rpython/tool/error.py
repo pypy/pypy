@@ -103,7 +103,7 @@ def format_simple_call(annotator, oper, msg):
     msg.append("Occurred processing the following simple_call:")
     try:
         descs = annotator.binding(oper.args[0]).descriptions
-    except (KeyError, AttributeError), e:
+    except (KeyError, AttributeError) as e:
         msg.append("      (%s getting at the binding!)" % (
             e.__class__.__name__,))
         return
@@ -158,6 +158,8 @@ def debug(drv, use_pdb=True):
 
 @jit.elidable
 def offset2lineno(c, stopat):
+    # even position in lnotab denote byte increments, odd line increments.
+    # see dis.findlinestarts in the python std. library for more details
     tab = c.co_lnotab
     line = c.co_firstlineno
     addr = 0

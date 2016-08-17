@@ -2,7 +2,7 @@ import weakref
 
 import py
 
-from rpython.rlib import rgc
+from rpython.rlib import rgc, debug
 from rpython.rlib.objectmodel import (keepalive_until_here, compute_unique_id,
     compute_hash, current_object_addr_as_int)
 from rpython.rtyper.lltypesystem import lltype, llmemory
@@ -392,3 +392,41 @@ class TestUsingBoehm(AbstractGCTestClass):
         assert res[2] != compute_hash(c)     # likely
         assert res[3] == compute_hash(d)
         assert res[4] == compute_hash(("Hi", None, (7.5, 2, d)))
+
+    def test_finalizer_queue(self):
+        class A(object):
+            def __init__(self, i):
+                self.i = i
+        class Glob:
+            triggered = 0
+        glob = Glob()
+        class FQ(rgc.FinalizerQueue):
+            Class = A
+            triggered = 0
+            def finalizer_trigger(self):
+                glob.triggered += 1
+        fq = FQ()
+        #
+        def fn():
+            for i in range(1000):
+                fq.register_finalizer(A(i))
+            rgc.collect()
+            rgc.collect()
+            if glob.triggered == 0:
+                print "not triggered!"
+                return 50
+            seen = {}
+            while True:
+                a = fq.next_dead()
+                if a is None:
+                    break
+                assert a.i not in seen
+                seen[a.i] = True
+            if len(seen) < 500:
+                print "seen only %d!" % len(seen)
+                return 51
+            return 42
+
+        f = self.getcompiled(fn)
+        res = f()
+        assert res == 42

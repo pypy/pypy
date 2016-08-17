@@ -22,7 +22,7 @@ class TestRawRefCount(BaseDirectGCTest):
         if major:
             self.gc.collect()
         else:
-            self.gc.minor_collection()
+            self.gc._minor_collection()
         count1 = len(self.trigger)
         self.gc.rrc_invoke_callback()
         count2 = len(self.trigger)
@@ -186,7 +186,7 @@ class TestRawRefCount(BaseDirectGCTest):
         p1 = check_alive(0)
         self._collect(major=True, expected_trigger=1)
         py.test.raises(RuntimeError, "p1.x")            # dead
-        assert r1.ob_refcnt == 0
+        assert r1.ob_refcnt == 1       # in the pending list
         assert r1.ob_pypy_link == 0
         r1addr = llmemory.cast_ptr_to_adr(r1)
         assert self.gc.rawrefcount_next_dead() == r1addr
@@ -211,7 +211,7 @@ class TestRawRefCount(BaseDirectGCTest):
         assert p1.x == 42
         self._collect(major=True, expected_trigger=1)
         py.test.raises(RuntimeError, "p1.x")            # dead
-        assert r1.ob_refcnt == 0
+        assert r1.ob_refcnt == 1
         assert r1.ob_pypy_link == 0
         r1addr = llmemory.cast_ptr_to_adr(r1)
         assert self.gc.rawrefcount_next_dead() == r1addr
@@ -230,7 +230,7 @@ class TestRawRefCount(BaseDirectGCTest):
         else:
             self._collect(major=False, expected_trigger=1)
         py.test.raises(RuntimeError, "p1.x")            # dead
-        assert r1.ob_refcnt == 0
+        assert r1.ob_refcnt == 1
         assert r1.ob_pypy_link == 0
         r1addr = llmemory.cast_ptr_to_adr(r1)
         assert self.gc.rawrefcount_next_dead() == r1addr
@@ -260,7 +260,7 @@ class TestRawRefCount(BaseDirectGCTest):
             self._collect(major=True, expected_trigger=1)
         else:
             self._collect(major=False, expected_trigger=1)
-        assert r1.ob_refcnt == 0     # refcnt dropped to 0
+        assert r1.ob_refcnt == 1     # refcnt 1, in the pending list
         assert r1.ob_pypy_link == 0  # detached
         r1addr = llmemory.cast_ptr_to_adr(r1)
         assert self.gc.rawrefcount_next_dead() == r1addr
@@ -286,7 +286,7 @@ class TestRawRefCount(BaseDirectGCTest):
         assert self.trigger == []
         self._collect(major=True, expected_trigger=1)
         py.test.raises(RuntimeError, "p1.x")            # dead
-        assert r1.ob_refcnt == 0
+        assert r1.ob_refcnt == 1
         assert r1.ob_pypy_link == 0
         r1addr = llmemory.cast_ptr_to_adr(r1)
         assert self.gc.rawrefcount_next_dead() == r1addr
@@ -416,7 +416,7 @@ class StateMachine(GenericStateMachine):
         self.rootlinks[i] = True
 
     def minor_collection(self):
-        self.space.gc.minor_collection()
+        self.space.gc._minor_collection()
 
     def major_collection(self):
         self.space.gc.collect()

@@ -32,8 +32,8 @@ def unpack_fields(space, w_fields):
         len_l = len(l_w)
 
         if len_l < 2 or len_l > 3:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "Expected list of 2- or 3-size tuples"))
+            raise oefmt(space.w_ValueError,
+                        "Expected list of 2- or 3-size tuples")
 
         try:
             name = space.str_w(l_w[0])
@@ -47,12 +47,12 @@ def unpack_fields(space, w_fields):
                 if c == tp.itemcode:
                     break
             else:
-                raise OperationError(space.w_TypeError, space.wrap(
-                    "bit fields not allowed for type"))
+                raise oefmt(space.w_TypeError,
+                            "bit fields not allowed for type")
             bitsize = space.int_w(l_w[2])
             if bitsize <= 0 or bitsize > tp.size * 8:
-                raise OperationError(space.w_ValueError, space.wrap(
-                    "number of bits invalid for bit field"))
+                raise oefmt(space.w_ValueError,
+                            "number of bits invalid for bit field")
         else:
             bitsize = 0
 
@@ -251,8 +251,8 @@ class W_Structure(W_DataShape):
 @unwrap_spec(union=bool, pack=int)
 def descr_new_structure(space, w_type, w_shapeinfo, union=False, pack=0):
     if pack < 0:
-        raise OperationError(space.w_ValueError, space.wrap(
-            "_pack_ must be a non-negative integer"))
+        raise oefmt(space.w_ValueError,
+                    "_pack_ must be a non-negative integer")
 
     if space.isinstance_w(w_shapeinfo, space.w_tuple):
         w_size, w_alignment = space.fixedview(w_shapeinfo, expected_length=2)

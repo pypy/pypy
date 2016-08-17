@@ -144,7 +144,7 @@ def unpackcomplex(space, w_complex, strict_typing=True):
     if space.is_oldstyle_instance(w_complex):
         try:
             w_method = space.getattr(w_complex, space.wrap('__complex__'))
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_AttributeError):
                 raise
         else:
@@ -392,7 +392,7 @@ class W_ComplexObject(W_Root):
     def descr_abs(self, space):
         try:
             return space.newfloat(math.hypot(self.realval, self.imagval))
-        except OverflowError, e:
+        except OverflowError as e:
             raise OperationError(space.w_OverflowError, space.wrap(str(e)))
 
     def descr_eq(self, space, w_other):
@@ -474,7 +474,7 @@ class W_ComplexObject(W_Root):
             return space.w_NotImplemented
         try:
             return self.div(w_rhs)
-        except ZeroDivisionError, e:
+        except ZeroDivisionError as e:
             raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
 
     def descr_rtruediv(self, space, w_lhs):
@@ -483,7 +483,7 @@ class W_ComplexObject(W_Root):
             return space.w_NotImplemented
         try:
             return w_lhs.div(self)
-        except ZeroDivisionError, e:
+        except ZeroDivisionError as e:
             raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
 
     def descr_floordiv(self, space, w_rhs):
@@ -493,7 +493,7 @@ class W_ComplexObject(W_Root):
         # don't care about the slight slowdown you get from using divmod
         try:
             return self.divmod(space, w_rhs)[0]
-        except ZeroDivisionError, e:
+        except ZeroDivisionError as e:
             raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
 
     def descr_rfloordiv(self, space, w_lhs):
@@ -503,7 +503,7 @@ class W_ComplexObject(W_Root):
         # don't care about the slight slowdown you get from using divmod
         try:
             return w_lhs.divmod(space, self)[0]
-        except ZeroDivisionError, e:
+        except ZeroDivisionError as e:
             raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
 
     def descr_mod(self, space, w_rhs):
@@ -512,7 +512,7 @@ class W_ComplexObject(W_Root):
             return space.w_NotImplemented
         try:
             return self.divmod(space, w_rhs)[1]
-        except ZeroDivisionError, e:
+        except ZeroDivisionError as e:
             raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
 
     def descr_rmod(self, space, w_lhs):
@@ -521,7 +521,7 @@ class W_ComplexObject(W_Root):
             return space.w_NotImplemented
         try:
             return w_lhs.divmod(space, self)[1]
-        except ZeroDivisionError, e:
+        except ZeroDivisionError as e:
             raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
 
     def descr_divmod(self, space, w_rhs):
@@ -530,7 +530,7 @@ class W_ComplexObject(W_Root):
             return space.w_NotImplemented
         try:
             div, mod = self.divmod(space, w_rhs)
-        except ZeroDivisionError, e:
+        except ZeroDivisionError as e:
             raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
         return space.newtuple([div, mod])
 
@@ -540,7 +540,7 @@ class W_ComplexObject(W_Root):
             return space.w_NotImplemented
         try:
             div, mod = w_lhs.divmod(space, self)
-        except ZeroDivisionError, e:
+        except ZeroDivisionError as e:
             raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
         return space.newtuple([div, mod])
 

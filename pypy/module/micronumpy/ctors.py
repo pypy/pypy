@@ -266,16 +266,16 @@ def _find_shape_and_elems(space, w_iterable, is_rec_type=False):
         if is_single_elem(space, batch[0], is_rec_type):
             for w_elem in batch:
                 if not is_single_elem(space, w_elem, is_rec_type):
-                    raise OperationError(space.w_ValueError, space.wrap(
-                        "setting an array element with a sequence"))
+                    raise oefmt(space.w_ValueError,
+                                "setting an array element with a sequence")
             return shape[:], batch
         new_batch = []
         size = space.len_w(batch[0])
         for w_elem in batch:
             if (is_single_elem(space, w_elem, is_rec_type) or
                     space.len_w(w_elem) != size):
-                raise OperationError(space.w_ValueError, space.wrap(
-                    "setting an array element with a sequence"))
+                raise oefmt(space.w_ValueError,
+                            "setting an array element with a sequence")
             w_array = space.lookup(w_elem, '__array__')
             if w_array is not None:
                 # Make sure we call the array implementation of listview,
@@ -327,8 +327,8 @@ def _zeros_or_empty(space, w_shape, w_dtype, w_order, zero):
     shape = shape_converter(space, w_shape, dtype)
     for dim in shape:
         if dim < 0:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "negative dimensions are not allowed"))
+            raise oefmt(space.w_ValueError,
+                        "negative dimensions are not allowed")
     try:
         support.product_check(shape)
     except OverflowError:
@@ -386,7 +386,7 @@ def _fromstring_text(space, s, count, sep, length, dtype):
             else:
                 try:
                     val = dtype.coerce(space, space.wrap(piece))
-                except OperationError, e:
+                except OperationError as e:
                     if not e.match(space, space.w_ValueError):
                         raise
                     gotit = False
@@ -395,7 +395,7 @@ def _fromstring_text(space, s, count, sep, length, dtype):
                         try:
                             val = dtype.coerce(space, space.wrap(piece))
                             gotit = True
-                        except OperationError, e:
+                        except OperationError as e:
                             if not e.match(space, space.w_ValueError):
                                 raise
                     if not gotit:
@@ -406,8 +406,8 @@ def _fromstring_text(space, s, count, sep, length, dtype):
         idx = nextidx + 1
 
     if count > num_items:
-        raise OperationError(space.w_ValueError, space.wrap(
-            "string is smaller than requested size"))
+        raise oefmt(space.w_ValueError,
+                    "string is smaller than requested size")
 
     a = W_NDimArray.from_shape(space, [num_items], dtype=dtype)
     ai, state = a.create_iter()
@@ -428,8 +428,8 @@ def _fromstring_bin(space, s, count, length, dtype):
                     "string length %d not divisable by item size %d",
                     length, itemsize)
     if count * itemsize > length:
-        raise OperationError(space.w_ValueError, space.wrap(
-            "string is smaller than requested size"))
+        raise oefmt(space.w_ValueError,
+                    "string is smaller than requested size")
 
     a = W_NDimArray.from_shape(space, [count], dtype=dtype)
     loop.fromstring_loop(space, a, dtype, itemsize, s)

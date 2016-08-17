@@ -25,9 +25,9 @@ def _calcsize(space, format):
     fmtiter = CalcSizeFormatIterator()
     try:
         fmtiter.interpret(format)
-    except StructOverflowError, e:
+    except StructOverflowError as e:
         raise OperationError(space.w_OverflowError, space.wrap(e.msg))
-    except StructError, e:
+    except StructError as e:
         raise OperationError(get_error(space), space.wrap(e.msg))
     return fmtiter.totalsize
 
@@ -45,9 +45,9 @@ def _pack(space, format, args_w):
     fmtiter = PackFormatIterator(space, args_w, size)
     try:
         fmtiter.interpret(format)
-    except StructOverflowError, e:
+    except StructOverflowError as e:
         raise OperationError(space.w_OverflowError, space.wrap(e.msg))
-    except StructError, e:
+    except StructError as e:
         raise OperationError(get_error(space), space.wrap(e.msg))
     return fmtiter.result.build()
 
@@ -76,9 +76,9 @@ def _unpack(space, format, buf):
     fmtiter = UnpackFormatIterator(space, buf)
     try:
         fmtiter.interpret(format)
-    except StructOverflowError, e:
+    except StructOverflowError as e:
         raise OperationError(space.w_OverflowError, space.wrap(e.msg))
-    except StructError, e:
+    except StructError as e:
         raise OperationError(get_error(space), space.wrap(e.msg))
     return space.newtuple(fmtiter.result_w[:])
 

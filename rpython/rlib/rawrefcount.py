@@ -26,12 +26,13 @@ def init(dealloc_trigger_callback=None):
     """NOT_RPYTHON: set up rawrefcount with the GC.  This is only used
     for tests; it should not be called at all during translation.
     """
-    global _p_list, _o_list, _adr2pypy, _pypy2ob
+    global _p_list, _o_list, _adr2pypy, _pypy2ob, _pypy2ob_rev
     global _d_list, _dealloc_trigger_callback
     _p_list = []
     _o_list = []
     _adr2pypy = [None]
     _pypy2ob = {}
+    _pypy2ob_rev = {}
     _d_list = []
     _dealloc_trigger_callback = dealloc_trigger_callback
 
@@ -51,14 +52,19 @@ class Entry(ExtRegistryEntry):
 def create_link_pypy(gcobj, ob):
     "NOT_RPYTHON: a link where the PyPy object contains some or all the data"
     assert gcobj not in _pypy2ob
+    assert ob._obj not in _pypy2ob_rev
+    assert not ob.c_ob_pypy_link
     ob.c_ob_pypy_link = _build_pypy_link(gcobj)
     _pypy2ob[gcobj] = ob
+    _pypy2ob_rev[ob._obj] = gcobj
     _p_list.append(ob)
 
 def create_link_pyobj(gcobj, ob):
     """NOT_RPYTHON: a link where the PyObject contains all the data.
        from_obj() will not work on this 'gcobj'."""
     assert gcobj not in _pypy2ob
+    assert ob._obj not in _pypy2ob_rev
+    assert not ob.c_ob_pypy_link
     ob.c_ob_pypy_link = _build_pypy_link(gcobj)
     _o_list.append(ob)
 
@@ -84,6 +90,7 @@ def from_obj(OB_PTR_TYPE, gcobj):
     if ob is None:
         return lltype.nullptr(OB_PTR_TYPE.TO)
     assert lltype.typeOf(ob) == OB_PTR_TYPE
+    assert _pypy2ob_rev[ob._obj] is gcobj
     return ob
 
 class Entry(ExtRegistryEntry):
@@ -134,6 +141,12 @@ class Entry(ExtRegistryEntry):
 
 
 def next_dead(OB_PTR_TYPE):
+    """NOT_RPYTHON.  When the GC runs, it finds some pyobjs to be dead
+    but cannot immediately dispose of them (it doesn't know how to call
+    e.g. tp_dealloc(), and anyway calling it immediately would cause all
+    sorts of bugs).  So instead, it stores them in an internal list,
+    initially with refcnt == 1.  This pops the next item off this list.
+    """
     if len(_d_list) == 0:
         return lltype.nullptr(OB_PTR_TYPE.TO)
     ob = _d_list.pop()
@@ -177,8 +190,10 @@ def _collect(track_allocation=True):
             new_p_list.append(ob)
         else:
             p = detach(ob, wr_p_list)
-            del _pypy2ob[p]
-            del p
+            ob_test = _pypy2ob.pop(p)
+            p_test = _pypy2ob_rev.pop(ob_test._obj)
+            assert p_test is p
+            del p, p_test
         ob = None
     _p_list = Ellipsis
 
@@ -213,6 +228,7 @@ def _collect(track_allocation=True):
                 ob.c_ob_refcnt -= REFCNT_FROM_PYPY
                 ob.c_ob_pypy_link = 0
                 if ob.c_ob_refcnt == 0:
+                    ob.c_ob_refcnt = 1
                     _d_list.append(ob)
             return None
 
@@ -221,6 +237,10 @@ def _collect(track_allocation=True):
         p = attach(ob, wr, _p_list)
         if p is not None:
             _pypy2ob[p] = ob
+    _pypy2ob_rev.clear()       # rebuild this dict from scratch
+    for p, ob in _pypy2ob.items():
+        assert ob._obj not in _pypy2ob_rev
+        _pypy2ob_rev[ob._obj] = p
     _o_list = []
     for ob, wr in wr_o_list:
         attach(ob, wr, _o_list)

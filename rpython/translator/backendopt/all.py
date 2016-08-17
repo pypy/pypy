@@ -1,4 +1,3 @@
-from rpython.translator.backendopt.raisingop2direct_call import raisingop2direct_call
 from rpython.translator.backendopt import removenoops
 from rpython.translator.backendopt import inline
 from rpython.translator.backendopt.malloc import remove_mallocs
@@ -21,7 +20,7 @@ def get_function(dottedname):
     name = parts[-1]
     try:
         mod = __import__(module, {}, {}, ['__doc__'])
-    except ImportError, e:
+    except ImportError as e:
         raise Exception("Import error loading %s: %s" % (dottedname, e))
 
     try:
@@ -34,7 +33,7 @@ def get_function(dottedname):
 def backend_optimizations(translator, graphs=None, secondary=False,
                           inline_graph_from_anywhere=False, **kwds):
     # sensible keywords are
-    # raisingop2direct_call, inline_threshold, mallocs
+    # inline_threshold, mallocs
     # merge_if_blocks, constfold, heap2stack
     # clever_malloc_removal, remove_asserts
 
@@ -49,9 +48,6 @@ def backend_optimizations(translator, graphs=None, secondary=False,
     if config.print_statistics:
         print "before optimizations:"
         print_statistics(translator.graphs[0], translator, "per-graph.txt")
-
-    if config.raisingop2direct_call:
-        raisingop2direct_call(translator, graphs)
 
     if config.remove_asserts:
         constfold(config, graphs)

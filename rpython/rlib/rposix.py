@@ -22,6 +22,7 @@ if _WIN32:
     from rpython.rlib import rwin32
     from rpython.rlib.rwin32file import make_win32_traits
 
+
 class CConstantErrno(CConstant):
     # these accessors are used when calling get_errno() or set_errno()
     # on top of CPython
@@ -95,12 +96,15 @@ if os.name == 'nt':
             return 0;
         }
     ''',]
+    post_include_bits=['RPY_EXTERN int _PyVerify_fd(int);']
 else:
     separate_module_sources = []
+    post_include_bits = []
     includes=['errno.h','stdio.h']
 errno_eci = ExternalCompilationInfo(
     includes=includes,
     separate_module_sources=separate_module_sources,
+    post_include_bits=post_include_bits,
 )
 
 # Direct getters/setters, don't use directly!
@@ -188,6 +192,7 @@ def _errno_after(save_err):
             rthread.tlfield_alt_errno.setraw(_get_errno())
         else:
             rthread.tlfield_rpy_errno.setraw(_get_errno())
+            # ^^^ keep fork() up-to-date too, below
 
 
 if os.name == 'nt':
@@ -218,7 +223,7 @@ def closerange(fd_low, fd_high):
             pass
 
 if _WIN32:
-    includes = ['io.h', 'sys/utime.h', 'sys/types.h']
+    includes = ['io.h', 'sys/utime.h', 'sys/types.h', 'process.h']
     libraries = []
 else:
     if sys.platform.startswith(('darwin', 'netbsd', 'openbsd')):
@@ -602,13 +607,43 @@ if not _WIN32:
     config = rffi_platform.configure(CConfig)
     DIRENT = config['DIRENT']
     DIRENTP = lltype.Ptr(DIRENT)
-    c_opendir = external('opendir', [rffi.CCHARP], DIRP,
-                         save_err=rffi.RFFI_SAVE_ERRNO)
+    c_opendir = external('opendir',
+        [rffi.CCHARP], DIRP, save_err=rffi.RFFI_SAVE_ERRNO)
+    c_fdopendir = external('fdopendir',
+        [rffi.INT], DIRP, save_err=rffi.RFFI_SAVE_ERRNO)
     # XXX macro=True is hack to make sure we get the correct kind of
     # dirent struct (which depends on defines)
     c_readdir = external('readdir', [DIRP], DIRENTP,
                          macro=True, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
     c_closedir = external('closedir', [DIRP], rffi.INT)
+
+def _listdir(dirp):
+    result = []
+    while True:
+        direntp = c_readdir(dirp)
+        if not direntp:
+            error = get_saved_errno()
+            break
+        namep = rffi.cast(rffi.CCHARP, direntp.c_d_name)
+        name = rffi.charp2str(namep)
+        if name != '.' and name != '..':
+            result.append(name)
+    c_closedir(dirp)
+    if error:
+        raise OSError(error, "readdir failed")
+    return result
+
+def fdlistdir(dirfd):
+    """
+    Like listdir(), except that the directory is specified as an open
+    file descriptor.
+
+    Note: fdlistdir() closes the file descriptor.
+    """
+    dirp = c_fdopendir(dirfd)
+    if not dirp:
+        raise OSError(get_saved_errno(), "opendir failed")
+    return _listdir(dirp)
 
 @replace_os_function('listdir')
 @specialize.argtype(0)
@@ -618,20 +653,7 @@ def listdir(path):
         dirp = c_opendir(path)
         if not dirp:
             raise OSError(get_saved_errno(), "opendir failed")
-        result = []
-        while True:
-            direntp = c_readdir(dirp)
-            if not direntp:
-                error = get_saved_errno()
-                break
-            namep = rffi.cast(rffi.CCHARP, direntp.c_d_name)
-            name = rffi.charp2str(namep)
-            if name != '.' and name != '..':
-                result.append(name)
-        c_closedir(dirp)
-        if error:
-            raise OSError(error, "readdir failed")
-        return result
+        return _listdir(dirp)
     else:  # _WIN32 case
         traits = _preferred_traits(path)
         win32traits = make_win32_traits(traits)
@@ -685,10 +707,10 @@ c_execv = external('execv', [rffi.CCHARP, rffi.CCHARPP], rffi.INT,
 c_execve = external('execve',
                     [rffi.CCHARP, rffi.CCHARPP, rffi.CCHARPP], rffi.INT,
                     save_err=rffi.RFFI_SAVE_ERRNO)
-c_spawnv = external('spawnv',
+c_spawnv = external(UNDERSCORE_ON_WIN32 + 'spawnv',
                     [rffi.INT, rffi.CCHARP, rffi.CCHARPP], rffi.INT,
                     save_err=rffi.RFFI_SAVE_ERRNO)
-c_spawnve = external('spawnve',
+c_spawnve = external(UNDERSCORE_ON_WIN32 + 'spawnve',
                     [rffi.INT, rffi.CCHARP, rffi.CCHARPP, rffi.CCHARPP],
                      rffi.INT,
                      save_err=rffi.RFFI_SAVE_ERRNO)
@@ -747,17 +769,19 @@ c_openpty = external('openpty',
                      save_err=rffi.RFFI_SAVE_ERRNO)
 c_forkpty = external('forkpty',
                      [rffi.INTP, rffi.VOIDP, rffi.VOIDP, rffi.VOIDP],
-                     rffi.PID_T,
-                     save_err=rffi.RFFI_SAVE_ERRNO)
+                     rffi.PID_T, _nowrapper = True)
 
 @replace_os_function('fork')
 @jit.dont_look_inside
 def fork():
     # NB. keep forkpty() up-to-date, too
+    # lots of custom logic here, to do things in the right order
     ofs = debug.debug_offset()
     opaqueaddr = rthread.gc_thread_before_fork()
     childpid = c_fork()
+    errno = _get_errno()
     rthread.gc_thread_after_fork(childpid, opaqueaddr)
+    rthread.tlfield_rpy_errno.setraw(errno)
     childpid = handle_posix_error('fork', childpid)
     if childpid == 0:
         debug.debug_forked(ofs)
@@ -781,11 +805,14 @@ def openpty():
 def forkpty():
     master_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
     master_p[0] = rffi.cast(rffi.INT, -1)
+    null = lltype.nullptr(rffi.VOIDP.TO)
     try:
         ofs = debug.debug_offset()
         opaqueaddr = rthread.gc_thread_before_fork()
-        childpid = c_forkpty(master_p, None, None, None)
+        childpid = c_forkpty(master_p, null, null, null)
+        errno = _get_errno()
         rthread.gc_thread_after_fork(childpid, opaqueaddr)
+        rthread.tlfield_rpy_errno.setraw(errno)
         childpid = handle_posix_error('forkpty', childpid)
         if childpid == 0:
             debug.debug_forked(ofs)
@@ -833,7 +860,7 @@ def _make_waitmacro(name):
     # reason: legacy code required a union wait. see
     # https://sourceware.org/bugzilla/show_bug.cgi?id=19613
     # for more details. If this get's fixed we can use lltype.Signed
-    # again.
+    # again.  (The exact same issue occurs on ppc64 big-endian.)
     c_func = external(name, [rffi.INT], lltype.Signed,
                       macro=_MACRO_ON_POSIX)
     returning_int = name in ('WEXITSTATUS', 'WSTOPSIG', 'WTERMSIG')
@@ -1021,8 +1048,23 @@ def rename(path1, path2):
         win32traits = make_win32_traits(traits)
         path1 = traits.as_str0(path1)
         path2 = traits.as_str0(path2)
-        if not win32traits.MoveFile(path1, path2):
+        if not win32traits.MoveFileEx(path1, path2, 0):
             raise rwin32.lastSavedWindowsError()
+
+@specialize.argtype(0, 1)
+def replace(path1, path2):
+    if _WIN32:
+        traits = _preferred_traits(path1)
+        win32traits = make_win32_traits(traits)
+        path1 = traits.as_str0(path1)
+        path2 = traits.as_str0(path2)
+        ret = win32traits.MoveFileEx(path1, path2,
+                     win32traits.MOVEFILE_REPLACE_EXISTING)
+        if not ret:
+            raise rwin32.lastSavedWindowsError()
+    else:
+        ret = rename(path1, path2)
+    return ret
 
 #___________________________________________________________________
 
@@ -1180,21 +1222,14 @@ def utime(path, times):
         if times is None:
             error = c_utime(path, lltype.nullptr(UTIMBUFP.TO))
         else:
-            actime, modtime = times
             if HAVE_UTIMES:
-                import math
-                l_times = lltype.malloc(TIMEVAL2P.TO, 2, flavor='raw')
-                fracpart, intpart = math.modf(actime)
-                rffi.setintfield(l_times[0], 'c_tv_sec', int(intpart))
-                rffi.setintfield(l_times[0], 'c_tv_usec', int(fracpart * 1e6))
-                fracpart, intpart = math.modf(modtime)
-                rffi.setintfield(l_times[1], 'c_tv_sec', int(intpart))
-                rffi.setintfield(l_times[1], 'c_tv_usec', int(fracpart * 1e6))
-                error = c_utimes(path, l_times)
-                lltype.free(l_times, flavor='raw')
+                with lltype.scoped_alloc(TIMEVAL2P.TO, 2) as l_timeval2p:
+                    times_to_timeval2p(times, l_timeval2p)
+                    error = c_utimes(path, l_timeval2p)
             else:
                 # we only have utime(), which does not allow
                 # sub-second resolution
+                actime, modtime = times
                 l_utimbuf = lltype.malloc(UTIMBUFP.TO, flavor='raw')
                 l_utimbuf.c_actime  = rffi.r_time_t(actime)
                 l_utimbuf.c_modtime = rffi.r_time_t(modtime)
@@ -1236,6 +1271,17 @@ def utime(path, times):
             rwin32.CloseHandle(hFile)
             lltype.free(atime, flavor='raw')
             lltype.free(mtime, flavor='raw')
+
+def times_to_timeval2p(times, l_timeval2p):
+    actime, modtime = times
+    _time_to_timeval(actime, l_timeval2p[0])
+    _time_to_timeval(modtime, l_timeval2p[1])
+
+def _time_to_timeval(t, l_timeval):
+    import math
+    fracpart, intpart = math.modf(t)
+    rffi.setintfield(l_timeval, 'c_tv_sec', int(intpart))
+    rffi.setintfield(l_timeval, 'c_tv_usec', int(fracpart * 1e6))
 
 if not _WIN32:
     TMSP = lltype.Ptr(TMS)
@@ -1716,3 +1762,327 @@ class EnvironExtRegistry(ControllerEntryForPrebuilt):
     def getcontroller(self):
         from rpython.rlib.rposix_environ import OsEnvironController
         return OsEnvironController()
+
+
+# ____________________________________________________________
+# Support for f... and ...at families of POSIX functions
+
+class CConfig:
+    _compilation_info_ = ExternalCompilationInfo(
+        includes=['sys/stat.h',
+                  'sys/time.h',
+                  'unistd.h',
+                  'fcntl.h'],
+    )
+    for _name in """faccessat fchdir fchmod fchmodat fchown fchownat fexecve
+            fdopendir fpathconf fstat fstatat fstatvfs ftruncate
+            futimens futimes futimesat linkat chflags lchflags lchmod lchown
+            lstat lutimes mkdirat mkfifoat mknodat openat readlinkat renameat
+            symlinkat unlinkat utimensat""".split():
+        locals()['HAVE_%s' % _name.upper()] = rffi_platform.Has(_name)
+cConfig = rffi_platform.configure(CConfig)
+globals().update(cConfig)
+
+if not _WIN32:
+    class CConfig:
+        _compilation_info_ = ExternalCompilationInfo(
+            includes=['sys/stat.h',
+                    'unistd.h',
+                    'fcntl.h'],
+        )
+        AT_FDCWD = rffi_platform.DefinedConstantInteger('AT_FDCWD')
+        AT_SYMLINK_NOFOLLOW = rffi_platform.DefinedConstantInteger('AT_SYMLINK_NOFOLLOW')
+        AT_EACCESS = rffi_platform.DefinedConstantInteger('AT_EACCESS')
+        AT_REMOVEDIR = rffi_platform.DefinedConstantInteger('AT_REMOVEDIR')
+        AT_EMPTY_PATH = rffi_platform.DefinedConstantInteger('AT_EMPTY_PATH')
+        UTIME_NOW = rffi_platform.DefinedConstantInteger('UTIME_NOW')
+        UTIME_OMIT = rffi_platform.DefinedConstantInteger('UTIME_OMIT')
+        TIMESPEC = rffi_platform.Struct('struct timespec', [
+            ('tv_sec', rffi.TIME_T),
+            ('tv_nsec', rffi.LONG)])
+
+    cConfig = rffi_platform.configure(CConfig)
+    globals().update(cConfig)
+    TIMESPEC2P = rffi.CArrayPtr(TIMESPEC)
+
+if HAVE_FACCESSAT:
+    c_faccessat = external('faccessat',
+        [rffi.INT, rffi.CCHARP, rffi.INT, rffi.INT], rffi.INT)
+
+    def faccessat(pathname, mode, dir_fd=AT_FDCWD,
+            effective_ids=False, follow_symlinks=True):
+        """Thin wrapper around faccessat(2) with an interface simlar to
+        Python3's os.access().
+        """
+        flags = 0
+        if not follow_symlinks:
+            flags |= AT_SYMLINK_NOFOLLOW
+        if effective_ids:
+            flags |= AT_EACCESS
+        error = c_faccessat(dir_fd, pathname, mode, flags)
+        return error == 0
+
+if HAVE_FCHMODAT:
+    c_fchmodat = external('fchmodat',
+        [rffi.INT, rffi.CCHARP, rffi.INT, rffi.INT], rffi.INT,
+        save_err=rffi.RFFI_SAVE_ERRNO,)
+
+    def fchmodat(path, mode, dir_fd=AT_FDCWD, follow_symlinks=True):
+        if follow_symlinks:
+            flag = 0
+        else:
+            flag = AT_SYMLINK_NOFOLLOW
+        error = c_fchmodat(dir_fd, path, mode, flag)
+        handle_posix_error('fchmodat', error)
+
+if HAVE_FCHOWNAT:
+    c_fchownat = external('fchownat',
+        [rffi.INT, rffi.CCHARP, rffi.INT, rffi.INT, rffi.INT], rffi.INT,
+        save_err=rffi.RFFI_SAVE_ERRNO,)
+
+    def fchownat(path, owner, group, dir_fd=AT_FDCWD,
+            follow_symlinks=True, empty_path=False):
+        flag = 0
+        if not follow_symlinks:
+            flag |= AT_SYMLINK_NOFOLLOW
+        if empty_path:
+            flag |= AT_EMPTY_PATH
+        error = c_fchownat(dir_fd, path, owner, group, flag)
+        handle_posix_error('fchownat', error)
+
+if HAVE_FEXECVE:
+    c_fexecve = external('fexecve',
+        [rffi.INT, rffi.CCHARPP, rffi.CCHARPP], rffi.INT,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+
+    def fexecve(fd, args, env):
+        envstrs = []
+        for item in env.iteritems():
+            envstr = "%s=%s" % item
+            envstrs.append(envstr)
+
+        # This list conversion already takes care of NUL bytes.
+        l_args = rffi.ll_liststr2charpp(args)
+        l_env = rffi.ll_liststr2charpp(envstrs)
+        c_fexecve(fd, l_args, l_env)
+
+        rffi.free_charpp(l_env)
+        rffi.free_charpp(l_args)
+        raise OSError(get_saved_errno(), "execve failed")
+
+if HAVE_LINKAT:
+    c_linkat = external('linkat',
+        [rffi.INT, rffi.CCHARP, rffi.INT, rffi.CCHARP, rffi.INT], rffi.INT)
+
+    def linkat(src, dst, src_dir_fd=AT_FDCWD, dst_dir_fd=AT_FDCWD,
+            follow_symlinks=True):
+        """Thin wrapper around linkat(2) with an interface similar to
+        Python3's os.link()
+        """
+        if follow_symlinks:
+            flag = 0
+        else:
+            flag = AT_SYMLINK_NOFOLLOW
+        error = c_linkat(src_dir_fd, src, dst_dir_fd, dst, flag)
+        handle_posix_error('linkat', error)
+
+if HAVE_FUTIMENS:
+    c_futimens = external('futimens', [rffi.INT, TIMESPEC2P], rffi.INT)
+
+    def futimens(fd, atime, atime_ns, mtime, mtime_ns):
+        l_times = lltype.malloc(TIMESPEC2P.TO, 2, flavor='raw')
+        rffi.setintfield(l_times[0], 'c_tv_sec', atime)
+        rffi.setintfield(l_times[0], 'c_tv_nsec', atime_ns)
+        rffi.setintfield(l_times[1], 'c_tv_sec', mtime)
+        rffi.setintfield(l_times[1], 'c_tv_nsec', mtime_ns)
+        error = c_futimens(fd, l_times)
+        lltype.free(l_times, flavor='raw')
+        handle_posix_error('futimens', error)
+
+if HAVE_UTIMENSAT:
+    c_utimensat = external('utimensat',
+        [rffi.INT, rffi.CCHARP, TIMESPEC2P, rffi.INT], rffi.INT)
+
+    def utimensat(pathname, atime, atime_ns, mtime, mtime_ns,
+            dir_fd=AT_FDCWD, follow_symlinks=True):
+        """Wrapper around utimensat(2)
+
+        To set access time to the current time, pass atime_ns=UTIME_NOW,
+        atime is then ignored.
+
+        To set modification time to the current time, pass mtime_ns=UTIME_NOW,
+        mtime is then ignored.
+        """
+        l_times = lltype.malloc(TIMESPEC2P.TO, 2, flavor='raw')
+        rffi.setintfield(l_times[0], 'c_tv_sec', atime)
+        rffi.setintfield(l_times[0], 'c_tv_nsec', atime_ns)
+        rffi.setintfield(l_times[1], 'c_tv_sec', mtime)
+        rffi.setintfield(l_times[1], 'c_tv_nsec', mtime_ns)
+        if follow_symlinks:
+            flag = 0
+        else:
+            flag = AT_SYMLINK_NOFOLLOW
+        error = c_utimensat(dir_fd, pathname, l_times, flag)
+        lltype.free(l_times, flavor='raw')
+        handle_posix_error('utimensat', error)
+
+if HAVE_LUTIMES:
+    c_lutimes = external('lutimes',
+        [rffi.CCHARP, TIMEVAL2P], rffi.INT,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+
+    @specialize.argtype(1)
+    def lutimes(pathname, times):
+        if times is None:
+            error = c_lutimes(pathname, lltype.nullptr(TIMEVAL2P.TO))
+        else:
+            with lltype.scoped_alloc(TIMEVAL2P.TO, 2) as l_timeval2p:
+                times_to_timeval2p(times, l_timeval2p)
+                error = c_lutimes(pathname, l_timeval2p)
+        handle_posix_error('lutimes', error)
+
+if HAVE_FUTIMES:
+    c_futimes = external('futimes',
+        [rffi.INT, TIMEVAL2P], rffi.INT,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+
+    @specialize.argtype(1)
+    def futimes(fd, times):
+        if times is None:
+            error = c_futimes(fd, lltype.nullptr(TIMEVAL2P.TO))
+        else:
+            with lltype.scoped_alloc(TIMEVAL2P.TO, 2) as l_timeval2p:
+                times_to_timeval2p(times, l_timeval2p)
+                error = c_futimes(fd, l_timeval2p)
+        handle_posix_error('futimes', error)
+
+if HAVE_MKDIRAT:
+    c_mkdirat = external('mkdirat',
+        [rffi.INT, rffi.CCHARP, rffi.INT], rffi.INT,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+
+    def mkdirat(pathname, mode, dir_fd=AT_FDCWD):
+        error = c_mkdirat(dir_fd, pathname, mode)
+        handle_posix_error('mkdirat', error)
+
+if HAVE_UNLINKAT:
+    c_unlinkat = external('unlinkat',
+        [rffi.INT, rffi.CCHARP, rffi.INT], rffi.INT,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+
+    def unlinkat(pathname, dir_fd=AT_FDCWD, removedir=False):
+        flag = AT_REMOVEDIR if removedir else 0
+        error = c_unlinkat(dir_fd, pathname, flag)
+        handle_posix_error('unlinkat', error)
+
+if HAVE_READLINKAT:
+    c_readlinkat = external(
+        'readlinkat',
+        [rffi.INT, rffi.CCHARP, rffi.CCHARP, rffi.SIZE_T], rffi.SSIZE_T,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+
+    def readlinkat(pathname, dir_fd=AT_FDCWD):
+        pathname = _as_bytes0(pathname)
+        bufsize = 1023
+        while True:
+            buf = lltype.malloc(rffi.CCHARP.TO, bufsize, flavor='raw')
+            res = widen(c_readlinkat(dir_fd, pathname, buf, bufsize))
+            if res < 0:
+                lltype.free(buf, flavor='raw')
+                error = get_saved_errno()    # failed
+                raise OSError(error, "readlinkat failed")
+            elif res < bufsize:
+                break                       # ok
+            else:
+                # buf too small, try again with a larger buffer
+                lltype.free(buf, flavor='raw')
+                bufsize *= 4
+        # convert the result to a string
+        result = rffi.charp2strn(buf, res)
+        lltype.free(buf, flavor='raw')
+        return result
+
+if HAVE_RENAMEAT:
+    c_renameat = external(
+        'renameat',
+        [rffi.INT, rffi.CCHARP, rffi.INT, rffi.CCHARP], rffi.INT,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+
+    def renameat(src, dst, src_dir_fd=AT_FDCWD, dst_dir_fd=AT_FDCWD):
+        error = c_renameat(src_dir_fd, src, dst_dir_fd, dst)
+        handle_posix_error('renameat', error)
+
+
+if HAVE_SYMLINKAT:
+    c_symlinkat = external('symlinkat',
+        [rffi.CCHARP, rffi.INT, rffi.CCHARP], rffi.INT,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+
+    def symlinkat(src, dst, dir_fd=AT_FDCWD):
+        error = c_symlinkat(src, dir_fd, dst)
+        handle_posix_error('symlinkat', error)
+
+if HAVE_OPENAT:
+    c_openat = external('openat',
+        [rffi.INT, rffi.CCHARP, rffi.INT, rffi.MODE_T], rffi.INT,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+
+    @enforceargs(s_Str0, int, int, int, typecheck=False)
+    def openat(path, flags, mode, dir_fd=AT_FDCWD):
+        fd = c_openat(dir_fd, path, flags, mode)
+        return handle_posix_error('open', fd)
+
+if HAVE_MKFIFOAT:
+    c_mkfifoat = external('mkfifoat',
+        [rffi.INT, rffi.CCHARP, rffi.MODE_T], rffi.INT,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+
+    def mkfifoat(path, mode, dir_fd=AT_FDCWD):
+        error = c_mkfifoat(dir_fd, path, mode)
+        handle_posix_error('mkfifoat', error)
+
+if HAVE_MKNODAT:
+    c_mknodat = external('mknodat',
+        [rffi.INT, rffi.CCHARP, rffi.MODE_T, rffi.INT], rffi.INT,
+        save_err=rffi.RFFI_SAVE_ERRNO)
+
+    def mknodat(path, mode, device, dir_fd=AT_FDCWD):
+        error = c_mknodat(dir_fd, path, mode, device)
+        handle_posix_error('mknodat', error)
+
+
+eci_inheritable = eci.merge(ExternalCompilationInfo(
+    separate_module_sources=["""
+RPY_EXTERN
+int rpy_set_inheritable(int fd, int inheritable)
+{
+    /* XXX minimal impl. XXX */
+    int request = inheritable ? FIONCLEX : FIOCLEX;
+    return ioctl(fd, request, NULL);
+}
+RPY_EXTERN
+int rpy_get_inheritable(int fd)
+{
+    int flags = fcntl(fd, F_GETFD, 0);
+    if (flags == -1)
+        return -1;
+    return !(flags & FD_CLOEXEC);
+}
+    """],
+    post_include_bits=['RPY_EXTERN int rpy_set_inheritable(int, int);']))
+
+c_set_inheritable = external('rpy_set_inheritable', [rffi.INT, rffi.INT],
+                             rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
+                             compilation_info=eci_inheritable)
+c_get_inheritable = external('rpy_get_inheritable', [rffi.INT],
+                             rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
+                             compilation_info=eci_inheritable)
+
+def set_inheritable(fd, inheritable):
+    error = c_set_inheritable(fd, inheritable)
+    handle_posix_error('set_inheritable', error)
+
+def get_inheritable(fd):
+    res = c_get_inheritable(fd)
+    res = handle_posix_error('get_inheritable', res)
+    return res != 0

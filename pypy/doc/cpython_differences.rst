@@ -99,17 +99,24 @@ Differences related to garbage collection strategies
 
 The garbage collectors used or implemented by PyPy are not based on
 reference counting, so the objects are not freed instantly when they are no
-longer reachable.  The most obvious effect of this is that files are not
+longer reachable.  The most obvious effect of this is that files (and sockets, etc) are not
 promptly closed when they go out of scope.  For files that are opened for
 writing, data can be left sitting in their output buffers for a while, making
 the on-disk file appear empty or truncated.  Moreover, you might reach your
 OS's limit on the number of concurrently opened files.
 
-Fixing this is essentially impossible without forcing a
+If you are debugging a case where a file in your program is not closed
+properly, you can use the ``-X track-resources`` command line option. If it is
+given, a ``ResourceWarning`` is produced for every file and socket that the
+garbage collector closes. The warning will contain the stack trace of the
+position where the file or socket was created, to make it easier to see which
+parts of the program don't close files explicitly.
+
+Fixing this difference to CPython is essentially impossible without forcing a
 reference-counting approach to garbage collection.  The effect that you
 get in CPython has clearly been described as a side-effect of the
 implementation and not a language design decision: programs relying on
-this are basically bogus.  It would anyway be insane to try to enforce
+this are basically bogus.  It would be a too strong restriction to try to enforce
 CPython's behavior in a language spec, given that it has no chance to be
 adopted by Jython or IronPython (or any other port of Python to Java or
 .NET).
@@ -134,7 +141,7 @@ of Python.
 
 Here are some more technical details.  This issue affects the precise
 time at which ``__del__`` methods are called, which
-is not reliable in PyPy (nor Jython nor IronPython).  It also means that
+is not reliable or timely in PyPy (nor Jython nor IronPython).  It also means that
 **weak references** may stay alive for a bit longer than expected.  This
 makes "weak proxies" (as returned by ``weakref.proxy()``) somewhat less
 useful: they will appear to stay alive for a bit longer in PyPy, and
@@ -315,13 +322,28 @@ integers ``x``. The rule applies for the following types:
 
  - ``complex``
 
+ - ``str`` (empty or single-character strings only)
+
+ - ``unicode`` (empty or single-character strings only)
+
+ - ``tuple`` (empty tuples only)
+
+ - ``frozenset`` (empty frozenset only)
+
 This change requires some changes to ``id`` as well. ``id`` fulfills the
 following condition: ``x is y <=> id(x) == id(y)``. Therefore ``id`` of the
 above types will return a value that is computed from the argument, and can
 thus be larger than ``sys.maxint`` (i.e. it can be an arbitrary long).
 
-Notably missing from the list above are ``str`` and ``unicode``.  If your
-code relies on comparing strings with ``is``, then it might break in PyPy.
+Note that strings of length 2 or greater can be equal without being
+identical.  Similarly, ``x is (2,)`` is not necessarily true even if
+``x`` contains a tuple and ``x == (2,)``.  The uniqueness rules apply
+only to the particular cases described above.  The ``str``, ``unicode``,
+``tuple`` and ``frozenset`` rules were added in PyPy 5.4; before that, a
+test like ``if x is "?"`` or ``if x is ()`` could fail even if ``x`` was
+equal to ``"?"`` or ``()``.  The new behavior added in PyPy 5.4 is
+closer to CPython's, which caches precisely the empty tuple/frozenset,
+and (generally but not always) the strings and unicodes of length <= 1.
 
 Note that for floats there "``is``" only one object per "bit pattern"
 of the float.  So ``float('nan') is float('nan')`` is true on PyPy,
@@ -386,6 +408,14 @@ Miscellaneous
   True on unbound method objects but False on method-wrappers or slot
   wrappers.  On PyPy we can't tell the difference, so
   ``ismethod([].__add__) == ismethod(list.__add__) == True``.
+
+* in CPython, the built-in types have attributes that can be
+  implemented in various ways.  Depending on the way, if you try to
+  write to (or delete) a read-only (or undeletable) attribute, you get
+  either a ``TypeError`` or an ``AttributeError``.  PyPy tries to
+  strike some middle ground between full consistency and full
+  compatibility here.  This means that a few corner cases don't raise
+  the same exception, like ``del (lambda:None).__closure__``.
 
 * in pure Python, if you write ``class A(object): def f(self): pass``
   and have a subclass ``B`` which doesn't override ``f()``, then

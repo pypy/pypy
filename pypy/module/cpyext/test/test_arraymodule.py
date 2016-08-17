@@ -67,3 +67,24 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
                                 '\x02\0\0\0'
                                 '\x03\0\0\0'
                                 '\x04\0\0\0')
+
+    def test_pickle(self):
+        import pickle
+        module = self.import_module(name='array')
+        arr = module.array('i', [1,2,3,4])
+        s = pickle.dumps(arr)
+        # pypy exports __dict__ on cpyext objects, so the pickle picks up the {} state value
+        #assert s == "carray\n_reconstruct\np0\n(S'i'\np1\n(lp2\nI1\naI2\naI3\naI4\natp3\nRp4\n."
+        rra = pickle.loads(s) # rra is arr backwards
+        #assert arr.tolist() == rra.tolist()
+
+    def test_binop_mul_impl(self):
+        # check that rmul is called
+        module = self.import_module(name='array')
+        arr = module.array('i', [2])
+        res = [1, 2, 3] * arr
+        assert res == [1, 2, 3, 1, 2, 3]
+        module.switch_multiply()
+        res = [1, 2, 3] * arr
+        assert res == [2, 4, 6]
+        

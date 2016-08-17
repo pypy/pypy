@@ -89,14 +89,13 @@ def ResOperation(opnum, args, descr=None):
         assert isinstance(op, ResOpWithDescr)
         if opnum == rop.FINISH:
             assert descr.final_descr
-        elif op.is_guard():
+        elif OpHelpers.is_guard(opnum):
             assert not descr.final_descr
         op.setdescr(descr)
     return op
 
 def VecOperation(opnum, args, baseop, count, descr=None):
     vecinfo = baseop.get_forwarded()
-    assert vecinfo is not None
     assert isinstance(vecinfo, VectorizationInfo)
     datatype = vecinfo.datatype
     bytesize = vecinfo.bytesize
@@ -108,7 +107,7 @@ def VecOperation(opnum, args, baseop, count, descr=None):
     return VecOperationNew(opnum, args, datatype, bytesize, signed, count, descr)
 
 def VecOperationNew(opnum, args, datatype, bytesize, signed, count, descr=None):
-    op = ResOperation(opnum, args, descr)
+    op = ResOperation(opnum, args, descr=descr)
     vecinfo = VectorizationInfo(None)
     vecinfo.setinfo(datatype, bytesize, signed)
     vecinfo.count = count
@@ -206,7 +205,7 @@ class VectorizationInfo(AbstractValue):
                             type = vecinfo.datatype
                             signed = vecinfo.signed
                             bytesize = vecinfo.bytesize
-            if op.returns_bool_result():
+            if rop.returns_bool_result(op.opnum):
                 type = 'i'
             self.setinfo(type, bytesize, signed)
 
@@ -330,10 +329,7 @@ class AbstractResOp(AbstractResOpOrInputArg):
             descr = self.getdescr()
         if descr is DONT_CHANGE:
             descr = None
-        newop = ResOperation(opnum, args, descr)
-        if self.type != 'v':
-            newop.copy_value_from(self)
-        return newop
+        return ResOperation(opnum, args, descr)
 
     def repr(self, memo, graytext=False):
         # RPython-friendly version
@@ -395,103 +391,21 @@ class AbstractResOp(AbstractResOpOrInputArg):
             return '<%d>' % self.getopnum()
 
     def is_guard(self):
-        return rop._GUARD_FIRST <= self.getopnum() <= rop._GUARD_LAST
-
-    def is_foldable_guard(self):
-        return rop._GUARD_FOLDABLE_FIRST <= self.getopnum() <= rop._GUARD_FOLDABLE_LAST
-
-    def is_guard_exception(self):
-        return (self.getopnum() == rop.GUARD_EXCEPTION or
-                self.getopnum() == rop.GUARD_NO_EXCEPTION)
-
-    def is_guard_overflow(self):
-        return (self.getopnum() == rop.GUARD_OVERFLOW or
-                self.getopnum() == rop.GUARD_NO_OVERFLOW)
-
-    def is_jit_debug(self):
-        return rop._JIT_DEBUG_FIRST <= self.getopnum() <= rop._JIT_DEBUG_LAST
-
-    def is_always_pure(self):
-        # Tells whether an operation is pure based solely on the opcode.
-        # Other operations (e.g. getfield ops) may be pure in some cases are well.
-        return rop._ALWAYS_PURE_FIRST <= self.getopnum() <= rop._ALWAYS_PURE_LAST
-
-    def has_no_side_effect(self):
-        return rop._NOSIDEEFFECT_FIRST <= self.getopnum() <= rop._NOSIDEEFFECT_LAST
-
-    def can_raise(self):
-        return rop._CANRAISE_FIRST <= self.getopnum() <= rop._CANRAISE_LAST
-
-    def is_malloc(self):
-        # a slightly different meaning from can_malloc
-        return rop._MALLOC_FIRST <= self.getopnum() <= rop._MALLOC_LAST
-
-    def can_malloc(self):
-        return self.is_call() or self.is_malloc()
-
-    def is_call(self):
-        return rop._CALL_FIRST <= self.getopnum() <= rop._CALL_LAST
-
-    def is_same_as(self):
-        return self.opnum in (rop.SAME_AS_I, rop.SAME_AS_F, rop.SAME_AS_R)
-
-    def is_getfield(self):
-        return self.opnum in (rop.GETFIELD_GC_I, rop.GETFIELD_GC_F, rop.GETFIELD_GC_R)
-
-    def is_getarrayitem(self):
-        return self.opnum in (rop.GETARRAYITEM_GC_I, rop.GETARRAYITEM_GC_F,
-                              rop.GETARRAYITEM_GC_R, rop.GETARRAYITEM_GC_PURE_I,
-                              rop.GETARRAYITEM_GC_PURE_F,
-                              rop.GETARRAYITEM_GC_PURE_R)
-
-    def is_real_call(self):
-        opnum = self.opnum
-        return (opnum == rop.CALL_I or
-                opnum == rop.CALL_R or
-                opnum == rop.CALL_F or
-                opnum == rop.CALL_N)
-
-    def is_call_assembler(self):
-        opnum = self.opnum
-        return (opnum == rop.CALL_ASSEMBLER_I or
-                opnum == rop.CALL_ASSEMBLER_R or
-                opnum == rop.CALL_ASSEMBLER_N or
-                opnum == rop.CALL_ASSEMBLER_F)
-
-    def is_call_may_force(self):
-        opnum = self.opnum
-        return (opnum == rop.CALL_MAY_FORCE_I or
-                opnum == rop.CALL_MAY_FORCE_R or
-                opnum == rop.CALL_MAY_FORCE_N or
-                opnum == rop.CALL_MAY_FORCE_F)
-
-    def is_call_pure(self):
-        opnum = self.opnum
-        return (opnum == rop.CALL_PURE_I or
-                opnum == rop.CALL_PURE_R or
-                opnum == rop.CALL_PURE_N or
-                opnum == rop.CALL_PURE_F)
-
-    def is_call_release_gil(self):
-        opnum = self.opnum
-        # no R returning call_release_gil
-        return (opnum == rop.CALL_RELEASE_GIL_I or
-                opnum == rop.CALL_RELEASE_GIL_F or
-                opnum == rop.CALL_RELEASE_GIL_N)
+        return rop.is_guard(self.getopnum())
 
     def is_ovf(self):
-        return rop._OVF_FIRST <= self.getopnum() <= rop._OVF_LAST
+        return rop.is_ovf(self.getopnum())
 
-    def is_vector_arithmetic(self):
-        return rop._VEC_ARITHMETIC_FIRST <= self.getopnum() <= rop._VEC_ARITHMETIC_LAST
+    def can_raise(self):
+        return rop.can_raise(self.getopnum())
 
-    def is_raw_array_access(self):
-        return self.is_raw_load() or self.is_raw_store()
+    def is_foldable_guard(self):
+        return rop.is_foldable_guard(self.getopnun())
 
     def is_primitive_array_access(self):
         """ Indicates that this operations loads/stores a
         primitive type (int,float) """
-        if self.is_primitive_load() or self.is_primitive_store():
+        if rop.is_primitive_load(self.opnum) or rop.is_primitive_store(self.opnum):
             descr = self.getdescr()
             if not we_are_translated():
                 from rpython.jit.backend.llgraph.runner import _getdescr
@@ -499,27 +413,6 @@ class AbstractResOp(AbstractResOpOrInputArg):
             if descr and descr.is_array_of_primitives():
                 return True
         return False
-
-    def is_primitive_load(self):
-        return rop._RAW_LOAD_FIRST < self.getopnum() < rop._RAW_LOAD_LAST
-
-    def is_primitive_store(self):
-        return rop._RAW_STORE_FIRST < self.getopnum() < rop._RAW_STORE_LAST
-
-    def is_comparison(self):
-        return self.is_always_pure() and self.returns_bool_result()
-
-    def is_final(self):
-        return rop._FINAL_FIRST <= self.getopnum() <= rop._FINAL_LAST
-
-    def returns_bool_result(self):
-        return self._cls_has_bool_result
-
-    #def forget_value(self): -- in the base class, AbstractResOpOrInputArg
-    #    pass
-
-    def is_label(self):
-        return self.getopnum() == rop.LABEL
 
     def is_vector(self):
         return False
@@ -589,9 +482,7 @@ class ResOpWithDescr(AbstractResOp):
 class GuardResOp(ResOpWithDescr):
 
     _fail_args = None
-
-    rd_snapshot = None
-    rd_frame_info_list = None
+    rd_resume_position = -1
 
     def getfailargs(self):
         return self._fail_args
@@ -606,8 +497,7 @@ class GuardResOp(ResOpWithDescr):
         newop = AbstractResOp.copy_and_change(self, opnum, args, descr)
         assert isinstance(newop, GuardResOp)
         newop.setfailargs(self.getfailargs())
-        newop.rd_snapshot = self.rd_snapshot
-        newop.rd_frame_info_list = self.rd_frame_info_list
+        newop.rd_resume_position = self.rd_resume_position
         return newop
 
 class VectorGuardOp(GuardResOp):
@@ -814,6 +704,7 @@ class SignExtOp(object):
 
 
 class AbstractInputArg(AbstractResOpOrInputArg):
+    _attrs_ = ('_forwarded', 'position')
 
     def repr(self, memo):
         try:
@@ -823,6 +714,9 @@ class AbstractInputArg(AbstractResOpOrInputArg):
             memo[self] = num
         return self.type + str(num)
 
+    def get_position(self):
+        return self.position
+
     def __repr__(self):
         return self.repr(self._repr_memo)
 
@@ -830,24 +724,28 @@ class AbstractInputArg(AbstractResOpOrInputArg):
         return True
 
 class InputArgInt(IntOp, AbstractInputArg):
+    datatype = 'i'
+    bytesize = INT_WORD
+    signed = True
+
     def __init__(self, intval=0):
         self.setint(intval)
-        self.datatype = 'i'
-        self.bytesize = INT_WORD
-        self.signed = True
 
 class InputArgFloat(FloatOp, AbstractInputArg):
+    datatype = 'f'
+    bytesize = FLOAT_WORD
+    signed = True
+
     def __init__(self, f=longlong.ZEROF):
         self.setfloatstorage(f)
-        self.datatype = 'f'
-        self.bytesize = FLOAT_WORD
-        self.signed = True
 
     @staticmethod
     def fromfloat(x):
         return InputArgFloat(longlong.getfloatstorage(x))
 
 class InputArgRef(RefOp, AbstractInputArg):
+    datatype = 'r'
+
     def __init__(self, r=lltype.nullptr(llmemory.GCREF.TO)):
         self.setref_base(r)
         self.datatype = 'r'
@@ -1057,9 +955,7 @@ _oplist = [
     'INT_ADD/2/i',
     'INT_SUB/2/i',
     'INT_MUL/2/i',
-    'INT_FLOORDIV/2/i',
-    'UINT_FLOORDIV/2/i',
-    'INT_MOD/2/i',
+    'UINT_MUL_HIGH/2/i',       # a * b as a double-word, keep the high word
     'INT_AND/2/i',
     'INT_OR/2/i',
     'INT_XOR/2/i',
@@ -1155,10 +1051,10 @@ _oplist = [
     'STRLEN/1/i',
     'STRGETITEM/2/i',
     'GETARRAYITEM_GC_PURE/2d/rfi',
-    #'GETFIELD_RAW_PURE/1d/rfi',     these two operations not useful and
-    #'GETARRAYITEM_RAW_PURE/2d/fi',  dangerous when unrolling speculatively
     'UNICODELEN/1/i',
     'UNICODEGETITEM/2/i',
+    #
+    'LOAD_FROM_GC_TABLE/1/r',    # only emitted by rewrite.py
     #
     '_ALWAYS_PURE_LAST',  # ----- end of always_pure operations -----
 
@@ -1238,6 +1134,8 @@ _oplist = [
     'LEAVE_PORTAL_FRAME/1/n',     # debugging only
     'JIT_DEBUG/*/n',              # debugging only
     '_JIT_DEBUG_LAST',
+    'ESCAPE/*/rfin',              # tests only
+    'FORCE_SPILL/1/n',            # tests only
     'VIRTUAL_REF_FINISH/2/n',   # removed before it's passed to the backend
     'COPYSTRCONTENT/5/n',       # src, dst, srcstart, dststart, length
     'COPYUNICODECONTENT/5/n',
@@ -1259,7 +1157,7 @@ _oplist = [
     'CALL_RELEASE_GIL/*d/fin',
     # release the GIL and "close the stack" for asmgcc
     'CALL_PURE/*d/rfin',             # removed before it's passed to the backend
-    'CALL_MALLOC_GC/*d/r',      # like CALL, but NULL => propagate MemoryError
+    'CHECK_MEMORY_ERROR/1/n',   # after a CALL: NULL => propagate MemoryError
     'CALL_MALLOC_NURSERY/1/r',  # nursery malloc, const number of bytes, zeroed
     'CALL_MALLOC_NURSERY_VARSIZE/3d/r',
     'CALL_MALLOC_NURSERY_VARSIZE_FRAME/1/r',
@@ -1293,7 +1191,371 @@ _cast_ops = {
 # ____________________________________________________________
 
 class rop(object):
-    pass
+    @staticmethod
+    def call_for_descr(descr):
+        tp = descr.get_normalized_result_type()
+        if tp == 'i':
+            return rop.CALL_I
+        elif tp == 'r':
+            return rop.CALL_R
+        elif tp == 'f':
+            return rop.CALL_F
+        assert tp == 'v'
+        return rop.CALL_N
+
+    @staticmethod
+    def call_pure_for_descr(descr):
+        tp = descr.get_normalized_result_type()
+        if tp == 'i':
+            return rop.CALL_PURE_I
+        elif tp == 'r':
+            return rop.CALL_PURE_R
+        elif tp == 'f':
+            return rop.CALL_PURE_F
+        assert tp == 'v'
+        return rop.CALL_PURE_N
+
+    @staticmethod
+    def call_may_force_for_descr(descr):
+        tp = descr.get_normalized_result_type()
+        if tp == 'i':
+            return rop.CALL_MAY_FORCE_I
+        elif tp == 'r':
+            return rop.CALL_MAY_FORCE_R
+        elif tp == 'f':
+            return rop.CALL_MAY_FORCE_F
+        assert tp == 'v'
+        return rop.CALL_MAY_FORCE_N
+
+    @staticmethod
+    def call_release_gil_for_descr(descr):
+        tp = descr.get_normalized_result_type()
+        if tp == 'i':
+            return rop.CALL_RELEASE_GIL_I
+        # no such thing
+        #elif tp == 'r':
+        #    return rop.CALL_RELEASE_GIL_R
+        elif tp == 'f':
+            return rop.CALL_RELEASE_GIL_F
+        assert tp == 'v'
+        return rop.CALL_RELEASE_GIL_N
+
+    @staticmethod
+    def call_assembler_for_descr(descr):
+        tp = descr.get_normalized_result_type()
+        if tp == 'i':
+            return rop.CALL_ASSEMBLER_I
+        elif tp == 'r':
+            return rop.CALL_ASSEMBLER_R
+        elif tp == 'f':
+            return rop.CALL_ASSEMBLER_F
+        assert tp == 'v'
+        return rop.CALL_ASSEMBLER_N
+
+    @staticmethod
+    def call_loopinvariant_for_descr(descr):
+        tp = descr.get_normalized_result_type()
+        if tp == 'i':
+            return rop.CALL_LOOPINVARIANT_I
+        elif tp == 'r':
+            return rop.CALL_LOOPINVARIANT_R
+        elif tp == 'f':
+            return rop.CALL_LOOPINVARIANT_F
+        assert tp == 'v'
+        return rop.CALL_LOOPINVARIANT_N
+
+    @staticmethod
+    def getfield_pure_for_descr(descr):
+        if descr.is_pointer_field():
+            return rop.GETFIELD_GC_PURE_R
+        elif descr.is_float_field():
+            return rop.GETFIELD_GC_PURE_F
+        return rop.GETFIELD_GC_PURE_I
+
+    @staticmethod
+    def getfield_for_descr(descr):
+        if descr.is_pointer_field():
+            return rop.GETFIELD_GC_R
+        elif descr.is_float_field():
+            return rop.GETFIELD_GC_F
+        return rop.GETFIELD_GC_I
+
+    @staticmethod
+    def getarrayitem_pure_for_descr(descr):
+        if descr.is_array_of_pointers():
+            return rop.GETARRAYITEM_GC_PURE_R
+        elif descr.is_array_of_floats():
+            return rop.GETARRAYITEM_GC_PURE_F
+        return rop.GETARRAYITEM_GC_PURE_I
+
+    @staticmethod
+    def getarrayitem_for_descr(descr):
+        if descr.is_array_of_pointers():
+            return rop.GETARRAYITEM_GC_R
+        elif descr.is_array_of_floats():
+            return rop.GETARRAYITEM_GC_F
+        return rop.GETARRAYITEM_GC_I
+
+    @staticmethod
+    def same_as_for_type(tp):
+        if tp == 'i':
+            return rop.SAME_AS_I
+        elif tp == 'r':
+            return rop.SAME_AS_R
+        else:
+            assert tp == 'f'
+            return rop.SAME_AS_F
+
+    @staticmethod
+    def call_for_type(tp):
+        if tp == 'i':
+            return rop.CALL_I
+        elif tp == 'r':
+            return rop.CALL_R
+        elif tp == 'f':
+            return rop.CALL_F
+        return rop.CALL_N
+
+    @staticmethod
+    def is_guard(opnum):
+        return rop._GUARD_FIRST <= opnum <= rop._GUARD_LAST
+
+    @staticmethod
+    def is_comparison(opnum):
+        return rop.is_always_pure(opnum) and rop.returns_bool_result(opnum)
+
+    @staticmethod
+    def is_foldable_guard(opnum):
+        return rop._GUARD_FOLDABLE_FIRST <= opnum <= rop._GUARD_FOLDABLE_LAST
+
+    @staticmethod
+    def is_guard_exception(opnum):
+        return (opnum == rop.GUARD_EXCEPTION or
+                opnum == rop.GUARD_NO_EXCEPTION)
+
+    @staticmethod
+    def is_guard_overflow(opnum):
+        return (opnum == rop.GUARD_OVERFLOW or
+                opnum == rop.GUARD_NO_OVERFLOW)
+
+    @staticmethod
+    def is_jit_debug(opnum):
+        return rop._JIT_DEBUG_FIRST <= opnum <= rop._JIT_DEBUG_LAST
+
+    @staticmethod
+    def is_always_pure(opnum):
+        return rop._ALWAYS_PURE_FIRST <= opnum <= rop._ALWAYS_PURE_LAST
+
+    @staticmethod
+    def is_pure_with_descr(opnum, descr):
+        if rop.is_always_pure(opnum):
+            return True
+        if (opnum == rop.GETFIELD_RAW_I or
+            opnum == rop.GETFIELD_RAW_R or
+            opnum == rop.GETFIELD_RAW_F or
+            opnum == rop.GETFIELD_GC_I or
+            opnum == rop.GETFIELD_GC_R or
+            opnum == rop.GETFIELD_GC_F or
+            opnum == rop.GETARRAYITEM_RAW_I or
+            opnum == rop.GETARRAYITEM_RAW_F):
+            return descr.is_always_pure()
+        return False
+
+    @staticmethod
+    def is_pure_getfield(opnum, descr):
+        if (opnum == rop.GETFIELD_GC_I or
+            opnum == rop.GETFIELD_GC_F or
+            opnum == rop.GETFIELD_GC_R):
+            return descr is not None and descr.is_always_pure()
+        return False
+
+    @staticmethod
+    def has_no_side_effect(opnum):
+        return rop._NOSIDEEFFECT_FIRST <= opnum <= rop._NOSIDEEFFECT_LAST
+
+    @staticmethod
+    def can_raise(opnum):
+        return rop._CANRAISE_FIRST <= opnum <= rop._CANRAISE_LAST
+
+    @staticmethod
+    def is_malloc(opnum):
+        # a slightly different meaning from can_malloc
+        return rop._MALLOC_FIRST <= opnum <= rop._MALLOC_LAST
+
+    @staticmethod
+    def can_malloc(opnum):
+        return rop.is_call(opnum) or rop.is_malloc(opnum)
+
+    @staticmethod
+    def is_same_as(opnum):
+        return opnum in (rop.SAME_AS_I, rop.SAME_AS_F, rop.SAME_AS_R)
+
+    @staticmethod
+    def is_getfield(opnum):
+        return opnum in (rop.GETFIELD_GC_I, rop.GETFIELD_GC_F,
+                              rop.GETFIELD_GC_R)
+
+    @staticmethod
+    def is_getarrayitem(opnum):
+        return opnum in (rop.GETARRAYITEM_GC_I, rop.GETARRAYITEM_GC_F,
+                         rop.GETARRAYITEM_GC_R, rop.GETARRAYITEM_GC_PURE_I,
+                         rop.GETARRAYITEM_GC_PURE_F,
+                         rop.GETARRAYITEM_GC_PURE_R)
+
+    @staticmethod
+    def is_real_call(opnum):
+        return (opnum == rop.CALL_I or
+                opnum == rop.CALL_R or
+                opnum == rop.CALL_F or
+                opnum == rop.CALL_N)
+
+    @staticmethod
+    def is_call_assembler(opnum):
+        return (opnum == rop.CALL_ASSEMBLER_I or
+                opnum == rop.CALL_ASSEMBLER_R or
+                opnum == rop.CALL_ASSEMBLER_N or
+                opnum == rop.CALL_ASSEMBLER_F)
+
+    @staticmethod
+    def is_call_may_force(opnum):
+        return (opnum == rop.CALL_MAY_FORCE_I or
+                opnum == rop.CALL_MAY_FORCE_R or
+                opnum == rop.CALL_MAY_FORCE_N or
+                opnum == rop.CALL_MAY_FORCE_F)
+
+    @staticmethod
+    def is_call_pure(opnum):
+        return (opnum == rop.CALL_PURE_I or
+                opnum == rop.CALL_PURE_R or
+                opnum == rop.CALL_PURE_N or
+                opnum == rop.CALL_PURE_F)
+
+    @staticmethod
+    def is_call_release_gil(opnum):
+        # no R returning call_release_gil
+        return (opnum == rop.CALL_RELEASE_GIL_I or
+                opnum == rop.CALL_RELEASE_GIL_F or
+                opnum == rop.CALL_RELEASE_GIL_N)
+
+    @staticmethod
+    def is_ovf(opnum):
+        return rop._OVF_FIRST <= opnum <= rop._OVF_LAST
+
+    @staticmethod
+    def is_vector_arithmetic(opnum):
+        return rop._VEC_ARITHMETIC_FIRST <= opnum <= rop._VEC_ARITHMETIC_LAST
+
+    @staticmethod
+    def is_raw_array_access(opnum):
+        return rop.is_raw_load(opnum) or rop.is_raw_store(opnum)
+
+    @staticmethod
+    def is_primitive_load(opnum):
+        return rop._RAW_LOAD_FIRST < opnum < rop._RAW_LOAD_LAST
+
+    @staticmethod
+    def is_primitive_store(opnum):
+        return rop._RAW_STORE_FIRST < opnum < rop._RAW_STORE_LAST
+
+    @staticmethod
+    def is_final(opnum):
+        return rop._FINAL_FIRST <= opnum <= rop._FINAL_LAST
+
+    @staticmethod
+    def returns_bool_result(opnum):
+        return opclasses[opnum]._cls_has_bool_result
+
+    @staticmethod
+    def is_label(opnum):
+        return opnum == rop.LABEL
+
+    @staticmethod
+    def is_call(opnum):
+        return rop._CALL_FIRST <= opnum <= rop._CALL_LAST
+
+    @staticmethod
+    def is_plain_call(opnum):
+        return (opnum == rop.CALL_I or
+                opnum == rop.CALL_R or
+                opnum == rop.CALL_F or
+                opnum == rop.CALL_N)
+
+    @staticmethod
+    def is_call_loopinvariant(opnum):
+        return (opnum == rop.CALL_LOOPINVARIANT_I or
+                opnum == rop.CALL_LOOPINVARIANT_R or
+                opnum == rop.CALL_LOOPINVARIANT_F or
+                opnum == rop.CALL_LOOPINVARIANT_N)
+
+    @staticmethod
+    def get_gc_load(tp):
+        if tp == 'i':
+            return rop.GC_LOAD_I
+        elif tp == 'f':
+            return rop.GC_LOAD_F
+        else:
+            assert tp == 'r'
+        return rop.GC_LOAD_R
+
+    @staticmethod
+    def get_gc_load_indexed(tp):
+        if tp == 'i':
+            return rop.GC_LOAD_INDEXED_I
+        elif tp == 'f':
+            return rop.GC_LOAD_INDEXED_F
+        else:
+            assert tp == 'r'
+            return rop.GC_LOAD_INDEXED_R
+
+    @staticmethod
+    def inputarg_from_tp(tp):
+        if tp == 'i':
+            return InputArgInt()
+        elif tp == 'r' or tp == 'p':
+            return InputArgRef()
+        elif tp == 'v':
+            return InputArgVector()
+        else:
+            assert tp == 'f'
+            return InputArgFloat()
+
+    @staticmethod
+    def create_vec_expand(arg, bytesize, signed, count):
+        if arg.type == 'i':
+            opnum = rop.VEC_EXPAND_I
+        else:
+            assert arg.type == 'f'
+            opnum = rop.VEC_EXPAND_F
+        return VecOperationNew(opnum, [arg], arg.type, bytesize, signed, count)
+
+    @staticmethod
+    def create_vec(datatype, bytesize, signed, count):
+        if datatype == 'i':
+            opnum = rop.VEC_I
+        else:
+            assert datatype == 'f'
+            opnum = rop.VEC_F
+        return VecOperationNew(opnum, [], datatype, bytesize, signed, count)
+
+    @staticmethod
+    def create_vec_pack(datatype, args, bytesize, signed, count):
+        if datatype == 'i':
+            opnum = rop.VEC_PACK_I
+        else:
+            assert datatype == 'f'
+            opnum = rop.VEC_PACK_F
+        return VecOperationNew(opnum, args, datatype, bytesize, signed, count)
+
+    @staticmethod
+    def create_vec_unpack(datatype, args, bytesize, signed, count):
+        if datatype == 'i':
+            opnum = rop.VEC_UNPACK_I
+        else:
+            assert datatype == 'f'
+            opnum = rop.VEC_UNPACK_F
+        return VecOperationNew(opnum, args, datatype, bytesize, signed, count)
+
+
 
 opclasses = []   # mapping numbers to the concrete ResOp class
 opname = {}      # mapping numbers to the original names, for debugging
@@ -1384,14 +1646,6 @@ def create_class_for_op(name, opnum, arity, withdescr, result_type):
         baseclass = PlainResOp
 
     mixins = [arity2mixin.get(arity, N_aryOp)]
-    if result_type == 'i':
-        mixins.append(IntOp)
-    elif result_type == 'f':
-        mixins.append(FloatOp)
-    elif result_type == 'r':
-        mixins.append(RefOp)
-    else:
-        assert result_type == 'n'
     if name in _cast_ops:
         if "INT_SIGNEXT" in name:
             mixins.append(SignExtOp)
@@ -1400,7 +1654,11 @@ def create_class_for_op(name, opnum, arity, withdescr, result_type):
     cls_name = '%s_OP' % name
     bases = (get_base_class(tuple(mixins), baseclass),)
     dic = {'opnum': opnum}
-    return type(cls_name, bases, dic)
+    res = type(cls_name, bases, dic)
+    if result_type == 'n':
+        result_type = 'v' # why?
+    res.type = result_type
+    return res
 
 setup(__name__ == '__main__')   # print out the table when run directly
 del _oplist
@@ -1540,238 +1798,4 @@ def get_deep_immutable_oplist(operations):
         op.setdescr = setdescr
     return newops
 
-class OpHelpers(object):
-    @staticmethod
-    def call_for_descr(descr):
-        tp = descr.get_normalized_result_type()
-        if tp == 'i':
-            return rop.CALL_I
-        elif tp == 'r':
-            return rop.CALL_R
-        elif tp == 'f':
-            return rop.CALL_F
-        assert tp == 'v'
-        return rop.CALL_N
-
-    @staticmethod
-    def call_pure_for_descr(descr):
-        tp = descr.get_normalized_result_type()
-        if tp == 'i':
-            return rop.CALL_PURE_I
-        elif tp == 'r':
-            return rop.CALL_PURE_R
-        elif tp == 'f':
-            return rop.CALL_PURE_F
-        assert tp == 'v'
-        return rop.CALL_PURE_N
-
-    @staticmethod
-    def call_may_force_for_descr(descr):
-        tp = descr.get_normalized_result_type()
-        if tp == 'i':
-            return rop.CALL_MAY_FORCE_I
-        elif tp == 'r':
-            return rop.CALL_MAY_FORCE_R
-        elif tp == 'f':
-            return rop.CALL_MAY_FORCE_F
-        assert tp == 'v'
-        return rop.CALL_MAY_FORCE_N
-
-    @staticmethod
-    def call_assembler_for_descr(descr):
-        tp = descr.get_normalized_result_type()
-        if tp == 'i':
-            return rop.CALL_ASSEMBLER_I
-        elif tp == 'r':
-            return rop.CALL_ASSEMBLER_R
-        elif tp == 'f':
-            return rop.CALL_ASSEMBLER_F
-        assert tp == 'v'
-        return rop.CALL_ASSEMBLER_N
-
-    @staticmethod
-    def call_loopinvariant_for_descr(descr):
-        tp = descr.get_normalized_result_type()
-        if tp == 'i':
-            return rop.CALL_LOOPINVARIANT_I
-        elif tp == 'r':
-            return rop.CALL_LOOPINVARIANT_R
-        elif tp == 'f':
-            return rop.CALL_LOOPINVARIANT_F
-        assert tp == 'v'
-        return rop.CALL_LOOPINVARIANT_N
-
-    @staticmethod
-    def getfield_for_descr(descr):
-        if descr.is_pointer_field():
-            return rop.GETFIELD_GC_R
-        elif descr.is_float_field():
-            return rop.GETFIELD_GC_F
-        return rop.GETFIELD_GC_I
-
-    @staticmethod
-    def getarrayitem_pure_for_descr(descr):
-        if descr.is_array_of_pointers():
-            return rop.GETARRAYITEM_GC_PURE_R
-        elif descr.is_array_of_floats():
-            return rop.GETARRAYITEM_GC_PURE_F
-        return rop.GETARRAYITEM_GC_PURE_I
-
-    @staticmethod
-    def getarrayitem_for_descr(descr):
-        if descr.is_array_of_pointers():
-            return rop.GETARRAYITEM_GC_R
-        elif descr.is_array_of_floats():
-            return rop.GETARRAYITEM_GC_F
-        return rop.GETARRAYITEM_GC_I
-
-    @staticmethod
-    def same_as_for_type(tp):
-        if tp == 'i':
-            return rop.SAME_AS_I
-        elif tp == 'r':
-            return rop.SAME_AS_R
-        else:
-            assert tp == 'f'
-            return rop.SAME_AS_F
-
-    @staticmethod
-    def call_for_type(tp):
-        if tp == 'i':
-            return rop.CALL_I
-        elif tp == 'r':
-            return rop.CALL_R
-        elif tp == 'f':
-            return rop.CALL_F
-        return rop.CALL_N
-
-    @staticmethod
-    def is_call(opnum):
-        return rop._CALL_FIRST <= opnum <= rop._CALL_LAST
-
-    @staticmethod
-    def is_plain_call(opnum):
-        return (opnum == rop.CALL_I or
-                opnum == rop.CALL_R or
-                opnum == rop.CALL_F or
-                opnum == rop.CALL_N)
-
-    @staticmethod
-    def is_call_assembler(opnum):
-        return (opnum == rop.CALL_ASSEMBLER_I or
-                opnum == rop.CALL_ASSEMBLER_R or
-                opnum == rop.CALL_ASSEMBLER_F or
-                opnum == rop.CALL_ASSEMBLER_N)
-
-    @staticmethod
-    def is_call_loopinvariant(opnum):
-        return (opnum == rop.CALL_LOOPINVARIANT_I or
-                opnum == rop.CALL_LOOPINVARIANT_R or
-                opnum == rop.CALL_LOOPINVARIANT_F or
-                opnum == rop.CALL_LOOPINVARIANT_N)
-
-    @staticmethod
-    def is_call_may_force(opnum):
-        return (opnum == rop.CALL_MAY_FORCE_I or
-                opnum == rop.CALL_MAY_FORCE_R or
-                opnum == rop.CALL_MAY_FORCE_F or
-                opnum == rop.CALL_MAY_FORCE_N)
-
-    @staticmethod
-    def is_call_release_gil(opnum):
-        # no R returning call_release_gil
-        return (opnum == rop.CALL_RELEASE_GIL_I or
-                opnum == rop.CALL_RELEASE_GIL_F or
-                opnum == rop.CALL_RELEASE_GIL_N)
-
-    @staticmethod
-    def get_gc_load(tp):
-        if tp == 'i':
-            return rop.GC_LOAD_I
-        elif tp == 'f':
-            return rop.GC_LOAD_F
-        else:
-            assert tp == 'r'
-            return rop.GC_LOAD_R
-
-    @staticmethod
-    def get_gc_load_indexed(tp):
-        if tp == 'i':
-            return rop.GC_LOAD_INDEXED_I
-        elif tp == 'f':
-            return rop.GC_LOAD_INDEXED_F
-        else:
-            assert tp == 'r'
-            return rop.GC_LOAD_INDEXED_R
-
-    @staticmethod
-    def inputarg_from_tp(tp):
-        if tp == 'i':
-            return InputArgInt()
-        elif tp == 'r' or tp == 'p':
-            return InputArgRef()
-        elif tp == 'v':
-            return InputArgVector()
-        else:
-            assert tp == 'f'
-            return InputArgFloat()
-
-    @staticmethod
-    def create_vec_expand(arg, bytesize, signed, count):
-        if arg.type == 'i':
-            opnum = rop.VEC_EXPAND_I
-        else:
-            assert arg.type == 'f'
-            opnum = rop.VEC_EXPAND_F
-        return VecOperationNew(opnum, [arg], arg.type, bytesize, signed, count)
-
-    @staticmethod
-    def create_vec(datatype, bytesize, signed, count):
-        if datatype == 'i':
-            opnum = rop.VEC_I
-        else:
-            assert datatype == 'f'
-            opnum = rop.VEC_F
-        return VecOperationNew(opnum, [], datatype, bytesize, signed, count)
-
-    @staticmethod
-    def create_vec_pack(datatype, args, bytesize, signed, count):
-        if datatype == 'i':
-            opnum = rop.VEC_PACK_I
-        else:
-            assert datatype == 'f'
-            opnum = rop.VEC_PACK_F
-        return VecOperationNew(opnum, args, datatype, bytesize, signed, count)
-
-    @staticmethod
-    def create_vec_unpack(datatype, args, bytesize, signed, count):
-        if datatype == 'i':
-            opnum = rop.VEC_UNPACK_I
-        else:
-            assert datatype == 'f'
-            opnum = rop.VEC_UNPACK_F
-        return VecOperationNew(opnum, args, datatype, bytesize, signed, count)
-
-    @staticmethod
-    def is_pure_getfield(opnum, descr):
-        if (opnum == rop.GETFIELD_GC_I or
-            opnum == rop.GETFIELD_GC_F or
-            opnum == rop.GETFIELD_GC_R):
-            return descr is not None and descr.is_always_pure()
-        return False
-
-    @staticmethod
-    def is_pure_with_descr(opnum, descr):
-        is_pure = rop._ALWAYS_PURE_FIRST <= opnum <= rop._ALWAYS_PURE_LAST
-        if not is_pure:
-            if (opnum == rop.GETFIELD_RAW_I or
-                opnum == rop.GETFIELD_RAW_R or
-                opnum == rop.GETFIELD_RAW_F or
-                opnum == rop.GETFIELD_GC_I or
-                opnum == rop.GETFIELD_GC_R or
-                opnum == rop.GETFIELD_GC_F or
-                opnum == rop.GETARRAYITEM_RAW_I or
-                opnum == rop.GETARRAYITEM_RAW_F):
-                is_pure = descr.is_always_pure()
-        return is_pure
-
+OpHelpers = rop

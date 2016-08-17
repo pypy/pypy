@@ -227,7 +227,7 @@ class AppTestConnectedSSL:
         ss.write("hello\n")
         try:
             result = ss.shutdown()
-        except socket.error, e:
+        except socket.error as e:
             # xxx obscure case; throwing errno 0 is pretty odd...
             if e.errno == 0:
                 skip("Shutdown raised errno 0. CPython does this too")

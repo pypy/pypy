@@ -1,16 +1,51 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
-from pypy.module.cpyext.api import (
+from pypy.module.cpyext.api import (PyObjectFields, bootstrap_function,
     cpython_api, cpython_struct, PyObject, build_type_checkers)
+from pypy.module.cpyext.pyobject import (
+    make_typedescr, track_reference, from_ref)
 from pypy.module.cpyext.floatobject import PyFloat_AsDouble
 from pypy.objspace.std.complexobject import W_ComplexObject
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 
 PyComplex_Check, PyComplex_CheckExact = build_type_checkers("Complex")
 
-Py_complex_t = lltype.ForwardReference()
+Py_complex_t = rffi.CStruct('Py_complex_t',
+                            ('real', rffi.DOUBLE),
+                            ('imag', rffi.DOUBLE),
+                            hints={'size': 2 * rffi.sizeof(rffi.DOUBLE)})
 Py_complex_ptr = lltype.Ptr(Py_complex_t)
-Py_complex_fields = (("real", rffi.DOUBLE), ("imag", rffi.DOUBLE))
-cpython_struct("Py_complex", Py_complex_fields, Py_complex_t)
+
+PyComplexObjectStruct = lltype.ForwardReference()
+PyComplexObject = lltype.Ptr(PyComplexObjectStruct)
+PyComplexObjectFields = PyObjectFields + \
+    (("cval", Py_complex_t),)
+cpython_struct("PyComplexObject", PyComplexObjectFields, PyComplexObjectStruct)
+
+@bootstrap_function
+def init_complexobject(space):
+    "Type description of PyComplexObject"
+    make_typedescr(space.w_complex.layout.typedef,
+                   basestruct=PyComplexObject.TO,
+                   attach=complex_attach,
+                   realize=complex_realize)
+
+def complex_attach(space, py_obj, w_obj):
+    """
+    Fills a newly allocated PyComplexObject with the given complex object. The
+    value must not be modified.
+    """
+    assert isinstance(w_obj, W_ComplexObject)
+    py_obj = rffi.cast(PyComplexObject, py_obj)
+    py_obj.c_cval.c_real = w_obj.realval
+    py_obj.c_cval.c_imag = w_obj.imagval
+
+def complex_realize(space, obj):
+    py_obj = rffi.cast(PyComplexObject, obj)
+    w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
+    w_obj = space.allocate_instance(W_ComplexObject, w_type)
+    w_obj.__init__(py_obj.c_cval.c_real, py_obj.c_cval.c_imag)
+    track_reference(space, obj, w_obj)
+    return w_obj
 
 
 @cpython_api([lltype.Float, lltype.Float], PyObject)
@@ -63,8 +98,8 @@ def _PyComplex_AsCComplex(space, w_obj, result):
             return 0
 
         if not PyComplex_Check(space, w_obj):
-            raise OperationError(space.w_TypeError, space.wrap(
-                "__complex__ should return a complex object"))
+            raise oefmt(space.w_TypeError,
+                        "__complex__ should return a complex object")
 
     assert isinstance(w_obj, W_ComplexObject)
     result.c_real = w_obj.realval

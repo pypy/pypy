@@ -236,43 +236,49 @@ class LoopTest(object):
         self.check_trace_count_at_most(19)
 
     def test_interp_many_paths_2(self):
-        myjitdriver = JitDriver(greens = ['i'], reds = ['x', 'node'])
-        NODE = self._get_NODE()
-        bytecode = "xxxxxxxb"
+        import sys
+        oldlimit = sys.getrecursionlimit()
+        try:
+            sys.setrecursionlimit(10000)
+            myjitdriver = JitDriver(greens = ['i'], reds = ['x', 'node'])
+            NODE = self._get_NODE()
+            bytecode = "xxxxxxxb"
 
-        def can_enter_jit(i, x, node):
-            myjitdriver.can_enter_jit(i=i, x=x, node=node)
+            def can_enter_jit(i, x, node):
+                myjitdriver.can_enter_jit(i=i, x=x, node=node)
 
-        def f(node):
-            x = 0
-            i = 0
-            while i < len(bytecode):
-                myjitdriver.jit_merge_point(i=i, x=x, node=node)
-                op = bytecode[i]
-                if op == 'x':
-                    if not node:
-                        break
-                    if node.value < 100:   # a pseudo-random choice
-                        x += 1
-                    node = node.next
-                elif op == 'b':
-                    i = 0
-                    can_enter_jit(i, x, node)
-                    continue
-                i += 1
-            return x
+            def f(node):
+                x = 0
+                i = 0
+                while i < len(bytecode):
+                    myjitdriver.jit_merge_point(i=i, x=x, node=node)
+                    op = bytecode[i]
+                    if op == 'x':
+                        if not node:
+                            break
+                        if node.value < 100:   # a pseudo-random choice
+                            x += 1
+                        node = node.next
+                    elif op == 'b':
+                        i = 0
+                        can_enter_jit(i, x, node)
+                        continue
+                    i += 1
+                return x
 
-        node1 = self.nullptr(NODE)
-        for i in range(300):
-            prevnode = self.malloc(NODE)
-            prevnode.value = pow(47, i, 199)
-            prevnode.next = node1
-            node1 = prevnode
+            node1 = self.nullptr(NODE)
+            for i in range(300):
+                prevnode = self.malloc(NODE)
+                prevnode.value = pow(47, i, 199)
+                prevnode.next = node1
+                node1 = prevnode
 
-        expected = f(node1)
-        res = self.meta_interp(f, [node1])
-        assert res == expected
-        self.check_trace_count_at_most(19)
+            expected = f(node1)
+            res = self.meta_interp(f, [node1])
+            assert res == expected
+            self.check_trace_count_at_most(19)
+        finally:
+            sys.setrecursionlimit(oldlimit)
 
     def test_nested_loops(self):
         myjitdriver = JitDriver(greens = ['i'], reds = ['x', 'y'])

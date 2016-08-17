@@ -4,6 +4,8 @@ import py
 import sys, random
 from rpython.rlib import runicode
 
+from hypothesis import given, settings, strategies
+
 
 def test_unichr():
     assert runicode.UNICHR(0xffff) == u'\uffff'
@@ -51,7 +53,7 @@ class UnicodeTests(object):
             else:
                 trueresult = s
                 s = s.encode(encoding)
-        except LookupError, e:
+        except LookupError as e:
             py.test.skip(e)
         result, consumed = decoder(s, len(s), True)
         assert consumed == len(s)
@@ -65,7 +67,7 @@ class UnicodeTests(object):
             else:
                 trueresult = s
                 s = s.decode(encoding)
-        except LookupError, e:
+        except LookupError as e:
             py.test.skip(e)
         result = encoder(s, len(s), True)
         self.typeequals(trueresult, result)
@@ -171,6 +173,17 @@ class TestDecoding(UnicodeTests):
             for encoding in ("utf-8 utf-16 utf-16-be utf-16-le "
                              "utf-32 utf-32-be utf-32-le").split():
                 self.checkdecode(uni, encoding)
+
+    # Same as above, but uses Hypothesis to generate non-surrogate unicode
+    # characters.
+    @settings(max_examples=10000)
+    @given(strategies.characters(blacklist_categories=["Cs"]))
+    def test_random_hypothesis(self, uni):
+        if sys.version >= "2.7":
+            self.checkdecode(uni, "utf-7")
+        for encoding in ("utf-8 utf-16 utf-16-be utf-16-le "
+                         "utf-32 utf-32-be utf-32-le").split():
+            self.checkdecode(uni, encoding)
 
     def test_maxunicode(self):
         uni = unichr(sys.maxunicode)

@@ -254,7 +254,7 @@ class AppTestFfi:
         import _rawffi
         try:
             _rawffi.CDLL("xxxxx_this_name_does_not_exist_xxxxx")
-        except OSError, e:
+        except OSError as e:
             print e
             assert str(e).startswith(
                 "Cannot load library xxxxx_this_name_does_not_exist_xxxxx: ")
@@ -1026,7 +1026,7 @@ class AppTestFfi:
         f = lib.ptr('SetLastError', [], 'i')
         try:
             f()
-        except ValueError, e:
+        except ValueError as e:
             assert "Procedure called with not enough arguments" in e.message
         else:
             assert 0, "Did not raise"
@@ -1037,7 +1037,7 @@ class AppTestFfi:
         arg[0] = 1
         try:
             f(arg)
-        except ValueError, e:
+        except ValueError as e:
             assert "Procedure called with too many arguments" in e.message
         else:
             assert 0, "Did not raise"
@@ -1222,6 +1222,11 @@ class AppTestFfi:
         z = _rawffi.get_last_error()
         assert z == 43
         arg.free()
+
+    def test_cdll_name(self):
+        import _rawffi
+        lib = _rawffi.CDLL(self.lib_name)
+        assert lib.name == self.lib_name
 
 
 class AppTestAutoFree:

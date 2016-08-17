@@ -163,14 +163,10 @@ class TestMicroNumPy(BaseTestPyPyC):
             guard_not_invalidated(descr=...)
             i32 = float_ne(f31, 0.000000)
             guard_true(i32, descr=...)
-            i34 = getarrayitem_raw_i(#, #, descr=<ArrayU 1>)  # XXX what are these?
-            guard_value(i34, #, descr=...)                  # XXX don't appear in
-            i35 = getarrayitem_raw_i(#, #, descr=<ArrayU 1>)  # XXX equiv test_zjit
             i36 = int_add(i24, 1)
             i37 = int_add(i29, 8)
             i38 = int_ge(i36, i30)
             guard_false(i38, descr=...)
-            guard_value(i35, #, descr=...)                  # XXX
             jump(..., descr=...)
         """)
 

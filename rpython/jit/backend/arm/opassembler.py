@@ -3,7 +3,7 @@ from rpython.jit.backend.arm import conditions as c
 from rpython.jit.backend.arm import registers as r
 from rpython.jit.backend.arm import shift
 from rpython.jit.backend.arm.arch import WORD, DOUBLE_WORD, JITFRAME_FIXED_SIZE
-from rpython.jit.backend.arm.helper.assembler import (gen_emit_op_by_helper_call,
+from rpython.jit.backend.arm.helper.assembler import (
                                                 gen_emit_op_unary_cmp,
                                                 gen_emit_op_ri,
                                                 gen_emit_cmp_op,
@@ -35,9 +35,9 @@ from rpython.rlib.rarithmetic import r_uint
 
 class ArmGuardToken(GuardToken):
     def __init__(self, cpu, gcmap, faildescr, failargs, fail_locs,
-                 offset, guard_opnum, frame_depth, fcond=c.AL):
+                 offset, guard_opnum, frame_depth, faildescrindex, fcond=c.AL):
         GuardToken.__init__(self, cpu, gcmap, faildescr, failargs, fail_locs,
-                            guard_opnum, frame_depth)
+                            guard_opnum, frame_depth, faildescrindex)
         self.fcond = fcond
         self.offset = offset
 
@@ -92,6 +92,11 @@ class ResOpAssembler(BaseAssembler):
         self.mc.MUL(res.value, reg1.value, reg2.value)
         return fcond
 
+    def emit_op_uint_mul_high(self, op, arglocs, regalloc, fcond):
+        reg1, reg2, res = arglocs
+        self.mc.UMULL(r.ip.value, res.value, reg1.value, reg2.value)
+        return fcond
+
     def emit_op_int_force_ge_zero(self, op, arglocs, regalloc, fcond):
         arg, res = arglocs
         self.mc.CMP_ri(arg.value, 0)
@@ -131,10 +136,6 @@ class ResOpAssembler(BaseAssembler):
         fcond = self.int_sub_impl(op, arglocs, regalloc, fcond, flags=True)
         self.guard_success_cc = c.VC
         return fcond
-
-    emit_op_int_floordiv = gen_emit_op_by_helper_call('int_floordiv', 'DIV')
-    emit_op_int_mod = gen_emit_op_by_helper_call('int_mod', 'MOD')
-    emit_op_uint_floordiv = gen_emit_op_by_helper_call('uint_floordiv', 'UDIV')
 
     emit_op_int_and = gen_emit_op_ri('int_and', 'AND')
     emit_op_int_or = gen_emit_op_ri('int_or', 'ORR')
@@ -178,6 +179,7 @@ class ResOpAssembler(BaseAssembler):
         assert isinstance(descr, AbstractFailDescr)
 
         gcmap = allocate_gcmap(self, frame_depth, JITFRAME_FIXED_SIZE)
+        faildescrindex = self.get_gcref_from_faildescr(descr)
         token = ArmGuardToken(self.cpu, gcmap,
                                     descr,
                                     failargs=op.getfailargs(),
@@ -185,6 +187,7 @@ class ResOpAssembler(BaseAssembler):
                                     offset=offset,
                                     guard_opnum=op.getopnum(),
                                     frame_depth=frame_depth,
+                                    faildescrindex=faildescrindex,
                                     fcond=fcond)
         return token
 
@@ -398,14 +401,13 @@ class ResOpAssembler(BaseAssembler):
 
     def emit_op_finish(self, op, arglocs, regalloc, fcond):
         base_ofs = self.cpu.get_baseofs_of_frame_field()
-        if len(arglocs) == 2:
-            [return_val, fail_descr_loc] = arglocs
+        if len(arglocs) > 0:
+            [return_val] = arglocs
             self.store_reg(self.mc, return_val, r.fp, base_ofs)
-        else:
-            [fail_descr_loc] = arglocs
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
 
-        self.mc.gen_load_int(r.ip.value, fail_descr_loc.value)
+        faildescrindex = self.get_gcref_from_faildescr(op.getdescr())
+        self.load_from_gc_table(r.ip.value, faildescrindex)
         # XXX self.mov(fail_descr_loc, RawStackLoc(ofs))
         self.store_reg(self.mc, r.ip, r.fp, ofs, helper=r.lr)
         if op.numargs() > 0 and op.getarg(0).type == REF:
@@ -465,7 +467,11 @@ class ResOpAssembler(BaseAssembler):
             assert saveerrloc.is_imm()
             cb.emit_call_release_gil(saveerrloc.value)
         else:
-            cb.emit()
+            effectinfo = descr.get_extra_info()
+            if effectinfo is None or effectinfo.check_can_collect():
+                cb.emit()
+            else:
+                cb.emit_no_collect()
         return fcond
 
     def _genop_same_as(self, op, arglocs, regalloc, fcond):
@@ -877,6 +883,7 @@ class ResOpAssembler(BaseAssembler):
             ofs_items, itemsize, _ = symbolic.get_array_token(rstr.STR,
                                               self.cpu.translate_support_code)
             assert itemsize == 1
+            ofs_items -= 1     # for the extra null character
             scale = 0
         self._gen_address(resloc, baseloc, ofsloc, scale, ofs_items)
 
@@ -1035,18 +1042,17 @@ class ResOpAssembler(BaseAssembler):
         assert (guard_op.getopnum() == rop.GUARD_NOT_FORCED or
                 guard_op.getopnum() == rop.GUARD_NOT_FORCED_2)
         faildescr = guard_op.getdescr()
+        faildescrindex = self.get_gcref_from_faildescr(faildescr)
         ofs = self.cpu.get_ofs_of_frame_field('jf_force_descr')
-        value = rffi.cast(lltype.Signed, cast_instance_to_gcref(faildescr))
-        self.mc.gen_load_int(r.ip.value, value)
+        self.load_from_gc_table(r.ip.value, faildescrindex)
         self.store_reg(self.mc, r.ip, r.fp, ofs)
 
     def _find_nearby_operation(self, delta):
         regalloc = self._regalloc
         return regalloc.operations[regalloc.rm.position + delta]
 
-    def emit_op_call_malloc_gc(self, op, arglocs, regalloc, fcond):
-        self._emit_call(op, arglocs, fcond=fcond)
-        self.propagate_memoryerror_if_r0_is_null()
+    def emit_op_check_memory_error(self, op, arglocs, regalloc, fcond):
+        self.propagate_memoryerror_if_reg_is_null(arglocs[0])
         self._alignment_check()
         return fcond
 
@@ -1092,8 +1098,8 @@ class ResOpAssembler(BaseAssembler):
         self.mc.VCVT_int_to_float(res.value, r.svfp_ip.value)
         return fcond
 
-    # the following five instructions are only ARMv7;
-    # regalloc.py won't call them at all on ARMv6
+    # the following five instructions are only ARMv7 with NEON;
+    # regalloc.py won't call them at all, in other cases
     emit_opx_llong_add = gen_emit_float_op('llong_add', 'VADD_i64')
     emit_opx_llong_sub = gen_emit_float_op('llong_sub', 'VSUB_i64')
     emit_opx_llong_and = gen_emit_float_op('llong_and', 'VAND_i64')
@@ -1249,4 +1255,10 @@ class ResOpAssembler(BaseAssembler):
         signed = (sign_loc.value != 0)
         self._load_from_mem(res_loc, res_loc, ofs_loc, imm(scale), signed,
                             fcond)
+        return fcond
+
+    def emit_op_load_from_gc_table(self, op, arglocs, regalloc, fcond):
+        res_loc, = arglocs
+        index = op.getarg(0).getint()
+        self.load_from_gc_table(res_loc.value, index)
         return fcond

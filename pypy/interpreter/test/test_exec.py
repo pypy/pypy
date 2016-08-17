@@ -196,11 +196,11 @@ class AppTestExecStmt:
     def test_filename(self):
         try:
             exec "'unmatched_quote"
-        except SyntaxError, msg:
+        except SyntaxError as msg:
             assert msg.filename == '<string>'
         try:
             eval("'unmatched_quote")
-        except SyntaxError, msg:
+        except SyntaxError as msg:
             assert msg.filename == '<string>'
 
     def test_exec_and_name_lookups(self):
@@ -213,7 +213,7 @@ class AppTestExecStmt:
 
         try:
             res = f()
-        except NameError, e: # keep py.test from exploding confused
+        except NameError as e: # keep py.test from exploding confused
             raise e
 
         assert res == 1

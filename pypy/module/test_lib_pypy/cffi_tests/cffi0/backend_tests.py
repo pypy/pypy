@@ -56,7 +56,7 @@ class BackendTests:
         max = int(max)
         p = ffi.cast(c_decl, min)
         assert p != min       # no __eq__(int)
-        assert bool(p) is True
+        assert bool(p) is bool(min)
         assert int(p) == min
         p = ffi.cast(c_decl, max)
         assert int(p) == max
@@ -285,7 +285,9 @@ class BackendTests:
         assert ffi.new("char*", b"\xff")[0] == b'\xff'
         assert ffi.new("char*")[0] == b'\x00'
         assert int(ffi.cast("char", 300)) == 300 - 256
-        assert bool(ffi.cast("char", 0))
+        assert not bool(ffi.cast("char", 0))
+        assert bool(ffi.cast("char", 1))
+        assert bool(ffi.cast("char", 255))
         py.test.raises(TypeError, ffi.new, "char*", 32)
         py.test.raises(TypeError, ffi.new, "char*", u+"x")
         py.test.raises(TypeError, ffi.new, "char*", b"foo")
@@ -326,7 +328,11 @@ class BackendTests:
             py.test.raises(TypeError, ffi.new, "wchar_t*", u+'\U00012345')
         assert ffi.new("wchar_t*")[0] == u+'\x00'
         assert int(ffi.cast("wchar_t", 300)) == 300
-        assert bool(ffi.cast("wchar_t", 0))
+        assert not bool(ffi.cast("wchar_t", 0))
+        assert bool(ffi.cast("wchar_t", 1))
+        assert bool(ffi.cast("wchar_t", 65535))
+        if SIZE_OF_WCHAR > 2:
+            assert bool(ffi.cast("wchar_t", 65536))
         py.test.raises(TypeError, ffi.new, "wchar_t*", 32)
         py.test.raises(TypeError, ffi.new, "wchar_t*", "foo")
         #
@@ -1353,8 +1359,8 @@ class BackendTests:
         ffi = FFI(backend=self.Backend())
         ffi.cdef("enum foo;")
         from cffi import __version_info__
-        if __version_info__ < (1, 6):
-            py.test.skip("re-enable me in version 1.6")
+        if __version_info__ < (1, 8):
+            py.test.skip("re-enable me in version 1.8")
         e = py.test.raises(CDefError, ffi.cast, "enum foo", -1)
         assert str(e.value) == (
             "'enum foo' has no values explicitly defined: refusing to guess "
@@ -1523,21 +1529,30 @@ class BackendTests:
         import gc; gc.collect(); gc.collect(); gc.collect()
         assert seen == [3]
 
+    def test_gc_disable(self):
+        ffi = FFI(backend=self.Backend())
+        p = ffi.new("int *", 123)
+        py.test.raises(TypeError, ffi.gc, p, None)
+        seen = []
+        q1 = ffi.gc(p, lambda p: seen.append(1))
+        q2 = ffi.gc(q1, lambda p: seen.append(2))
+        import gc; gc.collect()
+        assert seen == []
+        assert ffi.gc(q1, None) is None
+        del q1, q2
+        import gc; gc.collect(); gc.collect(); gc.collect()
+        assert seen == [2]
+
     def test_gc_finite_list(self):
         ffi = FFI(backend=self.Backend())
-        public = not hasattr(ffi._backend, 'gcp')
         p = ffi.new("int *", 123)
         keepalive = []
         for i in range(10):
             keepalive.append(ffi.gc(p, lambda p: None))
-            if public:
-                assert len(ffi.gc_weakrefs.data) == i + 1
         del keepalive[:]
         import gc; gc.collect(); gc.collect()
         for i in range(10):
             keepalive.append(ffi.gc(p, lambda p: None))
-        if public:
-            assert len(ffi.gc_weakrefs.data) == 10
 
     def test_CData_CType(self):
         ffi = FFI(backend=self.Backend())

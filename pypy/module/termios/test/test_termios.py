@@ -1,7 +1,7 @@
 import os
 import sys
 import py
-from pypy.conftest import pypydir
+from pypy import pypydir
 from rpython.tool.udir import udir
 
 if os.name != 'posix':

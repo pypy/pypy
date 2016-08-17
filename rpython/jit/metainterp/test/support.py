@@ -73,7 +73,7 @@ def _get_jitcodes(testself, CPUClass, func, values,
         portal_runner_ptr = "???"
         vec = False
 
-    stats = history.Stats()
+    stats = history.Stats(None)
     cpu = CPUClass(rtyper, stats, None, False)
     cw = codewriter.CodeWriter(cpu, [FakeJitDriverSD()])
     cw.debug = True
@@ -99,6 +99,7 @@ def _get_jitcodes(testself, CPUClass, func, values,
         testself.finish_setup_for_interp_operations()
     #
     cw.make_jitcodes(verbose=True)
+    return stats
 
 def _run_with_blackhole(testself, args):
     from rpython.jit.metainterp.blackhole import BlackholeInterpBuilder
@@ -125,11 +126,14 @@ def _run_with_blackhole(testself, args):
     blackholeinterp.run()
     return blackholeinterp._final_result_anytype()
 
-def _run_with_pyjitpl(testself, args):
+def _run_with_pyjitpl(testself, args, stats):
     cw = testself.cw
     opt = history.Options(listops=True)
     metainterp_sd = pyjitpl.MetaInterpStaticData(cw.cpu, opt)
+    stats.metainterp_sd = metainterp_sd
     metainterp_sd.finish_setup(cw)
+    metainterp_sd.finish_setup_descrs()
+
     [jitdriver_sd] = metainterp_sd.jitdrivers_sd
     metainterp = pyjitpl.MetaInterp(metainterp_sd, jitdriver_sd)
     testself.metainterp = metainterp
@@ -258,11 +262,11 @@ class JitMixin:
 
     def interp_operations(self, f, args, **kwds):
         # get the JitCodes for the function f
-        _get_jitcodes(self, self.CPUClass, f, args, **kwds)
+        stats = _get_jitcodes(self, self.CPUClass, f, args, **kwds)
         # try to run it with blackhole.py
         result1 = _run_with_blackhole(self, args)
         # try to run it with pyjitpl.py
-        result2 = _run_with_pyjitpl(self, args)
+        result2 = _run_with_pyjitpl(self, args, stats)
         assert result1 == result2 or isnan(result1) and isnan(result2)
         # try to run it by running the code compiled just before
         df, result3 = _run_with_machine_code(self, args)

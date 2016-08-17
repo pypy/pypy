@@ -6,7 +6,7 @@ from rpython.rlib import jit
 from rpython.rlib.runicode import MAXUNICODE
 
 from pypy.interpreter import gateway
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import unwrap_spec
 
 
@@ -23,8 +23,7 @@ for depth is zero, returning the frame at the top of the call stack.
 This function should be used for internal and specialized
 purposes only."""
     if depth < 0:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("frame index must not be negative"))
+        raise oefmt(space.w_ValueError, "frame index must not be negative")
     return getframe(space, depth)
 
 
@@ -34,8 +33,7 @@ def getframe(space, depth):
     f = ec.gettopframe_nohidden()
     while True:
         if f is None:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("call stack is not deep enough"))
+            raise oefmt(space.w_ValueError, "call stack is not deep enough")
         if depth == 0:
             f.mark_as_escaped()
             return space.wrap(f)
@@ -54,8 +52,7 @@ value to N reserves N/1000 times 768KB of stack space.
 """
     from rpython.rlib.rstack import _stack_set_length_fraction
     if new_limit <= 0:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("recursion limit must be positive"))
+        raise oefmt(space.w_ValueError, "recursion limit must be positive")
     space.sys.recursionlimit = new_limit
     _stack_set_length_fraction(new_limit * 0.001)
 
@@ -63,6 +60,13 @@ def getrecursionlimit(space):
     """Return the last value set by setrecursionlimit().
     """
     return space.wrap(space.sys.recursionlimit)
+
+@unwrap_spec(flag=bool)
+def set_track_resources(space, flag):
+    space.sys.track_resources = flag
+
+def get_track_resources(space):
+    return space.wrap(space.sys.track_resources)
 
 @unwrap_spec(interval=int)
 def setcheckinterval(space, interval):
@@ -252,6 +256,6 @@ def _get_dllhandle(space):
 def getsizeof(space, w_object, w_default=None):
     """Not implemented on PyPy."""
     if w_default is None:
-        raise OperationError(space.w_TypeError,
-            space.wrap("sys.getsizeof() not implemented on PyPy"))
+        raise oefmt(space.w_TypeError,
+                    "sys.getsizeof() not implemented on PyPy")
     return w_default

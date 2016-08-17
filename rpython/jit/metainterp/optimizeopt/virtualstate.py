@@ -91,7 +91,7 @@ class AbstractVirtualStateInfo(object):
             state.renum[self.position] = other.position
             try:
                 self._generate_guards(other, op, runtime_op, state)
-            except VirtualStatesCantMatch, e:
+            except VirtualStatesCantMatch as e:
                 state.bad[self] = state.bad[other] = None
                 if e.state is None:
                     e.state = state
@@ -157,9 +157,11 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
                 raise VirtualStatesCantMatch("field descrs don't match")
             if runtime_box is not None and opinfo is not None:
                 fieldbox = opinfo._fields[self.fielddescrs[i].get_index()]
-                # must be there
-                fieldbox_runtime = state.get_runtime_field(runtime_box,
+                if fieldbox is not None:
+                    fieldbox_runtime = state.get_runtime_field(runtime_box,
                                                            self.fielddescrs[i])
+                else:
+                    fieldbox_runtime = None
             else:
                 fieldbox = None
                 fieldbox_runtime = None
@@ -348,40 +350,23 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
     def debug_header(self, indent):
         debug_print(indent + 'VArrayStructStateInfo(%d):' % self.position)
 
+
+def not_virtual(cpu, type, info):
+    if type == 'i':
+        return NotVirtualStateInfoInt(cpu, type, info)
+    if type == 'r':
+        return NotVirtualStateInfoPtr(cpu, type, info)
+    return NotVirtualStateInfo(cpu, type, info)
+
+
 class NotVirtualStateInfo(AbstractVirtualStateInfo):
-    lenbound = None
-    intbound = None
     level = LEVEL_UNKNOWN
     constbox = None
-    known_class = None
-    
+
     def __init__(self, cpu, type, info):
         if info and info.is_constant():
             self.level = LEVEL_CONSTANT
             self.constbox = info.getconst()
-            if type == 'r':
-                self.known_class = info.get_known_class(cpu)
-            elif type == 'i':
-                self.intbound = info
-        elif type == 'r':
-            if info:
-                self.known_class = info.get_known_class(cpu)
-                if self.known_class:
-                    self.level = LEVEL_KNOWNCLASS
-                elif info.is_nonnull():
-                    self.level = LEVEL_NONNULL
-                self.lenbound = info.getlenbound(None)
-        elif type == 'i':
-            if isinstance(info, IntBound):
-                if info.lower < MININT / 2:
-                    info.lower = MININT
-                if info.upper > MAXINT / 2:
-                    info.upper = MAXINT
-                self.intbound = info
-        elif type == 'f':
-            if info and info.is_constant():
-                self.level = LEVEL_CONSTANT
-                self.constbox = info.getconst()
 
     def is_const(self):
         return self.constbox is not None
@@ -392,110 +377,31 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
     def _generate_guards(self, other, box, runtime_box, state):
         # XXX This will always retrace instead of forcing anything which
         # might be what we want sometimes?
-        if not isinstance(other, NotVirtualStateInfo):
-            raise VirtualStatesCantMatch(
-                    'The VirtualStates does not match as a ' +
-                    'virtual appears where a pointer is needed ' +
-                    'and it is too late to force it.')
-
-
         extra_guards = state.extra_guards
-        cpu = state.cpu
-        if self.lenbound:
-            if other.lenbound is None:
-                other_bound = IntLowerBound(0)
-            else:
-                other_bound = other.lenbound
-            if not self.lenbound.contains_bound(other_bound):
-                raise VirtualStatesCantMatch("length bound does not match")
-
         if self.level == LEVEL_UNKNOWN:
-            # confusingly enough, this is done also for pointers
-            # which have the full range as the "bound", so it always works
-            return self._generate_guards_intbounds(other, box, runtime_box,
-                                                   extra_guards,
-                                                   state.optimizer)
-
-        # the following conditions often peek into the runtime value that the
-        # box had when tracing. This value is only used as an educated guess.
-        # It is used here to choose between either emitting a guard and jumping
-        # to an existing compiled loop or retracing the loop. Both alternatives
-        # will always generate correct behaviour, but performance will differ.
-        elif self.level == LEVEL_NONNULL:
-            if other.level == LEVEL_UNKNOWN:
-                if runtime_box is not None and runtime_box.nonnull():
-                    op = ResOperation(rop.GUARD_NONNULL, [box], None)
-                    extra_guards.append(op)
-                    return
-                else:
-                    raise VirtualStatesCantMatch("other not known to be nonnull")
-            elif other.level == LEVEL_NONNULL:
-                return
-            elif other.level == LEVEL_KNOWNCLASS:
-                return # implies nonnull
-            else:
-                assert other.level == LEVEL_CONSTANT
-                assert other.constbox
-                if not other.constbox.nonnull():
-                    raise VirtualStatesCantMatch("constant is null")
-                return
-
-        elif self.level == LEVEL_KNOWNCLASS:
-            if other.level == LEVEL_UNKNOWN:
-                if (runtime_box and runtime_box.nonnull() and
-              self.known_class.same_constant(cpu.ts.cls_of_box(runtime_box))):
-                    op = ResOperation(rop.GUARD_NONNULL_CLASS, [box, self.known_class], None)
-                    extra_guards.append(op)
-                    return
-                else:
-                    raise VirtualStatesCantMatch("other's class is unknown")
-            elif other.level == LEVEL_NONNULL:
-                if (runtime_box and self.known_class.same_constant(
-                        cpu.ts.cls_of_box(runtime_box))):
-                    op = ResOperation(rop.GUARD_CLASS, [box, self.known_class], None)
-                    extra_guards.append(op)
-                    return
-                else:
-                    raise VirtualStatesCantMatch("other's class is unknown")
-            elif other.level == LEVEL_KNOWNCLASS:
-                if self.known_class.same_constant(other.known_class):
-                    return
-                raise VirtualStatesCantMatch("classes don't match")
-            else:
-                assert other.level == LEVEL_CONSTANT
-                if (other.constbox.nonnull() and
-                        self.known_class.same_constant(cpu.ts.cls_of_box(other.constbox))):
-                    return
-                else:
-                    raise VirtualStatesCantMatch("classes don't match")
-
+            return self._generate_guards_unkown(other, box, runtime_box,
+                                                extra_guards,
+                                                state)
         else:
+            if not isinstance(other, NotVirtualStateInfo):
+                raise VirtualStatesCantMatch(
+                        'comparing a constant against something that is a virtual')
             assert self.level == LEVEL_CONSTANT
             if other.level == LEVEL_CONSTANT:
                 if self.constbox.same_constant(other.constbox):
                     return
                 raise VirtualStatesCantMatch("different constants")
             if runtime_box is not None and self.constbox.same_constant(runtime_box.constbox()):
-                op = ResOperation(rop.GUARD_VALUE, [box, self.constbox], None)
+                op = ResOperation(rop.GUARD_VALUE, [box, self.constbox])
                 extra_guards.append(op)
                 return
             else:
                 raise VirtualStatesCantMatch("other not constant")
         assert 0, "unreachable"
 
-    def _generate_guards_intbounds(self, other, box, runtime_box, extra_guards,
-                                   optimizer):
-        if self.intbound is None:
-            return
-        if self.intbound.contains_bound(other.intbound):
-            return
-        if (runtime_box is not None and
-            self.intbound.contains(runtime_box.getint())):
-            # this may generate a few more guards than needed, but they are
-            # optimized away when emitting them
-            self.intbound.make_guards(box, extra_guards, optimizer)
-            return
-        raise VirtualStatesCantMatch("intbounds don't match")
+    def _generate_guards_unkown(self, other, box, runtime_box, extra_guards,
+                                state):
+        return
 
     def enum_forced_boxes(self, boxes, box, optimizer, force_boxes=False):
         if self.level == LEVEL_CONSTANT:
@@ -551,8 +457,145 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         if self.lenbound:
             lb = ', ' + self.lenbound.bound.__repr__()
 
-        debug_print(indent + mark + 'NotVirtualInfo(%d' % self.position +
-                    ', ' + l + ', ' + self.intbound.__repr__() + lb + ')')
+        result = indent + mark + 'NotVirtualStateInfo(%d' % self.position + ', ' + l
+        extra = self._extra_repr()
+        if extra:
+            result += ', ' + extra
+        result += lb + ')'
+        debug_print(result)
+
+class NotVirtualStateInfoInt(NotVirtualStateInfo):
+    intbound = None
+
+    def __init__(self, cpu, type, info):
+        NotVirtualStateInfo.__init__(self, cpu, type, info)
+        assert type == 'i'
+        if isinstance(info, IntBound):
+            if info.lower < MININT / 2:
+                info.lower = MININT
+            if info.upper > MAXINT / 2:
+                info.upper = MAXINT
+            self.intbound = info
+
+    def _generate_guards_unkown(self, other, box, runtime_box, extra_guards,
+                                state):
+        other_intbound = None
+        if isinstance(other, NotVirtualStateInfoInt):
+            other_intbound = other.intbound
+        if self.intbound is None:
+            return
+        if self.intbound.contains_bound(other_intbound):
+            return
+        if (runtime_box is not None and
+            self.intbound.contains(runtime_box.getint())):
+            # this may generate a few more guards than needed, but they are
+            # optimized away when emitting them
+            self.intbound.make_guards(box, extra_guards, state.optimizer)
+            return
+        raise VirtualStatesCantMatch("intbounds don't match")
+
+    def _extra_repr(self):
+        return self.intbound.__repr__()
+
+
+class NotVirtualStateInfoPtr(NotVirtualStateInfo):
+    lenbound = None
+    known_class = None
+
+    def __init__(self, cpu, type, info):
+        if info:
+            self.known_class = info.get_known_class(cpu)
+            if self.known_class:
+                self.level = LEVEL_KNOWNCLASS
+            elif info.is_nonnull():
+                self.level = LEVEL_NONNULL
+            self.lenbound = info.getlenbound(None)
+        # might set it to LEVEL_CONSTANT
+        NotVirtualStateInfo.__init__(self, cpu, type, info)
+
+    def _generate_guards(self, other, box, runtime_box, state):
+        if not isinstance(other, NotVirtualStateInfoPtr):
+            raise VirtualStatesCantMatch(
+                    'The VirtualStates does not match as a ' +
+                    'virtual appears where a pointer is needed ' +
+                    'and it is too late to force it.')
+        extra_guards = state.extra_guards
+        if self.lenbound:
+            if other.lenbound is None:
+                other_bound = IntLowerBound(0)
+            else:
+                other_bound = other.lenbound
+            if not self.lenbound.contains_bound(other_bound):
+                raise VirtualStatesCantMatch("length bound does not match")
+        if self.level == LEVEL_NONNULL:
+            return self._generate_guards_nonnull(other, box, runtime_box,
+                                                 extra_guards,
+                                                 state)
+        elif self.level == LEVEL_KNOWNCLASS:
+            return self._generate_guards_knownclass(other, box, runtime_box,
+                                                    extra_guards,
+                                                    state)
+        return NotVirtualStateInfo._generate_guards(self, other, box,
+                                                    runtime_box, state)
+
+
+    # the following methods often peek into the runtime value that the
+    # box had when tracing. This value is only used as an educated guess.
+    # It is used here to choose between either emitting a guard and jumping
+    # to an existing compiled loop or retracing the loop. Both alternatives
+    # will always generate correct behaviour, but performance will differ.
+
+    def _generate_guards_nonnull(self, other, box, runtime_box, extra_guards,
+                                 state):
+        if not isinstance(other, NotVirtualStateInfoPtr):
+            raise VirtualStatesCantMatch('trying to match ptr with non-ptr??!')
+        if other.level == LEVEL_UNKNOWN:
+            if runtime_box is not None and runtime_box.nonnull():
+                op = ResOperation(rop.GUARD_NONNULL, [box])
+                extra_guards.append(op)
+                return
+            else:
+                raise VirtualStatesCantMatch("other not known to be nonnull")
+        elif other.level == LEVEL_NONNULL:
+            pass
+        elif other.level == LEVEL_KNOWNCLASS:
+            pass # implies nonnull
+        else:
+            assert other.level == LEVEL_CONSTANT
+            assert other.constbox
+            if not other.constbox.nonnull():
+                raise VirtualStatesCantMatch("constant is null")
+
+    def _generate_guards_knownclass(self, other, box, runtime_box, extra_guards,
+                                    state):
+        cpu = state.cpu
+        if not isinstance(other, NotVirtualStateInfoPtr):
+            raise VirtualStatesCantMatch('trying to match ptr with non-ptr??!')
+        if other.level == LEVEL_UNKNOWN:
+            if (runtime_box and runtime_box.nonnull() and
+                  self.known_class.same_constant(cpu.ts.cls_of_box(runtime_box))):
+                op = ResOperation(rop.GUARD_NONNULL_CLASS, [box, self.known_class])
+                extra_guards.append(op)
+            else:
+                raise VirtualStatesCantMatch("other's class is unknown")
+        elif other.level == LEVEL_NONNULL:
+            if (runtime_box and self.known_class.same_constant(
+                    cpu.ts.cls_of_box(runtime_box))):
+                op = ResOperation(rop.GUARD_CLASS, [box, self.known_class])
+                extra_guards.append(op)
+            else:
+                raise VirtualStatesCantMatch("other's class is unknown")
+        elif other.level == LEVEL_KNOWNCLASS:
+            if self.known_class.same_constant(other.known_class):
+                return
+            raise VirtualStatesCantMatch("classes don't match")
+        else:
+            assert other.level == LEVEL_CONSTANT
+            if (other.constbox.nonnull() and
+                    self.known_class.same_constant(cpu.ts.cls_of_box(other.constbox))):
+                pass
+            else:
+                raise VirtualStatesCantMatch("classes don't match")
 
 
 class VirtualState(object):
@@ -676,8 +719,8 @@ class VirtualStateConstructor(VirtualVisitor):
         return VirtualState(state)
 
     def visit_not_virtual(self, box):
-        return NotVirtualStateInfo(self.optimizer.cpu, box.type,
-                                   self.optimizer.getinfo(box))
+        return not_virtual(self.optimizer.cpu, box.type,
+                           self.optimizer.getinfo(box))
 
     def visit_virtual(self, descr, fielddescrs):
         known_class = ConstInt(descr.get_vtable())
