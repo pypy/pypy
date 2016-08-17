@@ -1,0 +1,10 @@
+Branch for experimenting with N. Truessel's implementation of a generational,
+incremental, non-moving quad-color GC.
+
+Original idea: http://wiki.luajit.org/New-Garbage-Collector
+
+Repository for the actual GC:
+https://github.com/ntruessel/qcgc
+
+
+* TODO document branch
