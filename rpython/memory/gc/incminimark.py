@@ -3050,6 +3050,15 @@ class IncrementalMiniMarkGC(MovingGCBase):
         else:
             self._rrc_unlink(pyobject)
             self.rrc_dealloc_pending.append(pyobject)
+            # an object with refcnt == 0 cannot stay around waiting
+            # for its deallocator to be called.  Some code (lxml)
+            # expects that tp_dealloc is called immediately when
+            # the refcnt drops to 0.  If it isn't, we get some
+            # uncleared raw pointer that can still be used to access
+            # the object; but (PyObject *)raw_pointer is then bogus
+            # because after a Py_INCREF()/Py_DECREF() on it, its
+            # tp_dealloc is also called!
+            self._pyobj(pyobject).ob_refcnt = 1
     _rrc_free._always_inline_ = True
 
     def rrc_major_collection_trace(self):
