@@ -165,3 +165,8 @@ class AppTestMemoryView:
 
     def test_hex(self):
         assert memoryview(b"abc").hex() == u'616263'
+
+    @py.test.skip("needs numpy ndarray")
+    def test_tuple_indexing(self):
+        content = ndarray(list(range(12)))
+        assert memoryview(content)[0,0] == 0

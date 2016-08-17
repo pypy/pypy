@@ -12,7 +12,6 @@ from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty,  make_weakref_descr
 from pypy.module.struct.formatiterator import UnpackFormatIterator, PackFormatIterator
 
-
 class W_MemoryView(W_Root):
     """Implement the built-in 'memoryview' type as a wrapper around
     an interp-level buffer.
@@ -24,6 +23,7 @@ class W_MemoryView(W_Root):
         self._hash = -1
         self.format = format
         self.itemsize = itemsize
+        self.flags = 0
 
     def buffer_w_ex(self, space, flags):
         self._check_released(space)
@@ -226,8 +226,18 @@ class W_MemoryView(W_Root):
         return size
 
     def descr_cast(self, space, w_format, w_shape=None):
-        # XXX fixme. does not do anything near cpython (see memoryobjet.c memory_cast)
         self._check_released(space)
+
+        if not space.isinstance_w(w_obj, space.w_unicode):
+            raise OperationError(space.w_TypeError, \
+                    space.wrap("memoryview: format argument must be a string"))
+
+        # XXX fixme. does not do anything near cpython (see memoryobjet.c memory_cast)
+        #if self.flags & (space.BUF_CONTIG_RO|space.BUF_C) == 0:
+        #    raise OperationError(space.w_TypeError, \
+        #            space.wrap("memoryview: casts are restricted" \
+        #                       " to C-contiguous views"))
+
         fmt = space.str_w(w_format)
         newitemsize = self.get_native_fmtchar(fmt)
         return W_MemoryView(self.buf, fmt, newitemsize)

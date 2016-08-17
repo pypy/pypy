@@ -1428,6 +1428,7 @@ class ObjSpace(object):
 
     BUF_SIMPLE   = 0x0000
     BUF_WRITABLE = 0x0001
+    BUF_C        = 0x0002
     BUF_FORMAT   = 0x0004
     BUF_ND       = 0x0008
     BUF_STRIDES  = 0x0010 | BUF_ND
