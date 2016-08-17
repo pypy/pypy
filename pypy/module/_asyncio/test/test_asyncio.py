@@ -15,14 +15,44 @@ import asyncio
 
 async def f():
     reader, writer = await asyncio.open_connection('example.com', 80)
-    writer.write(b'a')
-    async for line in reader:
-        print('>>>', line)
     writer.close()
 
 loop = asyncio.get_event_loop()
 loop.run_until_complete(f())
 print("done with async loop")
+        """
+    
+    def test_async_for(self):
+        # temporary test from
+        # http://blog.idego.pl/2015/12/05/back-to-the-future-with-async-and-await-in-python-3-5/
+        """
+import asyncio
+import logging
+import sys
+logging.basicConfig(level=logging.INFO, stream=sys.stdout, format="%(asctime)s: %(message)s")
+
+class AsyncIter:
+    def __init__(self):
+        self._data = list(range(10))
+        self._index = 0
+    
+    async def __aiter__(self):
+        return self
+    
+    async def __anext__(self):
+        while self._index < 10:
+            await asyncio.sleep(1)
+            self._index += 1
+            return self._data[self._index-1]
+        raise StopAsyncIteration
+
+async def do_loop():
+    async for x in AsyncIter():
+        logging.info(x)
+
+loop = asyncio.get_event_loop()
+futures = [asyncio.ensure_future(do_loop()), asyncio.ensure_future(do_loop())]
+loop.run_until_complete(asyncio.wait(futures))
         """
     
     def test_asynchronous_context_managers(self):
