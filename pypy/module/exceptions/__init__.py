@@ -52,6 +52,7 @@ class Module(MixedModule):
         'ResourceWarning'  : 'interp_exceptions.W_ResourceWarning',
         'RuntimeError' : 'interp_exceptions.W_RuntimeError',
         'RuntimeWarning' : 'interp_exceptions.W_RuntimeWarning',
+        'StopAsyncIteration' : 'interp_exceptions.W_StopAsyncIteration',
         'StopIteration' : 'interp_exceptions.W_StopIteration',
         'SyntaxError' : 'interp_exceptions.W_SyntaxError',
         'SyntaxWarning' : 'interp_exceptions.W_SyntaxWarning',

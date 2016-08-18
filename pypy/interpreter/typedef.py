@@ -798,10 +798,15 @@ GeneratorIterator.typedef = TypeDef("generator",
 )
 assert not GeneratorIterator.typedef.acceptable_as_base_class  # no __new__
 
+# TODO: to have the same distinction (Coroutine | Iterator) as in cpython 3.5,
+# a wrapper typedef with __anext__ has to be created, and __anext__ has to be
+# removed in coroutine
 Coroutine.typedef = TypeDef("coroutine",
     __repr__   = interp2app(Coroutine.descr__repr__),
     __reduce__   = interp2app(Coroutine.descr__reduce__),
     __setstate__ = interp2app(Coroutine.descr__setstate__),
+    __anext__   = interp2app(Coroutine.descr_next,
+                            descrmismatch='__anext__'),
     send       = interp2app(Coroutine.descr_send,
                             descrmismatch='send'),
     throw      = interp2app(Coroutine.descr_throw,
