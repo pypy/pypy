@@ -622,6 +622,7 @@ class TestCompatible(LLJitMixin):
                 self.num = num
                 self.version = Version()
                 self.dct = {}
+                self.classdct = {}
 
             def instantiate(self):
                 return Obj(self)
@@ -629,6 +630,10 @@ class TestCompatible(LLJitMixin):
             @jit.elidable_compatible(quasi_immut_field_name_for_second_arg='version')
             def lookup_version(self, version, name):
                 return self.dct.get(name, -1)
+
+            @jit.elidable_compatible(quasi_immut_field_name_for_second_arg='version')
+            def lookup_class(self, version, name):
+                return self.classdct.get(name, -1)
 
         class Version(object):
             pass
@@ -641,18 +646,30 @@ class TestCompatible(LLJitMixin):
                 map = self.map
                 assert isinstance(map, Map)
                 map = jit.hint(map, promote_compatible=True)
-                return map.lookup_version(name)
+                result = map.lookup_version(name)
+                if result == -1:
+                    return map.lookup_class(name)
+                return result
 
         m1 = Map(1)
         m1.dct['a'] = 1
         m1.dct['b'] = 2
+        m1.classdct['d'] = 4
+        m1.classdct['e'] = 5
         m2 = Map(2)
         m2.dct['a'] = 1
         m2.dct['b'] = 2
         m2.dct['c'] = 5
+        m2.classdct['d'] = 4
+        m2.classdct['e'] = 5
+        m2.classdct['f'] = 5
+
+        m3 = Map(3)
+        m3.version = None
 
         p1 = m1.instantiate()
         p2 = m2.instantiate()
+        p3 = m3.instantiate()
 
         driver = jit.JitDriver(greens = [], reds = ['n', 'res', 'p'])
 
@@ -660,15 +677,21 @@ class TestCompatible(LLJitMixin):
             res = p.map.num
             while n > 0:
                 driver.jit_merge_point(n=n, p=p, res=res)
-                res += p.lookup('a')
-                res += p.lookup('c')
-                res += p.lookup('b')
+                version = p.map.version
+                if version is not None:
+                    res += p.lookup('a')
+                    res += p.lookup('c')
+                    res += p.lookup('b')
+                    res += p.lookup('d')
+                    res += p.lookup('e')
+                    res += p.lookup('f')
                 n -= 1
             return res
 
         def main(x):
             res = f(100, p1)
             res = f(100, p2)
+            res = f(100, p3)
         main(True)
         main(False)
 

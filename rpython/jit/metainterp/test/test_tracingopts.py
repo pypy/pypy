@@ -538,6 +538,34 @@ class TestLLtype(LLJitMixin):
         self.check_operations_history(quasiimmut_field=1)
 
 
+    def test_heap_caching_quasi_immutable_clear_after_guard_compatible(self):
+        class A:
+            _immutable_fields_ = ['x?']
+        a1 = A()
+        a1.x = 5
+        a2 = A()
+        a2.x = 7
+
+        @jit.elidable
+        def get(n):
+            if n > 0:
+                return a1
+            return a2
+
+        def g(a):
+            return a.x
+
+        def fn(n):
+            a = get(n)
+            res = g(a)
+            jit.hint(a, promote_compatible=True)
+            return res + a.x
+
+        res = self.interp_operations(fn, [7])
+        assert res == 10
+        self.check_operations_history(quasiimmut_field=2)
+
+
     def test_heap_caching_multiple_tuples(self):
         class Gbl(object):
             pass

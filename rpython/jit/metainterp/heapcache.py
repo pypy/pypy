@@ -163,6 +163,10 @@ class HeapCache(object):
         # maps descrs to {index: CacheEntry} dicts
         self.heap_array_cache = {}
 
+        # maps descrs to CacheEntry, contains only descrs that are
+        # quasi-immutable
+        self.quasi_immut_descrs = {}
+
     def reset_keep_likely_virtuals(self):
         # Update only 'head_version', but 'likely_virtual_version' remains
         # at its older value.
@@ -511,7 +515,17 @@ class HeapCache(object):
         cache = self.heap_cache.get(fielddescr, None)
         if cache is None:
             cache = self.heap_cache[fielddescr] = CacheEntry(self)
+        self.quasi_immut_descrs[fielddescr] = cache
         if cache.quasiimmut_seen is not None:
             cache.quasiimmut_seen[box] = None
         else:
             cache.quasiimmut_seen = {box: None}
+
+    def invalidate_quasi_immut(self, box):
+        # slow, but should be rare
+        for fielddescr, cache in self.quasi_immut_descrs.iteritems():
+            if cache.quasiimmut_seen:
+                try:
+                    del cache.quasiimmut_seen[box]
+                except KeyError:
+                    pass

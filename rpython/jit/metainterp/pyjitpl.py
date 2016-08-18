@@ -1209,7 +1209,11 @@ class MIFrame(object):
             self.metainterp.generate_guard(rop.GUARD_COMPATIBLE, box, [promoted_box],
                                            resumepc=orgpc)
             self.metainterp.heapcache.have_guard_compatible_now(box)
-            # importantly, there is no replace_box here!
+            # it's necessary to not cache quasi-immutable reads on this box
+            # the guard-compatible machinery needs to see the quasi-immutable
+            # read
+            self.metainterp.heapcache.invalidate_quasi_immut(box)
+            # importantly, there is no replace_box here (unlike guard_value)
 
     @arguments("box", "orgpc")
     def opimpl_guard_class(self, box, orgpc):
