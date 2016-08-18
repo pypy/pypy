@@ -534,8 +534,8 @@ def charp2str_free(space, cdata):
     return pystr
 
 def c_charp2stdstring(space, svalue, sz):
-    return _cdata_to_cobject(
-        space, call_capi(space, 'charp2stdstring', [_Arg(s=svalue), _Arg(h=sz)]))
+    return _cdata_to_cobject(space, call_capi(space, 'charp2stdstring',
+        [_Arg(s=svalue), _Arg(h=rffi.cast(rffi.ULONG, sz))]))
 def c_stdstring2charp(space, cppstr):
     sz = lltype.malloc(rffi.SIZE_TP.TO, 1, flavor='raw')
     try:
