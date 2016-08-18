@@ -146,11 +146,13 @@ class CompatibilityCondition(object):
         """ re-emit the conditions about variable op into the short preamble
         """
         from rpython.jit.metainterp.resoperation import rop, ResOperation
-        short.append(
+        localshort = []
+        localshort.append(
             ResOperation(rop.GUARD_COMPATIBLE, [
                 op, self.known_valid]))
         for cond in self.conditions:
-            cond.emit_condition(op, short, optimizer)
+            cond.emit_condition(op, localshort, short, optimizer)
+        short.extend(localshort)
 
     def emit_needed_conditions_if_const_matches(
             self, other, const, op, extra_guards, optimizer, cpu):
@@ -160,6 +162,7 @@ class CompatibilityCondition(object):
         at the end. """
         from rpython.jit.metainterp.resoperation import rop, ResOperation
         have_guard = False
+        local_extra_guards = []
         for cond in self.conditions:
             if other is None or not other.contains_condition(cond):
                 if const is None:
@@ -169,13 +172,16 @@ class CompatibilityCondition(object):
                     if not have_guard:
                         # NB: the guard_compatible here needs to use const,
                         # otherwise the optimizer will just complain
-                        extra_guards.append(ResOperation(
+                        local_extra_guards.append(ResOperation(
                             rop.GUARD_COMPATIBLE,
                                 [op, const]))
                         have_guard = True
-                    cond.emit_condition(op, extra_guards, optimizer, const)
+                    cond.emit_condition(
+                            op, local_extra_guards,
+                            extra_guards, optimizer, const)
                 else:
                     return False
+        extra_guards.extend(local_extra_guards)
         return True
 
     def attach_to_descr(self, descr, guard_value_op, optimizer):
@@ -263,7 +269,7 @@ class Condition(object):
     def repr(self):
         return ""
 
-    def emit_condition(self, op, short, optimizer, const=None):
+    def emit_condition(self, op, guards, pre_guards, optimizer, const=None):
         raise NotImplementedError("abstract base class")
 
     def _repr_const(self, arg):
@@ -341,7 +347,7 @@ class PureCallCondition(Condition):
                 return False
         return True
 
-    def emit_condition(self, op, short, optimizer, const=None):
+    def emit_condition(self, op, short, pre_short, optimizer, const=None):
         from rpython.jit.metainterp.history import INT, REF, FLOAT, VOID
         from rpython.jit.metainterp.resoperation import rop, ResOperation
         # woah, mess
@@ -387,11 +393,14 @@ class PureCallCondition(Condition):
             res = self.debug_mp_str + "\n" + res
         return res
 
+class UnsupportedInfoInGuardCompatibleError(Exception):
+    pass
 
 class QuasiimmutGetfieldAndPureCallCondition(PureCallCondition):
     const_args_start_at = 3
 
     def __init__(self, op, qmutdescr, optimizer):
+        from rpython.jit.metainterp.optimizeopt import info
         PureCallCondition.__init__(self, op, optimizer)
         self.args[2] = None
         # XXX not 100% sure whether it's save to store the whole descr
@@ -399,6 +408,17 @@ class QuasiimmutGetfieldAndPureCallCondition(PureCallCondition):
         self.qmut = qmutdescr.qmut
         self.mutatefielddescr = qmutdescr.mutatefielddescr
         self.fielddescr = qmutdescr.fielddescr
+        self.need_nonnull_arg2 = False
+        if self.fielddescr.is_pointer_field():
+            fieldinfo = optimizer.getptrinfo(op.getarg(2))
+            if fieldinfo is not None:
+                if type(fieldinfo) != info.NonNullPtrInfo:
+                    # XXX PyPy only needs non-null versions. if another
+                    # interpreter needs something more specific we need to
+                    # generalize this code
+                    raise UnsupportedInfoInGuardCompatible()
+                else:
+                    self.need_nonnull_arg2 = True
 
     def activate(self, ref, optimizer):
         # record the quasi-immutable
@@ -458,7 +478,7 @@ class QuasiimmutGetfieldAndPureCallCondition(PureCallCondition):
                 return False
         return True
 
-    def emit_condition(self, op, short, optimizer, const=None):
+    def emit_condition(self, op, short, pre_short, optimizer, const=None):
         from rpython.jit.metainterp.resoperation import rop, ResOperation
         from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
         # more mess
@@ -466,6 +486,13 @@ class QuasiimmutGetfieldAndPureCallCondition(PureCallCondition):
         if fielddescr.is_pointer_field():
             getfield_op = ResOperation(
                 rop.GETFIELD_GC_R, [op], fielddescr)
+            if self.need_nonnull_arg2:
+                # XXX atm it's emmitted n times
+                getfield_op2 = ResOperation(
+                    rop.GETFIELD_GC_R, [op], fielddescr)
+                guard_nonnull = ResOperation(rop.GUARD_NONNULL, [getfield_op2])
+                pre_short.append(getfield_op2)
+                pre_short.append(guard_nonnull)
         elif fielddescr.is_float_field():
             getfield_op = ResOperation(
                 rop.GETFIELD_GC_F, [op], fielddescr)
@@ -485,7 +512,7 @@ class QuasiimmutGetfieldAndPureCallCondition(PureCallCondition):
                 rop.GUARD_NOT_INVALIDATED, []),
             getfield_op])
         index = len(short)
-        PureCallCondition.emit_condition(self, op, short, optimizer, const)
+        PureCallCondition.emit_condition(self, op, short, pre_short, optimizer, const)
         call_op = short[index]
         # puh, not pretty
         args = call_op.getarglist()[:]
