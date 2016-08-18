@@ -5,13 +5,13 @@ import re
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, PyObject, Py_ssize_t, Py_TPFLAGS_CHECKTYPES,
-    mangle_name, pypy_decl)
+    mangle_name, pypy_decl, Py_buffer)
 from pypy.module.cpyext.typeobjectdefs import (
     unaryfunc, wrapperfunc, ternaryfunc, PyTypeObjectPtr, binaryfunc, ternaryfunc,
     getattrfunc, getattrofunc, setattrofunc, lenfunc, ssizeargfunc, inquiry,
     ssizessizeargfunc, ssizeobjargproc, iternextfunc, initproc, richcmpfunc,
     cmpfunc, hashfunc, descrgetfunc, descrsetfunc, objobjproc, objobjargproc,
-    readbufferproc, ssizessizeobjargproc)
+    readbufferproc, getbufferproc, ssizessizeobjargproc)
 from pypy.module.cpyext.pyobject import from_ref, make_ref, Py_DecRef
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.state import State
@@ -302,6 +302,7 @@ class CPyBuffer(Buffer):
     _immutable_ = True
 
     def __init__(self, ptr, size, w_obj):
+        # XXX leak of ptr
         self.ptr = ptr
         self.size = size
         self.w_obj = w_obj # kept alive
@@ -317,8 +318,7 @@ class CPyBuffer(Buffer):
         return rffi.cast(rffi.CCHARP, self.ptr)
 
     def getformat(self):
-        import pdb; pdb.set_trace()
-        return 'i'
+        return rffi.charp2str(self.ptr.c_format)
 
 def wrap_getreadbuffer(space, w_self, w_args, func):
     func_target = rffi.cast(readbufferproc, func)
@@ -330,8 +330,15 @@ def wrap_getreadbuffer(space, w_self, w_args, func):
         return space.newbuffer(CPyBuffer(ptr[0], size, w_self))
 
 def wrap_getbuffer(space, w_self, w_args, func):
-    import pdb; pdb.set_trace()
-    return space.newbuffer(CPyBuffer(ptr[0], size, w_self))
+    func_target = rffi.cast(getbufferproc, func)
+    # XXX leak
+    pybuf = lltype.malloc(Py_buffer, flavor='raw', track_allocation=False)
+    # XXX flags are not in w_args?
+    flags = rffi.cast(rffi.INT_real,0)
+    size = generic_cpy_call(space, func_target, w_self, pybuf, flags)
+    if size < 0:
+        space.fromcache(State).check_and_raise_exception(always=True)
+    return space.newbuffer(CPyBuffer(pybuf, size, w_self))
 
 def get_richcmp_func(OP_CONST):
     def inner(space, w_self, w_args, func):
