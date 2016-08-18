@@ -45,5 +45,8 @@ def test_getrlimit():
 
 def test_setrlimit():
     # minimal "does not crash" test
-    x = resource.getrlimit(resource.RLIMIT_CPU)
-    resource.setrlimit(resource.RLIMIT_CPU, x)
+    x, y = resource.getrlimit(resource.RLIMIT_CPU)
+    resource.setrlimit(resource.RLIMIT_CPU, (x, y))
+    x += 0.2
+    y += 0.3
+    resource.setrlimit(resource.RLIMIT_CPU, (x, y))    # truncated to ints
