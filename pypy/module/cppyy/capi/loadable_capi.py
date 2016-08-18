@@ -220,7 +220,7 @@ class State(object):
 
             'charp2stdstring'          : ([c_ccharp, c_size_t],       c_object),
             #stdstring2charp  actually takes an size_t* as last parameter, but this will do
-            'stdstring2charp'          : ([c_ccharp, c_voidp],        c_ccharp),
+            'stdstring2charp'          : ([c_object, c_voidp],        c_ccharp),
             'stdstring2stdstring'      : ([c_object],                 c_object),
         }
 
@@ -280,6 +280,10 @@ def _cdata_to_ptr(space, w_cdata): # TODO: this is both a hack and dreadfully sl
     w_cdata = space.interp_w(cdataobj.W_CData, w_cdata, can_be_None=False)
     ptr = w_cdata.unsafe_escaping_ptr()
     return rffi.cast(rffi.VOIDP, ptr)
+
+def _cdata_to_ccharp(space, w_cdata):
+    ptr = _cdata_to_ptr(space, w_cdata)      # see above ... something better?
+    return rffi.cast(rffi.CCHARP, ptr)
 
 def c_load_dictionary(name):
     return libffi.CDLL(name)
@@ -341,11 +345,14 @@ def c_call_r(space, cppmethod, cppobject, nargs, cargs):
     return _cdata_to_ptr(space, call_capi(space, 'call_r', args))
 def c_call_s(space, cppmethod, cppobject, nargs, cargs):
     length = lltype.malloc(rffi.SIZE_TP.TO, 1, flavor='raw')
-    args = [_Arg(h=cppmethod), _Arg(h=cppobject), _Arg(l=nargs), _Arg(vp=cargs), _Arg(vp=length)]
-    cstr = call_capi(space, 'call_s', args)
-    cstr_len = int(length[0])
-    lltype.free(length, flavor='raw')
-    return cstr, cstr_len
+    try:
+        w_cstr = call_capi(space, 'call_s',
+            [_Arg(h=cppmethod), _Arg(h=cppobject), _Arg(l=nargs), _Arg(vp=cargs),
+             _Arg(vp=rffi.cast(rffi.VOIDP, length))])
+        cstr_len = int(length[0])
+    finally:
+        lltype.free(length, flavor='raw')
+    return _cdata_to_ccharp(space, w_cstr), cstr_len
 
 def c_constructor(space, cppmethod, cppobject, nargs, cargs):
     args = [_Arg(h=cppmethod), _Arg(h=cppobject), _Arg(l=nargs), _Arg(vp=cargs)]
@@ -527,15 +534,16 @@ def charp2str_free(space, cdata):
 
 def c_charp2stdstring(space, svalue, sz):
     return _cdata_to_cobject(
-        space, call_capi(space, 'charp2stdstring', [_Arg(s=svalue), _Arg(l=sz)]))
+        space, call_capi(space, 'charp2stdstring', [_Arg(s=svalue), _Arg(h=sz)]))
 def c_stdstring2charp(space, cppstr):
     sz = lltype.malloc(rffi.SIZE_TP.TO, 1, flavor='raw')
     try:
-        cstr = call_capi(space, 'stdstring2charp', [_Arg(h=cppstr), _Arg(vp=sz)])
+        w_cstr = call_capi(space, 'stdstring2charp',
+            [_Arg(h=cppstr), _Arg(vp=rffi.cast(rffi.VOIDP, sz))])
         cstr_len = int(sz[0])
     finally:
         lltype.free(sz, flavor='raw')
-    return rffi.charpsize2str(cstr, cstr_len)
+    return rffi.charpsize2str(_cdata_to_ccharp(space, w_cstr), cstr_len)
 def c_stdstring2stdstring(space, cppobject):
     return _cdata_to_cobject(space, call_capi(space, 'stdstring2stdstring', [_Arg(h=cppobject)]))
 

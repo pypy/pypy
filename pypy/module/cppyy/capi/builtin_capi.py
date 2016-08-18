@@ -354,7 +354,7 @@ def c_method_indices_from_name(space, cppscope, name):
         i += 1
         py_indices.append(index)
         index = indices[i]
-    c_free(rffi.cast(rffi.VOIDP, indices))   # c_free defined below
+    c_free(space, rffi.cast(rffi.VOIDP, indices))      # c_free defined below
     return py_indices
 
 _c_method_name = rffi.llexternal(
@@ -533,16 +533,18 @@ _c_strtoull = rffi.llexternal(
     compilation_info=backend.eci)
 def c_strtoull(space, svalue):
     return _c_strtoull(svalue)
-c_free = rffi.llexternal(
+_c_free = rffi.llexternal(
     "cppyy_free",
     [rffi.VOIDP], lltype.Void,
     releasegil=ts_memory,
     compilation_info=backend.eci)
+def c_free(space, voidp):
+    return _c_free(voidp)
 
 def charp2str_free(space, charp):
     string = rffi.charp2str(charp)
     voidp = rffi.cast(rffi.VOIDP, charp)
-    c_free(voidp)
+    _c_free(voidp)
     return string
 
 _c_charp2stdstring = rffi.llexternal(
