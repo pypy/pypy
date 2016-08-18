@@ -45,7 +45,7 @@ default_magic = pypy_incremental_magic | (ord('\r')<<16) | (ord('\n')<<24)
 
 # cpython_code_signature helper
 def cpython_code_signature(code):
-    "([list-of-arg-names], vararg-name-or-None, kwarg-name-or-None)."
+    """Return a Signature instance."""
     argcount = code.co_argcount
     varnames = code.co_varnames
     if we_are_translated():
