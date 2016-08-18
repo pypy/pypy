@@ -69,10 +69,21 @@ class AppTestRecompilerPython:
         sub_ffi.set_source('re_py_subsrc', None)
         sub_ffi.emit_python_code(str(tmpdir.join('re_py_subsrc.py')))
         #
-        space.appexec([space.wrap(str(tmpdir))], """(path):
+        cls.w_ffi = space.appexec([space.wrap(str(tmpdir))], """(path):
             import _cffi_backend     # force it to be initialized
             import sys
             sys.path.insert(0, path)
+            from re_python_pysrc import ffi
+            del sys.path[0]
+            return ffi
+        """)
+        cls.w_sub_ffi = space.appexec([space.wrap(str(tmpdir))], """(path):
+            import _cffi_backend     # force it to be initialized
+            import sys
+            sys.path.insert(0, path)
+            from re_py_subsrc import ffi
+            del sys.path[0]
+            return ffi
         """)
 
     def teardown_method(self, meth):
@@ -86,25 +97,25 @@ class AppTestRecompilerPython:
 
 
     def test_constant_1(self):
-        from re_python_pysrc import ffi
+        ffi = self.ffi
         assert ffi.integer_const('FOOBAR') == -42
         assert ffi.integer_const('FOOBAZ') == -43
 
     def test_large_constant(self):
-        from re_python_pysrc import ffi
+        ffi = self.ffi
         assert ffi.integer_const('BIGPOS') == 420000000000
         assert ffi.integer_const('BIGNEG') == -420000000000
 
     def test_function(self):
         import _cffi_backend
-        from re_python_pysrc import ffi
+        ffi = self.ffi
         lib = ffi.dlopen(self.extmod)
         assert lib.add42(-10) == 32
         assert type(lib.add42) is _cffi_backend.FFI.CData
 
     def test_dlclose(self):
         import _cffi_backend
-        from re_python_pysrc import ffi
+        ffi = self.ffi
         lib = ffi.dlopen(self.extmod)
         ffi.dlclose(lib)
         e = raises(ffi.error, ffi.dlclose, lib)
@@ -115,18 +126,18 @@ class AppTestRecompilerPython:
             "library '%s' has been closed" % (self.extmod,))
 
     def test_constant_via_lib(self):
-        from re_python_pysrc import ffi
+        ffi = self.ffi
         lib = ffi.dlopen(self.extmod)
         assert lib.FOOBAR == -42
         assert lib.FOOBAZ == -43
 
     def test_opaque_struct(self):
-        from re_python_pysrc import ffi
+        ffi = self.ffi
         ffi.cast("struct foo_s *", 0)
         raises(TypeError, ffi.new, "struct foo_s *")
 
     def test_nonopaque_struct(self):
-        from re_python_pysrc import ffi
+        ffi = self.ffi
         for p in [ffi.new("struct bar_s *", [5, b"foobar"]),
                   ffi.new("bar_t *", [5, b"foobar"])]:
             assert p.x == 5
@@ -134,13 +145,13 @@ class AppTestRecompilerPython:
             assert p.a[5] == ord('r')
 
     def test_enum(self):
-        from re_python_pysrc import ffi
+        ffi = self.ffi
         assert ffi.integer_const("BB") == 1
         e = ffi.cast("enum foo_e", 2)
         assert ffi.string(e) == "CC"
 
     def test_include_1(self):
-        from re_py_subsrc import ffi
+        ffi = self.sub_ffi
         assert ffi.integer_const('FOOBAR') == -42
         assert ffi.integer_const('FOOBAZ') == -43
         assert ffi.integer_const('k2') == 121212
@@ -153,7 +164,7 @@ class AppTestRecompilerPython:
         assert p.a[4] == ord('a')
 
     def test_global_var(self):
-        from re_python_pysrc import ffi
+        ffi = self.ffi
         lib = ffi.dlopen(self.extmod)
         assert lib.globalvar42 == 1234
         p = ffi.addressof(lib, 'globalvar42')
@@ -163,25 +174,25 @@ class AppTestRecompilerPython:
         assert lib.globalvar42 == 1238
 
     def test_global_const_int(self):
-        from re_python_pysrc import ffi
+        ffi = self.ffi
         lib = ffi.dlopen(self.extmod)
         assert lib.globalconst42 == 4321
         raises(AttributeError, ffi.addressof, lib, 'globalconst42')
 
     def test_global_const_nonint(self):
-        from re_python_pysrc import ffi
+        ffi = self.ffi
         lib = ffi.dlopen(self.extmod)
         assert ffi.string(lib.globalconsthello, 8) == "hello"
         raises(AttributeError, ffi.addressof, lib, 'globalconsthello')
 
     def test_rtld_constants(self):
-        from re_python_pysrc import ffi
+        ffi = self.ffi
         ffi.RTLD_NOW    # check that we have the attributes
         ffi.RTLD_LAZY
         ffi.RTLD_GLOBAL
 
     def test_no_such_function_or_global_var(self):
-        from re_python_pysrc import ffi
+        ffi = self.ffi
         lib = ffi.dlopen(self.extmod)
         e = raises(ffi.error, getattr, lib, 'no_such_function')
         assert str(e.value).startswith(
