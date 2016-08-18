@@ -612,7 +612,10 @@ class BuiltinCode(Code):
 
         # First extract the signature from the (CPython-level) code object
         from pypy.interpreter import pycode
-        argnames, varargname, kwargname = pycode.cpython_code_signature(func.func_code)
+        sig = pycode.cpython_code_signature(func.func_code)
+        argnames = sig.argnames
+        varargname = sig.varargname
+        kwargname = sig.kwargname
         self._argnames = argnames
 
         if unwrap_spec is None:
@@ -636,7 +639,9 @@ class BuiltinCode(Code):
         app_sig = SignatureBuilder(func)
 
         UnwrapSpec_Check(orig_sig).apply_over(unwrap_spec, app_sig)
-        self.sig = argnames, varargname, kwargname = app_sig.signature()
+        self.sig = app_sig.signature()
+        argnames = self.sig.argnames
+        varargname = self.sig.varargname
 
         self.minargs = len(argnames)
         if varargname:
@@ -972,7 +977,7 @@ class interp2app(W_Root):
                     defs_w.append(space.wrap(defaultval))
         if self._code._unwrap_spec:
             UNDEFINED = object()
-            alldefs_w = [UNDEFINED] * len(self._code.sig[0])
+            alldefs_w = [UNDEFINED] * len(self._code.sig.argnames)
             if defs_w:
                 alldefs_w[-len(defs_w):] = defs_w
             code = self._code
@@ -993,7 +998,7 @@ class interp2app(W_Root):
                     assert isinstance(w_default, W_Root)
                     assert argname.startswith('w_')
                     argname = argname[2:]
-                    j = self._code.sig[0].index(argname)
+                    j = self._code.sig.argnames.index(argname)
                     assert alldefs_w[j] in (UNDEFINED, None)
                     alldefs_w[j] = w_default
             first_defined = 0
