@@ -22,6 +22,9 @@ from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
 from rpython.tool.sourcetools import func_renamer
 from rpython.rtyper.annlowlevel import llhelper
+from pypy.module.sys.version import CPYTHON_VERSION
+
+PY3 = CPYTHON_VERSION[0] == 3
 
 # XXX: Also defined in object.h
 Py_LT = 0
@@ -313,6 +316,10 @@ class CPyBuffer(Buffer):
     def get_raw_address(self):
         return rffi.cast(rffi.CCHARP, self.ptr)
 
+    def getformat(self):
+        import pdb; pdb.set_trace()
+        return 'i'
+
 def wrap_getreadbuffer(space, w_self, w_args, func):
     func_target = rffi.cast(readbufferproc, func)
     with lltype.scoped_alloc(rffi.VOIDPP.TO, 1) as ptr:
@@ -321,6 +328,10 @@ def wrap_getreadbuffer(space, w_self, w_args, func):
         if size < 0:
             space.fromcache(State).check_and_raise_exception(always=True)
         return space.newbuffer(CPyBuffer(ptr[0], size, w_self))
+
+def wrap_getbuffer(space, w_self, w_args, func):
+    import pdb; pdb.set_trace()
+    return space.newbuffer(CPyBuffer(ptr[0], size, w_self))
 
 def get_richcmp_func(OP_CONST):
     def inner(space, w_self, w_args, func):
@@ -486,7 +497,8 @@ def build_slot_tp_function(space, typedef, name):
         def slot_tp_getattro(space, w_self, w_name):
             return space.call_function(getattr_fn, w_self, w_name)
         api_func = slot_tp_getattro.api_func
-
+    elif name == 'tp_as_buffer':
+        raise NotImplementedError
     elif name == 'tp_call':
         call_fn = w_type.getdictvalue(space, '__call__')
         if call_fn is None:
@@ -850,8 +862,15 @@ for regex, repl in slotdef_replacements:
 slotdefs = eval(slotdefs_str)
 # PyPy addition
 slotdefs += (
-    TPSLOT("__buffer__", "tp_as_buffer.c_bf_getreadbuffer", None, "wrap_getreadbuffer", ""),
+    # XXX that might not be what we want!
+    TPSLOT("__buffer__", "tp_as_buffer.c_bf_getbuffer", None, "wrap_getbuffer", ""),
 )
+
+if not PY3:
+    slotdefs += (
+        TPSLOT("__buffer__", "tp_as_buffer.c_bf_getreadbuffer", None, "wrap_getreadbuffer", ""),
+    )
+
 
 # partial sort to solve some slot conflicts:
 # Number slots before Mapping slots before Sequence slots.

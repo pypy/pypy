@@ -774,6 +774,8 @@ def inherit_slots(space, pto, w_base):
             pto.c_tp_setattro = base.c_tp_setattro
         if not pto.c_tp_getattro:
             pto.c_tp_getattro = base.c_tp_getattro
+        if not pto.c_tp_as_buffer:
+            pto.c_tp_as_buffer = base.c_tp_as_buffer
     finally:
         Py_DecRef(space, base_pyo)
 

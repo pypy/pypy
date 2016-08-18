@@ -60,13 +60,13 @@ class Buffer(object):
         raise ValueError("no raw buffer")
 
     def getformat(self):
-        return 'B'
+        raise NotImplementedError
 
     def getitemsize(self):
-        return 1
+        raise NotImplementedError
 
     def getndim(self):
-        return 1
+        raise NotImplementedError
 
     def getshape(self):
         return [self.getlength()]

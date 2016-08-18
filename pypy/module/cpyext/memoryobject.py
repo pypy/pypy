@@ -12,6 +12,7 @@ def PyMemoryView_FromObject(space, w_obj):
 @cpython_api([PyObject], PyObject)
 def PyMemoryView_GET_BASE(space, w_obj):
     # return the obj field of the Py_buffer created by PyMemoryView_GET_BUFFER
+    import pdb; pdb.set_trace()
     raise NotImplementedError
 
 @cpython_api([PyObject], lltype.Ptr(Py_buffer), error=CANNOT_FAIL)
