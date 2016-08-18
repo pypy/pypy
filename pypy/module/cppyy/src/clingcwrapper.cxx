@@ -716,7 +716,12 @@ std::vector< Cppyy::TCppMethod_t > Cppyy::GetMethodsFromName(
 {
    std::vector< TCppMethod_t > methods;
    if ( scope == GLOBAL_HANDLE ) {
+      // TODO: figure out a way of being conservative with reloading
       TCollection* funcs = gROOT->GetListOfGlobalFunctions( kTRUE );
+
+      // tickle deserialization
+      if ( !funcs->FindObject( name.c_str() ) )
+         return methods;
 
       TIter ifunc(funcs);
       TFunction* func = 0;
@@ -1327,6 +1332,11 @@ cppyy_index_t* cppyy_method_indices_from_name(cppyy_scope_t scope, const char* n
         }
     } else if (scope == (cppyy_scope_t)GLOBAL_HANDLE) {
         TCollection* funcs = gROOT->GetListOfGlobalFunctions(kTRUE);
+
+        // tickle deserialization
+        if (!funcs->FindObject(name))
+            return (cppyy_index_t*)nullptr;
+
         TFunction* func = 0;
         TIter ifunc(funcs);
         while ((func = (TFunction*)ifunc.Next())) {
@@ -1336,7 +1346,7 @@ cppyy_index_t* cppyy_method_indices_from_name(cppyy_scope_t scope, const char* n
     }
 
     if (result.empty())
-        return (cppyy_index_t*)0;
+        return (cppyy_index_t*)nullptr;
 
     cppyy_index_t* llresult = (cppyy_index_t*)malloc(sizeof(cppyy_index_t)*(result.size()+1));
     for (int i = 0; i < (int)result.size(); ++i) llresult[i] = result[i];
