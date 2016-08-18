@@ -11,7 +11,7 @@ except ImportError:
 from rpython.rlib import rposix, rposix_stat
 from rpython.rlib import objectmodel, rurandom
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.rarithmetic import r_longlong, intmask
+from rpython.rlib.rarithmetic import r_longlong, intmask, r_uint
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.tool.sourcetools import func_with_new_name
 
@@ -28,20 +28,21 @@ if _WIN32:
 
 c_int = "c_int"
 
-# CPython 2.7 semantics are too messy to follow exactly,
-# e.g. setuid(-2) works on 32-bit but not on 64-bit.  As a result,
-# we decided to just accept any 'int', i.e. any C signed long, and
-# check that they are in range(-2**31, 2**32).  In other words, we
-# accept any number that is either a signed or an unsigned C int.
-c_uid_t = int
-c_gid_t = int
-if sys.maxint == 2147483647:
-    def check_uid_range(space, num):
-        pass
-else:
-    def check_uid_range(space, num):
-        if num < -(1 << 31) or num >= (1 << 32):
-            raise oefmt(space.w_OverflowError, "integer out of range")
+# CPython 2.7 semantics used to be too messy, differing on 32-bit vs
+# 64-bit, but this was cleaned up in recent 2.7.x.  Now, any function
+# taking a uid_t or gid_t accepts numbers in range(-1, 2**32) as an
+# r_uint, with -1 being equivalent to 2**32-1.  Any function that
+# returns a uid_t or gid_t returns either an int or a long, depending
+# on whether it fits or not, but always positive.
+c_uid_t = 'c_uid_t'
+c_gid_t = 'c_uid_t'
+
+def wrap_uid(space, uid):
+    if uid <= r_uint(sys.maxint):
+        return space.wrap(intmask(uid))
+    else:
+        return space.wrap(uid)     # an unsigned number
+wrap_gid = wrap_uid
 
 class FileEncoder(object):
     is_unicode = True
@@ -1530,7 +1531,7 @@ def getuid(space):
 
     Return the current process's user id.
     """
-    return space.wrap(os.getuid())
+    return wrap_uid(space, os.getuid())
 
 @unwrap_spec(arg=c_uid_t)
 def setuid(space, arg):
@@ -1538,12 +1539,10 @@ def setuid(space, arg):
 
     Set the current process's user id.
     """
-    check_uid_range(space, arg)
     try:
         os.setuid(arg)
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.w_None
 
 @unwrap_spec(arg=c_uid_t)
 def seteuid(space, arg):
@@ -1551,12 +1550,10 @@ def seteuid(space, arg):
 
     Set the current process's effective user id.
     """
-    check_uid_range(space, arg)
     try:
         os.seteuid(arg)
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.w_None
 
 @unwrap_spec(arg=c_gid_t)
 def setgid(space, arg):
@@ -1564,12 +1561,10 @@ def setgid(space, arg):
 
     Set the current process's group id.
     """
-    check_uid_range(space, arg)
     try:
         os.setgid(arg)
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.w_None
 
 @unwrap_spec(arg=c_gid_t)
 def setegid(space, arg):
@@ -1577,12 +1572,10 @@ def setegid(space, arg):
 
     Set the current process's effective group id.
     """
-    check_uid_range(space, arg)
     try:
         os.setegid(arg)
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.w_None
 
 @unwrap_spec(path='fsencode')
 def chroot(space, path):
@@ -1601,21 +1594,21 @@ def getgid(space):
 
     Return the current process's group id.
     """
-    return space.wrap(os.getgid())
+    return wrap_gid(space, os.getgid())
 
 def getegid(space):
     """ getegid() -> gid
 
     Return the current process's effective group id.
     """
-    return space.wrap(os.getegid())
+    return wrap_gid(space, os.getegid())
 
 def geteuid(space):
     """ geteuid() -> euid
 
     Return the current process's effective user id.
     """
-    return space.wrap(os.geteuid())
+    return wrap_uid(space, os.geteuid())
 
 def getgroups(space):
     """ getgroups() -> list of group IDs
@@ -1626,7 +1619,7 @@ def getgroups(space):
         list = os.getgroups()
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.newlist([space.wrap(e) for e in list])
+    return space.newlist([wrap_gid(space, e) for e in list])
 
 def setgroups(space, w_list):
     """ setgroups(list)
@@ -1635,9 +1628,7 @@ def setgroups(space, w_list):
     """
     list = []
     for w_gid in space.unpackiterable(w_list):
-        gid = space.int_w(w_gid)
-        check_uid_range(space, gid)
-        list.append(gid)
+        list.append(space.c_uid_t_w(w_gid))
     try:
         os.setgroups(list[:])
     except OSError as e:
@@ -1711,13 +1702,10 @@ def setreuid(space, ruid, euid):
 
     Set the current process's real and effective user ids.
     """
-    check_uid_range(space, ruid)
-    check_uid_range(space, euid)
     try:
         os.setreuid(ruid, euid)
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.w_None
 
 @unwrap_spec(rgid=c_gid_t, egid=c_gid_t)
 def setregid(space, rgid, egid):
@@ -1725,13 +1713,10 @@ def setregid(space, rgid, egid):
 
     Set the current process's real and effective group ids.
     """
-    check_uid_range(space, rgid)
-    check_uid_range(space, egid)
     try:
         os.setregid(rgid, egid)
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.w_None
 
 @unwrap_spec(pid=c_int)
 def getsid(space, pid):
@@ -1788,9 +1773,9 @@ def getresuid(space):
         (ruid, euid, suid) = os.getresuid()
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.newtuple([space.wrap(ruid),
-                           space.wrap(euid),
-                           space.wrap(suid)])
+    return space.newtuple([wrap_uid(space, ruid),
+                           wrap_uid(space, euid),
+                           wrap_uid(space, suid)])
 
 def getresgid(space):
     """ getresgid() -> (rgid, egid, sgid)
@@ -1801,9 +1786,9 @@ def getresgid(space):
         (rgid, egid, sgid) = os.getresgid()
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.newtuple([space.wrap(rgid),
-                           space.wrap(egid),
-                           space.wrap(sgid)])
+    return space.newtuple([wrap_gid(space, rgid),
+                           wrap_gid(space, egid),
+                           wrap_gid(space, sgid)])
 
 @unwrap_spec(ruid=c_uid_t, euid=c_uid_t, suid=c_uid_t)
 def setresuid(space, ruid, euid, suid):
@@ -1925,8 +1910,6 @@ It is an error to use dir_fd or follow_symlinks when specifying path as
   an open file descriptor.
 dir_fd and follow_symlinks may not be implemented on your platform.
   If they are unavailable, using them will raise a NotImplementedError."""
-    check_uid_range(space, uid)
-    check_uid_range(space, gid)
     if not (rposix.HAVE_LCHOWN or rposix.HAVE_FCHMODAT):
         if not follow_symlinks:
             raise argument_unavailable(space, 'chown', 'follow_symlinks')
@@ -1972,8 +1955,6 @@ def lchown(space, path, uid, gid):
 Change the owner and group id of path to the numeric uid and gid.
 This function will not follow symbolic links.
 Equivalent to os.chown(path, uid, gid, follow_symlinks=False)."""
-    check_uid_range(space, uid)
-    check_uid_range(space, gid)
     try:
         os.lchown(path, uid, gid)
     except OSError as e:
@@ -1986,8 +1967,6 @@ def fchown(space, w_fd, uid, gid):
 Change the owner and group id of the file given by file descriptor
 fd to the numeric uid and gid.  Equivalent to os.chown(fd, uid, gid)."""
     fd = space.c_filedescriptor_w(w_fd)
-    check_uid_range(space, uid)
-    check_uid_range(space, gid)
     try:
         os.fchown(fd, uid, gid)
     except OSError as e:
