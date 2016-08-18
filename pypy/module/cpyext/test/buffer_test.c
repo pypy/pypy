@@ -61,8 +61,9 @@ static int
 PyMyArray_init(PyMyArray *self, PyObject *args, PyObject *kwds)
 {
     // init may have already been called
-    if (self->arr.arr != NULL);
+    if (self->arr.arr != NULL) {
         deallocate_MyArray(&self->arr);
+    }
 
     int length = 0;
     static char *kwlist[] = {"length", NULL};
