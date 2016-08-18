@@ -720,7 +720,7 @@ class BuiltinCode(Code):
             raise OperationError(space.w_MemoryError, space.w_None)
         except rstackovf.StackOverflow as e:
             rstackovf.check_stack_overflow()
-            raise oefmt(space.w_RuntimeError,
+            raise oefmt(space.w_RecursionError,
                         "maximum recursion depth exceeded")
         except RuntimeError:   # not on top of py.py
             raise OperationError(space.w_RuntimeError, space.w_None)

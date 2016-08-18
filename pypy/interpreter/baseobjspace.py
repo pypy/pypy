@@ -1936,6 +1936,7 @@ ObjSpace.ExceptionTable = [
     'PendingDeprecationWarning',
     'ReferenceError',
     'ResourceWarning',
+    'RecursionError',
     'RuntimeError',
     'RuntimeWarning',
     'StopIteration',

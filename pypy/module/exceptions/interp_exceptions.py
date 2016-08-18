@@ -64,6 +64,7 @@ BaseException
       +-- ReferenceError
       +-- RuntimeError
       |    +-- NotImplementedError
+      |    +-- RecursionError
       +-- SyntaxError
       |    +-- IndentationError
       |         +-- TabError
@@ -920,6 +921,9 @@ W_UnboundLocalError = _new_exception('UnboundLocalError', W_NameError,
 
 W_NotImplementedError = _new_exception('NotImplementedError', W_RuntimeError,
                         """Method or function hasn't been implemented yet.""")
+
+W_RecursionError = _new_exception('RecursionError', W_RuntimeError,
+                        """Recursion limit exceeded.""")
 
 W_AttributeError = _new_exception('AttributeError', W_Exception,
                                   """Attribute not found.""")

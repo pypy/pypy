@@ -47,6 +47,7 @@ class Module(MixedModule):
         'PendingDeprecationWarning' : 'interp_exceptions.W_PendingDeprecationWarning',
         'PermissionError': 'interp_exceptions.W_PermissionError',
         'ProcessLookupError': 'interp_exceptions.W_ProcessLookupError',
+        'RecursionError' : 'interp_exceptions.W_RecursionError',
         'ReferenceError' : 'interp_exceptions.W_ReferenceError',
         'ResourceWarning'  : 'interp_exceptions.W_ResourceWarning',
         'RuntimeError' : 'interp_exceptions.W_RuntimeError',

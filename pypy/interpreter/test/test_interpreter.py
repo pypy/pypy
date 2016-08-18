@@ -407,7 +407,7 @@ class AppTestInterpreter:
         def f(): f()
         try:
             f()
-        except RuntimeError as e:
+        except RecursionError as e:
             assert str(e) == "maximum recursion depth exceeded"
         else:
             assert 0, "should have raised!"
