@@ -389,7 +389,8 @@ class PythonCodeMaker(ast.ASTVisitor):
     def _stacksize(self, blocks):
         """Compute co_stacksize."""
         for block in blocks:
-            block.initial_depth = 0
+            block.initial_depth = -99
+        blocks[0].initial_depth = 0
         # Assumes that it is sufficient to walk the blocks in 'post-order'.
         # This means we ignore all back-edges, but apart from that, we only
         # look into a block when all the previous blocks have been done.
@@ -408,8 +409,11 @@ class PythonCodeMaker(ast.ASTVisitor):
 
     def _do_stack_depth_walk(self, block):
         depth = block.initial_depth
+        if depth == -99:     # this block is never reached, skip
+             return 0
         for instr in block.instructions:
             depth += _opcode_stack_effect(instr.opcode, instr.arg)
+            assert depth >= 0
             if depth >= self._max_depth:
                 self._max_depth = depth
             jump_op = instr.opcode
@@ -560,7 +564,6 @@ _static_opcode_stack_effects = {
     ops.LIST_APPEND: -1,
     ops.SET_ADD: -1,
     ops.MAP_ADD: -2,
-    # XXX 
 
     ops.BINARY_POWER: -1,
     ops.BINARY_MULTIPLY: -1,
@@ -602,8 +605,8 @@ _static_opcode_stack_effects = {
 
     ops.PRINT_EXPR: -1,
 
-    ops.WITH_CLEANUP_START: -1,
-    ops.WITH_CLEANUP_FINISH: -1,  # XXX Sometimes more
+    ops.WITH_CLEANUP_START: 1,
+    ops.WITH_CLEANUP_FINISH: -2,
     ops.LOAD_BUILD_CLASS: 1,
     ops.POP_BLOCK: 0,
     ops.POP_EXCEPT: -1,
@@ -619,7 +622,6 @@ _static_opcode_stack_effects = {
     ops.YIELD_FROM: -1,
     ops.COMPARE_OP: -1,
 
-    # TODO 
     ops.LOOKUP_METHOD: 1,
 
     ops.LOAD_NAME: 1,
