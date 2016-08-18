@@ -1013,10 +1013,8 @@ ptrdiff_t Cppyy::GetDatamemberOffset( TCppScope_t scope, TCppIndex_t idata )
 
 Cppyy::TCppIndex_t Cppyy::GetDatamemberIndex( TCppScope_t scope, const std::string& name )
 {
-   std::cout << " ASKING FOR: " << name << " on scope: " << scope << std::endl;
    if ( scope == GLOBAL_HANDLE ) {
       TGlobal* gb = (TGlobal*)gROOT->GetListOfGlobals( kTRUE )->FindObject( name.c_str() );
-      std::cout << " FOUND (G): "<< gb << " " << (TGlobal*)gROOT->GetListOfGlobals( kTRUE )->FindObject("std::cout") << std::endl;
       if ( gb && gb->GetAddress() && gb->GetAddress() != (void*)-1 ) {
          g_globalvars.push_back( gb );
          return g_globalvars.size() - 1;
@@ -1028,7 +1026,6 @@ Cppyy::TCppIndex_t Cppyy::GetDatamemberIndex( TCppScope_t scope, const std::stri
          TDataMember* dm =
             (TDataMember*)cr->GetListOfDataMembers()->FindObject( name.c_str() );
          // TODO: turning this into an index is silly ...
-         std::cout << " FOUND (D): "<< dm << std::endl;
          if ( dm ) return (TCppIndex_t)cr->GetListOfDataMembers()->IndexOf( dm );
       }
    }
