@@ -33,14 +33,14 @@ logging.basicConfig(level=logging.INFO, stream=sys.stdout, format="%(asctime)s: 
 
 class AsyncIter:
     def __init__(self):
-        self._data = list(range(10))
+        self._data = list(range(5))
         self._index = 0
     
     async def __aiter__(self):
         return self
     
     async def __anext__(self):
-        while self._index < 10:
+        while self._index < 5:
             await asyncio.sleep(1)
             self._index += 1
             return self._data[self._index-1]

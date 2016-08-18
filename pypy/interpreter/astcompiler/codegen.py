@@ -637,13 +637,17 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         
         self.use_next_block(b_try_cleanup)
         self.emit_op(ops.END_FINALLY)
+        
         self.use_next_block(b_after_try)
         self.visit_sequence(fr.body)
         self.emit_jump(ops.JUMP_ABSOLUTE, b_try, True)
+        
         self.emit_op(ops.POP_BLOCK) # for SETUP_LOOP
         self.pop_frame_block(F_BLOCK_LOOP, b_try)
+        
         self.use_next_block(b_after_loop)
         self.emit_jump(ops.JUMP_ABSOLUTE, b_end, True)
+        
         self.use_next_block(b_after_loop_else)
         self.visit_sequence(fr.orelse)
         
