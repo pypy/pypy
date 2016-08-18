@@ -632,6 +632,13 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op(ops.POP_TOP)
         self.emit_op(ops.POP_TOP)
         self.emit_op(ops.POP_EXCEPT) # for SETUP_EXCEPT
+        # Manually remove the 'aiter' object from the valuestack.
+        # This POP_TOP is not needed from the point of view of
+        # pyopcode.py, which will pop anything to match the stack
+        # depth of the SETUP_LOOP, but it is needed to make
+        # PythonCodeMaker._stacksize() compute an exact result and not
+        # crash with StackDepthComputationError.
+        self.emit_op(ops.POP_TOP)
         self.emit_op(ops.POP_BLOCK) # for SETUP_LOOP
         self.emit_jump(ops.JUMP_ABSOLUTE, b_after_loop_else, True)
         
