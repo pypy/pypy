@@ -48,7 +48,7 @@ class TestLogger(object):
         file.ensure()
         fd = file.open('wb')
         jl.jitlog_init(fd.fileno())
-        logger.start_new_trace(self.make_metainterp_sd())
+        logger.start_new_trace(self.make_metainterp_sd(), jd_name='jdname')
         log_trace = logger.log_trace(jl.MARK_TRACE, None, None)
         op = ResOperation(rop.DEBUG_MERGE_POINT, [ConstInt(0), ConstInt(0), ConstInt(0)])
         log_trace.write([], [op])
@@ -58,6 +58,7 @@ class TestLogger(object):
         is_32bit = chr(sys.maxint == 2**31-1)
         assert binary == (jl.MARK_START_TRACE) + jl.encode_le_addr(1) + \
                          jl.encode_str('loop') + jl.encode_le_addr(0) + \
+                         jl.encode_str('jdname') + \
                          (jl.MARK_TRACE) + jl.encode_le_addr(1) + \
                          (jl.MARK_INPUT_ARGS) + jl.encode_str('') + \
                          (jl.MARK_INIT_MERGE_POINT) + b'\x05\x00\x01s\x00i\x08s\x00i\x10s' + \
