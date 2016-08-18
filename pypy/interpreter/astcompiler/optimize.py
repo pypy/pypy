@@ -118,7 +118,7 @@ def _fold_pow(space, w_left, w_right):
     # don't constant-fold if "w_left" and "w_right" are integers and
     # the estimated bit length of the power is unreasonably large
     space.appexec([w_left, w_right], """(left, right):
-        if isinstance(left, (int, long)) and isinstance(right, (int, long)):
+        if isinstance(left, int) and isinstance(right, int):
             if left.bit_length() * right > 5000:
                 raise OverflowError
     """)
