@@ -6,7 +6,14 @@ from pypy.interpreter.astcompiler import consts
 from rpython.rlib import jit
 
 
-class GeneratorIterator(W_Root):
+class GeneratorOrCoroutine(W_Root):
+    """XXX: move the common functionality here!"""
+
+    def descr_close(self):
+        raise NotImplementedError
+
+
+class GeneratorIterator(GeneratorOrCoroutine):
     "An iterator created by a generator."
     _immutable_fields_ = ['pycode']
 
@@ -333,7 +340,7 @@ coroutineentry_driver = jit.JitDriver(greens=['pycode'],
                                       get_printable_location = get_printable_coroutine_location_genentry,
                                       name='coroutineentry')
 
-class Coroutine(W_Root):
+class Coroutine(GeneratorOrCoroutine):
     "A coroutine object."
     _immutable_fields_ = ['pycode']
 
