@@ -4,6 +4,7 @@ from pypy.interpreter.gateway import interp2app
 
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import libffi, rdynload
 
 from pypy.module.cppyy.capi.capi_types import C_OBJECT
@@ -81,7 +82,7 @@ def c_stdstring2charp(space, cppstr):
     sz = lltype.malloc(rffi.SIZE_TP.TO, 1, flavor='raw')
     try:
         cstr = _c_stdstring2charp(cppstr, sz)
-        cstr_len = int(sz[0])
+        cstr_len = intmask(sz[0])
     finally:
         lltype.free(sz, flavor='raw')
     return rffi.charpsize2str(cstr, cstr_len)

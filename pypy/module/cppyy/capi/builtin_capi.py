@@ -1,4 +1,5 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import jit
 
 import cling_capi as backend
@@ -165,7 +166,7 @@ def c_call_s(space, cppmethod, cppobject, nargs, args):
     length = lltype.malloc(rffi.SIZE_TP.TO, 1, flavor='raw')
     try:
         cstr = _c_call_s(cppmethod, cppobject, nargs, args, length)
-        cstr_len = int(length[0])
+        cstr_len = intmask(length[0])
     finally:
         lltype.free(length, flavor='raw')
     return cstr, cstr_len

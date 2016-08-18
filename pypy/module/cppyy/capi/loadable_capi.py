@@ -1,4 +1,5 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import jit, jit_libffi, libffi, rdynload, objectmodel
 from rpython.rlib.rarithmetic import r_singlefloat
 from rpython.tool import leakfinder
@@ -349,7 +350,7 @@ def c_call_s(space, cppmethod, cppobject, nargs, cargs):
         w_cstr = call_capi(space, 'call_s',
             [_Arg(h=cppmethod), _Arg(h=cppobject), _Arg(l=nargs), _Arg(vp=cargs),
              _Arg(vp=rffi.cast(rffi.VOIDP, length))])
-        cstr_len = int(length[0])
+        cstr_len = intmask(length[0])
     finally:
         lltype.free(length, flavor='raw')
     return _cdata_to_ccharp(space, w_cstr), cstr_len
@@ -540,7 +541,7 @@ def c_stdstring2charp(space, cppstr):
     try:
         w_cstr = call_capi(space, 'stdstring2charp',
             [_Arg(h=cppstr), _Arg(vp=rffi.cast(rffi.VOIDP, sz))])
-        cstr_len = int(sz[0])
+        cstr_len = intmask(sz[0])
     finally:
         lltype.free(sz, flavor='raw')
     return rffi.charpsize2str(_cdata_to_ccharp(space, w_cstr), cstr_len)
