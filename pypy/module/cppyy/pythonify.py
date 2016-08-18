@@ -440,7 +440,7 @@ def _init_pythonify():
     gbl = make_cppnamespace(None, "::", None, False)   # global C++ namespace
     gbl.__doc__ = "Global C++ namespace."
 
-    # mostly for the benefit of the CINT backend, which treats std as special
+    # pre-create std to allow direct importing
     gbl.std = make_cppnamespace(None, "std", None, False)
 
     # install a type for enums to refer to

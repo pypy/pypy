@@ -62,13 +62,11 @@ else # reflex
 
 endif
 
-ifeq ($(CLING),)
 ifeq ($(DUMMY),)
 # TODO: methptrgetter causes these tests to crash, so don't use it for now
 std_streamsDict.so: std_streams.cxx std_streams.h std_streams.xml
 	$(genreflex) std_streams.h --selection=std_streams.xml
 	g++ -o $@ std_streams_rflx.cpp std_streams.cxx -shared -std=c++14 $(cppflags) $(cppflags2)
-endif
 endif
 
 .PHONY: clean
