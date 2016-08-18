@@ -398,9 +398,17 @@ class PythonCodeMaker(ast.ASTVisitor):
         for block in blocks:
             depth = self._do_stack_depth_walk(block)
             if block.auto_inserted_return and depth != 0:
-                os.write(2, "StackDepthComputationError in %s at %s:%s\n" % (
-                    self.compile_info.filename, self.name, self.first_lineno))
-                raise StackDepthComputationError   # fatal error
+                # This case occurs if this code object uses some
+                # construction for which the stack depth computation
+                # is wrong (too high).  If you get here while working
+                # on the astcompiler, then you should at first ignore
+                # the error, and comment out the 'raise' below.  Such
+                # an error is not really bad: it is just a bit
+                # wasteful.  For release-ready versions, though, we'd
+                # like not to be wasteful. :-)
+                os.write(2, "StackDepthComputationError(POS) in %s at %s:%s\n"
+                  % (self.compile_info.filename, self.name, self.first_lineno))
+                raise StackDepthComputationError   # would-be-nice-not-to-have
         return self._max_depth
 
     def _next_stack_depth_walk(self, nextblock, depth):
@@ -413,7 +421,16 @@ class PythonCodeMaker(ast.ASTVisitor):
              return 0
         for instr in block.instructions:
             depth += _opcode_stack_effect(instr.opcode, instr.arg)
-            assert depth >= 0
+            if depth < 0:
+                # This is really a fatal error, don't comment out this
+                # 'raise'.  It means that the stack depth computation
+                # thinks there is a path that yields a negative stack
+                # depth, which means that it underestimates the space
+                # needed and it would crash when interpreting this
+                # code.
+                os.write(2, "StackDepthComputationError(NEG) in %s at %s:%s\n"
+                  % (self.compile_info.filename, self.name, self.first_lineno))
+                raise StackDepthComputationError   # really fatal error
             if depth >= self._max_depth:
                 self._max_depth = depth
             jump_op = instr.opcode
