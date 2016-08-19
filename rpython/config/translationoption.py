@@ -62,7 +62,7 @@ translation_optiondescription = OptionDescription(
 
     # gc
     ChoiceOption("gc", "Garbage Collection Strategy",
-                 ["boehm", "ref", "semispace", "statistics",
+                 ["boehm", "qcgc", "ref", "semispace", "statistics",
                   "generation", "hybrid", "minimark",'incminimark', "none"],
                   "ref", requires={
                      "ref": [("translation.rweakref", False), # XXX
@@ -75,6 +75,11 @@ translation_optiondescription = OptionDescription(
                      "hybrid": [("translation.gctransformer", "framework")],
                      "boehm": [("translation.continuation", False),  # breaks
                                ("translation.gctransformer", "boehm")],
+                     "qcgc": [("translation.gctransformer", "framework"),
+                              ("translation.gcrootfinder", "qcgc"),
+                              ("translation.gcremovetypeptr", True),
+                              ("translation.thread", False),
+                              ("translation.rweakref", False)],
                      "minimark": [("translation.gctransformer", "framework")],
                      "incminimark": [("translation.gctransformer", "framework")],
                      },
@@ -94,7 +99,7 @@ translation_optiondescription = OptionDescription(
                default=IS_64_BITS, cmdline="--gcremovetypeptr"),
     ChoiceOption("gcrootfinder",
                  "Strategy for finding GC Roots (framework GCs only)",
-                 ["n/a", "shadowstack", "asmgcc"],
+                 ["n/a", "shadowstack", "asmgcc", "qcgc"],
                  "shadowstack",
                  cmdline="--gcrootfinder",
                  requires={

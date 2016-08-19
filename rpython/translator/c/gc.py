@@ -455,13 +455,19 @@ class AsmGcRootFrameworkGcPolicy(BasicFrameworkGcPolicy):
     def OP_GC_STACK_BOTTOM(self, funcgen, op):
         return 'pypy_asm_stack_bottom();'
 
+class QcgcFrameworkGcPolicy(BasicFrameworkGcPolicy):
+
+    def gettransformer(self, translator):
+        from rpython.memory.gctransform import qcgcframework
+        return qcgcframework.QcgcFrameworkGCTransformer(translator)
 
 name_to_gcpolicy = {
     'boehm': BoehmGcPolicy,
     'ref': RefcountingGcPolicy,
     'none': NoneGcPolicy,
     'framework+shadowstack': ShadowStackFrameworkGcPolicy,
-    'framework+asmgcc': AsmGcRootFrameworkGcPolicy
+    'framework+asmgcc': AsmGcRootFrameworkGcPolicy,
+    'framework+qcgc': QcgcFrameworkGcPolicy
 }
 
 
