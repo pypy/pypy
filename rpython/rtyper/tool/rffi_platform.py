@@ -901,10 +901,7 @@ def configure_qcgc():
                 ["qcgc.c", "arena.c", "allocator.c", "bag.c", "event_logger.c",
                     "gray_stack.c", "shadow_stack.c"]],
             )
-    return configure_external_library(
-            'qcgc', eci, [dict(prefix='qcgc-', include_dir='include',
-                library_dir=library_dir)],
-            symbol='qcgc_initialize')
+    return eci
 
 if __name__ == '__main__':
     doc = """Example:
