@@ -17,7 +17,8 @@ from pypy.module.cpyext.api import (
     generic_cpy_call, Py_TPFLAGS_READY, Py_TPFLAGS_READYING,
     Py_TPFLAGS_HEAPTYPE, METH_VARARGS, METH_KEYWORDS, CANNOT_FAIL,
     Py_TPFLAGS_HAVE_GETCHARBUFFER, build_type_checkers, StaticObjectBuilder,
-    PyObjectFields, Py_TPFLAGS_BASETYPE, PyTypeObject, PyTypeObjectPtr)
+    PyObjectFields, Py_TPFLAGS_BASETYPE, PyTypeObject, PyTypeObjectPtr,
+    Py_TPFLAGS_HAVE_NEWBUFFER)
 from pypy.module.cpyext.methodobject import (W_PyCClassMethodObject,
     W_PyCWrapperObject, PyCFunction_NewEx, PyCFunction_typedef, PyMethodDef,
     W_PyCMethodObject, W_PyCFunctionObject)
@@ -608,6 +609,7 @@ def setup_buffer_procs(space, w_type, pto):
                 bf_getwritebuffer.api_func.get_wrapper(space))
     pto.c_tp_as_buffer = c_buf
     pto.c_tp_flags |= Py_TPFLAGS_HAVE_GETCHARBUFFER
+    pto.c_tp_flags |= Py_TPFLAGS_HAVE_NEWBUFFER
 
 @cpython_api([PyObject], lltype.Void, header=None)
 def type_dealloc(space, obj):

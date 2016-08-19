@@ -5,7 +5,7 @@ import re
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, PyObject, Py_ssize_t, Py_TPFLAGS_CHECKTYPES,
-    mangle_name, pypy_decl, Py_buffer)
+    mangle_name, pypy_decl, Py_buffer, Py_bufferP)
 from pypy.module.cpyext.typeobjectdefs import (
     unaryfunc, wrapperfunc, ternaryfunc, PyTypeObjectPtr, binaryfunc, ternaryfunc,
     getattrfunc, getattrofunc, setattrofunc, lenfunc, ssizeargfunc, inquiry,
@@ -301,24 +301,42 @@ class CPyBuffer(Buffer):
     # Similar to Py_buffer
     _immutable_ = True
 
-    def __init__(self, ptr, size, w_obj):
-        # XXX leak of ptr
+    def __init__(self, ptr, size, w_obj, pybuf=None):
         self.ptr = ptr
         self.size = size
         self.w_obj = w_obj # kept alive
-        self.readonly = True
+        if pybuf is None:
+            self.format = 'B'
+            self.shape = [size]
+            self.strides = [1]
+            self.ndim = 1
+            self.itemsize = 1
+            self.readonly = True
+        else:
+            self.format = rffi.charp2str(pybuf.c_format)
+            self.ndim = pybuf.c_ndim
+            self.shape = [pybuf.c_shape[i] for i in range(self.ndim)]
+            self.strides = [pybuf.c_strides[i] for i in range(self.ndim)]
+            self.itemsize = pybuf.c_itemsize 
+            self.readonly = pybuf.c_readonly
 
     def getlength(self):
         return self.size
 
     def getitem(self, index):
-        return self.ptr[index]
+        start = index * self.itemsize
+        stop = (index + 1) * self.itemsize
+        return ''.join([self.ptr[i] for i in range(start, stop)])
 
     def get_raw_address(self):
         return rffi.cast(rffi.CCHARP, self.ptr)
 
     def getformat(self):
-        return rffi.charp2str(self.ptr.c_format)
+        return self.format
+
+    def getshape(self):
+        return self.shape
+
 
 def wrap_getreadbuffer(space, w_self, w_args, func):
     func_target = rffi.cast(readbufferproc, func)
@@ -332,13 +350,15 @@ def wrap_getreadbuffer(space, w_self, w_args, func):
 def wrap_getbuffer(space, w_self, w_args, func):
     func_target = rffi.cast(getbufferproc, func)
     # XXX leak
-    pybuf = lltype.malloc(Py_buffer, flavor='raw', track_allocation=False)
-    # XXX flags are not in w_args?
-    flags = rffi.cast(rffi.INT_real,0)
-    size = generic_cpy_call(space, func_target, w_self, pybuf, flags)
-    if size < 0:
-        space.fromcache(State).check_and_raise_exception(always=True)
-    return space.newbuffer(CPyBuffer(pybuf, size, w_self))
+    with lltype.scoped_alloc(Py_buffer) as pybuf:
+        # XXX flags are not in w_args?
+        flags = rffi.cast(rffi.INT_real,0)
+        size = generic_cpy_call(space, func_target, w_self, pybuf, flags)
+        if size < 0:
+            space.fromcache(State).check_and_raise_exception(always=True)
+        ptr = pybuf.c_buf
+        size = pybuf.c_len
+        return space.newbuffer(CPyBuffer(ptr, size, w_self, pybuf))
 
 def get_richcmp_func(OP_CONST):
     def inner(space, w_self, w_args, func):
@@ -504,8 +524,6 @@ def build_slot_tp_function(space, typedef, name):
         def slot_tp_getattro(space, w_self, w_name):
             return space.call_function(getattr_fn, w_self, w_name)
         api_func = slot_tp_getattro.api_func
-    elif name == 'tp_as_buffer':
-        raise NotImplementedError
     elif name == 'tp_call':
         call_fn = w_type.getdictvalue(space, '__call__')
         if call_fn is None:
@@ -561,6 +579,19 @@ def build_slot_tp_function(space, typedef, name):
                              w_stararg=w_args, w_starstararg=w_kwds)
             return space.call_args(space.get(new_fn, w_self), args)
         api_func = slot_tp_new.api_func
+    elif name == 'tp_as_buffer.c_bf_getbuffer':
+        buf_fn = w_type.getdictvalue(space, '__buffer__')
+        if buf_fn is None:
+            return
+        @cpython_api([PyObject, Py_bufferP, rffi.INT_real], 
+                rffi.INT_real, header=None, error=-1)
+        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+        def buff_w(space, w_self, w_args, w_kwds):
+            # XXX this is wrong, needs a test
+            args = Arguments(space, [w_self],
+                             w_stararg=w_args, w_starstararg=w_kwds)
+            return space.call_args(space.get(buff_fn, w_self), args)
+        api_func = buff_w.api_func
     else:
         # missing: tp_as_number.nb_nonzero, tp_as_number.nb_coerce
         # tp_as_sequence.c_sq_contains, tp_as_sequence.c_sq_length
@@ -881,6 +912,7 @@ if not PY3:
 
 # partial sort to solve some slot conflicts:
 # Number slots before Mapping slots before Sequence slots.
+# also prefer the new buffer interface
 # These are the only conflicts between __name__ methods
 def slotdef_sort_key(slotdef):
     if slotdef.slot_name.startswith('tp_as_number'):
@@ -889,6 +921,10 @@ def slotdef_sort_key(slotdef):
         return 2
     if slotdef.slot_name.startswith('tp_as_sequence'):
         return 3
+    if slodef.slot_name == 'tp_as_buffer.c_bf_getbuffer':
+        return 100
+    if slodef.slot_name == 'tp_as_buffer.c_bf_getreadbuffer':
+        return 101
     return 0
 slotdefs = sorted(slotdefs, key=slotdef_sort_key)
 

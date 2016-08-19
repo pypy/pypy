@@ -464,6 +464,9 @@ class W_BytesObject(W_AbstractBytesObject):
         raise oefmt(space.w_TypeError,
                     "Cannot use string as modifiable buffer")
 
+    def descr_getbuffer(self, space):
+        return self
+
     charbuf_w = str_w
 
     def listview_bytes(self):
@@ -925,6 +928,7 @@ W_BytesObject.typedef = TypeDef(
     translate = interpindirect2app(W_AbstractBytesObject.descr_translate),
     upper = interpindirect2app(W_AbstractBytesObject.descr_upper),
     zfill = interpindirect2app(W_AbstractBytesObject.descr_zfill),
+    __buffer__ = interp2app(W_BytesObject.descr_getbuffer),
 
     format = interpindirect2app(W_BytesObject.descr_format),
     __format__ = interpindirect2app(W_BytesObject.descr__format__),
