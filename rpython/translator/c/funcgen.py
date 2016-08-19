@@ -943,3 +943,10 @@ class FunctionCodeGenerator(object):
                 cdecl(typename, ''),
                 self.expr(op.args[0]),
                 self.expr(op.result))
+
+    def OP_QCGC_PUSH_ROOT(self, op):
+        obj = self.expr(op.args[0])
+        return 'qcgc_shadowstack_push((object_t *) %s);' % (obj,)
+
+    def OP_QCGC_POP_ROOT(self, op):
+        return 'qcgc_shadowstack_pop();'

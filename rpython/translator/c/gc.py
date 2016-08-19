@@ -471,13 +471,11 @@ class QcgcFrameworkGcPolicy(BasicFrameworkGcPolicy):
 
         return eci
 
-    # def gc_startup_code(self):
-    #     super(QcgcFrameworkGcPolicy, self).gc_startup_code()
-        # if sys.platform == 'win32':
-        #     pass # yield 'assert(GC_all_interior_pointers == 0);'
-        # else:
-        #     yield 'GC_all_interior_pointers = 0;'
-        # yield 'boehm_gc_startup_code();'
+    def gc_startup_code(self):
+        s = list(super(QcgcFrameworkGcPolicy, self).gc_startup_code())
+        for i in s:
+            yield i
+        yield 'qcgc_initialize();'
 
 name_to_gcpolicy = {
     'boehm': BoehmGcPolicy,
