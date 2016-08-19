@@ -202,11 +202,10 @@ class CommandLineTests(unittest.TestCase):
 
     # Ensure that the default behavior of compileall's CLI is to create
     # PEP 3147 pyc/pyo files.
-    _pyo = 'pyo' if support.check_impl_detail() else 'pyc'
     for name, ext, switch in [
         ('normal', 'pyc', []),
-        ('optimize', _pyo, ['-O']),
-        ('doubleoptimize', _pyo, ['-OO']),
+        ('optimize', 'pyo', ['-O']),
+        ('doubleoptimize', 'pyo', ['-OO']),
     ]:
         def f(self, ext=ext, switch=switch):
             script_helper.assert_python_ok(*(switch +
