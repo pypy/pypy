@@ -118,9 +118,9 @@ class AppTestAST:
     def test_object(self):
         ast = self.ast
         const = ast.Const(4)
-        assert const.value == 4
-        const.value = 5
-        assert const.value == 5
+        assert const.obj == 4
+        const.obj = 5
+        assert const.obj == 5
 
     def test_optional(self):
         mod = self.get_ast("x(32)", "eval")
