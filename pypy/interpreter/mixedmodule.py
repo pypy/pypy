@@ -19,6 +19,7 @@ class MixedModule(Module):
         """ NOT_RPYTHON """
         Module.__init__(self, space, w_name)
         self.lazy = True
+        self.lazy_initial_values_w = {}
         self.__class__.buildloaders()
         self.loaders = self.loaders.copy()    # copy from the class to the inst
         self.submodules_w = []
@@ -57,22 +58,11 @@ class MixedModule(Module):
             if not self.lazy and self.w_initialdict is None:
                 self.save_module_content_for_future_reload()
 
-    def save_module_content_for_future_reload(self, save_all=False):
-        # Because setdictvalue is unable to immediately load all attributes
-        # (due to an importlib bootstrapping problem), this method needs to be
-        # able to support saving the content of a module's dict without
-        # requiring that the entire dict already be loaded. To support that
-        # properly, when updating the dict, we must be careful to never
-        # overwrite the value of a key already in w_initialdict. (So as to avoid
-        # overriding the builtin value with a user-provided value)
-        if self.space.is_none(self.w_initialdict) or save_all:
-            self.w_initialdict = self.space.call_method(self.w_dict, 'copy')
-        else:
-            w_items = self.space.call_method(self.w_dict, 'items')
-            for w_item in self.space.iteriterable(w_items):
-                w_key, w_value = self.space.fixedview(w_item, expected_length=2)
-                if not self.space.contains_w(self.w_initialdict, w_key):
-                    self.space.setitem(self.w_initialdict, w_key, w_value)
+    def save_module_content_for_future_reload(self):
+        # Save the current dictionary in w_initialdict, for future
+        # reloads.  This forces the dictionary if needed.
+        w_dict = self.getdict(self.space)
+        self.w_initialdict = self.space.call_method(w_dict, 'copy')
 
     @classmethod
     def get_applevel_name(cls):
@@ -101,9 +91,13 @@ class MixedModule(Module):
         return w_value
 
     def setdictvalue(self, space, attr, w_value):
-        if self.lazy:
-            self._load_lazily(space, attr)
-            self.save_module_content_for_future_reload()
+        if self.lazy and attr not in self.lazy_initial_values_w:
+            # in lazy mode, the first time an attribute changes,
+            # we save away the old (initial) value.  This allows
+            # a future getdict() call to build the correct
+            # self.w_initialdict, containing the initial value.
+            w_initial_value = self._load_lazily(space, attr)
+            self.lazy_initial_values_w[attr] = w_initial_value
         space.setitem_str(self.w_dict, attr, w_value)
         return True
 
@@ -137,11 +131,23 @@ class MixedModule(Module):
 
     def getdict(self, space):
         if self.lazy:
+            # Force the dictionary by calling all lazy loaders now.
+            # This also saves in self.w_initialdict a copy of all the
+            # initial values, including if they have already been
+            # modified by setdictvalue().
             for name in self.loaders:
                 w_value = self.get(name)
                 space.setitem(self.w_dict, space.new_interned_str(name), w_value)
             self.lazy = False
             self.save_module_content_for_future_reload()
+            for key, w_initial_value in self.lazy_initial_values_w.items():
+                w_key = space.new_interned_str(key)
+                if w_initial_value is not None:
+                    space.setitem(self.w_initialdict, w_key, w_initial_value)
+                else:
+                    if space.finditem(self.w_initialdict, w_key) is not None:
+                        space.delitem(self.w_initialdict, w_key)
+            del self.lazy_initial_values_w
         return self.w_dict
 
     def _cleanup_(self):
