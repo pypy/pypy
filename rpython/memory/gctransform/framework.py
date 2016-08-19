@@ -208,6 +208,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
                 self.graphs_to_inline[graph] = True
             return annhelper.graph2const(graph)
 
+        self.autoregister_ptrs = []
+
         self.frameworkgc_setup_ptr = getfn(frameworkgc_setup, [],
                                            annmodel.s_None)
         # for tests

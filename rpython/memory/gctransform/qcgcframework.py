@@ -5,7 +5,6 @@ from rpython.memory.gctransform.framework import (BaseFrameworkGCTransformer, Ba
 VISIT_FPTR = lltype.Ptr(lltype.FuncType([llmemory.Address], lltype.Void))
 
 class QcgcFrameworkGCTransformer(BaseFrameworkGCTransformer):
-    autoregister_ptrs = list()
 
     def build_root_walker(self):
         return QcgcRootWalker(self)
@@ -28,8 +27,8 @@ class QcgcFrameworkGCTransformer(BaseFrameworkGCTransformer):
             gc.trace(obj, invokecallback, visit_fn)
         pypy_trace_cb.c_name = "pypy_trace_cb"
         self.autoregister_ptrs.append(
-            getfn(pypy_trace_cb, [SomeAddress(),
-                                     SomePtr(VISIT_FPTR)],
+            getfn(pypy_trace_cb,
+                  [SomeAddress(), SomePtr(VISIT_FPTR)],
                   s_None))
 
     def push_roots(self, hop, keep_current_args=False):
