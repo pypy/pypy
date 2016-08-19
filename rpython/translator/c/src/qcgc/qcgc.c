@@ -22,6 +22,7 @@ void qcgc_sweep(void);
 
 void qcgc_initialize(void) {
 	qcgc_state.shadow_stack = qcgc_shadow_stack_create(QCGC_SHADOWSTACK_SIZE);
+	qcgc_state.prebuilt_objects = qcgc_shadow_stack_create(16); //XXX
 	qcgc_state.gray_stack_size = 0;
 	qcgc_state.phase = GC_PAUSE;
 	qcgc_allocator_initialize();
@@ -57,7 +58,10 @@ void qcgc_write(object_t *object) {
 #endif
 	if ((object->flags & QCGC_GRAY_FLAG) == 0) {
 		object->flags |= QCGC_GRAY_FLAG;
-		if (qcgc_state.phase != GC_PAUSE) {
+		if ((object->flags & QCGC_PREBUILT_OBJECT) != 0) {
+			// Save prebuilt object into list
+			qcgc_shadow_stack_push(qcgc_state.prebuilt_objects, object);
+		} else if (qcgc_state.phase != GC_PAUSE) {
 			if (qcgc_arena_get_blocktype((cell_t *) object) == BLOCK_BLACK) {
 				// This was black before, push it to gray stack again
 				arena_t *arena = qcgc_arena_addr((cell_t *) object);
@@ -134,6 +138,11 @@ void qcgc_mark_all(void) {
 		qcgc_push_object(qcgc_state.shadow_stack->items[i]);
 	}
 
+	// Trace all prebuilt objects
+	for (size_t i = 0; i < qcgc_state.prebuilt_objects->count; i++) {
+		qcgc_trace_cb(qcgc_state.prebuilt_objects->items[i], &qcgc_push_object);
+	}
+
 	while(qcgc_state.gray_stack_size > 0) {
 		for (size_t i = 0; i < qcgc_allocator_state.arenas->count; i++) {
 			arena_t *arena = qcgc_allocator_state.arenas->items[i];
@@ -165,6 +174,11 @@ void qcgc_mark_incremental(void) {
 	// Push all roots
 	for (size_t i = 0; i < qcgc_state.shadow_stack->count; i++) {
 		qcgc_push_object(qcgc_state.shadow_stack->items[i]);
+	}
+
+	// Trace all prebuilt objects
+	for (size_t i = 0; i < qcgc_state.prebuilt_objects->count; i++) {
+		qcgc_trace_cb(qcgc_state.prebuilt_objects->items[i], &qcgc_push_object);
 	}
 
 	for (size_t i = 0; i < qcgc_allocator_state.arenas->count; i++) {
@@ -210,6 +224,9 @@ void qcgc_push_object(object_t *object) {
 	assert(qcgc_state.phase == GC_MARK);
 #endif
 	if (object != NULL) {
+		if ((object->flags & QCGC_PREBUILT_OBJECT) != 0) {
+			return;
+		}
 		if (qcgc_arena_get_blocktype((cell_t *) object) == BLOCK_WHITE) {
 			object->flags |= QCGC_GRAY_FLAG;
 			qcgc_arena_set_blocktype((cell_t *) object, BLOCK_BLACK);
