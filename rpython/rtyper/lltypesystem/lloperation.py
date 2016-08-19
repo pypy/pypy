@@ -564,9 +564,6 @@ LL_OPERATIONS = {
 
     # __________ instrumentation _________
     'instrument_count':     LLOp(),
-
-    # __________ QCGC operations _________
-    'qcgc_allocate':   LLOp(canmallocgc=True),
 }
 # ***** Run test_lloperation after changes. *****
 
