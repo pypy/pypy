@@ -1,5 +1,6 @@
 from rpython.memory.gc.base import GCBase
 from rpython.rtyper.lltypesystem import rffi, lltype, llgroup, llmemory
+from rpython.rtyper.lltypesystem.lloperation import llop
 
 class QCGC(GCBase):
     _alloc_flavor_ = "raw"
@@ -12,13 +13,14 @@ class QCGC(GCBase):
     gcflag_extra = 0   # or a real GC flag that is always 0 when not collecting
 
     typeid_is_in_field = 'tid'
+    withhash_flag_is_in_field = 'hash', 0
 
     TRANSLATION_PARAMS = {}
     HDR = lltype.Struct(
             'PYPYHDR',
             ('hdr', rffi.COpaque('object_t')),
-            ('tid', lltype.Unsigned),
-            ('hash', lltype.Unsigned))
+            ('tid', lltype.Signed),
+            ('hash', lltype.Signed))
     #HDR = rffi.COpaque('object_t')
 
     def malloc_fixedsize_clear(self, typeid16, size,
@@ -70,11 +72,12 @@ class QCGC(GCBase):
     def init_gc_object(self, addr, typeid, flags=0):
         assert flags == 0
         hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
-        hdr.tid = typeid
+        hdr.tid = llop.combine_ushort(lltype.Signed, typeid, 0)
 
     def init_gc_object_immortal(self, addr, typeid, flags=0): # XXX: Prebuilt Objects?
         assert flags == 0
         self.init_gc_object(addr, typeid, flags)
+        ptr = self.gcheaderbuilder.object_from_header(addr.ptr)
         prebuilt_hash = lltype.identityhash_nocache(ptr)
         assert prebuilt_hash != 0
         #
