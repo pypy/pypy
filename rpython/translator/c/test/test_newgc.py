@@ -1272,7 +1272,16 @@ class UsingFrameworkTest(object):
     def test_long_chain_of_instances(self):
         res = self.run("long_chain_of_instances")
         assert res == 1500
-        
+
+
+class TestQCGC(UsingFrameworkTest):
+    gcpolicy = "qcgc"
+    should_be_moving = False
+    GC_CAN_MOVE = False
+    GC_CAN_SHRINK_ARRAY = False
+    removetypeptr = True
+
+
 
 class TestSemiSpaceGC(UsingFrameworkTest, snippet.SemiSpaceGCTestDefines):
     gcpolicy = "semispace"
