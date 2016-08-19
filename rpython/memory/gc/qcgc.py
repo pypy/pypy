@@ -8,7 +8,7 @@ class QCGC(GCBase):
     malloc_zero_filled = True
     prebuilt_gc_objects_are_static_roots = True # XXX: ?
     can_usually_pin_objects = False
-    object_minimal_size = 16
+    object_minimal_size = 0
     gcflag_extra = 0   # or a real GC flag that is always 0 when not collecting
 
     typeid_is_in_field = 'tid'
@@ -61,3 +61,8 @@ class QCGC(GCBase):
     def identityhash(self, gcobj):
         raise NotImplementedError
 
+    def register_finalizer(self, fq_index, gcobj):
+        raise NotImplementedError
+
+    def get_type_id(self, obj):
+        return self.header(obj).tid

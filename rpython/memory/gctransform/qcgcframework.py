@@ -1,8 +1,12 @@
-from rpython.annotator import model as annmodel
+from rpython.rtyper.llannotation import SomePtr, SomeAddress, s_None
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.memory.gctransform.framework import (BaseFrameworkGCTransformer, BaseRootWalker)
 
+VISIT_FPTR = lltype.Ptr(lltype.FuncType([llmemory.Address], lltype.Void))
+
 class QcgcFrameworkGCTransformer(BaseFrameworkGCTransformer):
+    autoregister_ptrs = list()
+
     def build_root_walker(self):
         return QcgcRootWalker(self)
 
@@ -11,7 +15,7 @@ class QcgcFrameworkGCTransformer(BaseFrameworkGCTransformer):
                                                       s_gc, s_typeid16)
         gc = self.gcdata.gc
         #
-        s_gcref = annmodel.SomePtr(llmemory.GCREF)
+        s_gcref = SomePtr(llmemory.GCREF)
 
         #self.malloc_weakref_ptr = self._getfn(
         #    GCClass.malloc_weakref.im_func,
@@ -24,9 +28,9 @@ class QcgcFrameworkGCTransformer(BaseFrameworkGCTransformer):
             gc.trace(obj, invokecallback, visit_fn)
         pypy_trace_cb.c_name = "pypy_trace_cb"
         self.autoregister_ptrs.append(
-            getfn(pypy_trace_cb, [annmodel.SomeAddress(),
-                                     annmodel.SomePtr(GCClass.VISIT_FPTR)],
-                  annmodel.s_None))
+            getfn(pypy_trace_cb, [SomeAddress(),
+                                     SomePtr(VISIT_FPTR)],
+                  s_None))
 
     def push_roots(sef, hop, keep_current_args=False):
         raise NotImplementedError
@@ -34,7 +38,6 @@ class QcgcFrameworkGCTransformer(BaseFrameworkGCTransformer):
     def pop_roots(sef, hop, livevars):
         raise NotImplementedError
 
-
 class QcgcRootWalker(BaseRootWalker):
-    def walk_stack_roots(self, collect_stack_root):
+    def walk_stack_roots(self, collect_stack_root, is_minor=False):
         raise NotImplementedError
