@@ -47,6 +47,12 @@ class TestBuiltinCode:
         code = gateway.BuiltinCode(f, unwrap_spec=[gateway.ObjSpace, "index"])
         assert code.signature() == Signature(["index"], None, None)
 
+        def f(space, __kwonly__, w_x):
+            pass
+        code = gateway.BuiltinCode(f, unwrap_spec=[gateway.ObjSpace,
+                                                   "kwonly", W_Root])
+        assert code.signature() == Signature([], kwonlyargnames=['x'])
+
 
     def test_call(self):
         def c(space, w_x, w_y, hello_w):

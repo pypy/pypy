@@ -44,12 +44,21 @@ class SignatureBuilder(object):
         self.argnames = argnames
         self.varargname = varargname
         self.kwargname = kwargname
+        self.kwonlyargnames = None
 
     def append(self, argname):
-        self.argnames.append(argname)
+        if self.kwonlyargnames is None:
+            self.argnames.append(argname)
+        else:
+            self.kwonlyargnames.append(argname)
+
+    def marker_kwonly(self):
+        assert self.kwonlyargnames is None
+        self.kwonlyargnames = []
 
     def signature(self):
-        return Signature(self.argnames, self.varargname, self.kwargname)
+        return Signature(self.argnames, self.varargname, self.kwargname,
+                         self.kwonlyargnames)
 
 #________________________________________________________________
 
@@ -65,13 +74,6 @@ class Unwrapper(object):
     def unwrap(self, space, w_value):
         """NOT_RPYTHON"""
         raise NotImplementedError
-
-def kwonly(arg_unwrapper):
-    """Mark argument as keyword-only.
-
-    XXX: has no actual effect for now.
-    """
-    return arg_unwrapper
 
 
 class UnwrapSpecRecipe(object):
@@ -229,6 +231,11 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
         name = int_unwrapping_space_method(typ)
         self.checked_space_method(name, app_sig)
 
+    def visit_kwonly(self, _, app_sig):
+        argname = self.orig_arg()
+        assert argname == '__kwonly__'
+        app_sig.marker_kwonly()
+
 
 class UnwrapSpec_EmitRun(UnwrapSpecEmit):
 
@@ -315,6 +322,9 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
 
     def visit_truncatedint_w(self, typ):
         self.run_args.append("space.truncatedint_w(%s)" % (self.scopenext(),))
+
+    def visit_kwonly(self, typ):
+        self.run_args.append("None")
 
     def _make_unwrap_activation_class(self, unwrap_spec, cache={}):
         try:
@@ -468,6 +478,9 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
     def visit_truncatedint_w(self, typ):
         self.unwrap.append("space.truncatedint_w(%s)" % (self.nextarg(),))
 
+    def visit_kwonly(self, typ):
+        self.unwrap.append("None")
+
     def make_fastfunc(unwrap_spec, func):
         unwrap_info = UnwrapSpec_FastFunc_Unwrap()
         unwrap_info.apply_over(unwrap_spec)
@@ -563,6 +576,8 @@ def build_unwrap_spec(func, argnames, self_type=None):
                 unwrap_spec.append('args_w')
             elif argname.startswith('w_'):
                 unwrap_spec.append(W_Root)
+            elif argname == '__kwonly__':
+                unwrap_spec.append('kwonly')
             else:
                 unwrap_spec.append(None)
 
@@ -616,6 +631,8 @@ class BuiltinCode(Code):
         argnames = sig.argnames
         varargname = sig.varargname
         kwargname = sig.kwargname
+        if sig.kwonlyargnames:
+            import pdb; pdb.set_trace()
         self._argnames = argnames
 
         if unwrap_spec is None:
@@ -961,6 +978,8 @@ class interp2app(W_Root):
     def _getdefaults(self, space):
         "NOT_RPYTHON"
         defs_w = []
+        if self._code.sig.kwonlyargnames:
+            import pdb; pdb.set_trace()
         unwrap_spec = self._code._unwrap_spec[-len(self._staticdefs):]
         for i, (name, defaultval) in enumerate(self._staticdefs):
             if name.startswith('w_'):
@@ -977,7 +996,9 @@ class interp2app(W_Root):
                     defs_w.append(space.wrap(defaultval))
         if self._code._unwrap_spec:
             UNDEFINED = object()
-            alldefs_w = [UNDEFINED] * len(self._code.sig.argnames)
+            allargnames = (self._code.sig.argnames +
+                           self._code.sig.kwonlyargnames)
+            alldefs_w = [UNDEFINED] * len(allargnames)
             if defs_w:
                 alldefs_w[-len(defs_w):] = defs_w
             code = self._code
@@ -998,7 +1019,7 @@ class interp2app(W_Root):
                     assert isinstance(w_default, W_Root)
                     assert argname.startswith('w_')
                     argname = argname[2:]
-                    j = self._code.sig.argnames.index(argname)
+                    j = allargnames.index(argname)
                     assert alldefs_w[j] in (UNDEFINED, None)
                     alldefs_w[j] = w_default
             first_defined = 0
@@ -1027,9 +1048,11 @@ class GatewayCache(SpaceCache):
     def build(cache, gateway):
         "NOT_RPYTHON"
         space = cache.space
-        defs = gateway._getdefaults(space) # needs to be implemented by subclass
+        defs = gateway._getdefaults(space)
         code = gateway._code
-        fn = FunctionWithFixedCode(space, code, None, defs, forcename=gateway.name)
+        w_kw_defs = None #XXXXXXXXXXXXXXXXXXX
+        fn = FunctionWithFixedCode(space, code, None, defs, w_kw_defs,
+                                   forcename=gateway.name)
         if not space.config.translating:
             fn.add_to_table()
         if gateway.as_classmethod:
