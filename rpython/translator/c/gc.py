@@ -472,10 +472,10 @@ class QcgcFrameworkGcPolicy(BasicFrameworkGcPolicy):
         return eci
 
     def gc_startup_code(self):
+        yield 'qcgc_initialize();'
         s = list(super(QcgcFrameworkGcPolicy, self).gc_startup_code())
         for i in s:
             yield i
-        yield 'qcgc_initialize();'
 
 name_to_gcpolicy = {
     'boehm': BoehmGcPolicy,
