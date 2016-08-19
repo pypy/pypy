@@ -393,7 +393,7 @@ class PureCallCondition(Condition):
             res = self.debug_mp_str + "\n" + res
         return res
 
-class UnsupportedInfoInGuardCompatibleError(Exception):
+class UnsupportedInfoInGuardCompatible(Exception):
     pass
 
 class QuasiimmutGetfieldAndPureCallCondition(PureCallCondition):
@@ -412,7 +412,7 @@ class QuasiimmutGetfieldAndPureCallCondition(PureCallCondition):
         if self.fielddescr.is_pointer_field():
             fieldinfo = optimizer.getptrinfo(op.getarg(2))
             if fieldinfo is not None:
-                if type(fieldinfo) != info.NonNullPtrInfo:
+                if type(fieldinfo) is not info.NonNullPtrInfo:
                     # XXX PyPy only needs non-null versions. if another
                     # interpreter needs something more specific we need to
                     # generalize this code
