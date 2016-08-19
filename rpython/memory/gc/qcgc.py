@@ -18,7 +18,7 @@ class QCGC(GCBase):
     TRANSLATION_PARAMS = {}
     HDR = lltype.Struct(
             'PYPYHDR',
-            ('hdr', rffi.COpaque('object_t')),
+            ('hdr', rffi.COpaque('object_t', hints={"is_qcgc_header": True})),
             ('tid', lltype.Signed),
             ('hash', lltype.Signed))
     #HDR = rffi.COpaque('object_t')
@@ -72,7 +72,7 @@ class QCGC(GCBase):
     def init_gc_object(self, addr, typeid, flags=0):
         assert flags == 0
         hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
-        hdr.tid = llop.combine_ushort(lltype.Signed, typeid, 0)
+        hdr.tid = typeid.index
 
     def init_gc_object_immortal(self, addr, typeid, flags=0): # XXX: Prebuilt Objects?
         assert flags == 0
@@ -83,6 +83,7 @@ class QCGC(GCBase):
         #
         hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
         hdr.hash = prebuilt_hash
+        #hdr._obj._name = typeid.index
         #
         # STMGC CODE:
         #assert flags == 0

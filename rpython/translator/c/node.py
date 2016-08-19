@@ -976,12 +976,33 @@ class ExtType_OpaqueNode(ContainerNode):
                 args.append('0')
         yield 'RPyOpaque_SETUP_%s(%s);' % (T.tag, ', '.join(args))
 
+class QcgcHeader_OpaqueNode(ContainerNode):
+    nodekind = 'qcgchdr'
+    globalcontainer = True
+    typename = 'object_t @'
+    implementationtypename = typename
+    _funccodegen_owner = None
+
+    def __init__(self, db, T, obj):
+        ContainerNode.__init__(self, db, T, obj)
+
+    def initializationexpr(self, decoration=''):
+        yield '{ QCGC_PREBUILT_OBJECT }'
+
+    def enum_dependencies(self):
+        return []
+
+    def basename(self):
+        return self.nodekind
+
 
 def opaquenode_factory(db, T, obj):
     if T == RuntimeTypeInfo:
         return db.gcpolicy.rtti_node_factory()(db, T, obj)
     if T.hints.get("render_structure", False):
         return ExtType_OpaqueNode(db, T, obj)
+    if T.hints.get("is_qcgc_header", False):
+        return QcgcHeader_OpaqueNode(db, T, obj)
     raise Exception("don't know about %r" % (T,))
 
 
