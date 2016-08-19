@@ -32,11 +32,16 @@ class QcgcFrameworkGCTransformer(BaseFrameworkGCTransformer):
                                      SomePtr(VISIT_FPTR)],
                   s_None))
 
-    def push_roots(sef, hop, keep_current_args=False):
-        raise NotImplementedError
+    def push_roots(self, hop, keep_current_args=False):
+        livevars = self.get_livevars_for_roots(hop, keep_current_args)
+        self.num_pushs += len(livevars)
+        for var in livevars:
+            hop.genop("qcgc_push_root", [var])
+        return livevars
 
-    def pop_roots(sef, hop, livevars):
-        raise NotImplementedError
+    def pop_roots(self, hop, livevars):
+        for _ in livevars: # Does not move, so no writing back
+            hop.genop("qcgc_pop_root", [])
 
 class QcgcRootWalker(BaseRootWalker):
     def walk_stack_roots(self, collect_stack_root, is_minor=False):

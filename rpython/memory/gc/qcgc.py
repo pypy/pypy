@@ -1,5 +1,5 @@
 from rpython.memory.gc.base import GCBase
-from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype, llgroup, llmemory
 
 class QCGC(GCBase):
     _alloc_flavor_ = "raw"
@@ -66,3 +66,29 @@ class QCGC(GCBase):
 
     def get_type_id(self, obj):
         return self.header(obj).tid
+
+    def init_gc_object(self, addr, typeid, flags=0):
+        assert flags == 0
+        hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
+        hdr.tid = typeid
+
+    def init_gc_object_immortal(self, addr, typeid, flags=0): # XXX: Prebuilt Objects?
+        assert flags == 0
+        self.init_gc_object(addr, typeid, flags)
+        prebuilt_hash = lltype.identityhash_nocache(ptr)
+        assert prebuilt_hash != 0
+        #
+        hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
+        hdr.hash = prebuilt_hash
+        #
+        # STMGC CODE:
+        #assert flags == 0
+        #assert isinstance(typeid16, llgroup.GroupMemberOffset)
+        #ptr = self.gcheaderbuilder.object_from_header(addr.ptr)
+        #prebuilt_hash = lltype.identityhash_nocache(ptr)
+        #assert prebuilt_hash != 0     # xxx probably good enough
+        ##
+        #hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
+        #hdr._obj._name = typeid16.index   # debug only
+        #hdr._obj.typeid16 = typeid16
+        #hdr._obj.prebuilt_hash = prebuilt_hash
