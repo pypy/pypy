@@ -461,6 +461,21 @@ class QcgcFrameworkGcPolicy(BasicFrameworkGcPolicy):
         from rpython.memory.gctransform import qcgcframework
         return qcgcframework.QcgcFrameworkGCTransformer(translator)
 
+    def compilation_info(self):
+        eci = BasicGcPolicy.compilation_info(self)
+
+        from rpython.rtyper.tool.rffi_platform import configure_qcgc
+        eci = eci.merge(configure_qcgc())
+
+        return eci
+
+    def gc_startup_code(self):
+        if sys.platform == 'win32':
+            pass # yield 'assert(GC_all_interior_pointers == 0);'
+        else:
+            yield 'GC_all_interior_pointers = 0;'
+        yield 'boehm_gc_startup_code();'
+
 name_to_gcpolicy = {
     'boehm': BoehmGcPolicy,
     'ref': RefcountingGcPolicy,
