@@ -879,6 +879,33 @@ def configure_boehm(platform=None):
         [dict(prefix='gc-', include_dir='include', library_dir=library_dir)],
         symbol='GC_init')
 
+def configure_qcgc():
+    library_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), '..',
+        '..', 'translator', 'c', 'src', 'qcgc'))
+
+    separate_source = """
+    #include "qcgc.h"
+
+    extern void pypy_trace_cb(void *, void (*)(void *));
+
+    void qcgc_trace_cb(object_t *object, void (*visit)(object_t *object)) {
+        pypy_trace_cb((void *) object, (void (*)(void *)) visit);
+    }
+    """
+
+    eci = ExternalCompilationInfo(
+            include_dirs = [library_dir],
+            #includes = []
+            separate_module_sources = [separate_source],
+            separate_module_files = [os.path.join(library_dir, f) for f in
+                ["qcgc.c", "arena.c", "allocator.c", "bag.c", "event_logger.c",
+                    "gray_stack.c", "shadow_stack.c"]],
+            )
+    return configure_external_library(
+            'qcgc', eci, [dict(prefix='qcgc-', include_dir='include',
+                library_dir=library_dir)],
+            symbol='qcgc_initialize')
+
 if __name__ == '__main__':
     doc = """Example:
 
