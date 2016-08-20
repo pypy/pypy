@@ -23,11 +23,12 @@ class QCGC(GCBase):
             ('hash', lltype.Signed))
     #HDR = rffi.COpaque('object_t')
 
-    def malloc_fixedsize_clear(self, typeid16, size,
+    def malloc_fixedsize_clear(self, typeid, size,
                                needs_finalizer=False,
                                is_finalizer_light=False,
                                contains_weakptr=False):
-        raise NotImplementedError
+        # What is the llmemory.GCREF for?
+        return llop.qcgc_allocate(llmemory.GCREF, size, typeid)
         ## XXX finalizers are ignored for now
         ##ll_assert(not needs_finalizer, 'XXX needs_finalizer')
         ##ll_assert(not is_finalizer_light, 'XXX is_finalizer_light')

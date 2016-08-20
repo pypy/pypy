@@ -514,6 +514,9 @@ LL_OPERATIONS = {
     # NOTE NOTE NOTE! don't forget *** canmallocgc=True *** for anything that
     # can malloc a GC object.
 
+    # __________ qcgc operations __________
+    'qcgc_allocate':    LLOp(canmallocgc=True),
+
     # __________ weakrefs __________
 
     'weakref_create':       LLOp(sideeffects=False, canmallocgc=True),

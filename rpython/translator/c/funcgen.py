@@ -950,3 +950,11 @@ class FunctionCodeGenerator(object):
 
     def OP_QCGC_POP_ROOT(self, op):
         return 'qcgc_shadowstack_pop();'
+
+    def OP_QCGC_ALLOCATE(self, op):
+        # XXX: SET typeid
+        size = self.expr(op.args[0])
+        typeid = self.expr(op.args[1])
+        result = self.expr(op.result)
+        return ('%s = qcgc_allocate(%s);' % (result, size) +
+                '((PYPYHDR *)%s)->tid = %s;' % (result, typeid))
