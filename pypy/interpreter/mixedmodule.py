@@ -131,24 +131,28 @@ class MixedModule(Module):
 
     def getdict(self, space):
         if self.lazy:
-            # Force the dictionary by calling all lazy loaders now.
-            # This also saves in self.w_initialdict a copy of all the
-            # initial values, including if they have already been
-            # modified by setdictvalue().
-            for name in self.loaders:
-                w_value = self.get(name)
-                space.setitem(self.w_dict, space.new_interned_str(name), w_value)
-            self.lazy = False
-            self.save_module_content_for_future_reload()
-            for key, w_initial_value in self.lazy_initial_values_w.items():
-                w_key = space.new_interned_str(key)
-                if w_initial_value is not None:
-                    space.setitem(self.w_initialdict, w_key, w_initial_value)
-                else:
-                    if space.finditem(self.w_initialdict, w_key) is not None:
-                        space.delitem(self.w_initialdict, w_key)
-            del self.lazy_initial_values_w
+            self._force_lazy_dict_now()
         return self.w_dict
+
+    def _force_lazy_dict_now(self):
+        # Force the dictionary by calling all lazy loaders now.
+        # This also saves in self.w_initialdict a copy of all the
+        # initial values, including if they have already been
+        # modified by setdictvalue().
+        space = self.space
+        for name in self.loaders:
+            w_value = self.get(name)
+            space.setitem(self.w_dict, space.new_interned_str(name), w_value)
+        self.lazy = False
+        self.save_module_content_for_future_reload()
+        for key, w_initial_value in self.lazy_initial_values_w.items():
+            w_key = space.new_interned_str(key)
+            if w_initial_value is not None:
+                space.setitem(self.w_initialdict, w_key, w_initial_value)
+            else:
+                if space.finditem(self.w_initialdict, w_key) is not None:
+                    space.delitem(self.w_initialdict, w_key)
+        del self.lazy_initial_values_w
 
     def _cleanup_(self):
         self.getdict(self.space)
