@@ -25,13 +25,6 @@ class Signature(object):
             pass
         return -1
 
-    @jit.elidable
-    def get_kwonly_default(self, i, kw_defs_w):
-        if kw_defs_w is None:
-            raise KeyError
-        name = self.kwonlyargnames[i]
-        return kw_defs_w[name]
-
     def num_argnames(self):
         return len(self.argnames)
 

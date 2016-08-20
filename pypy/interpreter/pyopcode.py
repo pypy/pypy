@@ -1235,16 +1235,15 @@ class __extend__(pyframe.PyFrame):
             for i in range(len(names_w) - 1, -1, -1):
                 space.setitem(w_ann, names_w[i], self.popvalue())
         defaultarguments = self.popvalues(posdefaults)
-        kw_defs_w = None
+        w_kw_defs = None
         if kwdefaults:
-            kw_defs_w = {}
-            for i in range(kwdefaults):
-                w_defvalue = self.popvalue()
-                w_defname = self.popvalue()
-                function.Function.add_kwdefaults(space, kw_defs_w,
-                                                 w_defname, w_defvalue)
+            w_kw_defs = space.newdict(strdict=True)
+            for i in range(kwdefaults - 1, -1, -1):
+                w_name = self.popvalue()
+                w_def = self.popvalue()
+                space.setitem(w_kw_defs, w_def, w_name)
         fn = function.Function(space, codeobj, self.get_w_globals(), defaultarguments,
-                               kw_defs_w, freevars, w_ann, qualname=qualname)
+                               w_kw_defs, freevars, w_ann, qualname=qualname)
         self.pushvalue(space.wrap(fn))
 
     def MAKE_FUNCTION(self, oparg, next_instr):

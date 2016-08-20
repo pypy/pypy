@@ -153,7 +153,7 @@ class Arguments(object):
 
     @jit.unroll_safe
     def _match_signature(self, w_firstarg, scope_w, signature, defaults_w=None,
-                         kw_defs_w=None, blindargs=0):
+                         w_kw_defs=None, blindargs=0):
         """Parse args and kwargs according to the signature of a code object,
         or raise an ArgErr in case of failure.
         """
@@ -281,18 +281,19 @@ class Arguments(object):
                 else:
                     missing_positional.append(signature.argnames[i])
 
-            # finally, fill kwonly arguments with kw_defs_w (if needed)
-            for i in range(co_kwonlyargcount):
-                j = co_argcount + i
-                if scope_w[j] is not None:
+            # finally, fill kwonly arguments with w_kw_defs (if needed)
+            for i in range(co_argcount, co_argcount + co_kwonlyargcount):
+                if scope_w[i] is not None:
                     continue
-                try:
-                    w_def = signature.get_kwonly_default(i, kw_defs_w)
-                except KeyError:
-                    name = signature.kwonlyargnames[i]
+                name = signature.kwonlyargnames[i - co_argcount]
+                if w_kw_defs is None:
                     missing_kwonly.append(name)
+                    continue
+                w_def = self.space.finditem_str(w_kw_defs, name)
+                if w_def is not None:
+                    scope_w[i] = w_def
                 else:
-                    scope_w[j] = w_def
+                    missing_kwonly.append(name)
 
         if missing_positional:
             raise ArgErrMissing(missing_positional, True)
@@ -302,7 +303,7 @@ class Arguments(object):
 
     def parse_into_scope(self, w_firstarg,
                          scope_w, fnname, signature, defaults_w=None,
-                         kw_defs_w=None):
+                         w_kw_defs=None):
         """Parse args and kwargs to initialize a frame
         according to the signature of code object.
         Store the argumentvalues into scope_w.
@@ -311,30 +312,30 @@ class Arguments(object):
         try:
             self._match_signature(w_firstarg,
                                   scope_w, signature, defaults_w,
-                                  kw_defs_w, 0)
+                                  w_kw_defs, 0)
         except ArgErr as e:
             raise oefmt(self.space.w_TypeError, "%s() %8", fnname, e.getmsg())
         return signature.scope_length()
 
-    def _parse(self, w_firstarg, signature, defaults_w, kw_defs_w, blindargs=0):
+    def _parse(self, w_firstarg, signature, defaults_w, w_kw_defs, blindargs=0):
         """Parse args and kwargs according to the signature of a code object,
         or raise an ArgErr in case of failure.
         """
         scopelen = signature.scope_length()
         scope_w = [None] * scopelen
         self._match_signature(w_firstarg, scope_w, signature, defaults_w,
-                              kw_defs_w, blindargs)
+                              w_kw_defs, blindargs)
         return scope_w
 
 
     def parse_obj(self, w_firstarg,
-                  fnname, signature, defaults_w=None, kw_defs_w=None,
+                  fnname, signature, defaults_w=None, w_kw_defs=None,
                   blindargs=0):
         """Parse args and kwargs to initialize a frame
         according to the signature of code object.
         """
         try:
-            return self._parse(w_firstarg, signature, defaults_w, kw_defs_w,
+            return self._parse(w_firstarg, signature, defaults_w, w_kw_defs,
                                blindargs)
         except ArgErr as e:
             raise oefmt(self.space.w_TypeError, "%s() %8", fnname, e.getmsg())

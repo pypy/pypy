@@ -36,9 +36,9 @@ class Function(W_Root):
                           'closure?[*]',
                           'defs_w?[*]',
                           'name?',
-                          'kw_defs_w?']
+                          'w_kw_defs?']
 
-    def __init__(self, space, code, w_globals=None, defs_w=[], kw_defs_w=None,
+    def __init__(self, space, code, w_globals=None, defs_w=[], w_kw_defs=None,
                  closure=None, w_ann=None, forcename=None, qualname=None):
         self.space = space
         self.name = forcename or code.co_name
@@ -48,7 +48,7 @@ class Function(W_Root):
         self.w_func_globals = w_globals  # the globals dictionary
         self.closure = closure    # normally, list of Cell instances or None
         self.defs_w = defs_w
-        self.kw_defs_w = kw_defs_w
+        self.w_kw_defs = w_kw_defs
         self.w_func_dict = None # filled out below if needed
         self.w_module = None
         self.w_ann = w_ann
@@ -373,35 +373,19 @@ class Function(W_Root):
         self.defs_w = []
 
     def fget_func_kwdefaults(self, space):
-        if self.kw_defs_w is None:
+        if self.w_kw_defs is None:
             return space.w_None
-        w_result = space.newdict(strdict=True)
-        for key, w_value in self.kw_defs_w.items():
-            space.setitem_str(w_result, key, w_value)
-        return w_result
-
-    @staticmethod
-    def add_kwdefaults(space, kw_defs_w, w_key, w_value):
-        key = space.unicode_w(w_key).encode('utf-8')
-        kw_defs_w[key] = w_value
+        return self.w_kw_defs
 
     def fset_func_kwdefaults(self, space, w_new):
         if space.is_w(w_new, space.w_None):
-            self.kw_defs_w = None
+            w_new = None
         elif not space.isinstance_w(w_new, space.w_dict):
             raise oefmt(space.w_TypeError, "__kwdefaults__ must be a dict")
-        else:
-            # must assign a new dictionary to 'kw_defs_w', never mutate
-            # the existing dictionary: this is because
-            # Signature.get_kwonly_default() is an elidable function.
-            new_w = {}
-            for w_key in space.unpackiterable(w_new):
-                w_value = space.getitem(w_new, w_key)
-                self.add_kwdefaults(space, new_w, w_key, w_value)
-            self.kw_defs_w = new_w
+        self.w_kw_defs = w_new
 
     def fdel_func_kwdefaults(self, space):
-        self.kw_defs_w = None
+        self.w_kw_defs = None
 
     def fget_func_doc(self, space):
         if self.w_doc is None:
@@ -679,7 +663,7 @@ class BuiltinFunction(Function):
     def __init__(self, func):
         assert isinstance(func, Function)
         Function.__init__(self, func.space, func.code, func.w_func_globals,
-                          func.defs_w, func.kw_defs_w, func.closure,
+                          func.defs_w, func.w_kw_defs, func.closure,
                           None, func.name)
         self.w_doc = func.w_doc
         self.w_func_dict = func.w_func_dict
