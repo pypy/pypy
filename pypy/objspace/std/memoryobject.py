@@ -73,6 +73,15 @@ class W_MemoryView(W_Root):
 
     def descr_getitem(self, space, w_index):
         start, stop, step, size = space.decode_index4(w_index, self.getlength())
+        itemsize = self.buf.getitemsize()
+        if itemsize > 1:
+            start *= itemsize
+            size *= itemsize
+            stop  = start + size
+            if step == 0:
+                step = 1
+            if stop > self.getlength():
+                raise oefmt(space.w_IndexError, 'index out of range')
         if step not in (0, 1):
             raise oefmt(space.w_NotImplementedError, "")
         if step == 0:  # index only
@@ -85,6 +94,15 @@ class W_MemoryView(W_Root):
         if self.buf.readonly:
             raise oefmt(space.w_TypeError, "cannot modify read-only memory")
         start, stop, step, size = space.decode_index4(w_index, self.getlength())
+        itemsize = self.buf.getitemsize()
+        if itemsize > 1:
+            start *= itemsize
+            size *= itemsize
+            stop  = start + size
+            if step == 0:
+                step = 1
+            if stop > self.getlength():
+                raise oefmt(space.w_IndexError, 'index out of range')
         if step not in (0, 1):
             raise oefmt(space.w_NotImplementedError, "")
         value = space.buffer_w(w_obj, space.BUF_CONTIG_RO)

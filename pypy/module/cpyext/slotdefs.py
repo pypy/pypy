@@ -319,11 +319,7 @@ class CPyBuffer(Buffer):
         return self.size
 
     def getitem(self, index):
-        if self.itemsize == 1:
-            return self.ptr[index]
-        start = index * self.itemsize
-        stop = (index + 1) * self.itemsize
-        return self.getslice(start, stop, 1, stop - start)
+        return self.ptr[index]
 
     def get_raw_address(self):
         return rffi.cast(rffi.CCHARP, self.ptr)
@@ -334,8 +330,8 @@ class CPyBuffer(Buffer):
     def getshape(self):
         return self.shape
 
-    def getslice(self, start, stop, step, size):
-        return ''.join([self.ptr[i] for i in range(start, stop, step)])
+    def getitemsize(self):
+        return self.itemsize
 
 def wrap_getreadbuffer(space, w_self, w_args, func):
     func_target = rffi.cast(readbufferproc, func)
@@ -586,8 +582,8 @@ def build_slot_tp_function(space, typedef, name):
             return space.call_args(space.get(new_fn, w_self), args)
         api_func = slot_tp_new.api_func
     elif name == 'tp_as_buffer.c_bf_getbuffer':
-        buf_fn = w_type.getdictvalue(space, '__buffer__')
-        if buf_fn is None:
+        buff_fn = w_type.getdictvalue(space, '__buffer__')
+        if buff_fn is None:
             return
         @cpython_api([PyObject, Py_bufferP, rffi.INT_real], 
                 rffi.INT_real, header=None, error=-1)
