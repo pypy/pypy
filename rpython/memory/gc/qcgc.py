@@ -1,6 +1,7 @@
 from rpython.memory.gc.base import GCBase
-from rpython.rtyper.lltypesystem import rffi, lltype, llgroup, llmemory
+from rpython.rtyper.lltypesystem import rffi, lltype, llgroup, llmemory, llarena
 from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rlib.debug import ll_assert
 
 class QCGC(GCBase):
     _alloc_flavor_ = "raw"
@@ -27,24 +28,19 @@ class QCGC(GCBase):
                                needs_finalizer=False,
                                is_finalizer_light=False,
                                contains_weakptr=False):
-        # What is the llmemory.GCREF for?
+        # XXX: What is the llmemory.GCREF for? (Assumption: return value)
+        ll_assert(not needs_finalizer, 'finalizer not supported')
+        ll_assert(not is_finalizer_light, 'light finalizer not supported')
+        ll_assert(not contains_weakptr, 'weakref not supported')
         return llop.qcgc_allocate(llmemory.GCREF, size, typeid)
-        ## XXX finalizers are ignored for now
-        ##ll_assert(not needs_finalizer, 'XXX needs_finalizer')
-        ##ll_assert(not is_finalizer_light, 'XXX is_finalizer_light')
-        #ll_assert(not contains_weakptr, 'contains_weakptr: use malloc_weakref')
-        ## XXX call optimized versions, e.g. if size < GC_NURSERY_SECTION
-        #return llop.stm_allocate(llmemory.GCREF, size, typeid16)
 
     def malloc_varsize_clear(self, typeid16, length, size, itemsize,
                              offset_to_length):
-        raise NotImplementedError
-        ## XXX be careful about overflows, and call optimized versions
-        #totalsize = size + itemsize * length
-        #totalsize = llarena.round_up_for_allocation(totalsize)
-        #obj = llop.stm_allocate(llmemory.Address, totalsize, typeid16)
-        #(obj + offset_to_length).signed[0] = length
-        #return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
+        totalsize = size + itemsize * length
+        totalsize = llarena.round_up_for_allocation(totalsize)
+        obj = llop.qcgc_allocate(llmemory.Address, totalsize, typeid16)
+        (obj + offset_to_length).signed[0] = length
+        return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
     def collect(self, gen=1):
         """Do a minor (gen=0) or major (gen>0) collection."""
