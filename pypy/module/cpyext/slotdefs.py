@@ -301,32 +301,29 @@ class CPyBuffer(Buffer):
     # Similar to Py_buffer
     _immutable_ = True
 
-    def __init__(self, ptr, size, w_obj, pybuf=None):
+    def __init__(self, ptr, size, w_obj, format='B', shape=None,
+                strides=None, ndim=1, itemsize=1, readonly=True):
         self.ptr = ptr
         self.size = size
         self.w_obj = w_obj # kept alive
-        if pybuf is None:
-            self.format = 'B'
+        self.format = format
+        if not shape:
             self.shape = [size]
+        if not strides:
             self.strides = [1]
-            self.ndim = 1
-            self.itemsize = 1
-            self.readonly = True
-        else:
-            self.format = rffi.charp2str(pybuf.c_format)
-            self.ndim = pybuf.c_ndim
-            self.shape = [pybuf.c_shape[i] for i in range(self.ndim)]
-            self.strides = [pybuf.c_strides[i] for i in range(self.ndim)]
-            self.itemsize = pybuf.c_itemsize 
-            self.readonly = pybuf.c_readonly
+        self.ndim = ndim 
+        self.itemsize = itemsize
+        self.readonly = readonly
 
     def getlength(self):
         return self.size
 
     def getitem(self, index):
+        if self.itemsize == 1:
+            return self.ptr[index]
         start = index * self.itemsize
         stop = (index + 1) * self.itemsize
-        return ''.join([self.ptr[i] for i in range(start, stop)])
+        return self.getslice(start, stop, 1, stop - start)
 
     def get_raw_address(self):
         return rffi.cast(rffi.CCHARP, self.ptr)
@@ -337,6 +334,8 @@ class CPyBuffer(Buffer):
     def getshape(self):
         return self.shape
 
+    def getslice(self, start, stop, step, size):
+        return ''.join([self.ptr[i] for i in range(start, stop, step)])
 
 def wrap_getreadbuffer(space, w_self, w_args, func):
     func_target = rffi.cast(readbufferproc, func)
@@ -358,7 +357,14 @@ def wrap_getbuffer(space, w_self, w_args, func):
             space.fromcache(State).check_and_raise_exception(always=True)
         ptr = pybuf.c_buf
         size = pybuf.c_len
-        return space.newbuffer(CPyBuffer(ptr, size, w_self, pybuf))
+        ndim = pybuf.c_ndim
+        shape =   [pybuf.c_shape[i]   for i in range(ndim)]
+        strides = [pybuf.c_strides[i] for i in range(ndim)]
+        format = rffi.charp2str(pybuf.c_format)
+        return space.newbuffer(CPyBuffer(ptr, size, w_self, format=format,
+                            ndim=ndim, shape=shape, strides=strides,
+                            itemsize=pybuf.c_itemsize,
+                            readonly=pybuf.c_readonly))
 
 def get_richcmp_func(OP_CONST):
     def inner(space, w_self, w_args, func):
@@ -921,9 +927,9 @@ def slotdef_sort_key(slotdef):
         return 2
     if slotdef.slot_name.startswith('tp_as_sequence'):
         return 3
-    if slodef.slot_name == 'tp_as_buffer.c_bf_getbuffer':
+    if slotdef.slot_name == 'tp_as_buffer.c_bf_getbuffer':
         return 100
-    if slodef.slot_name == 'tp_as_buffer.c_bf_getreadbuffer':
+    if slotdef.slot_name == 'tp_as_buffer.c_bf_getreadbuffer':
         return 101
     return 0
 slotdefs = sorted(slotdefs, key=slotdef_sort_key)

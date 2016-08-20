@@ -13,7 +13,7 @@ class TestMemoryViewObject(BaseApiTest):
         assert api.PyObject_CheckBuffer(w_hello)
         w_view = api.PyMemoryView_FromObject(w_hello)
         w_char = space.call_method(w_view, '__getitem__', space.wrap(0))
-        assert w_char == space.wrap('h')
+        assert space.eq_w(w_char, space.wrap('h'))
         w_bytes = space.call_method(w_view, "tobytes")
         assert space.unwrap(w_bytes) == "hello"
 
