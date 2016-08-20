@@ -1190,15 +1190,15 @@ def appdef(source, applevel=ApplevelClass, filename=None):
             source = source[source.find('\n') + 1:].lstrip()
         assert source.startswith("def "), "can only transform functions"
         source = source[4:]
-        import __future__
-        if flags & __future__.CO_FUTURE_DIVISION:
-            prefix += "from __future__ import division\n"
-        if flags & __future__.CO_FUTURE_ABSOLUTE_IMPORT:
-            prefix += "from __future__ import absolute_import\n"
-        if flags & __future__.CO_FUTURE_PRINT_FUNCTION:
-            prefix += "from __future__ import print_function\n"
-        if flags & __future__.CO_FUTURE_UNICODE_LITERALS:
-            prefix += "from __future__ import unicode_literals\n"
+        # The following flags have no effect any more in app-level code
+        # (i.e. they are always on anyway), and have been removed:
+        #    CO_FUTURE_DIVISION
+        #    CO_FUTURE_ABSOLUTE_IMPORT
+        #    CO_FUTURE_PRINT_FUNCTION
+        #    CO_FUTURE_UNICODE_LITERALS
+        # Original code was, for each of these flags:
+        #    if flags & __future__.CO_xxx:
+        #        prefix += "from __future__ import yyy\n"
     p = source.find('(')
     assert p >= 0
     funcname = source[:p].strip()
