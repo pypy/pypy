@@ -957,4 +957,4 @@ class FunctionCodeGenerator(object):
         typeid = self.expr(op.args[1])
         result = self.expr(op.result)
         return ('%s = qcgc_allocate(%s);' % (result, size) +
-                '((PYPYHDR *)%s)->tid = %s;' % (result, typeid))
+                '((pypyhdr_t *)%s)->tid = %s;' % (result, typeid))

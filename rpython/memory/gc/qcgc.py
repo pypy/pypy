@@ -17,7 +17,7 @@ class QCGC(GCBase):
 
     TRANSLATION_PARAMS = {}
     HDR = lltype.Struct(
-            'PYPYHDR',
+            'pypyhdr_t',
             ('hdr', rffi.COpaque('object_t', hints={"is_qcgc_header": True})),
             ('tid', lltype.Signed),
             ('hash', lltype.Signed))

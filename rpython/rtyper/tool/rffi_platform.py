@@ -896,6 +896,7 @@ def configure_qcgc():
     eci = ExternalCompilationInfo(
             include_dirs = [library_dir],
             includes = ["qcgc.h"],
+            pre_include_bits = ["#define RPY_QCGC 1"],
             separate_module_sources = [separate_source],  # XXX
             separate_module_files = [os.path.join(library_dir, f) for f in
                 ["qcgc.c", "arena.c", "allocator.c", "bag.c", "event_logger.c",
