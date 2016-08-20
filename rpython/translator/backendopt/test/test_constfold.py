@@ -7,6 +7,7 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper import rclass
 from rpython.rlib import objectmodel
 from rpython.translator.backendopt.constfold import constant_fold_graph
+from rpython.translator.backendopt.constfold import replace_we_are_jitted
 from rpython.conftest import option
 
 def get_graph(fn, signature):
@@ -343,3 +344,20 @@ def test_merge_if_blocks_bug_2():
     merge_if_blocks.merge_if_blocks_once(graph)
     constant_fold_graph(graph)
     check_graph(graph, [], 66, t)
+
+def test_replace_we_are_jitted():
+    from rpython.flowspace import model
+    from rpython.rtyper.lltypesystem import lltype
+    from rpython.rlib import jit
+    def fn():
+        if jit.we_are_jitted():
+            return 1
+        return 2 + jit.we_are_jitted()
+    graph, t = get_graph(fn, [])
+    result = replace_we_are_jitted(graph)
+    assert result
+    checkgraph(graph)
+    # check shape of graph
+    assert len(graph.startblock.operations) == 0
+    assert graph.startblock.exitswitch is None
+    assert graph.startblock.exits[0].target.exits[0].args[0].value == 2
