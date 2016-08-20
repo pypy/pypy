@@ -38,7 +38,9 @@ class Function(W_Root):
                           'name?',
                           'w_kw_defs?']
 
-    def __init__(self, space, code, w_globals=None, defs_w=[], w_kw_defs=None,
+    w_kw_defs = None
+
+    def __init__(self, space, code, w_globals=None, defs_w=[], kw_defs_w=None,
                  closure=None, w_ann=None, forcename=None, qualname=None):
         self.space = space
         self.name = forcename or code.co_name
@@ -48,10 +50,12 @@ class Function(W_Root):
         self.w_func_globals = w_globals  # the globals dictionary
         self.closure = closure    # normally, list of Cell instances or None
         self.defs_w = defs_w
-        self.w_kw_defs = w_kw_defs
         self.w_func_dict = None # filled out below if needed
         self.w_module = None
         self.w_ann = w_ann
+        #
+        if kw_defs_w is not None:
+            self.init_kwdefaults_dict(kw_defs_w)
 
     def __repr__(self):
         # return "function %s.%s" % (self.space, self.name)
@@ -379,13 +383,28 @@ class Function(W_Root):
 
     def fset_func_kwdefaults(self, space, w_new):
         if space.is_w(w_new, space.w_None):
-            w_new = None
-        elif not space.isinstance_w(w_new, space.w_dict):
-            raise oefmt(space.w_TypeError, "__kwdefaults__ must be a dict")
-        self.w_kw_defs = w_new
+            self.w_kw_defs = None
+        else:
+            if not space.isinstance_w(w_new, space.w_dict):
+                raise oefmt(space.w_TypeError, "__kwdefaults__ must be a dict")
+            w_instance = self.init_kwdefaults_dict()
+            w_instance.setdict(space, w_new)
+            self.w_kw_defs = w_instance.getdict(space)
 
     def fdel_func_kwdefaults(self, space):
         self.w_kw_defs = None
+
+    def init_kwdefaults_dict(self, kw_defs_w=[]):
+        # use the mapdict logic to get at least not-too-bad JIT code
+        # from function calls with default values of kwonly arguments
+        space = self.space
+        w_class = space.fromcache(KwDefsClassCache).w_class
+        w_instance = space.call_function(w_class)
+        for w_name, w_value in kw_defs_w:
+            attr = space.unicode_w(w_name).encode('utf-8')
+            w_instance.setdictvalue(space, attr, w_value)
+        self.w_kw_defs = w_instance.getdict(space)
+        return w_instance
 
     def fget_func_doc(self, space):
         if self.w_doc is None:
@@ -663,10 +682,12 @@ class BuiltinFunction(Function):
     def __init__(self, func):
         assert isinstance(func, Function)
         Function.__init__(self, func.space, func.code, func.w_func_globals,
-                          func.defs_w, None, func.closure, None, func.name)
+                          func.defs_w, None, func.closure,
+                          None, func.name)
         self.w_doc = func.w_doc
         self.w_func_dict = func.w_func_dict
         self.w_module = func.w_module
+        self.w_kw_defs = func.w_kw_defs
 
     def descr_builtinfunction__new__(space, w_subtype):
         raise oefmt(space.w_TypeError,
@@ -684,3 +705,12 @@ def is_builtin_code(w_func):
     else:
         code = None
     return isinstance(code, BuiltinCode)
+
+
+class KwDefsClassCache:
+    def __init__(self, space):
+        self.w_class = space.appexec([], """():
+            class KwDefs:
+                pass
+            return KwDefs
+        """)
