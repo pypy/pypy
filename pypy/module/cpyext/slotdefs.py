@@ -348,10 +348,7 @@ def wrap_getbuffer(space, w_self, w_args, func):
     with lltype.scoped_alloc(Py_buffer) as pybuf:
         _flags = 0
         if space.len_w(w_args) > 0:
-            _flags = space.listview(w_args)[0]
-        if not isinstance(_flags, int):
-            raise oefmt(space.w_TypeError, 
-                        "non-int flags passed to getbufferproc")
+            _flags = space.int_w(space.listview(w_args)[0])
         flags = rffi.cast(rffi.INT_real,_flags)
         size = generic_cpy_call(space, func_target, w_self, pybuf, flags)
         if widen(size) < 0:

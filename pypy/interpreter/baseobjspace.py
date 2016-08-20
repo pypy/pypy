@@ -208,7 +208,8 @@ class W_Root(object):
     def buffer_w(self, space, flags):
         w_impl = space.lookup(self, '__buffer__')
         if w_impl is not None:
-            w_result = space.get_and_call_function(w_impl, self, flags)
+            w_result = space.get_and_call_function(w_impl, self, 
+                                        space.newint(flags))
             if space.isinstance_w(w_result, space.w_buffer):
                 return w_result.buffer_w(space, flags)
         raise BufferInterfaceNotFound
@@ -217,7 +218,7 @@ class W_Root(object):
         w_impl = space.lookup(self, '__buffer__')
         if w_impl is not None:
             w_result = space.get_and_call_function(w_impl, self,
-                                                space.BUF_FULL_RO)
+                                        space.newint(space.BUF_FULL_RO))
             if space.isinstance_w(w_result, space.w_buffer):
                 return w_result.readbuf_w(space)
         raise BufferInterfaceNotFound
@@ -226,7 +227,7 @@ class W_Root(object):
         w_impl = space.lookup(self, '__buffer__')
         if w_impl is not None:
             w_result = space.get_and_call_function(w_impl, self,
-                                                space.BUF_FULL)
+                                        space.newint(space.BUF_FULL))
             if space.isinstance_w(w_result, space.w_buffer):
                 return w_result.writebuf_w(space)
         raise BufferInterfaceNotFound
@@ -235,7 +236,7 @@ class W_Root(object):
         w_impl = space.lookup(self, '__buffer__')
         if w_impl is not None:
             w_result = space.get_and_call_function(w_impl, self,
-                                                space.BUF_FULL_RO)
+                                        space.newint(space.BUF_FULL_RO))
             if space.isinstance_w(w_result, space.w_buffer):
                 return w_result.charbuf_w(space)
         raise BufferInterfaceNotFound
