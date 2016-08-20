@@ -327,7 +327,8 @@ class JSONDecoder(object):
             i += 1
             if ch == '"':
                 content_utf8 = builder.build()
-                content_unicode = unicodehelper.decode_utf8(self.space, content_utf8)
+                content_unicode = unicodehelper.decode_utf8(
+                    self.space, content_utf8, allow_surrogates=True)
                 self.last_type = TYPE_STRING
                 self.pos = i
                 return self.space.wrap(content_unicode)
@@ -374,7 +375,8 @@ class JSONDecoder(object):
                    # this point
         #
         uchr = runicode.code_to_unichr(val)     # may be a surrogate pair again
-        utf8_ch = unicodehelper.encode_utf8(self.space, uchr)
+        utf8_ch = unicodehelper.encode_utf8(
+            self.space, uchr, allow_surrogates=True)
         builder.append(utf8_ch)
         return i
 

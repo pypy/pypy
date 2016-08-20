@@ -10,10 +10,10 @@ def test_skip_whitespace():
     assert dec.skip_whitespace(8) == len(s)
     dec.close()
 
-    
+
 
 class AppTest(object):
-    spaceconfig = {"objspace.usemodules._pypyjson": True}
+    spaceconfig = {"usemodules": ['_pypyjson']}
 
     def test_raise_on_bytes(self):
         import _pypyjson
@@ -40,7 +40,7 @@ class AppTest(object):
         raises(ValueError, _pypyjson.loads, 'fa')
         raises(ValueError, _pypyjson.loads, 'f')
         raises(ValueError, _pypyjson.loads, 'falXX')
-        
+
 
     def test_decode_string(self):
         import _pypyjson
@@ -69,7 +69,7 @@ class AppTest(object):
         import _pypyjson
         assert _pypyjson.loads(r'"\\"') == '\\'
         assert _pypyjson.loads(r'"\""') == '"'
-        assert _pypyjson.loads(r'"\/"') == '/'       
+        assert _pypyjson.loads(r'"\/"') == '/'
         assert _pypyjson.loads(r'"\b"') == '\b'
         assert _pypyjson.loads(r'"\f"') == '\f'
         assert _pypyjson.loads(r'"\n"') == '\n'
@@ -85,7 +85,7 @@ class AppTest(object):
         import _pypyjson
         s = r'"hello\nworld' # missing the trailing "
         raises(ValueError, "_pypyjson.loads(s)")
-        
+
     def test_escape_sequence_unicode(self):
         import _pypyjson
         s = r'"\u1234"'
@@ -166,7 +166,7 @@ class AppTest(object):
     def test_decode_object_nonstring_key(self):
         import _pypyjson
         raises(ValueError, "_pypyjson.loads('{42: 43}')")
-        
+
     def test_decode_array(self):
         import _pypyjson
         assert _pypyjson.loads('[]') == []
@@ -183,7 +183,7 @@ class AppTest(object):
         res = _pypyjson.loads('"z\\ud834\\udd20x"')
         assert res == expected
 
-    def test_surrogate_pair(self):
+    def test_lone_surrogate(self):
         import _pypyjson
         json = '{"a":"\\uD83D"}'
         res = _pypyjson.loads(json)

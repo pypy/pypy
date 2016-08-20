@@ -16,11 +16,10 @@ class Module(MixedModule):
     @staticmethod
     def _compile_bootstrap_module(space, name, w_name, w_dict):
         """NOT_RPYTHON"""
-        ec = space.getexecutioncontext()
         with open(os.path.join(lib_python, 'importlib', name + '.py')) as fp:
             source = fp.read()
         pathname = "<frozen importlib.%s>" % name
-        code_w = ec.compiler.compile(source, pathname, 'exec', 0)
+        code_w = Module._cached_compile(space, source, pathname, 'exec', 0)
         space.setitem(w_dict, space.wrap('__name__'), w_name)
         space.setitem(w_dict, space.wrap('__builtins__'),
                       space.wrap(space.builtin))
@@ -42,6 +41,31 @@ class Module(MixedModule):
             space, '_bootstrap', self.w_name, self.w_dict)
 
         self.w_import = space.wrap(interp_import.import_with_frames_removed)
+
+    @staticmethod
+    def _cached_compile(space, source, *args):
+        from rpython.config.translationoption import CACHE_DIR
+        from pypy.module.marshal import interp_marshal
+
+        cachename = os.path.join(CACHE_DIR, 'frozen_importlib_bootstrap')
+        try:
+            if space.config.translating:
+                raise IOError("don't use the cache when translating pypy")
+            with open(cachename, 'rb') as f:
+                previous = f.read(len(source) + 1)
+                if previous != source + '\x00':
+                    raise IOError("source changed")
+                w_bin = space.newbytes(f.read())
+                code_w = interp_marshal.loads(space, w_bin)
+        except IOError:
+            # must (re)compile the source
+            ec = space.getexecutioncontext()
+            code_w = ec.compiler.compile(source, *args)
+            w_bin = interp_marshal.dumps(space, code_w, space.wrap(2))
+            content = source + '\x00' + space.bytes_w(w_bin)
+            with open(cachename, 'wb') as f:
+                f.write(content)
+        return code_w
 
     def startup(self, space):
         """Copy our __import__ to builtins."""

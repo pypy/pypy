@@ -47,6 +47,12 @@ class TestBuiltinCode:
         code = gateway.BuiltinCode(f, unwrap_spec=[gateway.ObjSpace, "index"])
         assert code.signature() == Signature(["index"], None, None)
 
+        def f(space, __kwonly__, w_x):
+            pass
+        code = gateway.BuiltinCode(f, unwrap_spec=[gateway.ObjSpace,
+                                                   "kwonly", W_Root])
+        assert code.signature() == Signature([], kwonlyargnames=['x'])
+
 
     def test_call(self):
         def c(space, w_x, w_y, hello_w):
@@ -753,7 +759,7 @@ class TestGateway:
         @gateway.unwrap_spec(w_x = WrappedDefault(42), y=int)
         def g(space, w_x, y):
             never_called
-        py.test.raises(AssertionError, space.wrap, gateway.interp2app_temp(g))
+        py.test.raises(KeyError, space.wrap, gateway.interp2app_temp(g))
 
     def test_unwrap_spec_default_applevel_bug2(self):
         space = self.space
@@ -802,6 +808,80 @@ class TestGateway:
         args = argument.Arguments(space, [])
         w_res = space.call_args(w_g, args)
         assert space.eq_w(w_res, space.newbytes('foo'))
+
+    def test_unwrap_spec_kwonly(self):
+        space = self.space
+        def g(space, w_x, __kwonly__, w_y):
+            return space.sub(w_x, w_y)
+        w_g = space.wrap(gateway.interp2app_temp(g))
+        w = space.wrap
+        w1 = w(1)
+
+        for i in range(4):
+            a = argument.Arguments(space, [w1, w1, w1])
+            py.test.raises(gateway.OperationError, space.call_args, w_g, a)
+            py.test.raises(gateway.OperationError, space.call_function, w_g,
+                           *(i * (w1,)))
+
+        args = argument.Arguments(space, [w(1)],
+                                  w_starstararg = w({'y': 10}))
+        assert space.eq_w(space.call_args(w_g, args), w(-9))
+        args = argument.Arguments(space, [],
+                                  w_starstararg = w({'x': 2, 'y': 10}))
+        assert space.eq_w(space.call_args(w_g, args), w(-8))
+
+    def test_unwrap_spec_kwonly_default(self):
+        space = self.space
+        @gateway.unwrap_spec(w_x2=WrappedDefault(50), y2=int)
+        def g(space, w_x1, w_x2, __kwonly__, w_y1, y2=200):
+            return space.sub(space.sub(w_x1, w_x2),
+                             space.sub(w_y1, w(y2)))
+        w_g = space.wrap(gateway.interp2app_temp(g))
+        w = space.wrap
+        w1 = w(1)
+
+        for i in range(6):
+            py.test.raises(gateway.OperationError, space.call_function, w_g,
+                           *(i * (w1,)))
+
+        def expected(x1, x2=50, y1="missing", y2=200):
+            return (x1 - x2) - (y1 - y2)
+
+        def check(*args, **kwds):
+            a = argument.Arguments(space, [], w_stararg = w(args),
+                                          w_starstararg = w(kwds))
+            w_res = space.call_args(w_g, a)
+            assert space.eq_w(w_res, w(expected(*args, **kwds)))
+
+            del kwds['y1']
+            a = argument.Arguments(space, [], w_stararg = w(args),
+                                          w_starstararg = w(kwds))
+            py.test.raises(gateway.OperationError, space.call_args, w_g, a)
+
+            args += (1234,)
+            a = argument.Arguments(space, [], w_stararg = w(args),
+                                          w_starstararg = w(kwds))
+            py.test.raises(gateway.OperationError, space.call_args, w_g, a)
+
+        check(5,       y1=1234)
+        check(5, 1,    y1=1234)
+        check(5, x2=1, y1=1234)
+        check(5,       y1=1234, y2=343)
+        check(5, 1,    y1=1234, y2=343)
+        check(5, x2=1, y1=1234, y2=343)
+        check(x1=5,       y1=1234,       )
+        check(x1=5, x2=1, y1=1234,       )
+        check(x1=5,       y1=1234, y2=343)
+        check(x1=5, x2=1, y1=1234, y2=343)
+
+    def test_unwrap_spec_kwonly_default_2(self):
+        space = self.space
+        @gateway.unwrap_spec(w_x2=WrappedDefault(50))
+        def g(space, w_x2=None):
+            return w_x2
+        w_g = space.wrap(gateway.interp2app_temp(g))
+        w_res = space.call_function(w_g)
+        assert space.eq_w(w_res, space.wrap(50))
 
 
 class AppTestPyTestMark:

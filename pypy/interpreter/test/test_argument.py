@@ -30,7 +30,7 @@ class TestSignature(object):
         assert sig.num_argnames() == 3
         assert sig.has_vararg()
         assert sig.has_kwarg()
-        assert sig.scope_length() == 5
+        assert sig.scope_length() == 6
         assert sig.getallvarnames() == ["a", "b", "c", "d", "kwonly", "c"]
 
     def test_eq(self):

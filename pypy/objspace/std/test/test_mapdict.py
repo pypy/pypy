@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from pypy.objspace.std.test.test_dictmultiobject import FakeSpace, W_DictObject
 from pypy.objspace.std.mapdict import *
 
@@ -873,6 +875,15 @@ class AppTestWithMapDict(object):
         d = x.__dict__
         assert list(__pypy__.reversed_dict(d)) == list(d.keys())[::-1]
 
+    def test_nonascii_argname(self):
+        """
+        class X:
+            pass
+        x = X()
+        x.日本 = 3
+        assert x.日本 == 3
+        assert x.__dict__ == {'日本': 3}
+        """
 
 class AppTestWithMapDictAndCounters(object):
     spaceconfig = {"objspace.std.withmethodcachecounter": True}

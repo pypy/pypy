@@ -39,6 +39,7 @@ class Signature(object):
 
     def scope_length(self):
         scopelen = len(self.argnames)
+        scopelen += len(self.kwonlyargnames)
         scopelen += self.has_vararg()
         scopelen += self.has_kwarg()
         return scopelen
