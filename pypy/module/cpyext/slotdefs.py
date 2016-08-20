@@ -3,6 +3,7 @@ from __future__ import with_statement
 import re
 
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.rarithmetic import widen
 from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, PyObject, Py_ssize_t, Py_TPFLAGS_CHECKTYPES,
     mangle_name, pypy_decl, Py_buffer, Py_bufferP)
@@ -344,7 +345,6 @@ def wrap_getreadbuffer(space, w_self, w_args, func):
 
 def wrap_getbuffer(space, w_self, w_args, func):
     func_target = rffi.cast(getbufferproc, func)
-    # XXX leak
     with lltype.scoped_alloc(Py_buffer) as pybuf:
         # XXX flags are not in w_args?
         flags = rffi.cast(rffi.INT_real,0)
@@ -353,14 +353,14 @@ def wrap_getbuffer(space, w_self, w_args, func):
             space.fromcache(State).check_and_raise_exception(always=True)
         ptr = pybuf.c_buf
         size = pybuf.c_len
-        ndim = pybuf.c_ndim
+        ndim = widen(pybuf.c_ndim)
         shape =   [pybuf.c_shape[i]   for i in range(ndim)]
         strides = [pybuf.c_strides[i] for i in range(ndim)]
         format = rffi.charp2str(pybuf.c_format)
         return space.newbuffer(CPyBuffer(ptr, size, w_self, format=format,
                             ndim=ndim, shape=shape, strides=strides,
                             itemsize=pybuf.c_itemsize,
-                            readonly=pybuf.c_readonly))
+                            readonly=widen(pybuf.c_readonly)))
 
 def get_richcmp_func(OP_CONST):
     def inner(space, w_self, w_args, func):
@@ -588,11 +588,13 @@ def build_slot_tp_function(space, typedef, name):
         @cpython_api([PyObject, Py_bufferP, rffi.INT_real], 
                 rffi.INT_real, header=None, error=-1)
         @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
-        def buff_w(space, w_self, w_args, w_kwds):
+        def buff_w(space, w_self, pybuf, flags):
             # XXX this is wrong, needs a test
-            args = Arguments(space, [w_self],
-                             w_stararg=w_args, w_starstararg=w_kwds)
-            return space.call_args(space.get(buff_fn, w_self), args)
+            raise oefmt(space.w_NotImplemented, 
+                "calling bf_getbuffer on a builtin type not supported yet")
+            #args = Arguments(space, [w_self],
+            #                 w_stararg=w_args, w_starstararg=w_kwds)
+            #return space.call_args(space.get(buff_fn, w_self), args)
         api_func = buff_w.api_func
     else:
         # missing: tp_as_number.nb_nonzero, tp_as_number.nb_coerce
