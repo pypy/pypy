@@ -28,6 +28,8 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_longlong, r_int, r_ulonglong, r_uint
 from rpython.tool.sourcetools import func_with_new_name, compile2
 
+NO_DEFAULT = object()
+
 
 # internal non-translatable parts:
 class SignatureBuilder(object):
@@ -967,68 +969,63 @@ class interp2app(W_Root):
         self.name = app_name
         self.as_classmethod = as_classmethod
 
-        if not f.func_defaults:
-            self._staticdefs = []
-        else:
-            argnames = self._code._argnames
-            defaults = f.func_defaults
-            self._staticdefs = zip(argnames[-len(defaults):], defaults)
+        argnames = self._code._argnames
+        defaults = f.func_defaults or ()
+        self._staticdefs = dict(zip(
+            argnames[len(argnames) - len(defaults):], defaults))
+
         return self
 
     def _getdefaults(self, space):
         "NOT_RPYTHON"
-        defs_w = []
-        if self._code.sig.kwonlyargnames:
-            import pdb; pdb.set_trace()
-        unwrap_spec = self._code._unwrap_spec[-len(self._staticdefs):]
-        for i, (name, defaultval) in enumerate(self._staticdefs):
+        alldefs_w = {}
+        assert len(self._code._argnames) == len(self._code._unwrap_spec)
+        for name, spec in zip(self._code._argnames, self._code._unwrap_spec):
+            if name == '__kwonly__':
+                continue
+
+            defaultval = self._staticdefs.get(name, NO_DEFAULT)
             if name.startswith('w_'):
-                assert defaultval is None, (
+                assert defaultval in (NO_DEFAULT, None), (
                     "%s: default value for '%s' can only be None, got %r; "
                     "use unwrap_spec(...=WrappedDefault(default))" % (
                     self._code.identifier, name, defaultval))
-                defs_w.append(None)
-            elif name != '__args__' and name != 'args_w':
-                spec = unwrap_spec[i]
-                if isinstance(defaultval, str) and spec not in [str]:
-                    defs_w.append(space.newbytes(defaultval))
-                else:
-                    defs_w.append(space.wrap(defaultval))
-        if self._code._unwrap_spec:
-            UNDEFINED = object()
-            allargnames = (self._code.sig.argnames +
-                           self._code.sig.kwonlyargnames)
-            alldefs_w = [UNDEFINED] * len(allargnames)
-            if defs_w:
-                alldefs_w[-len(defs_w):] = defs_w
-            code = self._code
-            assert isinstance(code._unwrap_spec, (list, tuple))
-            assert isinstance(code._argnames, list)
-            assert len(code._unwrap_spec) == len(code._argnames)
-            for i in range(len(code._unwrap_spec)-1, -1, -1):
-                spec = code._unwrap_spec[i]
-                argname = code._argnames[i]
-                if isinstance(spec, tuple) and spec[0] is W_Root:
-                    assert False, "use WrappedDefault"
-                if isinstance(spec, WrappedDefault):
-                    default_value = spec.default_value
-                    if isinstance(default_value, str):
-                        w_default = space.newbytes(default_value)
+
+            if isinstance(spec, tuple) and spec[0] is W_Root:
+                assert False, "use WrappedDefault"
+            elif isinstance(spec, WrappedDefault):
+                assert name.startswith('w_')
+                defaultval = spec.default_value
+
+            if defaultval is not NO_DEFAULT:
+                if name != '__args__' and name != 'args_w':
+                    if isinstance(defaultval, str) and spec not in [str]:
+                        w_def = space.newbytes(defaultval)
                     else:
-                        w_default = space.wrap(default_value)
-                    assert isinstance(w_default, W_Root)
-                    assert argname.startswith('w_')
-                    argname = argname[2:]
-                    j = allargnames.index(argname)
-                    assert alldefs_w[j] in (UNDEFINED, None)
-                    alldefs_w[j] = w_default
-            first_defined = 0
-            while (first_defined < len(alldefs_w) and
-                   alldefs_w[first_defined] is UNDEFINED):
-                first_defined += 1
-            defs_w = alldefs_w[first_defined:]
-            assert UNDEFINED not in defs_w
-        return defs_w
+                        w_def = space.wrap(defaultval)
+                    alldefs_w[name] = w_def
+        #
+        # Here, 'alldefs_w' maps some argnames to their wrapped default
+        # value.  We return two lists:
+        #  - a list of defaults for positional arguments, which covers
+        #    some suffix of the sig.argnames list
+        #  - a list of pairs (w_name, w_def) for kwonly arguments
+        #
+        sig = self._code.sig
+        first_defined = 0
+        while (first_defined < len(sig.argnames) and
+               sig.argnames[first_defined] not in alldefs_w):
+            first_defined += 1
+        defs_w = [alldefs_w.pop(name) for name in sig.argnames[first_defined:]]
+
+        kw_defs_w = None
+        if alldefs_w:
+            kw_defs_w = []
+            for name, w_def in sorted(alldefs_w.items()):
+                w_name = space.newunicode(name.decode('utf-8'))
+                kw_defs_w.append((w_name, w_def))
+
+        return defs_w, kw_defs_w
 
     # lazy binding to space
 
@@ -1048,10 +1045,9 @@ class GatewayCache(SpaceCache):
     def build(cache, gateway):
         "NOT_RPYTHON"
         space = cache.space
-        defs = gateway._getdefaults(space)
+        defs_w, kw_defs_w = gateway._getdefaults(space)
         code = gateway._code
-        w_kw_defs = None #XXXXXXXXXXXXXXXXXXX
-        fn = FunctionWithFixedCode(space, code, None, defs, w_kw_defs,
+        fn = FunctionWithFixedCode(space, code, None, defs_w, kw_defs_w,
                                    forcename=gateway.name)
         if not space.config.translating:
             fn.add_to_table()
