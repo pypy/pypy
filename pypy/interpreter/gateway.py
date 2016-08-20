@@ -481,7 +481,7 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
         self.unwrap.append("space.truncatedint_w(%s)" % (self.nextarg(),))
 
     def visit_kwonly(self, typ):
-        self.unwrap.append("None")
+        raise FastFuncNotSupported
 
     def make_fastfunc(unwrap_spec, func):
         unwrap_info = UnwrapSpec_FastFunc_Unwrap()

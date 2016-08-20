@@ -379,6 +379,20 @@ class AppTestInterpreter:
         assert X().f() == 42
         """
 
+    def test_kwonlyarg_required(self):
+        """
+        def f(*, a=5, b):
+            return (a, b)
+        assert f(b=10) == (5, 10)
+        assert f(a=7, b=12) == (7, 12)
+        raises(TypeError, f)
+        raises(TypeError, f, 1)
+        raises(TypeError, f, 1, 1)
+        raises(TypeError, f, a=1)
+        raises(TypeError, f, 1, a=1)
+        raises(TypeError, f, 1, b=1)
+        """
+
     def test_extended_unpacking_short(self):
         """
         class Seq:
