@@ -346,8 +346,6 @@ def test_merge_if_blocks_bug_2():
     check_graph(graph, [], 66, t)
 
 def test_replace_we_are_jitted():
-    from rpython.flowspace import model
-    from rpython.rtyper.lltypesystem import lltype
     from rpython.rlib import jit
     def fn():
         if jit.we_are_jitted():
