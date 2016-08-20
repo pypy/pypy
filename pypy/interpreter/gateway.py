@@ -985,11 +985,14 @@ class interp2app(W_Root):
                 continue
 
             defaultval = self._staticdefs.get(name, NO_DEFAULT)
+            w_def = Ellipsis
             if name.startswith('w_'):
                 assert defaultval in (NO_DEFAULT, None), (
                     "%s: default value for '%s' can only be None, got %r; "
                     "use unwrap_spec(...=WrappedDefault(default))" % (
                     self._code.identifier, name, defaultval))
+                if defaultval is None:
+                    w_def = None
 
             if isinstance(spec, tuple) and spec[0] is W_Root:
                 assert False, "use WrappedDefault"
@@ -999,10 +1002,13 @@ class interp2app(W_Root):
 
             if defaultval is not NO_DEFAULT:
                 if name != '__args__' and name != 'args_w':
-                    if isinstance(defaultval, str) and spec not in [str]:
-                        w_def = space.newbytes(defaultval)
-                    else:
-                        w_def = space.wrap(defaultval)
+                    if w_def is Ellipsis:
+                        if isinstance(defaultval, str) and spec not in [str]:
+                            w_def = space.newbytes(defaultval)
+                        else:
+                            w_def = space.wrap(defaultval)
+                    if name.startswith('w_'):
+                        name = name[2:]
                     alldefs_w[name] = w_def
         #
         # Here, 'alldefs_w' maps some argnames to their wrapped default
@@ -1022,6 +1028,7 @@ class interp2app(W_Root):
         if alldefs_w:
             kw_defs_w = []
             for name, w_def in sorted(alldefs_w.items()):
+                assert name in sig.kwonlyargnames
                 w_name = space.newunicode(name.decode('utf-8'))
                 kw_defs_w.append((w_name, w_def))
 

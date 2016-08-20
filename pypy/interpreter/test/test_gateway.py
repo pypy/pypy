@@ -759,7 +759,7 @@ class TestGateway:
         @gateway.unwrap_spec(w_x = WrappedDefault(42), y=int)
         def g(space, w_x, y):
             never_called
-        py.test.raises(AssertionError, space.wrap, gateway.interp2app_temp(g))
+        py.test.raises(KeyError, space.wrap, gateway.interp2app_temp(g))
 
     def test_unwrap_spec_default_applevel_bug2(self):
         space = self.space
