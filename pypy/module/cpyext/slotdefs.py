@@ -349,7 +349,7 @@ def wrap_getbuffer(space, w_self, w_args, func):
         # XXX flags are not in w_args?
         flags = rffi.cast(rffi.INT_real,0)
         size = generic_cpy_call(space, func_target, w_self, pybuf, flags)
-        if size < 0:
+        if widen(size) < 0:
             space.fromcache(State).check_and_raise_exception(always=True)
         ptr = pybuf.c_buf
         size = pybuf.c_len
