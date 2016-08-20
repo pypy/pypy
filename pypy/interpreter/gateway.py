@@ -999,6 +999,7 @@ class interp2app(W_Root):
             elif isinstance(spec, WrappedDefault):
                 assert name.startswith('w_')
                 defaultval = spec.default_value
+                w_def = Ellipsis
 
             if defaultval is not NO_DEFAULT:
                 if name != '__args__' and name != 'args_w':
