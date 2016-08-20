@@ -106,6 +106,10 @@ PyMyArray_getbuffer(PyObject *obj, Py_buffer *view, int flags)
     PyErr_SetString(PyExc_ValueError, "NULL view in getbuffer");
     return -1;
   }
+  if (flags == 0) {
+    PyErr_SetString(PyExc_ValueError, "flags == 0 in getbuffer");
+    return -1;
+  }
 
   PyMyArray* self = (PyMyArray*)obj;
   view->obj = (PyObject*)self;

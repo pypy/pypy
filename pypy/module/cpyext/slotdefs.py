@@ -346,8 +346,13 @@ def wrap_getreadbuffer(space, w_self, w_args, func):
 def wrap_getbuffer(space, w_self, w_args, func):
     func_target = rffi.cast(getbufferproc, func)
     with lltype.scoped_alloc(Py_buffer) as pybuf:
-        # XXX flags are not in w_args?
-        flags = rffi.cast(rffi.INT_real,0)
+        _flags = 0
+        if space.len_w(w_args) > 0:
+            _flags = space.listview(w_args)[0]
+        if not isinstance(_flags, int):
+            raise oefmt(space.w_TypeError, 
+                        "non-int flags passed to getbufferproc")
+        flags = rffi.cast(rffi.INT_real,_flags)
         size = generic_cpy_call(space, func_target, w_self, pybuf, flags)
         if widen(size) < 0:
             space.fromcache(State).check_and_raise_exception(always=True)
@@ -356,7 +361,10 @@ def wrap_getbuffer(space, w_self, w_args, func):
         ndim = widen(pybuf.c_ndim)
         shape =   [pybuf.c_shape[i]   for i in range(ndim)]
         strides = [pybuf.c_strides[i] for i in range(ndim)]
-        format = rffi.charp2str(pybuf.c_format)
+        if pybuf.c_format:
+            format = rffi.charp2str(pybuf.c_format)
+        else:
+            format = 'B'
         return space.newbuffer(CPyBuffer(ptr, size, w_self, format=format,
                             ndim=ndim, shape=shape, strides=strides,
                             itemsize=pybuf.c_itemsize,
