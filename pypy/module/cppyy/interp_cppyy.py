@@ -832,13 +832,7 @@ class W_CPPNamespace(W_CPPScope):
         return datamember
 
     def _find_datamembers(self):
-        num_datamembers = capi.c_num_datamembers(self.space, self)
-        for i in range(num_datamembers):
-            if not capi.c_is_publicdata(self.space, self, i):
-                continue
-            datamember_name = capi.c_datamember_name(self.space, self, i)
-            if not datamember_name in self.datamembers:
-                self._make_datamember(datamember_name, i)
+        pass       # force lazy lookups in namespaces
 
     def find_overload(self, meth_name):
         indices = capi.c_method_indices_from_name(self.space, self, meth_name)

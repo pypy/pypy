@@ -132,7 +132,19 @@ char* cppstring_to_cstring( const std::string& cppstr ) {
 Cppyy::TCppIndex_t Cppyy::GetNumScopes( TCppScope_t scope )
 {
    TClassRef& cr = type_from_handle( scope );
-   if ( cr.GetClass() ) return 0;   // not supported if not at global scope
+   if ( cr.GetClass() ) {
+   // this is expensive, but this function is only ever called for __dir__
+   // TODO: rewrite __dir__ on the C++ side for a single loop
+       std::string s = GetFinalName( scope ); s += "::";
+       gClassTable->Init(); 
+       const int N = gClassTable->Classes();
+       int total = 0;
+       for ( int i = 0; i < N; ++i ) {
+           if ( strncmp( gClassTable->Next(), s.c_str(), s.size() ) == 0 )
+              total += 1;
+       }
+       return total;
+   }
    assert( scope == (TCppScope_t)GLOBAL_HANDLE );
    return gClassTable->Classes();
 }
@@ -141,7 +153,22 @@ std::string Cppyy::GetScopeName( TCppScope_t parent, TCppIndex_t iscope )
 {
 // Retrieve the scope name of the scope indexed with iscope in parent.
    TClassRef& cr = type_from_handle( parent );
-   if ( cr.GetClass() ) return 0;   // not supported if not at global scope
+   if ( cr.GetClass() ) {
+   // this is expensive (quadratic in number of classes), but only ever called for __dir__
+   // TODO: rewrite __dir__ on the C++ side for a single loop
+       std::string s = GetFinalName( parent ); s += "::";
+       gClassTable->Init();
+       const int N = gClassTable->Classes();
+       int match = 0;
+       for ( int i = 0; i < N; ++i ) {
+           char* cname = gClassTable->Next();
+           if ( strncmp( cname, s.c_str(), s.size() ) == 0 && match++ == iscope ) {
+              std::string ret( cname+ s.size() );
+              return ret.substr(0, ret.find( "::" ) ); // TODO: may mean duplicates
+           }
+       }
+       // should never get here ... fall through will fail on assert below
+   }
    assert( parent == (TCppScope_t)GLOBAL_HANDLE );
    std::string name = gClassTable->At( iscope );
    if ( name.find("::") == std::string::npos )
