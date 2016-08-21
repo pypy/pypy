@@ -862,13 +862,12 @@ On some platforms, path may also be specified as an open file descriptor;
     try:
         path = space.fsencode_w(w_path)
     except OperationError as operr:
+        if operr.async(space):
+            raise
         if not rposix.HAVE_FDOPENDIR:
             raise oefmt(space.w_TypeError,
                 "listdir: illegal type for path argument")
-        if not space.isinstance_w(w_path, space.w_int):
-            raise oefmt(space.w_TypeError,
-                "argument should be string, bytes or integer, not %T", w_path)
-        fd = unwrap_fd(space, w_path)
+        fd = unwrap_fd(space, w_path, "string, bytes or integer")
         try:
             result = rposix.fdlistdir(fd)
         except OSError as e:
