@@ -250,6 +250,7 @@ class CConfig:
     OFF_T_SIZE = rffi_platform.SizeOf('off_t')
 
     HAVE_UTIMES = rffi_platform.Has('utimes')
+    HAVE_D_TYPE = rffi_platform.Has('DT_UNKNOWN')
     UTIMBUF = rffi_platform.Struct('struct %sutimbuf' % UNDERSCORE_ON_WIN32,
                                    [('actime', rffi.INT),
                                     ('modtime', rffi.INT)])
@@ -603,11 +604,17 @@ if not _WIN32:
     class CConfig:
         _compilation_info_ = eci
         DIRENT = rffi_platform.Struct('struct dirent',
-            [('d_name', lltype.FixedSizeArray(rffi.CHAR, 1))])
+            [('d_name', lltype.FixedSizeArray(rffi.CHAR, 1))]
+            + [('d_type', rffi.INT)] if HAVE_D_TYPE else [])
+        if HAVE_D_TYPE:
+            DT_UNKNOWN = rffi_platform.ConstantInteger('DT_UNKNOWN')
+            DT_REG     = rffi_platform.ConstantInteger('DT_REG')
+            DT_DIR     = rffi_platform.ConstantInteger('DT_DIR')
+            DT_LNK     = rffi_platform.ConstantInteger('DT_LNK')
 
     DIRP = rffi.COpaquePtr('DIR')
-    config = rffi_platform.configure(CConfig)
-    DIRENT = config['DIRENT']
+    dirent_config = rffi_platform.configure(CConfig)
+    DIRENT = dirent_config['DIRENT']
     DIRENTP = lltype.Ptr(DIRENT)
     c_opendir = external('opendir',
         [rffi.CCHARP], DIRP, save_err=rffi.RFFI_SAVE_ERRNO)
@@ -617,7 +624,9 @@ if not _WIN32:
     # dirent struct (which depends on defines)
     c_readdir = external('readdir', [DIRP], DIRENTP,
                          macro=True, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
-    c_closedir = external('closedir', [DIRP], rffi.INT)
+    c_closedir = external('closedir', [DIRP], rffi.INT, releasegil=False)
+else:
+    dirent_config = {}
 
 def _listdir(dirp):
     result = []

@@ -593,6 +593,7 @@ class AppTestPosix:
             assert os.geteuid() == self.geteuid
 
     if hasattr(os, 'setuid'):
+        @py.test.mark.skipif("sys.version_info < (2, 7, 4)")
         def test_os_setuid_error(self):
             os = self.posix
             raises(OverflowError, os.setuid, -2)
@@ -640,6 +641,7 @@ class AppTestPosix:
             raises(OSError, os.getpgid, 1234567)
 
     if hasattr(os, 'setgid'):
+        @py.test.mark.skipif("sys.version_info < (2, 7, 4)")
         def test_os_setgid_error(self):
             os = self.posix
             raises(OverflowError, os.setgid, -2)
