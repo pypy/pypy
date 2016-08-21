@@ -10,9 +10,8 @@ class TestScanDir(object):
         scan = rposix_scandir.opendir('/')
         found = []
         while True:
-            try:
-                p = rposix_scandir.nextentry(scan)
-            except StopIteration:
+            p = rposix_scandir.nextentry(scan)
+            if not p:
                 break
             assert rposix_scandir.has_name_bytes(p)
             found.append(rposix_scandir.get_name_bytes(p))
