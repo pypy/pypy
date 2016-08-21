@@ -3,7 +3,7 @@ from rpython.rlib import rposix_scandir
 from rpython.rtyper.lltypesystem import lltype
 
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault, interp2app
-from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
+from pypy.interpreter.error import OperationError, oefmt, wrap_oserror2
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.baseobjspace import W_Root
 
@@ -15,7 +15,8 @@ def scandir(space, w_path):
     "scandir(path='.') -> iterator of DirEntry objects for given path"
 
     if space.isinstance_w(w_path, space.w_bytes):
-        XXX
+        path_bytes = space.str0_w(w_path)
+        result_is_bytes = True
     else:
         try:
             path_bytes = space.fsencode_w(w_path)
@@ -24,23 +25,27 @@ def scandir(space, w_path):
                 raise
             fd = unwrap_fd(space, w_path, "string, bytes or integer")
             XXXX
+        result_is_bytes = False
 
-        try:
-            dirp = rposix_scandir.opendir(path_bytes)
-        except OSError as e:
-            raise wrap_oserror(space, e)
-        path_prefix = path_bytes
-        if len(path_prefix) > 0 and path_prefix[-1] != '/':
-            path_prefix += '/'
-        w_path_prefix = space.fsdecode(space.newbytes(path_prefix))
-        return W_ScandirIterator(space, dirp, w_path_prefix)
+    try:
+        dirp = rposix_scandir.opendir(path_bytes)
+    except OSError as e:
+        raise wrap_oserror2(space, e, w_path)
+    path_prefix = path_bytes
+    if len(path_prefix) > 0 and path_prefix[-1] != '/':
+        path_prefix += '/'
+    w_path_prefix = space.newbytes(path_prefix)
+    if not result_is_bytes:
+        w_path_prefix = space.fsdecode(w_path_prefix)
+    return W_ScandirIterator(space, dirp, w_path_prefix, result_is_bytes)
 
 
 class W_ScandirIterator(W_Root):
-    def __init__(self, space, dirp, w_path_prefix):
+    def __init__(self, space, dirp, w_path_prefix, result_is_bytes):
         self.space = space
         self.dirp = dirp
         self.w_path_prefix = w_path_prefix
+        self.result_is_bytes = result_is_bytes
 
     @rgc.must_be_light_finalizer
     def __del__(self):
@@ -79,7 +84,7 @@ class W_ScandirIterator(W_Root):
             if name != '.' and name != '..':
                 break
         #
-        direntry = W_DirEntry(name, self.w_path_prefix)
+        direntry = W_DirEntry(name, self.w_path_prefix, self.result_is_bytes)
         return space.wrap(direntry)
 
 
@@ -95,14 +100,17 @@ class W_DirEntry(W_Root):
     w_name = None
     w_path = None
 
-    def __init__(self, name_bytes, w_path_prefix):
+    def __init__(self, name_bytes, w_path_prefix, result_is_bytes):
         self.name_bytes = name_bytes
         self.w_path_prefix = w_path_prefix
+        self.result_is_bytes = result_is_bytes
 
     def fget_name(self, space):
         w_name = self.w_name
         if w_name is None:
-            w_name = space.fsdecode(space.newbytes(self.name_bytes))
+            w_name = space.newbytes(self.name_bytes)
+            if not self.result_is_bytes:
+                w_name = space.fsdecode(w_name)
             self.w_name = w_name
         return w_name
 
