@@ -310,8 +310,12 @@ class CPyBuffer(Buffer):
         self.format = format
         if not shape:
             self.shape = [size]
+        else:
+            self.shape = shape
         if not strides:
             self.strides = [1]
+        else:
+            self.strides = strides
         self.ndim = ndim 
         self.itemsize = itemsize
         self.readonly = readonly

@@ -25,6 +25,7 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
         arr = module.PyMyArray(10)
         y = memoryview(arr)
         assert y.format == 'i'
+        assert y.shape == (10,)
         s = y[3]
         assert len(s) == struct.calcsize('i')
         assert s == struct.pack('i', 3)
