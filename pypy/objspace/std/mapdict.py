@@ -221,7 +221,6 @@ class AbstractAttribute(object):
         stack_index = 0
         while True:
             current = self
-            number_to_readd = 0
             number_to_readd, attr = self._find_branch_to_move_into(name, index)
             # we found the attributes further up, need to save the
             # previous values of the attributes we passed

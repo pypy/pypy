@@ -1707,6 +1707,23 @@ class ObjSpace(object):
                 "Python int too large for C unsigned short")
         return value
 
+    def c_uid_t_w(self, w_obj):
+        # xxx assumes that uid_t and gid_t are a C unsigned int.
+        # Equivalent to space.c_uint_w(), with the exception that
+        # it also accepts -1 and converts that to UINT_MAX, which
+        # is (uid_t)-1.  And values smaller than -1 raise
+        # OverflowError, not ValueError.
+        try:
+            return self.c_uint_w(w_obj)
+        except OperationError as e:
+            if e.match(self, self.w_ValueError):
+                # ValueError: cannot convert negative integer to unsigned
+                if self.int_w(w_obj) == -1:
+                    return UINT_MAX
+                raise oefmt(self.w_OverflowError,
+                            "user/group id smaller than minimum (-1)")
+            raise
+
     def truncatedint_w(self, w_obj, allow_conversion=True):
         # Like space.gateway_int_w(), but return the integer truncated
         # instead of raising OverflowError.  For obscure cases only.
