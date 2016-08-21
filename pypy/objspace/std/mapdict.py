@@ -68,7 +68,7 @@ class AbstractAttribute(object):
     @jit.elidable
     def find_map_attr(self, name, index):
         # attr cache
-        assert type(name) is str    # utf8-encoded
+        assert isinstance(name, str)    # utf8-encoded
         space = self.space
         cache = space.fromcache(MapAttrCache)
         SHIFT2 = r_uint.BITS - space.config.objspace.std.methodcachesizeexp

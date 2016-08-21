@@ -387,24 +387,18 @@ class Function(W_Root):
         else:
             if not space.isinstance_w(w_new, space.w_dict):
                 raise oefmt(space.w_TypeError, "__kwdefaults__ must be a dict")
-            w_instance = self.init_kwdefaults_dict()
-            w_instance.setdict(space, w_new)
-            self.w_kw_defs = w_instance.getdict(space)
+            self.w_kw_defs = w_new
 
     def fdel_func_kwdefaults(self, space):
         self.w_kw_defs = None
 
-    def init_kwdefaults_dict(self, kw_defs_w=[]):
-        # use the mapdict logic to get at least not-too-bad JIT code
-        # from function calls with default values of kwonly arguments
+    def init_kwdefaults_dict(self, kw_defs_w):
+        # use the moduledict logic to get normally-constant entries
         space = self.space
-        w_class = space.fromcache(KwDefsClassCache).w_class
-        w_instance = space.call_function(w_class)
+        w_dict = space.newdict(module=True)
         for w_name, w_value in kw_defs_w:
-            attr = space.unicode_w(w_name).encode('utf-8')
-            w_instance.setdictvalue(space, attr, w_value)
-        self.w_kw_defs = w_instance.getdict(space)
-        return w_instance
+            space.setitem(w_dict, w_name, w_value)
+        self.w_kw_defs = w_dict
 
     def fget_func_doc(self, space):
         if self.w_doc is None:
@@ -705,12 +699,3 @@ def is_builtin_code(w_func):
     else:
         code = None
     return isinstance(code, BuiltinCode)
-
-
-class KwDefsClassCache:
-    def __init__(self, space):
-        self.w_class = space.appexec([], """():
-            class KwDefs:
-                pass
-            return KwDefs
-        """)
