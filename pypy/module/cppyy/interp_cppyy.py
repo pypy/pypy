@@ -7,9 +7,11 @@ from pypy.interpreter.baseobjspace import W_Root
 
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
 
-from rpython.rlib import jit, rdynload, rweakref
+from rpython.rlib import jit, rdynload, rweakref, rgc
 from rpython.rlib import jit_libffi, clibffi
+from rpython.rlib.objectmodel import we_are_translated, keepalive_until_here
 
+from pypy.module._cffi_backend import ctypefunc, newtype
 from pypy.module.cppyy import converter, executor, helper
 
 
@@ -177,7 +179,7 @@ class CPPMethod(object):
         self.converters = None
         self.executor = None
         self.cif_descr = lltype.nullptr(jit_libffi.CIF_DESCRIPTION)
-        self._funcaddr = lltype.nullptr(rffi.VOIDP.TO)
+        self._funcaddr = lltype.nullptr(capi.C_FUNC_PTR.TO)
         self.uses_local = False
 
     @staticmethod
@@ -263,7 +265,50 @@ class CPPMethod(object):
                 self.space, cif_descr, self._funcaddr, buffer)
         finally:
             lltype.free(buffer, flavor='raw')
+            keepalive_until_here(args_w)
         return w_res
+
+    # from ctypefunc; have my own version for annotater purposes and to disable
+    # memory tracking (method live time is longer than the tests)
+    @jit.dont_look_inside
+    def _rawallocate(self, builder):
+        builder.space = self.space
+
+        # compute the total size needed in the CIF_DESCRIPTION buffer
+        builder.nb_bytes = 0
+        builder.bufferp = lltype.nullptr(rffi.CCHARP.TO)
+        builder.fb_build()
+
+        # allocate the buffer
+        if we_are_translated():
+            rawmem = lltype.malloc(rffi.CCHARP.TO, builder.nb_bytes,
+                                   flavor='raw', track_allocation=False)
+            rawmem = rffi.cast(jit_libffi.CIF_DESCRIPTION_P, rawmem)
+        else:
+            # gross overestimation of the length below, but too bad
+            rawmem = lltype.malloc(jit_libffi.CIF_DESCRIPTION_P.TO, builder.nb_bytes,
+                                   flavor='raw', track_allocation=False)
+
+        # the buffer is automatically managed from the W_CTypeFunc instance
+        self.cif_descr = rawmem
+
+        # call again fb_build() to really build the libffi data structures
+        builder.bufferp = rffi.cast(rffi.CCHARP, rawmem)
+        builder.fb_build()
+        assert builder.bufferp == rffi.ptradd(rffi.cast(rffi.CCHARP, rawmem),
+                                              builder.nb_bytes)
+
+        # fill in the 'exchange_*' fields
+        builder.fb_build_exchange(rawmem)
+
+        # fill in the extra fields
+        builder.fb_extra_fields(rawmem)
+
+        # call libffi's ffi_prep_cif() function
+        res = jit_libffi.jit_ffi_prep_cif(rawmem)
+        if res != clibffi.FFI_OK:
+            raise oefmt(self.space.w_SystemError,
+                        "libffi failed to build this function type")
 
     def _setup(self, cppthis):
         self.converters = [converter.get_converter(self.space, arg_type, arg_dflt)
@@ -279,78 +324,30 @@ class CPPMethod(object):
         # Each CPPMethod corresponds one-to-one to a C++ equivalent and cppthis
         # has been offset to the matching class. Hence, the libffi pointer is
         # uniquely defined and needs to be setup only once.
-        methgetter = capi.c_get_methptr_getter(self.space, self.scope, self.index)
-        if methgetter and cppthis:      # methods only for now
-            cif_descr = lltype.nullptr(jit_libffi.CIF_DESCRIPTION)
+        self._funcaddr = capi.c_get_function_address(self.space, self.scope, self.index)
+        if self._funcaddr and cppthis:      # methods only for now
+            # argument type specification (incl. cppthis)
+            fargs = []
+            fargs.append(newtype.new_pointer_type(self.space, newtype.new_void_type(self.space)))
+            for i, conv in enumerate(self.converters):
+                 if not conv.libffitype:
+                     raise FastCallNotPossible
+                 fargs.append(newtype.new_primitive_type(self.space, conv.ctype_name))
+            fresult = newtype.new_primitive_type(self.space, self.executor.ctype_name)
+
+            # the following is derived from _cffi_backend.ctypefunc
+            builder = ctypefunc.CifDescrBuilder(fargs[:], fresult, clibffi.FFI_DEFAULT_ABI)
             try:
-                funcaddr = methgetter(rffi.cast(capi.C_OBJECT, cppthis))
-                self._funcaddr = rffi.cast(rffi.VOIDP, funcaddr)
-
-                nargs = len(self.arg_defs) + 1                   # +1: cppthis
-
-                # memory block for CIF description (note: not tracked as the life
-                # time of methods is normally the duration of the application)
-                size = llmemory.sizeof(jit_libffi.CIF_DESCRIPTION, nargs)
-
-                # allocate the buffer
-                cif_descr = lltype.malloc(jit_libffi.CIF_DESCRIPTION_P.TO,
-                                          llmemory.raw_malloc_usage(size),
-                                          flavor='raw', track_allocation=False)
-
-                # array of 'ffi_type*' values, one per argument
-                size = rffi.sizeof(jit_libffi.FFI_TYPE_P) * nargs
-                atypes = lltype.malloc(rffi.CCHARP.TO, llmemory.raw_malloc_usage(size),
-                                       flavor='raw', track_allocation=False)
-                cif_descr.atypes = rffi.cast(jit_libffi.FFI_TYPE_PP, atypes)
-
-                # argument type specification
-                cif_descr.atypes[0] = jit_libffi.types.pointer   # cppthis
-                for i, conv in enumerate(self.converters):
-                    if not conv.libffitype:
-                        raise FastCallNotPossible
-                    cif_descr.atypes[i+1] = conv.libffitype
-
-                # result type specification
-                cif_descr.rtype = self.executor.libffitype
-
-                # exchange ---
-
-                # first, enough room for an array of 'nargs' pointers
-                exchange_offset = rffi.sizeof(rffi.CCHARP) * nargs
-                exchange_offset = (exchange_offset + 7) & ~7     # alignment
-                cif_descr.exchange_result = exchange_offset
-
-                # then enough room for the result, rounded up to sizeof(ffi_arg)
-                exchange_offset += max(rffi.getintfield(cif_descr.rtype, 'c_size'),
-                                       jit_libffi.SIZE_OF_FFI_ARG)
-
-                # loop over args
-                for i in range(nargs):
-                    exchange_offset = (exchange_offset + 7) & ~7 # alignment
-                    cif_descr.exchange_args[i] = exchange_offset
-                    exchange_offset += rffi.getintfield(cif_descr.atypes[i], 'c_size')
-
-                # store the exchange data size
-                cif_descr.exchange_size = exchange_offset
-
-                # --- exchange
-
-                # extra
-                cif_descr.abi = clibffi.FFI_DEFAULT_ABI
-                cif_descr.nargs = len(self.arg_defs) + 1         # +1: cppthis
-
-                res = jit_libffi.jit_ffi_prep_cif(cif_descr)
-                if res != clibffi.FFI_OK:
-                    raise FastCallNotPossible
-
-            except Exception as e:
-                if cif_descr:
-                    lltype.free(cif_descr.atypes, flavor='raw', track_allocation=False)
-                    lltype.free(cif_descr, flavor='raw', track_allocation=False)
-                cif_descr = lltype.nullptr(jit_libffi.CIF_DESCRIPTION)
-                self._funcaddr = lltype.nullptr(rffi.VOIDP.TO)
-
-            self.cif_descr = cif_descr
+                self._rawallocate(builder)
+            except OperationError as e:
+                if not e.match(self.space, self.space.w_NotImplementedError):
+                    raise
+                # else, eat the NotImplementedError.  We will get the
+                # exception if we see an actual call
+                if self.cif_descr:   # should not be True, but you never know
+                    lltype.free(self.cif_descr, flavor='raw')
+                    self.cif_descr = lltype.nullptr(jit_libffi.CIF_DESCRIPTION)
+                raise FastCallNotPossible
 
     @jit.unroll_safe
     def prepare_arguments(self, args_w, call_local):
@@ -394,9 +391,9 @@ class CPPMethod(object):
             total_arg_priority += p
         return total_arg_priority
 
+    @rgc.must_be_light_finalizer
     def __del__(self):
         if self.cif_descr:
-            lltype.free(self.cif_descr.atypes, flavor='raw')
             lltype.free(self.cif_descr, flavor='raw')
 
     def __repr__(self):

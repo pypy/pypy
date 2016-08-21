@@ -12,8 +12,8 @@ extern "C" {
     typedef cppyy_scope_t cppyy_type_t;
     typedef unsigned long cppyy_object_t;
     typedef unsigned long cppyy_method_t;
-    typedef long cppyy_index_t;
-    typedef void* (*cppyy_methptrgetter_t)(cppyy_object_t);
+    typedef long          cppyy_index_t;
+    typedef void*         cppyy_funcaddr_t;
 
     /* name to opaque C++ scope representation -------------------------------- */
     RPY_EXTERN
@@ -67,7 +67,7 @@ extern "C" {
     cppyy_object_t cppyy_call_o(cppyy_method_t method, cppyy_object_t self, int nargs, void* args, cppyy_type_t result_type);
 
     RPY_EXTERN
-    cppyy_methptrgetter_t cppyy_get_methptr_getter(cppyy_scope_t scope, cppyy_index_t idx);
+    cppyy_funcaddr_t cppyy_get_function_address(cppyy_scope_t scope, cppyy_index_t idx);
 
     /* handling of function argument buffer ----------------------------------- */
     RPY_EXTERN

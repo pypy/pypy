@@ -10,7 +10,7 @@ from pypy.interpreter.error import oefmt
 from pypy.module._cffi_backend import ctypefunc, ctypeprim, cdataobj, misc
 
 from pypy.module.cppyy.capi.capi_types import C_SCOPE, C_TYPE, C_OBJECT,\
-   C_METHOD, C_INDEX, C_INDEX_ARRAY, WLAVC_INDEX, C_METHPTRGETTER_PTR
+   C_METHOD, C_INDEX, C_INDEX_ARRAY, WLAVC_INDEX, C_FUNC_PTR
 
 
 reflection_library = 'libcppyy_backend.so'
@@ -154,7 +154,7 @@ class State(object):
             'constructor'  : ([c_method, c_object, c_int, c_voidp],   c_object),
             'call_o'       : ([c_method, c_object, c_int, c_voidp, c_type],     c_object),
 
-            'get_methptr_getter'       : ([c_scope, c_index],         c_voidp), # TODO: verify
+            'get_function_address'     : ([c_scope, c_index],         c_voidp), # TODO: verify
 
             # handling of function argument buffer
             'allocate_function_args'   : ([c_int],                    c_voidp),
@@ -362,10 +362,10 @@ def c_call_o(space, cppmethod, cppobject, nargs, cargs, cppclass):
     args = [_Arg(h=cppmethod), _Arg(h=cppobject), _Arg(l=nargs), _Arg(vp=cargs), _Arg(h=cppclass.handle)]
     return _cdata_to_cobject(space, call_capi(space, 'call_o', args))
 
-def c_get_methptr_getter(space, cppscope, index):
+def c_get_function_address(space, cppscope, index):
     args = [_Arg(h=cppscope.handle), _Arg(l=index)]
-    return rffi.cast(C_METHPTRGETTER_PTR,
-        _cdata_to_ptr(space, call_capi(space, 'get_methptr_getter', args)))
+    return rffi.cast(C_FUNC_PTR,
+        _cdata_to_ptr(space, call_capi(space, 'get_function_address', args)))
 
 # handling of function argument buffer ---------------------------------------
 def c_allocate_function_args(space, size):

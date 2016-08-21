@@ -25,9 +25,11 @@
 // Standard
 #include <assert.h>
 #include <algorithm>     // for std::count
+#include <dlfcn.h>
 #include <map>
 #include <set>
 #include <sstream>
+#include <stdlib.h>      // for getenv
 
 // temp
 #include <iostream>
@@ -59,6 +61,9 @@ Cppyy::TCppScope_t Cppyy::gGlobalScope = GLOBAL_HANDLE;
 static std::set< std::string > gSmartPtrTypes =
    { "auto_ptr", "shared_ptr", "weak_ptr", "unique_ptr" };
 
+// configuration
+static bool gEnableFastPath = true;
+
 
 // global initialization -----------------------------------------------------
 namespace {
@@ -76,6 +81,8 @@ public:
       g_classrefs.push_back(TClassRef("std"));
       // add a dummy global to refer to as null at index 0
       g_globalvars.push_back( nullptr );
+      // disable fast path if requested
+      if (getenv("CPPYY_DISABLE_FASTPATH")) gEnableFastPath = false;
    }
 
    ~ApplicationStarter() {
@@ -519,10 +526,11 @@ Cppyy::TCppObject_t Cppyy::CallO( TCppMethod_t method,
    return (TCppObject_t)0;
 }
 
-Cppyy::TCppMethPtrGetter_t Cppyy::GetMethPtrGetter(
-      TCppScope_t /* scope */, TCppIndex_t /* imeth */ )
+Cppyy::TCppFuncAddr_t Cppyy::GetFunctionAddress( TCppScope_t scope, TCppIndex_t imeth )
 {
-   return (TCppMethPtrGetter_t)0;
+   if (!gEnableFastPath) return (TCppFuncAddr_t)nullptr;
+   TFunction* f = type_get_method( scope, imeth );
+   return (TCppFuncAddr_t)dlsym(RTLD_DEFAULT, f->GetMangledName());
 }
 
 
@@ -1223,8 +1231,8 @@ cppyy_object_t cppyy_call_o(cppyy_method_t method, cppyy_object_t self, int narg
     return cppyy_object_t(Cppyy::CallO(method, (void*)self, &parvec, result_type));
 }
 
-cppyy_methptrgetter_t cppyy_get_methptr_getter(cppyy_scope_t scope, cppyy_index_t idx) {
-    return cppyy_methptrgetter_t(Cppyy::GetMethPtrGetter(scope, idx));
+cppyy_funcaddr_t cppyy_get_function_address(cppyy_scope_t scope, cppyy_index_t idx) {
+    return cppyy_funcaddr_t(Cppyy::GetFunctionAddress(scope, idx));
 }
 
 

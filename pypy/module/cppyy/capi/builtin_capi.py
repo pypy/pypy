@@ -7,8 +7,7 @@ import cling_capi as backend
 #import cint_capi as backend
 
 from pypy.module.cppyy.capi.capi_types import C_SCOPE, C_TYPE, C_OBJECT,\
-   C_METHOD, C_INDEX, C_INDEX_ARRAY, WLAVC_INDEX,\
-   C_METHPTRGETTER, C_METHPTRGETTER_PTR
+   C_METHOD, C_INDEX, C_INDEX_ARRAY, WLAVC_INDEX, C_FUNC_PTR
 
 identify  = backend.identify
 pythonize = backend.pythonize
@@ -186,15 +185,15 @@ _c_call_o = rffi.llexternal(
 def c_call_o(space, method, cppobj, nargs, args, cppclass):
     return _c_call_o(method, cppobj, nargs, args, cppclass.handle)
 
-_c_get_methptr_getter = rffi.llexternal(
-    "cppyy_get_methptr_getter",
-    [C_SCOPE, C_INDEX], C_METHPTRGETTER_PTR,
+_c_get_function_address = rffi.llexternal(
+    "cppyy_get_function_address",
+    [C_SCOPE, C_INDEX], C_FUNC_PTR,
     releasegil=ts_reflect,
     compilation_info=backend.eci,
     elidable_function=True,
     random_effects_on_gcobjs=False)
-def c_get_methptr_getter(space, cppscope, index):
-    return _c_get_methptr_getter(cppscope.handle, index)
+def c_get_function_address(space, cppscope, index):
+    return _c_get_function_address(cppscope.handle, index)
 
 # handling of function argument buffer ---------------------------------------
 _c_allocate_function_args = rffi.llexternal(

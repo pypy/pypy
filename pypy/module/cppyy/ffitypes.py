@@ -81,6 +81,7 @@ class IntTypeMixin(object):
     libffitype  = jit_libffi.types.sint
     c_type      = rffi.INT
     c_ptrtype   = rffi.INTP
+    ctype_name  = 'int'
 
     def _unwrap_object(self, space, w_obj):
         return rffi.cast(self.c_type, space.c_int_w(w_obj))

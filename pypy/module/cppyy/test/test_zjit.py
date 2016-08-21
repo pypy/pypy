@@ -3,14 +3,17 @@ from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.rlib.objectmodel import specialize, instantiate
 from rpython.rlib import rarithmetic, jit
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rtyper import llinterp
 from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
 
-from pypy.module.cppyy import interp_cppyy, capi
+from pypy.module.cppyy import interp_cppyy, capi, executor
 # These tests are for the backend that support the fast path only.
 if capi.identify() == 'CINT':
     py.test.skip("CINT does not support fast path")
 elif capi.identify() == 'loadable_capi':
     py.test.skip("can not currently use FakeSpace with _cffi_backend")
+elif os.getenv("CPPYY_DISABLE_FASTPATH"):
+    py.test.skip("fast path is disabled by CPPYY_DISABLE_FASTPATH envar")
 
 # load cpyext early, or its global vars are counted as leaks in the test
 # (note that the module is not otherwise used in the test itself)
@@ -28,6 +31,23 @@ def _opaque_exchange_address(ptr, cif_descr, index):
     offset = rffi.cast(rffi.LONG, cif_descr.exchange_args[index])
     return rffi.ptradd(ptr, offset)
 capi.exchange_address = _opaque_exchange_address
+
+# add missing alt_errno (??)
+def get_tlobj(self):
+    try:
+        return self._tlobj
+    except AttributeError:
+        from rpython.rtyper.lltypesystem import rffi
+        PERRNO = rffi.CArrayPtr(rffi.INT)
+        fake_p_errno = lltype.malloc(PERRNO.TO, 1, flavor='raw', zero=True,
+                                     track_allocation=False)
+        self._tlobj = {'RPY_TLOFS_p_errno': fake_p_errno,
+                       'RPY_TLOFS_alt_errno': rffi.cast(rffi.INT, 0),
+                       #'thread_ident': ...,
+                       }
+        return self._tlobj
+llinterp.LLInterpreter.get_tlobj = get_tlobj
+
 
 currpath = py.path.local(__file__).dirpath()
 test_dct = str(currpath.join("example01Dict.so"))
@@ -83,15 +103,21 @@ class FakeUserDelAction(object):
     def perform(self, executioncontext, frame):
         pass
 
+class FakeState(object):
+    def __init__(self, space):
+        self.slowcalls = 0
+
 class FakeSpace(object):
     fake = True
 
-    w_ValueError = FakeException("ValueError")
-    w_TypeError = FakeException("TypeError")
-    w_AttributeError = FakeException("AttributeError")
-    w_ReferenceError = FakeException("ReferenceError")
+    w_AttributeError      = FakeException("AttributeError")
+    w_KeyError            = FakeException("KeyError")
     w_NotImplementedError = FakeException("NotImplementedError")
-    w_RuntimeError = FakeException("RuntimeError")
+    w_ReferenceError      = FakeException("ReferenceError")
+    w_RuntimeError        = FakeException("RuntimeError")
+    w_SystemError         = FakeException("SystemError")
+    w_TypeError           = FakeException("TypeError")
+    w_ValueError          = FakeException("ValueError")
 
     w_None = None
     w_str = FakeType("str")
@@ -104,6 +130,12 @@ class FakeSpace(object):
         class dummy: pass
         self.config = dummy()
         self.config.translating = False
+
+        # kill calls to c_call_i (i.e. slow path)
+        def c_call_i(space, cppmethod, cppobject, nargs, args):
+            assert not "slow path called"
+            return capi.c_call_i(space, cppmethod, cppobject, nargs, args)
+        executor.get_executor(self, 'int').__class__.c_stubcall = staticmethod(c_call_i)
 
     def issequence_w(self, w_obj):
         return True
@@ -210,8 +242,8 @@ class TestFastPathJIT(LLJitMixin):
         f()
         space = FakeSpace()
         result = self.meta_interp(f, [], listops=True, backendopt=True, listcomp=True)
-        # TODO: this currently succeeds even as there is no fast path implemented?!
-        self.check_jitcell_token_count(1)
+        self.check_jitcell_token_count(1)   # same for fast and slow path??
+        # rely on replacement of capi calls to raise exception instead (see FakeSpace.__init__)
 
     def test01_simple(self):
         """Test fast path being taken for methods"""

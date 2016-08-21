@@ -29,7 +29,7 @@ namespace Cppyy {
    typedef ptrdiff_t   TCppMethod_t;
 
    typedef Long_t      TCppIndex_t;
-   typedef void* (*TCppMethPtrGetter_t)( TCppObject_t );
+   typedef void*       TCppFuncAddr_t;
 
 // name to opaque C++ scope representation -----------------------------------
    TCppIndex_t GetNumScopes( TCppScope_t parent );
@@ -67,7 +67,7 @@ namespace Cppyy {
    void         CallDestructor( TCppType_t type, TCppObject_t self );
    TCppObject_t CallO( TCppMethod_t method, TCppObject_t self, void* args, TCppType_t result_type );
 
-   TCppMethPtrGetter_t GetMethPtrGetter( TCppScope_t scope, TCppIndex_t imeth );
+   TCppFuncAddr_t GetFunctionAddress( TCppScope_t scope, TCppIndex_t imeth );
 
 // handling of function argument buffer --------------------------------------
    void*  AllocateFunctionArgs( size_t nargs );
