@@ -84,7 +84,11 @@ class W_ScandirIterator(W_Root):
             if name != '.' and name != '..':
                 break
         #
-        direntry = W_DirEntry(name, self.w_path_prefix, self.result_is_bytes)
+        w_name = space.newbytes(name)
+        result_is_bytes = self.result_is_bytes
+        if not result_is_bytes:
+            w_name = space.fsdecode(w_name)
+        direntry = W_DirEntry(w_name, self.w_path_prefix, result_is_bytes)
         return space.wrap(direntry)
 
 
@@ -97,28 +101,20 @@ W_ScandirIterator.typedef.acceptable_as_base_class = False
 
 
 class W_DirEntry(W_Root):
-    w_name = None
     w_path = None
 
-    def __init__(self, name_bytes, w_path_prefix, result_is_bytes):
-        self.name_bytes = name_bytes
+    def __init__(self, w_name, w_path_prefix, result_is_bytes):
+        self.w_name = w_name
         self.w_path_prefix = w_path_prefix
         self.result_is_bytes = result_is_bytes
 
     def fget_name(self, space):
-        w_name = self.w_name
-        if w_name is None:
-            w_name = space.newbytes(self.name_bytes)
-            if not self.result_is_bytes:
-                w_name = space.fsdecode(w_name)
-            self.w_name = w_name
-        return w_name
+        return self.w_name
 
     def fget_path(self, space):
         w_path = self.w_path
         if w_path is None:
-            w_name = self.fget_name(space)
-            w_path = space.add(self.w_path_prefix, w_name)
+            w_path = space.add(self.w_path_prefix, self.w_name)
             self.w_path = w_path
         return w_path
 
