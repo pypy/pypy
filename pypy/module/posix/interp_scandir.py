@@ -1,6 +1,5 @@
 from rpython.rlib import rgc
 from rpython.rlib import rposix_scandir
-from rpython.rtyper.lltypesystem import lltype
 
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault, interp2app
 from pypy.interpreter.error import OperationError, oefmt, wrap_oserror2
@@ -58,7 +57,7 @@ class W_ScandirIterator(W_Root):
     def fail(self, err=None):
         dirp = self.dirp
         if dirp:
-            self.dirp = lltype.nullptr(lltype.typeOf(dirp).TO)
+            self.dirp = rposix_scandir.NULL_DIRP
             rposix_scandir.closedir(dirp)
         if err is None:
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
@@ -66,8 +65,8 @@ class W_ScandirIterator(W_Root):
             raise err
 
     def next_w(self):
-        # XXX not safe against being called on several threads for
-        # the same object, but I think that CPython has the same problem
+        # XXX not safe against being called on several threads for the
+        # same ScandirIterator, but I think that CPython has the same problem
         if not self.dirp:
             self.fail()
         #
@@ -75,20 +74,20 @@ class W_ScandirIterator(W_Root):
         while True:
             try:
                 entry = rposix_scandir.nextentry(self.dirp)
-            except StopIteration:
-                self.fail()
             except OSError as e:
                 self.fail(wrap_oserror(space, e))
+            if not entry:
+                self.fail()
             assert rposix_scandir.has_name_bytes(entry)
             name = rposix_scandir.get_name_bytes(entry)
             if name != '.' and name != '..':
                 break
         #
+        known_type = rposix_scandir.get_known_type(entry)
         w_name = space.newbytes(name)
-        result_is_bytes = self.result_is_bytes
-        if not result_is_bytes:
+        if not self.result_is_bytes:
             w_name = space.fsdecode(w_name)
-        direntry = W_DirEntry(w_name, self.w_path_prefix, result_is_bytes)
+        direntry = W_DirEntry(w_name, self.w_path_prefix, known_type)
         return space.wrap(direntry)
 
 
@@ -103,10 +102,10 @@ W_ScandirIterator.typedef.acceptable_as_base_class = False
 class W_DirEntry(W_Root):
     w_path = None
 
-    def __init__(self, w_name, w_path_prefix, result_is_bytes):
+    def __init__(self, w_name, w_path_prefix, known_type):
         self.w_name = w_name
         self.w_path_prefix = w_path_prefix
-        self.result_is_bytes = result_is_bytes
+        self.known_type = known_type
 
     def fget_name(self, space):
         return self.w_name
@@ -118,6 +117,44 @@ class W_DirEntry(W_Root):
             self.w_path = w_path
         return w_path
 
+    def is_dir(self, follow_symlinks):
+        known_type = self.known_type
+        if known_type != rposix_scandir.DT_UNKNOWN:
+            if known_type == rposix_scandir.DT_DIR:
+                return True
+            if known_type != rposix_scandir.DT_LNK or not follow_symlinks:
+                return False
+        xxxx
+
+    def is_file(self, follow_symlinks):
+        known_type = self.known_type
+        if known_type != rposix_scandir.DT_UNKNOWN:
+            if known_type == rposix_scandir.DT_REG:
+                return True
+            if known_type != rposix_scandir.DT_LNK or not follow_symlinks:
+                return False
+        xxxx
+
+    def is_symlink(self):
+        known_type = self.known_type
+        if known_type != rposix_scandir.DT_UNKNOWN:
+            return known_type == rposix_scandir.DT_LNK
+        xxxx
+
+    @unwrap_spec(follow_symlinks=int)
+    def descr_is_dir(self, space, __kwonly__, follow_symlinks=1):
+        """return True if the entry is a directory; cached per entry"""
+        return space.wrap(self.is_dir(follow_symlinks))
+
+    @unwrap_spec(follow_symlinks=int)
+    def descr_is_file(self, space, __kwonly__, follow_symlinks=1):
+        """return True if the entry is a file; cached per entry"""
+        return space.wrap(self.is_file(follow_symlinks))
+
+    def descr_is_symlink(self, space):
+        """return True if the entry is a symbolic link; cached per entry"""
+        return space.wrap(self.is_symlink())
+
 W_DirEntry.typedef = TypeDef(
     'posix.DirEntry',
     name = GetSetProperty(W_DirEntry.fget_name,
@@ -126,5 +163,8 @@ W_DirEntry.typedef = TypeDef(
     path = GetSetProperty(W_DirEntry.fget_path,
                           doc="the entry's full path name; equivalent to "
                               "os.path.join(scandir_path, entry.name)"),
+    is_dir = interp2app(W_DirEntry.descr_is_dir),
+    is_file = interp2app(W_DirEntry.descr_is_file),
+    is_symlink = interp2app(W_DirEntry.descr_is_symlink),
 )
 W_DirEntry.typedef.acceptable_as_base_class = False
