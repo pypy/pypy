@@ -42,9 +42,9 @@ def get_name_bytes(direntp):
     return rffi.charp2str(namep)
 
 DT_UNKNOWN = rposix.dirent_config.get('DT_UNKNOWN', 0)
-DT_REG = rposix.dirent_config.get('DT_REG', -1)
-DT_DIR = rposix.dirent_config.get('DT_DIR', -1)
-DT_LNK = rposix.dirent_config.get('DT_LNK', -1)
+DT_REG = rposix.dirent_config.get('DT_REG', 255)
+DT_DIR = rposix.dirent_config.get('DT_DIR', 255)
+DT_LNK = rposix.dirent_config.get('DT_LNK', 255)
 
 def get_known_type(direntp):
     if rposix.HAVE_D_TYPE:
