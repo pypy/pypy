@@ -78,6 +78,21 @@ class AppTestScandir(object):
         assert type(d.path) is bytes
         assert d.path == b'/' + d.name
 
+    def test_stat1(self):
+        posix = self.posix
+        d = next(posix.scandir(self.dir1))
+        assert d.name == 'file1'
+        assert d.stat().st_mode & 0o170000 == 0o100000    # S_IFREG
+        assert d.stat().st_size == 0
+
+    def test_stat4(self):
+        posix = self.posix
+        d = next(posix.scandir(self.dir4))
+        assert d.name == 'sdir4'
+        assert d.stat().st_mode & 0o170000 == 0o040000    # S_IFDIR
+        assert d.stat(follow_symlinks=True).st_mode &0o170000 == 0o040000
+        assert d.stat(follow_symlinks=False).st_mode&0o170000 == 0o120000 #IFLNK
+
     def test_dir1(self):
         posix = self.posix
         d = next(posix.scandir(self.dir1))
@@ -86,6 +101,8 @@ class AppTestScandir(object):
         assert not d.is_dir()
         assert not d.is_symlink()
         raises(TypeError, d.is_file, True)
+        assert     d.is_file(follow_symlinks=False)
+        assert not d.is_dir(follow_symlinks=False)
 
     def test_dir2(self):
         posix = self.posix
@@ -94,6 +111,8 @@ class AppTestScandir(object):
         assert not d.is_file()
         assert     d.is_dir()
         assert not d.is_symlink()
+        assert not d.is_file(follow_symlinks=False)
+        assert     d.is_dir(follow_symlinks=False)
 
     def test_dir3(self):
         posix = self.posix
