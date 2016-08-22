@@ -15,9 +15,10 @@ typedef struct{
 
 /* initialize the array with integers 0...length */
 void initialize_MyArray(MyArray* a, long length){
+    int i;
     a->length = length;
     a->arr = (int*)malloc(length * sizeof(int));
-    for(int i=0; i<length; i++){
+    for(i=0; i<length; i++){
         a->arr[i] = i;
     }
 }
