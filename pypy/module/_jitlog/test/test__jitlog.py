@@ -10,10 +10,10 @@ class AppTestJitLog(object):
 
     def setup_class(cls):
         cls.w_tmpfilename = cls.space.wrap(str(udir.join('test__jitlog.1')))
-        cls.w_mark_header = cls.space.wrap(jl.MARK_JITLOG_HEADER)
-        cls.w_version = cls.space.wrap(jl.JITLOG_VERSION_16BIT_LE)
+        cls.w_mark_header = cls.space.newbytes(jl.MARK_JITLOG_HEADER)
+        cls.w_version = cls.space.newbytes(jl.JITLOG_VERSION_16BIT_LE)
         cls.w_is_32bit = cls.space.wrap(sys.maxint == 2**31-1)
-        cls.w_machine = cls.space.wrap(platform.machine())
+        cls.w_machine = cls.space.newbytes(platform.machine())
         cls.w_resops = cls.space.newdict()
         space = cls.space
         for key, value in opname.items():
