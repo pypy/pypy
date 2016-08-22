@@ -430,6 +430,8 @@ class FakeModule(W_Root):
     def get(self, name):
         name + "xx"   # check that it's a string
         return w_some_obj()
+    def setmodule(self, w_mod):
+        is_root(w_mod)
 FakeObjSpace.sys = FakeModule()
 FakeObjSpace.sys.filesystemencoding = 'foobar'
 FakeObjSpace.sys.defaultencoding = 'ascii'
