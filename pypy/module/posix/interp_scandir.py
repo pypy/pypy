@@ -46,6 +46,8 @@ def scandir(space, w_path):
 
 
 class W_ScandirIterator(W_Root):
+    _in_next = False
+
     def __init__(self, space, dirp, dirfd, w_path_prefix, result_is_bytes):
         self.space = space
         self.dirp = dirp
@@ -73,25 +75,30 @@ class W_ScandirIterator(W_Root):
             raise err
 
     def next_w(self):
-        # XXX not safe against being called on several threads for the
-        # same ScandirIterator, but I think that CPython has the same problem
         if not self.dirp:
             self.fail()
-        #
-        space = self.space
-        while True:
-            try:
-                entry = rposix_scandir.nextentry(self.dirp)
-            except OSError as e:
-                self.fail(wrap_oserror(space, e))
-            if not entry:
-                self.fail()
-            assert rposix_scandir.has_name_bytes(entry)
-            name = rposix_scandir.get_name_bytes(entry)
-            if name != '.' and name != '..':
-                break
-        #
-        known_type = rposix_scandir.get_known_type(entry)
+        if self._in_next:
+            self.fail(oefmt(self.space.w_RuntimeError,
+               "cannot use ScandirIterator from multiple threads concurrently"))
+        self._in_next = True
+        try:
+            #
+            space = self.space
+            while True:
+                try:
+                    entry = rposix_scandir.nextentry(self.dirp)
+                except OSError as e:
+                    self.fail(wrap_oserror(space, e))
+                if not entry:
+                    self.fail()
+                assert rposix_scandir.has_name_bytes(entry)
+                name = rposix_scandir.get_name_bytes(entry)
+                if name != '.' and name != '..':
+                    break
+            #
+            known_type = rposix_scandir.get_known_type(entry)
+        finally:
+            self._in_next = False
         direntry = W_DirEntry(self, name, known_type)
         return space.wrap(direntry)
 
