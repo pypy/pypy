@@ -838,8 +838,7 @@ else:
             raise wrap_oserror(space, e)
 
 
-@unwrap_spec(w_path=WrappedDefault(u"."))
-def listdir(space, w_path):
+def listdir(space, w_path=None):
     """listdir(path='.') -> list_of_filenames
 
 Return a list containing the names of the files in the directory.
@@ -852,6 +851,8 @@ path can be specified as either str or bytes.  If path is bytes,
 On some platforms, path may also be specified as an open file descriptor;
   the file descriptor must refer to a directory.
   If this functionality is unavailable, using it raises NotImplementedError."""
+    if space.is_none(w_path):
+        w_path = space.newunicode(u".")
     if space.isinstance_w(w_path, space.w_bytes):
         dirname = space.str0_w(w_path)
         try:

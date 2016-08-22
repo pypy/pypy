@@ -313,7 +313,7 @@ class AppTestPosix:
 
     def test_listdir_default(self):
         posix = self.posix
-        assert posix.listdir() == posix.listdir('.')
+        assert posix.listdir() == posix.listdir('.') == posix.listdir(None)
 
     def test_listdir_bytes(self):
         import sys
