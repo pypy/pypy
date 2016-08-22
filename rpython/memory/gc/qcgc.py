@@ -24,6 +24,11 @@ class QCGC(GCBase):
             ('hash', lltype.Signed))
     #HDR = rffi.COpaque('object_t')
 
+    def init_gc_object(self, obj, typeid):
+        hdr = llmemory.cast_adr_to_ptr(obj, lltype.Ptr(self.HDR))
+        hdr.tid = rffi.cast(lltype.Signed, typeid)
+        hdr.hash = rffi.cast(lltype.Signed, obj)
+
     def malloc_fixedsize_clear(self, typeid, size,
                                needs_finalizer=False,
                                is_finalizer_light=False,
@@ -32,18 +37,16 @@ class QCGC(GCBase):
         ll_assert(not needs_finalizer, 'finalizer not supported')
         ll_assert(not is_finalizer_light, 'light finalizer not supported')
         ll_assert(not contains_weakptr, 'weakref not supported')
-        raw_mem = llop.qcgc_allocate(llmemory.Address, size, typeid)
-        hdr = llmemory.cast_adr_to_ptr(raw_mem, lltype.Ptr(self.HDR))
-        hdr.tid = rffi.cast(lltype.Signed, typeid)
-        # FIXME: set hash
-        # XXX: Hope the tid/hash setting here is not removed/optimized out
-        return llmemory.cast_adr_to_ptr(raw_mem, llmemory.GCREF)
+        obj = llop.qcgc_allocate(llmemory.Address, size)
+        self.init_gc_object(obj, typeid)
+        return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
-    def malloc_varsize_clear(self, typeid16, length, size, itemsize,
+    def malloc_varsize_clear(self, typeid, length, size, itemsize,
                              offset_to_length):
         totalsize = size + itemsize * length
         #totalsize = llarena.round_up_for_allocation(totalsize)
-        obj = llop.qcgc_allocate(llmemory.Address, totalsize, typeid16)
+        obj = llop.qcgc_allocate(llmemory.Address, totalsize)
+        self.init_gc_object(obj, typeid)
         (obj + offset_to_length).signed[0] = length
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
@@ -68,14 +71,10 @@ class QCGC(GCBase):
     def get_type_id(self, obj):
         return self.header(obj).tid
 
-    def init_gc_object(self, addr, typeid, flags=0):
+    def init_gc_object_immortal(self, addr, typeid, flags=0): # XXX: Prebuilt Objects?
         assert flags == 0
         hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
         hdr.tid = typeid.index
-
-    def init_gc_object_immortal(self, addr, typeid, flags=0): # XXX: Prebuilt Objects?
-        assert flags == 0
-        self.init_gc_object(addr, typeid, flags)
         ptr = self.gcheaderbuilder.object_from_header(addr.ptr)
         prebuilt_hash = lltype.identityhash_nocache(ptr)
         assert prebuilt_hash != 0
