@@ -165,7 +165,7 @@ class AppTest_ModuleObject:
         import sys
         import os
 
-        assert sys.__package__ is None
+        assert sys.__package__ == ''
         assert os.__package__ == ''
         assert not hasattr(type(sys)('foo'), '__package__')
 

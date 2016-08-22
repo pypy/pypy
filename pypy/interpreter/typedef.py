@@ -202,7 +202,8 @@ def _make_descr_typecheck_wrapper(tag, func, extraargs, cls, use_closure):
     name = func.__name__
     extra = ', '.join(extraargs)
     from pypy.interpreter import pycode
-    argnames, _, _ = pycode.cpython_code_signature(func.func_code)
+    sig = pycode.cpython_code_signature(func.func_code)
+    argnames = sig.argnames
     if use_closure:
         if argnames[1] == 'space':
             args = "closure, space, obj"
@@ -605,6 +606,7 @@ PyCode.typedef.acceptable_as_base_class = False
 PyFrame.typedef = TypeDef('frame',
     __reduce__ = interp2app(PyFrame.descr__reduce__),
     __setstate__ = interp2app(PyFrame.descr__setstate__),
+    clear = interp2app(PyFrame.descr_clear),
     f_builtins = GetSetProperty(PyFrame.fget_f_builtins),
     f_lineno = GetSetProperty(PyFrame.fget_f_lineno, PyFrame.fset_f_lineno),
     f_back = GetSetProperty(PyFrame.fget_f_back),
@@ -797,10 +799,15 @@ GeneratorIterator.typedef = TypeDef("generator",
 )
 assert not GeneratorIterator.typedef.acceptable_as_base_class  # no __new__
 
+# TODO: to have the same distinction (Coroutine | Iterator) as in cpython 3.5,
+# a wrapper typedef with __anext__ has to be created, and __anext__ has to be
+# removed in coroutine
 Coroutine.typedef = TypeDef("coroutine",
     __repr__   = interp2app(Coroutine.descr__repr__),
     __reduce__   = interp2app(Coroutine.descr__reduce__),
     __setstate__ = interp2app(Coroutine.descr__setstate__),
+    __anext__   = interp2app(Coroutine.descr_next,
+                            descrmismatch='__anext__'),
     send       = interp2app(Coroutine.descr_send,
                             descrmismatch='send'),
     throw      = interp2app(Coroutine.descr_throw,

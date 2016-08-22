@@ -98,6 +98,7 @@ class Logger(object):
     def log_abort_loop(self, trace, memo=None):
         debug_start("jit-abort-log")
         if not have_debug_prints():
+            debug_stop("jit-abort-log")
             return
         inputargs, operations = self._unpack_trace(trace)
         logops = self._log_operations(inputargs, operations, ops_offset=None,

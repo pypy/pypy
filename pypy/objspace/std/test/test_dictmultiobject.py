@@ -1282,7 +1282,7 @@ class BaseTestRDictImplementation:
             assert a == self.string2
             assert b == 2000
             if not self._str_devolves:
-                result = self.impl.getitem_str(self.string)
+                result = self.impl.getitem_str(self.string.encode('utf-8'))
             else:
                 result = self.impl.getitem(self.string)
             assert result == 1000
@@ -1293,7 +1293,7 @@ class BaseTestRDictImplementation:
         assert self.impl.length() == 1
         assert self.impl.getitem(self.string) == 1000
         if not self._str_devolves:
-            result = self.impl.getitem_str(self.string)
+            result = self.impl.getitem_str(self.string.encode('utf-8'))
         else:
             result = self.impl.getitem(self.string)
         assert result == 1000

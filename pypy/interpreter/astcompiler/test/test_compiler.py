@@ -511,6 +511,9 @@ class TestCompiler:
         x *= 7
         """, 'x', 42
 
+    def test_with_stacksize_bug(self):
+        compile_with_astcompiler("with a:\n  pass", 'exec', self.space)
+
     def test_with_bug(self):
         yield self.simple_test, """
         class ContextManager:

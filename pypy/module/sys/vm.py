@@ -44,8 +44,8 @@ def getframe(space, depth):
 @unwrap_spec(new_limit="c_int")
 def setrecursionlimit(space, new_limit):
     """setrecursionlimit() sets the maximum number of nested calls that
-can occur before a RuntimeError is raised.  On PyPy the limit is
-approximative and checked at a lower level.  The default 1000
+can occur before a RecursionError is raised.  On PyPy the limit
+is approximative and checked at a lower level.  The default 1000
 reserves 768KB of stack space, which should suffice (on Linux,
 depending on the compiler settings) for ~1400 calls.  Setting the
 value to N reserves N/1000 times 768KB of stack space.

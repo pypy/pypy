@@ -545,3 +545,41 @@ class AppTestPyFrame:
         it = yield_raise()
         assert next(it) is KeyError
         assert next(it) is KeyError
+
+    def test_frame_clear(self):
+        import sys, gc, weakref
+        #
+        raises(RuntimeError, sys._getframe().clear)
+        def g():
+            yield 5
+            raises(RuntimeError, sys._getframe().clear)
+            yield 6
+        assert list(g()) == [5, 6]
+        #
+        class A:
+            pass
+        a1 = A(); a1ref = weakref.ref(a1)
+        a2 = A(); a2ref = weakref.ref(a2)
+        seen = []
+        def f():
+            local_a1 = a1
+            for loc in [5, 6, a2]:
+                try:
+                    yield sys._getframe()
+                finally:
+                    seen.append(42)
+                seen.append(43)
+        gen = f()
+        frame = next(gen)
+        a1 = a2 = None
+        gc.collect(); gc.collect()
+        assert a1ref() is not None
+        assert a2ref() is not None
+        assert seen == []
+        frame.clear()
+        assert seen == [42]
+        gc.collect(); gc.collect()
+        assert a1ref() is None, "locals not cleared"
+        assert a2ref() is None, "stack not cleared"
+        #
+        raises(StopIteration, next, gen)

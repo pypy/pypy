@@ -11,7 +11,7 @@ from rpython.rtyper.lltypesystem import ll2ctypes
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.objectmodel import we_are_translated, keepalive_until_here
 from rpython.rlib.objectmodel import dont_inline
-from rpython.rlib.rfile import (FILEP, c_fread, c_fclose, c_fwrite, 
+from rpython.rlib.rfile import (FILEP, c_fread, c_fclose, c_fwrite,
         c_fdopen, c_fileno,
         c_fopen)# for tests
 from rpython.translator import cdir
@@ -259,14 +259,14 @@ class ApiFunction(object):
 
         # extract the signature from the (CPython-level) code object
         from pypy.interpreter import pycode
-        argnames, varargname, kwargname = pycode.cpython_code_signature(callable.func_code)
-
-        assert argnames[0] == 'space'
+        sig = pycode.cpython_code_signature(callable.func_code)
+        assert sig.argnames[0] == 'space'
+        self.argnames = sig.argnames[1:]
         if gil == 'pygilstate_ensure':
-            assert argnames[-1] == 'previous_state'
-            del argnames[-1]
-        self.argnames = argnames[1:]
+            assert self.argnames[-1] == 'previous_state'
+            del self.argnames[-1]
         assert len(self.argnames) == len(self.argtypes)
+
         self.gil = gil
         self.result_borrowed = result_borrowed
         self.result_is_ll = result_is_ll

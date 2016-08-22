@@ -11,12 +11,11 @@ except ImportError:
 from rpython.rlib import rposix, rposix_stat
 from rpython.rlib import objectmodel, rurandom
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.rarithmetic import r_longlong, intmask
+from rpython.rlib.rarithmetic import r_longlong, intmask, r_uint
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.tool.sourcetools import func_with_new_name
 
-from pypy.interpreter.gateway import (
-    unwrap_spec, WrappedDefault, Unwrapper, kwonly)
+from pypy.interpreter.gateway import unwrap_spec, WrappedDefault, Unwrapper
 from pypy.interpreter.error import (
     OperationError, oefmt, wrap_oserror, wrap_oserror2, strerror as _strerror)
 from pypy.interpreter.executioncontext import ExecutionContext
@@ -28,20 +27,21 @@ if _WIN32:
 
 c_int = "c_int"
 
-# CPython 2.7 semantics are too messy to follow exactly,
-# e.g. setuid(-2) works on 32-bit but not on 64-bit.  As a result,
-# we decided to just accept any 'int', i.e. any C signed long, and
-# check that they are in range(-2**31, 2**32).  In other words, we
-# accept any number that is either a signed or an unsigned C int.
-c_uid_t = int
-c_gid_t = int
-if sys.maxint == 2147483647:
-    def check_uid_range(space, num):
-        pass
-else:
-    def check_uid_range(space, num):
-        if num < -(1 << 31) or num >= (1 << 32):
-            raise oefmt(space.w_OverflowError, "integer out of range")
+# CPython 2.7 semantics used to be too messy, differing on 32-bit vs
+# 64-bit, but this was cleaned up in recent 2.7.x.  Now, any function
+# taking a uid_t or gid_t accepts numbers in range(-1, 2**32) as an
+# r_uint, with -1 being equivalent to 2**32-1.  Any function that
+# returns a uid_t or gid_t returns either an int or a long, depending
+# on whether it fits or not, but always positive.
+c_uid_t = 'c_uid_t'
+c_gid_t = 'c_uid_t'
+
+def wrap_uid(space, uid):
+    if uid <= r_uint(sys.maxint):
+        return space.wrap(intmask(uid))
+    else:
+        return space.wrap(uid)     # an unsigned number
+wrap_gid = wrap_uid
 
 class FileEncoder(object):
     is_unicode = True
@@ -210,7 +210,8 @@ def argument_unavailable(space, funcname, arg):
             "%s: %s unavailable on this platform", funcname, arg)
 
 @unwrap_spec(flags=c_int, mode=c_int, dir_fd=DirFD(rposix.HAVE_OPENAT))
-def open(space, w_path, flags, mode=0777, dir_fd=DEFAULT_DIR_FD):
+def open(space, w_path, flags, mode=0777,
+         __kwonly__=None, dir_fd=DEFAULT_DIR_FD):
     """open(path, flags, mode=0o777, *, dir_fd=None)
 
 Open a file for low level IO.  Returns a file handle (integer).
@@ -427,8 +428,8 @@ file descriptor."""
 @unwrap_spec(
     path=path_or_fd(allow_fd=True),
     dir_fd=DirFD(rposix.HAVE_FSTATAT),
-    follow_symlinks=kwonly(bool))
-def stat(space, path, dir_fd=DEFAULT_DIR_FD, follow_symlinks=True):
+    follow_symlinks=bool)
+def stat(space, path, __kwonly__, dir_fd=DEFAULT_DIR_FD, follow_symlinks=True):
     """stat(path, *, dir_fd=None, follow_symlinks=True) -> stat result
 
 Perform a stat system call on the given path.
@@ -475,7 +476,7 @@ def do_stat(space, funcname, path, dir_fd, follow_symlinks):
 @unwrap_spec(
     path=path_or_fd(allow_fd=False),
     dir_fd=DirFD(rposix.HAVE_FSTATAT))
-def lstat(space, path, dir_fd=DEFAULT_DIR_FD):
+def lstat(space, path, __kwonly__, dir_fd=DEFAULT_DIR_FD):
     """lstat(path, *, dir_fd=None) -> stat result
 
 Like stat(), but do not follow symbolic links.
@@ -550,9 +551,9 @@ def dup2(space, old_fd, new_fd):
         raise wrap_oserror(space, e)
 
 @unwrap_spec(mode=c_int,
-    dir_fd=DirFD(rposix.HAVE_FACCESSAT), effective_ids=kwonly(bool),
-    follow_symlinks=kwonly(bool))
-def access(space, w_path, mode,
+    dir_fd=DirFD(rposix.HAVE_FACCESSAT), effective_ids=bool,
+    follow_symlinks=bool)
+def access(space, w_path, mode, __kwonly__,
         dir_fd=DEFAULT_DIR_FD, effective_ids=False, follow_symlinks=True):
     """\
 access(path, mode, *, dir_fd=None, effective_ids=False, follow_symlinks=True)
@@ -625,7 +626,7 @@ def system(space, cmd):
         return space.wrap(rc)
 
 @unwrap_spec(dir_fd=DirFD(rposix.HAVE_UNLINKAT))
-def unlink(space, w_path, dir_fd=DEFAULT_DIR_FD):
+def unlink(space, w_path, __kwonly__, dir_fd=DEFAULT_DIR_FD):
     """unlink(path, *, dir_fd=None)
 
 Remove a file (same as remove()).
@@ -644,7 +645,7 @@ dir_fd may not be implemented on your platform.
         raise wrap_oserror2(space, e, w_path)
 
 @unwrap_spec(dir_fd=DirFD(rposix.HAVE_UNLINKAT))
-def remove(space, w_path, dir_fd=DEFAULT_DIR_FD):
+def remove(space, w_path, __kwonly__, dir_fd=DEFAULT_DIR_FD):
     """remove(path, *, dir_fd=None)
 
 Remove a file (same as unlink()).
@@ -709,7 +710,7 @@ def chdir(space, w_path):
         raise wrap_oserror2(space, e, w_path)
 
 @unwrap_spec(mode=c_int, dir_fd=DirFD(rposix.HAVE_MKDIRAT))
-def mkdir(space, w_path, mode=0o777, dir_fd=DEFAULT_DIR_FD):
+def mkdir(space, w_path, mode=0o777, __kwonly__=None, dir_fd=DEFAULT_DIR_FD):
     """mkdir(path, mode=0o777, *, dir_fd=None)
 
 Create a directory.
@@ -730,7 +731,7 @@ The mode argument is ignored on Windows."""
         raise wrap_oserror2(space, e, w_path)
 
 @unwrap_spec(dir_fd=DirFD(rposix.HAVE_UNLINKAT))
-def rmdir(space, w_path, dir_fd=DEFAULT_DIR_FD):
+def rmdir(space, w_path, __kwonly__, dir_fd=DEFAULT_DIR_FD):
     """rmdir(path, *, dir_fd=None)
 
 Remove a directory.
@@ -861,13 +862,12 @@ On some platforms, path may also be specified as an open file descriptor;
     try:
         path = space.fsencode_w(w_path)
     except OperationError as operr:
+        if operr.async(space):
+            raise
         if not rposix.HAVE_FDOPENDIR:
             raise oefmt(space.w_TypeError,
                 "listdir: illegal type for path argument")
-        if not space.isinstance_w(w_path, space.w_int):
-            raise oefmt(space.w_TypeError,
-                "argument should be string, bytes or integer, not %T", w_path)
-        fd = unwrap_fd(space, w_path)
+        fd = unwrap_fd(space, w_path, "string, bytes or integer")
         try:
             result = rposix.fdlistdir(fd)
         except OSError as e:
@@ -900,8 +900,9 @@ def pipe(space):
     return space.newtuple([space.wrap(fd1), space.wrap(fd2)])
 
 @unwrap_spec(mode=c_int, dir_fd=DirFD(rposix.HAVE_FCHMODAT),
-             follow_symlinks=kwonly(bool))
-def chmod(space, w_path, mode, dir_fd=DEFAULT_DIR_FD, follow_symlinks=True):
+             follow_symlinks=bool)
+def chmod(space, w_path, mode, __kwonly__,
+          dir_fd=DEFAULT_DIR_FD, follow_symlinks=True):
     """chmod(path, mode, *, dir_fd=None, follow_symlinks=True)
 
 Change the access permissions of a file.
@@ -967,7 +968,7 @@ def fchmod(space, fd, mode):
 
 @unwrap_spec(src_dir_fd=DirFD(rposix.HAVE_RENAMEAT),
         dst_dir_fd=DirFD(rposix.HAVE_RENAMEAT))
-def rename(space, w_src, w_dst,
+def rename(space, w_src, w_dst, __kwonly__,
         src_dir_fd=DEFAULT_DIR_FD, dst_dir_fd=DEFAULT_DIR_FD):
     """rename(src, dst, *, src_dir_fd=None, dst_dir_fd=None)
 
@@ -991,7 +992,7 @@ src_dir_fd and dst_dir_fd, may not be implemented on your platform.
 
 @unwrap_spec(src_dir_fd=DirFD(rposix.HAVE_RENAMEAT),
         dst_dir_fd=DirFD(rposix.HAVE_RENAMEAT))
-def replace(space, w_src, w_dst,
+def replace(space, w_src, w_dst, __kwonly__,
         src_dir_fd=DEFAULT_DIR_FD, dst_dir_fd=DEFAULT_DIR_FD):
     """replace(src, dst, *, src_dir_fd=None, dst_dir_fd=None)
 
@@ -1014,7 +1015,7 @@ src_dir_fd and dst_dir_fd, may not be implemented on your platform.
         raise wrap_oserror(space, e)
 
 @unwrap_spec(mode=c_int, dir_fd=DirFD(rposix.HAVE_MKFIFOAT))
-def mkfifo(space, w_path, mode=0666, dir_fd=DEFAULT_DIR_FD):
+def mkfifo(space, w_path, mode=0666, __kwonly__=None, dir_fd=DEFAULT_DIR_FD):
     """mkfifo(path, mode=0o666, *, dir_fd=None)
 
 Create a FIFO (a POSIX named pipe).
@@ -1033,7 +1034,8 @@ dir_fd may not be implemented on your platform.
         raise wrap_oserror2(space, e, w_path)
 
 @unwrap_spec(mode=c_int, device=c_int, dir_fd=DirFD(rposix.HAVE_MKNODAT))
-def mknod(space, w_filename, mode=0600, device=0, dir_fd=DEFAULT_DIR_FD):
+def mknod(space, w_filename, mode=0600, device=0,
+          __kwonly__=None, dir_fd=DEFAULT_DIR_FD):
     """mknod(filename, mode=0o600, device=0, *, dir_fd=None)
 
 Create a filesystem node (file, device special file or named pipe)
@@ -1095,9 +1097,9 @@ in the hardest way possible on the hosting operating system."""
 @unwrap_spec(
     src='fsencode', dst='fsencode',
     src_dir_fd=DirFD(rposix.HAVE_LINKAT), dst_dir_fd=DirFD(rposix.HAVE_LINKAT),
-    follow_symlinks=kwonly(bool))
+    follow_symlinks=bool)
 def link(
-        space, src, dst,
+        space, src, dst, __kwonly__,
         src_dir_fd=DEFAULT_DIR_FD, dst_dir_fd=DEFAULT_DIR_FD,
         follow_symlinks=True):
     """\
@@ -1127,7 +1129,7 @@ src_dir_fd, dst_dir_fd, and follow_symlinks may not be implemented on your
 
 @unwrap_spec(dir_fd=DirFD(rposix.HAVE_SYMLINKAT))
 def symlink(space, w_src, w_dst, w_target_is_directory=None,
-        dir_fd=DEFAULT_DIR_FD):
+            __kwonly__=None, dir_fd=DEFAULT_DIR_FD):
     """symlink(src, dst, target_is_directory=False, *, dir_fd=None)
 
 Create a symbolic link pointing to src named dst.
@@ -1155,7 +1157,7 @@ dir_fd may not be implemented on your platform.
 @unwrap_spec(
     path=path_or_fd(allow_fd=False),
     dir_fd=DirFD(rposix.HAVE_READLINKAT))
-def readlink(space, path, dir_fd=DEFAULT_DIR_FD):
+def readlink(space, path, __kwonly__, dir_fd=DEFAULT_DIR_FD):
     """readlink(path, *, dir_fd=None) -> path
 
 Return a string representing the path to which the symbolic link points.
@@ -1355,9 +1357,9 @@ def spawnve(space, mode, path, w_args, w_env):
 
 @unwrap_spec(
     path=path_or_fd(allow_fd=rposix.HAVE_FUTIMENS or rposix.HAVE_FUTIMES),
-    w_times=WrappedDefault(None), w_ns=kwonly(WrappedDefault(None)),
-    dir_fd=DirFD(rposix.HAVE_UTIMENSAT), follow_symlinks=kwonly(bool))
-def utime(space, path, w_times, w_ns, dir_fd=DEFAULT_DIR_FD,
+    w_times=WrappedDefault(None), w_ns=WrappedDefault(None),
+    dir_fd=DirFD(rposix.HAVE_UTIMENSAT), follow_symlinks=bool)
+def utime(space, path, w_times, __kwonly__, w_ns, dir_fd=DEFAULT_DIR_FD,
           follow_symlinks=True):
     """utime(path, times=None, *, ns=None, dir_fd=None, follow_symlinks=True)
 
@@ -1530,7 +1532,7 @@ def getuid(space):
 
     Return the current process's user id.
     """
-    return space.wrap(os.getuid())
+    return wrap_uid(space, os.getuid())
 
 @unwrap_spec(arg=c_uid_t)
 def setuid(space, arg):
@@ -1538,12 +1540,10 @@ def setuid(space, arg):
 
     Set the current process's user id.
     """
-    check_uid_range(space, arg)
     try:
         os.setuid(arg)
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.w_None
 
 @unwrap_spec(arg=c_uid_t)
 def seteuid(space, arg):
@@ -1551,12 +1551,10 @@ def seteuid(space, arg):
 
     Set the current process's effective user id.
     """
-    check_uid_range(space, arg)
     try:
         os.seteuid(arg)
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.w_None
 
 @unwrap_spec(arg=c_gid_t)
 def setgid(space, arg):
@@ -1564,12 +1562,10 @@ def setgid(space, arg):
 
     Set the current process's group id.
     """
-    check_uid_range(space, arg)
     try:
         os.setgid(arg)
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.w_None
 
 @unwrap_spec(arg=c_gid_t)
 def setegid(space, arg):
@@ -1577,12 +1573,10 @@ def setegid(space, arg):
 
     Set the current process's effective group id.
     """
-    check_uid_range(space, arg)
     try:
         os.setegid(arg)
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.w_None
 
 @unwrap_spec(path='fsencode')
 def chroot(space, path):
@@ -1601,21 +1595,21 @@ def getgid(space):
 
     Return the current process's group id.
     """
-    return space.wrap(os.getgid())
+    return wrap_gid(space, os.getgid())
 
 def getegid(space):
     """ getegid() -> gid
 
     Return the current process's effective group id.
     """
-    return space.wrap(os.getegid())
+    return wrap_gid(space, os.getegid())
 
 def geteuid(space):
     """ geteuid() -> euid
 
     Return the current process's effective user id.
     """
-    return space.wrap(os.geteuid())
+    return wrap_uid(space, os.geteuid())
 
 def getgroups(space):
     """ getgroups() -> list of group IDs
@@ -1626,7 +1620,7 @@ def getgroups(space):
         list = os.getgroups()
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.newlist([space.wrap(e) for e in list])
+    return space.newlist([wrap_gid(space, e) for e in list])
 
 def setgroups(space, w_list):
     """ setgroups(list)
@@ -1635,9 +1629,7 @@ def setgroups(space, w_list):
     """
     list = []
     for w_gid in space.unpackiterable(w_list):
-        gid = space.int_w(w_gid)
-        check_uid_range(space, gid)
-        list.append(gid)
+        list.append(space.c_uid_t_w(w_gid))
     try:
         os.setgroups(list[:])
     except OSError as e:
@@ -1711,13 +1703,10 @@ def setreuid(space, ruid, euid):
 
     Set the current process's real and effective user ids.
     """
-    check_uid_range(space, ruid)
-    check_uid_range(space, euid)
     try:
         os.setreuid(ruid, euid)
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.w_None
 
 @unwrap_spec(rgid=c_gid_t, egid=c_gid_t)
 def setregid(space, rgid, egid):
@@ -1725,13 +1714,10 @@ def setregid(space, rgid, egid):
 
     Set the current process's real and effective group ids.
     """
-    check_uid_range(space, rgid)
-    check_uid_range(space, egid)
     try:
         os.setregid(rgid, egid)
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.w_None
 
 @unwrap_spec(pid=c_int)
 def getsid(space, pid):
@@ -1788,9 +1774,9 @@ def getresuid(space):
         (ruid, euid, suid) = os.getresuid()
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.newtuple([space.wrap(ruid),
-                           space.wrap(euid),
-                           space.wrap(suid)])
+    return space.newtuple([wrap_uid(space, ruid),
+                           wrap_uid(space, euid),
+                           wrap_uid(space, suid)])
 
 def getresgid(space):
     """ getresgid() -> (rgid, egid, sgid)
@@ -1801,9 +1787,9 @@ def getresgid(space):
         (rgid, egid, sgid) = os.getresgid()
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.newtuple([space.wrap(rgid),
-                           space.wrap(egid),
-                           space.wrap(sgid)])
+    return space.newtuple([wrap_gid(space, rgid),
+                           wrap_gid(space, egid),
+                           wrap_gid(space, sgid)])
 
 @unwrap_spec(ruid=c_uid_t, euid=c_uid_t, suid=c_uid_t)
 def setresuid(space, ruid, euid, suid):
@@ -1907,8 +1893,9 @@ def confstr(space, w_name):
 
 @unwrap_spec(
     uid=c_uid_t, gid=c_gid_t,
-    dir_fd=DirFD(rposix.HAVE_FCHOWNAT), follow_symlinks=kwonly(bool))
-def chown(space, w_path, uid, gid, dir_fd=DEFAULT_DIR_FD, follow_symlinks=True):
+    dir_fd=DirFD(rposix.HAVE_FCHOWNAT), follow_symlinks=bool)
+def chown(space, w_path, uid, gid, __kwonly__,
+          dir_fd=DEFAULT_DIR_FD, follow_symlinks=True):
     """chown(path, uid, gid, *, dir_fd=None, follow_symlinks=True)
 
 Change the owner and group id of path to the numeric uid and gid.
@@ -1925,8 +1912,6 @@ It is an error to use dir_fd or follow_symlinks when specifying path as
   an open file descriptor.
 dir_fd and follow_symlinks may not be implemented on your platform.
   If they are unavailable, using them will raise a NotImplementedError."""
-    check_uid_range(space, uid)
-    check_uid_range(space, gid)
     if not (rposix.HAVE_LCHOWN or rposix.HAVE_FCHMODAT):
         if not follow_symlinks:
             raise argument_unavailable(space, 'chown', 'follow_symlinks')
@@ -1972,8 +1957,6 @@ def lchown(space, path, uid, gid):
 Change the owner and group id of path to the numeric uid and gid.
 This function will not follow symbolic links.
 Equivalent to os.chown(path, uid, gid, follow_symlinks=False)."""
-    check_uid_range(space, uid)
-    check_uid_range(space, gid)
     try:
         os.lchown(path, uid, gid)
     except OSError as e:
@@ -1986,8 +1969,6 @@ def fchown(space, w_fd, uid, gid):
 Change the owner and group id of the file given by file descriptor
 fd to the numeric uid and gid.  Equivalent to os.chown(fd, uid, gid)."""
     fd = space.c_filedescriptor_w(w_fd)
-    check_uid_range(space, uid)
-    check_uid_range(space, gid)
     try:
         os.fchown(fd, uid, gid)
     except OSError as e:

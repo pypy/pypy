@@ -39,6 +39,7 @@ class Signature(object):
 
     def scope_length(self):
         scopelen = len(self.argnames)
+        scopelen += len(self.kwonlyargnames)
         scopelen += self.has_vararg()
         scopelen += self.has_kwarg()
         return scopelen
@@ -68,18 +69,3 @@ class Signature(object):
         if not isinstance(other, Signature):
             return NotImplemented
         return not self == other
-
-
-    # make it look tuply for its use in the annotator
-
-    def __len__(self):
-        return 3
-
-    def __getitem__(self, i):
-        if i == 0:
-            return self.argnames
-        if i == 1:
-            return self.varargname
-        if i == 2:
-            return self.kwargname
-        raise IndexError

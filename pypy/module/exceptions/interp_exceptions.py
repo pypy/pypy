@@ -64,6 +64,8 @@ BaseException
       +-- ReferenceError
       +-- RuntimeError
       |    +-- NotImplementedError
+      |    +-- RecursionError
+      +-- StopAsyncIteration
       +-- SyntaxError
       |    +-- IndentationError
       |         +-- TabError
@@ -833,6 +835,9 @@ the Python version, and the hardware/OS platform and version.""")
 W_AssertionError = _new_exception('AssertionError', W_Exception,
                                   """Assertion failed.""")
 
+W_StopAsyncIteration = _new_exception('StopAsyncIteration', W_Exception,
+                                  """Signal the end from iterator.__anext__().""")
+
 class W_UnicodeDecodeError(W_UnicodeError):
     """Unicode decoding error."""
     w_encoding = None
@@ -920,6 +925,9 @@ W_UnboundLocalError = _new_exception('UnboundLocalError', W_NameError,
 
 W_NotImplementedError = _new_exception('NotImplementedError', W_RuntimeError,
                         """Method or function hasn't been implemented yet.""")
+
+W_RecursionError = _new_exception('RecursionError', W_RuntimeError,
+                        """Recursion limit exceeded.""")
 
 W_AttributeError = _new_exception('AttributeError', W_Exception,
                                   """Attribute not found.""")

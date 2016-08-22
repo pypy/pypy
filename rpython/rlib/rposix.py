@@ -96,12 +96,15 @@ if os.name == 'nt':
             return 0;
         }
     ''',]
+    post_include_bits=['RPY_EXTERN int _PyVerify_fd(int);']
 else:
     separate_module_sources = []
+    post_include_bits = []
     includes=['errno.h','stdio.h']
 errno_eci = ExternalCompilationInfo(
     includes=includes,
     separate_module_sources=separate_module_sources,
+    post_include_bits=post_include_bits,
 )
 
 # Direct getters/setters, don't use directly!
@@ -247,10 +250,13 @@ class CConfig:
     OFF_T_SIZE = rffi_platform.SizeOf('off_t')
 
     HAVE_UTIMES = rffi_platform.Has('utimes')
+    HAVE_D_TYPE = rffi_platform.Has('DT_UNKNOWN')
     UTIMBUF = rffi_platform.Struct('struct %sutimbuf' % UNDERSCORE_ON_WIN32,
                                    [('actime', rffi.INT),
                                     ('modtime', rffi.INT)])
     if not _WIN32:
+        UID_T = rffi_platform.SimpleType('uid_t', rffi.UINT)
+        GID_T = rffi_platform.SimpleType('gid_t', rffi.UINT)
         CLOCK_T = rffi_platform.SimpleType('clock_t', rffi.INT)
 
         TMS = rffi_platform.Struct(
@@ -598,11 +604,17 @@ if not _WIN32:
     class CConfig:
         _compilation_info_ = eci
         DIRENT = rffi_platform.Struct('struct dirent',
-            [('d_name', lltype.FixedSizeArray(rffi.CHAR, 1))])
+            [('d_name', lltype.FixedSizeArray(rffi.CHAR, 1))]
+            + [('d_type', rffi.INT)] if HAVE_D_TYPE else [])
+        if HAVE_D_TYPE:
+            DT_UNKNOWN = rffi_platform.ConstantInteger('DT_UNKNOWN')
+            DT_REG     = rffi_platform.ConstantInteger('DT_REG')
+            DT_DIR     = rffi_platform.ConstantInteger('DT_DIR')
+            DT_LNK     = rffi_platform.ConstantInteger('DT_LNK')
 
     DIRP = rffi.COpaquePtr('DIR')
-    config = rffi_platform.configure(CConfig)
-    DIRENT = config['DIRENT']
+    dirent_config = rffi_platform.configure(CConfig)
+    DIRENT = dirent_config['DIRENT']
     DIRENTP = lltype.Ptr(DIRENT)
     c_opendir = external('opendir',
         [rffi.CCHARP], DIRP, save_err=rffi.RFFI_SAVE_ERRNO)
@@ -612,7 +624,9 @@ if not _WIN32:
     # dirent struct (which depends on defines)
     c_readdir = external('readdir', [DIRP], DIRENTP,
                          macro=True, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
-    c_closedir = external('closedir', [DIRP], rffi.INT)
+    c_closedir = external('closedir', [DIRP], rffi.INT, releasegil=False)
+else:
+    dirent_config = {}
 
 def _listdir(dirp):
     result = []
@@ -1450,32 +1464,33 @@ def getpgid(pid):
 def setpgid(pid, gid):
     handle_posix_error('setpgid', c_setpgid(pid, gid))
 
-PID_GROUPS_T = rffi.CArrayPtr(rffi.PID_T)
-c_getgroups = external('getgroups', [rffi.INT, PID_GROUPS_T], rffi.INT,
-                       save_err=rffi.RFFI_SAVE_ERRNO)
-c_setgroups = external('setgroups', [rffi.SIZE_T, PID_GROUPS_T], rffi.INT,
-                       save_err=rffi.RFFI_SAVE_ERRNO)
-c_initgroups = external('initgroups', [rffi.CCHARP, rffi.PID_T], rffi.INT,
-                        save_err=rffi.RFFI_SAVE_ERRNO)
+if not _WIN32:
+    GID_GROUPS_T = rffi.CArrayPtr(GID_T)
+    c_getgroups = external('getgroups', [rffi.INT, GID_GROUPS_T], rffi.INT,
+                           save_err=rffi.RFFI_SAVE_ERRNO)
+    c_setgroups = external('setgroups', [rffi.SIZE_T, GID_GROUPS_T], rffi.INT,
+                           save_err=rffi.RFFI_SAVE_ERRNO)
+    c_initgroups = external('initgroups', [rffi.CCHARP, GID_T], rffi.INT,
+                            save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('getgroups')
 def getgroups():
     n = handle_posix_error('getgroups',
-                           c_getgroups(0, lltype.nullptr(PID_GROUPS_T.TO)))
-    groups = lltype.malloc(PID_GROUPS_T.TO, n, flavor='raw')
+                           c_getgroups(0, lltype.nullptr(GID_GROUPS_T.TO)))
+    groups = lltype.malloc(GID_GROUPS_T.TO, n, flavor='raw')
     try:
         n = handle_posix_error('getgroups', c_getgroups(n, groups))
-        return [widen(groups[i]) for i in range(n)]
+        return [widen_gid(groups[i]) for i in range(n)]
     finally:
         lltype.free(groups, flavor='raw')
 
 @replace_os_function('setgroups')
 def setgroups(gids):
     n = len(gids)
-    groups = lltype.malloc(PID_GROUPS_T.TO, n, flavor='raw')
+    groups = lltype.malloc(GID_GROUPS_T.TO, n, flavor='raw')
     try:
         for i in range(n):
-            groups[i] = rffi.cast(rffi.PID_T, gids[i])
+            groups[i] = rffi.cast(GID_T, gids[i])
         handle_posix_error('setgroups', c_setgroups(n, groups))
     finally:
         lltype.free(groups, flavor='raw')
@@ -1526,104 +1541,115 @@ def tcsetpgrp(fd, pgrp):
 
 #___________________________________________________________________
 
-c_getuid = external('getuid', [], rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO)
-c_geteuid = external('geteuid', [], rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO)
-c_setuid = external('setuid', [rffi.INT], rffi.INT,
-                    save_err=rffi.RFFI_SAVE_ERRNO)
-c_seteuid = external('seteuid', [rffi.INT], rffi.INT,
-                     save_err=rffi.RFFI_SAVE_ERRNO)
-c_getgid = external('getgid', [], rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO)
-c_getegid = external('getegid', [], rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO)
-c_setgid = external('setgid', [rffi.INT], rffi.INT,
-                    save_err=rffi.RFFI_SAVE_ERRNO)
-c_setegid = external('setegid', [rffi.INT], rffi.INT,
-                     save_err=rffi.RFFI_SAVE_ERRNO)
+if not _WIN32:
+    c_getuid = external('getuid', [], UID_T)
+    c_geteuid = external('geteuid', [], UID_T)
+    c_setuid = external('setuid', [UID_T], rffi.INT,
+                        save_err=rffi.RFFI_SAVE_ERRNO)
+    c_seteuid = external('seteuid', [UID_T], rffi.INT,
+                         save_err=rffi.RFFI_SAVE_ERRNO)
+    c_getgid = external('getgid', [], GID_T)
+    c_getegid = external('getegid', [], GID_T)
+    c_setgid = external('setgid', [GID_T], rffi.INT,
+                        save_err=rffi.RFFI_SAVE_ERRNO)
+    c_setegid = external('setegid', [GID_T], rffi.INT,
+                         save_err=rffi.RFFI_SAVE_ERRNO)
 
-@replace_os_function('getuid')
-def getuid():
-    return handle_posix_error('getuid', c_getuid())
+    def widen_uid(x):
+        return rffi.cast(lltype.Unsigned, x)
+    widen_gid = widen_uid
 
-@replace_os_function('geteuid')
-def geteuid():
-    return handle_posix_error('geteuid', c_geteuid())
+    # NOTE: the resulting type of functions that return a uid/gid is
+    # always Unsigned.  The argument type of functions that take a
+    # uid/gid should also be Unsigned.
 
-@replace_os_function('setuid')
-def setuid(uid):
-    handle_posix_error('setuid', c_setuid(uid))
+    @replace_os_function('getuid')
+    def getuid():
+        return widen_uid(c_getuid())
 
-@replace_os_function('seteuid')
-def seteuid(uid):
-    handle_posix_error('seteuid', c_seteuid(uid))
+    @replace_os_function('geteuid')
+    def geteuid():
+        return widen_uid(c_geteuid())
 
-@replace_os_function('getgid')
-def getgid():
-    return handle_posix_error('getgid', c_getgid())
+    @replace_os_function('setuid')
+    def setuid(uid):
+        handle_posix_error('setuid', c_setuid(uid))
 
-@replace_os_function('getegid')
-def getegid():
-    return handle_posix_error('getegid', c_getegid())
+    @replace_os_function('seteuid')
+    def seteuid(uid):
+        handle_posix_error('seteuid', c_seteuid(uid))
 
-@replace_os_function('setgid')
-def setgid(gid):
-    handle_posix_error('setgid', c_setgid(gid))
+    @replace_os_function('getgid')
+    def getgid():
+        return widen_gid(c_getgid())
 
-@replace_os_function('setegid')
-def setegid(gid):
-    handle_posix_error('setegid', c_setegid(gid))
+    @replace_os_function('getegid')
+    def getegid():
+        return widen_gid(c_getegid())
 
-c_setreuid = external('setreuid', [rffi.INT, rffi.INT], rffi.INT,
-                      save_err=rffi.RFFI_SAVE_ERRNO)
-c_setregid = external('setregid', [rffi.INT, rffi.INT], rffi.INT,
-                      save_err=rffi.RFFI_SAVE_ERRNO)
+    @replace_os_function('setgid')
+    def setgid(gid):
+        handle_posix_error('setgid', c_setgid(gid))
 
-@replace_os_function('setreuid')
-def setreuid(ruid, euid):
-    handle_posix_error('setreuid', c_setreuid(ruid, euid))
+    @replace_os_function('setegid')
+    def setegid(gid):
+        handle_posix_error('setegid', c_setegid(gid))
 
-@replace_os_function('setregid')
-def setregid(rgid, egid):
-    handle_posix_error('setregid', c_setregid(rgid, egid))
+    c_setreuid = external('setreuid', [UID_T, UID_T], rffi.INT,
+                          save_err=rffi.RFFI_SAVE_ERRNO)
+    c_setregid = external('setregid', [GID_T, GID_T], rffi.INT,
+                          save_err=rffi.RFFI_SAVE_ERRNO)
 
-c_getresuid = external('getresuid', [rffi.INTP] * 3, rffi.INT,
-                       save_err=rffi.RFFI_SAVE_ERRNO)
-c_getresgid = external('getresgid', [rffi.INTP] * 3, rffi.INT,
-                       save_err=rffi.RFFI_SAVE_ERRNO)
-c_setresuid = external('setresuid', [rffi.INT] * 3, rffi.INT,
-                       save_err=rffi.RFFI_SAVE_ERRNO)
-c_setresgid = external('setresgid', [rffi.INT] * 3, rffi.INT,
-                       save_err=rffi.RFFI_SAVE_ERRNO)
+    @replace_os_function('setreuid')
+    def setreuid(ruid, euid):
+        handle_posix_error('setreuid', c_setreuid(ruid, euid))
 
-@replace_os_function('getresuid')
-def getresuid():
-    out = lltype.malloc(rffi.INTP.TO, 3, flavor='raw')
-    try:
-        handle_posix_error('getresuid',
-                           c_getresuid(rffi.ptradd(out, 0),
-                                       rffi.ptradd(out, 1),
-                                       rffi.ptradd(out, 2)))
-        return (widen(out[0]), widen(out[1]), widen(out[2]))
-    finally:
-        lltype.free(out, flavor='raw')
+    @replace_os_function('setregid')
+    def setregid(rgid, egid):
+        handle_posix_error('setregid', c_setregid(rgid, egid))
 
-@replace_os_function('getresgid')
-def getresgid():
-    out = lltype.malloc(rffi.INTP.TO, 3, flavor='raw')
-    try:
-        handle_posix_error('getresgid',
-                           c_getresgid(rffi.ptradd(out, 0),
-                                       rffi.ptradd(out, 1),
-                                       rffi.ptradd(out, 2)))
-        return (widen(out[0]), widen(out[1]), widen(out[2]))
-    finally:
-        lltype.free(out, flavor='raw')
+    UID_T_P = lltype.Ptr(lltype.Array(UID_T, hints={'nolength': True}))
+    GID_T_P = lltype.Ptr(lltype.Array(GID_T, hints={'nolength': True}))
+    c_getresuid = external('getresuid', [UID_T_P] * 3, rffi.INT,
+                           save_err=rffi.RFFI_SAVE_ERRNO)
+    c_getresgid = external('getresgid', [GID_T_P] * 3, rffi.INT,
+                           save_err=rffi.RFFI_SAVE_ERRNO)
+    c_setresuid = external('setresuid', [UID_T] * 3, rffi.INT,
+                           save_err=rffi.RFFI_SAVE_ERRNO)
+    c_setresgid = external('setresgid', [GID_T] * 3, rffi.INT,
+                           save_err=rffi.RFFI_SAVE_ERRNO)
 
-@replace_os_function('setresuid')
-def setresuid(ruid, euid, suid):
-    handle_posix_error('setresuid', c_setresuid(ruid, euid, suid))
+    @replace_os_function('getresuid')
+    def getresuid():
+        out = lltype.malloc(UID_T_P.TO, 3, flavor='raw')
+        try:
+            handle_posix_error('getresuid',
+                               c_getresuid(rffi.ptradd(out, 0),
+                                           rffi.ptradd(out, 1),
+                                           rffi.ptradd(out, 2)))
+            return (widen_uid(out[0]), widen_uid(out[1]), widen_uid(out[2]))
+        finally:
+            lltype.free(out, flavor='raw')
 
-@replace_os_function('setresgid')
-def setresgid(rgid, egid, sgid):
-    handle_posix_error('setresgid', c_setresgid(rgid, egid, sgid))
+    @replace_os_function('getresgid')
+    def getresgid():
+        out = lltype.malloc(GID_T_P.TO, 3, flavor='raw')
+        try:
+            handle_posix_error('getresgid',
+                               c_getresgid(rffi.ptradd(out, 0),
+                                           rffi.ptradd(out, 1),
+                                           rffi.ptradd(out, 2)))
+            return (widen_gid(out[0]), widen_gid(out[1]), widen_gid(out[2]))
+        finally:
+            lltype.free(out, flavor='raw')
+
+    @replace_os_function('setresuid')
+    def setresuid(ruid, euid, suid):
+        handle_posix_error('setresuid', c_setresuid(ruid, euid, suid))
+
+    @replace_os_function('setresgid')
+    def setresgid(rgid, egid, sgid):
+        handle_posix_error('setresgid', c_setresgid(rgid, egid, sgid))
 
 #___________________________________________________________________
 

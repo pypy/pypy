@@ -298,7 +298,10 @@ class DescrOperation(object):
         return w_iter
 
     def next(space, w_obj):
-        w_descr = space.lookup(w_obj, '__next__')
+        if space.type(w_obj).name == 'coroutine':
+            w_descr = space.lookup(w_obj, '__anext__')
+        else:
+            w_descr = space.lookup(w_obj, '__next__')
         if w_descr is None:
             raise oefmt(space.w_TypeError,
                         "'%T' object is not an iterator", w_obj)

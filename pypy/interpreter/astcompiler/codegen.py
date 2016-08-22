@@ -599,17 +599,21 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         b_try_cleanup = self.new_block()
         b_after_loop = self.new_block()
         b_after_loop_else = self.new_block()
+        
         self.emit_jump(ops.SETUP_LOOP, b_after_loop)
         self.push_frame_block(F_BLOCK_LOOP, b_try)
+        
         fr.iter.walkabout(self)
         self.emit_op(ops.GET_AITER)
         self.load_const(self.space.w_None)
         self.emit_op(ops.YIELD_FROM)
+        
         self.use_next_block(b_try)
         # This adds another line, so each for iteration can be traced.
         self.lineno_set = False
         self.emit_jump(ops.SETUP_EXCEPT, b_except)
         self.push_frame_block(F_BLOCK_EXCEPT, b_try)
+        
         self.emit_op(ops.GET_ANEXT)
         self.load_const(self.space.w_None)
         self.emit_op(ops.YIELD_FROM)
@@ -617,9 +621,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op(ops.POP_BLOCK)
         self.pop_frame_block(F_BLOCK_EXCEPT, b_try)
         self.emit_jump(ops.JUMP_FORWARD, b_after_try)
+        
         self.use_next_block(b_except)
-        self.emit_op(ops.POP_TOP)
-        self.emit_op_name(ops.LOAD_GLOBAL, self.names, "StopIterError")
+        self.emit_op(ops.DUP_TOP)
+        self.emit_op_name(ops.LOAD_GLOBAL, self.names, "StopAsyncIteration")
         self.emit_op_arg(ops.COMPARE_OP, 10)
         self.emit_jump(ops.POP_JUMP_IF_FALSE, b_try_cleanup, True)
         
@@ -627,18 +632,29 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op(ops.POP_TOP)
         self.emit_op(ops.POP_TOP)
         self.emit_op(ops.POP_EXCEPT) # for SETUP_EXCEPT
+        # Manually remove the 'aiter' object from the valuestack.
+        # This POP_TOP is not needed from the point of view of
+        # pyopcode.py, which will pop anything to match the stack
+        # depth of the SETUP_LOOP, but it is needed to make
+        # PythonCodeMaker._stacksize() compute an exact result and not
+        # crash with StackDepthComputationError.
+        self.emit_op(ops.POP_TOP)
         self.emit_op(ops.POP_BLOCK) # for SETUP_LOOP
         self.emit_jump(ops.JUMP_ABSOLUTE, b_after_loop_else, True)
         
         self.use_next_block(b_try_cleanup)
         self.emit_op(ops.END_FINALLY)
+        
         self.use_next_block(b_after_try)
         self.visit_sequence(fr.body)
         self.emit_jump(ops.JUMP_ABSOLUTE, b_try, True)
+        
         self.emit_op(ops.POP_BLOCK) # for SETUP_LOOP
         self.pop_frame_block(F_BLOCK_LOOP, b_try)
+        
         self.use_next_block(b_after_loop)
         self.emit_jump(ops.JUMP_ABSOLUTE, b_end, True)
+        
         self.use_next_block(b_after_loop_else)
         self.visit_sequence(fr.orelse)
         

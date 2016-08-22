@@ -1,7 +1,7 @@
 """ PyFrame class implementation with the interpreter main loop.
 """
 
-from rpython.rlib import jit
+from rpython.rlib import jit, rweakref
 from rpython.rlib.debug import make_sure_not_resized, check_nonneg
 from rpython.rlib.jit import hint
 from rpython.rlib.objectmodel import instantiate, specialize, we_are_translated
@@ -62,6 +62,8 @@ class PyFrame(W_Root):
     __metaclass__ = extendabletype
 
     frame_finished_execution = False
+    f_generator_wref         = rweakref.dead_ref  # for generators/coroutines
+    f_generator_nowref       = None               # (only one of the two attrs)
     last_instr               = -1
     last_exception           = None
     f_backref                = jit.vref_None
@@ -238,14 +240,24 @@ class PyFrame(W_Root):
             self.locals_cells_stack_w[index] = outer_func.closure[i]
             index += 1
 
+    def _is_generator_or_coroutine(self):
+        return (self.getcode().co_flags & (pycode.CO_COROUTINE |
+                                           pycode.CO_GENERATOR)) != 0
+
     def run(self):
         """Start this frame's execution."""
-        if self.getcode().co_flags & pycode.CO_COROUTINE:
-            from pypy.interpreter.generator import Coroutine
-            return self.space.wrap(Coroutine(self))
-        elif self.getcode().co_flags & pycode.CO_GENERATOR:
-            from pypy.interpreter.generator import GeneratorIterator
-            return self.space.wrap(GeneratorIterator(self))
+        if self._is_generator_or_coroutine():
+            if self.getcode().co_flags & pycode.CO_COROUTINE:
+                from pypy.interpreter.generator import Coroutine
+                gen = Coroutine(self)
+            else:
+                from pypy.interpreter.generator import GeneratorIterator
+                gen = GeneratorIterator(self)
+            if self.space.config.translation.rweakref:
+                self.f_generator_wref = rweakref.ref(gen)
+            else:
+                self.f_generator_nowref = gen
+            return self.space.wrap(gen)
         else:
             return self.execute_frame()
 
@@ -885,6 +897,37 @@ class PyFrame(W_Root):
                     return last
             frame = frame.f_backref()
         return None
+
+    def descr_clear(self, space):
+        # Clears a random subset of the attributes (e.g. some the fast
+        # locals, but not f_locals).  Also clears last_exception, which
+        # is not quite like CPython when it clears f_exc_* (however
+        # there might not be an observable difference).
+        if not self.frame_finished_execution:
+            if not self._is_generator_or_coroutine():
+                raise oefmt(space.w_RuntimeError,
+                            "cannot clear an executing frame")
+            if space.config.translation.rweakref:
+                gen = self.f_generator_wref()
+            else:
+                gen = self.f_generator_nowref
+            if gen is not None:
+                if gen.running:
+                    raise oefmt(space.w_RuntimeError,
+                                "cannot clear an executing frame")
+                # xxx CPython raises the RuntimeWarning "coroutine was never
+                # awaited" in this case too.  Does it make any sense?
+                gen.descr_close()
+
+        self.last_exception = None
+        debug = self.getdebug()
+        if debug is not None:
+            debug.w_f_trace = None
+
+        # clear the locals, including the cell/free vars, and the stack
+        for i in range(len(self.locals_cells_stack_w)):
+            self.locals_cells_stack_w[i] = None
+        self.valuestackdepth = 0
 
 # ____________________________________________________________
 
