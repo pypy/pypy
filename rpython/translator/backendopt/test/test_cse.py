@@ -212,3 +212,23 @@ class TestStoreSink(object):
             return j
 
         self.check(f, [int], getfield=0)
+
+    def test_dont_invalidate_on_call(self):
+        class A(object):
+            pass
+        class B(object):
+            pass
+        def g(b, a):
+            b.x = 1
+            a.y = 2
+
+        def f(i):
+            a = A()
+            a.x = i
+            a.y = i + 1
+            b = B()
+            g(b, a)
+            return a.x + a.y
+
+        self.check(f, [int], getfield=1)
+

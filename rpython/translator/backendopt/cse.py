@@ -6,10 +6,9 @@ from rpython.flowspace.model import mkentrymap, Variable
 from rpython.translator.backendopt import removenoops
 from rpython.translator import simplify
 from rpython.translator.backendopt import ssa
+from rpython.translator.backendopt.writeanalyze import WriteAnalyzer
 
 def has_side_effects(op):
-    if op.opname == 'debug_assert' or op.opname == 'jit_force_virtualizable':
-        return False
     try:
         return getattr(llop, op.opname).sideeffects
     except AttributeError:
@@ -22,7 +21,7 @@ def can_fold(op):
     return getattr(llop, op.opname).canfold
 
 class Cache(object):
-    def __init__(self, variable_families, purecache=None, heapcache=None):
+    def __init__(self, variable_families, analyzer, purecache=None, heapcache=None):
         if purecache is None:
             purecache = {}
         if heapcache is None:
@@ -30,10 +29,12 @@ class Cache(object):
         self.purecache = purecache
         self.heapcache = heapcache
         self.variable_families = variable_families
+        self.analyzer = analyzer
 
     def copy(self):
         return Cache(
-                self.variable_families, self.purecache.copy(),
+                self.variable_families, self.analyzer,
+                self.purecache.copy(),
                 self.heapcache.copy())
 
 
@@ -72,11 +73,19 @@ class Cache(object):
                     block.inputargs.append(newres)
                 heapcache[key] = newres
 
-        return Cache(self.variable_families, purecache, heapcache)
+        return Cache(
+                self.variable_families, self.analyzer, purecache, heapcache)
 
     def _clear_heapcache_for(self, concretetype, fieldname):
         for k in self.heapcache.keys():
             if k[0].concretetype == concretetype and k[1] == fieldname:
+                del self.heapcache[k]
+
+    def _clear_heapcache_for_effects(self, op):
+        effects = self.analyzer.analyze(op)
+        for k in self.heapcache.keys():
+            key = ('struct', k[0].concretetype, k[1])
+            if key in effects:
                 del self.heapcache[k]
 
     def cse_block(self, block):
@@ -97,8 +106,6 @@ class Cache(object):
                 else:
                     self.heapcache[tup] = op.result
                 continue
-            if op.opname in ('setarrayitem', 'setinteriorfield', "malloc", "malloc_varsize"):
-                continue
             if op.opname == 'setfield':
                 target = representative_arg(op.args[0])
                 field = op.args[1].value
@@ -106,7 +113,7 @@ class Cache(object):
                 self.heapcache[target, field] = op.args[2]
                 continue
             if has_side_effects(op):
-                self.heapcache.clear()
+                self._clear_heapcache_for_effects(op)
                 continue
 
             # foldable operations
@@ -124,9 +131,9 @@ class Cache(object):
                 self.purecache[key] = op.result
         return added_some_same_as
 
-def _merge(tuples, variable_families):
+def _merge(tuples, variable_families, analyzer):
     if not tuples:
-        return Cache(variable_families)
+        return Cache(variable_families, analyzer)
     if len(tuples) == 1:
         (link, cache), = tuples
         return cache.copy()
@@ -136,6 +143,7 @@ def _merge(tuples, variable_families):
 class CSE(object):
     def __init__(self, translator):
         self.translator = translator
+        self.analyzer = WriteAnalyzer(translator)
 
     def transform(self, graph):
         variable_families = ssa.DataFlowFamilyBuilder(graph).get_variable_families()
@@ -156,9 +164,10 @@ class CSE(object):
 
             if block.operations:
                 if not can_cache:
-                    cache = Cache(variable_families)
+                    cache = Cache(variable_families, self.analyzer)
                 else:
-                    cache = _merge(caches_to_merge[block], variable_families)
+                    cache = _merge(
+                        caches_to_merge[block], variable_families, self.analyzer)
                 changed_block = cache.cse_block(block)
                 added_some_same_as = changed_block or added_some_same_as
             done.add(block)
