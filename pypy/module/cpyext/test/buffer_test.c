@@ -31,9 +31,9 @@ void deallocate_MyArray(MyArray* a){
 /* tools to print the array */
 char* stringify(MyArray* a, int nmax){
     char* output = (char*) malloc(nmax * 20);
-    int pos = sprintf(&output[0], "[");
+    int k, pos = sprintf(&output[0], "[");
 
-    for (int k=0; k < a->length && k < nmax; k++){
+    for (k=0; k < a->length && k < nmax; k++){
         pos += sprintf(&output[pos], " %d", a->arr[k]);
     }
     if(a->length > nmax)

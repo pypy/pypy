@@ -464,8 +464,8 @@ class W_BytesObject(W_AbstractBytesObject):
         raise oefmt(space.w_TypeError,
                     "Cannot use string as modifiable buffer")
 
-    def descr_getbuffer(self, space):
-        return self
+    def descr_getbuffer(self, space, w_flags):
+        return StringBuffer(self._value)
 
     charbuf_w = str_w
 

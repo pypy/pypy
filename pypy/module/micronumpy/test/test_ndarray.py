@@ -3626,7 +3626,8 @@ class AppTestSupport(BaseNumpyAppTest):
         assert str(exc.value) == "assignment destination is read-only"
 
         class A(object):
-            __buffer__ = 'abc'
+            def __buffer__(self, flags):
+                return 'abc'
 
         data = A()
         a = np.frombuffer(data, 'c')
