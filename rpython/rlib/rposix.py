@@ -1800,14 +1800,9 @@ class EnvironExtRegistry(ControllerEntryForPrebuilt):
 # Support for f... and ...at families of POSIX functions
 
 class CConfig:
-    _compilation_info_ = ExternalCompilationInfo(
-        includes=['sys/stat.h',
-                  'sys/time.h',
-                  'unistd.h',
-                  'fcntl.h'],
-    )
+    _compilation_info_ = eci
     for _name in """faccessat fchdir fchmod fchmodat fchown fchownat fexecve
-            fpathconf fstat fstatat fstatvfs ftruncate
+            fdopendir fpathconf fstat fstatat fstatvfs ftruncate
             futimens futimes futimesat linkat chflags lchflags lchmod lchown
             lstat lutimes mkdirat mkfifoat mknodat openat readlinkat renameat
             symlinkat unlinkat utimensat""".split():
