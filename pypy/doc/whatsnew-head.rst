@@ -144,3 +144,9 @@ blackhole interp involved.  Also fix the stacklet (greenlet) support.
 ``type.__dict__`` now returns a ``dict_proxy`` object, like on CPython.
 Previously it returned what looked like a regular dict object (but it
 was already read-only).
+
+
+.. branch: const-fold-we-are-jitted
+
+Reduce the size of the generated C code by constant-folding ``we_are_jitted``
+in non-jitcode.
