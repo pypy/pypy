@@ -1428,7 +1428,6 @@ class ObjSpace(object):
 
     BUF_SIMPLE   = 0x0000
     BUF_WRITABLE = 0x0001
-    BUF_C        = 0x0002
     BUF_FORMAT   = 0x0004
     BUF_ND       = 0x0008
     BUF_STRIDES  = 0x0010 | BUF_ND
@@ -1439,6 +1438,12 @@ class ObjSpace(object):
 
     BUF_FULL_RO = BUF_INDIRECT | BUF_FORMAT
     BUF_FULL    = BUF_INDIRECT | BUF_FORMAT | BUF_WRITABLE
+
+    MEMORYVIEW_MAX_DIM = 64
+    MEMORYVIEW_C        = 0x0002
+    MEMORYVIEW_FORTRAN  = 0x0004
+    MEMORYVIEW_SCLAR    = 0x0008
+    MEMORYVIEW_PIL      = 0x0010
 
     def check_buf_flags(self, flags, readonly):
         if readonly and flags & self.BUF_WRITABLE == self.BUF_WRITABLE:

@@ -225,6 +225,14 @@ class W_MemoryView(W_Root):
             size = rffi.sizeof(rffi.VOIDP)
         return size
 
+    def _zero_in_shape(self):
+        view = self.buf
+        shape = view.shape
+        for i in range(view.ndim):
+            if shape[i] == 0:
+                return True
+        return False
+
     def descr_cast(self, space, w_format, w_shape=None):
         self._check_released(space)
 
@@ -232,21 +240,111 @@ class W_MemoryView(W_Root):
             raise OperationError(space.w_TypeError, \
                     space.wrap("memoryview: format argument must be a string"))
 
-        # XXX fixme. does not do anything near cpython (see memoryobjet.c memory_cast)
-        #if self.flags & (space.BUF_CONTIG_RO|space.BUF_C) == 0:
-        #    raise OperationError(space.w_TypeError, \
-        #            space.wrap("memoryview: casts are restricted" \
-        #                       " to C-contiguous views"))
+        buf = self.buf
+        ndim = 1
 
-        fmt = space.str_w(w_format)
-        newitemsize = self.get_native_fmtchar(fmt)
-        return W_MemoryView(self.buf, fmt, newitemsize)
+        if not memory_view_c_contiguous(buf.flags):
+            raise OperationError(space.w_TypeError, \
+                    space.wrap("memoryview: casts are restricted" \
+                               " to C-contiguous views"))
+
+        if (w_shape or buf.ndim != 1) and self._zero_in_shape():
+            raise OperationError(space.w_TypeError, \
+                    space.wrap("memoryview: cannot casts view with" \
+                               " zeros in shape or strides"))
+
+        if w_shape:
+            if not (space.is_w(w_obj, space.w_list) or space.is_w(w_obj, space.w_tuple)):
+                raise oefmt(space.w_TypeError, "expected list or tuple got %T", w_obj)
+            ndim = space.len_w(w_obj)
+            if ndim > space.BUF_MAX_DIM:
+                raise oefmt(space.w_ValueError, \
+                        "memoryview: number of dimensions must not exceed %d",
+                        ndim)
+            if ndim != buf.ndim:
+                raise OperationError(space.w_TypeError, \
+                    space.wrap("memoryview: cast must be 1D -> ND or ND -> 1D"))
+
+        mv = W_MemoryView(self.buf)
+        mv._init_shared_values(space, self)
+        mv.itemsize = self.get_native_fmtchar(fmt)
+
+        if not mv._cast_to_1D(space, fmt):
+            return space.w_None
+        if w_shape is not space.w_None:
+            shape = space.fixedview(w_shape)
+            if not mv._cast_to_ND(space, shape, ndim):
+                return space.w_None
+        return mv
+
+    def _init_flags(self):
+        view = self.buf
+        ndim = view.ndim
+        flags = 0
+        if ndim == 0:
+            flags |= space.MEMORYVIEW_SCALAR | space.MEMORYVIEW_C | space.MEMORYVIEW_FORTRAN
+        if ndim == 1:
+            if view.shape[0] == 1 and view.strides[0] == view.itemsize:
+                flags |= space.MEMORYVIEW_C | space.MEMORYVIEW_SCALAR
+        if view.is_contiguous('C'):
+            flags |= space.MEMORYVIEW_C
+        elif view.is_contiguous('F'):
+            flags |= space.MEMORYVIEW_SCALAR
+
+        # XXX missing suboffsets
+
+        view.flags = flags
+
+    def _cast_to_1D(self, space, fmt):
+        itemsize = self.get_native_fmtchar(fmt)
+        view = self.buf
+        if itemsize < 0:
+            raise OperationError(space.w_ValueError, "memoryview: destination" \
+                    " format must be a native single character format prefixed" \
+                    " with an optional '@'")
+
+        if self.get_native_fmtchar(view.format) < 0 or \
+           (not is_byte_format(fmt) and not is_byte_format(view.format)):
+            raise OperationError(space.w_TypeError,
+                    "memoryview: cannot cast between" \
+                    " two non-byte formats")
+
+        if view.length % itemsize != 0:
+            raise OperationError(space.w_TypeError,
+                    "memoryview: length is not a multiple of itemsize")
+
+        view.format = get_native_fmtstr(fmt)
+        if not view.format:
+            raise OperationError(space.w_RuntimeError,
+                    "memoryview: internal error")
+        view.itemsize = itemsize
+        view.ndim = 1
+        view.shape[0] = view.length / view.itemsize
+        view.srides[0] = view.itemsize
+        # XX suboffsets
+
+        mv._init_flags()
+
+    def _cast_to_ND(self, space, shape, ndim):
+        pass
+
+    def _init_shared_values(self, space, of):
+        mv.buf = buf # XXX not quite right
+        mv.format = of.format
+        mv.readonly = of.readonly
+        mv.itemsize = of.itemsize
+        return mv
 
     def descr_hex(self, space):
         from pypy.objspace.std.bytearrayobject import _array_to_hexstring
         self._check_released(space)
         return _array_to_hexstring(space, self.buf)
 
+def is_byte_format(char):
+    return char == 'b' or char == 'B' or char == 'c'
+
+def memory_view_c_contiguous(flags):
+    return flags & (space.BUF_CONTIG_RO|space.BUF_C) != 0
 
 W_MemoryView.typedef = TypeDef(
     "memoryview",
