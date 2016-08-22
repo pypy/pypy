@@ -1963,3 +1963,21 @@ def test_function_returns_opaque():
                        ffi, "test_function_returns_opaque", "?")
     assert str(e.value) == ("function foo: 'struct a' is used as result type,"
                             " but is opaque")
+
+def test_function_returns_union():
+    ffi = FFI()
+    ffi.cdef("union u1 { int a, b; }; union u1 f1(int);")
+    lib = verify(ffi, "test_function_returns_union", """
+        union u1 { int a, b; };
+        static union u1 f1(int x) { union u1 u; u.b = x; return u; }
+    """)
+    assert lib.f1(51).a == 51
+
+def test_function_returns_partial_struct():
+    ffi = FFI()
+    ffi.cdef("struct a { int a; ...; }; struct a f1(int);")
+    lib = verify(ffi, "test_function_returns_partial_struct", """
+        struct a { int b, a, c; };
+        static struct a f1(int x) { struct a s = {0}; s.a = x; return s; }
+    """)
+    assert lib.f1(52).a == 52
