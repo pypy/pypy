@@ -582,6 +582,14 @@ class LLtypeHelpers:
                 return lltype.malloc(ARRAY, n, flavor='raw', zero=zero,
                                      add_memory_pressure=add_memory_pressure,
                                      track_allocation=track_allocation)
+            name = '_ll_1_raw_malloc_varsize'
+            if zero:
+                name += '_zero'
+            if add_memory_pressure:
+                name += '_mpressure'
+            if not track_allocation:
+                name += '_notrack'
+            _ll_1_raw_malloc_varsize.func_name = name
             return _ll_1_raw_malloc_varsize
         return build_ll_1_raw_malloc_varsize
 
@@ -610,6 +618,14 @@ class LLtypeHelpers:
                 return lltype.malloc(STRUCT, flavor='raw', zero=zero,
                                      add_memory_pressure=add_memory_pressure,
                                      track_allocation=track_allocation)
+            name = '_ll_0_raw_malloc_fixedsize'
+            if zero:
+                name += '_zero'
+            if add_memory_pressure:
+                name += '_mpressure'
+            if not track_allocation:
+                name += '_notrack'
+            _ll_0_raw_malloc_fixedsize.func_name = name
             return _ll_0_raw_malloc_fixedsize
         return build_ll_0_raw_malloc_fixedsize
 
