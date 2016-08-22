@@ -464,8 +464,8 @@ class W_BytesObject(W_AbstractBytesObject):
                     "Cannot use string as modifiable buffer")
 
     def descr_getbuffer(self, space, w_flags):
-        from pypy.objspace.std.strbufobject import W_StringBufferObject
-        return W_StringBufferObject(StringBuffer(self._value))
+        from pypy.objspace.std.bufferobject import W_Buffer
+        return W_Buffer(StringBuffer(self._value))
 
     charbuf_w = str_w
 
@@ -603,8 +603,8 @@ class W_BytesObject(W_AbstractBytesObject):
 
     def descr_eq(self, space, w_other):
         if space.config.objspace.std.withstrbuf:
-            from pypy.objspace.std.strbufobject import W_StringBuilderObject
-            if isinstance(w_other, W_StringBuilderObject):
+            from pypy.objspace.std.strbufobject import W_StringBufferObject
+            if isinstance(w_other, W_StringBufferObject):
                 return space.newbool(self._value == w_other.force())
         if not isinstance(w_other, W_BytesObject):
             return space.w_NotImplemented
@@ -612,8 +612,8 @@ class W_BytesObject(W_AbstractBytesObject):
 
     def descr_ne(self, space, w_other):
         if space.config.objspace.std.withstrbuf:
-            from pypy.objspace.std.strbufobject import W_StringBuilderObject
-            if isinstance(w_other, W_StringBuilderObject):
+            from pypy.objspace.std.strbufobject import W_StringBufferObject
+            if isinstance(w_other, W_StringBufferObject):
                 return space.newbool(self._value != w_other.force())
         if not isinstance(w_other, W_BytesObject):
             return space.w_NotImplemented
@@ -621,8 +621,8 @@ class W_BytesObject(W_AbstractBytesObject):
 
     def descr_lt(self, space, w_other):
         if space.config.objspace.std.withstrbuf:
-            from pypy.objspace.std.strbufobject import W_StringBuilderObject
-            if isinstance(w_other, W_StringBuilderObject):
+            from pypy.objspace.std.strbufobject import W_StringBufferObject
+            if isinstance(w_other, W_StringBufferObject):
                 return space.newbool(self._value < w_other.force())
         if not isinstance(w_other, W_BytesObject):
             return space.w_NotImplemented
@@ -630,8 +630,8 @@ class W_BytesObject(W_AbstractBytesObject):
 
     def descr_le(self, space, w_other):
         if space.config.objspace.std.withstrbuf:
-            from pypy.objspace.std.strbufobject import W_StringBuilderObject
-            if isinstance(w_other, W_StringBuilderObject):
+            from pypy.objspace.std.strbufobject import W_StringBufferObject
+            if isinstance(w_other, W_StringBufferObject):
                 return space.newbool(self._value <= w_other.force())
         if not isinstance(w_other, W_BytesObject):
             return space.w_NotImplemented
@@ -639,8 +639,8 @@ class W_BytesObject(W_AbstractBytesObject):
 
     def descr_gt(self, space, w_other):
         if space.config.objspace.std.withstrbuf:
-            from pypy.objspace.std.strbufobject import W_StringBuilderObject
-            if isinstance(w_other, W_StringBuilderObject):
+            from pypy.objspace.std.strbufobject import W_StringBufferObject
+            if isinstance(w_other, W_StringBufferObject):
                 return space.newbool(self._value > w_other.force())
         if not isinstance(w_other, W_BytesObject):
             return space.w_NotImplemented
@@ -648,8 +648,8 @@ class W_BytesObject(W_AbstractBytesObject):
 
     def descr_ge(self, space, w_other):
         if space.config.objspace.std.withstrbuf:
-            from pypy.objspace.std.strbufobject import W_StringBuilderObject
-            if isinstance(w_other, W_StringBuilderObject):
+            from pypy.objspace.std.strbufobject import W_StringBufferObject
+            if isinstance(w_other, W_StringBufferObject):
                 return space.newbool(self._value >= w_other.force())
         if not isinstance(w_other, W_BytesObject):
             return space.w_NotImplemented
@@ -669,7 +669,7 @@ class W_BytesObject(W_AbstractBytesObject):
             self_as_bytearray = W_BytearrayObject(_make_data(self._value))
             return space.add(self_as_bytearray, w_other)
         if space.config.objspace.std.withstrbuf:
-            from pypy.objspace.std.strbufobject import W_StringBuilderObject
+            from pypy.objspace.std.strbufobject import W_StringBufferObject
             try:
                 other = self._op_val(space, w_other)
             except OperationError as e:
@@ -679,7 +679,7 @@ class W_BytesObject(W_AbstractBytesObject):
             builder = StringBuilder()
             builder.append(self._value)
             builder.append(other)
-            return W_StringBuilderObject(builder)
+            return W_StringBufferObject(builder)
         return self._StringMethods_descr_add(space, w_other)
 
     _StringMethods__startswith = _startswith

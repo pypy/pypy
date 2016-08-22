@@ -431,7 +431,7 @@ several different implementations.  For example,
 :source:`pypy/objspace/std/bytesobject.py` defines ``W_AbstractBytesObject``,
 which contains everything needed to build the ``str`` app-level type;
 and there are subclasses ``W_BytesObject`` (the usual string) and
-``W_StringBuilderObject`` (a special implementation tweaked for repeated
+``W_StringBufferObject`` (a special implementation tweaked for repeated
 additions, in :source:`pypy/objspace/std/strbufobject.py`).  For mutable data
 types like lists and dictionaries, we have a single class
 ``W_ListObject`` or ``W_DictMultiObject`` which has an indirection to

@@ -8,34 +8,8 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError
 from rpython.rlib.rstring import StringBuilder
 
+
 class W_StringBufferObject(W_AbstractBytesObject):
-    # this wraps an rpython/rlib/buffer.py:Buffer object, not a StringBuilder
-    # NOTE the W_StringBuilderObject *was* named W_StringBufferObject
-    w_str = None
-
-    def __init__(self, buffer):
-        self.buffer = buffer # Buffer
-        self.length = buffer.getlength()
-
-    def __repr__(self):
-        """ representation for debugging purposes """
-        return "%s(%r[:%d])" % (
-            self.__class__.__name__, self.buffer, self.length)
-
-    def unwrap(self, space):
-        return self.buffer.value
-
-    def str_w(self, space):
-        return self.buffer.value
-
-    def buffer_w(self, space, flags):
-        return self.buffer
-
-    def readbuf_w(self, space):
-        return self.buffer
-
-
-class W_StringBuilderObject(W_AbstractBytesObject):
     w_str = None
 
     def __init__(self, builder):
@@ -85,11 +59,11 @@ class W_StringBuilderObject(W_AbstractBytesObject):
         else:
             builder = self.builder
         builder.append(other)
-        return W_StringBuilderObject(builder)
+        return W_StringBufferObject(builder)
 
     def descr_str(self, space):
-        # you cannot get subclasses of W_StringBuilderObject here
-        assert type(self) is W_StringBuilderObject
+        # you cannot get subclasses of W_StringBufferObject here
+        assert type(self) is W_StringBufferObject
         return self
 
 
@@ -120,6 +94,6 @@ for key, value in W_BytesObject.typedef.rawdict.iteritems():
     unwrap_spec_ = getattr(func, 'unwrap_spec', None)
     if unwrap_spec_ is not None:
         f = unwrap_spec(**unwrap_spec_)(f)
-    setattr(W_StringBuilderObject, func.func_name, f)
+    setattr(W_StringBufferObject, func.func_name, f)
 
-W_StringBuilderObject.typedef = W_BytesObject.typedef
+W_StringBufferObject.typedef = W_BytesObject.typedef
