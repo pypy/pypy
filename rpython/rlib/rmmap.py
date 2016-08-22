@@ -799,8 +799,8 @@ if _POSIX:
                            rffi.cast(size_t, map_size),
                            rffi.cast(rffi.INT, use_flag))
     else:
-        def madvice_free(addr, map_size):
-            "No madvice() on this platform"
+        def madvise_free(addr, map_size):
+            "No madvise() on this platform"
 
 elif _MS_WINDOWS:
     def mmap(fileno, length, tagname="", access=_ACCESS_DEFAULT, offset=0):
