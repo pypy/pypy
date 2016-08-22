@@ -11,7 +11,7 @@ class AppTestStringObject(test_bytesobject.AppTestBytesObject):
         # away on AST level
         s = "Hello, ".__add__("World!")
         assert type(s) is str
-        assert 'W_StringBufferObject' in __pypy__.internal_repr(s)
+        assert 'W_StringBuilderObject' in __pypy__.internal_repr(s)
 
     def test_add_twice(self):
         x = "a".__add__("b")
@@ -25,7 +25,7 @@ class AppTestStringObject(test_bytesobject.AppTestBytesObject):
         all = ""
         for i in range(20):
             all += str(i)
-        assert 'W_StringBufferObject' in __pypy__.internal_repr(all)
+        assert 'W_StringBuilderObject' in __pypy__.internal_repr(all)
         assert all == "012345678910111213141516171819"
 
     def test_hash(self):
@@ -33,7 +33,7 @@ class AppTestStringObject(test_bytesobject.AppTestBytesObject):
         def join(s): return s[:len(s) // 2] + s[len(s) // 2:]
         t = 'a' * 101
         s = join(t)
-        assert 'W_StringBufferObject' in __pypy__.internal_repr(s)
+        assert 'W_StringBuilderObject' in __pypy__.internal_repr(s)
         assert hash(s) == hash(t)
 
     def test_len(self):
