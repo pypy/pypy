@@ -956,5 +956,7 @@ class FunctionCodeGenerator(object):
         size = self.expr(op.args[0])
         typeid = self.expr(op.args[1])
         result = self.expr(op.result)
-        return ('%s = qcgc_allocate(%s);' % (result, size) +
-                '((pypyhdr_t *)%s)->tid = %s;' % (result, typeid))
+        return '%s = qcgc_allocate(%s);' % (result, size)
+
+    def OP_QCGC_COLLECT(self, op):
+        return 'qcgc_collect();'

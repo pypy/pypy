@@ -32,23 +32,21 @@ class QCGC(GCBase):
         ll_assert(not needs_finalizer, 'finalizer not supported')
         ll_assert(not is_finalizer_light, 'light finalizer not supported')
         ll_assert(not contains_weakptr, 'weakref not supported')
+        # FIXME: set typeid and hash here
         return llop.qcgc_allocate(llmemory.GCREF, size, typeid)
 
     def malloc_varsize_clear(self, typeid16, length, size, itemsize,
                              offset_to_length):
         totalsize = size + itemsize * length
-        totalsize = llarena.round_up_for_allocation(totalsize)
+        #totalsize = llarena.round_up_for_allocation(totalsize)
         obj = llop.qcgc_allocate(llmemory.Address, totalsize, typeid16)
         (obj + offset_to_length).signed[0] = length
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
     def collect(self, gen=1):
         """Do a minor (gen=0) or major (gen>0) collection."""
-        raise NotImplementedError
-        #if gen > 0:
-        #    llop.stm_major_collect(lltype.Void)
-        #else:
-        #    llop.stm_minor_collect(lltype.Void)
+        # XXX: Minor collection not supported
+        llop.qcgc_collect(lltype.Void)
 
     def writebarrier_before_copy(self, source_addr, dest_addr,
                                  source_start, dest_start, length):
