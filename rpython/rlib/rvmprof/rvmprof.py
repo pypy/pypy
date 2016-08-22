@@ -91,7 +91,7 @@ class VMProf(object):
         immut = CodeClass.__dict__.get('_immutable_fields_', [])
         CodeClass._immutable_fields_ = list(immut) + ['_vmprof_unique_id']
         attrs = CodeClass.__dict__.get('_attrs_', None)
-        if attrs:
+        if attrs is not None:
             CodeClass._attrs_ = list(attrs) + ['_vmprof_unique_id']
         self._code_classes.add(CodeClass)
         #
