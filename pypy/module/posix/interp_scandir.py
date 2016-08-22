@@ -8,11 +8,13 @@ from pypy.interpreter.error import OperationError, oefmt, wrap_oserror2
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.baseobjspace import W_Root
 
-from pypy.module.posix.interp_posix import unwrap_fd, build_stat_result
+from pypy.module.posix.interp_posix import unwrap_fd, build_stat_result, _WIN32
 
 
 def scandir(space, w_path=None):
     "scandir(path='.') -> iterator of DirEntry objects for given path"
+    if _WIN32:
+        raise NotImplementedError("XXX WIN32")
 
     if space.is_none(w_path):
         w_path = space.newunicode(u".")
