@@ -61,6 +61,10 @@ class AppTestScandir(object):
         assert type(d.name) is str
         assert type(d.path) is str
         assert d.path == './' + d.name
+        d = next(posix.scandir(None))
+        assert type(d.name) is str
+        assert type(d.path) is str
+        assert d.path == './' + d.name
         d = next(posix.scandir(u'.'))
         assert type(d.name) is str
         assert type(d.path) is str
@@ -149,3 +153,7 @@ class AppTestScandir(object):
         raises(OSError, d.is_file)
         raises(OSError, d.is_dir)
         assert d.is_symlink()
+
+    def test_fdopendir_unsupported(self):
+        posix = self.posix
+        raises(TypeError, posix.scandir, 1234)

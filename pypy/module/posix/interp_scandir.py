@@ -11,21 +11,16 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.module.posix.interp_posix import unwrap_fd, build_stat_result
 
 
-@unwrap_spec(w_path=WrappedDefault(u"."))
-def scandir(space, w_path):
+def scandir(space, w_path=None):
     "scandir(path='.') -> iterator of DirEntry objects for given path"
 
+    if space.is_none(w_path):
+        w_path = space.newunicode(u".")
     if space.isinstance_w(w_path, space.w_bytes):
         path_bytes = space.str0_w(w_path)
         result_is_bytes = True
     else:
-        try:
-            path_bytes = space.fsencode_w(w_path)
-        except OperationError as operr:
-            if operr.async(space):
-                raise
-            fd = unwrap_fd(space, w_path, "string, bytes or integer")
-            XXXX
+        path_bytes = space.fsencode_w(w_path)
         result_is_bytes = False
 
     try:
