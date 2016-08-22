@@ -32,8 +32,12 @@ class QCGC(GCBase):
         ll_assert(not needs_finalizer, 'finalizer not supported')
         ll_assert(not is_finalizer_light, 'light finalizer not supported')
         ll_assert(not contains_weakptr, 'weakref not supported')
-        # FIXME: set typeid and hash here
-        return llop.qcgc_allocate(llmemory.GCREF, size, typeid)
+        raw_mem = llop.qcgc_allocate(llmemory.Address, size, typeid)
+        hdr = llmemory.cast_adr_to_ptr(raw_mem, lltype.Ptr(self.HDR))
+        hdr.tid = rffi.cast(lltype.Signed, typeid)
+        # FIXME: set hash
+        # XXX: Hope the tid/hash setting here is not removed/optimized out
+        return llmemory.cast_adr_to_ptr(raw_mem, llmemory.GCREF)
 
     def malloc_varsize_clear(self, typeid16, length, size, itemsize,
                              offset_to_length):
