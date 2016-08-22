@@ -19,7 +19,6 @@ from pypy.objspace.std.unicodeobject import (
     decode_object, unicode_from_encoded_object,
     unicode_from_string, getdefaultencoding)
 from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT
-from pypy.objspace.std.strbuf import W_StringBufferObject
 
 
 class W_AbstractBytesObject(W_Root):
@@ -465,6 +464,7 @@ class W_BytesObject(W_AbstractBytesObject):
                     "Cannot use string as modifiable buffer")
 
     def descr_getbuffer(self, space, w_flags):
+        from pypy.objspace.std.strbufobject import W_StringBufferObject
         return W_StringBufferObject(StringBuffer(self._value))
 
     charbuf_w = str_w
