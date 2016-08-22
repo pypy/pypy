@@ -620,6 +620,8 @@ if not _WIN32:
         [rffi.CCHARP], DIRP, save_err=rffi.RFFI_SAVE_ERRNO)
     c_fdopendir = external('fdopendir',
         [rffi.INT], DIRP, save_err=rffi.RFFI_SAVE_ERRNO)
+    c_rewinddir = external('rewinddir',
+        [DIRP], lltype.Void, releasegil=False)
     # XXX macro=True is hack to make sure we get the correct kind of
     # dirent struct (which depends on defines)
     c_readdir = external('readdir', [DIRP], DIRENTP,
@@ -629,7 +631,7 @@ if not _WIN32:
 else:
     dirent_config = {}
 
-def _listdir(dirp):
+def _listdir(dirp, rewind=False):
     result = []
     while True:
         direntp = c_readdir(dirp)
@@ -640,6 +642,8 @@ def _listdir(dirp):
         name = rffi.charp2str(namep)
         if name != '.' and name != '..':
             result.append(name)
+    if rewind:
+        c_rewinddir(dirp)
     c_closedir(dirp)
     if error:
         raise OSError(error, "readdir failed")
@@ -650,12 +654,16 @@ def fdlistdir(dirfd):
     Like listdir(), except that the directory is specified as an open
     file descriptor.
 
-    Note: fdlistdir() closes the file descriptor.
+    Note: fdlistdir() closes the file descriptor.  To emulate the
+    Python 3.x 'os.opendir(dirfd)', you must first duplicate the
+    file descriptor.
     """
     dirp = c_fdopendir(dirfd)
     if not dirp:
-        raise OSError(get_saved_errno(), "opendir failed")
-    return _listdir(dirp)
+        error = get_saved_errno()
+        c_close(dirfd)
+        raise OSError(error, "opendir failed")
+    return _listdir(dirp, rewind=True)
 
 @replace_os_function('listdir')
 @specialize.argtype(0)
@@ -1792,12 +1800,7 @@ class EnvironExtRegistry(ControllerEntryForPrebuilt):
 # Support for f... and ...at families of POSIX functions
 
 class CConfig:
-    _compilation_info_ = ExternalCompilationInfo(
-        includes=['sys/stat.h',
-                  'sys/time.h',
-                  'unistd.h',
-                  'fcntl.h'],
-    )
+    _compilation_info_ = eci
     for _name in """faccessat fchdir fchmod fchmodat fchown fchownat fexecve
             fdopendir fpathconf fstat fstatat fstatvfs ftruncate
             futimens futimes futimesat linkat chflags lchflags lchmod lchown

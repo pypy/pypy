@@ -313,7 +313,7 @@ class AppTestPosix:
 
     def test_listdir_default(self):
         posix = self.posix
-        assert posix.listdir() == posix.listdir('.')
+        assert posix.listdir() == posix.listdir('.') == posix.listdir(None)
 
     def test_listdir_bytes(self):
         import sys
@@ -324,6 +324,17 @@ class AppTestPosix:
         assert b'somefile' in result
         expected = b'caf%E9' if sys.platform == 'darwin' else b'caf\xe9'
         assert expected in result
+
+    def test_fdlistdir(self):
+        posix = self.posix
+        dirfd = posix.open('.', posix.O_RDONLY)
+        lst1 = posix.listdir(dirfd)   # does not close dirfd
+        lst2 = posix.listdir('.')
+        assert lst1 == lst2
+        #
+        lst3 = posix.listdir(dirfd)   # rewinddir() was used
+        assert lst3 == lst1
+        posix.close(dirfd)
 
     def test_undecodable_filename(self):
         import sys
