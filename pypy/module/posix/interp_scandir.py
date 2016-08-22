@@ -71,9 +71,9 @@ class W_ScandirIterator(W_Root):
 
     def next_w(self):
         if not self.dirp:
-            self.fail()
+            raise self.fail()
         if self._in_next:
-            self.fail(oefmt(self.space.w_RuntimeError,
+            raise self.fail(oefmt(self.space.w_RuntimeError,
                "cannot use ScandirIterator from multiple threads concurrently"))
         self._in_next = True
         try:
@@ -83,9 +83,9 @@ class W_ScandirIterator(W_Root):
                 try:
                     entry = rposix_scandir.nextentry(self.dirp)
                 except OSError as e:
-                    self.fail(wrap_oserror(space, e))
+                    raise self.fail(wrap_oserror2(space, e, self.w_path_prefix))
                 if not entry:
-                    self.fail()
+                    raise self.fail()
                 assert rposix_scandir.has_name_bytes(entry)
                 name = rposix_scandir.get_name_bytes(entry)
                 if name != '.' and name != '..':
