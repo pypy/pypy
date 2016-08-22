@@ -872,9 +872,9 @@ On some platforms, path may also be specified as an open file descriptor;
                 "argument should be string, bytes or integer, not %T", w_path)
         fd = unwrap_fd(space, w_path)
         try:
-            result = rposix.fdlistdir(fd)
+            result = rposix.fdlistdir(os.dup(fd))
         except OSError as e:
-            raise wrap_oserror2(space, e, w_path)
+            raise wrap_oserror(space, e)
     else:
         dirname = FileEncoder(space, w_path)
         try:
