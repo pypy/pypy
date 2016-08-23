@@ -48,6 +48,7 @@ class UnicodeChar:
         self.linebreak = False
         self.decompositionTag = ''
         self.properties = ()
+        self.casefolding = None
         if data[5]:
             self.raw_decomposition = data[5]
             if data[5][0] == '<':
@@ -161,6 +162,9 @@ class UnicodeData(object):
         self.named_sequences.append((name, chars))
         # also store these in the PUA 1
         self.table[pua_index].name = name
+
+    def add_casefold_sequence(self, code, chars):
+        self.table[code].casefolding = chars
 
 
 def read_unicodedata(files):
@@ -305,6 +309,17 @@ def read_unicodedata(files):
         name, chars = line.split(';')
         chars = tuple(int(char, 16) for char in chars.split())
         table.add_named_sequence(name, chars)
+
+    # Casefold sequences
+    for line in files['casefolding']:
+        line = line.strip().split('#', 1)[0]
+        if not line or line.startswith('#'):
+            continue
+        code, status, mapping, _ = line.split('; ')
+        code = int(code, 16)
+        if status in 'CF':
+            chars = [int(char, 16) for char in mapping.split()]
+            table.add_casefold_sequence(code, chars)
 
     return table
 
@@ -877,6 +892,23 @@ def lookup_with_alias(name, with_named_sequence=False):
         return code
 ''' % dict(start=table.NAME_ALIASES_START)
 
+    casefolds = {}
+    for code, char in table.enum_chars():
+        if char.casefolding and char.casefolding != [char.lower]:
+            casefolds[code] = char.casefolding
+    writeDict(outfile, '_casefolds', casefolds, base_mod)
+    print >> outfile, '''
+
+def casefold_lookup(code):
+    try:
+        return _casefolds[code]
+    except KeyError:
+        if base_mod is not None and code not in _casefolds_corrected:
+            return base_mod._casefolds.get(code, None)
+        else:
+            return None
+'''
+
 
 def main():
     import sys
@@ -905,6 +937,7 @@ def main():
         derived_core_properties='DerivedCoreProperties-%(version)s.txt',
         name_aliases='NameAliases-%(version)s.txt',
         named_sequences = 'NamedSequences-%(version)s.txt',
+        casefolding = 'CaseFolding-%(version)s.txt',
     )
     if options.unidata_version > '5':
         filenames['special_casing'] = 'SpecialCasing-%(version)s.txt'

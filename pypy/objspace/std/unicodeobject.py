@@ -414,6 +414,19 @@ class W_UnicodeObject(W_Root):
     def _join_check_item(self, space, w_obj):
         return not space.isinstance_w(w_obj, space.w_unicode)
 
+    def descr_casefold(self, space):
+        value = self._val(space)
+        builder = self._builder(len(value))
+        for c in value:
+            c_ord = ord(c)
+            folded = unicodedb.casefold_lookup(c_ord)
+            if folded is None:
+                builder.append(unichr(unicodedb.tolower(c_ord)))
+            else:
+                for r in folded:
+                    builder.append(unichr(r))
+        return self._new(builder.build())
+
     def descr_isdecimal(self, space):
         return self._is_generic(space, '_isdecimal')
 
@@ -815,6 +828,12 @@ class UnicodeDocstrings:
         and there is at least one character in S, False otherwise.
         """
 
+    def casefold():
+        """S.casefold() -> str
+
+        Return a version of S suitable for caseless comparisons.
+        """
+
     def isdecimal():
         """S.isdecimal() -> bool
 
@@ -1105,6 +1124,8 @@ W_UnicodeObject.typedef = TypeDef(
 
     capitalize = interp2app(W_UnicodeObject.descr_capitalize,
                             doc=UnicodeDocstrings.capitalize.__doc__),
+    casefold = interp2app(W_UnicodeObject.descr_casefold,
+                            doc=UnicodeDocstrings.casefold.__doc__),
     center = interp2app(W_UnicodeObject.descr_center,
                         doc=UnicodeDocstrings.center.__doc__),
     count = interp2app(W_UnicodeObject.descr_count,

@@ -976,3 +976,12 @@ class AppTestUnicodeString:
         raises(TypeError, "u''.encode(None)")
         raises(TypeError, "str(b'', encoding=None)")
         raises(TypeError, 'u"".encode("utf-8", None)')
+
+    def test_casefold(self):
+        assert 'hello'.casefold() == 'hello'
+        assert 'hELlo'.casefold() == 'hello'
+        assert 'ß'.casefold() == 'ss'
+        assert 'ﬁ'.casefold() == 'fi'
+        assert '\u03a3'.casefold() == '\u03c3'
+        assert 'A\u0345\u03a3'.casefold() == 'a\u03b9\u03c3'
+        assert '\u00b5'.casefold() == '\u03bc'

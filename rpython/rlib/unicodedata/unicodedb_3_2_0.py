@@ -21441,3 +21441,21 @@ def lookup_with_alias(name, with_named_sequence=False):
     else:
         return code
 
+_casefolds = {
+1010: [963],
+}
+
+_casefolds_corrected = {
+7838: None,
+}
+
+
+def casefold_lookup(code):
+    try:
+        return _casefolds[code]
+    except KeyError:
+        if base_mod is not None and code not in _casefolds_corrected:
+            return base_mod._casefolds.get(code, None)
+        else:
+            return None
+

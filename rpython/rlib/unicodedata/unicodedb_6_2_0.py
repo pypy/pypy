@@ -10571,3 +10571,19 @@ def lookup_with_alias(name, with_named_sequence=False):
     else:
         return code
 
+_casefolds = {
+}
+
+_casefolds_corrected = {
+}
+
+
+def casefold_lookup(code):
+    try:
+        return _casefolds[code]
+    except KeyError:
+        if base_mod is not None and code not in _casefolds_corrected:
+            return base_mod._casefolds.get(code, None)
+        else:
+            return None
+

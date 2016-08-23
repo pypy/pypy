@@ -211,11 +211,10 @@ class AppTestObject:
 
     def test_identity_vs_id_primitives(self):
         import sys
-        l = range(-10, 10, 2)
+        l = list(range(-10, 10, 2))
         for i in [0, 1, 3]:
             l.append(float(i))
             l.append(i + 0.1)
-            l.append(long(i))
             l.append(i + sys.maxsize)
             l.append(i - sys.maxsize)
             l.append(i + 1j)

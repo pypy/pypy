@@ -159,7 +159,6 @@ class CConfig:
         libraries=rtime.libraries
     )
     CLOCKS_PER_SEC = platform.ConstantInteger("CLOCKS_PER_SEC")
-    clock_t = platform.SimpleType("clock_t", rffi.ULONG)
     has_gettimeofday = platform.Has('gettimeofday')
     has_clock_gettime = platform.Has('clock_gettime')
     CLOCK_PROF = platform.DefinedConstantInteger('CLOCK_PROF')
@@ -233,7 +232,6 @@ HAS_CLOCK_HIGHRES = cConfig.CLOCK_HIGHRES is not None
 HAS_CLOCK_MONOTONIC = cConfig.CLOCK_MONOTONIC is not None
 HAS_MONOTONIC = (_WIN or _MACOSX or
                  (HAS_CLOCK_GETTIME and (HAS_CLOCK_HIGHRES or HAS_CLOCK_MONOTONIC)))
-clock_t = cConfig.clock_t
 tm = cConfig.tm
 glob_buf = lltype.malloc(tm, flavor='raw', zero=True, immortal=True)
 
@@ -1024,7 +1022,10 @@ else:
             with lltype.scoped_alloc(rposix.TMS) as tms:
                 ret = rposix.c_times(tms)
                 if rffi.cast(lltype.Signed, ret) != -1:
-                    cpu_time = float(tms.c_tms_utime + tms.c_tms_stime)
+                    cpu_time = float(rffi.cast(lltype.Signed,
+                                               tms.c_tms_utime) +
+                                     rffi.cast(lltype.Signed,
+                                               tms.c_tms_stime))
                     if w_info is not None:
                         _setinfo(space, w_info, "times()",
                                  1.0 / rposix.CLOCK_TICKS_PER_SECOND,
@@ -1032,7 +1033,7 @@ else:
                     return space.wrap(cpu_time / rposix.CLOCK_TICKS_PER_SECOND)
         return clock(space)
 
-_clock = external('clock', [], clock_t)
+_clock = external('clock', [], rposix.CLOCK_T)
 def clock(space, w_info=None):
     """clock() -> floating point number
 
@@ -1046,7 +1047,7 @@ def clock(space, w_info=None):
             pass
     value = _clock()
     # Is this casting correct?
-    if value == rffi.cast(clock_t, -1):
+    if intmask(value) == intmask(rffi.cast(rposix.CLOCK_T, -1)):
         raise oefmt(space.w_RuntimeError,
                     "the processor time used is not available or its value"
                     "cannot be represented")
