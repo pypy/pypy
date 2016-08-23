@@ -1,5 +1,6 @@
 from rpython.rtyper.llannotation import SomePtr, SomeAddress, s_None
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.memory.gctransform.framework import (BaseFrameworkGCTransformer, BaseRootWalker)
 
 VISIT_FPTR = lltype.Ptr(lltype.FuncType([llmemory.Address], lltype.Void))
@@ -22,7 +23,8 @@ class QcgcFrameworkGCTransformer(BaseFrameworkGCTransformer):
         #     s_gcref], s_gcref)
         #
         def invokecallback(root, visit_fn):
-            visit_fn(root) # FIXME: Dereference root before invoking visit_fn
+            obj = llop.qcgc_dereference(llmemory.Address, root)
+            visit_fn(obj)
         def pypy_trace_cb(obj, visit_fn):
             gc.trace(obj, invokecallback, visit_fn)
         pypy_trace_cb.c_name = "pypy_trace_cb"

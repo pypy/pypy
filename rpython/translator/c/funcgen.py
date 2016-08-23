@@ -959,3 +959,8 @@ class FunctionCodeGenerator(object):
 
     def OP_QCGC_COLLECT(self, op):
         return 'qcgc_collect();'
+
+    def OP_QCGC_DEREFERENCE(self, op):
+        arg = self.expr(op.args[0])
+        result = self.expr(op.result)
+        return '%s = *((object_t **) %s);' % (result, arg)
