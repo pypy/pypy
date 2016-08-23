@@ -1,7 +1,7 @@
 import weakref
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, compute_unique_id
 from rpython.rlib.debug import debug_start, debug_stop, debug_print, have_debug_prints
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib import rstack
@@ -1110,18 +1110,31 @@ class GuardCompatibleDescr(ResumeGuardDescr):
         """
         # need to do the checking oldest to newest, to check the most specific
         # condition first
-        if self._compatibility_conditions:
-            if self._compatibility_conditions.check_compat_and_activate(
-                    cpu, ref, self.rd_loop_token):
-                return self._compatibility_conditions.jump_target
-        for _compatibility_conditions in self.other_compat_conditions:
-            if _compatibility_conditions.check_compat_and_activate(
-                    cpu, ref, self.rd_loop_token):
-                return _compatibility_conditions.jump_target
-        # none of the other conditions matched. if we have a
-        # fallback_jump_target, go there (otherwise we run the risk of
-        # producing arbitrary amounts of code)
-        return self.fallback_jump_target
+        debug_start("jit-guard-compatible")
+        try:
+            if have_debug_prints():
+                debug_print("Guard0x%x check compatibility of" % (compute_unique_id(self), ), ref)
+            if self._compatibility_conditions:
+                if self._compatibility_conditions.check_compat_and_activate(
+                        cpu, ref, self.rd_loop_token):
+                    debug_print("first guard is compatible")
+                    return self._compatibility_conditions.jump_target
+            for i, _compatibility_conditions in enumerate(self.other_compat_conditions):
+                if _compatibility_conditions.check_compat_and_activate(
+                        cpu, ref, self.rd_loop_token):
+                    debug_print("attached guard", i, "is compatible")
+                    return _compatibility_conditions.jump_target
+            if have_debug_prints():
+                if self.fallback_jump_target:
+                    debug_print("all incompatible, going to fallback")
+                else:
+                    debug_print("all incompatible, failing")
+            # none of the other conditions matched. if we have a
+            # fallback_jump_target, go there (otherwise we run the risk of
+            # producing arbitrary amounts of code)
+            return self.fallback_jump_target
+        finally:
+            debug_stop("jit-guard-compatible")
 
     def compile_and_attach(self, metainterp, new_loop, orig_inputargs):
         # if new_loop starts with another guard_compatible on the same argument

@@ -2,6 +2,8 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.metainterp.history import newconst
 from rpython.jit.codewriter import longlong
 from rpython.jit.metainterp.resoperation import rop
+from rpython.rlib.debug import (have_debug_prints, debug_start, debug_stop,
+    debug_print)
 
 def do_call(cpu, argboxes, descr):
     from rpython.jit.metainterp.history import INT, REF, FLOAT, VOID
@@ -64,8 +66,11 @@ class CompatibilityCondition(object):
         self.last_quasi_immut_field_op = op
 
     def check_compat(self, cpu, ref):
-        for cond in self.conditions:
-            if not cond.check(cpu, ref):
+        for i, cond in enumerate(self.conditions):
+            res = cond.check_and_return_result_if_different(cpu, ref)
+            if res is not None:
+                if have_debug_prints():
+                    debug_print("incompatible condition", i, ", got", cond._repr_const(res), ":", cond.repr())
                 return False
         return True
 
@@ -168,7 +173,7 @@ class CompatibilityCondition(object):
                 if const is None:
                     return False
                 ref = const.getref_base()
-                if cond.check(cpu, ref):
+                if cond.check_and_return_result_if_different(cpu, ref) is None:
                     if not have_guard:
                         # NB: the guard_compatible here needs to use const,
                         # otherwise the optimizer will just complain
@@ -254,7 +259,9 @@ class Condition(object):
         self.debug_mp_str = s
         self.rpyfunc = None
 
-    def check(self, cpu, ref):
+    def check_and_return_result_if_different(self, cpu, ref):
+        """ checks the condition using ref as an argument to the function. if
+        the result is different, return the result. otherwise return None. """
         raise NotImplementedError
 
     def activate(self, ref, optimizer):
@@ -309,8 +316,7 @@ class PureCallCondition(Condition):
         self.descr = op.getdescr()
         self.rpyfunc = op.rpyfunc
 
-    def check(self, cpu, ref):
-        from rpython.rlib.debug import debug_print, debug_start, debug_stop
+    def check_and_return_result_if_different(self, cpu, ref):
         calldescr = self.descr
         # change exactly the first argument
         arglist = self.args
@@ -318,15 +324,17 @@ class PureCallCondition(Condition):
         try:
             res = do_call(cpu, arglist, calldescr)
         except Exception:
-            debug_start("jit-guard-compatible")
-            debug_print("call to elidable_compatible function raised")
-            debug_stop("jit-guard-compatible")
+            if have_debug_prints():
+                debug_start("jit-guard-compatible")
+                debug_print("call to elidable_compatible function raised")
+                debug_print(self.repr())
+                debug_stop("jit-guard-compatible")
             return False
         finally:
             arglist[1] = None
         if not res.same_constant(self.res):
-            return False
-        return True
+            return res
+        return None
 
     def same_cond(self, other, res=None):
         if type(other) is not PureCallCondition:
@@ -433,7 +441,7 @@ class QuasiimmutGetfieldAndPureCallCondition(PureCallCondition):
                                          self.mutatefielddescr)
         qmut.register_loop_token(loop_token.loop_token_wref)
 
-    def check(self, cpu, ref):
+    def check_and_return_result_if_different(self, cpu, ref):
         from rpython.rlib.debug import debug_print, debug_start, debug_stop
         from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
         calldescr = self.descr
@@ -444,15 +452,17 @@ class QuasiimmutGetfieldAndPureCallCondition(PureCallCondition):
         try:
             res = do_call(cpu, arglist, calldescr)
         except Exception:
-            debug_start("jit-guard-compatible")
-            debug_print("call to elidable_compatible function raised")
-            debug_stop("jit-guard-compatible")
+            if have_debug_prints():
+                debug_start("jit-guard-compatible")
+                debug_print("call to elidable_compatible function raised")
+                debug_print(self.repr())
+                debug_stop("jit-guard-compatible")
             return False
         finally:
             arglist[1] = arglist[2] = None
         if not res.same_constant(self.res):
-            return False
-        return True
+            return res
+        return None
 
     def same_cond(self, other, res=None):
         if type(other) is not QuasiimmutGetfieldAndPureCallCondition:
