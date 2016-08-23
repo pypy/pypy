@@ -513,6 +513,32 @@ class VectorAssembler(object):
                 self.mc.lbz(res, r.SP.value, off)
                 #self.mc.extsb(res, res)
                 return
+        else:
+            # count is not 1, but only 2 is supported for i32
+            # 4 for i16 and 8 for i8.
+            src = srcloc.value | 0b100000
+            res = resloc.value | 0b100000
+            residx = 0
+            #assert idx == 0 or idx == 8
+            if (size == 4 and count == 2) or \
+               (size == 2 and count == 4) or \
+               (size == 1 and count == 8):
+                if idx == 0:
+                    self.mc.xxpermdi(res, src, res, permi(0,1))
+                else:
+                    self.mc.xxpermdi(res, src, res, permi(1,1))
+                return
+
+            self.mc.load_imm(r.SCRATCH2, PARAM_SAVE_AREA_OFFSET)
+            self.mc.stvx(src, r.SCRATCH2.value, r.SP.value)
+            self.mc.load_imm(r.SCRATCH2, PARAM_SAVE_AREA_OFFSET+16)
+            self.mc.stvx(res, r.SCRATCH2.value, r.SP.value)
+            if count * size == 8:
+                off = PARAM_SAVE_AREA_OFFSET + idx * size
+                self.mc.load(r.SCRATCH.value, r.SP.value, off)
+                self.mc.store(r.SCRATCH.value, r.SP.value, PARAM_SAVE_AREA_OFFSET+16)
+                self.mc.lvx(res, r.SCRATCH2.value, r.SP.value)
+                return
 
         not_implemented("%d bit integer, count %d" % \
                        (size*8, count))
@@ -759,7 +785,10 @@ class VectorRegalloc(object):
             # unpack
             srcloc = self.ensure_reg(arg0)
         size = arg.bytesize
-        resloc = self.force_allocate_reg(op)
+        if op.is_vector():
+            resloc = self.force_allocate_vector_reg(op)
+        else:
+            resloc = self.force_allocate_reg(op)
         return [resloc, srcloc, imm(index.value), imm(count.value), imm(size)]
 
     def expand_float(self, size, box):
