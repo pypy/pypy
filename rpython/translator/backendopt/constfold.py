@@ -276,3 +276,25 @@ def constant_fold_graph(graph):
             rewire_links(splitblocks, graph)
         if not diffused and not splitblocks:
             break # finished
+
+def replace_symbolic(graph, symbolic, value):
+    result = False
+    for block in graph.iterblocks():
+        for op in block.operations:
+            for i, arg in enumerate(op.args):
+                if isinstance(arg, Constant) and arg.value is symbolic:
+                    op.args[i] = value
+                    result = True
+        if block.exitswitch is symbolic:
+            block.exitswitch = value
+            result = True
+    return result
+
+def replace_we_are_jitted(graph):
+    from rpython.rlib import jit
+    replacement = Constant(0)
+    replacement.concretetype = lltype.Signed
+    did_replacement = replace_symbolic(graph, jit._we_are_jitted, replacement)
+    if did_replacement:
+        constant_fold_graph(graph)
+    return did_replacement

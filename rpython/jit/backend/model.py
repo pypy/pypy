@@ -229,8 +229,6 @@ class AbstractCPU(object):
         raise NotImplementedError
     def bh_newunicode(self, length):
         raise NotImplementedError
-    def bh_new_raw_buffer(self, size):
-        raise NotImplementedError
 
     def bh_arraylen_gc(self, array, arraydescr):
         raise NotImplementedError

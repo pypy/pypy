@@ -250,6 +250,7 @@ class CConfig:
     OFF_T_SIZE = rffi_platform.SizeOf('off_t')
 
     HAVE_UTIMES = rffi_platform.Has('utimes')
+    HAVE_D_TYPE = rffi_platform.Has('DT_UNKNOWN')
     UTIMBUF = rffi_platform.Struct('struct %sutimbuf' % UNDERSCORE_ON_WIN32,
                                    [('actime', rffi.INT),
                                     ('modtime', rffi.INT)])
@@ -603,23 +604,34 @@ if not _WIN32:
     class CConfig:
         _compilation_info_ = eci
         DIRENT = rffi_platform.Struct('struct dirent',
-            [('d_name', lltype.FixedSizeArray(rffi.CHAR, 1))])
+            [('d_name', lltype.FixedSizeArray(rffi.CHAR, 1))]
+            + [('d_type', rffi.INT)] if HAVE_D_TYPE else [])
+        if HAVE_D_TYPE:
+            DT_UNKNOWN = rffi_platform.ConstantInteger('DT_UNKNOWN')
+            DT_REG     = rffi_platform.ConstantInteger('DT_REG')
+            DT_DIR     = rffi_platform.ConstantInteger('DT_DIR')
+            DT_LNK     = rffi_platform.ConstantInteger('DT_LNK')
 
     DIRP = rffi.COpaquePtr('DIR')
-    config = rffi_platform.configure(CConfig)
-    DIRENT = config['DIRENT']
+    dirent_config = rffi_platform.configure(CConfig)
+    DIRENT = dirent_config['DIRENT']
     DIRENTP = lltype.Ptr(DIRENT)
     c_opendir = external('opendir',
         [rffi.CCHARP], DIRP, save_err=rffi.RFFI_SAVE_ERRNO)
     c_fdopendir = external('fdopendir',
         [rffi.INT], DIRP, save_err=rffi.RFFI_SAVE_ERRNO)
+    c_rewinddir = external('rewinddir',
+        [DIRP], lltype.Void, releasegil=False)
     # XXX macro=True is hack to make sure we get the correct kind of
     # dirent struct (which depends on defines)
     c_readdir = external('readdir', [DIRP], DIRENTP,
                          macro=True, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
-    c_closedir = external('closedir', [DIRP], rffi.INT)
+    c_closedir = external('closedir', [DIRP], rffi.INT, releasegil=False)
+    c_dirfd = external('dirfd', [DIRP], rffi.INT, releasegil=False)
+else:
+    dirent_config = {}
 
-def _listdir(dirp):
+def _listdir(dirp, rewind=False):
     result = []
     while True:
         direntp = c_readdir(dirp)
@@ -630,6 +642,8 @@ def _listdir(dirp):
         name = rffi.charp2str(namep)
         if name != '.' and name != '..':
             result.append(name)
+    if rewind:
+        c_rewinddir(dirp)
     c_closedir(dirp)
     if error:
         raise OSError(error, "readdir failed")
@@ -640,12 +654,16 @@ def fdlistdir(dirfd):
     Like listdir(), except that the directory is specified as an open
     file descriptor.
 
-    Note: fdlistdir() closes the file descriptor.
+    Note: fdlistdir() closes the file descriptor.  To emulate the
+    Python 3.x 'os.opendir(dirfd)', you must first duplicate the
+    file descriptor.
     """
     dirp = c_fdopendir(dirfd)
     if not dirp:
-        raise OSError(get_saved_errno(), "opendir failed")
-    return _listdir(dirp)
+        error = get_saved_errno()
+        c_close(dirfd)
+        raise OSError(error, "opendir failed")
+    return _listdir(dirp, rewind=True)
 
 @replace_os_function('listdir')
 @specialize.argtype(0)
@@ -1782,12 +1800,7 @@ class EnvironExtRegistry(ControllerEntryForPrebuilt):
 # Support for f... and ...at families of POSIX functions
 
 class CConfig:
-    _compilation_info_ = ExternalCompilationInfo(
-        includes=['sys/stat.h',
-                  'sys/time.h',
-                  'unistd.h',
-                  'fcntl.h'],
-    )
+    _compilation_info_ = eci
     for _name in """faccessat fchdir fchmod fchmodat fchown fchownat fexecve
             fdopendir fpathconf fstat fstatat fstatvfs ftruncate
             futimens futimes futimesat linkat chflags lchflags lchmod lchown
