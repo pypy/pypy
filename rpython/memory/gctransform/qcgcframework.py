@@ -22,7 +22,7 @@ class QcgcFrameworkGCTransformer(BaseFrameworkGCTransformer):
         #     s_gcref], s_gcref)
         #
         def invokecallback(root, visit_fn):
-            visit_fn(root)
+            visit_fn(root) # FIXME: Dereference root before invoking visit_fn
         def pypy_trace_cb(obj, visit_fn):
             gc.trace(obj, invokecallback, visit_fn)
         pypy_trace_cb.c_name = "pypy_trace_cb"
