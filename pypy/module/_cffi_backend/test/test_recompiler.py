@@ -79,7 +79,7 @@ def prepare(space, cdef, module_name, source, w_includes=None,
 
 
 class AppTestRecompiler:
-    spaceconfig = dict(usemodules=['_cffi_backend', 'imp', 'cpyext', 'struct'])
+    spaceconfig = dict(usemodules=['_cffi_backend', 'imp'])
 
     def setup_class(cls):
         if cls.runappdirect:

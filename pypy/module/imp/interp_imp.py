@@ -55,9 +55,6 @@ def load_dynamic(space, w_modulename, filename, w_file=None):
     if not importing.has_so_extension(space):
         raise oefmt(space.w_ImportError, "Not implemented")
 
-    # the next line is mandatory to init cpyext
-    space.getbuiltinmodule("cpyext")
-
     from pypy.module.cpyext.api import load_extension_module
     load_extension_module(space, filename, space.str_w(w_modulename))
 
