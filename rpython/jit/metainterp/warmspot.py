@@ -452,7 +452,8 @@ class WarmRunnerDesc(object):
                               merge_if_blocks=True,
                               constfold=True,
                               remove_asserts=True,
-                              really_remove_asserts=True)
+                              really_remove_asserts=True,
+                              replace_we_are_jitted=False)
 
     def prejit_optimizations_minimal_inline(self, policy, graphs):
         from rpython.translator.backendopt.inline import auto_inline_graphs

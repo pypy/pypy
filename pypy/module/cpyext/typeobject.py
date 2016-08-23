@@ -272,12 +272,12 @@ def update_all_slots(space, w_type, pto):
         if len(slot_names) == 1:
             if not getattr(pto, slot_names[0]):
                 setattr(pto, slot_names[0], slot_func_helper)
-        elif (w_type.getname(space) in ('list', 'tuple') and 
+        elif (w_type.getname(space) in ('list', 'tuple') and
               slot_names[0] == 'c_tp_as_number'):
             # XXX hack - hwo can we generalize this? The problem is method
             # names like __mul__ map to more than one slot, and we have no
             # convenient way to indicate which slots CPython have filled
-            # 
+            #
             # We need at least this special case since Numpy checks that
             # (list, tuple) do __not__ fill tp_as_number
             pass
@@ -860,8 +860,8 @@ def finish_type_2(space, pto, w_obj):
 
     if w_obj.is_cpytype():
         Py_DecRef(space, pto.c_tp_dict)
-        w_dict = w_obj.getdict(space)
-        pto.c_tp_dict = make_ref(space, w_dict)
+    w_dict = w_obj.getdict(space)
+    pto.c_tp_dict = make_ref(space, w_dict)
 
 @cpython_api([PyTypeObjectPtr, PyTypeObjectPtr], rffi.INT_real, error=CANNOT_FAIL)
 def PyType_IsSubtype(space, a, b):

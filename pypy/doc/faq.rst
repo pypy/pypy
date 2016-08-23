@@ -356,6 +356,11 @@ standard PyPy is compiled without debug symbols.  The real reason is
 that a C-level traceback is usually of no help at all in PyPy.
 Debugging PyPy can be annoying.
 
+`This is a clear and useful bug report.`__  (Admittedly, sometimes
+the problem is really hard to reproduce, but please try to.)
+
+.. __: https://bitbucket.org/pypy/pypy/issues/2363/segfault-in-gc-pinned-object-in
+
 In more details:
 
 * First, please give the exact PyPy version, and the OS.

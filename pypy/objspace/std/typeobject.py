@@ -3,8 +3,8 @@ from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import W_Root, SpaceCache
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.function import Function, StaticMethod
-from pypy.interpreter.typedef import weakref_descr, GetSetProperty,\
-     descr_get_dict, dict_descr, Member, TypeDef
+from pypy.interpreter.typedef import (
+    weakref_descr, GetSetProperty, dict_descr, Member, TypeDef)
 from pypy.interpreter.astcompiler.misc import mangle
 from pypy.module.__builtin__ import abstractinst
 
@@ -346,7 +346,7 @@ class W_TypeObject(W_Root):
     def deldictvalue(self, space, key):
         if self.lazyloaders:
             self._cleanup_()    # force un-lazification
-        if not self.is_heaptype():
+        if not (self.is_heaptype() or self.is_cpytype()):
             raise oefmt(space.w_TypeError,
                         "can't delete attributes on type object '%N'", self)
         try:
@@ -485,12 +485,12 @@ class W_TypeObject(W_Root):
                 self.getdictvalue(self.space, attr)
             del self.lazyloaders
 
-    def getdict(self, space): # returning a dict-proxy!
-        from pypy.objspace.std.dictproxyobject import DictProxyStrategy
+    def getdict(self, space):
+        from pypy.objspace.std.classdict import ClassDictStrategy
         from pypy.objspace.std.dictmultiobject import W_DictObject
         if self.lazyloaders:
             self._cleanup_()    # force un-lazification
-        strategy = space.fromcache(DictProxyStrategy)
+        strategy = space.fromcache(ClassDictStrategy)
         storage = strategy.erase(self)
         return W_DictObject(space, strategy, storage)
 
@@ -910,13 +910,21 @@ def type_isinstance(w_obj, space, w_inst):
     return space.newbool(
         abstractinst.p_recursive_isinstance_type_w(space, w_inst, w_obj))
 
+def type_get_dict(space, w_cls):
+    w_cls = _check(space, w_cls)
+    from pypy.objspace.std.dictproxyobject import W_DictProxyObject
+    w_dict = w_cls.getdict(space)
+    if w_dict is None:
+        return space.w_None
+    return W_DictProxyObject(w_dict)
+
 W_TypeObject.typedef = TypeDef("type",
     __new__ = gateway.interp2app(descr__new__),
     __name__ = GetSetProperty(descr_get__name__, descr_set__name__),
     __bases__ = GetSetProperty(descr_get__bases__, descr_set__bases__),
     __base__ = GetSetProperty(descr__base),
     __mro__ = GetSetProperty(descr_get__mro__),
-    __dict__ = GetSetProperty(descr_get_dict),
+    __dict__=GetSetProperty(type_get_dict),
     __doc__ = GetSetProperty(descr__doc),
     mro = gateway.interp2app(descr_mro),
     __flags__ = GetSetProperty(descr__flags),

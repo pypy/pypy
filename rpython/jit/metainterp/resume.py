@@ -364,8 +364,8 @@ class ResumeDataVirtualAdder(VirtualVisitor):
     def visit_varraystruct(self, arraydescr, size, fielddescrs):
         return VArrayStructInfo(arraydescr, size, fielddescrs)
 
-    def visit_vrawbuffer(self, size, offsets, descrs):
-        return VRawBufferInfo(size, offsets, descrs)
+    def visit_vrawbuffer(self, func, size, offsets, descrs):
+        return VRawBufferInfo(func, size, offsets, descrs)
 
     def visit_vrawslice(self, offset):
         return VRawSliceInfo(offset)
@@ -703,7 +703,8 @@ class VAbstractRawInfo(AbstractVirtualInfo):
 
 class VRawBufferInfo(VAbstractRawInfo):
 
-    def __init__(self, size, offsets, descrs):
+    def __init__(self, func, size, offsets, descrs):
+        self.func = func
         self.size = size
         self.offsets = offsets
         self.descrs = descrs
@@ -711,7 +712,7 @@ class VRawBufferInfo(VAbstractRawInfo):
     @specialize.argtype(1)
     def allocate_int(self, decoder, index):
         length = len(self.fieldnums)
-        buffer = decoder.allocate_raw_buffer(self.size)
+        buffer = decoder.allocate_raw_buffer(self.func, self.size)
         decoder.virtuals_cache.set_int(index, buffer)
         for i in range(len(self.offsets)):
             offset = self.offsets[i]
@@ -1058,6 +1059,7 @@ def rebuild_from_resumedata(metainterp, storage, deadframe,
         f.setup_resume_at_op(pc)
         resumereader.consume_boxes(f.get_current_position_info(),
                                    f.registers_i, f.registers_r, f.registers_f)
+        f.handle_rvmprof_enter_on_resume()
     return resumereader.liveboxes, virtualizable_boxes, virtualref_boxes
 
 
@@ -1129,9 +1131,13 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
                                                            lengthbox)
         return self.metainterp.execute_new_array(arraydescr, lengthbox)
 
-    def allocate_raw_buffer(self, size):
+    def allocate_raw_buffer(self, func, size):
         cic = self.metainterp.staticdata.callinfocollection
-        calldescr, func = cic.callinfo_for_oopspec(EffectInfo.OS_RAW_MALLOC_VARSIZE_CHAR)
+        calldescr, _ = cic.callinfo_for_oopspec(EffectInfo.OS_RAW_MALLOC_VARSIZE_CHAR)
+        # Can't use 'func' from callinfo_for_oopspec(), because we have
+        # several variants (zero/non-zero, memory-pressure or not, etc.)
+        # and we have to pick the correct one here; that's why we save
+        # it in the VRawBufferInfo.
         return self.metainterp.execute_and_record_varargs(
             rop.CALL_I, [ConstInt(func), ConstInt(size)], calldescr)
 
@@ -1343,6 +1349,7 @@ def blackhole_from_resumedata(blackholeinterpbuilder, jitcodes,
         jitcode = jitcodes[jitcode_pos]
         curbh.setposition(jitcode, pc)
         resumereader.consume_one_section(curbh)
+        curbh.handle_rvmprof_enter()
     return curbh
 
 def force_from_resumedata(metainterp_sd, storage, deadframe, vinfo, ginfo):
@@ -1459,10 +1466,11 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
     def allocate_string(self, length):
         return self.cpu.bh_newstr(length)
 
-    def allocate_raw_buffer(self, size):
-        buffer = self.cpu.bh_new_raw_buffer(size)
-        adr = llmemory.cast_ptr_to_adr(buffer)
-        return llmemory.cast_adr_to_int(adr, "symbolic")
+    def allocate_raw_buffer(self, func, size):
+        from rpython.jit.codewriter import heaptracker
+        cic = self.callinfocollection
+        calldescr, _ = cic.callinfo_for_oopspec(EffectInfo.OS_RAW_MALLOC_VARSIZE_CHAR)
+        return self.cpu.bh_call_i(func, [size], None, None, calldescr)
 
     def string_setitem(self, str, index, charnum):
         char = self.decode_int(charnum)

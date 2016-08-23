@@ -119,3 +119,34 @@ can_move()`` or object pinning. Main new thing that this allows:
 ``ffi.from_buffer(string)`` in CFFI.  Additionally, and most
 importantly, CFFI calls that take directly a string as argument don't
 copy the string any more---this is like CFFI on CPython.
+
+.. branch: resource_warning
+
+Add a new command line option -X track-resources which will produce
+ResourceWarnings when the GC closes unclosed files and sockets.
+
+.. branch: cpyext-realloc
+
+Implement PyObject_Realloc
+
+.. branch: inline-blocks
+
+Improve a little bit the readability of the generated C code
+
+.. branch: improve-vmprof-testing
+
+Improved vmprof support: now tries hard to not miss any Python-level
+frame in the captured stacks, even if there is the metainterp or
+blackhole interp involved.  Also fix the stacklet (greenlet) support.
+
+.. branch: py2-mappingproxy
+
+``type.__dict__`` now returns a ``dict_proxy`` object, like on CPython.
+Previously it returned what looked like a regular dict object (but it
+was already read-only).
+
+
+.. branch: const-fold-we-are-jitted
+
+Reduce the size of the generated C code by constant-folding ``we_are_jitted``
+in non-jitcode.

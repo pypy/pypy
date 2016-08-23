@@ -38,23 +38,33 @@ class W_File(W_AbstractStream):
     errors   = None
     fd       = -1
     cffi_fileobj = None    # pypy/module/_cffi_backend
+    w_tb     = None  # String representation of the traceback at creation time
 
     newlines = 0     # Updated when the stream is closed
 
     def __init__(self, space):
         self.space = space
         self.register_finalizer(space)
+        if self.space.sys.track_resources:
+            self.w_tb = self.space.format_traceback()
 
     def _finalize_(self):
         # assume that the file and stream objects are only visible in the
         # thread that runs _finalize_, so no race condition should be
         # possible and no locking is done here.
-        if self.stream is not None:
-            try:
-                self.direct_close()
-            except StreamErrors as e:
-                operr = wrap_streamerror(self.space, e, self.w_name)
-                raise operr
+        if self.stream is None:
+            return
+        if self.space.sys.track_resources:
+            w_repr = self.space.repr(self)
+            str_repr = self.space.str_w(w_repr)
+            w_msg = self.space.wrap("WARNING: unclosed file: " + str_repr)
+            self.space.resource_warning(w_msg, self.w_tb)
+        #
+        try:
+            self.direct_close()
+        except StreamErrors as e:
+            operr = wrap_streamerror(self.space, e, self.w_name)
+            raise operr
 
     def fdopenstream(self, stream, fd, mode, w_name=None):
         self.fd = fd

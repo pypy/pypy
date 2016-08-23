@@ -1703,6 +1703,23 @@ class ObjSpace(object):
                 "Python int too large for C unsigned short")
         return value
 
+    def c_uid_t_w(self, w_obj):
+        # xxx assumes that uid_t and gid_t are a C unsigned int.
+        # Equivalent to space.c_uint_w(), with the exception that
+        # it also accepts -1 and converts that to UINT_MAX, which
+        # is (uid_t)-1.  And values smaller than -1 raise
+        # OverflowError, not ValueError.
+        try:
+            return self.c_uint_w(w_obj)
+        except OperationError as e:
+            if e.match(self, self.w_ValueError):
+                # ValueError: cannot convert negative integer to unsigned
+                if self.int_w(w_obj) == -1:
+                    return UINT_MAX
+                raise oefmt(self.w_OverflowError,
+                            "user/group id smaller than minimum (-1)")
+            raise
+
     def truncatedint_w(self, w_obj, allow_conversion=True):
         # Like space.gateway_int_w(), but return the integer truncated
         # instead of raising OverflowError.  For obscure cases only.
@@ -1763,6 +1780,40 @@ class ObjSpace(object):
             import _warnings
             _warnings.warn(msg, warningcls, stacklevel=stacklevel)
         """)
+
+    def resource_warning(self, w_msg, w_tb):
+        self.appexec([w_msg, w_tb],
+                     """(msg, tb):
+            import sys
+            print >> sys.stderr, msg
+            if tb:
+                print >> sys.stderr, "Created at (most recent call last):"
+                print >> sys.stderr, tb
+        """)
+
+    def format_traceback(self):
+        # we need to disable track_resources before calling the traceback
+        # module. Else, it tries to open more files to format the traceback,
+        # the file constructor will call space.format_traceback etc., in an
+        # inifite recursion
+        flag = self.sys.track_resources
+        self.sys.track_resources = False
+        try:
+            return self.appexec([],
+                         """():
+                import sys, traceback
+                # the "1" is because we don't want to show THIS code
+                # object in the traceback
+                try:
+                    f = sys._getframe(1)
+                except ValueError:
+                    # this happens if you call format_traceback at the very beginning
+                    # of startup, when there is no bottom code object
+                    return '<no stacktrace available>'
+                return "".join(traceback.format_stack(f))
+            """)
+        finally:
+            self.sys.track_resources = flag
 
 
 class AppExecCache(SpaceCache):

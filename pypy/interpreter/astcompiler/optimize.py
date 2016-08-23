@@ -108,8 +108,15 @@ def _unary_fold(name):
         return getattr(space, name)(operand)
     return do_fold
 
-def _fold_pow(space, left, right):
-    return space.pow(left, right, space.w_None)
+def _fold_pow(space, w_left, w_right):
+    # don't constant-fold if "w_left" and "w_right" are integers and
+    # the estimated bit length of the power is unreasonably large
+    space.appexec([w_left, w_right], """(left, right):
+        if isinstance(left, (int, long)) and isinstance(right, (int, long)):
+            if left.bit_length() * right > 5000:
+                raise OverflowError
+    """)
+    return space.pow(w_left, w_right, space.w_None)
 
 def _fold_not(space, operand):
     return space.wrap(not space.is_true(operand))

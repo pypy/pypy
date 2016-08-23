@@ -754,9 +754,6 @@ class AbstractLLCPU(AbstractCPU):
             self.write_int_at_mem(res, self.vtable_offset, WORD, sizedescr.get_vtable())
         return res
 
-    def bh_new_raw_buffer(self, size):
-        return lltype.malloc(rffi.CCHARP.TO, size, flavor='raw')
-
     def bh_classof(self, struct):
         struct = lltype.cast_opaque_ptr(rclass.OBJECTPTR, struct)
         result_adr = llmemory.cast_ptr_to_adr(struct.typeptr)
