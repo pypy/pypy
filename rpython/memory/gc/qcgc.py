@@ -2,6 +2,7 @@ from rpython.memory.gc.base import GCBase
 from rpython.rtyper.lltypesystem import rffi, lltype, llgroup, llmemory, llarena
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.debug import ll_assert
+from rpython.rlib.rarithmetic import ovfcheck
 
 class QCGC(GCBase):
     _alloc_flavor_ = "raw"
@@ -43,8 +44,15 @@ class QCGC(GCBase):
 
     def malloc_varsize_clear(self, typeid, length, size, itemsize,
                              offset_to_length):
-        totalsize = size + itemsize * length
-        #totalsize = llarena.round_up_for_allocation(totalsize)
+        if length < 0:
+            raise MemoryError
+        #
+        try:
+            varsize = ovfcheck(itemsize * length)
+            totalsize = ovfcheck(size + varsize)
+        except OverflowError:
+            raise MemoryError
+        #
         obj = llop.qcgc_allocate(llmemory.Address, totalsize)
         self.init_gc_object(obj, typeid)
         (obj + offset_to_length).signed[0] = length
