@@ -127,7 +127,7 @@ class W_MemoryView(W_Root):
         return space.wrap(self.buf.getndim())
 
     def w_is_readonly(self, space):
-        return space.newbool(self.buf.readonly != 0)
+        return space.newbool(bool(self.buf.readonly))
 
     def w_get_shape(self, space):
         return space.newtuple([space.wrap(x) for x in self.buf.getshape()])
