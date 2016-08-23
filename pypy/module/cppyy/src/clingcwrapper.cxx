@@ -627,10 +627,28 @@ std::string Cppyy::GetScopedFinalName( TCppType_t klass )
    return cr->GetName();
 }
 
-Bool_t Cppyy::HasComplexHierarchy( TCppType_t /* handle */ )
+Bool_t Cppyy::HasComplexHierarchy( TCppType_t klass )
 {
-// Always TRUE for now (pre-empts certain optimizations).
-  return kTRUE;
+   int is_complex = 1;
+   size_t nbases = 0;
+
+   TClassRef& cr = type_from_handle( klass );
+   if ( cr.GetClass() && cr->GetListOfBases() != 0 )
+      nbases = GetNumBases( klass );
+
+   if (1 < nbases)
+      is_complex = 1;
+   else if (nbases == 0)
+      is_complex = 0;
+   else {         // one base class only
+      TBaseClass* base = (TBaseClass*)cr->GetListOfBases()->At( 0 );
+      if ( base->Property() & kIsVirtualBase )
+         is_complex = 1;       // TODO: verify; can be complex, need not be.
+      else
+         is_complex = HasComplexHierarchy( GetScope( base->GetName() ) );
+   }
+
+   return is_complex;
 }
 
 Cppyy::TCppIndex_t Cppyy::GetNumBases( TCppType_t klass )
