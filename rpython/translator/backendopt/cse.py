@@ -43,7 +43,41 @@ class Cache(object):
         block = firstlink.target
         # copy all operations that exist in *all* blocks over. need to add a new
         # inputarg if the result is really a variable
+
+        # try non-straight merges
+        for argindex, inputarg in enumerate(block.inputargs):
+            # bit slow, but probably ok
+            firstlinkarg = self.variable_families.find_rep(firstlink.args[argindex])
+            results = []
+            for key, res in self.purecache.iteritems():
+                (opname, concretetype, args) = key
+                if args[0] != firstlinkarg: # XXX other args
+                    continue
+                results.append(res)
+                for linkindex, (link, cache) in enumerate(tuples):
+                    if linkindex == 0:
+                        continue
+                    listargs = list(args)
+                    listargs[0] = self.variable_families.find_rep(link.args[argindex])
+                    newkey = (opname, concretetype, tuple(listargs))
+                    otherres = cache.purecache.get(newkey, None)
+                    if otherres is None:
+                        break
+                    results.append(otherres)
+                else:
+                    listargs = list(args)
+                    listargs[0] = self.variable_families.find_rep(inputarg)
+                    newkey = (opname, concretetype, tuple(listargs))
+                    newres = res
+                    if isinstance(res, Variable):
+                        newres = res.copy()
+                        for linkindex, (link, cache) in enumerate(tuples):
+                            link.args.append(results[linkindex])
+                        block.inputargs.append(newres)
+                    purecache[newkey] = newres
+
         for key, res in self.purecache.iteritems():
+            # "straight" merge: the variable is in all other caches
             for link, cache in tuples[1:]:
                 val = cache.purecache.get(key, None)
                 if val is None:
@@ -57,8 +91,41 @@ class Cache(object):
                     block.inputargs.append(newres)
                 purecache[key] = newres
 
+        # ______________________
         # merge heapcache
         heapcache = {}
+
+        # try non-straight merges
+        for argindex, inputarg in enumerate(block.inputargs):
+            # bit slow, but probably ok
+            firstlinkarg = self.variable_families.find_rep(firstlink.args[argindex])
+            results = []
+            for key, res in self.heapcache.iteritems():
+                (arg, fieldname) = key
+                if arg != firstlinkarg:
+                    continue
+                results.append(res)
+                for linkindex, (link, cache) in enumerate(tuples):
+                    if linkindex == 0:
+                        continue
+                    otherarg = self.variable_families.find_rep(link.args[argindex])
+                    newkey = (otherarg, fieldname)
+                    otherres = cache.heapcache.get(newkey, None)
+                    if otherres is None:
+                        break
+                    results.append(otherres)
+                else:
+                    listargs = list(args)
+                    listargs[0] = inputarg
+                    newkey = (self.variable_families.find_rep(inputarg), fieldname)
+                    newres = res
+                    if isinstance(res, Variable):
+                        newres = res.copy()
+                        for linkindex, (link, cache) in enumerate(tuples):
+                            link.args.append(results[linkindex])
+                        block.inputargs.append(newres)
+                    heapcache[newkey] = newres
+
         for key, res in self.heapcache.iteritems():
             for link, cache in tuples[1:]:
                 val = cache.heapcache.get(key, None)
@@ -72,6 +139,8 @@ class Cache(object):
                         link.args.append(cache.heapcache[key])
                     block.inputargs.append(newres)
                 heapcache[key] = newres
+
+
 
         return Cache(
                 self.variable_families, self.analyzer, purecache, heapcache)

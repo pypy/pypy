@@ -61,6 +61,21 @@ class TestStoreSink(object):
         # an add in each branch, but not the final block
         self.check(f, [int, int], int_add=2)
 
+    def test_merge2(self):
+        # in this test we add two different values, but the final add is on the
+        # same different value, so it can be shared
+        def f(i, j):
+            if j:
+                x = i
+                y = x + 1
+            else:
+                x = ~i
+                y = x + 1
+            return (x + 1) * y
+
+        # an add in each branch, but not the final block
+        self.check(f, [int, int], int_add=2)
+
     def test_optimize_across_merge(self):
         def f(i, j):
             k = i + 1
@@ -212,6 +227,28 @@ class TestStoreSink(object):
             return j
 
         self.check(f, [int], getfield=0)
+
+    def test_merge2_heapcache(self):
+        class A(object):
+            pass
+
+        def f(i):
+            a1 = A()
+            a1.x = i
+            a2 = A()
+            a2.x = i + 1
+            a3 = A()
+            a3.x = 1 # clear other caches
+            if i:
+                a = a1
+                j = a.x
+            else:
+                a = a2
+                j = a.x
+            j += a.x
+            return j
+
+        self.check(f, [int], getfield=2)
 
     def test_dont_invalidate_on_call(self):
         class A(object):
