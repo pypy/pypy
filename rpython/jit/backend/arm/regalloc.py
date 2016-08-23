@@ -594,8 +594,9 @@ class Regalloc(BaseRegalloc):
         resloc = self.after_call(op)
         return resloc
 
-    def prepare_op_call_malloc_gc(self, op, fcond):
-        return self._prepare_call(op)
+    def prepare_op_check_memory_error(self, op, fcond):
+        argloc = self.make_sure_var_in_reg(op.getarg(0))
+        return [argloc]
 
     def _prepare_llong_binop_xx(self, op, fcond):
         # arg 0 is the address of the function

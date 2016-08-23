@@ -394,6 +394,7 @@ def writeDbRecord(outfile, table):
     IS_XID_START = 1024
     IS_XID_CONTINUE = 2048
     IS_PRINTABLE = 4096 # PEP 3138
+    IS_CASE_IGNORABLE = 8192
 
     # Create the records
     db_records = {}
@@ -412,11 +413,13 @@ def writeDbRecord(outfile, table):
             flags |= IS_DIGIT
         if char.decimal is not None:
             flags |= IS_DECIMAL
-        if char.category == "Lu":
+        if char.category == "Lu" or (table.upper_lower_from_properties and
+                                     "Uppercase" in char.properties):
             flags |= IS_UPPER
         if char.category == "Lt":
             flags |= IS_TITLE
-        if char.category == "Ll":
+        if char.category == "Ll" or (table.upper_lower_from_properties and
+                                     "Lowercase" in char.properties):
             flags |= IS_LOWER
         if char.mirrored:
             flags |= IS_MIRRORED
@@ -426,7 +429,9 @@ def writeDbRecord(outfile, table):
             flags |= IS_XID_START
         if "XID_Continue" in char.properties:
             flags |= IS_XID_CONTINUE
-        char.db_record = (char.category, char.bidirectional, char.east_asian_width, flags, char.combining)
+        if "Case_Ignorable" in char.properties:
+            flags |= IS_CASE_IGNORABLE
+        char.db_record = (char.category, char.bidirectional, char.east_asian_width, flags)
         db_records[char.db_record] = 1
     db_records = db_records.keys()
     db_records.sort()
@@ -434,6 +439,7 @@ def writeDbRecord(outfile, table):
     for record in db_records:
         print >> outfile, '%r,'%(record,)
     print >> outfile, ']'
+    assert len(db_records) <= 256, "too many db_records!"
     print >> outfile, '_db_pgtbl = ('
     pages = []
     line = []
@@ -485,7 +491,7 @@ def _get_record(code):
     print >> outfile, 'def isxidcontinue(code): return _get_record(code)[3] & %d != 0'% (IS_XID_CONTINUE)
     print >> outfile, 'def isprintable(code): return _get_record(code)[3] & %d != 0'% IS_PRINTABLE
     print >> outfile, 'def mirrored(code): return _get_record(code)[3] & %d != 0'% IS_MIRRORED
-    print >> outfile, 'def combining(code): return _get_record(code)[4]'
+    print >> outfile, 'def iscaseignorable(code): return _get_record(code)[3] & %d != 0'% IS_CASE_IGNORABLE
 
 def write_character_names(outfile, table, base_mod):
 
@@ -909,6 +915,23 @@ def casefold_lookup(code):
             return None
 '''
 
+    combining = {}
+    for code, char in table.enum_chars():
+        if char.combining:
+            combining[code] = char.combining
+    writeDict(outfile, '_combining', combining, base_mod)
+    print >> outfile, '''
+
+def combining(code):
+    try:
+        return _combining[code]
+    except KeyError:
+        if base_mod is not None and code not in _combining_corrected:
+            return base_mod._combining.get(code, 0)
+        else:
+            return 0
+'''
+
 
 def main():
     import sys
@@ -947,6 +970,7 @@ def main():
                  for (name, filename) in filenames.items())
 
     table = read_unicodedata(files)
+    table.upper_lower_from_properties = (options.unidata_version >= '6')
     print >> outfile, '# UNICODE CHARACTER DATABASE'
     print >> outfile, '# This file was generated with the command:'
     print >> outfile, '#    ', ' '.join(sys.argv)

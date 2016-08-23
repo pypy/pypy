@@ -8,13 +8,13 @@ from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
-from pypy.interpreter.error import OperationError, oefmt
-from rpython.rlib.rarithmetic import r_longlong, ovfcheck
+from pypy.interpreter.error import oefmt
+from rpython.rlib.rarithmetic import r_longlong, ovfcheck, ovfcheck_float_to_longlong
 
 # Force the declaration of the type 'thread.LockType' for RPython
 #import pypy.module.thread.rpython.exttable
 
-LONGLONG_MAX = r_longlong(2 ** (r_longlong.BITS-1) - 1)
+LONGLONG_MAX = r_longlong(2 ** (r_longlong.BITS - 1) - 1)
 TIMEOUT_MAX = LONGLONG_MAX
 
 RPY_LOCK_FAILURE, RPY_LOCK_ACQUIRED, RPY_LOCK_INTR = range(3)
@@ -32,9 +32,10 @@ def parse_acquire_args(space, blocking, timeout):
         microseconds = -1
     else:
         timeout *= 1e6
-        if timeout > float(TIMEOUT_MAX):
+        try:
+            microseconds = ovfcheck_float_to_longlong(timeout)
+        except OverflowError:
             raise oefmt(space.w_OverflowError, "timeout value is too large")
-        microseconds = r_longlong(timeout)
     return microseconds
 
 
@@ -115,7 +116,7 @@ but it needn't be locked by the same thread that unlocks it."""
 
 Lock.typedef = TypeDef(
     "_thread.lock",
-    __doc__ = """\
+    __doc__="""\
 A lock object is a synchronization primitive.  To create a lock,
 call the thread.allocate_lock() function.  Methods are:
 
@@ -126,16 +127,16 @@ locked() -- test whether the lock is currently locked
 A lock is not owned by the thread that locked it; another thread may
 unlock it.  A thread attempting to lock a lock that it has already locked
 will block until another thread unlocks it.  Deadlocks may ensue.""",
-    acquire = interp2app(Lock.descr_lock_acquire),
-    release = interp2app(Lock.descr_lock_release),
-    locked  = interp2app(Lock.descr_lock_locked),
-    __enter__ = interp2app(Lock.descr__enter__),
-    __exit__ = interp2app(Lock.descr__exit__),
+    acquire=interp2app(Lock.descr_lock_acquire),
+    release=interp2app(Lock.descr_lock_release),
+    locked=interp2app(Lock.descr_lock_locked),
+    __enter__=interp2app(Lock.descr__enter__),
+    __exit__=interp2app(Lock.descr__exit__),
     # Obsolete synonyms
-    acquire_lock = interp2app(Lock.descr_lock_acquire),
-    release_lock = interp2app(Lock.descr_lock_release),
-    locked_lock  = interp2app(Lock.descr_lock_locked),
-    )
+    acquire_lock=interp2app(Lock.descr_lock_acquire),
+    release_lock=interp2app(Lock.descr_lock_release),
+    locked_lock=interp2app(Lock.descr_lock_locked),
+)
 
 
 def allocate_lock(space):
@@ -172,7 +173,7 @@ class W_RLock(W_Root):
         the lock, the method will wait for the lock to be released,
         take it and then return True.
         (note: the blocking operation is not interruptible.)
-        
+
         In all other cases, the method will return True immediately.
         Precisely, if the current thread already holds the lock, its
         internal counter is simply incremented. If nobody holds the lock,
@@ -199,14 +200,13 @@ class W_RLock(W_Root):
             self.rlock_count = 1
 
         return space.wrap(r)
-            
 
     def release_w(self, space):
         """Release the lock, allowing another thread that is blocked waiting for
         the lock to acquire the lock.  The lock must be in the locked state,
         and must be locked by the same thread that unlocks it; otherwise a
         `RuntimeError` is raised.
-        
+
         Do note that if the lock was acquire()d several times in a row by the
         current thread, release() needs to be called as many times for the lock
         to be available for other threads."""

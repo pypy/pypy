@@ -539,6 +539,8 @@ def _gettmarg(space, w_tup, allowNone=True):
         t_ref = lltype.malloc(rffi.TIME_TP.TO, 1, flavor='raw')
         t_ref[0] = tt
         pbuf = c_localtime(t_ref)
+        rffi.setintfield(pbuf, "c_tm_year",
+                         rffi.getintfield(pbuf, "c_tm_year") + 1900)
         lltype.free(t_ref, flavor='raw')
         if not pbuf:
             raise OperationError(space.w_ValueError,
@@ -582,7 +584,7 @@ def _gettmarg(space, w_tup, allowNone=True):
     if rffi.getintfield(glob_buf, 'c_tm_wday') < -1:
         raise oefmt(space.w_ValueError, "day of week out of range")
 
-    rffi.setintfield(glob_buf, 'c_tm_year', y - 1900)
+    rffi.setintfield(glob_buf, 'c_tm_year', y)
     rffi.setintfield(glob_buf, 'c_tm_mon',
                      rffi.getintfield(glob_buf, 'c_tm_mon') - 1)
     rffi.setintfield(glob_buf, 'c_tm_wday',
@@ -646,7 +648,8 @@ def ctime(space, w_seconds=None):
         t_ref[0] = seconds
         p = c_localtime(t_ref)
     if not p:
-        raise oefmt(space.w_ValueError, "unconvertible time")
+        raise oefmt(space.w_OSError, "unconvertible time")
+    rffi.setintfield(p, "c_tm_year", rffi.getintfield(p, "c_tm_year") + 1900)
     return _asctime(space, p)
 
 # by now w_tup is an optional argument (and not *args)
@@ -675,7 +678,7 @@ def _asctime(space, t_ref):
             w(getif(t_ref, 'c_tm_hour')),
             w(getif(t_ref, 'c_tm_min')),
             w(getif(t_ref, 'c_tm_sec')),
-            w(getif(t_ref, 'c_tm_year') + 1900)]
+            w(getif(t_ref, 'c_tm_year'))]
     return space.mod(w("%.3s %.3s%3d %.2d:%.2d:%.2d %d"),
                      space.newtuple(args))
 
@@ -713,7 +716,7 @@ def localtime(space, w_seconds=None):
     lltype.free(t_ref, flavor='raw')
 
     if not p:
-        raise OperationError(space.w_ValueError, space.wrap(_get_error_msg()))
+        raise OperationError(space.w_OSError, space.wrap(_get_error_msg()))
     return _tm_to_tuple(space, p)
 
 def mktime(space, w_tup):
@@ -723,6 +726,7 @@ def mktime(space, w_tup):
 
     buf = _gettmarg(space, w_tup, allowNone=False)
     rffi.setintfield(buf, "c_tm_wday", -1)
+    rffi.setintfield(buf, "c_tm_year", rffi.getintfield(buf, "c_tm_year") - 1900)
     tt = c_mktime(buf)
     # A return value of -1 does not necessarily mean an error, but tm_wday
     # cannot remain set to -1 if mktime succeeds.
@@ -799,6 +803,8 @@ def strftime(space, format, w_tup=None):
         rffi.setintfield(buf_value, 'c_tm_isdst', -1)
     elif rffi.getintfield(buf_value, 'c_tm_isdst') > 1:
         rffi.setintfield(buf_value, 'c_tm_isdst', 1)
+    rffi.setintfield(buf_value, "c_tm_year",
+                     rffi.getintfield(buf_value, "c_tm_year") - 1900)
 
     if _WIN:
         # check that the format string contains only valid directives

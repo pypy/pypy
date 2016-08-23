@@ -68,6 +68,7 @@ class AbstractAttribute(object):
     @jit.elidable
     def find_map_attr(self, name, index):
         # attr cache
+        assert isinstance(name, str)    # utf8-encoded
         space = self.space
         cache = space.fromcache(MapAttrCache)
         SHIFT2 = r_uint.BITS - space.config.objspace.std.methodcachesizeexp
@@ -221,7 +222,6 @@ class AbstractAttribute(object):
         stack_index = 0
         while True:
             current = self
-            number_to_readd = 0
             number_to_readd, attr = self._find_branch_to_move_into(name, index)
             # we found the attributes further up, need to save the
             # previous values of the attributes we passed
@@ -337,7 +337,7 @@ class DevolvedDictTerminator(Terminator):
             space = self.space
             w_dict = obj.getdict(space)
             try:
-                space.delitem(w_dict, space.wrap(name))
+                space.delitem(w_dict, space.wrap(name.decode('utf-8')))
             except OperationError as ex:
                 if not ex.match(space, space.w_KeyError):
                     raise
@@ -402,7 +402,7 @@ class PlainAttribute(AbstractAttribute):
     def materialize_r_dict(self, space, obj, dict_w):
         new_obj = self.back.materialize_r_dict(space, obj, dict_w)
         if self.index == DICT:
-            w_attr = space.wrap(self.name)
+            w_attr = space.wrap(self.name.decode('utf-8'))
             dict_w[w_attr] = obj._mapdict_read_storage(self.storageindex)
         else:
             self._copy_attr(obj, new_obj)
@@ -810,7 +810,7 @@ class MapDictStrategy(DictStrategy):
             raise KeyError
         key = curr.name
         w_value = self.getitem_str(w_dict, key)
-        w_key = self.space.wrap(key)
+        w_key = self.space.wrap(key.decode('utf-8'))
         self.delitem(w_dict, w_key)
         return (w_key, w_value)
 
@@ -845,7 +845,7 @@ class MapDictIteratorKeys(BaseKeyIterator):
             if curr_map:
                 self.curr_map = curr_map.back
                 attr = curr_map.name
-                w_attr = self.space.wrap(attr)
+                w_attr = self.space.wrap(attr.decode('utf-8'))
                 return w_attr
         return None
 
@@ -886,7 +886,7 @@ class MapDictIteratorItems(BaseItemIterator):
             if curr_map:
                 self.curr_map = curr_map.back
                 attr = curr_map.name
-                w_attr = self.space.wrap(attr)
+                w_attr = self.space.wrap(attr.decode('utf-8'))
                 return w_attr, self.w_obj.getdictvalue(self.space, attr)
         return None, None
 

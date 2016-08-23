@@ -3,13 +3,13 @@ import os
 import py
 
 from rpython.jit.backend.llsupport import symbolic, jitframe, rewrite
-from rpython.jit.backend.llsupport.assembler import (GuardToken, BaseAssembler,
-                                                DEBUG_COUNTER)
+from rpython.jit.backend.llsupport.assembler import (GuardToken, BaseAssembler, debug_bridge)
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.metainterp.history import (Const, VOID, ConstInt)
 from rpython.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT
 from rpython.jit.metainterp.compile import ResumeGuardDescr
+from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
@@ -292,9 +292,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         return rawstart
 
     def _build_propagate_exception_path(self):
-        if not self.cpu.propagate_exception_descr:
-            return      # not supported (for tests, or non-translated)
-        #
         self.mc = codebuf.MachineCodeBlockWrapper()
         self.mc.force_frame_size(DEFAULT_FRAME_BYTES)
         #
@@ -493,8 +490,9 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         clt.frame_info.clear() # for now
 
         if log:
+            number = looptoken.number
             operations = self._inject_debugging_code(looptoken, operations,
-                                                     'e', looptoken.number)
+                                                     'e', number)
 
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
         #
@@ -541,9 +539,16 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             looptoken._x86_fullsize = full_size
             looptoken._x86_ops_offset = ops_offset
         looptoken._ll_function_addr = rawstart + functionpos
+
         if logger:
-            logger.log_loop(inputargs, operations, 0, "rewritten",
-                            name=loopname, ops_offset=ops_offset)
+            log = logger.log_trace(jl.MARK_TRACE_ASM, None, self.mc)
+            log.write(inputargs, operations, ops_offset=ops_offset)
+
+            # legacy
+            if logger.logger_ops:
+                logger.logger_ops.log_loop(inputargs, operations, 0,
+                                           "rewritten", name=loopname,
+                                           ops_offset=ops_offset)
 
         self.fixup_target_tokens(rawstart)
         self.teardown()
@@ -608,9 +613,18 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         ops_offset = self.mc.ops_offset
         frame_depth = max(self.current_clt.frame_info.jfi_frame_depth,
                           frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
+
         if logger:
-            logger.log_bridge(inputargs, operations, "rewritten", faildescr,
-                              ops_offset=ops_offset)
+            log = logger.log_trace(jl.MARK_TRACE_ASM, None, self.mc)
+            log.write(inputargs, operations, ops_offset)
+            # log that the already written bridge is stitched to a descr!
+            logger.log_patch_guard(descr_number, rawstart)
+
+            # legacy
+            if logger.logger_ops:
+                logger.logger_ops.log_bridge(inputargs, operations, "rewritten",
+                                          faildescr, ops_offset=ops_offset)
+
         self.fixup_target_tokens(rawstart)
         self.update_frame_depth(frame_depth)
         self.teardown()
@@ -1519,15 +1533,9 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
     # ----------
 
-    def genop_call_malloc_gc(self, op, arglocs, result_loc):
-        self._genop_call(op, arglocs, result_loc)
-        self.propagate_memoryerror_if_eax_is_null()
-
-    def propagate_memoryerror_if_eax_is_null(self):
-        # if self.propagate_exception_path == 0 (tests), this may jump to 0
-        # and segfaults.  too bad.  the alternative is to continue anyway
-        # with eax==0, but that will segfault too.
-        self.mc.TEST_rr(eax.value, eax.value)
+    def genop_discard_check_memory_error(self, op, arglocs):
+        reg = arglocs[0]
+        self.mc.TEST(reg, reg)
         if WORD == 4:
             self.mc.J_il(rx86.Conditions['Z'], self.propagate_exception_path)
             self.mc.add_pending_relocation()
@@ -1664,25 +1672,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         scale = get_scale(factor_loc.value)
         dest_addr = AddressLoc(base_loc, ofs_loc, scale, offset_loc.value)
         self.save_into_mem(dest_addr, value_loc, size_loc)
-
-    def genop_discard_strsetitem(self, op, arglocs):
-        base_loc, ofs_loc, val_loc = arglocs
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
-                                              self.cpu.translate_support_code)
-        assert itemsize == 1
-        dest_addr = AddressLoc(base_loc, ofs_loc, 0, basesize)
-        self.mc.MOV8(dest_addr, val_loc.lowest8bits())
-
-    def genop_discard_unicodesetitem(self, op, arglocs):
-        base_loc, ofs_loc, val_loc = arglocs
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
-                                              self.cpu.translate_support_code)
-        if itemsize == 4:
-            self.mc.MOV32(AddressLoc(base_loc, ofs_loc, 2, basesize), val_loc)
-        elif itemsize == 2:
-            self.mc.MOV16(AddressLoc(base_loc, ofs_loc, 1, basesize), val_loc)
-        else:
-            assert 0, itemsize
 
     # genop_discard_setfield_raw = genop_discard_setfield_gc
 

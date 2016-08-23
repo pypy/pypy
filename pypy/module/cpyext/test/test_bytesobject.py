@@ -113,9 +113,10 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("getbytes", "METH_NOARGS",
              """
-                 PyObject* s1 = PyBytes_FromStringAndSize("test", 4);
-                 char* c = PyBytes_AsString(s1);
-                 PyObject* s2 = PyBytes_FromStringAndSize(c, 4);
+                 char *c;
+                 PyObject* s2, *s1 = PyBytes_FromStringAndSize("test", 4);
+                 c = PyBytes_AsString(s1);
+                 s2 = PyBytes_FromStringAndSize(c, 4);
                  Py_DECREF(s1);
                  return s2;
              """),

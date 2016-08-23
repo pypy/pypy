@@ -330,6 +330,13 @@ class TestMallocFastpath(BaseTestRegalloc):
                 expected_size = 2
                 idx = 1
                 fixed_size -= 32
+            if self.cpu.backend_name.startswith('zarch') or \
+               self.cpu.backend_name.startswith('ppc'):
+                # the allocation always allocates the register
+                # into the return register. (e.g. r3 on ppc)
+                # the next malloc_nursery will move r3 to the
+                # frame manager, thus the two bits will be on the frame
+                fixed_size += 4
             assert len(frame.jf_gcmap) == expected_size
             # check that we have two bits set, and that they are in two
             # registers (p0 and p1 are moved away when doing p2, but not

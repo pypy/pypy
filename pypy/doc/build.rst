@@ -104,26 +104,23 @@ On Debian, this is the command to install all build-time dependencies::
 
     apt-get install gcc make libffi-dev pkg-config libz-dev libbz2-dev \
     libsqlite3-dev libncurses-dev libexpat1-dev libssl-dev libgdbm-dev \
-    tk-dev libgc-dev liblzma-dev
-
-For the optional lzma module on PyPy3 you will also need ``liblzma-dev``.
+    tk-dev libgc-dev \
+    liblzma-dev  # For lzma on PyPy3.
 
 On Fedora::
 
     dnf install gcc make libffi-devel pkgconfig zlib-devel bzip2-devel \
     lib-sqlite3-devel ncurses-devel expat-devel openssl-devel tk-devel \
-    gdbm-devel
-
-For the optional lzma module on PyPy3 you will also need ``xz-devel``.
+    gdbm-devel \
+    xz-devel  # For lzma on PyPy3.
 
 On SLES11::
 
     zypper install gcc make python-devel pkg-config \
     zlib-devel libopenssl-devel libbz2-devel sqlite3-devel \
-    libexpat-devel libffi-devel python-curses
+    libexpat-devel libffi-devel python-curses \
+    xz-devel  # For lzma on PyPy3.
     (XXX plus the SLES11 version of libgdbm-dev and tk-dev)
-
-For the optional lzma module on PyPy3 you will also need ``xz-devel``.
 
 On Mac OS X, most of these build-time dependencies are installed alongside
 the Developer Tools. However, note that in order for the installation to

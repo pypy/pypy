@@ -131,7 +131,7 @@ def locals_to_fast(space, w_frame):
 
 @unwrap_spec(w_module=MixedModule)
 def save_module_content_for_future_reload(space, w_module):
-    w_module.save_module_content_for_future_reload(save_all=True)
+    w_module.save_module_content_for_future_reload()
 
 def set_code_callback(space, w_callable):
     cache = space.fromcache(CodeHookCache)

@@ -313,7 +313,7 @@ class AppTestPosix:
 
     def test_listdir_default(self):
         posix = self.posix
-        assert posix.listdir() == posix.listdir('.')
+        assert posix.listdir() == posix.listdir('.') == posix.listdir(None)
 
     def test_listdir_bytes(self):
         import sys
@@ -324,6 +324,17 @@ class AppTestPosix:
         assert b'somefile' in result
         expected = b'caf%E9' if sys.platform == 'darwin' else b'caf\xe9'
         assert expected in result
+
+    def test_fdlistdir(self):
+        posix = self.posix
+        dirfd = posix.open('.', posix.O_RDONLY)
+        lst1 = posix.listdir(dirfd)   # does not close dirfd
+        lst2 = posix.listdir('.')
+        assert lst1 == lst2
+        #
+        lst3 = posix.listdir(dirfd)   # rewinddir() was used
+        assert lst3 == lst1
+        posix.close(dirfd)
 
     def test_undecodable_filename(self):
         import sys
@@ -593,10 +604,12 @@ class AppTestPosix:
             assert os.geteuid() == self.geteuid
 
     if hasattr(os, 'setuid'):
+        @py.test.mark.skipif("sys.version_info < (2, 7, 4)")
         def test_os_setuid_error(self):
             os = self.posix
-            raises(OverflowError, os.setuid, -2**31-1)
+            raises(OverflowError, os.setuid, -2)
             raises(OverflowError, os.setuid, 2**32)
+            raises(OSError, os.setuid, -1)
 
     if hasattr(os, 'getgid'):
         def test_os_getgid(self):
@@ -639,10 +652,13 @@ class AppTestPosix:
             raises(OSError, os.getpgid, 1234567)
 
     if hasattr(os, 'setgid'):
+        @py.test.mark.skipif("sys.version_info < (2, 7, 4)")
         def test_os_setgid_error(self):
             os = self.posix
-            raises(OverflowError, os.setgid, -2**31-1)
+            raises(OverflowError, os.setgid, -2)
             raises(OverflowError, os.setgid, 2**32)
+            raises(OSError, os.setgid, -1)
+            raises(OSError, os.setgid, 2**32-1)
 
     if hasattr(os, 'getsid'):
         def test_os_getsid(self):

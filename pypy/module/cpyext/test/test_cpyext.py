@@ -78,7 +78,7 @@ def compile_extension_module(space, modname, include_dirs=[],
     else:
         libraries = []
         if sys.platform.startswith('linux'):
-            compile_extra = ["-Werror", "-g", "-O0", "-fPIC"]
+            compile_extra = ["-Werror", "-g", "-O0", "-Wp,-U_FORTIFY_SOURCE", "-fPIC"]
             link_extra = ["-g"]
         else:
             compile_extra = link_extra = None
@@ -126,9 +126,17 @@ def compile_extension_module_applevel(space, modname, include_dirs=[],
             source_strings=source_strings,
             compile_extra=compile_extra,
             link_extra=link_extra)
-    return str(soname)
+    from imp import get_suffixes, C_EXTENSION
+    pydname = soname
+    for suffix, mode, typ in get_suffixes():
+        if typ == C_EXTENSION:
+            pydname = soname.new(purebasename=modname, ext=suffix)
+            soname.rename(pydname)
+            break
+    return str(pydname)
 
 def freeze_refcnts(self):
+    rawrefcount._dont_free_any_more()
     return #ZZZ
     state = self.space.fromcache(RefcountState)
     self.frozen_refcounts = {}
@@ -357,7 +365,11 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                         space.sys.get('modules'),
                         space.wrap(name))
             else:
-                return os.path.dirname(mod)
+                path = os.path.dirname(mod)
+                if self.runappdirect:
+                    return path
+                else:
+                    return space.wrap(path)
 
         @gateway.unwrap_spec(mod=str, name=str)
         def reimport_module(space, mod, name):
@@ -405,8 +417,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             init = """PyObject *mod = PyModule_Create(&moduledef);"""
             if more_init:
                 init += more_init
-            else:
-                init += "\nreturn mod;"
+            init += "\nreturn mod;"
             return import_module(space, name=modname, init=init, body=body,
                                  w_include_dirs=w_include_dirs,
                                  PY_SSIZE_T_CLEAN=PY_SSIZE_T_CLEAN)

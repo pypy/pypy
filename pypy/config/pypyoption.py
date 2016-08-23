@@ -40,7 +40,7 @@ working_modules.update([
     "binascii", "_multiprocessing", '_warnings', "_collections",
     "_multibytecodec", "_continuation", "_cffi_backend",
     "_csv", "_pypyjson", "_posixsubprocess", # "cppyy", "micronumpy"
-    "faulthandler",
+    "faulthandler", "_jitlog",
 ])
 
 from rpython.jit.backend import detect_cpu

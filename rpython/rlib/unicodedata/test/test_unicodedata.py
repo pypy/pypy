@@ -138,3 +138,6 @@ class TestUnicodeData600(object):
         assert unicodedb_6_0_0.tolower_full(ord(u'\xdf')) == [0xdf]
         assert unicodedb_6_0_0.toupper_full(ord(u'\xdf')) == map(ord, 'SS')
         assert unicodedb_6_0_0.totitle_full(ord(u'\xdf')) == map(ord, 'Ss')
+
+    def test_islower(self):
+        assert unicodedb_6_2_0.islower(0x2177)

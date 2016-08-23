@@ -1307,3 +1307,22 @@ class TestOptimizations:
             counts = self.count_instructions(source)
             assert ops.BUILD_SET not in counts
             assert ops.LOAD_CONST in counts
+
+    def test_dont_fold_huge_powers(self):
+        for source in (
+            "2 ** 3000",         # not constant-folded: too big
+            "(-2) ** 3000",
+            ):
+            source = 'def f(): %s' % source
+            counts = self.count_instructions(source)
+            assert ops.BINARY_POWER in counts
+
+        for source in (
+            "2 ** 2000",         # constant-folded
+            "2 ** -3000",
+            "1.001 ** 3000",
+            "1 ** 3000.0",
+            ):
+            source = 'def f(): %s' % source
+            counts = self.count_instructions(source)
+            assert ops.BINARY_POWER not in counts

@@ -803,7 +803,7 @@ def tee(space, w_iterable, n=2):
     data before the other iterator, it is faster to use list() instead
     of tee()
 
-    Equivalent to :
+    If iter(iterable) has no method __copy__(), this is equivalent to:
 
     def tee(iterable, n=2):
         def gen(next, data={}, cnt=[0]):
@@ -816,17 +816,22 @@ def tee(space, w_iterable, n=2):
                 yield item
         it = iter(iterable)
         return tuple([gen(it.next) for i in range(n)])
+
+    If iter(iterable) has a __copy__ method, though, we just return
+    a tuple t = (iterable, t[0].__copy__(), t[1].__copy__(), ...).
     """
     if n < 0:
         raise oefmt(space.w_ValueError, "n must be >= 0")
 
-    if isinstance(w_iterable, W_TeeIterable):     # optimization only
-        w_chained_list = w_iterable.w_chained_list
-        w_iterator = w_iterable.w_iterator
+    if space.findattr(w_iterable, space.wrap("__copy__")) is not None:
+        # In this case, we don't instantiate any W_TeeIterable.
+        # We just rely on doing repeated __copy__().  This case
+        # includes the situation where w_iterable is already
+        # a W_TeeIterable itself.
         iterators_w = [w_iterable] * n
         for i in range(1, n):
-            iterators_w[i] = space.wrap(W_TeeIterable(space, w_iterator,
-                                                      w_chained_list))
+            w_iterable = space.call_method(w_iterable, "__copy__")
+            iterators_w[i] = w_iterable
     else:
         w_iterator = space.iter(w_iterable)
         w_chained_list = W_TeeChainedListNode(space)
@@ -839,7 +844,7 @@ class W_TeeChainedListNode(W_Root):
     def __init__(self, space):
         self.w_next = None
         self.w_obj = None
-    
+
     def reduce_w(self, space):
         list_w = []
         node = self
@@ -905,13 +910,18 @@ class W_TeeIterable(W_Root):
         self.w_chained_list = w_chained_list.w_next
         return w_obj
 
+    def copy_w(self):
+        space = self.space
+        tee_iter = W_TeeIterable(space, self.w_iterator, self.w_chained_list)
+        return space.wrap(tee_iter)
+
     def reduce_w(self):
         return self.space.newtuple([self.space.gettypefor(W_TeeIterable),
                                     self.space.newtuple([self.space.newtuple([])]),
                                     self.space.newtuple([
                                         self.w_iterator,
                                         self.w_chained_list])
-                                    ]) 
+                                    ])
     def setstate_w(self, w_state):
         state = self.space.unpackiterable(w_state)
         num_args = len(state)
@@ -943,6 +953,7 @@ W_TeeIterable.typedef = TypeDef(
         __new__ = interp2app(W_TeeIterable___new__),
         __iter__ = interp2app(W_TeeIterable.iter_w),
         __next__ = interp2app(W_TeeIterable.next_w),
+        __copy__ = interp2app(W_TeeIterable.copy_w),
         __weakref__ = make_weakref_descr(W_TeeIterable),
         __reduce__ = interp2app(W_TeeIterable.reduce_w),
         __setstate__ = interp2app(W_TeeIterable.setstate_w)

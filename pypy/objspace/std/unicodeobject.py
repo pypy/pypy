@@ -173,13 +173,45 @@ class W_UnicodeObject(W_Root):
         return u''.join([unichr(x) for x in
                          unicodedb.toupper_full(ord(ch))])
 
-    def _lower(self, ch):
+    def _lower_in_str(self, value, i):
+        ch = value[i]
+        if ord(ch) == 0x3A3:
+            # Obscure special case.
+            return self._handle_capital_sigma(value, i)
         return u''.join([unichr(x) for x in
                          unicodedb.tolower_full(ord(ch))])
 
     def _title(self, ch):
         return u''.join([unichr(x) for x in
                          unicodedb.totitle_full(ord(ch))])
+
+    def _handle_capital_sigma(self, value, i):
+        # U+03A3 is in the Final_Sigma context when, it is found like this:
+        #\p{cased} \p{case-ignorable}* U+03A3 not(\p{case-ignorable}* \p{cased})
+        # where \p{xxx} is a character with property xxx.
+        j = i - 1
+        final_sigma = False
+        while j >= 0:
+            ch = value[j]
+            if unicodedb.iscaseignorable(ord(ch)):
+                j -= 1
+                continue
+            final_sigma = unicodedb.iscased(ord(ch))
+            break
+        if final_sigma:
+            j = i + 1
+            length = len(value)
+            while j < length:
+                ch = value[j]
+                if unicodedb.iscaseignorable(ord(ch)):
+                    j += 1
+                    continue
+                final_sigma = not unicodedb.iscased(ord(ch))
+                break
+        if final_sigma:
+            return unichr(0x3C2)
+        else:
+            return unichr(0x3C3)
 
     def _newlist_unwrapped(self, space, lst):
         return space.newlist_unicode(lst)
@@ -1235,9 +1267,13 @@ W_UnicodeObject.EMPTY = W_UnicodeObject(u'')
 # using the same logic as PyUnicode_EncodeDecimal, as CPython 2.7 does.
 #
 # In CPython3 the call to PyUnicode_EncodeDecimal has been replaced to a call
-# to PyUnicode_TransformDecimalToASCII, which is much simpler. Here, we do the
-# equivalent plus the final step of encoding the result to utf-8.
-def unicode_to_decimal_w(space, w_unistr):
+# to _PyUnicode_TransformDecimalAndSpaceToASCII, which is much simpler.
+# We do that here plus the final step of encoding the result to utf-8.
+# This final step corresponds to encode_utf8. In float.__new__() and
+# complex.__new__(), a lone surrogate will throw an app-level
+# UnicodeEncodeError.
+
+def unicode_to_decimal_w(space, w_unistr, allow_surrogates=False):
     if not isinstance(w_unistr, W_UnicodeObject):
         raise oefmt(space.w_TypeError, "expected unicode, got '%T'", w_unistr)
     unistr = w_unistr._value
@@ -1253,7 +1289,8 @@ def unicode_to_decimal_w(space, w_unistr):
             except KeyError:
                 pass
         result[i] = unichr(uchr)
-    return unicodehelper.encode_utf8(space, u''.join(result), allow_surrogates=True)
+    return unicodehelper.encode_utf8(space, u''.join(result),
+                                     allow_surrogates=allow_surrogates)
 
 
 _repr_function, _ = make_unicode_escape_function(

@@ -14,11 +14,19 @@ class Module(MixedModule):
         """NOT_RPYTHON""" # because parent __init__ isn't
         if space.config.translating:
             del self.__class__.interpleveldefs['pypy_getudir']
+            del self.__class__.appleveldefs['stdin']
+            del self.__class__.appleveldefs['__stdin__']
+            del self.__class__.appleveldefs['stdout']
+            del self.__class__.appleveldefs['__stdout__']
+            del self.__class__.appleveldefs['stderr']
+            del self.__class__.appleveldefs['__stderr__']
+
         super(Module, self).__init__(space, w_name)
         self.recursionlimit = 100
         self.defaultencoding = "utf-8"
         self.filesystemencoding = None
         self.debug = True
+        self.track_resources = False
         self.dlopenflags = rdynload._dlopen_default_mode()
 
     interpleveldefs = {
@@ -98,6 +106,15 @@ class Module(MixedModule):
         'flags'                 : 'app.null_sysflags',
         '_xoptions'             : 'app.null__xoptions',
         'implementation'        : 'app.implementation',
+
+        # these six attributes are here only during tests;
+        # they are removed before translation
+        'stdin'                 : 'std_test.stdin',
+        '__stdin__'             : 'std_test.stdin',
+        'stdout'                : 'std_test.stdout',
+        '__stdout__'            : 'std_test.stdout',
+        'stderr'                : 'std_test.stderr',
+        '__stderr__'            : 'std_test.stderr',
     }
 
     def startup(self, space):
@@ -122,28 +139,12 @@ class Module(MixedModule):
         space = self.space
 
         if not space.config.translating:
-            from pypy.module.sys.interp_encoding import _getfilesystemencoding
-            self.filesystemencoding = _getfilesystemencoding(space)
-
-        if not space.config.translating:
-            # Install standard streams for tests that don't call app_main.
-            # Always use line buffering, even for tests that capture
-            # standard descriptors.
-            space.appexec([], """():
-                import sys, io
-                sys.stdin = sys.__stdin__ = io.open(0, "r", encoding="ascii",
-                                                    closefd=False)
-                sys.stdin.buffer.raw.name = "<stdin>"
-                sys.stdout = sys.__stdout__ = io.open(1, "w", encoding="ascii",
-                                                      buffering=1,
-                                                      closefd=False)
-                sys.stdout.buffer.raw.name = "<stdout>"
-                sys.stderr = sys.__stderr__ = io.open(2, "w", encoding="ascii",
-                                                      errors="backslashreplace",
-                                                      buffering=1,
-                                                      closefd=False)
-                sys.stderr.buffer.raw.name = "<stderr>"
-               """)
+            ##from pypy.module.sys.interp_encoding import _getfilesystemencoding
+            ##self.filesystemencoding = _getfilesystemencoding(space)
+            # XXX the two lines above take a few seconds to run whenever
+            # we initialize the space; for tests, use a simpler version
+            from pypy.module.sys.interp_encoding import base_encoding
+            self.filesystemencoding = space.wrap(base_encoding)
 
     def flush_std_files(self, space):
         w_stdout = space.sys.getdictvalue(space, 'stdout')

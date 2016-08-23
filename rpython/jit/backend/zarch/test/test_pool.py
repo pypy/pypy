@@ -40,7 +40,7 @@ class TestPoolZARCH(object):
 
     def test_constant_in_call_malloc(self):
         c = ConstPtr(rffi.cast(llmemory.GCREF, 0xdeadbeef1234))
-        self.ensure_can_hold(rop.CALL_MALLOC_GC, [c], descr=self.calldescr)
+        self.ensure_can_hold(rop.COND_CALL, [c], descr=self.calldescr)
         assert self.const_in_pool(c)
         assert self.const_in_pool(ConstPtr(rffi.cast(llmemory.GCREF, 0xdeadbeef1234)))
 

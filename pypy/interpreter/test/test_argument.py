@@ -30,7 +30,7 @@ class TestSignature(object):
         assert sig.num_argnames() == 3
         assert sig.has_vararg()
         assert sig.has_kwarg()
-        assert sig.scope_length() == 5
+        assert sig.scope_length() == 6
         assert sig.getallvarnames() == ["a", "b", "c", "d", "kwonly", "c"]
 
     def test_eq(self):
@@ -46,13 +46,6 @@ class TestSignature(object):
         assert sig.find_argname("c") == 2
         assert sig.find_argname("d") == -1
         assert sig.find_argname("kwonly") == 3
-
-    def test_tuply(self):
-        sig = Signature(["a", "b", "c"], "d", "e")
-        x, y, z = sig
-        assert x == ["a", "b", "c"]
-        assert y == "d"
-        assert z == "e"
 
 class dummy_wrapped_dict(dict):
     def __nonzero__(self):

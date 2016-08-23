@@ -141,9 +141,7 @@ def decode_utf8(space, string, allow_surrogates=False):
     return result
 
 def encode_utf8(space, uni, allow_surrogates=False):
-    # Note that this function never raises UnicodeEncodeError,
-    # since surrogate pairs are allowed.
-    # This is not the case with Python3.
+    # Note that Python3 tends to forbid lone surrogates
     return runicode.unicode_encode_utf_8(
         uni, len(uni), "strict",
         errorhandler=encode_error_handler(space),

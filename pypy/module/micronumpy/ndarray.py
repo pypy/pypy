@@ -254,7 +254,7 @@ class __extend__(W_NDimArray):
                 idx = space.str_w(w_idx)
                 return self.getfield(space, idx)
         if space.is_w(w_idx, space.w_Ellipsis):
-            return self
+            return self.descr_view(space, space.type(self))
         elif isinstance(w_idx, W_NDimArray) and w_idx.get_dtype().is_bool():
             if w_idx.ndims() > 0:
                 w_ret = self.getitem_filter(space, w_idx)

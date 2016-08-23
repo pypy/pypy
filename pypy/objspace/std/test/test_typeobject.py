@@ -675,7 +675,7 @@ class AppTestTypeObject:
         assert repr(A) == "<class 'a.test_repr.<locals>.A'>"
         A.__module__ = 123
         assert repr(A) == "<class 'A'>"
-        assert repr(type(type)) == "<class 'type'>" 
+        assert repr(type(type)) == "<class 'type'>"
         assert repr(complex) == "<class 'complex'>"
         assert repr(property) == "<class 'property'>"
         assert repr(TypeError) == "<class 'TypeError'>"
@@ -970,7 +970,6 @@ class AppTestTypeObject:
         raises(TypeError, setattr, list, 'foobar', 42)
         raises(TypeError, delattr, dict, 'keys')
         raises(TypeError, 'int.__dict__["a"] = 1')
-        raises(TypeError, 'int.__dict__.clear()')
 
     def test_nontype_in_mro(self):
         class OldStyle:
@@ -1028,10 +1027,9 @@ class AppTestTypeObject:
             pass
 
         a = A()
+        d = A.__dict__
         A.x = 1
-        assert A.__dict__["x"] == 1
-        A.__dict__['x'] = 5
-        assert A.x == 5
+        assert d["x"] == 1
 
     def test_we_already_got_one_1(self):
         # Issue #2079: highly obscure: CPython complains if we say
@@ -1201,6 +1199,23 @@ class AppTestTypeObject:
                # but the lookup of '__init__' fails
         """
 
+    def test_instancecheck(self):
+        assert int.__instancecheck__(42) is True
+        assert int.__instancecheck__(42.0) is False
+        class Bar(object):
+            __class__ = int
+        assert int.__instancecheck__(Bar()) is True
+
+    def test_subclasscheck(self):
+        assert int.__subclasscheck__(bool) is True
+        assert int.__subclasscheck__(float) is False
+        class Bar(object):
+            __class__ = int
+        assert int.__subclasscheck__(Bar) is False
+        class AbstractClass(object):
+            __bases__ = (int,)
+        assert int.__subclasscheck__(AbstractClass()) is True
+
 
 class AppTestWithMethodCacheCounter:
     spaceconfig = {"objspace.std.withmethodcachecounter": True}
@@ -1274,7 +1289,7 @@ class TestNewShortcut:
 
         assert w_A.w_new_function is None
         assert w_B.w_new_function is None
-        assert w_M.w_new_function is None                
+        assert w_M.w_new_function is None
 
         _, w_object_newdescr = space.lookup_in_type_where(space.w_object,
                                                           '__new__')

@@ -548,8 +548,10 @@ typedef union _gc_head {
 #define PyObject_TypeCheck(ob, tp) \
     ((ob)->ob_type == (tp) || PyType_IsSubtype((ob)->ob_type, (tp)))
 
-#define Py_TRASHCAN_SAFE_BEGIN(pyObj)
-#define Py_TRASHCAN_SAFE_END(pyObj)
+#define Py_TRASHCAN_SAFE_BEGIN(pyObj) do {
+#define Py_TRASHCAN_SAFE_END(pyObj)   ; } while(0);
+/* note: the ";" at the start of Py_TRASHCAN_SAFE_END is needed
+   if the code has a label in front of the macro call */
 
 /* Copied from CPython ----------------------------- */
 PyAPI_FUNC(int) PyObject_AsReadBuffer(PyObject *, const void **, Py_ssize_t *);

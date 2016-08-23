@@ -87,11 +87,12 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("getbytearray", "METH_NOARGS",
              """
-                 PyObject* s1 = PyByteArray_FromStringAndSize("test", 4);
+                 const char *c;
+                 PyObject *s2, *s1 = PyByteArray_FromStringAndSize("test", 4);
                  if (s1 == NULL)
                      return NULL;
-                 const char* c = PyByteArray_AsString(s1);
-                 PyObject* s2 = PyByteArray_FromStringAndSize(c, 4);
+                 c = PyByteArray_AsString(s1);
+                 s2 = PyByteArray_FromStringAndSize(c, 4);
                  Py_DECREF(s1);
                  return s2;
              """),

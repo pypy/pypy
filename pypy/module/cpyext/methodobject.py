@@ -1,4 +1,4 @@
-from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
@@ -10,9 +10,10 @@ from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.module.cpyext.api import (
     CONST_STRING, METH_CLASS, METH_COEXIST, METH_KEYWORDS, METH_NOARGS, METH_O,
     METH_STATIC, METH_VARARGS, PyObject, PyObjectFields, bootstrap_function,
-    build_type_checkers, cpython_api, cpython_struct, generic_cpy_call)
+    build_type_checkers, cpython_api, cpython_struct, generic_cpy_call,
+    PyTypeObjectPtr)
 from pypy.module.cpyext.pyobject import (
-    Py_DecRef, from_ref, make_ref, make_typedescr)
+    Py_DecRef, from_ref, make_ref, as_pyobj, make_typedescr)
 
 PyCFunction_typedef = rffi.COpaquePtr(typedef='PyCFunction')
 PyCFunction = lltype.Ptr(lltype.FuncType([PyObject, PyObject], PyObject))
@@ -151,28 +152,45 @@ class W_PyCClassMethodObject(W_PyCFunctionObject):
 
 class W_PyCWrapperObject(W_Root):
     def __init__(self, space, pto, method_name, wrapper_func,
-                 wrapper_func_kwds, doc, func):
+                 wrapper_func_kwds, doc, func, offset=None):
         self.space = space
         self.method_name = method_name
         self.wrapper_func = wrapper_func
         self.wrapper_func_kwds = wrapper_func_kwds
         self.doc = doc
         self.func = func
+        self.offset = offset
         pyo = rffi.cast(PyObject, pto)
         w_type = from_ref(space, pyo)
         assert isinstance(w_type, W_TypeObject)
         self.w_objclass = w_type
 
     def call(self, space, w_self, w_args, w_kw):
+        func_to_call = self.func
+        if self.offset:
+            pto = as_pyobj(space, self.w_objclass)
+            # make ptr the equivalent of this, using the offsets
+            #func_to_call = rffi.cast(rffi.VOIDP, ptr.c_tp_as_number.c_nb_multiply)
+            if pto:
+                cptr = rffi.cast(rffi.CCHARP, pto)
+                for o in self.offset:
+                    ptr = rffi.cast(rffi.VOIDPP, rffi.ptradd(cptr, o))[0]
+                    cptr = rffi.cast(rffi.CCHARP, ptr)
+                func_to_call = rffi.cast(rffi.VOIDP, cptr)
+            else:
+                # Should never happen, assert to get a traceback
+                assert False, "failed to convert w_type %s to PyObject" % str(
+                                                              self.w_objclass)
+        assert func_to_call
         if self.wrapper_func is None:
             assert self.wrapper_func_kwds is not None
-            return self.wrapper_func_kwds(space, w_self, w_args, self.func,
+            return self.wrapper_func_kwds(space, w_self, w_args, func_to_call,
                                           w_kw)
         if space.is_true(w_kw):
             raise oefmt(space.w_TypeError,
                         "wrapper %s doesn't take any keyword arguments",
                         self.method_name)
-        return self.wrapper_func(space, w_self, w_args, self.func)
+        return self.wrapper_func(space, w_self, w_args, func_to_call)
 
     def descr_method_repr(self):
         return self.space.wrap(u"<slot wrapper '%s' of '%s' objects>" %
@@ -297,12 +315,6 @@ def PyDescr_NewMethod(space, w_type, method):
 @cpython_api([PyObject, lltype.Ptr(PyMethodDef)], PyObject)
 def PyDescr_NewClassMethod(space, w_type, method):
     return space.wrap(W_PyCClassMethodObject(space, method, w_type))
-
-def PyDescr_NewWrapper(space, pto, method_name, wrapper_func,
-                       wrapper_func_kwds, doc, func):
-    # not exactly the API sig
-    return space.wrap(W_PyCWrapperObject(space, pto, method_name,
-        wrapper_func, wrapper_func_kwds, doc, func))
 
 @cpython_api([lltype.Ptr(PyMethodDef), PyObject, CONST_STRING], PyObject)
 def Py_FindMethod(space, table, w_obj, name_ptr):

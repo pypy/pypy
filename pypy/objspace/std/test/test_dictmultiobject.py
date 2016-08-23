@@ -970,6 +970,41 @@ class AppTestDictViews:
         items.add(first)
         assert items == set(d)
 
+    def test_contains(self):
+        logger = []
+
+        class Foo(object):
+
+            def __init__(self, value, name=None):
+                self.value = value
+                self.name = name or value
+
+            def __repr__(self):
+                return '<Foo %s>' % self.name
+
+            def __eq__(self, other):
+                logger.append((self, other))
+                return self.value == other.value
+
+            def __hash__(self):
+                return 42  # __eq__ will be used given all objects' hashes clash
+
+        foo1, foo2, foo3 = Foo(1), Foo(2), Foo(3)
+        foo42 = Foo(42)
+        foo_dict = {foo1: 1, foo2: 1, foo3: 1}
+        del logger[:]
+        foo42 in foo_dict
+        logger_copy = set(logger[:])  # prevent re-evaluation during pytest error print
+        assert logger_copy == {(foo3, foo42), (foo2, foo42), (foo1, foo42)}
+
+        del logger[:]
+        foo2_bis = Foo(2, '2 bis')
+        foo2_bis in foo_dict
+        logger_copy = set(logger[:])  # prevent re-evaluation during pytest error print
+        assert (foo2, foo2_bis) in logger_copy
+        assert logger_copy.issubset({(foo1, foo2_bis), (foo2, foo2_bis), (foo3, foo2_bis)})
+
+
 class AppTestStrategies(object):
     def setup_class(cls):
         if cls.runappdirect:
@@ -1247,7 +1282,7 @@ class BaseTestRDictImplementation:
             assert a == self.string2
             assert b == 2000
             if not self._str_devolves:
-                result = self.impl.getitem_str(self.string)
+                result = self.impl.getitem_str(self.string.encode('utf-8'))
             else:
                 result = self.impl.getitem(self.string)
             assert result == 1000
@@ -1258,7 +1293,7 @@ class BaseTestRDictImplementation:
         assert self.impl.length() == 1
         assert self.impl.getitem(self.string) == 1000
         if not self._str_devolves:
-            result = self.impl.getitem_str(self.string)
+            result = self.impl.getitem_str(self.string.encode('utf-8'))
         else:
             result = self.impl.getitem(self.string)
         assert result == 1000

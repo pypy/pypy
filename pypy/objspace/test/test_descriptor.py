@@ -81,29 +81,29 @@ class AppTest_Descriptor:
         raises(AttributeError, delattr, x, '\ud800')
         raises(AttributeError, getattr, x, '\uDAD1\uD51E')
 
-    def test_special_methods_returning_strings(self): 
-        class A(object): 
+    def test_special_methods_returning_strings(self):
+        class A(object):
             seen = []
-            def __str__(self): 
-                self.seen.append(1) 
-            def __repr__(self): 
-                self.seen.append(2) 
-            def __oct__(self): 
-                self.seen.append(3) 
-            def __hex__(self): 
-                self.seen.append(4) 
+            def __str__(self):
+                self.seen.append(1)
+            def __repr__(self):
+                self.seen.append(2)
+            def __oct__(self):
+                self.seen.append(3)
+            def __hex__(self):
+                self.seen.append(4)
 
         inst = A()
-        raises(TypeError, str, inst) 
-        raises(TypeError, repr, inst) 
-        raises(TypeError, oct, inst) 
-        raises(TypeError, hex, inst) 
+        raises(TypeError, str, inst)
+        raises(TypeError, repr, inst)
+        raises(TypeError, oct, inst)
+        raises(TypeError, hex, inst)
         assert A.seen == [1,2] # __oct__ and __hex__ are no longer called
 
-    def test_hash(self): 
+    def test_hash(self):
         class A(object):
             pass
-        hash(A()) 
+        hash(A())
 
         class B(object):
             def __eq__(self, other): pass
@@ -111,7 +111,7 @@ class AppTest_Descriptor:
         raises(TypeError, "hash(B())") # because we define __eq__ but not __hash__
 
         class E(object):
-            def __hash__(self): 
+            def __hash__(self):
                 return "something"
         raises(TypeError, hash, E())
 
@@ -128,3 +128,23 @@ class AppTest_Descriptor:
                 return myint(15)
         assert hash(I()) == 15
         assert type(hash(I())) is int
+
+        # check hashing of -1 to -2
+        class myint(int):
+            pass
+        class myfloat(float):
+            pass
+        class myHashClass(object):
+            def __hash__(self):
+                return -1
+        class myHashClass3(object):
+            def __hash__(self):
+                return -10**100
+
+        assert hash(-1) == -2
+        assert hash(-1.0) == -2
+        assert hash(-1 + 0j) == -2
+        assert hash(myint(-1)) == -2
+        assert hash(myfloat(-1.0)) == -2
+        assert hash(myHashClass()) == -2
+        assert hash(myHashClass3()) == hash(-10**100)

@@ -2199,7 +2199,8 @@ class UnicodeTest(string_tests.CommonTest,
     def test_getnewargs(self):
         text = 'abc'
         args = text.__getnewargs__()
-        self.assertIsNot(args[0], text)
+        if support.check_impl_detail():
+            self.assertIsNot(args[0], text)
         self.assertEqual(args[0], text)
         self.assertEqual(len(args), 1)
 
