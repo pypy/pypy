@@ -23,8 +23,8 @@ class QcgcFrameworkGCTransformer(BaseFrameworkGCTransformer):
         #     s_gcref], s_gcref)
         #
         def invokecallback(root, visit_fn):
-            obj = llop.qcgc_dereference(llmemory.Address, root)
-            visit_fn(obj)
+            ref = llmemory.cast_adr_to_ptr(root, rffi.VOIDPP)
+            visit_fn(llmemory.cast_ptr_to_adr(ref[0]))
         def pypy_trace_cb(obj, visit_fn):
             gc.trace(obj, invokecallback, visit_fn)
         pypy_trace_cb.c_name = "pypy_trace_cb"
