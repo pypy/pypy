@@ -465,21 +465,25 @@ class VectorAssembler(object):
         vector = vloc.value
         src = sourceloc.value
         size = op.bytesize
+        assert resultloc.is_vector_reg() # vector <- reg
+        self.mc.load_imm(r.SCRATCH2, PARAM_SAVE_AREA_OFFSET)
+        self.mc.stvx(vector, r.SCRATCH2.value, r.SP.value)
         if size == 8:
-            if resultloc.is_vector_reg(): # vector <- reg
-                self.mc.load_imm(r.SCRATCH2, PARAM_SAVE_AREA_OFFSET)
-                self.mc.stvx(vector, r.SCRATCH2.value, r.SP.value)
-                idx = residx
-                self.mc.store(src, r.SP.value, PARAM_SAVE_AREA_OFFSET+8*idx)
-                self.mc.lvx(res, r.SCRATCH2.value, r.SP.value)
-            else:
-                not_implemented("64 bit float")
+            idx = residx
+            self.mc.store(src, r.SP.value, PARAM_SAVE_AREA_OFFSET+8*idx)
         elif size == 4:
-            not_implemented("vec_pack_i")
+            for j in range(count):
+                i = j + residx
+                self.mc.stw(src, r.SP.value, PARAM_SAVE_AREA_OFFSET+4*i)
         elif size == 2:
-            not_implemented("vec_pack_i")
+            for j in range(count):
+                i = j + residx
+                self.mc.sth(src, r.SP.value, PARAM_SAVE_AREA_OFFSET+2*i)
         elif size == 1:
-            not_implemented("vec_pack_i")
+            for j in range(count):
+                i = j + residx
+                self.mc.stb(src, r.SP.value, PARAM_SAVE_AREA_OFFSET+i)
+        self.mc.lvx(res, r.SCRATCH2.value, r.SP.value)
 
     def emit_vec_unpack_i(self, op, arglocs, regalloc):
         assert isinstance(op, VectorOp)
@@ -507,7 +511,7 @@ class VectorAssembler(object):
                 return
             elif size == 1:
                 self.mc.lbz(res, r.SP.value, off)
-                self.mc.extsb(res, res)
+                #self.mc.extsb(res, res)
                 return
 
         not_implemented("%d bit integer, count %d" % \
@@ -715,7 +719,7 @@ class VectorRegalloc(object):
         return [resloc, vloc, srcloc, imm(residx), imm(srcidx), imm(count.value)]
 
     def prepare_vec_pack_f(self, op):
-        # new_res = vec_pack_i(res, src, index, count)
+        # new_res = vec_pack_f(res, src, index, count)
         assert isinstance(op, VectorOp)
         arg = op.getarg(1)
         index = op.getarg(2)
