@@ -1236,6 +1236,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 key = d.keys[i]
                 if key is None:
                     is_unpacking = True
+                else:
+                    is_unpacking = False
                 if elements == 0xFFFF or (elements and is_unpacking):
                     self.emit_op_arg(ops.BUILD_MAP, elements)
                     containers += 1
