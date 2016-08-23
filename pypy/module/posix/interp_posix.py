@@ -2142,3 +2142,49 @@ for name in """FCHDIR FCHMOD FCHMODAT FCHOWN FCHOWNAT FEXECVE FDOPENDIR
         have_functions.append("HAVE_%s" % name)
 if _WIN32:
     have_functions.append("HAVE_MS_WINDOWS")
+   
+def get_terminal_size(space, w_fd=None):
+    if w_fd is None:
+        w_stdout = space.sys.getdictvalue(space, 'stdout')
+        fd = space.int_w(w_stdout.fileno_w(space))
+    else:
+        if not space.isinstance_w(w_fd, space.w_int):
+            raise oefmt(space.w_TypeError,
+                        "an integer is required, got %T", w_fd)
+        else:
+            fd = space.c_int_w(w_fd)
+
+    if _WIN32:
+        if fd == 0:
+            handle_id = rwin32.STD_INPUT_HANDLE
+        elif fd == 1:
+            handle_id = rwin32.STD_OUTPUT_HANDLE
+        elif fd == 2:
+            handle_id = rwin32.STD_ERROR_HANDLE
+        else:
+            raise oefmt(space.w_ValueError, "bad file descriptor")
+
+        handle = rwin32.GetStdHandle(handle_id)
+
+        if handle == rwin32.NULL_HANDLE:
+            raise oefmt(OSError, "handle cannot be retrieved")
+        elif handle == rwin32.INVALID_HANDLE_VALUE:
+            raise rwin32.lastSavedWindowsError()
+        with lltype.scoped_alloc(CONSOLE_SCREEN_BUFFER_INFO) as buffer_info: 
+            success = GetConsoleScreenBufferInfo(handle, buffer_info)
+            if not success:
+                raise rwin32.lastSavedWindowsError()
+            columns = buffer_info.srWindow.Right - buffer_info.srWindow.Left + 1
+            lines = buffer_info.srWindow.Bottom - buffer_info.srWindow.Top + 1
+    else:
+        # Assuming that all supported platforms will have ioctl at least
+        with lltype.scoped_alloc(rposix.WINSIZE) as winsize: 
+            failed = c_ioctl_voidp(fd, rposix.TIOCGWINSZ, winsize)
+            if failed:
+                raise exception_from_saved_errno(space, space.w_OSError)
+
+            # TODO: Wrap this into a python_lvel int (somehow)
+            columns = space.wrap(winsize.c_ws_col)
+            lines = space.wrap(winsize.c_ws_row)
+
+    return space.newtuple([columns, lines])

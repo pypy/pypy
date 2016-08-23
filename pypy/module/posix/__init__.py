@@ -74,6 +74,7 @@ corresponding Unix manual entries for more information on calls."""
         'abort': 'interp_posix.abort',
         'urandom': 'interp_posix.urandom',
         'device_encoding': 'interp_posix.device_encoding',
+        'get_terminal_size': 'interp_posix.get_terminal_size'
     }
 
     if hasattr(os, 'chown'):
