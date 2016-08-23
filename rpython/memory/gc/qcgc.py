@@ -57,7 +57,10 @@ class QCGC(GCBase):
 
     def writebarrier_before_copy(self, source_addr, dest_addr,
                                  source_start, dest_start, length):
-        raise NotImplementedError
+        # XXX: Seems like returning false is the most conservative way to handle
+        # this. Unfortunately I don't fully understand what this is supposed to
+        # do, so I can't optimize it ATM.
+        return False
         # Possible implementation?
         #llop.gc_writebarrier(dest_addr)
         #return True
