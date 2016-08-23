@@ -11,8 +11,8 @@ from rpython.rlib import jit, rdynload, rweakref, rgc
 from rpython.rlib import jit_libffi, clibffi
 from rpython.rlib.objectmodel import we_are_translated, keepalive_until_here
 
-from pypy.module._cffi_backend import ctypefunc, newtype
-from pypy.module.cppyy import converter, executor, helper
+from pypy.module._cffi_backend import ctypefunc
+from pypy.module.cppyy import converter, executor, ffitypes, helper
 
 
 class FastCallNotPossible(Exception):
@@ -209,7 +209,7 @@ class CPPMethod(object):
         if self.converters is None:
             try:
                 self._setup(cppthis)
-            except Exception as e:
+            except Exception:
                 pass
 
         # some calls, e.g. for ptr-ptr or reference need a local array to store data for
@@ -261,6 +261,7 @@ class CPPMethod(object):
                 data = capi.exchange_address(buffer, cif_descr, j+1)
                 conv.default_argument_libffi(self.space, data)
 
+            assert self._funcaddr
             w_res = self.executor.execute_libffi(
                 self.space, cif_descr, self._funcaddr, buffer)
         finally:
@@ -326,14 +327,17 @@ class CPPMethod(object):
         # uniquely defined and needs to be setup only once.
         self._funcaddr = capi.c_get_function_address(self.space, self.scope, self.index)
         if self._funcaddr and cppthis:      # methods only for now
+            state = self.space.fromcache(ffitypes.State)
+
             # argument type specification (incl. cppthis)
             fargs = []
-            fargs.append(newtype.new_pointer_type(self.space, newtype.new_void_type(self.space)))
-            for i, conv in enumerate(self.converters):
-                 if not conv.libffitype:
-                     raise FastCallNotPossible
-                 fargs.append(newtype.new_primitive_type(self.space, conv.ctype_name))
-            fresult = newtype.new_primitive_type(self.space, self.executor.ctype_name)
+            try:
+                fargs.append(state.c_voidp)
+                for i, conv in enumerate(self.converters):
+                    fargs.append(conv.cffi_type(self.space))
+                fresult = self.executor.cffi_type(self.space)
+            except:
+                raise FastCallNotPossible
 
             # the following is derived from _cffi_backend.ctypefunc
             builder = ctypefunc.CifDescrBuilder(fargs[:], fresult, clibffi.FFI_DEFAULT_ABI)

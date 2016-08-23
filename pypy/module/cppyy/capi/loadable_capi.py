@@ -8,6 +8,8 @@ from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import oefmt
 
 from pypy.module._cffi_backend import ctypefunc, ctypeprim, cdataobj, misc
+from pypy.module._cffi_backend import newtype
+from pypy.module.cppyy import ffitypes
 
 from pypy.module.cppyy.capi.capi_types import C_SCOPE, C_TYPE, C_OBJECT,\
    C_METHOD, C_INDEX, C_INDEX_ARRAY, WLAVC_INDEX, C_FUNC_PTR
@@ -90,35 +92,35 @@ class State(object):
         self.library = None
         self.capi_calls = {}
 
-        import pypy.module._cffi_backend.newtype as nt
+        nt = newtype     # module from _cffi_backend
+        state = space.fromcache(ffitypes.State)   # factored out common types
 
         # TODO: the following need to match up with the globally defined C_XYZ low-level
         # types (see capi/__init__.py), but by using strings here, that isn't guaranteed
-        c_opaque_ptr = nt.new_primitive_type(space, 'unsigned long')
+        c_opaque_ptr = state.c_ulong
  
         c_scope  = c_opaque_ptr
         c_type   = c_scope
         c_object = c_opaque_ptr
         c_method = c_opaque_ptr
-        c_index  = nt.new_primitive_type(space, 'long')
+        c_index  = state.c_long
+        c_index_array = state.c_voidp
 
-        c_void   = nt.new_void_type(space)
-        c_char   = nt.new_primitive_type(space, 'char')
-        c_uchar  = nt.new_primitive_type(space, 'unsigned char')
-        c_short  = nt.new_primitive_type(space, 'short')
-        c_int    = nt.new_primitive_type(space, 'int')
-        c_long   = nt.new_primitive_type(space, 'long')
-        c_llong  = nt.new_primitive_type(space, 'long long')
-        c_ullong = nt.new_primitive_type(space, 'unsigned long long')
-        c_float  = nt.new_primitive_type(space, 'float')
-        c_double = nt.new_primitive_type(space, 'double')
+        c_void   = state.c_void
+        c_char   = state.c_char
+        c_uchar  = state.c_uchar
+        c_short  = state.c_short
+        c_int    = state.c_int
+        c_long   = state.c_long
+        c_llong  = state.c_llong
+        c_ullong = state.c_ullong
+        c_float  = state.c_float
+        c_double = state.c_double
 
-        c_ccharp = nt.new_pointer_type(space, c_char)
-        c_index_array = nt.new_pointer_type(space, c_void)
+        c_ccharp = state.c_ccharp
+        c_voidp  = state.c_voidp
 
-        c_voidp  = nt.new_pointer_type(space, c_void)
         c_size_t = nt.new_primitive_type(space, 'size_t')
-
         c_ptrdiff_t = nt.new_primitive_type(space, 'ptrdiff_t')
 
         self.capi_call_ifaces = {

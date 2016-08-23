@@ -27,12 +27,12 @@ from pypy.module.cppyy import helper, capi, ffitypes
 NULL = lltype.nullptr(jit_libffi.FFI_TYPE_P.TO)
 
 class FunctionExecutor(object):
-    _immutable_fields_ = ['libffitype']
-
-    libffitype = NULL
-
     def __init__(self, space, extra):
         pass
+
+    def cffi_type(self, space):
+        from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
+        raise FastCallNotPossible
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
         raise oefmt(space.w_TypeError,
@@ -44,10 +44,12 @@ class FunctionExecutor(object):
 
 
 class PtrTypeExecutor(FunctionExecutor):
-    _immutable_fields_ = ['libffitype', 'typecode']
-
-    libffitype = jit_libffi.types.pointer
+    _immutable_fields_ = ['typecode']
     typecode = 'P'
+
+    def cffi_type(self, space):
+        state = space.fromcache(ffitypes.State)
+        return state.c_voidp
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
         if hasattr(space, "fake"):
@@ -62,9 +64,9 @@ class PtrTypeExecutor(FunctionExecutor):
 
 
 class VoidExecutor(FunctionExecutor):
-    _immutable_fields_ = ['libffitype']
-
-    libffitype = jit_libffi.types.void
+    def cffi_type(self, space):
+        state = space.fromcache(ffitypes.State)
+        return state.c_void
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
         capi.c_call_v(space, cppmethod, cppthis, num_args, args)
@@ -143,13 +145,15 @@ class ConstructorExecutor(FunctionExecutor):
 
 
 class InstancePtrExecutor(FunctionExecutor):
-    _immutable_fields_ = ['libffitype', 'cppclass']
-
-    libffitype = jit_libffi.types.pointer
+    _immutable_fields_ = ['cppclass']
 
     def __init__(self, space, cppclass):
         FunctionExecutor.__init__(self, space, cppclass)
         self.cppclass = cppclass
+
+    def cffi_type(self, space):
+        state = space.fromcache(ffitypes.State)
+        return state.c_voidp
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
         from pypy.module.cppyy import interp_cppyy
@@ -331,8 +335,9 @@ def _build_basic_executors():
             _immutable_ = True
             c_stubcall  = staticmethod(stub)
         class BasicRefExecutor(ffitypes.typeid(c_type), NumericRefExecutorMixin, FunctionExecutor):
-            _immutable_fields_ = ['libffitype']
-            libffitype = jit_libffi.types.pointer
+            def cffi_type(self, space):
+                state = space.fromcache(ffitypes.State)
+                return state.c_voidp
         for name in names:
             _executors[name]              = BasicExecutor
             _executors[name+'&']          = BasicRefExecutor

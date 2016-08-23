@@ -89,9 +89,10 @@ class FakeBuffer(FakeBase):
     def get_raw_address(self):
         raise ValueError("no raw buffer")
 class FakeException(FakeType):
-    def __init__(self, name):
+    def __init__(self, space, name):
         FakeType.__init__(self, name)
         self.msg = name
+        self.space = space
 
 class FakeUserDelAction(object):
     def __init__(self, space):
@@ -110,15 +111,6 @@ class FakeState(object):
 class FakeSpace(object):
     fake = True
 
-    w_AttributeError      = FakeException("AttributeError")
-    w_KeyError            = FakeException("KeyError")
-    w_NotImplementedError = FakeException("NotImplementedError")
-    w_ReferenceError      = FakeException("ReferenceError")
-    w_RuntimeError        = FakeException("RuntimeError")
-    w_SystemError         = FakeException("SystemError")
-    w_TypeError           = FakeException("TypeError")
-    w_ValueError          = FakeException("ValueError")
-
     w_None = None
     w_str = FakeType("str")
     w_int = FakeType("int")
@@ -136,6 +128,15 @@ class FakeSpace(object):
             assert not "slow path called"
             return capi.c_call_i(space, cppmethod, cppobject, nargs, args)
         executor.get_executor(self, 'int').__class__.c_stubcall = staticmethod(c_call_i)
+
+        self.w_AttributeError      = FakeException(self, "AttributeError")
+        self.w_KeyError            = FakeException(self, "KeyError")
+        self.w_NotImplementedError = FakeException(self, "NotImplementedError")
+        self.w_ReferenceError      = FakeException(self, "ReferenceError")
+        self.w_RuntimeError        = FakeException(self, "RuntimeError")
+        self.w_SystemError         = FakeException(self, "SystemError")
+        self.w_TypeError           = FakeException(self, "TypeError")
+        self.w_ValueError          = FakeException(self, "ValueError")
 
     def issequence_w(self, w_obj):
         return True
