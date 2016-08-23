@@ -1029,4 +1029,5 @@ def _hash_int(a):
     if x >= HASH_MODULUS:
         x -= HASH_MODULUS
 
-    return intmask(intmask(x) * sign)
+    h = intmask(intmask(x) * sign)
+    return h - (h == -1)

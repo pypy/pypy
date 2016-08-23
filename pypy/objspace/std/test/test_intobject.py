@@ -265,7 +265,11 @@ class TestW_IntObject:
         result = f1.int(self.space)
         assert result == f1
 
-class AppTestInt:
+class AppTestInt(object):
+    def test_hash(self):
+        assert hash(-1) == (-1).__hash__() == -2
+        assert hash(-2) == (-2).__hash__() == -2
+
     def test_conjugate(self):
         assert (1).conjugate() == 1
         assert (-1).conjugate() == -1
