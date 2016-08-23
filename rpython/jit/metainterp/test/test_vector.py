@@ -831,21 +831,21 @@ class VectorizeTests(object):
         for i,v in enumerate(values):
             j = (i // 2) * 2
             op = ["v{v}[2xi32] = vec_unpack_i({x}, %d, 2)" % j,
-                  "i{i} = vec_unpack_i(v{v}[2xi32], %d, 1)" % i]
+                  "i{i} = vec_unpack_i(v{v}[2xi32], %d, 1)" % (i % 2)]
             assert self.run_unpack(op, "[4xi32]", {'x': values}, float=False) == v
 
         values = [1,2,3,4,5,6,7,8]
         for i,v in enumerate(values):
             j = (i // 4) * 4
             op = ["v{v}[4xi16] = vec_unpack_i({x}, %d, 4)" % j,
-                  "i{i} = vec_unpack_i(v{v}[4xi16], %d, 1)" % i]
+                  "i{i} = vec_unpack_i(v{v}[4xi16], %d, 1)" % (i % 4)]
             assert self.run_unpack(op, "[8xi16]", {'x': values}, float=False) == v
 
         values = [1,2,3,4,5,6,7,8] * 2
         for i,v in enumerate(values):
             j = (i // 8) * 8
             op = ["v{v}[8xi8] = vec_unpack_i({x}, %d, 8)" % j,
-                  "i{i} = vec_unpack_i(v{v}[8xi8], %d, 1)" % i]
+                  "i{i} = vec_unpack_i(v{v}[8xi8], %d, 1)" % (i % 8)]
             assert self.run_unpack(op, "[16xi8]", {'x': values}, float=False) == v
 
 

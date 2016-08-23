@@ -276,9 +276,9 @@ class VectorAssembler(object):
         if arg.type == FLOAT:
             # r = (r[0]+r[1],r[0]+r[1])
             if IS_BIG_ENDIAN:
-                self.mc.xxspltd(tgt, acc, acc, 0b00)
+                self.mc.xxpermdi(tgt, acc, acc, 0b00)
             else:
-                self.mc.xxspltd(tgt, acc, acc, 0b10)
+                self.mc.xxpermdi(tgt, acc, acc, 0b10)
             if op == '+':
                 self.mc.xsadddp(tgt, tgt, acc)
             elif op == '*':
@@ -468,21 +468,29 @@ class VectorAssembler(object):
         assert resultloc.is_vector_reg() # vector <- reg
         self.mc.load_imm(r.SCRATCH2, PARAM_SAVE_AREA_OFFSET)
         self.mc.stvx(vector, r.SCRATCH2.value, r.SP.value)
+        idx = residx
         if size == 8:
-            idx = residx
+            if not IS_BIG_ENDIAN:
+                idx = (16 // size) - 1 - idx
             self.mc.store(src, r.SP.value, PARAM_SAVE_AREA_OFFSET+8*idx)
         elif size == 4:
             for j in range(count):
-                i = j + residx
-                self.mc.stw(src, r.SP.value, PARAM_SAVE_AREA_OFFSET+4*i)
+                idx = j + residx
+                if not IS_BIG_ENDIAN:
+                    idx = (16 // size) - 1 - idx
+                self.mc.stw(src, r.SP.value, PARAM_SAVE_AREA_OFFSET+4*idx)
         elif size == 2:
             for j in range(count):
-                i = j + residx
-                self.mc.sth(src, r.SP.value, PARAM_SAVE_AREA_OFFSET+2*i)
+                idx = j + residx
+                if not IS_BIG_ENDIAN:
+                    idx = (16 // size) - 1 - idx
+                self.mc.sth(src, r.SP.value, PARAM_SAVE_AREA_OFFSET+2*idx)
         elif size == 1:
             for j in range(count):
-                i = j + residx
-                self.mc.stb(src, r.SP.value, PARAM_SAVE_AREA_OFFSET+i)
+                idx = j + residx
+                if not IS_BIG_ENDIAN:
+                    idx = (16 // size) - 1 - idx
+                self.mc.stb(src, r.SP.value, PARAM_SAVE_AREA_OFFSET+idx)
         self.mc.lvx(res, r.SCRATCH2.value, r.SP.value)
 
     def emit_vec_unpack_i(self, op, arglocs, regalloc):
@@ -499,7 +507,9 @@ class VectorAssembler(object):
             off = PARAM_SAVE_AREA_OFFSET
             self.mc.load_imm(r.SCRATCH2, off)
             self.mc.stvx(src, r.SCRATCH2.value, r.SP.value)
-            off = off + size * idx
+            if not IS_BIG_ENDIAN:
+                idx = (16 // size) - 1 - idx
+            off += size * idx
             if size == 8:
                 self.mc.load(res, r.SP.value, off)
                 return
@@ -511,32 +521,26 @@ class VectorAssembler(object):
                 return
             elif size == 1:
                 self.mc.lbz(res, r.SP.value, off)
-                #self.mc.extsb(res, res)
+                self.mc.extsb(res, res)
                 return
         else:
             # count is not 1, but only 2 is supported for i32
             # 4 for i16 and 8 for i8.
-            src = srcloc.value | 0b100000
-            res = resloc.value | 0b100000
-            residx = 0
-            #assert idx == 0 or idx == 8
-            if (size == 4 and count == 2) or \
-               (size == 2 and count == 4) or \
-               (size == 1 and count == 8):
-                if idx == 0:
-                    self.mc.xxpermdi(res, src, res, permi(0,1))
-                else:
-                    self.mc.xxpermdi(res, src, res, permi(1,1))
-                return
+            src = srcloc.value
+            res = resloc.value
 
             self.mc.load_imm(r.SCRATCH2, PARAM_SAVE_AREA_OFFSET)
             self.mc.stvx(src, r.SCRATCH2.value, r.SP.value)
             self.mc.load_imm(r.SCRATCH2, PARAM_SAVE_AREA_OFFSET+16)
             self.mc.stvx(res, r.SCRATCH2.value, r.SP.value)
             if count * size == 8:
+                stidx = 0
+                if not IS_BIG_ENDIAN:
+                    idx = (16 // size) - 1 - idx
+                    stidx = 0
                 off = PARAM_SAVE_AREA_OFFSET + idx * size
                 self.mc.load(r.SCRATCH.value, r.SP.value, off)
-                self.mc.store(r.SCRATCH.value, r.SP.value, PARAM_SAVE_AREA_OFFSET+16)
+                self.mc.store(r.SCRATCH.value, r.SP.value, PARAM_SAVE_AREA_OFFSET+16+stidx)
                 self.mc.lvx(res, r.SCRATCH2.value, r.SP.value)
                 return
 
