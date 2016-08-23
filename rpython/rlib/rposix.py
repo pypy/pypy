@@ -220,7 +220,8 @@ def closerange(fd_low, fd_high):
             pass
 
 if _WIN32:
-    includes = ['io.h', 'sys/utime.h', 'sys/types.h']
+    includes = ['io.h', 'sys/utime.h', 'sys/types.h',
+                'time.h']
     libraries = []
 else:
     if sys.platform.startswith(('darwin', 'netbsd', 'openbsd')):
@@ -250,9 +251,8 @@ class CConfig:
     UTIMBUF = rffi_platform.Struct('struct %sutimbuf' % UNDERSCORE_ON_WIN32,
                                    [('actime', rffi.INT),
                                     ('modtime', rffi.INT)])
+    CLOCK_T = rffi_platform.SimpleType('clock_t', rffi.INT)
     if not _WIN32:
-        CLOCK_T = rffi_platform.SimpleType('clock_t', rffi.INT)
-
         TMS = rffi_platform.Struct(
             'struct tms', [('tms_utime', rffi.INT),
                            ('tms_stime', rffi.INT),
