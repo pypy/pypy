@@ -470,8 +470,6 @@ class VectorAssembler(object):
                 self.mc.load_imm(r.SCRATCH2, PARAM_SAVE_AREA_OFFSET)
                 self.mc.stvx(vector, r.SCRATCH2.value, r.SP.value)
                 idx = residx
-                if not IS_BIG_ENDIAN:
-                    idx = 1 - idx
                 self.mc.store(src, r.SP.value, PARAM_SAVE_AREA_OFFSET+8*idx)
                 self.mc.lvx(res, r.SCRATCH2.value, r.SP.value)
             else:
@@ -499,7 +497,7 @@ class VectorAssembler(object):
             self.mc.stvx(src, r.SCRATCH2.value, r.SP.value)
             off = off + size * idx
             if size == 8:
-                self.mc.load(res, r.SP.value, off+size*idx)
+                self.mc.load(res, r.SP.value, off)
                 return
             elif size == 4:
                 self.mc.lwa(res, r.SP.value, off)

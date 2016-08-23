@@ -789,7 +789,7 @@ class VectorizeTests(object):
         #
         looptoken = JitCellToken()
         cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
-        import pdb; pdb.set_trace()
+        #import pdb; pdb.set_trace()
         deadframe = cpu.execute_token(looptoken, *args_values)
         print(source)
         if float:
@@ -805,10 +805,10 @@ class VectorizeTests(object):
                                "[2xf64]", {'x': (50.33,4321.0)}) == 4321.0
     def test_unpack_i64(self):
         # int64
-        assert self.run_unpack("i{i} = vec_unpack_i({x}, 0, 1)",
-                               "[2xi64]", {'x': (11,12)}, float=False) == 11
         assert self.run_unpack("i{i} = vec_unpack_i({x}, 1, 1)",
                                "[2xi64]", {'x': (14,15)}, float=False) == 15
+        assert self.run_unpack("i{i} = vec_unpack_i({x}, 0, 1)",
+                               "[2xi64]", {'x': (11,12)}, float=False) == 11
 
     def test_unpack_i(self):
         for i in range(16):
