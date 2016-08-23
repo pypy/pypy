@@ -820,13 +820,9 @@ class __extend__(pyframe.PyFrame):
         itemcount = len(items)
         count = left + right
         if count > itemcount:
-            if count == 1:
-                plural = ''
-            else:
-                plural = 's'
             raise oefmt(self.space.w_ValueError,
-                        "need more than %d value%s to unpack",
-                        itemcount, plural)
+                        "not enough values to unpack (expected at least %d, got %d)",
+                        count, itemcount)
         right = itemcount - right
         assert right >= 0
         # push values in reverse order

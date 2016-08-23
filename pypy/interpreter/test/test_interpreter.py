@@ -458,7 +458,7 @@ class AppTestInterpreter:
         try:
             a, *b, c, d, e = Seq()
         except ValueError as e:
-            assert str(e) == "need more than 3 values to unpack"
+            assert str(e) == "not enough values to unpack (expected at least 4, got 3)"
         else:
             assert False, "Expected ValueError"
             """

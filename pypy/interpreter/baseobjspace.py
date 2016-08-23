@@ -942,8 +942,8 @@ class ObjSpace(object):
             idx += 1
         if idx < expected_length:
             raise oefmt(self.w_ValueError,
-                        "need more than %d value%s to unpack",
-                        idx, "" if idx == 1 else "s")
+                        "not enough values to unpack (expected %d, got %d)",
+                        expected_length, idx)
         return items
 
     def unpackiterable_unroll(self, w_iterable, expected_length):
