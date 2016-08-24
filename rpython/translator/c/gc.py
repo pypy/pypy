@@ -236,7 +236,7 @@ class BoehmGcPolicy(BasicGcPolicy):
         if sys.platform == 'win32':
             pass # yield 'assert(GC_all_interior_pointers == 0);'
         else:
-            yield 'GC_set_all_interior_pointers(0);'
+            yield 'GC_all_interior_pointers = 0;'
         yield 'boehm_gc_startup_code();'
 
     def get_real_weakref_type(self):
