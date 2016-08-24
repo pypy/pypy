@@ -466,8 +466,6 @@ class W_BytesObject(W_AbstractBytesObject):
     def descr_getbuffer(self, space, w_flags):
         #from pypy.objspace.std.bufferobject import W_Buffer
         #return W_Buffer(StringBuffer(self._value))
-        # XXX handle flags, figure out why returning a W_Buffer
-        #     makes upstream ctypes tests fail
         return self
 
     charbuf_w = str_w

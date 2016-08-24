@@ -552,6 +552,14 @@ def test_fdlistdir(tmpdir):
     # Note: fdlistdir() always closes dirfd
     assert result == ['file']
 
+@rposix_requires('fdlistdir')
+def test_fdlistdir_rewinddir(tmpdir):
+    tmpdir.join('file').write('text')
+    dirfd = os.open(str(tmpdir), os.O_RDONLY)
+    result1 = rposix.fdlistdir(os.dup(dirfd))
+    result2 = rposix.fdlistdir(dirfd)
+    assert result1 == result2 == ['file']
+
 @rposix_requires('symlinkat')
 def test_symlinkat(tmpdir):
     tmpdir.join('file').write('text')

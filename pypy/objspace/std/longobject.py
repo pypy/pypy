@@ -130,7 +130,12 @@ class W_AbstractLongObject(W_Root):
 
     descr_repr = _make_descr_unaryop('repr')
     descr_str = _make_descr_unaryop('str')
-    descr_hash = _make_descr_unaryop('hash')
+
+    def descr_hash(self, space):
+        h = self.asbigint().hash()
+        h -= (h == -1)
+        return space.newint(h)
+
     descr_oct = _make_descr_unaryop('oct')
     descr_hex = _make_descr_unaryop('hex')
 
@@ -387,12 +392,12 @@ class W_LongObject(W_AbstractLongObject):
     def _make_generic_descr_binop(opname):
         if opname not in COMMUTATIVE_OPS:
             raise Exception("Not supported")
-            
+
         methname = opname + '_' if opname in ('and', 'or') else opname
         descr_rname = 'descr_r' + opname
         op = getattr(rbigint, methname)
         intop = getattr(rbigint, "int_" + methname)
-        
+
         @func_renamer('descr_' + opname)
         def descr_binop(self, space, w_other):
             if isinstance(w_other, W_AbstractIntObject):
@@ -412,7 +417,7 @@ class W_LongObject(W_AbstractLongObject):
             return W_LongObject(op(w_other.asbigint(), self.num))
 
         return descr_binop, descr_rbinop
-        
+
     descr_add, descr_radd = _make_generic_descr_binop('add')
     descr_sub, descr_rsub = _make_generic_descr_binop_noncommutative('sub')
     descr_mul, descr_rmul = _make_generic_descr_binop('mul')
@@ -454,12 +459,12 @@ class W_LongObject(W_AbstractLongObject):
         except OverflowError:   # b too big
             raise oefmt(space.w_OverflowError, "shift count too large")
         return W_LongObject(self.num.lshift(shift))
-        
+
     def _int_lshift(self, space, w_other):
         if w_other < 0:
             raise oefmt(space.w_ValueError, "negative shift count")
         return W_LongObject(self.num.lshift(w_other))
-        
+
     descr_lshift, descr_rlshift = _make_descr_binop(_lshift, _int_lshift)
 
     def _rshift(self, space, w_other):
@@ -470,7 +475,7 @@ class W_LongObject(W_AbstractLongObject):
         except OverflowError:   # b too big # XXX maybe just return 0L instead?
             raise oefmt(space.w_OverflowError, "shift count too large")
         return newlong(space, self.num.rshift(shift))
-        
+
     def _int_rshift(self, space, w_other):
         if w_other < 0:
             raise oefmt(space.w_ValueError, "negative shift count")
@@ -485,7 +490,7 @@ class W_LongObject(W_AbstractLongObject):
             raise oefmt(space.w_ZeroDivisionError,
                         "long division or modulo by zero")
         return newlong(space, z)
-        
+
     def _floordiv(self, space, w_other):
         try:
             z = self.num.floordiv(w_other.asbigint())
@@ -505,7 +510,7 @@ class W_LongObject(W_AbstractLongObject):
             raise oefmt(space.w_ZeroDivisionError,
                         "long division or modulo by zero")
         return newlong(space, z)
-        
+
     def _int_mod(self, space, w_other):
         try:
             z = self.num.int_mod(w_other)
