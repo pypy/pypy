@@ -57,7 +57,7 @@ if _POSIX:
     # some constants are linux only so they will be correctly exposed outside
     # depending on the OS
     constant_names = ['MAP_SHARED', 'MAP_PRIVATE', 'MAP_FIXED',
-                      'PROT_READ', 'PROT_WRITE',
+                      'PROT_READ', 'PROT_WRITE', 'PROT_NONE',
                       'MS_SYNC']
     opt_constant_names = ['MAP_ANON', 'MAP_ANONYMOUS', 'MAP_NORESERVE',
                           'PROT_EXEC',
@@ -155,6 +155,10 @@ if _POSIX:
     c_mmap, c_mmap_safe = external('mmap', [PTR, size_t, rffi.INT, rffi.INT,
                                    rffi.INT, off_t], PTR, macro=True,
                                    save_err_on_unsafe=rffi.RFFI_SAVE_ERRNO)
+
+    _, c_mprotect_safe = external('mprotect', [PTR, size_t, rffi.INT],
+                                  rffi.INT, _nowrapper=True)
+
     # 'mmap' on linux32 is a macro that calls 'mmap64'
     _, c_munmap_safe = external('munmap', [PTR, size_t], rffi.INT)
     c_msync, _ = external('msync', [PTR, size_t, rffi.INT], rffi.INT,
@@ -172,6 +176,8 @@ if _POSIX:
     _get_allocation_granularity = _get_page_size = lambda: _pagesize
 
 elif _MS_WINDOWS:
+    # XXX mprotect equivalent
+    # XXX set_pages_executable/writable equivalent
 
     class ComplexCConfig:
         _compilation_info_ = CConfig._compilation_info_
@@ -707,11 +713,28 @@ if _POSIX:
 
     def alloc_hinted(hintp, map_size):
         flags = MAP_PRIVATE | MAP_ANONYMOUS
-        prot = PROT_EXEC | PROT_READ | PROT_WRITE
+        # Pages start with no permissions
+        prot = PROT_NONE
         if we_are_translated():
             flags = NonConstant(flags)
             prot = NonConstant(prot)
         return c_mmap_safe(hintp, map_size, prot, flags, -1, 0)
+
+    def mprotect(addr, size, prot):
+        addr = rffi.cast(PTR, addr)
+        size = rffi.cast(lltype.Unsigned, size)
+        prot = rffi.cast(rffi.INT, prot)
+        return c_mprotect_safe(addr, size, prot)
+
+    def set_pages_executable(addr, size):
+        rv = mprotect(addr, size, PROT_EXEC | PROT_READ)
+        if rv < 0:
+            debug.fatalerror_notb("set_pages_executable failed")
+
+    def set_pages_writable(addr, size):
+        rv = mprotect(addr, size, PROT_WRITE | PROT_READ)
+        if rv < 0:
+            debug.fatalerror_notb("set_pages_executable failed")
 
     def clear_large_memory_chunk_aligned(addr, map_size):
         addr = rffi.cast(PTR, addr)
