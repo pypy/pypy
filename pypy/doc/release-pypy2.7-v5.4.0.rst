@@ -135,7 +135,7 @@ Other Highlights (since 5.3 released in June 2016)
     RPython functions, eventually exhausting the stack, while at
     app-level the traceback is very short
 
-.. _resolved: http://doc.pypy.org/en/latest/whatsnew-5.3.0.html
+.. _resolved: http://doc.pypy.org/en/latest/whatsnew-5.4.0.html
 
 Please update, and continue to help us make PyPy better.
 
