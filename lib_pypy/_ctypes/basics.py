@@ -167,7 +167,7 @@ class _CData(object):
         else:
             return self.value
 
-    def __buffer__(self):
+    def __buffer__(self, flags):
         return buffer(self._buffer)
 
     def _get_b_base(self):

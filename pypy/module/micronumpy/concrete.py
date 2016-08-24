@@ -704,3 +704,20 @@ class ArrayBuffer(Buffer):
     def get_raw_address(self):
         from rpython.rtyper.lltypesystem import rffi
         return rffi.ptradd(self.impl.storage, self.impl.start)
+
+    def getformat(self):
+        return self.impl.dtype.char
+
+    def getitemsize(self):
+        return self.impl.dtype.elsize
+
+    def getndim(self):
+        return len(self.impl.shape)
+
+    def getshape(self):
+        return self.impl.shape
+
+    def getstrides(self):
+        return self.impl.strides
+
+
