@@ -13,11 +13,13 @@ from rpython.rlib import objectmodel, rurandom
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_longlong, intmask, r_uint
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.rtyper.lltypesystem import lltype
 from rpython.tool.sourcetools import func_with_new_name
 
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault, Unwrapper
 from pypy.interpreter.error import (
-    OperationError, oefmt, wrap_oserror, wrap_oserror2, strerror as _strerror)
+    OperationError, oefmt, wrap_oserror, wrap_oserror2, strerror as _strerror,
+    exception_from_saved_errno)
 from pypy.interpreter.executioncontext import ExecutionContext
 
 
@@ -2179,7 +2181,7 @@ def get_terminal_size(space, w_fd=None):
     else:
         # Assuming that all supported platforms will have ioctl at least
         with lltype.scoped_alloc(rposix.WINSIZE) as winsize: 
-            failed = c_ioctl_voidp(fd, rposix.TIOCGWINSZ, winsize)
+            failed = rposix.c_ioctl_voidp(fd, rposix.TIOCGWINSZ, winsize)
             if failed:
                 raise exception_from_saved_errno(space, space.w_OSError)
 
@@ -2187,4 +2189,8 @@ def get_terminal_size(space, w_fd=None):
             columns = space.wrap(winsize.c_ws_col)
             lines = space.wrap(winsize.c_ws_row)
 
-    return space.newtuple([columns, lines])
+    w_tuple = space.newtuple([columns, lines])
+    w_terminal_size = space.getattr(space.getbuiltinmodule(os.name),
+                                    space.wrap('terminal_size'))
+
+    return space.call_function(w_terminal_size, w_tuple)

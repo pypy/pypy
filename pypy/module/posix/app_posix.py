@@ -92,6 +92,12 @@ class uname_result(metaclass=structseqtype):
     version  = structseqfield(3, "operating system version")
     machine  = structseqfield(4, "hardware identifier")
 
+class terminal_size(metaclass=structseqtype):
+
+    name = osname + ".terminal_size"
+
+    columns  = structseqfield(0, "width of the terminal window in characters")
+    lines = structseqfield(1, "height of the terminal window in characters")
 
 if osname == 'posix':
     # POSIX: we want to check the file descriptor when fdopen() is called,

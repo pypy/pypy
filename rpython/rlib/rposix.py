@@ -637,6 +637,8 @@ if not _WIN32:
                          macro=True, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
     c_closedir = external('closedir', [DIRP], rffi.INT, releasegil=False)
     c_dirfd = external('dirfd', [DIRP], rffi.INT, releasegil=False)
+    c_ioctl_voidp = external('ioctl', [rffi.INT, rffi.UINT, rffi.VOIDP], rffi.INT,
+                         save_err=rffi.RFFI_SAVE_ERRNO)
 else:
     dirent_config = {}
 
