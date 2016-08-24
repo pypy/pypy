@@ -992,7 +992,8 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
             if index != INVALID:
                 attr = map.find_map_attr(attrname, index)
                 if attr is not None:
-                    # Note that if map.terminator is a DevolvedDictTerminator,
+                    # Note that if map.terminator is a DevolvedDictTerminator
+                    # or the class provides its own dict, not using mapdict, then:
                     # map.find_map_attr will always return None if index==DICT.
                     _fill_cache(pycode, nameindex, map, version_tag, attr.storageindex)
                     return w_obj._mapdict_read_storage(attr.storageindex)
