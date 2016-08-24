@@ -171,11 +171,12 @@ class FunctionCodeGenerator(object):
 
     # ____________________________________________________________
 
+    extra_return_text = None
+
     def cfunction_body(self):
-        extra_return_text = None
         if self.db.reverse_debugger:
             from rpython.translator.revdb import gencsupp
-            (extra_enter_text, extra_return_text) = (
+            (extra_enter_text, self.extra_return_text) = (
                 gencsupp.prepare_function(self))
             if extra_enter_text:
                 yield extra_enter_text
@@ -219,8 +220,8 @@ class FunctionCodeGenerator(object):
                 retval = self.expr(block.inputargs[0])
                 if self.exception_policy != "exc_helper":
                     yield 'RPY_DEBUG_RETURN();'
-                if extra_return_text:
-                    yield extra_return_text
+                if self.extra_return_text:
+                    yield self.extra_return_text
                 yield 'return %s;' % retval
                 return
             elif block.exitswitch is None:
