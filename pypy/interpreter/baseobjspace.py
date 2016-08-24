@@ -585,6 +585,11 @@ class ObjSpace(object):
         self.sys = Module(self, w_name)
         self.sys.install()
 
+        from pypy.module.imp import Module
+        w_name = self.wrap('imp')
+        mod = Module(self, w_name)
+        mod.install()
+
         from pypy.module.__builtin__ import Module
         w_name = self.wrap('builtins')
         self.builtin = Module(self, w_name)
@@ -1996,7 +2001,7 @@ if sys.platform.startswith("win"):
 
 ObjSpace.IrregularOpTable = [
     'wrap',
-    'bytes_w',
+    'str_w',
     'int_w',
     'float_w',
     'uint_w',

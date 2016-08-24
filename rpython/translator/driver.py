@@ -381,7 +381,7 @@ class TranslationDriver(SimpleTaskEngine):
         """ Run all backend optimizations - lltype version
         """
         from rpython.translator.backendopt.all import backend_optimizations
-        backend_optimizations(self.translator)
+        backend_optimizations(self.translator, replace_we_are_jitted=True)
 
 
     STACKCHECKINSERTION = 'stackcheckinsertion_lltype'

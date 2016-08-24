@@ -120,7 +120,7 @@ constant_names = """
 Py_TPFLAGS_READY Py_TPFLAGS_READYING Py_TPFLAGS_HAVE_GETCHARBUFFER
 METH_COEXIST METH_STATIC METH_CLASS Py_TPFLAGS_BASETYPE
 METH_NOARGS METH_VARARGS METH_KEYWORDS METH_O
-Py_TPFLAGS_HEAPTYPE Py_TPFLAGS_HAVE_CLASS
+Py_TPFLAGS_HEAPTYPE Py_TPFLAGS_HAVE_CLASS Py_TPFLAGS_HAVE_NEWBUFFER
 Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE Py_TPFLAGS_CHECKTYPES
 Py_CLEANUP_SUPPORTED
 """.split()
@@ -651,6 +651,7 @@ Py_buffer = cpython_struct(
         #('smalltable', rffi.CFixedArray(Py_ssize_t, 2)),
         ('internal', rffi.VOIDP)
         ))
+Py_bufferP = lltype.Ptr(Py_buffer)
 
 @specialize.memo()
 def is_PyObject(TYPE):

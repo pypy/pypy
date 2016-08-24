@@ -17,7 +17,8 @@ from pypy.module.cpyext.api import (
     generic_cpy_call, Py_TPFLAGS_READY, Py_TPFLAGS_READYING,
     Py_TPFLAGS_HEAPTYPE, METH_VARARGS, METH_KEYWORDS, CANNOT_FAIL,
     Py_TPFLAGS_HAVE_GETCHARBUFFER, build_type_checkers, StaticObjectBuilder,
-    PyObjectFields, Py_TPFLAGS_BASETYPE, Py_buffer, PyTypeObject, PyTypeObjectPtr)
+    PyObjectFields, Py_TPFLAGS_BASETYPE, PyTypeObject, PyTypeObjectPtr,
+    Py_TPFLAGS_HAVE_NEWBUFFER)
 from pypy.module.cpyext.methodobject import (W_PyCClassMethodObject,
     W_PyCWrapperObject, PyCFunction_NewEx, PyCFunction_typedef, PyMethodDef,
     W_PyCMethodObject, W_PyCFunctionObject)
@@ -514,6 +515,7 @@ def setup_bytes_buffer_procs(space, pto):
         bytes_getbuffer.api_func.get_wrapper(space))
     pto.c_tp_as_buffer = c_buf
     pto.c_tp_flags |= Py_TPFLAGS_HAVE_GETCHARBUFFER
+    pto.c_tp_flags |= Py_TPFLAGS_HAVE_NEWBUFFER
 
 @cpython_api([PyObject], lltype.Void, header=None)
 def type_dealloc(space, obj):
@@ -681,6 +683,8 @@ def inherit_slots(space, pto, w_base):
             pto.c_tp_setattro = base.c_tp_setattro
         if not pto.c_tp_getattro:
             pto.c_tp_getattro = base.c_tp_getattro
+        if not pto.c_tp_as_buffer:
+            pto.c_tp_as_buffer = base.c_tp_as_buffer
     finally:
         Py_DecRef(space, base_pyo)
 
