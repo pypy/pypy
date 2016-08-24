@@ -3,7 +3,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import buffer
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, Py_buffer)
-from pypy.module.cpyext.pyobject import PyObject
+from pypy.module.cpyext.pyobject import PyObject, Py_DecRef
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyObject_CheckBuffer(space, w_obj):
