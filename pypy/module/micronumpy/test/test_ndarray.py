@@ -2614,17 +2614,11 @@ class AppTestNumArray(BaseNumpyAppTest):
         import numpy as np
         import sys
         a = np.array(1.5)
-        if '__pypy__' in sys.builtin_module_names:
-            assert a[...] is a
-        else:
-            assert a[...].base is a
+        assert a[...].base is a
         a[...] = 2.5
         assert a == 2.5
         a = np.array([1, 2, 3])
-        if '__pypy__' in sys.builtin_module_names:
-            assert a[...] is a
-        else:
-            assert a[...].base is a
+        assert a[...].base is a
         a[...] = 4
         assert (a == [4, 4, 4]).all()
         assert a[..., 0] == 4
@@ -3632,12 +3626,34 @@ class AppTestSupport(BaseNumpyAppTest):
         assert str(exc.value) == "assignment destination is read-only"
 
         class A(object):
-            __buffer__ = 'abc'
+            def __buffer__(self, flags):
+                return 'abc'
 
         data = A()
         a = np.frombuffer(data, 'c')
         #assert a.base is data.__buffer__
         assert a.tostring() == 'abc'
+
+    def test_memoryview(self):
+        import numpy as np
+        import sys
+        if sys.version_info[:2] > (3, 2):
+            # In Python 3.3 the representation of empty shape, strides and sub-offsets
+            # is an empty tuple instead of None.
+            # http://docs.python.org/dev/whatsnew/3.3.html#api-changes
+            EMPTY = ()
+        else:
+            EMPTY = None
+        x = np.array([1, 2, 3, 4, 5], dtype='i')
+        y = memoryview('abc')
+        assert y.format == 'B'
+        y = memoryview(x)
+        assert y.format == 'i'
+        assert y.shape == (5,)
+        assert y.ndim == 1
+        assert y.strides == (4,)
+        assert y.suboffsets == EMPTY
+        assert y.itemsize == 4
 
     def test_fromstring(self):
         import sys

@@ -22,6 +22,7 @@ from rpython.rlib.rarithmetic import intmask, is_valid_int
 from rpython.jit.backend.detect_cpu import autodetect
 from rpython.jit.backend.llsupport import jitframe
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
+from rpython.jit.backend.llsupport.llmodel import MissingLatestDescrError
 from rpython.jit.backend.llsupport.rewrite import GcRewriterAssembler
 
 
@@ -2825,6 +2826,7 @@ class LLtypeBackendTest(BaseBackendTest):
         from rpython.rlib.rarithmetic import r_singlefloat
         from rpython.translator.c import primitive
 
+
         def same_as_for_box(b):
             if b.type == 'i':
                 return rop.SAME_AS_I
@@ -2835,6 +2837,8 @@ class LLtypeBackendTest(BaseBackendTest):
 
         cpu = self.cpu
         rnd = random.Random(525)
+        seed = py.test.config.option.randomseed
+        print("random seed %d" % seed)
 
         ALL_TYPES = [
             (types.ulong,  lltype.Unsigned),
@@ -4387,6 +4391,12 @@ class LLtypeBackendTest(BaseBackendTest):
                         [funcbox, boxfloat(arg)],
                          'float', descr=calldescr)
             assert longlong.getrealfloat(res) == expected
+
+    def test_check_memory_error(self):
+        self.execute_operation(
+                       rop.CHECK_MEMORY_ERROR, [InputArgInt(12345)], 'void')
+        py.test.raises(MissingLatestDescrError, self.execute_operation,
+                       rop.CHECK_MEMORY_ERROR, [InputArgInt(0)], 'void')
 
     def test_compile_loop_with_target(self):
         looptoken = JitCellToken()

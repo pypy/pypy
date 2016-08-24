@@ -1,6 +1,7 @@
 import py
 from rpython.rtyper.lltypesystem import lltype, llmemory, llarena
 from rpython.memory.gc.incminimark import IncrementalMiniMarkGC, WORD
+from rpython.memory.gc.incminimark import GCFLAG_VISITED
 from test_direct import BaseDirectGCTest
 
 T = lltype.GcForwardReference()
@@ -981,3 +982,56 @@ class TestIncminimark(PinningGCTest):
         self.gc.major_collection_step()   # should not crash reading 'ptr1'!
 
         del self.gc.TEST_VISIT_SINGLE_STEP
+
+
+    def test_pin_bug2(self):
+        #
+        # * we have an old object A that points to a pinned object B
+        #
+        # * we unpin B
+        #
+        # * the next minor_collection() is done in STATE_MARKING==1
+        #   when the object A is already black
+        #
+        # * _minor_collection() => _visit_old_objects_pointing_to_pinned()
+        #   which will move the now-unpinned B out of the nursery, to B'
+        #
+        # At that point we need to take care of colors, otherwise we
+        # get a black object (A) pointing to a white object (B'),
+        # which must never occur.
+        #
+        ptrA = self.malloc(T)
+        ptrA.someInt = 42
+        adrA = llmemory.cast_ptr_to_adr(ptrA)
+        res = self.gc.pin(adrA)
+        assert res
+
+        ptrC = self.malloc(S)
+        self.stackroots.append(ptrC)
+
+        ptrB = self.malloc(S)
+        ptrB.data = ptrA
+        self.stackroots.append(ptrB)
+
+        self.gc.collect()
+        ptrB = self.stackroots[-1]    # now old and outside the nursery
+        ptrC = self.stackroots[-2]    # another random old object, traced later
+        adrB = llmemory.cast_ptr_to_adr(ptrB)
+
+        self.gc.minor_collection()
+        assert self.gc.gc_state == self.STATE_SCANNING
+        self.gc.major_collection_step()
+        assert self.gc.gc_state == self.STATE_MARKING
+        assert not (self.gc.header(adrB).tid & GCFLAG_VISITED)  # not black yet
+
+        self.gc.TEST_VISIT_SINGLE_STEP = True
+        self.gc.major_collection_step()
+        assert self.gc.gc_state == self.STATE_MARKING
+        assert self.gc.header(adrB).tid & GCFLAG_VISITED    # now black
+        # but ptrC is not traced yet, which is why we're still in STATE_MARKING
+        assert self.gc.old_objects_pointing_to_pinned.tolist() == [adrB]
+
+        self.gc.unpin(adrA)
+
+        self.gc.DEBUG = 2
+        self.gc.minor_collection()

@@ -13,7 +13,7 @@ PyCompilerFlags = cpython_struct(
     "PyCompilerFlags", (("cf_flags", rffi.INT),))
 PyCompilerFlagsPtr = lltype.Ptr(PyCompilerFlags)
 
-PyCF_MASK = (consts.CO_FUTURE_DIVISION | 
+PyCF_MASK = (consts.CO_FUTURE_DIVISION |
              consts.CO_FUTURE_ABSOLUTE_IMPORT |
              consts.CO_FUTURE_WITH_STATEMENT |
              consts.CO_FUTURE_PRINT_FUNCTION |
@@ -94,7 +94,7 @@ Py_file_input = 257
 Py_eval_input = 258
 
 def compile_string(space, source, filename, start, flags=0):
-    w_source = space.wrap(source)
+    w_source = space.newbytes(source)
     start = rffi.cast(lltype.Signed, start)
     if start == Py_file_input:
         mode = 'exec'
@@ -227,4 +227,4 @@ def PyEval_MergeCompilerFlags(space, cf):
     cf.c_cf_flags = rffi.cast(rffi.INT, flags)
     return result
 
-        
+

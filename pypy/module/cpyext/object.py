@@ -21,6 +21,8 @@ def PyObject_Malloc(space, size):
                          flavor='raw',
                          add_memory_pressure=True)
 
+realloc = rffi.llexternal('realloc', [rffi.VOIDP, rffi.SIZE_T], rffi.VOIDP)
+
 @cpython_api([rffi.VOIDP, size_t], rffi.VOIDP)
 def PyObject_Realloc(space, ptr, size):
     if not lltype.cast_ptr_to_int(ptr):
@@ -28,7 +30,7 @@ def PyObject_Realloc(space, ptr, size):
                          flavor='raw',
                          add_memory_pressure=True)
     # XXX FIXME
-    return lltype.nullptr(rffi.VOIDP.TO)
+    return realloc(ptr, size)
 
 @cpython_api([rffi.VOIDP], lltype.Void)
 def PyObject_Free(space, ptr):
@@ -54,6 +56,9 @@ def _PyObject_NewVar(space, type, itemcount):
 
 @cpython_api([PyObject], lltype.Void)
 def PyObject_dealloc(space, obj):
+    return _dealloc(space, obj)
+
+def _dealloc(space, obj):
     # This frees an object after its refcount dropped to zero, so we
     # assert that it is really zero here.
     assert obj.c_ob_refcnt == 0

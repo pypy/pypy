@@ -65,8 +65,10 @@
 #elif defined(HAVE_CYGWIN_SIGNAL_H)
 #include <cygwin/signal.h>
 typedef ucontext ucontext_t;
-#elif defined(__OpenBSD__)
+#elif defined(HAVE_SIGNAL_H)
 #include <signal.h>
+#else
+#  error "don't know how to get the pc on this platform"
 #endif
 
 

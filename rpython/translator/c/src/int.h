@@ -121,7 +121,7 @@
 #define OP_LLONG_LSHIFT(x,y,r)  CHECK_SHIFT_RANGE(y, PYPY_LONGLONG_BIT); \
                        r = (long long)(((unsigned long long)(x)) << (y))
 #define OP_LLLONG_LSHIFT(x,y,r) CHECK_SHIFT_RANGE(y, 128); \
-                         r = (__int128)(((unsigned __int128)(x)) << (y))
+                         r = (__int128_t)(((__uint128_t)(x)) << (y))
 
 #define OP_UINT_LSHIFT(x,y,r)   CHECK_SHIFT_RANGE(y, PYPY_LONG_BIT);    \
 							r = (x) << (y)
@@ -157,7 +157,7 @@
 #define OP_CAST_UINT_TO_INT(x,r)    r = (Signed)(x)
 #define OP_CAST_INT_TO_UINT(x,r)    r = (Unsigned)(x)
 #define OP_CAST_INT_TO_LONGLONG(x,r) r = (long long)(x)
-#define OP_CAST_INT_TO_LONGLONGLONG(x,r) r = (__int128)(x)
+#define OP_CAST_INT_TO_LONGLONGLONG(x,r) r = (__int128_t)(x)
 #define OP_CAST_CHAR_TO_INT(x,r)    r = (Signed)((unsigned char)(x))
 #define OP_CAST_INT_TO_CHAR(x,r)    r = (char)(x)
 #define OP_CAST_PTR_TO_INT(x,r)     r = (Signed)(x)    /* XXX */

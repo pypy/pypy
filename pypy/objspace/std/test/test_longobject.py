@@ -228,7 +228,7 @@ class AppTestLong:
     def test_hash(self):
         # ints have the same hash as equal longs
         for i in range(-4, 14):
-            assert hash(i) == hash(long(i))
+            assert hash(i) == hash(long(i)) == long(i).__hash__()
         # might check too much -- it's ok to change the hashing algorithm
         assert hash(123456789L) == 123456789
         assert hash(1234567890123456789L) in (

@@ -2,6 +2,7 @@ import sys
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.typedef import interp_attrproperty
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 
 from rpython.rlib.clibffi import *
@@ -237,6 +238,7 @@ W_CDLL.typedef = TypeDef(
     __new__     = interp2app(descr_new_cdll),
     ptr         = interp2app(W_CDLL.ptr),
     getaddressindll = interp2app(W_CDLL.getaddressindll),
+    name        = interp_attrproperty('name', W_CDLL),
     __doc__     = """ C Dynamically loaded library
 use CDLL(libname) to create a handle to a C library (the argument is processed
 the same way as dlopen processes it). On such a library you can call:
@@ -570,7 +572,7 @@ def charp2string(space, address, maxlength=-1):
         s = rffi.charp2str(charp_addr)
     else:
         s = rffi.charp2strn(charp_addr, maxlength)
-    return space.wrap(s)
+    return space.newbytes(s)
 
 @unwrap_spec(address=r_uint, maxlength=int)
 def wcharp2unicode(space, address, maxlength=-1):
@@ -588,7 +590,7 @@ def charp2rawstring(space, address, maxlength=-1):
     if maxlength == -1:
         return charp2string(space, address)
     s = rffi.charpsize2str(rffi.cast(rffi.CCHARP, address), maxlength)
-    return space.wrap(s)
+    return space.newbytes(s)
 
 @unwrap_spec(address=r_uint, maxlength=int)
 def wcharp2rawunicode(space, address, maxlength=-1):

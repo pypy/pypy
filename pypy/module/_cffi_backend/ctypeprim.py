@@ -84,7 +84,7 @@ class W_CTypePrimitive(W_CType):
         if self.size == 1:
             with cdataobj as ptr:
                 s = ptr[0]
-            return self.space.wrap(s)
+            return self.space.newbytes(s)
         return W_CType.string(self, cdataobj, maxlen)
 
     def unpack_ptr(self, w_ctypeptr, ptr, length):
@@ -126,12 +126,12 @@ class W_CTypePrimitiveChar(W_CTypePrimitiveCharOrUniChar):
         return self.space.wrap(ord(cdata[0]))
 
     def convert_to_object(self, cdata):
-        return self.space.wrap(cdata[0])
+        return self.space.newbytes(cdata[0])
 
     def _convert_to_char(self, w_ob):
         space = self.space
         if space.isinstance_w(w_ob, space.w_str):
-            s = space.str_w(w_ob)
+            s = space.bytes_w(w_ob)
             if len(s) == 1:
                 return s[0]
         if (isinstance(w_ob, cdataobj.W_CData) and
@@ -146,7 +146,7 @@ class W_CTypePrimitiveChar(W_CTypePrimitiveCharOrUniChar):
 
     def unpack_ptr(self, w_ctypeptr, ptr, length):
         s = rffi.charpsize2str(ptr, length)
-        return self.space.wrapbytes(s)
+        return self.space.newbytes(s)
 
 
 # XXX explicitly use an integer type instead of lltype.UniChar here,

@@ -17,9 +17,10 @@ from pypy.module.cpyext.api import (
     generic_cpy_call, Py_TPFLAGS_READY, Py_TPFLAGS_READYING,
     Py_TPFLAGS_HEAPTYPE, METH_VARARGS, METH_KEYWORDS, CANNOT_FAIL,
     Py_TPFLAGS_HAVE_GETCHARBUFFER, build_type_checkers, StaticObjectBuilder,
-    PyObjectFields, Py_TPFLAGS_BASETYPE)
+    PyObjectFields, Py_TPFLAGS_BASETYPE, PyTypeObject, PyTypeObjectPtr,
+    Py_TPFLAGS_HAVE_NEWBUFFER)
 from pypy.module.cpyext.methodobject import (W_PyCClassMethodObject,
-    PyDescr_NewWrapper, PyCFunction_NewEx, PyCFunction_typedef, PyMethodDef,
+    W_PyCWrapperObject, PyCFunction_NewEx, PyCFunction_typedef, PyMethodDef,
     W_PyCMethodObject, W_PyCFunctionObject)
 from pypy.module.cpyext.modsupport import convert_method_defs
 from pypy.module.cpyext.pyobject import (
@@ -30,7 +31,7 @@ from pypy.module.cpyext.slotdefs import (
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.structmember import PyMember_GetOne, PyMember_SetOne
 from pypy.module.cpyext.typeobjectdefs import (
-    PyTypeObjectPtr, PyTypeObject, PyGetSetDef, PyMemberDef, newfunc,
+    PyGetSetDef, PyMemberDef, newfunc,
     PyNumberMethods, PyMappingMethods, PySequenceMethods, PyBufferProcs)
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 
@@ -167,7 +168,7 @@ def memberdescr_attach(space, py_obj, w_obj):
     py_memberdescr.c_d_member = w_obj.member
 
 def memberdescr_realize(space, obj):
-    # XXX NOT TESTED When is this ever called? 
+    # XXX NOT TESTED When is this ever called?
     member = rffi.cast(lltype.Ptr(PyMemberDef), obj)
     w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
     w_obj = space.allocate_instance(W_MemberDescr, w_type)
@@ -192,7 +193,7 @@ def methoddescr_attach(space, py_obj, w_obj):
     py_methoddescr.c_d_method = w_obj.ml
 
 def classmethoddescr_realize(space, obj):
-    # XXX NOT TESTED When is this ever called? 
+    # XXX NOT TESTED When is this ever called?
     method = rffi.cast(lltype.Ptr(PyMethodDef), obj)
     w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
     w_obj = space.allocate_instance(W_PyCClassMethodObject, w_type)
@@ -201,7 +202,7 @@ def classmethoddescr_realize(space, obj):
     return w_obj
 
 def methoddescr_realize(space, obj):
-    # XXX NOT TESTED When is this ever called? 
+    # XXX NOT TESTED When is this ever called?
     method = rffi.cast(lltype.Ptr(PyMethodDef), obj)
     w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
     w_obj = space.allocate_instance(W_PyCMethodObject, w_type)
@@ -238,7 +239,7 @@ def convert_member_defs(space, dict_w, members, w_type):
             i += 1
 
 def update_all_slots(space, w_type, pto):
-    #  XXX fill slots in pto
+    # fill slots in pto
     # Not very sure about it, but according to
     # test_call_tp_dealloc_when_created_from_python, we should not
     # overwrite slots that are already set: these ones are probably
@@ -272,6 +273,15 @@ def update_all_slots(space, w_type, pto):
         if len(slot_names) == 1:
             if not getattr(pto, slot_names[0]):
                 setattr(pto, slot_names[0], slot_func_helper)
+        elif (w_type.getname(space) in ('list', 'tuple') and
+              slot_names[0] == 'c_tp_as_number'):
+            # XXX hack - hwo can we generalize this? The problem is method
+            # names like __mul__ map to more than one slot, and we have no
+            # convenient way to indicate which slots CPython have filled
+            #
+            # We need at least this special case since Numpy checks that
+            # (list, tuple) do __not__ fill tp_as_number
+            pass
         else:
             assert len(slot_names) == 2
             struct = getattr(pto, slot_names[0])
@@ -296,6 +306,7 @@ def add_operators(space, dict_w, pto):
     for method_name, slot_names, wrapper_func, wrapper_func_kwds, doc in slotdefs_for_wrappers:
         if method_name in dict_w:
             continue
+        offset = [rffi.offsetof(lltype.typeOf(pto).TO, slot_names[0])]
         if len(slot_names) == 1:
             func = getattr(pto, slot_names[0])
         else:
@@ -303,14 +314,16 @@ def add_operators(space, dict_w, pto):
             struct = getattr(pto, slot_names[0])
             if not struct:
                 continue
+            offset.append(rffi.offsetof(lltype.typeOf(struct).TO, slot_names[1]))
             func = getattr(struct, slot_names[1])
         func_voidp = rffi.cast(rffi.VOIDP, func)
         if not func:
             continue
         if wrapper_func is None and wrapper_func_kwds is None:
             continue
-        dict_w[method_name] = PyDescr_NewWrapper(space, pto, method_name, wrapper_func,
-                wrapper_func_kwds, doc, func_voidp)
+        w_obj = W_PyCWrapperObject(space, pto, method_name, wrapper_func,
+                wrapper_func_kwds, doc, func_voidp, offset=offset)
+        dict_w[method_name] = space.wrap(w_obj)
     if pto.c_tp_new:
         add_tp_new_wrapper(space, dict_w, pto)
 
@@ -371,6 +384,8 @@ def inherit_special(space, pto, base_pto):
     # (minimally, if tp_basicsize is zero we copy it from the base)
     if not pto.c_tp_basicsize:
         pto.c_tp_basicsize = base_pto.c_tp_basicsize
+    if pto.c_tp_itemsize < base_pto.c_tp_itemsize:
+        pto.c_tp_itemsize = base_pto.c_tp_itemsize
     flags = rffi.cast(lltype.Signed, pto.c_tp_flags)
     base_object_pyo = make_ref(space, space.w_object)
     base_object_pto = rffi.cast(PyTypeObjectPtr, base_object_pyo)
@@ -564,7 +579,7 @@ def setup_buffer_procs(space, w_type, pto):
     if space.is_w(w_type, space.w_str):
         # Special case: str doesn't support get_raw_address(), so we have a
         # custom get*buffer that instead gives the address of the char* in the
-        # PyStringObject*!
+        # PyBytesObject*!
         c_buf.c_bf_getreadbuffer = llhelper(
             str_getreadbuffer.api_func.functype,
             str_getreadbuffer.api_func.get_wrapper(space))
@@ -594,10 +609,11 @@ def setup_buffer_procs(space, w_type, pto):
                 bf_getwritebuffer.api_func.get_wrapper(space))
     pto.c_tp_as_buffer = c_buf
     pto.c_tp_flags |= Py_TPFLAGS_HAVE_GETCHARBUFFER
+    pto.c_tp_flags |= Py_TPFLAGS_HAVE_NEWBUFFER
 
 @cpython_api([PyObject], lltype.Void, header=None)
 def type_dealloc(space, obj):
-    from pypy.module.cpyext.object import PyObject_dealloc
+    from pypy.module.cpyext.object import _dealloc
     obj_pto = rffi.cast(PyTypeObjectPtr, obj)
     base_pyo = rffi.cast(PyObject, obj_pto.c_tp_base)
     Py_DecRef(space, obj_pto.c_tp_bases)
@@ -608,7 +624,7 @@ def type_dealloc(space, obj):
         heaptype = rffi.cast(PyHeapTypeObject, obj)
         Py_DecRef(space, heaptype.c_ht_name)
         Py_DecRef(space, base_pyo)
-        PyObject_dealloc(space, obj)
+        _dealloc(space, obj)
 
 
 def type_alloc(space, w_metatype, itemsize=0):
@@ -657,6 +673,10 @@ def type_attach(space, py_obj, w_type):
         pto.c_tp_dealloc = llhelper(
             subtype_dealloc.api_func.functype,
             subtype_dealloc.api_func.get_wrapper(space))
+    if space.is_w(w_type, space.w_str):
+        pto.c_tp_itemsize = 1
+    elif space.is_w(w_type, space.w_tuple):
+        pto.c_tp_itemsize = rffi.sizeof(PyObject)
     # buffer protocol
     setup_buffer_procs(space, w_type, pto)
 
@@ -695,6 +715,8 @@ def type_attach(space, py_obj, w_type):
     if pto.c_tp_base:
         if pto.c_tp_base.c_tp_basicsize > pto.c_tp_basicsize:
             pto.c_tp_basicsize = pto.c_tp_base.c_tp_basicsize
+        if pto.c_tp_itemsize < pto.c_tp_base.c_tp_itemsize:
+            pto.c_tp_itemsize = pto.c_tp_base.c_tp_itemsize
 
     # will be filled later on with the correct value
     # may not be 0
@@ -722,6 +744,7 @@ def type_realize(space, py_obj):
     try:
         w_obj = _type_realize(space, py_obj)
     finally:
+        name = rffi.charp2str(pto.c_tp_name)
         pto.c_tp_flags &= ~Py_TPFLAGS_READYING
     pto.c_tp_flags |= Py_TPFLAGS_READY
     return w_obj
@@ -753,6 +776,8 @@ def inherit_slots(space, pto, w_base):
             pto.c_tp_setattro = base.c_tp_setattro
         if not pto.c_tp_getattro:
             pto.c_tp_getattro = base.c_tp_getattro
+        if not pto.c_tp_as_buffer:
+            pto.c_tp_as_buffer = base.c_tp_as_buffer
     finally:
         Py_DecRef(space, base_pyo)
 
@@ -774,7 +799,7 @@ def _type_realize(space, py_obj):
 
     if py_type.c_ob_type:
         w_metatype = from_ref(space, rffi.cast(PyObject, py_type.c_ob_type))
-    else: 
+    else:
         # Somehow the tp_base type is created with no ob_type, notably
         # PyString_Type and PyBaseString_Type
         # While this is a hack, cpython does it as well.
@@ -789,10 +814,10 @@ def _type_realize(space, py_obj):
     # inheriting tp_as_* slots
     base = py_type.c_tp_base
     if base:
-        if not py_type.c_tp_as_number: py_type.c_tp_as_number = base.c_tp_as_number 
-        if not py_type.c_tp_as_sequence: py_type.c_tp_as_sequence = base.c_tp_as_sequence 
-        if not py_type.c_tp_as_mapping: py_type.c_tp_as_mapping = base.c_tp_as_mapping 
-        if not py_type.c_tp_as_buffer: py_type.c_tp_as_buffer = base.c_tp_as_buffer 
+        if not py_type.c_tp_as_number: py_type.c_tp_as_number = base.c_tp_as_number
+        if not py_type.c_tp_as_sequence: py_type.c_tp_as_sequence = base.c_tp_as_sequence
+        if not py_type.c_tp_as_mapping: py_type.c_tp_as_mapping = base.c_tp_as_mapping
+        if not py_type.c_tp_as_buffer: py_type.c_tp_as_buffer = base.c_tp_as_buffer
 
     return w_obj
 
@@ -803,7 +828,8 @@ def finish_type_1(space, pto):
     base = pto.c_tp_base
     base_pyo = rffi.cast(PyObject, pto.c_tp_base)
     if base and not base.c_tp_flags & Py_TPFLAGS_READY:
-        type_realize(space, rffi.cast(PyObject, base_pyo))
+        name = rffi.charp2str(base.c_tp_name)
+        type_realize(space, base_pyo)
     if base and not pto.c_ob_type: # will be filled later
         pto.c_ob_type = base.c_ob_type
     if not pto.c_tp_bases:
@@ -838,8 +864,8 @@ def finish_type_2(space, pto, w_obj):
 
     if w_obj.is_cpytype():
         Py_DecRef(space, pto.c_tp_dict)
-        w_dict = w_obj.getdict(space)
-        pto.c_tp_dict = make_ref(space, w_dict)
+    w_dict = w_obj.getdict(space)
+    pto.c_tp_dict = make_ref(space, w_dict)
 
 @cpython_api([PyTypeObjectPtr, PyTypeObjectPtr], rffi.INT_real, error=CANNOT_FAIL)
 def PyType_IsSubtype(space, a, b):

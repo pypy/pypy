@@ -3,8 +3,9 @@ from rpython.tool.udir import udir
 from pypy.tool.pytest.objspace import gettestobjspace
 
 class AppTestVMProf(object):
+    spaceconfig = {'usemodules': ['_vmprof', 'struct']}
+
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_vmprof', 'struct'])
         cls.w_tmpfilename = cls.space.wrap(str(udir.join('test__vmprof.1')))
         cls.w_tmpfilename2 = cls.space.wrap(str(udir.join('test__vmprof.2')))
 
@@ -17,7 +18,7 @@ class AppTestVMProf(object):
         import struct, sys, gc
 
         WORD = struct.calcsize('l')
-        
+
         def count(s):
             i = 0
             count = 0
@@ -44,7 +45,7 @@ class AppTestVMProf(object):
                 else:
                     raise AssertionError(ord(s[i]))
             return count
-        
+
         import _vmprof
         gc.collect()  # try to make the weakref list deterministic
         gc.collect()  # by freeing all dead code objects

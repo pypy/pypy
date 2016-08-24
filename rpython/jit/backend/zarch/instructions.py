@@ -45,7 +45,6 @@ arith_mnemonic_codes = {
 
     # rotating
     'RISBG':   ('rie_f',   ['\xEC','\x55']),
-    'RISBGN':  ('rie_f',   ['\xEC','\x59']),
 
     # invert & negative & absolute
     'LPGR':    ('rre',   ['\xB9','\x00']),

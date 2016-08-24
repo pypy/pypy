@@ -362,11 +362,10 @@ class W_IntObject(W_AbstractIntObject):
         return _new_int(space, w_inttype, w_x, w_base)
 
     def descr_hash(self, space):
-        # unlike CPython, we don't special-case the value -1 in most of
-        # our hash functions, so there is not much sense special-casing
-        # it here either.  Make sure this is consistent with the hash of
-        # floats and longs.
-        return self.int(space)
+        # For compatibility with CPython, we special-case -1
+        h = self.intval
+        h -= (h == -1)  # No explicit condition, to avoid JIT bridges
+        return wrapint(space, h)
 
     def _int(self, space):
         return self.int(space)

@@ -367,8 +367,9 @@ class AbstractRawPtrInfo(AbstractVirtualPtrInfo):
 
 class RawBufferPtrInfo(AbstractRawPtrInfo):
     buffer = None
-    
-    def __init__(self, cpu, size=-1):
+
+    def __init__(self, cpu, func, size=-1):
+        self.func = func
         self.size = size
         if self.size != -1:
             self.buffer = RawBuffer(cpu, None)
@@ -400,6 +401,12 @@ class RawBufferPtrInfo(AbstractRawPtrInfo):
 
     def _force_elements(self, op, optforce, descr):
         self.size = -1
+        # at this point we have just written the
+        # 'op = CALL_I(..., OS_RAW_MALLOC_VARSIZE_CHAR)'.
+        # Emit now a CHECK_MEMORY_ERROR resop.
+        check_op = ResOperation(rop.CHECK_MEMORY_ERROR, [op])
+        optforce.emit_operation(check_op)
+        #
         buffer = self._get_buffer()
         for i in range(len(buffer.offsets)):
             # write the value
@@ -419,7 +426,8 @@ class RawBufferPtrInfo(AbstractRawPtrInfo):
     @specialize.argtype(1)
     def visitor_dispatch_virtual_type(self, visitor):
         buffer = self._get_buffer()
-        return visitor.visit_vrawbuffer(self.size,
+        return visitor.visit_vrawbuffer(self.func,
+                                        self.size,
                                         buffer.offsets[:],
                                         buffer.descrs[:])
 

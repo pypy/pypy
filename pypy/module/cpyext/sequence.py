@@ -10,7 +10,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.objspace.std import tupleobject
 
 from pypy.module.cpyext.tupleobject import PyTuple_Check, PyTuple_SetItem
-from pypy.module.cpyext.object import Py_IncRef, Py_DecRef
+from pypy.module.cpyext.pyobject import decref
 
 from pypy.module.cpyext.dictobject import PyDict_Check
 
@@ -252,7 +252,7 @@ class CPyListStrategy(ListStrategy):
     def setitem(self, w_list, index, w_obj):
         storage = self.unerase(w_list.lstorage)
         index = self._check_index(index, storage._length)
-        Py_DecRef(w_list.space, storage._elems[index])
+        decref(w_list.space, storage._elems[index])
         storage._elems[index] = make_ref(w_list.space, w_obj)
 
     def length(self, w_list):
@@ -264,9 +264,8 @@ class CPyListStrategy(ListStrategy):
         return storage._elems
 
     def getslice(self, w_list, start, stop, step, length):
-        #storage = self.unerase(w_list.lstorage)
-        raise oefmt(w_list.space.w_NotImplementedError,
-                    "settting a slice of a PySequence_Fast is not supported")
+        w_list.switch_to_object_strategy()
+        return w_list.strategy.getslice(w_list, start, stop, step, length)
 
     def getitems(self, w_list):
         # called when switching list strategy, so convert storage
@@ -389,5 +388,5 @@ class CPyListStorage(object):
 
     def __del__(self):
         for i in range(self._length):
-            Py_DecRef(self.space, self._elems[i])
+            decref(self.space, self._elems[i])
         lltype.free(self._elems, flavor='raw')

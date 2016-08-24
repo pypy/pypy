@@ -902,9 +902,10 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     consider_call_release_gil_i = _consider_call_release_gil
     consider_call_release_gil_f = _consider_call_release_gil
     consider_call_release_gil_n = _consider_call_release_gil
-    
-    def consider_call_malloc_gc(self, op):
-        self._consider_call(op)
+
+    def consider_check_memory_error(self, op):
+        x = self.rm.make_sure_var_in_reg(op.getarg(0))
+        self.perform_discard(op, [x])
 
     def _consider_call_assembler(self, op):
         locs = self.locs_for_call_assembler(op)
@@ -952,14 +953,16 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         size_box = op.getarg(0)
         assert isinstance(size_box, ConstInt)
         size = size_box.getint()
-        # looking at the result
-        self.rm.force_allocate_reg(op, selected_reg=eax)
+        # hint: try to move unrelated registers away from eax and edx now
+        self.rm.spill_or_move_registers_before_call([ecx, edx])
+        # the result will be in ecx
+        self.rm.force_allocate_reg(op, selected_reg=ecx)
         #
-        # We need edi as a temporary, but otherwise don't save any more
+        # We need edx as a temporary, but otherwise don't save any more
         # register.  See comments in _build_malloc_slowpath().
         tmp_box = TempVar()
-        self.rm.force_allocate_reg(tmp_box, selected_reg=edi)
-        gcmap = self.get_gcmap([eax, edi]) # allocate the gcmap *before*
+        self.rm.force_allocate_reg(tmp_box, selected_reg=edx)
+        gcmap = self.get_gcmap([ecx, edx]) # allocate the gcmap *before*
         self.rm.possibly_free_var(tmp_box)
         #
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
@@ -972,15 +975,16 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         size_box = op.getarg(0)
         assert not isinstance(size_box, Const) # we cannot have a const here!
         # sizeloc must be in a register, but we can free it now
-        # (we take care explicitly of conflicts with eax or edi)
+        # (we take care explicitly of conflicts with ecx or edx)
         sizeloc = self.rm.make_sure_var_in_reg(size_box)
+        self.rm.spill_or_move_registers_before_call([ecx, edx])  # sizeloc safe
         self.rm.possibly_free_var(size_box)
-        # the result will be in eax
-        self.rm.force_allocate_reg(op, selected_reg=eax)
-        # we need edi as a temporary
+        # the result will be in ecx
+        self.rm.force_allocate_reg(op, selected_reg=ecx)
+        # we need edx as a temporary
         tmp_box = TempVar()
-        self.rm.force_allocate_reg(tmp_box, selected_reg=edi)
-        gcmap = self.get_gcmap([eax, edi]) # allocate the gcmap *before*
+        self.rm.force_allocate_reg(tmp_box, selected_reg=edx)
+        gcmap = self.get_gcmap([ecx, edx]) # allocate the gcmap *before*
         self.rm.possibly_free_var(tmp_box)
         #
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
@@ -997,16 +1001,21 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         arraydescr = op.getdescr()
         length_box = op.getarg(2)
         assert not isinstance(length_box, Const) # we cannot have a const here!
-        # the result will be in eax
-        self.rm.force_allocate_reg(op, selected_reg=eax)
-        # we need edi as a temporary
+        # can only use spill_or_move_registers_before_call() as a hint if
+        # we are sure that length_box stays alive and won't be freed now
+        # (it should always be the case, see below, but better safe than sorry)
+        if self.rm.stays_alive(length_box):
+            self.rm.spill_or_move_registers_before_call([ecx, edx])
+        # the result will be in ecx
+        self.rm.force_allocate_reg(op, selected_reg=ecx)
+        # we need edx as a temporary
         tmp_box = TempVar()
-        self.rm.force_allocate_reg(tmp_box, selected_reg=edi)
-        gcmap = self.get_gcmap([eax, edi]) # allocate the gcmap *before*
+        self.rm.force_allocate_reg(tmp_box, selected_reg=edx)
+        gcmap = self.get_gcmap([ecx, edx]) # allocate the gcmap *before*
         self.rm.possibly_free_var(tmp_box)
         # length_box always survives: it's typically also present in the
         # next operation that will copy it inside the new array.  It's
-        # fine to load it from the stack too, as long as it's != eax, edi.
+        # fine to load it from the stack too, as long as it is != ecx, edx.
         lengthloc = self.rm.loc(length_box)
         self.rm.possibly_free_var(length_box)
         #
@@ -1210,6 +1219,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             ofs_items, itemsize, _ = symbolic.get_array_token(rstr.STR,
                                                   self.translate_support_code)
             assert itemsize == 1
+            ofs_items -= 1     # for the extra null character
             scale = 0
         self.assembler.load_effective_addr(ofsloc, ofs_items, scale,
                                            resloc, baseloc)
@@ -1225,6 +1235,8 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             raise AssertionError("bad unicode item size")
 
     def _consider_math_read_timestamp(self, op):
+        # hint: try to move unrelated registers away from eax and edx now
+        self.rm.spill_or_move_registers_before_call([eax, edx])
         tmpbox_high = TempVar()
         self.rm.force_allocate_reg(tmpbox_high, selected_reg=eax)
         if longlong.is_64_bit:

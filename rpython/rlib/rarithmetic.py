@@ -14,6 +14,8 @@ ovfcheck check on CPython whether the result of a signed
          integer operation did overflow
 ovfcheck_float_to_int
          convert to an integer or raise OverflowError
+ovfcheck_float_to_longlong
+         convert to a longlong or raise OverflowError
 r_longlong
          like r_int but double word size
 r_ulonglong
@@ -182,6 +184,18 @@ def ovfcheck(r):
 # int(float(i)) != i  because of rounding issues.
 # These are the minimum and maximum float value that can
 # successfully be casted to an int.
+
+# The following values are not quite +/-sys.maxint.
+# Note the "<= x <" here, as opposed to "< x <" above.
+# This is justified by test_typed in translator/c/test.
+def ovfcheck_float_to_longlong(x):
+    from rpython.rlib.rfloat import isnan
+    if isnan(x):
+        raise OverflowError
+    if -9223372036854776832.0 <= x < 9223372036854775296.0:
+        return r_longlong(x)
+    raise OverflowError
+
 if sys.maxint == 2147483647:
     def ovfcheck_float_to_int(x):
         from rpython.rlib.rfloat import isnan
@@ -191,16 +205,8 @@ if sys.maxint == 2147483647:
             return int(x)
         raise OverflowError
 else:
-    # The following values are not quite +/-sys.maxint.
-    # Note the "<= x <" here, as opposed to "< x <" above.
-    # This is justified by test_typed in translator/c/test.
     def ovfcheck_float_to_int(x):
-        from rpython.rlib.rfloat import isnan
-        if isnan(x):
-            raise OverflowError
-        if -9223372036854776832.0 <= x < 9223372036854775296.0:
-            return int(x)
-        raise OverflowError
+        return int(ovfcheck_float_to_longlong(x))
 
 def compute_restype(self_type, other_type):
     if self_type is other_type:
@@ -649,6 +655,26 @@ def int_force_ge_zero(n):
     from rpython.rtyper.lltypesystem import lltype
     from rpython.rtyper.lltypesystem.lloperation import llop
     return llop.int_force_ge_zero(lltype.Signed, n)
+
+def int_c_div(x, y):
+    """Return the result of the C-style 'x / y'.  This differs from the
+    Python-style division if (x < 0  xor y < 0).  The JIT implements it
+    with a Python-style division followed by correction code.  This
+    is not that bad, because the JIT removes the correction code if
+    x and y are both nonnegative, and if y is any nonnegative constant
+    then the division turns into a rshift or a mul.
+    """
+    from rpython.rtyper.lltypesystem import lltype
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    return llop.int_floordiv(lltype.Signed, x, y)
+
+def int_c_mod(x, y):
+    """Return the result of the C-style 'x % y'.  This differs from the
+    Python-style division if (x < 0  xor y < 0).
+    """
+    from rpython.rtyper.lltypesystem import lltype
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    return llop.int_mod(lltype.Signed, x, y)
 
 @objectmodel.specialize.ll()
 def byteswap(arg):

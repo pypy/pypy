@@ -142,8 +142,8 @@ type simply::
 Translating Full Programs
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-To translate full RPython programs, there is the script ``translate.py`` in
-:source:`rpython/translator/goal`. Examples for this are a slightly changed version of
+To translate full RPython programs, there is the script ``bin/rpython`` in
+:source:`rpython/bin/`. Examples for this are a slightly changed version of
 Pystone::
 
     python bin/rpython translator/goal/targetrpystonedalone

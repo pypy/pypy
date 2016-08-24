@@ -39,7 +39,6 @@ class TestImport(BaseApiTest):
 
 class AppTestImportLogic(AppTestCpythonExtensionBase):
     def test_import_logic(self):
-        skip("leak?")
         path = self.import_module(name='test_import_module', load_it=False)
         import sys
         sys.path.append(path)

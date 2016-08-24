@@ -16,7 +16,7 @@ from pypy.objspace.std.basestringtype import basestring_typedef
 from pypy.objspace.std.boolobject import W_BoolObject
 from pypy.objspace.std.bufferobject import W_Buffer
 from pypy.objspace.std.bytearrayobject import W_BytearrayObject
-from pypy.objspace.std.bytesobject import W_AbstractBytesObject, W_BytesObject, wrapstr
+from pypy.objspace.std.bytesobject import W_AbstractBytesObject, W_BytesObject
 from pypy.objspace.std.complexobject import W_ComplexObject
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject, W_DictObject
 from pypy.objspace.std.floatobject import W_FloatObject
@@ -31,7 +31,7 @@ from pypy.objspace.std.setobject import W_SetObject, W_FrozensetObject
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.tupleobject import W_AbstractTupleObject, W_TupleObject
 from pypy.objspace.std.typeobject import W_TypeObject, TypeCache
-from pypy.objspace.std.unicodeobject import W_UnicodeObject, wrapunicode
+from pypy.objspace.std.unicodeobject import W_UnicodeObject
 
 
 class StdObjSpace(ObjSpace):
@@ -128,9 +128,6 @@ class StdObjSpace(ObjSpace):
         assert typedef is not None
         return self.fromcache(TypeCache).getorbuild(typedef)
 
-    def wrapbytes(self, x):
-        return wrapstr(self, x)
-
     @specialize.argtype(1)
     def wrap(self, x):
         "Wraps the Python value 'x' into one of the wrapper classes."
@@ -151,9 +148,9 @@ class StdObjSpace(ObjSpace):
             else:
                 return self.newint(x)
         if isinstance(x, str):
-            return wrapstr(self, x)
+            return self.newbytes(x)
         if isinstance(x, unicode):
-            return wrapunicode(self, x)
+            return self.newunicode(x)
         if isinstance(x, float):
             return W_FloatObject(x)
         if isinstance(x, W_Root):
@@ -322,6 +319,12 @@ class StdObjSpace(ObjSpace):
 
     def newbuffer(self, w_obj):
         return W_Buffer(w_obj)
+
+    def newbytes(self, s):
+        return W_BytesObject(s)
+
+    def newunicode(self, uni):
+        return W_UnicodeObject(uni)
 
     def type(self, w_obj):
         jit.promote(w_obj.__class__)

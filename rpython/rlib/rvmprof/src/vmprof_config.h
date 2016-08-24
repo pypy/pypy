@@ -1,7 +1,10 @@
 #if !defined(__OpenBSD__)
-#define HAVE_SYS_UCONTEXT_H
+#  define HAVE_SYS_UCONTEXT_H
+#else
+#  define HAVE_SIGNAL_H
 #endif
-#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+
+#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || defined(__DragonFly__)
   #ifdef __i386__
     #define PC_FROM_UCONTEXT uc_mcontext.mc_eip
   #else

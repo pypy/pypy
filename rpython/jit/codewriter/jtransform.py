@@ -452,6 +452,8 @@ class Transformer(object):
             prepare = self._handle_math_sqrt_call
         elif oopspec_name.startswith('rgc.'):
             prepare = self._handle_rgc_call
+        elif oopspec_name.startswith('rvmprof.'):
+            prepare = self._handle_rvmprof_call
         elif oopspec_name.endswith('dict.lookup'):
             # also ordereddict.lookup
             prepare = self._handle_dict_lookup_call
@@ -521,6 +523,8 @@ class Transformer(object):
     # XXX some of the following functions should not become residual calls
     # but be really compiled
     rewrite_op_int_abs                = _do_builtin_call
+    rewrite_op_int_floordiv           = _do_builtin_call
+    rewrite_op_int_mod                = _do_builtin_call
     rewrite_op_llong_abs              = _do_builtin_call
     rewrite_op_llong_floordiv         = _do_builtin_call
     rewrite_op_llong_mod              = _do_builtin_call
@@ -530,7 +534,6 @@ class Transformer(object):
     rewrite_op_gc_id                  = _do_builtin_call
     rewrite_op_gc_pin                 = _do_builtin_call
     rewrite_op_gc_unpin               = _do_builtin_call
-    rewrite_op_uint_mod               = _do_builtin_call
     rewrite_op_cast_float_to_uint     = _do_builtin_call
     rewrite_op_cast_uint_to_float     = _do_builtin_call
     rewrite_op_weakref_create         = _do_builtin_call
@@ -2077,6 +2080,32 @@ class Transformer(object):
             return self._handle_oopspec_call(op, args, EffectInfo.OS_SHRINK_ARRAY, EffectInfo.EF_CAN_RAISE)
         else:
             raise NotImplementedError(oopspec_name)
+
+    def _handle_rvmprof_call(self, op, oopspec_name, args):
+        if oopspec_name != 'rvmprof.jitted':
+            raise NotImplementedError(oopspec_name)
+        c_entering = Constant(0, lltype.Signed)
+        c_leaving  = Constant(1, lltype.Signed)
+        v_uniqueid = args[0]
+        op1 = SpaceOperation('rvmprof_code', [c_entering, v_uniqueid], None)
+        op2 = SpaceOperation('rvmprof_code', [c_leaving, v_uniqueid], None)
+        #
+        # fish fish inside the oopspec's graph for the ll_func pointer
+        block = op.args[0].value._obj.graph.startblock
+        while True:
+            assert len(block.exits) == 1
+            nextblock = block.exits[0].target
+            if nextblock.operations == ():
+                break
+            block = nextblock
+        last_op = block.operations[-1]
+        assert last_op.opname == 'direct_call'
+        c_ll_func = last_op.args[0]
+        #
+        args = [c_ll_func] + op.args[2:]
+        ops = self.rewrite_op_direct_call(SpaceOperation('direct_call',
+                                                         args, op.result))
+        return [op1] + ops + [op2]
 
     def rewrite_op_ll_read_timestamp(self, op):
         op1 = self.prepare_builtin_call(op, "ll_read_timestamp", [])

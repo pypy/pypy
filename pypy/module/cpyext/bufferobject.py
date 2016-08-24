@@ -79,5 +79,5 @@ def buffer_dealloc(space, py_obj):
         Py_DecRef(space, py_buf.c_b_base)
     else:
         rffi.free_charp(rffi.cast(rffi.CCHARP, py_buf.c_b_ptr))
-    from pypy.module.cpyext.object import PyObject_dealloc
-    PyObject_dealloc(space, py_obj)
+    from pypy.module.cpyext.object import _dealloc
+    _dealloc(space, py_obj)
