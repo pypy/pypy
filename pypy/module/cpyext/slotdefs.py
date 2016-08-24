@@ -11,7 +11,7 @@ from pypy.module.cpyext.typeobjectdefs import (
     getattrfunc, getattrofunc, setattrofunc, lenfunc, ssizeargfunc, inquiry,
     ssizessizeargfunc, ssizeobjargproc, iternextfunc, initproc, richcmpfunc,
     cmpfunc, hashfunc, descrgetfunc, descrsetfunc, objobjproc, objobjargproc,
-    getbufferproc, readbufferproc, ssizessizeobjargproc)
+    getbufferproc, ssizessizeobjargproc)
 from pypy.module.cpyext.pyobject import from_ref, make_ref, Py_DecRef
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.state import State
@@ -22,6 +22,9 @@ from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
 from rpython.tool.sourcetools import func_renamer
 from rpython.rtyper.annlowlevel import llhelper
+from pypy.module.sys.version import CPYTHON_VERSION
+
+PY3 = CPYTHON_VERSION[0] == 3
 
 # XXX: Also defined in object.h
 Py_LT = 0
