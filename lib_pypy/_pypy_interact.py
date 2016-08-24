@@ -49,9 +49,11 @@ def run_simple_interactive_console(mainmodule):
     if mainmodule is None:
         import __main__ as mainmodule
     console = code.InteractiveConsole(mainmodule.__dict__, filename='<stdin>')
-    # some parts of code.py are copied here because it seems to be impossible
+    # some parts of code.py are copied here because it was impossible
     # to start an interactive console without printing at least one line
-    # of banner
+    # of banner.  This was fixed in 3.4; but then from 3.6 it prints a
+    # line when exiting.  This can be disabled too---by passing an argument
+    # that doesn't exist in <= 3.5.  So, too much mess: just copy the code.
     more = 0
     while 1:
         try:

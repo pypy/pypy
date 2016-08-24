@@ -394,13 +394,6 @@ class W_AbstractBytesObject(W_Root):
         of the specified width. The string S is never truncated.
         """
 
-    def descr_hex(self, space):
-        """S.hex() -> string
-
-        Creates a hexadecimal string of the bytes object
-        """
-
-
 class W_BytesObject(W_AbstractBytesObject):
     import_from_mixin(StringMethods)
     _immutable_fields_ = ['_value']
