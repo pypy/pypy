@@ -1065,7 +1065,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             assert mc.get_relative_pos() <= 13
         mc.copy_to_raw_memory(oldadr)
         # log the redirection of the call_assembler_* operation
-        jl.redirect_assembler(oldlooptoken, newlooptoken, target)
+        jl.redirect_assembler(oldlooptoken, newlooptoken, newlooptoken.number)
 
     def dump(self, text):
         if not self.verbose:
