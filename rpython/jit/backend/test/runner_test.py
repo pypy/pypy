@@ -1,4 +1,5 @@
 import py, sys, random, os, struct, operator
+import pytest
 from rpython.jit.metainterp.history import (AbstractFailDescr,
                                          AbstractDescr,
                                          BasicFailDescr,
@@ -2599,6 +2600,8 @@ class LLtypeBackendTest(BaseBackendTest):
         deadframe2 = self.cpu.force(frame)
         assert self.cpu.get_int_value(deadframe2, 0) == 30
 
+    @pytest.mark.xfail(sys.platform.startswith("openbsd"),
+                       reason="something wrong with CDLL()")
     def test_call_to_c_function(self):
         from rpython.rlib.libffi import CDLL, types, ArgChain, FUNCFLAG_CDECL
         from rpython.rtyper.lltypesystem.ll2ctypes import libc_name
@@ -2625,6 +2628,8 @@ class LLtypeBackendTest(BaseBackendTest):
         assert fail.identifier == 0
         assert self.cpu.get_int_value(deadframe, 0) == ord('g')
 
+    @pytest.mark.xfail(sys.platform.startswith("openbsd"),
+                       reason="something wrong with CDLL()")
     def test_call_to_c_function_with_callback(self):
         from rpython.rlib.libffi import CDLL, types, ArgChain, clibffi
         from rpython.rtyper.lltypesystem.ll2ctypes import libc_name

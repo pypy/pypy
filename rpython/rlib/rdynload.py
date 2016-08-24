@@ -17,6 +17,7 @@ _WIN32 = _MSVC or _MINGW
 _MAC_OS = platform.name == "darwin"
 _FREEBSD = sys.platform.startswith("freebsd")
 _NETBSD = sys.platform.startswith("netbsd")
+_OPENBSD = sys.platform.startswith("openbsd")
 
 if _WIN32:
     from rpython.rlib import rwin32
@@ -29,7 +30,7 @@ if _MAC_OS:
 else:
     pre_include_bits = []
 
-if _FREEBSD or _NETBSD or _WIN32:
+if _OPENBSD or _FREEBSD or _NETBSD or _WIN32:
     libraries = []
 else:
     libraries = ['dl']
