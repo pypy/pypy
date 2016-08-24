@@ -50,7 +50,7 @@ def test_setrlimit():
     resource.setrlimit(resource.RLIMIT_CPU, (x, y))
     # sometimes, x and y are very large (more than 53 bits).
     # for these huge values, int(float(x)) > x...
-    xf = x + 0.2
-    yf = y + 0.3
+    xf = x + (0.2 if x >= 0 else -0.2)
+    yf = y + (0.3 if y >= 0 else -0.3)
     if int(xf) == x and int(yf) == y:
         resource.setrlimit(resource.RLIMIT_CPU, (x, y))  # truncated to ints
