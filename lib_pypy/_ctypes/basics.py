@@ -167,7 +167,7 @@ class _CData(object):
         else:
             return self.value
 
-    def __buffer__(self):
+    def __buffer__(self, flags):
         return buffer(self._buffer)
 
     def _get_b_base(self):
@@ -199,10 +199,13 @@ def alignment(tp):
     return tp._alignmentofinstances()
 
 @builtinify
-def byref(cdata):
+def byref(cdata, offset=0):
     # "pointer" is imported at the end of this module to avoid circular
     # imports
-    return pointer(cdata)
+    ptr = pointer(cdata)
+    if offset != 0:
+        ptr._buffer[0] += offset
+    return ptr
 
 def cdata_from_address(self, address):
     # fix the address: turn it into as unsigned, in case it's a negative number

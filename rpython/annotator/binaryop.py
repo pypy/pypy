@@ -401,6 +401,9 @@ class __extend__(pairtype(SomeString, SomeUnicodeString),
 class __extend__(pairtype(SomeString, SomeTuple),
                  pairtype(SomeUnicodeString, SomeTuple)):
     def mod((s_string, s_tuple)):
+        if not s_string.is_constant():
+            raise AnnotatorError("string formatting requires a constant "
+                                 "string/unicode on the left of '%'")
         is_string = isinstance(s_string, SomeString)
         is_unicode = isinstance(s_string, SomeUnicodeString)
         assert is_string or is_unicode

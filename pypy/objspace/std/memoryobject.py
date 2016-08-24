@@ -73,6 +73,15 @@ class W_MemoryView(W_Root):
 
     def descr_getitem(self, space, w_index):
         start, stop, step, size = space.decode_index4(w_index, self.getlength())
+        itemsize = self.buf.getitemsize()
+        if itemsize > 1:
+            start *= itemsize
+            size *= itemsize
+            stop  = start + size
+            if step == 0:
+                step = 1
+            if stop > self.getlength():
+                raise oefmt(space.w_IndexError, 'index out of range')
         if step not in (0, 1):
             raise oefmt(space.w_NotImplementedError, "")
         if step == 0:  # index only
@@ -85,6 +94,15 @@ class W_MemoryView(W_Root):
         if self.buf.readonly:
             raise oefmt(space.w_TypeError, "cannot modify read-only memory")
         start, stop, step, size = space.decode_index4(w_index, self.getlength())
+        itemsize = self.buf.getitemsize()
+        if itemsize > 1:
+            start *= itemsize
+            size *= itemsize
+            stop  = start + size
+            if step == 0:
+                step = 1
+            if stop > self.getlength():
+                raise oefmt(space.w_IndexError, 'index out of range')
         if step not in (0, 1):
             raise oefmt(space.w_NotImplementedError, "")
         value = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
@@ -100,22 +118,22 @@ class W_MemoryView(W_Root):
         return space.wrap(self.buf.getlength())
 
     def w_get_format(self, space):
-        return space.wrap("B")
+        return space.wrap(self.buf.getformat())
 
     def w_get_itemsize(self, space):
-        return space.wrap(1)
+        return space.wrap(self.buf.getitemsize())
 
     def w_get_ndim(self, space):
-        return space.wrap(1)
+        return space.wrap(self.buf.getndim())
 
     def w_is_readonly(self, space):
-        return space.wrap(self.buf.readonly)
+        return space.newbool(bool(self.buf.readonly))
 
     def w_get_shape(self, space):
-        return space.newtuple([space.wrap(self.getlength())])
+        return space.newtuple([space.wrap(x) for x in self.buf.getshape()])
 
     def w_get_strides(self, space):
-        return space.newtuple([space.wrap(1)])
+        return space.newtuple([space.wrap(x) for x in self.buf.getstrides()])
 
     def w_get_suboffsets(self, space):
         # I've never seen anyone filling this field

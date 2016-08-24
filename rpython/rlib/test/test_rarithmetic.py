@@ -404,6 +404,8 @@ def test_int_force_ge_zero():
 def test_int_c_div_mod(x, y):
     assert int_c_div(~x, y) == -(abs(~x) // y)
     assert int_c_div( x,-y) == -(x // y)
+    if (x, y) == (sys.maxint, 1):
+        py.test.skip("would overflow")
     assert int_c_div(~x,-y) == +(abs(~x) // y)
     for x1 in [x, ~x]:
         for y1 in [y, -y]:

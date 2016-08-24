@@ -220,11 +220,12 @@ class AbstractTestRstr(BaseRtypingTest):
         const = self.const
         def fn(i, mul):
             s = ["", "a", "aba"][i]
-            return s * mul
+            return s * mul + mul * s
         for i in xrange(3):
             for m in [0, 1, 4]:
+                res1 = fn(i, m)
                 res = self.interpret(fn, [i, m])
-                assert self.ll_to_string(res) == fn(i, m)
+                assert self.ll_to_string(res) == res1
 
     def test_is_none(self):
         const = self.const

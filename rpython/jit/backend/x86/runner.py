@@ -114,9 +114,10 @@ class AbstractX86CPU(AbstractLLCPU):
         looptoken.compiled_loop_token.invalidate_positions = []
 
     def get_all_loop_runs(self):
+        asm = self.assembler
         l = lltype.malloc(LOOP_RUN_CONTAINER,
-                          len(self.assembler.loop_run_counters))
-        for i, ll_s in enumerate(self.assembler.loop_run_counters):
+                          len(asm.loop_run_counters))
+        for i, ll_s in enumerate(asm.loop_run_counters):
             l[i].type = ll_s.type
             l[i].number = ll_s.number
             l[i].counter = ll_s.i

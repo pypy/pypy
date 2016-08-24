@@ -203,7 +203,8 @@ def _make_descr_typecheck_wrapper(tag, func, extraargs, cls, use_closure):
     name = func.__name__
     extra = ', '.join(extraargs)
     from pypy.interpreter import pycode
-    argnames, _, _ = pycode.cpython_code_signature(func.func_code)
+    sig = pycode.cpython_code_signature(func.func_code)
+    argnames = sig.argnames
     if use_closure:
         if argnames[1] == 'space':
             args = "closure, space, obj"

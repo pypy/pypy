@@ -7,6 +7,7 @@ from rpython.rlib.nonconst import NonConstant
 from rpython.annotator.annrpython import RPythonAnnotator
 from rpython.conftest import option
 from rpython.annotator.model import SomeInstance
+from rpython.rtyper.test.test_llinterp import interpret
 
 def test_nonconst():
     def nonconst_f():
@@ -17,7 +18,6 @@ def test_nonconst():
     s = a.build_types(nonconst_f, [])
     assert s.knowntype is int
     assert not hasattr(s, 'const')
-
 
 def test_nonconst_list():
     def nonconst_l():
@@ -56,3 +56,8 @@ def test_bool_nonconst():
 
     if option.view:
         a.translator.view()
+
+def test_already_not_const():
+    def fn(x):
+        return NonConstant(x)
+    assert interpret(fn, [5]) == 5

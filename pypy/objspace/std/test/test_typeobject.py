@@ -968,7 +968,6 @@ class AppTestTypeObject:
         raises(TypeError, setattr, list, 'foobar', 42)
         raises(TypeError, delattr, dict, 'keys')
         raises(TypeError, 'int.__dict__["a"] = 1')
-        raises(TypeError, 'int.__dict__.clear()')
 
     def test_nontype_in_mro(self):
         class OldStyle:
@@ -1026,10 +1025,9 @@ class AppTestTypeObject:
             pass
 
         a = A()
+        d = A.__dict__
         A.x = 1
-        assert A.__dict__["x"] == 1
-        A.__dict__['x'] = 5
-        assert A.x == 5
+        assert d["x"] == 1
 
     def test_we_already_got_one_1(self):
         # Issue #2079: highly obscure: CPython complains if we say
@@ -1090,6 +1088,29 @@ class AppTestTypeObject:
             __metaclass__ = X
         C()    # the lookup of '__new__' succeeds in 'int',
                # but the lookup of '__init__' fails
+
+    def test_instancecheck(self):
+        assert int.__instancecheck__(42) is True
+        assert int.__instancecheck__(42.0) is False
+        class Foo:
+            __class__ = int
+        assert int.__instancecheck__(Foo()) is False
+        class Bar(object):
+            __class__ = int
+        assert int.__instancecheck__(Bar()) is True
+
+    def test_subclasscheck(self):
+        assert int.__subclasscheck__(bool) is True
+        assert int.__subclasscheck__(float) is False
+        class Foo:
+            __class__ = int
+        assert int.__subclasscheck__(Foo) is False
+        class Bar(object):
+            __class__ = int
+        assert int.__subclasscheck__(Bar) is False
+        class AbstractClass(object):
+            __bases__ = (int,)
+        assert int.__subclasscheck__(AbstractClass()) is True
 
 
 class AppTestWithMethodCacheCounter:
@@ -1290,5 +1311,3 @@ class AppTestComparesByIdentity:
         assert not self.compares_by_identity(X)
         del X.__eq__
         assert self.compares_by_identity(X)
-
-

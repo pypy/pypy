@@ -679,6 +679,7 @@ class LLHelpers(AbstractLLHelpers):
 
     @staticmethod
     @jit.elidable
+    @signature(types.any(), types.any(), types.int(), types.int(), returns=types.int())
     def ll_rfind_char(s, ch, start, end):
         if end > len(s.chars):
             end = len(s.chars)
@@ -1279,7 +1280,8 @@ TEMP_UNICODE = GcArray(Ptr(UNICODE))
 # ____________________________________________________________
 
 STR.become(GcStruct('rpy_string', ('hash',  Signed),
-                    ('chars', Array(Char, hints={'immutable': True})),
+                    ('chars', Array(Char, hints={'immutable': True,
+                                    'extra_item_after_alloc': 1})),
                     adtmeths={'malloc' : staticAdtMethod(mallocstr),
                               'empty'  : staticAdtMethod(emptystrfun),
                               'copy_contents' : staticAdtMethod(copy_string_contents),

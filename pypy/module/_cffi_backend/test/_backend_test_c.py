@@ -1,7 +1,7 @@
 # ____________________________________________________________
 
 import sys
-assert __version__ == "1.7.0", ("This test_c.py file is for testing a version"
+assert __version__ == "1.8.0", ("This test_c.py file is for testing a version"
                                 " of cffi that differs from the one that we"
                                 " get from 'import _cffi_backend'")
 if sys.version_info < (3,):
@@ -575,6 +575,19 @@ def test_array_sub():
     py.test.raises(TypeError, "a - q")
     e = py.test.raises(TypeError, "q - a")
     assert str(e.value) == "cannot subtract cdata 'short *' and cdata 'int *'"
+
+def test_ptr_sub_unaligned():
+    BInt = new_primitive_type("int")
+    BIntPtr = new_pointer_type(BInt)
+    a = cast(BIntPtr, 1240)
+    for bi in range(1430, 1438):
+        b = cast(BIntPtr, bi)
+        if ((bi - 1240) % size_of_int()) == 0:
+            assert b - a == (bi - 1240) // size_of_int()
+            assert a - b == (1240 - bi) // size_of_int()
+        else:
+            py.test.raises(ValueError, "b - a")
+            py.test.raises(ValueError, "a - b")
 
 def test_cast_primitive_from_cdata():
     p = new_primitive_type("int")
@@ -3330,13 +3343,18 @@ def test_from_buffer_not_str_unicode():
     BChar = new_primitive_type("char")
     BCharP = new_pointer_type(BChar)
     BCharA = new_array_type(BCharP, None)
-    py.test.raises(TypeError, from_buffer, BCharA, b"foo")
+    p1 = from_buffer(BCharA, b"foo")
+    assert p1 == from_buffer(BCharA, b"foo")
+    import gc; gc.collect()
+    assert p1 == from_buffer(BCharA, b"foo")
     py.test.raises(TypeError, from_buffer, BCharA, u+"foo")
     try:
         from __builtin__ import buffer
     except ImportError:
         pass
     else:
+        # from_buffer(buffer(b"foo")) does not work, because it's not
+        # implemented on pypy; only from_buffer(b"foo") works.
         py.test.raises(TypeError, from_buffer, BCharA, buffer(b"foo"))
         py.test.raises(TypeError, from_buffer, BCharA, buffer(u+"foo"))
     try:
