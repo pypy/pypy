@@ -15,9 +15,6 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std import newformat
 from pypy.objspace.std.formatting import mod_format
 from pypy.objspace.std.stringmethods import StringMethods
-from pypy.objspace.std.unicodeobject import (
-    decode_object, unicode_from_encoded_object,
-    unicode_from_string, getdefaultencoding)
 from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT
 
 

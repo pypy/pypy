@@ -1,7 +1,7 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.lltypesystem.lltype import Ptr, FuncType, Void
 from pypy.module.cpyext.api import (cpython_struct, Py_ssize_t, Py_ssize_tP,
-    PyVarObjectFields, PyTypeObject, PyTypeObjectPtr, FILEP, Py_Buffer,
+    PyVarObjectFields, PyTypeObject, PyTypeObjectPtr, FILEP, Py_buffer,
     Py_TPFLAGS_READYING, Py_TPFLAGS_READY, Py_TPFLAGS_HEAPTYPE)
 from pypy.module.cpyext.pyobject import PyObject, make_ref, from_ref
 from pypy.module.cpyext.modsupport import PyMethodDef
@@ -54,10 +54,6 @@ setter = P(FT([PyO, PyO, rffi.VOIDP], rffi.INT_real))
 wrapperfunc = P(FT([PyO, PyO, rffi.VOIDP], PyO))
 wrapperfunc_kwds = P(FT([PyO, PyO, rffi.VOIDP, PyO], PyO))
 
-readbufferproc = P(FT([PyO, Py_ssize_t, rffi.VOIDPP], Py_ssize_t))
-writebufferproc = P(FT([PyO, Py_ssize_t, rffi.VOIDPP], Py_ssize_t))
-segcountproc = P(FT([PyO, Py_ssize_tP], Py_ssize_t))
-charbufferproc = P(FT([PyO, Py_ssize_t, rffi.CCHARPP], Py_ssize_t))
 getbufferproc = P(FT([PyO, Py_bufferP, rffi.INT_real], rffi.INT_real))
 releasebufferproc = P(FT([PyO, Py_bufferP], Void))
 
@@ -131,10 +127,6 @@ PyMappingMethods = cpython_struct("PyMappingMethods", (
 ))
 
 PyBufferProcs = cpython_struct("PyBufferProcs", (
-    ("bf_getreadbuffer", readbufferproc),
-    ("bf_getwritebuffer", writebufferproc),
-    ("bf_getsegcount", segcountproc),
-    ("bf_getcharbuffer", charbufferproc),
     ("bf_getbuffer", getbufferproc),
     ("bf_releasebuffer", releasebufferproc),
 ))
