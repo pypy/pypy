@@ -2,6 +2,7 @@ from rpython.rlib import rgc
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.jit.backend.llsupport.symbolic import WORD
+from rpython.rlib.rmmap import set_pages_executable, set_pages_writable
 
 
 GCREFTRACER = lltype.GcStruct(
@@ -43,7 +44,10 @@ def make_framework_tracer(array_base_addr, gcrefs):
 def make_boehm_tracer(array_base_addr, gcrefs):
     # copy the addresses, but return 'gcrefs' as the object that must be
     # kept alive
-    for i in range(len(gcrefs)):
+    n_gcrefs = len(gcrefs)
+    set_pages_writable(array_base_addr, n_gcrefs * WORD)
+    for i in range(n_gcrefs):
         p = rffi.cast(rffi.SIGNEDP, array_base_addr + i * WORD)
         p[0] = rffi.cast(lltype.Signed, gcrefs[i])
+    set_pages_executable(array_base_addr, n_gcrefs * WORD)
     return gcrefs

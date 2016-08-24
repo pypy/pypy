@@ -7,6 +7,7 @@ from rpython.jit.backend.x86.arch import IS_X86_64, IS_X86_32
 from rpython.jit.backend.x86 import codebuf
 from rpython.jit.backend.x86.callbuilder import follow_jump
 from rpython.rlib.rarithmetic import intmask
+from rpython.rlib import rmmap
 import py.test
 
 class LocationCodeBuilder32(CodeBuilder32, LocationCodeBuilder):
@@ -78,7 +79,7 @@ def test_relocation():
         mc = codebuf.MachineCodeBlockWrapper()
         mc.CALL(ImmedLoc(target))
         length = mc.get_relative_pos()
-        buf = lltype.malloc(rffi.CCHARP.TO, length, flavor='raw')
+        buf = rmmap.alloc(length)
         rawstart = rffi.cast(lltype.Signed, buf)
         if IS_X86_32:
             assert length == 5
@@ -103,17 +104,18 @@ def test_relocation():
                     "\x41\xFF\xD3")                 # CALL *%r11
         mc.copy_to_raw_memory(rawstart)
         assert ''.join([buf[i] for i in range(length)]) == expected
-        lltype.free(buf, flavor='raw')
+        rmmap.free(buf, length)
 
 class Fake32CodeBlockWrapper(codebuf.MachineCodeBlockWrapper):
     def check_stack_size_at_ret(self):
         pass
         
 def test_follow_jump_instructions_32():
-    buf = lltype.malloc(rffi.CCHARP.TO, 80, flavor='raw')
+    size = 80
+    buf = rmmap.alloc(size)
     raw = rffi.cast(lltype.Signed, buf)
     if not fits_in_32bits(raw):
-        lltype.free(buf, flavor='raw')
+        rmmap.free(buf, size)
         py.test.skip("not testable")
     mc = Fake32CodeBlockWrapper(); mc.WORD = 4; mc.relocations = []
     mc.RET()
@@ -137,7 +139,7 @@ def test_follow_jump_instructions_32():
     assert buf[43] == '\xFF'
     assert buf[44] == '\xFF'
     assert follow_jump(raw + 40) == raw
-    lltype.free(buf, flavor='raw')
+    rmmap.free(buf)
 
 
 class Test64Bits:

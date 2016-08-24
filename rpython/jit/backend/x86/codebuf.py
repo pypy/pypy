@@ -7,6 +7,7 @@ from rpython.jit.backend.x86.rx86 import X86_32_CodeBuilder, X86_64_CodeBuilder
 from rpython.jit.backend.x86.regloc import LocationCodeBuilder
 from rpython.jit.backend.x86.arch import IS_X86_32, IS_X86_64, WORD
 from rpython.jit.backend.x86 import valgrind
+from rpython.rlib.rmmap import  set_pages_writable, set_pages_executable
 
 # XXX: Seems nasty to change the superclass of MachineCodeBlockWrapper
 # like this
@@ -51,5 +52,6 @@ class MachineCodeBlockWrapper(BlockBuilderMixin,
                 p = addr + reloc
                 adr = rffi.cast(rffi.INTP, p - 4)
                 adr[0] = rffi.cast(rffi.INT, intmask(adr[0]) - p)
+
         valgrind.discard_translations(addr, self.get_relative_pos())
         self._dump(addr, "jit-backend-dump", backend_name)

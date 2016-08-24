@@ -230,8 +230,11 @@ class BlockBuilderMixin(object):
         targetindex = self._baserelpos
         while targetindex >= 0:
             dst = rffi.cast(rffi.CCHARP, addr + targetindex)
+            # XXX see if we can move the page fiddling out the loop
+            rmmap.set_pages_writable(dst, blocksize)
             for j in range(blocksize):
                 dst[j] = block.data[j]
+            rmmap.set_pages_executable(dst, blocksize)
             block = block.prev
             blocksize = self.SUBBLOCK_SIZE
             targetindex -= self.SUBBLOCK_SIZE

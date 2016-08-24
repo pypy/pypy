@@ -1,17 +1,23 @@
 import sys
 import struct
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib.rmmap import alloc, free
+from rpython.rlib.rmmap import (alloc, free, set_pages_writable,
+                                set_pages_executable)
+
+CPUINFO_ALLOC_SZ = 4096
+
 
 def cpu_info(instr):
-    data = alloc(4096)
+    data = alloc(CPUINFO_ALLOC_SZ)
     pos = 0
+    set_pages_writable(data, CPUINFO_ALLOC_SZ)
     for c in instr:
         data[pos] = c
         pos += 1
+    set_pages_executable(data, CPUINFO_ALLOC_SZ)
     fnptr = rffi.cast(lltype.Ptr(lltype.FuncType([], lltype.Signed)), data)
     code = fnptr()
-    free(data, 4096)
+    free(data, CPUINFO_ALLOC_SZ)
     return code
 
 def detect_sse2():
