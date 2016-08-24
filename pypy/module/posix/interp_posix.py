@@ -11,7 +11,7 @@ except ImportError:
 from rpython.rlib import rposix, rposix_stat
 from rpython.rlib import objectmodel, rurandom
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.rarithmetic import r_longlong, intmask, r_uint
+from rpython.rlib.rarithmetic import r_longlong, intmask, r_uint, r_int
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype
 from rpython.tool.sourcetools import func_with_new_name
@@ -2169,15 +2169,16 @@ def get_terminal_size(space, w_fd=None):
         handle = rwin32.GetStdHandle(handle_id)
 
         if handle == rwin32.NULL_HANDLE:
-            raise oefmt(OSError, "handle cannot be retrieved")
+            raise oefmt(space.w_OSError, "handle cannot be retrieved")
         elif handle == rwin32.INVALID_HANDLE_VALUE:
             raise rwin32.lastSavedWindowsError()
-        with lltype.scoped_alloc(CONSOLE_SCREEN_BUFFER_INFO) as buffer_info: 
-            success = GetConsoleScreenBufferInfo(handle, buffer_info)
+        with lltype.scoped_alloc(rwin32.CONSOLE_SCREEN_BUFFER_INFO) as buffer_info: 
+            success = rwin32.GetConsoleScreenBufferInfo(handle, buffer_info)
             if not success:
                 raise rwin32.lastSavedWindowsError()
-            columns = buffer_info.srWindow.Right - buffer_info.srWindow.Left + 1
-            lines = buffer_info.srWindow.Bottom - buffer_info.srWindow.Top + 1
+            # TODO: Is the typing here right?
+            w_columns = space.wrap(r_int(buffer_info.c_srWindow.c_Right) - r_int(buffer_info.c_srWindow.c_Left) + 1)
+            w_lines = space.wrap(r_int(buffer_info.c_srWindow.c_Bottom) - r_int(buffer_info.c_srWindow.c_Top) + 1)
     else:
         # Assuming that all supported platforms will have ioctl at least
         with lltype.scoped_alloc(rposix.WINSIZE) as winsize: 
@@ -2186,10 +2187,11 @@ def get_terminal_size(space, w_fd=None):
                 raise exception_from_saved_errno(space, space.w_OSError)
 
             # TODO: Wrap this into a python_lvel int (somehow)
-            columns = space.wrap(winsize.c_ws_col)
-            lines = space.wrap(winsize.c_ws_row)
+            # TODO: is this right?
+            w_columns = space.wrap(r_uint(winsize.c_ws_col))
+            w_lines = space.wrap(r_uint(winsize.c_ws_row))
 
-    w_tuple = space.newtuple([columns, lines])
+    w_tuple = space.newtuple([w_columns, w_lines])
     w_terminal_size = space.getattr(space.getbuiltinmodule(os.name),
                                     space.wrap('terminal_size'))
 

@@ -94,7 +94,7 @@ class uname_result(metaclass=structseqtype):
 
 class terminal_size(metaclass=structseqtype):
 
-    name = osname + ".terminal_size"
+    name = "os.terminal_size"
 
     columns  = structseqfield(0, "width of the terminal window in characters")
     lines = structseqfield(1, "height of the terminal window in characters")

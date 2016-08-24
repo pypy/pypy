@@ -73,7 +73,7 @@ class CConfig:
         CONSOLE_SCREEN_BUFFER_INFO = Struct("CONSOLE_SCREEN_BUFFER_INFO",
                                             [("dwSize", COORD),
                                              ("dwCursorPosition", COORD),
-                                             ("wAttributes", WORD),
+                                             ("wAttributes", WORD.ctype_hint),
                                              ("srWindow", SMALL_RECT),
                                              ("dwMaximumWindowSize", COORD)])
 
@@ -470,6 +470,6 @@ if WIN32:
 
     def GetStdHandle(handle_id):
         return _GetStdHandle(handle_id)
-
-    _GetConsoleScreenBufferInfo = winexternal(
-        "GetConsoleScreenBufferInfo", [HANDLE, csbi], BOOL)
+    CONSOLE_SCREEN_BUFFER_INFO_P = lltype.Ptr(CONSOLE_SCREEN_BUFFER_INFO)
+    GetConsoleScreenBufferInfo = winexternal(
+        "GetConsoleScreenBufferInfo", [HANDLE, CONSOLE_SCREEN_BUFFER_INFO_P], BOOL)
