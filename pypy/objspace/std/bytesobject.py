@@ -12,7 +12,13 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
     WrappedDefault, interp2app, interpindirect2app, unwrap_spec)
 from pypy.interpreter.typedef import TypeDef
+from pypy.objspace.std import newformat
+from pypy.objspace.std.basestringtype import basestring_typedef
+from pypy.objspace.std.formatting import mod_format
 from pypy.objspace.std.stringmethods import StringMethods
+from pypy.objspace.std.unicodeobject import (
+    decode_object, unicode_from_encoded_object,
+    unicode_from_string, getdefaultencoding)
 from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT
 
 
@@ -394,7 +400,6 @@ class W_AbstractBytesObject(W_Root):
         of the specified width. The string S is never truncated.
         """
 
-
 class W_BytesObject(W_AbstractBytesObject):
     import_from_mixin(StringMethods)
     _immutable_fields_ = ['_value']
@@ -416,6 +421,18 @@ class W_BytesObject(W_AbstractBytesObject):
     def buffer_w(self, space, flags):
         space.check_buf_flags(flags, True)
         return StringBuffer(self._value)
+
+    def readbuf_w(self, space):
+        return StringBuffer(self._value)
+
+    def writebuf_w(self, space):
+        raise oefmt(space.w_TypeError,
+                    "Cannot use string as modifiable buffer")
+
+    def descr_getbuffer(self, space, w_flags):
+        #from pypy.objspace.std.bufferobject import W_Buffer
+        #return W_Buffer(StringBuffer(self._value))
+        return self
 
     def listview_int(self):
         return _create_list_from_bytes(self._value)

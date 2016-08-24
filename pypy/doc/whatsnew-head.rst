@@ -150,3 +150,8 @@ was already read-only).
 
 Reduce the size of the generated C code by constant-folding ``we_are_jitted``
 in non-jitcode.
+
+.. branch: memoryview-attributes
+
+Support for memoryview attributes (format, itemsize, ...).
+Extends the cpyext emulation layer.

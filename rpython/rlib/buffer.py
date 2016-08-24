@@ -59,6 +59,20 @@ class Buffer(object):
     def get_raw_address(self):
         raise ValueError("no raw buffer")
 
+    def getformat(self):
+        return 'B'
+
+    def getitemsize(self):
+        return 1
+
+    def getndim(self):
+        return 1
+
+    def getshape(self):
+        return [self.getlength()]
+
+    def getstrides(self):
+        return [1]
 
 class StringBuffer(Buffer):
     __slots__ = ['value']

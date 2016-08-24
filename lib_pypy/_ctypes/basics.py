@@ -166,8 +166,8 @@ class _CData(object, metaclass=_CDataMeta):
         else:
             return self.value
 
-    def __buffer__(self):
-        return memoryview(self._buffer)
+    def __buffer__(self, flags):
+        return buffer(self._buffer)
 
     def _get_b_base(self):
         try:
@@ -208,7 +208,7 @@ def byref(cdata, offset=0):
 
 def cdata_from_address(self, address):
     # fix the address: turn it into as unsigned, in case it's a negative number
-    address = address & (sys.maxsize * 2 + 1)
+    address = address & (sys.maxint * 2 + 1)
     instance = self.__new__(self)
     lgt = getattr(self, '_length_', 1)
     instance._buffer = self._ffiarray.fromaddress(address, lgt)
