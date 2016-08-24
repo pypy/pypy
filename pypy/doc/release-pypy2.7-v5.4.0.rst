@@ -59,13 +59,81 @@ Other Highlights (since 5.3 released in June 2016)
 
 * New features:
 
+  * Add `sys.{get,set}dlopenflags`
+
+  * Improve CPython compatibility of 'is' for small and empty strings
+
+  * Support for rgc.FinalizerQueue in the Boehm garbage collector
+
+  * (RPython) support spawnv() if it is called in C `_spawnv` on windows
+
+  * Fill in more slots when creating a PyTypeObject from a W_TypeObject,
+    like `__hex__`, `__sub__`, `__pow__`
+
+  * Copy CPython's logic more closely for `isinstance()` and
+    `issubclass()` as well as `type.__instancecheck__()` and
+    `type.__subclasscheck__()`
+
 * Bug Fixes
+
+  * Reject `mkdir()` in read-only sandbox filesystems
+
+  * Add include guards to pymem.h to enable c++ compilation
+
+  * Fix OpenBSD build breakage and support OpenBSD in VMProf.
+
+  * Fix for `bytearray('').replace('a', 'ab')` for empty strings
+
+  * Sync internal state before calling `PyFile_AsFile()`
+
+  * Allow writing to a char* from `PyString_AsString()` until it is
+    forced, also refactor `PyStringObject` to look like CPython's
+    and allow subclassing `PyString_Type` and `PyUnicode_Type`
+
+  * Rpython rffi's socket(2) wrapper did not preserve errno
+
+  * Refactor `PyTupleObject` to look like CPython's and allow
+    subclassing `PyTuple_Type`
+
+  * Allow c-level assignment to a function pointer in a C-API
+    user-defined type after calling PyTypeReady by retrieving
+    a pointer to the function via offsets
+    rather than storing the function pointer itself
+
+  * Use `madvise(MADV_FREE)`, or if that doesn't exist
+    `MADV_DONTNEED` on freed arenas to release memory back to the
+    OS for resource monitoring
 
   * Issues reported with our previous release were resolved_ after
     reports from users on our issue tracker at
     https://bitbucket.org/pypy/pypy/issues or on IRC at #pypy
 
 * Performance improvements:
+
+  * Add a before_call()-like equivalent before a few operations like
+   `malloc_nursery`, to move values from registers into other registers
+    instead of to the stack.
+
+  * More tightly pack the stack when calling with `release gil`
+
+  * Support `int_floordiv()`, `int_mod()` in the JIT more efficiently
+    and add `rarithmetic.int_c_div()`, `rarithmetic.int_c_mod()` as
+    explicit interfaces. Clarify that `int_floordiv()` does python-style
+    rounding, unlike `llop.int_floordiv()`.
+
+  * Use `ll_assert` (more often) in incminimark
+
+  * (Testing) Simplify handling of interp-level tests and make it
+    more forward-compatible. Don't use interp-level RPython
+    machinery to test building app-level extensions in cpyext
+
+  * Constant-fold `ffi.offsetof("structname", "fieldname")` in cffi
+    backend
+
+  * Avoid a case in the JIT, where successive guard failures in
+    the same Python function end up as successive levels of
+    RPython functions, eventually exhausting the stack, while at
+    app-level the traceback is very short
 
 .. _resolved: http://doc.pypy.org/en/latest/whatsnew-5.3.0.html
 
