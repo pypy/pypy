@@ -1,7 +1,7 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.lltypesystem.lltype import Ptr, FuncType, Void
 from pypy.module.cpyext.api import (cpython_struct, Py_ssize_t, Py_ssize_tP,
-    PyVarObjectFields, PyTypeObject, PyTypeObjectPtr, FILEP,
+    PyVarObjectFields, PyTypeObject, PyTypeObjectPtr, FILEP, Py_Buffer,
     Py_TPFLAGS_READYING, Py_TPFLAGS_READY, Py_TPFLAGS_HEAPTYPE)
 from pypy.module.cpyext.pyobject import PyObject, make_ref, from_ref
 from pypy.module.cpyext.modsupport import PyMethodDef
@@ -59,7 +59,7 @@ writebufferproc = P(FT([PyO, Py_ssize_t, rffi.VOIDPP], Py_ssize_t))
 segcountproc = P(FT([PyO, Py_ssize_tP], Py_ssize_t))
 charbufferproc = P(FT([PyO, Py_ssize_t, rffi.CCHARPP], Py_ssize_t))
 getbufferproc = P(FT([PyO, Py_bufferP, rffi.INT_real], rffi.INT_real))
-releasebufferproc = P(FT([PyO, Ptr(Py_buffer)], Void))
+releasebufferproc = P(FT([PyO, Py_bufferP], Void))
 
 
 PyGetSetDef = cpython_struct("PyGetSetDef", (
