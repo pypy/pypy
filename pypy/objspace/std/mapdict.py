@@ -1018,7 +1018,7 @@ def LOOKUP_METHOD_mapdict_fill_cache_method(space, pycode, name, nameindex,
     # if the layout has a dict itself, then mapdict is not used for normal
     # attributes. Then the cache won't be able to spot changes to the dict.
     # Thus we don't cache. see test_bug_builtin_types_callmethod
-    if not w_type.layout.typedef.hasdict:
+    if w_type.layout.typedef.hasdict:
         return
 
     if w_method is None or isinstance(w_method, MutableCell):
