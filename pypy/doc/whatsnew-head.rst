@@ -155,3 +155,7 @@ in non-jitcode.
 
 Support for memoryview attributes (format, itemsize, ...).
 Extends the cpyext emulation layer.
+
+.. branch: redirect-assembler-jitlog
+
+Log more information to properly rebuild the redirected traces in jitviewer.
