@@ -6,6 +6,15 @@ from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.backend.model import AbstractCPU
 from rpython.jit.metainterp.history import ConstInt, ConstPtr
 from rpython.rlib.rjitlog import rjitlog as jl
+from rpython.jit.metainterp.history import AbstractDescr
+from rpython.rlib.objectmodel import compute_unique_id
+
+class FakeCallAssemblerLoopToken(AbstractDescr):
+    def __init__(self, target):
+	self._ll_function_addr = target
+
+    def repr_of_descr(self):
+        return 'looptoken'
 
 class FakeLog(object):
     def __init__(self):
@@ -109,3 +118,31 @@ class TestLogger(object):
         with py.test.raises(AssertionError):
             jl.commonprefix(None,None)
 
+    def test_redirect_assembler(self, tmpdir):
+        looptoken = FakeCallAssemblerLoopToken(0x0)
+        newlooptoken = FakeCallAssemblerLoopToken(0x1234)
+        #
+        logger = jl.JitLogger()
+        file = tmpdir.join('binary_file')
+        file.ensure()
+        fd = file.open('wb')
+        jl.jitlog_init(fd.fileno())
+        logger.start_new_trace(self.make_metainterp_sd(), jd_name='jdname')
+        log_trace = logger.log_trace(jl.MARK_TRACE, None, None)
+        op = ResOperation(rop.CALL_ASSEMBLER_I, [], descr=looptoken)
+        log_trace.write([], [op])
+        jl.redirect_assembler(looptoken, newlooptoken, 0x1234)
+        #the next line will close 'fd', instead of logger.finish()
+        fd.close()
+        binary = file.read()
+        opnum = jl.encode_le_16bit(rop.CALL_ASSEMBLER_I)
+        id_looptoken = compute_unique_id(looptoken)
+        new_id_looptoken = compute_unique_id(newlooptoken)
+        end = jl.MARK_RESOP_DESCR + opnum + jl.encode_str('i0,looptoken') + \
+              jl.encode_le_addr(id_looptoken) + jl.encode_str('') + \
+              jl.MARK_REDIRECT_ASSEMBLER + \
+              jl.encode_le_addr(id_looptoken) + \
+              jl.encode_le_addr(new_id_looptoken) + \
+              jl.encode_le_addr(newlooptoken._ll_function_addr)
+        assert binary.endswith(end)
+        
