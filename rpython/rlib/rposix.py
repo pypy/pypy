@@ -271,8 +271,6 @@ class CConfig:
                            ('ws_col', rffi.USHORT),
                            ('ws_xpixel', rffi.USHORT),
                            ('ws_ypixel', rffi.USHORT)])
-         
-
 
     GETPGRP_HAVE_ARG = rffi_platform.Has("getpgrp(0)")
     SETPGRP_HAVE_ARG = rffi_platform.Has("setpgrp(0, 0)")
