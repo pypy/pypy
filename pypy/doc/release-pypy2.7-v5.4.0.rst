@@ -5,8 +5,14 @@ PyPy2.7 v5.4
 We have released PyPy2.7 v5.4, a little under two months after PyPy2.7 v5.3.
 This new PyPy2.7 release includes further improvements to our C-API compatability layer (cpyext), enabling us to pass over 99% of the upstream
 numpy `test suite`_. We updated built-in cffi_ support to version 1.8,
-and fixed many issues and bugs raised by the growing community of PyPy
-users.
+which now supports the "limited API" mode for c-extensions on 
+CPython >=3.2.
+
+We improved tooling for the PyPy JIT_, and expanded VMProf
+support to OpenBSD and Dragon Fly BSD
+
+As always, this release fixed many issues and bugs raised by the
+growing community of PyPy users. 
 
 XXXXX MORE ???
 
@@ -25,6 +31,7 @@ with making RPython's JIT even better.
 
 .. _`test suite`: https://bitbucket.org/pypy/pypy/wiki/Adventures%20in%20cpyext%20compatibility
 .. _cffi: https://cffi.readthedocs.org
+.. _JIT: https://morepypy.blogspot.com.au/2016/08/pypy-tooling-upgrade-jitviewer-and.html
 .. _`PyPy`: http://doc.pypy.org
 .. _`RPython`: https://rpython.readthedocs.org
 .. _`modules`: http://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
@@ -74,13 +81,47 @@ Other Highlights (since 5.3 released in June 2016)
     `issubclass()` as well as `type.__instancecheck__()` and
     `type.__subclasscheck__()`
 
+  * Expose the name of CDLL objects
+
+  * Rewrite the win32 dependencies of `subprocess` to use cffi
+    instead of ctypes
+
+  * Improve the `JIT logging`_ facitilities
+
+  * (RPython) make int * string work
+
+  * Allocate all RPython strings with one extra byte, normally
+    unused. This now allows `ffi.from_buffer(string)` in CFFI with
+    no copy
+
+  * Adds a new commandline option `-X track-resources` that will
+    produce a `ResourceWarning` when the GC closes a file or socket.
+    The traceback for the place where the file or socket was allocated
+    is given as well, which aids finding places where `close()` is
+    missing
+
+  * Add missing `PyObject_Realloc`, `PySequence_GetSlice`
+
+  * `type.__dict__` now returns a `dict_proxy` object, like on CPython.
+    Previously it returned what looked like a regular dict object (but
+    it was already read-only)
+
+  * (RPython) add `rposix.{get,set}_inheritable()`, needed by Python 3.5
+
+  * (RPython) add `rposix_scandir` portably, needed for Python 3.5
+
+  * Support for memoryview attributes (format, itemsize, ...) which also
+    adds support for `PyMemoryView_FromObject`
+
 * Bug Fixes
 
   * Reject `mkdir()` in read-only sandbox filesystems
 
   * Add include guards to pymem.h to enable c++ compilation
 
-  * Fix OpenBSD build breakage and support OpenBSD in VMProf.
+  * Fix build breakage on OpenBSD and FreeBSD
+
+  * Support OpenBSD, Dragon Fly BSD in VMProf
 
   * Fix for `bytearray('').replace('a', 'ab')` for empty strings
 
@@ -104,9 +145,29 @@ Other Highlights (since 5.3 released in June 2016)
     `MADV_DONTNEED` on freed arenas to release memory back to the
     OS for resource monitoring
 
+  * Fix overflow detection in conversion of float to 64-bit integer
+    in timeout argument to various thread/threading primitives
+
+  * Fix win32 outputting `\r\r\n` in some cases
+
+  * Make `hash(-1)` return -2, as CPython does, and fix all the
+    ancilary places this matters
+
   * Issues reported with our previous release were resolved_ after
     reports from users on our issue tracker at
     https://bitbucket.org/pypy/pypy/issues or on IRC at #pypy
+
+  * Fix `PyNumber_Check()` to behave more like CPython
+
+  * (VMProf) Try hard to not miss any Python-level frame in the
+    captured stacks, even if there is metainterp or blackhole interp
+    involved.  Also fix the stacklet (greenlet) support
+
+  * Fix a critical JIT bug where `raw_malloc` -equivalent functions
+    lost the additional flags
+
+  * Fix the mapdict cache for subclasses of builtin types that
+    provide a dict
 
 * Performance improvements:
 
@@ -135,6 +196,22 @@ Other Highlights (since 5.3 released in June 2016)
     RPython functions, eventually exhausting the stack, while at
     app-level the traceback is very short
 
+  * Check for NULL returns from calls to the raw-malloc and raise,
+    rather than a guard
+
+  * Improve `socket.recvfrom()` so that it copies less if possible
+
+  * When generating C code, inline `goto` to blocks with only one
+    predecessor, generating less lines of code
+
+  * When running the final backend-optimization phase before emitting
+    C code, constant-fold calls to we_are_jitted to return False. This
+    makes the generated C code a few percent smaller
+
+  * Refactor the `uid_t/gid_t` handling in `rlib.rposix` and in
+    `interp_posix.py`, based on the clean-up of CPython 2.7.x 
+
+.. _`JIT logging`: https://morepypy.blogspot.com/2016/08/pypy-tooling-upgrade-jitviewer-and.html
 .. _resolved: http://doc.pypy.org/en/latest/whatsnew-5.4.0.html
 
 Please update, and continue to help us make PyPy better.
