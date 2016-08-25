@@ -20,6 +20,7 @@ from pypy.interpreter.argument import Arguments
 from rpython.rlib.buffer import Buffer
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
+from rpython.rlib.rarithmetic import widen
 from rpython.tool.sourcetools import func_renamer
 from rpython.rtyper.annlowlevel import llhelper
 from pypy.module.sys.version import CPYTHON_VERSION
