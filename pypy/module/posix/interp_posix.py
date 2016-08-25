@@ -8,7 +8,7 @@ except ImportError:
     # some Pythons don't have errno.ENOTSUP
     ENOTSUP = 0
 
-from rpython.rlib import rposix, rposix_stat
+from rpython.rlib import rposix, rposix_stat, rfile
 from rpython.rlib import objectmodel, rurandom
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_longlong, intmask, r_uint, r_int
@@ -2147,8 +2147,7 @@ if _WIN32:
    
 def get_terminal_size(space, w_fd=None):
     if w_fd is None:
-        w_stdout = space.sys.getdictvalue(space, 'stdout')
-        fd = space.int_w(w_stdout.fileno_w(space))
+        fd = rfile.c_fileno(rfile.c_stdout)
     else:
         if not space.isinstance_w(w_fd, space.w_int):
             raise oefmt(space.w_TypeError,
@@ -2176,18 +2175,14 @@ def get_terminal_size(space, w_fd=None):
             success = rwin32.GetConsoleScreenBufferInfo(handle, buffer_info)
             if not success:
                 raise rwin32.lastSavedWindowsError()
-            # TODO: Is the typing here right?
             w_columns = space.wrap(r_int(buffer_info.c_srWindow.c_Right) - r_int(buffer_info.c_srWindow.c_Left) + 1)
             w_lines = space.wrap(r_int(buffer_info.c_srWindow.c_Bottom) - r_int(buffer_info.c_srWindow.c_Top) + 1)
     else:
-        # Assuming that all supported platforms will have ioctl at least
         with lltype.scoped_alloc(rposix.WINSIZE) as winsize: 
             failed = rposix.c_ioctl_voidp(fd, rposix.TIOCGWINSZ, winsize)
             if failed:
                 raise exception_from_saved_errno(space, space.w_OSError)
 
-            # TODO: Wrap this into a python_lvel int (somehow)
-            # TODO: is this right?
             w_columns = space.wrap(r_uint(winsize.c_ws_col))
             w_lines = space.wrap(r_uint(winsize.c_ws_row))
 
