@@ -144,7 +144,7 @@ class Module(MixedModule):
             # XXX the two lines above take a few seconds to run whenever
             # we initialize the space; for tests, use a simpler version
             from pypy.module.sys.interp_encoding import base_encoding
-            self.filesystemencoding = space.wrap(base_encoding)
+            self.filesystemencoding = base_encoding
 
     def flush_std_files(self, space):
         w_stdout = space.sys.getdictvalue(space, 'stdout')
