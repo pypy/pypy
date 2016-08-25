@@ -1048,6 +1048,7 @@ def make_new_dtype(space, w_subtype, w_dtype, alignment, copy=False, w_shape=Non
             return dtype
         if name[0] in 'VSUca' or name[0] in '<>=|' and name[1] in 'VSUca':
             return variable_dtype(space, name)
+        import pdb; pdb.set_trace()
         raise oefmt(space.w_TypeError, 'data type "%s" not understood', name)
     elif space.isinstance_w(w_dtype, space.w_list):
         return _set_metadata_and_copy( space, w_metadata,

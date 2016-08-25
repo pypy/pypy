@@ -20,7 +20,7 @@ for s in (64, 128):
 for t in types:
     globals()[t] = dtype(t).type
 
-types = ['bool', 'int', 'float', 'complex', 'str', 'string', 'unicode', 'object']
+types = ['bool', 'int', 'float', 'complex', 'str', 'object']
 for t in types:
     globals()[t + '_'] = dtype(t).type
 del types

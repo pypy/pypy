@@ -166,7 +166,12 @@ class AppTestMemoryView:
     def test_hex(self):
         assert memoryview(b"abc").hex() == u'616263'
 
-    @py.test.skip("needs numpy ndarray")
+from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
+
+class AppTestMemoryViewMicroNumPyPy(BaseNumpyAppTest):
+    spaceconfig = dict(usemodules=['array', 'micronumpy'])
+
     def test_tuple_indexing(self):
+        from numpy import ndarray
         content = ndarray(list(range(12)))
         assert memoryview(content)[0,0] == 0
