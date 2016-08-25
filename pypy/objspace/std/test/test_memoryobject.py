@@ -173,5 +173,5 @@ class AppTestMemoryViewMicroNumPyPy(BaseNumpyAppTest):
 
     def test_tuple_indexing(self):
         from numpy import ndarray
-        content = ndarray(list(range(12)))
+        content = ndarray(list(range(12))).reshape(3,4)
         assert memoryview(content)[0,0] == 0

@@ -20,6 +20,8 @@ for s in (64, 128):
 for t in types:
     globals()[t] = dtype(t).type
 
+# removed 'string' and 'unicode' from that list to handle an error in
+# make_new_dtype (micronumpy/descriptor.py)
 types = ['bool', 'int', 'float', 'complex', 'str', 'object']
 for t in types:
     globals()[t + '_'] = dtype(t).type

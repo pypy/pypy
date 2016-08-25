@@ -79,9 +79,51 @@ class W_MemoryView(W_Root):
         fmtiter.interpret(self.format * self.getlength())
         return space.newlist(fmtiter.result_w)
 
+    def _start_from_tuple(self, space, w_tuple):
+        start = 0
+
+        view = self.buf
+        length = space.len(w_tuple)
+        for i, w_obj in enumerate(w_tuple.getitems_unroll()):
+            value = w_obj.int_w(space)
+            start = self.lookup_dimension(start, dim, index)
+        return start
+
+    def lookup_dimension(self, space, start, dim, index):
+        return start
+
+    def _getitem_tuple_indexed(self, w_index):
+        view = self.buf
+
+        fmt = view.getformat() # TODO adjust format?
+
+        length = space.len_w(w_index)
+        ndim = view.getndim()
+        if length < ndim:
+            raise OperationError(self.w_NotImplementedError, \
+                    self.wrap("sub-views are not implemented"))
+
+        if length > ndim:
+            raise oefmt(self.w_NotImplementedError, \
+                    "cannot index %d-dimension view with %d-element tuple",
+                    length, ndim)
+
+        start = self._start_from_tuple(space, w_index)
+
+        buf = SubBuffer(self.buf, start, self.itemsize)
+        fmtiter = UnpackFormatIterator(space, buf)
+        fmtiter.interpret(fmt)
+        return fmtiter.result_w[0]
+
+
     def descr_getitem(self, space, w_index):
         self._check_released(space)
-        start, stop, step, size = space.decode_index4(w_index, self.getlength())
+
+        if self.isinstance_w(w_index, self.w_tuple):
+            return self._getitem_tuple_indexed(space, w_index)
+
+        start, stop, step, size = space.decode_index4_or_tuple_index(w_index, \
+                                                              self.getlength())
         itemsize = self.buf.getitemsize()
         if itemsize > 1:
             start *= itemsize
