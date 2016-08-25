@@ -2147,7 +2147,7 @@ if _WIN32:
    
 def get_terminal_size(space, w_fd=None):
     if w_fd is None:
-        fd = rfile.c_fileno(rfile.c_stdout)
+        fd = rfile.RFile(rfile.c_stdout(), close2=(None, None)).fileno()
     else:
         if not space.isinstance_w(w_fd, space.w_int):
             raise oefmt(space.w_TypeError,
