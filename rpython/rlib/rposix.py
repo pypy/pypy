@@ -1170,9 +1170,10 @@ def pipe(flags=0):
     else:
         filedes = lltype.malloc(INT_ARRAY_P.TO, 2, flavor='raw')
         try:
-            if HAVE_PIPE2:
+            if HAVE_PIPE2 and _pipe2_syscall.attempt_syscall():
                 res = c_pipe2(filedes, flags)
-                if widen(res) != 0 and get_saved_errno() == errno.ENOSYS:
+                _pipe2_syscall.update()
+                if res < 0 and get_saved_errno() == errno.ENOSYS:
                     res = c_pipe(filedes)
             else:
                 res = c_pipe(filedes)      # 'flags' ignored
@@ -2267,3 +2268,17 @@ class SetNonInheritableCache(object):
         if self.cached_inheritable == 1:
             # 'fd' is inheritable; we must manually turn it off
             set_inheritable(fd, False)
+
+class ENoSysCache(object):
+    """Cache whether a system call returns ENOSYS or not."""
+    _immutable_fields_ = ['cached_nosys?']
+    cached_nosys = -1      # -1 = don't know; 0 = no; 1 = yes, getting ENOSYS
+
+    def attempt_syscall(self):
+        return self.cached_nosys != 1
+
+    def update(self):
+        if self.cached_nosys == -1:
+            self.cached_nosys = (get_saved_errno() == errno.ENOSYS)
+
+_pipe2_syscall = ENoSysCache()
