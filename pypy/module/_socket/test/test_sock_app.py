@@ -546,11 +546,15 @@ class AppTestSocket:
         s.ioctl(_socket.SIO_KEEPALIVE_VALS, (1, 100, 100))
 
     def test_dup(self):
-        import _socket as socket
+        import _socket as socket, posix
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.bind(('localhost', 0))
         fd = socket.dup(s.fileno())
         assert s.fileno() != fd
+        assert posix.get_inheritable(s.fileno()) is False
+        assert posix.get_inheritable(fd) is False
+        posix.close(fd)
+        s.close()
 
     def test_dup_error(self):
         import _socket

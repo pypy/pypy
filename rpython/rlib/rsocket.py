@@ -1169,7 +1169,7 @@ if hasattr(_c, 'socketpair'):
                 make_socket(fd1, family, type, proto, SocketClass))
 
 if _c.WIN32:
-    def dup(fd):
+    def dup(fd, inheritable=True):
         with lltype.scoped_alloc(_c.WSAPROTOCOL_INFO, zero=True) as info:
             if _c.WSADuplicateSocket(fd, rwin32.GetCurrentProcessId(), info):
                 raise last_error()
@@ -1180,15 +1180,16 @@ if _c.WIN32:
                 raise last_error()
             return result
 else:
-    def dup(fd):
-        fd = _c.dup(fd)
+    def dup(fd, inheritable=True):
+        fd = rposix._dup(fd, inheritable)
         if fd < 0:
             raise last_error()
         return fd
 
-def fromfd(fd, family, type, proto=0, SocketClass=RSocket):
+def fromfd(fd, family, type, proto=0, SocketClass=RSocket, inheritable=True):
     # Dup the fd so it and the socket can be closed independently
-    return make_socket(dup(fd), family, type, proto, SocketClass)
+    fd = dup(fd, inheritable=inheritable)
+    return make_socket(fd, family, type, proto, SocketClass)
 
 def getdefaulttimeout():
     return defaults.timeout

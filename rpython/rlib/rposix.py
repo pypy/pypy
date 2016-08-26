@@ -372,13 +372,17 @@ def handle_posix_error(name, result):
         raise OSError(get_saved_errno(), '%s failed' % name)
     return result
 
-@replace_os_function('dup')
-def dup(fd, inheritable=True):
+def _dup(fd, inheritable=True):
     validate_fd(fd)
     if inheritable:
         res = c_dup(fd)
     else:
         res = c_dup_noninheritable(fd)
+    return res
+
+@replace_os_function('dup')
+def dup(fd, inheritable=True):
+    res = _dup(fd, inheritable)
     return handle_posix_error('dup', res)
 
 @replace_os_function('dup2')
