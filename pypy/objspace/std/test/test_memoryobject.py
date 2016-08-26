@@ -1,3 +1,4 @@
+import py
 import struct
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app
@@ -191,18 +192,34 @@ class MockBuffer(Buffer):
         self.shape.append(space.len_w(w_arr))
         self.data = []
         itemsize = 1
-        for i, w_obj in enumerate(w_arr.getitems_unroll()):
-            ints = []
-            for j, w_i in enumerate(w_obj.getitems_unroll()):
-                ints.append(space.int_w(w_i))
-                self.data.append(space.int_w(w_i))
-            self.arr.append(ints)
+        worklist = [(1,w_arr)]
+        while worklist:
+            dim, w_work = worklist.pop()
+            if space.isinstance_w(w_work, space.w_list):
+                for j, w_obj in enumerate(w_work.getitems_unroll()):
+                    worklist.insert(0, (dim+1, w_obj))
+                continue
+            self.data.append(space.int_w(w_work))
+
+    def getslice(self, start, stop, step, size):
+        items = []
+        bytecount = (stop - start)
+        # data is stores as list of ints, thus this gets around the
+        # issue that one cannot advance in bytes
+        count = bytecount // size
+        start = start // size
+        for i in range(start, start+count, step):
+            items.append(self.getitem(i))
+        return ''.join(items)
+
+    def getformat(self):
+        return self.fmt
 
     def getitem(self, index):
-        return struct.pack(self.fmt, self.data[index])[0]
+        return struct.pack(self.fmt, self.data[index])
 
     def getlength(self):
-        return len(self.data)
+        return len(self.data) * self.itemsize
 
     def getitemsize(self):
         return self.itemsize
@@ -258,3 +275,22 @@ class AppTestMemoryViewMicroNumPyPy(object):
         assert view[2,3] == 11
         assert view[-1,-1] == 11
         assert view[-3,-4] == 0
+
+        try:
+            view.__getitem__((2**63-1,0))
+            assert False, "must not succeed"
+        except IndexError: pass
+
+        try:
+            view.__getitem__((0, 0, 0))
+            assert False, "must not succeed"
+        except TypeError: pass
+
+    def test_tuple_indexing_int(self):
+        content = self.MockArray([ [[1],[2],[3]], [[4],[5],[6]] ],
+                                 dim=3, fmt='i', size=4,
+                                 strides=[12,4,4], shape=[2,3,1])
+        view = memoryview(content)
+        assert view[0,0,0] == 1
+        assert view[-1,2,0] == 6
+

@@ -119,13 +119,13 @@ class W_MemoryView(W_Root):
                     space.wrap("sub-views are not implemented"))
 
         if length > ndim:
-            raise oefmt(space.w_NotImplementedError, \
+            raise oefmt(space.w_TypeError, \
                     "cannot index %d-dimension view with %d-element tuple",
                     length, ndim)
 
         start = self._start_from_tuple(space, w_index)
 
-        buf = SubBuffer(self.buf, start, self.itemsize)
+        buf = SubBuffer(self.buf, start, view.getitemsize())
         fmtiter = UnpackFormatIterator(space, buf)
         fmtiter.interpret(fmt)
         return fmtiter.result_w[0]
