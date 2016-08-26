@@ -159,3 +159,7 @@ Extends the cpyext emulation layer.
 .. branch: redirect-assembler-jitlog
 
 Log more information to properly rebuild the redirected traces in jitviewer.
+
+.. branch: cpyext-subclass
+
+Copy Py_TPFLAGS_CHECKTYPES, Py_TPFLAGS_HAVE_INPLACEOPS when inheriting
