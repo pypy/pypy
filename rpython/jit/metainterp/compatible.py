@@ -317,6 +317,7 @@ class PureCallCondition(Condition):
         self.rpyfunc = op.rpyfunc
 
     def check_and_return_result_if_different(self, cpu, ref):
+        from rpython.jit.metainterp.history import ConstInt
         calldescr = self.descr
         # change exactly the first argument
         arglist = self.args
@@ -329,7 +330,7 @@ class PureCallCondition(Condition):
                 debug_print("call to elidable_compatible function raised")
                 debug_print(self.repr())
                 debug_stop("jit-guard-compatible")
-            return False
+            return ConstInt(41)
         finally:
             arglist[1] = None
         if not res.same_constant(self.res):
@@ -442,6 +443,7 @@ class QuasiimmutGetfieldAndPureCallCondition(PureCallCondition):
         qmut.register_loop_token(loop_token.loop_token_wref)
 
     def check_and_return_result_if_different(self, cpu, ref):
+        from rpython.jit.metainterp.history import ConstInt
         from rpython.rlib.debug import debug_print, debug_start, debug_stop
         from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
         calldescr = self.descr
@@ -457,7 +459,7 @@ class QuasiimmutGetfieldAndPureCallCondition(PureCallCondition):
                 debug_print("call to elidable_compatible function raised")
                 debug_print(self.repr())
                 debug_stop("jit-guard-compatible")
-            return False
+            return ConstInt(41)
         finally:
             arglist[1] = arglist[2] = None
         if not res.same_constant(self.res):
