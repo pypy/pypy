@@ -648,6 +648,16 @@ class AppTestSocket:
         assert len(w) == 1, [str(warning) for warning in w]
         assert r in str(w[0])
 
+    def test_socketpair_non_inheritable(self):
+        import _socket, posix
+        if not hasattr(_socket, 'socketpair'):
+            skip("no socketpair")
+        s1, s2 = _socket.socketpair()
+        assert posix.get_inheritable(s1.fileno()) is False
+        assert posix.get_inheritable(s2.fileno()) is False
+        s1.close()
+        s2.close()
+
 
 class AppTestNetlink:
     def setup_class(cls):

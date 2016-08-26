@@ -11,7 +11,7 @@ a drop-in replacement for the 'socket' module.
 from rpython.rlib import _rsocket_rffi as _c, jit, rgc
 from rpython.rlib.objectmodel import instantiate, keepalive_until_here
 from rpython.rlib.rarithmetic import intmask, r_uint
-from rpython.rlib import rthread
+from rpython.rlib import rthread, rposix
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.rffi import sizeof, offsetof
 from rpython.rtyper.extregistry import ExtRegistryEntry
@@ -1032,6 +1032,12 @@ def make_socket(fd, family, type, proto, SocketClass=RSocket):
     return result
 make_socket._annspecialcase_ = 'specialize:arg(4)'
 
+def sock_set_inheritable(fd, inheritable):
+    try:
+        rposix.set_inheritable(fd, inheritable)
+    except OSError as e:
+        raise CSocketError(e.errno)
+
 class SocketError(Exception):
     applevelerrcls = 'error'
     def __init__(self):
@@ -1090,7 +1096,7 @@ else:
 
 if hasattr(_c, 'socketpair'):
     def socketpair(family=socketpair_default_family, type=SOCK_STREAM, proto=0,
-                   SocketClass=RSocket):
+                   SocketClass=RSocket, inheritable=True):
         """socketpair([family[, type[, proto]]]) -> (socket object, socket object)
 
         Create a pair of socket objects from the sockets returned by the platform
@@ -1099,12 +1105,37 @@ if hasattr(_c, 'socketpair'):
         AF_UNIX if defined on the platform; otherwise, the default is AF_INET.
         """
         result = lltype.malloc(_c.socketpair_t, 2, flavor='raw')
-        res = _c.socketpair(family, type, proto, result)
-        if res < 0:
-            raise last_error()
-        fd0 = rffi.cast(lltype.Signed, result[0])
-        fd1 = rffi.cast(lltype.Signed, result[1])
-        lltype.free(result, flavor='raw')
+        try:
+            res = -1
+            remove_inheritable = not inheritable
+            if not inheritable and SOCK_CLOEXEC is not None:
+                # Non-inheritable: we try to call socketpair() with
+                # SOCK_CLOEXEC, which may fail.  If we get EINVAL,
+                # then we fall back to the SOCK_CLOEXEC-less case.
+                res = _c.socketpair(family, type | SOCK_CLOEXEC,
+                                    proto, result)
+                if res < 0:
+                    if _c.geterrno() == errno.EINVAL:
+                        # Linux older than 2.6.27 does not support
+                        # SOCK_CLOEXEC.  An EINVAL might be caused by
+                        # random other things, though.  Don't cache.
+                        pass
+                    else:
+                        raise last_error()
+                else:
+                    remove_inheritable = False
+            #
+            if res < 0:
+                res = _c.socketpair(family, type, proto, result)
+                if res < 0:
+                    raise last_error()
+            fd0 = rffi.cast(lltype.Signed, result[0])
+            fd1 = rffi.cast(lltype.Signed, result[1])
+        finally:
+            lltype.free(result, flavor='raw')
+        if remove_inheritable:
+            sock_set_inheritable(fd0, False)
+            sock_set_inheritable(fd1, False)
         return (make_socket(fd0, family, type, proto, SocketClass),
                 make_socket(fd1, family, type, proto, SocketClass))
 
