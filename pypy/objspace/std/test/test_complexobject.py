@@ -611,3 +611,7 @@ class AppTestAppComplexTest:
 
     def test_complex_two_arguments(self):
         raises(TypeError, complex, 5, None)
+
+    def test_hash_minus_one(self):
+        assert hash(-1.0 + 0j) == -2
+        assert (-1.0 + 0j).__hash__() == -2
