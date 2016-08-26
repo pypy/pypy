@@ -252,6 +252,17 @@ class AppTestFileIO:
         assert posix.get_inheritable(f.fileno()) == False
         f.close()
 
+    def test_FileIO_fd_does_change_inheritable(self):
+        import _io, posix
+        fd1, fd2 = posix.pipe()
+        posix.set_inheritable(fd1, True)
+        f1 = _io.FileIO(fd1, 'r')
+        f2 = _io.FileIO(fd2, 'w')
+        assert posix.get_inheritable(fd1) == False
+        assert posix.get_inheritable(fd2) == True
+        f1.close()
+        f2.close()
+
     def test_close_upon_reinit(self):
         import _io, posix
         f = _io.FileIO(self.tmpfile, 'r')
