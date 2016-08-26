@@ -285,6 +285,9 @@ class TestZARCH(object):
         if not data.startswith('GNU assembler'):
             py.test.skip("full tests require the GNU 'as' assembler")
 
+
+    # XXX OpenBSD
+    # Many unrecognised asm instrs. Probably due to openbsd's old binutils
     @py.test.mark.parametrize("name", codebuilder.all_instructions)
     def test_all(self, name):
         self.complete_test(name)
