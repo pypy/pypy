@@ -2080,13 +2080,45 @@ if HAVE_MKNODAT:
 
 eci_inheritable = eci.merge(ExternalCompilationInfo(
     separate_module_sources=["""
+#include <errno.h>
+
 RPY_EXTERN
 int rpy_set_inheritable(int fd, int inheritable)
 {
-    /* XXX minimal impl. XXX */
-    int request = inheritable ? FIONCLEX : FIOCLEX;
-    return ioctl(fd, request, NULL);
+    static int ioctl_works = -1;
+    int flags;
+
+    if (ioctl_works != 0) {
+        int request = inheritable ? FIONCLEX : FIOCLEX;
+        int err = ioctl(fd, request, NULL);
+        if (!err) {
+            ioctl_works = 1;
+            return 0;
+        }
+
+        if (errno != ENOTTY && errno != EACCES) {
+            return -1;
+        }
+        else {
+            /* ENOTTY: The ioctl is declared but not supported by the
+               kernel.  EACCES: SELinux policy, this can be the case on
+               Android. */
+            ioctl_works = 0;
+        }
+        /* fallback to fcntl() if ioctl() does not work */
+    }
+
+    flags = fcntl(fd, F_GETFD);
+    if (flags < 0)
+        return -1;
+
+    if (inheritable)
+        flags &= ~FD_CLOEXEC;
+    else
+        flags |= FD_CLOEXEC;
+    return fcntl(fd, F_SETFD, flags);
 }
+
 RPY_EXTERN
 int rpy_get_inheritable(int fd)
 {
@@ -2106,10 +2138,25 @@ c_get_inheritable = external('rpy_get_inheritable', [rffi.INT],
                              compilation_info=eci_inheritable)
 
 def set_inheritable(fd, inheritable):
-    error = c_set_inheritable(fd, inheritable)
-    handle_posix_error('set_inheritable', error)
+    result = c_set_inheritable(fd, inheritable)
+    handle_posix_error('set_inheritable', result)
 
 def get_inheritable(fd):
     res = c_get_inheritable(fd)
     res = handle_posix_error('get_inheritable', res)
     return res != 0
+
+class SetNonInheritableCache(object):
+    """Make one prebuilt instance of this for each path that creates
+    file descriptors, where you don't necessarily know if that function
+    returns inheritable or non-inheritable file descriptors.
+    """
+    _immutable_fields_ = ['cached_inheritable?']
+    cached_inheritable = -1    # -1 = don't know yet; 0 = off; 1 = on
+
+    def set_non_inheritable(self, fd):
+        if self.cached_inheritable == -1:
+            self.cached_inheritable = get_inheritable(fd)
+        if self.cached_inheritable == 1:
+            # 'fd' is inheritable; we must manually turn it off
+            set_inheritable(fd, False)
