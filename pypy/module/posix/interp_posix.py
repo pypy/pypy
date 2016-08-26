@@ -896,11 +896,17 @@ On some platforms, path may also be specified as an open file descriptor;
 
 @unwrap_spec(fd=c_int)
 def get_inheritable(space, fd):
-    return space.wrap(rposix.get_inheritable(fd))
+    try:
+        return space.wrap(rposix.get_inheritable(fd))
+    except OSError as e:
+        raise wrap_oserror(space, e)
 
 @unwrap_spec(fd=c_int, inheritable=int)
 def set_inheritable(space, fd, inheritable):
-    rposix.set_inheritable(fd, inheritable)
+    try:
+        rposix.set_inheritable(fd, inheritable)
+    except OSError as e:
+        raise wrap_oserror(space, e)
 
 _pipe_inhcache = rposix.SetNonInheritableCache()
 
