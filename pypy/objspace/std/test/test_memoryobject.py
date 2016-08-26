@@ -177,11 +177,10 @@ class MockBuffer(Buffer):
     def __init__(self, space, w_arr, w_dim, w_fmt, \
                  w_itemsize, w_strides, w_shape):
         self.space = space
-        self.flags = space.MEMORYVIEW_C
         self.w_arr = w_arr
         self.arr = []
         self.ndim = space.int_w(w_dim)
-        self.fmt = space.str_w(w_fmt)
+        self.format = space.str_w(w_fmt)
         self.itemsize = space.int_w(w_itemsize)
         self.strides = []
         for w_i in w_strides.getitems_unroll():
@@ -204,6 +203,8 @@ class MockBuffer(Buffer):
 
     def getslice(self, start, stop, step, size):
         items = []
+        if size == 0:
+            return ''
         bytecount = (stop - start)
         # data is stores as list of ints, thus this gets around the
         # issue that one cannot advance in bytes
@@ -214,10 +215,10 @@ class MockBuffer(Buffer):
         return ''.join(items)
 
     def getformat(self):
-        return self.fmt
+        return self.format
 
     def getitem(self, index):
-        return struct.pack(self.fmt, self.data[index])
+        return struct.pack(self.format, self.data[index])
 
     def getlength(self):
         return len(self.data) * self.itemsize
@@ -233,6 +234,9 @@ class MockBuffer(Buffer):
 
     def getshape(self):
         return self.shape
+
+    def is_contiguous(self, format):
+        return format == 'C'
 
 class W_MockArray(W_Root):
     def __init__(self, w_list, w_dim, w_fmt, w_size, w_strides, w_shape):
@@ -295,9 +299,29 @@ class AppTestMemoryViewMicroNumPyPy(object):
         assert view[0,0,0] == 1
         assert view[-1,2,0] == 6
 
-    def test_cast_empty(self):
+    def test_cast_non_byte(self):
         empty = self.MockArray([], dim=1, fmt='i', size=4, strides=[1], shape=[1])
+        view = memoryview(empty)
+        try:
+            view.cast('l')
+            assert False, "i -> l not possible. buffer must be byte format"
+        except TypeError:
+            pass
+
+    def test_cast_empty(self):
+        empty = self.MockArray([], dim=1, fmt='b', size=1, strides=[1], shape=[1])
         view = memoryview(empty)
         cview = view.cast('i')
         assert cview.tobytes() == b''
+        assert cview.tolist() == []
+        assert view.format == 'b'
+        assert cview.format == 'i'
+        #
+        assert cview.cast('i').cast('b').cast('i').tolist() == []
+        #
+        try:
+            cview = view.cast('i')
+            assert False, "cannot cast between two non byte formats!"
+        except TypeError:
+            pass
 
