@@ -1258,6 +1258,8 @@ def openpty(space):
     "Open a pseudo-terminal, returning open fd's for both master and slave end."
     try:
         master_fd, slave_fd = os.openpty()
+        rposix.set_inheritable(master_fd, False)
+        rposix.set_inheritable(slave_fd, False)
     except OSError as e:
         raise wrap_oserror(space, e)
     return space.newtuple([space.wrap(master_fd), space.wrap(slave_fd)])

@@ -399,6 +399,16 @@ class AppTestPosix:
             os.write(slave_fd, b'x\n')
             data = os.read(master_fd, 100)
             assert data.startswith(b'x')
+            os.close(master_fd)
+            os.close(slave_fd)
+
+        def test_openpty_non_inheritable(self):
+            os = self.posix
+            master_fd, slave_fd = os.openpty()
+            assert os.get_inheritable(master_fd) == False
+            assert os.get_inheritable(slave_fd) == False
+            os.close(master_fd)
+            os.close(slave_fd)
 
     if hasattr(__import__(os.name), "forkpty"):
         def test_forkpty(self):
