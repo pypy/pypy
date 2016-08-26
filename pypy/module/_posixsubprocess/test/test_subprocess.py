@@ -75,3 +75,18 @@ class AppTestSubprocess:
         n = 1
         raises(OverflowError, _posixsubprocess.fork_exec,
                1,Z(),3,[1, 2],5,6,7,8,9,10,11,12,13,14,15,16,17)
+
+    def test_pass_fds_make_inheritable(self):
+        import subprocess, posix
+
+        fd1, fd2 = posix.pipe()
+        assert posix.get_inheritable(fd1) is False
+        assert posix.get_inheritable(fd2) is False
+
+        subprocess.check_call(['/usr/bin/env', 'python', '-c',
+                               'import os;os.write(%d,b"K")' % fd2],
+                              close_fds=True, pass_fds=[fd2])
+        res = posix.read(fd1, 1)
+        assert res == b"K"
+        posix.close(fd1)
+        posix.close(fd2)

@@ -1,3 +1,4 @@
+#include <unistd.h>    /* for ssize_t */
 #include "src/precommondefs.h"
 
 RPY_EXTERN void
