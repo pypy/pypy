@@ -1234,10 +1234,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if d.values:
             for i in range(len(d.values)):
                 key = d.keys[i]
-                if key is None:
-                    is_unpacking = True
-                else:
-                    is_unpacking = False
+                is_unpacking = key is None
                 if elements == 0xFFFF or (elements and is_unpacking):
                     self.emit_op_arg(ops.BUILD_MAP, elements)
                     containers += 1
@@ -1265,7 +1262,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             oparg = min(containers, 255)
             self.emit_op_arg(ops.BUILD_MAP_UNPACK, oparg)
             containers -= (oparg - 1)
-            is_unpacking = 0
+            is_unpacking = False
     
     def visit_Set(self, s):
         self._visit_starunpack(s, s.elts, ops.BUILD_SET, ops.BUILD_SET, ops.BUILD_SET_UNPACK)
