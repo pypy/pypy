@@ -646,20 +646,33 @@ class RSocket(object):
         return addr, addr.addr_p, addrlen_p
 
     @jit.dont_look_inside
-    def accept(self):
+    def accept(self, inheritable=True):
         """Wait for an incoming connection.
         Return (new socket fd, client address)."""
         if self._select(False) == 1:
             raise SocketTimeout
         address, addr_p, addrlen_p = self._addrbuf()
         try:
-            newfd = _c.socketaccept(self.fd, addr_p, addrlen_p)
+            remove_inheritable = not inheritable
+            if (not inheritable and SOCK_CLOEXEC is not None
+                    and hasattr(_c, 'socketaccept4') and
+                    _accept4_syscall.attempt_syscall()):
+                newfd = _c.socketaccept4(self.fd, addr_p, addrlen_p,
+                                         SOCK_CLOEXEC)
+                if _accept4_syscall.fallback(newfd):
+                    newfd = _c.socketaccept(self.fd, addr_p, addrlen_p)
+                else:
+                    remove_inheritable = False
+            else:
+                newfd = _c.socketaccept(self.fd, addr_p, addrlen_p)
             addrlen = addrlen_p[0]
         finally:
             lltype.free(addrlen_p, flavor='raw')
             address.unlock()
         if _c.invalid_socket(newfd):
             raise self.error_handler()
+        if remove_inheritable:
+            sock_set_inheritable(newfd, False)
         address.addrlen = rffi.cast(lltype.Signed, addrlen)
         return (newfd, address)
 
@@ -1452,3 +1465,5 @@ def setdefaulttimeout(timeout):
     if timeout < 0.0:
         timeout = -1.0
     defaults.timeout = timeout
+
+_accept4_syscall = rposix.ENoSysCache()

@@ -846,6 +846,16 @@ class AppTestSocketTCP:
         assert cli.family == socket.AF_INET
 
 
+    def test_accept_non_inheritable(self):
+        import _socket, posix
+        cli = _socket.socket()
+        cli.connect(self.serv.getsockname())
+        fileno, addr = self.serv._accept()
+        assert posix.get_inheritable(fileno) is False
+        posix.close(fileno)
+        cli.close()
+
+
 class AppTestErrno:
     spaceconfig = {'usemodules': ['_socket']}
 

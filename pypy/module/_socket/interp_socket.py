@@ -228,7 +228,7 @@ class W_Socket(W_Root):
         For IP sockets, the address info is a pair (hostaddr, port).
         """
         try:
-            fd, addr = self.sock.accept()
+            fd, addr = self.sock.accept(inheritable=False)
             return space.newtuple([space.wrap(fd),
                                    addr_as_object(addr, fd, space)])
         except SocketError as e:
