@@ -1117,6 +1117,13 @@ class AppTestPosix:
         self.posix.close(fd1)
         self.posix.close(fd2)
 
+    def test_open_inheritable(self):
+        os = self.posix
+        fd = os.open(self.path2 + 'test_open_inheritable',
+                     os.O_RDWR | os.O_CREAT, 0o666)
+        assert os.get_inheritable(fd) == False
+        os.close(fd)
+
     def test_urandom(self):
         os = self.posix
         s = os.urandom(5)
