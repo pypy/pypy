@@ -8,16 +8,18 @@ except ImportError:
     # some Pythons don't have errno.ENOTSUP
     ENOTSUP = 0
 
-from rpython.rlib import rposix, rposix_stat
+from rpython.rlib import rposix, rposix_stat, rfile
 from rpython.rlib import objectmodel, rurandom
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.rarithmetic import r_longlong, intmask, r_uint
+from rpython.rlib.rarithmetic import r_longlong, intmask, r_uint, r_int
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.rtyper.lltypesystem import lltype
 from rpython.tool.sourcetools import func_with_new_name
 
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault, Unwrapper
 from pypy.interpreter.error import (
-    OperationError, oefmt, wrap_oserror, wrap_oserror2, strerror as _strerror)
+    OperationError, oefmt, wrap_oserror, wrap_oserror2, strerror as _strerror,
+    exception_from_saved_errno)
 from pypy.interpreter.executioncontext import ExecutionContext
 
 
@@ -2142,3 +2144,50 @@ for name in """FCHDIR FCHMOD FCHMODAT FCHOWN FCHOWNAT FEXECVE FDOPENDIR
         have_functions.append("HAVE_%s" % name)
 if _WIN32:
     have_functions.append("HAVE_MS_WINDOWS")
+   
+def get_terminal_size(space, w_fd=None):
+    if w_fd is None:
+        fd = rfile.RFile(rfile.c_stdout(), close2=(None, None)).fileno()
+    else:
+        if not space.isinstance_w(w_fd, space.w_int):
+            raise oefmt(space.w_TypeError,
+                        "an integer is required, got %T", w_fd)
+        else:
+            fd = space.c_int_w(w_fd)
+
+    if _WIN32:
+        if fd == 0:
+            handle_id = rwin32.STD_INPUT_HANDLE
+        elif fd == 1:
+            handle_id = rwin32.STD_OUTPUT_HANDLE
+        elif fd == 2:
+            handle_id = rwin32.STD_ERROR_HANDLE
+        else:
+            raise oefmt(space.w_ValueError, "bad file descriptor")
+
+        handle = rwin32.GetStdHandle(handle_id)
+
+        if handle == rwin32.NULL_HANDLE:
+            raise oefmt(space.w_OSError, "handle cannot be retrieved")
+        elif handle == rwin32.INVALID_HANDLE_VALUE:
+            raise rwin32.lastSavedWindowsError()
+        with lltype.scoped_alloc(rwin32.CONSOLE_SCREEN_BUFFER_INFO) as buffer_info: 
+            success = rwin32.GetConsoleScreenBufferInfo(handle, buffer_info)
+            if not success:
+                raise rwin32.lastSavedWindowsError()
+            w_columns = space.wrap(r_int(buffer_info.c_srWindow.c_Right) - r_int(buffer_info.c_srWindow.c_Left) + 1)
+            w_lines = space.wrap(r_int(buffer_info.c_srWindow.c_Bottom) - r_int(buffer_info.c_srWindow.c_Top) + 1)
+    else:
+        with lltype.scoped_alloc(rposix.WINSIZE) as winsize: 
+            failed = rposix.c_ioctl_voidp(fd, rposix.TIOCGWINSZ, winsize)
+            if failed:
+                raise exception_from_saved_errno(space, space.w_OSError)
+
+            w_columns = space.wrap(r_uint(winsize.c_ws_col))
+            w_lines = space.wrap(r_uint(winsize.c_ws_row))
+
+    w_tuple = space.newtuple([w_columns, w_lines])
+    w_terminal_size = space.getattr(space.getbuiltinmodule(os.name),
+                                    space.wrap('terminal_size'))
+
+    return space.call_function(w_terminal_size, w_tuple)

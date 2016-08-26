@@ -142,7 +142,10 @@ def getnameinfo(space, w_sockaddr, flags):
 
 @unwrap_spec(fd=int)
 def dup(space, fd):
-    newfd = rsocket.dup(fd)
+    try:
+        newfd = rsocket.dup(fd)
+    except SocketError as e:
+        raise converted_error(space, e)
     return space.wrap(newfd)
 
 @unwrap_spec(fd=int, family=int, type=int, proto=int)
