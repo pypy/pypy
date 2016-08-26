@@ -1,3 +1,9 @@
+import struct
+from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.typedef import TypeDef
+from rpython.rlib.buffer import Buffer
+
 class AppTestMemoryView:
     spaceconfig = dict(usemodules=['array'])
 
@@ -166,12 +172,89 @@ class AppTestMemoryView:
     def test_hex(self):
         assert memoryview(b"abc").hex() == u'616263'
 
-from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
+class MockBuffer(Buffer):
+    def __init__(self, space, w_arr, w_dim, w_fmt, \
+                 w_itemsize, w_strides, w_shape):
+        self.space = space
+        self.w_arr = w_arr
+        self.arr = []
+        self.ndim = space.int_w(w_dim)
+        self.fmt = space.str_w(w_fmt)
+        self.itemsize = space.int_w(w_itemsize)
+        self.strides = []
+        for w_i in w_strides.getitems_unroll():
+            self.strides.append(space.int_w(w_i))
+        self.shape = []
+        for w_i in w_shape.getitems_unroll():
+            self.shape.append(space.int_w(w_i))
+        self.readonly = True
+        self.shape.append(space.len_w(w_arr))
+        self.data = []
+        itemsize = 1
+        for i, w_obj in enumerate(w_arr.getitems_unroll()):
+            ints = []
+            for j, w_i in enumerate(w_obj.getitems_unroll()):
+                ints.append(space.int_w(w_i))
+                self.data.append(space.int_w(w_i))
+            self.arr.append(ints)
 
-class AppTestMemoryViewMicroNumPyPy(BaseNumpyAppTest):
-    spaceconfig = dict(usemodules=['array', 'micronumpy'])
+    def getitem(self, index):
+        return struct.pack(self.fmt, self.data[index])[0]
+
+    def getlength(self):
+        return len(self.data)
+
+    def getitemsize(self):
+        return self.itemsize
+
+    def getndim(self):
+        return self.ndim
+
+    def getstrides(self):
+        return self.strides
+
+    def getshape(self):
+        return self.shape
+
+class W_MockArray(W_Root):
+    def __init__(self, w_list, w_dim, w_fmt, w_size, w_strides, w_shape):
+        self.w_list = w_list
+        self.w_dim = w_dim
+        self.w_fmt = w_fmt
+        self.w_size = w_size
+        self.w_strides = w_strides
+        self.w_shape = w_shape
+
+    @staticmethod
+    def descr_new(space, w_type, w_list, w_dim, w_fmt, \
+                         w_size, w_strides, w_shape):
+        return W_MockArray(w_list, w_dim, w_fmt, w_size, w_strides, w_shape)
+
+    def buffer_w(self, space, flags):
+        return MockBuffer(space, self.w_list, self.w_dim, self.w_fmt, \
+                          self.w_size, self.w_strides, self.w_shape)
+
+W_MockArray.typedef = TypeDef("MockArray",
+    __new__ = interp2app(W_MockArray.descr_new),
+)
+
+from pypy.objspace.std.transparent import register_proxyable
+from pypy.conftest import option
+
+class AppTestMemoryViewMicroNumPyPy(object):
+    spaceconfig = dict(usemodules=[])
+    def setup_class(cls):
+        if option.runappdirect:
+            py.test.skip("Impossible to run on appdirect")
+        cls.w_MockArray = cls.space.gettypefor(W_MockArray)
 
     def test_tuple_indexing(self):
-        from numpy import ndarray
-        content = ndarray(list(range(12))).reshape(3,4)
-        assert memoryview(content)[0,0] == 0
+        content = self.MockArray([[0,1,2,3], [4,5,6,7], [8,9,10,11]],
+                                 dim=2, fmt='B', size=1,
+                                 strides=[4,1], shape=[3,4])
+        view = memoryview(content)
+        assert view[0,0] == 0
+        assert view[2,0] == 8
+        assert view[2,3] == 11
+        assert view[-1,-1] == 11
+        assert view[-3,-4] == 0

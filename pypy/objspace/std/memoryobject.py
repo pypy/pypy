@@ -83,16 +83,31 @@ class W_MemoryView(W_Root):
         start = 0
 
         view = self.buf
-        length = space.len(w_tuple)
-        for i, w_obj in enumerate(w_tuple.getitems_unroll()):
-            value = w_obj.int_w(space)
-            start = self.lookup_dimension(start, dim, index)
+        length = space.len_w(w_tuple)
+        dim = view.getndim()
+        dim = 0
+        while dim < length:
+            w_obj = w_tuple.getitem(space, dim)
+            index = w_obj.int_w(space)
+            start = self.lookup_dimension(space, start, dim, index)
+            dim += 1
         return start
 
     def lookup_dimension(self, space, start, dim, index):
+        view = self.buf
+        shape = view.getshape()
+        strides = view.getstrides()
+        nitems = shape[dim]
+        if index < 0:
+            index += nitems
+        if index < 0 or index >= nitems:
+            raise oefmt(space.w_IndexError,
+                "index out of bounds on dimension %d", dim+1)
+        start += strides[dim] * index
+        # TODO suboffsets?
         return start
 
-    def _getitem_tuple_indexed(self, w_index):
+    def _getitem_tuple_indexed(self, space, w_index):
         view = self.buf
 
         fmt = view.getformat() # TODO adjust format?
@@ -100,11 +115,11 @@ class W_MemoryView(W_Root):
         length = space.len_w(w_index)
         ndim = view.getndim()
         if length < ndim:
-            raise OperationError(self.w_NotImplementedError, \
-                    self.wrap("sub-views are not implemented"))
+            raise OperationError(space.w_NotImplementedError, \
+                    space.wrap("sub-views are not implemented"))
 
         if length > ndim:
-            raise oefmt(self.w_NotImplementedError, \
+            raise oefmt(space.w_NotImplementedError, \
                     "cannot index %d-dimension view with %d-element tuple",
                     length, ndim)
 
@@ -119,7 +134,7 @@ class W_MemoryView(W_Root):
     def descr_getitem(self, space, w_index):
         self._check_released(space)
 
-        if self.isinstance_w(w_index, self.w_tuple):
+        if space.isinstance_w(w_index, space.w_tuple):
             return self._getitem_tuple_indexed(space, w_index)
 
         start, stop, step, size = space.decode_index4_or_tuple_index(w_index, \
