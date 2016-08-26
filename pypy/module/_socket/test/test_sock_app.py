@@ -648,6 +648,12 @@ class AppTestSocket:
         assert len(w) == 1, [str(warning) for warning in w]
         assert r in str(w[0])
 
+    def test_socket_non_inheritable(self):
+        import _socket, posix
+        s1 = _socket.socket()
+        assert posix.get_inheritable(s1.fileno()) is False
+        s1.close()
+
     def test_socketpair_non_inheritable(self):
         import _socket, posix
         if not hasattr(_socket, 'socketpair'):

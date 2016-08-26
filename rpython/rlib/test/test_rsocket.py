@@ -388,6 +388,12 @@ def test_nonblocking():
     s1.close()
     s2.close()
 
+def test_inheritable():
+    for inh in [False, True]:
+        s1 = RSocket(inheritable=inh)
+        assert rposix.get_inheritable(s1.fd) == inh
+        s1.close()
+
 def test_getaddrinfo_http():
     lst = getaddrinfo('localhost', 'http')
     assert isinstance(lst, list)

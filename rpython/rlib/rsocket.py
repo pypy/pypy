@@ -522,12 +522,28 @@ class RSocket(object):
     timeout = -1.0
 
     def __init__(self, family=AF_INET, type=SOCK_STREAM, proto=0,
-                 fd=_c.INVALID_SOCKET):
+                 fd=_c.INVALID_SOCKET, inheritable=True):
         """Create a new socket."""
         if _c.invalid_socket(fd):
-            fd = _c.socket(family, type, proto)
-        if _c.invalid_socket(fd):
-            raise self.error_handler()
+            if not inheritable and SOCK_CLOEXEC is not None:
+                # Non-inheritable: we try to call socket() with
+                # SOCK_CLOEXEC, which may fail.  If we get EINVAL,
+                # then we fall back to the SOCK_CLOEXEC-less case.
+                fd = _c.socket(family, type | SOCK_CLOEXEC, proto)
+                if fd < 0:
+                    if _c.geterrno() == errno.EINVAL:
+                        # Linux older than 2.6.27 does not support
+                        # SOCK_CLOEXEC.  An EINVAL might be caused by
+                        # random other things, though.  Don't cache.
+                        pass
+                    else:
+                        raise self.error_handler()
+            if _c.invalid_socket(fd):
+                fd = _c.socket(family, type, proto)
+                if _c.invalid_socket(fd):
+                    raise self.error_handler()
+                if not inheritable:
+                    sock_set_inheritable(fd, False)
         # PLAT RISCOS
         self.fd = fd
         self.family = family
