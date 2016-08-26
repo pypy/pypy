@@ -294,7 +294,7 @@ class Condition(object):
                     sid = self.metainterp_sd.cpu.get_actual_typeid(rffi.cast(llmemory.GCREF, llstr("abc")))
                     if sid == tid:
                         return hlstr(rffi.cast(lltype.Ptr(rstr.STR), arg.getref_base()))
-                return "<some const ptr>"
+                return "0x%x" % lltype.cast_ptr_to_int(arg.value)
             else:
                 return "None"
         elif isinstance(arg, ConstFloat):
