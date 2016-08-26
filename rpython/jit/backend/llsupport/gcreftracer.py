@@ -44,10 +44,12 @@ def make_framework_tracer(array_base_addr, gcrefs):
 def make_boehm_tracer(array_base_addr, gcrefs):
     # copy the addresses, but return 'gcrefs' as the object that must be
     # kept alive
+    assert isinstance(array_base_addr, int)
+    array_base_addr_p = rffi.cast(rffi.CCHARP, array_base_addr)
     n_gcrefs = len(gcrefs)
-    set_pages_writable(array_base_addr, n_gcrefs * WORD)
+    set_pages_writable(array_base_addr_p, n_gcrefs * WORD)
     for i in range(n_gcrefs):
         p = rffi.cast(rffi.SIGNEDP, array_base_addr + i * WORD)
         p[0] = rffi.cast(lltype.Signed, gcrefs[i])
-    set_pages_executable(array_base_addr, n_gcrefs * WORD)
+    set_pages_executable(array_base_addr_p, n_gcrefs * WORD)
     return gcrefs
