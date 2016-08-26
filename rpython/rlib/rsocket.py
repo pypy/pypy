@@ -1121,14 +1121,14 @@ if _c.WIN32:
             return result
 else:
     def dup(fd):
-        return _c.dup(fd)
-
-    def fromfd(fd, family, type, proto=0, SocketClass=RSocket):
-        # Dup the fd so it and the socket can be closed independently
         fd = _c.dup(fd)
         if fd < 0:
             raise last_error()
-        return make_socket(fd, family, type, proto, SocketClass)
+        return fd
+
+def fromfd(fd, family, type, proto=0, SocketClass=RSocket):
+    # Dup the fd so it and the socket can be closed independently
+    return make_socket(dup(fd), family, type, proto, SocketClass)
 
 def getdefaulttimeout():
     return defaults.timeout
