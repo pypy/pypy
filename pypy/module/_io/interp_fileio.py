@@ -139,6 +139,7 @@ class W_FileIO(W_RawIOBase):
 
     @unwrap_spec(mode=str, closefd=int)
     def descr_init(self, space, w_name, mode='r', closefd=True, w_opener=None):
+        self._close(space)
         if space.isinstance_w(w_name, space.w_float):
             raise oefmt(space.w_TypeError,
                         "integer argument expected, got float")

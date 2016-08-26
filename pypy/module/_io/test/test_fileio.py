@@ -246,6 +246,15 @@ class AppTestFileIO:
             assert f.mode == 'xb'
         raises(FileExistsError, _io.FileIO, filename, 'x')
 
+    def test_close_upon_reinit(self):
+        import _io, posix
+        f = _io.FileIO(self.tmpfile, 'r')
+        fd1 = f.fileno()
+        f.__init__(self.tmpfile, 'w')
+        fd2 = f.fileno()
+        if fd1 != fd2:
+            raises(OSError, posix.close, fd1)
+
 
 def test_flush_at_exit():
     from pypy import conftest
