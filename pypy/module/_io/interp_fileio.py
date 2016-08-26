@@ -4,6 +4,7 @@ from pypy.interpreter.error import (
     OperationError, oefmt, wrap_oserror, wrap_oserror2)
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.rstring import StringBuilder
+from rpython.rlib import rposix
 from os import O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_TRUNC, O_EXCL
 import sys, os, stat, errno
 from pypy.module._io.interp_iobase import W_RawIOBase, convert_size
@@ -29,6 +30,7 @@ def interp_member_w(name, cls, doc=None):
 
 O_BINARY = getattr(os, "O_BINARY", 0)
 O_APPEND = getattr(os, "O_APPEND", 0)
+_open_inhcache = rposix.SetNonInheritableCache()
 
 def _bad_mode(space):
     raise oefmt(space.w_ValueError,
@@ -154,6 +156,8 @@ class W_FileIO(W_RawIOBase):
                 raise oefmt(space.w_ValueError, "negative file descriptor")
 
         self.readable, self.writable, self.created, self.appending, flags = decode_mode(space, mode)
+        if rposix.O_CLOEXEC is not None:
+            flags |= rposix.O_CLOEXEC
 
         fd_is_own = False
         try:
@@ -172,8 +176,7 @@ class W_FileIO(W_RawIOBase):
                     raise oefmt(space.w_ValueError,
                                 "Cannot use closefd=False with file name")
 
-                from pypy.module.posix.interp_posix import (
-                    dispatch_filename, rposix)
+                from pypy.module.posix.interp_posix import dispatch_filename
                 try:
                     self.fd = dispatch_filename(rposix.open)(
                         space, w_name, flags, 0666)
@@ -182,6 +185,8 @@ class W_FileIO(W_RawIOBase):
                                         exception_name='w_IOError')
                 finally:
                     fd_is_own = True
+                if not rposix._WIN32:
+                    _open_inhcache.set_non_inheritable(self.fd)
             else:
                 w_fd = space.call_function(w_opener, w_name, space.wrap(flags))
                 try:
@@ -193,6 +198,8 @@ class W_FileIO(W_RawIOBase):
                                 "expected integer from opener")
                 finally:
                     fd_is_own = True
+                if not rposix._WIN32:
+                    rposix.set_inheritable(self.fd, False)
 
             self._dircheck(space, w_name)
             space.setattr(self, space.wrap("name"), w_name)

@@ -246,6 +246,12 @@ class AppTestFileIO:
             assert f.mode == 'xb'
         raises(FileExistsError, _io.FileIO, filename, 'x')
 
+    def test_non_inheritable(self):
+        import _io, posix
+        f = _io.FileIO(self.tmpfile, 'r')
+        assert posix.get_inheritable(f.fileno()) == False
+        f.close()
+
     def test_close_upon_reinit(self):
         import _io, posix
         f = _io.FileIO(self.tmpfile, 'r')
