@@ -1113,36 +1113,73 @@ if _WIN32:
     c_open_osfhandle = external('_open_osfhandle', [rffi.INTPTR_T,
                                                     rffi.INT],
                                 rffi.INT)
+    HAVE_PIPE2 = False
+    O_CLOEXEC = None
 else:
     INT_ARRAY_P = rffi.CArrayPtr(rffi.INT)
     c_pipe = external('pipe', [INT_ARRAY_P], rffi.INT,
                       save_err=rffi.RFFI_SAVE_ERRNO)
+    class CConfig:
+        _compilation_info_ = eci
+        HAVE_PIPE2 = rffi_platform.Has('pipe2')
+        O_CLOEXEC = rffi_platform.DefinedConstantInteger('O_CLOEXEC')
+    config = rffi_platform.configure(CConfig)
+    HAVE_PIPE2 = config['HAVE_PIPE2']
+    O_CLOEXEC = config['O_CLOEXEC']
+    if HAVE_PIPE2:
+        c_pipe2 = external('pipe2', [INT_ARRAY_P, rffi.INT], rffi.INT,
+                          save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('pipe')
-def pipe():
+def pipe(flags=0):
+    # 'flags' might be ignored.  Check the result.
     if _WIN32:
+        # 'flags' ignored
         pread  = lltype.malloc(rwin32.LPHANDLE.TO, 1, flavor='raw')
         pwrite = lltype.malloc(rwin32.LPHANDLE.TO, 1, flavor='raw')
         try:
-            if not CreatePipe(
-                    pread, pwrite, lltype.nullptr(rffi.VOIDP.TO), 0):
-                raise WindowsError(rwin32.GetLastError_saved(),
-                                   "CreatePipe failed")
+            ok = CreatePipe(
+                    pread, pwrite, lltype.nullptr(rffi.VOIDP.TO), 0)
             hread = rffi.cast(rffi.INTPTR_T, pread[0])
             hwrite = rffi.cast(rffi.INTPTR_T, pwrite[0])
         finally:
             lltype.free(pwrite, flavor='raw')
             lltype.free(pread, flavor='raw')
-        fdread = c_open_osfhandle(hread, 0)
-        fdwrite = c_open_osfhandle(hwrite, 1)
+        if ok:
+            fdread = c_open_osfhandle(hread, 0)
+            fdwrite = c_open_osfhandle(hwrite, 1)
+            if fdread == -1 or fdwrite == -1:
+                rwin32.CloseHandle(hread)
+                rwin32.CloseHandle(hwrite)
+                ok = 0
+        if not ok:
+            raise WindowsError(rwin32.GetLastError_saved(),
+                               "CreatePipe failed")
         return (fdread, fdwrite)
     else:
         filedes = lltype.malloc(INT_ARRAY_P.TO, 2, flavor='raw')
         try:
-            handle_posix_error('pipe', c_pipe(filedes))
+            if HAVE_PIPE2:
+                res = c_pipe2(filedes, flags)
+                if widen(res) != 0 and get_saved_errno() == errno.ENOSYS:
+                    res = c_pipe(filedes)
+            else:
+                res = c_pipe(filedes)      # 'flags' ignored
+            handle_posix_error('pipe', res)
             return (widen(filedes[0]), widen(filedes[1]))
         finally:
             lltype.free(filedes, flavor='raw')
+
+def pipe2(flags):
+    # Only available if there is really a c_pipe2 function.
+    # No fallback to pipe() if we get ENOSYS.
+    filedes = lltype.malloc(INT_ARRAY_P.TO, 2, flavor='raw')
+    try:
+        res = c_pipe2(filedes, flags)
+        handle_posix_error('pipe2', res)
+        return (widen(filedes[0]), widen(filedes[1]))
+    finally:
+        lltype.free(filedes, flavor='raw')
 
 c_link = external('link', [rffi.CCHARP, rffi.CCHARP], rffi.INT,
                   save_err=rffi.RFFI_SAVE_ERRNO,)

@@ -889,15 +889,32 @@ On some platforms, path may also be specified as an open file descriptor;
             result_w[i] = space.fsdecode(w_bytes)
     return space.newlist(result_w)
 
+@unwrap_spec(fd=c_int)
+def get_inheritable(space, fd):
+    return space.wrap(rposix.get_inheritable(fd))
+
+@unwrap_spec(fd=c_int, inheritable=int)
+def set_inheritable(space, fd, inheritable):
+    rposix.set_inheritable(fd, inheritable)
+
+_pipe_inhcache = rposix.SetNonInheritableCache()
+
 def pipe(space):
     "Create a pipe.  Returns (read_end, write_end)."
     try:
-        fd1, fd2 = os.pipe()
+        fd1, fd2 = rposix.pipe(rposix.O_CLOEXEC or 0)
+        _pipe_inhcache.set_non_inheritable(fd1)
+        _pipe_inhcache.set_non_inheritable(fd2)
     except OSError as e:
         raise wrap_oserror(space, e)
-    # XXX later, use rposix.pipe2() if available!
-    rposix.set_inheritable(fd1, False)
-    rposix.set_inheritable(fd2, False)
+    return space.newtuple([space.wrap(fd1), space.wrap(fd2)])
+
+@unwrap_spec(flags=c_int)
+def pipe2(space, flags):
+    try:
+        fd1, fd2 = rposix.pipe2(flags)
+    except OSError as e:
+        raise wrap_oserror(space, e)
     return space.newtuple([space.wrap(fd1), space.wrap(fd2)])
 
 @unwrap_spec(mode=c_int, dir_fd=DirFD(rposix.HAVE_FCHMODAT),

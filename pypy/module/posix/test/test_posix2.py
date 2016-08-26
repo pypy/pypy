@@ -1077,6 +1077,33 @@ class AppTestPosix:
         x = f.read(1)
         assert x == 'e'
 
+    def test_pipe_inheritable(self):
+        fd1, fd2 = self.posix.pipe()
+        assert self.posix.get_inheritable(fd1) == False
+        assert self.posix.get_inheritable(fd2) == False
+        self.posix.close(fd1)
+        self.posix.close(fd2)
+
+    def test_pipe2(self):
+        if not hasattr(self.posix, 'pipe2'):
+            skip("no pipe2")
+        fd1, fd2 = self.posix.pipe2(0)
+        assert self.posix.get_inheritable(fd1) == True
+        assert self.posix.get_inheritable(fd2) == True
+        self.posix.close(fd1)
+        self.posix.close(fd2)
+
+    def test_O_CLOEXEC(self):
+        if not hasattr(self.posix, 'pipe2'):
+            skip("no pipe2")
+        if not hasattr(self.posix, 'O_CLOEXEC'):
+            skip("no O_CLOEXEC")
+        fd1, fd2 = self.posix.pipe2(self.posix.O_CLOEXEC)
+        assert self.posix.get_inheritable(fd1) == False
+        assert self.posix.get_inheritable(fd2) == False
+        self.posix.close(fd1)
+        self.posix.close(fd2)
+
     def test_urandom(self):
         os = self.posix
         s = os.urandom(5)
