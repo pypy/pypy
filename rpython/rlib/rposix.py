@@ -366,14 +366,22 @@ def handle_posix_error(name, result):
     return result
 
 @replace_os_function('dup')
-def dup(fd):
+def dup(fd, inheritable=True):
     validate_fd(fd)
-    return handle_posix_error('dup', c_dup(fd))
+    if inheritable:
+        res = c_dup(fd)
+    else:
+        res = c_dup_noninheritable(fd)
+    return handle_posix_error('dup', res)
 
 @replace_os_function('dup2')
-def dup2(fd, newfd):
+def dup2(fd, newfd, inheritable=True):
     validate_fd(fd)
-    handle_posix_error('dup2', c_dup2(fd, newfd))
+    if inheritable:
+        res = c_dup2(fd, newfd)
+    else:
+        res = c_dup2_noninheritable(fd, newfd)
+    handle_posix_error('dup2', res)
 
 #___________________________________________________________________
 
@@ -1114,6 +1122,7 @@ if _WIN32:
                                                     rffi.INT],
                                 rffi.INT)
     HAVE_PIPE2 = False
+    HAVE_DUP3 = False
     O_CLOEXEC = None
 else:
     INT_ARRAY_P = rffi.CArrayPtr(rffi.INT)
@@ -1122,9 +1131,11 @@ else:
     class CConfig:
         _compilation_info_ = eci
         HAVE_PIPE2 = rffi_platform.Has('pipe2')
+        HAVE_DUP3 = rffi_platform.Has('dup3')
         O_CLOEXEC = rffi_platform.DefinedConstantInteger('O_CLOEXEC')
     config = rffi_platform.configure(CConfig)
     HAVE_PIPE2 = config['HAVE_PIPE2']
+    HAVE_DUP3 = config['HAVE_DUP3']
     O_CLOEXEC = config['O_CLOEXEC']
     if HAVE_PIPE2:
         c_pipe2 = external('pipe2', [INT_ARRAY_P, rffi.INT], rffi.INT,
@@ -2116,7 +2127,7 @@ if HAVE_MKNODAT:
 
 
 eci_inheritable = eci.merge(ExternalCompilationInfo(
-    separate_module_sources=["""
+    separate_module_sources=[r"""
 #include <errno.h>
 
 RPY_EXTERN
@@ -2164,7 +2175,60 @@ int rpy_get_inheritable(int fd)
         return -1;
     return !(flags & FD_CLOEXEC);
 }
-    """],
+
+RPY_EXTERN
+int rpy_dup_noninheritable(int fd)
+{
+#ifdef _WIN32
+#error NotImplementedError
+#endif
+
+#ifdef F_DUPFD_CLOEXEC
+    return fcntl(fd, F_DUPFD_CLOEXEC, 0);
+#else
+    fd = dup(fd);
+    if (fd >= 0) {
+        if (rpy_set_inheritable(fd, 0) != 0) {
+            close(fd);
+            return -1;
+        }
+    }
+    return fd;
+#endif
+}
+
+RPY_EXTERN
+int rpy_dup2_noninheritable(int fd, int fd2)
+{
+#ifdef _WIN32
+#error NotImplementedError
+#endif
+
+#ifdef F_DUP2FD_CLOEXEC
+    return fcntl(fd, F_DUP2FD_CLOEXEC, fd2);
+
+#else
+# if %(HAVE_DUP3)d   /* HAVE_DUP3 */
+    static int dup3_works = -1;
+    if (dup3_works != 0) {
+        if (dup3(fd, fd2, O_CLOEXEC) >= 0)
+            return 0;
+        if (dup3_works == -1)
+            dup3_works = (errno != ENOSYS);
+        if (dup3_works)
+            return -1;
+    }
+# endif
+    if (dup2(fd, fd2) < 0)
+        return -1;
+    if (rpy_set_inheritable(fd2, 0) != 0) {
+        close(fd2);
+        return -1;
+    }
+    return 0;
+#endif
+}
+    """ % {'HAVE_DUP3': HAVE_DUP3}],
     post_include_bits=['RPY_EXTERN int rpy_set_inheritable(int, int);']))
 
 c_set_inheritable = external('rpy_set_inheritable', [rffi.INT, rffi.INT],
@@ -2173,6 +2237,12 @@ c_set_inheritable = external('rpy_set_inheritable', [rffi.INT, rffi.INT],
 c_get_inheritable = external('rpy_get_inheritable', [rffi.INT],
                              rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
                              compilation_info=eci_inheritable)
+c_dup_noninheritable = external('rpy_dup_noninheritable', [rffi.INT],
+                                rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
+                                compilation_info=eci_inheritable)
+c_dup2_noninheritable = external('rpy_dup2_noninheritable', [rffi.INT,rffi.INT],
+                                 rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
+                                 compilation_info=eci_inheritable)
 
 def set_inheritable(fd, inheritable):
     result = c_set_inheritable(fd, inheritable)

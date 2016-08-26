@@ -536,17 +536,17 @@ def dup(space, fd):
     """Create a copy of the file descriptor.  Return the new file
 descriptor."""
     try:
-        newfd = os.dup(fd)
+        newfd = rposix.dup(fd, inheritable=False)
     except OSError as e:
         raise wrap_oserror(space, e)
     else:
         return space.wrap(newfd)
 
-@unwrap_spec(old_fd=c_int, new_fd=c_int)
-def dup2(space, old_fd, new_fd):
+@unwrap_spec(old_fd=c_int, new_fd=c_int, inheritable=int)
+def dup2(space, old_fd, new_fd, inheritable=1):
     """Duplicate a file descriptor."""
     try:
-        os.dup2(old_fd, new_fd)
+        rposix.dup2(old_fd, new_fd, inheritable)
     except OSError as e:
         raise wrap_oserror(space, e)
 

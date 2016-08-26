@@ -106,6 +106,7 @@ class AppTestPosix:
         posix = self.posix
         fd = posix.open(path, posix.O_RDONLY, 0o777)
         fd2 = posix.dup(fd)
+        assert posix.get_inheritable(fd2) == False
         assert not posix.isatty(fd2)
         s = posix.read(fd, 1)
         assert s == b't'
@@ -1101,6 +1102,18 @@ class AppTestPosix:
         fd1, fd2 = self.posix.pipe2(self.posix.O_CLOEXEC)
         assert self.posix.get_inheritable(fd1) == False
         assert self.posix.get_inheritable(fd2) == False
+        self.posix.close(fd1)
+        self.posix.close(fd2)
+
+    def test_dup2_inheritable(self):
+        fd1, fd2 = self.posix.pipe()
+        assert self.posix.get_inheritable(fd2) == False
+        self.posix.dup2(fd1, fd2)
+        assert self.posix.get_inheritable(fd2) == True
+        self.posix.dup2(fd1, fd2, False)
+        assert self.posix.get_inheritable(fd2) == False
+        self.posix.dup2(fd1, fd2, True)
+        assert self.posix.get_inheritable(fd2) == True
         self.posix.close(fd1)
         self.posix.close(fd2)
 
