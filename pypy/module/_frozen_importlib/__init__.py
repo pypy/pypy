@@ -19,7 +19,8 @@ class Module(MixedModule):
         with open(os.path.join(lib_python, 'importlib', name + '.py')) as fp:
             source = fp.read()
         pathname = "<frozen importlib.%s>" % name
-        code_w = Module._cached_compile(space, source, pathname, 'exec', 0)
+        code_w = Module._cached_compile(space, name, source,
+                                        pathname, 'exec', 0)
         space.setitem(w_dict, space.wrap('__name__'), w_name)
         space.setitem(w_dict, space.wrap('__builtins__'),
                       space.wrap(space.builtin))
@@ -43,11 +44,11 @@ class Module(MixedModule):
         self.w_import = space.wrap(interp_import.import_with_frames_removed)
 
     @staticmethod
-    def _cached_compile(space, source, *args):
+    def _cached_compile(space, name, source, *args):
         from rpython.config.translationoption import CACHE_DIR
         from pypy.module.marshal import interp_marshal
 
-        cachename = os.path.join(CACHE_DIR, 'frozen_importlib_bootstrap')
+        cachename = os.path.join(CACHE_DIR, 'frozen_importlib_%s' % (name,))
         try:
             if space.config.translating:
                 raise IOError("don't use the cache when translating pypy")
