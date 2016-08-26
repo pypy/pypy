@@ -309,6 +309,7 @@ class W_MemoryView(W_Root):
         return size
 
     def _zero_in_shape(self):
+        # TODO move to buffer
         view = self.buf
         shape = view.shape
         for i in range(view.ndim):
@@ -320,23 +321,25 @@ class W_MemoryView(W_Root):
         # XXX fixme. does not do anything near cpython (see memoryobjet.c memory_cast)
         self._check_released(space)
 
-        if not space.isinstance_w(w_obj, space.w_unicode):
+        if not space.isinstance_w(w_format, space.w_unicode):
             raise OperationError(space.w_TypeError, \
                     space.wrap("memoryview: format argument must be a string"))
 
-        buf = self.buf
+        fmt = space.str_w(w_format)
+        view = self.buf
         ndim = 1
 
-        if not memory_view_c_contiguous(buf.flags):
+        if not memory_view_c_contiguous(space, view.flags):
             raise OperationError(space.w_TypeError, \
                     space.wrap("memoryview: casts are restricted" \
                                " to C-contiguous views"))
 
-        if (w_shape or buf.ndim != 1) and self._zero_in_shape():
+        if (w_shape or view.getndim() != 1) and self._zero_in_shape():
             raise OperationError(space.w_TypeError, \
                     space.wrap("memoryview: cannot casts view with" \
                                " zeros in shape or strides"))
 
+        itemsize = self.get_native_fmtchar(fmt)
         if w_shape:
             if not (space.is_w(w_obj, space.w_list) or space.is_w(w_obj, space.w_tuple)):
                 raise oefmt(space.w_TypeError, "expected list or tuple got %T", w_obj)
@@ -349,19 +352,13 @@ class W_MemoryView(W_Root):
                 raise OperationError(space.w_TypeError, \
                     space.wrap("memoryview: cast must be 1D -> ND or ND -> 1D"))
 
-        mv = W_MemoryView(self.buf)
-        mv._init_shared_values(space, self)
-        mv.itemsize = self.get_native_fmtchar(fmt)
+            shape = [space.int_w(w_obj) for w_obj in w_shape.fixedview_unroll()]
+            return W_MemoryView(Buffer.cast_to(buf, itemsize, shape))
 
-        if not mv._cast_to_1D(space, fmt):
-            return space.w_None
-        if w_shape is not space.w_None:
-            shape = space.fixedview(w_shape)
-            if not mv._cast_to_ND(space, shape, ndim):
-                return space.w_None
-        return mv
+        return W_MemoryView(Buffer.cast_to(buf, itemsize, None))
 
     def _init_flags(self):
+        # TODO move to buffer.py
         view = self.buf
         ndim = view.ndim
         flags = 0
@@ -381,43 +378,37 @@ class W_MemoryView(W_Root):
 
     def _cast_to_1D(self, space, fmt):
         itemsize = self.get_native_fmtchar(fmt)
-        view = self.buf
+        buf = self.buf
         if itemsize < 0:
             raise OperationError(space.w_ValueError, "memoryview: destination" \
                     " format must be a native single character format prefixed" \
                     " with an optional '@'")
 
-        if self.get_native_fmtchar(view.format) < 0 or \
-           (not is_byte_format(fmt) and not is_byte_format(view.format)):
+        buffmt = buf.getformat()
+        if self.get_native_fmtchar(buffmt) < 0 or \
+           (not is_byte_format(fmt) and not is_byte_format(buffmt)):
             raise OperationError(space.w_TypeError,
                     "memoryview: cannot cast between" \
                     " two non-byte formats")
 
-        if view.length % itemsize != 0:
+        if buf.getlength() % itemsize != 0:
             raise OperationError(space.w_TypeError,
                     "memoryview: length is not a multiple of itemsize")
 
-        view.format = get_native_fmtstr(fmt)
-        if not view.format:
+        buf.format = get_native_fmtstr(fmt)
+        if not buffmt:
             raise OperationError(space.w_RuntimeError,
                     "memoryview: internal error")
-        view.itemsize = itemsize
-        view.ndim = 1
-        view.shape[0] = view.length / view.itemsize
-        view.srides[0] = view.itemsize
+        buf.itemsize = itemsize
+        buf.ndim = 1
+        buf.shape[0] = buf.length / buf.itemsize
+        buf.srides[0] = buf.itemsize
         # XX suboffsets
 
         mv._init_flags()
 
     def _cast_to_ND(self, space, shape, ndim):
         pass
-
-    def _init_shared_values(self, space, of):
-        mv.buf = buf # XXX not quite right
-        mv.format = of.format
-        mv.readonly = of.readonly
-        mv.itemsize = of.itemsize
-        return mv
 
     def descr_hex(self, space):
         from pypy.objspace.std.bytearrayobject import _array_to_hexstring
@@ -427,8 +418,8 @@ class W_MemoryView(W_Root):
 def is_byte_format(char):
     return char == 'b' or char == 'B' or char == 'c'
 
-def memory_view_c_contiguous(flags):
-    return flags & (space.BUF_CONTIG_RO|space.BUF_C) != 0
+def memory_view_c_contiguous(space, flags):
+    return flags & (space.BUF_CONTIG_RO|space.MEMORYVIEW_C) != 0
 
 W_MemoryView.typedef = TypeDef(
     "memoryview",

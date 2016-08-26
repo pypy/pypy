@@ -177,6 +177,7 @@ class MockBuffer(Buffer):
     def __init__(self, space, w_arr, w_dim, w_fmt, \
                  w_itemsize, w_strides, w_shape):
         self.space = space
+        self.flags = space.MEMORYVIEW_C
         self.w_arr = w_arr
         self.arr = []
         self.ndim = space.int_w(w_dim)
@@ -293,4 +294,10 @@ class AppTestMemoryViewMicroNumPyPy(object):
         view = memoryview(content)
         assert view[0,0,0] == 1
         assert view[-1,2,0] == 6
+
+    def test_cast_empty(self):
+        empty = self.MockArray([], dim=1, fmt='i', size=4, strides=[1], shape=[1])
+        view = memoryview(empty)
+        cview = view.cast('i')
+        assert cview.tobytes() == b''
 
