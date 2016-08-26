@@ -552,6 +552,10 @@ class AppTestSocket:
         fd = socket.dup(s.fileno())
         assert s.fileno() != fd
 
+    def test_dup_error(self):
+        import _socket
+        raises(_socket.error, _socket.dup, 123456)
+
     def test_buffer(self):
         # Test that send/sendall/sendto accept a buffer as arg
         import _socket, os

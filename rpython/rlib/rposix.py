@@ -258,12 +258,19 @@ class CConfig:
     if not _WIN32:
         UID_T = rffi_platform.SimpleType('uid_t', rffi.UINT)
         GID_T = rffi_platform.SimpleType('gid_t', rffi.UINT)
+        TIOCGWINSZ = rffi_platform.DefinedConstantInteger('TIOCGWINSZ')
 
         TMS = rffi_platform.Struct(
             'struct tms', [('tms_utime', rffi.INT),
                            ('tms_stime', rffi.INT),
                            ('tms_cutime', rffi.INT),
                            ('tms_cstime', rffi.INT)])
+
+        WINSIZE = rffi_platform.Struct(
+            'struct winsize', [('ws_row', rffi.USHORT),
+                           ('ws_col', rffi.USHORT),
+                           ('ws_xpixel', rffi.USHORT),
+                           ('ws_ypixel', rffi.USHORT)])
 
     GETPGRP_HAVE_ARG = rffi_platform.Has("getpgrp(0)")
     SETPGRP_HAVE_ARG = rffi_platform.Has("setpgrp(0, 0)")
@@ -636,6 +643,8 @@ if not _WIN32:
                          macro=True, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
     c_closedir = external('closedir', [DIRP], rffi.INT, releasegil=False)
     c_dirfd = external('dirfd', [DIRP], rffi.INT, releasegil=False)
+    c_ioctl_voidp = external('ioctl', [rffi.INT, rffi.UINT, rffi.VOIDP], rffi.INT,
+                         save_err=rffi.RFFI_SAVE_ERRNO)
 else:
     dirent_config = {}
 
