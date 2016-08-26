@@ -648,6 +648,10 @@ class AppTestSocket:
         assert len(w) == 1, [str(warning) for warning in w]
         assert r in str(w[0])
 
+    def test_invalid_fd(self):
+        import _socket
+        raises(ValueError, _socket.socket, fileno=-1)
+
     def test_socket_non_inheritable(self):
         import _socket, posix
         s1 = _socket.socket()
