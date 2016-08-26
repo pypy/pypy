@@ -186,7 +186,10 @@ class W_FileIO(W_RawIOBase):
                 finally:
                     fd_is_own = True
                 if not rposix._WIN32:
-                    _open_inhcache.set_non_inheritable(self.fd)
+                    try:
+                        _open_inhcache.set_non_inheritable(self.fd)
+                    except OSError as e:
+                        raise wrap_oserror2(space, e, w_name)
             else:
                 w_fd = space.call_function(w_opener, w_name, space.wrap(flags))
                 try:
@@ -199,7 +202,10 @@ class W_FileIO(W_RawIOBase):
                 finally:
                     fd_is_own = True
                 if not rposix._WIN32:
-                    rposix.set_inheritable(self.fd, False)
+                    try:
+                        rposix.set_inheritable(self.fd, False)
+                    except OSError as e:
+                        raise wrap_oserror2(space, e, w_name)
 
             self._dircheck(space, w_name)
             space.setattr(self, space.wrap("name"), w_name)
