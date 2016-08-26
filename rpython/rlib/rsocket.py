@@ -1099,12 +1099,14 @@ if hasattr(_c, 'socketpair'):
         AF_UNIX if defined on the platform; otherwise, the default is AF_INET.
         """
         result = lltype.malloc(_c.socketpair_t, 2, flavor='raw')
-        res = _c.socketpair(family, type, proto, result)
-        if res < 0:
-            raise last_error()
-        fd0 = rffi.cast(lltype.Signed, result[0])
-        fd1 = rffi.cast(lltype.Signed, result[1])
-        lltype.free(result, flavor='raw')
+        try:
+            res = _c.socketpair(family, type, proto, result)
+            if res < 0:
+                raise last_error()
+            fd0 = rffi.cast(lltype.Signed, result[0])
+            fd1 = rffi.cast(lltype.Signed, result[1])
+        finally:
+            lltype.free(result, flavor='raw')
         return (make_socket(fd0, family, type, proto, SocketClass),
                 make_socket(fd1, family, type, proto, SocketClass))
 
