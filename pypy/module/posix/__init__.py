@@ -19,7 +19,7 @@ corresponding Unix manual entries for more information on calls."""
         'statvfs_result': 'app_posix.statvfs_result',
         'uname_result': 'app_posix.uname_result',
         'urandom': 'app_posix.urandom',
-        'terminal_size': 'app_posix.terminal_size'
+        'terminal_size': 'app_posix.terminal_size',
     }
     if os.name == 'nt':
         del appleveldefs['urandom'] # at interp on win32
@@ -75,7 +75,7 @@ corresponding Unix manual entries for more information on calls."""
         'abort': 'interp_posix.abort',
         'urandom': 'interp_posix.urandom',
         'device_encoding': 'interp_posix.device_encoding',
-        'get_terminal_size': 'interp_posix.get_terminal_size'
+        'get_terminal_size': 'interp_posix.get_terminal_size',
 
         'scandir': 'interp_scandir.scandir',
     }
