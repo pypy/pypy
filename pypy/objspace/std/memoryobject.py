@@ -10,6 +10,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty,  make_weakref_descr
+from pypy.objspace.std.bytesobject import getbytevalue
 from pypy.module.struct.formatiterator import UnpackFormatIterator, PackFormatIterator
 
 
@@ -106,35 +107,32 @@ class W_MemoryView(W_Root):
         if self.buf.readonly:
             raise oefmt(space.w_TypeError, "cannot modify read-only memory")
         if space.isinstance_w(w_index, space.w_tuple):
-            raise oefmt(space.w_NotImplementedError, "")
+            raise oefmt(space.w_NotImplementedError, "XXX tuple setitem")
         start, stop, step, size = space.decode_index4(w_index, self.getlength())
         itemsize = self.itemsize
-        if itemsize > 1:
-            start *= itemsize
-            size *= itemsize
-            stop  = start + size
-            if step == 0:
-                step = 1
-            if stop > self.getlength():
-                raise oefmt(space.w_IndexError, 'index out of range')
         if step == 0:  # index only
-            # TODO: this probably isn't very fast
-            fmtiter = PackFormatIterator(space, [w_obj], self.itemsize)
-            try:
-                fmtiter.interpret(self.format)
-            except StructError as e:
-                raise oefmt(space.w_TypeError,
-                            "memoryview: invalid type for format '%s'",
-                            self.format)
-            self.buf.setslice(start, fmtiter.result.build())
+            if itemsize == 1:
+                ch = getbytevalue(space, w_obj)
+                self.buf.setitem(start, ch)
+            else:
+                # TODO: this probably isn't very fast
+                fmtiter = PackFormatIterator(space, [w_obj], itemsize)
+                try:
+                    fmtiter.interpret(self.format)
+                except StructError as e:
+                    raise oefmt(space.w_TypeError,
+                                "memoryview: invalid type for format '%s'",
+                                self.format)
+                self.buf.setslice(start * itemsize, fmtiter.result.build())
         elif step == 1:
             value = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
             if value.getlength() != size * self.itemsize:
                 raise oefmt(space.w_ValueError,
                             "cannot modify size of memoryview object")
-            self.buf.setslice(start, value.as_str())
+            self.buf.setslice(start * itemsize, value.as_str())
         else:
-            raise oefmt(space.w_NotImplementedError, "")
+            raise oefmt(space.w_NotImplementedError,
+                        "XXX extended slicing")
 
     def descr_len(self, space):
         self._check_released(space)

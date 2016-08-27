@@ -196,3 +196,21 @@ class AppTestMemoryView:
         assert m3[1::2].tobytes() == b'cdgh'
         assert m3[::2].tobytes() == b'abef'
         assert m3[:2:2].tobytes() == b'ab'
+
+    def test_memoryview_cast_setitem(self):
+        data = bytearray(b'abcdefgh')
+        m1 = memoryview(data)
+        m2 = m1.cast('I')
+        m3 = m1.cast('h')
+        m1[2] = ord(b'C')
+        assert m2[0] == 1682137697
+        m3[1] = -9999
+        assert data == bytearray(bytes([97, 98, 241, 216, 101, 102, 103, 104]))
+        m3[1:3] = memoryview(b"pqrs").cast('h')
+        assert data == bytearray(b'abpqrsgh')
+
+    def test_memoryview_cast_setitem_extended_slicing(self):
+        data = bytearray(b'abcdefghij')
+        m3 = memoryview(data).cast('h')
+        m3[1:5:2] = memoryview(b"xyXY").cast('h')
+        assert data == bytearray(b'abxyefXYij')
