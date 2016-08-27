@@ -91,8 +91,6 @@ class W_MemoryView(W_Root):
                 step = 1
             if stop > self.getlength():
                 raise oefmt(space.w_IndexError, 'index out of range')
-        if step not in (0, 1):
-            raise oefmt(space.w_NotImplementedError, "")
         if step == 0:  # index only
             # TODO: this probably isn't very fast
             buf = SubBuffer(self.buf, start, self.itemsize)
@@ -113,7 +111,7 @@ class W_MemoryView(W_Root):
         if space.isinstance_w(w_index, space.w_tuple):
             raise oefmt(space.w_NotImplementedError, "")
         start, stop, step, size = space.decode_index4(w_index, self.getlength())
-        itemsize = self.buf.getitemsize()
+        itemsize = self.itemsize
         if itemsize > 1:
             start *= itemsize
             size *= itemsize
@@ -122,12 +120,6 @@ class W_MemoryView(W_Root):
                 step = 1
             if stop > self.getlength():
                 raise oefmt(space.w_IndexError, 'index out of range')
-        if step not in (0, 1):
-            raise oefmt(space.w_NotImplementedError, "")
-        value = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
-        if value.getlength() != size:
-            raise oefmt(space.w_ValueError,
-                        "cannot modify size of memoryview object")
         if step == 0:  # index only
             # TODO: this probably isn't very fast
             fmtiter = PackFormatIterator(space, [w_obj], self.itemsize)
