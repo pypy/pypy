@@ -186,3 +186,10 @@ class AppTestKqueue(object):
         a.close()
         b.close()
         kq.close()
+
+    def test_non_inheritable(self):
+        import select, posix
+
+        kq = select.kqueue()
+        assert posix.get_inheritable(kq.fileno()) == False
+        kq.close()

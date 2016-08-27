@@ -39,7 +39,8 @@ public_symbols = dict.fromkeys([
 for symbol in public_symbols:
     setattr(CConfig, symbol, rffi_platform.DefinedConstantInteger(symbol))
 
-for symbol in ["EPOLL_CTL_ADD", "EPOLL_CTL_MOD", "EPOLL_CTL_DEL"]:
+for symbol in ["EPOLL_CTL_ADD", "EPOLL_CTL_MOD", "EPOLL_CTL_DEL",
+               "EPOLL_CLOEXEC"]:
     setattr(CConfig, symbol, rffi_platform.ConstantInteger(symbol))
 
 cconfig = rffi_platform.configure(CConfig)
@@ -52,13 +53,14 @@ epoll_event = cconfig["epoll_event"]
 EPOLL_CTL_ADD = cconfig["EPOLL_CTL_ADD"]
 EPOLL_CTL_MOD = cconfig["EPOLL_CTL_MOD"]
 EPOLL_CTL_DEL = cconfig["EPOLL_CTL_DEL"]
+EPOLL_CLOEXEC = cconfig["EPOLL_CLOEXEC"]
 
 DEF_REGISTER_EVENTMASK = (public_symbols["EPOLLIN"] |
                           public_symbols["EPOLLOUT"] |
                           public_symbols["EPOLLPRI"])
 
-epoll_create = rffi.llexternal(
-    "epoll_create", [rffi.INT], rffi.INT, compilation_info=eci,
+epoll_create1 = rffi.llexternal(
+    "epoll_create1", [rffi.INT], rffi.INT, compilation_info=eci,
     save_err=rffi.RFFI_SAVE_ERRNO
 )
 epoll_ctl = rffi.llexternal(
@@ -82,14 +84,12 @@ class W_Epoll(W_Root):
         self.epfd = epfd
         self.register_finalizer(space)
 
-    @unwrap_spec(sizehint=int)
-    def descr__new__(space, w_subtype, sizehint=-1):
-        if sizehint == -1:
-            sizehint = FD_SETSIZE - 1
-        elif sizehint < 0:
+    @unwrap_spec(sizehint=int, flags=int)
+    def descr__new__(space, w_subtype, sizehint=0, flags=0):
+        if sizehint < 0:     # 'sizehint' is otherwise ignored
             raise oefmt(space.w_ValueError,
                         "sizehint must be greater than zero, got %d", sizehint)
-        epfd = epoll_create(sizehint)
+        epfd = epoll_create1(flags | EPOLL_CLOEXEC)
         if epfd < 0:
             raise exception_from_saved_errno(space, space.w_IOError)
 

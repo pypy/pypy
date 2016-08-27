@@ -546,11 +546,15 @@ class AppTestSocket:
         s.ioctl(_socket.SIO_KEEPALIVE_VALS, (1, 100, 100))
 
     def test_dup(self):
-        import _socket as socket
+        import _socket as socket, posix
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.bind(('localhost', 0))
         fd = socket.dup(s.fileno())
         assert s.fileno() != fd
+        assert posix.get_inheritable(s.fileno()) is False
+        assert posix.get_inheritable(fd) is False
+        posix.close(fd)
+        s.close()
 
     def test_dup_error(self):
         import _socket
@@ -651,6 +655,26 @@ class AppTestSocket:
             gc.collect()
         assert len(w) == 1, [str(warning) for warning in w]
         assert r in str(w[0])
+
+    def test_invalid_fd(self):
+        import _socket
+        raises(ValueError, _socket.socket, fileno=-1)
+
+    def test_socket_non_inheritable(self):
+        import _socket, posix
+        s1 = _socket.socket()
+        assert posix.get_inheritable(s1.fileno()) is False
+        s1.close()
+
+    def test_socketpair_non_inheritable(self):
+        import _socket, posix
+        if not hasattr(_socket, 'socketpair'):
+            skip("no socketpair")
+        s1, s2 = _socket.socketpair()
+        assert posix.get_inheritable(s1.fileno()) is False
+        assert posix.get_inheritable(s2.fileno()) is False
+        s1.close()
+        s2.close()
 
 
 class AppTestNetlink:
@@ -828,6 +852,16 @@ class AppTestSocketTCP:
         import socket
         cli = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         assert cli.family == socket.AF_INET
+
+
+    def test_accept_non_inheritable(self):
+        import _socket, posix
+        cli = _socket.socket()
+        cli.connect(self.serv.getsockname())
+        fileno, addr = self.serv._accept()
+        assert posix.get_inheritable(fileno) is False
+        posix.close(fileno)
+        cli.close()
 
 
 class AppTestErrno:

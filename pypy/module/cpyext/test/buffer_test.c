@@ -1,3 +1,6 @@
+#ifdef _MSC_VER
+#define _CRT_SECURE_NO_WARNINGS 1
+#endif
 #include <Python.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -10,7 +13,7 @@
 /* Structure defines a 1-dimensional strided array */
 typedef struct{
     int* arr;
-    long length;
+    Py_ssize_t length;
 } MyArray;
 
 /* initialize the array with integers 0...length */
@@ -61,13 +64,13 @@ typedef struct {
 static int
 PyMyArray_init(PyMyArray *self, PyObject *args, PyObject *kwds)
 {
+    int length = 0;
+    static char *kwlist[] = {"length", NULL};
     // init may have already been called
     if (self->arr.arr != NULL) {
         deallocate_MyArray(&self->arr);
     }
 
-    int length = 0;
-    static char *kwlist[] = {"length", NULL};
     if (! PyArg_ParseTupleAndKeywords(args, kwds, "|i", kwlist, &length))
         return -1;
 
@@ -103,16 +106,19 @@ PyMyArray_str(PyMyArray * self)
 static int
 PyMyArray_getbuffer(PyObject *obj, Py_buffer *view, int flags)
 {
+  PyMyArray* self = (PyMyArray*)obj;
+  fprintf(stdout, "in PyMyArray_getbuffer\n");
   if (view == NULL) {
+    fprintf(stdout, "view is NULL\n");
     PyErr_SetString(PyExc_ValueError, "NULL view in getbuffer");
     return -1;
   }
   if (flags == 0) {
+    fprintf(stdout, "flags is 0\n");
     PyErr_SetString(PyExc_ValueError, "flags == 0 in getbuffer");
     return -1;
   }
 
-  PyMyArray* self = (PyMyArray*)obj;
   view->obj = (PyObject*)self;
   view->buf = (void*)self->arr.arr;
   view->len = self->arr.length * sizeof(int);
@@ -218,7 +224,6 @@ PyInit_buffer_test(void)
 #ifdef __GNUC__
 extern __attribute__((visibility("default")))
 #else
-extern __declspec(dllexport)
 #endif
 
 PyMODINIT_FUNC

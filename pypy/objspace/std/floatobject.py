@@ -399,7 +399,9 @@ class W_FloatObject(W_Root):
     descr_str = func_with_new_name(descr_repr, 'descr_str')
 
     def descr_hash(self, space):
-        return space.wrap(_hash_float(space, self.floatval))
+        h = _hash_float(space, self.floatval)
+        h -= (h == -1)
+        return space.wrap(h)
 
     def descr_format(self, space, w_spec):
         return newformat.run_formatter(space, w_spec, "format_float", self)
