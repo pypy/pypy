@@ -11,14 +11,14 @@ from pypy.objspace.std.marshal_impl import marshal, get_unmarshallers
 # objects, are supported.  Version 3 of this protocol properly
 # supports circular links and sharing.  The previous version is called
 # "2", like in Python 2.7, although it is not always compatible
-# between CPython 2.7 and CPython 3.x.
+# between CPython 2.7 and CPython 3.4.
 #
 # XXX: before py3k, there was logic to do efficiently dump()/load() on
 # a file object.  The corresponding logic is gone from CPython 3.x, so
 # I don't feel bad about killing it here too.
 #
 
-Py_MARSHAL_VERSION = 3
+Py_MARSHAL_VERSION = 4
 
 
 @unwrap_spec(w_version=WrappedDefault(Py_MARSHAL_VERSION))
@@ -127,7 +127,15 @@ class Marshaller(_Base):
         ## self.put = putfunc
         self.writer = writer
         self.version = version
-        self.stringtable = {}
+        self.all_refs = {}
+        # all_refs = {w_obj: index} for all w_obj that are of a
+        # "reasonably sharable" type.  CPython checks the refcount of
+        # any object to know if it is sharable, independently of its
+        # type.  We can't do that.  We could do a two-pass marshaller.
+        # For now we simply add to this list all objects that marshal to
+        # more than a few fixed-sized bytes, minus ones like code
+        # objects that never appear more than once except in complete
+        # corner cases.
 
     ## currently we cannot use a put that is a bound method
     ## from outside. Same holds for get.
@@ -207,10 +215,13 @@ class Marshaller(_Base):
             rstackovf.check_stack_overflow()
             self._overflow()
 
-    def put_tuple_w(self, typecode, lst_w):
+    def put_tuple_w(self, typecode, lst_w, single_byte_size=False):
         self.start(typecode)
         lng = len(lst_w)
-        self.put_int(lng)
+        if single_byte_size:
+            self.put(chr(lng))
+        else:
+            self.put_int(lng)
         idx = 0
         while idx < lng:
             w_obj = lst_w[idx]
@@ -301,18 +312,35 @@ class StringMarshaller(Marshaller):
 
 
 def invalid_typecode(space, u, tc):
-    u.raise_exc("bad marshal data (unknown type code)")
+    u.raise_exc("bad marshal data (unknown type code %d)" % (ord(tc),))
 
 
+def _make_unmarshall_and_save_ref(func):
+    def unmarshall_save_ref(space, u, tc):
+        index = len(u.refs_w)
+        u.refs_w.append(None)
+        w_obj = func(space, u, tc)
+        u.refs_w[index] = w_obj
+        return w_obj
+    return unmarshall_save_ref
 
-class Unmarshaller(_Base):
+def _make_unmarshaller_dispatch():
     _dispatch = [invalid_typecode] * 256
     for tc, func in get_unmarshallers():
         _dispatch[ord(tc)] = func
+    for tc, func in get_unmarshallers():
+        if tc < '\x80' and _dispatch[ord(tc) + 0x80] is invalid_typecode:
+            _dispatch[ord(tc) + 0x80] = _make_unmarshall_and_save_ref(func)
+    return _dispatch
+
+
+class Unmarshaller(_Base):
+    _dispatch = _make_unmarshaller_dispatch()
 
     def __init__(self, space, reader):
         self.space = space
         self.reader = reader
+        self.refs_w = []
 
     def get(self, n):
         assert n >= 0
@@ -321,6 +349,10 @@ class Unmarshaller(_Base):
     def get1(self):
         # the [0] is used to convince the annotator to return a char
         return self.get(1)[0]
+
+    def save_ref(self, typecode, w_obj):
+        if typecode >= '\x80':
+            self.refs_w.append(w_obj)
 
     def atom_str(self, typecode):
         self.start(typecode)
@@ -392,8 +424,11 @@ class Unmarshaller(_Base):
             self._overflow()
 
     # inlined version to save a recursion level
-    def get_tuple_w(self):
-        lng = self.get_lng()
+    def get_tuple_w(self, single_byte_size=False):
+        if single_byte_size:
+            lng = ord(self.get1())
+        else:
+            lng = self.get_lng()
         res_w = [None] * lng
         idx = 0
         space = self.space
@@ -408,9 +443,6 @@ class Unmarshaller(_Base):
         if w_ret is None:
             raise oefmt(space.w_TypeError, "NULL object in marshal data")
         return res_w
-
-    def get_list_w(self):
-        return self.get_tuple_w()[:]
 
     def _overflow(self):
         self.raise_exc('object too deeply nested to unmarshal')

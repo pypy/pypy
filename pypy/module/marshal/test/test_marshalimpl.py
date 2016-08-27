@@ -34,10 +34,21 @@ class AppTestMarshalMore:
     def test_shared_string(self):
         x = "hello, "
         x += "world"
-        s = marshal.dumps((x, x))
-        assert s.count(x) == 1
-        y = marshal.loads(s)
-        assert y == (x, x)
+        xl = 256
+        xl **= 100
+        for version in [2, 3]:
+            s = marshal.dumps((x, x), version)
+            assert s.count(x) == 2 if version < 3 else 1
+            y = marshal.loads(s)
+            assert y == (x, x)
+            #
+            s = marshal.dumps((xl, xl), version)
+            if version < 3:
+                assert 200 < len(s) < 250
+            else:
+                assert 100 < len(s) < 125
+            yl = marshal.loads(s)
+            assert yl == (xl, xl)
 
 
 class AppTestMarshalSmallLong(AppTestMarshalMore):

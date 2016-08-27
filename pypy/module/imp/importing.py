@@ -228,7 +228,7 @@ def getimportlock(space):
 #     CPython + 7 = default_magic  -- used by PyPy (incompatible!)
 #
 from pypy.interpreter.pycode import default_magic
-MARSHAL_VERSION_FOR_PYC = 3
+MARSHAL_VERSION_FOR_PYC = 4
 
 def get_pyc_magic(space):
     return default_magic
