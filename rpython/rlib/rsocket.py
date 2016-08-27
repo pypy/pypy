@@ -8,6 +8,7 @@ a drop-in replacement for the 'socket' module.
 # XXX this does not support yet the least common AF_xxx address families
 # supported by CPython.  See http://bugs.pypy.org/issue1942
 
+from errno import EINVAL
 from rpython.rlib import _rsocket_rffi as _c, jit, rgc
 from rpython.rlib.objectmodel import instantiate, keepalive_until_here
 from rpython.rlib.rarithmetic import intmask, r_uint
@@ -531,7 +532,7 @@ class RSocket(object):
                 # then we fall back to the SOCK_CLOEXEC-less case.
                 fd = _c.socket(family, type | SOCK_CLOEXEC, proto)
                 if fd < 0:
-                    if _c.geterrno() == errno.EINVAL:
+                    if _c.geterrno() == EINVAL:
                         # Linux older than 2.6.27 does not support
                         # SOCK_CLOEXEC.  An EINVAL might be caused by
                         # random other things, though.  Don't cache.
@@ -655,8 +656,8 @@ class RSocket(object):
         try:
             remove_inheritable = not inheritable
             if (not inheritable and SOCK_CLOEXEC is not None
-                    and hasattr(_c, 'socketaccept4') and
-                    _accept4_syscall.attempt_syscall()):
+                    and _c.HAVE_ACCEPT4
+                    and _accept4_syscall.attempt_syscall()):
                 newfd = _c.socketaccept4(self.fd, addr_p, addrlen_p,
                                          SOCK_CLOEXEC)
                 if _accept4_syscall.fallback(newfd):
@@ -1144,7 +1145,7 @@ if hasattr(_c, 'socketpair'):
                 res = _c.socketpair(family, type | SOCK_CLOEXEC,
                                     proto, result)
                 if res < 0:
-                    if _c.geterrno() == errno.EINVAL:
+                    if _c.geterrno() == EINVAL:
                         # Linux older than 2.6.27 does not support
                         # SOCK_CLOEXEC.  An EINVAL might be caused by
                         # random other things, though.  Don't cache.

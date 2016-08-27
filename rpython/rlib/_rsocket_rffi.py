@@ -544,7 +544,8 @@ socklen_t_ptr = lltype.Ptr(rffi.CFixedArray(socklen_t, 1))
 socketaccept = external('accept', [socketfd_type, sockaddr_ptr,
                                    socklen_t_ptr], socketfd_type,
                         save_err=SAVE_ERR)
-if cConfig.HAVE_ACCEPT4:
+HAVE_ACCEPT4 = cConfig.HAVE_ACCEPT4
+if HAVE_ACCEPT4:
     socketaccept4 = external('accept4', [socketfd_type, sockaddr_ptr,
                                          socklen_t_ptr, rffi.INT],
                                         socketfd_type,
