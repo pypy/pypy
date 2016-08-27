@@ -145,11 +145,11 @@ class W_MemoryView(W_Root):
 
     def w_get_format(self, space):
         self._check_released(space)
-        return space.wrap(self.buf.getformat())
+        return space.wrap(self.format)
 
     def w_get_itemsize(self, space):
         self._check_released(space)
-        return space.wrap(self.buf.getitemsize())
+        return space.newint(self.itemsize)
 
     def w_get_ndim(self, space):
         self._check_released(space)
@@ -161,11 +161,11 @@ class W_MemoryView(W_Root):
 
     def w_get_shape(self, space):
         self._check_released(space)
-        return space.newtuple([space.wrap(x) for x in self.buf.getshape()])
+        return space.newtuple([space.newint(self.getlength())])
 
     def w_get_strides(self, space):
         self._check_released(space)
-        return space.newtuple([space.wrap(x) for x in self.buf.getstrides()])
+        return space.newtuple([space.newint(self.itemsize)])
 
     def w_get_suboffsets(self, space):
         self._check_released(space)
