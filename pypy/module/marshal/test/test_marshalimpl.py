@@ -39,7 +39,7 @@ class AppTestMarshalMore:
         xl **= 100
         for version in [2, 3]:
             s = marshal.dumps((x, x), version)
-            assert s.count(x) == 2 if version < 3 else 1
+            assert s.count(b'hello, world') == 2 if version < 3 else 1
             y = marshal.loads(s)
             assert y == (x, x)
             #
@@ -64,6 +64,7 @@ def test_long_more(space):
         # NOTE: marshal is platform independent, running this test must assume
         # that self.seen gets values from the endianess of the marshal module.
         # (which is little endian!)
+        version = 2
         def __init__(self):
             self.seen = []
         def start(self, code):
