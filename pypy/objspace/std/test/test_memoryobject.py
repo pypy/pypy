@@ -16,8 +16,6 @@ class AppTestMemoryView:
         w = v[1:234]
         assert isinstance(w, memoryview)
         assert len(w) == 2
-        exc = raises(NotImplementedError, "v[0:2:2]")
-        assert str(exc.value) == ""
         exc = raises(TypeError, "memoryview('foobar')")
 
     def test_rw(self):
@@ -32,8 +30,15 @@ class AppTestMemoryView:
         assert data == bytearray(eval("b'23f3fg'"))
         exc = raises(ValueError, "v[2:3] = b'spam'")
         assert str(exc.value) == "cannot modify size of memoryview object"
-        exc = raises(NotImplementedError, "v[0:2:2] = b'spam'")
-        assert str(exc.value) == ""
+
+    def test_extended_slice(self):
+        data = bytearray(b'abcefg')
+        v = memoryview(data)
+        w = v[0:2:2]      # failing for now: NotImplementedError
+        assert len(w) == 1
+        assert list(w) == [97]
+        v[::2] = b'ABC'
+        assert data == bytearray(b'AbBeCg')
 
     def test_memoryview_attrs(self):
         v = memoryview(b"a"*100)
@@ -165,3 +170,51 @@ class AppTestMemoryView:
 
     def test_hex(self):
         assert memoryview(b"abc").hex() == u'616263'
+
+    def test_memoryview_cast(self):
+        m1 = memoryview(b'abcdefgh')
+        m2 = m1.cast('I')
+        m3 = m1.cast('h')
+        assert list(m1) == [97, 98, 99, 100, 101, 102, 103, 104]
+        assert list(m2) == [1684234849, 1751606885]
+        assert list(m3) == [25185, 25699, 26213, 26727]
+        assert m1[1] == 98
+        assert m2[1] == 1751606885
+        assert m3[1] == 25699
+        assert list(m3[1:3]) == [25699, 26213]
+        assert m3[1:3].tobytes() == b'cdef'
+        assert len(m2) == 2
+        assert len(m3) == 4
+        assert (m2[-2], m2[-1]) == (1684234849, 1751606885)
+        raises(IndexError, "m2[2]")
+        raises(IndexError, "m2[-3]")
+        assert list(m3[-99:3]) == [25185, 25699, 26213]
+        assert list(m3[1:99]) == [25699, 26213, 26727]
+        raises(IndexError, "m1[8]")
+        raises(IndexError, "m1[-9]")
+        assert m1[-8] == 97
+
+    def test_memoryview_cast_extended_slicing(self):
+        m1 = memoryview(b'abcdefgh')
+        m3 = m1.cast('h')
+        assert m3[1::2].tobytes() == b'cdgh'
+        assert m3[::2].tobytes() == b'abef'
+        assert m3[:2:2].tobytes() == b'ab'
+
+    def test_memoryview_cast_setitem(self):
+        data = bytearray(b'abcdefgh')
+        m1 = memoryview(data)
+        m2 = m1.cast('I')
+        m3 = m1.cast('h')
+        m1[2] = ord(b'C')
+        assert m2[0] == 1682137697
+        m3[1] = -9999
+        assert data == bytearray(bytes([97, 98, 241, 216, 101, 102, 103, 104]))
+        m3[1:3] = memoryview(b"pqrs").cast('h')
+        assert data == bytearray(b'abpqrsgh')
+
+    def test_memoryview_cast_setitem_extended_slicing(self):
+        data = bytearray(b'abcdefghij')
+        m3 = memoryview(data).cast('h')
+        m3[1:5:2] = memoryview(b"xyXY").cast('h')
+        assert data == bytearray(b'abxyefXYij')
