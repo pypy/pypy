@@ -977,9 +977,11 @@ def setup_init_functions(eci, translating):
         py_type_ready(space, get_capsule_type())
     INIT_FUNCTIONS.append(init_types)
     from pypy.module.posix.interp_posix import add_fork_hook
-    reinit_tls = rffi.llexternal('%sThread_ReInitTLS' % prefix, [], lltype.Void,
-                                 compilation_info=eci)
-    add_fork_hook('child', reinit_tls)
+    _reinit_tls = rffi.llexternal('%sThread_ReInitTLS' % prefix, [], 
+                                  lltype.Void, compilation_info=eci)
+    def reinit_tls(space):
+        _reinit_tls()
+    add_fork_hook('child', _reinit_tls)
 
 def init_function(func):
     INIT_FUNCTIONS.append(func)
