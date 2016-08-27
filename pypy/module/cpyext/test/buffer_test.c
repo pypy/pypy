@@ -198,7 +198,7 @@ static struct PyModuleDef moduledef = {
     "buffer_test",
     "Module Doc",
     -1,
-    buffer_functions;
+    buffer_functions,
     NULL,
     NULL,
     NULL,
