@@ -981,7 +981,7 @@ def setup_init_functions(eci, translating):
                                   lltype.Void, compilation_info=eci)
     def reinit_tls(space):
         _reinit_tls()
-    add_fork_hook('child', _reinit_tls)
+    add_fork_hook('child', reinit_tls)
 
 def init_function(func):
     INIT_FUNCTIONS.append(func)
