@@ -2,6 +2,12 @@ import pytest
 import sys
 from pypy.tool.pytest.objspace import gettestobjspace
 try:
+    import __pypy__
+except ImportError:
+    pass
+else:
+    pytest.skip("makes no sense under pypy!")
+try:
     from hypothesis import given, strategies, settings
 except ImportError:
     pytest.skip("requires hypothesis")
@@ -18,26 +24,25 @@ base_initargs = strategies.sampled_from([
 attrnames = strategies.sampled_from(["a", "b", "c"])
 
 @strategies.composite
-def make_code(draw):
-    # now here we can do this kind of thing:
-    baseclass, initargs, hasdict = draw(base_initargs)
-    # and with arbitrary strategies
+def class_attr(draw):
+    what = draw(strategies.sampled_from(["value", "method", "property"]))
+    if what == "value":
+        val = draw(strategies.integers())
+        return val, str(val)
+    if what == "method":
+        val = draw(strategies.integers())
+        return (lambda self, val=val: val,
+                "lambda self: %d" % val)
+    if what == "property":
+        val = draw(strategies.integers())
+        return (property(lambda self, val=val: val,
+                            lambda self, val: None,
+                            lambda self: None),
+                "property(lambda self: %d, lambda self, val: None, lambda self: None)" % val)
 
-    def class_attr():
-        what = draw(strategies.sampled_from(["value", "method", "property"]))
-        if what == "value":
-            val = draw(strategies.integers())
-            return val, str(val)
-        if what == "method":
-            val = draw(strategies.integers())
-            return (lambda self, val=val: val,
-                    "lambda self: %d" % val)
-        if what == "property":
-            val = draw(strategies.integers())
-            return (property(lambda self, val=val: val,
-                             lambda self, val: None,
-                             lambda self: None),
-                    "property(lambda self: %d, lambda self, val: None, lambda self: None)" % val)
+@strategies.composite
+def make_code(draw):
+    baseclass, initargs, hasdict = draw(base_initargs)
 
     code = ["import sys", "class OldBase:pass", "class NewBase(object):pass", "class A(%s):" % baseclass]
     dct = {}
@@ -50,7 +55,7 @@ def make_code(draw):
     for name in ["a", "b", "c"]:
         if not draw(strategies.booleans()):
             continue
-        dct[name], codeval = class_attr()
+        dct[name], codeval = draw(class_attr())
         code.append("    %s = %s" % (name, codeval))
     class OldBase: pass
     class NewBase(object): pass
@@ -94,11 +99,11 @@ def make_code(draw):
             else:
                 code.append("a.%s = lambda : %s" % (attr, val))
         elif op == "writeclass":
-            val, codeval = class_attr()
+            val, codeval = draw(class_attr())
             setattr(cls, attr, val)
             code.append("A.%s = %s" % (attr, codeval))
         elif op == "writebase":
-            val, codeval = class_attr()
+            val, codeval = draw(class_attr())
             setattr(OldBase, attr, val)
             setattr(NewBase, attr, val)
             code.append("OldBase.%s = NewBase.%s = %s" % (attr, attr , codeval))
@@ -119,16 +124,9 @@ def make_code(draw):
     return "\n    ".join(code)
 
 
-@given(make_code())
+@given(code=make_code())
 #@settings(max_examples=5000)
-def test_random_attrs(code):
-    try:
-        import __pypy__
-    except ImportError:
-        pass
-    else:
-        pytest.skip("makes no sense under pypy!")
-    space = gettestobjspace()
+def test_random_attrs(code, space):
     print code
     exec "if 1:\n    " + code
     space.appexec([], "():\n    " + code)
