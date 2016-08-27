@@ -29,14 +29,14 @@ TYPE_TRUE      = 'T'
 TYPE_STOPITER  = 'S'
 TYPE_ELLIPSIS  = '.'
 TYPE_INT       = 'i'
-TYPE_INT64     = 'I'
 TYPE_FLOAT     = 'f'
 TYPE_BINARY_FLOAT = 'g'
 TYPE_COMPLEX   = 'x'
 TYPE_BINARY_COMPLEX = 'y'
 TYPE_LONG      = 'l'
-TYPE_STRING    = 's'
-TYPE_STRINGREF = 'R'
+TYPE_STRING    = 's'     # a *byte* string, not unicode
+TYPE_INTERNED  = 't'
+TYPE_REF       = 'r'
 TYPE_TUPLE     = '('
 TYPE_LIST      = '['
 TYPE_DICT      = '{'
@@ -45,6 +45,13 @@ TYPE_UNICODE   = 'u'
 TYPE_UNKNOWN   = '?'
 TYPE_SET       = '<'
 TYPE_FROZENSET = '>'
+FLAG_REF       = 0x80    # bit added to mean "add obj to index"
+
+TYPE_ASCII                = 'a'   # never generated so far
+TYPE_ASCII_INTERNED       = 'A'   # never generated so far
+TYPE_SMALL_TUPLE          = ')'
+TYPE_SHORT_ASCII          = 'z'   # never generated so far
+TYPE_SHORT_ASCII_INTERNED = 'Z'   # never generated so far
 
 
 _marshallers = []
@@ -75,7 +82,8 @@ def marshal(space, w_obj, m):
         s = space.readbuf_w(w_obj)
     except OperationError as e:
         if e.match(space, space.w_TypeError):
-            raise oefmt(space.w_ValueError, "unmarshallable object")
+            raise oefmt(space.w_ValueError, "cannot marshal '%T' object",
+                        w_obj)
         raise
     m.atom_str(TYPE_STRING, s.as_str())
 
@@ -108,7 +116,7 @@ def unmarshal_false(space, u, tc):
 @marshaller(W_TypeObject)
 def marshal_stopiter(space, w_type, m):
     if not space.is_w(w_type, space.w_StopIteration):
-        raise oefmt(space.w_ValueError, "unmarshallable object")
+        raise oefmt(space.w_ValueError, "cannot marshal type object")
     m.atom(TYPE_STOPITER)
 
 @unmarshaller(TYPE_STOPITER)
@@ -127,37 +135,26 @@ def unmarshal_ellipsis(space, u, tc):
 
 @marshaller(W_IntObject)
 def marshal_int(space, w_int, m):
-    if LONG_BIT == 32:
-        m.atom_int(TYPE_INT, w_int.intval)
+    y = w_int.intval >> 31
+    if y and y != -1:
+        _marshal_bigint(space, space.bigint_w(w_int), m)
     else:
-        y = w_int.intval >> 31
-        if y and y != -1:
-            m.atom_int64(TYPE_INT64, w_int.intval)
-        else:
-            m.atom_int(TYPE_INT, w_int.intval)
+        m.atom_int(TYPE_INT, w_int.intval)
 
 @unmarshaller(TYPE_INT)
 def unmarshal_int(space, u, tc):
     return space.newint(u.get_int())
 
-@unmarshaller(TYPE_INT64)
-def unmarshal_int64(space, u, tc):
-    lo = u.get_int()    # get the first 32 bits
-    hi = u.get_int()    # get the next 32 bits
-    if LONG_BIT >= 64:
-        x = (hi << 32) | (lo & (2**32-1))    # result fits in an int
-    else:
-        x = (r_longlong(hi) << 32) | r_longlong(r_uint(lo))  # get a r_longlong
-    return space.wrap(x)
-
 
 @marshaller(W_AbstractLongObject)
 def marshal_long(space, w_long, m):
+    _marshal_bigint(space, w_long.asbigint(), m)
+
+def _marshal_bigint(space, num, m):
     from rpython.rlib.rarithmetic import r_ulonglong
     m.start(TYPE_LONG)
     SHIFT = 15
     MASK = (1 << SHIFT) - 1
-    num = w_long.asbigint()
     sign = num.sign
     num = num.abs()
     total_length = (num.bit_length() + (SHIFT - 1)) / SHIFT
@@ -251,14 +248,6 @@ def marshal_bytes(space, w_str, m):
 @unmarshaller(TYPE_STRING)
 def unmarshal_bytes(space, u, tc):
     return space.newbytes(u.get_str())
-
-@unmarshaller(TYPE_STRINGREF)
-def unmarshal_stringref(space, u, tc):
-    idx = u.get_int()
-    try:
-        return u.stringtable_w[idx]
-    except IndexError:
-        raise oefmt(space.w_ValueError, "bad marshal data")
 
 
 @marshaller(W_AbstractTupleObject)

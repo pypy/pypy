@@ -4,24 +4,29 @@ from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import rstackovf
 from pypy.objspace.std.marshal_impl import marshal, get_unmarshallers
 
+#
+# Write Python objects to files and read them back.  This is primarily
+# intended for writing and reading compiled Python code, even though
+# dicts, lists, sets and frozensets, not commonly seen in code
+# objects, are supported.  Version 3 of this protocol properly
+# supports circular links and sharing.  The previous version is called
+# "2", like in Python 2.7, although it is not always compatible
+# between CPython 2.7 and CPython 3.x.
+#
+# XXX: before py3k, there was logic to do efficiently dump()/load() on
+# a file object.  The corresponding logic is gone from CPython 3.x, so
+# I don't feel bad about killing it here too.
+#
 
-Py_MARSHAL_VERSION = 2
+Py_MARSHAL_VERSION = 3
+
 
 @unwrap_spec(w_version=WrappedDefault(Py_MARSHAL_VERSION))
 def dump(space, w_data, w_f, w_version):
     """Write the 'data' object into the open file 'f'."""
-    # XXX: before py3k, we special-cased W_File to use a more performant
-    # FileWriter class. Should we do the same for py3k? Look also at
-    # DirectStreamWriter
-    writer = FileWriter(space, w_f)
-    try:
-        # note: bound methods are currently not supported,
-        # so we have to pass the instance in, instead.
-        ##m = Marshaller(space, writer.write, space.int_w(w_version))
-        m = Marshaller(space, writer, space.int_w(w_version))
-        m.dump_w_obj(w_data)
-    finally:
-        writer.finished()
+    # same implementation as CPython 3.x.
+    w_string = dumps(space, w_data, w_version)
+    space.call_method(w_f, 'write', w_string)
 
 @unwrap_spec(w_version=WrappedDefault(Py_MARSHAL_VERSION))
 def dumps(space, w_data, w_version):
@@ -33,9 +38,6 @@ by dump(data, file)."""
 
 def load(space, w_f):
     """Read one value from the file 'f' and return it."""
-    # XXX: before py3k, we special-cased W_File to use a more performant
-    # FileWriter class. Should we do the same for py3k? Look also at
-    # DirectStreamReader
     reader = FileReader(space, w_f)
     try:
         u = Unmarshaller(space, reader)
@@ -68,22 +70,6 @@ class AbstractReaderWriter(object):
     def write(self, data):
         raise NotImplementedError("Purely abstract method")
 
-class FileWriter(AbstractReaderWriter):
-    def __init__(self, space, w_f):
-        AbstractReaderWriter.__init__(self, space)
-        try:
-            self.func = space.getattr(w_f, space.wrap('write'))
-            # XXX how to check if it is callable?
-        except OperationError as e:
-            if not e.match(space, space.w_AttributeError):
-                raise
-            raise oefmt(space.w_TypeError,
-                        "marshal.dump() 2nd arg must be file-like object")
-
-    def write(self, data):
-        space = self.space
-        space.call_function(self.func, space.newbytes(data))
-
 
 class FileReader(AbstractReaderWriter):
     def __init__(self, space, w_f):
@@ -109,33 +95,6 @@ class FileReader(AbstractReaderWriter):
                         "%d bytes requested, %d returned",
                         n, len(ret))
         return ret
-
-
-class StreamReaderWriter(AbstractReaderWriter):
-    def __init__(self, space, file):
-        AbstractReaderWriter.__init__(self, space)
-        self.file = file
-        file.lock()
-
-    def finished(self):
-        self.file.unlock()
-
-class DirectStreamWriter(StreamReaderWriter):
-    """
-    XXX: this class is unused right now. Look at the comment in dump()
-    """
-    def write(self, data):
-        self.file.do_direct_write(data)
-
-class DirectStreamReader(StreamReaderWriter):
-    """
-    XXX: this class is unused right now. Look at the comment in dump()
-    """
-    def read(self, n):
-        data = self.file.direct_read(n)
-        if len(data) < n:
-            self.raise_eof()
-        return data
 
 
 class _Base(object):
@@ -354,7 +313,6 @@ class Unmarshaller(_Base):
     def __init__(self, space, reader):
         self.space = space
         self.reader = reader
-        self.stringtable_w = []
 
     def get(self, n):
         assert n >= 0
