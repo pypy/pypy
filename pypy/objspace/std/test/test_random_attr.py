@@ -1,6 +1,5 @@
 import pytest
 import sys
-from pypy.tool.pytest.objspace import gettestobjspace
 try:
     import __pypy__
 except ImportError:
@@ -23,22 +22,23 @@ base_initargs = strategies.sampled_from([
 
 attrnames = strategies.sampled_from(["a", "b", "c"])
 
-@strategies.composite
-def class_attr(draw):
-    what = draw(strategies.sampled_from(["value", "method", "property"]))
-    if what == "value":
-        val = draw(strategies.integers())
-        return val, str(val)
-    if what == "method":
-        val = draw(strategies.integers())
-        return (lambda self, val=val: val,
-                "lambda self: %d" % val)
-    if what == "property":
-        val = draw(strategies.integers())
-        return (property(lambda self, val=val: val,
-                            lambda self, val: None,
-                            lambda self: None),
-                "property(lambda self: %d, lambda self, val: None, lambda self: None)" % val)
+def make_value_attr(val):
+    return val, str(val)
+
+def make_method(val):
+    return (lambda self, val=val: val,
+            "lambda self: %d" % val)
+
+def make_property(val):
+    return (
+        property(lambda self: val, lambda self, val: None, lambda self: None),
+        "property(lambda self: %d, lambda self, val: None, lambda self: None)" % val)
+
+value_attrs = strategies.builds(make_value_attr, strategies.integers())
+methods = strategies.builds(make_method, strategies.integers())
+properties = strategies.builds(make_property, strategies.integers())
+class_attrs = strategies.one_of(value_attrs, methods, properties)
+
 
 @strategies.composite
 def make_code(draw):
@@ -55,7 +55,7 @@ def make_code(draw):
     for name in ["a", "b", "c"]:
         if not draw(strategies.booleans()):
             continue
-        dct[name], codeval = draw(class_attr())
+        dct[name], codeval = draw(class_attrs)
         code.append("    %s = %s" % (name, codeval))
     class OldBase: pass
     class NewBase(object): pass
@@ -99,11 +99,11 @@ def make_code(draw):
             else:
                 code.append("a.%s = lambda : %s" % (attr, val))
         elif op == "writeclass":
-            val, codeval = draw(class_attr())
+            val, codeval = draw(class_attrs)
             setattr(cls, attr, val)
             code.append("A.%s = %s" % (attr, codeval))
         elif op == "writebase":
-            val, codeval = draw(class_attr())
+            val, codeval = draw(class_attrs)
             setattr(OldBase, attr, val)
             setattr(NewBase, attr, val)
             code.append("OldBase.%s = NewBase.%s = %s" % (attr, attr , codeval))
