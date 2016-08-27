@@ -2,12 +2,14 @@
 
 #include <assert.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include <string.h>
+
+#include "hugeblocktable.h"
 
 QCGC_STATIC size_t bytes_to_cells(size_t bytes);
 
 QCGC_STATIC void bump_allocator_assign(cell_t *ptr, size_t cells);
-QCGC_STATIC cell_t *bump_allocator_allocate(size_t cells);
 QCGC_STATIC void bump_allocator_advance(size_t cells);
 
 QCGC_STATIC bool is_small(size_t cells);
@@ -15,7 +17,6 @@ QCGC_STATIC size_t small_index(size_t cells);
 QCGC_STATIC size_t large_index(size_t cells);
 QCGC_STATIC size_t small_index_to_cells(size_t index);
 
-QCGC_STATIC cell_t *fit_allocator_allocate(size_t cells);
 QCGC_STATIC cell_t *fit_allocator_small_first_fit(size_t index, size_t cells);
 QCGC_STATIC cell_t *fit_allocator_large_fit(size_t index, size_t cells);
 QCGC_STATIC cell_t *fit_allocator_large_first_fit(size_t index, size_t cells);
@@ -61,28 +62,6 @@ void qcgc_allocator_destroy(void) {
 	free(qcgc_allocator_state.arenas);
 }
 
-cell_t *qcgc_allocator_allocate(size_t bytes) {
-	size_t size_in_cells = bytes_to_cells(bytes);
-#if CHECKED
-	assert(size_in_cells > 0);
-	assert(size_in_cells <= QCGC_ARENA_CELLS_COUNT - QCGC_ARENA_FIRST_CELL_INDEX);
-#endif
-	cell_t *result;
-
-	// TODO: Implement switch for bump/fit allocator
-	if (true) {
-		result = bump_allocator_allocate(size_in_cells);
-	} else {
-		result = fit_allocator_allocate(size_in_cells);
-	}
-
-	qcgc_arena_mark_allocated(result, size_in_cells);
-#if QCGC_INIT_ZERO
-	memset(result, 0, bytes);
-#endif
-	return result;
-}
-
 void qcgc_fit_allocator_add(cell_t *ptr, size_t cells) {
 	if (cells > 0) {
 		if (is_small(cells)) {
@@ -111,36 +90,75 @@ QCGC_STATIC void bump_allocator_advance(size_t cells) {
 	qcgc_allocator_state.bump_state.remaining_cells -= cells;
 }
 
-QCGC_STATIC cell_t *bump_allocator_allocate(size_t cells) {
+/*******************************************************************************
+ * Allocators                                                                  *
+ ******************************************************************************/
+
+object_t *qcgc_bump_allocate(size_t bytes) {
+	size_t cells = bytes_to_cells(bytes);
 	if (cells > qcgc_allocator_state.bump_state.remaining_cells) {
 		// Grab a new arena
+		// FIXME: Add remaining memory to fit allocator
 		arena_t *arena = qcgc_arena_create();
 		bump_allocator_assign(&(arena->cells[QCGC_ARENA_FIRST_CELL_INDEX]),
 				QCGC_ARENA_CELLS_COUNT - QCGC_ARENA_FIRST_CELL_INDEX);
 		qcgc_allocator_state.arenas =
 			qcgc_arena_bag_add(qcgc_allocator_state.arenas, arena);
 	}
-	cell_t *result = qcgc_allocator_state.bump_state.bump_ptr;
+	cell_t *mem = qcgc_allocator_state.bump_state.bump_ptr;
 	bump_allocator_advance(cells);
+
+	qcgc_arena_mark_allocated(mem, cells);
+	object_t *result = (object_t *) mem;
+
+#if QCGC_INIT_ZERO
+	memset(result, 0, cells * sizeof(cell_t));
+#endif
+
+	result->flags |= QCGC_GRAY_FLAG;
 	return result;
 }
 
-QCGC_STATIC cell_t *fit_allocator_allocate(size_t cells) {
-	cell_t *result;
+object_t *qcgc_fit_allocate(size_t bytes) {
+	size_t cells = bytes_to_cells(bytes);
+	cell_t *mem;
 
 	if (is_small(cells)) {
 		size_t index = small_index(cells);
-		result = fit_allocator_small_first_fit(index, cells);
+		mem = fit_allocator_small_first_fit(index, cells);
 	} else {
 		size_t index = large_index(cells);
-		result = fit_allocator_large_fit(index, cells);
+		mem = fit_allocator_large_fit(index, cells);
 	}
 
-	if (result == NULL) {
-		// No valid block found
-		result = bump_allocator_allocate(cells);
+	if (mem == NULL) {
+		return NULL;
 	}
 
+	qcgc_arena_mark_allocated(mem, cells);
+	object_t *result = (object_t *) mem;
+
+#if QCGC_INIT_ZERO
+	memset(result, 0, cells * sizeof(cell_t));
+#endif
+
+	result->flags |= QCGC_GRAY_FLAG;
+	return result;
+}
+
+/**
+ * Constraints:
+ * - Zero initialized
+ * - Aligned to arena size
+ * - Multiple of arena size
+ * - No header, metadata stored in hash-map
+ */
+object_t *qcgc_large_allocate(size_t bytes) {
+	object_t *result = aligned_alloc(QCGC_ARENA_SIZE, bytes);
+#if QCGC_INIT_ZERO
+	memset(result, 0, bytes);
+#endif
+	qcgc_hbtable_insert(result);
 	return result;
 }
 

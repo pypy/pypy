@@ -57,13 +57,32 @@ void qcgc_allocator_initialize(void);
 void qcgc_allocator_destroy(void);
 
 /**
- * Allocate new memory region
+ * Allocate new memory region using fit allocator
+ *
+ * @param	bytes	Desired size of the memory region in bytes
+ * @return	Pointer to memory large enough to hold size bytes, NULL in case of
+ *			errors or if there is no block sufficently large block, already zero
+ *			initialized if QCGC_INIT_ZERO is set
+ */
+object_t *qcgc_fit_allocate(size_t bytes);
+
+/**
+ * Allocate new memory region using bump allocator
  *
  * @param	bytes	Desired size of the memory region in bytes
  * @return	Pointer to memory large enough to hold size bytes, NULL in case of
  *			errors, already zero initialized if QCGC_INIT_ZERO is set
  */
-cell_t *qcgc_allocator_allocate(size_t bytes);
+object_t *qcgc_bump_allocate(size_t bytes);
+
+/**
+ * Allocate new memory region using huge block allocator
+ *
+ * @param	bytes	Desired size of the memory region in bytes
+ * @return	Pointer to memory large enough to hold size bytes, NULL in case of
+ *			errors, already zero initialized if QCGC_INIT_ZERO is set
+ */
+object_t *qcgc_large_allocate(size_t bytes);
 
 
 /**

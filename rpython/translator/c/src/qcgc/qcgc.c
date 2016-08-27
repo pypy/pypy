@@ -7,15 +7,14 @@
 #include <string.h>
 
 #include "allocator.h"
+#include "hugeblocktable.h"
 #include "event_logger.h"
 
 // TODO: Eventually move to own header?
 #define MAX(a,b) (((a)>(b))?(a):(b))
 #define MIN(a,b) (((a)<(b))?(a):(b))
 
-void qcgc_mark(void);
-void qcgc_mark_all(void);
-void qcgc_mark_incremental(void);
+void qcgc_mark(bool incremental);
 void qcgc_pop_object(object_t *object);
 void qcgc_push_object(object_t *object);
 void qcgc_sweep(void);
@@ -23,22 +22,34 @@ void qcgc_sweep(void);
 void qcgc_initialize(void) {
 	qcgc_state.shadow_stack = qcgc_shadow_stack_create(QCGC_SHADOWSTACK_SIZE);
 	qcgc_state.prebuilt_objects = qcgc_shadow_stack_create(16); //XXX
+	qcgc_state.gp_gray_stack = qcgc_gray_stack_create(16); // XXX
 	qcgc_state.gray_stack_size = 0;
 	qcgc_state.phase = GC_PAUSE;
 	qcgc_allocator_initialize();
+	qcgc_hbtable_initialize();
 	qcgc_event_logger_initialize();
 }
 
 void qcgc_destroy(void) {
 	qcgc_event_logger_destroy();
+	qcgc_hbtable_destroy();
 	qcgc_allocator_destroy();
 	free(qcgc_state.shadow_stack);
+	free(qcgc_state.prebuilt_objects);
+	free(qcgc_state.gp_gray_stack);
 }
 
 /**
  * Shadow stack
  */
 void qcgc_shadowstack_push(object_t *object) {
+#if CHECKED
+	assert((object->flags & QCGC_PREBUILT_OBJECT) == 0);
+#endif
+	if (qcgc_state.phase != GC_PAUSE) {
+		qcgc_state.phase = GC_MARK;
+		qcgc_push_object(object);
+	}
 	qcgc_state.shadow_stack =
 		qcgc_shadow_stack_push(qcgc_state.shadow_stack, object);
 }
@@ -56,18 +67,45 @@ void qcgc_write(object_t *object) {
 #if CHECKED
 	assert(object != NULL);
 #endif
-	if ((object->flags & QCGC_GRAY_FLAG) == 0) {
-		object->flags |= QCGC_GRAY_FLAG;
-		if ((object->flags & QCGC_PREBUILT_OBJECT) != 0) {
-			// Save prebuilt object into list
-			qcgc_shadow_stack_push(qcgc_state.prebuilt_objects, object);
-		} else if (qcgc_state.phase != GC_PAUSE) {
-			if (qcgc_arena_get_blocktype((cell_t *) object) == BLOCK_BLACK) {
-				// This was black before, push it to gray stack again
-				arena_t *arena = qcgc_arena_addr((cell_t *) object);
-				arena->gray_stack = qcgc_gray_stack_push(
-						arena->gray_stack, object);
-			}
+	if ((object->flags & QCGC_GRAY_FLAG) != 0) {
+		// Already gray, skip
+		return;
+	}
+	object->flags |= QCGC_GRAY_FLAG;
+
+	// Register prebuilt object if necessary
+	if (((object->flags & QCGC_PREBUILT_OBJECT) != 0) &&
+			((object->flags & QCGC_PREBUILT_REGISTERED) == 0)) {
+		object->flags |= QCGC_PREBUILT_REGISTERED;
+		qcgc_state.prebuilt_objects = qcgc_shadow_stack_push(
+				qcgc_state.prebuilt_objects, object);
+	}
+
+	if (qcgc_state.phase == GC_PAUSE) {
+		return; // We are done
+	}
+
+	// Triggered barrier, we must not collect now
+	qcgc_state.phase = GC_MARK;
+
+	// Test reachability of object and push if neccessary
+	if ((object->flags & QCGC_PREBUILT_OBJECT) != 0) {
+		// NOTE: No mark test here, as prebuilt objects are always reachable
+		// Push prebuilt object to general purpose gray stack
+		qcgc_state.gp_gray_stack = qcgc_gray_stack_push(
+				qcgc_state.gp_gray_stack, object);
+	} else if ((object_t *) qcgc_arena_addr((cell_t *) object) == object) {
+		if (qcgc_hbtable_is_marked(object)) {
+			// Push huge block to general purpose gray stack
+			qcgc_state.gp_gray_stack = qcgc_gray_stack_push(
+					qcgc_state.gp_gray_stack, object);
+		}
+	} else {
+		if (qcgc_arena_get_blocktype((cell_t *) object) == BLOCK_BLACK) {
+			// This was black before, push it to gray stack again
+			arena_t *arena = qcgc_arena_addr((cell_t *) object);
+			arena->gray_stack = qcgc_gray_stack_push(
+					arena->gray_stack, object);
 		}
 	}
 }
@@ -81,13 +119,30 @@ object_t *qcgc_allocate(size_t size) {
 	qcgc_event_logger_log(EVENT_ALLOCATE_START, sizeof(size_t),
 			(uint8_t *) &size);
 #endif
+	object_t *result;
+	if (size <= QCGC_LARGE_ALLOC_THRESHOLD) {
+		// Use bump / fit allocator
+		if (true) { // FIXME: Implement reasonable switch
+			result = qcgc_bump_allocate(size);
+		} else {
+			result = qcgc_fit_allocate(size);
 
-	object_t *result = (object_t *) qcgc_allocator_allocate(size);
-	result->flags |= QCGC_GRAY_FLAG;
+			// Fallback to bump allocator
+			if (result == NULL) {
+				result = qcgc_bump_allocate(size);
+			}
+		}
+	} else {
+		// Use huge block allocator
+		result = qcgc_large_allocate(size);
+	}
 
 #if LOG_ALLOCATION
 	qcgc_event_logger_log(EVENT_ALLOCATE_DONE, sizeof(object_t *),
 			(uint8_t *) &result);
+#endif
+#if CHECKED
+	assert(qcgc_state.phase != GC_COLLECT);
 #endif
 	return result;
 }
@@ -121,78 +176,69 @@ mark_color_t qcgc_get_mark_color(object_t *object) {
 	}
 }
 
-void qcgc_mark(void) {
-	qcgc_mark_all();
-}
-
-void qcgc_mark_all(void) {
+void qcgc_mark(bool incremental) {
 #if CHECKED
 	assert(qcgc_state.phase == GC_PAUSE || qcgc_state.phase == GC_MARK);
 #endif
+	// FIXME: Log some more information
 	qcgc_event_logger_log(EVENT_MARK_START, 0, NULL);
 
-	qcgc_state.phase = GC_MARK;
+	if (qcgc_state.phase == GC_PAUSE) {
+		qcgc_state.phase = GC_MARK;
 
-	// Push all roots
-	for (size_t i = 0; i < qcgc_state.shadow_stack->count; i++) {
-		qcgc_push_object(qcgc_state.shadow_stack->items[i]);
+		// If we do this for the first time, push all roots.
+		// All further changes to the roots (new additions) will be added
+		// by qcgc_shadowstack_push
+		for (size_t i = 0; i < qcgc_state.shadow_stack->count; i++) {
+			qcgc_push_object(qcgc_state.shadow_stack->items[i]);
+		}
+
+		// If we do this for the first time, push all prebuilt objects.
+		// All further changes to prebuilt objects will go to the gp_gray_stack
+		// because of the write barrier
+		size_t count = qcgc_state.prebuilt_objects->count;
+		for (size_t i = 0; i < count; i++) {
+			qcgc_state.gp_gray_stack = qcgc_gray_stack_push(
+					qcgc_state.gp_gray_stack,
+					qcgc_state.prebuilt_objects->items[i]);
+		}
 	}
 
-	// Trace all prebuilt objects
-	for (size_t i = 0; i < qcgc_state.prebuilt_objects->count; i++) {
-		qcgc_trace_cb(qcgc_state.prebuilt_objects->items[i], &qcgc_push_object);
-	}
+	while (qcgc_state.gray_stack_size > 0) {
+		// General purpose gray stack (prebuilt objects and huge blocks)
+		size_t to_process = (incremental ?
+			MIN(qcgc_state.gp_gray_stack->index,
+					MAX(qcgc_state.gp_gray_stack->index / 2, QCGC_INC_MARK_MIN)) :
+			(qcgc_state.gp_gray_stack->index));
 
-	while(qcgc_state.gray_stack_size > 0) {
+		while (to_process > 0) {
+			object_t *top = qcgc_gray_stack_top(qcgc_state.gp_gray_stack);
+			qcgc_state.gp_gray_stack =
+				qcgc_gray_stack_pop(qcgc_state.gp_gray_stack);
+			qcgc_pop_object(top);
+			to_process--;
+		}
+
+		// Arena gray stacks
 		for (size_t i = 0; i < qcgc_allocator_state.arenas->count; i++) {
 			arena_t *arena = qcgc_allocator_state.arenas->items[i];
-			while (arena->gray_stack->index > 0) {
+			to_process = (incremental ?
+					MIN(arena->gray_stack->index,
+						MAX(arena->gray_stack->index / 2, QCGC_INC_MARK_MIN)) :
+					(arena->gray_stack->index));
+
+			while (to_process > 0) {
 				object_t *top =
 					qcgc_gray_stack_top(arena->gray_stack);
 				arena->gray_stack =
 					qcgc_gray_stack_pop(arena->gray_stack);
 				qcgc_pop_object(top);
+				to_process--;
 			}
 		}
-	}
 
-	qcgc_state.phase = GC_COLLECT;
-
-	qcgc_event_logger_log(EVENT_MARK_DONE, 0, NULL);
-}
-
-void qcgc_mark_incremental(void) {
-#if CHECKED
-	assert(qcgc_state.phase == GC_PAUSE || qcgc_state.phase == GC_MARK);
-#endif
-	unsigned long gray_stack_size = qcgc_state.gray_stack_size;
-	qcgc_event_logger_log(EVENT_INCMARK_START, sizeof(gray_stack_size),
-			(uint8_t *) &gray_stack_size);
-
-	qcgc_state.phase = GC_MARK;
-
-	// Push all roots
-	for (size_t i = 0; i < qcgc_state.shadow_stack->count; i++) {
-		qcgc_push_object(qcgc_state.shadow_stack->items[i]);
-	}
-
-	// Trace all prebuilt objects
-	for (size_t i = 0; i < qcgc_state.prebuilt_objects->count; i++) {
-		qcgc_trace_cb(qcgc_state.prebuilt_objects->items[i], &qcgc_push_object);
-	}
-
-	for (size_t i = 0; i < qcgc_allocator_state.arenas->count; i++) {
-		arena_t *arena = qcgc_allocator_state.arenas->items[i];
-		size_t initial_stack_size = arena->gray_stack->index;
-		size_t to_process = MIN(arena->gray_stack->index,
-				MAX(initial_stack_size / 2, QCGC_INC_MARK_MIN));
-		while (to_process > 0) {
-			object_t *top =
-				qcgc_gray_stack_top(arena->gray_stack);
-			arena->gray_stack =
-				qcgc_gray_stack_pop(arena->gray_stack);
-			qcgc_pop_object(top);
-			to_process--;
+		if (incremental) {
+			break; // Execute loop once for incremental collection
 		}
 	}
 
@@ -200,21 +246,29 @@ void qcgc_mark_incremental(void) {
 		qcgc_state.phase = GC_COLLECT;
 	}
 
-	gray_stack_size = qcgc_state.gray_stack_size;
-	qcgc_event_logger_log(EVENT_INCMARK_START, sizeof(gray_stack_size),
-			(uint8_t *) &gray_stack_size);
+	// FIXME: Log some more information
+	qcgc_event_logger_log(EVENT_MARK_DONE, 0, NULL);
+#if CHECKED
+	assert(incremental || (qcgc_state.phase = GC_COLLECT));
+#endif
 }
 
 void qcgc_pop_object(object_t *object) {
 #if CHECKED
 	assert(object != NULL);
 	assert((object->flags & QCGC_GRAY_FLAG) == QCGC_GRAY_FLAG);
-	assert(qcgc_arena_get_blocktype((cell_t *) object) == BLOCK_BLACK);
+	if (((object->flags & QCGC_PREBUILT_OBJECT) == 0) &&
+		((object_t *) qcgc_arena_addr((cell_t *) object) != object)) {
+		assert(qcgc_arena_get_blocktype((cell_t *) object) == BLOCK_BLACK);
+	}
 #endif
 	object->flags &= ~QCGC_GRAY_FLAG;
 	qcgc_trace_cb(object, &qcgc_push_object);
 #if CHECKED
-	assert(qcgc_get_mark_color(object) == MARK_COLOR_BLACK);
+	if (((object->flags & QCGC_PREBUILT_OBJECT) == 0) &&
+		((object_t *) qcgc_arena_addr((cell_t *) object) != object)) {
+		assert(qcgc_get_mark_color(object) == MARK_COLOR_BLACK);
+	}
 #endif
 }
 
@@ -224,8 +278,17 @@ void qcgc_push_object(object_t *object) {
 	assert(qcgc_state.phase == GC_MARK);
 #endif
 	if (object != NULL) {
+		if ((object_t *) qcgc_arena_addr((cell_t *) object) == object) {
+			if (qcgc_hbtable_mark(object)) {
+				// Did mark it / was white before
+				object->flags |= QCGC_GRAY_FLAG;
+				qcgc_state.gp_gray_stack = qcgc_gray_stack_push(
+						qcgc_state.gp_gray_stack, object);
+			}
+			return; // Skip tests
+		}
 		if ((object->flags & QCGC_PREBUILT_OBJECT) != 0) {
-			return;
+			return; // Prebuilt objects are always black, no pushing here
 		}
 		if (qcgc_arena_get_blocktype((cell_t *) object) == BLOCK_WHITE) {
 			object->flags |= QCGC_GRAY_FLAG;
@@ -258,6 +321,7 @@ void qcgc_sweep(void) {
 	qcgc_event_logger_log(EVENT_SWEEP_START, sizeof(arena_count),
 			(uint8_t *) &arena_count);
 
+	qcgc_hbtable_sweep();
 	for (size_t i = 0; i < qcgc_allocator_state.arenas->count; i++) {
 		qcgc_arena_sweep(qcgc_allocator_state.arenas->items[i]);
 	}
@@ -267,6 +331,6 @@ void qcgc_sweep(void) {
 }
 
 void qcgc_collect(void) {
-	qcgc_mark();
+	qcgc_mark(false);
 	qcgc_sweep();
 }
