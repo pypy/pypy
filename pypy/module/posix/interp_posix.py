@@ -211,6 +211,8 @@ def argument_unavailable(space, funcname, arg):
             space.w_NotImplementedError,
             "%s: %s unavailable on this platform", funcname, arg)
 
+_open_inhcache = rposix.SetNonInheritableCache()
+
 @unwrap_spec(flags=c_int, mode=c_int, dir_fd=DirFD(rposix.HAVE_OPENAT))
 def open(space, w_path, flags, mode=0777,
          __kwonly__=None, dir_fd=DEFAULT_DIR_FD):
@@ -222,12 +224,15 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
   and path should be relative; path will then be relative to that directory.
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
+    if rposix.O_CLOEXEC is not None:
+        flags |= rposix.O_CLOEXEC
     try:
         if rposix.HAVE_OPENAT and dir_fd != DEFAULT_DIR_FD:
             path = space.fsencode_w(w_path)
             fd = rposix.openat(path, flags, mode, dir_fd)
         else:
             fd = dispatch_filename(rposix.open)(space, w_path, flags, mode)
+        _open_inhcache.set_non_inheritable(fd)
     except OSError as e:
         raise wrap_oserror2(space, e, w_path)
     return space.wrap(fd)
@@ -538,17 +543,17 @@ def dup(space, fd):
     """Create a copy of the file descriptor.  Return the new file
 descriptor."""
     try:
-        newfd = os.dup(fd)
+        newfd = rposix.dup(fd, inheritable=False)
     except OSError as e:
         raise wrap_oserror(space, e)
     else:
         return space.wrap(newfd)
 
-@unwrap_spec(old_fd=c_int, new_fd=c_int)
-def dup2(space, old_fd, new_fd):
+@unwrap_spec(old_fd=c_int, new_fd=c_int, inheritable=int)
+def dup2(space, old_fd, new_fd, inheritable=1):
     """Duplicate a file descriptor."""
     try:
-        os.dup2(old_fd, new_fd)
+        rposix.dup2(old_fd, new_fd, inheritable)
     except OSError as e:
         raise wrap_oserror(space, e)
 
@@ -891,15 +896,38 @@ On some platforms, path may also be specified as an open file descriptor;
             result_w[i] = space.fsdecode(w_bytes)
     return space.newlist(result_w)
 
+@unwrap_spec(fd=c_int)
+def get_inheritable(space, fd):
+    try:
+        return space.wrap(rposix.get_inheritable(fd))
+    except OSError as e:
+        raise wrap_oserror(space, e)
+
+@unwrap_spec(fd=c_int, inheritable=int)
+def set_inheritable(space, fd, inheritable):
+    try:
+        rposix.set_inheritable(fd, inheritable)
+    except OSError as e:
+        raise wrap_oserror(space, e)
+
+_pipe_inhcache = rposix.SetNonInheritableCache()
+
 def pipe(space):
     "Create a pipe.  Returns (read_end, write_end)."
     try:
-        fd1, fd2 = os.pipe()
+        fd1, fd2 = rposix.pipe(rposix.O_CLOEXEC or 0)
+        _pipe_inhcache.set_non_inheritable(fd1)
+        _pipe_inhcache.set_non_inheritable(fd2)
     except OSError as e:
         raise wrap_oserror(space, e)
-    # XXX later, use rposix.pipe2() if available!
-    rposix.set_inheritable(fd1, False)
-    rposix.set_inheritable(fd2, False)
+    return space.newtuple([space.wrap(fd1), space.wrap(fd2)])
+
+@unwrap_spec(flags=c_int)
+def pipe2(space, flags):
+    try:
+        fd1, fd2 = rposix.pipe2(flags)
+    except OSError as e:
+        raise wrap_oserror(space, e)
     return space.newtuple([space.wrap(fd1), space.wrap(fd2)])
 
 @unwrap_spec(mode=c_int, dir_fd=DirFD(rposix.HAVE_FCHMODAT),
@@ -1238,6 +1266,8 @@ def openpty(space):
     "Open a pseudo-terminal, returning open fd's for both master and slave end."
     try:
         master_fd, slave_fd = os.openpty()
+        rposix.set_inheritable(master_fd, False)
+        rposix.set_inheritable(slave_fd, False)
     except OSError as e:
         raise wrap_oserror(space, e)
     return space.newtuple([space.wrap(master_fd), space.wrap(slave_fd)])

@@ -177,7 +177,7 @@ class W_Socket(W_Root):
                 sock = RSocket(family, type, proto,
                                fd=space.c_filedescriptor_w(w_fileno))
             else:
-                sock = RSocket(family, type, proto)
+                sock = RSocket(family, type, proto, inheritable=False)
             W_Socket.__init__(self, space, sock)
         except SocketError as e:
             raise converted_error(space, e)
@@ -228,7 +228,7 @@ class W_Socket(W_Root):
         For IP sockets, the address info is a pair (hostaddr, port).
         """
         try:
-            fd, addr = self.sock.accept()
+            fd, addr = self.sock.accept(inheritable=False)
             return space.newtuple([space.wrap(fd),
                                    addr_as_object(addr, fd, space)])
         except SocketError as e:
