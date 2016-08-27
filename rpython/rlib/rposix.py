@@ -2242,7 +2242,10 @@ int rpy_dup2_noninheritable(int fd, int fd2)
 #endif
 }
     """ % {'HAVE_DUP3': HAVE_DUP3}],
-    post_include_bits=['RPY_EXTERN int rpy_set_inheritable(int, int);']))
+    post_include_bits=['RPY_EXTERN int rpy_set_inheritable(int, int);\n'
+                       'RPY_EXTERN int rpy_get_inheritable(int);\n'
+                       'RPY_EXTERN int rpy_dup_noninheritable(int);\n'
+                       'RPY_EXTERN int rpy_dup2_noninheritable(int, int);\n']))
 
 c_set_inheritable = external('rpy_set_inheritable', [rffi.INT, rffi.INT],
                              rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
