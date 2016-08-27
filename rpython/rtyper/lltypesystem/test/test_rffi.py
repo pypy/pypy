@@ -49,6 +49,7 @@ class BaseTestRffi:
         eci = ExternalCompilationInfo(includes=['stuff.h'],
                                       include_dirs=[udir])
         z = llexternal('X', [Signed], Signed, compilation_info=eci)
+        py.test.raises(AssertionError, z, 8, 9)
 
         def f():
             return z(8)

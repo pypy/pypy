@@ -356,9 +356,15 @@ def convert_from_regdata(space, buf, buflen, typ):
 
     elif typ == rwinreg.REG_SZ or typ == rwinreg.REG_EXPAND_SZ:
         if not buflen:
-            return space.wrap("")
-        s = rffi.charp2strn(rffi.cast(rffi.CCHARP, buf), buflen)
-        return space.wrap(s)
+            s = ""
+        else:
+            # may or may not have a trailing NULL in the buffer.
+            buf = rffi.cast(rffi.CCHARP, buf)
+            if buf[buflen - 1] == '\x00':
+                buflen -= 1
+            s = rffi.charp2strn(buf, buflen)
+        w_s = space.wrap(s)
+        return space.call_method(w_s, 'decode', space.wrap('mbcs'))
 
     elif typ == rwinreg.REG_MULTI_SZ:
         if not buflen:
@@ -458,7 +464,7 @@ value_name is a string indicating the value to query"""
                     return space.newtuple([
                         convert_from_regdata(space, databuf,
                                              length, retType[0]),
-                        space.wrap(retType[0]),
+                        space.wrap(intmask(retType[0])),
                         ])
 
 @unwrap_spec(subkey=str)
@@ -610,7 +616,7 @@ data_type is an integer that identifies the type of the value data."""
                                 space.wrap(rffi.charp2str(valuebuf)),
                                 convert_from_regdata(space, databuf,
                                                      length, retType[0]),
-                                space.wrap(retType[0]),
+                                space.wrap(intmask(retType[0])),
                                 ])
 
 @unwrap_spec(index=int)

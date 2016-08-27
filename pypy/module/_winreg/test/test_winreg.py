@@ -154,6 +154,7 @@ class AppTestFfi:
 
     def test_readValues(self):
         from winreg import OpenKey, EnumValue, QueryValueEx, EnumKey
+        from winreg import REG_SZ, REG_EXPAND_SZ
         key = OpenKey(self.root_key, self.test_key_name)
         sub_key = OpenKey(key, "sub_key")
         index = 0
@@ -167,7 +168,10 @@ class AppTestFfi:
         assert index == len(self.test_data)
 
         for name, value, type in self.test_data:
-            assert QueryValueEx(sub_key, name) == (value, type)
+            result = QueryValueEx(sub_key, name)
+            assert result == (value, type)
+            if type == REG_SZ or type == REG_EXPAND_SZ:
+                assert isinstance(result[0], unicode)     # not string
 
         assert EnumKey(key, 0) == "sub_key"
         raises(EnvironmentError, EnumKey, key, 1)
