@@ -1,14 +1,9 @@
-import pytest
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
 
 class TestMemoryViewObject(BaseApiTest):
     def test_fromobject(self, space, api):
-        if space.is_true(space.lt(space.sys.get('version_info'),
-                                  space.wrap((2, 7)))):
-            py.test.skip("unsupported before Python 2.7")
-
         w_hello = space.newbytes("hello")
         assert api.PyObject_CheckBuffer(w_hello)
         w_view = api.PyMemoryView_FromObject(w_hello)
@@ -29,4 +24,3 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
         s = y[3]
         assert len(s) == struct.calcsize('i')
         assert s == struct.pack('i', 3)
-
