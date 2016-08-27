@@ -48,7 +48,7 @@ class W_MemoryView(W_Root):
     def buffer_w_ex(self, space, flags):
         self._check_released(space)
         space.check_buf_flags(flags, self.buf.readonly)
-        return self.buf, self.get_format(), self.itemsize
+        return self.buf, self.getformat(), self.itemsize
 
     @staticmethod
     def descr_new_memoryview(space, w_subtype, w_object):
@@ -157,16 +157,17 @@ class W_MemoryView(W_Root):
         if space.isinstance_w(w_index, space.w_tuple):
             return self._getitem_tuple_indexed(space, w_index)
 
-        start, stop, step, size = space.decode_index4_or_tuple_index(w_index, \
-                                                              self.getlength())
-        itemsize = self.buf.getitemsize()
+        start, stop, step, size = space.decode_index4(w_index, self.getlength())
+        itemsize = self.itemsize
         if itemsize > 1:
             start *= itemsize
             size *= itemsize
             stop  = start + size
-            if step == 0:
-                step = 1
-            if stop > self.getlength():
+            # XXX why? returns a memory view on int index if step == 0:
+            #    step = 1
+
+            # start & stop are now byte offset, thus use self.bug.getlength()
+            if stop > self.buf.getlength():
                 raise oefmt(space.w_IndexError, 'index out of range')
         if step not in (0, 1):
             raise oefmt(space.w_NotImplementedError, "")
@@ -190,21 +191,19 @@ class W_MemoryView(W_Root):
         if space.isinstance_w(w_index, space.w_tuple):
             raise oefmt(space.w_NotImplementedError, "")
         start, stop, step, size = space.decode_index4(w_index, self.getlength())
-        itemsize = self.buf.getitemsize()
+        itemsize = self.itemsize
         if itemsize > 1:
             start *= itemsize
             size *= itemsize
             stop  = start + size
-            if step == 0:
-                step = 1
-            if stop > self.getlength():
+            # XXX why? returns a memory view on int index if step == 0:
+            #    step = 1
+
+            # start & stop are now byte offset, thus use self.bug.getlength()
+            if stop > self.buf.getlength():
                 raise oefmt(space.w_IndexError, 'index out of range')
         if step not in (0, 1):
             raise oefmt(space.w_NotImplementedError, "")
-        value = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
-        if value.getlength() != size:
-            raise oefmt(space.w_ValueError,
-                        "cannot modify size of memoryview object")
         if step == 0:  # index only
             # TODO: this probably isn't very fast
             fmtiter = PackFormatIterator(space, [w_obj], self.itemsize)
@@ -226,7 +225,7 @@ class W_MemoryView(W_Root):
 
     def descr_len(self, space):
         self._check_released(space)
-        return space.wrap(self.buf.getlength())
+        return space.wrap(self.getlength())
 
     def w_get_format(self, space):
         self._check_released(space)
@@ -234,7 +233,7 @@ class W_MemoryView(W_Root):
 
     def w_get_itemsize(self, space):
         self._check_released(space)
-        return space.wrap(self.buf.getitemsize())
+        return space.wrap(self.itemsize)
 
     def w_get_ndim(self, space):
         self._check_released(space)
@@ -426,7 +425,7 @@ class W_MemoryView(W_Root):
         self.setformat(newfmt)
         self.itemsize = itemsize
         self.ndim = 1
-        self.shape = [buf.getlength() / buf.getitemsize()]
+        self.shape = [buf.getlength() // buf.getitemsize()]
         self.srides = [buf.getitemsize()]
         # XX suboffsets
 

@@ -496,7 +496,7 @@ def _hexstring_to_array(space, s):
     return data
 
 HEXDIGITS = "0123456789abcdef"
-PY_SIZE_T_MAX = intmask(2**(rffi.sizeof(rffi.SIZE_T)*8)-1)
+PY_SIZE_T_MAX = intmask(2**(rffi.sizeof(rffi.SIZE_T)*8-1)-1)
 
 @specialize.arg(3) # raw access
 def _array_to_hexstring(space, buf, len=0, rawaccess=False):

@@ -266,7 +266,7 @@ W_MockArray.typedef = TypeDef("MockArray",
 from pypy.objspace.std.transparent import register_proxyable
 from pypy.conftest import option
 
-class AppTestMemoryViewMicroNumPyPy(object):
+class AppTestMemoryViewMockBuffer(object):
     spaceconfig = dict(usemodules=[])
     def setup_class(cls):
         if option.runappdirect:
