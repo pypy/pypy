@@ -281,18 +281,22 @@ def unmarshal_bytes(space, u, tc):
     return space.newbytes(u.get_str())
 
 
-@marshaller(W_AbstractTupleObject)
-def marshal_tuple(space, w_tuple, m):
-    items = w_tuple.tolist()
-    if m.version >= 4 and len(items) < 256:
+def _marshal_tuple(space, tuple_w, m):
+    if m.version >= 4 and len(tuple_w) < 256:
         typecode = TYPE_SMALL_TUPLE
         single_byte_size = True
     else:
         typecode = TYPE_TUPLE
         single_byte_size = False
-    typecode = write_ref(typecode, w_tuple, m)
-    if typecode != FLAG_DONE:
-        m.put_tuple_w(typecode, items, single_byte_size=single_byte_size)
+    # -- does it make any sense to try to share tuples, based on the
+    # -- *identity* of the tuple object?  I'd guess not really
+    #typecode = write_ref(typecode, w_tuple, m)
+    #if typecode != FLAG_DONE:
+    m.put_tuple_w(typecode, tuple_w, single_byte_size=single_byte_size)
+
+@marshaller(W_AbstractTupleObject)
+def marshal_tuple(space, w_tuple, m):
+    _marshal_tuple(space, w_tuple.tolist(), m)
 
 @unmarshaller(TYPE_TUPLE)
 def unmarshal_tuple(space, u, tc):
@@ -353,12 +357,6 @@ def unmarshal_NULL(self, u, tc):
     return None
 
 
-def _put_str_list(space, m, strlist):
-    m.atom_int(TYPE_TUPLE, len(strlist))
-    atom_str = m.atom_str
-    for item in strlist:
-        atom_str(TYPE_STRING, item)
-
 @marshaller(PyCode)
 def marshal_pycode(space, w_pycode, m):
     # (no attempt at using write_ref here, there is little point imho)
@@ -371,41 +369,34 @@ def marshal_pycode(space, w_pycode, m):
     m.put_int(x.co_stacksize)
     m.put_int(x.co_flags)
     m.atom_str(TYPE_STRING, x.co_code)
-    m.put_tuple_w(TYPE_TUPLE, x.co_consts_w)
-    _put_str_list(space, m, [space.str_w(w_name) for w_name in x.co_names_w])
-    _put_str_list(space, m, x.co_varnames)
-    _put_str_list(space, m, x.co_freevars)
-    _put_str_list(space, m, x.co_cellvars)
-    m.atom_str(TYPE_STRING, x.co_filename)
-    m.atom_str(TYPE_STRING, x.co_name)
+    _marshal_tuple(space, x.co_consts_w, m)
+    _marshal_tuple(space, x.co_names_w, m)   # list of w_unicodes
+    co_varnames_w = [space.wrap(s.decode('utf-8')) for s in x.co_varnames]
+    co_freevars_w = [space.wrap(s.decode('utf-8')) for s in x.co_freevars]
+    co_cellvars_w = [space.wrap(s.decode('utf-8')) for s in x.co_cellvars]
+    _marshal_tuple(space, co_varnames_w, m)  # more lists, now of w_unicodes
+    _marshal_tuple(space, co_freevars_w, m)
+    _marshal_tuple(space, co_cellvars_w, m)
+    _marshal_unicode(space, x.co_filename, m)
+    _marshal_unicode(space, x.co_name, m)
     m.put_int(x.co_firstlineno)
     m.atom_str(TYPE_STRING, x.co_lnotab)
 
 # helper for unmarshalling "tuple of string" objects
 # into rpython-level lists of strings.  Only for code objects.
 
-def unmarshal_str(u):
-    w_obj = u.get_w_obj()
-    try:
-        return u.space.bytes_w(w_obj)
-    except OperationError as e:
-        if e.match(u.space, u.space.w_TypeError):
-            u.raise_exc('invalid marshal data for code object')
-        else:
-            raise
+def _unmarshal_strlist(u):
+    items_w = _unmarshal_tuple_w(u)
+    return [u.space.unicode_w(w_item).encode('utf-8') for w_item in items_w]
 
-def unmarshal_str0(u):
+def _unmarshal_tuple_w(u):
     w_obj = u.get_w_obj()
     try:
-        return u.space.bytes0_w(w_obj)
+        return u.space.fixedview(w_obj)
     except OperationError as e:
         if e.match(u.space, u.space.w_TypeError):
             u.raise_exc('invalid marshal data for code object')
         raise
-
-def unmarshal_strlist(u, tc):
-    lng = u.atom_lng(tc)
-    return [unmarshal_str(u) for i in range(lng)]
 
 @unmarshaller(TYPE_CODE, save_ref=True)
 def unmarshal_pycode(space, u, tc):
@@ -416,18 +407,16 @@ def unmarshal_pycode(space, u, tc):
     nlocals     = u.get_int()
     stacksize   = u.get_int()
     flags       = u.get_int()
-    code        = unmarshal_str(u)
-    u.start(TYPE_TUPLE)
-    consts_w    = u.get_tuple_w()
-    # copy in order not to merge it with anything else
-    names       = unmarshal_strlist(u, TYPE_TUPLE)
-    varnames    = unmarshal_strlist(u, TYPE_TUPLE)
-    freevars    = unmarshal_strlist(u, TYPE_TUPLE)
-    cellvars    = unmarshal_strlist(u, TYPE_TUPLE)
-    filename    = unmarshal_str0(u)
-    name        = unmarshal_str(u)
+    code        = space.bytes_w(u.get_w_obj())
+    consts_w    = _unmarshal_tuple_w(u)   
+    names       = _unmarshal_strlist(u)
+    varnames    = _unmarshal_strlist(u)
+    freevars    = _unmarshal_strlist(u)
+    cellvars    = _unmarshal_strlist(u)
+    filename    = space.unicode_w(u.get_w_obj()).encode('utf-8')
+    name        = space.unicode_w(u.get_w_obj()).encode('utf-8')
     firstlineno = u.get_int()
-    lnotab      = unmarshal_str(u)
+    lnotab      = space.bytes_w(u.get_w_obj())
     PyCode.__init__(w_codeobj,
                   space, argcount, kwonlyargcount, nlocals, stacksize, flags,
                   code, consts_w[:], names, varnames, filename,
@@ -435,10 +424,7 @@ def unmarshal_pycode(space, u, tc):
     return w_codeobj
 
 
-@marshaller(W_UnicodeObject)
-def marshal_unicode(space, w_unicode, m):
-    s = unicodehelper.encode_utf8(space, space.unicode_w(w_unicode),
-                                  allow_surrogates=True)
+def _marshal_unicode(space, s, m, w_unicode=None):
     if m.version >= 3:
         w_interned = space.get_interned_str(s)
     else:
@@ -448,9 +434,16 @@ def marshal_unicode(space, w_unicode, m):
         typecode = TYPE_INTERNED  #   as a key for u.all_refs
     else:
         typecode = TYPE_UNICODE
-    typecode = write_ref(typecode, w_unicode, m)
+    if w_unicode is not None:
+        typecode = write_ref(typecode, w_unicode, m)
     if typecode != FLAG_DONE:
         m.atom_str(typecode, s)
+
+@marshaller(W_UnicodeObject)
+def marshal_unicode(space, w_unicode, m):
+    s = unicodehelper.encode_utf8(space, space.unicode_w(w_unicode),
+                                  allow_surrogates=True)
+    _marshal_unicode(space, s, m, w_unicode=w_unicode)
 
 @unmarshaller(TYPE_UNICODE)
 def unmarshal_unicode(space, u, tc):
@@ -460,6 +453,19 @@ def unmarshal_unicode(space, u, tc):
 @unmarshaller(TYPE_INTERNED)
 def unmarshal_bytes(space, u, tc):
     return space.new_interned_str(u.get_str())
+
+@unmarshaller(TYPE_ASCII)    # nb. never generated by pypy so far
+def unmarshal_ascii(space, u, tc):
+    _unmarshal_ascii(False, False)
+@unmarshaller(TYPE_ASCII_INTERNED)
+def unmarshal_ascii(space, u, tc):
+    _unmarshal_ascii(False, True)
+@unmarshaller(TYPE_SHORT_ASCII)
+def unmarshal_ascii(space, u, tc):
+    _unmarshal_ascii(True, False)
+@unmarshaller(TYPE_SHORT_ASCII_INTERNED)
+def unmarshal_ascii(space, u, tc):
+    _unmarshal_ascii(True, True)
 
 
 @marshaller(W_SetObject)

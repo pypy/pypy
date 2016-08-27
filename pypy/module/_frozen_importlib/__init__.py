@@ -48,7 +48,7 @@ class Module(MixedModule):
         from rpython.config.translationoption import CACHE_DIR
         from pypy.module.marshal import interp_marshal
 
-        cachename = os.path.join(CACHE_DIR, 'frozen_importlib_%s' % (name,))
+        cachename = os.path.join(CACHE_DIR, 'frozen_importlib%s' % (name,))
         try:
             if space.config.translating:
                 raise IOError("don't use the cache when translating pypy")
