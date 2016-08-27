@@ -48,7 +48,7 @@ class W_MemoryView(W_Root):
     def buffer_w_ex(self, space, flags):
         self._check_released(space)
         space.check_buf_flags(flags, self.buf.readonly)
-        return self.buf, self.format, self.itemsize
+        return self.buf, self.get_format(), self.itemsize
 
     @staticmethod
     def descr_new_memoryview(space, w_subtype, w_object):
@@ -371,7 +371,7 @@ class W_MemoryView(W_Root):
                 raise OperationError(space.w_TypeError, \
                     space.wrap("memoryview: cast must be 1D -> ND or ND -> 1D"))
 
-        mv = W_MemoryView(buf, fmt, itemsize)
+        mv = W_MemoryView(buf, self.format, self.itemsize)
         origfmt = mv.getformat()
         mv._cast_to_1D(space, origfmt, fmt, itemsize)
         if w_shape:
@@ -381,7 +381,7 @@ class W_MemoryView(W_Root):
 
     def _init_flags(self):
         buf = self.buf
-        ndim = buf.ndim
+        ndim = buf.getndim()
         flags = 0
         if ndim == 0:
             flags |= MEMORYVIEW_SCALAR | MEMORYVIEW_C | MEMORYVIEW_FORTRAN
@@ -391,10 +391,12 @@ class W_MemoryView(W_Root):
             if len(shape) > 0 and shape[0] == 1 and \
                len(strides) > 0 and strides[0] == buf.getitemsize():
                 flags |= MEMORYVIEW_C | MEMORYVIEW_SCALAR
-        if buf.is_contiguous('C'):
-            flags |= MEMORYVIEW_C
-        elif buf.is_contiguous('F'):
-            flags |= MEMORYVIEW_FORTRAN
+        # TODO for now?
+        flags |= MEMORYVIEW_C
+        # TODO if buf.is_contiguous('C'):
+        # TODO     flags |= MEMORYVIEW_C
+        # TODO elif buf.is_contiguous('F'):
+        # TODO     flags |= MEMORYVIEW_FORTRAN
 
         # XXX missing suboffsets
 

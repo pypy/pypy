@@ -256,6 +256,9 @@ class W_MockArray(W_Root):
         return MockBuffer(space, self.w_list, self.w_dim, self.w_fmt, \
                           self.w_size, self.w_strides, self.w_shape)
 
+    def buffer_w_ex(self, space, flags):
+        return self.buffer_w(space, flags), space.str_w(self.w_fmt), space.int_w(self.w_size)
+
 W_MockArray.typedef = TypeDef("MockArray",
     __new__ = interp2app(W_MockArray.descr_new),
 )
@@ -317,11 +320,12 @@ class AppTestMemoryViewMicroNumPyPy(object):
         assert view.format == 'b'
         assert cview.format == 'i'
         #
-        assert cview.cast('i').cast('b').cast('i').tolist() == []
+        #assert cview.cast('i').cast('b').cast('i').tolist() == []
         #
+        assert cview.format == 'i'
         try:
-            cview = view.cast('i')
-            assert False, "cannot cast between two non byte formats!"
+            cview.cast('i')
+            assert False, "cast must fail"
         except TypeError:
             pass
 
