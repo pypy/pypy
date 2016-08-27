@@ -32,6 +32,7 @@ class AppTestMarshalMore:
                 assert getattr(code2, attr_name) == getattr(foo.__code__, attr_name)
 
     def test_shared_string(self):
+        import marshal
         x = "hello, "
         x += "world"
         xl = 256
