@@ -346,9 +346,16 @@ class W_ComplexObject(W_Root):
 
     def descr_hash(self, space):
         hashreal = _hash_float(space, self.realval)
-        hashimg = _hash_float(space, self.imagval)
-        combined = intmask(hashreal + HASH_IMAG * hashimg)
-        return space.newint(-2 if combined == -1 else combined)
+        hashimg = _hash_float(space, self.imagval)   # 0 if self.imagval == 0
+        h = intmask(hashreal + HASH_IMAG * hashimg)
+        h -= (h == -1)
+        return space.newint(h)
+
+    def descr_coerce(self, space, w_other):
+        w_other = self._to_complex(space, w_other)
+        if w_other is None:
+            return space.w_NotImplemented
+        return space.newtuple([self, w_other])
 
     def descr_format(self, space, w_format_spec):
         return newformat.run_formatter(space, w_format_spec, "format_complex",

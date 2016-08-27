@@ -99,6 +99,8 @@ class W_MemoryView(W_Root):
             buf = SubBuffer(self.buf, start * itemsize, size * itemsize)
             return W_MemoryView(buf, self.format, itemsize)
         else:
+            # XXX needs to return a W_MemoryView with a NonContiguousSubBuffer
+            # maybe?  Need to check the cpyext requirements for that
             raise oefmt(space.w_NotImplementedError,
                         "XXX extended slicing")
 
