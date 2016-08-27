@@ -17,6 +17,7 @@ class W_MemoryView(W_Root):
     """Implement the built-in 'memoryview' type as a wrapper around
     an interp-level buffer.
     """
+    _immutable_fields_ = ['format', 'itemsize']
 
     def __init__(self, buf, format='B', itemsize=1):
         assert isinstance(buf, Buffer)
@@ -62,8 +63,7 @@ class W_MemoryView(W_Root):
 
     def as_str(self):
         buf = self.buf
-        n_bytes = buf.getlength()
-        return buf.getslice(0, n_bytes, 1, n_bytes)
+        return buf.as_str()
 
     def getlength(self):
         return self.buf.getlength() // self.itemsize
@@ -82,27 +82,24 @@ class W_MemoryView(W_Root):
     def descr_getitem(self, space, w_index):
         self._check_released(space)
         start, stop, step, size = space.decode_index4(w_index, self.getlength())
-        itemsize = self.buf.getitemsize()
-        if itemsize > 1:
-            start *= itemsize
-            size *= itemsize
-            stop  = start + size
-            if step == 0:
-                step = 1
-            if stop > self.getlength():
-                raise oefmt(space.w_IndexError, 'index out of range')
+        # ^^^ for a non-slice index, this returns (index, 0, 0, 1)
+        itemsize = self.itemsize
         if step == 0:  # index only
-            # TODO: this probably isn't very fast
-            buf = SubBuffer(self.buf, start, self.itemsize)
-            fmtiter = UnpackFormatIterator(space, buf)
-            fmtiter.interpret(self.format)
-            return fmtiter.result_w[0]
+            if itemsize == 1:
+                ch = self.buf.getitem(start)
+                return space.newint(ord(ch))
+            else:
+                # TODO: this probably isn't very fast
+                buf = SubBuffer(self.buf, start * itemsize, itemsize)
+                fmtiter = UnpackFormatIterator(space, buf)
+                fmtiter.interpret(self.format)
+                return fmtiter.result_w[0]
         elif step == 1:
-            buf = SubBuffer(self.buf, start, size)
-            return W_MemoryView(buf, self.format, self.itemsize)
+            buf = SubBuffer(self.buf, start * itemsize, size * itemsize)
+            return W_MemoryView(buf, self.format, itemsize)
         else:
-            buf = SubBuffer(self.buf, start, size)
-            return W_MemoryView(buf)
+            raise oefmt(space.w_NotImplementedError,
+                        "XXX extended slicing")
 
     def descr_setitem(self, space, w_index, w_obj):
         self._check_released(space)
@@ -141,7 +138,7 @@ class W_MemoryView(W_Root):
 
     def descr_len(self, space):
         self._check_released(space)
-        return space.wrap(self.buf.getlength())
+        return space.wrap(self.getlength())
 
     def w_get_format(self, space):
         self._check_released(space)
@@ -214,6 +211,44 @@ class W_MemoryView(W_Root):
             raise OperationError(space.w_ValueError, space.wrap(msg))
         return space.wrap(rffi.cast(lltype.Signed, ptr))
 
+    def get_native_fmtchar(self, fmt):
+        from rpython.rtyper.lltypesystem import rffi
+        size = -1
+        if fmt[0] == '@':
+            f = fmt[1]
+        else:
+            f = fmt[0]
+        if f == 'c' or f == 'b' or f == 'B':
+            size = rffi.sizeof(rffi.CHAR)
+        elif f == 'h' or f == 'H':
+            size = rffi.sizeof(rffi.SHORT)
+        elif f == 'i' or f == 'I':
+            size = rffi.sizeof(rffi.INT)
+        elif f == 'l' or f == 'L':
+            size = rffi.sizeof(rffi.LONG)
+        elif f == 'q' or f == 'Q':
+            size = rffi.sizeof(rffi.LONGLONG)
+        elif f == 'n' or f == 'N':
+            size = rffi.sizeof(rffi.SIZE_T)
+        elif f == 'f':
+            size = rffi.sizeof(rffi.FLOAT)
+        elif f == 'd':
+            size = rffi.sizeof(rffi.DOUBLE)
+        elif f == '?':
+            size = rffi.sizeof(rffi.CHAR)
+        elif f == 'P':
+            size = rffi.sizeof(rffi.VOIDP)
+        return size
+
+    def descr_cast(self, space, w_format, w_shape=None):
+        self._check_released(space)
+        if not space.is_none(w_shape):
+            raise oefmt(space.w_NotImplementedError,
+                        "XXX cast() with a shape")
+        fmt = space.str_w(w_format)
+        newitemsize = self.get_native_fmtchar(fmt)
+        return W_MemoryView(self.buf, fmt, newitemsize)
+
 W_MemoryView.typedef = TypeDef(
     "memoryview",
     __doc__ = """\
@@ -230,6 +265,7 @@ Create a new memoryview object which references the given object.
     __enter__   = interp2app(W_MemoryView.descr_enter),
     __exit__    = interp2app(W_MemoryView.descr_exit),
     __weakref__ = make_weakref_descr(W_MemoryView),
+    cast        = interp2app(W_MemoryView.descr_cast),
     tobytes     = interp2app(W_MemoryView.descr_tobytes),
     tolist      = interp2app(W_MemoryView.descr_tolist),
     release     = interp2app(W_MemoryView.descr_release),
