@@ -2,6 +2,12 @@ import pytest
 import sys
 from pypy.tool.pytest.objspace import gettestobjspace
 try:
+    import __pypy__
+except ImportError:
+    pass
+else:
+    pytest.skip("makes no sense under pypy!")
+try:
     from hypothesis import given, strategies, settings
 except ImportError:
     pytest.skip("requires hypothesis")
@@ -119,16 +125,9 @@ def make_code(draw):
     return "\n    ".join(code)
 
 
-@given(make_code())
+@given(code=make_code())
 #@settings(max_examples=5000)
-def test_random_attrs(code):
-    try:
-        import __pypy__
-    except ImportError:
-        pass
-    else:
-        pytest.skip("makes no sense under pypy!")
-    space = gettestobjspace()
+def test_random_attrs(code, space):
     print code
     exec "if 1:\n    " + code
     space.appexec([], "():\n    " + code)
