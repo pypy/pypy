@@ -98,33 +98,35 @@ def load_source(space, w_modulename, w_filename, w_file=None):
     w_mod = space.wrap(Module(space, w_modulename))
     importing._prepare_module(space, w_mod, filename, None)
 
-    importing.load_source_module(
+    w_mod = importing.load_source_module(
         space, w_modulename, w_mod,
         filename, stream.readall(), stream.try_to_find_file_descriptor())
     if space.is_none(w_file):
         stream.close()
     return w_mod
 
-@unwrap_spec(filename='str0')
-def _run_compiled_module(space, w_modulename, filename, w_file, w_module):
+@unwrap_spec(filename='str0', check_afterwards=int)
+def _run_compiled_module(space, w_modulename, filename, w_file, w_module,
+                         check_afterwards=False):
     # the function 'imp._run_compiled_module' is a pypy-only extension
     stream = get_file(space, w_file, filename, 'rb')
 
     magic = importing._r_long(stream)
     timestamp = importing._r_long(stream)
 
-    importing.load_compiled_module(
+    w_mod = importing.load_compiled_module(
         space, w_modulename, w_module, filename, magic, timestamp,
-        stream.readall())
+        stream.readall(), check_afterwards=check_afterwards)
     if space.is_none(w_file):
         stream.close()
+    return w_mod
 
 @unwrap_spec(filename='str0')
 def load_compiled(space, w_modulename, filename, w_file=None):
     w_mod = space.wrap(Module(space, w_modulename))
     importing._prepare_module(space, w_mod, filename, None)
-    _run_compiled_module(space, w_modulename, filename, w_file, w_mod)
-    return w_mod
+    return _run_compiled_module(space, w_modulename, filename, w_file, w_mod,
+                                check_afterwards=True)
 
 @unwrap_spec(filename=str)
 def load_dynamic(space, w_modulename, filename, w_file=None):
