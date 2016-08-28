@@ -1174,8 +1174,8 @@ def pipe(flags=0):
             fdwrite = c_open_osfhandle(hwrite, 1)
             if not (fdread == -1 or fdwrite == -1):
                 return (fdread, fdwrite)
-            rwin32.CloseHandle(hread)
-            rwin32.CloseHandle(hwrite)
+            rwin32.CloseHandle(pread)
+            rwin32.CloseHandle(pwrite)
         raise WindowsError(rwin32.GetLastError_saved(), "CreatePipe failed")
     else:
         filedes = lltype.malloc(INT_ARRAY_P.TO, 2, flavor='raw')
