@@ -33,6 +33,20 @@ class QcgcFrameworkGCTransformer(BaseFrameworkGCTransformer):
                   [SomeAddress(), SomePtr(VISIT_FPTR)],
                   s_None))
 
+    def gc_header_for(self, obj, needs_hash=False):
+        hdr = self.gcdata.gc.gcheaderbuilder.header_of_object(obj)
+        withhash, flag = self.gcdata.gc.withhash_flag_is_in_field
+        x = getattr(hdr, withhash)
+        TYPE = lltype.typeOf(x)
+        x = lltype.cast_primitive(lltype.Signed, x)
+        if needs_hash:
+            x |= flag       # set the flag in the header
+        else:
+            x &= ~flag      # clear the flag in the header
+        x = lltype.cast_primitive(TYPE, x)
+        setattr(hdr, withhash, x)
+        return hdr
+
     def push_roots(self, hop, keep_current_args=False):
         livevars = self.get_livevars_for_roots(hop, keep_current_args)
         self.num_pushs += len(livevars)

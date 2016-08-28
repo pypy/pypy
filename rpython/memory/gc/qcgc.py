@@ -40,10 +40,9 @@ class QCGC(GCBase):
                                needs_finalizer=False,
                                is_finalizer_light=False,
                                contains_weakptr=False):
-        # XXX: What is the llmemory.GCREF for? (Assumption: return value)
-        ll_assert(not needs_finalizer, 'finalizer not supported')
-        ll_assert(not is_finalizer_light, 'light finalizer not supported')
-        ll_assert(not contains_weakptr, 'weakref not supported')
+        #ll_assert(not needs_finalizer, 'finalizer not supported')
+        #ll_assert(not is_finalizer_light, 'light finalizer not supported')
+        #ll_assert(not contains_weakptr, 'weakref not supported')
         obj = llop.qcgc_allocate(llmemory.Address, size)
         self.init_gc_object(obj, typeid)
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
