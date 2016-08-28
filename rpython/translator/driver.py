@@ -488,7 +488,7 @@ class TranslationDriver(SimpleTaskEngine):
                     exename = exe.new(purebasename=exe.purebasename + 'w')
                     shutil_copy(str(exename), str(newexename))
                     # for pypy, the import library is renamed and moved to
-                    # libs/python27.lib, according to the pragma in pyconfig.h
+                    # libs/python32.lib, according to the pragma in pyconfig.h
                     libname = self.config.translation.libname
                     oldlibname = soname.new(ext='lib')
                     if not libname:

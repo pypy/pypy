@@ -119,6 +119,16 @@ def test_socketpair():
     s1.close()
     s2.close()
 
+def test_socketpair_inheritable():
+    if sys.platform == "win32":
+        py.test.skip('No socketpair on Windows')
+    for inh in [False, True]:
+        s1, s2 = socketpair(inheritable=inh)
+        assert rposix.get_inheritable(s1.fd) == inh
+        assert rposix.get_inheritable(s2.fd) == inh
+        s1.close()
+        s2.close()
+
 def test_socketpair_recvinto_1():
     class Buffer:
         def setslice(self, start, string):
@@ -377,6 +387,12 @@ def test_nonblocking():
     err = py.test.raises(CSocketError, s1.recv, 5000)
     s1.close()
     s2.close()
+
+def test_inheritable():
+    for inh in [False, True]:
+        s1 = RSocket(inheritable=inh)
+        assert rposix.get_inheritable(s1.fd) == inh
+        s1.close()
 
 def test_getaddrinfo_http():
     lst = getaddrinfo('localhost', 'http')
