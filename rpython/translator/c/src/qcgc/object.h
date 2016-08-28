@@ -4,6 +4,10 @@
 #include "config.h"
 #include <stdint.h>
 
+/**
+ * The lower half of flags is reserved for the library, the upper half for
+ * clients
+ */
 #define QCGC_GRAY_FLAG (1<<0)
 #define QCGC_PREBUILT_OBJECT (1<<1)
 #define QCGC_PREBUILT_REGISTERED (1<<2)
