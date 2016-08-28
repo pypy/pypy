@@ -301,8 +301,11 @@ class BlockBuilderMixin(object):
         self.get_relative_pos = self._data.__len__
         def plain_copy_to_raw_memory(addr):
             dst = rffi.cast(rffi.CCHARP, addr)
+            size = len(self._data)
+            rmmap.set_pages_writable(dst, size)
             for i, c in enumerate(self._data):
                 dst[i] = c
+            rmmap.set_pages_executable(dst, size)
         self._copy_to_raw_memory = plain_copy_to_raw_memory
 
     def insert_gcroot_marker(self, mark):
