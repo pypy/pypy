@@ -1222,6 +1222,9 @@ class rbigint(object):
         # base is supposed to be positive or 0.0, which means we use e
         if base == 10.0:
             return _loghelper(math.log10, self)
+        if base == 2.0:
+            from rpython.rlib import rfloat
+            return _loghelper(rfloat.log2, self)
         ret = _loghelper(math.log, self)
         if base != 0.0:
             ret /= math.log(base)
