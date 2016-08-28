@@ -23,6 +23,11 @@ _POSIX = os.name == "posix"
 _MS_WINDOWS = os.name == "nt"
 _64BIT = "64bit" in platform.architecture()[0]
 _CYGWIN = "cygwin" == sys.platform
+_LINUX = sys.platform.startswith("linux")
+
+if _LINUX:
+    # XXX use getconf to query the actual page size
+    PAGE_SIZE = 4096
 
 class RMMapError(Exception):
     def __init__(self, message):
@@ -724,7 +729,19 @@ if _POSIX:
         addr = rffi.cast(PTR, addr)
         size = rffi.cast(lltype.Unsigned, size)
         prot = rffi.cast(rffi.INT, prot)
-        return c_mprotect_safe(addr, size, prot)
+
+        # The start address (addr) has to be page aligned on Linux
+        if _LINUX:
+            # XXX optimise?
+            addr_int = rffi.cast(rffi.UINTPTR_T, addr)
+            real_addr_int = (addr_int / PAGE_SIZE) * PAGE_SIZE
+            real_addr = rffi.cast(rffi.CCHARP, real_addr_int)
+            real_size = size + (addr_int - real_addr_int)
+        else:
+            real_addr = addr
+            real_size = size
+
+        return c_mprotect_safe(real_addr, real_size, prot)
 
     def set_pages_executable(addr, size):
         assert lltype.typeOf(addr) == rffi.CCHARP
