@@ -589,3 +589,18 @@ def test_set_inheritable():
     assert rposix.get_inheritable(fd1) == False
     os.close(fd1)
     os.close(fd2)
+
+def test_SetNonInheritableCache():
+    cache = rposix.SetNonInheritableCache()
+    fd1, fd2 = os.pipe()
+    assert rposix.get_inheritable(fd1) == True
+    assert rposix.get_inheritable(fd1) == True
+    assert cache.cached_inheritable == -1
+    cache.set_non_inheritable(fd1)
+    assert cache.cached_inheritable == 1
+    cache.set_non_inheritable(fd2)
+    assert cache.cached_inheritable == 1
+    assert rposix.get_inheritable(fd1) == False
+    assert rposix.get_inheritable(fd1) == False
+    os.close(fd1)
+    os.close(fd2)

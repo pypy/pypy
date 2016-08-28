@@ -176,6 +176,7 @@ PACKET_LOOPBACK PACKET_FASTROUTE
 
 
 SOCK_DGRAM SOCK_RAW SOCK_RDM SOCK_SEQPACKET SOCK_STREAM
+SOCK_CLOEXEC
 
 SOL_SOCKET SOL_IPX SOL_AX25 SOL_ATALK SOL_NETROM SOL_ROSE
 
@@ -318,6 +319,8 @@ CConfig.servent = platform.Struct('struct servent',
 CConfig.protoent = platform.Struct('struct protoent',
                                           [('p_proto', rffi.INT),
                                            ])
+
+CConfig.HAVE_ACCEPT4 = platform.Has('accept4')
 
 if _POSIX:
     CConfig.nfds_t = platform.SimpleType('nfds_t')
@@ -541,6 +544,12 @@ socklen_t_ptr = lltype.Ptr(rffi.CFixedArray(socklen_t, 1))
 socketaccept = external('accept', [socketfd_type, sockaddr_ptr,
                                    socklen_t_ptr], socketfd_type,
                         save_err=SAVE_ERR)
+HAVE_ACCEPT4 = cConfig.HAVE_ACCEPT4
+if HAVE_ACCEPT4:
+    socketaccept4 = external('accept4', [socketfd_type, sockaddr_ptr,
+                                         socklen_t_ptr, rffi.INT],
+                                        socketfd_type,
+                             save_err=SAVE_ERR)
 socketbind = external('bind', [socketfd_type, sockaddr_ptr, socklen_t],
                               rffi.INT, save_err=SAVE_ERR)
 socketlisten = external('listen', [socketfd_type, rffi.INT], rffi.INT,
