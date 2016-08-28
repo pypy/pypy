@@ -1172,14 +1172,11 @@ def pipe(flags=0):
         if ok:
             fdread = c_open_osfhandle(hread, 0)
             fdwrite = c_open_osfhandle(hwrite, 1)
-            if fdread == -1 or fdwrite == -1:
-                rwin32.CloseHandle(hread)
-                rwin32.CloseHandle(hwrite)
-                ok = 0
-        if not ok:
-            raise WindowsError(rwin32.GetLastError_saved(),
-                               "CreatePipe failed")
-        return (fdread, fdwrite)
+            if not (fdread == -1 or fdwrite == -1):
+                return (fdread, fdwrite)
+            rwin32.CloseHandle(pread)
+            rwin32.CloseHandle(pwrite)
+        raise WindowsError(rwin32.GetLastError_saved(), "CreatePipe failed")
     else:
         filedes = lltype.malloc(INT_ARRAY_P.TO, 2, flavor='raw')
         try:
@@ -2142,6 +2139,7 @@ if HAVE_MKNODAT:
 eci_inheritable = eci.merge(ExternalCompilationInfo(
     separate_module_sources=[r"""
 #include <errno.h>
+#include <sys/ioctl.h>
 
 RPY_EXTERN
 int rpy_set_inheritable(int fd, int inheritable)
