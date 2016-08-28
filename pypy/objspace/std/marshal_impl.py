@@ -2,6 +2,7 @@ from rpython.rlib.rarithmetic import LONG_BIT, r_longlong, r_uint
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rstruct import ieee
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib import objectmodel
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.special import Ellipsis
@@ -29,14 +30,14 @@ TYPE_TRUE      = 'T'
 TYPE_STOPITER  = 'S'
 TYPE_ELLIPSIS  = '.'
 TYPE_INT       = 'i'
-TYPE_INT64     = 'I'
 TYPE_FLOAT     = 'f'
 TYPE_BINARY_FLOAT = 'g'
 TYPE_COMPLEX   = 'x'
 TYPE_BINARY_COMPLEX = 'y'
 TYPE_LONG      = 'l'
-TYPE_STRING    = 's'
-TYPE_STRINGREF = 'R'
+TYPE_STRING    = 's'     # a *byte* string, not unicode
+TYPE_INTERNED  = 't'
+TYPE_REF       = 'r'
 TYPE_TUPLE     = '('
 TYPE_LIST      = '['
 TYPE_DICT      = '{'
@@ -45,6 +46,15 @@ TYPE_UNICODE   = 'u'
 TYPE_UNKNOWN   = '?'
 TYPE_SET       = '<'
 TYPE_FROZENSET = '>'
+FLAG_REF       = 0x80    # bit added to mean "add obj to index"
+FLAG_DONE      = '\x00'
+
+# the following typecodes have been added in version 4.
+TYPE_ASCII                = 'a'   # never generated so far by pypy
+TYPE_ASCII_INTERNED       = 'A'   # never generated so far by pypy
+TYPE_SMALL_TUPLE          = ')'
+TYPE_SHORT_ASCII          = 'z'   # never generated so far by pypy
+TYPE_SHORT_ASCII_INTERNED = 'Z'   # never generated so far by pypy
 
 
 _marshallers = []
@@ -56,11 +66,32 @@ def marshaller(type):
         return f
     return _decorator
 
-def unmarshaller(tc):
+def unmarshaller(tc, save_ref=False):
     def _decorator(f):
+        assert tc < '\x80'
         _unmarshallers.append((tc, f))
+        if save_ref:
+            tcref = chr(ord(tc) + 0x80)
+            _unmarshallers.append((tcref, f))
         return f
     return _decorator
+
+def write_ref(typecode, w_obj, m):
+    if m.version < 3:
+        return typecode     # not writing object references
+    try:
+        index = m.all_refs[w_obj]
+    except KeyError:
+        # we don't support long indices
+        index = len(m.all_refs)
+        if index >= 0x7fffffff:
+            return typecode
+        m.all_refs[w_obj] = index
+        return chr(ord(typecode) + FLAG_REF)
+    else:
+        # write the reference index to the stream
+        m.atom_int(TYPE_REF, index)
+        return FLAG_DONE
 
 def marshal(space, w_obj, m):
     # _marshallers_unroll is defined at the end of the file
@@ -80,7 +111,9 @@ def marshal(space, w_obj, m):
         if e.match(space, space.w_TypeError):
             raise oefmt(space.w_ValueError, "unmarshallable object")
         raise
-    m.atom_str(TYPE_STRING, s.as_str())
+    typecode = write_ref(TYPE_STRING, w_obj, m)
+    if typecode != FLAG_DONE:
+        m.atom_str(typecode, s.as_str())
 
 def get_unmarshallers():
     return _unmarshallers
@@ -130,37 +163,27 @@ def unmarshal_ellipsis(space, u, tc):
 
 @marshaller(W_IntObject)
 def marshal_int(space, w_int, m):
-    if LONG_BIT == 32:
-        m.atom_int(TYPE_INT, w_int.intval)
+    y = w_int.intval >> 31
+    if y and y != -1:
+        marshal_long(space, w_int, m)
     else:
-        y = w_int.intval >> 31
-        if y and y != -1:
-            m.atom_int64(TYPE_INT64, w_int.intval)
-        else:
-            m.atom_int(TYPE_INT, w_int.intval)
+        m.atom_int(TYPE_INT, w_int.intval)
 
 @unmarshaller(TYPE_INT)
 def unmarshal_int(space, u, tc):
     return space.newint(u.get_int())
 
-@unmarshaller(TYPE_INT64)
-def unmarshal_int64(space, u, tc):
-    lo = u.get_int()    # get the first 32 bits
-    hi = u.get_int()    # get the next 32 bits
-    if LONG_BIT >= 64:
-        x = (hi << 32) | (lo & (2**32-1))    # result fits in an int
-    else:
-        x = (r_longlong(hi) << 32) | r_longlong(r_uint(lo))  # get a r_longlong
-    return space.wrap(x)
-
 
 @marshaller(W_AbstractLongObject)
 def marshal_long(space, w_long, m):
     from rpython.rlib.rarithmetic import r_ulonglong
-    m.start(TYPE_LONG)
+    typecode = write_ref(TYPE_LONG, w_long, m)
+    if typecode == FLAG_DONE:
+        return
+    m.start(typecode)
     SHIFT = 15
     MASK = (1 << SHIFT) - 1
-    num = w_long.asbigint()
+    num = space.bigint_w(w_long)
     sign = num.sign
     num = num.abs()
     total_length = (num.bit_length() + (SHIFT - 1)) / SHIFT
@@ -248,59 +271,79 @@ def unmarshal_complex_bin(space, u, tc):
 
 @marshaller(W_BytesObject)
 def marshal_bytes(space, w_str, m):
-    s = w_str.unwrap(space)
-    m.atom_str(TYPE_STRING, s)
+    typecode = write_ref(TYPE_STRING, w_str, m)
+    if typecode != FLAG_DONE:
+        s = space.bytes_w(w_str)
+        m.atom_str(typecode, s)
 
 @unmarshaller(TYPE_STRING)
 def unmarshal_bytes(space, u, tc):
     return space.newbytes(u.get_str())
 
-@unmarshaller(TYPE_STRINGREF)
-def unmarshal_stringref(space, u, tc):
-    idx = u.get_int()
-    try:
-        return u.stringtable_w[idx]
-    except IndexError:
-        raise oefmt(space.w_ValueError, "bad marshal data")
 
+def _marshal_tuple(space, tuple_w, m):
+    if m.version >= 4 and len(tuple_w) < 256:
+        typecode = TYPE_SMALL_TUPLE
+        single_byte_size = True
+    else:
+        typecode = TYPE_TUPLE
+        single_byte_size = False
+    # -- does it make any sense to try to share tuples, based on the
+    # -- *identity* of the tuple object?  I'd guess not really
+    #typecode = write_ref(typecode, w_tuple, m)
+    #if typecode != FLAG_DONE:
+    m.put_tuple_w(typecode, tuple_w, single_byte_size=single_byte_size)
 
 @marshaller(W_AbstractTupleObject)
 def marshal_tuple(space, w_tuple, m):
-    items = w_tuple.tolist()
-    m.put_tuple_w(TYPE_TUPLE, items)
+    _marshal_tuple(space, w_tuple.tolist(), m)
 
 @unmarshaller(TYPE_TUPLE)
 def unmarshal_tuple(space, u, tc):
     items_w = u.get_tuple_w()
     return space.newtuple(items_w)
 
+@unmarshaller(TYPE_SMALL_TUPLE)
+def unmarshal_tuple(space, u, tc):
+    items_w = u.get_tuple_w(single_byte_size=True)
+    return space.newtuple(items_w)
+
 
 @marshaller(W_ListObject)
 def marshal_list(space, w_list, m):
-    items = w_list.getitems()[:]
-    m.put_tuple_w(TYPE_LIST, items)
+    typecode = write_ref(TYPE_LIST, w_list, m)
+    if typecode != FLAG_DONE:
+        items = w_list.getitems()[:]
+        m.put_tuple_w(typecode, items)
 
-@unmarshaller(TYPE_LIST)
+@unmarshaller(TYPE_LIST, save_ref=True)
 def unmarshal_list(space, u, tc):
-    items_w = u.get_list_w()
-    return space.newlist(items_w)
+    w_obj = space.newlist([])
+    u.save_ref(tc, w_obj)
+    for w_item in u.get_tuple_w():
+        w_obj.append(w_item)
+    return w_obj
 
 
 @marshaller(W_DictMultiObject)
 def marshal_dict(space, w_dict, m):
-    m.start(TYPE_DICT)
+    typecode = write_ref(TYPE_DICT, w_dict, m)
+    if typecode == FLAG_DONE:
+        return
+    m.start(typecode)
     for w_tuple in w_dict.items():
         w_key, w_value = space.fixedview(w_tuple, 2)
         m.put_w_obj(w_key)
         m.put_w_obj(w_value)
     m.atom(TYPE_NULL)
 
-@unmarshaller(TYPE_DICT)
+@unmarshaller(TYPE_DICT, save_ref=True)
 def unmarshal_dict(space, u, tc):
     # since primitive lists are not optimized and we don't know
     # the dict size in advance, use the dict's setitem instead
     # of building a list of tuples.
     w_dic = space.newdict()
+    u.save_ref(tc, w_dic)
     while 1:
         w_key = u.get_w_obj(allow_null=True)
         if w_key is None:
@@ -314,14 +357,9 @@ def unmarshal_NULL(self, u, tc):
     return None
 
 
-def _put_str_list(space, m, strlist):
-    m.atom_int(TYPE_TUPLE, len(strlist))
-    atom_str = m.atom_str
-    for item in strlist:
-        atom_str(TYPE_STRING, item)
-
 @marshaller(PyCode)
 def marshal_pycode(space, w_pycode, m):
+    # (no attempt at using write_ref here, there is little point imho)
     m.start(TYPE_CODE)
     # see pypy.interpreter.pycode for the layout
     x = space.interp_w(PyCode, w_pycode)
@@ -331,105 +369,161 @@ def marshal_pycode(space, w_pycode, m):
     m.put_int(x.co_stacksize)
     m.put_int(x.co_flags)
     m.atom_str(TYPE_STRING, x.co_code)
-    m.put_tuple_w(TYPE_TUPLE, x.co_consts_w)
-    _put_str_list(space, m, [space.str_w(w_name) for w_name in x.co_names_w])
-    _put_str_list(space, m, x.co_varnames)
-    _put_str_list(space, m, x.co_freevars)
-    _put_str_list(space, m, x.co_cellvars)
-    m.atom_str(TYPE_STRING, x.co_filename)
-    m.atom_str(TYPE_STRING, x.co_name)
+    _marshal_tuple(space, x.co_consts_w, m)
+    _marshal_tuple(space, x.co_names_w, m)   # list of w_unicodes
+    co_varnames_w = [space.wrap(s.decode('utf-8')) for s in x.co_varnames]
+    co_freevars_w = [space.wrap(s.decode('utf-8')) for s in x.co_freevars]
+    co_cellvars_w = [space.wrap(s.decode('utf-8')) for s in x.co_cellvars]
+    _marshal_tuple(space, co_varnames_w, m)  # more lists, now of w_unicodes
+    _marshal_tuple(space, co_freevars_w, m)
+    _marshal_tuple(space, co_cellvars_w, m)
+    _marshal_unicode(space, x.co_filename, m)
+    _marshal_unicode(space, x.co_name, m)
     m.put_int(x.co_firstlineno)
     m.atom_str(TYPE_STRING, x.co_lnotab)
 
 # helper for unmarshalling "tuple of string" objects
 # into rpython-level lists of strings.  Only for code objects.
 
-def unmarshal_str(u):
-    w_obj = u.get_w_obj()
-    try:
-        return u.space.bytes_w(w_obj)
-    except OperationError as e:
-        if e.match(u.space, u.space.w_TypeError):
-            u.raise_exc('invalid marshal data for code object')
-        else:
-            raise
+def _unmarshal_strlist(u):
+    items_w = _unmarshal_tuple_w(u)
+    return [u.space.unicode_w(w_item).encode('utf-8') for w_item in items_w]
 
-def unmarshal_str0(u):
+def _unmarshal_tuple_w(u):
     w_obj = u.get_w_obj()
     try:
-        return u.space.bytes0_w(w_obj)
+        return u.space.fixedview(w_obj)
     except OperationError as e:
         if e.match(u.space, u.space.w_TypeError):
             u.raise_exc('invalid marshal data for code object')
         raise
 
-def unmarshal_strlist(u, tc):
-    lng = u.atom_lng(tc)
-    return [unmarshal_str(u) for i in range(lng)]
-
-@unmarshaller(TYPE_CODE)
+@unmarshaller(TYPE_CODE, save_ref=True)
 def unmarshal_pycode(space, u, tc):
+    w_codeobj = objectmodel.instantiate(PyCode)
+    u.save_ref(tc, w_codeobj)
     argcount    = u.get_int()
     kwonlyargcount = u.get_int()
     nlocals     = u.get_int()
     stacksize   = u.get_int()
     flags       = u.get_int()
-    code        = unmarshal_str(u)
-    u.start(TYPE_TUPLE)
-    consts_w    = u.get_tuple_w()
-    # copy in order not to merge it with anything else
-    names       = unmarshal_strlist(u, TYPE_TUPLE)
-    varnames    = unmarshal_strlist(u, TYPE_TUPLE)
-    freevars    = unmarshal_strlist(u, TYPE_TUPLE)
-    cellvars    = unmarshal_strlist(u, TYPE_TUPLE)
-    filename    = unmarshal_str0(u)
-    name        = unmarshal_str(u)
+    code        = space.bytes_w(u.get_w_obj())
+    consts_w    = _unmarshal_tuple_w(u)   
+    names       = _unmarshal_strlist(u)
+    varnames    = _unmarshal_strlist(u)
+    freevars    = _unmarshal_strlist(u)
+    cellvars    = _unmarshal_strlist(u)
+    filename    = space.unicode0_w(u.get_w_obj()).encode('utf-8')
+    name        = space.unicode_w(u.get_w_obj()).encode('utf-8')
     firstlineno = u.get_int()
-    lnotab      = unmarshal_str(u)
-    return PyCode(space, argcount, kwonlyargcount, nlocals, stacksize, flags,
+    lnotab      = space.bytes_w(u.get_w_obj())
+    PyCode.__init__(w_codeobj,
+                  space, argcount, kwonlyargcount, nlocals, stacksize, flags,
                   code, consts_w[:], names, varnames, filename,
                   name, firstlineno, lnotab, freevars, cellvars)
+    return w_codeobj
 
+
+def _marshal_unicode(space, s, m, w_unicode=None):
+    if m.version >= 3:
+        w_interned = space.get_interned_str(s)
+    else:
+        w_interned = None
+    if w_interned is not None:
+        w_unicode = w_interned    # use the interned W_UnicodeObject
+        typecode = TYPE_INTERNED  #   as a key for u.all_refs
+    else:
+        typecode = TYPE_UNICODE
+    if w_unicode is not None:
+        typecode = write_ref(typecode, w_unicode, m)
+    if typecode != FLAG_DONE:
+        m.atom_str(typecode, s)
 
 @marshaller(W_UnicodeObject)
 def marshal_unicode(space, w_unicode, m):
     s = unicodehelper.encode_utf8(space, space.unicode_w(w_unicode),
                                   allow_surrogates=True)
-    m.atom_str(TYPE_UNICODE, s)
+    _marshal_unicode(space, s, m, w_unicode=w_unicode)
 
 @unmarshaller(TYPE_UNICODE)
 def unmarshal_unicode(space, u, tc):
-    return space.wrap(unicodehelper.decode_utf8(space, u.get_str(),
-                                                allow_surrogates=True))
+    uc = unicodehelper.decode_utf8(space, u.get_str(), allow_surrogates=True)
+    return space.newunicode(uc)
+
+@unmarshaller(TYPE_INTERNED)
+def unmarshal_bytes(space, u, tc):
+    return space.new_interned_str(u.get_str())
+
+def _unmarshal_ascii(u, short_length, interned):
+    if short_length:
+        lng = ord(u.get1())
+    else:
+        lng = u.get_lng()
+    s = u.get(lng)
+    w_u = u.space.newunicode(s.decode('latin-1'))
+    if interned:
+        w_u = u.space.new_interned_w_str(w_u)
+    return w_u
+
+@unmarshaller(TYPE_ASCII)    # nb. never generated by pypy so far
+def unmarshal_ascii(space, u, tc):
+    return _unmarshal_ascii(u, False, False)
+@unmarshaller(TYPE_ASCII_INTERNED)
+def unmarshal_ascii(space, u, tc):
+    return _unmarshal_ascii(u, False, True)
+@unmarshaller(TYPE_SHORT_ASCII)
+def unmarshal_ascii(space, u, tc):
+    return _unmarshal_ascii(u, True, False)
+@unmarshaller(TYPE_SHORT_ASCII_INTERNED)
+def unmarshal_ascii(space, u, tc):
+    return _unmarshal_ascii(u, True, True)
+
 
 @marshaller(W_SetObject)
 def marshal_set(space, w_set, m):
-    lis_w = space.fixedview(w_set)
-    m.put_tuple_w(TYPE_SET, lis_w)
+    typecode = write_ref(TYPE_SET, w_set, m)
+    if typecode != FLAG_DONE:
+        lis_w = space.fixedview(w_set)
+        m.put_tuple_w(typecode, lis_w)
 
-@unmarshaller(TYPE_SET)
+@unmarshaller(TYPE_SET, save_ref=True)
 def unmarshal_set(space, u, tc):
-    return unmarshal_set_frozenset(space, u, tc)
+    w_set = space.call_function(space.w_set)
+    u.save_ref(tc, w_set)
+    _unmarshal_set_frozenset(space, u, w_set)
+    return w_set
 
 
 @marshaller(W_FrozensetObject)
 def marshal_frozenset(space, w_frozenset, m):
-    lis_w = space.fixedview(w_frozenset)
-    m.put_tuple_w(TYPE_FROZENSET, lis_w)
+    typecode = write_ref(TYPE_FROZENSET, w_frozenset, m)
+    if typecode != FLAG_DONE:
+        lis_w = space.fixedview(w_frozenset)
+        m.put_tuple_w(typecode, lis_w)
 
-def unmarshal_set_frozenset(space, u, tc):
+def _unmarshal_set_frozenset(space, u, w_set):
     lng = u.get_lng()
-    w_set = space.call_function(space.w_set)
     for i in xrange(lng):
         w_obj = u.get_w_obj()
         space.call_method(w_set, "add", w_obj)
-    if tc == TYPE_FROZENSET:
-        w_set = space.call_function(space.w_frozenset, w_set)
-    return w_set
 
 @unmarshaller(TYPE_FROZENSET)
 def unmarshal_frozenset(space, u, tc):
-    return unmarshal_set_frozenset(space, u, tc)
+    w_set = space.call_function(space.w_set)
+    _unmarshal_set_frozenset(space, u, w_set)
+    return space.call_function(space.w_frozenset, w_set)
+
+
+@unmarshaller(TYPE_REF)
+def unmarshal_ref(space, u, tc):
+    index = u.get_lng()
+    if 0 <= index < len(u.refs_w):
+        w_obj = u.refs_w[index]
+    else:
+        w_obj = None
+    if w_obj is None:
+        raise oefmt(space.w_ValueError, "bad marshal data (invalid reference)")
+    return w_obj
 
 
 _marshallers_unroll = unrolling_iterable(_marshallers)

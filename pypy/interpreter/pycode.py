@@ -37,7 +37,7 @@ cpython_magic, = struct.unpack("<i", imp.get_magic())   # host magic number
 # different value for the highest 16 bits. Bump pypy_incremental_magic every
 # time you make pyc files incompatible
 
-pypy_incremental_magic = 64 # bump it by 16
+pypy_incremental_magic = 80 # bump it by 16
 assert pypy_incremental_magic % 16 == 0
 assert pypy_incremental_magic < 3000 # the magic number of Python 3. There are
                                      # no known magic numbers below this value
