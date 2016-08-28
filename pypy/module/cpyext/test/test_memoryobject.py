@@ -24,3 +24,5 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
         s = y[3]
         assert len(s) == struct.calcsize('i')
         assert s == struct.pack('i', 3)
+        viewlen = module.test_buffer(arr)
+        assert viewlen == y.itemsize * len(y)

@@ -107,14 +107,11 @@ static int
 PyMyArray_getbuffer(PyObject *obj, Py_buffer *view, int flags)
 {
   PyMyArray* self = (PyMyArray*)obj;
-  fprintf(stdout, "in PyMyArray_getbuffer\n");
   if (view == NULL) {
-    fprintf(stdout, "view is NULL\n");
     PyErr_SetString(PyExc_ValueError, "NULL view in getbuffer");
     return -1;
   }
   if (flags == 0) {
-    fprintf(stdout, "flags is 0\n");
     PyErr_SetString(PyExc_ValueError, "flags == 0 in getbuffer");
     return -1;
   }
@@ -188,7 +185,23 @@ static PyTypeObject PyMyArrayType = {
     (initproc)PyMyArray_init,     /* tp_init */
 };
 
+static PyObject*
+test_buffer(PyObject* self, PyObject* args)
+{
+    Py_buffer* view = NULL;
+    PyObject* obj = PyTuple_GetItem(args, 0);
+    PyObject* memoryview = PyMemoryView_FromObject(obj);
+    if (memoryview == NULL)
+        return PyInt_FromLong(-1);
+    view = PyMemoryView_GET_BUFFER(memoryview);
+    Py_DECREF(memoryview);
+    return PyInt_FromLong(view->len);
+}
+
+
+
 static PyMethodDef buffer_functions[] = {
+    {"test_buffer",   (PyCFunction)test_buffer, METH_VARARGS, NULL},
     {NULL,        NULL}    /* Sentinel */
 };
 
