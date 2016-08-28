@@ -115,7 +115,7 @@ class W_MemoryView(W_Root):
             self.buf.setslice(start, value.as_str())
 
     def descr_len(self, space):
-        return space.wrap(self.buf.getlength())
+        return space.wrap(self.buf.getlength() / self.buf.getitemsize())
 
     def w_get_format(self, space):
         return space.wrap(self.buf.getformat())
