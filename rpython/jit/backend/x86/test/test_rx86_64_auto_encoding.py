@@ -3,8 +3,6 @@ from rpython.jit.backend.x86 import rx86
 from rpython.jit.backend.x86.test import test_rx86_32_auto_encoding
 
 
-# XXX OpenBSD
-# Many unrecognised asm instrs. Probably due to openbsd's old binutils
 class TestRx86_64(test_rx86_32_auto_encoding.TestRx86_32):
     WORD = 8
     TESTDIR = 'rx86_64'

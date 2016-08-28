@@ -4476,11 +4476,6 @@ class LLtypeBackendTest(BaseBackendTest):
                 expected = heaptracker.int_signext(test_case, numbytes)
                 assert got == expected
 
-    @pytest.mark.xfail(sys.platform.startswith("openbsd"),
-                       reason="emits wrong code, or objdump reports wrong."
-                       "looks like openbsd objdump doesn't understand NOPs "
-                       "with operands. e.g. 0f1f00 is 'nop DWORD PTR [rax]', "
-                       "but we just get '(bad)'. Old binutils issue?")
     def test_compile_asmlen(self):
         if not isinstance(self.cpu, AbstractLLCPU):
             py.test.skip("pointless test on non-asm")
