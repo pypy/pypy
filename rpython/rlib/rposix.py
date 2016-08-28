@@ -2142,6 +2142,7 @@ if HAVE_MKNODAT:
 eci_inheritable = eci.merge(ExternalCompilationInfo(
     separate_module_sources=[r"""
 #include <errno.h>
+#include <sys/ioctl.h>
 
 RPY_EXTERN
 int rpy_set_inheritable(int fd, int inheritable)
