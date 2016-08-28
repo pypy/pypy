@@ -4,6 +4,7 @@ from rpython.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
 from rpython.jit.backend.llsupport.codemap import CodemapStorage
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib import debug
+from rpython.rlib import rmmap
 
 
 def test_get_index():
@@ -188,7 +189,8 @@ class TestAsmMemoryManager:
 def test_blockbuildermixin(translated=True):
     mc = BlockBuilderMixin(translated)
     writtencode = []
-    for i in range(mc.SUBBLOCK_SIZE * 2 + 3):
+    map_size = mc.SUBBLOCK_SIZE * 2 + 3
+    for i in range(map_size):
         assert mc.get_relative_pos() == i
         mc.writechar(chr(i % 255))
         writtencode.append(chr(i % 255))
@@ -203,11 +205,11 @@ def test_blockbuildermixin(translated=True):
         mc.overwrite(i, chr((i + 63) % 255))
         writtencode[i] = chr((i + 63) % 255)
     #
-    p = lltype.malloc(rffi.CCHARP.TO, mc.SUBBLOCK_SIZE * 2 + 3, flavor='raw')
+    p = rmmap.alloc(map_size)
     addr = rffi.cast(lltype.Signed, p)
     mc.copy_to_raw_memory(addr)
     #
-    for i in range(mc.SUBBLOCK_SIZE * 2 + 3):
+    for i in range(map_size):
         assert p[i] == writtencode[i]
     #
     debug._log = debug.DebugLog()
@@ -222,7 +224,7 @@ def test_blockbuildermixin(translated=True):
                     [('debug_print', 'SYS_EXECUTABLE', '??'),
                      ('debug_print', 'CODE_DUMP', ataddr, '+0 ', encoded)])]
     
-    lltype.free(p, flavor='raw')
+    rmmap.free(p, map_size)
 
 def test_blockbuildermixin2():
     test_blockbuildermixin(translated=False)
