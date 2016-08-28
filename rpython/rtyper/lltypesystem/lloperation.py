@@ -517,6 +517,7 @@ LL_OPERATIONS = {
     # __________ qcgc operations __________
     'qcgc_allocate':    LLOp(canmallocgc=True),
     'qcgc_collect':     LLOp(canmallocgc=True),
+    'qcgc_is_prebuilt': LLOp(),
 
     # __________ weakrefs __________
 

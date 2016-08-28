@@ -43,9 +43,6 @@ void qcgc_destroy(void) {
  * Shadow stack
  */
 void qcgc_shadowstack_push(object_t *object) {
-#if CHECKED
-	assert((object->flags & QCGC_PREBUILT_OBJECT) == 0);
-#endif
 	if (qcgc_state.phase != GC_PAUSE) {
 		qcgc_state.phase = GC_MARK;
 		qcgc_push_object(object);

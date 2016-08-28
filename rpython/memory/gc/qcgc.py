@@ -1,4 +1,5 @@
 from rpython.memory.gc.base import GCBase
+from rpython.memory.support import mangle_hash
 from rpython.rtyper.lltypesystem import rffi, lltype, llgroup, llmemory, llarena
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.debug import ll_assert
@@ -73,8 +74,21 @@ class QCGC(GCBase):
         #llop.gc_writebarrier(dest_addr)
         #return True
 
+    def id_or_identityhash(self, gcobj, is_hash):
+        i = self.header(llmemory.cast_ptr_to_adr(gcobj)).hash
+        prebuilt = llop.qcgc_is_prebuilt(lltype.Bool, gcobj)
+        #
+        if is_hash:
+            if prebuilt:
+                return i # Do not mangle for prebuilt objects
+            i = mangle_hash(i)
+        return i
+
+    def id(self, gcobje):
+        return self.id_or_identityhash(gcobj, False)
+
     def identityhash(self, gcobj):
-        raise NotImplementedError
+        return self.id_or_identityhash(gcobj, True)
 
     def register_finalizer(self, fq_index, gcobj):
         raise NotImplementedError
