@@ -5,6 +5,9 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.rarithmetic import ovfcheck
 
+QCGC_HAS_HASH = 0x100 # Upper half of flags for clients, lower half is reserved
+QCGC_PREBUILT_OBJECT = 0x2 # XXX: exploits knowledge about qcgc library
+
 class QCGC(GCBase):
     _alloc_flavor_ = "raw"
     moving_gc = False
@@ -16,20 +19,22 @@ class QCGC(GCBase):
     gcflag_extra = 0   # or a real GC flag that is always 0 when not collecting
 
     typeid_is_in_field = 'tid'
-    withhash_flag_is_in_field = 'hash', 0
+    withhash_flag_is_in_field = 'flags', QCGC_HAS_HASH
 
     TRANSLATION_PARAMS = {}
     HDR = lltype.Struct(
             'pypyhdr_t',
-            ('hdr', rffi.COpaque('object_t', hints={"is_qcgc_header": True})),
+            #('hdr', rffi.COpaque('object_t', hints={"is_qcgc_header": True})),
+            ('flags', lltype.Signed),   # XXX: exploits knowledge about object_t
             ('tid', lltype.Signed),
             ('hash', lltype.Signed))
     #HDR = rffi.COpaque('object_t')
 
-    def init_gc_object(self, obj, typeid):
-        hdr = llmemory.cast_adr_to_ptr(obj, lltype.Ptr(self.HDR))
+    def init_gc_object(self, addr, typeid, flags=0):
+        hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
+        hdr.flags = rffi.cast(lltype.Signed, flags)
         hdr.tid = rffi.cast(lltype.Signed, typeid)
-        hdr.hash = rffi.cast(lltype.Signed, obj)
+        hdr.hash = rffi.cast(lltype.Signed, addr)
 
     def malloc_fixedsize_clear(self, typeid, size,
                                needs_finalizer=False,
@@ -59,6 +64,16 @@ class QCGC(GCBase):
         (obj + offset_to_length).signed[0] = length
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
+    def init_gc_object_immortal(self, addr, typeid, flags=0): # XXX: Prebuilt Objects?
+        assert flags == 0
+        ptr = self.gcheaderbuilder.object_from_header(addr.ptr)
+        prebuilt_hash = lltype.identityhash_nocache(ptr)
+        assert prebuilt_hash != 0
+        flags |= QCGC_PREBUILT_OBJECT
+        #
+        self.init_gc_object(addr, typeid.index, flags)
+        llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR)).hash = prebuilt_hash
+
     def collect(self, gen=1):
         """Do a minor (gen=0) or major (gen>0) collection."""
         # XXX: Minor collection not supported
@@ -75,12 +90,13 @@ class QCGC(GCBase):
         #return True
 
     def id_or_identityhash(self, gcobj, is_hash):
-        i = self.header(llmemory.cast_ptr_to_adr(gcobj)).hash
-        prebuilt = llop.qcgc_is_prebuilt(lltype.Bool, gcobj)
+        hdr = self.header(llmemory.cast_ptr_to_adr(gcobj))
+        has_hash = (hdr.flags & QCGC_HAS_HASH)
+        i = hdr.hash
         #
         if is_hash:
-            if prebuilt:
-                return i # Do not mangle for prebuilt objects
+            if has_hash:
+                return i # Do not mangle for objects with built in hash
             i = mangle_hash(i)
         return i
 
@@ -95,27 +111,3 @@ class QCGC(GCBase):
 
     def get_type_id(self, obj):
         return self.header(obj).tid
-
-    def init_gc_object_immortal(self, addr, typeid, flags=0): # XXX: Prebuilt Objects?
-        assert flags == 0
-        hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
-        hdr.tid = typeid.index
-        ptr = self.gcheaderbuilder.object_from_header(addr.ptr)
-        prebuilt_hash = lltype.identityhash_nocache(ptr)
-        assert prebuilt_hash != 0
-        #
-        hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
-        hdr.hash = prebuilt_hash
-        #hdr._obj._name = typeid.index
-        #
-        # STMGC CODE:
-        #assert flags == 0
-        #assert isinstance(typeid16, llgroup.GroupMemberOffset)
-        #ptr = self.gcheaderbuilder.object_from_header(addr.ptr)
-        #prebuilt_hash = lltype.identityhash_nocache(ptr)
-        #assert prebuilt_hash != 0     # xxx probably good enough
-        ##
-        #hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
-        #hdr._obj._name = typeid16.index   # debug only
-        #hdr._obj.typeid16 = typeid16
-        #hdr._obj.prebuilt_hash = prebuilt_hash
