@@ -11,7 +11,8 @@ from pypy.objspace.std.marshal_impl import marshal, get_unmarshallers
 # objects, are supported.  Version 3 of this protocol properly
 # supports circular links and sharing.  The previous version is called
 # "2", like in Python 2.7, although it is not always compatible
-# between CPython 2.7 and CPython 3.4.
+# between CPython 2.7 and CPython 3.4.  Version 4 adds small
+# optimizations in compactness.
 #
 # XXX: before py3k, there was logic to do efficiently dump()/load() on
 # a file object.  The corresponding logic is gone from CPython 3.x, so

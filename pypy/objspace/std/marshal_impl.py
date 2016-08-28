@@ -413,7 +413,7 @@ def unmarshal_pycode(space, u, tc):
     varnames    = _unmarshal_strlist(u)
     freevars    = _unmarshal_strlist(u)
     cellvars    = _unmarshal_strlist(u)
-    filename    = space.unicode_w(u.get_w_obj()).encode('utf-8')
+    filename    = space.unicode0_w(u.get_w_obj()).encode('utf-8')
     name        = space.unicode_w(u.get_w_obj()).encode('utf-8')
     firstlineno = u.get_int()
     lnotab      = space.bytes_w(u.get_w_obj())
@@ -460,7 +460,7 @@ def _unmarshal_ascii(u, short_length, interned):
     else:
         lng = u.get_lng()
     s = u.get(lng)
-    w_u = u.space.newunicode(s.decode('latin1'))
+    w_u = u.space.newunicode(s.decode('latin-1'))
     if interned:
         w_u = u.space.new_interned_w_str(w_u)
     return w_u
