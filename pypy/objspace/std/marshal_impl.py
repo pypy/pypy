@@ -371,9 +371,9 @@ def marshal_pycode(space, w_pycode, m):
     m.atom_str(TYPE_STRING, x.co_code)
     _marshal_tuple(space, x.co_consts_w, m)
     _marshal_tuple(space, x.co_names_w, m)   # list of w_unicodes
-    co_varnames_w = [space.wrap(s.decode('utf-8')) for s in x.co_varnames]
-    co_freevars_w = [space.wrap(s.decode('utf-8')) for s in x.co_freevars]
-    co_cellvars_w = [space.wrap(s.decode('utf-8')) for s in x.co_cellvars]
+    co_varnames_w = [space.wrap(_decode_utf8(space, s)) for s in x.co_varnames]
+    co_freevars_w = [space.wrap(_decode_utf8(space, s)) for s in x.co_freevars]
+    co_cellvars_w = [space.wrap(_decode_utf8(space, s)) for s in x.co_cellvars]
     _marshal_tuple(space, co_varnames_w, m)  # more lists, now of w_unicodes
     _marshal_tuple(space, co_freevars_w, m)
     _marshal_tuple(space, co_cellvars_w, m)
@@ -387,7 +387,8 @@ def marshal_pycode(space, w_pycode, m):
 
 def _unmarshal_strlist(u):
     items_w = _unmarshal_tuple_w(u)
-    return [u.space.unicode_w(w_item).encode('utf-8') for w_item in items_w]
+    return [_encode_utf8(u.space, u.space.unicode_w(w_item))
+            for w_item in items_w]
 
 def _unmarshal_tuple_w(u):
     w_obj = u.get_w_obj()
@@ -413,8 +414,8 @@ def unmarshal_pycode(space, u, tc):
     varnames    = _unmarshal_strlist(u)
     freevars    = _unmarshal_strlist(u)
     cellvars    = _unmarshal_strlist(u)
-    filename    = space.unicode0_w(u.get_w_obj()).encode('utf-8')
-    name        = space.unicode_w(u.get_w_obj()).encode('utf-8')
+    filename    = _encode_utf8(space, space.unicode0_w(u.get_w_obj()))
+    name        = _encode_utf8(space, space.unicode_w(u.get_w_obj()))
     firstlineno = u.get_int()
     lnotab      = space.bytes_w(u.get_w_obj())
     PyCode.__init__(w_codeobj,
@@ -439,15 +440,20 @@ def _marshal_unicode(space, s, m, w_unicode=None):
     if typecode != FLAG_DONE:
         m.atom_str(typecode, s)
 
+def _encode_utf8(space, u):
+    return unicodehelper.encode_utf8(space, u, allow_surrogates=True)
+
+def _decode_utf8(space, s):
+    return unicodehelper.decode_utf8(space, s, allow_surrogates=True)
+
 @marshaller(W_UnicodeObject)
 def marshal_unicode(space, w_unicode, m):
-    s = unicodehelper.encode_utf8(space, space.unicode_w(w_unicode),
-                                  allow_surrogates=True)
+    s = _encode_utf8(space, space.unicode_w(w_unicode))
     _marshal_unicode(space, s, m, w_unicode=w_unicode)
 
 @unmarshaller(TYPE_UNICODE)
 def unmarshal_unicode(space, u, tc):
-    uc = unicodehelper.decode_utf8(space, u.get_str(), allow_surrogates=True)
+    uc = _decode_utf8(space, u.get_str())
     return space.newunicode(uc)
 
 @unmarshaller(TYPE_INTERNED)
