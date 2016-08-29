@@ -35,7 +35,8 @@ cpython_magic, = struct.unpack("<i", imp.get_magic())   # host magic number
 
 # we compute the magic number in a similar way to CPython, but we use a
 # different value for the highest 16 bits. Bump pypy_incremental_magic every
-# time you make pyc files incompatible
+# time you make pyc files incompatible.  This value ends up in the frozen
+# importlib, via MAGIC_NUMBER in module/_frozen_importlib/__init__.
 
 pypy_incremental_magic = 80 # bump it by 16
 assert pypy_incremental_magic % 16 == 0

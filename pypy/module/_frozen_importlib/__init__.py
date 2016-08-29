@@ -28,10 +28,15 @@ class Module(MixedModule):
 
     def install(self):
         """NOT_RPYTHON"""
+        from pypy.module.imp import interp_imp
+
         super(Module, self).install()
         space = self.space
         # "import importlib/_boostrap_external.py"
         w_mod = Module(space, space.wrap("_frozen_importlib_external"))
+        # hack: inject MAGIC_NUMBER into this module's dict
+        space.setattr(w_mod, space.wrap('MAGIC_NUMBER'),
+                      interp_imp.get_magic(space))
         self._compile_bootstrap_module(
             space, '_bootstrap_external', w_mod.w_name, w_mod.w_dict)
         space.sys.setmodule(w_mod)

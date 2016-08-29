@@ -24,7 +24,11 @@ SO = '.pyd' if _WIN32 else '.so'
 PREFIX = 'pypy3-'
 DEFAULT_SOABI = '%s%d%d' % ((PREFIX,) + PYPY_VERSION[:2])
 
-PYC_TAG = '%s%d%d' % ((PREFIX,) + PYPY_VERSION[:2])
+PYC_TAG = '%s%d%d' % ((PREFIX,) + PYPY_VERSION[:2])   # 'pypy3-XY'
+
+# see also pypy_incremental_magic in interpreter/pycode.py for the magic
+# version number stored inside pyc files.
+
 
 @specialize.memo()
 def get_so_extension(space):
