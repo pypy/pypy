@@ -1,5 +1,5 @@
 from rpython.rlib.rarithmetic import LONG_BIT, r_longlong, r_uint
-from rpython.rlib.rstring import StringBuilder
+from rpython.rlib.rstring import StringBuilder, assert_str0
 from rpython.rlib.rstruct import ieee
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib import objectmodel
@@ -418,6 +418,7 @@ def unmarshal_pycode(space, u, tc):
     name        = _encode_utf8(space, space.unicode_w(u.get_w_obj()))
     firstlineno = u.get_int()
     lnotab      = space.bytes_w(u.get_w_obj())
+    filename = assert_str0(filename)
     PyCode.__init__(w_codeobj,
                   space, argcount, kwonlyargcount, nlocals, stacksize, flags,
                   code, consts_w[:], names, varnames, filename,
