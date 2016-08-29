@@ -432,7 +432,7 @@ class FunctionDef(stmt):
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
         decorator_list_w = space.unpackiterable(w_decorator_list)
         _decorator_list = [expr.from_object(space, w_item) for w_item in decorator_list_w]
-        _returns = expr.from_object(space, w_returns) if w_returns is not None else None
+        _returns = expr.from_object(space, w_returns)
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return FunctionDef(_name, _args, _body, _decorator_list, _returns, _lineno, _col_offset)
@@ -508,7 +508,7 @@ class AsyncFunctionDef(stmt):
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
         decorator_list_w = space.unpackiterable(w_decorator_list)
         _decorator_list = [expr.from_object(space, w_item) for w_item in decorator_list_w]
-        _returns = expr.from_object(space, w_returns) if w_returns is not None else None
+        _returns = expr.from_object(space, w_returns)
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return AsyncFunctionDef(_name, _args, _body, _decorator_list, _returns, _lineno, _col_offset)
@@ -630,7 +630,7 @@ class Return(stmt):
         w_value = get_field(space, w_node, 'value', True)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _value = expr.from_object(space, w_value) if w_value is not None else None
+        _value = expr.from_object(space, w_value)
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Return(_value, _lineno, _col_offset)
@@ -1190,8 +1190,8 @@ class Raise(stmt):
         w_cause = get_field(space, w_node, 'cause', True)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _exc = expr.from_object(space, w_exc) if w_exc is not None else None
-        _cause = expr.from_object(space, w_cause) if w_cause is not None else None
+        _exc = expr.from_object(space, w_exc)
+        _cause = expr.from_object(space, w_cause)
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Raise(_exc, _cause, _lineno, _col_offset)
@@ -1314,7 +1314,7 @@ class Assert(stmt):
         _test = expr.from_object(space, w_test)
         if _test is None:
             raise_required_value(space, w_node, 'test')
-        _msg = expr.from_object(space, w_msg) if w_msg is not None else None
+        _msg = expr.from_object(space, w_msg)
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Assert(_test, _msg, _lineno, _col_offset)
@@ -2312,7 +2312,7 @@ class Yield(expr):
         w_value = get_field(space, w_node, 'value', True)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _value = expr.from_object(space, w_value) if w_value is not None else None
+        _value = expr.from_object(space, w_value)
         _lineno = space.int_w(w_lineno)
         _col_offset = space.int_w(w_col_offset)
         return Yield(_value, _lineno, _col_offset)
@@ -3101,9 +3101,9 @@ class Slice(slice):
         w_lower = get_field(space, w_node, 'lower', True)
         w_upper = get_field(space, w_node, 'upper', True)
         w_step = get_field(space, w_node, 'step', True)
-        _lower = expr.from_object(space, w_lower) if w_lower is not None else None
-        _upper = expr.from_object(space, w_upper) if w_upper is not None else None
-        _step = expr.from_object(space, w_step) if w_step is not None else None
+        _lower = expr.from_object(space, w_lower)
+        _upper = expr.from_object(space, w_upper)
+        _step = expr.from_object(space, w_step)
         return Slice(_lower, _upper, _step)
 
 State.ast_type('Slice', 'slice', ['lower', 'upper', 'step'])
@@ -3583,7 +3583,7 @@ class ExceptHandler(excepthandler):
         w_body = get_field(space, w_node, 'body', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _type = expr.from_object(space, w_type) if w_type is not None else None
+        _type = expr.from_object(space, w_type)
         _name = space.str_or_None_w(w_name)
         body_w = space.unpackiterable(w_body)
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
@@ -3664,12 +3664,12 @@ class arguments(AST):
         w_defaults = get_field(space, w_node, 'defaults', False)
         args_w = space.unpackiterable(w_args)
         _args = [arg.from_object(space, w_item) for w_item in args_w]
-        _vararg = arg.from_object(space, w_vararg) if w_vararg is not None else None
+        _vararg = arg.from_object(space, w_vararg) if not space.is_w(w_vararg, space.w_None) else None
         kwonlyargs_w = space.unpackiterable(w_kwonlyargs)
         _kwonlyargs = [arg.from_object(space, w_item) for w_item in kwonlyargs_w]
         kw_defaults_w = space.unpackiterable(w_kw_defaults)
         _kw_defaults = [expr.from_object(space, w_item) for w_item in kw_defaults_w]
-        _kwarg = arg.from_object(space, w_kwarg) if w_kwarg is not None else None
+        _kwarg = arg.from_object(space, w_kwarg) if not space.is_w(w_kwarg, space.w_None) else None
         defaults_w = space.unpackiterable(w_defaults)
         _defaults = [expr.from_object(space, w_item) for w_item in defaults_w]
         return arguments(_args, _vararg, _kwonlyargs, _kw_defaults, _kwarg, _defaults)
@@ -3705,7 +3705,7 @@ class arg(AST):
         _arg = space.identifier_w(w_arg)
         if _arg is None:
             raise_required_value(space, w_node, 'arg')
-        _annotation = expr.from_object(space, w_annotation) if w_annotation is not None else None
+        _annotation = expr.from_object(space, w_annotation)
         return arg(_arg, _annotation)
 
 State.ast_type('arg', 'AST', ['arg', 'annotation'])
@@ -3805,7 +3805,7 @@ class withitem(AST):
         _context_expr = expr.from_object(space, w_context_expr)
         if _context_expr is None:
             raise_required_value(space, w_node, 'context_expr')
-        _optional_vars = expr.from_object(space, w_optional_vars) if w_optional_vars is not None else None
+        _optional_vars = expr.from_object(space, w_optional_vars)
         return withitem(_context_expr, _optional_vars)
 
 State.ast_type('withitem', 'AST', ['context_expr', 'optional_vars'])
