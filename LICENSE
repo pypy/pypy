@@ -74,6 +74,7 @@ copyrighted by one or more of the following people and organizations:
   Seo Sanghyeon
   Ronny Pfannschmidt
   Justin Peel
+  Raffael Tfirst
   David Edelsohn
   Anders Hammarquist
   Jakub Gustak
@@ -117,7 +118,6 @@ copyrighted by one or more of the following people and organizations:
   Wenzhu Man
   John Witulski
   Laurence Tratt
-  Raffael Tfirst
   Ivan Sichmann Freitas
   Greg Price
   Dario Bertini
@@ -141,6 +141,7 @@ copyrighted by one or more of the following people and organizations:
   tav
   Taavi Burns
   Georg Brandl
+  Nicolas Truessel
   Bert Freudenberg
   Stian Andreassen
   Wanja Saatkamp
@@ -211,6 +212,7 @@ copyrighted by one or more of the following people and organizations:
   Vaibhav Sood
   Alan McIntyre
   Alexander Sedov
+  p_zieschang@yahoo.de
   Attila Gobi
   Jasper.Schulz
   Christopher Pope
@@ -221,6 +223,7 @@ copyrighted by one or more of the following people and organizations:
   Arjun Naik
   Valentina Mukhamedzhanova
   Stefano Parmesan
+  touilleMan
   Alexis Daboville
   Jens-Uwe Mager
   Carl Meyer
@@ -229,12 +232,14 @@ copyrighted by one or more of the following people and organizations:
   Gabriel
   Lukas Vacek
   Kunal Grover
+  Aaron Gallagher
   Andrew Dalke
   Sylvain Thenault
   Jakub Stasiak
   Nathan Taylor
   Vladimir Kryachko
   Omer Katz
+  Mark Williams
   Jacek Generowicz
   Alejandro J. Cura
   Jacob Oscarson
@@ -355,115 +360,12 @@ copyrighted by one or more of the following people and organizations:
   yasirs
   Michael Chermside
   Anna Ravencroft
+  pizi
   Andrey Churin
   Dan Crosta
+  Eli Stevens
   Tobias Diaz
   Julien Phalip
   Roman Podoliaka
   Dan Loewenherz
-
-  Heinrich-Heine University, Germany 
-  Open End AB (formerly AB Strakt), Sweden
-  merlinux GmbH, Germany 
-  tismerysoft GmbH, Germany 
-  Logilab Paris, France 
-  DFKI GmbH, Germany 
-  Impara, Germany
-  Change Maker, Sweden 
-  University of California Berkeley, USA
-  Google Inc.
-  King's College London
-
-The PyPy Logo as used by http://speed.pypy.org and others was created
-by Samuel Reis and is distributed on terms of Creative Commons Share Alike
-License.
- 
-License for 'lib-python/2.7'
-============================
-
-Except when otherwise stated (look for LICENSE files or copyright/license
-information at the beginning of each file) the files in the 'lib-python/2.7'
-directory are all copyrighted by the Python Software Foundation and licensed
-under the terms that you can find here: https://docs.python.org/2/license.html
-
-License for 'pypy/module/unicodedata/'
-======================================
-
-The following files are from the website of The Unicode Consortium
-at http://www.unicode.org/.  For the terms of use of these files, see
-http://www.unicode.org/terms_of_use.html .  Or they are derived from
-files from the above website, and the same terms of use apply.
-
-    CompositionExclusions-*.txt
-    EastAsianWidth-*.txt
-    LineBreak-*.txt
-    UnicodeData-*.txt
-    UnihanNumeric-*.txt
-
-License for 'dotviewer/font/'
-=============================
-
-Copyright (C) 2008 The Android Open Source Project
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-  
-     http://www.apache.org/licenses/LICENSE-2.0
-  
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-
-Detailed license information is contained in the NOTICE file in the
-directory.
-
-
-Licenses and Acknowledgements for Incorporated Software
-=======================================================
-
-This section is an incomplete, but growing list of licenses and
-acknowledgements for third-party software incorporated in the PyPy
-distribution.
-
-License for 'Tcl/Tk'
---------------------
-
-This copy of PyPy contains library code that may, when used, result in
-the Tcl/Tk library to be loaded.  PyPy also includes code that may be
-regarded as being a copy of some parts of the Tcl/Tk header files.
-You may see a copy of the License for Tcl/Tk in the file
-`lib_pypy/_tkinter/license.terms` included here.
-
-License for 'bzip2'
--------------------
-
-This copy of PyPy may be linked (dynamically or statically) with the
-bzip2 library.  You may see a copy of the License for bzip2/libbzip2 at
-
-    http://www.bzip.org/1.0.5/bzip2-manual-1.0.5.html
-
-License for 'openssl'
----------------------
-
-This copy of PyPy may be linked (dynamically or statically) with the
-openssl library.  You may see a copy of the License for OpenSSL at
-
-    https://www.openssl.org/source/license.html
-
-License for 'gdbm'
-------------------
-
-The gdbm module includes code from gdbm.h, which is distributed under
-the terms of the GPL license version 2 or any later version.  Thus the
-gdbm module, provided in the file lib_pypy/gdbm.py, is redistributed
-under the terms of the GPL license as well.
-
-License for 'rpython/rlib/rvmprof/src'
---------------------------------------
-
-The code is based on gperftools. You may see a copy of the License for it at
-
-    https://github.com/gperftools/gperftools/blob/master/COPYING
+  werat
