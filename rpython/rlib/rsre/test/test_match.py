@@ -293,3 +293,9 @@ class TestMatch:
         r = get_code(r"a((bp)*)c")
         match = rsre_core.fullmatch(r, "abpbpbpc")
         assert match.group(1) == "bpbpbp"
+
+    def test_fullmatch_assertion(self):
+        r = get_code(r"(?=a).b")
+        assert rsre_core.fullmatch(r, "ab")
+        r = get_code(r"(?!a)..")
+        assert not rsre_core.fullmatch(r, "ab")
