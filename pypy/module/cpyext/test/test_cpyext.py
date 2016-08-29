@@ -145,6 +145,24 @@ def freeze_refcnts(self):
     #state.print_refcounts()
     self.frozen_ll2callocations = set(ll2ctypes.ALLOCATED.values())
 
+class FakeSpace(object):
+    """Like TinyObjSpace, but different"""
+    def __init__(self, config):
+        from distutils.sysconfig import get_python_inc
+        self.config = config
+        self.include_dir = get_python_inc()
+
+    def passthrough(self, arg):
+        return arg
+    listview = passthrough
+    str_w = passthrough
+
+    def unwrap(self, args):
+        try:
+            return args.str_w(None)
+        except:
+            return args
+
 class LeakCheckingTest(object):
     """Base class for all cpyext tests."""
     spaceconfig = dict(usemodules=['cpyext', 'thread', '_rawffi', 'array',
@@ -433,21 +451,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         self.imported_module_names = []
 
         if self.runappdirect:
+            fake = FakeSpace(self.space.config)
             def interp2app(func):
-                from distutils.sysconfig import get_python_inc
-                class FakeSpace(object):
-                    def passthrough(self, arg):
-                        return arg
-                    listview = passthrough
-                    str_w = passthrough
-                    def unwrap(self, args):
-                        try:
-                            return args.str_w(None)
-                        except:
-                            return args
-                fake = FakeSpace()
-                fake.include_dir = get_python_inc()
-                fake.config = self.space.config
                 def run(*args, **kwargs):
                     for k in kwargs.keys():
                         if k not in func.unwrap_spec and not k.startswith('w_'):
