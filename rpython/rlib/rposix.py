@@ -1159,23 +1159,18 @@ def pipe(flags=0):
     # 'flags' might be ignored.  Check the result.
     if _WIN32:
         # 'flags' ignored
-        pread  = lltype.malloc(rwin32.LPHANDLE.TO, 1, flavor='raw')
-        pwrite = lltype.malloc(rwin32.LPHANDLE.TO, 1, flavor='raw')
-        try:
-            ok = CreatePipe(
-                    pread, pwrite, lltype.nullptr(rffi.VOIDP.TO), 0)
-            hread = rffi.cast(rffi.INTPTR_T, pread[0])
-            hwrite = rffi.cast(rffi.INTPTR_T, pwrite[0])
-        finally:
-            lltype.free(pwrite, flavor='raw')
-            lltype.free(pread, flavor='raw')
-        if ok:
-            fdread = c_open_osfhandle(hread, 0)
-            fdwrite = c_open_osfhandle(hwrite, 1)
-            if not (fdread == -1 or fdwrite == -1):
-                return (fdread, fdwrite)
-            rwin32.CloseHandle(pread)
-            rwin32.CloseHandle(pwrite)
+        ralloc = lltype.scoped_alloc(rwin32.LPHANDLE.TO, 1)
+        walloc = lltype.scoped_alloc(rwin32.LPHANDLE.TO, 1)
+        with ralloc as pread, walloc as pwrite:
+            if CreatePipe(pread, pwrite, lltype.nullptr(rffi.VOIDP.TO), 0):
+                fdread = c_open_osfhandle(
+                    rffi.cast(rffi.INTPTR_T, pread[0]), 0)
+                fdwrite = c_open_osfhandle(
+                    rffi.cast(rffi.INTPTR_T, pwrite[0]), 1)
+                if not (fdread == -1 or fdwrite == -1):
+                    return (fdread, fdwrite)
+                rwin32.CloseHandle(pread)
+                rwin32.CloseHandle(pwrite)
         raise WindowsError(rwin32.GetLastError_saved(), "CreatePipe failed")
     else:
         filedes = lltype.malloc(INT_ARRAY_P.TO, 2, flavor='raw')

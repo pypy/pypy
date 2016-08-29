@@ -526,9 +526,16 @@ def sre_match(ctx, ppos, ptr, marks):
         if op == OPCODE_FAILURE:
             return
 
-        if (op == OPCODE_SUCCESS or
-            op == OPCODE_MAX_UNTIL or
-            op == OPCODE_MIN_UNTIL):
+        elif op == OPCODE_SUCCESS:
+            if ctx.flags & rsre_char.SRE_FLAG_FULLMATCH:
+                if ptr != ctx.end:
+                    return     # not a full match
+            ctx.match_end = ptr
+            ctx.match_marks = marks
+            return MATCHED_OK
+
+        elif (op == OPCODE_MAX_UNTIL or
+              op == OPCODE_MIN_UNTIL):
             ctx.match_end = ptr
             ctx.match_marks = marks
             return MATCHED_OK
@@ -1006,6 +1013,10 @@ def match(pattern, string, start=0, end=sys.maxint, flags=0):
         return ctx
     else:
         return None
+
+def fullmatch(pattern, string, start=0, end=sys.maxint, flags=0):
+    return match(pattern, string, start, end,
+                 flags | rsre_char.SRE_FLAG_FULLMATCH)
 
 def search(pattern, string, start=0, end=sys.maxint, flags=0):
     start, end = _adjust(start, end, len(string))
