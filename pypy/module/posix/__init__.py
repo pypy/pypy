@@ -19,6 +19,7 @@ corresponding Unix manual entries for more information on calls."""
         'statvfs_result': 'app_posix.statvfs_result',
         'uname_result': 'app_posix.uname_result',
         'urandom': 'app_posix.urandom',
+        'terminal_size': 'app_posix.terminal_size',
     }
     if os.name == 'nt':
         del appleveldefs['urandom'] # at interp on win32
@@ -74,8 +75,11 @@ corresponding Unix manual entries for more information on calls."""
         'abort': 'interp_posix.abort',
         'urandom': 'interp_posix.urandom',
         'device_encoding': 'interp_posix.device_encoding',
+        'get_terminal_size': 'interp_posix.get_terminal_size',
 
         'scandir': 'interp_scandir.scandir',
+        'get_inheritable': 'interp_posix.get_inheritable',
+        'set_inheritable': 'interp_posix.set_inheritable',
     }
 
     if hasattr(os, 'chown'):
@@ -192,6 +196,9 @@ corresponding Unix manual entries for more information on calls."""
     # Fill with e.g. HAVE_FCHDIR, when os.chdir() supports file descriptors.
     interpleveldefs['_have_functions'] = (
         'space.newlist([space.wrap(x) for x in interp_posix.have_functions])')
+
+    if rposix.HAVE_PIPE2:
+        interpleveldefs['pipe2'] = 'interp_posix.pipe2'
 
     def startup(self, space):
         from pypy.module.posix import interp_posix

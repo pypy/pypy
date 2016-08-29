@@ -209,3 +209,10 @@ class AppTestEpoll(object):
         ep = select.epoll()
         ep.close()
         ep.close()
+
+    def test_non_inheritable(self):
+        import select, posix
+
+        ep = select.epoll()
+        assert posix.get_inheritable(ep.fileno()) == False
+        ep.close()

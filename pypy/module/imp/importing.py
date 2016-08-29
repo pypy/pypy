@@ -24,7 +24,11 @@ SO = '.pyd' if _WIN32 else '.so'
 PREFIX = 'pypy3-'
 DEFAULT_SOABI = '%s%d%d' % ((PREFIX,) + PYPY_VERSION[:2])
 
-PYC_TAG = '%s%d%d' % ((PREFIX,) + PYPY_VERSION[:2])
+PYC_TAG = '%s%d%d' % ((PREFIX,) + PYPY_VERSION[:2])   # 'pypy3-XY'
+
+# see also pypy_incremental_magic in interpreter/pycode.py for the magic
+# version number stored inside pyc files.
+
 
 @specialize.memo()
 def get_so_extension(space):
@@ -228,7 +232,7 @@ def getimportlock(space):
 #     CPython + 7 = default_magic  -- used by PyPy (incompatible!)
 #
 from pypy.interpreter.pycode import default_magic
-MARSHAL_VERSION_FOR_PYC = 2
+MARSHAL_VERSION_FOR_PYC = 4
 
 def get_pyc_magic(space):
     return default_magic

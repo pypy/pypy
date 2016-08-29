@@ -19,7 +19,8 @@ class Module(MixedModule):
         with open(os.path.join(lib_python, 'importlib', name + '.py')) as fp:
             source = fp.read()
         pathname = "<frozen importlib.%s>" % name
-        code_w = Module._cached_compile(space, source, pathname, 'exec', 0)
+        code_w = Module._cached_compile(space, name, source,
+                                        pathname, 'exec', 0)
         space.setitem(w_dict, space.wrap('__name__'), w_name)
         space.setitem(w_dict, space.wrap('__builtins__'),
                       space.wrap(space.builtin))
@@ -27,10 +28,15 @@ class Module(MixedModule):
 
     def install(self):
         """NOT_RPYTHON"""
+        from pypy.module.imp import interp_imp
+
         super(Module, self).install()
         space = self.space
         # "import importlib/_boostrap_external.py"
         w_mod = Module(space, space.wrap("_frozen_importlib_external"))
+        # hack: inject MAGIC_NUMBER into this module's dict
+        space.setattr(w_mod, space.wrap('MAGIC_NUMBER'),
+                      interp_imp.get_magic(space))
         self._compile_bootstrap_module(
             space, '_bootstrap_external', w_mod.w_name, w_mod.w_dict)
         space.sys.setmodule(w_mod)
@@ -43,11 +49,13 @@ class Module(MixedModule):
         self.w_import = space.wrap(interp_import.import_with_frames_removed)
 
     @staticmethod
-    def _cached_compile(space, source, *args):
+    def _cached_compile(space, name, source, *args):
         from rpython.config.translationoption import CACHE_DIR
         from pypy.module.marshal import interp_marshal
+        from pypy.interpreter.pycode import default_magic
 
-        cachename = os.path.join(CACHE_DIR, 'frozen_importlib_bootstrap')
+        cachename = os.path.join(CACHE_DIR, 'frozen_importlib_%d%s' % (
+            default_magic, name))
         try:
             if space.config.translating:
                 raise IOError("don't use the cache when translating pypy")

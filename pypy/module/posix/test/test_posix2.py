@@ -106,6 +106,7 @@ class AppTestPosix:
         posix = self.posix
         fd = posix.open(path, posix.O_RDONLY, 0o777)
         fd2 = posix.dup(fd)
+        assert posix.get_inheritable(fd2) == False
         assert not posix.isatty(fd2)
         s = posix.read(fd, 1)
         assert s == b't'
@@ -398,6 +399,16 @@ class AppTestPosix:
             os.write(slave_fd, b'x\n')
             data = os.read(master_fd, 100)
             assert data.startswith(b'x')
+            os.close(master_fd)
+            os.close(slave_fd)
+
+        def test_openpty_non_inheritable(self):
+            os = self.posix
+            master_fd, slave_fd = os.openpty()
+            assert os.get_inheritable(master_fd) == False
+            assert os.get_inheritable(slave_fd) == False
+            os.close(master_fd)
+            os.close(slave_fd)
 
     if hasattr(__import__(os.name), "forkpty"):
         def test_forkpty(self):
@@ -1076,6 +1087,52 @@ class AppTestPosix:
         f.flush()
         x = f.read(1)
         assert x == 'e'
+
+    def test_pipe_inheritable(self):
+        fd1, fd2 = self.posix.pipe()
+        assert self.posix.get_inheritable(fd1) == False
+        assert self.posix.get_inheritable(fd2) == False
+        self.posix.close(fd1)
+        self.posix.close(fd2)
+
+    def test_pipe2(self):
+        if not hasattr(self.posix, 'pipe2'):
+            skip("no pipe2")
+        fd1, fd2 = self.posix.pipe2(0)
+        assert self.posix.get_inheritable(fd1) == True
+        assert self.posix.get_inheritable(fd2) == True
+        self.posix.close(fd1)
+        self.posix.close(fd2)
+
+    def test_O_CLOEXEC(self):
+        if not hasattr(self.posix, 'pipe2'):
+            skip("no pipe2")
+        if not hasattr(self.posix, 'O_CLOEXEC'):
+            skip("no O_CLOEXEC")
+        fd1, fd2 = self.posix.pipe2(self.posix.O_CLOEXEC)
+        assert self.posix.get_inheritable(fd1) == False
+        assert self.posix.get_inheritable(fd2) == False
+        self.posix.close(fd1)
+        self.posix.close(fd2)
+
+    def test_dup2_inheritable(self):
+        fd1, fd2 = self.posix.pipe()
+        assert self.posix.get_inheritable(fd2) == False
+        self.posix.dup2(fd1, fd2)
+        assert self.posix.get_inheritable(fd2) == True
+        self.posix.dup2(fd1, fd2, False)
+        assert self.posix.get_inheritable(fd2) == False
+        self.posix.dup2(fd1, fd2, True)
+        assert self.posix.get_inheritable(fd2) == True
+        self.posix.close(fd1)
+        self.posix.close(fd2)
+
+    def test_open_inheritable(self):
+        os = self.posix
+        fd = os.open(self.path2 + 'test_open_inheritable',
+                     os.O_RDWR | os.O_CREAT, 0o666)
+        assert os.get_inheritable(fd) == False
+        os.close(fd)
 
     def test_urandom(self):
         os = self.posix

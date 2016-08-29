@@ -142,21 +142,11 @@ def getnameinfo(space, w_sockaddr, flags):
 
 @unwrap_spec(fd=int)
 def dup(space, fd):
-    newfd = rsocket.dup(fd)
-    return space.wrap(newfd)
-
-@unwrap_spec(fd=int, family=int, type=int, proto=int)
-def fromfd(space, fd, family, type, proto=0):
-    """fromfd(fd, family, type[, proto]) -> socket object
-
-    Create a socket object from the given file descriptor.
-    The remaining arguments are the same as for socket().
-    """
     try:
-        sock = rsocket.fromfd(fd, family, type, proto)
+        newfd = rsocket.dup(fd, inheritable=False)
     except SocketError as e:
         raise converted_error(space, e)
-    return space.wrap(W_Socket(space, sock))
+    return space.wrap(newfd)
 
 @unwrap_spec(family=int, type=int, proto=int)
 def socketpair(space, family=rsocket.socketpair_default_family,
@@ -170,7 +160,8 @@ def socketpair(space, family=rsocket.socketpair_default_family,
     AF_UNIX if defined on the platform; otherwise, the default is AF_INET.
     """
     try:
-        sock1, sock2 = rsocket.socketpair(family, type, proto)
+        sock1, sock2 = rsocket.socketpair(family, type, proto,
+                                          inheritable=False)
     except SocketError as e:
         raise converted_error(space, e)
     return space.newtuple([

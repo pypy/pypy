@@ -554,6 +554,9 @@ class Window(object):
     def putwin(self, filep):
         # filestar = ffi.new("FILE *", filep)
         return _check_ERR(lib.putwin(self._win, filep), "putwin")
+        # XXX CPython 3.5 says: We have to simulate this by writing to
+        # a temporary FILE*, then reading back, then writing to the
+        # argument stream.
 
     def redrawln(self, beg, num):
         return _check_ERR(lib.wredrawln(self._win, beg, num), "redrawln")
@@ -704,6 +707,7 @@ if lib._m_NCURSES_MOUSE_VERSION:
 
 
 def getwin(filep):
+    # XXX CPython 3.5: there's logic to use a temp file instead
     return Window(_check_NULL(lib.getwin(filep)))
 
 

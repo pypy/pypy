@@ -186,6 +186,8 @@ class AppTestMarshal:
             assert str(exc.value) == 'unmarshallable object'
             exc = raises(ValueError, marshal.dumps, subtype())
             assert str(exc.value) == 'unmarshallable object'
+            exc = raises(ValueError, marshal.dumps, (subtype(),))
+            assert str(exc.value) == 'unmarshallable object'
 
     def test_valid_subtypes(self):
         import marshal
@@ -197,7 +199,7 @@ class AppTestMarshal:
     def test_bad_typecode(self):
         import marshal
         exc = raises(ValueError, marshal.loads, bytes([1]))
-        assert str(exc.value) == "bad marshal data (unknown type code)"
+        assert str(exc.value).startswith("bad marshal data (unknown type code")
 
     def test_bad_data(self):
         # If you have sufficiently little memory, the line at the end of the

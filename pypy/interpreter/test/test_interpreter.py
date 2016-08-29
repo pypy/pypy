@@ -214,6 +214,15 @@ class TestInterpreter:
         assert self.codetest(code, 'g', [12, {}]) ==    ()
         assert self.codetest(code, 'g', [12, {3:1}]) == (3,)
 
+    def test_star_arg_after_keyword_arg(self):
+        code = '''
+            def f(a, b):
+                return a - b
+            def g(a, b):
+                return f(b=b, *(a,))
+        '''
+        assert self.codetest(code, 'g', [40, 2]) == 38
+
     def test_closure(self):
         code = '''
             def f(x, y):

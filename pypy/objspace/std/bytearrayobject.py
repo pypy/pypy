@@ -1,5 +1,6 @@
 """The builtin bytearray implementation"""
 
+import sys
 from rpython.rlib.objectmodel import (
     import_from_mixin, newlist_hint, resizelist_hint, specialize)
 from rpython.rlib.buffer import Buffer

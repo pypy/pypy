@@ -222,7 +222,8 @@ class W_MemoryView(W_Root):
             return self._getitem_tuple_indexed(space, w_index)
 
         start, stop, step, size = space.decode_index4(w_index, self.getlength())
-        itemsize = self.itemsize
+        # ^^^ for a non-slice index, this returns (index, 0, 0, 1)
+	itemsize = self.getitemsize()
         if itemsize > 1:
             start *= itemsize
             size *= itemsize
@@ -230,23 +231,26 @@ class W_MemoryView(W_Root):
             # XXX why? returns a memory view on int index if step == 0:
             #    step = 1
 
-            # start & stop are now byte offset, thus use self.buf.getlength()
             if stop > self.buf.getlength():
                 raise oefmt(space.w_IndexError, 'index out of range')
-        if step not in (0, 1):
-            raise oefmt(space.w_NotImplementedError, "")
         if step == 0:  # index only
-            # TODO: this probably isn't very fast
-            buf = SubBuffer(self.buf, start, self.itemsize)
-            fmtiter = UnpackFormatIterator(space, buf)
-            fmtiter.interpret(self.getformat())
-            return fmtiter.result_w[0]
+            if itemsize == 1:
+                ch = self.buf.getitem(start)
+                return space.newint(ord(ch))
+            else:
+                # TODO: this probably isn't very fast
+                buf = SubBuffer(self.buf, start * itemsize, itemsize)
+                fmtiter = UnpackFormatIterator(space, buf)
+                fmtiter.interpret(self.format)
+                return fmtiter.result_w[0]
         elif step == 1:
             buf = SubBuffer(self.buf, start, size)
             return W_MemoryView(buf, self.getformat(), self.itemsize)
         else:
-            buf = SubBuffer(self.buf, start, size)
-            return W_MemoryView(buf)
+            # XXX needs to return a W_MemoryView with a NonContiguousSubBuffer
+            # maybe?  Need to check the cpyext requirements for that
+            raise oefmt(space.w_NotImplementedError,
+                        "XXX extended slicing")
 
     def descr_setitem(self, space, w_index, w_obj):
         self._check_released(space)
@@ -255,7 +259,7 @@ class W_MemoryView(W_Root):
         if space.isinstance_w(w_index, space.w_tuple):
             raise oefmt(space.w_NotImplementedError, "")
         start, stop, step, size = space.decode_index4(w_index, self.getlength())
-        itemsize = self.itemsize
+        itemsize = self.getitemsize()
         if itemsize > 1:
             start *= itemsize
             size *= itemsize
@@ -266,18 +270,20 @@ class W_MemoryView(W_Root):
             # start & stop are now byte offset, thus use self.bug.getlength()
             if stop > self.buf.getlength():
                 raise oefmt(space.w_IndexError, 'index out of range')
-        if step not in (0, 1):
-            raise oefmt(space.w_NotImplementedError, "")
         if step == 0:  # index only
-            # TODO: this probably isn't very fast
-            fmtiter = PackFormatIterator(space, [w_obj], self.itemsize)
-            try:
-                fmtiter.interpret(self.getformat())
-            except StructError as e:
-                raise oefmt(space.w_TypeError,
-                            "memoryview: invalid type for format '%s'",
-                            self.getformat())
-            self.buf.setslice(start, fmtiter.result.build())
+            if itemsize == 1:
+                ch = getbytevalue(space, w_obj)
+                self.buf.setitem(start, ch)
+            else:
+                # TODO: this probably isn't very fast
+                fmtiter = PackFormatIterator(space, [w_obj], itemsize)
+                try:
+                    fmtiter.interpret(self.format)
+                except StructError as e:
+                    raise oefmt(space.w_TypeError,
+                                "memoryview: invalid type for format '%s'",
+                                self.format)
+                self.buf.setslice(start, fmtiter.result.build())
         elif step == 1:
             value = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
             if value.getlength() != size * self.itemsize:
@@ -285,7 +291,8 @@ class W_MemoryView(W_Root):
                             "cannot modify size of memoryview object")
             self.buf.setslice(start, value.as_str())
         else:
-            raise oefmt(space.w_NotImplementedError, "")
+            raise oefmt(space.w_NotImplementedError,
+                        "XXX extended slicing")
 
     def descr_len(self, space):
         self._check_released(space)
@@ -309,11 +316,11 @@ class W_MemoryView(W_Root):
 
     def w_get_shape(self, space):
         self._check_released(space)
-        return space.newtuple([space.wrap(x) for x in self.buf.getshape()])
+        return space.newtuple([space.wrap(x) for x in self.getshape()])
 
     def w_get_strides(self, space):
         self._check_released(space)
-        return space.newtuple([space.wrap(x) for x in self.buf.getstrides()])
+        return space.newtuple([space.wrap(x) for x in self.getstrides()])
 
     def w_get_suboffsets(self, space):
         self._check_released(space)
@@ -361,7 +368,7 @@ class W_MemoryView(W_Root):
                    "is internally %r" % (self.buf,))
             raise OperationError(space.w_ValueError, space.wrap(msg))
         return space.wrap(rffi.cast(lltype.Signed, ptr))
-    
+
     def get_native_fmtchar(self, fmt):
         from rpython.rtyper.lltypesystem import rffi
         size = -1
@@ -401,6 +408,7 @@ class W_MemoryView(W_Root):
         return False
 
     def descr_cast(self, space, w_format, w_shape=None):
+        # XXX fixme. does not do anything near cpython (see memoryobjet.c memory_cast)
         self._check_released(space)
 
         if not space.isinstance_w(w_format, space.w_unicode):

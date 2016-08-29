@@ -160,7 +160,17 @@ class ASTNodeVisitor(ASDLVisitor):
         else:
             extractor = "%s.from_object(space, %s)" % (field.type, value)
             if field.opt:
-                extractor += " if %s is not None else None" % (value,)
+                if field.type == 'expr':
+                    # the expr.from_object() method should accept w_None and
+                    # return None; nothing more to do here
+                    pass
+                elif field.type == 'arg':
+                    # the method arg.from_object() doesn't accept w_None
+                    extractor += (
+                        ' if not space.is_w(%s, space.w_None) else None'
+                        % (value,))
+                else:
+                    raise NotImplementedError(field.type)
             return extractor
 
     def get_field_converter(self, field):

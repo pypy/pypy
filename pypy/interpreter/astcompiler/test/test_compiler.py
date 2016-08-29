@@ -16,12 +16,14 @@ def compile_with_astcompiler(expr, mode, space):
     return codegen.compile_ast(space, ast, info)
 
 def generate_function_code(expr, space):
+    from pypy.interpreter.astcompiler.ast import FunctionDef
     p = pyparse.PythonParser(space)
     info = pyparse.CompileInfo("<test>", 'exec')
     cst = p.parse_source(expr, info)
     ast = astbuilder.ast_from_node(space, cst, info)
     function_ast = optimize.optimize_ast(space, ast.body[0], info)
     function_ast = ast.body[0]
+    assert isinstance(function_ast, FunctionDef)
     symbols = symtable.SymtableBuilder(space, ast, info)
     generator = codegen.FunctionCodeGenerator(
         space, 'function', function_ast, 1, symbols, info, qualname='function')
@@ -864,9 +866,10 @@ class TestCompiler:
         with a: pass
         with a: pass
         with a: pass
+        with a: pass
         """
         code = compile_with_astcompiler(source, 'exec', self.space)
-        assert code.co_stacksize == 5
+        assert code.co_stacksize == 6  # i.e. <= 7, there is no systematic leak
 
     def test_stackeffect_bug5(self):
         source = """if 1:
@@ -1345,7 +1348,9 @@ class TestOptimizations:
             assert ops.BINARY_POWER not in counts
 
     def test_call_function_var(self):
-        source = """call(*me)"""
+        source = """def f():
+            call(*me)
+        """
         code, blocks = generate_function_code(source, self.space)
         # there is a stack computation error
         assert blocks[0].instructions[3].arg == 0

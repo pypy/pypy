@@ -228,7 +228,14 @@ _code_type = type(_write_atomic.__code__)
 # longer be understood by older implementations of the eval loop (usually
 # due to the addition of new opcodes).
 
-MAGIC_NUMBER = (3350).to_bytes(2, 'little') + b'\r\n'
+# MAGIC_NUMBER = (3350).to_bytes(2, 'little') + b'\r\n'
+#
+# PyPy change: the MAGIC_NUMBER is defined in
+# pypy/interpreter/pycode.py, 'default_magic'.  It is based on a number
+# different than CPython's, always < 3000.  We get the 4-bytes string
+# here via a hack: MAGIC_NUMBER is set in the module from
+# module/_frozen_importlib/__init__.py before the module is executed.
+
 _RAW_MAGIC_NUMBER = int.from_bytes(MAGIC_NUMBER, 'little')  # For import.c
 
 _PYCACHE = '__pycache__'

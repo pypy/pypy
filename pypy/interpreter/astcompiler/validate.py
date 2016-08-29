@@ -176,6 +176,13 @@ class AstValidator(ast.ASTVisitor):
         if node.returns:
             self._validate_expr(node.returns)
 
+    def visit_AsyncFunctionDef(self, node):
+        self._validate_body(node.body, "AsyncFunctionDef")
+        node.args.walkabout(self)
+        self._validate_exprs(node.decorator_list)
+        if node.returns:
+            self._validate_expr(node.returns)
+
     def visit_keyword(self, node):
         self._validate_expr(node.value)
 
@@ -192,6 +199,9 @@ class AstValidator(ast.ASTVisitor):
     def visit_Return(self, node):
         if node.value:
             self._validate_expr(node.value)
+
+    def visit_Await(self, node):
+        self._validate_expr(node.value)
 
     def visit_Delete(self, node):
         self._validate_nonempty_seq(node.targets, "targets", "Delete")
@@ -210,6 +220,12 @@ class AstValidator(ast.ASTVisitor):
         self._validate_expr(node.target, ast.Store)
         self._validate_expr(node.iter)
         self._validate_body(node.body, "For")
+        self._validate_stmts(node.orelse)
+
+    def visit_AsyncFor(self, node):
+        self._validate_expr(node.target, ast.Store)
+        self._validate_expr(node.iter)
+        self._validate_body(node.body, "AsyncFor")
         self._validate_stmts(node.orelse)
 
     def visit_While(self, node):
@@ -231,6 +247,11 @@ class AstValidator(ast.ASTVisitor):
         self._validate_nonempty_seq(node.items, "items", "With")
         self.visit_sequence(node.items)
         self._validate_body(node.body, "With")
+
+    def visit_AsyncWith(self, node):
+        self._validate_nonempty_seq(node.items, "items", "AsyncWith")
+        self.visit_sequence(node.items)
+        self._validate_body(node.body, "AsyncWith")
 
     def visit_Raise(self, node):
         if node.exc:
