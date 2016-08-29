@@ -157,3 +157,10 @@ class AppTestScandir(object):
     def test_fdopendir_unsupported(self):
         posix = self.posix
         raises(TypeError, posix.scandir, 1234)
+
+    def test_inode(self):
+        posix = self.posix
+        d = next(posix.scandir(self.dir1))
+        assert d.name == 'file1'
+        ino = d.inode()
+        assert ino == d.stat().st_ino

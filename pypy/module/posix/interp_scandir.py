@@ -94,9 +94,10 @@ class W_ScandirIterator(W_Root):
                     break
             #
             known_type = rposix_scandir.get_known_type(entry)
+            inode = rposix_scandir.get_inode(entry)
         finally:
             self._in_next = False
-        direntry = W_DirEntry(self, name, known_type)
+        direntry = W_DirEntry(self, name, known_type, inode)
         return space.wrap(direntry)
 
 
@@ -122,10 +123,11 @@ FLAG_LSTAT = 512
 class W_DirEntry(W_Root):
     w_path = None
 
-    def __init__(self, scandir_iterator, name, known_type):
+    def __init__(self, scandir_iterator, name, known_type, inode):
         self.space = scandir_iterator.space
         self.scandir_iterator = scandir_iterator
         self.name = name     # always bytes on Posix
+        self.inode = inode
         self.flags = known_type
         assert known_type == (known_type & 255)
         #
@@ -281,6 +283,9 @@ class W_DirEntry(W_Root):
         st = self.get_stat_or_lstat(follow_symlinks)
         return build_stat_result(self.space, st)
 
+    def descr_inode(self, space):
+        return space.wrap(self.inode)
+
 
 W_DirEntry.typedef = TypeDef(
     'posix.DirEntry',
@@ -294,5 +299,6 @@ W_DirEntry.typedef = TypeDef(
     is_file = interp2app(W_DirEntry.descr_is_file),
     is_symlink = interp2app(W_DirEntry.descr_is_symlink),
     stat = interp2app(W_DirEntry.descr_stat),
+    inode = interp2app(W_DirEntry.descr_inode),
 )
 W_DirEntry.typedef.acceptable_as_base_class = False
