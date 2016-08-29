@@ -4,12 +4,20 @@ from pypy.interpreter import error
 from pypy.interpreter.pyparser.pygram import syms, tokens
 from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.interpreter.pyparser import parsestring
-from rpython.rlib.objectmodel import always_inline
+from rpython.rlib.objectmodel import always_inline, we_are_translated
 
 
 def ast_from_node(space, node, compile_info):
     """Turn a parse tree, node, to AST."""
-    return ASTBuilder(space, node, compile_info).build_ast()
+    ast = ASTBuilder(space, node, compile_info).build_ast()
+    #
+    # When we are not translated, we send this ast to validate_ast.
+    # The goal is to check that validate_ast doesn't crash on valid
+    # asts, at least.
+    if not we_are_translated():
+        from pypy.interpreter.astcompiler import validate
+        validate.validate_ast(space, ast)
+    return ast
 
 
 augassign_operator_map = {
