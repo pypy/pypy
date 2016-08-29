@@ -199,7 +199,10 @@ class MockBuffer(Buffer):
                 for j, w_obj in enumerate(w_work.getitems_unroll()):
                     worklist.insert(0, (dim+1, w_obj))
                 continue
-            self.data.append(space.int_w(w_work))
+            byte = struct.pack(self.format, space.int_w(w_work))
+            for c in byte:
+                self.data.append(c)
+        self.data = ''.join(self.data)
 
     def getslice(self, start, stop, step, size):
         items = []
@@ -218,10 +221,10 @@ class MockBuffer(Buffer):
         return self.format
 
     def getitem(self, index):
-        return struct.pack(self.format, self.data[index])
+        return self.data[index:index+1]
 
     def getlength(self):
-        return len(self.data) * self.itemsize
+        return len(self.data)
 
     def getitemsize(self):
         return self.itemsize
@@ -329,3 +332,14 @@ class AppTestMemoryViewMockBuffer(object):
         except TypeError:
             pass
 
+    def test_cast_with_shape(self):
+        empty = self.MockArray([1,0,2,0,3,0],
+                    dim=1, fmt='h', size=2,
+                    strides=[8], shape=[6])
+        view = memoryview(empty)
+        byteview = view.cast('b')
+        assert byteview.tolist() == [1,0,0,0,2,0,0,0,3,0,0,0]
+        i32view = byteview.cast('i', shape=[1,3])
+        assert i32view.format == 'i'
+        assert i32view.itemsize == 4
+        assert i32view.tolist() == [[1,2,3]]

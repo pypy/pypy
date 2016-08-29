@@ -26,18 +26,43 @@ class W_MemoryView(W_Root):
     an interp-level buffer.
     """
 
-    def __init__(self, buf, format=None, itemsize=1):
+    def __init__(self, buf, format=None, itemsize=1, ndim=-1,
+                 shape=None, strides=None, suboffsets=None):
         assert isinstance(buf, Buffer)
         self.buf = buf
         self._hash = -1
         self.format = format
         self.itemsize = itemsize
+        self.shape = shape
+        self.strides = strides
+        self.suboffsets = suboffsets
+        self.ndim = ndim
         self.flags = 0
         self._init_flags()
 
+    # several fields are "overwritten" by the memory view (shape, strides, ...)
+    # thus use only those getter fields instead of directly accessing the fields
+    def getndim(self):
+        if self.ndim == -1:
+            return self.buf.getndim()
+        return self.ndim
+
+    def getshape(self):
+        if self.shape is None:
+            return self.buf.getshape()
+        return self.shape
+
+    def getstrides(self):
+        if self.strides is None:
+            return self.buf.getstrides()
+        return self.strides
+
+    def getitemsize(self):
+        return self.itemsize
+
+    # memoryview needs to modify the field 'format', to prevent the modification
+    # of the buffer, we save the new format here!
     def getformat(self):
-        # memoryview needs to modify the field 'format', to prevent the modification
-        # of the buffer, we save the new format here!
         if self.format is None:
             return self.buf.getformat()
         return self.format
@@ -94,18 +119,51 @@ class W_MemoryView(W_Root):
 
     def descr_tolist(self, space):
         self._check_released(space)
+
+        buf = self.buf
+        dim = buf.getndim()
+        fmt = self.getformat()
+        if dim == 0:
+            raise NotImplementedError
+        elif dim == 1:
+            return self._tolist(space, buf, self.getlength(), fmt)
+        else:
+            return self._tolist_rec(space, buf, fmt)
+
+    def _tolist(self, space, buf, count, fmt):
         # TODO: this probably isn't very fast
         fmtiter = UnpackFormatIterator(space, self.buf)
-        fmtiter.interpret(self.format * self.getlength())
+        fmtiter.interpret(fmt * count)
         return space.newlist(fmtiter.result_w)
 
+    def _tolist_rec(self, space, buf, start, dim, fmt):
+        idim = dim-1
+        strides = self.getstrides()
+        stride = strides[idim]
+        itemsize = self.getitemsize()
+        if dim >= buf.getndim():
+            return self._tolist(space, SubBuffer(buf, start, itemsize), stride // itemsize, fmt)
+        shape = self.getshape()
+        dimshape = shape[idim]
+        items = [None] * dimshape
+
+        for i in range(dimshape):
+            item = self._tolist_rec(space, SubBuffer(buf, start, self.itemsize), dim+1, fmt)
+            items[i] = item
+            start += stride
+
+        return space.newlist(items,len(items))
+
+
     def _start_from_tuple(self, space, w_tuple):
+        from pypy.objspace.std.tupleobject import W_TupleObject
         start = 0
 
         view = self.buf
         length = space.len_w(w_tuple)
         dim = view.getndim()
         dim = 0
+        assert isinstance(w_tuple, W_TupleObject)
         while dim < length:
             w_obj = w_tuple.getitem(space, dim)
             index = w_obj.int_w(space)
@@ -166,7 +224,7 @@ class W_MemoryView(W_Root):
             # XXX why? returns a memory view on int index if step == 0:
             #    step = 1
 
-            # start & stop are now byte offset, thus use self.bug.getlength()
+            # start & stop are now byte offset, thus use self.buf.getlength()
             if stop > self.buf.getlength():
                 raise oefmt(space.w_IndexError, 'index out of range')
         if step not in (0, 1):
@@ -208,7 +266,7 @@ class W_MemoryView(W_Root):
             # TODO: this probably isn't very fast
             fmtiter = PackFormatIterator(space, [w_obj], self.itemsize)
             try:
-                fmtiter.interpret(self.format)
+                fmtiter.interpret(self.getformat())
             except StructError as e:
                 raise oefmt(space.w_TypeError,
                             "memoryview: invalid type for format '%s'",
@@ -328,10 +386,10 @@ class W_MemoryView(W_Root):
         return size
 
     def _zero_in_shape(self):
-        # TODO move to buffer
-        view = self.buf
-        shape = view.shape
-        for i in range(view.ndim):
+        # this method could be moved to the class Buffer
+        buf = self.buf
+        shape = buf.getshape()
+        for i in range(buf.getndim()):
             if shape[i] == 0:
                 return True
         return False
@@ -359,14 +417,15 @@ class W_MemoryView(W_Root):
 
         itemsize = self.get_native_fmtchar(fmt)
         if w_shape:
-            if not (space.is_w(w_obj, space.w_list) or space.is_w(w_obj, space.w_tuple)):
-                raise oefmt(space.w_TypeError, "expected list or tuple got %T", w_obj)
-            ndim = space.len_w(w_obj)
-            if ndim > space.BUF_MAX_DIM:
+            if not (space.isinstance_w(w_shape, space.w_list) or space.isinstance_w(w_shape, space.w_tuple)):
+                raise oefmt(space.w_TypeError, "expected list or tuple got %T", w_shape)
+            ndim = space.len_w(w_shape)
+            if ndim > MEMORYVIEW_MAX_DIM:
                 raise oefmt(space.w_ValueError, \
                         "memoryview: number of dimensions must not exceed %d",
                         ndim)
-            if ndim != buf.ndim:
+            # yes access ndim as field
+            if self.ndim > 1 and buf.getndim() != 1:
                 raise OperationError(space.w_TypeError, \
                     space.wrap("memoryview: cast must be 1D -> ND or ND -> 1D"))
 
@@ -374,8 +433,8 @@ class W_MemoryView(W_Root):
         origfmt = mv.getformat()
         mv._cast_to_1D(space, origfmt, fmt, itemsize)
         if w_shape:
-            shape = [space.int_w(w_obj) for w_obj in w_shape.fixedview_unroll()]
-            mv._cast_to_ND(space, shape, dim)
+            shape = [space.int_w(w_obj) for w_obj in w_shape.getitems_unroll()]
+            mv._cast_to_ND(space, shape, ndim)
         return mv
 
     def _init_flags(self):
@@ -426,7 +485,7 @@ class W_MemoryView(W_Root):
         self.itemsize = itemsize
         self.ndim = 1
         self.shape = [buf.getlength() // buf.getitemsize()]
-        self.srides = [buf.getitemsize()]
+        self.strides = [buf.getitemsize()]
         # XX suboffsets
 
         self._init_flags()
@@ -457,7 +516,32 @@ class W_MemoryView(W_Root):
         return None
 
     def _cast_to_ND(self, space, shape, ndim):
-        pass
+        buf = self.buf
+
+        self.ndim = ndim
+        length = self.itemsize
+        if ndim == 0:
+            self.shape = []
+            self.strides = []
+        else:
+            self.shape = shape
+            for i in range(ndim):
+                length *= shape[i]
+            self._init_strides_from_shape()
+
+        if length != self.buf.getlength():
+            raise OperationError(space.w_TypeError,
+                    space.wrap("memoryview: product(shape) * itemsize != buffer size"))
+
+        self._init_flags()
+
+    def _init_strides_from_shape(self):
+        s = [0] * len(self.shape)
+        self.strides = s
+        dim = self.getndim()
+        s[dim-1] = self.itemsize
+        for i in range(0,ndim-2,-1):
+            s[i] = s[i+1] * shape[i+1]
 
     def descr_hex(self, space):
         from pypy.objspace.std.bytearrayobject import _array_to_hexstring
