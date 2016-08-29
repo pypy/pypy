@@ -164,3 +164,8 @@ class AppTestScandir(object):
         assert d.name == 'file1'
         ino = d.inode()
         assert ino == d.stat().st_ino
+
+    def test_repr(self):
+        posix = self.posix
+        d = next(posix.scandir(self.dir1))
+        assert repr(d) == "<DirEntry 'file1'>"

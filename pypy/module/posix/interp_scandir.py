@@ -136,6 +136,10 @@ class W_DirEntry(W_Root):
             w_name = self.space.fsdecode(w_name)
         self.w_name = w_name
 
+    def descr_repr(self, space):
+        u = space.unicode_w(space.repr(self.w_name))
+        return space.wrap(u"<DirEntry %s>" % u)
+
     def fget_name(self, space):
         return self.w_name
 
@@ -289,6 +293,7 @@ class W_DirEntry(W_Root):
 
 W_DirEntry.typedef = TypeDef(
     'posix.DirEntry',
+    __repr__ = interp2app(W_DirEntry.descr_repr),
     name = GetSetProperty(W_DirEntry.fget_name,
                           doc="the entry's base filename, relative to "
                               'scandir() "path" argument'),
