@@ -52,7 +52,6 @@ SRE_INFO_LITERAL = 2
 SRE_INFO_CHARSET = 4
 SRE_FLAG_LOCALE = 4 # honour system locale
 SRE_FLAG_UNICODE = 32 # use unicode locale
-SRE_FLAG_FULLMATCH = 0x4000   # PyPy extension, for CPython >= 3.4
 
 
 def getlower(char_ord, flags):
