@@ -1159,8 +1159,8 @@ def pipe(flags=0):
     # 'flags' might be ignored.  Check the result.
     if _WIN32:
         # 'flags' ignored
-        ralloc = lltype.scoped_alloc(rwin32.LPHANDLE.TO, 1, flavor='raw')
-        walloc = lltype.scoped_alloc(rwin32.LPHANDLE.TO, 1, flavor='raw')
+        ralloc = lltype.scoped_alloc(rwin32.LPHANDLE.TO, 1)
+        walloc = lltype.scoped_alloc(rwin32.LPHANDLE.TO, 1)
         with ralloc as pread, walloc as pwrite:
             if CreatePipe(pread, pwrite, lltype.nullptr(rffi.VOIDP.TO), 0):
                 fdread = c_open_osfhandle(
