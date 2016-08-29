@@ -926,7 +926,6 @@ class BytearrayDocstrings:
         of the specified width.  B is never truncated.
         """
 
-
 W_BytearrayObject.typedef = TypeDef(
     "bytearray",
     __doc__ = BytearrayDocstrings.__doc__,

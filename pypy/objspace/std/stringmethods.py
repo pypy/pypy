@@ -75,7 +75,8 @@ class StringMethods(object):
         return space.wrap(self._len())
 
     def descr_iter(self, space):
-        return space.newseqiter(self)
+        from pypy.objspace.std.iterobject import W_StringIterObject
+        return W_StringIterObject(self, self.__class__._getitem_result)
 
     def descr_contains(self, space, w_sub):
         value = self._val(space)
@@ -133,14 +134,15 @@ class StringMethods(object):
         return self._getitem_result(space, index)
 
     def _getitem_result(self, space, index):
+        # Returns the result of 'self[index]', where index is an unwrapped int.
+        # Used by descr_getitem() and by descr_iter().
         selfvalue = self._val(space)
         try:
             character = selfvalue[index]
         except IndexError:
             raise oefmt(space.w_IndexError, "string index out of range")
         from pypy.objspace.std.bytesobject import W_BytesObject
-        from pypy.objspace.std.bytearrayobject import W_BytearrayObject
-        if isinstance(self, W_BytesObject) or isinstance(self, W_BytearrayObject):
+        if isinstance(self, W_BytesObject):
             return space.wrap(ord(character))
         return self._new(character)
 
