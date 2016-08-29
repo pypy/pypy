@@ -659,6 +659,10 @@ class W_BytesObject(W_AbstractBytesObject):
     def descr_upper(self, space):
         return W_BytesObject(self._value.upper())
 
+    def descr_hex(self, space):
+        from pypy.objspace.std.bytearrayobject import _array_to_hexstring
+        return _array_to_hexstring(space, StringBuffer(self._value))
+
 
 def _create_list_from_bytes(value):
     # need this helper function to allow the jit to look inside and inline
@@ -838,6 +842,7 @@ W_BytesObject.typedef = TypeDef(
 
     fromhex = interp2app(W_BytesObject.descr_fromhex, as_classmethod=True),
     maketrans = interp2app(W_BytesObject.descr_maketrans, as_classmethod=True),
+    hex = interp2app(W_BytesObject.descr_hex),
 )
 W_BytesObject.typedef.flag_sequence_bug_compat = True
 

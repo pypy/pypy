@@ -210,21 +210,6 @@ class MockBuffer(Buffer):
                 self.data.append(c)
         self.data = ''.join(self.data)
 
-    def getslice(self, start, stop, step, size):
-        items = []
-        if size == 0:
-            return ''
-        return ''.join([self.getitem(i) for i in range(start,stop,step)])
-        #bytecount = (stop - start)
-        ## data is stores as list of ints, thus this gets around the
-        ## issue that one cannot advance in bytes
-        #count = bytecount // size
-        #start = start // size
-        #for i in range(start, start+count, step):
-        #    items.append(self.getitem(i))
-        #return ''.join(items)
-
-
     def getformat(self):
         return self.format
 
