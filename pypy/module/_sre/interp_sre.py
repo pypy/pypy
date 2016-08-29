@@ -14,8 +14,7 @@ from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 # Constants and exposed functions
 
 from rpython.rlib.rsre import rsre_core
-from rpython.rlib.rsre.rsre_char import CODESIZE, MAXREPEAT, MAXGROUPS, getlower
-from rpython.rlib.rsre.rsre_char import set_unicode_db, SRE_FLAG_FULLMATCH
+from rpython.rlib.rsre.rsre_char import CODESIZE, MAXREPEAT, MAXGROUPS, getlower, set_unicode_db
 
 
 @unwrap_spec(char_ord=int, flags=int)
@@ -164,7 +163,8 @@ class W_SRE_Pattern(W_Root):
 
     @unwrap_spec(pos=int, endpos=int)
     def fullmatch_w(self, w_string, pos=0, endpos=sys.maxint):
-        ctx = self.make_ctx(w_string, pos, endpos, SRE_FLAG_FULLMATCH)
+        ctx = self.make_ctx(w_string, pos, endpos)
+        ctx.fullmatch_only = True
         return self.getmatch(ctx, matchcontext(self.space, ctx))
 
     @unwrap_spec(pos=int, endpos=int)
