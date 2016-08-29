@@ -272,3 +272,24 @@ class TestMatch:
         r = get_code("\\{\\{((?:.*?)+)\\}\\}")
         match = rsre_core.match(r, "{{a}}{{b}}")
         assert match.group(1) == "a"
+
+    def test_fullmatch_1(self):
+        r = get_code(r"ab*c")
+        assert not rsre_core.fullmatch(r, "abbbcdef")
+        assert rsre_core.fullmatch(r, "abbbc")
+
+    def test_fullmatch_2(self):
+        r = get_code(r"a(b*?)")
+        match = rsre_core.fullmatch(r, "abbb")
+        assert match.group(1) == "bbb"
+        assert not rsre_core.fullmatch(r, "abbbc")
+
+    def test_fullmatch_3(self):
+        r = get_code(r"a((bp)*?)c")
+        match = rsre_core.fullmatch(r, "abpbpbpc")
+        assert match.group(1) == "bpbpbp"
+
+    def test_fullmatch_4(self):
+        r = get_code(r"a((bp)*)c")
+        match = rsre_core.fullmatch(r, "abpbpbpc")
+        assert match.group(1) == "bpbpbp"
