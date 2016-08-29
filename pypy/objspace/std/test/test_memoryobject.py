@@ -208,14 +208,16 @@ class MockBuffer(Buffer):
         items = []
         if size == 0:
             return ''
-        bytecount = (stop - start)
-        # data is stores as list of ints, thus this gets around the
-        # issue that one cannot advance in bytes
-        count = bytecount // size
-        start = start // size
-        for i in range(start, start+count, step):
-            items.append(self.getitem(i))
-        return ''.join(items)
+        return ''.join([self.getitem(i) for i in range(start,stop,step)])
+        #bytecount = (stop - start)
+        ## data is stores as list of ints, thus this gets around the
+        ## issue that one cannot advance in bytes
+        #count = bytecount // size
+        #start = start // size
+        #for i in range(start, start+count, step):
+        #    items.append(self.getitem(i))
+        #return ''.join(items)
+
 
     def getformat(self):
         return self.format
@@ -338,8 +340,10 @@ class AppTestMemoryViewMockBuffer(object):
                     strides=[8], shape=[6])
         view = memoryview(empty)
         byteview = view.cast('b')
-        assert byteview.tolist() == [1,0,0,0,2,0,0,0,3,0,0,0]
+        #assert byteview.tolist() == [1,0,0,0,2,0,0,0,3,0,0,0]
         i32view = byteview.cast('i', shape=[1,3])
         assert i32view.format == 'i'
         assert i32view.itemsize == 4
+        assert i32view.tolist() == [[1,2,3]]
+        i32view = byteview.cast('i', shape=(1,3))
         assert i32view.tolist() == [[1,2,3]]

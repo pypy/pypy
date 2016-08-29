@@ -121,38 +121,44 @@ class W_MemoryView(W_Root):
         self._check_released(space)
 
         buf = self.buf
-        dim = buf.getndim()
+        dim = self.getndim()
         fmt = self.getformat()
         if dim == 0:
             raise NotImplementedError
         elif dim == 1:
-            return self._tolist(space, buf, self.getlength(), fmt)
+            itemsize = self.getitemsize()
+            return self._tolist(space, buf, buf.getlength() // itemsize, fmt)
         else:
-            return self._tolist_rec(space, buf, fmt)
+            return self._tolist_rec(space, buf, 0, 0, fmt)
 
     def _tolist(self, space, buf, count, fmt):
         # TODO: this probably isn't very fast
-        fmtiter = UnpackFormatIterator(space, self.buf)
+        fmtiter = UnpackFormatIterator(space, buf)
         fmtiter.interpret(fmt * count)
         return space.newlist(fmtiter.result_w)
 
-    def _tolist_rec(self, space, buf, start, dim, fmt):
-        idim = dim-1
+    def _tolist_rec(self, space, buf, start, idim, fmt):
         strides = self.getstrides()
+        shape = self.getshape()
+        #
+        dim = idim+1
         stride = strides[idim]
         itemsize = self.getitemsize()
-        if dim >= buf.getndim():
-            return self._tolist(space, SubBuffer(buf, start, itemsize), stride // itemsize, fmt)
-        shape = self.getshape()
         dimshape = shape[idim]
+        #
+        if dim >= self.getndim():
+            bytecount = (stride * dimshape)
+            count = bytecount // itemsize
+            return self._tolist(space, SubBuffer(buf, start, bytecount), count, fmt)
         items = [None] * dimshape
 
         for i in range(dimshape):
-            item = self._tolist_rec(space, SubBuffer(buf, start, self.itemsize), dim+1, fmt)
+            bytecount = stride
+            item = self._tolist_rec(space, SubBuffer(buf, start, bytecount), start, idim+1, fmt)
             items[i] = item
             start += stride
 
-        return space.newlist(items,len(items))
+        return space.newlist(items)
 
 
     def _start_from_tuple(self, space, w_tuple):
@@ -433,7 +439,8 @@ class W_MemoryView(W_Root):
         origfmt = mv.getformat()
         mv._cast_to_1D(space, origfmt, fmt, itemsize)
         if w_shape:
-            shape = [space.int_w(w_obj) for w_obj in w_shape.getitems_unroll()]
+            fview = space.fixedview(w_shape)
+            shape = [space.int_w(w_obj) for w_obj in fview]
             mv._cast_to_ND(space, shape, ndim)
         return mv
 
@@ -536,12 +543,15 @@ class W_MemoryView(W_Root):
         self._init_flags()
 
     def _init_strides_from_shape(self):
-        s = [0] * len(self.shape)
+        shape = self.getshape()
+        s = [0] * len(shape)
         self.strides = s
-        dim = self.getndim()
-        s[dim-1] = self.itemsize
-        for i in range(0,ndim-2,-1):
+        ndim = self.getndim()
+        s[ndim-1] = self.itemsize
+        i = ndim-2
+        while i >= 0:
             s[i] = s[i+1] * shape[i+1]
+            i -= 1
 
     def descr_hex(self, space):
         from pypy.objspace.std.bytearrayobject import _array_to_hexstring
