@@ -838,11 +838,16 @@ class ObjSpace(object):
         return w_s1
 
     def get_interned_str(self, s):
-        """Assumes an identifier (utf-8 encoded str)"""
+        """Assumes an identifier (utf-8 encoded str).  Returns None if
+        the identifier is not interned, or not a valid utf-8 string at all.
+        """
         # interface for marshal_impl
         if not we_are_translated():
             assert type(s) is str
-        u = s.decode('utf-8')
+        try:
+            u = s.decode('utf-8')
+        except UnicodeDecodeError:
+            return None
         return self.interned_strings.get(u)   # may be None
 
     def descr_self_interp_w(self, RequiredClass, w_obj):

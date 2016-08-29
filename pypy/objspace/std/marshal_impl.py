@@ -459,7 +459,8 @@ def unmarshal_unicode(space, u, tc):
 
 @unmarshaller(TYPE_INTERNED)
 def unmarshal_bytes(space, u, tc):
-    return space.new_interned_str(u.get_str())
+    w_u = unmarshal_unicode(space, u, tc)
+    return u.space.new_interned_w_str(w_u)
 
 def _unmarshal_ascii(u, short_length, interned):
     if short_length:
