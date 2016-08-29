@@ -32,6 +32,7 @@ class W_MemoryView(W_Root):
         assert isinstance(buf, Buffer)
         self.buf = buf
         self._hash = -1
+        # private copies of format, shape, itemsize, ... on this class
         self.format = format
         self.itemsize = itemsize
         self.shape = shape
@@ -495,7 +496,7 @@ class W_MemoryView(W_Root):
         if not newfmt:
             raise oefmt(space.w_RuntimeError,
                     "memoryview: internal error")
-        self.setformat(newfmt)
+        self.format = newfmt
         self.itemsize = itemsize
         self.ndim = 1
         self.shape = [buf.getlength() // buf.getitemsize()]

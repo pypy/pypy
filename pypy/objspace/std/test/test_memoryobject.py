@@ -179,6 +179,54 @@ class AppTestMemoryView:
     def test_hex(self):
         assert memoryview(b"abc").hex() == u'616263'
 
+    def test_memoryview_cast(self):
+        m1 = memoryview(b'abcdefgh')
+        m2 = m1.cast('I')
+        m3 = m1.cast('h')
+        assert list(m1) == [97, 98, 99, 100, 101, 102, 103, 104]
+        assert list(m2) == [1684234849, 1751606885]
+        assert list(m3) == [25185, 25699, 26213, 26727]
+        assert m1[1] == 98
+        assert m2[1] == 1751606885
+        assert m3[1] == 25699
+        assert list(m3[1:3]) == [25699, 26213]
+        assert m3[1:3].tobytes() == b'cdef'
+        assert len(m2) == 2
+        assert len(m3) == 4
+        assert (m2[-2], m2[-1]) == (1684234849, 1751606885)
+        raises(IndexError, "m2[2]")
+        raises(IndexError, "m2[-3]")
+        assert list(m3[-99:3]) == [25185, 25699, 26213]
+        assert list(m3[1:99]) == [25699, 26213, 26727]
+        raises(IndexError, "m1[8]")
+        raises(IndexError, "m1[-9]")
+        assert m1[-8] == 97
+
+    def test_memoryview_cast_extended_slicing(self):
+        m1 = memoryview(b'abcdefgh')
+        m3 = m1.cast('h')
+        assert m3[1::2].tobytes() == b'cdgh'
+        assert m3[::2].tobytes() == b'abef'
+        assert m3[:2:2].tobytes() == b'ab'
+
+    def test_memoryview_cast_setitem(self):
+        data = bytearray(b'abcdefgh')
+        m1 = memoryview(data)
+        m2 = m1.cast('I')
+        m3 = m1.cast('h')
+        m1[2] = ord(b'C')
+        assert m2[0] == 1682137697
+        m3[1] = -9999
+        assert data == bytearray(bytes([97, 98, 241, 216, 101, 102, 103, 104]))
+        m3[1:3] = memoryview(b"pqrs").cast('h')
+        assert data == bytearray(b'abpqrsgh')
+
+    def test_memoryview_cast_setitem_extended_slicing(self):
+        data = bytearray(b'abcdefghij')
+        m3 = memoryview(data).cast('h')
+        m3[1:5:2] = memoryview(b"xyXY").cast('h')
+        assert data == bytearray(b'abxyefXYij')
+
 class MockBuffer(Buffer):
     def __init__(self, space, w_arr, w_dim, w_fmt, \
                  w_itemsize, w_strides, w_shape):
@@ -277,15 +325,8 @@ class AppTestMemoryViewMockBuffer(object):
         assert view[-1,-1] == 11
         assert view[-3,-4] == 0
 
-        try:
-            view.__getitem__((2**63-1,0))
-            assert False, "must not succeed"
-        except IndexError: pass
-
-        try:
-            view.__getitem__((0, 0, 0))
-            assert False, "must not succeed"
-        except TypeError: pass
+        raises(IndexError, "view.__getitem__((2**63-1,0))")
+        raises(TypeError, "view.__getitem__((0, 0, 0))")
 
     def test_tuple_indexing_int(self):
         content = self.MockArray([ [[1],[2],[3]], [[4],[5],[6]] ],
@@ -298,6 +339,7 @@ class AppTestMemoryViewMockBuffer(object):
     def test_cast_non_byte(self):
         empty = self.MockArray([], dim=1, fmt='i', size=4, strides=[1], shape=[1])
         view = memoryview(empty)
+        raises(TypeError, "view.cast('l')")
         try:
             view.cast('l')
             assert False, "i -> l not possible. buffer must be byte format"
@@ -313,14 +355,10 @@ class AppTestMemoryViewMockBuffer(object):
         assert view.format == 'b'
         assert cview.format == 'i'
         #
-        #assert cview.cast('i').cast('b').cast('i').tolist() == []
+        assert cview.cast('i').cast('b').cast('i').tolist() == []
         #
         assert cview.format == 'i'
-        try:
-            cview.cast('i')
-            assert False, "cast must fail"
-        except TypeError:
-            pass
+        raises(TypeError, "cview.cast('i')")
 
     def test_cast_with_shape(self):
         empty = self.MockArray([1,0,2,0,3,0],
@@ -342,9 +380,4 @@ class AppTestMemoryViewMockBuffer(object):
         view = memoryview(bytes)
         v = view.cast('h', shape=(3,2))
         assert v.tolist() == [[2,3],[4,5],[6,7]]
-        try:
-            v = view.cast('h', shape=(3,3))
-            assert False, "shape is too big for bytes"
-        except TypeError:
-            pass
-
+        raises(TypeError, "view.cast('h', shape=(3,3))")
