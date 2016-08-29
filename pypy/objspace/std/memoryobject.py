@@ -249,10 +249,12 @@ class W_MemoryView(W_Root):
         if itemsize > 1:
             start *= itemsize
             size *= itemsize
-            stop  = start + size
-            # start & stop are now byte offset, thus use self.bug.getlength()
-            if stop > self.buf.getlength():
-                raise oefmt(space.w_IndexError, 'index out of range')
+
+        stop  = start + size
+        # start & stop are now byte offset, thus use self.buf.getlength()
+        if stop > self.buf.getlength():
+            raise oefmt(space.w_IndexError, 'index out of range')
+
         return start, stop, size
 
     def descr_setitem(self, space, w_index, w_obj):

@@ -355,7 +355,7 @@ class AppTestMemoryViewMockBuffer(object):
         assert view.format == 'b'
         assert cview.format == 'i'
         #
-        assert cview.cast('i').cast('b').cast('i').tolist() == []
+        assert cview.cast('b').cast('q').cast('b').tolist() == []
         #
         assert cview.format == 'i'
         raises(TypeError, "cview.cast('i')")
@@ -366,7 +366,7 @@ class AppTestMemoryViewMockBuffer(object):
                     strides=[8], shape=[6])
         view = memoryview(empty)
         byteview = view.cast('b')
-        #assert byteview.tolist() == [1,0,0,0,2,0,0,0,3,0,0,0]
+        assert byteview.tolist() == [1,0,0,0,2,0,0,0,3,0,0,0]
         i32view = byteview.cast('i', shape=[1,3])
         assert i32view.format == 'i'
         assert i32view.itemsize == 4
