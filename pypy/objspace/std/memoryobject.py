@@ -225,15 +225,7 @@ class W_MemoryView(W_Root):
         start, stop, step, size = space.decode_index4(w_index, self.getlength())
         # ^^^ for a non-slice index, this returns (index, 0, 0, 1)
         itemsize = self.getitemsize()
-        if itemsize > 1:
-            start *= itemsize
-            size *= itemsize
-            stop  = start + size
-            # XXX why? returns a memory view on int index if step == 0:
-            #    step = 1
-
-            if stop > self.buf.getlength():
-                raise oefmt(space.w_IndexError, 'index out of range')
+        start, stop, size = self._apply_itemsize(space, start, size, itemsize)
         if step == 0:  # index only
             if itemsize == 1:
                 ch = self.buf.getitem(start)
@@ -253,6 +245,16 @@ class W_MemoryView(W_Root):
             raise oefmt(space.w_NotImplementedError,
                         "XXX extended slicing")
 
+    def _apply_itemsize(self, space, start, size, itemsize):
+        if itemsize > 1:
+            start *= itemsize
+            size *= itemsize
+            stop  = start + size
+            # start & stop are now byte offset, thus use self.bug.getlength()
+            if stop > self.buf.getlength():
+                raise oefmt(space.w_IndexError, 'index out of range')
+        return start, stop, size
+
     def descr_setitem(self, space, w_index, w_obj):
         self._check_released(space)
         if self.buf.readonly:
@@ -261,16 +263,7 @@ class W_MemoryView(W_Root):
             raise oefmt(space.w_NotImplementedError, "")
         start, stop, step, size = space.decode_index4(w_index, self.getlength())
         itemsize = self.getitemsize()
-        if itemsize > 1:
-            start *= itemsize
-            size *= itemsize
-            stop  = start + size
-            # XXX why? returns a memory view on int index if step == 0:
-            #    step = 1
-
-            # start & stop are now byte offset, thus use self.bug.getlength()
-            if stop > self.buf.getlength():
-                raise oefmt(space.w_IndexError, 'index out of range')
+        start, stop, size = self._apply_itemsize(space, start, size, itemsize)
         if step == 0:  # index only
             if itemsize == 1:
                 ch = getbytevalue(space, w_obj)
@@ -287,7 +280,7 @@ class W_MemoryView(W_Root):
                 self.buf.setslice(start, fmtiter.result.build())
         elif step == 1:
             value = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
-            if value.getlength() != size * self.itemsize:
+            if value.getlength() != size:
                 raise oefmt(space.w_ValueError,
                             "cannot modify size of memoryview object")
             self.buf.setslice(start, value.as_str())
