@@ -342,7 +342,7 @@ class CFuncPtr(_CData, metaclass=CFuncPtrType):
             thisarg = cast(thisvalue, POINTER(POINTER(c_void_p)))
             keepalives, newargs, argtypes, outargs, errcheckargs = (
                 self._convert_args(argtypes, args[1:], kwargs))
-            newargs.insert(0, thisvalue.value)
+            newargs.insert(0, thisarg)
             argtypes.insert(0, c_void_p)
         else:
             thisarg = None
