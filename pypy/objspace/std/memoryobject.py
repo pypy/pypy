@@ -11,6 +11,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty,  make_weakref_descr
 from pypy.module.struct.formatiterator import UnpackFormatIterator, PackFormatIterator
+from pypy.objspace.std.bytesobject import getbytevalue
 from rpython.rlib.unroll import unrolling_iterable
 
 MEMORYVIEW_MAX_DIM = 64
@@ -149,12 +150,11 @@ class W_MemoryView(W_Root):
         if dim >= self.getndim():
             bytecount = (stride * dimshape)
             count = bytecount // itemsize
-            return self._tolist(space, SubBuffer(buf, start, bytecount), count, fmt)
+            return self._tolist(space, buf, count, fmt)
         items = [None] * dimshape
 
         for i in range(dimshape):
-            bytecount = stride
-            item = self._tolist_rec(space, SubBuffer(buf, start, bytecount), start, idim+1, fmt)
+            item = self._tolist_rec(space, SubBuffer(buf, start, stride), start, idim+1, fmt)
             items[i] = item
             start += stride
 
@@ -223,7 +223,7 @@ class W_MemoryView(W_Root):
 
         start, stop, step, size = space.decode_index4(w_index, self.getlength())
         # ^^^ for a non-slice index, this returns (index, 0, 0, 1)
-	itemsize = self.getitemsize()
+        itemsize = self.getitemsize()
         if itemsize > 1:
             start *= itemsize
             size *= itemsize
@@ -239,13 +239,13 @@ class W_MemoryView(W_Root):
                 return space.newint(ord(ch))
             else:
                 # TODO: this probably isn't very fast
-                buf = SubBuffer(self.buf, start * itemsize, itemsize)
+                buf = SubBuffer(self.buf, start, itemsize)
                 fmtiter = UnpackFormatIterator(space, buf)
                 fmtiter.interpret(self.format)
                 return fmtiter.result_w[0]
         elif step == 1:
             buf = SubBuffer(self.buf, start, size)
-            return W_MemoryView(buf, self.getformat(), self.itemsize)
+            return W_MemoryView(buf, self.getformat(), itemsize)
         else:
             # XXX needs to return a W_MemoryView with a NonContiguousSubBuffer
             # maybe?  Need to check the cpyext requirements for that
@@ -408,7 +408,6 @@ class W_MemoryView(W_Root):
         return False
 
     def descr_cast(self, space, w_format, w_shape=None):
-        # XXX fixme. does not do anything near cpython (see memoryobjet.c memory_cast)
         self._check_released(space)
 
         if not space.isinstance_w(w_format, space.w_unicode):

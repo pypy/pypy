@@ -4,6 +4,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef
 from rpython.rlib.buffer import Buffer
+from pypy.conftest import option
 
 class AppTestMemoryView:
     spaceconfig = dict(usemodules=['array'])
@@ -273,9 +274,6 @@ W_MockArray.typedef = TypeDef("MockArray",
     __new__ = interp2app(W_MockArray.descr_new),
 )
 
-from pypy.objspace.std.transparent import register_proxyable
-from pypy.conftest import option
-
 class AppTestMemoryViewMockBuffer(object):
     spaceconfig = dict(usemodules=[])
     def setup_class(cls):
@@ -352,3 +350,16 @@ class AppTestMemoryViewMockBuffer(object):
         assert i32view.tolist() == [[1,2,3]]
         i32view = byteview.cast('i', shape=(1,3))
         assert i32view.tolist() == [[1,2,3]]
+
+    def test_cast_bytes(self):
+        bytes = b"\x02\x00\x03\x00\x04\x00" \
+                b"\x05\x00\x06\x00\x07\x00"
+        view = memoryview(bytes)
+        v = view.cast('h', shape=(3,2))
+        assert v.tolist() == [[2,3],[4,5],[6,7]]
+        try:
+            v = view.cast('h', shape=(3,3))
+            assert False, "shape is too big for bytes"
+        except TypeError:
+            pass
+
