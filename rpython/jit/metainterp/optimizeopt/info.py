@@ -367,8 +367,9 @@ class AbstractRawPtrInfo(AbstractVirtualPtrInfo):
 
 class RawBufferPtrInfo(AbstractRawPtrInfo):
     buffer = None
-    
-    def __init__(self, cpu, size=-1):
+
+    def __init__(self, cpu, func, size=-1):
+        self.func = func
         self.size = size
         if self.size != -1:
             self.buffer = RawBuffer(cpu, None)
@@ -425,7 +426,8 @@ class RawBufferPtrInfo(AbstractRawPtrInfo):
     @specialize.argtype(1)
     def visitor_dispatch_virtual_type(self, visitor):
         buffer = self._get_buffer()
-        return visitor.visit_vrawbuffer(self.size,
+        return visitor.visit_vrawbuffer(self.func,
+                                        self.size,
                                         buffer.offsets[:],
                                         buffer.descrs[:])
 

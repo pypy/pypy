@@ -837,13 +837,18 @@ class ObjSpace(object):
             self.interned_strings.set(u, w_s1)
         return w_s1
 
-    def is_interned_str(self, s):
-        """Assumes an identifier (utf-8 encoded str)"""
+    def get_interned_str(self, s):
+        """Assumes an identifier (utf-8 encoded str).  Returns None if
+        the identifier is not interned, or not a valid utf-8 string at all.
+        """
         # interface for marshal_impl
         if not we_are_translated():
             assert type(s) is str
-        u = s.decode('utf-8')
-        return self.interned_strings.get(u) is not None
+        try:
+            u = s.decode('utf-8')
+        except UnicodeDecodeError:
+            return None
+        return self.interned_strings.get(u)   # may be None
 
     def descr_self_interp_w(self, RequiredClass, w_obj):
         if not isinstance(w_obj, RequiredClass):
@@ -942,8 +947,8 @@ class ObjSpace(object):
             idx += 1
         if idx < expected_length:
             raise oefmt(self.w_ValueError,
-                        "need more than %d value%s to unpack",
-                        idx, "" if idx == 1 else "s")
+                        "not enough values to unpack (expected %d, got %d)",
+                        expected_length, idx)
         return items
 
     def unpackiterable_unroll(self, w_iterable, expected_length):

@@ -1,10 +1,11 @@
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import oefmt
-from pypy.interpreter.error import exception_from_saved_errno
+from pypy.interpreter.error import exception_from_saved_errno, wrap_oserror
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import TypeDef, generic_new_descr, GetSetProperty
 from rpython.rlib._rsocket_rffi import socketclose_no_errno
 from rpython.rlib.rarithmetic import r_uint
+from rpython.rlib import rposix
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -115,6 +116,10 @@ class W_Kqueue(W_Root):
         kqfd = syscall_kqueue()
         if kqfd < 0:
             raise exception_from_saved_errno(space, space.w_IOError)
+        try:
+            rposix.set_inheritable(kqfd, False)
+        except OSError as e:
+            raise wrap_oserror(space, e)
         return space.wrap(W_Kqueue(space, kqfd))
 
     @unwrap_spec(fd=int)

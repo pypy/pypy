@@ -106,6 +106,30 @@ _is_fd_in_sorted_fd_sequence(int fd, long *fd_sequence, ssize_t seq_len)
 }
 
 
+RPY_EXTERN
+int rpy_set_inheritable(int fd, int inheritable);   /* rposix.py */
+
+static int
+make_inheritable(long *py_fds_to_keep, ssize_t num_fds_to_keep,
+                 int errpipe_write)
+{
+    long i;
+
+    for (i = 0; i < num_fds_to_keep; ++i) {
+        long fd = py_fds_to_keep[i];
+        if (fd == errpipe_write) {
+            /* errpipe_write is part of py_fds_to_keep. It must be closed at
+               exec(), but kept open in the child process until exec() is
+               called. */
+            continue;
+        }
+        if (rpy_set_inheritable((int)fd, 1) < 0)
+            return -1;
+    }
+    return 0;
+}
+
+
 /* Close all file descriptors in the range start_fd inclusive to
  * end_fd exclusive except for those in py_fds_to_keep.  If the
  * range defined by [start_fd, end_fd) is large this will take a
@@ -329,6 +353,9 @@ pypy_subprocess_child_exec(
     /* Buffer large enough to hold a hex integer.  We can't malloc. */
     char hex_errno[sizeof(saved_errno)*2+1];
 
+    if (make_inheritable(py_fds_to_keep, num_fds_to_keep, errpipe_write) < 0)
+        goto error;
+
     /* Close parent's pipe ends. */
     if (p2cwrite != -1) {
         POSIX_CALL(close(p2cwrite));
@@ -352,26 +379,25 @@ pypy_subprocess_child_exec(
        dup2() removes the CLOEXEC flag but we must do it ourselves if dup2()
        would be a no-op (issue #10806). */
     if (p2cread == 0) {
-        int old = fcntl(p2cread, F_GETFD);
-        if (old != -1)
-            fcntl(p2cread, F_SETFD, old & ~FD_CLOEXEC);
-    } else if (p2cread != -1) {
+        if (rpy_set_inheritable(p2cread, 1) < 0)
+            goto error;
+    }
+    else if (p2cread != -1)
         POSIX_CALL(dup2(p2cread, 0));  /* stdin */
-    }
+
     if (c2pwrite == 1) {
-        int old = fcntl(c2pwrite, F_GETFD);
-        if (old != -1)
-            fcntl(c2pwrite, F_SETFD, old & ~FD_CLOEXEC);
-    } else if (c2pwrite != -1) {
+        if (rpy_set_inheritable(c2pwrite, 1) < 0)
+            goto error;
+    }
+    else if (c2pwrite != -1)
         POSIX_CALL(dup2(c2pwrite, 1));  /* stdout */
-    }
+
     if (errwrite == 2) {
-        int old = fcntl(errwrite, F_GETFD);
-        if (old != -1)
-            fcntl(errwrite, F_SETFD, old & ~FD_CLOEXEC);
-    } else if (errwrite != -1) {
-        POSIX_CALL(dup2(errwrite, 2));  /* stderr */
+        if (rpy_set_inheritable(errwrite, 1) < 0)
+            goto error;
     }
+    else if (errwrite != -1)
+        POSIX_CALL(dup2(errwrite, 2));  /* stderr */
 
     /* Close pipe fds.  Make sure we don't close the same fd more than */
     /* once, or standard fds. */

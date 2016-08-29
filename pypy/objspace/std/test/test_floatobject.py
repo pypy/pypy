@@ -475,6 +475,10 @@ class AppTestAppFloatTest:
         s = '\U0001D7CF\U0001D7CE.4' # 𝟏𝟎.4
         assert float(s) == 10.4
 
+    def test_hash_minus_one(self):
+        assert hash(-1.0) == -2
+        assert (-1.0).__hash__() == -2
+
 
 class AppTestFloatHex:
     spaceconfig = {

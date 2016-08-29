@@ -8,16 +8,18 @@ except ImportError:
     # some Pythons don't have errno.ENOTSUP
     ENOTSUP = 0
 
-from rpython.rlib import rposix, rposix_stat
+from rpython.rlib import rposix, rposix_stat, rfile
 from rpython.rlib import objectmodel, rurandom
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.rarithmetic import r_longlong, intmask, r_uint
+from rpython.rlib.rarithmetic import r_longlong, intmask, r_uint, r_int
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.rtyper.lltypesystem import lltype
 from rpython.tool.sourcetools import func_with_new_name
 
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault, Unwrapper
 from pypy.interpreter.error import (
-    OperationError, oefmt, wrap_oserror, wrap_oserror2, strerror as _strerror)
+    OperationError, oefmt, wrap_oserror, wrap_oserror2, strerror as _strerror,
+    exception_from_saved_errno)
 from pypy.interpreter.executioncontext import ExecutionContext
 
 
@@ -209,6 +211,8 @@ def argument_unavailable(space, funcname, arg):
             space.w_NotImplementedError,
             "%s: %s unavailable on this platform", funcname, arg)
 
+_open_inhcache = rposix.SetNonInheritableCache()
+
 @unwrap_spec(flags=c_int, mode=c_int, dir_fd=DirFD(rposix.HAVE_OPENAT))
 def open(space, w_path, flags, mode=0777,
          __kwonly__=None, dir_fd=DEFAULT_DIR_FD):
@@ -220,12 +224,15 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
   and path should be relative; path will then be relative to that directory.
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
+    if rposix.O_CLOEXEC is not None:
+        flags |= rposix.O_CLOEXEC
     try:
         if rposix.HAVE_OPENAT and dir_fd != DEFAULT_DIR_FD:
             path = space.fsencode_w(w_path)
             fd = rposix.openat(path, flags, mode, dir_fd)
         else:
             fd = dispatch_filename(rposix.open)(space, w_path, flags, mode)
+        _open_inhcache.set_non_inheritable(fd)
     except OSError as e:
         raise wrap_oserror2(space, e, w_path)
     return space.wrap(fd)
@@ -536,17 +543,17 @@ def dup(space, fd):
     """Create a copy of the file descriptor.  Return the new file
 descriptor."""
     try:
-        newfd = os.dup(fd)
+        newfd = rposix.dup(fd, inheritable=False)
     except OSError as e:
         raise wrap_oserror(space, e)
     else:
         return space.wrap(newfd)
 
-@unwrap_spec(old_fd=c_int, new_fd=c_int)
-def dup2(space, old_fd, new_fd):
+@unwrap_spec(old_fd=c_int, new_fd=c_int, inheritable=int)
+def dup2(space, old_fd, new_fd, inheritable=1):
     """Duplicate a file descriptor."""
     try:
-        os.dup2(old_fd, new_fd)
+        rposix.dup2(old_fd, new_fd, inheritable)
     except OSError as e:
         raise wrap_oserror(space, e)
 
@@ -889,15 +896,38 @@ On some platforms, path may also be specified as an open file descriptor;
             result_w[i] = space.fsdecode(w_bytes)
     return space.newlist(result_w)
 
+@unwrap_spec(fd=c_int)
+def get_inheritable(space, fd):
+    try:
+        return space.wrap(rposix.get_inheritable(fd))
+    except OSError as e:
+        raise wrap_oserror(space, e)
+
+@unwrap_spec(fd=c_int, inheritable=int)
+def set_inheritable(space, fd, inheritable):
+    try:
+        rposix.set_inheritable(fd, inheritable)
+    except OSError as e:
+        raise wrap_oserror(space, e)
+
+_pipe_inhcache = rposix.SetNonInheritableCache()
+
 def pipe(space):
     "Create a pipe.  Returns (read_end, write_end)."
     try:
-        fd1, fd2 = os.pipe()
+        fd1, fd2 = rposix.pipe(rposix.O_CLOEXEC or 0)
+        _pipe_inhcache.set_non_inheritable(fd1)
+        _pipe_inhcache.set_non_inheritable(fd2)
     except OSError as e:
         raise wrap_oserror(space, e)
-    # XXX later, use rposix.pipe2() if available!
-    rposix.set_inheritable(fd1, False)
-    rposix.set_inheritable(fd2, False)
+    return space.newtuple([space.wrap(fd1), space.wrap(fd2)])
+
+@unwrap_spec(flags=c_int)
+def pipe2(space, flags):
+    try:
+        fd1, fd2 = rposix.pipe2(flags)
+    except OSError as e:
+        raise wrap_oserror(space, e)
     return space.newtuple([space.wrap(fd1), space.wrap(fd2)])
 
 @unwrap_spec(mode=c_int, dir_fd=DirFD(rposix.HAVE_FCHMODAT),
@@ -1236,6 +1266,8 @@ def openpty(space):
     "Open a pseudo-terminal, returning open fd's for both master and slave end."
     try:
         master_fd, slave_fd = os.openpty()
+        rposix.set_inheritable(master_fd, False)
+        rposix.set_inheritable(slave_fd, False)
     except OSError as e:
         raise wrap_oserror(space, e)
     return space.newtuple([space.wrap(master_fd), space.wrap(slave_fd)])
@@ -2142,3 +2174,50 @@ for name in """FCHDIR FCHMOD FCHMODAT FCHOWN FCHOWNAT FEXECVE FDOPENDIR
         have_functions.append("HAVE_%s" % name)
 if _WIN32:
     have_functions.append("HAVE_MS_WINDOWS")
+   
+def get_terminal_size(space, w_fd=None):
+    if w_fd is None:
+        fd = rfile.RFile(rfile.c_stdout(), close2=(None, None)).fileno()
+    else:
+        if not space.isinstance_w(w_fd, space.w_int):
+            raise oefmt(space.w_TypeError,
+                        "an integer is required, got %T", w_fd)
+        else:
+            fd = space.c_int_w(w_fd)
+
+    if _WIN32:
+        if fd == 0:
+            handle_id = rwin32.STD_INPUT_HANDLE
+        elif fd == 1:
+            handle_id = rwin32.STD_OUTPUT_HANDLE
+        elif fd == 2:
+            handle_id = rwin32.STD_ERROR_HANDLE
+        else:
+            raise oefmt(space.w_ValueError, "bad file descriptor")
+
+        handle = rwin32.GetStdHandle(handle_id)
+
+        if handle == rwin32.NULL_HANDLE:
+            raise oefmt(space.w_OSError, "handle cannot be retrieved")
+        elif handle == rwin32.INVALID_HANDLE_VALUE:
+            raise rwin32.lastSavedWindowsError()
+        with lltype.scoped_alloc(rwin32.CONSOLE_SCREEN_BUFFER_INFO) as buffer_info: 
+            success = rwin32.GetConsoleScreenBufferInfo(handle, buffer_info)
+            if not success:
+                raise rwin32.lastSavedWindowsError()
+            w_columns = space.wrap(r_int(buffer_info.c_srWindow.c_Right) - r_int(buffer_info.c_srWindow.c_Left) + 1)
+            w_lines = space.wrap(r_int(buffer_info.c_srWindow.c_Bottom) - r_int(buffer_info.c_srWindow.c_Top) + 1)
+    else:
+        with lltype.scoped_alloc(rposix.WINSIZE) as winsize: 
+            failed = rposix.c_ioctl_voidp(fd, rposix.TIOCGWINSZ, winsize)
+            if failed:
+                raise exception_from_saved_errno(space, space.w_OSError)
+
+            w_columns = space.wrap(r_uint(winsize.c_ws_col))
+            w_lines = space.wrap(r_uint(winsize.c_ws_row))
+
+    w_tuple = space.newtuple([w_columns, w_lines])
+    w_terminal_size = space.getattr(space.getbuiltinmodule(os.name),
+                                    space.wrap('terminal_size'))
+
+    return space.call_function(w_terminal_size, w_tuple)

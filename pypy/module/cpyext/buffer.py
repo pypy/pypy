@@ -1,8 +1,12 @@
+from pypy.interpreter.error import oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import buffer
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, Py_buffer)
 from pypy.module.cpyext.pyobject import PyObject, Py_DecRef
+
+# PyObject_GetBuffer has been removed, it is defined in abstract.c
+# PyObject_CheckBuffer is also already defined
 
 @cpython_api([lltype.Ptr(Py_buffer), lltype.Char], rffi.INT_real, error=CANNOT_FAIL)
 def PyBuffer_IsContiguous(space, view, fortran):

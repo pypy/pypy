@@ -820,13 +820,9 @@ class __extend__(pyframe.PyFrame):
         itemcount = len(items)
         count = left + right
         if count > itemcount:
-            if count == 1:
-                plural = ''
-            else:
-                plural = 's'
             raise oefmt(self.space.w_ValueError,
-                        "need more than %d value%s to unpack",
-                        itemcount, plural)
+                        "not enough values to unpack (expected at least %d, got %d)",
+                        count, itemcount)
         right = itemcount - right
         assert right >= 0
         # push values in reverse order
@@ -1202,7 +1198,7 @@ class __extend__(pyframe.PyFrame):
                 self.settopvalue(self.space.w_None)
 
     @jit.unroll_safe
-    def call_function(self, oparg, w_star=None, w_starstar=None):
+    def call_function(self, oparg, w_starstar=None, has_vararg=False):
         n_arguments = oparg & 0xff
         n_keywords = (oparg>>8) & 0xff
         if n_keywords:
@@ -1214,20 +1210,16 @@ class __extend__(pyframe.PyFrame):
                     break
                 w_value = self.popvalue()
                 w_key = self.popvalue()
-                # temporary (dirty) fix: if star-arg occurs after kwarg,
-                # arg order is reversed on stack
-                from pypy.objspace.std.listobject import W_ListObject
-                if isinstance(w_key, W_ListObject):
-                    w_key_temp = w_key
-                    w_key = w_value
-                    w_value = w_star
-                    w_star = w_key_temp
                 key = self.space.identifier_w(w_key)
                 keywords[n_keywords] = key
                 keywords_w[n_keywords] = w_value
         else:
             keywords = None
             keywords_w = None
+        if has_vararg:
+            w_star = self.popvalue()
+        else:
+            w_star = None
         arguments = self.popvalues(n_arguments)
         args = self.argument_factory(arguments, keywords, keywords_w, w_star,
                                      w_starstar)
@@ -1256,17 +1248,15 @@ class __extend__(pyframe.PyFrame):
             self.call_function(oparg)
 
     def CALL_FUNCTION_VAR(self, oparg, next_instr):
-        w_varargs = self.popvalue()
-        self.call_function(oparg, w_varargs)
+        self.call_function(oparg, has_vararg=True)
 
     def CALL_FUNCTION_KW(self, oparg, next_instr):
         w_varkw = self.popvalue()
-        self.call_function(oparg, None, w_varkw)
+        self.call_function(oparg, w_varkw)
 
     def CALL_FUNCTION_VAR_KW(self, oparg, next_instr):
         w_varkw = self.popvalue()
-        w_varargs = self.popvalue()
-        self.call_function(oparg, w_varargs, w_varkw)
+        self.call_function(oparg, w_varkw, has_vararg=True)
 
     @jit.unroll_safe
     def _make_function(self, oparg, freevars=None):

@@ -64,7 +64,7 @@ class CheckSignalAction(PeriodicAsyncAction):
         AsyncAction.__init__(self, space)
         self.pending_signal = -1
         self.fire_in_another_thread = False
-        #
+
         @rgc.no_collect
         def _after_thread_switch():
             if self.fire_in_another_thread:

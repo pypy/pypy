@@ -13,8 +13,8 @@ from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 #
 # Constants and exposed functions
 
-from rpython.rlib.rsre import rsre_core
-from rpython.rlib.rsre.rsre_char import MAGIC, CODESIZE, MAXREPEAT, MAXGROUPS, getlower, set_unicode_db
+from rpython.rlib.rsre import rsre_core, rsre_char
+from rpython.rlib.rsre.rsre_char import CODESIZE, MAXREPEAT, MAXGROUPS, getlower, set_unicode_db
 
 
 @unwrap_spec(char_ord=int, flags=int)
@@ -92,6 +92,10 @@ def searchcontext(space, ctx):
 #
 # SRE_Pattern class
 
+FLAG_NAMES = ["re.TEMPLATE", "re.IGNORECASE", "re.LOCALE", "re.MULTILINE",
+              "re.DOTALL", "re.UNICODE", "re.VERBOSE", "re.DEBUG",
+              "re.ASCII"]
+
 class W_SRE_Pattern(W_Root):
     _immutable_fields_ = ["code", "flags", "num_groups", "w_groupindex"]
 
@@ -99,7 +103,44 @@ class W_SRE_Pattern(W_Root):
         space = self.space
         raise oefmt(space.w_TypeError, "cannot copy this pattern object")
 
-    def make_ctx(self, w_string, pos=0, endpos=sys.maxint):
+    def repr_w(self):
+        space = self.space
+        u = space.unicode_w(space.repr(self.w_pattern))
+        flag_items = []
+        flags = self.flags
+        if self.is_known_unicode():
+            if ((flags & (rsre_char.SRE_FLAG_LOCALE |
+                          rsre_char.SRE_FLAG_UNICODE |
+                          256))     # rsre_char.SRE_FLAG_ASCII
+                    == rsre_char.SRE_FLAG_UNICODE):
+                flags &= ~rsre_char.SRE_FLAG_UNICODE
+        for i, name in enumerate(FLAG_NAMES):
+            if flags & (1 << i):
+                flags -= (1 << i)
+                flag_items.append(name)
+        if flags != 0:
+            flag_items.append('0x%x' % flags)
+        if len(flag_items) == 0:
+            usep = u''
+            uflags = u''
+        else:
+            usep = u', '
+            uflags = u'|'.join([item.decode('latin-1') for item in flag_items])
+        return space.wrap(u're.compile(%s%s%s)' % (u, usep, uflags))
+
+    def is_known_bytes(self):
+        space = self.space
+        if space.is_none(self.w_pattern):
+            return False
+        return not space.isinstance_w(self.w_pattern, space.w_unicode)
+
+    def is_known_unicode(self):
+        space = self.space
+        if space.is_none(self.w_pattern):
+            return False
+        return space.isinstance_w(self.w_pattern, space.w_unicode)
+
+    def make_ctx(self, w_string, pos=0, endpos=sys.maxint, flags=0):
         """Make a StrMatchContext, BufMatchContext or a UnicodeMatchContext for
         searching in the given w_string object."""
         space = self.space
@@ -107,10 +148,10 @@ class W_SRE_Pattern(W_Root):
             pos = 0
         if endpos < pos:
             endpos = pos
+        flags = self.flags | flags
         if space.isinstance_w(w_string, space.w_unicode):
             unicodestr = space.unicode_w(w_string)
-            if not (space.is_none(self.w_pattern) or
-                    space.isinstance_w(self.w_pattern, space.w_unicode)):
+            if self.is_known_bytes():
                 raise oefmt(space.w_TypeError,
                             "can't use a bytes pattern on a string-like "
                             "object")
@@ -119,10 +160,9 @@ class W_SRE_Pattern(W_Root):
             if endpos > len(unicodestr):
                 endpos = len(unicodestr)
             return rsre_core.UnicodeMatchContext(self.code, unicodestr,
-                                                 pos, endpos, self.flags)
+                                                 pos, endpos, flags)
         elif space.isinstance_w(w_string, space.w_str):
-            if (not space.is_none(self.w_pattern) and
-                space.isinstance_w(self.w_pattern, space.w_unicode)):
+            if self.is_known_unicode():
                 raise oefmt(space.w_TypeError,
                             "can't use a string pattern on a bytes-like "
                             "object")
@@ -132,11 +172,10 @@ class W_SRE_Pattern(W_Root):
             if endpos > len(str):
                 endpos = len(str)
             return rsre_core.StrMatchContext(self.code, str,
-                                             pos, endpos, self.flags)
+                                             pos, endpos, flags)
         else:
             buf = space.readbuf_w(w_string)
-            if (not space.is_none(self.w_pattern) and
-                space.isinstance_w(self.w_pattern, space.w_unicode)):
+            if self.is_known_unicode():
                 raise oefmt(space.w_TypeError,
                             "can't use a string pattern on a bytes-like "
                             "object")
@@ -147,7 +186,7 @@ class W_SRE_Pattern(W_Root):
             if endpos > size:
                 endpos = size
             return rsre_core.BufMatchContext(self.code, buf,
-                                             pos, endpos, self.flags)
+                                             pos, endpos, flags)
 
     def getmatch(self, ctx, found):
         if found:
@@ -158,6 +197,12 @@ class W_SRE_Pattern(W_Root):
     @unwrap_spec(pos=int, endpos=int)
     def match_w(self, w_string, pos=0, endpos=sys.maxint):
         ctx = self.make_ctx(w_string, pos, endpos)
+        return self.getmatch(ctx, matchcontext(self.space, ctx))
+
+    @unwrap_spec(pos=int, endpos=int)
+    def fullmatch_w(self, w_string, pos=0, endpos=sys.maxint):
+        ctx = self.make_ctx(w_string, pos, endpos)
+        ctx.fullmatch_only = True
         return self.getmatch(ctx, matchcontext(self.space, ctx))
 
     @unwrap_spec(pos=int, endpos=int)
@@ -415,10 +460,12 @@ W_SRE_Pattern.typedef = TypeDef(
     __new__      = interp2app(SRE_Pattern__new__),
     __copy__     = interp2app(W_SRE_Pattern.cannot_copy_w),
     __deepcopy__ = interp2app(W_SRE_Pattern.cannot_copy_w),
+    __repr__     = interp2app(W_SRE_Pattern.repr_w),
     __weakref__  = make_weakref_descr(W_SRE_Pattern),
     findall      = interp2app(W_SRE_Pattern.findall_w),
     finditer     = interp2app(W_SRE_Pattern.finditer_w),
     match        = interp2app(W_SRE_Pattern.match_w),
+    fullmatch    = interp2app(W_SRE_Pattern.fullmatch_w),
     scanner      = interp2app(W_SRE_Pattern.finditer_w),    # reuse finditer()
     search       = interp2app(W_SRE_Pattern.search_w),
     split        = interp2app(W_SRE_Pattern.split_w),

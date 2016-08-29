@@ -515,7 +515,7 @@ class Recompiler:
                                                     tovar, errcode)
             return
         #
-        elif isinstance(tp, (model.StructOrUnion, model.EnumType)):
+        elif isinstance(tp, model.StructOrUnionOrEnum):
             # a struct (not a struct pointer) as a function argument
             self._prnt('  if (_cffi_to_c((char *)&%s, _cffi_type(%d), %s) < 0)'
                       % (tovar, self._gettypenum(tp), fromvar))
@@ -572,7 +572,7 @@ class Recompiler:
         elif isinstance(tp, model.ArrayType):
             return '_cffi_from_c_pointer((char *)%s, _cffi_type(%d))' % (
                 var, self._gettypenum(model.PointerType(tp.item)))
-        elif isinstance(tp, model.StructType):
+        elif isinstance(tp, model.StructOrUnion):
             if tp.fldnames is None:
                 raise TypeError("'%s' is used as %s, but is opaque" % (
                     tp._get_c_name(), context))

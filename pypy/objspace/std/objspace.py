@@ -401,8 +401,8 @@ class StdObjSpace(ObjSpace):
                         "too many values to unpack (expected %d)", expected)
         else:
             raise oefmt(self.w_ValueError,
-                        "need more than %d value%s to unpack",
-                        got, "" if got == 1 else "s")
+                        "not enough values to unpack (expected %d, got %d)",
+                        expected, got)
 
     def unpackiterable(self, w_obj, expected_length=-1):
         if isinstance(w_obj, W_AbstractTupleObject) and self._uses_tuple_iter(w_obj):

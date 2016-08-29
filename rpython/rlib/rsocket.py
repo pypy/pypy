@@ -8,10 +8,11 @@ a drop-in replacement for the 'socket' module.
 # XXX this does not support yet the least common AF_xxx address families
 # supported by CPython.  See http://bugs.pypy.org/issue1942
 
+from errno import EINVAL
 from rpython.rlib import _rsocket_rffi as _c, jit, rgc
 from rpython.rlib.objectmodel import instantiate, keepalive_until_here
 from rpython.rlib.rarithmetic import intmask, r_uint
-from rpython.rlib import rthread
+from rpython.rlib import rthread, rposix
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.rffi import sizeof, offsetof
 from rpython.rtyper.extregistry import ExtRegistryEntry
@@ -522,12 +523,28 @@ class RSocket(object):
     timeout = -1.0
 
     def __init__(self, family=AF_INET, type=SOCK_STREAM, proto=0,
-                 fd=_c.INVALID_SOCKET):
+                 fd=_c.INVALID_SOCKET, inheritable=True):
         """Create a new socket."""
         if _c.invalid_socket(fd):
-            fd = _c.socket(family, type, proto)
-        if _c.invalid_socket(fd):
-            raise self.error_handler()
+            if not inheritable and SOCK_CLOEXEC is not None:
+                # Non-inheritable: we try to call socket() with
+                # SOCK_CLOEXEC, which may fail.  If we get EINVAL,
+                # then we fall back to the SOCK_CLOEXEC-less case.
+                fd = _c.socket(family, type | SOCK_CLOEXEC, proto)
+                if fd < 0:
+                    if _c.geterrno() == EINVAL:
+                        # Linux older than 2.6.27 does not support
+                        # SOCK_CLOEXEC.  An EINVAL might be caused by
+                        # random other things, though.  Don't cache.
+                        pass
+                    else:
+                        raise self.error_handler()
+            if _c.invalid_socket(fd):
+                fd = _c.socket(family, type, proto)
+                if _c.invalid_socket(fd):
+                    raise self.error_handler()
+                if not inheritable:
+                    sock_set_inheritable(fd, False)
         # PLAT RISCOS
         self.fd = fd
         self.family = family
@@ -630,20 +647,33 @@ class RSocket(object):
         return addr, addr.addr_p, addrlen_p
 
     @jit.dont_look_inside
-    def accept(self):
+    def accept(self, inheritable=True):
         """Wait for an incoming connection.
         Return (new socket fd, client address)."""
         if self._select(False) == 1:
             raise SocketTimeout
         address, addr_p, addrlen_p = self._addrbuf()
         try:
-            newfd = _c.socketaccept(self.fd, addr_p, addrlen_p)
+            remove_inheritable = not inheritable
+            if (not inheritable and SOCK_CLOEXEC is not None
+                    and _c.HAVE_ACCEPT4
+                    and _accept4_syscall.attempt_syscall()):
+                newfd = _c.socketaccept4(self.fd, addr_p, addrlen_p,
+                                         SOCK_CLOEXEC)
+                if _accept4_syscall.fallback(newfd):
+                    newfd = _c.socketaccept(self.fd, addr_p, addrlen_p)
+                else:
+                    remove_inheritable = False
+            else:
+                newfd = _c.socketaccept(self.fd, addr_p, addrlen_p)
             addrlen = addrlen_p[0]
         finally:
             lltype.free(addrlen_p, flavor='raw')
             address.unlock()
         if _c.invalid_socket(newfd):
             raise self.error_handler()
+        if remove_inheritable:
+            sock_set_inheritable(newfd, False)
         address.addrlen = rffi.cast(lltype.Signed, addrlen)
         return (newfd, address)
 
@@ -1032,6 +1062,12 @@ def make_socket(fd, family, type, proto, SocketClass=RSocket):
     return result
 make_socket._annspecialcase_ = 'specialize:arg(4)'
 
+def sock_set_inheritable(fd, inheritable):
+    try:
+        rposix.set_inheritable(fd, inheritable)
+    except OSError as e:
+        raise CSocketError(e.errno)
+
 class SocketError(Exception):
     applevelerrcls = 'error'
     def __init__(self):
@@ -1090,7 +1126,7 @@ else:
 
 if hasattr(_c, 'socketpair'):
     def socketpair(family=socketpair_default_family, type=SOCK_STREAM, proto=0,
-                   SocketClass=RSocket):
+                   SocketClass=RSocket, inheritable=True):
         """socketpair([family[, type[, proto]]]) -> (socket object, socket object)
 
         Create a pair of socket objects from the sockets returned by the platform
@@ -1099,17 +1135,42 @@ if hasattr(_c, 'socketpair'):
         AF_UNIX if defined on the platform; otherwise, the default is AF_INET.
         """
         result = lltype.malloc(_c.socketpair_t, 2, flavor='raw')
-        res = _c.socketpair(family, type, proto, result)
-        if res < 0:
-            raise last_error()
-        fd0 = rffi.cast(lltype.Signed, result[0])
-        fd1 = rffi.cast(lltype.Signed, result[1])
-        lltype.free(result, flavor='raw')
+        try:
+            res = -1
+            remove_inheritable = not inheritable
+            if not inheritable and SOCK_CLOEXEC is not None:
+                # Non-inheritable: we try to call socketpair() with
+                # SOCK_CLOEXEC, which may fail.  If we get EINVAL,
+                # then we fall back to the SOCK_CLOEXEC-less case.
+                res = _c.socketpair(family, type | SOCK_CLOEXEC,
+                                    proto, result)
+                if res < 0:
+                    if _c.geterrno() == EINVAL:
+                        # Linux older than 2.6.27 does not support
+                        # SOCK_CLOEXEC.  An EINVAL might be caused by
+                        # random other things, though.  Don't cache.
+                        pass
+                    else:
+                        raise last_error()
+                else:
+                    remove_inheritable = False
+            #
+            if res < 0:
+                res = _c.socketpair(family, type, proto, result)
+                if res < 0:
+                    raise last_error()
+            fd0 = rffi.cast(lltype.Signed, result[0])
+            fd1 = rffi.cast(lltype.Signed, result[1])
+        finally:
+            lltype.free(result, flavor='raw')
+        if remove_inheritable:
+            sock_set_inheritable(fd0, False)
+            sock_set_inheritable(fd1, False)
         return (make_socket(fd0, family, type, proto, SocketClass),
                 make_socket(fd1, family, type, proto, SocketClass))
 
 if _c.WIN32:
-    def dup(fd):
+    def dup(fd, inheritable=True):
         with lltype.scoped_alloc(_c.WSAPROTOCOL_INFO, zero=True) as info:
             if _c.WSADuplicateSocket(fd, rwin32.GetCurrentProcessId(), info):
                 raise last_error()
@@ -1120,15 +1181,16 @@ if _c.WIN32:
                 raise last_error()
             return result
 else:
-    def dup(fd):
-        return _c.dup(fd)
-
-    def fromfd(fd, family, type, proto=0, SocketClass=RSocket):
-        # Dup the fd so it and the socket can be closed independently
-        fd = _c.dup(fd)
+    def dup(fd, inheritable=True):
+        fd = rposix._dup(fd, inheritable)
         if fd < 0:
             raise last_error()
-        return make_socket(fd, family, type, proto, SocketClass)
+        return fd
+
+def fromfd(fd, family, type, proto=0, SocketClass=RSocket, inheritable=True):
+    # Dup the fd so it and the socket can be closed independently
+    fd = dup(fd, inheritable=inheritable)
+    return make_socket(fd, family, type, proto, SocketClass)
 
 def getdefaulttimeout():
     return defaults.timeout
@@ -1405,3 +1467,5 @@ def setdefaulttimeout(timeout):
     if timeout < 0.0:
         timeout = -1.0
     defaults.timeout = timeout
+
+_accept4_syscall = rposix.ENoSysCache()

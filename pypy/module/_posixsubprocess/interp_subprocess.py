@@ -5,6 +5,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rlib import rposix
 
 from pypy.interpreter.error import (
     OperationError, exception_from_saved_errno, oefmt, wrap_oserror)
@@ -36,6 +37,7 @@ if config['HAVE_SETSID']:
     compile_extra.append("-DHAVE_SETSID")
 
 eci = eci.merge(
+    rposix.eci_inheritable,
     ExternalCompilationInfo(
         compile_extra=compile_extra))
 

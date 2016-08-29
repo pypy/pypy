@@ -468,7 +468,8 @@ def frombuffer(space, w_buffer, w_dtype=None, count=-1, offset=0):
     except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise
-        w_buffer = space.getattr(w_buffer, space.wrap('__buffer__'))
+        w_buffer = space.call_method(w_buffer, '__buffer__', 
+                                    space.newint(space.BUF_FULL_RO))
         buf = _getbuffer(space, w_buffer)
 
     ts = buf.getlength()

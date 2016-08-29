@@ -1234,8 +1234,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if d.values:
             for i in range(len(d.values)):
                 key = d.keys[i]
-                if key is None:
-                    is_unpacking = True
+                is_unpacking = key is None
                 if elements == 0xFFFF or (elements and is_unpacking):
                     self.emit_op_arg(ops.BUILD_MAP, elements)
                     containers += 1
@@ -1244,8 +1243,14 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     d.values[i].walkabout(self)
                     containers += 1
                 else:
+                    # TODO: key.walkabout has to be called before d.values.walkabout
+                    # that would fix the error "keywords must be strings"
+                    # for some reason the keys and values seem to be in reverse order
+                    # in some cases, so another error has to be fixed in order for
+                    # this to work, otherwise it breaks everything
+                    # after fix: remove dirty fixes in pyopcode
                     d.values[i].walkabout(self)
-                    d.keys[i].walkabout(self)
+                    key.walkabout(self)
                     elements += 1
         if elements or containers == 0:
             self.emit_op_arg(ops.BUILD_MAP, elements)
@@ -1257,7 +1262,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             oparg = min(containers, 255)
             self.emit_op_arg(ops.BUILD_MAP_UNPACK, oparg)
             containers -= (oparg - 1)
-            is_unpacking = 0
+            is_unpacking = False
     
     def visit_Set(self, s):
         self._visit_starunpack(s, s.elts, ops.BUILD_SET, ops.BUILD_SET, ops.BUILD_SET_UNPACK)

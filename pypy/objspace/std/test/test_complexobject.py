@@ -671,3 +671,6 @@ class AppTestAppComplexTest:
         assert sign(z2.real) == -1
         assert sign(z2.real) == -1
         
+    def test_hash_minus_one(self):
+        assert hash(-1.0 + 0j) == -2
+        assert (-1.0 + 0j).__hash__() == -2

@@ -7,7 +7,7 @@ from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, PyObject, Py_ssize_t, Py_TPFLAGS_CHECKTYPES,
     Py_buffer, mangle_name, pypy_decl)
 from pypy.module.cpyext.typeobjectdefs import (
-    unaryfunc, wrapperfunc, ternaryfunc, PyTypeObjectPtr, binaryfunc,
+    unaryfunc, wrapperfunc, ternaryfunc, PyTypeObjectPtr, binaryfunc, ternaryfunc,
     getattrfunc, getattrofunc, setattrofunc, lenfunc, ssizeargfunc, inquiry,
     ssizessizeargfunc, ssizeobjargproc, iternextfunc, initproc, richcmpfunc,
     cmpfunc, hashfunc, descrgetfunc, descrsetfunc, objobjproc, objobjargproc,
@@ -20,8 +20,12 @@ from pypy.interpreter.argument import Arguments
 from rpython.rlib.buffer import Buffer
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
+from rpython.rlib.rarithmetic import widen
 from rpython.tool.sourcetools import func_renamer
 from rpython.rtyper.annlowlevel import llhelper
+from pypy.module.sys.version import CPYTHON_VERSION
+
+PY3 = CPYTHON_VERSION[0] == 3
 
 # XXX: Also defined in object.h
 Py_LT = 0
@@ -298,11 +302,23 @@ class CPyBuffer(Buffer):
     # Similar to Py_buffer
     _immutable_ = True
 
-    def __init__(self, ptr, size, w_obj):
+    def __init__(self, ptr, size, w_obj, format='B', shape=None,
+                strides=None, ndim=1, itemsize=1, readonly=True):
         self.ptr = ptr
         self.size = size
         self.w_obj = w_obj # kept alive
-        self.readonly = True
+        self.format = format
+        if not shape:
+            self.shape = [size]
+        else:
+            self.shape = shape
+        if not strides:
+            self.strides = [1]
+        else:
+            self.strides = strides
+        self.ndim = ndim 
+        self.itemsize = itemsize
+        self.readonly = readonly
 
     def getlength(self):
         return self.size
@@ -313,14 +329,38 @@ class CPyBuffer(Buffer):
     def get_raw_address(self):
         return rffi.cast(rffi.CCHARP, self.ptr)
 
+    def getformat(self):
+        return self.format
+
+    def getshape(self):
+        return self.shape
+
+    def getitemsize(self):
+        return self.itemsize
+
 def wrap_getbuffer(space, w_self, w_args, func):
     func_target = rffi.cast(getbufferproc, func)
-    with lltype.scoped_alloc(Py_buffer) as view:
-        flags = rffi.cast(rffi.INT_real, 0)
-        ret = generic_cpy_call(space, func_target, w_self, view, flags)
-        if rffi.cast(lltype.Signed, ret) == -1:
+    with lltype.scoped_alloc(Py_buffer) as pybuf:
+        _flags = 0
+        if space.len_w(w_args) > 0:
+            _flags = space.int_w(space.listview(w_args)[0])
+        flags = rffi.cast(rffi.INT_real,_flags)
+        size = generic_cpy_call(space, func_target, w_self, pybuf, flags)
+        if widen(size) < 0:
             space.fromcache(State).check_and_raise_exception(always=True)
-        return space.newbuffer(CPyBuffer(view.c_buf, view.c_len, w_self))
+        ptr = pybuf.c_buf
+        size = pybuf.c_len
+        ndim = widen(pybuf.c_ndim)
+        shape =   [pybuf.c_shape[i]   for i in range(ndim)]
+        strides = [pybuf.c_strides[i] for i in range(ndim)]
+        if pybuf.c_format:
+            format = rffi.charp2str(pybuf.c_format)
+        else:
+            format = 'B'
+        return space.newbuffer(CPyBuffer(ptr, size, w_self, format=format,
+                            ndim=ndim, shape=shape, strides=strides,
+                            itemsize=pybuf.c_itemsize,
+                            readonly=widen(pybuf.c_readonly)))
 
 def get_richcmp_func(OP_CONST):
     def inner(space, w_self, w_args, func):
@@ -542,6 +582,21 @@ def build_slot_tp_function(space, typedef, name):
                              w_stararg=w_args, w_starstararg=w_kwds)
             return space.call_args(space.get(new_fn, w_self), args)
         api_func = slot_tp_new.api_func
+    elif name == 'tp_as_buffer.c_bf_getbuffer':
+        buff_fn = w_type.getdictvalue(space, '__buffer__')
+        if buff_fn is None:
+            return
+        @cpython_api([PyObject, Py_bufferP, rffi.INT_real], 
+                rffi.INT_real, header=None, error=-1)
+        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+        def buff_w(space, w_self, pybuf, flags):
+            # XXX this is wrong, needs a test
+            raise oefmt(space.w_NotImplemented, 
+                "calling bf_getbuffer on a builtin type not supported yet")
+            #args = Arguments(space, [w_self],
+            #                 w_stararg=w_args, w_starstararg=w_kwds)
+            #return space.call_args(space.get(buff_fn, w_self), args)
+        api_func = buff_w.api_func
     else:
         # missing: tp_as_number.nb_nonzero, tp_as_number.nb_coerce
         # tp_as_sequence.c_sq_contains, tp_as_sequence.c_sq_length
@@ -673,23 +728,23 @@ static slotdef slotdefs[] = {
                "x.__delitem__(y) <==> del x[y]"),
 
         BINSLOT("__add__", nb_add, slot_nb_add,
-            "+"),
+                "+"),
         RBINSLOT("__radd__", nb_add, slot_nb_add,
                  "+"),
         BINSLOT("__sub__", nb_subtract, slot_nb_subtract,
-            "-"),
+                "-"),
         RBINSLOT("__rsub__", nb_subtract, slot_nb_subtract,
                  "-"),
         BINSLOT("__mul__", nb_multiply, slot_nb_multiply,
-            "*"),
+                "*"),
         RBINSLOT("__rmul__", nb_multiply, slot_nb_multiply,
                  "*"),
         BINSLOT("__mod__", nb_remainder, slot_nb_remainder,
-            "%"),
+                "%"),
         RBINSLOT("__rmod__", nb_remainder, slot_nb_remainder,
                  "%"),
         BINSLOTNOTINFIX("__divmod__", nb_divmod, slot_nb_divmod,
-            "divmod(x, y)"),
+                        "divmod(x, y)"),
         RBINSLOTNOTINFIX("__rdivmod__", nb_divmod, slot_nb_divmod,
                  "divmod(y, x)"),
         NBSLOT("__pow__", nb_power, slot_nb_power, wrap_ternaryfunc,
@@ -819,11 +874,19 @@ for regex, repl in slotdef_replacements:
 slotdefs = eval(slotdefs_str)
 # PyPy addition
 slotdefs += (
+    # XXX that might not be what we want!
     TPSLOT("__buffer__", "tp_as_buffer.c_bf_getbuffer", None, "wrap_getbuffer", ""),
 )
 
+if not PY3:
+    slotdefs += (
+        TPSLOT("__buffer__", "tp_as_buffer.c_bf_getreadbuffer", None, "wrap_getreadbuffer", ""),
+    )
+
+
 # partial sort to solve some slot conflicts:
 # Number slots before Mapping slots before Sequence slots.
+# also prefer the new buffer interface
 # These are the only conflicts between __name__ methods
 def slotdef_sort_key(slotdef):
     if slotdef.slot_name.startswith('tp_as_number'):
@@ -832,6 +895,10 @@ def slotdef_sort_key(slotdef):
         return 2
     if slotdef.slot_name.startswith('tp_as_sequence'):
         return 3
+    if slotdef.slot_name == 'tp_as_buffer.c_bf_getbuffer':
+        return 100
+    if slotdef.slot_name == 'tp_as_buffer.c_bf_getreadbuffer':
+        return 101
     return 0
 slotdefs = sorted(slotdefs, key=slotdef_sort_key)
 

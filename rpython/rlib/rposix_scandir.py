@@ -17,7 +17,7 @@ def opendir_bytes(path):
 def closedir(dirp):
     rposix.c_closedir(dirp)
 
-NULL_DIRP = lltype.nullptr(rposix.DIRENT)
+NULL_DIRP = lltype.nullptr(rposix.DIRP.TO)
 
 def nextentry(dirp):
     """Read the next entry and returns an opaque object.

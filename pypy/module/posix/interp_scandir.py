@@ -8,11 +8,13 @@ from pypy.interpreter.error import OperationError, oefmt, wrap_oserror2
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.baseobjspace import W_Root
 
-from pypy.module.posix.interp_posix import unwrap_fd, build_stat_result
+from pypy.module.posix.interp_posix import unwrap_fd, build_stat_result, _WIN32
 
 
 def scandir(space, w_path=None):
     "scandir(path='.') -> iterator of DirEntry objects for given path"
+    if _WIN32:
+        raise NotImplementedError("XXX WIN32")
 
     if space.is_none(w_path):
         w_path = space.newunicode(u".")
@@ -71,9 +73,9 @@ class W_ScandirIterator(W_Root):
 
     def next_w(self):
         if not self.dirp:
-            self.fail()
+            raise self.fail()
         if self._in_next:
-            self.fail(oefmt(self.space.w_RuntimeError,
+            raise self.fail(oefmt(self.space.w_RuntimeError,
                "cannot use ScandirIterator from multiple threads concurrently"))
         self._in_next = True
         try:
@@ -83,9 +85,9 @@ class W_ScandirIterator(W_Root):
                 try:
                     entry = rposix_scandir.nextentry(self.dirp)
                 except OSError as e:
-                    self.fail(wrap_oserror(space, e))
+                    raise self.fail(wrap_oserror2(space, e, self.w_path_prefix))
                 if not entry:
-                    self.fail()
+                    raise self.fail()
                 assert rposix_scandir.has_name_bytes(entry)
                 name = rposix_scandir.get_name_bytes(entry)
                 if name != '.' and name != '..':
