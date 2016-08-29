@@ -623,7 +623,8 @@ if not _WIN32:
     class CConfig:
         _compilation_info_ = eci
         DIRENT = rffi_platform.Struct('struct dirent',
-            [('d_name', lltype.FixedSizeArray(rffi.CHAR, 1))]
+            [('d_name', lltype.FixedSizeArray(rffi.CHAR, 1)),
+             ('d_ino', lltype.Signed)]
             + [('d_type', rffi.INT)] if HAVE_D_TYPE else [])
         if HAVE_D_TYPE:
             DT_UNKNOWN = rffi_platform.ConstantInteger('DT_UNKNOWN')
