@@ -50,3 +50,6 @@ def get_known_type(direntp):
     if rposix.HAVE_D_TYPE:
         return rffi.getintfield(direntp, 'c_d_type')
     return DT_UNKNOWN
+
+def get_inode(direntp):
+    return rffi.getintfield(direntp, 'c_d_ino')
