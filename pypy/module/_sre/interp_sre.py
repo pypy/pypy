@@ -14,7 +14,8 @@ from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 # Constants and exposed functions
 
 from rpython.rlib.rsre import rsre_core
-from rpython.rlib.rsre.rsre_char import CODESIZE, MAXREPEAT, MAXGROUPS, getlower, set_unicode_db
+from rpython.rlib.rsre.rsre_char import CODESIZE, MAXREPEAT, MAXGROUPS, getlower
+from rpython.rlib.rsre.rsre_char import set_unicode_db, SRE_FLAG_FULLMATCH
 
 
 @unwrap_spec(char_ord=int, flags=int)
@@ -99,7 +100,7 @@ class W_SRE_Pattern(W_Root):
         space = self.space
         raise oefmt(space.w_TypeError, "cannot copy this pattern object")
 
-    def make_ctx(self, w_string, pos=0, endpos=sys.maxint):
+    def make_ctx(self, w_string, pos=0, endpos=sys.maxint, flags=0):
         """Make a StrMatchContext, BufMatchContext or a UnicodeMatchContext for
         searching in the given w_string object."""
         space = self.space
@@ -107,6 +108,7 @@ class W_SRE_Pattern(W_Root):
             pos = 0
         if endpos < pos:
             endpos = pos
+        flags = self.flags | flags
         if space.isinstance_w(w_string, space.w_unicode):
             unicodestr = space.unicode_w(w_string)
             if not (space.is_none(self.w_pattern) or
@@ -119,7 +121,7 @@ class W_SRE_Pattern(W_Root):
             if endpos > len(unicodestr):
                 endpos = len(unicodestr)
             return rsre_core.UnicodeMatchContext(self.code, unicodestr,
-                                                 pos, endpos, self.flags)
+                                                 pos, endpos, flags)
         elif space.isinstance_w(w_string, space.w_str):
             if (not space.is_none(self.w_pattern) and
                 space.isinstance_w(self.w_pattern, space.w_unicode)):
@@ -132,7 +134,7 @@ class W_SRE_Pattern(W_Root):
             if endpos > len(str):
                 endpos = len(str)
             return rsre_core.StrMatchContext(self.code, str,
-                                             pos, endpos, self.flags)
+                                             pos, endpos, flags)
         else:
             buf = space.readbuf_w(w_string)
             if (not space.is_none(self.w_pattern) and
@@ -147,7 +149,7 @@ class W_SRE_Pattern(W_Root):
             if endpos > size:
                 endpos = size
             return rsre_core.BufMatchContext(self.code, buf,
-                                             pos, endpos, self.flags)
+                                             pos, endpos, flags)
 
     def getmatch(self, ctx, found):
         if found:
@@ -158,6 +160,11 @@ class W_SRE_Pattern(W_Root):
     @unwrap_spec(pos=int, endpos=int)
     def match_w(self, w_string, pos=0, endpos=sys.maxint):
         ctx = self.make_ctx(w_string, pos, endpos)
+        return self.getmatch(ctx, matchcontext(self.space, ctx))
+
+    @unwrap_spec(pos=int, endpos=int)
+    def fullmatch_w(self, w_string, pos=0, endpos=sys.maxint):
+        ctx = self.make_ctx(w_string, pos, endpos, SRE_FLAG_FULLMATCH)
         return self.getmatch(ctx, matchcontext(self.space, ctx))
 
     @unwrap_spec(pos=int, endpos=int)
@@ -419,6 +426,7 @@ W_SRE_Pattern.typedef = TypeDef(
     findall      = interp2app(W_SRE_Pattern.findall_w),
     finditer     = interp2app(W_SRE_Pattern.finditer_w),
     match        = interp2app(W_SRE_Pattern.match_w),
+    fullmatch    = interp2app(W_SRE_Pattern.fullmatch_w),
     scanner      = interp2app(W_SRE_Pattern.finditer_w),    # reuse finditer()
     search       = interp2app(W_SRE_Pattern.search_w),
     split        = interp2app(W_SRE_Pattern.split_w),
