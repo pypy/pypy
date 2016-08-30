@@ -116,6 +116,22 @@ class AppTestSrePattern:
         import _sre
         raises(TypeError, _sre.compile, {}, 0, [])
 
+    def test_fullmatch(self):
+        import re
+        assert re.compile(r"ab*c").fullmatch("abbcdef") is None
+        assert re.compile(r"ab*c").fullmatch("abbc") is not None
+        assert re.fullmatch(r"ab*c", "abbbcdef") is None
+        assert re.fullmatch(r"ab*c", "abbbc") is not None
+
+    def test_repr(self):
+        import re
+        r = re.compile(r'f(o"\d)', 0)
+        assert repr(r) == (
+            r"""re.compile('f(o"\\d)')""")
+        r = re.compile(r'f(o"\d)', re.IGNORECASE|re.DOTALL|re.VERBOSE)
+        assert repr(r) == (
+            r"""re.compile('f(o"\\d)', re.IGNORECASE|re.DOTALL|re.VERBOSE)""")
+
 
 class AppTestSreMatch:
     spaceconfig = dict(usemodules=('array', ))

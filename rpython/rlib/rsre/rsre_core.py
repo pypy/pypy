@@ -89,6 +89,7 @@ class AbstractMatchContext(object):
     match_end = 0
     match_marks = None
     match_marks_flat = None
+    fullmatch_only = False
 
     def __init__(self, pattern, match_start, end, flags):
         # 'match_start' and 'end' must be known to be non-negative
@@ -526,9 +527,16 @@ def sre_match(ctx, ppos, ptr, marks):
         if op == OPCODE_FAILURE:
             return
 
-        if (op == OPCODE_SUCCESS or
-            op == OPCODE_MAX_UNTIL or
-            op == OPCODE_MIN_UNTIL):
+        elif op == OPCODE_SUCCESS:
+            if ctx.fullmatch_only:
+                if ptr != ctx.end:
+                    return     # not a full match
+            ctx.match_end = ptr
+            ctx.match_marks = marks
+            return MATCHED_OK
+
+        elif (op == OPCODE_MAX_UNTIL or
+              op == OPCODE_MIN_UNTIL):
             ctx.match_end = ptr
             ctx.match_marks = marks
             return MATCHED_OK
@@ -551,7 +559,11 @@ def sre_match(ctx, ppos, ptr, marks):
             # assert subpattern
             # <ASSERT> <0=skip> <1=back> <pattern>
             ptr1 = ptr - ctx.pat(ppos+1)
-            if ptr1 < 0 or sre_match(ctx, ppos + 2, ptr1, marks) is None:
+            saved = ctx.fullmatch_only
+            ctx.fullmatch_only = False
+            stop = ptr1 < 0 or sre_match(ctx, ppos + 2, ptr1, marks) is None
+            ctx.fullmatch_only = saved
+            if stop:
                 return
             marks = ctx.match_marks
             ppos += ctx.pat(ppos)
@@ -560,7 +572,12 @@ def sre_match(ctx, ppos, ptr, marks):
             # assert not subpattern
             # <ASSERT_NOT> <0=skip> <1=back> <pattern>
             ptr1 = ptr - ctx.pat(ppos+1)
-            if ptr1 >= 0 and sre_match(ctx, ppos + 2, ptr1, marks) is not None:
+            saved = ctx.fullmatch_only
+            ctx.fullmatch_only = False
+            stop = (ptr1 >= 0 and sre_match(ctx, ppos + 2, ptr1, marks)
+                                      is not None)
+            ctx.fullmatch_only = saved
+            if stop:
                 return
             ppos += ctx.pat(ppos)
 
@@ -999,13 +1016,17 @@ def _adjust(start, end, length):
     elif end > length: end = length
     return start, end
 
-def match(pattern, string, start=0, end=sys.maxint, flags=0):
+def match(pattern, string, start=0, end=sys.maxint, flags=0, fullmatch=False):
     start, end = _adjust(start, end, len(string))
     ctx = StrMatchContext(pattern, string, start, end, flags)
+    ctx.fullmatch_only = fullmatch
     if match_context(ctx):
         return ctx
     else:
         return None
+
+def fullmatch(pattern, string, start=0, end=sys.maxint, flags=0):
+    return match(pattern, string, start, end, flags, fullmatch=True)
 
 def search(pattern, string, start=0, end=sys.maxint, flags=0):
     start, end = _adjust(start, end, len(string))

@@ -74,6 +74,7 @@ copyrighted by one or more of the following people and organizations:
   Seo Sanghyeon
   Ronny Pfannschmidt
   Justin Peel
+  Raffael Tfirst
   David Edelsohn
   Anders Hammarquist
   Jakub Gustak
@@ -117,7 +118,6 @@ copyrighted by one or more of the following people and organizations:
   Wenzhu Man
   John Witulski
   Laurence Tratt
-  Raffael Tfirst
   Ivan Sichmann Freitas
   Greg Price
   Dario Bertini
@@ -141,6 +141,7 @@ copyrighted by one or more of the following people and organizations:
   tav
   Taavi Burns
   Georg Brandl
+  Nicolas Truessel
   Bert Freudenberg
   Stian Andreassen
   Wanja Saatkamp
@@ -211,6 +212,7 @@ copyrighted by one or more of the following people and organizations:
   Vaibhav Sood
   Alan McIntyre
   Alexander Sedov
+  p_zieschang@yahoo.de
   Attila Gobi
   Jasper.Schulz
   Christopher Pope
@@ -221,6 +223,7 @@ copyrighted by one or more of the following people and organizations:
   Arjun Naik
   Valentina Mukhamedzhanova
   Stefano Parmesan
+  touilleMan
   Alexis Daboville
   Jens-Uwe Mager
   Carl Meyer
@@ -229,12 +232,14 @@ copyrighted by one or more of the following people and organizations:
   Gabriel
   Lukas Vacek
   Kunal Grover
+  Aaron Gallagher
   Andrew Dalke
   Sylvain Thenault
   Jakub Stasiak
   Nathan Taylor
   Vladimir Kryachko
   Omer Katz
+  Mark Williams
   Jacek Generowicz
   Alejandro J. Cura
   Jacob Oscarson
@@ -355,12 +360,15 @@ copyrighted by one or more of the following people and organizations:
   yasirs
   Michael Chermside
   Anna Ravencroft
+  pizi
   Andrey Churin
   Dan Crosta
+  Eli Stevens
   Tobias Diaz
   Julien Phalip
   Roman Podoliaka
   Dan Loewenherz
+  werat
 
   Heinrich-Heine University, Germany 
   Open End AB (formerly AB Strakt), Sweden
@@ -468,15 +476,3 @@ The code is based on gperftools. You may see a copy of the License for it at
 
     https://github.com/gperftools/gperftools/blob/master/COPYING
 
-License for 'liblzma and 'lzmaffi'
-----------------------------------
-
-This copy of PyPy may be linked (dynamically or statically) with the
-liblzma library, which was put in the "public domain":
-
-    http://tukaani.org/xz/
-
-The cffi bindings to liblzma (in lib_pypy/_lzma.py) are derived from
-the lzmaffi project which is distributed under a BSD license:
-
-    https://pypi.python.org/pypi/lzmaffi/0.3.0

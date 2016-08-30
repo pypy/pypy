@@ -623,7 +623,8 @@ if not _WIN32:
     class CConfig:
         _compilation_info_ = eci
         DIRENT = rffi_platform.Struct('struct dirent',
-            [('d_name', lltype.FixedSizeArray(rffi.CHAR, 1))]
+            [('d_name', lltype.FixedSizeArray(rffi.CHAR, 1)),
+             ('d_ino', lltype.Signed)]
             + [('d_type', rffi.INT)] if HAVE_D_TYPE else [])
         if HAVE_D_TYPE:
             DT_UNKNOWN = rffi_platform.ConstantInteger('DT_UNKNOWN')
@@ -1159,23 +1160,18 @@ def pipe(flags=0):
     # 'flags' might be ignored.  Check the result.
     if _WIN32:
         # 'flags' ignored
-        pread  = lltype.malloc(rwin32.LPHANDLE.TO, 1, flavor='raw')
-        pwrite = lltype.malloc(rwin32.LPHANDLE.TO, 1, flavor='raw')
-        try:
-            ok = CreatePipe(
-                    pread, pwrite, lltype.nullptr(rffi.VOIDP.TO), 0)
-            hread = rffi.cast(rffi.INTPTR_T, pread[0])
-            hwrite = rffi.cast(rffi.INTPTR_T, pwrite[0])
-        finally:
-            lltype.free(pwrite, flavor='raw')
-            lltype.free(pread, flavor='raw')
-        if ok:
-            fdread = c_open_osfhandle(hread, 0)
-            fdwrite = c_open_osfhandle(hwrite, 1)
-            if not (fdread == -1 or fdwrite == -1):
-                return (fdread, fdwrite)
-            rwin32.CloseHandle(pread)
-            rwin32.CloseHandle(pwrite)
+        ralloc = lltype.scoped_alloc(rwin32.LPHANDLE.TO, 1)
+        walloc = lltype.scoped_alloc(rwin32.LPHANDLE.TO, 1)
+        with ralloc as pread, walloc as pwrite:
+            if CreatePipe(pread, pwrite, lltype.nullptr(rffi.VOIDP.TO), 0):
+                hread = pread[0]
+                hwrite = pwrite[0]
+                fdread = c_open_osfhandle(rffi.cast(rffi.INTPTR_T, hread), 0)
+                fdwrite = c_open_osfhandle(rffi.cast(rffi.INTPTR_T, hwrite), 1)
+                if not (fdread == -1 or fdwrite == -1):
+                    return (fdread, fdwrite)
+                rwin32.CloseHandle(hread)
+                rwin32.CloseHandle(hwrite)
         raise WindowsError(rwin32.GetLastError_saved(), "CreatePipe failed")
     else:
         filedes = lltype.malloc(INT_ARRAY_P.TO, 2, flavor='raw')

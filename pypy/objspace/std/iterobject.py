@@ -114,6 +114,31 @@ class W_FastTupleIterObject(W_AbstractSeqIterObject):
         return w_item
 
 
+class W_StringIterObject(W_AbstractSeqIterObject):
+    """Sequence iterator specialized for string-like objects, used
+    for bytes.__iter__() or str.__iter__() or bytearray.__iter__().
+    Needed because otherwise these methods would call the possibly
+    overridden __getitem__() method, which they must not.
+    """
+    def __init__(self, w_seq, getitem_fn):
+        W_AbstractSeqIterObject.__init__(self, w_seq)
+        self.getitem_fn = getitem_fn
+
+    def descr_next(self, space):
+        if self.w_seq is None:
+            raise OperationError(space.w_StopIteration, space.w_None)
+        index = self.index
+        try:
+            w_item = self.getitem_fn(self.w_seq, space, index)
+        except OperationError as e:
+            self.w_seq = None
+            if not e.match(space, space.w_IndexError):
+                raise
+            raise OperationError(space.w_StopIteration, space.w_None)
+        self.index = index + 1
+        return w_item
+
+
 class W_ReverseSeqIterObject(W_Root):
     def __init__(self, space, w_seq, index=-1):
         self.w_seq = w_seq

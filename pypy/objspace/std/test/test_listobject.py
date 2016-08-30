@@ -432,7 +432,7 @@ class TestW_ListObject(object):
 
 
 class AppTestListObject(object):
-    spaceconfig = {"objspace.std.withliststrategies": True}  # it's the default
+    #spaceconfig = {"objspace.std.withliststrategies": True}  # it's the default
 
     def setup_class(cls):
         import platform
@@ -1524,6 +1524,16 @@ class AppTestListObject(object):
             def __iter__(self):
                 yield "ok"
         assert list(U("don't see me")) == ["ok"]
+        #
+        class S(bytes):
+            def __getitem__(self, index):
+                never_called
+        assert list(S(b"abc")) == list(b"abc")   # __getitem__ ignored
+        #
+        class U(str):
+            def __getitem__(self, index):
+                never_called
+        assert list(U("abc")) == list("abc")     # __getitem__ ignored
 
     def test_extend_from_nonempty_list_with_subclasses(self):
         l = ["hi!"]
@@ -1549,6 +1559,20 @@ class AppTestListObject(object):
         l.extend(U("don't see me"))
         #
         assert l == ["hi!", "okT", "okL", "okL", "okS", "okU"]
+        #
+        class S(bytes):
+            def __getitem__(self, index):
+                never_called
+        l = []
+        l.extend(S(b"abc"))
+        assert l == list(b"abc")    # __getitem__ ignored
+        #
+        class U(str):
+            def __getitem__(self, index):
+                never_called
+        l = []
+        l.extend(U("abc"))
+        assert l == list("abc")     # __getitem__ ignored
 
     def test_issue1266(self):
         l = list(range(1))
