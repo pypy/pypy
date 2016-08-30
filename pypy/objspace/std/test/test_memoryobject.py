@@ -46,7 +46,7 @@ class AppTestMemoryView:
         assert len(w) == 1
         assert list(w) == [97]
         v[::2] = b'ABC'
-        assert data == bytearray(b'AbBeCg')
+        assert data == bytearray(eval("b'AbBeCg'"))
 
     def test_memoryview_attrs(self):
         v = memoryview(b"a"*100)

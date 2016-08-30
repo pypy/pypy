@@ -251,7 +251,7 @@ class W_MemoryView(W_Root):
 
     def slice(self, start, stop, step, size):
         # modifies the buffer, shape and stride to allow step to be > 1
-        # NOTE that start, stop, are already bytes
+        # NOTE that start, stop, are already byte offsets
         # TODO subbuffer
         strides = self.getstrides()[:]
         shape = self.getshape()[:]
@@ -320,8 +320,29 @@ class W_MemoryView(W_Root):
                             "cannot modify size of memoryview object")
             self.buf.setslice(start, value.as_str())
         else:
-            raise oefmt(space.w_NotImplementedError,
-                        "XXX extended slicing")
+            if self.getndim() != 1:
+                raise oefmt(space.w_NotImplementedError,
+                        "memoryview slice assignments are currently "
+                        "restricted to ndim = 1")
+            itemsize = self.getitemsize()
+            data = []
+            src = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
+            dst_strides = self.getstrides()
+            dim = 0
+            dst = SubBuffer(self.buf, start + dst_strides[dim] * (start // itemsize), self.buf.getlength())
+            src_stride0 = dst_strides[dim]
+
+            off = 0
+            src_shape0 = size
+            src_stride0 = src.getstrides()[0]
+            for i in range(src_shape0):
+                data.append(src.getslice(off,off+itemsize,1,itemsize))
+                off += src_stride0
+            off = 0
+            dst_stride0 = self.getstrides()[0] * step
+            for dataslice in data:
+                dst.setslice(off, dataslice)
+                off += dst_stride0
 
     def descr_len(self, space):
         self._check_released(space)
