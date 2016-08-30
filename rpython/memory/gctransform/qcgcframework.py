@@ -1,5 +1,6 @@
 from rpython.rtyper.llannotation import SomePtr, SomeAddress, s_None
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper import rmodel
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.memory.gctransform.framework import (BaseFrameworkGCTransformer, BaseRootWalker)
 
@@ -69,8 +70,13 @@ class QcgcFrameworkGCTransformer(BaseFrameworkGCTransformer):
 #                                  c_index, v_ptr])
 
     def gct_gc_fq_next_dead(self, hop):
-        pass
-#        index = self.get_finalizer_queue_index(hop)
+        # "return NULL" to tell PyPy that there are no finalizers to run (XXX)
+        op = hop.spaceop
+        null = lltype.nullptr(op.result.concretetype.TO)
+        c_null = rmodel.inputconst(op.result.concretetype, null)
+        hop.genop("same_as", [c_null], resultvar=op.result)
+
+        #        index = self.get_finalizer_queue_index(hop)
 #        c_ll_next_dead = self.finalizer_handlers[index][2]
 #        v_adr = hop.genop("direct_call", [c_ll_next_dead],
 #                          resulttype=llmemory.Address)
