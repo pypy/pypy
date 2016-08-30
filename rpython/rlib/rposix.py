@@ -1164,14 +1164,14 @@ def pipe(flags=0):
         walloc = lltype.scoped_alloc(rwin32.LPHANDLE.TO, 1)
         with ralloc as pread, walloc as pwrite:
             if CreatePipe(pread, pwrite, lltype.nullptr(rffi.VOIDP.TO), 0):
-                fdread = c_open_osfhandle(
-                    rffi.cast(rffi.INTPTR_T, pread[0]), 0)
-                fdwrite = c_open_osfhandle(
-                    rffi.cast(rffi.INTPTR_T, pwrite[0]), 1)
+                hread = pread[0]
+                hwrite = pwrite[0]
+                fdread = c_open_osfhandle(rffi.cast(rffi.INTPTR_T, hread), 0)
+                fdwrite = c_open_osfhandle(rffi.cast(rffi.INTPTR_T, hwrite), 1)
                 if not (fdread == -1 or fdwrite == -1):
                     return (fdread, fdwrite)
-                rwin32.CloseHandle(pread)
-                rwin32.CloseHandle(pwrite)
+                rwin32.CloseHandle(hread)
+                rwin32.CloseHandle(hwrite)
         raise WindowsError(rwin32.GetLastError_saved(), "CreatePipe failed")
     else:
         filedes = lltype.malloc(INT_ARRAY_P.TO, 2, flavor='raw')
