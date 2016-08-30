@@ -509,6 +509,11 @@ class W_UnicodeObject(W_Root):
     def _starts_ends_overflow(self, prefix):
         return len(prefix) == 0
 
+    @staticmethod
+    def _iter_getitem_result(self, space, index):
+        assert isinstance(self, W_UnicodeObject)
+        return self._getitem_result(space, index)
+
 
 def _isidentifier(u):
     if not u:
