@@ -125,8 +125,8 @@ class AppTestAST:
     def test_optional(self):
         mod = self.get_ast("x(32)", "eval")
         call = mod.body
-        assert call.starargs is None
-        assert call.kwargs is None
+        assert len(call.args) == 1
+        assert call.args[0].n == 32
         co = compile(mod, "<test>", "eval")
         ns = {"x" : lambda x: x}
         assert eval(co, ns) == 32
