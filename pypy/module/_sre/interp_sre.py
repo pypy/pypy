@@ -140,53 +140,60 @@ class W_SRE_Pattern(W_Root):
             return False
         return space.isinstance_w(self.w_pattern, space.w_unicode)
 
+    def getstring(self, w_string):
+        """Accepts a string-like object (str, bytes, bytearray, buffer...)
+        and returns a tuple (len, rpython_unicode, rpython_str, rpython_buf),
+        where only one of the rpython_xxx is non-None.
+        """
+        unicodestr = None
+        string = None
+        buf = None
+        space = self.space
+        if space.isinstance_w(w_string, space.w_unicode):
+            unicodestr = space.unicode_w(w_string)
+            length = len(unicodestr)
+        elif space.isinstance_w(w_string, space.w_str):
+            string = space.str_w(w_string)
+            length = len(string)
+        else:
+            buf = space.readbuf_w(w_string)
+            length = buf.getlength()
+            assert length >= 0
+        return (length, unicodestr, string, buf)
+
     def make_ctx(self, w_string, pos=0, endpos=sys.maxint, flags=0):
         """Make a StrMatchContext, BufMatchContext or a UnicodeMatchContext for
         searching in the given w_string object."""
         space = self.space
+        length, unicodestr, string, buf = self.getstring(w_string)
         if pos < 0:
             pos = 0
+        elif pos > length:
+            pos = length
         if endpos < pos:
             endpos = pos
+        elif endpos > length:
+            endpos = length
         flags = self.flags | flags
-        if space.isinstance_w(w_string, space.w_unicode):
-            unicodestr = space.unicode_w(w_string)
+        #
+        if unicodestr is not None:
             if self.is_known_bytes():
                 raise oefmt(space.w_TypeError,
                             "can't use a bytes pattern on a string-like "
                             "object")
-            if pos > len(unicodestr):
-                pos = len(unicodestr)
-            if endpos > len(unicodestr):
-                endpos = len(unicodestr)
             return rsre_core.UnicodeMatchContext(self.code, unicodestr,
                                                  pos, endpos, flags)
-        elif space.isinstance_w(w_string, space.w_str):
-            if self.is_known_unicode():
-                raise oefmt(space.w_TypeError,
-                            "can't use a string pattern on a bytes-like "
-                            "object")
-            str = space.str_w(w_string)
-            if pos > len(str):
-                pos = len(str)
-            if endpos > len(str):
-                endpos = len(str)
-            return rsre_core.StrMatchContext(self.code, str,
-                                             pos, endpos, flags)
         else:
-            buf = space.readbuf_w(w_string)
             if self.is_known_unicode():
                 raise oefmt(space.w_TypeError,
                             "can't use a string pattern on a bytes-like "
                             "object")
-            size = buf.getlength()
-            assert size >= 0
-            if pos > size:
-                pos = size
-            if endpos > size:
-                endpos = size
-            return rsre_core.BufMatchContext(self.code, buf,
-                                             pos, endpos, flags)
+            if string is not None:
+                return rsre_core.StrMatchContext(self.code, string,
+                                                 pos, endpos, flags)
+            else:
+                return rsre_core.BufMatchContext(self.code, buf,
+                                                 pos, endpos, flags)
 
     def getmatch(self, ctx, found):
         if found:
@@ -295,27 +302,27 @@ class W_SRE_Pattern(W_Root):
             w_filter = w_ptemplate
             filter_is_callable = True
         else:
-            if space.isinstance_w(w_ptemplate, space.w_unicode):
-                filter_as_unicode = space.unicode_w(w_ptemplate)
+            length, filter_as_unicode, filter_as_string, buf = (
+                self.getstring(w_ptemplate))
+            if filter_as_unicode is not None:
                 literal = u'\\' not in filter_as_unicode
                 use_builder = (
                     space.isinstance_w(w_string, space.w_unicode) and literal)
             else:
-                try:
-                    filter_as_string = space.bytes_w(w_ptemplate)
-                except OperationError as e:
-                    if e.async(space):
-                        raise
-                    literal = False
-                else:
-                    literal = '\\' not in filter_as_string
-                    use_builder = (
-                        space.isinstance_w(w_string, space.w_str) and literal)
+                if buf is not None:
+                    filter_as_string = buf.as_str()
+                literal = '\\' not in filter_as_string
+                use_builder = (
+                    space.isinstance_w(w_string, space.w_str) and literal)
             if literal:
                 w_filter = w_ptemplate
                 filter_is_callable = False
             else:
                 # not a literal; hand it over to the template compiler
+                # FIX for a CPython 3.5 bug: if w_ptemplate is a buffer
+                # (e.g. a bytearray), convert it to a byte string here.
+                if buf is not None:
+                    w_ptemplate = space.newbytes(filter_as_string)
                 w_re = import_re(space)
                 w_filter = space.call_method(w_re, '_subx',
                                              space.wrap(self), w_ptemplate)

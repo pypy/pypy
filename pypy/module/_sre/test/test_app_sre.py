@@ -285,6 +285,12 @@ class AppTestSreMatch:
         import re
         assert re.sub('=\w{2}', 'x', '=CA') == 'x'
 
+    def test_sub_bytearray(self):
+        import re
+        assert re.sub(b'a', bytearray(b'A'), b'axa') == b'AxA'
+        # this fails on CPython 3.5:
+        assert re.sub(b'a', bytearray(b'\\n'), b'axa') == b'\nx\n'
+
     def test_match_array(self):
         import re, array
         a = array.array('b', b'hello')
