@@ -76,7 +76,7 @@ class StringMethods(object):
 
     def descr_iter(self, space):
         from pypy.objspace.std.iterobject import W_StringIterObject
-        return W_StringIterObject(self, self.__class__._getitem_result)
+        return W_StringIterObject(self, self._iter_getitem_result)
 
     def descr_contains(self, space, w_sub):
         value = self._val(space)

@@ -446,6 +446,11 @@ class W_BytearrayObject(W_Root):
     def descr_hex(self, space):
         return _array_to_hexstring(space, self.data, len(self.data), True)
 
+    @staticmethod
+    def _iter_getitem_result(self, space, index):
+        assert isinstance(self, W_BytearrayObject)
+        return self._getitem_result(space, index)
+
 
 # ____________________________________________________________
 # helpers for slow paths, moved out because they contain loops

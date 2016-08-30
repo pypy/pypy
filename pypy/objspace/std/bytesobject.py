@@ -663,6 +663,11 @@ class W_BytesObject(W_AbstractBytesObject):
         from pypy.objspace.std.bytearrayobject import _array_to_hexstring
         return _array_to_hexstring(space, StringBuffer(self._value))
 
+    @staticmethod
+    def _iter_getitem_result(self, space, index):
+        assert isinstance(self, W_BytesObject)
+        return self._getitem_result(space, index)
+
 
 def _create_list_from_bytes(value):
     # need this helper function to allow the jit to look inside and inline
