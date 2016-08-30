@@ -4507,3 +4507,33 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
                 i += 1
             return i
         self.meta_interp(f, [])
+
+    def test_loop_unroll_bug(self):
+        driver = JitDriver(greens=[], reds=['acc', 'i', 'val'])
+        class X(object):
+            # _immutable_ = True
+            def __init__(self, v):
+                self.v = v
+
+        class Box(object):
+            def __init__(self, v):
+                self.unbox = v
+
+        const = Box(X(5))
+        def f(v):
+            val   = X(0)
+            acc   = 0
+            i     = 0
+            const.unbox = X(5)
+            while i < 100:
+                driver.can_enter_jit(acc=acc, i=i, val=val)
+                driver.jit_merge_point(acc=acc, i=i, val=val)
+                acc += val.v
+                if i & 0b100 == 0:
+                    val = const.unbox
+                else:
+                    val = X(i)
+                i += 1
+            return acc
+        result = self.meta_interp(f, [10])
+        # import pdb; pdb.set_trace()
