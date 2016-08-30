@@ -132,12 +132,16 @@ class W_MemoryView(W_Root):
 
     def _copy_base(self, data, off):
         shapes = self.getshape()
-        step = shapes[0] // self.getitemsize()
+        step = shapes[0]
         strides = self.getstrides()
+        itemsize = self.getitemsize()
         for i in range(step):
-            bytes = self.buf.getslice(off, off+self.itemsize, 1, self.itemsize)
+            bytes = self.buf.getslice(off, off+itemsize, 1, itemsize)
             data.append(bytes)
             off += strides[0]
+            # do notcopy data if the sub buffer is out of bounds
+            if off >= self.buf.getlength():
+                break
 
     def getlength(self):
         if self.length != -1:
@@ -265,11 +269,9 @@ class W_MemoryView(W_Root):
                 fmtiter = UnpackFormatIterator(space, buf)
                 fmtiter.interpret(self.format)
                 return fmtiter.result_w[0]
-        elif step == 1:
+        elif step >= 1:
             buf = SubBuffer(self.buf, start, size)
-            return W_MemoryView(buf, self.getformat(), itemsize)
-        else:
-            mv = W_MemoryView.copy(self)
+            mv = W_MemoryView.copy(self, buf)
             mv.slice(start, stop, step, size)
             mv.length = mv.bytecount_from_shape()
             mv._init_flags()
@@ -281,12 +283,11 @@ class W_MemoryView(W_Root):
         # TODO subbuffer
         strides = self.getstrides()[:]
         shape = self.getshape()[:]
-        itemsize = self.itemsize
+        itemsize = self.getitemsize()
         dim = 0
-        length = self.buf.getlength()
-        self.buf = SubBuffer(self.buf, strides[dim] * start, size)
+        self.buf = SubBuffer(self.buf, strides[dim] * (start//itemsize), size * itemsize)
         shape[dim] = size
-        strides[dim] = strides[dim] * step * itemsize
+        strides[dim] = strides[dim] * step
         self.strides = strides
         self.shape = shape
 
@@ -299,11 +300,12 @@ class W_MemoryView(W_Root):
         return length * self.getitemsize()
 
     @staticmethod
-    def copy(view):
+    def copy(view, buf=None):
         # TODO suboffsets
-        return W_MemoryView(view.buf, view.getformat(), view.getitemsize(),
+        if buf == None:
+            buf = view.buf
+        return W_MemoryView(buf, view.getformat(), view.getitemsize(),
                             view.getndim(), view.getshape()[:], view.getstrides()[:])
-
 
     def _apply_itemsize(self, space, start, size, itemsize):
         if itemsize > 1:
@@ -351,17 +353,21 @@ class W_MemoryView(W_Root):
                 raise oefmt(space.w_NotImplementedError,
                         "memoryview slice assignments are currently "
                         "restricted to ndim = 1")
+            # this is the case of a one dimensional copy!
+            # NOTE we could maybe make use of copy_base, but currently we do not
             itemsize = self.getitemsize()
             data = []
             src = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
             dst_strides = self.getstrides()
             dim = 0
-            dst = SubBuffer(self.buf, start + dst_strides[dim] * (start // itemsize), self.buf.getlength())
+            dst = SubBuffer(self.buf, start, size)
             src_stride0 = dst_strides[dim]
 
             off = 0
-            src_shape0 = size
+            src_shape0 = size // itemsize
             src_stride0 = src.getstrides()[0]
+            if isinstance(w_obj, W_MemoryView):
+                src_stride0 = w_obj.getstrides()[0]
             for i in range(src_shape0):
                 data.append(src.getslice(off,off+itemsize,1,itemsize))
                 off += src_stride0
@@ -575,8 +581,8 @@ class W_MemoryView(W_Root):
         self.format = newfmt
         self.itemsize = itemsize
         self.ndim = 1
-        self.shape = [buf.getlength() // buf.getitemsize()]
-        self.strides = [buf.getitemsize()]
+        self.shape = [buf.getlength() // itemsize]
+        self.strides = [itemsize]
         # XX suboffsets
 
         self._init_flags()

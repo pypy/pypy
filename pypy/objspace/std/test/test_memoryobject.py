@@ -225,7 +225,7 @@ class AppTestMemoryView:
         data = bytearray(b'abcdefghij')
         m3 = memoryview(data).cast('h')
         m3[1:5:2] = memoryview(b"xyXY").cast('h')
-        assert data == bytearray(b'abxyefXYij')
+        assert data == bytearray(eval("b'abxyefXYij'"))
 
 class MockBuffer(Buffer):
     def __init__(self, space, w_arr, w_dim, w_fmt, \
