@@ -40,6 +40,7 @@ class W_MemoryView(W_Root):
         self.suboffsets = suboffsets
         self.ndim = ndim
         self.flags = 0
+        self.length = -1
         self._init_flags()
 
     # several fields are "overwritten" by the memory view (shape, strides, ...)
@@ -113,6 +114,8 @@ class W_MemoryView(W_Root):
         return buf.getslice(0, n_bytes, 1, n_bytes)
 
     def getlength(self):
+        if self.length != -1:
+            return self.length // self.itemsize
         return self.buf.getlength() // self.itemsize
 
     def descr_tobytes(self, space):
@@ -240,10 +243,40 @@ class W_MemoryView(W_Root):
             buf = SubBuffer(self.buf, start, size)
             return W_MemoryView(buf, self.getformat(), itemsize)
         else:
-            # XXX needs to return a W_MemoryView with a NonContiguousSubBuffer
-            # maybe?  Need to check the cpyext requirements for that
-            raise oefmt(space.w_NotImplementedError,
-                        "XXX extended slicing")
+            mv = W_MemoryView.copy(self)
+            mv.slice(start, stop, step, size)
+            mv.length = mv.bytecount_from_shape()
+            mv._init_flags()
+            return mv
+
+    def slice(self, start, stop, step, size):
+        # modifies the buffer, shape and stride to allow step to be > 1
+        # NOTE that start, stop, are already bytes
+        # TODO subbuffer
+        strides = self.getstrides()[:]
+        shape = self.getshape()[:]
+        itemsize = self.itemsize
+        dim = 0
+        self.buf = SubBuffer(self.buf, start + strides[dim] * (start // itemsize), self.buf.getlength())
+        shape[dim] = size
+        strides[dim] = strides[dim] * step
+        self.strides = strides
+        self.shape = shape
+
+    def bytecount_from_shape(self):
+        dim = self.getndim()
+        shape = self.getshape()
+        length = 1
+        for i in range(dim):
+            length *= shape[i]
+        return length * self.getitemsize()
+
+    @staticmethod
+    def copy(view):
+        # TODO suboffsets
+        return W_MemoryView(view.buf, view.getformat(), view.getitemsize(),
+                            view.getndim(), view.getshape()[:], view.getstrides()[:])
+
 
     def _apply_itemsize(self, space, start, size, itemsize):
         if itemsize > 1:
@@ -466,7 +499,7 @@ class W_MemoryView(W_Root):
         # TODO elif buf.is_contiguous('F'):
         # TODO     flags |= MEMORYVIEW_FORTRAN
 
-        # XXX missing suboffsets
+        # TODO missing suboffsets
 
         self.flags = flags
 
