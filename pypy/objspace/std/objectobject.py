@@ -195,8 +195,8 @@ def descr___format__(space, w_obj, w_format_spec):
     else:
         raise oefmt(space.w_TypeError, "format_spec must be a string")
     if space.len_w(w_format_spec) > 0:
-        msg = "object.__format__ with a non-empty format string is deprecated"
-        space.warn(space.wrap(msg), space.w_DeprecationWarning)
+        raise oefmt(space.w_TypeError,
+                    "non-empty format string passed to object.__format__")
     return space.format(w_as_str, w_format_spec)
 
 def descr__eq__(space, w_self, w_other):
