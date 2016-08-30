@@ -476,3 +476,15 @@ The code is based on gperftools. You may see a copy of the License for it at
 
     https://github.com/gperftools/gperftools/blob/master/COPYING
 
+License for 'liblzma and 'lzmaffi'
+----------------------------------
+
+This copy of PyPy may be linked (dynamically or statically) with the
+liblzma library, which was put in the "public domain":
+
+    http://tukaani.org/xz/
+
+The cffi bindings to liblzma (in lib_pypy/_lzma.py) are derived from
+the lzmaffi project which is distributed under a BSD license:
+
+    https://pypi.python.org/pypi/lzmaffi/0.3.0

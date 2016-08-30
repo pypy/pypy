@@ -659,6 +659,11 @@ class W_BytesObject(W_AbstractBytesObject):
     def descr_upper(self, space):
         return W_BytesObject(self._value.upper())
 
+    @staticmethod
+    def _iter_getitem_result(self, space, index):
+        assert isinstance(self, W_BytesObject)
+        return self._getitem_result(space, index)
+
 
 def _create_list_from_bytes(value):
     # need this helper function to allow the jit to look inside and inline
