@@ -1,5 +1,5 @@
 from rpython.memory.gc.base import GCBase
-from rpython.memory.support import mangle_hash
+#from rpython.memory.support import mangle_hash
 from rpython.rtyper.lltypesystem import rffi, lltype, llgroup, llmemory, llarena
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.debug import ll_assert
@@ -88,6 +88,14 @@ class QCGC(GCBase):
         #llop.gc_writebarrier(dest_addr)
         #return True
 
+    # XXX: WRITE BARRIER
+    def write_barrier(self, addr_struct):
+        llop.qcgc_write_barrier(lltype.Void, addr_struct)
+
+    def register_finalizer(self, fq_index, gcobj):
+        # XXX: Not supported
+        pass
+
     def id_or_identityhash(self, gcobj, is_hash):
         hdr = self.header(llmemory.cast_ptr_to_adr(gcobj))
         has_hash = (hdr.flags & QCGC_HAS_HASH)
@@ -96,7 +104,7 @@ class QCGC(GCBase):
         if is_hash:
             if has_hash:
                 return i # Do not mangle for objects with built in hash
-            i = mangle_hash(i)
+            i = i ^ (i >> 5)
         return i
 
     def id(self, gcobje):

@@ -58,6 +58,25 @@ class QcgcFrameworkGCTransformer(BaseFrameworkGCTransformer):
         for _ in livevars: # Does not move, so no writing back
             hop.genop("qcgc_pop_root", [])
 
+    def gct_gc_fq_register(self, hop):
+        pass
+#        index = self.get_finalizer_queue_index(hop)
+#        c_index = rmodel.inputconst(lltype.Signed, index)
+#        v_ptr = hop.spaceop.args[1]
+#        v_ptr = hop.genop("cast_opaque_ptr", [v_ptr],
+#                          resulttype=llmemory.GCREF)
+#        hop.genop("direct_call", [self.register_finalizer_ptr, self.c_const_gc,
+#                                  c_index, v_ptr])
+
+    def gct_gc_fq_next_dead(self, hop):
+        pass
+#        index = self.get_finalizer_queue_index(hop)
+#        c_ll_next_dead = self.finalizer_handlers[index][2]
+#        v_adr = hop.genop("direct_call", [c_ll_next_dead],
+#                          resulttype=llmemory.Address)
+#        hop.genop("cast_adr_to_ptr", [v_adr],
+#                  resultvar = hop.spaceop.result)
+
 class QcgcRootWalker(BaseRootWalker):
     def walk_stack_roots(self, collect_stack_root, is_minor=False):
         raise NotImplementedError
