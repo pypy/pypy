@@ -53,6 +53,7 @@ class AppTestSrePattern:
         assert re.I | re.M == p.flags
         assert 2 == p.groups
         assert {"g": 2} == p.groupindex
+        raises(TypeError, "p.groupindex['g'] = 3")
 
     def test_repeat_minmax_overflow(self):
         import re

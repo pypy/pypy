@@ -130,6 +130,12 @@ class W_SRE_Pattern(W_Root):
             uflags = u'|'.join([item.decode('latin-1') for item in flag_items])
         return space.wrap(u're.compile(%s%s%s)' % (u, usep, uflags))
 
+    def fget_groupindex(self, space):
+        w_groupindex = self.w_groupindex
+        if space.isinstance_w(w_groupindex, space.w_dict):
+            w_groupindex = space.newdictproxy(w_groupindex)
+        return w_groupindex
+
     def is_known_bytes(self):
         space = self.space
         if space.is_none(self.w_pattern):
@@ -481,7 +487,7 @@ W_SRE_Pattern.typedef = TypeDef(
     sub          = interp2app(W_SRE_Pattern.sub_w),
     subn         = interp2app(W_SRE_Pattern.subn_w),
     flags        = interp_attrproperty('flags', W_SRE_Pattern),
-    groupindex   = interp_attrproperty_w('w_groupindex', W_SRE_Pattern),
+    groupindex   = GetSetProperty(W_SRE_Pattern.fget_groupindex),
     groups       = interp_attrproperty('num_groups', W_SRE_Pattern),
     pattern      = interp_attrproperty_w('w_pattern', W_SRE_Pattern),
 )

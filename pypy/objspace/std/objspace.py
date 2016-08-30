@@ -319,6 +319,11 @@ class StdObjSpace(ObjSpace):
                 self, module=module, instance=instance,
                 strdict=strdict, kwargs=kwargs)
 
+    def newdictproxy(self, w_dict):
+        # e.g. for module/_sre/
+        from pypy.objspace.std.dictproxyobject import W_DictProxyObject
+        return W_DictProxyObject(w_dict)
+
     def newset(self, iterable_w=None):
         if iterable_w is None:
             return W_SetObject(self, None)
