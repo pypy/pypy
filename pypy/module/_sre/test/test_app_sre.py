@@ -301,6 +301,11 @@ class AppTestSreMatch:
         import re
         raises(TypeError, re.match, 'hel+', list('hello'))
 
+    def test_match_repr(self):
+        import re
+        m = re.search("ab+c", "xabbbcd")
+        assert repr(m) == "<_sre.SRE_Match object; span=(1, 6), match='abbbc'>"
+
     def test_group_bugs(self):
         import re
         r = re.compile(r"""

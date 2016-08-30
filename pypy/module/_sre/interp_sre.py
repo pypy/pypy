@@ -106,6 +106,8 @@ class W_SRE_Pattern(W_Root):
     def repr_w(self):
         space = self.space
         u = space.unicode_w(space.repr(self.w_pattern))
+        if len(u) > 200:
+            u = u[:200]
         flag_items = []
         flags = self.flags
         if self.is_known_unicode():
@@ -497,6 +499,17 @@ class W_SRE_Match(W_Root):
         self.srepat = srepat
         self.ctx = ctx
 
+    def repr_w(self):
+        space = self.space
+        ctx = self.ctx
+        start, end = ctx.match_start, ctx.match_end
+        w_s = slice_w(space, ctx, start, end, space.w_None)
+        u = space.unicode_w(space.repr(w_s))
+        if len(u) > 50:
+            u = u[:50]
+        return space.wrap(u'<_sre.SRE_Match object; span=(%d, %d), match=%s>' % 
+                          (start, end, u))
+
     def cannot_copy_w(self):
         space = self.space
         raise oefmt(space.w_TypeError, "cannot copy this match object")
@@ -651,6 +664,7 @@ W_SRE_Match.typedef = TypeDef(
     'SRE_Match',
     __copy__     = interp2app(W_SRE_Match.cannot_copy_w),
     __deepcopy__ = interp2app(W_SRE_Match.cannot_copy_w),
+    __repr__     = interp2app(W_SRE_Match.repr_w),
     group        = interp2app(W_SRE_Match.group_w),
     groups       = interp2app(W_SRE_Match.groups_w),
     groupdict    = interp2app(W_SRE_Match.groupdict_w),
