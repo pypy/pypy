@@ -261,6 +261,13 @@ class AppTestBuiltinApp:
         assert super(A, b).__self_class__ is B
         assert super(A).__self_class__ is None
 
+    def test_super_repr(self):
+        class A(object):
+            def __repr__(self):
+                return super(A, self).__repr__() + '!'
+        assert repr(A()).endswith('>!')
+        assert repr(super(A, A())) == "<super: <class 'A'>, <A object>>"
+
     def test_property_docstring(self):
         assert property.__doc__.startswith('property')
 
