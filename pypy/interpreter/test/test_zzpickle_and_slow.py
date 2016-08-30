@@ -82,6 +82,12 @@ class AppTestInterpObjectPickling:
     def teardown_class(cls):
         _detach_helpers(cls.space)
 
+    def test_pickle_basic(self):
+        import pickle
+        pckl = pickle.dumps((u'abc', 0))
+        result = pickle.loads(pckl)
+        assert result == (u'abc', 0)
+
     def test_pickle_code(self):
         def f():
             return 42
