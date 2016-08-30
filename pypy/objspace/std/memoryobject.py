@@ -269,9 +269,13 @@ class W_MemoryView(W_Root):
                 fmtiter = UnpackFormatIterator(space, buf)
                 fmtiter.interpret(self.format)
                 return fmtiter.result_w[0]
-        elif step >= 1:
-            buf = SubBuffer(self.buf, start, size)
-            mv = W_MemoryView.copy(self, buf)
+        elif step == 1:
+            mv = W_MemoryView.copy(self)
+            mv.slice(start, stop, step, size)
+            mv._init_flags()
+            return mv
+        else:
+            mv = W_MemoryView.copy(self)
             mv.slice(start, stop, step, size)
             mv.length = mv.bytecount_from_shape()
             mv._init_flags()
@@ -279,13 +283,13 @@ class W_MemoryView(W_Root):
 
     def slice(self, start, stop, step, size):
         # modifies the buffer, shape and stride to allow step to be > 1
-        # NOTE that start & stop are already byte offsets
+        # NOTE that start, stop & size are already byte offsets/count
         # TODO subbuffer
         strides = self.getstrides()[:]
         shape = self.getshape()[:]
         itemsize = self.getitemsize()
         dim = 0
-        self.buf = SubBuffer(self.buf, strides[dim] * (start//itemsize), size * itemsize)
+        self.buf = SubBuffer(self.buf, strides[dim] * (start//itemsize), size*step)
         shape[dim] = size
         strides[dim] = strides[dim] * step
         self.strides = strides
