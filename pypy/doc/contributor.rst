@@ -44,6 +44,7 @@ appropriate measure but it's something)::
   Seo Sanghyeon
   Ronny Pfannschmidt
   Justin Peel
+  Raffael Tfirst
   David Edelsohn
   Anders Hammarquist
   Jakub Gustak
@@ -87,7 +88,6 @@ appropriate measure but it's something)::
   Wenzhu Man
   John Witulski
   Laurence Tratt
-  Raffael Tfirst
   Ivan Sichmann Freitas
   Greg Price
   Dario Bertini
@@ -111,6 +111,7 @@ appropriate measure but it's something)::
   tav
   Taavi Burns
   Georg Brandl
+  Nicolas Truessel
   Bert Freudenberg
   Stian Andreassen
   Wanja Saatkamp
@@ -181,6 +182,7 @@ appropriate measure but it's something)::
   Vaibhav Sood
   Alan McIntyre
   Alexander Sedov
+  p_zieschang@yahoo.de
   Attila Gobi
   Jasper.Schulz
   Christopher Pope
@@ -191,6 +193,7 @@ appropriate measure but it's something)::
   Arjun Naik
   Valentina Mukhamedzhanova
   Stefano Parmesan
+  touilleMan
   Alexis Daboville
   Jens-Uwe Mager
   Carl Meyer
@@ -199,12 +202,14 @@ appropriate measure but it's something)::
   Gabriel
   Lukas Vacek
   Kunal Grover
+  Aaron Gallagher
   Andrew Dalke
   Sylvain Thenault
   Jakub Stasiak
   Nathan Taylor
   Vladimir Kryachko
   Omer Katz
+  Mark Williams
   Jacek Generowicz
   Alejandro J. Cura
   Jacob Oscarson
@@ -325,9 +330,12 @@ appropriate measure but it's something)::
   yasirs
   Michael Chermside
   Anna Ravencroft
+  pizi
   Andrey Churin
   Dan Crosta
+  Eli Stevens
   Tobias Diaz
   Julien Phalip
   Roman Podoliaka
   Dan Loewenherz
+  werat
