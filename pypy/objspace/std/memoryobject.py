@@ -121,11 +121,13 @@ class W_MemoryView(W_Root):
     def _copy_rec(self, idim, data, off):
         shapes = self.getshape()
         shape = shapes[idim]
+        strides = self.getstrides()
 
         if self.getndim()-1 == idim:
             self._copy_base(data,off)
             return
 
+        # TODO add a test that has at least 2 dims
         for i in range(shape):
             self._copy_rec(idim+1,data,off)
             off += strides[idim]
