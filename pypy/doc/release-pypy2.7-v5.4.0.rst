@@ -3,7 +3,8 @@ PyPy2.7 v5.4
 ============
 
 We have released PyPy2.7 v5.4, a little under two months after PyPy2.7 v5.3.
-This new PyPy2.7 release includes further improvements to our C-API compatability layer (cpyext), enabling us to pass over 99% of the upstream
+This new PyPy2.7 release includes incremental improvements to our C-API
+compatability layer (cpyext), enabling us to pass over 99% of the upstream
 numpy `test suite`_. We updated built-in cffi_ support to version 1.8,
 which now supports the "limited API" mode for c-extensions on 
 CPython >=3.2.
@@ -12,9 +13,7 @@ We improved tooling for the PyPy JIT_, and expanded VMProf
 support to OpenBSD and Dragon Fly BSD
 
 As always, this release fixed many issues and bugs raised by the
-growing community of PyPy users. 
-
-XXXXX MORE ???
+growing community of PyPy users. We strongly recommend updating.
 
 You can download the PyPy2.7 v5.4 release here:
 
@@ -110,8 +109,8 @@ Other Highlights (since 5.3 released in June 2016)
 
   * (RPython) add `rposix_scandir` portably, needed for Python 3.5
 
-  * Support for memoryview attributes (format, itemsize, ...) which also
-    adds support for `PyMemoryView_FromObject`
+  * Increased but incomplete support for memoryview attributes (format, 
+    itemsize, ...) which also adds support for `PyMemoryView_FromObject`
 
 * Bug Fixes
 
@@ -153,10 +152,6 @@ Other Highlights (since 5.3 released in June 2016)
   * Make `hash(-1)` return -2, as CPython does, and fix all the
     ancilary places this matters
 
-  * Issues reported with our previous release were resolved_ after
-    reports from users on our issue tracker at
-    https://bitbucket.org/pypy/pypy/issues or on IRC at #pypy
-
   * Fix `PyNumber_Check()` to behave more like CPython
 
   * (VMProf) Try hard to not miss any Python-level frame in the
@@ -168,6 +163,10 @@ Other Highlights (since 5.3 released in June 2016)
 
   * Fix the mapdict cache for subclasses of builtin types that
     provide a dict
+
+  * Issues reported with our previous release were resolved_ after
+    reports from users on our issue tracker at
+    https://bitbucket.org/pypy/pypy/issues or on IRC at #pypy
 
 * Performance improvements:
 
