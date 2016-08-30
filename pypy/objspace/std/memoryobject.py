@@ -109,9 +109,35 @@ class W_MemoryView(W_Root):
     descr_ne = _make_descr__cmp('ne')
 
     def as_str(self):
+        return ''.join(self.copy_buffer())
+
+    def copy_buffer(self):
         buf = self.buf
         n_bytes = buf.getlength()
-        return buf.getslice(0, n_bytes, 1, n_bytes)
+        data = []
+        self._copy_rec(0, data, 0)
+        return data
+
+    def _copy_rec(self, idim, data, off):
+        shapes = self.getshape()
+        shape = shapes[idim]
+
+        if self.getndim()-1 == idim:
+            self._copy_base(data,off)
+            return
+
+        for i in range(shape):
+            self._copy_rec(idim+1,data,off)
+            off += strides[idim]
+
+    def _copy_base(self, data, off):
+        shapes = self.getshape()
+        step = shapes[0] // self.getitemsize()
+        strides = self.getstrides()
+        for i in range(step):
+            bytes = self.buf.getslice(off, off+self.itemsize, 1, self.itemsize)
+            data.append(bytes)
+            off += strides[0]
 
     def getlength(self):
         if self.length != -1:
@@ -251,15 +277,16 @@ class W_MemoryView(W_Root):
 
     def slice(self, start, stop, step, size):
         # modifies the buffer, shape and stride to allow step to be > 1
-        # NOTE that start, stop, are already byte offsets
+        # NOTE that start & stop are already byte offsets
         # TODO subbuffer
         strides = self.getstrides()[:]
         shape = self.getshape()[:]
         itemsize = self.itemsize
         dim = 0
-        self.buf = SubBuffer(self.buf, start + strides[dim] * (start // itemsize), self.buf.getlength())
+        length = self.buf.getlength()
+        self.buf = SubBuffer(self.buf, strides[dim] * start, size)
         shape[dim] = size
-        strides[dim] = strides[dim] * step
+        strides[dim] = strides[dim] * step * itemsize
         self.strides = strides
         self.shape = shape
 
