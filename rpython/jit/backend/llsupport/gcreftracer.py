@@ -1,4 +1,4 @@
-from rpython.rlib import rgc
+from rpython.rlib import rgc, rmmap
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.jit.backend.llsupport.symbolic import WORD
@@ -33,10 +33,13 @@ def make_framework_tracer(array_base_addr, gcrefs):
     tr.array_base_addr = array_base_addr
     tr.array_length = length
     i = 0
+    array_base_addr_p = rffi.cast(rffi.CCHARP, array_base_addr)
+    rmmap.set_pages_writable(array_base_addr_p, length)
     while i < length:
         p = rffi.cast(rffi.SIGNEDP, array_base_addr + i * WORD)
         p[0] = rffi.cast(lltype.Signed, gcrefs[i])
         i += 1
+    rmmap.set_pages_executable(array_base_addr_p, length)
     llop.gc_writebarrier(lltype.Void, tr)
     # --no GC until here--
     return tr
