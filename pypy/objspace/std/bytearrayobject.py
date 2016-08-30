@@ -502,6 +502,7 @@ def _hexstring_to_array(space, s):
     return data
 
 HEXDIGITS = "0123456789abcdef"
+PY_SIZE_T_MAX = intmask(2**(rffi.sizeof(rffi.SIZE_T)*8-1)-1)
 
 @specialize.arg(3) # raw access
 def _array_to_hexstring(space, buf, len=0, rawaccess=False):
@@ -509,11 +510,11 @@ def _array_to_hexstring(space, buf, len=0, rawaccess=False):
         length = len
     else:
         length = buf.getlength()
+    hexstring = StringBuilder(length*2)
 
-    if length > sys.maxint / 2:
+    if length > PY_SIZE_T_MAX/2:
         raise OperationError(space.w_MemoryError, space.w_None)
 
-    hexstring = StringBuilder(length*2)
     for i in range(length):
         if rawaccess:
             byte = ord(buf[i])

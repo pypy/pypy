@@ -9,7 +9,7 @@ class BaseNumpyAppTest(object):
 
     @classmethod
     def setup_class(cls):
-        py.test.py3k_skip("micronumpy not supported on py3k")
+        # XXX py.test.py3k_skip("micronumpy not supported on py3k")
         if option.runappdirect:
             import sys
             if '__pypy__' not in sys.builtin_module_names:
