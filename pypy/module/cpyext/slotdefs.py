@@ -341,6 +341,9 @@ class CPyBuffer(Buffer):
     def getitemsize(self):
         return self.itemsize
 
+    def getndim(self):
+        return self.ndim
+
 def wrap_getreadbuffer(space, w_self, w_args, func):
     func_target = rffi.cast(readbufferproc, func)
     with lltype.scoped_alloc(rffi.VOIDPP.TO, 1) as ptr:
