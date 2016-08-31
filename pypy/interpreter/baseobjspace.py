@@ -237,7 +237,8 @@ class W_Root(object):
     def _buffer(self, space, flags):
         w_impl = space.lookup(self, '__buffer__')
         if w_impl is not None:
-            w_result = space.get_and_call_function(w_impl, self)
+            w_result = space.get_and_call_function(w_impl, self,
+                                                   space.newint(flags))
             if space.isinstance_w(w_result, space.w_memoryview):
                 return w_result
         raise BufferInterfaceNotFound
