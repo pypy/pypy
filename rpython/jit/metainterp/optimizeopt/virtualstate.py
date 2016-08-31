@@ -552,10 +552,10 @@ class NotVirtualStateInfoPtr(NotVirtualStateInfo):
         """
         Generate the guards and add state information for unifying a virtual
         object with a non-virtual. This involves forcing the object in the
-        event that unifcation can succeed. Since virtual objects cannot be null,
+        event that unification can succeed. Since virtual objects cannot be null,
         this method need only check that the virtual object has the expected type.
         """
-        assert isinstance(other, VirtualStateInfo)
+        assert state.force_boxes and isinstance(other, VirtualStateInfo)
 
         if self.level == LEVEL_CONSTANT:
             raise VirtualStatesCantMatch(
