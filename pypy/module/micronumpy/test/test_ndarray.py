@@ -3594,6 +3594,7 @@ class AppTestSupport(BaseNumpyAppTest):
         cls.w_float32val = cls.space.wrap(struct.pack('f', 5.2))
         cls.w_float64val = cls.space.wrap(struct.pack('d', 300.4))
         cls.w_ulongval = cls.space.wrap(struct.pack('L', 12))
+        cls.w_one = cls.space.wrap(struct.pack('i', 1))
 
     def test_frombuffer(self):
         import numpy as np
@@ -3645,8 +3646,6 @@ class AppTestSupport(BaseNumpyAppTest):
         else:
             EMPTY = None
         x = np.array([1, 2, 3, 4, 5], dtype='i')
-        y = memoryview('abc')
-        assert y.format == 'B'
         y = memoryview(x)
         assert y.format == 'i'
         assert y.shape == (5,)
@@ -3654,6 +3653,16 @@ class AppTestSupport(BaseNumpyAppTest):
         assert y.strides == (4,)
         assert y.suboffsets == EMPTY
         assert y.itemsize == 4
+        assert isinstance(y, memoryview)
+        assert y[0] == self.one
+        assert (np.array(y) == x).all()
+
+        x = np.array([0, 0, 0, 0], dtype='O')
+        y = memoryview(x)
+        # handles conversion of address to pinned object?
+        z = np.array(y)
+        assert z.dtype == 'O'
+        assert (z == x).all()
 
     def test_fromstring(self):
         import sys
