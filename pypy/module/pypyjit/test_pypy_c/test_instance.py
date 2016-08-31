@@ -187,6 +187,43 @@ class TestInstance(BaseTestPyPyC):
 
         """)
 
+    def test_oldstyle_methcall(self):
+        def main():
+            def g(): pass
+            class A:
+                def f(self):
+                    return self.x + 1
+            class I(A):
+                pass
+            class J(I):
+                pass
+
+
+            class B(J):
+                def __init__(self, x):
+                    self.x = x
+
+            i = 0
+            b = B(1)
+            while i < 1000:
+                g()
+                v = b.f() # ID: meth
+                i += v
+            return i
+
+        log = self.run(main, [], threshold=80)
+        loop, = log.loops_by_filename(self.filepath, is_entry_bridge=True)
+        assert loop.match_by_id('meth',
+        '''
+    guard_nonnull_class(p18, ..., descr=...)
+    p52 = getfield_gc_r(p18, descr=...) # read map
+    guard_value(p52, ConstPtr(ptr53), descr=...)
+    p54 = getfield_gc_r(p18, descr=...) # read class
+    guard_value(p54, ConstPtr(ptr55), descr=...)
+    p56 = force_token() # done
+        ''')
+
+
     def test_oldstyle_newstyle_mix(self):
         def main():
             class A:
