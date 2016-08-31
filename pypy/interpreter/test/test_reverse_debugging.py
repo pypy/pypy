@@ -7,11 +7,12 @@ from hypothesis import given, strategies, example
 
 class FakeCode:
     hidden_applevel = False
-    def __init__(self, co_code, co_lnotab):
+    def __init__(self, co_code='', co_lnotab='', co_filename='?'):
         self.co_firstlineno = 43
         self.co_code = co_code
         self.co_lnotab = co_lnotab
         self.co_revdb_linestarts = None
+        self.co_filename = co_filename
 
 
 @given(strategies.binary())
@@ -43,10 +44,6 @@ class FakeFrame:
     def getcode(self):
         return self.__code
 
-class FakeCode:
-    def __init__(self, co_filename):
-        self.co_filename = co_filename
-
 def check_add_breakpoint(input, curfilename=None,
                          expected_funcname=None,
                          expected_fileline=None,
@@ -60,7 +57,7 @@ def check_add_breakpoint(input, curfilename=None,
             messages.append((cmd, arg1, arg2, arg3, extra))
         def my_cur_frame():
             assert curfilename is not None
-            return FakeFrame(FakeCode(curfilename))
+            return FakeFrame(FakeCode(co_filename=curfilename))
         revdb.send_answer = got_message
         reverse_debugging.fetch_cur_frame = my_cur_frame
         add_breakpoint(input, 5)
