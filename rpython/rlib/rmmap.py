@@ -746,6 +746,7 @@ if _POSIX:
     def set_pages_executable(addr, size):
         assert lltype.typeOf(addr) == rffi.CCHARP
         assert isinstance(size, int)
+        #assert size >= 0
         rv = mprotect(addr, size, PROT_EXEC | PROT_READ)
         if int(rv) < 0:
             from rpython.rlib import debug
@@ -754,6 +755,7 @@ if _POSIX:
     def set_pages_writable(addr, size):
         assert lltype.typeOf(addr) == rffi.CCHARP
         assert isinstance(size, int)
+        #assert size >= 0
         rv = mprotect(addr, size, PROT_WRITE | PROT_READ)
         if int(rv) < 0:
             from rpython.rlib import debug

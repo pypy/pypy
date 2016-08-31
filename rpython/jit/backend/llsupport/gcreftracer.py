@@ -15,11 +15,15 @@ def gcrefs_trace(gc, obj_addr, callback, arg):
     obj = llmemory.cast_adr_to_ptr(obj_addr, lltype.Ptr(GCREFTRACER))
     i = 0
     length = obj.array_length
+    length_bytes = length * WORD
     addr = obj.array_base_addr
+    addr_p = rffi.cast(rffi.CCHARP, addr)
+    set_pages_writable(addr_p, length_bytes)
     while i < length:
         p = rffi.cast(llmemory.Address, addr + i * WORD)
         gc._trace_callback(callback, arg, p)
         i += 1
+    set_pages_executable(addr_p, length_bytes)
 lambda_gcrefs_trace = lambda: gcrefs_trace
 
 def make_framework_tracer(array_base_addr, gcrefs):
@@ -34,12 +38,13 @@ def make_framework_tracer(array_base_addr, gcrefs):
     tr.array_length = length
     i = 0
     array_base_addr_p = rffi.cast(rffi.CCHARP, array_base_addr)
-    rmmap.set_pages_writable(array_base_addr_p, length)
+    length_bytes = length * WORD
+    rmmap.set_pages_writable(array_base_addr_p, length_bytes)
     while i < length:
         p = rffi.cast(rffi.SIGNEDP, array_base_addr + i * WORD)
         p[0] = rffi.cast(lltype.Signed, gcrefs[i])
         i += 1
-    rmmap.set_pages_executable(array_base_addr_p, length)
+    rmmap.set_pages_executable(array_base_addr_p, length_bytes)
     llop.gc_writebarrier(lltype.Void, tr)
     # --no GC until here--
     return tr
