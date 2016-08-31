@@ -15,6 +15,7 @@ class DBState:
     breakpoint_stack_id = 0
     breakpoint_funcnames = None
     breakpoint_filelines = None
+    breakpoint_version = 0
     printed_objects = {}
     metavars = []
     watch_progs = []
@@ -24,6 +25,8 @@ dbstate = DBState()
 
 
 pycode.PyCode.co_revdb_linestarts = None   # or a string: see below
+pycode.PyCode.co_revdb_bkpt_version = 0    # see check_and_trigger_bkpt()
+pycode.PyCode.co_revdb_bkpt_cache = None   # see check_and_trigger_bkpt()
 
 # invariant: "f_revdb_nextline_instr" is the bytecode offset of
 # the start of the line that follows "last_instr".
@@ -128,6 +131,8 @@ def potential_stop_point(frame):
             call_stop_point_at_line = False
     #
     if call_stop_point_at_line:
+        if dbstate.breakpoint_filelines is not None:
+            check_and_trigger_bkpt(frame.pycode, cur)
         stop_point_activate()
         cur += 1
         ch = ord(co_revdb_linestarts[cur])
@@ -192,6 +197,25 @@ def get_final_lineno(code):
         p += 2
     return lineno
 
+def find_line_starts(code):
+    # RPython version of dis.findlinestarts()
+    lnotab = code.co_lnotab
+    lastlineno = -1
+    lineno = code.co_firstlineno
+    addr = 0
+    p = 0
+    result = []
+    while p < len(lnotab) - 1:
+        byte_incr = ord(lnotab[p])
+        if byte_incr:
+            if lineno != lastlineno:
+                result.append((addr, lineno))
+                lastlineno = lineno
+            addr += byte_incr
+        lineno += line_incr
+    if lineno != lastlineno:
+        result.append((addr, lineno))
+    return result
 
 class NonStandardCode(object):
     def __enter__(self):
@@ -512,6 +536,47 @@ def command_locals(cmd, extra):
             revdb.send_output('%s\n' % e.errorstr(space, use_repr=True))
 lambda_locals = lambda: command_locals
 
+# ____________________________________________________________
+
+
+def check_and_trigger_bkpt(pycode, opindex):
+    # We cache on 'pycode.co_revdb_bkpt_cache' either None or a dict
+    # mapping {opindex: bkpt_num}.  This cache is updated when the
+    # version in 'pycode.co_revdb_bkpt_version' does not match
+    # 'dbstate.breakpoint_version' any more.
+    if pycode.co_revdb_bkpt_version != dbstate.breakpoint_version:
+        update_bkpt_cache(pycode)
+    cache = pycode.co_revdb_bkpt_cache
+    if cache is not None and opindex in cache:
+        revdb.breakpoint(cache[opindex])
+
+def update_bkpt_cache(pycode):
+    # dbstate.breakpoint_filelines == {'normfilename': {lineno: bkpt_num}}
+    co_filename = pycode.co_filename
+    try:
+        linenos = dbstate.breakpoint_filelines[co_filename]
+    except KeyError:
+        # normalize co_filename, and assigns the {lineno: bkpt_num} dict
+        # back over the original key, to avoid calling rabspath/rnormpath
+        # again the next time
+        normfilename = rpath.rabspath(co_filename)
+        normfilename = rpath.rnormpath(normfilename)
+        linenos = dbstate.breakpoint_filelines.get(normfilename, None)
+        dbstate.breakpoint_filelines[co_filename] = linenos
+    #
+    newcache = None
+    if linenos is not None:
+        # parse co_lnotab to figure out the opindexes that correspond
+        # to the marked line numbers.
+        for addr, lineno in find_line_starts(pycode):
+            if lineno in linenos:
+                if newcache is None:
+                    newcache = {}
+                newcache[addr] = linenos[lineno]
+    #
+    pycode.co_revdb_bkpt_cache = newcache
+    pycode.co_revdb_bkpt_version = dbstate.breakpoint_version
+
 
 def valid_identifier(s):
     if not s:
@@ -600,6 +665,7 @@ def command_breakpoints(cmd, extra):
     revdb.set_thread_breakpoint(cmd.c_arg2)
     dbstate.breakpoint_funcnames = None
     dbstate.breakpoint_filelines = None
+    dbstate.breakpoint_version += 1
     watch_progs = []
     with non_standard_code:
         for i, kind, name in revdb.split_breakpoints_arg(extra):
