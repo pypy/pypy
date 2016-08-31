@@ -60,6 +60,15 @@ class AllBreakpoints(object):
         a.thread_num = self.thread_num
         return a
 
+    def set_num2break(self, new, break_code, break_at):
+        if len(break_at) > 0xFFFFFF:
+            raise OverflowError("break/watchpoint too complex")
+        self.num2break[new] = (break_code +
+                               chr(len(break_at) & 0xFF) +
+                               chr((len(break_at) >> 8) & 0xFF) +
+                               chr(len(break_at) >> 16) +
+                               break_at)
+
 
 class RecreateSubprocess(Exception):
     pass
@@ -218,6 +227,16 @@ class ReplayProcess(object):
                 sys.stdout.flush()
             elif msg.cmd == ANSWER_ATTEMPT_IO:
                 raise RecreateSubprocess
+            elif msg.cmd == ANSWER_CHBKPT and pgroup is not None:
+                # change the breakpoint definition.  Needed for
+                # ":linenum" breakpoints which must be expanded to the
+                # current file only once
+                b = pgroup.edit_breakpoints()
+                assert b.num2break[msg.arg1][0] == 'B'
+                if msg.extra:
+                    b.set_num2break(msg.arg1, 'B', msg.extra)
+                else:
+                    del b.set_num2break[msg.arg1]
             else:
                 print >> sys.stderr, "unexpected %r" % (msg,)
 
@@ -399,7 +418,7 @@ class ReplayProcessGroup(object):
             arg2 = self.all_breakpoints.thread_num
             extra = ''.join(flat)
             self.active.send(Message(CMD_BREAKPOINTS, arg1, arg2, extra=extra))
-            self.active.expect_ready()
+            self.active.print_text_answer(pgroup=self)
         else:
             assert cmp == 1
 

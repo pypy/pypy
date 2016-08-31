@@ -184,20 +184,13 @@ class RevDebugControl(object):
         new = 1
         while new in b.num2break:
             new += 1
-        if len(break_at) > 0xFFFFFF:
-            raise OverflowError("break/watchpoint too complex")
-        b.num2break[new] = (break_code +
-                            chr(len(break_at) & 0xFF) +
-                            chr((len(break_at) >> 8) & 0xFF) +
-                            chr(len(break_at) >> 16) +
-                            break_at)
+        b.set_num2break(new, break_code, break_at)
         b.sources[new] = source_expr
         if break_code == 'W':
             b.watchvalues[new] = ''
             if nids:
                 b.watchuids[new] = self.pgroup.nids_to_uids(nids)
-        kind, name = self._bp_kind(new)
-        print "%s %d added" % (kind.capitalize(), new)
+        return new
 
     def cmd_info_breakpoints(self):
         """List current breakpoints and watchpoints"""
@@ -422,7 +415,18 @@ class RevDebugControl(object):
         if not argument:
             print "Break where?"
             return
-        self._bp_new(argument, 'B', argument)
+        num = self._bp_new(argument, 'B', argument)
+        b = self.pgroup.edit_breakpoints()
+        old = b.num2break[num]
+        self.pgroup.update_breakpoints()
+        new = b.num2break.get(num)
+        if old == new:
+            print "Breakpoint %d added" % (num,)
+        elif new is None:
+            print "Breakpoint not added"
+        else:
+            kind, name = self._bp_kind(num)
+            print "Breakpoint %d added as: %s" % (num, name)
     command_b = command_break
 
     def command_delete(self, argument):
@@ -458,8 +462,9 @@ class RevDebugControl(object):
             print 'Watchpoint not added'
             return
         #
-        self._bp_new(argument, 'W', compiled_code, nids=nids)
+        new = self._bp_new(argument, 'W', compiled_code, nids=nids)
         self.pgroup.update_watch_values()
+        print "Watchpoint %d added" % (new,)
 
     def getlinecacheoutput(self, pygments_background):
         if not pygments_background or pygments_background == 'off':

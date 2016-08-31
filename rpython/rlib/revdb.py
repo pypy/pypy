@@ -55,7 +55,7 @@ def send_watch(text, ok_flag):
 def send_linecache(filename, linenum, strip=True):
     send_answer(ANSWER_LINECACHE, linenum, int(strip), extra=filename)
 
-def send_change_breakpoint(breakpointnum, newtext):
+def send_change_breakpoint(breakpointnum, newtext=''):
     send_answer(ANSWER_CHBKPT, breakpointnum, extra=newtext)
 
 def current_time():

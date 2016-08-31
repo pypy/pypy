@@ -78,6 +78,10 @@ ANSWER_NEXTNID    = 22
 #    Message(ANSWER_WATCH, ok_flag, extra=result_of_expr)
 ANSWER_WATCH      = 23
 
+# sent sometimes after CMD_BREAKPOINTS:
+#    Message(ANSWER_CHBKPT, bkpt_num, extra=new_breakpoint_text)
+ANSWER_CHBKPT     = 24
+
 
 # ____________________________________________________________
 

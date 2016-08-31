@@ -77,13 +77,14 @@ def check_add_breakpoint(input, curfilename=None,
 
     got_output = None
     got_chbkpt = None
-    if messages:
-        assert len(messages) <= 1
-        if messages[0][0] == revdb.ANSWER_TEXT:
-            got_output = messages[0][-1]
-        if messages[0][0] == revdb.ANSWER_CHBKPT:
-            assert messages[0][1] == 5
-            got_chbkpt = messages[0][-1]
+    for msg in messages:
+        if msg[0] == revdb.ANSWER_TEXT:
+            assert got_output is None
+            got_output = msg[-1]
+        elif msg[0] == revdb.ANSWER_CHBKPT:
+            assert got_chbkpt is None
+            assert msg[1] == 5
+            got_chbkpt = msg[-1]
 
     assert got_output == expected_output
     assert got_chbkpt == expected_chbkpt
@@ -92,7 +93,8 @@ def fullpath(path):
     return rpath.rnormpath(rpath.rabspath(path))
 
 def test_add_breakpoint():
-    check_add_breakpoint('', expected_output="Empty breakpoint name\n")
+    check_add_breakpoint('', expected_output="Empty breakpoint name\n",
+                         expected_chbkpt='')
     check_add_breakpoint('foo42', expected_funcname="foo42")
     check_add_breakpoint('foo.bar', expected_funcname="foo.bar",
         expected_output='Note: "foo.bar()" doesn''t look like a function name.'
@@ -105,7 +107,7 @@ def test_add_breakpoint():
                          expected_fileline=('abcd', 42),
                          expected_chbkpt='abcd:42')
     check_add_breakpoint('abcd:42', expected_fileline=('abcd', 42),
-        expected_output='Note: "abcd" doesnt look like a co_filename.'
+        expected_output='Note: "abcd" doesnt look like a Python filename.'
                         ' Setting breakpoint anyway\n')
     full = fullpath('abcd.py')
     check_add_breakpoint('abcd.py:42',
@@ -113,3 +115,6 @@ def test_add_breakpoint():
                          expected_chbkpt='%s:42' % full)
     check_add_breakpoint('%s:42' % full,
                          expected_fileline=(full, 42))
+    check_add_breakpoint('42:abc',
+        expected_output='"42:abc": expected a line number after colon\n',
+        expected_chbkpt='')

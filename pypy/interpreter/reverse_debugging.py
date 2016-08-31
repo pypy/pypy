@@ -605,6 +605,7 @@ def add_breakpoint(name, i):
     # if it is empty, complain
     if not name:
         revdb.send_output("Empty breakpoint name\n")
+        revdb.send_change_breakpoint(i)
         return
     # if it is surrounded by < >, it is the name of a code object
     if name.startswith('<') and name.endswith('>'):
@@ -621,7 +622,7 @@ def add_breakpoint(name, i):
             if not valid_identifier(name):
                 revdb.send_output(
                     'Note: "%s()" doesn''t look like a function name. '
-                    'Setting breakpoint anyway\n' % (name,))
+                    'Setting breakpoint anyway\n' % name)
             add_breakpoint_funcname(name, i)
             return
         # "number" does the same as ":number"
@@ -633,6 +634,7 @@ def add_breakpoint(name, i):
         except ValueError:
             revdb.send_output('"%s": expected a line number after colon\n' % (
                 name,))
+            revdb.send_change_breakpoint(i)
             return
         filename = name[:j]
 
@@ -642,6 +644,7 @@ def add_breakpoint(name, i):
     if filename == '':
         frame = fetch_cur_frame()
         if frame is None:
+            revdb.send_change_breakpoint(i)
             return
         filename = frame.getcode().co_filename
     elif filename.startswith('<') and filename.endswith('>'):
@@ -649,7 +652,7 @@ def add_breakpoint(name, i):
     elif not filename.lower().endswith('.py'):
         # use unmodified, but warn
         revdb.send_output(
-            'Note: "%s" doesn''t look like a co_filename. '
+            'Note: "%s" doesn''t look like a Python filename. '
             'Setting breakpoint anyway\n' % (filename,))
     elif '\x00' not in filename:
         filename = rstring.assert_str0(filename)
