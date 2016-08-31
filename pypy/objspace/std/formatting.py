@@ -438,7 +438,7 @@ def make_formatter_subclass(do_unicode):
             self.std_wp(s)
 
         def fmt_r(self, w_value):
-            self.std_wp(self.space.unicode_w(self.space.repr(w_value)))
+            self.fmt_a(w_value)
 
         def fmt_a(self, w_value):
             from pypy.objspace.std.unicodeobject import ascii_from_object
