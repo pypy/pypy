@@ -1,7 +1,7 @@
 import dis
 from pypy.interpreter.reverse_debugging import *
 from pypy.interpreter import reverse_debugging
-from rpython.rlib import revdb, rpath
+from rpython.rlib import revdb
 from hypothesis import given, strategies, example
 
 
@@ -73,7 +73,7 @@ def check_add_breakpoint(input, curfilename=None,
         assert dbstate.breakpoint_filelines is None
     else:
         filename, lineno = expected_fileline
-        assert dbstate.breakpoint_filelines == {filename: {lineno: 5}}
+        assert dbstate.breakpoint_filelines == [(filename.upper(), lineno, 5)]
 
     got_output = None
     got_chbkpt = None
@@ -88,9 +88,6 @@ def check_add_breakpoint(input, curfilename=None,
 
     assert got_output == expected_output
     assert got_chbkpt == expected_chbkpt
-
-def fullpath(path):
-    return rpath.rnormpath(rpath.rabspath(path))
 
 def test_add_breakpoint():
     check_add_breakpoint('', expected_output="Empty breakpoint name\n",
@@ -109,12 +106,8 @@ def test_add_breakpoint():
     check_add_breakpoint('abcd:42', expected_fileline=('abcd', 42),
         expected_output='Note: "abcd" doesnt look like a Python filename.'
                         ' Setting breakpoint anyway\n')
-    full = fullpath('abcd.py')
     check_add_breakpoint('abcd.py:42',
-                         expected_fileline=(full, 42),
-                         expected_chbkpt='%s:42' % full)
-    check_add_breakpoint('%s:42' % full,
-                         expected_fileline=(full, 42))
+                         expected_fileline=('abcd.py', 42))
     check_add_breakpoint('42:abc',
         expected_output='"42:abc": expected a line number after colon\n',
         expected_chbkpt='')

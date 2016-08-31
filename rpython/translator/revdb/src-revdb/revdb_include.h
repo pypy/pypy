@@ -205,9 +205,9 @@ RPY_EXTERN void seeing_uid(uint64_t uid);
 #define OP_REVDB_TRACK_OBJECT(uid, callback, r)                         \
     rpy_reverse_db_track_object(uid, callback)
 
-#define OP_REVDB_WATCH_SAVE_STATE(r)   do {                             \
+#define OP_REVDB_WATCH_SAVE_STATE(force, r)   do {                      \
         r = rpy_revdb.watch_enabled;                                    \
-        if (r) rpy_reverse_db_watch_save_state();                       \
+        if ((force) || r) rpy_reverse_db_watch_save_state();            \
     } while (0)
 
 #define OP_REVDB_WATCH_RESTORE_STATE(any_watch_point, r)                \

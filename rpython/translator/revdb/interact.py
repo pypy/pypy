@@ -51,6 +51,7 @@ class RevDebugControl(object):
                 print 'KeyboardInterrupt: restoring state at time %d...' % (
                     rtime,)
                 self.pgroup.recreate_subprocess(rtime)
+                print "(type 'q' or Ctrl-D to quit)"
                 self.last_command = ''
                 self.previous_thread = '?'
                 self.previous_time = '?'
