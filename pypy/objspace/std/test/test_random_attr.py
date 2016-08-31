@@ -1,7 +1,10 @@
 import pytest
 import sys
-from hypothesis import given, strategies, settings
 from pypy.tool.pytest.objspace import gettestobjspace
+try:
+    from hypothesis import given, strategies, settings
+except ImportError:
+    pytest.skip("requires hypothesis")
 
 base_initargs = strategies.sampled_from([
     ("object", (), False),

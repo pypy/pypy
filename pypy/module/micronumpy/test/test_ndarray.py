@@ -1878,7 +1878,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert map(isnan, e) == [False, False, False, True, False]
         assert map(isinf, e) == [False, False, True, False, False]
         assert e.argmax() == 3
-        # numpy preserves value for uint16 -> cast_as_float16 ->
+        # numpy preserves value for uint16 -> cast_as_float16 -> 
         #     convert_to_float64 -> convert_to_float16 -> uint16
         #  even for float16 various float16 nans
         all_f16 = arange(0xfe00, 0xffff, dtype='uint16')
@@ -2608,7 +2608,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = np.arange(6).reshape(2,3)
         i = np.dtype('int32').type(0)
         assert (a[0] == a[i]).all()
-
+        
 
     def test_ellipsis_indexing(self):
         import numpy as np

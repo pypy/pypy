@@ -372,8 +372,8 @@ class AppTestDtypes(BaseAppTestDtypes):
         a = np.array(data, dtype=b)
         x = pickle.loads(pickle.dumps(a))
         assert (x == a).all()
-        assert x.dtype == a.dtype
-
+        assert x.dtype == a.dtype 
+        
     def test_index(self):
         import numpy as np
         for dtype in [np.int8, np.int16, np.int32, np.int64]:
@@ -1459,7 +1459,7 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
                      "'offsets':[0,76800], "
                      "'itemsize':80000, "
                      "'aligned':True}")
-
+        
         assert dt == np.dtype(eval(str(dt)))
 
         dt = np.dtype({'names': ['r', 'g', 'b'], 'formats': ['u1', 'u1', 'u1'],
