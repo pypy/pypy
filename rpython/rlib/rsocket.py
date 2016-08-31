@@ -526,7 +526,7 @@ class RSocket(object):
                  fd=_c.INVALID_SOCKET, inheritable=True):
         """Create a new socket."""
         if _c.invalid_socket(fd):
-            if not inheritable and SOCK_CLOEXEC is not None:
+            if not inheritable and 'SOCK_CLOEXEC' in constants:
                 # Non-inheritable: we try to call socket() with
                 # SOCK_CLOEXEC, which may fail.  If we get EINVAL,
                 # then we fall back to the SOCK_CLOEXEC-less case.
@@ -655,7 +655,7 @@ class RSocket(object):
         address, addr_p, addrlen_p = self._addrbuf()
         try:
             remove_inheritable = not inheritable
-            if (not inheritable and SOCK_CLOEXEC is not None
+            if (not inheritable and 'SOCK_CLOEXEC' in constants
                     and _c.HAVE_ACCEPT4
                     and _accept4_syscall.attempt_syscall()):
                 newfd = _c.socketaccept4(self.fd, addr_p, addrlen_p,
@@ -1138,7 +1138,7 @@ if hasattr(_c, 'socketpair'):
         try:
             res = -1
             remove_inheritable = not inheritable
-            if not inheritable and SOCK_CLOEXEC is not None:
+            if not inheritable and 'SOCK_CLOEXEC' in constants:
                 # Non-inheritable: we try to call socketpair() with
                 # SOCK_CLOEXEC, which may fail.  If we get EINVAL,
                 # then we fall back to the SOCK_CLOEXEC-less case.

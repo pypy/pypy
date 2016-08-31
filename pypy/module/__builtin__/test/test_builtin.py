@@ -850,6 +850,9 @@ class AppTestGetattr:
         raises(TypeError, delattr, A(), 42)
 
     def test_getattr_None(self):
+        import sys
+        if '__pypy__' not in sys.modules:
+            skip('CPython uses wrapper types for this')
         from types import FunctionType, MethodType
         assert isinstance(getattr(type(None), '__eq__'), FunctionType)
         assert isinstance(getattr(None, '__eq__'), MethodType)
@@ -864,4 +867,3 @@ class AppTestGetattr:
         assert isinstance(getattr(a, '__eq__'), MethodType)
         a.__eq__ = 42
         assert a.__eq__ == 42
-

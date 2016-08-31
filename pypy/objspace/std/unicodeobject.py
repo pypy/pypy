@@ -375,12 +375,19 @@ class W_UnicodeObject(W_Root):
             raise
         return space.newbool(res)
 
+    def _parse_format_arg(self, space, w_kwds, __args__):
+        for i in range(len(__args__.keywords)):
+            try:     # pff
+                arg = __args__.keywords[i].decode('utf-8')
+            except UnicodeDecodeError:
+                continue   # uh, just skip that
+            space.setitem(w_kwds, space.newunicode(arg),
+                          __args__.keywords_w[i])
+
     def descr_format(self, space, __args__):
         w_kwds = space.newdict()
         if __args__.keywords:
-            for i in range(len(__args__.keywords)):
-                space.setitem(w_kwds, space.wrap(__args__.keywords[i]),
-                              __args__.keywords_w[i])
+            self._parse_format_arg(space, w_kwds, __args__)
         return newformat.format_method(space, self, __args__.arguments_w,
                                        w_kwds, True)
 
