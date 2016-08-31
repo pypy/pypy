@@ -335,6 +335,9 @@ class CPyBuffer(Buffer):
     def getshape(self):
         return self.shape
 
+    def getstrides(self):
+        return self.strides
+
     def getitemsize(self):
         return self.itemsize
 
