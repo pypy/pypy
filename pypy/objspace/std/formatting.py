@@ -494,9 +494,14 @@ FORMATTER_CHARS = unrolling_iterable(
     [_name[-1] for _name in dir(StringFormatter)
                if len(_name) == 5 and _name.startswith('fmt_')])
 
-def format(space, w_fmt, values_w, w_valuedict, do_unicode):
+FORMAT_STR = 0
+FORMAT_UNICODE = 1
+FORMAT_BYTES = 2
+FORMAT_BYTEARRAY = 3
+
+def format(space, w_fmt, values_w, w_valuedict, fmt_type):
     "Entry point"
-    if not do_unicode:
+    if fmt_type != FORMAT_UNICODE:
         fmt = space.str_w(w_fmt)
         formatter = StringFormatter(space, fmt, values_w, w_valuedict)
         try:
@@ -505,25 +510,29 @@ def format(space, w_fmt, values_w, w_valuedict, do_unicode):
             # fall through to the unicode case
             pass
         else:
+            if fmt_type == FORMAT_BYTES:
+                return space.newbytes(result)
+            elif fmt_type == FORMAT_BYTEARRAY:
+                return space.newbytearray(result)
             return space.wrap(result)
     fmt = space.unicode_w(w_fmt)
     formatter = UnicodeFormatter(space, fmt, values_w, w_valuedict)
     result = formatter.format()
     return space.wrap(result)
 
-def mod_format(space, w_format, w_values, do_unicode=False):
+def mod_format(space, w_format, w_values, fmt_type=FORMAT_STR):
     if space.isinstance_w(w_values, space.w_tuple):
         values_w = space.fixedview(w_values)
-        return format(space, w_format, values_w, None, do_unicode)
+        return format(space, w_format, values_w, None, fmt_type)
     else:
         # we check directly for dict to avoid obscure checking
         # in simplest case
         if space.isinstance_w(w_values, space.w_dict) or \
            (space.lookup(w_values, '__getitem__') and
            not space.isinstance_w(w_values, space.w_unicode)):
-            return format(space, w_format, [w_values], w_values, do_unicode)
+            return format(space, w_format, [w_values], w_values, fmt_type)
         else:
-            return format(space, w_format, [w_values], None, do_unicode)
+            return format(space, w_format, [w_values], None, fmt_type)
 
 # ____________________________________________________________
 # Formatting helpers

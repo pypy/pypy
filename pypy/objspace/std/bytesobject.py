@@ -14,6 +14,7 @@ from pypy.interpreter.gateway import (
 from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std.stringmethods import StringMethods
 from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT
+from pypy.objspace.std.formatting import mod_format, FORMAT_BYTES
 
 
 class W_AbstractBytesObject(W_Root):
@@ -394,6 +395,12 @@ class W_AbstractBytesObject(W_Root):
         of the specified width. The string S is never truncated.
         """
 
+    def descr_mod(self, space, w_values):
+        """S % values -> string
+
+        Format bytes objects
+        """
+
 class W_BytesObject(W_AbstractBytesObject):
     import_from_mixin(StringMethods)
     _immutable_fields_ = ['_value']
@@ -663,6 +670,9 @@ class W_BytesObject(W_AbstractBytesObject):
         from pypy.objspace.std.bytearrayobject import _array_to_hexstring
         return _array_to_hexstring(space, StringBuffer(self._value))
 
+    def descr_mod(self, space, w_values):
+        return mod_format(space, self, w_values, fmt_type=FORMAT_BYTES)
+
     @staticmethod
     def _iter_getitem_result(self, space, index):
         assert isinstance(self, W_BytesObject)
@@ -802,6 +812,8 @@ W_BytesObject.typedef = TypeDef(
     __add__ = interpindirect2app(W_AbstractBytesObject.descr_add),
     __mul__ = interpindirect2app(W_AbstractBytesObject.descr_mul),
     __rmul__ = interpindirect2app(W_AbstractBytesObject.descr_rmul),
+
+    __mod__ = interpindirect2app(W_AbstractBytesObject.descr_mod),
 
     __getitem__ = interpindirect2app(W_AbstractBytesObject.descr_getitem),
 

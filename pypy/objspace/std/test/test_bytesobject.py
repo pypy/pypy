@@ -97,10 +97,6 @@ class AppTestBytesObject:
         assert bytes('abc', 'ascii') == b'abc'
         assert bytes(set(b'foo')) in (b'fo', b'of')
 
-    def test_format(self):
-        import operator
-        raises(TypeError, operator.mod, b"%s", (1,))
-
     def test_fromhex(self):
         assert bytes.fromhex("abcd") == b'\xab\xcd'
         assert b''.fromhex("abcd") == b'\xab\xcd'
@@ -876,4 +872,12 @@ class AppTestBytesObject:
         assert bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73]).hex() == \
                "73616e746120636c617573"
         assert bytes(64).hex() == "00"*64
+
+    def test_format(self):
+        assert eval("b'a%db' % 2") == eval("b'a2b'")
+        assert eval("b'00%.2f'").__mod__((0.01234)) == eval("b'000.01'")
+        assert eval("b'%04X' % 10") == eval("b'000A'")
+        assert eval("b'%c' % 48") == eval("b'0'")
+        assert eval("b'%c' % b'a'") == eval("b'a'")
+        assert eval("b'%b' % b'abc'") == eval("b'abc'")
 
