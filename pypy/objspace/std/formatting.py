@@ -477,6 +477,9 @@ def make_formatter_subclass(do_unicode):
                                     "character code not in range(256)")
                     self.std_wp(s)
 
+        def fmt_b(self, w_value):
+            raise NotImplementedError
+
     return StringFormatter
 
 

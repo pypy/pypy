@@ -874,10 +874,15 @@ class AppTestBytesObject:
         assert bytes(64).hex() == "00"*64
 
     def test_format(self):
-        assert eval("b'a%db' % 2") == eval("b'a2b'")
-        assert eval("b'00%.2f'").__mod__((0.01234)) == eval("b'000.01'")
-        assert eval("b'%04X' % 10") == eval("b'000A'")
-        assert eval("b'%c' % 48") == eval("b'0'")
-        assert eval("b'%c' % b'a'") == eval("b'a'")
-        assert eval("b'%b' % b'abc'") == eval("b'abc'")
+        """
+        assert b'a%db' % 2 == b'a2b'
+        assert b'00%.2f'.__mod__((0.01234,)) == b'000.01'
+        assert b'%04X' % 10 == b'000A'
+        assert b'%c' % 48 == b'0'
+        assert b'%c' % b'a' == b'a'
+        assert b'%b' % b'abc' == b'abc'
+        assert b'%b' % 'はい'.encode('utf-8') == b'\xe3\x81\xaf\xe3\x81\x84'
+        raises(TypeError, 'b"%b" % 3.14')
+        raises(TypeError, 'b"%b" % "hello world"')
+        """
 
