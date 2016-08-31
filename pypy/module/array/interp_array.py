@@ -597,6 +597,18 @@ class ArrayBuffer(Buffer):
     def getlength(self):
         return self.array.len * self.array.itemsize
 
+    def getformat(self):
+        return self.array.typecode
+
+    def getitemsize(self):
+        return self.array.itemsize
+
+    def getndim(self):
+        return 1
+
+    def getstrides(self):
+        return [self.getitemsize()]
+
     def getitem(self, index):
         array = self.array
         data = array._charbuf_start()
