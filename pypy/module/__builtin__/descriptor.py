@@ -29,10 +29,10 @@ class W_Super(W_Root):
 
     def descr_repr(self, space):
         if self.w_objtype is not None:
-            objtype_name = "<%s object>" % self.w_objtype.getname(space)
+            objtype_name = u"<%s object>" % self.w_objtype.getname(space)
         else:
-            objtype_name = 'NULL'
-        return space.wrap("<super: <class '%s'>, %s>" % (
+            objtype_name = u'NULL'
+        return space.wrap(u"<super: <class '%s'>, %s>" % (
             self.w_starttype.getname(space), objtype_name))
 
     def get(self, space, w_obj, w_type=None):
