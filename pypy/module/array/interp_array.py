@@ -645,6 +645,9 @@ class ArrayBuffer(Buffer):
     def getndim(self):
         return 1
 
+    def getshape(self):
+        return [self.array.len]
+
     def getstrides(self):
         return [self.getitemsize()]
 

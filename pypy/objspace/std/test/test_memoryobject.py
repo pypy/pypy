@@ -153,6 +153,7 @@ class AppTestMemoryView:
         assert m.format == 'i'
         assert m.itemsize == 4
         assert len(m) == 10
+        assert m.shape == (10,)
         assert len(m.tobytes()) == 40
         assert m[0] == 0
         m[0] = 1
