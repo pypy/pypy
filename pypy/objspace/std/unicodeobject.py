@@ -379,7 +379,11 @@ class W_UnicodeObject(W_Root):
         w_kwds = space.newdict()
         if __args__.keywords:
             for i in range(len(__args__.keywords)):
-                space.setitem(w_kwds, space.wrap(__args__.keywords[i]),
+                try:     # pff
+                    arg = __args__.keywords[i].decode('utf-8')
+                except UnicodeDecodeError:
+                    continue   # uh, just skip that
+                space.setitem(w_kwds, space.newunicode(arg),
                               __args__.keywords_w[i])
         return newformat.format_method(space, self, __args__.arguments_w,
                                        w_kwds, True)

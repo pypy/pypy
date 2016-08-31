@@ -27,6 +27,14 @@ class W_Super(W_Root):
         self.w_objtype = w_type
         self.w_self = w_obj_or_type
 
+    def descr_repr(self, space):
+        if self.w_objtype is not None:
+            objtype_name = "<%s object>" % self.w_objtype.getname(space)
+        else:
+            objtype_name = 'NULL'
+        return space.wrap("<super: <class '%s'>, %s>" % (
+            self.w_starttype.getname(space), objtype_name))
+
     def get(self, space, w_obj, w_type=None):
         if self.w_self is None or space.is_w(w_obj, space.w_None):
             return self
@@ -114,7 +122,10 @@ W_Super.typedef = TypeDef(
     'super',
     __new__          = generic_new_descr(W_Super),
     __init__         = interp2app(W_Super.descr_init),
+    __repr__         = interp2app(W_Super.descr_repr),
     __thisclass__    = interp_attrproperty_w("w_starttype", W_Super),
+    __self__         = interp_attrproperty_w("w_self", W_Super),
+    __self_class__   = interp_attrproperty_w("w_objtype", W_Super),
     __getattribute__ = interp2app(W_Super.getattribute),
     __get__          = interp2app(W_Super.get),
     __doc__          =     """\
