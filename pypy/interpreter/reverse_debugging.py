@@ -206,7 +206,8 @@ def find_line_starts(code):
     p = 0
     result = []
     while p < len(lnotab) - 1:
-        byte_incr = ord(lnotab[p])
+        byte_incr = ord(lnotab[p + 0])
+        line_incr = ord(lnotab[p + 1])
         if byte_incr:
             if lineno != lastlineno:
                 result.append((addr, lineno))
@@ -559,6 +560,7 @@ def update_bkpt_cache(pycode):
         # normalize co_filename, and assigns the {lineno: bkpt_num} dict
         # back over the original key, to avoid calling rabspath/rnormpath
         # again the next time
+        co_filename = rstring.assert_str0(co_filename)
         normfilename = rpath.rabspath(co_filename)
         normfilename = rpath.rnormpath(normfilename)
         linenos = dbstate.breakpoint_filelines.get(normfilename, None)
@@ -611,7 +613,8 @@ def add_breakpoint(name, i):
     # if it has no ':', it can be a valid identifier (which we
     # register as a function name), or a lineno
     original_name = name
-    if ':' not in name:
+    j = name.rfind(':')
+    if j < 0:
         try:
             lineno = int(name)
         except ValueError:
@@ -625,7 +628,6 @@ def add_breakpoint(name, i):
         filename = ''
     else:
         # if it has a ':', it must end in ':lineno'
-        j = name.rfind(':')
         try:
             lineno = int(name[j+1:])
         except ValueError:
