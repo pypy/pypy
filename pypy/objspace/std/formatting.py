@@ -441,6 +441,13 @@ def make_formatter_subclass(do_unicode):
             self.fmt_a(w_value)
 
         def fmt_a(self, w_value):
+            if not do_unicode:
+                # - on the bytes StringFormatter, %r or %a must not call
+                #   std_wp(unicode)
+                raise NotImplementedError("FIX ME")
+                # - another problem with fmt_r = fmt_a is that on
+                #   UnicodeFormatter, repr() != ascii() sometimes
+
             from pypy.objspace.std.unicodeobject import ascii_from_object
             w_value = ascii_from_object(self.space, w_value)
             self.std_wp(self.space.unicode_w(w_value))
