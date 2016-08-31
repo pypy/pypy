@@ -40,15 +40,15 @@ ANS_AUTO = 2
 ANS_MANUAL = 3
 
 
-def make_template_formatting_class():
+def make_template_formatting_class(for_unicode):
     class TemplateFormatter(object):
+        is_unicode = for_unicode
 
         parser_list_w = None
 
-        def __init__(self, space, is_unicode, template):
+        def __init__(self, space, template):
             self.space = space
-            self.is_unicode = is_unicode
-            self.empty = u"" if is_unicode else ""
+            self.empty = u"" if self.is_unicode else ""
             self.template = template
 
         def build(self, args):
@@ -351,14 +351,8 @@ def make_template_formatting_class():
             return space.iter(space.newlist(self.parser_list_w))
     return TemplateFormatter
 
-StrTemplateFormatter = make_template_formatting_class()
-UnicodeTemplateFormatter = make_template_formatting_class()
-
-def str_template_formatter(space, template):
-    return StrTemplateFormatter(space, False, template)
-
-def unicode_template_formatter(space, template):
-    return UnicodeTemplateFormatter(space, True, template)
+str_template_formatter = make_template_formatting_class(for_unicode=False)
+unicode_template_formatter = make_template_formatting_class(for_unicode=True)
 
 
 def format_method(space, w_string, args, is_unicode):
@@ -395,16 +389,16 @@ CURRENT_LOCALE = 3
 
 LONG_DIGITS = string.digits + string.ascii_lowercase
 
-def make_formatting_class():
+def make_formatting_class(for_unicode):
     class Formatter(BaseFormatter):
         """__format__ implementation for builtin types."""
 
+        is_unicode = for_unicode
         _grouped_digits = None
 
-        def __init__(self, space, is_unicode, spec):
+        def __init__(self, space, spec):
             self.space = space
-            self.is_unicode = is_unicode
-            self.empty = u"" if is_unicode else ""
+            self.empty = u"" if self.is_unicode else ""
             self.spec = spec
 
         def _is_alignment(self, c):
@@ -1138,15 +1132,8 @@ def make_formatting_class():
             self._unknown_presentation("complex")
     return Formatter
 
-StrFormatter = make_formatting_class()
-UnicodeFormatter = make_formatting_class()
-
-
-def unicode_formatter(space, spec):
-    return StrFormatter(space, True, spec)
-
-def str_formatter(space, spec):
-    return UnicodeFormatter(space, False, spec)
+str_formatter = make_formatting_class(for_unicode=False)
+unicode_formatter = make_formatting_class(for_unicode=True)
 
 
 @specialize.arg(2)
