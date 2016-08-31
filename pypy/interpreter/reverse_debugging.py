@@ -1,5 +1,5 @@
 import sys
-from rpython.rlib import revdb
+from rpython.rlib import revdb, rpath, rstring
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rtyper.annlowlevel import cast_gcref_to_instance
@@ -14,6 +14,7 @@ class DBState:
     standard_code = True
     breakpoint_stack_id = 0
     breakpoint_funcnames = None
+    breakpoint_filelines = None
     printed_objects = {}
     metavars = []
     watch_progs = []
@@ -512,22 +513,101 @@ def command_locals(cmd, extra):
 lambda_locals = lambda: command_locals
 
 
+def valid_identifier(s):
+    if not s:
+        return False
+    if s[0].isdigit():
+        return False
+    for c in s:
+        if not (c.isalnum() or c == '_'):
+            return False
+    return True
+
+def add_breakpoint_funcname(name, i):
+    if dbstate.breakpoint_funcnames is None:
+        dbstate.breakpoint_funcnames = {}
+    dbstate.breakpoint_funcnames[name] = i
+
+def add_breakpoint_fileline(filename, lineno, i):
+    if dbstate.breakpoint_filelines is None:
+        dbstate.breakpoint_filelines = {}
+    linenos = dbstate.breakpoint_filelines.setdefault(filename, {})
+    linenos[lineno] = i
+
+def add_breakpoint(name, i):
+    # if it is empty, complain
+    if not name:
+        revdb.send_output("Empty breakpoint name\n")
+        return
+    # if it is surrounded by < >, it is the name of a code object
+    if name.startswith('<') and name.endswith('>'):
+        add_breakpoint_funcname(name, i)
+        return
+    # if it has no ':', it can be a valid identifier (which we
+    # register as a function name), or a lineno
+    original_name = name
+    if ':' not in name:
+        try:
+            lineno = int(name)
+        except ValueError:
+            if not valid_identifier(name):
+                revdb.send_output(
+                    'Note: "%s()" doesn''t look like a function name. '
+                    'Setting breakpoint anyway\n' % (name,))
+            add_breakpoint_funcname(name, i)
+            return
+        # "number" does the same as ":number"
+        filename = ''
+    else:
+        # if it has a ':', it must end in ':lineno'
+        j = name.rfind(':')
+        try:
+            lineno = int(name[j+1:])
+        except ValueError:
+            revdb.send_output('"%s": expected a line number after colon\n' % (
+                name,))
+            return
+        filename = name[:j]
+
+    # the text before must be a pathname, possibly a relative one,
+    # or be escaped by < >.  if it isn't, make it absolute and normalized
+    # and warn if it doesn't end in '.py'.
+    if filename == '':
+        frame = fetch_cur_frame()
+        if frame is None:
+            return
+        filename = frame.getcode().co_filename
+    elif filename.startswith('<') and filename.endswith('>'):
+        pass    # use unmodified
+    elif not filename.lower().endswith('.py'):
+        # use unmodified, but warn
+        revdb.send_output(
+            'Note: "%s" doesn''t look like a co_filename. '
+            'Setting breakpoint anyway\n' % (filename,))
+    elif '\x00' not in filename:
+        filename = rstring.assert_str0(filename)
+        filename = rpath.rabspath(filename)
+        filename = rpath.rnormpath(filename)
+
+    add_breakpoint_fileline(filename, lineno, i)
+    name = '%s:%d' % (filename, lineno)
+    if name != original_name:
+        revdb.send_change_breakpoint(i, name)
+
 def command_breakpoints(cmd, extra):
     space = dbstate.space
     dbstate.breakpoint_stack_id = cmd.c_arg1
     revdb.set_thread_breakpoint(cmd.c_arg2)
-    funcnames = None
+    dbstate.breakpoint_funcnames = None
+    dbstate.breakpoint_filelines = None
     watch_progs = []
     with non_standard_code:
         for i, kind, name in revdb.split_breakpoints_arg(extra):
             if kind == 'B':
-                if funcnames is None:
-                    funcnames = {}
-                funcnames[name] = i
+                add_breakpoint(name, i)
             elif kind == 'W':
                 code = interp_marshal.loads(space, space.wrap(name))
                 watch_progs.append((code, i, ''))
-    dbstate.breakpoint_funcnames = funcnames
     dbstate.watch_progs = watch_progs[:]
 lambda_breakpoints = lambda: command_breakpoints
 

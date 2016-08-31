@@ -24,6 +24,7 @@ ANSWER_TEXT     = 20
 ANSWER_STACKID  = 21
 ANSWER_NEXTNID  = 22
 ANSWER_WATCH    = 23
+ANSWER_CHBKPT   = 24
 
 
 def stop_point(place=0):
@@ -53,6 +54,9 @@ def send_watch(text, ok_flag):
 
 def send_linecache(filename, linenum, strip=True):
     send_answer(ANSWER_LINECACHE, linenum, int(strip), extra=filename)
+
+def send_change_breakpoint(breakpointnum, newtext):
+    send_answer(ANSWER_CHBKPT, breakpointnum, extra=newtext)
 
 def current_time():
     """For RPython debug commands: returns the current time."""
