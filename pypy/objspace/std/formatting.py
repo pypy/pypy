@@ -478,7 +478,27 @@ def make_formatter_subclass(do_unicode):
                     self.std_wp(s)
 
         def fmt_b(self, w_value):
-            raise NotImplementedError
+            space = self.space
+            # cpython explicitly checks for bytes & bytearray
+            if space.isinstance_w(w_value, space.w_bytes):
+                self.std_wp(space.bytes_w(w_value))
+                return
+            if space.isinstance_w(w_value, space.w_bytearray):
+                self.std_wp(space.bytes_w(w_value))
+                return
+
+            w_bytes_method = space.lookup(w_value, "__bytes__")
+            if w_bytes_method is not None:
+                w_bytes = space.get_and_call_function(w_bytes_method, w_value)
+                if not space.isinstance_w(w_bytes, space.w_bytes):
+                    raise oefmt(space.w_TypeError,
+                                "__bytes__ returned non-bytes (type '%T')", w_bytes)
+                self.std_wp(space.bytes_w(w_bytes))
+                return
+
+            raise oefmt(space.w_TypeError,
+                    "requires bytes, or an object that" \
+                    "implements __bytes__, not '%T'", w_value)
 
     return StringFormatter
 

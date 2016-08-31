@@ -1,3 +1,4 @@
+# coding: utf-8
 class TestW_BytesObject:
 
     def teardown_method(self, method):
@@ -880,8 +881,12 @@ class AppTestBytesObject:
         assert b'%04X' % 10 == b'000A'
         assert b'%c' % 48 == b'0'
         assert b'%c' % b'a' == b'a'
+        """
+
+    def test_format_b(self):
+        """
         assert b'%b' % b'abc' == b'abc'
-        assert b'%b' % 'はい'.encode('utf-8') == b'\xe3\x81\xaf\xe3\x81\x84'
+        assert b'%b' % u'はい'.encode('utf-8') == u'はい'.encode('utf-8')
         raises(TypeError, 'b"%b" % 3.14')
         raises(TypeError, 'b"%b" % "hello world"')
         """
