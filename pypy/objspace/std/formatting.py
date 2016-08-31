@@ -484,7 +484,9 @@ def make_formatter_subclass(do_unicode):
                 self.std_wp(space.bytes_w(w_value))
                 return
             if space.isinstance_w(w_value, space.w_bytearray):
-                self.std_wp(space.bytes_w(w_value))
+                buf = w_value.buffer_w(space, 0)
+                # convert the array of the buffer to a py 2 string
+                self.std_wp(buf.as_str())
                 return
 
             w_bytes_method = space.lookup(w_value, "__bytes__")

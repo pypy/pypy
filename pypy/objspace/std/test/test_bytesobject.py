@@ -889,5 +889,6 @@ class AppTestBytesObject:
         assert b'%b' % u'はい'.encode('utf-8') == u'はい'.encode('utf-8')
         raises(TypeError, 'b"%b" % 3.14')
         raises(TypeError, 'b"%b" % "hello world"')
+        assert b'%b %b' % (b'a', bytearray(b'f f e')) == b'a f f e'
         """
 
