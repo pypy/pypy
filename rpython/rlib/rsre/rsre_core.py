@@ -365,7 +365,9 @@ class MinRepeatOneMatchResult(MatchResult):
         for op1, checkerfn in unroll_char_checker:
             if op1 == op:
                 return checkerfn(ctx, ptr, ppos)
-        raise Error("next_char_ok[%d]" % op)
+        # obscure case: it should be a single char pattern, but isn't
+        # one of the opcodes in unroll_char_checker (see test_ext_opcode)
+        return sre_match(ctx, ppos, ptr, self.start_marks) is not None
 
 class AbstractUntilMatchResult(MatchResult):
 
@@ -743,7 +745,8 @@ def sre_match(ctx, ppos, ptr, marks):
             minptr = start + ctx.pat(ppos+1)
             if minptr > ctx.end:
                 return    # cannot match
-            ptr = find_repetition_end(ctx, ppos+3, start, ctx.pat(ppos+2))
+            ptr = find_repetition_end(ctx, ppos+3, start, ctx.pat(ppos+2),
+                                      marks)
             # when we arrive here, ptr points to the tail of the target
             # string.  check if the rest of the pattern matches,
             # and backtrack if not.
@@ -765,7 +768,7 @@ def sre_match(ctx, ppos, ptr, marks):
                 if minptr > ctx.end:
                     return   # cannot match
                 # count using pattern min as the maximum
-                ptr = find_repetition_end(ctx, ppos+3, ptr, min)
+                ptr = find_repetition_end(ctx, ppos+3, ptr, min, marks)
                 if ptr < minptr:
                     return   # did not match minimum number of times
 
@@ -812,7 +815,7 @@ def match_repeated_ignore(ctx, ptr, oldptr, length):
     return True
 
 @specializectx
-def find_repetition_end(ctx, ppos, ptr, maxcount):
+def find_repetition_end(ctx, ppos, ptr, maxcount, marks):
     end = ctx.end
     ptrp1 = ptr + 1
     # First get rid of the cases where we don't have room for any match.
@@ -827,8 +830,11 @@ def find_repetition_end(ctx, ppos, ptr, maxcount):
         if op1 == op:
             if checkerfn(ctx, ptr, ppos):
                 break
+            return ptr
     else:
-        return ptr
+        # obscure case: it should be a single char pattern, but isn't
+        # one of the opcodes in unroll_char_checker (see test_ext_opcode)
+        return general_find_repetition_end(ctx, ppos, ptr, maxcount, marks)
     # It matches at least once.  If maxcount == 1 (relatively common),
     # then we are done.
     if maxcount == 1:
@@ -844,6 +850,19 @@ def find_repetition_end(ctx, ppos, ptr, maxcount):
         if op1 == op:
             return fre(ctx, ptrp1, end, ppos)
     raise Error("rsre.find_repetition_end[%d]" % op)
+
+@specializectx
+def general_find_repetition_end(ctx, ppos, ptr, maxcount, marks):
+    # moved into its own JIT-opaque function
+    end = ctx.end
+    if maxcount != rsre_char.MAXREPEAT:
+        # adjust end
+        end1 = ptr + maxcount
+        if end1 <= end:
+            end = end1
+    while ptr < end and sre_match(ctx, ppos, ptr, marks) is not None:
+        ptr += 1
+    return ptr
 
 @specializectx
 def match_ANY(ctx, ptr, ppos):   # dot wildcard.
