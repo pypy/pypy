@@ -15,7 +15,7 @@ from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 from pypy.module.unicodedata import unicodedb
 from pypy.objspace.std import newformat
-from pypy.objspace.std.formatting import mod_format
+from pypy.objspace.std.formatting import mod_format, FORMAT_UNICODE
 from pypy.objspace.std.stringmethods import StringMethods
 from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT
 
@@ -392,7 +392,7 @@ class W_UnicodeObject(W_Root):
                                        self)
 
     def descr_mod(self, space, w_values):
-        return mod_format(space, self, w_values, do_unicode=True)
+        return mod_format(space, self, w_values, fmt_type=FORMAT_UNICODE)
 
     def descr_translate(self, space, w_table):
         selfvalue = self._value

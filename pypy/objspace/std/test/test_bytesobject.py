@@ -1,3 +1,4 @@
+# coding: utf-8
 class TestW_BytesObject:
 
     def teardown_method(self, method):
@@ -96,10 +97,6 @@ class AppTestBytesObject:
         assert bytes(b'abc') == b'abc'
         assert bytes('abc', 'ascii') == b'abc'
         assert bytes(set(b'foo')) in (b'fo', b'of')
-
-    def test_format(self):
-        import operator
-        raises(TypeError, operator.mod, b"%s", (1,))
 
     def test_fromhex(self):
         assert bytes.fromhex("abcd") == b'\xab\xcd'
@@ -877,3 +874,20 @@ class AppTestBytesObject:
                "73616e746120636c617573"
         assert bytes(64).hex() == "00"*64
 
+    def test_format(self):
+        """
+        assert b'a%db' % 2 == b'a2b'
+        assert b'00%.2f'.__mod__((0.01234,)) == b'000.01'
+        assert b'%04X' % 10 == b'000A'
+        assert b'%c' % 48 == b'0'
+        assert b'%c' % b'a' == b'a'
+        """
+
+    def test_format_b(self):
+        """
+        assert b'%b' % b'abc' == b'abc'
+        assert b'%b' % u'はい'.encode('utf-8') == u'はい'.encode('utf-8')
+        raises(TypeError, 'b"%b" % 3.14')
+        raises(TypeError, 'b"%b" % "hello world"')
+        assert b'%b %b' % (b'a', bytearray(b'f f e')) == b'a f f e'
+        """

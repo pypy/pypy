@@ -346,6 +346,9 @@ class StdObjSpace(ObjSpace):
     def newbytes(self, s):
         return W_BytesObject(s)
 
+    def newbytearray(self, l):
+        return W_BytearrayObject(l)
+
     def newunicode(self, uni):
         return W_UnicodeObject(uni)
 

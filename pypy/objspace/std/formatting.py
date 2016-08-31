@@ -438,7 +438,7 @@ def make_formatter_subclass(do_unicode):
             self.std_wp(s)
 
         def fmt_r(self, w_value):
-            self.std_wp(self.space.unicode_w(self.space.repr(w_value)))
+            self.fmt_a(w_value)
 
         def fmt_a(self, w_value):
             from pypy.objspace.std.unicodeobject import ascii_from_object
@@ -477,6 +477,31 @@ def make_formatter_subclass(do_unicode):
                                     "character code not in range(256)")
                     self.std_wp(s)
 
+        def fmt_b(self, w_value):
+            space = self.space
+            # cpython explicitly checks for bytes & bytearray
+            if space.isinstance_w(w_value, space.w_bytes):
+                self.std_wp(space.bytes_w(w_value))
+                return
+            if space.isinstance_w(w_value, space.w_bytearray):
+                buf = w_value.buffer_w(space, 0)
+                # convert the array of the buffer to a py 2 string
+                self.std_wp(buf.as_str())
+                return
+
+            w_bytes_method = space.lookup(w_value, "__bytes__")
+            if w_bytes_method is not None:
+                w_bytes = space.get_and_call_function(w_bytes_method, w_value)
+                if not space.isinstance_w(w_bytes, space.w_bytes):
+                    raise oefmt(space.w_TypeError,
+                                "__bytes__ returned non-bytes (type '%T')", w_bytes)
+                self.std_wp(space.bytes_w(w_bytes))
+                return
+
+            raise oefmt(space.w_TypeError,
+                    "requires bytes, or an object that" \
+                    "implements __bytes__, not '%T'", w_value)
+
     return StringFormatter
 
 
@@ -494,10 +519,18 @@ FORMATTER_CHARS = unrolling_iterable(
     [_name[-1] for _name in dir(StringFormatter)
                if len(_name) == 5 and _name.startswith('fmt_')])
 
-def format(space, w_fmt, values_w, w_valuedict, do_unicode):
+FORMAT_STR = 0
+FORMAT_UNICODE = 1
+FORMAT_BYTES = 2
+FORMAT_BYTEARRAY = 3
+
+def format(space, w_fmt, values_w, w_valuedict, fmt_type):
     "Entry point"
-    if not do_unicode:
-        fmt = space.str_w(w_fmt)
+    if fmt_type != FORMAT_UNICODE:
+        if fmt_type == FORMAT_BYTEARRAY:
+            fmt = w_fmt.buffer_w(space, 0).as_str()
+        else:
+            fmt = space.str_w(w_fmt)
         formatter = StringFormatter(space, fmt, values_w, w_valuedict)
         try:
             result = formatter.format()
@@ -505,25 +538,29 @@ def format(space, w_fmt, values_w, w_valuedict, do_unicode):
             # fall through to the unicode case
             pass
         else:
+            if fmt_type == FORMAT_BYTES:
+                return space.newbytes(result)
+            elif fmt_type == FORMAT_BYTEARRAY:
+                return space.newbytearray([c for c in result])
             return space.wrap(result)
     fmt = space.unicode_w(w_fmt)
     formatter = UnicodeFormatter(space, fmt, values_w, w_valuedict)
     result = formatter.format()
     return space.wrap(result)
 
-def mod_format(space, w_format, w_values, do_unicode=False):
+def mod_format(space, w_format, w_values, fmt_type=FORMAT_STR):
     if space.isinstance_w(w_values, space.w_tuple):
         values_w = space.fixedview(w_values)
-        return format(space, w_format, values_w, None, do_unicode)
+        return format(space, w_format, values_w, None, fmt_type)
     else:
         # we check directly for dict to avoid obscure checking
         # in simplest case
         if space.isinstance_w(w_values, space.w_dict) or \
            (space.lookup(w_values, '__getitem__') and
            not space.isinstance_w(w_values, space.w_unicode)):
-            return format(space, w_format, [w_values], w_values, do_unicode)
+            return format(space, w_format, [w_values], w_values, fmt_type)
         else:
-            return format(space, w_format, [w_values], None, do_unicode)
+            return format(space, w_format, [w_values], None, fmt_type)
 
 # ____________________________________________________________
 # Formatting helpers
