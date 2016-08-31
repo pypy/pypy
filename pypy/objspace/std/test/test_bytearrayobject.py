@@ -1,5 +1,6 @@
-from pypy import conftest
+# coding: utf-8
 
+from pypy import conftest
 
 class AppTestBytesArray:
     def setup_class(cls):
@@ -527,3 +528,20 @@ class AppTestBytesArray:
     def test_hex(self):
         assert bytearray(b'santa claus').hex() == "73616e746120636c617573"
 
+    def test_format(self):
+        """
+        assert bytearray(b'a%db') % 2 == b'a2b'
+        assert bytearray(b'00%.2f').__mod__((0.01234,)) == b'000.01'
+        assert bytearray(b'%04X') % 10 == b'000A'
+        assert bytearray(b'%c') % 48 == b'0'
+        assert bytearray(b'%c') % b'a' == b'a'
+        """
+
+    def test_format_b(self):
+        """
+        assert bytearray(b'%b') % b'abc' == b'abc'
+        assert bytearray(b'%b') % u'はい'.encode('utf-8') == u'はい'.encode('utf-8')
+        raises(TypeError, 'bytearray(b"%b") % 3.14')
+        raises(TypeError, 'bytearray(b"%b") % "hello world"')
+        assert bytearray(b'%b %b') % (b'a', bytearray(b'f f e')) == b'a f f e'
+        """

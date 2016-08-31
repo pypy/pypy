@@ -21,6 +21,7 @@ from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.stringmethods import StringMethods, _get_buffer
 from pypy.objspace.std.bytesobject import W_BytesObject
 from pypy.objspace.std.util import get_positive_index
+from pypy.objspace.std.formatting import mod_format, FORMAT_BYTEARRAY
 
 NON_HEX_MSG = "non-hexadecimal number found in fromhex() arg at position %d"
 
@@ -446,6 +447,9 @@ class W_BytearrayObject(W_Root):
     def descr_hex(self, space):
         return _array_to_hexstring(space, self.data, len(self.data), True)
 
+    def descr_mod(self, space, w_values):
+        return mod_format(space, self, w_values, fmt_type=FORMAT_BYTEARRAY)
+
     @staticmethod
     def _iter_getitem_result(self, space, index):
         assert isinstance(self, W_BytearrayObject)
@@ -598,6 +602,9 @@ class BytearrayDocstrings:
 
     def __mul__():
         """x.__mul__(n) <==> x*n"""
+
+    def __mod__():
+        """x.__mod__(y) <==> x % y"""
 
     def __ne__():
         """x.__ne__(y) <==> x!=y"""
@@ -1099,6 +1106,8 @@ W_BytearrayObject.typedef = TypeDef(
                              doc=BytearrayDocstrings.__setitem__.__doc__),
     __delitem__ = interp2app(W_BytearrayObject.descr_delitem,
                              doc=BytearrayDocstrings.__delitem__.__doc__),
+    __mod__ = interp2app(W_BytearrayObject.descr_mod,
+                           doc=BytearrayDocstrings.__mod__.__doc__),
 
     append = interp2app(W_BytearrayObject.descr_append,
                         doc=BytearrayDocstrings.append.__doc__),

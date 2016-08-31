@@ -891,4 +891,3 @@ class AppTestBytesObject:
         raises(TypeError, 'b"%b" % "hello world"')
         assert b'%b %b' % (b'a', bytearray(b'f f e')) == b'a f f e'
         """
-

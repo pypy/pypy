@@ -527,7 +527,10 @@ FORMAT_BYTEARRAY = 3
 def format(space, w_fmt, values_w, w_valuedict, fmt_type):
     "Entry point"
     if fmt_type != FORMAT_UNICODE:
-        fmt = space.str_w(w_fmt)
+        if fmt_type == FORMAT_BYTEARRAY:
+            fmt = w_fmt.buffer_w(space, 0).as_str()
+        else:
+            fmt = space.str_w(w_fmt)
         formatter = StringFormatter(space, fmt, values_w, w_valuedict)
         try:
             result = formatter.format()
@@ -538,7 +541,7 @@ def format(space, w_fmt, values_w, w_valuedict, fmt_type):
             if fmt_type == FORMAT_BYTES:
                 return space.newbytes(result)
             elif fmt_type == FORMAT_BYTEARRAY:
-                return space.newbytearray(result)
+                return space.newbytearray([c for c in result])
             return space.wrap(result)
     fmt = space.unicode_w(w_fmt)
     formatter = UnicodeFormatter(space, fmt, values_w, w_valuedict)
