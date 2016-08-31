@@ -216,7 +216,9 @@ class AppTestUnicodeFormat(BaseStringFormatTests):
         assert self.s("{!r}").format(x()) == "32"
 
     def test_non_latin1_key(self):
-        raises(KeyError, self.s("{\u1000}").format)
+        raises(KeyError, u"{\u1000}".format)
+        d = {u"\u1000": u"foo"}
+        assert u"{\u1000}".format(**d) == u"foo"
 
 
 class AppTestBoolFormat:

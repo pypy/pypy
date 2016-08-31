@@ -8,6 +8,7 @@ from rpython.rlib import rstring, runicode, rlocale, rfloat, jit
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rfloat import copysign, formatd
 from rpython.rlib.rarithmetic import r_uint, intmask
+from pypy.interpreter.signature import Signature
 
 
 @specialize.argtype(1)
@@ -40,15 +41,18 @@ ANS_AUTO = 2
 ANS_MANUAL = 3
 
 
-def make_template_formatting_class():
+format_signature = Signature([], 'args', 'kwargs')
+
+
+def make_template_formatting_class(for_unicode):
     class TemplateFormatter(object):
+        is_unicode = for_unicode
 
         parser_list_w = None
 
-        def __init__(self, space, is_unicode, template):
+        def __init__(self, space, template):
             self.space = space
-            self.is_unicode = is_unicode
-            self.empty = u"" if is_unicode else ""
+            self.empty = u"" if self.is_unicode else ""
             self.template = template
 
         def build(self, args, w_kwargs):
@@ -198,14 +202,10 @@ def make_template_formatting_class():
             if index == -1:
                 kwarg = name[:i]
                 if self.is_unicode:
-                    try:
-                        arg_key = kwarg.encode("latin-1")
-                    except UnicodeEncodeError:
-                        # Not going to be found in a dict of strings.
-                        raise OperationError(space.w_KeyError, space.wrap(kwarg))
+                    w_kwarg = space.newunicode(kwarg)
                 else:
-                    arg_key = kwarg
-                w_arg = space.getitem(self.w_kwargs, space.wrap(arg_key))
+                    w_kwarg = space.newbytes(kwarg)
+                w_arg = space.getitem(self.w_kwargs, w_kwarg)
             else:
                 if self.args is None:
                     w_msg = space.wrap("Format string contains positional "
@@ -356,14 +356,8 @@ def make_template_formatting_class():
             return space.iter(space.newlist(self.parser_list_w))
     return TemplateFormatter
 
-StrTemplateFormatter = make_template_formatting_class()
-UnicodeTemplateFormatter = make_template_formatting_class()
-
-def str_template_formatter(space, template):
-    return StrTemplateFormatter(space, False, template)
-
-def unicode_template_formatter(space, template):
-    return UnicodeTemplateFormatter(space, True, template)
+str_template_formatter = make_template_formatting_class(for_unicode=False)
+unicode_template_formatter = make_template_formatting_class(for_unicode=True)
 
 
 def format_method(space, w_string, args, w_kwargs, is_unicode):
@@ -400,16 +394,16 @@ CURRENT_LOCALE = 3
 
 LONG_DIGITS = string.digits + string.ascii_lowercase
 
-def make_formatting_class():
+def make_formatting_class(for_unicode):
     class Formatter(BaseFormatter):
         """__format__ implementation for builtin types."""
 
+        is_unicode = for_unicode
         _grouped_digits = None
 
-        def __init__(self, space, is_unicode, spec):
+        def __init__(self, space, spec):
             self.space = space
-            self.is_unicode = is_unicode
-            self.empty = u"" if is_unicode else ""
+            self.empty = u"" if self.is_unicode else ""
             self.spec = spec
 
         def _is_alignment(self, c):
@@ -1146,11 +1140,8 @@ def make_formatting_class():
             self._unknown_presentation("complex")
     return Formatter
 
-StrFormatter = make_formatting_class()
+unicode_formatter = make_formatting_class(for_unicode=True)
 
-
-def unicode_formatter(space, spec):
-    return StrFormatter(space, True, spec)
 
 @specialize.arg(2)
 def run_formatter(space, w_format_spec, meth, *args):
