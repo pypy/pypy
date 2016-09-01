@@ -286,7 +286,7 @@ class TestDecoding(UnicodeTests):
 
 
 class TestUTF8Decoding(UnicodeTests):
-    def __init__(self):
+    def setup_method(self, meth):
         self.decoder = self.getdecoder('utf-8')
 
     def to_bytestring(self, bytes):
