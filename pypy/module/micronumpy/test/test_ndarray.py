@@ -3215,7 +3215,9 @@ class AppTestMultiDim(BaseNumpyAppTest):
         raises(TypeError, array, Dummy({'version': 3, 'typestr': 'f8', 'shape': ('a', 3)}))
 
         a = array([1, 2, 3])
-        b = array(Dummy(a.__array_interface__))
+        d = Dummy(a.__array_interface__)
+        b = array(d)
+        assert b.base is None
         b[1] = 200
         assert a[1] == 2 # upstream compatibility, is this a bug?
         interface_a = a.__array_interface__
@@ -3226,6 +3228,8 @@ class AppTestMultiDim(BaseNumpyAppTest):
         interface_b.pop('data')
         interface_a.pop('data')
         assert interface_a == interface_b
+        b = array(d, copy=False)
+        assert b.base is d
 
         b = array(Dummy({'version':3, 'shape': (50,), 'typestr': 'u1',
                          'data': 'a'*100}))

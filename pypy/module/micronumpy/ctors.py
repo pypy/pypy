@@ -43,7 +43,7 @@ def try_array_method(space, w_object, w_dtype=None):
         raise oefmt(space.w_ValueError,
                     "object __array__ method not producing an array")
 
-def try_interface_method(space, w_object):
+def try_interface_method(space, w_object, copy):
     try:
         w_interface = space.getattr(w_object, space.wrap("__array_interface__"))
         if w_interface is None:
@@ -86,7 +86,7 @@ def try_interface_method(space, w_object):
                                    space.isinstance_w(w_data, space.w_list)):
             data_w = space.listview(w_data)
             w_data = rffi.cast(RAW_STORAGE_PTR, space.int_w(data_w[0]))
-            read_only = space.is_true(data_w[1])
+            read_only = space.is_true(data_w[1]) or copy
             offset = 0
             w_base = w_object
             if read_only:
@@ -203,7 +203,7 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
             # use buffer interface
             w_object = _array_from_buffer_3118(space, w_object, dtype)
     if not isinstance(w_object, W_NDimArray):
-        w_array, _copy = try_interface_method(space, w_object)
+        w_array, _copy = try_interface_method(space, w_object, copy)
         if w_array is not None:
             w_object = w_array
             copy = _copy
