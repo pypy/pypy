@@ -132,9 +132,7 @@ def potential_stop_point(frame):
             call_stop_point_at_line = False
     #
     if call_stop_point_at_line:
-        if dbstate.breakpoint_by_file is not None:
-            check_and_trigger_bkpt(frame.pycode, cur)
-        stop_point_activate()
+        stop_point_activate(pycode=frame.pycode, opindex=cur)
         cur += 1
         ch = ord(co_revdb_linestarts[cur])
     #
@@ -232,23 +230,33 @@ class NonStandardCode(object):
 non_standard_code = NonStandardCode()
 
 
-def stop_point_activate(place=0):
+def stop_point_activate(place=0, pycode=None, opindex=-1):
     if revdb.watch_save_state():
         any_watch_point = False
+        # ^^ this flag is set to True if we must continue to enter this
+        # block of code.  If it is still False for watch_restore_state()
+        # below, then future watch_save_state() will return False too---
+        # until the next time revdb.c:set_revdb_breakpoints() is called.
         space = dbstate.space
         with non_standard_code:
-            for prog, watch_id, expected in dbstate.watch_progs:
+            watch_id = -1
+            if dbstate.breakpoint_by_file is not None:
                 any_watch_point = True
-                try:
-                    got = _run_watch(space, prog)
-                except OperationError as e:
-                    got = e.errorstr(space)
-                except Exception:
-                    break
-                if got != expected:
-                    break
-            else:
-                watch_id = -1
+                if pycode is not None:
+                    watch_id = check_and_trigger_bkpt(pycode, opindex)
+            if watch_id == -1:
+                for prog, watch_id, expected in dbstate.watch_progs:
+                    any_watch_point = True
+                    try:
+                        got = _run_watch(space, prog)
+                    except OperationError as e:
+                        got = e.errorstr(space)
+                    except Exception:
+                        break
+                    if got != expected:
+                        break
+                else:
+                    watch_id = -1
         revdb.watch_restore_state(any_watch_point)
         if watch_id != -1:
             revdb.breakpoint(watch_id)
@@ -547,13 +555,13 @@ def check_and_trigger_bkpt(pycode, opindex):
     # mapping {opindex: bkpt_num}.  This cache is updated when the
     # version in 'pycode.co_revdb_bkpt_version' does not match
     # 'dbstate.breakpoint_version' any more.
-    #
-    # IMPORTANT: no object allocation here, outside update_bkpt_cache!
     if pycode.co_revdb_bkpt_version != dbstate.breakpoint_version:
         update_bkpt_cache(pycode)
     cache = pycode.co_revdb_bkpt_cache
     if cache is not None and opindex in cache:
-        revdb.breakpoint(cache[opindex])
+        return cache[opindex]
+    else:
+        return -1
 
 def update_bkpt_cache(pycode):
     # initialized by command_breakpoints():
@@ -562,9 +570,6 @@ def update_bkpt_cache(pycode):
     #     dbstate.breakpoint_by_file == {'co_filename': {lineno: bkpt_num}}
     # the goal is to set:
     #     pycode.co_revdb_bkpt_cache == {opindex: bkpt_num}
-    #
-    prev_state = revdb.watch_save_state(force=True)
-    # ^^^ the object allocations done in this function should not count!
 
     co_filename = pycode.co_filename
     try:
@@ -593,8 +598,6 @@ def update_bkpt_cache(pycode):
 
     pycode.co_revdb_bkpt_cache = newcache
     pycode.co_revdb_bkpt_version = dbstate.breakpoint_version
-
-    revdb.watch_restore_state(prev_state)
 
 
 def valid_identifier(s):
