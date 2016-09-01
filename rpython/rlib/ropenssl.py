@@ -126,6 +126,10 @@ class CConfig:
         "SSL_OP_NO_COMPRESSION")
     SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS = rffi_platform.ConstantInteger(
         "SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS")
+    SSL_OP_CIPHER_SERVER_PREFERENCE = rffi_platform.ConstantInteger(
+        "SSL_OP_CIPHER_SERVER_PREFERENCE")
+    SSL_OP_SINGLE_DH_USE = rffi_platform.ConstantInteger(
+        "SSL_OP_SINGLE_DH_USE")
     HAS_SNI = rffi_platform.Defined("SSL_CTRL_SET_TLSEXT_HOSTNAME")
     HAS_NPN = rffi_platform.Defined("OPENSSL_NPN_NEGOTIATED")
     SSL_VERIFY_NONE = rffi_platform.ConstantInteger("SSL_VERIFY_NONE")
@@ -307,6 +311,8 @@ ssl_external('CRYPTO_set_id_callback',
 
 if HAVE_OPENSSL_RAND:
     ssl_external('RAND_add', [rffi.CCHARP, rffi.INT, rffi.DOUBLE], lltype.Void)
+    ssl_external('RAND_bytes', [rffi.UCHARP, rffi.INT], rffi.INT)
+    ssl_external('RAND_pseudo_bytes', [rffi.UCHARP, rffi.INT], rffi.INT)
     ssl_external('RAND_status', [], rffi.INT)
     if HAVE_OPENSSL_RAND_EGD:
         ssl_external('RAND_egd', [rffi.CCHARP], rffi.INT)
@@ -465,6 +471,7 @@ ssl_external('AUTHORITY_INFO_ACCESS_free', [AUTHORITY_INFO_ACCESS], lltype.Void)
 ssl_external('GENERAL_NAME_print', [BIO, GENERAL_NAME], rffi.INT)
 ssl_external('pypy_GENERAL_NAME_dirn', [GENERAL_NAME], X509_NAME,
              macro=True)
+
 ssl_external('pypy_GENERAL_NAME_uri', [GENERAL_NAME], ASN1_IA5STRING,
              macro=True)
 

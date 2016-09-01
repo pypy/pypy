@@ -434,7 +434,6 @@ class W_AbstractBytesObject(W_Root):
         of the specified width. The string S is never truncated.
         """
 
-
 class W_BytesObject(W_AbstractBytesObject):
     import_from_mixin(StringMethods)
     _immutable_fields_ = ['_value']
@@ -463,6 +462,11 @@ class W_BytesObject(W_AbstractBytesObject):
     def writebuf_w(self, space):
         raise oefmt(space.w_TypeError,
                     "Cannot use string as modifiable buffer")
+
+    def descr_getbuffer(self, space, w_flags):
+        #from pypy.objspace.std.bufferobject import W_Buffer
+        #return W_Buffer(StringBuffer(self._value))
+        return self
 
     charbuf_w = str_w
 
@@ -925,6 +929,7 @@ W_BytesObject.typedef = TypeDef(
     translate = interpindirect2app(W_AbstractBytesObject.descr_translate),
     upper = interpindirect2app(W_AbstractBytesObject.descr_upper),
     zfill = interpindirect2app(W_AbstractBytesObject.descr_zfill),
+    __buffer__ = interp2app(W_BytesObject.descr_getbuffer),
 
     format = interpindirect2app(W_BytesObject.descr_format),
     __format__ = interpindirect2app(W_BytesObject.descr__format__),

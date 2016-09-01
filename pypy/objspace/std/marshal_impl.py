@@ -65,10 +65,13 @@ def unmarshaller(tc):
 
 def marshal(space, w_obj, m):
     # _marshallers_unroll is defined at the end of the file
-    for type, func in _marshallers_unroll:
-        if isinstance(w_obj, type):
-            func(space, w_obj, m)
-            return
+    # NOTE that if w_obj is a heap type, like an instance of a
+    # user-defined subclass, then we skip that part completely!
+    if not space.type(w_obj).is_heaptype():
+        for type, func in _marshallers_unroll:
+            if isinstance(w_obj, type):
+                func(space, w_obj, m)
+                return
 
     # any unknown object implementing the buffer protocol is
     # accepted and encoded as a plain string

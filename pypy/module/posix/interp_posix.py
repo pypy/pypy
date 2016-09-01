@@ -590,6 +590,8 @@ entries '.' and '..' even if they are present in the directory."""
                                                     "decode", w_fs_encoding)
                 except OperationError as e:
                     # fall back to the original byte string
+                    if e.async(space):
+                        raise
                     result_w[i] = w_bytes
             return space.newlist(result_w)
         else:
