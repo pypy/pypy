@@ -746,20 +746,20 @@ if _POSIX:
     def set_pages_executable(addr, size):
         assert lltype.typeOf(addr) == rffi.CCHARP
         assert isinstance(size, int)
-        #assert size >= 0
         rv = mprotect(addr, size, PROT_EXEC | PROT_READ)
         if int(rv) < 0:
             from rpython.rlib import debug
             debug.fatalerror_notb("set_pages_executable failed")
+    set_pages_executable._annenforceargs_ = (None, int)
 
     def set_pages_writable(addr, size):
         assert lltype.typeOf(addr) == rffi.CCHARP
         assert isinstance(size, int)
-        #assert size >= 0
         rv = mprotect(addr, size, PROT_WRITE | PROT_READ)
         if int(rv) < 0:
             from rpython.rlib import debug
             debug.fatalerror_notb("set_pages_writable failed")
+    set_pages_writable._annenforceargs_ = (None, int)
 
     def clear_large_memory_chunk_aligned(addr, map_size):
         addr = rffi.cast(PTR, addr)
