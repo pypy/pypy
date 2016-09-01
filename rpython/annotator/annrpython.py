@@ -164,8 +164,13 @@ class RPythonAnnotator(object):
             # annotations that are passed in, and don't annotate the old
             # graph -- it's already low-level operations!
             for a, s_newarg in zip(block.inputargs, cells):
-                s_oldarg = self.binding(a)
-                assert annmodel.unionof(s_oldarg, s_newarg) == s_oldarg
+                s_oldarg = a.annotation
+                if not s_oldarg.contains(s_newarg):
+                    raise annmodel.AnnotatorError(
+                        "Late-stage annotation is not allowed to modify the "
+                        "existing annotation for variable %s: %s" %
+                            (a, s_oldarg))
+
         else:
             assert not self.frozen
             if block not in self.annotated:
