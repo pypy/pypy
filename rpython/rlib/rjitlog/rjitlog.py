@@ -212,7 +212,7 @@ def returns(*args):
         return method
     return decor
 
-JITLOG_VERSION = 3
+JITLOG_VERSION = 4
 JITLOG_VERSION_16BIT_LE = struct.pack("<H", JITLOG_VERSION)
 
 marks = [
@@ -245,6 +245,7 @@ marks = [
     ('ABORT_TRACE',),
     ('SOURCE_CODE',),
     ('REDIRECT_ASSEMBLER',),
+    ('TMP_CALLBACK',),
 ]
 
 start = 0x11
@@ -320,6 +321,12 @@ def redirect_assembler(oldtoken, newtoken, target):
     content = ''.join(list)
     jitlog_write_marked(content, len(content))
 
+def tmp_callback(looptoken):
+    mark_tmp_callback = ''.join([
+        jl.MARK_TMP_CALLBACK,
+        encode_le_addr(compute_unique_id(looptoken)),
+        encode_le_64bit(looptoken.number)])
+    jl.jitlog_write_marked(mark_tmp_callback, len(mark_tmp_callback))
 
 class JitLogger(object):
     def __init__(self, cpu=None):
