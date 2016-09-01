@@ -225,7 +225,7 @@ class BoehmGcPolicy(BasicGcPolicy):
         sourcelines.append('\tNULL')
         sourcelines.append('};')
         sourcelines.append('struct boehm_fq_s *boehm_fq_queues[%d];' % (
-            len(gct.finalizer_triggers),))
+            len(gct.finalizer_triggers) or 1,))
         sourcelines.append('')
         eci = eci.merge(ExternalCompilationInfo(
             separate_module_sources=['\n'.join(sourcelines)]))

@@ -1,6 +1,7 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.rfile import c_setvbuf, _IONBF
 from pypy.module.cpyext.api import (
-    cpython_api, CANNOT_FAIL, CONST_STRING, FILEP, build_type_checkers, fdopen)
+    cpython_api, CANNOT_FAIL, CONST_STRING, FILEP, build_type_checkers, c_fdopen)
 from pypy.module.cpyext.pyobject import PyObject
 from pypy.module.cpyext.object import Py_PRINT_RAW
 from pypy.interpreter.error import (OperationError, oefmt, 
@@ -64,11 +65,12 @@ def PyFile_AsFile(space, w_p):
     if (fd < 0 or not mode or mode[0] not in ['r', 'w', 'a', 'U'] or
         ('U' in mode and ('w' in mode or 'a' in mode))):
         raise oefmt(space.w_IOError, 'invalid fileno or mode') 
-    ret = fdopen(fd, mode)
+    ret = c_fdopen(fd, mode)
     if not ret:
         raise exception_from_saved_errno(space, space.w_IOError)
+    # XXX fix this once use-file-star-for-file lands
+    c_setvbuf(ret, lltype.nullptr(rffi.CCHARP.TO), _IONBF, 0)
     return ret
-        
 
 @cpython_api([FILEP, CONST_STRING, CONST_STRING, rffi.VOIDP], PyObject)
 def PyFile_FromFile(space, fp, name, mode, close):

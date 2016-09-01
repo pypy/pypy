@@ -289,3 +289,19 @@ class TestLLType(object):
         llinterp = LLInterpreter(t.rtyper)
         res = llinterp.eval_graph(later_graph, [10])
         assert res == 1
+
+    def test_replace_we_are_jitted(self):
+        from rpython.rlib import jit
+        def f():
+            if jit.we_are_jitted():
+                return 1
+            return 2 + jit.we_are_jitted()
+
+        t = self.translateopt(f, [])
+        graph = graphof(t, f)
+        # by default, replace_we_are_jitted is off
+        assert graph.startblock.operations[0].args[0].value is jit._we_are_jitted
+
+        t = self.translateopt(f, [], replace_we_are_jitted=True)
+        graph = graphof(t, f)
+        assert graph.startblock.exits[0].args[0].value == 2

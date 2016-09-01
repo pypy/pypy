@@ -401,21 +401,20 @@ class W_PipeConnection(W_BaseConnection):
             _WriteFile, ERROR_NO_SYSTEM_RESOURCES)
         from rpython.rlib import rwin32
 
-        charp = rffi.str2charp(buf)
-        written_ptr = lltype.malloc(rffi.CArrayPtr(rwin32.DWORD).TO, 1,
-                                    flavor='raw')
-        try:
-            result = _WriteFile(
-                self.handle, rffi.ptradd(charp, offset),
-                size, written_ptr, rffi.NULL)
+        with rffi.scoped_view_charp(buf) as charp:
+            written_ptr = lltype.malloc(rffi.CArrayPtr(rwin32.DWORD).TO, 1,
+                                        flavor='raw')
+            try:
+                result = _WriteFile(
+                    self.handle, rffi.ptradd(charp, offset),
+                    size, written_ptr, rffi.NULL)
 
-            if (result == 0 and
-                rwin32.GetLastError_saved() == ERROR_NO_SYSTEM_RESOURCES):
-                raise oefmt(space.w_ValueError,
-                            "Cannot send %d bytes over connection", size)
-        finally:
-            rffi.free_charp(charp)
-            lltype.free(written_ptr, flavor='raw')
+                if (result == 0 and
+                    rwin32.GetLastError_saved() == ERROR_NO_SYSTEM_RESOURCES):
+                    raise oefmt(space.w_ValueError,
+                                "Cannot send %d bytes over connection", size)
+            finally:
+                lltype.free(written_ptr, flavor='raw')
 
     def do_recv_string(self, space, buflength, maxlength):
         from pypy.module._multiprocessing.interp_win32 import (

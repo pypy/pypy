@@ -84,3 +84,16 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         arr = module.array('i', [2])
         res = [1, 2, 3] * arr
         assert res == [1, 2, 3, 1, 2, 3]
+        module.switch_multiply()
+        res = [1, 2, 3] * arr
+        assert res == [2, 4, 6]
+
+    def test_subclass(self):
+        module = self.import_module(name='array')
+        class Sub(module.array):
+            pass
+
+        arr = Sub('i', [2])
+        res = [1, 2, 3] * arr
+        assert res == [1, 2, 3, 1, 2, 3]
+        

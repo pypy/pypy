@@ -1,7 +1,7 @@
 import sys
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
-from rpython.rlib.rarithmetic import r_uint, intmask
+from rpython.rlib.rarithmetic import r_uint, intmask, widen
 from rpython.rlib.unicodedata import unicodedb
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib import jit
@@ -74,7 +74,7 @@ if MAXUNICODE > 0xFFFF:
 else:
     def code_to_unichr(code):
         # generate surrogates for large codes
-        return unichr_returns_surrogate(code)
+        return unichr_returns_surrogate(widen(code))
 
 def _STORECHAR(result, CH, byteorder):
     hi = chr(((CH) >> 8) & 0xff)
@@ -1381,7 +1381,7 @@ def make_unicode_escape_function(pass_printable=False, unicode_output=False,
                 result.append(STR('\\\\'))
 
             # Map non-printable or non-ascii to '\xhh' or '\uhhhh'
-            elif pass_printable and not unicodedb.isprintable(oc):
+            elif pass_printable and not (oc <= 0x10ffff and unicodedb.isprintable(oc)):
                 char_escape_helper(result, oc)
             elif not pass_printable and (oc < 32 or oc >= 0x7F):
                 char_escape_helper(result, oc)

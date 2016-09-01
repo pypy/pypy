@@ -533,8 +533,9 @@ class Regalloc(BaseRegalloc):
         res = self.rm.force_allocate_reg(op)
         return [res]
 
-    def prepare_call_malloc_gc(self, op):
-        return self._prepare_call(op)
+    def prepare_check_memory_error(self, op):
+        loc = self.ensure_reg(op.getarg(0))
+        return [loc]
 
     def _prepare_guard(self, op, args=None):
         if args is None:

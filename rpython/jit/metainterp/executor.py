@@ -384,7 +384,7 @@ def _make_execute_list():
                          rop.CALL_RELEASE_GIL_F,
                          rop.CALL_RELEASE_GIL_N,
                          rop.QUASIIMMUT_FIELD,
-                         rop.CALL_MALLOC_GC,
+                         rop.CHECK_MEMORY_ERROR,
                          rop.CALL_MALLOC_NURSERY,
                          rop.CALL_MALLOC_NURSERY_VARSIZE,
                          rop.CALL_MALLOC_NURSERY_VARSIZE_FRAME,

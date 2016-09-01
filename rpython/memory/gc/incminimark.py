@@ -1632,7 +1632,15 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # This is because these are precisely the old objects that
             # have been modified and need rescanning.
             self.old_objects_pointing_to_young.foreach(
-                self._add_to_more_objects_to_trace, None)
+                self._add_to_more_objects_to_trace_if_black, None)
+            # Old black objects pointing to pinned objects that may no
+            # longer be pinned now: careful,
+            # _visit_old_objects_pointing_to_pinned() will move the
+            # previously-pinned object, and that creates a white object.
+            # We prevent the "black->white" situation by forcing the
+            # old black object to become gray again.
+            self.old_objects_pointing_to_pinned.foreach(
+                self._add_to_more_objects_to_trace_if_black, None)
         #
         # First, find the roots that point to young objects.  All nursery
         # objects found are copied out of the nursery, and the occasional
@@ -2144,6 +2152,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.header(obj).tid &= ~GCFLAG_VISITED
         self.more_objects_to_trace.append(obj)
 
+    def _add_to_more_objects_to_trace_if_black(self, obj, ignored):
+        if self.header(obj).tid & GCFLAG_VISITED:
+            self._add_to_more_objects_to_trace(obj, ignored)
+
     def minor_and_major_collection(self):
         # First, finish the current major gc, if there is one in progress.
         # This is a no-op if the gc_state is already STATE_SCANNING.
@@ -2256,6 +2268,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # For now, the same applies to rawrefcount'ed objects.
             if (not self.objects_to_trace.non_empty() and
                 not self.more_objects_to_trace.non_empty()):
+                #
+                # First, 'prebuilt_root_objects' might have grown since
+                # we scanned it in collect_roots() (rare case).  Rescan.
+                self.collect_nonstack_roots()
+                self.visit_all_objects()
                 #
                 if self.rrc_enabled:
                     self.rrc_major_collection_trace()
@@ -2437,20 +2454,29 @@ class IncrementalMiniMarkGC(MovingGCBase):
         return nobjects
 
 
-    def collect_roots(self):
-        # Collect all roots.  Starts from all the objects
-        # from 'prebuilt_root_objects'.
+    def collect_nonstack_roots(self):
+        # Non-stack roots: first, the objects from 'prebuilt_root_objects'
         self.prebuilt_root_objects.foreach(self._collect_obj, None)
         #
-        # Add the roots from the other sources.
+        # Add the roots from static prebuilt non-gc structures
         self.root_walker.walk_roots(
-            IncrementalMiniMarkGC._collect_ref_stk, # stack roots
-            IncrementalMiniMarkGC._collect_ref_stk, # static in prebuilt non-gc structures
+            None,
+            IncrementalMiniMarkGC._collect_ref_stk,
             None)   # we don't need the static in all prebuilt gc objects
         #
         # If we are in an inner collection caused by a call to a finalizer,
         # the 'run_finalizers' objects also need to be kept alive.
         self.enum_pending_finalizers(self._collect_obj, None)
+
+    def collect_roots(self):
+        # Collect all roots.  Starts from the non-stack roots.
+        self.collect_nonstack_roots()
+        #
+        # Add the stack roots.
+        self.root_walker.walk_roots(
+            IncrementalMiniMarkGC._collect_ref_stk, # stack roots
+            None,
+            None)
 
     def enumerate_all_roots(self, callback, arg):
         self.prebuilt_root_objects.foreach(callback, arg)

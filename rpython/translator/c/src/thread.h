@@ -12,6 +12,7 @@ typedef enum RPyLockStatus {
 } RPyLockStatus;
 
 #ifdef _WIN32
+#define RPYTHREAD_NAME "nt"
 #include "thread_nt.h"
 #define inline _inline
 #else
@@ -22,6 +23,7 @@ typedef enum RPyLockStatus {
    always go ahead and use them, assuming they are supported on all
    platforms for which we care.  If not, do some detecting again.
 */
+#define RPYTHREAD_NAME "pthread"
 #include "thread_pthread.h"
 
 #endif /* !_WIN32 */

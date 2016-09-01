@@ -11,6 +11,9 @@ from rpython.rtyper.lltypesystem import ll2ctypes
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.objectmodel import we_are_translated, keepalive_until_here
 from rpython.rlib.objectmodel import dont_inline
+from rpython.rlib.rfile import (FILEP, c_fread, c_fclose, c_fwrite,
+        c_fdopen, c_fileno,
+        c_fopen)# for tests
 from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.gensupp import NameManager
@@ -85,52 +88,40 @@ assert CONST_WSTRING is not rffi.CWCHARP
 assert CONST_WSTRING == rffi.CWCHARP
 
 # FILE* interface
-FILEP = rffi.COpaquePtr('FILE')
 
 if sys.platform == 'win32':
     dash = '_'
 else:
     dash = ''
-fileno = rffi.llexternal(dash + 'fileno', [FILEP], rffi.INT)
-fopen = rffi.llexternal('fopen', [CONST_STRING, CONST_STRING], FILEP)
-fdopen = rffi.llexternal(dash + 'fdopen', [rffi.INT, CONST_STRING],
-                  FILEP, save_err=rffi.RFFI_SAVE_ERRNO)
 
-_fclose = rffi.llexternal('fclose', [FILEP], rffi.INT)
 def fclose(fp):
-    if not is_valid_fd(fileno(fp)):
+    if not is_valid_fd(c_fileno(fp)):
         return -1
-    return _fclose(fp)
+    return c_fclose(fp)
 
-_fwrite = rffi.llexternal('fwrite',
-                         [rffi.VOIDP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
-                         rffi.SIZE_T)
 def fwrite(buf, sz, n, fp):
-    validate_fd(fileno(fp))
-    return _fwrite(buf, sz, n, fp)
+    validate_fd(c_fileno(fp))
+    return c_fwrite(buf, sz, n, fp)
 
-_fread = rffi.llexternal('fread',
-                        [rffi.VOIDP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
-                        rffi.SIZE_T)
 def fread(buf, sz, n, fp):
-    validate_fd(fileno(fp))
-    return _fread(buf, sz, n, fp)
+    validate_fd(c_fileno(fp))
+    return c_fread(buf, sz, n, fp)
 
 _feof = rffi.llexternal('feof', [FILEP], rffi.INT)
 def feof(fp):
-    validate_fd(fileno(fp))
+    validate_fd(c_fileno(fp))
     return _feof(fp)
 
 def is_valid_fp(fp):
-    return is_valid_fd(fileno(fp))
+    return is_valid_fd(c_fileno(fp))
 
 pypy_decl = 'pypy_decl.h'
 
 constant_names = """
 Py_TPFLAGS_READY Py_TPFLAGS_READYING Py_TPFLAGS_HAVE_GETCHARBUFFER
 METH_COEXIST METH_STATIC METH_CLASS Py_TPFLAGS_BASETYPE
-METH_NOARGS METH_VARARGS METH_KEYWORDS METH_O
-Py_TPFLAGS_HEAPTYPE Py_TPFLAGS_HAVE_CLASS
+METH_NOARGS METH_VARARGS METH_KEYWORDS METH_O Py_TPFLAGS_HAVE_INPLACEOPS
+Py_TPFLAGS_HEAPTYPE Py_TPFLAGS_HAVE_CLASS Py_TPFLAGS_HAVE_NEWBUFFER
 Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE Py_TPFLAGS_CHECKTYPES
 """.split()
 for name in constant_names:
@@ -268,14 +259,14 @@ class ApiFunction(object):
 
         # extract the signature from the (CPython-level) code object
         from pypy.interpreter import pycode
-        argnames, varargname, kwargname = pycode.cpython_code_signature(callable.func_code)
-
-        assert argnames[0] == 'space'
+        sig = pycode.cpython_code_signature(callable.func_code)
+        assert sig.argnames[0] == 'space'
+        self.argnames = sig.argnames[1:]
         if gil == 'pygilstate_ensure':
-            assert argnames[-1] == 'previous_state'
-            del argnames[-1]
-        self.argnames = argnames[1:]
+            assert self.argnames[-1] == 'previous_state'
+            del self.argnames[-1]
         assert len(self.argnames) == len(self.argtypes)
+
         self.gil = gil
         self.result_borrowed = result_borrowed
         self.result_is_ll = result_is_ll
@@ -658,6 +649,7 @@ Py_buffer = cpython_struct(
         #('smalltable', rffi.CFixedArray(Py_ssize_t, 2)),
         ('internal', rffi.VOIDP)
         ))
+Py_bufferP = lltype.Ptr(Py_buffer)
 
 @specialize.memo()
 def is_PyObject(TYPE):
@@ -985,8 +977,10 @@ def setup_init_functions(eci, translating):
         py_type_ready(space, get_capsule_type())
     INIT_FUNCTIONS.append(init_types)
     from pypy.module.posix.interp_posix import add_fork_hook
-    reinit_tls = rffi.llexternal('%sThread_ReInitTLS' % prefix, [], lltype.Void,
-                                 compilation_info=eci)
+    _reinit_tls = rffi.llexternal('%sThread_ReInitTLS' % prefix, [], 
+                                  lltype.Void, compilation_info=eci)
+    def reinit_tls(space):
+        _reinit_tls()
     add_fork_hook('child', reinit_tls)
 
 def init_function(func):

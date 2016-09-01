@@ -914,9 +914,10 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     consider_call_release_gil_i = _consider_call_release_gil
     consider_call_release_gil_f = _consider_call_release_gil
     consider_call_release_gil_n = _consider_call_release_gil
-    
-    def consider_call_malloc_gc(self, op):
-        self._consider_call(op)
+
+    def consider_check_memory_error(self, op):
+        x = self.rm.make_sure_var_in_reg(op.getarg(0))
+        self.perform_discard(op, [x])
 
     def _consider_call_assembler(self, op):
         locs = self.locs_for_call_assembler(op)
@@ -1230,6 +1231,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             ofs_items, itemsize, _ = symbolic.get_array_token(rstr.STR,
                                                   self.translate_support_code)
             assert itemsize == 1
+            ofs_items -= 1     # for the extra null character
             scale = 0
         self.assembler.load_effective_addr(ofsloc, ofs_items, scale,
                                            resloc, baseloc)

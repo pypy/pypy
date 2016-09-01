@@ -57,7 +57,7 @@ NumPy rebooted
 --------------
 
 Our cpyext C-API compatiblity layer can now run upstream NumPy unmodified.
-Release PyPy2.7-v5.3 still fails about 200 of the ~6000 test in the NumPy
+Release PyPy2.7-v5.4 still fails about 60 of the ~6000 test in the NumPy
 test suite. We could use help analyzing the failures and fixing them either
 as patches to upstream NumPy, or as fixes to PyPy.
 

@@ -86,7 +86,11 @@ def setrlimit(resource, limits):
     if len(limits) != 2:
         raise ValueError("expected a tuple of 2 integers")
 
-    if lib.my_setrlimit(resource, limits[0], limits[1]) == -1:
+    # accept and round down floats, like CPython does
+    limit0 = int(limits[0])
+    limit1 = int(limits[1])
+
+    if lib.my_setrlimit(resource, limit0, limit1) == -1:
         if ffi.errno == EINVAL:
             raise ValueError("current limit exceeds maximum limit")
         elif ffi.errno == EPERM:

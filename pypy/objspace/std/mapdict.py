@@ -274,7 +274,6 @@ class AbstractAttribute(object):
         stack_index = 0
         while True:
             current = self
-            number_to_readd = 0
             number_to_readd, attr = self._find_branch_to_move_into(name, index)
             # we found the attributes further up, need to save the
             # previous values of the attributes we passed
@@ -1127,7 +1126,8 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
             if index != INVALID:
                 attr = map.find_map_attr(attrname, index)
                 if attr is not None:
-                    # Note that if map.terminator is a DevolvedDictTerminator,
+                    # Note that if map.terminator is a DevolvedDictTerminator
+                    # or the class provides its own dict, not using mapdict, then:
                     # map.find_map_attr will always return None if index==DICT.
                     _fill_cache(pycode, nameindex, mapversion, attr.storageindex)
                     return w_obj._mapdict_read_storage(attr.storageindex)
@@ -1149,6 +1149,12 @@ def LOOKUP_METHOD_mapdict(f, nameindex, w_obj):
 
 def LOOKUP_METHOD_mapdict_fill_cache_method(space, pycode, name, nameindex,
                                             w_obj, w_type, w_method):
+    # if the layout has a dict itself, then mapdict is not used for normal
+    # attributes. Then the cache won't be able to spot changes to the dict.
+    # Thus we don't cache. see test_bug_builtin_types_callmethod
+    if w_type.layout.typedef.hasdict:
+        return
+
     if w_method is None or isinstance(w_method, MutableCell):
         # don't cache the MutableCell XXX could be fixed
         return

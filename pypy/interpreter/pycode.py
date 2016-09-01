@@ -37,7 +37,7 @@ default_magic = (0xf303 + 7) | 0x0a0d0000               # this PyPy's magic
 
 # cpython_code_signature helper
 def cpython_code_signature(code):
-    "([list-of-arg-names], vararg-name-or-None, kwarg-name-or-None)."
+    """Return a Signature instance."""
     argcount = code.co_argcount
     varnames = code.co_varnames
     assert argcount >= 0     # annotator hint

@@ -674,6 +674,11 @@ class Test_rbigint(object):
                 else:
                     assert ulps_check(l, math.log(op)) is None
 
+    def test_log2(self):
+        assert rbigint.fromlong(1).log(2.0) == 0.0
+        assert rbigint.fromlong(2).log(2.0) == 1.0
+        assert rbigint.fromlong(2**1023).log(2.0) == 1023.0
+
 class TestInternalFunctions(object):
     def test__inplace_divrem1(self):
         # signs are not handled in the helpers!

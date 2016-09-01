@@ -17,6 +17,7 @@ from rpython.annotator.listdef import s_list_of_strings
 from rpython.tool.udir import udir
 from rpython.translator import cdir
 from rpython.conftest import option
+from rpython.rlib.jit import JitDriver
 
 def setup_module(module):
     if os.name == 'nt':

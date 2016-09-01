@@ -904,6 +904,7 @@ class ResOpAssembler(BaseAssembler):
             ofs_items, itemsize, _ = symbolic.get_array_token(rstr.STR,
                                               self.cpu.translate_support_code)
             assert itemsize == 1
+            ofs_items -= 1     # for the extra null character
             scale = 0
         self._gen_address(resloc, baseloc, ofsloc, scale, ofs_items)
 
@@ -1071,9 +1072,8 @@ class ResOpAssembler(BaseAssembler):
         regalloc = self._regalloc
         return regalloc.operations[regalloc.rm.position + delta]
 
-    def emit_op_call_malloc_gc(self, op, arglocs, regalloc, fcond):
-        self._emit_call(op, arglocs, fcond=fcond)
-        self.propagate_memoryerror_if_r0_is_null()
+    def emit_op_check_memory_error(self, op, arglocs, regalloc, fcond):
+        self.propagate_memoryerror_if_reg_is_null(arglocs[0])
         self._alignment_check()
         return fcond
 

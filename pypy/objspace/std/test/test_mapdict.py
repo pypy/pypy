@@ -1225,6 +1225,42 @@ class AppTestWithMapDictAndCounters(object):
         assert got == 'd'
 
 
+    def test_bug_builtin_types_callmethod(self):
+        import sys
+        class D(type(sys)):
+            def mymethod(self):
+                return "mymethod"
+
+        def foobar():
+            return "foobar"
+
+        d = D('d')
+        res1 = d.mymethod()
+        d.mymethod = foobar
+        res2 = d.mymethod()
+        assert res1 == "mymethod"
+        assert res2 == "foobar"
+
+    def test_bug_builtin_types_load_attr(self):
+        import sys
+        class D(type(sys)):
+            def mymethod(self):
+                return "mymethod"
+
+        def foobar():
+            return "foobar"
+
+        d = D('d')
+        m = d.mymethod
+        res1 = m()
+        d.mymethod = foobar
+        m = d.mymethod
+        res2 = m()
+        assert res1 == "mymethod"
+        assert res2 == "foobar"
+
+
+
 class AppTestGlobalCaching(AppTestWithMapDict):
     spaceconfig = {"objspace.std.withmethodcachecounter": True}
 

@@ -98,8 +98,15 @@ if not _WIN32:
         try:
             ctypes.CDLL(name)
         except OSError as e:
+            # common case: ctypes fails too, with the real dlerror()
+            # message in str(e).  Return that error message.
             return str(e)
         else:
+            # uncommon case: may happen if 'name' is a linker script
+            # (which the C-level dlopen() can't handle) and we are
+            # directly running on pypy (whose implementation of ctypes
+            # or cffi will resolve linker scripts).  In that case, 
+            # unsure what we can do.
             return ("opening %r with ctypes.CDLL() works, "
                     "but not with c_dlopen()??" % (name,))
 
@@ -160,6 +167,13 @@ if not _WIN32:
             mode = _dlopen_default_mode()
         elif (mode & (RTLD_LAZY | RTLD_NOW)) == 0:
             mode |= RTLD_NOW
+        #
+        # haaaack for 'pypy py.test -A' if libm.so is a linker script
+        # (see reason in _dlerror_on_dlopen_untranslated())
+        if not we_are_translated() and platform.name == "linux":
+            if name and rffi.charp2str(name) == 'libm.so':
+                name = rffi.str2charp('libm.so.6', track_allocation=False)
+        #
         res = c_dlopen(name, rffi.cast(rffi.INT, mode))
         if not res:
             if not we_are_translated():

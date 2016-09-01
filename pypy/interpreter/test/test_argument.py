@@ -46,13 +46,6 @@ class TestSignature(object):
         assert sig.find_argname("c") == 2
         assert sig.find_argname("d") == -1
 
-    def test_tuply(self):
-        sig = Signature(["a", "b", "c"], "d", "e")
-        x, y, z = sig
-        assert x == ["a", "b", "c"]
-        assert y == "d"
-        assert z == "e"
-
 class dummy_wrapped_dict(dict):
     def __nonzero__(self):
         raise NotImplementedError

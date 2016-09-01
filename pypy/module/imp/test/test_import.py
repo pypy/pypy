@@ -118,7 +118,7 @@ def setup_directory_structure(space):
         filename = str(p.join("x.py"))
         stream = streamio.open_file_as_stream(filename, "r")
         try:
-            importing.load_source_module(
+            _load_source_module(
                 space, w_modname, w(importing.Module(space, w_modname)),
                 filename, stream.readall(),
                 stream.try_to_find_file_descriptor())
@@ -138,6 +138,15 @@ def setup_directory_structure(space):
     p.join('x.py').rename(p.join('x.pyw'))
 
     return str(root)
+
+def _load_source_module(space, w_modname, w_mod, *args, **kwds):
+    kwds.setdefault('check_afterwards', False)
+    return importing.load_source_module(space, w_modname, w_mod, *args, **kwds)
+
+def _load_compiled_module(space, w_modname, w_mod, *args, **kwds):
+    kwds.setdefault('check_afterwards', False)
+    return importing.load_compiled_module(space, w_modname, w_mod,
+                                          *args, **kwds)
 
 
 def _setup(space):
@@ -887,8 +896,7 @@ class TestPycStuff:
             w_mod = space.wrap(Module(space, w_modulename))
             magic = importing._r_long(stream)
             timestamp = importing._r_long(stream)
-            w_ret = importing.load_compiled_module(space,
-                                                   w_modulename,
+            w_ret = _load_compiled_module(space,   w_modulename,
                                                    w_mod,
                                                    cpathname,
                                                    magic,
@@ -946,7 +954,7 @@ class TestPycStuff:
         pathname = _testfilesource()
         stream = streamio.open_file_as_stream(pathname, "r")
         try:
-            w_ret = importing.load_source_module(
+            w_ret = _load_source_module(
                 space, w_modulename, w_mod,
                 pathname, stream.readall(),
                 stream.try_to_find_file_descriptor())
@@ -968,7 +976,7 @@ class TestPycStuff:
         pathname = _testfilesource()
         stream = streamio.open_file_as_stream(pathname, "r")
         try:
-            w_ret = importing.load_source_module(
+            w_ret = _load_source_module(
                 space, w_modulename, w_mod,
                 pathname, stream.readall(),
                 stream.try_to_find_file_descriptor(),
@@ -987,7 +995,7 @@ class TestPycStuff:
         try:
             space.setattr(space.sys, space.wrap('dont_write_bytecode'),
                           space.w_True)
-            w_ret = importing.load_source_module(
+            w_ret = _load_source_module(
                 space, w_modulename, w_mod,
                 pathname, stream.readall(),
                 stream.try_to_find_file_descriptor())
@@ -1006,7 +1014,7 @@ class TestPycStuff:
         pathname = _testfilesource(source="<Syntax Error>")
         stream = streamio.open_file_as_stream(pathname, "r")
         try:
-            w_ret = importing.load_source_module(
+            w_ret = _load_source_module(
                 space, w_modulename, w_mod,
                 pathname, stream.readall(),
                 stream.try_to_find_file_descriptor())
@@ -1026,7 +1034,7 @@ class TestPycStuff:
         pathname = _testfilesource(source="a = unknown_name")
         stream = streamio.open_file_as_stream(pathname, "r")
         try:
-            w_ret = importing.load_source_module(
+            w_ret = _load_source_module(
                 space, w_modulename, w_mod,
                 pathname, stream.readall(),
                 stream.try_to_find_file_descriptor())
@@ -1114,7 +1122,7 @@ class TestPycStuff:
                     magic = importing._r_long(stream)
                     timestamp = importing._r_long(stream)
                     space2.raises_w(space2.w_ImportError,
-                                    importing.load_compiled_module,
+                                    _load_compiled_module,
                                     space2,
                                     w_modulename,
                                     w_mod,
@@ -1326,10 +1334,7 @@ class AppTestImportHooks(object):
         # use an import hook that doesn't update sys.modules, then the
         # import succeeds; but at the same time, you can have the same
         # result without an import hook (see test_del_from_sys_modules)
-        # and then the import fails.  This looks like even more mess
-        # to replicate, so we ignore it until someone really hits this
-        # case...
-        skip("looks like an inconsistency in CPython")
+        # and then the import fails.  Mess mess mess.
 
         class ImportHook(object):
             def find_module(self, fullname, path=None):

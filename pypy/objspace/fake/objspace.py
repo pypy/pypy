@@ -199,6 +199,9 @@ class FakeObjSpace(ObjSpace):
     def newbytes(self, x):
         return w_some_obj()
 
+    def newunicode(self, x):
+        return w_some_obj()
+
     def wrap(self, x):
         if not we_are_translated():
             if isinstance(x, gateway.interp2app):
@@ -425,4 +428,5 @@ FakeObjSpace.sys = FakeModule()
 FakeObjSpace.sys.filesystemencoding = 'foobar'
 FakeObjSpace.sys.defaultencoding = 'ascii'
 FakeObjSpace.sys.dlopenflags = 123
+FakeObjSpace.sys.track_resources = False
 FakeObjSpace.builtin = FakeModule()

@@ -842,9 +842,6 @@ class LLGraphCPU(model.AbstractCPU):
         result_adr = llmemory.cast_ptr_to_adr(struct.typeptr)
         return heaptracker.adr2int(result_adr)
 
-    def bh_new_raw_buffer(self, size):
-        return lltype.malloc(rffi.CCHARP.TO, size, flavor='raw')
-
     # vector operations
     vector_arith_code = """
     def bh_vec_{0}_{1}(self, vx, vy, count):
@@ -1563,6 +1560,11 @@ class LLFrame(object):
             assert kls == llmemory.NULL
             lle = None
         self.last_exception = lle
+
+    def execute_check_memory_error(self, descr, value):
+        if not value:
+            from rpython.jit.backend.llsupport import llmodel
+            raise llmodel.MissingLatestDescrError
 
 
 def _getdescr(op):

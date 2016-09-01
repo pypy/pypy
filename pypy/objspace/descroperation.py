@@ -65,6 +65,20 @@ def type_instancecheck(space):
     return w_instancecheck
 type_instancecheck._annspecialcase_ = 'specialize:memo'
 
+def str_getitem(space):
+    "Utility that returns the app-level descriptor str.__getitem__."
+    w_src, w_iter = space.lookup_in_type_where(space.w_str,
+                                               '__getitem__')
+    return w_iter
+str_getitem._annspecialcase_ = 'specialize:memo'
+
+def unicode_getitem(space):
+    "Utility that returns the app-level descriptor unicode.__getitem__."
+    w_src, w_iter = space.lookup_in_type_where(space.w_unicode,
+                                               '__getitem__')
+    return w_iter
+unicode_getitem._annspecialcase_ = 'specialize:memo'
+
 def raiseattrerror(space, w_obj, name, w_descr=None):
     if w_descr is None:
         raise oefmt(space.w_AttributeError,
@@ -416,7 +430,7 @@ class DescrOperation(object):
                 if not e.match(space, space.w_StopIteration):
                     raise
                 return space.w_False
-            if space.eq_w(w_next, w_item):
+            if space.eq_w(w_item, w_next):
                 return space.w_True
 
     def hash(space, w_obj):
@@ -431,21 +445,20 @@ class DescrOperation(object):
             raise oefmt(space.w_TypeError,
                         "'%T' objects are unhashable", w_obj)
         w_result = space.get_and_call_function(w_hash, w_obj)
-        w_resulttype = space.type(w_result)
-        if space.is_w(w_resulttype, space.w_int):
-            return w_result
-        elif space.is_w(w_resulttype, space.w_long):
-            return space.hash(w_result)
-        elif space.isinstance_w(w_result, space.w_int):
-            # be careful about subclasses of 'int'...
-            return space.wrap(space.int_w(w_result))
+
+        # issue 2346 : returns now -2 for hashing -1 like cpython
+        if space.isinstance_w(w_result, space.w_int):
+            h = space.int_w(w_result)
         elif space.isinstance_w(w_result, space.w_long):
-            # be careful about subclasses of 'long'...
             bigint = space.bigint_w(w_result)
-            return space.wrap(bigint.hash())
+            h = bigint.hash()
         else:
             raise oefmt(space.w_TypeError,
                         "__hash__() should return an int or long")
+        # turn -1 into -2 without using a condition, which would
+        # create a potential bridge in the JIT
+        h -= (h == -1)
+        return space.wrap(h)
 
     def cmp(space, w_v, w_w):
 
@@ -515,23 +528,6 @@ class DescrOperation(object):
     @specialize.arg_or_var(2)
     def isinstance(space, w_inst, w_type):
         return space.wrap(space.isinstance_w(w_inst, w_type))
-
-    def issubtype_allow_override(space, w_sub, w_type):
-        w_check = space.lookup(w_type, "__subclasscheck__")
-        if w_check is None:
-            raise oefmt(space.w_TypeError, "issubclass not supported here")
-        return space.get_and_call_function(w_check, w_type, w_sub)
-
-    def isinstance_allow_override(space, w_inst, w_type):
-        if not jit.we_are_jitted() and space.type(w_inst) is w_type:
-            return space.w_True # fast path copied from cpython
-        w_check = space.lookup(w_type, "__instancecheck__")
-        if w_check is None or w_check is type_instancecheck(space):
-            return space.isinstance(w_inst, w_type)
-        else:
-            if space.type(w_inst) is w_type:
-                return space.w_True # fast path copied from cpython
-            return space.get_and_call_function(w_check, w_type, w_inst)
 
 
 # helpers

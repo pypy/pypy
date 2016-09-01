@@ -411,6 +411,8 @@ class AppTestPosix:
             os.write(slave_fd, 'x\n')
             data = os.read(master_fd, 100)
             assert data.startswith('x')
+            os.close(master_fd)
+            os.close(slave_fd)
 
     if hasattr(__import__(os.name), "forkpty"):
         def test_forkpty(self):
@@ -619,10 +621,12 @@ class AppTestPosix:
             assert os.geteuid() == self.geteuid
 
     if hasattr(os, 'setuid'):
+        @py.test.mark.skipif("sys.version_info < (2, 7, 4)")
         def test_os_setuid_error(self):
             os = self.posix
-            raises(OverflowError, os.setuid, -2**31-1)
+            raises(OverflowError, os.setuid, -2)
             raises(OverflowError, os.setuid, 2**32)
+            raises(OSError, os.setuid, -1)
 
     if hasattr(os, 'getgid'):
         def test_os_getgid(self):
@@ -665,10 +669,14 @@ class AppTestPosix:
             raises(OSError, os.getpgid, 1234567)
 
     if hasattr(os, 'setgid'):
+        @py.test.mark.skipif("sys.version_info < (2, 7, 4)")
         def test_os_setgid_error(self):
             os = self.posix
-            raises(OverflowError, os.setgid, -2**31-1)
+            raises(OverflowError, os.setgid, -2)
             raises(OverflowError, os.setgid, 2**32)
+            raises(OSError, os.setgid, -1)
+            raises(OSError, os.setgid, -1L)
+            raises(OSError, os.setgid, 2**32-1)
 
     if hasattr(os, 'getsid'):
         def test_os_getsid(self):
