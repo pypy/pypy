@@ -465,13 +465,6 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
         self.storage = storage
         self.start = start
         self.gcstruct = V_OBJECTSTORE
-        if dtype.num == NPY.OBJECT:
-            self.gcstruct = _create_objectstore(storage, self.size,
-                                                dtype.elsize)
-
-    def __del__(self):
-        if self.gcstruct:
-            self.gcstruct.length = 0
 
     def fill(self, space, box):
         self.dtype.itemtype.fill(
