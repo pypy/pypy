@@ -157,22 +157,26 @@ def str_decode_utf_8_impl(s, size, errors, final, errorhandler,
         if pos + n > size:
             if not final:
                 break
+            # argh, this obscure block of code is mostly a copy of
+            # what follows :-(
             charsleft = size - pos - 1 # either 0, 1, 2
-            # note: when we get the 'unexpected end of data' we don't care
-            # about the pos anymore and we just ignore the value
+            # note: when we get the 'unexpected end of data' we need
+            # to care about the pos returned; it can be lower than size,
+            # in case we need to continue running this loop
             if not charsleft:
                 # there's only the start byte and nothing else
                 r, pos = errorhandler(errors, 'utf8',
                                       'unexpected end of data',
                                       s, pos, pos+1)
                 result.append(r)
-                break
+                continue
             ordch2 = ord(s[pos+1])
             if n == 3:
                 # 3-bytes seq with only a continuation byte
                 if (ordch2>>6 != 0x2 or   # 0b10
-                    (ordch1 == 0xe0 and ordch2 < 0xa0)):
-                    # or (ordch1 == 0xed and ordch2 > 0x9f)
+                    (ordch1 == 0xe0 and ordch2 < 0xa0)
+                or (not allow_surrogates and ordch1 == 0xed and ordch2 > 0x9f)
+                    ):
                     # second byte invalid, take the first and continue
                     r, pos = errorhandler(errors, 'utf8',
                                           'invalid continuation byte',
@@ -185,7 +189,7 @@ def str_decode_utf_8_impl(s, size, errors, final, errorhandler,
                                       'unexpected end of data',
                                       s, pos, pos+2)
                     result.append(r)
-                    break
+                    continue
             elif n == 4:
                 # 4-bytes seq with 1 or 2 continuation bytes
                 if (ordch2>>6 != 0x2 or    # 0b10
@@ -210,7 +214,8 @@ def str_decode_utf_8_impl(s, size, errors, final, errorhandler,
                                       'unexpected end of data',
                                       s, pos, pos+charsleft+1)
                     result.append(r)
-                    break
+                    continue
+            raise AssertionError("unreachable")
 
         if n == 0:
             r, pos = errorhandler(errors, 'utf8',
