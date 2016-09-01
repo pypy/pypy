@@ -92,9 +92,19 @@ def compile_extension_module(space, modname, include_dirs=[],
             link_extra=link_extra,
             libraries=libraries)
     from pypy.module.imp.importing import get_so_extension
-    pydname = soname.new(purebasename=modname, ext=get_so_extension(space))
+    ext = get_so_extension(space)
+    pydname = soname.new(purebasename=modname, ext=ext)
     soname.rename(pydname)
     return str(pydname)
+
+def get_so_suffix():
+    from imp import get_suffixes, C_EXTENSION
+    for suffix, mode, typ in get_suffixes():
+        if typ == C_EXTENSION:
+            return suffix
+    else:
+        raise RuntimeError("This interpreter does not define a filename "
+            "suffix for C extensions!")
 
 def compile_extension_module_applevel(space, modname, include_dirs=[],
         source_files=None, source_strings=None):
@@ -126,13 +136,9 @@ def compile_extension_module_applevel(space, modname, include_dirs=[],
             source_strings=source_strings,
             compile_extra=compile_extra,
             link_extra=link_extra)
-    from imp import get_suffixes, C_EXTENSION
-    pydname = soname
-    for suffix, mode, typ in get_suffixes():
-        if typ == C_EXTENSION:
-            pydname = soname.new(purebasename=modname, ext=suffix)
-            soname.rename(pydname)
-            break
+    ext = get_so_suffix()
+    pydname = soname.new(purebasename=modname, ext=ext)
+    soname.rename(pydname)
     return str(pydname)
 
 def freeze_refcnts(self):
@@ -144,6 +150,24 @@ def freeze_refcnts(self):
         self.frozen_refcounts[w_obj] = obj.c_ob_refcnt
     #state.print_refcounts()
     self.frozen_ll2callocations = set(ll2ctypes.ALLOCATED.values())
+
+class FakeSpace(object):
+    """Like TinyObjSpace, but different"""
+    def __init__(self, config):
+        from distutils.sysconfig import get_python_inc
+        self.config = config
+        self.include_dir = get_python_inc()
+
+    def passthrough(self, arg):
+        return arg
+    listview = passthrough
+    str_w = passthrough
+
+    def unwrap(self, args):
+        try:
+            return args.str_w(None)
+        except:
+            return args
 
 class LeakCheckingTest(object):
     """Base class for all cpyext tests."""
@@ -433,21 +457,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         self.imported_module_names = []
 
         if self.runappdirect:
+            fake = FakeSpace(self.space.config)
             def interp2app(func):
-                from distutils.sysconfig import get_python_inc
-                class FakeSpace(object):
-                    def passthrough(self, arg):
-                        return arg
-                    listview = passthrough
-                    str_w = passthrough
-                    def unwrap(self, args):
-                        try:
-                            return args.str_w(None)
-                        except:
-                            return args
-                fake = FakeSpace()
-                fake.include_dir = get_python_inc()
-                fake.config = self.space.config
                 def run(*args, **kwargs):
                     for k in kwargs.keys():
                         if k not in func.unwrap_spec and not k.startswith('w_'):

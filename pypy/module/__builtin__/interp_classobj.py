@@ -38,6 +38,8 @@ def descr_classobj_new(space, w_subtype, w_name, w_bases, w_dict):
 
 
 class W_ClassObject(W_Root):
+    _immutable_fields_ = ['bases_w?[*]', 'w_dict?']
+
     def __init__(self, space, w_name, bases, w_dict):
         self.name = space.str_w(w_name)
         make_sure_not_resized(bases)
@@ -75,6 +77,7 @@ class W_ClassObject(W_Root):
                             "__bases__ items must be classes")
         self.bases_w = bases_w
 
+    @jit.unroll_safe
     def is_subclass_of(self, other):
         assert isinstance(other, W_ClassObject)
         if self is other:
@@ -313,7 +316,7 @@ class W_InstanceObject(W_Root):
         # This method ignores the instance dict and the __getattr__.
         # Returns None if not found.
         assert isinstance(name, str)
-        w_value = self.w_class.lookup(space, name)
+        w_value = jit.promote(self.w_class).lookup(space, name)
         if w_value is None:
             return None
         w_descr_get = space.lookup(w_value, '__get__')

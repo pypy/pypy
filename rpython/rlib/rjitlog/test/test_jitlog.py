@@ -11,7 +11,7 @@ from rpython.rlib.objectmodel import compute_unique_id
 
 class FakeCallAssemblerLoopToken(AbstractDescr):
     def __init__(self, target):
-	self._ll_function_addr = target
+        self._ll_function_addr = target
 
     def repr_of_descr(self):
         return 'looptoken'

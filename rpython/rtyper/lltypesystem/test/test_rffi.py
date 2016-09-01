@@ -38,6 +38,24 @@ class BaseTestRffi:
         xf = self.compile(f, [])
         assert xf() == 8+3
 
+    def test_no_float_to_int_conversion(self):
+        c_source = py.code.Source("""
+        int someexternalfunction(int x)
+        {
+            return (x + 3);
+        }
+        """)
+
+        eci = ExternalCompilationInfo(separate_module_sources=[c_source])
+        z = llexternal('someexternalfunction', [Signed], Signed,
+                       compilation_info=eci)
+
+        def f():
+            return z(8.2)
+
+        py.test.raises(TypeError, f)
+        py.test.raises(TypeError, self.compile, f, [])
+
     def test_hashdefine(self):
         h_source = """
         #define X(i) (i+3)
@@ -49,6 +67,7 @@ class BaseTestRffi:
         eci = ExternalCompilationInfo(includes=['stuff.h'],
                                       include_dirs=[udir])
         z = llexternal('X', [Signed], Signed, compilation_info=eci)
+        py.test.raises(AssertionError, z, 8, 9)
 
         def f():
             return z(8)

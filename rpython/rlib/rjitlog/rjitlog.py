@@ -430,9 +430,8 @@ class PrefixCompressor(object):
 
 def encode_merge_point(log, compressor, values):
     line = []
-    unrolled = unrolling_iterable(values)
     i = 0
-    for value in unrolled:
+    for value in values:
         line.append(value.encode(log,i,compressor))
         i += 1
     return ''.join(line)
