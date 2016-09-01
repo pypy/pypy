@@ -165,7 +165,9 @@ class RPythonAnnotator(object):
             # graph -- it's already low-level operations!
             for a, s_newarg in zip(block.inputargs, cells):
                 s_oldarg = a.annotation
-                if not s_oldarg.contains(s_newarg):
+                # XXX: Should use s_oldarg.contains(s_newarg) but that breaks
+                # PyPy translation
+                if annmodel.unionof(s_oldarg, s_newarg) != s_oldarg:
                     raise annmodel.AnnotatorError(
                         "Late-stage annotation is not allowed to modify the "
                         "existing annotation for variable %s: %s" %
