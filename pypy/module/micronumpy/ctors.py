@@ -82,13 +82,18 @@ def try_interface_method(space, w_object):
             raise oefmt(space.w_ValueError,
                     "__array_interface__ could not decode dtype %R", w_dtype
                     )
-        if w_data is not None and (space.isinstance_w(w_data, space.w_tuple) or space.isinstance_w(w_data, space.w_list)):
+        if w_data is not None and (space.isinstance_w(w_data, space.w_tuple) or
+                                   space.isinstance_w(w_data, space.w_list)):
             data_w = space.listview(w_data)
             w_data = rffi.cast(RAW_STORAGE_PTR, space.int_w(data_w[0]))
-            read_only = True # XXX why not space.is_true(data_w[1])
+            read_only = space.is_true(data_w[1])
             offset = 0
+            w_base = w_object
+            if read_only:
+                w_base = None
             return W_NDimArray.from_shape_and_storage(space, shape, w_data, 
-                                    dtype, strides=strides, start=offset), read_only
+                                dtype, w_base=w_base, strides=strides,
+                                start=offset), read_only
         if w_data is None:
             w_data = w_object
         w_offset = space.finditem(w_interface, space.wrap('offset'))
