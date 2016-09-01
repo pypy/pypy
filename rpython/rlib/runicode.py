@@ -137,6 +137,25 @@ def str_decode_utf_8(s, size, errors, final=False,
                                  result=result)
     return result.build(), pos
 
+def _invalid_cont_byte(ordch):
+    return ordch>>6 != 0x2    # 0b10
+
+_invalid_byte_2_of_2 = _invalid_cont_byte
+_invalid_byte_3_of_3 = _invalid_cont_byte
+_invalid_byte_3_of_4 = _invalid_cont_byte
+_invalid_byte_4_of_4 = _invalid_cont_byte
+
+def _invalid_byte_2_of_3(ordch1, ordch2, allow_surrogates):
+    return (ordch2>>6 != 0x2 or    # 0b10
+            (ordch1 == 0xe0 and ordch2 < 0xa0)
+            # surrogates shouldn't be valid UTF-8!
+            or (not allow_surrogates and ordch1 == 0xed and ordch2 > 0x9f))
+
+def _invalid_byte_2_of_4(ordch1, ordch2):
+    return (ordch2>>6 != 0x2 or    # 0b10
+            (ordch1 == 0xf0 and ordch2 < 0x90) or
+            (ordch1 == 0xf4 and ordch2 > 0x8f))
+
 @specialize.argtype(6)
 def str_decode_utf_8_impl(s, size, errors, final, errorhandler,
                           allow_surrogates, result):
@@ -173,10 +192,7 @@ def str_decode_utf_8_impl(s, size, errors, final, errorhandler,
             ordch2 = ord(s[pos+1])
             if n == 3:
                 # 3-bytes seq with only a continuation byte
-                if (ordch2>>6 != 0x2 or   # 0b10
-                    (ordch1 == 0xe0 and ordch2 < 0xa0)
-                or (not allow_surrogates and ordch1 == 0xed and ordch2 > 0x9f)
-                    ):
+                if _invalid_byte_2_of_3(ordch1, ordch2, allow_surrogates):
                     # second byte invalid, take the first and continue
                     r, pos = errorhandler(errors, 'utf8',
                                           'invalid continuation byte',
@@ -192,16 +208,14 @@ def str_decode_utf_8_impl(s, size, errors, final, errorhandler,
                     continue
             elif n == 4:
                 # 4-bytes seq with 1 or 2 continuation bytes
-                if (ordch2>>6 != 0x2 or    # 0b10
-                    (ordch1 == 0xf0 and ordch2 < 0x90) or
-                    (ordch1 == 0xf4 and ordch2 > 0x8f)):
+                if _invalid_byte_2_of_4(ordch1, ordch2):
                     # second byte invalid, take the first and continue
                     r, pos = errorhandler(errors, 'utf8',
                                           'invalid continuation byte',
                                           s, pos, pos+1)
                     result.append(r)
                     continue
-                elif charsleft == 2 and ord(s[pos+2])>>6 != 0x2:   # 0b10
+                elif charsleft == 2 and _invalid_byte_3_of_4(ord(s[pos+2])):
                     # third byte invalid, take the first two and continue
                     r, pos = errorhandler(errors, 'utf8',
                                           'invalid continuation byte',
@@ -228,7 +242,7 @@ def str_decode_utf_8_impl(s, size, errors, final, errorhandler,
 
         elif n == 2:
             ordch2 = ord(s[pos+1])
-            if ordch2>>6 != 0x2:   # 0b10
+            if _invalid_byte_2_of_2(ordch2):
                 r, pos = errorhandler(errors, 'utf8',
                                       'invalid continuation byte',
                                       s, pos, pos+1)
@@ -242,17 +256,13 @@ def str_decode_utf_8_impl(s, size, errors, final, errorhandler,
         elif n == 3:
             ordch2 = ord(s[pos+1])
             ordch3 = ord(s[pos+2])
-            if (ordch2>>6 != 0x2 or    # 0b10
-                (ordch1 == 0xe0 and ordch2 < 0xa0)
-                # surrogates shouldn't be valid UTF-8!
-                or (not allow_surrogates and ordch1 == 0xed and ordch2 > 0x9f)
-                ):
+            if _invalid_byte_2_of_3(ordch1, ordch2, allow_surrogates):
                 r, pos = errorhandler(errors, 'utf8',
                                       'invalid continuation byte',
                                       s, pos, pos+1)
                 result.append(r)
                 continue
-            elif ordch3>>6 != 0x2:     # 0b10
+            elif _invalid_byte_3_of_3(ordch3):
                 r, pos = errorhandler(errors, 'utf8',
                                       'invalid continuation byte',
                                       s, pos, pos+2)
@@ -268,21 +278,19 @@ def str_decode_utf_8_impl(s, size, errors, final, errorhandler,
             ordch2 = ord(s[pos+1])
             ordch3 = ord(s[pos+2])
             ordch4 = ord(s[pos+3])
-            if (ordch2>>6 != 0x2 or     # 0b10
-                (ordch1 == 0xf0 and ordch2 < 0x90) or
-                (ordch1 == 0xf4 and ordch2 > 0x8f)):
+            if _invalid_byte_2_of_4(ordch1, ordch2):
                 r, pos = errorhandler(errors, 'utf8',
                                       'invalid continuation byte',
                                       s, pos, pos+1)
                 result.append(r)
                 continue
-            elif ordch3>>6 != 0x2:     # 0b10
+            elif _invalid_byte_3_of_4(ordch3):
                 r, pos = errorhandler(errors, 'utf8',
                                       'invalid continuation byte',
                                       s, pos, pos+2)
                 result.append(r)
                 continue
-            elif ordch4>>6 != 0x2:     # 0b10
+            elif _invalid_byte_4_of_4(ordch4):
                 r, pos = errorhandler(errors, 'utf8',
                                       'invalid continuation byte',
                                       s, pos, pos+3)
