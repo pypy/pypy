@@ -350,6 +350,10 @@ class JitLogger(object):
     def finish(self):
         jitlog_teardown()
 
+    def next_id(self):
+        self.trace_id += 1
+        return self.trace_id
+
     def start_new_trace(self, metainterp_sd, faildescr=None, entry_bridge=False, jd_name=""):
         # even if the logger is not enabled, increment the trace id
         self.trace_id += 1

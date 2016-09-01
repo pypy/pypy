@@ -1122,6 +1122,11 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redargtypes,
     version of the code may end up replacing it.
     """
     jitcell_token = make_jitcell_token(jitdriver_sd)
+    #
+    logger = jitdriver_sd.metainterp_sd.jitlog
+    jitcell_token.number = logger.next_id()
+    jl.tmp_callback(jitcell_token)
+    #
     nb_red_args = jitdriver_sd.num_red_args
     assert len(redargtypes) == nb_red_args
     inputargs = []
@@ -1157,8 +1162,6 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redargtypes,
     operations[1].setfailargs([])
     operations = get_deep_immutable_oplist(operations)
     cpu.compile_loop(inputargs, operations, jitcell_token, log=False)
-
-    jl.tmp_callback(looptoken)
 
     if memory_manager is not None:    # for tests
         memory_manager.keep_loop_alive(jitcell_token)

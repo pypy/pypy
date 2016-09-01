@@ -540,9 +540,9 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             looptoken._x86_ops_offset = ops_offset
         looptoken._ll_function_addr = rawstart + functionpos
 
-        if logger:
-            log = logger.log_trace(jl.MARK_TRACE_ASM, None, self.mc)
-            log.write(inputargs, operations, ops_offset=ops_offset)
+        if log and logger:
+            l = logger.log_trace(jl.MARK_TRACE_ASM, None, self.mc)
+            l.write(inputargs, operations, ops_offset=ops_offset)
 
             # legacy
             if logger.logger_ops:
