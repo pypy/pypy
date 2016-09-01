@@ -236,7 +236,7 @@ class ReplayProcess(object):
                 if msg.extra:
                     b.set_num2break(msg.arg1, 'B', msg.extra)
                 else:
-                    del b.set_num2break[msg.arg1]
+                    del b.num2break[msg.arg1]
             else:
                 print >> sys.stderr, "unexpected %r" % (msg,)
 

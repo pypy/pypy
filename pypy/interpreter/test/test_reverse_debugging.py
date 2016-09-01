@@ -92,10 +92,13 @@ def check_add_breakpoint(input, curfilename=None,
 def test_add_breakpoint():
     check_add_breakpoint('', expected_output="Empty breakpoint name\n",
                          expected_chbkpt='')
-    check_add_breakpoint('foo42', expected_funcname="foo42")
+    check_add_breakpoint('foo42', expected_funcname="foo42",
+                         expected_chbkpt="foo42()")
+    check_add_breakpoint('foo42()', expected_funcname="foo42")
     check_add_breakpoint('foo.bar', expected_funcname="foo.bar",
         expected_output='Note: "foo.bar()" doesn''t look like a function name.'
-                        ' Setting breakpoint anyway\n')
+                        ' Setting breakpoint anyway\n',
+        expected_chbkpt="foo.bar()")
     check_add_breakpoint('<foo.bar>', expected_funcname="<foo.bar>")
     check_add_breakpoint('42', curfilename='abcd',
                          expected_fileline=('abcd', 42),
@@ -109,5 +112,5 @@ def test_add_breakpoint():
     check_add_breakpoint('abcd.py:42',
                          expected_fileline=('abcd.py', 42))
     check_add_breakpoint('42:abc',
-        expected_output='"42:abc": expected a line number after colon\n',
+        expected_output='expected a line number after colon\n',
         expected_chbkpt='')

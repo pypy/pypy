@@ -643,11 +643,18 @@ def add_breakpoint(name, i):
         try:
             lineno = int(name)
         except ValueError:
+            if name.endswith('()'):
+                n = len(name) - 2
+                assert n >= 0
+                name = name[:n]
             if not valid_identifier(name):
                 revdb.send_output(
                     'Note: "%s()" doesn''t look like a function name. '
                     'Setting breakpoint anyway\n' % name)
             add_breakpoint_funcname(name, i)
+            name += '()'
+            if name != original_name:
+                revdb.send_change_breakpoint(i, name)
             return
         # "number" does the same as ":number"
         filename = ''
@@ -656,8 +663,7 @@ def add_breakpoint(name, i):
         try:
             lineno = int(name[j+1:])
         except ValueError:
-            revdb.send_output('"%s": expected a line number after colon\n' % (
-                name,))
+            revdb.send_output('expected a line number after colon\n')
             revdb.send_change_breakpoint(i)
             return
         filename = name[:j]

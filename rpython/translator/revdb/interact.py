@@ -417,23 +417,27 @@ class RevDebugControl(object):
             print "Break where?"
             return
         num = self._bp_new(argument, 'B', argument)
-        b = self.pgroup.edit_breakpoints()
-        old = b.num2break[num]
         self.pgroup.update_breakpoints()
-        new = b.num2break.get(num)
-        if old == new:
-            print "Breakpoint %d added" % (num,)
-        elif new is None:
+        b = self.pgroup.edit_breakpoints()
+        if num not in b.num2break:
             print "Breakpoint not added"
         else:
             kind, name = self._bp_kind(num)
-            print "Breakpoint %d added as: %s" % (num, name)
+            print "Breakpoint %d added: %s" % (num, name)
     command_b = command_break
 
     def command_delete(self, argument):
         """Delete a breakpoint/watchpoint"""
-        arg = int(argument)
         b = self.pgroup.edit_breakpoints()
+        try:
+            arg = int(argument)
+        except ValueError:
+            for arg in b.num2break:
+                if self._bp_kind(arg)[1] == argument:
+                    break
+            else:
+                print "No such breakpoint/watchpoint: %s" % (argument,)
+                return
         if arg not in b.num2break:
             print "No breakpoint/watchpoint number %d" % (arg,)
         else:
@@ -443,6 +447,7 @@ class RevDebugControl(object):
             b.watchvalues.pop(arg, '')
             b.watchuids.pop(arg, '')
             print "%s %d deleted: %s" % (kind.capitalize(), arg, name)
+    command_del = command_delete
 
     def command_watch(self, argument):
         """Add a watchpoint (use $NUM in the expression to watch)"""
