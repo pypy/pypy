@@ -170,11 +170,15 @@ if not _WIN32:
         #
         # haaaack for 'pypy py.test -A' if libm.so is a linker script
         # (see reason in _dlerror_on_dlopen_untranslated())
+        must_free = False
         if not we_are_translated() and platform.name == "linux":
             if name and rffi.charp2str(name) == 'libm.so':
-                name = rffi.str2charp('libm.so.6', track_allocation=False)
+                name = rffi.str2charp('libm.so.6')
+                must_free = True
         #
         res = c_dlopen(name, rffi.cast(rffi.INT, mode))
+        if must_free:
+            rffi.free_charp(name)
         if not res:
             if not we_are_translated():
                 err = _dlerror_on_dlopen_untranslated(name)
