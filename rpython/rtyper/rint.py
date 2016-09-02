@@ -540,7 +540,7 @@ else:
     def ll_ullong_py_mod_zer(x, y):
         if y == 0:
             raise ZeroDivisionError
-        return llop.ullong_mod(UnsignedLongLong, x, y)
+        return ll_ullong_py_mod(x, y)
 
 @jit.dont_look_inside
 def ll_lllong_py_mod(x, y):
