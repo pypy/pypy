@@ -8,7 +8,7 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.rarithmetic import intmask, is_emulated_long
 from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib.rmmap import alloc
+from rpython.rlib.rmmap import alloc, set_pages_executable, set_pages_writable
 from rpython.rlib.rdynload import dlopen, dlclose, dlsym, dlsym_byordinal
 from rpython.rlib.rdynload import DLOpenError, DLLHANDLE
 from rpython.rlib import jit, rposix
@@ -446,10 +446,13 @@ class ClosureHeap(object):
     def _more(self):
         chunk = rffi.cast(CLOSURES, alloc(CHUNK))
         count = CHUNK//rffi.sizeof(FFI_CLOSUREP.TO)
+        chunk_p = rffi.cast(rffi.CCHARP, chunk)
+        set_pages_writable(chunk_p, CHUNK)
         for i in range(count):
             rffi.cast(rffi.VOIDPP, chunk)[0] = self.free_list
             self.free_list = rffi.cast(rffi.VOIDP, chunk)
             chunk = rffi.ptradd(chunk, 1)
+        set_pages_executable(chunk_p, CHUNK)
 
     def alloc(self):
         if not self.free_list:
