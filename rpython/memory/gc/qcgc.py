@@ -26,11 +26,10 @@ class QCGC(GCBase):
             ('hdr', rffi.COpaque('object_t', hints={"is_qcgc_header": True})),
             ('tid', lltype.Signed),
             ('hash', lltype.Signed))
-    #HDR = rffi.COpaque('object_t')
 
     def init_gc_object(self, addr, typeid):
         hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
-        hdr.tid = rffi.cast(lltype.Signed, typeid)
+        hdr.tid = llop.combine_ushort(lltype.Signed, typeid, 0)
         hdr.hash = rffi.cast(lltype.Signed, 0)
 
     def malloc_fixedsize_clear(self, typeid, size,
@@ -63,7 +62,7 @@ class QCGC(GCBase):
     def init_gc_object_immortal(self, addr, typeid, flags=0):
         assert flags == 0
         #
-        self.init_gc_object(addr, typeid.index)
+        self.init_gc_object(addr, typeid)
 
     def collect(self, gen=1):
         """Do a minor (gen=0) or major (gen>0) collection."""
