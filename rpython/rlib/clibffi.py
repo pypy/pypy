@@ -540,9 +540,14 @@ class CallbackFuncPtr(AbstractFuncPtr):
                                          track_allocation=False)
         self.ll_userdata.callback = rffi.llhelper(CALLBACK_TP, func)
         self.ll_userdata.addarg = additional_arg
+
+        ll_closure_p = rffi.cast(rffi.CCHARP, self.ll_closure)
+        set_pages_writable(ll_closure_p, CHUNK)
         res = c_ffi_prep_closure(self.ll_closure, self.ll_cif,
                                  ll_callback, rffi.cast(rffi.VOIDP,
                                                         self.ll_userdata))
+        set_pages_executable(ll_closure_p, CHUNK)
+
         if not res == FFI_OK:
             raise LibFFIError
 
