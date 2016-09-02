@@ -5,6 +5,10 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+#if DEBUG_ZERO_ON_SWEEP
+#include <string.h>
+#endif
+
 #include "allocator.h"
 #include "event_logger.h"
 
@@ -146,12 +150,27 @@ void qcgc_arena_set_blocktype(cell_t *ptr, blocktype_t type) {
 void qcgc_arena_mark_allocated(cell_t *ptr, size_t cells) {
 	size_t index = qcgc_arena_cell_index(ptr);
 	arena_t *arena = qcgc_arena_addr(ptr);
+#if CHECKED
+	assert(get_blocktype(arena, index) == BLOCK_FREE);
+	for (size_t i = 1; i < cells; i++) {
+		assert(get_blocktype(arena, index + i) == BLOCK_EXTENT);
+	}
+#endif
 	set_blocktype(arena, index, BLOCK_WHITE);
 	size_t index_of_next_block = index + cells;
 	if (index_of_next_block < QCGC_ARENA_CELLS_COUNT &&
 			get_blocktype(arena, index_of_next_block) == BLOCK_EXTENT) {
 		set_blocktype(arena, index_of_next_block, BLOCK_FREE);
 	}
+#if CHECKED
+	assert(get_blocktype(arena, index) == BLOCK_WHITE);
+	for (size_t i = 1; i < cells; i++) {
+		assert(get_blocktype(arena, index + i) == BLOCK_EXTENT);
+	}
+	if (index_of_next_block < QCGC_ARENA_CELLS_COUNT) {
+		assert(get_blocktype(arena, index + cells) != BLOCK_EXTENT);
+	}
+#endif
 }
 
 void qcgc_arena_mark_free(cell_t *ptr) {
@@ -164,15 +183,35 @@ bool qcgc_arena_sweep(arena_t *arena) {
 	assert(arena != NULL);
 	assert(qcgc_arena_is_coalesced(arena));
 #endif
+#if DEBUG_ZERO_ON_SWEEP
+	bool zero = true;
+#endif
 	bool free = true;
 	bool coalesce = false;
 	bool add_to_free_list = false;
 	size_t last_free_cell = QCGC_ARENA_FIRST_CELL_INDEX;
+
+	if (qcgc_arena_addr(qcgc_allocator_state.bump_state.bump_ptr) == arena) {
+		for (size_t cell = QCGC_ARENA_FIRST_CELL_INDEX;
+				cell < QCGC_ARENA_CELLS_COUNT;
+				cell++) {
+			if (get_blocktype(arena, cell) == BLOCK_BLACK) {
+				set_blocktype(arena, cell, BLOCK_WHITE);
+			}
+		}
+		return false;
+	}
+
 	for (size_t cell = QCGC_ARENA_FIRST_CELL_INDEX;
 			cell < QCGC_ARENA_CELLS_COUNT;
 			cell++) {
-		switch (qcgc_arena_get_blocktype(arena->cells + cell)) {
+		switch (get_blocktype(arena, cell)) {
 			case BLOCK_EXTENT:
+#if DEBUG_ZERO_ON_SWEEP
+				if (zero) {
+					memset(&arena->cells[cell], 0, sizeof(cell_t));
+				}
+#endif
 				break;
 			case BLOCK_FREE:
 				if (coalesce) {
@@ -181,6 +220,10 @@ bool qcgc_arena_sweep(arena_t *arena) {
 					last_free_cell = cell;
 				}
 				coalesce = true;
+#if DEBUG_ZERO_ON_SWEEP
+				zero = true;
+				memset(&arena->cells[cell], 0, sizeof(cell_t));
+#endif
 				break;
 			case BLOCK_WHITE:
 				if (coalesce) {
@@ -191,25 +234,33 @@ bool qcgc_arena_sweep(arena_t *arena) {
 				}
 				coalesce = true;
 				add_to_free_list = true;
+#if DEBUG_ZERO_ON_SWEEP
+				zero = true;
+				memset(&arena->cells[cell], 0, sizeof(cell_t));
+#endif
 				break;
 			case BLOCK_BLACK:
 				set_blocktype(arena, cell, BLOCK_WHITE);
 				if (add_to_free_list) {
-					qcgc_fit_allocator_add(&(arena->cells[last_free_cell]),
+					qcgc_fit_allocator_add(arena->cells + last_free_cell,
 							cell - last_free_cell);
 				}
 				free = false;
 				coalesce = false;
 				add_to_free_list = false;
+#if DEBUG_ZERO_ON_SWEEP
+				zero = false;
+#endif
 				break;
 		}
 	}
 	if (add_to_free_list && !free) {
-		qcgc_fit_allocator_add(&(arena->cells[last_free_cell]),
+		qcgc_fit_allocator_add(arena->cells + last_free_cell,
 							QCGC_ARENA_CELLS_COUNT - last_free_cell);
 	}
 #if CHECKED
 	assert(qcgc_arena_is_coalesced(arena));
+	assert(free == qcgc_arena_is_empty(arena));
 #endif
 	return free;
 }

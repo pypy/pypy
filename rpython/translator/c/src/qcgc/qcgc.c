@@ -10,10 +10,6 @@
 #include "hugeblocktable.h"
 #include "event_logger.h"
 
-// TODO: Eventually move to own header?
-#define MAX(a,b) (((a)>(b))?(a):(b))
-#define MIN(a,b) (((a)<(b))?(a):(b))
-
 void qcgc_mark(bool incremental);
 void qcgc_pop_object(object_t *object);
 void qcgc_push_object(object_t *object);
@@ -117,7 +113,7 @@ object_t *qcgc_allocate(size_t size) {
 			(uint8_t *) &size);
 #endif
 	object_t *result;
-	if (size <= QCGC_LARGE_ALLOC_THRESHOLD) {
+	if (size <= 1<<QCGC_LARGE_ALLOC_THRESHOLD_EXP) {
 		// Use bump / fit allocator
 		if (true) { // FIXME: Implement reasonable switch
 			result = qcgc_bump_allocate(size);
@@ -137,9 +133,6 @@ object_t *qcgc_allocate(size_t size) {
 #if LOG_ALLOCATION
 	qcgc_event_logger_log(EVENT_ALLOCATE_DONE, sizeof(object_t *),
 			(uint8_t *) &result);
-#endif
-#if CHECKED
-	assert(qcgc_state.phase != GC_COLLECT);
 #endif
 	return result;
 }
@@ -167,9 +160,7 @@ mark_color_t qcgc_get_mark_color(object_t *object) {
 			return MARK_COLOR_BLACK;
 		}
 	} else {
-#if CHECKED
-		assert(false);
-#endif
+		return MARK_COLOR_INVALID;
 	}
 }
 
@@ -210,8 +201,8 @@ void qcgc_mark(bool incremental) {
 
 		while (to_process > 0) {
 			object_t *top = qcgc_gray_stack_top(qcgc_state.gp_gray_stack);
-			qcgc_state.gp_gray_stack =
-				qcgc_gray_stack_pop(qcgc_state.gp_gray_stack);
+			qcgc_state.gp_gray_stack = qcgc_gray_stack_pop(
+					qcgc_state.gp_gray_stack);
 			qcgc_pop_object(top);
 			to_process--;
 		}
@@ -225,10 +216,8 @@ void qcgc_mark(bool incremental) {
 					(arena->gray_stack->index));
 
 			while (to_process > 0) {
-				object_t *top =
-					qcgc_gray_stack_top(arena->gray_stack);
-				arena->gray_stack =
-					qcgc_gray_stack_pop(arena->gray_stack);
+				object_t *top = qcgc_gray_stack_top(arena->gray_stack);
+				arena->gray_stack = qcgc_gray_stack_pop(arena->gray_stack);
 				qcgc_pop_object(top);
 				to_process--;
 			}
@@ -247,6 +236,7 @@ void qcgc_mark(bool incremental) {
 	qcgc_event_logger_log(EVENT_MARK_DONE, 0, NULL);
 #if CHECKED
 	assert(incremental || (qcgc_state.phase = GC_COLLECT));
+	assert(qcgc_state.phase != GC_PAUSE);
 #endif
 }
 
@@ -319,8 +309,22 @@ void qcgc_sweep(void) {
 			(uint8_t *) &arena_count);
 
 	qcgc_hbtable_sweep();
-	for (size_t i = 0; i < qcgc_allocator_state.arenas->count; i++) {
-		qcgc_arena_sweep(qcgc_allocator_state.arenas->items[i]);
+	size_t i = 0;
+	while (i < qcgc_allocator_state.arenas->count) {
+		arena_t *arena = qcgc_allocator_state.arenas->items[i];
+		// The arena that contains the bump pointer is autmatically skipped
+		if (qcgc_arena_sweep(arena)) {
+			// Free
+			qcgc_allocator_state.arenas = qcgc_arena_bag_remove_index(
+					qcgc_allocator_state.arenas, i);
+			qcgc_allocator_state.free_arenas = qcgc_arena_bag_add(
+					qcgc_allocator_state.free_arenas, arena);
+
+			// NO i++
+		} else {
+			// Not free
+			i++;
+		}
 	}
 	qcgc_state.phase = GC_PAUSE;
 

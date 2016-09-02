@@ -17,6 +17,7 @@
  *                +---+---+-----+----+
  * size (cells):  | 1 | 2 | ... | 31 |
  *                +---+---+-----+----+
+ * (31 is 2^QCGC_LARGE_FREE_LIST_FIRST_EXP - 1)
  *
  * Large free lists:
  *                        +-----+-----+-----+---------+
@@ -24,18 +25,21 @@
  *                        +-----+-----+-----+---------+
  * minimal size (cells):  | 2^5 | 2^6 | ... | 2^(x+5) |
  *                        +-----+-----+-----+---------+
+ * (5 is QCGC_LARGE_FREE_LIST_FIRST_EXP)
  *
- * where x is chosen such that x + 5 + 1 = QCGC_ARENA_SIZE_EXP - 4 (i.e. the
- * next bin would hold chunks that have the size of at least one arena size,
- * which is impossible as an arena contains overhead)
+ * where x is chosen such that 2^(x + 5) = 2^QCGC_LARGE_ALLOC_THRESHOLD_EXP
+ * (i.e. such that the last bin contains all blocks that are larger or equal
+ * than the threshold for huge blocks. These blocks can be returned to the
+ * bump allocator)
  */
-
-#define QCGC_LARGE_FREE_LISTS (QCGC_ARENA_SIZE_EXP - 4 - QCGC_LARGE_FREE_LIST_FIRST_EXP)
+#define QCGC_LARGE_FREE_LISTS (QCGC_LARGE_ALLOC_THRESHOLD_EXP - QCGC_LARGE_FREE_LIST_FIRST_EXP - 4 + 1)
+// -4 because of turning bytes into cells, +1 because we start to count at 0
 
 #define QCGC_SMALL_FREE_LISTS ((1<<QCGC_LARGE_FREE_LIST_FIRST_EXP) - 1)
 
 struct qcgc_allocator_state {
 	arena_bag_t *arenas;
+	arena_bag_t *free_arenas;
 	struct bump_state {
 		cell_t *bump_ptr;
 		size_t remaining_cells;

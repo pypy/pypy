@@ -1,5 +1,5 @@
 from rpython.memory.gc.base import GCBase
-#from rpython.memory.support import mangle_hash
+from rpython.memory.support import mangle_hash
 from rpython.rtyper.lltypesystem import rffi, lltype, llgroup, llmemory, llarena
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.debug import ll_assert
@@ -19,22 +19,19 @@ class QCGC(GCBase):
     gcflag_extra = 0   # or a real GC flag that is always 0 when not collecting
 
     typeid_is_in_field = 'tid'
-    withhash_flag_is_in_field = 'flags', QCGC_HAS_HASH
 
     TRANSLATION_PARAMS = {}
     HDR = lltype.Struct(
             'header',
-            #('hdr', rffi.COpaque('object_t', hints={"is_qcgc_header": True})),
-            ('flags', lltype.Signed),   # XXX: exploits knowledge about object_t
+            ('hdr', rffi.COpaque('object_t', hints={"is_qcgc_header": True})),
             ('tid', lltype.Signed),
             ('hash', lltype.Signed))
     #HDR = rffi.COpaque('object_t')
 
-    def init_gc_object(self, addr, typeid, flags=0):
+    def init_gc_object(self, addr, typeid):
         hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
-        hdr.flags = rffi.cast(lltype.Signed, flags)
         hdr.tid = rffi.cast(lltype.Signed, typeid)
-        hdr.hash = rffi.cast(lltype.Signed, addr)
+        hdr.hash = rffi.cast(lltype.Signed, 0)
 
     def malloc_fixedsize_clear(self, typeid, size,
                                needs_finalizer=False,
@@ -63,15 +60,10 @@ class QCGC(GCBase):
         (obj + offset_to_length).signed[0] = length
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
-    def init_gc_object_immortal(self, addr, typeid, flags=0): # XXX: Prebuilt Objects?
+    def init_gc_object_immortal(self, addr, typeid, flags=0):
         assert flags == 0
-        ptr = self.gcheaderbuilder.object_from_header(addr.ptr)
-        prebuilt_hash = lltype.identityhash_nocache(ptr)
-        assert prebuilt_hash != 0
-        flags |= QCGC_PREBUILT_OBJECT
         #
-        self.init_gc_object(addr, typeid.index, flags)
-        llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR)).hash = prebuilt_hash
+        self.init_gc_object(addr, typeid.index)
 
     def collect(self, gen=1):
         """Do a minor (gen=0) or major (gen>0) collection."""
@@ -84,11 +76,7 @@ class QCGC(GCBase):
         # this. Unfortunately I don't fully understand what this is supposed to
         # do, so I can't optimize it ATM.
         return False
-        # Possible implementation?
-        #llop.gc_writebarrier(dest_addr)
-        #return True
 
-    # XXX: WRITE BARRIER
     def write_barrier(self, addr_struct):
         llop.qcgc_write_barrier(lltype.Void, addr_struct)
 
@@ -97,14 +85,14 @@ class QCGC(GCBase):
         pass
 
     def id_or_identityhash(self, gcobj, is_hash):
-        hdr = self.header(llmemory.cast_ptr_to_adr(gcobj))
-        has_hash = (hdr.flags & QCGC_HAS_HASH)
+        obj = llmemory.cast_ptr_to_adr(gcobj)
+        hdr = self.header(obj)
         i = hdr.hash
         #
-        if is_hash:
-            if has_hash:
-                return i # Do not mangle for objects with built in hash
-            i = i ^ (i >> 5)
+        if i == 0:
+            i = llmemory.cast_adr_to_int(obj)
+            if is_hash:
+                i = mangle_hash(i)
         return i
 
     def id(self, gcobje):
