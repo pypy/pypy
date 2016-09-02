@@ -146,14 +146,14 @@ def test_SomeException_union(annotator):
     someinst = lambda cls, **kw: SomeInstance(bk.getuniqueclassdef(cls), **kw)
     s_inst = someinst(Exception)
     s_exc = bk.new_exception([ValueError, IndexError])
-    assert unionof(s_exc, s_inst) == s_inst
-    assert unionof(s_inst, s_exc) == s_inst
-    s_nullable = unionof(s_None, bk.new_exception([ValueError]))
+    assert union(s_exc, s_inst) == s_inst
+    assert union(s_inst, s_exc) == s_inst
+    s_nullable = union(s_None, bk.new_exception([ValueError]))
     assert isinstance(s_nullable, SomeInstance)
     assert s_nullable.can_be_None
     s_exc1 = bk.new_exception([ValueError])
     s_exc2 = bk.new_exception([IndexError])
-    unionof(s_exc1, s_exc2) == unionof(s_exc2, s_exc1)
+    union(s_exc1, s_exc2) == union(s_exc2, s_exc1)
 
 def contains_s(s_a, s_b):
     if s_b is None:

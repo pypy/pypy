@@ -1,5 +1,5 @@
-from rpython.annotator.model import s_ImpossibleValue
-from rpython.annotator.model import SomeInteger, s_Bool, unionof
+from rpython.annotator.model import (
+    s_ImpossibleValue, SomeInteger, s_Bool, union)
 from rpython.annotator.listdef import ListItem
 from rpython.rlib.objectmodel import compute_hash
 
@@ -34,8 +34,8 @@ class DictKey(ListItem):
 
     def update_rdict_annotations(self, s_eqfn, s_hashfn, other=None):
         assert self.custom_eq_hash
-        s_eqfn = unionof(s_eqfn, self.s_rdict_eqfn)
-        s_hashfn = unionof(s_hashfn, self.s_rdict_hashfn)
+        s_eqfn = union(s_eqfn, self.s_rdict_eqfn)
+        s_hashfn = union(s_hashfn, self.s_rdict_hashfn)
         self.s_rdict_eqfn = s_eqfn
         self.s_rdict_hashfn = s_hashfn
         self.emulate_rdict_calls(other=other)

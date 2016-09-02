@@ -246,7 +246,7 @@ class RPythonAnnotator(object):
         if s_old is not None:
             if not s_value.contains(s_old):
                 log.WARNING("%s does not contain %s" % (s_value, s_old))
-                log.WARNING("%s" % annmodel.unionof(s_value, s_old))
+                log.WARNING("%s" % annmodel.union(s_value, s_old))
                 assert False
         arg.annotation = s_value
 
