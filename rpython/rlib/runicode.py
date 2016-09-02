@@ -145,6 +145,7 @@ _invalid_byte_3_of_3 = _invalid_cont_byte
 _invalid_byte_3_of_4 = _invalid_cont_byte
 _invalid_byte_4_of_4 = _invalid_cont_byte
 
+@specialize.arg(2)
 def _invalid_byte_2_of_3(ordch1, ordch2, allow_surrogates):
     return (ordch2>>6 != 0x2 or    # 0b10
             (ordch1 == 0xe0 and ordch2 < 0xa0)
@@ -156,7 +157,7 @@ def _invalid_byte_2_of_4(ordch1, ordch2):
             (ordch1 == 0xf0 and ordch2 < 0x90) or
             (ordch1 == 0xf4 and ordch2 > 0x8f))
 
-@specialize.argtype(6)
+@specialize.arg(5)
 def str_decode_utf_8_impl(s, size, errors, final, errorhandler,
                           allow_surrogates, result):
     if size == 0:
