@@ -377,7 +377,8 @@ class BaseConcreteArray(object):
     def __exit__(self, typ, value, traceback):
         keepalive_until_here(self)
 
-    def get_buffer(self, space, readonly):
+    def get_buffer(self, space, flags):
+        readonly = not bool(flags & space.BUF_WRITABLE)
         return ArrayBuffer(self, readonly)
 
     def astype(self, space, dtype, order, copy=True):
@@ -695,6 +696,8 @@ class ArrayBuffer(Buffer):
                  index + self.impl.start)
 
     def setitem(self, index, v):
+        if self.readonly:
+            raise oefmt(space.w_BufferError, "cannot write to a readonly buffer")
         raw_storage_setitem(self.impl.storage, index + self.impl.start,
                             rffi.cast(lltype.Char, v))
 
