@@ -804,8 +804,8 @@ class __extend__(W_NDimArray):
         """)
         return w_result
 
-    def buffer_w(self, space, w_flags):
-        return self.implementation.get_buffer(space, space.int_w(w_flags))
+    def buffer_w(self, space, flags):
+        return self.implementation.get_buffer(space, flags)
 
     def readbuf_w(self, space):
         return self.implementation.get_buffer(space, space.BUF_FULL_RO)
@@ -1697,7 +1697,6 @@ W_NDimArray.typedef = TypeDef("numpy.ndarray",
     __array_wrap__ = interp2app(W_NDimArray.descr___array_wrap__),
     __array_priority__ = GetSetProperty(W_NDimArray.descr___array_priority__),
     __array__         = interp2app(W_NDimArray.descr___array__),
-    __buffer__ = interp2app(W_NDimArray.buffer_w),
 )
 
 

@@ -35,7 +35,7 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
         # test_export_flags from numpy test_multiarray
         raises(ValueError, get_buffer_info, np.arange(5)[::2], ('SIMPLE',))
         # test_relaxed_strides from numpy test_multiarray
-        arr = np.ones((1, 10))
+        arr = np.zeros((1, 10))
         if arr.flags.f_contiguous:
             shape, strides = get_buffer_info(arr, ['F_CONTIGUOUS'])
             assert strides[0] == 8

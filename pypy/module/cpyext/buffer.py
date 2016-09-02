@@ -1,5 +1,6 @@
 from pypy.interpreter.error import oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.rarithmetic import widen
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, Py_buffer, Py_TPFLAGS_HAVE_NEWBUFFER, Py_ssize_tP)
 from pypy.module.cpyext.pyobject import PyObject, as_pyobj, incref
@@ -33,7 +34,8 @@ def PyObject_GetBuffer(space, w_obj, view, flags):
     raise an error if the object can't support a simpler view of its memory.
 
     0 is returned on success and -1 on error."""
-    buf = space.call_method(w_obj, "__buffer__", space.newint(flags))
+    flags = widen(flags)
+    buf = space.buffer_w(w_obj, flags)
     try:
         view.c_buf = rffi.cast(rffi.VOIDP, buf.get_raw_address())
     except ValueError:
@@ -58,35 +60,37 @@ def PyObject_GetBuffer(space, w_obj, view, flags):
     return 0
 
 def _IsFortranContiguous(view):
-    if view.ndim == 0:
+    ndim = widen(view.c_ndim)
+    if ndim == 0:
         return 1
-    if not view.strides:
-        return view.ndim == 1
-    sd = view.itemsize
-    if view.ndim == 1:
-        return view.shape[0] == 1 or sd == view.strides[0]
-    for i in range(view.ndim):
-        dim = view.shape[i]
+    if not view.c_strides:
+        return ndim == 1
+    sd = view.c_itemsize
+    if ndim == 1:
+        return view.c_shape[0] == 1 or sd == view.c_strides[0]
+    for i in range(view.c_ndim):
+        dim = view.c_shape[i]
         if dim == 0:
             return 1
-        if view.strides[i] != sd:
+        if view.c_strides[i] != sd:
             return 0
         sd *= dim
     return 1
 
 def _IsCContiguous(view):
-    if view.ndim == 0:
+    ndim = widen(view.c_ndim)
+    if ndim == 0:
         return 1
-    if not view.strides:
-        return view.ndim == 1
-    sd = view.itemsize
-    if view.ndim == 1:
-        return view.shape[0] == 1 or sd == view.strides[0]
-    for i in range(view.ndim-1, -1, -1):
-        dim = view.shape[i]
+    if not view.c_strides:
+        return ndim == 1
+    sd = view.c_itemsize
+    if ndim == 1:
+        return view.c_shape[0] == 1 or sd == view.c_strides[0]
+    for i in range(ndim - 1, -1, -1):
+        dim = view.c_shape[i]
         if dim == 0:
             return 1
-        if view.strides[i] != sd:
+        if view.c_strides[i] != sd:
             return 0
         sd *= dim
     return 1
@@ -99,7 +103,7 @@ def PyBuffer_IsContiguous(space, view, fort):
     (fortran is 'A').  Return 0 otherwise."""
     # traverse the strides, checking for consistent stride increases from
     # right-to-left (c) or left-to-right (fortran). Copied from cpython
-    if not view.suboffsets:
+    if not view.c_suboffsets:
         return 0
     if (fort == 'C'):
         return _IsCContiguous(view)
