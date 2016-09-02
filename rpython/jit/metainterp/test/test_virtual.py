@@ -1006,6 +1006,41 @@ class VirtualTests:
         self.check_target_token_count(2)
         self.check_trace_count(3)
 
+    def test_conflated_virtual_states(self):
+        # All cases are covered when forcing one component of the virtual state
+        # also forces an as yet unseen component.
+        # i.e. expect [NotVirtual, Virtual] and given a pair of aliasing virtual
+        # objects
+        driver = JitDriver(greens=[], reds=['i', 'v1', 'v2'])
+        class Box(object):
+            def __init__(self, v):
+                self.v = v
+
+        class X(object):
+            def __init__(self, v):
+                self.v = v
+
+        const = Box(X(0))
+        def f():
+            set_param(None, 'retrace_limit', -1)
+            set_param(None, 'threshold', 1)
+            i = 0
+            v1 = X(0)
+            v2 = X(0)
+            const.v = X(0)
+            while i < 17:
+                driver.jit_merge_point(i=i, v1=v1, v2=v2)
+                driver.can_enter_jit(i=i, v1=v1, v2=v2)
+                if i & 1 == 0:
+                    v1 = const.v
+                    v2 = X(i)
+                else:
+                    v1 = v2 = X(i)
+                i += 1
+            return None
+        self.meta_interp(f, [])
+        # assert did not crash
+
 
 class VirtualMiscTests:
     def test_multiple_equal_virtuals(self):
