@@ -94,16 +94,9 @@ class SomeObject(object):
         if self == other:
             return True
         try:
-            TLS.no_side_effects_in_union += 1
-        except AttributeError:
-            TLS.no_side_effects_in_union = 1
-        try:
-            try:
-                return pair(self, other).union() == self
-            except UnionError:
-                return False
-        finally:
-            TLS.no_side_effects_in_union -= 1
+            return union(self, other) == self
+        except UnionError:
+            return False
 
     def is_constant(self):
         d = self.__dict__
@@ -738,6 +731,23 @@ class UnionError(AnnotatorError):
 
     def __repr__(self):
         return str(self)
+
+def union(s1, s2):
+    """The join operation in the lattice of annotations.
+
+    It is the most precise SomeObject instance that contains both arguments.
+
+    union() is (supposed to be) idempotent, commutative, associative and has
+    no side-effects.
+    """
+    try:
+        TLS.no_side_effects_in_union += 1
+    except AttributeError:
+        TLS.no_side_effects_in_union = 1
+    try:
+        return pair(s1, s2).union()
+    finally:
+        TLS.no_side_effects_in_union -= 1
 
 def unionof(*somevalues):
     "The most precise SomeValue instance that contains all the values."
