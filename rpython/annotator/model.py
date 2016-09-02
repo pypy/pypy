@@ -750,6 +750,7 @@ def unionof(*somevalues):
                 s1 = pair(s1, s2).union()
     else:
         # this is just a performance shortcut
+        # XXX: This is a lie! Grep for no_side_effects_in_union and weep.
         if s1 != s2:
             s1 = pair(s1, s2).union()
     return s1
