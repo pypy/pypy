@@ -14,6 +14,7 @@ class W_MemoryView(W_Root):
     """Implement the built-in 'memoryview' type as a wrapper around
     an interp-level buffer.
     """
+    _attrs_ = ['buf']
 
     def __init__(self, buf):
         assert isinstance(buf, Buffer)
