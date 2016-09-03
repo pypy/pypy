@@ -1,5 +1,8 @@
 import pytest
 
+from hypothesis import given
+from hypothesis import strategies as st
+
 from rpython.flowspace.model import Variable
 from rpython.flowspace.operation import op
 from rpython.translator.translator import TranslationContext
@@ -101,6 +104,21 @@ def test_nan():
     assert f1.contains(f1)
     assert f2.contains(f1)
     assert f1.contains(f2)
+
+def const_int(n):
+    s = SomeInteger(nonneg=(n>=0))
+    s.const = n
+    return s
+
+st_int = st.one_of(st.builds(SomeInteger, st.booleans(), st.booleans()),
+                   st.builds(const_int, st.integers()))
+st_annotation = st_int
+
+@given(s=st_annotation)
+def test_union_unary(s):
+    assert union(s, s) == s
+    assert union(s_ImpossibleValue, s) == s
+
 
 def compile_function(function, annotation=[]):
     t = TranslationContext()
