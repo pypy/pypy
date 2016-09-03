@@ -673,6 +673,10 @@ class SomeProperty(SomeObject):
 
 s_None = SomeNone()
 s_Bool = SomeBool()
+s_True = SomeBool()
+s_True.const = True
+s_False = SomeBool()
+s_False.const = False
 s_Int = SomeInteger()
 s_ImpossibleValue = SomeImpossibleValue()
 s_Str0 = SomeString(no_nul=True)
