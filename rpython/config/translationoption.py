@@ -79,7 +79,7 @@ translation_optiondescription = OptionDescription(
                               ("translation.gcrootfinder", "qcgc"),
                               ("translation.gcremovetypeptr", True),
                               ("translation.thread", False),
-                              ("translation.rweakref", False)],
+                              ("translation.rweakref", True)], # XXX
                      "minimark": [("translation.gctransformer", "framework")],
                      "incminimark": [("translation.gctransformer", "framework")],
                      },
