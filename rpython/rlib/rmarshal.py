@@ -346,11 +346,15 @@ def weakly_contains(s_bigger, s_smaller):
     # on s_bigger.  It relies on the fact that s_bigger was created with
     # an expression like 'annotation([s_item])' which returns a ListDef with
     # no bookkeeper, on which side-effects are not allowed.
+    saved = annmodel.TLS.allow_int_to_float
     try:
+        annmodel.TLS.allow_int_to_float = False
         s_union = annmodel.unionof(s_bigger, s_smaller)
         return s_bigger.contains(s_union)
     except (annmodel.UnionError, TooLateForChange):
         return False
+    finally:
+        annmodel.TLS.allow_int_to_float = saved
 
 
 class __extend__(pairtype(MTag, annmodel.SomeObject)):

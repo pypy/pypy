@@ -47,6 +47,8 @@ class types(object):
         cls.ulonglong = clibffi.cast_type_to_ffitype(rffi.ULONGLONG)
         cls.signed = clibffi.cast_type_to_ffitype(rffi.SIGNED)
         cls.wchar_t = clibffi.cast_type_to_ffitype(lltype.UniChar)
+        # XXX long double support: clibffi.ffi_type_longdouble, but then
+        # XXX fix the whole rest of this file to add a case for long double
         del cls._import
 
     @staticmethod

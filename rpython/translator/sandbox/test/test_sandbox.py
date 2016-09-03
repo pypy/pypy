@@ -29,6 +29,7 @@ def expect(f, g, fnname, args, result, resulttype=None):
     assert msg == fnname
     msg = read_message(f)
     assert msg == args
+    assert [type(x) for x in msg] == [type(x) for x in args]
     if isinstance(result, Exception):
         write_exception(g, result)
     else:
