@@ -149,3 +149,25 @@ class TestZIntegration(object):
         p = snip_setuptools_verify2.C.getpwuid(0)
         assert snip_setuptools_verify2.ffi.string(p.pw_name) == b"root"
         ''')
+
+    def test_set_py_limited_api(self):
+        from cffi.setuptools_ext import _set_py_limited_api
+        try:
+            import setuptools
+            orig_version = setuptools.__version__
+            setuptools.__version__ = '26.0.0'
+            from setuptools import Extension
+
+            kwds = _set_py_limited_api(Extension, {})
+            assert kwds['py_limited_api'] == True
+
+            setuptools.__version__ = '25.0'
+            kwds = _set_py_limited_api(Extension, {})
+            assert not kwds
+
+            setuptools.__version__ = 'development'
+            kwds = _set_py_limited_api(Extension, {})
+            assert kwds['py_limited_api'] == True
+
+        finally:
+            setuptools.__version__ = orig_version

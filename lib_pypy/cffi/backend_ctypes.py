@@ -997,29 +997,37 @@ class CTypesBackend(object):
         assert onerror is None   # XXX not implemented
         return BType(source, error)
 
+    _weakref_cache_ref = None
+
     def gcp(self, cdata, destructor):
-        BType = self.typeof(cdata)
+        if self._weakref_cache_ref is None:
+            import weakref
+            class MyRef(weakref.ref):
+                def __eq__(self, other):
+                    myref = self()
+                    return self is other or (
+                        myref is not None and myref is other())
+                def __ne__(self, other):
+                    return not (self == other)
+            self._weakref_cache_ref = {}, MyRef
+        weak_cache, MyRef = self._weakref_cache_ref
 
         if destructor is None:
-            if not (hasattr(BType, '_gcp_type') and
-                    BType._gcp_type is BType):
+            try:
+                del weak_cache[MyRef(cdata)]
+            except KeyError:
                 raise TypeError("Can remove destructor only on a object "
                                 "previously returned by ffi.gc()")
-            cdata._destructor = None
             return None
 
-        try:
-            gcp_type = BType._gcp_type
-        except AttributeError:
-            class CTypesDataGcp(BType):
-                __slots__ = ['_orig', '_destructor']
-                def __del__(self):
-                    if self._destructor is not None:
-                        self._destructor(self._orig)
-            gcp_type = BType._gcp_type = CTypesDataGcp
-        new_cdata = self.cast(gcp_type, cdata)
-        new_cdata._orig = cdata
-        new_cdata._destructor = destructor
+        def remove(k):
+            cdata, destructor = weak_cache.pop(k, (None, None))
+            if destructor is not None:
+                destructor(cdata)
+
+        new_cdata = self.cast(self.typeof(cdata), cdata)
+        assert new_cdata is not cdata
+        weak_cache[MyRef(new_cdata, remove)] = (cdata, destructor)
         return new_cdata
 
     typeof = type
