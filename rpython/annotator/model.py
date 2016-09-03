@@ -745,6 +745,10 @@ def union(s1, s2):
     except AttributeError:
         TLS.no_side_effects_in_union = 1
     try:
+        if s1 == s2:
+            # Most pair(...).union() methods deal incorrectly with that case
+            # when constants are involved.
+            return s1
         return pair(s1, s2).union()
     finally:
         TLS.no_side_effects_in_union -= 1
@@ -759,8 +763,7 @@ def unionof(*somevalues):
             if s1 != s2:
                 s1 = pair(s1, s2).union()
     else:
-        # this is just a performance shortcut
-        # XXX: This is a lie! Grep for no_side_effects_in_union and weep.
+        # See comment in union() above
         if s1 != s2:
             s1 = pair(s1, s2).union()
     return s1
