@@ -97,7 +97,16 @@ class TestNumpyJit(LLJitMixin):
             print "ERROR: did not implement return type for interpreter"
             raise TypeError(w_res)
 
-        if self.graph is None:
+        if self.graph is not None:
+            return
+
+        from pypy.module.micronumpy import ctors
+        def unimplemented(*args):
+            "Only for W_MemoryView objects, which are not compiled in"
+            raise NotImplementedError
+        prev_3118 = ctors._array_from_buffer_3118
+        ctors._array_from_buffer_3118 = unimplemented
+        try:
             interp, graph = self.meta_interp(f, [0],
                                              listops=True,
                                              listcomp=True,
@@ -107,6 +116,8 @@ class TestNumpyJit(LLJitMixin):
                                              vec=True)
             self.__class__.interp = interp
             self.__class__.graph = graph
+        finally:
+            ctors._array_from_buffer_3118 = prev_3118
 
     def check_vectorized(self, expected_tried, expected_success):
         profiler = get_profiler()
