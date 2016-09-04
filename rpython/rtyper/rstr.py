@@ -715,9 +715,7 @@ class __extend__(AbstractUniCharRepr):
         return hop.genop('cast_unichar_to_int', vlist, resulttype=Signed)
 
 
-class __extend__(pairtype(AbstractUniCharRepr, AbstractUniCharRepr),
-                 pairtype(AbstractCharRepr, AbstractUniCharRepr),
-                 pairtype(AbstractUniCharRepr, AbstractCharRepr)):
+class __extend__(pairtype(AbstractUniCharRepr, AbstractUniCharRepr)):
     def rtype_eq(_, hop): return _rtype_unchr_compare_template(hop, 'eq')
     def rtype_ne(_, hop): return _rtype_unchr_compare_template(hop, 'ne')
     def rtype_lt(_, hop): return _rtype_unchr_compare_template_ord(hop, 'lt')
@@ -737,12 +735,7 @@ def _rtype_unchr_compare_template_ord(hop, func):
     vlist = hop.inputargs(*hop.args_r)
     vlist2 = []
     for v in vlist:
-        if v.concretetype == lltype.Char:
-            v = hop.genop('cast_char_to_int', [v], resulttype=lltype.Signed)
-        elif v.concretetype == lltype.UniChar:
-            v = hop.genop('cast_unichar_to_int', [v], resulttype=lltype.Signed)
-        else:
-            assert 0, v.concretetype
+        v = hop.genop('cast_unichar_to_int', [v], resulttype=lltype.Signed)
         vlist2.append(v)
     return hop.genop('int_' + func, vlist2, resulttype=Bool)
 
@@ -766,11 +759,6 @@ class __extend__(pairtype(AbstractStringRepr, AbstractCharRepr)):
             c_zero = inputconst(Signed, 0)
             return llops.gendirectcall(r_from.ll.ll_stritem_nonneg, v, c_zero)
         return NotImplemented
-
-class __extend__(pairtype(AbstractCharRepr, AbstractUniCharRepr)):
-    def convert_from_to((r_from, r_to), v, llops):
-        v2 = llops.genop('cast_char_to_int', [v], resulttype=Signed)
-        return llops.genop('cast_int_to_unichar', [v2], resulttype=UniChar)
 
 # ____________________________________________________________
 #

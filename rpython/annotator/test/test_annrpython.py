@@ -3453,17 +3453,6 @@ class TestAnnotateTestCase:
         assert isinstance(s, annmodel.SomeUnicodeString)
         assert s.no_nul
 
-    def test_unicode_char(self):
-        def f(x, i):
-            for c in x:
-                if c == i:
-                    return c
-            return 'x'
-
-        a = self.RPythonAnnotator()
-        s = a.build_types(f, [unicode, str])
-        assert isinstance(s, annmodel.SomeUnicodeCodePoint)
-
     def test_strformatting_unicode(self):
         def f(x):
             return '%s' % unichr(x)

@@ -216,33 +216,6 @@ class TestRUnicode(AbstractTestRstr, BaseRtypingTest):
             return d[c]
         assert self.interpret(fn, [u'\u03b1']) == 42
 
-    def test_convert_char_to_unichar(self):
-        def g(c):
-            return ord(c)
-        def fn(n):
-            if n < 0:
-                c = unichr(-n)
-            else:
-                c = chr(n)
-            return g(c)
-        assert self.interpret(fn, [65]) == 65
-        assert self.interpret(fn, [-5555]) == 5555
-
-    def test_char_unichar_eq(self):
-        def fn(c1, c2):
-            return c1 == c2
-        assert self.interpret(fn, [u'(', '(']) == True
-        assert self.interpret(fn, [u'\u1028', '(']) == False
-        assert self.interpret(fn, ['(', u'(']) == True
-        assert self.interpret(fn, ['(', u'\u1028']) == False
-
-    def test_char_unichar_eq_2(self):
-        def fn(c1):
-            return c1 == 'X'
-        assert self.interpret(fn, [u'(']) == False
-        assert self.interpret(fn, [u'\u1058']) == False
-        assert self.interpret(fn, [u'X']) == True
-
     def test_strformat_unicode_arg(self):
         const = self.const
         def percentS(s, i):
