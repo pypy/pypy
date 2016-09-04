@@ -44,6 +44,7 @@ class State(object):
     # A global attribute :-(  Patch it with 'True' to enable checking of
     # the no_nul attribute...
     check_str_without_nul = False
+    allow_int_to_float = True
 TLS = State()
 
 class SomeObject(object):
