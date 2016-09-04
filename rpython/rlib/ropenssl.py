@@ -97,6 +97,21 @@ else:
 OPENSSL_VERSION_NUMBER = cconfig["OPENSSL_VERSION_NUMBER"]
 HAVE_TLSv1_2 = OPENSSL_VERSION_NUMBER >= 0x10001000
 
+if OPENSSL_VERSION_NUMBER >= 0x10100000:
+    eci.pre_include_bits = ()
+    eci.post_include_bits = ()
+    raise Exception("""OpenSSL version >= 1.1 not supported yet.
+
+    This program requires OpenSSL version 1.0.x, and may also
+    work with LibreSSL or OpenSSL 0.9.x.  OpenSSL 1.1 is quite
+    some work to update to; contributions are welcome.  Sorry,
+    you need to install an older version of OpenSSL for now.
+    Make sure this older version is the one picked up by this
+    program when it runs the compiler.
+    
+    This is the configuration used: %r""" % (eci,))
+
+
 class CConfig:
     _compilation_info_ = eci
 
