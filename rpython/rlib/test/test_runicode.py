@@ -823,9 +823,15 @@ class TestTranslation(object):
         def f(x):
 
             s1 = "".join(["\xd7\x90\xd6\x96\xeb\x96\x95\xf0\x90\x91\x93"] * x)
-            u, consumed = runicode.str_decode_utf_8(s1, len(s1), True)
-            s2 = runicode.unicode_encode_utf_8(u, len(u), True)
-            return s1 == s2
+            u, consumed = runicode.str_decode_utf_8(s1, len(s1), 'strict',
+                                                    allow_surrogates=True)
+            s2 = runicode.unicode_encode_utf_8(u, len(u), 'strict',
+                                                    allow_surrogates=True)
+            u3, consumed3 = runicode.str_decode_utf_8(s1, len(s1), 'strict',
+                                                    allow_surrogates=False)
+            s3 = runicode.unicode_encode_utf_8(u3, len(u3), 'strict',
+                                                    allow_surrogates=False)
+            return s1 == s2 == s3
         res = interpret(f, [2])
         assert res
 
