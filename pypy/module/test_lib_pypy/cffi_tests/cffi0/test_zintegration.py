@@ -154,7 +154,10 @@ class TestZIntegration(object):
         from cffi.setuptools_ext import _set_py_limited_api
         try:
             import setuptools
-            orig_version = setuptools.__version__
+        except ImportError as e:
+            py.test.skip(str(e))
+        orig_version = setuptools.__version__
+        try:
             setuptools.__version__ = '26.0.0'
             from setuptools import Extension
 

@@ -1009,6 +1009,12 @@ class CTypesBackend(object):
                         myref is not None and myref is other())
                 def __ne__(self, other):
                     return not (self == other)
+                def __hash__(self):
+                    try:
+                        return self._hash
+                    except AttributeError:
+                        self._hash = hash(self())
+                        return self._hash
             self._weakref_cache_ref = {}, MyRef
         weak_cache, MyRef = self._weakref_cache_ref
 
