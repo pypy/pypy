@@ -1479,6 +1479,7 @@ class BackendTests:
             assert p1[0] == 123
             seen.append(1)
         q = ffi.gc(p, destructor)
+        assert ffi.typeof(q) is ffi.typeof(p)
         import gc; gc.collect()
         assert seen == []
         del q
