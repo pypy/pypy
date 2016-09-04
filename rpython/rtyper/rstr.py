@@ -35,7 +35,8 @@ class AbstractStringRepr(Repr):
             allow_surrogates=False, result=result)
         return self.ll.llunicode(result.build())
 
-    def ll_raise_unicode_exception_decode(self, errors, encoding, msg, s,
+    @staticmethod
+    def ll_raise_unicode_exception_decode(errors, encoding, msg, s,
                                        startingpos, endingpos):
         raise UnicodeDecodeError(encoding, s, startingpos, endingpos, msg)
 
@@ -411,7 +412,8 @@ class AbstractUnicodeRepr(AbstractStringRepr):
             allow_surrogates=False)
         return self.ll.llstr(bytes)
 
-    def ll_raise_unicode_exception_encode(self, errors, encoding, msg, u,
+    @staticmethod
+    def ll_raise_unicode_exception_encode(errors, encoding, msg, u,
                                           startingpos, endingpos):
         raise UnicodeEncodeError(encoding, u, startingpos, endingpos, msg)
 

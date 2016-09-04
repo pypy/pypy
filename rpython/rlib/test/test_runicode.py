@@ -55,7 +55,7 @@ class UnicodeTests(object):
                 s = s.encode(encoding)
         except LookupError as e:
             py.test.skip(e)
-        result, consumed = decoder(s, len(s), True)
+        result, consumed = decoder(s, len(s), 'strict', final=True)
         assert consumed == len(s)
         self.typeequals(trueresult, result)
 
@@ -69,7 +69,7 @@ class UnicodeTests(object):
                 s = s.decode(encoding)
         except LookupError as e:
             py.test.skip(e)
-        result = encoder(s, len(s), True)
+        result = encoder(s, len(s), 'strict')
         self.typeequals(trueresult, result)
 
     def checkencodeerror(self, s, encoding, start, stop):
