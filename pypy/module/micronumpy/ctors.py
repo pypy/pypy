@@ -1,4 +1,5 @@
 from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.baseobjspace import BufferInterfaceNotFound
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from rpython.rlib.buffer import SubBuffer
 from rpython.rlib.rstring import strip_spaces
@@ -11,7 +12,6 @@ from pypy.module.micronumpy.base import (wrap_impl,
 from pypy.module.micronumpy.converters import shape_converter, order_converter
 import pypy.module.micronumpy.constants as NPY
 from .casting import scalar2dtype
-from pypy.objspace.std.memoryobject import W_MemoryView
 
 
 def build_scalar(space, w_dtype, w_state):
@@ -123,16 +123,23 @@ def _descriptor_from_pep3118_format(space, c_format):
     return None 
 
 def _array_from_buffer_3118(space, w_object, dtype):
-    buf = w_object.buf
-    if buf.getformat():
-        descr = _descriptor_from_pep3118_format(space, buf.getformat())
+    try:
+        w_buf = space.call_method(space.builtin, "memoryview", w_object)
+    except OperationError as e:
+        if e.match(space, space.w_TypeError):
+            # object does not have buffer interface
+            return w_object
+        raise
+    format = space.getattr(w_buf,space.newbytes('format'))
+    if format:
+        descr = _descriptor_from_pep3118_format(space, space.str_w(format))
         if not descr:
             return w_object
         if dtype and descr:
             raise oefmt(space.w_NotImplementedError,
                 "creating an array from a memoryview while specifying dtype "
                 "not supported")
-        if descr.elsize != buf.getitemsize(): 
+        if descr.elsize != space.int_w(space.getattr(w_buf, space.newbytes('itemsize'))): 
             msg = ("Item size computed from the PEP 3118 buffer format "
                   "string does not match the actual item size.")
             space.warn(space.wrap(msg), space.w_RuntimeWarning)
@@ -140,14 +147,17 @@ def _array_from_buffer_3118(space, w_object, dtype):
         dtype = descr 
     elif not dtype:
         dtype = descriptor.get_dtype_cache(space).w_stringdtype
-        dtype.elsize = buf.getitemsize()
-    nd = buf.getndim()
-    shape = buf.getshape()
+        dtype.elsize = space.int_w(space.getattr(w_buf, space.newbytes('itemsize')))
+    nd = space.int_w(space.getattr(w_buf, space.newbytes('ndim')))
+    shape = [space.int_w(d) for d in space.listview(
+                            space.getattr(w_buf, space.newbytes('shape')))]
     strides = []
+    buflen = space.len_w(w_buf) * dtype.elsize
     if shape:
-        strides = buf.getstrides()
+        strides = [space.int_w(d) for d in space.listview(
+                            space.getattr(w_buf, space.newbytes('strides')))]
         if not strides:
-            d = len(buf)
+            d = buflen
             strides = [0] * nd
             for k in range(nd):
                 if shape[k] > 0:
@@ -155,17 +165,23 @@ def _array_from_buffer_3118(space, w_object, dtype):
                     strides[k] = d
     else:
         if nd == 1:
-            shape = [len(buf) / dtype.elsize, ]
+            shape = [buflen / dtype.elsize, ]
             strides = [dtype.elsize, ]
         elif nd > 1:
             msg = ("ndim computed from the PEP 3118 buffer format "
                    "is greater than 1, but shape is NULL.")
             space.warn(space.wrap(msg), space.w_RuntimeWarning)
             return w_object
-    storage = buf.get_raw_address()
-    writable = not buf.readonly
-    w_ret = W_NDimArray.from_shape_and_storage(space, shape, storage,
-               storage_bytes=len(buf), dtype=dtype, w_base=w_object, 
+    try:
+        w_data = rffi.cast(RAW_STORAGE_PTR, space.int_w(space.call_method(w_buf, '_pypy_raw_address')))
+    except OperationError as e:
+        if e.match(space, space.w_ValueError):
+            return w_object
+        else:
+            raise e
+    writable = not space.bool_w(space.getattr(w_buf, space.newbytes('readonly')))
+    w_ret = W_NDimArray.from_shape_and_storage(space, shape, w_data,
+               storage_bytes=buflen, dtype=dtype, w_base=w_object, 
                writable=writable, strides=strides)
     if w_ret:
         return w_ret
@@ -187,6 +203,7 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
 
 def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
 
+    from pypy.module.micronumpy.boxes import W_GenericBox
     # numpy testing calls array(type(array([]))) and expects a ValueError
     if space.isinstance_w(w_object, space.w_type):
         raise oefmt(space.w_ValueError, "cannot create ndarray from type instance")
@@ -194,14 +211,17 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
     dtype = descriptor.decode_w_dtype(space, w_dtype)
     if not isinstance(w_object, W_NDimArray):
         w_array = try_array_method(space, w_object, w_dtype)
-        if w_array is not None:
+        if w_array is None:
+            if (    not space.isinstance_w(w_object, space.w_str) and 
+                    not space.isinstance_w(w_object, space.w_unicode) and
+                    not isinstance(w_object, W_GenericBox)):
+                # use buffer interface
+                w_object = _array_from_buffer_3118(space, w_object, dtype)
+        else:
             # continue with w_array, but do further operations in place
             w_object = w_array
             copy = False
             dtype = w_object.get_dtype()
-        elif isinstance(w_object, W_MemoryView):
-            # use buffer interface
-            w_object = _array_from_buffer_3118(space, w_object, dtype)
     if not isinstance(w_object, W_NDimArray):
         w_array, _copy = try_interface_method(space, w_object, copy)
         if w_array is not None:
