@@ -640,6 +640,20 @@ class __extend__(pairtype(SomeUnicodeCodePoint, SomeUnicodeString),
             result.const = str1.const + str2.const
         return result
 
+for cmp_op in [op.lt, op.le, op.eq, op.ne, op.gt, op.ge]:
+    @cmp_op.register(SomeUnicodeString, SomeString)
+    @cmp_op.register(SomeUnicodeString, SomeChar)
+    @cmp_op.register(SomeString, SomeUnicodeString)
+    @cmp_op.register(SomeChar, SomeUnicodeString)
+    @cmp_op.register(SomeUnicodeCodePoint, SomeString)
+    @cmp_op.register(SomeUnicodeCodePoint, SomeChar)
+    @cmp_op.register(SomeString, SomeUnicodeCodePoint)
+    @cmp_op.register(SomeChar, SomeUnicodeCodePoint)
+    def cmp_str_unicode(annotator, v1, v2):
+        raise AnnotatorError(
+            "Comparing byte strings with unicode strings is not RPython")
+
+
 class __extend__(pairtype(SomeInteger, SomeList)):
 
     def mul((int1, lst2)):

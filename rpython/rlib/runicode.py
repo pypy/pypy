@@ -1597,7 +1597,7 @@ def make_unicode_escape_function(pass_printable=False, unicode_output=False,
             oc = ord(ch)
 
             # Escape quotes
-            if quotes and (oc == quote or ch == '\\'):
+            if quotes and (oc == quote or ch == u'\\'):
                 result.append(STR('\\'))
                 result.append(CHR(oc))
                 pos += 1
@@ -1620,13 +1620,13 @@ def make_unicode_escape_function(pass_printable=False, unicode_output=False,
                 pos -= 1
 
             # Map special whitespace to '\t', \n', '\r'
-            if ch == '\t':
+            if ch == u'\t':
                 result.append(STR('\\t'))
-            elif ch == '\n':
+            elif ch == u'\n':
                 result.append(STR('\\n'))
-            elif ch == '\r':
+            elif ch == u'\r':
                 result.append(STR('\\r'))
-            elif ch == '\\':
+            elif ch == u'\\':
                 result.append(STR('\\\\'))
 
             # Map non-printable or non-ascii to '\xhh' or '\uhhhh'
