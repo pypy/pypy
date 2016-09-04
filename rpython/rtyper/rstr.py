@@ -30,7 +30,7 @@ class AbstractStringRepr(Repr):
         assert value is not None
         result = UnicodeBuilder(len(value))
         self.rstr_decode_utf_8(
-            value, len(value), 'strict', final=False,
+            value, len(value), 'strict', final=True,
             errorhandler=self.ll_raise_unicode_exception_decode,
             allow_surrogates=False, result=result)
         return self.ll.llunicode(result.build())
