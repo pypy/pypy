@@ -1,6 +1,6 @@
 import pytest
 
-from hypothesis import given
+from hypothesis import given, assume, example
 from hypothesis import strategies as st
 
 from rpython.flowspace.model import Variable
@@ -143,16 +143,21 @@ def compatible(s1, s2):
 def compatible_pair(pair_s):
     return compatible(*pair_s)
 
-st_float = st.just(SomeFloat()) | st.builds(const_float, st.floats())
-st_int = st.one_of(st.builds(SomeInteger, st.booleans(), st.booleans()),
-                   st.builds(const_int, st.integers()))
+st_const_float = st.builds(const_float, st.floats())
+st_float = st.just(SomeFloat()) | st_const_float
+st_const_int = st.builds(const_int, st.integers())
+st_int = st.builds(SomeInteger, st.booleans(), st.booleans()) | st_const_int
+st_const_bool = st.sampled_from([s_True, s_False])
 st_bool = st.sampled_from([s_Bool, s_True, s_False])
 st_numeric = st.one_of(st_float, st_int, st_bool)
-st_str = (st.builds(SomeString, st.booleans(), st.booleans())
-          | st.builds(const_str, st.binary()))
+st_const_str = st.builds(const_str, st.binary())
+st_str = st.builds(SomeString, st.booleans(), st.booleans()) | st_const_str
+st_const_unicode = st.builds(const_unicode, st.text())
 st_unicode = (st.builds(SomeUnicodeString, st.booleans(), st.booleans())
-              | st.builds(const_unicode, st.text()))
+              | st_const_unicode)
 st_simple = st.one_of(st_numeric, st_str, st_unicode, st.just(s_ImpossibleValue), st.just(s_None))
+st_const = st.one_of(st_const_float, st_const_int, st_const_bool,
+                     st_const_str, st_const_unicode, st.just(s_None))
 
 def valid_unions(st_ann):
     """From a strategy generating annotations, create a strategy returning
@@ -187,6 +192,11 @@ def test_union_commutative(t):
 def test_union_associative(t):
     s1, s2, s3 = t
     assert union(union(s1, s2), s3) == union(s1, union(s2, s3))
+
+@given(s_const=st_const, s_obj=st_annotation)
+def test_constants_are_atoms(s_const, s_obj):
+    assume(s_const.contains(s_obj))
+    assert s_const == s_obj or s_obj == s_ImpossibleValue
 
 
 def compile_function(function, annotation=[]):
