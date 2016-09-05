@@ -308,7 +308,7 @@ class VectorAssemblerMixin(object):
             self.mc.CMPPD_xxi(lhsloc.value, rhsloc.value, 0)
         self.flush_vec_cc(rx86.Conditions["E"], lhsloc, resloc, sizeloc.value)
 
-    def flush_vec_cc(self, rev_cond, lhsloc, resloc, size):
+    def flush_vec_cc(self, rev_cond, lhsloc, resloc, size)
         # After emitting an instruction that leaves a boolean result in
         # a condition code (cc), call this.  In the common case, result_loc
         # will be set to SPP by the regalloc, which in this case means
@@ -322,6 +322,7 @@ class VectorAssemblerMixin(object):
             assert lhsloc is xmm0
             maskloc = X86_64_XMM_SCRATCH_REG
             self.mc.MOVAPD(maskloc, heap(self.element_ones[get_scale(size)]))
+            self.mc.PXOR(resloc, resloc)
             # note that resloc contains true false for each element by the last compare operation
             self.mc.PBLENDVB_xx(resloc.value, maskloc.value)
 
@@ -643,7 +644,12 @@ class VectorRegallocMixin(object):
             instructions.
         """
         xrm = self.xrm
+        curloc = self.loc(arg)
+        if curloc is selected_reg:
+            # nothing to do, it is already in the correct register
+            return selected_reg
         if selected_reg not in xrm.free_regs:
+            # we need to move some registers
             variable = None
             candidate_to_spill = None
             for var, reg in self.xrm.reg_bindings.items():

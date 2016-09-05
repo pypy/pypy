@@ -156,9 +156,9 @@ class VectorizeTests(object):
                 i += size
 
         la = data.draw(st.lists(st.floats(), min_size=10, max_size=150))
-        #la = [0.0,0.0,0.0,0.0,0.0,0.0,0.0]
-        #lb = [0.0,0.0,0.0,0.0,1.7976931348623157e+308,0.0,0.0]
+        #la = [0.0, 0.0, 0.0, 0.0, 5e-324, 0.0, 0.0, 5e-324, 0.0, 0.0]
         l = len(la)
+        #lb = [0.0] * l
         lb = data.draw(st.lists(st.floats(), min_size=l, max_size=l))
 
         rawstorage = RawStorage()
@@ -215,6 +215,9 @@ class VectorizeTests(object):
         la = data.draw(st.lists(integers, min_size=10, max_size=150))
         l = len(la)
         lb = data.draw(st.lists(integers, min_size=l, max_size=l))
+        #la = [0] * 10
+        #l = 10
+        #lb = [0] * 10
 
         rawstorage = RawStorage()
         va = rawstorage.new(la, type)
