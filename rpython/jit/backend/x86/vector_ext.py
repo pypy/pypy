@@ -308,7 +308,7 @@ class VectorAssemblerMixin(object):
             self.mc.CMPPD_xxi(lhsloc.value, rhsloc.value, 0)
         self.flush_vec_cc(rx86.Conditions["E"], lhsloc, resloc, sizeloc.value)
 
-    def flush_vec_cc(self, rev_cond, lhsloc, resloc, size)
+    def flush_vec_cc(self, rev_cond, lhsloc, resloc, size):
         # After emitting an instruction that leaves a boolean result in
         # a condition code (cc), call this.  In the common case, result_loc
         # will be set to SPP by the regalloc, which in this case means
