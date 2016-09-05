@@ -185,7 +185,7 @@ class UnrollOptimizer(Optimization):
 
         try:
             new_virtual_state = self.jump_to_existing_trace(
-                    end_jump, label_op, state.runtime_boxes force_boxes=False)
+                    end_jump, label_op, state.runtime_boxes, force_boxes=False)
         except InvalidLoop:
             # inlining short preamble failed, jump to preamble
             self.jump_to_preamble(celltoken, end_jump, info)
