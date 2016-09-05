@@ -112,10 +112,15 @@ class QcgcFrameworkGCTransformer(BaseFrameworkGCTransformer):
         v_instance, = op.args
         v_addr = hop.genop("cast_ptr_to_adr", [v_instance],
                            resulttype=llmemory.Address)
+        c_weakptr = rmodel.inputconst(lltype.Void, "weakptr")
         hop.genop("bare_setfield",
-                  [v_result, rmodel.inputconst(lltype.Void, "weakptr"), v_addr])
+                  [v_result, c_weakptr, v_addr])
         v_weakref = hop.genop("cast_ptr_to_weakrefptr", [v_result],
                               resulttype=llmemory.WeakRefPtr)
+        # Register weakref
+        v_fieldaddr = hop.genop("direct_fieldptr", [v_result, c_weakptr],
+                            resulttype=llmemory.Address)
+        #hop.genop("qcgc_register_weakref", [v_result, v_fieldaddr])
         hop.cast_result(v_weakref)
 
 class QcgcRootWalker(BaseRootWalker):
