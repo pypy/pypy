@@ -534,13 +534,13 @@ class VectorAssembler(object):
             self.mc.load_imm(r.SCRATCH2, PARAM_SAVE_AREA_OFFSET+16)
             self.mc.stvx(res, r.SCRATCH2.value, r.SP.value)
             if count * size == 8:
-                stidx = 0
                 if not IS_BIG_ENDIAN:
-                    idx = (16 // size) - 1 - idx
-                    stidx = 0
-                off = PARAM_SAVE_AREA_OFFSET + idx * size
+                    endian_off = 8
+                off = PARAM_SAVE_AREA_OFFSET
+                off = off + endian_off - (idx * size)
+                assert idx * size + 8 <= 16
                 self.mc.load(r.SCRATCH.value, r.SP.value, off)
-                self.mc.store(r.SCRATCH.value, r.SP.value, PARAM_SAVE_AREA_OFFSET+16+stidx)
+                self.mc.store(r.SCRATCH.value, r.SP.value, PARAM_SAVE_AREA_OFFSET+16+endian_off)
                 self.mc.lvx(res, r.SCRATCH2.value, r.SP.value)
                 return
 

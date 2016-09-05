@@ -826,7 +826,6 @@ class VectorizeTests(object):
                        (2**31-1 if i%2==0 else 0)
 
     def test_unpack_several(self):
-        # count == 2
         values = [1,2,3,4]
         for i,v in enumerate(values):
             j = (i // 2) * 2
