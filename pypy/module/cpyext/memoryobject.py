@@ -1,6 +1,6 @@
 from pypy.module.cpyext.api import (cpython_api, Py_buffer, CANNOT_FAIL,
                                     build_type_checkers, Py_ssize_tP)
-from pypy.module.cpyext.pyobject import PyObject, as_pyobj, incref
+from pypy.module.cpyext.pyobject import PyObject, make_ref, incref
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.objspace.std.memoryobject import W_MemoryView
 
@@ -26,16 +26,15 @@ def PyMemoryView_GET_BUFFER(space, w_obj):
         return view
     try:
         view.c_buf = rffi.cast(rffi.VOIDP, w_obj.buf.get_raw_address())
-        view.c_obj = as_pyobj(space, w_obj)
+        view.c_obj = make_ref(space, w_obj)
         rffi.setintfield(view, 'c_readonly', w_obj.buf.readonly)
         isstr = False
     except ValueError:
         w_s = w_obj.descr_tobytes(space)
-        view.c_obj = as_pyobj(space, w_s)
+        view.c_obj = make_ref(space, w_s)
         rffi.setintfield(view, 'c_readonly', 1)
         isstr = True
     view.c_len = w_obj.getlength()
-    incref(space, view.c_obj)
     view.c_itemsize = w_obj.buf.getitemsize()
     ndim = w_obj.buf.getndim()
     rffi.setintfield(view, 'c_ndim', ndim)
