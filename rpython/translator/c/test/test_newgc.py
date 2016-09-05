@@ -1280,6 +1280,50 @@ class TestQCGC(UsingFrameworkTest):
     GC_CAN_MOVE = False
     GC_CAN_SHRINK_ARRAY = False
     removetypeptr = True
+
+    # Hoping I can do this here
+    def define_weakref(cls):
+        import weakref
+
+        class A:
+            pass
+
+        keepalive = []
+        def collect():
+            # Make sure the bump pointer leaves the current arena
+            for i in range(2**16):
+                a = A()
+            rgc.collect()
+
+        def fn():
+            n = 7000
+            weakrefs = []
+            a = None
+            for i in range(n):
+                if i & 1 == 0:
+                    a = A()
+                    a.index = i
+                assert a is not None
+                weakrefs.append(weakref.ref(a))
+                if i % 7 == 6:
+                    keepalive.append(a)
+            collect()
+            count_free = 0
+            for i in range(n):
+                a = weakrefs[i]()
+                if i % 7 == 6:
+                    assert a is not None
+                if a is not None:
+                    assert a.index == i & ~1
+                else:
+                    count_free += 1
+            return count_free
+        return fn
+
+    def test_weakref(self):
+        res = self.run('weakref')
+        # more than half of them should have been freed, ideally up to 6000
+        assert 3500 <= res <= 6000
     
     def test_framework_nongc_static_root(self):
         py.test.skip("not implemented")
