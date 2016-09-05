@@ -1,5 +1,5 @@
 from pypy.module.cpyext.api import (cpython_api, Py_buffer, CANNOT_FAIL,
-                                    build_type_checkers, Py_ssize_tP)
+                               Py_MAX_NDIMS, build_type_checkers, Py_ssize_tP)
 from pypy.module.cpyext.pyobject import PyObject, make_ref, incref
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.objspace.std.memoryobject import W_MemoryView
@@ -24,6 +24,10 @@ def PyMemoryView_GET_BUFFER(space, w_obj):
     view = lltype.malloc(Py_buffer, flavor='raw', zero=True)
     if not isinstance(w_obj, W_MemoryView):
         return view
+    ndim = w_obj.buf.getndim()
+    if ndim >= Py_MAX_NDIMS:
+        # XXX warn?
+        return view
     try:
         view.c_buf = rffi.cast(rffi.VOIDP, w_obj.buf.get_raw_address())
         view.c_obj = make_ref(space, w_obj)
@@ -36,11 +40,11 @@ def PyMemoryView_GET_BUFFER(space, w_obj):
         isstr = True
     view.c_len = w_obj.getlength()
     view.c_itemsize = w_obj.buf.getitemsize()
-    ndim = w_obj.buf.getndim()
     rffi.setintfield(view, 'c_ndim', ndim)
-    view.c_format = rffi.str2charp(w_obj.buf.getformat())
-    view.c_shape = lltype.malloc(Py_ssize_tP.TO, ndim, flavor='raw')
-    view.c_strides = lltype.malloc(Py_ssize_tP.TO, ndim, flavor='raw')
+    view.c__format = rffi.cast(rffi.UCHAR, w_obj.buf.getformat())
+    view.c_format = rffi.cast(rffi.CCHARP, view.c__format)
+    view.c_shape = rffi.cast(Py_ssize_tP, view.c__shape)
+    view.c_strides = rffi.cast(Py_ssize_tP, view.c__strides)
     shape = w_obj.buf.getshape()
     strides = w_obj.buf.getstrides()
     for i in range(ndim):
@@ -49,5 +53,4 @@ def PyMemoryView_GET_BUFFER(space, w_obj):
     view.c_suboffsets = lltype.nullptr(Py_ssize_tP.TO)
     view.c_internal = lltype.nullptr(rffi.VOIDP.TO)
     return view
-
 
