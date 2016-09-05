@@ -1123,8 +1123,8 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redargtypes,
     """
     jitcell_token = make_jitcell_token(jitdriver_sd)
     #
-    logger = jitdriver_sd.metainterp_sd.jitlog
-    jitcell_token.number = logger.next_id()
+    #logger = jitdriver_sd.metainterp_sd.jitlog
+    #jitcell_token.number = logger.next_id()
     jl.tmp_callback(jitcell_token)
     #
     nb_red_args = jitdriver_sd.num_red_args

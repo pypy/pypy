@@ -255,12 +255,13 @@ for mark, in marks:
 
 if __name__ == "__main__":
     print("# generated constants from rpython/rlib/jitlog.py")
-    print 'MARK_JITLOG_START = struct.pack("b", "%s")' % hex(0x10)
+    print('import struct')
+    print('MARK_JITLOG_START = struct.pack("b", %s)' % hex(0x10))
     for mark, in marks:
         nmr = globals()['MARK_' + mark]
         h = hex(ord(nmr))
-        print '%s = struct.pack("b", "%s")' % ('MARK_' + mark, h)
-    print 'MARK_JITLOG_END = struct.pack("b", "%s")' % hex(start)
+        print '%s = struct.pack("b", %s)' % ('MARK_' + mark, h)
+    print 'MARK_JITLOG_END = struct.pack("b", %s)' % hex(start)
     for key,value in locals().items():
         if key.startswith("MP_"):
             print '%s = (%s,"%s")' % (key, hex(value[0]), value[1])
@@ -323,10 +324,10 @@ def redirect_assembler(oldtoken, newtoken, target):
 
 def tmp_callback(looptoken):
     mark_tmp_callback = ''.join([
-        jl.MARK_TMP_CALLBACK,
+        MARK_TMP_CALLBACK,
         encode_le_addr(compute_unique_id(looptoken)),
         encode_le_64bit(looptoken.number)])
-    jl.jitlog_write_marked(mark_tmp_callback, len(mark_tmp_callback))
+    jitlog_write_marked(mark_tmp_callback, len(mark_tmp_callback))
 
 class JitLogger(object):
     def __init__(self, cpu=None):
