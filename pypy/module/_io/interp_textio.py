@@ -231,16 +231,16 @@ class W_TextIOBase(W_IOBase):
             while True:
                 # Fast path for non-control chars. The loop always ends
                 # since the Py_UNICODE storage is NUL-terminated.
-                while i < size and line[start + i] > '\r':
+                while i < size and line[start + i] > u'\r':
                     i += 1
                 if i >= size:
                     return -1, size
                 ch = line[start + i]
                 i += 1
-                if ch == '\n':
+                if ch == u'\n':
                     return i, 0
-                if ch == '\r':
-                    if line[start + i] == '\n':
+                if ch == u'\r':
+                    if line[start + i] == u'\n':
                         return i + 1, 0
                     else:
                         return i, 0

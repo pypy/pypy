@@ -220,7 +220,7 @@ class StringMethods(object):
             offset = len(token)
 
             while 1:
-                if token[offset-1] == "\n" or token[offset-1] == "\r":
+                if token[offset-1] == self._chr("\n") or token[offset-1] == self._chr("\r"):
                     break
                 distance += 1
                 offset -= 1
@@ -598,7 +598,8 @@ class StringMethods(object):
             eol = pos
             pos += 1
             # read CRLF as one line break
-            if pos < length and value[eol] == '\r' and value[pos] == '\n':
+            if (pos < length and value[eol] == self._chr('\r')
+                    and value[pos] == self._chr('\n')):
                 pos += 1
             if keepends:
                 eol = pos
@@ -780,7 +781,8 @@ class StringMethods(object):
             return self._new(selfval)
 
         builder = self._builder(width)
-        if len(selfval) > 0 and (selfval[0] == '+' or selfval[0] == '-'):
+        if len(selfval) > 0 and (
+                selfval[0] == self._chr('+') or selfval[0] == self._chr('-')):
             # copy sign to first position
             builder.append(selfval[0])
             start = 1

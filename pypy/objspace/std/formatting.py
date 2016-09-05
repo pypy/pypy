@@ -184,11 +184,11 @@ def make_formatter_subclass(do_unicode):
                 except IndexError:
                     space = self.space
                     raise oefmt(space.w_ValueError, "incomplete format key")
-                if c == ')':
+                if c == const(')'):
                     pcount -= 1
                     if pcount == 0:
                         break
-                elif c == '(':
+                elif c == const('('):
                     pcount += 1
                 i += 1
             self.fmtpos = i + 1   # first character after ')'
@@ -203,7 +203,7 @@ def make_formatter_subclass(do_unicode):
             return space.getitem(self.w_valuedict, w_key)
 
         def parse_fmt(self):
-            if self.peekchr() == '(':
+            if self.peekchr() == const('('):
                 w_value = self.getmappingvalue(self.getmappingkey())
             else:
                 w_value = None
@@ -216,7 +216,7 @@ def make_formatter_subclass(do_unicode):
                 self.f_ljust = True
                 self.width = -self.width
 
-            if self.peekchr() == '.':
+            if self.peekchr() == const('.'):
                 self.forward()
                 self.prec = self.peel_num('prec', INT_MAX)
                 if self.prec < 0:
@@ -225,7 +225,7 @@ def make_formatter_subclass(do_unicode):
                 self.prec = -1
 
             c = self.peekchr()
-            if c == 'h' or c == 'l' or c == 'L':
+            if c == const('h') or c == const('l') or c == const('L'):
                 self.forward()
 
             return w_value
@@ -240,15 +240,15 @@ def make_formatter_subclass(do_unicode):
             self.f_zero  = False
             while True:
                 c = self.peekchr()
-                if c == '-':
+                if c == const('-'):
                     self.f_ljust = True
-                elif c == '+':
+                elif c == const('+'):
                     self.f_sign = True
-                elif c == ' ':
+                elif c == const(' '):
                     self.f_blank = True
-                elif c == '#':
+                elif c == const('#'):
                     self.f_alt = True
-                elif c == '0':
+                elif c == const('0'):
                     self.f_zero = True
                 else:
                     break
@@ -259,7 +259,7 @@ def make_formatter_subclass(do_unicode):
         def peel_num(self, name, maxval):
             space = self.space
             c = self.peekchr()
-            if c == '*':
+            if c == const('*'):
                 self.forward()
                 w_value = self.nextinputvalue()
                 if name == 'width':
@@ -293,7 +293,7 @@ def make_formatter_subclass(do_unicode):
                 fmt = self.fmt
                 i = i0 = self.fmtpos
                 while i < len(fmt):
-                    if fmt[i] == '%':
+                    if fmt[i] == const('%'):
                         break
                     i += 1
                 else:
@@ -306,7 +306,7 @@ def make_formatter_subclass(do_unicode):
                 w_value = self.parse_fmt()
                 c = self.peekchr()
                 self.forward()
-                if c == '%':
+                if c == const('%'):
                     self.std_wp(const('%'))
                     continue
                 if w_value is None:
@@ -315,7 +315,7 @@ def make_formatter_subclass(do_unicode):
                 # dispatch on the formatter
                 # (this turns into a switch after translation)
                 for c1 in FORMATTER_CHARS:
-                    if c == c1:
+                    if c == const(c1):
                         # 'c1' is an annotation constant here,
                         # so this getattr() is ok
                         do_fmt = getattr(self, 'fmt_' + c1)
