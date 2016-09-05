@@ -120,8 +120,8 @@ pypy_decl = 'pypy_decl.h'
 constant_names = """
 Py_TPFLAGS_READY Py_TPFLAGS_READYING Py_TPFLAGS_HAVE_GETCHARBUFFER
 METH_COEXIST METH_STATIC METH_CLASS Py_TPFLAGS_BASETYPE
-METH_NOARGS METH_VARARGS METH_KEYWORDS METH_O
-Py_TPFLAGS_HEAPTYPE Py_TPFLAGS_HAVE_CLASS
+METH_NOARGS METH_VARARGS METH_KEYWORDS METH_O Py_TPFLAGS_HAVE_INPLACEOPS
+Py_TPFLAGS_HEAPTYPE Py_TPFLAGS_HAVE_CLASS Py_TPFLAGS_HAVE_NEWBUFFER
 Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE Py_TPFLAGS_CHECKTYPES
 """.split()
 for name in constant_names:
@@ -649,6 +649,7 @@ Py_buffer = cpython_struct(
         #('smalltable', rffi.CFixedArray(Py_ssize_t, 2)),
         ('internal', rffi.VOIDP)
         ))
+Py_bufferP = lltype.Ptr(Py_buffer)
 
 @specialize.memo()
 def is_PyObject(TYPE):
@@ -976,8 +977,10 @@ def setup_init_functions(eci, translating):
         py_type_ready(space, get_capsule_type())
     INIT_FUNCTIONS.append(init_types)
     from pypy.module.posix.interp_posix import add_fork_hook
-    reinit_tls = rffi.llexternal('%sThread_ReInitTLS' % prefix, [], lltype.Void,
-                                 compilation_info=eci)
+    _reinit_tls = rffi.llexternal('%sThread_ReInitTLS' % prefix, [], 
+                                  lltype.Void, compilation_info=eci)
+    def reinit_tls(space):
+        _reinit_tls()
     add_fork_hook('child', reinit_tls)
 
 def init_function(func):

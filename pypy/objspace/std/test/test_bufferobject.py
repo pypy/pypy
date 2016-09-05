@@ -4,7 +4,7 @@ class AppTestBuffer:
     def test_init(self):
         import sys
         class A(object):
-            def __buffer__(self):
+            def __buffer__(self, flags):
                 return buffer('123')
         if '__pypy__' not in sys.builtin_module_names:
             raises(TypeError, buffer, A())

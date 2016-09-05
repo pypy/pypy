@@ -223,7 +223,7 @@ def closerange(fd_low, fd_high):
             pass
 
 if _WIN32:
-    includes = ['io.h', 'sys/utime.h', 'sys/types.h', 'process.h']
+    includes = ['io.h', 'sys/utime.h', 'sys/types.h', 'process.h', 'time.h']
     libraries = []
 else:
     if sys.platform.startswith(('darwin', 'netbsd', 'openbsd')):
@@ -254,16 +254,23 @@ class CConfig:
     UTIMBUF = rffi_platform.Struct('struct %sutimbuf' % UNDERSCORE_ON_WIN32,
                                    [('actime', rffi.INT),
                                     ('modtime', rffi.INT)])
+    CLOCK_T = rffi_platform.SimpleType('clock_t', rffi.INT)
     if not _WIN32:
         UID_T = rffi_platform.SimpleType('uid_t', rffi.UINT)
         GID_T = rffi_platform.SimpleType('gid_t', rffi.UINT)
-        CLOCK_T = rffi_platform.SimpleType('clock_t', rffi.INT)
+        TIOCGWINSZ = rffi_platform.DefinedConstantInteger('TIOCGWINSZ')
 
         TMS = rffi_platform.Struct(
             'struct tms', [('tms_utime', rffi.INT),
                            ('tms_stime', rffi.INT),
                            ('tms_cutime', rffi.INT),
                            ('tms_cstime', rffi.INT)])
+
+        WINSIZE = rffi_platform.Struct(
+            'struct winsize', [('ws_row', rffi.USHORT),
+                           ('ws_col', rffi.USHORT),
+                           ('ws_xpixel', rffi.USHORT),
+                           ('ws_ypixel', rffi.USHORT)])
 
     GETPGRP_HAVE_ARG = rffi_platform.Has("getpgrp(0)")
     SETPGRP_HAVE_ARG = rffi_platform.Has("setpgrp(0, 0)")
@@ -365,15 +372,27 @@ def handle_posix_error(name, result):
         raise OSError(get_saved_errno(), '%s failed' % name)
     return result
 
-@replace_os_function('dup')
-def dup(fd):
+def _dup(fd, inheritable=True):
     validate_fd(fd)
-    return handle_posix_error('dup', c_dup(fd))
+    if inheritable:
+        res = c_dup(fd)
+    else:
+        res = c_dup_noninheritable(fd)
+    return res
+
+@replace_os_function('dup')
+def dup(fd, inheritable=True):
+    res = _dup(fd, inheritable)
+    return handle_posix_error('dup', res)
 
 @replace_os_function('dup2')
-def dup2(fd, newfd):
+def dup2(fd, newfd, inheritable=True):
     validate_fd(fd)
-    handle_posix_error('dup2', c_dup2(fd, newfd))
+    if inheritable:
+        res = c_dup2(fd, newfd)
+    else:
+        res = c_dup2_noninheritable(fd, newfd)
+    handle_posix_error('dup2', res)
 
 #___________________________________________________________________
 
@@ -604,7 +623,8 @@ if not _WIN32:
     class CConfig:
         _compilation_info_ = eci
         DIRENT = rffi_platform.Struct('struct dirent',
-            [('d_name', lltype.FixedSizeArray(rffi.CHAR, 1))]
+            [('d_name', lltype.FixedSizeArray(rffi.CHAR, 1)),
+             ('d_ino', lltype.Signed)]
             + [('d_type', rffi.INT)] if HAVE_D_TYPE else [])
         if HAVE_D_TYPE:
             DT_UNKNOWN = rffi_platform.ConstantInteger('DT_UNKNOWN')
@@ -628,6 +648,8 @@ if not _WIN32:
                          macro=True, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
     c_closedir = external('closedir', [DIRP], rffi.INT, releasegil=False)
     c_dirfd = external('dirfd', [DIRP], rffi.INT, releasegil=False)
+    c_ioctl_voidp = external('ioctl', [rffi.INT, rffi.UINT, rffi.VOIDP], rffi.INT,
+                         save_err=rffi.RFFI_SAVE_ERRNO)
 else:
     dirent_config = {}
 
@@ -1113,36 +1135,68 @@ if _WIN32:
     c_open_osfhandle = external('_open_osfhandle', [rffi.INTPTR_T,
                                                     rffi.INT],
                                 rffi.INT)
+    HAVE_PIPE2 = False
+    HAVE_DUP3 = False
+    O_CLOEXEC = None
 else:
     INT_ARRAY_P = rffi.CArrayPtr(rffi.INT)
     c_pipe = external('pipe', [INT_ARRAY_P], rffi.INT,
                       save_err=rffi.RFFI_SAVE_ERRNO)
+    class CConfig:
+        _compilation_info_ = eci
+        HAVE_PIPE2 = rffi_platform.Has('pipe2')
+        HAVE_DUP3 = rffi_platform.Has('dup3')
+        O_CLOEXEC = rffi_platform.DefinedConstantInteger('O_CLOEXEC')
+    config = rffi_platform.configure(CConfig)
+    HAVE_PIPE2 = config['HAVE_PIPE2']
+    HAVE_DUP3 = config['HAVE_DUP3']
+    O_CLOEXEC = config['O_CLOEXEC']
+    if HAVE_PIPE2:
+        c_pipe2 = external('pipe2', [INT_ARRAY_P, rffi.INT], rffi.INT,
+                          save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('pipe')
-def pipe():
+def pipe(flags=0):
+    # 'flags' might be ignored.  Check the result.
     if _WIN32:
-        pread  = lltype.malloc(rwin32.LPHANDLE.TO, 1, flavor='raw')
-        pwrite = lltype.malloc(rwin32.LPHANDLE.TO, 1, flavor='raw')
-        try:
-            if not CreatePipe(
-                    pread, pwrite, lltype.nullptr(rffi.VOIDP.TO), 0):
-                raise WindowsError(rwin32.GetLastError_saved(),
-                                   "CreatePipe failed")
-            hread = rffi.cast(rffi.INTPTR_T, pread[0])
-            hwrite = rffi.cast(rffi.INTPTR_T, pwrite[0])
-        finally:
-            lltype.free(pwrite, flavor='raw')
-            lltype.free(pread, flavor='raw')
-        fdread = c_open_osfhandle(hread, 0)
-        fdwrite = c_open_osfhandle(hwrite, 1)
-        return (fdread, fdwrite)
+        # 'flags' ignored
+        ralloc = lltype.scoped_alloc(rwin32.LPHANDLE.TO, 1)
+        walloc = lltype.scoped_alloc(rwin32.LPHANDLE.TO, 1)
+        with ralloc as pread, walloc as pwrite:
+            if CreatePipe(pread, pwrite, lltype.nullptr(rffi.VOIDP.TO), 0):
+                hread = pread[0]
+                hwrite = pwrite[0]
+                fdread = c_open_osfhandle(rffi.cast(rffi.INTPTR_T, hread), 0)
+                fdwrite = c_open_osfhandle(rffi.cast(rffi.INTPTR_T, hwrite), 1)
+                if not (fdread == -1 or fdwrite == -1):
+                    return (fdread, fdwrite)
+                rwin32.CloseHandle(hread)
+                rwin32.CloseHandle(hwrite)
+        raise WindowsError(rwin32.GetLastError_saved(), "CreatePipe failed")
     else:
         filedes = lltype.malloc(INT_ARRAY_P.TO, 2, flavor='raw')
         try:
-            handle_posix_error('pipe', c_pipe(filedes))
+            if HAVE_PIPE2 and _pipe2_syscall.attempt_syscall():
+                res = c_pipe2(filedes, flags)
+                if _pipe2_syscall.fallback(res):
+                    res = c_pipe(filedes)
+            else:
+                res = c_pipe(filedes)      # 'flags' ignored
+            handle_posix_error('pipe', res)
             return (widen(filedes[0]), widen(filedes[1]))
         finally:
             lltype.free(filedes, flavor='raw')
+
+def pipe2(flags):
+    # Only available if there is really a c_pipe2 function.
+    # No fallback to pipe() if we get ENOSYS.
+    filedes = lltype.malloc(INT_ARRAY_P.TO, 2, flavor='raw')
+    try:
+        res = c_pipe2(filedes, flags)
+        handle_posix_error('pipe2', res)
+        return (widen(filedes[0]), widen(filedes[1]))
+    finally:
+        lltype.free(filedes, flavor='raw')
 
 c_link = external('link', [rffi.CCHARP, rffi.CCHARP], rffi.INT,
                   save_err=rffi.RFFI_SAVE_ERRNO,)
@@ -2079,14 +2133,47 @@ if HAVE_MKNODAT:
 
 
 eci_inheritable = eci.merge(ExternalCompilationInfo(
-    separate_module_sources=["""
+    separate_module_sources=[r"""
+#include <errno.h>
+#include <sys/ioctl.h>
+
 RPY_EXTERN
 int rpy_set_inheritable(int fd, int inheritable)
 {
-    /* XXX minimal impl. XXX */
-    int request = inheritable ? FIONCLEX : FIOCLEX;
-    return ioctl(fd, request, NULL);
+    static int ioctl_works = -1;
+    int flags;
+
+    if (ioctl_works != 0) {
+        int request = inheritable ? FIONCLEX : FIOCLEX;
+        int err = ioctl(fd, request, NULL);
+        if (!err) {
+            ioctl_works = 1;
+            return 0;
+        }
+
+        if (errno != ENOTTY && errno != EACCES) {
+            return -1;
+        }
+        else {
+            /* ENOTTY: The ioctl is declared but not supported by the
+               kernel.  EACCES: SELinux policy, this can be the case on
+               Android. */
+            ioctl_works = 0;
+        }
+        /* fallback to fcntl() if ioctl() does not work */
+    }
+
+    flags = fcntl(fd, F_GETFD);
+    if (flags < 0)
+        return -1;
+
+    if (inheritable)
+        flags &= ~FD_CLOEXEC;
+    else
+        flags |= FD_CLOEXEC;
+    return fcntl(fd, F_SETFD, flags);
 }
+
 RPY_EXTERN
 int rpy_get_inheritable(int fd)
 {
@@ -2095,8 +2182,64 @@ int rpy_get_inheritable(int fd)
         return -1;
     return !(flags & FD_CLOEXEC);
 }
-    """],
-    post_include_bits=['RPY_EXTERN int rpy_set_inheritable(int, int);']))
+
+RPY_EXTERN
+int rpy_dup_noninheritable(int fd)
+{
+#ifdef _WIN32
+#error NotImplementedError
+#endif
+
+#ifdef F_DUPFD_CLOEXEC
+    return fcntl(fd, F_DUPFD_CLOEXEC, 0);
+#else
+    fd = dup(fd);
+    if (fd >= 0) {
+        if (rpy_set_inheritable(fd, 0) != 0) {
+            close(fd);
+            return -1;
+        }
+    }
+    return fd;
+#endif
+}
+
+RPY_EXTERN
+int rpy_dup2_noninheritable(int fd, int fd2)
+{
+#ifdef _WIN32
+#error NotImplementedError
+#endif
+
+#ifdef F_DUP2FD_CLOEXEC
+    return fcntl(fd, F_DUP2FD_CLOEXEC, fd2);
+
+#else
+# if %(HAVE_DUP3)d   /* HAVE_DUP3 */
+    static int dup3_works = -1;
+    if (dup3_works != 0) {
+        if (dup3(fd, fd2, O_CLOEXEC) >= 0)
+            return 0;
+        if (dup3_works == -1)
+            dup3_works = (errno != ENOSYS);
+        if (dup3_works)
+            return -1;
+    }
+# endif
+    if (dup2(fd, fd2) < 0)
+        return -1;
+    if (rpy_set_inheritable(fd2, 0) != 0) {
+        close(fd2);
+        return -1;
+    }
+    return 0;
+#endif
+}
+    """ % {'HAVE_DUP3': HAVE_DUP3}],
+    post_include_bits=['RPY_EXTERN int rpy_set_inheritable(int, int);\n'
+                       'RPY_EXTERN int rpy_get_inheritable(int);\n'
+                       'RPY_EXTERN int rpy_dup_noninheritable(int);\n'
+                       'RPY_EXTERN int rpy_dup2_noninheritable(int, int);\n']))
 
 c_set_inheritable = external('rpy_set_inheritable', [rffi.INT, rffi.INT],
                              rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
@@ -2104,12 +2247,56 @@ c_set_inheritable = external('rpy_set_inheritable', [rffi.INT, rffi.INT],
 c_get_inheritable = external('rpy_get_inheritable', [rffi.INT],
                              rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
                              compilation_info=eci_inheritable)
+c_dup_noninheritable = external('rpy_dup_noninheritable', [rffi.INT],
+                                rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
+                                compilation_info=eci_inheritable)
+c_dup2_noninheritable = external('rpy_dup2_noninheritable', [rffi.INT,rffi.INT],
+                                 rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
+                                 compilation_info=eci_inheritable)
 
 def set_inheritable(fd, inheritable):
-    error = c_set_inheritable(fd, inheritable)
-    handle_posix_error('set_inheritable', error)
+    result = c_set_inheritable(fd, inheritable)
+    handle_posix_error('set_inheritable', result)
 
 def get_inheritable(fd):
     res = c_get_inheritable(fd)
     res = handle_posix_error('get_inheritable', res)
     return res != 0
+
+class SetNonInheritableCache(object):
+    """Make one prebuilt instance of this for each path that creates
+    file descriptors, where you don't necessarily know if that function
+    returns inheritable or non-inheritable file descriptors.
+    """
+    _immutable_fields_ = ['cached_inheritable?']
+    cached_inheritable = -1    # -1 = don't know yet; 0 = off; 1 = on
+
+    def set_non_inheritable(self, fd):
+        if self.cached_inheritable == -1:
+            self.cached_inheritable = get_inheritable(fd)
+        if self.cached_inheritable == 1:
+            # 'fd' is inheritable; we must manually turn it off
+            set_inheritable(fd, False)
+
+    def _cleanup_(self):
+        self.cached_inheritable = -1
+
+class ENoSysCache(object):
+    """Cache whether a system call returns ENOSYS or not."""
+    _immutable_fields_ = ['cached_nosys?']
+    cached_nosys = -1      # -1 = don't know; 0 = no; 1 = yes, getting ENOSYS
+
+    def attempt_syscall(self):
+        return self.cached_nosys != 1
+
+    def fallback(self, res):
+        nosys = self.cached_nosys
+        if nosys == -1:
+            nosys = (res < 0 and get_saved_errno() == errno.ENOSYS)
+            self.cached_nosys = nosys
+        return nosys
+
+    def _cleanup_(self):
+        self.cached_nosys = -1
+
+_pipe2_syscall = ENoSysCache()

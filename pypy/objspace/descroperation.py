@@ -58,6 +58,20 @@ def tuple_iter(space):
     return w_iter
 tuple_iter._annspecialcase_ = 'specialize:memo'
 
+def str_getitem(space):
+    "Utility that returns the app-level descriptor str.__getitem__."
+    w_src, w_iter = space.lookup_in_type_where(space.w_str,
+                                               '__getitem__')
+    return w_iter
+str_getitem._annspecialcase_ = 'specialize:memo'
+
+def unicode_getitem(space):
+    "Utility that returns the app-level descriptor unicode.__getitem__."
+    w_src, w_iter = space.lookup_in_type_where(space.w_unicode,
+                                               '__getitem__')
+    return w_iter
+unicode_getitem._annspecialcase_ = 'specialize:memo'
+
 def raiseattrerror(space, w_obj, name, w_descr=None):
     if w_descr is None:
         raise oefmt(space.w_AttributeError,

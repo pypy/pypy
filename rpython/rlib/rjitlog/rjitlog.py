@@ -212,7 +212,7 @@ def returns(*args):
         return method
     return decor
 
-JITLOG_VERSION = 2
+JITLOG_VERSION = 3
 JITLOG_VERSION_16BIT_LE = struct.pack("<H", JITLOG_VERSION)
 
 marks = [
@@ -244,6 +244,7 @@ marks = [
     ('COMMON_PREFIX',),
     ('ABORT_TRACE',),
     ('SOURCE_CODE',),
+    ('REDIRECT_ASSEMBLER',),
 ]
 
 start = 0x11
@@ -308,6 +309,17 @@ def _log_jit_counter(struct):
             struct.type, encode_le_64bit(struct.i)]
     content = ''.join(list)
     jitlog_write_marked(content, len(content))
+
+def redirect_assembler(oldtoken, newtoken, target):
+    if not jitlog_enabled():
+        return
+    descr_nmr = compute_unique_id(oldtoken)
+    new_descr_nmr = compute_unique_id(newtoken)
+    list = [MARK_REDIRECT_ASSEMBLER, encode_le_addr(descr_nmr),
+            encode_le_addr(new_descr_nmr), encode_le_addr(target)]
+    content = ''.join(list)
+    jitlog_write_marked(content, len(content))
+
 
 class JitLogger(object):
     def __init__(self, cpu=None):
@@ -418,9 +430,8 @@ class PrefixCompressor(object):
 
 def encode_merge_point(log, compressor, values):
     line = []
-    unrolled = unrolling_iterable(values)
     i = 0
-    for value in unrolled:
+    for value in values:
         line.append(value.encode(log,i,compressor))
         i += 1
     return ''.join(line)
