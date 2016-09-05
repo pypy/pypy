@@ -322,8 +322,7 @@ class VectorAssemblerMixin(object):
             assert lhsloc is xmm0
             maskloc = X86_64_XMM_SCRATCH_REG
             self.mc.MOVAPD(maskloc, heap(self.element_ones[get_scale(size)]))
-            self.mc.PXOR(resloc, resloc)
-            # note that xmm0 contains true false for each element by the last compare operation
+            # note that resloc contains true false for each element by the last compare operation
             self.mc.PBLENDVB_xx(resloc.value, maskloc.value)
 
     def genop_vec_float_ne(self, op, arglocs, resloc):
@@ -532,7 +531,7 @@ class VectorAssemblerMixin(object):
                             self.mc.UNPCKHPD(resloc, srcloc)
                         # if they are equal nothing is to be done
         else:
-            not_implemented("pack/unpack for size %d", size)
+            not_implemented("pack/unpack for size %d" % size)
 
     genop_vec_unpack_f = genop_vec_pack_f
 
