@@ -92,7 +92,13 @@ struct hbtable_entry_s {
 	bool mark_flag;
 };
 
+struct weakref_bag_item_s {
+	object_t *weakrefobj;
+	object_t **target;
+};
+
 DECLARE_BAG(arena_bag, arena_t *);
 DECLARE_BAG(linear_free_list, cell_t *);
 DECLARE_BAG(exp_free_list, struct exp_free_list_item_s);
 DECLARE_BAG(hbbucket, struct hbtable_entry_s);
+DECLARE_BAG(weakref_bag, struct weakref_bag_item_s);

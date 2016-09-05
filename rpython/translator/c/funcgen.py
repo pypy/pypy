@@ -960,12 +960,6 @@ class FunctionCodeGenerator(object):
     def OP_QCGC_COLLECT(self, op):
         return 'qcgc_collect();'
 
-    def OP_QCGC_IS_PREBUILT(self, op):
-        obj = self.expr(op.args[0])
-        result = self.expr(op.result)
-        return '%s = (((object_t *) %s)->flags & QCGC_PREBUILT_OBJECT) != 0;' % (
-                result, obj)
-
     def OP_QCGC_WRITE_BARRIER(self, op):
         obj = self.expr(op.args[0])
         return 'qcgc_write(%s);' % (obj,)

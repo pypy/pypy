@@ -2,7 +2,8 @@ from rpython.rtyper.llannotation import SomePtr, SomeAddress, s_None
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper import rmodel
 from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.memory.gctransform.framework import (BaseFrameworkGCTransformer, BaseRootWalker)
+from rpython.memory.gctransform.framework import (BaseFrameworkGCTransformer,
+        BaseRootWalker, TYPE_ID, WEAKREF, WEAKREFPTR)
 
 VISIT_FPTR = lltype.Ptr(lltype.FuncType([llmemory.Address], lltype.Void))
 
@@ -33,6 +34,12 @@ class QcgcFrameworkGCTransformer(BaseFrameworkGCTransformer):
             getfn(pypy_trace_cb,
                   [SomeAddress(), SomePtr(VISIT_FPTR)],
                   s_None))
+
+    #Compilation error when overriding, no idea why
+    #def finish_tables(self):
+    #    BaseFrameworkGCTransformer.finish_tables(self)
+        #Makes test fail, works when translating pypy (but compiling still fails)
+        #assert len(self.layoutbuilder.addresses_of_static_ptrs_in_nongc) == 2
 
     def gc_header_for(self, obj, needs_hash=False):
         hdr = self.gcdata.gc.gcheaderbuilder.header_of_object(obj)
@@ -76,6 +83,40 @@ class QcgcFrameworkGCTransformer(BaseFrameworkGCTransformer):
 #                          resulttype=llmemory.Address)
 #        hop.genop("cast_adr_to_ptr", [v_adr],
 #                  resultvar = hop.spaceop.result)
+
+    def gct_weakref_create(self, hop):
+        # Custom weakref creation as their registration is slightly different
+        op = hop.spaceop
+
+        type_id = self.get_type_id(WEAKREF)
+
+        c_type_id = rmodel.inputconst(TYPE_ID, type_id)
+        info = self.layoutbuilder.get_info(type_id)
+        c_size = rmodel.inputconst(lltype.Signed, info.fixedsize)
+        malloc_ptr = self.malloc_fixedsize_ptr
+        c_false = rmodel.inputconst(lltype.Bool, False)
+        c_has_weakptr = rmodel.inputconst(lltype.Bool, True)
+        args = [self.c_const_gc, c_type_id, c_size,
+                c_false, c_false, c_has_weakptr]
+
+        # push and pop the current live variables *including* the argument
+        # to the weakref_create operation, which must be kept alive if the GC
+        # needs to collect
+        livevars = self.push_roots(hop, keep_current_args=True)
+        v_result = hop.genop("direct_call", [malloc_ptr] + args,
+                             resulttype=llmemory.GCREF)
+        v_result = hop.genop("cast_opaque_ptr", [v_result],
+                            resulttype=WEAKREFPTR)
+        self.pop_roots(hop, livevars)
+        #
+        v_instance, = op.args
+        v_addr = hop.genop("cast_ptr_to_adr", [v_instance],
+                           resulttype=llmemory.Address)
+        hop.genop("bare_setfield",
+                  [v_result, rmodel.inputconst(lltype.Void, "weakptr"), v_addr])
+        v_weakref = hop.genop("cast_ptr_to_weakrefptr", [v_result],
+                              resulttype=llmemory.WeakRefPtr)
+        hop.cast_result(v_weakref)
 
 class QcgcRootWalker(BaseRootWalker):
     def walk_stack_roots(self, collect_stack_root, is_minor=False):

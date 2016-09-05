@@ -1,15 +1,14 @@
 #pragma once
 
-#define CHECKED 0							// Enable runtime sanity checks
-											// warning: huge performance impact
-#define DEBUG_ZERO_ON_SWEEP 0				// Zero memory on sweep (debug only)
+#define CHECKED 1							// Enable runtime sanity checks
+#define DEBUG_ZERO_ON_SWEEP 1				// Zero memory on sweep (debug only)
 
 #define QCGC_INIT_ZERO 1					// Init new objects with zero bytes
 
 /**
  * Event logger
  */
-#define EVENT_LOG 0							// Enable event log
+#define EVENT_LOG 1							// Enable event log
 #define LOGFILE "./qcgc_events.log"			// Default logfile
 #define LOG_ALLOCATION 0					// Enable allocation log (warning:
 											// significant performance impact)
@@ -29,6 +28,12 @@
 #define QCGC_LARGE_FREE_LIST_FIRST_EXP 5	// First exponent of large free list
 #define QCGC_LARGE_FREE_LIST_INIT_SIZE 4	// Initial size for large free lists
 #define QCGC_SMALL_FREE_LIST_INIT_SIZE 16	// Initial size for small free lists
+
+/**
+ * Auto Mark/Collect
+ */
+#define QCGC_MAJOR_COLLECTION_THRESHOLD (5 * (1<<QCGC_ARENA_SIZE_EXP))
+#define QCGC_INCMARK_THRESHOLD (1<<QCGC_ARENA_SIZE_EXP)
 
 /**
  * DO NOT MODIFY BELOW HERE

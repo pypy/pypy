@@ -1280,6 +1280,9 @@ class TestQCGC(UsingFrameworkTest):
     GC_CAN_MOVE = False
     GC_CAN_SHRINK_ARRAY = False
     removetypeptr = True
+    
+    def test_framework_static_roots(self):
+        py.test.skip("not implemented")
 
 
 

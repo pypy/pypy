@@ -10,20 +10,41 @@
 #include "hugeblocktable.h"
 #include "event_logger.h"
 
+#define env_or_fallback(var, env_name, fallback) while(0) {		\
+	char *env_val = getenv(env_name);							\
+	if (env_val != NULL) {										\
+		if (1 != sscanf(env_val, "%zu", &var)) {				\
+			var = fallback;										\
+		}														\
+	}															\
+}
+
 void qcgc_mark(bool incremental);
 void qcgc_pop_object(object_t *object);
 void qcgc_push_object(object_t *object);
 void qcgc_sweep(void);
 
+static size_t major_collection_threshold = QCGC_MAJOR_COLLECTION_THRESHOLD;
+static size_t incmark_threshold = QCGC_INCMARK_THRESHOLD;
+
+QCGC_STATIC void update_weakrefs(void);
+
 void qcgc_initialize(void) {
 	qcgc_state.shadow_stack = qcgc_shadow_stack_create(QCGC_SHADOWSTACK_SIZE);
-	qcgc_state.prebuilt_objects = qcgc_shadow_stack_create(16); //XXX
+	qcgc_state.prebuilt_objects = qcgc_shadow_stack_create(16); // XXX
+	qcgc_state.weakrefs = qcgc_weakref_bag_create(16); // XXX
 	qcgc_state.gp_gray_stack = qcgc_gray_stack_create(16); // XXX
 	qcgc_state.gray_stack_size = 0;
 	qcgc_state.phase = GC_PAUSE;
+	qcgc_state.bytes_since_collection = 0;
+	qcgc_state.bytes_since_incmark = 0;
 	qcgc_allocator_initialize();
 	qcgc_hbtable_initialize();
 	qcgc_event_logger_initialize();
+
+	env_or_fallback(major_collection_threshold, "QCGC_MAJOR_COLLECTION",
+			QCGC_MAJOR_COLLECTION_THRESHOLD);
+	env_or_fallback(incmark_threshold, "QCGC_INCMARK", QCGC_INCMARK_THRESHOLD);
 }
 
 void qcgc_destroy(void) {
@@ -32,6 +53,7 @@ void qcgc_destroy(void) {
 	qcgc_allocator_destroy();
 	free(qcgc_state.shadow_stack);
 	free(qcgc_state.prebuilt_objects);
+	free(qcgc_state.weakrefs);
 	free(qcgc_state.gp_gray_stack);
 }
 
@@ -113,6 +135,14 @@ object_t *qcgc_allocate(size_t size) {
 			(uint8_t *) &size);
 #endif
 	object_t *result;
+
+	if (qcgc_state.bytes_since_collection > major_collection_threshold) {
+		qcgc_collect();
+	}
+	if (qcgc_state.bytes_since_incmark > incmark_threshold) {
+		qcgc_mark(true);
+	}
+
 	if (size <= 1<<QCGC_LARGE_ALLOC_THRESHOLD_EXP) {
 		// Use bump / fit allocator
 		if (true) { // FIXME: Implement reasonable switch
@@ -129,6 +159,11 @@ object_t *qcgc_allocate(size_t size) {
 		// Use huge block allocator
 		result = qcgc_large_allocate(size);
 	}
+
+	// XXX: Should we use cells instead of bytes?
+	qcgc_state.bytes_since_collection += size;
+	qcgc_state.bytes_since_incmark += size;
+
 
 #if LOG_ALLOCATION
 	qcgc_event_logger_log(EVENT_ALLOCATE_DONE, sizeof(object_t *),
@@ -165,11 +200,12 @@ mark_color_t qcgc_get_mark_color(object_t *object) {
 }
 
 void qcgc_mark(bool incremental) {
-#if CHECKED
-	assert(qcgc_state.phase == GC_PAUSE || qcgc_state.phase == GC_MARK);
-#endif
+	if (qcgc_state.phase == GC_COLLECT) {
+		return;	// Fast exit when there is nothing to mark
+	}
 	// FIXME: Log some more information
 	qcgc_event_logger_log(EVENT_MARK_START, 0, NULL);
+	qcgc_state.bytes_since_incmark = 0;
 
 	if (qcgc_state.phase == GC_PAUSE) {
 		qcgc_state.phase = GC_MARK;
@@ -329,9 +365,79 @@ void qcgc_sweep(void) {
 	qcgc_state.phase = GC_PAUSE;
 
 	qcgc_event_logger_log(EVENT_SWEEP_DONE, 0, NULL);
+	update_weakrefs();
 }
 
 void qcgc_collect(void) {
 	qcgc_mark(false);
 	qcgc_sweep();
+	qcgc_state.bytes_since_collection = 0;
+}
+
+void qcgc_register_weakref(object_t *weakrefobj, object_t **target) {
+#if CHECKED
+	assert((weakrefobj->flags & QCGC_PREBUILT_OBJECT) == 0);
+	assert((object_t *) qcgc_arena_addr((cell_t *) weakrefobj) != weakrefobj);
+#endif
+	// NOTE: At this point, the target must point to a pointer to a valid
+	// object. We don't register any weakrefs to prebuilt objects as they
+	// are always valid.
+	if (((*target)->flags & QCGC_PREBUILT_OBJECT) == 0) {
+		qcgc_state.weakrefs = qcgc_weakref_bag_add(qcgc_state.weakrefs,
+				(struct weakref_bag_item_s) {
+					.weakrefobj = weakrefobj,
+					.target = target});
+	}
+}
+
+QCGC_STATIC void update_weakrefs(void) {
+	size_t i = 0;
+	while (i < qcgc_state.weakrefs->count) {
+		struct weakref_bag_item_s item = qcgc_state.weakrefs->items[i];
+		// Check whether weakref object itself was collected
+		// We know the weakref object is a normal object
+		switch(qcgc_arena_get_blocktype((cell_t *) item.weakrefobj)) {
+			case BLOCK_EXTENT: // Fall through
+			case BLOCK_FREE:
+				// Weakref itself was collected, forget it
+				qcgc_state.weakrefs = qcgc_weakref_bag_remove_index(
+						qcgc_state.weakrefs, i);
+				continue;
+			case BLOCK_BLACK:
+			case BLOCK_WHITE:
+				// Weakref object is still valid, continue
+				break;
+		}
+
+		// Check whether the weakref target is still valid
+		object_t *points_to = *item.target;
+		if ((object_t *) qcgc_arena_addr((cell_t *) points_to) ==
+				points_to) {
+			// Huge object
+			if (qcgc_hbtable_has(points_to)) {
+				// Still valid
+				i++;
+			} else {
+				// Invalid
+				*(item.target) = NULL;
+				qcgc_state.weakrefs = qcgc_weakref_bag_remove_index(
+						qcgc_state.weakrefs, i);
+			}
+		} else {
+			// Normal object
+			switch(qcgc_arena_get_blocktype((cell_t *) points_to)) {
+				case BLOCK_BLACK: // Still valid
+				case BLOCK_WHITE:
+					i++;
+					break;
+				case BLOCK_EXTENT: // Fall through
+				case BLOCK_FREE:
+					// Invalid
+					*(item.target) = NULL;
+					qcgc_state.weakrefs = qcgc_weakref_bag_remove_index(
+							qcgc_state.weakrefs, i);
+					break;
+			}
+		}
+	}
 }

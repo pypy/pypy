@@ -515,10 +515,9 @@ LL_OPERATIONS = {
     # can malloc a GC object.
 
     # __________ qcgc operations __________
-    'qcgc_allocate':    LLOp(canmallocgc=True),
-    'qcgc_collect':     LLOp(canmallocgc=True),
-    'qcgc_is_prebuilt': LLOp(),
-    'qcgc_write_barrier':   LLOp(),
+    'qcgc_allocate':            LLOp(canmallocgc=True),
+    'qcgc_collect':             LLOp(canmallocgc=True),
+    'qcgc_write_barrier':       LLOp(),
 
     # __________ weakrefs __________
 

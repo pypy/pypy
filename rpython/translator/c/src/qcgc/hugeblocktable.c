@@ -45,6 +45,17 @@ bool qcgc_hbtable_mark(object_t *object) {
 	return false;
 }
 
+bool qcgc_hbtable_has(object_t *object) {
+	hbbucket_t *b = qcgc_hbtable.bucket[bucket(object)];
+	size_t count = b->count;
+	for (size_t i = 0; i < count; i++) {
+		if (b->items[i].object == object) {
+			return true;
+		}
+	}
+	return false;
+}
+
 bool qcgc_hbtable_is_marked(object_t *object) {
 	hbbucket_t *b = qcgc_hbtable.bucket[bucket(object)];
 	size_t count = b->count;
