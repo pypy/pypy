@@ -963,3 +963,8 @@ class FunctionCodeGenerator(object):
     def OP_QCGC_WRITE_BARRIER(self, op):
         obj = self.expr(op.args[0])
         return 'qcgc_write(%s);' % (obj,)
+
+    def OP_QCGC_REGISTER_WEAKREF(self, op):
+        weakref = self.expr(op.args[0])
+        fieldaddr = self.expr(op.args[1])
+        return 'qcgc_register_weakref(%s, %s);' % (weakref, fieldaddr)

@@ -120,7 +120,7 @@ class QcgcFrameworkGCTransformer(BaseFrameworkGCTransformer):
         # Register weakref
         v_fieldaddr = hop.genop("direct_fieldptr", [v_result, c_weakptr],
                             resulttype=llmemory.Address)
-        #hop.genop("qcgc_register_weakref", [v_result, v_fieldaddr])
+        hop.genop("qcgc_register_weakref", [v_result, v_fieldaddr])
         hop.cast_result(v_weakref)
 
 class QcgcRootWalker(BaseRootWalker):
