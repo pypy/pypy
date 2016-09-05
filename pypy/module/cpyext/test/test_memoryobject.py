@@ -1,6 +1,6 @@
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
-
+from rpython.rlib.buffer import StringBuffer
 
 class TestMemoryViewObject(BaseApiTest):
     def test_fromobject(self, space, api):
@@ -12,6 +12,12 @@ class TestMemoryViewObject(BaseApiTest):
         w_bytes = space.call_method(w_view, "tobytes")
         assert space.unwrap(w_bytes) == "hello"
 
+    def test_frombuffer(self, space, api):
+        w_buf = space.newbuffer(StringBuffer("hello"))
+        w_memoryview = api.PyMemoryView_FromObject(w_buf)
+        w_view = api.PyMemoryView_GET_BUFFER(w_memoryview)
+        ndim = w_view.c_ndim
+        assert ndim == 1
 
 class AppTestBufferProtocol(AppTestCpythonExtensionBase):
     def test_buffer_protocol(self):

@@ -26,13 +26,17 @@ def PyMemoryView_GET_BUFFER(space, w_obj):
         return view
     try:
         view.c_buf = rffi.cast(rffi.VOIDP, w_obj.buf.get_raw_address())
+        view.c_obj = as_pyobj(space, w_obj)
+        rffi.setintfield(view, 'c_readonly', w_obj.buf.readonly)
+        isstr = False
     except ValueError:
-        return view
+        w_s = w_obj.descr_tobytes(space)
+        view.c_obj = as_pyobj(space, w_s)
+        rffi.setintfield(view, 'c_readonly', 1)
+        isstr = True
     view.c_len = w_obj.getlength()
-    view.c_obj = as_pyobj(space, w_obj)
     incref(space, view.c_obj)
     view.c_itemsize = w_obj.buf.getitemsize()
-    rffi.setintfield(view, 'c_readonly', w_obj.buf.readonly)
     ndim = w_obj.buf.getndim()
     rffi.setintfield(view, 'c_ndim', ndim)
     view.c_format = rffi.str2charp(w_obj.buf.getformat())
