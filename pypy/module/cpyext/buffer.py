@@ -3,7 +3,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.rarithmetic import widen
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, Py_buffer, Py_TPFLAGS_HAVE_NEWBUFFER, Py_ssize_tP)
-from pypy.module.cpyext.pyobject import PyObject, as_pyobj, incref
+from pypy.module.cpyext.pyobject import PyObject, make_ref, incref
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyObject_CheckBuffer(space, pyobj):
@@ -41,8 +41,7 @@ def PyObject_GetBuffer(space, w_obj, view, flags):
     except ValueError:
         raise BufferError("could not create buffer from object")
     view.c_len = buf.getlength()
-    view.c_obj = as_pyobj(space, w_obj)
-    incref(space, view.c_obj)
+    view.c_obj = make_ref(space, w_obj)
     ndim = buf.getndim()
     view.c_itemsize = buf.getitemsize()
     rffi.setintfield(view, 'c_readonly', int(buf.readonly))
