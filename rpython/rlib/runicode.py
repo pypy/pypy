@@ -1,5 +1,5 @@
 import sys
-from rpython.rlib.objectmodel import specialize, we_are_translated
+from rpython.rlib.objectmodel import specialize, we_are_translated, enforceargs
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rlib.rarithmetic import r_uint, intmask, widen
 from rpython.rlib.unicodedata import unicodedb
@@ -145,19 +145,21 @@ _invalid_byte_3_of_3 = _invalid_cont_byte
 _invalid_byte_3_of_4 = _invalid_cont_byte
 _invalid_byte_4_of_4 = _invalid_cont_byte
 
-@specialize.arg(2)
+@enforceargs(allow_surrogates=bool)
 def _invalid_byte_2_of_3(ordch1, ordch2, allow_surrogates):
     return (ordch2>>6 != 0x2 or    # 0b10
             (ordch1 == 0xe0 and ordch2 < 0xa0)
             # surrogates shouldn't be valid UTF-8!
-            or (not allow_surrogates and ordch1 == 0xed and ordch2 > 0x9f))
+            or (ordch1 == 0xed and ordch2 > 0x9f and not allow_surrogates))
 
 def _invalid_byte_2_of_4(ordch1, ordch2):
     return (ordch2>>6 != 0x2 or    # 0b10
             (ordch1 == 0xf0 and ordch2 < 0x90) or
             (ordch1 == 0xf4 and ordch2 > 0x8f))
 
-@specialize.arg(5)
+# note: this specialize() is here for rtyper/rstr.py, which calls this
+# function too but with its own fixed errorhandler
+@specialize.arg_or_var(4)
 def str_decode_utf_8_impl(s, size, errors, final, errorhandler,
                           allow_surrogates, result):
     if size == 0:
@@ -330,6 +332,9 @@ def unicode_encode_utf_8(s, size, errors, errorhandler=None,
     return unicode_encode_utf_8_impl(s, size, errors, errorhandler,
                                      allow_surrogates=allow_surrogates)
 
+# note: this specialize() is here for rtyper/rstr.py, which calls this
+# function too but with its own fixed errorhandler
+@specialize.arg_or_var(3)
 def unicode_encode_utf_8_impl(s, size, errors, errorhandler,
                               allow_surrogates=False):
     assert(size >= 0)
