@@ -184,8 +184,8 @@ class UnrollOptimizer(Optimization):
                     self.optimizer._newoperations)
 
         try:
-            new_virtual_state = self.jump_to_existing_trace(end_jump, label_op,
-                                                            state.runtime_boxes)
+            new_virtual_state = self.jump_to_existing_trace(
+                    end_jump, label_op, state.runtime_boxes force_boxes=False)
         except InvalidLoop:
             # inlining short preamble failed, jump to preamble
             self.jump_to_preamble(celltoken, end_jump, info)
@@ -252,7 +252,8 @@ class UnrollOptimizer(Optimization):
         for a in jump_op.getarglist():
             self.optimizer.force_box_for_end_of_preamble(a)
         try:
-            vs = self.jump_to_existing_trace(jump_op, None, runtime_boxes, False)
+            vs = self.jump_to_existing_trace(jump_op, None, runtime_boxes,
+                                             force_boxes=False)
         except InvalidLoop:
             return self.jump_to_preamble(cell_token, jump_op, info)
         if vs is None:
@@ -265,7 +266,8 @@ class UnrollOptimizer(Optimization):
         else:
             # Try forcing boxes to avoid jumping to the preamble
             try:
-                vs = self.jump_to_existing_trace(jump_op, None, runtime_boxes, True)
+                vs = self.jump_to_existing_trace(jump_op, None, runtime_boxes,
+                                                 force_boxes=True)
             except InvalidLoop:
                 pass
             if vs is None:
