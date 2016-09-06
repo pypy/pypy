@@ -170,12 +170,12 @@ st_annotation = st.recursive(st_simple,
     lambda st_ann: valid_unions(st_ann) | st.builds(SomeTuple, st.lists(st_ann)),
     max_leaves=3)
 
-@given(s=st_numeric)
+@given(s=st_annotation)
 def test_union_unary(s):
     assert union(s, s) == s
     assert union(s_ImpossibleValue, s) == s
 
-@given(s1=st_numeric, s2=st_numeric)
+@given(s1=st_annotation, s2=st_annotation)
 def test_commutativity_of_union_compatibility(s1, s2):
     assert compatible(s1, s2) == compatible(s2, s1)
 
