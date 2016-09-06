@@ -1,6 +1,6 @@
 import pytest
 
-from hypothesis import given
+from hypothesis import given, assume, settings
 from hypothesis import strategies as st
 
 from rpython.flowspace.model import Variable
@@ -165,27 +165,30 @@ st_annotation = st.recursive(st_simple,
     lambda st_ann: valid_unions(st_ann) | st.builds(SomeTuple, st.lists(st_ann)),
     max_leaves=3)
 
-@given(s=st_numeric)
+@given(s=st_annotation)
 def test_union_unary(s):
     assert union(s, s) == s
     assert union(s_ImpossibleValue, s) == s
 
-@given(s1=st_numeric, s2=st_numeric)
+@given(s1=st_annotation, s2=st_annotation)
 def test_commutativity_of_union_compatibility(s1, s2):
     assert compatible(s1, s2) == compatible(s2, s1)
 
-@given(st.tuples(st_annotation, st_annotation).filter(lambda t: compatible(*t)))
-def test_union_commutative(t):
-    s1, s2 = t
-    s_union = union(s1, s2)
+@given(st_annotation, st_annotation)
+def test_union_commutative(s1, s2):
+    try:
+        s_union = union(s1, s2)
+    except UnionError:
+        assume(False)
     assert union(s2, s1) == s_union
     assert s_union.contains(s1)
     assert s_union.contains(s2)
 
-@given(st.tuples(st_annotation, st_annotation, st_annotation).filter(
-    lambda t: compatible(t[0], t[1]) and compatible(t[1], t[2]) and compatible(t[0], t[2])))
-def test_union_associative(t):
-    s1, s2, s3 = t
+@pytest.mark.xfail
+@settings(max_examples=500)
+@given(st_annotation, st_annotation, st_annotation)
+def test_union_associative(s1, s2, s3):
+    assume(compatible(s1, s2) and compatible(union(s1, s2), s3))
     assert union(union(s1, s2), s3) == union(s1, union(s2, s3))
 
 
