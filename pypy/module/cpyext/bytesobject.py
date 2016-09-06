@@ -156,9 +156,6 @@ def _PyString_AsString(space, ref):
                         "expected string or Unicode object, %T found",
                         from_ref(space, ref))
     ref_str = rffi.cast(PyBytesObject, ref)
-    if not pyobj_has_w_obj(ref):
-        # XXX Force the ref?
-        bytes_realize(space, ref)
     return ref_str.c_ob_sval
 
 @cpython_api([rffi.VOIDP], rffi.CCHARP, error=0)
