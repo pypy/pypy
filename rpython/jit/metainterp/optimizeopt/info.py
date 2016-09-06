@@ -365,6 +365,13 @@ class AbstractRawPtrInfo(AbstractVirtualPtrInfo):
     def visitor_dispatch_virtual_type(self, visitor):
         raise NotImplementedError("abstract")
 
+    def make_guards(self, op, short, optimizer):
+        from rpython.jit.metainterp.optimizeopt.optimizer import CONST_0
+        op = ResOperation(rop.INT_EQ, [op, CONST_0])
+        short.append(op)
+        op = ResOperation(rop.GUARD_FALSE, [op])
+        short.append(op)
+
 class RawBufferPtrInfo(AbstractRawPtrInfo):
     buffer = None
 
