@@ -293,3 +293,33 @@ class TestStoreSink(object):
                 res += a.x
             return res
         self.check(f, [int], getfield=0)
+
+    def test_loopinvariant_heap_merge(self):
+        class A(object):
+            pass
+        def f(i):
+            res = 0
+            x = i
+            a = A()
+            if i == 0:
+                a.x = 1
+            else:
+                a.x = i
+            while x:
+                x -= 1
+                res += a.x
+            return res
+        self.check(f, [int], getfield=0)
+
+    def test_direct_merge(self):
+        def f(i):
+            a = i + 1
+            if i:
+                x = a
+            else:
+                x = a
+            res = 0
+            while a:
+                res += i + 1
+            return a + (i + 1)
+        self.check(f, [int], add=0)

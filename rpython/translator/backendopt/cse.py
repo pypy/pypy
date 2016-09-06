@@ -42,7 +42,7 @@ class Cache(object):
                 self.heapcache.copy())
 
 
-    def merge(self, firstlink, tuples):
+    def merge(self, firstlink, tuples, backedges):
         purecache = {}
         block = firstlink.target
         # copy all operations that exist in *all* blocks over. need to add a new
@@ -82,6 +82,8 @@ class Cache(object):
                         for linkindex, (link, cache) in enumerate(tuples):
                             link.args.append(results[linkindex])
                         block.inputargs.append(newres)
+                        for backedge in backedges:
+                            backedge.args.append(newres)
                     purecache[newkey] = newres
 
         for key, res in self.purecache.iteritems():
@@ -97,6 +99,8 @@ class Cache(object):
                     for link, cache in tuples:
                         link.args.append(cache.purecache[key])
                     block.inputargs.append(newres)
+                    for backedge in backedges:
+                        backedge.args.append(newres)
                 purecache[key] = newres
 
         # ______________________
@@ -132,6 +136,8 @@ class Cache(object):
                         for linkindex, (link, cache) in enumerate(tuples):
                             link.args.append(results[linkindex])
                         block.inputargs.append(newres)
+                        for backedge in backedges:
+                            backedge.args.append(newres)
                     heapcache[newkey] = newres
 
         # regular merge
@@ -147,6 +153,8 @@ class Cache(object):
                     for link, cache in tuples:
                         link.args.append(cache.heapcache[key])
                     block.inputargs.append(newres)
+                    for backedge in backedges:
+                        backedge.args.append(newres)
                 heapcache[key] = newres
 
 
@@ -220,7 +228,7 @@ class Cache(object):
                 self.purecache[key] = op.result
         return added_some_same_as
 
-def _merge(tuples, variable_families, analyzer, loop_blocks=None):
+def _merge(tuples, variable_families, analyzer, loop_blocks, backedges):
     if not tuples:
         return Cache(variable_families, analyzer)
     if len(tuples) == 1:
@@ -228,7 +236,7 @@ def _merge(tuples, variable_families, analyzer, loop_blocks=None):
         result = cache.copy()
     else:
         firstlink, firstcache = tuples[0]
-        result = firstcache.merge(firstlink, tuples)
+        result = firstcache.merge(firstlink, tuples, backedges)
     if loop_blocks:
         # for all blocks in the loop, clean the heapcache for their effects
         # that way, loop-invariant reads can be removed, if no one writes to
@@ -261,13 +269,19 @@ class CSE(object):
 
         while todo:
             block = todo.popleft()
+            assert block not in done
+
+            current_backedges = [link for link in entrymap[block]
+                                    if link in backedges]
 
             if block.operations:
                 cache = _merge(
                     caches_to_merge[block], variable_families, self.analyzer,
-                    loops.get(block, None))
+                    loops.get(block, None), current_backedges)
                 changed_block = cache.cse_block(block)
                 added_some_same_as = changed_block or added_some_same_as
+            else:
+                cache = Cache(variable_families, self.analyzer)
             done.add(block)
             # add all target blocks where all predecessors are already done
             for exit in block.exits:
@@ -275,7 +289,7 @@ class CSE(object):
                     if lnk.prevblock not in done and lnk not in backedges:
                         break
                 else:
-                    if exit.target not in done:
+                    if exit.target not in done and exit.target not in todo: # XXX
                         todo.append(exit.target)
                 caches_to_merge[exit.target].append((exit, cache))
         if added_some_same_as:

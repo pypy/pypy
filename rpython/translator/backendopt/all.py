@@ -8,7 +8,7 @@ from rpython.translator import simplify
 from rpython.translator.backendopt import mallocprediction
 from rpython.translator.backendopt.removeassert import remove_asserts
 from rpython.translator.backendopt.support import log
-from rpython.translator.backendopt.storesink import storesink_graph
+from rpython.translator.backendopt.cse import common_subexpression_elimination
 from rpython.translator.backendopt import gilanalysis
 from rpython.flowspace.model import checkgraph
 
@@ -101,8 +101,7 @@ def backend_optimizations(translator, graphs=None, secondary=False,
             print_statistics(translator.graphs[0], translator)
 
     if config.storesink:
-        for graph in graphs:
-            storesink_graph(graph)
+        common_subexpression_elimination(translator, graphs)
 
     if config.profile_based_inline and not secondary:
         threshold = config.profile_based_inline_threshold
