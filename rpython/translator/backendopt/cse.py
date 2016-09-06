@@ -20,8 +20,11 @@ def common_subexpression_elimination(t, graphs=None):
     if graphs is None:
         graphs = t.graphs
     cse = CSE(t)
+
+    removed_ops = 0
     for graph in graphs:
-        cse.transform(graph)
+        removed_ops += cse.transform(graph)
+    log.cse("cse removed %s ops" % (removed_ops, ))
 
 def can_fold(op):
     return getattr(llop, op.opname).canfold
@@ -55,7 +58,8 @@ class Cache(object):
         # copying things over is always save (yay SSA form!)
 
         # try non-straight merges
-        for argindex, inputarg in enumerate(block.inputargs):
+        for argindex in range(len(block.inputargs)):
+            inputarg = block.inputargs[argindex]
             # bit slow, but probably ok
             firstlinkarg = self.variable_families.find_rep(firstlink.args[argindex])
             results = []
@@ -110,7 +114,8 @@ class Cache(object):
         heapcache = {}
 
         # try non-straight merges
-        for argindex, inputarg in enumerate(block.inputargs):
+        for argindex in range(len(block.inputargs)):
+            inputarg = block.inputargs[argindex]
             # bit slow, but probably ok
             firstlinkarg = self.variable_families.find_rep(firstlink.args[argindex])
             results = []
@@ -299,5 +304,9 @@ class CSE(object):
             removenoops.remove_same_as(graph)
         simplify.transform_dead_op_vars(graph)
         if added_same_as:
-            log.cse("removed %s ops in graph %s" % (added_same_as, graph))
+            if self.translator.config.translation.verbose:
+                log.cse("cse removed %s ops in graph %s" % (added_same_as, graph))
+            else:
+                log.dot()
+        return added_same_as
 
