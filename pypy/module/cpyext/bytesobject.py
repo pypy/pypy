@@ -20,8 +20,10 @@ from pypy.objspace.std.bytesobject import W_BytesObject
 ##
 ## The following calls can create a PyBytesObject without a correspoinding
 ## RPython object:
-
-## In any of the above PyBytesObject, the ob_sval buffer may be modified as
+##
+## PyBytes_FromStringAndSize(NULL, n) / PyString_FromStringAndSize(NULL, n)
+##
+## In the PyBytesObject returned, the ob_sval buffer may be modified as
 ## long as the freshly allocated PyBytesObject is not "forced" via a call
 ## to any of the more sophisticated C-API functions. 
 ##
