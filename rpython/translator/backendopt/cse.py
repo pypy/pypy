@@ -8,6 +8,8 @@ from rpython.translator import simplify
 from rpython.translator.backendopt import ssa
 from rpython.translator.backendopt.writeanalyze import WriteAnalyzer
 
+from rpython.translator.backendopt.support import log
+
 def has_side_effects(op):
     try:
         return getattr(llop, op.opname).sideeffects
@@ -191,7 +193,7 @@ class Cache(object):
             if isinstance(arg, Variable):
                 return self.variable_families.find_rep(arg)
             return arg
-        added_some_same_as = False
+        added_same_as = 0
         for op in block.operations:
             # heap operations
             if op.opname == 'getfield':
@@ -200,7 +202,7 @@ class Cache(object):
                 if res is not None:
                     op.opname = 'same_as'
                     op.args = [res]
-                    added_some_same_as = True
+                    added_same_as += 1
                 else:
                     self.heapcache[tup] = op.result
                 continue
@@ -223,11 +225,11 @@ class Cache(object):
             if res is not None:
                 op.opname = 'same_as'
                 op.args = [res]
-                added_some_same_as = True
+                added_same_as += 1
                 self.variable_families.union(res, op.result)
             else:
                 self.purecache[key] = op.result
-        return added_some_same_as
+        return added_same_as
 
 def _merge(tuples, variable_families, analyzer, loop_blocks, backedges):
     if not tuples:
@@ -266,7 +268,7 @@ class CSE(object):
         caches_to_merge = collections.defaultdict(list)
         done = set()
 
-        added_some_same_as = False
+        added_same_as = 0
 
         while todo:
             block = todo.popleft()
@@ -279,8 +281,7 @@ class CSE(object):
                 cache = _merge(
                     caches_to_merge[block], variable_families, self.analyzer,
                     loops.get(block, None), current_backedges)
-                changed_block = cache.cse_block(block)
-                added_some_same_as = changed_block or added_some_same_as
+                added_same_as += cache.cse_block(block)
             else:
                 cache = Cache(variable_families, self.analyzer)
             done.add(block)
@@ -293,8 +294,10 @@ class CSE(object):
                     if exit.target not in done and exit.target not in todo: # XXX
                         todo.append(exit.target)
                 caches_to_merge[exit.target].append((exit, cache))
-        if added_some_same_as:
+        if added_same_as:
             ssa.SSA_to_SSI(graph)
             removenoops.remove_same_as(graph)
         simplify.transform_dead_op_vars(graph)
+        if added_same_as:
+            log.cse("removed %s ops in graph %s" % (added_same_as, graph))
 
