@@ -564,7 +564,7 @@ def make_formatting_class(for_unicode):
             return space.wrap(self._pad(string))
 
         def _get_locale(self, tp):
-            if tp == "n":
+            if tp == _lit("n"):
                 dec, thousands, grouping = rlocale.numeric_formatting()
             elif self._thousands_sep:
                 dec = "."
@@ -608,10 +608,10 @@ def make_formatting_class(for_unicode):
             spec.sign = "\0"
             spec.n_sign = 0
             sign = self._sign
-            if sign == "+":
+            if sign == _lit("+"):
                 spec.n_sign = 1
                 spec.sign = "-" if sign_char == "-" else "+"
-            elif sign == " ":
+            elif sign == _lit(" "):
                 spec.n_sign = 1
                 spec.sign = "-" if sign_char == "-" else " "
             elif sign_char == "-":
@@ -619,7 +619,7 @@ def make_formatting_class(for_unicode):
                 spec.sign = "-"
             extra_length = (spec.n_sign + spec.n_prefix + spec.n_decimal +
                             spec.n_remainder) # Not padding or digits
-            if self._fill_char == "0" and self._align == "=":
+            if self._fill_char ==_lit( "0") and self._align == _lit("="):
                 spec.n_min_width = self._width - extra_length
             if self._loc_thousands:
                 self._group_digits(spec, digits[to_number:])
@@ -629,14 +629,14 @@ def make_formatting_class(for_unicode):
             n_padding = self._width - (extra_length + n_grouped_digits)
             if n_padding > 0:
                 align = self._align
-                if align == "<":
+                if align == _lit("<"):
                     spec.n_rpadding = n_padding
-                elif align == ">":
+                elif align == _lit(">"):
                     spec.n_lpadding = n_padding
-                elif align == "^":
+                elif align == _lit("^"):
                     spec.n_lpadding = n_padding // 2
                     spec.n_rpadding = n_padding - spec.n_lpadding
-                elif align == "=":
+                elif align == _lit("="):
                     spec.n_spadding = n_padding
                 else:
                     raise AssertionError("shouldn't reach")
@@ -653,7 +653,7 @@ def make_formatting_class(for_unicode):
             for i in range(d_state - 1, d_state - n_chars - 1, -1):
                 buf.append(digits[i])
             for i in range(n_zeros):
-                buf.append("0")
+                buf.append(_lit("0"))
 
         def _group_digits(self, spec, digits):
             buf = []
@@ -702,7 +702,7 @@ def make_formatting_class(for_unicode):
             for c in s:
                 index = ord(c)
                 if ord("a") <= index <= ord("z"):
-                    c = chr(index - 32)
+                    c = _lit(chr(index - 32))
                 buf.append(c)
             return self.empty.join(buf)
 
@@ -791,7 +791,7 @@ def make_formatting_class(for_unicode):
                     result = self._long_to_base(base, space.bigint_w(w_num))
                 n_prefix = skip_leading if self._alternate else 0
                 to_prefix = 0
-                if result[0] == "-":
+                if result[0] == _lit("-"):
                     sign_char = "-"
                     skip_leading += 1
                     to_prefix += 1
@@ -874,21 +874,21 @@ def make_formatting_class(for_unicode):
                     return space.call_function(space.w_unicode, w_num)
                 return self.space.str(w_num)
             tp = self._type
-            if (tp == "b" or
-                tp == "c" or
-                tp == "d" or
-                tp == "o" or
-                tp == "x" or
-                tp == "X" or
-                tp == "n"):
+            if (tp == _lit("b") or
+                tp == _lit("c") or
+                tp == _lit("d") or
+                tp == _lit("o") or
+                tp == _lit("x") or
+                tp == _lit("X") or
+                tp == _lit("n")):
                 return self._format_int_or_long(w_num, kind)
-            elif (tp == "e" or
-                  tp == "E" or
-                  tp == "f" or
-                  tp == "F" or
-                  tp == "g" or
-                  tp == "G" or
-                  tp == "%"):
+            elif (tp == _lit("e") or
+                  tp == _lit("E") or
+                  tp == _lit("f") or
+                  tp == _lit("F") or
+                  tp == _lit("g") or
+                  tp == _lit("G") or
+                  tp == _lit("%")):
                 w_float = space.float(w_num)
                 return self._format_float(w_float)
             else:
@@ -932,7 +932,7 @@ def make_formatting_class(for_unicode):
                 add_pct = False
             if self._precision == -1:
                 self._precision = default_precision
-            result, special = rfloat.double_to_string(value, tp,
+            result, special = rfloat.double_to_string(value, str(tp)[0],
                                                       self._precision, flags)
             if add_pct:
                 result += "%"
@@ -963,15 +963,15 @@ def make_formatting_class(for_unicode):
                     return space.call_function(space.w_unicode, w_float)
                 return space.str(w_float)
             tp = self._type
-            if (tp == "\0" or
-                tp == "e" or
-                tp == "E" or
-                tp == "f" or
-                tp == "F" or
-                tp == "g" or
-                tp == "G" or
-                tp == "n" or
-                tp == "%"):
+            if (tp == _lit("\0") or
+                tp == _lit("e") or
+                tp == _lit("E") or
+                tp == _lit("f") or
+                tp == _lit("F") or
+                tp == _lit("g") or
+                tp == _lit("G") or
+                tp == _lit("n") or
+                tp == _lit("%")):
                 return self._format_float(w_float)
             self._unknown_presentation("float")
 
@@ -980,12 +980,12 @@ def make_formatting_class(for_unicode):
             tp = self._type
             self._get_locale(tp)
             default_precision = 6
-            if self._align == "=":
+            if self._align == _lit("="):
                 # '=' alignment is invalid
                 raise oefmt(space.w_ValueError,
                             "'=' alignment flag is not allowed in complex "
                             "format specifier")
-            if self._fill_char == "0":
+            if self._fill_char == _lit("0"):
                 # zero padding is invalid
                 raise oefmt(space.w_ValueError,
                             "Zero padding is not allowed in complex format "
@@ -1018,8 +1018,8 @@ def make_formatting_class(for_unicode):
 
             #might want to switch to double_to_string from formatd
             #in CPython it's named 're' - clashes with re module
-            re_num = formatd(w_complex.realval, tp, self._precision)
-            im_num = formatd(w_complex.imagval, tp, self._precision)
+            re_num = formatd(w_complex.realval, str(tp)[0], self._precision)
+            im_num = formatd(w_complex.imagval, str(tp)[0], self._precision)
             n_re_digits = len(re_num)
             n_im_digits = len(im_num)
 
@@ -1042,8 +1042,8 @@ def make_formatting_class(for_unicode):
             tmp_fill_char = self._fill_char
             tmp_align = self._align
             tmp_width = self._width
-            self._fill_char = "\0"
-            self._align = "<"
+            self._fill_char = _lit("\0")
+            self._align = _lit("<")
             self._width = -1
 
             #determine if we have remainder, might include dec or exponent or both
@@ -1125,14 +1125,14 @@ def make_formatting_class(for_unicode):
             if self._parse_spec(_lit("\0"), _lit(">")):
                 return space.str(w_complex)
             tp = self._type
-            if (tp == "\0" or
-                tp == "e" or
-                tp == "E" or
-                tp == "f" or
-                tp == "F" or
-                tp == "g" or
-                tp == "G" or
-                tp == "n"):
+            if (tp == _lit("\0") or
+                tp == _lit("e") or
+                tp == _lit("E") or
+                tp == _lit("f") or
+                tp == _lit("F") or
+                tp == _lit("g") or
+                tp == _lit("G") or
+                tp == _lit("n")):
                 return self._format_complex(w_complex)
             self._unknown_presentation("complex")
     return Formatter
@@ -1143,5 +1143,9 @@ unicode_formatter = make_formatting_class(for_unicode=True)
 
 @specialize.arg(2)
 def run_formatter(space, w_format_spec, meth, *args):
-    formatter = str_formatter(space, space.str_w(w_format_spec))
-    return getattr(formatter, meth)(*args)
+    if space.isinstance_w(w_format_spec, space.w_unicode):
+        formatter = unicode_formatter(space, space.unicode_w(w_format_spec))
+        return getattr(formatter, meth)(*args)
+    else:
+        formatter = str_formatter(space, space.str_w(w_format_spec))
+        return getattr(formatter, meth)(*args)
