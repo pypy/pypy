@@ -450,7 +450,12 @@ class AppTestSSLError:
                 # For compatibility
                 assert exc.value.errno == _ssl.SSL_ERROR_WANT_READ
             finally:
-                c.shutdown()
+                try:
+                    c.shutdown()
+                except _ssl.SSLError:
+                    # If the expected exception was raised, the SSLContext
+                    # can't be shut down yet
+                    pass
         finally:
             s.close()
 
