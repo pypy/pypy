@@ -42,7 +42,7 @@ class Cache(object):
                 self.heapcache.copy())
 
 
-    def merge(self, firstlink, tuples, backedge):
+    def merge(self, firstlink, tuples):
         purecache = {}
         block = firstlink.target
         # copy all operations that exist in *all* blocks over. need to add a new
@@ -102,10 +102,6 @@ class Cache(object):
         # ______________________
         # merge heapcache
         heapcache = {}
-        if backedge:
-            # can't deal with heapcache and backedges yet
-            return Cache(
-                    self.variable_families, self.analyzer, purecache, heapcache)
 
         # try non-straight merges
         for argindex, inputarg in enumerate(block.inputargs):
@@ -138,6 +134,7 @@ class Cache(object):
                         block.inputargs.append(newres)
                     heapcache[newkey] = newres
 
+        # regular merge
         for key, res in self.heapcache.iteritems():
             for link, cache in tuples[1:]:
                 val = cache.heapcache.get(key, None)
@@ -162,12 +159,23 @@ class Cache(object):
             if k[0].concretetype == concretetype and k[1] == fieldname:
                 del self.heapcache[k]
 
-    def _clear_heapcache_for_effects(self, op):
+    def _clear_heapcache_for_effects_of_op(self, op):
         effects = self.analyzer.analyze(op)
+        self._clear_heapcache_for_effects(effects)
+
+    def _clear_heapcache_for_effects(self, effects):
         for k in self.heapcache.keys():
             key = ('struct', k[0].concretetype, k[1])
             if key in effects:
                 del self.heapcache[k]
+
+    def _clear_heapcache_for_loop_blocks(self, blocks):
+        effects = self.analyzer.bottom_result()
+        for block in blocks:
+            for op in block.operations:
+                effects = self.analyzer.join_two_results(
+                    effects, self.analyzer.analyze(op))
+        self._clear_heapcache_for_effects(effects)
 
     def cse_block(self, block):
         def representative_arg(arg):
@@ -194,7 +202,7 @@ class Cache(object):
                 self.heapcache[target, field] = op.args[2]
                 continue
             if has_side_effects(op):
-                self._clear_heapcache_for_effects(op)
+                self._clear_heapcache_for_effects_of_op(op)
                 continue
 
             # foldable operations
@@ -212,14 +220,28 @@ class Cache(object):
                 self.purecache[key] = op.result
         return added_some_same_as
 
-def _merge(tuples, variable_families, analyzer, backedge=False):
+def _merge(tuples, variable_families, analyzer, loop_blocks=None):
     if not tuples:
         return Cache(variable_families, analyzer)
     if len(tuples) == 1:
         (link, cache), = tuples
-        return cache.copy()
-    firstlink, firstcache = tuples[0]
-    return firstcache.merge(firstlink, tuples, backedge)
+        result = cache.copy()
+    else:
+        firstlink, firstcache = tuples[0]
+        result = firstcache.merge(firstlink, tuples)
+    if loop_blocks:
+        # for all blocks in the loop, clean the heapcache for their effects
+        # that way, loop-invariant reads can be removed, if no one writes to
+        # anything that can alias with them.
+        result._clear_heapcache_for_loop_blocks(loop_blocks)
+    return result
+
+def loop_blocks(graph):
+    loop_blocks = support.find_loop_blocks(graph)
+    result = {}
+    for loop_block, start in loop_blocks.iteritems():
+        result.setdefault(start, []).append(loop_block)
+    return result
 
 class CSE(object):
     def __init__(self, translator):
@@ -229,6 +251,7 @@ class CSE(object):
     def transform(self, graph):
         variable_families = ssa.DataFlowFamilyBuilder(graph).get_variable_families()
         entrymap = mkentrymap(graph)
+        loops = loop_blocks(graph)
         backedges = support.find_backedges(graph)
         todo = collections.deque([graph.startblock])
         caches_to_merge = collections.defaultdict(list)
@@ -238,15 +261,11 @@ class CSE(object):
 
         while todo:
             block = todo.popleft()
-            backedge = False
-            for link in entrymap[block]:
-                if link in backedges:
-                    backedge = True
-                    break
 
             if block.operations:
                 cache = _merge(
-                    caches_to_merge[block], variable_families, self.analyzer, backedge)
+                    caches_to_merge[block], variable_families, self.analyzer,
+                    loops.get(block, None))
                 changed_block = cache.cse_block(block)
                 added_some_same_as = changed_block or added_some_same_as
             done.add(block)

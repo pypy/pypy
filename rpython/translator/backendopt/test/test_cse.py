@@ -279,3 +279,17 @@ class TestStoreSink(object):
             return res
         self.check(f, [int], int_add=2)
 
+
+    def test_loopinvariant_heap(self):
+        class A(object):
+            pass
+        def f(i):
+            a = A()
+            a.x = i
+            res = 0
+            x = i
+            while x:
+                x -= 1
+                res += a.x
+            return res
+        self.check(f, [int], getfield=0)
