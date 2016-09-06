@@ -21,7 +21,7 @@ due to the following issues:
   * Fix for and issue where `unicode.decode('utf8', 'custom_replace')` messed up
     the last byte of a unicode string sometimes
 
-  * Update built-in cffi_ to the soon-to-be-released 1.8.2 version
+  * Update built-in cffi_ to version 1.8.1
 
   * Explicitly detect that we found as-yet-unsupported OpenSSL 1.1, and crash
     translation with a message asking for help porting it
