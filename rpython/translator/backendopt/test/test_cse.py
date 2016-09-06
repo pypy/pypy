@@ -269,3 +269,13 @@ class TestStoreSink(object):
 
         self.check(f, [int], getfield=1)
 
+    def test_loopinvariant(self):
+        def f(i):
+            x = i + 1
+            res = 0
+            while x:
+                x -= 1
+                res += i + 1
+            return res
+        self.check(f, [int], int_add=2)
+

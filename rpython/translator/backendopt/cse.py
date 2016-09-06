@@ -14,8 +14,12 @@ def has_side_effects(op):
     except AttributeError:
         return True
 
-def cse_graph(graph):
-    return CSE([graph]).transform(graph)
+def common_subexpression_elimination(t, graphs=None):
+    if graphs is None:
+        graphs = t.graphs
+    cse = CSE(t)
+    for graph in graphs:
+        cse.transform(graph)
 
 def can_fold(op):
     return getattr(llop, op.opname).canfold
@@ -38,11 +42,15 @@ class Cache(object):
                 self.heapcache.copy())
 
 
-    def merge(self, firstlink, tuples):
+    def merge(self, firstlink, tuples, backedge):
         purecache = {}
         block = firstlink.target
         # copy all operations that exist in *all* blocks over. need to add a new
         # inputarg if the result is really a variable
+
+        # note that a backedge is not a problem for regular pure operations:
+        # since the argument is a phi node iff it is not loop invariant,
+        # copying things over is always save (yay SSA form!)
 
         # try non-straight merges
         for argindex, inputarg in enumerate(block.inputargs):
@@ -94,6 +102,10 @@ class Cache(object):
         # ______________________
         # merge heapcache
         heapcache = {}
+        if backedge:
+            # can't deal with heapcache and backedges yet
+            return Cache(
+                    self.variable_families, self.analyzer, purecache, heapcache)
 
         # try non-straight merges
         for argindex, inputarg in enumerate(block.inputargs):
@@ -200,14 +212,14 @@ class Cache(object):
                 self.purecache[key] = op.result
         return added_some_same_as
 
-def _merge(tuples, variable_families, analyzer):
+def _merge(tuples, variable_families, analyzer, backedge=False):
     if not tuples:
         return Cache(variable_families, analyzer)
     if len(tuples) == 1:
         (link, cache), = tuples
         return cache.copy()
     firstlink, firstcache = tuples[0]
-    return firstcache.merge(firstlink, tuples)
+    return firstcache.merge(firstlink, tuples, backedge)
 
 class CSE(object):
     def __init__(self, translator):
@@ -226,17 +238,15 @@ class CSE(object):
 
         while todo:
             block = todo.popleft()
-            can_cache = True
+            backedge = False
             for link in entrymap[block]:
                 if link in backedges:
-                    can_cache = False
+                    backedge = True
+                    break
 
             if block.operations:
-                if not can_cache:
-                    cache = Cache(variable_families, self.analyzer)
-                else:
-                    cache = _merge(
-                        caches_to_merge[block], variable_families, self.analyzer)
+                cache = _merge(
+                    caches_to_merge[block], variable_families, self.analyzer, backedge)
                 changed_block = cache.cse_block(block)
                 added_some_same_as = changed_block or added_some_same_as
             done.add(block)
