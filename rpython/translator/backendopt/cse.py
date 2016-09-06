@@ -127,8 +127,6 @@ class Cache(object):
                         break
                     results.append(otherres)
                 else:
-                    listargs = list(args)
-                    listargs[0] = inputarg
                     newkey = (self.variable_families.find_rep(inputarg), fieldname)
                     newres = res
                     if isinstance(res, Variable):
@@ -172,10 +170,13 @@ class Cache(object):
         self._clear_heapcache_for_effects(effects)
 
     def _clear_heapcache_for_effects(self, effects):
-        for k in self.heapcache.keys():
-            key = ('struct', k[0].concretetype, k[1])
-            if key in effects:
-                del self.heapcache[k]
+        if self.analyzer.is_top_result(effects):
+            self.heapcache.clear()
+        else:
+            for k in self.heapcache.keys():
+                key = ('struct', k[0].concretetype, k[1])
+                if key in effects:
+                    del self.heapcache[k]
 
     def _clear_heapcache_for_loop_blocks(self, blocks):
         effects = self.analyzer.bottom_result()
