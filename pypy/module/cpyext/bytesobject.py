@@ -29,19 +29,17 @@ from pypy.objspace.std.bytesobject import W_BytesObject
 ## Solution
 ## --------
 ##
-## PyBytesObject contains two additional members: the ob_size and a pointer to a
-## char ob_sval; it may be NULL.
+## PyBytesObject contains two additional members: the ob_size and an array
+## char ob_sval which holds a \x0 terminated string.
 ##
 ## - A string allocated by pypy will be converted into a PyBytesObject with a
-##   NULL buffer.  The first time PyString_AsString() is called, memory is
-##   allocated (with flavor='raw') and content is copied.
+##   buffer holding \x0.  The first time PyString_AsString() is called, the 
+##   PyStringObject is reallocated, and the string copied into the buffer. The
+##   ob_size reflects the length of the string.
 ##
 ## - A string allocated with PyString_FromStringAndSize(NULL, size) will
 ##   allocate a PyBytesObject structure, and a buffer with the specified
-##   size+1, but the reference won't be stored in the global map; there is no
-##   corresponding object in pypy.  When from_ref() or Py_INCREF() is called,
-##   the pypy string is created, and added to the global map of tracked
-##   objects.  The buffer is then supposed to be immutable.
+##   size+1, as part of the object. The buffer is then supposed to be immutable.
 ##
 ##-  A buffer obtained from PyString_AS_STRING() could be mutable iff
 ##   there is no corresponding pypy object for the string
