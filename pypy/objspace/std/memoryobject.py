@@ -26,7 +26,6 @@ class W_MemoryView(W_Root):
     """Implement the built-in 'memoryview' type as a wrapper around
     an interp-level buffer.
     """
-    _attrs_ = ['buf']
 
     def __init__(self, buf, format=None, itemsize=1, ndim=-1,
                  shape=None, strides=None, suboffsets=None):
