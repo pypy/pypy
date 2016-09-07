@@ -1384,5 +1384,23 @@ class BaseTestVectorize(VecTestHelper):
                 for arg in op.getfailargs():
                     assert not arg.is_constant()
 
+    def test_delay_pure_ops(self):
+        """ Pure operations can be delayed. Often (e.g. for index calc.) this means they can be omitted.
+        """
+        trace = self.parse_loop("""
+        [p0,i0]
+        f0 = raw_load_f(p0, i0, descr=floatarraydescr)
+        i1 = int_add(i0,8)
+        f1 = raw_load_f(p0, i1, descr=floatarraydescr)
+        i2 = int_add(i1,8)
+        jump(p0,i2)
+        """)
+        self.schedule(trace)
+        self.ensure_operations([
+            'v0[2xf64] = vec_load_f(p0, i0, 8, 0, descr=floatarraydescr)',
+            'i2 = int_add(i0, 16)',
+            'jump(p0,i2)',
+        ], trace)
+
 class TestLLtype(BaseTestVectorize, LLtypeMixin):
     pass
