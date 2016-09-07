@@ -1902,7 +1902,7 @@ void *rpy_reverse_db_rawrefcount_next_dead(void)
             /* when recording, this call to next_dead() returned NULL */
             return NULL;
 
-        case 0xEE:
+        case 0xEC:
             /* when recording, this call to next_dead() didn't return NULL */
             break;
 
