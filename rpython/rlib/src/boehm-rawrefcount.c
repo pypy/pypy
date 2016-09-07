@@ -190,6 +190,7 @@ RPY_EXTERN
                 printf("next_dead: %p\n", result);
 #endif
                 assert(result->ob_refcnt == REFCNT_FROM_PYPY);
+                result->ob_refcnt = 1;
                 p->pyobj = NULL;
                 *pp = p->next_in_bucket;
                 p->next_in_bucket = hash_free_list;
