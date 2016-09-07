@@ -377,7 +377,25 @@ class BaseConcreteArray(object):
     def __exit__(self, typ, value, traceback):
         keepalive_until_here(self)
 
-    def get_buffer(self, space, readonly):
+    def get_buffer(self, space, flags):
+        errtype = space.w_ValueError # should be BufferError, numpy does this instead
+        if ((flags & space.BUF_C_CONTIGUOUS) == space.BUF_C_CONTIGUOUS and 
+                not self.flags & NPY.ARRAY_C_CONTIGUOUS):
+           raise oefmt(errtype, "ndarray is not C-contiguous")
+        if ((flags & space.BUF_F_CONTIGUOUS) == space.BUF_F_CONTIGUOUS and 
+                not self.flags & NPY.ARRAY_F_CONTIGUOUS):
+           raise oefmt(errtype, "ndarray is not Fortran contiguous")
+        if ((flags & space.BUF_ANY_CONTIGUOUS) == space.BUF_ANY_CONTIGUOUS and
+                not (self.flags & NPY.ARRAY_F_CONTIGUOUS and 
+                     self.flags & NPY.ARRAY_C_CONTIGUOUS)):
+           raise oefmt(errtype, "ndarray is not contiguous")
+        if ((flags & space.BUF_STRIDES) != space.BUF_STRIDES and
+                not self.flags & NPY.ARRAY_C_CONTIGUOUS):
+           raise oefmt(errtype, "ndarray is not C-contiguous")
+        if ((flags & space.BUF_WRITABLE) == space.BUF_WRITABLE and
+            not self.flags & NPY.ARRAY_WRITEABLE):
+           raise oefmt(errtype, "buffer source array is read-only")
+        readonly = not (flags & space.BUF_WRITABLE) == space.BUF_WRITABLE
         return ArrayBuffer(self, readonly)
 
     def astype(self, space, dtype, order, copy=True):
@@ -695,6 +713,7 @@ class ArrayBuffer(Buffer):
                  index + self.impl.start)
 
     def setitem(self, index, v):
+        # XXX what if self.readonly?
         raw_storage_setitem(self.impl.storage, index + self.impl.start,
                             rffi.cast(lltype.Char, v))
 
