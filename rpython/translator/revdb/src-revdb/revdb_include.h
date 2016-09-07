@@ -38,7 +38,7 @@ RPY_EXTERN int rpy_reverse_db_main(Signed entry_point(Signed, char**),
     if (rpy_rev_fileno >= 0) {                                          \
         fprintf(stderr,                                                 \
                 "%s %s:%d: %0*llx\n",                                   \
-                mode, __FILE__, __LINE__, 2 * sizeof(_e),               \
+                mode, __FILE__, (int)__LINE__, (int)(2 * sizeof(_e)),   \
                 ((unsigned long long)_e) & ((2ULL << (8*sizeof(_e)-1)) - 1)); \
     }
 #endif
@@ -51,7 +51,7 @@ RPY_EXTERN void seeing_uid(uint64_t uid);
         seeing_uid(uid);                                                \
         fprintf(stderr,                                                 \
                 "[nobj] %s:%d: obj %llu\n",                             \
-                __FILE__, __LINE__, (unsigned long long) uid);          \
+                __FILE__, (int)__LINE__, (unsigned long long) uid);     \
     }
 #endif
 
@@ -251,6 +251,19 @@ RPY_EXTERN void seeing_uid(uint64_t uid);
     } while (0)
 
 
+#define OP_GC_RAWREFCOUNT_CREATE_LINK_PYPY(gcobj, pyobj, r)   \
+    rpy_reverse_db_rawrefcount_create_link_pypy(gcobj, pyobj)
+
+#define OP_GC_RAWREFCOUNT_FROM_OBJ(gcobj, r)   \
+    r = rpy_reverse_db_rawrefcount_from_obj(gcobj)
+
+#define OP_GC_RAWREFCOUNT_TO_OBJ(pyobj, r)   \
+    r = rpy_reverse_db_rawrefcount_to_obj(pyobj)
+
+#define OP_GC_RAWREFCOUNT_NEXT_DEAD(r)   \
+    r = rpy_reverse_db_rawrefcount_next_dead()
+
+
 RPY_EXTERN void rpy_reverse_db_flush(void);  /* must be called with the lock */
 RPY_EXTERN void rpy_reverse_db_fetch(const char *file, int line);
 RPY_EXTERN void rpy_reverse_db_stop_point(long place);
@@ -275,5 +288,10 @@ RPY_EXTERN void rpy_reverse_db_bad_acquire_gil(void);
 RPY_EXTERN void rpy_reverse_db_set_thread_breakpoint(int64_t tnum);
 RPY_EXTERN double rpy_reverse_db_strtod(RPyString *s);
 RPY_EXTERN RPyString *rpy_reverse_db_dtoa(double d);
+RPY_EXTERN void rpy_reverse_db_rawrefcount_create_link_pypy(void *gcobj, 
+                                                            void *pyobj);
+RPY_EXTERN void *rpy_reverse_db_rawrefcount_from_obj(void *gcobj);
+RPY_EXTERN void *rpy_reverse_db_rawrefcount_to_obj(void *pyobj);
+RPY_EXTERN void *rpy_reverse_db_rawrefcount_next_dead(void);
 
 /* ------------------------------------------------------------ */

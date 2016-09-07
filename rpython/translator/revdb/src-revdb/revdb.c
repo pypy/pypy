@@ -1762,7 +1762,8 @@ double rpy_reverse_db_strtod(RPyString *s)
     return result;
 }
 
-RPY_EXTERN RPyString *rpy_reverse_db_dtoa(double d)
+RPY_EXTERN
+RPyString *rpy_reverse_db_dtoa(double d)
 {
     char buffer[128], *p;
     RPyString *result;
@@ -1779,6 +1780,153 @@ RPY_EXTERN RPyString *rpy_reverse_db_dtoa(double d)
     result = make_rpy_string(size);
     memcpy(_RPyString_AsString(result), buffer, size);
     return result;
+}
+
+
+static void *rawrefcount_tree;    /* {pyobj: gcobj} */
+
+struct rawrefcount_link2_s {
+    void *pyobj;
+    void *gcobj;
+};
+
+static int _rrtree_compare(const void *obj1, const void *obj2)
+{
+    const struct rawrefcount_link2_s *r1 = obj1;
+    const struct rawrefcount_link2_s *r2 = obj2;
+    void *p1 = r1->pyobj;
+    void *p2 = r2->pyobj;
+    if (p1 < p2)
+        return -1;
+    if (p1 == p2)
+        return 0;
+    else
+        return 1;
+}
+
+static void _rrtree_add(void *pyobj, void *gcobj)
+{
+    /* Note: we always allocate an indirection through a 
+       struct rawrefcount_link2_s, so that Boehm knows that
+       'gcobj' must be kept alive. */
+    struct rawrefcount_link2_s *node, **item;
+    node = GC_MALLOC_UNCOLLECTABLE(sizeof(struct rawrefcount_link2_s));
+    node->pyobj = pyobj;
+    node->gcobj = gcobj;
+    item = tsearch(node, &rawrefcount_tree, _rrtree_compare);
+    if (item == NULL) {
+        fprintf(stderr, "_rrtree_add: out of memory\n");
+        exit(1);
+    }
+    if (*item != node) {
+        fprintf(stderr, "_rrtree_add: duplicate object\n");
+        exit(1);
+    }
+}
+
+RPY_EXTERN
+void rpy_reverse_db_rawrefcount_create_link_pypy(void *gcobj, void *pyobj)
+{
+    if (!RPY_RDB_REPLAY) {
+        gc_rawrefcount_create_link_pypy(gcobj, pyobj);
+    }
+    else {
+        _rrtree_add(pyobj, gcobj);
+    }
+}
+
+RPY_EXTERN
+void *rpy_reverse_db_rawrefcount_from_obj(void *gcobj)
+{
+    void *r;
+    RPY_REVDB_EMIT(r = gc_rawrefcount_from_obj(gcobj);, void *_e, r);
+    return r;
+}
+
+RPY_EXTERN
+void *rpy_reverse_db_rawrefcount_to_obj(void *pyobj)
+{
+    unsigned char flag;
+
+    if (!RPY_RDB_REPLAY) {
+        void *r = gc_rawrefcount_to_obj(pyobj);
+        RPY_REVDB_EMIT(flag = 0xEE + !r;, unsigned char _e, flag);
+        return r;
+    }
+    else {
+        RPY_REVDB_EMIT(abort();, unsigned char _e, flag);
+        switch (flag) {
+
+        case 0xEF:
+            /* when recording, this call to to_obj() returned NULL */
+            return NULL;
+
+        case 0xEE:
+            /* when recording, this call to to_obj() didn't return NULL */
+            break;
+
+        default:
+            fprintf(stderr, "bad byte in rawrefcount_to_obj\n");
+            exit(1);
+        }
+
+        struct rawrefcount_link2_s **item, dummy;
+        dummy.pyobj = pyobj;
+        item = tfind(&dummy, &rawrefcount_tree, _rrtree_compare);
+        if (item == NULL) {
+            fprintf(stderr, "rawrefcount_to_obj: not found in tree\n");
+            exit(1);
+        }
+        return (*item)->gcobj;
+    }
+}
+
+RPY_EXTERN
+void *rpy_reverse_db_rawrefcount_next_dead(void)
+{
+    unsigned char flag;
+
+    if (!RPY_RDB_REPLAY) {
+        void *r = gc_rawrefcount_next_dead();
+        RPY_REVDB_EMIT(flag = 0xEC + !r;, unsigned char _e, flag);
+        if (r) {
+            RPY_REVDB_EMIT(;, void *_e, r);
+        }
+        return r;
+    }
+    else {
+        RPY_REVDB_EMIT(abort();, unsigned char _e, flag);
+        switch (flag) {
+
+        case 0xED:
+            /* when recording, this call to next_dead() returned NULL */
+            return NULL;
+
+        case 0xEE:
+            /* when recording, this call to next_dead() didn't return NULL */
+            break;
+
+        default:
+            fprintf(stderr, "bad byte in rawrefcount_next_dead\n");
+            exit(1);
+        }
+
+        void *pyobj;
+        RPY_REVDB_EMIT(abort();, void *_e, pyobj);
+
+        struct rawrefcount_link2_s **item, *entry, dummy;
+        dummy.pyobj = pyobj;
+        item = tfind(&dummy, &rawrefcount_tree, _rrtree_compare);
+        if (item == NULL) {
+            fprintf(stderr, "rawrefcount_next_dead: not found in tree\n");
+            exit(1);
+        }
+        entry = *item;
+        tdelete(entry, &rawrefcount_tree, _rrtree_compare);
+        GC_FREE(entry);
+
+        return pyobj;
+    }
 }
 
 
