@@ -237,6 +237,7 @@ RPY_EXTERN
 static void boehm_is_about_to_collect(void)
 {
     struct link_s *plist = hash_list;
+    uintptr_t gcenc_union = 0;
     while (plist != NULL) {
         uintptr_t i, count = plist[0].gcenc;
         for (i = 1; i < count; i++) {
@@ -260,12 +261,13 @@ static void boehm_is_about_to_collect(void)
                 */
                 plist[i].gcenc = ~plist[i].gcenc;
             }
+            gcenc_union |= plist[i].gcenc;
 #ifdef TEST_BOEHM_RAWREFCOUNT
             printf("-> %p\n", plist[i].gcenc);
 #endif
     }
         plist = plist[0].next_in_bucket;
     }
-    if (hash_mask_bucket > 0)
+    if (gcenc_union & 1)   /* if there is at least one item potentially dead */
         hash_list_walk_next = hash_mask_bucket;
 }
