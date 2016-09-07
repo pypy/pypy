@@ -194,6 +194,29 @@ class TestNumber(BaseCTypesTestChecker):
             _fields_ = [('t', enum)]
         assert isinstance(S().t, enum)
 
+    def test_no_missing_shape_to_ffi_type(self):
+        # whitebox test
+        import sys
+        if '__pypy__' not in sys.builtin_module_names:
+            skip("only for pypy's ctypes")
+        skip("re-enable after adding 'g' to _shape_to_ffi_type.typemap, "
+             "which I think needs fighting all the way up from "
+             "rpython.rlib.libffi")
+        from _ctypes.basics import _shape_to_ffi_type
+        from _rawffi import Array
+        for i in range(1, 256):
+            try:
+                Array(chr(i))
+            except ValueError:
+                pass
+            else:
+                assert chr(i) in _shape_to_ffi_type.typemap
+
+    @py.test.mark.xfail
+    def test_pointer_to_long_double(self):
+        import ctypes
+        ctypes.POINTER(ctypes.c_longdouble)
+
 ##    def test_perf(self):
 ##        check_perf()
 

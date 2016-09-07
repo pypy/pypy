@@ -335,8 +335,14 @@ class CPyBuffer(Buffer):
     def getshape(self):
         return self.shape
 
+    def getstrides(self):
+        return self.strides
+
     def getitemsize(self):
         return self.itemsize
+
+    def getndim(self):
+        return self.ndim
 
 def wrap_getbuffer(space, w_self, w_args, func):
     func_target = rffi.cast(getbufferproc, func)

@@ -1851,7 +1851,7 @@ class ObjectType(Primitive, BaseType):
                     arr.gcstruct)
 
     def read(self, arr, i, offset, dtype):
-        if arr.gcstruct is V_OBJECTSTORE:
+        if arr.gcstruct is V_OBJECTSTORE and not arr.base():
             raise oefmt(self.space.w_NotImplementedError,
                 "cannot read object from array with no gc hook")
         return self.box(self._read(arr.storage, i, offset))
