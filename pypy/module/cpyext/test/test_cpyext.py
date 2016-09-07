@@ -94,7 +94,7 @@ def get_cpyext_info(space):
         ext=get_so_extension(space))
 
 
-def compile_extension_module(space, modname, include_dirs=[],
+def compile_extension_module(sys_info, modname, include_dirs=[],
         source_files=None, source_strings=None):
     """
     Build an extension module and return the filename of the resulting native
@@ -106,12 +106,6 @@ def compile_extension_module(space, modname, include_dirs=[],
     Any extra keyword arguments are passed on to ExternalCompilationInfo to
     build the module (so specify your source with one of those).
     """
-    sys_info = get_cpyext_info(space)
-    return _compile_ext(
-        modname, include_dirs, source_files, source_strings, sys_info)
-
-
-def _compile_ext(modname, include_dirs, source_files, source_strings, sys_info):
     modname = modname.split('.')[-1]
     soname = create_so(modname,
         include_dirs=sys_info.include_extra + include_dirs,
@@ -150,22 +144,6 @@ def get_sys_info_app(space):
         compile_extra=compile_extra,
         link_extra=link_extra,
         ext=get_so_suffix())
-
-def compile_extension_module_applevel(space, modname, include_dirs=[],
-        source_files=None, source_strings=None):
-    """
-    Build an extension module and return the filename of the resulting native
-    code file.
-
-    modname is the name of the module, possibly including dots if it is a module
-    inside a package.
-
-    Any extra keyword arguments are passed on to ExternalCompilationInfo to
-    build the module (so specify your source with one of those).
-    """
-    sys_info = get_sys_info_app(space)
-    return _compile_ext(
-        modname, include_dirs, source_files, source_strings, sys_info)
 
 
 def freeze_refcnts(self):
@@ -347,8 +325,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 assert separate_module_sources is not None
             else:
                 separate_module_sources = []
-            pydname = self.compile_extension_module(
-                space, name,
+            pydname = compile_extension_module(
+                self.sys_info, name,
                 source_files=separate_module_files,
                 source_strings=separate_module_sources)
             return space.wrap(pydname)
@@ -403,7 +381,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 filename = py.path.local(pypydir) / 'module' \
                         / 'cpyext'/ 'test' / (filename + ".c")
                 kwds = dict(source_files=[filename])
-            mod = self.compile_extension_module(space, name,
+            mod = compile_extension_module(self.sys_info, name,
                     include_dirs=include_dirs, **kwds)
 
             if load_it:
@@ -495,11 +473,11 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 return run
             def wrap(func):
                 return func
-            self.compile_extension_module = compile_extension_module_applevel
+            self.sys_info = get_sys_info_app(space)
         else:
             interp2app = gateway.interp2app
             wrap = self.space.wrap
-            self.compile_extension_module = compile_extension_module
+            self.sys_info = get_cpyext_info(space)
         self.w_compile_module = wrap(interp2app(compile_module))
         self.w_import_module = wrap(interp2app(import_module))
         self.w_reimport_module = wrap(interp2app(reimport_module))
