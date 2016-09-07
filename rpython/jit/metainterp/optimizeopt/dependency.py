@@ -136,6 +136,7 @@ class Node(object):
         self.schedule_position = -1
         self.priority = 0
         self._stack = False
+        self.delayed = None
 
     def is_imaginary(self):
         return False
@@ -148,6 +149,7 @@ class Node(object):
 
     def getopnum(self):
         return self.op.getopnum()
+
     def getopname(self):
         return self.op.getopname()
 
@@ -156,6 +158,9 @@ class Node(object):
 
     def can_be_relaxed(self):
         return self.op.getopnum() in (rop.GUARD_TRUE, rop.GUARD_FALSE)
+
+    def is_pure(self):
+        return rop.is_always_pure(self.op.getopnum())
 
     def edge_to(self, to, arg=None, failarg=False, label=None):
         if self is to:

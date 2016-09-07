@@ -65,9 +65,9 @@ class SchedulerState(object):
             if node.depends_count() == 0:
                 self.worklist.insert(0, node)
 
-    def emit(self, node, scheduler):
+    def try_emit_or_delay(self, node, scheduler):
         # implement me in subclass. e.g. as in VecScheduleState
-        return False
+        raise NotImplementedError
 
     def delay(self, node):
         return False
@@ -180,14 +180,7 @@ class Scheduler(object):
         while state.has_more():
             node = self.next(state)
             if node:
-                if not state.emit(node, self):
-                    if not node.emitted:
-                        state.pre_emit(node)
-                        self.mark_emitted(node, state)
-                        if not node.is_imaginary():
-                            op = node.getoperation()
-                            state.seen[op] = None
-                            state.oplist.append(op)
+                state.try_emit_or_delay(node, scheduler)
                 continue
 
             # it happens that packs can emit many nodes that have been
@@ -551,6 +544,10 @@ class VecScheduleState(SchedulerState):
                     failargs[i] = self.renamer.rename_map.get(seed, seed)
             op.setfailargs(failargs)
 
+        delayed = node.delayed
+        if delayed:
+            import pdb; pdb.set_trace()
+
     def profitable(self):
         return self.costmodel.profitable()
 
@@ -560,18 +557,45 @@ class VecScheduleState(SchedulerState):
         for arg in self.graph.loop.label.getarglist():
             self.seen[arg] = None
 
-    def emit(self, node, scheduler):
-        """ If you implement a scheduler this operations is called
-            to emit the actual operation into the oplist of the scheduler.
-        """
-        if node.pack:
+    def try_emit_or_delay(self, scheduler, state):
+        # emission might be blocked by other nodes if this node has a pack!
+        if self.pack:
             assert node.pack.numops() > 1
             for node in node.pack.operations:
                 self.pre_emit(node)
                 scheduler.mark_emitted(node, self, unpack=False)
             turn_into_vector(self, node.pack)
-            return True
-        return False
+            return
+        elif not node.emitted:
+            if not node.is_imaginary() and node.is_pure():
+                # this operation might never be emitted. only if it is really needed
+                self.delay_emit(scheduler, node)
+                return
+            # emit a now!
+            state.pre_emit(node)
+            self.mark_emitted(node, state)
+            if not node.is_imaginary():
+                op = node.getoperation()
+                state.seen[op] = None
+                state.oplist.append(op)
+
+    def delay_emit(self, scheduler, node):
+        """ it has been decided that the operation might be scheduled later """
+        delayed = node.delayed or []
+        delayed.append(self)
+        node.delayed = None
+        for to in self.provides():
+            self.delegate_delay(to, delayed)
+        self.mark_emitted(node, state)
+
+    def delegate_delay(self, node, delayed):
+        """ Chain up delays, this can reduce many more of the operations """
+        if node.delayed is None:
+            node.delayed = delayed
+        else:
+            delayedlist = node.delayed
+            for d in delayed:
+                delayedlist.append(d)
 
     def delay(self, node):
         if node.pack:
