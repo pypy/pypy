@@ -4,7 +4,7 @@ from rpython.tool.udir import udir
 
 
 TEST_CODE = r"""
-#define RPY_EXTERN  /* nothing */
+#define TEST_BOEHM_RAWREFCOUNT
 #include "boehm-rawrefcount.c"
 
 static gcobj_t *alloc_gcobj(void)   /* for tests */

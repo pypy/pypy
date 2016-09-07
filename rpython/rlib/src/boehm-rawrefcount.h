@@ -1,6 +1,8 @@
-#include "common_header.h"
 
-#define OP_GC_RAWREFCOUNT_INIT(callback, r)   /* nothing */
+/* Missing:
+   OP_GC_RAWREFCOUNT_INIT(callback, r): the callback is not supported here
+   OP_GC_RAWREFCOUNT_CREATE_LINK_PYOBJ(): not implemented, maybe not needed
+*/
 
 #define OP_GC_RAWREFCOUNT_CREATE_LINK_PYPY(gcobj, pyobj, r)   \
     gc_rawrefcount_create_link_pypy(gcobj, pyobj)
@@ -12,7 +14,7 @@
     r = gc_rawrefcount_to_obj(pyobj)
 
 #define OP_GC_RAWREFCOUNT_NEXT_DEAD(r)   \
-    r = gc_rawrefcount_next()
+    r = gc_rawrefcount_next_dead()
 
 
 RPY_EXTERN void gc_rawrefcount_create_link_pypy(/*gcobj_t*/void *gcobj, 

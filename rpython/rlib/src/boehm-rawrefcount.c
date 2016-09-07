@@ -6,6 +6,12 @@
 #include <gc/gc.h>
 #include <gc/gc_mark.h>
 
+#ifdef TEST_BOEHM_RAWREFCOUNT
+#  define RPY_EXTERN  /* nothing */
+#else
+#  include "common_header.h"
+#endif
+
 
 #define REFCNT_FROM_PYPY  (LONG_MAX / 4 + 1)
 
@@ -172,7 +178,9 @@ RPY_EXTERN
                    bucket chain, but it should be small with very high
                    probability */
                 pyobj_t *result = p->pyobj;
+#ifdef TEST_BOEHM_RAWREFCOUNT
                 printf("next_dead: %p\n", result);
+#endif
                 assert(result->ob_refcnt == REFCNT_FROM_PYPY);
                 p->pyobj = NULL;
                 *pp = p->next_in_bucket;
@@ -238,7 +246,9 @@ static void boehm_is_about_to_collect(void)
             assert(p != NULL);
             assert(p->ob_refcnt >= REFCNT_FROM_PYPY);
 
+#ifdef TEST_BOEHM_RAWREFCOUNT
             printf("plist[%d].gcenc: %p ", (int)i, plist[i].gcenc);
+#endif
 
             if ((plist[i].gcenc & 1) ^ (p->ob_refcnt == REFCNT_FROM_PYPY)) {
                 /* ob_refcnt > FROM_PYPY: non-zero regular refcnt, 
@@ -249,8 +259,10 @@ static void boehm_is_about_to_collect(void)
                 */
                 plist[i].gcenc = ~plist[i].gcenc;
             }
+#ifdef TEST_BOEHM_RAWREFCOUNT
             printf("-> %p\n", plist[i].gcenc);
-        }
+#endif
+    }
         plist = plist[0].next_in_bucket;
     }
     if (hash_mask_bucket > 0)
