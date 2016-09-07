@@ -53,6 +53,26 @@ def create_so(modname, include_dirs, source_strings=None, source_files=None,
         libraries=libraries)
     return soname
 
+def get_extra_args(space):
+    state = space.fromcache(State)
+    api_library = state.api_lib
+    if sys.platform == 'win32':
+        libraries = [api_library]
+        # '%s' undefined; assuming extern returning int
+        compile_extra = ["/we4013"]
+        # prevent linking with PythonXX.lib
+        w_maj, w_min = space.fixedview(space.sys.get('version_info'), 5)[:2]
+        link_extra = ["/NODEFAULTLIB:Python%d%d.lib" %
+                              (space.int_w(w_maj), space.int_w(w_min))]
+    else:
+        libraries = []
+        if sys.platform.startswith('linux'):
+            compile_extra = ["-Werror", "-g", "-O0", "-Wp,-U_FORTIFY_SOURCE", "-fPIC"]
+            link_extra = ["-g"]
+        else:
+            compile_extra = link_extra = None
+
+
 def compile_extension_module(space, modname, include_dirs=[],
         source_files=None, source_strings=None):
     """
@@ -82,17 +102,21 @@ def compile_extension_module(space, modname, include_dirs=[],
             link_extra = ["-g"]
         else:
             compile_extra = link_extra = None
+    from pypy.module.imp.importing import get_so_extension
+    ext = get_so_extension(space)
+    include_extra = api.include_dirs
+    extra_libs = libraries
+    return _compile_ext(modname, include_dirs, source_files, source_strings, include_extra, compile_extra, link_extra, extra_libs, ext)
 
+def _compile_ext(modname, include_dirs, source_files, source_strings, include_extra, compile_extra, link_extra, extra_libs, ext):
     modname = modname.split('.')[-1]
     soname = create_so(modname,
-            include_dirs=api.include_dirs + include_dirs,
+            include_dirs=include_extra + include_dirs,
             source_files=source_files,
             source_strings=source_strings,
             compile_extra=compile_extra,
             link_extra=link_extra,
-            libraries=libraries)
-    from pypy.module.imp.importing import get_so_extension
-    ext = get_so_extension(space)
+            libraries=extra_libs)
     pydname = soname.new(purebasename=modname, ext=ext)
     soname.rename(pydname)
     return str(pydname)
@@ -128,18 +152,11 @@ def compile_extension_module_applevel(space, modname, include_dirs=[],
         compile_extra = [
             "-O0", "-g", "-Werror=implicit-function-declaration", "-fPIC"]
         link_extra = None
-
-    modname = modname.split('.')[-1]
-    soname = create_so(modname,
-            include_dirs=[space.include_dir] + include_dirs,
-            source_files=source_files,
-            source_strings=source_strings,
-            compile_extra=compile_extra,
-            link_extra=link_extra)
     ext = get_so_suffix()
-    pydname = soname.new(purebasename=modname, ext=ext)
-    soname.rename(pydname)
-    return str(pydname)
+    include_extra = [space.include_dir]
+    extra_libs = None
+    return _compile_ext(modname, include_dirs, source_files, source_strings, include_extra, compile_extra, link_extra, extra_libs, ext)
+
 
 def freeze_refcnts(self):
     rawrefcount._dont_free_any_more()
