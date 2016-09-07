@@ -1,6 +1,8 @@
+import pytest
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rlib.buffer import StringBuffer
+
 class TestMemoryViewObject(BaseApiTest):
     def test_fromobject(self, space, api):
         w_hello = space.newbytes("hello")
@@ -76,6 +78,7 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
         viewlen = module.test_buffer(arr)
         assert viewlen == y.itemsize * len(y)
 
+    @pytest.mark.skipif(True, reason="no _numpypy on py3k")
     def test_buffer_info(self):
         from _numpypy import multiarray as np
         module = self.import_module(name='buffer_test')
