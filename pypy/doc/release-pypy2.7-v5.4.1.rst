@@ -16,7 +16,7 @@ due to the following issues:
 
   * Tweak a float comparison with 0 in ``backendopt.inline`` to avoid rounding errors
 
-  * Fix for an issue where os.access() accepted a float for mode
+  * Fix for an issue for translating the sandbox
 
   * Fix for and issue where ``unicode.decode('utf8', 'custom_replace')`` messed up
     the last byte of a unicode string sometimes
