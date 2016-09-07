@@ -254,6 +254,9 @@ class TestTranslated(StandaloneTests):
             if rawrefcount.next_dead(PyObject) != ob:
                 print "NEXT_DEAD != OB"
                 return 1
+            if ob.c_ob_refcnt != 1:
+                print "next_dead().ob_refcnt != 1"
+                return 1
             if rawrefcount.next_dead(PyObject) != lltype.nullptr(PyObjectS):
                 print "NEXT_DEAD second time != NULL"
                 return 1
@@ -294,6 +297,9 @@ class TestBoehmTranslated(StandaloneTests):
             while True:
                 ob = rawrefcount.next_dead(PyObject)
                 if not ob: break
+                if ob.c_ob_refcnt != 1:
+                    print "next_dead().ob_refcnt != 1"
+                    return 1
                 deadlist.append(ob)
             if len(deadlist) == 0:
                 print "no dead object"
