@@ -53,7 +53,21 @@ def create_so(modname, include_dirs, source_strings=None, source_files=None,
         libraries=libraries)
     return soname
 
-def get_extra_args(space):
+class SystemCompilationInfo(object):
+    """Bundles all the generic information required to compile extensions.
+
+    Note: here, 'system' means OS + target interpreter + test config + ...
+    """
+    def __init__(self, include_extra=None, compile_extra=None, link_extra=None,
+            extra_libs=None, ext=None):
+        self.include_extra = include_extra or []
+        self.compile_extra = compile_extra
+        self.link_extra = link_extra
+        self.extra_libs = extra_libs
+        self.ext = ext
+
+def get_cpyext_info(space):
+    from pypy.module.imp.importing import get_so_extension
     state = space.fromcache(State)
     api_library = state.api_lib
     if sys.platform == 'win32':
@@ -63,14 +77,21 @@ def get_extra_args(space):
         # prevent linking with PythonXX.lib
         w_maj, w_min = space.fixedview(space.sys.get('version_info'), 5)[:2]
         link_extra = ["/NODEFAULTLIB:Python%d%d.lib" %
-                              (space.int_w(w_maj), space.int_w(w_min))]
+            (space.int_w(w_maj), space.int_w(w_min))]
     else:
         libraries = []
         if sys.platform.startswith('linux'):
-            compile_extra = ["-Werror", "-g", "-O0", "-Wp,-U_FORTIFY_SOURCE", "-fPIC"]
+            compile_extra = [
+                "-Werror", "-g", "-O0", "-Wp,-U_FORTIFY_SOURCE", "-fPIC"]
             link_extra = ["-g"]
         else:
             compile_extra = link_extra = None
+    return SystemCompilationInfo(
+        include_extra=api.include_dirs,
+        compile_extra=compile_extra,
+        link_extra=link_extra,
+        extra_libs=libraries,
+        ext=get_so_extension(space))
 
 
 def compile_extension_module(space, modname, include_dirs=[],
@@ -85,39 +106,21 @@ def compile_extension_module(space, modname, include_dirs=[],
     Any extra keyword arguments are passed on to ExternalCompilationInfo to
     build the module (so specify your source with one of those).
     """
-    state = space.fromcache(State)
-    api_library = state.api_lib
-    if sys.platform == 'win32':
-        libraries = [api_library]
-        # '%s' undefined; assuming extern returning int
-        compile_extra = ["/we4013"]
-        # prevent linking with PythonXX.lib
-        w_maj, w_min = space.fixedview(space.sys.get('version_info'), 5)[:2]
-        link_extra = ["/NODEFAULTLIB:Python%d%d.lib" %
-                              (space.int_w(w_maj), space.int_w(w_min))]
-    else:
-        libraries = []
-        if sys.platform.startswith('linux'):
-            compile_extra = ["-Werror", "-g", "-O0", "-Wp,-U_FORTIFY_SOURCE", "-fPIC"]
-            link_extra = ["-g"]
-        else:
-            compile_extra = link_extra = None
-    from pypy.module.imp.importing import get_so_extension
-    ext = get_so_extension(space)
-    include_extra = api.include_dirs
-    extra_libs = libraries
-    return _compile_ext(modname, include_dirs, source_files, source_strings, include_extra, compile_extra, link_extra, extra_libs, ext)
+    sys_info = get_cpyext_info(space)
+    return _compile_ext(
+        modname, include_dirs, source_files, source_strings, sys_info)
 
-def _compile_ext(modname, include_dirs, source_files, source_strings, include_extra, compile_extra, link_extra, extra_libs, ext):
+
+def _compile_ext(modname, include_dirs, source_files, source_strings, sys_info):
     modname = modname.split('.')[-1]
     soname = create_so(modname,
-            include_dirs=include_extra + include_dirs,
-            source_files=source_files,
-            source_strings=source_strings,
-            compile_extra=compile_extra,
-            link_extra=link_extra,
-            libraries=extra_libs)
-    pydname = soname.new(purebasename=modname, ext=ext)
+        include_dirs=sys_info.include_extra + include_dirs,
+        source_files=source_files,
+        source_strings=source_strings,
+        compile_extra=sys_info.compile_extra,
+        link_extra=sys_info.link_extra,
+        libraries=sys_info.extra_libs)
+    pydname = soname.new(purebasename=modname, ext=sys_info.ext)
     soname.rename(pydname)
     return str(pydname)
 
@@ -129,6 +132,24 @@ def get_so_suffix():
     else:
         raise RuntimeError("This interpreter does not define a filename "
             "suffix for C extensions!")
+
+def get_sys_info_app(space):
+    if sys.platform == 'win32':
+        compile_extra = ["/we4013"]
+        link_extra = ["/LIBPATH:" + os.path.join(sys.exec_prefix, 'libs')]
+    elif sys.platform == 'darwin':
+        compile_extra = link_extra = None
+        pass
+    elif sys.platform.startswith('linux'):
+        compile_extra = [
+            "-O0", "-g", "-Werror=implicit-function-declaration", "-fPIC"]
+        link_extra = None
+    ext = get_so_suffix()
+    return SystemCompilationInfo(
+        include_extra=[space.include_dir],
+        compile_extra=compile_extra,
+        link_extra=link_extra,
+        ext=get_so_suffix())
 
 def compile_extension_module_applevel(space, modname, include_dirs=[],
         source_files=None, source_strings=None):
@@ -142,20 +163,9 @@ def compile_extension_module_applevel(space, modname, include_dirs=[],
     Any extra keyword arguments are passed on to ExternalCompilationInfo to
     build the module (so specify your source with one of those).
     """
-    if sys.platform == 'win32':
-        compile_extra = ["/we4013"]
-        link_extra = ["/LIBPATH:" + os.path.join(sys.exec_prefix, 'libs')]
-    elif sys.platform == 'darwin':
-        compile_extra = link_extra = None
-        pass
-    elif sys.platform.startswith('linux'):
-        compile_extra = [
-            "-O0", "-g", "-Werror=implicit-function-declaration", "-fPIC"]
-        link_extra = None
-    ext = get_so_suffix()
-    include_extra = [space.include_dir]
-    extra_libs = None
-    return _compile_ext(modname, include_dirs, source_files, source_strings, include_extra, compile_extra, link_extra, extra_libs, ext)
+    sys_info = get_sys_info_app(space)
+    return _compile_ext(
+        modname, include_dirs, source_files, source_strings, sys_info)
 
 
 def freeze_refcnts(self):
