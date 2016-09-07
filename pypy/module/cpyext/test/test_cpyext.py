@@ -476,7 +476,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         else:
             interp2app = gateway.interp2app
             wrap = self.space.wrap
-            self.sys_info = get_cpyext_info(space)
+            self.sys_info = get_cpyext_info(self.space)
         self.w_compile_module = wrap(interp2app(compile_module))
         self.w_import_module = wrap(interp2app(import_module))
         self.w_reimport_module = wrap(interp2app(reimport_module))
