@@ -1895,6 +1895,17 @@ void *rpy_reverse_db_rawrefcount_next_dead(void)
         return r;
     }
     else {
+        /* Note: when replaying, the lifetime of the gcobj is a bit
+           extended when compared with recording.  That shouldn't have
+           a visible effect.  More precisely, when replaying,
+           create_link_pypy() calls _rrtree_add(), which makes a
+           struct rawrefcount_link2_s, which keeps gcobj alive; and
+           that structure is only freed here, when we call next_dead()
+           and return the corresponding pyobj.  When recording, the
+           cause-and-effect relationship is in the opposite direction:
+           when Boehm frees the gcobj, it causes the pyobj to show up
+           (sometimes later) in a next_dead() call.
+        */
         RPY_REVDB_EMIT(abort();, unsigned char _e, flag);
         switch (flag) {
 

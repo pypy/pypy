@@ -41,6 +41,7 @@ def PyMemoryView_GET_BUFFER(space, w_obj):
     view.c_len = w_obj.getlength()
     view.c_itemsize = w_obj.buf.getitemsize()
     rffi.setintfield(view, 'c_ndim', ndim)
+    raise NotImplementedError   # bogus lines follow, remove this when fixed
     view.c__format = rffi.cast(rffi.UCHAR, w_obj.buf.getformat())
     view.c_format = rffi.cast(rffi.CCHARP, view.c__format)
     view.c_shape = rffi.cast(Py_ssize_tP, view.c__shape)
