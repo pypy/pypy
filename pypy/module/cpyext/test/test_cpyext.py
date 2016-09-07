@@ -127,7 +127,8 @@ def get_so_suffix():
         raise RuntimeError("This interpreter does not define a filename "
             "suffix for C extensions!")
 
-def get_sys_info_app(space):
+def get_sys_info_app():
+    from distutils.sysconfig import get_python_inc
     if sys.platform == 'win32':
         compile_extra = ["/we4013"]
         link_extra = ["/LIBPATH:" + os.path.join(sys.exec_prefix, 'libs')]
@@ -140,7 +141,7 @@ def get_sys_info_app(space):
         link_extra = None
     ext = get_so_suffix()
     return SystemCompilationInfo(
-        include_extra=[space.include_dir],
+        include_extra=[get_python_inc()],
         compile_extra=compile_extra,
         link_extra=link_extra,
         ext=get_so_suffix())
@@ -159,9 +160,7 @@ def freeze_refcnts(self):
 class FakeSpace(object):
     """Like TinyObjSpace, but different"""
     def __init__(self, config):
-        from distutils.sysconfig import get_python_inc
         self.config = config
-        self.include_dir = get_python_inc()
 
     def passthrough(self, arg):
         return arg
@@ -473,7 +472,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 return run
             def wrap(func):
                 return func
-            self.sys_info = get_sys_info_app(space)
+            self.sys_info = get_sys_info_app()
         else:
             interp2app = gateway.interp2app
             wrap = self.space.wrap
