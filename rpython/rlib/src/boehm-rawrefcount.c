@@ -206,7 +206,8 @@ void gc_rawrefcount_create_link_pypy(/*gcobj_t*/void *gcobj,
     pyobj_t *pyobj1 = (pyobj_t *)pyobj;
 
     assert(pyobj1->ob_pypy_link == 0);
-    assert(pyobj1->ob_refcnt >= REFCNT_FROM_PYPY);
+    /*assert(pyobj1->ob_refcnt >= REFCNT_FROM_PYPY);*/
+    /*^^^ could also be fixed just after the call to create_link_pypy()*/
 
     hash_add_entry(gcobj1, pyobj1);
 }
