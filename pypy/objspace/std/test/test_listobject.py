@@ -432,7 +432,7 @@ class TestW_ListObject(object):
 
 
 class AppTestListObject(object):
-    spaceconfig = {"objspace.std.withliststrategies": True}  # it's the default
+    #spaceconfig = {"objspace.std.withliststrategies": True}  # it's the default
 
     def setup_class(cls):
         import platform
@@ -1518,6 +1518,16 @@ class AppTestListObject(object):
             def __iter__(self):
                 yield "ok"
         assert list(U(u"don't see me")) == ["ok"]
+        #
+        class S(str):
+            def __getitem__(self, index):
+                return str.__getitem__(self, index).upper()
+        assert list(S("abc")) == list("ABC")
+        #
+        class U(unicode):
+            def __getitem__(self, index):
+                return unicode.__getitem__(self, index).upper()
+        assert list(U(u"abc")) == list(u"ABC")
 
     def test_extend_from_nonempty_list_with_subclasses(self):
         l = ["hi!"]
@@ -1543,6 +1553,20 @@ class AppTestListObject(object):
         l.extend(U(u"don't see me"))
         #
         assert l == ["hi!", "okT", "okL", "okL", "okS", "okU"]
+        #
+        class S(str):
+            def __getitem__(self, index):
+                return str.__getitem__(self, index).upper()
+        l = []
+        l.extend(S("abc"))
+        assert l == list("ABC")
+        #
+        class U(unicode):
+            def __getitem__(self, index):
+                return unicode.__getitem__(self, index).upper()
+        l = []
+        l.extend(U(u"abc"))
+        assert l == list(u"ABC")
 
     def test_no_len_on_range_iter(self):
         iterable = range(10)

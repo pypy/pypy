@@ -597,6 +597,11 @@ def load_c_extension(space, filename, modulename):
 
 @jit.dont_look_inside
 def load_module(space, w_modulename, find_info, reuse=False):
+    """Like load_module() in CPython's import.c, this will normally
+    make a module object, store it in sys.modules, execute code in it,
+    and then fetch it again from sys.modules.  But this logic is not
+    used if we're calling a PEP302 loader.
+    """
     if find_info is None:
         return
 
@@ -625,17 +630,15 @@ def load_module(space, w_modulename, find_info, reuse=False):
 
         try:
             if find_info.modtype == PY_SOURCE:
-                load_source_module(
+                return load_source_module(
                     space, w_modulename, w_mod,
                     find_info.filename, find_info.stream.readall(),
                     find_info.stream.try_to_find_file_descriptor())
-                return w_mod
             elif find_info.modtype == PY_COMPILED:
                 magic = _r_long(find_info.stream)
                 timestamp = _r_long(find_info.stream)
-                load_compiled_module(space, w_modulename, w_mod, find_info.filename,
+                return load_compiled_module(space, w_modulename, w_mod, find_info.filename,
                                      magic, timestamp, find_info.stream.readall())
-                return w_mod
             elif find_info.modtype == PKG_DIRECTORY:
                 w_path = space.newlist([space.wrap(find_info.filename)])
                 space.setattr(w_mod, space.wrap('__path__'), w_path)
@@ -644,14 +647,13 @@ def load_module(space, w_modulename, find_info, reuse=False):
                 if find_info is None:
                     return w_mod
                 try:
-                    load_module(space, w_modulename, find_info, reuse=True)
+                    w_mod = load_module(space, w_modulename, find_info,
+                                        reuse=True)
                 finally:
                     try:
                         find_info.stream.close()
                     except StreamErrors:
                         pass
-                # fetch the module again, in case of "substitution"
-                w_mod = check_sys_modules(space, w_modulename)
                 return w_mod
             elif find_info.modtype == C_EXTENSION and has_so_extension(space):
                 load_c_extension(space, find_info.filename, space.str_w(w_modulename))
@@ -677,13 +679,6 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
         try:
             if find_info:
                 w_mod = load_module(space, w_modulename, find_info)
-                try:
-                    w_mod = space.getitem(space.sys.get("modules"),
-                                          w_modulename)
-                except OperationError as oe:
-                    if not oe.match(space, space.w_KeyError):
-                        raise
-                    raise OperationError(space.w_ImportError, w_modulename)
                 if w_parent is not None:
                     space.setattr(w_parent, space.wrap(partname), w_mod)
                 return w_mod
@@ -875,20 +870,32 @@ def parse_source_module(space, pathname, source):
     pycode = ec.compiler.compile(source, pathname, 'exec', 0)
     return pycode
 
-def exec_code_module(space, w_mod, code_w):
+def exec_code_module(space, w_mod, code_w, w_modulename, check_afterwards=True):
+    """
+    Execute a code object in the module's dict.  Returns
+    'sys.modules[modulename]', which must exist.
+    """
     w_dict = space.getattr(w_mod, space.wrap('__dict__'))
     space.call_method(w_dict, 'setdefault',
                       space.wrap('__builtins__'),
                       space.wrap(space.builtin))
     code_w.exec_code(space, w_dict, w_dict)
 
+    if check_afterwards:
+        w_mod = check_sys_modules(space, w_modulename)
+        if w_mod is None:
+            raise oefmt(space.w_ImportError,
+                        "Loaded module %R not found in sys.modules",
+                        w_modulename)
+    return w_mod
+
 
 @jit.dont_look_inside
 def load_source_module(space, w_modulename, w_mod, pathname, source, fd,
-                       write_pyc=True):
+                       write_pyc=True, check_afterwards=True):
     """
-    Load a source module from a given file and return its module
-    object.
+    Load a source module from a given file.  Returns the result
+    of sys.modules[modulename], which must exist.
     """
     w = space.wrap
 
@@ -927,9 +934,8 @@ def load_source_module(space, w_modulename, w_mod, pathname, source, fd,
         code_w.remove_docstrings(space)
 
     update_code_filenames(space, code_w, pathname)
-    exec_code_module(space, w_mod, code_w)
-
-    return w_mod
+    return exec_code_module(space, w_mod, code_w, w_modulename,
+                            check_afterwards=check_afterwards)
 
 def update_code_filenames(space, code_w, pathname, oldname=None):
     assert isinstance(code_w, PyCode)
@@ -1012,10 +1018,10 @@ def read_compiled_module(space, cpathname, strbuf):
 
 @jit.dont_look_inside
 def load_compiled_module(space, w_modulename, w_mod, cpathname, magic,
-                         timestamp, source):
+                         timestamp, source, check_afterwards=True):
     """
-    Load a module from a compiled file, execute it, and return its
-    module object.
+    Load a module from a compiled file and execute it.  Returns
+    'sys.modules[modulename]', which must exist.
     """
     log_pyverbose(space, 1, "import %s # compiled from %s\n" %
                   (space.str_w(w_modulename), cpathname))
@@ -1032,9 +1038,8 @@ def load_compiled_module(space, w_modulename, w_mod, cpathname, magic,
     if optimize >= 2:
         code_w.remove_docstrings(space)
 
-    exec_code_module(space, w_mod, code_w)
-
-    return w_mod
+    return exec_code_module(space, w_mod, code_w, w_modulename,
+                            check_afterwards=check_afterwards)
 
 def open_exclusive(space, cpathname, mode):
     try:

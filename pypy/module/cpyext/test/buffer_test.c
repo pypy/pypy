@@ -107,14 +107,11 @@ static int
 PyMyArray_getbuffer(PyObject *obj, Py_buffer *view, int flags)
 {
   PyMyArray* self = (PyMyArray*)obj;
-  fprintf(stdout, "in PyMyArray_getbuffer\n");
   if (view == NULL) {
-    fprintf(stdout, "view is NULL\n");
     PyErr_SetString(PyExc_ValueError, "NULL view in getbuffer");
     return -1;
   }
   if (flags == 0) {
-    fprintf(stdout, "flags is 0\n");
     PyErr_SetString(PyExc_ValueError, "flags == 0 in getbuffer");
     return -1;
   }
@@ -188,7 +185,131 @@ static PyTypeObject PyMyArrayType = {
     (initproc)PyMyArray_init,     /* tp_init */
 };
 
+static PyObject*
+test_buffer(PyObject* self, PyObject* args)
+{
+    Py_buffer* view = NULL;
+    PyObject* obj = PyTuple_GetItem(args, 0);
+    PyObject* memoryview = PyMemoryView_FromObject(obj);
+    if (memoryview == NULL)
+        return PyInt_FromLong(-1);
+    view = PyMemoryView_GET_BUFFER(memoryview);
+    Py_DECREF(memoryview);
+    return PyInt_FromLong(view->len);
+}
+
+/* Copied from numpy tests */
+/*
+ * Create python string from a FLAG and or the corresponding PyBuf flag
+ * for the use in get_buffer_info.
+ */
+#define GET_PYBUF_FLAG(FLAG)                                        \
+    buf_flag = PyUnicode_FromString(#FLAG);                         \
+    flag_matches = PyObject_RichCompareBool(buf_flag, tmp, Py_EQ);  \
+    Py_DECREF(buf_flag);                                            \
+    if (flag_matches == 1) {                                        \
+        Py_DECREF(tmp);                                             \
+        flags |= PyBUF_##FLAG;                                      \
+        continue;                                                   \
+    }                                                               \
+    else if (flag_matches == -1) {                                  \
+        Py_DECREF(tmp);                                             \
+        return NULL;                                                \
+    }
+
+
+/*
+ * Get information for a buffer through PyBuf_GetBuffer with the
+ * corresponding flags or'ed. Note that the python caller has to
+ * make sure that or'ing those flags actually makes sense.
+ * More information should probably be returned for future tests.
+ */
+static PyObject *
+get_buffer_info(PyObject *self, PyObject *args)
+{
+    PyObject *buffer_obj, *pyflags;
+    PyObject *tmp, *buf_flag;
+    Py_buffer buffer;
+    PyObject *shape, *strides;
+    Py_ssize_t i, n;
+    int flag_matches;
+    int flags = 0;
+
+    if (!PyArg_ParseTuple(args, "OO", &buffer_obj, &pyflags)) {
+        return NULL;
+    }
+
+    n = PySequence_Length(pyflags);
+    if (n < 0) {
+        return NULL;
+    }
+
+    for (i=0; i < n; i++) {
+        tmp = PySequence_GetItem(pyflags, i);
+        if (tmp == NULL) {
+            return NULL;
+        }
+
+        GET_PYBUF_FLAG(SIMPLE);
+        GET_PYBUF_FLAG(WRITABLE);
+        GET_PYBUF_FLAG(STRIDES);
+        GET_PYBUF_FLAG(ND);
+        GET_PYBUF_FLAG(C_CONTIGUOUS);
+        GET_PYBUF_FLAG(F_CONTIGUOUS);
+        GET_PYBUF_FLAG(ANY_CONTIGUOUS);
+        GET_PYBUF_FLAG(INDIRECT);
+        GET_PYBUF_FLAG(FORMAT);
+        GET_PYBUF_FLAG(STRIDED);
+        GET_PYBUF_FLAG(STRIDED_RO);
+        GET_PYBUF_FLAG(RECORDS);
+        GET_PYBUF_FLAG(RECORDS_RO);
+        GET_PYBUF_FLAG(FULL);
+        GET_PYBUF_FLAG(FULL_RO);
+        GET_PYBUF_FLAG(CONTIG);
+        GET_PYBUF_FLAG(CONTIG_RO);
+
+        Py_DECREF(tmp);
+
+        /* One of the flags must match */
+        PyErr_SetString(PyExc_ValueError, "invalid flag used.");
+        return NULL;
+    }
+
+    if (PyObject_GetBuffer(buffer_obj, &buffer, flags) < 0) {
+        return NULL;
+    }
+
+    if (buffer.shape == NULL) {
+        Py_INCREF(Py_None);
+        shape = Py_None;
+    }
+    else {
+        shape = PyTuple_New(buffer.ndim);
+        for (i=0; i < buffer.ndim; i++) {
+            PyTuple_SET_ITEM(shape, i, PyLong_FromSsize_t(buffer.shape[i]));
+        }
+    }
+
+    if (buffer.strides == NULL) {
+        Py_INCREF(Py_None);
+        strides = Py_None;
+    }
+    else {
+        strides = PyTuple_New(buffer.ndim);
+        for (i=0; i < buffer.ndim; i++) {
+            PyTuple_SET_ITEM(strides, i, PyLong_FromSsize_t(buffer.strides[i]));
+        }
+    }
+
+    PyBuffer_Release(&buffer);
+    return Py_BuildValue("(NN)", shape, strides);
+}
+
+
+
 static PyMethodDef buffer_functions[] = {
+    {"test_buffer",   (PyCFunction)test_buffer, METH_VARARGS, NULL},
+    {"get_buffer_info",   (PyCFunction)get_buffer_info, METH_VARARGS, NULL},
     {NULL,        NULL}    /* Sentinel */
 };
 
@@ -198,7 +319,7 @@ static struct PyModuleDef moduledef = {
     "buffer_test",
     "Module Doc",
     -1,
-    buffer_functions;
+    buffer_functions,
     NULL,
     NULL,
     NULL,

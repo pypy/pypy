@@ -46,6 +46,7 @@ class CConfig:
         LPWSTR = rffi_platform.SimpleType("LPWSTR", rffi.CWCHARP)
         LPCWSTR = rffi_platform.SimpleType("LPCWSTR", rffi.CWCHARP)
         LPDWORD = rffi_platform.SimpleType("LPDWORD", rffi.UINTP)
+        LPBOOL = rffi_platform.SimpleType("LPBOOL", rffi.LONGP)
         SIZE_T = rffi_platform.SimpleType("SIZE_T", rffi.SIZE_T)
         ULONG_PTR = rffi_platform.SimpleType("ULONG_PTR", rffi.ULONG)
 
@@ -57,6 +58,24 @@ class CConfig:
                                          ('dwHighDateTime', rffi.UINT)])
         SYSTEMTIME = rffi_platform.Struct('SYSTEMTIME',
                                           [])
+
+        Struct = rffi_platform.Struct
+        COORD = Struct("COORD",
+                       [("X", rffi.SHORT),
+                        ("Y", rffi.SHORT)])
+
+        SMALL_RECT = Struct("SMALL_RECT",
+                            [("Left", rffi.SHORT),
+                             ("Top", rffi.SHORT),
+                             ("Right", rffi.SHORT),
+                             ("Bottom", rffi.SHORT)])
+
+        CONSOLE_SCREEN_BUFFER_INFO = Struct("CONSOLE_SCREEN_BUFFER_INFO",
+                                            [("dwSize", COORD),
+                                             ("dwCursorPosition", COORD),
+                                             ("wAttributes", WORD.ctype_hint),
+                                             ("srWindow", SMALL_RECT),
+                                             ("dwMaximumWindowSize", COORD)])
 
         OSVERSIONINFOEX = rffi_platform.Struct(
             'OSVERSIONINFOEX',
@@ -92,7 +111,8 @@ class CConfig:
                        PROCESS_VM_WRITE
                        CTRL_C_EVENT CTRL_BREAK_EVENT
                        MB_ERR_INVALID_CHARS ERROR_NO_UNICODE_TRANSLATION
-                       WC_NO_BEST_FIT_CHARS
+                       WC_NO_BEST_FIT_CHARS STD_INPUT_HANDLE STD_OUTPUT_HANDLE
+                       STD_ERROR_HANDLE
                     """
         from rpython.translator.platform import host_factory
         static_platform = host_factory()
@@ -443,3 +463,13 @@ if WIN32:
         return rffi.cast(lltype.Signed, _GetConsoleOutputCP())
 
     _wenviron_items, _wgetenv, _wputenv = make_env_impls(win32=True)
+
+
+    _GetStdHandle = winexternal(
+        'GetStdHandle', [DWORD], HANDLE)
+
+    def GetStdHandle(handle_id):
+        return _GetStdHandle(handle_id)
+    CONSOLE_SCREEN_BUFFER_INFO_P = lltype.Ptr(CONSOLE_SCREEN_BUFFER_INFO)
+    GetConsoleScreenBufferInfo = winexternal(
+        "GetConsoleScreenBufferInfo", [HANDLE, CONSOLE_SCREEN_BUFFER_INFO_P], BOOL)

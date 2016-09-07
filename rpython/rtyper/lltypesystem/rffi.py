@@ -237,8 +237,10 @@ def llexternal(name, args, result, _callable=None,
                              " directly to a VOIDP argument")
     _oops._annspecialcase_ = 'specialize:memo'
 
+    nb_args = len(args)
     unrolling_arg_tps = unrolling_iterable(enumerate(args))
     def wrapper(*args):
+        assert len(args) == nb_args
         real_args = ()
         # XXX 'to_free' leaks if an allocation fails with MemoryError
         # and was not the first in this function

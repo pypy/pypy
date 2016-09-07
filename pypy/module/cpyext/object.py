@@ -508,10 +508,9 @@ def PyBuffer_FillInfo(space, view, obj, buf, length, readonly, flags):
 @cpython_api([lltype.Ptr(Py_buffer)], lltype.Void, error=CANNOT_FAIL)
 def PyBuffer_Release(space, view):
     """
-    Releases a Py_buffer obtained from getbuffer ParseTuple's s*.
-
-    This is not a complete re-implementation of the CPython API; it only
-    provides a subset of CPython's behavior.
+    Release the buffer view. This should be called when the buffer is 
+    no longer being used as it may free memory from it
     """
     Py_DecRef(space, view.c_obj)
     view.c_obj = lltype.nullptr(PyObject.TO)
+    # XXX do other fields leak memory?

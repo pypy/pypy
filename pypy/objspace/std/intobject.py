@@ -363,6 +363,9 @@ class W_IntObject(W_AbstractIntObject):
 
     def descr_hash(self, space):
         # For compatibility with CPython, we special-case -1
+        # Make sure this is consistent with the hash of floats and longs.
+        # The complete list of built-in types whose hash should be
+        # consistent is: int, long, bool, float, complex.
         h = self.intval
         h -= (h == -1)  # No explicit condition, to avoid JIT bridges
         return wrapint(space, h)

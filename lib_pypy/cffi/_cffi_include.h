@@ -1,4 +1,20 @@
 #define _CFFI_
+
+/* We try to define Py_LIMITED_API before including Python.h.
+
+   Mess: we can only define it if Py_DEBUG, Py_TRACE_REFS and
+   Py_REF_DEBUG are not defined.  This is a best-effort approximation:
+   we can learn about Py_DEBUG from pyconfig.h, but it is unclear if
+   the same works for the other two macros.  Py_DEBUG implies them,
+   but not the other way around.
+*/
+#ifndef _CFFI_USE_EMBEDDING
+#  include <pyconfig.h>
+#  if !defined(Py_DEBUG) && !defined(Py_TRACE_REFS) && !defined(Py_REF_DEBUG)
+#    define Py_LIMITED_API
+#  endif
+#endif
+
 #include <Python.h>
 #ifdef __cplusplus
 extern "C" {

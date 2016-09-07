@@ -652,7 +652,7 @@ class FFI(object):
         recompile(self, module_name, source,
                   c_file=filename, call_c_compiler=False, **kwds)
 
-    def compile(self, tmpdir='.', verbose=0, target=None):
+    def compile(self, tmpdir='.', verbose=0, target=None, debug=None):
         """The 'target' argument gives the final file name of the
         compiled DLL.  Use '*' to force distutils' choice, suitable for
         regular CPython C API modules.  Use a file name ending in '.*'
@@ -669,7 +669,7 @@ class FFI(object):
         module_name, source, source_extension, kwds = self._assigned_source
         return recompile(self, module_name, source, tmpdir=tmpdir,
                          target=target, source_extension=source_extension,
-                         compiler_verbose=verbose, **kwds)
+                         compiler_verbose=verbose, debug=debug, **kwds)
 
     def init_once(self, func, tag):
         # Read _init_once_cache[tag], which is either (False, lock) if

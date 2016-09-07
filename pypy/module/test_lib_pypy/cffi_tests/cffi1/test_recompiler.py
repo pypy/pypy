@@ -1975,9 +1975,9 @@ def test_function_returns_union():
 
 def test_function_returns_partial_struct():
     ffi = FFI()
-    ffi.cdef("struct a { int a; ...; }; struct a f1(int);")
+    ffi.cdef("struct aaa { int a; ...; }; struct aaa f1(int);")
     lib = verify(ffi, "test_function_returns_partial_struct", """
-        struct a { int b, a, c; };
-        static struct a f1(int x) { struct a s = {0}; s.a = x; return s; }
+        struct aaa { int b, a, c; };
+        static struct aaa f1(int x) { struct aaa s = {0}; s.a = x; return s; }
     """)
     assert lib.f1(52).a == 52
