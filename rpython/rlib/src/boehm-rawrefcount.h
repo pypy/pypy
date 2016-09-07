@@ -1,0 +1,22 @@
+#include "common_header.h"
+
+#define OP_GC_RAWREFCOUNT_INIT(callback, r)   /* nothing */
+
+#define OP_GC_RAWREFCOUNT_CREATE_LINK_PYPY(gcobj, pyobj, r)   \
+    gc_rawrefcount_create_link_pypy(gcobj, pyobj)
+
+#define OP_GC_RAWREFCOUNT_FROM_OBJ(gcobj, r)   \
+    r = gc_rawrefcount_from_obj(gcobj)
+
+#define OP_GC_RAWREFCOUNT_TO_OBJ(pyobj, r)   \
+    r = gc_rawrefcount_to_obj(pyobj)
+
+#define OP_GC_RAWREFCOUNT_NEXT_DEAD(r)   \
+    r = gc_rawrefcount_next()
+
+
+RPY_EXTERN void gc_rawrefcount_create_link_pypy(/*gcobj_t*/void *gcobj, 
+                                                /*pyobj_t*/void *pyobj);
+RPY_EXTERN /*pyobj_t*/void *gc_rawrefcount_from_obj(/*gcobj_t*/void *gcobj);
+RPY_EXTERN /*gcobj_t*/void *gc_rawrefcount_to_obj(/*pyobj_t*/void *pyobj);
+RPY_EXTERN /*pyobj_t*/void *gc_rawrefcount_next_dead(void);
