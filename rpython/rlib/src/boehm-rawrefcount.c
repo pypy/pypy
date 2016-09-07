@@ -143,8 +143,16 @@ static void hash_add_entry(gcobj_t *gcobj, pyobj_t *pyobj)
 
     hash_link(lnk);
 
-    int j = GC_general_register_disappearing_link((void **)&lnk->gcenc, gcobj);
-    assert(j == GC_SUCCESS);
+    if (GC_base(gcobj) == NULL) {
+        /* 'gcobj' is probably a prebuilt object - it makes no */
+        /* sense to register it then, and it crashes Boehm in */
+        /* quite obscure ways */
+    }
+    else {
+        int j = GC_general_register_disappearing_link(
+                                    (void **)&lnk->gcenc, gcobj);
+        assert(j == GC_SUCCESS);
+    }
 }
 
 static pyobj_t *hash_get_entry(gcobj_t *gcobj)

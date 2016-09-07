@@ -281,7 +281,13 @@ class TestBoehmTranslated(StandaloneTests):
             assert rawrefcount.to_obj(W_Root, ob) == p
             return ob
 
+        prebuilt_p = W_Root(-42)
+        prebuilt_ob = lltype.malloc(PyObjectS, flavor='raw', zero=True,
+                                    immortal=True)
+
         def entry_point(argv):
+            rawrefcount.create_link_pypy(prebuilt_p, prebuilt_ob)
+            prebuilt_ob.c_ob_refcnt += REFCNT_FROM_PYPY
             oblist = [make_ob() for i in range(50)]
             rgc.collect()
             deadlist = []
