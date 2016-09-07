@@ -460,6 +460,9 @@ class DictObject(W_Root):
     def getdictvalue(self, space, key):
         return self.items[key]
 
+    def descr_memoryview(self, space, buf):
+        raise oefmt(space.w_TypeError, "error")
+
 class IterDictObject(W_Root):
     def __init__(self, space, w_dict):
         self.space = space

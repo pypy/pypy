@@ -806,10 +806,10 @@ class __extend__(W_NDimArray):
 
     def buffer_w(self, space, flags):
         # XXX format isn't always 'B' probably
-        return self.implementation.get_buffer(space, True)
+        return self.implementation.get_buffer(space, flags)
 
     def descr_get_data(self, space):
-        return space.newbuffer(self.implementation.get_buffer(space, False))
+        return space.newbuffer(self.implementation.get_buffer(space, space.BUF_FULL))
 
     @unwrap_spec(offset=int, axis1=int, axis2=int)
     def descr_diagonal(self, space, offset=0, axis1=0, axis2=1):
