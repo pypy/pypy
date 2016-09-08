@@ -1042,29 +1042,35 @@ class IndexVar(AbstractValue):
         assert isinstance(other, IndexVar)
         return self.constant - other.constant
 
+    def get_operations(self):
+        var = self.var
+        tolist = []
+        if self.coefficient_mul != 1:
+            args = [var, ConstInt(self.coefficient_mul)]
+            var = ResOperation(rop.INT_MUL, args)
+            tolist.append(var)
+        if self.coefficient_div != 1:
+            assert 0   # should never be the case with handling
+                       # of INT_PY_DIV commented out in this file...
+        if self.constant > 0:
+            args = [var, ConstInt(self.constant)]
+            var = ResOperation(rop.INT_ADD, args)
+            tolist.append(var)
+        if self.constant < 0:
+            args = [var, ConstInt(self.constant)]
+            var = ResOperation(rop.INT_SUB, args)
+            tolist.append(var)
+        return tolist
+
     def emit_operations(self, opt, result_box=None):
         var = self.var
         if self.is_identity():
             return var
-        if self.coefficient_mul != 1:
-            args = [var, ConstInt(self.coefficient_mul)]
-            var = ResOperation(rop.INT_MUL, args)
-            opt.emit_operation(var)
-        if self.coefficient_div != 1:
-            assert 0   # XXX for now; should never be the case with handling
-                       # of INT_PY_DIV commented out in this file...
-            #args = [var, ConstInt(self.coefficient_div)]
-            #var = ResOperation(rop.INT_FLOORDIV, args)
-            #opt.emit_operation(var)
-        if self.constant > 0:
-            args = [var, ConstInt(self.constant)]
-            var = ResOperation(rop.INT_ADD, args)
-            opt.emit_operation(var)
-        if self.constant < 0:
-            args = [var, ConstInt(self.constant)]
-            var = ResOperation(rop.INT_SUB, args)
-            opt.emit_operation(var)
-        return var 
+        last = None
+        for op in self.get_operations():
+            opt.emit_operation(op)
+            last = op
+        return last
 
     def compare(self, other):
         """ Returns if the two are compareable as a first result
