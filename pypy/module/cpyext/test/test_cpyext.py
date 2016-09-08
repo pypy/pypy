@@ -136,6 +136,28 @@ def get_sys_info_app():
         link_extra=link_extra,
         ext=get_so_suffix())
 
+def make_methods(functions, modname):
+    methods_table = []
+    codes = []
+    for funcname, flags, code in functions:
+        cfuncname = "%s_%s" % (modname, funcname)
+        methods_table.append(
+            "{\"%s\", %s, %s}," % (funcname, cfuncname, flags))
+        func_code = """
+        static PyObject* %s(PyObject* self, PyObject* args)
+        {
+        %s
+        }
+        """ % (cfuncname, code)
+        codes.append(func_code)
+
+    body = "\n".join(codes) + """
+    static PyMethodDef methods[] = {
+    %s
+    { NULL }
+    };
+    """ % ('\n'.join(methods_table),)
+    return body
 
 def freeze_refcnts(self):
     rawrefcount._dont_free_any_more()
@@ -402,26 +424,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         def import_extension(space, modname, w_functions, prologue="",
                              w_include_dirs=None, more_init="", PY_SSIZE_T_CLEAN=False):
             functions = space.unwrap(w_functions)
-            methods_table = []
-            codes = []
-            for funcname, flags, code in functions:
-                cfuncname = "%s_%s" % (modname, funcname)
-                methods_table.append("{\"%s\", %s, %s}," %
-                                     (funcname, cfuncname, flags))
-                func_code = """
-                static PyObject* %s(PyObject* self, PyObject* args)
-                {
-                %s
-                }
-                """ % (cfuncname, code)
-                codes.append(func_code)
-
-            body = prologue + "\n".join(codes) + """
-            static PyMethodDef methods[] = {
-            %s
-            { NULL }
-            };
-            """ % ('\n'.join(methods_table),)
+            body = prologue + make_methods(functions, modname)
             init = """Py_InitModule("%s", methods);""" % (modname,)
             if more_init:
                 init += more_init
