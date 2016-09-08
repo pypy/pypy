@@ -4509,10 +4509,25 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         self.meta_interp(f, [])
 
     def test_round_trip_raw_pointer(self):
+        # The goal of this test to to get a raw pointer op into the short preamble
+        # so we can check that the proper guards are generated
+        # In this case, the resulting short preamble contains
+        #
+        # i1 = getfield_gc_i(p0, descr=inst__ptr)
+        # i2 = int_eq(i1, 0)
+        # guard_false(i2)
+        #
+        # as opposed to what the JIT used to produce
+        #
+        # i1 = getfield_gc_i(p0, descr=inst__ptr)
+        # guard_nonnull(i1)
+        #
+        # Which will probably generate correct assembly, but the optimization
+        # pipline expects guard_nonnull arguments to be pointer ops and may crash
+        # and may crash on other input types.
         driver = JitDriver(greens=[], reds=['i', 'val'])
 
         class Box(object):
-            _immutable_fields_ = ['_ptr']
             _ptr = lltype.nullptr(rffi.CCHARP.TO)
 
         def new_int_buffer(value):
@@ -4533,6 +4548,7 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
                 driver.jit_merge_point(i=i, val=val)
                 driver.can_enter_jit(i=i, val=val)
                 tgt = val._ptr
+                # Just to produce a side exit
                 if i & 0b100:
                     i += 1
                 i += int(read_int_buffer(val._ptr))
