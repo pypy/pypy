@@ -66,6 +66,30 @@ class SystemCompilationInfo(object):
         self.extra_libs = extra_libs
         self.ext = ext
 
+    def compile_extension_module(self, modname, include_dirs=[],
+            source_files=None, source_strings=None):
+        """
+        Build an extension module and return the filename of the resulting native
+        code file.
+
+        modname is the name of the module, possibly including dots if it is a module
+        inside a package.
+
+        Any extra keyword arguments are passed on to ExternalCompilationInfo to
+        build the module (so specify your source with one of those).
+        """
+        modname = modname.split('.')[-1]
+        soname = create_so(modname,
+            include_dirs=self.include_extra + include_dirs,
+            source_files=source_files,
+            source_strings=source_strings,
+            compile_extra=self.compile_extra,
+            link_extra=self.link_extra,
+            libraries=self.extra_libs)
+        pydname = soname.new(purebasename=modname, ext=self.ext)
+        soname.rename(pydname)
+        return str(pydname)
+
 def get_cpyext_info(space):
     from pypy.module.imp.importing import get_so_extension
     state = space.fromcache(State)
@@ -93,30 +117,6 @@ def get_cpyext_info(space):
         extra_libs=libraries,
         ext=get_so_extension(space))
 
-
-def compile_extension_module(sys_info, modname, include_dirs=[],
-        source_files=None, source_strings=None):
-    """
-    Build an extension module and return the filename of the resulting native
-    code file.
-
-    modname is the name of the module, possibly including dots if it is a module
-    inside a package.
-
-    Any extra keyword arguments are passed on to ExternalCompilationInfo to
-    build the module (so specify your source with one of those).
-    """
-    modname = modname.split('.')[-1]
-    soname = create_so(modname,
-        include_dirs=sys_info.include_extra + include_dirs,
-        source_files=source_files,
-        source_strings=source_strings,
-        compile_extra=sys_info.compile_extra,
-        link_extra=sys_info.link_extra,
-        libraries=sys_info.extra_libs)
-    pydname = soname.new(purebasename=modname, ext=sys_info.ext)
-    soname.rename(pydname)
-    return str(pydname)
 
 def get_so_suffix():
     from imp import get_suffixes, C_EXTENSION
@@ -320,8 +320,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 source_strings = space.listview_bytes(w_source_strings)
             else:
                 source_strings = None
-            pydname = compile_extension_module(
-                self.sys_info, name,
+            pydname = self.sys_info.compile_extension_module(
+                name,
                 source_files=source_files,
                 source_strings=source_strings)
             return space.wrap(pydname)
@@ -376,8 +376,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 filename = py.path.local(pypydir) / 'module' \
                         / 'cpyext'/ 'test' / (filename + ".c")
                 kwds = dict(source_files=[filename])
-            mod = compile_extension_module(self.sys_info, name,
-                    include_dirs=include_dirs, **kwds)
+            mod = self.sys_info.compile_extension_module(
+                name, include_dirs=include_dirs, **kwds)
 
             if load_it:
                 if self.runappdirect:
@@ -469,11 +469,12 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             def wrap(func):
                 return func
             self.sys_info = get_sys_info_app()
+            self.compile_module = self.sys_info.compile_extension_module
         else:
             interp2app = gateway.interp2app
             wrap = self.space.wrap
             self.sys_info = get_cpyext_info(self.space)
-        self.w_compile_module = wrap(interp2app(compile_module))
+            self.w_compile_module = wrap(interp2app(compile_module))
         self.w_import_module = wrap(interp2app(import_module))
         self.w_reimport_module = wrap(interp2app(reimport_module))
         self.w_import_extension = wrap(interp2app(import_extension))
