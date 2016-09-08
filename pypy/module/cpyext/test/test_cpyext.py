@@ -641,7 +641,6 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         apple.__path__ = [os.path.dirname(banana)]
 
         import cherry.date
-        import apple.banana
 
         assert sys.modules['apple.banana'].__name__ == 'apple.banana'
         assert sys.modules['cherry.date'].__name__ == 'cherry.date'
