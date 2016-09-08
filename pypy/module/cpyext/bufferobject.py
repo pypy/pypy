@@ -61,6 +61,7 @@ def buffer_attach(space, py_obj, w_obj):
         py_buf.c_b_ptr = rffi.cast(rffi.VOIDP, buf.array._charbuf_start())
         py_buf.c_b_size = buf.getlength()
     else:
+        raise RuntimeError
         raise oefmt(space.w_NotImplementedError, "buffer flavor not supported")
 
 

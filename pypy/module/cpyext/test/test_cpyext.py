@@ -317,6 +317,15 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         if not cls.runappdirect:
             cls.w_runappdirect = space.wrap(cls.runappdirect)
 
+    def record_imported_module(self, name):
+        """
+        Record a module imported in a test so that it can be cleaned up in
+        teardown before the check for leaks is done.
+
+        name gives the name of the module in the space's sys.modules.
+        """
+        self.imported_module_names.append(name)
+
     def setup_method(self, func):
         @gateway.unwrap_spec(name=str)
         def compile_module(space, name,
@@ -337,6 +346,11 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 name,
                 source_files=source_files,
                 source_strings=source_strings)
+
+            # hackish, but tests calling compile_module() always end up
+            # importing the result
+            self.record_imported_module(name)
+
             return space.wrap(pydname)
 
         @gateway.unwrap_spec(name=str, init='str_or_None', body=str,
@@ -399,7 +413,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 return imp.load_dynamic(name, mod)
             else:
                 api.load_extension_module(space, mod, name)
-                self.imported_module_names.append(name)
+                self.record_imported_module(name)
                 return space.getitem(
                     space.sys.get('modules'),
                     space.wrap(name))
@@ -428,16 +442,6 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             return import_module(space, name=modname, init=init, body=body,
                                  w_include_dirs=w_include_dirs,
                                  PY_SSIZE_T_CLEAN=PY_SSIZE_T_CLEAN)
-
-        @gateway.unwrap_spec(name=str)
-        def record_imported_module(name):
-            """
-            Record a module imported in a test so that it can be cleaned up in
-            teardown before the check for leaks is done.
-
-            name gives the name of the module in the space's sys.modules.
-            """
-            self.imported_module_names.append(name)
 
         def debug_collect(space):
             rawrefcount._collect()
@@ -468,7 +472,6 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         self.w_import_module = wrap(interp2app(import_module))
         self.w_reimport_module = wrap(interp2app(reimport_module))
         self.w_import_extension = wrap(interp2app(import_extension))
-        self.w_record_imported_module = wrap(interp2app(record_imported_module))
         self.w_here = wrap(str(py.path.local(pypydir)) + '/module/cpyext/test/')
         self.w_debug_collect = wrap(interp2app(debug_collect))
 
@@ -621,15 +624,11 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         If `cherry.date` is an extension module which imports `apple.banana`,
         the latter is added to `sys.modules` for the `"apple.banana"` key.
         """
-        if self.runappdirect:
-            skip('record_imported_module not supported in runappdirect mode')
         # Build the extensions.
         banana = self.compile_module(
             "apple.banana", source_files=[self.here + 'banana.c'])
-        self.record_imported_module("apple.banana")
         date = self.compile_module(
             "cherry.date", source_files=[self.here + 'date.c'])
-        self.record_imported_module("cherry.date")
 
         # Set up some package state so that the extensions can actually be
         # imported.
