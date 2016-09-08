@@ -1,6 +1,6 @@
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
-from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi
 
 class TestImport(BaseApiTest):
     def test_import(self, space, api):
@@ -39,9 +39,8 @@ class TestImport(BaseApiTest):
 
 class AppTestImportLogic(AppTestCpythonExtensionBase):
     def test_import_logic(self):
+        import sys, os
         path = self.import_module(name='test_import_module', load_it=False)
-        import sys
-        sys.path.append(path)
+        sys.path.append(os.path.dirname(path))
         import test_import_module
         assert test_import_module.TEST is None
-

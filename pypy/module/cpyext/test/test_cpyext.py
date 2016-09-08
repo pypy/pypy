@@ -178,6 +178,7 @@ class FakeSpace(object):
         return arg
     listview = passthrough
     str_w = passthrough
+    wrap = passthrough
 
     def unwrap(self, args):
         try:
@@ -391,22 +392,18 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             mod = self.sys_info.compile_extension_module(
                 name, include_dirs=include_dirs, **kwds)
 
-            if load_it:
-                if self.runappdirect:
-                    import imp
-                    return imp.load_dynamic(name, mod)
-                else:
-                    api.load_extension_module(space, mod, name)
-                    self.imported_module_names.append(name)
-                    return space.getitem(
-                        space.sys.get('modules'),
-                        space.wrap(name))
+            if not load_it:
+                return space.wrap(mod)
+            if self.runappdirect:
+                import imp
+                return imp.load_dynamic(name, mod)
             else:
-                path = os.path.dirname(mod)
-                if self.runappdirect:
-                    return path
-                else:
-                    return space.wrap(path)
+                api.load_extension_module(space, mod, name)
+                self.imported_module_names.append(name)
+                return space.getitem(
+                    space.sys.get('modules'),
+                    space.wrap(name))
+
 
         @gateway.unwrap_spec(mod=str, name=str)
         def reimport_module(space, mod, name):
