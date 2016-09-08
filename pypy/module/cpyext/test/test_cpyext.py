@@ -40,19 +40,6 @@ def convert_sources_to_files(sources, dirname):
         files.append(filename)
     return files
 
-def create_so(modname, include_dirs, source_strings=None, source_files=None,
-        compile_extra=None, link_extra=None, libraries=None):
-    dirname = (udir/uniquemodulename('module')).ensure(dir=1)
-    if source_strings:
-        assert not source_files
-        files = convert_sources_to_files(source_strings, dirname)
-        source_files = files
-    soname = c_compile(source_files, outputfilename=str(dirname/modname),
-        compile_extra=compile_extra, link_extra=link_extra,
-        include_dirs=include_dirs,
-        libraries=libraries)
-    return soname
-
 class SystemCompilationInfo(object):
     """Bundles all the generic information required to compile extensions.
 
@@ -69,22 +56,25 @@ class SystemCompilationInfo(object):
     def compile_extension_module(self, modname, include_dirs=[],
             source_files=None, source_strings=None):
         """
-        Build an extension module and return the filename of the resulting native
-        code file.
+        Build an extension module and return the filename of the resulting
+        native code file.
 
-        modname is the name of the module, possibly including dots if it is a module
-        inside a package.
+        modname is the name of the module, possibly including dots if it is a
+        module inside a package.
 
         Any extra keyword arguments are passed on to ExternalCompilationInfo to
         build the module (so specify your source with one of those).
         """
         modname = modname.split('.')[-1]
-        soname = create_so(modname,
-            include_dirs=self.include_extra + include_dirs,
-            source_files=source_files,
-            source_strings=source_strings,
+        dirname = (udir/uniquemodulename('module')).ensure(dir=1)
+        if source_strings:
+            assert not source_files
+            files = convert_sources_to_files(source_strings, dirname)
+            source_files = files
+        soname = c_compile(source_files, outputfilename=str(dirname/modname),
             compile_extra=self.compile_extra,
             link_extra=self.link_extra,
+            include_dirs=self.include_extra + include_dirs,
             libraries=self.extra_libs)
         pydname = soname.new(purebasename=modname, ext=self.ext)
         soname.rename(pydname)
