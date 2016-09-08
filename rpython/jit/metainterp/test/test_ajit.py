@@ -4547,7 +4547,6 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
             while i < 100:
                 driver.jit_merge_point(i=i, val=val)
                 driver.can_enter_jit(i=i, val=val)
-                tgt = val._ptr
                 # Just to produce a side exit
                 if i & 0b100:
                     i += 1
