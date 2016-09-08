@@ -307,27 +307,23 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
     def setup_method(self, func):
         @gateway.unwrap_spec(name=str)
         def compile_module(space, name,
-                           w_separate_module_files=None,
-                           w_separate_module_sources=None):
+                           w_source_files=None,
+                           w_source_strings=None):
             """
             Build an extension module linked against the cpyext api library.
             """
-            if not space.is_none(w_separate_module_files):
-                separate_module_files = space.listview_bytes(
-                    w_separate_module_files)
-                assert separate_module_files is not None
+            if not space.is_none(w_source_files):
+                source_files = space.listview_bytes(w_source_files)
             else:
-                separate_module_files = []
-            if not space.is_none(w_separate_module_sources):
-                separate_module_sources = space.listview_bytes(
-                    w_separate_module_sources)
-                assert separate_module_sources is not None
+                source_files = None
+            if not space.is_none(w_source_strings):
+                source_strings = space.listview_bytes(w_source_strings)
             else:
-                separate_module_sources = []
+                source_strings = None
             pydname = compile_extension_module(
                 self.sys_info, name,
-                source_files=separate_module_files,
-                source_strings=separate_module_sources)
+                source_files=source_files,
+                source_strings=source_strings)
             return space.wrap(pydname)
 
         @gateway.unwrap_spec(name=str, init='str_or_None', body=str,
@@ -638,10 +634,10 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             skip('record_imported_module not supported in runappdirect mode')
         # Build the extensions.
         banana = self.compile_module(
-            "apple.banana", separate_module_files=[self.here + 'banana.c'])
+            "apple.banana", source_files=[self.here + 'banana.c'])
         self.record_imported_module("apple.banana")
         date = self.compile_module(
-            "cherry.date", separate_module_files=[self.here + 'date.c'])
+            "cherry.date", source_files=[self.here + 'date.c'])
         self.record_imported_module("cherry.date")
 
         # Set up some package state so that the extensions can actually be
