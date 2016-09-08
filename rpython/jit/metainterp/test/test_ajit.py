@@ -4531,7 +4531,7 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
             _ptr = lltype.nullptr(rffi.CCHARP.TO)
 
         def new_int_buffer(value):
-            data = lltype.malloc(rffi.CCHARP.TO, noConst(rffi.sizeof(rffi.INT)), flavor='raw', zero=True)
+            data = lltype.malloc(rffi.CCHARP.TO, rffi.sizeof(rffi.INT), flavor='raw')
             rffi.cast(rffi.INTP, data)[0] = rffi.cast(rffi.INT, value)
             return data
 
