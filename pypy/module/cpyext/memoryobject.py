@@ -1,5 +1,5 @@
 from pypy.module.cpyext.api import (cpython_api, Py_buffer, CANNOT_FAIL,
-                               Py_MAX_NDIMS, build_type_checkers, Py_ssize_tP)
+                         Py_MAX_FMT, Py_MAX_NDIMS, build_type_checkers, Py_ssize_tP)
 from pypy.module.cpyext.pyobject import PyObject, make_ref, incref
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.objspace.std.memoryobject import W_MemoryView
@@ -41,10 +41,22 @@ def PyMemoryView_GET_BUFFER(space, w_obj):
     view.c_len = w_obj.getlength()
     view.c_itemsize = w_obj.buf.getitemsize()
     rffi.setintfield(view, 'c_ndim', ndim)
-    view.c__format = rffi.cast(rffi.UCHAR, w_obj.buf.getformat())
     view.c_format = rffi.cast(rffi.CCHARP, view.c__format)
     view.c_shape = rffi.cast(Py_ssize_tP, view.c__shape)
     view.c_strides = rffi.cast(Py_ssize_tP, view.c__strides)
+    fmt = w_obj.buf.getformat()
+    n = Py_MAX_FMT - 1 # NULL terminated buffer
+    if len(fmt) > n:
+        ### WARN?
+        pass
+    else:
+        n = len(fmt)
+    for i in range(n):
+        if ord(fmt[i]) > 255:
+            view.c_format[i] = '*'
+        else:
+            view.c_format[i] = fmt[i]
+    view.c_format[n] = '\x00'        
     shape = w_obj.buf.getshape()
     strides = w_obj.buf.getstrides()
     for i in range(ndim):
