@@ -57,6 +57,7 @@ translation_modules.update([
 
 reverse_debugger_disable_modules = set([
     "_continuation", "_vmprof", "_multiprocessing",
+    "micronumpy",
     ])
 
 # XXX this should move somewhere else, maybe to platform ("is this posixish"
