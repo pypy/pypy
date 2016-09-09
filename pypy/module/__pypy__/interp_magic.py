@@ -200,7 +200,7 @@ def side_effects_ok(space):
             skip the caching logic
 
     inside getter methods or properties, to make them usable from
-    watchpoints.  Note that you need to re-run ``PYPYRDB=.. pypy''
+    watchpoints.  Note that you need to re-run ``REVDB=.. pypy''
     after changing the Python code.
     """
     return space.wrap(space._side_effects_ok())

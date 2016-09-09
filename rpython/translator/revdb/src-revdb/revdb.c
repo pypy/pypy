@@ -91,7 +91,7 @@ static void ensure_fixed_address_space(char *argv[])
 
            Potentially buggy to use argv[0] here, but good enough I
            suppose.  For this reason ensure_fixed_address_space() is
-           not called when running manually without any PYPYRDB
+           not called when running manually without any REVDB
            environment variable set.
         */
         execv(argv[0], argv);
@@ -207,7 +207,7 @@ static void close_revdb_fileno_in_fork_child(void)
 
 static void setup_record_mode(int argc, char *argv[])
 {
-    char *filename = getenv("PYPYRDB");
+    char *filename = getenv("REVDB");
     rdb_header_t h;
     int i;
 
@@ -216,11 +216,11 @@ static void setup_record_mode(int argc, char *argv[])
     if (filename && *filename) {
         ensure_fixed_address_space(argv);
 
-        putenv("PYPYRDB=");
+        putenv("REVDB=");
         rpy_rev_fileno = open(filename, O_RDWR | O_CLOEXEC |
                               O_CREAT | O_NOCTTY | O_TRUNC, 0600);
         if (rpy_rev_fileno < 0) {
-            fprintf(stderr, "Fatal error: can't create PYPYRDB file '%s'\n",
+            fprintf(stderr, "Fatal error: can't create REVDB file '%s'\n",
                     filename);
             abort();
         }
@@ -250,7 +250,7 @@ static void setup_record_mode(int argc, char *argv[])
     }
     else {
         fprintf(stderr, "PID %d starting, log file disabled "
-                        "(use PYPYRDB=logfile)\n", (int)getpid());
+                        "(use REVDB=logfile)\n", (int)getpid());
     }
 
     rpy_revdb.buf_p = rpy_rev_buffer + sizeof(int16_t);
