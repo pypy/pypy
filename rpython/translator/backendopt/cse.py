@@ -2,7 +2,7 @@ import collections
 
 from rpython.translator.backendopt import support
 from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.flowspace.model import mkentrymap, Variable
+from rpython.flowspace.model import mkentrymap, Variable, Constant
 from rpython.translator.backendopt import removenoops
 from rpython.translator import simplify
 from rpython.translator.backendopt import ssa
@@ -212,8 +212,19 @@ class Cache(object):
         for op in block.operations:
             # heap operations
             if op.opname == 'getfield':
-                tup = (representative_arg(op.args[0]), op.args[1].value)
-                res = self.heapcache.get(tup, None)
+                fieldname = op.args[1].value
+                arg0 = representative_arg(op.args[0])
+                res = None
+                if isinstance(arg0, Constant):
+                    PTRTYPE = arg0.concretetype.TO
+                    if PTRTYPE._immutable_field(fieldname).is_immutable:
+                        # can constant-fold:
+                        FIELDTYPE = getattr(PTRTYPE, fieldname)
+                        value = getattr(arg0.value, fieldname)
+                        res = Constant(value, FIELDTYPE)
+                if res is None:
+                    tup = (arg0, fieldname)
+                    res = self.heapcache.get(tup, None)
                 if res is not None:
                     op.opname = 'same_as'
                     op.args = [res]

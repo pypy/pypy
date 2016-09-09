@@ -374,6 +374,21 @@ class TestStoreSink(object):
             return res
         self.check(read, [int, int])
 
+    def test_immutable_getfield(self):
+        class A(object):
+            _immutable_fields_ = ['a']
+            def __init__(self, a):
+                self.a = a
+        a1 = A(5)
+        a2 = A(8)
+
+        def read(i):
+            if i:
+                return a1.a
+            return a2.a
+        self.check(read, [int], getfield=0)
+
+
 def fakevar(name='v'):
     var = Variable(name)
     var.concretetype = "fake concrete type"
