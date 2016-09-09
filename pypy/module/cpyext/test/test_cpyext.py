@@ -53,19 +53,19 @@ class SystemCompilationInfo(object):
         self.extra_libs = extra_libs
         self.ext = ext
 
-    def compile_extension_module(self, modname, include_dirs=[],
+    def compile_extension_module(self, name, include_dirs=[],
             source_files=None, source_strings=None):
         """
         Build an extension module and return the filename of the resulting
         native code file.
 
-        modname is the name of the module, possibly including dots if it is a
+        name is the name of the module, possibly including dots if it is a
         module inside a package.
 
         Any extra keyword arguments are passed on to ExternalCompilationInfo to
         build the module (so specify your source with one of those).
         """
-        modname = modname.split('.')[-1]
+        modname = name.split('.')[-1]
         dirname = (udir/uniquemodulename('module')).ensure(dir=1)
         if source_strings:
             assert not source_files
@@ -354,9 +354,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             return space.wrap(pydname)
 
         @gateway.unwrap_spec(name=str, init='str_or_None', body=str,
-                     load_it=bool, filename='str_or_None',
-                     PY_SSIZE_T_CLEAN=bool)
-        def import_module(space, name, init=None, body='', load_it=True,
+                     filename='str_or_None', PY_SSIZE_T_CLEAN=bool)
+        def import_module(space, name, init=None, body='',
                           filename=None, w_include_dirs=None,
                           PY_SSIZE_T_CLEAN=False):
             """
@@ -405,30 +404,21 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 kwds = dict(source_files=[filename])
             mod = self.sys_info.compile_extension_module(
                 name, include_dirs=include_dirs, **kwds)
-
-            if not load_it:
-                return space.wrap(mod)
-            if self.runappdirect:
-                import imp
-                return imp.load_dynamic(name, mod)
-            else:
-                api.load_extension_module(space, mod, name)
+            w_result = load_module(space, mod, name)
+            if not self.runappdirect:
                 self.record_imported_module(name)
-                return space.getitem(
-                    space.sys.get('modules'),
-                    space.wrap(name))
+            return w_result
 
 
         @gateway.unwrap_spec(mod=str, name=str)
-        def reimport_module(space, mod, name):
+        def load_module(space, mod, name):
             if self.runappdirect:
                 import imp
                 return imp.load_dynamic(name, mod)
             else:
                 api.load_extension_module(space, mod, name)
-            return space.getitem(
-                space.sys.get('modules'),
-                space.wrap(name))
+                return space.getitem(
+                    space.sys.get('modules'), space.wrap(name))
 
         @gateway.unwrap_spec(modname=str, prologue=str,
                              more_init=str, PY_SSIZE_T_CLEAN=bool)
@@ -470,7 +460,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             self.sys_info = get_cpyext_info(self.space)
             self.w_compile_module = wrap(interp2app(compile_module))
         self.w_import_module = wrap(interp2app(import_module))
-        self.w_reimport_module = wrap(interp2app(reimport_module))
+        self.w_load_module = wrap(interp2app(load_module))
         self.w_import_extension = wrap(interp2app(import_extension))
         self.w_here = wrap(str(py.path.local(pypydir)) + '/module/cpyext/test/')
         self.w_debug_collect = wrap(interp2app(debug_collect))
@@ -976,7 +966,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             f.write('not again!\n')
             f.close()
             m1 = sys.modules['foo']
-            m2 = self.reimport_module(m1.__file__, name='foo')
+            m2 = self.load_module(m1.__file__, name='foo')
             assert m1 is m2
             assert m1 is sys.modules['foo']
 
