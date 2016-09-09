@@ -62,12 +62,11 @@ class Cache(object):
             inputarg = block.inputargs[argindex]
             # bit slow, but probably ok
             firstlinkarg = self.variable_families.find_rep(firstlink.args[argindex])
-            results = []
             for key, res in self.purecache.iteritems():
                 (opname, concretetype, args) = key
                 if args[0] != firstlinkarg: # XXX other args
                     continue
-                results.append(res)
+                results = [res]
                 for linkindex, (link, cache) in enumerate(tuples):
                     if linkindex == 0:
                         continue
@@ -85,6 +84,7 @@ class Cache(object):
                     newres = res
                     if isinstance(res, Variable):
                         newres = res.copy()
+                        assert len(results) == len(tuples)
                         for linkindex, (link, cache) in enumerate(tuples):
                             link.args.append(results[linkindex])
                         block.inputargs.append(newres)
@@ -118,12 +118,11 @@ class Cache(object):
             inputarg = block.inputargs[argindex]
             # bit slow, but probably ok
             firstlinkarg = self.variable_families.find_rep(firstlink.args[argindex])
-            results = []
             for key, res in self.heapcache.iteritems():
                 (arg, fieldname) = key
                 if arg != firstlinkarg:
                     continue
-                results.append(res)
+                results = [res]
                 for linkindex, (link, cache) in enumerate(tuples):
                     if linkindex == 0:
                         continue
@@ -299,6 +298,7 @@ class CSE(object):
                     if exit.target not in done and exit.target not in todo: # XXX
                         todo.append(exit.target)
                 caches_to_merge[exit.target].append((exit, cache))
+        simplify.transform_dead_op_vars(graph)
         if added_same_as:
             ssa.SSA_to_SSI(graph)
             removenoops.remove_same_as(graph)

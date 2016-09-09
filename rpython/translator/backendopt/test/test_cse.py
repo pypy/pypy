@@ -323,3 +323,30 @@ class TestStoreSink(object):
                 res += i + 1
             return a + (i + 1)
         self.check(f, [int], add=0)
+
+    def test_bug_2(self):
+        class A(object):
+            def getslice(self, a, b):
+                return "a" * a * b
+
+        def make(i):
+            a = A()
+            a.size = i * 12
+            a.pos = i * 54
+            return a
+
+        def read(i, num):
+            self = make(i)
+            if num < 0:
+                # read all
+                eol = self.size
+            else:
+                eol = self.pos + num
+                if eol > self.size:
+                    eol = self.size
+
+            res = self.getslice(self.pos, eol - self.pos)
+            self.pos += len(res)
+            return res
+        self.check(read, [int, int])
+
