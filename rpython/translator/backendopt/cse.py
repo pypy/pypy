@@ -39,6 +39,7 @@ class Cache(object):
         self.heapcache = heapcache
         self.variable_families = variable_families
         self.analyzer = analyzer
+        self.new_unions = {} # mapping var from this block -> older var
 
     def copy(self):
         return Cache(
@@ -47,6 +48,7 @@ class Cache(object):
                 self.heapcache.copy())
 
     def _var_rep(self, var):
+        var = self.new_unions.get(var, var)
         return self.variable_families.find_rep(var)
 
     def _key_with_replacement(self, key, index, var):
@@ -216,6 +218,7 @@ class Cache(object):
                     op.opname = 'same_as'
                     op.args = [res]
                     added_same_as += 1
+                    self.new_unions[op.result] = res
                 else:
                     self.heapcache[tup] = op.result
                 continue
@@ -239,7 +242,7 @@ class Cache(object):
                 op.opname = 'same_as'
                 op.args = [res]
                 added_same_as += 1
-                self.variable_families.union(res, op.result)
+                self.new_unions[op.result] = res
             else:
                 self.purecache[key] = op.result
         return added_same_as
