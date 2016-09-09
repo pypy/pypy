@@ -1783,6 +1783,8 @@ RPyString *rpy_reverse_db_dtoa(double d)
 }
 
 
+#ifdef RPY_USES_RAWREFCOUNT
+
 static void *rawrefcount_tree;    /* {pyobj: gcobj} */
 
 struct rawrefcount_link2_s {
@@ -1939,6 +1941,8 @@ void *rpy_reverse_db_rawrefcount_next_dead(void)
         return pyobj;
     }
 }
+
+#endif  /* RPY_USES_RAWREFCOUNT */
 
 
 /* ------------------------------------------------------------ */

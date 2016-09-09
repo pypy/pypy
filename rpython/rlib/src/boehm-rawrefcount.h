@@ -3,6 +3,7 @@
    OP_GC_RAWREFCOUNT_INIT(callback, r): the callback is not supported here
    OP_GC_RAWREFCOUNT_CREATE_LINK_PYOBJ(): not implemented, maybe not needed
 */
+#define RPY_USES_RAWREFCOUNT
 
 #ifdef RPY_REVERSE_DEBUGGER
 /* these macros are defined in src-revdb/revdb_include.h */
