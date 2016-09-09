@@ -55,24 +55,31 @@ class Cache(object):
         listargs[index] = self._var_rep(var)
         return (opname, concretetype, tuple(listargs))
 
-    def _merge_results(self, tuples, results, backedges):
-        assert len(results) == len(tuples)
+    def _find_new_res(self, results):
+        # helper function for _merge_results
+        first = self._var_rep(results[0])
+        newres = None
         for result in results:
-            if isinstance(result, Variable):
+            if newres is None and isinstance(result, Variable):
+                # some extra work to get nice var names
                 newres = result.copy()
+            result = self._var_rep(result)
+            if result != first:
                 break
         else:
-            # all constants! check if all the same
-            const = results[0]
-            for result in results:
-                if result != const:
-                    newres = Variable()
-                    newres.concretetype = const.concretetype
-                    break
-            else:
-                # all the same
-                return const
-        for linkindex, (link, cache) in enumerate(tuples):
+            # all the same!
+            return first, False
+        if newres is None:
+            newres = Variable()
+            newres.concretetype = first.concretetype
+        return newres, True
+
+    def _merge_results(self, tuples, results, backedges):
+        assert len(results) == len(tuples)
+        newres, needs_adding = self._find_new_res(results)
+        if not needs_adding:
+            return newres
+        for linkindex, (link, _) in enumerate(tuples):
             link.args.append(results[linkindex])
         tuples[0][0].target.inputargs.append(newres)
         for backedge in backedges:

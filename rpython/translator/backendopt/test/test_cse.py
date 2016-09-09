@@ -1,6 +1,7 @@
 import pytest
 from rpython.translator.translator import TranslationContext, graphof
-from rpython.translator.backendopt.cse import CSE
+from rpython.translator.backendopt.cse import CSE, Cache
+from rpython.flowspace.model import Variable, Constant
 from rpython.translator.backendopt import removenoops
 from rpython.flowspace.model import checkgraph, summary
 from rpython.conftest import option
@@ -349,4 +350,57 @@ class TestStoreSink(object):
             self.pos += len(res)
             return res
         self.check(read, [int, int])
+
+def fakevar(name='v'):
+    var = Variable(name)
+    var.concretetype = "fake concrete type"
+    return var
+
+def fakeconst(val):
+    const = Constant(val)
+    const.concretetype = "fake concrete type"
+    return const
+
+def test_find_new_res():
+    # unit test for _find_new_res
+
+    class FakeFamilies(object):
+        def find_rep(self, var):
+            return reps.get(var, var)
+
+    reps = {}
+    c = Cache(FakeFamilies(), None)
+
+    # two different vars
+    v1 = fakevar()
+    v2 = fakevar()
+    res, needs_adding = c._find_new_res([v1, v2])
+    assert needs_adding
+    assert isinstance(res, Variable)
+    assert res.concretetype == v1.concretetype
+
+    # the same var
+    res, needs_adding = c._find_new_res([v1, v1])
+    assert not needs_adding
+    assert res is v1
+
+    # different vars, but same reps
+    reps = {v2: v1}
+    res, needs_adding = c._find_new_res([v1, v2])
+    assert not needs_adding
+    assert res is v1
+
+    # two different consts
+    c1 = fakeconst(1)
+    c2 = fakeconst(2)
+    res, needs_adding = c._find_new_res([c1, c2])
+    assert needs_adding
+    assert isinstance(res, Variable)
+    assert res.concretetype == v1.concretetype
+
+    # the same const
+    c1 = fakeconst(1)
+    res, needs_adding = c._find_new_res([c1, c1])
+    assert not needs_adding
+    assert res is c1
 
