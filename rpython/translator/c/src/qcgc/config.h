@@ -1,14 +1,14 @@
 #pragma once
 
 #define CHECKED 0							// Enable runtime sanity checks
-#define DEBUG_ZERO_ON_SWEEP 1				// Zero memory on sweep (debug only)
+#define DEBUG_ZERO_ON_SWEEP 0				// Zero memory on sweep (debug only)
 
 #define QCGC_INIT_ZERO 1					// Init new objects with zero bytes
 
 /**
  * Event logger
  */
-#define EVENT_LOG 0							// Enable event log
+#define EVENT_LOG 1							// Enable event log
 #define LOGFILE "./qcgc_events.log"			// Default logfile
 #define LOG_ALLOCATION 0					// Enable allocation log (warning:
 											// significant performance impact)

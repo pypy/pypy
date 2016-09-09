@@ -38,6 +38,8 @@ void qcgc_initialize(void) {
 	qcgc_state.phase = GC_PAUSE;
 	qcgc_state.bytes_since_collection = 0;
 	qcgc_state.bytes_since_incmark = 0;
+	qcgc_state.free_cells = 0;
+	qcgc_state.largest_free_block = 0;
 	qcgc_allocator_initialize();
 	qcgc_hbtable_initialize();
 	qcgc_event_logger_initialize();
@@ -145,7 +147,7 @@ object_t *qcgc_allocate(size_t size) {
 
 	if (size <= 1<<QCGC_LARGE_ALLOC_THRESHOLD_EXP) {
 		// Use bump / fit allocator
-		if (true) { // FIXME: Implement reasonable switch
+		if (qcgc_allocator_state.use_bump_allocator) {
 			result = qcgc_bump_allocate(size);
 		} else {
 			result = qcgc_fit_allocate(size);
@@ -203,8 +205,17 @@ void qcgc_mark(bool incremental) {
 	if (qcgc_state.phase == GC_COLLECT) {
 		return;	// Fast exit when there is nothing to mark
 	}
-	// FIXME: Log some more information
-	qcgc_event_logger_log(EVENT_MARK_START, 0, NULL);
+
+	{
+		struct log_info_s {
+			bool incremental;
+			size_t gray_stack_size;
+		};
+		struct log_info_s log_info = {incremental, qcgc_state.gray_stack_size};
+		qcgc_event_logger_log(EVENT_MARK_START, sizeof(struct log_info_s),
+				(uint8_t *) &log_info);
+	}
+
 	qcgc_state.bytes_since_incmark = 0;
 
 	if (qcgc_state.phase == GC_PAUSE) {
@@ -268,8 +279,15 @@ void qcgc_mark(bool incremental) {
 		qcgc_state.phase = GC_COLLECT;
 	}
 
-	// FIXME: Log some more information
-	qcgc_event_logger_log(EVENT_MARK_DONE, 0, NULL);
+	{
+		struct log_info_s {
+			bool incremental;
+			size_t gray_stack_size;
+		};
+		struct log_info_s log_info = {incremental, qcgc_state.gray_stack_size};
+		qcgc_event_logger_log(EVENT_MARK_DONE, sizeof(struct log_info_s),
+				(uint8_t *) &log_info);
+	}
 #if CHECKED
 	assert(incremental || (qcgc_state.phase = GC_COLLECT));
 	assert(qcgc_state.phase != GC_PAUSE);
@@ -339,13 +357,17 @@ void qcgc_sweep(void) {
 #if CHECKED
 	assert(qcgc_state.phase == GC_COLLECT);
 #endif
-	unsigned long arena_count;
-	arena_count = qcgc_allocator_state.arenas->count;
-	qcgc_event_logger_log(EVENT_SWEEP_START, sizeof(arena_count),
-			(uint8_t *) &arena_count);
+	{
+		unsigned long arena_count;
+		arena_count = qcgc_allocator_state.arenas->count;
+		qcgc_event_logger_log(EVENT_SWEEP_START, sizeof(arena_count),
+				(uint8_t *) &arena_count);
+	}
 
 	qcgc_hbtable_sweep();
 	size_t i = 0;
+	qcgc_state.free_cells = 0;
+	qcgc_state.largest_free_block = 0;
 	while (i < qcgc_allocator_state.arenas->count) {
 		arena_t *arena = qcgc_allocator_state.arenas->items[i];
 		// The arena that contains the bump pointer is autmatically skipped
@@ -355,7 +377,6 @@ void qcgc_sweep(void) {
 					qcgc_allocator_state.arenas, i);
 			qcgc_allocator_state.free_arenas = qcgc_arena_bag_add(
 					qcgc_allocator_state.free_arenas, arena);
-
 			// NO i++
 		} else {
 			// Not free
@@ -364,8 +385,26 @@ void qcgc_sweep(void) {
 	}
 	qcgc_state.phase = GC_PAUSE;
 
-	qcgc_event_logger_log(EVENT_SWEEP_DONE, 0, NULL);
+	// Determine whether fragmentation is too high
+	// Fragmenation = 1 - (largest block / total free space)
+	// Use bump allocator when fragmentation < 50%
+	qcgc_allocator_state.use_bump_allocator = qcgc_state.free_cells <
+		2 * qcgc_state.largest_free_block;
+
 	update_weakrefs();
+
+	{
+		struct log_info_s {
+			size_t free_cells;
+			size_t largest_free_block;
+		};
+		struct log_info_s log_info = {
+			qcgc_state.free_cells,
+			qcgc_state.largest_free_block
+		};
+		qcgc_event_logger_log(EVENT_SWEEP_DONE, sizeof(struct log_info_s),
+				(uint8_t *) &log_info);
+	}
 }
 
 void qcgc_collect(void) {

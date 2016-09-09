@@ -33,4 +33,9 @@ struct qcgc_state {
 	gc_phase_t phase;
 	size_t bytes_since_collection;
 	size_t bytes_since_incmark;
+	size_t free_cells;			// Overall amount of free cells without huge
+								// blocks and free areans. Valid right after sweep
+	size_t largest_free_block;	// Size of the largest free block.
+								// (Free arenas don't count as free blocks)
+								// Valid right after sweep
 } qcgc_state;

@@ -29,6 +29,8 @@ void qcgc_allocator_initialize(void) {
 		qcgc_arena_bag_create(QCGC_ARENA_BAG_INIT_SIZE);
 	qcgc_allocator_state.free_arenas = qcgc_arena_bag_create(4); // XXX
 
+	qcgc_allocator_state.use_bump_allocator = true;
+
 	// Bump Allocator
 	qcgc_allocator_state.bump_state.bump_ptr = NULL;
 	qcgc_allocator_state.bump_state.remaining_cells = 0;
@@ -254,17 +256,22 @@ QCGC_STATIC cell_t *fit_allocator_small_first_fit(size_t index, size_t cells) {
 #endif
 	cell_t *result = NULL;
 	for ( ; index < QCGC_SMALL_FREE_LISTS; index++) {
-		linear_free_list_t *free_list =
-			qcgc_allocator_state.fit_state.small_free_list[index];
 		size_t list_cell_size = small_index_to_cells(index);
 
-		while (free_list->count > 0) {
-			result = free_list->items[free_list->count - 1];
-			free_list = qcgc_linear_free_list_remove_index(free_list,
-					free_list->count - 1);
+		while (qcgc_allocator_state.fit_state.small_free_list[index]->count
+				> 0) {
+			result = qcgc_allocator_state.fit_state.small_free_list[index]->
+				items[qcgc_allocator_state.fit_state.small_free_list[index]
+				->count - 1];
+			qcgc_allocator_state.fit_state.small_free_list[index] =
+				qcgc_linear_free_list_remove_index(
+						qcgc_allocator_state.fit_state.small_free_list[index],
+						qcgc_allocator_state.fit_state.small_free_list[index]->
+						count - 1);
 
 			// Check whether block is still valid
 			if (valid_block(result, list_cell_size)) {
+				// The next call might invalidate free_list, reload!
 				qcgc_fit_allocator_add(result + cells, list_cell_size - cells);
 				break;
 			} else {
@@ -272,7 +279,6 @@ QCGC_STATIC cell_t *fit_allocator_small_first_fit(size_t index, size_t cells) {
 			}
 		}
 
-		qcgc_allocator_state.fit_state.small_free_list[index] = free_list;
 		if (result != NULL) {
 			return result;
 		}
@@ -285,24 +291,32 @@ QCGC_STATIC cell_t *fit_allocator_large_fit(size_t index, size_t cells) {
 	assert(1u<<(index + QCGC_LARGE_FREE_LIST_FIRST_EXP) <= cells);
 	assert(1u<<(index + QCGC_LARGE_FREE_LIST_FIRST_EXP + 1) > cells);
 #endif
-	exp_free_list_t *free_list =
-		qcgc_allocator_state.fit_state.large_free_list[index];
-	size_t best_fit_index = free_list->count;
+	size_t best_fit_index = qcgc_allocator_state.fit_state.
+		large_free_list[index]->count;
 
 	cell_t *result = NULL;
 	size_t best_fit_cells = SIZE_MAX;
 	size_t i = 0;
-	while (i < free_list->count) {
-		if (valid_block(free_list->items[i].ptr, free_list->items[i].size)) {
-			if (free_list->items[i].size >= cells &&
-					free_list->items[i].size < best_fit_cells) {
-				result = free_list->items[i].ptr;
-				best_fit_cells = free_list->items[i].size;
+	while (i < qcgc_allocator_state.fit_state.large_free_list[index]->count) {
+		if (valid_block(qcgc_allocator_state.fit_state.large_free_list[index] ->
+					items[i].ptr,
+					qcgc_allocator_state.fit_state.large_free_list[index]->
+					items[i].size)) {
+			if (qcgc_allocator_state.fit_state.large_free_list[index]->
+					items[i].size >= cells &&
+					qcgc_allocator_state.fit_state.large_free_list[index]->
+					items[i].size < best_fit_cells) {
+				result = qcgc_allocator_state.fit_state.large_free_list[index]->
+					items[i].ptr;
+				best_fit_cells = qcgc_allocator_state.fit_state.
+					large_free_list[index]->items[i].size;
 				best_fit_index = i;
 			}
 			i++;
 		} else {
-			free_list = qcgc_exp_free_list_remove_index(free_list, i);
+			qcgc_allocator_state.fit_state.large_free_list[index] =
+				qcgc_exp_free_list_remove_index(qcgc_allocator_state.fit_state.
+						large_free_list[index], i);
 			// NO i++ !
 		}
 
@@ -313,14 +327,16 @@ QCGC_STATIC cell_t *fit_allocator_large_fit(size_t index, size_t cells) {
 
 	if (result != NULL) {
 		// Best fit was found
-		assert(best_fit_index < free_list->count);
-		free_list = qcgc_exp_free_list_remove_index(free_list, best_fit_index);
+		assert(best_fit_index < qcgc_allocator_state.fit_state.
+				large_free_list[index]->count);
+		qcgc_allocator_state.fit_state.large_free_list[index] =
+			qcgc_exp_free_list_remove_index(qcgc_allocator_state.fit_state.
+					large_free_list[index], best_fit_index);
 		qcgc_fit_allocator_add(result + cells, best_fit_cells - cells);
 	} else {
 		// No best fit, go for first fit
 		result = fit_allocator_large_first_fit(index + 1, cells);
 	}
-	qcgc_allocator_state.fit_state.large_free_list[index] = free_list;
 	return result;
 }
 
@@ -330,13 +346,17 @@ QCGC_STATIC cell_t *fit_allocator_large_first_fit(size_t index, size_t cells) {
 #endif
 	cell_t *result = NULL;
 	for ( ; index < QCGC_LARGE_FREE_LISTS; index++) {
-		exp_free_list_t *free_list =
-			qcgc_allocator_state.fit_state.large_free_list[index];
-		while(free_list->count > 0) {
+		while(qcgc_allocator_state.fit_state.large_free_list[index]->count
+				> 0) {
 			struct exp_free_list_item_s item =
-				free_list->items[free_list->count - 1];
-			free_list = qcgc_exp_free_list_remove_index(free_list,
-					free_list->count - 1);
+				qcgc_allocator_state.fit_state.large_free_list[index]->items[
+				qcgc_allocator_state.fit_state.large_free_list[index]->count - 1
+				];
+			qcgc_allocator_state.fit_state.large_free_list[index] =
+				qcgc_exp_free_list_remove_index(
+						qcgc_allocator_state.fit_state.large_free_list[index],
+						qcgc_allocator_state.fit_state.large_free_list[index]->
+						count - 1);
 
 			// Check whether block is still valid
 			if (valid_block(item.ptr, item.size)) {
@@ -345,7 +365,6 @@ QCGC_STATIC cell_t *fit_allocator_large_first_fit(size_t index, size_t cells) {
 				break;
 			}
 		}
-		qcgc_allocator_state.fit_state.large_free_list[index] = free_list;
 		if (result != NULL) {
 			return result;
 		}

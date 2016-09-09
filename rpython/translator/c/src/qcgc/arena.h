@@ -143,6 +143,15 @@ void qcgc_arena_mark_free(cell_t *ptr);
  */
 bool qcgc_arena_sweep(arena_t *arena);
 
+/**
+ * Sweep given arena, but only reset black to white, no white to free
+ *
+ * @param	arena	Arena
+ * @return	Whether arena is empty after sweeping, always false
+ */
+bool qcgc_arena_pseudo_sweep(arena_t *arena);
+
+
 /*******************************************************************************
  * Debug functions                                                             *
  ******************************************************************************/
