@@ -1,4 +1,5 @@
 import pytest
+from rpython.rtyper.lltypesystem import rffi
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rlib.buffer import StringBuffer
@@ -17,8 +18,12 @@ class TestMemoryViewObject(BaseApiTest):
         w_buf = space.newbuffer(StringBuffer("hello"))
         w_memoryview = api.PyMemoryView_FromObject(w_buf)
         w_view = api.PyMemoryView_GET_BUFFER(w_memoryview)
-        ndim = w_view.c_ndim
-        assert ndim == 1
+        assert w_view.c_ndim == 1
+        f = rffi.charp2str(w_view.c_format)
+        assert f == 'B'
+        assert w_view.c_shape[0] == 5
+        assert w_view.c_strides[0] == 1
+        assert w_view.c_len == 5
 
 class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
     def test_fillWithObject(self):
