@@ -46,6 +46,38 @@ class Cache(object):
                 self.purecache.copy(),
                 self.heapcache.copy())
 
+    def _var_rep(self, var):
+        return self.variable_families.find_rep(var)
+
+    def _key_with_replacement(self, key, index, var):
+        (opname, concretetype, args) = key
+        listargs = list(args)
+        listargs[index] = self._var_rep(var)
+        return (opname, concretetype, tuple(listargs))
+
+    def _merge_results(self, tuples, results, backedges):
+        assert len(results) == len(tuples)
+        for result in results:
+            if isinstance(result, Variable):
+                newres = result.copy()
+                break
+        else:
+            # all constants! check if all the same
+            const = results[0]
+            for result in results:
+                if result != const:
+                    newres = Variable()
+                    newres.concretetype = const.concretetype
+                    break
+            else:
+                # all the same
+                return const
+        for linkindex, (link, cache) in enumerate(tuples):
+            link.args.append(results[linkindex])
+        tuples[0][0].target.inputargs.append(newres)
+        for backedge in backedges:
+            backedge.args.append(newres)
+        return newres
 
     def merge(self, firstlink, tuples, backedges):
         purecache = {}
@@ -61,7 +93,7 @@ class Cache(object):
         for argindex in range(len(block.inputargs)):
             inputarg = block.inputargs[argindex]
             # bit slow, but probably ok
-            firstlinkarg = self.variable_families.find_rep(firstlink.args[argindex])
+            firstlinkarg = self._var_rep(firstlink.args[argindex])
             for key, res in self.purecache.iteritems():
                 (opname, concretetype, args) = key
                 if args[0] != firstlinkarg: # XXX other args
@@ -70,43 +102,28 @@ class Cache(object):
                 for linkindex, (link, cache) in enumerate(tuples):
                     if linkindex == 0:
                         continue
-                    listargs = list(args)
-                    listargs[0] = self.variable_families.find_rep(link.args[argindex])
-                    newkey = (opname, concretetype, tuple(listargs))
+                    newkey = self._key_with_replacement(
+                            key, 0, link.args[argindex])
                     otherres = cache.purecache.get(newkey, None)
                     if otherres is None:
                         break
                     results.append(otherres)
                 else:
-                    listargs = list(args)
-                    listargs[0] = self.variable_families.find_rep(inputarg)
-                    newkey = (opname, concretetype, tuple(listargs))
-                    newres = res
-                    if isinstance(res, Variable):
-                        newres = res.copy()
-                        assert len(results) == len(tuples)
-                        for linkindex, (link, cache) in enumerate(tuples):
-                            link.args.append(results[linkindex])
-                        block.inputargs.append(newres)
-                        for backedge in backedges:
-                            backedge.args.append(newres)
+                    newkey = self._key_with_replacement(
+                            key, 0, inputarg)
+                    newres = self._merge_results(tuples, results, backedges)
                     purecache[newkey] = newres
 
         for key, res in self.purecache.iteritems():
             # "straight" merge: the variable is in all other caches
+            results = [res]
             for link, cache in tuples[1:]:
                 val = cache.purecache.get(key, None)
                 if val is None:
                     break
+                results.append(val)
             else:
-                newres = res
-                if isinstance(res, Variable):
-                    newres = res.copy()
-                    for link, cache in tuples:
-                        link.args.append(cache.purecache[key])
-                    block.inputargs.append(newres)
-                    for backedge in backedges:
-                        backedge.args.append(newres)
+                newres = self._merge_results(tuples, results, backedges)
                 purecache[key] = newres
 
         # ______________________
@@ -117,7 +134,7 @@ class Cache(object):
         for argindex in range(len(block.inputargs)):
             inputarg = block.inputargs[argindex]
             # bit slow, but probably ok
-            firstlinkarg = self.variable_families.find_rep(firstlink.args[argindex])
+            firstlinkarg = self._var_rep(firstlink.args[argindex])
             for key, res in self.heapcache.iteritems():
                 (arg, fieldname) = key
                 if arg != firstlinkarg:
@@ -126,43 +143,28 @@ class Cache(object):
                 for linkindex, (link, cache) in enumerate(tuples):
                     if linkindex == 0:
                         continue
-                    otherarg = self.variable_families.find_rep(link.args[argindex])
+                    otherarg = self._var_rep(link.args[argindex])
                     newkey = (otherarg, fieldname)
                     otherres = cache.heapcache.get(newkey, None)
                     if otherres is None:
                         break
                     results.append(otherres)
                 else:
-                    newkey = (self.variable_families.find_rep(inputarg), fieldname)
-                    newres = res
-                    if isinstance(res, Variable):
-                        newres = res.copy()
-                        for linkindex, (link, cache) in enumerate(tuples):
-                            link.args.append(results[linkindex])
-                        block.inputargs.append(newres)
-                        for backedge in backedges:
-                            backedge.args.append(newres)
+                    newkey = (self._var_rep(inputarg), fieldname)
+                    newres = self._merge_results(tuples, results, backedges)
                     heapcache[newkey] = newres
 
         # regular merge
         for key, res in self.heapcache.iteritems():
+            results = [res]
             for link, cache in tuples[1:]:
                 val = cache.heapcache.get(key, None)
                 if val is None:
                     break
+                results.append(val)
             else:
-                newres = res
-                if isinstance(res, Variable):
-                    newres = res.copy()
-                    for link, cache in tuples:
-                        link.args.append(cache.heapcache[key])
-                    block.inputargs.append(newres)
-                    for backedge in backedges:
-                        backedge.args.append(newres)
+                newres = self._merge_results(tuples, results, backedges)
                 heapcache[key] = newres
-
-
-
         return Cache(
                 self.variable_families, self.analyzer, purecache, heapcache)
 
@@ -195,7 +197,7 @@ class Cache(object):
     def cse_block(self, block):
         def representative_arg(arg):
             if isinstance(arg, Variable):
-                return self.variable_families.find_rep(arg)
+                return self._var_rep(arg)
             return arg
         added_same_as = 0
         for op in block.operations:
