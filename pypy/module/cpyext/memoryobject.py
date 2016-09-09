@@ -33,8 +33,8 @@ def PyObject_GetBuffer(space, w_obj, view, flags):
         view.c_buf = rffi.cast(rffi.VOIDP, buf.get_raw_address())
     except ValueError:
         raise BufferError("could not create buffer from object")
-    return fill_Py_buffer(space, w_obj, view, flags)
     view.c_obj = make_ref(space, w_obj)
+    return fill_Py_buffer(space, buf, view)
 
 def fill_Py_buffer(space, buf, view):    
     # c_buf, c_obj have been filled in
