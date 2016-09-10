@@ -848,7 +848,9 @@ static ssize_t read_at_least(void *buf, ssize_t count_min, ssize_t count_max)
         ssize_t rsize = read(rpy_rev_fileno, buf + result, count_max - result);
         if (rsize <= 0) {
             if (rsize == 0)
-                fprintf(stderr, "RevDB file appears truncated\n");
+                fprintf(stderr, "RevDB file appears truncated (cannot read "
+                                "more after offset %lld)\n",
+                        (long long)lseek(rpy_rev_fileno, 0, SEEK_CUR));
             else
                 fprintf(stderr, "RevDB file read error: %m\n");
             exit(1);
@@ -997,11 +999,11 @@ static void setup_replay_mode(int *argc_p, char **argv_p[])
 
     count = lseek(rpy_rev_fileno, 0, SEEK_CUR);
     if (count < 0 ||
-            lseek(rpy_rev_fileno, -sizeof(uint64_t), SEEK_END) < 0 ||
-            read(rpy_rev_fileno, &total_stop_points,
-                 sizeof(uint64_t)) != sizeof(uint64_t) ||
-            lseek(rpy_rev_fileno, count, SEEK_SET) != count) {
-        fprintf(stderr, "%s: %m\n", rpy_rev_filename);
+        lseek(rpy_rev_fileno, -(off_t)sizeof(uint64_t), SEEK_END) < 0 ||
+        (read_all(&total_stop_points, sizeof(uint64_t)),
+         lseek(rpy_rev_fileno, count, SEEK_SET)) != count) {
+        fprintf(stderr, "%s: invalid total_stop_points (%m)\n",
+                rpy_rev_filename);
         exit(1);
     }
 
