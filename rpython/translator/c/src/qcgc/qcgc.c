@@ -147,7 +147,8 @@ object_t *qcgc_allocate(size_t size) {
 
 	if (size <= 1<<QCGC_LARGE_ALLOC_THRESHOLD_EXP) {
 		// Use bump / fit allocator
-		if (qcgc_allocator_state.use_bump_allocator) {
+		//if (qcgc_allocator_state.use_bump_allocator) {
+		if (false) {
 			result = qcgc_bump_allocate(size);
 		} else {
 			result = qcgc_fit_allocate(size);
@@ -368,6 +369,8 @@ void qcgc_sweep(void) {
 	size_t i = 0;
 	qcgc_state.free_cells = 0;
 	qcgc_state.largest_free_block = 0;
+
+	qcgc_fit_allocator_empty_lists();
 	while (i < qcgc_allocator_state.arenas->count) {
 		arena_t *arena = qcgc_allocator_state.arenas->items[i];
 		// The arena that contains the bump pointer is autmatically skipped

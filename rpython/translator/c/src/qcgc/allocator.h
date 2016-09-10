@@ -89,6 +89,11 @@ object_t *qcgc_bump_allocate(size_t bytes);
  */
 object_t *qcgc_large_allocate(size_t bytes);
 
+/**
+ * Empty all free lists (used before sweep)
+ */
+void qcgc_fit_allocator_empty_lists(void);
+
 
 /**
  * Add memory to free lists

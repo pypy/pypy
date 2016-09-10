@@ -23,6 +23,7 @@ QCGC_STATIC cell_t *fit_allocator_large_fit(size_t index, size_t cells);
 QCGC_STATIC cell_t *fit_allocator_large_first_fit(size_t index, size_t cells);
 
 QCGC_STATIC bool valid_block(cell_t *ptr, size_t cells);
+QCGC_STATIC void free_list_consistency_check(void);
 
 void qcgc_allocator_initialize(void) {
 	qcgc_allocator_state.arenas =
@@ -77,8 +78,13 @@ void qcgc_fit_allocator_add(cell_t *ptr, size_t cells) {
 	if (cells > 0) {
 		assert((((object_t *)ptr)->flags & QCGC_PREBUILT_OBJECT) == 0);
 		assert((cell_t *) qcgc_arena_addr(ptr) != ptr);
-		assert(qcgc_arena_get_blocktype(ptr) == BLOCK_FREE ||
-				qcgc_arena_get_blocktype(ptr) == BLOCK_EXTENT);
+		assert(qcgc_arena_get_blocktype(ptr) == BLOCK_FREE);
+		if (qcgc_arena_addr(ptr) == qcgc_arena_addr(ptr + cells)) {
+			assert(qcgc_arena_get_blocktype(ptr + cells) != BLOCK_EXTENT);
+		}
+		for (size_t i = 1; i < cells; i++) {
+			assert(qcgc_arena_get_blocktype(ptr + i) == BLOCK_EXTENT);
+		}
 	}
 #endif
 	if (cells > 0) {
@@ -208,6 +214,9 @@ QCGC_STATIC void bump_allocator_advance(size_t cells) {
 }
 
 object_t *qcgc_fit_allocate(size_t bytes) {
+#if CHECKED
+	free_list_consistency_check();
+#endif
 	size_t cells = bytes_to_cells(bytes);
 	cell_t *mem;
 
@@ -223,7 +232,6 @@ object_t *qcgc_fit_allocate(size_t bytes) {
 		return NULL;
 	}
 
-	qcgc_arena_mark_allocated(mem, cells);
 	object_t *result = (object_t *) mem;
 
 #if QCGC_INIT_ZERO
@@ -250,6 +258,16 @@ object_t *qcgc_large_allocate(size_t bytes) {
 	return result;
 }
 
+void qcgc_fit_allocator_empty_lists(void) {
+	for (size_t i = 0; i < QCGC_SMALL_FREE_LISTS; i++) {
+		qcgc_allocator_state.fit_state.small_free_list[i]->count = 0;
+	}
+
+	for (size_t i = 0; i < QCGC_LARGE_FREE_LISTS; i++) {
+		qcgc_allocator_state.fit_state.large_free_list[i]->count = 0;
+	}
+}
+
 QCGC_STATIC cell_t *fit_allocator_small_first_fit(size_t index, size_t cells) {
 #if CHECKED
 	assert(small_index_to_cells(index) >= cells);
@@ -272,15 +290,10 @@ QCGC_STATIC cell_t *fit_allocator_small_first_fit(size_t index, size_t cells) {
 			// Check whether block is still valid
 			if (valid_block(result, list_cell_size)) {
 				// The next call might invalidate free_list, reload!
+				qcgc_arena_mark_allocated(result, cells);
 				qcgc_fit_allocator_add(result + cells, list_cell_size - cells);
-				break;
-			} else {
-				result = NULL;
+				return result;
 			}
-		}
-
-		if (result != NULL) {
-			return result;
 		}
 	}
 	return fit_allocator_large_first_fit(0, cells);
@@ -332,6 +345,7 @@ QCGC_STATIC cell_t *fit_allocator_large_fit(size_t index, size_t cells) {
 		qcgc_allocator_state.fit_state.large_free_list[index] =
 			qcgc_exp_free_list_remove_index(qcgc_allocator_state.fit_state.
 					large_free_list[index], best_fit_index);
+		qcgc_arena_mark_allocated(result, cells);
 		qcgc_fit_allocator_add(result + cells, best_fit_cells - cells);
 	} else {
 		// No best fit, go for first fit
@@ -344,7 +358,6 @@ QCGC_STATIC cell_t *fit_allocator_large_first_fit(size_t index, size_t cells) {
 #if CHECKED
 	assert(1u<<(index + QCGC_LARGE_FREE_LIST_FIRST_EXP) >= cells);
 #endif
-	cell_t *result = NULL;
 	for ( ; index < QCGC_LARGE_FREE_LISTS; index++) {
 		while(qcgc_allocator_state.fit_state.large_free_list[index]->count
 				> 0) {
@@ -360,13 +373,10 @@ QCGC_STATIC cell_t *fit_allocator_large_first_fit(size_t index, size_t cells) {
 
 			// Check whether block is still valid
 			if (valid_block(item.ptr, item.size)) {
+				qcgc_arena_mark_allocated(item.ptr, cells);
 				qcgc_fit_allocator_add(item.ptr + cells, item.size - cells);
-				result = item.ptr;
-				break;
+				return item.ptr;
 			}
-		}
-		if (result != NULL) {
-			return result;
 		}
 	}
 	return NULL;
@@ -414,4 +424,32 @@ QCGC_STATIC bool valid_block(cell_t *ptr, size_t cells) {
 	return (qcgc_arena_get_blocktype(ptr) == BLOCK_FREE && (
 				((qcgc_arena_addr(ptr + cells)) == (arena_t *) (ptr + cells)) ||
 				qcgc_arena_get_blocktype(ptr + cells) != BLOCK_EXTENT));
+}
+
+QCGC_STATIC void free_list_consistency_check(void) {
+	for (size_t i = 0; i < QCGC_SMALL_FREE_LISTS; i++) {
+		linear_free_list_t *free_list =
+			qcgc_allocator_state.fit_state.small_free_list[i];
+		for (size_t j = 0; j < free_list->count; j++) {
+			cell_t *item = free_list->items[j];
+			if  (qcgc_arena_get_blocktype(item) == BLOCK_FREE) {
+				for (size_t s = 1; s < small_index_to_cells(i); s++) {
+					assert(qcgc_arena_get_blocktype(item + s) == BLOCK_EXTENT);
+				}
+			}
+		}
+	}
+
+	for (size_t i = 0; i < QCGC_LARGE_FREE_LISTS; i++) {
+		exp_free_list_t *free_list =
+			qcgc_allocator_state.fit_state.large_free_list[i];
+		for (size_t j = 0; j < free_list->count; j++) {
+			struct exp_free_list_item_s item = free_list->items[j];
+			if  (qcgc_arena_get_blocktype(item.ptr) == BLOCK_FREE) {
+				for (size_t s = 1; s < item.size; s++) {
+					assert(qcgc_arena_get_blocktype(item.ptr + s) == BLOCK_EXTENT);
+				}
+			}
+		}
+	}
 }
