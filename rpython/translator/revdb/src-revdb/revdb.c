@@ -1768,7 +1768,7 @@ RPyString *rpy_reverse_db_dtoa(double d)
     char buffer[128], *p;
     RPyString *result;
     int size;
-    size = snprintf(buffer, sizeof(buffer) - 3, "%g", d);
+    size = snprintf(buffer, sizeof(buffer) - 3, "%.17g", d);
     if (size < 0)
         size = 0;
     for (p = buffer; '0' <= *p && *p <= '9'; p++) {
