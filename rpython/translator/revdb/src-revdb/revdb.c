@@ -1730,10 +1730,10 @@ void rpy_reverse_db_invoke_callback(unsigned char e)
 }
 
 RPY_EXTERN
-void rpy_reverse_db_bad_acquire_gil(void)
+void rpy_reverse_db_bad_acquire_gil(const char *name)
 {
     fprintf(stderr, "out of sync: unexpected byte in log "
-                    " (at acquire_gil or release_gil)\n");
+                    " (at %s_gil)\n", name);
     exit(1);
 }
 

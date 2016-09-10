@@ -151,23 +151,32 @@ RPY_EXTERN void seeing_uid(uint64_t uid);
             rpy_reverse_db_invoke_callback(_re);                        \
     }
 
-#define RPY_REVDB_CALL_GIL(call_code, byte)                             \
+#define RPY_REVDB_CALL_GIL_ACQUIRE()                                    \
     if (!RPY_RDB_REPLAY) {                                              \
-        call_code                                                       \
+        RPyGilAcquire();                                                \
         _RPY_REVDB_LOCK();                                              \
-        _RPY_REVDB_EMIT_RECORD_L(unsigned char _e, byte)                \
+        _RPY_REVDB_EMIT_RECORD_L(unsigned char _e, 0xFD)                \
         _RPY_REVDB_UNLOCK();                                            \
     }                                                                   \
     else {                                                              \
         unsigned char _re;                                              \
         _RPY_REVDB_EMIT_REPLAY(unsigned char _e, _re)                   \
-        if (_re != byte)                                                \
-            rpy_reverse_db_bad_acquire_gil();                           \
+        if (_re != 0xFD)                                                \
+            rpy_reverse_db_bad_acquire_gil("acquire");                  \
     }
 
-#define RPY_REVDB_CALL_GILCTRL(call_code)                               \
+#define RPY_REVDB_CALL_GIL_RELEASE()                                    \
     if (!RPY_RDB_REPLAY) {                                              \
-        call_code                                                       \
+        _RPY_REVDB_LOCK();                                              \
+        _RPY_REVDB_EMIT_RECORD_L(unsigned char _e, 0xFE)                \
+        _RPY_REVDB_UNLOCK();                                            \
+        RPyGilRelease();                                                \
+    }                                                                   \
+    else {                                                              \
+        unsigned char _re;                                              \
+        _RPY_REVDB_EMIT_REPLAY(unsigned char _e, _re)                   \
+        if (_re != 0xFE)                                                \
+            rpy_reverse_db_bad_acquire_gil("release");                  \
     }
 
 #define RPY_REVDB_CALLBACKLOC(locnum)                                   \
@@ -284,7 +293,7 @@ RPY_EXTERN void rpy_reverse_db_call_destructor(void *obj);
 RPY_EXTERN void rpy_reverse_db_invoke_callback(unsigned char);
 RPY_EXTERN void rpy_reverse_db_callback_loc(int);
 RPY_EXTERN void rpy_reverse_db_lock_acquire(bool_t lock_contention);
-RPY_EXTERN void rpy_reverse_db_bad_acquire_gil(void);
+RPY_EXTERN void rpy_reverse_db_bad_acquire_gil(const char *name);
 RPY_EXTERN void rpy_reverse_db_set_thread_breakpoint(int64_t tnum);
 RPY_EXTERN double rpy_reverse_db_strtod(RPyString *s);
 RPY_EXTERN RPyString *rpy_reverse_db_dtoa(double d);

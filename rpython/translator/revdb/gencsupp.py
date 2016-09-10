@@ -92,10 +92,9 @@ def emit_residual_call(funcgen, call_code, v_result, expr_result):
         # reading the 0xFD or 0xFE, we switch to a different thread if needed
         # (actually implemented with stacklets).
         if call_code == 'RPyGilAcquire();':
-            byte = '0xFD'
+            return 'RPY_REVDB_CALL_GIL_ACQUIRE();'
         else:
-            byte = '0xFE'
-        return 'RPY_REVDB_CALL_GIL(%s, %s);' % (call_code, byte)
+            return 'RPY_REVDB_CALL_GIL_RELEASE();'
     #
     tp = funcgen.lltypename(v_result)
     if tp == 'void @':
