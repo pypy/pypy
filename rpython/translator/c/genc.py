@@ -823,6 +823,15 @@ def gen_startupcode(f, database):
 
     print >> f, '}'
 
+def gen_teardowncode(f, database):
+    # generate tear-down code and put it into a function (empty except for qcgc)
+    print >> f, 'void RPython_TeardownCode(void) {'
+
+    for line in database.gcpolicy.gc_teardown_code():
+        print >> f, "\t" + line
+
+    print >> f, '}'
+
 def commondefs(defines):
     from rpython.rlib.rarithmetic import LONG_BIT, LONGLONG_BIT
     defines['PYPY_LONG_BIT'] = LONG_BIT
@@ -887,6 +896,7 @@ def gen_source(database, modulename, targetdir,
     headers_to_precompile.insert(0, incfilename)
 
     gen_startupcode(f, database)
+    gen_teardowncode(f, database)
     f.close()
 
     if 'PYPY_INSTRUMENT' in defines:

@@ -109,6 +109,7 @@ int pypy_main_function(int argc, char *argv[])
     RPyGilRelease();
 #endif
 
+	RPython_TeardownCode();
     return exitcode;
 
  memory_out:

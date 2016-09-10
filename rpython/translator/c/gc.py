@@ -40,6 +40,9 @@ class BasicGcPolicy(object):
     def gc_startup_code(self):
         return []
 
+    def gc_teardown_code(self):
+        return []
+
     def struct_setup(self, structdefnode, rtti):
         return None
 
@@ -474,6 +477,12 @@ class QcgcFrameworkGcPolicy(BasicFrameworkGcPolicy):
     def gc_startup_code(self):
         yield 'qcgc_initialize();'
         s = list(super(QcgcFrameworkGcPolicy, self).gc_startup_code())
+        for i in s:
+            yield i
+
+    def gc_teardown_code(self):
+        yield 'qcgc_destroy();'
+        s = list(super(QcgcFrameworkGcPolicy, self).gc_teardown_code())
         for i in s:
             yield i
 
