@@ -11,36 +11,7 @@ from pypy.module.cpyext.buffer import CBuffer
 from pypy.objspace.std.memoryobject import W_MemoryView
 PyMemoryView_Check, PyMemoryView_CheckExact = build_type_checkers("MemoryView", "w_memoryview")
 
-@cpython_api([PyObject, lltype.Ptr(Py_buffer), rffi.INT_real],
-             rffi.INT_real, error=-1)
-def PyObject_GetBuffer(space, w_obj, view, flags):
-    """Export obj into a Py_buffer, view.  These arguments must
-    never be NULL.  The flags argument is a bit field indicating what
-    kind of buffer the caller is prepared to deal with and therefore what
-    kind of buffer the exporter is allowed to return.  The buffer interface
-    allows for complicated memory sharing possibilities, but some caller may
-    not be able to handle all the complexity but may want to see if the
-    exporter will let them take a simpler view to its memory.
-
-    Some exporters may not be able to share memory in every possible way and
-    may need to raise errors to signal to some consumers that something is
-    just not possible. These errors should be a BufferError unless
-    there is another error that is actually causing the problem. The
-    exporter can use flags information to simplify how much of the
-    Py_buffer structure is filled in with non-default values and/or
-    raise an error if the object can't support a simpler view of its memory.
-
-    0 is returned on success and -1 on error."""
-    flags = widen(flags)
-    buf = space.buffer_w(w_obj, flags)
-    try:
-        view.c_buf = rffi.cast(rffi.VOIDP, buf.get_raw_address())
-    except ValueError:
-        raise BufferError("could not create buffer from object")
-    return fill_Py_buffer(space, w_obj, view, flags)
-    view.c_obj = make_ref(space, w_obj)
-
-def fill_Py_buffer(space, buf, view):    
+def fill_Py_buffer(space, buf, view):
     # c_buf, c_obj have been filled in
     ndim = buf.getndim()
     view.c_len = buf.getlength()
@@ -61,7 +32,7 @@ def fill_Py_buffer(space, buf, view):
             view.c_format[i] = '*'
         else:
             view.c_format[i] = fmt[i]
-    view.c_format[n] = '\x00'        
+    view.c_format[n] = '\x00'
     shape = buf.getshape()
     strides = buf.getstrides()
     for i in range(ndim):
@@ -156,7 +127,7 @@ def PyMemoryView_GET_BUFFER(space, w_obj):
         view.c_obj = make_ref(space, w_s)
         rffi.setintfield(view, 'c_readonly', 1)
         isstr = True
-    fill_Py_buffer(space, w_obj.buf, view)     
+    fill_Py_buffer(space, w_obj.buf, view)
     return view
 
 @cpython_api([lltype.Ptr(Py_buffer)], PyObject)
