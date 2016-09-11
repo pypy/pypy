@@ -9,16 +9,16 @@ due to the following issues:
     this was unfortunately left out of 5.4.0. My apologies to the new
     contributors
 
-  * Allow tests run with `-A` to find `libm.so` even if it is a script not a
+  * Allow tests run with ``-A`` to find ``libm.so`` even if it is a script not a
     dynamically loadable file
 
-  * Bump `sys.setrecursionlimit()` when translating PyPy, for translating with CPython
+  * Bump ``sys.setrecursionlimit()`` when translating PyPy, for translating with CPython
 
-  * Tweak a float comparison with 0 in `backendopt.inline` to avoid rounding errors
+  * Tweak a float comparison with 0 in ``backendopt.inline`` to avoid rounding errors
 
-  * Fix for an issue where os.access() accepted a float for mode
+  * Fix for an issue for translating the sandbox
 
-  * Fix for and issue where `unicode.decode('utf8', 'custom_replace')` messed up
+  * Fix for and issue where ``unicode.decode('utf8', 'custom_replace')`` messed up
     the last byte of a unicode string sometimes
 
   * Update built-in cffi_ to version 1.8.1
