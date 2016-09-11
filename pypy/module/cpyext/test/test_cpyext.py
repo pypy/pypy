@@ -42,19 +42,6 @@ def convert_sources_to_files(sources, dirname):
         files.append(filename)
     return files
 
-def create_so(modname, include_dirs, source_strings=None, source_files=None,
-        compile_extra=None, link_extra=None, libraries=None):
-    dirname = (udir/uniquemodulename('module')).ensure(dir=1)
-    if source_strings:
-        assert not source_files
-        files = convert_sources_to_files(source_strings, dirname)
-        source_files = files
-    soname = c_compile(source_files, outputfilename=str(dirname/modname),
-        compile_extra=compile_extra, link_extra=link_extra,
-        include_dirs=include_dirs,
-        libraries=libraries)
-    return soname
-
 class SystemCompilationInfo(object):
     """Bundles all the generic information required to compile extensions.
 
@@ -67,6 +54,33 @@ class SystemCompilationInfo(object):
         self.link_extra = link_extra
         self.extra_libs = extra_libs
         self.ext = ext
+
+    def compile_extension_module(self, name, include_dirs=[],
+            source_files=None, source_strings=None):
+        """
+        Build an extension module and return the filename of the resulting
+        native code file.
+
+        name is the name of the module, possibly including dots if it is a
+        module inside a package.
+
+        Any extra keyword arguments are passed on to ExternalCompilationInfo to
+        build the module (so specify your source with one of those).
+        """
+        modname = name.split('.')[-1]
+        dirname = (udir/uniquemodulename('module')).ensure(dir=1)
+        if source_strings:
+            assert not source_files
+            files = convert_sources_to_files(source_strings, dirname)
+            source_files = files
+        soname = c_compile(source_files, outputfilename=str(dirname/modname),
+            compile_extra=self.compile_extra,
+            link_extra=self.link_extra,
+            include_dirs=self.include_extra + include_dirs,
+            libraries=self.extra_libs)
+        pydname = soname.new(purebasename=modname, ext=self.ext)
+        soname.rename(pydname)
+        return str(pydname)
 
 def get_cpyext_info(space):
     from pypy.module.imp.importing import get_so_extension
@@ -96,30 +110,6 @@ def get_cpyext_info(space):
         ext=get_so_extension(space))
 
 
-def compile_extension_module(sys_info, modname, include_dirs=[],
-        source_files=None, source_strings=None):
-    """
-    Build an extension module and return the filename of the resulting native
-    code file.
-
-    modname is the name of the module, possibly including dots if it is a module
-    inside a package.
-
-    Any extra keyword arguments are passed on to ExternalCompilationInfo to
-    build the module (so specify your source with one of those).
-    """
-    modname = modname.split('.')[-1]
-    soname = create_so(modname,
-        include_dirs=sys_info.include_extra + include_dirs,
-        source_files=source_files,
-        source_strings=source_strings,
-        compile_extra=sys_info.compile_extra,
-        link_extra=sys_info.link_extra,
-        libraries=sys_info.extra_libs)
-    pydname = soname.new(purebasename=modname, ext=sys_info.ext)
-    soname.rename(pydname)
-    return str(pydname)
-
 def get_so_suffix():
     from imp import get_suffixes, C_EXTENSION
     for suffix, mode, typ in get_suffixes():
@@ -148,6 +138,35 @@ def get_sys_info_app():
         link_extra=link_extra,
         ext=get_so_suffix())
 
+def make_methods(functions, modname):
+    methods_table = []
+    codes = []
+    for funcname, flags, code in functions:
+        cfuncname = "%s_%s" % (modname, funcname)
+        methods_table.append("{\"%s\", %s, %s}," %
+                                (funcname, cfuncname, flags))
+        func_code = """
+        static PyObject* %s(PyObject* self, PyObject* args)
+        {
+        %s
+        }
+        """ % (cfuncname, code)
+        codes.append(func_code)
+
+    body = "\n".join(codes) + """
+    static PyMethodDef methods[] = {
+    %(methods)s
+    { NULL }
+    };
+    static struct PyModuleDef moduledef = {
+        PyModuleDef_HEAD_INIT,
+        "%(modname)s",  /* m_name */
+        NULL,           /* m_doc */
+        -1,             /* m_size */
+        methods,        /* m_methods */
+    };
+    """ % dict(methods='\n'.join(methods_table), modname=modname)
+    return body
 
 def freeze_refcnts(self):
     rawrefcount._dont_free_any_more()
@@ -168,6 +187,7 @@ class FakeSpace(object):
         return arg
     listview = passthrough
     str_w = passthrough
+    wrap = passthrough
 
     def unwrap(self, args):
         try:
@@ -308,6 +328,15 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         if not cls.runappdirect:
             cls.w_runappdirect = space.wrap(cls.runappdirect)
 
+    def record_imported_module(self, name):
+        """
+        Record a module imported in a test so that it can be cleaned up in
+        teardown before the check for leaks is done.
+
+        name gives the name of the module in the space's sys.modules.
+        """
+        self.imported_module_names.append(name)
+
     def setup_method(self, func):
         @gateway.unwrap_spec(name=str)
         def compile_module(space, name,
@@ -324,16 +353,20 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 source_strings = space.listview_bytes(w_source_strings)
             else:
                 source_strings = None
-            pydname = compile_extension_module(
-                self.sys_info, name,
+            pydname = self.sys_info.compile_extension_module(
+                name,
                 source_files=source_files,
                 source_strings=source_strings)
+
+            # hackish, but tests calling compile_module() always end up
+            # importing the result
+            self.record_imported_module(name)
+
             return space.wrap(pydname)
 
         @gateway.unwrap_spec(name=str, init='str_or_None', body=str,
-                     load_it=bool, filename='str_or_None',
-                     PY_SSIZE_T_CLEAN=bool)
-        def import_module(space, name, init=None, body='', load_it=True,
+                     filename='str_or_None', PY_SSIZE_T_CLEAN=bool)
+        def import_module(space, name, init=None, body='',
                           filename=None, w_include_dirs=None,
                           PY_SSIZE_T_CLEAN=False):
             """
@@ -378,69 +411,30 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 filename = py.path.local(pypydir) / 'module' \
                         / 'cpyext'/ 'test' / (filename + ".c")
                 kwds = dict(source_files=[filename])
-            mod = compile_extension_module(self.sys_info, name,
-                    include_dirs=include_dirs, **kwds)
+            mod = self.sys_info.compile_extension_module(
+                name, include_dirs=include_dirs, **kwds)
+            w_result = load_module(space, mod, name)
+            if not self.runappdirect:
+                self.record_imported_module(name)
+            return w_result
 
-            if load_it:
-                if self.runappdirect:
-                    import imp
-                    return imp.load_dynamic(name, mod)
-                else:
-                    api.load_extension_module(space, mod, name)
-                    self.imported_module_names.append(name)
-                    return space.getitem(
-                        space.sys.get('modules'),
-                        space.wrap(name))
-            else:
-                path = os.path.dirname(mod)
-                if self.runappdirect:
-                    return path
-                else:
-                    return space.wrap(path)
 
         @gateway.unwrap_spec(mod=str, name=str)
-        def reimport_module(space, mod, name):
+        def load_module(space, mod, name):
             if self.runappdirect:
                 import imp
                 return imp.load_dynamic(name, mod)
             else:
                 api.load_extension_module(space, mod, name)
-            return space.getitem(
-                space.sys.get('modules'),
-                space.wrap(name))
+                return space.getitem(
+                    space.sys.get('modules'), space.wrap(name))
 
         @gateway.unwrap_spec(modname=str, prologue=str,
                              more_init=str, PY_SSIZE_T_CLEAN=bool)
         def import_extension(space, modname, w_functions, prologue="",
                              w_include_dirs=None, more_init="", PY_SSIZE_T_CLEAN=False):
             functions = space.unwrap(w_functions)
-            methods_table = []
-            codes = []
-            for funcname, flags, code in functions:
-                cfuncname = "%s_%s" % (modname, funcname)
-                methods_table.append("{\"%s\", %s, %s}," %
-                                     (funcname, cfuncname, flags))
-                func_code = """
-                static PyObject* %s(PyObject* self, PyObject* args)
-                {
-                %s
-                }
-                """ % (cfuncname, code)
-                codes.append(func_code)
-
-            body = prologue + "\n".join(codes) + """
-            static PyMethodDef methods[] = {
-            %(methods)s
-            { NULL }
-            };
-            static struct PyModuleDef moduledef = {
-                PyModuleDef_HEAD_INIT,
-                "%(modname)s",  /* m_name */
-                NULL,           /* m_doc */
-                -1,             /* m_size */
-                methods,        /* m_methods */
-            };
-            """ % dict(methods='\n'.join(methods_table), modname=modname)
+            body = prologue + make_methods(functions, modname)
             init = """PyObject *mod = PyModule_Create(&moduledef);"""
             if more_init:
                 init += more_init
@@ -448,16 +442,6 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             return import_module(space, name=modname, init=init, body=body,
                                  w_include_dirs=w_include_dirs,
                                  PY_SSIZE_T_CLEAN=PY_SSIZE_T_CLEAN)
-
-        @gateway.unwrap_spec(name=str)
-        def record_imported_module(name):
-            """
-            Record a module imported in a test so that it can be cleaned up in
-            teardown before the check for leaks is done.
-
-            name gives the name of the module in the space's sys.modules.
-            """
-            self.imported_module_names.append(name)
 
         def debug_collect(space):
             rawrefcount._collect()
@@ -479,15 +463,15 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             def wrap(func):
                 return func
             self.sys_info = get_sys_info_app()
+            self.compile_module = self.sys_info.compile_extension_module
         else:
             interp2app = gateway.interp2app
             wrap = self.space.wrap
             self.sys_info = get_cpyext_info(self.space)
-        self.w_compile_module = wrap(interp2app(compile_module))
+            self.w_compile_module = wrap(interp2app(compile_module))
         self.w_import_module = wrap(interp2app(import_module))
-        self.w_reimport_module = wrap(interp2app(reimport_module))
+        self.w_load_module = wrap(interp2app(load_module))
         self.w_import_extension = wrap(interp2app(import_extension))
-        self.w_record_imported_module = wrap(interp2app(record_imported_module))
         self.w_here = wrap(str(py.path.local(pypydir)) + '/module/cpyext/test/')
         self.w_debug_collect = wrap(interp2app(debug_collect))
 
@@ -628,15 +612,11 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         If `cherry.date` is an extension module which imports `apple.banana`,
         the latter is added to `sys.modules` for the `"apple.banana"` key.
         """
-        if self.runappdirect:
-            skip('record_imported_module not supported in runappdirect mode')
         # Build the extensions.
         banana = self.compile_module(
             "apple.banana", source_files=[self.here + 'banana.c'])
-        self.record_imported_module("apple.banana")
         date = self.compile_module(
             "cherry.date", source_files=[self.here + 'date.c'])
-        self.record_imported_module("cherry.date")
 
         # Set up some package state so that the extensions can actually be
         # imported.
@@ -648,7 +628,6 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         apple.__path__ = [os.path.dirname(banana)]
 
         import cherry.date
-        import apple.banana
 
         assert sys.modules['apple.banana'].__name__ == 'apple.banana'
         assert sys.modules['cherry.date'].__name__ == 'cherry.date'
@@ -1004,7 +983,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             f.write('not again!\n')
             f.close()
             m1 = sys.modules['foo']
-            m2 = self.reimport_module(m1.__file__, name='foo')
+            m2 = self.load_module(m1.__file__, name='foo')
             assert m1 is m2
             assert m1 is sys.modules['foo']
 
