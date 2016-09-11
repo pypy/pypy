@@ -255,9 +255,9 @@ class LeakCheckingTest(object):
         # enabled automatically by pypy.conftest.
         return leaking
 
+@pytest.mark.xfail(reason="Skipped until other tests in this file are unskipped")
 class AppTestApi(LeakCheckingTest):
     def setup_class(cls):
-        skip("Skipped until other tests in this file are unskipped")
         from rpython.rlib.clibffi import get_libc_name
         if cls.runappdirect:
             cls.libc = get_libc_name()
