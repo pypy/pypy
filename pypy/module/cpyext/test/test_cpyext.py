@@ -18,6 +18,8 @@ from rpython.rlib import rawrefcount
 
 from .support import c_compile
 
+only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_names" 
+
 @api.cpython_api([], api.PyObject)
 def PyPy_Crash1(space):
     1/0
@@ -288,11 +290,11 @@ class AppTestApi(LeakCheckingTest):
             "the test actually passed in the first place; if it failed "
             "it is likely to reach this place.")
 
-    @pytest.mark.skipif('__pypy__' not in sys.builtin_module_names, reason='pypy only test')
+    @pytest.mark.skipif(only_pypy, reason='pypy only test')
     def test_only_import(self):
         import cpyext
 
-    @pytest.mark.skipif('__pypy__' not in sys.builtin_module_names, reason='pypy only test')
+    @pytest.mark.skipif(only_pypy, reason='pypy only test')
     def test_load_error(self):
         import cpyext
         raises(ImportError, cpyext.load_module, "missing.file", "foo")
@@ -873,7 +875,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             ])
         raises(SystemError, mod.newexc, "name", Exception, {})
 
-    @pytest.mark.skipif('__pypy__' not in sys.builtin_module_names, reason='pypy specific test')
+    @pytest.mark.skipif(only_pypy, reason='pypy specific test')
     def test_hash_pointer(self):
         mod = self.import_extension('foo', [
             ('get_hash', 'METH_NOARGS',
@@ -924,7 +926,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         print p
         assert 'py' in p
 
-    @pytest.mark.skipif('__pypy__' not in sys.builtin_module_names, reason='pypy only test')
+    @pytest.mark.skipif(only_pypy, reason='pypy only test')
     def test_get_version(self):
         mod = self.import_extension('foo', [
             ('get_version', 'METH_NOARGS',

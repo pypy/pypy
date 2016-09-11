@@ -97,7 +97,8 @@ else:
 OPENSSL_VERSION_NUMBER = cconfig["OPENSSL_VERSION_NUMBER"]
 HAVE_TLSv1_2 = OPENSSL_VERSION_NUMBER >= 0x10001000
 
-if OPENSSL_VERSION_NUMBER >= 0x10100000:
+if (OPENSSL_VERSION_NUMBER >= 0x10100000 and
+     OPENSSL_VERSION_NUMBER < 0x20000000):    # <= libressl :-(
     eci.pre_include_bits = ()
     eci.post_include_bits = ()
     raise Exception("""OpenSSL version >= 1.1 not supported yet.

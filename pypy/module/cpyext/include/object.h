@@ -144,6 +144,7 @@ typedef Py_ssize_t (*charbufferproc)(PyObject *, Py_ssize_t, char **);
 
 /* Py3k buffer interface, adapted for PyPy */
 #define Py_MAX_NDIMS 32
+#define Py_MAX_FMT 5
 typedef struct bufferinfo {
     void *buf;
     PyObject *obj;        /* owned reference */
@@ -158,7 +159,7 @@ typedef struct bufferinfo {
     Py_ssize_t *shape;
     Py_ssize_t *strides;
     Py_ssize_t *suboffsets; /* alway NULL for app-level objects*/
-    unsigned char _format;
+    unsigned char _format[Py_MAX_FMT];
     Py_ssize_t _strides[Py_MAX_NDIMS];
     Py_ssize_t _shape[Py_MAX_NDIMS];
     /* static store for shape and strides of
