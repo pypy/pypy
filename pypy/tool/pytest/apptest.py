@@ -121,6 +121,7 @@ if 1:
         elif isinstance(value, types.MethodType):
             # "def w_method(self)"
             code = py.code.Code(value)
+            #import pdb; pdb.set_trace()
             defs.append(str(code.source()))
             defs.append("type(self).%s = %s\n" % (symbol, value.__name__))
         elif isinstance(value, types.ModuleType):
@@ -149,7 +150,7 @@ if 1:
                     missing.remove(name)
             del name
         if missing:
-            sys.exit(81)
+            pass #sys.exit(81)
     del missing""" % usemodules
 
     source = list(py.code.Source(target_))

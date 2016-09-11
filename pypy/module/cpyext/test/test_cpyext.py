@@ -327,6 +327,10 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         #state.non_heaptypes_w[:] = []
         if not cls.runappdirect:
             cls.w_runappdirect = space.wrap(cls.runappdirect)
+        else:
+            def w_compile_module(self, name, source_files=None, source_strings=None):
+                return self.sys_info(name, source_files, source_strings)
+            cls.w_compile_module = w_compile_module
 
     def record_imported_module(self, name):
         """
@@ -463,7 +467,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             def wrap(func):
                 return func
             self.sys_info = get_sys_info_app()
-            self.compile_module = self.sys_info.compile_extension_module
+            #self.compile_module = self.sys_info.compile_extension_module
         else:
             interp2app = gateway.interp2app
             wrap = self.space.wrap
@@ -614,9 +618,9 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         """
         # Build the extensions.
         banana = self.compile_module(
-            "apple.banana", source_files=[self.here + 'banana.c'])
+            "apple.banana", source_files=[self.here + b'banana.c'])
         date = self.compile_module(
-            "cherry.date", source_files=[self.here + 'date.c'])
+            "cherry.date", source_files=[self.here + b'date.c'])
 
         # Set up some package state so that the extensions can actually be
         # imported.
