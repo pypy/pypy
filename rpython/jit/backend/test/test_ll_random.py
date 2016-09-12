@@ -594,7 +594,7 @@ class BaseCallOperation(test_random.AbstractOperation):
         return subset, d['f'], vtableptr
 
     def getresulttype(self):
-        if self.opnum == rop.CALL_I:
+        if self.opnum == rop.CALL_I or self.opnum == rop.COND_CALL_VALUE_I:
             return lltype.Signed
         elif self.opnum == rop.CALL_F:
             return lltype.Float
@@ -712,7 +712,12 @@ class RaisingCallOperationWrongGuardException(BaseCallOperation):
 class CondCallOperation(BaseCallOperation):
     def produce_into(self, builder, r):
         fail_subset = builder.subset_of_intvars(r)
-        v_cond = builder.get_bool_var(r)
+        if self.opnum == rop.COND_CALL:
+            RESULT_TYPE = lltype.Void
+            v_cond = builder.get_bool_var(r)
+        else:
+            RESULT_TYPE = lltype.Signed
+            v_cond = r.choice(builder.intvars)
         subset = builder.subset_of_intvars(r)[:4]
         for i in range(len(subset)):
             if r.random() < 0.35:
@@ -724,8 +729,10 @@ class CondCallOperation(BaseCallOperation):
                 seen.append(args)
             else:
                 assert seen[0] == args
+            if RESULT_TYPE is lltype.Signed:
+                return len(args) - 42000
         #
-        TP = lltype.FuncType([lltype.Signed] * len(subset), lltype.Void)
+        TP = lltype.FuncType([lltype.Signed] * len(subset), RESULT_TYPE)
         ptr = llhelper(lltype.Ptr(TP), call_me)
         c_addr = ConstAddr(llmemory.cast_ptr_to_adr(ptr), builder.cpu)
         args = [v_cond, c_addr] + subset
@@ -769,6 +776,7 @@ for i in range(4):      # make more common
 for i in range(2):
     OPERATIONS.append(GuardClassOperation(rop.GUARD_CLASS))
     OPERATIONS.append(CondCallOperation(rop.COND_CALL))
+    OPERATIONS.append(CondCallOperation(rop.COND_CALL_VALUE_I))
     OPERATIONS.append(RaisingCallOperation(rop.CALL_N))
     OPERATIONS.append(RaisingCallOperationGuardNoException(rop.CALL_N))
     OPERATIONS.append(RaisingCallOperationWrongGuardException(rop.CALL_N))

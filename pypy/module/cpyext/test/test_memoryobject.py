@@ -1,6 +1,9 @@
+import pytest
+from rpython.rtyper.lltypesystem import rffi
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rlib.buffer import StringBuffer
+
 class TestMemoryViewObject(BaseApiTest):
     def test_fromobject(self, space, api):
         w_hello = space.newbytes("hello")
@@ -15,8 +18,12 @@ class TestMemoryViewObject(BaseApiTest):
         w_buf = space.newbuffer(StringBuffer("hello"))
         w_memoryview = api.PyMemoryView_FromObject(w_buf)
         w_view = api.PyMemoryView_GET_BUFFER(w_memoryview)
-        ndim = w_view.c_ndim
-        assert ndim == 1
+        assert w_view.c_ndim == 1
+        f = rffi.charp2str(w_view.c_format)
+        assert f == 'B'
+        assert w_view.c_shape[0] == 5
+        assert w_view.c_strides[0] == 1
+        assert w_view.c_len == 5
 
 class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
     def test_fillWithObject(self):
@@ -76,18 +83,15 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
         viewlen = module.test_buffer(arr)
         assert viewlen == y.itemsize * len(y)
 
+    @pytest.mark.skipif(True, reason="no _numpypy on py3k")
     def test_buffer_info(self):
         from _numpypy import multiarray as np
         module = self.import_module(name='buffer_test')
         get_buffer_info = module.get_buffer_info
-        # test_export_flags from numpy test_multiarray
         raises(ValueError, get_buffer_info, np.arange(5)[::2], ('SIMPLE',))
-        # test_relaxed_strides from numpy test_multiarray
-        arr = np.zeros((1, 10))
-        if arr.flags.f_contiguous:
-            shape, strides = get_buffer_info(arr, ['F_CONTIGUOUS'])
-            assert strides[0] == 8
-            arr = np.ones((10, 1), order='F')
-            shape, strides = get_buffer_info(arr, ['C_CONTIGUOUS'])
-            assert strides[-1] == 8
-
+        arr = np.zeros((1, 10), order='F')
+        shape, strides = get_buffer_info(arr, ['F_CONTIGUOUS'])
+        assert strides[0] == 8
+        arr = np.zeros((10, 1), order='C')
+        shape, strides = get_buffer_info(arr, ['C_CONTIGUOUS'])
+        assert strides[-1] == 8

@@ -7,6 +7,7 @@ from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rlib.runicode import (
     make_unicode_escape_function, str_decode_ascii, str_decode_utf_8,
     unicode_encode_ascii, unicode_encode_utf_8, fast_str_decode_ascii)
+from rpython.rlib import jit
 
 from pypy.interpreter import unicodehelper
 from pypy.interpreter.baseobjspace import W_Root
@@ -25,7 +26,7 @@ __all__ = ['W_UnicodeObject', 'encode_object', 'decode_object',
 
 class W_UnicodeObject(W_Root):
     import_from_mixin(StringMethods)
-    _immutable_fields_ = ['_value', '_utf8?']
+    _immutable_fields_ = ['_value']
 
     def __init__(self, unistr):
         assert isinstance(unistr, unicode)
@@ -76,6 +77,8 @@ class W_UnicodeObject(W_Root):
     def unicode_w(self, space):
         return self._value
 
+    @jit.elidable
+    @jit.call_shortcut
     def identifier_w(self, space):
         identifier = self._utf8
         if identifier is not None:

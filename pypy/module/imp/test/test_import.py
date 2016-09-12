@@ -95,8 +95,9 @@ def setup_directory_structure(cls):
              )
     setuppkg("pkg.pkg2", a='', b='')
     setuppkg("pkg.withall",
-             __init__  = "__all__ = ['foobar']",
-             foobar    = "found = 123")
+             __init__  = "__all__ = ['foobar', 'barbaz']",
+             foobar    = "found = 123",
+             barbaz    = "other = 543")
     setuppkg("pkg.withoutall",
              __init__  = "",
              foobar    = "found = 123")
@@ -724,6 +725,7 @@ class AppTestImport(BaseImportTest):
             d = {}
             exec("from pkg.withall import *", d)
             assert d["foobar"].found == 123
+            assert d["barbaz"].other == 543
 
     def test_import_star_does_not_find_submodules_without___all__(self):
         for case in ["not-imported-yet", "already-imported"]:
