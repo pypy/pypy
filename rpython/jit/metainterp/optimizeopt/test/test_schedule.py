@@ -4,7 +4,7 @@ from rpython.jit.metainterp.history import TargetToken, JitCellToken, TreeLoop
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
 from rpython.jit.metainterp.optimizeopt.renamer import Renamer
 from rpython.jit.metainterp.optimizeopt.vector import (VecScheduleState,
-        Pack, Pair, NotAProfitableLoop, VectorizingOptimizer, X86_CostModel,
+        Pack, Pair, NotAProfitableLoop, VectorizingOptimizer, GenericCostModel,
         PackSet)
 from rpython.jit.backend.llsupport.vector_ext import VectorExt
 from rpython.jit.metainterp.optimizeopt.dependency import Node, DependencyGraph
@@ -43,7 +43,7 @@ class SchedulerBaseTest(DependencyBaseTest):
 
     def schedule(self, loop, packs, vec_reg_size=16,
                  prepend_invariant=False, overwrite_funcs=None):
-        cm = X86_CostModel(self.cpu, 0)
+        cm = GenericCostModel(self.cpu, 0)
         cm.profitable = lambda: True
         pairs = []
         for pack in packs:

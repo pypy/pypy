@@ -133,9 +133,7 @@ def optimize_vector(trace, metainterp_sd, jitdriver_sd, warmstate,
         #
         start = time.clock()
         opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, warmstate.vec_cost)
-        index_vars = opt.run_optimization(metainterp_sd, info, loop)
-        gso = GuardStrengthenOpt(index_vars)
-        gso.propagate_all_forward(info, loop, user_code)
+        opt.run_optimization(metainterp_sd, info, loop)
         end = time.clock()
         #
         metainterp_sd.profiler.count(Counters.OPT_VECTORIZED)
@@ -254,13 +252,23 @@ class VectorizingOptimizer(Optimizer):
         self.find_adjacent_memory_refs(graph)
         self.extend_packset()
         self.combine_packset()
-        # TODO move cost model to CPU
-        costmodel = X86_CostModel(self.cpu, self.cost_threshold)
+        costmodel = GenericCostModel(self.cpu, self.cost_threshold)
         state = VecScheduleState(graph, self.packset, self.cpu, costmodel)
         self.schedule(state)
         if not state.profitable():
             raise NotAProfitableLoop
-        return graph.index_vars
+        gso = GuardStrengthenOpt(graph.index_vars)
+        gso.propagate_all_forward(info, loop, user_code)
+
+        # re-schedule the trace -> removes index operations
+        # work in progress
+        #graph = DependencyGraph(loop)
+        #costmodel = GenericCostModel(self.cpu, self.cost_threshold)
+        #state = VecScheduleState(graph, PackSet(vsize), self.cpu, costmodel)
+        #state.prepare()
+        #scheduler = Scheduler()
+        #scheduler.walk_and_emit(state)
+        #state.post_schedule()
 
     def unroll_loop_iterations(self, loop, unroll_count):
         """ Unroll the loop X times. unroll_count + 1 = unroll_factor """
@@ -600,7 +608,7 @@ class CostModel(object):
     def profitable(self):
         return self.savings >= 0
 
-class X86_CostModel(CostModel):
+class GenericCostModel(CostModel):
     def record_pack_savings(self, pack, times):
         cost, benefit_factor = (1,1)
         node = pack.operations[0]

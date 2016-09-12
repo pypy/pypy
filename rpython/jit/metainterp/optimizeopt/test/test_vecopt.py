@@ -13,7 +13,7 @@ import rpython.jit.metainterp.optimizeopt.virtualize as virtualize
 from rpython.jit.metainterp.optimizeopt.dependency import DependencyGraph
 from rpython.jit.metainterp.optimizeopt.vector import (VectorizingOptimizer,
         MemoryRef, isomorphic, Pair, NotAVectorizeableLoop, VectorLoop,
-        NotAProfitableLoop, GuardStrengthenOpt, CostModel, X86_CostModel,
+        NotAProfitableLoop, GuardStrengthenOpt, CostModel, GenericCostModel,
         PackSet, optimize_vector)
 from rpython.jit.metainterp.optimizeopt.schedule import (Scheduler,
         SchedulerState, VecScheduleState, Pack)
@@ -174,6 +174,14 @@ class VecTestHelper(DependencyBaseTest):
         if with_guard_opt:
             gso = GuardStrengthenOpt(graph.index_vars)
             gso.propagate_all_forward(info, loop)
+        # re-schedule
+        #vsize = self.cpu.vector_ext.vec_size()
+        #graph = DependencyGraph(loop)
+        #state = VecScheduleState(graph, PackSet(vsize), self.cpu, costmodel)
+        #state.prepare()
+        #scheduler = Scheduler()
+        #scheduler.walk_and_emit(state)
+        #state.post_schedule()
         return opt
 
     def vectorize(self, loop, unroll_factor = -1):
@@ -183,13 +191,23 @@ class VecTestHelper(DependencyBaseTest):
         opt.find_adjacent_memory_refs(graph)
         opt.extend_packset()
         opt.combine_packset()
-        costmodel = X86_CostModel(self.cpu, 0)
+        costmodel = GenericCostModel(self.cpu, 0)
         state = VecScheduleState(graph, opt.packset, self.cpu, costmodel)
         opt.schedule(state)
         if not costmodel.profitable():
             raise NotAProfitableLoop()
         gso = GuardStrengthenOpt(graph.index_vars)
         gso.propagate_all_forward(info, loop)
+        #
+        # re-schedule
+        #vsize = self.cpu.vector_ext.vec_size()
+        #graph = DependencyGraph(loop)
+        #state = VecScheduleState(graph, PackSet(vsize), self.cpu, costmodel)
+        #state.prepare()
+        #scheduler = Scheduler()
+        #scheduler.walk_and_emit(state)
+        #state.post_schedule()
+        #
         oplist = loop.operations
         loop.operations = loop.prefix[:]
         if loop.prefix_label:

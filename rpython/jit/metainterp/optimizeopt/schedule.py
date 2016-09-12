@@ -58,11 +58,13 @@ class SchedulerState(object):
                 del needs_resolving[op]
                 if op in indexvars:
                     indexvar = indexvars[op]
+                    last = None
                     for operation in indexvar.get_operations():
                         self.append_to_oplist(operation)
                         last = operation
-                    indexvars[last] = indexvar
-                    self.renamer.start_renaming(op, last)
+                    if last:
+                        indexvars[last] = indexvar
+                        self.renamer.start_renaming(op, last)
                 else: 
                     self.resolve_delayed(needs_resolving, delayed, op)
                     self.append_to_oplist(op)
