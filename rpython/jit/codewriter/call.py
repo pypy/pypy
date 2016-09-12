@@ -384,8 +384,6 @@ class CallControl(object):
                if y.field:                 r = y.field
                    return y.field          if r: return r
         """
-        from rpython.jit.metainterp.history import getkind
-
         block = graph.startblock
         if len(block.operations) == 0:
             return
