@@ -76,8 +76,8 @@ if 1:
     def skip(message):
         print(message)
         raise SystemExit(0)
-    __builtins__.skip = skip
-    __builtins__.py3k_skip = skip
+    #__builtins__.skip = skip
+    #__builtins__.py3k_skip = skip
     class ExceptionWrapper:
         pass
     def raises(exc, func, *args, **kwargs):
@@ -98,7 +98,7 @@ if 1:
             return res
         else:
             raise AssertionError("DID NOT RAISE")
-    __builtins__.raises = raises
+    #__builtins__.raises = raises
     class Test:
         pass
     self = Test()
@@ -170,8 +170,11 @@ if 1:
         f.write('def %s():\n' % target_name)
         f.write('\n'.join(source))
         f.write("\n%s()\n" % target_name)
+    helper_dir = os.path.join(pypydir, 'tool', 'cpyext')
+    env = os.environ.copy()
+    env['PYTHONPATH'] = helper_dir
     res, stdout, stderr = runsubprocess.run_subprocess(
-        python_, [str(pyfile)])
+        python_, [str(pyfile)], env=env)
     print pyfile.read()
     print >> sys.stdout, stdout
     print >> sys.stderr, stderr
@@ -325,4 +328,3 @@ class AppClassCollector(py.test.Class):
                                           space.newtuple([]),
                                           space.newdict())
         self.w_class = w_class
-

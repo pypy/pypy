@@ -21,7 +21,11 @@ import os
 import sys
 
 from rpython.tool.version import get_repo_version_info
-from py.path import local 
+from py.path import local
+try:
+    unicode
+except NameError:
+    class unicode: pass
 
 PYPY_KEEP = int(os.environ.get('PYPY_USESSION_KEEP', '3'))
 

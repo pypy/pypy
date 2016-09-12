@@ -7,7 +7,6 @@ import py, pytest
 from pypy import pypydir
 from pypy.interpreter import gateway
 from rpython.rtyper.lltypesystem import lltype, ll2ctypes
-from rpython.translator.gensupp import uniquemodulename
 from rpython.tool.udir import udir
 from pypy.module.cpyext import api
 from pypy.module.cpyext.state import State
@@ -16,7 +15,7 @@ from rpython.tool.identity_dict import identity_dict
 from rpython.tool import leakfinder
 from rpython.rlib import rawrefcount
 
-from .support import c_compile
+from pypy.tool.cpyext.buildext import SystemCompilationInfo, get_sys_info_app
 
 only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_names"
 
@@ -32,55 +31,6 @@ class TestApi:
     def test_signature(self):
         assert 'PyModule_Check' in api.FUNCTIONS
         assert api.FUNCTIONS['PyModule_Check'].argtypes == [api.PyObject]
-
-def convert_sources_to_files(sources, dirname):
-    files = []
-    for i, source in enumerate(sources):
-        filename = dirname / ('source_%d.c' % i)
-        with filename.open('w') as f:
-            f.write(str(source))
-        files.append(filename)
-    return files
-
-class SystemCompilationInfo(object):
-    """Bundles all the generic information required to compile extensions.
-
-    Note: here, 'system' means OS + target interpreter + test config + ...
-    """
-    def __init__(self, include_extra=None, compile_extra=None, link_extra=None,
-            extra_libs=None, ext=None):
-        self.include_extra = include_extra or []
-        self.compile_extra = compile_extra
-        self.link_extra = link_extra
-        self.extra_libs = extra_libs
-        self.ext = ext
-
-    def compile_extension_module(self, name, include_dirs=[],
-            source_files=None, source_strings=None):
-        """
-        Build an extension module and return the filename of the resulting
-        native code file.
-
-        name is the name of the module, possibly including dots if it is a
-        module inside a package.
-
-        Any extra keyword arguments are passed on to ExternalCompilationInfo to
-        build the module (so specify your source with one of those).
-        """
-        modname = name.split('.')[-1]
-        dirname = (udir/uniquemodulename('module')).ensure(dir=1)
-        if source_strings:
-            assert not source_files
-            files = convert_sources_to_files(source_strings, dirname)
-            source_files = files
-        soname = c_compile(source_files, outputfilename=str(dirname/modname),
-            compile_extra=self.compile_extra,
-            link_extra=self.link_extra,
-            include_dirs=self.include_extra + include_dirs,
-            libraries=self.extra_libs)
-        pydname = soname.new(purebasename=modname, ext=self.ext)
-        soname.rename(pydname)
-        return str(pydname)
 
 def get_cpyext_info(space):
     from pypy.module.imp.importing import get_so_extension
@@ -109,34 +59,6 @@ def get_cpyext_info(space):
         extra_libs=libraries,
         ext=get_so_extension(space))
 
-
-def get_so_suffix():
-    from imp import get_suffixes, C_EXTENSION
-    for suffix, mode, typ in get_suffixes():
-        if typ == C_EXTENSION:
-            return suffix
-    else:
-        raise RuntimeError("This interpreter does not define a filename "
-            "suffix for C extensions!")
-
-def get_sys_info_app():
-    from distutils.sysconfig import get_python_inc
-    if sys.platform == 'win32':
-        compile_extra = ["/we4013"]
-        link_extra = ["/LIBPATH:" + os.path.join(sys.exec_prefix, 'libs')]
-    elif sys.platform == 'darwin':
-        compile_extra = link_extra = None
-        pass
-    elif sys.platform.startswith('linux'):
-        compile_extra = [
-            "-O0", "-g", "-Werror=implicit-function-declaration", "-fPIC"]
-        link_extra = None
-    ext = get_so_suffix()
-    return SystemCompilationInfo(
-        include_extra=[get_python_inc()],
-        compile_extra=compile_extra,
-        link_extra=link_extra,
-        ext=get_so_suffix())
 
 def make_methods(functions, modname):
     methods_table = []
@@ -329,7 +251,11 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             cls.w_runappdirect = space.wrap(cls.runappdirect)
         else:
             def w_compile_module(self, name, source_files=None, source_strings=None):
-                return self.sys_info(name, source_files, source_strings)
+                from buildext import get_sys_info_app
+                sys_info = get_sys_info_app()
+                assert source_files or source_strings
+                return sys_info.compile_extension_module(name,
+                    source_files=source_files, source_strings=source_strings)
             cls.w_compile_module = w_compile_module
 
     def record_imported_module(self, name):
@@ -618,9 +544,9 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         """
         # Build the extensions.
         banana = self.compile_module(
-            "apple.banana", source_files=[self.here + b'banana.c'])
+            "apple.banana", source_files=[self.here.decode() + 'banana.c'])
         date = self.compile_module(
-            "cherry.date", source_files=[self.here + b'date.c'])
+            "cherry.date", source_files=[self.here.decode() + 'date.c'])
 
         # Set up some package state so that the extensions can actually be
         # imported.

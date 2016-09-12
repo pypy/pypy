@@ -16,6 +16,7 @@ def maywarn(err, repo_type='Mercurial'):
 
 def get_repo_version_info(hgexe=None, root=rpythonroot):
     '''Obtain version information by invoking the 'hg' or 'git' commands.'''
+    return default_retval
 
     # Try to see if we can get info from Git if hgexe is not specified.
     if not hgexe:
@@ -137,4 +138,4 @@ def _get_git_version(root):
 
 
 if __name__ == '__main__':
-    print get_repo_version_info()
+    print(get_repo_version_info())
