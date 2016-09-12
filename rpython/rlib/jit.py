@@ -257,6 +257,26 @@ def not_in_trace(func):
     func.oopspec = "jit.not_in_trace()"   # note that 'func' may take arguments
     return func
 
+def call_shortcut(func):
+    """A decorator to ensure that a function has a fast-path.
+    Only useful on functions that the JIT doesn't normally look inside.
+    It still replaces residual calls to that function with inline code
+    that checks for a fast path, and only does the call if not.  For
+    now, graphs made by the following kinds of functions are detected:
+
+           def func(x, y, z):         def func(x, y, z):
+               if y.field:                 r = y.field
+                   return y.field          if r is None:
+               ...                             ...
+                                           return r
+
+    Fast-path detection is always on, but this decorator makes the
+    codewriter complain if it cannot find the promized fast-path.
+    """
+    func._call_shortcut_ = True
+    return func
+
+
 @oopspec("jit.isconstant(value)")
 def isconstant(value):
     """

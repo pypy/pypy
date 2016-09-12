@@ -7,9 +7,10 @@ from rpython.jit.codewriter import support
 from rpython.jit.codewriter.jitcode import JitCode
 from rpython.jit.codewriter.effectinfo import (VirtualizableAnalyzer,
     QuasiImmutAnalyzer, RandomEffectsAnalyzer, effectinfo_from_writeanalyze,
-    EffectInfo, CallInfoCollection)
+    EffectInfo, CallInfoCollection, CallShortcut)
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.lltypesystem.lltype import getfunctionptr
+from rpython.flowspace.model import Constant, Variable
 from rpython.rlib import rposix
 from rpython.translator.backendopt.canraise import RaiseAnalyzer
 from rpython.translator.backendopt.writeanalyze import ReadWriteAnalyzer
@@ -214,6 +215,7 @@ class CallControl(object):
         elidable = False
         loopinvariant = False
         call_release_gil_target = EffectInfo._NO_CALL_RELEASE_GIL_TARGET
+        call_shortcut = None
         if op.opname == "direct_call":
             funcobj = op.args[0].value._obj
             assert getattr(funcobj, 'calling_conv', 'c') == 'c', (
@@ -228,6 +230,12 @@ class CallControl(object):
                 tgt_func, tgt_saveerr = func._call_aroundstate_target_
                 tgt_func = llmemory.cast_ptr_to_adr(tgt_func)
                 call_release_gil_target = (tgt_func, tgt_saveerr)
+            if hasattr(funcobj, 'graph'):
+                call_shortcut = self.find_call_shortcut(funcobj.graph)
+            if getattr(func, "_call_shortcut_", False):
+                assert call_shortcut is not None, (
+                    "%r: marked as @jit.call_shortcut but shortcut not found"
+                    % (func,))
         elif op.opname == 'indirect_call':
             # check that we're not trying to call indirectly some
             # function with the special flags
@@ -298,6 +306,7 @@ class CallControl(object):
             self.readwrite_analyzer.analyze(op, self.seen_rw), self.cpu,
             extraeffect, oopspecindex, can_invalidate, call_release_gil_target,
             extradescr, self.collect_analyzer.analyze(op, self.seen_gc),
+            call_shortcut,
         )
         #
         assert effectinfo is not None
@@ -368,3 +377,65 @@ class CallControl(object):
                 if GTYPE_fieldname in jd.greenfield_info.green_fields:
                     return True
         return False
+
+    def find_call_shortcut(self, graph):
+        """Identifies graphs that start like this:
+
+           def graph(x, y, z):         def graph(x, y, z):
+               if y.field:                 r = y.field
+                   return y.field          if r: return r
+        """
+        block = graph.startblock
+        if len(block.operations) == 0:
+            return
+        op = block.operations[0]
+        if op.opname != 'getfield':
+            return
+        [v_inst, c_fieldname] = op.args
+        if not isinstance(v_inst, Variable):
+            return
+        v_result = op.result
+        if v_result.concretetype != graph.getreturnvar().concretetype:
+            return
+        if v_result.concretetype == lltype.Void:
+            return
+        argnum = i = 0
+        while block.inputargs[i] is not v_inst:
+            if block.inputargs[i].concretetype != lltype.Void:
+                argnum += 1
+            i += 1
+        PSTRUCT = v_inst.concretetype
+        v_check = v_result
+        fastcase = True
+        for op in block.operations[1:]:
+            if (op.opname in ('int_is_true', 'ptr_nonzero', 'same_as')
+                    and v_check is op.args[0]):
+                v_check = op.result
+            elif op.opname == 'ptr_iszero' and v_check is op.args[0]:
+                v_check = op.result
+                fastcase = not fastcase
+            elif (op.opname in ('int_eq', 'int_ne')
+                    and v_check is op.args[0]
+                    and isinstance(op.args[1], Constant)
+                    and op.args[1].value == 0):
+                v_check = op.result
+                if op.opname == 'int_eq':
+                    fastcase = not fastcase
+            else:
+                return
+        if v_check.concretetype is not lltype.Bool:
+            return
+        if block.exitswitch is not v_check:
+            return
+
+        links = [link for link in block.exits if link.exitcase == fastcase]
+        if len(links) != 1:
+            return
+        [link] = links
+        if link.args != [v_result]:
+            return
+        if not link.target.is_final_block():
+            return
+
+        fielddescr = self.cpu.fielddescrof(PSTRUCT.TO, c_fieldname.value)
+        return CallShortcut(argnum, fielddescr)
