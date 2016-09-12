@@ -453,7 +453,7 @@ class W_Socket(W_Root):
             raise converted_error(space, e)
         return space.wrap(count)
 
-    @unwrap_spec(flag=bool)
+    @unwrap_spec(flag=int)
     def setblocking_w(self, flag):
         """setblocking(flag)
 
@@ -461,7 +461,7 @@ class W_Socket(W_Root):
         setblocking(True) is equivalent to settimeout(None);
         setblocking(False) is equivalent to settimeout(0.0).
         """
-        self.sock.setblocking(flag)
+        self.sock.setblocking(bool(flag))
 
     @unwrap_spec(level=int, optname=int)
     def setsockopt_w(self, space, level, optname, w_optval):

@@ -21,7 +21,7 @@ DEFAULT_BUFFER_SIZE = 8 * 1024
 
 @unwrap_spec(mode=str, buffering=int,
              encoding="str_or_None", errors="str_or_None",
-             newline="str_or_None", closefd=bool)
+             newline="str_or_None", closefd=int)
 def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
          newline=None, closefd=True, w_opener=None):
     from pypy.module._io.interp_bufferedio import (W_BufferedRandom,
@@ -88,7 +88,7 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
                     "binary mode doesn't take a newline argument")
     w_raw = space.call_function(
         space.gettypefor(W_FileIO), w_file, space.wrap(rawmode),
-        space.wrap(closefd), w_opener)
+        space.wrap(bool(closefd)), w_opener)
 
     isatty = space.is_true(space.call_method(w_raw, "isatty"))
     line_buffering = buffering == 1 or (buffering < 0 and isatty)

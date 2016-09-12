@@ -44,8 +44,8 @@ def wrap_greenkey(space, jitdriver, greenkey, greenkey_repr):
     else:
         return space.wrap(greenkey_repr)
 
-@unwrap_spec(operations=bool)
-def set_compile_hook(space, w_hook, operations=True):
+@unwrap_spec(operations=int)
+def set_compile_hook(space, w_hook, operations=1):
     """ set_compile_hook(hook, operations=True)
 
     Set a compiling hook that will be called each time a loop is compiled.
@@ -60,7 +60,7 @@ def set_compile_hook(space, w_hook, operations=True):
     cache = space.fromcache(Cache)
     assert w_hook is not None
     cache.w_compile_hook = w_hook
-    cache.compile_hook_with_ops = operations
+    cache.compile_hook_with_ops = bool(operations)
     cache.in_recursion = NonConstant(False)
 
 def set_abort_hook(space, w_hook):

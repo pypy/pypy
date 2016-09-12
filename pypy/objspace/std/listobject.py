@@ -677,7 +677,7 @@ class W_ListObject(W_Root):
             raise oefmt(space.w_ValueError, "%R is not in list", w_value)
         return space.wrap(i)
 
-    @unwrap_spec(reverse=bool)
+    @unwrap_spec(reverse=int)
     def descr_sort(self, space, w_key=None, reverse=False):
         """ L.sort(key=None, reverse=False) -- stable
         sort *IN PLACE*"""

@@ -210,27 +210,27 @@ like tools.  For that purpose, if g = not_from_assembler(f), then
 )
 W_NotFromAssembler.typedef.acceptable_as_base_class = False
 
-@unwrap_spec(next_instr=int, is_being_profiled=bool, w_pycode=PyCode)
+@unwrap_spec(next_instr=int, is_being_profiled=int, w_pycode=PyCode)
 @dont_look_inside
 def get_jitcell_at_key(space, next_instr, is_being_profiled, w_pycode):
     ll_pycode = cast_instance_to_gcref(w_pycode)
     return space.wrap(bool(jit_hooks.get_jitcell_at_key(
-        'pypyjit', r_uint(next_instr), int(is_being_profiled), ll_pycode)))
+       'pypyjit', r_uint(next_instr), int(bool(is_being_profiled)), ll_pycode)))
 
-@unwrap_spec(next_instr=int, is_being_profiled=bool, w_pycode=PyCode)
+@unwrap_spec(next_instr=int, is_being_profiled=int, w_pycode=PyCode)
 @dont_look_inside
 def dont_trace_here(space, next_instr, is_being_profiled, w_pycode):
     ll_pycode = cast_instance_to_gcref(w_pycode)
     jit_hooks.dont_trace_here(
-        'pypyjit', r_uint(next_instr), int(is_being_profiled), ll_pycode)
+        'pypyjit', r_uint(next_instr), int(bool(is_being_profiled)), ll_pycode)
     return space.w_None
 
-@unwrap_spec(next_instr=int, is_being_profiled=bool, w_pycode=PyCode)
+@unwrap_spec(next_instr=int, is_being_profiled=int, w_pycode=PyCode)
 @dont_look_inside
 def trace_next_iteration(space, next_instr, is_being_profiled, w_pycode):
     ll_pycode = cast_instance_to_gcref(w_pycode)
     jit_hooks.trace_next_iteration(
-        'pypyjit', r_uint(next_instr), int(is_being_profiled), ll_pycode)
+        'pypyjit', r_uint(next_instr), int(bool(is_being_profiled)), ll_pycode)
     return space.w_None
 
 @unwrap_spec(hash=r_uint)

@@ -267,13 +267,13 @@ class W_DirEntry(W_Root):
             return known_type == rposix_scandir.DT_LNK
         return self.check_mode(follow_symlinks=False) == stat.S_IFLNK
 
-    @unwrap_spec(follow_symlinks=int)
-    def descr_is_dir(self, space, __kwonly__, follow_symlinks=1):
+    @unwrap_spec(follow_symlinks=bool)
+    def descr_is_dir(self, space, __kwonly__, follow_symlinks=True):
         """return True if the entry is a directory; cached per entry"""
         return space.wrap(self.is_dir(follow_symlinks))
 
-    @unwrap_spec(follow_symlinks=int)
-    def descr_is_file(self, space, __kwonly__, follow_symlinks=1):
+    @unwrap_spec(follow_symlinks=bool)
+    def descr_is_file(self, space, __kwonly__, follow_symlinks=True):
         """return True if the entry is a file; cached per entry"""
         return space.wrap(self.is_file(follow_symlinks))
 
@@ -281,8 +281,8 @@ class W_DirEntry(W_Root):
         """return True if the entry is a symbolic link; cached per entry"""
         return space.wrap(self.is_symlink())
 
-    @unwrap_spec(follow_symlinks=int)
-    def descr_stat(self, space, __kwonly__, follow_symlinks=1):
+    @unwrap_spec(follow_symlinks=bool)
+    def descr_stat(self, space, __kwonly__, follow_symlinks=True):
         """return stat_result object for the entry; cached per entry"""
         st = self.get_stat_or_lstat(follow_symlinks)
         return build_stat_result(self.space, st)

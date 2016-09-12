@@ -169,7 +169,7 @@ class W_RLock(W_Root):
         return space.wrap(u"<%s owner=%d count=%d>" % (
                 typename, self.rlock_owner, self.rlock_count))
 
-    @unwrap_spec(blocking=bool, timeout=float)
+    @unwrap_spec(blocking=int, timeout=float)
     def acquire_w(self, space, blocking=True, timeout=-1.0):
         """Lock the lock.  `blocking` indicates whether we should wait
         for the lock to be available or not.  If `blocking` is False

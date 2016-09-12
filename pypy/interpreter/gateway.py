@@ -520,8 +520,17 @@ def int_unwrapping_space_method(typ):
     assert typ in (int, str, float, unicode, r_longlong, r_uint, r_ulonglong, bool)
     if typ is r_int is r_longlong:
         return 'gateway_r_longlong_w'
-    elif typ in (str, unicode, bool):
+    elif typ in (str, unicode):
         return typ.__name__ + '_w'
+    elif typ is bool:
+        # For argument clinic's "bool" specifier: accept any object, and
+        # convert it to a boolean value.  If you don't want this
+        # behavior, you need to say "int" in the unwrap_spec().  Please
+        # use only to emulate "bool" in argument clinic or the 'p'
+        # letter in PyArg_ParseTuple().  Accepting *anything* when a
+        # boolean flag is expected feels like it comes straight from
+        # JavaScript: it is a sure way to hide bugs imho <arigo>.
+        return 'is_true'
     else:
         return 'gateway_' + typ.__name__ + '_w'
 

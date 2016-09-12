@@ -36,9 +36,9 @@ class W_Array(W_DataShape):
     def get_basic_ffi_type(self):
         return self.basicffitype
 
-    @unwrap_spec(length=int, autofree=bool)
+    @unwrap_spec(length=int, autofree=int)
     def descr_call(self, space, length, w_items=None, autofree=False):
-        result = self.allocate(space, length, autofree)
+        result = self.allocate(space, length, bool(autofree))
         if not space.is_none(w_items):
             items_w = space.unpackiterable(w_items)
             iterlength = len(items_w)

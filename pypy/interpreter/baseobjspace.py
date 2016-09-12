@@ -1232,7 +1232,7 @@ class ObjSpace(object):
             if e.match(self, self.w_AttributeError):
                 return False
             raise
-        return self.bool_w(self.nonzero(w_result))
+        return self.is_true(self.nonzero(w_result))
 
     # CPython rules allows subclasses of BaseExceptions to be exceptions.
     # This is slightly less general than the case above, so we prefix
@@ -1683,7 +1683,9 @@ class ObjSpace(object):
 
     def bool_w(self, w_obj):
         # Unwraps a bool, also accepting an int for compatibility.
-        # This is here mostly just for gateway.int_unwrapping_space_method().
+        # For cases where you need to accept bools and ints and nothing
+        # else.  Note that saying 'bool' in unwrap_spec() doesn't call
+        # this, but the general is_true(),  accepting any object.
         return bool(self.int_w(w_obj))
 
     def ord(self, w_obj):

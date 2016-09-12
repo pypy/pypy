@@ -564,7 +564,7 @@ class StringMethods(object):
 
         return self._newlist_unwrapped(space, res)
 
-    @unwrap_spec(keepends=bool)
+    @unwrap_spec(keepends=int)
     def descr_splitlines(self, space, keepends=False):
         value = self._val(space)
         length = len(value)

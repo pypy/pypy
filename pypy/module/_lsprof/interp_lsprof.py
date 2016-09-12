@@ -434,11 +434,11 @@ class W_Profiler(W_Root):
         return stats(space, self.data.values() + self.builtin_data.values(),
                      factor)
 
-@unwrap_spec(time_unit=float, subcalls=bool, builtins=bool)
+@unwrap_spec(time_unit=float, subcalls=int, builtins=int)
 def descr_new_profile(space, w_type, w_callable=None, time_unit=0.0,
-                      subcalls=True, builtins=True):
+                      subcalls=1, builtins=1):
     p = space.allocate_instance(W_Profiler, w_type)
-    p.__init__(space, w_callable, time_unit, subcalls, builtins)
+    p.__init__(space, w_callable, time_unit, bool(subcalls), bool(builtins))
     return space.wrap(p)
 
 W_Profiler.typedef = TypeDef(
