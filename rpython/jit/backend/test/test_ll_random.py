@@ -709,12 +709,14 @@ class RaisingCallOperationWrongGuardException(BaseCallOperation):
         builder.loop.operations.append(op)
 
 # 6. a conditional call (for now always with no exception raised)
-class BaseCondCallOperation(BaseCallOperation):
+class CondCallOperation(BaseCallOperation):
     def produce_into(self, builder, r):
         fail_subset = builder.subset_of_intvars(r)
         if self.opnum == rop.COND_CALL:
+            RESULT_TYPE = lltype.Void
             v_cond = builder.get_bool_var(r)
         else:
+            RESULT_TYPE = lltype.Signed
             v_cond = r.choice(builder.intvars)
         subset = builder.subset_of_intvars(r)[:4]
         for i in range(len(subset)):
@@ -727,10 +729,10 @@ class BaseCondCallOperation(BaseCallOperation):
                 seen.append(args)
             else:
                 assert seen[0] == args
-            if self.RESULT_TYPE is lltype.Signed:
+            if RESULT_TYPE is lltype.Signed:
                 return len(args) - 42000
         #
-        TP = lltype.FuncType([lltype.Signed] * len(subset), self.RESULT_TYPE)
+        TP = lltype.FuncType([lltype.Signed] * len(subset), RESULT_TYPE)
         ptr = llhelper(lltype.Ptr(TP), call_me)
         c_addr = ConstAddr(llmemory.cast_ptr_to_adr(ptr), builder.cpu)
         args = [v_cond, c_addr] + subset
@@ -740,14 +742,6 @@ class BaseCondCallOperation(BaseCallOperation):
                           descr=builder.getfaildescr())
         op.setfailargs(fail_subset)
         builder.loop.operations.append(op)
-
-class CondCallOperation(BaseCondCallOperation):
-    RESULT_TYPE = lltype.Void
-    opnum = rop.COND_CALL
-
-class CondCallValueOperation(BaseCondCallOperation):
-    RESULT_TYPE = lltype.Signed
-    opnum = rop.COND_CALL_VALUE_I
 
 # ____________________________________________________________
 
