@@ -961,7 +961,8 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             assert not isinstance(condvalue_loc, ImmedLoc)
             self.assembler.test_location(condvalue_loc)
             self.assembler.guard_success_cc = rx86.Conditions['Z']
-            resloc = self.rm.force_result_in_reg(op, args[0])
+            resloc = self.rm.force_result_in_reg(op, args[0],
+                                                 forbidden_vars=arglocs)
         self.assembler.cond_call(op, gcmap, imm_func, arglocs, resloc)
 
     consider_cond_call_value_i = consider_cond_call
