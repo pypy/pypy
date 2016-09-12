@@ -4,7 +4,7 @@
 PyObject* foo3type_tp_new(PyTypeObject* metatype, PyObject* args, PyObject* kwds)
 {
     PyObject* newType;
-    newType = PyType_GenericNew(metatype, args, kwds);
+    newType = PyType_Type.tp_new(metatype, args, kwds);
     return newType;
 }
 
@@ -71,7 +71,6 @@ initfoo3(void)
     PyObject *mod, *d;
     footype.tp_base = &PyType_Type;
     PyType_Ready(&footype);
-    Py_INCREF(&footype);
     mod = Py_InitModule("foo3", sbkMethods);
     if (mod == NULL)
         return;
@@ -80,4 +79,5 @@ initfoo3(void)
         return;
     if (PyDict_SetItemString(d, "footype", (PyObject *)&footype) < 0)
         return;
+    Py_INCREF(&footype);
 }
