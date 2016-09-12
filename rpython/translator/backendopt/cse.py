@@ -111,7 +111,7 @@ class Cache(object):
                 for linkindex, (link, cache) in enumerate(tuples):
                     if linkindex == 0:
                         continue
-                    newkey = self._key_with_replacement(
+                    newkey = cache._key_with_replacement(
                             key, 0, link.args[argindex])
                     otherres = cache.purecache.get(newkey, None)
                     if otherres is None:
@@ -152,7 +152,7 @@ class Cache(object):
                 for linkindex, (link, cache) in enumerate(tuples):
                     if linkindex == 0:
                         continue
-                    otherarg = self._var_rep(link.args[argindex])
+                    otherarg = cache._var_rep(link.args[argindex])
                     newkey = (otherarg, fieldname)
                     otherres = cache.heapcache.get(newkey, None)
                     if otherres is None:

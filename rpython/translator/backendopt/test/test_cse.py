@@ -401,6 +401,26 @@ class TestStoreSink(object):
             return a2.a
         self.check(read, [int], getfield=2)
 
+    def test_cast_pointer_introduce_aliases(self):
+        class A(object):
+            pass
+        class B(A):
+            pass
+        class C(B):
+            pass
+        def f(i):
+            res = 0
+            if i > 10:
+                if i > 20:
+                    a = C()
+                    a.x = 1
+                else:
+                    a = B()
+                    a.x = 2
+                # here a is a subclass of B
+                res += a.x
+            return res
+        self.check(f, [int], getfield=0)
 
 
 def fakevar(name='v'):
