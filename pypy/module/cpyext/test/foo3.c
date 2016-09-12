@@ -4,9 +4,7 @@
 PyObject* foo3type_tp_new(PyTypeObject* metatype, PyObject* args, PyObject* kwds)
 {
     PyObject* newType;
-    /*printf("in foo3type_tp_new, preprocessing...\n"); */
-    newType = PyType_Type.tp_new(metatype, args, kwds);
-    /*printf("in foo3type_tp_new, postprocessing...\n"); */
+    newType = PyType_GenericNew(metatype, args, kwds);
     return newType;
 }
 
@@ -73,6 +71,7 @@ initfoo3(void)
     PyObject *mod, *d;
     footype.tp_base = &PyType_Type;
     PyType_Ready(&footype);
+    Py_INCREF(&footype);
     mod = Py_InitModule("foo3", sbkMethods);
     if (mod == NULL)
         return;
