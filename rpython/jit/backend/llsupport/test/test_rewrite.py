@@ -1,7 +1,8 @@
 import py
 from rpython.jit.backend.llsupport.descr import get_size_descr,\
      get_field_descr, get_array_descr, ArrayDescr, FieldDescr,\
-     SizeDescr, get_interiorfield_descr
+     SizeDescr, get_interiorfield_descr, get_call_descr
+from rpython.jit.codewriter.effectinfo import EffectInfo, CallShortcut
 from rpython.jit.backend.llsupport.gc import GcLLDescr_boehm,\
      GcLLDescr_framework
 from rpython.jit.backend.llsupport import jitframe
@@ -79,6 +80,14 @@ class RewriteTests(object):
         myT = lltype.cast_opaque_ptr(llmemory.GCREF,
                                      lltype.malloc(T, zero=True))
         self.myT = myT
+        #
+        call_shortcut = CallShortcut(0, tzdescr)
+        effectinfo = EffectInfo(None, None, None, None, None, None,
+                                EffectInfo.EF_RANDOM_EFFECTS,
+                                call_shortcut=call_shortcut)
+        call_shortcut_descr = get_call_descr(self.gc_ll_descr,
+            [lltype.Ptr(T)], lltype.Signed,
+            effectinfo)
         #
         A = lltype.GcArray(lltype.Signed)
         adescr = get_array_descr(self.gc_ll_descr, A)
@@ -1429,3 +1438,15 @@ class TestFramework(RewriteTests):
             jump()
         """)
         assert len(self.gcrefs) == 2
+
+    def test_handle_call_shortcut(self):
+        self.check_rewrite("""
+            [p0]
+            i1 = call_i(123, p0, descr=call_shortcut_descr)
+            jump(i1)
+        """, """
+            [p0]
+            i2 = gc_load_i(p0, %(tzdescr.offset)s, %(tzdescr.field_size)s)
+            i1 = cond_call_value_i(i2, 123, p0, descr=call_shortcut_descr)
+            jump(i1)
+        """)

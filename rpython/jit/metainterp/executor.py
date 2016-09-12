@@ -366,6 +366,8 @@ def _make_execute_list():
                          rop.CALL_ASSEMBLER_I,
                          rop.CALL_ASSEMBLER_N,
                          rop.INCREMENT_DEBUG_COUNTER,
+                         rop.COND_CALL_VALUE_R,
+                         rop.COND_CALL_VALUE_I,
                          rop.COND_CALL_GC_WB,
                          rop.COND_CALL_GC_WB_ARRAY,
                          rop.ZERO_ARRAY,

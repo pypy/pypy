@@ -1150,6 +1150,7 @@ _oplist = [
     '_CALL_FIRST',
     'CALL/*d/rfin',
     'COND_CALL/*d/n',
+    'COND_CALL_VALUE/*d/ri',
     # a conditional call, with first argument as a condition
     'CALL_ASSEMBLER/*d/rfin',  # call already compiled assembler
     'CALL_MAY_FORCE/*d/rfin',
