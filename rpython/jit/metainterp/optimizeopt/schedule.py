@@ -55,18 +55,29 @@ class SchedulerState(object):
             op = node.getoperation()
             if op in needs_resolving:
                 # either it is a normal operation, or we know that there is a linear combination
+                del needs_resolving[op]
                 if op in indexvars:
                     indexvar = indexvars[op]
                     for operation in indexvar.get_operations():
-                        self.oplist.append(operation)
+                        self.append_to_oplist(operation)
                         last = operation
+                    indexvars[last] = indexvar
                     self.renamer.start_renaming(op, last)
-                    del needs_resolving[op]
                 else: 
-                    del needs_resolving[op]
                     self.resolve_delayed(needs_resolving, delayed, op)
-                    self.oplist.append(op)
+                    self.append_to_oplist(op)
+                self.seen[op] = None
+                if len(delayed) > i:
+                    del delayed[i]
             i -= 1
+            # some times the recursive call can remove several items from delayed,
+            # thus we correct the index here
+            if len(delayed) <= i:
+                i = len(delayed)-1
+
+    def append_to_oplist(self, op):
+        self.renamer.rename(op)
+        self.oplist.append(op)
 
 
     def post_schedule(self):
@@ -106,7 +117,79 @@ class SchedulerState(object):
 
     def try_emit_or_delay(self, node):
         # implement me in subclass. e.g. as in VecScheduleState
-        raise NotImplementedError
+
+        if not node.is_imaginary() and node.is_pure():
+            # this operation might never be emitted. only if it is really needed
+            self.delay_emit(node)
+            return
+        # emit a now!
+        self.pre_emit(node)
+        self.mark_emitted(node)
+        if not node.is_imaginary():
+            op = node.getoperation()
+            self.seen[op] = None
+            self.append_to_oplist(op)
+
+    def delay_emit(self, node):
+        """ it has been decided that the operation might be scheduled later """
+        delayed = node.delayed or []
+        delayed.append(node)
+        node.delayed = None
+        provides = node.provides()
+        if len(provides) == 0:
+            self.delayed.append(node)
+        else:
+            for to in node.provides():
+                tnode = to.target_node()
+                self.delegate_delay(tnode, delayed[:])
+        self.mark_emitted(node)
+
+    def delegate_delay(self, node, delayed):
+        """ Chain up delays, this can reduce many more of the operations """
+        if node.delayed is None:
+            node.delayed = delayed
+        else:
+            delayedlist = node.delayed
+            for d in delayed:
+                delayedlist.append(d)
+
+
+    def mark_emitted(state, node, unpack=True):
+        """ An operation has been emitted, adds new operations to the worklist
+            whenever their dependency count drops to zero.
+            Keeps worklist sorted (see priority) """
+        worklist = state.worklist
+        provides = node.provides()[:]
+        for dep in provides: # COPY
+            target = dep.to
+            node.remove_edge_to(target)
+            if not target.emitted and target.depends_count() == 0:
+                # sorts them by priority
+                i = len(worklist)-1
+                while i >= 0:
+                    cur = worklist[i]
+                    c = (cur.priority - target.priority)
+                    if c < 0: # meaning itnode.priority < target.priority:
+                        worklist.insert(i+1, target)
+                        break
+                    elif c == 0:
+                        # if they have the same priority, sort them
+                        # using the original position in the trace
+                        if target.getindex() < cur.getindex():
+                            worklist.insert(i+1, target)
+                            break
+                    i -= 1
+                else:
+                    worklist.insert(0, target)
+        node.clear_dependencies()
+        node.emitted = True
+        if not node.is_imaginary():
+            op = node.getoperation()
+            state.renamer.rename(op)
+            if unpack:
+                state.ensure_args_unpacked(op)
+            state.post_emit(node)
+
 
     def delay(self, node):
         return False
@@ -120,8 +203,27 @@ class SchedulerState(object):
     def post_emit(self, node):
         pass
 
-    def pre_emit(self, node):
-        pass
+    def pre_emit(self, node, pack_first=True):
+        delayed = node.delayed
+        if delayed:
+            # there are some nodes that have been delayed just for this operation
+            if pack_first:
+                op = node.getoperation()
+                self.resolve_delayed({}, delayed, op)
+            for node in delayed:
+                if node in self.seen:
+                    continue
+                if node is not None:
+                    provides = node.provides()
+                    if len(provides) == 0:
+                        # add this node to the final delay list
+                        # might be emitted before jump!
+                        self.delayed.append(node)
+                    else:
+                        for to in node.provides():
+                            tnode = to.target_node()
+                            self.delegate_delay(tnode, [node])
+                        node.delayed = None
 
 class Scheduler(object):
     """ Create an instance of this class to (re)schedule a vector trace. """
@@ -412,7 +514,7 @@ def _check_vec_pack(op):
     assert vecinfo.count > argvecinfo.count
 
 def expand(state, pack, args, arg, index):
-    """ Expand a value into a vector box. useful for arith metic
+    """ Expand a value into a vector box. useful for arithmetic
         of one vector with a scalar (either constant/varialbe)
     """
     left = pack.leftmost()
@@ -547,23 +649,8 @@ class VecScheduleState(SchedulerState):
                     failargs[i] = self.renamer.rename_map.get(seed, seed)
             op.setfailargs(failargs)
 
-        delayed = node.delayed
-        if delayed:
-            # there are some nodes that have been delayed just for this operation
-            if pack_first:
-                self.resolve_delayed({}, delayed, op)
-            for node in delayed:
-                if node is not None:
-                    provides = node.provides()
-                    if len(provides) == 0:
-                        # add this node to the final delay list
-                        # might be emitted before jumping!
-                        self.delayed.append(node)
-                    else:
-                        for to in node.provides():
-                            tnode = to.target_node()
-                            self.delegate_delay(tnode, [node])
-                        node.delayed = None
+        SchedulerState.pre_emit(self, node, pack_first)
+
 
     def profitable(self):
         return self.costmodel.profitable()
@@ -584,76 +671,7 @@ class VecScheduleState(SchedulerState):
             turn_into_vector(self, node.pack)
             return
         elif not node.emitted:
-            if not node.is_imaginary() and node.is_pure():
-                # this operation might never be emitted. only if it is really needed
-                self.delay_emit(node)
-                return
-            # emit a now!
-            self.pre_emit(node)
-            self.mark_emitted(node)
-            if not node.is_imaginary():
-                op = node.getoperation()
-                self.seen[op] = None
-                self.oplist.append(op)
-
-    def delay_emit(self, node):
-        """ it has been decided that the operation might be scheduled later """
-        delayed = node.delayed or []
-        delayed.append(node)
-        node.delayed = None
-        provides = node.provides()
-        if len(provides) == 0:
-            self.delayed.append(node)
-        else:
-            for to in node.provides():
-                tnode = to.target_node()
-                self.delegate_delay(tnode, delayed[:])
-        self.mark_emitted(node)
-
-    def delegate_delay(self, node, delayed):
-        """ Chain up delays, this can reduce many more of the operations """
-        if node.delayed is None:
-            node.delayed = delayed
-        else:
-            delayedlist = node.delayed
-            for d in delayed:
-                delayedlist.append(d)
-
-    def mark_emitted(state, node, unpack=True):
-        """ An operation has been emitted, adds new operations to the worklist
-            whenever their dependency count drops to zero.
-            Keeps worklist sorted (see priority) """
-        worklist = state.worklist
-        provides = node.provides()[:]
-        for dep in provides: # COPY
-            target = dep.to
-            node.remove_edge_to(target)
-            if not target.emitted and target.depends_count() == 0:
-                # sorts them by priority
-                i = len(worklist)-1
-                while i >= 0:
-                    cur = worklist[i]
-                    c = (cur.priority - target.priority)
-                    if c < 0: # meaning itnode.priority < target.priority:
-                        worklist.insert(i+1, target)
-                        break
-                    elif c == 0:
-                        # if they have the same priority, sort them
-                        # using the original position in the trace
-                        if target.getindex() < cur.getindex():
-                            worklist.insert(i+1, target)
-                            break
-                    i -= 1
-                else:
-                    worklist.insert(0, target)
-        node.clear_dependencies()
-        node.emitted = True
-        if not node.is_imaginary():
-            op = node.getoperation()
-            state.renamer.rename(op)
-            if unpack:
-                state.ensure_args_unpacked(op)
-            state.post_emit(node)
+            SchedulerState.try_emit_or_delay(self, node)
 
     def delay(self, node):
         if node.pack:
@@ -706,7 +724,7 @@ class VecScheduleState(SchedulerState):
             self.renamer.start_renaming(arg, vecop)
             self.seen[vecop] = None
             self.costmodel.record_vector_unpack(var, pos, 1)
-            self.oplist.append(vecop)
+            self.append_to_oplist(vecop)
             return vecop
         return arg
 

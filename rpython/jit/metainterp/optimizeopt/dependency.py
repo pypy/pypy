@@ -1057,7 +1057,7 @@ class IndexVar(AbstractValue):
             var = ResOperation(rop.INT_ADD, args)
             tolist.append(var)
         if self.constant < 0:
-            args = [var, ConstInt(self.constant)]
+            args = [var, ConstInt(-self.constant)]
             var = ResOperation(rop.INT_SUB, args)
             tolist.append(var)
         return tolist
