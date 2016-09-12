@@ -276,24 +276,16 @@ QCGC_STATIC cell_t *fit_allocator_small_first_fit(size_t index, size_t cells) {
 	for ( ; index < QCGC_SMALL_FREE_LISTS; index++) {
 		size_t list_cell_size = small_index_to_cells(index);
 
-		while (qcgc_allocator_state.fit_state.small_free_list[index]->count
-				> 0) {
+		if (qcgc_allocator_state.fit_state.small_free_list[index]->count > 0) {
 			result = qcgc_allocator_state.fit_state.small_free_list[index]->
-				items[qcgc_allocator_state.fit_state.small_free_list[index]
-				->count - 1];
+				items[0];
 			qcgc_allocator_state.fit_state.small_free_list[index] =
 				qcgc_linear_free_list_remove_index(
 						qcgc_allocator_state.fit_state.small_free_list[index],
-						qcgc_allocator_state.fit_state.small_free_list[index]->
-						count - 1);
-
-			// Check whether block is still valid
-			if (valid_block(result, list_cell_size)) {
-				// The next call might invalidate free_list, reload!
-				qcgc_arena_mark_allocated(result, cells);
-				qcgc_fit_allocator_add(result + cells, list_cell_size - cells);
-				return result;
-			}
+						0);
+			qcgc_arena_mark_allocated(result, cells);
+			qcgc_fit_allocator_add(result + cells, list_cell_size - cells);
+			return result;
 		}
 	}
 	return fit_allocator_large_first_fit(0, cells);
@@ -309,30 +301,18 @@ QCGC_STATIC cell_t *fit_allocator_large_fit(size_t index, size_t cells) {
 
 	cell_t *result = NULL;
 	size_t best_fit_cells = SIZE_MAX;
-	size_t i = 0;
-	while (i < qcgc_allocator_state.fit_state.large_free_list[index]->count) {
-		if (valid_block(qcgc_allocator_state.fit_state.large_free_list[index] ->
-					items[i].ptr,
-					qcgc_allocator_state.fit_state.large_free_list[index]->
-					items[i].size)) {
-			if (qcgc_allocator_state.fit_state.large_free_list[index]->
-					items[i].size >= cells &&
-					qcgc_allocator_state.fit_state.large_free_list[index]->
-					items[i].size < best_fit_cells) {
-				result = qcgc_allocator_state.fit_state.large_free_list[index]->
-					items[i].ptr;
-				best_fit_cells = qcgc_allocator_state.fit_state.
-					large_free_list[index]->items[i].size;
-				best_fit_index = i;
-			}
-			i++;
-		} else {
-			qcgc_allocator_state.fit_state.large_free_list[index] =
-				qcgc_exp_free_list_remove_index(qcgc_allocator_state.fit_state.
-						large_free_list[index], i);
-			// NO i++ !
+	size_t count = qcgc_allocator_state.fit_state.large_free_list[index]->count;
+	for (size_t i = 0; i < count; i++) {
+		if (qcgc_allocator_state.fit_state.large_free_list[index]->
+				items[i].size >= cells &&
+				qcgc_allocator_state.fit_state.large_free_list[index]->
+				items[i].size < best_fit_cells) {
+			result = qcgc_allocator_state.fit_state.large_free_list[index]->
+				items[i].ptr;
+			best_fit_cells = qcgc_allocator_state.fit_state.
+				large_free_list[index]->items[i].size;
+			best_fit_index = i;
 		}
-
 		if (best_fit_cells == cells) {
 			break;
 		}
@@ -359,24 +339,17 @@ QCGC_STATIC cell_t *fit_allocator_large_first_fit(size_t index, size_t cells) {
 	assert(1u<<(index + QCGC_LARGE_FREE_LIST_FIRST_EXP) >= cells);
 #endif
 	for ( ; index < QCGC_LARGE_FREE_LISTS; index++) {
-		while(qcgc_allocator_state.fit_state.large_free_list[index]->count
-				> 0) {
+		if (qcgc_allocator_state.fit_state.large_free_list[index]->count > 0) {
 			struct exp_free_list_item_s item =
-				qcgc_allocator_state.fit_state.large_free_list[index]->items[
-				qcgc_allocator_state.fit_state.large_free_list[index]->count - 1
-				];
+				qcgc_allocator_state.fit_state.large_free_list[index]->items[0];
 			qcgc_allocator_state.fit_state.large_free_list[index] =
 				qcgc_exp_free_list_remove_index(
 						qcgc_allocator_state.fit_state.large_free_list[index],
-						qcgc_allocator_state.fit_state.large_free_list[index]->
-						count - 1);
+						0);
 
-			// Check whether block is still valid
-			if (valid_block(item.ptr, item.size)) {
-				qcgc_arena_mark_allocated(item.ptr, cells);
-				qcgc_fit_allocator_add(item.ptr + cells, item.size - cells);
-				return item.ptr;
-			}
+			qcgc_arena_mark_allocated(item.ptr, cells);
+			qcgc_fit_allocator_add(item.ptr + cells, item.size - cells);
+			return item.ptr;
 		}
 	}
 	return NULL;

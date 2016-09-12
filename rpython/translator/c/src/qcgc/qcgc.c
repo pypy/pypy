@@ -69,11 +69,6 @@ void qcgc_destroy(void) {
  * Shadow stack
  */
 void qcgc_shadowstack_push(object_t *object) {
-	if (qcgc_state.phase != GC_PAUSE) {
-		qcgc_state.phase = GC_MARK;
-		qcgc_push_object(object);
-	}
-
 	*qcgc_state.shadow_stack = object;
 	qcgc_state.shadow_stack++;
 }
@@ -153,8 +148,7 @@ object_t *qcgc_allocate(size_t size) {
 
 	if (size <= 1<<QCGC_LARGE_ALLOC_THRESHOLD_EXP) {
 		// Use bump / fit allocator
-		//if (qcgc_allocator_state.use_bump_allocator) {
-		if (false) {
+		if (qcgc_allocator_state.use_bump_allocator) {
 			result = qcgc_bump_allocate(size);
 		} else {
 			result = qcgc_fit_allocate(size);
@@ -209,10 +203,6 @@ mark_color_t qcgc_get_mark_color(object_t *object) {
 }
 
 void qcgc_mark(bool incremental) {
-	if (qcgc_state.phase == GC_COLLECT) {
-		return;	// Fast exit when there is nothing to mark
-	}
-
 	{
 		struct log_info_s {
 			bool incremental;
@@ -226,16 +216,6 @@ void qcgc_mark(bool incremental) {
 	qcgc_state.bytes_since_incmark = 0;
 
 	if (qcgc_state.phase == GC_PAUSE) {
-		qcgc_state.phase = GC_MARK;
-
-		// If we do this for the first time, push all roots.
-		// All further changes to the roots (new additions) will be added
-		// by qcgc_shadowstack_push
-		for (object_t **it = qcgc_state.shadow_stack_base;
-			it < qcgc_state.shadow_stack;
-			it++) {
-			qcgc_push_object(*it);
-		}
 
 		// If we do this for the first time, push all prebuilt objects.
 		// All further changes to prebuilt objects will go to the gp_gray_stack
@@ -246,6 +226,15 @@ void qcgc_mark(bool incremental) {
 					qcgc_state.gp_gray_stack,
 					qcgc_state.prebuilt_objects->items[i]);
 		}
+	}
+
+	qcgc_state.phase = GC_MARK;
+
+	// Always push all roots to make shadowstack pushes faster
+	for (object_t **it = qcgc_state.shadow_stack_base;
+		it < qcgc_state.shadow_stack;
+		it++) {
+		qcgc_push_object(*it);
 	}
 
 	while (qcgc_state.gray_stack_size > 0) {
