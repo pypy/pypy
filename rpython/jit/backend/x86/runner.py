@@ -15,6 +15,7 @@ class AbstractX86CPU(AbstractLLCPU):
     debug = True
     supports_floats = True
     supports_singlefloats = True
+    supports_cond_call_value = True
 
     dont_keepalive_stuff = False # for tests
     with_threads = False
