@@ -18,7 +18,7 @@ from rpython.rlib import rawrefcount
 
 from .support import c_compile
 
-only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_names" 
+only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_names"
 
 @api.cpython_api([], api.PyObject)
 def PyPy_Crash1(space):
@@ -160,6 +160,32 @@ def make_methods(functions, modname):
     };
     """ % ('\n'.join(methods_table),)
     return body
+
+def make_source(name, init, body, PY_SSIZE_T_CLEAN):
+    code = """
+    %(PY_SSIZE_T_CLEAN)s
+    #include <Python.h>
+    /* fix for cpython 2.7 Python.h if running tests with -A
+        since pypy compiles with -fvisibility-hidden */
+    #undef PyMODINIT_FUNC
+    #ifdef __GNUC__
+    #  define RPY_EXPORTED extern __attribute__((visibility("default")))
+    #else
+    #  define RPY_EXPORTED extern __declspec(dllexport)
+    #endif
+    #define PyMODINIT_FUNC RPY_EXPORTED void
+
+    %(body)s
+
+    PyMODINIT_FUNC
+    init%(name)s(void) {
+    %(init)s
+    }
+    """ % dict(name=name, init=init, body=body,
+            PY_SSIZE_T_CLEAN='#define PY_SSIZE_T_CLEAN'
+                if PY_SSIZE_T_CLEAN else '')
+    return code
+
 
 def freeze_refcnts(self):
     rawrefcount._dont_free_any_more()
@@ -364,7 +390,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             init specifies the overall template of the module.
 
             if init is None, the module source will be loaded from a file in this
-            test direcory, give a name given by the filename parameter.
+            test directory, give a name given by the filename parameter.
 
             if filename is None, the module name will be used to construct the
             filename.
@@ -374,28 +400,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             else:
                 include_dirs = [space.str_w(s) for s in space.listview(w_include_dirs)]
             if init is not None:
-                code = """
-                %(PY_SSIZE_T_CLEAN)s
-                #include <Python.h>
-                /* fix for cpython 2.7 Python.h if running tests with -A
-                   since pypy compiles with -fvisibility-hidden */
-                #undef PyMODINIT_FUNC
-                #ifdef __GNUC__
-                #  define RPY_EXPORTED extern __attribute__((visibility("default")))
-                #else
-                #  define RPY_EXPORTED extern __declspec(dllexport)
-                #endif
-                #define PyMODINIT_FUNC RPY_EXPORTED void
-
-                %(body)s
-
-                PyMODINIT_FUNC
-                init%(name)s(void) {
-                %(init)s
-                }
-                """ % dict(name=name, init=init, body=body,
-                           PY_SSIZE_T_CLEAN='#define PY_SSIZE_T_CLEAN'
-                                            if PY_SSIZE_T_CLEAN else '')
+                code = make_source(name, init, body, PY_SSIZE_T_CLEAN)
                 kwds = dict(source_strings=[code])
             else:
                 assert not PY_SSIZE_T_CLEAN
