@@ -195,7 +195,8 @@ class DictTests:
                            'new_with_vtable': 2, 'getinteriorfield_gc_i': 2,
                            'setfield_gc': 14, 'int_gt': 2, 'int_sub': 2,
                            'call_i': 6, 'call_n': 2, 'call_r': 2, 'int_ge': 2,
-                           'guard_no_exception': 8, 'new': 2})
+                           'guard_no_exception': 8, 'new': 2,
+                           'guard_nonnull': 2})
 
     def test_unrolling_of_dict_iter(self):
         driver = JitDriver(greens = [], reds = ['n'])
