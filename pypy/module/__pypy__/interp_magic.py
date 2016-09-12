@@ -113,8 +113,9 @@ def resizelist_hint(space, w_iterable, sizehint):
 def newlist_hint(space, sizehint):
     return space.newlist_hint(sizehint)
 
-@unwrap_spec(debug=bool)
+@unwrap_spec(debug=int)
 def set_debug(space, debug):
+    debug = bool(debug)
     space.sys.debug = debug
     space.setitem(space.builtin.w_dict,
                   space.wrap('__debug__'),
