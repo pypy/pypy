@@ -217,7 +217,7 @@ class Cache(object):
                 res = None
                 if isinstance(arg0, Constant):
                     PTRTYPE = arg0.concretetype.TO
-                    if PTRTYPE._immutable_field(fieldname).is_immutable:
+                    if PTRTYPE._immutable_field(fieldname):
                         # can constant-fold:
                         FIELDTYPE = getattr(PTRTYPE, fieldname)
                         value = getattr(arg0.value, fieldname)

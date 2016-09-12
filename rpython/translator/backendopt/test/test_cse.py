@@ -388,6 +388,20 @@ class TestStoreSink(object):
             return a2.a
         self.check(read, [int], getfield=0)
 
+        # not immutable
+        class A(object):
+            def __init__(self, a):
+                self.a = a
+        a1 = A(5)
+        a2 = A(8)
+
+        def read(i):
+            if i:
+                return a1.a
+            return a2.a
+        self.check(read, [int], getfield=2)
+
+
 
 def fakevar(name='v'):
     var = Variable(name)
