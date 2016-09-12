@@ -776,7 +776,7 @@ for i in range(4):      # make more common
 for i in range(2):
     OPERATIONS.append(GuardClassOperation(rop.GUARD_CLASS))
     OPERATIONS.append(CondCallOperation(rop.COND_CALL))
-    OPERATIONS.append(CondCallValueOperation(rop.COND_CALL_VALUE_I))
+    OPERATIONS.append(CondCallOperation(rop.COND_CALL_VALUE_I))
     OPERATIONS.append(RaisingCallOperation(rop.CALL_N))
     OPERATIONS.append(RaisingCallOperationGuardNoException(rop.CALL_N))
     OPERATIONS.append(RaisingCallOperationWrongGuardException(rop.CALL_N))
