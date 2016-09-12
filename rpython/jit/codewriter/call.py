@@ -408,7 +408,7 @@ class CallControl(object):
         v_check = v_result
         fastcase = True
         for op in block.operations[1:]:
-            if (op.opname in ('int_is_true', 'ptr_nonzero')
+            if (op.opname in ('int_is_true', 'ptr_nonzero', 'same_as')
                     and v_check is op.args[0]):
                 v_check = op.result
             elif op.opname == 'ptr_iszero' and v_check is op.args[0]:
