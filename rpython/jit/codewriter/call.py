@@ -10,6 +10,7 @@ from rpython.jit.codewriter.effectinfo import (VirtualizableAnalyzer,
     EffectInfo, CallInfoCollection, CallShortcut)
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.lltypesystem.lltype import getfunctionptr
+from rpython.flowspace.model import Constant, Variable
 from rpython.rlib import rposix
 from rpython.translator.backendopt.canraise import RaiseAnalyzer
 from rpython.translator.backendopt.writeanalyze import ReadWriteAnalyzer
@@ -391,6 +392,8 @@ class CallControl(object):
         if op.opname != 'getfield':
             return
         [v_inst, c_fieldname] = op.args
+        if not isinstance(v_inst, Variable):
+            return
         v_result = op.result
         if v_result.concretetype != graph.getreturnvar().concretetype:
             return
@@ -405,12 +408,19 @@ class CallControl(object):
         v_check = v_result
         fastcase = True
         for op in block.operations[1:]:
-            if ((op.opname == 'int_is_true' or op.opname == 'ptr_nonzero')
+            if (op.opname in ('int_is_true', 'ptr_nonzero')
                     and v_check is op.args[0]):
                 v_check = op.result
             elif op.opname == 'ptr_iszero' and v_check is op.args[0]:
                 v_check = op.result
                 fastcase = not fastcase
+            elif (op.opname in ('int_eq', 'int_ne')
+                    and v_check is op.args[0]
+                    and isinstance(op.args[1], Constant)
+                    and op.args[1].value == 0):
+                v_check = op.result
+                if op.opname == 'int_eq':
+                    fastcase = not fastcase
             else:
                 return
         if v_check.concretetype is not lltype.Bool:

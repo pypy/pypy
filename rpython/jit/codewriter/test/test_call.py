@@ -372,12 +372,14 @@ def test_can_or_cannot_collect():
 def test_find_call_shortcut():
     class FakeCPU:
         def fielddescrof(self, TYPE, fieldname):
-            assert isinstance(TYPE, lltype.GcStruct)
-            if fieldname == 'inst_foobar':
-                return 'foobardescr'
-            if fieldname == 'inst_fooref':
-                return 'foorefdescr'
-            assert False, fieldname
+            if isinstance(TYPE, lltype.GcStruct):
+                if fieldname == 'inst_foobar':
+                    return 'foobardescr'
+                if fieldname == 'inst_fooref':
+                    return 'foorefdescr'
+            if TYPE == RAW and fieldname == 'x':
+                return 'xdescr'
+            assert False, (TYPE, fieldname)
     cc = CallControl(FakeCPU())
 
     class B(object):
@@ -408,11 +410,21 @@ def test_find_call_shortcut():
             r = b.foobar = 123
         return r
 
+    def f4(raw):
+        r = raw.x
+        if r != 0:
+            return r
+        raw.x = 123
+        return 123
+    RAW = lltype.Struct('RAW', ('x', lltype.Signed))
+
     def f(a, c):
         b = B()
         f1(a, b, c)
         f2(a, c, a, b)
         f3(space, b)
+        r = lltype.malloc(RAW, flavor='raw')
+        f4(r)
 
     rtyper = support.annotate(f, [10, 20])
     f1_graph = rtyper.annotator.translator._graphof(f1)
@@ -421,6 +433,8 @@ def test_find_call_shortcut():
     assert cc.find_call_shortcut(f2_graph) == CallShortcut(3, "foorefdescr")
     f3_graph = rtyper.annotator.translator._graphof(f3)
     assert cc.find_call_shortcut(f3_graph) == CallShortcut(0, "foobardescr")
+    f4_graph = rtyper.annotator.translator._graphof(f4)
+    assert cc.find_call_shortcut(f4_graph) == CallShortcut(0, "xdescr")
 
 def test_cant_find_call_shortcut():
     from rpython.jit.backend.llgraph.runner import LLGraphCPU
