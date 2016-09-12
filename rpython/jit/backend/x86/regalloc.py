@@ -943,8 +943,13 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         v_func = args[1]
         assert isinstance(v_func, Const)
         imm_func = self.rm.convert_to_imm(v_func)
+
+        # Delicate ordering here.  First get the argument's locations.
+        # If this also contains args[0], this returns the current
+        # location too.
         arglocs = [self.loc(args[i]) for i in range(2, len(args))]
         gcmap = self.get_gcmap()
+
         if op.type == 'v':
             # a plain COND_CALL.  Calls the function when args[0] is
             # true.  Often used just after a comparison operation.
@@ -957,13 +962,18 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             # Implemented by forcing the result to live in the same
             # register as args[0], and overwriting it if we really do
             # the call.
-            condvalue_loc = self.loc(args[0])
-            assert not isinstance(condvalue_loc, ImmedLoc)
-            self.assembler.test_location(condvalue_loc)
-            self.assembler.guard_success_cc = rx86.Conditions['Z']
+
+            # Load the register for the result.  Possibly reuse 'args[0]'.
+            # But the old value of args[0], if it survives, is first
+            # spilled away.  We can't overwrite any of op.args[2:] here.
             resloc = self.rm.force_result_in_reg(op, args[0],
-                                                 forbidden_vars=arglocs)
-        self.assembler.cond_call(op, gcmap, imm_func, arglocs, resloc)
+                                                 forbidden_vars=args[2:])
+
+            # Test the register for the result.
+            self.assembler.test_location(resloc)
+            self.assembler.guard_success_cc = rx86.Conditions['Z']
+
+        self.assembler.cond_call(gcmap, imm_func, arglocs, resloc)
 
     consider_cond_call_value_i = consider_cond_call
     consider_cond_call_value_r = consider_cond_call
