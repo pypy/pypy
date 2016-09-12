@@ -25,7 +25,8 @@ typedef enum gc_phase {
  * Global state of the garbage collector
  */
 struct qcgc_state {
-	shadow_stack_t *shadow_stack;
+	object_t **shadow_stack;
+	object_t **shadow_stack_base;
 	shadow_stack_t *prebuilt_objects;
 	weakref_bag_t *weakrefs;
 	gray_stack_t *gp_gray_stack;

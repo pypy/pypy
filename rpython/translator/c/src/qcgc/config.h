@@ -13,8 +13,7 @@
 #define LOG_ALLOCATION 0					// Enable allocation log (warning:
 											// significant performance impact)
 
-#define QCGC_SHADOWSTACK_SIZE 128			// Number of initial entries for
-											// shadow stack
+#define QCGC_SHADOWSTACK_SIZE 163840		// Total shadowstack size
 #define QCGC_ARENA_BAG_INIT_SIZE 16			// Initial size of the arena bag
 #define QCGC_ARENA_SIZE_EXP 20				// Between 16 (64kB) and 20 (1MB)
 #define QCGC_LARGE_ALLOC_THRESHOLD_EXP 14	// Less than QCGC_ARENA_SIZE_EXP
@@ -52,3 +51,4 @@
 
 #define MAX(a,b) (((a)>(b))?(a):(b))
 #define MIN(a,b) (((a)<(b))?(a):(b))
+#define UNUSED(x) (void)(x)

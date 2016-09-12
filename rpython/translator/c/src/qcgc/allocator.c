@@ -215,7 +215,7 @@ QCGC_STATIC void bump_allocator_advance(size_t cells) {
 
 object_t *qcgc_fit_allocate(size_t bytes) {
 #if CHECKED
-	free_list_consistency_check();
+	//free_list_consistency_check();
 #endif
 	size_t cells = bytes_to_cells(bytes);
 	cell_t *mem;

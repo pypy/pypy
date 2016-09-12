@@ -5,10 +5,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/mman.h>
 
 #include "allocator.h"
-#include "hugeblocktable.h"
 #include "event_logger.h"
+#include "hugeblocktable.h"
+#include "signal_handler.h"
 
 #define env_or_fallback(var, env_name, fallback) while(0) {		\
 	char *env_val = getenv(env_name);							\
@@ -28,9 +30,11 @@ static size_t major_collection_threshold = QCGC_MAJOR_COLLECTION_THRESHOLD;
 static size_t incmark_threshold = QCGC_INCMARK_THRESHOLD;
 
 QCGC_STATIC void update_weakrefs(void);
+QCGC_STATIC void initialize_shadowstack(void);
+QCGC_STATIC void destroy_shadowstack(void);
 
 void qcgc_initialize(void) {
-	qcgc_state.shadow_stack = qcgc_shadow_stack_create(QCGC_SHADOWSTACK_SIZE);
+	initialize_shadowstack();
 	qcgc_state.prebuilt_objects = qcgc_shadow_stack_create(16); // XXX
 	qcgc_state.weakrefs = qcgc_weakref_bag_create(16); // XXX
 	qcgc_state.gp_gray_stack = qcgc_gray_stack_create(16); // XXX
@@ -47,13 +51,15 @@ void qcgc_initialize(void) {
 	env_or_fallback(major_collection_threshold, "QCGC_MAJOR_COLLECTION",
 			QCGC_MAJOR_COLLECTION_THRESHOLD);
 	env_or_fallback(incmark_threshold, "QCGC_INCMARK", QCGC_INCMARK_THRESHOLD);
+
+	setup_signal_handler();
 }
 
 void qcgc_destroy(void) {
 	qcgc_event_logger_destroy();
 	qcgc_hbtable_destroy();
 	qcgc_allocator_destroy();
-	free(qcgc_state.shadow_stack);
+	destroy_shadowstack();
 	free(qcgc_state.prebuilt_objects);
 	free(qcgc_state.weakrefs);
 	free(qcgc_state.gp_gray_stack);
@@ -67,14 +73,14 @@ void qcgc_shadowstack_push(object_t *object) {
 		qcgc_state.phase = GC_MARK;
 		qcgc_push_object(object);
 	}
-	qcgc_state.shadow_stack =
-		qcgc_shadow_stack_push(qcgc_state.shadow_stack, object);
+
+	*qcgc_state.shadow_stack = object;
+	qcgc_state.shadow_stack++;
 }
 
 object_t *qcgc_shadowstack_pop(void) {
-	object_t *result = qcgc_shadow_stack_top(qcgc_state.shadow_stack);
-	qcgc_state.shadow_stack = qcgc_shadow_stack_pop(qcgc_state.shadow_stack);
-	return result;
+	qcgc_state.shadow_stack--;
+	return *qcgc_state.shadow_stack;
 }
 
 /*******************************************************************************
@@ -225,8 +231,10 @@ void qcgc_mark(bool incremental) {
 		// If we do this for the first time, push all roots.
 		// All further changes to the roots (new additions) will be added
 		// by qcgc_shadowstack_push
-		for (size_t i = 0; i < qcgc_state.shadow_stack->count; i++) {
-			qcgc_push_object(qcgc_state.shadow_stack->items[i]);
+		for (object_t **it = qcgc_state.shadow_stack_base;
+			it < qcgc_state.shadow_stack;
+			it++) {
+			qcgc_push_object(*it);
 		}
 
 		// If we do this for the first time, push all prebuilt objects.
@@ -482,4 +490,29 @@ QCGC_STATIC void update_weakrefs(void) {
 			}
 		}
 	}
+}
+
+QCGC_STATIC void *trap_page_addr(object_t **shadow_stack) {
+	object_t **shadow_stack_end = shadow_stack + QCGC_SHADOWSTACK_SIZE;
+	char *in_trap_page = (((char *)shadow_stack_end) + 4095);
+	void *rounded_trap_page = (void *)(((uintptr_t)in_trap_page) & (~4095));
+	return rounded_trap_page;
+}
+
+QCGC_STATIC void initialize_shadowstack(void) {
+	size_t stack_size = QCGC_SHADOWSTACK_SIZE * sizeof(object_t *);
+	// allocate stack + size for alignement + trap page
+	object_t **stack = (object_t **) malloc(stack_size + 8192);
+	assert(stack != NULL);
+	mprotect(trap_page_addr(stack), 4096, PROT_NONE);
+
+	qcgc_state.shadow_stack = stack;
+	qcgc_state.shadow_stack_base = stack;
+}
+
+QCGC_STATIC void destroy_shadowstack(void) {
+	mprotect(trap_page_addr(qcgc_state.shadow_stack_base), 4096, PROT_READ |
+				PROT_WRITE);
+
+	free(qcgc_state.shadow_stack_base);
 }
