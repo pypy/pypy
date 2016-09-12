@@ -946,11 +946,17 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         arglocs = [self.loc(args[i]) for i in range(2, len(args))]
         gcmap = self.get_gcmap()
         if op.type == 'v':
-            # a plain COND_CALL
+            # a plain COND_CALL.  Calls the function when args[0] is
+            # true.  Often used just after a comparison operation.
             self.load_condition_into_cc(op.getarg(0))
             resloc = None
         else:
-            # COND_CALL_VALUE_I/R
+            # COND_CALL_VALUE_I/R.  Calls the function when args[0]
+            # is equal to 0 or NULL.  Returns the result from the
+            # function call if done, or args[0] if it was not 0/NULL.
+            # Implemented by forcing the result to live in the same
+            # register as args[0], and overwriting it if we really do
+            # the call.
             condvalue_loc = self.loc(args[0])
             assert not isinstance(condvalue_loc, ImmedLoc)
             self.assembler.test_location(condvalue_loc)
