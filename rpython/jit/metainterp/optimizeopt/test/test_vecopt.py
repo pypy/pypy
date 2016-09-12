@@ -175,13 +175,11 @@ class VecTestHelper(DependencyBaseTest):
             gso = GuardStrengthenOpt(graph.index_vars)
             gso.propagate_all_forward(info, loop)
         # re-schedule
-        #vsize = self.cpu.vector_ext.vec_size()
-        #graph = DependencyGraph(loop)
-        #state = VecScheduleState(graph, PackSet(vsize), self.cpu, costmodel)
-        #state.prepare()
-        #scheduler = Scheduler()
-        #scheduler.walk_and_emit(state)
-        #state.post_schedule()
+        graph = DependencyGraph(loop)
+        state = SchedulerState(self.cpu, graph)
+        state.prepare()
+        Scheduler().walk_and_emit(state)
+        state.post_schedule()
         return opt
 
     def vectorize(self, loop, unroll_factor = -1):
@@ -200,13 +198,11 @@ class VecTestHelper(DependencyBaseTest):
         gso.propagate_all_forward(info, loop)
         #
         # re-schedule
-        #vsize = self.cpu.vector_ext.vec_size()
-        #graph = DependencyGraph(loop)
-        #state = VecScheduleState(graph, PackSet(vsize), self.cpu, costmodel)
-        #state.prepare()
-        #scheduler = Scheduler()
-        #scheduler.walk_and_emit(state)
-        #state.post_schedule()
+        graph = DependencyGraph(loop)
+        state = SchedulerState(self.cpu, graph)
+        state.prepare()
+        Scheduler().walk_and_emit(state)
+        state.post_schedule()
         #
         oplist = loop.operations
         loop.operations = loop.prefix[:]

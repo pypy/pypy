@@ -43,11 +43,14 @@ class SchedulerState(object):
         if not delayed:
             return
         args = op.getarglist()
+        if op.is_guard():
+            args = args[:] + op.getfailargs()
         for arg in args:
             if arg.is_constant() or arg.is_inputarg():
                 continue
             if arg not in self.seen:
                 needs_resolving[arg] = None
+
         indexvars = self.graph.index_vars
         i = len(delayed)-1
         while i >= 0:
@@ -118,8 +121,6 @@ class SchedulerState(object):
                 self.worklist.insert(0, node)
 
     def try_emit_or_delay(self, node):
-        # implement me in subclass. e.g. as in VecScheduleState
-
         if not node.is_imaginary() and node.is_pure():
             # this operation might never be emitted. only if it is really needed
             self.delay_emit(node)

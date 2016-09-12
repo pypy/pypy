@@ -540,6 +540,15 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         """)
         self.assert_dependencies(graph, full_check=True)
 
+    def test_dep_on_vector_op(self):
+        graph = self.build_dependency("""
+        [p0, i1] # 0: 1,2,3
+        i19 = int_mul(i1, 8) # 1: 2
+        v20[2xi64] = vec_load_i(p0, i19, 1, 0, descr=arraydescr) # 2:
+        jump(p0, i1) # 3:
+        """)
+        self.assert_dependencies(graph, full_check=True)
+
 
     def test_iterate(self):
         n1,n2,n3,n4,n5 = [FakeNode(i+1) for i in range(5)]

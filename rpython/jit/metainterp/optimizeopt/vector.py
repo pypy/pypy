@@ -261,14 +261,13 @@ class VectorizingOptimizer(Optimizer):
         gso.propagate_all_forward(info, loop, user_code)
 
         # re-schedule the trace -> removes index operations
-        # work in progress
-        #graph = DependencyGraph(loop)
-        #costmodel = GenericCostModel(self.cpu, self.cost_threshold)
-        #state = VecScheduleState(graph, PackSet(vsize), self.cpu, costmodel)
-        #state.prepare()
-        #scheduler = Scheduler()
-        #scheduler.walk_and_emit(state)
-        #state.post_schedule()
+        graph = DependencyGraph(loop)
+        costmodel = GenericCostModel(self.cpu, self.cost_threshold)
+        state = ScheduleState(self.cpu, graph)
+        state.prepare()
+        scheduler = Scheduler()
+        scheduler.walk_and_emit(state)
+        state.post_schedule()
 
     def unroll_loop_iterations(self, loop, unroll_count):
         """ Unroll the loop X times. unroll_count + 1 = unroll_factor """
