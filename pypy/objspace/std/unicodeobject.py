@@ -78,6 +78,7 @@ class W_UnicodeObject(W_Root):
         return self._value
 
     @jit.elidable
+    @jit.call_shortcut
     def identifier_w(self, space):
         identifier = self._utf8
         if identifier is not None:
