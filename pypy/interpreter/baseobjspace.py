@@ -1232,7 +1232,7 @@ class ObjSpace(object):
             if e.match(self, self.w_AttributeError):
                 return False
             raise
-        return self.is_true(self.nonzero(w_result))
+        return self.is_true(w_result)
 
     # CPython rules allows subclasses of BaseExceptions to be exceptions.
     # This is slightly less general than the case above, so we prefix
