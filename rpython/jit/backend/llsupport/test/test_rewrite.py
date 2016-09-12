@@ -209,6 +209,7 @@ class BaseFakeCPU(object):
 
     load_constant_offset = True
     load_supported_factors = (1,2,4,8)
+    supports_cond_call_value = True
 
     translate_support_code = None
 

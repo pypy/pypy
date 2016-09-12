@@ -619,6 +619,8 @@ class GcRewriterAssembler(object):
                                       size, 1, ofs)
 
     def expand_call_shortcut(self, op):
+        if not self.cpu.supports_cond_call_value:
+            return
         descr = op.getdescr()
         if descr is None:
             return

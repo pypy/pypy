@@ -2448,6 +2448,9 @@ class LLtypeBackendTest(BaseBackendTest):
             assert called == [(67, 89)]
 
     def test_cond_call_value(self):
+        if not self.cpu.supports_cond_call_value:
+            py.test.skip("missing supports_cond_call_value")
+
         def func_int(*args):
             called.append(args)
             return len(args) * 100 + 1000
