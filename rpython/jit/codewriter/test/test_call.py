@@ -6,7 +6,7 @@ from rpython.translator.unsimplify import varoftype
 from rpython.rlib import jit
 from rpython.jit.codewriter import support, call
 from rpython.jit.codewriter.call import CallControl
-from rpython.jit.codewriter.effectinfo import EffectInfo
+from rpython.jit.codewriter.effectinfo import EffectInfo, CallShortcut
 
 
 class FakePolicy:
@@ -368,3 +368,77 @@ def test_can_or_cannot_collect():
         assert call_op.opname == 'direct_call'
         call_descr = cc.getcalldescr(call_op)
         assert call_descr.extrainfo.check_can_collect() == expected
+
+def test_find_call_shortcut():
+    class FakeCPU:
+        def fielddescrof(self, TYPE, fieldname):
+            assert isinstance(TYPE, lltype.GcStruct)
+            if fieldname == 'inst_foobar':
+                return 'foobardescr'
+            if fieldname == 'inst_fooref':
+                return 'foorefdescr'
+            assert False, fieldname
+    cc = CallControl(FakeCPU())
+
+    class B(object):
+        foobar = 0
+        fooref = None
+
+    def f1(a, b, c):
+        if b.foobar:
+            return b.foobar
+        b.foobar = a + c
+        return b.foobar
+
+    def f2(x, y, z, b):
+        r = b.fooref
+        if r is not None:
+            return r
+        r = b.fooref = B()
+        return r
+
+    class Space(object):
+        def _freeze_(self):
+            return True
+    space = Space()
+
+    def f3(space, b):
+        r = b.foobar
+        if not r:
+            r = b.foobar = 123
+        return r
+
+    def f(a, c):
+        b = B()
+        f1(a, b, c)
+        f2(a, c, a, b)
+        f3(space, b)
+
+    rtyper = support.annotate(f, [10, 20])
+    f1_graph = rtyper.annotator.translator._graphof(f1)
+    assert cc.find_call_shortcut(f1_graph) == CallShortcut(1, "foobardescr")
+    f2_graph = rtyper.annotator.translator._graphof(f2)
+    assert cc.find_call_shortcut(f2_graph) == CallShortcut(3, "foorefdescr")
+    f3_graph = rtyper.annotator.translator._graphof(f3)
+    assert cc.find_call_shortcut(f3_graph) == CallShortcut(0, "foobardescr")
+
+def test_cant_find_call_shortcut():
+    from rpython.jit.backend.llgraph.runner import LLGraphCPU
+
+    @jit.dont_look_inside
+    @jit.call_shortcut
+    def f1(n):
+        return n + 17   # no call shortcut found
+
+    def f(n):
+        return f1(n)
+
+    rtyper = support.annotate(f, [1])
+    jitdriver_sd = FakeJitDriverSD(rtyper.annotator.translator.graphs[0])
+    cc = CallControl(LLGraphCPU(rtyper), jitdrivers_sd=[jitdriver_sd])
+    res = cc.find_all_graphs(FakePolicy())
+    [f_graph] = [x for x in res if x.func is f]
+    call_op = f_graph.startblock.operations[0]
+    assert call_op.opname == 'direct_call'
+    e = py.test.raises(AssertionError, cc.getcalldescr, call_op)
+    assert "shortcut not found" in str(e.value)
