@@ -3,6 +3,7 @@ import sys
 import py, pytest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
+only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_names" 
 
 def test_pragma_version():
     from pypy.module.sys.version import CPYTHON_VERSION
@@ -32,11 +33,9 @@ class AppTestVersion(AppTestCpythonExtensionBase):
         assert module.py_minor_version == sys.version_info.minor
         assert module.py_micro_version == sys.version_info.micro
 
-    #@pytest.mark.skipif('__pypy__' not in sys.builtin_module_names, reason='pypy only test')
+    @pytest.mark.skipif(only_pypy, reason='pypy only test')
     def test_pypy_versions(self):
         import sys
-        if '__pypy__' not in sys.builtin_module_names:
-            py.test.skip("pypy only test")
         init = """
         if (Py_IsInitialized()) {
             PyObject *m = Py_InitModule("foo", NULL);

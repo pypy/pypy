@@ -1056,21 +1056,9 @@ class MIFrame(object):
     opimpl_residual_call_irf_f = _opimpl_residual_call3
     opimpl_residual_call_irf_v = _opimpl_residual_call3
 
-    @arguments("box", "box", "boxes", "descr", "orgpc")
-    def opimpl_conditional_call_i_v(self, condbox, funcbox, argboxes, calldescr,
-                                    pc):
-        self.do_conditional_call(condbox, funcbox, argboxes, calldescr, pc)
-
-    opimpl_conditional_call_r_v = opimpl_conditional_call_i_v
-
     @arguments("box", "box", "boxes2", "descr", "orgpc")
     def opimpl_conditional_call_ir_v(self, condbox, funcbox, argboxes,
                                      calldescr, pc):
-        self.do_conditional_call(condbox, funcbox, argboxes, calldescr, pc)
-
-    @arguments("box", "box", "boxes3", "descr", "orgpc")
-    def opimpl_conditional_call_irf_v(self, condbox, funcbox, argboxes,
-                                      calldescr, pc):
         self.do_conditional_call(condbox, funcbox, argboxes, calldescr, pc)
 
     @arguments("int", "boxes3", "boxes3", "orgpc")

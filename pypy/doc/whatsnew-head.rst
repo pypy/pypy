@@ -12,4 +12,7 @@ Backport rpython changes made directly on the py3k and py3.5 branches.
 Implement PyObject_GetBuffer, PyMemoryView_GET_BUFFER, and handles memoryviews
 in numpypy
 
-
+.. branch: force-virtual-state
+Improve merging of virtual states in the JIT in order to avoid jumping to the
+preamble. Accomplished by allocating virtual objects where non-virtuals are
+expected.

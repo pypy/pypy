@@ -358,6 +358,7 @@ def absolute_import_try(space, modulename, baselevel, w_fromlist):
                 w_all = try_getattr(space, w_mod, space.wrap('__all__'))
                 if w_all is not None:
                     w_fromlist = w_all
+                    length = space.len_w(w_fromlist)
                 else:
                     w_fromlist = None
                     # "from x import *" with x already imported and no x.__all__
@@ -409,6 +410,7 @@ def _absolute_import(space, modulename, baselevel, w_fromlist, tentative):
                 w_all = try_getattr(space, w_mod, w('__all__'))
                 if w_all is not None:
                     w_fromlist = w_all
+                    length = space.len_w(w_fromlist)
                 else:
                     w_fromlist = None
             if w_fromlist is not None:
