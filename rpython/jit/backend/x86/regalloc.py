@@ -938,16 +938,28 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
                     self.rm.force_spill_var(box)
                     assert box not in self.rm.reg_bindings
         #
-        assert op.type == 'v'
         args = op.getarglist()
         assert 2 <= len(args) <= 4 + 2     # maximum 4 arguments
-        v = args[1]
-        assert isinstance(v, Const)
-        imm_func = self.rm.convert_to_imm(v)
+        v_func = args[1]
+        assert isinstance(v_func, Const)
+        imm_func = self.rm.convert_to_imm(v_func)
         arglocs = [self.loc(args[i]) for i in range(2, len(args))]
         gcmap = self.get_gcmap()
-        self.load_condition_into_cc(op.getarg(0))
-        self.assembler.cond_call(op, gcmap, imm_func, arglocs)
+        if op.type == 'v':
+            # a plain COND_CALL
+            self.load_condition_into_cc(op.getarg(0))
+            resloc = None
+        else:
+            # COND_CALL_VALUE_I/R
+            condvalue_loc = self.loc(args[0])
+            assert not isinstance(condvalue_loc, ImmedLoc)
+            self.assembler.test_location(condvalue_loc)
+            self.assembler.guard_success_cc = rx86.Conditions['Z']
+            resloc = self.rm.force_result_in_reg(op, args[0])
+        self.assembler.cond_call(op, gcmap, imm_func, arglocs, resloc)
+
+    consider_cond_call_value_i = consider_cond_call
+    consider_cond_call_value_r = consider_cond_call
 
     def consider_call_malloc_nursery(self, op):
         size_box = op.getarg(0)
