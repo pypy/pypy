@@ -183,6 +183,8 @@ class Cache(object):
                 del self.heapcache[k]
 
     def _clear_heapcache_for_effects_of_op(self, op):
+        if not self.heapcache:
+            return
         effects = self.analyzer.analyze(op)
         self._clear_heapcache_for_effects(effects)
 
@@ -191,11 +193,13 @@ class Cache(object):
             self.heapcache.clear()
         else:
             for k in self.heapcache.keys():
+                # XXX slow
                 key = ('struct', k[0].concretetype, k[1])
                 if key in effects:
                     del self.heapcache[k]
 
     def _clear_heapcache_for_loop_blocks(self, blocks):
+        # XXX use result builder
         effects = self.analyzer.bottom_result()
         for block in blocks:
             for op in block.operations:
