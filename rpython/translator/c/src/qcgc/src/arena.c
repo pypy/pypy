@@ -16,8 +16,8 @@
 /**
  * Internal functions
  */
-QCGC_STATIC blocktype_t get_blocktype(arena_t *arena, size_t index);
-QCGC_STATIC void set_blocktype(arena_t *arena, size_t index, blocktype_t type);
+QCGC_STATIC QCGC_INLINE blocktype_t get_blocktype(arena_t *arena, size_t index);
+QCGC_STATIC QCGC_INLINE void set_blocktype(arena_t *arena, size_t index, blocktype_t type);
 
 arena_t *qcgc_arena_create(void) {
 	qcgc_event_logger_log(EVENT_NEW_ARENA, 0, NULL);
@@ -48,7 +48,7 @@ arena_t *qcgc_arena_create(void) {
 	}
 
 	// Init bitmaps: One large free block
-	qcgc_arena_set_bitmap_entry(result->mark_bitmap, QCGC_ARENA_FIRST_CELL_INDEX, true);
+	qcgc_arena_set_bitmap_entry(result->mark_bitmap, QCGC_ARENA_FIRST_CELL_INDEX, 1);
 
 	// Create gray stack
 	result->gray_stack = qcgc_gray_stack_create(QCGC_GRAY_STACK_INIT_SIZE);
@@ -75,21 +75,22 @@ bool qcgc_arena_get_bitmap_entry(uint8_t *bitmap, size_t index) {
 #if CHECKED
 	assert(bitmap != NULL);
 #endif
-	return (((bitmap[index / 8] >> (index % 8)) & 0x1) == 0x01);
+	size_t byte = index / 8;
+	uint8_t mask = 0x01 << (index % 8);
+	return ((bitmap[byte] & mask) == mask);
 }
 
-void qcgc_arena_set_bitmap_entry(uint8_t *bitmap, size_t index, bool value) {
+void qcgc_arena_set_bitmap_entry(uint8_t *bitmap, size_t index, uint8_t value) {
 #if CHECKED
 	assert(bitmap != NULL);
 #endif
-	if (value) {
-		bitmap[index / 8] |= 1<<(index % 8);
-	} else {
-		bitmap[index / 8] &= ~(1<<(index % 8));
-	}
+	size_t byte = index / 8;
+	uint8_t bit = (index % 8);
+	bitmap[byte] &= ~(1 << bit);
+	bitmap[byte] = (bitmap[byte] & ~(1 << bit)) | (value << bit);
 }
 
-QCGC_STATIC blocktype_t get_blocktype(arena_t *arena, size_t index) {
+QCGC_STATIC QCGC_INLINE blocktype_t get_blocktype(arena_t *arena, size_t index) {
 #if CHECKED
 	assert(arena != NULL);
 #endif
@@ -111,38 +112,39 @@ QCGC_STATIC blocktype_t get_blocktype(arena_t *arena, size_t index) {
 	}
 }
 
-blocktype_t qcgc_arena_get_blocktype(cell_t *ptr) {
+QCGC_STATIC QCGC_INLINE blocktype_t qcgc_arena_get_blocktype(cell_t *ptr) {
 	size_t index = qcgc_arena_cell_index(ptr);
 	arena_t *arena = qcgc_arena_addr(ptr);
 
 	return get_blocktype(arena, index);
 }
 
-QCGC_STATIC void set_blocktype(arena_t *arena, size_t index, blocktype_t type) {
+QCGC_STATIC QCGC_INLINE void set_blocktype(arena_t *arena, size_t index, blocktype_t type) {
 #if CHECKED
 	assert(arena != NULL);
 #endif
 	switch(type) {
 		case BLOCK_EXTENT:
-			qcgc_arena_set_bitmap_entry(arena->block_bitmap, index, false);
-			qcgc_arena_set_bitmap_entry(arena->mark_bitmap, index, false);
+			qcgc_arena_set_bitmap_entry(arena->block_bitmap, index, 0);
+			qcgc_arena_set_bitmap_entry(arena->mark_bitmap, index, 0);
 			break;
 		case BLOCK_FREE:
-			qcgc_arena_set_bitmap_entry(arena->block_bitmap, index, false);
-			qcgc_arena_set_bitmap_entry(arena->mark_bitmap, index, true);
+			qcgc_arena_set_bitmap_entry(arena->block_bitmap, index, 0);
+			qcgc_arena_set_bitmap_entry(arena->mark_bitmap, index, 1);
 			break;
 		case BLOCK_WHITE:
-			qcgc_arena_set_bitmap_entry(arena->block_bitmap, index, true);
-			qcgc_arena_set_bitmap_entry(arena->mark_bitmap, index, false);
+			qcgc_arena_set_bitmap_entry(arena->block_bitmap, index, 1);
+			qcgc_arena_set_bitmap_entry(arena->mark_bitmap, index, 0);
 			break;
 		case BLOCK_BLACK:
-			qcgc_arena_set_bitmap_entry(arena->mark_bitmap, index, true);
-			qcgc_arena_set_bitmap_entry(arena->block_bitmap, index, true);
+			qcgc_arena_set_bitmap_entry(arena->mark_bitmap, index, 1);
+			qcgc_arena_set_bitmap_entry(arena->block_bitmap, index, 1);
 			break;
 	}
 }
 
-void qcgc_arena_set_blocktype(cell_t *ptr, blocktype_t type) {
+QCGC_STATIC QCGC_INLINE void qcgc_arena_set_blocktype(cell_t *ptr,
+		blocktype_t type) {
 	size_t index = qcgc_arena_cell_index(ptr);
 	arena_t *arena = qcgc_arena_addr(ptr);
 	set_blocktype(arena, index, type);
@@ -209,7 +211,6 @@ bool qcgc_arena_sweep(arena_t *arena) {
 #if CHECKED
 	assert(arena != NULL);
 	assert(qcgc_arena_is_coalesced(arena));
-	//assert(qcgc_arena_addr(qcgc_allocator_state.bump_state.bump_ptr) != arena);
 #endif
 	if (qcgc_arena_addr(qcgc_allocator_state.bump_state.bump_ptr) == arena) {
 		return qcgc_arena_pseudo_sweep(arena);
@@ -217,34 +218,31 @@ bool qcgc_arena_sweep(arena_t *arena) {
 
 	size_t last_free_cell = 0;
 	bool free = true;
-	for (size_t cell = QCGC_ARENA_FIRST_CELL_INDEX;
-			cell < QCGC_ARENA_CELLS_COUNT;
-			cell++) {
-		switch (get_blocktype(arena, cell)) {
-			case BLOCK_EXTENT:
-				break;
-			case BLOCK_FREE:
+
+	// Vectorized bitmap updates
+	for (size_t i = QCGC_ARENA_FIRST_CELL_INDEX / 8;
+			i < QCGC_ARENA_BITMAP_SIZE;
+			i++) {
+		uint8_t new_block = arena->block_bitmap[i] & arena->mark_bitmap[i];
+		uint8_t new_mark = arena->block_bitmap[i] ^ arena->mark_bitmap[i];
+
+		arena->block_bitmap[i] = new_block;
+
+		for (size_t j = 0; j < 8; j++) {
+			size_t cell = i * 8 + j;
+			uint8_t mask = 1 << j;
+			if ((new_mark & mask) == mask) {
 				if (last_free_cell != 0) {
 					// Coalesce
-					set_blocktype(arena, cell, BLOCK_EXTENT);
+					new_mark &= ~mask;
 				} else {
 					last_free_cell = cell;
 				}
-				// ==> last_free_cell != 0
-				break;
-			case BLOCK_WHITE:
+			} else if ((new_block & mask) == mask) {
+				free = false;
 				if (last_free_cell != 0) {
-					// Coalesce
-					set_blocktype(arena, cell, BLOCK_EXTENT);
-				} else {
-					set_blocktype(arena, cell, BLOCK_FREE);
-					last_free_cell = cell;
-				}
-				// ==> last_free_cell != 0
-				break;
-			case BLOCK_BLACK:
-				set_blocktype(arena, cell, BLOCK_WHITE);
-				if (last_free_cell != 0) {
+					// Force update to satisfy precondition
+					arena->mark_bitmap[i] = new_mark;
 					qcgc_fit_allocator_add(arena->cells + last_free_cell,
 							cell - last_free_cell);
 #if DEBUG_ZERO_ON_SWEEP
@@ -257,11 +255,14 @@ bool qcgc_arena_sweep(arena_t *arena) {
 							cell - last_free_cell);
 					last_free_cell = 0;
 				}
-				free = false;
-				// ==> last_free_cell == 0
-				break;
+				// White
+			} else {
+				// Extent
+			}
 		}
+		arena->mark_bitmap[i] = new_mark;
 	}
+
 	if (last_free_cell != 0 && !free) {
 		qcgc_fit_allocator_add(arena->cells + last_free_cell,
 				QCGC_ARENA_CELLS_COUNT - last_free_cell);
@@ -273,7 +274,6 @@ bool qcgc_arena_sweep(arena_t *arena) {
 		qcgc_state.largest_free_block = MAX(
 				qcgc_state.largest_free_block,
 				QCGC_ARENA_CELLS_COUNT - last_free_cell);
-		last_free_cell = 0;
 	}
 #if CHECKED
 	assert(qcgc_arena_is_coalesced(arena));

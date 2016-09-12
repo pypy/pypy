@@ -4,31 +4,9 @@
 
 #pragma once
 
-#include "config.h"
+#include <stddef.h>
 
-#include <stdint.h>
-#include <sys/types.h>
-
-#include "arena.h"
-#include "gc_state.h"
-#include "gray_stack.h"
-#include "object.h"
-
-/**
- * @typedef mark_color
- * Object state during collection
- * - MARK_COLOR_WHITE		Clean and unprocessed
- * - MARK_COLOR_LIGHT_GRAY	Dirty and unprocessed
- * - MARK_COLOR_DARK_GRAY	Processing
- * - MARK_COLOR_BLACK		Processed
- */
-typedef enum mark_color {
-	MARK_COLOR_WHITE,
-	MARK_COLOR_LIGHT_GRAY,
-	MARK_COLOR_DARK_GRAY,
-	MARK_COLOR_BLACK,
-	MARK_COLOR_INVALID,
-} mark_color_t;
+#include "src/object.h"
 
 /**
  * Initialize the garbage collector.
@@ -41,20 +19,33 @@ void qcgc_initialize(void);
 void qcgc_destroy(void);
 
 /**
- * Write barrier.
+ * Allocate a new object. May trigger garabge collection.
  *
- * @param	object	Object to write to
- */
-void qcgc_write(object_t *object);
-
-/**
- * Allocate new memory region
- *
- * @param	size	Desired size of the memory region
- * @return	Pointer to memory large enough to hold size bytes, NULL in case of
- *			errors
+ * @param	size	Object size in bytes
+ * @return	Pointer to memory region large enough to hold size bytes or NULL in
+ *			case of errros
  */
 object_t *qcgc_allocate(size_t size);
+
+/**
+ * Push root object.
+ *
+ * @param	object	The root object
+ */
+void qcgc_push_root(object_t *object);
+
+/**
+ * Pop root object.
+ */
+void qcgc_pop_root(void);
+
+/**
+ * Write barrier. Has to be called whenever a reference to another object is
+ * updated.
+ *
+ * @param	object	Object that is updated
+ */
+void qcgc_write(object_t *object);
 
 /**
  * Run garbage collection.
@@ -62,28 +53,7 @@ object_t *qcgc_allocate(size_t size);
 void qcgc_collect(void);
 
 /**
- * Return color of object.
- *
- * @returs The color of the object, according to the mark algorithm.
- */
-mark_color_t qcgc_get_mark_color(object_t *object);
-
-/**
- * Add object to shadow stack
- *
- * @param	object	The object to push
- */
-void qcgc_shadowstack_push(object_t *object);
-
-/**
- * Pop object from shadow stack
- *
- * @return	Top element of the shadowstack
- */
-object_t *qcgc_shadowstack_pop(void);
-
-/**
- * Weakref registration
+ * Weakref registration.
  *
  * @param	weakrefobj	Pointer to the weakref itself
  * @param	target		Doublepointer to referenced object.
@@ -94,8 +64,8 @@ void qcgc_register_weakref(object_t *weakrefobj, object_t **target);
 /**
  * Tracing function.
  *
- * This function traces an object, i.e. calls visit on every object referenced
- * by the given object. Has to be provided by the library user.
+ * This used provided function has to call visit on every object the given
+ * argument references.
  *
  * @param	object	The object to trace
  * @param	visit	The function to be called on the referenced objects

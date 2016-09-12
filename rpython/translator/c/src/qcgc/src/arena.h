@@ -100,9 +100,9 @@ bool qcgc_arena_get_bitmap_entry(uint8_t *bitmap, size_t index);
  *
  * @param	bitmap	Bitmap
  * @param	index	Index of cell
- * @param	value	true to set entry, false to reset entry
+ * @param	value	1 to set entry, 0 to reset entry
  */
-void qcgc_arena_set_bitmap_entry(uint8_t *bitmap, size_t index, bool value);
+void qcgc_arena_set_bitmap_entry(uint8_t *bitmap, size_t index, uint8_t value);
 
 /**
  * Get blocktype.
@@ -110,7 +110,7 @@ void qcgc_arena_set_bitmap_entry(uint8_t *bitmap, size_t index, bool value);
  * @param	ptr		Pointer to cell for which you want to know the blocktype
  * @return	Blocktype
  */
-blocktype_t qcgc_arena_get_blocktype(cell_t *ptr);
+QCGC_STATIC QCGC_INLINE blocktype_t qcgc_arena_get_blocktype(cell_t *ptr);
 
 /**
  * Set blocktype.
@@ -118,7 +118,7 @@ blocktype_t qcgc_arena_get_blocktype(cell_t *ptr);
  * @param	ptr		Pointer to cell for which you want to set the blocktype
  * @param	type	Blocktype that should be set
  */
-void qcgc_arena_set_blocktype(cell_t *ptr, blocktype_t type);
+QCGC_STATIC QCGC_INLINE void qcgc_arena_set_blocktype(cell_t *ptr, blocktype_t type);
 
 /**
  * Mark ptr as allocated area with given size.
@@ -126,7 +126,7 @@ void qcgc_arena_set_blocktype(cell_t *ptr, blocktype_t type);
  * @param	ptr		Pointer to first cell of area
  * @param	cells	Size in cells
  */
-void qcgc_arena_mark_allocated(cell_t *ptr, size_t cells);
+QCGC_STATIC void qcgc_arena_mark_allocated(cell_t *ptr, size_t cells);
 
 /**
  * Mark cell ptr point to as free (no coalescing).

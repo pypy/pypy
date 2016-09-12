@@ -946,10 +946,10 @@ class FunctionCodeGenerator(object):
 
     def OP_QCGC_PUSH_ROOT(self, op):
         obj = self.expr(op.args[0])
-        return 'qcgc_shadowstack_push((object_t *) %s);' % (obj,)
+        return 'qcgc_push_root((object_t *) %s);' % (obj,)
 
     def OP_QCGC_POP_ROOT(self, op):
-        return 'qcgc_shadowstack_pop();'
+        return 'qcgc_pop_root();'
 
     def OP_QCGC_ALLOCATE(self, op):
         # XXX: SET typeid
@@ -967,4 +967,4 @@ class FunctionCodeGenerator(object):
     def OP_QCGC_REGISTER_WEAKREF(self, op):
         weakref = self.expr(op.args[0])
         fieldaddr = self.expr(op.args[1])
-        return 'qcgc_register_weakref(%s, %s);' % (weakref, fieldaddr)
+        return 'qcgc_register_weakref((object_t *)%s, (object_t **)%s);' % (weakref, fieldaddr)
