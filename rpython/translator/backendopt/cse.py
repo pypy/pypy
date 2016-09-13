@@ -8,6 +8,7 @@ from rpython.translator.backendopt import removenoops
 from rpython.translator import simplify
 from rpython.translator.backendopt import ssa, constfold
 from rpython.translator.backendopt.writeanalyze import WriteAnalyzer
+from rpython.tool.algo import unionfind
 
 from rpython.translator.backendopt.support import log
 
@@ -31,29 +32,28 @@ def can_fold(op):
     return getattr(llop, op.opname).canfold
 
 class Cache(object):
-    def __init__(self, variable_families, analyzer, purecache=None, heapcache=None):
+    def __init__(self, variable_families, analyzer, new_unions=None,
+                 purecache=None, heapcache=None):
         if purecache is None:
             purecache = {}
         if heapcache is None:
             heapcache = {}
+        if new_unions is None:
+            new_unions = unionfind.UnionFind()
         self.purecache = purecache
         self.heapcache = heapcache
         self.variable_families = variable_families
         self.analyzer = analyzer
-        self.new_unions = {} # mapping var from this block -> older var
+        self.new_unions = new_unions
 
     def copy(self):
         return Cache(
-                self.variable_families, self.analyzer,
+                self.variable_families, self.analyzer, self.new_unions,
                 self.purecache.copy(),
                 self.heapcache.copy())
 
     def _var_rep(self, var):
-        while True:
-            newvar = self.new_unions.get(var, None)
-            if newvar is None:
-                break
-            var = newvar # can take several dereferences
+        var = self.new_unions.find_rep(var)
         return self.variable_families.find_rep(var)
 
     def _key_with_replacement(self, key, index, var):
@@ -180,7 +180,8 @@ class Cache(object):
                 newres = self._merge_results(tuples, results, backedges)
                 heapcache[key] = newres
         return Cache(
-                self.variable_families, self.analyzer, purecache, heapcache)
+                self.variable_families, self.analyzer, self.new_unions,
+                purecache, heapcache)
 
     def _clear_heapcache_for(self, concretetype, fieldname):
         for k in self.heapcache.keys():
@@ -230,16 +231,16 @@ class Cache(object):
                     op.opname = 'same_as'
                     op.args = [res]
                     added_same_as += 1
-                    self.new_unions[op.result] = res
+                    self.new_unions.union(res, op.result)
                 else:
                     self.heapcache[tup] = op.result
                 continue
             if op.opname == 'setfield':
                 concretetype = op.args[0].concretetype
                 target = representative_arg(op.args[0])
-                field = op.args[1].value
-                self._clear_heapcache_for(concretetype, field)
-                self.heapcache[target, concretetype, field] = op.args[2]
+                fieldname = op.args[1].value
+                self._clear_heapcache_for(concretetype, fieldname)
+                self.heapcache[target, concretetype, fieldname] = op.args[2]
                 continue
             if has_side_effects(op):
                 self._clear_heapcache_for_effects_of_op(op)
@@ -255,14 +256,14 @@ class Cache(object):
                 op.opname = 'same_as'
                 op.args = [res]
                 added_same_as += 1
-                self.new_unions[op.result] = res
+                self.new_unions.union(res, op.result)
             else:
                 self.purecache[key] = op.result
             if op.opname == "cast_pointer":
                 # cast_pointer is a pretty strange operation! it introduces
                 # more aliases, that confuse the CSE pass. Therefore we unify
                 # the two variables in new_unions, to improve the folding.
-                self.new_unions[op.result] = op.args[0]
+                self.new_unions.union(op.args[0], op.result)
         return added_same_as
 
 def _merge(tuples, variable_families, analyzer, loop_blocks, backedges):
@@ -311,7 +312,7 @@ class CSE(object):
             current_backedges = [link for link in entrymap[block]
                                     if link in backedges]
 
-            if block.operations:
+            if not block.is_final_block():
                 cache = _merge(
                     caches_to_merge[block], variable_families, self.analyzer,
                     loops.get(block, None), current_backedges)

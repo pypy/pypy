@@ -419,13 +419,16 @@ class TestStoreSink(object):
                 if i > 20:
                     a = C()
                     a.x = 1
+                    a.__class__
                 else:
                     a = B()
                     a.x = 2
+                    a.__class__
                 # here a is a subclass of B
                 res += a.x
             else:
                 a = A()
+                a.__class__
             res += a.__class__ is A
             return res
         self.check(f, [int], getfield=0)
@@ -515,5 +518,5 @@ def test_find_new_res():
     c1 = fakeconst(1)
     res, needs_adding = c._find_new_res([c1, c1])
     assert not needs_adding
-    assert res is c1
+    assert res == c1
 
