@@ -15,7 +15,7 @@ class Module(MixedModule):
         if space.config.translating:
             del self.__class__.interpleveldefs['pypy_getudir']
         super(Module, self).__init__(space, w_name)
-        self.recursionlimit = 100
+        self.recursionlimit = 1000
         self.w_default_encoder = None
         self.defaultencoding = "ascii"
         self.filesystemencoding = None

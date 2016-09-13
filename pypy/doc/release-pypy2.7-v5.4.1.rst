@@ -5,26 +5,29 @@ PyPy 5.4.1
 We have released a bugfix for PyPy2.7-v5.4.0, released last week,
 due to the following issues:
 
-  * Update list of contributors in documentation and LICENSE file, 
-    this was unfortunately left out of 5.4.0. My apoligies to the new
+  * Update list of contributors in documentation and LICENSE file,
+    this was unfortunately left out of 5.4.0. My apologies to the new
     contributors
 
-  * Allow tests run with `-A` to find `libm.so` even if it is a script not a
+  * Allow tests run with ``-A`` to find ``libm.so`` even if it is a script not a
     dynamically loadable file
 
-  * Bump `sys.setrecursionlimit()` when translating PyPy, for translating with CPython
+  * Bump ``sys.setrecursionlimit()`` when translating PyPy, for translating with CPython
 
-  * Tweak a float comparison with 0 in `backendopt.inline` to avoid rounding errors
+  * Tweak a float comparison with 0 in ``backendopt.inline`` to avoid rounding errors
 
-  * Fix for an issue where os.access() accepted a float for mode
+  * Fix for an issue for translating the sandbox
 
-  * Fix for and issue where `unicode.decode('utf8', 'custom_replace')` messed up
+  * Fix for and issue where ``unicode.decode('utf8', 'custom_replace')`` messed up
     the last byte of a unicode string sometimes
 
-  * Update built-in cffi_ to the soon-to-be-released 1.8.1 version
+  * Update built-in cffi_ to version 1.8.1
 
   * Explicitly detect that we found as-yet-unsupported OpenSSL 1.1, and crash
-    translation with a message asking for help porting it 
+    translation with a message asking for help porting it
+
+  * Fix a regression where a PyBytesObject was forced (converted to a RPython
+    object) when not required, reported as issue #2395
 
 Thanks to those who reported the issues.
 

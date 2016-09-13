@@ -392,31 +392,39 @@ def get_extobj(space):
         extobj_w = space.newlist([space.wrap(8192), space.wrap(0), space.w_None])
         return extobj_w
 
+
+_reflected_ops = {
+        'add': 'radd',
+        'subtract': 'rsub',
+        'multiply': 'rmul',
+        'divide': 'rdiv',
+        'true_divide': 'rtruediv',
+        'floor_divide': 'rfloordiv',
+        'remainder': 'rmod',
+        'power': 'rpow',
+        'left_shift': 'rlshift',
+        'right_shift': 'rrshift',
+        'bitwise_and': 'rand',
+        'bitwise_xor': 'rxor',
+        'bitwise_or': 'ror',
+        #/* Comparisons */
+        'equal': 'eq',
+        'not_equal': 'ne',
+        'greater': 'lt',
+        'less': 'gt',
+        'greater_equal': 'le',
+        'less_equal': 'ge',
+}
+
+for key, value in _reflected_ops.items():
+    _reflected_ops[key] = "__" + value + "__"
+del key
+del value
+
 def _has_reflected_op(space, w_obj, op):
-    refops ={ 'add': 'radd',
-            'subtract': 'rsub',
-            'multiply': 'rmul',
-            'divide': 'rdiv',
-            'true_divide': 'rtruediv',
-            'floor_divide': 'rfloordiv',
-            'remainder': 'rmod',
-            'power': 'rpow',
-            'left_shift': 'rlshift',
-            'right_shift': 'rrshift',
-            'bitwise_and': 'rand',
-            'bitwise_xor': 'rxor',
-            'bitwise_or': 'ror',
-            #/* Comparisons */
-            'equal': 'eq',
-            'not_equal': 'ne',
-            'greater': 'lt',
-            'less': 'gt',
-            'greater_equal': 'le',
-            'less_equal': 'ge',
-        }
-    if op not in refops:
+    if op not in _reflected_ops:
         return False
-    return space.getattr(w_obj, space.wrap('__' + refops[op] + '__')) is not None
+    return space.getattr(w_obj, space.wrap(_reflected_ops[op])) is not None
 
 def safe_casting_mode(casting):
     assert casting is not None

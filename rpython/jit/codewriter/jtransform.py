@@ -364,7 +364,7 @@ class Transformer(object):
         return getattr(self, 'handle_%s_indirect_call' % kind)(op)
 
     def rewrite_call(self, op, namebase, initialargs, args=None,
-                     calldescr=None):
+                     calldescr=None, force_ir=False):
         """Turn 'i0 = direct_call(fn, i1, i2, ref1, ref2)'
            into 'i0 = xxx_call_ir_i(fn, descr, [i1,i2], [ref1,ref2])'.
            The name is one of '{residual,direct}_call_{r,ir,irf}_{i,r,f,v}'."""
@@ -374,8 +374,9 @@ class Transformer(object):
         lst_i, lst_r, lst_f = self.make_three_lists(args)
         reskind = getkind(op.result.concretetype)[0]
         if lst_f or reskind == 'f': kinds = 'irf'
-        elif lst_i: kinds = 'ir'
+        elif lst_i or force_ir: kinds = 'ir'
         else: kinds = 'r'
+        if force_ir: assert kinds == 'ir'    # no 'f'
         sublists = []
         if 'i' in kinds: sublists.append(lst_i)
         if 'r' in kinds: sublists.append(lst_r)
@@ -1577,7 +1578,7 @@ class Transformer(object):
         assert not calldescr.get_extra_info().check_forces_virtual_or_virtualizable()
         op1 = self.rewrite_call(op, 'conditional_call',
                                 op.args[:2], args=op.args[2:],
-                                calldescr=calldescr)
+                                calldescr=calldescr, force_ir=True)
         if self.callcontrol.calldescr_canraise(calldescr):
             op1 = [op1, SpaceOperation('-live-', [], None)]
         return op1

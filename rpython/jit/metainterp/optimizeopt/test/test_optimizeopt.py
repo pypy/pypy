@@ -7592,7 +7592,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [i0]
         p1 = new_with_vtable(descr=nodesize)
-        cond_call(1, 123, p1, descr=clear_vable)
+        cond_call(i0, 123, p1, descr=clear_vable)
         jump(i0)
         """
         expected = """
