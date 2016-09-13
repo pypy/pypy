@@ -33,10 +33,10 @@ struct qcgc_state {
 	size_t gray_stack_size;
 	gc_phase_t phase;
 
-	size_t bytes_since_collection;
 	size_t bytes_since_incmark;
-	size_t major_collection_threshold;
+	size_t incmark_since_sweep;
 	size_t incmark_threshold;
+	size_t incmark_to_sweep;
 
 	size_t free_cells;			// Overall amount of free cells without huge
 								// blocks and free areans. Valid right after sweep

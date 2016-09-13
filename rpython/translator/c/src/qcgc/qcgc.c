@@ -32,18 +32,18 @@ void qcgc_initialize(void) {
 	qcgc_state.gp_gray_stack = qcgc_gray_stack_create(16); // XXX
 	qcgc_state.gray_stack_size = 0;
 	qcgc_state.phase = GC_PAUSE;
-	qcgc_state.bytes_since_collection = 0;
 	qcgc_state.bytes_since_incmark = 0;
+	qcgc_state.incmark_since_sweep = 0;
 	qcgc_state.free_cells = 0;
 	qcgc_state.largest_free_block = 0;
 	qcgc_allocator_initialize();
 	qcgc_hbtable_initialize();
 	qcgc_event_logger_initialize();
 
-	env_or_fallback(qcgc_state.major_collection_threshold,
-			"QCGC_MAJOR_COLLECTION", QCGC_MAJOR_COLLECTION_THRESHOLD);
 	env_or_fallback(qcgc_state.incmark_threshold,
 			"QCGC_INCMARK", QCGC_INCMARK_THRESHOLD);
+	env_or_fallback(qcgc_state.incmark_to_sweep,
+			"QCGC_INCMARK_TO_SWEEP", QCGC_INCMARK_TO_SWEEP);
 
 	setup_signal_handler();
 }
@@ -65,15 +65,18 @@ object_t *qcgc_allocate(size_t size) {
 #endif
 	object_t *result;
 
-	if (qcgc_state.bytes_since_collection >
-			qcgc_state.major_collection_threshold) {
-		qcgc_collect();
-	}
-	if (qcgc_state.bytes_since_incmark > qcgc_state.incmark_threshold) {
-		qcgc_incmark();
+	if (UNLIKELY(qcgc_state.bytes_since_incmark >
+				qcgc_state.incmark_threshold)) {
+		if (qcgc_state.incmark_since_sweep == qcgc_state.incmark_to_sweep) {
+			qcgc_collect();
+		} else {
+			qcgc_incmark();
+			qcgc_state.incmark_since_sweep++;
+		}
+		
 	}
 
-	if (size <= 1<<QCGC_LARGE_ALLOC_THRESHOLD_EXP) {
+	if (LIKELY(size <= 1<<QCGC_LARGE_ALLOC_THRESHOLD_EXP)) {
 		// Use bump / fit allocator
 		//if (qcgc_allocator_state.use_bump_allocator) {
 		if (true) {
@@ -92,7 +95,6 @@ object_t *qcgc_allocate(size_t size) {
 	}
 
 	// XXX: Should we use cells instead of bytes?
-	qcgc_state.bytes_since_collection += size;
 	qcgc_state.bytes_since_incmark += size;
 
 
@@ -106,7 +108,7 @@ object_t *qcgc_allocate(size_t size) {
 void qcgc_collect(void) {
 	qcgc_mark();
 	qcgc_sweep();
-	qcgc_state.bytes_since_collection = 0;
+	qcgc_state.incmark_since_sweep = 0;
 }
 
 void qcgc_write(object_t *object) {
