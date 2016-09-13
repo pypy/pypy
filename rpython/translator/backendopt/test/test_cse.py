@@ -379,13 +379,18 @@ class TestStoreSink(object):
             _immutable_fields_ = ['a']
             def __init__(self, a):
                 self.a = a
+        class B(object):
+            pass
         a1 = A(5)
         a2 = A(8)
 
         def read(i):
+            b = B()
             if i:
-                return a1.a
-            return a2.a
+                b.a = a1
+                return b.a.a
+            b.a = a2
+            return b.a.a
         self.check(read, [int], getfield=0)
 
         # not immutable
@@ -429,7 +434,7 @@ class TestStoreSink(object):
         class Cls(object):
             pass
         class Sub(Cls):
-            pass
+            _immutable_fields_ = ['user_overridden_class']
         cls1 = Cls()
         cls2 = Sub()
         cls2.user_overridden_class = True
@@ -455,7 +460,7 @@ class TestStoreSink(object):
                 cls = a.cls
                 assert type(cls) is Sub
                 return cls.user_overridden_class
-        self.check(f, [int], getfield=2)
+        self.check(f, [int], getfield=0)
 
 
 

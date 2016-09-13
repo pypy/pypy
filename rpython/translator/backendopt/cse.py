@@ -6,7 +6,7 @@ from rpython.rtyper.lltypesystem import lltype
 from rpython.flowspace.model import mkentrymap, Variable, Constant
 from rpython.translator.backendopt import removenoops
 from rpython.translator import simplify
-from rpython.translator.backendopt import ssa
+from rpython.translator.backendopt import ssa, constfold
 from rpython.translator.backendopt.writeanalyze import WriteAnalyzer
 
 from rpython.translator.backendopt.support import log
@@ -224,18 +224,8 @@ class Cache(object):
                 fieldname = op.args[1].value
                 concretetype = op.args[0].concretetype
                 arg0 = representative_arg(op.args[0])
-                res = None
-                if isinstance(arg0, Constant):
-                    PTRTYPE = concretetype.TO
-                    if PTRTYPE._immutable_field(fieldname):
-                        # can constant-fold:
-                        FIELDTYPE = getattr(PTRTYPE, fieldname)
-                        const = lltype.cast_pointer(concretetype, arg0.value)
-                        value = getattr(const, fieldname)
-                        res = Constant(value, FIELDTYPE)
-                if res is None:
-                    tup = (arg0, op.args[0].concretetype, fieldname)
-                    res = self.heapcache.get(tup, None)
+                tup = (arg0, op.args[0].concretetype, fieldname)
+                res = self.heapcache.get(tup, None)
                 if res is not None:
                     op.opname = 'same_as'
                     op.args = [res]
@@ -342,6 +332,7 @@ class CSE(object):
         if added_same_as:
             ssa.SSA_to_SSI(graph)
             removenoops.remove_same_as(graph)
+            constfold.constant_fold_graph(graph) # make use of extra constants
         simplify.transform_dead_op_vars(graph)
         if added_same_as:
             if self.translator.config.translation.verbose:
