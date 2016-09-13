@@ -584,6 +584,11 @@ class AppTestSocket:
         s.sendto(memoryview(b''), ('localhost', 9)) # Send to discard port.
         s.close()
 
+    def test_listen_default(self):
+        import _socket
+        _socket.socket().listen()
+        assert isinstance(_socket.SOMAXCONN, int)
+
     def test_unix_socket_connect(self):
         import _socket, os
         if not hasattr(_socket, 'AF_UNIX'):

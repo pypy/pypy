@@ -3,7 +3,7 @@ from rpython.rlib import rsocket, rweaklist
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.rsocket import (
     RSocket, AF_INET, SOCK_STREAM, SocketError, SocketErrorWithErrno,
-    RSocketError
+    RSocketError, SOMAXCONN
 )
 from rpython.rtyper.lltypesystem import lltype, rffi
 
@@ -359,13 +359,16 @@ class W_Socket(W_Root):
         return space.wrap(timeout)
 
     @unwrap_spec(backlog="c_int")
-    def listen_w(self, space, backlog):
+    def listen_w(self, space, backlog=min(SOMAXCONN, 128)):
         """listen(backlog)
 
         Enable a server to accept connections.  The backlog argument must be at
-        least 1; it specifies the number of unaccepted connection that the system
-        will allow before refusing new connections.
+        least 0 (if it is lower, it is set to 0); it specifies the number of
+        unaccepted connection that the system will allow before refusing new
+        connections. If not specified, a default reasonable value is chosen.
         """
+        if backlog < 0:
+            backlog = 0
         try:
             self.sock.listen(backlog)
         except SocketError as e:

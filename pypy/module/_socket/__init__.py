@@ -1,4 +1,6 @@
 from pypy.interpreter.mixedmodule import MixedModule
+from rpython.rlib.rsocket import SOMAXCONN
+
 
 class Module(MixedModule):
 
@@ -12,6 +14,7 @@ class Module(MixedModule):
         'herror'    :  'interp_socket.get_error(space, "herror")',
         'gaierror'  :  'interp_socket.get_error(space, "gaierror")',
         'timeout'   :  'interp_socket.get_error(space, "timeout")',
+        'SOMAXCONN' :  'space.wrap(%d)' % SOMAXCONN,
     }
 
     def startup(self, space):
