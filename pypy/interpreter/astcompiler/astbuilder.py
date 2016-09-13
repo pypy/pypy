@@ -1194,9 +1194,19 @@ class ASTBuilder(object):
         first_child = atom_node.get_child(0)
         first_child_type = first_child.type
         if first_child_type == tokens.NAME:
-            name = self.new_identifier(first_child.get_value())
-            return ast.Name(name, ast.Load, first_child.get_lineno(),
-                            first_child.get_column())
+            name = first_child.get_value()
+            if name == "None":
+                w_singleton = self.space.w_None
+            elif name == "True":
+                w_singleton = self.space.w_True
+            elif name == "False":
+                w_singleton = self.space.w_False
+            else:
+                name = self.new_identifier(name)
+                return ast.Name(name, ast.Load, first_child.get_lineno(),
+                                first_child.get_column())
+            return ast.NameConstant(w_singleton, first_child.get_lineno(),
+                                first_child.get_column())
         elif first_child_type == tokens.STRING:
             space = self.space
             encoding = self.compile_info.encoding

@@ -390,9 +390,21 @@ class TestASTValidator:
     def test_tuple(self):
         self._sequence(ast.Tuple)
 
+    def test_nameconstant(self):
+        node = ast.NameConstant("True", 0, 0)
+        self.expr(node, "singleton must be True, False, or None")
+
     def test_stdlib_validates(self):
         stdlib = os.path.join(os.path.dirname(ast.__file__), '../../../lib-python/3')
-        tests = ["os.py", "test/test_grammar.py", "test/test_unpack_ex.py"]
+        if 1:    # enable manually for a complete test
+            tests = [fn for fn in os.listdir(stdlib) if fn.endswith('.py')]
+            tests += ['test/'+fn for fn in os.listdir(stdlib+'/test')
+                                 if fn.endswith('.py')
+                                    and not fn.startswith('bad')]
+            tests.sort()
+        else:
+            tests = ["os.py", "test/test_grammar.py", "test/test_unpack_ex.py"]
+        #
         for module in tests:
             fn = os.path.join(stdlib, module)
             print 'compiling', fn

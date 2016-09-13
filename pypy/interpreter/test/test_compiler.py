@@ -689,10 +689,11 @@ def test():
             except NameError:
                 pass
         '''
-        code = self.compiler.compile(snippet, '<tmp>', 'exec', 0)
+        e = py.test.raises(OperationError, self.compiler.compile,
+                snippet, '<tmp>', 'exec', 0)
+        ex = e.value
         space = self.space
-        w_d = space.newdict()
-        space.exec_(code, w_d, w_d)
+        assert ex.match(space, space.w_SyntaxError)
 
     def test_from_future_import(self):
         source = """from __future__ import with_statement

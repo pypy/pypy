@@ -1,6 +1,6 @@
 """A visitor to validate an AST object."""
 
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.astcompiler import ast
 from rpython.tool.pairtype import pair, pairtype
 from pypy.interpreter.baseobjspace import W_Root
@@ -440,3 +440,10 @@ class AstValidator(ast.ASTVisitor):
 
     def visit_Index(self, node):
         self._validate_expr(node.value)
+
+    def visit_NameConstant(self, node):
+        space = self.space
+        if (node.single is not space.w_None and
+            node.single is not space.w_True and
+            node.single is not space.w_False):
+            raise ValidationError("singleton must be True, False, or None")

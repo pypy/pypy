@@ -22,15 +22,19 @@ class __extend__(ast.AST):
 class __extend__(ast.expr):
 
     constant = False
+    _description = None
 
     def as_node_list(self, space):
         return None
 
     def set_context(self, ctx):
+        d = self._description
+        if d is None:
+            d = "%r" % (self,)
         if ctx == ast.Del:
-            msg = "can't delete %s" % (self._description,)
+            msg = "can't delete %s" % (d,)
         else:
-            msg = "can't assign to %s" % (self._description,)
+            msg = "can't assign to %s" % (d,)
         raise UnacceptableExpressionContext(self, msg)
 
 
@@ -173,4 +177,10 @@ class __extend__(ast.Num):
 class __extend__(ast.Ellipsis):
 
     _description = "Ellipsis"
+    constant = True
+
+
+class __extend__(ast.NameConstant):
+
+    _description = "name constant"
     constant = True

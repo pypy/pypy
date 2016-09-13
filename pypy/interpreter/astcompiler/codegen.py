@@ -1271,6 +1271,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.update_position(name.lineno)
         self.name_op(name.id, name.ctx)
 
+    def visit_NameConstant(self, node):
+        self.update_position(node.lineno)
+        self.load_const(node.single)
+
     def visit_keyword(self, keyword):
         if keyword.arg is not None:
             self.load_const(self.space.wrap(keyword.arg.decode('utf-8')))
