@@ -3,7 +3,8 @@ import py
 from rpython.jit.metainterp.optimizeopt.virtualstate import VirtualStateInfo,\
      VStructStateInfo, LEVEL_CONSTANT,\
      VArrayStateInfo, not_virtual, VirtualState,\
-     GenerateGuardState, VirtualStatesCantMatch, VArrayStructStateInfo
+     GenerateGuardState, VirtualStatesCantMatch, VArrayStructStateInfo,\
+     VirtualStateConstructor
 from rpython.jit.metainterp.history import ConstInt, ConstPtr, TargetToken
 from rpython.jit.metainterp.resoperation import InputArgInt, InputArgRef,\
      InputArgFloat
@@ -26,6 +27,7 @@ class FakeOptimizer(Optimizer):
     def __init__(self, cpu):
         self.cpu = cpu
         self.optearlyforce = None
+        self.optimizer = Optimizer
 
 class BaseTestGenerateGuards(BaseTest):
     def setup_class(self):
@@ -86,6 +88,33 @@ class BaseTestGenerateGuards(BaseTest):
         info0.level = LEVEL_CONSTANT
         vs = VirtualState([info0])
         assert vs.make_inputargs(args, optimizer) == []
+
+    def test_make_inputargs_2(self):
+        # Ensure that make_inputargs properly errors with VirtualStatesCantMatch
+        # when the type information for a virtual field conflicts. In practice the
+        # expected and given field always share a common subclass.
+        # This check is needed as not all paths to make_inputargs in unroll.py
+        # are guarded by a call to generate_guards.
+        optimizer = FakeOptimizer(self.cpu)
+        classbox1 = self.cpu.ts.cls_of_box(InputArgRef(self.nodeaddr))
+        innervalue1 = info.InstancePtrInfo(known_class=classbox1, is_virtual=True, descr=self.valuedescr.get_parent_descr())
+        for field in self.valuedescr.get_parent_descr().get_all_fielddescrs():
+            innervalue1.setfield(field, None, ConstInt(42))
+        classbox2 = self.cpu.ts.cls_of_box(InputArgRef(self.myptr3))
+        innervalue2 = info.InstancePtrInfo(known_class=classbox2, is_virtual=True, descr=self.valuedescr3.get_parent_descr())
+        for field in self.valuedescr3.get_parent_descr().get_all_fielddescrs():
+            innervalue2.setfield(field, None, ConstInt(42))
+
+        nodebox1 = InputArgRef(self.nodeaddr)
+        nodebox2 = InputArgRef(self.myptr3)
+        nodebox1.set_forwarded(innervalue1)
+        nodebox2.set_forwarded(innervalue2)
+
+        constr = VirtualStateConstructor(optimizer)
+        vs = constr.get_virtual_state([nodebox1])
+
+        with py.test.raises(VirtualStatesCantMatch):
+            args = vs.make_inputargs([nodebox2], optimizer, force_boxes=True)
 
     def test_position_generalization(self):
         def postest(info1, info2):

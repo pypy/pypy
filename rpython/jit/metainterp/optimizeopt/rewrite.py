@@ -324,40 +324,24 @@ class OptRewrite(Optimization):
             return
         self.emit_operation(op)
 
-    def _check_subclass(self, vtable1, vtable2):
-        # checks that vtable1 is a subclass of vtable2
-        known_class = llmemory.cast_adr_to_ptr(
-            llmemory.cast_int_to_adr(vtable1),
-            rclass.CLASSTYPE)
-        expected_class = llmemory.cast_adr_to_ptr(
-            llmemory.cast_int_to_adr(vtable2),
-            rclass.CLASSTYPE)
-        # note: the test is for a range including 'max', but 'max'
-        # should never be used for actual classes.  Including it makes
-        # it easier to pass artificial tests.
-        if (expected_class.subclassrange_min
-                <= known_class.subclassrange_min
-                <= expected_class.subclassrange_max):
-            return True
-        return False
-
     def optimize_GUARD_SUBCLASS(self, op):
         info = self.getptrinfo(op.getarg(0))
+        optimizer = self.optimizer
         if info and info.is_constant():
             c = self.get_box_replacement(op.getarg(0))
-            vtable = self.optimizer.cpu.ts.cls_of_box(c).getint()
-            if self._check_subclass(vtable, op.getarg(1).getint()):
+            vtable = optimizer.cpu.ts.cls_of_box(c).getint()
+            if optimizer._check_subclass(vtable, op.getarg(1).getint()):
                 return
             raise InvalidLoop("GUARD_SUBCLASS(const) proven to always fail")
         if info is not None and info.is_about_object():
-            known_class = info.get_known_class(self.optimizer.cpu)
+            known_class = info.get_known_class(optimizer.cpu)
             if known_class:
-                if self._check_subclass(known_class.getint(),
-                                        op.getarg(1).getint()):
+                if optimizer._check_subclass(known_class.getint(),
+                                             op.getarg(1).getint()):
                     return
             elif info.get_descr() is not None:
-                if self._check_subclass(info.get_descr().get_vtable(),
-                                        op.getarg(1).getint()):
+                if optimizer._check_subclass(info.get_descr().get_vtable(),
+                                             op.getarg(1).getint()):
                     return
         self.emit_operation(op)
 
