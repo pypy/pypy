@@ -42,3 +42,11 @@ def factorial(x):
 
     res, _, shift = _fac1(x)
     return res << shift
+
+def gcd(x, y):
+    """greatest common divisor of x and y"""
+    x = abs(x)
+    y = abs(y)
+    while x > 0:
+        x, y = y % x, x
+    return y

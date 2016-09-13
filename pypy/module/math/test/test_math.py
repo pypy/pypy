@@ -363,3 +363,9 @@ class AppTestMath:
         #
         raises(TypeError, math.isclose, 0, 1, rel_tol=None)
         raises(TypeError, math.isclose, 0, 1, abs_tol=None)
+
+    def test_gcd(self):
+        import math
+        assert math.gcd(-4, -10) == 2
+        assert math.gcd(0, -10) == 10
+        assert math.gcd(0, 0) == 0
