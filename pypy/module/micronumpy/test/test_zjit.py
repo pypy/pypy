@@ -16,7 +16,7 @@ from pypy.module.micronumpy.base import W_NDimArray
 from rpython.jit.backend.detect_cpu import getcpuclass
 
 CPU = getcpuclass()
-if not CPU.vector_extension:
+if not CPU.vector_ext:
     py.test.skip("this cpu %s has no implemented vector backend" % CPU)
 
 def get_profiler():
@@ -29,7 +29,7 @@ class TestNumpyJit(LLJitMixin):
     interp = None
 
     def setup_method(self, method):
-        if not self.CPUClass.vector_extension:
+        if not self.CPUClass.vector_ext:
             py.test.skip("needs vector extension to run (for now)")
 
     def assert_float_equal(self, f1, f2, delta=0.0001):

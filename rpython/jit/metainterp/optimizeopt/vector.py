@@ -58,7 +58,6 @@ class VectorLoop(object):
             op.set_forwarded(None)
 
     def finaloplist(self, jitcell_token=None, reset_label_token=True, label=False):
-        oplist = []
         if jitcell_token:
             if reset_label_token:
                 token = TargetToken(jitcell_token)
@@ -76,6 +75,7 @@ class VectorLoop(object):
                 self.jump.setdescr(token)
             if reset_label_token:
                 self.jump.setdescr(token)
+        oplist = []
         if self.prefix_label:
             oplist = self.prefix + [self.prefix_label]
         elif self.prefix:
@@ -133,7 +133,7 @@ def optimize_vector(trace, metainterp_sd, jitdriver_sd, warmstate,
         #
         start = time.clock()
         opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, warmstate.vec_cost)
-        opt.run_optimization(metainterp_sd, info, loop)
+        oplist = opt.run_optimization(metainterp_sd, info, loop, jitcell_token, user_code)
         end = time.clock()
         #
         metainterp_sd.profiler.count(Counters.OPT_VECTORIZED)
@@ -144,7 +144,7 @@ def optimize_vector(trace, metainterp_sd, jitdriver_sd, warmstate,
         debug_stop("vec-opt-loop")
         #
         info.label_op = loop.label
-        return info, loop.finaloplist(jitcell_token=jitcell_token, reset_label_token=False)
+        return info, oplist
     except NotAVectorizeableLoop:
         debug_stop("vec-opt-loop")
         # vectorization is not possible
@@ -221,7 +221,7 @@ class VectorizingOptimizer(Optimizer):
         self.smallest_type_bytes = 0
         self.orig_label_args = None
 
-    def run_optimization(self, metainterp_sd, info, loop):
+    def run_optimization(self, metainterp_sd, info, loop, jitcell_token, user_code):
         self.orig_label_args = loop.label.getarglist_copy()
         self.linear_find_smallest_type(loop)
         byte_count = self.smallest_type_bytes
@@ -260,14 +260,15 @@ class VectorizingOptimizer(Optimizer):
         gso = GuardStrengthenOpt(graph.index_vars)
         gso.propagate_all_forward(info, loop, user_code)
 
-        # re-schedule the trace -> removes index operations
+        # re-schedule the trace -> removes many pure operations
         graph = DependencyGraph(loop)
         costmodel = GenericCostModel(self.cpu, self.cost_threshold)
-        state = ScheduleState(self.cpu, graph)
+        state = SchedulerState(self.cpu, graph)
         state.prepare()
-        scheduler = Scheduler()
-        scheduler.walk_and_emit(state)
+        Scheduler().walk_and_emit(state)
         state.post_schedule()
+
+        return loop.finaloplist(jitcell_token=jitcell_token, reset_label_token=False)
 
     def unroll_loop_iterations(self, loop, unroll_count):
         """ Unroll the loop X times. unroll_count + 1 = unroll_factor """

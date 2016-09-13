@@ -84,33 +84,14 @@ class SchedulerState(object):
         self.renamer.rename(op)
         self.oplist.append(op)
 
-
     def post_schedule(self):
         loop = self.graph.loop
-        #
         if self.delayed:
             # some operations can be delayed until the jump instruction,
             # handle them here
             self.resolve_delayed({}, self.delayed, loop.jump)
-
-        #
-        self.renamer.rename(loop.jump)
-        self.ensure_args_unpacked(loop.jump)
         loop.operations = self.oplist
-        loop.prefix = self.invariant_oplist
-        if len(self.invariant_vector_vars) + len(self.invariant_oplist) > 0:
-            # label
-            args = loop.label.getarglist_copy() + self.invariant_vector_vars
-            opnum = loop.label.getopnum()
-            op = loop.label.copy_and_change(opnum, args)
-            self.renamer.rename(op)
-            loop.prefix_label = op
-            # jump
-            args = loop.jump.getarglist_copy() + self.invariant_vector_vars
-            opnum = loop.jump.getopnum()
-            op = loop.jump.copy_and_change(opnum, args)
-            self.renamer.rename(op)
-            loop.jump = op
+        self.renamer.rename(loop.jump)
 
     def profitable(self):
         return True
@@ -754,6 +735,25 @@ class VecScheduleState(SchedulerState):
             if i >= vecinfo.count:
                 break
             self.setvector_of_box(arg, i, box)
+
+    def post_schedule(self):
+        SchedulerState.post_schedule(self)
+        loop = self.graph.loop
+        self.ensure_args_unpacked(loop.jump)
+        loop.prefix = self.invariant_oplist
+        if len(self.invariant_vector_vars) + len(self.invariant_oplist) > 0:
+            # label
+            args = loop.label.getarglist_copy() + self.invariant_vector_vars
+            opnum = loop.label.getopnum()
+            op = loop.label.copy_and_change(opnum, args)
+            self.renamer.rename(op)
+            loop.prefix_label = op
+            # jump
+            args = loop.jump.getarglist_copy() + self.invariant_vector_vars
+            opnum = loop.jump.getopnum()
+            op = loop.jump.copy_and_change(opnum, args)
+            self.renamer.rename(op)
+            loop.jump = op
 
 class Pack(object):
     """ A pack is a set of n statements that are:

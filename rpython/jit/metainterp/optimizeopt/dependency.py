@@ -553,14 +553,15 @@ class DependencyGraph(object):
     """
     def __init__(self, loop):
         self.loop = loop
-        self.label = Node(loop.label, 0)
+        label = loop.prefix_label or loop.label
+        self.label = Node(label, 0)
         self.nodes = [ Node(op,0) for op in loop.operations if not rop.is_jit_debug(op.opnum) ]
         for i,node in enumerate(self.nodes):
             node.opidx = i+1
         self.inodes = [] # imaginary nodes
         self.jump = Node(loop.jump, len(self.nodes)+1)
         self.invariant_vars = {}
-        self.update_invariant_vars()
+        self.update_invariant_vars(label)
         self.memory_refs = {}
         self.schedulable_nodes = []
         self.index_vars = {}
@@ -576,8 +577,9 @@ class DependencyGraph(object):
         self.inodes.append(node)
         return node
 
-    def update_invariant_vars(self):
-        label_op = self.label.getoperation()
+    def update_invariant_vars(self, label_op=None):
+        if not label_op:
+            label_op = self.label.getoperation()
         jump_op = self.jump.getoperation()
         assert label_op.numargs() == jump_op.numargs()
         for i in range(label_op.numargs()):
