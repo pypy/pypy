@@ -78,7 +78,21 @@ class W_UnicodeObject(W_Root):
         return self._value
 
     def identifier_w(self, space):
-        return g_identifier_w(self, space)
+        try:
+            # call the elidable function, with a jit.call_shortcut in case
+            # self._utf8 is already computed
+            identifier = g_identifier_w(self, space)
+        except UnicodeEncodeError:
+            # bah, this is just to get an official app-level
+            # UnicodeEncodeError
+            u = self._value
+            eh = unicodehelper.rpy_encode_error_handler()
+            try:
+                identifier = unicode_encode_utf_8(u, len(u), None,
+                                                  errorhandler=eh)
+            except unicodehelper.RUnicodeEncodeError as ue:
+                raise wrap_encode_error(space, ue)
+        return identifier
 
     def listview_unicode(self):
         return _create_list_from_unicode(self._value)
@@ -1301,13 +1315,7 @@ def g_identifier_w(self, space):
     identifier = self._utf8
     if identifier is not None:
         return identifier
-    u = self._value
-    eh = unicodehelper.rpy_encode_error_handler()
-    try:
-        identifier = unicode_encode_utf_8(u, len(u), None,
-                                          errorhandler=eh)
-    except unicodehelper.RUnicodeEncodeError as ue:
-        raise wrap_encode_error(space, ue)
+    identifier = self._value.encode('utf-8')
     self._utf8 = identifier
     return identifier
 
