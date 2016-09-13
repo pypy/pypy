@@ -5,7 +5,7 @@ import os
 import py, pytest
 
 from pypy import pypydir
-from pypy.interpreter import gateway
+from pypy.interpreter.gateway import unwrap_spec, interp2app
 from rpython.rtyper.lltypesystem import lltype, ll2ctypes
 from rpython.translator.gensupp import uniquemodulename
 from rpython.tool.udir import udir
@@ -18,6 +18,7 @@ from rpython.rlib import rawrefcount
 
 from .support import c_compile
 
+HERE = py.path.local(pypydir) / 'module' / 'cpyext' / 'test'
 only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_names"
 
 @api.cpython_api([], api.PyObject)
@@ -101,8 +102,7 @@ class SystemCompilationInfo(object):
             assert not PY_SSIZE_T_CLEAN
             if filename is None:
                 filename = name
-            filename = py.path.local(pypydir) / 'module' \
-                    / 'cpyext'/ 'test' / (filename + ".c")
+            filename = HERE / (filename + ".c")
             kwds = dict(source_files=[filename])
         mod = self.compile_extension_module(
             name, include_dirs=include_dirs, **kwds)
@@ -253,23 +253,6 @@ def freeze_refcnts(self):
     #state.print_refcounts()
     self.frozen_ll2callocations = set(ll2ctypes.ALLOCATED.values())
 
-class FakeSpace(object):
-    """Like TinyObjSpace, but different"""
-    def __init__(self, config):
-        self.config = config
-
-    def passthrough(self, arg):
-        return arg
-    listview = passthrough
-    str_w = passthrough
-    wrap = passthrough
-
-    def unwrap(self, args):
-        try:
-            return args.str_w(None)
-        except:
-            return args
-
 class LeakCheckingTest(object):
     """Base class for all cpyext tests."""
     spaceconfig = dict(usemodules=['cpyext', 'thread', '_rawffi', 'array',
@@ -360,9 +343,12 @@ class AppTestApi(LeakCheckingTest):
             cls.w_libc = cls.space.wrap(get_libc_name())
 
     def setup_method(self, meth):
-        freeze_refcnts(self)
+        if not self.runappdirect:
+            freeze_refcnts(self)
 
     def teardown_method(self, meth):
+        if self.runappdirect:
+            return
         self.cleanup_references(self.space)
         # XXX: like AppTestCpythonExtensionBase.teardown_method:
         # find out how to disable check_and_print_leaks() if the
@@ -388,25 +374,30 @@ class AppTestApi(LeakCheckingTest):
             skip("Windows Python >= 2.6 only")
         assert isinstance(sys.dllhandle, int)
 
+
 def _unwrap_include_dirs(space, w_include_dirs):
     if w_include_dirs is None:
         return None
     else:
         return [space.str_w(s) for s in space.listview(w_include_dirs)]
 
+def debug_collect(space):
+    rawrefcount._collect()
 
 class AppTestCpythonExtensionBase(LeakCheckingTest):
 
     def setup_class(cls):
         space = cls.space
-        space.getbuiltinmodule("cpyext")
-        # 'import os' to warm up reference counts
-        w_import = space.builtin.getdictvalue(space, '__import__')
-        space.call_function(w_import, space.wrap("os"))
-        #state = cls.space.fromcache(RefcountState) ZZZ
-        #state.non_heaptypes_w[:] = []
+        cls.w_here = space.wrap(str(HERE))
         if not cls.runappdirect:
             cls.w_runappdirect = space.wrap(cls.runappdirect)
+            space.getbuiltinmodule("cpyext")
+            # 'import os' to warm up reference counts
+            w_import = space.builtin.getdictvalue(space, '__import__')
+            space.call_function(w_import, space.wrap("os"))
+            #state = cls.space.fromcache(RefcountState) ZZZ
+            #state.non_heaptypes_w[:] = []
+            cls.w_debug_collect = space.wrap(interp2app(debug_collect))
 
     def record_imported_module(self, name):
         """
@@ -418,7 +409,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         self.imported_module_names.append(name)
 
     def setup_method(self, func):
-        @gateway.unwrap_spec(name=str)
+        @unwrap_spec(name=str)
         def compile_module(space, name,
                            w_source_files=None,
                            w_source_strings=None):
@@ -444,7 +435,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
 
             return space.wrap(pydname)
 
-        @gateway.unwrap_spec(name=str, init='str_or_None', body=str,
+        @unwrap_spec(name=str, init='str_or_None', body=str,
                      filename='str_or_None', PY_SSIZE_T_CLEAN=bool)
         def import_module(space, name, init=None, body='',
                           filename=None, w_include_dirs=None,
@@ -456,11 +447,11 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             return w_result
 
 
-        @gateway.unwrap_spec(mod=str, name=str)
+        @unwrap_spec(mod=str, name=str)
         def load_module(space, mod, name):
             return self.sys_info.load_module(mod, name)
 
-        @gateway.unwrap_spec(modname=str, prologue=str,
+        @unwrap_spec(modname=str, prologue=str,
                              more_init=str, PY_SSIZE_T_CLEAN=bool)
         def import_extension(space, modname, w_functions, prologue="",
                              w_include_dirs=None, more_init="", PY_SSIZE_T_CLEAN=False):
@@ -472,46 +463,29 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             self.record_imported_module(modname)
             return w_result
 
-        def debug_collect(space):
-            rawrefcount._collect()
-
         # A list of modules which the test caused to be imported (in
         # self.space).  These will be cleaned up automatically in teardown.
         self.imported_module_names = []
 
         if self.runappdirect:
-            fake = FakeSpace(self.space.config)
-            def interp2app(func):
-                def run(*args, **kwargs):
-                    for k in kwargs.keys():
-                        if k not in func.unwrap_spec and not k.startswith('w_'):
-                            v = kwargs.pop(k)
-                            kwargs['w_' + k] = v
-                    return func(fake, *args, **kwargs)
-                return run
-            def wrap(func):
-                return func
             self.sys_info = get_sys_info_app()
             self.compile_module = self.sys_info.compile_extension_module
             self.load_module = self.sys_info.load_module
             self.import_module = self.sys_info.import_module
             self.import_extension = self.sys_info.import_extension
         else:
-            interp2app = gateway.interp2app
             wrap = self.space.wrap
             self.sys_info = get_cpyext_info(self.space)
             self.w_compile_module = wrap(interp2app(compile_module))
             self.w_load_module = wrap(interp2app(load_module))
             self.w_import_module = wrap(interp2app(import_module))
             self.w_import_extension = wrap(interp2app(import_extension))
-        self.w_here = wrap(str(py.path.local(pypydir)) + '/module/cpyext/test/')
-        self.w_debug_collect = wrap(interp2app(debug_collect))
 
-        # create the file lock before we count allocations
-        self.space.call_method(self.space.sys.get("stdout"), "flush")
+            # create the file lock before we count allocations
+            self.space.call_method(self.space.sys.get("stdout"), "flush")
 
-        freeze_refcnts(self)
-        #self.check_and_print_leaks()
+            freeze_refcnts(self)
+            #self.check_and_print_leaks()
 
     def unimport_module(self, name):
         """
@@ -522,6 +496,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         self.space.delitem(w_modules, w_name)
 
     def teardown_method(self, func):
+        if self.runappdirect:
+            return
         for name in self.imported_module_names:
             self.unimport_module(name)
         self.cleanup_references(self.space)
@@ -656,15 +632,15 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         If `cherry.date` is an extension module which imports `apple.banana`,
         the latter is added to `sys.modules` for the `"apple.banana"` key.
         """
+        import sys, types, os
         # Build the extensions.
         banana = self.compile_module(
-            "apple.banana", source_files=[self.here + 'banana.c'])
+            "apple.banana", source_files=[os.path.join(self.here, 'banana.c')])
         date = self.compile_module(
-            "cherry.date", source_files=[self.here + 'date.c'])
+            "cherry.date", source_files=[os.path.join(self.here, 'date.c')])
 
         # Set up some package state so that the extensions can actually be
         # imported.
-        import sys, types, os
         cherry = sys.modules['cherry'] = types.ModuleType('cherry')
         cherry.__path__ = [os.path.dirname(date)]
 
