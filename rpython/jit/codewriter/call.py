@@ -250,6 +250,8 @@ class CallControl(object):
                     error = '@jit.loop_invariant'
                 if hasattr(graph.func, '_call_aroundstate_target_'):
                     error = '_call_aroundstate_target_'
+                if hasattr(graph.func, '_call_shortcut_'):
+                    error = '@jit.call_shortcut'
                 if not error:
                     continue
                 raise Exception(
