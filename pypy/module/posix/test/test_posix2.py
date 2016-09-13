@@ -1079,6 +1079,10 @@ class AppTestPosix:
         x = f.read(1)
         assert x == 'e'
 
+    if sys.platform != 'win32':
+        def test_sync(self):
+            self.posix.sync()   # does not raise
+
     def test_urandom(self):
         os = self.posix
         s = os.urandom(5)

@@ -342,6 +342,10 @@ Does not force update of metadata."""
     except OSError as e:
         raise wrap_oserror(space, e)
 
+def sync(space):
+    """Force write of everything to disk."""
+    rposix.sync()
+
 def fchdir(space, w_fd):
     """Change to the directory of the given file descriptor.  fildes must be
 opened on a directory, not a file."""

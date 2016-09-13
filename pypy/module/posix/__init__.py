@@ -193,6 +193,9 @@ corresponding Unix manual entries for more information on calls."""
     interpleveldefs['_have_functions'] = (
         'space.newlist([space.wrap(x) for x in interp_posix.have_functions])')
 
+    if not rposix._WIN32:
+        interpleveldefs['sync'] = 'interp_posix.sync'
+
     def startup(self, space):
         from pypy.module.posix import interp_posix
         interp_posix.get(space).startup(space)
