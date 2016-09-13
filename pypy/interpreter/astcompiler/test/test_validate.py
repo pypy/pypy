@@ -396,7 +396,7 @@ class TestASTValidator:
 
     def test_stdlib_validates(self):
         stdlib = os.path.join(os.path.dirname(ast.__file__), '../../../lib-python/3')
-        if 1:    # enable manually for a complete test
+        if 0:    # enable manually for a complete test
             tests = [fn for fn in os.listdir(stdlib) if fn.endswith('.py')]
             tests += ['test/'+fn for fn in os.listdir(stdlib+'/test')
                                  if fn.endswith('.py')
