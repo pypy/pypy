@@ -332,6 +332,9 @@ class OptRewrite(Optimization):
         expected_class = llmemory.cast_adr_to_ptr(
             llmemory.cast_int_to_adr(vtable2),
             rclass.CLASSTYPE)
+        # note: the test is for a range including 'max', but 'max'
+        # should never be used for actual classes.  Including it makes
+        # it easier to pass artificial tests.
         if (expected_class.subclassrange_min
                 <= known_class.subclassrange_min
                 <= expected_class.subclassrange_max):
