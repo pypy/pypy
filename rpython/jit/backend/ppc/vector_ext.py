@@ -20,7 +20,7 @@ import rpython.jit.backend.ppc.locations as l
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.jit.codewriter import longlong
-from rpython.jit.backend.ppc.detect_feature import detect_vsx
+from rpython.jit.backend.zarch.detect_feature import detect_simd_z
 from rpython.rlib.objectmodel import always_inline
 
 def not_implemented(msg):
@@ -85,7 +85,7 @@ def flush_vec_cc(asm, regalloc, condition, size, result_loc):
 
 class AltiVectorExt(VectorExt):
     def setup_once(self, asm):
-        if detect_vsx():
+        if detect_simd_z():
             self.enable(16, accum=True)
             asm.setup_once_vector()
         self._setup = True

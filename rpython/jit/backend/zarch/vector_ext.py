@@ -182,10 +182,6 @@ class VectorAssembler(object):
         elif itemsize == 8:
             self.mc.xvdivdp(resloc.value, loc0.value, loc1.value)
 
-    def emit_vec_int_mul(self, op, arglocs, regalloc):
-        raise NotImplementedError
-        pass # TODO
-
     def emit_vec_int_and(self, op, arglocs, regalloc):
         resloc, loc0, loc1, sizeloc = arglocs
         self.mc.vand(resloc.value, loc0.value, loc1.value)
