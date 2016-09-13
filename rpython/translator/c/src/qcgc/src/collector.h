@@ -4,5 +4,6 @@
 
 #include <stdbool.h>
 
-void qcgc_mark(bool incremental);
+void qcgc_incmark(void);
+void qcgc_mark(void);
 void qcgc_sweep(void);

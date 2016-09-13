@@ -70,7 +70,7 @@ object_t *qcgc_allocate(size_t size) {
 		qcgc_collect();
 	}
 	if (qcgc_state.bytes_since_incmark > qcgc_state.incmark_threshold) {
-		qcgc_mark(true);
+		qcgc_incmark();
 	}
 
 	if (size <= 1<<QCGC_LARGE_ALLOC_THRESHOLD_EXP) {
@@ -104,7 +104,7 @@ object_t *qcgc_allocate(size_t size) {
 }
 
 void qcgc_collect(void) {
-	qcgc_mark(false);
+	qcgc_mark();
 	qcgc_sweep();
 	qcgc_state.bytes_since_collection = 0;
 }

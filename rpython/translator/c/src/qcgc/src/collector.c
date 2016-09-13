@@ -9,8 +9,77 @@
 
 QCGC_STATIC QCGC_INLINE void qcgc_pop_object(object_t *object);
 QCGC_STATIC QCGC_INLINE void qcgc_push_object(object_t *object);
+QCGC_STATIC void mark_setup(bool incremental);
+QCGC_STATIC void mark_cleanup(bool incremental);
 
-void qcgc_mark(bool incremental) {
+void qcgc_mark(void) {
+	mark_setup(false);
+	
+	while (qcgc_state.gray_stack_size > 0) {
+		// General purpose gray stack (prebuilt objects and huge blocks)
+
+		while (qcgc_state.gp_gray_stack->index > 0) {
+			object_t *top = qcgc_gray_stack_top(qcgc_state.gp_gray_stack);
+			qcgc_state.gp_gray_stack = qcgc_gray_stack_pop(
+					qcgc_state.gp_gray_stack);
+			qcgc_pop_object(top);
+		}
+
+		// Arena gray stacks
+		for (size_t i = 0; i < qcgc_allocator_state.arenas->count; i++) {
+			arena_t *arena = qcgc_allocator_state.arenas->items[i];
+
+			while (arena->gray_stack->index > 0) {
+				object_t *top = qcgc_gray_stack_top(arena->gray_stack);
+				arena->gray_stack = qcgc_gray_stack_pop(arena->gray_stack);
+				qcgc_pop_object(top);
+			}
+		}
+	}
+
+	mark_cleanup(false);
+
+#if CHECKED
+	assert(qcgc_state.phase == GC_COLLECT);
+#endif
+}
+
+void qcgc_incmark(void) {
+	mark_setup(true);
+
+	// General purpose gray stack (prebuilt objects and huge blocks)
+	size_t to_process = MAX(qcgc_state.gp_gray_stack->index / 2,
+			QCGC_INC_MARK_MIN);
+
+	while (to_process > 0 && qcgc_state.gp_gray_stack->index > 0) {
+		object_t *top = qcgc_gray_stack_top(qcgc_state.gp_gray_stack);
+		qcgc_state.gp_gray_stack = qcgc_gray_stack_pop(
+				qcgc_state.gp_gray_stack);
+		qcgc_pop_object(top);
+		to_process--;
+	}
+
+	// Arena gray stacks
+	for (size_t i = 0; i < qcgc_allocator_state.arenas->count; i++) {
+		arena_t *arena = qcgc_allocator_state.arenas->items[i];
+		to_process = MAX(arena->gray_stack->index / 2, QCGC_INC_MARK_MIN);
+
+		while (to_process > 0 && arena->gray_stack->index > 0) {
+			object_t *top = qcgc_gray_stack_top(arena->gray_stack);
+			arena->gray_stack = qcgc_gray_stack_pop(arena->gray_stack);
+			qcgc_pop_object(top);
+			to_process--;
+		}
+	}
+
+
+	mark_cleanup(true);
+#if CHECKED
+	assert(qcgc_state.phase != GC_PAUSE);
+#endif
+}
+
+QCGC_STATIC void mark_setup(bool incremental) {
 	{
 		struct log_info_s {
 			bool incremental;
@@ -45,42 +114,9 @@ void qcgc_mark(bool incremental) {
 		qcgc_push_object(*it);
 	}
 
-	while (qcgc_state.gray_stack_size > 0) {
-		// General purpose gray stack (prebuilt objects and huge blocks)
-		size_t to_process = (incremental ?
-			MIN(qcgc_state.gp_gray_stack->index,
-					MAX(qcgc_state.gp_gray_stack->index / 2, QCGC_INC_MARK_MIN)) :
-			(qcgc_state.gp_gray_stack->index));
+}
 
-		while (to_process > 0) {
-			object_t *top = qcgc_gray_stack_top(qcgc_state.gp_gray_stack);
-			qcgc_state.gp_gray_stack = qcgc_gray_stack_pop(
-					qcgc_state.gp_gray_stack);
-			qcgc_pop_object(top);
-			to_process--;
-		}
-
-		// Arena gray stacks
-		for (size_t i = 0; i < qcgc_allocator_state.arenas->count; i++) {
-			arena_t *arena = qcgc_allocator_state.arenas->items[i];
-			to_process = (incremental ?
-					MIN(arena->gray_stack->index,
-						MAX(arena->gray_stack->index / 2, QCGC_INC_MARK_MIN)) :
-					(arena->gray_stack->index));
-
-			while (to_process > 0) {
-				object_t *top = qcgc_gray_stack_top(arena->gray_stack);
-				arena->gray_stack = qcgc_gray_stack_pop(arena->gray_stack);
-				qcgc_pop_object(top);
-				to_process--;
-			}
-		}
-
-		if (incremental) {
-			break; // Execute loop once for incremental collection
-		}
-	}
-
+QCGC_STATIC void mark_cleanup(bool incremental) {
 	if (qcgc_state.gray_stack_size == 0) {
 		qcgc_state.phase = GC_COLLECT;
 	}
@@ -94,13 +130,9 @@ void qcgc_mark(bool incremental) {
 		qcgc_event_logger_log(EVENT_MARK_DONE, sizeof(struct log_info_s),
 				(uint8_t *) &log_info);
 	}
-#if CHECKED
-	assert(incremental || (qcgc_state.phase = GC_COLLECT));
-	assert(qcgc_state.phase != GC_PAUSE);
-#endif
 }
 
-void qcgc_pop_object(object_t *object) {
+QCGC_STATIC QCGC_INLINE void qcgc_pop_object(object_t *object) {
 #if CHECKED
 	assert(object != NULL);
 	assert((object->flags & QCGC_PREBUILT_OBJECT) == QCGC_PREBUILT_OBJECT ||
