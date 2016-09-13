@@ -108,6 +108,16 @@ class SystemCompilationInfo(object):
             name, include_dirs=include_dirs, **kwds)
         return self.load_module(mod, name)
 
+        def import_extension(modname, functions, prologue="",
+                             include_dirs=None, more_init="", PY_SSIZE_T_CLEAN=False):
+            body = prologue + make_methods(functions, modname)
+            init = """Py_InitModule("%s", methods);""" % (modname,)
+            if more_init:
+                init += more_init
+            return self.import_module(
+                name=modname, init=init, body=body, include_dirs=include_dirs,
+                PY_SSIZE_T_CLEAN=PY_SSIZE_T_CLEAN)
+
 
 class ExtensionCompiler(SystemCompilationInfo):
     """Extension compiler for appdirect mode"""
@@ -456,13 +466,11 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                              w_include_dirs=None, more_init="", PY_SSIZE_T_CLEAN=False):
             functions = space.unwrap(w_functions)
             include_dirs = _unwrap_include_dirs(space, w_include_dirs)
-            body = prologue + make_methods(functions, modname)
-            init = """Py_InitModule("%s", methods);""" % (modname,)
-            if more_init:
-                init += more_init
-            return self.sys_info.import_module(
-                name=modname, init=init, body=body, include_dirs=include_dirs,
-                PY_SSIZE_T_CLEAN=PY_SSIZE_T_CLEAN)
+            w_result = self.sys_info.import_extension(
+                modname, functions, prologue, include_dirs, more_init,
+                PY_SSIZE_T_CLEAN)
+            self.record_imported_module(modname)
+            return w_result
 
         def debug_collect(space):
             rawrefcount._collect()
@@ -487,6 +495,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             self.compile_module = self.sys_info.compile_extension_module
             self.load_module = self.sys_info.load_module
             self.import_module = self.sys_info.import_module
+            self.import_extension = self.sys_info.import_extension
         else:
             interp2app = gateway.interp2app
             wrap = self.space.wrap
@@ -494,7 +503,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             self.w_compile_module = wrap(interp2app(compile_module))
             self.w_load_module = wrap(interp2app(load_module))
             self.w_import_module = wrap(interp2app(import_module))
-        self.w_import_extension = wrap(interp2app(import_extension))
+            self.w_import_extension = wrap(interp2app(import_extension))
         self.w_here = wrap(str(py.path.local(pypydir)) + '/module/cpyext/test/')
         self.w_debug_collect = wrap(interp2app(debug_collect))
 
