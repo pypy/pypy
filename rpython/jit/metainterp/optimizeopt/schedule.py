@@ -195,7 +195,8 @@ class SchedulerState(object):
                 op = node.getoperation()
                 self.resolve_delayed({}, delayed, op)
             for node in delayed:
-                if node in self.seen:
+                op = node.getoperation()
+                if op in self.seen:
                     continue
                 if node is not None:
                     provides = node.provides()
