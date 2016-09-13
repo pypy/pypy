@@ -343,3 +343,23 @@ class AppTestMath:
         assert round(math.lgamma(6.0), 9) == round(math.log(120.0), 9)
         assert raises(ValueError, math.gamma, -1)
         assert round(math.lgamma(0.5), 9) == round(math.log(math.pi ** 0.5), 9)
+
+    def test_isclose(self):
+        import math
+        assert math.isclose(0, 1) is False
+        assert math.isclose(0, 0.0) is True
+        assert math.isclose(1000.1, 1000.2, abs_tol=0.2) is True
+        assert math.isclose(1000.1, 1000.2, rel_tol=1e-3) is True
+        assert math.isclose(1000.1, 1000.2, abs_tol=0.02) is False
+        assert math.isclose(1000.1, 1000.2, rel_tol=1e-5) is False
+        assert math.isclose(float("inf"), float("inf")) is True
+        assert math.isclose(float("-inf"), float("-inf")) is True
+        assert math.isclose(float("inf"), float("-inf")) is False
+        assert math.isclose(float("-inf"), float("inf")) is False
+        assert math.isclose(float("-inf"), 12.34) is False
+        assert math.isclose(float("-inf"), float("nan")) is False
+        assert math.isclose(float("nan"), 12.34) is False
+        assert math.isclose(float("nan"), float("nan")) is False
+        #
+        raises(TypeError, math.isclose, 0, 1, rel_tol=None)
+        raises(TypeError, math.isclose, 0, 1, abs_tol=None)

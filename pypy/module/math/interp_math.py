@@ -3,6 +3,7 @@ import sys
 
 from rpython.rlib import rfloat
 from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 
 class State:
     def __init__(self, space):
@@ -424,3 +425,53 @@ def lgamma(space, w_x):
     """Compute the natural logarithm of the gamma function for x."""
     return math1(space, rfloat.lgamma, w_x)
 
+@unwrap_spec(w_rel_tol=WrappedDefault(1e-09), w_abs_tol=WrappedDefault(0.0))
+def isclose(space, w_a, w_b, __kwonly__, w_rel_tol, w_abs_tol):
+    """isclose(a, b, *, rel_tol=1e-09, abs_tol=0.0) -> bool
+
+Determine whether two floating point numbers are close in value.
+
+   rel_tol
+       maximum difference for being considered "close", relative to the
+       magnitude of the input values
+   abs_tol
+       maximum difference for being considered "close", regardless of the
+       magnitude of the input values
+
+Return True if a is close in value to b, and False otherwise.
+
+For the values to be considered close, the difference between them
+must be smaller than at least one of the tolerances.
+
+-inf, inf and NaN behave similarly to the IEEE 754 Standard.  That
+is, NaN is not close to anything, even itself.  inf and -inf are
+only close to themselves."""
+    a = _get_double(space, w_a)
+    b = _get_double(space, w_b)
+    rel_tol = _get_double(space, w_rel_tol)
+    abs_tol = _get_double(space, w_abs_tol)
+    #
+    # sanity check on the inputs
+    if rel_tol < 0.0 or abs_tol < 0.0:
+        raise oefmt(space.w_ValueError, "tolerances must be non-negative")
+    #
+    # short circuit exact equality -- needed to catch two infinities of
+    # the same sign. And perhaps speeds things up a bit sometimes.
+    if a == b:
+        return space.w_True
+    #
+    # This catches the case of two infinities of opposite sign, or
+    # one infinity and one finite number. Two infinities of opposite
+    # sign would otherwise have an infinite relative tolerance.
+    # Two infinities of the same sign are caught by the equality check
+    # above.
+    if rfloat.isinf(a) or rfloat.isinf(b):
+        return space.w_False
+    #
+    # now do the regular computation
+    # this is essentially the "weak" test from the Boost library
+    diff = math.fabs(b - a)
+    result = ((diff <= math.fabs(rel_tol * b) or
+               diff <= math.fabs(rel_tol * a)) or
+              diff <= abs_tol)
+    return space.newbool(result)

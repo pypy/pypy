@@ -52,5 +52,6 @@ class Module(MixedModule):
        'erfc'           : 'interp_math.erfc',
        'gamma'          : 'interp_math.gamma',
        'lgamma'         : 'interp_math.lgamma',
+       'isclose'        : 'interp_math.isclose',
 }
 
