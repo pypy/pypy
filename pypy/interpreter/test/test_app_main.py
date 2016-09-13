@@ -193,6 +193,7 @@ class TestParseCommandLine:
             ("ignore_environment", "-E", "1"),
             ("verbose", "-v", "1"),
             ("bytes_warning", "-b", "1"),
+            (["isolated", "no_user_site", "ignore_environment"], "-I", "1"),
         )
         for flag, opt, value in flags:
             if isinstance(flag, list):   # this is for inspect&interactive

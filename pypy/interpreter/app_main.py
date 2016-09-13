@@ -12,6 +12,7 @@ Options and arguments (and corresponding environment variables):
 -h     : print this help message and exit (also --help)
 -i     : inspect interactively after running script; forces a prompt even
          if stdin does not appear to be a terminal; also PYTHONINSPECT=x
+-I     : isolate Python from the user's environment (implies -E and -s)
 -m mod : run library module as a script (terminates option list)
 -O     : skip assert statements; also PYTHONOPTIMIZE=x
 -OO    : remove docstrings when importing modules in addition to -O
@@ -349,6 +350,7 @@ sys_flags = (
     "bytes_warning",
     "quiet",
     "hash_randomization",
+    "isolated",
 )
 
 default_options = dict.fromkeys(
@@ -361,6 +363,11 @@ default_options = dict.fromkeys(
 
 def simple_option(options, name, iterargv):
     options[name] += 1
+
+def isolated_option(options, name, iterargv):
+    options[name] += 1
+    options["no_user_site"] += 1
+    options["ignore_environment"] += 1
 
 def c_option(options, runcmd, iterargv):
     options["run_command"] = runcmd
@@ -388,6 +395,7 @@ cmdline_options = {
     'B': (simple_option, 'dont_write_bytecode'),
     'd': (simple_option, 'debug'),
     'E': (simple_option, 'ignore_environment'),
+    'I': (isolated_option, 'isolated'),
     'i': (simple_option, 'interactive'),
     'O': (simple_option, 'optimize'),
     's': (simple_option, 'no_user_site'),
