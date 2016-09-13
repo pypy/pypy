@@ -81,6 +81,7 @@ def main_(argv=None):
         error.RECORD_INTERPLEVEL_TRACEBACK = True
     # --allworkingmodules takes really long to start up, but can be forced on
     config.objspace.suggest(allworkingmodules=False)
+    config.objspace.usemodules.struct = True
     if config.objspace.allworkingmodules:
         pypyoption.enable_allworkingmodules(config)
     if config.objspace.usemodules._continuation:
