@@ -2,7 +2,7 @@ from rpython.rtyper.lltypesystem import rffi
 from rpython.rlib import buffer
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, Py_TPFLAGS_HAVE_NEWBUFFER)
-from pypy.module.cpyext.pyobject import PyObject
+from pypy.module.cpyext.pyobject import PyObject, Py_DecRef
 
 class CBuffer(buffer.Buffer):
 
