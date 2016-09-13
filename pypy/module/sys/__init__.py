@@ -139,10 +139,16 @@ class Module(MixedModule):
         space = self.space
 
         if not space.config.translating:
-            from pypy.module.sys.interp_encoding import _getfilesystemencoding
-            self.filesystemencoding = _getfilesystemencoding(space)
+            ##from pypy.module.sys.interp_encoding import _getfilesystemencoding
+            ##self.filesystemencoding = _getfilesystemencoding(space)
             # XXX the two lines above take a few seconds to run whenever
-            # we initialize the space
+            # we initialize the space; for tests, use a simpler version.
+            # Check what exactly breaks, if anything, in py3.5.  This is
+            # not strictly necessary but is an extremely nice-to-have
+            # feature: running just one test for example take 3.5
+            # seconds instead of 11.
+            from pypy.module.sys.interp_encoding import base_encoding
+            self.filesystemencoding = base_encoding
 
     def flush_std_files(self, space):
         w_stdout = space.sys.getdictvalue(space, 'stdout')
