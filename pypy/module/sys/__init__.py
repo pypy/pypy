@@ -22,7 +22,7 @@ class Module(MixedModule):
             del self.__class__.appleveldefs['__stderr__']
 
         super(Module, self).__init__(space, w_name)
-        self.recursionlimit = 100
+        self.recursionlimit = 1000
         self.defaultencoding = "utf-8"
         self.filesystemencoding = None
         self.debug = True

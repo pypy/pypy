@@ -259,6 +259,8 @@ def not_in_trace(func):
 
 def call_shortcut(func):
     """A decorator to ensure that a function has a fast-path.
+    DOES NOT RELIABLY WORK ON METHODS, USE ONLY ON FUNCTIONS!
+
     Only useful on functions that the JIT doesn't normally look inside.
     It still replaces residual calls to that function with inline code
     that checks for a fast path, and only does the call if not.  For
