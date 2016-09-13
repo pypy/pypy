@@ -419,8 +419,44 @@ class TestStoreSink(object):
                     a.x = 2
                 # here a is a subclass of B
                 res += a.x
+            else:
+                a = A()
+            res += a.__class__ is A
             return res
         self.check(f, [int], getfield=0)
+
+    def test_cast_pointer_leading_to_constant(self):
+        class Cls(object):
+            pass
+        class Sub(Cls):
+            pass
+        cls1 = Cls()
+        cls2 = Sub()
+        cls2.user_overridden_class = True
+        cls3 = Sub()
+        cls3.user_overridden_class = False
+        class A(object):
+            pass
+        def f(i):
+            res = 0
+            if i > 20:
+                a = A()
+                a.cls = cls1
+                return 1
+            elif i > 30:
+                a = A()
+                a.cls = cls2
+                cls = a.cls
+                assert type(cls) is Sub
+                return cls.user_overridden_class
+            else:
+                a = A()
+                a.cls = cls3
+                cls = a.cls
+                assert type(cls) is Sub
+                return cls.user_overridden_class
+        self.check(f, [int], getfield=2)
+
 
 
 def fakevar(name='v'):
