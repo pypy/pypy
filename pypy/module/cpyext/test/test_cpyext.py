@@ -55,7 +55,7 @@ class SystemCompilationInfo(object):
         self.extra_libs = extra_libs
         self.ext = ext
 
-    def compile_extension_module(self, name, include_dirs=[],
+    def compile_extension_module(self, name, include_dirs=None,
             source_files=None, source_strings=None):
         """
         Build an extension module and return the filename of the resulting
@@ -67,6 +67,7 @@ class SystemCompilationInfo(object):
         Any extra keyword arguments are passed on to ExternalCompilationInfo to
         build the module (so specify your source with one of those).
         """
+        include_dirs = include_dirs or []
         modname = name.split('.')[-1]
         dirname = (udir/uniquemodulename('module')).ensure(dir=1)
         if source_strings:
@@ -81,6 +82,32 @@ class SystemCompilationInfo(object):
         pydname = soname.new(purebasename=modname, ext=self.ext)
         soname.rename(pydname)
         return str(pydname)
+
+    def import_module(self, name, init=None, body='', filename=None,
+            include_dirs=None, PY_SSIZE_T_CLEAN=False):
+        """
+        init specifies the overall template of the module.
+
+        if init is None, the module source will be loaded from a file in this
+        test directory, give a name given by the filename parameter.
+
+        if filename is None, the module name will be used to construct the
+        filename.
+        """
+        if init is not None:
+            code = make_source(name, init, body, PY_SSIZE_T_CLEAN)
+            kwds = dict(source_strings=[code])
+        else:
+            assert not PY_SSIZE_T_CLEAN
+            if filename is None:
+                filename = name
+            filename = py.path.local(pypydir) / 'module' \
+                    / 'cpyext'/ 'test' / (filename + ".c")
+            kwds = dict(source_files=[filename])
+        mod = self.compile_extension_module(
+            name, include_dirs=include_dirs, **kwds)
+        return self.load_module(mod, name)
+
 
 class ExtensionCompiler(SystemCompilationInfo):
     """Extension compiler for appdirect mode"""
@@ -351,6 +378,13 @@ class AppTestApi(LeakCheckingTest):
             skip("Windows Python >= 2.6 only")
         assert isinstance(sys.dllhandle, int)
 
+def _unwrap_include_dirs(space, w_include_dirs):
+    if w_include_dirs is None:
+        return None
+    else:
+        return [space.str_w(s) for s in space.listview(w_include_dirs)]
+
+
 class AppTestCpythonExtensionBase(LeakCheckingTest):
 
     def setup_class(cls):
@@ -405,34 +439,10 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         def import_module(space, name, init=None, body='',
                           filename=None, w_include_dirs=None,
                           PY_SSIZE_T_CLEAN=False):
-            """
-            init specifies the overall template of the module.
-
-            if init is None, the module source will be loaded from a file in this
-            test directory, give a name given by the filename parameter.
-
-            if filename is None, the module name will be used to construct the
-            filename.
-            """
-            if w_include_dirs is None:
-                include_dirs = []
-            else:
-                include_dirs = [space.str_w(s) for s in space.listview(w_include_dirs)]
-            if init is not None:
-                code = make_source(name, init, body, PY_SSIZE_T_CLEAN)
-                kwds = dict(source_strings=[code])
-            else:
-                assert not PY_SSIZE_T_CLEAN
-                if filename is None:
-                    filename = name
-                filename = py.path.local(pypydir) / 'module' \
-                        / 'cpyext'/ 'test' / (filename + ".c")
-                kwds = dict(source_files=[filename])
-            mod = self.sys_info.compile_extension_module(
-                name, include_dirs=include_dirs, **kwds)
-            w_result = self.sys_info.load_module(mod, name)
-            if not self.runappdirect:
-                self.record_imported_module(name)
+            include_dirs = _unwrap_include_dirs(space, w_include_dirs)
+            w_result = self.sys_info.import_module(
+                name, init, body, filename, include_dirs, PY_SSIZE_T_CLEAN)
+            self.record_imported_module(name)
             return w_result
 
 
@@ -445,13 +455,14 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         def import_extension(space, modname, w_functions, prologue="",
                              w_include_dirs=None, more_init="", PY_SSIZE_T_CLEAN=False):
             functions = space.unwrap(w_functions)
+            include_dirs = _unwrap_include_dirs(space, w_include_dirs)
             body = prologue + make_methods(functions, modname)
             init = """Py_InitModule("%s", methods);""" % (modname,)
             if more_init:
                 init += more_init
-            return import_module(space, name=modname, init=init, body=body,
-                                 w_include_dirs=w_include_dirs,
-                                 PY_SSIZE_T_CLEAN=PY_SSIZE_T_CLEAN)
+            return self.sys_info.import_module(
+                name=modname, init=init, body=body, include_dirs=include_dirs,
+                PY_SSIZE_T_CLEAN=PY_SSIZE_T_CLEAN)
 
         def debug_collect(space):
             rawrefcount._collect()
@@ -474,13 +485,15 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 return func
             self.sys_info = get_sys_info_app()
             self.compile_module = self.sys_info.compile_extension_module
+            self.load_module = self.sys_info.load_module
+            self.import_module = self.sys_info.import_module
         else:
             interp2app = gateway.interp2app
             wrap = self.space.wrap
             self.sys_info = get_cpyext_info(self.space)
             self.w_compile_module = wrap(interp2app(compile_module))
-        self.w_import_module = wrap(interp2app(import_module))
-        self.w_load_module = wrap(interp2app(load_module))
+            self.w_load_module = wrap(interp2app(load_module))
+            self.w_import_module = wrap(interp2app(import_module))
         self.w_import_extension = wrap(interp2app(import_extension))
         self.w_here = wrap(str(py.path.local(pypydir)) + '/module/cpyext/test/')
         self.w_debug_collect = wrap(interp2app(debug_collect))
