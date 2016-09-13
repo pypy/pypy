@@ -4,6 +4,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype, llgroup, llmemory, llarena
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rlib.objectmodel import specialize
 
 QCGC_HAS_HASH = 0x100 # Upper half of flags for clients, lower half is reserved
 QCGC_PREBUILT_OBJECT = 0x2 # XXX: exploits knowledge about qcgc library
@@ -13,6 +14,10 @@ class QCGC(GCBase):
     moving_gc = False
     needs_write_barrier = True
     malloc_zero_filled = False
+
+    inline_simple_malloc = True
+    inline_simple_malloc_varsize = True
+
     prebuilt_gc_objects_are_static_roots = True # XXX: ?
     can_usually_pin_objects = False
     object_minimal_size = 0
@@ -82,6 +87,7 @@ class QCGC(GCBase):
         # XXX: Not supported
         pass
 
+    @specialize.arg(2)
     def id_or_identityhash(self, gcobj, is_hash):
         obj = llmemory.cast_ptr_to_adr(gcobj)
         hdr = self.header(obj)
@@ -92,6 +98,7 @@ class QCGC(GCBase):
             if is_hash:
                 i = mangle_hash(i)
         return i
+    id_or_identityhash._always_inline_ = True
 
     def id(self, gcobje):
         return self.id_or_identityhash(gcobj, False)

@@ -1,12 +1,9 @@
 #pragma once
 
-#include "config.h"
-
-#include <stddef.h>
+#include "../qcgc.h"
 
 #include "arena.h"
 #include "bag.h"
-#include "object.h"
 
 /**
  * Free lists:

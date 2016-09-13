@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../qcgc.h"
+
 #include <stddef.h>
 
 #include "bag.h"
@@ -25,8 +27,6 @@ typedef enum gc_phase {
  * Global state of the garbage collector
  */
 struct qcgc_state {
-	object_t **shadow_stack;
-	object_t **shadow_stack_base;
 	shadow_stack_t *prebuilt_objects;
 	weakref_bag_t *weakrefs;
 	gray_stack_t *gp_gray_stack;
@@ -43,6 +43,4 @@ struct qcgc_state {
 	size_t largest_free_block;	// Size of the largest free block.
 								// (Free arenas don't count as free blocks)
 								// Valid right after sweep
-};
-
-QCGC_STATIC struct qcgc_state qcgc_state;
+} qcgc_state;

@@ -888,17 +888,20 @@ def configure_qcgc():
 
     extern void pypy_trace_cb(void *, void (*)(void *));
 
-    void qcgc_trace_cb(object_t *object, void (*visit)(object_t *object)) {
+    inline void qcgc_trace_cb(object_t *object, void (*visit)(object_t *object)) {
         pypy_trace_cb((void *) object, (void (*)(void *)) visit);
     }
     """
 
     eci = ExternalCompilationInfo(
-            include_dirs = [library_dir],
+            include_dirs = [library_dir, os.path.join(library_dir, 'src')],
             includes = ["qcgc.h"],
             separate_module_sources = [separate_source],  # XXX
             separate_module_files = [os.path.join(library_dir, f) for f in
-                ["qcgc.c"]],
+                ['qcgc.c', 'src/allocator.c', 'src/arena.c', 'src/bag.c',
+                 'src/collector.c', 'src/event_logger.c', 'src/gray_stack.c',
+                 'src/hugeblocktable.c', 'src/shadow_stack.c',
+                 'src/signal_handler.c', 'src/weakref.c']],
             )
     return eci
 

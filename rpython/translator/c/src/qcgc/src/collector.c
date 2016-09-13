@@ -1,8 +1,5 @@
 #include "collector.h"
 
-#include <assert.h>
-#include <stddef.h>
-
 #include "arena.h"
 #include "allocator.h"
 #include "gc_state.h"
@@ -13,7 +10,7 @@
 QCGC_STATIC QCGC_INLINE void qcgc_pop_object(object_t *object);
 QCGC_STATIC QCGC_INLINE void qcgc_push_object(object_t *object);
 
-QCGC_STATIC void qcgc_mark(bool incremental) {
+void qcgc_mark(bool incremental) {
 	{
 		struct log_info_s {
 			bool incremental;
@@ -42,8 +39,8 @@ QCGC_STATIC void qcgc_mark(bool incremental) {
 	qcgc_state.phase = GC_MARK;
 
 	// Always push all roots to make shadowstack pushes faster
-	for (object_t **it = qcgc_state.shadow_stack_base;
-		it < qcgc_state.shadow_stack;
+	for (object_t **it = qcgc_shadowstack.base;
+		it < qcgc_shadowstack.top;
 		it++) {
 		qcgc_push_object(*it);
 	}
@@ -110,7 +107,8 @@ void qcgc_pop_object(object_t *object) {
 			(object->flags & QCGC_GRAY_FLAG) == QCGC_GRAY_FLAG);
 	if (((object->flags & QCGC_PREBUILT_OBJECT) == 0) &&
 		((object_t *) qcgc_arena_addr((cell_t *) object) != object)) {
-		assert(qcgc_arena_get_blocktype((cell_t *) object) == BLOCK_BLACK);
+		assert(qcgc_arena_get_blocktype(qcgc_arena_addr((cell_t *) object),
+					qcgc_arena_cell_index((cell_t *) object)) == BLOCK_BLACK);
 	}
 #endif
 	object->flags &= ~QCGC_GRAY_FLAG;
@@ -122,22 +120,23 @@ QCGC_STATIC void qcgc_push_object(object_t *object) {
 	assert(qcgc_state.phase == GC_MARK);
 #endif
 	if (object != NULL) {
-		if ((object_t *) qcgc_arena_addr((cell_t *) object) == object) {
+		arena_t *arena = qcgc_arena_addr((cell_t *) object);
+		if ((object_t *) arena == object) {
 			if (qcgc_hbtable_mark(object)) {
 				// Did mark it / was white before
 				object->flags |= QCGC_GRAY_FLAG;
 				qcgc_state.gp_gray_stack = qcgc_gray_stack_push(
 						qcgc_state.gp_gray_stack, object);
 			}
-			return; // Skip tests
+			return;
 		}
 		if ((object->flags & QCGC_PREBUILT_OBJECT) != 0) {
-			return; // Prebuilt objects are always black, no pushing here
+			return;
 		}
-		if (qcgc_arena_get_blocktype((cell_t *) object) == BLOCK_WHITE) {
+		size_t index = qcgc_arena_cell_index((cell_t *) object);
+		if (qcgc_arena_get_blocktype(arena, index) == BLOCK_WHITE) {
 			object->flags |= QCGC_GRAY_FLAG;
-			qcgc_arena_set_blocktype((cell_t *) object, BLOCK_BLACK);
-			arena_t *arena = qcgc_arena_addr((cell_t *) object);
+			qcgc_arena_set_blocktype(arena, index, BLOCK_BLACK);
 			arena->gray_stack = qcgc_gray_stack_push(arena->gray_stack, object);
 		}
 	}

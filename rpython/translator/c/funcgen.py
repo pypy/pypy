@@ -948,8 +948,9 @@ class FunctionCodeGenerator(object):
         obj = self.expr(op.args[0])
         return 'qcgc_push_root((object_t *) %s);' % (obj,)
 
-    def OP_QCGC_POP_ROOT(self, op):
-        return 'qcgc_pop_root();'
+    def OP_QCGC_POP_ROOTS(self, op):
+        count = self.expr(op.args[0])
+        return 'qcgc_pop_root((size_t) %s);' % (count,)
 
     def OP_QCGC_ALLOCATE(self, op):
         # XXX: SET typeid

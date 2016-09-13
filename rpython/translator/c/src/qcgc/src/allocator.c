@@ -22,9 +22,6 @@ QCGC_STATIC cell_t *fit_allocator_small_first_fit(size_t index, size_t cells);
 QCGC_STATIC cell_t *fit_allocator_large_fit(size_t index, size_t cells);
 QCGC_STATIC cell_t *fit_allocator_large_first_fit(size_t index, size_t cells);
 
-QCGC_STATIC bool valid_block(cell_t *ptr, size_t cells);
-QCGC_STATIC void free_list_consistency_check(void);
-
 void qcgc_allocator_initialize(void) {
 	qcgc_allocator_state.arenas =
 		qcgc_arena_bag_create(QCGC_ARENA_BAG_INIT_SIZE);
@@ -74,19 +71,6 @@ void qcgc_allocator_destroy(void) {
 }
 
 void qcgc_fit_allocator_add(cell_t *ptr, size_t cells) {
-#if CHECKED
-	if (cells > 0) {
-		assert((((object_t *)ptr)->flags & QCGC_PREBUILT_OBJECT) == 0);
-		assert((cell_t *) qcgc_arena_addr(ptr) != ptr);
-		assert(qcgc_arena_get_blocktype(ptr) == BLOCK_FREE);
-		if (qcgc_arena_addr(ptr) == qcgc_arena_addr(ptr + cells)) {
-			assert(qcgc_arena_get_blocktype(ptr + cells) != BLOCK_EXTENT);
-		}
-		for (size_t i = 1; i < cells; i++) {
-			assert(qcgc_arena_get_blocktype(ptr + i) == BLOCK_EXTENT);
-		}
-	}
-#endif
 	if (cells > 0) {
 		if (is_small(cells)) {
 			size_t index = small_index(cells);
@@ -113,9 +97,12 @@ object_t *qcgc_bump_allocate(size_t bytes) {
 	assert(bytes <= 1<<QCGC_LARGE_ALLOC_THRESHOLD_EXP);
 #endif
 	size_t cells = bytes_to_cells(bytes);
-	if (cells > qcgc_allocator_state.bump_state.remaining_cells) {
-		if (qcgc_allocator_state.bump_state.remaining_cells > 0) {
-			qcgc_arena_set_blocktype(qcgc_allocator_state.bump_state.bump_ptr,
+	if (UNLIKELY(cells > qcgc_allocator_state.bump_state.remaining_cells)) {
+		if (LIKELY(qcgc_allocator_state.bump_state.remaining_cells > 0)) {
+			qcgc_arena_set_blocktype(
+					qcgc_arena_addr(qcgc_allocator_state.bump_state.bump_ptr),
+					qcgc_arena_cell_index(
+						qcgc_allocator_state.bump_state.bump_ptr),
 					BLOCK_FREE);
 		}
 		bump_allocator_renew_block();
@@ -123,7 +110,8 @@ object_t *qcgc_bump_allocate(size_t bytes) {
 	cell_t *mem = qcgc_allocator_state.bump_state.bump_ptr;
 	bump_allocator_advance(cells);
 
-	qcgc_arena_set_blocktype(mem, BLOCK_WHITE);
+	qcgc_arena_set_blocktype(qcgc_arena_addr(mem), qcgc_arena_cell_index(mem),
+			BLOCK_WHITE);
 	/*
 	if (qcgc_allocator_state.bump_state.remaining_cells > 0) {
 		qcgc_arena_set_blocktype(qcgc_allocator_state.bump_state.bump_ptr,
@@ -143,8 +131,10 @@ object_t *qcgc_bump_allocate(size_t bytes) {
 	if (qcgc_allocator_state.bump_state.remaining_cells > 0) {
 		for (size_t i = 1; i < qcgc_allocator_state.bump_state.remaining_cells;
 				i++) {
-			assert(qcgc_arena_get_blocktype(
-						qcgc_allocator_state.bump_state.bump_ptr + i)
+			assert(qcgc_arena_get_blocktype(qcgc_arena_addr(
+							qcgc_allocator_state.bump_state.bump_ptr + i),
+						qcgc_arena_cell_index(
+							qcgc_allocator_state.bump_state.bump_ptr + i))
 					== BLOCK_EXTENT);
 		}
 	}
@@ -156,11 +146,16 @@ QCGC_STATIC void bump_allocator_renew_block(void) {
 #if CHECKED
 	if (qcgc_allocator_state.bump_state.remaining_cells > 0) {
 		assert(qcgc_arena_get_blocktype(
-					qcgc_allocator_state.bump_state.bump_ptr) == BLOCK_FREE);
+					qcgc_arena_addr( qcgc_allocator_state.bump_state.bump_ptr),
+					qcgc_arena_cell_index(
+						qcgc_allocator_state.bump_state.bump_ptr))
+				== BLOCK_FREE);
 		for (size_t i = 1; i < qcgc_allocator_state.bump_state.remaining_cells;
 				i++) {
-			assert(qcgc_arena_get_blocktype(
-						qcgc_allocator_state.bump_state.bump_ptr + i)
+			assert(qcgc_arena_get_blocktype(qcgc_arena_addr(
+							qcgc_allocator_state.bump_state.bump_ptr + i),
+						qcgc_arena_cell_index(
+							qcgc_allocator_state.bump_state.bump_ptr + i))
 					== BLOCK_EXTENT);
 		}
 	}
@@ -191,12 +186,17 @@ QCGC_STATIC void bump_allocator_renew_block(void) {
 		large_free_list[QCGC_LARGE_FREE_LISTS - 1] = free_list;
 #if CHECKED
 	assert(qcgc_allocator_state.bump_state.bump_ptr != NULL);
-	assert(qcgc_arena_get_blocktype(qcgc_allocator_state.bump_state.bump_ptr) ==
-			BLOCK_FREE);
+	assert(qcgc_arena_get_blocktype(
+				qcgc_arena_addr( qcgc_allocator_state.bump_state.bump_ptr),
+				qcgc_arena_cell_index(
+					qcgc_allocator_state.bump_state.bump_ptr))
+			== BLOCK_FREE);
 	for (size_t i = 1; i < qcgc_allocator_state.bump_state.remaining_cells;
 			i++) {
-		assert(qcgc_arena_get_blocktype(
-					qcgc_allocator_state.bump_state.bump_ptr + i)
+		assert(qcgc_arena_get_blocktype(qcgc_arena_addr(
+						qcgc_allocator_state.bump_state.bump_ptr + i),
+					qcgc_arena_cell_index(
+						qcgc_allocator_state.bump_state.bump_ptr + i))
 				== BLOCK_EXTENT);
 	}
 #endif
@@ -204,9 +204,11 @@ QCGC_STATIC void bump_allocator_renew_block(void) {
 
 QCGC_STATIC void bump_allocator_assign(cell_t *ptr, size_t cells) {
 #if CHECKED
-	assert(qcgc_arena_get_blocktype(ptr) == BLOCK_FREE);
+	assert(qcgc_arena_get_blocktype(qcgc_arena_addr(ptr),
+				qcgc_arena_cell_index(ptr)) == BLOCK_FREE);
 	for (size_t i = 1; i < cells; i++) {
-		assert(qcgc_arena_get_blocktype(ptr + i) == BLOCK_EXTENT);
+		assert(qcgc_arena_get_blocktype(qcgc_arena_addr(ptr + i),
+					qcgc_arena_cell_index(ptr + i)) == BLOCK_EXTENT);
 	}
 #endif
 	qcgc_allocator_state.bump_state.bump_ptr = ptr;
@@ -289,9 +291,11 @@ QCGC_STATIC cell_t *fit_allocator_small_first_fit(size_t index, size_t cells) {
 				qcgc_linear_free_list_remove_index(
 						qcgc_allocator_state.fit_state.small_free_list[index],
 						0);
-			qcgc_arena_set_blocktype(result, BLOCK_WHITE);
+			qcgc_arena_set_blocktype(qcgc_arena_addr(result),
+					qcgc_arena_cell_index(result), BLOCK_WHITE);
 			if (list_cell_size - cells > 0) {
-				qcgc_arena_set_blocktype(result + cells, BLOCK_FREE);
+				qcgc_arena_set_blocktype(qcgc_arena_addr(result + cells),
+						qcgc_arena_cell_index(result + cells), BLOCK_FREE);
 				qcgc_fit_allocator_add(result + cells, list_cell_size - cells);
 			}
 			return result;
@@ -334,9 +338,11 @@ QCGC_STATIC cell_t *fit_allocator_large_fit(size_t index, size_t cells) {
 		qcgc_allocator_state.fit_state.large_free_list[index] =
 			qcgc_exp_free_list_remove_index(qcgc_allocator_state.fit_state.
 					large_free_list[index], best_fit_index);
-		qcgc_arena_set_blocktype(result, BLOCK_WHITE);
+		qcgc_arena_set_blocktype(qcgc_arena_addr(result),
+				qcgc_arena_cell_index(result), BLOCK_WHITE);
 		if (best_fit_cells - cells > 0) {
-			qcgc_arena_set_blocktype(result + cells, BLOCK_FREE);
+			qcgc_arena_set_blocktype(qcgc_arena_addr(result + cells),
+					qcgc_arena_cell_index(result + cells), BLOCK_FREE);
 			qcgc_fit_allocator_add(result + cells, best_fit_cells - cells);
 		}
 	} else {
@@ -360,9 +366,11 @@ QCGC_STATIC cell_t *fit_allocator_large_first_fit(size_t index, size_t cells) {
 						0);
 
 			qcgc_arena_mark_allocated(item.ptr, cells);
-			qcgc_arena_set_blocktype(item.ptr, BLOCK_WHITE);
+			qcgc_arena_set_blocktype(qcgc_arena_addr(item.ptr),
+					qcgc_arena_cell_index(item.ptr), BLOCK_WHITE);
 			if (item.size - cells > 0) {
-				qcgc_arena_set_blocktype(item.ptr + cells, BLOCK_FREE);
+				qcgc_arena_set_blocktype(qcgc_arena_addr(item.ptr + cells),
+						qcgc_arena_cell_index(item.ptr + cells), BLOCK_FREE);
 				qcgc_fit_allocator_add(item.ptr + cells, item.size - cells);
 			}
 			return item.ptr;
@@ -403,42 +411,4 @@ QCGC_STATIC size_t small_index_to_cells(size_t index) {
 	assert(index < QCGC_SMALL_FREE_LISTS);
 #endif
 	return index + 1;
-}
-
-QCGC_STATIC bool valid_block(cell_t *ptr, size_t cells) {
-#if CHECKED
-	assert(ptr != NULL);
-	assert(cells > 0);
-#endif
-	return (qcgc_arena_get_blocktype(ptr) == BLOCK_FREE && (
-				((qcgc_arena_addr(ptr + cells)) == (arena_t *) (ptr + cells)) ||
-				qcgc_arena_get_blocktype(ptr + cells) != BLOCK_EXTENT));
-}
-
-QCGC_STATIC void free_list_consistency_check(void) {
-	for (size_t i = 0; i < QCGC_SMALL_FREE_LISTS; i++) {
-		linear_free_list_t *free_list =
-			qcgc_allocator_state.fit_state.small_free_list[i];
-		for (size_t j = 0; j < free_list->count; j++) {
-			cell_t *item = free_list->items[j];
-			if  (qcgc_arena_get_blocktype(item) == BLOCK_FREE) {
-				for (size_t s = 1; s < small_index_to_cells(i); s++) {
-					assert(qcgc_arena_get_blocktype(item + s) == BLOCK_EXTENT);
-				}
-			}
-		}
-	}
-
-	for (size_t i = 0; i < QCGC_LARGE_FREE_LISTS; i++) {
-		exp_free_list_t *free_list =
-			qcgc_allocator_state.fit_state.large_free_list[i];
-		for (size_t j = 0; j < free_list->count; j++) {
-			struct exp_free_list_item_s item = free_list->items[j];
-			if  (qcgc_arena_get_blocktype(item.ptr) == BLOCK_FREE) {
-				for (size_t s = 1; s < item.size; s++) {
-					assert(qcgc_arena_get_blocktype(item.ptr + s) == BLOCK_EXTENT);
-				}
-			}
-		}
-	}
 }

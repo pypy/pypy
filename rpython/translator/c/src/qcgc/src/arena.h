@@ -4,10 +4,9 @@
 
 #pragma once
 
-#include "config.h"
+#include "../qcgc.h"
 
 #include <stdbool.h>
-#include <stdint.h>
 #include <sys/types.h>
 
 #include "gray_stack.h"
@@ -70,66 +69,17 @@ arena_t *qcgc_arena_create(void);
 void qcgc_arena_destroy(arena_t *arena);
 
 /**
- * Arena pointer for given cell.
- *
- * @param	ptr		Pointer to cell for which you want to know the corresponding
- *					arena
- * @return	The arena the pointer belongs to
- */
-arena_t *qcgc_arena_addr(cell_t *ptr);
-
-/**
- * Index of cell in arena.
- *
- * @param	ptr		Pointer to cell for which you want to know the cell index
- * @return	Index of the cell to which ptr points to
- */
-size_t qcgc_arena_cell_index(cell_t *ptr);
-
-/**
- * Get bitmap value for given bitmap and cell index.
- *
- * @param	bitmap	Bitmap
- * @param	index	Index of cell
- * @return	true if bitmap entry is set, false otherwise
- */
-bool qcgc_arena_get_bitmap_entry(uint8_t *bitmap, size_t index);
-
-/**
- * Set bitmap value for given bitmap and cell index.
- *
- * @param	bitmap	Bitmap
- * @param	index	Index of cell
- * @param	value	1 to set entry, 0 to reset entry
- */
-void qcgc_arena_set_bitmap_entry(uint8_t *bitmap, size_t index, uint8_t value);
-
-/**
- * Get blocktype.
- *
- * @param	ptr		Pointer to cell for which you want to know the blocktype
- * @return	Blocktype
- */
-QCGC_STATIC QCGC_INLINE blocktype_t qcgc_arena_get_blocktype(cell_t *ptr);
-
-/**
- * Set blocktype.
- *
- * @param	ptr		Pointer to cell for which you want to set the blocktype
- * @param	type	Blocktype that should be set
- */
-QCGC_STATIC QCGC_INLINE void qcgc_arena_set_blocktype(cell_t *ptr, blocktype_t type);
-
-/**
  * Mark ptr as allocated area with given size.
+ * DEPRECATED
  *
  * @param	ptr		Pointer to first cell of area
  * @param	cells	Size in cells
  */
-QCGC_STATIC void qcgc_arena_mark_allocated(cell_t *ptr, size_t cells);
+void qcgc_arena_mark_allocated(cell_t *ptr, size_t cells);
 
 /**
  * Mark cell ptr point to as free (no coalescing).
+ * DEPRECATED
  *
  * @param	ptr		Pointer to cell that should be marked as free
  */
@@ -151,6 +101,101 @@ bool qcgc_arena_sweep(arena_t *arena);
  */
 bool qcgc_arena_pseudo_sweep(arena_t *arena);
 
+
+/*******************************************************************************
+ * Inline functions
+ ******************************************************************************/
+
+/**
+ * Arena pointer for given cell.
+ *
+ * @param	ptr		Pointer to cell for which you want to know the corresponding
+ *					arena
+ * @return	The arena the pointer belongs to
+ */
+QCGC_STATIC QCGC_INLINE arena_t *qcgc_arena_addr(cell_t *ptr) {
+	return (arena_t *)((intptr_t) ptr & ~(QCGC_ARENA_SIZE - 1));
+}
+
+/**
+ * Index of cell in arena.
+ *
+ * @param	ptr		Pointer to cell for which you want to know the cell index
+ * @return	Index of the cell to which ptr points to
+ */
+QCGC_STATIC QCGC_INLINE size_t qcgc_arena_cell_index(cell_t *ptr) {
+	return (size_t)((intptr_t) ptr & (QCGC_ARENA_SIZE - 1)) >> 4;
+}
+
+/**
+ * Get blocktype.
+ *
+ * @param	arena		Arena in which to perform the lookup
+ * @param	index		Cell index of the block to look up
+ * @return	Blocktype
+ */
+QCGC_STATIC QCGC_INLINE blocktype_t qcgc_arena_get_blocktype(arena_t *arena,
+		size_t index) {
+#if CHECKED
+	assert(arena != NULL);
+	assert(index >= QCGC_ARENA_FIRST_CELL_INDEX);
+	assert(index < QCGC_ARENA_CELLS_COUNT);
+#endif
+	// Read bitmap entry
+	size_t byte = index / 8;
+	uint8_t mask = 0x01 << (index % 8);
+	bool block_bit = ((arena->block_bitmap[byte] & mask) == mask);
+	bool mark_bit  = ((arena->mark_bitmap[byte] & mask) == mask);
+
+	if (block_bit) {
+		if (mark_bit) {
+			return BLOCK_BLACK;
+		} else {
+			return BLOCK_WHITE;
+		}
+	} else {
+		if (mark_bit) {
+			return BLOCK_FREE;
+		} else {
+			return BLOCK_EXTENT;
+		}
+	}
+}
+
+/**
+ * Set blocktype.
+ *
+ * @param	ptr		Pointer to cell for which you want to set the blocktype
+ * @param	type	Blocktype that should be set
+ */
+QCGC_STATIC QCGC_INLINE void qcgc_arena_set_blocktype(arena_t *arena,
+		size_t index, blocktype_t type) {
+#if CHECKED
+	assert(arena != NULL);
+	assert(index >= QCGC_ARENA_FIRST_CELL_INDEX);
+	assert(index < QCGC_ARENA_CELLS_COUNT);
+#endif
+	size_t byte = index / 8;
+	uint8_t mask = 0x1 << (index % 8);
+	switch(type) {
+		case BLOCK_EXTENT:
+			arena->block_bitmap[byte] &= ~mask;
+			arena->mark_bitmap[byte] &= ~mask;
+			break;
+		case BLOCK_FREE:
+			arena->block_bitmap[byte] &= ~mask;
+			arena->mark_bitmap[byte] |= mask;
+			break;
+		case BLOCK_WHITE:
+			arena->block_bitmap[byte] |= mask;
+			arena->mark_bitmap[byte] &= ~mask;
+			break;
+		case BLOCK_BLACK:
+			arena->block_bitmap[byte] |= mask;
+			arena->mark_bitmap[byte] |= mask;
+			break;
+	}
+}
 
 /*******************************************************************************
  * Debug functions                                                             *

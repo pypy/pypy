@@ -1,5 +1,5 @@
 #pragma once
 
-#include "config.h"
+#include "../qcgc.h"
 
 void setup_signal_handler(void);

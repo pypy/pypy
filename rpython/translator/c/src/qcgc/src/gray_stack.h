@@ -1,10 +1,6 @@
 #pragma once
 
-#include "config.h"
-
-#include <stddef.h>
-
-#include "object.h"
+#include "../qcgc.h"
 
 typedef struct gray_stack_s {
 	size_t index;

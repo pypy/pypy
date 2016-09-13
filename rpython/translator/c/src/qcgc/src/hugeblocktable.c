@@ -2,8 +2,6 @@
 
 #include <assert.h>
 
-#include "gc_state.h"
-
 QCGC_STATIC size_t bucket(object_t *object);
 
 void qcgc_hbtable_initialize(void) {

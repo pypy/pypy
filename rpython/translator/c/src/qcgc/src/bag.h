@@ -1,8 +1,7 @@
 #pragma once
 
-#include "config.h"
+#include "../qcgc.h"
 
-#include <stddef.h>
 #include <stdlib.h>
 
 #include "arena.h"

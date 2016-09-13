@@ -59,15 +59,6 @@ void qcgc_destroy(void) {
 	free(qcgc_state.gp_gray_stack);
 }
 
-void qcgc_push_root(object_t *object) {
-	*qcgc_state.shadow_stack = object;
-	qcgc_state.shadow_stack++;
-}
-
-void qcgc_pop_root(void) {
-	qcgc_state.shadow_stack--;
-}
-
 object_t *qcgc_allocate(size_t size) {
 #if LOG_ALLOCATION
 	qcgc_event_logger_log(EVENT_ALLOCATE_START, sizeof(size_t),

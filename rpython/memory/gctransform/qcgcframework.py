@@ -19,16 +19,15 @@ class QcgcFrameworkGCTransformer(BaseFrameworkGCTransformer):
         #
         s_gcref = SomePtr(llmemory.GCREF)
 
-        #self.malloc_weakref_ptr = self._getfn(
-        #    GCClass.malloc_weakref.im_func,
-        #    [s_gc, s_typeid16, annmodel.SomeInteger(nonneg=True),
-        #     s_gcref], s_gcref)
-        #
+
         def invokecallback(root, visit_fn):
             ref = llmemory.cast_adr_to_ptr(root, rffi.VOIDPP)
             visit_fn(llmemory.cast_ptr_to_adr(ref[0]))
         def pypy_trace_cb(obj, visit_fn):
-            gc.trace(obj, invokecallback, visit_fn)
+            typeid = gc.get_type_id(obj)
+            if not gc.has_gcptr(typeid):
+                return
+            gc.tracei(obj, invokecallback, visit_fn)
         pypy_trace_cb.c_name = "pypy_trace_cb"
         self.autoregister_ptrs.append(
             getfn(pypy_trace_cb,
@@ -57,8 +56,8 @@ class QcgcFrameworkGCTransformer(BaseFrameworkGCTransformer):
         return livevars
 
     def pop_roots(self, hop, livevars):
-        for _ in livevars: # Does not move, so no writing back
-            hop.genop("qcgc_pop_root", [])
+        c_count = rmodel.inputconst(lltype.Signed, len(livevars))
+        hop.genop("qcgc_pop_roots", [c_count])
 
     def gct_gc_fq_register(self, hop):
         pass

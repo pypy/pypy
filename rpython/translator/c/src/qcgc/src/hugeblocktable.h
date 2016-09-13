@@ -1,11 +1,10 @@
 #pragma once
 
-#include "config.h"
+#include "../qcgc.h"
 
 #include <stdbool.h>
 
 #include "bag.h"
-#include "object.h"
 #include "gray_stack.h"
 
 // Choosing a prime number, hoping for good results

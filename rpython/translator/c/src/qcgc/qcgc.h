@@ -4,9 +4,30 @@
 
 #pragma once
 
-#include <stddef.h>
+#include "config.h"
 
-#include "src/object.h"
+#include <assert.h>
+#include <stddef.h>
+#include <stdint.h>
+
+/**
+ * Object Layout.
+ */
+#define QCGC_GRAY_FLAG (1<<0)
+#define QCGC_PREBUILT_OBJECT (1<<1)
+#define QCGC_PREBUILT_REGISTERED (1<<2)
+
+typedef struct object_s {
+	uint32_t flags;
+} object_t;
+
+/**
+ * Shadow stack
+ */
+struct qcgc_shadowstack {
+	object_t **top;
+	object_t **base;
+} qcgc_shadowstack;
 
 /**
  * Initialize the garbage collector.
@@ -32,12 +53,20 @@ object_t *qcgc_allocate(size_t size);
  *
  * @param	object	The root object
  */
-void qcgc_push_root(object_t *object);
+QCGC_STATIC QCGC_INLINE void qcgc_push_root(object_t *object) {
+	*qcgc_shadowstack.top = object;
+	qcgc_shadowstack.top++;
+}
 
 /**
- * Pop root object.
+ * Pop root objects.
+ *
+ * @param	count	Number of object to pop
  */
-void qcgc_pop_root(void);
+QCGC_STATIC QCGC_INLINE void qcgc_pop_root(size_t count) {
+	qcgc_shadowstack.top -= count;
+	assert(qcgc_shadowstack.base <= qcgc_shadowstack.top);
+}
 
 /**
  * Write barrier. Has to be called whenever a reference to another object is
