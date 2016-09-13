@@ -10,17 +10,14 @@ from rpython.jit.metainterp.resoperation import (rop, ResOperation,
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem import lltype
-from rpython.jit.backend.ppc.locations import imm, RegisterLocation
-from rpython.jit.backend.ppc.arch import IS_BIG_ENDIAN
 from rpython.jit.backend.llsupport.vector_ext import VectorExt
-from rpython.jit.backend.ppc.arch import PARAM_SAVE_AREA_OFFSET
-import rpython.jit.backend.ppc.register as r
-import rpython.jit.backend.ppc.condition as c
-import rpython.jit.backend.ppc.locations as l
+from rpython.jit.backend.zarch.detect_feature import detect_simd_z
+import rpython.jit.backend.zarch.registers as r
+import rpython.jit.backend.zarch.conditions as c
+import rpython.jit.backend.zarch.locations as l
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.jit.codewriter import longlong
-from rpython.jit.backend.ppc.detect_feature import detect_vsx
 from rpython.rlib.objectmodel import always_inline
 
 def not_implemented(msg):
@@ -64,6 +61,7 @@ def flush_vec_cc(asm, regalloc, condition, size, result_loc):
     #        asm.mc.load_imm(tloc, asm.VEC_DOUBLE_WORD_ONES)
     #        asm.mc.lvx(ones, 0, tloc.value)
     #    asm.mc.vsel(resval, zeros, ones, resval)
+    pass
 
 class ZSIMDVectorExt(VectorExt):
     def setup_once(self, asm):
@@ -91,6 +89,7 @@ class VectorAssembler(object):
         # TODO for i in range(len(data)):
         # TODO     addr[i] = data[i]
         # TODO self.VEC_DOUBLE_WORD_ONES = mem
+        pass
 
     def emit_vec_load_f(self, op, arglocs, regalloc):
         resloc, baseloc, indexloc, size_loc, ofs, integer_loc = arglocs
@@ -314,7 +313,7 @@ class VectorAssembler(object):
             self.mc.xvcmpeqdpx(tmp, loc1.value, loc2.value)
             self.mc.stxvd2x(tmp, off, r.SP.value)
         else:
-            not_implemented("[ppc/assembler] float == for size %d" % size)
+            not_implemented("[zarch/assembler] float == for size %d" % size)
         self.mc.lvx(resloc.value, off, r.SP.value)
         flush_vec_cc(self, regalloc, c.VEQI, op.bytesize, resloc)
 
@@ -582,10 +581,6 @@ class VectorAssembler(object):
         # SP is always 16 byte aligned, and PARAM_SAVE_AREA_OFFSET % 16 == 0
         self.mc.load_imm(offloc, PARAM_SAVE_AREA_OFFSET)
         self.mc.xvcvdpsxds(res.value, l0.value)
-
-    # needed as soon as PPC's support_singlefloat is implemented!
-    #def genop_vec_cast_singlefloat_to_float(self, op, arglocs, regalloc):
-    #    self.mc.CVTPS2PD(resloc, arglocs[0])
 
     def emit_vec_f(self, op, arglocs, regalloc):
         pass

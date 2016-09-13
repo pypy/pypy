@@ -33,11 +33,13 @@ from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
 from rpython.rlib.jit import AsmInfo
 from rpython.rlib.rjitlog import rjitlog as jl
+from rpython.jit.backend.zarch import vector_ext
 
 class JitFrameTooDeep(Exception):
     pass
 
-class AssemblerZARCH(BaseAssembler, OpAssembler):
+class AssemblerZARCH(BaseAssembler, OpAssembler,
+                     vector_ext.VectorAssembler):
 
     def __init__(self, cpu, translate_support_code=False):
         BaseAssembler.__init__(self, cpu, translate_support_code)
