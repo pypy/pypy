@@ -200,6 +200,9 @@ corresponding Unix manual entries for more information on calls."""
     if rposix.HAVE_PIPE2:
         interpleveldefs['pipe2'] = 'interp_posix.pipe2'
 
+    if not rposix._WIN32:
+        interpleveldefs['sync'] = 'interp_posix.sync'
+
     def startup(self, space):
         from pypy.module.posix import interp_posix
         from pypy.module.imp import importing
