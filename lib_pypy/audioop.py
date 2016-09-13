@@ -578,3 +578,18 @@ def adpcm2lin(cp, size, state):
     lib.adcpm2lin(rv, cp, len(cp), size, state_ptr)
     return ffi.buffer(rv)[:], tuple(state_ptr)
 
+
+def byteswap(cp, size):
+    if len(cp) % size != 0:
+        raise error("not a whole number of frames")
+    sample_count = _sample_count(cp, size)
+    rv = ffi.new("unsigned char[]", len(cp))
+    base = size
+    next_bump = 0
+    bump = 2 * size
+    for i in range(len(cp)):
+        base -= 1
+        rv[i] = cp[base]
+        if base == next_bump:
+            base += bump
+    return ffi.buffer(rv)[:]
