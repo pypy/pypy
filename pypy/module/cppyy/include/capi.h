@@ -183,6 +183,11 @@ extern "C" {
     RPY_EXTERN
     cppyy_object_t cppyy_stdstring2stdstring(cppyy_object_t ptr);
 
+    RPY_EXTERN
+    const char* cppyy_stdvector_valuetype(const char* clname);
+    RPY_EXTERN
+    size_t cppyy_stdvector_valuesize(const char* clname);
+
 #ifdef __cplusplus
 }
 #endif // ifdef __cplusplus

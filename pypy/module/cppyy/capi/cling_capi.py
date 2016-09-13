@@ -1,12 +1,16 @@
 import py, os
 
+from pypy.objspace.std.iterobject import W_AbstractSeqIterObject
+
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app
 
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.rarithmetic import intmask
-from rpython.rlib import libffi, rdynload
+from rpython.rlib import jit, libffi, rdynload
 
+from pypy.module._rawffi.array import W_ArrayInstance
 from pypy.module.cppyy.capi.capi_types import C_OBJECT
 
 __all__ = ['identify', 'std_string_name', 'eci', 'c_load_dictionary']
@@ -89,12 +93,69 @@ def c_stdstring2charp(space, cppstr):
 
 # TODO: factor these out ...
 # pythonizations
+
+#
+# std::string behavior
 def stdstring_c_str(space, w_self):
     """Return a python string taking into account \0"""
 
     from pypy.module.cppyy import interp_cppyy
     cppstr = space.interp_w(interp_cppyy.W_CPPInstance, w_self, can_be_None=False)
     return space.wrap(c_stdstring2charp(space, cppstr._rawobject))
+
+#
+# std::vector behavior
+class W_STLVectorIter(W_AbstractSeqIterObject):
+    _immutable_fields_ = ['overload', 'len']#'data', 'converter', 'len', 'stride', 'vector']
+
+    def __init__(self, space, w_vector):
+        W_AbstractSeqIterObject.__init__(self, w_vector)
+        # TODO: this should live in rpythonize.py or something so that the
+        # imports can move to the top w/o getting circles
+        from pypy.module.cppyy import interp_cppyy
+        assert isinstance(w_vector, interp_cppyy.W_CPPInstance)
+        vector = space.interp_w(interp_cppyy.W_CPPInstance, w_vector)
+        self.overload = vector.cppclass.get_overload("__getitem__")
+
+        from pypy.module.cppyy import capi
+        v_type = capi.c_stdvector_valuetype(space, vector.cppclass.name)
+        v_size = capi.c_stdvector_valuesize(space, vector.cppclass.name)
+
+        if not v_type or not v_size:
+            raise NotImplementedError   # fallback on getitem
+
+        w_arr = vector.cppclass.get_overload("data").call(w_vector, [])
+        arr = space.interp_w(W_ArrayInstance, w_arr, can_be_None=True)
+        if not arr:
+            raise OperationError(space.w_StopIteration, space.w_None)
+
+        self.data = rffi.cast(rffi.VOIDP, space.uint_w(arr.getbuffer(space)))
+
+        from pypy.module.cppyy import converter
+        self.converter = converter.get_converter(space, v_type, '')
+        self.len     = space.uint_w(vector.cppclass.get_overload("size").call(w_vector, []))
+        self.stride  = v_size
+
+    def descr_next(self, space):
+        if self.w_seq is None:
+            raise OperationError(space.w_StopIteration, space.w_None)
+        if self.len <= self.index:
+            self.w_seq = None
+            raise OperationError(space.w_StopIteration, space.w_None)
+        try:
+            from pypy.module.cppyy import capi    # TODO: refector
+            offset = capi.direct_ptradd(rffi.cast(C_OBJECT, self.data), self.index*self.stride)
+            w_item = self.converter.from_memory(space, space.w_None, space.w_None, offset)
+        except OperationError as e:
+            self.w_seq = None
+            if not e.match(space, space.w_IndexError):
+                raise
+            raise OperationError(space.w_StopIteration, space.w_None)
+        self.index += 1
+        return w_item
+
+def stdvector_iter(space, w_self):
+    return W_STLVectorIter(space, w_self)
 
 # setup pythonizations for later use at run-time
 _pythonizations = {}
@@ -105,6 +166,9 @@ def register_pythonizations(space):
 
         ### std::string
         stdstring_c_str,
+
+        ### std::vector
+        stdvector_iter,
 
     ]
 
@@ -120,3 +184,13 @@ def pythonize(space, name, w_pycppclass):
         space.setattr(w_pycppclass, space.wrap("c_str"), _pythonizations["stdstring_c_str"])
         _method_alias(space, w_pycppclass, "_cppyy_as_builtin", "c_str")
         _method_alias(space, w_pycppclass, "__str__",           "c_str")
+
+    if "vector" in name[:11]: # len('std::vector') == 11
+        from pypy.module.cppyy import capi
+        v_type = capi.c_stdvector_valuetype(space, name)
+        if v_type:
+            space.setattr(w_pycppclass, space.wrap("value_type"), space.wrap(v_type))
+        v_size = capi.c_stdvector_valuesize(space, name)
+        if v_size:
+            space.setattr(w_pycppclass, space.wrap("value_size"), space.wrap(v_size))
+        space.setattr(w_pycppclass, space.wrap("__iter__"), _pythonizations["stdvector_iter"])

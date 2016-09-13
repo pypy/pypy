@@ -190,7 +190,6 @@ _c_get_function_address = rffi.llexternal(
     [C_SCOPE, C_INDEX], C_FUNC_PTR,
     releasegil=ts_reflect,
     compilation_info=backend.eci,
-    elidable_function=True,
     random_effects_on_gcobjs=False)
 def c_get_function_address(space, cppscope, index):
     return _c_get_function_address(cppscope.handle, index)
@@ -215,8 +214,8 @@ _c_function_arg_sizeof = rffi.llexternal(
     [], rffi.SIZE_T,
     releasegil=ts_memory,
     compilation_info=backend.eci,
-    elidable_function=True,
     random_effects_on_gcobjs=False)
+@jit.elidable
 def c_function_arg_sizeof(space):
     return _c_function_arg_sizeof()
 _c_function_arg_typeoffset = rffi.llexternal(
@@ -224,8 +223,8 @@ _c_function_arg_typeoffset = rffi.llexternal(
     [], rffi.SIZE_T,
     releasegil=ts_memory,
     compilation_info=backend.eci,
-    elidable_function=True,
     random_effects_on_gcobjs=False)
+@jit.elidable
 def c_function_arg_typeoffset(space):
     return _c_function_arg_typeoffset()
 
@@ -300,9 +299,8 @@ _c_is_subtype = rffi.llexternal(
     [C_TYPE, C_TYPE], rffi.INT,
     releasegil=ts_reflect,
     compilation_info=backend.eci,
-    elidable_function=True,
     random_effects_on_gcobjs=False)
-@jit.elidable_promote('2')
+@jit.elidable
 def c_is_subtype(space, derived, base):
     if derived == base:
         return 1
@@ -313,9 +311,8 @@ _c_base_offset = rffi.llexternal(
     [C_TYPE, C_TYPE, C_OBJECT, rffi.INT], rffi.SIZE_T,
     releasegil=ts_reflect,
     compilation_info=backend.eci,
-    elidable_function=True,
     random_effects_on_gcobjs=False)
-@jit.elidable_promote('1,2,4')
+@jit.elidable
 def c_base_offset(space, derived, base, address, direction):
     if derived == base:
         return 0
@@ -564,3 +561,26 @@ _c_stdstring2stdstring = rffi.llexternal(
     compilation_info=backend.eci)
 def c_stdstring2stdstring(space, cppobject):
     return _c_stdstring2stdstring(cppobject)
+
+_c_stdvector_valuetype = rffi.llexternal(
+    "cppyy_stdvector_valuetype",
+    [rffi.CCHARP], rffi.CCHARP,
+    releasegil=ts_helper,
+    compilation_info=backend.eci)
+def c_stdvector_valuetype(space, pystr):
+    cstr = rffi.str2charp(pystr)
+    result = _c_stdvector_valuetype(cstr)
+    rffi.free_charp(cstr)
+    if result:
+        return charp2str_free(space, result)
+    return ""
+_c_stdvector_valuesize = rffi.llexternal(
+    "cppyy_stdvector_valuesize",
+    [rffi.CCHARP], rffi.SIZE_T,
+    releasegil=ts_helper,
+    compilation_info=backend.eci)
+def c_stdvector_valuesize(space, pystr):
+    cstr = rffi.str2charp(pystr)
+    result = _c_stdvector_valuesize(cstr)
+    rffi.free_charp(cstr)
+    return result

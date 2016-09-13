@@ -1540,4 +1540,24 @@ cppyy_object_t cppyy_stdstring2stdstring(cppyy_object_t ptr){
     return (cppyy_object_t)new std::string(*(std::string*)ptr);
 }
 
+const char* cppyy_stdvector_valuetype(const char* clname) {
+    const char* result = nullptr;
+    std::string name = clname;
+    TypedefInfo_t* ti = gInterpreter->TypedefInfo_Factory((name+"::value_type").c_str());
+    if (gInterpreter->TypedefInfo_IsValid(ti))
+        result = cppstring_to_cstring(gInterpreter->TypedefInfo_TrueName(ti));
+    gInterpreter->TypedefInfo_Delete(ti);
+    return result;
+}
+
+size_t cppyy_stdvector_valuesize(const char* clname) {
+    size_t result = 0;
+    std::string name = clname;
+    TypedefInfo_t* ti = gInterpreter->TypedefInfo_Factory((name+"::value_type").c_str());
+    if (gInterpreter->TypedefInfo_IsValid(ti))
+       result = (size_t)gInterpreter->TypedefInfo_Size(ti);
+    gInterpreter->TypedefInfo_Delete(ti);
+    return result;
+}
+   
 } // end C-linkage wrappers

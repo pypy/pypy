@@ -197,6 +197,8 @@ class CPPMethod(object):
 
     @jit.unroll_safe
     def call(self, cppthis, args_w):
+        jit.promote(self)
+
         assert lltype.typeOf(cppthis) == capi.C_OBJECT
 
         # check number of given arguments against required (== total - defaults)
@@ -325,8 +327,8 @@ class CPPMethod(object):
         # Each CPPMethod corresponds one-to-one to a C++ equivalent and cppthis
         # has been offset to the matching class. Hence, the libffi pointer is
         # uniquely defined and needs to be setup only once.
-        self._funcaddr = capi.c_get_function_address(self.space, self.scope, self.index)
-        if self._funcaddr and cppthis:      # methods only for now
+        funcaddr = capi.c_get_function_address(self.space, self.scope, self.index)
+        if funcaddr and cppthis:      # methods only for now
             state = self.space.fromcache(ffitypes.State)
 
             # argument type specification (incl. cppthis)
@@ -352,6 +354,9 @@ class CPPMethod(object):
                     lltype.free(self.cif_descr, flavor='raw')
                     self.cif_descr = lltype.nullptr(jit_libffi.CIF_DESCRIPTION)
                 raise FastCallNotPossible
+
+            # success ...
+            self._funcaddr = funcaddr
 
     @jit.unroll_safe
     def prepare_arguments(self, args_w, call_local):
@@ -827,6 +832,9 @@ class W_CPPNamespace(W_CPPScope):
             arg_dflt = capi.c_method_arg_default(self.space, self, index, i)
             arg_defs.append((arg_type, arg_dflt))
         return CPPFunction(self.space, self, index, arg_defs, args_required)
+
+    def _build_methods(self):
+        pass       # force lazy lookups in namespaces
 
     def _make_datamember(self, dm_name, dm_idx):
         type_name = capi.c_datamember_type(self.space, self, dm_idx)

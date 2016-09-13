@@ -225,6 +225,10 @@ class State(object):
             #stdstring2charp  actually takes an size_t* as last parameter, but this will do
             'stdstring2charp'          : ([c_object, c_voidp],        c_ccharp),
             'stdstring2stdstring'      : ([c_object],                 c_object),
+
+            'stdvector_valuetype'      : ([c_ccharp],                 c_ccharp),
+            'stdvector_valuesize'      : ([c_ccharp],                 c_size_t),
+
         }
 
         # size/offset are backend-specific but fixed after load
@@ -549,6 +553,14 @@ def c_stdstring2charp(space, cppstr):
     return rffi.charpsize2str(_cdata_to_ccharp(space, w_cstr), cstr_len)
 def c_stdstring2stdstring(space, cppobject):
     return _cdata_to_cobject(space, call_capi(space, 'stdstring2stdstring', [_Arg(h=cppobject)]))
+
+def c_stdvector_valuetype(space, pystr):
+    return charp2str_free(space, call_capi(space, 'stdvector_valuetype', [_Arg(s=pystr)]))
+
+def c_stdvector_valuetype(space, pystr):
+    return charp2str_free(space, call_capi(space, 'stdvector_valuetype', [_Arg(s=pystr)]))
+def c_stdvector_valuesize(space, pystr):
+    return _cdata_to_size_t(space, call_capi(space, 'stdvector_valuesize', [_Arg(s=pystr)]))
 
 
 # TODO: factor these out ...

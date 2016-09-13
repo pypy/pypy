@@ -311,6 +311,7 @@ def python_style_sliceable_getitem(self, slice_or_idx):
     else:
         return python_style_getitem(self, slice_or_idx)
 
+
 _pythonizations = {}
 def _pythonize(pyclass):
 
@@ -357,8 +358,8 @@ def _pythonize(pyclass):
         pyclass.__iadd__ = __iadd__
 
     # map begin()/end() protocol to iter protocol on STL(-like) classes, but
-    # not on vector, for which otherwise the user has to make sure that the
-    # global == and != for its iterators are reflected, which is a hassle ...
+    # not on vector, which is pythonized in the capi (interp-level; there is
+    # also the fallback on the indexed __getitem__, but that is slower)
     if not 'vector' in pyclass.__name__[:11] and \
             ('begin' in pyclass.__dict__ and 'end' in pyclass.__dict__):
         if cppyy._scope_byname(pyclass.__name__+'::iterator') or \
