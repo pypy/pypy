@@ -108,15 +108,15 @@ class SystemCompilationInfo(object):
             name, include_dirs=include_dirs, **kwds)
         return self.load_module(mod, name)
 
-        def import_extension(modname, functions, prologue="",
-                             include_dirs=None, more_init="", PY_SSIZE_T_CLEAN=False):
-            body = prologue + make_methods(functions, modname)
-            init = """Py_InitModule("%s", methods);""" % (modname,)
-            if more_init:
-                init += more_init
-            return self.import_module(
-                name=modname, init=init, body=body, include_dirs=include_dirs,
-                PY_SSIZE_T_CLEAN=PY_SSIZE_T_CLEAN)
+    def import_extension(self, modname, functions, prologue="",
+            include_dirs=None, more_init="", PY_SSIZE_T_CLEAN=False):
+        body = prologue + make_methods(functions, modname)
+        init = """Py_InitModule("%s", methods);""" % (modname,)
+        if more_init:
+            init += more_init
+        return self.import_module(
+            name=modname, init=init, body=body, include_dirs=include_dirs,
+            PY_SSIZE_T_CLEAN=PY_SSIZE_T_CLEAN)
 
 
 class ExtensionCompiler(SystemCompilationInfo):
