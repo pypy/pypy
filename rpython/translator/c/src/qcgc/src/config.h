@@ -3,7 +3,7 @@
 #define CHECKED 0							// Enable runtime sanity checks
 #define DEBUG_ZERO_ON_SWEEP 0				// Zero memory on sweep (debug only)
 
-#define QCGC_INIT_ZERO 1					// Init new objects with zero bytes
+#define QCGC_INIT_ZERO 0					// Init new objects with zero bytes
 
 /**
  * Event logger

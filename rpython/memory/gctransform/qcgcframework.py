@@ -46,7 +46,7 @@ class QcgcFrameworkGCTransformer(BaseFrameworkGCTransformer):
         if needs_hash:
             hdr.hash = lltype.identityhash_nocache(obj._as_ptr())
         else:
-            assert hdr.hash == 0
+            hdr.hash = 0
         return hdr
 
     def push_roots(self, hop, keep_current_args=False):

@@ -12,7 +12,7 @@ class QCGC(GCBase):
     _alloc_flavor_ = "raw"
     moving_gc = False
     needs_write_barrier = True
-    malloc_zero_filled = True
+    malloc_zero_filled = False
     prebuilt_gc_objects_are_static_roots = True # XXX: ?
     can_usually_pin_objects = False
     object_minimal_size = 0
@@ -32,7 +32,7 @@ class QCGC(GCBase):
         hdr.tid = llop.combine_ushort(lltype.Signed, typeid, 0)
         hdr.hash = rffi.cast(lltype.Signed, 0)
 
-    def malloc_fixedsize_clear(self, typeid, size,
+    def malloc_fixedsize(self, typeid, size,
                                needs_finalizer=False,
                                is_finalizer_light=False,
                                contains_weakptr=False):
@@ -43,8 +43,7 @@ class QCGC(GCBase):
         self.init_gc_object(obj, typeid)
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
-    def malloc_varsize_clear(self, typeid, length, size, itemsize,
-                             offset_to_length):
+    def malloc_varsize(self, typeid, length, size, itemsize, offset_to_length):
         if length < 0:
             raise MemoryError
         #

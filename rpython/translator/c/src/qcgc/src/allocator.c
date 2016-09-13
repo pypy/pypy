@@ -137,7 +137,7 @@ object_t *qcgc_bump_allocate(size_t bytes) {
 	memset(result, 0, cells * sizeof(cell_t));
 #endif
 
-	result->flags |= QCGC_GRAY_FLAG;
+	result->flags = QCGC_GRAY_FLAG;
 #if CHECKED
 	assert(qcgc_arena_is_coalesced(qcgc_arena_addr((cell_t *)result)));
 	if (qcgc_allocator_state.bump_state.remaining_cells > 0) {
@@ -243,7 +243,7 @@ object_t *qcgc_fit_allocate(size_t bytes) {
 	memset(result, 0, cells * sizeof(cell_t));
 #endif
 
-	result->flags |= QCGC_GRAY_FLAG;
+	result->flags = QCGC_GRAY_FLAG;
 	return result;
 }
 
@@ -260,6 +260,7 @@ object_t *qcgc_large_allocate(size_t bytes) {
 	memset(result, 0, bytes);
 #endif
 	qcgc_hbtable_insert(result);
+	result->flags = QCGC_GRAY_FLAG;
 	return result;
 }
 
