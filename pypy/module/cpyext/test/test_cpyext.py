@@ -82,6 +82,25 @@ class SystemCompilationInfo(object):
         soname.rename(pydname)
         return str(pydname)
 
+class ExtensionCompiler(SystemCompilationInfo):
+    """Extension compiler for appdirect mode"""
+    def load_module(space, mod, name):
+        import imp
+        return imp.load_dynamic(name, mod)
+
+class SpaceCompiler(SystemCompilationInfo):
+    """Extension compiler for regular (untranslated PyPy) mode"""
+    def __init__(self, space, *args, **kwargs):
+        self.space = space
+        SystemCompilationInfo.__init__(self, *args, **kwargs)
+
+    def load_module(self, mod, name):
+        space = self.space
+        api.load_extension_module(space, mod, name)
+        return space.getitem(
+            space.sys.get('modules'), space.wrap(name))
+
+
 def get_cpyext_info(space):
     from pypy.module.imp.importing import get_so_extension
     state = space.fromcache(State)
@@ -102,7 +121,7 @@ def get_cpyext_info(space):
             link_extra = ["-g"]
         else:
             compile_extra = link_extra = None
-    return SystemCompilationInfo(
+    return SpaceCompiler(space,
         include_extra=api.include_dirs,
         compile_extra=compile_extra,
         link_extra=link_extra,
@@ -132,7 +151,7 @@ def get_sys_info_app():
             "-O0", "-g", "-Werror=implicit-function-declaration", "-fPIC"]
         link_extra = None
     ext = get_so_suffix()
-    return SystemCompilationInfo(
+    return ExtensionCompiler(
         include_extra=[get_python_inc()],
         compile_extra=compile_extra,
         link_extra=link_extra,
@@ -411,7 +430,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 kwds = dict(source_files=[filename])
             mod = self.sys_info.compile_extension_module(
                 name, include_dirs=include_dirs, **kwds)
-            w_result = load_module(space, mod, name)
+            w_result = self.sys_info.load_module(mod, name)
             if not self.runappdirect:
                 self.record_imported_module(name)
             return w_result
@@ -419,13 +438,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
 
         @gateway.unwrap_spec(mod=str, name=str)
         def load_module(space, mod, name):
-            if self.runappdirect:
-                import imp
-                return imp.load_dynamic(name, mod)
-            else:
-                api.load_extension_module(space, mod, name)
-                return space.getitem(
-                    space.sys.get('modules'), space.wrap(name))
+            return self.sys_info.load_module(mod, name)
 
         @gateway.unwrap_spec(modname=str, prologue=str,
                              more_init=str, PY_SSIZE_T_CLEAN=bool)
