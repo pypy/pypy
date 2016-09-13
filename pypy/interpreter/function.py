@@ -690,6 +690,9 @@ class BuiltinFunction(Function):
     def descr_function_repr(self):
         return self.space.wrap('<built-in function %s>' % (self.name,))
 
+    def descr__reduce__(self, space):
+        return space.wrap(self.qualname)
+
 def is_builtin_code(w_func):
     from pypy.interpreter.gateway import BuiltinCode
     if isinstance(w_func, Method):
