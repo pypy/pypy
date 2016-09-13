@@ -262,11 +262,8 @@ class VectorizingOptimizer(Optimizer):
 
         # re-schedule the trace -> removes many pure operations
         graph = DependencyGraph(loop)
-        costmodel = GenericCostModel(self.cpu, self.cost_threshold)
         state = SchedulerState(self.cpu, graph)
-        state.prepare()
-        Scheduler().walk_and_emit(state)
-        state.post_schedule()
+        state.schedule()
 
         return loop.finaloplist(jitcell_token=jitcell_token, reset_label_token=False)
 

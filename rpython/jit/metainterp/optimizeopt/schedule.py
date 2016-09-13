@@ -49,7 +49,8 @@ class SchedulerState(object):
             if arg.is_constant() or arg.is_inputarg():
                 continue
             if arg not in self.seen:
-                needs_resolving[arg] = None
+                box = self.renamer.rename_box(arg)
+                needs_resolving[box] = None
 
         indexvars = self.graph.index_vars
         i = len(delayed)-1
@@ -60,18 +61,32 @@ class SchedulerState(object):
                 # either it is a normal operation, or we know that there is a linear combination
                 del needs_resolving[op]
                 if op in indexvars:
-                    indexvar = indexvars[op]
-                    last = None
-                    for operation in indexvar.get_operations():
-                        self.append_to_oplist(operation)
-                        last = operation
-                    if last:
-                        indexvars[last] = indexvar
-                        self.renamer.start_renaming(op, last)
+                    opindexvar = indexvars[op]
+                    # there might be a variable already, that
+                    # calculated the index variable, thus just reuse it
+                    for var, indexvar in indexvars.items(): 
+                        if indexvar == opindexvar and var in self.seen:
+                            self.renamer.start_renaming(op, var)
+                            break
+                    else:
+                        if opindexvar.calculated_by(op):
+                            # just append this operation
+                            self.seen[op] = None
+                            self.append_to_oplist(op)
+                        else:
+                            # here is an easier way to calculate just this operation
+                            last = op
+                            for operation in opindexvar.get_operations():
+                                self.append_to_oplist(operation)
+                                last = operation
+                            indexvars[last] = opindexvar
+                            self.renamer.start_renaming(op, last)
+                            self.seen[op] = None
+                            self.seen[last] = None
                 else: 
                     self.resolve_delayed(needs_resolving, delayed, op)
                     self.append_to_oplist(op)
-                self.seen[op] = None
+                    self.seen[op] = None
                 if len(delayed) > i:
                     del delayed[i]
             i -= 1
@@ -84,14 +99,20 @@ class SchedulerState(object):
         self.renamer.rename(op)
         self.oplist.append(op)
 
+    def schedule(self):
+        self.prepare()
+        Scheduler().walk_and_emit(self)
+        self.post_schedule()
+
     def post_schedule(self):
         loop = self.graph.loop
+        jump = loop.jump
         if self.delayed:
             # some operations can be delayed until the jump instruction,
             # handle them here
-            self.resolve_delayed({}, self.delayed, loop.jump)
+            self.resolve_delayed({}, self.delayed, jump)
+        self.renamer.rename(jump)
         loop.operations = self.oplist
-        self.renamer.rename(loop.jump)
 
     def profitable(self):
         return True
@@ -120,8 +141,10 @@ class SchedulerState(object):
         delayed.append(node)
         node.delayed = None
         provides = node.provides()
+        op = node.getoperation()
         if len(provides) == 0:
-            self.delayed.append(node)
+            for n in delayed:
+                self.delayed.append(n)
         else:
             for to in node.provides():
                 tnode = to.target_node()
@@ -187,13 +210,14 @@ class SchedulerState(object):
     def post_emit(self, node):
         pass
 
-    def pre_emit(self, node, pack_first=True):
-        delayed = node.delayed
+    def pre_emit(self, orignode, pack_first=True):
+        delayed = orignode.delayed
         if delayed:
             # there are some nodes that have been delayed just for this operation
             if pack_first:
-                op = node.getoperation()
+                op = orignode.getoperation()
                 self.resolve_delayed({}, delayed, op)
+
             for node in delayed:
                 op = node.getoperation()
                 if op in self.seen:
@@ -208,7 +232,7 @@ class SchedulerState(object):
                         for to in node.provides():
                             tnode = to.target_node()
                             self.delegate_delay(tnode, [node])
-                        node.delayed = None
+            orignode.delayed = None
 
 class Scheduler(object):
     """ Create an instance of this class to (re)schedule a vector trace. """
