@@ -38,6 +38,18 @@ def extract_s390x_cpu_ids(lines):
 
     return ids
 
+def s390x_detect_vx():
+    with open("/proc/cpuinfo", "rb") as fd:
+        lines = fd.read().splitlines()
+        for line in lines:
+            if line.startswith("features"):
+                colonidx = line.find(':')
+                split = line[colonidx+1:].strip().split(' ')
+                if 'vx' in split:
+                    return True
+                break
+
+    return False
 
 def s390x_cpu_revision():
     # linux kernel does the same classification

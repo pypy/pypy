@@ -15,6 +15,7 @@ from rpython.jit.backend.zarch.detect_feature import detect_simd_z
 import rpython.jit.backend.zarch.registers as r
 import rpython.jit.backend.zarch.conditions as c
 import rpython.jit.backend.zarch.locations as l
+from rpython.jit.backend.zarch.locations import imm
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.jit.codewriter import longlong
@@ -92,35 +93,16 @@ class VectorAssembler(object):
         pass
 
     def emit_vec_load_f(self, op, arglocs, regalloc):
-        resloc, baseloc, indexloc, size_loc, ofs, integer_loc = arglocs
-        indexloc = self._apply_offset(indexloc, ofs)
-        itemsize = size_loc.value
-        if integer_loc.value:
-            self.mc.lxvd2x(resloc.value, indexloc.value, baseloc.value)
-        elif itemsize == 4:
-            self.mc.lxvw4x(resloc.value, indexloc.value, baseloc.value)
-        elif itemsize == 8:
-            self.mc.lxvd2x(resloc.value, indexloc.value, baseloc.value)
-        else:
-            not_implemented("vec_load_f itemsize %d" % itemsize)
+        resloc, baseloc, indexloc, size_loc, offsetloc, integer_loc = arglocs
+        addrloc = self._load_address(baseloc, indexloc, offsetloc)
+        self.mc.VL(resloc, addrloc)
 
     emit_vec_load_i = emit_vec_load_f
 
     def emit_vec_store(self, op, arglocs, regalloc):
-        baseloc, indexloc, valueloc, sizeloc, baseofs, \
-            integer_loc = arglocs
-        indexloc = self._apply_offset(indexloc, baseofs)
-        assert baseofs.value == 0
-        if integer_loc.value:
-            self.mc.stxvd2x(valueloc.value, indexloc.value, baseloc.value)
-        else:
-            itemsize = sizeloc.value
-            if itemsize == 4:
-                self.mc.stxvw4x(valueloc.value, indexloc.value, baseloc.value)
-            elif itemsize == 8:
-                self.mc.stxvd2x(valueloc.value, indexloc.value, baseloc.value)
-            else:
-                not_implemented("vec_store itemsize %d" % itemsize)
+        baseloc, indexloc, valueloc, sizeloc, offsetloc, integer_loc = arglocs
+        addrloc = self._load_address(baseloc, indexloc, offsetloc)
+        self.mc.VST(valueloc, addrloc)
 
     def emit_vec_int_add(self, op, arglocs, regalloc):
         resloc, loc0, loc1, size_loc = arglocs
@@ -152,18 +134,18 @@ class VectorAssembler(object):
     def emit_vec_float_add(self, op, arglocs, regalloc):
         resloc, loc0, loc1, itemsize_loc = arglocs
         itemsize = itemsize_loc.value
-        if itemsize == 4:
-            self.mc.xvaddsp(resloc.value, loc0.value, loc1.value)
-        elif itemsize == 8:
-            self.mc.xvadddp(resloc.value, loc0.value, loc1.value)
+        if itemsize == 8:
+            self.mc.VFA(resloc, loc0, loc1, 3, 0)
+            return
+        not_implemented("vec_float_add of size %d" % itemsize)
 
     def emit_vec_float_sub(self, op, arglocs, regalloc):
         resloc, loc0, loc1, itemsize_loc = arglocs
         itemsize = itemsize_loc.value
-        if itemsize == 4:
-            self.mc.xvsubsp(resloc.value, loc0.value, loc1.value)
-        elif itemsize == 8:
-            self.mc.xvsubdp(resloc.value, loc0.value, loc1.value)
+        if itemsize == 8:
+            self.mc.VFS(resloc, loc0, loc1, 3, 0)
+            return
+        not_implemented("vec_float_add of size %d" % itemsize)
 
     def emit_vec_float_mul(self, op, arglocs, regalloc):
         resloc, loc0, loc1, itemsize_loc = arglocs

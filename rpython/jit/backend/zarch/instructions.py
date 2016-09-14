@@ -292,11 +292,26 @@ all_mnemonic_codes = {
 
     'STFLE':   ('s',     ['\xB2','\xB0']),
 }
+
+vector_mnemonic_codes = {
+    'VL':     ('vrx', ['\xE7','\x06'], 'v,bid'),
+    'VLR':    ('vrr_a', ['\xE7','\x56']),
+
+    'VST':    ('vrx', ['\xE7','\x0E'], 'v,bid'),
+
+    # floating point
+    'VFA':   ('vrr_c', ['\xE7','\xE3']),
+    'VFS':   ('vrr_c', ['\xE7','\xE2']),
+
+    # '': ('', ['','']),
+}
+
 all_mnemonic_codes.update(arith_mnemonic_codes)
 all_mnemonic_codes.update(logic_mnemonic_codes)
 all_mnemonic_codes.update(memory_mnemonic_codes)
 all_mnemonic_codes.update(floatingpoint_mnemonic_codes)
 all_mnemonic_codes.update(branch_mnemonic_codes)
+all_mnemonic_codes.update(vector_mnemonic_codes)
 
 
 if __name__ == "__main__":

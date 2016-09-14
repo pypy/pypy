@@ -107,6 +107,26 @@ class FloatRegisterLocation(RegisterLocation):
     def is_float(self):
         return True
 
+class VectorRegisterLocation(RegisterLocation):
+    _immutable_ = True
+    type = FLOAT
+    width = DOUBLE_WORD*2
+
+    def __repr__(self):
+        return 'v%d' % self.value
+
+    def is_core_reg(self):
+        return False
+
+    def is_fp_reg(self):
+        return True
+
+    def as_key(self):            # 16 <= as_key <= 32
+        return self.value + 32
+
+    def is_float(self):
+        return True
+
 class ImmLocation(AssemblerLocation):
     _immutable_ = True
     width = WORD
@@ -175,6 +195,9 @@ class AddressLocation(AssemblerLocation):
             self.index = indexreg.value
         if length:
             self.length = length.value
+
+    def __repr__(self):
+        return 'addr(base=r%d,idx=r%d,len=%d)' % (self.base, self.index, self.length)
 
 class PoolLoc(AddressLocation):
     _immutable_ = True

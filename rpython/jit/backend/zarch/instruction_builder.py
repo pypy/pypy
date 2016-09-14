@@ -5,7 +5,7 @@ from rpython.jit.backend.zarch import locations as loc
 
 def dummy_argument(arg):
     """ NOT_RPYTHON """
-    if arg in ('r', 'r/m', 'm', 'f', '-', 'eo'):
+    if arg in ('r', 'r/m', 'm', 'f', '-', 'eo', 'v'):
         return 0
     if arg.startswith('i') or arg.startswith('u'):
         return 0
@@ -23,6 +23,7 @@ class builder(object):
         -      - unused
         f      - floating point register
         r      - register
+        v      - vector register (128 bit)
         m      - mask
         eo     - even odd pair (= the even register)
         r/m    - register or mask
@@ -447,7 +448,6 @@ def build_rxf(mnemonic, (opcode1,opcode2)):
     return encode_rxe
 
 def build_ris(mnemonic, (opcode1,opcode2), argtypes='r,i8,r/m,bd'):
-    br = is_branch_relative(mnemonic)
     @builder.arguments(argtypes)
     def encode_rie_c(self, reg1, imm8, mask, basedisp):
         self.writechar(opcode1)
@@ -458,6 +458,50 @@ def build_ris(mnemonic, (opcode1,opcode2), argtypes='r,i8,r/m,bd'):
         self.writechar(chr(imm8 & 0xff))
         self.writechar(opcode2)
     return encode_rie_c
+
+def build_vrx(mnemonic, (opcode1,opcode2), argtypes='v,bid,m'):
+    @builder.arguments(argtypes)
+    def encode_vrx(self, v1, bid, mask=0):
+        self.writechar(opcode1)
+        rbx = (v1 >= 16) << 3
+        idx = bid.index
+        byte = (v1 & BIT_MASK_4) << 4 | (idx & BIT_MASK_4)
+        self.writechar(chr(byte))
+        encode_base_displace(self, bid)
+        self.writechar(chr((mask & BIT_MASK_4 << 4) | (rbx & BIT_MASK_4)))
+        self.writechar(opcode2)
+    return encode_vrx
+
+def build_vrr_a(mnemonic, (opcode1,opcode2), argtypes='v,v'):
+    @builder.arguments(argtypes)
+    def encode_vrr_a(self, v1, v2):
+        self.writechar(opcode1)
+        rbx =  (v1 >= 16) << 3
+        rbx |= (v2 >= 16) << 2
+        byte = (v1 & BIT_MASK_4) << 4 | (v2 & BIT_MASK_4)
+        self.writechar(chr(byte))
+        self.writechar(chr(0))
+        self.writechar(chr(0))
+        self.writechar(chr(rbx & BIT_MASK_4))
+        self.writechar(opcode2)
+    return encode_vrr_a
+
+def build_vrr_c(mnemonic, (opcode1,opcode2), argtypes='v,v,v,m,m'):
+    @builder.arguments(argtypes)
+    def encode_vrr_c(self, v1, v2, v3, mask1, mask2):
+        self.writechar(opcode1)
+        rbx =  (v1 >= 16) << 3
+        rbx |= (v2 >= 16) << 2
+        rbx |= (v3 >= 16) << 1
+        byte = (v1 & BIT_MASK_4) << 4 | (v2 & BIT_MASK_4)
+        self.writechar(chr(byte))
+        byte = (v3 & BIT_MASK_4) << 4
+        self.writechar(chr(byte))
+        self.writechar(chr(mask2 & BIT_MASK_4))
+        self.writechar(chr((mask1 & BIT_MASK_4) << 4 | (rbx & BIT_MASK_4)))
+        self.writechar(opcode2)
+    return encode_vrr_c
+
 
 def build_unpack_func(mnemonic, func):
     @always_inline
@@ -502,7 +546,8 @@ def build_unpack_func(mnemonic, func):
         if argtype == '-':
             return 0
         elif argtype == 'r' or argtype == 'r/m' or \
-             argtype == 'f' or argtype == 'eo':
+             argtype == 'f' or argtype == 'eo' or \
+             argtype == 'v':
             return arg.value
         elif argtype.startswith('i') or argtype.startswith('u') or argtype.startswith('h'):
             return arg.value

@@ -5,18 +5,16 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform
 from rpython.rlib.rmmap import alloc, free
 from rpython.rlib.rstruct.runpack import runpack
-from rpython.translator.platform.arch.s390x import s390x_cpu_revision
+from rpython.translator.platform.arch.s390x import s390x_detect_vx
 
 SYSTEM = platform.system()
 
 def detect_simd_z_linux():
-    return False
+    return s390x_detect_vx()
 
 def detect_simd_z():
     if SYSTEM == 'Linux':
-        machine = s390x_cpu_revision()
-        if machine == "z13":
-            return True
+        return detect_simd_z_linux()
     return False
 
 if __name__ == '__main__':
