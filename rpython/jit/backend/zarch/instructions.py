@@ -299,9 +299,22 @@ vector_mnemonic_codes = {
 
     'VST':    ('vrx', ['\xE7','\x0E'], 'v,bid'),
 
+    # integral
+    # -> arith
+    'VA':     ('vrr_c', ['\xE7','\xF3'], 'v,v,v,m'),
+    'VS':     ('vrr_c', ['\xE7','\xF7'], 'v,v,v,m'),
+
+    # -> logic
+    'VO':     ('vrr_c', ['\xE7','\x6A'], 'v,v,v'),
+    'VNO':    ('vrr_c', ['\xE7','\x6B'], 'v,v,v'),
+    'VN':     ('vrr_c', ['\xE7','\x68'], 'v,v,v'),
+    'VX':     ('vrr_c', ['\xE7','\x6D'], 'v,v,v'),
+
     # floating point
     'VFA':   ('vrr_c', ['\xE7','\xE3']),
     'VFS':   ('vrr_c', ['\xE7','\xE2']),
+    'VFM':   ('vrr_c', ['\xE7','\xE7']),
+    'VFD':   ('vrr_c', ['\xE7','\xE5']),
 
     # '': ('', ['','']),
 }

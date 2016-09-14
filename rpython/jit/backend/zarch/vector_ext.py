@@ -107,29 +107,13 @@ class VectorAssembler(object):
     def emit_vec_int_add(self, op, arglocs, regalloc):
         resloc, loc0, loc1, size_loc = arglocs
         size = size_loc.value
-        if size == 1:
-            self.mc.vaddubm(resloc.value, loc0.value, loc1.value)
-        elif size == 2:
-            self.mc.vadduhm(resloc.value, loc0.value, loc1.value)
-        elif size == 4:
-            self.mc.vadduwm(resloc.value, loc0.value, loc1.value)
-        elif size == 8:
-            self.mc.vaddudm(resloc.value, loc0.value, loc1.value)
+        mask = l.itemsize_to_mask(size_loc.value)
+        self.mc.VA(resloc, loc0, loc1, mask)
 
     def emit_vec_int_sub(self, op, arglocs, regalloc):
         resloc, loc0, loc1, size_loc = arglocs
-        size = size_loc.value
-        if size == 1:
-            # TODO verify if unsigned subtract is the wanted feature
-            self.mc.vsububm(resloc.value, loc0.value, loc1.value)
-        elif size == 2:
-            # TODO verify if unsigned subtract is the wanted feature
-            self.mc.vsubuhm(resloc.value, loc0.value, loc1.value)
-        elif size == 4:
-            # TODO verify if unsigned subtract is the wanted feature
-            self.mc.vsubuwm(resloc.value, loc0.value, loc1.value)
-        elif size == 8:
-            self.mc.vsubudm(resloc.value, loc0.value, loc1.value)
+        mask = l.itemsize_to_mask(size_loc.value)
+        self.mc.VS(resloc, loc0, loc1, mask)
 
     def emit_vec_float_add(self, op, arglocs, regalloc):
         resloc, loc0, loc1, itemsize_loc = arglocs
@@ -145,39 +129,40 @@ class VectorAssembler(object):
         if itemsize == 8:
             self.mc.VFS(resloc, loc0, loc1, 3, 0)
             return
-        not_implemented("vec_float_add of size %d" % itemsize)
+        not_implemented("vec_float_sub of size %d" % itemsize)
 
     def emit_vec_float_mul(self, op, arglocs, regalloc):
         resloc, loc0, loc1, itemsize_loc = arglocs
         itemsize = itemsize_loc.value
-        if itemsize == 4:
-            self.mc.xvmulsp(resloc.value, loc0.value, loc1.value)
-        elif itemsize == 8:
-            self.mc.xvmuldp(resloc.value, loc0.value, loc1.value)
+        if itemsize == 8:
+            self.mc.VFM(resloc, loc0, loc1, 3, 0)
+            return
+        not_implemented("vec_float_mul of size %d" % itemsize)
 
     def emit_vec_float_truediv(self, op, arglocs, regalloc):
         resloc, loc0, loc1, itemsize_loc = arglocs
         itemsize = itemsize_loc.value
-        if itemsize == 4:
-            self.mc.xvdivsp(resloc.value, loc0.value, loc1.value)
-        elif itemsize == 8:
-            self.mc.xvdivdp(resloc.value, loc0.value, loc1.value)
+        if itemsize == 8:
+            self.mc.VFD(resloc, loc0, loc1, 3, 0)
+            return
+        not_implemented("vec_float_truediv of size %d" % itemsize)
 
     def emit_vec_int_and(self, op, arglocs, regalloc):
         resloc, loc0, loc1, sizeloc = arglocs
-        self.mc.vand(resloc.value, loc0.value, loc1.value)
+        self.mc.VN(resloc, loc0, loc1)
 
     def emit_vec_int_or(self, op, arglocs, regalloc):
         resloc, loc0, loc1, sizeloc = arglocs
-        self.mc.vor(resloc.value, loc0.value, loc1.value)
+        self.mc.VO(resloc, loc0, loc1)
 
     def emit_vec_int_xor(self, op, arglocs, regalloc):
         resloc, loc0, loc1, sizeloc = arglocs
-        self.mc.vxor(resloc.value, loc0.value, loc1.value)
+        self.mc.VX(resloc, loc0, loc1)
 
     def emit_vec_int_signext(self, op, arglocs, regalloc):
         resloc, loc0 = arglocs
-        # TODO
+        # signext is only allowed if the data type sizes do not change.
+        # e.g. [byte,byte] = sign_ext([byte, byte]), a simple move is sufficient!
         self.regalloc_mov(loc0, resloc)
 
     def emit_vec_float_abs(self, op, arglocs, regalloc):

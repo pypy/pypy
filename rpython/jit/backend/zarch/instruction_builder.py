@@ -488,7 +488,7 @@ def build_vrr_a(mnemonic, (opcode1,opcode2), argtypes='v,v'):
 
 def build_vrr_c(mnemonic, (opcode1,opcode2), argtypes='v,v,v,m,m'):
     @builder.arguments(argtypes)
-    def encode_vrr_c(self, v1, v2, v3, mask1, mask2):
+    def encode_vrr_c(self, v1, v2, v3, mask1=0, mask2=0):
         self.writechar(opcode1)
         rbx =  (v1 >= 16) << 3
         rbx |= (v2 >= 16) << 2

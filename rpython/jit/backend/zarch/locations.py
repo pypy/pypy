@@ -250,3 +250,20 @@ def get_fp_offset(base_ofs, position):
 imm1 = imm(1)
 imm0 = imm(0)
 
+MASK_VEC_BYTE = 0
+MASK_VEC_HWORD = 1
+MASK_VEC_WORD = 2
+MASK_VEC_DWORD = 3
+
+def itemsize_to_mask(v):
+    if v == 16:
+        return MASK_VEC_QWORD
+    elif v == 8:
+        return MASK_VEC_DWORD
+    elif v == 4:
+        return MASK_VEC_WORD
+    elif v == 2:
+        return MASK_VEC_HWORD
+    elif v == 1:
+        return MASK_VEC_BYTE
+    assert 0, "not supported itemsize to mask!"
