@@ -793,22 +793,25 @@ GeneratorIterator.typedef = TypeDef("generator",
     __iter__   = interp2app(GeneratorIterator.descr__iter__,
                             descrmismatch='__iter__'),
     gi_running = interp_attrproperty('running', cls=GeneratorIterator),
-    gi_frame   = GetSetProperty(GeneratorIterator.descr_gi_frame),
-    gi_code    = GetSetProperty(GeneratorIterator.descr_gi_code),
+    gi_frame   = GetSetProperty(GeneratorIterator.descr_gicr_frame),
+    gi_code    = interp_attrproperty_w('pycode', cls=GeneratorIterator),
+    gi_yieldfrom = XXX,
     __name__   = GetSetProperty(GeneratorIterator.descr__name__),
+    __qualname__ = GetSetProperty(GeneratorIterator.descr__qualname__),
     __weakref__ = make_weakref_descr(GeneratorIterator),
 )
 assert not GeneratorIterator.typedef.acceptable_as_base_class  # no __new__
 
-# TODO: to have the same distinction (Coroutine | Iterator) as in cpython 3.5,
-# a wrapper typedef with __anext__ has to be created, and __anext__ has to be
-# removed in coroutine
+CoroutineWrapper.typedef = TypeDef("coroutine_wrapper",
+    __anext__   = interp2app(CoroutineWrapper.descr_next,
+                            descrmismatch='__anext__'),
+)
+assert not CoroutineWrapper.typedef.acceptable_as_base_class  # no __new__
+
 Coroutine.typedef = TypeDef("coroutine",
     __repr__   = interp2app(Coroutine.descr__repr__),
     __reduce__   = interp2app(Coroutine.descr__reduce__),
     __setstate__ = interp2app(Coroutine.descr__setstate__),
-    __anext__   = interp2app(Coroutine.descr_next,
-                            descrmismatch='__anext__'),
     send       = interp2app(Coroutine.descr_send,
                             descrmismatch='send'),
     throw      = interp2app(Coroutine.descr_throw,
@@ -817,10 +820,12 @@ Coroutine.typedef = TypeDef("coroutine",
                             descrmismatch='close'),
     __await__  = interp2app(Coroutine.descr__await__,
                             descrmismatch='__await__'),
-    gi_running = interp_attrproperty('running', cls=Coroutine),
-    gi_frame   = GetSetProperty(Coroutine.descr_gi_frame),
-    gi_code    = GetSetProperty(Coroutine.descr_gi_code),
+    cr_running = interp_attrproperty('running', cls=Coroutine),
+    cr_frame   = GetSetProperty(Coroutine.descr_gicr_frame),
+    cr_code    = interp_attrproperty_w('pycode', cls=Coroutine),
+    cr_await   = XXX,
     __name__   = GetSetProperty(Coroutine.descr__name__),
+    __qualname__ = GetSetProperty(Coroutine.descr__qualname__),
     __weakref__ = make_weakref_descr(Coroutine),
 )
 assert not Coroutine.typedef.acceptable_as_base_class  # no __new__
