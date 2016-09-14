@@ -641,3 +641,23 @@ class AppTestYieldFrom:
             2,
         ]
 
+
+class AppTestGeneratorStop:
+
+    def test_past_generator_stop(self):
+        # how it works without 'from __future__' import generator_stop
+        def f(x):
+            raise StopIteration
+            yield x
+        raises(StopIteration, next, f(5))
+
+    def test_future_generator_stop(self):
+        d = {}
+        exec("""from __future__ import generator_stop
+
+def f(x):
+    raise StopIteration
+    yield x
+""", d)
+        f = d['f']
+        raises(RuntimeError, next, f(5))

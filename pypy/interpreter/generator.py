@@ -116,10 +116,15 @@ return next yielded value or raise StopIteration."""
         try:
             try:
                 w_result = frame.execute_frame(w_arg, operr)
-            except OperationError:
+            except OperationError as e:
                 # errors finish a frame
-                self.frame = None
+                try:
+                    if e.match(space, space.w_StopIteration):
+                        self._leak_stopiteration(e)
+                finally:
+                    self.frame = None
                 raise
+            #
             # if the frame is now marked as finished, it was RETURNed from
             if frame.frame_finished_execution:
                 self.frame = None
@@ -134,6 +139,25 @@ return next yielded value or raise StopIteration."""
         finally:
             frame.f_backref = jit.vref_None
             self.running = False
+
+    def _leak_stopiteration(self, e):
+        # Check for __future__ generator_stop and conditionally turn
+        # a leaking StopIteration into RuntimeError (with its cause
+        # set appropriately).
+        space = self.space
+        if self.pycode.co_flags & (consts.CO_FUTURE_GENERATOR_STOP |
+                                   consts.CO_COROUTINE |
+                                   consts.CO_ITERABLE_COROUTINE):
+            e2 = OperationError(space.w_RuntimeError,
+                                space.wrap("%s raised StopIteration" %
+                                           self.KIND),
+                                w_cause=e.get_w_value(space))
+            e2.record_context(space, self.frame)
+            raise e2
+        else:
+            space.warn(space.wrap("generator '%s' raised StopIteration"
+                                  % self.get_qualname()),
+                       space.w_PendingDeprecationWarning)
 
     def descr_throw(self, w_type, w_val=None, w_tb=None):
         """throw(typ[,val[,tb]]) -> raise exception in generator/coroutine,
