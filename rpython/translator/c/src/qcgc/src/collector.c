@@ -20,6 +20,7 @@ void qcgc_mark(void) {
 
 		while (qcgc_state.gp_gray_stack->index > 0) {
 			object_t *top = qcgc_gray_stack_top(qcgc_state.gp_gray_stack);
+			qcgc_state.gray_stack_size--;
 			qcgc_state.gp_gray_stack = qcgc_gray_stack_pop(
 					qcgc_state.gp_gray_stack);
 			qcgc_pop_object(top);
@@ -31,6 +32,7 @@ void qcgc_mark(void) {
 
 			while (arena->gray_stack->index > 0) {
 				object_t *top = qcgc_gray_stack_top(arena->gray_stack);
+				qcgc_state.gray_stack_size--;
 				arena->gray_stack = qcgc_gray_stack_pop(arena->gray_stack);
 				qcgc_pop_object(top);
 			}
@@ -53,6 +55,7 @@ void qcgc_incmark(void) {
 
 	while (to_process > 0 && qcgc_state.gp_gray_stack->index > 0) {
 		object_t *top = qcgc_gray_stack_top(qcgc_state.gp_gray_stack);
+		qcgc_state.gray_stack_size--;
 		qcgc_state.gp_gray_stack = qcgc_gray_stack_pop(
 				qcgc_state.gp_gray_stack);
 		qcgc_pop_object(top);
@@ -66,6 +69,7 @@ void qcgc_incmark(void) {
 
 		while (to_process > 0 && arena->gray_stack->index > 0) {
 			object_t *top = qcgc_gray_stack_top(arena->gray_stack);
+			qcgc_state.gray_stack_size--;
 			arena->gray_stack = qcgc_gray_stack_pop(arena->gray_stack);
 			qcgc_pop_object(top);
 			to_process--;
@@ -99,6 +103,7 @@ QCGC_STATIC void mark_setup(bool incremental) {
 		// because of the write barrier
 		size_t count = qcgc_state.prebuilt_objects->count;
 		for (size_t i = 0; i < count; i++) {
+			qcgc_state.gray_stack_size++;
 			qcgc_state.gp_gray_stack = qcgc_gray_stack_push(
 					qcgc_state.gp_gray_stack,
 					qcgc_state.prebuilt_objects->items[i]);
@@ -157,6 +162,7 @@ QCGC_STATIC void qcgc_push_object(object_t *object) {
 			if (qcgc_hbtable_mark(object)) {
 				// Did mark it / was white before
 				object->flags |= QCGC_GRAY_FLAG;
+				qcgc_state.gray_stack_size++;
 				qcgc_state.gp_gray_stack = qcgc_gray_stack_push(
 						qcgc_state.gp_gray_stack, object);
 			}
@@ -169,6 +175,7 @@ QCGC_STATIC void qcgc_push_object(object_t *object) {
 		if (qcgc_arena_get_blocktype(arena, index) == BLOCK_WHITE) {
 			object->flags |= QCGC_GRAY_FLAG;
 			qcgc_arena_set_blocktype(arena, index, BLOCK_BLACK);
+			qcgc_state.gray_stack_size++;
 			arena->gray_stack = qcgc_gray_stack_push(arena->gray_stack, object);
 		}
 	}

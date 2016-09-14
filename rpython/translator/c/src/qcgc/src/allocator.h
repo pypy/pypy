@@ -2,6 +2,8 @@
 
 #include "../qcgc.h"
 
+#include <string.h>
+
 #include "arena.h"
 #include "bag.h"
 
@@ -69,15 +71,6 @@ void qcgc_allocator_destroy(void);
 object_t *qcgc_fit_allocate(size_t bytes);
 
 /**
- * Allocate new memory region using bump allocator
- *
- * @param	bytes	Desired size of the memory region in bytes
- * @return	Pointer to memory large enough to hold size bytes, NULL in case of
- *			errors, already zero initialized if QCGC_INIT_ZERO is set
- */
-object_t *qcgc_bump_allocate(size_t bytes);
-
-/**
  * Allocate new memory region using huge block allocator
  *
  * @param	bytes	Desired size of the memory region in bytes
@@ -99,3 +92,42 @@ void qcgc_fit_allocator_empty_lists(void);
  * @param	cells	Size of memory region in cells
  */
 void qcgc_fit_allocator_add(cell_t *ptr, size_t cells);
+
+QCGC_STATIC QCGC_INLINE size_t bytes_to_cells(size_t bytes) {
+	return (bytes + sizeof(cell_t) - 1) / sizeof(cell_t);
+}
+
+/**
+ * Find a new block for the bump allocator
+ */
+void qcgc_bump_allocator_renew_block(void);
+
+/**
+ * Allocate new memory region using bump allocator.
+ * Bump allocator must have enough space for desired bytes
+ * (client is responsible, use qcgc_bump_allocator_renew_block)
+ *
+ * @param	bytes	Desired size of the memory region in bytes
+ * @return	Pointer to memory large enough to hold size bytes, NULL in case of
+ *			errors, already zero initialized if QCGC_INIT_ZERO is set
+ */
+QCGC_STATIC QCGC_INLINE object_t *qcgc_bump_allocate(size_t bytes) {
+	size_t cells = bytes_to_cells(bytes);
+
+	cell_t *mem = qcgc_allocator_state.bump_state.bump_ptr;
+
+	qcgc_arena_set_blocktype(qcgc_arena_addr(mem), qcgc_arena_cell_index(mem),
+			BLOCK_WHITE);
+
+	qcgc_allocator_state.bump_state.bump_ptr += cells;
+	qcgc_allocator_state.bump_state.remaining_cells -= cells;
+
+	object_t *result = (object_t *) mem;
+
+#if QCGC_INIT_ZERO
+	memset(result, 0, cells * sizeof(cell_t));
+#endif
+
+	result->flags = QCGC_GRAY_FLAG;
+	return result;
+}

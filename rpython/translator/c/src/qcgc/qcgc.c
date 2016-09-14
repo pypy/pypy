@@ -25,6 +25,8 @@
 QCGC_STATIC QCGC_INLINE void initialize_shadowstack(void);
 QCGC_STATIC QCGC_INLINE void destroy_shadowstack(void);
 
+QCGC_STATIC object_t *bump_allocate(size_t size);
+
 void qcgc_initialize(void) {
 	initialize_shadowstack();
 	qcgc_state.prebuilt_objects = qcgc_shadow_stack_create(16); // XXX
@@ -79,14 +81,14 @@ object_t *qcgc_allocate(size_t size) {
 	if (LIKELY(size <= 1<<QCGC_LARGE_ALLOC_THRESHOLD_EXP)) {
 		// Use bump / fit allocator
 		//if (qcgc_allocator_state.use_bump_allocator) {
-		if (true) {
-			result = qcgc_bump_allocate(size);
+		if (false) {
+			result = bump_allocate(size);
 		} else {
 			result = qcgc_fit_allocate(size);
 
 			// Fallback to bump allocator
 			if (result == NULL) {
-				result = qcgc_bump_allocate(size);
+				result = bump_allocate(size);
 			}
 		}
 	} else {
@@ -140,11 +142,13 @@ void qcgc_write(object_t *object) {
 	if ((object->flags & QCGC_PREBUILT_OBJECT) != 0) {
 		// NOTE: No mark test here, as prebuilt objects are always reachable
 		// Push prebuilt object to general purpose gray stack
+		qcgc_state.gray_stack_size++;
 		qcgc_state.gp_gray_stack = qcgc_gray_stack_push(
 				qcgc_state.gp_gray_stack, object);
 	} else if ((object_t *) qcgc_arena_addr((cell_t *) object) == object) {
 		if (qcgc_hbtable_is_marked(object)) {
 			// Push huge block to general purpose gray stack
+			qcgc_state.gray_stack_size++;
 			qcgc_state.gp_gray_stack = qcgc_gray_stack_push(
 					qcgc_state.gp_gray_stack, object);
 		}
@@ -153,6 +157,7 @@ void qcgc_write(object_t *object) {
 					qcgc_arena_cell_index((cell_t *) object)) == BLOCK_BLACK) {
 			// This was black before, push it to gray stack again
 			arena_t *arena = qcgc_arena_addr((cell_t *) object);
+			qcgc_state.gray_stack_size++;
 			arena->gray_stack = qcgc_gray_stack_push(
 					arena->gray_stack, object);
 		}
@@ -198,4 +203,12 @@ QCGC_STATIC void destroy_shadowstack(void) {
 				PROT_WRITE);
 
 	free(qcgc_shadowstack.base);
+}
+
+QCGC_STATIC object_t *bump_allocate(size_t size) {
+	if (UNLIKELY(qcgc_allocator_state.bump_state.remaining_cells <
+			bytes_to_cells(size))) {
+		qcgc_bump_allocator_renew_block();
+	}
+	return qcgc_bump_allocate(size);
 }
