@@ -89,6 +89,7 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         assert res == [2, 4, 6]
 
     def test_subclass(self):
+        import struct
         module = self.import_module(name='array')
         class Sub(module.array):
             pass
@@ -97,3 +98,5 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         res = [1, 2, 3] * arr
         assert res == [1, 2, 3, 1, 2, 3]
         
+        val = module.readbuffer_as_string(arr)
+        assert val == struct.pack('i', 2)
