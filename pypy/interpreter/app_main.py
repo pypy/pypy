@@ -336,7 +336,6 @@ def create_stdio(fd, writing, name, encoding, errors, unbuffered):
     return stream
 
 
-# Order is significant!
 sys_flags = (
     "debug",
     "inspect",
@@ -352,6 +351,7 @@ sys_flags = (
     "hash_randomization",
     "isolated",
 )
+# ^^^ Order is significant!  Keep in sync with module.sys.app.sysflags
 
 default_options = dict.fromkeys(
     sys_flags +
