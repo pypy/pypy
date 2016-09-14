@@ -514,10 +514,13 @@ def bf_segcount(space, w_obj, ref):
 @cpython_api([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed,
              header=None, error=-1)
 def bf_getreadbuffer(space, w_buf, segment, ref):
+    from rpython.rlib.buffer import StringBuffer
     if segment != 0:
         raise oefmt(space.w_SystemError,
                     "accessing non-existent segment")
     buf = space.readbuf_w(w_buf)
+    if isinstance(buf, StringBuffer):
+        return str_getreadbuffer(space, w_buf, segment, ref)
     address = buf.get_raw_address()
     ref[0] = address
     return len(buf)
@@ -533,7 +536,6 @@ def bf_getwritebuffer(space, w_buf, segment, ref):
     if segment != 0:
         raise oefmt(space.w_SystemError,
                     "accessing non-existent segment")
-
     buf = space.writebuf_w(w_buf)
     ref[0] = buf.get_raw_address()
     return len(buf)

@@ -104,3 +104,17 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
         assert raises(TypeError, buffer_support.readbuffer_as_string, 42)
         assert raises(TypeError, buffer_support.writebuffer_as_string, 42)
         assert raises(TypeError, buffer_support.charbuffer_as_string, 42)
+
+    def test_user_class(self):
+        class MyBuf(str):
+            pass
+        s = 'a\0x'
+        buf = MyBuf(s)
+        buffer_support = self.get_buffer_support()
+
+        assert buffer_support.check_readbuffer(buf)
+        assert s == buffer_support.readbuffer_as_string(buf)
+        assert raises(TypeError, buffer_support.writebuffer_as_string, buf)
+        assert s == buffer_support.charbuffer_as_string(buf)
+
+
