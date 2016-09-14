@@ -105,8 +105,9 @@ class sysflags(metaclass=structseqtype):
     bytes_warning = structseqfield(9)
     quiet = structseqfield(10)
     hash_randomization = structseqfield(11)
+    isolated = structseqfield(12)
 
-null_sysflags = sysflags((0,)*12)
+null_sysflags = sysflags((0,)*13)
 null__xoptions = {}
 
 
