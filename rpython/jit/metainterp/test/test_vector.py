@@ -133,9 +133,9 @@ class VectorizeTests(object):
 
     vec_float_unary = functools.partial(vec_int_unary, _vector_float_unary)
 
-    test_vec_abs_float = \
+    test_vec_float_abs = \
             vec_float_unary(lambda v: abs(v), rffi.DOUBLE)
-    test_vec_neg_float = \
+    test_vec_float_neg = \
             vec_float_unary(lambda v: -v, rffi.DOUBLE)
 
     # FLOAT BINARY

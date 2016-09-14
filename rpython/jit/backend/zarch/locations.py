@@ -25,6 +25,9 @@ class AssemblerLocation(object):
     def is_fp_reg(self):
         return False
 
+    def is_vector_reg(self):
+        return False
+
     def is_imm_float(self):
         return False
 
@@ -118,13 +121,10 @@ class VectorRegisterLocation(RegisterLocation):
     def is_core_reg(self):
         return False
 
-    def is_fp_reg(self):
-        return True
-
     def as_key(self):            # 16 <= as_key <= 32
         return self.value + 32
 
-    def is_float(self):
+    def is_vector_reg(self):
         return True
 
 class ImmLocation(AssemblerLocation):

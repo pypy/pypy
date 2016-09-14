@@ -919,6 +919,10 @@ class AssemblerZARCH(BaseAssembler, OpAssembler,
         return frame_depth
 
     def regalloc_mov(self, prev_loc, loc):
+        if prev_loc.is_vector_reg():
+            assert loc.is_vector_reg()
+            self.mc.VLR(loc, prev_loc)
+            return
         if prev_loc.is_imm():
             value = prev_loc.getint()
             # move immediate value to register

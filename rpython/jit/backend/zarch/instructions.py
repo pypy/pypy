@@ -295,7 +295,7 @@ all_mnemonic_codes = {
 
 vector_mnemonic_codes = {
     'VL':     ('vrx', ['\xE7','\x06'], 'v,bid'),
-    'VLR':    ('vrr_a', ['\xE7','\x56']),
+    'VLR':    ('vrr_a', ['\xE7','\x56'], 'v,v'),
 
     'VST':    ('vrx', ['\xE7','\x0E'], 'v,bid'),
 
@@ -315,6 +315,16 @@ vector_mnemonic_codes = {
     'VFS':   ('vrr_c', ['\xE7','\xE2']),
     'VFM':   ('vrr_c', ['\xE7','\xE7']),
     'VFD':   ('vrr_c', ['\xE7','\xE5']),
+
+    # conversion
+    'VCDG':  ('vrr_a', ['\xE7','\xC3']),
+
+    # compare, sign, ...
+    'VFPSO': ('vrr_a', ['\xE7','\xCC']),
+    'VFCE':  ('vrr_c', ['\xE7','\xE8']),
+    'VSEL':  ('vrr_e', ['\xE7','\x8D'], 'v,v,v,v'),
+    'VPERM': ('vrr_e', ['\xE7','\x8C'], 'v,v,v,v'),
+    'VREPI': ('vri_a', ['\xE7','\x45']),
 
     # '': ('', ['','']),
 }

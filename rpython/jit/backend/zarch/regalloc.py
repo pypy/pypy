@@ -54,6 +54,12 @@ class TempFloat(TempVar):
     def __repr__(self):
         return "<TempFloat at %s>" % (id(self),)
 
+class TempVector(TempVar):
+    type = 'V'
+
+    def __repr__(self):
+        return "<TempVector at %s>" % (id(self),)
+
 
 class FPRegisterManager(RegisterManager):
     all_regs              = r.MANAGED_FP_REGS
@@ -142,8 +148,7 @@ class VectorRegisterManager(RegisterManager):
         return loc
 
     def get_scratch_reg(self, selected_reg=None):
-        # TODO
-        box = TempFloat()
+        box = TempVector()
         reg = self.force_allocate_reg(box, forbidden_vars=self.temp_boxes, selected_reg=selected_reg)
         self.temp_boxes.append(box)
         return reg
