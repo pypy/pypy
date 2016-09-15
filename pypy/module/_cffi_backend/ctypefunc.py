@@ -59,6 +59,16 @@ class W_CTypeFunc(W_CTypePtrBase):
                     lltype.free(self.cif_descr, flavor='raw')
                     self.cif_descr = lltype.nullptr(CIF_DESCRIPTION)
 
+    def is_unichar_ptr_or_array(self):
+        return False
+
+    def is_char_or_unichar_ptr_or_array(self):
+        return False
+
+    def string(self, cdataobj, maxlen):
+        # Can't use ffi.string() on a function pointer
+        return W_CType.string(self, cdataobj, maxlen)
+
     def new_ctypefunc_completing_argtypes(self, args_w):
         space = self.space
         nargs_declared = len(self.fargs)
