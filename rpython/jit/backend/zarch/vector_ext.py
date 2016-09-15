@@ -220,85 +220,44 @@ class VectorAssembler(object):
         flush_vec_cc(self, regalloc, c.VEQI, op.bytesize, resloc)
 
     def emit_vec_float_xor(self, op, arglocs, regalloc):
-        resloc, l0, l1, sizeloc = arglocs
-        res = resloc.value
-        r0 = l0.value
-        r1 = l1.value
-        self.mc.xxlxor(res, r0, r1)
+        resloc, loc0, loc1, sizeloc = arglocs
+        self.mc.VX(resloc, loc0, loc1)
 
     def emit_vec_float_ne(self, op, arglocs, regalloc):
         assert isinstance(op, VectorOp)
-        resloc, loc1, loc2, sizeloc = arglocs
+        resloc, loc0, loc1, sizeloc = arglocs
         size = sizeloc.value
-        tmp = regalloc.vrm.get_scratch_reg().value
-        offloc = regalloc.rm.get_scratch_reg()
-        off = offloc.value
-        # SP is always 16 byte aligned, and PARAM_SAVE_AREA_OFFSET % 16 == 0
-        self.mc.load_imm(offloc, PARAM_SAVE_AREA_OFFSET)
-        if size == 4:
-            self.mc.xvcmpeqspx(tmp, loc1.value, loc2.value)
-            self.mc.stxvw4x(tmp, off, r.SP.value)
-        elif size == 8:
-            self.mc.xvcmpeqdpx(tmp, loc1.value, loc2.value)
-            self.mc.stxvd2x(tmp, off, r.SP.value)
+        if size == 8:
+            # bit 3 in last argument sets the condition code
+            self.mc.VFCE(resloc, loc0, loc1, 3, 0, 1)
+            self.mc.VNO(resloc, resloc, resloc)
         else:
-            not_implemented("float == for size %d" % size)
-        res = resloc.value
-        self.mc.lvx(res, off, r.SP.value)
-        self.mc.vnor(res, res, res) # complement
+            not_implemented("[zarch/assembler] float != for size %d" % size)
         flush_vec_cc(self, regalloc, c.VNEI, op.bytesize, resloc)
 
     def emit_vec_cast_int_to_float(self, op, arglocs, regalloc):
         resloc, loc0 = arglocs
-        offloc = regalloc.rm.get_scratch_reg()
-        off = offloc.value
-        # SP is always 16 byte aligned, and PARAM_SAVE_AREA_OFFSET % 16 == 0
-        # bit 1 on mask4 -> supresses inexact exception
         self.mc.VCDG(resloc, loc0, 3, 4, m.RND_TOZERO.value)
-        #self.mc.load_imm(offloc, PARAM_SAVE_AREA_OFFSET)
-        #self.mc.stvx(l0.value, off, r.SP.value)
-        #self.mc.lxvd2x(res.value, off, r.SP.value)
-        #self.mc.xvcvsxddp(res.value, res.value)
 
     def emit_vec_int_eq(self, op, arglocs, regalloc):
         assert isinstance(op, VectorOp)
-        res, l0, l1, sizeloc = arglocs
+        resloc, loc0, loc1, sizeloc = arglocs
         size = sizeloc.value
-        if size == 1:
-            self.mc.vcmpequbx(res.value, l0.value, l1.value)
-        elif size == 2:
-            self.mc.vcmpequhx(res.value, l0.value, l1.value)
-        elif size == 4:
-            self.mc.vcmpequwx(res.value, l0.value, l1.value)
-        elif size == 8:
-            self.mc.vcmpequdx(res.value, l0.value, l1.value)
-        flush_vec_cc(self, regalloc, c.VEQI, op.bytesize, res)
+        self.mc.VCEQ(resloc, loc0, loc1, l.itemsize_to_mask(size), 1)
+        flush_vec_cc(self, regalloc, c.VEQI, op.bytesize, resloc)
 
     def emit_vec_int_ne(self, op, arglocs, regalloc):
         assert isinstance(op, VectorOp)
-        res, l0, l1, sizeloc = arglocs
+        resloc, loc0, loc1, sizeloc = arglocs
         size = sizeloc.value
-        tmp = regalloc.vrm.get_scratch_reg(type=INT).value
-        self.mc.vxor(tmp, tmp, tmp)
-        if size == 1:
-            self.mc.vcmpequbx(res.value, res.value, tmp)
-        elif size == 2:
-            self.mc.vcmpequhx(res.value, res.value, tmp)
-        elif size == 4:
-            self.mc.vcmpequwx(res.value, res.value, tmp)
-        elif size == 8:
-            self.mc.vcmpequdx(res.value, res.value, tmp)
-        self.mc.vnor(res.value, res.value, res.value)
-        flush_vec_cc(self, regalloc, c.VEQI, op.bytesize, res)
+        self.mc.VCEQ(resloc, loc0, loc1, l.itemsize_to_mask(size), 1)
+        self.mc.VNO(resloc, resloc, resloc)
+        flush_vec_cc(self, regalloc, c.VNEI, op.bytesize, res)
 
     def emit_vec_cast_float_to_int(self, op, arglocs, regalloc):
-        res, l0 = arglocs
-        offloc = regalloc.rm.get_scratch_reg()
-        v0 = regalloc.vrm.get_scratch_reg(type=INT)
-        off = offloc.value
-        # SP is always 16 byte aligned, and PARAM_SAVE_AREA_OFFSET % 16 == 0
-        self.mc.load_imm(offloc, PARAM_SAVE_AREA_OFFSET)
-        self.mc.xvcvdpsxds(res.value, l0.value)
+        resloc, loc0 = arglocs
+        # 4 => bit 1 from the MSB: XxC
+        self.mc.VCGD(resloc, loc0, 3, 4, mask.RND_TOZERO.value)
 
     def emit_vec_expand_f(self, op, arglocs, regalloc):
         assert isinstance(op, VectorOp)
@@ -320,30 +279,37 @@ class VectorAssembler(object):
 
     def emit_vec_expand_i(self, op, arglocs, regalloc):
         assert isinstance(op, VectorOp)
-        res, l0, off = arglocs
+        resloc, loc0 = arglocs
         size = op.bytesize
+        self.mc.VLREP(resloc, loc0, l.itemsize_to_mask(size))
 
-        self.mc.load_imm(r.SCRATCH2, off.value)
-        self.mc.lvx(res.value, r.SCRATCH2.value, r.SP.value)
-        if size == 1:
-            if IS_BIG_ENDIAN:
-                self.mc.vspltb(res.value, res.value, 0b0000)
-            else:
-                self.mc.vspltb(res.value, res.value, 0b1111)
-        elif size == 2:
-            if IS_BIG_ENDIAN:
-                self.mc.vsplth(res.value, res.value, 0b000)
-            else:
-                self.mc.vsplth(res.value, res.value, 0b111)
-        elif size == 4:
-            if IS_BIG_ENDIAN:
-                self.mc.vspltw(res.value, res.value, 0b00)
-            else:
-                self.mc.vspltw(res.value, res.value, 0b11)
-        elif size == 8:
-            pass
+    emit_vec_expand_f = emit_vec_expand_i
+
+    def _accum_reduce(self, op, arg, accumloc, targetloc):
+        # Currently the accumulator can ONLY be 64 bit float/int
+        if arg.type == FLOAT:
+            # r = (r[0]+r[1],r[0]+r[1])
+            self.mc.VMRL(targetloc, accumloc, accumloc)
+            if op == '+':
+                self.mc.VFA(targetloc, targetloc, accumloc)
+                return
+            elif op == '*':
+                self.mc.VFM(targetloc, targetloc, accumloc)
+                return
         else:
-            not_implemented("expand int size not impl")
+            assert arg.type == INT
+            # store the vector onto the stack, just below the stack pointer
+            self.mc.VST(accumloc, l.addr(0, r.SP))
+            self.mc.LG(r.SCRATCH, l.addr(0, r.SP))
+            self.mc.LG(targetloc, l.addr(8, r.SP))
+            if op == '+':
+                self.mc.AGR(targetloc, r.SCRATCH)
+                return
+            elif op == '*':
+                self.mc.MSGR(targetloc, r.SCRATCH)
+                return
+        not_implemented("reduce sum for %s not impl." % arg)
+
 
     def emit_vec_pack_i(self, op, arglocs, regalloc):
         assert isinstance(op, VectorOp)
@@ -467,6 +433,7 @@ class VectorAssembler(object):
                 # r = (v[0], s[1])
                 self.mc.xxpermdi(res, vec, src, permi(0,1))
 
+
     def emit_vec_unpack_f(self, op, arglocs, regalloc):
         assert isinstance(op, VectorOp)
         resloc, srcloc, srcidxloc, countloc = arglocs
@@ -485,41 +452,6 @@ class VectorAssembler(object):
             self.mc.xxpermdi(res, src, src, permi(1,0))
             return
         not_implemented("unpack for combination src %d -> res %d" % (srcidx, residx))
-
-    def _accum_reduce(self, op, arg, accumloc, targetloc):
-        # Currently the accumulator can ONLY be the biggest
-        # 64 bit float/int
-        # TODO
-        tgt = targetloc.value
-        acc = accumloc.value
-        if arg.type == FLOAT:
-            # r = (r[0]+r[1],r[0]+r[1])
-            if IS_BIG_ENDIAN:
-                self.mc.xxpermdi(tgt, acc, acc, 0b00)
-            else:
-                self.mc.xxpermdi(tgt, acc, acc, 0b10)
-            if op == '+':
-                self.mc.xsadddp(tgt, tgt, acc)
-            elif op == '*':
-                self.mc.xsmuldp(tgt, tgt, acc)
-            else:
-                not_implemented("sum not implemented")
-            return
-        else:
-            assert arg.type == INT
-            self.mc.load_imm(r.SCRATCH2, PARAM_SAVE_AREA_OFFSET)
-            self.mc.stvx(acc, r.SCRATCH2.value, r.SP.value)
-            self.mc.load(tgt, r.SP.value, PARAM_SAVE_AREA_OFFSET)
-            self.mc.load(r.SCRATCH.value, r.SP.value, PARAM_SAVE_AREA_OFFSET+8)
-            if op == '+':
-                self.mc.add(tgt, tgt, acc)
-            elif op == '*':
-                self.mc.mulld(tgt, tgt, acc)
-            else:
-                not_implemented("sum not implemented")
-            return
-
-        not_implemented("reduce sum for %s not impl." % arg)
 
     def emit_vec_f(self, op, arglocs, regalloc):
         pass
@@ -729,18 +661,10 @@ class VectorRegalloc(object):
         assert isinstance(op, VectorOp)
         arg = op.getarg(0)
         mc = self.assembler.mc
-        if arg.is_constant():
-            assert isinstance(arg, ConstInt)
-            l0 = self.rm.get_scratch_reg()
-            mc.load_imm(l0, arg.value)
-        else:
-            l0 = self.ensure_reg(arg)
-        mc.store(l0.value, r.SP.value, PARAM_SAVE_AREA_OFFSET)
+        l0 = self.ensure_reg_or_pool(arg)
         size = op.bytesize
-        if size == 8:
-            mc.store(l0.value, r.SP.value, PARAM_SAVE_AREA_OFFSET+8)
         res = self.force_allocate_vector_reg(op)
-        return [res, l0, imm(PARAM_SAVE_AREA_OFFSET)]
+        return [res, l0]
 
     def prepare_vec_int_is_true(self, op):
         assert isinstance(op, VectorOp)

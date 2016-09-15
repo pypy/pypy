@@ -273,9 +273,9 @@ class VectorizeTests(object):
     test_vec_xor_short = \
         vec_int_arith(lambda a,b: intmask(a)^intmask(b), rffi.SHORT)
 
-    test_vec_int_eq = \
+    test_vec_int_cmp_eq = \
         vec_int_arith(lambda a,b: a == b, rffi.SIGNED)
-    test_vec_int_ne = \
+    test_vec_int_cmp_ne = \
         vec_int_arith(lambda a,b: a == b, rffi.SIGNED)
 
     @py.test.mark.parametrize('i',[1,2,3,4,9])
