@@ -100,3 +100,10 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         
         val = module.readbuffer_as_string(arr)
         assert val == struct.pack('i', 2)
+
+    def test_unicode_readbuffer(self):
+        # Not really part of array, refactor
+        import struct
+        module = self.import_module(name='array')
+        val = module.readbuffer_as_string(u'\u03a3')
+        assert val.decode('utf32') == u'\u03a3'

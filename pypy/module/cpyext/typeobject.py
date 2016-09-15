@@ -785,6 +785,7 @@ def inherit_slots(space, pto, w_base):
             pto.c_tp_getattro = base.c_tp_getattro
         if not pto.c_tp_as_buffer:
             pto.c_tp_as_buffer = base.c_tp_as_buffer
+        # XXX need to refactor: what about built-in objects i.e. W_Unicode
         if base.c_tp_as_buffer:
             # also inherit all the base.c_tp_as_buffer functions, since they
             # do not have real __slots__ they are not filled in otherwise
