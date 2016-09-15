@@ -785,6 +785,22 @@ def inherit_slots(space, pto, w_base):
             pto.c_tp_getattro = base.c_tp_getattro
         if not pto.c_tp_as_buffer:
             pto.c_tp_as_buffer = base.c_tp_as_buffer
+        if base.c_tp_as_buffer:
+            # also inherit all the base.c_tp_as_buffer functions, since they
+            # do not have real __slots__ they are not filled in otherwise
+            # skip bf_getbuffer, which is __buffer__
+            pto_as = pto.c_tp_as_buffer
+            base_as = base.c_tp_as_buffer
+            if not pto_as.c_bf_getreadbuffer:
+                pto_as.c_bf_getreadbuffer = base_as.c_bf_getreadbuffer
+            if not pto_as.c_bf_getwritebuffer:
+                pto_as.c_bf_getwritebuffer = base_as.c_bf_getwritebuffer
+            if not pto_as.c_bf_getsegcount:
+                pto_as.c_bf_getsegcount = base_as.c_bf_getsegcount
+            if not pto_as.c_bf_getcharbuffer:
+                pto_as.c_bf_getcharbuffer = base_as.c_bf_getcharbuffer
+            if not pto_as.c_bf_getcharbuffer:
+                pto_as.c_bf_releasebuffer = base_as.c_bf_releasebuffer
     finally:
         Py_DecRef(space, base_pyo)
 
