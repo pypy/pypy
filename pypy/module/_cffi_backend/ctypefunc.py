@@ -35,8 +35,7 @@ class W_CTypeFunc(W_CTypePtrBase):
         assert isinstance(ellipsis, bool)
         extra, xpos = self._compute_extra_text(fargs, fresult, ellipsis, abi)
         size = rffi.sizeof(rffi.VOIDP)
-        W_CTypePtrBase.__init__(self, space, size, extra, xpos, fresult,
-                                could_cast_anything=False)
+        W_CTypePtrBase.__init__(self, space, size, extra, xpos, fresult)
         self.fargs = fargs
         self.ellipsis = ellipsis
         self.abi = abi
