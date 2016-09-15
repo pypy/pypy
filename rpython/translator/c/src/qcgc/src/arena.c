@@ -12,6 +12,7 @@
 #include "allocator.h"
 #include "event_logger.h"
 #include "gc_state.h"
+#include "object_stack.h"
 
 arena_t *qcgc_arena_create(void) {
 	qcgc_event_logger_log(EVENT_NEW_ARENA, 0, NULL);
@@ -45,7 +46,7 @@ arena_t *qcgc_arena_create(void) {
 	result->mark_bitmap[QCGC_ARENA_FIRST_CELL_INDEX / 8] = 1;
 
 	// Create gray stack
-	result->gray_stack = qcgc_gray_stack_create(QCGC_GRAY_STACK_INIT_SIZE);
+	result->gray_stack = qcgc_object_stack_create(QCGC_GRAY_STACK_INIT_SIZE);
 	return result;
 }
 
@@ -94,7 +95,7 @@ bool qcgc_arena_pseudo_sweep(arena_t *arena) {
 #if CHECKED
 	assert(arena != NULL);
 	assert(qcgc_arena_is_coalesced(arena));
-	assert(qcgc_arena_addr(qcgc_allocator_state.bump_state.bump_ptr) == arena);
+	assert(qcgc_arena_addr(_qcgc_bump_allocator.ptr) == arena);
 #endif
 	// Ignore free cell / largest block counting here, as blocks are not
 	// registerd in free lists as well
@@ -121,7 +122,7 @@ bool qcgc_arena_sweep(arena_t *arena) {
 	assert(arena != NULL);
 	assert(qcgc_arena_is_coalesced(arena));
 #endif
-	if (qcgc_arena_addr(qcgc_allocator_state.bump_state.bump_ptr) == arena) {
+	if (qcgc_arena_addr(_qcgc_bump_allocator.ptr) == arena) {
 		return qcgc_arena_pseudo_sweep(arena);
 	}
 
@@ -176,7 +177,6 @@ bool qcgc_arena_sweep(arena_t *arena) {
 						memset(arena->cells + last_free_cell, 0,
 								sizeof(cell_t) * (cell - last_free_cell));
 #endif
-						qcgc_state.free_cells += cell - last_free_cell;
 						qcgc_state.largest_free_block = MAX(
 								qcgc_state.largest_free_block,
 								cell - last_free_cell);
@@ -195,7 +195,6 @@ bool qcgc_arena_sweep(arena_t *arena) {
 		memset(arena->cells + last_free_cell, 0,
 				sizeof(cell_t) * (QCGC_ARENA_CELLS_COUNT - last_free_cell));
 #endif
-		qcgc_state.free_cells += QCGC_ARENA_CELLS_COUNT - last_free_cell;
 		qcgc_state.largest_free_block = MAX(
 				qcgc_state.largest_free_block,
 				QCGC_ARENA_CELLS_COUNT - last_free_cell);

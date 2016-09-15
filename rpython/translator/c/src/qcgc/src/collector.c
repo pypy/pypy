@@ -12,16 +12,19 @@ QCGC_STATIC QCGC_INLINE void qcgc_push_object(object_t *object);
 QCGC_STATIC void mark_setup(bool incremental);
 QCGC_STATIC void mark_cleanup(bool incremental);
 
+QCGC_STATIC void check_free_cells(void);
+QCGC_STATIC void check_largest_free_block(void);
+
 void qcgc_mark(void) {
 	mark_setup(false);
 
 	while (qcgc_state.gray_stack_size > 0) {
 		// General purpose gray stack (prebuilt objects and huge blocks)
 
-		while (qcgc_state.gp_gray_stack->index > 0) {
-			object_t *top = qcgc_gray_stack_top(qcgc_state.gp_gray_stack);
+		while (qcgc_state.gp_gray_stack->count > 0) {
+			object_t *top = qcgc_object_stack_top(qcgc_state.gp_gray_stack);
 			qcgc_state.gray_stack_size--;
-			qcgc_state.gp_gray_stack = qcgc_gray_stack_pop(
+			qcgc_state.gp_gray_stack = qcgc_object_stack_pop(
 					qcgc_state.gp_gray_stack);
 			qcgc_pop_object(top);
 		}
@@ -30,10 +33,10 @@ void qcgc_mark(void) {
 		for (size_t i = 0; i < qcgc_allocator_state.arenas->count; i++) {
 			arena_t *arena = qcgc_allocator_state.arenas->items[i];
 
-			while (arena->gray_stack->index > 0) {
-				object_t *top = qcgc_gray_stack_top(arena->gray_stack);
+			while (arena->gray_stack->count > 0) {
+				object_t *top = qcgc_object_stack_top(arena->gray_stack);
 				qcgc_state.gray_stack_size--;
-				arena->gray_stack = qcgc_gray_stack_pop(arena->gray_stack);
+				arena->gray_stack = qcgc_object_stack_pop(arena->gray_stack);
 				qcgc_pop_object(top);
 			}
 		}
@@ -50,13 +53,13 @@ void qcgc_incmark(void) {
 	mark_setup(true);
 
 	// General purpose gray stack (prebuilt objects and huge blocks)
-	size_t to_process = MAX(qcgc_state.gp_gray_stack->index / 2,
+	size_t to_process = MAX(qcgc_state.gp_gray_stack->count / 2,
 			QCGC_INC_MARK_MIN);
 
-	while (to_process > 0 && qcgc_state.gp_gray_stack->index > 0) {
-		object_t *top = qcgc_gray_stack_top(qcgc_state.gp_gray_stack);
+	while (to_process > 0 && qcgc_state.gp_gray_stack->count > 0) {
+		object_t *top = qcgc_object_stack_top(qcgc_state.gp_gray_stack);
 		qcgc_state.gray_stack_size--;
-		qcgc_state.gp_gray_stack = qcgc_gray_stack_pop(
+		qcgc_state.gp_gray_stack = qcgc_object_stack_pop(
 				qcgc_state.gp_gray_stack);
 		qcgc_pop_object(top);
 		to_process--;
@@ -65,12 +68,12 @@ void qcgc_incmark(void) {
 	// Arena gray stacks
 	for (size_t i = 0; i < qcgc_allocator_state.arenas->count; i++) {
 		arena_t *arena = qcgc_allocator_state.arenas->items[i];
-		to_process = MAX(arena->gray_stack->index / 2, QCGC_INC_MARK_MIN);
+		to_process = MAX(arena->gray_stack->count / 2, QCGC_INC_MARK_MIN);
 
-		while (to_process > 0 && arena->gray_stack->index > 0) {
-			object_t *top = qcgc_gray_stack_top(arena->gray_stack);
+		while (to_process > 0 && arena->gray_stack->count > 0) {
+			object_t *top = qcgc_object_stack_top(arena->gray_stack);
 			qcgc_state.gray_stack_size--;
-			arena->gray_stack = qcgc_gray_stack_pop(arena->gray_stack);
+			arena->gray_stack = qcgc_object_stack_pop(arena->gray_stack);
 			qcgc_pop_object(top);
 			to_process--;
 		}
@@ -104,7 +107,7 @@ QCGC_STATIC void mark_setup(bool incremental) {
 		size_t count = qcgc_state.prebuilt_objects->count;
 		for (size_t i = 0; i < count; i++) {
 			qcgc_state.gray_stack_size++;
-			qcgc_state.gp_gray_stack = qcgc_gray_stack_push(
+			qcgc_state.gp_gray_stack = qcgc_object_stack_push(
 					qcgc_state.gp_gray_stack,
 					qcgc_state.prebuilt_objects->items[i]);
 		}
@@ -113,8 +116,8 @@ QCGC_STATIC void mark_setup(bool incremental) {
 	qcgc_state.phase = GC_MARK;
 
 	// Always push all roots to make shadowstack pushes faster
-	for (object_t **it = qcgc_shadowstack.base;
-		it < qcgc_shadowstack.top;
+	for (object_t **it = _qcgc_shadowstack.base;
+		it < _qcgc_shadowstack.top;
 		it++) {
 		qcgc_push_object(*it);
 	}
@@ -163,7 +166,7 @@ QCGC_STATIC void qcgc_push_object(object_t *object) {
 				// Did mark it / was white before
 				object->flags |= QCGC_GRAY_FLAG;
 				qcgc_state.gray_stack_size++;
-				qcgc_state.gp_gray_stack = qcgc_gray_stack_push(
+				qcgc_state.gp_gray_stack = qcgc_object_stack_push(
 						qcgc_state.gp_gray_stack, object);
 			}
 			return;
@@ -176,7 +179,7 @@ QCGC_STATIC void qcgc_push_object(object_t *object) {
 			object->flags |= QCGC_GRAY_FLAG;
 			qcgc_arena_set_blocktype(arena, index, BLOCK_BLACK);
 			qcgc_state.gray_stack_size++;
-			arena->gray_stack = qcgc_gray_stack_push(arena->gray_stack, object);
+			arena->gray_stack = qcgc_object_stack_push(arena->gray_stack, object);
 		}
 	}
 }
@@ -184,6 +187,7 @@ QCGC_STATIC void qcgc_push_object(object_t *object) {
 void qcgc_sweep(void) {
 #if CHECKED
 	assert(qcgc_state.phase == GC_COLLECT);
+	check_free_cells();
 #endif
 	{
 		struct log_info_s {
@@ -225,38 +229,11 @@ void qcgc_sweep(void) {
 	// Fragmenation = 1 - (largest block / total free space)
 	// Use bump allocator when fragmentation < 50%
 #if CHECKED
-	size_t free_cells = 0;
-	size_t largest_free_block = 0;
-		for (size_t i = 0; i < QCGC_SMALL_FREE_LISTS; i++) {
-			if (qcgc_allocator_state.fit_state.small_free_list[i]->count > 0) {
-				largest_free_block = i + 1;
-			}
-			free_cells += qcgc_allocator_state.fit_state.small_free_list[i]
-				->count * (i + 1);
-		}
-		for (size_t i = 0; i < QCGC_LARGE_FREE_LISTS; i++) {
-			for (size_t j = 0; j < qcgc_allocator_state.fit_state.
-					large_free_list[i]->count; j++) {
-				free_cells += qcgc_allocator_state.fit_state.large_free_list[i]
-					->items[j].size;
-				largest_free_block = MAX(largest_free_block,
-					qcgc_allocator_state.fit_state.large_free_list[i]
-					->items[j].size);
-			}
-		}
-	assert(free_cells == qcgc_state.free_cells);
-	assert(largest_free_block == qcgc_state.largest_free_block);
-	assert(free_cells <= qcgc_allocator_state.arenas->count * (QCGC_ARENA_CELLS_COUNT - QCGC_ARENA_FIRST_CELL_INDEX));
-	assert(qcgc_allocator_state.arenas->count *
-			(QCGC_ARENA_CELLS_COUNT - QCGC_ARENA_FIRST_CELL_INDEX) >=
-			free_cells);
+	check_free_cells();
+	check_largest_free_block();
 #endif
-	qcgc_allocator_state.use_bump_allocator = qcgc_state.free_cells <
-		2 * qcgc_state.largest_free_block;
-
 	update_weakrefs();
 
-	qcgc_state.free_cells += qcgc_allocator_state.bump_state.remaining_cells;
 	{
 		struct log_info_s {
 			size_t arenas;
@@ -296,3 +273,40 @@ void qcgc_sweep(void) {
 #endif
 }
 
+void check_free_cells(void) {
+	size_t free_cells = 0;
+		for (size_t i = 0; i < QCGC_SMALL_FREE_LISTS; i++) {
+			free_cells += qcgc_allocator_state.fit_state.small_free_list[i]
+				->count * (i + 1);
+		}
+		for (size_t i = 0; i < QCGC_LARGE_FREE_LISTS; i++) {
+			for (size_t j = 0; j < qcgc_allocator_state.fit_state.
+					large_free_list[i]->count; j++) {
+				free_cells += qcgc_allocator_state.fit_state.large_free_list[i]
+					->items[j].size;
+			}
+		}
+	assert(free_cells == qcgc_state.free_cells);
+	assert(free_cells <= qcgc_allocator_state.arenas->count * (QCGC_ARENA_CELLS_COUNT - QCGC_ARENA_FIRST_CELL_INDEX));
+	assert(qcgc_allocator_state.arenas->count *
+			(QCGC_ARENA_CELLS_COUNT - QCGC_ARENA_FIRST_CELL_INDEX) >=
+			free_cells);
+}
+
+void check_largest_free_block(void) {
+	size_t largest_free_block = 0;
+		for (size_t i = 0; i < QCGC_SMALL_FREE_LISTS; i++) {
+			if (qcgc_allocator_state.fit_state.small_free_list[i]->count > 0) {
+				largest_free_block = i + 1;
+			}
+		}
+		for (size_t i = 0; i < QCGC_LARGE_FREE_LISTS; i++) {
+			for (size_t j = 0; j < qcgc_allocator_state.fit_state.
+					large_free_list[i]->count; j++) {
+				largest_free_block = MAX(largest_free_block,
+					qcgc_allocator_state.fit_state.large_free_list[i]
+					->items[j].size);
+			}
+		}
+	assert(largest_free_block == qcgc_state.largest_free_block);
+}

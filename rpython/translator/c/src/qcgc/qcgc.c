@@ -25,17 +25,14 @@
 QCGC_STATIC QCGC_INLINE void initialize_shadowstack(void);
 QCGC_STATIC QCGC_INLINE void destroy_shadowstack(void);
 
-QCGC_STATIC object_t *bump_allocate(size_t size);
-
 void qcgc_initialize(void) {
 	initialize_shadowstack();
-	qcgc_state.prebuilt_objects = qcgc_shadow_stack_create(16); // XXX
+	qcgc_state.prebuilt_objects = qcgc_object_stack_create(16); // XXX
 	qcgc_state.weakrefs = qcgc_weakref_bag_create(16); // XXX
-	qcgc_state.gp_gray_stack = qcgc_gray_stack_create(16); // XXX
+	qcgc_state.gp_gray_stack = qcgc_object_stack_create(16); // XXX
 	qcgc_state.gray_stack_size = 0;
 	qcgc_state.phase = GC_PAUSE;
 	qcgc_state.cells_since_incmark = 0;
-	qcgc_state.cells_since_collect = 0;
 	qcgc_state.incmark_since_sweep = 0;
 	qcgc_state.free_cells = 0;
 	qcgc_state.largest_free_block = 0;
@@ -61,12 +58,103 @@ void qcgc_destroy(void) {
 	free(qcgc_state.gp_gray_stack);
 }
 
-object_t *qcgc_allocate(size_t size) {
-#if LOG_ALLOCATION
-	size_t cells = bytes_to_cells(size);
-	qcgc_event_logger_log(EVENT_ALLOCATE, sizeof(size_t),
-			(uint8_t *) &cells);
+object_t *_qcgc_allocate_large(size_t size) {
+#if CHECKED
+	assert(size >= 1<<QCGC_LARGE_ALLOC_THRESHOLD_EXP);
 #endif
+	if (UNLIKELY(qcgc_state.cells_since_incmark >
+				qcgc_state.incmark_threshold)) {
+		if (qcgc_state.incmark_since_sweep == qcgc_state.incmark_to_sweep) {
+			qcgc_collect();
+		} else {
+			qcgc_incmark();
+			qcgc_state.incmark_since_sweep++;
+		}
+	}
+
+	// FIXME: alligned_alloc requires size to be a multiple of the alignment
+	object_t *result = aligned_alloc(QCGC_ARENA_SIZE, size);
+#if QCGC_INIT_ZERO
+	memset(result, 0, size);
+#endif
+	qcgc_hbtable_insert(result);
+	result->flags = QCGC_GRAY_FLAG;
+
+	qcgc_state.cells_since_incmark += bytes_to_cells(size);
+
+	return result;
+}
+
+object_t *_qcgc_allocate_slowpath(size_t size) {
+	bool use_fit_allocator = _qcgc_bump_allocator.ptr == NULL;
+	size_t cells = bytes_to_cells(size);
+
+	if (UNLIKELY(qcgc_state.cells_since_incmark >
+				qcgc_state.incmark_threshold)) {
+		if (qcgc_state.incmark_since_sweep == qcgc_state.incmark_to_sweep) {
+			qcgc_reset_bump_ptr();
+			qcgc_collect();
+			use_fit_allocator = false; // Try using bump allocator again
+		} else {
+			qcgc_incmark();
+			qcgc_state.incmark_since_sweep++;
+		}
+	}
+
+	object_t *result = NULL;
+	if (!use_fit_allocator) {
+		qcgc_bump_allocator_renew_block(false);
+
+		qcgc_state.cells_since_incmark += _qcgc_bump_allocator.end -
+			_qcgc_bump_allocator.ptr;
+
+		cell_t *new_bump_ptr = _qcgc_bump_allocator.ptr + cells;
+		if (_qcgc_bump_allocator.ptr != NULL &&
+				new_bump_ptr <= _qcgc_bump_allocator.end) {
+			// Bump allocate
+			qcgc_arena_set_blocktype(qcgc_arena_addr(_qcgc_bump_allocator.ptr),
+					qcgc_arena_cell_index(_qcgc_bump_allocator.ptr),
+					BLOCK_WHITE);
+
+			result = (object_t *) _qcgc_bump_allocator.ptr;
+			_qcgc_bump_allocator.ptr = new_bump_ptr;
+
+#if QCGC_INIT_ZERO
+			memset(result, 0, cells * sizeof(cell_t));
+#endif
+
+			result->flags = QCGC_GRAY_FLAG;
+			return result;
+		}
+	}
+
+	// Fit allocate
+	if (result != NULL) {
+		qcgc_state.cells_since_incmark += bytes_to_cells(size);
+		return result;
+	}
+	qcgc_bump_allocator_renew_block(true);
+	qcgc_state.cells_since_incmark +=
+		_qcgc_bump_allocator.end - _qcgc_bump_allocator.ptr;
+
+	cell_t *new_bump_ptr = _qcgc_bump_allocator.ptr + cells;
+	qcgc_arena_set_blocktype(qcgc_arena_addr(_qcgc_bump_allocator.ptr),
+			qcgc_arena_cell_index(_qcgc_bump_allocator.ptr),
+			BLOCK_WHITE);
+
+	result = (object_t *) _qcgc_bump_allocator.ptr;
+	_qcgc_bump_allocator.ptr = new_bump_ptr;
+
+#if QCGC_INIT_ZERO
+	memset(result, 0, cells * sizeof(cell_t));
+#endif
+
+	result->flags = QCGC_GRAY_FLAG;
+	return result;
+}
+
+/*
+object_t *_qcgc_allocate_slowpath(size_t size) {
 	object_t *result;
 
 	if (UNLIKELY(qcgc_state.cells_since_incmark >
@@ -79,27 +167,20 @@ object_t *qcgc_allocate(size_t size) {
 		}
 	}
 
-	if (LIKELY(size <= 1<<QCGC_LARGE_ALLOC_THRESHOLD_EXP)) {
-		// Use bump / fit allocator
-		if (qcgc_allocator_state.use_bump_allocator) {
-			result = bump_allocate(size);
-		} else {
-			result = qcgc_fit_allocate(size);
-
-			// Fallback to bump allocator
-			if (result == NULL) {
-				result = bump_allocate(size);
-			}
-		}
-		qcgc_state.free_cells -= bytes_to_cells(size);
+	// Use bump / fit allocator
+	if (_qcgc_bump_allocator.ptr != NULL) {
+		result = bump_allocate(size);
 	} else {
-		// Use huge block allocator
-		result = qcgc_large_allocate(size);
+		result = qcgc_fit_allocate(size);
+
+		// Fallback to bump allocator
+		if (result == NULL) {
+			result = bump_allocate(size);
+		}
 	}
-	qcgc_state.cells_since_incmark += bytes_to_cells(size);
-	qcgc_state.cells_since_collect += bytes_to_cells(size);
 	return result;
 }
+*/
 
 void qcgc_collect(void) {
 	qcgc_mark();
@@ -121,7 +202,7 @@ void qcgc_write(object_t *object) {
 	if (((object->flags & QCGC_PREBUILT_OBJECT) != 0) &&
 			((object->flags & QCGC_PREBUILT_REGISTERED) == 0)) {
 		object->flags |= QCGC_PREBUILT_REGISTERED;
-		qcgc_state.prebuilt_objects = qcgc_shadow_stack_push(
+		qcgc_state.prebuilt_objects = qcgc_object_stack_push(
 				qcgc_state.prebuilt_objects, object);
 	}
 
@@ -137,13 +218,13 @@ void qcgc_write(object_t *object) {
 		// NOTE: No mark test here, as prebuilt objects are always reachable
 		// Push prebuilt object to general purpose gray stack
 		qcgc_state.gray_stack_size++;
-		qcgc_state.gp_gray_stack = qcgc_gray_stack_push(
+		qcgc_state.gp_gray_stack = qcgc_object_stack_push(
 				qcgc_state.gp_gray_stack, object);
 	} else if ((object_t *) qcgc_arena_addr((cell_t *) object) == object) {
 		if (qcgc_hbtable_is_marked(object)) {
 			// Push huge block to general purpose gray stack
 			qcgc_state.gray_stack_size++;
-			qcgc_state.gp_gray_stack = qcgc_gray_stack_push(
+			qcgc_state.gp_gray_stack = qcgc_object_stack_push(
 					qcgc_state.gp_gray_stack, object);
 		}
 	} else {
@@ -152,7 +233,7 @@ void qcgc_write(object_t *object) {
 			// This was black before, push it to gray stack again
 			arena_t *arena = qcgc_arena_addr((cell_t *) object);
 			qcgc_state.gray_stack_size++;
-			arena->gray_stack = qcgc_gray_stack_push(
+			arena->gray_stack = qcgc_object_stack_push(
 					arena->gray_stack, object);
 		}
 	}
@@ -188,21 +269,13 @@ QCGC_STATIC QCGC_INLINE void initialize_shadowstack(void) {
 	assert(stack != NULL);
 	mprotect(_trap_page_addr(stack), 4096, PROT_NONE);
 
-	qcgc_shadowstack.top = stack;
-	qcgc_shadowstack.base = stack;
+	_qcgc_shadowstack.top = stack;
+	_qcgc_shadowstack.base = stack;
 }
 
 QCGC_STATIC void destroy_shadowstack(void) {
-	mprotect(_trap_page_addr(qcgc_shadowstack.base), 4096, PROT_READ |
+	mprotect(_trap_page_addr(_qcgc_shadowstack.base), 4096, PROT_READ |
 				PROT_WRITE);
 
-	free(qcgc_shadowstack.base);
-}
-
-QCGC_STATIC object_t *bump_allocate(size_t size) {
-	if (UNLIKELY(qcgc_allocator_state.bump_state.remaining_cells <
-			bytes_to_cells(size))) {
-		qcgc_bump_allocator_renew_block();
-	}
-	return qcgc_bump_allocate(size);
+	free(_qcgc_shadowstack.base);
 }

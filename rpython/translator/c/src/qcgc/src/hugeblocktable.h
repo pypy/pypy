@@ -5,7 +5,6 @@
 #include <stdbool.h>
 
 #include "bag.h"
-#include "gray_stack.h"
 
 // Choosing a prime number, hoping for good results
 #define QCGC_HBTABLE_BUCKETS 61

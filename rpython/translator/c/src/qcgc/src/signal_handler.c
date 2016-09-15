@@ -43,7 +43,7 @@ QCGC_STATIC void handle_error(int signo, siginfo_t *siginfo, void *context) {
 }
 
 QCGC_STATIC bool is_stack_overflow(void *addr) {
-	void *shadow_stack_end = (void *)(qcgc_shadowstack.base +
+	void *shadow_stack_end = (void *)(_qcgc_shadowstack.base +
 		QCGC_SHADOWSTACK_SIZE);
 	return (addr >= shadow_stack_end && addr < shadow_stack_end + 8192);
 }

@@ -10,7 +10,7 @@
  */
 #define EVENT_LOG 1							// Enable event log
 #define LOGFILE "./qcgc_events.log"			// Default logfile
-#define LOG_ALLOCATION 1					// Enable allocation log
+#define LOG_ALLOCATION 0					// Enable allocation log
 #define LOG_DUMP_FREELIST_STATS 1			// Dump freelist stats
 
 #define QCGC_SHADOWSTACK_SIZE 163840		// Total shadowstack size

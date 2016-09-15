@@ -5,8 +5,7 @@
 #include <stddef.h>
 
 #include "bag.h"
-#include "gray_stack.h"
-#include "shadow_stack.h"
+#include "object_stack.h"
 
 /**
  * @typedef gc_state_t
@@ -27,14 +26,13 @@ typedef enum gc_phase {
  * Global state of the garbage collector
  */
 struct qcgc_state {
-	shadow_stack_t *prebuilt_objects;
+	object_stack_t *prebuilt_objects;
 	weakref_bag_t *weakrefs;
-	gray_stack_t *gp_gray_stack;
+	object_stack_t *gp_gray_stack;
 	size_t gray_stack_size;
 	gc_phase_t phase;
 
 	size_t cells_since_incmark;
-	size_t cells_since_collect;
 	size_t incmark_since_sweep;
 	size_t incmark_threshold;
 	size_t incmark_to_sweep;

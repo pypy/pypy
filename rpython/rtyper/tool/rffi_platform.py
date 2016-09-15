@@ -899,8 +899,8 @@ def configure_qcgc():
             separate_module_sources = [separate_source],  # XXX
             separate_module_files = [os.path.join(library_dir, f) for f in
                 ['qcgc.c', 'src/allocator.c', 'src/arena.c', 'src/bag.c',
-                 'src/collector.c', 'src/event_logger.c', 'src/gray_stack.c',
-                 'src/hugeblocktable.c', 'src/shadow_stack.c',
+                 'src/collector.c', 'src/event_logger.c',
+                 'src/hugeblocktable.c', 'src/object_stack.c',
                  'src/signal_handler.c', 'src/weakref.c']],
             )
     return eci
