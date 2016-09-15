@@ -6,7 +6,8 @@ from rpython.jit.backend.zarch.arch import WORD
 from rpython.jit.codewriter import longlong
 from rpython.jit.backend.zarch.locations import imm, get_fp_offset, imm0, imm1
 from rpython.jit.metainterp.history import (Const, ConstInt, ConstFloat, ConstPtr,
-                                            INT, REF, FLOAT, VOID)
+                                            INT, REF, FLOAT, VOID,
+                                            AbstractFailDescr)
 from rpython.jit.metainterp.history import JitCellToken, TargetToken
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.backend.zarch import locations as l
@@ -654,7 +655,9 @@ class Regalloc(BaseRegalloc, vector_ext.VectorRegalloc):
         return gcmap
 
     def loc(self, var):
-        if var.type == FLOAT:
+        if var.is_vector():
+            return self.vrm.loc(var)
+        elif var.type == FLOAT:
             return self.fprm.loc(var)
         else:
             return self.rm.loc(var)
@@ -1159,6 +1162,17 @@ class Regalloc(BaseRegalloc, vector_ext.VectorRegalloc):
         # generate_quick_failure() produces up to 14 instructions per guard
         self.limit_loop_break -= 14 * 4
         #
+        # specifically for vecopt
+        descr = op.getdescr()
+        assert isinstance(descr, AbstractFailDescr)
+        if descr.rd_vector_info:
+            accuminfo = descr.rd_vector_info
+            while accuminfo:
+                i = accuminfo.getpos_in_failargs()+1
+                accuminfo.location = args[i]
+                loc = self.loc(accuminfo.getoriginal())
+                args[i] = loc
+                accuminfo = accuminfo.next()
         return args
 
     def load_condition_into_cc(self, box):

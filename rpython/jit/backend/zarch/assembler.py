@@ -131,8 +131,12 @@ class AssemblerZARCH(BaseAssembler, OpAssembler,
         self.failure_recovery_code[exc + 2 * withfloats] = rawstart
         self.mc = None
 
-    def generate_quick_failure(self, guardtok):
+    def generate_quick_failure(self, guardtok, regalloc):
         startpos = self.mc.currpos()
+
+        self._update_at_exit(guardtok.fail_locs, guardtok.failargs,
+                             guardtok.faildescr, regalloc)
+
         faildescrindex, target = self.store_info_on_descr(startpos, guardtok)
         assert target != 0
 
@@ -638,7 +642,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler,
         #
         size_excluding_failure_stuff = self.mc.get_relative_pos()
         #
-        self.write_pending_failure_recoveries()
+        self.write_pending_failure_recoveries(regalloc)
         full_size = self.mc.get_relative_pos()
         #
         self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
@@ -717,13 +721,14 @@ class AssemblerZARCH(BaseAssembler, OpAssembler,
         # reserve gcref table is handled in pre_assemble
         self.pool.pre_assemble(self, operations, allgcrefs, bridge=True)
         startpos = self.mc.get_relative_pos()
+        self._update_at_exit(arglocs, inputargs, faildescr, regalloc)
         self._check_frame_depth(self.mc, regalloc.get_gcmap())
         bridgestartpos = self.mc.get_relative_pos()
         self.mc.LARL(r.POOL, l.halfword(self.pool.pool_start - bridgestartpos))
         frame_depth_no_fixed_size = self._assemble(regalloc, inputargs, operations)
         codeendpos = self.mc.get_relative_pos()
         #self.pool.post_assemble(self)
-        self.write_pending_failure_recoveries()
+        self.write_pending_failure_recoveries(regalloc)
         fullsize = self.mc.get_relative_pos()
         #
         self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
@@ -1010,13 +1015,13 @@ class AssemblerZARCH(BaseAssembler, OpAssembler,
         baseofs = self.cpu.get_baseofs_of_frame_field()
         self.current_clt.frame_info.update_frame_depth(baseofs, frame_depth)
 
-    def write_pending_failure_recoveries(self):
+    def write_pending_failure_recoveries(self, regalloc):
         # for each pending guard, generate the code of the recovery stub
         # at the end of self.mc.
         for i in range(self.pending_guard_tokens_recovered,
                        len(self.pending_guard_tokens)):
             tok = self.pending_guard_tokens[i]
-            tok.pos_recovery_stub = self.generate_quick_failure(tok)
+            tok.pos_recovery_stub = self.generate_quick_failure(tok, regalloc)
         self.pending_guard_tokens_recovered = len(self.pending_guard_tokens)
 
     def materialize_loop(self, looptoken):
@@ -1540,6 +1545,53 @@ class AssemblerZARCH(BaseAssembler, OpAssembler,
         pmc = OverwritingBuilder(mc, jmp_location, 1)
         pmc.BRC(c.ANY, l.imm(offset))    # jump always
         pmc.overwrite()
+
+    def stitch_bridge(self, faildescr, target):
+        """ Stitching means that one can enter a bridge with a complete different register
+            allocation. This needs remapping which is done here for both normal registers
+            and accumulation registers.
+        """
+        asminfo, bridge_faildescr, version, looptoken = target
+        assert isinstance(bridge_faildescr, ResumeGuardDescr)
+        assert isinstance(faildescr, ResumeGuardDescr)
+        assert asminfo.rawstart != 0
+        self.mc = InstrBuilder()
+        allblocks = self.get_asmmemmgr_blocks(looptoken)
+        self.datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr,
+                                                   allblocks)
+        frame_info = self.datablockwrapper.malloc_aligned(
+            jitframe.JITFRAMEINFO_SIZE, alignment=WORD)
+
+        # if accumulation is saved at the guard, we need to update it here!
+        guard_locs = self.rebuild_faillocs_from_descr(faildescr, version.inputargs)
+        bridge_locs = self.rebuild_faillocs_from_descr(bridge_faildescr, version.inputargs)
+        guard_accum_info = faildescr.rd_vector_info
+        # O(n**2), but usually you only have at most 1 fail argument
+        while guard_accum_info:
+            bridge_accum_info = bridge_faildescr.rd_vector_info
+            while bridge_accum_info:
+                if bridge_accum_info.failargs_pos == guard_accum_info.failargs_pos:
+                    # the mapping might be wrong!
+                    if bridge_accum_info.location is not guard_accum_info.location:
+                        self.regalloc_mov(guard_accum_info.location, bridge_accum_info.location)
+                bridge_accum_info = bridge_accum_info.next()
+            guard_accum_info = guard_accum_info.next()
+
+        # register mapping is most likely NOT valid, thus remap it in this
+        # short piece of assembler
+        assert len(guard_locs) == len(bridge_locs)
+        for i,gloc in enumerate(guard_locs):
+            bloc = bridge_locs[i]
+            if bloc.is_stack() and gloc.is_stack():
+                pass
+            elif gloc is not bloc:
+                self.regalloc_mov(gloc, bloc)
+        offset = self.mc.get_relative_pos()
+        self.mc.b_abs(asminfo.rawstart)
+
+        rawstart = self.materialize_loop(looptoken)
+        # update the guard to jump right to this custom piece of assembler
+        self.patch_jump_for_descr(faildescr, rawstart)
 
 def notimplemented_op(asm, op, arglocs, regalloc):
     msg = "[zarch/asm] %s not implemented\n" % op.getopname()

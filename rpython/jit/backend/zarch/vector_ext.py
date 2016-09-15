@@ -28,6 +28,10 @@ def not_implemented(msg):
         llop.debug_print(lltype.Void, msg)
     raise NotImplementedError(msg)
 
+@always_inline
+def permi(v1,v2):
+    return (v1 << 2 | v2) & 0xf
+
 def flush_vec_cc(asm, regalloc, condition, size, resultloc):
     # After emitting an instruction that leaves a boolean result in
     # a condition code (cc), call this.  In the common case, resultloc
@@ -289,12 +293,12 @@ class VectorAssembler(object):
         # Currently the accumulator can ONLY be 64 bit float/int
         if arg.type == FLOAT:
             # r = (r[0]+r[1],r[0]+r[1])
-            self.mc.VMRL(targetloc, accumloc, accumloc)
+            self.mc.VMRL(targetloc, accumloc, accumloc, l.MASK_VEC_DWORD)
             if op == '+':
-                self.mc.VFA(targetloc, targetloc, accumloc)
+                self.mc.VFA(targetloc, targetloc, accumloc, 3, 0, 0)
                 return
             elif op == '*':
-                self.mc.VFM(targetloc, targetloc, accumloc)
+                self.mc.VFM(targetloc, targetloc, accumloc, 3, 0, 0)
                 return
         else:
             assert arg.type == INT
@@ -405,51 +409,43 @@ class VectorAssembler(object):
 
     def emit_vec_pack_f(self, op, arglocs, regalloc):
         assert isinstance(op, VectorOp)
-        resloc, vloc, srcloc, residxloc, srcidxloc, countloc = arglocs
-        vec = vloc.value
-        res = resloc.value
-        src = srcloc.value
-        count = countloc.value
+        resloc, vecloc, srcloc, residxloc, srcidxloc, countloc = arglocs
         residx = residxloc.value
         srcidx = srcidxloc.value
-        size = op.bytesize
         # srcloc is always a floating point register f, this means it is
         # vsr[0] == valueof(f)
         if srcidx == 0:
             if residx == 0:
                 # r = (s[0], v[1])
-                self.mc.xxpermdi(res, src, vec, permi(0,1))
+                self.mc.VPDI(resloc, srcloc, vecloc, permi(0,1))
             else:
                 assert residx == 1
                 # r = (v[0], s[0])
-                self.mc.xxpermdi(res, vec, src, permi(1,1))
+                self.mc.VPDI(resloc, vecloc, srcloc, permi(0,0))
         else:
             assert srcidx == 1
             if residx == 0:
                 # r = (s[1], v[1])
-                self.mc.xxpermdi(res, src, vec, permi(1,1))
+                self.mc.VPDI(resloc, srcloc, vecloc, permi(1,1))
             else:
                 assert residx == 1
                 # r = (v[0], s[1])
-                self.mc.xxpermdi(res, vec, src, permi(0,1))
-
+                self.mc.VPDI(resloc, vecloc, srcloc, permi(0,1))
 
     def emit_vec_unpack_f(self, op, arglocs, regalloc):
         assert isinstance(op, VectorOp)
         resloc, srcloc, srcidxloc, countloc = arglocs
-        res = resloc.value
-        src = srcloc.value
         srcidx = srcidxloc.value
         size = op.bytesize
         # srcloc is always a floating point register f, this means it is
         # vsr[0] == valueof(f)
         if srcidx == 0:
             # r = (s[0], s[1])
-            self.mc.xxpermdi(res, src, src, permi(0,1))
+            self.mc.VPDI(resloc, srcloc, srcloc, permi(0,1))
             return
         else:
             # r = (s[1], s[0])
-            self.mc.xxpermdi(res, src, src, permi(1,0))
+            self.mc.VPDI(resloc, srcloc, srcloc, permi(1,0))
             return
         not_implemented("unpack for combination src %d -> res %d" % (srcidx, residx))
 
@@ -649,22 +645,11 @@ class VectorRegalloc(object):
     def prepare_vec_expand_f(self, op):
         assert isinstance(op, VectorOp)
         arg = op.getarg(0)
-        if arg.is_constant():
-            l0 = self.expand_float(op.bytesize, arg)
-            res = self.force_allocate_vector_reg(op)
-        else:
-            l0 = self.ensure_reg(arg)
-            res = self.force_allocate_vector_reg(op)
-        return [res, l0]
-
-    def prepare_vec_expand_i(self, op):
-        assert isinstance(op, VectorOp)
-        arg = op.getarg(0)
-        mc = self.assembler.mc
         l0 = self.ensure_reg_or_pool(arg)
-        size = op.bytesize
         res = self.force_allocate_vector_reg(op)
         return [res, l0]
+
+    prepare_vec_expand_i = prepare_vec_expand_f
 
     def prepare_vec_int_is_true(self, op):
         assert isinstance(op, VectorOp)
