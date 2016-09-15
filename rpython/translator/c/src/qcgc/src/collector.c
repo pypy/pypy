@@ -14,7 +14,7 @@ QCGC_STATIC void mark_cleanup(bool incremental);
 
 void qcgc_mark(void) {
 	mark_setup(false);
-	
+
 	while (qcgc_state.gray_stack_size > 0) {
 		// General purpose gray stack (prebuilt objects and huge blocks)
 
@@ -94,7 +94,7 @@ QCGC_STATIC void mark_setup(bool incremental) {
 				(uint8_t *) &log_info);
 	}
 
-	qcgc_state.bytes_since_incmark = 0;
+	qcgc_state.cells_since_incmark = 0;
 
 	if (qcgc_state.phase == GC_PAUSE) {
 
@@ -186,10 +186,16 @@ void qcgc_sweep(void) {
 	assert(qcgc_state.phase == GC_COLLECT);
 #endif
 	{
-		unsigned long arena_count;
-		arena_count = qcgc_allocator_state.arenas->count;
-		qcgc_event_logger_log(EVENT_SWEEP_START, sizeof(arena_count),
-				(uint8_t *) &arena_count);
+		struct log_info_s {
+			size_t arenas;
+			size_t free_cells;
+		};
+		struct log_info_s log_info = {
+			qcgc_allocator_state.arenas->count,
+			qcgc_state.free_cells,
+		};
+		qcgc_event_logger_log(EVENT_SWEEP_START, sizeof(struct log_info_s),
+				(uint8_t *) &log_info);
 	}
 
 	qcgc_hbtable_sweep();
@@ -218,22 +224,75 @@ void qcgc_sweep(void) {
 	// Determine whether fragmentation is too high
 	// Fragmenation = 1 - (largest block / total free space)
 	// Use bump allocator when fragmentation < 50%
+#if CHECKED
+	size_t free_cells = 0;
+	size_t largest_free_block = 0;
+		for (size_t i = 0; i < QCGC_SMALL_FREE_LISTS; i++) {
+			if (qcgc_allocator_state.fit_state.small_free_list[i]->count > 0) {
+				largest_free_block = i + 1;
+			}
+			free_cells += qcgc_allocator_state.fit_state.small_free_list[i]
+				->count * (i + 1);
+		}
+		for (size_t i = 0; i < QCGC_LARGE_FREE_LISTS; i++) {
+			for (size_t j = 0; j < qcgc_allocator_state.fit_state.
+					large_free_list[i]->count; j++) {
+				free_cells += qcgc_allocator_state.fit_state.large_free_list[i]
+					->items[j].size;
+				largest_free_block = MAX(largest_free_block,
+					qcgc_allocator_state.fit_state.large_free_list[i]
+					->items[j].size);
+			}
+		}
+	assert(free_cells == qcgc_state.free_cells);
+	assert(largest_free_block == qcgc_state.largest_free_block);
+	assert(free_cells <= qcgc_allocator_state.arenas->count * (QCGC_ARENA_CELLS_COUNT - QCGC_ARENA_FIRST_CELL_INDEX));
+	assert(qcgc_allocator_state.arenas->count *
+			(QCGC_ARENA_CELLS_COUNT - QCGC_ARENA_FIRST_CELL_INDEX) >=
+			free_cells);
+#endif
 	qcgc_allocator_state.use_bump_allocator = qcgc_state.free_cells <
 		2 * qcgc_state.largest_free_block;
 
 	update_weakrefs();
 
+	qcgc_state.free_cells += qcgc_allocator_state.bump_state.remaining_cells;
 	{
 		struct log_info_s {
+			size_t arenas;
 			size_t free_cells;
 			size_t largest_free_block;
 		};
 		struct log_info_s log_info = {
+			qcgc_allocator_state.arenas->count,
 			qcgc_state.free_cells,
 			qcgc_state.largest_free_block
 		};
 		qcgc_event_logger_log(EVENT_SWEEP_DONE, sizeof(struct log_info_s),
 				(uint8_t *) &log_info);
 	}
+#if LOG_DUMP_FREELIST_STATS
+	{
+		struct log_info_s {
+			size_t class;
+			size_t items;
+		};
+		struct log_info_s log_info;
+
+		for (size_t i = 0; i < QCGC_SMALL_FREE_LISTS; i++) {
+			log_info = (struct log_info_s){ i + 1,
+				qcgc_allocator_state.fit_state.small_free_list[i]->count};
+			qcgc_event_logger_log(EVENT_FREELIST_DUMP,
+					sizeof(struct log_info_s), (uint8_t *) &log_info);
+		}
+		for (size_t i = 0; i < QCGC_LARGE_FREE_LISTS; i++) {
+			log_info = (struct log_info_s){
+				1<<(QCGC_LARGE_FREE_LIST_FIRST_EXP + i),
+				qcgc_allocator_state.fit_state.large_free_list[i]->count};
+			qcgc_event_logger_log(EVENT_FREELIST_DUMP,
+					sizeof(struct log_info_s), (uint8_t *) &log_info);
+		}
+	}
+#endif
 }
 

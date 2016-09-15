@@ -2,9 +2,7 @@
 
 #include <assert.h>
 #include <stdbool.h>
-#include <stdlib.h>
-
-#include "hugeblocktable.h"
+#include "gc_state.h"
 
 QCGC_STATIC QCGC_INLINE void bump_allocator_assign(cell_t *ptr, size_t cells);
 
@@ -65,25 +63,6 @@ void qcgc_allocator_destroy(void) {
 	free(qcgc_allocator_state.free_arenas);
 }
 
-void qcgc_fit_allocator_add(cell_t *ptr, size_t cells) {
-#if CHECKED
-	assert(cells > 0);
-#endif
-	if (is_small(cells)) {
-		size_t index = small_index(cells);
-		qcgc_allocator_state.fit_state.small_free_list[index] =
-			qcgc_linear_free_list_add(
-					qcgc_allocator_state.fit_state.small_free_list[index],
-					ptr);
-	} else {
-		size_t index = large_index(cells);
-		qcgc_allocator_state.fit_state.large_free_list[index] =
-			qcgc_exp_free_list_add(
-					qcgc_allocator_state.fit_state.large_free_list[index],
-					(struct exp_free_list_item_s) {ptr, cells});
-	}
-}
-
 /*******************************************************************************
  * Bump Allocator                                                              *
  ******************************************************************************/
@@ -124,6 +103,8 @@ void qcgc_bump_allocator_renew_block(void) {
 	} else {
 		// Grab a new arena
 		arena_t *arena = qcgc_arena_create();
+		qcgc_state.free_cells += QCGC_ARENA_CELLS_COUNT -
+			QCGC_ARENA_FIRST_CELL_INDEX;
 		bump_allocator_assign(&(arena->cells[QCGC_ARENA_FIRST_CELL_INDEX]),
 				QCGC_ARENA_CELLS_COUNT - QCGC_ARENA_FIRST_CELL_INDEX);
 		qcgc_allocator_state.arenas =
@@ -163,6 +144,10 @@ QCGC_STATIC void bump_allocator_assign(cell_t *ptr, size_t cells) {
 	qcgc_allocator_state.bump_state.remaining_cells = cells;
 }
 
+/*******************************************************************************
+ * Fit Allocator                                                               *
+ ******************************************************************************/
+
 object_t *qcgc_fit_allocate(size_t bytes) {
 #if CHECKED
 	//free_list_consistency_check();
@@ -192,23 +177,6 @@ object_t *qcgc_fit_allocate(size_t bytes) {
 	return result;
 }
 
-/**
- * Constraints:
- * - Zero initialized
- * - Aligned to arena size
- * - Multiple of arena size
- * - No header, metadata stored in hash-map
- */
-object_t *qcgc_large_allocate(size_t bytes) {
-	object_t *result = aligned_alloc(QCGC_ARENA_SIZE, bytes);
-#if QCGC_INIT_ZERO
-	memset(result, 0, bytes);
-#endif
-	qcgc_hbtable_insert(result);
-	result->flags = QCGC_GRAY_FLAG;
-	return result;
-}
-
 void qcgc_fit_allocator_empty_lists(void) {
 	for (size_t i = 0; i < QCGC_SMALL_FREE_LISTS; i++) {
 		qcgc_allocator_state.fit_state.small_free_list[i]->count = 0;
@@ -216,6 +184,25 @@ void qcgc_fit_allocator_empty_lists(void) {
 
 	for (size_t i = 0; i < QCGC_LARGE_FREE_LISTS; i++) {
 		qcgc_allocator_state.fit_state.large_free_list[i]->count = 0;
+	}
+}
+
+void qcgc_fit_allocator_add(cell_t *ptr, size_t cells) {
+#if CHECKED
+	assert(cells > 0);
+#endif
+	if (is_small(cells)) {
+		size_t index = small_index(cells);
+		qcgc_allocator_state.fit_state.small_free_list[index] =
+			qcgc_linear_free_list_add(
+					qcgc_allocator_state.fit_state.small_free_list[index],
+					ptr);
+	} else {
+		size_t index = large_index(cells);
+		qcgc_allocator_state.fit_state.large_free_list[index] =
+			qcgc_exp_free_list_add(
+					qcgc_allocator_state.fit_state.large_free_list[index],
+					(struct exp_free_list_item_s) {ptr, cells});
 	}
 }
 
@@ -321,18 +308,18 @@ QCGC_STATIC cell_t *fit_allocator_large_first_fit(size_t index, size_t cells) {
 	return NULL;
 }
 
-QCGC_STATIC bool is_small(size_t cells) {
+QCGC_STATIC QCGC_INLINE bool is_small(size_t cells) {
 	return cells <= QCGC_SMALL_FREE_LISTS;
 }
 
-QCGC_STATIC size_t small_index(size_t cells) {
+QCGC_STATIC QCGC_INLINE size_t small_index(size_t cells) {
 #if CHECKED
 	assert(is_small(cells));
 #endif
 	return cells - 1;
 }
 
-QCGC_STATIC size_t large_index(size_t cells) {
+QCGC_STATIC QCGC_INLINE size_t large_index(size_t cells) {
 #if CHECKED
 	assert(!is_small(cells));
 #endif
@@ -341,10 +328,11 @@ QCGC_STATIC size_t large_index(size_t cells) {
 	cells = cells >> QCGC_LARGE_FREE_LIST_FIRST_EXP;
 
 	// calculates floor(log(cells))
-	return MIN((8 * sizeof(unsigned long)) - __builtin_clzl(cells) - 1, QCGC_LARGE_FREE_LISTS - 1);
+	return MIN((8 * sizeof(unsigned long)) - __builtin_clzl(cells) - 1,
+			QCGC_LARGE_FREE_LISTS - 1);
 }
 
-QCGC_STATIC size_t small_index_to_cells(size_t index) {
+QCGC_STATIC QCGC_INLINE size_t small_index_to_cells(size_t index) {
 #if CHECKED
 	assert(index < QCGC_SMALL_FREE_LISTS);
 #endif

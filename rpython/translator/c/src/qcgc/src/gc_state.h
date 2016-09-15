@@ -33,7 +33,8 @@ struct qcgc_state {
 	size_t gray_stack_size;
 	gc_phase_t phase;
 
-	size_t bytes_since_incmark;
+	size_t cells_since_incmark;
+	size_t cells_since_collect;
 	size_t incmark_since_sweep;
 	size_t incmark_threshold;
 	size_t incmark_to_sweep;
