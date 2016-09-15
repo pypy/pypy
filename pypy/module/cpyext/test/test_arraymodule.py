@@ -105,5 +105,7 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         # Not really part of array, refactor
         import struct
         module = self.import_module(name='array')
+        val = module.readbuffer_as_string('abcd')
+        assert val == 'abcd'
         val = module.readbuffer_as_string(u'\u03a3')
-        assert val.decode('utf32') == u'\u03a3'
+        assert val is not None

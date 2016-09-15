@@ -553,6 +553,20 @@ def str_getreadbuffer(space, w_str, segment, ref):
     Py_DecRef(space, pyref)
     return space.len_w(w_str)
 
+@cpython_api([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed,
+             header=None, error=-1)
+def unicode_getreadbuffer(space, w_str, segment, ref):
+    from pypy.module.cpyext.unicodeobject import (
+                PyUnicode_AS_UNICODE, PyUnicode_GET_DATA_SIZE)
+    if segment != 0:
+        raise oefmt(space.w_SystemError,
+                    "accessing non-existent unicode segment")
+    pyref = make_ref(space, w_str)
+    ref[0] = PyUnicode_AS_UNICODE(space, pyref)
+    # Stolen reference: the object has better exist somewhere else
+    Py_DecRef(space, pyref)
+    return PyUnicode_GET_DATA_SIZE(space, w_str)
+
 @cpython_api([PyObject, Py_ssize_t, rffi.CCHARPP], lltype.Signed,
              header=None, error=-1)
 def str_getcharbuffer(space, w_buf, segment, ref):
@@ -576,8 +590,8 @@ def buf_getcharbuffer(space, w_buf, segment, ref):
 
 def setup_buffer_procs(space, w_type, pto):
     bufspec = w_type.layout.typedef.buffer
-    if bufspec is None:
-        # not a buffer
+    if bufspec is None and not space.is_w(w_type, space.w_unicode):
+        # not a buffer, but let w_unicode be a read buffer
         return
     c_buf = lltype.malloc(PyBufferProcs, flavor='raw', zero=True)
     lltype.render_immortal(c_buf)
@@ -593,6 +607,13 @@ def setup_buffer_procs(space, w_type, pto):
         c_buf.c_bf_getcharbuffer = llhelper(
             str_getcharbuffer.api_func.functype,
             str_getcharbuffer.api_func.get_wrapper(space))
+    elif space.is_w(w_type, space.w_unicode):
+        # Special case: unicode doesn't support get_raw_address(), so we have a
+        # custom get*buffer that instead gives the address of the char* in the
+        # PyUnicodeObject*!
+        c_buf.c_bf_getreadbuffer = llhelper(
+            unicode_getreadbuffer.api_func.functype,
+            unicode_getreadbuffer.api_func.get_wrapper(space))
     elif space.is_w(w_type, space.w_buffer):
         # Special case: we store a permanent address on the cpyext wrapper,
         # so we'll reuse that.
@@ -708,7 +729,7 @@ def type_attach(space, py_obj, w_type):
     # uninitialized fields:
     # c_tp_print
     # XXX implement
-    # c_tp_compare and the following fields (see http://docs.python.org/c-api/typeobj.html )
+    # c_tp_compare and more?
     w_base = best_base(space, w_type.bases_w)
     pto.c_tp_base = rffi.cast(PyTypeObjectPtr, make_ref(space, w_base))
 
@@ -766,7 +787,6 @@ def best_base(space, bases_w):
     return find_best_base(bases_w)
 
 def inherit_slots(space, pto, w_base):
-    # XXX missing: nearly everything
     base_pyo = make_ref(space, w_base)
     try:
         base = rffi.cast(PyTypeObjectPtr, base_pyo)
@@ -785,11 +805,13 @@ def inherit_slots(space, pto, w_base):
             pto.c_tp_getattro = base.c_tp_getattro
         if not pto.c_tp_as_buffer:
             pto.c_tp_as_buffer = base.c_tp_as_buffer
-        # XXX need to refactor: what about built-in objects i.e. W_Unicode
         if base.c_tp_as_buffer:
             # also inherit all the base.c_tp_as_buffer functions, since they
             # do not have real __slots__ they are not filled in otherwise
+            #
             # skip bf_getbuffer, which is __buffer__
+            #
+            # note: builtin types are handled in setup_buffer_procs
             pto_as = pto.c_tp_as_buffer
             base_as = base.c_tp_as_buffer
             if not pto_as.c_bf_getreadbuffer:
