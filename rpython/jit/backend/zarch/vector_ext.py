@@ -298,50 +298,34 @@ class VectorAssembler(object):
 
     def emit_vec_pack_i(self, op, arglocs, regalloc):
         assert isinstance(op, VectorOp)
-        resloc, vloc, sourceloc, residxloc, srcidxloc, countloc = arglocs
+        resloc, vecloc, sourceloc, residxloc, srcidxloc, countloc, sizeloc = arglocs
         residx = residxloc.value
+        srcidx = srcidxloc.value
         count = countloc.value
-        size = op.bytesize
-        assert resultloc.is_vector_reg() # vector <- reg
-        for j in range(count):
-            index = l.addr(j + residx)
-            self.mc.VLVG(resloc, sourceloc, index, l.itemsize_to_mask(size))
-
-    def emit_vec_unpack_i(self, op, arglocs, regalloc):
-        assert isinstance(op, VectorOp)
-        resloc, srcloc, idxloc, countloc, sizeloc = arglocs
-        idx = idxloc.value
-        res = resloc.value
-        src = srcloc.value
         size = sizeloc.value
-        count = countloc.value
         if count == 1:
-            assert srcloc.is_vector_reg()
-            assert not resloc.is_vector_reg()
-            self.mc.VLGV(resloc, srcloc, index, l.itemsize_to_mask(size))
+            if resloc.is_core_reg():
+                assert sourceloc.is_vector_reg()
+                index = l.addr(srcidx)
+                self.mc.VLGV(resloc, sourceloc, index, l.itemsize_to_mask(size))
+            else:
+                assert sourceloc.is_core_reg()
+                assert resloc.is_vector_reg()
+                index = l.addr(residx)
+                self.mc.VLR(resloc, vecloc)
+                self.mc.VLVG(resloc, sourceloc, index, l.itemsize_to_mask(size))
         else:
-            # count is not 1, but only 2 is supported for i32
-            # 4 for i16 and 8 for i8.
-            src = srcloc.value
-            res = resloc.value
+            assert resloc.is_vector_reg()
+            assert sourceloc.is_vector_reg()
+            self.mc.VLR(resloc, vecloc)
+            for j in range(count):
+                sindex = l.addr(j + srcidx)
+                # load from sourceloc into GP reg and store back into resloc
+                self.mc.VLGV(r.SCRATCH, sourceloc, sindex, l.itemsize_to_mask(size))
+                rindex = l.addr(j + residx)
+                self.mc.VLVG(resloc, sourceloc, rindex, l.itemsize_to_mask(size))
 
-            #self.mc.load_imm(r.SCRATCH2, PARAM_SAVE_AREA_OFFSET)
-            #self.mc.stvx(src, r.SCRATCH2.value, r.SP.value)
-            #self.mc.load_imm(r.SCRATCH2, PARAM_SAVE_AREA_OFFSET+16)
-            #self.mc.stvx(res, r.SCRATCH2.value, r.SP.value)
-            if count * size == 8:
-                if not IS_BIG_ENDIAN:
-                    endian_off = 8
-                #off = PARAM_SAVE_AREA_OFFSET
-                #off = off + endian_off - (idx * size)
-                #assert idx * size + 8 <= 16
-                #self.mc.load(r.SCRATCH.value, r.SP.value, off)
-                #self.mc.store(r.SCRATCH.value, r.SP.value, PARAM_SAVE_AREA_OFFSET+16+endian_off)
-                #self.mc.lvx(res, r.SCRATCH2.value, r.SP.value)
-                return
-
-        not_implemented("%d bit integer, count %d" % \
-                       (size*8, count))
+    emit_vec_unpack_i = emit_vec_pack_i
 
     def emit_vec_pack_f(self, op, arglocs, regalloc):
         assert isinstance(op, VectorOp)
@@ -517,12 +501,33 @@ class VectorRegalloc(object):
         count = op.getarg(3)
         assert isinstance(index, ConstInt)
         assert isinstance(count, ConstInt)
-        vloc = self.ensure_vector_reg(op.getarg(0))
+        arg0 = op.getarg(0)
+        assert isinstance(arg0, VectorOp)
+        vloc = self.ensure_vector_reg(arg0)
         srcloc = self.ensure_reg(arg)
         resloc = self.force_allocate_vector_reg(op)
         residx = index.value # where to put it in result?
         srcidx = 0
-        return [resloc, vloc, srcloc, imm(residx), imm(srcidx), imm(count.value)]
+        return [resloc, vloc, srcloc, imm(residx), imm(srcidx), imm(count.value), imm(arg0.bytesize)]
+
+    def prepare_vec_unpack_i(self, op):
+        assert isinstance(op, VectorOp)
+        index = op.getarg(1)
+        count = op.getarg(2)
+        assert isinstance(index, ConstInt)
+        assert isinstance(count, ConstInt)
+        arg = op.getarg(0)
+        if arg.is_vector():
+            srcloc = self.ensure_vector_reg(arg)
+        else:
+            # unpack
+            srcloc = self.ensure_reg(arg0)
+        if op.is_vector():
+            resloc = self.force_allocate_vector_reg(op)
+        else:
+            resloc = self.force_allocate_reg(op)
+        size = arg.bytesize
+        return [resloc, srcloc, srcloc, imm(0), imm(index.value), imm(count.value), imm(size)]
 
     def prepare_vec_pack_f(self, op):
         # new_res = vec_pack_f(res, src, index, count)
@@ -551,25 +556,6 @@ class VectorRegalloc(object):
         srcloc = self.ensure_vector_reg(op.getarg(0))
         resloc = self.force_allocate_reg(op)
         return [resloc, srcloc, imm(index.value), imm(count.value)]
-
-    def prepare_vec_unpack_i(self, op):
-        assert isinstance(op, VectorOp)
-        index = op.getarg(1)
-        count = op.getarg(2)
-        assert isinstance(index, ConstInt)
-        assert isinstance(count, ConstInt)
-        arg = op.getarg(0)
-        if arg.is_vector():
-            srcloc = self.ensure_vector_reg(arg)
-        else:
-            # unpack
-            srcloc = self.ensure_reg(arg0)
-        size = arg.bytesize
-        if op.is_vector():
-            resloc = self.force_allocate_vector_reg(op)
-        else:
-            resloc = self.force_allocate_reg(op)
-        return [resloc, srcloc, imm(index.value), imm(count.value), imm(size)]
 
     def expand_float(self, size, box):
         adr = self.assembler.datablockwrapper.malloc_aligned(16, 16)
