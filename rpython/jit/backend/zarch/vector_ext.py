@@ -62,19 +62,6 @@ class VectorAssembler(object):
     # TODO VEC_DOUBLE_WORD_ONES = 0
 
     def setup_once_vector(self):
-        # TODO if IS_BIG_ENDIAN:
-        # TODO     # 2x 64 bit signed integer(1) BE
-        # TODO     data = (b'\x00' * 7 + b'\x01') * 2
-        # TODO else:
-        # TODO     # 2x 64 bit signed integer(1) LE
-        # TODO     data = (b'\x01' + b'\x00' * 7) * 2
-        # TODO datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr, [])
-        # TODO mem = datablockwrapper.malloc_aligned(len(data), alignment=16)
-        # TODO datablockwrapper.done()
-        # TODO addr = rffi.cast(rffi.CArrayPtr(lltype.Char), mem)
-        # TODO for i in range(len(data)):
-        # TODO     addr[i] = data[i]
-        # TODO self.VEC_DOUBLE_WORD_ONES = mem
         pass
 
     def emit_vec_load_f(self, op, arglocs, regalloc):
@@ -195,21 +182,12 @@ class VectorAssembler(object):
 
     def emit_vec_int_is_true(self, op, arglocs, regalloc):
         assert isinstance(op, VectorOp)
-        # TODO
         resloc, argloc, sizeloc = arglocs
         size = sizeloc.value
-        tmp = regalloc.vrm.get_scratch_reg(type=INT).value
-        self.mc.vxor(tmp, tmp, tmp)
-        # argloc[i] > 0:
-        # For an unsigned integer that is equivalent to argloc[i] != 0
-        if size == 1:
-            self.mc.vcmpgtubx(resloc.value, argloc.value, tmp)
-        elif size == 2:
-            self.mc.vcmpgtuhx(resloc.value, argloc.value, tmp)
-        elif size == 4:
-            self.mc.vcmpgtuwx(resloc.value, argloc.value, tmp)
-        elif size == 8:
-            self.mc.vcmpgtudx(resloc.value, argloc.value, tmp)
+        tmploc = regalloc.vrm.get_scratch_reg()
+        self.mc.VX(tmploc, tmploc, tmploc) # all zero
+        self.mc.VNO(tmploc, tmploc, tmploc) # all one
+        self.mc.VCEQ(resloc, argloc, tmploc, l.itemsize_to_mask(size), 0b0001)
         flush_vec_cc(self, regalloc, c.VNEI, op.bytesize, resloc)
 
     def emit_vec_float_eq(self, op, arglocs, regalloc):
@@ -596,8 +574,8 @@ class VectorRegalloc(object):
     prepare_vec_cast_int_to_float = prepare_vec_cast_float_to_int
 
     def prepare_vec_guard_true(self, op):
-        self.assembler.guard_success_cc = c.VEQ
+        self.assembler.guard_success_cc = c.VEQI
         return self._prepare_guard(op)
 
     def prepare_vec_guard_false(self, op):
-        self.assembler.guard_success_cc = c.VNE
+        self.assembler.guard_success_cc = c.VNEI
