@@ -520,3 +520,9 @@ def test_find_new_res():
     assert not needs_adding
     assert res == c1
 
+    # different vars, but same reps, 2
+    reps = {v2: v1}
+    res, needs_adding = c._find_new_res([v2, v2])
+    assert not needs_adding
+    assert res is v2
+

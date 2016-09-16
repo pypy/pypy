@@ -53,6 +53,14 @@ class Cache(object):
                 self.heapcache.copy())
 
     def _var_rep(self, var):
+        # return the representative variable for var. All variables that must
+        # be equal to each other always have the same representative. The
+        # representative's definition dominates the use of all variables that
+        # it represents. casted pointers are considered the same objects.
+        # NB: it's very important to use _var_rep only when computing keys in
+        # the *cache dictionaries, never to actually put any new variable into
+        # the graph, because the concretetypes can change when calling
+        # _var_rep.
         var = self.new_unions.find_rep(var)
         return self.variable_families.find_rep(var)
 
@@ -75,10 +83,10 @@ class Cache(object):
                 break
         else:
             # all the same!
-            return first, False
+            return results[0], False
         if newres is None:
             newres = Variable()
-            newres.concretetype = first.concretetype
+            newres.concretetype = results[0].concretetype
         return newres, True
 
     def _merge_results(self, tuples, results, backedges):
