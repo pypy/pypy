@@ -806,23 +806,23 @@ def inherit_slots(space, pto, w_base):
         if not pto.c_tp_as_buffer:
             pto.c_tp_as_buffer = base.c_tp_as_buffer
         if base.c_tp_as_buffer:
-            # also inherit all the base.c_tp_as_buffer functions, since they
-            # do not have real __slots__ they are not filled in otherwise
-            #
-            # skip bf_getbuffer, which is __buffer__
-            #
+            # inherit base.c_tp_as_buffer functions not inherited from w_type
             # note: builtin types are handled in setup_buffer_procs
             pto_as = pto.c_tp_as_buffer
             base_as = base.c_tp_as_buffer
-            if not pto_as.c_bf_getreadbuffer:
-                pto_as.c_bf_getreadbuffer = base_as.c_bf_getreadbuffer
+            if not pto_as.c_bf_getbuffer:
+                pto_as.c_bf_getbuffer = base_as.c_bf_getbuffer
+            if not pto_as.c_bf_getcharbuffer:
+                pto_as.c_bf_getcharbuffer = base_as.c_bf_getcharbuffer
             if not pto_as.c_bf_getwritebuffer:
                 pto_as.c_bf_getwritebuffer = base_as.c_bf_getwritebuffer
+            if not pto_as.c_bf_getreadbuffer:
+                pto_as.c_bf_getreadbuffer = base_as.c_bf_getreadbuffer
             if not pto_as.c_bf_getsegcount:
                 pto_as.c_bf_getsegcount = base_as.c_bf_getsegcount
             if not pto_as.c_bf_getcharbuffer:
                 pto_as.c_bf_getcharbuffer = base_as.c_bf_getcharbuffer
-            if not pto_as.c_bf_getcharbuffer:
+            if not pto_as.c_bf_releasebuffer:
                 pto_as.c_bf_releasebuffer = base_as.c_bf_releasebuffer
     finally:
         Py_DecRef(space, base_pyo)
@@ -853,13 +853,14 @@ def _type_realize(space, py_obj):
 
     w_obj = space.allocate_instance(W_PyCTypeObject, w_metatype)
     track_reference(space, py_obj, w_obj)
-    w_obj.__init__(space, py_type)
+    # __init__ wraps all slotdefs functions from py_type via add_operators
+    w_obj.__init__(space, py_type) 
     w_obj.ready()
 
     finish_type_2(space, py_type, w_obj)
-    # inheriting tp_as_* slots
     base = py_type.c_tp_base
     if base:
+        # XXX refactor - parts of this are done in finish_type_2 -> inherit_slots
         if not py_type.c_tp_as_number: 
             py_type.c_tp_as_number = base.c_tp_as_number
             py_type.c_tp_flags |= base.c_tp_flags & Py_TPFLAGS_CHECKTYPES
@@ -868,7 +869,7 @@ def _type_realize(space, py_obj):
             py_type.c_tp_as_sequence = base.c_tp_as_sequence
             py_type.c_tp_flags |= base.c_tp_flags & Py_TPFLAGS_HAVE_INPLACEOPS
         if not py_type.c_tp_as_mapping: py_type.c_tp_as_mapping = base.c_tp_as_mapping
-        if not py_type.c_tp_as_buffer: py_type.c_tp_as_buffer = base.c_tp_as_buffer
+        #if not py_type.c_tp_as_buffer: py_type.c_tp_as_buffer = base.c_tp_as_buffer
 
     return w_obj
 

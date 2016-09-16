@@ -344,6 +344,10 @@ class CPyBuffer(Buffer):
     def getndim(self):
         return self.ndim
 
+    def setitem(self, index, char):
+        # absolutely no safety checks, what could go wrong?
+        self.ptr[index] = char
+
 def wrap_getreadbuffer(space, w_self, w_args, func):
     func_target = rffi.cast(readbufferproc, func)
     with lltype.scoped_alloc(rffi.VOIDPP.TO, 1) as ptr:
@@ -352,6 +356,15 @@ def wrap_getreadbuffer(space, w_self, w_args, func):
         if size < 0:
             space.fromcache(State).check_and_raise_exception(always=True)
         return space.newbuffer(CPyBuffer(ptr[0], size, w_self))
+
+def wrap_getwritebuffer(space, w_self, w_args, func):
+    func_target = rffi.cast(readbufferproc, func)
+    with lltype.scoped_alloc(rffi.VOIDPP.TO, 1) as ptr:
+        index = rffi.cast(Py_ssize_t, 0)
+        size = generic_cpy_call(space, func_target, w_self, index, ptr)
+        if size < 0:
+            space.fromcache(State).check_and_raise_exception(always=True)
+        return space.newbuffer(CPyBuffer(ptr[0], size, w_self, readonly=False))
 
 def wrap_getbuffer(space, w_self, w_args, func):
     func_target = rffi.cast(getbufferproc, func)
@@ -919,13 +932,13 @@ for regex, repl in slotdef_replacements:
 slotdefs = eval(slotdefs_str)
 # PyPy addition
 slotdefs += (
-    # XXX that might not be what we want!
     TPSLOT("__buffer__", "tp_as_buffer.c_bf_getbuffer", None, "wrap_getbuffer", ""),
 )
 
 if not PY3:
     slotdefs += (
-        TPSLOT("__buffer__", "tp_as_buffer.c_bf_getreadbuffer", None, "wrap_getreadbuffer", ""),
+        TPSLOT("__rbuffer__", "tp_as_buffer.c_bf_getreadbuffer", None, "wrap_getreadbuffer", ""),
+        TPSLOT("__wbuffer__", "tp_as_buffer.c_bf_getwritebuffer", None, "wrap_getwritebuffer", ""),
     )
 
 
