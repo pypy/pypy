@@ -167,9 +167,10 @@ return next yielded value or raise StopIteration."""
         return self.throw(w_type, w_val, w_tb)
 
     def _get_yield_from(self):
-        # Probably a hack (but CPython has the same):
+        # Probably a hack (but CPython has the same, _PyGen_yf()):
         # If the current frame is stopped in a "yield from",
         # return the paused generator.
+        # XXX this is probably very bad for the JIT.  Think again!
         if not self.frame:
             return None
         co_code = self.frame.pycode.co_code
@@ -185,26 +186,29 @@ return next yielded value or raise StopIteration."""
             # Paused in a "yield from", pass the throw to the inner generator.
             return self._throw_delegate(space, w_yf, w_type, w_val, w_tb)
         else:
-            # Not paused in a "yield from", quit this generator
+            # Not paused in a "yield from", throw inside this generator
             return self._throw_here(space, w_type, w_val, w_tb)
 
     def _throw_delegate(self, space, w_yf, w_type, w_val, w_tb):
-        if space.is_w(w_type, space.w_GeneratorExit):
+        if space.exception_match(w_type, space.w_GeneratorExit):
             try:
-                w_close = space.getattr(w_yf, space.wrap("close"))
-            except OperationError as e:
-                if not e.match(space, space.w_AttributeError):
-                    e.write_unraisable(space, "generator.close()")
-            else:
                 self.running = True
                 try:
-                    space.call_function(w_close)
-                except OperationError as operr:
-                    self.running = False
-                    return self.send_ex(space.w_None, operr)
+                    gen_close_iter(space, w_yf)
                 finally:
                     self.running = False
+            except OperationError as e:
+                return self.send_ex(space.w_None, e)
             return self._throw_here(space, w_type, w_val, w_tb)
+        #
+        if isinstance(w_yf, GeneratorIterator):
+            self.running = True
+            try:
+                return w_yf.throw(space, w_type, w_val, w_tb)
+            except OperationError as e:
+                operr = e
+            finally:
+                self.running = False
         else:
             try:
                 w_throw = space.getattr(w_yf, space.wrap("throw"))
@@ -215,22 +219,22 @@ return next yielded value or raise StopIteration."""
             self.running = True
             try:
                 return space.call_function(w_throw, w_type, w_val, w_tb)
-            except OperationError as operr:
-                self.running = False
-                # Pop subiterator from stack.
-                w_subiter = self.frame.popvalue()
-                assert space.is_w(w_subiter, w_yf)
-                # Termination repetition of YIELD_FROM
-                self.frame.last_instr += 1
-                if operr.match(space, space.w_StopIteration):
-                    operr.normalize_exception(space)
-                    w_val = space.getattr(operr.get_w_value(space),
-                                          space.wrap("value"))
-                    return self.send_ex(w_val)
-                else:
-                    return self.send_ex(space.w_None, operr)
+            except OperationError as e:
+                operr = e
             finally:
                 self.running = False
+        # Pop subiterator from stack.
+        w_subiter = self.frame.popvalue()
+        assert space.is_w(w_subiter, w_yf)
+        # Termination repetition of YIELD_FROM
+        self.frame.last_instr += 1
+        if operr.match(space, space.w_StopIteration):
+            operr.normalize_exception(space)
+            w_val = space.getattr(operr.get_w_value(space),
+                                  space.wrap("value"))
+            return self.send_ex(w_val)
+        else:
+            return self.send_ex(space.w_None, operr)
 
     def _throw_here(self, space, w_type, w_val, w_tb):
         from pypy.interpreter.pytraceback import check_traceback
@@ -252,12 +256,22 @@ return next yielded value or raise StopIteration."""
 
     def descr_close(self):
         """close() -> raise GeneratorExit inside generator/coroutine."""
-        _PyGen_yf()....
         if self.frame is None:
             return     # nothing to do in this case
         space = self.space
+        w_yf = self._get_yield_from()
+        operr = OperationError(space.w_GeneratorExit,
+                               space.call_function(space.w_GeneratorExit))
+        if w_yf is not None:
+            self.running = True
+            try:
+                gen_close_iter(space, w_yf)
+            except OperationError as e:
+                operr = e
+            finally:
+                self.running = False
         try:
-            w_retval = self.send_ex..?..(space.w_GeneratorExit..)
+            w_retval = self.send_ex(space.w_None, operr)
         except OperationError as e:
             if e.match(space, space.w_StopIteration) or \
                     e.match(space, space.w_GeneratorExit):
@@ -395,6 +409,22 @@ class Coroutine(GeneratorOrCoroutine):
 
     def _GetAwaitableIter(self, space):
         return self
+
+
+def gen_close_iter(space, w_yf):
+    # This helper function is used by close() and throw() to
+    # close a subiterator being delegated to by yield-from.
+    if isinstance(w_yf, GeneratorIterator):
+        w_yf.descr_close()
+    else:
+        try:
+            w_close = space.getattr(w_yf, space.wrap("close"))
+        except OperationError as e:
+            if not e.match(space, space.w_AttributeError):
+                # aaaaaaaah but that's what CPython does too
+                e.write_unraisable(space, "generator/coroutine.close()")
+        else:
+            space.call_function(w_close)
 
 
 def get_printable_location_genentry(bytecode):
