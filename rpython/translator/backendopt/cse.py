@@ -213,6 +213,12 @@ class Cache(object):
                     effects, self.analyzer.analyze(op))
         self._clear_heapcache_for_effects(effects)
 
+    def _replace_with_result(self, op, res):
+        assert op.result.concretetype == res.concretetype
+        op.opname = 'same_as'
+        op.args = [res]
+        self.new_unions.union(res, op.result)
+
     def cse_block(self, block):
         def representative_arg(arg):
             if isinstance(arg, Variable):
@@ -228,14 +234,13 @@ class Cache(object):
                 tup = (arg0, op.args[0].concretetype, fieldname)
                 res = self.heapcache.get(tup, None)
                 if res is not None:
-                    op.opname = 'same_as'
-                    op.args = [res]
+                    self._replace_with_result(op, res)
                     added_same_as += 1
-                    self.new_unions.union(res, op.result)
                 else:
                     self.heapcache[tup] = op.result
                 continue
             if op.opname == 'setfield':
+                # XXX check whether value is the same already
                 concretetype = op.args[0].concretetype
                 target = representative_arg(op.args[0])
                 fieldname = op.args[1].value
@@ -253,10 +258,8 @@ class Cache(object):
                    tuple([representative_arg(arg) for arg in op.args]))
             res = self.purecache.get(key, None)
             if res is not None:
-                op.opname = 'same_as'
-                op.args = [res]
+                self._replace_with_result(op, res)
                 added_same_as += 1
-                self.new_unions.union(res, op.result)
             else:
                 self.purecache[key] = op.result
             if op.opname == "cast_pointer":
