@@ -221,7 +221,8 @@ class AppTestGenerator:
         def f():
             yield 1
         g = f()
-        raises(TypeError, g.send, 1)
+        raises(TypeError, g.send)     # one argument required
+        raises(TypeError, g.send, 1)  # not started, must send None
 
     def test_generator_explicit_stopiteration(self):
         def f():
