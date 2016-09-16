@@ -57,16 +57,13 @@ class AppTestGenerator:
         def f():
             yield 2
         g = f()
-        next(g)
         raises(NameError, g.throw, NameError, "Error")
-        raises(StopIteration, next, g)
 
     def test_throw2(self):
         def f():
             yield 2
         g = f()
         raises(NameError, g.throw, NameError("Error"))
-        raises(StopIteration, next, g)
 
     def test_throw3(self):
         def f():

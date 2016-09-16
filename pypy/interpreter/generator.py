@@ -83,6 +83,9 @@ class GeneratorOrCoroutine(W_Root):
 return next yielded value or raise StopIteration."""
         return self.send_ex(w_arg)
 
+    def send_error(self, operr):
+        return self.send_ex(SApplicationException(operr))
+
     def send_ex(self, w_arg_or_err):
         assert w_arg_or_err is not None
         pycode = self.pycode
@@ -95,8 +98,6 @@ return next yielded value or raise StopIteration."""
 
     def _send_ex(self, w_arg_or_err):
         space = self.space
-        if self.running:
-            raise oefmt(space.w_ValueError, "%s already executing", self.KIND)
 
         frame = self.frame
         if frame is None:
@@ -127,6 +128,8 @@ return next yielded value or raise StopIteration."""
 
     def _invoke_execute_frame(self, frame, w_arg_or_err):
         space = self.space
+        if self.running:
+            raise oefmt(space.w_ValueError, "%s already executing", self.KIND)
         self.running = True
         try:
             w_result = frame.execute_frame(self, w_arg_or_err)
@@ -210,7 +213,7 @@ return next yielded value or raise StopIteration."""
                 finally:
                     self.running = False
             except OperationError as e:
-                return self.send_ex(space.w_None, e)
+                return self.send_error(e)
             return self._throw_here(space, w_type, w_val, w_tb)
         #
         if isinstance(w_yf, GeneratorIterator):
@@ -246,7 +249,7 @@ return next yielded value or raise StopIteration."""
                                   space.wrap("value"))
             return self.send_ex(w_val)
         else:
-            return self.send_ex(space.w_None, operr)
+            return self.send_error(operr)
 
     def _throw_here(self, space, w_type, w_val, w_tb):
         from pypy.interpreter.pytraceback import check_traceback
@@ -264,16 +267,16 @@ return next yielded value or raise StopIteration."""
                                space.wrap('__traceback__'))
             if not space.is_w(tb, space.w_None):
                 operr.set_traceback(tb)
-        return self.send_ex(SApplicationException(operr))
+        return self.send_error(operr)
 
     def descr_close(self):
         """close() -> raise GeneratorExit inside generator/coroutine."""
         if self.frame is None:
             return     # nothing to do in this case
         space = self.space
-        w_yf = self._get_yield_from()
         operr = OperationError(space.w_GeneratorExit,
                                space.call_function(space.w_GeneratorExit))
+        w_yf = self.w_yielded_from
         if w_yf is not None:
             self.running = True
             try:
@@ -283,7 +286,7 @@ return next yielded value or raise StopIteration."""
             finally:
                 self.running = False
         try:
-            w_retval = self.send_ex(space.w_None, operr)
+            w_retval = self.send_error(operr)
         except OperationError as e:
             if e.match(space, space.w_StopIteration) or \
                     e.match(space, space.w_GeneratorExit):
@@ -344,34 +347,26 @@ class GeneratorIterator(GeneratorOrCoroutine):
         def unpack_into(self, results):
             """This is a hack for performance: runs the generator and collects
             all produced items in a list."""
-            # XXX copied and simplified version of send_ex()
-            space = self.space
-            if self.running:
-                raise oefmt(space.w_ValueError, "generator already executing")
             frame = self.frame
             if frame is None:    # already finished
                 return
-            self.running = True
-            try:
-                pycode = self.pycode
-                while True:
-                    jitdriver.jit_merge_point(self=self, frame=frame,
-                                              results=results, pycode=pycode)
-                    try:
-                        w_result = self._invoke_execute_frame(
-                                                frame, space.w_None)
-                    except OperationError as e:
-                        if not e.match(space, space.w_StopIteration):
-                            raise
-                        break
-                    # if the frame is now marked as finished, it was RETURNed from
-                    if frame.frame_finished_execution:
-                        break
-                    results.append(w_result)     # YIELDed
-            finally:
-                frame.f_backref = jit.vref_None
-                self.running = False
-                self.frame = None
+            pycode = self.pycode
+            while True:
+                jitdriver.jit_merge_point(self=self, frame=frame,
+                                          results=results, pycode=pycode)
+                space = self.space
+                try:
+                    w_result = self._invoke_execute_frame(
+                                            frame, space.w_None)
+                except OperationError as e:
+                    if not e.match(space, space.w_StopIteration):
+                        raise
+                    break
+                # if the frame is now marked as finished, it was RETURNed from
+                if frame.frame_finished_execution:
+                    self.frame = None
+                    break
+                results.append(w_result)     # YIELDed
         return unpack_into
     unpack_into = _create_unpack_into()
     unpack_into_w = _create_unpack_into()
