@@ -402,10 +402,10 @@ class VectorizeTests(object):
 
         bits = 64
         la = data.draw(st.lists(strat, min_size=10, max_size=150))
-        #la = [1.0] * 10
+        la = [1.0] * 10
         l = len(la)
 
-        accum = 0 #data.draw(strat)
+        accum = data.draw(strat)
         rawstorage = RawStorage()
         va = rawstorage.new(la, type)
         res = self.meta_interp(f, [accum, l*size, va])

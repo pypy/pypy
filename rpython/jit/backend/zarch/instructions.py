@@ -334,6 +334,8 @@ vector_mnemonic_codes = {
     'VMRL':  ('vrr_c', ['\xE7','\x60'], 'v,v,v,m'),
     'VMRH':  ('vrr_c', ['\xE7','\x61'], 'v,v,v,m'),
     'VPDI':  ('vrr_c', ['\xE7','\x84'], 'v,v,v,m'),
+    'VLVG':  ('vrs_b', ['\xE7','\x22']),
+    'VLGV':  ('vrs_c', ['\xE7','\x21']),
 
     # '': ('', ['','']),
 }

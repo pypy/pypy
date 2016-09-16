@@ -263,24 +263,6 @@ class VectorAssembler(object):
         # 4 => bit 1 from the MSB: XxC
         self.mc.VCGD(resloc, loc0, 3, 4, mask.RND_TOZERO.value)
 
-    def emit_vec_expand_f(self, op, arglocs, regalloc):
-        assert isinstance(op, VectorOp)
-        resloc, srcloc = arglocs
-        size = op.bytesize
-        res = resloc.value
-        if isinstance(srcloc, l.ConstFloatLoc):
-            # they are aligned!
-            assert size == 8
-            tloc = regalloc.rm.get_scratch_reg()
-            self.mc.load_imm(tloc, srcloc.value)
-            self.mc.lxvd2x(res, 0, tloc.value)
-        elif size == 8:
-            # splat the low of src to both slots in res
-            src = srcloc.value
-            self.mc.xxspltdl(res, src, src)
-        else:
-            not_implemented("vec expand in this combination not supported")
-
     def emit_vec_expand_i(self, op, arglocs, regalloc):
         assert isinstance(op, VectorOp)
         resloc, loc0 = arglocs
@@ -292,13 +274,12 @@ class VectorAssembler(object):
     def _accum_reduce(self, op, arg, accumloc, targetloc):
         # Currently the accumulator can ONLY be 64 bit float/int
         if arg.type == FLOAT:
-            # r = (r[0]+r[1],r[0]+r[1])
-            self.mc.VMRL(targetloc, accumloc, accumloc, l.MASK_VEC_DWORD)
+            self.mc.VPDI(targetloc, accumloc, accumloc, permi(1,0))
             if op == '+':
-                self.mc.VFA(targetloc, targetloc, accumloc, 3, 0, 0)
+                self.mc.VFA(targetloc, targetloc, accumloc, 3, 0b1000, 0)
                 return
             elif op == '*':
-                self.mc.VFM(targetloc, targetloc, accumloc, 3, 0, 0)
+                self.mc.VFM(targetloc, targetloc, accumloc, 3, 0b1000, 0)
                 return
         else:
             assert arg.type == INT
@@ -317,41 +298,14 @@ class VectorAssembler(object):
 
     def emit_vec_pack_i(self, op, arglocs, regalloc):
         assert isinstance(op, VectorOp)
-        resultloc, vloc, sourceloc, residxloc, srcidxloc, countloc = arglocs
-        srcidx = srcidxloc.value
+        resloc, vloc, sourceloc, residxloc, srcidxloc, countloc = arglocs
         residx = residxloc.value
         count = countloc.value
-        res = resultloc.value
-        vector = vloc.value
-        src = sourceloc.value
         size = op.bytesize
         assert resultloc.is_vector_reg() # vector <- reg
-        self.mc.load_imm(r.SCRATCH2, PARAM_SAVE_AREA_OFFSET)
-        self.mc.stvx(vector, r.SCRATCH2.value, r.SP.value)
-        idx = residx
-        if size == 8:
-            if not IS_BIG_ENDIAN:
-                idx = (16 // size) - 1 - idx
-            self.mc.store(src, r.SP.value, PARAM_SAVE_AREA_OFFSET+8*idx)
-        elif size == 4:
-            for j in range(count):
-                idx = j + residx
-                if not IS_BIG_ENDIAN:
-                    idx = (16 // size) - 1 - idx
-                self.mc.stw(src, r.SP.value, PARAM_SAVE_AREA_OFFSET+4*idx)
-        elif size == 2:
-            for j in range(count):
-                idx = j + residx
-                if not IS_BIG_ENDIAN:
-                    idx = (16 // size) - 1 - idx
-                self.mc.sth(src, r.SP.value, PARAM_SAVE_AREA_OFFSET+2*idx)
-        elif size == 1:
-            for j in range(count):
-                idx = j + residx
-                if not IS_BIG_ENDIAN:
-                    idx = (16 // size) - 1 - idx
-                self.mc.stb(src, r.SP.value, PARAM_SAVE_AREA_OFFSET+idx)
-        self.mc.lvx(res, r.SCRATCH2.value, r.SP.value)
+        for j in range(count):
+            index = l.addr(j + residx)
+            self.mc.VLVG(resloc, sourceloc, index, l.itemsize_to_mask(size))
 
     def emit_vec_unpack_i(self, op, arglocs, regalloc):
         assert isinstance(op, VectorOp)
@@ -364,44 +318,26 @@ class VectorAssembler(object):
         if count == 1:
             assert srcloc.is_vector_reg()
             assert not resloc.is_vector_reg()
-            off = PARAM_SAVE_AREA_OFFSET
-            self.mc.load_imm(r.SCRATCH2, off)
-            self.mc.stvx(src, r.SCRATCH2.value, r.SP.value)
-            if not IS_BIG_ENDIAN:
-                idx = (16 // size) - 1 - idx
-            off += size * idx
-            if size == 8:
-                self.mc.load(res, r.SP.value, off)
-                return
-            elif size == 4:
-                self.mc.lwa(res, r.SP.value, off)
-                return
-            elif size == 2:
-                self.mc.lha(res, r.SP.value, off)
-                return
-            elif size == 1:
-                self.mc.lbz(res, r.SP.value, off)
-                self.mc.extsb(res, res)
-                return
+            self.mc.VLGV(resloc, srcloc, index, l.itemsize_to_mask(size))
         else:
             # count is not 1, but only 2 is supported for i32
             # 4 for i16 and 8 for i8.
             src = srcloc.value
             res = resloc.value
 
-            self.mc.load_imm(r.SCRATCH2, PARAM_SAVE_AREA_OFFSET)
-            self.mc.stvx(src, r.SCRATCH2.value, r.SP.value)
-            self.mc.load_imm(r.SCRATCH2, PARAM_SAVE_AREA_OFFSET+16)
-            self.mc.stvx(res, r.SCRATCH2.value, r.SP.value)
+            #self.mc.load_imm(r.SCRATCH2, PARAM_SAVE_AREA_OFFSET)
+            #self.mc.stvx(src, r.SCRATCH2.value, r.SP.value)
+            #self.mc.load_imm(r.SCRATCH2, PARAM_SAVE_AREA_OFFSET+16)
+            #self.mc.stvx(res, r.SCRATCH2.value, r.SP.value)
             if count * size == 8:
                 if not IS_BIG_ENDIAN:
                     endian_off = 8
-                off = PARAM_SAVE_AREA_OFFSET
-                off = off + endian_off - (idx * size)
-                assert idx * size + 8 <= 16
-                self.mc.load(r.SCRATCH.value, r.SP.value, off)
-                self.mc.store(r.SCRATCH.value, r.SP.value, PARAM_SAVE_AREA_OFFSET+16+endian_off)
-                self.mc.lvx(res, r.SCRATCH2.value, r.SP.value)
+                #off = PARAM_SAVE_AREA_OFFSET
+                #off = off + endian_off - (idx * size)
+                #assert idx * size + 8 <= 16
+                #self.mc.load(r.SCRATCH.value, r.SP.value, off)
+                #self.mc.store(r.SCRATCH.value, r.SP.value, PARAM_SAVE_AREA_OFFSET+16+endian_off)
+                #self.mc.lvx(res, r.SCRATCH2.value, r.SP.value)
                 return
 
         not_implemented("%d bit integer, count %d" % \
