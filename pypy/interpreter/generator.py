@@ -4,13 +4,13 @@ from pypy.interpreter.pyopcode import LoopBlock, SApplicationException, Yield
 from pypy.interpreter.pycode import CO_YIELD_INSIDE_TRY
 from pypy.interpreter.astcompiler import consts
 from rpython.rlib import jit
+from rpython.rlib.objectmodel import specialize
 
 
 class GeneratorOrCoroutine(W_Root):
     _immutable_fields_ = ['pycode']
 
     w_yielded_from = None
-    thrown_operr = None
 
     def __init__(self, frame, name=None, qualname=None):
         self.space = frame.space
@@ -113,18 +113,17 @@ return next yielded value or raise StopIteration."""
             raise operr
 
         w_result = self._invoke_execute_frame(frame, w_arg_or_err)
+        assert w_result is not None
 
         # if the frame is now marked as finished, it was RETURNed from
         if frame.frame_finished_execution:
             self.frame = None
-            if space.is_none(w_result):
-                # Delay exception instantiation if we can
+            if space.is_w(w_result, space.w_None):
                 raise OperationError(space.w_StopIteration, space.w_None)
             else:
                 raise OperationError(space.w_StopIteration,
-                                     space.newtuple([w_result]))
+                        space.call_function(space.w_StopIteration, w_result))
         else:
-            assert w_result is not None
             return w_result     # YIELDed
 
     def _invoke_execute_frame(self, frame, w_arg_or_err):
@@ -186,9 +185,10 @@ return next yielded value or raise StopIteration."""
             elif space.is_w(w_inputvalue_or_err, space.w_None):
                 w_retval = space.next(w_yf)
             elif isinstance(w_inputvalue_or_err, SApplicationException):
-                raise w_inputvalue_or_err.operr
+                operr = w_inputvalue_or_err.operr
+                XXXXX
             else:
-                w_retval = space.call_method(w_gen, "send", w_inputvalue_or_err)
+                w_retval = space.call_method(w_yf, "send", w_inputvalue_or_err)
         except OperationError as e:
             self.w_yielded_from = None
             if not e.match(space, space.w_StopIteration):
@@ -229,13 +229,11 @@ return next yielded value or raise StopIteration."""
     def descr_throw(self, w_type, w_val=None, w_tb=None):
         """throw(typ[,val[,tb]]) -> raise exception in generator/coroutine,
 return next yielded value or raise StopIteration."""
-        if w_val is None:
-            w_val = self.space.w_None
-        return self.throw(w_type, w_val, w_tb)
-
-    def throw(self, w_type, w_val, w_tb):
         from pypy.interpreter.pytraceback import check_traceback
+
         space = self.space
+        if w_val is None:
+            w_val = space.w_None
 
         msg = "throw() third argument must be a traceback object"
         if space.is_none(w_tb):
@@ -244,6 +242,15 @@ return next yielded value or raise StopIteration."""
             tb = check_traceback(space, w_tb, msg)
 
         operr = OperationError(w_type, w_val, tb)
+        w_yf = self.w_yielded_from
+        if (w_yf is not None and
+                    operr.match(space, space.w_GeneratorExit)):
+            self.w_yielded_from = None
+            try:
+                gen_close_iter(space, w_yf)
+            except OperationError as e:
+                return self.send_error(e)
+
         operr.normalize_exception(space)
         if tb is None:
             tb = space.getattr(operr.get_w_value(space),
@@ -257,18 +264,14 @@ return next yielded value or raise StopIteration."""
         if self.frame is None:
             return     # nothing to do in this case
         space = self.space
-        operr = OperationError(space.w_GeneratorExit,
-                               space.call_function(space.w_GeneratorExit))
+        operr = get_generator_exit(space)
         w_yf = self.w_yielded_from
         if w_yf is not None:
-            XXX
-            self.running = True
+            self.w_yielded_from = None
             try:
                 gen_close_iter(space, w_yf)
             except OperationError as e:
                 operr = e
-            finally:
-                self.running = False
         try:
             self.send_error(operr)
         except OperationError as e:
@@ -401,6 +404,11 @@ class Coroutine(GeneratorOrCoroutine):
     def _GetAwaitableIter(self, space):
         return self
 
+
+@specialize.memo()
+def get_generator_exit(space):
+    return OperationError(space.w_GeneratorExit,
+                          space.call_function(space.w_GeneratorExit))
 
 def gen_close_iter(space, w_yf):
     # This helper function is used by close() and throw() to
