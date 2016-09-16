@@ -239,6 +239,10 @@ class PyPyTarget(object):
                 raise Exception("Cannot use the --output option with PyPy "
                                 "when --shared is on (it is by default). "
                                 "See issue #1971.")
+            if config.translation.profopt is not None:
+                raise Exception("Cannot use the --profopt option "
+                                "when --shared is on (it is by default). "
+                                "See issue #2398.")
         if sys.platform == 'win32':
             libdir = thisdir.join('..', '..', 'libs')
             libdir.ensure(dir=1)

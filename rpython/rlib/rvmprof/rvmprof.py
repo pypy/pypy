@@ -90,6 +90,9 @@ class VMProf(object):
         CodeClass._vmprof_unique_id = 0     # default value: "unknown"
         immut = CodeClass.__dict__.get('_immutable_fields_', [])
         CodeClass._immutable_fields_ = list(immut) + ['_vmprof_unique_id']
+        attrs = CodeClass.__dict__.get('_attrs_', None)
+        if attrs is not None:
+            CodeClass._attrs_ = list(attrs) + ['_vmprof_unique_id']
         self._code_classes.add(CodeClass)
         #
         class WeakCodeObjectList(RWeakListMixin):
@@ -189,7 +192,7 @@ def vmprof_execute_code(name, get_code_fn, result_class=None,
 
         def decorated_function(*args):
             unique_id = get_code_fn(*args)._vmprof_unique_id
-            unique_id = rffi.cast(lltype.Signed, unique_id) 
+            unique_id = rffi.cast(lltype.Signed, unique_id)
             # ^^^ removes the "known non-negative" hint for annotation
             if not jit.we_are_jitted():
                 x = enter_code(unique_id)

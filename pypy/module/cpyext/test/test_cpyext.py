@@ -18,6 +18,8 @@ from rpython.rlib import rawrefcount
 
 from .support import c_compile
 
+only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_names" 
+
 @api.cpython_api([], api.PyObject)
 def PyPy_Crash1(space):
     1/0
@@ -53,18 +55,21 @@ def create_so(modname, include_dirs, source_strings=None, source_files=None,
         libraries=libraries)
     return soname
 
-def compile_extension_module(space, modname, include_dirs=[],
-        source_files=None, source_strings=None):
-    """
-    Build an extension module and return the filename of the resulting native
-    code file.
+class SystemCompilationInfo(object):
+    """Bundles all the generic information required to compile extensions.
 
-    modname is the name of the module, possibly including dots if it is a module
-    inside a package.
-
-    Any extra keyword arguments are passed on to ExternalCompilationInfo to
-    build the module (so specify your source with one of those).
+    Note: here, 'system' means OS + target interpreter + test config + ...
     """
+    def __init__(self, include_extra=None, compile_extra=None, link_extra=None,
+            extra_libs=None, ext=None):
+        self.include_extra = include_extra or []
+        self.compile_extra = compile_extra
+        self.link_extra = link_extra
+        self.extra_libs = extra_libs
+        self.ext = ext
+
+def get_cpyext_info(space):
+    from pypy.module.imp.importing import get_so_extension
     state = space.fromcache(State)
     api_library = state.api_lib
     if sys.platform == 'win32':
@@ -74,29 +79,24 @@ def compile_extension_module(space, modname, include_dirs=[],
         # prevent linking with PythonXX.lib
         w_maj, w_min = space.fixedview(space.sys.get('version_info'), 5)[:2]
         link_extra = ["/NODEFAULTLIB:Python%d%d.lib" %
-                              (space.int_w(w_maj), space.int_w(w_min))]
+            (space.int_w(w_maj), space.int_w(w_min))]
     else:
         libraries = []
         if sys.platform.startswith('linux'):
-            compile_extra = ["-Werror", "-g", "-O0", "-Wp,-U_FORTIFY_SOURCE", "-fPIC"]
+            compile_extra = [
+                "-Werror", "-g", "-O0", "-Wp,-U_FORTIFY_SOURCE", "-fPIC"]
             link_extra = ["-g"]
         else:
             compile_extra = link_extra = None
+    return SystemCompilationInfo(
+        include_extra=api.include_dirs,
+        compile_extra=compile_extra,
+        link_extra=link_extra,
+        extra_libs=libraries,
+        ext=get_so_extension(space))
 
-    modname = modname.split('.')[-1]
-    soname = create_so(modname,
-            include_dirs=api.include_dirs + include_dirs,
-            source_files=source_files,
-            source_strings=source_strings,
-            compile_extra=compile_extra,
-            link_extra=link_extra,
-            libraries=libraries)
-    from pypy.module.imp.importing import get_so_extension
-    pydname = soname.new(purebasename=modname, ext=get_so_extension(space))
-    soname.rename(pydname)
-    return str(pydname)
 
-def compile_extension_module_applevel(space, modname, include_dirs=[],
+def compile_extension_module(sys_info, modname, include_dirs=[],
         source_files=None, source_strings=None):
     """
     Build an extension module and return the filename of the resulting native
@@ -108,6 +108,29 @@ def compile_extension_module_applevel(space, modname, include_dirs=[],
     Any extra keyword arguments are passed on to ExternalCompilationInfo to
     build the module (so specify your source with one of those).
     """
+    modname = modname.split('.')[-1]
+    soname = create_so(modname,
+        include_dirs=sys_info.include_extra + include_dirs,
+        source_files=source_files,
+        source_strings=source_strings,
+        compile_extra=sys_info.compile_extra,
+        link_extra=sys_info.link_extra,
+        libraries=sys_info.extra_libs)
+    pydname = soname.new(purebasename=modname, ext=sys_info.ext)
+    soname.rename(pydname)
+    return str(pydname)
+
+def get_so_suffix():
+    from imp import get_suffixes, C_EXTENSION
+    for suffix, mode, typ in get_suffixes():
+        if typ == C_EXTENSION:
+            return suffix
+    else:
+        raise RuntimeError("This interpreter does not define a filename "
+            "suffix for C extensions!")
+
+def get_sys_info_app():
+    from distutils.sysconfig import get_python_inc
     if sys.platform == 'win32':
         compile_extra = ["/we4013"]
         link_extra = ["/LIBPATH:" + os.path.join(sys.exec_prefix, 'libs')]
@@ -118,22 +141,13 @@ def compile_extension_module_applevel(space, modname, include_dirs=[],
         compile_extra = [
             "-O0", "-g", "-Werror=implicit-function-declaration", "-fPIC"]
         link_extra = None
+    ext = get_so_suffix()
+    return SystemCompilationInfo(
+        include_extra=[get_python_inc()],
+        compile_extra=compile_extra,
+        link_extra=link_extra,
+        ext=get_so_suffix())
 
-    modname = modname.split('.')[-1]
-    soname = create_so(modname,
-            include_dirs=[space.include_dir] + include_dirs,
-            source_files=source_files,
-            source_strings=source_strings,
-            compile_extra=compile_extra,
-            link_extra=link_extra)
-    from imp import get_suffixes, C_EXTENSION
-    pydname = soname
-    for suffix, mode, typ in get_suffixes():
-        if typ == C_EXTENSION:
-            pydname = soname.new(purebasename=modname, ext=suffix)
-            soname.rename(pydname)
-            break
-    return str(pydname)
 
 def freeze_refcnts(self):
     rawrefcount._dont_free_any_more()
@@ -144,6 +158,22 @@ def freeze_refcnts(self):
         self.frozen_refcounts[w_obj] = obj.c_ob_refcnt
     #state.print_refcounts()
     self.frozen_ll2callocations = set(ll2ctypes.ALLOCATED.values())
+
+class FakeSpace(object):
+    """Like TinyObjSpace, but different"""
+    def __init__(self, config):
+        self.config = config
+
+    def passthrough(self, arg):
+        return arg
+    listview = passthrough
+    str_w = passthrough
+
+    def unwrap(self, args):
+        try:
+            return args.str_w(None)
+        except:
+            return args
 
 class LeakCheckingTest(object):
     """Base class for all cpyext tests."""
@@ -247,11 +277,11 @@ class AppTestApi(LeakCheckingTest):
             "the test actually passed in the first place; if it failed "
             "it is likely to reach this place.")
 
-    @pytest.mark.skipif('__pypy__' not in sys.builtin_module_names, reason='pypy only test')
+    @pytest.mark.skipif(only_pypy, reason='pypy only test')
     def test_only_import(self):
         import cpyext
 
-    @pytest.mark.skipif('__pypy__' not in sys.builtin_module_names, reason='pypy only test')
+    @pytest.mark.skipif(only_pypy, reason='pypy only test')
     def test_load_error(self):
         import cpyext
         raises(ImportError, cpyext.load_module, "missing.file", "foo")
@@ -279,27 +309,23 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
     def setup_method(self, func):
         @gateway.unwrap_spec(name=str)
         def compile_module(space, name,
-                           w_separate_module_files=None,
-                           w_separate_module_sources=None):
+                           w_source_files=None,
+                           w_source_strings=None):
             """
             Build an extension module linked against the cpyext api library.
             """
-            if not space.is_none(w_separate_module_files):
-                separate_module_files = space.listview_bytes(
-                    w_separate_module_files)
-                assert separate_module_files is not None
+            if not space.is_none(w_source_files):
+                source_files = space.listview_bytes(w_source_files)
             else:
-                separate_module_files = []
-            if not space.is_none(w_separate_module_sources):
-                separate_module_sources = space.listview_bytes(
-                    w_separate_module_sources)
-                assert separate_module_sources is not None
+                source_files = None
+            if not space.is_none(w_source_strings):
+                source_strings = space.listview_bytes(w_source_strings)
             else:
-                separate_module_sources = []
-            pydname = self.compile_extension_module(
-                space, name,
-                source_files=separate_module_files,
-                source_strings=separate_module_sources)
+                source_strings = None
+            pydname = compile_extension_module(
+                self.sys_info, name,
+                source_files=source_files,
+                source_strings=source_strings)
             return space.wrap(pydname)
 
         @gateway.unwrap_spec(name=str, init='str_or_None', body=str,
@@ -352,7 +378,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 filename = py.path.local(pypydir) / 'module' \
                         / 'cpyext'/ 'test' / (filename + ".c")
                 kwds = dict(source_files=[filename])
-            mod = self.compile_extension_module(space, name,
+            mod = compile_extension_module(self.sys_info, name,
                     include_dirs=include_dirs, **kwds)
 
             if load_it:
@@ -433,21 +459,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         self.imported_module_names = []
 
         if self.runappdirect:
+            fake = FakeSpace(self.space.config)
             def interp2app(func):
-                from distutils.sysconfig import get_python_inc
-                class FakeSpace(object):
-                    def passthrough(self, arg):
-                        return arg
-                    listview = passthrough
-                    str_w = passthrough
-                    def unwrap(self, args):
-                        try:
-                            return args.str_w(None)
-                        except:
-                            return args
-                fake = FakeSpace()
-                fake.include_dir = get_python_inc()
-                fake.config = self.space.config
                 def run(*args, **kwargs):
                     for k in kwargs.keys():
                         if k not in func.unwrap_spec and not k.startswith('w_'):
@@ -457,11 +470,11 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 return run
             def wrap(func):
                 return func
-            self.compile_extension_module = compile_extension_module_applevel
+            self.sys_info = get_sys_info_app()
         else:
             interp2app = gateway.interp2app
             wrap = self.space.wrap
-            self.compile_extension_module = compile_extension_module
+            self.sys_info = get_cpyext_info(self.space)
         self.w_compile_module = wrap(interp2app(compile_module))
         self.w_import_module = wrap(interp2app(import_module))
         self.w_reimport_module = wrap(interp2app(reimport_module))
@@ -623,10 +636,10 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             skip('record_imported_module not supported in runappdirect mode')
         # Build the extensions.
         banana = self.compile_module(
-            "apple.banana", separate_module_files=[self.here + 'banana.c'])
+            "apple.banana", source_files=[self.here + 'banana.c'])
         self.record_imported_module("apple.banana")
         date = self.compile_module(
-            "cherry.date", separate_module_files=[self.here + 'date.c'])
+            "cherry.date", source_files=[self.here + 'date.c'])
         self.record_imported_module("cherry.date")
 
         # Set up some package state so that the extensions can actually be
@@ -883,7 +896,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             ])
         raises(SystemError, mod.newexc, "name", Exception, {})
 
-    @pytest.mark.skipif('__pypy__' not in sys.builtin_module_names, reason='pypy specific test')
+    @pytest.mark.skipif(only_pypy, reason='pypy specific test')
     def test_hash_pointer(self):
         mod = self.import_extension('foo', [
             ('get_hash', 'METH_NOARGS',
@@ -934,7 +947,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         print p
         assert 'py' in p
 
-    @pytest.mark.skipif('__pypy__' not in sys.builtin_module_names, reason='pypy only test')
+    @pytest.mark.skipif(only_pypy, reason='pypy only test')
     def test_get_version(self):
         mod = self.import_extension('foo', [
             ('get_version', 'METH_NOARGS',

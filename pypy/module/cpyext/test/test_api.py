@@ -1,5 +1,5 @@
 import py, pytest
-from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import lltype
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext import api

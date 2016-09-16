@@ -552,6 +552,14 @@ def test_fdlistdir(tmpdir):
     # Note: fdlistdir() always closes dirfd
     assert result == ['file']
 
+@rposix_requires('fdlistdir')
+def test_fdlistdir_rewinddir(tmpdir):
+    tmpdir.join('file').write('text')
+    dirfd = os.open(str(tmpdir), os.O_RDONLY)
+    result1 = rposix.fdlistdir(os.dup(dirfd))
+    result2 = rposix.fdlistdir(dirfd)
+    assert result1 == result2 == ['file']
+
 @rposix_requires('symlinkat')
 def test_symlinkat(tmpdir):
     tmpdir.join('file').write('text')
@@ -581,3 +589,22 @@ def test_set_inheritable():
     assert rposix.get_inheritable(fd1) == False
     os.close(fd1)
     os.close(fd2)
+
+def test_SetNonInheritableCache():
+    cache = rposix.SetNonInheritableCache()
+    fd1, fd2 = os.pipe()
+    assert rposix.get_inheritable(fd1) == True
+    assert rposix.get_inheritable(fd1) == True
+    assert cache.cached_inheritable == -1
+    cache.set_non_inheritable(fd1)
+    assert cache.cached_inheritable == 1
+    cache.set_non_inheritable(fd2)
+    assert cache.cached_inheritable == 1
+    assert rposix.get_inheritable(fd1) == False
+    assert rposix.get_inheritable(fd1) == False
+    os.close(fd1)
+    os.close(fd2)
+
+def test_sync():
+    if sys.platform != 'win32':
+        rposix.sync()

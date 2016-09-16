@@ -325,6 +325,7 @@ class LLGraphCPU(model.AbstractCPU):
     supports_longlong = r_uint is not r_ulonglong
     supports_singlefloats = True
     supports_guard_gc_type = True
+    supports_cond_call_value = True
     translate_support_code = False
     is_llgraph = True
     vector_extension = True
@@ -833,9 +834,6 @@ class LLGraphCPU(model.AbstractCPU):
         result_adr = llmemory.cast_ptr_to_adr(struct.typeptr)
         return heaptracker.adr2int(result_adr)
 
-    def bh_new_raw_buffer(self, size):
-        return lltype.malloc(rffi.CCHARP.TO, size, flavor='raw')
-
     # vector operations
     vector_arith_code = """
     def bh_vec_{0}_{1}(self, vx, vy, count):
@@ -1336,6 +1334,16 @@ class LLFrame(object):
             return
         # cond_call can't have a return value
         self.execute_call_n(calldescr, func, *args)
+
+    def execute_cond_call_value_i(self, calldescr, value, func, *args):
+        if not value:
+            value = self.execute_call_i(calldescr, func, *args)
+        return value
+
+    def execute_cond_call_value_r(self, calldescr, value, func, *args):
+        if not value:
+            value = self.execute_call_r(calldescr, func, *args)
+        return value
 
     def _execute_call(self, calldescr, func, *args):
         effectinfo = calldescr.get_extra_info()

@@ -67,7 +67,7 @@ class TestDicts(BaseTestPyPyC):
             p10 = call_r(ConstClass(ll_str__IntegerR_SignedConst_Signed), i5, descr=<Callr . i EF=3>)
             guard_no_exception(descr=...)
             guard_nonnull(p10, descr=...)
-            i12 = call_i(ConstClass(ll_strhash), p10, descr=<Calli . r EF=0>)
+            i12 = call_i(ConstClass(_ll_strhash__rpy_stringPtr), p10, descr=<Calli . r EF=0>)
             p13 = new(descr=...)
             p15 = new_array_clear(16, descr=<ArrayU 1>)
             {{{

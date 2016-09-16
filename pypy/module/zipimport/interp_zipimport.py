@@ -152,8 +152,7 @@ class W_ZipImporter(W_Root):
         importing._prepare_module(space, w_mod, real_name, pkgpath)
         co_filename = self.make_co_filename(filename)
         code_w = importing.parse_source_module(space, co_filename, buf)
-        importing.exec_code_module(space, w_mod, code_w)
-        return w_mod
+        return importing.exec_code_module(space, w_mod, code_w, w(modname))
 
     def _parse_mtime(self, space, filename):
         w = space.wrap
@@ -205,10 +204,10 @@ class W_ZipImporter(W_Root):
         real_name = self.filename + os.path.sep + self.corr_zname(filename)
         space.setattr(w_mod, w('__loader__'), space.wrap(self))
         importing._prepare_module(space, w_mod, real_name, pkgpath)
-        result = importing.load_compiled_module(space, w(modname), w_mod,
+        w_result = importing.load_compiled_module(space, w(modname), w_mod,
                                                 filename, magic, timestamp,
                                                 buf)
-        return result
+        return w_result
 
     def have_modulefile(self, space, filename):
         if ZIPSEP != os.path.sep:

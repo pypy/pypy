@@ -43,16 +43,20 @@ def PySequence_Length(space, w_obj):
 def PySequence_Fast(space, w_obj, m):
     """Returns the sequence o as a tuple, unless it is already a tuple or list, in
     which case o is returned.  Use PySequence_Fast_GET_ITEM() to access the
-    members of the result.  Returns NULL on failure.  If the object is not a
-    sequence, raises TypeError with m as the message text."""
+    members of the result.  Returns NULL on failure.  If the object cannot be
+    converted to a sequence, and raises a TypeError, raise a new TypeError with
+    m as the message text. If the conversion otherwise, fails, reraise the
+    original exception"""
     if isinstance(w_obj, W_ListObject):
         # make sure we can return a borrowed obj from PySequence_Fast_GET_ITEM    
         w_obj.convert_to_cpy_strategy(space)
         return w_obj
     try:
         return W_ListObject.newlist_cpyext(space, space.listview(w_obj))
-    except OperationError:
-        raise OperationError(space.w_TypeError, space.wrap(rffi.charp2str(m)))
+    except OperationError as e:
+        if e.match(space, space.w_TypeError):
+            raise OperationError(space.w_TypeError, space.wrap(rffi.charp2str(m)))
+        raise e
 
 @cpython_api([rffi.VOIDP, Py_ssize_t], PyObject, result_borrowed=True)
 def PySequence_Fast_GET_ITEM(space, w_obj, index):

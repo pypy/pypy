@@ -107,6 +107,9 @@ class TinyObjSpace(object):
     def newlist(self, iterable):
         return list(iterable)
 
+    def newbytes(self, obj):
+        return bytes(obj)
+
     def call_function(self, func, *args, **kwds):
         return func(*args, **kwds)
 

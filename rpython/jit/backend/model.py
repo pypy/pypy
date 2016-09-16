@@ -16,6 +16,7 @@ class AbstractCPU(object):
     # Boxes and Consts are BoxFloats and ConstFloats.
     supports_singlefloats = False
     supports_guard_gc_type = False
+    supports_cond_call_value = False
 
     propagate_exception_descr = None
 
@@ -228,8 +229,6 @@ class AbstractCPU(object):
     def bh_newstr(self, length):
         raise NotImplementedError
     def bh_newunicode(self, length):
-        raise NotImplementedError
-    def bh_new_raw_buffer(self, size):
         raise NotImplementedError
 
     def bh_arraylen_gc(self, array, arraydescr):

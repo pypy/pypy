@@ -275,8 +275,8 @@ class Recompiler:
     def write_c_source_to_f(self, f, preamble):
         self._f = f
         prnt = self._prnt
-        if self.ffi._embedding is None:
-            prnt('#define Py_LIMITED_API')
+        if self.ffi._embedding is not None:
+            prnt('#define _CFFI_USE_EMBEDDING')
         #
         # first the '#include' (actually done by inlining the file's content)
         lines = self._rel_readlines('_cffi_include.h')
@@ -515,7 +515,7 @@ class Recompiler:
                                                     tovar, errcode)
             return
         #
-        elif isinstance(tp, (model.StructOrUnion, model.EnumType)):
+        elif isinstance(tp, model.StructOrUnionOrEnum):
             # a struct (not a struct pointer) as a function argument
             self._prnt('  if (_cffi_to_c((char *)&%s, _cffi_type(%d), %s) < 0)'
                       % (tovar, self._gettypenum(tp), fromvar))
@@ -572,7 +572,7 @@ class Recompiler:
         elif isinstance(tp, model.ArrayType):
             return '_cffi_from_c_pointer((char *)%s, _cffi_type(%d))' % (
                 var, self._gettypenum(model.PointerType(tp.item)))
-        elif isinstance(tp, model.StructType):
+        elif isinstance(tp, model.StructOrUnion):
             if tp.fldnames is None:
                 raise TypeError("'%s' is used as %s, but is opaque" % (
                     tp._get_c_name(), context))
@@ -1431,7 +1431,7 @@ def _patch_for_target(patchlist, target):
 
 def recompile(ffi, module_name, preamble, tmpdir='.', call_c_compiler=True,
               c_file=None, source_extension='.c', extradir=None,
-              compiler_verbose=1, target=None, **kwds):
+              compiler_verbose=1, target=None, debug=None, **kwds):
     if not isinstance(module_name, str):
         module_name = module_name.encode('ascii')
     if ffi._windows_unicode:
@@ -1467,7 +1467,8 @@ def recompile(ffi, module_name, preamble, tmpdir='.', call_c_compiler=True,
                 if target != '*':
                     _patch_for_target(patchlist, target)
                 os.chdir(tmpdir)
-                outputfilename = ffiplatform.compile('.', ext, compiler_verbose)
+                outputfilename = ffiplatform.compile('.', ext,
+                                                     compiler_verbose, debug)
             finally:
                 os.chdir(cwd)
                 _unpatch_meths(patchlist)

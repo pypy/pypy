@@ -123,5 +123,4 @@ def PyImport_ExecCodeModuleEx(space, name, w_code, pathname):
         pathname = code.co_filename
     w_mod = importing.add_module(space, w_name)
     space.setattr(w_mod, space.wrap('__file__'), space.wrap(pathname))
-    importing.exec_code_module(space, w_mod, code)
-    return w_mod
+    return importing.exec_code_module(space, w_mod, code, w_name)
