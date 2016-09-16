@@ -188,11 +188,8 @@ return next yielded value or raise StopIteration."""
                 w_retval = w_yf.send_ex(w_inputvalue_or_err)
             elif space.is_w(w_inputvalue_or_err, space.w_None):
                 w_retval = space.next(w_yf)
-            elif isinstance(w_inputvalue_or_err, SApplicationException):
-                operr = w_inputvalue_or_err.operr
-                XXXXX
             else:
-                w_retval = space.call_method(w_yf, "send", w_inputvalue_or_err)
+                w_retval = delegate_to_nongen(space, w_yf, w_inputvalue_or_err)
         except OperationError as e:
             self.w_yielded_from = None
             if not e.match(space, space.w_StopIteration):
@@ -429,6 +426,27 @@ def gen_close_iter(space, w_yf):
                 e.write_unraisable(space, "generator/coroutine.close()")
         else:
             space.call_function(w_close)
+
+def delegate_to_nongen(space, w_yf, w_inputvalue_or_err):
+    # invoke a "send" or "throw" by method name to a non-generator w_yf
+    if isinstance(w_inputvalue_or_err, SApplicationException):
+        operr = w_inputvalue_or_err.operr
+        try:
+            w_meth = space.getattr(w_yf, space.wrap("throw"))
+        except OperationError as e:
+            if not e.match(space, space.w_AttributeError):
+                raise
+            raise operr
+        # bah, CPython calls here with the exact same arguments as
+        # originally passed to throw().  In our case it is far removed.
+        # Let's hope nobody will complain...
+        operr.normalize_exception(space)
+        w_exc = operr.w_type
+        w_val = operr.get_w_value(space)
+        w_tb  = space.wrap(operr.get_traceback())
+        return space.call_function(w_meth, w_exc, w_val, w_tb)
+    else:
+        return space.call_method(w_yf, "send", w_inputvalue_or_err)
 
 
 def get_printable_location_genentry(bytecode):
