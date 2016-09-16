@@ -255,11 +255,27 @@ class Cache(object):
                 self._clear_heapcache_for(concretetype, fieldname)
                 self.heapcache[target, concretetype, fieldname] = op.args[2]
                 continue
+            if op.opname == "jit_force_virtualizable":
+                T = op.args[0].concretetype
+                FIELD = getattr(T.TO, op.args[1].value)
+                if hasattr(FIELD, 'TO') and isinstance(FIELD.TO, lltype.GcArray):
+                    # clear the cache for the virtualizable array fields, as
+                    # they run the risk of being passed around too much
+                    self._clear_heapcache_for_effects(
+                        {('struct', T, op.args[1].value)})
+
             if has_side_effects(op):
                 self._clear_heapcache_for_effects_of_op(op)
                 continue
 
             # foldable operations
+            if op.opname == "cast_pointer":
+                # cast_pointer is a pretty strange operation! it introduces
+                # more aliases, that confuse the CSE pass. Therefore we unify
+                # the two variables in new_unions, to improve the folding.
+                self.new_unions.union(op.args[0], op.result)
+                # don't do anything further
+                continue
             if not can_fold(op):
                 continue
             key = (op.opname, op.result.concretetype,
@@ -270,11 +286,6 @@ class Cache(object):
                 added_same_as += 1
             else:
                 self.purecache[key] = op.result
-            if op.opname == "cast_pointer":
-                # cast_pointer is a pretty strange operation! it introduces
-                # more aliases, that confuse the CSE pass. Therefore we unify
-                # the two variables in new_unions, to improve the folding.
-                self.new_unions.union(op.args[0], op.result)
         return added_same_as
 
 def _merge(tuples, variable_families, analyzer, loop_blocks, backedges):

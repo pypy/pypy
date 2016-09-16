@@ -465,6 +465,28 @@ class TestStoreSink(object):
                 return cls.user_overridden_class
         self.check(f, [int], getfield=0)
 
+    def test_dont_fold_virtualizable(self):
+        class A(object):
+            _virtualizable_ = ["x[*]", "y"]
+
+        a1 = A()
+        a1.x = [1, 2, 3]
+        a1.y = 2
+        a2 = A()
+        a2.x = [65, 4, 3]
+        a2.y = 8
+        def f(i):
+            if i:
+                a = a1
+            else:
+                a = a2
+            res = a.x[0]
+            res += a.y
+            if i == 10:
+                res += a.x[1]
+                res += a.y
+            return res
+        self.check(f, [int], getfield=3)
 
 
 def fakevar(name='v'):
