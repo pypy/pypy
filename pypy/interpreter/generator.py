@@ -151,7 +151,11 @@ return next yielded value or raise StopIteration."""
         # interpretation.
         space = self.space
         if self.w_yielded_from is not None:
-            self.next_yield_from(frame, w_arg_or_err)
+            try:
+                self.next_yield_from(frame, w_arg_or_err)
+            except OperationError as operr:
+                ec = space.getexecutioncontext()
+                return frame.handle_operation_error(ec, operr)
             # Normal case: the call above raises Yield.
             # We reach this point if the iterable is exhausted.
             last_instr = jit.promote(frame.last_instr)
@@ -242,6 +246,8 @@ return next yielded value or raise StopIteration."""
             tb = check_traceback(space, w_tb, msg)
 
         operr = OperationError(w_type, w_val, tb)
+        operr.normalize_exception(space)
+
         w_yf = self.w_yielded_from
         if (w_yf is not None and
                     operr.match(space, space.w_GeneratorExit)):
@@ -251,7 +257,6 @@ return next yielded value or raise StopIteration."""
             except OperationError as e:
                 return self.send_error(e)
 
-        operr.normalize_exception(space)
         if tb is None:
             tb = space.getattr(operr.get_w_value(space),
                                space.wrap('__traceback__'))
