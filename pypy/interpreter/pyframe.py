@@ -276,18 +276,17 @@ class PyFrame(W_Root):
                 if next_instr != 0:
                     self.pushvalue(w_inputvalue)
             #
-            try:
-                w_exitvalue = self.dispatch(self.pycode, next_instr,
-                                            executioncontext)
-            except Exception:
-                executioncontext.return_trace(self, self.space.w_None)
-                raise
+            w_exitvalue = self.dispatch(self.pycode, next_instr,
+                                        executioncontext)
             executioncontext.return_trace(self, w_exitvalue)
             # it used to say self.last_exception = None
             # this is now done by the code in pypyjit module
             # since we don't want to invalidate the virtualizable
             # for no good reason
             got_exception = False
+        except Exception:
+            executioncontext.return_trace(self, self.space.w_None)
+            raise
         finally:
             executioncontext.leave(self, w_exitvalue, got_exception)
         return w_exitvalue

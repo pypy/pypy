@@ -562,3 +562,21 @@ class AppTestPyFrame:
         res = f(10).g()
         sys.settrace(None)
         assert res == 10
+
+    def test_throw_trace_bug(self):
+        import sys
+        def f():
+            yield 5
+        gen = f()
+        assert next(gen) == 5
+        seen = []
+        def trace_func(frame, event, *args):
+            seen.append(event)
+            return trace_func
+        sys.settrace(trace_func)
+        try:
+            gen.throw(ValueError)
+        except ValueError:
+            pass
+        sys.settrace(None)
+        assert seen == ['call', 'exception', 'return']
