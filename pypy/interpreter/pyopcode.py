@@ -67,15 +67,8 @@ class __extend__(pyframe.PyFrame):
         # For the sequel, force 'next_instr' to be unsigned for performance
         next_instr = r_uint(next_instr)
         co_code = pycode.co_code
-
-        try:
-            while True:
-                next_instr = self.handle_bytecode(co_code, next_instr, ec)
-        except Return:
-            self.last_exception = None
-        except Yield:
-            pass
-        return self.popvalue()
+        while True:
+            next_instr = self.handle_bytecode(co_code, next_instr, ec)
 
     def handle_bytecode(self, co_code, next_instr, ec):
         try:
@@ -1034,41 +1027,27 @@ class __extend__(pyframe.PyFrame):
         raise Yield
 
     def YIELD_FROM(self, oparg, next_instr):
-        from pypy.interpreter.astcompiler import consts
+        # Unlike CPython, we handle this not by repeating the same
+        # bytecode over and over until the inner iterator is exhausted.
+        # Instead, we directly set the generator's w_yielded_from.
+        # This asks generator.resume_execute_frame() to exhaust that
+        # sub-iterable first before continuing on the next bytecode.
         from pypy.interpreter.generator import Coroutine
-        space = self.space
-        w_value = self.popvalue()
-        w_gen = self.peekvalue()
-        if isinstance(w_gen, Coroutine):
-            if (w_gen.descr_gi_code(space).co_flags & consts.CO_COROUTINE and
-               not self.pycode.co_flags & (consts.CO_COROUTINE |
-                                       consts.CO_ITERABLE_COROUTINE)):
-                raise oefmt(self.space.w_TypeError,
-                            "cannot 'yield from' a coroutine object "
-                            "from a generator")
-        try:
-            if space.is_none(w_value):
-                w_retval = space.next(w_gen)
-            else:
-                w_retval = space.call_method(w_gen, "send", w_value)
-        except OperationError as e:
-            if not e.match(space, space.w_StopIteration):
-                raise
-            self.popvalue()  # Remove iter from stack
-            e.normalize_exception(space)
-            try:
-                w_value = space.getattr(e.get_w_value(space), space.wrap("value"))
-            except OperationError as e:
-                if not e.match(space, space.w_AttributeError):
-                    raise
-                w_value = space.w_None
-            self.pushvalue(w_value)
-        else:
-            # iter remains on stack, w_retval is value to be yielded.
-            self.pushvalue(w_retval)
-            # and repeat...
-            self.last_instr = self.last_instr - 1
-            raise Yield
+        in_generator = self.get_generator()
+        assert in_generator is not None
+        w_inputvalue = self.popvalue()
+        w_gen = self.popvalue()
+        if isinstance(w_gen, Coroutine) and not isinstance(self, Coroutine):
+            raise oefmt(self.space.w_TypeError,
+                        "cannot 'yield from' a coroutine object "
+                        "from a generator")
+        #
+        in_generator.w_yielded_from = w_gen
+        in_generator.next_yield_from(self, w_inputvalue)
+        # Common case: the call above raises Yield.
+        # If instead the iterable is empty, next_yield_from() pushed the
+        # final result and returns.  In that case, we can just continue
+        # with the next bytecode.
 
     def jump_absolute(self, jumpto, ec):
         # this function is overridden by pypy.module.pypyjit.interp_jit

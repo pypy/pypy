@@ -1,6 +1,6 @@
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.pyopcode import LoopBlock, SApplicationException
+from pypy.interpreter.pyopcode import LoopBlock, SApplicationException, Yield
 from pypy.interpreter.pycode import CO_YIELD_INSIDE_TRY
 from pypy.interpreter.astcompiler import consts
 from rpython.rlib import jit
@@ -151,9 +151,10 @@ return next yielded value or raise StopIteration."""
         # interpretation.
         space = self.space
         if self.w_yielded_from is not None:
-            XXX
-
-        if isinstance(w_arg_or_err, SApplicationException):
+            w_arg_or_err = self.next_yield_from(frame, w_arg_or_err)
+            # Normal case: the call above raises Yield.
+            # We reach this point if the iterable is exhausted.
+        elif isinstance(w_arg_or_err, SApplicationException):
             ec = space.getexecutioncontext()
             return frame.handle_operation_error(ec, w_arg_or_err.operr)
 
@@ -166,6 +167,40 @@ return next yielded value or raise StopIteration."""
         else:
             frame.pushvalue(w_arg_or_err)
         return last_instr + 1
+
+    def next_yield_from(self, frame, w_inputvalue_or_err):
+        """Fetch the next item of the current 'yield from', push it on
+        the frame stack, and raises Yield.  If there isn't one, push
+        w_stopiteration_value and returns.  May also just raise.
+        """
+        space = self.space
+        w_yf = self.w_yielded_from
+        try:
+            if isinstance(w_yf, GeneratorOrCoroutine):
+                w_retval = w_yf.send_ex(w_inputvalue_or_err)
+            elif space.is_w(w_inputvalue_or_err, space.w_None):
+                w_retval = space.next(w_yf)
+            elif isinstance(w_inputvalue_or_err, SApplicationException):
+                raise w_inputvalue_or_err.operr
+            else:
+                w_retval = space.call_method(w_gen, "send", w_inputvalue_or_err)
+        except OperationError as e:
+            self.w_yielded_from = None
+            if not e.match(space, space.w_StopIteration):
+                raise
+            e.normalize_exception(space)
+            try:
+                w_stop_value = space.getattr(e.get_w_value(space),
+                                             space.wrap("value"))
+            except OperationError as e:
+                if not e.match(space, space.w_AttributeError):
+                    raise
+                w_value = space.w_None
+            frame.pushvalue(w_stop_value)
+            return
+        else:
+            frame.pushvalue(w_retval)
+            raise Yield
 
     def _leak_stopiteration(self, e):
         # Check for __future__ generator_stop and conditionally turn
@@ -194,65 +229,8 @@ return next yielded value or raise StopIteration."""
         return self.throw(w_type, w_val, w_tb)
 
     def throw(self, w_type, w_val, w_tb):
-        space = self.space
-
-        w_yf = self.w_yielded_from
-        if w_yf is not None:
-            # Paused in a "yield from", pass the throw to the inner generator.
-            return self._throw_delegate(space, w_yf, w_type, w_val, w_tb)
-        else:
-            # Not paused in a "yield from", throw inside this generator
-            return self._throw_here(space, w_type, w_val, w_tb)
-
-    def _throw_delegate(self, space, w_yf, w_type, w_val, w_tb):
-        if space.exception_match(w_type, space.w_GeneratorExit):
-            try:
-                self.running = True
-                try:
-                    gen_close_iter(space, w_yf)
-                finally:
-                    self.running = False
-            except OperationError as e:
-                return self.send_error(e)
-            return self._throw_here(space, w_type, w_val, w_tb)
-        #
-        if isinstance(w_yf, GeneratorIterator):
-            self.running = True
-            try:
-                return w_yf.throw(space, w_type, w_val, w_tb)
-            except OperationError as e:
-                operr = e
-            finally:
-                self.running = False
-        else:
-            try:
-                w_throw = space.getattr(w_yf, space.wrap("throw"))
-            except OperationError as e:
-                if not e.match(space, space.w_AttributeError):
-                    raise
-                return self._throw_here(space, w_type, w_val, w_tb)
-            self.running = True
-            try:
-                return space.call_function(w_throw, w_type, w_val, w_tb)
-            except OperationError as e:
-                operr = e
-            finally:
-                self.running = False
-        # Pop subiterator from stack.
-        w_subiter = self.frame.popvalue()
-        assert space.is_w(w_subiter, w_yf)
-        # Termination repetition of YIELD_FROM
-        self.frame.last_instr += 1
-        if operr.match(space, space.w_StopIteration):
-            operr.normalize_exception(space)
-            w_val = space.getattr(operr.get_w_value(space),
-                                  space.wrap("value"))
-            return self.send_ex(w_val)
-        else:
-            return self.send_error(operr)
-
-    def _throw_here(self, space, w_type, w_val, w_tb):
         from pypy.interpreter.pytraceback import check_traceback
+        space = self.space
 
         msg = "throw() third argument must be a traceback object"
         if space.is_none(w_tb):
@@ -278,6 +256,7 @@ return next yielded value or raise StopIteration."""
                                space.call_function(space.w_GeneratorExit))
         w_yf = self.w_yielded_from
         if w_yf is not None:
+            XXX
             self.running = True
             try:
                 gen_close_iter(space, w_yf)
@@ -286,14 +265,13 @@ return next yielded value or raise StopIteration."""
             finally:
                 self.running = False
         try:
-            w_retval = self.send_error(operr)
+            self.send_error(operr)
         except OperationError as e:
             if e.match(space, space.w_StopIteration) or \
                     e.match(space, space.w_GeneratorExit):
                 return space.w_None
             raise
-
-        if w_retval is not None:
+        else:
             raise oefmt(space.w_RuntimeError,
                         "%s ignored GeneratorExit", self.KIND)
 

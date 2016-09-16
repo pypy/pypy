@@ -325,6 +325,24 @@ res = f()
             assert False, 'Expected StopIteration'
             """
 
+    def test_yield_from_basic(self):
+        """
+        def f1():
+            yield from []
+            yield from [1, 2, 3]
+            yield from f2()
+        def f2():
+            yield 4
+            yield 5
+        gen = f1()
+        assert next(gen) == 1
+        assert next(gen) == 2
+        assert next(gen) == 3
+        assert next(gen) == 4
+        assert next(gen) == 5
+        assert list(gen) == []
+        """
+
     def test_yield_from_return(self):
         """
         def f1():

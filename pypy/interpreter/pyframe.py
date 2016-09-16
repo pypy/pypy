@@ -267,6 +267,7 @@ class PyFrame(W_Root):
         a generator or coroutine frame; in that case, w_arg_or_err
         is the input argument -or- an SApplicationException instance.
         """
+        from pypy.interpreter import pyopcode
         # the following 'assert' is an annotation hint: it hides from
         # the annotator all methods that are defined in PyFrame but
         # overridden in the {,Host}FrameClass subclasses of PyFrame.
@@ -281,22 +282,24 @@ class PyFrame(W_Root):
             #
             # Execution starts just after the last_instr.  Initially,
             # last_instr is -1.  After a generator suspends it points to
-            # the YIELD_VALUE instruction.
-            if in_generator is None:
-                assert self.last_instr == -1
-                next_instr = 0
-            else:
-                next_instr = in_generator.resume_execute_frame(
-                                                self, w_arg_or_err)
-            next_instr = r_uint(next_instr)
-            #
+            # the YIELD_VALUE/YIELD_FROM instruction.
             try:
-                w_exitvalue = self.dispatch(self.pycode, next_instr,
-                                            executioncontext)
-            except Exception:
-                executioncontext.return_trace(self, self.space.w_None)
-                raise
-            executioncontext.return_trace(self, w_exitvalue)
+                if in_generator is None:
+                    assert self.last_instr == -1
+                    next_instr = 0
+                else:
+                    next_instr = in_generator.resume_execute_frame(
+                                                    self, w_arg_or_err)
+                next_instr = r_uint(next_instr)
+                #
+                self.dispatch(self.pycode, next_instr, executioncontext)
+            except pyopcode.Return:
+                self.last_exception = None
+                w_exitvalue = self.popvalue()
+            except pyopcode.Yield:
+                w_exitvalue = self.popvalue()
+            finally:
+                executioncontext.return_trace(self, w_exitvalue)
             # it used to say self.last_exception = None
             # this is now done by the code in pypyjit module
             # since we don't want to invalidate the virtualizable
@@ -898,7 +901,7 @@ class PyFrame(W_Root):
         return None
 
     def get_generator(self):
-        if space.config.translation.rweakref:
+        if self.space.config.translation.rweakref:
             return self.f_generator_wref()
         else:
             return self.f_generator_nowref
@@ -935,7 +938,6 @@ class PyFrame(W_Root):
 
 def get_block_class(opname):
     # select the appropriate kind of block
-    from pypy.interpreter.pyopcode import block_classes
     return block_classes[opname]
 
 def unpickle_block(space, w_tup):
