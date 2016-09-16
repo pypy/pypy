@@ -124,6 +124,7 @@ return next yielded value or raise StopIteration."""
                 raise OperationError(space.w_StopIteration,
                                      space.newtuple([w_result]))
         else:
+            assert w_result is not None
             return w_result     # YIELDed
 
     def _invoke_execute_frame(self, frame, w_arg_or_err):
@@ -151,10 +152,14 @@ return next yielded value or raise StopIteration."""
         # interpretation.
         space = self.space
         if self.w_yielded_from is not None:
-            w_arg_or_err = self.next_yield_from(frame, w_arg_or_err)
+            self.next_yield_from(frame, w_arg_or_err)
             # Normal case: the call above raises Yield.
             # We reach this point if the iterable is exhausted.
-        elif isinstance(w_arg_or_err, SApplicationException):
+            last_instr = jit.promote(frame.last_instr)
+            assert last_instr >= 0
+            return last_instr + 1
+
+        if isinstance(w_arg_or_err, SApplicationException):
             ec = space.getexecutioncontext()
             return frame.handle_operation_error(ec, w_arg_or_err.operr)
 
