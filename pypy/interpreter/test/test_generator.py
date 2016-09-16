@@ -57,15 +57,15 @@ class AppTestGenerator:
         def f():
             yield 2
         g = f()
-        g.next()
+        # two arguments version
         raises(NameError, g.throw, NameError, "Error")
 
     def test_throw2(self):
         def f():
             yield 2
         g = f()
+        # single argument version
         raises(NameError, g.throw, NameError("Error"))
-        raises(StopIteration, g.next)
 
     def test_throw3(self):
         def f():
