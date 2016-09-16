@@ -1,6 +1,6 @@
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.pyopcode import LoopBlock
+from pypy.interpreter.pyopcode import LoopBlock, SApplicationException
 from pypy.interpreter.pycode import CO_YIELD_INSIDE_TRY
 from pypy.interpreter.astcompiler import consts
 from rpython.rlib import jit
@@ -8,6 +8,9 @@ from rpython.rlib import jit
 
 class GeneratorOrCoroutine(W_Root):
     _immutable_fields_ = ['pycode']
+
+    w_yielded_from = None
+    thrown_operr = None
 
     def __init__(self, frame, name=None, qualname=None):
         self.space = frame.space
@@ -75,23 +78,26 @@ class GeneratorOrCoroutine(W_Root):
                 assert False
         self.running = self.space.is_true(w_running)
 
-    def descr_send(self, w_arg=None):
+    def descr_send(self, w_arg):
         """send(arg) -> send 'arg' into generator/coroutine,
 return next yielded value or raise StopIteration."""
         return self.send_ex(w_arg)
 
-    def send_ex(self, w_arg, operr=None):
+    def send_ex(self, w_arg_or_err):
+        assert w_arg_or_err is not None
         pycode = self.pycode
         if pycode is not None:
             if jit.we_are_jitted() and should_not_inline(pycode):
-                generatorentry_driver.jit_merge_point(gen=self, w_arg=w_arg,
-                                                    operr=operr, pycode=pycode)
-        return self._send_ex(w_arg, operr)
+                generatorentry_driver.jit_merge_point(gen=self,
+                                                      w_arg=w_arg_or_err,
+                                                      pycode=pycode)
+        return self._send_ex(w_arg_or_err)
 
-    def _send_ex(self, w_arg, operr):
+    def _send_ex(self, w_arg_or_err):
         space = self.space
         if self.running:
             raise oefmt(space.w_ValueError, "%s already executing", self.KIND)
+
         frame = self.frame
         if frame is None:
             if isinstance(self, Coroutine):
@@ -99,46 +105,64 @@ return next yielded value or raise StopIteration."""
                             "cannot reuse already awaited coroutine")
             # xxx a bit ad-hoc, but we don't want to go inside
             # execute_frame() if the frame is actually finished
-            if operr is None:
+            if isinstance(w_arg_or_err, SApplicationException):
+                operr = w_arg_or_err.operr
+            else:
                 operr = OperationError(space.w_StopIteration, space.w_None)
             raise operr
 
+        w_result = self._invoke_execute_frame(frame, w_arg_or_err)
+
+        # if the frame is now marked as finished, it was RETURNed from
+        if frame.frame_finished_execution:
+            self.frame = None
+            if space.is_none(w_result):
+                # Delay exception instantiation if we can
+                raise OperationError(space.w_StopIteration, space.w_None)
+            else:
+                raise OperationError(space.w_StopIteration,
+                                     space.newtuple([w_result]))
+        else:
+            return w_result     # YIELDed
+
+    def _invoke_execute_frame(self, frame, w_arg_or_err):
+        space = self.space
+        self.running = True
+        try:
+            w_result = frame.execute_frame(self, w_arg_or_err)
+        except OperationError as e:
+            # errors finish a frame
+            try:
+                if e.match(space, space.w_StopIteration):
+                    self._leak_stopiteration(e)
+            finally:
+                self.frame = None
+            raise
+        finally:
+            frame.f_backref = jit.vref_None
+            self.running = False
+        return w_result
+
+    def resume_execute_frame(self, frame, w_arg_or_err):
+        # Called from execute_frame() just before resuming the bytecode
+        # interpretation.
+        space = self.space
+        if self.w_yielded_from is not None:
+            XXX
+
+        if isinstance(w_arg_or_err, SApplicationException):
+            ec = space.getexecutioncontext()
+            return frame.handle_operation_error(ec, w_arg_or_err.operr)
+
         last_instr = jit.promote(frame.last_instr)
         if last_instr == -1:
-            if w_arg and not space.is_w(w_arg, space.w_None):
+            if not space.is_w(w_arg_or_err, space.w_None):
                 raise oefmt(space.w_TypeError,
                             "can't send non-None value to a just-started %s",
                             self.KIND)
         else:
-            if not w_arg:
-                w_arg = space.w_None
-        self.running = True
-        try:
-            try:
-                w_result = frame.execute_frame(w_arg, operr)
-            except OperationError as e:
-                # errors finish a frame
-                try:
-                    if e.match(space, space.w_StopIteration):
-                        self._leak_stopiteration(e)
-                finally:
-                    self.frame = None
-                raise
-            #
-            # if the frame is now marked as finished, it was RETURNed from
-            if frame.frame_finished_execution:
-                self.frame = None
-                if space.is_none(w_result):
-                    # Delay exception instantiation if we can
-                    raise OperationError(space.w_StopIteration, space.w_None)
-                else:
-                    raise OperationError(space.w_StopIteration,
-                                         space.newtuple([w_result]))
-            else:
-                return w_result     # YIELDed
-        finally:
-            frame.f_backref = jit.vref_None
-            self.running = False
+            frame.pushvalue(w_arg_or_err)
+        return last_instr + 1
 
     def _leak_stopiteration(self, e):
         # Check for __future__ generator_stop and conditionally turn
@@ -166,22 +190,10 @@ return next yielded value or raise StopIteration."""
             w_val = self.space.w_None
         return self.throw(w_type, w_val, w_tb)
 
-    def _get_yield_from(self):
-        # Probably a hack (but CPython has the same, _PyGen_yf()):
-        # If the current frame is stopped in a "yield from",
-        # return the paused generator.
-        # XXX this is probably very bad for the JIT.  Think again!
-        if not self.frame:
-            return None
-        co_code = self.frame.pycode.co_code
-        opcode = ord(co_code[self.frame.last_instr + 1])
-        if opcode == YIELD_FROM:
-            return self.frame.peekvalue()
-
     def throw(self, w_type, w_val, w_tb):
         space = self.space
 
-        w_yf = self._get_yield_from()
+        w_yf = self.w_yielded_from
         if w_yf is not None:
             # Paused in a "yield from", pass the throw to the inner generator.
             return self._throw_delegate(space, w_yf, w_type, w_val, w_tb)
@@ -252,7 +264,7 @@ return next yielded value or raise StopIteration."""
                                space.wrap('__traceback__'))
             if not space.is_w(tb, space.w_None):
                 operr.set_traceback(tb)
-        return self.send_ex(space.w_None, operr)
+        return self.send_ex(SApplicationException(operr))
 
     def descr_close(self):
         """close() -> raise GeneratorExit inside generator/coroutine."""
@@ -346,7 +358,8 @@ class GeneratorIterator(GeneratorOrCoroutine):
                     jitdriver.jit_merge_point(self=self, frame=frame,
                                               results=results, pycode=pycode)
                     try:
-                        w_result = frame.execute_frame(space.w_None)
+                        w_result = self._invoke_execute_frame(
+                                                frame, space.w_None)
                     except OperationError as e:
                         if not e.match(space, space.w_StopIteration):
                             raise

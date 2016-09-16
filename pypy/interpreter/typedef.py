@@ -795,18 +795,18 @@ GeneratorIterator.typedef = TypeDef("generator",
     gi_running = interp_attrproperty('running', cls=GeneratorIterator),
     gi_frame   = GetSetProperty(GeneratorIterator.descr_gicr_frame),
     gi_code    = interp_attrproperty_w('pycode', cls=GeneratorIterator),
-    gi_yieldfrom = XXX,
+    gi_yieldfrom=interp_attrproperty_w('w_yielded_from', cls=GeneratorIterator),
     __name__   = GetSetProperty(GeneratorIterator.descr__name__),
     __qualname__ = GetSetProperty(GeneratorIterator.descr__qualname__),
     __weakref__ = make_weakref_descr(GeneratorIterator),
 )
 assert not GeneratorIterator.typedef.acceptable_as_base_class  # no __new__
 
-CoroutineWrapper.typedef = TypeDef("coroutine_wrapper",
-    __anext__   = interp2app(CoroutineWrapper.descr_next,
-                            descrmismatch='__anext__'),
-)
-assert not CoroutineWrapper.typedef.acceptable_as_base_class  # no __new__
+#CoroutineWrapper.typedef = TypeDef("coroutine_wrapper",
+#    __anext__   = interp2app(CoroutineWrapper.descr_next,
+#                            descrmismatch='__anext__'),
+#)
+#assert not CoroutineWrapper.typedef.acceptable_as_base_class  # no __new__
 
 Coroutine.typedef = TypeDef("coroutine",
     __repr__   = interp2app(Coroutine.descr__repr__),
@@ -823,7 +823,7 @@ Coroutine.typedef = TypeDef("coroutine",
     cr_running = interp_attrproperty('running', cls=Coroutine),
     cr_frame   = GetSetProperty(Coroutine.descr_gicr_frame),
     cr_code    = interp_attrproperty_w('pycode', cls=Coroutine),
-    cr_await   = XXX,
+    cr_await   = interp_attrproperty_w('w_yielded_from', cls=Coroutine),
     __name__   = GetSetProperty(Coroutine.descr__name__),
     __qualname__ = GetSetProperty(Coroutine.descr__qualname__),
     __weakref__ = make_weakref_descr(Coroutine),

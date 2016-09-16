@@ -261,11 +261,11 @@ class PyFrame(W_Root):
         else:
             return self.execute_frame()
 
-    def execute_frame(self, w_inputvalue=None, operr=None):
+    def execute_frame(self, in_generator=None, w_arg_or_err=None):
         """Execute this frame.  Main entry point to the interpreter.
-        The optional arguments are there to handle a generator's frame:
-        w_inputvalue is for generator.send() and operr is for
-        generator.throw().
+        'in_generator' is non-None iff we are starting or resuming
+        a generator or coroutine frame; in that case, w_arg_or_err
+        is the input argument -or- an SApplicationException instance.
         """
         # the following 'assert' is an annotation hint: it hides from
         # the annotator all methods that are defined in PyFrame but
@@ -279,17 +279,16 @@ class PyFrame(W_Root):
         try:
             executioncontext.call_trace(self)
             #
-            if operr is not None:
-                ec = self.space.getexecutioncontext()
-                next_instr = self.handle_operation_error(ec, operr)
-                self.last_instr = intmask(next_instr - 1)
+            # Execution starts just after the last_instr.  Initially,
+            # last_instr is -1.  After a generator suspends it points to
+            # the YIELD_VALUE instruction.
+            if in_generator is None:
+                assert self.last_instr == -1
+                next_instr = 0
             else:
-                # Execution starts just after the last_instr.  Initially,
-                # last_instr is -1.  After a generator suspends it points to
-                # the YIELD_VALUE instruction.
-                next_instr = r_uint(self.last_instr + 1)
-                if next_instr != 0:
-                    self.pushvalue(w_inputvalue)
+                next_instr = in_generator.resume_execute_frame(
+                                                self, w_arg_or_err)
+            next_instr = r_uint(next_instr)
             #
             try:
                 w_exitvalue = self.dispatch(self.pycode, next_instr,
@@ -898,8 +897,14 @@ class PyFrame(W_Root):
             frame = frame.f_backref()
         return None
 
+    def get_generator(self):
+        if space.config.translation.rweakref:
+            return self.f_generator_wref()
+        else:
+            return self.f_generator_nowref
+
     def descr_clear(self, space):
-        # Clears a random subset of the attributes (e.g. some the fast
+        # Clears a random subset of the attributes (e.g. the fast
         # locals, but not f_locals).  Also clears last_exception, which
         # is not quite like CPython when it clears f_exc_* (however
         # there might not be an observable difference).
@@ -907,10 +912,7 @@ class PyFrame(W_Root):
             if not self._is_generator_or_coroutine():
                 raise oefmt(space.w_RuntimeError,
                             "cannot clear an executing frame")
-            if space.config.translation.rweakref:
-                gen = self.f_generator_wref()
-            else:
-                gen = self.f_generator_nowref
+            gen = self.get_generator()
             if gen is not None:
                 if gen.running:
                     raise oefmt(space.w_RuntimeError,

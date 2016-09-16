@@ -71,11 +71,11 @@ class __extend__(pyframe.PyFrame):
         try:
             while True:
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
-        except Yield:
-            return self.popvalue()
-        except ExitFrame:
+        except Return:
             self.last_exception = None
-            return self.popvalue()
+        except Yield:
+            pass
+        return self.popvalue()
 
     def handle_bytecode(self, co_code, next_instr, ec):
         try:
@@ -1530,15 +1530,11 @@ class __extend__(pyframe.PyFrame):
         
 ### ____________________________________________________________ ###
 
-class ExitFrame(Exception):
-    pass
-
-
-class Return(ExitFrame):
+class Return(Exception):
     """Raised when exiting a frame via a 'return' statement."""
 
 
-class Yield(ExitFrame):
+class Yield(Exception):
     """Raised when exiting a frame via a 'yield' statement."""
 
 
