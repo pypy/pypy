@@ -66,3 +66,23 @@ class AppTestCoroutine:
         sys.set_coroutine_wrapper(None)
         assert sys.get_coroutine_wrapper() is None
         """
+
+    def test_async_with(self): """
+        seen = []
+        class X:
+            async def __aenter__(self):
+                seen.append('aenter')
+            async def __aexit__(self, *args):
+                seen.append('aexit')
+        async def f(x):
+            async with x:
+                return 42
+        c = f(X())
+        try:
+            next(c.__await__())
+        except StopIteration as e:
+            assert e.value == 42
+        else:
+            assert False, "should have raised"
+        assert seen == ['aenter', 'aexit']
+        """
