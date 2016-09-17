@@ -34,8 +34,6 @@ def reduce(self):
     return space.newtuple(args)
 
 def setstate(self, w_args):
-    raise oefmt(space.w_NotImplementedError,
-                "continulet.__setstate__() needs to be fixed")
     space = self.space
     if self.sthread is not None:
         raise geterror(space, "continulet.__setstate__() on an already-"
