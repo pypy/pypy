@@ -104,3 +104,15 @@ class AppTestCoroutine:
         assert c.send(82) == 41
         raises(StopIteration, c.send, 93)
         """
+
+    def test_await_error(self): """
+        async def f():
+            await [42]
+        c = f()
+        try:
+            c.send(None)
+        except TypeError as e:
+            assert str(e) == "object list can't be used in 'await' expression"
+        else:
+            assert False, "should have raised"
+        """

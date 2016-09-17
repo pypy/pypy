@@ -499,9 +499,9 @@ def get_awaitable_iter(space, w_obj):
 
     w_await = space.lookup(w_obj, "__await__")
     if w_await is None:
-        raise oefmt(space.w_AttributeError,
-                    "object %T can't be used in 'await' expression"
-                    " (no __await__ method)", w_obj)
+        raise oefmt(space.w_TypeError,
+                    "object %T can't be used in 'await' expression",
+                    w_obj)
     w_res = space.get_and_call_function(w_await, w_obj)
     if isinstance(w_res, Coroutine) or gen_is_coroutine(w_res):
         raise oefmt(space.w_TypeError,
