@@ -664,8 +664,8 @@ _static_opcode_stack_effects = {
     ops.DELETE_DEREF: 0,
     
     ops.GET_AWAITABLE: 0,
-    ops.SETUP_ASYNC_WITH: 2,
-    ops.BEFORE_ASYNC_WITH: -1,
+    ops.SETUP_ASYNC_WITH: 0,
+    ops.BEFORE_ASYNC_WITH: 1,
     ops.GET_AITER: 0,
     ops.GET_ANEXT: 1,
     ops.GET_YIELD_FROM_ITER: 0,
