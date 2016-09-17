@@ -519,7 +519,7 @@ def get_awaitable_iter(space, w_obj):
 def get_printable_location_genentry(bytecode):
     return '%s <generator>' % (bytecode.get_repr(),)
 generatorentry_driver = jit.JitDriver(greens=['pycode'],
-                                      reds=['gen', 'w_arg', 'operr'],
+                                      reds=['gen', 'w_arg'],
                                       get_printable_location =
                                           get_printable_location_genentry,
                                       name='generatorentry')
