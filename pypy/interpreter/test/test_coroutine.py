@@ -32,6 +32,31 @@ class AppTestCoroutine:
             assert False, "should have raised"
         """
 
+    def test_StopAsyncIteration(self): """
+        class X:
+            def __aiter__(self):
+                return MyAIter()
+        class MyAIter:
+            count = 0
+            async def __anext__(self):
+                if self.count == 3:
+                    raise StopAsyncIteration
+                self.count += 1
+                return 42
+        async def f(x):
+            sum = 0
+            async for a in x:
+                sum += a
+            return sum
+        cr = f(X())
+        try:
+            cr.send(None)
+        except StopIteration as e:
+            assert e.value == 42 * 3
+        else:
+            assert False, "should have raised"
+        """
+
     def test_async_for_old_style(self): """
         class X:
             def __aiter__(self):

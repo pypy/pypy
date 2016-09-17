@@ -107,6 +107,9 @@ return next yielded value or raise StopIteration."""
         frame = self.frame
         if frame is None:
             if isinstance(self, Coroutine):
+                # NB. CPython checks a flag 'closing' here, but instead
+                # we can simply not be here at all if frame is None in
+                # this case
                 raise oefmt(space.w_RuntimeError,
                             "cannot reuse already awaited coroutine")
             # xxx a bit ad-hoc, but we don't want to go inside
