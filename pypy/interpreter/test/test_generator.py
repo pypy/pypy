@@ -395,6 +395,20 @@ res = f()
         raises((TypeError, AttributeError), "del g.__name__")
         raises((TypeError, AttributeError), "del g.__qualname__")
 
+    def test_gi_yieldfrom(self): """
+        def g(x):
+            yield x
+        def f(x):
+            yield from g(x)
+            yield 42
+        gen = f(5)
+        assert gen.gi_yieldfrom is None
+        assert next(gen) == 5
+        assert gen.gi_yieldfrom.__name__ == 'g'
+        assert next(gen) == 42
+        assert gen.gi_yieldfrom is None
+        """
+
 
 def test_should_not_inline(space):
     from pypy.interpreter.generator import should_not_inline
