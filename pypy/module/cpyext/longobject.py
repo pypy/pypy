@@ -6,7 +6,7 @@ from pypy.objspace.std.longobject import W_LongObject
 from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.intobject import PyInt_AsUnsignedLongMask
 from rpython.rlib.rbigint import rbigint
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import widen
 
 
 PyLong_Check, PyLong_CheckExact = build_type_checkers("Long")
@@ -34,7 +34,7 @@ def PyLong_FromSize_t(space, val):
 def PyLong_FromLongLong(space, val):
     """Return a new PyLongObject object from a C long long, or NULL
     on failure."""
-    return space.wrap(val)
+    return space.newlong(val)
 
 @cpython_api([rffi.ULONG], PyObject)
 def PyLong_FromUnsignedLong(space, val):
@@ -203,7 +203,7 @@ def PyLong_FromVoidPtr(space, p):
     can be retrieved from the resulting value using PyLong_AsVoidPtr().
 
     If the integer is larger than LONG_MAX, a positive long integer is returned."""
-    return space.wrap(rffi.cast(ADDR, p))
+    return space.newlong(rffi.cast(ADDR, p))
 
 @cpython_api([PyObject], rffi.VOIDP, error=lltype.nullptr(rffi.VOIDP.TO))
 def PyLong_AsVoidPtr(space, w_long):

@@ -1986,6 +1986,7 @@ ObjSpace.ExceptionTable = [
     'ZeroDivisionError',
     'RuntimeWarning',
     'PendingDeprecationWarning',
+    'UserWarning',
 ]
 
 if sys.platform.startswith("win"):

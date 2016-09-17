@@ -264,25 +264,22 @@ class PyFrame(W_Root):
         try:
             executioncontext.call_trace(self)
             #
-            if operr is not None:
-                ec = self.space.getexecutioncontext()
-                next_instr = self.handle_operation_error(ec, operr)
-                self.last_instr = intmask(next_instr - 1)
-            else:
-                # Execution starts just after the last_instr.  Initially,
-                # last_instr is -1.  After a generator suspends it points to
-                # the YIELD_VALUE instruction.
-                next_instr = r_uint(self.last_instr + 1)
-                if next_instr != 0:
-                    self.pushvalue(w_inputvalue)
-            #
             try:
+                if operr is not None:
+                    ec = self.space.getexecutioncontext()
+                    next_instr = self.handle_operation_error(ec, operr)
+                    self.last_instr = intmask(next_instr - 1)
+                else:
+                    # Execution starts just after the last_instr.  Initially,
+                    # last_instr is -1.  After a generator suspends it points to
+                    # the YIELD_VALUE instruction.
+                    next_instr = r_uint(self.last_instr + 1)
+                    if next_instr != 0:
+                        self.pushvalue(w_inputvalue)
                 w_exitvalue = self.dispatch(self.pycode, next_instr,
                                             executioncontext)
-            except Exception:
-                executioncontext.return_trace(self, self.space.w_None)
-                raise
-            executioncontext.return_trace(self, w_exitvalue)
+            finally:
+                executioncontext.return_trace(self, w_exitvalue)
             # it used to say self.last_exception = None
             # this is now done by the code in pypyjit module
             # since we don't want to invalidate the virtualizable
