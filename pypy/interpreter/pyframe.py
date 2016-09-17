@@ -253,17 +253,36 @@ class PyFrame(W_Root):
     run._always_inline_ = True
 
     def initialize_as_generator(self, name, qualname):
+        space = self.space
         if self.getcode().co_flags & pycode.CO_COROUTINE:
             from pypy.interpreter.generator import Coroutine
             gen = Coroutine(self, name, qualname)
+            ec = space.getexecutioncontext()
+            w_wrapper = ec.w_coroutine_wrapper_fn
         else:
             from pypy.interpreter.generator import GeneratorIterator
             gen = GeneratorIterator(self, name, qualname)
-        if self.space.config.translation.rweakref:
+            ec = None
+            w_wrapper = None
+
+        if space.config.translation.rweakref:
             self.f_generator_wref = rweakref.ref(gen)
         else:
             self.f_generator_nowref = gen
-        return self.space.wrap(gen)
+        w_gen = space.wrap(gen)
+
+        if w_wrapper is not None:
+            if ec.in_coroutine_wrapper:
+                raise oefmt(space.w_RuntimeError,
+                            "coroutine wrapper %R attempted "
+                            "to recursively wrap %R",
+                            w_wrapper, w_gen)
+            ec.in_coroutine_wrapper = True
+            try:
+                w_gen = space.call_function(w_wrapper, w_gen)
+            finally:
+                ec.in_coroutine_wrapper = False
+        return w_gen
 
     def execute_frame(self, in_generator=None, w_arg_or_err=None):
         """Execute this frame.  Main entry point to the interpreter.

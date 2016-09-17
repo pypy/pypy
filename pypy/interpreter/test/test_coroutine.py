@@ -49,3 +49,20 @@ class AppTestCoroutine:
         cr = f(X())
         assert next(cr.__await__()) == 20
         """
+
+    def test_set_coroutine_wrapper(self): """
+        import sys
+        async def f():
+            pass
+        seen = []
+        def my_wrapper(cr):
+            seen.append(cr)
+            return 42
+        assert sys.get_coroutine_wrapper() is None
+        sys.set_coroutine_wrapper(my_wrapper)
+        assert sys.get_coroutine_wrapper() is my_wrapper
+        cr = f()
+        assert cr == 42
+        sys.set_coroutine_wrapper(None)
+        assert sys.get_coroutine_wrapper() is None
+        """
