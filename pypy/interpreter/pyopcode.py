@@ -1161,12 +1161,12 @@ class __extend__(pyframe.PyFrame):
                 self.space.w_None,
                 self.space.w_None,
                 self.space.w_None)
-        self.pushvalue(w_res)
         self.pushvalue(w_unroller)
+        self.pushvalue(w_res)
 
     def WITH_CLEANUP_FINISH(self, oparg, next_instr):
-        w_unroller = self.popvalue()
         w_suppress = self.popvalue()
+        w_unroller = self.popvalue()
         if isinstance(w_unroller, SApplicationException):
             if self.space.is_true(w_suppress):
                 # __exit__() returned True -> Swallow the exception.
