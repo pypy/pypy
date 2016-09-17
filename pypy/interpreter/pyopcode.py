@@ -1505,7 +1505,8 @@ class __extend__(pyframe.PyFrame):
                 u"'%s' implements legacy __aiter__ protocol; "
                 u"__aiter__ should return an asynchronous "
                 u"iterator, not awaitable" %
-                    space.type(w_obj).name.decode('utf-8')))
+                    space.type(w_obj).name.decode('utf-8')),
+                space.w_PendingDeprecationWarning)
         self.pushvalue(w_awaitable)
 
     def GET_ANEXT(self, oparg, next_instr):
