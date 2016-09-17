@@ -265,7 +265,7 @@ class PyCode(eval.Code):
         args.parse_into_scope(None, fresh_frame.locals_cells_stack_w, func.name,
                               sig, func.defs_w, func.w_kw_defs)
         fresh_frame.init_cells()
-        return frame.run()
+        return frame.run(func.name, func.qualname)
 
     def funcrun_obj(self, func, w_obj, args):
         frame = self.space.createframe(self, func.w_func_globals,
@@ -277,7 +277,7 @@ class PyCode(eval.Code):
         args.parse_into_scope(w_obj, fresh_frame.locals_cells_stack_w, func.name,
                               sig, func.defs_w, func.w_kw_defs)
         fresh_frame.init_cells()
-        return frame.run()
+        return frame.run(func.name, func.qualname)
 
     def getvarnames(self):
         return self.co_varnames

@@ -244,22 +244,26 @@ class PyFrame(W_Root):
         return (self.getcode().co_flags & (pycode.CO_COROUTINE |
                                            pycode.CO_GENERATOR)) != 0
 
-    def run(self):
+    def run(self, name=None, qualname=None):
         """Start this frame's execution."""
         if self._is_generator_or_coroutine():
-            if self.getcode().co_flags & pycode.CO_COROUTINE:
-                from pypy.interpreter.generator import Coroutine
-                gen = Coroutine(self)
-            else:
-                from pypy.interpreter.generator import GeneratorIterator
-                gen = GeneratorIterator(self)
-            if self.space.config.translation.rweakref:
-                self.f_generator_wref = rweakref.ref(gen)
-            else:
-                self.f_generator_nowref = gen
-            return self.space.wrap(gen)
+            return self.initialize_as_generator(name, qualname)
         else:
             return self.execute_frame()
+    run._always_inline_ = True
+
+    def initialize_as_generator(self, name, qualname):
+        if self.getcode().co_flags & pycode.CO_COROUTINE:
+            from pypy.interpreter.generator import Coroutine
+            gen = Coroutine(self, name, qualname)
+        else:
+            from pypy.interpreter.generator import GeneratorIterator
+            gen = GeneratorIterator(self, name, qualname)
+        if self.space.config.translation.rweakref:
+            self.f_generator_wref = rweakref.ref(gen)
+        else:
+            self.f_generator_nowref = gen
+        return self.space.wrap(gen)
 
     def execute_frame(self, in_generator=None, w_arg_or_err=None):
         """Execute this frame.  Main entry point to the interpreter.

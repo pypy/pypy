@@ -379,6 +379,22 @@ res = f()
             assert False, 'Expected StopIteration'
             """
 
+    def test_set_name_qualname(self):
+        class A:
+            def f(self):
+                yield 5
+        g = A().f()
+        assert g.__name__ == "f"
+        assert g.__qualname__ == "test_set_name_qualname.<locals>.A.f"
+        g.__name__ = "h.i"
+        g.__qualname__ = "j.k"
+        assert g.__name__ == "h.i"
+        assert g.__qualname__ == "j.k"
+        raises(TypeError, "g.__name__ = 42")
+        raises(TypeError, "g.__qualname__ = 42")
+        raises((TypeError, AttributeError), "del g.__name__")
+        raises((TypeError, AttributeError), "del g.__qualname__")
+
 
 def test_should_not_inline(space):
     from pypy.interpreter.generator import should_not_inline

@@ -36,6 +36,7 @@ class Function(W_Root):
                           'closure?[*]',
                           'defs_w?[*]',
                           'name?',
+                          'qualname?',
                           'w_kw_defs?']
 
     w_kw_defs = None
@@ -117,7 +118,7 @@ class Function(W_Root):
                 for i in funccallunrolling:
                     if i < nargs:
                         new_frame.locals_cells_stack_w[i] = args_w[i]
-                return new_frame.run()
+                return new_frame.run(self.name, self.qualname)
         elif nargs >= 1 and fast_natural_arity == Code.PASSTHROUGHARGS1:
             assert isinstance(code, gateway.BuiltinCodePassThroughArguments1)
             return code.funcrun_obj(self, args_w[0],
@@ -184,7 +185,7 @@ class Function(W_Root):
             w_arg = frame.peekvalue(nargs-1-i)
             new_frame.locals_cells_stack_w[i] = w_arg
 
-        return new_frame.run()
+        return new_frame.run(self.name, self.qualname)
 
     @jit.unroll_safe
     def _flat_pycall_defaults(self, code, nargs, frame, defs_to_load):
@@ -201,7 +202,7 @@ class Function(W_Root):
         for j in xrange(start, ndefs):
             new_frame.locals_cells_stack_w[i] = self.defs_w[j]
             i += 1
-        return new_frame.run()
+        return new_frame.run(self.name, self.qualname)
 
     def getdict(self, space):
         if self.w_func_dict is None:

@@ -23,6 +23,7 @@ class GeneratorOrCoroutine(W_Root):
             self.register_finalizer(self.space)
 
     def get_name(self):
+        # 'name' is a byte string that is valid utf-8
         if self._name is not None:
             return self._name
         elif self.pycode is None:
@@ -31,9 +32,10 @@ class GeneratorOrCoroutine(W_Root):
             return self.pycode.co_name
 
     def get_qualname(self):
+        # 'qualname' is a unicode string
         if self._qualname is not None:
             return self._qualname
-        return self.get_name()
+        return self.get_name().decode('utf-8')
 
     def descr__repr__(self, space):
         addrstring = self.getaddrstring(space)
@@ -292,10 +294,26 @@ return next yielded value or raise StopIteration."""
             return space.w_None
 
     def descr__name__(self, space):
-        return space.wrap(self.get_name())
+        return space.wrap(self.get_name().decode('utf-8'))
+
+    def descr_set__name__(self, space, w_name):
+        if space.isinstance_w(w_name, space.w_unicode):
+            self._name = space.str_w(w_name)
+        else:
+            raise oefmt(space.w_TypeError,
+                        "__name__ must be set to a string object")
 
     def descr__qualname__(self, space):
         return space.wrap(self.get_qualname())
+
+    def descr_set__qualname__(self, space, w_name):
+        try:
+            self._qualname = space.unicode_w(w_name)
+        except OperationError as e:
+            if e.match(space, space.w_TypeError):
+                raise oefmt(space.w_TypeError,
+                            "__qualname__ must be set to a string object")
+            raise
 
     def _finalize_(self):
         # This is only called if the CO_YIELD_INSIDE_TRY flag is set
