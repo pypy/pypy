@@ -39,8 +39,10 @@ class GeneratorOrCoroutine(W_Root):
 
     def descr__repr__(self, space):
         addrstring = self.getaddrstring(space)
-        return space.wrap("<%s object %s at 0x%s>" %
-                          (self.KIND, self.get_qualname(), addrstring))
+        return space.wrap(u"<%s object %s at 0x%s>" %
+                          (unicode(self.KIND),
+                           self.get_qualname(),
+                           unicode(addrstring)))
 
     def descr__reduce__(self, space):
         from pypy.interpreter.mixedmodule import MixedModule
@@ -377,28 +379,6 @@ class GeneratorIterator(GeneratorOrCoroutine):
     unpack_into = _create_unpack_into()
     unpack_into_w = _create_unpack_into()
 
-    def _GetAwaitableIter(self, space):
-        #check if generator is a coroutine
-        if self.pycode.co_flags & consts.CO_ITERABLE_COROUTINE:
-            return self
-        w_await = space.lookup(self, "__await__")
-        if w_await is None:
-            raise oefmt(space.w_AttributeError,
-                        "object %T does not have __await__ method",
-                        self)
-        res = space.get_and_call_function(w_await, self)
-        if res is not None:
-            if (isinstance(res, Coroutine) or
-                (isinstance(res, GeneratorIterator) and \
-                 res.pycode.co_flags & consts.CO_ITERABLE_COROUTINE)):
-                raise oefmt(space.w_TypeError,
-                            "__await__() returned a coroutine")
-            elif space.lookup(self, "__next__") is None:
-                raise oefmt(space.w_TypeError,
-                        "__await__() returned non-iterator "
-                        "of type '%T'", res)
-        return res
-
 
 class Coroutine(GeneratorOrCoroutine):
     "A coroutine object."
@@ -420,9 +400,6 @@ class Coroutine(GeneratorOrCoroutine):
                         "coroutine '%s' was never awaited",
                         self.get_qualname())
         GeneratorOrCoroutine._finalize_(self)
-
-    def _GetAwaitableIter(self, space):
-        return self
 
 
 @specialize.memo()
@@ -465,6 +442,37 @@ def delegate_to_nongen(space, w_yf, w_inputvalue_or_err):
         return space.call_function(w_meth, w_exc, w_val, w_tb)
     else:
         return space.call_method(w_yf, "send", w_inputvalue_or_err)
+
+def gen_is_coroutine(w_obj):
+    return (isinstance(w_obj, GeneratorIterator) and
+            (w_obj.pycode.co_flags & consts.CO_ITERABLE_COROUTINE) != 0)
+
+def get_awaitable_iter(space, w_obj):
+    # This helper function returns an awaitable for `o`:
+    #    - `o` if `o` is a coroutine-object;
+    #    - otherwise, o.__await__()
+
+    if isinstance(w_obj, Coroutine) or gen_is_coroutine(w_obj):
+        return w_obj
+
+    w_await = space.lookup(w_obj, "__await__")
+    if w_await is None:
+        raise oefmt(space.w_AttributeError,
+                    "object %T can't be used in 'await' expression"
+                    " (no __await__ method)", w_obj)
+    w_res = space.get_and_call_function(w_await, w_obj)
+    if isinstance(w_res, Coroutine) or gen_is_coroutine(w_res):
+        raise oefmt(space.w_TypeError,
+                    "__await__() returned a coroutine (it must return an "
+                    "iterator instead, see PEP 492)")
+    elif space.lookup(w_res, "__next__") is None:
+        raise oefmt(space.w_TypeError,
+                "__await__() returned non-iterator "
+                "of type '%T'", w_res)
+    return w_res
+
+
+# ----------
 
 
 def get_printable_location_genentry(bytecode):

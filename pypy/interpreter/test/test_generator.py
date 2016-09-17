@@ -280,7 +280,7 @@ res = f()
             yield 1
         g = myFunc()
         r = repr(g)
-        assert r.startswith("<generator object myFunc at 0x")
+        assert r.startswith("<generator object test_repr.<locals>.myFunc at 0x")
         assert list(g) == [1]
         assert repr(g) == r
 

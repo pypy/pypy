@@ -1441,19 +1441,20 @@ class __extend__(pyframe.PyFrame):
         elif not isinstance(w_iterable, GeneratorIterator):
             w_iterator = self.space.iter(w_iterable)
             self.settopvalue(w_iterator)
-    
+
     def GET_AWAITABLE(self, oparg, next_instr):
-        from pypy.objspace.std.noneobject import W_NoneObject
-        if isinstance(self.peekvalue(), W_NoneObject):
-            #switch NoneObject with iterable on stack (kind of a dirty fix)
-            w_firstnone = self.popvalue()
-            w_i = self.popvalue()
-            self.pushvalue(w_firstnone)
-            self.pushvalue(w_i)
-        w_iterable = self.peekvalue()
-        w_iter = w_iterable._GetAwaitableIter(self.space)
-        self.settopvalue(w_iter)
-    
+        from pypy.interpreter.generator import get_awaitable_iter
+        from pypy.interpreter.generator import Coroutine
+        w_iterable = self.popvalue()
+        w_iter = get_awaitable_iter(self.space, w_iterable)
+        if isinstance(w_iter, Coroutine):
+            if w_iter.w_yielded_from is not None:
+                # 'w_iter' is a coroutine object that is being awaited,
+                # '.w_yielded_from' is the current awaitable being awaited on.
+                raise oefmt(self.space.w_RuntimeError,
+                            "coroutine is being awaited already")
+        self.pushvalue(w_iter)
+
     def SETUP_ASYNC_WITH(self, offsettoend, next_instr):
         res = self.popvalue()
         block = WithBlock(self.valuestackdepth,
@@ -1474,39 +1475,68 @@ class __extend__(pyframe.PyFrame):
         self.settopvalue(w_exit)
         w_result = space.get_and_call_function(w_enter, w_manager)
         self.pushvalue(w_result)
-    
+
     def GET_AITER(self, oparg, next_instr):
+        from pypy.interpreter.generator import AIterWrapper, get_awaitable_iter
+
         space = self.space
-        w_obj = self.peekvalue()
+        w_obj = self.popvalue()
         w_func = space.lookup(w_obj, "__aiter__")
         if w_func is None:
-            raise oefmt(space.w_AttributeError,
-                        "object %T does not have __aiter__ method",
+            raise oefmt(space.w_TypeError,
+                        "'async for' requires an object with "
+                        "__aiter__ method, got %T",
                         w_obj)
         w_iter = space.get_and_call_function(w_func, w_obj)
-        w_awaitable = w_iter._GetAwaitableIter(space)
-        if w_awaitable is None:
-            raise oefmt(space.w_TypeError,
-                        "'async for' received an invalid object "
-                        "from __aiter__: %T", w_iter)
-        self.settopvalue(w_awaitable)
-    
+
+        # If __aiter__() returns an object with a __anext__() method,
+        # wrap it in a awaitable that resolves to 'w_iter'.
+        if space.lookup(w_iter, "__anext__") is not None:
+            w_awaitable = AIterWrapper(w_iter)
+        else:
+            try:
+                w_awaitable = get_awaitable_iter(space, w_iter)
+            except OperationError as e:
+                # yay! get_awaitable_iter() carefully builds a useful
+                # error message, but here we're eating *all errors*
+                # to replace it with a generic one.
+                if e.async(space):
+                    raise
+                raise oefmt(space.w_TypeError,
+                            "'async for' received an invalid object "
+                            "from __aiter__: %T", w_iter)
+            space.warn(space.wrap(
+                u"'%s' implements legacy __aiter__ protocol; "
+                u"__aiter__ should return an asynchronous "
+                u"iterator, not awaitable" %
+                    space.type(w_obj).name.decode('utf-8')))
+        self.pushvalue(w_awaitable)
+
     def GET_ANEXT(self, oparg, next_instr):
+        from pypy.interpreter.generator import get_awaitable_iter
+
         space = self.space
         w_aiter = self.peekvalue()
         w_func = space.lookup(w_aiter, "__anext__")
         if w_func is None:
-            raise oefmt(space.w_AttributeError,
-                        "object %T does not have __anext__ method",
+            raise oefmt(space.w_TypeError,
+                        "'async for' requires an iterator with "
+                        "__anext__ method, got %T",
                         w_aiter)
         w_next_iter = space.get_and_call_function(w_func, w_aiter)
-        w_awaitable = w_next_iter._GetAwaitableIter(space)
-        if w_awaitable is None:
+        try:
+            w_awaitable = get_awaitable_iter(space, w_next_iter)
+        except OperationError as e:
+            # yay! get_awaitable_iter() carefully builds a useful
+            # error message, but here we're eating *all errors*
+            # to replace it with a generic one.
+            if e.async(space):
+                raise
             raise oefmt(space.w_TypeError,
                         "'async for' received an invalid object "
                         "from __anext__: %T", w_next_iter)
         self.pushvalue(w_awaitable)
-        
+
 ### ____________________________________________________________ ###
 
 class Return(Exception):
