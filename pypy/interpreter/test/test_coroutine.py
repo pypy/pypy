@@ -25,7 +25,7 @@ class AppTestCoroutine:
             return sum
         cr = f(X())
         try:
-            next(cr.__await__())
+            cr.send(None)
         except StopIteration as e:
             assert e.value == 42 * 3
         else:
@@ -79,10 +79,28 @@ class AppTestCoroutine:
                 return 42
         c = f(X())
         try:
-            next(c.__await__())
+            c.send(None)
         except StopIteration as e:
             assert e.value == 42
         else:
             assert False, "should have raised"
         assert seen == ['aenter', 'aexit']
+        """
+
+    def test_await(self): """
+        class X:
+            def __await__(self):
+                i1 = yield 40
+                assert i1 == 82
+                i2 = yield 41
+                assert i2 == 93
+        async def f():
+            await X()
+            await X()
+        c = f()
+        assert c.send(None) == 40
+        assert c.send(82) == 41
+        assert c.send(93) == 40
+        assert c.send(82) == 41
+        raises(StopIteration, c.send, 93)
         """
