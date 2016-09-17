@@ -1,6 +1,6 @@
 from pypy.tool import stdlib_opcode as pythonopcode
 from rpython.rlib import jit
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.pyframe import PyFrame
 from pypy.module._continuation.interp_continuation import State, global_state
 from pypy.module._continuation.interp_continuation import build_sthread

@@ -5,6 +5,7 @@ from pypy.interpreter.pycode import CO_YIELD_INSIDE_TRY
 from pypy.interpreter.astcompiler import consts
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize
+from rpython.rlib.rarithmetic import r_uint
 
 
 class GeneratorOrCoroutine(W_Root):
@@ -164,7 +165,7 @@ return next yielded value or raise StopIteration."""
             # We reach this point if the iterable is exhausted.
             last_instr = jit.promote(frame.last_instr)
             assert last_instr >= 0
-            return last_instr + 1
+            return r_uint(last_instr + 1)
 
         if isinstance(w_arg_or_err, SApplicationException):
             ec = space.getexecutioncontext()
@@ -178,7 +179,7 @@ return next yielded value or raise StopIteration."""
                             self.KIND)
         else:
             frame.pushvalue(w_arg_or_err)
-        return last_instr + 1
+        return r_uint(last_instr + 1)
 
     def next_yield_from(self, frame, w_inputvalue_or_err):
         """Fetch the next item of the current 'yield from', push it on
@@ -205,7 +206,7 @@ return next yielded value or raise StopIteration."""
             except OperationError as e:
                 if not e.match(space, space.w_AttributeError):
                     raise
-                w_value = space.w_None
+                w_stop_value = space.w_None
             frame.pushvalue(w_stop_value)
             return
         else:
@@ -227,7 +228,7 @@ return next yielded value or raise StopIteration."""
             e2.record_context(space, self.frame)
             raise e2
         else:
-            space.warn(space.wrap("generator '%s' raised StopIteration"
+            space.warn(space.wrap(u"generator '%s' raised StopIteration"
                                   % self.get_qualname()),
                        space.w_PendingDeprecationWarning)
 

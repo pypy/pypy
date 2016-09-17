@@ -309,11 +309,10 @@ class PyFrame(W_Root):
             try:
                 if in_generator is None:
                     assert self.last_instr == -1
-                    next_instr = 0
+                    next_instr = r_uint(0)
                 else:
                     next_instr = in_generator.resume_execute_frame(
                                                     self, w_arg_or_err)
-                next_instr = r_uint(next_instr)
                 #
                 self.dispatch(self.pycode, next_instr, executioncontext)
             except pyopcode.Return:
@@ -961,6 +960,7 @@ class PyFrame(W_Root):
 
 def get_block_class(opname):
     # select the appropriate kind of block
+    from pypy.interpreter.pyopcode import block_classes
     return block_classes[opname]
 
 def unpickle_block(space, w_tup):

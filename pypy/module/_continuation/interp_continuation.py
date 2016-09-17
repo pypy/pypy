@@ -1,6 +1,7 @@
 from rpython.rlib.rstacklet import StackletThread
 from rpython.rlib import jit
 from pypy.interpreter.error import OperationError, get_cleared_operation_error
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
@@ -115,7 +116,7 @@ class W_Continulet(W_Root):
         return self.space.newbool(valid)
 
     def descr__reduce__(self):
-        raise oefmt(space.w_NotImplementedError,
+        raise oefmt(self.space.w_NotImplementedError,
                     "continulet's pickle support is currently disabled")
         from pypy.module._continuation import interp_pickle
         return interp_pickle.reduce(self)
@@ -123,7 +124,7 @@ class W_Continulet(W_Root):
     def descr__setstate__(self, w_args):
         # XXX: review direct calls to frame.run(), notably when
         # unpickling generators (or coroutines!)
-        raise oefmt(space.w_NotImplementedError,
+        raise oefmt(self.space.w_NotImplementedError,
                     "continulet's pickle support is currently disabled")
         from pypy.module._continuation import interp_pickle
         interp_pickle.setstate(self, w_args)
