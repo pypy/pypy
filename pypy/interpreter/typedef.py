@@ -468,6 +468,7 @@ from pypy.interpreter.function import (Function, Method, StaticMethod,
     ClassMethod, BuiltinFunction, descr_function_get)
 from pypy.interpreter.pytraceback import PyTraceback
 from pypy.interpreter.generator import GeneratorIterator, Coroutine
+from pypy.interpreter.generator import CoroutineWrapper
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.special import NotImplemented, Ellipsis
 
@@ -833,6 +834,15 @@ Coroutine.typedef = TypeDef("coroutine",
     __weakref__ = make_weakref_descr(Coroutine),
 )
 assert not Coroutine.typedef.acceptable_as_base_class  # no __new__
+
+CoroutineWrapper.typedef = TypeDef("coroutine_wrapper",
+    __iter__     = interp2app(CoroutineWrapper.descr__iter__),
+    __next__     = interp2app(CoroutineWrapper.descr__next__),
+    send         = interp2app(CoroutineWrapper.descr_send),
+    throw        = interp2app(CoroutineWrapper.descr_throw),
+    close        = interp2app(CoroutineWrapper.descr_close),
+)
+assert not CoroutineWrapper.typedef.acceptable_as_base_class  # no __new__
 
 Cell.typedef = TypeDef("cell",
     __total_ordering__ = 'auto',

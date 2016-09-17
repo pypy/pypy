@@ -234,6 +234,9 @@ return next yielded value or raise StopIteration."""
     def descr_throw(self, w_type, w_val=None, w_tb=None):
         """throw(typ[,val[,tb]]) -> raise exception in generator/coroutine,
 return next yielded value or raise StopIteration."""
+        return self.throw(w_type, w_val, w_tb)
+
+    def throw(self, w_type, w_val, w_tb):
         from pypy.interpreter.pytraceback import check_traceback
 
         space = self.space
@@ -385,10 +388,7 @@ class Coroutine(GeneratorOrCoroutine):
     KIND = "coroutine"
 
     def descr__await__(self, space):
-        # implement this function:
-        # https://github.com/python/cpython/blob/3.5/Objects/genobject.c#L786
-        # you need a new CoroutineWrapper object + CoroutineWrapperType
-        return self
+        return space.wrap(CoroutineWrapper(self))
 
     def _finalize_(self):
         # If coroutine was never awaited on issue a RuntimeWarning.
@@ -400,6 +400,31 @@ class Coroutine(GeneratorOrCoroutine):
                         "coroutine '%s' was never awaited",
                         self.get_qualname())
         GeneratorOrCoroutine._finalize_(self)
+
+
+class CoroutineWrapper(W_Root):
+    _immutable_ = True
+
+    def __init__(self, coroutine):
+        self.coroutine = coroutine
+
+    def descr__iter__(self, space):
+        return space.wrap(self)
+
+    def descr__next__(self, space):
+        return self.coroutine.send_ex(space.w_None)
+
+    def descr_send(self, space, w_arg):
+        return self.coroutine.send_ex(w_arg)
+    descr_send.__doc__ = Coroutine.descr_send.__doc__
+
+    def descr_throw(self, w_type, w_val=None, w_tb=None):
+        return self.coroutine.throw(w_type, w_val, w_tb)
+    descr_throw.__doc__ = Coroutine.descr_throw.__doc__
+
+    def descr_close(self):
+        return self.coroutine.descr_close()
+    descr_close.__doc__ = Coroutine.descr_close.__doc__
 
 
 @specialize.memo()
