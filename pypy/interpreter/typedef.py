@@ -468,7 +468,7 @@ from pypy.interpreter.function import (Function, Method, StaticMethod,
     ClassMethod, BuiltinFunction, descr_function_get)
 from pypy.interpreter.pytraceback import PyTraceback
 from pypy.interpreter.generator import GeneratorIterator, Coroutine
-from pypy.interpreter.generator import CoroutineWrapper
+from pypy.interpreter.generator import CoroutineWrapper, AIterWrapper
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.special import NotImplemented, Ellipsis
 
@@ -805,12 +805,6 @@ GeneratorIterator.typedef = TypeDef("generator",
 )
 assert not GeneratorIterator.typedef.acceptable_as_base_class  # no __new__
 
-#CoroutineWrapper.typedef = TypeDef("coroutine_wrapper",
-#    __anext__   = interp2app(CoroutineWrapper.descr_next,
-#                            descrmismatch='__anext__'),
-#)
-#assert not CoroutineWrapper.typedef.acceptable_as_base_class  # no __new__
-
 Coroutine.typedef = TypeDef("coroutine",
     __repr__   = interp2app(Coroutine.descr__repr__),
     __reduce__   = interp2app(Coroutine.descr__reduce__),
@@ -843,6 +837,13 @@ CoroutineWrapper.typedef = TypeDef("coroutine_wrapper",
     close        = interp2app(CoroutineWrapper.descr_close),
 )
 assert not CoroutineWrapper.typedef.acceptable_as_base_class  # no __new__
+
+AIterWrapper.typedef = TypeDef("aiter_wrapper",
+    __await__    = interp2app(AIterWrapper.descr__await__),
+    __iter__     = interp2app(AIterWrapper.descr__iter__),
+    __next__     = interp2app(AIterWrapper.descr__next__),
+)
+assert not AIterWrapper.typedef.acceptable_as_base_class  # no __new__
 
 Cell.typedef = TypeDef("cell",
     __total_ordering__ = 'auto',

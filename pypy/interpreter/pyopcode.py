@@ -1478,7 +1478,6 @@ class __extend__(pyframe.PyFrame):
 
     def GET_AITER(self, oparg, next_instr):
         from pypy.interpreter.generator import AIterWrapper, get_awaitable_iter
-        xxxx
 
         space = self.space
         w_obj = self.popvalue()
@@ -1515,7 +1514,6 @@ class __extend__(pyframe.PyFrame):
 
     def GET_ANEXT(self, oparg, next_instr):
         from pypy.interpreter.generator import get_awaitable_iter
-        zzzz
 
         space = self.space
         w_aiter = self.peekvalue()

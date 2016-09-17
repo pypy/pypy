@@ -427,6 +427,23 @@ class CoroutineWrapper(W_Root):
     descr_close.__doc__ = Coroutine.descr_close.__doc__
 
 
+class AIterWrapper(W_Root):
+    # NB. this type was added in CPython 3.5.2
+    _immutable_ = True
+
+    def __init__(self, w_aiter):
+        self.w_aiter = w_aiter
+
+    def descr__await__(self, space):
+        return space.wrap(self)
+
+    def descr__iter__(self, space):
+        return space.wrap(self)
+
+    def descr__next__(self, space):
+        raise OperationError(space.w_StopIteration, self.w_aiter)
+
+
 @specialize.memo()
 def get_generator_exit(space):
     return OperationError(space.w_GeneratorExit,
