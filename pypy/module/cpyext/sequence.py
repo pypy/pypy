@@ -10,7 +10,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.objspace.std import tupleobject
 
 from pypy.module.cpyext.tupleobject import PyTuple_Check, PyTuple_SetItem
-from pypy.module.cpyext.object import Py_IncRef, Py_DecRef
+from pypy.module.cpyext.pyobject import decref
 
 from pypy.module.cpyext.dictobject import PyDict_Check
 
@@ -43,18 +43,22 @@ def PySequence_Length(space, w_obj):
 def PySequence_Fast(space, w_obj, m):
     """Returns the sequence o as a tuple, unless it is already a tuple or list, in
     which case o is returned.  Use PySequence_Fast_GET_ITEM() to access the
-    members of the result.  Returns NULL on failure.  If the object is not a
-    sequence, raises TypeError with m as the message text."""
+    members of the result.  Returns NULL on failure.  If the object cannot be
+    converted to a sequence, and raises a TypeError, raise a new TypeError with
+    m as the message text. If the conversion otherwise, fails, reraise the
+    original exception"""
     if isinstance(w_obj, W_ListObject):
         # make sure we can return a borrowed obj from PySequence_Fast_GET_ITEM    
         w_obj.convert_to_cpy_strategy(space)
         return w_obj
     try:
         return W_ListObject.newlist_cpyext(space, space.listview(w_obj))
-    except OperationError:
-        raise OperationError(space.w_TypeError, space.wrap(rffi.charp2str(m)))
+    except OperationError as e:
+        if e.match(space, space.w_TypeError):
+            raise OperationError(space.w_TypeError, space.wrap(rffi.charp2str(m)))
+        raise e
 
-@cpython_api([PyObject, Py_ssize_t], PyObject, result_borrowed=True)
+@cpython_api([rffi.VOIDP, Py_ssize_t], PyObject, result_borrowed=True)
 def PySequence_Fast_GET_ITEM(space, w_obj, index):
     """Return the ith element of o, assuming that o was returned by
     PySequence_Fast(), o is not NULL, and that i is within bounds.
@@ -67,7 +71,7 @@ def PySequence_Fast_GET_ITEM(space, w_obj, index):
                 "PySequence_Fast_GET_ITEM called but object is not a list or "
                 "sequence")
 
-@cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
+@cpython_api([rffi.VOIDP], Py_ssize_t, error=CANNOT_FAIL)
 def PySequence_Fast_GET_SIZE(space, w_obj):
     """Returns the length of o, assuming that o was returned by
     PySequence_Fast() and that o is not NULL.  The size can also be
@@ -82,7 +86,7 @@ def PySequence_Fast_GET_SIZE(space, w_obj):
                 "PySequence_Fast_GET_SIZE called but object is not a list or "
                 "sequence")
 
-@cpython_api([PyObject], PyObjectP)
+@cpython_api([rffi.VOIDP], PyObjectP)
 def PySequence_Fast_ITEMS(space, w_obj):
     """Return the underlying array of PyObject pointers.  Assumes that o was returned
     by PySequence_Fast() and o is not NULL.
@@ -119,7 +123,7 @@ def PySequence_DelSlice(space, w_obj, start, end):
     space.delslice(w_obj, space.wrap(start), space.wrap(end))
     return 0
 
-@cpython_api([PyObject, Py_ssize_t], PyObject)
+@cpython_api([rffi.VOIDP, Py_ssize_t], PyObject)
 def PySequence_ITEM(space, w_obj, i):
     """Return the ith element of o or NULL on failure. Macro form of
     PySequence_GetItem() but without checking that
@@ -252,7 +256,7 @@ class CPyListStrategy(ListStrategy):
     def setitem(self, w_list, index, w_obj):
         storage = self.unerase(w_list.lstorage)
         index = self._check_index(index, storage._length)
-        Py_DecRef(w_list.space, storage._elems[index])
+        decref(w_list.space, storage._elems[index])
         storage._elems[index] = make_ref(w_list.space, w_obj)
 
     def length(self, w_list):
@@ -264,9 +268,8 @@ class CPyListStrategy(ListStrategy):
         return storage._elems
 
     def getslice(self, w_list, start, stop, step, length):
-        #storage = self.unerase(w_list.lstorage)
-        raise oefmt(w_list.space.w_NotImplementedError,
-                    "settting a slice of a PySequence_Fast is not supported")
+        w_list.switch_to_object_strategy()
+        return w_list.strategy.getslice(w_list, start, stop, step, length)
 
     def getitems(self, w_list):
         # called when switching list strategy, so convert storage
@@ -389,5 +392,5 @@ class CPyListStorage(object):
 
     def __del__(self):
         for i in range(self._length):
-            Py_DecRef(self.space, self._elems[i])
+            decref(self.space, self._elems[i])
         lltype.free(self._elems, flavor='raw')

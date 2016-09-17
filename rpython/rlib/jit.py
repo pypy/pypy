@@ -257,6 +257,28 @@ def not_in_trace(func):
     func.oopspec = "jit.not_in_trace()"   # note that 'func' may take arguments
     return func
 
+def call_shortcut(func):
+    """A decorator to ensure that a function has a fast-path.
+    DOES NOT RELIABLY WORK ON METHODS, USE ONLY ON FUNCTIONS!
+
+    Only useful on functions that the JIT doesn't normally look inside.
+    It still replaces residual calls to that function with inline code
+    that checks for a fast path, and only does the call if not.  For
+    now, graphs made by the following kinds of functions are detected:
+
+           def func(x, y, z):         def func(x, y, z):
+               if y.field:                 r = y.field
+                   return y.field          if r is None:
+               ...                             ...
+                                           return r
+
+    Fast-path detection is always on, but this decorator makes the
+    codewriter complain if it cannot find the promized fast-path.
+    """
+    func._call_shortcut_ = True
+    return func
+
+
 @oopspec("jit.isconstant(value)")
 def isconstant(value):
     """
@@ -604,7 +626,27 @@ class JitDriver(object):
                  get_printable_location=None, confirm_enter_jit=None,
                  can_never_inline=None, should_unroll_one_iteration=None,
                  name='jitdriver', check_untranslated=True, vectorize=False,
-                 get_unique_id=None, is_recursive=False):
+                 get_unique_id=None, is_recursive=False, get_location=None):
+        """ NOT_RPYTHON
+            get_location:
+              The return value is designed to provide enough information to express the
+              state of an interpreter when invoking jit_merge_point.
+              For a bytecode interperter such as PyPy this includes, filename, line number,
+              function name, and more information. However, it should also be able to express
+              the same state for an interpreter that evaluates an AST.
+              return paremter:
+                0 -> filename. An absolute path specifying the file the interpreter invoked.
+                               If the input source is no file it should start with the
+                               prefix: "string://<name>"
+                1 -> line number. The line number in filename. This should at least point to
+                                  the enclosing name. It can however point to the specific
+                                  source line of the instruction executed by the interpreter.
+                2 -> enclosing name. E.g. the function name.
+                3 -> index. 64 bit number indicating the execution progress. It can either be
+                     an offset to byte code, or an index to the node in an AST
+                4 -> operation name. a name further describing the current program counter.
+                     this can be either a byte code name or the name of an AST node
+        """
         if greens is not None:
             self.greens = greens
         self.name = name
@@ -638,6 +680,7 @@ class JitDriver(object):
         assert get_jitcell_at is None, "get_jitcell_at no longer used"
         assert set_jitcell_at is None, "set_jitcell_at no longer used"
         self.get_printable_location = get_printable_location
+        self.get_location = get_location
         if get_unique_id is None:
             get_unique_id = lambda *args: 0
         self.get_unique_id = get_unique_id
@@ -878,6 +921,7 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
         driver = self.instance.im_self
         h = self.annotate_hook
         h(driver.get_printable_location, driver.greens, **kwds_s)
+        h(driver.get_location, driver.greens, **kwds_s)
 
     def annotate_hook(self, func, variables, args_s=[], **kwds_s):
         if func is None:

@@ -587,7 +587,8 @@ class InstanceRepr(Repr):
                 assert len(s_func.descriptions) == 1
                 funcdesc, = s_func.descriptions
                 graph = funcdesc.getuniquegraph()
-                self.check_graph_of_del_does_not_call_too_much(graph)
+                self.check_graph_of_del_does_not_call_too_much(self.rtyper,
+                                                               graph)
                 FUNCTYPE = FuncType([Ptr(source_repr.object_type)], Void)
                 destrptr = functionptr(FUNCTYPE, graph.name,
                                        graph=graph,
@@ -859,7 +860,8 @@ class InstanceRepr(Repr):
     def can_ll_be_null(self, s_value):
         return s_value.can_be_none()
 
-    def check_graph_of_del_does_not_call_too_much(self, graph):
+    @staticmethod
+    def check_graph_of_del_does_not_call_too_much(rtyper, graph):
         # RPython-level __del__() methods should not do "too much".
         # In the PyPy Python interpreter, they usually do simple things
         # like file.__del__() closing the file descriptor; or if they
@@ -872,7 +874,7 @@ class InstanceRepr(Repr):
         #
         # XXX wrong complexity, but good enough because the set of
         # reachable graphs should be small
-        callgraph = self.rtyper.annotator.translator.callgraph.values()
+        callgraph = rtyper.annotator.translator.callgraph.values()
         seen = {graph: None}
         while True:
             oldlength = len(seen)

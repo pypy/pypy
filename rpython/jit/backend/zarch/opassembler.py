@@ -160,11 +160,15 @@ class IntOpAssembler(object):
         omc.BRC(c.ANY, l.imm(label_end - jmp_neither_lqlr_overflow))
         omc.overwrite()
 
-    emit_int_floordiv = gen_emit_div_mod('DSGR', 'DSG')
-    emit_uint_floordiv = gen_emit_div_mod('DLGR', 'DLG')
-    # NOTE division sets one register with the modulo value, thus
-    # the regalloc ensures the right register survives.
-    emit_int_mod = gen_emit_div_mod('DSGR', 'DSG')
+    def emit_uint_mul_high(self, op, arglocs, regalloc):
+        r0, _, a1 = arglocs
+        # _ carries the value, contents of r0 are ignored
+        assert not r0.is_imm()
+        assert not a1.is_imm()
+        if a1.is_core_reg():
+            self.mc.MLGR(r0, a1)
+        else:
+            self.mc.MLG(r0, a1)
 
     def emit_int_invert(self, op, arglocs, regalloc):
         l0, = arglocs
@@ -383,8 +387,7 @@ class CallOpAssembler(object):
                 if reg in self._COND_CALL_SAVE_REGS]
         self._push_core_regs_to_jitframe(self.mc, should_be_saved)
 
-        # load gc map into unusual location: r0
-        self.load_gcmap(self.mc, r.SCRATCH2, regalloc.get_gcmap())
+        self.push_gcmap(self.mc, regalloc.get_gcmap())
         #
         # load the 0-to-4 arguments into these registers, with the address of
         # the function to call into r11
@@ -418,9 +421,8 @@ class CallOpAssembler(object):
 class AllocOpAssembler(object):
     _mixin_ = True
 
-    def emit_call_malloc_gc(self, op, arglocs, regalloc):
-        self._emit_call(op, arglocs)
-        self.propagate_memoryerror_if_r2_is_null()
+    def emit_check_memory_error(self, op, arglocs, regalloc):
+        self.propagate_memoryerror_if_reg_is_null(arglocs[0])
 
     def emit_call_malloc_nursery(self, op, arglocs, regalloc):
         # registers r.RES and r.RSZ are allocated for this call
@@ -989,6 +991,7 @@ class MemoryOpAssembler(object):
             basesize, itemsize, _ = symbolic.get_array_token(rstr.STR,
                                         self.cpu.translate_support_code)
             assert itemsize == 1
+            basesize -= 1     # for the extra null character
             scale = 0
 
         # src and src_len are tmp registers

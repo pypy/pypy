@@ -38,19 +38,20 @@ def descr_classobj_new(space, w_subtype, w_name, w_bases, w_dict):
 
 
 class W_ClassObject(W_Root):
+    _immutable_fields_ = ['bases_w?[*]', 'w_dict?']
+
     def __init__(self, space, w_name, bases, w_dict):
         self.name = space.str_w(w_name)
         make_sure_not_resized(bases)
         self.bases_w = bases
         self.w_dict = w_dict
 
+    def has_user_del(self, space):
+        return self.lookup(space, '__del__') is not None
+
     def instantiate(self, space):
         cache = space.fromcache(Cache)
-        if self.lookup(space, '__del__') is not None:
-            w_inst = cache.cls_with_del(space, self)
-        else:
-            w_inst = cache.cls_without_del(space, self)
-        return w_inst
+        return cache.InstanceObjectCls(space, self)
 
     def getdict(self, space):
         return self.w_dict
@@ -76,6 +77,7 @@ class W_ClassObject(W_Root):
                             "__bases__ items must be classes")
         self.bases_w = bases_w
 
+    @jit.unroll_safe
     def is_subclass_of(self, other):
         assert isinstance(other, W_ClassObject)
         if self is other:
@@ -132,9 +134,9 @@ class W_ClassObject(W_Root):
                 self.setbases(space, w_value)
                 return
             elif name == "__del__":
-                if self.lookup(space, name) is None:
+                if not self.has_user_del(space):
                     msg = ("a __del__ method added to an existing class will "
-                           "not be called")
+                           "only be called on instances made from now on")
                     space.warn(space.wrap(msg), space.w_RuntimeWarning)
         space.setitem(self.w_dict, w_attr, w_value)
 
@@ -184,14 +186,11 @@ class Cache:
         if hasattr(space, 'is_fake_objspace'):
             # hack: with the fake objspace, we don't want to see typedef's
             # _getusercls() at all
-            self.cls_without_del = W_InstanceObject
-            self.cls_with_del = W_InstanceObject
+            self.InstanceObjectCls = W_InstanceObject
             return
 
-        self.cls_without_del = _getusercls(
-                space, W_InstanceObject, False, reallywantdict=True)
-        self.cls_with_del = _getusercls(
-                space, W_InstanceObject, True, reallywantdict=True)
+        self.InstanceObjectCls = _getusercls(
+                W_InstanceObject, reallywantdict=True)
 
 
 def class_descr_call(space, w_self, __args__):
@@ -297,12 +296,15 @@ def descr_instance_new(space, w_type, w_class, w_dict=None):
 class W_InstanceObject(W_Root):
     def __init__(self, space, w_class):
         # note that user_setup is overridden by the typedef.py machinery
+        self.space = space
         self.user_setup(space, space.gettypeobject(self.typedef))
         assert isinstance(w_class, W_ClassObject)
         self.w_class = w_class
+        if w_class.has_user_del(space):
+            space.finalizer_queue.register_finalizer(self)
 
     def user_setup(self, space, w_subtype):
-        self.space = space
+        pass
 
     def set_oldstyle_class(self, space, w_class):
         if w_class is None or not isinstance(w_class, W_ClassObject):
@@ -314,7 +316,7 @@ class W_InstanceObject(W_Root):
         # This method ignores the instance dict and the __getattr__.
         # Returns None if not found.
         assert isinstance(name, str)
-        w_value = self.w_class.lookup(space, name)
+        w_value = jit.promote(self.w_class).lookup(space, name)
         if w_value is None:
             return None
         w_descr_get = space.lookup(w_value, '__get__')
@@ -368,8 +370,7 @@ class W_InstanceObject(W_Root):
                 self.set_oldstyle_class(space, w_value)
                 return
             if name == '__del__' and w_meth is None:
-                cache = space.fromcache(Cache)
-                if (not isinstance(self, cache.cls_with_del)
+                if (not self.w_class.has_user_del(space)
                     and self.getdictvalue(space, '__del__') is None):
                     msg = ("a __del__ method added to an instance with no "
                            "__del__ in the class will not be called")
@@ -646,13 +647,14 @@ class W_InstanceObject(W_Root):
             raise oefmt(space.w_TypeError, "instance has no next() method")
         return space.call_function(w_func)
 
-    def descr_del(self, space):
-        # Note that this is called from executioncontext.UserDelAction
-        # via the space.userdel() method.
+    def _finalize_(self):
+        space = self.space
         w_func = self.getdictvalue(space, '__del__')
         if w_func is None:
             w_func = self.getattr_from_class(space, '__del__')
         if w_func is not None:
+            if self.space.user_del_action.gc_disabled(self):
+                return
             space.call_function(w_func)
 
     def descr_exit(self, space, w_type, w_value, w_tb):
@@ -729,7 +731,6 @@ W_InstanceObject.typedef = TypeDef("instance",
     __pow__ = interp2app(W_InstanceObject.descr_pow),
     __rpow__ = interp2app(W_InstanceObject.descr_rpow),
     next = interp2app(W_InstanceObject.descr_next),
-    __del__ = interp2app(W_InstanceObject.descr_del),
     __exit__ = interp2app(W_InstanceObject.descr_exit),
     __dict__ = dict_descr,
     **rawdict

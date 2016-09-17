@@ -400,7 +400,7 @@ def check_string(space, w_obj):
     if not (space.isinstance_w(w_obj, space.w_str) or
             space.isinstance_w(w_obj, space.w_unicode)):
         raise oefmt(space.w_TypeError,
-                   "AST string must be of type str or unicode")
+                    "AST string must be of type str or unicode")
     return w_obj
 
 def get_field(space, w_node, name, optional):

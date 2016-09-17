@@ -3,7 +3,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.interpreter.argument import Arguments
-from rpython.rlib import jit
+from rpython.rlib import jit, rgc
 from rpython.rlib.rarithmetic import LONG_BIT, maxint, _get_bitsize
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.rawstorage import (
@@ -66,10 +66,10 @@ def array_priority(space, w_lhs, w_rhs):
     lhs_for_subtype = w_lhs
     rhs_for_subtype = w_rhs
     #it may be something like a FlatIter, which is not an ndarray
-    if not space.is_true(space.issubtype(lhs_type, w_ndarray)):
+    if not space.issubtype_w(lhs_type, w_ndarray):
         lhs_type = space.type(w_lhs.base)
         lhs_for_subtype = w_lhs.base
-    if not space.is_true(space.issubtype(rhs_type, w_ndarray)):
+    if not space.issubtype_w(rhs_type, w_ndarray):
         rhs_type = space.type(w_rhs.base)
         rhs_for_subtype = w_rhs.base
 
@@ -363,12 +363,18 @@ class W_Ufunc(W_Root):
                 out = space.call_method(obj, '__array_wrap__', out, space.w_None)
             return out
 
-    def descr_outer(self, space, __args__):
-        return self._outer(space, __args__)
-
-    def _outer(self, space, __args__):
-        raise oefmt(space.w_ValueError,
+    def descr_outer(self, space, args_w):
+        if self.nin != 2:
+            raise oefmt(space.w_ValueError,
                     "outer product only supported for binary functions")
+        if len(args_w) != 2:
+            raise oefmt(space.w_ValueError,
+                    "exactly two arguments expected")
+        args = [convert_to_array(space, w_obj) for w_obj in args_w]
+        w_outshape = [space.wrap(i) for i in args[0].get_shape() + [1]*args[1].ndims()]
+        args0 = args[0].reshape(space, space.newtuple(w_outshape))
+        return self.descr_call(space, Arguments.frompacked(space, 
+                                                        space.newlist([args0, args[1]])))
 
     def parse_kwargs(self, space, kwds_w):
         w_casting = kwds_w.pop('casting', None)
@@ -386,31 +392,39 @@ def get_extobj(space):
         extobj_w = space.newlist([space.wrap(8192), space.wrap(0), space.w_None])
         return extobj_w
 
+
+_reflected_ops = {
+        'add': 'radd',
+        'subtract': 'rsub',
+        'multiply': 'rmul',
+        'divide': 'rdiv',
+        'true_divide': 'rtruediv',
+        'floor_divide': 'rfloordiv',
+        'remainder': 'rmod',
+        'power': 'rpow',
+        'left_shift': 'rlshift',
+        'right_shift': 'rrshift',
+        'bitwise_and': 'rand',
+        'bitwise_xor': 'rxor',
+        'bitwise_or': 'ror',
+        #/* Comparisons */
+        'equal': 'eq',
+        'not_equal': 'ne',
+        'greater': 'lt',
+        'less': 'gt',
+        'greater_equal': 'le',
+        'less_equal': 'ge',
+}
+
+for key, value in _reflected_ops.items():
+    _reflected_ops[key] = "__" + value + "__"
+del key
+del value
+
 def _has_reflected_op(space, w_obj, op):
-    refops ={ 'add': 'radd',
-            'subtract': 'rsub',
-            'multiply': 'rmul',
-            'divide': 'rdiv',
-            'true_divide': 'rtruediv',
-            'floor_divide': 'rfloordiv',
-            'remainder': 'rmod',
-            'power': 'rpow',
-            'left_shift': 'rlshift',
-            'right_shift': 'rrshift',
-            'bitwise_and': 'rand',
-            'bitwise_xor': 'rxor',
-            'bitwise_or': 'ror',
-            #/* Comparisons */
-            'equal': 'eq',
-            'not_equal': 'ne',
-            'greater': 'lt',
-            'less': 'gt',
-            'greater_equal': 'le',
-            'less_equal': 'ge',
-        }
-    if op not in refops:
+    if op not in _reflected_ops:
         return False
-    return space.getattr(w_obj, space.wrap('__' + refops[op] + '__')) is not None
+    return space.getattr(w_obj, space.wrap(_reflected_ops[op])) is not None
 
 def safe_casting_mode(casting):
     assert casting is not None
@@ -1521,7 +1535,8 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
 # Instantiated in cpyext/ndarrayobject. It is here since ufunc calls
 # set_dims_and_steps, otherwise ufunc, ndarrayobject would have circular
 # imports
-npy_intpp = rffi.LONGP
+Py_ssize_t = lltype.Typedef(rffi.SSIZE_T, 'Py_ssize_t')
+npy_intpp = rffi.CArrayPtr(Py_ssize_t)
 LONG_SIZE = LONG_BIT / 8
 CCHARP_SIZE = _get_bitsize('P') / 8
 
@@ -1534,6 +1549,7 @@ class W_GenericUFuncCaller(W_Root):
         self.steps = alloc_raw_storage(0, track_allocation=False)
         self.dims_steps_set = False
 
+    @rgc.must_be_light_finalizer
     def __del__(self):
         free_raw_storage(self.dims, track_allocation=False)
         free_raw_storage(self.steps, track_allocation=False)

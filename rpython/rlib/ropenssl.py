@@ -97,6 +97,22 @@ else:
 OPENSSL_VERSION_NUMBER = cconfig["OPENSSL_VERSION_NUMBER"]
 HAVE_TLSv1_2 = OPENSSL_VERSION_NUMBER >= 0x10001000
 
+if (OPENSSL_VERSION_NUMBER >= 0x10100000 and
+     OPENSSL_VERSION_NUMBER < 0x20000000):    # <= libressl :-(
+    eci.pre_include_bits = ()
+    eci.post_include_bits = ()
+    raise Exception("""OpenSSL version >= 1.1 not supported yet.
+
+    This program requires OpenSSL version 1.0.x, and may also
+    work with LibreSSL or OpenSSL 0.9.x.  OpenSSL 1.1 is quite
+    some work to update to; contributions are welcome.  Sorry,
+    you need to install an older version of OpenSSL for now.
+    Make sure this older version is the one picked up by this
+    program when it runs the compiler.
+    
+    This is the configuration used: %r""" % (eci,))
+
+
 class CConfig:
     _compilation_info_ = eci
 
@@ -126,6 +142,10 @@ class CConfig:
         "SSL_OP_NO_COMPRESSION")
     SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS = rffi_platform.ConstantInteger(
         "SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS")
+    SSL_OP_CIPHER_SERVER_PREFERENCE = rffi_platform.ConstantInteger(
+        "SSL_OP_CIPHER_SERVER_PREFERENCE")
+    SSL_OP_SINGLE_DH_USE = rffi_platform.ConstantInteger(
+        "SSL_OP_SINGLE_DH_USE")
     HAS_SNI = rffi_platform.Defined("SSL_CTRL_SET_TLSEXT_HOSTNAME")
     HAS_NPN = rffi_platform.Defined("OPENSSL_NPN_NEGOTIATED")
     SSL_VERIFY_NONE = rffi_platform.ConstantInteger("SSL_VERIFY_NONE")
@@ -307,6 +327,8 @@ ssl_external('CRYPTO_set_id_callback',
 
 if HAVE_OPENSSL_RAND:
     ssl_external('RAND_add', [rffi.CCHARP, rffi.INT, rffi.DOUBLE], lltype.Void)
+    ssl_external('RAND_bytes', [rffi.UCHARP, rffi.INT], rffi.INT)
+    ssl_external('RAND_pseudo_bytes', [rffi.UCHARP, rffi.INT], rffi.INT)
     ssl_external('RAND_status', [], rffi.INT)
     if HAVE_OPENSSL_RAND_EGD:
         ssl_external('RAND_egd', [rffi.CCHARP], rffi.INT)
@@ -465,6 +487,7 @@ ssl_external('AUTHORITY_INFO_ACCESS_free', [AUTHORITY_INFO_ACCESS], lltype.Void)
 ssl_external('GENERAL_NAME_print', [BIO, GENERAL_NAME], rffi.INT)
 ssl_external('pypy_GENERAL_NAME_dirn', [GENERAL_NAME], X509_NAME,
              macro=True)
+
 ssl_external('pypy_GENERAL_NAME_uri', [GENERAL_NAME], ASN1_IA5STRING,
              macro=True)
 
@@ -585,11 +608,6 @@ OBJ_NAME_do_all = external(
 # XXX: Make a better estimate here
 HASH_MALLOC_SIZE = EVP_MD_SIZE + EVP_MD_CTX_SIZE \
         + rffi.sizeof(EVP_MD) * 2 + 208
-
-OBJ_NAME_CALLBACK = lltype.Ptr(lltype.FuncType(
-        [OBJ_NAME, rffi.VOIDP], lltype.Void))
-OBJ_NAME_do_all = external(
-    'OBJ_NAME_do_all', [rffi.INT, OBJ_NAME_CALLBACK, rffi.VOIDP], lltype.Void)
 
 def init_ssl():
     libssl_SSL_load_error_strings()

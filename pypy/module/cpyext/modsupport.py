@@ -113,7 +113,7 @@ def PyModule_Check(space, w_obj):
     w_type = space.gettypeobject(Module.typedef)
     w_obj_type = space.type(w_obj)
     return int(space.is_w(w_type, w_obj_type) or
-               space.is_true(space.issubtype(w_obj_type, w_type)))
+               space.issubtype_w(w_obj_type, w_type))
 
 @cpython_api([PyObject], PyObject, result_borrowed=True)
 def PyModule_GetDict(space, w_mod):

@@ -21,6 +21,7 @@ from rpython.config.translationoption import get_combined_translation_config
 from rpython.jit.metainterp.resoperation import (rop, ResOperation,
         InputArgRef, AbstractValue, OpHelpers)
 from rpython.jit.metainterp.optimizeopt.util import args_dict
+from rpython.rlib.rjitlog import rjitlog as jl
 
 
 def test_sort_descrs():
@@ -101,6 +102,8 @@ class LLtypeMixin(object):
     node_vtable_adr2 = llmemory.cast_ptr_to_adr(node_vtable2)
     node_vtable3 = lltype.malloc(OBJECT_VTABLE, immortal=True)
     node_vtable3.name = rclass.alloc_array_name('node3')
+    node_vtable3.subclassrange_min = 3
+    node_vtable3.subclassrange_max = 3
     node_vtable_adr3 = llmemory.cast_ptr_to_adr(node_vtable3)
     cpu = runner.LLGraphCPU(None)
 
@@ -421,7 +424,42 @@ class LLtypeMixin(object):
     jvr_vtable_adr = llmemory.cast_ptr_to_adr(jit_virtual_ref_vtable)
     vref_descr = cpu.sizeof(vrefinfo.JIT_VIRTUAL_REF, jit_virtual_ref_vtable)
 
+    FUNC = lltype.FuncType([lltype.Signed, lltype.Signed], lltype.Signed)
+    ei = EffectInfo([], [], [], [], [], [], EffectInfo.EF_ELIDABLE_CANNOT_RAISE,
+                    can_invalidate=False,
+                    oopspecindex=EffectInfo.OS_INT_PY_DIV)
+    int_py_div_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, ei)
+    ei = EffectInfo([], [], [], [], [], [], EffectInfo.EF_ELIDABLE_CANNOT_RAISE,
+                    can_invalidate=False,
+                    oopspecindex=EffectInfo.OS_INT_UDIV)
+    int_udiv_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, ei)
+    ei = EffectInfo([], [], [], [], [], [], EffectInfo.EF_ELIDABLE_CANNOT_RAISE,
+                    can_invalidate=False,
+                    oopspecindex=EffectInfo.OS_INT_PY_MOD)
+    int_py_mod_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, ei)
+
     namespace = locals()
+
+
+class FakeCallInfoCollection:
+    def callinfo_for_oopspec(self, oopspecindex):
+        calldescrtype = type(LLtypeMixin.strequaldescr)
+        effectinfotype = type(LLtypeMixin.strequaldescr.get_extra_info())
+        for value in LLtypeMixin.__dict__.values():
+            if isinstance(value, calldescrtype):
+                extra = value.get_extra_info()
+                if (extra and isinstance(extra, effectinfotype) and
+                    extra.oopspecindex == oopspecindex):
+                    # returns 0 for 'func' in this test
+                    return value, 0
+        raise AssertionError("not found: oopspecindex=%d" %
+                             oopspecindex)
+
+    calldescr_udiv = LLtypeMixin.int_udiv_descr
+    #calldescr_umod = LLtypeMixin.int_umod_descr
+
+LLtypeMixin.callinfocollection = FakeCallInfoCollection()
+
 
 # ____________________________________________________________
 
@@ -449,6 +487,7 @@ class FakeMetaInterpStaticData(object):
         self.options = Fake()
         self.globaldata = Fake()
         self.config = get_combined_translation_config(translating=True)
+        self.jitlog = jl.JitLogger()
 
     class logger_noopt:
         @classmethod

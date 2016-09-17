@@ -171,7 +171,7 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
                  int little_endian, is_signed;
                  if (!PyArg_ParseTuple(args, "ii", &little_endian, &is_signed))
                      return NULL;
-                 return _PyLong_FromByteArray("\x9A\xBC", 2,
+                 return _PyLong_FromByteArray((unsigned char*)"\x9A\xBC", 2,
                                               little_endian, is_signed);
              """),
             ])
@@ -187,7 +187,7 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
                  int little_endian, is_signed;
                  if (!PyArg_ParseTuple(args, "ii", &little_endian, &is_signed))
                      return NULL;
-                 return _PyLong_FromByteArray("\x9A\xBC\x41", 3,
+                 return _PyLong_FromByteArray((unsigned char*)"\x9A\xBC\x41", 3,
                                               little_endian, is_signed);
              """),
             ])
@@ -227,4 +227,51 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
              """)])
         assert module.from_str() == 0
 
-
+    def test_slots(self):
+        module = self.import_extension('foo', [
+            ("has_sub", "METH_NOARGS",
+             """
+                PyObject *ret, *obj = PyLong_FromLong(42);
+                if (obj->ob_type->tp_as_number->nb_subtract)
+                    ret = obj->ob_type->tp_as_number->nb_subtract(obj, obj);
+                else
+                    ret = PyLong_FromLong(-1);
+                Py_DECREF(obj);
+                return ret;
+             """),
+             ("has_pow", "METH_NOARGS",
+             """
+                PyObject *ret, *obj = PyLong_FromLong(42);
+                PyObject *one = PyLong_FromLong(1);
+                if (obj->ob_type->tp_as_number->nb_power)
+                    ret = obj->ob_type->tp_as_number->nb_power(obj, one, one);
+                else
+                    ret = PyLong_FromLong(-1);
+                Py_DECREF(obj);
+                return ret;
+             """),
+            ("has_hex", "METH_NOARGS",
+             """
+                PyObject *ret, *obj = PyLong_FromLong(42);
+                if (obj->ob_type->tp_as_number->nb_hex)
+                    ret = obj->ob_type->tp_as_number->nb_hex(obj);
+                else
+                    ret = PyLong_FromLong(-1);
+                Py_DECREF(obj);
+                return ret;
+             """),
+            ("has_oct", "METH_NOARGS",
+             """
+                PyObject *ret, *obj = PyLong_FromLong(42);
+                if (obj->ob_type->tp_as_number->nb_oct)
+                    ret = obj->ob_type->tp_as_number->nb_oct(obj);
+                else
+                    ret = PyLong_FromLong(-1);
+                Py_DECREF(obj);
+                return ret;
+             """)])
+        assert module.has_sub() == 0
+        assert module.has_pow() == 0
+        assert module.has_hex() == '0x2aL'
+        assert module.has_oct() == '052L'
+                

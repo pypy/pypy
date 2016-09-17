@@ -84,7 +84,7 @@ class W_CTypePrimitive(W_CType):
         if self.size == 1:
             with cdataobj as ptr:
                 s = ptr[0]
-            return self.space.wrap(s)
+            return self.space.newbytes(s)
         return W_CType.string(self, cdataobj, maxlen)
 
     def unpack_ptr(self, w_ctypeptr, ptr, length):
@@ -92,6 +92,18 @@ class W_CTypePrimitive(W_CType):
         if result is not None:
             return self.space.newlist_int(result)
         return W_CType.unpack_ptr(self, w_ctypeptr, ptr, length)
+
+    def nonzero(self, cdata):
+        if self.size <= rffi.sizeof(lltype.Signed):
+            value = misc.read_raw_long_data(cdata, self.size)
+            return value != 0
+        else:
+            return self._nonzero_longlong(cdata)
+
+    def _nonzero_longlong(self, cdata):
+        # in its own function: LONGLONG may make the whole function jit-opaque
+        value = misc.read_raw_signed_data(cdata, self.size)
+        return bool(value)
 
 
 class W_CTypePrimitiveCharOrUniChar(W_CTypePrimitive):
@@ -108,18 +120,17 @@ class W_CTypePrimitiveCharOrUniChar(W_CTypePrimitive):
 
 class W_CTypePrimitiveChar(W_CTypePrimitiveCharOrUniChar):
     _attrs_ = []
-    cast_anything = True
 
     def cast_to_int(self, cdata):
         return self.space.wrap(ord(cdata[0]))
 
     def convert_to_object(self, cdata):
-        return self.space.wrap(cdata[0])
+        return self.space.newbytes(cdata[0])
 
     def _convert_to_char(self, w_ob):
         space = self.space
         if space.isinstance_w(w_ob, space.w_str):
-            s = space.str_w(w_ob)
+            s = space.bytes_w(w_ob)
             if len(s) == 1:
                 return s[0]
         if (isinstance(w_ob, cdataobj.W_CData) and
@@ -134,7 +145,7 @@ class W_CTypePrimitiveChar(W_CTypePrimitiveCharOrUniChar):
 
     def unpack_ptr(self, w_ctypeptr, ptr, length):
         s = rffi.charpsize2str(ptr, length)
-        return self.space.wrapbytes(s)
+        return self.space.newbytes(s)
 
 
 # XXX explicitly use an integer type instead of lltype.UniChar here,
@@ -435,6 +446,9 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
             return self.space.newlist_float(result)
         return W_CType.unpack_ptr(self, w_ctypeptr, ptr, length)
 
+    def nonzero(self, cdata):
+        return misc.is_nonnull_float(cdata, self.size)
+
 
 class W_CTypePrimitiveLongDouble(W_CTypePrimitiveFloat):
     _attrs_ = []
@@ -501,3 +515,7 @@ class W_CTypePrimitiveLongDouble(W_CTypePrimitiveFloat):
                                              rffi.LONGDOUBLE, rffi.LONGDOUBLEP)
             return True
         return W_CTypePrimitive.pack_list_of_items(self, cdata, w_ob)
+
+    @jit.dont_look_inside
+    def nonzero(self, cdata):
+        return misc.is_nonnull_longdouble(cdata)

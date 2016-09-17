@@ -3,9 +3,10 @@ from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import W_Root, SpaceCache
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.function import Function, StaticMethod
-from pypy.interpreter.typedef import weakref_descr, GetSetProperty,\
-     descr_get_dict, dict_descr, Member, TypeDef
+from pypy.interpreter.typedef import (
+    weakref_descr, GetSetProperty, dict_descr, Member, TypeDef)
 from pypy.interpreter.astcompiler.misc import mangle
+from pypy.module.__builtin__ import abstractinst
 
 from rpython.rlib.jit import (promote, elidable_promote, we_are_jitted,
      elidable, dont_look_inside, unroll_safe)
@@ -132,7 +133,7 @@ class W_TypeObject(W_Root):
                           "flag_sequence_bug_compat",
                           "flag_map_or_seq",    # '?' or 'M' or 'S'
                           "compares_by_identity_status?",
-                          'needsdel',
+                          'hasuserdel',
                           'weakrefable',
                           'hasdict',
                           'layout',
@@ -153,223 +154,223 @@ class W_TypeObject(W_Root):
     w_new_function = None
 
     @dont_look_inside
-    def __init__(w_self, space, name, bases_w, dict_w,
+    def __init__(self, space, name, bases_w, dict_w,
                  overridetypedef=None, force_new_layout=False):
-        w_self.space = space
-        w_self.name = name
-        w_self.bases_w = bases_w
-        w_self.dict_w = dict_w
-        w_self.hasdict = False
-        w_self.needsdel = False
-        w_self.weakrefable = False
-        w_self.w_doc = space.w_None
-        w_self.weak_subclasses = []
-        w_self.flag_heaptype = False
-        w_self.flag_cpytype = False
-        w_self.flag_abstract = False
-        w_self.flag_sequence_bug_compat = False
-        w_self.flag_map_or_seq = '?'   # '?' means "don't know, check otherwise"
+        self.space = space
+        self.name = name
+        self.bases_w = bases_w
+        self.dict_w = dict_w
+        self.hasdict = False
+        self.hasuserdel = False
+        self.weakrefable = False
+        self.w_doc = space.w_None
+        self.weak_subclasses = []
+        self.flag_heaptype = False
+        self.flag_cpytype = False
+        self.flag_abstract = False
+        self.flag_sequence_bug_compat = False
+        self.flag_map_or_seq = '?'   # '?' means "don't know, check otherwise"
 
         if overridetypedef is not None:
             assert not force_new_layout
-            layout = setup_builtin_type(w_self, overridetypedef)
+            layout = setup_builtin_type(self, overridetypedef)
         else:
-            layout = setup_user_defined_type(w_self, force_new_layout)
-        w_self.layout = layout
+            layout = setup_user_defined_type(self, force_new_layout)
+        self.layout = layout
 
-        if not is_mro_purely_of_types(w_self.mro_w):
+        if not is_mro_purely_of_types(self.mro_w):
             pass
         else:
             # the _version_tag should change, whenever the content of
             # dict_w of any of the types in the mro changes, or if the mro
             # itself changes
-            w_self._version_tag = VersionTag()
+            self._version_tag = VersionTag()
         from pypy.objspace.std.mapdict import DictTerminator, NoDictTerminator
         # if the typedef has a dict, then the rpython-class does all the dict
         # management, which means from the point of view of mapdict there is no
         # dict. However, W_InstanceObjects are an exception to this
         from pypy.module.__builtin__.interp_classobj import W_InstanceObject
-        typedef = w_self.layout.typedef
-        if (w_self.hasdict and not typedef.hasdict or
+        typedef = self.layout.typedef
+        if (self.hasdict and not typedef.hasdict or
                 typedef is W_InstanceObject.typedef):
-            w_self.terminator = DictTerminator(space, w_self)
+            self.terminator = DictTerminator(space, self)
         else:
-            w_self.terminator = NoDictTerminator(space, w_self)
+            self.terminator = NoDictTerminator(space, self)
 
     def __repr__(self):
         "NOT_RPYTHON"
         return '<W_TypeObject %r at 0x%x>' % (self.name, id(self))
 
-    def mutated(w_self, key):
+    def mutated(self, key):
         """
         The type is being mutated. key is either the string containing the
         specific attribute which is being deleted/set or None to indicate a
         generic mutation.
         """
-        space = w_self.space
-        assert w_self.is_heaptype() or w_self.is_cpytype()
+        space = self.space
+        assert self.is_heaptype() or self.is_cpytype()
 
-        w_self.uses_object_getattribute = False
+        self.uses_object_getattribute = False
         # ^^^ conservative default, fixed during real usage
 
         if (key is None or key == '__eq__' or
             key == '__cmp__' or key == '__hash__'):
-            w_self.compares_by_identity_status = UNKNOWN
+            self.compares_by_identity_status = UNKNOWN
 
         if space.config.objspace.std.newshortcut:
-            w_self.w_new_function = None
+            self.w_new_function = None
 
-        if w_self._version_tag is not None:
-            w_self._version_tag = VersionTag()
+        if self._version_tag is not None:
+            self._version_tag = VersionTag()
 
-        subclasses_w = w_self.get_subclasses()
+        subclasses_w = self.get_subclasses()
         for w_subclass in subclasses_w:
             assert isinstance(w_subclass, W_TypeObject)
             w_subclass.mutated(key)
 
-    def version_tag(w_self):
-        if not we_are_jitted() or w_self.is_heaptype():
-            return w_self._version_tag
+    def version_tag(self):
+        if not we_are_jitted() or self.is_heaptype():
+            return self._version_tag
         # prebuilt objects cannot get their version_tag changed
-        return w_self._pure_version_tag()
+        return self._pure_version_tag()
 
     @elidable_promote()
-    def _pure_version_tag(w_self):
-        return w_self._version_tag
+    def _pure_version_tag(self):
+        return self._version_tag
 
-    def getattribute_if_not_from_object(w_self):
+    def getattribute_if_not_from_object(self):
         """ this method returns the applevel __getattribute__ if that is not
         the one from object, in which case it returns None """
         from pypy.objspace.descroperation import object_getattribute
         if not we_are_jitted():
-            if not w_self.uses_object_getattribute:
+            if not self.uses_object_getattribute:
                 # slow path: look for a custom __getattribute__ on the class
-                w_descr = w_self.lookup('__getattribute__')
+                w_descr = self.lookup('__getattribute__')
                 # if it was not actually overriden in the class, we remember this
                 # fact for the next time.
-                if w_descr is object_getattribute(w_self.space):
-                    w_self.uses_object_getattribute = True
+                if w_descr is object_getattribute(self.space):
+                    self.uses_object_getattribute = True
                 else:
                     return w_descr
             return None
         # in the JIT case, just use a lookup, because it is folded away
         # correctly using the version_tag
-        w_descr = w_self.lookup('__getattribute__')
-        if w_descr is not object_getattribute(w_self.space):
+        w_descr = self.lookup('__getattribute__')
+        if w_descr is not object_getattribute(self.space):
             return w_descr
 
-    def has_object_getattribute(w_self):
-        return w_self.getattribute_if_not_from_object() is None
+    def has_object_getattribute(self):
+        return self.getattribute_if_not_from_object() is None
 
-    def compares_by_identity(w_self):
+    def compares_by_identity(self):
         from pypy.objspace.descroperation import object_hash, type_eq
         #
-        if w_self.compares_by_identity_status != UNKNOWN:
+        if self.compares_by_identity_status != UNKNOWN:
             # fast path
-            return w_self.compares_by_identity_status == COMPARES_BY_IDENTITY
+            return self.compares_by_identity_status == COMPARES_BY_IDENTITY
         #
-        default_hash = object_hash(w_self.space)
-        my_eq = w_self.lookup('__eq__')
-        overrides_eq = (my_eq and my_eq is not type_eq(w_self.space))
+        default_hash = object_hash(self.space)
+        my_eq = self.lookup('__eq__')
+        overrides_eq = (my_eq and my_eq is not type_eq(self.space))
         overrides_eq_cmp_or_hash = (overrides_eq or
-                                    w_self.lookup('__cmp__') or
-                                    w_self.lookup('__hash__') is not default_hash)
+                                    self.lookup('__cmp__') or
+                                    self.lookup('__hash__') is not default_hash)
         if overrides_eq_cmp_or_hash:
-            w_self.compares_by_identity_status = OVERRIDES_EQ_CMP_OR_HASH
+            self.compares_by_identity_status = OVERRIDES_EQ_CMP_OR_HASH
         else:
-            w_self.compares_by_identity_status = COMPARES_BY_IDENTITY
-        return w_self.compares_by_identity_status == COMPARES_BY_IDENTITY
+            self.compares_by_identity_status = COMPARES_BY_IDENTITY
+        return self.compares_by_identity_status == COMPARES_BY_IDENTITY
 
-    def ready(w_self):
-        for w_base in w_self.bases_w:
+    def ready(self):
+        for w_base in self.bases_w:
             if not isinstance(w_base, W_TypeObject):
                 continue
-            w_base.add_subclass(w_self)
+            w_base.add_subclass(self)
 
     # compute a tuple that fully describes the instance layout
-    def get_full_instance_layout(w_self):
-        layout = w_self.layout
-        return (layout, w_self.hasdict, w_self.needsdel, w_self.weakrefable)
+    def get_full_instance_layout(self):
+        layout = self.layout
+        return (layout, self.hasdict, self.weakrefable)
 
-    def compute_default_mro(w_self):
-        return compute_C3_mro(w_self.space, w_self)
+    def compute_default_mro(self):
+        return compute_C3_mro(self.space, self)
 
-    def getdictvalue(w_self, space, attr):
-        version_tag = w_self.version_tag()
+    def getdictvalue(self, space, attr):
+        version_tag = self.version_tag()
         if version_tag is not None:
             return unwrap_cell(
                 space,
-                w_self._pure_getdictvalue_no_unwrapping(
+                self._pure_getdictvalue_no_unwrapping(
                     space, version_tag, attr))
-        w_value = w_self._getdictvalue_no_unwrapping(space, attr)
+        w_value = self._getdictvalue_no_unwrapping(space, attr)
         return unwrap_cell(space, w_value)
 
-    def _getdictvalue_no_unwrapping(w_self, space, attr):
-        w_value = w_self.dict_w.get(attr, None)
-        if w_self.lazyloaders and w_value is None:
-            if attr in w_self.lazyloaders:
+    def _getdictvalue_no_unwrapping(self, space, attr):
+        w_value = self.dict_w.get(attr, None)
+        if self.lazyloaders and w_value is None:
+            if attr in self.lazyloaders:
                 # very clever next line: it forces the attr string
                 # to be interned.
                 space.new_interned_str(attr)
-                loader = w_self.lazyloaders[attr]
-                del w_self.lazyloaders[attr]
+                loader = self.lazyloaders[attr]
+                del self.lazyloaders[attr]
                 w_value = loader()
                 if w_value is not None:   # None means no such attribute
-                    w_self.dict_w[attr] = w_value
+                    self.dict_w[attr] = w_value
                     return w_value
         return w_value
 
     @elidable
-    def _pure_getdictvalue_no_unwrapping(w_self, space, version_tag, attr):
-        return w_self._getdictvalue_no_unwrapping(space, attr)
+    def _pure_getdictvalue_no_unwrapping(self, space, version_tag, attr):
+        return self._getdictvalue_no_unwrapping(space, attr)
 
-    def setdictvalue(w_self, space, name, w_value):
-        if not w_self.is_heaptype():
+    def setdictvalue(self, space, name, w_value):
+        if not self.is_heaptype():
             raise oefmt(space.w_TypeError,
-                        "can't set attributes on type object '%N'", w_self)
-        if name == "__del__" and name not in w_self.dict_w:
+                        "can't set attributes on type object '%N'", self)
+        if name == "__del__" and name not in self.dict_w:
             msg = ("a __del__ method added to an existing type will not be "
                    "called")
             space.warn(space.wrap(msg), space.w_RuntimeWarning)
-        version_tag = w_self.version_tag()
+        version_tag = self.version_tag()
         if version_tag is not None:
-            w_curr = w_self._pure_getdictvalue_no_unwrapping(
+            w_curr = self._pure_getdictvalue_no_unwrapping(
                     space, version_tag, name)
             w_value = write_cell(space, w_curr, w_value)
             if w_value is None:
                 return True
-        w_self.mutated(name)
-        w_self.dict_w[name] = w_value
+        self.mutated(name)
+        self.dict_w[name] = w_value
         return True
 
-    def deldictvalue(w_self, space, key):
-        if w_self.lazyloaders:
-            w_self._cleanup_()    # force un-lazification
-        if not w_self.is_heaptype():
+    def deldictvalue(self, space, key):
+        if self.lazyloaders:
+            self._cleanup_()    # force un-lazification
+        if not (self.is_heaptype() or self.is_cpytype()):
             raise oefmt(space.w_TypeError,
-                        "can't delete attributes on type object '%N'", w_self)
+                        "can't delete attributes on type object '%N'", self)
         try:
-            del w_self.dict_w[key]
+            del self.dict_w[key]
         except KeyError:
             return False
         else:
-            w_self.mutated(key)
+            self.mutated(key)
             return True
 
-    def lookup(w_self, name):
+    def lookup(self, name):
         # note that this doesn't call __get__ on the result at all
-        space = w_self.space
-        return w_self.lookup_where_with_method_cache(name)[1]
+        space = self.space
+        return self.lookup_where_with_method_cache(name)[1]
 
-    def lookup_where(w_self, name):
-        space = w_self.space
-        return w_self.lookup_where_with_method_cache(name)
+    def lookup_where(self, name):
+        space = self.space
+        return self.lookup_where_with_method_cache(name)
 
     @unroll_safe
-    def lookup_starting_at(w_self, w_starttype, name):
-        space = w_self.space
+    def lookup_starting_at(self, w_starttype, name):
+        space = self.space
         look = False
-        for w_class in w_self.mro_w:
+        for w_class in self.mro_w:
             if w_class is w_starttype:
                 look = True
             elif look:
@@ -379,54 +380,54 @@ class W_TypeObject(W_Root):
         return None
 
     @unroll_safe
-    def _lookup(w_self, key):
+    def _lookup(self, key):
         # nowadays, only called from ../../tool/ann_override.py
-        space = w_self.space
-        for w_class in w_self.mro_w:
+        space = self.space
+        for w_class in self.mro_w:
             w_value = w_class.getdictvalue(space, key)
             if w_value is not None:
                 return w_value
         return None
 
     @unroll_safe
-    def _lookup_where(w_self, key):
+    def _lookup_where(self, key):
         # like _lookup() but also returns the parent class in which the
         # attribute was found
-        space = w_self.space
-        for w_class in w_self.mro_w:
+        space = self.space
+        for w_class in self.mro_w:
             w_value = w_class.getdictvalue(space, key)
             if w_value is not None:
                 return w_class, w_value
         return None, None
 
-    def _lookup_where_all_typeobjects(w_self, key):
-        # like _lookup_where(), but when we know that w_self.mro_w only
+    def _lookup_where_all_typeobjects(self, key):
+        # like _lookup_where(), but when we know that self.mro_w only
         # contains W_TypeObjects.  (It differs from _lookup_where() mostly
         # from a JIT point of view: it cannot invoke arbitrary Python code.)
-        space = w_self.space
-        for w_class in w_self.mro_w:
+        space = self.space
+        for w_class in self.mro_w:
             assert isinstance(w_class, W_TypeObject)
             w_value = w_class._getdictvalue_no_unwrapping(space, key)
             if w_value is not None:
                 return w_class, w_value
         return None, None
 
-    def lookup_where_with_method_cache(w_self, name):
-        space = w_self.space
-        promote(w_self)
-        version_tag = promote(w_self.version_tag())
+    def lookup_where_with_method_cache(self, name):
+        space = self.space
+        promote(self)
+        version_tag = promote(self.version_tag())
         if version_tag is None:
-            tup = w_self._lookup_where(name)
+            tup = self._lookup_where(name)
             return tup
-        tup_w = w_self._pure_lookup_where_with_method_cache(name, version_tag)
+        tup_w = self._pure_lookup_where_with_method_cache(name, version_tag)
         w_class, w_value = tup_w
         if isinstance(w_value, MutableCell):
             return w_class, w_value.unwrap_cell(space)
         return tup_w   # don't make a new tuple, reuse the old one
 
     @elidable
-    def _pure_lookup_where_with_method_cache(w_self, name, version_tag):
-        space = w_self.space
+    def _pure_lookup_where_with_method_cache(self, name, version_tag):
+        space = self.space
         cache = space.fromcache(MethodCache)
         SHIFT2 = r_uint.BITS - space.config.objspace.std.methodcachesizeexp
         SHIFT1 = SHIFT2 - 5
@@ -451,70 +452,70 @@ class W_TypeObject(W_Root):
                 tup = cache.lookup_where[method_hash]
                 if space.config.objspace.std.withmethodcachecounter:
                     cache.hits[name] = cache.hits.get(name, 0) + 1
-#                print "hit", w_self, name
+#                print "hit", self, name
                 return tup
-        tup = w_self._lookup_where_all_typeobjects(name)
+        tup = self._lookup_where_all_typeobjects(name)
         cache.versions[method_hash] = version_tag
         cache.names[method_hash] = name
         cache.lookup_where[method_hash] = tup
         if space.config.objspace.std.withmethodcachecounter:
             cache.misses[name] = cache.misses.get(name, 0) + 1
-#        print "miss", w_self, name
+#        print "miss", self, name
         return tup
 
-    def check_user_subclass(w_self, w_subtype):
-        space = w_self.space
+    def check_user_subclass(self, w_subtype):
+        space = self.space
         if not isinstance(w_subtype, W_TypeObject):
             raise oefmt(space.w_TypeError,
                         "X is not a type object ('%T')", w_subtype)
-        if not w_subtype.issubtype(w_self):
+        if not w_subtype.issubtype(self):
             raise oefmt(space.w_TypeError,
                         "%N.__new__(%N): %N is not a subtype of %N",
-                        w_self, w_subtype, w_subtype, w_self)
-        if w_self.layout.typedef is not w_subtype.layout.typedef:
+                        self, w_subtype, w_subtype, self)
+        if self.layout.typedef is not w_subtype.layout.typedef:
             raise oefmt(space.w_TypeError,
                         "%N.__new__(%N) is not safe, use %N.__new__()",
-                        w_self, w_subtype, w_subtype)
+                        self, w_subtype, w_subtype)
         return w_subtype
 
-    def _cleanup_(w_self):
+    def _cleanup_(self):
         "NOT_RPYTHON.  Forces the lazy attributes to be computed."
-        if 'lazyloaders' in w_self.__dict__:
-            for attr in w_self.lazyloaders.keys():
-                w_self.getdictvalue(w_self.space, attr)
-            del w_self.lazyloaders
+        if 'lazyloaders' in self.__dict__:
+            for attr in self.lazyloaders.keys():
+                self.getdictvalue(self.space, attr)
+            del self.lazyloaders
 
-    def getdict(w_self, space): # returning a dict-proxy!
-        from pypy.objspace.std.dictproxyobject import DictProxyStrategy
+    def getdict(self, space):
+        from pypy.objspace.std.classdict import ClassDictStrategy
         from pypy.objspace.std.dictmultiobject import W_DictObject
-        if w_self.lazyloaders:
-            w_self._cleanup_()    # force un-lazification
-        strategy = space.fromcache(DictProxyStrategy)
-        storage = strategy.erase(w_self)
+        if self.lazyloaders:
+            self._cleanup_()    # force un-lazification
+        strategy = space.fromcache(ClassDictStrategy)
+        storage = strategy.erase(self)
         return W_DictObject(space, strategy, storage)
 
-    def is_heaptype(w_self):
-        return w_self.flag_heaptype
+    def is_heaptype(self):
+        return self.flag_heaptype
 
-    def is_cpytype(w_self):
-        return w_self.flag_cpytype
+    def is_cpytype(self):
+        return self.flag_cpytype
 
-    def is_abstract(w_self):
-        return w_self.flag_abstract
+    def is_abstract(self):
+        return self.flag_abstract
 
-    def set_abstract(w_self, abstract):
-        w_self.flag_abstract = bool(abstract)
+    def set_abstract(self, abstract):
+        self.flag_abstract = bool(abstract)
 
-    def issubtype(w_self, w_type):
-        promote(w_self)
+    def issubtype(self, w_type):
+        promote(self)
         promote(w_type)
         if we_are_jitted():
-            version_tag1 = w_self.version_tag()
+            version_tag1 = self.version_tag()
             version_tag2 = w_type.version_tag()
             if version_tag1 is not None and version_tag2 is not None:
-                res = _pure_issubtype(w_self, w_type, version_tag1, version_tag2)
+                res = _pure_issubtype(self, w_type, version_tag1, version_tag2)
                 return res
-        return _issubtype(w_self, w_type)
+        return _issubtype(self, w_type)
 
     def get_module(self):
         space = self.space
@@ -538,8 +539,8 @@ class W_TypeObject(W_Root):
             else:
                 return self.name
 
-    def add_subclass(w_self, w_subclass):
-        space = w_self.space
+    def add_subclass(self, w_subclass):
+        space = self.space
         if not space.config.translation.rweakref:
             # We don't have weakrefs!  In this case, every class stores
             # subclasses in a non-weak list.  ALL CLASSES LEAK!  To make
@@ -552,26 +553,26 @@ class W_TypeObject(W_Root):
 
         assert isinstance(w_subclass, W_TypeObject)
         newref = weakref.ref(w_subclass)
-        for i in range(len(w_self.weak_subclasses)):
-            ref = w_self.weak_subclasses[i]
+        for i in range(len(self.weak_subclasses)):
+            ref = self.weak_subclasses[i]
             if ref() is None:
-                w_self.weak_subclasses[i] = newref
+                self.weak_subclasses[i] = newref
                 return
         else:
-            w_self.weak_subclasses.append(newref)
+            self.weak_subclasses.append(newref)
 
-    def remove_subclass(w_self, w_subclass):
-        space = w_self.space
-        for i in range(len(w_self.weak_subclasses)):
-            ref = w_self.weak_subclasses[i]
+    def remove_subclass(self, w_subclass):
+        space = self.space
+        for i in range(len(self.weak_subclasses)):
+            ref = self.weak_subclasses[i]
             if ref() is w_subclass:
-                del w_self.weak_subclasses[i]
+                del self.weak_subclasses[i]
                 return
 
-    def get_subclasses(w_self):
-        space = w_self.space
+    def get_subclasses(self):
+        space = self.space
         subclasses_w = []
-        for ref in w_self.weak_subclasses:
+        for ref in self.weak_subclasses:
             w_ob = ref()
             if w_ob is not None:
                 subclasses_w.append(w_ob)
@@ -697,9 +698,9 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict):
         w_typ = space.type(base)
         if space.is_w(w_typ, space.w_classobj):
             continue # special-case old-style classes
-        if space.is_true(space.issubtype(w_winner, w_typ)):
+        if space.issubtype_w(w_winner, w_typ):
             continue
-        if space.is_true(space.issubtype(w_typ, w_winner)):
+        if space.issubtype_w(w_typ, w_winner):
             w_winner = w_typ
             continue
         raise oefmt(space.w_TypeError,
@@ -899,13 +900,23 @@ def descr___subclasses__(space, w_type):
 
 # ____________________________________________________________
 
-@gateway.unwrap_spec(w_obj=W_TypeObject, w_sub=W_TypeObject)
+@gateway.unwrap_spec(w_obj=W_TypeObject)
 def type_issubtype(w_obj, space, w_sub):
-    return space.newbool(w_sub.issubtype(w_obj))
+    return space.newbool(
+        abstractinst.p_recursive_issubclass_w(space, w_sub, w_obj))
 
 @gateway.unwrap_spec(w_obj=W_TypeObject)
 def type_isinstance(w_obj, space, w_inst):
-    return space.newbool(space.type(w_inst).issubtype(w_obj))
+    return space.newbool(
+        abstractinst.p_recursive_isinstance_type_w(space, w_inst, w_obj))
+
+def type_get_dict(space, w_cls):
+    w_cls = _check(space, w_cls)
+    from pypy.objspace.std.dictproxyobject import W_DictProxyObject
+    w_dict = w_cls.getdict(space)
+    if w_dict is None:
+        return space.w_None
+    return W_DictProxyObject(w_dict)
 
 W_TypeObject.typedef = TypeDef("type",
     __new__ = gateway.interp2app(descr__new__),
@@ -913,7 +924,7 @@ W_TypeObject.typedef = TypeDef("type",
     __bases__ = GetSetProperty(descr_get__bases__, descr_set__bases__),
     __base__ = GetSetProperty(descr__base),
     __mro__ = GetSetProperty(descr_get__mro__),
-    __dict__ = GetSetProperty(descr_get_dict),
+    __dict__=GetSetProperty(type_get_dict),
     __doc__ = GetSetProperty(descr__doc),
     mro = gateway.interp2app(descr_mro),
     __flags__ = GetSetProperty(descr__flags),
@@ -986,7 +997,7 @@ def copy_flags_from_bases(w_self, w_bestbase):
             hasoldstylebase = True
             continue
         w_self.hasdict = w_self.hasdict or w_base.hasdict
-        w_self.needsdel = w_self.needsdel or w_base.needsdel
+        w_self.hasuserdel = w_self.hasuserdel or w_base.hasuserdel
         w_self.weakrefable = w_self.weakrefable or w_base.weakrefable
     return hasoldstylebase
 
@@ -1028,7 +1039,7 @@ def create_all_slots(w_self, hasoldstylebase, w_bestbase, force_new_layout):
     if wantweakref:
         create_weakref_slot(w_self)
     if '__del__' in dict_w:
-        w_self.needsdel = True
+        w_self.hasuserdel = True
     #
     if index_next_extra_slot == base_layout.nslots and not force_new_layout:
         return base_layout

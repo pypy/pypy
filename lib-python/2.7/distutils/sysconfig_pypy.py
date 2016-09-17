@@ -122,22 +122,24 @@ def customize_compiler(compiler):
     """Dummy method to let some easy_install packages that have
     optional C speedup components.
     """
+    def customize(executable, flags):
+        command = compiler.executables[executable] + flags
+        setattr(compiler, executable, command)
+
     if compiler.compiler_type == "unix":
         compiler.compiler_so.extend(['-O2', '-fPIC', '-Wimplicit'])
         compiler.shared_lib_extension = get_config_var('SO')
         if "CPPFLAGS" in os.environ:
             cppflags = shlex.split(os.environ["CPPFLAGS"])
-            compiler.compiler.extend(cppflags)
-            compiler.compiler_so.extend(cppflags)
-            compiler.linker_so.extend(cppflags)
+            for executable in ('compiler', 'compiler_so', 'linker_so'):
+                customize(executable, cppflags)
         if "CFLAGS" in os.environ:
             cflags = shlex.split(os.environ["CFLAGS"])
-            compiler.compiler.extend(cflags)
-            compiler.compiler_so.extend(cflags)
-            compiler.linker_so.extend(cflags)
+            for executable in ('compiler', 'compiler_so', 'linker_so'):
+                customize(executable, cflags)
         if "LDFLAGS" in os.environ:
             ldflags = shlex.split(os.environ["LDFLAGS"])
-            compiler.linker_so.extend(ldflags)
+            customize('linker_so', ldflags)
 
 
 from sysconfig_cpython import (

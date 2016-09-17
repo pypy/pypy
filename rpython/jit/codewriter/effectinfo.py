@@ -28,6 +28,11 @@ class EffectInfo(object):
     OS_THREADLOCALREF_GET       = 5    # llop.threadlocalref_get
     OS_NOT_IN_TRACE             = 8    # for calls not recorded in the jit trace
     #
+    OS_INT_PY_DIV               = 12   # python signed division (neg. corrected)
+    OS_INT_UDIV                 = 13   # regular unsigned division
+    OS_INT_PY_MOD               = 14   # python signed modulo (neg. corrected)
+    OS_INT_UMOD                 = 15   # regular unsigned modulo
+    #
     OS_STR_CONCAT               = 22   # "stroruni.concat"
     OS_STR_SLICE                = 23   # "stroruni.slice"
     OS_STR_EQUAL                = 24   # "stroruni.equal"
@@ -111,7 +116,9 @@ class EffectInfo(object):
                 oopspecindex=OS_NONE,
                 can_invalidate=False,
                 call_release_gil_target=_NO_CALL_RELEASE_GIL_TARGET,
-                extradescrs=None):
+                extradescrs=None,
+                can_collect=True,
+                call_shortcut=None):
         readonly_descrs_fields = frozenset_or_none(readonly_descrs_fields)
         readonly_descrs_arrays = frozenset_or_none(readonly_descrs_arrays)
         readonly_descrs_interiorfields = frozenset_or_none(
@@ -128,7 +135,9 @@ class EffectInfo(object):
                write_descrs_interiorfields,
                extraeffect,
                oopspecindex,
-               can_invalidate)
+               can_invalidate,
+               can_collect,
+               call_shortcut)
         tgt_func, tgt_saveerr = call_release_gil_target
         if tgt_func:
             key += (object(),)    # don't care about caching in this case
@@ -179,9 +188,11 @@ class EffectInfo(object):
         #
         result.extraeffect = extraeffect
         result.can_invalidate = can_invalidate
+        result.can_collect = can_collect
         result.oopspecindex = oopspecindex
         result.extradescrs = extradescrs
         result.call_release_gil_target = call_release_gil_target
+        result.call_shortcut = call_shortcut
         if result.check_can_raise(ignore_memoryerror=True):
             assert oopspecindex in cls._OS_CANRAISE
 
@@ -225,6 +236,9 @@ class EffectInfo(object):
     def check_can_invalidate(self):
         return self.can_invalidate
 
+    def check_can_collect(self):
+        return self.can_collect
+
     def check_is_elidable(self):
         return (self.extraeffect == self.EF_ELIDABLE_CAN_RAISE or
                 self.extraeffect == self.EF_ELIDABLE_OR_MEMORYERROR or
@@ -263,7 +277,9 @@ def effectinfo_from_writeanalyze(effects, cpu,
                                  can_invalidate=False,
                                  call_release_gil_target=
                                      EffectInfo._NO_CALL_RELEASE_GIL_TARGET,
-                                 extradescr=None):
+                                 extradescr=None,
+                                 can_collect=True,
+                                 call_shortcut=None):
     from rpython.translator.backendopt.writeanalyze import top_set
     if effects is top_set or extraeffect == EffectInfo.EF_RANDOM_EFFECTS:
         readonly_descrs_fields = None
@@ -338,6 +354,9 @@ def effectinfo_from_writeanalyze(effects, cpu,
             else:
                 assert 0
     #
+    if extraeffect >= EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE:
+        can_collect = True
+    #
     return EffectInfo(readonly_descrs_fields,
                       readonly_descrs_arrays,
                       readonly_descrs_interiorfields,
@@ -348,7 +367,9 @@ def effectinfo_from_writeanalyze(effects, cpu,
                       oopspecindex,
                       can_invalidate,
                       call_release_gil_target,
-                      extradescr)
+                      extradescr,
+                      can_collect,
+                      call_shortcut)
 
 def consider_struct(TYPE, fieldname):
     if fieldType(TYPE, fieldname) is lltype.Void:
@@ -370,6 +391,24 @@ def consider_array(ARRAY):
     return True
 
 # ____________________________________________________________
+
+
+class CallShortcut(object):
+    def __init__(self, argnum, fielddescr):
+        self.argnum = argnum
+        self.fielddescr = fielddescr
+
+    def __eq__(self, other):
+        return (isinstance(other, CallShortcut) and
+                self.argnum == other.argnum and
+                self.fielddescr == other.fielddescr)
+    def __ne__(self, other):
+        return not (self == other)
+    def __hash__(self):
+        return hash((self.argnum, self.fielddescr))
+
+# ____________________________________________________________
+
 
 class VirtualizableAnalyzer(BoolGraphAnalyzer):
     def analyze_simple_operation(self, op, graphinfo):

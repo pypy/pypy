@@ -2,6 +2,9 @@
 #define Py_PYTHON_H
 
 /* Compat stuff */
+#ifdef __GNUC__
+#define _GNU_SOURCE 1
+#endif
 #ifndef _WIN32
 # include <inttypes.h>
 # include <stdint.h>
@@ -52,7 +55,6 @@
 #ifndef DL_IMPORT
 #       define DL_IMPORT(RTYPE) RTYPE
 #endif
-
 #include <stdlib.h>
 
 #ifndef _WIN32
@@ -106,6 +108,7 @@ typedef long Py_ssize_t;
 #include "pythonrun.h"
 #include "pyerrors.h"
 #include "sysmodule.h"
+#include "bytearrayobject.h"
 #include "stringobject.h"
 #include "descrobject.h"
 #include "tupleobject.h"

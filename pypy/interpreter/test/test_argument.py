@@ -46,13 +46,6 @@ class TestSignature(object):
         assert sig.find_argname("c") == 2
         assert sig.find_argname("d") == -1
 
-    def test_tuply(self):
-        sig = Signature(["a", "b", "c"], "d", "e")
-        x, y, z = sig
-        assert x == ["a", "b", "c"]
-        assert y == "d"
-        assert z == "e"
-
 class dummy_wrapped_dict(dict):
     def __nonzero__(self):
         raise NotImplementedError
@@ -688,3 +681,21 @@ class AppTestArgument:
         def f(x): pass
         e = raises(TypeError, "f(**{u'ü' : 19})")
         assert "?" in str(e.value)
+
+    def test_starstarargs_dict_subclass(self):
+        def f(**kwargs):
+            return kwargs
+        class DictSubclass(dict):
+            def __iter__(self):
+                yield 'x'
+        # CPython, as an optimization, looks directly into dict internals when
+        # passing one via **kwargs.
+        x =DictSubclass()
+        assert f(**x) == {}
+        x['a'] = 1
+        assert f(**x) == {'a': 1}
+
+    def test_starstarargs_module_dict(self):
+        def f(**kwargs):
+            return kwargs
+        assert f(**globals()) == globals()

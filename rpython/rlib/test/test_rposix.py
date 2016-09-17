@@ -99,9 +99,9 @@ class TestPosixFunction:
 
     def test_mkdir(self):
         filename = str(udir.join('test_mkdir.dir'))
-        rposix.mkdir(filename, 0)
+        rposix.mkdir(filename, 0777)
         with py.test.raises(OSError) as excinfo:
-            rposix.mkdir(filename, 0)
+            rposix.mkdir(filename, 0777)
         assert excinfo.value.errno == errno.EEXIST
         if sys.platform == 'win32':
             assert excinfo.type is WindowsError
@@ -112,9 +112,9 @@ class TestPosixFunction:
         filename = str(udir.join(relpath))
         dirfd = os.open(os.path.dirname(filename), os.O_RDONLY)
         try:
-            rposix.mkdirat(relpath, 0, dir_fd=dirfd)
+            rposix.mkdirat(relpath, 0777, dir_fd=dirfd)
             with py.test.raises(OSError) as excinfo:
-                rposix.mkdirat(relpath, 0, dir_fd=dirfd)
+                rposix.mkdirat(relpath, 0777, dir_fd=dirfd)
             assert excinfo.value.errno == errno.EEXIST
         finally:
             os.close(dirfd)
@@ -334,6 +334,11 @@ class BasePosixUnicodeOrAscii:
             self.path  = UnicodeWithEncoding(self.ufilename)
             self.path2 = UnicodeWithEncoding(self.ufilename + ".new")
 
+    def _teardown_method(self, method):
+        for path in [self.ufilename + ".new", self.ufilename]:
+            if os.path.exists(path):
+                os.unlink(path)
+
     def test_open(self):
         def f():
             try:
@@ -385,6 +390,14 @@ class BasePosixUnicodeOrAscii:
     def test_rename(self):
         def f():
             return rposix.rename(self.path, self.path2)
+
+        interpret(f, [])
+        assert not os.path.exists(self.ufilename)
+        assert os.path.exists(self.ufilename + '.new')
+
+    def test_replace(self):
+        def f():
+            return rposix.replace(self.path, self.path2)
 
         interpret(f, [])
         assert not os.path.exists(self.ufilename)
@@ -539,6 +552,14 @@ def test_fdlistdir(tmpdir):
     # Note: fdlistdir() always closes dirfd
     assert result == ['file']
 
+@rposix_requires('fdlistdir')
+def test_fdlistdir_rewinddir(tmpdir):
+    tmpdir.join('file').write('text')
+    dirfd = os.open(str(tmpdir), os.O_RDONLY)
+    result1 = rposix.fdlistdir(os.dup(dirfd))
+    result2 = rposix.fdlistdir(dirfd)
+    assert result1 == result2 == ['file']
+
 @rposix_requires('symlinkat')
 def test_symlinkat(tmpdir):
     tmpdir.join('file').write('text')
@@ -559,3 +580,31 @@ def test_renameat(tmpdir):
         os.close(dirfd)
     assert tmpdir.join('file').check(exists=False)
     assert tmpdir.join('file2').check(exists=True)
+
+def test_set_inheritable():
+    fd1, fd2 = os.pipe()
+    rposix.set_inheritable(fd1, True)
+    assert rposix.get_inheritable(fd1) == True
+    rposix.set_inheritable(fd1, False)
+    assert rposix.get_inheritable(fd1) == False
+    os.close(fd1)
+    os.close(fd2)
+
+def test_SetNonInheritableCache():
+    cache = rposix.SetNonInheritableCache()
+    fd1, fd2 = os.pipe()
+    assert rposix.get_inheritable(fd1) == True
+    assert rposix.get_inheritable(fd1) == True
+    assert cache.cached_inheritable == -1
+    cache.set_non_inheritable(fd1)
+    assert cache.cached_inheritable == 1
+    cache.set_non_inheritable(fd2)
+    assert cache.cached_inheritable == 1
+    assert rposix.get_inheritable(fd1) == False
+    assert rposix.get_inheritable(fd1) == False
+    os.close(fd1)
+    os.close(fd2)
+
+def test_sync():
+    if sys.platform != 'win32':
+        rposix.sync()

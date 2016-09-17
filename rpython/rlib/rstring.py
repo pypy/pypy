@@ -291,6 +291,7 @@ def count(value, other, start, end):
     return _search(value, other, start, end, SEARCH_COUNT)
 
 # -------------- substring searching helper ----------------
+# XXX a lot of code duplication with lltypesystem.rstr :-(
 
 SEARCH_COUNT = 0
 SEARCH_FIND = 1
@@ -309,6 +310,8 @@ def _search(value, other, start, end, mode):
     if end > len(value):
         end = len(value)
     if start > end:
+        if mode == SEARCH_COUNT:
+            return 0
         return -1
 
     count = 0
@@ -326,6 +329,8 @@ def _search(value, other, start, end, mode):
     w = n - m
 
     if w < 0:
+        if mode == SEARCH_COUNT:
+            return 0
         return -1
 
     mlast = m - 1
@@ -570,18 +575,20 @@ class UnicodeBuilder(AbstractStringBuilder):
 
 class ByteListBuilder(object):
     def __init__(self, init_size=INIT_SIZE):
+        assert init_size >= 0
         self.l = newlist_hint(init_size)
 
     @specialize.argtype(1)
     def append(self, s):
+        l = self.l
         for c in s:
-            self.l.append(c)
+            l.append(c)
 
     @specialize.argtype(1)
     def append_slice(self, s, start, end):
-        assert 0 <= start <= end <= len(s)
-        for c in s[start:end]:
-            self.l.append(c)
+        l = self.l
+        for i in xrange(start, end):
+            l.append(s[i])
 
     def append_multiple_char(self, c, times):
         assert isinstance(c, str)
@@ -589,8 +596,9 @@ class ByteListBuilder(object):
 
     def append_charpsize(self, s, size):
         assert size >= 0
+        l = self.l
         for i in xrange(size):
-            self.l.append(s[i])
+            l.append(s[i])
 
     def build(self):
         return self.l

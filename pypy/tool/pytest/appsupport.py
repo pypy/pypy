@@ -5,9 +5,9 @@ from pypy.interpreter import gateway, pycode
 from pypy.interpreter.error import OperationError, oefmt
 
 try:
-    from _pytest.assertion.newinterpret import interpret
+    from _pytest.assertion.reinterpret import reinterpret as interpret
 except ImportError:
-    from _pytest.assertion.oldinterpret import interpret
+    from _pytest.assertion.newinterpret import interpret
 
 # ____________________________________________________________
 

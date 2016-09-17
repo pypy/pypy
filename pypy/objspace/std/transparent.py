@@ -52,15 +52,15 @@ completely controlled by the controller."""
         raise oefmt(space.w_TypeError, "controller should be function")
 
     if isinstance(w_type, W_TypeObject):
-        if space.is_true(space.issubtype(w_type, space.gettypeobject(Function.typedef))):
+        if space.issubtype_w(w_type, space.gettypeobject(Function.typedef)):
             return W_TransparentFunction(space, w_type, w_controller)
-        if space.is_true(space.issubtype(w_type, space.gettypeobject(PyTraceback.typedef))):
+        if space.issubtype_w(w_type, space.gettypeobject(PyTraceback.typedef)):
             return W_TransparentTraceback(space, w_type, w_controller)
-        if space.is_true(space.issubtype(w_type, space.gettypeobject(PyFrame.typedef))):
+        if space.issubtype_w(w_type, space.gettypeobject(PyFrame.typedef)):
             return W_TransparentFrame(space, w_type, w_controller)
-        if space.is_true(space.issubtype(w_type, space.gettypeobject(GeneratorIterator.typedef))):
+        if space.issubtype_w(w_type, space.gettypeobject(GeneratorIterator.typedef)):
             return W_TransparentGenerator(space, w_type, w_controller)
-        if space.is_true(space.issubtype(w_type, space.gettypeobject(PyCode.typedef))):
+        if space.issubtype_w(w_type, space.gettypeobject(PyCode.typedef)):
             return W_TransparentCode(space, w_type, w_controller)
         if w_type.layout.typedef is space.w_object.layout.typedef:
             return W_Transparent(space, w_type, w_controller)

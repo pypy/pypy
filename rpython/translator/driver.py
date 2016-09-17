@@ -381,7 +381,7 @@ class TranslationDriver(SimpleTaskEngine):
         """ Run all backend optimizations - lltype version
         """
         from rpython.translator.backendopt.all import backend_optimizations
-        backend_optimizations(self.translator)
+        backend_optimizations(self.translator, replace_we_are_jitted=True)
 
 
     STACKCHECKINSERTION = 'stackcheckinsertion_lltype'
@@ -488,7 +488,7 @@ class TranslationDriver(SimpleTaskEngine):
                     exename = exe.new(purebasename=exe.purebasename + 'w')
                     shutil_copy(str(exename), str(newexename))
                     # for pypy, the import library is renamed and moved to
-                    # libs/python27.lib, according to the pragma in pyconfig.h
+                    # libs/python32.lib, according to the pragma in pyconfig.h
                     libname = self.config.translation.libname
                     oldlibname = soname.new(ext='lib')
                     if not libname:
@@ -552,16 +552,16 @@ class TranslationDriver(SimpleTaskEngine):
         self.log.info('usession directory: %s' % (udir,))
         return result
 
-    @staticmethod
-    def from_targetspec(targetspec_dic, config=None, args=None,
+    @classmethod
+    def from_targetspec(cls, targetspec_dic, config=None, args=None,
                         empty_translator=None,
                         disable=[],
                         default_goal=None):
         if args is None:
             args = []
 
-        driver = TranslationDriver(config=config, default_goal=default_goal,
-                                   disable=disable)
+        driver = cls(config=config, default_goal=default_goal,
+                     disable=disable)
         target = targetspec_dic['target']
         spec = target(driver, args)
 

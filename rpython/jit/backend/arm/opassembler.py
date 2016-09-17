@@ -3,7 +3,7 @@ from rpython.jit.backend.arm import conditions as c
 from rpython.jit.backend.arm import registers as r
 from rpython.jit.backend.arm import shift
 from rpython.jit.backend.arm.arch import WORD, DOUBLE_WORD, JITFRAME_FIXED_SIZE
-from rpython.jit.backend.arm.helper.assembler import (gen_emit_op_by_helper_call,
+from rpython.jit.backend.arm.helper.assembler import (
                                                 gen_emit_op_unary_cmp,
                                                 gen_emit_op_ri,
                                                 gen_emit_cmp_op,
@@ -92,6 +92,11 @@ class ResOpAssembler(BaseAssembler):
         self.mc.MUL(res.value, reg1.value, reg2.value)
         return fcond
 
+    def emit_op_uint_mul_high(self, op, arglocs, regalloc, fcond):
+        reg1, reg2, res = arglocs
+        self.mc.UMULL(r.ip.value, res.value, reg1.value, reg2.value)
+        return fcond
+
     def emit_op_int_force_ge_zero(self, op, arglocs, regalloc, fcond):
         arg, res = arglocs
         self.mc.CMP_ri(arg.value, 0)
@@ -131,10 +136,6 @@ class ResOpAssembler(BaseAssembler):
         fcond = self.int_sub_impl(op, arglocs, regalloc, fcond, flags=True)
         self.guard_success_cc = c.VC
         return fcond
-
-    emit_op_int_floordiv = gen_emit_op_by_helper_call('int_floordiv', 'DIV')
-    emit_op_int_mod = gen_emit_op_by_helper_call('int_mod', 'MOD')
-    emit_op_uint_floordiv = gen_emit_op_by_helper_call('uint_floordiv', 'UDIV')
 
     emit_op_int_and = gen_emit_op_ri('int_and', 'AND')
     emit_op_int_or = gen_emit_op_ri('int_or', 'ORR')
@@ -466,7 +467,11 @@ class ResOpAssembler(BaseAssembler):
             assert saveerrloc.is_imm()
             cb.emit_call_release_gil(saveerrloc.value)
         else:
-            cb.emit()
+            effectinfo = descr.get_extra_info()
+            if effectinfo is None or effectinfo.check_can_collect():
+                cb.emit()
+            else:
+                cb.emit_no_collect()
         return fcond
 
     def _genop_same_as(self, op, arglocs, regalloc, fcond):
@@ -878,6 +883,7 @@ class ResOpAssembler(BaseAssembler):
             ofs_items, itemsize, _ = symbolic.get_array_token(rstr.STR,
                                               self.cpu.translate_support_code)
             assert itemsize == 1
+            ofs_items -= 1     # for the extra null character
             scale = 0
         self._gen_address(resloc, baseloc, ofsloc, scale, ofs_items)
 
@@ -1045,9 +1051,8 @@ class ResOpAssembler(BaseAssembler):
         regalloc = self._regalloc
         return regalloc.operations[regalloc.rm.position + delta]
 
-    def emit_op_call_malloc_gc(self, op, arglocs, regalloc, fcond):
-        self._emit_call(op, arglocs, fcond=fcond)
-        self.propagate_memoryerror_if_r0_is_null()
+    def emit_op_check_memory_error(self, op, arglocs, regalloc, fcond):
+        self.propagate_memoryerror_if_reg_is_null(arglocs[0])
         self._alignment_check()
         return fcond
 

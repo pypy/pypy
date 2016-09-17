@@ -21,7 +21,7 @@ def PyList_New(space, len):
     """
     return space.newlist([None] * len)
 
-@cpython_api([PyObject, Py_ssize_t, PyObject], PyObject, error=CANNOT_FAIL,
+@cpython_api([rffi.VOIDP, Py_ssize_t, PyObject], PyObject, error=CANNOT_FAIL,
              result_borrowed=True)
 def PyList_SET_ITEM(space, w_list, index, w_item):
     """Macro form of PyList_SetItem() without error checking. This is normally
@@ -87,7 +87,7 @@ def PyList_Insert(space, w_list, index, w_item):
     space.call_method(space.w_list, "insert", w_list, space.wrap(index), w_item)
     return 0
 
-@cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
+@cpython_api([rffi.VOIDP], Py_ssize_t, error=CANNOT_FAIL)
 def PyList_GET_SIZE(space, w_list):
     """Macro form of PyList_Size() without error checking.
     """

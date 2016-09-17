@@ -40,14 +40,17 @@ class W_BaseConnection(W_Root):
     BUFFER_SIZE = 1024
     buffer = lltype.nullptr(rffi.CCHARP.TO)
 
-    def __init__(self, flags):
+    def __init__(self, space, flags):
         self.flags = flags
         self.buffer = lltype.malloc(rffi.CCHARP.TO, self.BUFFER_SIZE,
                                     flavor='raw')
+        self.register_finalizer(space)
 
-    def __del__(self):
-        if self.buffer:
-            lltype.free(self.buffer, flavor='raw')
+    def _finalize_(self):
+        buf = self.buffer
+        if buf:
+            self.buffer = lltype.nullptr(rffi.CCHARP.TO)
+            lltype.free(buf, flavor='raw')
         try:
             self.do_close()
         except OSError:
@@ -119,9 +122,9 @@ class W_BaseConnection(W_Root):
             space, self.BUFFER_SIZE, maxlength)
         try:
             if newbuf:
-                return space.wrap(rffi.charpsize2str(newbuf, res))
+                return space.newbytes(rffi.charpsize2str(newbuf, res))
             else:
-                return space.wrap(rffi.charpsize2str(self.buffer, res))
+                return space.newbytes(rffi.charpsize2str(self.buffer, res))
         finally:
             if newbuf:
                 rffi.free_charp(newbuf)
@@ -135,7 +138,7 @@ class W_BaseConnection(W_Root):
             space, length - offset, PY_SSIZE_T_MAX)
         try:
             if newbuf:
-                raise BufferTooShort(space, space.wrap(
+                raise BufferTooShort(space, space.newbytes(
                     rffi.charpsize2str(newbuf, res)))
             rwbuffer.setslice(offset, rffi.charpsize2str(self.buffer, res))
         finally:
@@ -163,9 +166,9 @@ class W_BaseConnection(W_Root):
             space, self.BUFFER_SIZE, PY_SSIZE_T_MAX)
         try:
             if newbuf:
-                w_received = space.wrap(rffi.charpsize2str(newbuf, res))
+                w_received = space.newbytes(rffi.charpsize2str(newbuf, res))
             else:
-                w_received = space.wrap(rffi.charpsize2str(self.buffer, res))
+                w_received = space.newbytes(rffi.charpsize2str(self.buffer, res))
         finally:
             if newbuf:
                 rffi.free_charp(newbuf)
@@ -242,7 +245,7 @@ class W_FileConnection(W_BaseConnection):
     def __init__(self, space, fd, flags):
         if fd == self.INVALID_HANDLE_VALUE or fd < 0:
             raise oefmt(space.w_IOError, "invalid handle %d", fd)
-        W_BaseConnection.__init__(self, flags)
+        W_BaseConnection.__init__(self, space, flags)
         self.fd = fd
 
     @unwrap_spec(fd=int, readable=bool, writable=bool)
@@ -363,8 +366,8 @@ class W_PipeConnection(W_BaseConnection):
     if sys.platform == 'win32':
         from rpython.rlib.rwin32 import INVALID_HANDLE_VALUE
 
-    def __init__(self, handle, flags):
-        W_BaseConnection.__init__(self, flags)
+    def __init__(self, space, handle, flags):
+        W_BaseConnection.__init__(self, space, flags)
         self.handle = handle
 
     @unwrap_spec(readable=bool, writable=bool)
@@ -375,7 +378,7 @@ class W_PipeConnection(W_BaseConnection):
         flags = (readable and READABLE) | (writable and WRITABLE)
 
         self = space.allocate_instance(W_PipeConnection, w_subtype)
-        W_PipeConnection.__init__(self, handle, flags)
+        W_PipeConnection.__init__(self, space, handle, flags)
         return space.wrap(self)
 
     def descr_repr(self, space):
@@ -398,21 +401,20 @@ class W_PipeConnection(W_BaseConnection):
             _WriteFile, ERROR_NO_SYSTEM_RESOURCES)
         from rpython.rlib import rwin32
 
-        charp = rffi.str2charp(buf)
-        written_ptr = lltype.malloc(rffi.CArrayPtr(rwin32.DWORD).TO, 1,
-                                    flavor='raw')
-        try:
-            result = _WriteFile(
-                self.handle, rffi.ptradd(charp, offset),
-                size, written_ptr, rffi.NULL)
+        with rffi.scoped_view_charp(buf) as charp:
+            written_ptr = lltype.malloc(rffi.CArrayPtr(rwin32.DWORD).TO, 1,
+                                        flavor='raw')
+            try:
+                result = _WriteFile(
+                    self.handle, rffi.ptradd(charp, offset),
+                    size, written_ptr, rffi.NULL)
 
-            if (result == 0 and
-                rwin32.GetLastError_saved() == ERROR_NO_SYSTEM_RESOURCES):
-                raise oefmt(space.w_ValueError,
-                            "Cannot send %d bytes over connection", size)
-        finally:
-            rffi.free_charp(charp)
-            lltype.free(written_ptr, flavor='raw')
+                if (result == 0 and
+                    rwin32.GetLastError_saved() == ERROR_NO_SYSTEM_RESOURCES):
+                    raise oefmt(space.w_ValueError,
+                                "Cannot send %d bytes over connection", size)
+            finally:
+                lltype.free(written_ptr, flavor='raw')
 
     def do_recv_string(self, space, buflength, maxlength):
         from pypy.module._multiprocessing.interp_win32 import (

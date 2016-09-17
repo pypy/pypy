@@ -3,7 +3,7 @@ from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.jit.metainterp.resoperation import AbstractValue, ResOperation,\
      rop, OpHelpers
 from rpython.jit.metainterp.history import ConstInt, Const
-from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.jit.metainterp.optimizeopt.rawbuffer import RawBuffer, InvalidRawOperation
 from rpython.jit.metainterp.executor import execute
 from rpython.jit.metainterp.optimize import InvalidLoop
@@ -365,10 +365,18 @@ class AbstractRawPtrInfo(AbstractVirtualPtrInfo):
     def visitor_dispatch_virtual_type(self, visitor):
         raise NotImplementedError("abstract")
 
+    def make_guards(self, op, short, optimizer):
+        from rpython.jit.metainterp.optimizeopt.optimizer import CONST_0
+        op = ResOperation(rop.INT_EQ, [op, CONST_0])
+        short.append(op)
+        op = ResOperation(rop.GUARD_FALSE, [op])
+        short.append(op)
+
 class RawBufferPtrInfo(AbstractRawPtrInfo):
     buffer = None
-    
-    def __init__(self, cpu, size=-1):
+
+    def __init__(self, cpu, func, size=-1):
+        self.func = func
         self.size = size
         if self.size != -1:
             self.buffer = RawBuffer(cpu, None)
@@ -400,6 +408,12 @@ class RawBufferPtrInfo(AbstractRawPtrInfo):
 
     def _force_elements(self, op, optforce, descr):
         self.size = -1
+        # at this point we have just written the
+        # 'op = CALL_I(..., OS_RAW_MALLOC_VARSIZE_CHAR)'.
+        # Emit now a CHECK_MEMORY_ERROR resop.
+        check_op = ResOperation(rop.CHECK_MEMORY_ERROR, [op])
+        optforce.emit_operation(check_op)
+        #
         buffer = self._get_buffer()
         for i in range(len(buffer.offsets)):
             # write the value
@@ -419,7 +433,8 @@ class RawBufferPtrInfo(AbstractRawPtrInfo):
     @specialize.argtype(1)
     def visitor_dispatch_virtual_type(self, visitor):
         buffer = self._get_buffer()
-        return visitor.visit_vrawbuffer(self.size,
+        return visitor.visit_vrawbuffer(self.func,
+                                        self.size,
                                         buffer.offsets[:],
                                         buffer.descrs[:])
 

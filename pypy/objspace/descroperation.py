@@ -58,6 +58,20 @@ def tuple_iter(space):
     return w_iter
 tuple_iter._annspecialcase_ = 'specialize:memo'
 
+def str_getitem(space):
+    "Utility that returns the app-level descriptor str.__getitem__."
+    w_src, w_iter = space.lookup_in_type_where(space.w_str,
+                                               '__getitem__')
+    return w_iter
+str_getitem._annspecialcase_ = 'specialize:memo'
+
+def unicode_getitem(space):
+    "Utility that returns the app-level descriptor unicode.__getitem__."
+    w_src, w_iter = space.lookup_in_type_where(space.w_unicode,
+                                               '__getitem__')
+    return w_iter
+unicode_getitem._annspecialcase_ = 'specialize:memo'
+
 def raiseattrerror(space, w_obj, name, w_descr=None):
     if w_descr is None:
         raise oefmt(space.w_AttributeError,
@@ -359,7 +373,7 @@ class DescrOperation(object):
             w_right_src, w_right_impl = space.lookup_in_type_where(w_typ2, '__rpow__')
             # sse binop_impl
             if (w_left_src is not w_right_src
-                and space.is_true(space.issubtype(w_typ2, w_typ1))):
+                and space.issubtype_w(w_typ2, w_typ1)):
                 if (w_left_src and w_right_src and
                     not space.abstract_issubclass_w(w_left_src, w_right_src) and
                     not space.abstract_issubclass_w(w_typ1, w_right_src)):
@@ -409,7 +423,7 @@ class DescrOperation(object):
                 if not e.match(space, space.w_StopIteration):
                     raise
                 return space.w_False
-            if space.eq_w(w_next, w_item):
+            if space.eq_w(w_item, w_next):
                 return space.w_True
 
     def hash(space, w_obj):
@@ -424,26 +438,20 @@ class DescrOperation(object):
             raise oefmt(space.w_TypeError,
                         "'%T' objects are unhashable", w_obj)
         w_result = space.get_and_call_function(w_hash, w_obj)
-        w_resulttype = space.type(w_result)
-        if space.is_w(w_resulttype, space.w_int):
-            return w_result
-        elif space.is_w(w_resulttype, space.w_long):
-            return space.hash(w_result)
-        elif space.isinstance_w(w_result, space.w_int):
-            # be careful about subclasses of 'int'...
-            return space.wrap(space.int_w(w_result))
+
+        # issue 2346 : returns now -2 for hashing -1 like cpython
+        if space.isinstance_w(w_result, space.w_int):
+            h = space.int_w(w_result)
         elif space.isinstance_w(w_result, space.w_long):
-            # be careful about subclasses of 'long'...
             bigint = space.bigint_w(w_result)
-            return space.wrap(bigint.hash())
+            h = bigint.hash()
         else:
             raise oefmt(space.w_TypeError,
                         "__hash__() should return an int or long")
-
-    def userdel(space, w_obj):
-        w_del = space.lookup(w_obj, '__del__')
-        if w_del is not None:
-            space.get_and_call_function(w_del, w_obj)
+        # turn -1 into -2 without using a condition, which would
+        # create a potential bridge in the JIT
+        h -= (h == -1)
+        return space.wrap(h)
 
     def cmp(space, w_v, w_w):
 
@@ -480,7 +488,7 @@ class DescrOperation(object):
         else:
             w_right_src, w_right_impl = space.lookup_in_type_where(w_typ2, '__coerce__')
             if (w_left_src is not w_right_src
-                and space.is_true(space.issubtype(w_typ2, w_typ1))):
+                and space.issubtype_w(w_typ2, w_typ1)):
                 w_obj1, w_obj2 = w_obj2, w_obj1
                 w_left_impl, w_right_impl = w_right_impl, w_left_impl
 
@@ -500,8 +508,11 @@ class DescrOperation(object):
                         "coercion should return None or 2-tuple")
         return w_res
 
-    def issubtype(space, w_sub, w_type):
+    def issubtype_w(space, w_sub, w_type):
         return space._type_issubtype(w_sub, w_type)
+
+    def issubtype(space, w_sub, w_type):
+        return space.wrap(space._type_issubtype(w_sub, w_type))
 
     @specialize.arg_or_var(2)
     def isinstance_w(space, w_inst, w_type):
@@ -510,21 +521,6 @@ class DescrOperation(object):
     @specialize.arg_or_var(2)
     def isinstance(space, w_inst, w_type):
         return space.wrap(space.isinstance_w(w_inst, w_type))
-
-    def issubtype_allow_override(space, w_sub, w_type):
-        w_check = space.lookup(w_type, "__subclasscheck__")
-        if w_check is None:
-            raise oefmt(space.w_TypeError, "issubclass not supported here")
-        return space.get_and_call_function(w_check, w_type, w_sub)
-
-    def isinstance_allow_override(space, w_inst, w_type):
-        if space.type(w_inst) is w_type:
-            return space.w_True # fast path copied from cpython
-        w_check = space.lookup(w_type, "__instancecheck__")
-        if w_check is not None:
-            return space.get_and_call_function(w_check, w_type, w_inst)
-        else:
-            return space.isinstance(w_inst, w_type)
 
 
 # helpers
@@ -558,7 +554,7 @@ def _cmp(space, w_obj1, w_obj2, symbol):
     else:
         w_right_src, w_right_impl = space.lookup_in_type_where(w_typ2, '__cmp__')
         if (w_left_src is not w_right_src
-            and space.is_true(space.issubtype(w_typ2, w_typ1))):
+            and space.issubtype_w(w_typ2, w_typ1)):
             w_obj1, w_obj2 = w_obj2, w_obj1
             w_left_impl, w_right_impl = w_right_impl, w_left_impl
             do_neg1, do_neg2 = do_neg2, do_neg1
@@ -695,7 +691,7 @@ def _make_binop_impl(symbol, specialnames):
                 if ((seq_bug_compat and w_typ1.flag_sequence_bug_compat
                                     and not w_typ2.flag_sequence_bug_compat)
                         # the non-bug-compat part is the following check:
-                        or space.is_true(space.issubtype(w_typ2, w_typ1))):
+                        or space.issubtype_w(w_typ2, w_typ1)):
                     if (not space.abstract_issubclass_w(w_left_src, w_right_src) and
                         not space.abstract_issubclass_w(w_typ1, w_right_src)):
                         w_obj1, w_obj2 = w_obj2, w_obj1
@@ -734,7 +730,7 @@ def _make_comparison_impl(symbol, specialnames):
                 # if the type is the same, *or* if both are old-style classes,
                 # then don't reverse: try left first, right next.
                 pass
-            elif space.is_true(space.issubtype(w_typ2, w_typ1)):
+            elif space.issubtype_w(w_typ2, w_typ1):
                 # for new-style classes, if typ2 is a subclass of typ1.
                 w_obj1, w_obj2 = w_obj2, w_obj1
                 w_left_impl, w_right_impl = w_right_impl, w_left_impl

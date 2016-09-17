@@ -1020,8 +1020,11 @@ W_CPPTemplateType.typedef.acceptable_as_base_class = False
 
 
 class W_CPPInstance(W_Root):
-    _attrs_ = ['space', 'cppclass', '_rawobject', 'isref', 'python_owns']
+    _attrs_ = ['space', 'cppclass', '_rawobject', 'isref', 'python_owns',
+               'finalizer_registered']
     _immutable_fields_ = ["cppclass", "isref"]
+
+    finalizer_registered = False
 
     def __init__(self, space, cppclass, rawobject, isref, python_owns):
         self.space = space
@@ -1032,6 +1035,12 @@ class W_CPPInstance(W_Root):
         assert not isref or not python_owns
         self.isref = isref
         self.python_owns = python_owns
+        self._opt_register_finalizer()
+
+    def _opt_register_finalizer(self):
+        if self.python_owns and not self.finalizer_registered:
+            self.register_finalizer(self.space)
+            self.finalizer_registered = True
 
     def _nullcheck(self):
         if not self._rawobject or (self.isref and not self.get_rawobject()):
@@ -1045,6 +1054,7 @@ class W_CPPInstance(W_Root):
     @unwrap_spec(value=bool)
     def fset_python_owns(self, space, value):
         self.python_owns = space.is_true(value)
+        self._opt_register_finalizer()
 
     def get_cppthis(self, calling_scope):
         return self.cppclass.get_cppthis(self, calling_scope)
@@ -1143,16 +1153,14 @@ class W_CPPInstance(W_Root):
                                (self.cppclass.name, rffi.cast(rffi.ULONG, self.get_rawobject())))
 
     def destruct(self):
-        assert isinstance(self, W_CPPInstance)
         if self._rawobject and not self.isref:
             memory_regulator.unregister(self)
             capi.c_destruct(self.space, self.cppclass, self._rawobject)
             self._rawobject = capi.C_NULL_OBJECT
 
-    def __del__(self):
+    def _finalize_(self):
         if self.python_owns:
-            self.enqueue_for_destruction(self.space, W_CPPInstance.destruct,
-                                         '__del__() method of ')
+            self.destruct()
 
 W_CPPInstance.typedef = TypeDef(
     'CPPInstance',

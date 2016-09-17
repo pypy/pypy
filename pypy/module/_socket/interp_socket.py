@@ -151,9 +151,23 @@ def ipaddr_from_object(space, w_sockaddr):
 
 
 class W_Socket(W_Root):
+    w_tb = None  # String representation of the traceback at creation time
+
     def __init__(self, space, sock):
+        self.space = space
         self.sock = sock
         register_socket(space, sock)
+        if self.space.sys.track_resources:
+            self.w_tb = self.space.format_traceback()
+            self.register_finalizer(space)
+
+    def _finalize_(self):
+        is_open = self.sock.fd >= 0
+        if is_open and self.space.sys.track_resources:
+            w_repr = self.space.repr(self)
+            str_repr = self.space.str_w(w_repr)
+            w_msg = self.space.wrap("WARNING: unclosed " + str_repr)
+            self.space.resource_warning(w_msg, self.w_tb)
 
     def get_type_w(self, space):
         return space.wrap(self.sock.type)
@@ -296,7 +310,7 @@ class W_Socket(W_Root):
             except SocketError as e:
                 raise converted_error(space, e)
         buflen = space.int_w(w_buflen)
-        return space.wrap(self.sock.getsockopt(level, optname, buflen))
+        return space.newbytes(self.sock.getsockopt(level, optname, buflen))
 
     def gettimeout_w(self, space):
         """gettimeout() -> timeout
@@ -345,7 +359,7 @@ class W_Socket(W_Root):
             data = self.sock.recv(buffersize, flags)
         except SocketError as e:
             raise converted_error(space, e)
-        return space.wrap(data)
+        return space.newbytes(data)
 
     @unwrap_spec(buffersize='nonnegint', flags=int)
     def recvfrom_w(self, space, buffersize, flags=0):
@@ -359,7 +373,7 @@ class W_Socket(W_Root):
                 w_addr = addr_as_object(addr, self.sock.fd, space)
             else:
                 w_addr = space.w_None
-            return space.newtuple([space.wrap(data), w_addr])
+            return space.newtuple([space.newbytes(data), w_addr])
         except SocketError as e:
             raise converted_error(space, e)
 
@@ -436,7 +450,7 @@ class W_Socket(W_Root):
         except OperationError as e:
             if e.async(space):
                 raise
-            optval = space.str_w(w_optval)
+            optval = space.bytes_w(w_optval)
             try:
                 self.sock.setsockopt(level, optname, optval)
             except SocketError as e:

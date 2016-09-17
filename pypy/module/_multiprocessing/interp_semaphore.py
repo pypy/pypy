@@ -430,11 +430,12 @@ else:
 
 
 class W_SemLock(W_Root):
-    def __init__(self, handle, kind, maxvalue):
+    def __init__(self, space, handle, kind, maxvalue):
         self.handle = handle
         self.kind = kind
         self.count = 0
         self.maxvalue = maxvalue
+        self.register_finalizer(space)
 
     def kind_get(self, space):
         return space.newint(self.kind)
@@ -508,7 +509,7 @@ class W_SemLock(W_Root):
     @unwrap_spec(kind=int, maxvalue=int)
     def rebuild(space, w_cls, w_handle, kind, maxvalue):
         self = space.allocate_instance(W_SemLock, w_cls)
-        self.__init__(handle_w(space, w_handle), kind, maxvalue)
+        self.__init__(space, handle_w(space, w_handle), kind, maxvalue)
         return space.wrap(self)
 
     def enter(self, space):
@@ -517,7 +518,7 @@ class W_SemLock(W_Root):
     def exit(self, space, __args__):
         self.release(space)
 
-    def __del__(self):
+    def _finalize_(self):
         delete_semaphore(self.handle)
 
 @unwrap_spec(kind=int, value=int, maxvalue=int)
@@ -534,7 +535,7 @@ def descr_new(space, w_subtype, kind, value, maxvalue):
         raise wrap_oserror(space, e)
 
     self = space.allocate_instance(W_SemLock, w_subtype)
-    self.__init__(handle, kind, maxvalue)
+    self.__init__(space, handle, kind, maxvalue)
 
     return space.wrap(self)
 

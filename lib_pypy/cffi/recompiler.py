@@ -275,6 +275,8 @@ class Recompiler:
     def write_c_source_to_f(self, f, preamble):
         self._f = f
         prnt = self._prnt
+        if self.ffi._embedding is not None:
+            prnt('#define _CFFI_USE_EMBEDDING')
         #
         # first the '#include' (actually done by inlining the file's content)
         lines = self._rel_readlines('_cffi_include.h')
@@ -513,7 +515,7 @@ class Recompiler:
                                                     tovar, errcode)
             return
         #
-        elif isinstance(tp, (model.StructOrUnion, model.EnumType)):
+        elif isinstance(tp, model.StructOrUnionOrEnum):
             # a struct (not a struct pointer) as a function argument
             self._prnt('  if (_cffi_to_c((char *)&%s, _cffi_type(%d), %s) < 0)'
                       % (tovar, self._gettypenum(tp), fromvar))
@@ -570,7 +572,7 @@ class Recompiler:
         elif isinstance(tp, model.ArrayType):
             return '_cffi_from_c_pointer((char *)%s, _cffi_type(%d))' % (
                 var, self._gettypenum(model.PointerType(tp.item)))
-        elif isinstance(tp, model.StructType):
+        elif isinstance(tp, model.StructOrUnion):
             if tp.fldnames is None:
                 raise TypeError("'%s' is used as %s, but is opaque" % (
                     tp._get_c_name(), context))
@@ -683,13 +685,11 @@ class Recompiler:
             rng = range(len(tp.args))
             for i in rng:
                 prnt('  PyObject *arg%d;' % i)
-            prnt('  PyObject **aa;')
             prnt()
-            prnt('  aa = _cffi_unpack_args(args, %d, "%s");' % (len(rng), name))
-            prnt('  if (aa == NULL)')
+            prnt('  if (!PyArg_UnpackTuple(args, "%s", %d, %d, %s))' % (
+                name, len(rng), len(rng),
+                ', '.join(['&arg%d' % i for i in rng])))
             prnt('    return NULL;')
-            for i in rng:
-                prnt('  arg%d = aa[%d];' % (i, i))
         prnt()
         #
         for i, type in enumerate(tp.args):
@@ -814,7 +814,7 @@ class Recompiler:
             try:
                 if ftype.is_integer_type() or fbitsize >= 0:
                     # accept all integers, but complain on float or double
-                    prnt("  (void)((p->%s) << 1);  /* check that '%s.%s' is "
+                    prnt("  (void)((p->%s) | 0);  /* check that '%s.%s' is "
                          "an integer */" % (fname, cname, fname))
                     continue
                 # only accept exactly the type declared, except that '[]'
@@ -862,6 +862,8 @@ class Recompiler:
             enumfields = list(tp.enumfields())
             for fldname, fldtype, fbitsize, fqual in enumfields:
                 fldtype = self._field_type(tp, fldname, fldtype)
+                self._check_not_opaque(fldtype,
+                                       "field '%s.%s'" % (tp.name, fldname))
                 # cname is None for _add_missing_struct_unions() only
                 op = OP_NOOP
                 if fbitsize >= 0:
@@ -910,6 +912,13 @@ class Recompiler:
             StructUnionExpr(tp.name, type_index, flags, size, align, comment,
                             first_field_index, c_fields))
         self._seen_struct_unions.add(tp)
+
+    def _check_not_opaque(self, tp, location):
+        while isinstance(tp, model.ArrayType):
+            tp = tp.item
+        if isinstance(tp, model.StructOrUnion) and tp.fldtypes is None:
+            raise TypeError(
+                "%s is of an opaque type (not declared in cdef())" % location)
 
     def _add_missing_struct_unions(self):
         # not very nice, but some struct declarations might be missing
@@ -991,7 +1000,7 @@ class Recompiler:
             prnt('static int %s(unsigned long long *o)' % funcname)
             prnt('{')
             prnt('  int n = (%s) <= 0;' % (name,))
-            prnt('  *o = (unsigned long long)((%s) << 0);'
+            prnt('  *o = (unsigned long long)((%s) | 0);'
                  '  /* check that %s is an integer */' % (name, name))
             if check_value is not None:
                 if check_value > 0:
@@ -1250,7 +1259,7 @@ class Recompiler:
 
     def _emit_bytecode_UnknownIntegerType(self, tp, index):
         s = ('_cffi_prim_int(sizeof(%s), (\n'
-             '           ((%s)-1) << 0 /* check that %s is an integer type */\n'
+             '           ((%s)-1) | 0 /* check that %s is an integer type */\n'
              '         ) <= 0)' % (tp.name, tp.name, tp.name))
         self.cffi_types[index] = CffiOp(OP_PRIMITIVE, s)
 
@@ -1422,7 +1431,7 @@ def _patch_for_target(patchlist, target):
 
 def recompile(ffi, module_name, preamble, tmpdir='.', call_c_compiler=True,
               c_file=None, source_extension='.c', extradir=None,
-              compiler_verbose=1, target=None, **kwds):
+              compiler_verbose=1, target=None, debug=None, **kwds):
     if not isinstance(module_name, str):
         module_name = module_name.encode('ascii')
     if ffi._windows_unicode:
@@ -1458,7 +1467,8 @@ def recompile(ffi, module_name, preamble, tmpdir='.', call_c_compiler=True,
                 if target != '*':
                     _patch_for_target(patchlist, target)
                 os.chdir(tmpdir)
-                outputfilename = ffiplatform.compile('.', ext, compiler_verbose)
+                outputfilename = ffiplatform.compile('.', ext,
+                                                     compiler_verbose, debug)
             finally:
                 os.chdir(cwd)
                 _unpatch_meths(patchlist)

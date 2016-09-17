@@ -4,7 +4,7 @@ from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.function import Function, Method
 from pypy.interpreter.module import Module
 from pypy.interpreter.pytraceback import PyTraceback
-from pypy.interpreter.generator import GeneratorIteratorWithDel
+from pypy.interpreter.generator import GeneratorIterator
 from rpython.rlib.objectmodel import instantiate
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.objspace.std.iterobject import W_SeqIterObject, W_ReverseSeqIterObject
@@ -59,7 +59,7 @@ def traceback_new(space):
     return space.wrap(tb)
 
 def generator_new(space):
-    new_generator = instantiate(GeneratorIteratorWithDel)
+    new_generator = instantiate(GeneratorIterator)
     return space.wrap(new_generator)
 
 @unwrap_spec(current=int, remaining=int, step=int)

@@ -160,7 +160,7 @@ def _catch_bz2_error(space, bzerror):
         raise oefmt(space.w_SystemError,
                     "the bz2 library has received wrong parameters")
     elif bzerror == BZ_MEM_ERROR:
-        raise OperationError(space.w_MemoryError, space.wrap(""))
+        raise OperationError(space.w_MemoryError, space.w_None)
     elif bzerror in (BZ_DATA_ERROR, BZ_DATA_ERROR_MAGIC):
         raise oefmt(space.w_IOError, "invalid data stream")
     elif bzerror == BZ_IO_ERROR:
@@ -518,8 +518,14 @@ class W_BZ2Compressor(W_Root):
     def __init__(self, space, compresslevel):
         self.space = space
         self.bzs = lltype.malloc(bz_stream.TO, flavor='raw', zero=True)
-        self.running = False
-        self._init_bz2comp(compresslevel)
+        try:
+            self.running = False
+            self._init_bz2comp(compresslevel)
+        except:
+            lltype.free(self.bzs, flavor='raw')
+            self.bzs = lltype.nullptr(bz_stream.TO)
+            raise
+        self.register_finalizer(space)
 
     def _init_bz2comp(self, compresslevel):
         if compresslevel < 1 or compresslevel > 9:
@@ -532,9 +538,12 @@ class W_BZ2Compressor(W_Root):
 
         self.running = True
 
-    def __del__(self):
-        BZ2_bzCompressEnd(self.bzs)
-        lltype.free(self.bzs, flavor='raw')
+    def _finalize_(self):
+        bzs = self.bzs
+        if bzs:
+            self.bzs = lltype.nullptr(bz_stream.TO)
+            BZ2_bzCompressEnd(bzs)
+            lltype.free(bzs, flavor='raw')
 
     @unwrap_spec(data='bufferstr')
     def compress(self, data):
@@ -548,7 +557,7 @@ class W_BZ2Compressor(W_Root):
         datasize = len(data)
 
         if datasize == 0:
-            return self.space.wrap("")
+            return self.space.newbytes("")
 
         if not self.running:
             raise oefmt(self.space.w_ValueError,
@@ -573,7 +582,7 @@ class W_BZ2Compressor(W_Root):
                         out.prepare_next_chunk()
 
                 res = out.make_result_string()
-                return self.space.wrap(res)
+                return self.space.newbytes(res)
 
     def flush(self):
         if not self.running:
@@ -593,7 +602,7 @@ class W_BZ2Compressor(W_Root):
                     out.prepare_next_chunk()
 
             res = out.make_result_string()
-            return self.space.wrap(res)
+            return self.space.newbytes(res)
 
 W_BZ2Compressor.typedef = TypeDef("BZ2Compressor",
     __doc__ = W_BZ2Compressor.__doc__,
@@ -621,10 +630,16 @@ class W_BZ2Decompressor(W_Root):
         self.space = space
 
         self.bzs = lltype.malloc(bz_stream.TO, flavor='raw', zero=True)
-        self.running = False
-        self.unused_data = ""
+        try:
+            self.running = False
+            self.unused_data = ""
 
-        self._init_bz2decomp()
+            self._init_bz2decomp()
+        except:
+            lltype.free(self.bzs, flavor='raw')
+            self.bzs = lltype.nullptr(bz_stream.TO)
+            raise
+        self.register_finalizer(space)
 
     def _init_bz2decomp(self):
         bzerror = BZ2_bzDecompressInit(self.bzs, 0, 0)
@@ -633,9 +648,12 @@ class W_BZ2Decompressor(W_Root):
 
         self.running = True
 
-    def __del__(self):
-        BZ2_bzDecompressEnd(self.bzs)
-        lltype.free(self.bzs, flavor='raw')
+    def _finalize_(self):
+        bzs = self.bzs
+        if bzs:
+            self.bzs = lltype.nullptr(bz_stream.TO)
+            BZ2_bzDecompressEnd(bzs)
+            lltype.free(bzs, flavor='raw')
 
     @unwrap_spec(data='bufferstr')
     def decompress(self, data):
@@ -651,7 +669,7 @@ class W_BZ2Decompressor(W_Root):
             raise oefmt(self.space.w_EOFError,
                         "end of stream was already found")
         if data == '':
-            return self.space.wrap('')
+            return self.space.newbytes('')
 
         in_bufsize = len(data)
 
@@ -680,7 +698,7 @@ class W_BZ2Decompressor(W_Root):
                         out.prepare_next_chunk()
 
                 res = out.make_result_string()
-                return self.space.wrap(res)
+                return self.space.newbytes(res)
 
 
 W_BZ2Decompressor.typedef = TypeDef("BZ2Decompressor",

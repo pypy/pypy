@@ -51,6 +51,11 @@ def mapdict_cache_counter(space, name):
                            space.newint(cache.misses.get(name, 0))])
 
 def builtinify(space, w_func):
+    """To implement at app-level modules that are, in CPython,
+    implemented in C: this decorator protects a function from being ever
+    bound like a method.  Useful because some tests do things like put
+    a "built-in" function on a class and access it via the instance.
+    """
     from pypy.interpreter.function import Function, BuiltinFunction
     func = space.interp_w(Function, w_func)
     bltn = BuiltinFunction(func)

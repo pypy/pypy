@@ -1,14 +1,13 @@
 from pypy.interpreter.error import oefmt
 from rpython.rlib import jit
-from pypy.module.micronumpy import support, constants as NPY
+from pypy.module.micronumpy import constants as NPY
 from pypy.module.micronumpy.base import W_NDimArray
 
 
 # structures to describe slicing
 
 class BaseChunk(object):
-    _attrs_ = ['step','out_dim']
-    pass
+    _attrs_ = ['step', 'out_dim']
 
 
 class Chunk(BaseChunk):
@@ -36,6 +35,7 @@ class Chunk(BaseChunk):
 class IntegerChunk(BaseChunk):
     input_dim = 1
     out_dim = 0
+
     def __init__(self, w_idx):
         self.w_idx = w_idx
 
@@ -70,6 +70,7 @@ class NewAxisChunk(Chunk):
 class EllipsisChunk(BaseChunk):
     input_dim = 0
     out_dim = 0
+
     def __init__(self):
         pass
 
@@ -80,6 +81,7 @@ class EllipsisChunk(BaseChunk):
 class BooleanChunk(BaseChunk):
     input_dim = 1
     out_dim = 1
+
     def __init__(self, w_idx):
         self.w_idx = w_idx
 

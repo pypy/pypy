@@ -109,6 +109,7 @@ syscall_kevent = rffi.llexternal(
 class W_Kqueue(W_Root):
     def __init__(self, space, kqfd):
         self.kqfd = kqfd
+        self.register_finalizer(space)
 
     def descr__new__(space, w_subtype):
         kqfd = syscall_kqueue()
@@ -120,7 +121,7 @@ class W_Kqueue(W_Root):
     def descr_fromfd(space, w_cls, fd):
         return space.wrap(W_Kqueue(space, fd))
 
-    def __del__(self):
+    def _finalize_(self):
         self.close()
 
     def get_closed(self):

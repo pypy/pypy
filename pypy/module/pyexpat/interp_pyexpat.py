@@ -421,8 +421,11 @@ class Cache:
 
 
 class W_XMLParserType(W_Root):
+    id = -1
+
     def __init__(self, space, parser, w_intern):
         self.itself = parser
+        self.register_finalizer(space)
 
         self.w_intern = w_intern
 
@@ -445,14 +448,17 @@ class W_XMLParserType(W_Root):
             CallbackData(space, self))
         XML_SetUserData(self.itself, rffi.cast(rffi.VOIDP, self.id))
 
-    def __del__(self):
+    def _finalize_(self):
         if XML_ParserFree: # careful with CPython interpreter shutdown
-            XML_ParserFree(self.itself)
-        if global_storage:
+            if self.itself:
+                XML_ParserFree(self.itself)
+                self.itself = lltype.nullptr(XML_Parser.TO)
+        if global_storage and self.id >= 0:
             try:
                 global_storage.free_nonmoving_id(self.id)
             except KeyError:
                 pass    # maybe global_storage.clear() was already called
+            self.id = -1
 
     @unwrap_spec(flag=int)
     def SetParamEntityParsing(self, space, flag):

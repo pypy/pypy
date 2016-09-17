@@ -23,16 +23,15 @@ def set_unicode_db(newunicodedb):
 
 #### Constants
 
-# Identifying as _sre from Python 2.3 and onwards (at least up to 2.7)
-MAGIC = 20031017
-
 if sys.maxint > 2**32:
     MAXREPEAT = int(2**32 - 1)
+    MAXGROUPS = int(2**31 - 1)
 else:
     MAXREPEAT = int(2**31 - 1)
+    MAXGROUPS = int((2**31 / sys.maxint / 2) - 1)
 
 # In _sre.c this is bytesize of the code word type of the C implementation.
-# There it's 2 for normal Python builds and more for wide unicode builds (large 
+# There it's 2 for normal Python builds and more for wide unicode builds (large
 # enough to hold a 32-bit UCS-4 encoded character). Since here in pure Python
 # we only see re bytecodes as Python longs, we shouldn't have to care about the
 # codesize. But sre_compile will compile some stuff differently depending on the

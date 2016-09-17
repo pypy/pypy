@@ -343,7 +343,7 @@ class BufferedMixin:
         self._writer_reset_buf()
 
     def _write(self, space, data):
-        w_data = space.wrap(data)
+        w_data = space.newbytes(data)
         while True:
             try:
                 w_written = space.call_method(self.w_raw, "write", w_data)
@@ -415,7 +415,7 @@ class BufferedMixin:
         else:
             raise oefmt(space.w_ValueError,
                         "read length must be positive or -1")
-        return space.wrap(res)
+        return space.newbytes(res)
 
     @unwrap_spec(size=int)
     def peek_w(self, space, size=0):
@@ -432,7 +432,7 @@ class BufferedMixin:
             have = self._readahead()
             if have > 0:
                 data = ''.join(self.buffer[self.pos:self.pos+have])
-                return space.wrap(data)
+                return space.newbytes(data)
 
             # Fill the buffer from the raw stream, and copy it to the result
             self._reader_reset_buf()
@@ -442,7 +442,7 @@ class BufferedMixin:
                 size = 0
             self.pos = 0
             data = ''.join(self.buffer[:size])
-            return space.wrap(data)
+            return space.newbytes(data)
 
     @unwrap_spec(size=int)
     def read1_w(self, space, size):
@@ -452,7 +452,7 @@ class BufferedMixin:
         if size < 0:
             raise oefmt(space.w_ValueError, "read length must be positive")
         if size == 0:
-            return space.wrap("")
+            return space.newbytes("")
 
         with self.lock:
             # Return up to n bytes.  If at least one byte is buffered, we only
@@ -480,7 +480,7 @@ class BufferedMixin:
             endpos = self.pos + size
             data = ''.join(self.buffer[self.pos:endpos])
             self.pos = endpos
-            return space.wrap(data)
+            return space.newbytes(data)
 
     def _read_all(self, space):
         "Read all the file, don't update the cache"
@@ -505,7 +505,7 @@ class BufferedMixin:
                 if current_size == 0:
                     return w_data
                 break
-            data = space.str_w(w_data)
+            data = space.bytes_w(w_data)
             size = len(data)
             if size == 0:
                 break
@@ -513,7 +513,7 @@ class BufferedMixin:
             current_size += size
             if self.abs_pos != -1:
                 self.abs_pos += size
-        return space.wrap(builder.build())
+        return space.newbytes(builder.build())
 
     def _raw_read(self, space, buffer, start, length):
         length = intmask(length)
@@ -644,11 +644,11 @@ class BufferedMixin:
         else:
             pos = -1
         if pos >= 0:
-            w_res = space.wrap(''.join(self.buffer[self.pos:pos+1]))
+            w_res = space.newbytes(''.join(self.buffer[self.pos:pos+1]))
             self.pos = pos + 1
             return w_res
         if have == limit:
-            w_res = space.wrap(''.join(self.buffer[self.pos:self.pos+have]))
+            w_res = space.newbytes(''.join(self.buffer[self.pos:self.pos+have]))
             self.pos += have
             return w_res
 
@@ -690,7 +690,7 @@ class BufferedMixin:
                 written += have
                 if limit >= 0:
                     limit -= have
-            return space.wrap(''.join(chunks))
+            return space.newbytes(''.join(chunks))
 
     # ____________________________________________________
     # Write methods
@@ -952,9 +952,15 @@ class W_BufferedRWPair(W_BufferedIOBase):
             self.w_writer = None
             raise
 
-    def __del__(self):
-        self.clear_all_weakrefs()
+    def _finalize_(self):
         # Don't call the base __del__: do not close the files!
+        # Usually the _finalize_() method is not called at all because
+        # we set 'needs_to_finalize = False' in this class, so
+        # W_IOBase.__init__() won't call register_finalizer().
+        # However, this method might still be called: if the user
+        # makes an app-level subclass and adds a custom __del__.
+        pass
+    needs_to_finalize = False
 
     # forward to reader
     for method in ['read', 'peek', 'read1', 'readinto', 'readable']:
@@ -1018,7 +1024,6 @@ class W_BufferedRandom(BufferedMixin, W_BufferedIOBase):
             self._deprecated_max_buffer_size(space)
 
         self.state = STATE_ZERO
-
         check_readable_w(space, w_raw)
         check_writable_w(space, w_raw)
         check_seekable_w(space, w_raw)

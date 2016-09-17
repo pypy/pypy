@@ -35,7 +35,7 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
             ("test_GetSize_exception", "METH_NOARGS",
              """
                  PyObject* f = PyFloat_FromDouble(1.0);
-                 Py_ssize_t size = PyUnicode_GetSize(f);
+                 PyUnicode_GetSize(f);
 
                  Py_DECREF(f);
                  return NULL;
@@ -57,7 +57,6 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
              """
                  PyObject *s, *t;
                  Py_UNICODE* c;
-                 Py_ssize_t len;
 
                  s = PyUnicode_FromUnicode(NULL, 4);
                  if (s == NULL)
@@ -84,7 +83,7 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
              '''
                 PyObject* obj = (PyTuple_GetItem(args, 0));
                 long hash = ((PyUnicodeObject*)obj)->hash;
-                return PyLong_FromLong(hash);  
+                return PyLong_FromLong(hash);
              '''
              ),
             ])
@@ -110,6 +109,26 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         res = module.test_default_encoded_string(u"caf\xe9")
         assert isinstance(res, str)
         assert res == 'caf?'
+
+    def test_unicode_macros(self):
+        """The PyUnicode_* macros cast, and calls expecting that build."""
+        module = self.import_extension('foo', [
+             ("test_macro_invocations", "METH_NOARGS",
+             """
+                PyObject* o = PyUnicode_FromString("");
+                PyUnicodeObject* u = (PyUnicodeObject*)o;
+
+                PyUnicode_GET_SIZE(u);
+                PyUnicode_GET_SIZE(o);
+
+                PyUnicode_GET_DATA_SIZE(u);
+                PyUnicode_GET_DATA_SIZE(o);
+
+                PyUnicode_AS_UNICODE(o);
+                PyUnicode_AS_UNICODE(u);
+                return o;
+             """)])
+        assert module.test_macro_invocations() == u''
 
 class TestUnicode(BaseApiTest):
     def test_unicodeobject(self, space, api):
@@ -214,13 +233,13 @@ class TestUnicode(BaseApiTest):
         w_res = api.PyUnicode_AsUTF8String(w_u)
         assert space.type(w_res) is space.w_str
         assert space.unwrap(w_res) == 'sp\tm'
-    
+
     def test_decode_utf8(self, space, api):
         u = rffi.str2charp(u'sp\x134m'.encode("utf-8"))
         w_u = api.PyUnicode_DecodeUTF8(u, 5, None)
         assert space.type(w_u) is space.w_unicode
         assert space.unwrap(w_u) == u'sp\x134m'
-        
+
         w_u = api.PyUnicode_DecodeUTF8(u, 2, None)
         assert space.type(w_u) is space.w_unicode
         assert space.unwrap(w_u) == 'sp'
@@ -385,7 +404,7 @@ class TestUnicode(BaseApiTest):
         ustr = "abcdef"
         w_ustr = space.wrap(ustr.decode("ascii"))
         result = api.PyUnicode_AsASCIIString(w_ustr)
-        
+
         assert space.eq_w(space.wrap(ustr), result)
 
         w_ustr = space.wrap(u"abcd\xe9f")

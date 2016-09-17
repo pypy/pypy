@@ -5,7 +5,7 @@ from __future__ import with_statement
 from pypy.objspace.std import StdObjSpace
 from rpython.tool.udir import udir
 from pypy.tool.pytest.objspace import gettestobjspace
-from pypy.conftest import pypydir
+from pypy import pypydir
 from rpython.translator.c.test.test_extfunc import need_sparse_files
 from rpython.rlib import rposix
 import os
@@ -13,14 +13,15 @@ import py
 import sys
 import signal
 
+USEMODULES = ['binascii', 'posix', 'struct', 'time']
+if os.name != 'nt':
+    USEMODULES += ['fcntl']
+else:
+    # On windows, os.popen uses the subprocess module
+    USEMODULES += ['_rawffi', 'thread', 'signal']
+
 def setup_module(mod):
-    usemodules = ['binascii', 'posix', 'struct', 'time']
-    if os.name != 'nt':
-        usemodules += ['fcntl']
-    else:
-        # On windows, os.popen uses the subprocess module
-        usemodules += ['_rawffi', 'thread', 'signal']
-    mod.space = gettestobjspace(usemodules=usemodules)
+    mod.space = gettestobjspace(usemodules=USEMODULES)
     mod.path = udir.join('posixtestfile.txt')
     mod.path.write("this is a test")
     mod.path2 = udir.join('test_posix2-')
@@ -49,9 +50,10 @@ GET_POSIX = "(): import %s as m ; return m" % os.name
 
 
 class AppTestPosix:
+    spaceconfig = {'usemodules': USEMODULES}
 
     def setup_class(cls):
-        cls.space = space
+        space = cls.space
         cls.w_runappdirect = space.wrap(cls.runappdirect)
         cls.w_posix = space.appexec([], GET_POSIX)
         cls.w_path = space.wrap(str(path))
@@ -409,6 +411,8 @@ class AppTestPosix:
             os.write(slave_fd, 'x\n')
             data = os.read(master_fd, 100)
             assert data.startswith('x')
+            os.close(master_fd)
+            os.close(slave_fd)
 
     if hasattr(__import__(os.name), "forkpty"):
         def test_forkpty(self):
@@ -617,10 +621,12 @@ class AppTestPosix:
             assert os.geteuid() == self.geteuid
 
     if hasattr(os, 'setuid'):
+        @py.test.mark.skipif("sys.version_info < (2, 7, 4)")
         def test_os_setuid_error(self):
             os = self.posix
-            raises(OverflowError, os.setuid, -2**31-1)
+            raises(OverflowError, os.setuid, -2)
             raises(OverflowError, os.setuid, 2**32)
+            raises(OSError, os.setuid, -1)
 
     if hasattr(os, 'getgid'):
         def test_os_getgid(self):
@@ -663,10 +669,14 @@ class AppTestPosix:
             raises(OSError, os.getpgid, 1234567)
 
     if hasattr(os, 'setgid'):
+        @py.test.mark.skipif("sys.version_info < (2, 7, 4)")
         def test_os_setgid_error(self):
             os = self.posix
-            raises(OverflowError, os.setgid, -2**31-1)
+            raises(OverflowError, os.setgid, -2)
             raises(OverflowError, os.setgid, 2**32)
+            raises(OSError, os.setgid, -1)
+            raises(OSError, os.setgid, -1L)
+            raises(OSError, os.setgid, 2**32-1)
 
     if hasattr(os, 'getsid'):
         def test_os_getsid(self):
@@ -1145,14 +1155,10 @@ class AppTestPosix:
 
 class AppTestEnvironment(object):
     def setup_class(cls):
-        cls.space = space
-        cls.w_posix = space.appexec([], "(): import %s as m ; return m" % os.name)
-        cls.w_os = space.appexec([], "(): import os; return os")
         cls.w_path = space.wrap(str(path))
 
     def test_environ(self):
-        posix = self.posix
-        os = self.os
+        import posix
         assert posix.environ['PATH']
         del posix.environ['PATH']
         def fn(): posix.environ['PATH']
@@ -1160,7 +1166,7 @@ class AppTestEnvironment(object):
 
     if hasattr(__import__(os.name), "unsetenv"):
         def test_unsetenv_nonexisting(self):
-            os = self.os
+            import os
             os.unsetenv("XYZABC") #does not raise
             try:
                 os.environ["ABCABC"]
@@ -1178,8 +1184,6 @@ class AppTestEnvironment(object):
 
 class AppTestPosixUnicode:
     def setup_class(cls):
-        cls.space = space
-        cls.w_posix = space.appexec([], GET_POSIX)
         if cls.runappdirect:
             # Can't change encoding
             try:
@@ -1187,8 +1191,8 @@ class AppTestPosixUnicode:
             except UnicodeEncodeError:
                 py.test.skip("encoding not good enough")
         else:
-            cls.save_fs_encoding = space.sys.filesystemencoding
-            space.sys.filesystemencoding = "utf-8"
+            cls.save_fs_encoding = cls.space.sys.filesystemencoding
+            cls.space.sys.filesystemencoding = "utf-8"
 
     def teardown_class(cls):
         try:
@@ -1198,22 +1202,25 @@ class AppTestPosixUnicode:
 
     def test_stat_unicode(self):
         # test that passing unicode would not raise UnicodeDecodeError
+        import posix
         try:
-            self.posix.stat(u"ą")
+            posix.stat(u"ą")
         except OSError:
             pass
 
     def test_open_unicode(self):
         # Ensure passing unicode doesn't raise UnicodeEncodeError
+        import posix
         try:
-            self.posix.open(u"ą", self.posix.O_WRONLY)
+            posix.open(u"ą", posix.O_WRONLY)
         except OSError:
             pass
 
     def test_remove_unicode(self):
         # See 2 above ;)
+        import posix
         try:
-            self.posix.remove(u"ą")
+            posix.remove(u"ą")
         except OSError:
             pass
 

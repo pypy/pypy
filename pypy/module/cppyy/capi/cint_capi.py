@@ -82,9 +82,8 @@ _c_charp2TString = rffi.llexternal(
     releasegil=ts_helper,
     compilation_info=eci)
 def c_charp2TString(space, svalue):
-    charp = rffi.str2charp(svalue)
-    result = _c_charp2TString(charp)
-    rffi.free_charp(charp)
+    with rffi.scoped_view_charp(svalue) as charp:
+        result = _c_charp2TString(charp)
     return result
 _c_TString2TString = rffi.llexternal(
     "cppyy_TString2TString",

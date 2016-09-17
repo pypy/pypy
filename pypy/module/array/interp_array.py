@@ -30,16 +30,19 @@ def w_array(space, w_cls, typecode, __args__):
             raise oefmt(space.w_TypeError,
                         "array.array() does not take keyword arguments")
 
+    w_initializer_type = None
+    w_initializer = None
+    if len(__args__.arguments_w) > 0:
+        w_initializer = __args__.arguments_w[0]
+        w_initializer_type = space.type(w_initializer)
     for tc in unroll_typecodes:
         if typecode == tc:
             a = space.allocate_instance(types[tc].w_class, w_cls)
             a.__init__(space)
-
-            if len(__args__.arguments_w) > 0:
-                w_initializer = __args__.arguments_w[0]
-                if space.type(w_initializer) is space.w_str:
+            if w_initializer is not None:
+                if w_initializer_type is space.w_str:
                     a.descr_fromstring(space, w_initializer)
-                elif space.type(w_initializer) is space.w_list:
+                elif w_initializer_type is space.w_list:
                     a.descr_fromlist(space, w_initializer)
                 else:
                     a.extend(w_initializer, True)
@@ -225,11 +228,11 @@ class W_ArrayBase(W_Root):
         """
         size = self.len
         if size == 0:
-            return space.wrap('')
+            return space.newbytes('')
         cbuf = self._charbuf_start()
         s = rffi.charpsize2str(cbuf, size * self.itemsize)
         self._charbuf_stop()
-        return self.space.wrap(s)
+        return self.space.newbytes(s)
 
     def descr_fromstring(self, space, w_s):
         """ fromstring(string)
@@ -266,7 +269,7 @@ class W_ArrayBase(W_Root):
         except OverflowError:
             raise MemoryError
         w_item = space.call_method(w_f, 'read', space.wrap(size))
-        item = space.str_w(w_item)
+        item = space.bytes_w(w_item)
         if len(item) < size:
             n = len(item) % self.itemsize
             elems = max(0, len(item) - (len(item) % self.itemsize))
@@ -341,10 +344,10 @@ class W_ArrayBase(W_Root):
         else:
             args = [space.wrap(self.typecode)]
         try:
-            dct = space.getattr(self, space.wrap('__dict__'))
+            w_dict = space.getattr(self, space.wrap('__dict__'))
         except OperationError:
-            dct = space.w_None
-        return space.newtuple([space.type(self), space.newtuple(args), dct])
+            w_dict = space.w_None
+        return space.newtuple([space.type(self), space.newtuple(args), w_dict])
 
     def descr_copy(self, space):
         """ copy(array)
@@ -599,6 +602,18 @@ class ArrayBuffer(Buffer):
 
     def getlength(self):
         return self.array.len * self.array.itemsize
+
+    def getformat(self):
+        return self.array.typecode
+
+    def getitemsize(self):
+        return self.array.itemsize
+
+    def getndim(self):
+        return 1
+
+    def getstrides(self):
+        return [self.getitemsize()]
 
     def getitem(self, index):
         array = self.array

@@ -20,8 +20,9 @@ class MultibyteIncrementalBase(W_Root):
         self.codec = codec.codec
         self.name = codec.name
         self._initialize()
+        self.register_finalizer(space)
 
-    def __del__(self):
+    def _finalize_(self):
         self._free()
 
     def reset_w(self):
@@ -112,7 +113,7 @@ class MultibyteIncrementalEncoder(MultibyteIncrementalBase):
         pos = c_codecs.pypy_cjk_enc_inbuf_consumed(self.encodebuf)
         assert 0 <= pos <= len(object)
         self.pending = object[pos:]
-        return space.wrap(output)
+        return space.newbytes(output)
 
 
 @unwrap_spec(errors="str_or_None")

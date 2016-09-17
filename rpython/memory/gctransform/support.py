@@ -89,3 +89,11 @@ def ll_call_destructor(destrptr, destr_v, typename):
             write(2, " ignoring it\n")
         except:
             pass
+
+def ll_report_finalizer_error(e):
+    try:
+        write(2, "triggering finalizers raised an exception ")
+        write(2, str(e))
+        write(2, " ignoring it\n")
+    except:
+        pass

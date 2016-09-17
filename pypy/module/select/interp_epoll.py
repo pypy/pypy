@@ -53,6 +53,10 @@ EPOLL_CTL_ADD = cconfig["EPOLL_CTL_ADD"]
 EPOLL_CTL_MOD = cconfig["EPOLL_CTL_MOD"]
 EPOLL_CTL_DEL = cconfig["EPOLL_CTL_DEL"]
 
+DEF_REGISTER_EVENTMASK = (public_symbols["EPOLLIN"] |
+                          public_symbols["EPOLLOUT"] |
+                          public_symbols["EPOLLPRI"])
+
 epoll_create = rffi.llexternal(
     "epoll_create", [rffi.INT], rffi.INT, compilation_info=eci,
     save_err=rffi.RFFI_SAVE_ERRNO
@@ -76,6 +80,7 @@ epoll_wait = rffi.llexternal(
 class W_Epoll(W_Root):
     def __init__(self, space, epfd):
         self.epfd = epfd
+        self.register_finalizer(space)
 
     @unwrap_spec(sizehint=int)
     def descr__new__(space, w_subtype, sizehint=-1):
@@ -94,7 +99,7 @@ class W_Epoll(W_Root):
     def descr_fromfd(space, w_cls, fd):
         return space.wrap(W_Epoll(space, fd))
 
-    def __del__(self):
+    def _finalize_(self):
         self.close()
 
     def check_closed(self, space):
@@ -132,7 +137,7 @@ class W_Epoll(W_Root):
         self.close()
 
     @unwrap_spec(eventmask=int)
-    def descr_register(self, space, w_fd, eventmask=-1):
+    def descr_register(self, space, w_fd, eventmask=DEF_REGISTER_EVENTMASK):
         self.check_closed(space)
         self.epoll_ctl(space, EPOLL_CTL_ADD, w_fd, eventmask)
 
@@ -141,7 +146,7 @@ class W_Epoll(W_Root):
         self.epoll_ctl(space, EPOLL_CTL_DEL, w_fd, 0, ignore_ebadf=True)
 
     @unwrap_spec(eventmask=int)
-    def descr_modify(self, space, w_fd, eventmask=-1):
+    def descr_modify(self, space, w_fd, eventmask):
         self.check_closed(space)
         self.epoll_ctl(space, EPOLL_CTL_MOD, w_fd, eventmask)
 

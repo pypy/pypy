@@ -24,15 +24,15 @@ class Model:
     # this is the initial size of the trace - note that we probably
     # want something that would fit the inital "max_trace_length"
     INIT_SIZE = 30000
-    MIN_SHORT = 0
-    MAX_SHORT = 2**16 - 1
-    check_range = True
+    MIN_VALUE = 0
+    MAX_VALUE = 2**16 - 1
 
 class BigModel:
     INIT_SIZE = 30000
-    STORAGE_TP = lltype.Signed
-    check_range = False
-    # we can move SMALL ints here, if necessary
+    STORAGE_TP = rffi.UINT
+    MIN_VALUE = 0
+    MAX_VALUE = int(2**31 - 1)   # we could go to 2**32-1 on 64-bit, but
+                                 # that seems already far too huge
 
 def get_model(self):
     return _get_model(self.metainterp_sd)
@@ -295,9 +295,8 @@ class Trace(BaseTrace):
         if self._pos >= len(self._ops):
             # grow by 2X
             self._ops = self._ops + [rffi.cast(model.STORAGE_TP, 0)] * len(self._ops)
-        if model.check_range:
-            if not model.MIN_SHORT <= v <= model.MAX_SHORT:
-                raise FrontendTagOverflow
+        if not model.MIN_VALUE <= v <= model.MAX_VALUE:
+            raise FrontendTagOverflow
         self._ops[self._pos] = rffi.cast(model.STORAGE_TP, v)
         self._pos += 1
 

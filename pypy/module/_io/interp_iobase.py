@@ -59,6 +59,8 @@ class W_IOBase(W_Root):
         self.__IOBase_closed = False
         if add_to_autoflusher:
             get_autoflusher(space).add(self)
+        if self.needs_to_finalize:
+            self.register_finalizer(space)
 
     def getdict(self, space):
         return self.w_dict
@@ -71,13 +73,7 @@ class W_IOBase(W_Root):
             return True
         return False
 
-    def __del__(self):
-        self.clear_all_weakrefs()
-        self.enqueue_for_destruction(self.space, W_IOBase.destructor,
-                                     'internal __del__ of ')
-
-    def destructor(self):
-        assert isinstance(self, W_IOBase)
+    def _finalize_(self):
         space = self.space
         w_closed = space.findattr(self, space.wrap('closed'))
         try:
@@ -90,6 +86,7 @@ class W_IOBase(W_Root):
             # equally as bad, and potentially more frequent (because of
             # shutdown issues).
             pass
+    needs_to_finalize = True
 
     def _CLOSED(self):
         # Use this macro whenever you want to check the internal `closed`
@@ -195,7 +192,7 @@ class W_IOBase(W_Root):
                 length = space.len_w(w_readahead)
                 if length > 0:
                     n = 0
-                    buf = space.str_w(w_readahead)
+                    buf = space.bytes_w(w_readahead)
                     if limit >= 0:
                         while True:
                             if n >= length or n >= limit:
@@ -222,7 +219,7 @@ class W_IOBase(W_Root):
                 raise oefmt(space.w_IOError,
                             "peek() should have returned a bytes object, not "
                             "'%T'", w_read)
-            read = space.str_w(w_read)
+            read = space.bytes_w(w_read)
             if not read:
                 break
 
@@ -232,7 +229,7 @@ class W_IOBase(W_Root):
             if read[-1] == '\n':
                 break
 
-        return space.wrap(builder.build())
+        return space.newbytes(builder.build())
 
     def readlines_w(self, space, w_hint=None):
         hint = convert_size(space, w_hint)
@@ -342,11 +339,11 @@ class W_RawIOBase(W_IOBase):
 
             if not space.isinstance_w(w_data, space.w_str):
                 raise oefmt(space.w_TypeError, "read() should return bytes")
-            data = space.str_w(w_data)
+            data = space.bytes_w(w_data)
             if not data:
                 break
             builder.append(data)
-        return space.wrap(builder.build())
+        return space.newbytes(builder.build())
 
 W_RawIOBase.typedef = TypeDef(
     '_io._RawIOBase', W_IOBase.typedef,

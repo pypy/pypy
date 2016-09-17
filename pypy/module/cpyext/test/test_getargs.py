@@ -123,7 +123,6 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             return result;
             ''')
         assert 'foo\0bar\0baz' == pybuffer('foo\0bar\0baz')
-        skip('PyByteArrayObject not implemented yet')
         assert 'foo\0bar\0baz' == pybuffer(bytearray('foo\0bar\0baz'))
 
 
@@ -150,7 +149,6 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
         pybuffer = self.import_parser(
             '''
             Py_buffer buf1, buf2, buf3;
-            PyObject *result;
             if (!PyArg_ParseTuple(args, "s*s*s*", &buf1, &buf2, &buf3)) {
                 return NULL;
             }

@@ -231,11 +231,11 @@ class __extend__(W_NDimArray):
                     dim = i
                     idx = c.w_idx
                     chunks.pop(i)
-                    chunks.insert(0, SliceChunk(space.newslice(space.wrap(0), 
+                    chunks.insert(0, SliceChunk(space.newslice(space.wrap(0),
                                  space.w_None, space.w_None)))
                     break
             if dim > 0:
-                view = self.implementation.swapaxes(space, self, 0, dim) 
+                view = self.implementation.swapaxes(space, self, 0, dim)
             if dim >= 0:
                 view = new_view(space, self, chunks)
                 view.setitem_filter(space, idx, val_arr)
@@ -254,7 +254,7 @@ class __extend__(W_NDimArray):
                 idx = space.str_w(w_idx)
                 return self.getfield(space, idx)
         if space.is_w(w_idx, space.w_Ellipsis):
-            return self
+            return self.descr_view(space, space.type(self))
         elif isinstance(w_idx, W_NDimArray) and w_idx.get_dtype().is_bool():
             if w_idx.ndims() > 0:
                 w_ret = self.getitem_filter(space, w_idx)
@@ -443,7 +443,7 @@ class __extend__(W_NDimArray):
                         'array does not have imaginary part to set')
         self.implementation.set_imag(space, self, w_value)
 
-    def reshape(self, space, w_shape, order):
+    def reshape(self, space, w_shape, order=NPY.ANYORDER):
         new_shape = get_shape_from_iterable(space, self.get_size(), w_shape)
         new_impl = self.implementation.reshape(self, new_shape, order)
         if new_impl is not None:
@@ -563,7 +563,7 @@ class __extend__(W_NDimArray):
         l_w = []
         for i in range(self.get_shape()[0]):
             item_w = self.descr_getitem(space, space.wrap(i))
-            if (isinstance(item_w, W_NDimArray) or 
+            if (isinstance(item_w, W_NDimArray) or
                     isinstance(item_w, boxes.W_GenericBox)):
                 l_w.append(space.call_method(item_w, "tolist"))
             else:
@@ -740,7 +740,7 @@ class __extend__(W_NDimArray):
                         space.str_w(self.get_dtype().descr_repr(space)),
                         space.str_w(new_dtype.descr_repr(space)), casting)
         order  = order_converter(space, space.wrap(order), self.get_order())
-        if (not copy and new_dtype == self.get_dtype() 
+        if (not copy and new_dtype == self.get_dtype()
                 and (order in (NPY.KEEPORDER, NPY.ANYORDER) or order == self.get_order())
                 and (subok or type(self) is W_NDimArray)):
             return self
@@ -805,19 +805,19 @@ class __extend__(W_NDimArray):
         return w_result
 
     def buffer_w(self, space, flags):
-        return self.implementation.get_buffer(space, True)
+        return self.implementation.get_buffer(space, flags)
 
     def readbuf_w(self, space):
-        return self.implementation.get_buffer(space, True)
+        return self.implementation.get_buffer(space, space.BUF_FULL_RO)
 
     def writebuf_w(self, space):
-        return self.implementation.get_buffer(space, False)
+        return self.implementation.get_buffer(space, space.BUF_FULL)
 
     def charbuf_w(self, space):
-        return self.implementation.get_buffer(space, True).as_str()
+        return self.implementation.get_buffer(space, space.BUF_FULL_RO).as_str()
 
     def descr_get_data(self, space):
-        return space.newbuffer(self.implementation.get_buffer(space, False))
+        return space.newbuffer(self.implementation.get_buffer(space, space.BUF_FULL))
 
     @unwrap_spec(offset=int, axis1=int, axis2=int)
     def descr_diagonal(self, space, offset=0, axis1=0, axis2=1):
@@ -977,8 +977,7 @@ class __extend__(W_NDimArray):
     def descr_view(self, space, w_dtype=None, w_type=None):
         if not w_type and w_dtype:
             try:
-                if space.is_true(space.issubtype(
-                        w_dtype, space.gettypefor(W_NDimArray))):
+                if space.issubtype_w(w_dtype, space.gettypefor(W_NDimArray)):
                     w_type = w_dtype
                     w_dtype = None
             except OperationError as e:

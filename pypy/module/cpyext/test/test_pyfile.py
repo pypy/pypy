@@ -1,5 +1,6 @@
-from pypy.module.cpyext.api import fopen, fclose, fwrite
+from pypy.conftest import option
 from pypy.module.cpyext.test.test_api import BaseApiTest
+from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.object import Py_PRINT_RAW
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.tool.udir import udir
@@ -18,7 +19,7 @@ class TestFile(BaseApiTest):
         assert api.PyFile_CheckExact(w_file)
         assert not api.PyFile_Check(space.wrap("text"))
 
-        space.call_method(w_file, "write", space.wrap("text"))
+        space.call_method(w_file, "write", space.newbytes("text"))
         space.call_method(w_file, "close")
         assert (udir / "_test_file").read() == "text"
 
@@ -111,3 +112,50 @@ class TestFile(BaseApiTest):
         out, err = capfd.readouterr()
         out = out.replace('\r\n', '\n')
         assert out == " 1 23\n"
+
+
+class AppTestPyFile(AppTestCpythonExtensionBase):
+
+    def setup_class(cls):
+        from rpython.tool.udir import udir
+        if option.runappdirect:
+            cls.w_udir = str(udir)
+        else:
+            cls.w_udir = cls.space.wrap(str(udir))
+
+    def test_file_tell(self):
+        module = self.import_extension('foo', [
+            ("get_c_tell", "METH_O",
+             """
+                FILE * fp = PyFile_AsFile(args);
+                if (fp == NULL)
+                    return PyLong_FromLong(0);
+                return PyLong_FromLong(ftell(fp));
+             """),
+            ("read_10", "METH_O",
+             """
+                char s[10];
+                FILE * fp = PyFile_AsFile(args);
+                if (fp == NULL)
+                    return PyLong_FromLong(0);
+                fread(s, 1, 10, fp);
+                return PyLong_FromLong(ftell(fp));
+             """),
+            ])
+        filename = self.udir + "/_test_file"
+        with open(filename, 'w') as fid:
+            fid.write('3' * 122)
+        with open(filename, 'r') as fid:
+            s = fid.read(80)
+            t_py = fid.tell()
+            assert t_py == 80
+            t_c = module.get_c_tell(fid)
+            assert t_c == t_py
+            print '-------- tell ',t_c
+            t_c = module.read_10(fid)
+            assert t_c == t_py + 10
+            print '-------- tell ',t_c
+            t_py = fid.tell()
+            assert t_c == t_py, 'after a fread, c level ftell(fp) %d but PyFile.tell() %d' % (t_c, t_py)
+
+

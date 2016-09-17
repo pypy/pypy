@@ -12,7 +12,8 @@ from rpython.tool.sourcetools import compile2, func_with_new_name
 
 
 class TypeDef(object):
-    def __init__(self, __name, __base=None, __total_ordering__=None, **rawdict):
+    def __init__(self, __name, __base=None, __total_ordering__=None,
+                 __buffer=None, **rawdict):
         "NOT_RPYTHON: initialization-time only"
         self.name = __name
         if __base is None:
@@ -22,8 +23,13 @@ class TypeDef(object):
         else:
             bases = [__base]
         self.bases = bases
+        # Used in cpyext to fill tp_as_buffer slots
+        assert __buffer in {None, 'read-write', 'read'}, "Unknown value for __buffer"
+        self.buffer = __buffer
         self.heaptype = False
         self.hasdict = '__dict__' in rawdict
+        # no __del__: use an RPython _finalize_() method and register_finalizer
+        assert '__del__' not in rawdict
         self.weakrefable = '__weakref__' in rawdict
         self.doc = rawdict.pop('__doc__', None)
         for base in bases:
@@ -103,26 +109,20 @@ def default_identity_hash(space, w_obj):
 # we need two subclasses of the app-level type, one to add mapdict, and then one
 # to add del to not slow down the GC.
 
-def get_unique_interplevel_subclass(space, cls, needsdel=False):
+def get_unique_interplevel_subclass(space, cls):
     "NOT_RPYTHON: initialization-time only"
-    if hasattr(cls, '__del__') and getattr(cls, "handle_del_manually", False):
-        needsdel = False
     assert cls.typedef.acceptable_as_base_class
-    key = space, cls, needsdel
     try:
-        return _subclass_cache[key]
+        return _unique_subclass_cache[cls]
     except KeyError:
-        # XXX can save a class if cls already has a __del__
-        if needsdel:
-            cls = get_unique_interplevel_subclass(space, cls, False)
-        subcls = _getusercls(space, cls, needsdel)
-        assert key not in _subclass_cache
-        _subclass_cache[key] = subcls
+        subcls = _getusercls(cls)
+        assert cls not in _unique_subclass_cache
+        _unique_subclass_cache[cls] = subcls
         return subcls
 get_unique_interplevel_subclass._annspecialcase_ = "specialize:memo"
-_subclass_cache = {}
+_unique_subclass_cache = {}
 
-def _getusercls(space, cls, wants_del, reallywantdict=False):
+def _getusercls(cls, reallywantdict=False):
     from rpython.rlib import objectmodel
     from pypy.objspace.std.objectobject import W_ObjectObject
     from pypy.module.__builtin__.interp_classobj import W_InstanceObject
@@ -132,11 +132,10 @@ def _getusercls(space, cls, wants_del, reallywantdict=False):
     typedef = cls.typedef
     name = cls.__name__ + "User"
 
-    mixins_needed = []
     if cls is W_ObjectObject or cls is W_InstanceObject:
-        mixins_needed.append(_make_storage_mixin_size_n())
+        base_mixin = _make_storage_mixin_size_n()
     else:
-        mixins_needed.append(MapdictStorageMixin)
+        base_mixin = MapdictStorageMixin
     copy_methods = [BaseUserClassMapdict]
     if reallywantdict or not typedef.hasdict:
         # the type has no dict, mapdict to provide the dict
@@ -147,44 +146,12 @@ def _getusercls(space, cls, wants_del, reallywantdict=False):
         # support
         copy_methods.append(MapdictWeakrefSupport)
         name += "Weakrefable"
-    if wants_del:
-        # This subclass comes with an app-level __del__.  To handle
-        # it, we make an RPython-level __del__ method.  This
-        # RPython-level method is called directly by the GC and it
-        # cannot do random things (calling the app-level __del__ would
-        # be "random things").  So instead, we just call here
-        # enqueue_for_destruction(), and the app-level __del__ will be
-        # called later at a safe point (typically between bytecodes).
-        # If there is also an inherited RPython-level __del__, it is
-        # called afterwards---not immediately!  This base
-        # RPython-level __del__ is supposed to run only when the
-        # object is not reachable any more.  NOTE: it doesn't fully
-        # work: see issue #2287.
-        name += "Del"
-        parent_destructor = getattr(cls, '__del__', None)
-        def call_parent_del(self):
-            assert isinstance(self, subcls)
-            parent_destructor(self)
-        def call_applevel_del(self):
-            assert isinstance(self, subcls)
-            space.userdel(self)
-        class Proto(object):
-            def __del__(self):
-                self.clear_all_weakrefs()
-                self.enqueue_for_destruction(space, call_applevel_del,
-                                             'method __del__ of ')
-                if parent_destructor is not None:
-                    self.enqueue_for_destruction(space, call_parent_del,
-                                                 'internal destructor of ')
-        mixins_needed.append(Proto)
 
     class subcls(cls):
         user_overridden_class = True
-        for base in mixins_needed:
-            objectmodel.import_from_mixin(base)
+        objectmodel.import_from_mixin(base_mixin)
     for copycls in copy_methods:
         _copy_methods(copycls, subcls)
-    del subcls.base
     subcls.__name__ = name
     return subcls
 
@@ -236,7 +203,8 @@ def _make_descr_typecheck_wrapper(tag, func, extraargs, cls, use_closure):
     name = func.__name__
     extra = ', '.join(extraargs)
     from pypy.interpreter import pycode
-    argnames, _, _ = pycode.cpython_code_signature(func.func_code)
+    sig = pycode.cpython_code_signature(func.func_code)
+    argnames = sig.argnames
     if use_closure:
         if argnames[1] == 'space':
             args = "closure, space, obj"

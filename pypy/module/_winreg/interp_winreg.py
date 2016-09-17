@@ -14,11 +14,13 @@ def raiseWindowsError(space, errcode, context):
                                          space.wrap(message)]))
 
 class W_HKEY(W_Root):
-    def __init__(self, hkey):
+    def __init__(self, space, hkey):
         self.hkey = hkey
+        self.space = space
+        self.register_finalizer(space)
 
-    def descr_del(self, space):
-        self.Close(space)
+    def _finalize_(self):
+        self.Close(self.space)
 
     def as_int(self):
         return rffi.cast(rffi.SIZE_T, self.hkey)
@@ -64,7 +66,7 @@ On 64 bit windows, the result of this function is a long integer"""
 @unwrap_spec(key=int)
 def new_HKEY(space, w_subtype, key):
     hkey = rffi.cast(rwinreg.HKEY, key)
-    return space.wrap(W_HKEY(hkey))
+    return space.wrap(W_HKEY(space, hkey))
 descr_HKEY_new = interp2app(new_HKEY)
 
 W_HKEY.typedef = TypeDef(
@@ -91,7 +93,6 @@ __nonzero__ - Handles with an open object return true, otherwise false.
 __int__ - Converting a handle to an integer returns the Win32 handle.
 __cmp__ - Handle objects are compared using the handle value.""",
     __new__ = descr_HKEY_new,
-    __del__ = interp2app(W_HKEY.descr_del),
     __repr__ = interp2app(W_HKEY.descr_repr),
     __int__ = interp2app(W_HKEY.descr_int),
     __nonzero__ = interp2app(W_HKEY.descr_nonzero),
@@ -357,9 +358,15 @@ def convert_from_regdata(space, buf, buflen, typ):
 
     elif typ == rwinreg.REG_SZ or typ == rwinreg.REG_EXPAND_SZ:
         if not buflen:
-            return space.wrap("")
-        s = rffi.charp2strn(rffi.cast(rffi.CCHARP, buf), buflen)
-        return space.wrap(s)
+            s = ""
+        else:
+            # may or may not have a trailing NULL in the buffer.
+            buf = rffi.cast(rffi.CCHARP, buf)
+            if buf[buflen - 1] == '\x00':
+                buflen -= 1
+            s = rffi.charp2strn(buf, buflen)
+        w_s = space.wrap(s)
+        return space.call_method(w_s, 'decode', space.wrap('mbcs'))
 
     elif typ == rwinreg.REG_MULTI_SZ:
         if not buflen:
@@ -379,7 +386,7 @@ def convert_from_regdata(space, buf, buflen, typ):
         return space.newlist(l)
 
     else: # REG_BINARY and all other types
-        return space.wrap(rffi.charpsize2str(buf, buflen))
+        return space.newbytes(rffi.charpsize2str(buf, buflen))
 
 @unwrap_spec(value_name=str, typ=int)
 def SetValueEx(space, w_hkey, value_name, w_reserved, typ, w_value):
@@ -459,7 +466,7 @@ value_name is a string indicating the value to query"""
                     return space.newtuple([
                         convert_from_regdata(space, databuf,
                                              length, retType[0]),
-                        space.wrap(retType[0]),
+                        space.wrap(intmask(retType[0])),
                         ])
 
 @unwrap_spec(subkey=str)
@@ -480,7 +487,7 @@ If the function fails, an exception is raised."""
         ret = rwinreg.RegCreateKey(hkey, subkey, rethkey)
         if ret != 0:
             raiseWindowsError(space, ret, 'CreateKey')
-        return space.wrap(W_HKEY(rethkey[0]))
+        return space.wrap(W_HKEY(space, rethkey[0]))
 
 @unwrap_spec(subkey=str, res=int, sam=rffi.r_uint)
 def CreateKeyEx(space, w_hkey, subkey, res=0, sam=rwinreg.KEY_WRITE):
@@ -502,7 +509,7 @@ If the function fails, an exception is raised."""
                                      lltype.nullptr(rwin32.LPDWORD.TO))
         if ret != 0:
             raiseWindowsError(space, ret, 'CreateKeyEx')
-        return space.wrap(W_HKEY(rethkey[0]))
+        return space.wrap(W_HKEY(space, rethkey[0]))
 
 @unwrap_spec(subkey=str)
 def DeleteKey(space, w_hkey, subkey):
@@ -549,7 +556,7 @@ If the function fails, an EnvironmentError exception is raised."""
         ret = rwinreg.RegOpenKeyEx(hkey, subkey, res, sam, rethkey)
         if ret != 0:
             raiseWindowsError(space, ret, 'RegOpenKeyEx')
-        return space.wrap(W_HKEY(rethkey[0]))
+        return space.wrap(W_HKEY(space, rethkey[0]))
 
 @unwrap_spec(index=int)
 def EnumValue(space, w_hkey, index):
@@ -611,7 +618,7 @@ data_type is an integer that identifies the type of the value data."""
                                 space.wrap(rffi.charp2str(valuebuf)),
                                 convert_from_regdata(space, databuf,
                                                      length, retType[0]),
-                                space.wrap(retType[0]),
+                                space.wrap(intmask(retType[0])),
                                 ])
 
 @unwrap_spec(index=int)
@@ -688,7 +695,7 @@ If the function fails, an EnvironmentError exception is raised."""
         ret = rwinreg.RegConnectRegistry(machine, hkey, rethkey)
         if ret != 0:
             raiseWindowsError(space, ret, 'RegConnectRegistry')
-        return space.wrap(W_HKEY(rethkey[0]))
+        return space.wrap(W_HKEY(space, rethkey[0]))
 
 @unwrap_spec(source=unicode)
 def ExpandEnvironmentStrings(space, source):

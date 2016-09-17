@@ -74,7 +74,7 @@ def PySet_Clear(space, w_set):
     space.call_method(space.w_set, 'clear', w_set)
     return 0
 
-@cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
+@cpython_api([rffi.VOIDP], Py_ssize_t, error=CANNOT_FAIL)
 def PySet_GET_SIZE(space, w_s):
     """Macro form of PySet_Size() without error checking."""
     return space.int_w(space.len(w_s))

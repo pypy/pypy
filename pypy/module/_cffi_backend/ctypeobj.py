@@ -19,7 +19,6 @@ class W_CType(W_Root):
     # XXX this could be improved with an elidable method get_size()
     # that raises in case it's still -1...
 
-    cast_anything = False
     is_primitive_integer = False
     is_nonfunc_pointer_or_array = False
     is_indirect_arg_for_call_python = False
@@ -42,9 +41,6 @@ class W_CType(W_Root):
             return '0x%x' % rffi.cast(lltype.Unsigned, cdata)
         else:
             return 'NULL'
-
-    def is_char_ptr_or_array(self):
-        return False
 
     def is_unichar_ptr_or_array(self):
         return False
@@ -86,7 +82,7 @@ class W_CType(W_Root):
         raise oefmt(space.w_TypeError, "cannot initialize cdata '%s'",
                     self.name)
 
-    def convert_argument_from_object(self, cdata, w_ob):
+    def convert_argument_from_object(self, cdata, w_ob, keepalives, i):
         self.convert_from_object(cdata, w_ob)
         return False
 
@@ -146,6 +142,9 @@ class W_CType(W_Root):
         space = self.space
         raise oefmt(space.w_TypeError, "cannot add a cdata '%s' and a number",
                     self.name)
+
+    def nonzero(self, cdata):
+        return bool(cdata)
 
     def insert_name(self, extra, extra_position):
         name = '%s%s%s' % (self.name[:self.name_position],
@@ -230,10 +229,9 @@ class W_CType(W_Root):
     # __________ app-level attributes __________
     def dir(self):
         space = self.space
-        w_self = space.wrap(self)
         lst = [space.wrap(name)
                   for name in _name_of_attributes
-                  if space.findattr(w_self, space.wrap(name)) is not None]
+                  if space.findattr(self, space.wrap(name)) is not None]
         return space.newlist(lst)
 
     def _fget(self, attrchar):
@@ -256,6 +254,9 @@ class W_CType(W_Root):
     def fget_abi(self, space):      return self._fget('A')
     def fget_elements(self, space): return self._fget('e')
     def fget_relements(self, space):return self._fget('R')
+
+    def cdata_dir(self):
+        return []
 
 
 W_CType.typedef = TypeDef(

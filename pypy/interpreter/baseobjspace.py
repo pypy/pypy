@@ -11,7 +11,7 @@ from rpython.rlib.rarithmetic import r_uint, SHRT_MIN, SHRT_MAX, \
     INT_MIN, INT_MAX, UINT_MAX, USHRT_MAX
 
 from pypy.interpreter.executioncontext import (ExecutionContext, ActionFlag,
-    UserDelAction)
+    make_finalizer_queue)
 from pypy.interpreter.error import OperationError, new_exception_class, oefmt
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.miscutils import ThreadLocals, make_weak_value_dictionary
@@ -28,6 +28,7 @@ class W_Root(object):
     """This is the abstract root class of all wrapped objects that live
     in a 'normal' object space like StdObjSpace."""
     __slots__ = ('__weakref__',)
+    _must_be_light_finalizer_ = True
     user_overridden_class = False
 
     def getdict(self, space):
@@ -136,9 +137,8 @@ class W_Root(object):
         pass
 
     def clear_all_weakrefs(self):
-        """Call this at the beginning of interp-level __del__() methods
-        in subclasses.  It ensures that weakrefs (if any) are cleared
-        before the object is further destroyed.
+        """Ensures that weakrefs (if any) are cleared now.  This is
+        called by UserDelAction before the object is finalized further.
         """
         lifeline = self.getweakref()
         if lifeline is not None:
@@ -151,25 +151,37 @@ class W_Root(object):
             self.delweakref()
             lifeline.clear_all_weakrefs()
 
-    __already_enqueued_for_destruction = ()
+    def _finalize_(self):
+        """The RPython-level finalizer.
 
-    def enqueue_for_destruction(self, space, callback, descrname):
-        """Put the object in the destructor queue of the space.
-        At a later, safe point in time, UserDelAction will call
-        callback(self).  If that raises OperationError, prints it
-        to stderr with the descrname string.
-
-        Note that 'callback' will usually need to start with:
-            assert isinstance(self, W_SpecificClass)
+        By default, it is *not called*.  See self.register_finalizer().
+        Be ready to handle the case where the object is only half
+        initialized.  Also, in some cases the object might still be
+        visible to app-level after _finalize_() is called (e.g. if
+        there is a __del__ that resurrects).
         """
-        # this function always resurect the object, so when
-        # running on top of CPython we must manually ensure that
-        # we enqueue it only once
-        if not we_are_translated():
-            if callback in self.__already_enqueued_for_destruction:
-                return
-            self.__already_enqueued_for_destruction += (callback,)
-        space.user_del_action.register_callback(self, callback, descrname)
+
+    def register_finalizer(self, space):
+        """Register a finalizer for this object, so that
+        self._finalize_() will be called.  You must call this method at
+        most once.  Be ready to handle in _finalize_() the case where
+        the object is half-initialized, even if you only call
+        self.register_finalizer() at the end of the initialization.
+        This is because there are cases where the finalizer is already
+        registered before: if the user makes an app-level subclass with
+        a __del__.  (In that case only, self.register_finalizer() does
+        nothing, because the finalizer is already registered in
+        allocate_instance().)
+        """
+        if self.user_overridden_class and self.getclass(space).hasuserdel:
+            # already registered by space.allocate_instance()
+            if not we_are_translated():
+                assert space.finalizer_queue._already_registered(self)
+        else:
+            if not we_are_translated():
+                # does not make sense if _finalize_ is not overridden
+                assert self._finalize_.im_func is not W_Root._finalize_.im_func
+            space.finalizer_queue.register_finalizer(self)
 
     # hooks that the mapdict implementations needs:
     def _get_mapdict_map(self):
@@ -196,7 +208,8 @@ class W_Root(object):
     def buffer_w(self, space, flags):
         w_impl = space.lookup(self, '__buffer__')
         if w_impl is not None:
-            w_result = space.get_and_call_function(w_impl, self)
+            w_result = space.get_and_call_function(w_impl, self, 
+                                        space.newint(flags))
             if space.isinstance_w(w_result, space.w_buffer):
                 return w_result.buffer_w(space, flags)
         raise BufferInterfaceNotFound
@@ -204,7 +217,8 @@ class W_Root(object):
     def readbuf_w(self, space):
         w_impl = space.lookup(self, '__buffer__')
         if w_impl is not None:
-            w_result = space.get_and_call_function(w_impl, self)
+            w_result = space.get_and_call_function(w_impl, self,
+                                        space.newint(space.BUF_FULL_RO))
             if space.isinstance_w(w_result, space.w_buffer):
                 return w_result.readbuf_w(space)
         raise BufferInterfaceNotFound
@@ -212,7 +226,8 @@ class W_Root(object):
     def writebuf_w(self, space):
         w_impl = space.lookup(self, '__buffer__')
         if w_impl is not None:
-            w_result = space.get_and_call_function(w_impl, self)
+            w_result = space.get_and_call_function(w_impl, self,
+                                        space.newint(space.BUF_FULL))
             if space.isinstance_w(w_result, space.w_buffer):
                 return w_result.writebuf_w(space)
         raise BufferInterfaceNotFound
@@ -220,7 +235,8 @@ class W_Root(object):
     def charbuf_w(self, space):
         w_impl = space.lookup(self, '__buffer__')
         if w_impl is not None:
-            w_result = space.get_and_call_function(w_impl, self)
+            w_result = space.get_and_call_function(w_impl, self,
+                                        space.newint(space.BUF_FULL_RO))
             if space.isinstance_w(w_result, space.w_buffer):
                 return w_result.charbuf_w(space)
         raise BufferInterfaceNotFound
@@ -230,6 +246,9 @@ class W_Root(object):
 
     def unicode_w(self, space):
         self._typed_unwrap_error(space, "unicode")
+
+    def bytearray_list_of_chars_w(self, space):
+        self._typed_unwrap_error(space, "bytearray")
 
     def int_w(self, space, allow_conversion=True):
         # note that W_IntObject.int_w has a fast path and W_FloatObject.int_w
@@ -389,9 +408,9 @@ class ObjSpace(object):
         self.interned_strings = make_weak_value_dictionary(self, str, W_Root)
         self.actionflag = ActionFlag()    # changed by the signal module
         self.check_signal_action = None   # changed by the signal module
-        self.user_del_action = UserDelAction(self)
+        make_finalizer_queue(W_Root, self)
         self._code_of_sys_exc_info = None
-        
+
         # can be overridden to a subclass
         self.initialize()
 
@@ -1019,7 +1038,7 @@ class ObjSpace(object):
         return (None, None)
 
     def newlist_bytes(self, list_s):
-        return self.newlist([self.wrap(s) for s in list_s])
+        return self.newlist([self.newbytes(s) for s in list_s])
 
     def newlist_unicode(self, list_u):
         return self.newlist([self.wrap(u) for u in list_u])
@@ -1203,7 +1222,7 @@ class ObjSpace(object):
 
     def abstract_issubclass_w(self, w_cls1, w_cls2):
         # Equivalent to 'issubclass(cls1, cls2)'.
-        return self.is_true(self.issubtype(w_cls1, w_cls2))
+        return self.issubtype_w(w_cls1, w_cls2)
 
     def abstract_isinstance_w(self, w_obj, w_cls):
         # Equivalent to 'isinstance(obj, cls)'.
@@ -1225,16 +1244,16 @@ class ObjSpace(object):
     def exception_is_valid_obj_as_class_w(self, w_obj):
         if not self.isinstance_w(w_obj, self.w_type):
             return False
-        return self.is_true(self.issubtype(w_obj, self.w_BaseException))
+        return self.issubtype_w(w_obj, self.w_BaseException)
 
     def exception_is_valid_class_w(self, w_cls):
-        return self.is_true(self.issubtype(w_cls, self.w_BaseException))
+        return self.issubtype_w(w_cls, self.w_BaseException)
 
     def exception_getclass(self, w_obj):
         return self.type(w_obj)
 
     def exception_issubclass_w(self, w_cls1, w_cls2):
-        return self.is_true(self.issubtype(w_cls1, w_cls2))
+        return self.issubtype_w(w_cls1, w_cls2)
 
     def new_exception_class(self, *args, **kwargs):
         "NOT_RPYTHON; convenience method to create excceptions in modules"
@@ -1409,6 +1428,9 @@ class ObjSpace(object):
     BUF_FORMAT   = 0x0004
     BUF_ND       = 0x0008
     BUF_STRIDES  = 0x0010 | BUF_ND
+    BUF_C_CONTIGUOUS = 0x0020 | BUF_STRIDES
+    BUF_F_CONTIGUOUS = 0x0040 | BUF_STRIDES
+    BUF_ANY_CONTIGUOUS = 0x0080 | BUF_STRIDES
     BUF_INDIRECT = 0x0100 | BUF_STRIDES
 
     BUF_CONTIG_RO = BUF_ND
@@ -1518,7 +1540,7 @@ class ObjSpace(object):
         # unclear if there is any use at all for getting the bytes in
         # the unicode buffer.)
         try:
-            return self.str_w(w_obj)
+            return self.bytes_w(w_obj)
         except OperationError as e:
             if not e.match(self, self.w_TypeError):
                 raise
@@ -1688,6 +1710,23 @@ class ObjSpace(object):
                 "Python int too large for C unsigned short")
         return value
 
+    def c_uid_t_w(self, w_obj):
+        # xxx assumes that uid_t and gid_t are a C unsigned int.
+        # Equivalent to space.c_uint_w(), with the exception that
+        # it also accepts -1 and converts that to UINT_MAX, which
+        # is (uid_t)-1.  And values smaller than -1 raise
+        # OverflowError, not ValueError.
+        try:
+            return self.c_uint_w(w_obj)
+        except OperationError as e:
+            if e.match(self, self.w_ValueError):
+                # ValueError: cannot convert negative integer to unsigned
+                if self.int_w(w_obj) == -1:
+                    return UINT_MAX
+                raise oefmt(self.w_OverflowError,
+                            "user/group id smaller than minimum (-1)")
+            raise
+
     def truncatedint_w(self, w_obj, allow_conversion=True):
         # Like space.gateway_int_w(), but return the integer truncated
         # instead of raising OverflowError.  For obscure cases only.
@@ -1748,6 +1787,40 @@ class ObjSpace(object):
             import _warnings
             _warnings.warn(msg, warningcls, stacklevel=stacklevel)
         """)
+
+    def resource_warning(self, w_msg, w_tb):
+        self.appexec([w_msg, w_tb],
+                     """(msg, tb):
+            import sys
+            print >> sys.stderr, msg
+            if tb:
+                print >> sys.stderr, "Created at (most recent call last):"
+                print >> sys.stderr, tb
+        """)
+
+    def format_traceback(self):
+        # we need to disable track_resources before calling the traceback
+        # module. Else, it tries to open more files to format the traceback,
+        # the file constructor will call space.format_traceback etc., in an
+        # inifite recursion
+        flag = self.sys.track_resources
+        self.sys.track_resources = False
+        try:
+            return self.appexec([],
+                         """():
+                import sys, traceback
+                # the "1" is because we don't want to show THIS code
+                # object in the traceback
+                try:
+                    f = sys._getframe(1)
+                except ValueError:
+                    # this happens if you call format_traceback at the very beginning
+                    # of startup, when there is no bottom code object
+                    return '<no stacktrace available>'
+                return "".join(traceback.format_stack(f))
+            """)
+        finally:
+            self.sys.track_resources = flag
 
 
 class AppExecCache(SpaceCache):
@@ -1844,7 +1917,6 @@ ObjSpace.MethodTable = [
     ('get',             'get',       3, ['__get__']),
     ('set',             'set',       3, ['__set__']),
     ('delete',          'delete',    2, ['__delete__']),
-    ('userdel',         'del',       1, ['__del__']),
 ]
 
 ObjSpace.BuiltinModuleTable = [
@@ -1902,6 +1974,7 @@ ObjSpace.ExceptionTable = [
     'ZeroDivisionError',
     'RuntimeWarning',
     'PendingDeprecationWarning',
+    'UserWarning',
 ]
 
 if sys.platform.startswith("win"):

@@ -248,8 +248,8 @@ class _TestIntegration(LLJitMixin):
         tokens = [t() for t in get_stats().jitcell_token_wrefs]
         # Some loops have been freed
         assert None in tokens
-        # Loop with number 0, h(), has not been freed
-        assert 0 in [t.number for t in tokens if t]
+        # Loop with number 1, h(), has not been freed
+        assert 1 in [t.number for t in tokens if t]
 
 # ____________________________________________________________
 

@@ -12,13 +12,13 @@ from rpython.rlib import jit
 class W_SliceObject(W_Root):
     _immutable_fields_ = ['w_start', 'w_stop', 'w_step']
 
-    def __init__(w_self, w_start, w_stop, w_step):
+    def __init__(self, w_start, w_stop, w_step):
         assert w_start is not None
         assert w_stop is not None
         assert w_step is not None
-        w_self.w_start = w_start
-        w_self.w_stop = w_stop
-        w_self.w_step = w_step
+        self.w_start = w_start
+        self.w_stop = w_stop
+        self.w_step = w_step
 
     def unwrap(w_slice, space):
         return slice(space.unwrap(w_slice.w_start), space.unwrap(w_slice.w_stop), space.unwrap(w_slice.w_step))

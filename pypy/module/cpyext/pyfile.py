@@ -1,10 +1,11 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.rfile import c_setvbuf, _IONBF
 from pypy.module.cpyext.api import (
-    cpython_api, CANNOT_FAIL, CONST_STRING, FILEP, build_type_checkers, fdopen,
-    fileno)
+    cpython_api, CANNOT_FAIL, CONST_STRING, FILEP, build_type_checkers, c_fdopen)
 from pypy.module.cpyext.pyobject import PyObject
 from pypy.module.cpyext.object import Py_PRINT_RAW
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import (OperationError, oefmt, 
+    exception_from_saved_errno)
 from pypy.module._file.interp_file import W_File
 
 PyFile_Check, PyFile_CheckExact = build_type_checkers("File", W_File)
@@ -23,7 +24,7 @@ def PyFile_GetLine(space, w_obj, n):
     try:
         w_readline = space.getattr(w_obj, space.wrap('readline'))
     except OperationError:
-        raise oefmt(space.w_TypeError, 
+        raise oefmt(space.w_TypeError,
             "argument must be a file, or have a readline() method.")
 
     n = rffi.cast(lltype.Signed, n)
@@ -41,20 +42,35 @@ def PyFile_FromString(space, filename, mode):
     On success, return a new file object that is opened on the file given by
     filename, with a file mode given by mode, where mode has the same
     semantics as the standard C routine fopen().  On failure, return NULL."""
-    w_filename = space.wrap(rffi.charp2str(filename))
+    w_filename = space.newbytes(rffi.charp2str(filename))
     w_mode = space.wrap(rffi.charp2str(mode))
     return space.call_method(space.builtin, 'file', w_filename, w_mode)
 
-@cpython_api([PyObject], FILEP, error=CANNOT_FAIL)
+@cpython_api([PyObject], FILEP, error=lltype.nullptr(FILEP.TO))
 def PyFile_AsFile(space, w_p):
     """Return the file object associated with p as a FILE*.
     
     If the caller will ever use the returned FILE* object while
     the GIL is released it must also call the PyFile_IncUseCount() and
     PyFile_DecUseCount() functions as appropriate."""
+    if not PyFile_Check(space, w_p):
+        raise oefmt(space.w_IOError, 'first argument must be an open file')
     assert isinstance(w_p, W_File)
-    return fdopen(space.int_w(space.call_method(w_p, 'fileno')), 
-                     w_p.mode)
+    w_p.stream.flush_buffers()
+    try:
+        fd = space.int_w(space.call_method(w_p, 'fileno'))
+        mode = w_p.mode
+    except OperationError as e:
+        raise oefmt(space.w_IOError, 'could not call fileno') 
+    if (fd < 0 or not mode or mode[0] not in ['r', 'w', 'a', 'U'] or
+        ('U' in mode and ('w' in mode or 'a' in mode))):
+        raise oefmt(space.w_IOError, 'invalid fileno or mode') 
+    ret = c_fdopen(fd, mode)
+    if not ret:
+        raise exception_from_saved_errno(space, space.w_IOError)
+    # XXX fix this once use-file-star-for-file lands
+    c_setvbuf(ret, lltype.nullptr(rffi.CCHARP.TO), _IONBF, 0)
+    return ret
 
 @cpython_api([FILEP, CONST_STRING, CONST_STRING, rffi.VOIDP], PyObject)
 def PyFile_FromFile(space, fp, name, mode, close):

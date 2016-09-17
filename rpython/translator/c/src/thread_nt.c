@@ -258,5 +258,11 @@ static inline void mutex1_unlock(mutex1_t *mutex) {
 //#define pypy_lock_test_and_set(ptr, value)  see thread_nt.h
 #define atomic_increment(ptr)          InterlockedIncrement(ptr)
 #define atomic_decrement(ptr)          InterlockedDecrement(ptr)
+#ifdef YieldProcessor
+#  define RPy_YieldProcessor()         YieldProcessor()
+#else
+#  define RPy_YieldProcessor()         __asm { rep nop }
+#endif
+#define RPy_CompilerMemoryBarrier()    _ReadWriteBarrier()
 
 #include "src/thread_gil.c"

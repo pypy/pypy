@@ -213,6 +213,7 @@ def log_config(config, header="config used"):
         log.WARNING(warning)
 
 def main():
+    sys.setrecursionlimit(2000)  # PyPy can't translate within cpython's 1k limit
     targetspec_dic, translateconfig, config, args = parse_options_and_load_target()
     from rpython.translator import translator
     from rpython.translator import driver

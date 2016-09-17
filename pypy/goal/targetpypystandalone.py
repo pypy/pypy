@@ -9,7 +9,7 @@ from pypy.tool.ann_override import PyPyAnnotatorPolicy
 from rpython.config.config import to_optparse, make_dict, SUPPRESS_USAGE
 from rpython.config.config import ConflictConfigError
 from pypy.tool.option import make_objspace
-from pypy.conftest import pypydir
+from pypy import pypydir
 from rpython.rlib import rthread
 from pypy.module.thread import os_thread
 
@@ -239,6 +239,10 @@ class PyPyTarget(object):
                 raise Exception("Cannot use the --output option with PyPy "
                                 "when --shared is on (it is by default). "
                                 "See issue #1971.")
+            if config.translation.profopt is not None:
+                raise Exception("Cannot use the --profopt option "
+                                "when --shared is on (it is by default). "
+                                "See issue #2398.")
         if sys.platform == 'win32':
             libdir = thisdir.join('..', '..', 'libs')
             libdir.ensure(dir=1)
@@ -293,7 +297,7 @@ class PyPyTarget(object):
             self.hack_for_cffi_modules(driver)
 
         return self.get_entry_point(config)
-    
+
     def hack_for_cffi_modules(self, driver):
         # HACKHACKHACK
         # ugly hack to modify target goal from compile_* to build_cffi_imports
@@ -320,7 +324,7 @@ class PyPyTarget(object):
             while not basedir.join('include').exists():
                 _basedir = basedir.dirpath()
                 if _basedir == basedir:
-                    raise ValueError('interpreter %s not inside pypy repo', 
+                    raise ValueError('interpreter %s not inside pypy repo',
                                      str(exename))
                 basedir = _basedir
             modules = self.config.objspace.usemodules.getpaths()

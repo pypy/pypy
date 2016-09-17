@@ -36,12 +36,14 @@ class CodecState(object):
             w_errorhandler = lookup_error(space, errors)
             if decode:
                 w_cls = space.w_UnicodeDecodeError
+                w_input = space.newbytes(input)
             else:
                 w_cls = space.w_UnicodeEncodeError
+                w_input = space.newunicode(input)
             w_exc =  space.call_function(
                 w_cls,
                 space.wrap(encoding),
-                space.wrap(input),
+                w_input,
                 space.wrap(startpos),
                 space.wrap(endpos),
                 space.wrap(reason))
@@ -51,13 +53,10 @@ class CodecState(object):
                 or not space.isinstance_w(
                                  space.getitem(w_res, space.wrap(0)),
                                  space.w_unicode)):
-                if decode:
-                    msg = ("decoding error handler must return "
-                           "(unicode, int) tuple, not %R")
-                else:
-                    msg = ("encoding error handler must return "
-                           "(unicode, int) tuple, not %R")
-                raise oefmt(space.w_TypeError, msg, w_res)
+                raise oefmt(space.w_TypeError,
+                            "%s error handler must return (unicode, int) "
+                            "tuple, not %R",
+                            "decoding" if decode else "encoding", w_res)
             w_replace, w_newpos = space.fixedview(w_res, 2)
             newpos = space.int_w(w_newpos)
             if newpos < 0:
@@ -317,7 +316,7 @@ def encode(space, w_obj, w_encoding=None, errors='strict'):
 @unwrap_spec(errors='str_or_None')
 def readbuffer_encode(space, w_data, errors='strict'):
     s = space.getarg_w('s#', w_data)
-    return space.newtuple([space.wrap(s), space.wrap(len(s))])
+    return space.newtuple([space.newbytes(s), space.wrap(len(s))])
 
 @unwrap_spec(errors='str_or_None')
 def charbuffer_encode(space, w_data, errors='strict'):
@@ -380,7 +379,7 @@ def make_encoder_wrapper(name):
         state = space.fromcache(CodecState)
         func = getattr(runicode, rname)
         result = func(uni, len(uni), errors, state.encode_error_handler)
-        return space.newtuple([space.wrap(result), space.wrap(len(uni))])
+        return space.newtuple([space.newbytes(result), space.wrap(len(uni))])
     wrap_encoder.func_name = rname
     globals()[name] = wrap_encoder
 
@@ -401,7 +400,7 @@ def make_decoder_wrapper(name):
     wrap_decoder.func_name = rname
     globals()[name] = wrap_decoder
 
-for encoders in [
+for encoder in [
          "ascii_encode",
          "latin_1_encode",
          "utf_7_encode",
@@ -415,9 +414,9 @@ for encoders in [
          "raw_unicode_escape_encode",
          "unicode_internal_encode",
         ]:
-    make_encoder_wrapper(encoders)
+    make_encoder_wrapper(encoder)
 
-for decoders in [
+for decoder in [
          "ascii_decode",
          "latin_1_decode",
          "utf_7_decode",
@@ -429,7 +428,7 @@ for decoders in [
          "utf_32_le_decode",
          "raw_unicode_escape_decode",
          ]:
-    make_decoder_wrapper(decoders)
+    make_decoder_wrapper(decoder)
 
 if hasattr(runicode, 'str_decode_mbcs'):
     make_encoder_wrapper('mbcs_encode')
@@ -563,7 +562,7 @@ class Charmap_Encode:
 
         if space.isinstance_w(w_ch, space.w_str):
             # Charmap may return a string
-            return space.str_w(w_ch)
+            return space.bytes_w(w_ch)
         elif space.isinstance_w(w_ch, space.w_int):
             # Charmap may return a number
             x = space.int_w(w_ch)
@@ -611,7 +610,7 @@ def charmap_encode(space, uni, errors="strict", w_mapping=None):
     result = runicode.unicode_encode_charmap(
         uni, len(uni), errors,
         state.encode_error_handler, mapping)
-    return space.newtuple([space.wrap(result), space.wrap(len(uni))])
+    return space.newtuple([space.newbytes(result), space.wrap(len(uni))])
 
 
 @unwrap_spec(chars=unicode)
@@ -699,4 +698,4 @@ def escape_encode(space, data, errors='strict'):
 def escape_decode(space, data, errors='strict'):
     from pypy.interpreter.pyparser.parsestring import PyString_DecodeEscape
     result = PyString_DecodeEscape(space, data, errors, None)
-    return space.newtuple([space.wrap(result), space.wrap(len(data))])
+    return space.newtuple([space.newbytes(result), space.wrap(len(data))])

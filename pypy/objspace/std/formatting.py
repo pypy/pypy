@@ -551,7 +551,15 @@ def format_num_helper_generator(fmt, digits):
         try:
             w_value = maybe_int(space, w_value)
         except OperationError:
-            w_value = space.long(w_value)
+            try:
+                w_value = space.long(w_value)
+            except OperationError as operr:
+                if operr.match(space, space.w_TypeError):
+                    raise oefmt(
+                        space.w_TypeError,
+                        "%s format: a number is required, not %T", fmt, w_value)
+                else:
+                    raise
         try:
             value = space.int_w(w_value)
             return fmt % (value,)

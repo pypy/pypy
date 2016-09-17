@@ -852,9 +852,12 @@ def test_unpack_args():
     assert str(e2.value) == "foo0() takes no arguments (2 given)"
     assert str(e3.value) == "foo1() takes exactly one argument (0 given)"
     assert str(e4.value) == "foo1() takes exactly one argument (2 given)"
-    assert str(e5.value) == "foo2() takes exactly 2 arguments (0 given)"
-    assert str(e6.value) == "foo2() takes exactly 2 arguments (1 given)"
-    assert str(e7.value) == "foo2() takes exactly 2 arguments (3 given)"
+    assert str(e5.value) in ["foo2 expected 2 arguments, got 0",
+                             "foo2() takes exactly 2 arguments (0 given)"]
+    assert str(e6.value) in ["foo2 expected 2 arguments, got 1",
+                             "foo2() takes exactly 2 arguments (1 given)"]
+    assert str(e7.value) in ["foo2 expected 2 arguments, got 3",
+                             "foo2() takes exactly 2 arguments (3 given)"]
 
 def test_address_of_function():
     ffi = FFI()
@@ -1168,8 +1171,8 @@ def test_import_from_lib():
     assert MYFOO == 42
     assert hasattr(lib, '__dict__')
     assert lib.__all__ == ['MYFOO', 'mybar']   # but not 'myvar'
-    assert lib.__name__ == repr(lib)
-    assert lib.__class__ is type(lib)
+    assert lib.__name__ == '_CFFI_test_import_from_lib.lib'
+    assert lib.__class__ is type(sys)   # !! hack for help()
 
 def test_macro_var_callback():
     ffi = FFI()
@@ -1898,14 +1901,83 @@ def test_introspect_included_type():
 
 def test_introspect_order():
     ffi = FFI()
-    ffi.cdef("union aaa { int a; }; typedef struct ccc { int a; } b;")
-    ffi.cdef("union g   { int a; }; typedef struct cc  { int a; } bbb;")
-    ffi.cdef("union aa  { int a; }; typedef struct a   { int a; } bb;")
+    ffi.cdef("union CFFIaaa { int a; }; typedef struct CFFIccc { int a; } CFFIb;")
+    ffi.cdef("union CFFIg   { int a; }; typedef struct CFFIcc  { int a; } CFFIbbb;")
+    ffi.cdef("union CFFIaa  { int a; }; typedef struct CFFIa   { int a; } CFFIbb;")
     verify(ffi, "test_introspect_order", """
-        union aaa { int a; }; typedef struct ccc { int a; } b;
-        union g   { int a; }; typedef struct cc  { int a; } bbb;
-        union aa  { int a; }; typedef struct a   { int a; } bb;
+        union CFFIaaa { int a; }; typedef struct CFFIccc { int a; } CFFIb;
+        union CFFIg   { int a; }; typedef struct CFFIcc  { int a; } CFFIbbb;
+        union CFFIaa  { int a; }; typedef struct CFFIa   { int a; } CFFIbb;
     """)
-    assert ffi.list_types() == (['b', 'bb', 'bbb'],
-                                    ['a', 'cc', 'ccc'],
-                                    ['aa', 'aaa', 'g'])
+    assert ffi.list_types() == (['CFFIb', 'CFFIbb', 'CFFIbbb'],
+                                ['CFFIa', 'CFFIcc', 'CFFIccc'],
+                                ['CFFIaa', 'CFFIaaa', 'CFFIg'])
+
+def test_bool_in_cpp():
+    # this works when compiled as C, but in cffi < 1.7 it fails as C++
+    ffi = FFI()
+    ffi.cdef("bool f(void);")
+    lib = verify(ffi, "test_bool_in_cpp", "char f(void) { return 2; }")
+    assert lib.f() == 1
+
+def test_bool_in_cpp_2():
+    ffi = FFI()
+    ffi.cdef('int add(int a, int b);')
+    lib = verify(ffi, "test_bool_bug_cpp", '''
+        typedef bool _Bool;  /* there is a Windows header with this line */
+        int add(int a, int b)
+        {
+            return a + b;
+        }''', source_extension='.cpp')
+    c = lib.add(2, 3)
+    assert c == 5
+
+def test_struct_field_opaque():
+    ffi = FFI()
+    ffi.cdef("struct a { struct b b; };")
+    e = py.test.raises(TypeError, verify,
+                       ffi, "test_struct_field_opaque", "?")
+    assert str(e.value) == ("struct a: field 'a.b' is of an opaque"
+                            " type (not declared in cdef())")
+    ffi = FFI()
+    ffi.cdef("struct a { struct b b[2]; };")
+    e = py.test.raises(TypeError, verify,
+                       ffi, "test_struct_field_opaque", "?")
+    assert str(e.value) == ("struct a: field 'a.b' is of an opaque"
+                            " type (not declared in cdef())")
+    ffi = FFI()
+    ffi.cdef("struct a { struct b b[]; };")
+    e = py.test.raises(TypeError, verify,
+                       ffi, "test_struct_field_opaque", "?")
+    assert str(e.value) == ("struct a: field 'a.b' is of an opaque"
+                            " type (not declared in cdef())")
+
+def test_function_arg_opaque():
+    py.test.skip("can currently declare a function with an opaque struct "
+                 "as argument, but AFAICT it's impossible to call it later")
+
+def test_function_returns_opaque():
+    ffi = FFI()
+    ffi.cdef("struct a foo(int);")
+    e = py.test.raises(TypeError, verify,
+                       ffi, "test_function_returns_opaque", "?")
+    assert str(e.value) == ("function foo: 'struct a' is used as result type,"
+                            " but is opaque")
+
+def test_function_returns_union():
+    ffi = FFI()
+    ffi.cdef("union u1 { int a, b; }; union u1 f1(int);")
+    lib = verify(ffi, "test_function_returns_union", """
+        union u1 { int a, b; };
+        static union u1 f1(int x) { union u1 u; u.b = x; return u; }
+    """)
+    assert lib.f1(51).a == 51
+
+def test_function_returns_partial_struct():
+    ffi = FFI()
+    ffi.cdef("struct aaa { int a; ...; }; struct aaa f1(int);")
+    lib = verify(ffi, "test_function_returns_partial_struct", """
+        struct aaa { int b, a, c; };
+        static struct aaa f1(int x) { struct aaa s = {0}; s.a = x; return s; }
+    """)
+    assert lib.f1(52).a == 52
