@@ -395,10 +395,9 @@ class Coroutine(GeneratorOrCoroutine):
         if self.pycode is not None and \
            self.frame is not None and \
            self.frame.last_instr == -1:
-            # XXX PyErr_Occured in condition?
-            raise oefmt(self.space.w_RuntimeWarning,
-                        "coroutine '%s' was never awaited",
-                        self.get_qualname())
+            space = self.space
+            msg = u"coroutine '%s' was never awaited" % self.get_qualname()
+            space.warn(space.w_RuntimeWarning, space.wrap(msg))
         GeneratorOrCoroutine._finalize_(self)
 
 

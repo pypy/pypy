@@ -1037,10 +1037,6 @@ class __extend__(pyframe.PyFrame):
         assert in_generator is not None
         w_inputvalue = self.popvalue()
         w_gen = self.popvalue()
-        if isinstance(w_gen, Coroutine) and not isinstance(self, Coroutine):
-            raise oefmt(self.space.w_TypeError,
-                        "cannot 'yield from' a coroutine object "
-                        "from a generator")
         #
         in_generator.w_yielded_from = w_gen
         in_generator.next_yield_from(self, w_inputvalue)
@@ -1425,7 +1421,7 @@ class __extend__(pyframe.PyFrame):
             self.popvalue()
             itemcount -= 1
         self.pushvalue(w_dict)
-    
+
     def GET_YIELD_FROM_ITER(self, oparg, next_instr):
         from pypy.interpreter.astcompiler import consts
         from pypy.interpreter.generator import GeneratorIterator, Coroutine
