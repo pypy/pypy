@@ -270,6 +270,7 @@ class StdObjSpace(ObjSpace):
             return W_SmallLongObject.fromint(val)
         return W_LongObject.fromint(self, val)
 
+    @specialize.argtype(1)
     def newlong_from_rarith_int(self, val): # val is an rarithmetic type 
         return W_LongObject.fromrarith_int(val)
 
