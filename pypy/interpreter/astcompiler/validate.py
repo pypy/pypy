@@ -343,7 +343,7 @@ class AstValidator(ast.ASTVisitor):
         if self._len(node.keys) != self._len(node.values):
             raise ValidationError(
                 "Dict doesn't have the same number of keys as values")
-        self._validate_exprs(node.keys)
+        self._validate_exprs(node.keys, null_ok=True)
         self._validate_exprs(node.values)
 
     def visit_Set(self, node):
