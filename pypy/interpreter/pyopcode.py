@@ -1153,20 +1153,21 @@ class __extend__(pyframe.PyFrame):
                 operr.w_type,
                 operr.get_w_value(self.space),
                 w_traceback)
-            self.last_exception = old_last_exception
+            self.pushvalue(SApplicationException(old_last_exception))
         else:
             w_res = self.call_contextmanager_exit_function(
                 w_exitfunc,
                 self.space.w_None,
                 self.space.w_None,
                 self.space.w_None)
-        self.pushvalue(w_unroller)
+            self.pushvalue(self.space.w_None)
         self.pushvalue(w_res)
 
     def WITH_CLEANUP_FINISH(self, oparg, next_instr):
         w_suppress = self.popvalue()
         w_unroller = self.popvalue()
         if isinstance(w_unroller, SApplicationException):
+            self.last_exception = w_unroller.operr
             if self.space.is_true(w_suppress):
                 # __exit__() returned True -> Swallow the exception.
                 self.settopvalue(self.space.w_None)
