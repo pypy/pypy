@@ -1,7 +1,7 @@
 import py
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.function import Method, Function
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
@@ -308,7 +308,7 @@ class W_Profiler(W_Root):
                     return space.int_w(space.call_function(self.w_callable))
                 else:
                     return space.r_longlong_w(space.call_function(self.w_callable))
-            except OperationError, e:
+            except OperationError as e:
                 e.write_unraisable(space, "timer function ",
                                    self.w_callable)
                 return timer_size_int(0)
@@ -418,9 +418,9 @@ class W_Profiler(W_Root):
     def getstats(self, space):
         if self.w_callable is None:
             if self.is_enabled:
-                raise OperationError(space.w_RuntimeError,
-                    space.wrap("Profiler instance must be disabled "
-                               "before getting the stats"))
+                raise oefmt(space.w_RuntimeError,
+                            "Profiler instance must be disabled before "
+                            "getting the stats")
             if self.total_timestamp:
                 factor = self.total_real_time / float(self.total_timestamp)
             else:

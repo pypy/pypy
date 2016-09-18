@@ -31,9 +31,9 @@ def binary_helper_call(name):
 
 class ZARCHGuardToken(GuardToken):
     def __init__(self, cpu, gcmap, descr, failargs, faillocs,
-                 guard_opnum, frame_depth, fcond=c.cond_none):
+                 guard_opnum, frame_depth, faildescrindex, fcond=c.cond_none):
         GuardToken.__init__(self, cpu, gcmap, descr, failargs, faillocs,
-                            guard_opnum, frame_depth)
+                            guard_opnum, frame_depth, faildescrindex)
         self.fcond = fcond
 
 class AbstractZARCHBuilder(object):

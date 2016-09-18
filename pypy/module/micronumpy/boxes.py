@@ -187,8 +187,7 @@ class W_GenericBox(W_NumpyObject):
         elif (space.isinstance_w(w_item, space.w_tuple) and
                     space.len_w(w_item) == 0):
             return self
-        raise OperationError(space.w_IndexError, space.wrap(
-            "invalid index to scalar variable"))
+        raise oefmt(space.w_IndexError, "invalid index to scalar variable")
 
     def descr_iter(self, space):
         # Making numpy scalar non-iterable with a valid __getitem__ method
@@ -344,8 +343,7 @@ class W_GenericBox(W_NumpyObject):
     @unwrap_spec(decimals=int)
     def descr_round(self, space, decimals=0, w_out=None):
         if not space.is_none(w_out):
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                "out not supported"))
+            raise oefmt(space.w_NotImplementedError, "out not supported")
         return self.get_dtype(space).itemtype.round(self, decimals)
 
     def descr_astype(self, space, w_dtype):
@@ -357,9 +355,9 @@ class W_GenericBox(W_NumpyObject):
     def descr_view(self, space, w_dtype):
         from pypy.module.micronumpy.descriptor import W_Dtype
         try:
-            subclass = space.is_true(space.issubtype(
-                w_dtype, space.gettypefor(W_NDimArray)))
-        except OperationError, e:
+            subclass = space.issubtype_w(w_dtype,
+                                         space.gettypefor(W_NDimArray))
+        except OperationError as e:
             if e.match(space, space.w_TypeError):
                 subclass = False
             else:
@@ -370,14 +368,13 @@ class W_GenericBox(W_NumpyObject):
             dtype = space.interp_w(W_Dtype,
                 space.call_function(space.gettypefor(W_Dtype), w_dtype))
             if dtype.elsize == 0:
-                raise OperationError(space.w_TypeError, space.wrap(
-                    "data-type must not be 0-sized"))
+                raise oefmt(space.w_TypeError, "data-type must not be 0-sized")
             if dtype.elsize != self.get_dtype(space).elsize:
-                raise OperationError(space.w_ValueError, space.wrap(
-                    "new type not compatible with array."))
+                raise oefmt(space.w_ValueError,
+                            "new type not compatible with array.")
         if dtype.is_record():
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                "viewing scalar as record not implemented"))
+            raise oefmt(space.w_NotImplementedError,
+                        "viewing scalar as record not implemented")
         else:
             return dtype.runpack_str(space, self.raw_str())
 

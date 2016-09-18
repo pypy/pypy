@@ -1,5 +1,5 @@
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 from rpython.rlib.rstring import UnicodeBuilder, StringBuilder
@@ -16,8 +16,8 @@ def create_builder(name, strtype, builder_cls):
 
         def _check_done(self, space):
             if self.builder is None:
-                raise OperationError(space.w_ValueError, space.wrap(
-                        "Can't operate on a built builder"))
+                raise oefmt(space.w_ValueError,
+                            "Can't operate on a built builder")
 
         @unwrap_spec(size=int)
         def descr__new__(space, w_subtype, size=-1):
@@ -32,8 +32,7 @@ def create_builder(name, strtype, builder_cls):
         def descr_append_slice(self, space, s, start, end):
             self._check_done(space)
             if not 0 <= start <= end <= len(s):
-                raise OperationError(space.w_ValueError, space.wrap(
-                        "bad start/stop"))
+                raise oefmt(space.w_ValueError, "bad start/stop")
             self.builder.append_slice(s, start, end)
 
         def descr_build(self, space):
@@ -44,8 +43,7 @@ def create_builder(name, strtype, builder_cls):
 
         def descr_len(self, space):
             if self.builder is None:
-                raise OperationError(space.w_ValueError, space.wrap(
-                        "no length of built builder"))
+                raise oefmt(space.w_ValueError, "no length of built builder")
             return space.wrap(self.builder.getlength())
 
     W_Builder.__name__ = "W_%s" % name

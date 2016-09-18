@@ -164,8 +164,15 @@ class RPythonAnnotator(object):
             # annotations that are passed in, and don't annotate the old
             # graph -- it's already low-level operations!
             for a, s_newarg in zip(block.inputargs, cells):
-                s_oldarg = self.binding(a)
-                assert annmodel.unionof(s_oldarg, s_newarg) == s_oldarg
+                s_oldarg = a.annotation
+                # XXX: Should use s_oldarg.contains(s_newarg) but that breaks
+                # PyPy translation
+                if annmodel.unionof(s_oldarg, s_newarg) != s_oldarg:
+                    raise annmodel.AnnotatorError(
+                        "Late-stage annotation is not allowed to modify the "
+                        "existing annotation for variable %s: %s" %
+                            (a, s_oldarg))
+
         else:
             assert not self.frozen
             if block not in self.annotated:
@@ -237,7 +244,10 @@ class RPythonAnnotator(object):
     def setbinding(self, arg, s_value):
         s_old = arg.annotation
         if s_old is not None:
-            assert s_value.contains(s_old)
+            if not s_value.contains(s_old):
+                log.WARNING("%s does not contain %s" % (s_value, s_old))
+                log.WARNING("%s" % annmodel.unionof(s_value, s_old))
+                assert False
         arg.annotation = s_value
 
     def warning(self, msg, pos=None):
@@ -342,10 +352,10 @@ class RPythonAnnotator(object):
             del self.blocked_blocks[block]
         try:
             self.flowin(graph, block)
-        except BlockedInference, e:
+        except BlockedInference as e:
             self.annotated[block] = False   # failed, hopefully temporarily
             self.blocked_blocks[block] = (graph, e.opindex)
-        except Exception, e:
+        except Exception as e:
             # hack for debug tools only
             if not hasattr(e, '__annotator_block'):
                 setattr(e, '__annotator_block', block)
@@ -379,7 +389,7 @@ class RPythonAnnotator(object):
         oldcells = [self.binding(a) for a in block.inputargs]
         try:
             unions = [annmodel.unionof(c1,c2) for c1, c2 in zip(oldcells,inputcells)]
-        except annmodel.UnionError, e:
+        except annmodel.UnionError as e:
             # Add source code to the UnionError
             e.source = '\n'.join(source_lines(graph, block, None, long=True))
             raise

@@ -93,7 +93,7 @@ class AppTestBuiltinApp:
     def test_super_fail(self):
         try:
             super(list, 2)
-        except TypeError, e:
+        except TypeError as e:
             message = e.args[0]
             assert message.startswith('super(type, obj): obj must be an instance or subtype of type')
 
@@ -250,6 +250,24 @@ class AppTestBuiltinApp:
         assert super(B, B()).__thisclass__ is B
         assert super(A, B()).__thisclass__ is A
 
+    def test_super_self_selfclass(self):
+        class A(object):
+            pass
+        class B(A):
+            pass
+        b = B()
+        assert super(A, b).__self__ is b
+        assert super(A).__self__ is None
+        assert super(A, b).__self_class__ is B
+        assert super(A).__self_class__ is None
+
+    def test_super_repr(self):
+        class A(object):
+            def __repr__(self):
+                return super(A, self).__repr__() + '!'
+        assert repr(A()).endswith('>!')
+        assert repr(super(A, A())) == "<super: <class 'A'>, <A object>>"
+
     def test_property_docstring(self):
         assert property.__doc__.startswith('property')
 
@@ -303,7 +321,7 @@ class AppTestBuiltinApp:
         for attr in "__doc__", "fget", "fset", "fdel":
             try:
                 setattr(raw, attr, 42)
-            except TypeError, msg:
+            except TypeError as msg:
                 if str(msg).find('readonly') < 0:
                     raise Exception("when setting readonly attr %r on a "
                                     "property, got unexpected TypeError "
@@ -322,7 +340,7 @@ class AppTestBuiltinApp:
         except ZeroDivisionError:
             pass
         else:
-            raise Exception, "expected ZeroDivisionError from bad property"
+            raise Exception("expected ZeroDivisionError from bad property")
 
     def test_property_subclass(self):
         class P(property):

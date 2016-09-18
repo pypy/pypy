@@ -280,6 +280,35 @@ except ImportError:
             return (u - 1.) * x / math.log(u)
         return math.exp(x) - 1.
 
+def log2(x):
+    # Uses an algorithm that should:
+    #   (a) produce exact results for powers of 2, and
+    #   (b) be monotonic, assuming that the system log is monotonic.
+    if not isfinite(x):
+        if isnan(x):
+            return x  # log2(nan) = nan
+        elif x > 0.0:
+            return x  # log2(+inf) = +inf
+        else:
+            # log2(-inf) = nan, invalid-operation
+            raise ValueError("math domain error")
+
+    if x > 0.0:
+        if 0:  # HAVE_LOG2
+            return math.log2(x)
+        m, e = math.frexp(x)
+        # We want log2(m * 2**e) == log(m) / log(2) + e.  Care is needed when
+        # x is just greater than 1.0: in that case e is 1, log(m) is negative,
+        # and we get significant cancellation error from the addition of
+        # log(m) / log(2) to e.  The slight rewrite of the expression below
+        # avoids this problem.
+        if x >= 1.0:
+            return math.log(2.0 * m) / math.log(2.0) + (e - 1)
+        else:
+            return math.log(m) / math.log(2.0) + e
+    else:
+        raise ValueError("math domain error")
+
 def round_away(x):
     # round() from libm, which is not available on all platforms!
     absx = abs(x)

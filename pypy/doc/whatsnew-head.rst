@@ -1,25 +1,23 @@
-=========================
-What's new in PyPy 5.0.+
-=========================
+==========================
+What's new in PyPy2.7 5.4+
+==========================
 
-.. this is a revision shortly after release-5.0
-.. startrev: b238b48f9138
+.. this is a revision shortly after release-pypy2.7-v5.4
+.. startrev: 522736f816dc
 
-.. branch: s390x-backend
+.. branch: rpython-resync
+Backport rpython changes made directly on the py3k and py3.5 branches.
 
-The jit compiler backend implementation for the s390x architecutre.
-The backend manages 64-bit values in the literal pool of the assembly instead of loading them as immediates.
-It includes a simplification for the operation 'zero_array'. Start and length parameters are bytes instead of size.
+.. branch: buffer-interface
+Implement PyObject_GetBuffer, PyMemoryView_GET_BUFFER, and handles memoryviews
+in numpypy
 
-.. branch: remove-py-log
+.. branch: force-virtual-state
+Improve merging of virtual states in the JIT in order to avoid jumping to the
+preamble. Accomplished by allocating virtual objects where non-virtuals are
+expected.
 
-Replace py.log with something simpler, which should speed up logging
-
-.. branch: where_1_arg
-
-Implemented numpy.where for 1 argument (thanks sergem)
-
-.. branch: fix_indexing_by_numpy_int
-
-Implement yet another strange numpy indexing compatibility; indexing by a scalar 
-returns a scalar
+.. branch: conditional_call_value_3
+JIT residual calls: if the called function starts with a fast-path
+like "if x.foo != 0: return x.foo", then inline the check before
+doing the CALL.  For now, string hashing is about the only case.

@@ -86,7 +86,7 @@ class TestObjSpace:
         """)
         try:
             space.unpackiterable(w_a)
-        except OperationError, o:
+        except OperationError as o:
             if not o.match(space, space.w_ZeroDivisionError):
                 raise Exception("DID NOT RAISE")
         else:
@@ -237,7 +237,7 @@ class TestObjSpace:
                             self.space.getindex_w, w_instance2, self.space.w_IndexError)
         try:
             self.space.getindex_w(self.space.w_tuple, None, "foobar")
-        except OperationError, e:
+        except OperationError as e:
             assert e.match(self.space, self.space.w_TypeError)
             assert "foobar" in e.errorstr(self.space)
         else:
@@ -427,3 +427,28 @@ class TestModuleMinimal:
         space.finish()
         # assert that we reach this point without getting interrupted
         # by the OperationError(NameError)
+
+    def test_format_traceback(self):
+        from pypy.tool.pytest.objspace import maketestobjspace
+        from pypy.interpreter.gateway import interp2app
+        #
+        def format_traceback(space):
+            return space.format_traceback()
+        #
+        space = maketestobjspace()
+        w_format_traceback = space.wrap(interp2app(format_traceback))
+        w_tb = space.appexec([w_format_traceback], """(format_traceback):
+            def foo():
+                return bar()
+            def bar():
+                return format_traceback()
+            return foo()
+        """)
+        tb = space.str_w(w_tb)
+        expected = '\n'.join([
+            '  File "?", line 6, in anonymous',  # this is the appexec code object
+            '  File "?", line 3, in foo',
+            '  File "?", line 5, in bar',
+            ''
+        ])
+        assert tb == expected

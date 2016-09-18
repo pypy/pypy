@@ -72,7 +72,7 @@ class AppTestUnicodeString:
         check(u', '.join(['a', 'b']), u'a, b')
         try:
             u''.join([u'a', 2, 3])
-        except TypeError, e:
+        except TypeError as e:
             assert 'sequence item 1' in str(e)
         else:
             raise Exception("DID NOT RAISE")

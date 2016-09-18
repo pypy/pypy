@@ -44,7 +44,7 @@ class TestPosixStatFunctions:
     def test_statvfs(self):
         try:
             os.statvfs('.')
-        except OSError, e:
+        except OSError as e:
             py.test.skip("the underlying os.statvfs() failed: %s" % e)
         rposix_stat.statvfs('.')
 
@@ -53,6 +53,16 @@ class TestPosixStatFunctions:
     def test_fstatvfs(self):
         try:
             os.fstatvfs(0)
-        except OSError, e:
+        except OSError as e:
             py.test.skip("the underlying os.fstatvfs() failed: %s" % e)
         rposix_stat.fstatvfs(0)
+
+@py.test.mark.skipif("not hasattr(rposix_stat, 'fstatat')")
+def test_fstatat(tmpdir):
+    tmpdir.join('file').write('text')
+    dirfd = os.open(str(tmpdir), os.O_RDONLY)
+    try:
+        result = rposix_stat.fstatat('file', dir_fd=dirfd, follow_symlinks=False)
+    finally:
+        os.close(dirfd)
+    assert result.st_atime == tmpdir.join('file').atime()

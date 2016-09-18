@@ -26,10 +26,10 @@ class W_StringBufferObject(W_AbstractBytesObject):
         else:
             return self.w_str._value
 
-    def __repr__(w_self):
+    def __repr__(self):
         """ representation for debugging purposes """
         return "%s(%r[:%d])" % (
-            w_self.__class__.__name__, w_self.builder, w_self.length)
+            self.__class__.__name__, self.builder, self.length)
 
     def unwrap(self, space):
         return self.force()

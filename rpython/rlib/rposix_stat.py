@@ -23,6 +23,7 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.rposix import (
     replace_os_function, handle_posix_error, _as_bytes0)
+from rpython.rlib import rposix
 
 _WIN32 = sys.platform.startswith('win')
 _LINUX = sys.platform.startswith('linux')
@@ -35,13 +36,11 @@ if _WIN32:
 # - ALL_STAT_FIELDS contains Float fields if the system can retrieve
 #   sub-second timestamps.
 # - TIMESPEC is defined when the "struct stat" contains st_atim field.
-
 if sys.platform.startswith('linux') or sys.platform.startswith('openbsd'):
-    TIMESPEC = platform.Struct('struct timespec',
-                               [('tv_sec', rffi.TIME_T),
-                                ('tv_nsec', rffi.LONG)])
+    from rpython.rlib.rposix import TIMESPEC
 else:
     TIMESPEC = None
+
 
 # all possible fields - some of them are not available on all platforms
 ALL_STAT_FIELDS = [
@@ -95,7 +94,8 @@ class SomeStatResult(annmodel.SomeObject):
         return self.__class__,
 
     def getattr(self, s_attr):
-        assert s_attr.is_constant(), "non-constant attr name in getattr()"
+        if not s_attr.is_constant():
+            raise annmodel.AnnotatorError("non-constant attr name in getattr()")
         attrname = s_attr.const
         TYPE = STAT_FIELD_TYPES[attrname]
         return lltype_to_annotation(TYPE)
@@ -300,13 +300,6 @@ compilation_info = ExternalCompilationInfo(
     includes=INCLUDES
 )
 
-if TIMESPEC is not None:
-    class CConfig_for_timespec:
-        _compilation_info_ = compilation_info
-        TIMESPEC = TIMESPEC
-    TIMESPEC = lltype.Ptr(
-        platform.configure(CConfig_for_timespec)['TIMESPEC'])
-
 
 def posix_declaration(try_to_add=None):
     global STAT_STRUCT, STATVFS_STRUCT
@@ -322,7 +315,7 @@ def posix_declaration(try_to_add=None):
                 if _name == originalname:
                     # replace the 'st_atime' field of type rffi.DOUBLE
                     # with a field 'st_atim' of type 'struct timespec'
-                    lst[i] = (timespecname, TIMESPEC.TO)
+                    lst[i] = (timespecname, TIMESPEC)
                     break
 
         _expand(LL_STAT_FIELDS, 'st_atime', 'st_atim')
@@ -511,6 +504,23 @@ def lstat(path):
         traits = _preferred_traits(path)
         path = traits.as_str0(path)
         return win32_xstat(traits, path, traverse=False)
+
+if rposix.HAVE_FSTATAT:
+    from rpython.rlib.rposix import AT_FDCWD, AT_SYMLINK_NOFOLLOW
+    c_fstatat = rffi.llexternal('fstatat',
+        [rffi.INT, rffi.CCHARP, STAT_STRUCT, rffi.INT], rffi.INT,
+        compilation_info=compilation_info,
+        save_err=rffi.RFFI_SAVE_ERRNO, macro=True)
+
+    def fstatat(pathname, dir_fd=AT_FDCWD, follow_symlinks=True):
+        if follow_symlinks:
+            flags = 0
+        else:
+            flags = AT_SYMLINK_NOFOLLOW
+        with lltype.scoped_alloc(STAT_STRUCT.TO) as stresult:
+            error = c_fstatat(dir_fd, pathname, stresult, flags)
+            handle_posix_error('fstatat', error)
+            return build_stat_result(stresult)
 
 @replace_os_function('fstatvfs')
 def fstatvfs(fd):

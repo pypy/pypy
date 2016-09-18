@@ -17,7 +17,7 @@ def restartable_point_fork(auto=None, extra_msg=None):
             else:
                 try:
                     line = raw_input().strip().lower()
-                except (KeyboardInterrupt, EOFError), e:
+                except (KeyboardInterrupt, EOFError) as e:
                     print '(%s ignored)' % e.__class__.__name__
                     continue
             if line in ('run', 'cont'):
@@ -28,7 +28,7 @@ def restartable_point_fork(auto=None, extra_msg=None):
                 try:
                     import pdb; pdb.set_trace()
                     dummy_for_pdb = 1    # for pdb to land
-                except Exception, e:
+                except Exception as e:
                     print '(%s ignored)' % e.__class__.__name__
                     continue
             if line == 'restart-it-all':

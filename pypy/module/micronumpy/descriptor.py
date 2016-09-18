@@ -1082,7 +1082,7 @@ def make_new_dtype(space, w_subtype, w_dtype, alignment, copy=False, w_shape=Non
         if w_dtype is dtype.w_box_type:
             return _set_metadata_and_copy(space, w_metadata, dtype, copy)
         if space.isinstance_w(w_dtype, space.w_type) and \
-           space.is_true(space.issubtype(w_dtype, dtype.w_box_type)):
+           space.issubtype_w(w_dtype, dtype.w_box_type):
             return _set_metadata_and_copy( space, w_metadata,
                             W_Dtype(dtype.itemtype, w_dtype, elsize=0), copy)
     if space.isinstance_w(w_dtype, space.w_type):

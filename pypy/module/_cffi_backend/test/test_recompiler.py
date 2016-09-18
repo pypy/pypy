@@ -420,9 +420,11 @@ class AppTestRecompiler:
 
     def test_math_sin_type(self):
         ffi, lib = self.prepare(
-            "double sin(double);",
+            "double sin(double); void *xxtestfunc();",
             'test_math_sin_type',
-            '#include <math.h>')
+            """#include <math.h>
+               void *xxtestfunc(void) { return 0; }
+            """)
         # 'lib.sin' is typed as a <built-in method> object on lib
         assert ffi.typeof(lib.sin).cname == "double(*)(double)"
         # 'x' is another <built-in method> object on lib, made very indirectly
@@ -432,7 +434,16 @@ class AppTestRecompiler:
         # present on built-in functions on CPython; must be emulated on PyPy:
         assert lib.sin.__name__ == 'sin'
         assert lib.sin.__module__ == '_CFFI_test_math_sin_type'
-        assert lib.sin.__doc__=='direct call to the C function of the same name'
+        assert lib.sin.__doc__ == (
+            "double sin(double);\n"
+            "\n"
+            "CFFI C function from _CFFI_test_math_sin_type.lib")
+
+        assert ffi.typeof(lib.xxtestfunc).cname == "void *(*)()"
+        assert lib.xxtestfunc.__doc__ == (
+            "void *xxtestfunc();\n"
+            "\n"
+            "CFFI C function from _CFFI_test_math_sin_type.lib")
 
     def test_verify_anonymous_struct_with_typedef(self):
         ffi, lib = self.prepare(
@@ -1028,8 +1039,8 @@ class AppTestRecompiler:
         assert MYFOO == 42
         assert hasattr(lib, '__dict__')
         assert lib.__all__ == ['MYFOO', 'mybar']   # but not 'myvar'
-        assert lib.__name__ == repr(lib)
-        assert lib.__class__ is type(lib)
+        assert lib.__name__ == '_CFFI_test_import_from_lib.lib'
+        assert lib.__class__ is type(sys)   # !! hack for help()
 
     def test_macro_var_callback(self):
         ffi, lib = self.prepare(
@@ -1626,3 +1637,156 @@ class AppTestRecompiler:
         # a case where 'onerror' is not callable
         raises(TypeError, ffi.def_extern(name='bar', onerror=42),
                        lambda x: x)
+
+    def test_extern_python_stdcall(self):
+        ffi, lib = self.prepare("""
+            extern "Python" int __stdcall foo(int);
+            extern "Python" int WINAPI bar(int);
+            int (__stdcall * mycb1)(int);
+            int indirect_call(int);
+        """, 'test_extern_python_stdcall', """
+            #ifndef _MSC_VER
+            #  define __stdcall
+            #endif
+            static int (__stdcall * mycb1)(int);
+            static int indirect_call(int x) {
+                return mycb1(x);
+            }
+        """)
+        #
+        @ffi.def_extern()
+        def foo(x):
+            return x + 42
+        @ffi.def_extern()
+        def bar(x):
+            return x + 43
+        assert lib.foo(100) == 142
+        assert lib.bar(100) == 143
+        lib.mycb1 = lib.foo
+        assert lib.mycb1(200) == 242
+        assert lib.indirect_call(300) == 342
+
+    def test_introspect_function(self):
+        ffi, lib = self.prepare("""
+            float f1(double);
+        """, 'test_introspect_function', """
+            float f1(double x) { return x; }
+        """)
+        assert dir(lib) == ['f1']
+        FUNC = ffi.typeof(lib.f1)
+        assert FUNC.kind == 'function'
+        assert FUNC.args[0].cname == 'double'
+        assert FUNC.result.cname == 'float'
+        assert ffi.typeof(ffi.addressof(lib, 'f1')) is FUNC
+
+    def test_introspect_global_var(self):
+        ffi, lib = self.prepare("""
+            float g1;
+        """, 'test_introspect_global_var', """
+            float g1;
+        """)
+        assert dir(lib) == ['g1']
+        FLOATPTR = ffi.typeof(ffi.addressof(lib, 'g1'))
+        assert FLOATPTR.kind == 'pointer'
+        assert FLOATPTR.item.cname == 'float'
+
+    def test_introspect_global_var_array(self):
+        ffi, lib = self.prepare("""
+            float g1[100];
+        """, 'test_introspect_global_var_array', """
+            float g1[100];
+        """)
+        assert dir(lib) == ['g1']
+        FLOATARRAYPTR = ffi.typeof(ffi.addressof(lib, 'g1'))
+        assert FLOATARRAYPTR.kind == 'pointer'
+        assert FLOATARRAYPTR.item.kind == 'array'
+        assert FLOATARRAYPTR.item.length == 100
+        assert ffi.typeof(lib.g1) is FLOATARRAYPTR.item
+
+    def test_introspect_integer_const(self):
+        ffi, lib = self.prepare("#define FOO 42",
+                                'test_introspect_integer_const', """
+            #define FOO 42
+        """)
+        assert dir(lib) == ['FOO']
+        assert lib.FOO == ffi.integer_const('FOO') == 42
+
+    def test_introspect_typedef(self):
+        ffi, lib = self.prepare("typedef int foo_t;",
+                                'test_introspect_typedef', """
+            typedef int foo_t;
+        """)
+        assert ffi.list_types() == (['foo_t'], [], [])
+        assert ffi.typeof('foo_t').kind == 'primitive'
+        assert ffi.typeof('foo_t').cname == 'int'
+
+    def test_introspect_typedef_multiple(self):
+        ffi, lib = self.prepare("""
+            typedef signed char a_t, c_t, g_t, b_t;
+        """, 'test_introspect_typedef_multiple', """
+            typedef signed char a_t, c_t, g_t, b_t;
+        """)
+        assert ffi.list_types() == (['a_t', 'b_t', 'c_t', 'g_t'], [], [])
+
+    def test_introspect_struct(self):
+        ffi, lib = self.prepare("""
+            struct foo_s { int a; };
+        """, 'test_introspect_struct', """
+            struct foo_s { int a; };
+        """)
+        assert ffi.list_types() == ([], ['foo_s'], [])
+        assert ffi.typeof('struct foo_s').kind == 'struct'
+        assert ffi.typeof('struct foo_s').cname == 'struct foo_s'
+
+    def test_introspect_union(self):
+        ffi, lib = self.prepare("""
+            union foo_s { int a; };
+        """, 'test_introspect_union', """
+            union foo_s { int a; };
+        """)
+        assert ffi.list_types() == ([], [], ['foo_s'])
+        assert ffi.typeof('union foo_s').kind == 'union'
+        assert ffi.typeof('union foo_s').cname == 'union foo_s'
+
+    def test_introspect_struct_and_typedef(self):
+        ffi, lib = self.prepare("""
+            typedef struct { int a; } foo_t;
+        """, 'test_introspect_struct_and_typedef', """
+            typedef struct { int a; } foo_t;
+        """)
+        assert ffi.list_types() == (['foo_t'], [], [])
+        assert ffi.typeof('foo_t').kind == 'struct'
+        assert ffi.typeof('foo_t').cname == 'foo_t'
+
+    def test_introspect_included_type(self):
+        SOURCE = """
+            typedef signed char schar_t;
+            struct sint_t { int x; };
+        """
+        ffi1, lib1 = self.prepare(SOURCE,
+            "test_introspect_included_type_parent", SOURCE)
+        ffi2, lib2 = self.prepare("",
+            "test_introspect_included_type", SOURCE,
+            includes=[ffi1])
+        assert ffi1.list_types() == ffi2.list_types() == (
+                ['schar_t'], ['sint_t'], [])
+
+    def test_introspect_order(self):
+        ffi, lib = self.prepare("""
+            union CFFIaaa { int a; }; typedef struct CFFIccc { int a; } CFFIb;
+            union CFFIg   { int a; }; typedef struct CFFIcc  { int a; } CFFIbbb;
+            union CFFIaa  { int a; }; typedef struct CFFIa   { int a; } CFFIbb;
+        """, "test_introspect_order", """
+            union CFFIaaa { int a; }; typedef struct CFFIccc { int a; } CFFIb;
+            union CFFIg   { int a; }; typedef struct CFFIcc  { int a; } CFFIbbb;
+            union CFFIaa  { int a; }; typedef struct CFFIa   { int a; } CFFIbb;
+        """)
+        assert ffi.list_types() == (['CFFIb', 'CFFIbb', 'CFFIbbb'],
+                                    ['CFFIa', 'CFFIcc', 'CFFIccc'],
+                                    ['CFFIaa', 'CFFIaaa', 'CFFIg'])
+
+    def test_FFIFunctionWrapper(self):
+        ffi, lib = self.prepare("void f(void);", "test_FFIFunctionWrapper",
+                                "void f(void) { }")
+        assert lib.f.__get__(42) is lib.f
+        assert lib.f.__get__(42, int) is lib.f

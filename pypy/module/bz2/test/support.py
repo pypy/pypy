@@ -10,5 +10,6 @@ class CheckAllocation:
         #
         while tries and ll2ctypes.ALLOCATED:
             gc.collect() # to make sure we disallocate buffers
+            self.space.getexecutioncontext()._run_finalizers_now()
             tries -= 1
         assert not ll2ctypes.ALLOCATED

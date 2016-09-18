@@ -45,7 +45,8 @@ class OptVirtualize(optimizer.Optimization):
         return opinfo
 
     def make_virtual_raw_memory(self, size, source_op):
-        opinfo = info.RawBufferPtrInfo(self.optimizer.cpu, size)
+        func = source_op.getarg(0).getint()
+        opinfo = info.RawBufferPtrInfo(self.optimizer.cpu, func, size)
         newop = self.replace_op_with(source_op, source_op.getopnum(),
                                      args=[source_op.getarg(0), ConstInt(size)])
         newop.set_forwarded(opinfo)

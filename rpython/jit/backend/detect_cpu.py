@@ -35,7 +35,7 @@ def detect_model_from_c_compiler():
             if not getdefined(macro, ''):
                 continue
             return k
-    raise ProcessorAutodetectError, "Cannot detect processor using compiler macros"
+    raise ProcessorAutodetectError("Cannot detect processor using compiler macros")
 
 
 def detect_model_from_host_platform():
@@ -52,7 +52,7 @@ def detect_model_from_host_platform():
         # assume we have 'uname'
         mach = os.popen('uname -m', 'r').read().strip()
         if not mach:
-            raise ProcessorAutodetectError, "cannot run 'uname -m'"
+            raise ProcessorAutodetectError("cannot run 'uname -m'")
     #
     result ={'i386': MODEL_X86,
             'i486': MODEL_X86,
@@ -74,7 +74,7 @@ def detect_model_from_host_platform():
             }.get(mach)
 
     if result is None:
-        raise ProcessorAutodetectError, "unknown machine name %s" % mach
+        raise ProcessorAutodetectError("unknown machine name %s" % mach)
     #
     if result.startswith('x86'):
         from rpython.jit.backend.x86 import detect_feature as feature
@@ -128,7 +128,7 @@ def getcpuclassname(backend_name="auto"):
     elif backend_name == MODEL_S390_64:
         return "rpython.jit.backend.zarch.runner", "CPU_S390_64"
     else:
-        raise ProcessorAutodetectError, (
+        raise ProcessorAutodetectError(
             "we have no JIT backend for this cpu: '%s'" % backend_name)
 
 def getcpuclass(backend_name="auto"):
@@ -146,7 +146,7 @@ def getcpufeatures(backend_name="auto"):
         MODEL_X86_64: ['floats', 'singlefloats'],
         MODEL_X86_64_SSE4: ['floats', 'singlefloats'],
         MODEL_ARM: ['floats', 'singlefloats', 'longlong'],
-        MODEL_PPC_64: [], # we don't even have PPC directory, so no
+        MODEL_PPC_64: ['floats'],
         MODEL_S390_64: ['floats'],
     }[backend_name]
 

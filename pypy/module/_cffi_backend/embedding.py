@@ -79,7 +79,7 @@ def pypy_init_embedded_cffi_module(version, init_struct):
             patch_sys(space)
             load_embedded_cffi_module(space, version, init_struct)
             res = 0
-        except OperationError, operr:
+        except OperationError as operr:
             operr.write_unraisable(space, "initialization of '%s'" % name,
                                    with_traceback=True)
             space.appexec([], r"""():
@@ -91,7 +91,7 @@ def pypy_init_embedded_cffi_module(version, init_struct):
             res = -1
         if must_leave:
             space.threadlocals.leave_thread(space)
-    except Exception, e:
+    except Exception as e:
         # oups! last-level attempt to recover.
         try:
             os.write(STDERR, "From initialization of '")

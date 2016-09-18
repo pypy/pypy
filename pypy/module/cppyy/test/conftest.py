@@ -30,7 +30,7 @@ def pytest_configure(config):
         try:
             import ctypes
             ctypes.CDLL(lcapi.reflection_library)
-        except Exception, e:
+        except Exception as e:
             if config.option.runappdirect:
                 return       # "can't run dummy tests in -A"
 

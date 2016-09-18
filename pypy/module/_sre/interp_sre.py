@@ -4,7 +4,7 @@ from pypy.interpreter.typedef import GetSetProperty, TypeDef
 from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
 from pypy.interpreter.typedef import make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import jit
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
@@ -14,7 +14,7 @@ from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 # Constants and exposed functions
 
 from rpython.rlib.rsre import rsre_core
-from rpython.rlib.rsre.rsre_char import MAGIC, CODESIZE, MAXREPEAT, getlower, set_unicode_db
+from rpython.rlib.rsre.rsre_char import CODESIZE, MAXREPEAT, getlower, set_unicode_db
 
 
 @unwrap_spec(char_ord=int, flags=int)
@@ -36,11 +36,12 @@ set_unicode_db(pypy.objspace.std.unicodeobject.unicodedb)
 def slice_w(space, ctx, start, end, w_default):
     if 0 <= start <= end:
         if isinstance(ctx, rsre_core.BufMatchContext):
-            return space.wrap(ctx._buffer.getslice(start, end, 1, end-start))
+            return space.newbytes(ctx._buffer.getslice(start, end, 1,
+                                                        end-start))
         if isinstance(ctx, rsre_core.StrMatchContext):
-            return space.wrap(ctx._string[start:end])
+            return space.newbytes(ctx._string[start:end])
         elif isinstance(ctx, rsre_core.UnicodeMatchContext):
-            return space.wrap(ctx._unicodestr[start:end])
+            return space.newunicode(ctx._unicodestr[start:end])
         else:
             # unreachable
             raise SystemError
@@ -79,13 +80,13 @@ def import_re(space):
 def matchcontext(space, ctx):
     try:
         return rsre_core.match_context(ctx)
-    except rsre_core.Error, e:
+    except rsre_core.Error as e:
         raise OperationError(space.w_RuntimeError, space.wrap(e.msg))
 
 def searchcontext(space, ctx):
     try:
         return rsre_core.search_context(ctx)
-    except rsre_core.Error, e:
+    except rsre_core.Error as e:
         raise OperationError(space.w_RuntimeError, space.wrap(e.msg))
 
 # ____________________________________________________________
@@ -97,8 +98,7 @@ class W_SRE_Pattern(W_Root):
 
     def cannot_copy_w(self):
         space = self.space
-        raise OperationError(space.w_TypeError,
-                             space.wrap("cannot copy this pattern object"))
+        raise oefmt(space.w_TypeError, "cannot copy this pattern object")
 
     def make_ctx(self, w_string, pos=0, endpos=sys.maxint):
         """Make a StrMatchContext, BufMatchContext or a UnicodeMatchContext for
@@ -243,8 +243,8 @@ class W_SRE_Pattern(W_Root):
                     space.isinstance_w(w_string, space.w_unicode) and literal)
             else:
                 try:
-                    filter_as_string = space.str_w(w_ptemplate)
-                except OperationError, e:
+                    filter_as_string = space.bytes_w(w_ptemplate)
+                except OperationError as e:
                     if e.async(space):
                         raise
                     literal = False
@@ -332,15 +332,15 @@ class W_SRE_Pattern(W_Root):
                               strbuilder, unicodebuilder, last_pos, ctx.end)
         if use_builder:
             if strbuilder is not None:
-                return space.wrap(strbuilder.build()), n
+                return space.newbytes(strbuilder.build()), n
             else:
                 assert unicodebuilder is not None
-                return space.wrap(unicodebuilder.build()), n
+                return space.newunicode(unicodebuilder.build()), n
         else:
             if space.isinstance_w(w_string, space.w_unicode):
-                w_emptystr = space.wrap(u'')
+                w_emptystr = space.newunicode(u'')
             else:
-                w_emptystr = space.wrap('')
+                w_emptystr = space.newbytes('')
             w_item = space.call_method(w_emptystr, 'join',
                                        space.newlist(sublist_w))
             return w_item, n
@@ -427,8 +427,7 @@ class W_SRE_Match(W_Root):
 
     def cannot_copy_w(self):
         space = self.space
-        raise OperationError(space.w_TypeError,
-                             space.wrap("cannot copy this match object"))
+        raise oefmt(space.w_TypeError, "cannot copy this match object")
 
     @jit.look_inside_iff(lambda self, args_w: jit.isconstant(len(args_w)))
     def group_w(self, args_w):
@@ -462,7 +461,7 @@ class W_SRE_Match(W_Root):
         while True:
             try:
                 w_key = space.next(w_iterator)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_StopIteration):
                     raise
                 break  # done
@@ -502,17 +501,16 @@ class W_SRE_Match(W_Root):
         space = self.space
         try:
             groupnum = space.int_w(w_arg)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_TypeError) and \
                     not e.match(space, space.w_OverflowError):
                 raise
             try:
                 w_groupnum = space.getitem(self.srepat.w_groupindex, w_arg)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_KeyError):
                     raise
-                raise OperationError(space.w_IndexError,
-                                     space.wrap("no such group"))
+                raise oefmt(space.w_IndexError, "no such group")
             groupnum = space.int_w(w_groupnum)
         if groupnum == 0:
             return self.ctx.match_start, self.ctx.match_end
@@ -522,8 +520,7 @@ class W_SRE_Match(W_Root):
             assert idx >= 0
             return fmarks[idx], fmarks[idx+1]
         else:
-            raise OperationError(space.w_IndexError,
-                                 space.wrap("group index out of range"))
+            raise oefmt(space.w_IndexError, "group index out of range")
 
     def _last_index(self):
         mark = self.ctx.match_marks
@@ -569,11 +566,11 @@ class W_SRE_Match(W_Root):
     def fget_string(self, space):
         ctx = self.ctx
         if isinstance(ctx, rsre_core.BufMatchContext):
-            return space.wrap(ctx._buffer.as_str())
+            return space.newbytes(ctx._buffer.as_str())
         elif isinstance(ctx, rsre_core.StrMatchContext):
-            return space.wrap(ctx._string)
+            return space.newbytes(ctx._string)
         elif isinstance(ctx, rsre_core.UnicodeMatchContext):
-            return space.wrap(ctx._unicodestr)
+            return space.newunicode(ctx._unicodestr)
         else:
             raise SystemError
 

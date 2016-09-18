@@ -1405,6 +1405,45 @@ class TestLL2Ctypes(object):
         a2 = ctypes2lltype(lltype.Ptr(A), lltype2ctypes(a))
         assert a2._obj.getitem(0)._obj._parentstructure() is a2._obj
 
+    def test_array_of_function_pointers(self):
+        c_source = py.code.Source(r"""
+        #include "src/precommondefs.h"
+        #include <stdio.h>
+
+        typedef int(*funcptr_t)(void);
+        static int forty_two(void) { return 42; }
+        static int forty_three(void) { return 43; }
+        static funcptr_t testarray[2];
+        RPY_EXPORTED void runtest(void cb(funcptr_t *)) { 
+            testarray[0] = &forty_two;
+            testarray[1] = &forty_three;
+            fprintf(stderr, "&forty_two = %p\n", testarray[0]);
+            fprintf(stderr, "&forty_three = %p\n", testarray[1]);
+            cb(testarray);
+            testarray[0] = 0;
+            testarray[1] = 0;
+        }
+        """)
+        eci = ExternalCompilationInfo(include_dirs=[cdir],
+                                      separate_module_sources=[c_source])
+
+        PtrF = lltype.Ptr(lltype.FuncType([], rffi.INT))
+        ArrayPtrF = rffi.CArrayPtr(PtrF)
+        CALLBACK = rffi.CCallback([ArrayPtrF], lltype.Void)
+
+        runtest = rffi.llexternal('runtest', [CALLBACK], lltype.Void,
+                                  compilation_info=eci)
+        seen = []
+
+        def callback(testarray):
+            seen.append(testarray[0])   # read a PtrF out of testarray
+            seen.append(testarray[1])
+
+        runtest(callback)
+        assert seen[0]() == 42
+        assert seen[1]() == 43
+
+
 class TestPlatform(object):
     def test_lib_on_libpaths(self):
         from rpython.translator.platform import platform

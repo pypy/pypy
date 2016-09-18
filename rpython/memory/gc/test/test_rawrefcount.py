@@ -22,7 +22,7 @@ class TestRawRefCount(BaseDirectGCTest):
         if major:
             self.gc.collect()
         else:
-            self.gc.minor_collection()
+            self.gc._minor_collection()
         count1 = len(self.trigger)
         self.gc.rrc_invoke_callback()
         count2 = len(self.trigger)

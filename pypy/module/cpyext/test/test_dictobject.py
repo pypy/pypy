@@ -1,8 +1,10 @@
+import py
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.api import Py_ssize_tP, PyObjectP
 from pypy.module.cpyext.pyobject import make_ref, from_ref
 from pypy.interpreter.error import OperationError
+from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
 class TestDictObject(BaseApiTest):
     def test_dict(self, space, api):
@@ -74,6 +76,20 @@ class TestDictObject(BaseApiTest):
         assert space.eq_w(api.PyDict_Keys(w_d), space.wrap(["a"]))
         assert space.eq_w(api.PyDict_Values(w_d), space.wrap(["b"]))
         assert space.eq_w(api.PyDict_Items(w_d), space.wrap([("a", "b")]))
+
+    def test_merge(self, space, api):
+        w_d = space.newdict()
+        space.setitem(w_d, space.wrap("a"), space.wrap("b"))
+
+        w_d2 = space.newdict()
+        space.setitem(w_d2, space.wrap("a"), space.wrap("c"))
+        space.setitem(w_d2, space.wrap("c"), space.wrap("d"))
+        space.setitem(w_d2, space.wrap("e"), space.wrap("f"))
+
+        api.PyDict_Merge(w_d, w_d2, 0)
+        assert space.unwrap(w_d) == dict(a='b', c='d', e='f')
+        api.PyDict_Merge(w_d, w_d2, 1)
+        assert space.unwrap(w_d) == dict(a='c', c='d', e='f')
 
     def test_update(self, space, api):
         w_d = space.newdict()
@@ -152,3 +168,34 @@ class TestDictObject(BaseApiTest):
         raises(OperationError, space.delitem,
                w_proxy, space.wrap('sys'))
         raises(OperationError, space.call_method, w_proxy, 'clear')
+        assert api.PyDictProxy_Check(w_proxy)
+
+class AppTestDictObject(AppTestCpythonExtensionBase):
+    def test_dictproxytype(self):
+        module = self.import_extension('foo', [
+            ("dict_proxy", "METH_VARARGS",
+             """
+                 PyObject * dict;
+                 PyObject * proxydict;
+                 int i;
+                 if (!PyArg_ParseTuple(args, "O", &dict))
+                     return NULL;
+                 proxydict = PyDictProxy_New(dict);
+#ifdef PYPY_VERSION  // PyDictProxy_Check[Exact] are PyPy-specific.
+                 if (!PyDictProxy_Check(proxydict)) {
+                    Py_DECREF(proxydict);
+                    PyErr_SetNone(PyExc_ValueError);
+                    return NULL;
+                 }
+                 if (!PyDictProxy_CheckExact(proxydict)) {
+                    Py_DECREF(proxydict);
+                    PyErr_SetNone(PyExc_ValueError);
+                    return NULL;
+                 }
+#endif  // PYPY_VERSION
+                 i = PyObject_Size(proxydict);
+                 Py_DECREF(proxydict);
+                 return PyLong_FromLong(i);
+             """),
+            ])
+        assert module.dict_proxy({'a': 1, 'b': 2}) == 2

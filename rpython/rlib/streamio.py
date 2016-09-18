@@ -324,7 +324,7 @@ class DiskFile(Stream):
         while True:
             try:
                 return os.read(self.fd, n)
-            except OSError, e:
+            except OSError as e:
                 if e.errno != errno.EINTR:
                     raise
                 if self.signal_checker is not None:
@@ -338,7 +338,7 @@ class DiskFile(Stream):
         while True:
             try:
                 c = os.read(self.fd, 1)
-            except OSError, e:
+            except OSError as e:
                 if e.errno != errno.EINTR:
                     raise
                 if self.signal_checker is not None:
@@ -356,7 +356,7 @@ class DiskFile(Stream):
         while data:
             try:
                 n = os.write(self.fd, data)
-            except OSError, e:
+            except OSError as e:
                 if e.errno != errno.EINTR:
                     raise
                 if self.signal_checker is not None:
@@ -383,7 +383,7 @@ class DiskFile(Stream):
             else:
                 try:
                     os.ftruncate(self.fd, size)
-                except IOError, e:
+                except IOError as e:
                     raise OSError(*e.args)
 
     def try_to_find_file_descriptor(self):
@@ -669,7 +669,7 @@ class BufferingInputStream(Stream):
         while 1:
             try:
                 data = self.do_read(bufsize)
-            except OSError, o:
+            except OSError as o:
                 # like CPython < 3.4, partial results followed by an error
                 # are returned as data
                 if not chunks:

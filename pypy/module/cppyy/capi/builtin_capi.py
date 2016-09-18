@@ -537,9 +537,8 @@ _c_charp2stdstring = rffi.llexternal(
     releasegil=ts_helper,
     compilation_info=backend.eci)
 def c_charp2stdstring(space, svalue):
-    charp = rffi.str2charp(svalue)
-    result = _c_charp2stdstring(charp)
-    rffi.free_charp(charp)
+    with rffi.scoped_view_charp(svalue) as charp:
+        result = _c_charp2stdstring(charp)
     return result
 _c_stdstring2stdstring = rffi.llexternal(
     "cppyy_stdstring2stdstring",

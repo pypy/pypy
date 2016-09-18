@@ -227,7 +227,7 @@ class AppTestConnectedSSL:
         ss.write("hello\n")
         try:
             result = ss.shutdown()
-        except socket.error, e:
+        except socket.error as e:
             # xxx obscure case; throwing errno 0 is pretty odd...
             if e.errno == 0:
                 skip("Shutdown raised errno 0. CPython does this too")
@@ -450,7 +450,12 @@ class AppTestSSLError:
                 # For compatibility
                 assert exc.value.errno == _ssl.SSL_ERROR_WANT_READ
             finally:
-                c.shutdown()
+                try:
+                    c.shutdown()
+                except _ssl.SSLError:
+                    # If the expected exception was raised, the SSLContext
+                    # can't be shut down yet
+                    pass
         finally:
             s.close()
 

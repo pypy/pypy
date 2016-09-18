@@ -2,7 +2,7 @@ from pypy.module.imp import importing
 from pypy.module._file.interp_file import W_File
 from rpython.rlib import streamio
 from rpython.rlib.streamio import StreamErrors
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.module import Module
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.streamutil import wrap_streamerror
@@ -36,7 +36,7 @@ def get_file(space, w_file, filename, filemode):
     if space.is_none(w_file):
         try:
             return streamio.open_file_as_stream(filename, filemode)
-        except StreamErrors, e:
+        except StreamErrors as e:
             # XXX this is not quite the correct place, but it will do for now.
             # XXX see the issue which I'm sure exists already but whose number
             # XXX I cannot find any more...
@@ -98,39 +98,40 @@ def load_source(space, w_modulename, w_filename, w_file=None):
     w_mod = space.wrap(Module(space, w_modulename))
     importing._prepare_module(space, w_mod, filename, None)
 
-    importing.load_source_module(
+    w_mod = importing.load_source_module(
         space, w_modulename, w_mod,
         filename, stream.readall(), stream.try_to_find_file_descriptor())
     if space.is_none(w_file):
         stream.close()
     return w_mod
 
-@unwrap_spec(filename='str0')
-def _run_compiled_module(space, w_modulename, filename, w_file, w_module):
+@unwrap_spec(filename='str0', check_afterwards=int)
+def _run_compiled_module(space, w_modulename, filename, w_file, w_module,
+                         check_afterwards=False):
     # the function 'imp._run_compiled_module' is a pypy-only extension
     stream = get_file(space, w_file, filename, 'rb')
 
     magic = importing._r_long(stream)
     timestamp = importing._r_long(stream)
 
-    importing.load_compiled_module(
+    w_mod = importing.load_compiled_module(
         space, w_modulename, w_module, filename, magic, timestamp,
-        stream.readall())
+        stream.readall(), check_afterwards=check_afterwards)
     if space.is_none(w_file):
         stream.close()
+    return w_mod
 
 @unwrap_spec(filename='str0')
 def load_compiled(space, w_modulename, filename, w_file=None):
     w_mod = space.wrap(Module(space, w_modulename))
     importing._prepare_module(space, w_mod, filename, None)
-    _run_compiled_module(space, w_modulename, filename, w_file, w_mod)
-    return w_mod
+    return _run_compiled_module(space, w_modulename, filename, w_file, w_mod,
+                                check_afterwards=True)
 
 @unwrap_spec(filename=str)
 def load_dynamic(space, w_modulename, filename, w_file=None):
     if not importing.has_so_extension(space):
-        raise OperationError(space.w_ImportError, space.wrap(
-            "Not implemented"))
+        raise oefmt(space.w_ImportError, "Not implemented")
     importing.load_c_extension(space, filename, space.str_w(w_modulename))
     return importing.check_sys_modules(space, w_modulename)
 
@@ -142,9 +143,8 @@ def init_builtin(space, w_name):
     if name not in space.builtin_modules:
         return
     if space.finditem(space.sys.get('modules'), w_name) is not None:
-        raise OperationError(
-            space.w_ImportError,
-            space.wrap("cannot initialize a built-in module twice in PyPy"))
+        raise oefmt(space.w_ImportError,
+                    "cannot initialize a built-in module twice in PyPy")
     return space.getbuiltinmodule(name)
 
 def init_frozen(space, w_name):

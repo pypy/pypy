@@ -1,6 +1,7 @@
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.pyopcode import LoopBlock
+from pypy.interpreter.pycode import CO_YIELD_INSIDE_TRY
 from rpython.rlib import jit
 
 
@@ -13,6 +14,8 @@ class GeneratorIterator(W_Root):
         self.frame = frame     # turned into None when frame_finished_execution
         self.pycode = frame.pycode
         self.running = False
+        if self.pycode.co_flags & CO_YIELD_INSIDE_TRY:
+            self.register_finalizer(self.space)
 
     def descr__repr__(self, space):
         if self.pycode is None:
@@ -60,7 +63,7 @@ class GeneratorIterator(W_Root):
         """x.__iter__() <==> iter(x)"""
         return self.space.wrap(self)
 
-    def descr_send(self, w_arg=None):
+    def descr_send(self, w_arg):
         """send(arg) -> send 'arg' into generator,
 return next yielded value or raise StopIteration."""
         return self.send_ex(w_arg)
@@ -76,8 +79,7 @@ return next yielded value or raise StopIteration."""
     def _send_ex(self, w_arg, operr):
         space = self.space
         if self.running:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap('generator already executing'))
+            raise oefmt(space.w_ValueError, "generator already executing")
         frame = self.frame
         if frame is None:
             # xxx a bit ad-hoc, but we don't want to go inside
@@ -89,8 +91,9 @@ return next yielded value or raise StopIteration."""
         last_instr = jit.promote(frame.last_instr)
         if last_instr == -1:
             if w_arg and not space.is_w(w_arg, space.w_None):
-                msg = "can't send non-None value to a just-started generator"
-                raise OperationError(space.w_TypeError, space.wrap(msg))
+                raise oefmt(space.w_TypeError,
+                            "can't send non-None value to a just-started "
+                            "generator")
         else:
             if not w_arg:
                 w_arg = space.w_None
@@ -139,20 +142,19 @@ return next yielded value or raise StopIteration."""
 
     def descr_close(self):
         """x.close(arg) -> raise GeneratorExit inside generator."""
-        assert isinstance(self, GeneratorIterator)
         space = self.space
         try:
             w_retval = self.throw(space.w_GeneratorExit, space.w_None,
                                   space.w_None)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, space.w_StopIteration) or \
                     e.match(space, space.w_GeneratorExit):
                 return space.w_None
             raise
 
         if w_retval is not None:
-            msg = "generator ignored GeneratorExit"
-            raise OperationError(space.w_RuntimeError, space.wrap(msg))
+            raise oefmt(space.w_RuntimeError,
+                        "generator ignored GeneratorExit")
 
     def descr_gi_frame(self, space):
         if self.frame is not None and not self.frame.frame_finished_execution:
@@ -184,8 +186,7 @@ return next yielded value or raise StopIteration."""
             # XXX copied and simplified version of send_ex()
             space = self.space
             if self.running:
-                raise OperationError(space.w_ValueError,
-                                     space.wrap('generator already executing'))
+                raise oefmt(space.w_ValueError, "generator already executing")
             frame = self.frame
             if frame is None:    # already finished
                 return
@@ -197,7 +198,7 @@ return next yielded value or raise StopIteration."""
                                               results=results, pycode=pycode)
                     try:
                         w_result = frame.execute_frame(space.w_None)
-                    except OperationError, e:
+                    except OperationError as e:
                         if not e.match(space, space.w_StopIteration):
                             raise
                         break
@@ -213,23 +214,19 @@ return next yielded value or raise StopIteration."""
     unpack_into = _create_unpack_into()
     unpack_into_w = _create_unpack_into()
 
-
-class GeneratorIteratorWithDel(GeneratorIterator):
-
-    def __del__(self):
-        # Only bother enqueuing self to raise an exception if the frame is
-        # still not finished and finally or except blocks are present.
-        self.clear_all_weakrefs()
+    def _finalize_(self):
+        # This is only called if the CO_YIELD_INSIDE_TRY flag is set
+        # on the code object.  If the frame is still not finished and
+        # finally or except blocks are present at the current
+        # position, then raise a GeneratorExit.  Otherwise, there is
+        # no point.
         if self.frame is not None:
             block = self.frame.lastblock
             while block is not None:
                 if not isinstance(block, LoopBlock):
-                    self.enqueue_for_destruction(self.space,
-                                                 GeneratorIterator.descr_close,
-                                                 "interrupting generator of ")
+                    self.descr_close()
                     break
                 block = block.previous
-
 
 
 def get_printable_location_genentry(bytecode):

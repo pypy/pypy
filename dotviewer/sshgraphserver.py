@@ -4,11 +4,14 @@ on remote machines.
 
 Usage:
     sshgraphserver.py  hostname  [more args for ssh...]
+    sshgraphserver.py  LOCAL
 
 This logs in to 'hostname' by passing the arguments on the command-line
 to ssh.  No further configuration is required: it works for all programs
 using the dotviewer library as long as they run on 'hostname' under the
 same username as the one sshgraphserver logs as.
+
+If 'hostname' is the string 'LOCAL', then it starts locally without ssh.
 """
 
 import graphserver, socket, subprocess, random
@@ -18,12 +21,19 @@ def ssh_graph_server(sshargs):
     s1 = socket.socket()
     s1.bind(('127.0.0.1', socket.INADDR_ANY))
     localhost, localport = s1.getsockname()
-    remoteport = random.randrange(10000, 20000)
-    #  ^^^ and just hope there is no conflict
 
-    args = ['ssh', '-S', 'none', '-C', '-R%d:127.0.0.1:%d' % (remoteport, localport)]
-    args = args + sshargs + ['python -u -c "exec input()"']
-    print ' '.join(args[:-1])
+    if sshargs[0] != 'LOCAL':
+        remoteport = random.randrange(10000, 20000)
+        #  ^^^ and just hope there is no conflict
+
+        args = ['ssh', '-S', 'none', '-C', '-R%d:127.0.0.1:%d' % (
+            remoteport, localport)]
+        args = args + sshargs + ['python -u -c "exec input()"']
+    else:
+        remoteport = localport
+        args = ['python', '-u', '-c', 'exec input()']
+
+    print ' '.join(args)
     p = subprocess.Popen(args, bufsize=0,
                          stdin=subprocess.PIPE,
                          stdout=subprocess.PIPE)

@@ -135,10 +135,8 @@ class TestLLType(object):
             return 33 + big() + g(10)
 
         t  = self.translateopt(idempotent, [int, int],
-                               raisingop2direct_call=True,
                                constfold=False)
-        #backend_optimizations(t, raisingop2direct_call=True,
-        #                      inline_threshold=0, constfold=False)
+        #backend_optimizations(t, inline_threshold=0, constfold=False)
 
         digest1 = md5digest(t)
 
@@ -155,8 +153,7 @@ class TestLLType(object):
 
         #XXX Inlining and constfold are currently non-idempotent.
         #    Maybe they just renames variables but the graph changes in some way.
-        backend_optimizations(t, raisingop2direct_call=True,
-                              inline_threshold=0, constfold=False)
+        backend_optimizations(t, inline_threshold=0, constfold=False)
         digest3 = md5digest(t)
         compare(digest1, digest3)
 
@@ -292,3 +289,19 @@ class TestLLType(object):
         llinterp = LLInterpreter(t.rtyper)
         res = llinterp.eval_graph(later_graph, [10])
         assert res == 1
+
+    def test_replace_we_are_jitted(self):
+        from rpython.rlib import jit
+        def f():
+            if jit.we_are_jitted():
+                return 1
+            return 2 + jit.we_are_jitted()
+
+        t = self.translateopt(f, [])
+        graph = graphof(t, f)
+        # by default, replace_we_are_jitted is off
+        assert graph.startblock.operations[0].args[0].value is jit._we_are_jitted
+
+        t = self.translateopt(f, [], replace_we_are_jitted=True)
+        graph = graphof(t, f)
+        assert graph.startblock.exits[0].args[0].value == 2

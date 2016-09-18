@@ -45,7 +45,7 @@ class TestLLWarmspot(LLJitMixin):
         def main(a):
             try:
                 interpreter_loop(a)
-            except Exit, e:
+            except Exit as e:
                 return e.result
 
         res = self.meta_interp(main, [1])
@@ -623,6 +623,9 @@ class TestWarmspotDirect(object):
             class tracker:
                 pass
 
+            def setup_descrs(self):
+                return []
+
             def get_latest_descr(self, deadframe):
                 assert isinstance(deadframe, FakeDeadFrame)
                 return self.get_fail_descr_from_number(deadframe._no)
@@ -671,7 +674,7 @@ class TestWarmspotDirect(object):
         assert jd._assembler_call_helper(FakeDeadFrame(1), 0) == 10
         try:
             jd._assembler_call_helper(FakeDeadFrame(3), 0)
-        except LLException, lle:
+        except LLException as lle:
             assert lle[0] == self.exc_vtable
         else:
             py.test.fail("DID NOT RAISE")

@@ -61,7 +61,7 @@ class BasePosix(Platform):
     def _pkg_config(self, lib, opt, default, check_result_dir=False):
         try:
             ret, out, err = _run_subprocess("pkg-config", [lib, opt])
-        except OSError, e:
+        except OSError as e:
             err = str(e)
             ret = 1
         if ret:

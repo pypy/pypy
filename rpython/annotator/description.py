@@ -278,7 +278,7 @@ class FunctionDesc(Desc):
                     defs_s.append(self.bookkeeper.immutablevalue(x))
         try:
             inputcells = args.match_signature(signature, defs_s)
-        except ArgErr, e:
+        except ArgErr as e:
             raise AnnotatorError("signature mismatch: %s() %s" %
                             (self.name, e.getmsg()))
         return inputcells

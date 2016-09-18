@@ -44,6 +44,7 @@
 */
 long rpy_fastgil = 0;
 static long rpy_waiting_threads = -42;    /* GIL not initialized */
+static volatile int rpy_early_poll_n = 0;
 static mutex1_t mutex_gil_stealer;
 static mutex2_t mutex_gil;
 
@@ -66,73 +67,8 @@ void RPyGilAllocate(void)
     }
 }
 
-void RPyGilAcquireSlowPath(long old_fastgil)
+static void check_and_save_old_fastgil(long old_fastgil)
 {
-    /* Acquires the GIL.  This assumes that we already did:
-
-          old_fastgil = lock_test_and_set(&rpy_fastgil, 1);
-     */
-    if (!RPY_FASTGIL_LOCKED(old_fastgil)) {
-        /* The fastgil was not previously locked: success.
-           'mutex_gil' should still be locked at this point.
-        */
-    }
-    else {
-        /* Otherwise, another thread is busy with the GIL. */
-
-        if (rpy_waiting_threads < 0) {
-            /* <arigo> I tried to have RPyGilAllocate() called from
-             * here, but it fails occasionally on an example
-             * (2.7/test/test_threading.py).  I think what occurs is
-             * that if one thread runs RPyGilAllocate(), it still
-             * doesn't have the GIL; then the other thread might fork()
-             * at precisely this moment, killing the first thread.
-             */
-            fprintf(stderr, "Fatal RPython error: a thread is trying to wait "
-                            "for the GIL, but the GIL was not initialized\n");
-            abort();
-        }
-
-        /* Register me as one of the threads that is actively waiting
-           for the GIL.  The number of such threads is found in
-           rpy_waiting_threads. */
-        atomic_increment(&rpy_waiting_threads);
-
-        /* Enter the waiting queue from the end.  Assuming a roughly
-           first-in-first-out order, this will nicely give the threads
-           a round-robin chance.
-        */
-        mutex1_lock(&mutex_gil_stealer);
-        mutex2_loop_start(&mutex_gil);
-
-        /* We are now the stealer thread.  Steals! */
-        while (1) {
-            /* Sleep for one interval of time.  We may be woken up earlier
-               if 'mutex_gil' is released.
-            */
-            if (mutex2_lock_timeout(&mutex_gil, 0.0001)) {   /* 0.1 ms... */
-                /* We arrive here if 'mutex_gil' was recently released
-                   and we just relocked it.
-                 */
-                old_fastgil = 0;
-                break;
-            }
-
-            /* Busy-looping here.  Try to look again if 'rpy_fastgil' is
-               released.
-            */
-            if (!RPY_FASTGIL_LOCKED(rpy_fastgil)) {
-                old_fastgil = lock_test_and_set(&rpy_fastgil, 1);
-                if (!RPY_FASTGIL_LOCKED(old_fastgil))
-                    /* yes, got a non-held value!  Now we hold it. */
-                    break;
-            }
-            /* Otherwise, loop back. */
-        }
-        atomic_decrement(&rpy_waiting_threads);
-        mutex2_loop_stop(&mutex_gil);
-        mutex1_unlock(&mutex_gil_stealer);
-    }
     assert(RPY_FASTGIL_LOCKED(rpy_fastgil));
 
 #ifdef PYPY_USE_ASMGCC
@@ -150,6 +86,131 @@ void RPyGilAcquireSlowPath(long old_fastgil)
 #else
     assert(old_fastgil == 0);
 #endif
+}
+
+#define RPY_GIL_POKE_MIN   40
+#define RPY_GIL_POKE_MAX  400
+
+void RPyGilAcquireSlowPath(long old_fastgil)
+{
+    /* Acquires the GIL.  This assumes that we already did:
+
+          old_fastgil = pypy_lock_test_and_set(&rpy_fastgil, 1);
+     */
+    if (!RPY_FASTGIL_LOCKED(old_fastgil)) {
+        /* The fastgil was not previously locked: success.
+           'mutex_gil' should still be locked at this point.
+        */
+    }
+    else {
+        /* Otherwise, another thread is busy with the GIL. */
+        int n;
+        long old_waiting_threads;
+
+        if (rpy_waiting_threads < 0) {
+            /* <arigo> I tried to have RPyGilAllocate() called from
+             * here, but it fails occasionally on an example
+             * (2.7/test/test_threading.py).  I think what occurs is
+             * that if one thread runs RPyGilAllocate(), it still
+             * doesn't have the GIL; then the other thread might fork()
+             * at precisely this moment, killing the first thread.
+             */
+            fprintf(stderr, "Fatal RPython error: a thread is trying to wait "
+                            "for the GIL, but the GIL was not initialized\n"
+                            "(For PyPy, see "
+                            "https://bitbucket.org/pypy/pypy/issues/2274)\n");
+            abort();
+        }
+
+        /* Register me as one of the threads that is actively waiting
+           for the GIL.  The number of such threads is found in
+           rpy_waiting_threads. */
+        old_waiting_threads = atomic_increment(&rpy_waiting_threads);
+
+        /* Early polling: before entering the waiting queue, we check
+           a certain number of times if the GIL becomes free.  The
+           motivation for this is issue #2341.  Note that we do this
+           polling even if there are already other threads in the
+           queue, and one of thesee threads is the stealer.  This is
+           because the stealer is likely sleeping right now.  There
+           are use cases where the GIL will really be released very
+           soon after RPyGilAcquireSlowPath() is called, so it's worth
+           always doing this check.
+
+           To avoid falling into bad cases, we "randomize" the number
+           of iterations: we loop N times, where N is choosen between
+           RPY_GIL_POKE_MIN and RPY_GIL_POKE_MAX.
+        */
+        n = rpy_early_poll_n * 2 + 1;
+        while (n >= RPY_GIL_POKE_MAX)
+            n -= (RPY_GIL_POKE_MAX - RPY_GIL_POKE_MIN);
+        rpy_early_poll_n = n;
+        while (n >= 0) {
+            n--;
+            if (old_waiting_threads != rpy_waiting_threads) {
+                /* If the number changed, it is because another thread 
+                   entered or left this function.  In that case, stop
+                   this loop: if another thread left it means the GIL
+                   has been acquired by that thread; if another thread 
+                   entered there is no point in running the present
+                   loop twice. */
+                break;
+            }
+            RPy_YieldProcessor();
+            RPy_CompilerMemoryBarrier();
+
+            if (!RPY_FASTGIL_LOCKED(rpy_fastgil)) {
+                old_fastgil = pypy_lock_test_and_set(&rpy_fastgil, 1);
+                if (!RPY_FASTGIL_LOCKED(old_fastgil)) {
+                    /* We got the gil before entering the waiting
+                       queue.  In case there are other threads waiting
+                       for the GIL, wake up the stealer thread now and
+                       go to the waiting queue anyway, for fairness.
+                       This will fall through if there are no other
+                       threads waiting.
+                    */
+                    check_and_save_old_fastgil(old_fastgil);
+                    mutex2_unlock(&mutex_gil);
+                    break;
+                }
+            }
+        }
+
+        /* Enter the waiting queue from the end.  Assuming a roughly
+           first-in-first-out order, this will nicely give the threads
+           a round-robin chance.
+        */
+        mutex1_lock(&mutex_gil_stealer);
+        mutex2_loop_start(&mutex_gil);
+
+        /* We are now the stealer thread.  Steals! */
+        while (1) {
+            /* Busy-looping here.  Try to look again if 'rpy_fastgil' is
+               released.
+            */
+            if (!RPY_FASTGIL_LOCKED(rpy_fastgil)) {
+                old_fastgil = pypy_lock_test_and_set(&rpy_fastgil, 1);
+                if (!RPY_FASTGIL_LOCKED(old_fastgil))
+                    /* yes, got a non-held value!  Now we hold it. */
+                    break;
+            }
+            /* Sleep for one interval of time.  We may be woken up earlier
+               if 'mutex_gil' is released.
+            */
+            if (mutex2_lock_timeout(&mutex_gil, 0.0001)) {   /* 0.1 ms... */
+                /* We arrive here if 'mutex_gil' was recently released
+                   and we just relocked it.
+                 */
+                old_fastgil = 0;
+                break;
+            }
+            /* Loop back. */
+        }
+        atomic_decrement(&rpy_waiting_threads);
+        mutex2_loop_stop(&mutex_gil);
+        mutex1_unlock(&mutex_gil_stealer);
+    }
+    check_and_save_old_fastgil(old_fastgil);
 }
 
 long RPyGilYieldThread(void)

@@ -243,49 +243,30 @@ def _ll_1_jit_force_virtual(inst):
     return llop.jit_force_virtual(lltype.typeOf(inst), inst)
 
 
-def _ll_2_int_floordiv_ovf_zer(x, y):
-    if y == 0:
-        raise ZeroDivisionError
-    return _ll_2_int_floordiv_ovf(x, y)
-
-def _ll_2_int_floordiv_ovf(x, y):
-    # intentionally not short-circuited to produce only one guard
-    # and to remove the check fully if one of the arguments is known
-    if (x == -sys.maxint - 1) & (y == -1):
-        raise OverflowError
-    return llop.int_floordiv(lltype.Signed, x, y)
-
-def _ll_2_int_floordiv_zer(x, y):
-    if y == 0:
-        raise ZeroDivisionError
-    return llop.int_floordiv(lltype.Signed, x, y)
-
-def _ll_2_int_mod_ovf_zer(x, y):
-    if y == 0:
-        raise ZeroDivisionError
-    return _ll_2_int_mod_ovf(x, y)
-
-def _ll_2_int_mod_ovf(x, y):
-    #see comment in _ll_2_int_floordiv_ovf
-    if (x == -sys.maxint - 1) & (y == -1):
-        raise OverflowError
-    return llop.int_mod(lltype.Signed, x, y)
-
-def _ll_2_int_mod_zer(x, y):
-    if y == 0:
-        raise ZeroDivisionError
-    return llop.int_mod(lltype.Signed, x, y)
-
-def _ll_2_int_lshift_ovf(x, y):
-    result = x << y
-    if (result >> y) != x:
-        raise OverflowError
-    return result
-
 def _ll_1_int_abs(x):
     # this version doesn't branch
     mask = x >> (LONG_BIT - 1)
     return (x ^ mask) - mask
+
+
+def _ll_2_int_floordiv(x, y):
+    # this is used only if the RPython program uses llop.int_floordiv()
+    # explicitly.  For 'a // b', see _handle_int_special() in jtransform.py.
+    # This is the reverse of rpython.rtyper.rint.ll_int_py_div(), i.e.
+    # the same logic as rpython.rtyper.lltypesystem.opimpl.op_int_floordiv
+    # but written in a no-branch style.
+    r = x // y
+    p = r * y
+    # the JIT knows that if x and y are both positive, this is just 'r'
+    return r + (((x ^ y) >> (LONG_BIT - 1)) & (p != x))
+
+def _ll_2_int_mod(x, y):
+    # same comments as _ll_2_int_floordiv()
+    r = x % y
+    # the JIT knows that if x and y are both positive, this doesn't change 'r'
+    r -= y & (((x ^ y) & (r | -r)) >> (LONG_BIT - 1))
+    return r
+
 
 def _ll_1_cast_uint_to_float(x):
     # XXX on 32-bit platforms, this should be done using cast_longlong_to_float
@@ -452,52 +433,12 @@ def _ll_1_llong_abs(xll):
     else:
         return xll
 
-def _ll_2_llong_floordiv(xll, yll):
-    return llop.llong_floordiv(lltype.SignedLongLong, xll, yll)
-
-def _ll_2_llong_floordiv_zer(xll, yll):
-    if yll == 0:
-        raise ZeroDivisionError
-    return llop.llong_floordiv(lltype.SignedLongLong, xll, yll)
-
-def _ll_2_llong_mod(xll, yll):
-    return llop.llong_mod(lltype.SignedLongLong, xll, yll)
-
-def _ll_2_llong_mod_zer(xll, yll):
-    if yll == 0:
-        raise ZeroDivisionError
-    return llop.llong_mod(lltype.SignedLongLong, xll, yll)
-
-def _ll_2_ullong_floordiv(xll, yll):
-    return llop.ullong_floordiv(lltype.UnsignedLongLong, xll, yll)
-
-def _ll_2_ullong_floordiv_zer(xll, yll):
-    if yll == 0:
-        raise ZeroDivisionError
-    return llop.ullong_floordiv(lltype.UnsignedLongLong, xll, yll)
-
-def _ll_2_ullong_mod(xll, yll):
-    return llop.ullong_mod(lltype.UnsignedLongLong, xll, yll)
-
-def _ll_2_ullong_mod_zer(xll, yll):
-    if yll == 0:
-        raise ZeroDivisionError
-    return llop.ullong_mod(lltype.UnsignedLongLong, xll, yll)
-
-def _ll_2_uint_mod(xll, yll):
-    return llop.uint_mod(lltype.Unsigned, xll, yll)
-
 
 # in the following calls to builtins, the JIT is allowed to look inside:
 inline_calls_to = [
-    ('int_floordiv_ovf_zer', [lltype.Signed, lltype.Signed], lltype.Signed),
-    ('int_floordiv_ovf',     [lltype.Signed, lltype.Signed], lltype.Signed),
-    ('int_floordiv_zer',     [lltype.Signed, lltype.Signed], lltype.Signed),
-    ('int_mod_ovf_zer',      [lltype.Signed, lltype.Signed], lltype.Signed),
-    ('int_mod_ovf',          [lltype.Signed, lltype.Signed], lltype.Signed),
-    ('int_mod_zer',          [lltype.Signed, lltype.Signed], lltype.Signed),
-    ('int_lshift_ovf',       [lltype.Signed, lltype.Signed], lltype.Signed),
     ('int_abs',              [lltype.Signed],                lltype.Signed),
+    ('int_floordiv',         [lltype.Signed, lltype.Signed], lltype.Signed),
+    ('int_mod',              [lltype.Signed, lltype.Signed], lltype.Signed),
     ('ll_math.ll_math_sqrt', [lltype.Float],                 lltype.Float),
 ]
 
@@ -641,6 +582,14 @@ class LLtypeHelpers:
                 return lltype.malloc(ARRAY, n, flavor='raw', zero=zero,
                                      add_memory_pressure=add_memory_pressure,
                                      track_allocation=track_allocation)
+            name = '_ll_1_raw_malloc_varsize'
+            if zero:
+                name += '_zero'
+            if add_memory_pressure:
+                name += '_mpressure'
+            if not track_allocation:
+                name += '_notrack'
+            _ll_1_raw_malloc_varsize.func_name = name
             return _ll_1_raw_malloc_varsize
         return build_ll_1_raw_malloc_varsize
 
@@ -669,6 +618,14 @@ class LLtypeHelpers:
                 return lltype.malloc(STRUCT, flavor='raw', zero=zero,
                                      add_memory_pressure=add_memory_pressure,
                                      track_allocation=track_allocation)
+            name = '_ll_0_raw_malloc_fixedsize'
+            if zero:
+                name += '_zero'
+            if add_memory_pressure:
+                name += '_mpressure'
+            if not track_allocation:
+                name += '_notrack'
+            _ll_0_raw_malloc_fixedsize.func_name = name
             return _ll_0_raw_malloc_fixedsize
         return build_ll_0_raw_malloc_fixedsize
 

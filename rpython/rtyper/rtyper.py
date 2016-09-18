@@ -203,6 +203,9 @@ class RPythonTyper(object):
         blockcount = 0
         self.annmixlevel = None
         while True:
+            # make sure all reprs so far have had their setup() called
+            self.call_all_setups()
+
             # look for blocks not specialized yet
             pending = [block for block in self.annotator.annotated
                              if block not in self.already_seen]
@@ -235,8 +238,6 @@ class RPythonTyper(object):
                         previous_percentage = percentage
                         self.log.event('specializing: %d / %d blocks   (%d%%)' %
                                        (n, total, percentage))
-            # make sure all reprs so far have had their setup() called
-            self.call_all_setups()
 
         self.log.event('-=- specialized %d%s blocks -=-' % (
             blockcount, newtext))

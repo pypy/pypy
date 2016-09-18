@@ -169,7 +169,7 @@ def getinterpevalloader(pkgroot, spec):
         while 1:
             try:
                 value = eval(spec, d)
-            except NameError, ex:
+            except NameError as ex:
                 name = ex.args[0].split("'")[1]  # super-Evil
                 if name in d:
                     raise   # propagate the NameError

@@ -2,6 +2,7 @@ import py
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
 from rpython.rtyper import rclass
 from rpython.jit.backend.test import test_random
+from rpython.jit.backend.test.test_random import getint, getref_base, getref
 from rpython.jit.metainterp.resoperation import ResOperation, rop, optypes
 from rpython.jit.metainterp.history import ConstInt, ConstPtr, getkind
 from rpython.jit.codewriter import heaptracker
@@ -169,7 +170,7 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
         if length == 0:
             raise test_random.CannotProduceOperation
         v_index = r.choice(self.intvars)
-        if not (0 <= v_index.getint() < length):
+        if not (0 <= getint(v_index) < length):
             v_index = ConstInt(r.random_integer() % length)
         return v_index
 
@@ -311,7 +312,7 @@ class GetInteriorFieldOperation(test_random.AbstractOperation):
     def field_descr(self, builder, r):
         v, A = builder.get_structptr_var(r, type=lltype.Array,
                                          array_of_structs=True)
-        array = v.getref(lltype.Ptr(A))
+        array = getref(lltype.Ptr(A), v)
         v_index = builder.get_index(len(array), r)
         choice = []
         for name in A.OF._names:
@@ -344,7 +345,7 @@ class SetFieldOperation(GetFieldOperation):
                 w = ConstInt(r.random_integer())
             else:
                 w = r.choice(builder.intvars)
-            value = w.getint()
+            value = getint(w)
             if rffi.cast(lltype.Signed, rffi.cast(TYPE, value)) == value:
                 break
         builder.do(self.opnum, [v, w], descr)
@@ -357,7 +358,7 @@ class SetInteriorFieldOperation(GetInteriorFieldOperation):
                 w = ConstInt(r.random_integer())
             else:
                 w = r.choice(builder.intvars)
-            value = w.getint()
+            value = getint(w)
             if rffi.cast(lltype.Signed, rffi.cast(TYPE, value)) == value:
                 break
         builder.do(self.opnum, [v, v_index, w], descr)
@@ -389,7 +390,7 @@ class ArrayOperation(test_random.AbstractOperation):
 class GetArrayItemOperation(ArrayOperation):
     def field_descr(self, builder, r):
         v, A = builder.get_arrayptr_var(r)
-        array = v.getref(lltype.Ptr(A))
+        array = getref(lltype.Ptr(A), v)
         v_index = builder.get_index(len(array), r)
         descr = self.array_descr(builder, A)
         return v, A, v_index, descr
@@ -411,7 +412,7 @@ class SetArrayItemOperation(GetArrayItemOperation):
                 w = ConstInt(r.random_integer())
             else:
                 w = r.choice(builder.intvars)
-            value = w.getint()
+            value = getint(w)
             if rffi.cast(lltype.Signed, rffi.cast(A.OF, value)) == value:
                 break
         builder.do(self.opnum, [v, v_index, w], descr)
@@ -455,7 +456,7 @@ class NewSeqOperation(test_random.AbstractOperation):
         v_ptr = builder.do(self.opnum, [v_length])
         getattr(builder, self.builder_cache).append(v_ptr)
         # Initialize the string. Is there a better way to do this?
-        for i in range(v_length.getint()):
+        for i in range(getint(v_length)):
             v_index = ConstInt(i)
             v_char = ConstInt(r.random_integer() % self.max)
             builder.do(self.set_char, [v_ptr, v_index, v_char])
@@ -471,9 +472,9 @@ class AbstractStringOperation(test_random.AbstractOperation):
         current = getattr(builder, self.builder_cache)
         if current and r.random() < .8:
             v_string = r.choice(current)
-            string = v_string.getref(self.ptr)
+            string = getref(self.ptr, v_string)
         else:
-            string = self.alloc(builder.get_index(500, r).getint())
+            string = self.alloc(getint(builder.get_index(500, r)))
             v_string = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, string))
             current.append(v_string)
         for i in range(len(string.chars)):
@@ -484,7 +485,7 @@ class AbstractStringOperation(test_random.AbstractOperation):
 class AbstractGetItemOperation(AbstractStringOperation):
     def produce_into(self, builder, r):
         v_string = self.get_string(builder, r)
-        v_index = builder.get_index(len(v_string.getref(self.ptr).chars), r)
+        v_index = builder.get_index(len(getref(self.ptr, v_string).chars), r)
         builder.do(self.opnum, [v_string, v_index])
 
 class AbstractSetItemOperation(AbstractStringOperation):
@@ -492,7 +493,7 @@ class AbstractSetItemOperation(AbstractStringOperation):
         v_string = self.get_string(builder, r)
         if isinstance(v_string, ConstPtr):
             raise test_random.CannotProduceOperation  # setitem(Const, ...)
-        v_index = builder.get_index(len(v_string.getref(self.ptr).chars), r)
+        v_index = builder.get_index(len(getref(self.ptr, v_string).chars), r)
         v_target = ConstInt(r.random_integer() % self.max)
         builder.do(self.opnum, [v_string, v_index, v_target])
 
@@ -505,15 +506,15 @@ class AbstractCopyContentOperation(AbstractStringOperation):
     def produce_into(self, builder, r):
         v_srcstring = self.get_string(builder, r)
         v_dststring = self.get_string(builder, r)
-        src = v_srcstring.getref(self.ptr)
-        dst = v_dststring.getref(self.ptr)
+        src = getref(self.ptr, v_srcstring)
+        dst = getref(self.ptr, v_dststring)
         if src == dst:                                # because it's not a
             raise test_random.CannotProduceOperation  # memmove(), but memcpy()
         srclen = len(src.chars)
         dstlen = len(dst.chars)
         v_length = builder.get_index(min(srclen, dstlen), r)
-        v_srcstart = builder.get_index(srclen - v_length.getint() + 1, r)
-        v_dststart = builder.get_index(dstlen - v_length.getint() + 1, r)
+        v_srcstart = builder.get_index(srclen - getint(v_length) + 1, r)
+        v_dststart = builder.get_index(dstlen - getint(v_length) + 1, r)
         builder.do(self.opnum, [v_srcstring, v_dststring,
                                 v_srcstart, v_dststart, v_length])
 
@@ -585,7 +586,7 @@ class BaseCallOperation(test_random.AbstractOperation):
         """ % funcargs).compile()
         vtableptr = v._hints['vtable']._as_ptr()
         d = {
-            'ptr': S.getref_base(),
+            'ptr': getref_base(S),
             'vtable' : vtableptr,
             'LLException' : LLException,
             }
@@ -593,7 +594,7 @@ class BaseCallOperation(test_random.AbstractOperation):
         return subset, d['f'], vtableptr
 
     def getresulttype(self):
-        if self.opnum == rop.CALL_I:
+        if self.opnum == rop.CALL_I or self.opnum == rop.COND_CALL_VALUE_I:
             return lltype.Signed
         elif self.opnum == rop.CALL_F:
             return lltype.Float
@@ -711,7 +712,12 @@ class RaisingCallOperationWrongGuardException(BaseCallOperation):
 class CondCallOperation(BaseCallOperation):
     def produce_into(self, builder, r):
         fail_subset = builder.subset_of_intvars(r)
-        v_cond = builder.get_bool_var(r)
+        if self.opnum == rop.COND_CALL:
+            RESULT_TYPE = lltype.Void
+            v_cond = builder.get_bool_var(r)
+        else:
+            RESULT_TYPE = lltype.Signed
+            v_cond = r.choice(builder.intvars)
         subset = builder.subset_of_intvars(r)[:4]
         for i in range(len(subset)):
             if r.random() < 0.35:
@@ -723,8 +729,10 @@ class CondCallOperation(BaseCallOperation):
                 seen.append(args)
             else:
                 assert seen[0] == args
+            if RESULT_TYPE is lltype.Signed:
+                return len(args) - 42000
         #
-        TP = lltype.FuncType([lltype.Signed] * len(subset), lltype.Void)
+        TP = lltype.FuncType([lltype.Signed] * len(subset), RESULT_TYPE)
         ptr = llhelper(lltype.Ptr(TP), call_me)
         c_addr = ConstAddr(llmemory.cast_ptr_to_adr(ptr), builder.cpu)
         args = [v_cond, c_addr] + subset
@@ -768,6 +776,7 @@ for i in range(4):      # make more common
 for i in range(2):
     OPERATIONS.append(GuardClassOperation(rop.GUARD_CLASS))
     OPERATIONS.append(CondCallOperation(rop.COND_CALL))
+    OPERATIONS.append(CondCallOperation(rop.COND_CALL_VALUE_I))
     OPERATIONS.append(RaisingCallOperation(rop.CALL_N))
     OPERATIONS.append(RaisingCallOperationGuardNoException(rop.CALL_N))
     OPERATIONS.append(RaisingCallOperationWrongGuardException(rop.CALL_N))

@@ -7,7 +7,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool.sourcetools import func_renamer
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module.thread.os_lock import Lock
@@ -28,7 +28,7 @@ def hash_name_mapper_callback(obj_name, userdata):
         space = global_name_fetcher.space
         w_name = space.wrap(rffi.charp2str(obj_name[0].c_name))
         global_name_fetcher.meth_names.append(w_name)
-    except OperationError, e:
+    except OperationError as e:
         global_name_fetcher.w_error = e
 
 class NameFetcher:
@@ -76,17 +76,19 @@ class W_Hash(W_Root):
         except:
             lltype.free(ctx, flavor='raw')
             raise
+        self.register_finalizer(space)
 
-    def __del__(self):
-        if self.ctx:
-            ropenssl.EVP_MD_CTX_cleanup(self.ctx)
-            lltype.free(self.ctx, flavor='raw')
+    def _finalize_(self):
+        ctx = self.ctx
+        if ctx:
+            self.ctx = lltype.nullptr(ropenssl.EVP_MD_CTX.TO)
+            ropenssl.EVP_MD_CTX_cleanup(ctx)
+            lltype.free(ctx, flavor='raw')
 
     def digest_type_by_name(self, space):
         digest_type = ropenssl.EVP_get_digestbyname(self.name)
         if not digest_type:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("unknown hash function"))
+            raise oefmt(space.w_ValueError, "unknown hash function")
         return digest_type
 
     def descr_repr(self, space):
@@ -109,7 +111,7 @@ class W_Hash(W_Root):
     def digest(self, space):
         "Return the digest value as a string of binary data."
         digest = self._digest(space)
-        return space.wrap(digest)
+        return space.newbytes(digest)
 
     def hexdigest(self, space):
         "Return the digest value as a string of hexadecimal digits."

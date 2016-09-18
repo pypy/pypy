@@ -15,67 +15,6 @@ from rpython.jit.metainterp.resoperation import rop, ResOperation, \
 class ParseError(Exception):
     pass
 
-class ESCAPE_OP(N_aryOp, ResOpWithDescr):
-
-    is_source_op = True
-
-    def getopnum(self):
-        return self.OPNUM
-
-    def getopname(self):
-        return 'escape'
-
-    def copy_and_change(self, opnum, args=None, descr=None):
-        assert opnum == self.OPNUM
-        op = self.__class__()
-        if args is not None:
-            op.initarglist(args)
-        else:
-            op.initarglist(self._args[:])
-        assert descr is None
-        return op
-
-
-class ESCAPE_OP_I(ESCAPE_OP):
-    type = 'i'
-    OPNUM = -123
-
-class ESCAPE_OP_F(ESCAPE_OP):
-    type = 'f'
-    OPNUM = -124
-
-class ESCAPE_OP_N(ESCAPE_OP):
-    type = 'v'
-    OPNUM = -125
-
-class ESCAPE_OP_R(ESCAPE_OP):
-    type = 'r'
-    OPNUM = -126
-
-ALL_ESCAPE_OPS = {
-    ESCAPE_OP_I.OPNUM: ESCAPE_OP_I,
-    ESCAPE_OP_F.OPNUM: ESCAPE_OP_F,
-    ESCAPE_OP_N.OPNUM: ESCAPE_OP_N,
-    ESCAPE_OP_R.OPNUM: ESCAPE_OP_R
-}
-
-class FORCE_SPILL(UnaryOp, PlainResOp):
-
-    OPNUM = -127
-    is_source_op = True
-
-    def getopnum(self):
-        return self.OPNUM
-
-    def getopname(self):
-        return 'force_spill'
-
-    def copy_and_change(self, opnum, args=None, descr=None):
-        assert opnum == self.OPNUM
-        newop = FORCE_SPILL()
-        newop.initarglist(args or self.getarglist())
-        return newop
-
 
 def default_fail_descr(model, opnum, fail_args=None):
     if opnum == rop.FINISH:
@@ -313,23 +252,12 @@ class OpParser(object):
         return opnum, args, descr, fail_args
 
     def create_op(self, opnum, args, res, descr, fail_args):
-        if opnum in ALL_ESCAPE_OPS:
-            op = ALL_ESCAPE_OPS[opnum]()
-            op.initarglist(args)
-            assert descr is None
-            return op
-        if opnum == FORCE_SPILL.OPNUM:
-            op = FORCE_SPILL()
-            op.initarglist(args)
-            assert descr is None
-            return op
-        else:
-            res = ResOperation(opnum, args, descr)
-            if fail_args is not None:
-                res.setfailargs(fail_args)
-            if self._postproces:
-                self._postproces(res)
-            return res
+        res = ResOperation(opnum, args, descr)
+        if fail_args is not None:
+            res.setfailargs(fail_args)
+        if self._postproces:
+            self._postproces(res)
+        return res
 
     def parse_result_op(self, line):
         res, op = line.split("=", 1)
@@ -484,6 +412,54 @@ def parse(input, cpu=None, namespace=None,
         namespace = {}
     return OpParser(input, cpu, namespace, boxkinds,
                     invent_fail_descr, nonstrict, postprocess).parse()
+
+def pick_cls(inp):
+    from rpython.jit.metainterp import history
+
+    if inp.type == 'i':
+        return history.IntFrontendOp
+    elif inp.type == 'r':
+        return history.RefFrontendOp
+    else:
+        assert inp.type == 'f'
+        return history.FloatFrontendOp
+
+def convert_loop_to_trace(loop, metainterp_sd, skip_last=False):
+    from rpython.jit.metainterp.opencoder import Trace
+    from rpython.jit.metainterp.test.test_opencoder import FakeFrame
+    from rpython.jit.metainterp import history, resume
+
+    def get(a):
+        if isinstance(a, history.Const):
+            return a
+        return mapping[a]
+
+    class jitcode:
+        index = 200
+
+    inputargs = [pick_cls(inparg)(i) for i, inparg in
+                 enumerate(loop.inputargs)]
+    mapping = {}
+    for one, two in zip(loop.inputargs, inputargs):
+        mapping[one] = two
+    trace = Trace(inputargs, metainterp_sd)
+    ops = loop.operations
+    if skip_last:
+        ops = ops[:-1]
+    for op in ops:
+        newpos = trace.record_op(op.getopnum(), [get(arg) for arg in 
+            op.getarglist()], op.getdescr())
+        if rop.is_guard(op.getopnum()):
+            failargs = []
+            if op.getfailargs():
+                failargs = [get(arg) for arg in op.getfailargs()]
+            frame = FakeFrame(100, jitcode, failargs)
+            resume.capture_resumedata([frame], None, [], trace)
+        if op.type != 'v':
+            newop = pick_cls(op)(newpos)
+            mapping[op] = newop
+    trace._mapping = mapping # for tests
+    return trace
 
 def pure_parse(*args, **kwds):
     kwds['invent_fail_descr'] = None

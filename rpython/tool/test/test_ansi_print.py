@@ -65,6 +65,19 @@ def test_dot_mixing_with_regular_lines():
     assert output[3] == ('[test:WARNING] maybe?\n', (31,))
     assert len(output[4][0]) == 1    # single character
 
+def test_no_tty():
+    log = ansi_print.AnsiLogger('test')
+    with FakeOutput(tty=False) as output:
+        log.dot()
+        log.dot()
+        log.WARNING('oops')
+        log.WARNING('maybe?')
+        log.dot()
+    assert len(output) == 2
+    assert output[0] == ('[test:WARNING] oops\n', ())
+    assert output[1] == ('[test:WARNING] maybe?\n', ())
+        
+
 def test_unknown_method_names():
     log = ansi_print.AnsiLogger('test')
     with FakeOutput() as output:

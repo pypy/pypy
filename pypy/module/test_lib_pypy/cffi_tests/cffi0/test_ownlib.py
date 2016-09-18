@@ -130,7 +130,7 @@ class TestOwnLib(object):
                 cls.module = str(udir.join('testownlib.dll'))
         else:
             subprocess.check_call(
-                'gcc testownlib.c -shared -fPIC -o testownlib.so',
+                'cc testownlib.c -shared -fPIC -o testownlib.so',
                 cwd=str(udir), shell=True)
             cls.module = str(udir.join('testownlib.so'))
 

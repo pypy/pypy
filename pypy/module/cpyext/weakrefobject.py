@@ -1,6 +1,7 @@
 from pypy.module.cpyext.api import cpython_api
 from pypy.module.cpyext.pyobject import PyObject
 from pypy.module._weakref.interp__weakref import W_Weakref, proxy
+from rpython.rtyper.lltypesystem import rffi
 
 @cpython_api([PyObject, PyObject], PyObject)
 def PyWeakref_NewRef(space, w_obj, w_callback):
@@ -37,7 +38,7 @@ def PyWeakref_GetObject(space, w_ref):
     """
     return space.call_function(w_ref)     # borrowed ref
 
-@cpython_api([PyObject], PyObject, result_borrowed=True)
+@cpython_api([rffi.VOIDP], PyObject, result_borrowed=True)
 def PyWeakref_GET_OBJECT(space, w_ref):
     """Similar to PyWeakref_GetObject(), but implemented as a macro that does no
     error checking.

@@ -315,18 +315,19 @@ class OptHeap(Optimization):
     def emit_operation(self, op):        
         self.emitting_operation(op)
         self.emit_postponed_op()
-        if (op.is_comparison() or op.is_call_may_force()
-            or op.is_ovf()):
+        opnum = op.opnum
+        if (rop.is_comparison(opnum) or rop.is_call_may_force(opnum)
+            or rop.is_ovf(opnum)):
             self.postponed_op = op
         else:
             Optimization.emit_operation(self, op)
 
     def emitting_operation(self, op):
-        if op.has_no_side_effect():
+        if rop.has_no_side_effect(op.opnum):
             return
-        if op.is_ovf():
+        if rop.is_ovf(op.opnum):
             return
-        if op.is_guard():
+        if rop.is_guard(op.opnum):
             self.optimizer.pendingfields = (
                 self.force_lazy_sets_for_guard())
             return
@@ -344,10 +345,11 @@ class OptHeap(Optimization):
             opnum == rop.ENTER_PORTAL_FRAME or   # no effect whatsoever
             opnum == rop.LEAVE_PORTAL_FRAME or   # no effect whatsoever
             opnum == rop.COPYSTRCONTENT or       # no effect on GC struct/array
-            opnum == rop.COPYUNICODECONTENT):    # no effect on GC struct/array
+            opnum == rop.COPYUNICODECONTENT or   # no effect on GC struct/array
+            opnum == rop.CHECK_MEMORY_ERROR):    # may only abort the whole loop
             return
-        if op.is_call():
-            if op.is_call_assembler():
+        if rop.is_call(op.opnum):
+            if rop.is_call_assembler(op.getopnum()):
                 self._seen_guard_not_invalidated = False
             else:
                 effectinfo = op.getdescr().get_extra_info()
@@ -431,28 +433,35 @@ class OptHeap(Optimization):
     optimize_GUARD_EXCEPTION = optimize_GUARD_NO_EXCEPTION
 
     def force_from_effectinfo(self, effectinfo):
-        # XXX we can get the wrong complexity here, if the lists
-        # XXX stored on effectinfo are large
-        for fielddescr in effectinfo.readonly_descrs_fields:
-            self.force_lazy_set(fielddescr)
-        for arraydescr in effectinfo.readonly_descrs_arrays:
-            self.force_lazy_setarrayitem(arraydescr)
-        for fielddescr in effectinfo.write_descrs_fields:
-            if fielddescr.is_always_pure():
-                continue
-            try:
-                del self.cached_dict_reads[fielddescr]
-            except KeyError:
-                pass
-            self.force_lazy_set(fielddescr, can_cache=False)
-        for arraydescr in effectinfo.write_descrs_arrays:
-            self.force_lazy_setarrayitem(arraydescr, can_cache=False)
-            if arraydescr in self.corresponding_array_descrs:
-                dictdescr = self.corresponding_array_descrs.pop(arraydescr)
+        # Note: this version of the code handles effectively
+        # effectinfos that store arbitrarily many descrs, by looping
+        # on self.cached_{fields, arrayitems} and looking them up in
+        # the bitstrings stored in the effectinfo.
+        for fielddescr, cf in self.cached_fields.items():
+            if effectinfo.check_readonly_descr_field(fielddescr):
+                cf.force_lazy_set(self, fielddescr)
+            if effectinfo.check_write_descr_field(fielddescr):
+                if fielddescr.is_always_pure():
+                    continue
+                try:
+                    del self.cached_dict_reads[fielddescr]
+                except KeyError:
+                    pass
+                cf.force_lazy_set(self, fielddescr, can_cache=False)
+        #
+        for arraydescr, submap in self.cached_arrayitems.items():
+            if effectinfo.check_readonly_descr_array(arraydescr):
+                self.force_lazy_setarrayitem_submap(submap)
+            if effectinfo.check_write_descr_array(arraydescr):
+                self.force_lazy_setarrayitem_submap(submap, can_cache=False)
+        #
+        for arraydescr, dictdescr in self.corresponding_array_descrs.items():
+            if effectinfo.check_write_descr_array(arraydescr):
                 try:
                     del self.cached_dict_reads[dictdescr]
                 except KeyError:
                     pass # someone did it already
+        #
         if effectinfo.check_forces_virtual_or_virtualizable():
             vrefinfo = self.optimizer.metainterp_sd.virtualref_info
             self.force_lazy_set(vrefinfo.descr_forced)
@@ -474,6 +483,10 @@ class OptHeap(Optimization):
         for idx, cf in submap.iteritems():
             if indexb is None or indexb.contains(idx):
                 cf.force_lazy_set(self, None, can_cache)
+
+    def force_lazy_setarrayitem_submap(self, submap, can_cache=True):
+        for cf in submap.itervalues():
+            cf.force_lazy_set(self, None, can_cache)
 
     def force_all_lazy_sets(self):
         items = self.cached_fields.items()

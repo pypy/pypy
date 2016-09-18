@@ -99,7 +99,7 @@ class AppTestNDIter(BaseNumpyAppTest):
         exc = None
         try:
             it.index
-        except ValueError, e:
+        except ValueError as e:
             exc = e
         assert exc
 

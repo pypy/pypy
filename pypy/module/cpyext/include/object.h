@@ -142,7 +142,9 @@ typedef Py_ssize_t (*writebufferproc)(PyObject *, Py_ssize_t, void **);
 typedef Py_ssize_t (*segcountproc)(PyObject *, Py_ssize_t *);
 typedef Py_ssize_t (*charbufferproc)(PyObject *, Py_ssize_t, char **);
 
-/* Py3k buffer interface */
+/* Py3k buffer interface, adapted for PyPy */
+#define Py_MAX_NDIMS 32
+#define Py_MAX_FMT 5
 typedef struct bufferinfo {
     void *buf;
     PyObject *obj;        /* owned reference */
@@ -156,12 +158,14 @@ typedef struct bufferinfo {
     char *format;
     Py_ssize_t *shape;
     Py_ssize_t *strides;
-    Py_ssize_t *suboffsets;
-
+    Py_ssize_t *suboffsets; /* alway NULL for app-level objects*/
+    unsigned char _format[Py_MAX_FMT];
+    Py_ssize_t _strides[Py_MAX_NDIMS];
+    Py_ssize_t _shape[Py_MAX_NDIMS];
     /* static store for shape and strides of
        mono-dimensional buffers. */
     /* Py_ssize_t smalltable[2]; */
-    void *internal;
+    void *internal; /* always NULL for app-level objects */
 } Py_buffer;
 
 
@@ -505,7 +509,6 @@ manually remove this flag though!
 #define PyType_HasFeature(t,f)  (((t)->tp_flags & (f)) != 0)
 
 /* objimpl.h ----------------------------------------------*/
-#define PyObject_DEL PyObject_Del
 #define PyObject_New(type, typeobj) \
 		( (type *) _PyObject_New(typeobj) )
 #define PyObject_NewVar(type, typeobj, n) \
@@ -562,13 +565,22 @@ typedef union _gc_head {
 #define PyObject_TypeCheck(ob, tp) \
     ((ob)->ob_type == (tp) || PyType_IsSubtype((ob)->ob_type, (tp)))
 
-#define Py_TRASHCAN_SAFE_BEGIN(pyObj)
-#define Py_TRASHCAN_SAFE_END(pyObj)
+#define Py_TRASHCAN_SAFE_BEGIN(pyObj) do {
+#define Py_TRASHCAN_SAFE_END(pyObj)   ; } while(0);
+/* note: the ";" at the start of Py_TRASHCAN_SAFE_END is needed
+   if the code has a label in front of the macro call */
 
 /* Copied from CPython ----------------------------- */
 PyAPI_FUNC(int) PyObject_AsReadBuffer(PyObject *, const void **, Py_ssize_t *);
 PyAPI_FUNC(int) PyObject_AsWriteBuffer(PyObject *, void **, Py_ssize_t *);
 PyAPI_FUNC(int) PyObject_CheckReadBuffer(PyObject *);
+
+#define PyObject_MALLOC         PyObject_Malloc
+#define PyObject_REALLOC        PyObject_Realloc
+#define PyObject_FREE           PyObject_Free
+#define PyObject_Del            PyObject_Free
+#define PyObject_DEL            PyObject_Free
+
 
 
 /* PyPy internal ----------------------------------- */

@@ -52,7 +52,7 @@ class Arena(object):
                 del self.objectptrs[offset]
                 del self.objectsizes[offset]
                 obj._free()
-        if zero and zero != 3:
+        if zero in (1, 2):
             initialbyte = "0"
         else:
             initialbyte = "#"
@@ -335,6 +335,8 @@ def arena_reset(arena_addr, size, zero):
       * 1: clear, optimized for a very large area of memory
       * 2: clear, optimized for a small or medium area of memory
       * 3: fill with garbage
+      * 4: large area of memory that can benefit from MADV_FREE
+             (i.e. contains garbage, may be zero-filled or not)
     """
     arena_addr = getfakearenaaddress(arena_addr)
     arena_addr.arena.reset(zero, arena_addr.offset, size)
@@ -410,16 +412,19 @@ if os.name == 'posix':
             self.pagesize = 0
         def _cleanup_(self):
             self.pagesize = 0
+        def get(self):
+            pagesize = self.pagesize
+            if pagesize == 0:
+                pagesize = rffi.cast(lltype.Signed, legacy_getpagesize())
+                self.pagesize = pagesize
+            return pagesize
+
     posixpagesize = PosixPageSize()
 
     def clear_large_memory_chunk(baseaddr, size):
         from rpython.rlib import rmmap
 
-        pagesize = posixpagesize.pagesize
-        if pagesize == 0:
-            pagesize = rffi.cast(lltype.Signed, legacy_getpagesize())
-            posixpagesize.pagesize = pagesize
-
+        pagesize = posixpagesize.get()
         if size > 2 * pagesize:
             lowbits = rffi.cast(lltype.Signed, baseaddr) & (pagesize - 1)
             if lowbits:     # clear the initial misaligned part, if any
@@ -442,6 +447,24 @@ else:
     # Or it might be enough to decommit the pages and recommit
     # them immediately.
     clear_large_memory_chunk = llmemory.raw_memclear
+
+    class PosixPageSize:
+        def get(self):
+            from rpython.rlib import rmmap
+            return rmmap.PAGESIZE
+    posixpagesize = PosixPageSize()
+
+def madvise_arena_free(baseaddr, size):
+    from rpython.rlib import rmmap
+
+    pagesize = posixpagesize.get()
+    baseaddr = rffi.cast(lltype.Signed, baseaddr)
+    aligned_addr = (baseaddr + pagesize - 1) & ~(pagesize - 1)
+    size -= (aligned_addr - baseaddr)
+    if size >= pagesize:
+        rmmap.madvise_free(rffi.cast(rmmap.PTR, aligned_addr),
+                           size & ~(pagesize - 1))
+
 
 if os.name == "posix":
     from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -507,6 +530,8 @@ def llimpl_arena_reset(arena_addr, size, zero):
             clear_large_memory_chunk(arena_addr, size)
         elif zero == 3:
             llop.raw_memset(lltype.Void, arena_addr, ord('#'), size)
+        elif zero == 4:
+            madvise_arena_free(arena_addr, size)
         else:
             llmemory.raw_memclear(arena_addr, size)
 llimpl_arena_reset._always_inline_ = True

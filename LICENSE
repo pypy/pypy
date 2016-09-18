@@ -43,17 +43,17 @@ copyrighted by one or more of the following people and organizations:
   Samuele Pedroni
   Matti Picus
   Alex Gaynor
-  Brian Kearns
   Philip Jenvey
-  Michael Hudson
+  Brian Kearns
   Ronan Lamy
-  David Schneider
+  Michael Hudson
   Manuel Jacob
+  David Schneider
   Holger Krekel
   Christian Tismer
   Hakan Ardo
-  Benjamin Peterson
   Richard Plangger
+  Benjamin Peterson
   Anders Chrigstrom
   Eric van Riet Paap
   Wim Lavrijsen
@@ -74,6 +74,7 @@ copyrighted by one or more of the following people and organizations:
   Seo Sanghyeon
   Ronny Pfannschmidt
   Justin Peel
+  Raffael Tfirst
   David Edelsohn
   Anders Hammarquist
   Jakub Gustak
@@ -93,9 +94,9 @@ copyrighted by one or more of the following people and organizations:
   stian
   Jan de Mooij
   Tyler Wade
+  Vincent Legoll
   Michael Foord
   Stephan Diehl
-  Vincent Legoll
   Stefan Schwarzer
   Valentino Volonghi
   Tomek Meka
@@ -104,11 +105,14 @@ copyrighted by one or more of the following people and organizations:
   Bruno Gola
   David Malcolm
   Jean-Paul Calderone
+  Mark Young
   Timo Paulssen
   Squeaky
+  Devin Jeanpierre
   Marius Gedminas
   Alexandre Fayolle
   Simon Burton
+  Stefano Rivera
   Martin Matusiak
   Konstantin Lopuhin
   Wenzhu Man
@@ -117,17 +121,17 @@ copyrighted by one or more of the following people and organizations:
   Ivan Sichmann Freitas
   Greg Price
   Dario Bertini
-  Stefano Rivera
   Mark Pearse
   Simon Cross
-  Andreas Stührk
   Edd Barrett
+  Andreas Stührk
+  Tobias Pape
   Jean-Philippe St. Pierre
   Guido van Rossum
   Pavel Vinogradov
+  Spenser Bauman
   Jeremy Thurgood
   Paweł Piotr Przeradowski
-  Spenser Bauman
   Paul deGrandis
   Ilya Osadchiy
   marky1991
@@ -137,9 +141,9 @@ copyrighted by one or more of the following people and organizations:
   tav
   Taavi Burns
   Georg Brandl
+  Nicolas Truessel
   Bert Freudenberg
   Stian Andreassen
-  Tobias Pape
   Wanja Saatkamp
   Gerald Klix
   Mike Blume
@@ -155,11 +159,13 @@ copyrighted by one or more of the following people and organizations:
   Dusty Phillips
   Lukas Renggli
   Guenter Jantzen
+  William Leslie
   Ned Batchelder
   Tim Felgentreff
   Anton Gulenko
   Amit Regmi
   Ben Young
+  Sergey Matyunin
   Nicolas Chauvat
   Andrew Durdin
   Andrew Chambers
@@ -172,7 +178,7 @@ copyrighted by one or more of the following people and organizations:
   Gintautas Miliauskas
   Michael Twomey
   Lucian Branescu Mihaila
-  Devin Jeanpierre
+  anatoly techtonik
   Gabriel Lavoie
   Olivier Dormond
   Jared Grubb
@@ -182,7 +188,6 @@ copyrighted by one or more of the following people and organizations:
   Brian Dorsey
   Victor Stinner
   Andrews Medina
-  anatoly techtonik
   Stuart Williams
   Jasper Schulz
   Christian Hudon
@@ -206,18 +211,19 @@ copyrighted by one or more of the following people and organizations:
   Alex Perry
   Vaibhav Sood
   Alan McIntyre
-  William Leslie
   Alexander Sedov
+  p_zieschang@yahoo.de
   Attila Gobi
   Jasper.Schulz
   Christopher Pope
+  Florin Papa
   Christian Tismer 
   Marc Abramowitz
   Dan Stromberg
   Arjun Naik
   Valentina Mukhamedzhanova
   Stefano Parmesan
-  Mark Young
+  touilleMan
   Alexis Daboville
   Jens-Uwe Mager
   Carl Meyer
@@ -225,12 +231,15 @@ copyrighted by one or more of the following people and organizations:
   Pieter Zieschang
   Gabriel
   Lukas Vacek
+  Kunal Grover
+  Aaron Gallagher
   Andrew Dalke
   Sylvain Thenault
   Jakub Stasiak
   Nathan Taylor
   Vladimir Kryachko
   Omer Katz
+  Mark Williams
   Jacek Generowicz
   Alejandro J. Cura
   Jacob Oscarson
@@ -240,7 +249,6 @@ copyrighted by one or more of the following people and organizations:
   Kristjan Valur Jonsson
   David Lievens
   Neil Blakey-Milner
-  Sergey Matyunin
   Lutz Paelike
   Lucio Torre
   Lars Wassermann
@@ -252,9 +260,11 @@ copyrighted by one or more of the following people and organizations:
   Artur Lisiecki
   Sergey Kishchenko
   Ignas Mikalajunas
+  Alecsandru Patrascu
   Christoph Gerum
   Martin Blais
   Lene Wagner
+  Catalin Gabriel Manciu
   Tomo Cocoa
   Kim Jin Su
   Toni Mattis
@@ -266,8 +276,9 @@ copyrighted by one or more of the following people and organizations:
   Yury V. Zaytsev
   Anna Katrina Dominguez
   Bobby Impollonia
-  timo@eistee.fritz.box
+  Vasantha Ganesh K
   Andrew Thompson
+  florinpapa
   Yusei Tahara
   Aaron Tubbs
   Ben Darnell
@@ -293,6 +304,7 @@ copyrighted by one or more of the following people and organizations:
   Stephan Busemann
   Rafał Gałczyński
   Matt Bogosian
+  timo
   Christian Muirhead
   Berker Peksag
   James Lan
@@ -305,6 +317,7 @@ copyrighted by one or more of the following people and organizations:
   Boglarka Vezer
   Chris Pressey
   Buck Golemon
+  Diana Popa
   Konrad Delong
   Dinu Gherman
   Chris Lambacher
@@ -347,12 +360,15 @@ copyrighted by one or more of the following people and organizations:
   yasirs
   Michael Chermside
   Anna Ravencroft
+  pizi
   Andrey Churin
   Dan Crosta
+  Eli Stevens
   Tobias Diaz
   Julien Phalip
   Roman Podoliaka
   Dan Loewenherz
+  werat
 
   Heinrich-Heine University, Germany 
   Open End AB (formerly AB Strakt), Sweden

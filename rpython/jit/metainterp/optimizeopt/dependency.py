@@ -3,7 +3,6 @@ import py
 from rpython.jit.metainterp import compile
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import (rop, GuardResOp, ResOperation)
-from rpython.jit.metainterp.resume import Snapshot
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import (ConstPtr, ConstInt,Const,
         AbstractValue, AbstractFailDescr)
@@ -23,6 +22,8 @@ MODIFY_COMPLEX_OBJ = [ (rop.SETARRAYITEM_GC, 0, 1)
                      , (rop.UNICODESETITEM, 0, -1)
                      ]
 
+UNROLLED_MODIFY_COMPLEX_OBJ = unrolling_iterable(MODIFY_COMPLEX_OBJ)
+
 LOAD_COMPLEX_OBJ = [ (rop.GETARRAYITEM_GC_I, 0, 1)
                    , (rop.GETARRAYITEM_GC_F, 0, 1)
                    , (rop.GETARRAYITEM_GC_R, 0, 1)
@@ -40,6 +41,8 @@ LOAD_COMPLEX_OBJ = [ (rop.GETARRAYITEM_GC_I, 0, 1)
                    , (rop.GETFIELD_RAW_F, 0, -1)
                    , (rop.GETFIELD_RAW_R, 0, -1)
                    ]
+
+UNROLLED_LOAD_COMPLEX_OBJ = unrolling_iterable(LOAD_COMPLEX_OBJ)
 
 class Path(object):
     def __init__(self,path):
@@ -77,14 +80,14 @@ class Path(object):
                 i += 1
                 continue
             op = node.getoperation()
-            if op.is_guard():
+            if rop.is_guard(op.opnum):
                 descr = op.getdescr()
                 if not descr:
                     return False
                 assert isinstance(descr, AbstractFailDescr)
                 if not descr.exits_early():
                     return False
-            elif not op.is_always_pure():
+            elif not rop.is_always_pure(op.opnum):
                 return False
             i += 1
         return True
@@ -203,7 +206,7 @@ class Node(object):
         args = []
         op = self.op
         if self.modifies_complex_object():
-            for opnum, i, j in unrolling_iterable(MODIFY_COMPLEX_OBJ):
+            for opnum, i, j in UNROLLED_MODIFY_COMPLEX_OBJ: #unrolling_iterable(MODIFY_COMPLEX_OBJ):
                 if op.getopnum() == opnum:
                     op_args = op.getarglist()
                     if j == -1:
@@ -543,7 +546,7 @@ class DependencyGraph(object):
     def __init__(self, loop):
         self.loop = loop
         self.label = Node(loop.label, 0)
-        self.nodes = [ Node(op,0) for op in loop.operations if not op.is_jit_debug() ]
+        self.nodes = [ Node(op,0) for op in loop.operations if not rop.is_jit_debug(op.opnum) ]
         for i,node in enumerate(self.nodes):
             node.opidx = i+1
         self.inodes = [] # imaginary nodes
@@ -595,9 +598,9 @@ class DependencyGraph(object):
         # pass 1
         for i,node in enumerate(self.nodes):
             op = node.op
-            if op.is_always_pure():
+            if rop.is_always_pure(op.opnum):
                 node.setpriority(1)
-            if op.is_guard():
+            if rop.is_guard(op.opnum):
                 node.setpriority(2)
             # the label operation defines all operations at the
             # beginning of the loop
@@ -608,11 +611,11 @@ class DependencyGraph(object):
                 # In SSA form. Modifications get a new variable
                 tracker.define(op, node)
             # usage of defined variables
-            if op.is_always_pure() or op.is_final():
+            if rop.is_always_pure(op.opnum) or rop.is_final(op.opnum):
                 # normal case every arguments definition is set
                 for arg in op.getarglist():
                     tracker.depends_on_arg(arg, node)
-            elif op.is_guard():
+            elif rop.is_guard(op.opnum):
                 if node.exits_early():
                     pass
                 else:
@@ -724,7 +727,7 @@ class DependencyGraph(object):
         if node.loads_from_complex_object():
             # If this complex object load operation loads an index that has been
             # modified, the last modification should be used to put a def-use edge.
-            for opnum, i, j in unrolling_iterable(LOAD_COMPLEX_OBJ):
+            for opnum, i, j in UNROLLED_LOAD_COMPLEX_OBJ:
                 if opnum == op.getopnum():
                     cobj = op.getarg(i)
                     if j != -1:
@@ -930,10 +933,10 @@ class IntegralForwardModification(object):
     """
     exec py.code.Source(multiplicative_func_source
             .format(name='INT_MUL', op='*', tgt='mul', cop='*')).compile()
-    exec py.code.Source(multiplicative_func_source
-            .format(name='INT_FLOORDIV', op='*', tgt='div', cop='/')).compile()
-    exec py.code.Source(multiplicative_func_source
-            .format(name='UINT_FLOORDIV', op='*', tgt='div', cop='/')).compile()
+    #exec py.code.Source(multiplicative_func_source
+    #        .format(name='INT_PY_DIV', op='*', tgt='div', cop='/')).compile()
+    #exec py.code.Source(multiplicative_func_source
+    #        .format(name='UINT_FLOORDIV', op='*', tgt='div', cop='/')).compile()
     del multiplicative_func_source
 
     array_access_source = """
@@ -1043,9 +1046,11 @@ class IndexVar(AbstractValue):
             var = ResOperation(rop.INT_MUL, args)
             opt.emit_operation(var)
         if self.coefficient_div != 1:
-            args = [var, ConstInt(self.coefficient_div)]
-            var = ResOperation(rop.INT_FLOORDIV, args)
-            opt.emit_operation(var)
+            assert 0   # XXX for now; should never be the case with handling
+                       # of INT_PY_DIV commented out in this file...
+            #args = [var, ConstInt(self.coefficient_div)]
+            #var = ResOperation(rop.INT_FLOORDIV, args)
+            #opt.emit_operation(var)
         if self.constant > 0:
             args = [var, ConstInt(self.constant)]
             var = ResOperation(rop.INT_ADD, args)

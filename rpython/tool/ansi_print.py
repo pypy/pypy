@@ -67,6 +67,8 @@ class AnsiLogger(object):
 
     def dot(self):
         """Output a mandelbrot dot to the terminal."""
+        if not isatty():
+            return
         global wrote_dot
         if not wrote_dot:
             mandelbrot_driver.reset()

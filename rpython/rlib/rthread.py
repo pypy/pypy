@@ -22,6 +22,16 @@ eci = ExternalCompilationInfo(
     include_dirs = [translator_c_dir],
 )
 
+class CConfig:
+    _compilation_info_ = eci
+    RPYTHREAD_NAME = rffi_platform.DefinedConstantString('RPYTHREAD_NAME')
+    USE_SEMAPHORES = rffi_platform.Defined('USE_SEMAPHORES')
+    CS_GNU_LIBPTHREAD_VERSION = rffi_platform.DefinedConstantInteger(
+        '_CS_GNU_LIBPTHREAD_VERSION')
+cconfig = rffi_platform.configure(CConfig)
+globals().update(cconfig)
+
+
 def llexternal(name, args, result, **kwds):
     kwds.setdefault('sandboxsafe', True)
     return rffi.llexternal(name, args, result, compilation_info=eci,
@@ -100,8 +110,11 @@ def get_ident():
         return thread.get_ident()
 
 def get_or_make_ident():
-    assert we_are_translated()
-    return tlfield_thread_ident.get_or_make_raw()
+    if we_are_translated():
+        return tlfield_thread_ident.get_or_make_raw()
+    else:
+        import thread
+        return thread.get_ident()
 
 @specialize.arg(0)
 def start_new_thread(x, y):

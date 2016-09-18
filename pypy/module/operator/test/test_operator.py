@@ -33,7 +33,8 @@ class AppTestOperator:
         a.z = 'Z'
 
         assert operator.attrgetter('x','z','y')(a) == ('X', 'Z', 'Y')
-        raises(TypeError, operator.attrgetter('x', (), 'y'), a)
+        e = raises(TypeError, operator.attrgetter('x', (), 'y'), a)
+        assert str(e.value) == "attribute name must be a string, not 'tuple'"
 
         data = map(str, range(20))
         assert operator.itemgetter(2,10,5)(data) == ('2', '10', '5')
@@ -47,7 +48,13 @@ class AppTestOperator:
         a.name = "hello"
         a.child = A()
         a.child.name = "world"
+        a.child.foo = "bar"
         assert attrgetter("child.name")(a) == "world"
+        assert attrgetter("child.name", "child.foo")(a) == ("world", "bar")
+
+    def test_attrgetter_type(self):
+        from operator import attrgetter
+        assert type(attrgetter("child.name")) is attrgetter
 
     def test_concat(self):
         class Seq1:
@@ -183,6 +190,19 @@ class AppTestOperator:
         assert not operator.isSequenceType(3)
         class Dict(dict): pass
         assert not operator.isSequenceType(Dict())
+
+    def test_isXxxType_more(self):
+        import operator
+
+        assert not operator.isSequenceType(list)
+        assert not operator.isSequenceType(dict)
+        assert not operator.isSequenceType({})
+        assert not operator.isMappingType(list)
+        assert not operator.isMappingType(dict)
+        assert not operator.isMappingType([])
+        assert not operator.isMappingType(())
+        assert not operator.isNumberType(int)
+        assert not operator.isNumberType(float)
 
     def test_inplace(self):
         import operator
