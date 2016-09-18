@@ -158,9 +158,11 @@ return next yielded value or raise StopIteration."""
         # Called from execute_frame() just before resuming the bytecode
         # interpretation.
         space = self.space
-        if self.w_yielded_from is not None:
+        w_yf = self.w_yielded_from
+        if w_yf is not None:
+            self.w_yielded_from = None
             try:
-                self.next_yield_from(frame, w_arg_or_err)
+                self.next_yield_from(frame, w_yf, w_arg_or_err)
             except OperationError as operr:
                 ec = space.getexecutioncontext()
                 return frame.handle_operation_error(ec, operr)
@@ -184,13 +186,12 @@ return next yielded value or raise StopIteration."""
             frame.pushvalue(w_arg_or_err)
         return r_uint(last_instr + 1)
 
-    def next_yield_from(self, frame, w_inputvalue_or_err):
+    def next_yield_from(self, frame, w_yf, w_inputvalue_or_err):
         """Fetch the next item of the current 'yield from', push it on
         the frame stack, and raises Yield.  If there isn't one, push
         w_stopiteration_value and returns.  May also just raise.
         """
         space = self.space
-        w_yf = self.w_yielded_from
         try:
             if isinstance(w_yf, GeneratorOrCoroutine):
                 w_retval = w_yf.send_ex(w_inputvalue_or_err)
@@ -199,7 +200,6 @@ return next yielded value or raise StopIteration."""
             else:
                 w_retval = delegate_to_nongen(space, w_yf, w_inputvalue_or_err)
         except OperationError as e:
-            self.w_yielded_from = None
             if not e.match(space, space.w_StopIteration):
                 raise
             e.normalize_exception(space)
@@ -214,6 +214,7 @@ return next yielded value or raise StopIteration."""
             return
         else:
             frame.pushvalue(w_retval)
+            self.w_yielded_from = w_yf
             raise Yield
 
     def _leak_stopiteration(self, e):
@@ -256,6 +257,7 @@ return next yielded value or raise StopIteration."""
         operr = OperationError(w_type, w_val, tb)
         operr.normalize_exception(space)
 
+        # note: w_yielded_from is always None if 'self.running'
         w_yf = self.w_yielded_from
         if (w_yf is not None and
                     operr.match(space, space.w_GeneratorExit)):
@@ -278,6 +280,7 @@ return next yielded value or raise StopIteration."""
             return     # nothing to do in this case
         space = self.space
         operr = get_generator_exit(space)
+        # note: w_yielded_from is always None if 'self.running'
         w_yf = self.w_yielded_from
         if w_yf is not None:
             self.w_yielded_from = None

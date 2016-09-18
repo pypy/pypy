@@ -397,10 +397,15 @@ res = f()
 
     def test_gi_yieldfrom(self): """
         def g(x):
+            assert gen.gi_yieldfrom is None
             yield x
+            assert gen.gi_yieldfrom is None
         def f(x):
+            assert gen.gi_yieldfrom is None
             yield from g(x)
+            assert gen.gi_yieldfrom is None
             yield 42
+            assert gen.gi_yieldfrom is None
         gen = f(5)
         assert gen.gi_yieldfrom is None
         assert next(gen) == 5

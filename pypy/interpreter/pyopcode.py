@@ -1035,11 +1035,10 @@ class __extend__(pyframe.PyFrame):
         from pypy.interpreter.generator import Coroutine
         in_generator = self.get_generator()
         assert in_generator is not None
-        w_inputvalue = self.popvalue()    # that's always None, actually
+        w_inputvalue = self.popvalue()    # that's always w_None, actually
         w_gen = self.popvalue()
         #
-        in_generator.w_yielded_from = w_gen
-        in_generator.next_yield_from(self, w_inputvalue)
+        in_generator.next_yield_from(self, w_gen, w_inputvalue)
         # Common case: the call above raises Yield.
         # If instead the iterable is empty, next_yield_from() pushed the
         # final result and returns.  In that case, we can just continue
