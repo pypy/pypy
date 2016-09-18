@@ -1159,6 +1159,9 @@ class __extend__(pyframe.PyFrame):
                 operr.w_type,
                 operr.get_w_value(self.space),
                 w_traceback)
+            # push a marker that also contains the old_last_exception,
+            # which must be restored as 'self.last_exception' but only
+            # in WITH_CLEANUP_FINISH
             self.pushvalue(SApplicationException(old_last_exception))
         else:
             w_res = self.call_contextmanager_exit_function(
@@ -1171,9 +1174,9 @@ class __extend__(pyframe.PyFrame):
 
     def WITH_CLEANUP_FINISH(self, oparg, next_instr):
         w_suppress = self.popvalue()
-        w_unroller = self.popvalue()
-        if isinstance(w_unroller, SApplicationException):
-            self.last_exception = w_unroller.operr
+        w_marker = self.popvalue()
+        if isinstance(w_marker, SApplicationException):
+            self.last_exception = w_marker.operr    # may be None
             if self.space.is_true(w_suppress):
                 # __exit__() returned True -> Swallow the exception.
                 self.settopvalue(self.space.w_None)
