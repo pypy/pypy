@@ -1035,7 +1035,7 @@ class __extend__(pyframe.PyFrame):
         from pypy.interpreter.generator import Coroutine
         in_generator = self.get_generator()
         assert in_generator is not None
-        w_inputvalue = self.popvalue()
+        w_inputvalue = self.popvalue()    # that's always None, actually
         w_gen = self.popvalue()
         #
         in_generator.w_yielded_from = w_gen
