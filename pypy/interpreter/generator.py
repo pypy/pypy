@@ -164,8 +164,7 @@ return next yielded value or raise StopIteration."""
             try:
                 self.next_yield_from(frame, w_yf, w_arg_or_err)
             except OperationError as operr:
-                ec = space.getexecutioncontext()
-                return frame.handle_operation_error(ec, operr)
+                return frame.handle_generator_error(operr)
             # Normal case: the call above raises Yield.
             # We reach this point if the iterable is exhausted.
             last_instr = jit.promote(frame.last_instr)
@@ -173,8 +172,7 @@ return next yielded value or raise StopIteration."""
             return r_uint(last_instr + 1)
 
         if isinstance(w_arg_or_err, SApplicationException):
-            ec = space.getexecutioncontext()
-            return frame.handle_operation_error(ec, w_arg_or_err.operr)
+            return frame.handle_generator_error(w_arg_or_err.operr)
 
         last_instr = jit.promote(frame.last_instr)
         if last_instr == -1:

@@ -694,6 +694,24 @@ class AppTestYieldFrom:
             2,
         ]
 
+    def test_exception_context(self): """
+        import operator
+        def f():
+            try:
+                raise ValueError
+            except ValueError:
+                yield from map(operator.truediv, [2, 3], [4, 0])
+        gen = f()
+        assert next(gen) == 0.5
+        try:
+            next(gen)
+        except ZeroDivisionError as e:
+            assert e.__context__ is not None
+            assert isinstance(e.__context__, ValueError)
+        else:
+            assert False, "should have raised"
+        """
+
 
 class AppTestGeneratorStop:
 
