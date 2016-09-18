@@ -460,6 +460,23 @@ class AppTestRaiseContext:
                         1/0
         except IndexError as exc:
             assert exc.__context__ is None
+        else:
+            assert False, "should have raised"
+
+    def test_with_exception_context(self):
+        class Ctx:
+            def __enter__(self):
+                pass
+            def __exit__(self, *e):
+                1/0
+        try:
+            with Ctx():
+                raise ValueError
+        except ZeroDivisionError as e:
+            assert e.__context__ is not None
+            assert isinstance(e.__context__, ValueError)
+        else:
+            assert False, "should have raised"
 
 
 class AppTestTraceback:

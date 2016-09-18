@@ -141,3 +141,22 @@ class AppTestCoroutine:
         else:
             assert False, "should have raised"
         """
+
+    def test_async_with_exception_context(self): """
+        class CM:
+            async def __aenter__(self):
+                pass
+            async def __aexit__(self, *e):
+                1/0
+        async def f():
+            async with CM():
+                raise ValueError
+        c = f()
+        try:
+            c.send(None)
+        except ZeroDivisionError as e:
+            assert e.__context__ is not None
+            assert isinstance(e.__context__, ValueError)
+        else:
+            assert False, "should have raised"
+        """
