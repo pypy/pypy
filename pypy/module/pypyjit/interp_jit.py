@@ -12,7 +12,7 @@ from rpython.rlib.jit import current_trace_length, unroll_parameters,\
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 import pypy.interpreter.pyopcode   # for side-effects
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.pycode import CO_GENERATOR, PyCode
+from pypy.interpreter.pycode import CO_GENERATOR, CO_COROUTINE, PyCode
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pyopcode import Yield
