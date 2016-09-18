@@ -25,7 +25,6 @@ class TestW_LongObject:
         space.raises_w(space.w_OverflowError, space.float_w, w_big)
 
     def test_rint_variants(self):
-        py.test.skip("XXX broken!")
         from rpython.rtyper.tool.rfficache import platform
         space = self.space
         for r in platform.numbertype_to_rclass.values():
@@ -36,8 +35,8 @@ class TestW_LongObject:
             for x in values:
                 if not r.SIGNED:
                     x &= r.MASK
-                w_obj = space.wrap(r(x))
-                assert space.bigint_w(w_obj).eq(rbigint.fromint(x))
+                w_obj = space.newlong_from_rarith_int(r(x))
+                assert space.bigint_w(w_obj).eq(rbigint.fromlong(x))
 
 
 class AppTestLong:

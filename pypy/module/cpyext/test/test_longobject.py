@@ -1,5 +1,6 @@
 import sys, py
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.rarithmetic import maxint
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.module.cpyext.test.test_api import BaseApiTest
@@ -108,10 +109,26 @@ class TestLongObject(BaseApiTest):
         lltype.free(overflow, flavor='raw')
 
     def test_as_voidptr(self, space, api):
+        # CPython returns an int (not a long) depending on the value
+        # passed to PyLong_FromVoidPtr().  In all cases, NULL becomes
+        # the int 0.
         w_l = api.PyLong_FromVoidPtr(lltype.nullptr(rffi.VOIDP.TO))
-        assert isinstance(w_l, W_LongObject)
-        assert space.unwrap(w_l) == 0L
+        assert space.is_w(space.type(w_l), space.w_int)
+        assert space.unwrap(w_l) == 0
         assert api.PyLong_AsVoidPtr(w_l) == lltype.nullptr(rffi.VOIDP.TO)
+        # Positive values also return an int (assuming, like always in
+        # PyPy, that an int is big enough to store any pointer).
+        p = rffi.cast(rffi.VOIDP, maxint)
+        w_l = api.PyLong_FromVoidPtr(p)
+        assert space.is_w(space.type(w_l), space.w_int)
+        assert space.unwrap(w_l) == maxint
+        assert api.PyLong_AsVoidPtr(w_l) == p
+        # Negative values always return a long.
+        p = rffi.cast(rffi.VOIDP, -maxint-1)
+        w_l = api.PyLong_FromVoidPtr(p)
+        assert space.is_w(space.type(w_l), space.w_long)
+        assert space.unwrap(w_l) == maxint+1
+        assert api.PyLong_AsVoidPtr(w_l) == p
 
     def test_sign_and_bits(self, space, api):
         if space.is_true(space.lt(space.sys.get('version_info'),
