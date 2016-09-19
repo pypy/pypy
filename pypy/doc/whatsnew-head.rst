@@ -16,3 +16,11 @@ in numpypy
 Improve merging of virtual states in the JIT in order to avoid jumping to the
 preamble. Accomplished by allocating virtual objects where non-virtuals are
 expected.
+
+.. branch: zarch-simd-support
+
+s390x implementation for vector operations used in VecOpt
+
+.. branch: ppc-vsx-support
+
+PowerPC implementation for vector operations used in VecOpt
