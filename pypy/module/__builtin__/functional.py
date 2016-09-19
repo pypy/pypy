@@ -136,7 +136,7 @@ def make_min_max(unroll):
                         "%s() expects at least one argument",
                         implementation_of)
         w_key = None
-	has_default = False
+        has_default = False
         if any_kwds:
             kwds = args.keywords
             for n in range(len(kwds)):
