@@ -100,13 +100,13 @@ def round(space, w_number, w_ndigits=None):
     """round(number[, ndigits]) -> number
 
 Round a number to a given precision in decimal digits (default 0 digits).
-This returns an int when called with one argument, otherwise the
-same type as the number. ndigits may be negative."""
+This returns an int when called with one argument or if ndigits=None,
+otherwise the same type as the number. ndigits may be negative."""
     round = space.lookup(w_number, '__round__')
     if round is None:
         raise oefmt(space.w_TypeError,
                     "type %T doesn't define __round__ method", w_number)
-    if w_ndigits is None:
+    if w_ndigits is None or w_ndigits is space.w_None:
         return space.get_and_call_function(round, w_number)
     else:
         return space.get_and_call_function(round, w_number, w_ndigits)
