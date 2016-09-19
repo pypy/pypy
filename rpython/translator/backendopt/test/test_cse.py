@@ -1,6 +1,6 @@
 import pytest
 from rpython.translator.translator import TranslationContext, graphof
-from rpython.translator.backendopt.cse import CSE, Cache
+from rpython.translator.backendopt.cse import CSE, Cache, loop_blocks
 from rpython.flowspace.model import Variable, Constant
 from rpython.translator.backendopt import removenoops
 from rpython.flowspace.model import checkgraph, summary
@@ -354,6 +354,28 @@ class TestStoreSink(object):
             return res
         self.check(f, [int], getfield=1)
 
+    def test_loopinvariant_heap_merge_nested(self):
+        class A(object):
+            pass
+        def f(i):
+            res = 0
+            y = 0
+            while y < i:
+                y += 1
+                x = i
+                a = A()
+                if i == 0:
+                    a.x = 1
+                else:
+                    a.x = i
+                while x:
+                    x -= 1
+                    res += a.x
+                    if x % 1000 == 1:
+                        a.x = 5
+            return res
+        self.check(f, [int], getfield=1)
+
     def test_direct_merge(self):
         def f(i):
             a = i + 1
@@ -567,3 +589,45 @@ def test_find_new_res():
     assert not needs_adding
     assert res is v2
 
+
+def test_loop_blocks():
+    from rpython.flowspace.model import mkentrymap
+    from rpython.translator.backendopt import support
+    class A(object): pass
+    def f(i):
+        res = 0
+        y = 0
+        while y < i: # block1
+            y += 1 # block2
+            x = i
+            a = A()
+            if i == 0:
+                a.x = 1 # block3
+            else:
+                a.x = i # block4
+            while x: # block5
+                x -= 1 # block6
+                res += a.x
+                if x % 1000 == 1:
+                    a.x = 5 # block7
+        return res # block8
+
+    t = TranslationContext()
+    t.buildannotator().build_types(f, [int])
+    t.buildrtyper().specialize()
+    graph = graphof(t, f)
+    startblock = graph.startblock
+    block1 = startblock.exits[0].target
+    block2 = block1.exits[1].target
+    block3 = block2.exits[0].target
+    block4 = block2.exits[1].target
+    block5 = block4.exits[0].target
+    block6 = block5.exits[1].target
+    block7 = block6.exits[1].target
+
+    loops = loop_blocks(graph, support.find_backedges(graph),
+                        mkentrymap(graph))
+    assert loops == {
+        block1: {block1, block2, block3, block4, block5, block6, block7},
+        block5: {block5, block6, block7},
+    }

@@ -304,7 +304,46 @@ def _merge(tuples, variable_families, analyzer, loop_blocks, backedges):
         result._clear_heapcache_for_loop_blocks(loop_blocks)
     return result
 
-def loop_blocks(graph):
+def compute_reachability_no_backedges(graph, backedges):
+    reachable = {}
+    blocks = list(graph.iterblocks())
+    # Reversed order should make the reuse path more likely.
+    for block in reversed(blocks):
+        reach = set()
+        scheduled = [block]
+        while scheduled:
+            current = scheduled.pop()
+            for link in current.exits:
+                if link in backedges:
+                    continue
+                if link.target in reachable:
+                    reach.add(link.target)
+                    reach = reach | reachable[link.target]
+                    continue
+                if link.target not in reach:
+                    reach.add(link.target)
+                    scheduled.append(link.target)
+        reachable[block] = reach
+    return reachable
+
+def loop_blocks(graph, backedges, entrymap):
+    reachable_no_backedges = compute_reachability_no_backedges(graph, backedges)
+    reachable = support.compute_reachability(graph)
+    result = {}
+    for block in graph.iterblocks():
+        entering_backedges = [link for link in entrymap[block]
+                if link in backedges]
+        if not entering_backedges:
+            # no backedge entries
+            continue
+        loop_blocks = {block}
+        for target in reachable_no_backedges[block]:
+            if any(link.prevblock in reachable[target]
+                       for link in entering_backedges):
+                loop_blocks.add(target)
+        result[block] = loop_blocks
+    return result
+
     loop_blocks = support.find_loop_blocks(graph)
     result = {}
     for loop_block, start in loop_blocks.iteritems():
@@ -319,8 +358,8 @@ class CSE(object):
     def transform(self, graph):
         variable_families = ssa.DataFlowFamilyBuilder(graph).get_variable_families()
         entrymap = mkentrymap(graph)
-        loops = loop_blocks(graph)
         backedges = support.find_backedges(graph)
+        loops = loop_blocks(graph, backedges, entrymap)
         todo = collections.deque([graph.startblock])
         caches_to_merge = collections.defaultdict(list)
         done = set()
