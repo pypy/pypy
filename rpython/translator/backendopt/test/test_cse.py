@@ -13,13 +13,15 @@ class TestStoreSink(object):
         t.buildrtyper().specialize()
         return t
 
-    def check(self, f, argtypes, **expected):
+    def check(self, f, argtypes, fullopts=False, **expected):
         from rpython.translator.backendopt import inline, all, constfold
         t = self.translate(f, argtypes)
         getfields = 0
         graph = graphof(t, f)
         if option.view:
             t.view()
+        if fullopts:
+            all.backend_optimizations(t)
         removenoops.remove_same_as(graph)
         checkgraph(graph)
         cse = CSE(t)
@@ -528,6 +530,15 @@ class TestStoreSink(object):
                 res += a.y
             return res
         self.check(f, [int], getfield=3)
+
+    def test_malloc_varsize_getarraysize(self):
+        def f(i):
+            if i == 1:
+                l = [1]
+            else:
+                l = [2, 3]
+            return len(l)
+        self.check(f, [int], fullopts=True, getarraysize=0)
 
 
 def fakevar(name='v'):

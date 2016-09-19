@@ -263,6 +263,11 @@ class Cache(object):
                     # they run the risk of being passed around too much
                     self._clear_heapcache_for_effects(
                         {('struct', T, op.args[1].value)})
+            if op.opname == "malloc_varsize":
+                # we can remember the size of the malloced object
+                key = ("getarraysize", lltype.Signed,
+                       (representative_arg(op.result), ))
+                self.purecache[key] = op.args[2]
 
             if has_side_effects(op):
                 self._clear_heapcache_for_effects_of_op(op)
