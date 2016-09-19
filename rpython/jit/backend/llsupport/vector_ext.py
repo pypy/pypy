@@ -221,7 +221,7 @@ class VectorExt(object):
     def __init__(self):
         self._enabled = False
         self.register_size = 0 # in bytes
-        self.horizontal_operations = False
+        self.accum = False
         self._setup = False
 
     def is_setup(self):
@@ -233,7 +233,7 @@ class VectorExt(object):
     def enable(self, vec_size, accum=False):
         self._enabled = vec_size != 0
         self.register_size = vec_size
-        self.horizontal_operations = accum
+        self.accum = accum
 
     def is_enabled(self):
         return self._enabled
@@ -242,7 +242,7 @@ class VectorExt(object):
         return self.register_size
 
     def supports_accumulation(self):
-        return self.horizontal_operations
+        return self.accum
 
     # note that the following definition is x86 arch specific
     TR_MAPPING = {

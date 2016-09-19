@@ -963,10 +963,11 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
 
     def generate_quick_failure(self, guardtok, regalloc):
         startpos = self.mc.currpos()
-        #
+        # accum vecopt
         self._update_at_exit(guardtok.fail_locs, guardtok.failargs,
                              guardtok.faildescr, regalloc)
-        #
+        pos = self.mc.currpos()
+        guardtok.rel_recovery_prefix = pos - startpos
         faildescrindex, target = self.store_info_on_descr(startpos, guardtok)
         assert target != 0
         self.mc.load_imm(r.r2, target)
@@ -996,7 +997,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
             addr = rawstart + tok.pos_jump_offset
             #
             # XXX see patch_jump_for_descr()
-            tok.faildescr.adr_jump_offset = rawstart + tok.pos_recovery_stub
+            tok.faildescr.adr_jump_offset = rawstart + tok.pos_recovery_stub + tok.rel_recovery_prefix
             #
             relative_target = tok.pos_recovery_stub - tok.pos_jump_offset
             #

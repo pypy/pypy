@@ -8,6 +8,7 @@ from rpython.jit.backend.zarch import registers as r
 from rpython.jit.backend.zarch import locations as l
 from rpython.jit.backend.zarch.pool import LiteralPool
 from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.jit.backend.llsupport.jump import remap_frame_layout_mixed
 from rpython.jit.backend.zarch.codebuilder import (InstrBuilder,
         OverwritingBuilder)
 from rpython.jit.backend.zarch.helper.regalloc import check_imm_value
@@ -22,6 +23,7 @@ from rpython.jit.backend.zarch.opassembler import OpAssembler
 from rpython.jit.backend.zarch.regalloc import Regalloc
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.compile import ResumeGuardDescr
 from rpython.rlib.debug import (debug_print, debug_start, debug_stop,
                                 have_debug_prints)
 from rpython.jit.metainterp.history import (INT, REF, FLOAT, TargetToken)
@@ -133,9 +135,11 @@ class AssemblerZARCH(BaseAssembler, OpAssembler,
 
     def generate_quick_failure(self, guardtok, regalloc):
         startpos = self.mc.currpos()
-
+        # accum vecopt
         self._update_at_exit(guardtok.fail_locs, guardtok.failargs,
                              guardtok.faildescr, regalloc)
+        pos = self.mc.currpos()
+        guardtok.rel_recovery_prefix = pos - startpos
 
         faildescrindex, target = self.store_info_on_descr(startpos, guardtok)
         assert target != 0
@@ -1056,7 +1060,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler,
         for tok in self.pending_guard_tokens:
             addr = rawstart + tok.pos_jump_offset
             #
-            tok.faildescr.adr_jump_offset = rawstart + tok.pos_recovery_stub
+            tok.faildescr.adr_jump_offset = rawstart + tok.pos_recovery_stub + tok.rel_recovery_prefix
             relative_target = tok.pos_recovery_stub - tok.pos_jump_offset
             #
             if not tok.guard_not_invalidated():
@@ -1577,15 +1581,25 @@ class AssemblerZARCH(BaseAssembler, OpAssembler,
                 bridge_accum_info = bridge_accum_info.next()
             guard_accum_info = guard_accum_info.next()
 
-        # register mapping is most likely NOT valid, thus remap it in this
-        # short piece of assembler
+        # register mapping is most likely NOT valid, thus remap it
+        src_locations1 = []
+        dst_locations1 = []
+        src_locations2 = []
+        dst_locations2 = []
+
+        # Build the four lists
         assert len(guard_locs) == len(bridge_locs)
-        for i,gloc in enumerate(guard_locs):
-            bloc = bridge_locs[i]
-            if bloc.is_stack() and gloc.is_stack():
-                pass
-            elif gloc is not bloc:
-                self.regalloc_mov(gloc, bloc)
+        for i,src_loc in enumerate(guard_locs):
+            dst_loc = bridge_locs[i]
+            if not src_loc.is_fp_reg():
+                src_locations1.append(src_loc)
+                dst_locations1.append(dst_loc)
+            else:
+                src_locations2.append(src_loc)
+                dst_locations2.append(dst_loc)
+        remap_frame_layout_mixed(self, src_locations1, dst_locations1, r.SCRATCH,
+                                 src_locations2, dst_locations2, r.FP_SCRATCH, WORD)
+
         offset = self.mc.get_relative_pos()
         self.mc.b_abs(asminfo.rawstart)
 

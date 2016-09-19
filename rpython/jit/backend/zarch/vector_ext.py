@@ -173,11 +173,14 @@ class VectorAssembler(object):
             vector_loc = accum_info.location
             # the upper elements will be lost if saved to the stack!
             scalar_arg = accum_info.getoriginal()
+            orig_scalar_loc = scalar_loc
             if not scalar_loc.is_reg():
-                scalar_loc = regalloc.force_allocate_reg(scalar_arg)
+                scalar_loc = r.FP_SCRATCH
             assert scalar_arg is not None
             op = accum_info.accum_operation
             self._accum_reduce(op, scalar_arg, vector_loc, scalar_loc)
+            if scalar_loc is r. FP_SCRATCH:
+                self.regalloc_mov(scalar_loc, orig_scalar_loc)
             accum_info = accum_info.next()
 
     def emit_vec_int_is_true(self, op, arglocs, regalloc):
@@ -238,7 +241,7 @@ class VectorAssembler(object):
     def emit_vec_cast_float_to_int(self, op, arglocs, regalloc):
         resloc, loc0 = arglocs
         # 4 => bit 1 from the MSB: XxC
-        self.mc.VCGD(resloc, loc0, 3, 4, mask.RND_TOZERO.value)
+        self.mc.VCGD(resloc, loc0, 3, 4, m.RND_TOZERO.value)
 
     def emit_vec_expand_i(self, op, arglocs, regalloc):
         assert isinstance(op, VectorOp)
@@ -246,7 +249,7 @@ class VectorAssembler(object):
         size = op.bytesize
         if loc0.is_core_reg():
             self.mc.VLVG(resloc, loc0, l.addr(0), l.itemsize_to_mask(size))
-            self.mc.VREP(resloc, loc0, l.imm0, l.itemsize_to_mask(size))
+            self.mc.VREP(resloc, resloc, l.imm0, l.itemsize_to_mask(size))
         else:
             self.mc.VLREP(resloc, loc0, l.itemsize_to_mask(size))
 
