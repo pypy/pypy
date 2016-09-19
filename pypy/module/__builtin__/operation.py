@@ -106,7 +106,7 @@ otherwise the same type as the number. ndigits may be negative."""
     if round is None:
         raise oefmt(space.w_TypeError,
                     "type %T doesn't define __round__ method", w_number)
-    if w_ndigits is None or w_ndigits is space.w_None:
+    if space.is_none(w_ndigits):
         return space.get_and_call_function(round, w_number)
     else:
         return space.get_and_call_function(round, w_number, w_ndigits)
