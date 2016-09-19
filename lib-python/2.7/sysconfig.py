@@ -526,7 +526,10 @@ def get_config_vars(*args):
 
         # PyPy:
         import imp
-        _CONFIG_VARS['SOABI'] = [s[0] for s in imp.get_suffixes() if s[2] == imp.C_EXTENSION]
+        for suffix, mode, type_ in imp.get_suffixes():
+            if type_ == imp.C_EXTENSION:
+                _CONFIG_VARS['SOABI'] = suffix.split('.')[1]
+                break        
 
     if args:
         vals = []
