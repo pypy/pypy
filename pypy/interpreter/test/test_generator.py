@@ -280,7 +280,7 @@ res = f()
             yield 1
         g = myFunc()
         r = repr(g)
-        assert r.startswith("<generator object myFunc at 0x")
+        assert r.startswith("<generator object test_repr.<locals>.myFunc at 0x")
         assert list(g) == [1]
         assert repr(g) == r
 
@@ -325,6 +325,24 @@ res = f()
             assert False, 'Expected StopIteration'
             """
 
+    def test_yield_from_basic(self):
+        """
+        def f1():
+            yield from []
+            yield from [1, 2, 3]
+            yield from f2()
+        def f2():
+            yield 4
+            yield 5
+        gen = f1()
+        assert next(gen) == 1
+        assert next(gen) == 2
+        assert next(gen) == 3
+        assert next(gen) == 4
+        assert next(gen) == 5
+        assert list(gen) == []
+        """
+
     def test_yield_from_return(self):
         """
         def f1():
@@ -360,6 +378,41 @@ res = f()
         else:
             assert False, 'Expected StopIteration'
             """
+
+    def test_set_name_qualname(self):
+        class A:
+            def f(self):
+                yield 5
+        g = A().f()
+        assert g.__name__ == "f"
+        assert g.__qualname__ == "test_set_name_qualname.<locals>.A.f"
+        g.__name__ = "h.i"
+        g.__qualname__ = "j.k"
+        assert g.__name__ == "h.i"
+        assert g.__qualname__ == "j.k"
+        raises(TypeError, "g.__name__ = 42")
+        raises(TypeError, "g.__qualname__ = 42")
+        raises((TypeError, AttributeError), "del g.__name__")
+        raises((TypeError, AttributeError), "del g.__qualname__")
+
+    def test_gi_yieldfrom(self): """
+        def g(x):
+            assert gen.gi_yieldfrom is None
+            yield x
+            assert gen.gi_yieldfrom is None
+        def f(x):
+            assert gen.gi_yieldfrom is None
+            yield from g(x)
+            assert gen.gi_yieldfrom is None
+            yield 42
+            assert gen.gi_yieldfrom is None
+        gen = f(5)
+        assert gen.gi_yieldfrom is None
+        assert next(gen) == 5
+        assert gen.gi_yieldfrom.__name__ == 'g'
+        assert next(gen) == 42
+        assert gen.gi_yieldfrom is None
+        """
 
 
 def test_should_not_inline(space):
@@ -641,3 +694,41 @@ class AppTestYieldFrom:
             2,
         ]
 
+    def test_exception_context(self): """
+        import operator
+        def f():
+            try:
+                raise ValueError
+            except ValueError:
+                yield from map(operator.truediv, [2, 3], [4, 0])
+        gen = f()
+        assert next(gen) == 0.5
+        try:
+            next(gen)
+        except ZeroDivisionError as e:
+            assert e.__context__ is not None
+            assert isinstance(e.__context__, ValueError)
+        else:
+            assert False, "should have raised"
+        """
+
+
+class AppTestGeneratorStop:
+
+    def test_past_generator_stop(self):
+        # how it works without 'from __future__' import generator_stop
+        def f(x):
+            raise StopIteration
+            yield x
+        raises(StopIteration, next, f(5))
+
+    def test_future_generator_stop(self):
+        d = {}
+        exec("""from __future__ import generator_stop
+
+def f(x):
+    raise StopIteration
+    yield x
+""", d)
+        f = d['f']
+        raises(RuntimeError, next, f(5))

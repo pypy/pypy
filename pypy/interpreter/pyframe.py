@@ -244,29 +244,53 @@ class PyFrame(W_Root):
         return (self.getcode().co_flags & (pycode.CO_COROUTINE |
                                            pycode.CO_GENERATOR)) != 0
 
-    def run(self):
+    def run(self, name=None, qualname=None):
         """Start this frame's execution."""
         if self._is_generator_or_coroutine():
-            if self.getcode().co_flags & pycode.CO_COROUTINE:
-                from pypy.interpreter.generator import Coroutine
-                gen = Coroutine(self)
-            else:
-                from pypy.interpreter.generator import GeneratorIterator
-                gen = GeneratorIterator(self)
-            if self.space.config.translation.rweakref:
-                self.f_generator_wref = rweakref.ref(gen)
-            else:
-                self.f_generator_nowref = gen
-            return self.space.wrap(gen)
+            return self.initialize_as_generator(name, qualname)
         else:
             return self.execute_frame()
+    run._always_inline_ = True
 
-    def execute_frame(self, w_inputvalue=None, operr=None):
+    def initialize_as_generator(self, name, qualname):
+        space = self.space
+        if self.getcode().co_flags & pycode.CO_COROUTINE:
+            from pypy.interpreter.generator import Coroutine
+            gen = Coroutine(self, name, qualname)
+            ec = space.getexecutioncontext()
+            w_wrapper = ec.w_coroutine_wrapper_fn
+        else:
+            from pypy.interpreter.generator import GeneratorIterator
+            gen = GeneratorIterator(self, name, qualname)
+            ec = None
+            w_wrapper = None
+
+        if space.config.translation.rweakref:
+            self.f_generator_wref = rweakref.ref(gen)
+        else:
+            self.f_generator_nowref = gen
+        w_gen = space.wrap(gen)
+
+        if w_wrapper is not None:
+            if ec.in_coroutine_wrapper:
+                raise oefmt(space.w_RuntimeError,
+                            "coroutine wrapper %R attempted "
+                            "to recursively wrap %R",
+                            w_wrapper, w_gen)
+            ec.in_coroutine_wrapper = True
+            try:
+                w_gen = space.call_function(w_wrapper, w_gen)
+            finally:
+                ec.in_coroutine_wrapper = False
+        return w_gen
+
+    def execute_frame(self, in_generator=None, w_arg_or_err=None):
         """Execute this frame.  Main entry point to the interpreter.
-        The optional arguments are there to handle a generator's frame:
-        w_inputvalue is for generator.send() and operr is for
-        generator.throw().
+        'in_generator' is non-None iff we are starting or resuming
+        a generator or coroutine frame; in that case, w_arg_or_err
+        is the input argument -or- an SApplicationException instance.
         """
+        from pypy.interpreter import pyopcode
         # the following 'assert' is an annotation hint: it hides from
         # the annotator all methods that are defined in PyFrame but
         # overridden in the {,Host}FrameClass subclasses of PyFrame.
@@ -279,25 +303,25 @@ class PyFrame(W_Root):
         try:
             executioncontext.call_trace(self)
             #
-            if operr is not None:
-                ec = self.space.getexecutioncontext()
-                next_instr = self.handle_operation_error(ec, operr)
-                self.last_instr = intmask(next_instr - 1)
-            else:
-                # Execution starts just after the last_instr.  Initially,
-                # last_instr is -1.  After a generator suspends it points to
-                # the YIELD_VALUE instruction.
-                next_instr = r_uint(self.last_instr + 1)
-                if next_instr != 0:
-                    self.pushvalue(w_inputvalue)
-            #
+            # Execution starts just after the last_instr.  Initially,
+            # last_instr is -1.  After a generator suspends it points to
+            # the YIELD_VALUE/YIELD_FROM instruction.
             try:
-                w_exitvalue = self.dispatch(self.pycode, next_instr,
-                                            executioncontext)
-            except Exception:
-                executioncontext.return_trace(self, self.space.w_None)
-                raise
-            executioncontext.return_trace(self, w_exitvalue)
+                if in_generator is None:
+                    assert self.last_instr == -1
+                    next_instr = r_uint(0)
+                else:
+                    next_instr = in_generator.resume_execute_frame(
+                                                    self, w_arg_or_err)
+                #
+                self.dispatch(self.pycode, next_instr, executioncontext)
+            except pyopcode.Return:
+                self.last_exception = None
+                w_exitvalue = self.popvalue()
+            except pyopcode.Yield:
+                w_exitvalue = self.popvalue()
+            finally:
+                executioncontext.return_trace(self, w_exitvalue)
             # it used to say self.last_exception = None
             # this is now done by the code in pypyjit module
             # since we don't want to invalidate the virtualizable
@@ -898,8 +922,14 @@ class PyFrame(W_Root):
             frame = frame.f_backref()
         return None
 
+    def get_generator(self):
+        if self.space.config.translation.rweakref:
+            return self.f_generator_wref()
+        else:
+            return self.f_generator_nowref
+
     def descr_clear(self, space):
-        # Clears a random subset of the attributes (e.g. some the fast
+        # Clears a random subset of the attributes (e.g. the fast
         # locals, but not f_locals).  Also clears last_exception, which
         # is not quite like CPython when it clears f_exc_* (however
         # there might not be an observable difference).
@@ -907,10 +937,7 @@ class PyFrame(W_Root):
             if not self._is_generator_or_coroutine():
                 raise oefmt(space.w_RuntimeError,
                             "cannot clear an executing frame")
-            if space.config.translation.rweakref:
-                gen = self.f_generator_wref()
-            else:
-                gen = self.f_generator_nowref
+            gen = self.get_generator()
             if gen is not None:
                 if gen.running:
                     raise oefmt(space.w_RuntimeError,

@@ -67,15 +67,8 @@ class __extend__(pyframe.PyFrame):
         # For the sequel, force 'next_instr' to be unsigned for performance
         next_instr = r_uint(next_instr)
         co_code = pycode.co_code
-
-        try:
-            while True:
-                next_instr = self.handle_bytecode(co_code, next_instr, ec)
-        except Yield:
-            return self.popvalue()
-        except ExitFrame:
-            self.last_exception = None
-            return self.popvalue()
+        while True:
+            next_instr = self.handle_bytecode(co_code, next_instr, ec)
 
     def handle_bytecode(self, co_code, next_instr, ec):
         try:
@@ -106,6 +99,12 @@ class __extend__(pyframe.PyFrame):
         if w_value is None:
             w_value = self.space.w_None
         operr = OperationError(w_type, w_value)
+        return self.handle_operation_error(ec, operr)
+
+    def handle_generator_error(self, operr):
+        # for generator.py
+        ec = self.space.getexecutioncontext()
+        operr.record_context(self.space, self)
         return self.handle_operation_error(ec, operr)
 
     def handle_operation_error(self, ec, operr, attach_tb=True):
@@ -1034,41 +1033,22 @@ class __extend__(pyframe.PyFrame):
         raise Yield
 
     def YIELD_FROM(self, oparg, next_instr):
-        from pypy.interpreter.astcompiler import consts
+        # Unlike CPython, we handle this not by repeating the same
+        # bytecode over and over until the inner iterator is exhausted.
+        # Instead, we directly set the generator's w_yielded_from.
+        # This asks generator.resume_execute_frame() to exhaust that
+        # sub-iterable first before continuing on the next bytecode.
         from pypy.interpreter.generator import Coroutine
-        space = self.space
-        w_value = self.popvalue()
-        w_gen = self.peekvalue()
-        if isinstance(w_gen, Coroutine):
-            if (w_gen.descr_gi_code(space).co_flags & consts.CO_COROUTINE and
-               not self.pycode.co_flags & (consts.CO_COROUTINE |
-                                       consts.CO_ITERABLE_COROUTINE)):
-                raise oefmt(self.space.w_TypeError,
-                            "cannot 'yield from' a coroutine object "
-                            "from a generator")
-        try:
-            if space.is_none(w_value):
-                w_retval = space.next(w_gen)
-            else:
-                w_retval = space.call_method(w_gen, "send", w_value)
-        except OperationError as e:
-            if not e.match(space, space.w_StopIteration):
-                raise
-            self.popvalue()  # Remove iter from stack
-            e.normalize_exception(space)
-            try:
-                w_value = space.getattr(e.get_w_value(space), space.wrap("value"))
-            except OperationError as e:
-                if not e.match(space, space.w_AttributeError):
-                    raise
-                w_value = space.w_None
-            self.pushvalue(w_value)
-        else:
-            # iter remains on stack, w_retval is value to be yielded.
-            self.pushvalue(w_retval)
-            # and repeat...
-            self.last_instr = self.last_instr - 1
-            raise Yield
+        in_generator = self.get_generator()
+        assert in_generator is not None
+        w_inputvalue = self.popvalue()    # that's always w_None, actually
+        w_gen = self.popvalue()
+        #
+        in_generator.next_yield_from(self, w_gen, w_inputvalue)
+        # Common case: the call above raises Yield.
+        # If instead the iterable is empty, next_yield_from() pushed the
+        # final result and returns.  In that case, we can just continue
+        # with the next bytecode.
 
     def jump_absolute(self, jumpto, ec):
         # this function is overridden by pypy.module.pypyjit.interp_jit
@@ -1179,20 +1159,24 @@ class __extend__(pyframe.PyFrame):
                 operr.w_type,
                 operr.get_w_value(self.space),
                 w_traceback)
-            self.last_exception = old_last_exception
+            # push a marker that also contains the old_last_exception,
+            # which must be restored as 'self.last_exception' but only
+            # in WITH_CLEANUP_FINISH
+            self.pushvalue(SApplicationException(old_last_exception))
         else:
             w_res = self.call_contextmanager_exit_function(
                 w_exitfunc,
                 self.space.w_None,
                 self.space.w_None,
                 self.space.w_None)
+            self.pushvalue(self.space.w_None)
         self.pushvalue(w_res)
-        self.pushvalue(w_unroller)
 
     def WITH_CLEANUP_FINISH(self, oparg, next_instr):
-        w_unroller = self.popvalue()
         w_suppress = self.popvalue()
-        if isinstance(w_unroller, SApplicationException):
+        w_marker = self.popvalue()
+        if isinstance(w_marker, SApplicationException):
+            self.last_exception = w_marker.operr    # may be None
             if self.space.is_true(w_suppress):
                 # __exit__() returned True -> Swallow the exception.
                 self.settopvalue(self.space.w_None)
@@ -1446,7 +1430,7 @@ class __extend__(pyframe.PyFrame):
             self.popvalue()
             itemcount -= 1
         self.pushvalue(w_dict)
-    
+
     def GET_YIELD_FROM_ITER(self, oparg, next_instr):
         from pypy.interpreter.astcompiler import consts
         from pypy.interpreter.generator import GeneratorIterator, Coroutine
@@ -1462,19 +1446,20 @@ class __extend__(pyframe.PyFrame):
         elif not isinstance(w_iterable, GeneratorIterator):
             w_iterator = self.space.iter(w_iterable)
             self.settopvalue(w_iterator)
-    
+
     def GET_AWAITABLE(self, oparg, next_instr):
-        from pypy.objspace.std.noneobject import W_NoneObject
-        if isinstance(self.peekvalue(), W_NoneObject):
-            #switch NoneObject with iterable on stack (kind of a dirty fix)
-            w_firstnone = self.popvalue()
-            w_i = self.popvalue()
-            self.pushvalue(w_firstnone)
-            self.pushvalue(w_i)
-        w_iterable = self.peekvalue()
-        w_iter = w_iterable._GetAwaitableIter(self.space)
-        self.settopvalue(w_iter)
-    
+        from pypy.interpreter.generator import get_awaitable_iter
+        from pypy.interpreter.generator import Coroutine
+        w_iterable = self.popvalue()
+        w_iter = get_awaitable_iter(self.space, w_iterable)
+        if isinstance(w_iter, Coroutine):
+            if w_iter.w_yielded_from is not None:
+                # 'w_iter' is a coroutine object that is being awaited,
+                # '.w_yielded_from' is the current awaitable being awaited on.
+                raise oefmt(self.space.w_RuntimeError,
+                            "coroutine is being awaited already")
+        self.pushvalue(w_iter)
+
     def SETUP_ASYNC_WITH(self, offsettoend, next_instr):
         res = self.popvalue()
         block = WithBlock(self.valuestackdepth,
@@ -1495,50 +1480,76 @@ class __extend__(pyframe.PyFrame):
         self.settopvalue(w_exit)
         w_result = space.get_and_call_function(w_enter, w_manager)
         self.pushvalue(w_result)
-    
+
     def GET_AITER(self, oparg, next_instr):
+        from pypy.interpreter.generator import AIterWrapper, get_awaitable_iter
+
         space = self.space
-        w_obj = self.peekvalue()
+        w_obj = self.popvalue()
         w_func = space.lookup(w_obj, "__aiter__")
         if w_func is None:
-            raise oefmt(space.w_AttributeError,
-                        "object %T does not have __aiter__ method",
+            raise oefmt(space.w_TypeError,
+                        "'async for' requires an object with "
+                        "__aiter__ method, got %T",
                         w_obj)
         w_iter = space.get_and_call_function(w_func, w_obj)
-        w_awaitable = w_iter._GetAwaitableIter(space)
-        if w_awaitable is None:
-            raise oefmt(space.w_TypeError,
-                        "'async for' received an invalid object "
-                        "from __aiter__: %T", w_iter)
-        self.settopvalue(w_awaitable)
-    
+
+        # If __aiter__() returns an object with a __anext__() method,
+        # wrap it in a awaitable that resolves to 'w_iter'.
+        if space.lookup(w_iter, "__anext__") is not None:
+            w_awaitable = AIterWrapper(w_iter)
+        else:
+            try:
+                w_awaitable = get_awaitable_iter(space, w_iter)
+            except OperationError as e:
+                # yay! get_awaitable_iter() carefully builds a useful
+                # error message, but here we're eating *all errors*
+                # to replace it with a generic one.
+                if e.async(space):
+                    raise
+                raise oefmt(space.w_TypeError,
+                            "'async for' received an invalid object "
+                            "from __aiter__: %T", w_iter)
+            space.warn(space.wrap(
+                u"'%s' implements legacy __aiter__ protocol; "
+                u"__aiter__ should return an asynchronous "
+                u"iterator, not awaitable" %
+                    space.type(w_obj).name.decode('utf-8')),
+                space.w_PendingDeprecationWarning)
+        self.pushvalue(w_awaitable)
+
     def GET_ANEXT(self, oparg, next_instr):
+        from pypy.interpreter.generator import get_awaitable_iter
+
         space = self.space
         w_aiter = self.peekvalue()
         w_func = space.lookup(w_aiter, "__anext__")
         if w_func is None:
-            raise oefmt(space.w_AttributeError,
-                        "object %T does not have __anext__ method",
+            raise oefmt(space.w_TypeError,
+                        "'async for' requires an iterator with "
+                        "__anext__ method, got %T",
                         w_aiter)
         w_next_iter = space.get_and_call_function(w_func, w_aiter)
-        w_awaitable = w_next_iter._GetAwaitableIter(space)
-        if w_awaitable is None:
+        try:
+            w_awaitable = get_awaitable_iter(space, w_next_iter)
+        except OperationError as e:
+            # yay! get_awaitable_iter() carefully builds a useful
+            # error message, but here we're eating *all errors*
+            # to replace it with a generic one.
+            if e.async(space):
+                raise
             raise oefmt(space.w_TypeError,
                         "'async for' received an invalid object "
                         "from __anext__: %T", w_next_iter)
         self.pushvalue(w_awaitable)
-        
+
 ### ____________________________________________________________ ###
 
-class ExitFrame(Exception):
-    pass
-
-
-class Return(ExitFrame):
+class Return(Exception):
     """Raised when exiting a frame via a 'return' statement."""
 
 
-class Yield(ExitFrame):
+class Yield(Exception):
     """Raised when exiting a frame via a 'yield' statement."""
 
 

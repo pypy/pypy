@@ -468,6 +468,7 @@ from pypy.interpreter.function import (Function, Method, StaticMethod,
     ClassMethod, BuiltinFunction, descr_function_get)
 from pypy.interpreter.pytraceback import PyTraceback
 from pypy.interpreter.generator import GeneratorIterator, Coroutine
+from pypy.interpreter.generator import CoroutineWrapper, AIterWrapper
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.special import NotImplemented, Ellipsis
 
@@ -793,22 +794,21 @@ GeneratorIterator.typedef = TypeDef("generator",
     __iter__   = interp2app(GeneratorIterator.descr__iter__,
                             descrmismatch='__iter__'),
     gi_running = interp_attrproperty('running', cls=GeneratorIterator),
-    gi_frame   = GetSetProperty(GeneratorIterator.descr_gi_frame),
-    gi_code    = GetSetProperty(GeneratorIterator.descr_gi_code),
-    __name__   = GetSetProperty(GeneratorIterator.descr__name__),
+    gi_frame   = GetSetProperty(GeneratorIterator.descr_gicr_frame),
+    gi_code    = interp_attrproperty_w('pycode', cls=GeneratorIterator),
+    gi_yieldfrom=interp_attrproperty_w('w_yielded_from', cls=GeneratorIterator),
+    __name__   = GetSetProperty(GeneratorIterator.descr__name__,
+                                GeneratorIterator.descr_set__name__),
+    __qualname__ = GetSetProperty(GeneratorIterator.descr__qualname__,
+                                  GeneratorIterator.descr_set__qualname__),
     __weakref__ = make_weakref_descr(GeneratorIterator),
 )
 assert not GeneratorIterator.typedef.acceptable_as_base_class  # no __new__
 
-# TODO: to have the same distinction (Coroutine | Iterator) as in cpython 3.5,
-# a wrapper typedef with __anext__ has to be created, and __anext__ has to be
-# removed in coroutine
 Coroutine.typedef = TypeDef("coroutine",
     __repr__   = interp2app(Coroutine.descr__repr__),
     __reduce__   = interp2app(Coroutine.descr__reduce__),
     __setstate__ = interp2app(Coroutine.descr__setstate__),
-    __anext__   = interp2app(Coroutine.descr_next,
-                            descrmismatch='__anext__'),
     send       = interp2app(Coroutine.descr_send,
                             descrmismatch='send'),
     throw      = interp2app(Coroutine.descr_throw,
@@ -817,13 +817,33 @@ Coroutine.typedef = TypeDef("coroutine",
                             descrmismatch='close'),
     __await__  = interp2app(Coroutine.descr__await__,
                             descrmismatch='__await__'),
-    gi_running = interp_attrproperty('running', cls=Coroutine),
-    gi_frame   = GetSetProperty(Coroutine.descr_gi_frame),
-    gi_code    = GetSetProperty(Coroutine.descr_gi_code),
-    __name__   = GetSetProperty(Coroutine.descr__name__),
+    cr_running = interp_attrproperty('running', cls=Coroutine),
+    cr_frame   = GetSetProperty(Coroutine.descr_gicr_frame),
+    cr_code    = interp_attrproperty_w('pycode', cls=Coroutine),
+    cr_await   = interp_attrproperty_w('w_yielded_from', cls=Coroutine),
+    __name__   = GetSetProperty(Coroutine.descr__name__,
+                                Coroutine.descr_set__name__),
+    __qualname__ = GetSetProperty(Coroutine.descr__qualname__,
+                                  Coroutine.descr_set__qualname__),
     __weakref__ = make_weakref_descr(Coroutine),
 )
 assert not Coroutine.typedef.acceptable_as_base_class  # no __new__
+
+CoroutineWrapper.typedef = TypeDef("coroutine_wrapper",
+    __iter__     = interp2app(CoroutineWrapper.descr__iter__),
+    __next__     = interp2app(CoroutineWrapper.descr__next__),
+    send         = interp2app(CoroutineWrapper.descr_send),
+    throw        = interp2app(CoroutineWrapper.descr_throw),
+    close        = interp2app(CoroutineWrapper.descr_close),
+)
+assert not CoroutineWrapper.typedef.acceptable_as_base_class  # no __new__
+
+AIterWrapper.typedef = TypeDef("aiter_wrapper",
+    __await__    = interp2app(AIterWrapper.descr__await__),
+    __iter__     = interp2app(AIterWrapper.descr__iter__),
+    __next__     = interp2app(AIterWrapper.descr__next__),
+)
+assert not AIterWrapper.typedef.acceptable_as_base_class  # no __new__
 
 Cell.typedef = TypeDef("cell",
     __total_ordering__ = 'auto',

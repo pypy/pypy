@@ -91,6 +91,9 @@ class Module(MixedModule):
         'float_repr_style'      : 'system.get_float_repr_style(space)',
         'getdlopenflags'        : 'system.getdlopenflags',
         'setdlopenflags'        : 'system.setdlopenflags',
+
+        'get_coroutine_wrapper' : 'vm.get_coroutine_wrapper',
+        'set_coroutine_wrapper' : 'vm.set_coroutine_wrapper',
         }
 
     if sys.platform == 'win32':

@@ -32,6 +32,12 @@ class AppTestFunctionIntrospection:
         assert f.__qualname__ == 'qualname'
         raises(TypeError, "f.__qualname__ = b'name'")
 
+    def test_qualname_method(self):
+        class A:
+            def f(self):
+                pass
+        assert A.f.__qualname__ == 'test_qualname_method.<locals>.A.f'
+
     def test_annotations(self):
         def f(): pass
         ann = f.__annotations__
