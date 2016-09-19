@@ -699,8 +699,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             else:
                 src_locations2.append(src_loc)
                 dst_locations2.append(dst_loc)
-        remap_frame_layout_mixed(self, src_locations1, dst_locations1, r.SCRATCH,
-                                 src_locations2, dst_locations2, r.FP_SCRATCH)
+        remap_frame_layout_mixed(self, src_locations1, dst_locations1, X86_64_SCRATCH_REG,
+                                 src_locations2, dst_locations2, X86_64_XMM_SCRATCH_REG)
 
         offset = self.mc.get_relative_pos()
         self.mc.JMP_l(0)
