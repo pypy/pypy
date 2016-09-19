@@ -184,7 +184,10 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
             raise VirtualStatesCantMatch()
         else:
             assert isinstance(info, AbstractStructPtrInfo)
-        for i in range(len(self.fielddescrs)):
+
+        # The min operation ensures we don't wander off either array, as not all
+        # to make_inputargs have validated their inputs with generate_guards.
+        for i in range(min(len(self.fielddescrs), len(info._fields))):
             state = self.fieldstate[i]
             if not state:
                 continue

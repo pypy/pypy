@@ -53,10 +53,7 @@ def fill_Py_buffer(space, buf, view):
     else:
         n = len(fmt)
     for i in range(n):
-        if ord(fmt[i]) > 255:
-            view.c_format[i] = '*'
-        else:
-            view.c_format[i] = fmt[i]
+        view.c_format[i] = fmt[i]
     view.c_format[n] = '\x00'        
     shape = buf.getshape()
     strides = buf.getstrides()

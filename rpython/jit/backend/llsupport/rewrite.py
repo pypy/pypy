@@ -11,7 +11,7 @@ from rpython.jit.codewriter import heaptracker
 from rpython.jit.backend.llsupport.symbolic import (WORD,
         get_array_token)
 from rpython.jit.backend.llsupport.descr import SizeDescr, ArrayDescr,\
-     FLAG_POINTER
+     FLAG_POINTER, CallDescr
 from rpython.jit.metainterp.history import JitCellToken
 from rpython.jit.backend.llsupport.descr import (unpack_arraydescr,
         unpack_fielddescr, unpack_interiorfielddescr)
@@ -342,7 +342,9 @@ class GcRewriterAssembler(object):
                     self.consider_setfield_gc(op)
                 elif op.getopnum() == rop.SETARRAYITEM_GC:
                     self.consider_setarrayitem_gc(op)
-            # ---------- call assembler -----------
+            # ---------- calls -----------
+            if OpHelpers.is_plain_call(op.getopnum()):
+                self.expand_call_shortcut(op)
             if OpHelpers.is_call_assembler(op.getopnum()):
                 self.handle_call_assembler(op)
                 continue
@@ -587,6 +589,30 @@ class GcRewriterAssembler(object):
         ofs, size, sign = unpack_fielddescr(descr)
         self.emit_gc_store_or_indexed(None, ptr, ConstInt(0), value,
                                       size, 1, ofs)
+
+    def expand_call_shortcut(self, op):
+        if not self.cpu.supports_cond_call_value:
+            return
+        descr = op.getdescr()
+        if descr is None:
+            return
+        assert isinstance(descr, CallDescr)
+        effectinfo = descr.get_extra_info()
+        if effectinfo is None or effectinfo.call_shortcut is None:
+            return
+        if op.type == 'r':
+            cond_call_opnum = rop.COND_CALL_VALUE_R
+        elif op.type == 'i':
+            cond_call_opnum = rop.COND_CALL_VALUE_I
+        else:
+            return
+        cs = effectinfo.call_shortcut
+        ptr_box = op.getarg(1 + cs.argnum)
+        value_box = self.emit_getfield(ptr_box, descr=cs.fielddescr,
+                                       raw=(ptr_box.type == 'i'))
+        self.replace_op_with(op, ResOperation(cond_call_opnum,
+                                              [value_box] + op.getarglist(),
+                                              descr=descr))
 
     def handle_call_assembler(self, op):
         descrs = self.gc_ll_descr.getframedescrs(self.cpu)
