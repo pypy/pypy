@@ -133,9 +133,9 @@ class VectorizeTests(object):
 
     vec_float_unary = functools.partial(vec_int_unary, _vector_float_unary)
 
-    test_vec_abs_float = \
+    test_vec_float_abs = \
             vec_float_unary(lambda v: abs(v), rffi.DOUBLE)
-    test_vec_neg_float = \
+    test_vec_float_neg = \
             vec_float_unary(lambda v: -v, rffi.DOUBLE)
 
     # FLOAT BINARY
@@ -273,9 +273,9 @@ class VectorizeTests(object):
     test_vec_xor_short = \
         vec_int_arith(lambda a,b: intmask(a)^intmask(b), rffi.SHORT)
 
-    test_vec_int_eq = \
+    test_vec_int_cmp_eq = \
         vec_int_arith(lambda a,b: a == b, rffi.SIGNED)
-    test_vec_int_ne = \
+    test_vec_int_cmp_ne = \
         vec_int_arith(lambda a,b: a == b, rffi.SIGNED)
 
     @py.test.mark.parametrize('i',[1,2,3,4,9])
@@ -386,30 +386,45 @@ class VectorizeTests(object):
         res = self.meta_interp(f, [count])
         assert res == f(count) == breaks
 
-    @py.test.mark.parametrize('type,func,cast',
-            [(rffi.DOUBLE, lambda a,b: a+b, float),
-             (rffi.DOUBLE, lambda a,b: a*b, float),
-             (lltype.Signed, lambda a,b: a+b, int),
-             (lltype.Signed, lambda a,b: a*b, int),
-            ])
-    def test_reduce(self, type, func, cast):
+    def _vec_reduce(self, strat, func, type, data):
         func = always_inline(func)
+
+        size = rffi.sizeof(type)
         myjitdriver = JitDriver(greens = [], reds = 'auto', vectorize=True)
-        T = lltype.Array(type, hints={'nolength': True})
-        def f(d):
-            va = lltype.malloc(T, d, flavor='raw', zero=True)
-            for j in range(d):
-                va[j] = cast(j+1)
+        def f(accum, bytecount, v):
             i = 0
-            accum = 0
-            while i < d:
+            while i < bytecount:
                 myjitdriver.jit_merge_point()
-                accum = func(accum,va[i])
-                i += 1
-            lltype.free(va, flavor='raw')
+                e = raw_storage_getitem(type,v,i)
+                accum = func(accum,e)
+                i += size
             return accum
-        res = self.meta_interp(f, [60])
-        assert isclose(res, f(60))
+
+        bits = 64
+        la = data.draw(st.lists(strat, min_size=10, max_size=150))
+        la = [1.0] * 10
+        l = len(la)
+
+        accum = data.draw(strat)
+        rawstorage = RawStorage()
+        va = rawstorage.new(la, type)
+        res = self.meta_interp(f, [accum, l*size, va])
+
+        assert isclose(rffi.cast(type, res), f(accum, l*size, va))
+
+        rawstorage.clear()
+
+    def vec_reduce(test_func, strat, arith_func, type):
+        return pytest.mark.parametrize('strat,func,type', [
+            (strat, arith_func, type)
+        ])(given(data=st.data())(test_func))
+    vec_reduce = functools.partial(vec_reduce, _vec_reduce)
+
+    test_vec_int_sum = vec_reduce(st.integers(min_value=-2**(64-1), max_value=2**(64-1)-1),
+                             lambda a,b: a+b, lltype.Signed)
+    test_vec_float_sum = vec_reduce(st.floats(), lambda a,b: a+b, rffi.DOUBLE)
+    test_vec_float_prod = vec_reduce(st.floats(), lambda a,b: a*b, rffi.DOUBLE)
+
 
     def test_constant_expand(self):
         myjitdriver = JitDriver(greens = [], reds = 'auto', vectorize=True)

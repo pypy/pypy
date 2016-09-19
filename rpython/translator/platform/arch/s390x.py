@@ -1,7 +1,6 @@
 import re
 
 def extract_s390x_cpu_ids(lines):
-    """ NOT_RPYTHON """
     ids = []
 
     re_number = re.compile("processor (\d+):")
@@ -39,9 +38,20 @@ def extract_s390x_cpu_ids(lines):
 
     return ids
 
+def s390x_detect_vx():
+    with open("/proc/cpuinfo", "rb") as fd:
+        lines = fd.read().splitlines()
+        for line in lines:
+            if line.startswith("features"):
+                colonidx = line.find(':')
+                split = line[colonidx+1:].strip().split(' ')
+                if 'vx' in split:
+                    return True
+                break
+
+    return False
 
 def s390x_cpu_revision():
-    """ NOT_RPYTHON """
     # linux kernel does the same classification
     # http://lists.llvm.org/pipermail/llvm-commits/Week-of-Mon-20131028/193311.html
 

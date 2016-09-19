@@ -993,6 +993,23 @@ class IndexVar(AbstractValue):
         self.next_nonconst = None
         self.current_end = None
 
+    def calculated_by(self, op):
+        # quick check to indicate if this operation is not directly expressable using
+        # the operation in the op parameter.
+        if op.getopnum() == rop.INT_ADD:
+            a0 = op.getarg(0)
+            a1 = op.getarg(1)
+            if a0 is self.var and a1.is_constant() and a1.getint() == self.constant:
+                return True
+            if a1 is self.var and a0.is_constant() and a0.getint() == self.constant:
+                return True
+        if op.getopnum() == rop.INT_SUB:
+            a0 = op.getarg(0)
+            a1 = op.getarg(1)
+            if a0 is self.var and a1.is_constant() and a1.getint() == self.constant:
+                return True
+        return False
+
     def stride_const(self):
         return self.next_nonconst is None
 

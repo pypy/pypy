@@ -292,11 +292,61 @@ all_mnemonic_codes = {
 
     'STFLE':   ('s',     ['\xB2','\xB0']),
 }
+
+vector_mnemonic_codes = {
+    'VL':     ('vrx', ['\xE7','\x06'], 'v,bid'),
+    'VLREP':  ('vrx', ['\xE7','\x05']),
+    'VLR':    ('vrr_a', ['\xE7','\x56'], 'v,v'),
+
+    'VST':    ('vrx', ['\xE7','\x0E'], 'v,bid'),
+
+    # integral
+    # -> arith
+    'VA':     ('vrr_c', ['\xE7','\xF3'], 'v,v,v,m'),
+    'VS':     ('vrr_c', ['\xE7','\xF7'], 'v,v,v,m'),
+
+    # -> logic
+    'VO':     ('vrr_c', ['\xE7','\x6A'], 'v,v,v'),
+    'VNO':    ('vrr_c', ['\xE7','\x6B'], 'v,v,v'),
+    'VN':     ('vrr_c', ['\xE7','\x68'], 'v,v,v'),
+    'VX':     ('vrr_c', ['\xE7','\x6D'], 'v,v,v'),
+
+    # floating point
+    'VFA':   ('vrr_c', ['\xE7','\xE3']),
+    'VFS':   ('vrr_c', ['\xE7','\xE2']),
+    'VFM':   ('vrr_c', ['\xE7','\xE7']),
+    'VFD':   ('vrr_c', ['\xE7','\xE5']),
+
+    # conversion
+    'VCDG':  ('vrr_a', ['\xE7','\xC3']),
+    'VCGD':  ('vrr_a', ['\xE7','\xC2']),
+
+    # compare, sign, ...
+    'VFPSO': ('vrr_a', ['\xE7','\xCC']),
+    'VFCE':  ('vrr_c', ['\xE7','\xE8']),
+    'VSEL':  ('vrr_e', ['\xE7','\x8D'], 'v,v,v,v'),
+    'VPERM': ('vrr_e', ['\xE7','\x8C'], 'v,v,v,v'),
+    'VREPI': ('vri_a', ['\xE7','\x45']),
+
+    'VCEQ':  ('vrr_b', ['\xE7','\xF8']),
+    'VCHL':  ('vrr_b', ['\xE7','\xF9']),
+
+    # pack, merge, shift, ...
+    'VMRL':  ('vrr_c', ['\xE7','\x60'], 'v,v,v,m'),
+    'VMRH':  ('vrr_c', ['\xE7','\x61'], 'v,v,v,m'),
+    'VPDI':  ('vrr_c', ['\xE7','\x84'], 'v,v,v,m'),
+    'VLVG':  ('vrs_b', ['\xE7','\x22']),
+    'VLGV':  ('vrs_c', ['\xE7','\x21']),
+
+    # '': ('', ['','']),
+}
+
 all_mnemonic_codes.update(arith_mnemonic_codes)
 all_mnemonic_codes.update(logic_mnemonic_codes)
 all_mnemonic_codes.update(memory_mnemonic_codes)
 all_mnemonic_codes.update(floatingpoint_mnemonic_codes)
 all_mnemonic_codes.update(branch_mnemonic_codes)
+all_mnemonic_codes.update(vector_mnemonic_codes)
 
 
 if __name__ == "__main__":

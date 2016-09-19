@@ -25,6 +25,9 @@ class AssemblerLocation(object):
     def is_fp_reg(self):
         return False
 
+    def is_vector_reg(self):
+        return False
+
     def is_imm_float(self):
         return False
 
@@ -107,6 +110,23 @@ class FloatRegisterLocation(RegisterLocation):
     def is_float(self):
         return True
 
+class VectorRegisterLocation(RegisterLocation):
+    _immutable_ = True
+    type = FLOAT
+    width = DOUBLE_WORD*2
+
+    def __repr__(self):
+        return 'v%d' % self.value
+
+    def is_core_reg(self):
+        return False
+
+    def as_key(self):            # 16 <= as_key <= 32
+        return self.value + 32
+
+    def is_vector_reg(self):
+        return True
+
 class ImmLocation(AssemblerLocation):
     _immutable_ = True
     width = WORD
@@ -176,6 +196,9 @@ class AddressLocation(AssemblerLocation):
         if length:
             self.length = length.value
 
+    def __repr__(self):
+        return 'addr(base=r%d,idx=r%d,len=%d)' % (self.base, self.index, self.length)
+
 class PoolLoc(AddressLocation):
     _immutable_ = True
     width = WORD
@@ -227,3 +250,20 @@ def get_fp_offset(base_ofs, position):
 imm1 = imm(1)
 imm0 = imm(0)
 
+MASK_VEC_BYTE = 0
+MASK_VEC_HWORD = 1
+MASK_VEC_WORD = 2
+MASK_VEC_DWORD = 3
+
+def itemsize_to_mask(v):
+    if v == 16:
+        return MASK_VEC_QWORD
+    elif v == 8:
+        return MASK_VEC_DWORD
+    elif v == 4:
+        return MASK_VEC_WORD
+    elif v == 2:
+        return MASK_VEC_HWORD
+    elif v == 1:
+        return MASK_VEC_BYTE
+    assert 0, "not supported itemsize to mask!"

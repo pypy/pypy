@@ -5,7 +5,7 @@ from rpython.jit.metainterp.optimizeopt.util import equaloplists
 from rpython.jit.metainterp.optimizeopt.renamer import Renamer
 from rpython.jit.metainterp.optimizeopt.vector import (VecScheduleState,
         Pack, Pair, NotAProfitableLoop, VectorizingOptimizer, GenericCostModel,
-        PackSet)
+        PackSet, SchedulerState)
 from rpython.jit.backend.llsupport.vector_ext import VectorExt
 from rpython.jit.metainterp.optimizeopt.dependency import Node, DependencyGraph
 from rpython.jit.metainterp.optimizeopt.schedule import Scheduler
@@ -460,5 +460,18 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         state.expand(['d','d','c'], 'ddc')
         assert state.find_expanded(['d','d','c']) == 'ddc'
 
-
-
+    def test_delayed_schedule(self):
+        loop = self.parse("""
+        [i0]
+        i1 = int_add(i0,1)
+        i2 = int_add(i0,1)
+        jump(i2)
+        """)
+        loop.prefix_label = None
+        loop.label = ResOperation(rop.LABEL, loop.inputargs)
+        ops = loop.operations
+        loop.operations = ops[:-1]
+        loop.jump = ops[-1]
+        state = SchedulerState(self.cpu, DependencyGraph(loop))
+        state.schedule()
+        assert len(loop.operations) == 1

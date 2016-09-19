@@ -553,7 +553,7 @@ PARAMETER_DOCS = {
                    'optimizations to enable, or all = %s' % ENABLE_ALL_OPTS,
     'max_unroll_recursion': 'how many levels deep to unroll a recursive function',
     'vec': 'turn on the vectorization optimization (vecopt). ' \
-           'Supports powerpc (SVX), x86 (SSE 4.1)',
+           'Supports x86 (SSE 4.1), powerpc (SVX), s390x',
     'vec_all': 'try to vectorize trace loops that occur outside of the numpy library.',
     'vec_cost': 'threshold for which traces to bail. 0 means the costs.',
     'vec_length': 'the amount of instructions allowed in "all" traces.',
