@@ -38,6 +38,7 @@ from rpython.rlib.jit import AsmInfo
 from rpython.rlib.objectmodel import compute_unique_id
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib.rjitlog import rjitlog as jl
+from rpython.jit.backend.ppc.jump import remap_frame_layout_mixed
 
 memcpy_fn = rffi.llexternal('memcpy', [llmemory.Address, llmemory.Address,
                                        rffi.SIZE_T], lltype.Void,
@@ -1409,15 +1410,25 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
                 bridge_accum_info = bridge_accum_info.next()
             guard_accum_info = guard_accum_info.next()
 
-        # register mapping is most likely NOT valid, thus remap it in this
-        # short piece of assembler
+        # register mapping is most likely NOT valid, thus remap it
+        src_locations1 = []
+        dst_locations1 = []
+        src_locations2 = []
+        dst_locations2 = []
+
+        # Build the four lists
         assert len(guard_locs) == len(bridge_locs)
-        for i,gloc in enumerate(guard_locs):
-            bloc = bridge_locs[i]
-            if bloc.is_stack() and gloc.is_stack():
-                pass
-            elif gloc is not bloc:
-                self.regalloc_mov(gloc, bloc)
+        for i,src_loc in enumerate(guard_locs):
+            dst_loc = bridge_locs[i]
+            if not src_loc.is_fp_reg():
+                src_locations1.append(src_loc)
+                dst_locations1.append(dst_loc)
+            else:
+                src_locations2.append(src_loc)
+                dst_locations2.append(dst_loc)
+        remap_frame_layout_mixed(self, src_locations1, dst_locations1, r.SCRATCH,
+                                 src_locations2, dst_locations2, r.FP_SCRATCH)
+
         offset = self.mc.get_relative_pos()
         self.mc.b_abs(asminfo.rawstart)
 
