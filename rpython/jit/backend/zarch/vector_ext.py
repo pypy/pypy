@@ -186,9 +186,8 @@ class VectorAssembler(object):
         size = sizeloc.value
         tmploc = regalloc.vrm.get_scratch_reg()
         self.mc.VX(tmploc, tmploc, tmploc) # all zero
-        self.mc.VNO(tmploc, tmploc, tmploc) # all one
-        self.mc.VCEQ(resloc, argloc, tmploc, l.itemsize_to_mask(size), 0b0001)
-        flush_vec_cc(self, regalloc, c.VNEI, op.bytesize, resloc)
+        self.mc.VCHL(resloc, argloc, tmploc, l.itemsize_to_mask(size), 0b0001)
+        flush_vec_cc(self, regalloc, c.VEQI, op.bytesize, resloc)
 
     def emit_vec_float_eq(self, op, arglocs, regalloc):
         assert isinstance(op, VectorOp)
@@ -574,8 +573,9 @@ class VectorRegalloc(object):
     prepare_vec_cast_int_to_float = prepare_vec_cast_float_to_int
 
     def prepare_vec_guard_true(self, op):
-        self.assembler.guard_success_cc = c.VEQI
+        self.assembler.guard_success_cc = c.EQ
         return self._prepare_guard(op)
 
     def prepare_vec_guard_false(self, op):
-        self.assembler.guard_success_cc = c.VNEI
+        self.assembler.guard_success_cc = c.NE
+        return self._prepare_guard(op)

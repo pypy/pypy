@@ -329,6 +329,7 @@ vector_mnemonic_codes = {
     'VREPI': ('vri_a', ['\xE7','\x45']),
 
     'VCEQ':  ('vrr_b', ['\xE7','\xF8']),
+    'VCHL':  ('vrr_b', ['\xE7','\xF9']),
 
     # pack, merge, shift, ...
     'VMRL':  ('vrr_c', ['\xE7','\x60'], 'v,v,v,m'),
