@@ -40,15 +40,18 @@ def extract_s390x_cpu_ids(lines):
 
 def s390x_detect_vx():
     with open("/proc/cpuinfo", "rb") as fd:
-        lines = fd.read().splitlines()
-        for line in lines:
-            if line.startswith("features"):
-                colonidx = line.find(':')
-                split = line[colonidx+1:].strip().split(' ')
-                if 'vx' in split:
-                    return True
-                break
-
+        content = fd.read()
+        start = content.find("features", 0)
+        if start >= 0:
+            after_colon = content.find(":", start)
+            if after_colon < 0:
+                return False
+            newline = content.find("\n", after_colon)
+            if newline < 0:
+                return False
+            split = content[after_colon+1:newline].strip().split(' ')
+            if 'vx' in split:
+                return True
     return False
 
 def s390x_cpu_revision():

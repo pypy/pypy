@@ -21,6 +21,7 @@ from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.jit.codewriter import longlong
 from rpython.rlib.objectmodel import always_inline
+from rpython.jit.backend.zarch.arch import WORD
 
 def not_implemented(msg):
     msg = '[zarch/vector_ext] %s\n' % msg
@@ -30,7 +31,7 @@ def not_implemented(msg):
 
 @always_inline
 def permi(v1,v2):
-    return (v1 << 2 | v2) & 0xf
+    return l.imm((v1 << 2 | v2) & 0xf)
 
 def flush_vec_cc(asm, regalloc, condition, size, resultloc):
     # After emitting an instruction that leaves a boolean result in
@@ -91,7 +92,7 @@ class VectorAssembler(object):
         resloc, loc0, loc1, itemsize_loc = arglocs
         itemsize = itemsize_loc.value
         if itemsize == 8:
-            self.mc.VFA(resloc, loc0, loc1, 3, 0, 0)
+            self.mc.VFA(resloc, loc0, loc1, l.imm(3), l.imm(0), l.imm(0))
             return
         not_implemented("vec_float_add of size %d" % itemsize)
 
@@ -99,7 +100,7 @@ class VectorAssembler(object):
         resloc, loc0, loc1, itemsize_loc = arglocs
         itemsize = itemsize_loc.value
         if itemsize == 8:
-            self.mc.VFS(resloc, loc0, loc1, 3, 0, 0)
+            self.mc.VFS(resloc, loc0, loc1, l.imm(3), l.imm(0), l.imm(0))
             return
         not_implemented("vec_float_sub of size %d" % itemsize)
 
@@ -107,7 +108,7 @@ class VectorAssembler(object):
         resloc, loc0, loc1, itemsize_loc = arglocs
         itemsize = itemsize_loc.value
         if itemsize == 8:
-            self.mc.VFM(resloc, loc0, loc1, 3, 0, 0)
+            self.mc.VFM(resloc, loc0, loc1, l.imm(3), l.imm(0), l.imm(0))
             return
         not_implemented("vec_float_mul of size %d" % itemsize)
 
@@ -115,7 +116,7 @@ class VectorAssembler(object):
         resloc, loc0, loc1, itemsize_loc = arglocs
         itemsize = itemsize_loc.value
         if itemsize == 8:
-            self.mc.VFD(resloc, loc0, loc1, 3, 0, 0)
+            self.mc.VFD(resloc, loc0, loc1, l.imm(3), l.imm(0), l.imm(0))
             return
         not_implemented("vec_float_truediv of size %d" % itemsize)
 
@@ -141,17 +142,17 @@ class VectorAssembler(object):
         resloc, argloc, sizeloc = arglocs
         size = sizeloc.value
         if size == 8:
-            self.mc.VFPSO(resloc, argloc, 3, 0, 2)
+            self.mc.VFPSO(resloc, argloc, l.imm(3), l.imm(0), l.imm(2))
             return
-        not_implemented("vec_float_abs of size %d" % itemsize)
+        not_implemented("vec_float_abs of size %d" % size)
 
     def emit_vec_float_neg(self, op, arglocs, regalloc):
         resloc, argloc, sizeloc = arglocs
         size = sizeloc.value
         if size == 8:
-            self.mc.VFPSO(resloc, argloc, 3, 0, 0)
+            self.mc.VFPSO(resloc, argloc, l.imm(3), l.imm(0), l.imm(0))
             return
-        not_implemented("vec_float_abs of size %d" % itemsize)
+        not_implemented("vec_float_abs of size %d" % size)
 
     def emit_vec_guard_true(self, guard_op, arglocs, regalloc):
         self._emit_guard(guard_op, arglocs)
@@ -189,7 +190,7 @@ class VectorAssembler(object):
         size = sizeloc.value
         tmploc = regalloc.vrm.get_scratch_reg()
         self.mc.VX(tmploc, tmploc, tmploc) # all zero
-        self.mc.VCHL(resloc, argloc, tmploc, l.itemsize_to_mask(size), 0b0001)
+        self.mc.VCHL(resloc, argloc, tmploc, l.itemsize_to_mask(size), l.imm(0b0001))
         flush_vec_cc(self, regalloc, c.VEQI, op.bytesize, resloc)
 
     def emit_vec_float_eq(self, op, arglocs, regalloc):
@@ -198,7 +199,7 @@ class VectorAssembler(object):
         size = sizeloc.value
         if size == 8:
             # bit 3 in last argument sets the condition code
-            self.mc.VFCE(resloc, loc0, loc1, 3, 0, 1)
+            self.mc.VFCE(resloc, loc0, loc1, l.imm(3), l.imm(0), l.imm(1))
         else:
             not_implemented("[zarch/assembler] float == for size %d" % size)
         flush_vec_cc(self, regalloc, c.VEQI, op.bytesize, resloc)
@@ -213,7 +214,7 @@ class VectorAssembler(object):
         size = sizeloc.value
         if size == 8:
             # bit 3 in last argument sets the condition code
-            self.mc.VFCE(resloc, loc0, loc1, 3, 0, 1)
+            self.mc.VFCE(resloc, loc0, loc1, l.imm(3), l.imm(0), l.imm(1))
             self.mc.VNO(resloc, resloc, resloc)
         else:
             not_implemented("[zarch/assembler] float != for size %d" % size)
@@ -221,27 +222,27 @@ class VectorAssembler(object):
 
     def emit_vec_cast_int_to_float(self, op, arglocs, regalloc):
         resloc, loc0 = arglocs
-        self.mc.VCDG(resloc, loc0, 3, 4, m.RND_TOZERO.value)
+        self.mc.VCDG(resloc, loc0, l.imm(3), l.imm(4), m.RND_TOZERO)
 
     def emit_vec_int_eq(self, op, arglocs, regalloc):
         assert isinstance(op, VectorOp)
         resloc, loc0, loc1, sizeloc = arglocs
         size = sizeloc.value
-        self.mc.VCEQ(resloc, loc0, loc1, l.itemsize_to_mask(size), 1)
+        self.mc.VCEQ(resloc, loc0, loc1, l.itemsize_to_mask(size), l.imm(1))
         flush_vec_cc(self, regalloc, c.VEQI, op.bytesize, resloc)
 
     def emit_vec_int_ne(self, op, arglocs, regalloc):
         assert isinstance(op, VectorOp)
         resloc, loc0, loc1, sizeloc = arglocs
         size = sizeloc.value
-        self.mc.VCEQ(resloc, loc0, loc1, l.itemsize_to_mask(size), 1)
+        self.mc.VCEQ(resloc, loc0, loc1, l.itemsize_to_mask(size), l.imm(1))
         self.mc.VNO(resloc, resloc, resloc)
-        flush_vec_cc(self, regalloc, c.VNEI, op.bytesize, res)
+        flush_vec_cc(self, regalloc, c.VNEI, op.bytesize, resloc)
 
     def emit_vec_cast_float_to_int(self, op, arglocs, regalloc):
         resloc, loc0 = arglocs
         # 4 => bit 1 from the MSB: XxC
-        self.mc.VCGD(resloc, loc0, 3, 4, m.RND_TOZERO.value)
+        self.mc.VCGD(resloc, loc0, l.imm(3), l.imm(4), m.RND_TOZERO)
 
     def emit_vec_expand_i(self, op, arglocs, regalloc):
         assert isinstance(op, VectorOp)
@@ -267,10 +268,10 @@ class VectorAssembler(object):
         if arg.type == FLOAT:
             self.mc.VPDI(targetloc, accumloc, accumloc, permi(1,0))
             if op == '+':
-                self.mc.VFA(targetloc, targetloc, accumloc, 3, 0b1000, 0)
+                self.mc.VFA(targetloc, targetloc, accumloc, l.imm3, l.imm(0b1000), l.imm(0))
                 return
             elif op == '*':
-                self.mc.VFM(targetloc, targetloc, accumloc, 3, 0b1000, 0)
+                self.mc.VFM(targetloc, targetloc, accumloc, l.imm3, l.imm(0b1000), l.imm(0))
                 return
         else:
             assert arg.type == INT
@@ -314,7 +315,7 @@ class VectorAssembler(object):
                 # load from sourceloc into GP reg and store back into resloc
                 self.mc.VLGV(r.SCRATCH, sourceloc, sindex, l.itemsize_to_mask(size))
                 rindex = l.addr(j + residx)
-                self.mc.VLVG(resloc, sourceloc, rindex, l.itemsize_to_mask(size))
+                self.mc.VLVG(resloc, r.SCRATCH, rindex, l.itemsize_to_mask(size))
 
     emit_vec_unpack_i = emit_vec_pack_i
 
@@ -510,14 +511,16 @@ class VectorRegalloc(object):
         arg = op.getarg(0)
         if arg.is_vector():
             srcloc = self.ensure_vector_reg(arg)
+            assert isinstance(arg, VectorOp)
+            size = arg.bytesize
         else:
             # unpack
-            srcloc = self.ensure_reg(arg0)
+            srcloc = self.ensure_reg(arg)
+            size = WORD
         if op.is_vector():
             resloc = self.force_allocate_vector_reg(op)
         else:
             resloc = self.force_allocate_reg(op)
-        size = arg.bytesize
         return [resloc, srcloc, srcloc, imm(0), imm(index.value), imm(count.value), imm(size)]
 
     def prepare_vec_pack_f(self, op):

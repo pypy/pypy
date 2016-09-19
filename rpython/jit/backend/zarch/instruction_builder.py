@@ -628,7 +628,7 @@ def build_unpack_func(mnemonic, func):
             return 0
         elif argtype == 'r' or argtype == 'r/m' or \
              argtype == 'f' or argtype == 'eo' or \
-             argtype == 'v':
+             argtype == 'v' or argtype == 'm':
             return arg.value
         elif argtype.startswith('i') or argtype.startswith('u') or argtype.startswith('h'):
             return arg.value

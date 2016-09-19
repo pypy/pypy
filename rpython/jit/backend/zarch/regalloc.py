@@ -615,7 +615,7 @@ class Regalloc(BaseRegalloc, vector_ext.VectorRegalloc):
             self.fprm._check_invariants()
             self.vrm._check_invariants()
             if self.assembler.mc.get_relative_pos() > self.limit_loop_break:
-                self.assembler.break_long_loop()
+                self.assembler.break_long_loop(self)
                 self.limit_loop_break = (self.assembler.mc.get_relative_pos() +
                                              LIMIT_LOOP_BREAK)
             i += 1

@@ -896,7 +896,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler,
         ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
         mc.LG(r.SCRATCH, l.addr(ofs, r.SPP))
 
-    def break_long_loop(self):
+    def break_long_loop(self, regalloc):
         # If the loop is too long, the guards in it will jump forward
         # more than 32 KB.  We use an approximate hack to know if we
         # should break the loop here with an unconditional "b" that
@@ -904,7 +904,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler,
         jmp_pos = self.mc.currpos()
         self.mc.reserve_cond_jump()
 
-        self.write_pending_failure_recoveries()
+        self.write_pending_failure_recoveries(regalloc)
 
         currpos = self.mc.currpos()
         pmc = OverwritingBuilder(self.mc, jmp_pos, 1)

@@ -247,6 +247,7 @@ def get_fp_offset(base_ofs, position):
     from rpython.jit.backend.zarch.registers import JITFRAME_FIXED_SIZE
     return base_ofs + WORD * (position + JITFRAME_FIXED_SIZE)
 
+imm3 = imm(1)
 imm1 = imm(1)
 imm0 = imm(0)
 
@@ -254,16 +255,17 @@ MASK_VEC_BYTE = 0
 MASK_VEC_HWORD = 1
 MASK_VEC_WORD = 2
 MASK_VEC_DWORD = 3
+MASK_VEC_QWORD = 4
 
 def itemsize_to_mask(v):
     if v == 16:
-        return MASK_VEC_QWORD
+        return imm(MASK_VEC_QWORD)
     elif v == 8:
-        return MASK_VEC_DWORD
+        return imm(MASK_VEC_DWORD)
     elif v == 4:
-        return MASK_VEC_WORD
+        return imm(MASK_VEC_WORD)
     elif v == 2:
-        return MASK_VEC_HWORD
+        return imm(MASK_VEC_HWORD)
     elif v == 1:
-        return MASK_VEC_BYTE
+        return imm(MASK_VEC_BYTE)
     assert 0, "not supported itemsize to mask!"
