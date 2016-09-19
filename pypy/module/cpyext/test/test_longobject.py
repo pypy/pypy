@@ -8,18 +8,20 @@ from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
 class TestLongObject(BaseApiTest):
     def test_FromLong(self, space, api):
-        value = api.PyLong_FromLong(3)
-        assert isinstance(value, W_LongObject)
-        assert space.unwrap(value) == 3
+        w_value = api.PyLong_FromLong(3)
+        assert isinstance(w_value, W_LongObject)
+        assert space.unwrap(w_value) == 3
 
-        value = api.PyLong_FromLong(sys.maxint)
-        assert isinstance(value, W_LongObject)
-        assert space.unwrap(value) == sys.maxint
+        w_value = api.PyLong_FromLong(sys.maxint)
+        assert isinstance(w_value, W_LongObject)
+        assert space.unwrap(w_value) == sys.maxint
 
     def test_aslong(self, space, api):
         w_value = api.PyLong_FromLong((sys.maxint - 1) / 2)
+        assert isinstance(w_value, W_LongObject)
 
         w_value = space.mul(w_value, space.wrap(2))
+        assert isinstance(w_value, W_LongObject)
         value = api.PyLong_AsLong(w_value)
         assert value == (sys.maxint - 1)
 
@@ -35,12 +37,16 @@ class TestLongObject(BaseApiTest):
 
     def test_as_ssize_t(self, space, api):
         w_value = space.newlong(2)
+        assert isinstance(w_value, W_LongObject)
         value = api.PyLong_AsSsize_t(w_value)
         assert value == 2
-        assert space.eq_w(w_value, api.PyLong_FromSsize_t(2))
+        w_val2 = api.PyLong_FromSsize_t(2)
+        assert isinstance(w_val2, W_LongObject)
+        assert space.eq_w(w_value, w_val2)
 
     def test_fromdouble(self, space, api):
         w_value = api.PyLong_FromDouble(-12.74)
+        assert isinstance(w_value, W_LongObject)
         assert space.unwrap(w_value) == -12
         assert api.PyLong_AsDouble(w_value) == -12
 
@@ -103,6 +109,7 @@ class TestLongObject(BaseApiTest):
 
     def test_as_voidptr(self, space, api):
         w_l = api.PyLong_FromVoidPtr(lltype.nullptr(rffi.VOIDP.TO))
+        assert isinstance(w_l, W_LongObject)
         assert space.unwrap(w_l) == 0L
         assert api.PyLong_AsVoidPtr(w_l) == lltype.nullptr(rffi.VOIDP.TO)
 
@@ -128,23 +135,58 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("from_unsignedlong", "METH_NOARGS",
              """
-                 return PyLong_FromUnsignedLong((unsigned long)-1);
+                 PyObject * obj;
+                 obj = PyLong_FromUnsignedLong((unsigned long)-1);
+                 if (obj->ob_type != &PyLong_Type)
+                 {
+                    Py_DECREF(obj);
+                    PyErr_SetString(PyExc_ValueError,
+                            "PyLong_FromLongLong did not return PyLongObject");
+                    return NULL;
+                 }
+                 return obj;
              """)])
         import sys
         assert module.from_unsignedlong() == 2 * sys.maxint + 1
 
     def test_fromlonglong(self):
         module = self.import_extension('foo', [
-            ("from_longlong", "METH_NOARGS",
+            ("from_longlong", "METH_VARARGS",
              """
-                 return PyLong_FromLongLong((long long)-1);
+                 int val;
+                 PyObject * obj;
+                 if (!PyArg_ParseTuple(args, "i", &val))
+                     return NULL;
+                 obj = PyLong_FromLongLong((long long)val);
+                 if (obj->ob_type != &PyLong_Type)
+                 {
+                    Py_DECREF(obj);
+                    PyErr_SetString(PyExc_ValueError,
+                            "PyLong_FromLongLong did not return PyLongObject");
+                    return NULL;
+                 }
+                 return obj;
              """),
-            ("from_unsignedlonglong", "METH_NOARGS",
+            ("from_unsignedlonglong", "METH_VARARGS",
              """
-                 return PyLong_FromUnsignedLongLong((unsigned long long)-1);
+                 int val;
+                 PyObject * obj;
+                 if (!PyArg_ParseTuple(args, "i", &val))
+                     return NULL;
+                 obj = PyLong_FromUnsignedLongLong((long long)val);
+                 if (obj->ob_type != &PyLong_Type)
+                 {
+                    Py_DECREF(obj);
+                    PyErr_SetString(PyExc_ValueError,
+                            "PyLong_FromLongLong did not return PyLongObject");
+                    return NULL;
+                 }
+                 return obj;
              """)])
-        assert module.from_longlong() == -1
-        assert module.from_unsignedlonglong() == (1<<64) - 1
+        assert module.from_longlong(-1) == -1
+        assert module.from_longlong(0) == 0
+        assert module.from_unsignedlonglong(0) == 0
+        assert module.from_unsignedlonglong(-1) == (1<<64) - 1
 
     def test_from_size_t(self):
         module = self.import_extension('foo', [
@@ -232,10 +274,15 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
             ("has_sub", "METH_NOARGS",
              """
                 PyObject *ret, *obj = PyLong_FromLong(42);
-                if (obj->ob_type->tp_as_number->nb_subtract)
-                    ret = obj->ob_type->tp_as_number->nb_subtract(obj, obj);
+                if (obj->ob_type != &PyLong_Type)
+                    ret = PyLong_FromLong(-2);
                 else
-                    ret = PyLong_FromLong(-1);
+                {
+                    if (obj->ob_type->tp_as_number->nb_subtract)
+                        ret = obj->ob_type->tp_as_number->nb_subtract(obj, obj);
+                    else
+                        ret = PyLong_FromLong(-1);
+                }
                 Py_DECREF(obj);
                 return ret;
              """),

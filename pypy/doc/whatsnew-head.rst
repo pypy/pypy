@@ -16,3 +16,8 @@ in numpypy
 Improve merging of virtual states in the JIT in order to avoid jumping to the
 preamble. Accomplished by allocating virtual objects where non-virtuals are
 expected.
+
+.. branch: conditional_call_value_3
+JIT residual calls: if the called function starts with a fast-path
+like "if x.foo != 0: return x.foo", then inline the check before
+doing the CALL.  For now, string hashing is about the only case.
