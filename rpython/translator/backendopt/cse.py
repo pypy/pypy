@@ -239,19 +239,28 @@ class Cache(object):
                 fieldname = op.args[1].value
                 concretetype = op.args[0].concretetype
                 arg0 = representative_arg(op.args[0])
-                tup = (arg0, op.args[0].concretetype, fieldname)
-                res = self.heapcache.get(tup, None)
+                key = (arg0, op.args[0].concretetype, fieldname)
+                res = self.heapcache.get(key, None)
                 if res is not None:
                     self._replace_with_result(op, res)
                     added_same_as += 1
                 else:
-                    self.heapcache[tup] = op.result
+                    self.heapcache[key] = op.result
                 continue
             if op.opname == 'setfield':
-                # XXX check whether value is the same already
                 concretetype = op.args[0].concretetype
                 target = representative_arg(op.args[0])
                 fieldname = op.args[1].value
+                key = (target, concretetype, fieldname)
+                res = self.heapcache.get(key, None)
+                if (res is not None and
+                        representative_arg(res) ==
+                                representative_arg(op.args[2])):
+                    # writing the same value that's already there
+                    op.opname = "same_as"
+                    op.args = [Constant("not needed setfield", lltype.Void)]
+                    added_same_as += 1
+                    continue
                 self._clear_heapcache_for(concretetype, fieldname)
                 self.heapcache[target, concretetype, fieldname] = op.args[2]
                 continue

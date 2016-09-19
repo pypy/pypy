@@ -531,6 +531,22 @@ class TestStoreSink(object):
             return res
         self.check(f, [int], getfield=3)
 
+    def test_remove_unnecessary_setfield(self):
+        class A(object):
+            pass
+        def f(i):
+            res = 0
+            x = i
+            a = A()
+            if i == 0:
+                a.x = 1
+                a.x = 1
+            else:
+                a.x = i
+                a.x = a.x
+                a.x = i
+        self.check(f, [int], setfield=3)
+
     def test_malloc_varsize_getarraysize(self):
         def f(i):
             if i == 1:
