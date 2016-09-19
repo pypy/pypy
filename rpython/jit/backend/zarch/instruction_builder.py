@@ -546,6 +546,19 @@ def build_vri_a(mnemonic, (opcode1,opcode2), argtypes='v,i16,m'):
         self.writechar(opcode2)
     return encode_vri_a
 
+def build_vri_c(mnemonic, (opcode1,opcode2), argtypes='v,v,i16,m'):
+    @builder.arguments(argtypes)
+    def encode_vri_c(self, v1, v3, i2, mask4):
+        self.writechar(opcode1)
+        rbx  = (v1 >= 16) << 3
+        rbx |= (v3 >= 16) << 2
+        byte = (v1 & BIT_MASK_4) << 4 | (v3 & BIT_MASK_4)
+        self.writechar(chr(byte))
+        self.write_i16(i2 & BIT_MASK_16)
+        self.writechar(chr((mask4 & BIT_MASK_4) << 4 | (rbx & BIT_MASK_4)))
+        self.writechar(opcode2)
+    return encode_vri_c
+
 def build_vrs_b(mnemonic, (opcode1,opcode2), argtypes='v,r,db,m'):
     @builder.arguments(argtypes)
     def encode_vrs_b(self, v1, r2, db3, m4):

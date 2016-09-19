@@ -300,6 +300,8 @@ vector_mnemonic_codes = {
 
     'VST':    ('vrx', ['\xE7','\x0E'], 'v,bid'),
 
+    'VREP':   ('vri_c', ['\xE7','\x4D']),
+
     # integral
     # -> arith
     'VA':     ('vrr_c', ['\xE7','\xF3'], 'v,v,v,m'),

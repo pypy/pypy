@@ -244,9 +244,20 @@ class VectorAssembler(object):
         assert isinstance(op, VectorOp)
         resloc, loc0 = arglocs
         size = op.bytesize
-        self.mc.VLREP(resloc, loc0, l.itemsize_to_mask(size))
+        if loc0.is_core_reg():
+            self.mc.VLVG(resloc, loc0, l.addr(0), l.itemsize_to_mask(size))
+            self.mc.VREP(resloc, loc0, l.imm0, l.itemsize_to_mask(size))
+        else:
+            self.mc.VLREP(resloc, loc0, l.itemsize_to_mask(size))
 
-    emit_vec_expand_f = emit_vec_expand_i
+    def emit_vec_expand_f(self, op, arglocs, regalloc):
+        assert isinstance(op, VectorOp)
+        resloc, loc0 = arglocs
+        size = op.bytesize
+        if loc0.is_fp_reg():
+            self.mc.VREP(resloc, loc0, l.imm0, l.itemsize_to_mask(size))
+        else:
+            self.mc.VLREP(resloc, loc0, l.itemsize_to_mask(size))
 
     def _accum_reduce(self, op, arg, accumloc, targetloc):
         # Currently the accumulator can ONLY be 64 bit float/int
