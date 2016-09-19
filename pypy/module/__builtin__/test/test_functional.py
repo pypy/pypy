@@ -590,6 +590,12 @@ class AppTestMinMax:
         assert type(min(1, 1.0, 1)) is int
         assert type(min(1.0, 1, 1)) is float
         assert type(min(1, 1, 1.0)) is int
+        assert min([], default=-1) == -1
+        assert min([1, 2], default=-1) == 1
+        raises(TypeError, min, 0, 1, default=-1)
+        assert min([], default=None) == None
+        raises(TypeError, min, 1, default=0)
+        raises(TypeError, min, default=1)
 
     def test_max(self):
         assert max(1, 2) == 2
@@ -602,3 +608,9 @@ class AppTestMinMax:
         assert type(max(1, 1.0, 1)) is int
         assert type(max(1.0, 1, 1)) is float
         assert type(max(1, 1, 1.0)) is int
+        assert max([], default=-1) == -1
+        assert max([1, 2], default=3) == 2
+        raises(TypeError, min, 0, 1, default=-1)
+        assert max([], default=None) == None
+        raises(TypeError, max, 1, default=0)
+        raises(TypeError, max, default=1)

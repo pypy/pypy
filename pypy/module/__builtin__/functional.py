@@ -136,14 +136,24 @@ def make_min_max(unroll):
                         "%s() expects at least one argument",
                         implementation_of)
         w_key = None
+	has_default = False
         if any_kwds:
             kwds = args.keywords
-            if kwds[0] == "key" and len(kwds) == 1:
-                w_key = args.keywords_w[0]
-            else:
-                raise oefmt(space.w_TypeError,
-                            "%s() got unexpected keyword argument",
-                            implementation_of)
+            for n in range(len(kwds)):
+                if kwds[n] == "key":
+                    w_key = args.keywords_w[n]
+                elif kwds[n] == "default":
+                    w_default = args.keywords_w[n]
+                    has_default = True
+                else:
+                    raise oefmt(space.w_TypeError,
+                                "%s() got unexpected keyword argument",
+                                implementation_of)
+
+        if has_default and len(args_w) > 1:
+            raise oefmt(space.w_TypeError,
+                "Cannot specify a default for %s() with multiple positional arguments",
+                implementation_of)
 
         w_iter = space.iter(w_sequence)
         w_type = space.type(w_iter)
@@ -170,7 +180,10 @@ def make_min_max(unroll):
                 w_max_item = w_item
                 w_max_val = w_compare_with
         if w_max_item is None:
-            raise oefmt(space.w_ValueError, "arg is an empty sequence")
+            if has_default:
+                w_max_item = w_default
+            else:
+                raise oefmt(space.w_ValueError, "arg is an empty sequence")
         return w_max_item
     if unroll:
         min_max_impl = jit.unroll_safe(min_max_impl)
