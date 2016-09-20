@@ -13,7 +13,7 @@ from rpython.rtyper.lltypesystem import lltype
 from rpython.jit.backend.ppc.locations import imm, RegisterLocation
 from rpython.jit.backend.ppc.arch import IS_BIG_ENDIAN
 from rpython.jit.backend.llsupport.vector_ext import VectorExt
-from rpython.jit.backend.ppc.arch import PARAM_SAVE_AREA_OFFSET
+from rpython.jit.backend.ppc.arch import PARAM_SAVE_AREA_OFFSET, WORD
 import rpython.jit.backend.ppc.register as r
 import rpython.jit.backend.ppc.condition as c
 import rpython.jit.backend.ppc.locations as l
@@ -785,10 +785,12 @@ class VectorRegalloc(object):
         arg = op.getarg(0)
         if arg.is_vector():
             srcloc = self.ensure_vector_reg(arg)
+            assert isinstance(arg, VectorOp)
+            size = arg.bytesize
         else:
             # unpack
-            srcloc = self.ensure_reg(arg0)
-        size = arg.bytesize
+            srcloc = self.ensure_reg(arg)
+            size = WORD
         if op.is_vector():
             resloc = self.force_allocate_vector_reg(op)
         else:
