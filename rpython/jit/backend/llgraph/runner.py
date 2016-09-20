@@ -139,6 +139,9 @@ class SizeDescr(AbstractDescr):
     def is_immutable(self):
         return heaptracker.is_immutable_struct(self.S)
 
+    def is_value_class(self):
+        return heaptracker.is_value_class(self.S)
+
     def get_type_id(self):
         assert isinstance(self.S, lltype.GcStruct)
         return TypeIDSymbolic(self.S)     # integer-like symbolic

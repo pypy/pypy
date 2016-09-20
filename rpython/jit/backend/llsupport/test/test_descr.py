@@ -52,6 +52,26 @@ def test_get_size_descr_immut():
             descr_s = get_size_descr(c0, STRUCT)
             assert descr_s.is_immutable() == True
 
+def test_get_size_descr_value_class():
+    hints = {'immutable': True, 'value_class': True}
+    S = lltype.GcStruct('S', hints=hints)
+    T = lltype.GcStruct('T', ('parent', S),
+                        ('x', lltype.Char),
+                        hints=hints)
+    U = lltype.GcStruct('U', ('parent', T),
+                        ('u', lltype.Ptr(T)),
+                        ('v', lltype.Signed),
+                        hints=hints)
+    V = lltype.GcStruct('V', ('parent', U),
+                        ('miss1', lltype.Void),
+                        ('miss2', lltype.Void),
+                        hints=hints)
+    for STRUCT in [S, T, U, V]:
+        for translated in [False, True]:
+            c0 = GcCache(translated)
+            descr_s = get_size_descr(c0, STRUCT)
+            assert descr_s.is_value_class() == True
+
 def test_get_field_descr():
     U = lltype.Struct('U')
     T = lltype.GcStruct('T')

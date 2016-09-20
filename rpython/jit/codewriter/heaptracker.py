@@ -23,6 +23,9 @@ def int_signext(value, numbytes):
 def is_immutable_struct(S):
     return isinstance(S, lltype.GcStruct) and S._hints.get('immutable', False)
 
+def is_value_class(S):
+    return isinstance(S, lltype.GcStruct) and S._hints.get('value_class', False)
+
 # ____________________________________________________________
 
 def has_gcstruct_a_vtable(GCSTRUCT):
