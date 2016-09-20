@@ -370,7 +370,8 @@ class Struct(ContainerType):
         return _struct(self, n, initialization='example')
 
     def _immutable_field(self, field):
-        if self._hints.get('immutable'):
+        if (self._hints.get('immutable') or
+            self._hints.get('value_class')):
             return True
         if 'immutable_fields' in self._hints:
             try:
