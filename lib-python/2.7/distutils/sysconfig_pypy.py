@@ -63,8 +63,7 @@ def _init_posix():
     """Initialize the module as appropriate for POSIX systems."""
     g = {}
     g['EXE'] = ""
-    g['SOABI'] = [s[0] for s in imp.get_suffixes() if s[2] == imp.C_EXTENSION]
-    g['SO'] = g['SOABI'][0]
+    g['SO'] = [s[0] for s in imp.get_suffixes() if s[2] == imp.C_EXTENSION][0]
     g['LIBDIR'] = os.path.join(sys.prefix, 'lib')
     g['CC'] = "gcc -pthread" # -pthread might not be valid on OS/X, check
 
@@ -76,8 +75,7 @@ def _init_nt():
     """Initialize the module as appropriate for NT"""
     g = {}
     g['EXE'] = ".exe"
-    g['SOABI'] = [s[0] for s in imp.get_suffixes() if s[2] == imp.C_EXTENSION]
-    g['SO'] = g['SOABI'][0]
+    g['SO'] = [s[0] for s in imp.get_suffixes() if s[2] == imp.C_EXTENSION][0]
 
     global _config_vars
     _config_vars = g
