@@ -62,6 +62,9 @@ class ImmutableConflictError(Exception):
     """Raised when the _immutable_ or _immutable_fields_ hints are
     not consistent across a class hierarchy."""
 
+class ValueClassConflictError(Exception):
+    """Raise when the _value_class_ hints are not consistent across
+    the class heirarchy"""
 
 def getclassrepr(rtyper, classdef):
     if classdef is None:
@@ -517,6 +520,7 @@ class InstanceRepr(Repr):
             if hints is None:
                 hints = {}
             hints = self._check_for_immutable_hints(hints)
+            hints = self._check_for_value_class_hints(hints)
             kwds = {}
             if self.gcflavor == 'gc':
                 kwds['rtti'] = True
@@ -558,6 +562,38 @@ class InstanceRepr(Repr):
                 'immutable_fields' in self.rbase.object_type._hints):
             accessor = FieldListAccessor()
             hints['immutable_fields'] = accessor
+        return hints
+
+    def _check_for_value_class_hints(self, hints):
+        """Look for value class hints in the class heirarchy to extract the proper
+        hints and ensure consistency of the _value_class_ annotation. This is
+        mostly equivalent to _check_for_immutable_hints except that
+        _value_class_=True requires _immutable_=True as well."""
+        hints = hints.copy()
+        classdesc = self.classdef.classdesc
+        value_class = classdesc.get_param('_value_class_', inherit=False)
+        if value_class is None:
+            if classdesc.get_param('_value_class_', inherit=True):
+                raise ValueClassConflictError(
+                    "class %r inherits from its parent _value_class_=True, "
+                    "so it should also declare _value_class_=True" % (
+                        self.classdef,))
+        elif value_class is not True:
+            raise TyperError(
+                "class %r: _value_class_ = something else than True" % (
+                    self.classdef,))
+        elif not hints.get('immutable', False):
+            raise ValueClassConflictError(
+                "class %r: _value_class_ = True requires that "
+                "_immutable_ = True as well")
+        else:
+            # Value classes may only be subclasses of other value classes
+            basedesc = classdesc.basedesc
+            if basedesc and not basedesc.get_param('_value_class_', False):
+                raise ValueClassConflictError(
+                    "class %r: _value_class_ = True, but its parent "
+                    "class %r does not")
+            hints['value_class'] = True
         return hints
 
     def __repr__(self):

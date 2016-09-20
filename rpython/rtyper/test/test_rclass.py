@@ -1305,3 +1305,53 @@ class TestRclass(BaseRtypingTest):
         def f():
             return a.next.next.next.next is not None
         assert self.interpret(f, []) == True
+
+    def test_value_class(self):
+
+        class I(object):
+            _immutable_   = True
+            _value_class_ = True
+
+            def __init__(self, v):
+                self.v = v
+
+        i = I(3)
+        def f():
+            return i.v
+
+        t, typer, graph = self.gengraph(f, [], backendopt=True)
+        assert summary(graph) == {}
+
+    def test_value_class_not_immutable(self):
+        from rpython.rtyper.rclass import ValueClassConflictError
+
+        class I(object):
+            _value_class_ = True
+
+            def __init__(self, v):
+                self.v = v
+
+        i = I(3)
+        def f():
+            return i.v
+
+        py.test.raises(ValueClassConflictError, self.gengraph, f, [])
+
+    def test_value_class_subclass_not_value_class(self):
+        from rpython.rtyper.rclass import ValueClassConflictError
+
+        class Base(object):
+            _immutable_ = True
+
+        class I(Base):
+            _immutable_   = True
+            _value_class_ = True
+
+            def __init__(self, v):
+                self.v = v
+
+        i = I(3)
+        def f():
+            return i.v
+
+        py.test.raises(ValueClassConflictError, self.gengraph, f, [])
