@@ -890,8 +890,8 @@ if __name__ == '__main__':
     import runpy
     if 'time' not in sys.builtin_module_names:
         import time; del time
-    if 'operator' not in sys.builtin_module_names:
-        import operator; del operator
+    if '_operator' not in sys.builtin_module_names:
+        import _operator; del _operator
 
     # no one should change to which lists sys.argv and sys.path are bound
     old_argv = sys.argv

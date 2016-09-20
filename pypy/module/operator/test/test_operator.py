@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 
 class AppTestOperator:
+    spaceconfig = dict(usemodules=['operator'])
+
     def test_equality(self):
-        import operator
+        import _operator as operator
         assert operator.eq == operator.__eq__
 
     def test_getters_are_not_regular_functions(self):
-        import operator
+        import _operator as operator
         class A(object):
             getx = operator.attrgetter('x')
             get3 = operator.itemgetter(3)
@@ -21,7 +23,7 @@ class AppTestOperator:
         assert l == ["x"]
 
     def test_getter_multiple_gest(self):
-        import operator
+        import _operator as operator
 
         class A(object):
             pass
@@ -40,11 +42,11 @@ class AppTestOperator:
         raises(TypeError, operator.itemgetter(2, 'x', 5), data)
 
     def test_attrgetter(self):
-        import operator
+        import _operator as operator
         raises(TypeError, operator.attrgetter, 2)
 
     def test_dotted_attrgetter(self):
-        from operator import attrgetter
+        from _operator import attrgetter
         class A:
             pass
         a = A()
@@ -56,7 +58,7 @@ class AppTestOperator:
         assert attrgetter("child.name", "child.foo")(a) == ("world", "bar")
 
     def test_attrgetter_type(self):
-        from operator import attrgetter
+        from _operator import attrgetter
         assert type(attrgetter("child.name")) is attrgetter
 
     def test_concat(self):
@@ -88,7 +90,7 @@ class AppTestOperator:
             def __rmul__(self, other):
                 return other * self.lst
 
-        import operator
+        import _operator as operator
 
         raises(TypeError, operator.concat)
         raises(TypeError, operator.concat, None, None)
@@ -127,7 +129,7 @@ class AppTestOperator:
             def __rmul__(self, other):
                 return other * self.lst
 
-        import operator
+        import _operator as operator
 
         a = list(range(3))
         raises(TypeError, operator.mul)
@@ -153,14 +155,14 @@ class AppTestOperator:
         assert operator.mul(a, 0) == []
 
     def test_iadd(self):
-        import operator
+        import _operator as operator
 
         list = []
         assert operator.iadd(list, [1, 2]) is list
         assert list == [1, 2]
 
     def test_imul(self):
-        import operator
+        import _operator as operator
 
         class X(object):
             def __index__(self):
@@ -176,7 +178,7 @@ class AppTestOperator:
         assert a == [0, 1, 2, 0, 1, 2]
 
     def test_methodcaller(self):
-        from operator import methodcaller
+        from _operator import methodcaller
         class X(object):
             def method(self, arg1=2, arg2=3):
                 return arg1, arg2
@@ -187,7 +189,7 @@ class AppTestOperator:
         assert methodcaller("method", 4, arg2=42)(x) == (4, 42)
 
     def test_index(self):
-        import operator
+        import _operator as operator
         assert operator.index(42) == 42
         assert operator.__index__(42) == 42
         raises(TypeError, operator.index, "abc")
@@ -195,14 +197,14 @@ class AppTestOperator:
         assert str(exc.value) == "'str' object cannot be interpreted as an integer"
 
     def test_indexOf(self):
-        import operator
+        import _operator as operator
         raises(TypeError, operator.indexOf)
         raises(TypeError, operator.indexOf, None, None)
         assert operator.indexOf([4, 3, 2, 1], 3) == 1
         raises(ValueError, operator.indexOf, [4, 3, 2, 1], 0)
 
     def test_compare_digest(self):
-        import operator
+        import _operator as operator
 
         # Testing input type exception handling
         a, b = 100, 200
@@ -309,7 +311,7 @@ class AppTestOperator:
         assert not operator._compare_digest(a, b)
 
     def test_compare_digest_unicode(self):
-        import operator
+        import _operator as operator
         assert operator._compare_digest(u'asd', u'asd')
         assert not operator._compare_digest(u'asd', u'qwe')
         raises(TypeError, operator._compare_digest, u'asd', b'qwe')

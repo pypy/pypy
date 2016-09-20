@@ -24,7 +24,7 @@ if sys.platform == "win32":
 default_modules = essential_modules.copy()
 default_modules.update([
     "_codecs", "atexit", "gc", "_weakref", "marshal", "errno", "imp",
-    "itertools", "math", "cmath", "_sre", "_pickle_support", "operator",
+    "itertools", "math", "cmath", "_sre", "_pickle_support", "_operator",
     "parser", "symbol", "token", "_ast", "_random", "__pypy__",
     "_string", "_testing", "time"
 ])

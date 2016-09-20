@@ -2,6 +2,7 @@ from pypy.interpreter.mixedmodule import MixedModule
 
 class Module(MixedModule):
     """Operator Builtin Module. """
+    applevel_name = '_operator'
 
     # HACK! override loaders to be able to access different operations
     # under same name. I.e., operator.eq == operator.__eq__
