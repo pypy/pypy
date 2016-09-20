@@ -545,6 +545,14 @@ class InstanceRepr(Repr):
         hints = hints.copy()
         classdesc = self.classdef.classdesc
         immut = classdesc.get_param('_immutable_', inherit=False)
+        value_class = classdesc.get_param('_value_class_', inherit=False)
+
+        if immut is None:
+            immut = value_class
+        elif value_class is not None and value_class and not immut:
+            raise ImmutableConflictError(
+                "class %r: _immutable_ != True and _value_class_ = True")
+
         if immut is None:
             if classdesc.get_param('_immutable_', inherit=True):
                 raise ImmutableConflictError(
@@ -568,7 +576,7 @@ class InstanceRepr(Repr):
         """Look for value class hints in the class heirarchy to extract the proper
         hints and ensure consistency of the _value_class_ annotation. This is
         mostly equivalent to _check_for_immutable_hints except that
-        _value_class_=True requires _immutable_=True as well."""
+        _value_class_=True imples _immutable_=True as well."""
         hints = hints.copy()
         classdesc = self.classdef.classdesc
         value_class = classdesc.get_param('_value_class_', inherit=False)
@@ -582,12 +590,14 @@ class InstanceRepr(Repr):
             raise TyperError(
                 "class %r: _value_class_ = something else than True" % (
                     self.classdef,))
-        elif not hints.get('immutable', False):
-            raise ValueClassConflictError(
-                "class %r: _value_class_ = True requires that "
-                "_immutable_ = True as well")
+        # elif not hints.get('immutable', False):
+            # raise ValueClassConflictError(
+                # "class %r: _value_class_ = True requires that "
+                # "_immutable_ = True as well")
         else:
+            # _value_class_ = True implies _immutable_ = True
             hints['value_class'] = True
+            hints['immutable'] = True
         return hints
 
     def __repr__(self):
