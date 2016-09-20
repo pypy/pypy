@@ -102,7 +102,8 @@ def abstract_isinstance_w(space, w_obj, w_klass_or_tuple, allow_override=False):
     # PyObject_IsInstance() logic.
 
     # Quick test for an exact match
-    if space.type(w_obj) is w_klass_or_tuple:
+    # disabled with jit to make it not impose a strong type condition
+    if not jit.we_are_jitted() and space.type(w_obj) is w_klass_or_tuple:
         return True
 
     # -- case (anything, tuple)
