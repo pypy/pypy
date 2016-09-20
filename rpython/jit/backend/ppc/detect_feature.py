@@ -1,3 +1,4 @@
+import os
 import sys
 import struct
 import platform
@@ -13,19 +14,25 @@ PPC_FEATURE_HAS_ALTIVEC = rffi_platform.getconstantinteger('PPC_FEATURE_HAS_ALTI
 SYSTEM = platform.system()
 
 def detect_vsx_linux():
-    with open('/proc/self/auxv', 'rb') as fd:
-        while True:
-            buf = fd.read(8)
-            buf2 = fd.read(8)
-            if not buf or not buf2:
-                break
-            key = runpack("L", buf)
-            value = runpack("L", buf2)
-            if key == AT_HWCAP:
-                if value & PPC_FEATURE_HAS_ALTIVEC:
-                    return True
-            if key == AT_NULL:
-                return False
+    try:
+        fd = os.open("/proc/self/auxv", os.O_RDONLY, 0644)
+        try:
+            while True:
+                buf = os.read(fd, 8)
+                buf2 = os.read(fd, 8)
+                if not buf or not buf2:
+                    break
+                key = runpack("L", buf)
+                value = runpack("L", buf2)
+                if key == AT_HWCAP:
+                    if value & PPC_FEATURE_HAS_ALTIVEC:
+                        return True
+                if key == AT_NULL:
+                    return False
+        finally:
+            os.close(fd)
+    except OSError:
+        pass
     return False
 
 def detect_vsx():

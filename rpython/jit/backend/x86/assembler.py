@@ -693,7 +693,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         assert len(guard_locs) == len(bridge_locs)
         for i,src_loc in enumerate(guard_locs):
             dst_loc = bridge_locs[i]
-            if not src_loc.is_fp_reg():
+            if not src_loc.is_float():
                 src_locations1.append(src_loc)
                 dst_locations1.append(dst_loc)
             else:

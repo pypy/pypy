@@ -128,7 +128,7 @@ class SchedulerState(object):
             self.delay_emit(node)
             return
         # emit a now!
-        self.pre_emit(node)
+        self.pre_emit(node, True)
         self.mark_emitted(node)
         if not node.is_imaginary():
             op = node.getoperation()
