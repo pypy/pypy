@@ -33,7 +33,7 @@ void qcgc_allocator_initialize(void) {
 
 	_qcgc_bump_allocator.ptr = NULL;
 	_qcgc_bump_allocator.end = NULL;
-	qcgc_bump_allocator_renew_block(true);
+	qcgc_bump_allocator_renew_block(0,true);
 }
 
 void qcgc_allocator_destroy(void) {
@@ -65,7 +65,7 @@ void qcgc_allocator_destroy(void) {
  * Bump Allocator                                                              *
  ******************************************************************************/
 
-void qcgc_bump_allocator_renew_block(bool force_arena) {
+void qcgc_bump_allocator_renew_block(size_t size, bool force_arena) {
 #if CHECKED
 	if (_qcgc_bump_allocator.end > _qcgc_bump_allocator.ptr) {
 		for (cell_t *it = _qcgc_bump_allocator.ptr + 1;
@@ -79,19 +79,25 @@ void qcgc_bump_allocator_renew_block(bool force_arena) {
 	qcgc_reset_bump_ptr();
 
 	// Always use a huge block if there is one
-	exp_free_list_t *free_list = qcgc_allocator_state.fit_state.
-		large_free_list[QCGC_LARGE_FREE_LISTS - 1];
+	assert(3 < QCGC_LARGE_FREE_LISTS);
+	size_t cells = bytes_to_cells(size);
+	size_t i = is_small(cells) ? 3 : MAX(3, large_index(cells) + 1);
+	for (; i < QCGC_LARGE_FREE_LISTS; i++) {
+		exp_free_list_t *free_list = qcgc_allocator_state.fit_state.
+			large_free_list[i];
+		if (free_list->count > 0) {
+			// Assign block to bump allocator
+			bump_allocator_assign(free_list->items[0].ptr,
+					free_list->items[0].size);
+			free_list = qcgc_exp_free_list_remove_index(free_list, 0);
 
-	if (free_list->count > 0) {
-		// Assign huge block to bump allocator
-		bump_allocator_assign(free_list->items[0].ptr,
-				free_list->items[0].size);
-		free_list = qcgc_exp_free_list_remove_index(free_list, 0);
-		qcgc_allocator_state.fit_state.
-			large_free_list[QCGC_LARGE_FREE_LISTS - 1] = free_list;
-		qcgc_state.free_cells -=
-			_qcgc_bump_allocator.end - _qcgc_bump_allocator.ptr;
-	} else {
+			qcgc_allocator_state.fit_state.large_free_list[i] = free_list;
+			qcgc_state.free_cells -=
+				_qcgc_bump_allocator.end - _qcgc_bump_allocator.ptr;
+		}
+	}
+
+	if (_qcgc_bump_allocator.ptr == NULL) {
 		if (qcgc_allocator_state.free_arenas->count > 0) {
 			// Reuse arena
 			arena_t *arena = qcgc_allocator_state.free_arenas->items[0];

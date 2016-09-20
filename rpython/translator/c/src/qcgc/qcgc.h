@@ -59,6 +59,10 @@ typedef struct object_stack_s {
 	object_t *items[];
 } object_stack_t;
 
+#if LOG_ALLOCATOR_SWITCH
+size_t qcgc_allocations = 0;
+#endif
+
 /**
  * Arena
  */
@@ -200,6 +204,10 @@ QCGC_STATIC QCGC_INLINE object_t *qcgc_allocate(size_t size) {
 #endif
 	size_t cells = bytes_to_cells(size);
 
+#if LOG_ALLOCATOR_SWITCH
+	qcgc_allocations++;
+#endif
+
 #if LOG_ALLOCATION
 	qcgc_event_logger_log(EVENT_ALLOCATE, sizeof(size_t),
 			(uint8_t *) &cells);
@@ -281,6 +289,6 @@ void qcgc_register_weakref(object_t *weakrefobj, object_t **target);
  * @param	object	The object to trace
  * @param	visit	The function to be called on the referenced objects
  */
-extern void qcgc_trace_cb(object_t *object, void (*visit)(object_t *object));
+void qcgc_trace_cb(object_t *object, void (*visit)(object_t *object));
 
 #endif

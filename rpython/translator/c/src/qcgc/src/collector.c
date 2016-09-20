@@ -155,7 +155,7 @@ QCGC_STATIC QCGC_INLINE void qcgc_pop_object(object_t *object) {
 	qcgc_trace_cb(object, &qcgc_push_object);
 }
 
-QCGC_STATIC void qcgc_push_object(object_t *object) {
+QCGC_STATIC QCGC_INLINE void qcgc_push_object(object_t *object) {
 #if CHECKED
 	assert(qcgc_state.phase == GC_MARK);
 #endif

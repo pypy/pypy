@@ -11,7 +11,8 @@
 #define EVENT_LOG 1							// Enable event log
 #define LOGFILE "./qcgc_events.log"			// Default logfile
 #define LOG_ALLOCATION 0					// Enable allocation log
-#define LOG_DUMP_FREELIST_STATS 1			// Dump freelist stats
+#define LOG_DUMP_FREELIST_STATS 0			// Dump freelist stats
+#define LOG_ALLOCATOR_SWITCH 0				// Log allocator switches
 
 #define QCGC_SHADOWSTACK_SIZE 163840		// Total shadowstack size
 #define QCGC_ARENA_BAG_INIT_SIZE 16			// Initial size of the arena bag
@@ -19,7 +20,7 @@
 #define QCGC_LARGE_ALLOC_THRESHOLD_EXP 14	// Less than QCGC_ARENA_SIZE_EXP
 #define QCGC_MARK_LIST_SEGMENT_SIZE 64		// TODO: Tune for performance
 #define QCGC_GRAY_STACK_INIT_SIZE 128		// TODO: Tune for performance
-#define QCGC_INC_MARK_MIN 64				// TODO: Tune for performance
+#define QCGC_INC_MARK_MIN 1024				// TODO: Tune for performance
 
 /**
  * Fit allocator
@@ -31,8 +32,8 @@
 /**
  * Auto Mark/Collect
  */
-#define QCGC_INCMARK_THRESHOLD (1<<(QCGC_ARENA_SIZE_EXP-4))
-#define QCGC_INCMARK_TO_SWEEP 5
+#define QCGC_INCMARK_THRESHOLD (1<<(QCGC_ARENA_SIZE_EXP-5))
+#define QCGC_INCMARK_TO_SWEEP 10
 
 /**
  * DO NOT MODIFY BELOW HERE

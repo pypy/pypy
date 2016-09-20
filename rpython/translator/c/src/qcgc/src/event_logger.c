@@ -14,7 +14,8 @@ static struct {
 void qcgc_event_logger_initialize(void) {
 #if EVENT_LOG
 	event_logger_state.logfile = fopen(LOGFILE, "w");
-	qcgc_event_logger_log(EVENT_LOG_START, 0, NULL);
+	size_t arena_cells = 1<<QCGC_ARENA_SIZE_EXP;
+	qcgc_event_logger_log(EVENT_LOG_START, sizeof(size_t), (uint8_t *)&arena_cells);
 
 	if (event_logger_state.logfile == NULL)  {
 		fprintf(stderr, "%s\n", "Failed to create logfile.");

@@ -23,6 +23,8 @@ enum event_e {
 	EVENT_MARK_DONE,
 
 	EVENT_FREELIST_DUMP,
+
+	EVENT_ALLOCATOR_SWITCH,
 };
 
 /**
