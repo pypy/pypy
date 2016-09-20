@@ -814,8 +814,9 @@ def fn(): pass
         raises(TypeError, round, t)
         raises(TypeError, round, t, 0)
 
-        raises(TypeError, round, 3, None)
-        raises(TypeError, round, 3.0, None)
+        assert round(3, ndigits=None) == 3
+        assert round(3.0, ndigits=None) == 3
+        assert type(round(3.0, ndigits=None)) is int
 
     def test_vars_obscure_case(self):
         class C_get_vars(object):
