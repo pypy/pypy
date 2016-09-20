@@ -1341,11 +1341,11 @@ class TestRclass(BaseRtypingTest):
         from rpython.rtyper.rclass import ValueClassConflictError
 
         class Base(object):
-            _immutable_ = True
+            _immutable_   = True
+            _value_class_ = True
 
         class I(Base):
             _immutable_   = True
-            _value_class_ = True
 
             def __init__(self, v):
                 self.v = v
@@ -1355,3 +1355,4 @@ class TestRclass(BaseRtypingTest):
             return i.v
 
         py.test.raises(ValueClassConflictError, self.gengraph, f, [])
+

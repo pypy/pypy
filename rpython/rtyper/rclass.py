@@ -587,12 +587,6 @@ class InstanceRepr(Repr):
                 "class %r: _value_class_ = True requires that "
                 "_immutable_ = True as well")
         else:
-            # Value classes may only be subclasses of other value classes
-            basedesc = classdesc.basedesc
-            if basedesc and not basedesc.get_param('_value_class_', False):
-                raise ValueClassConflictError(
-                    "class %r: _value_class_ = True, but its parent "
-                    "class %r does not")
             hints['value_class'] = True
         return hints
 
