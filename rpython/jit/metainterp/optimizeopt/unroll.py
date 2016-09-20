@@ -16,7 +16,7 @@ from rpython.jit.metainterp import compile
 from rpython.rlib.debug import debug_print, debug_start, debug_stop,\
      have_debug_prints
 
-class UnrollableOptimizer(Optimizer):    
+class UnrollableOptimizer(Optimizer):
     def force_op_from_preamble(self, preamble_op):
         if isinstance(preamble_op, PreambleOp):
             if self.optunroll.short_preamble_producer is None:
@@ -127,7 +127,8 @@ class UnrollOptimizer(Optimization):
                 assert op.get_forwarded() is None
         if check_newops:
             assert not self.optimizer._newoperations
-    
+
+
     def optimize_preamble(self, trace, runtime_boxes, call_pure_results, memo):
         info, newops = self.optimizer.propagate_all_forward(
             trace.get_iter(), call_pure_results, flush=False)
@@ -163,7 +164,7 @@ class UnrollOptimizer(Optimization):
         current_vs = self.get_virtual_state(end_jump.getarglist())
         # pick the vs we want to jump to
         assert isinstance(celltoken, JitCellToken)
-        
+
         target_virtual_state = self.pick_virtual_state(current_vs,
                                                        state.virtual_state,
                                                 celltoken.target_tokens)
@@ -173,7 +174,8 @@ class UnrollOptimizer(Optimization):
                [self.get_box_replacement(x) for x in end_jump.getarglist()],
                self.optimizer, force_boxes=True)
             for arg in args:
-                self.optimizer.force_box(arg)
+                if arg is not None:
+                    self.optimizer.force_box(arg)
         except VirtualStatesCantMatch:
             raise InvalidLoop("Virtual states did not match "
                               "after picking the virtual state, when forcing"
@@ -187,17 +189,27 @@ class UnrollOptimizer(Optimization):
             self.jump_to_preamble(celltoken, end_jump, info)
             return (UnrollInfo(target_token, label_op, extra_same_as,
                                self.optimizer.quasi_immutable_deps),
-                    self.optimizer._newoperations)            
+                    self.optimizer._newoperations)
 
         try:
-            new_virtual_state = self.jump_to_existing_trace(end_jump, label_op,
-                                                            state.runtime_boxes)
+            new_virtual_state = self.jump_to_existing_trace(
+                    end_jump, label_op, state.runtime_boxes, force_boxes=False)
         except InvalidLoop:
             # inlining short preamble failed, jump to preamble
             self.jump_to_preamble(celltoken, end_jump, info)
             return (UnrollInfo(target_token, label_op, extra_same_as,
                                self.optimizer.quasi_immutable_deps),
                     self.optimizer._newoperations)
+
+        if new_virtual_state is not None:
+            # Attempt to force virtual boxes in order to avoid jumping
+            # to the preamble.
+            try:
+                new_virtual_state = self.jump_to_existing_trace(
+                        end_jump, label_op, state.runtime_boxes, force_boxes=True)
+            except InvalidLoop:
+                pass
+
         if new_virtual_state is not None:
             self.jump_to_preamble(celltoken, end_jump, info)
             return (UnrollInfo(target_token, label_op, extra_same_as,
@@ -206,7 +218,7 @@ class UnrollOptimizer(Optimization):
 
         self.disable_retracing_if_max_retrace_guards(
             self.optimizer._newoperations, target_token)
-        
+
         return (UnrollInfo(target_token, label_op, extra_same_as,
                            self.optimizer.quasi_immutable_deps),
                 self.optimizer._newoperations)
@@ -248,7 +260,8 @@ class UnrollOptimizer(Optimization):
         for a in jump_op.getarglist():
             self.optimizer.force_box_for_end_of_preamble(a)
         try:
-            vs = self.jump_to_existing_trace(jump_op, None, runtime_boxes)
+            vs = self.jump_to_existing_trace(jump_op, None, runtime_boxes,
+                                             force_boxes=False)
         except InvalidLoop:
             return self.jump_to_preamble(cell_token, jump_op, info)
         if vs is None:
@@ -259,6 +272,14 @@ class UnrollOptimizer(Optimization):
             cell_token.retraced_count += 1
             debug_print('Retracing (%d/%d)' % (cell_token.retraced_count, limit))
         else:
+            # Try forcing boxes to avoid jumping to the preamble
+            try:
+                vs = self.jump_to_existing_trace(jump_op, None, runtime_boxes,
+                                                 force_boxes=True)
+            except InvalidLoop:
+                pass
+            if vs is None:
+                return info, self.optimizer._newoperations[:]
             debug_print("Retrace count reached, jumping to preamble")
             return self.jump_to_preamble(cell_token, jump_op, info)
         exported_state = self.export_state(info.jump_op.getarglist(),
@@ -295,7 +316,7 @@ class UnrollOptimizer(Optimization):
         return info, self.optimizer._newoperations[:]
 
 
-    def jump_to_existing_trace(self, jump_op, label_op, runtime_boxes):
+    def jump_to_existing_trace(self, jump_op, label_op, runtime_boxes, force_boxes=False):
         jitcelltoken = jump_op.getdescr()
         assert isinstance(jitcelltoken, JitCellToken)
         virtual_state = self.get_virtual_state(jump_op.getarglist())
@@ -306,7 +327,8 @@ class UnrollOptimizer(Optimization):
                 continue
             try:
                 extra_guards = target_virtual_state.generate_guards(
-                    virtual_state, args, runtime_boxes, self.optimizer)
+                    virtual_state, args, runtime_boxes, self.optimizer,
+                    force_boxes=force_boxes)
                 patchguardop = self.optimizer.patchguardop
                 for guard in extra_guards.extra_guards:
                     if isinstance(guard, GuardResOp):
@@ -318,8 +340,18 @@ class UnrollOptimizer(Optimization):
                     self.send_extra_operation(guard)
             except VirtualStatesCantMatch:
                 continue
-            args, virtuals = target_virtual_state.make_inputargs_and_virtuals(
-                args, self.optimizer)
+
+            # When force_boxes == True, creating the virtual args can fail when
+            # components of the virtual state alias. If this occurs, we must
+            # recompute the virtual state as boxes will have been forced.
+            try:
+                args, virtuals = target_virtual_state.make_inputargs_and_virtuals(
+                    args, self.optimizer, force_boxes=force_boxes)
+            except VirtualStatesCantMatch:
+                assert force_boxes
+                virtual_state = self.get_virtual_state(args)
+                continue
+
             short_preamble = target_token.short_preamble
             try:
                 extra = self.inline_short_preamble(args + virtuals, args,
@@ -466,7 +498,7 @@ class UnrollOptimizer(Optimization):
         # by short preamble
         label_args = exported_state.virtual_state.make_inputargs(
             targetargs, self.optimizer)
-        
+
         self.short_preamble_producer = ShortPreambleBuilder(
             label_args, exported_state.short_boxes,
             exported_state.short_inputargs, exported_state.exported_infos,
@@ -511,7 +543,7 @@ class ExportedState(LoopInfo):
     * runtime_boxes - runtime values for boxes, necessary when generating
                       guards to jump to
     """
-    
+
     def __init__(self, end_args, next_iteration_args, virtual_state,
                  exported_infos, short_boxes, renamed_inputargs,
                  short_inputargs, runtime_boxes, memo):

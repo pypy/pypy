@@ -4,7 +4,7 @@ from rpython.jit.metainterp.optimizeopt.info import ArrayPtrInfo,\
      ArrayStructInfo, AbstractStructPtrInfo, PtrInfo
 from rpython.jit.metainterp.optimizeopt.intutils import \
      MININT, MAXINT, IntBound, IntLowerBound
-from rpython.jit.metainterp.resoperation import rop, ResOperation,\
+from rpython.jit.metainterp.resoperation import rop, ResOperation, \
      InputArgInt, InputArgRef, InputArgFloat
 from rpython.rlib.debug import debug_print
 
@@ -20,7 +20,7 @@ class VirtualStatesCantMatch(Exception):
 
 
 class GenerateGuardState(object):
-    def __init__(self, optimizer=None, guards=None, renum=None, bad=None):
+    def __init__(self, optimizer=None, guards=None, renum=None, bad=None, force_boxes=False):
         self.optimizer = optimizer
         self.cpu = optimizer.cpu
         if guards is None:
@@ -32,6 +32,7 @@ class GenerateGuardState(object):
         if bad is None:
             bad = {}
         self.bad = bad
+        self.force_boxes = force_boxes
 
     def get_runtime_item(self, box, descr, i):
         array = box.getref_base()
@@ -183,7 +184,10 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
             raise VirtualStatesCantMatch()
         else:
             assert isinstance(info, AbstractStructPtrInfo)
-        for i in range(len(self.fielddescrs)):
+
+        # The min operation ensures we don't wander off either array, as not all
+        # to make_inputargs have validated their inputs with generate_guards.
+        for i in range(min(len(self.fielddescrs), len(info._fields))):
             state = self.fieldstate[i]
             if not state:
                 continue
@@ -303,7 +307,7 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
             opinfo = state.optimizer.getptrinfo(box)
             assert isinstance(opinfo, ArrayPtrInfo)
         else:
-            opinfo = None            
+            opinfo = None
         for i in range(self.length):
             for descr in self.fielddescrs:
                 index = i * len(self.fielddescrs) + descr.get_index()
@@ -518,6 +522,8 @@ class NotVirtualStateInfoPtr(NotVirtualStateInfo):
         NotVirtualStateInfo.__init__(self, cpu, type, info)
 
     def _generate_guards(self, other, box, runtime_box, state):
+        if state.force_boxes and isinstance(other, VirtualStateInfo):
+            return self._generate_virtual_guards(other, box, runtime_box, state)
         if not isinstance(other, NotVirtualStateInfoPtr):
             raise VirtualStatesCantMatch(
                     'The VirtualStates does not match as a ' +
@@ -548,6 +554,23 @@ class NotVirtualStateInfoPtr(NotVirtualStateInfo):
     # It is used here to choose between either emitting a guard and jumping
     # to an existing compiled loop or retracing the loop. Both alternatives
     # will always generate correct behaviour, but performance will differ.
+
+    def _generate_virtual_guards(self, other, box, runtime_box, state):
+        """
+        Generate the guards and add state information for unifying a virtual
+        object with a non-virtual. This involves forcing the object in the
+        event that unification can succeed. Since virtual objects cannot be null,
+        this method need only check that the virtual object has the expected type.
+        """
+        assert state.force_boxes and isinstance(other, VirtualStateInfo)
+
+        if self.level == LEVEL_CONSTANT:
+            raise VirtualStatesCantMatch(
+                    "cannot unify a constant value with a virtual object")
+
+        if self.level == LEVEL_KNOWNCLASS:
+            if not self.known_class.same_constant(other.known_class):
+                raise VirtualStatesCantMatch("classes don't match")
 
     def _generate_guards_nonnull(self, other, box, runtime_box, extra_guards,
                                  state):
@@ -644,10 +667,10 @@ class VirtualState(object):
             return False
         return True
 
-    def generate_guards(self, other, boxes, runtime_boxes, optimizer):
+    def generate_guards(self, other, boxes, runtime_boxes, optimizer, force_boxes=False):
         assert (len(self.state) == len(other.state) == len(boxes) ==
                 len(runtime_boxes))
-        state = GenerateGuardState(optimizer)
+        state = GenerateGuardState(optimizer, force_boxes=force_boxes)
         for i in range(len(self.state)):
             self.state[i].generate_guards(other.state[i], boxes[i],
                                           runtime_boxes[i], state)
@@ -671,8 +694,8 @@ class VirtualState(object):
 
         return boxes
 
-    def make_inputargs_and_virtuals(self, inputargs, optimizer):
-        inpargs = self.make_inputargs(inputargs, optimizer)
+    def make_inputargs_and_virtuals(self, inputargs, optimizer, force_boxes=False):
+        inpargs = self.make_inputargs(inputargs, optimizer, force_boxes)
         # we append the virtuals here in case some stuff is proven
         # to be not a virtual and there are getfields in the short preamble
         # that will read items out of there
@@ -680,7 +703,7 @@ class VirtualState(object):
         for i in range(len(inputargs)):
             if not isinstance(self.state[i], NotVirtualStateInfo):
                 virtuals.append(inputargs[i])
-            
+
         return inpargs, virtuals
 
     def debug_print(self, hdr='', bad=None, metainterp_sd=None):

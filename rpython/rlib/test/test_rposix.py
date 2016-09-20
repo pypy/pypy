@@ -604,3 +604,7 @@ def test_SetNonInheritableCache():
     assert rposix.get_inheritable(fd1) == False
     os.close(fd1)
     os.close(fd2)
+
+def test_sync():
+    if sys.platform != 'win32':
+        rposix.sync()

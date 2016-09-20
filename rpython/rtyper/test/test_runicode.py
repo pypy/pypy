@@ -162,6 +162,18 @@ class TestRUnicode(AbstractTestRstr, BaseRtypingTest):
 
         assert self.ll_to_string(self.interpret(f, [0])) == f(0)
 
+    def test_unicode_decode_final(self):
+        strings = ['\xc3', '']
+        def f(n):
+            try:
+                strings[n].decode('utf-8')
+            except UnicodeDecodeError:
+                return True
+            return False
+
+        assert f(0)
+        assert self.interpret(f, [0])
+
     def test_utf_8_decoding_annotation(self):
         from rpython.rlib.runicode import str_decode_utf_8
         def errorhandler(errors, encoding, msg, s,

@@ -326,6 +326,7 @@ class LLGraphCPU(model.AbstractCPU):
     supports_longlong = r_uint is not r_ulonglong
     supports_singlefloats = True
     supports_guard_gc_type = True
+    supports_cond_call_value = True
     translate_support_code = False
     is_llgraph = True
     vector_extension = True
@@ -1376,6 +1377,16 @@ class LLFrame(object):
             return
         # cond_call can't have a return value
         self.execute_call_n(calldescr, func, *args)
+
+    def execute_cond_call_value_i(self, calldescr, value, func, *args):
+        if not value:
+            value = self.execute_call_i(calldescr, func, *args)
+        return value
+
+    def execute_cond_call_value_r(self, calldescr, value, func, *args):
+        if not value:
+            value = self.execute_call_r(calldescr, func, *args)
+        return value
 
     def _execute_call(self, calldescr, func, *args):
         effectinfo = calldescr.get_extra_info()

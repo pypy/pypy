@@ -1013,6 +1013,9 @@ class Regalloc(BaseRegalloc):
     prepare_op_cond_call_gc_wb_array = prepare_op_cond_call_gc_wb
 
     def prepare_op_cond_call(self, op, fcond):
+        # XXX don't force the arguments to be loaded in specific
+        # locations before knowing if we can take the fast path
+        # XXX add cond_call_value support
         assert 2 <= op.numargs() <= 4 + 2
         tmpreg = self.get_scratch_reg(INT, selected_reg=r.r4)
         v = op.getarg(1)

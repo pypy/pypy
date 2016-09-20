@@ -461,6 +461,8 @@ c_fsync = external('fsync' if not _WIN32 else '_commit', [rffi.INT], rffi.INT,
                    save_err=rffi.RFFI_SAVE_ERRNO)
 c_fdatasync = external('fdatasync', [rffi.INT], rffi.INT,
                        save_err=rffi.RFFI_SAVE_ERRNO)
+if not _WIN32:
+    c_sync = external('sync', [], lltype.Void)
 
 @replace_os_function('ftruncate')
 def ftruncate(fd, length):
@@ -476,6 +478,9 @@ def fsync(fd):
 def fdatasync(fd):
     validate_fd(fd)
     handle_posix_error('fdatasync', c_fdatasync(fd))
+
+def sync():
+    c_sync()
 
 #___________________________________________________________________
 

@@ -498,7 +498,10 @@ class Class(PyCollector):
     """ Collector for test methods. """
     def collect(self):
         if hasinit(self.obj):
-            pytest.skip("class %s.%s with __init__ won't get collected" % (
+            # XXX used to be skip(), but silently skipping classes
+            # XXX just because they have been written long ago is
+            # XXX imho a very, very, very bad idea
+            pytest.fail("class %s.%s with __init__ won't get collected" % (
                 self.obj.__module__,
                 self.obj.__name__,
             ))

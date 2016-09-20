@@ -63,7 +63,7 @@ class GeneratorIterator(W_Root):
         """x.__iter__() <==> iter(x)"""
         return self.space.wrap(self)
 
-    def descr_send(self, w_arg=None):
+    def descr_send(self, w_arg):
         """send(arg) -> send 'arg' into generator,
 return next yielded value or raise StopIteration."""
         return self.send_ex(w_arg)

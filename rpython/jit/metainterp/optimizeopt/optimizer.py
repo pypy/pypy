@@ -11,6 +11,8 @@ from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.typesystem import llhelper
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.debug import debug_print
+from rpython.rtyper import rclass
+from rpython.rtyper.lltypesystem import llmemory
 from rpython.jit.metainterp.optimize import SpeculativeError
 
 
@@ -818,6 +820,21 @@ class Optimizer(Optimization):
         index = self.get_constant_box(op.getarg(1)).getint()
         if not (0 <= index < arraylength):
             raise SpeculativeError
+
+    @staticmethod
+    def _check_subclass(vtable1, vtable2): # checks that vtable1 is a subclass of vtable2
+        known_class = llmemory.cast_adr_to_ptr(
+            llmemory.cast_int_to_adr(vtable1),
+            rclass.CLASSTYPE)
+        expected_class = llmemory.cast_adr_to_ptr(
+            llmemory.cast_int_to_adr(vtable2),
+            rclass.CLASSTYPE)
+        # note: the test is for a range including 'max', but 'max'
+        # should never be used for actual classes.  Including it makes
+        # it easier to pass artificial tests.
+        return (expected_class.subclassrange_min
+                <= known_class.subclassrange_min
+                <= expected_class.subclassrange_max)
 
     def is_virtual(self, op):
         if op.type == 'r':
