@@ -576,7 +576,7 @@ class InstanceRepr(Repr):
         """Look for value class hints in the class heirarchy to extract the proper
         hints and ensure consistency of the _value_class_ annotation. This is
         mostly equivalent to _check_for_immutable_hints except that
-        _value_class_=True imples _immutable_=True as well."""
+        _value_class_=True imples _immutable_=True."""
         hints = hints.copy()
         classdesc = self.classdef.classdesc
         value_class = classdesc.get_param('_value_class_', inherit=False)
@@ -590,10 +590,6 @@ class InstanceRepr(Repr):
             raise TyperError(
                 "class %r: _value_class_ = something else than True" % (
                     self.classdef,))
-        # elif not hints.get('immutable', False):
-            # raise ValueClassConflictError(
-                # "class %r: _value_class_ = True requires that "
-                # "_immutable_ = True as well")
         else:
             # _value_class_ = True implies _immutable_ = True
             hints['value_class'] = True
