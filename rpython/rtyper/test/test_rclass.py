@@ -868,12 +868,13 @@ class TestRclass(BaseRtypingTest):
             return B()
         t, typer, graph = self.gengraph(f, [])
         B_TYPE = deref(graph.getreturnvar().concretetype)
-        assert B_TYPE._hints["immutable"]
+        assert B_TYPE._hints["value_class"]
         A_TYPE = B_TYPE.super
         accessor = A_TYPE._hints["immutable_fields"]
         assert accessor.fields == {"inst_v": IR_IMMUTABLE}
 
     def test_immutable_subclass_1(self):
+        py.test.skip("should not fail anymore")
         from rpython.rtyper.rclass import ImmutableConflictError
         from rpython.jit.metainterp.typesystem import deref
         class A(object):
@@ -898,7 +899,7 @@ class TestRclass(BaseRtypingTest):
             return B()
         t, typer, graph = self.gengraph(f, [])
         B_TYPE = deref(graph.getreturnvar().concretetype)
-        assert B_TYPE._hints["immutable"]
+        assert B_TYPE._hints["value_class"]
 
     def test_immutable_subclass_void(self):
         from rpython.jit.metainterp.typesystem import deref
@@ -914,7 +915,7 @@ class TestRclass(BaseRtypingTest):
             return B()
         t, typer, graph = self.gengraph(f, [])
         B_TYPE = deref(graph.getreturnvar().concretetype)
-        assert B_TYPE._hints["immutable"]
+        assert B_TYPE._hints["value_class"]
 
     def test_quasi_immutable(self):
         from rpython.jit.metainterp.typesystem import deref
@@ -1305,71 +1306,4 @@ class TestRclass(BaseRtypingTest):
         def f():
             return a.next.next.next.next is not None
         assert self.interpret(f, []) == True
-
-#    def test_value_class(self):
-#
-#        class I(object):
-#            _value_class_ = True
-#
-#            def __init__(self, v):
-#                self.v = v
-#
-#        i = I(3)
-#        def f():
-#            return i.v
-#
-#        t, typer, graph = self.gengraph(f, [], backendopt=True)
-#        assert summary(graph) == {}
-#
-#    def test_value_class_conflicts_with_immut(self):
-#        from rpython.rtyper.rclass import ImmutableConflictError
-#
-#        class I(object):
-#            _immutable_   = False
-#            _value_class_ = True
-#
-#            def __init__(self, v):
-#                self.v = v
-#
-#        i = I(3)
-#        def f():
-#            return i.v
-#
-#        py.test.raises(ImmutableConflictError, self.gengraph, f, [])
-#
-#    def test_value_class_implies_immutable(self):
-#        from rpython.jit.metainterp.typesystem import deref
-#
-#        class I(object):
-#            _value_class_ = True
-#
-#            def __init__(self, v):
-#                self.v = v
-#
-#        i = I(3)
-#        def f():
-#            return i
-#
-#        t, typer, graph = self.gengraph(f, [])
-#        I_TYPE = deref(graph.getreturnvar().concretetype)
-#        assert I_TYPE._hints['immutable']
-#        assert I_TYPE._hints['value_class']
-#
-#    def test_value_class_subclass_not_value_class(self):
-#        from rpython.rtyper.rclass import ValueClassConflictError
-#
-#        class Base(object):
-#            _value_class_ = True
-#
-#        class I(Base):
-#            _immutable_   = True
-#
-#            def __init__(self, v):
-#                self.v = v
-#
-#        i = I(3)
-#        def f():
-#            return i.v
-#
-#        py.test.raises(ValueClassConflictError, self.gengraph, f, [])
 

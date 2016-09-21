@@ -62,10 +62,6 @@ class ImmutableConflictError(Exception):
     """Raised when the _immutable_ or _immutable_fields_ hints are
     not consistent across a class hierarchy."""
 
-class ValueClassConflictError(Exception):
-    """Raise when the _value_class_ hints are not consistent across
-    the class heirarchy"""
-
 def getclassrepr(rtyper, classdef):
     if classdef is None:
         return rtyper.rootclass_repr
@@ -163,7 +159,7 @@ class MissingRTypeAttribute(TyperError):
 OBJECT_VTABLE = lltype.ForwardReference()
 CLASSTYPE = Ptr(OBJECT_VTABLE)
 OBJECT = GcStruct('object', ('typeptr', CLASSTYPE),
-                  hints={'immutable': True, 'shouldntbenull': True,
+                  hints={'value_class': True, 'shouldntbenull': True,
                          'typeptr': True},
                   rtti=True)
 OBJECTPTR = Ptr(OBJECT)
@@ -175,7 +171,7 @@ OBJECT_VTABLE.become(Struct('object_vtable',
                             ('name', Ptr(rstr.STR)),
                             ('hash', Signed),
                             ('instantiate', Ptr(FuncType([], OBJECTPTR))),
-                            hints={'immutable': True}))
+                            hints={'value_class': True}))
 # non-gc case
 NONGCOBJECT = Struct('nongcobject', ('typeptr', CLASSTYPE))
 NONGCOBJECTPTR = Ptr(NONGCOBJECT)
@@ -276,7 +272,7 @@ class ClassRepr(Repr):
         #
         self.rbase = getclassrepr(self.rtyper, self.classdef.basedef)
         self.rbase.setup()
-        kwds = {'hints': {'immutable': True}}
+        kwds = {'hints': {'value_class': True}}
         vtable_type = Struct('%s_vtable' % self.classdef.name,
                                 ('super', self.rbase.vtable_type),
                                 *llfields, **kwds)
@@ -520,7 +516,6 @@ class InstanceRepr(Repr):
             if hints is None:
                 hints = {}
             hints = self._check_for_immutable_hints(hints)
-            hints = self._check_for_value_class_hints(hints)
             kwds = {}
             if self.gcflavor == 'gc':
                 kwds['rtti'] = True
@@ -544,56 +539,20 @@ class InstanceRepr(Repr):
     def _check_for_immutable_hints(self, hints):
         hints = hints.copy()
         classdesc = self.classdef.classdesc
-        immut = classdesc.get_param('_immutable_', inherit=False)
         value_class = classdesc.get_param('_value_class_', inherit=False)
 
-        if immut is None:
-            immut = value_class
-        elif value_class is not None and value_class and not immut:
-            raise ImmutableConflictError(
-                "class %r: _immutable_ != True and _value_class_ = True")
-
-        if immut is None:
-            if classdesc.get_param('_immutable_', inherit=True):
-                raise ImmutableConflictError(
-                    "class %r inherits from its parent _immutable_=True, "
-                    "so it should also declare _immutable_=True" % (
+        if value_class is not None:
+            if value_class is not True:
+                raise TyperError(
+                    "class %r: _value_class_ = something else than True" % (
                         self.classdef,))
-        elif immut is not True:
-            raise TyperError(
-                "class %r: _immutable_ = something else than True" % (
-                    self.classdef,))
-        else:
-            hints['immutable'] = True
+            else:
+                hints['value_class'] = True
         self.immutable_field_set = classdesc.immutable_fields
         if (classdesc.immutable_fields or
                 'immutable_fields' in self.rbase.object_type._hints):
             accessor = FieldListAccessor()
             hints['immutable_fields'] = accessor
-        return hints
-
-    def _check_for_value_class_hints(self, hints):
-        """Look for value class hints in the class heirarchy to extract the proper
-        hints and ensure consistency of the _value_class_ annotation. This is
-        mostly equivalent to _check_for_immutable_hints except that
-        _value_class_=True imples _immutable_=True."""
-        hints = hints.copy()
-        classdesc = self.classdef.classdesc
-        value_class = classdesc.get_param('_value_class_', inherit=False)
-        if value_class is None:
-            if classdesc.get_param('_value_class_', inherit=True):
-                raise ValueClassConflictError(
-                    "class %r inherits from its parent _value_class_=True, "
-                    "so it should also declare _value_class_=True" % (
-                        self.classdef,))
-        elif value_class is not True:
-            raise TyperError(
-                "class %r: _value_class_ = something else than True" % (
-                    self.classdef,))
-        else:
-            # _value_class_ = True implies _immutable_ = True
-            hints['value_class'] = True
-            hints['immutable'] = True
         return hints
 
     def __repr__(self):
@@ -678,7 +637,7 @@ class InstanceRepr(Repr):
                 mangled_name, r = self._get_field(name)
             except KeyError:
                 continue
-            if quasi and hints.get("immutable"):
+            if quasi and hints.get("value_class"):
                 raise TyperError(
                     "can't have _immutable_ = True and a quasi-immutable field "
                     "%s in class %s" % (name, self.classdef))
@@ -689,7 +648,7 @@ class InstanceRepr(Repr):
     def _check_for_immutable_conflicts(self):
         # check for conflicts, i.e. a field that is defined normally as
         # mutable in some parent class but that is now declared immutable
-        is_self_immutable = "immutable" in self.object_type._hints
+        is_value_class = "value_class" in self.object_type._hints
         base = self
         while base.classdef is not None:
             base = base.rbase
@@ -704,9 +663,9 @@ class InstanceRepr(Repr):
                 if base.object_type._immutable_field(mangled):
                     continue
                 # 'fieldname' is a mutable, non-Void field in the parent
-                if is_self_immutable:
+                if is_value_class:
                     raise ImmutableConflictError(
-                        "class %r has _immutable_=True, but parent class %r "
+                        "class %r has _value_class_=True, but parent class %r "
                         "defines (at least) the mutable field %r" %
                         (self, base, fieldname))
                 if (fieldname in self.immutable_field_set or
