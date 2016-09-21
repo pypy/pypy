@@ -137,13 +137,16 @@ class AppTestPosix:
         assert st.st_size == 14
         assert st.st_nlink == 1
 
-        assert not hasattr(st, 'nsec_atime')
-
         if sys.platform.startswith('linux'):
             assert isinstance(st.st_atime, float)
             assert isinstance(st.st_mtime, float)
             assert isinstance(st.st_ctime, float)
             assert hasattr(st, 'st_rdev')
+
+        assert isinstance(st.st_atime_ns, int)
+        assert abs(st.st_atime_ns - 1e9*st.st_atime) < 500
+        assert abs(st.st_mtime_ns - 1e9*st.st_mtime) < 500
+        assert abs(st.st_ctime_ns - 1e9*st.st_ctime) < 500
 
     def test_stat_float_times(self):
         path = self.path
