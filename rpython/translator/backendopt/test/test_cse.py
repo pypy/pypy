@@ -5,6 +5,7 @@ from rpython.flowspace.model import Variable, Constant
 from rpython.translator.backendopt import removenoops
 from rpython.flowspace.model import checkgraph, summary
 from rpython.conftest import option
+from rpython.rlib import jit
 
 class TestStoreSink(object):
     def translate(self, func, argtypes):
@@ -555,6 +556,16 @@ class TestStoreSink(object):
                 l = [2, 3]
             return len(l)
         self.check(f, [int], fullopts=True, getarraysize=0)
+
+    def test_remove_duplicate_elidable_call(self):
+        @jit.elidable
+        def p(x):
+            return x + 1
+
+        def f(x):
+            return p(x) + p(x)
+
+        self.check(f, [int], fullopts=False, direct_call=1)
 
 
 def fakevar(name='v'):

@@ -278,9 +278,26 @@ class Cache(object):
                        (representative_arg(op.result), ))
                 self.purecache[key] = op.args[2]
 
-            if has_side_effects(op):
+            can_fold_op = can_fold(op)
+            has_side_effects_op = has_side_effects(op)
+            if op.opname == "direct_call":
+                funcobj = op.args[0].value._obj
+                func = getattr(funcobj, '_callable', None)
+                elidable = getattr(func, "_elidable_function_", False)
+                if elidable:
+                    # can't hash pointers, so use the graph directly
+                    key = ("direct_call", op.result.concretetype,
+                           (funcobj.graph, ) +
+                               tuple([representative_arg(arg)
+                                   for arg in op.args[1:]]))
+                    can_fold_op = True
+            elif can_fold_op:
+                key = (op.opname, op.result.concretetype,
+                       tuple([representative_arg(arg) for arg in op.args]))
+
+
+            if has_side_effects_op:
                 self._clear_heapcache_for_effects_of_op(op)
-                continue
 
             # foldable operations
             if op.opname == "cast_pointer":
@@ -290,10 +307,8 @@ class Cache(object):
                 self.new_unions.union(op.args[0], op.result)
                 # don't do anything further
                 continue
-            if not can_fold(op):
+            if not can_fold_op:
                 continue
-            key = (op.opname, op.result.concretetype,
-                   tuple([representative_arg(arg) for arg in op.args]))
             res = self.purecache.get(key, None)
             if res is not None:
                 self._replace_with_result(op, res)
