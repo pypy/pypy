@@ -3,10 +3,6 @@
 class AppTestOperator:
     spaceconfig = dict(usemodules=['operator'])
 
-    def test_equality(self):
-        import _operator as operator
-        assert operator.eq == operator.__eq__
-
     def test_getters_are_not_regular_functions(self):
         import _operator as operator
         class A(object):
@@ -191,7 +187,6 @@ class AppTestOperator:
     def test_index(self):
         import _operator as operator
         assert operator.index(42) == 42
-        assert operator.__index__(42) == 42
         raises(TypeError, operator.index, "abc")
         exc = raises(TypeError, operator.index, "abc")
         assert str(exc.value) == "'str' object cannot be interpreted as an integer"
