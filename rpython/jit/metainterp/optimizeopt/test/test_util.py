@@ -124,11 +124,11 @@ class LLtypeMixin(object):
     NODE3.become(lltype.GcStruct('NODE3', ('parent', OBJECT),
                             ('value', lltype.Signed),
                             ('next', lltype.Ptr(NODE3)),
-                            hints={'immutable': True}))
+                            hints={'value_class': True}))
 
     big_fields = [('big' + i, lltype.Signed) for i in string.ascii_lowercase]
     BIG = lltype.GcForwardReference()
-    BIG.become(lltype.GcStruct('BIG', *big_fields, hints={'immutable': True}))
+    BIG.become(lltype.GcStruct('BIG', *big_fields, hints={'value_class': True}))
 
     for field, _ in big_fields:
         locals()[field + 'descr'] = cpu.fielddescrof(BIG, field)
@@ -202,7 +202,7 @@ class LLtypeMixin(object):
                                                 ('intval', lltype.Signed))
     INTOBJ_IMMUT = lltype.GcStruct('INTOBJ_IMMUT', ('parent', OBJECT),
                                             ('intval', lltype.Signed),
-                                            hints={'immutable': True})
+                                            hints={'value_class': True})
     intobj_noimmut_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
     intobj_immut_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
     noimmut_intval = cpu.fielddescrof(INTOBJ_NOIMMUT, 'intval')
@@ -214,7 +214,7 @@ class LLtypeMixin(object):
 
     PTROBJ_IMMUT = lltype.GcStruct('PTROBJ_IMMUT', ('parent', OBJECT),
                                             ('ptrval', lltype.Ptr(OBJECT)),
-                                            hints={'immutable': True})
+                                            hints={'value_class': True})
     ptrobj_immut_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
     ptrobj_immut_descr = cpu.sizeof(PTROBJ_IMMUT, ptrobj_immut_vtable)
     immut_ptrval = cpu.fielddescrof(PTROBJ_IMMUT, 'ptrval')
