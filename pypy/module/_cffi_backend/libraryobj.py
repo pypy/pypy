@@ -14,7 +14,7 @@ from pypy.module._cffi_backend.ctypeobj import W_CType
 
 
 class W_Library(W_Root):
-    _immutable_ = True
+    _immutable_fields_ = ['handle', 'name']
 
     def __init__(self, space, filename, flags):
         self.space = space

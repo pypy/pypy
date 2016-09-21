@@ -2,7 +2,7 @@ from rpython.jit.metainterp.history import INT, FLOAT
 from rpython.jit.backend.arm.arch import WORD, DOUBLE_WORD, JITFRAME_FIXED_SIZE
 
 class AssemblerLocation(object):
-    _immutable_ = True
+    _immutable_fields_ = ['type']
     type = INT
 
     def is_imm(self):
@@ -33,7 +33,7 @@ class AssemblerLocation(object):
         raise NotImplementedError # only for stack
 
 class RegisterLocation(AssemblerLocation):
-    _immutable_ = True
+    _immutable_fields_ = ['value']
     width = WORD
 
     def __init__(self, value):
@@ -50,7 +50,6 @@ class RegisterLocation(AssemblerLocation):
 
 
 class VFPRegisterLocation(RegisterLocation):
-    _immutable_ = True
     type = FLOAT
     width = 2 * WORD
 
@@ -71,7 +70,6 @@ class VFPRegisterLocation(RegisterLocation):
 
 class SVFPRegisterLocation(VFPRegisterLocation):
     """Single Precission VFP Register"""
-    _immutable_ = True
     width = WORD
     type = 'S'
 
@@ -79,7 +77,7 @@ class SVFPRegisterLocation(VFPRegisterLocation):
         return 'vfp(s%d)' % self.value
 
 class ImmLocation(AssemblerLocation):
-    _immutable_ = True
+    _immutable_fields_ = ['value']
     width = WORD
 
     def __init__(self, value):
@@ -98,7 +96,7 @@ class ImmLocation(AssemblerLocation):
 class ConstFloatLoc(AssemblerLocation):
     """This class represents an imm float value which is stored in memory at
     the address stored in the field value"""
-    _immutable_ = True
+    _immutable_fields_ = ['value']
     width = 2 * WORD
     type = FLOAT
 
@@ -121,7 +119,7 @@ class ConstFloatLoc(AssemblerLocation):
         return True
 
 class StackLocation(AssemblerLocation):
-    _immutable_ = True
+    _immutable_fields_ = ['width', 'position', 'value']
 
     def __init__(self, position, fp_offset, type=INT):
         if type == FLOAT:
@@ -154,7 +152,7 @@ class StackLocation(AssemblerLocation):
         return self.type == FLOAT
 
 class RawSPStackLocation(AssemblerLocation):
-    _immutable_ = True
+    _immutable_fields_ = ['width', 'value']
 
     def __init__(self, sp_offset, type=INT):
         if type == FLOAT:

@@ -332,7 +332,6 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
 
             activation_cls = type("BuiltinActivation_UwS_%s" % label,
                              (BuiltinActivation,), d)
-            activation_cls._immutable_ = True
 
             cache[key] = activation_cls, self.run_args
             return activation_cls
@@ -346,7 +345,7 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
 
 
 class BuiltinActivation(object):
-    _immutable_ = True
+    _immutable_fields_ = ['behavior']
 
     def __init__(self, behavior):
         """NOT_RPYTHON"""
@@ -564,7 +563,10 @@ def build_unwrap_spec(func, argnames, self_type=None):
 
 class BuiltinCode(Code):
     "The code object implementing a built-in (interpreter-level) hook."
-    _immutable_ = True
+    _immutable_fields_ = ['docstring', 'identifier', '_argnames',
+                          'descrmismatch_op', 'descr_reqcls',
+                          'sig', 'minargs', 'maxargs', 'activation',
+                          '_bltin', '_unwrap_spec', 'func__args__']
     hidden_applevel = True
     descrmismatch_op = None
     descr_reqcls = None
@@ -727,7 +729,6 @@ class BuiltinCode(Code):
 
 
 class BuiltinCodePassThroughArguments0(BuiltinCode):
-    _immutable_ = True
 
     def funcrun(self, func, args):
         space = func.space
@@ -747,7 +748,6 @@ class BuiltinCodePassThroughArguments0(BuiltinCode):
 
 
 class BuiltinCodePassThroughArguments1(BuiltinCode):
-    _immutable_ = True
     fast_natural_arity = Code.PASSTHROUGHARGS1
 
     def funcrun_obj(self, func, w_obj, args):
@@ -768,7 +768,6 @@ class BuiltinCodePassThroughArguments1(BuiltinCode):
 
 
 class BuiltinCode0(BuiltinCode):
-    _immutable_ = True
     fast_natural_arity = 0
 
     def fastcall_0(self, space, w_func):
@@ -785,7 +784,6 @@ class BuiltinCode0(BuiltinCode):
 
 
 class BuiltinCode1(BuiltinCode):
-    _immutable_ = True
     fast_natural_arity = 1
 
     def fastcall_1(self, space, w_func, w1):
@@ -805,7 +803,6 @@ class BuiltinCode1(BuiltinCode):
 
 
 class BuiltinCode2(BuiltinCode):
-    _immutable_ = True
     fast_natural_arity = 2
 
     def fastcall_2(self, space, w_func, w1, w2):
@@ -825,7 +822,6 @@ class BuiltinCode2(BuiltinCode):
 
 
 class BuiltinCode3(BuiltinCode):
-    _immutable_ = True
     fast_natural_arity = 3
 
     def fastcall_3(self, space, func, w1, w2, w3):
@@ -845,7 +841,6 @@ class BuiltinCode3(BuiltinCode):
 
 
 class BuiltinCode4(BuiltinCode):
-    _immutable_ = True
     fast_natural_arity = 4
 
     def fastcall_4(self, space, func, w1, w2, w3, w4):

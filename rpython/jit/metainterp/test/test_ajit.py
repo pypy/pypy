@@ -304,7 +304,7 @@ class BasicTests:
         myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
         class I:
             __slots__ = 'intval'
-            _immutable_ = True
+            _immutable_fields_ = ['intval']
             def __init__(self, intval):
                 self.intval = intval
         def f(i, y):
@@ -845,7 +845,7 @@ class BasicTests:
 
     def test_getfield_immutable(self):
         class A:
-            _immutable_ = True
+            _immutable_fields_ = ['foo']
         a1 = A()
         a1.foo = 5
         a2 = A()

@@ -90,7 +90,7 @@ class ImmutableFieldsTests:
 
     def test_array_in_immutable(self):
         class X(object):
-            _immutable_ = True
+            _value_class_ = True
             _immutable_fields_ = ["lst[*]"]
 
             def __init__(self, lst, y):

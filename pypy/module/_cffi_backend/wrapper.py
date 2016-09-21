@@ -24,7 +24,8 @@ class W_FunctionWrapper(W_Root):
 
     This class cannot be used for variadic functions.
     """
-    _immutable_ = True
+    _immutable_fields_ = ['ffi', 'fnptr', 'directfnptr', 'rawfunctype',
+                          'fnname', 'modulename']
 
     def __init__(self, space, ffi, fnptr, directfnptr,
                  rawfunctype, fnname, modulename):

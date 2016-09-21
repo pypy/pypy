@@ -39,11 +39,11 @@ class GeneratorIterator(object):
         return self
 
 class AbstractPosition(object):
-    _immutable_ = True
+    _immutable_fields_ = []
 class Entry1(AbstractPosition):
-    _immutable_ = True
+    _immutable_fields_ = []
 class Yield1(AbstractPosition):
-    _immutable_ = True
+    _immutable_fields_ = []
 
 def f_explicit(n):
     e = Entry1()

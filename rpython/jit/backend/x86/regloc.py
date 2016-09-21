@@ -18,7 +18,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 
 class AssemblerLocation(object):
     _attrs_ = ('value', '_location_code')
-    _immutable_ = True
+    _immutable_fields_ = ['value', '_location_code']
     def _getregkey(self):
         return self.value
 
@@ -55,7 +55,7 @@ class RawEbpLoc(AssemblerLocation):
     """ The same as stack location, but does not know it's position.
     Mostly usable for raw frame access
     """
-    _immutable_ = True
+    _immutable_fields_ = ['type']
     _location_code = 'b'
 
     def __init__(self, value, type=INT):
@@ -85,7 +85,7 @@ class RawEbpLoc(AssemblerLocation):
 class RawEspLoc(AssemblerLocation):
     """ Esp-based location
     """
-    _immutable_ = True
+    _immutable_fields_ = ['type']
     _location_code = 's'
 
     def __init__(self, value, type):
@@ -111,7 +111,7 @@ class RawEspLoc(AssemblerLocation):
         return self.type == FLOAT
 
 class FrameLoc(RawEbpLoc):
-    _immutable_ = True
+    _immutable_fields_ = ['position', 'type']
     
     def __init__(self, position, ebp_offset, type):
         # _getregkey() returns self.value; the value returned must not
@@ -129,7 +129,7 @@ class FrameLoc(RawEbpLoc):
         return self.position
 
 class RegLoc(AssemblerLocation):
-    _immutable_ = True
+    _immutable_fields_ = ['is_xmm']
     def __init__(self, regnum, is_xmm):
         assert regnum >= 0
         self.value = regnum
@@ -175,10 +175,10 @@ class RegLoc(AssemblerLocation):
         return True
 
 class ImmediateAssemblerLocation(AssemblerLocation):
-    _immutable_ = True
+    pass
 
 class ImmedLoc(ImmediateAssemblerLocation):
-    _immutable_ = True
+    _immutable_fields_ = ['_is_float']
     _location_code = 'i'
 
     def __init__(self, value, is_float=False):
@@ -205,7 +205,7 @@ class ImmedLoc(ImmediateAssemblerLocation):
         return self._is_float
 
 class AddressLoc(AssemblerLocation):
-    _immutable_ = True
+    _immutable_fields_ = ['loc_a', 'loc_m']
 
     # The address is base_loc + (scaled_loc << scale) + static_offset
     def __init__(self, base_loc, scaled_loc, scale=0, static_offset=0):
@@ -277,7 +277,6 @@ class AddressLoc(AssemblerLocation):
         return result
 
 class ConstFloatLoc(ImmediateAssemblerLocation):
-    _immutable_ = True
     _location_code = 'j'
 
     def __init__(self, address):
@@ -298,7 +297,7 @@ if IS_X86_32:
         # any assembler instruction.  Instead, it is meant to be decomposed
         # in two 32-bit halves.  On 64-bit, FloatImmedLoc() is a function
         # instead; see below.
-        _immutable_ = True
+        _immutable_fields_ = ['aslonglong']
         _location_code = '#'     # don't use me
 
         def __init__(self, floatstorage):

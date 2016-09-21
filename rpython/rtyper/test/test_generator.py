@@ -23,11 +23,11 @@ class TestGenerator(BaseRtypingTest):
         # merging two different generators is not supported
         # right now, but we can use workarounds like here
         class MyGen:
-            _immutable_ = True
+            _immutable_fields_ = []
             def next(self):
                 raise NotImplementedError
         class MyG1(MyGen):
-            _immutable_ = True
+            _immutable_fields_ = ["_gen"]
             def __init__(self, a):
                 self._gen = self.g1(a)
             def next(self):
@@ -37,7 +37,7 @@ class TestGenerator(BaseRtypingTest):
                 yield a + 1
                 yield a + 2
         class MyG2(MyGen):
-            _immutable_ = True
+            _immutable_fields_ = ["_gen"]
             def __init__(self):
                 self._gen = self.g2()
             def next(self):

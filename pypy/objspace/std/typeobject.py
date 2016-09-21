@@ -100,7 +100,7 @@ class Layout(object):
     the first is either the same or a parent layout of the second.
     The Layouts have single inheritance, unlike W_TypeObjects.
     """
-    _immutable_ = True
+    _immutable_fields_ = ['typedef', 'nslots', 'base_layout']
 
     def __init__(self, typedef, nslots, newslotnames=[], base_layout=None):
         self.typedef = typedef

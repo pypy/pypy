@@ -12,7 +12,6 @@ from rpython.tool.sourcetools import func_with_new_name
 
 
 class AbstractPosition(object):
-    _immutable_ = True
     _attrs_ = ()
 
 def make_generator_entry_graph(func):
@@ -42,7 +41,6 @@ def tweak_generator_graph(graph):
 def make_generatoriterator_class(var_names):
     class GeneratorIterator(object):
         class Entry(AbstractPosition):
-            _immutable_ = True
             varnames = var_names
 
         def __init__(self, entry):
@@ -135,8 +133,7 @@ def tweak_generator_body_graph(Entry, graph):
                 varnames = get_variable_names(newlink.args)
                 #
                 class Resume(AbstractPosition):
-                    _immutable_ = True
-                    _attrs_ = varnames
+                    _immutable_fields_ = _attrs_ = varnames
                     block = newblock
                 Resume.__name__ = 'Resume%d' % len(mappings)
                 mappings.append(Resume)

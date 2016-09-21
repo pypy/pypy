@@ -7,7 +7,8 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 
 
 class W_Allocator(W_Root):
-    _immutable_ = True
+    _immutable_fields_ = ['ffi', 'w_alloc', 'w_free',
+                          'should_clear_after_alloc']
 
     def __init__(self, ffi, w_alloc, w_free, should_clear_after_alloc):
         self.ffi = ffi    # may be None

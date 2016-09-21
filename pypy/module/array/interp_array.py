@@ -591,7 +591,7 @@ for k, v in types.items():
 unroll_typecodes = unrolling_iterable(types.keys())
 
 class ArrayBuffer(Buffer):
-    _immutable_ = True
+    _immutable_fields_ = ["array", "readonly"]
 
     def __init__(self, array, readonly):
         self.array = array

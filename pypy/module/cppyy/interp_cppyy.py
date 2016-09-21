@@ -136,7 +136,7 @@ def register_class(space, w_pycppclass):
 
 
 class W_CPPLibrary(W_Root):
-    _immutable_ = True
+    _immutable_fields_ = ["cdll"]
 
     def __init__(self, space, cdll):
         self.cdll = cdll
@@ -156,7 +156,9 @@ class CPPMethod(object):
 
     _attrs_ = ['space', 'scope', 'index', 'cppmethod', 'arg_defs', 'args_required',
                'converters', 'executor', '_funcaddr', 'cif_descr', 'uses_local']
-    _immutable_ = True
+    _immutable_fields_ = ['scope', 'index', 'cppmethod', 'arg_defs', 'args_required',
+               'converters', 'executor', '_funcaddr', 'cif_descr', 'uses_local']
+
 
     def __init__(self, space, declaring_scope, method_index, arg_defs, args_required):
         self.space = space
@@ -403,8 +405,6 @@ class CPPMethod(object):
 class CPPFunction(CPPMethod):
     """Global (namespaced) function dispatcher."""
 
-    _immutable_ = True
-
     @staticmethod
     def unpack_cppthis(space, w_cppinstance, declaring_scope):
         return capi.C_NULL_OBJECT
@@ -417,7 +417,7 @@ class CPPTemplatedCall(CPPMethod):
     """Method dispatcher that first resolves the template instance."""
 
     _attrs_ = ['space', 'templ_args']
-    _immutable_ = True
+    _immutable_fields_ = ['templ_args']
 
     def __init__(self, space, templ_args, declaring_scope, method_index, arg_defs, args_required):
         self.space = space
@@ -452,8 +452,6 @@ class CPPConstructor(CPPMethod):
     reflection layer only, since the C++ class may have an overloaded operator
     new, disallowing malloc here."""
 
-    _immutable_ = True
-
     @staticmethod
     def unpack_cppthis(space, w_cppinstance, declaring_scope):
         return rffi.cast(capi.C_OBJECT, declaring_scope.handle)
@@ -472,8 +470,6 @@ class CPPSetItem(CPPMethod):
     """Method dispatcher specific to Python's __setitem__ mapped onto C++'s
     operator[](int). The former function takes an extra argument to assign to
     the return type of the latter."""
-
-    _immutable_ = True
 
     def call(self, cppthis, args_w):
         end = len(args_w)-1
@@ -624,7 +620,7 @@ W_CPPBoundMethod.typedef = TypeDef(
 
 class W_CPPDataMember(W_Root):
     _attrs_ = ['space', 'scope', 'converter', 'offset']
-    _immutable_fields = ['scope', 'converter', 'offset']
+    _immutable_fields_ = ['scope', 'converter', 'offset']
 
     def __init__(self, space, declaring_scope, type_name, offset):
         self.space = space
@@ -998,7 +994,7 @@ W_ComplexCPPClass.typedef.acceptable_as_base_class = False
 
 class W_CPPTemplateType(W_Root):
     _attrs_ = ['space', 'name', 'handle']
-    _immutable_fields = ['name', 'handle']
+    _immutable_fields_ = ['name', 'handle']
 
     def __init__(self, space, name, opaque_handle):
         self.space = space

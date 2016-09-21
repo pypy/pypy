@@ -136,8 +136,7 @@ class Entry(extregistry.ExtRegistryEntry):
 
 class rbigint(object):
     """This is a reimplementation of longs using a list of digits."""
-    _immutable_ = True
-    _immutable_fields_ = ["_digits"]
+    _immutable_fields_ = ["_digits", "size", "sign"]
 
     def __init__(self, digits=[NULLDIGIT], sign=0, size=0):
         if not we_are_translated():

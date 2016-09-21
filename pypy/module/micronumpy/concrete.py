@@ -702,7 +702,7 @@ class VoidBoxStorage(BaseConcreteArray):
 
 
 class ArrayBuffer(Buffer):
-    _immutable_ = True
+    _immutable_fields_ = ['impl', 'readonly']
 
     def __init__(self, impl, readonly):
         self.impl = impl

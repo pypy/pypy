@@ -12,7 +12,6 @@ DWORD = 2 * WORD
 
 
 class AssemblerLocation(object):
-    _immutable_ = True
     type = INT
 
     def is_imm(self):
@@ -40,7 +39,7 @@ class AssemblerLocation(object):
         raise NotImplementedError
 
 class RegisterLocation(AssemblerLocation):
-    _immutable_ = True
+    _immutable_fields_ = ["value"]
     width = WORD
 
     def __init__(self, value):
@@ -56,7 +55,6 @@ class RegisterLocation(AssemblerLocation):
         return self.value
 
 class FPRegisterLocation(RegisterLocation):
-    _immutable_ = True
     type = FLOAT
     width = FWORD
 
@@ -76,7 +74,7 @@ class FPRegisterLocation(RegisterLocation):
         return self.value + 100
 
 class ImmLocation(AssemblerLocation):
-    _immutable_ = True
+    _immutable_fields_ = ["value"]
     width = WORD
 
 
@@ -95,7 +93,7 @@ class ImmLocation(AssemblerLocation):
 class ConstFloatLoc(AssemblerLocation):
     """This class represents an imm float value which is stored in memory at
     the address stored in the field value"""
-    _immutable_ = True
+    _immutable_fields_ = ["value"]
     width = FWORD
     type = FLOAT
 
@@ -115,7 +113,7 @@ class ConstFloatLoc(AssemblerLocation):
         return self.value
 
 class StackLocation(AssemblerLocation):
-    _immutable_ = True
+    _immutable_fields_ = ["width", "position", "value", "type"]
 
     def __init__(self, position, fp_offset, type=INT):
         if type == FLOAT:

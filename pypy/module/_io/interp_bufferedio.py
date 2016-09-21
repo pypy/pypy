@@ -106,7 +106,7 @@ W_BufferedIOBase.typedef = TypeDef(
 )
 
 class RawBuffer(Buffer):
-    _immutable_ = True
+    _immutable_fields_ = ['buf', 'start', 'length', 'readonly']
 
     def __init__(self, buf, start, length):
         self.buf = buf

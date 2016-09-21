@@ -331,7 +331,7 @@ mmap_error._dont_inline_ = True
 
 
 class MMapBuffer(Buffer):
-    _immutable_ = True
+    _immutable_fields_ = ['mmap', 'readonly']
 
     def __init__(self, space, mmap, readonly):
         self.space = space

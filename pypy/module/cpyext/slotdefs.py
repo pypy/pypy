@@ -300,7 +300,8 @@ def wrap_hashfunc(space, w_self, w_args, func):
 
 class CPyBuffer(Buffer):
     # Similar to Py_buffer
-    _immutable_ = True
+    _immutable_fields_ = ['ptr', 'size', 'w_obj', 'format', 'shape', 'strides',
+                          'ndim', 'itemsize', 'readonly']
 
     def __init__(self, ptr, size, w_obj, format='B', shape=None,
                 strides=None, ndim=1, itemsize=1, readonly=True):

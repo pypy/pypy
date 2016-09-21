@@ -43,7 +43,7 @@ class Box:
     pass
 
 class IntBox(Box):
-    _immutable_ = True
+    _immutable_fields_ = ['intval']
     def __init__(self, intval):
         self.intval = intval
     def as_int(self):
@@ -52,7 +52,7 @@ class IntBox(Box):
         return str(self.intval)
 
 class StrBox(Box):
-    _immutable_ = True
+    _immutable_fields_ = ['strval']
     def __init__(self, strval):
         self.strval = strval
     def as_int(self):

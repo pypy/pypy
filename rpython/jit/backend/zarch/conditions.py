@@ -2,7 +2,6 @@ from rpython.jit.backend.zarch import locations as loc
 from rpython.rlib.objectmodel import specialize
 
 class ConditionLocation(loc.ImmLocation):
-    _immutable_ = True
     def __repr__(self):
         s = ""
         if self.value & 0x1 != 0:

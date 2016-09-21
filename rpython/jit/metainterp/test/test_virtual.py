@@ -288,12 +288,12 @@ class VirtualTests:
         myjitdriver = JitDriver(greens=['stufflist'], reds=['n', 'i'])
 
         class Stuff(object):
-            _immutable_ = True
+            _immutable_fields_ = ['x']
             def __init__(self, x):
                 self.x = x
 
         class StuffList(object):
-            _immutable_ = True
+            _immutable_fields_ = ['lst']
 
         def f(n, a, i):
             stufflist = StuffList()

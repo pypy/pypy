@@ -353,7 +353,7 @@ assert not GetSetProperty.typedef.acceptable_as_base_class  # no __new__
 
 class Member(W_Root):
     """For slots."""
-    _immutable_ = True
+    _immutable_fields_ = ["index", "name", "w_cls"]
 
     def __init__(self, index, name, w_cls):
         self.index = index

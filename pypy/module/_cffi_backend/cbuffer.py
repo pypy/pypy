@@ -11,7 +11,7 @@ from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
 
 
 class LLBuffer(Buffer):
-    _immutable_ = True
+    _immutable_fields_ = ['raw_cdata', 'size', 'readonly']
 
     def __init__(self, raw_cdata, size):
         self.raw_cdata = raw_cdata

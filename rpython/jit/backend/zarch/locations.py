@@ -4,8 +4,8 @@ from rpython.jit.backend.zarch.arch import WORD, DOUBLE_WORD
 FWORD = 8
 
 class AssemblerLocation(object):
-    _immutable_ = True
     type = INT
+    _immutable_fields_ = ['type']
 
     def is_imm(self):
         return False
@@ -41,7 +41,7 @@ class AssemblerLocation(object):
         raise NotImplementedError # only for stack
 
 class RegisterLocation(AssemblerLocation):
-    _immutable_ = True
+    _immutable_fields_ = ['value']
     width = WORD
 
     def __init__(self, value):
@@ -65,7 +65,7 @@ class RegisterLocation(AssemblerLocation):
 class ConstFloatLoc(AssemblerLocation):
     """This class represents an imm float value which is stored in memory at
     the address stored in the field value"""
-    _immutable_ = True
+    _immutable_fields_ = ['value']
     width = FWORD
     type = FLOAT
 
@@ -88,7 +88,6 @@ class ConstFloatLoc(AssemblerLocation):
         return self.value
 
 class FloatRegisterLocation(RegisterLocation):
-    _immutable_ = True
     type = FLOAT
     width = DOUBLE_WORD
 
@@ -108,7 +107,7 @@ class FloatRegisterLocation(RegisterLocation):
         return True
 
 class ImmLocation(AssemblerLocation):
-    _immutable_ = True
+    _immutable_fields_ = ['value']
     width = WORD
 
     def __init__(self, value):
@@ -124,7 +123,7 @@ class ImmLocation(AssemblerLocation):
         return True
 
 class StackLocation(AssemblerLocation):
-    _immutable_ = True
+    _immutable_fields_ = ['width', 'position', 'value']
 
     def __init__(self, position, fp_offset, type=INT):
         if type == FLOAT:
@@ -157,7 +156,8 @@ class StackLocation(AssemblerLocation):
         return self.type == FLOAT
 
 class AddressLocation(AssemblerLocation):
-    _immutable_ = True
+    _immutable_fields_ = ['displace', 'base', 'index', 'length', 'basereg',
+                          'base', 'index', 'length']
 
     def __init__(self, basereg, indexreg, displace, length):
         self.displace = displace
@@ -177,7 +177,7 @@ class AddressLocation(AssemblerLocation):
             self.length = length.value
 
 class PoolLoc(AddressLocation):
-    _immutable_ = True
+    _immutable_fields_ = ['isfloat']
     width = WORD
 
     def __init__(self, offset, isfloat=False):

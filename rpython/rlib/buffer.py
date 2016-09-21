@@ -7,7 +7,7 @@ from rpython.rlib import jit
 class Buffer(object):
     """Abstract base class for buffers."""
     __slots__ = ['readonly']
-    _immutable_ = True
+    _immutable_fields_ = __slots__
 
     def getlength(self):
         """Returns the size in bytes (even if getitemsize() > 1)."""
@@ -77,7 +77,7 @@ class Buffer(object):
 
 class StringBuffer(Buffer):
     __slots__ = ['value']
-    _immutable_ = True
+    _immutable_fields_ = ['value']
 
     def __init__(self, value):
         self.value = value
@@ -108,7 +108,7 @@ class StringBuffer(Buffer):
 
 class SubBuffer(Buffer):
     __slots__ = ['buffer', 'offset', 'size']
-    _immutable_ = True
+    _immutable_fields_ = __slots__
 
     def __init__(self, buffer, offset, size):
         self.readonly = buffer.readonly

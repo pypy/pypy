@@ -7,7 +7,7 @@ from pypy.interpreter.gateway import unwrap_spec
 
 
 class ByteBuffer(Buffer):
-    _immutable_ = True
+    _immutable_fields_ = ['data', 'readonly']
 
     def __init__(self, len):
         self.data = ['\x00'] * len

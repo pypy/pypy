@@ -326,7 +326,6 @@ def _build_basic_executors():
 
     for c_type, stub, names in type_info:
         class BasicExecutor(ffitypes.typeid(c_type), NumericExecutorMixin, FunctionExecutor):
-            _immutable_ = True
             c_stubcall  = staticmethod(stub)
         class BasicRefExecutor(ffitypes.typeid(c_type), NumericRefExecutorMixin, FunctionExecutor):
             _immutable_fields_ = ['libffitype']

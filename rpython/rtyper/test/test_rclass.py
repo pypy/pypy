@@ -745,9 +745,9 @@ class TestRclass(BaseRtypingTest):
         assert res == 0
 
 
-    def test_immutable(self):
+    def test_value_class(self):
         class I(object):
-            _immutable_ = True
+            _value_class_ = True
 
             def __init__(self, v):
                 self.v = v
@@ -849,10 +849,10 @@ class TestRclass(BaseRtypingTest):
         class A(object):
             pass
         class B(A):
-            _immutable_ = True
+            _value_class_ = True
         def f():
             A().v = 123
-            B()             # crash: class B has _immutable_ = True
+            B()             # crash: class B has _value_class_ = True
                             # but class A defines 'v' to be mutable
         py.test.raises(ImmutableConflictError, self.gengraph, f, [])
 
@@ -861,7 +861,7 @@ class TestRclass(BaseRtypingTest):
         class A(object):
             _immutable_fields_ = ['v']
         class B(A):
-            _immutable_ = True
+            _value_class_ = True
         def f():
             A().v = 123
             B().w = 456
@@ -877,7 +877,7 @@ class TestRclass(BaseRtypingTest):
         from rpython.rtyper.rclass import ImmutableConflictError
         from rpython.jit.metainterp.typesystem import deref
         class A(object):
-            _immutable_ = True
+            _value_class_ = True
         class B(A):
             pass
         def f():
@@ -891,7 +891,7 @@ class TestRclass(BaseRtypingTest):
         class A(object):
             pass
         class B(A):
-            _immutable_ = True
+            _value_class_ = True
         def f():
             A()
             B().v = 123
@@ -905,12 +905,12 @@ class TestRclass(BaseRtypingTest):
         class A(object):
             pass
         class B(A):
-            _immutable_ = True
+            _value_class_ = True
         def myfunc():
             pass
         def f():
             A().f = myfunc    # it's ok to add Void attributes to A
-            B().v = 123       # even though only B is declared _immutable_
+            B().v = 123       # even though only B is declared _value_class_
             return B()
         t, typer, graph = self.gengraph(f, [])
         B_TYPE = deref(graph.getreturnvar().concretetype)
@@ -946,7 +946,7 @@ class TestRclass(BaseRtypingTest):
     def test_quasi_immutable_clashes_with_immutable(self):
         from rpython.jit.metainterp.typesystem import deref
         class A(object):
-            _immutable_ = True
+            _value_class_ = True
             _immutable_fields_ = ['a?']
         def f():
             a = A()
@@ -1306,70 +1306,70 @@ class TestRclass(BaseRtypingTest):
             return a.next.next.next.next is not None
         assert self.interpret(f, []) == True
 
-    def test_value_class(self):
-
-        class I(object):
-            _value_class_ = True
-
-            def __init__(self, v):
-                self.v = v
-
-        i = I(3)
-        def f():
-            return i.v
-
-        t, typer, graph = self.gengraph(f, [], backendopt=True)
-        assert summary(graph) == {}
-
-    def test_value_class_conflicts_with_immut(self):
-        from rpython.rtyper.rclass import ImmutableConflictError
-
-        class I(object):
-            _immutable_   = False
-            _value_class_ = True
-
-            def __init__(self, v):
-                self.v = v
-
-        i = I(3)
-        def f():
-            return i.v
-
-        py.test.raises(ImmutableConflictError, self.gengraph, f, [])
-
-    def test_value_class_implies_immutable(self):
-        from rpython.jit.metainterp.typesystem import deref
-
-        class I(object):
-            _value_class_ = True
-
-            def __init__(self, v):
-                self.v = v
-
-        i = I(3)
-        def f():
-            return i
-
-        t, typer, graph = self.gengraph(f, [])
-        I_TYPE = deref(graph.getreturnvar().concretetype)
-        assert I_TYPE._hints['immutable']
-        assert I_TYPE._hints['value_class']
-
-    def test_value_class_subclass_not_value_class(self):
-        from rpython.rtyper.rclass import ValueClassConflictError
-
-        class Base(object):
-            _value_class_ = True
-
-        class I(Base):
-            _immutable_   = True
-
-            def __init__(self, v):
-                self.v = v
-
-        i = I(3)
-        def f():
-            return i.v
-
-        py.test.raises(ValueClassConflictError, self.gengraph, f, [])
+#    def test_value_class(self):
+#
+#        class I(object):
+#            _value_class_ = True
+#
+#            def __init__(self, v):
+#                self.v = v
+#
+#        i = I(3)
+#        def f():
+#            return i.v
+#
+#        t, typer, graph = self.gengraph(f, [], backendopt=True)
+#        assert summary(graph) == {}
+#
+#    def test_value_class_conflicts_with_immut(self):
+#        from rpython.rtyper.rclass import ImmutableConflictError
+#
+#        class I(object):
+#            _immutable_   = False
+#            _value_class_ = True
+#
+#            def __init__(self, v):
+#                self.v = v
+#
+#        i = I(3)
+#        def f():
+#            return i.v
+#
+#        py.test.raises(ImmutableConflictError, self.gengraph, f, [])
+#
+#    def test_value_class_implies_immutable(self):
+#        from rpython.jit.metainterp.typesystem import deref
+#
+#        class I(object):
+#            _value_class_ = True
+#
+#            def __init__(self, v):
+#                self.v = v
+#
+#        i = I(3)
+#        def f():
+#            return i
+#
+#        t, typer, graph = self.gengraph(f, [])
+#        I_TYPE = deref(graph.getreturnvar().concretetype)
+#        assert I_TYPE._hints['immutable']
+#        assert I_TYPE._hints['value_class']
+#
+#    def test_value_class_subclass_not_value_class(self):
+#        from rpython.rtyper.rclass import ValueClassConflictError
+#
+#        class Base(object):
+#            _value_class_ = True
+#
+#        class I(Base):
+#            _immutable_   = True
+#
+#            def __init__(self, v):
+#                self.v = v
+#
+#        i = I(3)
+#        def f():
+#            return i.v
+#
+#        py.test.raises(ValueClassConflictError, self.gengraph, f, [])
 

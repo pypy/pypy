@@ -189,7 +189,7 @@ class W_CTypeUnion(W_CTypeStructOrUnion):
 
 
 class W_CField(W_Root):
-    _immutable_ = True
+    _immutable_fields_ = ['ctype', 'offset', 'bitshift', 'bitsize', 'flags']
 
     BS_REGULAR     = -1
     BS_EMPTY_ARRAY = -2

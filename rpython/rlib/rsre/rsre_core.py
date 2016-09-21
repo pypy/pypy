@@ -243,7 +243,7 @@ class UnicodeMatchContext(AbstractMatchContext):
 # ____________________________________________________________
 
 class Mark(object):
-    _immutable_ = True
+    _immutable_fields_ = ['gid', 'position', 'prev']
 
     def __init__(self, gid, position, prev):
         self.gid = gid

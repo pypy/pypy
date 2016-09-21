@@ -20,7 +20,7 @@ def identify():
 std_string_name = 'std::basic_string<char>'
 
 class _Arg:         # poor man's union
-    _immutable_ = True
+    _immutable_fields_ = ['_handle', '_long', '_string', '_voidp']
     def __init__(self, h = 0, l = -1, s = '', vp = rffi.cast(rffi.VOIDP, 0)):
         self._handle = h
         self._long   = l

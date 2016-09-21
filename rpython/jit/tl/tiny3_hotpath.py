@@ -45,7 +45,7 @@ class Box:
     pass
 
 class IntBox(Box):
-    _immutable_ = True
+    _immutable_fields_ = ['intval']
     def __init__(self, intval):
         self.intval = intval
     def as_int(self):
@@ -56,7 +56,7 @@ class IntBox(Box):
         return str(self.intval)
 
 class FloatBox(Box):
-    _immutable_ = True
+    _immutable_fields_ = ['floatval']
     def __init__(self, floatval):
         self.floatval = floatval
     def as_int(self):

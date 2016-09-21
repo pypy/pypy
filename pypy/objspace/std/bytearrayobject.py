@@ -1217,7 +1217,7 @@ def _setitem_slice_helper(space, items, start, step, slicelength, sequence2,
 
 
 class BytearrayBuffer(Buffer):
-    _immutable_ = True
+    _immutable_fields_ = ['data', 'readonly']
 
     def __init__(self, data, readonly):
         self.data = data

@@ -5,7 +5,7 @@ from rpython.rtyper.lltypesystem import rffi
 
 
 class RawFFIBuffer(Buffer):
-    _immutable_ = True
+    _immutable_fields_ = ['datainstance', 'readonly']
 
     def __init__(self, datainstance):
         self.datainstance = datainstance

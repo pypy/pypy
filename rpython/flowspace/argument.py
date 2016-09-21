@@ -4,8 +4,7 @@ Arguments objects.
 from rpython.flowspace.model import const
 
 class Signature(object):
-    _immutable_ = True
-    _immutable_fields_ = ["argnames[*]"]
+    _immutable_fields_ = ["argnames[*]", "varargnames", "kwargname"]
     __slots__ = ("argnames", "varargname", "kwargname")
 
     def __init__(self, argnames, varargname=None, kwargname=None):
