@@ -35,8 +35,7 @@ class W_CTypeFunc(W_CTypePtrBase):
         assert isinstance(ellipsis, bool)
         extra, xpos = self._compute_extra_text(fargs, fresult, ellipsis, abi)
         size = rffi.sizeof(rffi.VOIDP)
-        W_CTypePtrBase.__init__(self, space, size, extra, xpos, fresult,
-                                could_cast_anything=False)
+        W_CTypePtrBase.__init__(self, space, size, extra, xpos, fresult)
         self.fargs = fargs
         self.ellipsis = ellipsis
         self.abi = abi
@@ -58,6 +57,16 @@ class W_CTypeFunc(W_CTypePtrBase):
                 if self.cif_descr:   # should not be True, but you never know
                     lltype.free(self.cif_descr, flavor='raw')
                     self.cif_descr = lltype.nullptr(CIF_DESCRIPTION)
+
+    def is_unichar_ptr_or_array(self):
+        return False
+
+    def is_char_or_unichar_ptr_or_array(self):
+        return False
+
+    def string(self, cdataobj, maxlen):
+        # Can't use ffi.string() on a function pointer
+        return W_CType.string(self, cdataobj, maxlen)
 
     def new_ctypefunc_completing_argtypes(self, args_w):
         space = self.space

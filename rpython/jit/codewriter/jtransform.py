@@ -200,8 +200,12 @@ class Transformer(object):
             or v.concretetype != lltype.Bool):
             return False
         for op in block.operations[::-1]:
-            if v in op.args:
-                return False   # variable is also used in cur block
+            # check if variable is used in block
+            for arg in op.args:
+                if arg == v:
+                    return False
+                if isinstance(arg, ListOfKind) and v in arg.content:
+                    return False
             if v is op.result:
                 if op.opname not in ('int_lt', 'int_le', 'int_eq', 'int_ne',
                                      'int_gt', 'int_ge',

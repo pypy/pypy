@@ -120,7 +120,6 @@ class W_CTypePrimitiveCharOrUniChar(W_CTypePrimitive):
 
 class W_CTypePrimitiveChar(W_CTypePrimitiveCharOrUniChar):
     _attrs_ = []
-    cast_anything = True
 
     def cast_to_int(self, cdata):
         return self.space.wrap(ord(cdata[0]))

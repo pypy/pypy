@@ -545,3 +545,21 @@ class AppTestPyFrame:
         it = yield_raise()
         assert next(it) is KeyError
         assert next(it) is KeyError
+
+    def test_throw_trace_bug(self):
+        import sys
+        def f():
+            yield 5
+        gen = f()
+        assert next(gen) == 5
+        seen = []
+        def trace_func(frame, event, *args):
+            seen.append(event)
+            return trace_func
+        sys.settrace(trace_func)
+        try:
+            gen.throw(ValueError)
+        except ValueError:
+            pass
+        sys.settrace(None)
+        assert seen == ['call', 'exception', 'return']

@@ -11,7 +11,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import ovfcheck
 
 from pypy.module._cffi_backend import cdataobj
-from pypy.module._cffi_backend.ctypeptr import W_CTypePtrOrArray
+from pypy.module._cffi_backend.ctypeptr import W_CTypePtrOrArray, W_CTypePointer
 from pypy.module._cffi_backend import ctypeprim
 
 
@@ -22,6 +22,7 @@ class W_CTypeArray(W_CTypePtrOrArray):
     is_nonfunc_pointer_or_array = True
 
     def __init__(self, space, ctptr, length, arraysize, extra):
+        assert isinstance(ctptr, W_CTypePointer)
         W_CTypePtrOrArray.__init__(self, space, arraysize, extra, 0,
                                    ctptr.ctitem)
         self.length = length
