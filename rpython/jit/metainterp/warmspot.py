@@ -34,7 +34,7 @@ from rpython.rlib.entrypoint import all_jit_entrypoints,\
 # Bootstrapping
 
 def apply_jit(translator, backend_name="auto", inline=False,
-              vec=True, enable_opts=ALL_OPTS_NAMES, **kwds):
+              vec=False, enable_opts=ALL_OPTS_NAMES, **kwds):
     if 'CPUClass' not in kwds:
         from rpython.jit.backend.detect_cpu import getcpuclass
         kwds['CPUClass'] = getcpuclass(backend_name)
@@ -84,8 +84,8 @@ def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
                     loop_longevity=0, retrace_limit=5, function_threshold=4,
                     disable_unrolling=sys.maxint,
                     enable_opts=ALL_OPTS_NAMES, max_retrace_guards=15,
-                    max_unroll_recursion=7, vec=1, vec_all=0, vec_cost=0,
-                    vec_length=60, vec_ratio=2, vec_guard_ratio=3, **kwds):
+                    max_unroll_recursion=7, vec=0, vec_all=0, vec_cost=0,
+                    **kwds):
     from rpython.config.config import ConfigError
     translator = interp.typer.annotator.translator
     try:
@@ -112,9 +112,6 @@ def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
         jd.warmstate.set_param_vec(vec)
         jd.warmstate.set_param_vec_all(vec_all)
         jd.warmstate.set_param_vec_cost(vec_cost)
-        jd.warmstate.set_param_vec_length(vec_length)
-        jd.warmstate.set_param_vec_ratio(vec_ratio)
-        jd.warmstate.set_param_vec_guard_ratio(vec_guard_ratio)
     warmrunnerdesc.finish()
     if graph_and_interp_only:
         return interp, graph

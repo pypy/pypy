@@ -575,14 +575,10 @@ PARAMETER_DOCS = {
                    'optimizations to enable, or all = %s' % ENABLE_ALL_OPTS,
     'max_unroll_recursion': 'how many levels deep to unroll a recursive function',
     'vec': 'turn on the vectorization optimization (vecopt). ' \
-           'Supports x86 (SSE 4.1), powerpc (SVX), s390x',
-    'vec_all': 'try to vectorize trace loops that occur outside of the numpy library.',
-    'vec_cost': 'threshold for which traces to bail. 0 means the costs.',
-    'vec_length': 'the amount of instructions allowed in "all" traces.',
-    'vec_ratio': 'an integer (0-10 transfored into a float by X / 10.0) statements that have vector equivalents '
-                 'divided by the total number of trace instructions.',
-    'vec_guard_ratio': 'an integer (0-10 transfored into a float by X / 10.0) divided by the'
-                       ' total number of trace instructions.',
+           'Supports x86 (SSE 4.1), powerpc (SVX), s390x SIMD',
+    'vec_cost': 'threshold for which traces to bail. Unpacking increases the counter,'\
+                ' vector operation decrease the cost',
+    'vec_all': 'try to vectorize trace loops that occur outside of the numpypy library',
 }
 
 PARAMETERS = {'threshold': 1039, # just above 1024, prime
@@ -598,12 +594,9 @@ PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'disable_unrolling': 200,
               'enable_opts': 'all',
               'max_unroll_recursion': 7,
-              'vec': 1,
+              'vec': 0,
               'vec_all': 0,
               'vec_cost': 0,
-              'vec_length': 60,
-              'vec_ratio': 2,
-              'vec_guard_ratio': 5,
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.items())
 
