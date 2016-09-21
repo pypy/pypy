@@ -510,3 +510,8 @@ class AppTestFFIObj:
         q = ffi.new("char[]", "abcd")
         p = ffi.cast("char(*)(void)", q)
         raises(TypeError, ffi.string, p)
+
+    def test_negative_array_size(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        raises(ffi.error, ffi.cast, "int[-5]", 0)

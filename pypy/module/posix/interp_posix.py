@@ -226,13 +226,13 @@ def build_stat_result(space, st):
     w_keywords = space.newdict()
     stat_float_times = space.fromcache(StatState).stat_float_times
     for i, (name, TYPE) in FIELDS:
-        value = getattr(st, name)
-        if name in ('st_atime', 'st_mtime', 'st_ctime'):
-            value = int(value)   # rounded to an integer for indexed access
-        w_value = space.wrap(value)
         if i < rposix_stat.N_INDEXABLE_FIELDS:
+            # get the first 10 items by indexing; this gives us
+            # 'st_Xtime' as an integer, too
+            w_value = space.wrap(st[i])
             lst[i] = w_value
-        else:
+        elif name.startswith('st_'):    # exclude 'nsec_Xtime'
+            w_value = space.wrap(getattr(st, name))
             space.setitem(w_keywords, space.wrap(name), w_value)
 
     # non-rounded values for name-based access
@@ -243,13 +243,8 @@ def build_stat_result(space, st):
                       space.wrap('st_mtime'), space.wrap(st.st_mtime))
         space.setitem(w_keywords,
                       space.wrap('st_ctime'), space.wrap(st.st_ctime))
-    else:
-        space.setitem(w_keywords,
-                      space.wrap('st_atime'), space.wrap(int(st.st_atime)))
-        space.setitem(w_keywords,
-                      space.wrap('st_mtime'), space.wrap(int(st.st_mtime)))
-        space.setitem(w_keywords,
-                      space.wrap('st_ctime'), space.wrap(int(st.st_ctime)))
+    #else:
+    #   filled by the __init__ method
 
     w_tuple = space.newtuple(lst)
     w_stat_result = space.getattr(space.getbuiltinmodule(os.name),
