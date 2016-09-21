@@ -1,6 +1,7 @@
 from rpython.jit.backend.test.test_random import check_random_function, Random
 from rpython.jit.backend.test.test_ll_random import LLtypeOperationBuilder
 from rpython.jit.backend.detect_cpu import getcpuclass
+from rpython.jit.metainterp.resoperation import rop
 import platform
 
 CPU = getcpuclass()

@@ -90,16 +90,16 @@ KARATSUBA_SQUARE_CUTOFF = 2 * KARATSUBA_CUTOFF
 
 FIVEARY_CUTOFF = 8
 
+@specialize.argtype(0)
 def _mask_digit(x):
     return UDIGIT_MASK(x & MASK)
-_mask_digit._annspecialcase_ = 'specialize:argtype(0)'
 
 def _widen_digit(x):
     return rffi.cast(LONG_TYPE, x)
 
+@specialize.argtype(0)
 def _store_digit(x):
     return rffi.cast(STORE_TYPE, x)
-_store_digit._annspecialcase_ = 'specialize:argtype(0)'
 
 def _load_unsigned_digit(x):
     return rffi.cast(UNSIGNED_TYPE, x)
@@ -175,11 +175,11 @@ class rbigint(object):
         return _load_unsigned_digit(self._digits[x])
     udigit._always_inline_ = True
 
+    @specialize.argtype(2)
     def setdigit(self, x, val):
         val = _mask_digit(val)
         assert val >= 0
         self._digits[x] = _store_digit(val)
-    setdigit._annspecialcase_ = 'specialize:argtype(2)'
     setdigit._always_inline_ = True
 
     def numdigits(self):
@@ -1312,6 +1312,7 @@ def _help_mult(x, y, c):
 
     return res
 
+@specialize.argtype(0)
 def digits_from_nonneg_long(l):
     digits = []
     while True:
@@ -1319,8 +1320,8 @@ def digits_from_nonneg_long(l):
         l = l >> SHIFT
         if not l:
             return digits[:] # to make it non-resizable
-digits_from_nonneg_long._annspecialcase_ = "specialize:argtype(0)"
 
+@specialize.argtype(0)
 def digits_for_most_neg_long(l):
     # This helper only works if 'l' is the most negative integer of its
     # type, which in base 2 looks like: 1000000..0000
@@ -1335,8 +1336,8 @@ def digits_for_most_neg_long(l):
     assert l & MASK == l
     digits.append(_store_digit(l))
     return digits[:] # to make it non-resizable
-digits_for_most_neg_long._annspecialcase_ = "specialize:argtype(0)"
 
+@specialize.argtype(0)
 def args_from_rarith_int1(x):
     if x > 0:
         return digits_from_nonneg_long(x), 1
@@ -1348,11 +1349,10 @@ def args_from_rarith_int1(x):
     else:
         # the most negative integer! hacks needed...
         return digits_for_most_neg_long(x), -1
-args_from_rarith_int1._annspecialcase_ = "specialize:argtype(0)"
 
+@specialize.argtype(0)
 def args_from_rarith_int(x):
     return args_from_rarith_int1(widen(x))
-args_from_rarith_int._annspecialcase_ = "specialize:argtype(0)"
 # ^^^ specialized by the precise type of 'x', which is typically a r_xxx
 #     instance from rlib.rarithmetic
 
@@ -1909,6 +1909,7 @@ def _v_isub(x, xofs, m, y, n):
         i += 1
     return borrow
 
+@specialize.argtype(2)
 def _muladd1(a, n, extra=0):
     """Multiply by a single digit and add a single digit, ignoring the sign.
     """
@@ -1926,7 +1927,7 @@ def _muladd1(a, n, extra=0):
     z.setdigit(i, carry)
     z._normalize()
     return z
-_muladd1._annspecialcase_ = "specialize:argtype(2)"
+
 def _v_lshift(z, a, m, d):
     """ Shift digit vector a[0:m] d bits left, with 0 <= d < SHIFT. Put
         * result in z[0:m], and return the d bits shifted out of the top.
@@ -2178,6 +2179,7 @@ def _AsDouble(n):
         ad = -ad
     return ad
 
+@specialize.arg(0)
 def _loghelper(func, arg):
     """
     A decent logarithm is easy to compute even for huge bigints, but libm can't
@@ -2195,7 +2197,6 @@ def _loghelper(func, arg):
     # CAUTION:  e*SHIFT may overflow using int arithmetic,
     # so force use of double. */
     return func(x) + (e * float(SHIFT) * func(2.0))
-_loghelper._annspecialcase_ = 'specialize:arg(0)'
 
 # ____________________________________________________________
 
@@ -2519,6 +2520,7 @@ def _format(x, digits, prefix='', suffix=''):
     return output.build()
 
 
+@specialize.arg(1)
 def _bitwise(a, op, b): # '&', '|', '^'
     """ Bitwise and/or/xor operations """
 
@@ -2598,8 +2600,8 @@ def _bitwise(a, op, b): # '&', '|', '^'
         return z
 
     return z.invert()
-_bitwise._annspecialcase_ = "specialize:arg(1)"
 
+@specialize.arg(1)
 def _int_bitwise(a, op, b): # '&', '|', '^'
     """ Bitwise and/or/xor operations """
 
@@ -2682,7 +2684,6 @@ def _int_bitwise(a, op, b): # '&', '|', '^'
         return z
 
     return z.invert()
-_int_bitwise._annspecialcase_ = "specialize:arg(1)"
 
 ULONGLONG_BOUND = r_ulonglong(1L << (r_longlong.BITS-1))
 LONGLONG_MIN = r_longlong(-(1L << (r_longlong.BITS-1)))
