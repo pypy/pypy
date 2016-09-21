@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 
 class AppTestOperator:
-    spaceconfig = dict(usemodules=['operator'])
-
     def test_getters_are_not_regular_functions(self):
         import _operator as operator
         class A(object):
