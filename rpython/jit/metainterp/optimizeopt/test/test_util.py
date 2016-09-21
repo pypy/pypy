@@ -124,11 +124,11 @@ class LLtypeMixin(object):
     NODE3.become(lltype.GcStruct('NODE3', ('parent', OBJECT),
                             ('value', lltype.Signed),
                             ('next', lltype.Ptr(NODE3)),
-                            hints={'value_class': True}))
+                            hints={'immutable': True}))
 
     big_fields = [('big' + i, lltype.Signed) for i in string.ascii_lowercase]
     BIG = lltype.GcForwardReference()
-    BIG.become(lltype.GcStruct('BIG', *big_fields, hints={'value_class': True}))
+    BIG.become(lltype.GcStruct('BIG', *big_fields, hints={'immutable': True}))
 
     for field, _ in big_fields:
         locals()[field + 'descr'] = cpu.fielddescrof(BIG, field)

@@ -370,6 +370,9 @@ class Struct(ContainerType):
         return _struct(self, n, initialization='example')
 
     def _immutable_field(self, field):
+        # The translator no longer accepts the _immutable_=True annotation
+        # but it is useful to have an to have a shorthand for immutable objects
+        # which are value classes for testing purposes.
         if (self._hints.get('immutable') or
             self._hints.get('value_class')):
             return True
