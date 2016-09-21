@@ -1099,11 +1099,7 @@ def create_slot(w_self, slot_name, index_next_extra_slot):
         raise oefmt(space.w_TypeError, "__slots__ must be identifiers")
     # create member
     slot_name = mangle(slot_name, w_self.name)
-    if slot_name in w_self.dict_w:
-        raise oefmt(space.w_ValueError,
-                    "'%8' in __slots__ conflicts with class variable",
-                    slot_name)
-    else:
+    if slot_name not in w_self.dict_w:
         # Force interning of slot names.
         slot_name = space.str_w(space.new_interned_str(slot_name))
         # in cpython it is ignored less, but we probably don't care
@@ -1111,7 +1107,10 @@ def create_slot(w_self, slot_name, index_next_extra_slot):
         w_self.dict_w[slot_name] = space.wrap(member)
         return True
     else:
-        return False
+        # never returns False, but that's to minimize the diff with pypy2
+        raise oefmt(space.w_ValueError,
+                    "'%8' in __slots__ conflicts with class variable",
+                    slot_name)
 
 def create_dict_slot(w_self):
     if not w_self.hasdict:

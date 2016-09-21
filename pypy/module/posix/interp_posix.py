@@ -373,7 +373,14 @@ def build_stat_result(space, st):
             w_value = space.wrap(st[i])
             lst[i] = w_value
         else:
-            w_value = space.wrap(getattr(st, name))
+            try:
+                value = getattr(st, name)
+            except AttributeError:
+                # untranslated, there is no nsec_Xtime attribute
+                assert name.startswith('nsec_')
+                value = rposix_stat.get_stat_ns_as_bigint(st, name[5:])
+                value = value.tolong() % 1000000000
+            w_value = space.wrap(value)
             space.setitem(w_keywords, space.wrap(name), w_value)
 
     # Note: 'w_keywords' contains the three attributes 'nsec_Xtime'.
