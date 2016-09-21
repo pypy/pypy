@@ -786,6 +786,8 @@ class BuiltinCode0(BuiltinCode):
 class BuiltinCode1(BuiltinCode):
     fast_natural_arity = 1
 
+    _immutable_fields_ = ['fastfunc_1']
+
     def fastcall_1(self, space, w_func, w1):
         try:
             w_result = self.fastfunc_1(space, w1)
@@ -804,6 +806,8 @@ class BuiltinCode1(BuiltinCode):
 
 class BuiltinCode2(BuiltinCode):
     fast_natural_arity = 2
+
+    _immutable_fields_ = ['fastfunc_2']
 
     def fastcall_2(self, space, w_func, w1, w2):
         try:
@@ -824,6 +828,8 @@ class BuiltinCode2(BuiltinCode):
 class BuiltinCode3(BuiltinCode):
     fast_natural_arity = 3
 
+    _immutable_fields_ = ['fastfunc_3']
+
     def fastcall_3(self, space, func, w1, w2, w3):
         try:
             w_result = self.fastfunc_3(space, w1, w2, w3)
@@ -842,6 +848,8 @@ class BuiltinCode3(BuiltinCode):
 
 class BuiltinCode4(BuiltinCode):
     fast_natural_arity = 4
+
+    _immutable_fields_ = ['fastfunc_4']
 
     def fastcall_4(self, space, func, w1, w2, w3, w4):
         try:
