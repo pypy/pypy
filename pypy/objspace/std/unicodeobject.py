@@ -77,19 +77,21 @@ class W_UnicodeObject(W_Root):
     def unicode_w(self, space):
         return self._value
 
-    @jit.elidable
     def identifier_w(self, space):
-        identifier = self._utf8
-        if identifier is not None:
-            return identifier
-        u = self._value
-        eh = unicodehelper.rpy_encode_error_handler()
         try:
-            identifier = unicode_encode_utf_8(u, len(u), None,
-                                              errorhandler=eh)
-        except unicodehelper.RUnicodeEncodeError as ue:
-            raise wrap_encode_error(space, ue)
-        self._utf8 = identifier
+            # call the elidable function, with a jit.call_shortcut in case
+            # self._utf8 is already computed
+            identifier = g_identifier_w(self, space)
+        except UnicodeEncodeError:
+            # bah, this is just to get an official app-level
+            # UnicodeEncodeError
+            u = self._value
+            eh = unicodehelper.rpy_encode_error_handler()
+            try:
+                identifier = unicode_encode_utf_8(u, len(u), None,
+                                                  errorhandler=eh)
+            except unicodehelper.RUnicodeEncodeError as ue:
+                raise wrap_encode_error(space, ue)
         return identifier
 
     def listview_unicode(self):
@@ -1306,6 +1308,16 @@ def unicode_to_decimal_w(space, w_unistr, allow_surrogates=False):
     return unicodehelper.encode_utf8(space, u''.join(result),
                                      allow_surrogates=allow_surrogates)
 
+@jit.elidable
+@jit.call_shortcut
+def g_identifier_w(self, space):
+    """This is a global function because of @jit.call_shortcut"""
+    identifier = self._utf8
+    if identifier is not None:
+        return identifier
+    identifier = self._value.encode('utf-8')
+    self._utf8 = identifier
+    return identifier
 
 _repr_function, _ = make_unicode_escape_function(
     pass_printable=True, unicode_output=True, quotes=True, prefix='')
