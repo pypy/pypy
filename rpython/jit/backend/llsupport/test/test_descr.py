@@ -17,8 +17,8 @@ def test_get_size_descr():
     descr_t = get_size_descr(c0, T)
     assert descr_s.size == symbolic.get_size(S, False)
     assert descr_t.size == symbolic.get_size(T, False)
-    assert descr_s.is_immutable() == False
-    assert descr_t.is_immutable() == False
+    assert descr_s.is_value_class() == False
+    assert descr_t.is_value_class() == False
     assert descr_t.gc_fielddescrs == []
     assert len(descr_s.gc_fielddescrs) == 1
     assert descr_s == get_size_descr(c0, S)
@@ -26,7 +26,7 @@ def test_get_size_descr():
     #
     descr_s = get_size_descr(c1, S)
     assert isinstance(descr_s.size, Symbolic)
-    assert descr_s.is_immutable() == False
+    assert descr_s.is_value_class() == False
 
     PARENT = lltype.Struct('P', ('x', lltype.Ptr(T)))
     STRUCT = lltype.GcStruct('S', ('parent', PARENT), ('y', lltype.Ptr(T)))
@@ -34,38 +34,18 @@ def test_get_size_descr():
     assert len(descr_struct.gc_fielddescrs) == 2
 
 def test_get_size_descr_immut():
-    S = lltype.GcStruct('S', hints={'immutable': True})
+    S = lltype.GcStruct('S', hints={'value_class': True})
     T = lltype.GcStruct('T', ('parent', S),
                         ('x', lltype.Char),
-                        hints={'immutable': True})
+                        hints={'value_class': True})
     U = lltype.GcStruct('U', ('parent', T),
                         ('u', lltype.Ptr(T)),
                         ('v', lltype.Signed),
-                        hints={'immutable': True})
+                        hints={'value_class': True})
     V = lltype.GcStruct('V', ('parent', U),
                         ('miss1', lltype.Void),
                         ('miss2', lltype.Void),
-                        hints={'immutable': True})
-    for STRUCT in [S, T, U, V]:
-        for translated in [False, True]:
-            c0 = GcCache(translated)
-            descr_s = get_size_descr(c0, STRUCT)
-            assert descr_s.is_immutable() == True
-
-def test_get_size_descr_value_class():
-    hints = {'immutable': True, 'value_class': True}
-    S = lltype.GcStruct('S', hints=hints)
-    T = lltype.GcStruct('T', ('parent', S),
-                        ('x', lltype.Char),
-                        hints=hints)
-    U = lltype.GcStruct('U', ('parent', T),
-                        ('u', lltype.Ptr(T)),
-                        ('v', lltype.Signed),
-                        hints=hints)
-    V = lltype.GcStruct('V', ('parent', U),
-                        ('miss1', lltype.Void),
-                        ('miss2', lltype.Void),
-                        hints=hints)
+                        hints={'value_class': True})
     for STRUCT in [S, T, U, V]:
         for translated in [False, True]:
             c0 = GcCache(translated)

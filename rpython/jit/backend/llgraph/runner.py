@@ -136,9 +136,6 @@ class SizeDescr(AbstractDescr):
                                                                self.S)
         return heaptracker.adr2int(llmemory.cast_ptr_to_adr(self._vtable))
 
-    def is_immutable(self):
-        return heaptracker.is_immutable_struct(self.S)
-
     def is_value_class(self):
         return heaptracker.is_value_class(self.S)
 

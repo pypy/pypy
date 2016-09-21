@@ -30,7 +30,7 @@ class AbstractInfo(AbstractValue):
     def getconst(self):
         raise Exception("not a constant")
 
-    def _is_immutable_and_filled_with_constants(self, optimizer, memo=None):
+    def _is_value_class_and_filled_with_constants(self, optimizer, memo=None):
         return False
 
 
@@ -134,7 +134,7 @@ class AbstractVirtualPtrInfo(NonNullPtrInfo):
         if self.is_virtual():
             optforce.forget_numberings()
             #
-            if self._is_immutable_and_filled_with_constants(optforce.optimizer):
+            if self._is_value_class_and_filled_with_constants(optforce.optimizer):
                 constptr = optforce.optimizer.constant_fold(op)
                 op.set_forwarded(constptr)
                 self._is_virtual = False
@@ -262,7 +262,7 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
         getfield_op = ResOperation(opnum, [structbox], descr=fielddescr)
         shortboxes.add_heap_op(op, getfield_op)
 
-    def _is_immutable_and_filled_with_constants(self, optimizer, memo=None):
+    def _is_value_class_and_filled_with_constants(self, optimizer, memo=None):
         # check if it is possible to force the given structure into a
         # compile-time constant: this is allowed only if it is declared
         # immutable, if all fields are already filled, and if each field
@@ -270,7 +270,7 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
         # which also answers True to the same question.
         #
         assert self.is_virtual()
-        if not self.descr.is_immutable():
+        if not self.descr.is_value_class():
             return False
         if memo is not None and self in memo:
             return True       # recursive case: assume yes
@@ -287,7 +287,7 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
                     # recursive check
                     if memo is None:
                         memo = {self: None}
-                    if not fieldinfo._is_immutable_and_filled_with_constants(
+                    if not fieldinfo._is_value_class_and_filled_with_constants(
                             optimizer, memo):
                         return False
                 else:

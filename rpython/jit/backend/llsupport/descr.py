@@ -60,19 +60,16 @@ class SizeDescr(AbstractDescr):
     size = 0      # help translation
     tid = llop.combine_ushort(lltype.Signed, 0, 0)
     vtable = lltype.nullptr(rclass.OBJECT_VTABLE)
-    immutable_flag = False
     value_class_flag = False
 
     def __init__(self, size, gc_fielddescrs=None, all_fielddescrs=None,
                  vtable=lltype.nullptr(rclass.OBJECT_VTABLE),
-                 immutable_flag=False,
                  value_class_flag=False):
         assert lltype.typeOf(vtable) == lltype.Ptr(rclass.OBJECT_VTABLE)
         self.size = size
         self.gc_fielddescrs = gc_fielddescrs
         self.all_fielddescrs = all_fielddescrs
         self.vtable = vtable
-        self.immutable_flag = immutable_flag
         self.value_class_flag = value_class_flag
 
     def get_all_fielddescrs(self):
@@ -94,9 +91,6 @@ class SizeDescr(AbstractDescr):
         # fields
         return objptr.typeptr == cls or rclass.ll_isinstance(objptr, cls)
 
-    def is_immutable(self):
-        return self.immutable_flag
-
     def is_value_class(self):
         return self.value_class_flag
 
@@ -114,14 +108,12 @@ def get_size_descr(gccache, STRUCT, vtable=lltype.nullptr(rclass.OBJECT_VTABLE))
         return cache[STRUCT]
     except KeyError:
         size = symbolic.get_size(STRUCT, gccache.translate_support_code)
-        immutable_flag = heaptracker.is_immutable_struct(STRUCT)
         value_class_flag = heaptracker.is_value_class(STRUCT)
         if vtable:
             assert heaptracker.has_gcstruct_a_vtable(STRUCT)
         else:
             assert not heaptracker.has_gcstruct_a_vtable(STRUCT)
         sizedescr = SizeDescr(size, vtable=vtable,
-                              immutable_flag=immutable_flag,
                               value_class_flag=value_class_flag)
         gccache.init_size_descr(STRUCT, sizedescr)
         cache[STRUCT] = sizedescr

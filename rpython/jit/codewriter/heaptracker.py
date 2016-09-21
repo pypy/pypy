@@ -20,9 +20,6 @@ def int_signext(value, numbytes):
     a -= r_uint(1 << (b8 - 1))     # a -= 128
     return intmask(a)
 
-def is_immutable_struct(S):
-    return isinstance(S, lltype.GcStruct) and S._hints.get('immutable', False)
-
 def is_value_class(S):
     return isinstance(S, lltype.GcStruct) and S._hints.get('value_class', False)
 
