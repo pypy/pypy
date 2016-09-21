@@ -46,7 +46,7 @@ class TestLongObject(BaseApiTest):
 
     def test_fromdouble(self, space, api):
         w_value = api.PyLong_FromDouble(-12.74)
-        assert isinstance(w_value, W_LongObject)
+        assert space.isinstance_w(w_value, space.w_int)
         assert space.unwrap(w_value) == -12
         assert api.PyLong_AsDouble(w_value) == -12
 
@@ -108,24 +108,20 @@ class TestLongObject(BaseApiTest):
         lltype.free(overflow, flavor='raw')
 
     def test_as_voidptr(self, space, api):
-        # CPython returns an int (not a long) depending on the value
-        # passed to PyLong_FromVoidPtr().  In all cases, NULL becomes
-        # the int 0.
         w_l = api.PyLong_FromVoidPtr(lltype.nullptr(rffi.VOIDP.TO))
         assert space.is_w(space.type(w_l), space.w_int)
         assert space.unwrap(w_l) == 0
         assert api.PyLong_AsVoidPtr(w_l) == lltype.nullptr(rffi.VOIDP.TO)
-        # Positive values also return an int (assuming, like always in
-        # PyPy, that an int is big enough to store any pointer).
+
         p = rffi.cast(rffi.VOIDP, maxint)
         w_l = api.PyLong_FromVoidPtr(p)
         assert space.is_w(space.type(w_l), space.w_int)
         assert space.unwrap(w_l) == maxint
         assert api.PyLong_AsVoidPtr(w_l) == p
-        # Negative values always return a long.
+
         p = rffi.cast(rffi.VOIDP, -maxint-1)
         w_l = api.PyLong_FromVoidPtr(p)
-        assert space.is_w(space.type(w_l), space.w_long)
+        assert space.is_w(space.type(w_l), space.w_int)
         assert space.unwrap(w_l) == maxint+1
         assert api.PyLong_AsVoidPtr(w_l) == p
 
@@ -287,7 +283,7 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
                     return PyLong_FromLong(3);
                  if (str + strlen(str) != end)
                     return PyLong_FromLong(4);
-                 return PyLong_FromLong(0); 
+                 return PyLong_FromLong(0);
              """)])
         assert module.from_str() == 0
 
@@ -343,4 +339,4 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
         assert module.has_pow() == 0
         assert module.has_hex() == '0x2aL'
         assert module.has_oct() == '052L'
-                
+
