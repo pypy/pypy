@@ -46,7 +46,7 @@ class SchedulerState(object):
         if op.is_guard():
             args = args[:] + op.getfailargs()
         for arg in args:
-            if arg.is_constant() or arg.is_inputarg():
+            if arg is None or arg.is_constant() or arg.is_inputarg():
                 continue
             if arg not in self.seen:
                 box = self.renamer.rename_box(arg)
