@@ -315,7 +315,7 @@ class WarmEnterState(object):
         self.vec_all = bool(ivalue)
 
     def set_param_vec_cost(self, ivalue):
-        self.vec_cost = value
+        self.vec_cost = ivalue
 
     def disable_noninlinable_function(self, greenkey):
         cell = self.JitCell.ensure_jit_cell_at_key(greenkey)
