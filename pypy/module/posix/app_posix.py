@@ -40,9 +40,6 @@ class stat_result(metaclass=structseqtype):
     st_atime = structseqfield(11, "time of last access")
     st_mtime = structseqfield(12, "time of last modification")
     st_ctime = structseqfield(13, "time of last change")
-    st_atime_ns = structseqfield(14, "time of last access in nanoseconds")
-    st_mtime_ns = structseqfield(15, "time of last modification in nanoseconds")
-    st_ctime_ns = structseqfield(16, "time of last change in nanoseconds")
 
     if "st_blksize" in posix._statfields:
         st_blksize = structseqfield(20, "blocksize for filesystem I/O")
@@ -66,14 +63,17 @@ class stat_result(metaclass=structseqtype):
 
     @property
     def st_atime_ns(self):
+        "time of last access in nanoseconds"
         return int(self[7]) * 1000000000 + self.nsec_atime
 
     @property
     def st_mtime_ns(self):
+        "time of last modification in nanoseconds"
         return int(self[8]) * 1000000000 + self.nsec_mtime
 
     @property
     def st_ctime_ns(self):
+        "time of last change in nanoseconds"
         return int(self[9]) * 1000000000 + self.nsec_ctime
 
 
