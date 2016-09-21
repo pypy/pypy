@@ -102,7 +102,7 @@ def compute_slice_indices3(space, w_slice, w_length):
             else:
                 w_stop = w_length
     return w_start, w_stop, w_step
-    
+
 min_jitdriver = jit.JitDriver(name='min',
         greens=['has_key', 'has_item', 'w_type'], reds='auto')
 max_jitdriver = jit.JitDriver(name='max',
@@ -136,7 +136,7 @@ def make_min_max(unroll):
                         "%s() expects at least one argument",
                         implementation_of)
         w_key = None
-        has_default = False
+        w_default = None
         if any_kwds:
             kwds = args.keywords
             for n in range(len(kwds)):
@@ -144,13 +144,12 @@ def make_min_max(unroll):
                     w_key = args.keywords_w[n]
                 elif kwds[n] == "default":
                     w_default = args.keywords_w[n]
-                    has_default = True
                 else:
                     raise oefmt(space.w_TypeError,
                                 "%s() got unexpected keyword argument",
                                 implementation_of)
 
-        if has_default and len(args_w) > 1:
+        if w_default is not None and len(args_w) > 1:
             raise oefmt(space.w_TypeError,
                 "Cannot specify a default for %s() with multiple positional arguments",
                 implementation_of)
@@ -180,7 +179,7 @@ def make_min_max(unroll):
                 w_max_item = w_item
                 w_max_val = w_compare_with
         if w_max_item is None:
-            if has_default:
+            if w_default is not None:
                 w_max_item = w_default
             else:
                 raise oefmt(space.w_ValueError, "arg is an empty sequence")
@@ -420,7 +419,7 @@ class W_Range(W_Root):
     def descr_repr(self, space):
         if not space.is_true(space.eq(self.w_step, space.newint(1))):
             return space.mod(space.wrap("range(%d, %d, %d)"),
-                             space.newtuple([self.w_start, self.w_stop, 
+                             space.newtuple([self.w_start, self.w_stop,
                                              self.w_step]))
         else:
             return space.mod(space.wrap("range(%d, %d)"),
@@ -433,7 +432,7 @@ class W_Range(W_Root):
         "Get a range item, when known to be inside bounds"
         # return self.start + (i * self.step)
         return space.add(self.w_start, space.mul(w_index, self.w_step))
-        
+
     def _compute_item(self, space, w_index):
         w_zero = space.newint(0)
         w_index = space.index(w_index)
@@ -767,7 +766,7 @@ W_Map.typedef = TypeDef(
         __iter__ = interp2app(W_Map.iter_w),
         __next__ = interp2app(W_Map.next_w),
         __reduce__ = interp2app(W_Map.descr_reduce),
-        __doc__ = """\ 
+        __doc__ = """\
 Make an iterator that computes the function using arguments from
 each of the iterables.  Stops when the shortest iterable is exhausted.""")
 
