@@ -19,14 +19,6 @@ def do_test_stress(piece):
     cpu.setup_once()
     r = Random()
     r.jumpahead(piece*99999999)
-    OPERATIONS = LLtypeOperationBuilder.OPERATIONS[:]
-    if not cpu.supports_cond_call_value:
-        # remove COND_CALL_VALUE_I if the cpu does not support it
-        ops = LLtypeOperationBuilder.OPERATIONS
-        LLtypeOperationBuilder.OPERATIONS = [op for op in ops \
-                if op.opnum != rop.COND_CALL_VALUE_I]
     for i in range(piece*per_piece, (piece+1)*per_piece):
         print "        i = %d; r.setstate(%s)" % (i, r.getstate())
         check_random_function(cpu, LLtypeOperationBuilder, r, i, total_iterations)
-    # restore the old list
-    LLtypeOperationBuilder.OPERATIONS = OPERATIONS
