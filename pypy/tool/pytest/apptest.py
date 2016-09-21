@@ -26,6 +26,7 @@ RENAMED_USEMODULES = dict(
     exceptions='builtins',
     struct='_struct',
     thread='_thread',
+    operator='_operator',
     )
 
 class AppError(Exception):
