@@ -33,28 +33,27 @@ def w_array(space, w_cls, typecode, __args__):
         if typecode == tc:
             a = space.allocate_instance(types[tc].w_class, w_cls)
             a.__init__(space)
-
-            if len(__args__.arguments_w) > 0:
-                w_initializer = __args__.arguments_w[0]
-                if isinstance(w_initializer, W_ArrayBase):
-                    a.extend(w_initializer, True)
-                elif space.type(w_initializer) is space.w_list:
-                    a.descr_fromlist(space, w_initializer)
-                else:
-                    try:
-                        buf = space.bufferstr_w(w_initializer)
-                    except OperationError as e:
-                        if not e.match(space, space.w_TypeError):
-                            raise
-                        a.extend(w_initializer, True)
-                    else:
-                        a.descr_frombytes(space, buf)
             break
     else:
         raise oefmt(space.w_ValueError,
                     "bad typecode (must be b, B, u, h, H, i, I, l, L, q, Q, f "
                     "or d)")
 
+    if len(__args__.arguments_w) > 0:
+        w_initializer = __args__.arguments_w[0]
+        if isinstance(w_initializer, W_ArrayBase):
+            a.extend(w_initializer, True)
+        elif space.type(w_initializer) is space.w_list:
+            a.descr_fromlist(space, w_initializer)
+        else:
+            try:
+                buf = space.bufferstr_w(w_initializer)
+            except OperationError as e:
+                if not e.match(space, space.w_TypeError):
+                    raise
+                a.extend(w_initializer, True)
+            else:
+                a.descr_frombytes(space, buf)
     return a
 
 
