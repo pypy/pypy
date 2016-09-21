@@ -592,4 +592,5 @@ def byteswap(cp, size):
         rv[i] = cp[base]
         if base == next_bump:
             base += bump
+            next_bump += size
     return ffi.buffer(rv)[:]
