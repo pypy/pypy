@@ -23,7 +23,7 @@ def _group_from_gstruct(res):
     i = 0
     members = []
     while res.gr_mem[i]:
-        members.append(ffi.string(res.gr_mem[i]))
+        members.append(os.fsdecode(ffi.string(res.gr_mem[i])))
         i += 1
     return struct_group([
         os.fsdecode(ffi.string(res.gr_name)),
