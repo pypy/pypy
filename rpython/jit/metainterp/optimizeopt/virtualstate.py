@@ -65,7 +65,7 @@ class GenerateGuardState(object):
                                                                  descr))
 
 class AbstractVirtualStateInfo(object):
-    _attrs_ = ('position',)
+    _attrs_ = ('position', 'fieldstate')
     position = -1
 
     def generate_guards(self, other, op, runtime_op, state):
@@ -177,8 +177,8 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
                                                    fieldbox,
                                                    fieldbox_runtime, state)
 
-    def _generalization_of_structpart(self, other):
-        return type(self) is type(other) and self.typedescr is other.typedescr
+    def _generate_guards_non_virtual(self, other, box, runtime_box, state):
+        pass
 
     def enum_forced_boxes(self, boxes, box, optimizer, force_boxes=False):
         box = optimizer.get_box_replacement(box)
@@ -203,7 +203,6 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
             if s:
                 s.enum(virtual_state)
 
-
 class VirtualStateInfo(AbstractVirtualStructStateInfo):
     _attrs_ = ('known_class',)
 
@@ -211,15 +210,21 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
         AbstractVirtualStructStateInfo.__init__(self, typedescr, fielddescrs)
         self.known_class = ConstInt(typedescr.get_vtable())
 
+    def _generalization_of_structpart(self, other):
+        return (isinstance(other, VirtualStateInfo) and
+                self.typedescr is other.typedescr)
+
     def debug_header(self, indent):
         debug_print(indent + 'VirtualStateInfo(%d):' % self.position)
 
-
 class VStructStateInfo(AbstractVirtualStructStateInfo):
+
+    def _generalization_of_structpart(self, other):
+        return (isinstance(other, VStructStateInfo) and
+                self.typedescr is other.typedescr)
 
     def debug_header(self, indent):
         debug_print(indent + 'VStructStateInfo(%d):' % self.position)
-
 
 class VArrayStateInfo(AbstractVirtualStateInfo):
 
