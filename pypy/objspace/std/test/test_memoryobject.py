@@ -55,6 +55,7 @@ class AppTestMemoryView:
         assert v.shape == (100,)
         assert v.ndim == 1
         assert v.strides == (1,)
+        assert v.nbytes == 100
 
     def test_suboffsets(self):
         v = memoryview(b"a"*100)
@@ -127,6 +128,7 @@ class AppTestMemoryView:
         raises(ValueError, "v[0]")
         raises(ValueError, "v[0] = b'a'")
         raises(ValueError, "v.format")
+        raises(ValueError, "v.nbytes")
         raises(ValueError, "v.itemsize")
         raises(ValueError, "v.ndim")
         raises(ValueError, "v.readonly")
@@ -155,6 +157,7 @@ class AppTestMemoryView:
         assert len(m) == 10
         assert m.shape == (10,)
         assert len(m.tobytes()) == 40
+        assert m.nbytes == 40
         assert m[0] == 0
         m[0] = 1
         assert m[0] == 1
@@ -167,6 +170,7 @@ class AppTestMemoryView:
         assert slice.itemsize == 4
         assert len(slice) == 6
         assert len(slice.tobytes()) == 24
+        assert slice.nbytes == 24
         assert slice[0] == 2
         slice[0] = 1
         assert slice[0] == 1

@@ -387,6 +387,10 @@ class W_MemoryView(W_Root):
         self._check_released(space)
         return space.wrap(self.getlength())
 
+    def w_get_nbytes(self, space):
+        self._check_released(space)
+        return space.wrap(self.buf.getlength())
+
     def w_get_format(self, space):
         self._check_released(space)
         return space.wrap(self.getformat())
@@ -684,6 +688,7 @@ Create a new memoryview object which references the given object.
     format      = GetSetProperty(W_MemoryView.w_get_format),
     itemsize    = GetSetProperty(W_MemoryView.w_get_itemsize),
     ndim        = GetSetProperty(W_MemoryView.w_get_ndim),
+    nbytes        = GetSetProperty(W_MemoryView.w_get_nbytes),
     readonly    = GetSetProperty(W_MemoryView.w_is_readonly),
     shape       = GetSetProperty(W_MemoryView.w_get_shape),
     strides     = GetSetProperty(W_MemoryView.w_get_strides),
