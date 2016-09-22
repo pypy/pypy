@@ -2,7 +2,8 @@ from rpython.tool.udir import udir
 import os
 
 class AppTestSSL:
-    spaceconfig = dict(usemodules=('_ssl', '_socket', 'struct', 'binascii', 'thread'))
+    spaceconfig = dict(usemodules=('_ssl', '_socket', 'select', 'struct',
+                                   'binascii', 'thread'))
 
     def setup_class(cls):
         cls.w_nullbytecert = cls.space.wrap(os.path.join(
@@ -154,7 +155,7 @@ class AppTestSSL:
 class AppTestConnectedSSL:
     spaceconfig = {
         "usemodules": ['_ssl', '_socket', 'struct', 'array', 'binascii',
-                       'unicodedata'],
+                       'unicodedata', 'select'],
     }
 
     def setup_method(self, method):

@@ -300,7 +300,7 @@ def test_timeout():
 
 
 class AppTestSocket:
-    spaceconfig = dict(usemodules=['_socket', '_weakref', 'struct'])
+    spaceconfig = dict(usemodules=['_socket', '_weakref', 'struct', 'select'])
 
     def setup_class(cls):
         cls.space = space
@@ -726,7 +726,7 @@ class AppTestPacket:
 
 class AppTestSocketTCP:
     HOST = 'localhost'
-    spaceconfig = {'usemodules': ['_socket', 'array']}
+    spaceconfig = {'usemodules': ['_socket', 'array', 'select']}
 
     def setup_method(self, method):
         w_HOST = self.space.wrap(self.HOST)
@@ -870,7 +870,7 @@ class AppTestSocketTCP:
 
 
 class AppTestErrno:
-    spaceconfig = {'usemodules': ['_socket']}
+    spaceconfig = {'usemodules': ['_socket', 'select']}
 
     def test_errno(self):
         from socket import socket, AF_INET, SOCK_STREAM, error
