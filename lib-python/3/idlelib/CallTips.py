@@ -144,7 +144,8 @@ def get_argspec(ob):
         fob = ob_call
     else:
         fob = ob
-    if isinstance(fob, (types.FunctionType, types.MethodType)):
+    if (isinstance(fob, (types.FunctionType, types.MethodType)) and
+            hasattr(fob.__code__, 'co_code')):  # PyPy: not on <builtin-code>
         argspec = inspect.formatargspec(*inspect.getfullargspec(fob))
         if (isinstance(ob, (type, types.MethodType)) or
                 isinstance(ob_call, types.MethodType)):
