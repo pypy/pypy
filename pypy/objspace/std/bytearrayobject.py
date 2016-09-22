@@ -20,7 +20,6 @@ from pypy.objspace.std.stringmethods import StringMethods, _get_buffer
 from pypy.objspace.std.bytesobject import W_BytesObject
 from pypy.objspace.std.util import get_positive_index
 
-NON_HEX_MSG = "non-hexadecimal number found in fromhex() arg at position %d"
 
 
 class W_BytearrayObject(W_Root):
