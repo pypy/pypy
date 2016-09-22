@@ -186,24 +186,13 @@ def user_loop_bail_fast_path(loop, warmstate):
         if op.is_primitive_array_access():
             at_least_one_array_access = True
 
-        if warmstate.vec_ratio > 0.0:
-            # blacklist
-            if rop.is_call(op.opnum) or rop.is_call_assembler(op.opnum):
-                return True
+        if rop.is_call(op.opnum) or rop.is_call_assembler(op.opnum):
+            return True
 
         if rop.is_guard(op.opnum):
             guard_count += 1
 
     if not at_least_one_array_access:
-        return True
-
-    if resop_count > warmstate.vec_length:
-        return True
-
-    if (float(vector_instr)/float(resop_count)) < warmstate.vec_ratio:
-        return True
-
-    if float(guard_count)/float(resop_count) > warmstate.vec_guard_ratio:
         return True
 
     return False

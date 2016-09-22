@@ -739,7 +739,7 @@ class VectorizeTests(object):
                 i += 1
             lltype.free(vector_a, flavor='raw')
             return breaks
-        res = self.meta_interp(f, [22], vec_all=True, vec_guard_ratio=5)
+        res = self.meta_interp(f, [22], vec_all=True)
         assert res == f(22)
 
     def run_unpack(self, unpack, vector_type, assignments, float=True):
