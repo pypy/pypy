@@ -42,6 +42,9 @@ class TempVector(TempVar):
         return "<TempVector At %s>" % (id(self),)
 
 class X86VectorExt(VectorExt):
+
+    should_align_unroll = True
+
     def setup_once(self, asm):
         if detect_feature.detect_sse4_1():
             self.enable(16, accum=True)

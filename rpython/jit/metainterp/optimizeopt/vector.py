@@ -234,7 +234,10 @@ class VectorizingOptimizer(Optimizer):
 
         # unroll
         self.unroll_count = self.get_unroll_count(vsize)
-        self.unroll_loop_iterations(loop, self.unroll_count)
+        align_unroll = self.unroll_count==1 and \
+                       self.vector_ext.should_align_unroll
+        self.unroll_loop_iterations(info, loop, self.unroll_count,
+                                    align_unroll_once=align_unroll)
 
         # vectorize
         graph = DependencyGraph(loop)
@@ -256,23 +259,32 @@ class VectorizingOptimizer(Optimizer):
 
         return loop.finaloplist(jitcell_token=jitcell_token, reset_label_token=False)
 
-    def unroll_loop_iterations(self, loop, unroll_count):
-        """ Unroll the loop X times. unroll_count + 1 = unroll_factor """
+    def unroll_loop_iterations(self, info, loop, unroll_count, align_unroll_once=False):
+        """ Unroll the loop `unroll_count` times. There can be an additional unroll step
+            if alignment might benefit """
         numops = len(loop.operations)
 
         renamer = Renamer()
         operations = loop.operations
-        unrolled = []
-        prohibit_opnums = (rop.GUARD_FUTURE_CONDITION,
-                           rop.GUARD_NOT_INVALIDATED)
         orig_jump_args = loop.jump.getarglist()[:]
+        prohibit_opnums = (rop.GUARD_FUTURE_CONDITION,
+                           rop.GUARD_NOT_INVALIDATED,
+                           rop.DEBUG_MERGE_POINT)
+        unrolled = []
+
+        if align_unroll_once:
+            unroll_count += 1
+
         # it is assumed that #label_args == #jump_args
         label_arg_count = len(orig_jump_args)
+        label = loop.label
+        jump = loop.jump
+        new_label = loop.label
         for u in range(unroll_count):
             # fill the map with the renaming boxes. keys are boxes from the label
             for i in range(label_arg_count):
-                la = loop.label.getarg(i)
-                ja = loop.jump.getarg(i)
+                la = label.getarg(i)
+                ja = jump.getarg(i)
                 ja = renamer.rename_box(ja)
                 if la != ja:
                     renamer.start_renaming(la, ja)
@@ -294,9 +306,16 @@ class VectorizingOptimizer(Optimizer):
                 # to be adjusted. rd_snapshot stores the live variables
                 # that are needed to resume.
                 if copied_op.is_guard():
-                    self.copy_guard_descr(renamer, copied_op)
+                    self.copy_guard_descr(renamer, copied_op, align_unroll_once and u == 0)
                 #
                 unrolled.append(copied_op)
+            #
+            if align_unroll_once and u == 0:
+                descr = label.getdescr()
+                args = label.getarglist()[:]
+                new_label = ResOperation(rop.LABEL, args, descr)
+                renamer.rename(new_label)
+            #
 
         # the jump arguments have been changed
         # if label(iX) ... jump(i(X+1)) is called, at the next unrolled loop
@@ -306,7 +325,25 @@ class VectorizingOptimizer(Optimizer):
             value = renamer.rename_box(arg)
             loop.jump.setarg(i, value)
         #
-        loop.operations = operations + unrolled
+        loop.label = new_label
+        if align_unroll_once:
+            for op in operations:
+                descr = op.getdescr()
+                if descr:
+                    # the first step of the optimization will overwrite the descr
+                    # with a compile loop version descr
+                    # in the operations to align the loop load/store ops we want the original
+                    # descr saved on the forwarded info
+                    vinfo = copied_op.get_forwarded()
+                    if vinfo:
+                        assert isinstance(vinfo, VectorizationInfo)
+                        descr = vinfo.get_old_descr()
+                        assert descr is not None
+                        op.setdescr(descr)
+            info.extra_same_as += operations
+            loop.operations = unrolled
+        else:
+            loop.operations = operations + unrolled
 
     def copy_guard_descr(self, renamer, copied_op):
         descr = copied_op.getdescr()
@@ -316,6 +353,8 @@ class VectorizingOptimizer(Optimizer):
             failargs = renamer.rename_failargs(copied_op, clone=True)
             if not we_are_translated():
                 for arg in failargs:
+                    if arg is None:
+                        continue
                     assert not arg.is_constant()
             copied_op.setfailargs(failargs)
 
@@ -551,8 +590,12 @@ class VectorizingOptimizer(Optimizer):
         assert isinstance(op, GuardResOp)
         if op.getopnum() in (rop.GUARD_TRUE, rop.GUARD_FALSE):
             descr = CompileLoopVersionDescr()
+            olddescr = op.getdescr()
+            vinfo = op.get_forwarded()
+            assert isinstance(vinfo, VectorizationInfo)
+            vinfo.set_old_descr(olddescr)
             if op.getdescr():
-                descr.copy_all_attributes_from(op.getdescr())
+                descr.copy_all_attributes_from(olddescr)
             op.setdescr(descr)
         arglistcopy = loop.label.getarglist_copy()
         if not we_are_translated():

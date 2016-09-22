@@ -159,6 +159,7 @@ class VectorizationInfo(AbstractValue):
     count = -1
 
     def __init__(self, op):
+        self.olddescr = None
         if op is None:
             return
         from rpython.jit.metainterp.history import Const
@@ -226,6 +227,12 @@ class VectorizationInfo(AbstractValue):
                 assert 0, "unknown datasize"
         self.bytesize = bytesize
         self.signed = signed
+
+    def set_old_descr(self, descr):
+        self.olddescr = descr
+
+    def get_old_descr(self):
+        return self.olddescr
 
 
 class AbstractResOpOrInputArg(AbstractValue):

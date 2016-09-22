@@ -117,7 +117,7 @@ class VectorizeTests(object):
         rawstorage = RawStorage()
         va = rawstorage.new(la, type)
         vc = rawstorage.new(None, type, size=l)
-        self.meta_interp(f, [l*size, va, vc])
+        self.meta_interp(f, [l*size, va, vc], vec=True)
 
         for i in range(l):
             c = raw_storage_getitem(type,vc,i*size)
@@ -165,7 +165,7 @@ class VectorizeTests(object):
         va = rawstorage.new(la, type)
         vb = rawstorage.new(lb, type)
         vc = rawstorage.new(None, type, size=l)
-        self.meta_interp(f, [l*size, va, vb, vc])
+        self.meta_interp(f, [l*size, va, vb, vc], vec=True)
 
         for i in range(l):
             c = raw_storage_getitem(type,vc,i*size)
@@ -223,7 +223,7 @@ class VectorizeTests(object):
         va = rawstorage.new(la, type)
         vb = rawstorage.new(lb, type)
         vc = rawstorage.new(None, type, size=l)
-        self.meta_interp(f, [l*size, va, vb, vc])
+        self.meta_interp(f, [l*size, va, vb, vc], vec=True)
 
         for i in range(l):
             c = raw_storage_getitem(type,vc,i*size)
@@ -310,7 +310,7 @@ class VectorizeTests(object):
             lltype.free(va, flavor='raw')
             lltype.free(vb, flavor='raw')
             return res
-        res = self.meta_interp(f, [i])
+        res = self.meta_interp(f, [i], vec=True)
         assert res == f(i) == 3
 
     def test_vec_max(self):
@@ -334,7 +334,7 @@ class VectorizeTests(object):
                 i += 1
             lltype.free(va, flavor='raw')
             return m
-        res = self.meta_interp(f, [30])
+        res = self.meta_interp(f, [30], vec=True)
         assert res == f(30) == 128
 
     @py.test.mark.parametrize('type,func,init,insert,at,count,breaks',
@@ -383,7 +383,7 @@ class VectorizeTests(object):
                 nobreak = True
             lltype.free(va, flavor='raw')
             return not nobreak
-        res = self.meta_interp(f, [count])
+        res = self.meta_interp(f, [count], vec=True)
         assert res == f(count) == breaks
 
     def _vec_reduce(self, strat, func, type, data):
@@ -408,7 +408,7 @@ class VectorizeTests(object):
         accum = data.draw(strat)
         rawstorage = RawStorage()
         va = rawstorage.new(la, type)
-        res = self.meta_interp(f, [accum, l*size, va])
+        res = self.meta_interp(f, [accum, l*size, va], vec=True)
 
         assert isclose(rffi.cast(type, res), f(accum, l*size, va))
 
@@ -439,7 +439,7 @@ class VectorizeTests(object):
             val = va[0]
             lltype.free(va, flavor='raw')
             return val
-        res = self.meta_interp(f, [60])
+        res = self.meta_interp(f, [60], vec=True)
         assert res == f(60) == 34.5
 
     def test_constant_expand_vec_all(self):
@@ -457,7 +457,7 @@ class VectorizeTests(object):
             val = va[0]
             lltype.free(va, flavor='raw')
             return val
-        res = self.meta_interp(f, [60], vec_all=True)
+        res = self.meta_interp(f, [60], vec=True, vec_all=True)
         assert res == f(60) == 34.5
 
     @py.test.mark.parametrize('type,value', [(rffi.DOUBLE, 58.4547),
@@ -476,7 +476,7 @@ class VectorizeTests(object):
             val = va[d//2]
             lltype.free(va, flavor='raw')
             return val
-        res = self.meta_interp(f, [60,value])
+        res = self.meta_interp(f, [60,value], vec=True)
         assert res == f(60,value) == value
 
     @py.test.mark.parametrize('vec,vec_all',[(False,True),(True,False),(True,True),(False,False)])
@@ -540,7 +540,7 @@ class VectorizeTests(object):
             lltype.free(va, flavor='raw')
             lltype.free(vb, flavor='raw')
             return 0
-        res = self.meta_interp(f, [i])
+        res = self.meta_interp(f, [i], vec=True)
         assert res == f(i)
 
     @py.test.mark.parametrize('i,v1,v2',[(25,2.5,0.3),(25,2.5,0.3)])
@@ -566,7 +566,7 @@ class VectorizeTests(object):
             for i in range(d):
                 s += a[i]
             return s
-        res = self.meta_interp(f, [i,v1,v2], vec_all=True)
+        res = self.meta_interp(f, [i,v1,v2], vec=True, vec_all=True)
         # sum helps to generate the rounding error of floating points
         # return 69.999 ... instead of 70, (v1+v2)*i == 70.0
         assert res == f(i,v1,v2) == sum([v1+v2]*i)
@@ -593,7 +593,7 @@ class VectorizeTests(object):
             free(vector_a)
             free(vector_b)
             return 0
-        res = self.meta_interp(f, [size], vec_all=True)
+        res = self.meta_interp(f, [size], vec=True, vec_all=True)
         assert res == f(size)
 
     def test_max_byte(self):
@@ -616,7 +616,7 @@ class VectorizeTests(object):
                 i += 1
             free(vector_a)
             return max
-        res = self.meta_interp(f, [128], vec_all=True)
+        res = self.meta_interp(f, [128], vec=True, vec_all=True)
         assert res == f(128)
 
 
@@ -673,7 +673,7 @@ class VectorizeTests(object):
                     c += {type_c_loadcast}(vector_c[i])
                 lltype.free(vector_c, flavor='raw')
                 return c
-            res = self.meta_interp(f, [{size}], vec_all=True)
+            res = self.meta_interp(f, [{size}], vec=True, vec_all=True)
             assert res == f({size})
         """
         env = {
@@ -717,7 +717,7 @@ class VectorizeTests(object):
             #    c += vector_c[i]
             lltype.free(vector_c, flavor='raw')
             return 0
-        res = self.meta_interp(f, [22], vec_all=True)
+        res = self.meta_interp(f, [22], vec=True, vec_all=True)
         assert res == f(22)
 
     def test_guard_test_location_assert(self):
@@ -739,7 +739,7 @@ class VectorizeTests(object):
                 i += 1
             lltype.free(vector_a, flavor='raw')
             return breaks
-        res = self.meta_interp(f, [22], vec_all=True)
+        res = self.meta_interp(f, [22], vec=True, vec_all=True)
         assert res == f(22)
 
     def run_unpack(self, unpack, vector_type, assignments, float=True):

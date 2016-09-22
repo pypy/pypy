@@ -879,6 +879,9 @@ class LLGraphCPU(model.AbstractCPU):
     def bh_vec_int_xor(self, vx, vy, count):
         return [int(x) ^ int(y) for x,y in zip(vx,vy)]
 
+    def bh_vec_float_xor(self, vx, vy, count):
+        return [0.0 for x,y in zip(vx,vy)] # just used for clearing the vector register
+
     def bh_vec_cast_float_to_singlefloat(self, vx, count):
         from rpython.rlib.rarithmetic import r_singlefloat
         return [longlong.singlefloat2int(r_singlefloat(longlong.getrealfloat(v)))

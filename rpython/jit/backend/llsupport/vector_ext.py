@@ -218,6 +218,8 @@ GUARD_RESTRICT = GuardRestrict([TR_ANY_INTEGER])
 
 class VectorExt(object):
 
+    should_align_unroll = True
+
     def __init__(self):
         self._enabled = False
         self.register_size = 0 # in bytes
