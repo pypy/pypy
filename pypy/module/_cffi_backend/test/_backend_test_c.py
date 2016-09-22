@@ -1,7 +1,7 @@
 # ____________________________________________________________
 
 import sys
-assert __version__ == "1.8.2", ("This test_c.py file is for testing a version"
+assert __version__ == "1.8.4", ("This test_c.py file is for testing a version"
                                 " of cffi that differs from the one that we"
                                 " get from 'import _cffi_backend'")
 if sys.version_info < (3,):
@@ -3665,3 +3665,27 @@ def test_cdata_dir():
     check_dir(pp, [])
     check_dir(pp[0], ['a1', 'a2'])
     check_dir(pp[0][0], ['a1', 'a2'])
+
+def test_char_pointer_conversion():
+    import warnings
+    assert __version__.startswith(("1.8", "1.9")), (
+        "consider turning the warning into an error")
+    BCharP = new_pointer_type(new_primitive_type("char"))
+    BIntP = new_pointer_type(new_primitive_type("int"))
+    BVoidP = new_pointer_type(new_void_type())
+    z1 = cast(BCharP, 0)
+    z2 = cast(BIntP, 0)
+    z3 = cast(BVoidP, 0)
+    with warnings.catch_warnings(record=True) as w:
+        newp(new_pointer_type(BIntP), z1)    # warn
+        assert len(w) == 1
+        newp(new_pointer_type(BVoidP), z1)   # fine
+        assert len(w) == 1
+        newp(new_pointer_type(BCharP), z2)   # warn
+        assert len(w) == 2
+        newp(new_pointer_type(BVoidP), z2)   # fine
+        assert len(w) == 2
+        newp(new_pointer_type(BCharP), z3)   # fine
+        assert len(w) == 2
+        newp(new_pointer_type(BIntP), z3)    # fine
+        assert len(w) == 2

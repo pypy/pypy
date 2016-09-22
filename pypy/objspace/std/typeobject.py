@@ -103,9 +103,10 @@ class Layout(object):
     """
     _immutable_ = True
 
-    def __init__(self, typedef, nslots, base_layout=None):
+    def __init__(self, typedef, nslots, newslotnames=[], base_layout=None):
         self.typedef = typedef
         self.nslots = nslots
+        self.newslotnames = newslotnames[:]    # make a fixed-size list
         self.base_layout = base_layout
 
     def issublayout(self, parent):
@@ -114,6 +115,12 @@ class Layout(object):
             if self is None:
                 return False
         return True
+
+    def expand(self, hasdict, weakrefable):
+        """Turn this Layout into a tuple.  If two classes get equal
+        tuples, it means their instances have a fully compatible layout."""
+        return (self.typedef, self.newslotnames, self.base_layout,
+                hasdict, weakrefable)
 
 
 # possible values of compares_by_identity_status
@@ -287,8 +294,7 @@ class W_TypeObject(W_Root):
 
     # compute a tuple that fully describes the instance layout
     def get_full_instance_layout(self):
-        layout = self.layout
-        return (layout, self.hasdict, self.weakrefable)
+        return self.layout.expand(self.hasdict, self.weakrefable)
 
     def compute_default_mro(self):
         return compute_C3_mro(self.space, self)
@@ -1022,11 +1028,15 @@ def copy_flags_from_bases(w_self, w_bestbase):
         w_self.weakrefable = w_self.weakrefable or w_base.weakrefable
     return hasoldstylebase
 
+
 def create_all_slots(w_self, hasoldstylebase, w_bestbase, force_new_layout):
+    from pypy.objspace.std.listobject import StringSort
+
     base_layout = w_bestbase.layout
     index_next_extra_slot = base_layout.nslots
     space = w_self.space
     dict_w = w_self.dict_w
+    newslotnames = []
     if '__slots__' not in dict_w:
         wantdict = True
         wantweakref = True
@@ -1052,9 +1062,22 @@ def create_all_slots(w_self, hasoldstylebase, w_bestbase, force_new_layout):
                                 "__weakref__ slot disallowed: we already got one")
                 wantweakref = True
             else:
-                index_next_extra_slot = create_slot(w_self, w_slot_name,
-                                                    slot_name,
-                                                    index_next_extra_slot)
+                newslotnames.append(slot_name)
+        # Sort the list of names collected so far
+        sorter = StringSort(newslotnames, len(newslotnames))
+        sorter.sort()
+        # Try to create all slots in order.  The creation of some of
+        # them might silently fail; then we delete the name from the
+        # list.  At the end, 'index_next_extra_slot' has been advanced
+        # by the final length of 'newslotnames'.
+        i = 0
+        while i < len(newslotnames):
+            if create_slot(w_self, newslotnames[i], index_next_extra_slot):
+                index_next_extra_slot += 1
+                i += 1
+            else:
+                del newslotnames[i]
+    #
     wantdict = wantdict or hasoldstylebase
     if wantdict:
         create_dict_slot(w_self)
@@ -1063,35 +1086,34 @@ def create_all_slots(w_self, hasoldstylebase, w_bestbase, force_new_layout):
     if '__del__' in dict_w:
         w_self.hasuserdel = True
     #
+    assert index_next_extra_slot == base_layout.nslots + len(newslotnames)
     if index_next_extra_slot == base_layout.nslots and not force_new_layout:
         return base_layout
     else:
         return Layout(base_layout.typedef, index_next_extra_slot,
-                      base_layout=base_layout)
+                      newslotnames, base_layout=base_layout)
 
-def create_slot(w_self, w_slot_name, slot_name, index_next_extra_slot):
+def create_slot(w_self, slot_name, index_next_extra_slot):
     space = w_self.space
     if not valid_slot_name(slot_name):
         raise oefmt(space.w_TypeError, "__slots__ must be identifiers")
     # create member
     slot_name = mangle(slot_name, w_self.name)
-    if slot_name in w_self.dict_w:
-        w_prev = w_self.dict_w[slot_name]
-        if isinstance(w_prev, Member) and w_prev.w_cls is w_self:
-            pass   # special case: duplicate __slots__ entry, ignored
-                   # (e.g. occurs in datetime.py, fwiw)
-        else:
-            raise oefmt(space.w_ValueError,
-                        "%R in __slots__ conflicts with class variable",
-                        w_slot_name)
-    else:
+    if slot_name not in w_self.dict_w:
         # Force interning of slot names.
         slot_name = space.str_w(space.new_interned_str(slot_name))
         # in cpython it is ignored less, but we probably don't care
         member = Member(index_next_extra_slot, slot_name, w_self)
-        index_next_extra_slot += 1
         w_self.dict_w[slot_name] = space.wrap(member)
-    return index_next_extra_slot
+        return True
+    else:
+        w_prev = w_self.dict_w[slot_name]
+        if isinstance(w_prev, Member) and w_prev.w_cls is w_self:
+            return False   # special case: duplicate __slots__ entry, ignored
+                           # (e.g. occurs in datetime.py, fwiw)
+        raise oefmt(space.w_ValueError,
+                    "'%8' in __slots__ conflicts with class variable",
+                    slot_name)
 
 def create_dict_slot(w_self):
     if not w_self.hasdict:

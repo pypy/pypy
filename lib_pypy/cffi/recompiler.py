@@ -587,8 +587,11 @@ class Recompiler:
     # ----------
     # typedefs
 
+    def _typedef_type(self, tp, name):
+        return self._global_type(tp, "(*(%s *)0)" % (name,))
+
     def _generate_cpy_typedef_collecttype(self, tp, name):
-        self._do_collect_type(tp)
+        self._do_collect_type(self._typedef_type(tp, name))
 
     def _generate_cpy_typedef_decl(self, tp, name):
         pass
@@ -598,6 +601,7 @@ class Recompiler:
         self._lsts["typename"].append(TypenameExpr(name, type_index))
 
     def _generate_cpy_typedef_ctx(self, tp, name):
+        tp = self._typedef_type(tp, name)
         self._typedef_ctx(tp, name)
         if getattr(tp, "origin", None) == "unknown_type":
             self._struct_ctx(tp, tp.name, approxname=None)

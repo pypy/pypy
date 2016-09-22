@@ -126,9 +126,9 @@ class AppTestPosix:
         assert st[4] == st.st_uid
         assert st[5] == st.st_gid
         assert st[6] == st.st_size
-        assert st[7] == int(st.st_atime)
-        assert st[8] == int(st.st_mtime)
-        assert st[9] == int(st.st_ctime)
+        assert st[7] == int(st.st_atime)   # in complete corner cases, rounding
+        assert st[8] == int(st.st_mtime)   # here could maybe get the wrong
+        assert st[9] == int(st.st_ctime)   # integer...
 
         assert stat.S_IMODE(st.st_mode) & stat.S_IRUSR
         assert stat.S_IMODE(st.st_mode) & stat.S_IWUSR
@@ -138,14 +138,16 @@ class AppTestPosix:
         assert st.st_size == 14
         assert st.st_nlink == 1
 
-        #if sys.platform.startswith('linux'):
-        #    # expects non-integer timestamps - it's unlikely that they are
-        #    # all three integers
-        #    assert ((st.st_atime, st.st_mtime, st.st_ctime) !=
-        #            (st[7],       st[8],       st[9]))
-        #    assert st.st_blksize * st.st_blocks >= st.st_size
         if sys.platform.startswith('linux'):
+            assert isinstance(st.st_atime, float)
+            assert isinstance(st.st_mtime, float)
+            assert isinstance(st.st_ctime, float)
             assert hasattr(st, 'st_rdev')
+
+        assert isinstance(st.st_atime_ns, int)
+        assert abs(st.st_atime_ns - 1e9*st.st_atime) < 500
+        assert abs(st.st_mtime_ns - 1e9*st.st_mtime) < 500
+        assert abs(st.st_ctime_ns - 1e9*st.st_ctime) < 500
 
     def test_stat_float_times(self):
         path = self.path

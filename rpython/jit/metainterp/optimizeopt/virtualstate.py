@@ -177,14 +177,6 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
     def _generalization_of_structpart(self, other):
         raise NotImplementedError
 
-    @staticmethod
-    def descr_issubclass(descr1, descr2, optimizer):
-        if not descr1.is_object() or not descr2.is_object():
-            return True
-        vtable1 = descr1.get_vtable()
-        vtable2 = descr2.get_vtable()
-        return optimizer._check_subclass(vtable1, vtable2)
-
     def enum_forced_boxes(self, boxes, box, optimizer, force_boxes=False):
         box = optimizer.get_box_replacement(box)
         info = optimizer.getptrinfo(box)
@@ -193,13 +185,12 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
         else:
             assert isinstance(info, AbstractStructPtrInfo)
 
-        for i in range(len(self.fielddescrs)):
+        # The min operation ensures we don't wander off either array, as not all
+        # to make_inputargs have validated their inputs with generate_guards.
+        for i in range(min(len(self.fielddescrs), len(info._fields))):
             state = self.fieldstate[i]
-            descr = self.fielddescrs[i].get_parent_descr()
             if not state:
                 continue
-            if not self.descr_issubclass(info.descr, descr, optimizer.optimizer):
-                raise VirtualStatesCantMatch()
             if state.position > self.position:
                 fieldbox = info._fields[i]
                 state.enum_forced_boxes(boxes, fieldbox, optimizer, force_boxes)

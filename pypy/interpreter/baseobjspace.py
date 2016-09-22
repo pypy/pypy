@@ -1961,12 +1961,10 @@ ObjSpace.ExceptionTable = [
     'NotImplementedError',
     'OSError',
     'OverflowError',
-    'PendingDeprecationWarning',
     'ReferenceError',
     'ResourceWarning',
     'RecursionError',
     'RuntimeError',
-    'RuntimeWarning',
     'StopIteration',
     'SyntaxError',
     'SyntaxWarning',
@@ -1980,10 +1978,12 @@ ObjSpace.ExceptionTable = [
     'UnicodeError',
     'UnicodeTranslateError',
     'UnicodeWarning',
-    'UserWarning',
     'ValueError',
     'Warning',
-    'ZeroDivisionError'
+    'ZeroDivisionError',
+    'RuntimeWarning',
+    'PendingDeprecationWarning',
+    'UserWarning',
 ]
 
 if sys.platform.startswith("win"):

@@ -3,7 +3,7 @@ from rpython.rtyper.lltypesystem import rffi
 from pypy.interpreter.error import OperationError, oefmt, strerror as _strerror, exception_from_saved_errno
 from pypy.interpreter.gateway import unwrap_spec
 from rpython.rtyper.lltypesystem import lltype
-from rpython.rlib.rarithmetic import intmask, r_ulonglong, r_longfloat
+from rpython.rlib.rarithmetic import intmask, r_ulonglong, r_longfloat, widen
 from rpython.rlib.rtime import (TIMEB, c_ftime,
                                 GETTIMEOFDAY_NO_TZ, TIMEVAL,
                                 HAVE_GETTIMEOFDAY, HAVE_FTIME)
@@ -290,12 +290,14 @@ else:
                 if rffi.cast(rffi.LONG, errcode) == 0:
                     if w_info is not None:
                         _setinfo(space, w_info, "gettimeofday()", 1e-6, False, True)
-                    return space.wrap(timeval.c_tv_sec + timeval.c_tv_usec * 1e-6)
+                    return space.wrap(
+                        widen(timeval.c_tv_sec) +
+                        widen(timeval.c_tv_usec) * 1e-6)
         if HAVE_FTIME:
             with lltype.scoped_alloc(TIMEB) as t:
                 c_ftime(t)
-                result = (float(intmask(t.c_time)) +
-                          float(intmask(t.c_millitm)) * 0.001)
+                result = (widen(t.c_time) +
+                          widen(t.c_millitm) * 0.001)
                 if w_info is not None:
                     _setinfo(space, w_info, "ftime()", 1e-3,
                              False, True) 
@@ -535,7 +537,7 @@ def _gettmarg(space, w_tup, allowNone=True):
         if not allowNone:
             raise oefmt(space.w_TypeError, "tuple expected")
         # default to the current local time
-        tt = rffi.r_time_t(int(pytime.time()))
+        tt = rffi.cast(rffi.TIME_T, pytime.time())
         t_ref = lltype.malloc(rffi.TIME_TP.TO, 1, flavor='raw')
         t_ref[0] = tt
         pbuf = c_localtime(t_ref)
@@ -737,7 +739,7 @@ def mktime(space, w_tup):
 
 if HAS_CLOCK_GETTIME:
     def _timespec_to_seconds(timespec):
-        return int(timespec.c_tv_sec) + int(timespec.c_tv_nsec) * 1e-9
+        return widen(timespec.c_tv_sec) + widen(timespec.c_tv_nsec) * 1e-9
 
     @unwrap_spec(clk_id='c_int')
     def clock_gettime(space, clk_id):
@@ -751,8 +753,9 @@ if HAS_CLOCK_GETTIME:
     @unwrap_spec(clk_id='c_int', secs=float)
     def clock_settime(space, clk_id, secs):
         with lltype.scoped_alloc(TIMESPEC) as timespec:
-            frac = math.fmod(secs, 1.0)
-            rffi.setintfield(timespec, 'c_tv_sec', int(secs))
+            integer_secs = rffi.cast(TIMESPEC.c_tv_sec, secs)
+            frac = secs - widen(integer_secs)
+            rffi.setintfield(timespec, 'c_tv_sec', integer_secs)
             rffi.setintfield(timespec, 'c_tv_nsec', int(frac * 1e9))
             ret = c_clock_settime(clk_id, timespec)
             if ret != 0:
@@ -1051,16 +1054,15 @@ def clock(space, w_info=None):
             return win_perf_counter(space, w_info=w_info)
         except ValueError:
             pass
-    value = _clock()
-    # Is this casting correct?
-    if intmask(value) == intmask(rffi.cast(rposix.CLOCK_T, -1)):
+    value = widen(_clock())
+    if value == widen(rffi.cast(rposix.CLOCK_T, -1)):
         raise oefmt(space.w_RuntimeError,
                     "the processor time used is not available or its value"
                     "cannot be represented")
     if w_info is not None:
         _setinfo(space, w_info,
                  "clock()", 1.0 / CLOCKS_PER_SEC, True, False)
-    return space.wrap((1.0 * value) / CLOCKS_PER_SEC)
+    return space.wrap(float(value) / CLOCKS_PER_SEC)
 
 
 def _setinfo(space, w_info, impl, res, mono, adj):

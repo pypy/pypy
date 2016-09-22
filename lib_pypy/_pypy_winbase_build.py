@@ -83,6 +83,7 @@ DWORD WINAPI WaitForSingleObject(HANDLE, DWORD);
 BOOL WINAPI GetExitCodeProcess(HANDLE, LPDWORD);
 BOOL WINAPI TerminateProcess(HANDLE, UINT);
 HANDLE WINAPI GetStdHandle(DWORD);
+DWORD WINAPI GetModuleFileNameW(HANDLE, wchar_t *, DWORD);
 """)
 
 # --------------------

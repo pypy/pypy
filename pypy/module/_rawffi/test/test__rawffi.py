@@ -1126,8 +1126,8 @@ class AppTestFfi:
         a[3] = b'x'
         b = memoryview(a)
         assert len(b) == 10
-        assert b[3] == b'x'
-        b[6] = b'y'
+        assert b[3] == ord(b'x')
+        b[6] = ord(b'y')
         assert a[6] == b'y'
         b[3:5] = b'zt'
         assert a[3] == b'z'
@@ -1135,9 +1135,9 @@ class AppTestFfi:
 
         b = memoryview(a)
         assert len(b) == 10
-        assert b[3] == b'z'
-        b[3] = b'x'
-        assert b[3] == b'x'
+        assert b[3] == ord(b'z')
+        b[3] = ord(b'x')
+        assert b[3] == ord(b'x')
 
     def test_pypy_raw_address(self):
         import _rawffi

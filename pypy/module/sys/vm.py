@@ -242,12 +242,32 @@ def _get_dllhandle(space):
     from rpython.rtyper.lltypesystem import lltype, rffi
     return space.wrap(rffi.cast(lltype.Signed, handle))
 
+getsizeof_missing = """sys.getsizeof() is not implemented on PyPy.
+
+A memory profiler using this function is most likely to give results
+inconsistent with reality on PyPy.  It would be possible to have
+sys.getsizeof() return a number (with enough work), but that may or
+may not represent how much memory the object uses.  It doesn't even
+make really sense to ask how much *one* object uses, in isolation
+with the rest of the system.  For example, instances have maps,
+which are often shared across many instances; in this case the maps
+would probably be ignored by an implementation of sys.getsizeof(),
+but their overhead is important in some cases if they are many
+instances with unique maps.  Conversely, equal strings may share
+their internal string data even if they are different objects---or
+empty containers may share parts of their internals as long as they
+are empty.  Even stranger, some lists create objects as you read
+them; if you try to estimate the size in memory of range(10**6) as
+the sum of all items' size, that operation will by itself create one
+million integer objects that never existed in the first place.
+"""
+
 def getsizeof(space, w_object, w_default=None):
-    """Not implemented on PyPy."""
     if w_default is None:
-        raise oefmt(space.w_TypeError,
-                    "sys.getsizeof() not implemented on PyPy")
+        raise oefmt(space.w_TypeError, getsizeof_missing)
     return w_default
+
+getsizeof.__doc__ = getsizeof_missing
 
 def intern(space, w_str):
     """``Intern'' the given string.  This enters the string in the (global)
