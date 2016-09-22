@@ -314,6 +314,7 @@ class SSLSocket(W_Root):
     def __init__(self, space, w_ctx):
         self.w_ctx = w_ctx
         self.w_socket = None
+        self.w_owner = None
         self.ssl = lltype.nullptr(SSL.TO)
         self.peer_cert = lltype.nullptr(X509.TO)
         self.shutdown_seen_zero = False
@@ -693,13 +694,14 @@ class SSLSocket(W_Root):
         libssl_SSL_set_SSL_CTX(self.ssl, ctx.ctx)
 
     def descr_get_owner(self, space):
-        if self.w_owner:
+        if self.w_owner is not None:
             w_owner = self.w_owner()
             if w_owner:
                 return w_owner
         return space.w_None
 
     def descr_set_owner(self, space, w_owner):
+        assert w_owner is not None
         self.w_owner = weakref.ref(w_owner)
 
 
@@ -1282,9 +1284,9 @@ def _servername_callback(ssl, ad, arg):
     # SSLObject) that will be passed. Otherwise if there's a socket then that
     # will be passed. If both do not exist only then the C-level object is
     # passed.
-    if w_ssl.w_owner:
+    if w_ssl.w_owner is not None:
         w_ssl_socket = w_ssl.w_owner()
-    elif w_ssl.w_socket:
+    elif w_ssl.w_socket is not None:
         w_ssl_socket = w_ssl.w_socket()
     else:
         w_ssl_socket = w_ssl
