@@ -233,7 +233,8 @@ class Cache(object):
                 return self._var_rep(arg)
             return arg
         added_same_as = 0
-        for op in block.operations:
+        for opindex in range(len(block.operations) - block.canraise):
+            op = block.operations[opindex]
             # heap operations
             if op.opname == 'getfield':
                 fieldname = op.args[1].value
