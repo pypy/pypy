@@ -311,7 +311,8 @@ if HAVE_OPENSSL_RAND:
 
 
 class SSLSocket(W_Root):
-    def __init__(self, space):
+    def __init__(self, space, w_ctx):
+        self.w_ctx = w_ctx
         self.w_socket = None
         self.ssl = lltype.nullptr(SSL.TO)
         self.peer_cert = lltype.nullptr(X509.TO)
@@ -691,6 +692,16 @@ class SSLSocket(W_Root):
         self.w_ctx = w_ctx
         libssl_SSL_set_SSL_CTX(self.ssl, ctx.ctx)
 
+    def descr_get_owner(self, space):
+        if self.w_owner:
+            w_owner = self.w_owner()
+            if w_owner:
+                return w_owner
+        return space.w_None
+
+    def descr_set_owner(self, space, w_owner):
+        self.w_owner = weakref.ref(w_owner)
+
 
 SSLSocket.typedef = TypeDef("_ssl._SSLSocket",
     write = interp2app(SSLSocket.write),
@@ -707,6 +718,8 @@ SSLSocket.typedef = TypeDef("_ssl._SSLSocket",
     tls_unique_cb = interp2app(SSLSocket.tls_unique_cb_w),
     context=GetSetProperty(SSLSocket.descr_get_context,
                            SSLSocket.descr_set_context),
+    owner=GetSetProperty(SSLSocket.descr_get_owner,
+                           SSLSocket.descr_set_owner),
 )
 
 def _certificate_to_der(space, certificate):
@@ -999,14 +1012,14 @@ def _get_crl_dp(space, certificate):
             libssl_sk_DIST_POINT_free(dps)
     return space.newtuple(cdp_w[:])
 
-def new_sslobject(space, ctx, w_sock, side, server_hostname):
-    ss = SSLSocket(space)
+def new_sslobject(space, w_ctx, w_sock, side, server_hostname):
+    ss = SSLSocket(space, w_ctx)
 
     sock_fd = space.int_w(space.call_method(w_sock, "fileno"))
     w_timeout = space.call_method(w_sock, "gettimeout")
     has_timeout = not space.is_none(w_timeout)
 
-    ss.ssl = libssl_SSL_new(ctx) # new ssl struct
+    ss.ssl = libssl_SSL_new(w_ctx.ctx) # new ssl struct
     libssl_SSL_set_fd(ss.ssl, sock_fd) # set the socket for SSL
     # The ACCEPT_MOVING_WRITE_BUFFER flag is necessary because the address
     # of a str object may be changed by the garbage collector.
@@ -1261,7 +1274,20 @@ def _servername_callback(ssl, ad, arg):
     index = rffi.cast(lltype.Signed, libssl_SSL_get_app_data(ssl))
     w_ssl = SOCKET_STORAGE.get(index)
     assert isinstance(w_ssl, SSLSocket)
-    w_ssl_socket = w_ssl  # So far. Need to change in 3.3.
+    # The servername callback expects an argument that represents the current
+    # SSL connection and that has a .context attribute that can be changed to
+    # identify the requested hostname. Since the official API is the Python
+    # level API we want to pass the callback a Python level object rather than
+    # a _ssl.SSLSocket instance. If there's an "owner" (typically an
+    # SSLObject) that will be passed. Otherwise if there's a socket then that
+    # will be passed. If both do not exist only then the C-level object is
+    # passed.
+    if w_ssl.w_owner:
+        w_ssl_socket = w_ssl.w_owner()
+    elif w_ssl.w_socket:
+        w_ssl_socket = w_ssl.w_socket()
+    else:
+        w_ssl_socket = w_ssl
     if space.is_none(w_ssl_socket):
         ad[0] = rffi.cast(rffi.INT, SSL_AD_INTERNAL_ERROR)
         return rffi.cast(rffi.INT, SSL_TLSEXT_ERR_ALERT_FATAL)
@@ -1392,7 +1418,7 @@ class SSLContext(W_Root):
                         "server_hostname is not supported by your OpenSSL "
                         "library")
 
-        return new_sslobject(space, self.ctx, w_sock, server_side, hostname)
+        return new_sslobject(space, self, w_sock, server_side, hostname)
 
     def session_stats_w(self, space):
         w_stats = space.newdict()
@@ -1796,9 +1822,8 @@ SSLContext.typedef = TypeDef(
                                SSLContext.descr_set_verify_mode),
     verify_flags=GetSetProperty(SSLContext.descr_get_verify_flags,
                                 SSLContext.descr_set_verify_flags),
-    # XXX: For use by 3.4 ssl.py only
-    #check_hostname=GetSetProperty(SSLContext.descr_get_check_hostname,
-    #                              SSLContext.descr_set_check_hostname),
+    check_hostname=GetSetProperty(SSLContext.descr_get_check_hostname,
+                                  SSLContext.descr_set_check_hostname),
 )
 
 
