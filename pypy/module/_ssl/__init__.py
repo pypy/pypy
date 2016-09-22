@@ -22,6 +22,7 @@ class Module(MixedModule):
 
         '_SSLSocket': 'interp_ssl.SSLSocket',
         '_SSLContext': 'interp_ssl.SSLContext',
+        'MemoryBIO': 'interp_ssl.MemoryBIO',
     }
 
     if sys.platform == 'win32':

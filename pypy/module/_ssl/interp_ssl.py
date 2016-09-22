@@ -1858,3 +1858,10 @@ def get_default_verify_paths(space):
         w_convert_path(space, libssl_X509_get_default_cert_dir_env()),
         w_convert_path(space, libssl_X509_get_default_cert_dir()),
         ])
+
+
+class MemoryBIO(W_Root):
+    pass
+MemoryBIO.typedef = TypeDef(
+    "_ssl.MemoryBIO",
+)
