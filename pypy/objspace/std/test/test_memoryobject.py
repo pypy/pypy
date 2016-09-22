@@ -165,6 +165,11 @@ class AppTestMemoryView:
         slice = m[2:8]
         assert slice.format == 'i'
         assert slice.itemsize == 4
+        assert slice.ndim == 1
+        assert slice.readonly is False
+        assert slice.shape == (6,)
+        assert slice.strides == (4,)
+        assert slice.suboffsets == ()
         assert len(slice) == 6
         assert len(slice.tobytes()) == 24
         assert slice[0] == 2

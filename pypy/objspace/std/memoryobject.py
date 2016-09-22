@@ -292,7 +292,7 @@ class W_MemoryView(W_Root):
         itemsize = self.getitemsize()
         dim = 0
         self.buf = SubBuffer(self.buf, strides[dim] * (start//itemsize), size*step)
-        shape[dim] = size
+        shape[dim] = size//itemsize
         strides[dim] = strides[dim] * step
         self.strides = strides
         self.shape = shape
