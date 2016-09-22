@@ -292,12 +292,12 @@ else:
                         _setinfo(space, w_info, "gettimeofday()", 1e-6, False, True)
                     return space.wrap(
                         widen(timeval.c_tv_sec) +
-                        int(timeval.c_tv_usec) * 1e-6)
+                        widen(timeval.c_tv_usec) * 1e-6)
         if HAVE_FTIME:
             with lltype.scoped_alloc(TIMEB) as t:
                 c_ftime(t)
                 result = (widen(t.c_time) +
-                          int(t.c_millitm) * 0.001)
+                          widen(t.c_millitm) * 0.001)
                 if w_info is not None:
                     _setinfo(space, w_info, "ftime()", 1e-3,
                              False, True) 
@@ -739,7 +739,7 @@ def mktime(space, w_tup):
 
 if HAS_CLOCK_GETTIME:
     def _timespec_to_seconds(timespec):
-        return widen(timespec.c_tv_sec) + int(timespec.c_tv_nsec) * 1e-9
+        return widen(timespec.c_tv_sec) + widen(timespec.c_tv_nsec) * 1e-9
 
     @unwrap_spec(clk_id='c_int')
     def clock_gettime(space, clk_id):
