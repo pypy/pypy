@@ -162,18 +162,19 @@ def GetStdHandle(stdhandle):
         return int(_ffi.cast("intptr_t", res))
 
 def CloseHandle(handle):
-    res = _CloseHandle(handle)
+    res = _kernel32.CloseHandle(_ffi.cast("HANDLE", handle))
 
     if not res:
         raise _WinError()
 
 def GetModuleFileName(module):
-    buf = ctypes.create_unicode_buffer(_MAX_PATH)
-    res = _GetModuleFileNameW(module, buf, _MAX_PATH)
+    buf = _ffi.new("wchar_t[]", _MAX_PATH)
+    res = _kernel32.GetModuleFileNameW(_ffi.cast("HANDLE", module),
+                                       buf, _MAX_PATH)
 
     if not res:
         raise _WinError()
-    return buf.value
+    return _ffi.string(buf)
 
 STD_INPUT_HANDLE = -10
 STD_OUTPUT_HANDLE = -11
