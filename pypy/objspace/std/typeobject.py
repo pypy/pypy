@@ -1107,7 +1107,10 @@ def create_slot(w_self, slot_name, index_next_extra_slot):
         w_self.dict_w[slot_name] = space.wrap(member)
         return True
     else:
-        # never returns False, but that's to minimize the diff with pypy2
+        w_prev = w_self.dict_w[slot_name]
+        if isinstance(w_prev, Member) and w_prev.w_cls is w_self:
+            return False   # special case: duplicate __slots__ entry, ignored
+                           # (e.g. occurs in datetime.py, fwiw)
         raise oefmt(space.w_ValueError,
                     "'%8' in __slots__ conflicts with class variable",
                     slot_name)

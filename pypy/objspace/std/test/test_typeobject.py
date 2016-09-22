@@ -1391,3 +1391,7 @@ class AppTestComparesByIdentity:
         assert not self.compares_by_identity(X)
         del X.__eq__
         assert self.compares_by_identity(X)
+
+    def test_duplicate_slot_name(self):
+        class X:   # does not raise
+            __slots__ = 'a', 'a'
