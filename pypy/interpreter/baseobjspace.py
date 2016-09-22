@@ -1970,7 +1970,7 @@ ObjSpace.ExceptionTable = [
     'UnicodeWarning',
     'ValueError',
     'Warning',
-    'ZeroDivisionError'
+    'ZeroDivisionError',
     'RuntimeWarning',
     'PendingDeprecationWarning',
     'UserWarning',
