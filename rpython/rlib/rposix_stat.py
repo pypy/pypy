@@ -147,13 +147,20 @@ class SomeStatResult(annmodel.SomeObject):
         # (we ignore the extra values here for simplicity and portability)
         def stat_result_reduce(st):
             return (st[0], st[1], st[2], st[3], st[4],
-                    st[5], st[6], st[7], st[8], st[9],
-                    st[-3], st[-2], st[-1])
+                    st[5], st[6], st.st_atime, st.st_mtime, st.st_ctime)
 
         def stat_result_recreate(tup):
-            return make_stat_result(tup[:10] + extra_zeroes + tup[-3:])
+            atime, mtime, ctime = tup[7:]
+            result = tup[:7]
+            result += (int(atime), int(mtime), int(ctime))
+            result += extra_zeroes
+            result += (int((atime - result[7]) * 1e9),
+                       int((mtime - result[8]) * 1e9),
+                       int((ctime - result[9]) * 1e9))
+            return make_stat_result(result)
         s_reduced = annmodel.SomeTuple([lltype_to_annotation(TYPE)
-                                       for name, TYPE in PORTABLE_STAT_FIELDS])
+                                    for name, TYPE in PORTABLE_STAT_FIELDS[:7]]
+                                 + 3 * [lltype_to_annotation(lltype.Float)])
         extra_zeroes = (0,) * (len(STAT_FIELDS) - len(PORTABLE_STAT_FIELDS) - 3)
         return s_reduced, stat_result_reduce, stat_result_recreate
 
