@@ -48,6 +48,7 @@ class VectorLoop(object):
         self.operations = oplist
         self.jump = jump
         assert self.jump.getopnum() == rop.JUMP
+        self.align_operations = []
 
     def setup_vectorization(self):
         for op in self.operations:
@@ -257,6 +258,8 @@ class VectorizingOptimizer(Optimizer):
         state = SchedulerState(self.cpu, graph)
         state.schedule()
 
+        info.extra_before_label = loop.align_operations
+
         return loop.finaloplist(jitcell_token=jitcell_token, reset_label_token=False)
 
     def unroll_loop_iterations(self, info, loop, unroll_count, align_unroll_once=False):
@@ -327,20 +330,7 @@ class VectorizingOptimizer(Optimizer):
         #
         loop.label = new_label
         if align_unroll_once:
-            for op in operations:
-                descr = op.getdescr()
-                if descr:
-                    # the first step of the optimization will overwrite the descr
-                    # with a compile loop version descr
-                    # in the operations to align the loop load/store ops we want the original
-                    # descr saved on the forwarded info
-                    vinfo = copied_op.get_forwarded()
-                    if vinfo:
-                        assert isinstance(vinfo, VectorizationInfo)
-                        descr = vinfo.get_old_descr()
-                        assert descr is not None
-                        op.setdescr(descr)
-            info.extra_same_as += operations
+            loop.align_operations = operations
             loop.operations = unrolled
         else:
             loop.operations = operations + unrolled
@@ -591,10 +581,7 @@ class VectorizingOptimizer(Optimizer):
         if op.getopnum() in (rop.GUARD_TRUE, rop.GUARD_FALSE):
             descr = CompileLoopVersionDescr()
             olddescr = op.getdescr()
-            vinfo = op.get_forwarded()
-            assert isinstance(vinfo, VectorizationInfo)
-            vinfo.set_old_descr(olddescr)
-            if op.getdescr():
+            if olddescr:
                 descr.copy_all_attributes_from(olddescr)
             op.setdescr(descr)
         arglistcopy = loop.label.getarglist_copy()

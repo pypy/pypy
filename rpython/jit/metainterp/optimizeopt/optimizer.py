@@ -33,6 +33,7 @@ class BasicLoopInfo(LoopInfo):
         self.jump_op = jump_op
         self.quasi_immutable_deps = quasi_immutable_deps
         self.extra_same_as = []
+        self.extra_before_label = []
 
     def final(self):
         return True
