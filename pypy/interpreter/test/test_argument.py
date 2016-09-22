@@ -634,6 +634,62 @@ class TestErrorHandling(object):
         else:
             assert 0, "did not raise"
 
+    def test_dont_count_default_arguments(self):
+        space = self.space
+        msg = space.unwrap(space.appexec([], """():
+            def f1(*, c): pass
+            try:
+                f1(4)
+            except TypeError as e:
+                return str(e)
+        """))
+        assert msg == 'f1() takes 0 positional arguments but 1 was given'
+        #
+        msg = space.unwrap(space.appexec([], """():
+            def f1(*, c=8): pass
+            try:
+                f1(4)
+            except TypeError as e:
+                return str(e)
+        """))
+        assert msg == 'f1() takes 0 positional arguments but 1 was given'
+        #
+        msg = space.unwrap(space.appexec([], """():
+            def f1(a, b, *, c): pass
+            try:
+                f1(4, 5, 6)
+            except TypeError as e:
+                return str(e)
+        """))
+        assert msg == 'f1() takes 2 positional arguments but 3 were given'
+        #
+        msg = space.unwrap(space.appexec([], """():
+            def f1(*, c): pass
+            try:
+                f1(6, c=7)
+            except TypeError as e:
+                return str(e)
+        """))
+        assert msg == 'f1() takes 0 positional arguments but 1 positional argument (and 1 keyword-only argument) were given'
+        #
+        msg = space.unwrap(space.appexec([], """():
+            def f1(*, c, d=8, e=9): pass
+            try:
+                f1(6, 2, c=7, d=8)
+            except TypeError as e:
+                return str(e)
+        """))
+        assert msg == 'f1() takes 0 positional arguments but 2 positional arguments (and 2 keyword-only arguments) were given'
+        #
+        msg = space.unwrap(space.appexec([], """():
+            def f1(*, c, d=8, e=9, **kwds): pass
+            try:
+                f1(6, 2, c=7, d=8, morestuff=9)
+            except TypeError as e:
+                return str(e)
+        """))
+        assert msg == 'f1() takes 0 positional arguments but 2 positional arguments (and 2 keyword-only arguments) were given'
+
     def test_unknown_keywords(self):
         space = DummySpace()
         err = ArgErrUnknownKwds(space, 1, ['a', 'b'], [0], None)
