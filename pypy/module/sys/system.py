@@ -5,6 +5,7 @@ import os
 from pypy.objspace.std.complexobject import HASH_IMAG
 from pypy.objspace.std.floatobject import HASH_INF, HASH_NAN
 from pypy.objspace.std.intobject import HASH_MODULUS
+from pypy.objspace.std.bytesobject import HASH_ALGORITHM
 from pypy.interpreter import gateway
 from rpython.rlib import rbigint, rfloat
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -38,6 +39,7 @@ class hash_info(metaclass=structseqtype):
     inf = structseqfield(2)
     nan = structseqfield(3)
     imag = structseqfield(4)
+    algorithm = structseqfield(5)
 
 class thread_info(metaclass=structseqtype):
     name = structseqfield(0)
@@ -80,6 +82,7 @@ def get_hash_info(space):
         space.wrap(HASH_INF),
         space.wrap(HASH_NAN),
         space.wrap(HASH_IMAG),
+        space.wrap(HASH_ALGORITHM),
     ]
     w_hash_info = app.wget(space, "hash_info")
     return space.call_function(w_hash_info, space.newtuple(info_w))

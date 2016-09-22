@@ -3,7 +3,7 @@
 from rpython.rlib.jit import we_are_jitted
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin, newlist_hint,
-    resizelist_hint)
+    resizelist_hint, HASH_ALGORITHM)
 from rpython.rlib.buffer import StringBuffer
 from rpython.rlib.rstring import StringBuilder
 
@@ -15,7 +15,6 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std.stringmethods import StringMethods
 from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT
 from pypy.objspace.std.formatting import mod_format, FORMAT_BYTES
-
 
 class W_AbstractBytesObject(W_Root):
     __slots__ = ()

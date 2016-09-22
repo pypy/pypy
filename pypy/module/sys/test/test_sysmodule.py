@@ -201,6 +201,7 @@ class AppTestAppSysTests:
         assert isinstance(li.inf, int)
         assert isinstance(li.nan, int)
         assert isinstance(li.imag, int)
+        assert isinstance(li.algorithm, str)
 
     def test_sys_exit(self):
         import sys
