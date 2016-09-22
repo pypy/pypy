@@ -306,7 +306,7 @@ class VectorizingOptimizer(Optimizer):
                 # to be adjusted. rd_snapshot stores the live variables
                 # that are needed to resume.
                 if copied_op.is_guard():
-                    self.copy_guard_descr(renamer, copied_op, align_unroll_once and u == 0)
+                    self.copy_guard_descr(renamer, copied_op)
                 #
                 unrolled.append(copied_op)
             #
