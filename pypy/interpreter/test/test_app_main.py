@@ -7,7 +7,7 @@ import sys, os, re, runpy, subprocess
 from rpython.tool.udir import udir
 from contextlib import contextmanager
 from pypy import pypydir
-from pypy.conftest import PYTHON3
+from pypy.conftest import PYTHON3, LOOK_FOR_PYTHON3
 from pypy.interpreter.test.conftest import banner
 from lib_pypy._pypy_interact import irc_header
 
@@ -18,8 +18,8 @@ def get_python3():
     if PYTHON3:
         return PYTHON3
     import py.test
-    py.test.fail("Test requires 'python3' (not found in PATH) or a PYTHON3 "
-                 "environment variable set")
+    py.test.fail("Test requires %r (not found in PATH) or a PYTHON3 "
+                 "environment variable set" % (LOOK_FOR_PYTHON3,))
 
 _counter = 0
 def _get_next_path(ext='.py'):
