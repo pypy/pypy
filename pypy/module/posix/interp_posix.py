@@ -300,14 +300,6 @@ def ftruncate(space, fd, length):
     """Truncate a file (by file descriptor) to a specified length."""
     try:
         os.ftruncate(fd, length)
-    except IOError as e:
-        if not objectmodel.we_are_translated():
-            # Python 2.6 raises an IOError here. Let's not repeat that mistake.
-            w_error = space.call_function(space.w_OSError, space.wrap(e.errno),
-                                          space.wrap(e.strerror),
-                                          space.wrap(e.filename))
-            raise OperationError(space.w_OSError, w_error)
-        raise AssertionError
     except OSError as e:
         raise wrap_oserror(space, e)
 
@@ -2172,7 +2164,7 @@ for name in """FCHDIR FCHMOD FCHMODAT FCHOWN FCHOWNAT FEXECVE FDOPENDIR
         have_functions.append("HAVE_%s" % name)
 if _WIN32:
     have_functions.append("HAVE_MS_WINDOWS")
-   
+
 def get_terminal_size(space, w_fd=None):
     if w_fd is None:
         fd = rfile.RFile(rfile.c_stdout(), close2=(None, None)).fileno()
@@ -2199,14 +2191,14 @@ def get_terminal_size(space, w_fd=None):
             raise oefmt(space.w_OSError, "handle cannot be retrieved")
         elif handle == rwin32.INVALID_HANDLE_VALUE:
             raise rwin32.lastSavedWindowsError()
-        with lltype.scoped_alloc(rwin32.CONSOLE_SCREEN_BUFFER_INFO) as buffer_info: 
+        with lltype.scoped_alloc(rwin32.CONSOLE_SCREEN_BUFFER_INFO) as buffer_info:
             success = rwin32.GetConsoleScreenBufferInfo(handle, buffer_info)
             if not success:
                 raise rwin32.lastSavedWindowsError()
             w_columns = space.wrap(r_int(buffer_info.c_srWindow.c_Right) - r_int(buffer_info.c_srWindow.c_Left) + 1)
             w_lines = space.wrap(r_int(buffer_info.c_srWindow.c_Bottom) - r_int(buffer_info.c_srWindow.c_Top) + 1)
     else:
-        with lltype.scoped_alloc(rposix.WINSIZE) as winsize: 
+        with lltype.scoped_alloc(rposix.WINSIZE) as winsize:
             failed = rposix.c_ioctl_voidp(fd, rposix.TIOCGWINSZ, winsize)
             if failed:
                 raise exception_from_saved_errno(space, space.w_OSError)

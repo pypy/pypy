@@ -168,6 +168,11 @@ class AppTestMemoryView:
         slice = m[2:8]
         assert slice.format == 'i'
         assert slice.itemsize == 4
+        assert slice.ndim == 1
+        assert slice.readonly is False
+        assert slice.shape == (6,)
+        assert slice.strides == (4,)
+        assert slice.suboffsets == ()
         assert len(slice) == 6
         assert len(slice.tobytes()) == 24
         assert slice.nbytes == 24
@@ -330,7 +335,8 @@ class AppTestMemoryViewMockBuffer(object):
         assert view[-1,-1] == 11
         assert view[-3,-4] == 0
 
-        raises(IndexError, "view.__getitem__((2**63-1,0))")
+        raises(IndexError, "view.__getitem__((2**31-1, 0))")
+        raises(IndexError, "view.__getitem__((2**63+1, 0))")
         raises(TypeError, "view.__getitem__((0, 0, 0))")
 
     def test_tuple_indexing_int(self):

@@ -198,7 +198,6 @@ class Arguments(object):
             input_argcount += take
 
         # collect extra positional arguments into the *vararg
-        kwonly_given = 0
         if signature.has_vararg():
             args_left = co_argcount - upfront
             if args_left < 0:  # check required by rpython
@@ -212,9 +211,6 @@ class Arguments(object):
             loc = co_argcount + co_kwonlyargcount
             scope_w[loc] = self.space.newtuple(starargs_w)
         elif avail > co_argcount:
-            for i in range(co_argcount, co_argcount + co_kwonlyargcount):
-                if scope_w[i] is None:
-                    kwonly_given += 1
             too_many_args = True
 
         # if a **kwargs argument is needed, create the dict
@@ -250,16 +246,13 @@ class Arguments(object):
                 else:
                     raise ArgErrUnknownKwds(self.space, num_remainingkwds, keywords,
                                             kwds_mapping, self.keyword_names_w)
-        if too_many_args:
-            raise ArgErrTooMany(signature.num_argnames(),
-                                0 if defaults_w is None else len(defaults_w),
-                                avail, kwonly_given)
 
         # check for missing arguments and fill them from the kwds,
         # or with defaults, if available
         missing_positional = []
         missing_kwonly = []
-        if input_argcount < co_argcount + co_kwonlyargcount:
+        more_filling = (input_argcount < co_argcount + co_kwonlyargcount)
+        if more_filling:
             def_first = co_argcount - (0 if defaults_w is None else len(defaults_w))
             j = 0
             kwds_index = -1
@@ -271,6 +264,16 @@ class Arguments(object):
                     if kwds_index >= 0:
                         scope_w[i] = keywords_w[kwds_index]
 
+        if too_many_args:
+            kwonly_given = 0
+            for i in range(co_argcount, co_argcount + co_kwonlyargcount):
+                if scope_w[i] is not None:
+                    kwonly_given += 1
+            raise ArgErrTooMany(signature.num_argnames(),
+                                0 if defaults_w is None else len(defaults_w),
+                                avail, kwonly_given)
+
+        if more_filling:
             # then, fill the normal arguments with defaults_w (if needed)
             for i in range(input_argcount, co_argcount):
                 if scope_w[i] is not None:
