@@ -65,6 +65,7 @@ class GenerateGuardState(object):
                                                                  descr))
 
 class AbstractVirtualStateInfo(object):
+    _attrs_ = ('position',)
     position = -1
 
     def generate_guards(self, other, op, runtime_op, state):
@@ -133,7 +134,10 @@ class AbstractVirtualStateInfo(object):
 
 
 class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
-    def __init__(self, fielddescrs):
+    _attrs_ = ('typedescr', 'fielddescrs')
+
+    def __init__(self, typedescr, fielddescrs):
+        self.typedescr = typedescr
         self.fielddescrs = fielddescrs
 
     def _generate_guards(self, other, box, runtime_box, state):
@@ -173,9 +177,8 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
                                                    fieldbox,
                                                    fieldbox_runtime, state)
 
-
     def _generalization_of_structpart(self, other):
-        raise NotImplementedError
+        return type(self) is type(other) and self.typedescr is other.typedescr
 
     def enum_forced_boxes(self, boxes, box, optimizer, force_boxes=False):
         box = optimizer.get_box_replacement(box)
@@ -202,30 +205,17 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
 
 
 class VirtualStateInfo(AbstractVirtualStructStateInfo):
-    def is_virtual(self):
-        return True
+    _attrs_ = ('known_class',)
 
-    def __init__(self, known_class, fielddescrs):
-        AbstractVirtualStructStateInfo.__init__(self, fielddescrs)
-        self.known_class = known_class
-
-    def _generalization_of_structpart(self, other):
-        return (isinstance(other, VirtualStateInfo) and
-                self.known_class.same_constant(other.known_class))
-
+    def __init__(self, typedescr, fielddescrs):
+        AbstractVirtualStructStateInfo.__init__(self, typedescr, fielddescrs)
+        self.known_class = ConstInt(typedescr.get_vtable())
 
     def debug_header(self, indent):
         debug_print(indent + 'VirtualStateInfo(%d):' % self.position)
 
 
 class VStructStateInfo(AbstractVirtualStructStateInfo):
-    def __init__(self, typedescr, fielddescrs):
-        AbstractVirtualStructStateInfo.__init__(self, fielddescrs)
-        self.typedescr = typedescr
-
-    def _generalization_of_structpart(self, other):
-        return (isinstance(other, VStructStateInfo) and
-                self.typedescr is other.typedescr)
 
     def debug_header(self, indent):
         debug_print(indent + 'VStructStateInfo(%d):' % self.position)
@@ -371,12 +361,6 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         if info and info.is_constant():
             self.level = LEVEL_CONSTANT
             self.constbox = info.getconst()
-
-    def is_const(self):
-        return self.constbox is not None
-
-    def is_virtual(self):
-        return False
 
     def _generate_guards(self, other, box, runtime_box, state):
         # XXX This will always retrace instead of forcing anything which
@@ -745,11 +729,12 @@ class VirtualStateConstructor(VirtualVisitor):
         return not_virtual(self.optimizer.cpu, box.type,
                            self.optimizer.getinfo(box))
 
-    def visit_virtual(self, descr, fielddescrs):
-        known_class = ConstInt(descr.get_vtable())
-        return VirtualStateInfo(known_class, fielddescrs)
+    def visit_virtual(self, typedescr, fielddescrs):
+        assert typedescr.is_object()
+        return VirtualStateInfo(typedescr, fielddescrs)
 
     def visit_vstruct(self, typedescr, fielddescrs):
+        assert not typedescr.is_object()
         return VStructStateInfo(typedescr, fielddescrs)
 
     def visit_varray(self, arraydescr, clear):

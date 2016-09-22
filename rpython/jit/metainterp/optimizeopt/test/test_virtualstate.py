@@ -29,6 +29,14 @@ class FakeOptimizer(Optimizer):
         self.optearlyforce = None
         self.optimizer = Optimizer
 
+
+class FakeDescr(object):
+    def __init__(self, vtable):
+        self.vtable = vtable
+    def get_vtable(self):
+        return self.vtable
+FakeDescr.value = FakeDescr(42)
+
 class BaseTestGenerateGuards(BaseTest):
     def setup_class(self):
         classbox = self.cpu.ts.cls_of_box(InputArgRef(self.nodeaddr))
@@ -158,7 +166,8 @@ class BaseTestGenerateGuards(BaseTest):
         info1.fieldstate = info2.fieldstate = []
         postest(info1, info2)
 
-        info1, info2 = VirtualStateInfo(ConstInt(42), []), VirtualStateInfo(ConstInt(42), [])
+        fakedescr = FakeDescr.value
+        info1, info2 = VirtualStateInfo(fakedescr, []), VirtualStateInfo(fakedescr, [])
         info1.fieldstate = info2.fieldstate = []
         postest(info1, info2)
 
@@ -222,10 +231,10 @@ class BaseTestGenerateGuards(BaseTest):
             def get_index(self):
                 return 0
         fielddescr = FieldDescr()
-        fakedescr = object()
+        fakedescr = FakeDescr.value
         fldtst(VArrayStateInfo(fakedescr), VArrayStateInfo(fakedescr))
         fldtst(VStructStateInfo(fakedescr, [fielddescr]), VStructStateInfo(fakedescr, [fielddescr]))
-        fldtst(VirtualStateInfo(ConstInt(42), [fielddescr]), VirtualStateInfo(ConstInt(42), [fielddescr]))
+        fldtst(VirtualStateInfo(fakedescr, [fielddescr]), VirtualStateInfo(fakedescr, [fielddescr]))
         fldtst(VArrayStructStateInfo(fakedescr, [fielddescr], 1), VArrayStructStateInfo(fakedescr, [fielddescr], 1))
 
     def test_known_class_generalization(self):
@@ -249,7 +258,7 @@ class BaseTestGenerateGuards(BaseTest):
 
     def test_circular_generalization(self):
         for info in (VArrayStateInfo(42), VStructStateInfo(42, [7]),
-                     VirtualStateInfo(ConstInt(42), [7])):
+                     VirtualStateInfo(FakeDescr.value, [7])):
             info.position = 0
             info.fieldstate = [info]
             self.check_no_guards(info, info)
@@ -568,10 +577,10 @@ class BaseTestGenerateGuards(BaseTest):
         innerinfo2 = not_virtual(self.cpu, 'r', None)
         innerinfo2.position = 1
 
-        info1 = VirtualStateInfo(ConstInt(42), [self.nextdescr])
+        info1 = VirtualStateInfo(FakeDescr.value, [self.nextdescr])
         info1.fieldstate = [innerinfo1]
 
-        info2 = VirtualStateInfo(ConstInt(42), [self.nextdescr])
+        info2 = VirtualStateInfo(FakeDescr.value, [self.nextdescr])
         info2.fieldstate = [innerinfo2]
 
         value1 = info.InstancePtrInfo(self.nodesize, classbox, is_virtual=True)
@@ -660,12 +669,12 @@ class BaseTestGenerateGuards(BaseTest):
     # the below tests don't really have anything to do with guard generation
 
     def test_virtuals_with_equal_fields(self):
-        info1 = VirtualStateInfo(ConstInt(42), [1, 2])
+        info1 = VirtualStateInfo(FakeDescr.value, [1, 2])
         info1.fieldstate = [self.knownclass_info, self.knownclass_info]
         vstate1 = VirtualState([info1])
         assert vstate1.generalization_of(vstate1, FakeOptimizer(self.cpu))
 
-        info2 = VirtualStateInfo(ConstInt(42), [1, 2])
+        info2 = VirtualStateInfo(FakeDescr.value, [1, 2])
         unknown_info1 = not_virtual(self.cpu, 'r',
                                             info.InstancePtrInfo())
         info2.fieldstate = [unknown_info1, unknown_info1]
@@ -674,7 +683,7 @@ class BaseTestGenerateGuards(BaseTest):
         assert not vstate1.generalization_of(vstate2, FakeOptimizer(self.cpu))
         assert vstate2.generalization_of(vstate1, FakeOptimizer(self.cpu))
 
-        info3 = VirtualStateInfo(ConstInt(42), [1, 2])
+        info3 = VirtualStateInfo(FakeDescr.value, [1, 2])
         unknown_info1 = not_virtual(self.cpu, 'r',
                                             info.InstancePtrInfo())
         unknown_info2 = not_virtual(self.cpu, 'r',
@@ -687,7 +696,7 @@ class BaseTestGenerateGuards(BaseTest):
         assert not vstate1.generalization_of(vstate3, FakeOptimizer(self.cpu))
 
     def test_virtuals_with_nonmatching_fields(self):
-        info1 = VirtualStateInfo(ConstInt(42), [1, 2])
+        info1 = VirtualStateInfo(FakeDescr.value, [1, 2])
         classbox = self.cpu.ts.cls_of_box(InputArgRef(self.nodeaddr))
         value = info.InstancePtrInfo(None, classbox)
         knownclass_info = not_virtual(self.cpu, 'r', value)
@@ -695,7 +704,7 @@ class BaseTestGenerateGuards(BaseTest):
         vstate1 = VirtualState([info1])
         assert vstate1.generalization_of(vstate1, FakeOptimizer(self.cpu))
 
-        info2 = VirtualStateInfo(ConstInt(42), [1, 2])
+        info2 = VirtualStateInfo(FakeDescr.value, [1, 2])
         classbox = self.cpu.ts.cls_of_box(InputArgRef(self.node2addr))
         value = info.InstancePtrInfo(None, classbox)
         knownclass_info = not_virtual(self.cpu, 'r', value)
@@ -707,7 +716,7 @@ class BaseTestGenerateGuards(BaseTest):
         assert not vstate1.generalization_of(vstate2, FakeOptimizer(self.cpu))
 
     def test_virtuals_with_nonmatching_descrs(self):
-        info1 = VirtualStateInfo(ConstInt(42), [10, 20])
+        info1 = VirtualStateInfo(FakeDescr.value, [10, 20])
         classbox = self.cpu.ts.cls_of_box(InputArgRef(self.nodeaddr))
         value = info.InstancePtrInfo(None, classbox)
         knownclass_info = not_virtual(self.cpu, 'r', value)
@@ -715,7 +724,7 @@ class BaseTestGenerateGuards(BaseTest):
         vstate1 = VirtualState([info1])
         assert vstate1.generalization_of(vstate1, FakeOptimizer(self.cpu))
 
-        info2 = VirtualStateInfo(ConstInt(42), [1, 2])
+        info2 = VirtualStateInfo(FakeDescr.value, [1, 2])
         classbox = self.cpu.ts.cls_of_box(InputArgRef(self.node2addr))
         value = info.InstancePtrInfo(None, classbox)
         knownclass_info = not_virtual(self.cpu, 'r', value)
@@ -727,7 +736,7 @@ class BaseTestGenerateGuards(BaseTest):
         assert not vstate1.generalization_of(vstate2, FakeOptimizer(self.cpu))
         
     def test_virtuals_with_nonmatching_classes(self):
-        info1 = VirtualStateInfo(ConstInt(42), [1, 2])
+        info1 = VirtualStateInfo(FakeDescr.value, [1, 2])
         classbox = self.cpu.ts.cls_of_box(InputArgRef(self.nodeaddr))
         value = info.InstancePtrInfo(None, classbox)
         knownclass_info = not_virtual(self.cpu, 'r', value)
@@ -735,7 +744,7 @@ class BaseTestGenerateGuards(BaseTest):
         vstate1 = VirtualState([info1])
         assert vstate1.generalization_of(vstate1, FakeOptimizer(self.cpu))
 
-        info2 = VirtualStateInfo(ConstInt(7), [1, 2])
+        info2 = VirtualStateInfo(FakeDescr(7), [1, 2])
         classbox = self.cpu.ts.cls_of_box(InputArgRef(self.node2addr))
         value = info.InstancePtrInfo(None, classbox)
         knownclass_info = not_virtual(self.cpu, 'r', value)
@@ -747,7 +756,7 @@ class BaseTestGenerateGuards(BaseTest):
         assert not vstate1.generalization_of(vstate2, FakeOptimizer(self.cpu))
 
     def test_nonvirtual_is_not_virtual(self):
-        info1 = VirtualStateInfo(ConstInt(42), [1, 2])
+        info1 = VirtualStateInfo(FakeDescr.value, [1, 2])
         classbox = self.cpu.ts.cls_of_box(InputArgRef(self.nodeaddr))
         value = info.InstancePtrInfo(None, classbox)
         knownclass_info = not_virtual(self.cpu, 'r', value)
