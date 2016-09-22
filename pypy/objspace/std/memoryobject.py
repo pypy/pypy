@@ -198,17 +198,17 @@ class W_MemoryView(W_Root):
 
 
     def _start_from_tuple(self, space, w_tuple):
-        from pypy.objspace.std.tupleobject import W_TupleObject
+        from pypy.objspace.std.tupleobject import W_AbstractTupleObject
         start = 0
 
         view = self.buf
         length = space.len_w(w_tuple)
         dim = view.getndim()
         dim = 0
-        assert isinstance(w_tuple, W_TupleObject)
+        assert isinstance(w_tuple, W_AbstractTupleObject)
         while dim < length:
             w_obj = w_tuple.getitem(space, dim)
-            index = w_obj.int_w(space)
+            index = space.getindex_w(w_obj, space.w_IndexError)
             start = self.lookup_dimension(space, start, dim, index)
             dim += 1
         return start

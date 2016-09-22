@@ -323,7 +323,8 @@ class AppTestMemoryViewMockBuffer(object):
         assert view[-1,-1] == 11
         assert view[-3,-4] == 0
 
-        raises(IndexError, "view.__getitem__((2**63-1,0))")
+        raises(IndexError, "view.__getitem__((2**31-1, 0))")
+        raises(IndexError, "view.__getitem__((2**63+1, 0))")
         raises(TypeError, "view.__getitem__((0, 0, 0))")
 
     def test_tuple_indexing_int(self):
