@@ -714,7 +714,7 @@ class CondCallOperation(BaseCallOperation):
     def filter(self, builder):
         if not builder.cpu.supports_cond_call_value and \
            self.opnum == rop.COND_CALL_VALUE_I:
-            raise CannotProduceOperation
+            raise test_random.CannotProduceOperation
 
     def produce_into(self, builder, r):
         fail_subset = builder.subset_of_intvars(r)
