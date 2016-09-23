@@ -121,9 +121,15 @@ class VectorAssemblerMixin(object):
             # the upper elements will be lost if saved to the stack!
             scalar_arg = accum_info.getoriginal()
             assert isinstance(vector_loc, RegLoc)
-            if not isinstance(scalar_loc, RegLoc):
-                scalar_loc = regalloc.force_allocate_reg(scalar_arg)
             assert scalar_arg is not None
+            orig_scalar_loc = scalar_loc
+            if not isinstance(scalar_loc, RegLoc):
+                # scalar loc might live in memory, use scratch register and save it back later
+                if scalar_arg.type == FLOAT:
+                    scalar_loc = X86_64_XMM_SCRATCH_REG
+                else:
+                    scalar_loc = X86_64_SCRATCH_REG
+                self.mov(orig_scalar_loc, scalar_loc)
             if accum_info.accum_operation == '+':
                 self._accum_reduce_sum(scalar_arg, vector_loc, scalar_loc)
             elif accum_info.accum_operation == '*':
@@ -131,16 +137,16 @@ class VectorAssemblerMixin(object):
             else:
                 not_implemented("accum operator %s not implemented" %
                                             (accum_info.accum_operation)) 
+            if scalar_loc is not orig_scalar_loc:
+                self.mov(scalar_loc, orig_scalar_loc)
             accum_info = accum_info.next()
 
     def _accum_reduce_mul(self, arg, accumloc, targetloc):
         scratchloc = X86_64_XMM_SCRATCH_REG
-        self.mov(accumloc, scratchloc)
+        self.mov(accumloc, targetloc)
         # swap the two elements
-        self.mc.SHUFPD_xxi(scratchloc.value, scratchloc.value, 0x01)
-        self.mc.MULSD(accumloc, scratchloc)
-        if accumloc is not targetloc:
-            self.mov(accumloc, targetloc)
+        self.mc.SHUFPD_xxi(targetloc.value, targetloc.value, 0x01)
+        self.mc.MULSD(targetloc, accumloc)
 
     def _accum_reduce_sum(self, arg, accumloc, targetloc):
         # Currently the accumulator can ONLY be the biggest

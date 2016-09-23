@@ -237,7 +237,7 @@ class VectorizingOptimizer(Optimizer):
         self.unroll_count = self.get_unroll_count(vsize)
         align_unroll = self.unroll_count==1 and \
                        self.vector_ext.should_align_unroll
-        self.unroll_loop_iterations(info, loop, self.unroll_count,
+        self.unroll_loop_iterations(loop, self.unroll_count,
                                     align_unroll_once=align_unroll)
 
         # vectorize
@@ -262,7 +262,7 @@ class VectorizingOptimizer(Optimizer):
 
         return loop.finaloplist(jitcell_token=jitcell_token, reset_label_token=False)
 
-    def unroll_loop_iterations(self, info, loop, unroll_count, align_unroll_once=False):
+    def unroll_loop_iterations(self, loop, unroll_count, align_unroll_once=False):
         """ Unroll the loop `unroll_count` times. There can be an additional unroll step
             if alignment might benefit """
         numops = len(loop.operations)
