@@ -261,11 +261,18 @@ class VectorAssembler(object):
             vector_loc = accum_info.location
             # the upper elements will be lost if saved to the stack!
             scalar_arg = accum_info.getoriginal()
+            orig_scalar_loc = scalar_loc
             if not scalar_loc.is_reg():
-                scalar_loc = regalloc.force_allocate_reg(scalar_arg)
+                if scalar_arg.type == FLOAT:
+                    scalar_loc = r.FP_SCRATCH
+                else:
+                    scalar_loc = r.SCRATCH
+                self.regalloc_mov(orig_scalar_loc, scalar_loc)
             assert scalar_arg is not None
             op = accum_info.accum_operation
             self._accum_reduce(op, scalar_arg, vector_loc, scalar_loc)
+            if orig_scalar_loc is not scalar_loc:
+                self.regalloc_mov(scalar_loc, orig_scalar_loc)
             accum_info = accum_info.next()
 
     def _accum_reduce(self, op, arg, accumloc, targetloc):
@@ -291,11 +298,11 @@ class VectorAssembler(object):
             self.mc.load_imm(r.SCRATCH2, PARAM_SAVE_AREA_OFFSET)
             self.mc.stvx(acc, r.SCRATCH2.value, r.SP.value)
             self.mc.load(tgt, r.SP.value, PARAM_SAVE_AREA_OFFSET)
-            self.mc.load(r.SCRATCH.value, r.SP.value, PARAM_SAVE_AREA_OFFSET+8)
+            self.mc.load(r.SCRATCH2.value, r.SP.value, PARAM_SAVE_AREA_OFFSET+8)
             if op == '+':
-                self.mc.add(tgt, tgt, acc)
+                self.mc.add(tgt, tgt, r.SCRATCH2.value)
             elif op == '*':
-                self.mc.mulld(tgt, tgt, acc)
+                self.mc.mulld(tgt, tgt, r.SCRATCH2.value)
             else:
                 not_implemented("sum not implemented")
             return
