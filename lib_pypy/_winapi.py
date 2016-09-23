@@ -139,7 +139,6 @@ def GetStdHandle(stdhandle):
     if not res:
         return None
     else:
-        # note: returns integer, not handle object
         return _handle2int(res)
 
 def CloseHandle(handle):
