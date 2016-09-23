@@ -130,7 +130,10 @@ class VMProf(object):
                 if code is not None:
                     uid = code._vmprof_unique_id
                     if uid != 0:
-                        callback(code, uid, arg)
+                        res = callback(code, uid, arg)
+                        if res != 0:
+                            return res
+            return 0
         CodeClass._vmprof_enum_all_code_objs = enum_all_code_objs
 
     @jit.dont_look_inside

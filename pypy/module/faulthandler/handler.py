@@ -1,19 +1,22 @@
 import os
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rlib.rposix import is_valid_fd
+from rpython.rlib.rarithmetic import widen
+from rpython.rtyper.annlowlevel import llhelper
 
 from pypy.interpreter.error import oefmt, exception_from_saved_errno
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.module.faulthandler import cintf
+from pypy.module.faulthandler import cintf, dumper
 
 
 class Handler(object):
     def __init__(self, space):
+        "NOT_RPYTHON"
         self.space = space
+        dumper.glob.space = space
         self._cleanup_()
 
     def _cleanup_(self):
-        self.is_initialized = False
         self.fatal_error_w_file = None
 
     def check_err(self, p_err):
@@ -28,13 +31,13 @@ class Handler(object):
             if space.is_none(w_file):
                 raise oefmt(space.w_RuntimeError, "sys.stderr is None")
         elif space.isinstance_w(w_file, space.w_int):
-            fd = space.int_w(w_file)
+            fd = space.c_int_w(w_file)
             if fd < 0 or not is_valid_fd(fd):
                 raise oefmt(space.w_ValueError,
                             "file is not a valid file descriptor")
             return fd, None
 
-        fd = space.int_w(space.call_method(w_file, 'fileno'))
+        fd = space.c_int_w(space.call_method(w_file, 'fileno'))
         try:
             space.call_method(w_file, 'flush')
         except OperationError as e:
@@ -45,27 +48,24 @@ class Handler(object):
 
     def enable(self, w_file, all_threads):
         fileno, w_file = self.get_fileno_and_file(w_file)
-        if not self.is_initialized:
-            self.check_err(cintf.pypy_faulthandler_setup())
-            self.is_initialized = True
-
+        #
+        dump_callback = llhelper(cintf.DUMP_CALLBACK, dumper._dump_callback)
+        self.check_err(cintf.pypy_faulthandler_setup(dump_callback))
+        #
         self.fatal_error_w_file = w_file
-        err = cintf.pypy_faulthandler_enable(fileno, all_threads)
-        if err:
-            space = self.space
-            raise exception_from_saved_errno(space, space.w_RuntimeError)
+        self.check_err(cintf.pypy_faulthandler_enable(
+            rffi.cast(rffi.INT, fileno),
+            rffi.cast(rffi.INT, all_threads)))
 
     def disable(self):
         cintf.pypy_faulthandler_disable()
         self.fatal_error_w_file = None
 
     def is_enabled(self):
-        return (self.is_initialized and
-                bool(cintf.pypy_faulthandler_is_enabled()))
+        return bool(widen(cintf.pypy_faulthandler_is_enabled()))
 
     def finish(self):
-        if self.is_initialized:
-            cintf.pypy_faulthandler_teardown()
+        cintf.pypy_faulthandler_teardown()
         self._cleanup_()
 
 

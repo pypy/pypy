@@ -3,21 +3,24 @@
 #include <signal.h>
 #include <assert.h>
 #include <errno.h>
+#include <string.h>
 
 
 typedef struct sigaction _Py_sighandler_t;
 
 typedef struct {
-    int signum;
-    int enabled;
+    const int signum;
+    volatile int enabled;
     const char* name;
     _Py_sighandler_t previous;
-    int all_threads;
 } fault_handler_t;
 
 static struct {
+    int initialized;
     int enabled;
-    int fd, all_threads;
+    volatile int fd, all_threads;
+    volatile void (*dump_traceback)(void);
+    int _current_fd;
 } fatal_error;
 
 static stack_t stack;
@@ -39,11 +42,106 @@ static fault_handler_t faulthandler_handlers[] = {
 static const int faulthandler_nsignals =
     sizeof(faulthandler_handlers) / sizeof(fault_handler_t);
 
+static void
+fh_write(int fd, char *str)
+{
+    (void)write(fd, str, strlen(str));
+}
 
 RPY_EXTERN
-char *pypy_faulthandler_setup(void)
+void pypy_faulthandler_write(RPyString *s)
 {
+    (void)write(fatal_error._current_fd,
+                _RPyString_AsString(s), RPyString_Size(s));
+}
+
+RPY_EXTERN
+void pypy_faulthandler_write_int(long x)
+{
+    char buf[32];
+    int count = sprintf(buf, "%ld", x);
+    (void)write(fatal_error._current_fd, buf, count);
+}
+
+
+static void
+faulthandler_dump_traceback(int fd, int all_threads)
+{
+    static volatile int reentrant = 0;
+
+    if (reentrant)
+        return;
+    reentrant = 1;
+    fatal_error._current_fd = fd;
+
+    /* XXX 'all_threads' ignored */
+    if (fatal_error.dump_traceback)
+        fatal_error.dump_traceback();
+
+    reentrant = 0;
+}
+
+
+/* Handler for SIGSEGV, SIGFPE, SIGABRT, SIGBUS and SIGILL signals.
+
+   Display the current Python traceback, restore the previous handler and call
+   the previous handler.
+
+   On Windows, don't explicitly call the previous handler, because the Windows
+   signal handler would not be called (for an unknown reason). The execution of
+   the program continues at faulthandler_fatal_error() exit, but the same
+   instruction will raise the same fault (signal), and so the previous handler
+   will be called.
+
+   This function is signal-safe and should only call signal-safe functions. */
+
+static void
+faulthandler_fatal_error(int signum)
+{
+    int fd = fatal_error.fd;
+    int i;
+    fault_handler_t *handler = NULL;
+    int save_errno = errno;
+
+    for (i = 0; i < faulthandler_nsignals; i++) {
+        handler = &faulthandler_handlers[i];
+        if (handler->signum == signum)
+            break;
+    }
+
+    /* restore the previous handler */
+    if (handler->enabled) {
+        (void)sigaction(signum, &handler->previous, NULL);
+        handler->enabled = 0;
+    }
+
+    fh_write(fd, "Fatal Python error: ");
+    fh_write(fd, handler->name);
+    fh_write(fd, "\n\n");
+
+    faulthandler_dump_traceback(fd, fatal_error.all_threads);
+
+    errno = save_errno;
+#ifdef MS_WINDOWS
+    if (signum == SIGSEGV) {
+        /* don't explicitly call the previous handler for SIGSEGV in this signal
+           handler, because the Windows signal handler would not be called */
+        return;
+    }
+#endif
+    /* call the previous signal handler: it is called immediately if we use
+       sigaction() thanks to SA_NODEFER flag, otherwise it is deferred */
+    raise(signum);
+}
+
+
+RPY_EXTERN
+char *pypy_faulthandler_setup(void dump_callback(void))
+{
+    if (fatal_error.initialized)
+        return;
     assert(!fatal_error.enabled);
+    fatal_error.dump_callback = dump_callback;
 
     /* Try to allocate an alternate stack for faulthandler() signal handler to
      * be able to allocate memory on the stack, even on a stack overflow. If it
@@ -58,26 +156,32 @@ char *pypy_faulthandler_setup(void)
             stack.ss_sp = NULL;
         }
     }
+
+    fatal_error.fd = -1;
+    fatal_error.initialized = 1;
     return NULL;
 }
 
 RPY_EXTERN
 void pypy_faulthandler_teardown(void)
 {
-    pypy_faulthandler_disable();
-    free(stack.ss_sp);
-    stack.ss_sp = NULL;
+    if (fatal_error.initialized) {
+        pypy_faulthandler_disable();
+        fatal_error.initialized = 0;
+        free(stack.ss_sp);
+        stack.ss_sp = NULL;
+    }
 }
 
 RPY_EXTERN
-int pypy_faulthandler_enable(int fd, int all_threads)
+char *pypy_faulthandler_enable(int fd, int all_threads)
 {
+    /* Install the handler for fatal signals, faulthandler_fatal_error(). */
+    int i;
     fatal_error.fd = fd;
     fatal_error.all_threads = all_threads;
 
     if (!fatal_error.enabled) {
-        int i;
-
         fatal_error.enabled = 1;
 
         for (i = 0; i < faulthandler_nsignals; i++) {
@@ -97,20 +201,19 @@ int pypy_faulthandler_enable(int fd, int all_threads)
             }
             err = sigaction(handler->signum, &action, &handler->previous);
             if (err) {
-                return -1;
+                return strerror(errno);
             }
             handler->enabled = 1;
         }
     }
-    return 0;
+    return NULL;
 }
 
 RPY_EXTERN
 void pypy_faulthandler_disable(void)
 {
+    int i;
     if (fatal_error.enabled) {
-        int i;
-
         fatal_error.enabled = 0;
         for (i = 0; i < faulthandler_nsignals; i++) {
             fault_handler_t *handler = &faulthandler_handlers[i];
@@ -120,6 +223,7 @@ void pypy_faulthandler_disable(void)
             handler->enabled = 0;
         }
     }
+    fatal_error.fd = -1;
 }
 
 RPY_EXTERN
