@@ -63,8 +63,6 @@ def setup_directory_structure(cls):
                     test_reload = "def test():\n    raise ValueError\n",
                     infinite_reload = "import infinite_reload, imp; imp.reload(infinite_reload)",
                     del_sys_module = "import sys\ndel sys.modules['del_sys_module']\n",
-                    _md5 = "hello_world = 42\n",
-                    _pypyjson = "hello_world = 42\n",
                     gc = "should_never_be_seen = 42\n",
                     )
     root.ensure("packagenamespace", dir=1)    # empty, no __init__.py
@@ -158,7 +156,7 @@ def _setup(cls):
 
 def _setup_path(space, path):
     return space.appexec([space.wrap(path)], """
-        (dn): 
+        (dn):
             import sys
             path = list(sys.path)
             sys.path.insert(0, dn)
@@ -660,52 +658,6 @@ class AppTestImport(BaseImportTest):
                                      ) == 'a/b/c.py'
         raises(ValueError, imp.source_from_cache, 'a/b/c.py')
 
-    def test_shadow_builtin(self):
-        if self.runappdirect: skip("hard to test: module is already imported")
-        # 'import gc' is supposed to always find the built-in module;
-        # like CPython, it is a built-in module, so it shadows everything,
-        # even though there is a gc.py.
-        import sys
-        assert 'gc' not in sys.modules
-        import gc
-        assert not hasattr(gc, 'should_never_be_seen')
-        assert '(built-in)' in repr(gc)
-        del sys.modules['gc']
-
-    def test_shadow_extension_1(self):
-        if not self.runappdirect:
-            skip("I don't understand why it fails, but it works in -A "
-                 "on top of a translated PyPy.  Good enough...")
-        # 'import _pypyjson' is supposed to find _pypyjson.py if there is
-        # one in sys.path.
-        import sys
-        assert '_pypyjson' not in sys.modules
-        try:
-            import _pypyjson
-            assert hasattr(_pypyjson, 'hello_world')
-            assert '(built-in)' not in repr(_pypyjson)
-        finally:
-            sys.modules.pop('_pypyjson', None)
-
-    def test_shadow_extension_2(self):
-        if self.runappdirect: skip("hard to test: module is already imported")
-        # 'import _md5' is supposed to find the built-in module even
-        # if there is also one in sys.path as long as it is *after* the
-        # special entry '.../lib_pypy/__extensions__'.  (Note that for now
-        # there is one in lib_pypy/_md5.py, which should not be seen
-        # either; hence the (built-in) test below.)
-        import sys
-        assert '_md5' not in sys.modules
-        sys.path.append(sys.path.pop(0))
-        try:
-            import _md5
-            assert not hasattr(_md5, 'hello_world')
-            assert hasattr(_md5, 'md5')
-            assert '(built-in)' in repr(_md5)
-        finally:
-            sys.path.insert(0, sys.path.pop())
-            sys.modules.pop('_md5', None)
-
     def test_invalid_pathname(self):
         skip("This test fails on CPython 3.3, but passes on CPython 3.4+")
         import imp
@@ -993,11 +945,11 @@ class TestPycStuff:
         assert s.no_nul
 
 
-def test_PYTHONPATH_takes_precedence(space): 
+def test_PYTHONPATH_takes_precedence(space):
     if sys.platform == "win32":
         py.test.skip("unresolved issues with win32 shell quoting rules")
-    from pypy.interpreter.test.test_zpy import pypypath 
-    extrapath = udir.ensure("pythonpath", dir=1) 
+    from pypy.interpreter.test.test_zpy import pypypath
+    extrapath = udir.ensure("pythonpath", dir=1)
     extrapath.join("sched.py").write("print(42)\n")
     old = os.environ.get('PYTHONPATH', None)
     oldlang = os.environ.pop('LANG', None)

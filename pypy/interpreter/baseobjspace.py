@@ -558,16 +558,6 @@ class ObjSpace(object):
         'parser', 'fcntl', '_codecs', 'binascii'
     ]
 
-    # These modules are treated like CPython treats built-in modules,
-    # i.e. they always shadow any xx.py.  The other modules are treated
-    # like CPython treats extension modules, and are loaded in sys.path
-    # order by the fake entry '.../lib_pypy/__extensions__'.
-    MODULES_THAT_ALWAYS_SHADOW = dict.fromkeys([
-        '__builtin__', '__pypy__', '_ast', '_codecs', '_sre', '_warnings',
-        '_weakref', 'errno', '__exceptions__', 'gc', 'imp', 'marshal',
-        'posix', 'nt', 'pwd', 'signal', 'sys', 'thread', 'zipimport',
-    ], None)
-
     def make_builtins(self):
         "NOT_RPYTHON: only for initializing the space."
 
