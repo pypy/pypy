@@ -965,17 +965,19 @@ class VirtualTests:
         self.check_aborted_count(0)
         self.check_target_token_count(4)
 
-    def test_avoid_preamble(self):
+    def test_avoid_preamble_1(self):
         driver = JitDriver(greens=[], reds=['i', 'val'])
         class X(object):
+            _value_class_ = True
             def __init__(self, v):
                 self.v = v
 
+        # A mutable cell to prevent the JIT from inferring that the non-virtual
+        # object is a constant.
         class Box(object):
             def __init__(self, v):
                 self.unbox = v
 
-        mask = -2
         const = Box(X(5))
         def f():
             # Prevent all retracing of side exits. Ensures that the unroll
@@ -1005,6 +1007,51 @@ class VirtualTests:
         self.check_resops(jump=3, label=2, new_with_vtable=2)
         self.check_target_token_count(2)
         self.check_trace_count(3)
+
+    def test_avoid_preamble_2(self):
+        driver = JitDriver(greens=[], reds=['i', 'val'])
+        class X(object):
+            _value_class_ = True
+            def __init__(self, v):
+                self.v = v
+
+        # A mutable cell to prevent the JIT from inferring that the non-virtual
+        # object is a constant.
+        class Box(object):
+            def __init__(self, v):
+                self.unbox = v
+
+        const = Box(X(5))
+        def f():
+            # Prevent all retracing of side exits. Ensures that the unroll
+            # optimizer will attempt to jump to either the preamble or loop.
+            set_param(driver, 'retrace_limit', -1)
+            set_param(driver, 'threshold', 1)
+            val   = X(0)
+            i     = 0
+            const.unbox = X(5)
+            while i < 17:
+                driver.can_enter_jit(i=i, val=val)
+                driver.jit_merge_point(i=i, val=val)
+                # Logical & rather than comparison to confuse range analysis.
+                # Test only succeeds on the first 2 iterations
+                if i & -2 == 0:
+                    val = X(i)
+                else:
+                    val = const.unbox
+                i += 1
+            return 0
+
+        self.meta_interp(f, [])
+
+        # With retracing disable, there will be one optimized loop expecting a
+        # virtual X object. The side exit in this case will contain a non-virtual
+        # value class, which should be unpacked into the
+
+        # self.check_resops(jump=3, label=2, new_with_vtable=2)
+        # self.check_target_token_count(2)
+        # self.check_trace_count(3)
+
 
     def test_conflated_virtual_states(self):
         # All cases are covered when forcing one component of the virtual state
