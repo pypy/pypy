@@ -22,7 +22,10 @@ def _WinError():
     code, message = _ffi.getwinerror()
     raise WindowsError(code, message)
 
-_INVALID_HANDLE_VALUE = _ffi.cast("HANDLE", -1)
+def _int2handle(val):
+    return _ffi.cast("HANDLE", val)
+
+_INVALID_HANDLE_VALUE = _int2handle(-1)
 
 class _handle(object):
     def __init__(self, c_handle):
@@ -70,9 +73,9 @@ def DuplicateHandle(source_process, source, target_process, access, inherit, opt
     target = _ffi.new("HANDLE[1]")
 
     res = _kernel32.DuplicateHandle(
-        _ffi.cast("HANDLE", source_process),
-        _ffi.cast("HANDLE", source),
-        _ffi.cast("HANDLE", target_process),
+        _int2handle(source_process),
+        _int2handle(source),
+        _int2handle(target_process),
         target, access, inherit, options)
 
     if not res:
@@ -120,12 +123,14 @@ def CreateProcess(name, command_line, process_attr, thread_attr,
     if not res:
         raise _WinError()
 
-    return _handle(pi.hProcess), _handle(pi.hThread), pi.dwProcessId, pi.dwThreadId
+    return (_handle(pi.hProcess),
+            _handle(pi.hThread),
+            pi.dwProcessId,
+            pi.dwThreadId)
 
 def WaitForSingleObject(handle, milliseconds):
     # CPython: the first argument is expected to be an integer.
-    res = _kernel32.WaitForSingleObject(_ffi.cast("HANDLE", handle),
-                                        milliseconds)
+    res = _kernel32.WaitForSingleObject(_int2handle(handle), milliseconds)
     if res < 0:
         raise _WinError()
 
@@ -135,7 +140,7 @@ def GetExitCodeProcess(handle):
     # CPython: the first argument is expected to be an integer.
     code = _ffi.new("DWORD[1]")
 
-    res = _kernel32.GetExitCodeProcess(_ffi.cast("HANDLE", handle), code)
+    res = _kernel32.GetExitCodeProcess(_int2handle(handle), code)
 
     if not res:
         raise _WinError()
@@ -145,7 +150,7 @@ def GetExitCodeProcess(handle):
 def TerminateProcess(handle, exitcode):
     # CPython: the first argument is expected to be an integer.
     # The second argument is silently wrapped in a UINT.
-    res = _kernel32.TerminateProcess(_ffi.cast("HANDLE", handle),
+    res = _kernel32.TerminateProcess(_int2handle(handle),
                                      _ffi.cast("UINT", exitcode))
 
     if not res:
