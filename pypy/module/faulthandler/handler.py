@@ -80,11 +80,10 @@ def startup(space):
         if not space.contains(w_options, space.wrap('faulthandler')):
             return
     #
-    # Like CPython.  Why not just call enable(space)?  Maybe the goal is
-    # to let the user override the 'faulthandler' module.  Maybe someone
+    # Like CPython.  Why not just call enable(space)?  Maybe someone
     # mis-uses ``"faulthandler" in sys.modules'' as a way to check if it
     # was started by checking if it was imported at all.
-    space.appexec([], """
+    space.appexec([], """():
         import faulthandler
         faulthandler.enable()
     """)
