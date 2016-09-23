@@ -37,3 +37,8 @@ def enable(fileno, interval):
 
 def disable():
     _get_vmprof().disable()
+
+@specialize.arg(0)
+def enum_all_code_objs(CodeClass, callback, arg):
+    assert _was_registered(CodeClass)
+    CodeClass._vmprof_enum_all_code_objs(callback, arg)

@@ -6,7 +6,7 @@ class TestFaultHandler:
 
 class AppTestFaultHandler:
     spaceconfig = {
-        "usemodules": ["faulthandler"]
+        "usemodules": ["faulthandler", "_vmprof"]
     }
 
     def test_enable(self):
