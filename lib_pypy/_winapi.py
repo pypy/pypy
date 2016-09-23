@@ -25,35 +25,10 @@ def _WinError():
 def _int2handle(val):
     return _ffi.cast("HANDLE", val)
 
+def _handle2int(handle):
+    return int(_ffi.cast("intptr_t", handle))
+
 _INVALID_HANDLE_VALUE = _int2handle(-1)
-
-class _handle(object):
-    def __init__(self, c_handle):
-        # 'c_handle' is a cffi cdata of type HANDLE, which is basically 'void *'
-        self.c_handle = c_handle
-        if int(self) != -1:
-            self.c_handle = _ffi.gc(self.c_handle, _kernel32.CloseHandle)
-
-    def __int__(self):
-        return int(_ffi.cast("intptr_t", self.c_handle))
-
-    def __repr__(self):
-        return '<_subprocess.handle %d at 0x%x>' % (int(self), id(self))
-
-    def Detach(self):
-        h = int(self)
-        if h != -1:
-            c_handle = self.c_handle
-            self.c_handle = _INVALID_HANDLE_VALUE
-            _ffi.gc(c_handle, None)
-        return h
-
-    def Close(self):
-        if int(self) != -1:
-            c_handle = self.c_handle
-            self.c_handle = _INVALID_HANDLE_VALUE
-            _ffi.gc(c_handle, None)
-            _kernel32.CloseHandle(c_handle)
 
 def CreatePipe(attributes, size):
     handles = _ffi.new("HANDLE[2]")
@@ -63,10 +38,10 @@ def CreatePipe(attributes, size):
     if not res:
         raise _WinError()
 
-    return _handle(handles[0]), _handle(handles[1])
+    return _handle2int(handles[0]), _handle2int(handles[1])
 
 def GetCurrentProcess():
-    return _handle(_kernel32.GetCurrentProcess())
+    return _handle2int(_kernel32.GetCurrentProcess())
 
 def DuplicateHandle(source_process, source, target_process, access, inherit, options=0):
     # CPython: the first three arguments are expected to be integers
@@ -81,7 +56,7 @@ def DuplicateHandle(source_process, source, target_process, access, inherit, opt
     if not res:
         raise _WinError()
 
-    return _handle(target[0])
+    return _handle2int(target[0])
 
 def _z(input):
     if input is None:
@@ -97,13 +72,14 @@ def CreateProcess(name, command_line, process_attr, thread_attr,
     if startup_info is not None:
         si.dwFlags = startup_info.dwFlags
         si.wShowWindow = startup_info.wShowWindow
-        # CPython: these three handles are expected to be _handle objects
+        # CPython: these three handles are expected to be
+        # subprocess.Handle (int) objects
         if startup_info.hStdInput:
-            si.hStdInput = startup_info.hStdInput.c_handle
+            si.hStdInput = _int2handle(startup_info.hStdInput)
         if startup_info.hStdOutput:
-            si.hStdOutput = startup_info.hStdOutput.c_handle
+            si.hStdOutput = _int2handle(startup_info.hStdOutput)
         if startup_info.hStdError:
-            si.hStdError = startup_info.hStdError.c_handle
+            si.hStdError = _int2handle(startup_info.hStdError)
 
     pi = _ffi.new("PROCESS_INFORMATION *")
     flags |= CREATE_UNICODE_ENVIRONMENT
@@ -123,8 +99,8 @@ def CreateProcess(name, command_line, process_attr, thread_attr,
     if not res:
         raise _WinError()
 
-    return (_handle(pi.hProcess),
-            _handle(pi.hThread),
+    return (_handle2int(pi.hProcess),
+            _handle2int(pi.hThread),
             pi.dwProcessId,
             pi.dwThreadId)
 
@@ -164,18 +140,17 @@ def GetStdHandle(stdhandle):
         return None
     else:
         # note: returns integer, not handle object
-        return int(_ffi.cast("intptr_t", res))
+        return _handle2int(res)
 
 def CloseHandle(handle):
-    res = _kernel32.CloseHandle(_ffi.cast("HANDLE", handle))
+    res = _kernel32.CloseHandle(_int2handle(handle))
 
     if not res:
         raise _WinError()
 
 def GetModuleFileName(module):
     buf = _ffi.new("wchar_t[]", _MAX_PATH)
-    res = _kernel32.GetModuleFileNameW(_ffi.cast("HANDLE", module),
-                                       buf, _MAX_PATH)
+    res = _kernel32.GetModuleFileNameW(_int2handle(module), buf, _MAX_PATH)
 
     if not res:
         raise _WinError()
