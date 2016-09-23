@@ -54,11 +54,14 @@ class AppTestImpModule:
         finally:
             del sys.path[0]
 
-    def test_load_dynamic(self):
-        import imp
-        raises(ImportError, imp.load_dynamic, 'foo', 'bar')
-        raises(ImportError, imp.load_dynamic, 'foo', 'bar',
-               open(self.file_module))
+    def test_load_dynamic_error(self):
+        import _imp
+        excinfo = raises(ImportError, _imp.load_dynamic, 'foo', 'bar')
+        assert excinfo.value.name == 'foo'
+        assert 'bar' in excinfo.value.path
+        # Note: On CPython, the behavior changes slightly if a 3rd argument is
+        # passed in, whose value is ignored. We don't implement that.
+        #raises(IOError, _imp.load_dynamic, 'foo', 'bar', 42)
 
     def test_suffixes(self):
         import imp
