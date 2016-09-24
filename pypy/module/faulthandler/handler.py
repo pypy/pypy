@@ -124,3 +124,12 @@ def dump_traceback(space, w_file=None, all_threads=0):
    """dump the traceback of the current thread into file
    including all threads if all_threads is True"""
    space.fromcache(Handler).dump_traceback(w_file, all_threads)
+
+# for tests...
+
+@unwrap_spec(release_gil=bool)
+def read_null(space, release_gil):
+    if release_gil:
+        cintf.pypy_faulthandler_read_null_releasegil()
+    else:
+        cintf.pypy_faulthandler_read_null()

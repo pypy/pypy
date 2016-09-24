@@ -12,7 +12,7 @@ class Module(MixedModule):
 #
         'dump_traceback': 'handler.dump_traceback',
 #
-#        '_read_null': 'interp_faulthandler.read_null',
+        '_read_null': 'handler.read_null',
 #        '_sigsegv': 'interp_faulthandler.sigsegv',
 #        '_sigfpe': 'interp_faulthandler.sigfpe',
 #        '_sigabrt': 'interp_faulthandler.sigabrt',

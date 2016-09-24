@@ -40,3 +40,12 @@ pypy_faulthandler_write_int = direct_llexternal(
 
 pypy_faulthandler_dump_traceback = direct_llexternal(
     'pypy_faulthandler_dump_traceback', [rffi.INT, rffi.INT], lltype.Void)
+
+# for tests...
+
+pypy_faulthandler_read_null = direct_llexternal(
+    'pypy_faulthandler_read_null', [], lltype.Void)
+
+pypy_faulthandler_read_null_releasegil = direct_llexternal(
+    'pypy_faulthandler_read_null', [], lltype.Void,
+    _nowrapper=False, releasegil=True)

@@ -113,6 +113,7 @@ faulthandler_fatal_error(int signum)
         if (handler->signum == signum)
             break;
     }
+    /* If not found, we use the SIGSEGV handler (the last one in the list) */
 
     /* restore the previous handler */
     if (handler->enabled) {
@@ -173,8 +174,12 @@ void pypy_faulthandler_teardown(void)
     if (fatal_error.initialized) {
         pypy_faulthandler_disable();
         fatal_error.initialized = 0;
-        free(stack.ss_sp);
-        stack.ss_sp = NULL;
+        if (stack.ss_sp) {
+            stack.ss_flags = SS_DISABLE;
+            sigaltstack(&stack, NULL);
+            free(stack.ss_sp);
+            stack.ss_sp = NULL;
+        }
     }
 }
 
@@ -238,18 +243,18 @@ int pypy_faulthandler_is_enabled(void)
 }
 
 
-#if 0
-int
-pypy_faulthandler_read_null(void)
+/* for tests... */
+
+RPY_EXTERN
+int pypy_faulthandler_read_null(void)
 {
-    volatile int *x;
-    volatile int y;
+    int *volatile x;
 
     x = NULL;
-    y = *x;
-    return y;
+    return *x;
 }
 
+#if 0
 void
 pypy_faulthandler_sigsegv(void)
 {

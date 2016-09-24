@@ -41,7 +41,7 @@ def dump_code(pycode, this_code_id, search_code_id):
     _dump(pycode.co_filename)
     _dump('" in ')
     _dump(pycode.co_name)
-    _dump(" starting at line ")
+    _dump(", from line ")
     _dump_int(pycode.co_firstlineno)
     _dump("\n")
     return 1
