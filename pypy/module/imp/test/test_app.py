@@ -60,10 +60,12 @@ class AppTestImpModule:
         import _imp
         excinfo = raises(ImportError, _imp.load_dynamic, 'foo', 'bar')
         assert excinfo.value.name == 'foo'
-        assert 'bar' in excinfo.value.path
+        assert excinfo.value.path == './bar'
         # Note: On CPython, the behavior changes slightly if a 3rd argument is
         # passed in, whose value is ignored. We don't implement that.
         #raises(IOError, _imp.load_dynamic, 'foo', 'bar', 42)
+
+        raises(TypeError, _imp.load_dynamic, b'foo', 'bar')
 
     def test_suffixes(self):
         import imp
