@@ -58,7 +58,7 @@ def load_dynamic(space, modulename, filename, w_file=None):
     from pypy.module.cpyext.api import load_extension_module
     # extension names must be valid C identifiers
     modulename = modulename.encode('ascii')
-    load_extension_module(space, filename, modulename.encode('ascii'))
+    load_extension_module(space, filename, modulename)
 
     return importing.check_sys_modules_w(space, modulename)
 

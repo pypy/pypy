@@ -1556,11 +1556,11 @@ def load_extension_module(space, path, name):
             look_for += ' or ' + also_look_for
         else:
             look_for = also_look_for
-    w_msg = u"function %s not found in library %s" % (
+    msg = u"function %s not found in library %s" % (
         unicode(look_for), space.unicode_w(space.wrap_fsdecoded(path)))
     w_name = space.newunicode(name.decode('ascii'))
     w_path = space.wrap_fsdecoded(path)
-    raise_import_error(space, w_msg, w_name, w_path)
+    raise_import_error(space, space.newunicode(msg), w_name, w_path)
 
 
 initfunctype = lltype.Ptr(lltype.FuncType([], PyObject))
