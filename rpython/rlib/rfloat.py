@@ -25,7 +25,7 @@ del float_constants, int_constants, const
 
 globals().update(rffi_platform.configure(CConfig))
 
-INVALID_MSG = "invalid literal for float()"
+INVALID_MSG = "could not convert string to float"
 
 def string_to_float(s):
     """

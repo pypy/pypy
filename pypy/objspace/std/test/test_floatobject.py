@@ -479,6 +479,45 @@ class AppTestAppFloatTest:
         assert hash(-1.0) == -2
         assert (-1.0).__hash__() == -2
 
+    def test_float_from_dict(self):
+        try:
+            float({})
+        except TypeError as e:
+            assert "not 'dict'" in str(e)
+        else:
+            assert False, 'did not raise'
+
+    def test_non_numeric_input_types(self):
+        # Test possible non-numeric types for the argument x, including
+        # subclasses of the explicitly documented accepted types.
+        class CustomStr(str): pass
+        class CustomBytes(bytes): pass
+        class CustomByteArray(bytearray): pass
+
+        factories = [
+            bytes,
+            bytearray,
+            lambda b: CustomStr(b.decode()),
+            CustomBytes,
+            CustomByteArray,
+            memoryview,
+        ]
+        try:
+            from array import array
+        except ImportError:
+            pass
+        else:
+            factories.append(lambda b: array('B', b))
+
+        for f in factories:
+            x = f(b" 3.14  ")
+            assert float(x) == 3.14
+            try:
+                float(f(b'A' * 0x10))
+            except ValueError as e:
+                assert "could not convert" in str(e)
+            else:
+                assert False, 'did not raise'
 
 class AppTestFloatHex:
     spaceconfig = {
