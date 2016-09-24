@@ -5,7 +5,8 @@ from rpython.rlib.rarithmetic import widen
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.annlowlevel import llhelper
 
-from pypy.interpreter.error import oefmt, exception_from_saved_errno
+from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import exception_from_saved_errno
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.module.faulthandler import cintf, dumper
 
