@@ -423,7 +423,7 @@ class ObjSpace(object):
         self.threadlocals.enter_thread(self)
 
         # Set up faulthandler even if not imported explicitly
-        if self.config.objspace.usemodule.faulthandler:
+        if self.config.objspace.usemodules.faulthandler:
             from pypy.module.faulthandler import handler
             handler.startup(self)
 
@@ -452,7 +452,7 @@ class ObjSpace(object):
                 w_mod.shutdown(self)
         #
         # Shut down faulthandler
-        if self.config.objspace.usemodule.faulthandler:
+        if self.config.objspace.usemodules.faulthandler:
             from pypy.module.faulthandler import handler
             handler.finish(self)
 

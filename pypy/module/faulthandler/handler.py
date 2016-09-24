@@ -2,6 +2,7 @@ import os
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rlib.rposix import is_valid_fd
 from rpython.rlib.rarithmetic import widen
+from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.annlowlevel import llhelper
 
 from pypy.interpreter.error import oefmt, exception_from_saved_errno
@@ -13,7 +14,6 @@ class Handler(object):
     def __init__(self, space):
         "NOT_RPYTHON"
         self.space = space
-        dumper.glob.space = space
         self._cleanup_()
 
     def _cleanup_(self):
@@ -64,6 +64,17 @@ class Handler(object):
     def is_enabled(self):
         return bool(widen(cintf.pypy_faulthandler_is_enabled()))
 
+    def dump_traceback(self, w_file, all_threads):
+        fileno, w_file = self.get_fileno_and_file(w_file)
+        #
+        dump_callback = llhelper(cintf.DUMP_CALLBACK, dumper._dump_callback)
+        self.check_err(cintf.pypy_faulthandler_setup(dump_callback))
+        #
+        cintf.pypy_faulthandler_dump_traceback(
+            rffi.cast(rffi.INT, fileno),
+            rffi.cast(rffi.INT, all_threads))
+        keepalive_until_here(w_file)
+
     def finish(self):
         cintf.pypy_faulthandler_teardown()
         self._cleanup_()
@@ -77,7 +88,8 @@ def startup(space):
     # is defined, or if sys._xoptions has a 'faulthandler' key.
     if not os.environ.get('PYTHONFAULTHANDLER'):
         w_options = space.sys.get('_xoptions')
-        if not space.contains(w_options, space.wrap('faulthandler')):
+        if not space.is_true(space.contains(w_options,
+                                            space.wrap('faulthandler'))):
             return
     #
     # Like CPython.  Why not just call enable(space)?  Maybe someone
@@ -105,3 +117,9 @@ def disable(space):
 def is_enabled(space):
     "is_enabled()->bool: check if the handler is enabled"
     return space.wrap(space.fromcache(Handler).is_enabled())
+
+@unwrap_spec(all_threads=int)
+def dump_traceback(space, w_file=None, all_threads=0):
+   """dump the traceback of the current thread into file
+   including all threads if all_threads is True"""
+   space.fromcache(Handler).dump_traceback(w_file, all_threads)

@@ -1,9 +1,11 @@
 #include "faulthandler.h"
 #include <stdlib.h>
+#include <stdio.h>
 #include <signal.h>
 #include <assert.h>
 #include <errno.h>
 #include <string.h>
+#include <unistd.h>
 
 
 typedef struct sigaction _Py_sighandler_t;
@@ -19,7 +21,7 @@ static struct {
     int initialized;
     int enabled;
     volatile int fd, all_threads;
-    volatile void (*dump_traceback)(void);
+    void (*volatile dump_traceback)(void);
     int _current_fd;
 } fatal_error;
 
@@ -43,41 +45,44 @@ static const int faulthandler_nsignals =
     sizeof(faulthandler_handlers) / sizeof(fault_handler_t);
 
 static void
-fh_write(int fd, char *str)
+fh_write(int fd, const char *str)
 {
     (void)write(fd, str, strlen(str));
 }
 
 RPY_EXTERN
-void pypy_faulthandler_write(RPyString *s)
+void pypy_faulthandler_write(char *str)
 {
-    (void)write(fatal_error._current_fd,
-                _RPyString_AsString(s), RPyString_Size(s));
+    fh_write(fatal_error._current_fd, str);
 }
 
 RPY_EXTERN
 void pypy_faulthandler_write_int(long x)
 {
     char buf[32];
-    int count = sprintf(buf, "%ld", x);
-    (void)write(fatal_error._current_fd, buf, count);
+    sprintf(buf, "%ld", x);
+    fh_write(fatal_error._current_fd, buf);
 }
 
 
-static void
-faulthandler_dump_traceback(int fd, int all_threads)
+RPY_EXTERN
+void pypy_faulthandler_dump_traceback(int fd, int all_threads)
+{
+    fatal_error._current_fd = fd;
+
+    /* XXX 'all_threads' ignored */
+    if (fatal_error.dump_traceback)
+        fatal_error.dump_traceback();
+}
+
+void faulthandler_dump_traceback(int fd, int all_threads)
 {
     static volatile int reentrant = 0;
 
     if (reentrant)
         return;
     reentrant = 1;
-    fatal_error._current_fd = fd;
-
-    /* XXX 'all_threads' ignored */
-    if (fatal_error.dump_traceback)
-        fatal_error.dump_traceback();
-
+    pypy_faulthandler_dump_traceback(fd, all_threads);
     reentrant = 0;
 }
 
@@ -139,9 +144,9 @@ RPY_EXTERN
 char *pypy_faulthandler_setup(void dump_callback(void))
 {
     if (fatal_error.initialized)
-        return;
+        return NULL;
     assert(!fatal_error.enabled);
-    fatal_error.dump_callback = dump_callback;
+    fatal_error.dump_traceback = dump_callback;
 
     /* Try to allocate an alternate stack for faulthandler() signal handler to
      * be able to allocate memory on the stack, even on a stack overflow. If it

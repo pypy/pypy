@@ -1,4 +1,4 @@
-from rpython.rtyper.annlowlevel import llstr
+from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib import rgc
 from rpython.rlib.rvmprof import enum_all_code_objs
 from rpython.rlib.rvmprof import cintf as rvmprof_cintf
@@ -13,10 +13,22 @@ from pypy.module.faulthandler.cintf import pypy_faulthandler_write_int
 
 
 MAX_FRAME_DEPTH = 100
+MAX_STRING_LENGTH = 500
 
+global_buf = lltype.malloc(rffi.CCHARP.TO, MAX_STRING_LENGTH, flavor='raw',
+                           immortal=True, zero=True)
 
 def _dump(s):
-    pypy_faulthandler_write(llstr(s))
+    assert isinstance(s, str)
+    l = len(s)
+    if l >= MAX_STRING_LENGTH:
+        l = MAX_STRING_LENGTH - 1
+    i = 0
+    while i < l:
+        global_buf[i] = s[i]
+        i += 1
+    global_buf[l] = '\x00'
+    pypy_faulthandler_write(global_buf)
 
 def _dump_int(i):
     pypy_faulthandler_write_int(i)
@@ -29,9 +41,9 @@ def dump_code(pycode, this_code_id, search_code_id):
     _dump(pycode.co_filename)
     _dump('" in ')
     _dump(pycode.co_name)
-    _dump(" (starting at line ")
+    _dump(" starting at line ")
     _dump_int(pycode.co_firstlineno)
-    _dump(")\n")
+    _dump("\n")
     return 1
 
 

@@ -10,7 +10,7 @@ class Module(MixedModule):
         'is_enabled': 'handler.is_enabled',
 #        'register': 'interp_faulthandler.register',
 #
-#        'dump_traceback': 'interp_faulthandler.dump_traceback',
+        'dump_traceback': 'handler.dump_traceback',
 #
 #        '_read_null': 'interp_faulthandler.read_null',
 #        '_sigsegv': 'interp_faulthandler.sigsegv',

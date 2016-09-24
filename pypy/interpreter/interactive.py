@@ -169,7 +169,8 @@ class PyPyConsole(code.InteractiveConsole):
 
     def runsource(self, source, ignored_filename="<input>", symbol="single"):
         # the following hacked file name is recognized specially by error.py
-        hacked_filename = '<inline>\n' + source
+        hacked_filename = '<inline>\n' + source.encode(
+                                            'ascii', 'backslashreplace')
         compiler = self.space.getexecutioncontext().compiler
 
         # CPython 2.6 turns console input into unicode
