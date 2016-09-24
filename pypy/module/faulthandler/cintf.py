@@ -49,3 +49,16 @@ pypy_faulthandler_read_null = direct_llexternal(
 pypy_faulthandler_read_null_releasegil = direct_llexternal(
     'pypy_faulthandler_read_null', [], lltype.Void,
     _nowrapper=False, releasegil=True)
+
+pypy_faulthandler_sigsegv = direct_llexternal(
+    'pypy_faulthandler_sigsegv', [], lltype.Void)
+
+pypy_faulthandler_sigsegv_releasegil = direct_llexternal(
+    'pypy_faulthandler_sigsegv', [], lltype.Void,
+    _nowrapper=False, releasegil=True)
+
+pypy_faulthandler_sigfpe = direct_llexternal(
+    'pypy_faulthandler_sigfpe', [], lltype.Void)
+
+pypy_faulthandler_sigabrt = direct_llexternal(
+    'pypy_faulthandler_sigabrt', [], lltype.Void)

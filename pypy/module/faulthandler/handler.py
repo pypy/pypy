@@ -47,12 +47,13 @@ class Handler(object):
             pass   # ignore flush() error
         return fd, w_file
 
-    def enable(self, w_file, all_threads):
-        fileno, w_file = self.get_fileno_and_file(w_file)
-        #
+    def setup(self):
         dump_callback = llhelper(cintf.DUMP_CALLBACK, dumper._dump_callback)
         self.check_err(cintf.pypy_faulthandler_setup(dump_callback))
-        #
+
+    def enable(self, w_file, all_threads):
+        fileno, w_file = self.get_fileno_and_file(w_file)
+        self.setup()
         self.fatal_error_w_file = w_file
         self.check_err(cintf.pypy_faulthandler_enable(
             rffi.cast(rffi.INT, fileno),
@@ -67,10 +68,7 @@ class Handler(object):
 
     def dump_traceback(self, w_file, all_threads):
         fileno, w_file = self.get_fileno_and_file(w_file)
-        #
-        dump_callback = llhelper(cintf.DUMP_CALLBACK, dumper._dump_callback)
-        self.check_err(cintf.pypy_faulthandler_setup(dump_callback))
-        #
+        self.setup()
         cintf.pypy_faulthandler_dump_traceback(
             rffi.cast(rffi.INT, fileno),
             rffi.cast(rffi.INT, all_threads))
@@ -127,9 +125,22 @@ def dump_traceback(space, w_file=None, all_threads=0):
 
 # for tests...
 
-@unwrap_spec(release_gil=bool)
-def read_null(space, release_gil):
+@unwrap_spec(release_gil=int)
+def read_null(space, release_gil=0):
     if release_gil:
         cintf.pypy_faulthandler_read_null_releasegil()
     else:
         cintf.pypy_faulthandler_read_null()
+
+@unwrap_spec(release_gil=int)
+def sigsegv(space, release_gil=0):
+    if release_gil:
+        cintf.pypy_faulthandler_sigsegv_releasegil()
+    else:
+        cintf.pypy_faulthandler_sigsegv()
+
+def sigfpe(space):
+    cintf.pypy_faulthandler_sigfpe()
+
+def sigabrt(space):
+    cintf.pypy_faulthandler_sigabrt()

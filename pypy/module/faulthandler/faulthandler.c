@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/resource.h>
 
 
 typedef struct sigaction _Py_sighandler_t;
@@ -245,19 +246,48 @@ int pypy_faulthandler_is_enabled(void)
 
 /* for tests... */
 
+static void
+faulthandler_suppress_crash_report(void)
+{
+#ifdef MS_WINDOWS
+    UINT mode;
+
+    /* Configure Windows to not display the Windows Error Reporting dialog */
+    mode = SetErrorMode(SEM_NOGPFAULTERRORBOX);
+    SetErrorMode(mode | SEM_NOGPFAULTERRORBOX);
+#endif
+
+#ifndef MS_WINDOWS
+    struct rlimit rl;
+
+    /* Disable creation of core dump */
+    if (getrlimit(RLIMIT_CORE, &rl) != 0) {
+        rl.rlim_cur = 0;
+        setrlimit(RLIMIT_CORE, &rl);
+    }
+#endif
+
+#ifdef _MSC_VER
+    /* Visual Studio: configure abort() to not display an error message nor
+       open a popup asking to report the fault. */
+    _set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
+#endif
+}
+
 RPY_EXTERN
 int pypy_faulthandler_read_null(void)
 {
     int *volatile x;
 
+    faulthandler_suppress_crash_report();
     x = NULL;
     return *x;
 }
 
-#if 0
-void
-pypy_faulthandler_sigsegv(void)
+RPY_EXTERN
+void pypy_faulthandler_sigsegv(void)
 {
+    faulthandler_suppress_crash_report();
 #if defined(MS_WINDOWS)
     /* For SIGSEGV, faulthandler_fatal_error() restores the previous signal
        handler and then gives back the execution flow to the program (without
@@ -277,12 +307,13 @@ pypy_faulthandler_sigsegv(void)
 #endif
 }
 
-int
-pypy_faulthandler_sigfpe(void)
+RPY_EXTERN
+int pypy_faulthandler_sigfpe(void)
 {
     /* Do an integer division by zero: raise a SIGFPE on Intel CPU, but not on
        PowerPC. Use volatile to disable compile-time optimizations. */
     volatile int x = 1, y = 0, z;
+    faulthandler_suppress_crash_report();
     z = x / y;
     /* If the division by zero didn't raise a SIGFPE (e.g. on PowerPC),
        raise it manually. */
@@ -292,30 +323,9 @@ pypy_faulthandler_sigfpe(void)
     return z;
 }
 
-void
-pypy_faulthandler_sigabrt()
+RPY_EXTERN
+void pypy_faulthandler_sigabrt(void)
 {
-#ifdef _MSC_VER
-    /* Visual Studio: configure abort() to not display an error message nor
-       open a popup asking to report the fault. */
-    _set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
-#endif
+    faulthandler_suppress_crash_report();
     abort();
 }
-
-#ifdef SIGBUS
-void
-pypy_faulthandler_sigbus(void)
-{
-    raise(SIGBUS);
-}
-#endif
-
-#ifdef SIGILL
-void
-pypy_faulthandler_sigill(void)
-{
-    raise(SIGILL);
-}
-#endif
-#endif
