@@ -62,3 +62,6 @@ pypy_faulthandler_sigfpe = direct_llexternal(
 
 pypy_faulthandler_sigabrt = direct_llexternal(
     'pypy_faulthandler_sigabrt', [], lltype.Void)
+
+pypy_faulthandler_stackoverflow = direct_llexternal(
+    'pypy_faulthandler_stackoverflow', [lltype.Float], lltype.Float)

@@ -422,11 +422,6 @@ class ObjSpace(object):
         # To be called before using the space
         self.threadlocals.enter_thread(self)
 
-        # Set up faulthandler even if not imported explicitly
-        if self.config.objspace.usemodules.faulthandler:
-            from pypy.module.faulthandler import handler
-            handler.startup(self)
-
         # Initialize already imported builtin modules
         from pypy.interpreter.module import Module
         w_modules = self.sys.get('modules')
@@ -450,11 +445,6 @@ class ObjSpace(object):
         for w_mod in self.builtin_modules.values():
             if isinstance(w_mod, Module) and w_mod.startup_called:
                 w_mod.shutdown(self)
-        #
-        # Shut down faulthandler
-        if self.config.objspace.usemodules.faulthandler:
-            from pypy.module.faulthandler import handler
-            handler.finish(self)
 
     def wait_for_thread_shutdown(self):
         """Wait until threading._shutdown() completes, provided the threading

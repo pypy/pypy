@@ -16,4 +16,10 @@ class Module(MixedModule):
         '_sigsegv': 'handler.sigsegv',
         '_sigfpe': 'handler.sigfpe',
         '_sigabrt': 'handler.sigabrt',
+        '_stack_overflow': 'handler.stack_overflow',
     }
+
+    def shutdown(self, space):
+        from pypy.module.faulthandler import handler
+        handler.finish(space)
+        MixedModule.shutdown(self, space)

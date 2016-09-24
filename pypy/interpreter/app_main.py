@@ -518,6 +518,11 @@ def parse_command_line(argv):
     sys._xoptions = dict(x.split('=', 1) if '=' in x else (x, True)
                          for x in options['_xoptions'])
 
+    if 'faulthandler' in sys.builtin_module_names:
+        if 'faulthandler' in sys._xoptions or os.getenv('PYTHONFAULTHANDLER'):
+            import faulthandler
+            faulthandler.enable(2)   # manually set to stderr
+
 ##    if not we_are_translated():
 ##        for key in sorted(options):
 ##            print '%40s: %s' % (key, options[key])

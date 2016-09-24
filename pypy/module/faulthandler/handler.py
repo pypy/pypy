@@ -79,28 +79,8 @@ class Handler(object):
         self._cleanup_()
 
 
-def startup(space):
-    """Initialize the faulthandler logic when the space is starting
-    (this is called from baseobjspace.py)"""
-    #
-    # Call faulthandler.enable() if the PYTHONFAULTHANDLER environment variable
-    # is defined, or if sys._xoptions has a 'faulthandler' key.
-    if not os.environ.get('PYTHONFAULTHANDLER'):
-        w_options = space.sys.get('_xoptions')
-        if not space.is_true(space.contains(w_options,
-                                            space.wrap('faulthandler'))):
-            return
-    #
-    # Like CPython.  Why not just call enable(space)?  Maybe someone
-    # mis-uses ``"faulthandler" in sys.modules'' as a way to check if it
-    # was started by checking if it was imported at all.
-    space.appexec([], """():
-        import faulthandler
-        faulthandler.enable()
-    """)
-
 def finish(space):
-    """Finalize the faulthandler logic (called from baseobjspace.py)"""
+    "Finalize the faulthandler logic (called from shutdown())"
     space.fromcache(Handler).finish()
 
 
@@ -144,3 +124,8 @@ def sigfpe(space):
 
 def sigabrt(space):
     cintf.pypy_faulthandler_sigabrt()
+
+@unwrap_spec(levels=int)
+def stack_overflow(space, levels=100000000):
+    levels = float(levels)
+    return space.wrap(cintf.pypy_faulthandler_stackoverflow(levels))

@@ -7,6 +7,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/resource.h>
+#include <math.h>
 
 
 typedef struct sigaction _Py_sighandler_t;
@@ -328,4 +329,20 @@ void pypy_faulthandler_sigabrt(void)
 {
     faulthandler_suppress_crash_report();
     abort();
+}
+
+static double fh_stack_overflow(double levels)
+{
+    if (levels > 2.5) {
+        return (sqrt(fh_stack_overflow(levels - 1.0))
+                + fh_stack_overflow(levels * 1e-10));
+    }
+    return 1e100 + levels;
+}
+
+RPY_EXTERN
+double pypy_faulthandler_stackoverflow(double levels)
+{
+    faulthandler_suppress_crash_report();
+    return fh_stack_overflow(levels);
 }
