@@ -252,6 +252,7 @@ class Arguments(object):
         missing_positional = []
         missing_kwonly = []
         more_filling = (input_argcount < co_argcount + co_kwonlyargcount)
+        def_first = 0
         if more_filling:
             def_first = co_argcount - (0 if defaults_w is None else len(defaults_w))
             j = 0
