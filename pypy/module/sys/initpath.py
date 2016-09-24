@@ -9,6 +9,8 @@ import sys
 
 from rpython.rlib import rpath
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.module.sys.state import get as get_state
@@ -155,8 +157,13 @@ def pypy_resolvedirof(space, filename):
     return space.wrap(resolvedirof(filename))
 
 
-@unwrap_spec(executable='str0')
-def pypy_find_stdlib(space, executable):
+@unwrap_spec(executable='str0', dynamic=int)
+def pypy_find_stdlib(space, executable, dynamic=1):
+    if dynamic and space.config.translation.shared:
+        dynamic_location = pypy_init_home()
+        if dynamic_location:
+            executable = rffi.charp2str(dynamic_location)
+            pypy_init_free(dynamic_location)
     path, prefix = find_stdlib(get_state(space), executable)
     if path is None:
         return space.w_None
@@ -164,3 +171,75 @@ def pypy_find_stdlib(space, executable):
     space.setitem(space.sys.w_dict, space.wrap('prefix'), w_prefix)
     space.setitem(space.sys.w_dict, space.wrap('exec_prefix'), w_prefix)
     return space.newlist([space.wrap(p) for p in path])
+
+
+# ____________________________________________________________
+
+
+if os.name == 'nt':
+
+    _source_code = r"""
+#define _WIN32_WINNT 0x0501
+#include <windows.h>
+#include <stdio.h>
+
+RPY_EXPORTED
+char *_pypy_init_home(void)
+{
+    HMODULE hModule = 0;
+    DWORD res;
+    char *p;
+
+    GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                       GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                       (LPCTSTR)&_pypy_init_home, &hModule);
+
+    if (hModule == 0 ) {
+        fprintf(stderr, "PyPy initialization: GetModuleHandleEx() failed\n");
+        return NULL;
+    }
+    p = malloc(_MAX_PATH);
+    if (p == NULL)
+        return NULL;
+    res = GetModuleFileName(hModule, p, _MAX_PATH);
+    if (res >= _MAX_PATH || res <= 0) {
+        free(p);
+        fprintf(stderr, "PyPy initialization: GetModuleFileName() failed\n");
+        return NULL;
+    }
+    return p;
+}
+"""
+
+else:
+
+    _source_code = r"""
+#include <dlfcn.h>
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+RPY_EXPORTED
+char *_pypy_init_home(void)
+{
+    Dl_info info;
+    dlerror();   /* reset */
+    if (dladdr(&_pypy_init_home, &info) == 0) {
+        fprintf(stderr, "PyPy initialization: dladdr() failed: %s\n",
+                dlerror());
+        return NULL;
+    }
+    char *p = realpath(info.dli_fname, NULL);
+    if (p == NULL) {
+        p = strdup(info.dli_fname);
+    }
+    return p;
+}
+"""
+
+_eci = ExternalCompilationInfo(separate_module_sources=[_source_code])
+
+pypy_init_home = rffi.llexternal("_pypy_init_home", [], rffi.CCHARP,
+                                 _nowrapper=True, compilation_info=_eci)
+pypy_init_free = rffi.llexternal("free", [rffi.CCHARP], lltype.Void,
+                                 _nowrapper=True, compilation_info=_eci)
