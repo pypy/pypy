@@ -3,8 +3,10 @@ from rpython.tool.udir import udir
 
 
 class AppTestImpModule:
+    # cpyext is required for _imp.load_dynamic()
     spaceconfig = {
-        'usemodules': ['binascii', 'imp', 'itertools', 'time', 'struct'],
+        'usemodules': [
+            'binascii', 'imp', 'itertools', 'time', 'struct', 'cpyext'],
     }
 
     def setup_class(cls):
