@@ -226,7 +226,7 @@ class W_FloatObject(W_Root):
                 if e.match(space, space.w_TypeError):
                     raise oefmt(
                         space.w_TypeError,
-                        ("float() argument must be a string or a number,"
+                        ("float() argument must be a string or a number, "
                                 "not '%T'"), w_value)
                 raise
             value = _string_to_float(space, w_value, value)
