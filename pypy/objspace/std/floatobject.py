@@ -227,7 +227,7 @@ class W_FloatObject(W_Root):
                     raise oefmt(
                         space.w_TypeError,
                         "float() argument must be a string or a number,\
-                                not '{}'".format(type(space.unwrap(w_value)).__name__))
+                                not '%T'", w_value)
                 raise
             value = _string_to_float(space, w_value, value)
         w_obj = space.allocate_instance(W_FloatObject, w_floattype)
