@@ -73,6 +73,10 @@ class AppTest_Descriptor:
         raises(AttributeError, X.v.__delete__, x)
 
     def test_invalid_unicode_identifier(self):
+        skip("utf-8 encoding before translation accepts lone surrogates, "
+             "because it is Python 2.7, but after translation it does not. "
+             "Moreover, CPython 3.x accepts such unicode attributes anyway. "
+             "This makes this test half-wrong for now.")
         class X(object):
             pass
         x = X()

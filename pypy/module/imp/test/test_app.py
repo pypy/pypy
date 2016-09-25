@@ -3,8 +3,10 @@ from rpython.tool.udir import udir
 
 
 class AppTestImpModule:
+    # cpyext is required for _imp.create_dynamic()
     spaceconfig = {
-        'usemodules': ['binascii', 'imp', 'itertools', 'time', 'struct'],
+        'usemodules': [
+            'binascii', 'imp', 'itertools', 'time', 'struct', 'cpyext'],
     }
 
     def setup_class(cls):
@@ -55,12 +57,21 @@ class AppTestImpModule:
             del sys.path[0]
 
     def test_create_dynamic(self):
-        import imp
+        import _imp
+        PATH = 'this/path/does/not/exist'
         class FakeSpec:
-            name = 'foo'
-            origin = 'this/path/does/not/exist'
-        raises(ImportError, imp.create_dynamic, FakeSpec())
-        raises(ImportError, imp.create_dynamic, FakeSpec(), "unused")
+            origin = PATH
+            def __init__(self, name):
+                self.name = name
+
+        excinfo = raises(ImportError, _imp.create_dynamic, FakeSpec('foo'))
+        assert excinfo.value.name == 'foo'
+        assert excinfo.value.path == PATH
+        # Note: On CPython, the behavior changes slightly if a 2nd argument is
+        # passed in, whose value is ignored. We don't implement that.
+        #raises(IOError, _imp.create_dynamic, FakeSpec(), "unused")
+
+        raises(ImportError, _imp.create_dynamic, FakeSpec(b'foo'))
 
     def test_suffixes(self):
         import imp

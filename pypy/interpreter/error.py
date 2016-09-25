@@ -582,3 +582,16 @@ def new_exception_class(space, name, w_bases=None, w_dict=None):
     if module:
         space.setattr(w_exc, space.wrap("__module__"), space.wrap(module))
     return w_exc
+
+def new_import_error(space, w_msg, w_name, w_path):
+    """Create a new instance of ImportError.
+
+    The result corresponds to ImportError(msg, name=name, path=path)
+    """
+    return space.appexec(
+        [w_msg, w_name, w_path], """(msg, name, path):
+            return ImportError(msg, name=name, path=path)""")
+
+def raise_import_error(space, w_msg, w_name, w_path):
+    w_exc = new_import_error(space, w_msg, w_name, w_path)
+    raise OperationError(space.w_ImportError, w_exc)

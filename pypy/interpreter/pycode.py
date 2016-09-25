@@ -107,6 +107,7 @@ class PyCode(eval.Code):
         self.co_varnames = varnames
         self.co_freevars = freevars
         self.co_cellvars = cellvars
+        assert isinstance(filename, str)
         rstring.check_str0(filename)
         self.co_filename = filename
         self.co_name = name
