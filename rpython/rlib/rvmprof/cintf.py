@@ -156,7 +156,7 @@ def restore_rvmprof_stack(x):
     vmprof_tl_stack.setraw(x)
 
 #
-# faulthandler support
+# rvmprof.traceback support
 
 def get_rvmprof_stack():
     return vmprof_tl_stack.get_or_make_raw()

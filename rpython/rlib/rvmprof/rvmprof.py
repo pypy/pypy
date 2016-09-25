@@ -116,25 +116,6 @@ class VMProf(object):
         # the types of code objects
         prev = self._gather_all_code_objs
         self._gather_all_code_objs = gather_all_code_objs
-        #
-        # For special usages: the faulthandler pypy module uses this.
-        # It must not allocate anything.
-        @staticmethod
-        @rgc.no_collect
-        def enum_all_code_objs(callback, arg):
-            all_code_wrefs = CodeClass._vmprof_weak_list.get_all_handles()
-            i = len(all_code_wrefs) - 1
-            while i >= 0:
-                code = all_code_wrefs[i]()
-                i -= 1
-                if code is not None:
-                    uid = code._vmprof_unique_id
-                    if uid != 0:
-                        res = callback(code, uid, arg)
-                        if res != 0:
-                            return res
-            return 0
-        CodeClass._vmprof_enum_all_code_objs = enum_all_code_objs
 
     @jit.dont_look_inside
     def enable(self, fileno, interval):
