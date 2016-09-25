@@ -207,7 +207,8 @@ class W_FloatObject(W_Root):
             try:
                 return rfloat.string_to_float(string)
             except ParseStringError as e:
-                raise wrap_parsestringerror(space, e, w_source)
+                raise oefmt(space.w_ValueError,
+                            "could not convert string to float: %R", w_source)
 
         w_value = w_x     # 'x' is the keyword argument name in CPython
         if space.lookup(w_value, "__float__") is not None:
