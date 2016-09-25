@@ -53,7 +53,7 @@ def _dump_callback():
     but hopefully close enough).  In particular, this is written as
     RPython but shouldn't allocate anything.
     """
-    _dump("Stack (most recent call first):\n")
+    _dump("Current stack (most recent call first):\n")
 
     s = rvmprof_cintf.get_rvmprof_stack()
     depth = 0

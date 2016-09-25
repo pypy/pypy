@@ -521,7 +521,10 @@ def parse_command_line(argv):
     if 'faulthandler' in sys.builtin_module_names:
         if 'faulthandler' in sys._xoptions or os.getenv('PYTHONFAULTHANDLER'):
             import faulthandler
-            faulthandler.enable(2)   # manually set to stderr
+            try:
+                faulthandler.enable(2)   # manually set to stderr
+            except ValueError:
+                pass      # ignore "2 is not a valid file descriptor"
 
 ##    if not we_are_translated():
 ##        for key in sorted(options):
