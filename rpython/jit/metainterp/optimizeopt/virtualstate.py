@@ -179,15 +179,6 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
                                                    fieldbox,
                                                    fieldbox_runtime, state)
 
-    def _generate_guards_non_virtual(self, other, box, runtime_box, state):
-        """
-        Generate guards for the case where a virtual object is expected, but
-        a non-virtual is given. When the underlying type is a value class,
-        the non-virtual may be virtualized by unpacking it and forwarding the
-        components elementwise.
-        """
-        raise VirtualStatesCantMatch("different kinds of structs")
-
     def enum_forced_boxes(self, boxes, box, optimizer, force_boxes=False):
         box = optimizer.get_box_replacement(box)
         info = optimizer.getptrinfo(box)
@@ -222,6 +213,63 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
         return (isinstance(other, VirtualStateInfo) and
                 self.typedescr is other.typedescr)
 
+    def _generate_guards_non_virtual(self, other, box, runtime_box, state):
+        """
+        Generate guards for the case where a virtual object is expected, but
+        a non-virtual is given. When the underlying type is a value class,
+        the non-virtual may be virtualized by unpacking it and forwarding the
+        components elementwise.
+        """
+        assert isinstance(other, NotVirtualStateInfoPtr)
+
+        known_class = self.typedescr
+        if not known_class.is_value_class():
+            raise VirtualStatesCantMatch("different kinds of structs")
+
+        raise VirtualStatesCantMatch("different kinds of structs")
+
+        # TODO: Probably should rename state.extra_guards to extra_ops
+        extra_guards = state.extra_guards
+        cpu = state.cpu
+
+        # Emit any guards that are needed to validate the class of the supplied
+        # object, so that we know it is safe to unpack.
+        if other.level == LEVEL_UNKNOWN:
+            op = ResOperation(rop.GUARD_NONNULL_CLASS, [box, self.known_class])
+            extra_guards.append(op)
+        elif other.level == LEVEL_NONULL:
+            op = ResOperation(rop.GUARD_CLASS, [box, self.known_class])
+            extra_guards.append(op)
+        elif other.level == LEVEL_KNOWNCLASS:
+            if not self.known_class.same_constant(other.known_class):
+                raise VirtualStatesCantMatch("classes don't match")
+        else:
+            assert other.level == LEVEL_CONSTANT
+            known = self.known_class
+            const = other.constbox
+            if const.nonnull() and known.same_constant(cpu.ts.cls_of_box(const)):
+                pass
+            else:
+                raise VirtualStatesCantMatch("classes don't match")
+
+        # Things to do...
+        # 1. Generate new_with_vtable operation to allocate the new virtual object
+        # 2. Generate getfield operations which populate the fields of the new virtual
+        # 3. Recursively generate guards for each portion of the virtual state
+        #    (we don't have a VirtualStateInfo objects for the subfields of the
+        #     non-virtual object which we are promoting to a virtual. How do we
+        #     generate this new virtual state so we can operate recursively)
+
+        # We need to build a virtual version which conforms with the expected
+        # virtual object.
+        # This will probably look a lot like
+        # AbstractVirtualStateInfo._generate_guards
+        fields = [None] * len(self.fielddescrs)
+        for i, descr in enumerate(self.fielddescrs):
+            opnum = rop.getfield_for_descr(descr)
+            fields[i] = getfield_op = ResOperation(opnum, [box], descr=descr)
+            extra_guards.append(getfield_op)
+
     def debug_header(self, indent):
         debug_print(indent + 'VirtualStateInfo(%d):' % self.position)
 
@@ -230,6 +278,9 @@ class VStructStateInfo(AbstractVirtualStructStateInfo):
     def _generalization_of_structpart(self, other):
         return (isinstance(other, VStructStateInfo) and
                 self.typedescr is other.typedescr)
+
+    def _generate_guards_non_virtual(self, other, box, runtime_box, state):
+        raise VirtualStatesCantMatch("can't unify virtual struct with non-virtual")
 
     def debug_header(self, indent):
         debug_print(indent + 'VStructStateInfo(%d):' % self.position)

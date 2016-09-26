@@ -33,8 +33,11 @@ class FakeOptimizer(Optimizer):
 class FakeDescr(object):
     def __init__(self, vtable):
         self.vtable = vtable
+    def is_value_class(self):
+        return False
     def get_vtable(self):
         return self.vtable
+
 FakeDescr.value = FakeDescr(42)
 
 class BaseTestGenerateGuards(BaseTest):
