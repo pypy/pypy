@@ -128,3 +128,14 @@ static vmprof_stack_t *get_vmprof_stack(void)
     return 0;
 }
 #endif
+
+RPY_EXTERN
+intptr_t vmprof_get_traceback(void *stack, intptr_t pc,
+                              intptr_t *result_p, intptr_t result_length)
+{
+    int n;
+    if (stack == NULL)
+        stack = get_vmprof_stack();
+    n = get_stack_trace(stack, result_p, result_length - 2, pc);
+    return (intptr_t)n;
+}

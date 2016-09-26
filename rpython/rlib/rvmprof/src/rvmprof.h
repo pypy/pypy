@@ -8,3 +8,6 @@ RPY_EXTERN void* vmprof_stack_new(void);
 RPY_EXTERN int vmprof_stack_append(void*, long);
 RPY_EXTERN long vmprof_stack_pop(void*);
 RPY_EXTERN void vmprof_stack_free(void*);
+RPY_EXTERN intptr_t vmprof_get_traceback(void *, intptr_t, intptr_t*, intptr_t);
+
+#define RVMPROF_TRACEBACK_ESTIMATE_N(num_entries)  (2 * (num_entries) + 4)

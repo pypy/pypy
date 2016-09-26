@@ -56,6 +56,11 @@ def setup():
                                             [rffi.INT], lltype.Void,
                                             compilation_info=eci,
                                             _nowrapper=True)
+    vmprof_get_traceback = rffi.llexternal("vmprof_get_traceback",
+                                  [PVMPROFSTACK, lltype.Signed,
+                                   rffi.SIGNEDP, lltype.Signed],
+                                  lltype.Signed, compilation_info=eci,
+                                  _nowrapper=True)
 
     return CInterface(locals())
 
@@ -156,7 +161,7 @@ def restore_rvmprof_stack(x):
     vmprof_tl_stack.setraw(x)
 
 #
-# rvmprof.traceback support
+# traceback support
 
 def get_rvmprof_stack():
     return vmprof_tl_stack.get_or_make_raw()
