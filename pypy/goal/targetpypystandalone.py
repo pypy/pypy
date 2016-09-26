@@ -93,12 +93,10 @@ def create_entry_point(space, w_dict):
             home1 = rffi.charp2str(ll_home)
             home = os.path.join(home1, 'x') # <- so that 'll_home' can be
                                             # directly the root directory
-            dynamic = False
         else:
             home1 = "pypy's shared library location"
-            home = pypydir
-            dynamic = True
-        w_path = pypy_find_stdlib(space, home, dynamic)
+            home = '*'
+        w_path = pypy_find_stdlib(space, home)
         if space.is_none(w_path):
             if verbose:
                 debug("pypy_setup_home: directories 'lib-python' and 'lib_pypy'"
