@@ -225,10 +225,9 @@ class W_FloatObject(W_Root):
                 value = space.charbuf_w(w_value)
             except OperationError as e:
                 if e.match(space, space.w_TypeError):
-                    raise oefmt(
-                        space.w_TypeError,
-                        ("float() argument must be a string or a number, "
-                                "not '%T'"), w_value)
+                    raise oefmt(space.w_TypeError,
+                                "float() argument must be a string or a "
+                                "number, not '%T'", w_value)
                 raise
             value = _string_to_float(space, w_value, value)
         w_obj = space.allocate_instance(W_FloatObject, w_floattype)
