@@ -132,7 +132,6 @@ class AbstractVirtualStateInfo(object):
     def debug_header(self, indent):
         raise NotImplementedError
 
-
 class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
     _attrs_ = ('typedescr', 'fielddescrs')
 
@@ -141,6 +140,9 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
         self.fielddescrs = fielddescrs
 
     def _generate_guards(self, other, box, runtime_box, state):
+        if isinstance(other, NotVirtualStateInfo):
+            return self._generate_guards_non_virtual(other, box, runtime_box, state)
+
         if not self._generalization_of_structpart(other):
             raise VirtualStatesCantMatch("different kinds of structs")
 
@@ -178,7 +180,13 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
                                                    fieldbox_runtime, state)
 
     def _generate_guards_non_virtual(self, other, box, runtime_box, state):
-        pass
+        """
+        Generate guards for the case where a virtual object is expected, but
+        a non-virtual is given. When the underlying type is a value class,
+        the non-virtual may be virtualized by unpacking it and forwarding the
+        components elementwise.
+        """
+        raise VirtualStatesCantMatch("different kinds of structs")
 
     def enum_forced_boxes(self, boxes, box, optimizer, force_boxes=False):
         box = optimizer.get_box_replacement(box)
@@ -227,6 +235,7 @@ class VStructStateInfo(AbstractVirtualStructStateInfo):
         debug_print(indent + 'VStructStateInfo(%d):' % self.position)
 
 class VArrayStateInfo(AbstractVirtualStateInfo):
+    _attrs_ = ('arraydescr',)
 
     def __init__(self, arraydescr):
         self.arraydescr = arraydescr
@@ -277,6 +286,8 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
 
 
 class VArrayStructStateInfo(AbstractVirtualStateInfo):
+    _attrs_ = ('arraydescr', 'fielddescrs', 'length')
+
     def __init__(self, arraydescr, fielddescrs, length):
         self.arraydescr = arraydescr
         self.fielddescrs = fielddescrs
@@ -355,10 +366,12 @@ def not_virtual(cpu, type, info):
         return NotVirtualStateInfoInt(cpu, type, info)
     if type == 'r':
         return NotVirtualStateInfoPtr(cpu, type, info)
+    assert type == 'f'
     return NotVirtualStateInfo(cpu, type, info)
 
 
 class NotVirtualStateInfo(AbstractVirtualStateInfo):
+    _attrs_ = ('level', 'constbox', 'position_in_notvirtuals')
     level = LEVEL_UNKNOWN
     constbox = None
 
@@ -458,6 +471,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         debug_print(result)
 
 class NotVirtualStateInfoInt(NotVirtualStateInfo):
+    _attrs_ = ('intbound')
     intbound = None
 
     def __init__(self, cpu, type, info):
@@ -492,6 +506,7 @@ class NotVirtualStateInfoInt(NotVirtualStateInfo):
 
 
 class NotVirtualStateInfoPtr(NotVirtualStateInfo):
+    _attrs_ = ('lenbound', 'known_class')
     lenbound = None
     known_class = None
 

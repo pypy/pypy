@@ -1048,12 +1048,7 @@ class VirtualTests:
         # virtual X object. The side exit in this case will contain a non-virtual
         # value class, which should be unpacked into the
 
-        # self.check_resops(jump=3, label=2, new_with_vtable=2)
-        # self.check_target_token_count(2)
-        # self.check_trace_count(3)
-
-
-    def test_conflated_virtual_states(self):
+    def test_aliased_virtual_states(self):
         # All cases are covered when forcing one component of the virtual state
         # also forces an as yet unseen component.
         # i.e. expect [NotVirtual, Virtual] and given a pair of aliasing virtual
