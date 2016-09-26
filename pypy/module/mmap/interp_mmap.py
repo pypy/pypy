@@ -328,7 +328,6 @@ def mmap_error(space, e):
     else:
         # bogus 'e'?
         return OperationError(space.w_SystemError, space.wrap('%s' % e))
-mmap_error._dont_inline_ = True
 
 
 class MMapBuffer(Buffer):

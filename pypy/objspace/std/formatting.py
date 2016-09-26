@@ -345,7 +345,7 @@ def make_formatter_subclass(do_unicode):
                         "unsupported format character '%s' (%s) at index %d",
                         s, hex(ord(c)), self.fmtpos - 1)
 
-        @specialize.argtype(2)
+        @specialize.argtype(1)
         def std_wp(self, r):
             length = len(r)
             if do_unicode and isinstance(r, str):
