@@ -2,7 +2,7 @@ from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from rpython.rlib import rmmap, rarithmetic
+from rpython.rlib import rmmap, rarithmetic, objectmodel
 from rpython.rlib.buffer import Buffer
 from rpython.rlib.rmmap import RValueError, RTypeError, RMMapError
 from rpython.rlib.rstring import StringBuilder
@@ -316,6 +316,7 @@ class Cache:
         self.w_error = space.new_exception_class("mmap.error",
                                                  space.w_EnvironmentError)
 
+@objectmodel.dont_inline
 def mmap_error(space, e):
     if isinstance(e, RValueError):
         return OperationError(space.w_ValueError, space.wrap(e.message))

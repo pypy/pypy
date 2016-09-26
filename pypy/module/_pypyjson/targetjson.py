@@ -6,7 +6,7 @@ sys.path.insert(0, str(ROOT))
 import time
 from pypy.interpreter.error import OperationError
 from pypy.module._pypyjson.interp_decoder import loads
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, dont_inline
 
 
 ## MSG = open('msg.json').read()
@@ -69,11 +69,11 @@ class FakeSpace(object):
         assert isinstance(w_x, W_String)
         return w_x.strval
 
+    @dont_inline
     def call_method(self, obj, name, arg):
         assert name == 'append'
         assert isinstance(obj, W_List)
         obj.listval.append(arg)
-    call_method._dont_inline_ = True
 
     def call_function(self, w_func, *args_w):
         return self.w_None # XXX

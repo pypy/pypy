@@ -7,7 +7,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
                                       interp_attrproperty)
 from rpython.rlib import jit
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, always_inline
 from rpython.rlib.rtimer import read_timestamp, _is_64_bit
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -256,7 +256,7 @@ def returns_code(space, w_frame):
         return w_frame.wrap_string(space)
     return w_frame    # actually a PyCode object
 
-
+@always_inline
 def prepare_spec(space, w_arg):
     if isinstance(w_arg, Method):
         return (w_arg.w_function, w_arg.w_class)
@@ -264,8 +264,6 @@ def prepare_spec(space, w_arg):
         return (w_arg, None)
     else:
         return (None, space.type(w_arg))
-prepare_spec._always_inline_ = True
-
 
 def lsprof_call(space, w_self, frame, event, w_arg):
     assert isinstance(w_self, W_Profiler)
