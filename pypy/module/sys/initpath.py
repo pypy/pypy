@@ -241,7 +241,8 @@ char *_pypy_init_home(void)
 }
 """
 
-_eci = ExternalCompilationInfo(separate_module_sources=[_source_code])
+_eci = ExternalCompilationInfo(separate_module_sources=[_source_code],
+    post_include_bits=['RPY_EXPORTED char *_pypy_init_home(void);'])
 
 pypy_init_home = rffi.llexternal("_pypy_init_home", [], rffi.CCHARP,
                                  _nowrapper=True, compilation_info=_eci)
