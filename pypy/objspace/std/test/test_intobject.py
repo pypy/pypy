@@ -525,11 +525,22 @@ class AppTestInt(object):
         class MyInt(object):
             def __init__(self, x):
                 self.x = x
-            def __int__(self):
+            def __index__(self):
                 return self.x
 
         base = MyInt(24)
         assert int('10', base) == 24
+
+        class MyNonIndexable(object):
+            def __init__(self, x):
+                self.x = x
+            def __int__(self):
+                return self.x
+
+        base = MyNonIndexable(24)
+        e = raises(TypeError, int, '10', base)
+        assert str(e.value) == ("'MyNonIndexable' object cannot be interpreted "
+                                "as an integer")
 
     def test_truediv(self):
         import operator

@@ -892,7 +892,7 @@ def _new_int(space, w_inttype, w_x, w_base=None):
                 return _string_to_int_or_long(space, w_inttype, w_value, buf)
     else:
         try:
-            base = space.int_w(w_base)
+            base = space.getindex_w(w_base, None)
         except OperationError as e:
             if not e.match(space, space.w_OverflowError):
                 raise
