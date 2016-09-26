@@ -74,13 +74,15 @@ def test_jitted():
         raise NotImplementedError
     rvmprof.register_code_object_class(MyCode, get_name)
 
-    jitdriver = jit.JitDriver(greens=[], reds='auto')
+    jitdriver = jit.JitDriver(greens=['code'], reds='auto',
+                   is_recursive=True,
+                   get_unique_id=lambda code: rvmprof.get_unique_id(code))
 
     @rvmprof.vmprof_execute_code("mycode", lambda code, level, total_i: code)
     def mainloop(code, level, total_i):
         i = 20
         while i > 0:
-            jitdriver.jit_merge_point()
+            jitdriver.jit_merge_point(code=code)
             i -= 1
             if level > 0:
                 mainloop(code, level - 1, total_i + i)
@@ -107,5 +109,5 @@ def test_jitted():
     stdout = t.driver.cbuilder.cmdexec('')
     r = re.compile("[<]MyCode object at 0x([0-9a-f]+)[>] (\d) 42\n")
     got = r.findall(stdout)
-    addr = got[0][1]
-    assert got == XXX
+    addr = got[0][0]
+    assert got == [(addr, '1'), (addr, '1'), (addr, '0')]
