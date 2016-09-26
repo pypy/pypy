@@ -1030,8 +1030,8 @@ class AppTestAppMain:
             # If we are running PyPy with a libpypy-c, the following
             # lines find the stdlib anyway.  Otherwise, it is not found.
             expected_found = (
-                '__pypy__' in sys.builtin_module_names and
-                sys.pypy_translation_info['translation.shared'])
+                getattr(sys, 'pypy_translation_info', {})
+                .get('translation.shared'))
 
             import app_main
             app_main.setup_bootstrap_path(tmp_pypy_c)
