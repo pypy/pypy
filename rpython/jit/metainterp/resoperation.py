@@ -1265,14 +1265,6 @@ class rop(object):
         return rop.CALL_LOOPINVARIANT_N
 
     @staticmethod
-    def getfield_pure_for_descr(descr):
-        if descr.is_pointer_field():
-            return rop.GETFIELD_GC_PURE_R
-        elif descr.is_float_field():
-            return rop.GETFIELD_GC_PURE_F
-        return rop.GETFIELD_GC_PURE_I
-
-    @staticmethod
     def getfield_for_descr(descr):
         if descr.is_pointer_field():
             return rop.GETFIELD_GC_R
