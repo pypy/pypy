@@ -157,22 +157,6 @@ def pypy_resolvedirof(space, filename):
     return space.wrap(resolvedirof(filename))
 
 
-def find_stdlib_link(state, executable):
-    path, prefix = find_stdlib(state, executable)
-    if path is None:
-        if os.path.islink(executable):
-            # If we can't find the stdlib from the given 'executable',
-            # which is usually the path of libpypy-c.so, then we try
-            # to look if this libpypy-c.so is a symlink and follow that.
-            try:
-                link = _readlink_maybe(executable)
-            except OSError:
-                pass
-            else:
-                return find_stdlib_link(state, link)
-    return path, prefix
-
-
 @unwrap_spec(executable='str0', dynamic=int)
 def pypy_find_stdlib(space, executable, dynamic=1):
     if dynamic and space.config.translation.shared:
@@ -180,7 +164,7 @@ def pypy_find_stdlib(space, executable, dynamic=1):
         if dynamic_location:
             executable = rffi.charp2str(dynamic_location)
             pypy_init_free(dynamic_location)
-    path, prefix = find_stdlib_link(get_state(space), executable)
+    path, prefix = find_stdlib(get_state(space), executable)
     if path is None:
         return space.w_None
     w_prefix = space.wrap(prefix)
@@ -245,7 +229,11 @@ char *_pypy_init_home(void)
                 dlerror());
         return NULL;
     }
-    return strdup(info.dli_fname);
+    char *p = realpath(info.dli_fname, NULL);
+    if (p == NULL) {
+        p = strdup(info.dli_fname);
+    }
+    return p;
 }
 """
 
