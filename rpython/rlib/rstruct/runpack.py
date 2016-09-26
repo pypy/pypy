@@ -7,6 +7,7 @@ import py
 from struct import unpack
 from rpython.rlib.rstruct.formatiterator import FormatIterator
 from rpython.rlib.rstruct.error import StructError
+from rpython.rlib.objectmodel import specialize
 
 class MasterReader(object):
     def __init__(self, s):
@@ -99,14 +100,14 @@ class FrozenUnpackIterator(FormatIterator):
         self._create_unpacking_func()
         return True
 
+@specialize.memo()
 def create_unpacker(unpack_str):
     fmtiter = FrozenUnpackIterator(unpack_str)
     fmtiter.interpret(unpack_str)
     assert fmtiter._freeze_()
     return fmtiter
-create_unpacker._annspecialcase_ = 'specialize:memo'
 
+@specialize.arg(0)
 def runpack(fmt, input):
     unpacker = create_unpacker(fmt)
     return unpacker.unpack(input)
-runpack._annspecialcase_ = 'specialize:arg(0)'

@@ -1981,3 +1981,29 @@ def test_function_returns_partial_struct():
         static struct aaa f1(int x) { struct aaa s = {0}; s.a = x; return s; }
     """)
     assert lib.f1(52).a == 52
+
+def test_typedef_array_dotdotdot():
+    ffi = FFI()
+    ffi.cdef("""
+        typedef int foo_t[...], bar_t[...];
+        int gv[...];
+        typedef int mat_t[...][...];
+        typedef int vmat_t[][...];
+        """)
+    lib = verify(ffi, "test_typedef_array_dotdotdot", """
+        typedef int foo_t[50], bar_t[50];
+        int gv[23];
+        typedef int mat_t[6][7];
+        typedef int vmat_t[][8];
+    """)
+    assert ffi.sizeof("foo_t") == 50 * ffi.sizeof("int")
+    assert ffi.sizeof("bar_t") == 50 * ffi.sizeof("int")
+    assert len(ffi.new("foo_t")) == 50
+    assert len(ffi.new("bar_t")) == 50
+    assert ffi.sizeof(lib.gv) == 23 * ffi.sizeof("int")
+    assert ffi.sizeof("mat_t") == 6 * 7 * ffi.sizeof("int")
+    assert len(ffi.new("mat_t")) == 6
+    assert len(ffi.new("mat_t")[3]) == 7
+    py.test.raises(ffi.error, ffi.sizeof, "vmat_t")
+    p = ffi.new("vmat_t", 4)
+    assert ffi.sizeof(p[3]) == 8 * ffi.sizeof("int")
