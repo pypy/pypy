@@ -303,37 +303,20 @@ class PyPyTarget(object):
         # HACKHACKHACK
         # ugly hack to modify target goal from compile_* to build_cffi_imports
         # this should probably get cleaned up and merged with driver.create_exe
+        from rpython.tool.runsubprocess import run_subprocess
         from rpython.translator.driver import taskdef
         import types
-
-        class Options(object):
-            pass
-
-
-        def mkexename(name):
-            if sys.platform == 'win32':
-                name = name.new(ext='exe')
-            return name
 
         compile_goal, = driver.backend_select_goals(['compile'])
         @taskdef([compile_goal], "Create cffi bindings for modules")
         def task_build_cffi_imports(self):
-            from pypy.tool.build_cffi_imports import create_cffi_import_libraries
             ''' Use cffi to compile cffi interfaces to modules'''
-            exename = mkexename(driver.compute_exe_name())
-            basedir = exename
-            while not basedir.join('include').exists():
-                _basedir = basedir.dirpath()
-                if _basedir == basedir:
-                    raise ValueError('interpreter %s not inside pypy repo',
-                                     str(exename))
-                basedir = _basedir
-            modules = self.config.objspace.usemodules.getpaths()
-            options = Options()
-            # XXX possibly adapt options using modules
-            failures = create_cffi_import_libraries(exename, options, basedir)
-            # if failures, they were already printed
-            print  >> sys.stderr, str(exename),'successfully built (errors, if any, while building the above modules are ignored)'
+            filename = os.path.join(pypydir, 'tool', 'build_cffi_imports.py')
+            status, out, err = run_subprocess(str(driver.compute_exe_name()),
+                                              [filename])
+            sys.stdout.write(out)
+            sys.stderr.write(err)
+            # otherwise, ignore errors
         driver.task_build_cffi_imports = types.MethodType(task_build_cffi_imports, driver)
         driver.tasks['build_cffi_imports'] = driver.task_build_cffi_imports, [compile_goal]
         driver.default_goal = 'build_cffi_imports'
