@@ -237,7 +237,8 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
         box = optimizer.get_box_replacement(box)
         info = optimizer.getptrinfo(box)
 
-        if info is None or info.is_virtual():
+        if (not self.typedescr.is_value_class() or
+            info is None or info.is_virtual()):
             return AbstractVirtualStructStateInfo.enum_forced_boxes(
                     self, boxes, box, optimizer, force_boxes)
 
