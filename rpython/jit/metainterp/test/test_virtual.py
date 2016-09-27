@@ -1044,10 +1044,6 @@ class VirtualTests:
 
         self.meta_interp(f, [])
 
-        # With retracing disable, there will be one optimized loop expecting a
-        # virtual X object. The side exit in this case will contain a non-virtual
-        # value class, which should be unpacked into the
-
     def test_aliased_virtual_states(self):
         # All cases are covered when forcing one component of the virtual state
         # also forces an as yet unseen component.

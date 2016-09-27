@@ -213,6 +213,26 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
         return (isinstance(other, VirtualStateInfo) and
                 self.typedescr is other.typedescr)
 
+    def getfield(self, box, info, descr, optimizer):
+        assert isinstance(info, AbstractStructPtrInfo)
+        field = info._fields[descr.get_index()]
+        if field is not None:
+            return field
+        opnum = rop.getfield_for_descr(descr)
+        getfield = ResOperation(opnum, [box], descr=descr)
+        optimizer.emit_operation(getfield)
+        return getfield
+
+    def make_virtual_copy(self, box, info, optimizer):
+        optvirtualize = optimizer.optvirtualize
+        # newop = ResOperation(rop.NEW_WITH_VTABLE, [], descr=self.typedescr)
+        opinfo = optvirtualize.make_virtual(self.known_class, box, self.typedescr)
+        # optimizer.emit_operation(newop)
+        for i in range(len(info._fields)):
+            descr = self.fielddescrs[i]
+            opinfo._fields[i] = self.getfield(box, info, descr, optimizer)
+        return opinfo
+
     def enum_forced_boxes(self, boxes, box, optimizer, force_boxes=False):
         box = optimizer.get_box_replacement(box)
         info = optimizer.getptrinfo(box)
@@ -221,18 +241,18 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
             return AbstractVirtualStructStateInfo.enum_forced_boxes(
                     self, boxes, box, optimizer, force_boxes)
 
-        optvirtualize = optimizer.optimizer.optvirtualize
-        assert optvirtualize is not None
+        optvirtualize = optimizer.optimizer
         assert isinstance(info, AbstractStructPtrInfo)
 
-        newop = optvirtualize.make_virtual(self.known_class, box, self.typedescr)
-        newop._fields = info._fields[:]
+        # TODO: Do we need to create a new object via NEW_WITH_VTABLE, or will the
+        # allocation be handled properly?
+        opinfo = self.make_virtual_copy(box, info, optimizer.optimizer)
         for i in range(min(len(self.fielddescrs), len(info._fields))):
             state = self.fieldstate[i]
             if state is None:
                 continue
             if state.position > self.position:
-                fieldbox = newop._fields[i]
+                fieldbox = opinfo._fields[i]
                 state.enum_forced_boxes(boxes, fieldbox, optimizer, force_boxes)
 
     def _generate_guards_non_virtual(self, other, box, runtime_box, state):
