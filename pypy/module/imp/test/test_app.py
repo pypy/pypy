@@ -1,5 +1,7 @@
 from __future__ import with_statement
+import pytest
 from rpython.tool.udir import udir
+
 
 
 class AppTestImpModule:
@@ -289,4 +291,6 @@ class AppTestImpModule:
     def test_get_tag(self):
         import imp
         import sys
+        if not hasattr(sys, 'pypy_version_info'):
+            skip('This test is PyPy-only')
         assert imp.get_tag() == 'pypy3-%d%d' % sys.pypy_version_info[0:2]
