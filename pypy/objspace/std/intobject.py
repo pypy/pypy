@@ -886,8 +886,8 @@ def _new_int(space, w_inttype, w_x, w_base=None):
                 if not e.match(space, space.w_TypeError):
                     raise
                 raise oefmt(space.w_TypeError,
-                            "int() argument must be a string or a number, "
-                            "not '%T'", w_value)
+                            "int() argument must be a string, a bytes-like "
+                            "object or a number, not '%T'", w_value)
             else:
                 return _string_to_int_or_long(space, w_inttype, w_value, buf)
     else:

@@ -501,8 +501,8 @@ class AppTestInt(object):
 
     def test_int_error_msg(self):
         e = raises(TypeError, int, [])
-        assert str(e.value) == (
-            "int() argument must be a string or a number, not 'list'")
+        assert str(e.value) == ("int() argument must be a string, a bytes-"
+                                "like object or a number, not 'list'")
 
     def test_invalid_literal_message(self):
         import sys
