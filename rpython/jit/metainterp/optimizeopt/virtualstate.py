@@ -7,6 +7,7 @@ from rpython.jit.metainterp.optimizeopt.intutils import \
 from rpython.jit.metainterp.resoperation import rop, ResOperation, \
      InputArgInt, InputArgRef, InputArgFloat
 from rpython.rlib.debug import debug_print
+from rpython.rlib.objectmodel import specialize
 
 LEVEL_UNKNOWN = '\x00'
 LEVEL_NONNULL = '\x01'
@@ -213,6 +214,7 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
         return (isinstance(other, VirtualStateInfo) and
                 self.typedescr is other.typedescr)
 
+    @specialize.argtype(4)
     def getfield(self, box, info, descr, optimizer):
         assert isinstance(info, AbstractStructPtrInfo)
         field = info._fields[descr.get_index()]
@@ -220,17 +222,23 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
             return field
         opnum = rop.getfield_for_descr(descr)
         getfield = ResOperation(opnum, [box], descr=descr)
-        optimizer.emit_operation(getfield)
+        if isinstance(optimizer, list):
+            optimizer.append(getfield)
+        else:
+            from rpython.jit.metainterp.optimizeopt import Optimizer
+            assert isinstance(optimizer, Optimizer)
+            optimizer.emit_operation(getfield)
+        info._fields[descr.get_index()] = getfield
         return getfield
 
     def make_virtual_copy(self, box, info, optimizer):
         optvirtualize = optimizer.optvirtualize
         # newop = ResOperation(rop.NEW_WITH_VTABLE, [], descr=self.typedescr)
         opinfo = optvirtualize.make_virtual(self.known_class, box, self.typedescr)
-        # optimizer.emit_operation(newop)
         for i in range(len(info._fields)):
             descr = self.fielddescrs[i]
             opinfo._fields[i] = self.getfield(box, info, descr, optimizer)
+        # optimizer.emit_operation(newop)
         return opinfo
 
     def enum_forced_boxes(self, boxes, box, optimizer, force_boxes=False):
@@ -265,8 +273,7 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
         """
         assert isinstance(other, NotVirtualStateInfoPtr)
 
-        known_class = self.typedescr
-        if not known_class.is_value_class():
+        if not self.typedescr.is_value_class():
             raise VirtualStatesCantMatch("different kinds of structs")
 
         # raise VirtualStatesCantMatch("different kinds of structs")
@@ -312,20 +319,18 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
         # virtual object.
         # This will probably look a lot like
         # AbstractVirtualStateInfo._generate_guards
-        fields = []
         for i, descr in enumerate(self.fielddescrs):
             if runtime_box is not None and opinfo is not None:
-                fieldbox = opinfo._fields[descr.get_index()]
+                fieldbox = self.getfield(box, opinfo, descr, extra_guards)
                 fieldbox_runtime = state.get_runtime_field(runtime_box, descr)
             else:
                 opnum = rop.getfield_for_descr(descr)
                 fieldbox = ResOperation(opnum, [box], descr=descr)
                 extra_guards.append(fieldbox)
                 fieldbox_runtime = None
-            fields.append(fieldbox)
-            faux_field_state = not_virtual(cpu, fieldbox.type, opinfo)
+            other_field_state = not_virtual(cpu, fieldbox.type, opinfo)
             fieldstate = self.fieldstate[i]
-            fieldstate.generate_guards(faux_field_state, fieldbox,
+            fieldstate.generate_guards(other_field_state, fieldbox,
                                        fieldbox_runtime, state)
 
     def debug_header(self, indent):
