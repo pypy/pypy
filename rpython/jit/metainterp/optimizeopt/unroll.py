@@ -337,7 +337,7 @@ class UnrollOptimizer(Optimization):
             try:
                 args, virtuals = target_virtual_state.make_inputargs_and_virtuals(
                     args, self.optimizer, force_boxes=force_boxes)
-            except VirtualStatesCantMatch as e:
+            except VirtualStatesCantMatch:
                 assert force_boxes
                 virtual_state = self.get_virtual_state(args)
                 continue

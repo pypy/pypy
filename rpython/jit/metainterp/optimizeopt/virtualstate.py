@@ -222,14 +222,12 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
                     self, boxes, box, optimizer, force_boxes)
 
         optvirtualize = optimizer.optimizer.optvirtualize
-        if optvirtualize is None:
-            raise VirtualStatesCantMatch()
-
+        assert optvirtualize is not None
         assert isinstance(info, AbstractStructPtrInfo)
 
         newop = optvirtualize.make_virtual(self.known_class, box, self.typedescr)
         newop._fields = info._fields[:]
-        for i in range(min(len(self.fielddescrs, len(info._fields)))):
+        for i in range(min(len(self.fielddescrs), len(info._fields))):
             state = self.fieldstate[i]
             if state is None:
                 continue
@@ -250,7 +248,7 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
         if not known_class.is_value_class():
             raise VirtualStatesCantMatch("different kinds of structs")
 
-        raise VirtualStatesCantMatch("different kinds of structs")
+        # raise VirtualStatesCantMatch("different kinds of structs")
         # TODO: Probably should rename state.extra_guards to extra_ops
         extra_guards = state.extra_guards
         cpu = state.cpu
@@ -260,7 +258,7 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
         if other.level == LEVEL_UNKNOWN:
             op = ResOperation(rop.GUARD_NONNULL_CLASS, [box, self.known_class])
             extra_guards.append(op)
-        elif other.level == LEVEL_NONULL:
+        elif other.level == LEVEL_NONNULL:
             op = ResOperation(rop.GUARD_CLASS, [box, self.known_class])
             extra_guards.append(op)
         elif other.level == LEVEL_KNOWNCLASS:
