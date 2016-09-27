@@ -169,7 +169,7 @@ class AppTestImpModule:
     def test_nullimporter(self):
         import os, imp
         importer = imp.NullImporter("path")
-        assert importer.find_module(1, [2, 3, 4]) is None
+        assert importer.find_module(1) is None
         raises(ImportError, imp.NullImporter, os.getcwd())
 
     def test_path_importer_cache(self):
