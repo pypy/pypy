@@ -130,10 +130,11 @@ static vmprof_stack_t *get_vmprof_stack(void)
 #endif
 
 RPY_EXTERN
-intptr_t vmprof_get_traceback(void *stack, intptr_t pc,
+intptr_t vmprof_get_traceback(void *stack, void *ucontext,
                               intptr_t *result_p, intptr_t result_length)
 {
     int n;
+    intptr_t pc = ucontext ? GetPC((ucontext_t *)ucontext) : 0;
     if (stack == NULL)
         stack = get_vmprof_stack();
     n = get_stack_trace(stack, result_p, result_length - 2, pc);

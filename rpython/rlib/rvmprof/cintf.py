@@ -57,7 +57,7 @@ def setup():
                                             compilation_info=eci,
                                             _nowrapper=True)
     vmprof_get_traceback = rffi.llexternal("vmprof_get_traceback",
-                                  [PVMPROFSTACK, lltype.Signed,
+                                  [PVMPROFSTACK, llmemory.Address,
                                    rffi.SIGNEDP, lltype.Signed],
                                   lltype.Signed, compilation_info=eci,
                                   _nowrapper=True)

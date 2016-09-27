@@ -2,19 +2,24 @@
 #define PYPY_FAULTHANDLER_H
 
 #include "src/precommondefs.h"
+#include <stdint.h>
 
 
-RPY_EXTERN char *pypy_faulthandler_setup(void dump_callback(void));
+typedef void (*pypy_faulthandler_cb_t)(int fd, intptr_t *array_p,
+                                       intptr_t length);
+
+RPY_EXTERN char *pypy_faulthandler_setup(pypy_faulthandler_cb_t dump_callback);
 RPY_EXTERN void pypy_faulthandler_teardown(void);
 
 RPY_EXTERN char *pypy_faulthandler_enable(int fd, int all_threads);
 RPY_EXTERN void pypy_faulthandler_disable(void);
 RPY_EXTERN int pypy_faulthandler_is_enabled(void);
 
-RPY_EXTERN void pypy_faulthandler_write(char *);
-RPY_EXTERN void pypy_faulthandler_write_int(long);
+RPY_EXTERN void pypy_faulthandler_write(int fd, const char *str);
+RPY_EXTERN void pypy_faulthandler_write_int(int fd, long value);
 
-RPY_EXTERN void pypy_faulthandler_dump_traceback(int fd, int all_threads);
+RPY_EXTERN void pypy_faulthandler_dump_traceback(int fd, int all_threads,
+                                                 void *ucontext);
 
 
 RPY_EXTERN int pypy_faulthandler_read_null(void);

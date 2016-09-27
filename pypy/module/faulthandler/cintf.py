@@ -1,5 +1,5 @@
 import py
-from rpython.rtyper.lltypesystem import lltype, rffi, rstr
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
 from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
@@ -15,7 +15,8 @@ def direct_llexternal(*args, **kwargs):
     kwargs.setdefault('compilation_info', eci)
     return rffi.llexternal(*args, **kwargs)
 
-DUMP_CALLBACK = lltype.Ptr(lltype.FuncType([], lltype.Void))
+DUMP_CALLBACK = lltype.Ptr(lltype.FuncType(
+                     [rffi.INT, rffi.SIGNEDP, lltype.Signed], lltype.Void))
 
 pypy_faulthandler_setup = direct_llexternal(
     'pypy_faulthandler_setup', [DUMP_CALLBACK], rffi.CCHARP)
@@ -33,13 +34,14 @@ pypy_faulthandler_is_enabled = direct_llexternal(
     'pypy_faulthandler_is_enabled', [], rffi.INT)
 
 pypy_faulthandler_write = direct_llexternal(
-    'pypy_faulthandler_write', [rffi.CCHARP], lltype.Void)
+    'pypy_faulthandler_write', [rffi.INT, rffi.CCHARP], lltype.Void)
 
 pypy_faulthandler_write_int = direct_llexternal(
-    'pypy_faulthandler_write_int', [lltype.Signed], lltype.Void)
+    'pypy_faulthandler_write_int', [rffi.INT, lltype.Signed], lltype.Void)
 
 pypy_faulthandler_dump_traceback = direct_llexternal(
-    'pypy_faulthandler_dump_traceback', [rffi.INT, rffi.INT], lltype.Void)
+    'pypy_faulthandler_dump_traceback',
+    [rffi.INT, rffi.INT, llmemory.Address], lltype.Void)
 
 # for tests...
 

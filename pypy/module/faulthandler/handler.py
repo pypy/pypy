@@ -1,5 +1,5 @@
 import os
-from rpython.rtyper.lltypesystem import rffi
+from rpython.rtyper.lltypesystem import llmemory, rffi
 from rpython.rlib.rposix import is_valid_fd
 from rpython.rlib.rarithmetic import widen
 from rpython.rlib.objectmodel import keepalive_until_here
@@ -71,7 +71,8 @@ class Handler(object):
         self.setup()
         cintf.pypy_faulthandler_dump_traceback(
             rffi.cast(rffi.INT, fileno),
-            rffi.cast(rffi.INT, all_threads))
+            rffi.cast(rffi.INT, all_threads),
+            llmemory.NULL)
         keepalive_until_here(w_file)
 
     def finish(self):

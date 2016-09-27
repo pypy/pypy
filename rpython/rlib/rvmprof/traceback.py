@@ -5,7 +5,7 @@ from the faulthandler module.
 
 from rpython.rlib.rvmprof import cintf, rvmprof
 from rpython.rlib.objectmodel import specialize
-from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 
 
 def traceback(estimate_number_of_entries):
@@ -17,7 +17,8 @@ def traceback(estimate_number_of_entries):
     size = estimate_number_of_entries * 2 + 4
     stack = cintf.get_rvmprof_stack()
     array_p = lltype.malloc(rffi.SIGNEDP.TO, size, flavor='raw')
-    array_length = _cintf.vmprof_get_traceback(stack, 0, array_p, size)
+    NULL = llmemory.NULL
+    array_length = _cintf.vmprof_get_traceback(stack, NULL, array_p, size)
     return (array_p, array_length)
 
 

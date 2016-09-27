@@ -9,6 +9,11 @@
 #include <sys/resource.h>
 #include <math.h>
 
+#include "rvmprof.h"
+
+#define MAX_FRAME_DEPTH   100
+#define FRAME_DEPTH_N     RVMPROF_TRACEBACK_ESTIMATE_N(MAX_FRAME_DEPTH)
+
 
 typedef struct sigaction _Py_sighandler_t;
 
@@ -23,8 +28,7 @@ static struct {
     int initialized;
     int enabled;
     volatile int fd, all_threads;
-    void (*volatile dump_traceback)(void);
-    int _current_fd;
+    volatile pypy_faulthandler_cb_t dump_traceback;
 } fatal_error;
 
 static stack_t stack;
@@ -46,45 +50,46 @@ static fault_handler_t faulthandler_handlers[] = {
 static const int faulthandler_nsignals =
     sizeof(faulthandler_handlers) / sizeof(fault_handler_t);
 
-static void
-fh_write(int fd, const char *str)
+RPY_EXTERN
+void pypy_faulthandler_write(int fd, const char *str)
 {
     (void)write(fd, str, strlen(str));
 }
 
 RPY_EXTERN
-void pypy_faulthandler_write(char *str)
-{
-    fh_write(fatal_error._current_fd, str);
-}
-
-RPY_EXTERN
-void pypy_faulthandler_write_int(long x)
+void pypy_faulthandler_write_int(int fd, long value)
 {
     char buf[32];
-    sprintf(buf, "%ld", x);
-    fh_write(fatal_error._current_fd, buf);
+    sprintf(buf, "%ld", value);
+    pypy_faulthandler_write(fd, buf);
 }
 
 
 RPY_EXTERN
-void pypy_faulthandler_dump_traceback(int fd, int all_threads)
+void pypy_faulthandler_dump_traceback(int fd, int all_threads,
+                                      void *ucontext)
 {
-    fatal_error._current_fd = fd;
+    pypy_faulthandler_cb_t fn;
+    intptr_t array_p[FRAME_DEPTH_N], array_length;
 
     /* XXX 'all_threads' ignored */
-    if (fatal_error.dump_traceback)
-        fatal_error.dump_traceback();
+    fn = fatal_error.dump_traceback;
+    if (fn) {
+        array_length = vmprof_get_traceback(NULL, ucontext,
+                                            array_p, FRAME_DEPTH_N);
+        fn(fd, array_p, array_length);
+    }
 }
 
-void faulthandler_dump_traceback(int fd, int all_threads)
+static void
+faulthandler_dump_traceback(int fd, int all_threads, void *ucontext)
 {
     static volatile int reentrant = 0;
 
     if (reentrant)
         return;
     reentrant = 1;
-    pypy_faulthandler_dump_traceback(fd, all_threads);
+    pypy_faulthandler_dump_traceback(fd, all_threads, ucontext);
     reentrant = 0;
 }
 
@@ -103,7 +108,7 @@ void faulthandler_dump_traceback(int fd, int all_threads)
    This function is signal-safe and should only call signal-safe functions. */
 
 static void
-faulthandler_fatal_error(int signum)
+faulthandler_fatal_error(int signum, siginfo_t *info, void *ucontext)
 {
     int fd = fatal_error.fd;
     int i;
@@ -123,11 +128,11 @@ faulthandler_fatal_error(int signum)
         handler->enabled = 0;
     }
 
-    fh_write(fd, "Fatal Python error: ");
-    fh_write(fd, handler->name);
-    fh_write(fd, "\n\n");
+    pypy_faulthandler_write(fd, "Fatal Python error: ");
+    pypy_faulthandler_write(fd, handler->name);
+    pypy_faulthandler_write(fd, "\n\n");
 
-    faulthandler_dump_traceback(fd, fatal_error.all_threads);
+    faulthandler_dump_traceback(fd, fatal_error.all_threads, ucontext);
 
     errno = save_errno;
 #ifdef MS_WINDOWS
@@ -144,7 +149,7 @@ faulthandler_fatal_error(int signum)
 
 
 RPY_EXTERN
-char *pypy_faulthandler_setup(void dump_callback(void))
+char *pypy_faulthandler_setup(pypy_faulthandler_cb_t dump_callback)
 {
     if (fatal_error.initialized)
         return NULL;
@@ -201,11 +206,11 @@ char *pypy_faulthandler_enable(int fd, int all_threads)
             struct sigaction action;
             fault_handler_t *handler = &faulthandler_handlers[i];
 
-            action.sa_handler = faulthandler_fatal_error;
+            action.sa_sigaction = faulthandler_fatal_error;
             sigemptyset(&action.sa_mask);
             /* Do not prevent the signal from being received from within
                its own signal handler */
-            action.sa_flags = SA_NODEFER;
+            action.sa_flags = SA_NODEFER | SA_SIGINFO;
             if (stack.ss_sp != NULL) {
                 /* Call the signal handler on an alternate signal stack
                    provided by sigaltstack() */
