@@ -277,7 +277,7 @@ class DescrOperation(object):
 
     def _check_len_result(space, w_obj):
         # Will complain if result is too big.
-        result = space.int_w(w_obj, allow_conversion=False)
+        result = space.getindex_w(w_obj, space.w_OverflowError)
         if result < 0:
             raise oefmt(space.w_ValueError, "__len__() should return >= 0")
         return result
