@@ -14,6 +14,9 @@ class OptVirtualize(optimizer.Optimization):
 
     _last_guard_not_forced_2 = None
 
+    def setup(self):
+        self.optimizer.optheap = self
+
     def make_virtual(self, known_class, source_op, descr):
         opinfo = info.InstancePtrInfo(descr, known_class, is_virtual=True)
         opinfo.init_fields(descr, 0)

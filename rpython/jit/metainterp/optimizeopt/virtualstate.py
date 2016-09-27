@@ -3,7 +3,7 @@ from rpython.jit.metainterp.history import ConstInt, ConstPtr, ConstFloat
 from rpython.jit.metainterp.optimizeopt.info import ArrayPtrInfo,\
      ArrayStructInfo, AbstractStructPtrInfo
 from rpython.jit.metainterp.optimizeopt.intutils import \
-     MININT, MAXINT, IntBound, IntLowerBound
+     MININT, MAXINT, IntBound, IntLowerBound, IntUnbounded
 from rpython.jit.metainterp.resoperation import rop, ResOperation, \
      InputArgInt, InputArgRef, InputArgFloat
 from rpython.rlib.debug import debug_print
@@ -213,6 +213,30 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
         return (isinstance(other, VirtualStateInfo) and
                 self.typedescr is other.typedescr)
 
+    def enum_forced_boxes(self, boxes, box, optimizer, force_boxes=False):
+        box = optimizer.get_box_replacement(box)
+        info = optimizer.getptrinfo(box)
+
+        if info is None or info.is_virtual():
+            return AbstractVirtualStructStateInfo.enum_forced_boxes(
+                    self, boxes, box, optimizer, force_boxes)
+
+        optvirtualize = optimizer.optimizer.optvirtualize
+        if optvirtualize is None:
+            raise VirtualStatesCantMatch()
+
+        assert isinstance(info, AbstractStructPtrInfo)
+
+        newop = optvirtualize.make_virtual(self.known_class, box, self.typedescr)
+        newop._fields = info._fields[:]
+        for i in range(min(len(self.fielddescrs, len(info._fields)))):
+            state = self.fieldstate[i]
+            if state is None:
+                continue
+            if state.position > self.position:
+                fieldbox = newop._fields[i]
+                state.enum_forced_boxes(boxes, fieldbox, optimizer, force_boxes)
+
     def _generate_guards_non_virtual(self, other, box, runtime_box, state):
         """
         Generate guards for the case where a virtual object is expected, but
@@ -227,8 +251,6 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
             raise VirtualStatesCantMatch("different kinds of structs")
 
         raise VirtualStatesCantMatch("different kinds of structs")
-        # import pdb; pdb.set_trace()
-
         # TODO: Probably should rename state.extra_guards to extra_ops
         extra_guards = state.extra_guards
         cpu = state.cpu
@@ -559,8 +581,10 @@ class NotVirtualStateInfoInt(NotVirtualStateInfo):
             other_intbound = other.intbound
         if self.intbound is None:
             return
-        if (other_intbound is not None and
-            self.intbound.contains_bound(other_intbound)):
+        if other_intbound is None:
+            self.intbound.make_guards(box, extra_guards, state.optimizer)
+            return
+        if self.intbound.contains_bound(other_intbound):
             return
         if (runtime_box is not None and
             self.intbound.contains(runtime_box.getint())):
