@@ -1,6 +1,8 @@
 import os
 
 import py
+import glob
+import bz2
 
 from pypy.module.bz2.test.support import CheckAllocation
 from pypy.module.bz2 import interp_bz2
@@ -36,6 +38,15 @@ def setup_module(mod):
     # For tests, patch the value of SMALLCHUNK
     mod.OLD_SMALLCHUNK = interp_bz2.INITIAL_BUFFER_SIZE
     interp_bz2.INITIAL_BUFFER_SIZE = 32
+
+    test_size = 0
+    mod.BIG_TEXT = bytearray(128*1024)
+    for fname in glob.glob(os.path.join(os.path.dirname(__file__), '*.py')):
+        with open(fname, 'rb') as fh:
+            test_size += fh.readinto(memoryview(BIG_TEXT)[test_size:])
+        if test_size > 128*1024:
+            break
+    mod.BIG_DATA = bz2.compress(BIG_TEXT, compresslevel=1)
 
 def teardown_module(mod):
     interp_bz2.INITIAL_BUFFER_SIZE = mod.OLD_SMALLCHUNK
@@ -122,6 +133,8 @@ class AppTestBZ2Decompressor(CheckAllocation):
     def setup_class(cls):
         cls.w_TEXT = cls.space.newbytes(TEXT)
         cls.w_DATA = cls.space.newbytes(DATA)
+        cls.w_BIG_DATA = cls.space.newbytes(BIG_DATA)
+        cls.w_BIG_TEXT = cls.space.newbytes(BIG_TEXT)
         cls.w_BUGGY_DATA = cls.space.newbytes(BUGGY_DATA)
 
         cls.space.appexec([], """(): import warnings""")  # Work around a recursion limit
@@ -206,8 +219,8 @@ class AppTestBZ2Decompressor(CheckAllocation):
         bz2d = BZ2Decompressor()
         decomp= []
 
-        length = len(self.DATA)
-        decomp.append(bz2d.decompress(self.DATA[:length-64]))
+        length = len(self.BIG_DATA)
+        decomp.append(bz2d.decompress(self.BIG_DATA[:length-64]), max_length=100)
         assert bz2d.needs_input == False
         assert len(decomp[-1]) == 100
 
@@ -215,7 +228,7 @@ class AppTestBZ2Decompressor(CheckAllocation):
         assert bz2d.needs_input == False
         assert len(decomp[-1]) == 50
 
-        decomp.append(bz2d.decompress(self.DATA[length-64:], max_length=50))
+        decomp.append(bz2d.decompress(self.BIG_DATA[length-64:], max_length=50))
         assert bz2d.needs_input == False
         assert len(decomp[-1]) == 50
 
@@ -223,7 +236,7 @@ class AppTestBZ2Decompressor(CheckAllocation):
             decomp.append(bz2d.decompress(b"", max_length=50))
             assert len(decomp[-1]) <= 50
 
-        assert ''.join(decomp) == self.TEXT
+        assert ''.join(decomp) == self.BIG_TEXT
 
 
 class AppTestBZ2ModuleFunctions(CheckAllocation):

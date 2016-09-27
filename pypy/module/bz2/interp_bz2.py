@@ -450,6 +450,13 @@ class W_BZ2Decompressor(W_Root):
                         if out.get_data_size() == max_length:
                             break
                         out.prepare_next_chunk()
+
+                if not self.running:
+                    self.needs_input = False
+                    if self.left_to_process != 0:
+                        end = len(data)
+                        start = end - self.left_to_process
+                        self.unused_data = data[start:]
                 res = out.make_result_string()
                 return self.space.newbytes(res)
 
@@ -469,7 +476,6 @@ class W_BZ2Decompressor(W_Root):
         if data == '':
             return self.space.newbytes('')
         datalen = len(data)
-        import pdb; pdb.set_trace()
         if self.input_buffer:
             input_buffer_in_use = True
             result = self._decompress_buf(self.input_buffer, max_length)
