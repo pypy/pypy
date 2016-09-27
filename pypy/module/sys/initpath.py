@@ -7,7 +7,7 @@ import os
 import stat
 import sys
 
-from rpython.rlib import rpath
+from rpython.rlib import rpath, rdynload
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -243,6 +243,7 @@ char *_pypy_init_home(void)
 
 _eci = ExternalCompilationInfo(separate_module_sources=[_source_code],
     post_include_bits=['RPY_EXPORTED char *_pypy_init_home(void);'])
+_eci = _eci.merge(rdynload.eci)
 
 pypy_init_home = rffi.llexternal("_pypy_init_home", [], rffi.CCHARP,
                                  _nowrapper=True, compilation_info=_eci)
