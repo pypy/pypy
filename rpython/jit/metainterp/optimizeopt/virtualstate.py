@@ -226,10 +226,8 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
         if not known_class.is_value_class():
             raise VirtualStatesCantMatch("different kinds of structs")
 
-        # import pdb; pdb.set_trace()
         raise VirtualStatesCantMatch("different kinds of structs")
-
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
 
         # TODO: Probably should rename state.extra_guards to extra_ops
         extra_guards = state.extra_guards
@@ -561,9 +559,8 @@ class NotVirtualStateInfoInt(NotVirtualStateInfo):
             other_intbound = other.intbound
         if self.intbound is None:
             return
-        if other.intbound is None:
-            return
-        if self.intbound.contains_bound(other_intbound):
+        if (other_intbound is not None and
+            self.intbound.contains_bound(other_intbound)):
             return
         if (runtime_box is not None and
             self.intbound.contains(runtime_box.getint())):
