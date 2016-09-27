@@ -34,11 +34,11 @@ def setup_module(mod):
     mod.decompress = decompress
     #
     # For tests, patch the value of SMALLCHUNK
-    mod.OLD_SMALLCHUNK = interp_bz2.SMALLCHUNK
-    interp_bz2.SMALLCHUNK = 32
+    mod.OLD_SMALLCHUNK = interp_bz2.INITIAL_BUFFER_SIZE
+    interp_bz2.INITIAL_BUFFER_SIZE = 32
 
 def teardown_module(mod):
-    interp_bz2.SMALLCHUNK = mod.OLD_SMALLCHUNK
+    interp_bz2.INITIAL_BUFFER_SIZE = mod.OLD_SMALLCHUNK
 
 class AppTestBZ2Compressor(CheckAllocation):
     spaceconfig = dict(usemodules=('bz2', 'time', 'struct'))
@@ -199,6 +199,31 @@ class AppTestBZ2Decompressor(CheckAllocation):
 
         exc = raises(TypeError, pickle.dumps, BZ2Decompressor())
         assert exc.value.args[0] == "cannot serialize '_bz2.BZ2Decompressor' object"
+
+    def test_decompress_max_length(self):
+        from bz2 import BZ2Decompressor
+
+        bz2d = BZ2Decompressor()
+        decomp= []
+
+        length = len(self.DATA)
+        decomp.append(bz2d.decompress(self.DATA[:length-64]))
+        assert bz2d.needs_input == False
+        assert len(decomp[-1]) == 100
+
+        decomp.append(bz2d.decompress(b"", max_length=50))
+        assert bz2d.needs_input == False
+        assert len(decomp[-1]) == 50
+
+        decomp.append(bz2d.decompress(self.DATA[length-64:], max_length=50))
+        assert bz2d.needs_input == False
+        assert len(decomp[-1]) == 50
+
+        while not bz2d.eof:
+            decomp.append(bz2d.decompress(b"", max_length=50))
+            assert len(decomp[-1]) <= 50
+
+        assert ''.join(decomp) == self.TEXT
 
 
 class AppTestBZ2ModuleFunctions(CheckAllocation):

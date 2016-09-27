@@ -200,7 +200,7 @@ class OutBuffer(object):
         else:
             size = max_length
         self._allocate_chunk(size)
-        self.avail_in_real = 0
+        self.left = 0
 
     def get_data_size(self):
         return 0
@@ -225,7 +225,10 @@ class OutBuffer(object):
     def prepare_next_chunk(self):
         size = self.current_size
         self.temp.append(self._get_chunk(size))
-        self._allocate_chunk(_new_buffer_size(size))
+        newsize = size
+        if self.max_length == -1:
+            newsize = _new_buffer_size(size)
+        self._allocate_chunk(newsize)
 
     def make_result_string(self):
         count_unoccupied = rffi.getintfield(self.bzs, 'c_avail_out')
@@ -382,8 +385,9 @@ class W_BZ2Decompressor(W_Root):
         try:
             self.running = False
             self.unused_data = ""
-            self.needs_input = 1
+            self.needs_input = True
             self.input_buffer = None
+            self.left_to_process = 0
 
             self._init_bz2decomp()
         except:
@@ -422,29 +426,31 @@ class W_BZ2Decompressor(W_Root):
 
     def _decompress_buf(self, data, max_length):
         in_bufsize = len(data)
-
         with rffi.scoped_nonmovingbuffer(data) as in_buf:
+            # setup the input and the size it can consume
             self.bzs.c_next_in = in_buf
             rffi.setintfield(self.bzs, 'c_avail_in', in_bufsize)
+            self.left_to_process -= in_bufsize
 
             with OutBuffer(self.bzs, max_length=max_length) as out:
                 while True:
-                    bzerror = BZ2_bzDecompress(self.bzs)
-                    if bzerror == BZ_STREAM_END:
+                    bzreturn = BZ2_bzDecompress(self.bzs)
+                    # add up the size that has not been processed
+                    avail_in = rffi.getintfield(self.bzs, 'c_avail_in')
+                    self.left_to_process += avail_in
+                    if bzreturn == BZ_STREAM_END:
                         self.running = False
                         break
-                    if bzerror != BZ_OK:
-                        _catch_bz2_error(self.space, bzerror)
+                    if bzreturn != BZ_OK:
+                        _catch_bz2_error(self.space, bzreturn)
 
-                    if rffi.getintfield(self.bzs, 'c_avail_in') == 0:
+                    if self.left_to_process == 0:
                         break
                     elif rffi.getintfield(self.bzs, 'c_avail_out') == 0:
                         if out.get_data_size() == max_length:
                             break
                         out.prepare_next_chunk()
                 res = out.make_result_string()
-                # might be non zero if max_length has been specified
-                self.left_to_process = out.left
                 return self.space.newbytes(res)
 
     @unwrap_spec(data='bufferstr', max_length=int)
@@ -462,22 +468,22 @@ class W_BZ2Decompressor(W_Root):
                         "end of stream was already found")
         if data == '':
             return self.space.newbytes('')
-
-        bzs = self.bzs
-        if not self.input_buffer:
+        datalen = len(data)
+        import pdb; pdb.set_trace()
+        if self.input_buffer:
             input_buffer_in_use = True
             result = self._decompress_buf(self.input_buffer, max_length)
         else:
             input_buffer_in_use = False
+            self.left_to_process = datalen
             result = self._decompress_buf(data, max_length)
 
         if self.left_to_process == 0:
             self.input_buffer = None
-            self.need_input = 1
+            self.needs_input = True
         else:
-            self.need_input = 0
+            self.needs_input = False
             if not input_buffer_in_use:
-                datalen = len(data)
                 self.input_buffer = data[datalen-self.left_to_process-1:]
 
         return result
