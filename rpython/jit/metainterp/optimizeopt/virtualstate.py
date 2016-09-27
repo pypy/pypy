@@ -226,7 +226,10 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
         if not known_class.is_value_class():
             raise VirtualStatesCantMatch("different kinds of structs")
 
+        # import pdb; pdb.set_trace()
         raise VirtualStatesCantMatch("different kinds of structs")
+
+        import pdb; pdb.set_trace()
 
         # TODO: Probably should rename state.extra_guards to extra_ops
         extra_guards = state.extra_guards
@@ -260,15 +263,31 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
         #     non-virtual object which we are promoting to a virtual. How do we
         #     generate this new virtual state so we can operate recursively)
 
+        if runtime_box is not None:
+            opinfo = state.optimizer.getptrinfo(box)
+            assert opinfo is None or isinstance(opinfo, AbstractStructPtrInfo)
+        else:
+            opinfo = None
+
         # We need to build a virtual version which conforms with the expected
         # virtual object.
         # This will probably look a lot like
         # AbstractVirtualStateInfo._generate_guards
-        fields = [None] * len(self.fielddescrs)
+        fields = []
         for i, descr in enumerate(self.fielddescrs):
-            opnum = rop.getfield_for_descr(descr)
-            fields[i] = getfield_op = ResOperation(opnum, [box], descr=descr)
-            extra_guards.append(getfield_op)
+            if runtime_box is not None and opinfo is not None:
+                fieldbox = opinfo._fields[descr.get_index()]
+                fieldbox_runtime = state.get_runtime_field(runtime_box, descr)
+            else:
+                opnum = rop.getfield_for_descr(descr)
+                fieldbox = ResOperation(opnum, [box], descr=descr)
+                extra_guards.append(fieldbox)
+                fieldbox_runtime = None
+            fields.append(fieldbox)
+            faux_field_state = not_virtual(cpu, fieldbox.type, opinfo)
+            fieldstate = self.fieldstate[i]
+            fieldstate.generate_guards(faux_field_state, fieldbox,
+                                       fieldbox_runtime, state)
 
     def debug_header(self, indent):
         debug_print(indent + 'VirtualStateInfo(%d):' % self.position)
@@ -541,6 +560,8 @@ class NotVirtualStateInfoInt(NotVirtualStateInfo):
         if isinstance(other, NotVirtualStateInfoInt):
             other_intbound = other.intbound
         if self.intbound is None:
+            return
+        if other.intbound is None:
             return
         if self.intbound.contains_bound(other_intbound):
             return
