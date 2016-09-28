@@ -445,6 +445,7 @@ class LZMADecompressor(object):
         self.eof = False
         self.lzs = _new_lzma_stream()
         self._bufsiz = max(8192, io.DEFAULT_BUFFER_SIZE)
+        self.needs_input = True
 
         if format == FORMAT_AUTO:
             catch_lzma_error(m.lzma_auto_decoder, self.lzs, memlimit, decoder_flags)
@@ -473,9 +474,9 @@ class LZMADecompressor(object):
         else:
             raise ValueError("invalid...")
 
-    def decompress(self, data):
+    def decompress(self, data, max_length=-1):
         """
-        decompress(data) -> bytes
+        decompress(data, max_length=-1) -> bytes
 
         Provide data to the decompressor object. Returns a chunk of
         decompressed data if possible, or b"" otherwise.
@@ -487,18 +488,71 @@ class LZMADecompressor(object):
         with self.lock:
             if self.eof:
                 raise EOFError("Already...")
-            return self._decompress(data)
+            lzs = self.lzs
+            data = to_bytes(data)
+            buf = ffi.new('char[]', data)
+            buf_size = len(data)
+            if lzs.next_in:
+                # in this case there is data left that needs to be processed before the first
+                # argument can be processed
+                addr_input_buffer = int(ffi.cast('uintptr_t', self.input_buffer))
+                addr_next_in = int(ffi.cast('uintptr_t', lzs.next_in))
+                avail_now = (addr_input_buffer + self.input_buffer_size) - \
+                            (addr_next_in + lzs.avail_in)
+                avail_total = self.input_buffer_size - lzs.avail_in
+                if avail_total < len:
+                    # resize the buffer, it is too small!
+                    pass
+                elif avail_now < len:
+                    # move all data to the front
+                    ffi.memmove(self.input_buffer, lzs.next_in, lzs.avail_in)
+                ffi.memmove(lzs.next_in+lzs.avail_in, buf, buf_size)
+                lzn.avail_in += buf_size
+                used_input_buffer = True
+            else:
+                lzn.avail_in = buf_size
+                lzn.next_in = buf
+                used_input_buffer = False
 
-    def _decompress(self, data):
+            result = self._decompress(buf, buf_len, max_length)
+
+            if self.eof:
+                self.needs_input = False
+                if lzs.avail_in > 0:
+                    self.unused_data = ffi.buffer(lzs.next_in, lzs.avail_in)[:]
+                    return result
+            elif lzs.avail_in == 0:
+                # completed successfully!
+                self.needs_input = True
+                lzs.next_in = None
+            else:
+                self.needs_input = False
+                if not used_input_buffer:
+                    # free buffer it is to small
+                    if self.input_buffer is ffi.NULL and \
+                       self.input_buffer_size < lzs.avail_in:
+                        m.free(self.input_buffer)
+                        self.input_buffer = None
+
+                    # allocate if necessary
+                    if self.input_buffer is None:
+                        self.input_buffer = m.malloc(lzs.avail_in)
+                        self.input_buffer_size = lzs.avail_in
+
+                    ffi.memmove(self.input_buffer, lzs.next_in, lzs.avail_in)
+                    lzs.next_in = self.input_buffer
+
+            return result
+
+    def _decompress(self, buf, buf_len, max_length):
         lzs = self.lzs
 
-        # we need in_ so that lzs.next_in doesn't get garbage collected until
-        # in_ goes out of scope
-        data = to_bytes(data)
-        lzs.next_in = in_ = ffi.new('char[]', data)
-        lzs.avail_in = len(data)
+        lzs.next_in = buf
+        lzs.avail_in = buf_len
 
         bufsiz = self._bufsiz
+        if not (max_length < 0 or max_length > io.DEFAULT_BUFFER_SIZE):
+            bufsiz = max_length
 
         lzs.next_out = orig_out = m.malloc(bufsiz)
         if orig_out == ffi.NULL:
@@ -519,13 +573,13 @@ class LZMADecompressor(object):
 
                 if ret == m.LZMA_STREAM_END:
                     self.eof = True
-                    if lzs.avail_in > 0:
-                        self.unused_data = ffi.buffer(lzs.next_in, lzs.avail_in)[:]
                     break
                 elif lzs.avail_in == 0:
                     # it ate everything
                     break
                 elif lzs.avail_out == 0:
+                    if data_size == max_length:
+                        break
                     # ran out of space in the output buffer, let's grow it
                     bufsiz += (bufsiz >> 3) + 6
                     next_out = m.realloc(orig_out, bufsiz)

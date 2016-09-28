@@ -386,7 +386,7 @@ class W_BZ2Decompressor(W_Root):
             self.running = False
             self.unused_data = ""
             self.needs_input = True
-            self.input_buffer = None
+            self.input_buffer = ""
             self.left_to_process = 0
 
             self._init_bz2decomp()
@@ -456,6 +456,7 @@ class W_BZ2Decompressor(W_Root):
                     if self.left_to_process != 0:
                         end = len(data)
                         start = end - self.left_to_process
+                        assert start > 0
                         self.unused_data = data[start:]
                 res = out.make_result_string()
                 return self.space.newbytes(res)
@@ -476,7 +477,7 @@ class W_BZ2Decompressor(W_Root):
         if data == '':
             return self.space.newbytes('')
         datalen = len(data)
-        if self.input_buffer:
+        if len(self.input_buffer) > 0:
             input_buffer_in_use = True
             result = self._decompress_buf(self.input_buffer, max_length)
         else:
@@ -485,12 +486,14 @@ class W_BZ2Decompressor(W_Root):
             result = self._decompress_buf(data, max_length)
 
         if self.left_to_process == 0:
-            self.input_buffer = None
+            self.input_buffer = ""
             self.needs_input = True
         else:
             self.needs_input = False
             if not input_buffer_in_use:
-                self.input_buffer = data[datalen-self.left_to_process-1:]
+                start = datalen-self.left_to_process-1
+                assert start > 0
+                self.input_buffer = data[start:]
 
         return result
 
