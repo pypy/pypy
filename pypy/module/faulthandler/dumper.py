@@ -51,5 +51,4 @@ def _dump_callback(fd, array_p, array_length):
     but hopefully close enough).  In particular, this is written as
     RPython but shouldn't allocate anything.
     """
-    _dump(fd, "Current stack (most recent call first):\n")
     traceback.walk_traceback(PyCode, dump_code, fd, array_p, array_length)

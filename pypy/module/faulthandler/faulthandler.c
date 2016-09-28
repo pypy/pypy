@@ -9,7 +9,12 @@
 #include <sys/resource.h>
 #include <math.h>
 
-#include "rvmprof.h"
+#ifdef RPYTHON_LL2CTYPES
+#  include "../../../rpython/rlib/rvmprof/src/rvmprof.h"
+#else
+#  include "rvmprof.h"
+#endif
+#include "src/threadlocal.h"
 
 #define MAX_FRAME_DEPTH   100
 #define FRAME_DEPTH_N     RVMPROF_TRACEBACK_ESTIMATE_N(MAX_FRAME_DEPTH)
@@ -59,7 +64,7 @@ void pypy_faulthandler_write(int fd, const char *str)
 RPY_EXTERN
 void pypy_faulthandler_write_int(int fd, long value)
 {
-    char buf[32];
+    char buf[48];
     sprintf(buf, "%ld", value);
     pypy_faulthandler_write(fd, buf);
 }
@@ -72,13 +77,51 @@ void pypy_faulthandler_dump_traceback(int fd, int all_threads,
     pypy_faulthandler_cb_t fn;
     intptr_t array_p[FRAME_DEPTH_N], array_length;
 
-    /* XXX 'all_threads' ignored */
     fn = fatal_error.dump_traceback;
-    if (fn) {
+    if (!fn)
+        return;
+
+#ifndef RPYTHON_LL2CTYPES
+    if (all_threads && _RPython_ThreadLocals_AcquireTimeout(10000) == 0) {
+        /* This is known not to be perfectly safe against segfaults if we
+           don't hold the GIL ourselves.  Too bad.  I suspect that CPython
+           has issues there too.
+        */
+        struct pypy_threadlocal_s *my, *p;
+        int blankline = 0;
+        char buf[40];
+
+        my = (struct pypy_threadlocal_s *)_RPy_ThreadLocals_Get();
+        p = _RPython_ThreadLocals_Head();
+        p = _RPython_ThreadLocals_Enum(p);
+        while (p != NULL) {
+            if (blankline)
+                pypy_faulthandler_write(fd, "\n");
+            blankline = 1;
+
+            pypy_faulthandler_write(fd, my == p ? "Current thread" : "Thread");
+            sprintf(buf, " 0x%lx", (unsigned long)p->thread_ident);
+            pypy_faulthandler_write(fd, buf);
+            pypy_faulthandler_write(fd, " (most recent call first):\n");
+
+            array_length = vmprof_get_traceback(p->vmprof_tl_stack,
+                                                my == p ? ucontext : NULL,
+                                                array_p, FRAME_DEPTH_N);
+            fn(fd, array_p, array_length);
+
+            p = _RPython_ThreadLocals_Enum(p);
+        }
+        _RPython_ThreadLocals_Release();
+    }
+    else {
+        pypy_faulthandler_write(fd, "Stack (most recent call first):\n");
         array_length = vmprof_get_traceback(NULL, ucontext,
                                             array_p, FRAME_DEPTH_N);
         fn(fd, array_p, array_length);
     }
+#else
+    pypy_faulthandler_write(fd, "(no traceback when untranslated)\n");
+#endif
 }
 
 static void
