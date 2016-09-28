@@ -1043,7 +1043,6 @@ class VirtualTests:
             return 0
 
         self.meta_interp(f, [])
-        import pdb; pdb.set_trace()
 
     def test_aliased_virtual_states(self):
         # All cases are covered when forcing one component of the virtual state

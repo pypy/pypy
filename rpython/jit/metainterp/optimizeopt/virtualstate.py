@@ -21,6 +21,8 @@ class VirtualStatesCantMatch(Exception):
 
 
 class GenerateGuardState(object):
+    _attrs_ = ('optimizer', 'cpu', 'extra_guards', 'renum', 'bad', 'force_boxes')
+
     def __init__(self, optimizer=None, guards=None, renum=None, bad=None, force_boxes=False):
         self.optimizer = optimizer
         self.cpu = optimizer.cpu
@@ -233,12 +235,10 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
 
     def make_virtual_copy(self, box, info, optimizer):
         optvirtualize = optimizer.optvirtualize
-        # newop = ResOperation(rop.NEW_WITH_VTABLE, [], descr=self.typedescr)
         opinfo = optvirtualize.make_virtual(self.known_class, box, self.typedescr)
         for i in range(len(info._fields)):
             descr = self.fielddescrs[i]
             opinfo._fields[i] = self.getfield(box, info, descr, optimizer)
-        # optimizer.emit_operation(newop)
         return opinfo
 
     def enum_forced_boxes(self, boxes, box, optimizer, force_boxes=False):
@@ -250,13 +250,12 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
             return AbstractVirtualStructStateInfo.enum_forced_boxes(
                     self, boxes, box, optimizer, force_boxes)
 
-        optvirtualize = optimizer.optimizer
         assert isinstance(info, AbstractStructPtrInfo)
 
         # TODO: Do we need to create a new object via NEW_WITH_VTABLE, or will the
         # allocation be handled properly?
         opinfo = self.make_virtual_copy(box, info, optimizer.optimizer)
-        for i in range(min(len(self.fielddescrs), len(info._fields))):
+        for i in range(min(len(self.fielddescrs), len(opinfo._fields))):
             state = self.fieldstate[i]
             if state is None:
                 continue
@@ -328,10 +327,11 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
                 fieldbox = ResOperation(opnum, [box], descr=descr)
                 extra_guards.append(fieldbox)
                 fieldbox_runtime = None
-            other_field_state = not_virtual(cpu, fieldbox.type, opinfo)
             fieldstate = self.fieldstate[i]
-            fieldstate.generate_guards(other_field_state, fieldbox,
-                                       fieldbox_runtime, state)
+            if fieldstate is not None:
+                other_field_state = not_virtual(cpu, fieldbox.type, opinfo)
+                fieldstate.generate_guards(other_field_state, fieldbox,
+                                           fieldbox_runtime, state)
 
     def debug_header(self, indent):
         debug_print(indent + 'VirtualStateInfo(%d):' % self.position)
