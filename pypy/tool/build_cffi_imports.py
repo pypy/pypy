@@ -44,7 +44,10 @@ def create_cffi_import_libraries(pypy_c, options, basedir):
     return failures
 
 if __name__ == '__main__':
-    import py, os
+    # NOTE: it does not work to execute this file to rebuild the cffi backends
+    # for pypy3. This script is python 2! Thus you can specify
+    # exefile as an argument to still be able to run this script with a pypy2 vm
+    import py, os, argparse
     if '__pypy__' not in sys.builtin_module_names:
         print 'Call with a pypy interpreter'
         sys.exit(-1)
@@ -52,8 +55,15 @@ if __name__ == '__main__':
     class Options(object):
         pass
 
-    exename = py.path.local(sys.executable) 
+    parser = argparse.ArgumentParser(description='Build all cffi backends in lib_pypy')
+    parser.add_argument('--exefile', dest='exefile', default=sys.executable,
+                        help='instead of executing sys.executable' \
+                             ' you can specify an alternative pypy vm here')
+    args = parser.parse_args()
+
+    exename = py.path.local(args.exefile)
     basedir = exename
+
     while not basedir.join('include').exists():
         _basedir = basedir.dirpath()
         if _basedir == basedir:
