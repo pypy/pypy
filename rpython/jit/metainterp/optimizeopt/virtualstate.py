@@ -1,7 +1,7 @@
 from rpython.jit.metainterp.walkvirtual import VirtualVisitor
 from rpython.jit.metainterp.history import ConstInt, ConstPtr, ConstFloat
 from rpython.jit.metainterp.optimizeopt.info import ArrayPtrInfo,\
-     ArrayStructInfo, AbstractStructPtrInfo
+     ArrayStructInfo, AbstractStructPtrInfo, ConstPtrInfo
 from rpython.jit.metainterp.optimizeopt.intutils import \
      MININT, MAXINT, IntBound, IntLowerBound, IntUnbounded
 from rpython.jit.metainterp.resoperation import rop, ResOperation, \
@@ -310,7 +310,9 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
 
         if runtime_box is not None:
             opinfo = state.optimizer.getptrinfo(box)
-            assert opinfo is None or isinstance(opinfo, AbstractStructPtrInfo)
+            if opinfo is not None and not isinstance(opinfo, AbstractStructPtrInfo):
+                assert isinstance(opinfo, ConstPtrInfo)
+                raise VirtualStatesCantMatch("cannot yet handle const pointers")
         else:
             opinfo = None
 
