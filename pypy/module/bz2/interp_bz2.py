@@ -479,7 +479,9 @@ class W_BZ2Decompressor(W_Root):
         datalen = len(data)
         if len(self.input_buffer) > 0:
             input_buffer_in_use = True
-            result = self._decompress_buf(self.input_buffer, max_length)
+            data = self.input_buffer + data
+            datalen = len(data)
+            result = self._decompress_buf(data, max_length)
         else:
             input_buffer_in_use = False
             self.left_to_process = datalen
