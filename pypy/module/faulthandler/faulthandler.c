@@ -12,6 +12,8 @@
 #ifdef RPYTHON_LL2CTYPES
 #  include "../../../rpython/rlib/rvmprof/src/rvmprof.h"
 #else
+#  include "common_header.h"
+#  include "structdef.h"
 #  include "rvmprof.h"
 #endif
 #include "src/threadlocal.h"

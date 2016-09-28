@@ -28,6 +28,9 @@ int _RPython_ThreadLocals_AcquireTimeout(int max_wait_iterations) {
     assert(check_valid());
     return 0;
 }
+void _RPython_ThreadLocals_Acquire(void) {
+    _RPython_ThreadLocals_AcquireTimeout(-1);
+}
 void _RPython_ThreadLocals_Release(void) {
     assert(check_valid());
     pypy_lock_release(&pypy_threadlocal_lock);

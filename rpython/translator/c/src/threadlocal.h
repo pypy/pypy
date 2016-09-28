@@ -19,10 +19,9 @@ RPY_EXTERN void RPython_ThreadLocals_ThreadDie(void);
    current thread, and if not, calls the following helper. */
 RPY_EXTERN char *_RPython_ThreadLocals_Build(void);
 
-RPY_EXTERN int _RPython_ThreadLocals_AcquireTimeout(int max_wait_iterations);
+RPY_EXTERN void _RPython_ThreadLocals_Acquire(void);
 RPY_EXTERN void _RPython_ThreadLocals_Release(void);
-#define _RPython_ThreadLocals_Acquire()  \
-    (void)_RPython_ThreadLocals_AcquireTimeout(-1)
+RPY_EXTERN int _RPython_ThreadLocals_AcquireTimeout(int max_wait_iterations);
 
 /* Must acquire/release the thread-local lock around a series of calls
    to the following function */
