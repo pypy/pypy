@@ -94,6 +94,7 @@ module_dependencies = {
                          ('objspace.usemodules.thread', True)],
     'cpyext': [('objspace.usemodules.array', True)],
     'cppyy': [('objspace.usemodules.cpyext', True)],
+    'faulthandler': [('objspace.usemodules._vmprof', True)],
     }
 module_suggests = {
     # the reason you want _rawffi is for ctypes, which
