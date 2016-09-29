@@ -1,5 +1,5 @@
 import os
-from rpython.rtyper.lltypesystem import llmemory, rffi
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib.rposix import is_valid_fd
 from rpython.rlib.rarithmetic import widen, ovfcheck_float_to_longlong
 from rpython.rlib.objectmodel import keepalive_until_here
@@ -20,6 +20,7 @@ class Handler(object):
     def _cleanup_(self):
         self.fatal_error_w_file = None
         self.dump_traceback_later_w_file = None
+        self.user_w_files = None
 
     def check_err(self, p_err):
         if p_err:
@@ -98,6 +99,37 @@ class Handler(object):
         cintf.pypy_faulthandler_cancel_dump_traceback_later()
         self.dump_traceback_later_w_file = None
 
+    def check_signum(self, signum):
+        err = rffi.cast(lltype.Signed,
+                        cintf.pypy_faulthandler_check_signum(signum))
+        if err < 0:
+            space = self.space
+            if err == -1:
+                raise oefmt(space.w_RuntimeError,
+                            "signal %d cannot be registered, "
+                            "use enable() instead", signum)
+            else:
+                raise oefmt(space.w_ValueError, "signal number out of range")
+
+    def register(self, signum, w_file, all_threads, chain):
+        self.check_signum(signum)
+        fileno, w_file = self.get_fileno_and_file(w_file)
+        self.setup()
+        self.check_err(cintf.pypy_faulthandler_register(
+            rffi.cast(rffi.INT, signum),
+            rffi.cast(rffi.INT, fileno),
+            rffi.cast(rffi.INT, all_threads),
+            rffi.cast(rffi.INT, chain)))
+        if self.user_w_files is None:
+            self.user_w_files = {}
+        self.user_w_files[signum] = w_file
+
+    def unregister(self, signum):
+        self.check_signum(signum)
+        change = cintf.pypy_faulthandler_unregister(
+            rffi.cast(rffi.INT, signum))
+        return rffi.cast(lltype.Signed, change) == 1
+
     def finish(self):
         cintf.pypy_faulthandler_teardown()
         self._cleanup_()
@@ -137,6 +169,14 @@ def dump_traceback_later(space, timeout, repeat=0, w_file=None, exit=0):
 def cancel_dump_traceback_later(space):
     """cancel the previous call to dump_traceback_later()."""
     space.fromcache(Handler).cancel_dump_traceback_later()
+
+@unwrap_spec(signum=int, all_threads=int, chain=int)
+def register(space, signum, w_file=None, all_threads=1, chain=0):
+    space.fromcache(Handler).register(signum, w_file, all_threads, chain)
+
+@unwrap_spec(signum=int)
+def unregister(space, signum):
+    return space.wrap(space.fromcache(Handler).unregister(signum))
 
 
 # for tests...

@@ -1,4 +1,6 @@
+import sys
 from pypy.interpreter.mixedmodule import MixedModule
+
 
 class Module(MixedModule):
     appleveldefs = {
@@ -26,6 +28,9 @@ class Module(MixedModule):
                                  'handler.dump_traceback_later')
             self.extra_interpdef('cancel_dump_traceback_later',
                                  'handler.cancel_dump_traceback_later')
+        if sys.platform != 'win32':
+            self.extra_interpdef('register', 'handler.register')
+            self.extra_interpdef('unregister', 'handler.unregister')
 
     def shutdown(self, space):
         from pypy.module.faulthandler import handler

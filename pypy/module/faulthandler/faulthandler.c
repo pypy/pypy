@@ -138,6 +138,10 @@ faulthandler_dump_traceback(int fd, int all_threads, void *ucontext)
     reentrant = 0;
 }
 
+
+/************************************************************/
+
+
 #ifdef PYPY_FAULTHANDLER_LATER
 #include "src/thread.h"
 static struct {
@@ -243,6 +247,152 @@ void pypy_faulthandler_cancel_dump_traceback_later(void)
 }
 
 
+/************************************************************/
+
+
+#ifdef PYPY_FAULTHANDLER_USER
+typedef struct {
+    int enabled;
+    int fd;
+    int all_threads;
+    int chain;
+    _Py_sighandler_t previous;
+} user_signal_t;
+
+static user_signal_t *user_signals;
+
+#ifndef NSIG
+# if defined(_NSIG)
+#  define NSIG _NSIG            /* For BSD/SysV */
+# elif defined(_SIGMAX)
+#  define NSIG (_SIGMAX + 1)    /* For QNX */
+# elif defined(SIGMAX)
+#  define NSIG (SIGMAX + 1)     /* For djgpp */
+# else
+#  define NSIG 64               /* Use a reasonable default value */
+# endif
+#endif
+
+static void faulthandler_user(int signum, siginfo_t *info, void *ucontext);
+
+static int
+faulthandler_register(int signum, int chain, _Py_sighandler_t *p_previous)
+{
+    struct sigaction action;
+    action.sa_handler = faulthandler_user;
+    sigemptyset(&action.sa_mask);
+    /* if the signal is received while the kernel is executing a system
+       call, try to restart the system call instead of interrupting it and
+       return EINTR. */
+    action.sa_flags = SA_RESTART | SA_SIGINFO;
+    if (chain) {
+        /* do not prevent the signal from being received from within its
+           own signal handler */
+        action.sa_flags = SA_NODEFER;
+    }
+    if (stack.ss_sp != NULL) {
+        /* Call the signal handler on an alternate signal stack
+           provided by sigaltstack() */
+        action.sa_flags |= SA_ONSTACK;
+    }
+    return sigaction(signum, &action, p_previous);
+}
+
+static void faulthandler_user(int signum, siginfo_t *info, void *ucontext)
+{
+    int save_errno;
+    user_signal_t *user = &user_signals[signum];
+
+    if (!user->enabled)
+        return;
+
+    save_errno = errno;
+    faulthandler_dump_traceback(user->fd, user->all_threads, ucontext);
+
+    if (user->chain) {
+        (void)sigaction(signum, &user->previous, NULL);
+        errno = save_errno;
+
+        /* call the previous signal handler */
+        raise(signum);
+
+        save_errno = errno;
+        (void)faulthandler_register(signum, user->chain, NULL);
+    }
+
+    errno = save_errno;
+}
+
+RPY_EXTERN
+int pypy_faulthandler_check_signum(long signum)
+{
+    unsigned int i;
+
+    for (i = 0; i < faulthandler_nsignals; i++) {
+        if (faulthandler_handlers[i].signum == signum) {
+            return -1;
+        }
+    }
+    if (signum < 1 || NSIG <= signum) {
+        return -2;
+    }
+    return 0;
+}
+
+RPY_EXTERN
+char *pypy_faulthandler_register(int signum, int fd, int all_threads, int chain)
+{
+    user_signal_t *user;
+    _Py_sighandler_t previous;
+    int err;
+
+    if (user_signals == NULL) {
+        user_signals = malloc(NSIG * sizeof(user_signal_t));
+        if (user_signals == NULL)
+            return "out of memory";
+        memset(user_signals, 0, NSIG * sizeof(user_signal_t));
+    }
+
+    user = &user_signals[signum];
+    user->fd = fd;
+    user->all_threads = all_threads;
+    user->chain = chain;
+
+    if (!user->enabled) {
+        err = faulthandler_register(signum, chain, &previous);
+        if (err)
+            return strerror(errno);
+
+        user->previous = previous;
+        user->enabled = 1;
+    }
+    return NULL;
+}
+
+RPY_EXTERN
+int pypy_faulthandler_unregister(int signum)
+{
+    user_signal_t *user;
+
+    if (user_signals == NULL)
+        return 0;
+
+    user = &user_signals[signum];
+    if (user->enabled) {
+        user->enabled = 0;
+        (void)sigaction(signum, &user->previous, NULL);
+        user->fd = -1;
+        return 1;
+    }
+    else
+        return 0;
+}
+#endif   /* PYPY_FAULTHANDLER_USER */
+
+
+/************************************************************/
+
+
 /* Handler for SIGSEGV, SIGFPE, SIGABRT, SIGBUS and SIGILL signals.
 
    Display the current Python traceback, restore the previous handler and call
@@ -344,6 +494,14 @@ void pypy_faulthandler_teardown(void)
         RPyOpaqueDealloc_ThreadLock(&thread_later.cancel_event);
 #endif
 
+#ifdef PYPY_FAULTHANDLER_USER
+        int signum;
+        for (signum = 0; signum < NSIG; signum++)
+            pypy_faulthandler_unregister(signum);
+        /* don't free 'user_signals', the gain is very minor and it can
+           lead to rare crashes if another thread is still busy */
+#endif
+
         pypy_faulthandler_disable();
         fatal_error.initialized = 0;
         if (stack.ss_sp) {
@@ -413,6 +571,9 @@ int pypy_faulthandler_is_enabled(void)
 {
     return fatal_error.enabled;
 }
+
+
+/************************************************************/
 
 
 /* for tests... */

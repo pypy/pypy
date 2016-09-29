@@ -12,6 +12,8 @@ eci = ExternalCompilationInfo(
 
 eci_later = eci.merge(ExternalCompilationInfo(
     pre_include_bits=['#define PYPY_FAULTHANDLER_LATER\n']))
+eci_user = eci.merge(ExternalCompilationInfo(
+    pre_include_bits=['#define PYPY_FAULTHANDLER_USER\n']))
 
 def direct_llexternal(*args, **kwargs):
     kwargs.setdefault('_nowrapper', True)
@@ -54,6 +56,21 @@ pypy_faulthandler_dump_traceback_later = direct_llexternal(
 
 pypy_faulthandler_cancel_dump_traceback_later = direct_llexternal(
     'pypy_faulthandler_cancel_dump_traceback_later', [], lltype.Void)
+
+pypy_faulthandler_check_signum = direct_llexternal(
+    'pypy_faulthandler_check_signum',
+    [rffi.LONG], rffi.INT,
+    compilation_info=eci_user)
+
+pypy_faulthandler_register = direct_llexternal(
+    'pypy_faulthandler_register',
+    [rffi.INT, rffi.INT, rffi.INT, rffi.INT], rffi.CCHARP,
+    compilation_info=eci_user)
+
+pypy_faulthandler_unregister = direct_llexternal(
+    'pypy_faulthandler_unregister',
+    [rffi.INT], rffi.INT,
+    compilation_info=eci_user)
 
 
 # for tests...

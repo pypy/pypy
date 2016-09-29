@@ -25,6 +25,10 @@ RPY_EXTERN char *pypy_faulthandler_dump_traceback_later(
     long long microseconds, int repeat, int fd, int exit);
 RPY_EXTERN void pypy_faulthandler_cancel_dump_traceback_later(void);
 
+RPY_EXTERN int pypy_faulthandler_check_signum(long signum);
+RPY_EXTERN char *pypy_faulthandler_register(int, int, int, int);
+RPY_EXTERN int pypy_faulthandler_unregister(int signum);
+
 
 RPY_EXTERN int pypy_faulthandler_read_null(void);
 RPY_EXTERN void pypy_faulthandler_sigsegv(void);
