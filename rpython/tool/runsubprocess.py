@@ -8,10 +8,15 @@ import gc
 import os
 from subprocess import PIPE, Popen
 
+PY3  = sys.version_info[0] >= 3
+
 def run_subprocess(executable, args, env=None, cwd=None):
     if isinstance(args, list):
-        args = [a.encode('latin1') if isinstance(a, unicode) else a
-                for a in args]
+        if PY3:
+            args = [a for a in args]
+        else:
+            args = [a.encode('latin1') if isinstance(a, unicode) else a
+                    for a in args]
     return _run(executable, args, env, cwd)
 
 shell_default = False
@@ -83,7 +88,7 @@ if sys.platform != 'win32' and hasattr(os, 'fork') and not os.getenv("PYPY_DONT_
 
     def _run(*args):
         try:
-            _child.stdin.write('%r\n' % (args,))
+            _child.stdin.write(b'%r\n' % (args,))
         except (OSError, IOError):
             # lost the child.  Try again...
             spawn_subprocess()

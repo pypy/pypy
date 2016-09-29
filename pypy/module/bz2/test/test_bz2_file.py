@@ -256,7 +256,6 @@ class AppTestBZ2File: #(CheckAllocation):
         self.create_temp_file()
 
         bz2f = BZ2File(self.temppath)
-        raises(TypeError, bz2f.read, None)
         text_read = bz2f.read()
         assert text_read == self.TEXT
         bz2f.close()
