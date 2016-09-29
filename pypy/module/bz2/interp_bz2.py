@@ -468,8 +468,7 @@ class W_BZ2Decompressor(W_Root):
                     bzreturn = BZ2_bzDecompress(self.bzs)
                     # add up the size that has not been processed
                     avail_in = rffi.getintfield(self.bzs, 'c_avail_in')
-                    total_in += avail_in
-                    self.left_to_process = total_in
+                    self.left_to_process = avail_in
                     if bzreturn == BZ_STREAM_END:
                         self.running = False
                         break
@@ -483,6 +482,7 @@ class W_BZ2Decompressor(W_Root):
                             break
                         out.prepare_next_chunk()
 
+                self.left_to_process += total_in
                 res = out.make_result_string()
                 return self.space.newbytes(res)
 
