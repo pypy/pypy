@@ -139,7 +139,7 @@ faulthandler_dump_traceback(int fd, int all_threads, void *ucontext)
 }
 
 #ifdef PYPY_FAULTHANDLER_LATER
-#include "src/thead.h"
+#include "src/thread.h"
 static struct {
     int fd;
     long long microseconds;
@@ -199,7 +199,7 @@ static void faulthandler_thread(void)
 
         if (thread_later.exit)
             _exit(1);
-    } while (thread.repeat);
+    } while (thread_later.repeat);
 
     /* The only way out */
     RPyThreadReleaseLock(&thread_later.running);
@@ -231,7 +231,7 @@ void pypy_faulthandler_cancel_dump_traceback_later(void)
 {
 #ifdef PYPY_FAULTHANDLER_LATER
     /* Notify cancellation */
-    RRyThreadReleaseLock(&thread_later.cancel_event);
+    RPyThreadReleaseLock(&thread_later.cancel_event);
 
     /* Wait for thread to join (or does nothing if no thread is running) */
     RPyThreadAcquireLock(&thread_later.running, 1);

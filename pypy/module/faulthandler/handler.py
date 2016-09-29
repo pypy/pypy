@@ -77,6 +77,7 @@ class Handler(object):
         keepalive_until_here(w_file)
 
     def dump_traceback_later(self, timeout, repeat, w_file, exit):
+        space = self.space
         timeout *= 1e6
         try:
             microseconds = ovfcheck_float_to_longlong(timeout)
