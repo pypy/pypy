@@ -425,18 +425,22 @@ class W_BZ2Decompressor(W_Root):
             return space.w_True
 
     def _decompress_buf(self, data, max_length):
-        in_bufsize = len(data)
+        total_in = len(data)
+        in_bufsize = min(total_in, UINT_MAX)
+        total_in -= in_bufsize
         with rffi.scoped_nonmovingbuffer(data) as in_buf:
             # setup the input and the size it can consume
             self.bzs.c_next_in = in_buf
             rffi.setintfield(self.bzs, 'c_avail_in', in_bufsize)
+            self.left_to_process = in_bufsize
 
             with OutBuffer(self.bzs, max_length=max_length) as out:
                 while True:
                     bzreturn = BZ2_bzDecompress(self.bzs)
                     # add up the size that has not been processed
                     avail_in = rffi.getintfield(self.bzs, 'c_avail_in')
-                    self.left_to_process = avail_in
+                    total_in += avail_in
+                    self.left_to_process = total_in
                     if bzreturn == BZ_STREAM_END:
                         self.running = False
                         break
@@ -450,13 +454,6 @@ class W_BZ2Decompressor(W_Root):
                             break
                         out.prepare_next_chunk()
 
-                if not self.running:
-                    self.needs_input = False
-                    if self.left_to_process != 0:
-                        end = len(data)
-                        start = end - self.left_to_process
-                        assert start > 0
-                        self.unused_data = data[start:]
                 res = out.make_result_string()
                 return self.space.newbytes(res)
 
@@ -475,24 +472,28 @@ class W_BZ2Decompressor(W_Root):
                         "end of stream was already found")
         datalen = len(data)
         if len(self.input_buffer) > 0:
-            input_buffer_in_use = True
             data = self.input_buffer + data
             datalen = len(data)
-            result = self._decompress_buf(data, max_length)
-        else:
-            input_buffer_in_use = False
-            result = self._decompress_buf(data, max_length)
+            self.input_buffer = ""
 
-        if self.left_to_process == 0:
+        result = self._decompress_buf(data, max_length)
+
+        if not self.running: # eq. with eof == Ture
+            self.needs_input = False
+            if self.left_to_process != 0:
+                start = datalen - self.left_to_process
+                assert start > 0
+                self.unused_data = data[start:]
+                self.left_to_process = 0
+        elif self.left_to_process == 0:
             self.input_buffer = ""
             self.needs_input = True
         else:
             self.needs_input = False
-            if not input_buffer_in_use:
+            if self.left_to_process > 0:
                 start = datalen-self.left_to_process
-                assert start > 0
+                assert start >= 0
                 self.input_buffer = data[start:]
-
         return result
 
 
