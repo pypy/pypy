@@ -47,40 +47,19 @@ def walk_traceback(CodeClass, callback, arg, array_p, array_length):
     'code_obj' may be None if it can't be determined.  'loc' is one
     of the LOC_xxx constants.
     """
-    dedup = 0
     i = 0
     while i < array_length - 1:
         tag = array_p[i]
         tagged_value = array_p[i + 1]
-
         if tag == rvmprof.VMPROF_CODE_TAG:
-            # VMPROF_CODE_TAG is from an interpreted frame.
-            # If the previously-printed frame was a LOC_JITTED, then it
-            # should be a duplicate of the very same frame here.  In
-            # that case, after checking that it is indeed the same frame
-            # for sanity, we don't print it again.
             loc = LOC_INTERPRETED
-            if tagged_value != dedup or tagged_value == 0:
-                _traceback_one(CodeClass, callback, arg, tagged_value, loc)
-            dedup = 0
-
+            _traceback_one(CodeClass, callback, arg, tagged_value, loc)
         elif tag == rvmprof.VMPROF_JITTED_TAG:
             if i + 2 >= array_length:  # skip last entry, can't determine if
                 break                  # it's LOC_JITTED_INLINED or LOC_JITTED
-
-            # A bunch of VMPROF_JITTED_TAG entries consecutively in the
-            # stack trace correspond to one piece of machine code with
-            # inlined frames.  There is a VMPROF_ASSEMBLER_TAG before,
-            # so we are sure that there is at least one non-JITTED_TAG
-            # between one such bunch and the next one.  De-duplicate
-            # like we do for LOC_INTERPRETED, and record in 'dedup' the
-            # code id if we're printing LOC_JITTED (i.e. the last frame
-            # of this bunch).
             if array_p[i + 2] == rvmprof.VMPROF_JITTED_TAG:
                 loc = LOC_JITTED_INLINED
             else:
                 loc = LOC_JITTED
-            if tagged_value != dedup or tagged_value == 0:
-                _traceback_one(CodeClass, callback, arg, tagged_value, loc)
-            dedup = tagged_value if loc == LOC_JITTED else 0
+            _traceback_one(CodeClass, callback, arg, tagged_value, loc)
         i += 2
