@@ -10,10 +10,14 @@ eci = ExternalCompilationInfo(
     include_dirs=[str(cwd), cdir],
     separate_module_files=[cwd.join('faulthandler.c')])
 
+eci_later = eci.merge(ExternalCompilationInfo(
+    pre_include_bits=['#define PYPY_FAULTHANDLER_LATER\n']))
+
 def direct_llexternal(*args, **kwargs):
     kwargs.setdefault('_nowrapper', True)
     kwargs.setdefault('compilation_info', eci)
     return rffi.llexternal(*args, **kwargs)
+
 
 DUMP_CALLBACK = lltype.Ptr(lltype.FuncType(
                      [rffi.INT, rffi.SIGNEDP, lltype.Signed], lltype.Void))
@@ -42,6 +46,15 @@ pypy_faulthandler_write_int = direct_llexternal(
 pypy_faulthandler_dump_traceback = direct_llexternal(
     'pypy_faulthandler_dump_traceback',
     [rffi.INT, rffi.INT, llmemory.Address], lltype.Void)
+
+pypy_faulthandler_dump_traceback_later = direct_llexternal(
+    'pypy_faulthandler_dump_traceback_later',
+    [rffi.LONGLONG, rffi.INT, rffi.INT, rffi.INT], rffi.CCHARP,
+    compilation_info=eci_later)
+
+pypy_faulthandler_cancel_dump_traceback_later = direct_llexternal(
+    'pypy_faulthandler_cancel_dump_traceback_later', [], lltype.Void)
+
 
 # for tests...
 

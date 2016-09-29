@@ -1,7 +1,7 @@
 import os
 from rpython.rtyper.lltypesystem import llmemory, rffi
 from rpython.rlib.rposix import is_valid_fd
-from rpython.rlib.rarithmetic import widen
+from rpython.rlib.rarithmetic import widen, ovfcheck_float_to_longlong
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.annlowlevel import llhelper
 
@@ -19,6 +19,7 @@ class Handler(object):
 
     def _cleanup_(self):
         self.fatal_error_w_file = None
+        self.dump_traceback_later_w_file = None
 
     def check_err(self, p_err):
         if p_err:
@@ -75,6 +76,27 @@ class Handler(object):
             llmemory.NULL)
         keepalive_until_here(w_file)
 
+    def dump_traceback_later(self, timeout, repeat, w_file, exit):
+        timeout *= 1e6
+        try:
+            microseconds = ovfcheck_float_to_longlong(timeout)
+        except OverflowError:
+            raise oefmt(space.w_OverflowError, "timeout value is too large")
+        if microseconds <= 0:
+            raise oefmt(space.w_ValueError, "timeout must be greater than 0")
+        fileno, w_file = self.get_fileno_and_file(w_file)
+        self.setup()
+        self.check_err(cintf.pypy_faulthandler_dump_traceback_later(
+            rffi.cast(rffi.LONGLONG, microseconds),
+            rffi.cast(rffi.INT, repeat),
+            rffi.cast(rffi.INT, fileno),
+            rffi.cast(rffi.INT, exit)))
+        self.dump_traceback_later_w_file = w_file
+
+    def cancel_dump_traceback_later(self):
+        cintf.pypy_faulthandler_cancel_dump_traceback_later()
+        self.dump_traceback_later_w_file = None
+
     def finish(self):
         cintf.pypy_faulthandler_teardown()
         self._cleanup_()
@@ -100,9 +122,21 @@ def is_enabled(space):
 
 @unwrap_spec(all_threads=int)
 def dump_traceback(space, w_file=None, all_threads=0):
-   """dump the traceback of the current thread into file
-   including all threads if all_threads is True"""
-   space.fromcache(Handler).dump_traceback(w_file, all_threads)
+    """dump the traceback of the current thread into file
+    including all threads if all_threads is True"""
+    space.fromcache(Handler).dump_traceback(w_file, all_threads)
+
+@unwrap_spec(timeout=float, repeat=int, exit=int)
+def dump_traceback_later(space, timeout, repeat=0, w_file=None, exit=0):
+    """dump the traceback of all threads in timeout seconds,
+    or each timeout seconds if repeat is True. If exit is True,
+    call _exit(1) which is not safe."""
+    space.fromcache(Handler).dump_traceback_later(timeout, repeat, w_file, exit)
+
+def cancel_dump_traceback_later(space):
+    """cancel the previous call to dump_traceback_later()."""
+    space.fromcache(Handler).cancel_dump_traceback_later()
+
 
 # for tests...
 

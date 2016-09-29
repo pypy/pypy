@@ -19,6 +19,14 @@ class Module(MixedModule):
         '_stack_overflow': 'handler.stack_overflow',
     }
 
+    def setup_after_space_initialization(self):
+        """NOT_RPYTHON"""
+        if self.space.config.translation.thread:
+            self.extra_interpdef('dump_traceback_later',
+                                 'handler.dump_traceback_later')
+            self.extra_interpdef('cancel_dump_traceback_later',
+                                 'handler.cancel_dump_traceback_later')
+
     def shutdown(self, space):
         from pypy.module.faulthandler import handler
         handler.finish(space)

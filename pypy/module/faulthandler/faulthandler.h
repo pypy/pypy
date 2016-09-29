@@ -21,6 +21,10 @@ RPY_EXTERN void pypy_faulthandler_write_int(int fd, long value);
 RPY_EXTERN void pypy_faulthandler_dump_traceback(int fd, int all_threads,
                                                  void *ucontext);
 
+RPY_EXTERN char *pypy_faulthandler_dump_traceback_later(
+    long long microseconds, int repeat, int fd, int exit);
+RPY_EXTERN void pypy_faulthandler_cancel_dump_traceback_later(void);
+
 
 RPY_EXTERN int pypy_faulthandler_read_null(void);
 RPY_EXTERN void pypy_faulthandler_sigsegv(void);

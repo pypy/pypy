@@ -138,6 +138,110 @@ faulthandler_dump_traceback(int fd, int all_threads, void *ucontext)
     reentrant = 0;
 }
 
+#ifdef PYPY_FAULTHANDLER_LATER
+#include "src/thead.h"
+static struct {
+    int fd;
+    long long microseconds;
+    int repeat, exit;
+    /* The main thread always holds this lock. It is only released when
+       faulthandler_thread() is interrupted before this thread exits, or at
+       Python exit. */
+    struct RPyOpaque_ThreadLock cancel_event;
+    /* released by child thread when joined */
+    struct RPyOpaque_ThreadLock running;
+} thread_later;
+
+static void faulthandler_thread(void)
+{
+#ifndef _WIN32
+    /* we don't want to receive any signal */
+    sigset_t set;
+    sigfillset(&set);
+    pthread_sigmask(SIG_SETMASK, &set, NULL);
+#endif
+
+    RPyLockStatus st;
+    char buf[64];
+    unsigned long hour, minutes, seconds, fraction;
+    long long t;
+
+    do {
+        st = RPyThreadAcquireLockTimed(&thread_later.cancel_event,
+                                       thread_later.microseconds, 0);
+        if (st == RPY_LOCK_ACQUIRED) {
+            RPyThreadReleaseLock(&thread_later.cancel_event);
+            break;
+        }
+        /* Timeout => dump traceback */
+        assert(st == RPY_LOCK_FAILURE);
+
+        /* getting to know which thread holds the GIL is not as simple
+         * as in CPython, so for now we don't */
+
+        t = thread_later.microseconds;
+        fraction = (unsigned long)(t % 1000000);
+        t /= 1000000;
+        seconds = (unsigned long)(t % 60);
+        t /= 60;
+        minutes = (unsigned long)(t % 60);
+        t /= 60;
+        hour = (unsigned long)t;
+        if (fraction == 0)
+            sprintf(buf, "Timeout (%lu:%02lu:%02lu)!\n",
+                    hour, minutes, seconds);
+        else
+            sprintf(buf, "Timeout (%lu:%02lu:%02lu.%06lu)!\n",
+                    hour, minutes, seconds, fraction);
+
+        pypy_faulthandler_write(thread_later.fd, buf);
+        pypy_faulthandler_dump_traceback(thread_later.fd, 1, NULL);
+
+        if (thread_later.exit)
+            _exit(1);
+    } while (thread.repeat);
+
+    /* The only way out */
+    RPyThreadReleaseLock(&thread_later.running);
+}
+
+RPY_EXTERN
+char *pypy_faulthandler_dump_traceback_later(long long microseconds, int repeat,
+                                             int fd, int exit)
+{
+    pypy_faulthandler_cancel_dump_traceback_later();
+
+    thread_later.fd = fd;
+    thread_later.microseconds = microseconds;
+    thread_later.repeat = repeat;
+    thread_later.exit = exit;
+
+    RPyThreadAcquireLock(&thread_later.running, 1);
+
+    if (RPyThreadStart(&faulthandler_thread) == -1) {
+        RPyThreadReleaseLock(&thread_later.running);
+        return "unable to start watchdog thread";
+    }
+    return NULL;
+}
+#endif   /* PYPY_FAULTHANDLER_LATER */
+
+RPY_EXTERN
+void pypy_faulthandler_cancel_dump_traceback_later(void)
+{
+#ifdef PYPY_FAULTHANDLER_LATER
+    /* Notify cancellation */
+    RRyThreadReleaseLock(&thread_later.cancel_event);
+
+    /* Wait for thread to join (or does nothing if no thread is running) */
+    RPyThreadAcquireLock(&thread_later.running, 1);
+    RPyThreadReleaseLock(&thread_later.running);
+
+    /* The main thread should always hold the cancel_event lock */
+    RPyThreadAcquireLock(&thread_later.cancel_event, 1);
+#endif   /* PYPY_FAULTHANDLER_LATER */
+}
+
 
 /* Handler for SIGSEGV, SIGFPE, SIGABRT, SIGBUS and SIGILL signals.
 
@@ -215,8 +319,16 @@ char *pypy_faulthandler_setup(pypy_faulthandler_cb_t dump_callback)
         }
     }
 
+#ifdef PYPY_FAULTHANDLER_LATER
+    if (!RPyThreadLockInit(&thread_later.cancel_event) ||
+        !RPyThreadLockInit(&thread_later.running))
+        return "failed to initialize locks";
+    RPyThreadAcquireLock(&thread_later.cancel_event, 1);
+#endif
+
     fatal_error.fd = -1;
     fatal_error.initialized = 1;
+
     return NULL;
 }
 
@@ -224,6 +336,14 @@ RPY_EXTERN
 void pypy_faulthandler_teardown(void)
 {
     if (fatal_error.initialized) {
+
+#ifdef PYPY_FAULTHANDLER_LATER
+        pypy_faulthandler_cancel_dump_traceback_later();
+        RPyThreadReleaseLock(&thread_later.cancel_event);
+        RPyOpaqueDealloc_ThreadLock(&thread_later.running);
+        RPyOpaqueDealloc_ThreadLock(&thread_later.cancel_event);
+#endif
+
         pypy_faulthandler_disable();
         fatal_error.initialized = 0;
         if (stack.ss_sp) {
