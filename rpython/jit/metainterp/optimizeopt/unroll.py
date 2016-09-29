@@ -328,7 +328,8 @@ class UnrollOptimizer(Optimization):
                         guard.rd_resume_position = patchguardop.rd_resume_position
                         guard.setdescr(compile.ResumeAtPositionDescr())
                     self.send_extra_operation(guard)
-            except VirtualStatesCantMatch:
+            except VirtualStatesCantMatch as e:
+                print "*** failing with: ", e.msg
                 continue
 
             # When force_boxes == True, creating the virtual args can fail when
@@ -337,8 +338,9 @@ class UnrollOptimizer(Optimization):
             try:
                 args, virtuals = target_virtual_state.make_inputargs_and_virtuals(
                     args, self.optimizer, force_boxes=force_boxes)
-            except VirtualStatesCantMatch:
+            except VirtualStatesCantMatch as e:
                 assert force_boxes
+                print "*** failing with: ", e.msg
                 virtual_state = self.get_virtual_state(args)
                 continue
 

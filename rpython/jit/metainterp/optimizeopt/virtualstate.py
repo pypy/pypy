@@ -219,7 +219,7 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
     @specialize.argtype(4)
     def getfield(self, box, info, descr, optimizer):
         assert isinstance(info, AbstractStructPtrInfo)
-        field = info._fields[descr.get_index()]
+        field = info.getfield(descr, optimizer)
         if field is not None:
             return field
         opnum = rop.getfield_for_descr(descr)
@@ -229,12 +229,18 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
         else:
             from rpython.jit.metainterp.optimizeopt import Optimizer
             assert isinstance(optimizer, Optimizer)
-            optimizer.emit_operation(getfield)
-        info._fields[descr.get_index()] = getfield
+            optimizer.send_extra_operation(getfield)
+        info.setfield(descr, None, getfield)
         return getfield
 
     def make_virtual_copy(self, box, info, optimizer):
         optvirtualize = optimizer.optvirtualize
+
+        if isinstance(box, ConstPtr):
+            # Wrap const pointers in SAME_AS_R operation to cloning via
+            # make_virtual, which expects a ResOperation with an opnum.
+            box = ResOperation(rop.SAME_AS_R, [box])
+
         opinfo = optvirtualize.make_virtual(self.known_class, box, self.typedescr)
         for i in range(len(info._fields)):
             descr = self.fielddescrs[i]
@@ -250,6 +256,9 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
             return AbstractVirtualStructStateInfo.enum_forced_boxes(
                     self, boxes, box, optimizer, force_boxes)
 
+        if isinstance(info, ConstPtrInfo):
+            optheap = optimizer.optimizer.optheap
+            info = info._get_info(self.typedescr, optheap)
         assert isinstance(info, AbstractStructPtrInfo)
 
         # TODO: Do we need to create a new object via NEW_WITH_VTABLE, or will the
@@ -273,7 +282,7 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
         assert isinstance(other, NotVirtualStateInfoPtr)
 
         if not self.typedescr.is_value_class():
-            raise VirtualStatesCantMatch("different kinds of structs")
+            raise VirtualStatesCantMatch("_generate_guards_non_virtual: different kinds of structs")
 
         # raise VirtualStatesCantMatch("different kinds of structs")
         # TODO: Probably should rename state.extra_guards to extra_ops
@@ -290,7 +299,7 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
             extra_guards.append(op)
         elif other.level == LEVEL_KNOWNCLASS:
             if not self.known_class.same_constant(other.known_class):
-                raise VirtualStatesCantMatch("classes don't match")
+                raise VirtualStatesCantMatch("_generate_guards_non_virtual: classes don't match")
         else:
             assert other.level == LEVEL_CONSTANT
             known = self.known_class
@@ -298,7 +307,7 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
             if const.nonnull() and known.same_constant(cpu.ts.cls_of_box(const)):
                 pass
             else:
-                raise VirtualStatesCantMatch("classes don't match")
+                raise VirtualStatesCantMatch("_generate_guards_non_virtual: classes don't match")
 
         # Things to do...
         # 1. Generate new_with_vtable operation to allocate the new virtual object
@@ -308,11 +317,13 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
         #     non-virtual object which we are promoting to a virtual. How do we
         #     generate this new virtual state so we can operate recursively)
 
+        optimizer = state.optimizer
         if runtime_box is not None:
-            opinfo = state.optimizer.getptrinfo(box)
-            if opinfo is not None and not isinstance(opinfo, AbstractStructPtrInfo):
-                assert isinstance(opinfo, ConstPtrInfo)
-                raise VirtualStatesCantMatch("cannot yet handle const pointers")
+            opinfo = optimizer.getptrinfo(box)
+            if isinstance(opinfo, ConstPtrInfo):
+                optheap = optimizer.optheap
+                opinfo = opinfo._get_info(self.typedescr, optheap)
+            assert opinfo is None or isinstance(opinfo, AbstractStructPtrInfo)
         else:
             opinfo = None
 

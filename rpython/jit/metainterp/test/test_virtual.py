@@ -1087,33 +1087,39 @@ class VirtualTests:
         self.meta_interp(f, [])
 
     def test_avoid_preamble_4(self):
-        driver = JitDriver(greens=[], reds=['i', 'val'])
+        driver = JitDriver(greens=[], reds=['i', 'acc', 'val'])
         class X(object):
             _value_class_ = True
             def __init__(self, v):
                 self.v = v
 
         const = X(5)
+        arr = [None]
         def f():
             # Prevent all retracing of side exits. Ensures that the unroll
             # optimizer will attempt to jump to either the preamble or loop.
             set_param(driver, 'retrace_limit', -1)
             set_param(driver, 'threshold', 1)
-            val   = X(0)
-            i     = 0
+            val = X(0)
+            acc = 0
+            i = 0
             while i < 17:
-                driver.can_enter_jit(i=i, val=val)
-                driver.jit_merge_point(i=i, val=val)
+                driver.can_enter_jit(i=i, acc=acc, val=val)
+                driver.jit_merge_point(i=i, acc=acc, val=val)
                 # Logical & rather than comparison to confuse range analysis.
                 # Test only succeeds on the first 2 iterations
+                arr[0] = val
                 if i & -2 == 0:
                     val = X(i)
                 else:
                     val = const
+                acc += val.v
                 i += 1
             return 0
 
         self.meta_interp(f, [])
+        loop = get_stats().loops[0]
+        import pdb; pdb.set_trace()
 
     def test_aliased_virtual_states(self):
         # All cases are covered when forcing one component of the virtual state
@@ -1150,6 +1156,30 @@ class VirtualTests:
         self.meta_interp(f, [])
         # assert did not crash
 
+    def test_double_allocation(self):
+        driver = JitDriver(greens=[], reds=['i'])
+
+        class X(object):
+            _value_class_ = True
+            def __init__(self, v):
+                self.v = v
+
+        array = [None, None]
+        def f():
+            # Prevent all retracing of side exits. Ensures that the unroll
+            # optimizer will attempt to jump to either the preamble or loop.
+            set_param(driver, 'retrace_limit', -1)
+            set_param(driver, 'threshold', 1)
+            i = 0
+            while i < 17:
+                driver.can_enter_jit(i=i)
+                driver.jit_merge_point(i=i)
+                array[0] = X(i)
+                array[1] = X(i)
+                i += 1
+            return 0
+
+        self.meta_interp(f, [])
 
 class VirtualMiscTests:
     def test_multiple_equal_virtuals(self):
