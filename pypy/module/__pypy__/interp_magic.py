@@ -1,6 +1,7 @@
 from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.gateway import WrappedDefault, unwrap_spec
 from pypy.interpreter.pycode import CodeHookCache
+from pypy.interpreter.pycode import default_magic
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rlib.objectmodel import we_are_translated

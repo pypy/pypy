@@ -232,11 +232,10 @@ _code_type = type(_write_atomic.__code__)
 #
 # PyPy change: the MAGIC_NUMBER is defined in
 # pypy/interpreter/pycode.py, 'default_magic'.  It is based on a number
-# different than CPython's, always < 3000.  We get the 4-bytes string
-# here via a hack: MAGIC_NUMBER is set in the module from
-# module/_frozen_importlib/__init__.py before the module is executed.
+# different than CPython's, always < 3000.
+from __pypy__ import PYC_MAGIC as _RAW_MAGIC_NUMBER
 
-_RAW_MAGIC_NUMBER = int.from_bytes(MAGIC_NUMBER, 'little')  # For import.c
+MAGIC_NUMBER = _RAW_MAGIC_NUMBER.to_bytes(4, 'little')
 
 _PYCACHE = '__pycache__'
 _OPT = 'opt-'

@@ -570,10 +570,16 @@ class ObjSpace(object):
         w_builtin.install()
         self.setitem(self.builtin.w_dict, self.wrap('__builtins__'), w_builtin)
 
+        from pypy.module.__pypy__ import Module
+        w_name = self.wrap('__pypy__')
+        mod = Module(self, w_name)
+        mod.install()
+
         # exceptions was bootstrapped as '__exceptions__' but still
         # lives in pypy/module/exceptions, we rename it below for
         # sys.builtin_module_names
-        bootstrap_modules = set(('sys', 'imp', 'builtins', 'exceptions'))
+        bootstrap_modules = set(('sys', 'imp', 'builtins',
+                                 'exceptions', '__pypy__'))
         installed_builtin_modules = list(bootstrap_modules)
 
         exception_types_w = self.export_builtin_exceptions()
