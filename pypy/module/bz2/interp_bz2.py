@@ -10,6 +10,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform as compiler
 from rpython.rlib.rarithmetic import intmask, r_longlong
+from rpython.rlib import rgil
 import sys
 
 
@@ -266,6 +267,7 @@ class W_BZ2Compressor(W_Root):
     must be a number between 1 and 9."""
     def __init__(self, space, compresslevel):
         self.space = space
+        self._lock = space.allocate_lock()
         self.bzs = lltype.malloc(bz_stream.TO, flavor='raw', zero=True)
         try:
             self.running = False
@@ -275,6 +277,15 @@ class W_BZ2Compressor(W_Root):
             self.bzs = lltype.nullptr(bz_stream.TO)
             raise
         self.register_finalizer(space)
+
+    def lock(self):
+        if not self._lock.acquire(False):
+            rgil.release()
+            self._lock.acquire(True)
+            rgil.acquire()
+
+    def unlock(self):
+        self._lock.release()
 
     def _init_bz2comp(self, compresslevel):
         if compresslevel < 1 or compresslevel > 9:
@@ -306,35 +317,39 @@ class W_BZ2Compressor(W_Root):
         to compress, call the flush() method to finish the compression process,
         and return what is left in the internal buffers."""
 
-        datasize = len(data)
+        try:
+            self.lock()
+            datasize = len(data)
 
-        if datasize == 0:
-            return self.space.newbytes("")
+            if datasize == 0:
+                return self.space.newbytes("")
 
-        if not self.running:
-            raise oefmt(self.space.w_ValueError,
-                        "this object was already flushed")
+            if not self.running:
+                raise oefmt(self.space.w_ValueError,
+                            "this object was already flushed")
 
-        in_bufsize = datasize
+            in_bufsize = datasize
 
-        with OutBuffer(self.bzs) as out:
-            with rffi.scoped_nonmovingbuffer(data) as in_buf:
+            with OutBuffer(self.bzs) as out:
+                with rffi.scoped_nonmovingbuffer(data) as in_buf:
 
-                self.bzs.c_next_in = in_buf
-                rffi.setintfield(self.bzs, 'c_avail_in', in_bufsize)
+                    self.bzs.c_next_in = in_buf
+                    rffi.setintfield(self.bzs, 'c_avail_in', in_bufsize)
 
-                while True:
-                    bzerror = BZ2_bzCompress(self.bzs, BZ_RUN)
-                    if bzerror != BZ_RUN_OK:
-                        _catch_bz2_error(self.space, bzerror)
+                    while True:
+                        bzerror = BZ2_bzCompress(self.bzs, BZ_RUN)
+                        if bzerror != BZ_RUN_OK:
+                            _catch_bz2_error(self.space, bzerror)
 
-                    if rffi.getintfield(self.bzs, 'c_avail_in') == 0:
-                        break
-                    elif rffi.getintfield(self.bzs, 'c_avail_out') == 0:
-                        out.prepare_next_chunk()
+                        if rffi.getintfield(self.bzs, 'c_avail_in') == 0:
+                            break
+                        elif rffi.getintfield(self.bzs, 'c_avail_out') == 0:
+                            out.prepare_next_chunk()
 
-                res = out.make_result_string()
-                return self.space.newbytes(res)
+                    res = out.make_result_string()
+                    return self.space.newbytes(res)
+        finally:
+            self.unlock()
 
     def flush(self):
         if not self.running:
@@ -342,19 +357,23 @@ class W_BZ2Compressor(W_Root):
                         "this object was already flushed")
         self.running = False
 
-        with OutBuffer(self.bzs) as out:
-            while True:
-                bzerror = BZ2_bzCompress(self.bzs, BZ_FINISH)
-                if bzerror == BZ_STREAM_END:
-                    break
-                elif bzerror != BZ_FINISH_OK:
-                    _catch_bz2_error(self.space, bzerror)
+        try:
+            self.lock()
+            with OutBuffer(self.bzs) as out:
+                while True:
+                    bzerror = BZ2_bzCompress(self.bzs, BZ_FINISH)
+                    if bzerror == BZ_STREAM_END:
+                        break
+                    elif bzerror != BZ_FINISH_OK:
+                        _catch_bz2_error(self.space, bzerror)
 
-                if rffi.getintfield(self.bzs, 'c_avail_out') == 0:
-                    out.prepare_next_chunk()
+                    if rffi.getintfield(self.bzs, 'c_avail_out') == 0:
+                        out.prepare_next_chunk()
 
-            res = out.make_result_string()
-            return self.space.newbytes(res)
+                res = out.make_result_string()
+                return self.space.newbytes(res)
+        finally:
+            self.unlock()
 
 W_BZ2Compressor.typedef = TypeDef("_bz2.BZ2Compressor",
     __doc__ = W_BZ2Compressor.__doc__,
@@ -380,6 +399,7 @@ class W_BZ2Decompressor(W_Root):
 
     def __init__(self, space):
         self.space = space
+        self._lock = space.allocate_lock()
 
         self.bzs = lltype.malloc(bz_stream.TO, flavor='raw', zero=True)
         try:
@@ -395,6 +415,15 @@ class W_BZ2Decompressor(W_Root):
             self.bzs = lltype.nullptr(bz_stream.TO)
             raise
         self.register_finalizer(space)
+
+    def lock(self):
+        if not self._lock.acquire(False):
+            rgil.release()
+            self._lock.acquire(True)
+            rgil.acquire()
+
+    def unlock(self):
+        self._lock.release()
 
     def _init_bz2decomp(self):
         bzerror = BZ2_bzDecompressInit(self.bzs, 0, 0)
@@ -425,11 +454,14 @@ class W_BZ2Decompressor(W_Root):
             return space.w_True
 
     def _decompress_buf(self, data, max_length):
-        in_bufsize = len(data)
+        total_in = len(data)
+        in_bufsize = min(total_in, UINT_MAX)
+        total_in -= in_bufsize
         with rffi.scoped_nonmovingbuffer(data) as in_buf:
             # setup the input and the size it can consume
             self.bzs.c_next_in = in_buf
             rffi.setintfield(self.bzs, 'c_avail_in', in_bufsize)
+            self.left_to_process = in_bufsize
 
             with OutBuffer(self.bzs, max_length=max_length) as out:
                 while True:
@@ -450,13 +482,7 @@ class W_BZ2Decompressor(W_Root):
                             break
                         out.prepare_next_chunk()
 
-                if not self.running:
-                    self.needs_input = False
-                    if self.left_to_process != 0:
-                        end = len(data)
-                        start = end - self.left_to_process
-                        assert start > 0
-                        self.unused_data = data[start:]
+                self.left_to_process += total_in
                 res = out.make_result_string()
                 return self.space.newbytes(res)
 
@@ -470,30 +496,38 @@ class W_BZ2Decompressor(W_Root):
         was found after the end of stream, it'll be ignored and saved in
         unused_data attribute."""
 
-        if not self.running:
-            raise oefmt(self.space.w_EOFError,
-                        "end of stream was already found")
-        datalen = len(data)
-        if len(self.input_buffer) > 0:
-            input_buffer_in_use = True
-            data = self.input_buffer + data
+        try:
+            self.lock()
+            if not self.running:
+                raise oefmt(self.space.w_EOFError,
+                            "end of stream was already found")
             datalen = len(data)
-            result = self._decompress_buf(data, max_length)
-        else:
-            input_buffer_in_use = False
+            if len(self.input_buffer) > 0:
+                data = self.input_buffer + data
+                datalen = len(data)
+                self.input_buffer = ""
+
             result = self._decompress_buf(data, max_length)
 
-        if self.left_to_process == 0:
-            self.input_buffer = ""
-            self.needs_input = True
-        else:
-            self.needs_input = False
-            if not input_buffer_in_use:
-                start = datalen-self.left_to_process
-                assert start > 0
-                self.input_buffer = data[start:]
-
-        return result
+            if not self.running: # eq. with eof == Ture
+                self.needs_input = False
+                if self.left_to_process != 0:
+                    start = datalen - self.left_to_process
+                    assert start > 0
+                    self.unused_data = data[start:]
+                    self.left_to_process = 0
+            elif self.left_to_process == 0:
+                self.input_buffer = ""
+                self.needs_input = True
+            else:
+                self.needs_input = False
+                if self.left_to_process > 0:
+                    start = datalen-self.left_to_process
+                    assert start >= 0
+                    self.input_buffer = data[start:]
+            return result
+        finally:
+            self.unlock()
 
 
 

@@ -213,8 +213,8 @@ class AppTestBZ2Decompressor(CheckAllocation):
         assert len(decomp[-1]) == 100
 
         while not bz2d.eof:
-            decomp.append(bz2d.decompress(b"", max_length=50))
-            assert len(decomp[-1]) <= 50
+            decomp.append(bz2d.decompress(b"", max_length=200))
+            assert len(decomp[-1]) <= 200
 
         assert b''.join(decomp) == self.TEXT
 
