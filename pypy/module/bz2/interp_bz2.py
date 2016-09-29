@@ -203,7 +203,7 @@ class OutBuffer(object):
         self.left = 0
 
     def get_data_size(self):
-        return 0
+        return self.current_size - rffi.getintfield(self.bzs, 'c_avail_out')
 
     def _allocate_chunk(self, size):
         self.raw_buf, self.gc_buf, self.case_num = rffi.alloc_buffer(size)
@@ -430,14 +430,13 @@ class W_BZ2Decompressor(W_Root):
             # setup the input and the size it can consume
             self.bzs.c_next_in = in_buf
             rffi.setintfield(self.bzs, 'c_avail_in', in_bufsize)
-            self.left_to_process -= in_bufsize
 
             with OutBuffer(self.bzs, max_length=max_length) as out:
                 while True:
                     bzreturn = BZ2_bzDecompress(self.bzs)
                     # add up the size that has not been processed
                     avail_in = rffi.getintfield(self.bzs, 'c_avail_in')
-                    self.left_to_process += avail_in
+                    self.left_to_process = avail_in
                     if bzreturn == BZ_STREAM_END:
                         self.running = False
                         break
@@ -474,8 +473,6 @@ class W_BZ2Decompressor(W_Root):
         if not self.running:
             raise oefmt(self.space.w_EOFError,
                         "end of stream was already found")
-        if data == '':
-            return self.space.newbytes('')
         datalen = len(data)
         if len(self.input_buffer) > 0:
             input_buffer_in_use = True
@@ -484,7 +481,6 @@ class W_BZ2Decompressor(W_Root):
             result = self._decompress_buf(data, max_length)
         else:
             input_buffer_in_use = False
-            self.left_to_process = datalen
             result = self._decompress_buf(data, max_length)
 
         if self.left_to_process == 0:
@@ -493,7 +489,7 @@ class W_BZ2Decompressor(W_Root):
         else:
             self.needs_input = False
             if not input_buffer_in_use:
-                start = datalen-self.left_to_process-1
+                start = datalen-self.left_to_process
                 assert start > 0
                 self.input_buffer = data[start:]
 
