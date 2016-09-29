@@ -17,8 +17,7 @@ app_main = os.path.abspath(app_main)
 def get_python3():
     if PYTHON3:
         return PYTHON3
-    import py.test
-    py.test.fail("Test requires %r (not found in PATH) or a PYTHON3 "
+    py.test.skip("Test requires %r (not found in PATH) or a PYTHON3 "
                  "environment variable set" % (LOOK_FOR_PYTHON3,))
 
 _counter = 0
@@ -51,7 +50,8 @@ def getscript_in_dir(source):
     # return relative path for testing purposes
     return py.path.local().bestrelpath(pdir)
 
-def pytest_funcarg__demo_script(request):
+@py.test.fixture
+def demo_script():
     return getscript("""
         print('hello')
         print('Name:', __name__)
@@ -64,7 +64,8 @@ def pytest_funcarg__demo_script(request):
         myvalue = 6*7
     """)
 
-def pytest_funcarg__crashing_demo_script(request):
+@py.test.fixture
+def crashing_demo_script():
     return getscript("""
         print('Hello2')
         myvalue2 = 11
