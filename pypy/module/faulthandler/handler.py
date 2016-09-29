@@ -128,6 +128,8 @@ class Handler(object):
         self.check_signum(signum)
         change = cintf.pypy_faulthandler_unregister(
             rffi.cast(rffi.INT, signum))
+        if self.user_w_files is not None:
+            self.user_w_files.pop(signum, None)
         return rffi.cast(lltype.Signed, change) == 1
 
     def finish(self):
