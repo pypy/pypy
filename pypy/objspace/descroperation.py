@@ -8,61 +8,61 @@ from rpython.tool.sourcetools import compile2, func_with_new_name
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib import jit
 
+@specialize.memo()
 def object_getattribute(space):
     "Utility that returns the app-level descriptor object.__getattribute__."
     w_src, w_getattribute = space.lookup_in_type_where(space.w_object,
                                                        '__getattribute__')
     return w_getattribute
-object_getattribute._annspecialcase_ = 'specialize:memo'
 
+@specialize.memo()
 def object_setattr(space):
     "Utility that returns the app-level descriptor object.__setattr__."
     w_src, w_setattr = space.lookup_in_type_where(space.w_object,
                                                   '__setattr__')
     return w_setattr
-object_setattr._annspecialcase_ = 'specialize:memo'
 
+@specialize.memo()
 def object_delattr(space):
     "Utility that returns the app-level descriptor object.__delattr__."
     w_src, w_delattr = space.lookup_in_type_where(space.w_object,
                                                   '__delattr__')
     return w_delattr
-object_delattr._annspecialcase_ = 'specialize:memo'
 
+@specialize.memo()
 def object_hash(space):
     "Utility that returns the app-level descriptor object.__hash__."
     w_src, w_hash = space.lookup_in_type_where(space.w_object,
                                                   '__hash__')
     return w_hash
-object_hash._annspecialcase_ = 'specialize:memo'
 
+@specialize.memo()
 def type_eq(space):
     "Utility that returns the app-level descriptor type.__eq__."
     w_src, w_eq = space.lookup_in_type_where(space.w_type,
                                              '__eq__')
     return w_eq
-type_eq._annspecialcase_ = 'specialize:memo'
 
+@specialize.memo()
 def list_iter(space):
     "Utility that returns the app-level descriptor list.__iter__."
     w_src, w_iter = space.lookup_in_type_where(space.w_list,
                                                '__iter__')
     return w_iter
-list_iter._annspecialcase_ = 'specialize:memo'
 
+@specialize.memo()
 def tuple_iter(space):
     "Utility that returns the app-level descriptor tuple.__iter__."
     w_src, w_iter = space.lookup_in_type_where(space.w_tuple,
                                                '__iter__')
     return w_iter
-tuple_iter._annspecialcase_ = 'specialize:memo'
 
+@specialize.memo()
 def unicode_iter(space):
     "Utility that returns the app-level descriptor str.__iter__."
     w_src, w_iter = space.lookup_in_type_where(space.w_unicode,
                                                '__iter__')
     return w_iter
-unicode_iter._annspecialcase_ = 'specialize:memo'
 
 def raiseattrerror(space, w_obj, w_name, w_descr=None):
     # space.repr always returns an encodable string.

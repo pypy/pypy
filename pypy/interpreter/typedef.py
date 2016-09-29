@@ -109,6 +109,7 @@ def default_identity_hash(space, w_obj):
 # we need two subclasses of the app-level type, one to add mapdict, and then one
 # to add del to not slow down the GC.
 
+@specialize.memo()
 def get_unique_interplevel_subclass(space, cls):
     "NOT_RPYTHON: initialization-time only"
     assert cls.typedef.acceptable_as_base_class
@@ -119,7 +120,6 @@ def get_unique_interplevel_subclass(space, cls):
         assert cls not in _unique_subclass_cache
         _unique_subclass_cache[cls] = subcls
         return subcls
-get_unique_interplevel_subclass._annspecialcase_ = "specialize:memo"
 _unique_subclass_cache = {}
 
 def _getusercls(cls, reallywantdict=False):

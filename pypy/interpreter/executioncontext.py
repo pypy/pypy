@@ -1,7 +1,7 @@
 import sys
 from pypy.interpreter.error import OperationError, get_cleared_operation_error
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib import jit, rgc
+from rpython.rlib import jit, rgc, objectmodel
 
 TICK_COUNTER_STEP = 100
 
@@ -130,6 +130,7 @@ class ExecutionContext(object):
         if self.gettrace() is not None:
             self._trace(frame, 'return', w_retval)
 
+    @objectmodel.always_inline
     def bytecode_trace(self, frame, decr_by=TICK_COUNTER_STEP):
         "Trace function called before each bytecode."
         # this is split into a fast path and a slower path that is
@@ -138,7 +139,6 @@ class ExecutionContext(object):
         actionflag = self.space.actionflag
         if actionflag.decrement_ticker(decr_by) < 0:
             actionflag.action_dispatcher(self, frame)     # slow path
-    bytecode_trace._always_inline_ = True
 
     def _run_finalizers_now(self):
         # Tests only: run the actions now, to ensure that the
@@ -146,6 +146,7 @@ class ExecutionContext(object):
         # pypy.tool.pytest.apptest.
         self.space.actionflag.action_dispatcher(self, None)
 
+    @objectmodel.always_inline
     def bytecode_only_trace(self, frame):
         """
         Like bytecode_trace() but doesn't invoke any other events besides the
@@ -155,7 +156,6 @@ class ExecutionContext(object):
             self.gettrace() is None):
             return
         self.run_trace_func(frame)
-    bytecode_only_trace._always_inline_ = True
 
     @jit.unroll_safe
     def run_trace_func(self, frame):
@@ -202,13 +202,13 @@ class ExecutionContext(object):
 
         d.instr_prev_plus_one = frame.last_instr + 1
 
+    @objectmodel.try_inline
     def bytecode_trace_after_exception(self, frame):
         "Like bytecode_trace(), but without increasing the ticker."
         actionflag = self.space.actionflag
         self.bytecode_only_trace(frame)
         if actionflag.get_ticker() < 0:
             actionflag.action_dispatcher(self, frame)     # slow path
-    bytecode_trace_after_exception._always_inline_ = 'try'
     # NB. this function is not inlined right now.  backendopt.inline would
     # need some improvements to handle this case, but it's not really an
     # issue
@@ -452,6 +452,7 @@ class AbstractActionFlag(object):
         periodic_actions = unrolling_iterable(self._periodic_actions)
 
         @jit.unroll_safe
+        @objectmodel.dont_inline
         def action_dispatcher(ec, frame):
             # periodic actions (first reset the bytecode counter)
             self.reset_ticker(self.checkinterval_scaled)
@@ -473,7 +474,6 @@ class AbstractActionFlag(object):
                     action._fired = False
                     action.perform(ec, frame)
 
-        action_dispatcher._dont_inline_ = True
         self.action_dispatcher = action_dispatcher
 
 
