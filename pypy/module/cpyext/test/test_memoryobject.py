@@ -23,6 +23,8 @@ class TestMemoryViewObject(BaseApiTest):
         assert w_view.c_shape[0] == 5
         assert w_view.c_strides[0] == 1
         assert w_view.c_len == 5
+        o = rffi.charp2str(w_view.c_buf)
+        assert o == 'hello'
 
 class AppTestBufferProtocol(AppTestCpythonExtensionBase):
     def test_buffer_protocol(self):
