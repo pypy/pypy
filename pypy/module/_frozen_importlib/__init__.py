@@ -77,6 +77,7 @@ class Module(MixedModule):
 
     def startup(self, space):
         """Copy our __import__ to builtins."""
+        space.setitem(space.sys.get('modules'), self.w_name, self)
         w_install = self.getdictvalue(space, '_install')
         space.call_function(w_install,
                             space.getbuiltinmodule('sys'),

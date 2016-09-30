@@ -491,14 +491,6 @@ class ObjSpace(object):
 
     def getbuiltinmodule(self, name, force_init=False, reuse=True):
         w_name = self.wrap(name)
-        w_modules = self.sys.get('modules')
-        if not force_init:
-            assert reuse
-            try:
-                return self.getitem(w_modules, w_name)
-            except OperationError as e:
-                if not e.match(self, self.w_KeyError):
-                    raise
 
         # If the module is a builtin but not yet imported,
         # retrieve it and initialize it
@@ -509,23 +501,18 @@ class ObjSpace(object):
                         "getbuiltinmodule() called with non-builtin module %s",
                         name)
 
-        # Add the module to sys.modules and initialize the module. The
-        # order is important to avoid recursions.
         from pypy.interpreter.module import Module
         if isinstance(w_mod, Module):
             if not reuse and w_mod.startup_called:
                 # create a copy of the module.  (see issue1514) eventlet
                 # patcher relies on this behaviour.
                 w_mod2 = self.wrap(Module(self, w_name))
-                self.setitem(w_modules, w_name, w_mod2)
                 w_mod.getdict(self)  # unlazy w_initialdict
                 self.call_method(w_mod2.getdict(self), 'update',
                                  w_mod.w_initialdict)
                 return w_mod2
-            self.setitem(w_modules, w_name, w_mod)
-            w_mod.init(self)
-        else:
-            self.setitem(w_modules, w_name, w_mod)
+            if not w_mod.startup_called or force_init:
+                w_mod.init(self)
         return w_mod
 
     def get_builtinmodule_to_install(self):
@@ -651,10 +638,10 @@ class ObjSpace(object):
         if self.config.objspace.usemodules.cpyext:
             from pypy.module.cpyext.state import State
             self.fromcache(State).build_api(self)
-        self.getbuiltinmodule('sys')
-        self.getbuiltinmodule('_imp')
-        self.getbuiltinmodule('_frozen_importlib')
-        self.getbuiltinmodule('builtins')
+        w_modules = self.sys.get('modules')
+        for name in ('sys', '_imp', '_frozen_importlib', 'builtins'):
+            mod = self.getbuiltinmodule(name)
+            self.setitem(w_modules, mod.w_name, mod)
         for mod in self.builtin_modules.values():
             mod.setup_after_space_initialization()
 

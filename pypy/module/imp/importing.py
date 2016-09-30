@@ -70,7 +70,6 @@ lib_pypy = os.path.join(os.path.dirname(__file__),
 @unwrap_spec(modulename='str0', level=int)
 def importhook(space, modulename, w_globals=None, w_locals=None, w_fromlist=None, level=0):
     # A minimal version, that can only import builtin and lib_pypy modules!
-    assert w_locals is w_globals
     assert level == 0
 
     w_mod = check_sys_modules_w(space, modulename)
