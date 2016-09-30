@@ -167,7 +167,8 @@ class UnrollOptimizer(Optimization):
                [self.get_box_replacement(x) for x in end_jump.getarglist()],
                self.optimizer, force_boxes=True)
             for arg in args:
-                self.optimizer.force_box(arg)
+                if arg is not None:
+                    self.optimizer.force_box(arg)
         except VirtualStatesCantMatch:
             raise InvalidLoop("Virtual states did not match "
                               "after picking the virtual state, when forcing"

@@ -102,6 +102,8 @@ class LLtypeMixin(object):
     node_vtable_adr2 = llmemory.cast_ptr_to_adr(node_vtable2)
     node_vtable3 = lltype.malloc(OBJECT_VTABLE, immortal=True)
     node_vtable3.name = rclass.alloc_array_name('node3')
+    node_vtable3.subclassrange_min = 3
+    node_vtable3.subclassrange_max = 3
     node_vtable_adr3 = llmemory.cast_ptr_to_adr(node_vtable3)
     cpu = runner.LLGraphCPU(None)
 

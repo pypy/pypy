@@ -251,6 +251,12 @@ class AppTestBytesObject:
         assert b'xyzzyhelloxyzzy'.strip(b'xyz') == b'hello'
         assert b'xyzzyhelloxyzzy'.lstrip(b'xyz') == b'helloxyzzy'
         assert b'xyzzyhelloxyzzy'.rstrip(b'xyz') == b'xyzzyhello'
+        exc = raises(TypeError, s.strip, buffer(' '))
+        assert str(exc.value) == 'strip arg must be None, str or unicode'
+        exc = raises(TypeError, s.rstrip, buffer(' '))
+        assert str(exc.value) == 'strip arg must be None, str or unicode'
+        exc = raises(TypeError, s.lstrip, buffer(' '))
+        assert str(exc.value) == 'strip arg must be None, str or unicode'
 
     def test_zfill(self):
         assert b'123'.zfill(2) == b'123'
@@ -656,7 +662,7 @@ class AppTestBytesObject:
         table = maketrans(b'abc', b'xyz')
         assert b'xyzxyz' == b'xyzabcdef'.translate(table, b'def')
         exc = raises(TypeError, "'xyzabcdef'.translate(memoryview(table), 'def')")
-        assert str(exc.value) == 'expected a character buffer object'
+        assert 'expected a' in str(exc.value)
 
         table = maketrans(b'a', b'A')
         assert b'Abc' == b'abc'.translate(table)

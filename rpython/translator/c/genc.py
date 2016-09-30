@@ -275,6 +275,7 @@ class CStandaloneBuilder(CBuilder):
         if retval and self.translator.platform.name == 'msvc':
             raise ValueError('Cannot do profile based optimization on MSVC,'
                     'it is not supported in free compiler version')
+        return retval
 
     def getentrypointptr(self):
         # XXX check that the entrypoint has the correct

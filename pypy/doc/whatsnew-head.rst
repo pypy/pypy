@@ -16,3 +16,29 @@ in numpypy
 Improve merging of virtual states in the JIT in order to avoid jumping to the
 preamble. Accomplished by allocating virtual objects where non-virtuals are
 expected.
+
+.. branch: conditional_call_value_3
+JIT residual calls: if the called function starts with a fast-path
+like "if x.foo != 0: return x.foo", then inline the check before
+doing the CALL.  For now, string hashing is about the only case.
+
+.. branch: search-path-from-libpypy
+
+The compiled pypy now looks for its lib-python/lib_pypy path starting
+from the location of the *libpypy-c* instead of the executable. This is
+arguably more consistent, and also it is what occurs anyway if you're
+embedding pypy.  Linux distribution packagers, take note!  At a minimum,
+the ``libpypy-c.so`` must really be inside the path containing
+``lib-python`` and ``lib_pypy``.  Of course, you can put a symlink to it
+from somewhere else.  You no longer have to do the same with the
+``pypy`` executable, as long as it finds its ``libpypy-c.so`` library.
+
+.. branch: _warning
+
+CPython allows warning.warn(('something', 1), Warning), on PyPy this
+produced a "expected a readable buffer object" error. Test and fix.
+
+.. branch: stricter-strip
+
+CPython rejects 'a'.strip(buffer(' ')); only None, str or unicode are
+allowed as arguments. Test and fix for str and unicode

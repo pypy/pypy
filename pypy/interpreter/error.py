@@ -374,11 +374,8 @@ class OpErrFmtNoArgs(OperationError):
         self._value = value
         self.setup(w_type)
 
-    def get_w_value(self, space):
-        w_value = self._w_value
-        if w_value is None:
-            self._w_value = w_value = space.wrap(self._value)
-        return w_value
+    def _compute_value(self, space):
+        return self._value
 
 @specialize.memo()
 def get_operr_class(valuefmt):
