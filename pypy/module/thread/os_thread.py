@@ -7,6 +7,7 @@ from rpython.rlib import rthread
 from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, Arguments
+from pypy.module.thread.os_lock import tlref_sentinel_lock
 
 # Here are the steps performed to start a new thread:
 #
@@ -102,6 +103,12 @@ class Bootstrapper(object):
                 os.write(STDERR, "\n")
             except OSError:
                 pass
+        # TODO move after rthread.gc_thread_die()?
+        lock = tlref_sentinel_lock.get()
+        if lock and lock.descr_lock_locked(space):
+            lock.descr_lock_release(space)
+            tlref_sentinel_lock.set(None)
+        #
         bootstrapper.nbthreads -= 1
         rthread.gc_thread_die()
     bootstrap = staticmethod(bootstrap)
