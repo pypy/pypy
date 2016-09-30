@@ -7,7 +7,7 @@ import os
 import stat
 import sys
 
-from rpython.rlib import rpath
+from rpython.rlib import rpath, rdynload
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -157,16 +157,20 @@ def pypy_resolvedirof(space, filename):
     return space.wrap(resolvedirof(filename))
 
 
-@unwrap_spec(executable='str0', dynamic=int)
-def pypy_find_stdlib(space, executable, dynamic=1):
-    if dynamic and space.config.translation.shared:
-        dynamic_location = pypy_init_home()
-        if dynamic_location:
-            executable = rffi.charp2str(dynamic_location)
-            pypy_init_free(dynamic_location)
-    path, prefix = find_stdlib(get_state(space), executable)
+@unwrap_spec(executable='str0')
+def pypy_find_stdlib(space, executable):
+    path, prefix = None, None
+    if executable != '*':
+        path, prefix = find_stdlib(get_state(space), executable)
     if path is None:
-        return space.w_None
+        if space.config.translation.shared:
+            dynamic_location = pypy_init_home()
+            if dynamic_location:
+                dyn_path = rffi.charp2str(dynamic_location)
+                pypy_init_free(dynamic_location)
+                path, prefix = find_stdlib(get_state(space), dyn_path)
+        if path is None:
+            return space.w_None
     w_prefix = space.wrap(prefix)
     space.setitem(space.sys.w_dict, space.wrap('prefix'), w_prefix)
     space.setitem(space.sys.w_dict, space.wrap('exec_prefix'), w_prefix)
@@ -237,7 +241,9 @@ char *_pypy_init_home(void)
 }
 """
 
-_eci = ExternalCompilationInfo(separate_module_sources=[_source_code])
+_eci = ExternalCompilationInfo(separate_module_sources=[_source_code],
+    post_include_bits=['RPY_EXPORTED char *_pypy_init_home(void);'])
+_eci = _eci.merge(rdynload.eci)
 
 pypy_init_home = rffi.llexternal("_pypy_init_home", [], rffi.CCHARP,
                                  _nowrapper=True, compilation_info=_eci)

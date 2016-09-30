@@ -501,7 +501,10 @@ class W_BytesObject(W_AbstractBytesObject):
                 isinstance(w_other, W_UnicodeObject))
 
     @staticmethod
-    def _op_val(space, w_other):
+    def _op_val(space, w_other, strict=None):
+        if strict and not space.isinstance_w(w_other, space.w_str):
+            raise oefmt(space.w_TypeError,
+                "%s arg must be None, str or unicode", strict)
         try:
             return space.str_w(w_other)
         except OperationError as e:

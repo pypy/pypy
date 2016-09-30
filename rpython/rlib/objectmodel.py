@@ -217,6 +217,12 @@ def dont_inline(func):
     func._dont_inline_ = True
     return func
 
+def try_inline(func):
+    """ tell the RPython inline (not the JIT!), to try to inline this function,
+    no matter its size."""
+    func._always_inline_ = 'try'
+    return func
+
 
 # ____________________________________________________________
 
