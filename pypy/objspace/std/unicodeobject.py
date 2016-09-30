@@ -124,11 +124,14 @@ class W_UnicodeObject(W_Root):
         return True
 
     @staticmethod
-    def _op_val(space, w_other):
+    def _op_val(space, w_other, strict=None):
         if isinstance(w_other, W_UnicodeObject):
             return w_other._value
         if space.isinstance_w(w_other, space.w_str):
             return unicode_from_string(space, w_other)._value
+        if strict:
+            raise oefmt(space.w_TypeError,
+                "%s arg must be None, unicode or str", strict)
         return unicode_from_encoded_object(
             space, w_other, None, "strict")._value
 
