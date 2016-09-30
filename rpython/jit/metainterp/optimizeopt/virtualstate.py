@@ -246,8 +246,8 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
         box = optimizer.get_box_replacement(box)
         info = optimizer.getptrinfo(box)
 
-        if (not self.typedescr.is_value_class() or
-            info is None or info.is_virtual()):
+        if (info is None or info.is_virtual() or
+            not self.typedescr.is_value_class()):
             return AbstractVirtualStructStateInfo.enum_forced_boxes(
                     self, boxes, box, optimizer, force_boxes)
 
@@ -256,8 +256,6 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
             info = info._get_info(self.typedescr, optheap)
         assert isinstance(info, AbstractStructPtrInfo)
 
-        # TODO: Do we need to create a new object via NEW_WITH_VTABLE, or will the
-        # allocation be handled properly?
         opinfo = self.make_virtual_copy(box, info, optimizer.optimizer)
         for i in range(min(len(self.fielddescrs), len(opinfo._fields))):
             state = self.fieldstate[i]
@@ -304,14 +302,6 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
             else:
                 raise VirtualStatesCantMatch("_generate_guards_non_virtual: classes don't match")
 
-        # Things to do...
-        # 1. Generate new_with_vtable operation to allocate the new virtual object
-        # 2. Generate getfield operations which populate the fields of the new virtual
-        # 3. Recursively generate guards for each portion of the virtual state
-        #    (we don't have a VirtualStateInfo objects for the subfields of the
-        #     non-virtual object which we are promoting to a virtual. How do we
-        #     generate this new virtual state so we can operate recursively)
-
         optimizer = state.optimizer
         if runtime_box is not None:
             opinfo = optimizer.getptrinfo(box)
@@ -322,10 +312,6 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
         else:
             opinfo = None
 
-        # We need to build a virtual version which conforms with the expected
-        # virtual object.
-        # This will probably look a lot like
-        # AbstractVirtualStateInfo._generate_guards
         for i, descr in enumerate(self.fielddescrs):
             if runtime_box is not None and opinfo is not None:
                 fieldbox = self.getfield(box, opinfo, descr, optimizer,
