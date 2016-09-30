@@ -42,3 +42,7 @@ produced a "expected a readable buffer object" error. Test and fix.
 
 CPython rejects 'a'.strip(buffer(' ')); only None, str or unicode are
 allowed as arguments. Test and fix for str and unicode
+
+.. branch: test-cpyext
+
+Refactor cpyext testing to be more pypy3-friendly.
