@@ -2,6 +2,8 @@ import os
 import pytest
 
 def pytest_configure(config):
+    if config.option.runappdirect:
+        return
     from pypy.tool.pytest.objspace import gettestobjspace
     # For some reason (probably a ll2ctypes cache issue on linux64)
     # it's necessary to run "import time" at least once before any

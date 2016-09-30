@@ -263,6 +263,12 @@ class AppTestBytesObject:
         assert b'xyzzyhelloxyzzy'.strip(b'xyz') == b'hello'
         assert b'xyzzyhelloxyzzy'.lstrip(b'xyz') == b'helloxyzzy'
         assert b'xyzzyhelloxyzzy'.rstrip(b'xyz') == b'xyzzyhello'
+        exc = raises(TypeError, s.strip, buffer(' '))
+        assert str(exc.value) == 'strip arg must be None, str or unicode'
+        exc = raises(TypeError, s.rstrip, buffer(' '))
+        assert str(exc.value) == 'strip arg must be None, str or unicode'
+        exc = raises(TypeError, s.lstrip, buffer(' '))
+        assert str(exc.value) == 'strip arg must be None, str or unicode'
 
     def test_zfill(self):
         assert b'123'.zfill(2) == b'123'

@@ -38,3 +38,17 @@ the ``libpypy-c.so`` must really be inside the path containing
 ``lib-python`` and ``lib_pypy``.  Of course, you can put a symlink to it
 from somewhere else.  You no longer have to do the same with the
 ``pypy`` executable, as long as it finds its ``libpypy-c.so`` library.
+
+.. branch: _warning
+
+CPython allows warning.warn(('something', 1), Warning), on PyPy this
+produced a "expected a readable buffer object" error. Test and fix.
+
+.. branch: stricter-strip
+
+CPython rejects 'a'.strip(buffer(' ')); only None, str or unicode are
+allowed as arguments. Test and fix for str and unicode
+
+.. branch: test-cpyext
+
+Refactor cpyext testing to be more pypy3-friendly.
