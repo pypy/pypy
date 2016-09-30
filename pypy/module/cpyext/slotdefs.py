@@ -217,7 +217,6 @@ def wrap_ssizessizeobjargproc(space, w_self, w_args, func):
     res = generic_cpy_call(space, func_target, w_self, i, j, w_y)
     if rffi.cast(lltype.Signed, res) == -1:
         space.fromcache(State).check_and_raise_exception(always=True)
-    return res
 
 def wrap_lenfunc(space, w_self, w_args, func):
     func_len = rffi.cast(lenfunc, func)
