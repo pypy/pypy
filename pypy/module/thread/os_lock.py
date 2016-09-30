@@ -145,8 +145,12 @@ See LockType.__doc__ for information about locks."""
     return space.wrap(Lock(space))
 
 def set_sentinel(space):
-    """Set a sentinel lock that will be released when the current thread
-state is finalized (after it is untied from the interpreter)."""
+    """_set_sentinel() -> lock
+
+    Set a sentinel lock that will be released when the current thread 
+    state is finalized (after it is untied from the interpreter).
+
+    This is a private API for the threading module."""
     lock = allocate_lock(space)
     return lock
 
