@@ -1045,6 +1045,8 @@ class VirtualTests:
             return 0
 
         self.meta_interp(f, [])
+        loop = get_stats().loops[0]
+        # import pdb; pdb.set_trace()
 
     def test_avoid_preamble_3(self):
         driver = JitDriver(greens=[], reds=['i', 'val'])
@@ -1085,6 +1087,8 @@ class VirtualTests:
             return 0
 
         self.meta_interp(f, [])
+        loop = get_stats().loops[0]
+        # import pdb; pdb.set_trace()
 
     def test_avoid_preamble_4(self):
         driver = JitDriver(greens=[], reds=['i', 'acc', 'val'])
@@ -1119,7 +1123,7 @@ class VirtualTests:
 
         self.meta_interp(f, [])
         loop = get_stats().loops[0]
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
 
     def test_aliased_virtual_states(self):
         # All cases are covered when forcing one component of the virtual state

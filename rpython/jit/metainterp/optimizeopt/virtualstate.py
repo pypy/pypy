@@ -1,7 +1,7 @@
 from rpython.jit.metainterp.walkvirtual import VirtualVisitor
 from rpython.jit.metainterp.history import ConstInt, ConstPtr, ConstFloat
 from rpython.jit.metainterp.optimizeopt.info import ArrayPtrInfo,\
-     ArrayStructInfo, AbstractStructPtrInfo, ConstPtrInfo
+     ArrayStructInfo, AbstractStructPtrInfo, ConstPtrInfo, InstancePtrInfo
 from rpython.jit.metainterp.optimizeopt.intutils import \
      MININT, MAXINT, IntBound, IntLowerBound, IntUnbounded
 from rpython.jit.metainterp.resoperation import rop, ResOperation, \
@@ -216,32 +216,27 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
         return (isinstance(other, VirtualStateInfo) and
                 self.typedescr is other.typedescr)
 
-    @specialize.argtype(4)
-    def getfield(self, box, info, descr, optimizer):
+    def getfield(self, box, info, descr, optimizer, send_to=None):
         assert isinstance(info, AbstractStructPtrInfo)
         field = info.getfield(descr, optimizer)
         if field is not None:
             return field
         opnum = rop.getfield_for_descr(descr)
         getfield = ResOperation(opnum, [box], descr=descr)
-        if isinstance(optimizer, list):
-            optimizer.append(getfield)
+        if send_to is not None:
+            send_to.append(getfield)
         else:
-            from rpython.jit.metainterp.optimizeopt import Optimizer
-            assert isinstance(optimizer, Optimizer)
             optimizer.send_extra_operation(getfield)
-        info.setfield(descr, None, getfield)
+        struct = optimizer.get_box_replacement(box)
+        info.setfield(descr, struct, getfield)
         return getfield
 
     def make_virtual_copy(self, box, info, optimizer):
-        optvirtualize = optimizer.optvirtualize
+        newop = ResOperation(rop.NEW_WITH_VTABLE, [], descr=self.typedescr)
+        optimizer.send_extra_operation(newop)
+        opinfo = optimizer.getptrinfo(newop)
+        assert isinstance(opinfo, InstancePtrInfo)
 
-        if isinstance(box, ConstPtr):
-            # Wrap const pointers in SAME_AS_R operation to cloning via
-            # make_virtual, which expects a ResOperation with an opnum.
-            box = ResOperation(rop.SAME_AS_R, [box])
-
-        opinfo = optvirtualize.make_virtual(self.known_class, box, self.typedescr)
         for i in range(len(info._fields)):
             descr = self.fielddescrs[i]
             opinfo._fields[i] = self.getfield(box, info, descr, optimizer)
@@ -333,7 +328,8 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
         # AbstractVirtualStateInfo._generate_guards
         for i, descr in enumerate(self.fielddescrs):
             if runtime_box is not None and opinfo is not None:
-                fieldbox = self.getfield(box, opinfo, descr, extra_guards)
+                fieldbox = self.getfield(box, opinfo, descr, optimizer,
+                                         send_to=extra_guards)
                 fieldbox_runtime = state.get_runtime_field(runtime_box, descr)
             else:
                 opnum = rop.getfield_for_descr(descr)
