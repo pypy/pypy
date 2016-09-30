@@ -248,6 +248,10 @@ def do_warn_explicit(space, w_category, w_message, context_w,
     if space.isinstance_w(w_message, space.w_Warning):
         w_text = space.str(w_message)
         w_category = space.type(w_message)
+    elif (not space.isinstance_w(w_message, space.w_unicode) or
+          not space.isinstance_w(w_message, space.w_str)):
+        w_text = space.str(w_message)
+        w_message = space.call_function(w_category, w_message)
     else:
         w_text = w_message
         w_message = space.call_function(w_category, w_message)
