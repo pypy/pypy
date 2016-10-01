@@ -71,7 +71,8 @@ def create_builtin(space, w_spec):
     return space.getbuiltinmodule(name, force_init=True, reuse=reuse)
 
 def exec_builtin(space, w_mod):
-    return  # Until we really support ModuleDef
+    # Not a lot to do until we really support ModuleDef
+    importing.install_mixed_submodules(space, w_mod)
 
 def init_frozen(space, w_name):
     return None

@@ -10,6 +10,7 @@ from pypy.interpreter.typedef import TypeDef, generic_new_descr
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.baseobjspace import W_Root, CannotHaveLock
 from pypy.interpreter.eval import Code
+from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter.pycode import PyCode
 from rpython.rlib import streamio, jit
 from rpython.rlib.streamio import StreamErrors
@@ -80,7 +81,11 @@ def importhook(space, modulename, w_globals=None, w_locals=None, w_fromlist=None
         lock.acquire_lock()
 
         if modulename in space.builtin_modules:
-            return space.getbuiltinmodule(modulename)
+            w_mod = space.getbuiltinmodule(modulename)
+            space.setitem(space.sys.get('modules'),
+                          space.wrap(modulename), w_mod)
+            install_mixed_submodules(space, w_mod)
+            return w_mod
 
         ec = space.getexecutioncontext()
         with open(os.path.join(lib_pypy, modulename + '.py')) as fp:
@@ -96,6 +101,22 @@ def importhook(space, modulename, w_globals=None, w_locals=None, w_fromlist=None
     finally:
         lock.release_lock(silent_after_fork=True)
     return w_mod
+
+
+def install_mixed_submodules(space, w_mod):
+    # The pure-Python importlib does not support builtin submodules:
+    # when doing e.g. 'import pyexpat.errors':
+    # - to be considered a package, pyexpact.__path__ has to be set
+    # - the BuiltinImporter requires that pyexpat.__path__ is None
+    # - but at startup, _spec_from_module() tries a list(module.__path__)...
+    #
+    # In pyexpat.c, CPython explicitly adds the submodules to sys.path.
+    if not isinstance(w_mod, MixedModule):
+        return
+    for w_submodule in w_mod.submodules_w:
+        space.setitem(space.sys.get('modules'),
+                      w_submodule.w_name, w_submodule)
+        install_mixed_submodules(space, w_submodule)
 
 
 class _WIN32Path(object):

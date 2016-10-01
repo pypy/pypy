@@ -644,10 +644,8 @@ class ObjSpace(object):
         if self.config.objspace.usemodules.cpyext:
             from pypy.module.cpyext.state import State
             self.fromcache(State).build_api(self)
-        w_modules = self.sys.get('modules')
         for name in ('sys', '_imp', '_frozen_importlib', 'builtins'):
             mod = self.getbuiltinmodule(name)
-            self.setitem(w_modules, mod.w_name, mod)
         for mod in self.builtin_modules.values():
             mod.setup_after_space_initialization()
 
