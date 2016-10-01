@@ -136,9 +136,13 @@ class ASTNodeVisitor(ASDLVisitor):
             return "space.wrap(%s)" % (value,)
         else:
             wrapper = "%s.to_object(space)" % (value,)
-            # XXX: kw_defaults, unlike other sequences, allows None
-            # values
-            if field.opt or field.name == 'kw_defaults':
+            allow_none = field.opt
+            # Some sequences allow None values:
+            # - arguments.kw_defaults (for mandatory kw-only arguments)
+            # - Dict.keys (for **nested_dict elements)
+            if field.name in ('kw_defaults', 'keys'):
+                allow_none = True
+            if allow_none:
                 wrapper += " if %s is not None else space.w_None" % (value,)
             return wrapper
         

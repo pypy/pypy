@@ -478,3 +478,6 @@ from __future__ import generators""")
         comp = ast.Compare(left, [ast.In()], [ast.Num("blah")])
         _expr(comp, "non-numeric", exc=TypeError)
 
+    def test_dict_unpacking(self):
+        self.get_ast("{**{1:2}, 2:3}")
+

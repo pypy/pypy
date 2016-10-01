@@ -1963,7 +1963,7 @@ class Dict(expr):
         if self.keys is None:
             keys_w = []
         else:
-            keys_w = [node.to_object(space) for node in self.keys] # expr
+            keys_w = [node.to_object(space) if node is not None else space.w_None for node in self.keys] # expr
         w_keys = space.newlist(keys_w)
         space.setattr(w_node, space.wrap('keys'), w_keys)
         if self.values is None:
