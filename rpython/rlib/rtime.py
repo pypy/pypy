@@ -73,10 +73,15 @@ class CConfigForClockGetTime:
 
 constant_names = ['RUSAGE_SELF', 'EINTR',
                   'CLOCK_REALTIME',
+                  'CLOCK_REALTIME_COARSE',
                   'CLOCK_MONOTONIC',
+                  'CLOCK_MONOTONIC_COARSE',
                   'CLOCK_MONOTONIC_RAW',
+                  'CLOCK_BOOTTIME',
                   'CLOCK_PROCESS_CPUTIME_ID',
                   'CLOCK_THREAD_CPUTIME_ID',
+                  'CLOCK_HIGHRES',
+                  'CLOCK_PROF',
 ]
 for const in constant_names:
     setattr(CConfig, const, rffi_platform.DefinedConstantInteger(const))
@@ -195,6 +200,9 @@ if HAS_CLOCK_GETTIME:
     # clock_gettime().  The issue is that we'd need a way that keeps
     # nanosecond precision, depending on the usage, so we can't have a
     # nice function that returns the time as a float.
+    ALL_DEFINED_CLOCKS = [const for const in constant_names
+                          if const.startswith('CLOCK_')
+                             and globals()[const] is not None]
 
 if need_rusage:
     RUSAGE = RUSAGE
