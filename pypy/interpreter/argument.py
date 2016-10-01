@@ -85,9 +85,11 @@ class Arguments(object):
         try:
             args_w = space.fixedview(w_stararg)
         except OperationError as e:
-            if e.match(space, space.w_TypeError):
+            from pypy.interpreter.generator import GeneratorIterator
+            if (e.match(space, space.w_TypeError) and
+                    not isinstance(w_stararg, GeneratorIterator)):
                 raise oefmt(space.w_TypeError,
-                            "argument after * must be a sequence, not %T",
+                            "argument after * must be an iterable, not %T",
                             w_stararg)
             raise
         self.arguments_w = self.arguments_w + args_w

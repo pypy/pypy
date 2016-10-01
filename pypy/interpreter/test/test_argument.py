@@ -613,7 +613,7 @@ class TestErrorHandling(object):
             Arguments(space, [], w_stararg=space.wrap(42))
         except OperationError as e:
             msg = space.str_w(space.str(e.get_w_value(space)))
-            assert msg == "argument after * must be a sequence, not int"
+            assert msg == "argument after * must be an iterable, not int"
         else:
             assert 0, "did not raise"
         try:
@@ -699,3 +699,15 @@ class AppTestArgument:
         def f(**kwargs):
             return kwargs
         assert f(**globals()) == globals()
+
+    def test_cpython_issue4806(self):
+        def broken():
+            raise TypeError("myerror")
+        def g(*args):
+            pass
+        try:
+            g(*(broken() for i in range(1)))
+        except TypeError as e:
+            assert str(e) == "myerror"
+        else:
+            assert False, "Expected TypeError"
