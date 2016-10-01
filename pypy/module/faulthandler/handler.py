@@ -24,7 +24,7 @@ class Handler(object):
 
     def check_err(self, p_err):
         if p_err:
-            raise oefmt(self.space.w_RuntimeError, 'faulthandler: %8',
+            raise oefmt(self.space.w_RuntimeError, 'faulthandler: %s',
                         rffi.charp2str(p_err))
 
     def get_fileno_and_file(self, w_file):
