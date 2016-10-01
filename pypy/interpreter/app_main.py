@@ -31,6 +31,7 @@ file   : program read from script file
 arg ...: arguments passed to program in sys.argv[1:]
 PyPy options and arguments:
 --info : print translation information about this PyPy executable
+-X faulthandler: attempt to display tracebacks when PyPy crashes
 """
 # Missing vs CPython: PYTHONHOME
 USAGE2 = """
