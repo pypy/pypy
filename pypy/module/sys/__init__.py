@@ -136,6 +136,7 @@ class Module(MixedModule):
             space.setitem(self.w_dict, space.wrap('thread_info'), thread_info)
 
     def setup_after_space_initialization(self):
+        "NOT_RPYTHON"
         space = self.space
 
         if not space.config.translating:
