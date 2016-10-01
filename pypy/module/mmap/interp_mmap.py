@@ -2,7 +2,7 @@ from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from rpython.rlib import rmmap, rarithmetic
+from rpython.rlib import rmmap, rarithmetic, objectmodel
 from rpython.rlib.buffer import Buffer
 from rpython.rlib.rmmap import RValueError, RTypeError, RMMapError
 from rpython.rlib.rstring import StringBuilder
@@ -294,6 +294,7 @@ ACCESS_WRITE = rmmap.ACCESS_WRITE
 ACCESS_COPY  = rmmap.ACCESS_COPY
 
 
+@objectmodel.dont_inline
 def mmap_error(space, e):
     if isinstance(e, RValueError):
         return OperationError(space.w_ValueError, space.wrap(e.message))
@@ -304,7 +305,6 @@ def mmap_error(space, e):
     else:
         # bogus 'e'?
         return OperationError(space.w_SystemError, space.wrap('%s' % e))
-mmap_error._dont_inline_ = True
 
 
 class MMapBuffer(Buffer):

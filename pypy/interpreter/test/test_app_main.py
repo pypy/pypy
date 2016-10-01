@@ -17,8 +17,7 @@ app_main = os.path.abspath(app_main)
 def get_python3():
     if PYTHON3:
         return PYTHON3
-    import py.test
-    py.test.fail("Test requires %r (not found in PATH) or a PYTHON3 "
+    py.test.skip("Test requires %r (not found in PATH) or a PYTHON3 "
                  "environment variable set" % (LOOK_FOR_PYTHON3,))
 
 _counter = 0
@@ -51,7 +50,8 @@ def getscript_in_dir(source):
     # return relative path for testing purposes
     return py.path.local().bestrelpath(pdir)
 
-def pytest_funcarg__demo_script(request):
+@py.test.fixture
+def demo_script():
     return getscript("""
         print('hello')
         print('Name:', __name__)
@@ -64,7 +64,8 @@ def pytest_funcarg__demo_script(request):
         myvalue = 6*7
     """)
 
-def pytest_funcarg__crashing_demo_script(request):
+@py.test.fixture
+def crashing_demo_script():
     return getscript("""
         print('Hello2')
         myvalue2 = 11
@@ -1089,23 +1090,32 @@ class AppTestAppMain:
         old_sys_path = sys.path[:]
         old_cwd = os.getcwd()
 
-        sys.path.append(self.goal_dir)
         # make sure cwd does not contain a stdlib
         if self.tmp_dir.startswith(self.trunkdir):
             skip('TMPDIR is inside the PyPy source')
-        os.chdir(self.tmp_dir)
+        sys.path.append(self.goal_dir)
         tmp_pypy_c = os.path.join(self.tmp_dir, 'pypy-c')
         try:
+            os.chdir(self.tmp_dir)
+
+            # If we are running PyPy with a libpypy-c, the following
+            # lines find the stdlib anyway.  Otherwise, it is not found.
+            expected_found = (
+                getattr(sys, 'pypy_translation_info', {})
+                .get('translation.shared'))
+
             import app_main
-            app_main.setup_bootstrap_path(tmp_pypy_c)  # stdlib not found
+            app_main.setup_bootstrap_path(tmp_pypy_c)
             assert sys.executable == ''
-            assert sys.path == old_sys_path + [self.goal_dir]
+            if not expected_found:
+                assert sys.path == old_sys_path + [self.goal_dir]
 
             app_main.setup_bootstrap_path(self.fake_exe)
             if not sys.platform == 'win32':
                 # an existing file is always 'executable' on windows
                 assert sys.executable == ''      # not executable!
-                assert sys.path == old_sys_path + [self.goal_dir]
+                if not expected_found:
+                    assert sys.path == old_sys_path + [self.goal_dir]
 
             os.chmod(self.fake_exe, 0o755)
             app_main.setup_bootstrap_path(self.fake_exe)
@@ -1116,7 +1126,8 @@ class AppTestAppMain:
             if newpath[0].endswith('__extensions__'):
                 newpath = newpath[1:]
             # we get at least 'expected_path', and maybe more (e.g.plat-linux2)
-            assert newpath[:len(self.expected_path)] == self.expected_path
+            if not expected_found:
+                assert newpath[:len(self.expected_path)] == self.expected_path
         finally:
             sys.path[:] = old_sys_path
             os.chdir(old_cwd)

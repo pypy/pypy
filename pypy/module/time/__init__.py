@@ -1,7 +1,7 @@
 
 from pypy.interpreter.mixedmodule import MixedModule
-from .interp_time import (CLOCK_CONSTANTS, HAS_CLOCK_GETTIME, cConfig,
-                          HAS_MONOTONIC)
+from .interp_time import HAS_MONOTONIC
+from rpython.rlib import rtime
 import os
 
 _WIN = os.name == "nt"
@@ -24,19 +24,17 @@ class Module(MixedModule):
         'process_time': 'interp_time.process_time',
     }
 
-    if HAS_CLOCK_GETTIME:
+    if rtime.HAS_CLOCK_GETTIME:
         interpleveldefs['clock_gettime'] = 'interp_time.clock_gettime'
         interpleveldefs['clock_settime'] = 'interp_time.clock_settime'
         interpleveldefs['clock_getres'] = 'interp_time.clock_getres'
+        for constant in rtime.ALL_DEFINED_CLOCKS:
+            interpleveldefs[constant] = 'space.wrap(%d)' % (
+                getattr(rtime, constant),)
     if HAS_MONOTONIC:
         interpleveldefs['monotonic'] = 'interp_time.monotonic'
     if os.name == "posix":
         interpleveldefs['tzset'] = 'interp_time.tzset'
-
-    for constant in CLOCK_CONSTANTS:
-        value = getattr(cConfig, constant)
-        if value is not None:
-            interpleveldefs[constant] = 'space.wrap(interp_time.cConfig.%s)' % constant
 
     appleveldefs = {
         'struct_time': 'app_time.struct_time',

@@ -3,7 +3,7 @@
 import py, os, errno
 from pypy.interpreter.error import (
     OperationError, decompose_valuefmt, get_operrcls2, new_exception_class,
-    oefmt, wrap_oserror)
+    oefmt, wrap_oserror, new_import_error)
 
 
 def test_decompose_valuefmt():
@@ -154,3 +154,8 @@ def test_new_exception(space):
     assert operr.match(space, space.w_ValueError)
     assert operr.match(space, space.w_TypeError)
 
+def test_import_error(space):
+    w_exc = new_import_error(
+        space, space.wrap(u'msg'), space.wrap(u'name'), space.wrap(u'path'))
+    assert space.getattr(w_exc, space.wrap(u'name')).unwrap(space) == u'name'
+    assert space.getattr(w_exc, space.wrap(u'path')).unwrap(space) == u'path'

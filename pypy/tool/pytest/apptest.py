@@ -141,6 +141,9 @@ if 1:
             # They may be extension modules on CPython
             name = None
             for name in missing.copy():
+                if name == 'cpyext':
+                    missing.remove(name)
+                    continue
                 try:
                     __import__(name)
                 except ImportError:

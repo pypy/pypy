@@ -20,7 +20,7 @@ from rpython.translator.gensupp import NameManager
 from rpython.tool.udir import udir
 from rpython.translator import platform
 from pypy.module.cpyext.state import State
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import OperationError, oefmt, raise_import_error
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.nestedscope import Cell
@@ -982,7 +982,7 @@ def setup_init_functions(eci, translating):
     py_fatalerror = rffi.llexternal('%s_FatalError' % prefix,
                                     [CONST_STRING], lltype.Void,
                                     compilation_info=eci)
-    _reinit_tls = rffi.llexternal('%sThread_ReInitTLS' % prefix, [], 
+    _reinit_tls = rffi.llexternal('%sThread_ReInitTLS' % prefix, [],
                                   lltype.Void, compilation_info=eci)
     def reinit_tls(space):
         _reinit_tls()
@@ -1523,9 +1523,10 @@ def load_extension_module(space, path, name):
         finally:
             lltype.free(ll_libname, flavor='raw')
     except rdynload.DLOpenError as e:
-        raise oefmt(space.w_ImportError,
-                    "unable to load extension module '%s': %s",
-                    path, e.msg)
+        w_name = space.newunicode(name.decode('ascii'))
+        w_path = space.wrap_fsdecoded(path)
+        raise raise_import_error(space,
+            space.wrap_fsdecoded(e.msg), w_name, w_path)
     look_for = None
     #
     if space.config.objspace.usemodules._cffi_backend:
@@ -1555,9 +1556,12 @@ def load_extension_module(space, path, name):
             look_for += ' or ' + also_look_for
         else:
             look_for = also_look_for
-    #
-    raise oefmt(space.w_ImportError,
-                "function %s not found in library %s", look_for, path)
+    msg = u"function %s not found in library %s" % (
+        unicode(look_for), space.unicode_w(space.wrap_fsdecoded(path)))
+    w_name = space.newunicode(name.decode('ascii'))
+    w_path = space.wrap_fsdecoded(path)
+    raise_import_error(space, space.newunicode(msg), w_name, w_path)
+
 
 initfunctype = lltype.Ptr(lltype.FuncType([], PyObject))
 

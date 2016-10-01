@@ -76,9 +76,9 @@ BOOL WINAPI CloseHandle(HANDLE);
 HANDLE WINAPI GetCurrentProcess(void);
 BOOL WINAPI DuplicateHandle(HANDLE, HANDLE, HANDLE, LPHANDLE,
                             DWORD, BOOL, DWORD);
-BOOL WINAPI CreateProcessA(char *, char *, void *,
-                           void *, BOOL, DWORD, char *,
-                           char *, LPSTARTUPINFO, LPPROCESS_INFORMATION);
+BOOL WINAPI CreateProcessW(wchar_t *, wchar_t *, void *,
+                           void *, BOOL, DWORD, wchar_t *,
+                           wchar_t *, LPSTARTUPINFO, LPPROCESS_INFORMATION);
 DWORD WINAPI WaitForSingleObject(HANDLE, DWORD);
 BOOL WINAPI GetExitCodeProcess(HANDLE, LPDWORD);
 BOOL WINAPI TerminateProcess(HANDLE, UINT);

@@ -1,10 +1,14 @@
 from __future__ import with_statement
+import pytest
 from rpython.tool.udir import udir
 
 
+
 class AppTestImpModule:
+    # cpyext is required for _imp.load_dynamic()
     spaceconfig = {
-        'usemodules': ['binascii', 'imp', 'itertools', 'time', 'struct'],
+        'usemodules': [
+            'binascii', 'imp', 'itertools', 'time', 'struct', 'cpyext'],
     }
 
     def setup_class(cls):
@@ -54,11 +58,16 @@ class AppTestImpModule:
         finally:
             del sys.path[0]
 
-    def test_load_dynamic(self):
-        import imp
-        raises(ImportError, imp.load_dynamic, 'foo', 'bar')
-        raises(ImportError, imp.load_dynamic, 'foo', 'bar',
-               open(self.file_module))
+    def test_load_dynamic_error(self):
+        import _imp
+        excinfo = raises(ImportError, _imp.load_dynamic, 'foo', 'bar')
+        assert excinfo.value.name == 'foo'
+        assert excinfo.value.path == './bar'
+        # Note: On CPython, the behavior changes slightly if a 3rd argument is
+        # passed in, whose value is ignored. We don't implement that.
+        #raises(IOError, _imp.load_dynamic, 'foo', 'bar', 42)
+
+        raises(TypeError, _imp.load_dynamic, b'foo', 'bar')
 
     def test_suffixes(self):
         import imp
@@ -160,7 +169,7 @@ class AppTestImpModule:
     def test_nullimporter(self):
         import os, imp
         importer = imp.NullImporter("path")
-        assert importer.find_module(1, [2, 3, 4]) is None
+        assert importer.find_module(1) is None
         raises(ImportError, imp.NullImporter, os.getcwd())
 
     def test_path_importer_cache(self):
@@ -256,30 +265,32 @@ class AppTestImpModule:
         # taken from https://bugs.pypy.org/issue1514, with extra cases
         # that show a difference with CPython: we can get on CPython
         # several module objects for the same built-in module :-(
-        import sys, marshal
+        import sys, _md5
 
-        old = marshal.loads
-        marshal.loads = 42
+        old = _md5.md5
+        _md5.md5 = 42
 
         # save, re-import, restore.
-        saved = sys.modules.pop('marshal')
-        marshal2 = __import__('marshal')
-        assert marshal2 is not marshal
-        assert marshal2.loads is old
-        assert marshal2 is sys.modules['marshal']
-        assert marshal is saved
-        assert marshal.loads == 42
+        saved = sys.modules.pop('_md5')
+        _md52 = __import__('_md5')
+        assert _md52 is not _md5
+        assert _md52.md5 is old
+        assert _md52 is sys.modules['_md5']
+        assert _md5 is saved
+        assert _md5.md5 == 42
 
-        import marshal
-        assert marshal.loads is old
+        import _md5
+        assert _md5.md5 is old
 
-        sys.modules['marshal'] = saved
-        import marshal
-        assert marshal.loads == 42
+        sys.modules['_md5'] = saved
+        import _md5
+        assert _md5.md5 == 42
 
-        marshal.loads = old
+        _md5.md5 = old
 
     def test_get_tag(self):
         import imp
         import sys
+        if not hasattr(sys, 'pypy_version_info'):
+            skip('This test is PyPy-only')
         assert imp.get_tag() == 'pypy3-%d%d' % sys.pypy_version_info[0:2]
