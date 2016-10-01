@@ -390,6 +390,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         space = cls.space
         cls.w_here = space.wrap(str(HERE))
         if not cls.runappdirect:
+            cls.sys_info = get_cpyext_info(space)
             cls.w_runappdirect = space.wrap(cls.runappdirect)
             space.getbuiltinmodule("cpyext")
             # 'import os' to warm up reference counts
@@ -398,6 +399,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             #state = cls.space.fromcache(RefcountState) ZZZ
             #state.non_heaptypes_w[:] = []
             cls.w_debug_collect = space.wrap(interp2app(debug_collect))
+        else:
+            cls.sys_info = get_sys_info_app()
 
     def record_imported_module(self, name):
         """
@@ -468,14 +471,12 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         self.imported_module_names = []
 
         if self.runappdirect:
-            self.sys_info = get_sys_info_app()
             self.compile_module = self.sys_info.compile_extension_module
             self.load_module = self.sys_info.load_module
             self.import_module = self.sys_info.import_module
             self.import_extension = self.sys_info.import_extension
         else:
             wrap = self.space.wrap
-            self.sys_info = get_cpyext_info(self.space)
             self.w_compile_module = wrap(interp2app(compile_module))
             self.w_load_module = wrap(interp2app(load_module))
             self.w_import_module = wrap(interp2app(import_module))
