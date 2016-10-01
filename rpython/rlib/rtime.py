@@ -200,6 +200,9 @@ if HAS_CLOCK_GETTIME:
     # clock_gettime().  The issue is that we'd need a way that keeps
     # nanosecond precision, depending on the usage, so we can't have a
     # nice function that returns the time as a float.
+    ALL_DEFINED_CLOCKS = [const for const in constant_names
+                          if const.startswith('CLOCK_')
+                             and globals()[const] is not None]
 
 if need_rusage:
     RUSAGE = RUSAGE

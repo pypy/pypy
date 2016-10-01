@@ -19,12 +19,8 @@ class TimeModule(MixedModule):
     if rtime.HAS_CLOCK_GETTIME:
         interpleveldefs["clock_gettime"] = "interp_time.clock_gettime"
         interpleveldefs["clock_getres"] = "interp_time.clock_getres"
-        for name in [
-            "CLOCK_REALTIME", "CLOCK_MONOTONIC", "CLOCK_MONOTONIC_RAW",
-            "CLOCK_PROCESS_CPUTIME_ID", "CLOCK_THREAD_CPUTIME_ID"
-        ]:
-            if getattr(rtime, name) is not None:
-                interpleveldefs[name] = "space.wrap(%d)" % getattr(rtime, name)
+        for name in rtime.ALL_DEFINED_CLOCKS:
+            interpleveldefs[name] = "space.wrap(%d)" % getattr(rtime, name)
 
 
 class ThreadModule(MixedModule):
