@@ -1,14 +1,12 @@
 import sys
 import weakref
-import os
 
-import py, pytest
+import pytest
 
-from pypy import pypydir
+from pypy.tool.cpyext.extbuild import (
+    SystemCompilationInfo, HERE, get_sys_info_app)
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from rpython.rtyper.lltypesystem import lltype, ll2ctypes
-from rpython.translator.gensupp import uniquemodulename
-from rpython.tool.udir import udir
 from pypy.module.cpyext import api
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.pyobject import Py_DecRef
@@ -16,9 +14,6 @@ from rpython.tool.identity_dict import identity_dict
 from rpython.tool import leakfinder
 from rpython.rlib import rawrefcount
 
-from .support import c_compile
-
-HERE = py.path.local(pypydir) / 'module' / 'cpyext' / 'test'
 only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_names"
 
 @api.cpython_api([], api.PyObject)
@@ -34,96 +29,6 @@ class TestApi:
         assert 'PyModule_Check' in api.FUNCTIONS
         assert api.FUNCTIONS['PyModule_Check'].argtypes == [api.PyObject]
 
-def convert_sources_to_files(sources, dirname):
-    files = []
-    for i, source in enumerate(sources):
-        filename = dirname / ('source_%d.c' % i)
-        with filename.open('w') as f:
-            f.write(str(source))
-        files.append(filename)
-    return files
-
-class SystemCompilationInfo(object):
-    """Bundles all the generic information required to compile extensions.
-
-    Note: here, 'system' means OS + target interpreter + test config + ...
-    """
-    def __init__(self, include_extra=None, compile_extra=None, link_extra=None,
-            extra_libs=None, ext=None):
-        self.include_extra = include_extra or []
-        self.compile_extra = compile_extra
-        self.link_extra = link_extra
-        self.extra_libs = extra_libs
-        self.ext = ext
-
-    def compile_extension_module(self, name, include_dirs=None,
-            source_files=None, source_strings=None):
-        """
-        Build an extension module and return the filename of the resulting
-        native code file.
-
-        name is the name of the module, possibly including dots if it is a
-        module inside a package.
-
-        Any extra keyword arguments are passed on to ExternalCompilationInfo to
-        build the module (so specify your source with one of those).
-        """
-        include_dirs = include_dirs or []
-        modname = name.split('.')[-1]
-        dirname = (udir/uniquemodulename('module')).ensure(dir=1)
-        if source_strings:
-            assert not source_files
-            files = convert_sources_to_files(source_strings, dirname)
-            source_files = files
-        soname = c_compile(source_files, outputfilename=str(dirname/modname),
-            compile_extra=self.compile_extra,
-            link_extra=self.link_extra,
-            include_dirs=self.include_extra + include_dirs,
-            libraries=self.extra_libs)
-        pydname = soname.new(purebasename=modname, ext=self.ext)
-        soname.rename(pydname)
-        return str(pydname)
-
-    def import_module(self, name, init=None, body='', filename=None,
-            include_dirs=None, PY_SSIZE_T_CLEAN=False):
-        """
-        init specifies the overall template of the module.
-
-        if init is None, the module source will be loaded from a file in this
-        test directory, give a name given by the filename parameter.
-
-        if filename is None, the module name will be used to construct the
-        filename.
-        """
-        if init is not None:
-            code = make_source(name, init, body, PY_SSIZE_T_CLEAN)
-            kwds = dict(source_strings=[code])
-        else:
-            assert not PY_SSIZE_T_CLEAN
-            if filename is None:
-                filename = name
-            filename = HERE / (filename + ".c")
-            kwds = dict(source_files=[filename])
-        mod = self.compile_extension_module(
-            name, include_dirs=include_dirs, **kwds)
-        return self.load_module(mod, name)
-
-    def import_extension(self, modname, functions, prologue="",
-            include_dirs=None, more_init="", PY_SSIZE_T_CLEAN=False):
-        body = prologue + make_methods(functions, modname)
-        init = """Py_InitModule("%s", methods);""" % (modname,)
-        if more_init:
-            init += more_init
-        return self.import_module(
-            name=modname, init=init, body=body, include_dirs=include_dirs,
-            PY_SSIZE_T_CLEAN=PY_SSIZE_T_CLEAN)
-
-
-class ExtensionCompiler(SystemCompilationInfo):
-    """Extension compiler for appdirect mode"""
-    def load_module(space, mod, name):
-        import imp
-        return imp.load_dynamic(name, mod)
 
 class SpaceCompiler(SystemCompilationInfo):
     """Extension compiler for regular (untranslated PyPy) mode"""
@@ -164,83 +69,6 @@ def get_cpyext_info(space):
         link_extra=link_extra,
         extra_libs=libraries,
         ext=get_so_extension(space))
-
-
-def get_so_suffix():
-    from imp import get_suffixes, C_EXTENSION
-    for suffix, mode, typ in get_suffixes():
-        if typ == C_EXTENSION:
-            return suffix
-    else:
-        raise RuntimeError("This interpreter does not define a filename "
-            "suffix for C extensions!")
-
-def get_sys_info_app():
-    from distutils.sysconfig import get_python_inc
-    if sys.platform == 'win32':
-        compile_extra = ["/we4013"]
-        link_extra = ["/LIBPATH:" + os.path.join(sys.exec_prefix, 'libs')]
-    elif sys.platform == 'darwin':
-        compile_extra = link_extra = None
-        pass
-    elif sys.platform.startswith('linux'):
-        compile_extra = [
-            "-O0", "-g", "-Werror=implicit-function-declaration", "-fPIC"]
-        link_extra = None
-    ext = get_so_suffix()
-    return ExtensionCompiler(
-        include_extra=[get_python_inc()],
-        compile_extra=compile_extra,
-        link_extra=link_extra,
-        ext=get_so_suffix())
-
-def make_methods(functions, modname):
-    methods_table = []
-    codes = []
-    for funcname, flags, code in functions:
-        cfuncname = "%s_%s" % (modname, funcname)
-        methods_table.append(
-            "{\"%s\", %s, %s}," % (funcname, cfuncname, flags))
-        func_code = """
-        static PyObject* %s(PyObject* self, PyObject* args)
-        {
-        %s
-        }
-        """ % (cfuncname, code)
-        codes.append(func_code)
-
-    body = "\n".join(codes) + """
-    static PyMethodDef methods[] = {
-    %s
-    { NULL }
-    };
-    """ % ('\n'.join(methods_table),)
-    return body
-
-def make_source(name, init, body, PY_SSIZE_T_CLEAN):
-    code = """
-    %(PY_SSIZE_T_CLEAN)s
-    #include <Python.h>
-    /* fix for cpython 2.7 Python.h if running tests with -A
-        since pypy compiles with -fvisibility-hidden */
-    #undef PyMODINIT_FUNC
-    #ifdef __GNUC__
-    #  define RPY_EXPORTED extern __attribute__((visibility("default")))
-    #else
-    #  define RPY_EXPORTED extern __declspec(dllexport)
-    #endif
-    #define PyMODINIT_FUNC RPY_EXPORTED void
-
-    %(body)s
-
-    PyMODINIT_FUNC
-    init%(name)s(void) {
-    %(init)s
-    }
-    """ % dict(name=name, init=init, body=body,
-            PY_SSIZE_T_CLEAN='#define PY_SSIZE_T_CLEAN'
-                if PY_SSIZE_T_CLEAN else '')
-    return code
 
 
 def freeze_refcnts(self):

@@ -156,4 +156,3 @@ class AppTestPyFile(AppTestCpythonExtensionBase):
             t_py = fid.tell()
             assert t_c == t_py, 'after a fread, c level ftell(fp) %d but PyFile.tell() %d' % (t_c, t_py)
 
-
