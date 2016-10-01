@@ -191,6 +191,10 @@ if HAS_CLOCK_GETTIME:
                                rffi.INT, releasegil=False,
                                save_err=rffi.RFFI_SAVE_ERRNO,
                                compilation_info=eciclock)
+    # Note: there is no higher-level functions here to access
+    # clock_gettime().  The issue is that we'd need a way that keeps
+    # nanosecond precision, depending on the usage, so we can't have a
+    # nice function that returns the time as a float.
 
 if need_rusage:
     RUSAGE = RUSAGE
