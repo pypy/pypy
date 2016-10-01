@@ -45,6 +45,9 @@ if have_unicode:
         (unichr(0x200), ValueError),
 ]
 
+class IntSubclass(int):
+    pass
+
 class IntLongCommonTests(object):
 
     """Mixin of test cases to share between both test_int and test_long."""
@@ -348,7 +351,8 @@ class IntTestCases(IntLongCommonTests, unittest.TestCase):
             factories += [unicode, CustomUnicode]
 
         for f in factories:
-            x = f('100')
+            with test_support.check_py3k_warnings(quiet=True):
+                x = f('100')
             msg = 'x has value %s and type %s' % (x, type(x).__name__)
             try:
                 self.assertEqual(int(x), 100, msg=msg)
@@ -362,15 +366,17 @@ class IntTestCases(IntLongCommonTests, unittest.TestCase):
                 with self.assertRaisesRegexp(TypeError, errmsg, msg=msg):
                     int(x, 2)
             errmsg = 'invalid literal'
-            with self.assertRaisesRegexp(ValueError, errmsg, msg=msg):
+            with self.assertRaisesRegexp(ValueError, errmsg, msg=msg), \
+                 test_support.check_py3k_warnings(quiet=True):
                 int(f('A' * 0x10))
 
     def test_int_buffer(self):
-        self.assertEqual(int(buffer('123', 1, 2)), 23)
-        self.assertEqual(int(buffer('123\x00', 1, 2)), 23)
-        self.assertEqual(int(buffer('123 ', 1, 2)), 23)
-        self.assertEqual(int(buffer('123A', 1, 2)), 23)
-        self.assertEqual(int(buffer('1234', 1, 2)), 23)
+        with test_support.check_py3k_warnings():
+            self.assertEqual(int(buffer('123', 1, 2)), 23)
+            self.assertEqual(int(buffer('123\x00', 1, 2)), 23)
+            self.assertEqual(int(buffer('123 ', 1, 2)), 23)
+            self.assertEqual(int(buffer('123A', 1, 2)), 23)
+            self.assertEqual(int(buffer('1234', 1, 2)), 23)
 
     def test_error_on_string_float_for_x(self):
         self.assertRaises(ValueError, int, '1.2')
@@ -476,6 +482,18 @@ class IntTestCases(IntLongCommonTests, unittest.TestCase):
                 else:
                     self.fail("Failed to raise TypeError with %s" %
                               ((base, trunc_result_base),))
+
+                class TruncReturnsIntSubclass(base):
+                    def __trunc__(self):
+                        return True
+                good_int = TruncReturnsIntSubclass()
+                n = int(good_int)
+                self.assertEqual(n, 1)
+                self.assertIs(type(n), bool)
+                n = IntSubclass(good_int)
+                self.assertEqual(n, 1)
+                self.assertIs(type(n), IntSubclass)
+
 
 def test_main():
     run_unittest(IntTestCases)
