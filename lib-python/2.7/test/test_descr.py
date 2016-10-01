@@ -3741,7 +3741,7 @@ order (MRO) for bases """
         b.a = a
         z = deepcopy(a) # This blew up before
 
-    def test_unintialized_modules(self):
+    def test_uninitialized_modules(self):
         # Testing uninitialized module objects...
         from types import ModuleType as M
         m = M.__new__(M)
@@ -4721,6 +4721,7 @@ order (MRO) for bases """
         for o in gc.get_objects():
             self.assertIsNot(type(o), X)
 
+
 class DictProxyTests(unittest.TestCase):
     def setUp(self):
         class C(object):
@@ -4786,6 +4787,26 @@ class PTypesLongInitTest(unittest.TestCase):
         type.mro(tuple)
 
 
+class PicklingTests(unittest.TestCase):
+
+    def test_issue24097(self):
+        # Slot name is freed inside __getattr__ and is later used.
+        class S(str):  # Not interned
+            pass
+        class A(object):
+            __slotnames__ = [S('spam')]
+            def __getattr__(self, attr):
+                if attr == 'spam':
+                    A.__slotnames__[:] = [S('spam')]
+                    return 42
+                else:
+                    raise AttributeError
+
+        import copy_reg
+        expected = (copy_reg.__newobj__, (A,), ({}, {'spam': 42}), None, None)
+        self.assertEqual(A().__reduce__(2), expected)
+
+
 def test_main():
     deprecations = [(r'complex divmod\(\), // and % are deprecated$',
                      DeprecationWarning)]
@@ -4797,7 +4818,8 @@ def test_main():
     with test_support.check_warnings(*deprecations):
         # Run all local test cases, with PTypesLongInitTest first.
         test_support.run_unittest(PTypesLongInitTest, OperatorsTest,
-                                  ClassPropertiesAndMethods, DictProxyTests)
+                                  ClassPropertiesAndMethods, DictProxyTests,
+                                  PicklingTests)
 
 if __name__ == "__main__":
     test_main()

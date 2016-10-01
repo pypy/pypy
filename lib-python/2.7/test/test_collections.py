@@ -1,19 +1,24 @@
-
-import unittest, doctest, operator
-import inspect
-from test import test_support
-from collections import namedtuple, Counter, OrderedDict
-from test import mapping_tests
-import pickle, cPickle, copy
-from random import randrange, shuffle
+import collections
+import copy
+import doctest
 import keyword
+import operator
+import pickle
+import cPickle
+from random import choice, randrange, shuffle
 import re
+import string
 import sys
+from test import mapping_tests, test_support
+import unittest
+
+from collections import namedtuple, Counter, OrderedDict
 from collections import Hashable, Iterable, Iterator
 from collections import Sized, Container, Callable
 from collections import Set, MutableSet
 from collections import Mapping, MutableMapping
 from collections import Sequence, MutableSequence
+
 # Silence deprecation warning
 sets = test_support.import_module('sets', deprecated=True)
 
@@ -178,8 +183,7 @@ class TestNamedTuple(unittest.TestCase):
         self.assertEqual(Dot(1)._fields, ('d',))
 
         n = 5000
-        import string, random
-        names = list(set(''.join([random.choice(string.ascii_letters)
+        names = list(set(''.join([choice(string.ascii_letters)
                                   for j in range(10)]) for i in range(n)))
         n = len(names)
         Big = namedtuple('Big', names)
@@ -556,7 +560,7 @@ class TestCollectionABCs(ABCTestCase):
 
     def test_issue_4920(self):
         # MutableSet.pop() method did not work
-        class MySet(collections.MutableSet):
+        class MySet(MutableSet):
             __slots__=['__s']
             def __init__(self,items=None):
                 if items is None:
@@ -807,7 +811,7 @@ class TestCollectionABCs(ABCTestCase):
             self.assertTrue(issubclass(sample, Mapping))
         self.validate_abstract_methods(Mapping, '__contains__', '__iter__', '__len__',
             '__getitem__')
-        class MyMapping(collections.Mapping):
+        class MyMapping(Mapping):
             def __len__(self):
                 return 0
             def __getitem__(self, i):
@@ -1344,7 +1348,6 @@ class SubclassMappingTests(mapping_tests.BasicTestMappingProtocol):
         d = self._empty_mapping()
         self.assertRaises(KeyError, d.popitem)
 
-import collections
 
 def test_main(verbose=None):
     NamedTupleDocs = doctest.DocTestSuite(module=collections)
