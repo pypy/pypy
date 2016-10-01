@@ -73,10 +73,15 @@ class CConfigForClockGetTime:
 
 constant_names = ['RUSAGE_SELF', 'EINTR',
                   'CLOCK_REALTIME',
+                  'CLOCK_REALTIME_COARSE',
                   'CLOCK_MONOTONIC',
+                  'CLOCK_MONOTONIC_COARSE',
                   'CLOCK_MONOTONIC_RAW',
+                  'CLOCK_BOOTTIME',
                   'CLOCK_PROCESS_CPUTIME_ID',
                   'CLOCK_THREAD_CPUTIME_ID',
+                  'CLOCK_HIGHRES',
+                  'CLOCK_PROF',
 ]
 for const in constant_names:
     setattr(CConfig, const, rffi_platform.DefinedConstantInteger(const))
