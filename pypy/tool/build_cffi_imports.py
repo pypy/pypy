@@ -1,5 +1,4 @@
-import sys, shutil
-from rpython.tool.runsubprocess import run_subprocess
+import sys, shutil, os
 
 class MissingDependenciesError(Exception):
     pass
@@ -20,6 +19,8 @@ cffi_build_scripts = {
     }
 
 def create_cffi_import_libraries(pypy_c, options, basedir):
+    from rpython.tool.runsubprocess import run_subprocess
+
     shutil.rmtree(str(basedir.join('lib_pypy', '__pycache__')),
                   ignore_errors=True)
     failures = []
@@ -44,10 +45,15 @@ def create_cffi_import_libraries(pypy_c, options, basedir):
     return failures
 
 if __name__ == '__main__':
-    import py, os
     if '__pypy__' not in sys.builtin_module_names:
         print >> sys.stderr, 'Call with a pypy interpreter'
         sys.exit(1)
+
+    tool_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+    base_dir = os.path.dirname(os.path.dirname(tool_dir))
+    sys.path.insert(0, base_dir)
+
+    import py
 
     class Options(object):
         pass
