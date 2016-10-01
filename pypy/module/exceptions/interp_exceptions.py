@@ -728,6 +728,8 @@ class W_SyntaxError(W_Exception):
                 args_w = args_w[:]
                 args_w[1] = space.newtuple(values_w[:4])
         W_BaseException.descr_init(self, space, args_w)
+        if self.w_text and space.isinstance_w(self.w_text, space.w_unicode):
+            self._report_missing_parentheses(space)
 
     def descr_str(self, space):
         return space.appexec([self], """(self):
@@ -769,6 +771,42 @@ class W_SyntaxError(W_Exception):
             return space.wrap(clsname + args_repr)
         else:
             return W_Exception.descr_repr(self, space)
+
+    # CPython Issue #21669: Custom error for 'print' & 'exec' as statements
+    def _report_missing_parentheses(self, space):
+        text = space.unicode_w(self.w_text)
+        if u'(' in text:
+            # Use default error message for any line with an opening paren
+            return
+        # handle the simple statement case
+        if self._check_for_legacy_statements(space, text, 0):
+            return
+        # Handle the one-line complex statement case
+        pos = text.find(u':')
+        if pos < 0:
+            return
+        # Check again, starting from just after the colon
+        self._check_for_legacy_statements(space, text, pos+1)
+
+    def _check_for_legacy_statements(self, space, text, start):
+        # Ignore leading whitespace
+        while start < len(text) and text[start] == u' ':
+            start += 1
+        # Checking against an empty or whitespace-only part of the string
+        if start == len(text):
+            return False
+        if start > 0:
+            text = text[start:]
+        # Check for legacy print statements
+        if text.startswith(u"print "):
+            self.w_msg = space.wrap("Missing parentheses in call to 'print'")
+            return True
+        # Check for legacy exec statements
+        if text.startswith(u"exec "):
+            self.w_msg = space.wrap("Missing parentheses in call to 'exec'")
+            return True
+        return False
+
 
 W_SyntaxError.typedef = TypeDef(
     'SyntaxError',

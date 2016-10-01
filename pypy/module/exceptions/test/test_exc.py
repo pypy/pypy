@@ -375,3 +375,27 @@ class AppTestExc(object):
         assert e.baz == "baz"
         assert e.args == ("some message",)
 
+    # Check the heuristic for print & exec covers significant cases
+    # As well as placing some limits on false positives
+    def test_former_statements_refer_to_builtins(self):
+        keywords = "print", "exec"
+        def exec_(s): exec(s)
+        # Cases where we want the custom error
+        cases = [
+            "{} foo",
+            "{} {{1:foo}}",
+            "if 1: {} foo",
+            "if 1: {} {{1:foo}}",
+            "if 1:\n    {} foo",
+            "if 1:\n    {} {{1:foo}}",
+        ]
+        for keyword in keywords:
+            custom_msg = "call to '{}'".format(keyword)
+            for case in cases:
+                source = case.format(keyword)
+                exc = raises(SyntaxError, exec_, source)
+                assert custom_msg in exc.value.msg
+                assert exc.value.args[0] == 'invalid syntax'
+                source = source.replace("foo", "(foo.)")
+                exc = raises(SyntaxError, exec_, source)
+                assert custom_msg not in exc.value.msg
