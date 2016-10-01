@@ -36,15 +36,13 @@ def PyObject_GetBuffer(space, w_obj, view, flags):
     view.c_obj = make_ref(space, w_obj)
     return fill_Py_buffer(space, buf, view)
 
-def fill_Py_buffer(space, buf, view):    
+def fill_Py_buffer(space, buf, view):
     # c_buf, c_obj have been filled in
     ndim = buf.getndim()
     view.c_len = buf.getlength()
     view.c_itemsize = buf.getitemsize()
     rffi.setintfield(view, 'c_ndim', ndim)
     view.c_format = rffi.cast(rffi.CCHARP, view.c__format)
-    view.c_shape = rffi.cast(Py_ssize_tP, view.c__shape)
-    view.c_strides = rffi.cast(Py_ssize_tP, view.c__strides)
     fmt = buf.getformat()
     n = Py_MAX_FMT - 1 # NULL terminated buffer
     if len(fmt) > n:
@@ -54,12 +52,18 @@ def fill_Py_buffer(space, buf, view):
         n = len(fmt)
     for i in range(n):
         view.c_format[i] = fmt[i]
-    view.c_format[n] = '\x00'        
-    shape = buf.getshape()
-    strides = buf.getstrides()
-    for i in range(ndim):
-        view.c_shape[i] = shape[i]
-        view.c_strides[i] = strides[i]
+    view.c_format[n] = '\x00'
+    if ndim > 0:
+        view.c_shape = rffi.cast(Py_ssize_tP, view.c__shape)
+        view.c_strides = rffi.cast(Py_ssize_tP, view.c__strides)
+        shape = buf.getshape()
+        strides = buf.getstrides()
+        for i in range(ndim):
+            view.c_shape[i] = shape[i]
+            view.c_strides[i] = strides[i]
+    else:
+        view.c_shape = lltype.nullptr(Py_ssize_tP.TO)
+        view.c_strides = lltype.nullptr(Py_ssize_tP.TO)
     view.c_suboffsets = lltype.nullptr(Py_ssize_tP.TO)
     view.c_internal = lltype.nullptr(rffi.VOIDP.TO)
     return 0
@@ -150,6 +154,6 @@ def PyMemoryView_GET_BUFFER(space, w_obj):
         view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(space.str_w(w_s), track_allocation=False))
         rffi.setintfield(view, 'c_readonly', 1)
         isstr = True
-    fill_Py_buffer(space, w_obj.buf, view)     
+    fill_Py_buffer(space, w_obj.buf, view)
     return view
 
