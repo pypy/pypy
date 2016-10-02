@@ -13,6 +13,7 @@ from pypy.module.cpyext.pyobject import Py_DecRef
 from rpython.tool.identity_dict import identity_dict
 from rpython.tool import leakfinder
 from rpython.rlib import rawrefcount
+from rpython.tool.udir import udir
 
 only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_names"
 
@@ -64,6 +65,7 @@ def get_cpyext_info(space):
         else:
             compile_extra = link_extra = None
     return SpaceCompiler(space,
+        builddir_base=udir,
         include_extra=api.include_dirs,
         compile_extra=compile_extra,
         link_extra=link_extra,
@@ -217,6 +219,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
     def setup_class(cls):
         space = cls.space
         cls.w_here = space.wrap(str(HERE))
+        cls.w_udir = space.wrap(str(udir))
         if not cls.runappdirect:
             cls.sys_info = get_cpyext_info(space)
             cls.w_runappdirect = space.wrap(cls.runappdirect)
@@ -228,11 +231,11 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             #state.non_heaptypes_w[:] = []
             cls.w_debug_collect = space.wrap(interp2app(debug_collect))
         else:
-            cls.sys_info = get_sys_info_app()
+            cls.sys_info = get_sys_info_app(udir)
             def w_import_module(self, name, init=None, body='', filename=None,
                     include_dirs=None, PY_SSIZE_T_CLEAN=False):
                 from extbuild import get_sys_info_app
-                sys_info = get_sys_info_app()
+                sys_info = get_sys_info_app(self.udir)
                 return sys_info.import_module(
                     name, init=init, body=body, filename=filename,
                     include_dirs=include_dirs,

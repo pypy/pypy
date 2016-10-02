@@ -2,7 +2,6 @@ import os
 import sys
 import py
 from pypy import pypydir
-from rpython.tool.udir import udir
 from rpython.translator.gensupp import uniquemodulename
 
 if os.name != 'nt':
@@ -17,8 +16,9 @@ class SystemCompilationInfo(object):
 
     Note: here, 'system' means OS + target interpreter + test config + ...
     """
-    def __init__(self, include_extra=None, compile_extra=None, link_extra=None,
-            extra_libs=None, ext=None):
+    def __init__(self, builddir_base, include_extra=None, compile_extra=None,
+            link_extra=None, extra_libs=None, ext=None):
+        self.builddir_base = builddir_base
         self.include_extra = include_extra or []
         self.compile_extra = compile_extra
         self.link_extra = link_extra
@@ -39,7 +39,7 @@ class SystemCompilationInfo(object):
         """
         include_dirs = include_dirs or []
         modname = name.split('.')[-1]
-        dirname = (udir/uniquemodulename('module')).ensure(dir=1)
+        dirname = (py.path.local(self.builddir_base)/uniquemodulename('module')).ensure(dir=1)
         if source_strings:
             assert not source_files
             files = convert_sources_to_files(source_strings, dirname)
@@ -221,7 +221,7 @@ def get_so_suffix():
         raise RuntimeError("This interpreter does not define a filename "
             "suffix for C extensions!")
 
-def get_sys_info_app():
+def get_sys_info_app(base_dir):
     from distutils.sysconfig import get_python_inc
     if sys.platform == 'win32':
         compile_extra = ["/we4013"]
@@ -234,6 +234,7 @@ def get_sys_info_app():
             "-O0", "-g", "-Werror=implicit-function-declaration", "-fPIC"]
         link_extra = None
     return ExtensionCompiler(
+        builddir_base=base_dir,
         include_extra=[get_python_inc()],
         compile_extra=compile_extra,
         link_extra=link_extra,
