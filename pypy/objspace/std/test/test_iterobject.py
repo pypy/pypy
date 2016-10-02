@@ -102,6 +102,21 @@ class AppTest_IterObject(object):
             gc.collect(); gc.collect(); gc.collect()
             assert free[0]
 
+    def test_reversed_mutation(self):
+        n = 10
+        d = range(n)
+        it = reversed(d)
+        it.next()
+        it.next()
+        assert it.__length_hint__() == n-2
+        d.append(n)
+        assert it.__length_hint__() == n-2
+        d[1:] = []
+        assert it.__length_hint__() == 0
+        assert list(it) == []
+        d.extend(xrange(20))
+        assert it.__length_hint__() == 0
+
     def test_no_len_on_set_iter(self):
         iterable = set([1,2,3,4])
         raises(TypeError, len, iter(iterable))

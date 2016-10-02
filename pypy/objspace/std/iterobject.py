@@ -129,19 +129,10 @@ class W_ReverseSeqIterObject(W_Root):
         return space.newtuple([new_inst, space.newtuple(tup)])
 
     def descr_length_hint(self, space):
-        if self.w_seq is None:
-            return space.wrap(0)
-        index = self.index + 1
-        w_length = space.len(self.w_seq)
-        # if length of sequence is less than index :exhaust iterator
-        if space.is_true(space.gt(space.wrap(self.index), w_length)):
-            w_len = space.wrap(0)
-            self.w_seq = None
-        else:
-            w_len = space.wrap(index)
-        if space.is_true(space.lt(w_len, space.wrap(0))):
-            w_len = space.wrap(0)
-        return w_len
+        length = self.index + 1
+        if self.w_seq is None or space.len_w(self.w_seq) < length:
+            length = 0
+        return space.wrap(length)
 
     def descr_iter(self, space):
         return self
