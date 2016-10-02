@@ -367,6 +367,14 @@ class AppTestInterpObjectPickling:
         raises(TypeError, len, liter)
         assert list(liter) == list(result)
 
+    def test_pickle_reversesequenceiter_stopped(self):
+        import pickle
+        iter = reversed([])
+        raises(StopIteration, iter.next)
+        pckl   = pickle.dumps(iter)
+        result = pickle.loads(pckl)
+        raises(StopIteration, result.next)
+
     # This test used to be marked xfail and it tried to test for the past
     # support of pickling dictiter objects.
     def test_pickle_dictiter(self):
@@ -387,6 +395,14 @@ class AppTestInterpObjectPickling:
         r.next()
         assert type(r) is type(result)
         assert list(r) == list(result)
+
+    def test_pickle_reversed_stopped(self):
+        import pickle
+        iter = reversed(())
+        raises(StopIteration, iter.next)
+        pckl   = pickle.dumps(iter)
+        result = pickle.loads(pckl)
+        raises(StopIteration, result.next)
 
     def test_pickle_enum(self):
         import pickle

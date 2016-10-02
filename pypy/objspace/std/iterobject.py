@@ -117,15 +117,15 @@ class W_FastTupleIterObject(W_AbstractSeqIterObject):
 class W_ReverseSeqIterObject(W_Root):
     def __init__(self, space, w_seq, index=-1):
         self.w_seq = w_seq
-        self.w_len = space.len(w_seq)
-        self.index = space.int_w(self.w_len) + index
+        self.index = space.len_w(w_seq) + index
 
     def descr_reduce(self, space):
         from pypy.interpreter.mixedmodule import MixedModule
         w_mod = space.getbuiltinmodule('_pickle_support')
         mod = space.interp_w(MixedModule, w_mod)
         new_inst = mod.get('reverseseqiter_new')
-        tup = [self.w_seq, space.wrap(self.index)]
+        w_seq = space.w_None if self.w_seq is None else self.w_seq
+        tup = [w_seq, space.wrap(self.index)]
         return space.newtuple([new_inst, space.newtuple(tup)])
 
     def descr_length_hint(self, space):
