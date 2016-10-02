@@ -1,7 +1,11 @@
+import pytest
+
 from rpython.rtyper.lltypesystem import rffi
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rlib.buffer import StringBuffer
+
+only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_names" 
 
 class TestMemoryViewObject(BaseApiTest):
     def test_fromobject(self, space, api):
@@ -41,8 +45,12 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
         viewlen = module.test_buffer(arr)
         assert viewlen == y.itemsize * len(y)
 
+    @pytest.mark.skipif(only_pypy, reason='pypy only test')
     def test_buffer_info(self):
-        from _numpypy import multiarray as np
+        try:
+            from _numpypy import multiarray as np
+        except ImportError:
+            skip('pypy built without _numpypy')
         module = self.import_module(name='buffer_test')
         get_buffer_info = module.get_buffer_info
         raises(ValueError, get_buffer_info, np.arange(5)[::2], ('SIMPLE',))

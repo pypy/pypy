@@ -4,6 +4,7 @@ from pypy.module.cpyext.pyobject import PyObject, make_ref, incref
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import widen
 from pypy.objspace.std.memoryobject import W_MemoryView
+from pypy.module.cpyext.import_ import PyImport_Import
 
 PyMemoryView_Check, PyMemoryView_CheckExact = build_type_checkers("MemoryView", "w_memoryview")
 
@@ -46,8 +47,13 @@ def fill_Py_buffer(space, buf, view):
     fmt = buf.getformat()
     n = Py_MAX_FMT - 1 # NULL terminated buffer
     if len(fmt) > n:
-        ### WARN?
-        pass
+        w_message = space.newbytes("PyPy specific Py_MAX_FMT is %d which is too "
+                           "small for buffer format, %d needed" % (
+                           Py_MAX_FMT, len(fmt)))
+        w_stacklevel = space.newint(1)
+        w_module = PyImport_Import(space, space.newbytes("warnings"))
+        w_warn = space.getattr(w_module, space.newbytes("warn"))
+        space.call_function(w_warn, w_message, space.w_None, w_stacklevel)
     else:
         n = len(fmt)
     for i in range(n):
