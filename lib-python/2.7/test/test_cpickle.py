@@ -53,7 +53,7 @@ class cPickleTests(AbstractUnpickleTests, AbstractPickleTests,
     error = cPickle.BadPickleGet
     module = cPickle
     if test_support.check_impl_detail(pypy=True):
-        bad_stack_errors = PickleTests.bad_stack_errors
+        bad_stack_errors = (IndexError, cPickle.UnpicklingError)
         bad_mark_errors = PickleTests.bad_mark_errors
         truncated_errors = PickleTests.truncated_errors
     else:
@@ -74,7 +74,7 @@ class cPickleUnpicklerTests(AbstractUnpickleTests):
 
     error = cPickle.BadPickleGet
     if test_support.check_impl_detail(pypy=True):
-        bad_stack_errors = UnpicklerTests.bad_stack_errors
+        bad_stack_errors = (IndexError, cPickle.UnpicklingError)
         bad_mark_errors = UnpicklerTests.bad_mark_errors
         truncated_errors = UnpicklerTests.truncated_errors
     else:
