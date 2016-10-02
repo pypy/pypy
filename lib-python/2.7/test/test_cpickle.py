@@ -9,6 +9,7 @@ from test.pickletester import (AbstractUnpickleTests,
                                AbstractPicklerUnpicklerObjectTests,
                                BigmemPickleTests)
 from test import test_support
+from test.test_pickle import PickleTests, UnpicklerTests
 
 class cStringIOMixin:
     output = input = cStringIO.StringIO
@@ -51,10 +52,15 @@ class cPickleTests(AbstractUnpickleTests, AbstractPickleTests,
 
     error = cPickle.BadPickleGet
     module = cPickle
-    bad_stack_errors = (cPickle.UnpicklingError,)
-    bad_mark_errors = (EOFError,)
-    truncated_errors = (cPickle.UnpicklingError, EOFError,
-                        AttributeError, ValueError)
+    if test_support.check_impl_detail(pypy=True):
+        bad_stack_errors = PickleTests.bad_stack_errors
+        bad_mark_errors = PickleTests.bad_mark_errors
+        truncated_errors = PickleTests.truncated_errors
+    else:
+        bad_stack_errors = (cPickle.UnpicklingError,)
+        bad_mark_errors = (EOFError,)
+        truncated_errors = (cPickle.UnpicklingError, EOFError,
+                            AttributeError, ValueError)
 
 class cPickleUnpicklerTests(AbstractUnpickleTests):
 
@@ -67,10 +73,15 @@ class cPickleUnpicklerTests(AbstractUnpickleTests):
             self.close(f)
 
     error = cPickle.BadPickleGet
-    bad_stack_errors = (cPickle.UnpicklingError,)
-    bad_mark_errors = (EOFError,)
-    truncated_errors = (cPickle.UnpicklingError, EOFError,
-                        AttributeError, ValueError)
+    if test_support.check_impl_detail(pypy=True):
+        bad_stack_errors = UnpicklerTests.bad_stack_errors
+        bad_mark_errors = UnpicklerTests.bad_mark_errors
+        truncated_errors = UnpicklerTests.truncated_errors
+    else:
+        bad_stack_errors = (cPickle.UnpicklingError,)
+        bad_mark_errors = (EOFError,)
+        truncated_errors = (cPickle.UnpicklingError, EOFError,
+                            AttributeError, ValueError)
 
 class cStringIOCUnpicklerTests(cStringIOMixin, cPickleUnpicklerTests):
     pass
