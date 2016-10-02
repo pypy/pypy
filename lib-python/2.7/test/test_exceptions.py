@@ -6,7 +6,7 @@ import unittest
 import pickle, cPickle
 
 from test.test_support import (TESTFN, unlink, run_unittest, captured_stderr,
-                               check_warnings, cpython_only)
+                               check_warnings, cpython_only, gc_collect)
 from test.test_pep352 import ignore_deprecation_warnings
 
 class BrokenStrException(Exception):
@@ -671,6 +671,7 @@ class TestSameStrAndUnicodeMsg(unittest.TestCase):
             obj = test_class()
             with captured_stderr() as stderr:
                 del obj
+                gc_collect()
             report = stderr.getvalue()
             self.assertRegexpMatches(report, "Exception.* ignored")
             if test_class is BrokenRepr:
