@@ -83,7 +83,7 @@ def freeze_refcnts(self):
 
 class LeakCheckingTest(object):
     """Base class for all cpyext tests."""
-    spaceconfig = dict(usemodules=['cpyext', 'thread', '_rawffi', 'array',
+    spaceconfig = dict(usemodules=['cpyext', 'thread', 'struct', 'array',
                                    'itertools', 'time', 'binascii',
                                    ])
 
@@ -231,6 +231,15 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             cls.w_debug_collect = space.wrap(interp2app(debug_collect))
         else:
             cls.sys_info = get_sys_info_app()
+            def w_import_module(self, name, init=None, body='', filename=None,
+                    include_dirs=None, PY_SSIZE_T_CLEAN=False):
+                from extbuild import get_sys_info_app
+                sys_info = get_sys_info_app()
+                return sys_info.import_module(
+                    name, init=init, body=body, filename=filename,
+                    include_dirs=include_dirs,
+                    PY_SSIZE_T_CLEAN=PY_SSIZE_T_CLEAN)
+            cls.w_import_module = w_import_module
 
     def record_imported_module(self, name):
         """

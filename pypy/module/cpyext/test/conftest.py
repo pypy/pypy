@@ -13,8 +13,6 @@ def pytest_configure(config):
     space.getbuiltinmodule("time")
 
 def pytest_ignore_collect(path, config):
-    if config.option.runappdirect:
-        return True # "cannot be run by py.test -A"
     # ensure additional functions are registered
     import pypy.module.cpyext.test.test_cpyext
     return False
