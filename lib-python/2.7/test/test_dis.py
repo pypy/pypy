@@ -66,12 +66,12 @@ dis_bug1333982 = """\
              28 LIST_APPEND              2
              31 JUMP_ABSOLUTE           19
 
-3d      >>   34 LOAD_CONST               2 (1)
+%3d     >>   34 LOAD_CONST               2 (1)
              37 BINARY_ADD
              38 CALL_FUNCTION            1
              41 RAISE_VARARGS            1
 
-3d      >>   44 LOAD_CONST               0 (None)
+%3d     >>   44 LOAD_CONST               0 (None)
              47 RETURN_VALUE
 """%(bug1333982.func_code.co_firstlineno + 1,
      bug1333982.func_code.co_firstlineno + 2,
