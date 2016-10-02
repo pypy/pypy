@@ -21,6 +21,7 @@ from rpython.config.translationoption import get_combined_translation_config
 from rpython.jit.metainterp.resoperation import (rop, ResOperation,
         InputArgRef, AbstractValue, OpHelpers)
 from rpython.jit.metainterp.optimizeopt.util import args_dict
+from rpython.rlib.rjitlog import rjitlog as jl
 
 
 def test_sort_descrs():
@@ -101,6 +102,8 @@ class LLtypeMixin(object):
     node_vtable_adr2 = llmemory.cast_ptr_to_adr(node_vtable2)
     node_vtable3 = lltype.malloc(OBJECT_VTABLE, immortal=True)
     node_vtable3.name = rclass.alloc_array_name('node3')
+    node_vtable3.subclassrange_min = 3
+    node_vtable3.subclassrange_max = 3
     node_vtable_adr3 = llmemory.cast_ptr_to_adr(node_vtable3)
     cpu = runner.LLGraphCPU(None)
 
@@ -484,6 +487,7 @@ class FakeMetaInterpStaticData(object):
         self.options = Fake()
         self.globaldata = Fake()
         self.config = get_combined_translation_config(translating=True)
+        self.jitlog = jl.JitLogger()
 
     class logger_noopt:
         @classmethod

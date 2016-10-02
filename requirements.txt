@@ -1,3 +1,5 @@
-# hypothesis is used for test generation on untranslated jit tests
+cffi>=1.4.0
+
+# hypothesis is used for test generation on untranslated tests
 hypothesis
 enum34>=1.1.2

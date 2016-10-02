@@ -257,7 +257,30 @@ def not_in_trace(func):
     func.oopspec = "jit.not_in_trace()"   # note that 'func' may take arguments
     return func
 
+def call_shortcut(func):
+    """A decorator to ensure that a function has a fast-path.
+    DOES NOT RELIABLY WORK ON METHODS, USE ONLY ON FUNCTIONS!
+
+    Only useful on functions that the JIT doesn't normally look inside.
+    It still replaces residual calls to that function with inline code
+    that checks for a fast path, and only does the call if not.  For
+    now, graphs made by the following kinds of functions are detected:
+
+           def func(x, y, z):         def func(x, y, z):
+               if y.field:                 r = y.field
+                   return y.field          if r is None:
+               ...                             ...
+                                           return r
+
+    Fast-path detection is always on, but this decorator makes the
+    codewriter complain if it cannot find the promized fast-path.
+    """
+    func._call_shortcut_ = True
+    return func
+
+
 @oopspec("jit.isconstant(value)")
+@specialize.call_location()
 def isconstant(value):
     """
     While tracing, returns whether or not the value is currently known to be
@@ -267,9 +290,9 @@ def isconstant(value):
     This is for advanced usage only.
     """
     return NonConstant(False)
-isconstant._annspecialcase_ = "specialize:call_location"
 
 @oopspec("jit.isvirtual(value)")
+@specialize.call_location()
 def isvirtual(value):
     """
     Returns if this value is virtual, while tracing, it's relatively
@@ -278,7 +301,6 @@ def isvirtual(value):
     This is for advanced usage only.
     """
     return NonConstant(False)
-isvirtual._annspecialcase_ = "specialize:call_location"
 
 @specialize.call_location()
 def loop_unrolling_heuristic(lst, size, cutoff=2):
@@ -379,28 +401,27 @@ class Entry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.inputconst(lltype.Signed, _we_are_jitted)
 
-
+@oopspec('jit.current_trace_length()')
 def current_trace_length():
     """During JIT tracing, returns the current trace length (as a constant).
     If not tracing, returns -1."""
     if NonConstant(False):
         return 73
     return -1
-current_trace_length.oopspec = 'jit.current_trace_length()'
 
+@oopspec('jit.debug(string, arg1, arg2, arg3, arg4)')
 def jit_debug(string, arg1=-sys.maxint-1, arg2=-sys.maxint-1,
                       arg3=-sys.maxint-1, arg4=-sys.maxint-1):
     """When JITted, cause an extra operation JIT_DEBUG to appear in
     the graphs.  Should not be left after debugging."""
     keepalive_until_here(string) # otherwise the whole function call is removed
-jit_debug.oopspec = 'jit.debug(string, arg1, arg2, arg3, arg4)'
 
+@oopspec('jit.assert_green(value)')
+@specialize.argtype(0)
 def assert_green(value):
     """Very strong assert: checks that 'value' is a green
     (a JIT compile-time constant)."""
     keepalive_until_here(value)
-assert_green._annspecialcase_ = 'specialize:argtype(0)'
-assert_green.oopspec = 'jit.assert_green(value)'
 
 class AssertGreenFailed(Exception):
     pass
@@ -435,6 +456,7 @@ def jit_callback(name):
 # ____________________________________________________________
 # VRefs
 
+@oopspec('virtual_ref(x)')
 @specialize.argtype(0)
 def virtual_ref(x):
     """Creates a 'vref' object that contains a reference to 'x'.  Calls
@@ -445,14 +467,13 @@ def virtual_ref(x):
     dereferenced (by the call syntax 'vref()'), it returns 'x', which is
     then forced."""
     return DirectJitVRef(x)
-virtual_ref.oopspec = 'virtual_ref(x)'
 
+@oopspec('virtual_ref_finish(x)')
 @specialize.argtype(1)
 def virtual_ref_finish(vref, x):
     """See docstring in virtual_ref(x)"""
     keepalive_until_here(x)   # otherwise the whole function call is removed
     _virtual_ref_finish(vref, x)
-virtual_ref_finish.oopspec = 'virtual_ref_finish(x)'
 
 def non_virtual_ref(x):
     """Creates a 'vref' that just returns x when called; nothing more special.
@@ -604,8 +625,27 @@ class JitDriver(object):
                  get_printable_location=None, confirm_enter_jit=None,
                  can_never_inline=None, should_unroll_one_iteration=None,
                  name='jitdriver', check_untranslated=True, vectorize=False,
-                 get_unique_id=None, is_recursive=False):
-        "NOT_RPYTHON"
+                 get_unique_id=None, is_recursive=False, get_location=None):
+        """ NOT_RPYTHON
+            get_location:
+              The return value is designed to provide enough information to express the
+              state of an interpreter when invoking jit_merge_point.
+              For a bytecode interperter such as PyPy this includes, filename, line number,
+              function name, and more information. However, it should also be able to express
+              the same state for an interpreter that evaluates an AST.
+              return paremter:
+                0 -> filename. An absolute path specifying the file the interpreter invoked.
+                               If the input source is no file it should start with the
+                               prefix: "string://<name>"
+                1 -> line number. The line number in filename. This should at least point to
+                                  the enclosing name. It can however point to the specific
+                                  source line of the instruction executed by the interpreter.
+                2 -> enclosing name. E.g. the function name.
+                3 -> index. 64 bit number indicating the execution progress. It can either be
+                     an offset to byte code, or an index to the node in an AST
+                4 -> operation name. a name further describing the current program counter.
+                     this can be either a byte code name or the name of an AST node
+        """
         if greens is not None:
             self.greens = greens
         self.name = name
@@ -639,6 +679,7 @@ class JitDriver(object):
         assert get_jitcell_at is None, "get_jitcell_at no longer used"
         assert set_jitcell_at is None, "set_jitcell_at no longer used"
         self.get_printable_location = get_printable_location
+        self.get_location = get_location
         if get_unique_id is None:
             get_unique_id = lambda *args: 0
         self.get_unique_id = get_unique_id
@@ -789,6 +830,7 @@ class TraceLimitTooHigh(Exception):
     jit_opencoder_model
     """
 
+@specialize.arg(0)
 def set_user_param(driver, text):
     """Set the tunable JIT parameters from a user-supplied string
     following the format 'param=value,param=value', or 'off' to
@@ -824,7 +866,6 @@ def set_user_param(driver, text):
                     break
             else:
                 raise ValueError
-set_user_param._annspecialcase_ = 'specialize:arg(0)'
 
 # ____________________________________________________________
 #
@@ -879,6 +920,7 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
         driver = self.instance.im_self
         h = self.annotate_hook
         h(driver.get_printable_location, driver.greens, **kwds_s)
+        h(driver.get_location, driver.greens, **kwds_s)
 
     def annotate_hook(self, func, variables, args_s=[], **kwds_s):
         if func is None:

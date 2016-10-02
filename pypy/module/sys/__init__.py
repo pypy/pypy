@@ -15,11 +15,12 @@ class Module(MixedModule):
         if space.config.translating:
             del self.__class__.interpleveldefs['pypy_getudir']
         super(Module, self).__init__(space, w_name)
-        self.recursionlimit = 100
+        self.recursionlimit = 1000
         self.w_default_encoder = None
         self.defaultencoding = "ascii"
         self.filesystemencoding = None
         self.debug = True
+        self.track_resources = False
         self.dlopenflags = rdynload._dlopen_default_mode()
 
     interpleveldefs = {
@@ -55,6 +56,8 @@ class Module(MixedModule):
         '_current_frames'       : 'currentframes._current_frames',
         'setrecursionlimit'     : 'vm.setrecursionlimit',
         'getrecursionlimit'     : 'vm.getrecursionlimit',
+        'pypy_set_track_resources' : 'vm.set_track_resources',
+        'pypy_get_track_resources' : 'vm.get_track_resources',
         'setcheckinterval'      : 'vm.setcheckinterval',
         'getcheckinterval'      : 'vm.getcheckinterval',
         'exc_info'              : 'vm.exc_info',

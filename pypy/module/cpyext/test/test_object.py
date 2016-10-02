@@ -168,7 +168,7 @@ class TestObject(BaseApiTest):
 
     def test_hash(self, space, api):
         assert api.PyObject_Hash(space.wrap(72)) == 72
-        assert api.PyObject_Hash(space.wrap(-1)) == -1
+        assert api.PyObject_Hash(space.wrap(-1)) == -2
         assert (api.PyObject_Hash(space.wrap([])) == -1 and
             api.PyErr_Occurred() is space.w_TypeError)
         api.PyErr_Clear()
@@ -235,8 +235,9 @@ class AppTestObject(AppTestCpythonExtensionBase):
         assert type(x) is int
         assert x == -424344
 
-    @pytest.mark.skipif(True, reason='realloc not fully implemented')
     def test_object_realloc(self):
+        if not self.runappdirect:
+            skip('no untranslated support for realloc')
         module = self.import_extension('foo', [
             ("realloctest", "METH_NOARGS",
              """
@@ -244,12 +245,11 @@ class AppTestObject(AppTestCpythonExtensionBase):
                  char *copy, *orig = PyObject_MALLOC(12);
                  memcpy(orig, "hello world", 12);
                  copy = PyObject_REALLOC(orig, 15);
+                 /* realloc() takes care of freeing orig, if changed */
                  if (copy == NULL)
                      Py_RETURN_NONE;
                  ret = PyString_FromStringAndSize(copy, 12);
-                 if (copy != orig)
-                     PyObject_Free(copy);
-                 PyObject_Free(orig);
+                 PyObject_Free(copy);
                  return ret;
              """)])
         x = module.realloctest()

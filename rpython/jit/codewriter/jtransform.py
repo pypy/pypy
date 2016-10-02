@@ -200,8 +200,12 @@ class Transformer(object):
             or v.concretetype != lltype.Bool):
             return False
         for op in block.operations[::-1]:
-            if v in op.args:
-                return False   # variable is also used in cur block
+            # check if variable is used in block
+            for arg in op.args:
+                if arg == v:
+                    return False
+                if isinstance(arg, ListOfKind) and v in arg.content:
+                    return False
             if v is op.result:
                 if op.opname not in ('int_lt', 'int_le', 'int_eq', 'int_ne',
                                      'int_gt', 'int_ge',
@@ -364,7 +368,7 @@ class Transformer(object):
         return getattr(self, 'handle_%s_indirect_call' % kind)(op)
 
     def rewrite_call(self, op, namebase, initialargs, args=None,
-                     calldescr=None):
+                     calldescr=None, force_ir=False):
         """Turn 'i0 = direct_call(fn, i1, i2, ref1, ref2)'
            into 'i0 = xxx_call_ir_i(fn, descr, [i1,i2], [ref1,ref2])'.
            The name is one of '{residual,direct}_call_{r,ir,irf}_{i,r,f,v}'."""
@@ -374,8 +378,9 @@ class Transformer(object):
         lst_i, lst_r, lst_f = self.make_three_lists(args)
         reskind = getkind(op.result.concretetype)[0]
         if lst_f or reskind == 'f': kinds = 'irf'
-        elif lst_i: kinds = 'ir'
+        elif lst_i or force_ir: kinds = 'ir'
         else: kinds = 'r'
+        if force_ir: assert kinds == 'ir'    # no 'f'
         sublists = []
         if 'i' in kinds: sublists.append(lst_i)
         if 'r' in kinds: sublists.append(lst_r)
@@ -452,6 +457,8 @@ class Transformer(object):
             prepare = self._handle_math_sqrt_call
         elif oopspec_name.startswith('rgc.'):
             prepare = self._handle_rgc_call
+        elif oopspec_name.startswith('rvmprof.'):
+            prepare = self._handle_rvmprof_call
         elif oopspec_name.endswith('dict.lookup'):
             # also ordereddict.lookup
             prepare = self._handle_dict_lookup_call
@@ -1575,7 +1582,7 @@ class Transformer(object):
         assert not calldescr.get_extra_info().check_forces_virtual_or_virtualizable()
         op1 = self.rewrite_call(op, 'conditional_call',
                                 op.args[:2], args=op.args[2:],
-                                calldescr=calldescr)
+                                calldescr=calldescr, force_ir=True)
         if self.callcontrol.calldescr_canraise(calldescr):
             op1 = [op1, SpaceOperation('-live-', [], None)]
         return op1
@@ -2078,6 +2085,32 @@ class Transformer(object):
             return self._handle_oopspec_call(op, args, EffectInfo.OS_SHRINK_ARRAY, EffectInfo.EF_CAN_RAISE)
         else:
             raise NotImplementedError(oopspec_name)
+
+    def _handle_rvmprof_call(self, op, oopspec_name, args):
+        if oopspec_name != 'rvmprof.jitted':
+            raise NotImplementedError(oopspec_name)
+        c_entering = Constant(0, lltype.Signed)
+        c_leaving  = Constant(1, lltype.Signed)
+        v_uniqueid = args[0]
+        op1 = SpaceOperation('rvmprof_code', [c_entering, v_uniqueid], None)
+        op2 = SpaceOperation('rvmprof_code', [c_leaving, v_uniqueid], None)
+        #
+        # fish fish inside the oopspec's graph for the ll_func pointer
+        block = op.args[0].value._obj.graph.startblock
+        while True:
+            assert len(block.exits) == 1
+            nextblock = block.exits[0].target
+            if nextblock.operations == ():
+                break
+            block = nextblock
+        last_op = block.operations[-1]
+        assert last_op.opname == 'direct_call'
+        c_ll_func = last_op.args[0]
+        #
+        args = [c_ll_func] + op.args[2:]
+        ops = self.rewrite_op_direct_call(SpaceOperation('direct_call',
+                                                         args, op.result))
+        return [op1] + ops + [op2]
 
     def rewrite_op_ll_read_timestamp(self, op):
         op1 = self.prepare_builtin_call(op, "ll_read_timestamp", [])

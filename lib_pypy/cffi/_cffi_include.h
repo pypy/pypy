@@ -1,4 +1,20 @@
 #define _CFFI_
+
+/* We try to define Py_LIMITED_API before including Python.h.
+
+   Mess: we can only define it if Py_DEBUG, Py_TRACE_REFS and
+   Py_REF_DEBUG are not defined.  This is a best-effort approximation:
+   we can learn about Py_DEBUG from pyconfig.h, but it is unclear if
+   the same works for the other two macros.  Py_DEBUG implies them,
+   but not the other way around.
+*/
+#ifndef _CFFI_USE_EMBEDDING
+#  include <pyconfig.h>
+#  if !defined(Py_DEBUG) && !defined(Py_TRACE_REFS) && !defined(Py_REF_DEBUG)
+#    define Py_LIMITED_API
+#  endif
+#endif
+
 #include <Python.h>
 #ifdef __cplusplus
 extern "C" {
@@ -42,7 +58,9 @@ extern "C" {
 #  include <stdint.h>
 # endif
 # if _MSC_VER < 1800   /* MSVC < 2013 */
-   typedef unsigned char _Bool;
+#  ifndef __cplusplus
+    typedef unsigned char _Bool;
+#  endif
 # endif
 #else
 # include <stdint.h>
@@ -59,7 +77,7 @@ extern "C" {
 
 #ifdef __cplusplus
 # ifndef _Bool
-#  define _Bool bool   /* semi-hackish: C++ has no _Bool; bool is builtin */
+   typedef bool _Bool;   /* semi-hackish: C++ has no _Bool; bool is builtin */
 # endif
 #endif
 
@@ -194,20 +212,6 @@ static PyObject *_cffi_init(const char *module_name, Py_ssize_t version,
   failure:
     Py_XDECREF(module);
     return NULL;
-}
-
-_CFFI_UNUSED_FN
-static PyObject **_cffi_unpack_args(PyObject *args_tuple, Py_ssize_t expected,
-                                    const char *fnname)
-{
-    if (PyTuple_GET_SIZE(args_tuple) != expected) {
-        PyErr_Format(PyExc_TypeError,
-                     "%.150s() takes exactly %zd arguments (%zd given)",
-                     fnname, expected, PyTuple_GET_SIZE(args_tuple));
-        return NULL;
-    }
-    return &PyTuple_GET_ITEM(args_tuple, 0);   /* pointer to the first item,
-                                                  the others follow */
 }
 
 /**********  end CPython-specific section  **********/

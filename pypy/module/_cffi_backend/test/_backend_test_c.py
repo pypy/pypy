@@ -1,7 +1,7 @@
 # ____________________________________________________________
 
 import sys
-assert __version__ == "1.7.0", ("This test_c.py file is for testing a version"
+assert __version__ == "1.8.4", ("This test_c.py file is for testing a version"
                                 " of cffi that differs from the one that we"
                                 " get from 'import _cffi_backend'")
 if sys.version_info < (3,):
@@ -575,6 +575,19 @@ def test_array_sub():
     py.test.raises(TypeError, "a - q")
     e = py.test.raises(TypeError, "q - a")
     assert str(e.value) == "cannot subtract cdata 'short *' and cdata 'int *'"
+
+def test_ptr_sub_unaligned():
+    BInt = new_primitive_type("int")
+    BIntPtr = new_pointer_type(BInt)
+    a = cast(BIntPtr, 1240)
+    for bi in range(1430, 1438):
+        b = cast(BIntPtr, bi)
+        if ((bi - 1240) % size_of_int()) == 0:
+            assert b - a == (bi - 1240) // size_of_int()
+            assert a - b == (1240 - bi) // size_of_int()
+        else:
+            py.test.raises(ValueError, "b - a")
+            py.test.raises(ValueError, "a - b")
 
 def test_cast_primitive_from_cdata():
     p = new_primitive_type("int")
@@ -2512,6 +2525,25 @@ def test_nested_anonymous_struct():
     assert d[2][1].bitshift == -1
     assert d[2][1].bitsize == -1
 
+def test_nested_anonymous_struct_2():
+    BInt = new_primitive_type("int")
+    BStruct = new_struct_type("struct foo")
+    BInnerUnion = new_union_type("union bar")
+    complete_struct_or_union(BInnerUnion, [('a1', BInt, -1),
+                                           ('a2', BInt, -1)])
+    complete_struct_or_union(BStruct, [('b1', BInt, -1),
+                                       ('', BInnerUnion, -1),
+                                       ('b2', BInt, -1)])
+    assert sizeof(BInnerUnion) == sizeof(BInt)
+    assert sizeof(BStruct) == sizeof(BInt) * 3
+    fields = [(name, fld.offset, fld.flags) for (name, fld) in BStruct.fields]
+    assert fields == [
+        ('b1', 0 * sizeof(BInt), 0),
+        ('a1', 1 * sizeof(BInt), 0),
+        ('a2', 1 * sizeof(BInt), 1),
+        ('b2', 2 * sizeof(BInt), 0),
+    ]
+
 def test_sizeof_union():
     # a union has the largest alignment of its members, and a total size
     # that is the largest of its items *possibly further aligned* if
@@ -3330,13 +3362,18 @@ def test_from_buffer_not_str_unicode():
     BChar = new_primitive_type("char")
     BCharP = new_pointer_type(BChar)
     BCharA = new_array_type(BCharP, None)
-    py.test.raises(TypeError, from_buffer, BCharA, b"foo")
+    p1 = from_buffer(BCharA, b"foo")
+    assert p1 == from_buffer(BCharA, b"foo")
+    import gc; gc.collect()
+    assert p1 == from_buffer(BCharA, b"foo")
     py.test.raises(TypeError, from_buffer, BCharA, u+"foo")
     try:
         from __builtin__ import buffer
     except ImportError:
         pass
     else:
+        # from_buffer(buffer(b"foo")) does not work, because it's not
+        # implemented on pypy; only from_buffer(b"foo") works.
         py.test.raises(TypeError, from_buffer, BCharA, buffer(b"foo"))
         py.test.raises(TypeError, from_buffer, BCharA, buffer(u+"foo"))
     try:
@@ -3628,3 +3665,27 @@ def test_cdata_dir():
     check_dir(pp, [])
     check_dir(pp[0], ['a1', 'a2'])
     check_dir(pp[0][0], ['a1', 'a2'])
+
+def test_char_pointer_conversion():
+    import warnings
+    assert __version__.startswith(("1.8", "1.9")), (
+        "consider turning the warning into an error")
+    BCharP = new_pointer_type(new_primitive_type("char"))
+    BIntP = new_pointer_type(new_primitive_type("int"))
+    BVoidP = new_pointer_type(new_void_type())
+    z1 = cast(BCharP, 0)
+    z2 = cast(BIntP, 0)
+    z3 = cast(BVoidP, 0)
+    with warnings.catch_warnings(record=True) as w:
+        newp(new_pointer_type(BIntP), z1)    # warn
+        assert len(w) == 1
+        newp(new_pointer_type(BVoidP), z1)   # fine
+        assert len(w) == 1
+        newp(new_pointer_type(BCharP), z2)   # warn
+        assert len(w) == 2
+        newp(new_pointer_type(BVoidP), z2)   # fine
+        assert len(w) == 2
+        newp(new_pointer_type(BCharP), z3)   # fine
+        assert len(w) == 2
+        newp(new_pointer_type(BIntP), z3)    # fine
+        assert len(w) == 2

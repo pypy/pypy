@@ -25,7 +25,6 @@ class TestW_LongObject:
         space.raises_w(space.w_OverflowError, space.float_w, w_big)
 
     def test_rint_variants(self):
-        py.test.skip("XXX broken!")
         from rpython.rtyper.tool.rfficache import platform
         space = self.space
         for r in platform.numbertype_to_rclass.values():
@@ -36,8 +35,8 @@ class TestW_LongObject:
             for x in values:
                 if not r.SIGNED:
                     x &= r.MASK
-                w_obj = space.wrap(r(x))
-                assert space.bigint_w(w_obj).eq(rbigint.fromint(x))
+                w_obj = space.newlong_from_rarith_int(r(x))
+                assert space.bigint_w(w_obj).eq(rbigint.fromlong(x))
 
 
 class AppTestLong:
@@ -228,7 +227,7 @@ class AppTestLong:
     def test_hash(self):
         # ints have the same hash as equal longs
         for i in range(-4, 14):
-            assert hash(i) == hash(long(i))
+            assert hash(i) == hash(long(i)) == long(i).__hash__()
         # might check too much -- it's ok to change the hashing algorithm
         assert hash(123456789L) == 123456789
         assert hash(1234567890123456789L) in (

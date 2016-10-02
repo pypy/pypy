@@ -107,6 +107,9 @@ class TinyObjSpace(object):
     def newlist(self, iterable):
         return list(iterable)
 
+    def newbytes(self, obj):
+        return bytes(obj)
+
     def call_function(self, func, *args, **kwds):
         return func(*args, **kwds)
 
@@ -128,3 +131,5 @@ class TinyObjSpace(object):
     def is_w(self, obj1, obj2):
         return obj1 is obj2
 
+    def setitem(self, obj, key, value):
+        obj[key] = value

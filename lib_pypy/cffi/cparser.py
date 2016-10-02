@@ -332,7 +332,7 @@ class Parser(object):
                         realtype = model.unknown_ptr_type(decl.name)
                     else:
                         realtype, quals = self._get_type_and_quals(
-                            decl.type, name=decl.name)
+                            decl.type, name=decl.name, partial_length_ok=True)
                     self._declare('typedef ' + decl.name, realtype, quals=quals)
                 else:
                     raise api.CDefError("unrecognized construct", decl)
@@ -781,11 +781,14 @@ class Parser(object):
                 exprnode.name in self._int_constants):
             return self._int_constants[exprnode.name]
         #
-        if partial_length_ok:
-            if (isinstance(exprnode, pycparser.c_ast.ID) and
+        if (isinstance(exprnode, pycparser.c_ast.ID) and
                     exprnode.name == '__dotdotdotarray__'):
+            if partial_length_ok:
                 self._partial_length = True
                 return '...'
+            raise api.FFIError(":%d: unsupported '[...]' here, cannot derive "
+                               "the actual array length in this context"
+                               % exprnode.coord.line)
         #
         raise api.FFIError(":%d: unsupported expression: expected a "
                            "simple numeric constant" % exprnode.coord.line)

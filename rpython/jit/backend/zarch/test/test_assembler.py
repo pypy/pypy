@@ -21,6 +21,7 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.longlong2float import (float2longlong,
         DOUBLE_ARRAY_PTR, singlefloat2uint_emulator)
+from rpython.rlib.rarithmetic import r_uint, intmask
 import ctypes
 
 CPU = getcpuclass()
@@ -168,7 +169,7 @@ class TestRunningAssembler(object):
     def test_load_byte_zero_extend(self):
         adr = self.a.datablockwrapper.malloc_aligned(16, 16)
         data = rffi.cast(rffi.CArrayPtr(rffi.ULONG), adr)
-        data[0] = rffi.cast(rffi.ULONG,0xffffFFFFffffFF02)
+        data[0] = rffi.cast(rffi.ULONG, intmask(0xffffFFFFffffFF02))
         self.a.mc.load_imm(r.r3, adr+7)
         self.a.mc.LLGC(r.r2, loc.addr(0,r.r3))
         self.a.mc.BCR(con.ANY, r.r14)
@@ -177,7 +178,7 @@ class TestRunningAssembler(object):
     def test_load_byte_and_imm(self):
         adr = self.a.datablockwrapper.malloc_aligned(16, 16)
         data = rffi.cast(rffi.CArrayPtr(rffi.ULONG), adr)
-        data[0] = rffi.cast(rffi.ULONG,0xffffFFFFffff0001)
+        data[0] = rffi.cast(rffi.ULONG, intmask(0xffffFFFFffff0001))
         self.a.mc.load_imm(r.r3, adr)
         self.a.mc.LG(r.r2, loc.addr(0,r.r3))
         self.a.mc.LLGC(r.r2, loc.addr(7,r.r3))

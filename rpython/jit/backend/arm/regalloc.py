@@ -594,8 +594,9 @@ class Regalloc(BaseRegalloc):
         resloc = self.after_call(op)
         return resloc
 
-    def prepare_op_call_malloc_gc(self, op, fcond):
-        return self._prepare_call(op)
+    def prepare_op_check_memory_error(self, op, fcond):
+        argloc = self.make_sure_var_in_reg(op.getarg(0))
+        return [argloc]
 
     def _prepare_llong_binop_xx(self, op, fcond):
         # arg 0 is the address of the function
@@ -1001,6 +1002,9 @@ class Regalloc(BaseRegalloc):
     prepare_op_cond_call_gc_wb_array = prepare_op_cond_call_gc_wb
 
     def prepare_op_cond_call(self, op, fcond):
+        # XXX don't force the arguments to be loaded in specific
+        # locations before knowing if we can take the fast path
+        # XXX add cond_call_value support
         assert 2 <= op.numargs() <= 4 + 2
         tmpreg = self.get_scratch_reg(INT, selected_reg=r.r4)
         v = op.getarg(1)

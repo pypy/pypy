@@ -21,6 +21,8 @@ def PyObject_Malloc(space, size):
                          flavor='raw',
                          add_memory_pressure=True)
 
+realloc = rffi.llexternal('realloc', [rffi.VOIDP, rffi.SIZE_T], rffi.VOIDP)
+
 @cpython_api([rffi.VOIDP, size_t], rffi.VOIDP)
 def PyObject_Realloc(space, ptr, size):
     if not lltype.cast_ptr_to_int(ptr):
@@ -28,7 +30,7 @@ def PyObject_Realloc(space, ptr, size):
                          flavor='raw',
                          add_memory_pressure=True)
     # XXX FIXME
-    return lltype.nullptr(rffi.VOIDP.TO)
+    return realloc(ptr, size)
 
 @cpython_api([rffi.VOIDP], lltype.Void)
 def PyObject_Free(space, ptr):
@@ -506,10 +508,9 @@ def PyBuffer_FillInfo(space, view, obj, buf, length, readonly, flags):
 @cpython_api([lltype.Ptr(Py_buffer)], lltype.Void, error=CANNOT_FAIL)
 def PyBuffer_Release(space, view):
     """
-    Releases a Py_buffer obtained from getbuffer ParseTuple's s*.
-
-    This is not a complete re-implementation of the CPython API; it only
-    provides a subset of CPython's behavior.
+    Release the buffer view. This should be called when the buffer is 
+    no longer being used as it may free memory from it
     """
     Py_DecRef(space, view.c_obj)
     view.c_obj = lltype.nullptr(PyObject.TO)
+    # XXX do other fields leak memory?

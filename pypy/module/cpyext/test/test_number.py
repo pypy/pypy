@@ -15,7 +15,7 @@ class TestIterator(BaseApiTest):
         assert api.PyNumber_Check(space.wraplong(-12L))
         assert api.PyNumber_Check(space.wrap(12.1))
         assert not api.PyNumber_Check(space.wrap('12'))
-        assert not api.PyNumber_Check(space.wrap(1+3j))
+        assert api.PyNumber_Check(space.wrap(1+3j))
 
     def test_number_long(self, space, api):
         w_l = api.PyNumber_Long(space.wrap(123))
@@ -144,3 +144,14 @@ class AppTestCNumber(AppTestCpythonExtensionBase):
         assert tupl[0] == 3.
         assert tupl[1] == 1.
         assert isinstance(tupl[0], float)'''
+
+    def test_PyNumber_Check(self):        
+        mod = self.import_extension('foo', [
+            ("test_PyNumber_Check", "METH_VARARGS",
+             '''
+                PyObject *obj = PyTuple_GET_ITEM(args, 0);
+                int val = PyNumber_Check(obj);
+                return PyInt_FromLong(val);
+            ''')])
+        val = mod.test_PyNumber_Check(10)
+        assert val == 1

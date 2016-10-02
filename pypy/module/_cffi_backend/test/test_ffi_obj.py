@@ -503,3 +503,15 @@ class AppTestFFIObj:
         assert ffi.unpack(p+1, 7) == b"bc\x00def\x00"
         p = ffi.new("int[]", [-123456789])
         assert ffi.unpack(p, 1) == [-123456789]
+
+    def test_bug_1(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        q = ffi.new("char[]", b"abcd")
+        p = ffi.cast("char(*)(void)", q)
+        raises(TypeError, ffi.string, p)
+
+    def test_negative_array_size(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        raises(ffi.error, ffi.cast, "int[-5]", 0)

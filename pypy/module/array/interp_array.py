@@ -34,21 +34,21 @@ def w_array(space, w_cls, typecode, __args__):
         if typecode == tc:
             a = space.allocate_instance(types[tc].w_class, w_cls)
             a.__init__(space)
-
-            if len(__args__.arguments_w) > 0:
-                w_initializer = __args__.arguments_w[0]
-                if space.type(w_initializer) is space.w_str:
-                    a.descr_fromstring(space, w_initializer)
-                elif space.type(w_initializer) is space.w_list:
-                    a.descr_fromlist(space, w_initializer)
-                else:
-                    a.extend(w_initializer, True)
             break
     else:
         raise oefmt(space.w_ValueError,
                     "bad typecode (must be c, b, B, u, h, H, i, I, l, L, f or "
                     "d)")
 
+    if len(__args__.arguments_w) > 0:
+        w_initializer = __args__.arguments_w[0]
+        w_initializer_type = space.type(w_initializer)
+        if w_initializer_type is space.w_str:
+            a.descr_fromstring(space, w_initializer)
+        elif w_initializer_type is space.w_list:
+            a.descr_fromlist(space, w_initializer)
+        else:
+            a.extend(w_initializer, True)
     return a
 
 
@@ -596,6 +596,18 @@ class ArrayBuffer(Buffer):
 
     def getlength(self):
         return self.array.len * self.array.itemsize
+
+    def getformat(self):
+        return self.array.typecode
+
+    def getitemsize(self):
+        return self.array.itemsize
+
+    def getndim(self):
+        return 1
+
+    def getstrides(self):
+        return [self.getitemsize()]
 
     def getitem(self, index):
         array = self.array

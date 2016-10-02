@@ -17,7 +17,7 @@ from rpython.annotator.bookkeeper import immutablevalue, getbookkeeper
 from rpython.flowspace.model import Variable, Constant, const
 from rpython.flowspace.operation import op
 from rpython.rlib import rarithmetic
-from rpython.annotator.model import AnnotatorError
+from rpython.annotator.model import AnnotatorError, TLS
 
 BINARY_OPERATIONS = set([oper.opname for oper in op.__dict__.values()
                         if oper.dispatch == 2])
@@ -401,6 +401,9 @@ class __extend__(pairtype(SomeString, SomeUnicodeString),
 class __extend__(pairtype(SomeString, SomeTuple),
                  pairtype(SomeUnicodeString, SomeTuple)):
     def mod((s_string, s_tuple)):
+        if not s_string.is_constant():
+            raise AnnotatorError("string formatting requires a constant "
+                                 "string/unicode on the left of '%'")
         is_string = isinstance(s_string, SomeString)
         is_unicode = isinstance(s_string, SomeUnicodeString)
         assert is_string or is_unicode
@@ -433,6 +436,11 @@ class __extend__(pairtype(SomeString, SomeObject),
 class __extend__(pairtype(SomeFloat, SomeFloat)):
 
     def union((flt1, flt2)):
+        if not TLS.allow_int_to_float:
+            # in this mode, if one of the two is actually the
+            # subclass SomeInteger, complain
+            if isinstance(flt1, SomeInteger) or isinstance(flt2, SomeInteger):
+                raise UnionError(flt1, flt2)
         return SomeFloat()
 
     add = sub = mul = union

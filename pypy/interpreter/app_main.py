@@ -24,11 +24,16 @@ Options and arguments (and corresponding environment variables):
 -V     : print the Python version number and exit (also --version)
 -W arg : warning control; arg is action:message:category:module:lineno
          also PYTHONWARNINGS=arg
+-X arg : set implementation-specific option
 file   : program read from script file
 -      : program read from stdin (default; interactive mode if a tty)
 arg ...: arguments passed to program in sys.argv[1:]
+
 PyPy options and arguments:
 --info : print translation information about this PyPy executable
+-X track-resources : track the creation of files and sockets and display
+                     a warning if they are not closed explicitly
+-X faulthandler    : attempt to display tracebacks when PyPy crashes
 """
 # Missing vs CPython: PYTHONHOME, PYTHONCASEOK
 USAGE2 = """
@@ -229,6 +234,24 @@ def set_jit_option(options, jitparam, *args):
         import pypyjit
         pypyjit.set_param(jitparam)
 
+def run_faulthandler():
+    if 'faulthandler' in sys.builtin_module_names:
+        import faulthandler
+        try:
+            faulthandler.enable(2)   # manually set to stderr
+        except ValueError:
+            pass      # ignore "2 is not a valid file descriptor"
+
+def set_runtime_options(options, Xparam, *args):
+    if Xparam == 'track-resources':
+        sys.pypy_set_track_resources(True)
+    elif Xparam == 'faulthandler':
+        run_faulthandler()
+    else:
+        print >> sys.stderr, 'usage: %s -X [options]' % (get_sys_executable(),)
+        print >> sys.stderr, '[options] can be: track-resources, faulthandler'
+        raise SystemExit
+
 class CommandLineError(Exception):
     pass
 
@@ -404,6 +427,7 @@ cmdline_options = {
     '--info':    (print_info,      None),
     '--jit':     (set_jit_option,  Ellipsis),
     '-funroll-loops': (funroll_loops, None),
+    '-X':        (set_runtime_options, Ellipsis),
     '--':        (end_options,     None),
     }
 
@@ -513,6 +537,9 @@ def parse_command_line(argv):
         if sys.py3kwarning:
             print >> sys.stderr, (
                 "Warning: pypy does not implement py3k warnings")
+
+    if os.getenv('PYTHONFAULTHANDLER'):
+        run_faulthandler()
 
 ##    if not we_are_translated():
 ##        for key in sorted(options):

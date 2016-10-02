@@ -902,9 +902,10 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     consider_call_release_gil_i = _consider_call_release_gil
     consider_call_release_gil_f = _consider_call_release_gil
     consider_call_release_gil_n = _consider_call_release_gil
-    
-    def consider_call_malloc_gc(self, op):
-        self._consider_call(op)
+
+    def consider_check_memory_error(self, op):
+        x = self.rm.make_sure_var_in_reg(op.getarg(0))
+        self.perform_discard(op, [x])
 
     def _consider_call_assembler(self, op):
         locs = self.locs_for_call_assembler(op)
@@ -937,16 +938,45 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
                     self.rm.force_spill_var(box)
                     assert box not in self.rm.reg_bindings
         #
-        assert op.type == 'v'
         args = op.getarglist()
         assert 2 <= len(args) <= 4 + 2     # maximum 4 arguments
-        v = args[1]
-        assert isinstance(v, Const)
-        imm_func = self.rm.convert_to_imm(v)
+        v_func = args[1]
+        assert isinstance(v_func, Const)
+        imm_func = self.rm.convert_to_imm(v_func)
+
+        # Delicate ordering here.  First get the argument's locations.
+        # If this also contains args[0], this returns the current
+        # location too.
         arglocs = [self.loc(args[i]) for i in range(2, len(args))]
         gcmap = self.get_gcmap()
-        self.load_condition_into_cc(op.getarg(0))
-        self.assembler.cond_call(op, gcmap, imm_func, arglocs)
+
+        if op.type == 'v':
+            # a plain COND_CALL.  Calls the function when args[0] is
+            # true.  Often used just after a comparison operation.
+            self.load_condition_into_cc(op.getarg(0))
+            resloc = None
+        else:
+            # COND_CALL_VALUE_I/R.  Calls the function when args[0]
+            # is equal to 0 or NULL.  Returns the result from the
+            # function call if done, or args[0] if it was not 0/NULL.
+            # Implemented by forcing the result to live in the same
+            # register as args[0], and overwriting it if we really do
+            # the call.
+
+            # Load the register for the result.  Possibly reuse 'args[0]'.
+            # But the old value of args[0], if it survives, is first
+            # spilled away.  We can't overwrite any of op.args[2:] here.
+            resloc = self.rm.force_result_in_reg(op, args[0],
+                                                 forbidden_vars=args[2:])
+
+            # Test the register for the result.
+            self.assembler.test_location(resloc)
+            self.assembler.guard_success_cc = rx86.Conditions['Z']
+
+        self.assembler.cond_call(gcmap, imm_func, arglocs, resloc)
+
+    consider_cond_call_value_i = consider_cond_call
+    consider_cond_call_value_r = consider_cond_call
 
     def consider_call_malloc_nursery(self, op):
         size_box = op.getarg(0)
@@ -1218,6 +1248,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             ofs_items, itemsize, _ = symbolic.get_array_token(rstr.STR,
                                                   self.translate_support_code)
             assert itemsize == 1
+            ofs_items -= 1     # for the extra null character
             scale = 0
         self.assembler.load_effective_addr(ofsloc, ofs_items, scale,
                                            resloc, baseloc)

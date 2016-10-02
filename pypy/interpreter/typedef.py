@@ -109,6 +109,7 @@ def default_identity_hash(space, w_obj):
 # we need two subclasses of the app-level type, one to add mapdict, and then one
 # to add del to not slow down the GC.
 
+@specialize.memo()
 def get_unique_interplevel_subclass(space, cls):
     "NOT_RPYTHON: initialization-time only"
     assert cls.typedef.acceptable_as_base_class
@@ -119,7 +120,6 @@ def get_unique_interplevel_subclass(space, cls):
         assert cls not in _unique_subclass_cache
         _unique_subclass_cache[cls] = subcls
         return subcls
-get_unique_interplevel_subclass._annspecialcase_ = "specialize:memo"
 _unique_subclass_cache = {}
 
 def _getusercls(cls, reallywantdict=False):
@@ -203,7 +203,8 @@ def _make_descr_typecheck_wrapper(tag, func, extraargs, cls, use_closure):
     name = func.__name__
     extra = ', '.join(extraargs)
     from pypy.interpreter import pycode
-    argnames, _, _ = pycode.cpython_code_signature(func.func_code)
+    sig = pycode.cpython_code_signature(func.func_code)
+    argnames = sig.argnames
     if use_closure:
         if argnames[1] == 'space':
             args = "closure, space, obj"

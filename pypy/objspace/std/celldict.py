@@ -64,6 +64,8 @@ class ModuleDictStrategy(DictStrategy):
 
     def setitem_str(self, w_dict, key, w_value):
         cell = self.getdictvalue_no_unwrapping(w_dict, key)
+        #if (key == '__package__' or key == "__path__") and cell is not None and w_value is not cell:
+        #    print "WARNING", key, w_value, cell, self
         return self._setitem_str_cell_known(cell, w_dict, key, w_value)
 
     def _setitem_str_cell_known(self, cell, w_dict, key, w_value):

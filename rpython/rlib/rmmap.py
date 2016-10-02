@@ -10,7 +10,7 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import rposix
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.rarithmetic import intmask
 
@@ -239,12 +239,12 @@ elif _MS_WINDOWS:
     _, _VirtualProtect_safe = winexternal('VirtualProtect',
                                   [rffi.VOIDP, rffi.SIZE_T, DWORD, LPDWORD],
                                   BOOL)
+    @specialize.ll()
     def VirtualProtect(addr, size, mode, oldmode_ptr):
         return _VirtualProtect_safe(addr,
                                rffi.cast(rffi.SIZE_T, size),
                                rffi.cast(DWORD, mode),
                                oldmode_ptr)
-    VirtualProtect._annspecialcase_ = 'specialize:ll'
     VirtualFree, VirtualFree_safe = winexternal('VirtualFree',
                               [rffi.VOIDP, rffi.SIZE_T, DWORD], BOOL)
 
@@ -799,8 +799,8 @@ if _POSIX:
                            rffi.cast(size_t, map_size),
                            rffi.cast(rffi.INT, use_flag))
     else:
-        def madvice_free(addr, map_size):
-            "No madvice() on this platform"
+        def madvise_free(addr, map_size):
+            "No madvise() on this platform"
 
 elif _MS_WINDOWS:
     def mmap(fileno, length, tagname="", access=_ACCESS_DEFAULT, offset=0):
@@ -960,5 +960,5 @@ elif _MS_WINDOWS:
             rffi.cast(rffi.SIZE_T, map_size),
             rffi.cast(DWORD, MEM_RESET),
             rffi.cast(DWORD, PAGE_READWRITE))
-        from rpython.rlib import debug
-        debug.debug_print("madvise_free:", r)
+        #from rpython.rlib import debug
+        #debug.debug_print("madvise_free:", r)

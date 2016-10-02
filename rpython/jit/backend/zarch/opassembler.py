@@ -421,9 +421,8 @@ class CallOpAssembler(object):
 class AllocOpAssembler(object):
     _mixin_ = True
 
-    def emit_call_malloc_gc(self, op, arglocs, regalloc):
-        self._emit_call(op, arglocs)
-        self.propagate_memoryerror_if_r2_is_null()
+    def emit_check_memory_error(self, op, arglocs, regalloc):
+        self.propagate_memoryerror_if_reg_is_null(arglocs[0])
 
     def emit_call_malloc_nursery(self, op, arglocs, regalloc):
         # registers r.RES and r.RSZ are allocated for this call
@@ -992,6 +991,7 @@ class MemoryOpAssembler(object):
             basesize, itemsize, _ = symbolic.get_array_token(rstr.STR,
                                         self.cpu.translate_support_code)
             assert itemsize == 1
+            basesize -= 1     # for the extra null character
             scale = 0
 
         # src and src_len are tmp registers

@@ -6,6 +6,7 @@ from rpython.rtyper.annlowlevel import (llhelper, MixLevelHelperAnnotator,
     cast_base_ptr_to_instance, hlstr, cast_instance_to_gcref)
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.annotator import model as annmodel
+from rpython.annotator.dictdef import DictDef
 from rpython.rtyper.llinterp import LLException
 from rpython.rtyper.test.test_llinterp import get_interpreter, clear_tcache
 from rpython.flowspace.model import SpaceOperation, Variable, Constant
@@ -119,6 +120,7 @@ def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
         return interp, graph
     res = interp.eval_graph(graph, args)
     if not kwds.get('translate_support_code', False):
+        warmrunnerdesc.metainterp_sd.jitlog.finish()
         warmrunnerdesc.metainterp_sd.profiler.finish()
         warmrunnerdesc.metainterp_sd.cpu.finish_once()
     print '~~~ return value:', repr(res)
@@ -450,7 +452,8 @@ class WarmRunnerDesc(object):
                               merge_if_blocks=True,
                               constfold=True,
                               remove_asserts=True,
-                              really_remove_asserts=True)
+                              really_remove_asserts=True,
+                              replace_we_are_jitted=False)
 
     def prejit_optimizations_minimal_inline(self, policy, graphs):
         from rpython.translator.backendopt.inline import auto_inline_graphs
@@ -563,12 +566,12 @@ class WarmRunnerDesc(object):
         jd._EnterJitAssembler = EnterJitAssembler
 
     def make_driverhook_graphs(self):
-        s_Str = annmodel.SomeString()
         #
         annhelper = MixLevelHelperAnnotator(self.translator.rtyper)
         for jd in self.jitdrivers_sd:
             jd._get_printable_location_ptr = self._make_hook_graph(jd,
-                annhelper, jd.jitdriver.get_printable_location, s_Str)
+                annhelper, jd.jitdriver.get_printable_location,
+                annmodel.SomeString())
             jd._get_unique_id_ptr = self._make_hook_graph(jd,
                 annhelper, jd.jitdriver.get_unique_id, annmodel.SomeInteger())
             jd._confirm_enter_jit_ptr = self._make_hook_graph(jd,
@@ -579,6 +582,34 @@ class WarmRunnerDesc(object):
             jd._should_unroll_one_iteration_ptr = self._make_hook_graph(jd,
                 annhelper, jd.jitdriver.should_unroll_one_iteration,
                 annmodel.s_Bool)
+            #
+            items = []
+            types = ()
+            pos = ()
+            if jd.jitdriver.get_location:
+                assert hasattr(jd.jitdriver.get_location, '_loc_types'), """
+                You must decorate your get_location function:
+
+                from rpython.rlib.rjitlog import rjitlog as jl
+                @jl.returns(jl.MP_FILENAME, jl.MP_XXX, ...)
+                def get_loc(your, green, keys):
+                    name = "x.txt" # extract it from your green keys
+                    return (name, ...)
+                """
+                types = jd.jitdriver.get_location._loc_types
+                del jd.jitdriver.get_location._loc_types
+                #
+                for _,type in types:
+                    if type == 's':
+                        items.append(annmodel.SomeString())
+                    elif type == 'i':
+                        items.append(annmodel.SomeInteger())
+                    else:
+                        raise NotImplementedError
+            s_Tuple = annmodel.SomeTuple(items)
+            jd._get_location_ptr = self._make_hook_graph(jd,
+                annhelper, jd.jitdriver.get_location, s_Tuple)
+            jd._get_loc_types = types
         annhelper.finish()
 
     def _make_hook_graph(self, jitdriver_sd, annhelper, func,

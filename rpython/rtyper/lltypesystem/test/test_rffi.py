@@ -38,6 +38,24 @@ class BaseTestRffi:
         xf = self.compile(f, [])
         assert xf() == 8+3
 
+    def test_no_float_to_int_conversion(self):
+        c_source = py.code.Source("""
+        int someexternalfunction(int x)
+        {
+            return (x + 3);
+        }
+        """)
+
+        eci = ExternalCompilationInfo(separate_module_sources=[c_source])
+        z = llexternal('someexternalfunction', [Signed], Signed,
+                       compilation_info=eci)
+
+        def f():
+            return z(8.2)
+
+        py.test.raises(TypeError, f)
+        py.test.raises(TypeError, self.compile, f, [])
+
     def test_hashdefine(self):
         h_source = """
         #define X(i) (i+3)
@@ -49,6 +67,7 @@ class BaseTestRffi:
         eci = ExternalCompilationInfo(includes=['stuff.h'],
                                       include_dirs=[udir])
         z = llexternal('X', [Signed], Signed, compilation_info=eci)
+        py.test.raises(AssertionError, z, 8, 9)
 
         def f():
             return z(8)
@@ -516,7 +535,7 @@ class BaseTestRffi:
     def test_nonmovingbuffer(self):
         d = 'some cool data that should not move'
         def f():
-            buf, is_pinned, is_raw = get_nonmovingbuffer(d)
+            buf, flag = get_nonmovingbuffer(d)
             try:
                 counter = 0
                 for i in range(len(d)):
@@ -524,7 +543,7 @@ class BaseTestRffi:
                         counter += 1
                 return counter
             finally:
-                free_nonmovingbuffer(d, buf, is_pinned, is_raw)
+                free_nonmovingbuffer(d, buf, flag)
         assert f() == len(d)
         fn = self.compile(f, [], gcpolicy='ref')
         assert fn() == len(d)
@@ -534,13 +553,13 @@ class BaseTestRffi:
         def f():
             counter = 0
             for n in range(32):
-                buf, is_pinned, is_raw = get_nonmovingbuffer(d)
+                buf, flag = get_nonmovingbuffer(d)
                 try:
                     for i in range(len(d)):
                         if buf[i] == d[i]:
                             counter += 1
                 finally:
-                    free_nonmovingbuffer(d, buf, is_pinned, is_raw)
+                    free_nonmovingbuffer(d, buf, flag)
             return counter
         fn = self.compile(f, [], gcpolicy='semispace')
         # The semispace gc uses raw_malloc for its internal data structs
@@ -555,13 +574,13 @@ class BaseTestRffi:
         def f():
             counter = 0
             for n in range(32):
-                buf, is_pinned, is_raw = get_nonmovingbuffer(d)
+                buf, flag = get_nonmovingbuffer(d)
                 try:
                     for i in range(len(d)):
                         if buf[i] == d[i]:
                             counter += 1
                 finally:
-                    free_nonmovingbuffer(d, buf, is_pinned, is_raw)
+                    free_nonmovingbuffer(d, buf, flag)
             return counter
         fn = self.compile(f, [], gcpolicy='incminimark')
         # The incminimark gc uses raw_malloc for its internal data structs
@@ -835,3 +854,11 @@ def test_sign_when_casting_uint_to_larger_int():
     if hasattr(rffi, '__INT128_T'):
         value = 0xAAAABBBBCCCCDDDD
         assert cast(rffi.__INT128_T, r_uint64(value)) == value
+
+def test_scoped_view_charp():
+    s = 'bar'
+    with scoped_view_charp(s) as buf:
+        assert buf[0] == 'b'
+        assert buf[1] == 'a'
+        assert buf[2] == 'r'
+        assert buf[3] == '\x00'
