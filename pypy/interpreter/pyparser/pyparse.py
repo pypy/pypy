@@ -156,6 +156,8 @@ class PythonParser(parser.Parser):
         self.prepare(_targets[compile_info.mode])
         tp = 0
         try:
+            last_value_seen = None
+            next_value_seen = None
             try:
                 # Note: we no longer pass the CO_FUTURE_* to the tokenizer,
                 # which is expected to work independently of them.  It's
@@ -170,8 +172,12 @@ class PythonParser(parser.Parser):
                 tokens_stream = iter(tokens)
 
                 for tp, value, lineno, column, line in tokens_stream:
+                    next_value_seen = value
                     if self.add_token(tp, value, lineno, column, line):
                         break
+                    last_value_seen = value
+                last_value_seen = None
+                next_value_seen = None
 
                 if compile_info.mode == 'single':
                     for tp, value, lineno, column, line in tokens_stream:
@@ -204,7 +210,13 @@ class PythonParser(parser.Parser):
                     msg = "expected an indented block"
                 else:
                     new_err = error.SyntaxError
-                    msg = "invalid syntax"
+                    if (last_value_seen in ('print', 'exec') and
+                            bool(next_value_seen) and
+                            next_value_seen != '('):
+                        msg = "Missing parentheses in call to '%s'" % (
+                            last_value_seen,)
+                    else:
+                        msg = "invalid syntax"
                 raise new_err(msg, e.lineno, e.column, e.line,
                               compile_info.filename)
             else:
