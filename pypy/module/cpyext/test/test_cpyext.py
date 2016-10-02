@@ -244,6 +244,16 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                     PY_SSIZE_T_CLEAN=PY_SSIZE_T_CLEAN)
             cls.w_import_module = w_import_module
 
+            def w_import_extension(self, modname, w_functions, prologue="",
+                include_dirs=None, more_init="", PY_SSIZE_T_CLEAN=False):
+                from extbuild import get_sys_info_app
+                sys_info = get_sys_info_app(self.udir)
+                return sys_info.import_extension(
+                    modname, w_functions, prologue=prologue,
+                    include_dirs=include_dirs, more_init=more_init,
+                    PY_SSIZE_T_CLEAN=PY_SSIZE_T_CLEAN)
+            cls.w_import_extension = w_import_extension
+
     def record_imported_module(self, name):
         """
         Record a module imported in a test so that it can be cleaned up in
@@ -315,8 +325,6 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         if self.runappdirect:
             self.compile_module = self.sys_info.compile_extension_module
             self.load_module = self.sys_info.load_module
-            self.import_module = self.sys_info.import_module
-            self.import_extension = self.sys_info.import_extension
         else:
             wrap = self.space.wrap
             self.w_compile_module = wrap(interp2app(compile_module))

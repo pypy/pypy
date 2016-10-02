@@ -65,11 +65,8 @@ class SystemCompilationInfo(object):
         filename.
         """
         if body or init:
-            body = body.encode()
             if init is None:
                 init = "return PyModule_Create(&moduledef);"
-            else:
-                init = init.encode()
         if init is not None:
             code = make_source(name, init, body, PY_SSIZE_T_CLEAN)
             kwds = dict(source_strings=[code])
