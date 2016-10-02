@@ -371,6 +371,7 @@ class W_ReversedIterator(W_Root):
 
         # Done
         self.remaining = -1
+        self.w_sequence = None
         raise OperationError(space.w_StopIteration, space.w_None)
 
     def descr___reduce__(self, space):

@@ -90,6 +90,18 @@ class AppTest_IterObject(object):
         raises(TypeError, len, reversed(iterable))
         del sys.modules['collections']
 
+    def test_reversed_frees_empty(self):
+        import gc
+        for typ in list, unicode:
+            free = [False]
+            class U(typ):
+                def __del__(self):
+                    free[0] = True
+            r = reversed(U())
+            raises(StopIteration, next, r)
+            gc.collect(); gc.collect(); gc.collect()
+            assert free[0]
+
     def test_no_len_on_set_iter(self):
         iterable = set([1,2,3,4])
         raises(TypeError, len, iter(iterable))

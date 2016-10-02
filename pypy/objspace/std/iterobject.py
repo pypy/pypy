@@ -147,17 +147,21 @@ class W_ReverseSeqIterObject(W_Root):
         return self
 
     def descr_next(self, space):
-        if self.w_seq is None or self.index < 0:
-            raise OperationError(space.w_StopIteration, space.w_None)
-        try:
-            w_item = space.getitem(self.w_seq, space.wrap(self.index))
-            self.index -= 1
-        except OperationError as e:
-            self.w_seq = None
-            if not e.match(space, space.w_IndexError):
-                raise
-            raise OperationError(space.w_StopIteration, space.w_None)
-        return w_item
+        if self.index >= 0:
+            w_index = space.wrap(self.index)
+            try:
+                w_item = space.getitem(self.w_seq, w_index)
+            except OperationError as e:
+                if not e.match(space, space.w_IndexError):
+                    raise
+            else:
+                self.index -= 1
+                return w_item
+
+        # Done
+        self.index = -1
+        self.w_seq = None
+        raise OperationError(space.w_StopIteration, space.w_None)
 
 W_ReverseSeqIterObject.typedef = TypeDef(
     "reversesequenceiterator",
