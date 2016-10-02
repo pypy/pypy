@@ -2339,7 +2339,7 @@ array_multiply(PyObject* obj1, PyObject* obj2)
         int ii, nn;
         int n = PyList_Size(obj2);
         PyObject *v = getarrayitem(obj1, 0);
-        int i = ((PyIntObject*)v)->ob_ival;
+        long i = PyLong_AsLong(v);
         PyObject * ret = PyList_New(n*i);
         for (ii = 0; ii < i; ii++)
             for (nn = 0; nn < n; nn++)
@@ -2697,8 +2697,7 @@ static PyTypeObject ArrayBasetype = {
     PyObject_GenericGetAttr,                    /* tp_getattro */
     0,                                          /* tp_setattro */
     &array_as_buffer,                           /* tp_as_buffer*/
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | 
-    Py_TPFLAGS_HAVE_WEAKREFS | Py_TPFLAGS_CHECKTYPES,  /* tp_flags */
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,  /* tp_flags */
     arraytype_doc,                              /* tp_doc */
     0,                                          /* tp_traverse */
     0,                                          /* tp_clear */
@@ -2740,8 +2739,7 @@ static PyTypeObject Arraytype = {
     PyObject_GenericGetAttr,                    /* tp_getattro */
     0,                                          /* tp_setattro */
     &array_as_buffer,                           /* tp_as_buffer*/
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | 
-    Py_TPFLAGS_HAVE_WEAKREFS | Py_TPFLAGS_CHECKTYPES,  /* tp_flags */
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,  /* tp_flags */
     arraytype_doc,                              /* tp_doc */
     0,                                          /* tp_traverse */
     0,                                          /* tp_clear */
@@ -2888,7 +2886,7 @@ PyInit_array(void)
     register Py_UNICODE *p;
     struct arraydescr *descr;
 
-    ArrayBasetype.ob_type = &PyType_Type;
+    Py_TYPE(&ArrayBasetype) = &PyType_Type;
     Arraytype.tp_base = &ArrayBasetype;
     if (PyType_Ready(&Arraytype) < 0)
         return NULL;
