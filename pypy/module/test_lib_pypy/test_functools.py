@@ -13,7 +13,7 @@ def test_partial_reduce():
 
 def test_partial_setstate():
     partial = _functools.partial(object)
-    partial.__setstate__([test_partial_setstate, (), None, None])
+    partial.__setstate__((test_partial_setstate, (), None, None))
     assert partial.func == test_partial_setstate
 
 def test_partial_pickle():
