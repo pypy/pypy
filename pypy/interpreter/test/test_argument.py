@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import py
 from pypy.interpreter.argument import (Arguments, ArgErr, ArgErrUnknownKwds,
-        ArgErrMultipleValues, ArgErrCount)
+        ArgErrMultipleValues, ArgErrCount, ArgErrCountMethod)
 from pypy.interpreter.signature import Signature
 from pypy.interpreter.error import OperationError
 
@@ -573,6 +573,10 @@ class TestErrorHandling(object):
         s = err.getmsg()
         assert s == "takes exactly 1 argument (0 given)"
 
+        sig = Signature(['self', 'b'], None, None)
+        err = ArgErrCount(3, 0, sig, [], 0)
+        s = err.getmsg()
+        assert s == "takes exactly 2 arguments (3 given)"
         sig = Signature(['a', 'b'], None, None)
         err = ArgErrCount(3, 0, sig, [], 0)
         s = err.getmsg()
@@ -606,6 +610,57 @@ class TestErrorHandling(object):
         err = ArgErrCount(2, 1, sig, ['a'], 0)
         s = err.getmsg()
         assert s == "takes at most 1 non-keyword argument (2 given)"
+
+    def test_missing_args_method(self):
+        # got_nargs, nkwds, expected_nargs, has_vararg, has_kwarg,
+        # defaults_w, missing_args
+        sig = Signature([], None, None)
+        err = ArgErrCountMethod(1, 0, sig, None, 0)
+        s = err.getmsg()
+        assert s == "takes no arguments (1 given). Did you forget 'self' in the function definition?"
+
+        sig = Signature(['a'], None, None)
+        err = ArgErrCountMethod(0, 0, sig, [], 1)
+        s = err.getmsg()
+        assert s == "takes exactly 1 argument (0 given)"
+
+        sig = Signature(['self', 'b'], None, None)
+        err = ArgErrCountMethod(3, 0, sig, [], 0)
+        s = err.getmsg()
+        assert s == "takes exactly 2 arguments (3 given)"
+        sig = Signature(['a', 'b'], None, None)
+        err = ArgErrCountMethod(3, 0, sig, [], 0)
+        s = err.getmsg()
+        assert s == "takes exactly 2 arguments (3 given). Did you forget 'self' in the function definition?"
+        err = ArgErrCountMethod(3, 0, sig, ['a'], 0)
+        s = err.getmsg()
+        assert s == "takes at most 2 arguments (3 given). Did you forget 'self' in the function definition?"
+
+        sig = Signature(['a', 'b'], '*', None)
+        err = ArgErrCountMethod(1, 0, sig, [], 1)
+        s = err.getmsg()
+        assert s == "takes at least 2 arguments (1 given)"
+        err = ArgErrCountMethod(0, 1, sig, ['a'], 1)
+        s = err.getmsg()
+        assert s == "takes at least 1 non-keyword argument (0 given)"
+
+        sig = Signature(['a'], None, '**')
+        err = ArgErrCountMethod(2, 1, sig, [], 0)
+        s = err.getmsg()
+        assert s == "takes exactly 1 non-keyword argument (2 given). Did you forget 'self' in the function definition?"
+        err = ArgErrCountMethod(0, 1, sig, [], 1)
+        s = err.getmsg()
+        assert s == "takes exactly 1 non-keyword argument (0 given)"
+
+        sig = Signature(['a'], '*', '**')
+        err = ArgErrCountMethod(0, 1, sig, [], 1)
+        s = err.getmsg()
+        assert s == "takes at least 1 non-keyword argument (0 given)"
+
+        sig = Signature(['a'], None, '**')
+        err = ArgErrCountMethod(2, 1, sig, ['a'], 0)
+        s = err.getmsg()
+        assert s == "takes at most 1 non-keyword argument (2 given). Did you forget 'self' in the function definition?"
 
     def test_bad_type_for_star(self):
         space = self.space
@@ -673,6 +728,22 @@ class AppTestArgument:
         assert exc.value.message == "<lambda>() takes at least 2 non-keyword arguments (0 given)"
         exc = raises(TypeError, (lambda a, b, **kw: 0), a=1)
         assert exc.value.message == "<lambda>() takes exactly 2 non-keyword arguments (0 given)"
+
+    def test_error_message_method(self):
+        class A(object):
+            def f0():
+                pass
+            def f1(a):
+                pass
+        exc = raises(TypeError, lambda : A().f0())
+        assert exc.value.message == "f0() takes no arguments (1 given). Did you forget 'self' in the function definition?"
+        exc = raises(TypeError, lambda : A().f1(1))
+        assert exc.value.message == "f1() takes exactly 1 argument (2 given). Did you forget 'self' in the function definition?"
+        def f0():
+            pass
+        exc = raises(TypeError, f0, 1)
+        assert exc.value.message == "f0() takes no arguments (1 given)"
+
 
     def test_unicode_keywords(self):
         def f(**kwargs):

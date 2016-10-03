@@ -1115,7 +1115,8 @@ class ObjSpace(object):
         args = Arguments(self, list(args_w))
         return self.call_args(w_func, args)
 
-    def call_valuestack(self, w_func, nargs, frame):
+    def call_valuestack(self, w_func, nargs, frame, methodcall=False):
+        # methodcall is only used for better error messages in argument.py
         from pypy.interpreter.function import Function, Method, is_builtin_code
         if frame.get_is_being_profiled() and is_builtin_code(w_func):
             # XXX: this code is copied&pasted :-( from the slow path below
@@ -1138,11 +1139,12 @@ class ObjSpace(object):
                     w_func = w_func.w_function
 
             if isinstance(w_func, Function):
-                return w_func.funccall_valuestack(nargs, frame)
+                return w_func.funccall_valuestack(
+                        nargs, frame, methodcall=methodcall)
             # end of hack for performance
 
         args = frame.make_arguments(nargs)
-        return self.call_args(w_func, args)
+        return self.call_args(w_func, args) # YYY
 
     def call_args_and_c_profile(self, frame, w_func, args):
         ec = self.getexecutioncontext()
