@@ -1767,7 +1767,7 @@ class TestType(unittest.TestCase):
 
         A = type('A', (), {})
         self.assertEqual(A.__doc__, None)
-        with self.assertRaises(AttributeError):
+        with self.assertRaises((AttributeError, TypeError)):
             A.__doc__ = 'x'
 
     def test_bad_args(self):
