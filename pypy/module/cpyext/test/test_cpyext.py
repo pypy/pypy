@@ -243,12 +243,12 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                     PY_SSIZE_T_CLEAN=PY_SSIZE_T_CLEAN)
             cls.w_import_module = w_import_module
 
-            def w_import_extension(self, modname, w_functions, prologue="",
+            def w_import_extension(self, modname, functions, prologue="",
                 include_dirs=None, more_init="", PY_SSIZE_T_CLEAN=False):
                 from extbuild import get_sys_info_app
                 sys_info = get_sys_info_app(self.udir)
                 return sys_info.import_extension(
-                    modname, w_functions, prologue=prologue,
+                    modname, functions, prologue=prologue,
                     include_dirs=include_dirs, more_init=more_init,
                     PY_SSIZE_T_CLEAN=PY_SSIZE_T_CLEAN)
             cls.w_import_extension = w_import_extension

@@ -2,7 +2,6 @@ import os
 import sys
 import py
 from pypy import pypydir
-from rpython.translator.gensupp import uniquemodulename
 
 if os.name != 'nt':
     so_ext = 'so'
@@ -25,6 +24,13 @@ class SystemCompilationInfo(object):
         self.extra_libs = extra_libs
         self.ext = ext
 
+    def get_builddir(self, name):
+        builddir = py.path.local.make_numbered_dir(
+            rootdir=py.path.local(self.builddir_base),
+            prefix=name + '-',
+            keep=0)  # keep everything
+        return builddir
+
     def compile_extension_module(self, name, include_dirs=None,
             source_files=None, source_strings=None):
         """
@@ -33,18 +39,15 @@ class SystemCompilationInfo(object):
 
         name is the name of the module, possibly including dots if it is a
         module inside a package.
-
-        Any extra keyword arguments are passed on to ExternalCompilationInfo to
-        build the module (so specify your source with one of those).
         """
         include_dirs = include_dirs or []
         modname = name.split('.')[-1]
-        dirname = (py.path.local(self.builddir_base)/uniquemodulename('module')).ensure(dir=1)
+        dirname = self.get_builddir(name=modname)
         if source_strings:
             assert not source_files
             files = convert_sources_to_files(source_strings, dirname)
             source_files = files
-        soname = c_compile(source_files, outputfilename=str(dirname/modname),
+        soname = c_compile(source_files, outputfilename=str(dirname / modname),
             compile_extra=self.compile_extra,
             link_extra=self.link_extra,
             include_dirs=self.include_extra + include_dirs,
@@ -148,9 +151,10 @@ def make_source(name, init, body, PY_SSIZE_T_CLEAN):
     PyInit_%(name)s(void) {
     %(init)s
     }
-    """ % dict(name=name, init=init, body=body,
-            PY_SSIZE_T_CLEAN='#define PY_SSIZE_T_CLEAN'
-                if PY_SSIZE_T_CLEAN else '')
+    """ % dict(
+        name=name, init=init, body=body,
+        PY_SSIZE_T_CLEAN='#define PY_SSIZE_T_CLEAN'
+            if PY_SSIZE_T_CLEAN else '')
     return code
 
 
@@ -163,7 +167,7 @@ def c_compile(cfilenames, outputfilename,
     libraries = libraries or []
     library_dirs = library_dirs or []
     if sys.platform == 'win32':
-        link_extra = link_extra + ['/DEBUG'] # generate .pdb file
+        link_extra = link_extra + ['/DEBUG']  # generate .pdb file
     if sys.platform == 'darwin':
         # support Fink & Darwinports
         for s in ('/sw/', '/opt/local/'):
@@ -193,7 +197,7 @@ def _build(cfilenames, outputfilename, compile_extra, link_extra,
     from distutils.ccompiler import new_compiler
     from distutils import sysconfig
     compiler = new_compiler(force=1)
-    sysconfig.customize_compiler(compiler) # XXX
+    sysconfig.customize_compiler(compiler)  # XXX
     objects = []
     for cfile in cfilenames:
         cfile = py.path.local(cfile)

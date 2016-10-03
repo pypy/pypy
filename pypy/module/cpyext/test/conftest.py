@@ -3,6 +3,10 @@ import pytest
 
 def pytest_configure(config):
     if config.option.runappdirect:
+        import sys
+        import py
+        from pypy import pypydir
+        sys.path.append(str(py.path.local(pypydir) / 'tool' / 'cpyext'))
         return
     from pypy.tool.pytest.objspace import gettestobjspace
     # For some reason (probably a ll2ctypes cache issue on linux64)
