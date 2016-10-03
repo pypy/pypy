@@ -1,6 +1,6 @@
 import sys, os
 from rpython.rlib.objectmodel import specialize, we_are_translated
-from rpython.rlib import jit, rposix
+from rpython.rlib import jit, rposix, rgc
 from rpython.rlib.rvmprof import cintf
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance

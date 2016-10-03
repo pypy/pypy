@@ -67,10 +67,22 @@ class CConfigForClockGetTime:
         includes=['time.h'],
         libraries=libraries
     )
+    _NO_MISSING_RT = rffi_platform.Has('printf("%d", clock_gettime(0, 0))')
     TIMESPEC = rffi_platform.Struct('struct timespec', [('tv_sec', rffi.LONG),
                                                         ('tv_nsec', rffi.LONG)])
 
-constant_names = ['RUSAGE_SELF', 'EINTR', 'CLOCK_PROCESS_CPUTIME_ID']
+constant_names = ['RUSAGE_SELF', 'EINTR',
+                  'CLOCK_REALTIME',
+                  'CLOCK_REALTIME_COARSE',
+                  'CLOCK_MONOTONIC',
+                  'CLOCK_MONOTONIC_COARSE',
+                  'CLOCK_MONOTONIC_RAW',
+                  'CLOCK_BOOTTIME',
+                  'CLOCK_PROCESS_CPUTIME_ID',
+                  'CLOCK_THREAD_CPUTIME_ID',
+                  'CLOCK_HIGHRES',
+                  'CLOCK_PROF',
+]
 for const in constant_names:
     setattr(CConfig, const, rffi_platform.DefinedConstantInteger(const))
 defs_names = ['GETTIMEOFDAY_NO_TZ']
@@ -158,16 +170,40 @@ if _WIN32:
         divisor = 0.0
         counter_start = 0
     state = State()
-elif CLOCK_PROCESS_CPUTIME_ID is not None:
+
+HAS_CLOCK_GETTIME = (CLOCK_MONOTONIC is not None)
+if HAS_CLOCK_GETTIME:
     # Linux and other POSIX systems with clock_gettime()
+    # TIMESPEC:
     globals().update(rffi_platform.configure(CConfigForClockGetTime))
-    TIMESPEC = TIMESPEC
-    CLOCK_PROCESS_CPUTIME_ID = CLOCK_PROCESS_CPUTIME_ID
-    eci_with_lrt = eci.merge(ExternalCompilationInfo(libraries=['rt']))
+    # do we need to add -lrt?
+    eciclock = CConfigForClockGetTime._compilation_info_
+    if not _NO_MISSING_RT:
+        eciclock = eciclock.merge(ExternalCompilationInfo(libraries=['rt']))
+    # the functions:
+    c_clock_getres = external("clock_getres",
+                              [lltype.Signed, lltype.Ptr(TIMESPEC)],
+                              rffi.INT, releasegil=False,
+                              save_err=rffi.RFFI_SAVE_ERRNO,
+                              compilation_info=eciclock)
     c_clock_gettime = external('clock_gettime',
                                [lltype.Signed, lltype.Ptr(TIMESPEC)],
                                rffi.INT, releasegil=False,
-                               compilation_info=eci_with_lrt)
+                               save_err=rffi.RFFI_SAVE_ERRNO,
+                               compilation_info=eciclock)
+    c_clock_settime = external('clock_settime',
+                               [lltype.Signed, lltype.Ptr(TIMESPEC)],
+                               rffi.INT, releasegil=False,
+                               save_err=rffi.RFFI_SAVE_ERRNO,
+                               compilation_info=eciclock)
+    # Note: there is no higher-level functions here to access
+    # clock_gettime().  The issue is that we'd need a way that keeps
+    # nanosecond precision, depending on the usage, so we can't have a
+    # nice function that returns the time as a float.
+    ALL_DEFINED_CLOCKS = [const for const in constant_names
+                          if const.startswith('CLOCK_')
+                             and globals()[const] is not None]
+
 if need_rusage:
     RUSAGE = RUSAGE
     RUSAGE_SELF = RUSAGE_SELF or 0
@@ -191,18 +227,16 @@ def win_perf_counter():
 def clock():
     if _WIN32:
         return win_perf_counter()
-    elif CLOCK_PROCESS_CPUTIME_ID is not None:
+    elif HAS_CLOCK_GETTIME and CLOCK_PROCESS_CPUTIME_ID is not None:
         with lltype.scoped_alloc(TIMESPEC) as a:
-            c_clock_gettime(CLOCK_PROCESS_CPUTIME_ID, a)
-            result = (float(rffi.getintfield(a, 'c_tv_sec')) +
-                      float(rffi.getintfield(a, 'c_tv_nsec')) * 0.000000001)
-        return result
-    else:
-        with lltype.scoped_alloc(RUSAGE) as a:
-            c_getrusage(RUSAGE_SELF, a)
-            result = (decode_timeval(a.c_ru_utime) +
-                      decode_timeval(a.c_ru_stime))
-        return result
+            if c_clock_gettime(CLOCK_PROCESS_CPUTIME_ID, a) == 0:
+                return (float(rffi.getintfield(a, 'c_tv_sec')) +
+                        float(rffi.getintfield(a, 'c_tv_nsec')) * 0.000000001)
+    with lltype.scoped_alloc(RUSAGE) as a:
+        c_getrusage(RUSAGE_SELF, a)
+        result = (decode_timeval(a.c_ru_utime) +
+                  decode_timeval(a.c_ru_stime))
+    return result
 
 # _______________________________________________________________
 # time.sleep()
