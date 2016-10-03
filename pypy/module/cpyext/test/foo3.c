@@ -8,7 +8,7 @@ PyObject* foo3type_tp_new(PyTypeObject* metatype, PyObject* args, PyObject* kwds
     return newType;
 }
 
-#define BASEFLAGS Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES
+#define BASEFLAGS Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE
 
 PyTypeObject footype = {
     PyVarObject_HEAD_INIT(NULL, 0)

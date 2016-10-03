@@ -848,7 +848,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                     return NULL;
 
                 IntLike_Type.tp_as_number = &intlike_as_number;
-                IntLike_Type.tp_flags |= Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES;
+                IntLike_Type.tp_flags |= Py_TPFLAGS_DEFAULT;
                 intlike_as_number.nb_add = intlike_nb_add;
                 intlike_as_number.nb_power = intlike_nb_pow;
                 if (PyType_Ready(&IntLike_Type) < 0) return NULL;
@@ -868,7 +868,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 if (!PyArg_ParseTuple(args, "l", &intval))
                     return NULL;
 
-                IntLike_Type_NoOp.tp_flags |= Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES;
+                IntLike_Type_NoOp.tp_flags |= Py_TPFLAGS_DEFAULT;
                 if (PyType_Ready(&IntLike_Type_NoOp) < 0) return NULL;
                 intObjNoOp = PyObject_New(IntLikeObjectNoOp, &IntLike_Type_NoOp);
                 if (!intObjNoOp) {
@@ -986,8 +986,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 PyObject *o;
                 Foo_Type.tp_basicsize = sizeof(FooObject);
                 Foo_Type.tp_dealloc = &dealloc_foo;
-                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES
-                                    | Py_TPFLAGS_BASETYPE;
+                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
                 Foo_Type.tp_new = &new_foo;
                 Foo_Type.tp_free = &PyObject_Del;
                 if (PyType_Ready(&Foo_Type) < 0) return NULL;

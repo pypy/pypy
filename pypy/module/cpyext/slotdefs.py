@@ -4,7 +4,7 @@ import re
 
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
-    cpython_api, generic_cpy_call, PyObject, Py_ssize_t, Py_TPFLAGS_CHECKTYPES,
+    cpython_api, generic_cpy_call, PyObject, Py_ssize_t,
     Py_buffer, mangle_name, pypy_decl)
 from pypy.module.cpyext.typeobjectdefs import (
     unaryfunc, wrapperfunc, ternaryfunc, PyTypeObjectPtr, binaryfunc, ternaryfunc,
@@ -81,9 +81,6 @@ def wrap_binaryfunc_l(space, w_self, w_args, func):
     check_num_args(space, w_args, 1)
     args_w = space.fixedview(w_args)
     ref = make_ref(space, w_self)
-    if (not ref.c_ob_type.c_tp_flags & Py_TPFLAGS_CHECKTYPES and
-        not space.issubtype_w(space.type(args_w[0]), space.type(w_self))):
-        return space.w_NotImplemented
     Py_DecRef(space, ref)
     return generic_cpy_call(space, func_binary, w_self, args_w[0])
 
@@ -92,9 +89,6 @@ def wrap_binaryfunc_r(space, w_self, w_args, func):
     check_num_args(space, w_args, 1)
     args_w = space.fixedview(w_args)
     ref = make_ref(space, w_self)
-    if (not ref.c_ob_type.c_tp_flags & Py_TPFLAGS_CHECKTYPES and
-        not space.issubtype_w(space.type(args_w[0]), space.type(w_self))):
-        return space.w_NotImplemented
     Py_DecRef(space, ref)
     return generic_cpy_call(space, func_binary, args_w[0], w_self)
 
@@ -114,9 +108,6 @@ def wrap_ternaryfunc_r(space, w_self, w_args, func):
     check_num_argsv(space, w_args, 1, 2)
     args_w = space.fixedview(w_args)
     ref = make_ref(space, w_self)
-    if (not ref.c_ob_type.c_tp_flags & Py_TPFLAGS_CHECKTYPES and
-        not space.issubtype_w(space.type(args_w[0]), space.type(w_self))):
-        return space.w_NotImplemented
     Py_DecRef(space, ref)
     arg3 = space.w_None
     if len(args_w) > 1:
@@ -321,7 +312,7 @@ class CPyBuffer(Buffer):
             self.strides = [1]
         else:
             self.strides = strides
-        self.ndim = ndim 
+        self.ndim = ndim
         self.itemsize = itemsize
         self.readonly = readonly
 
@@ -597,12 +588,12 @@ def build_slot_tp_function(space, typedef, name):
         buff_fn = w_type.getdictvalue(space, '__buffer__')
         if buff_fn is None:
             return
-        @cpython_api([PyObject, Py_bufferP, rffi.INT_real], 
+        @cpython_api([PyObject, Py_bufferP, rffi.INT_real],
                 rffi.INT_real, header=None, error=-1)
         @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
         def buff_w(space, w_self, pybuf, flags):
             # XXX this is wrong, needs a test
-            raise oefmt(space.w_NotImplemented, 
+            raise oefmt(space.w_NotImplemented,
                 "calling bf_getbuffer on a builtin type not supported yet")
             #args = Arguments(space, [w_self],
             #                 w_stararg=w_args, w_starstararg=w_kwds)
