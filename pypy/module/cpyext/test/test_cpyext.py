@@ -392,6 +392,12 @@ def _unwrap_include_dirs(space, w_include_dirs):
 def debug_collect(space):
     rawrefcount._collect()
 
+def gc_collect3(space):
+    import gc
+    gc.collect()
+    gc.collect()
+    gc.collect()
+
 class AppTestCpythonExtensionBase(LeakCheckingTest):
 
     def setup_class(cls):
@@ -406,6 +412,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             #state = cls.space.fromcache(RefcountState) ZZZ
             #state.non_heaptypes_w[:] = []
             cls.w_debug_collect = space.wrap(interp2app(debug_collect))
+        else:
+            cls.debug_collect = gc_collect3
 
     def record_imported_module(self, name):
         """

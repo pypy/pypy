@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys, shutil, os
 
 class MissingDependenciesError(Exception):
@@ -33,11 +34,11 @@ def create_cffi_import_libraries(pypy_c, options, basedir):
         else:
             args = ['-c', 'import ' + module]
             cwd = None
-        print >> sys.stderr, '*', ' '.join(args)
+        print('*', ' '.join(args), file=sys.stderr)
         try:
             status, stdout, stderr = run_subprocess(str(pypy_c), args, cwd=cwd)
             if status != 0:
-                print >> sys.stderr, stdout, stderr
+                print(stdout, stderr, file=sys.stderr)
                 failures.append((key, module))
         except:
             import traceback;traceback.print_exc()
@@ -46,7 +47,7 @@ def create_cffi_import_libraries(pypy_c, options, basedir):
 
 if __name__ == '__main__':
     if '__pypy__' not in sys.builtin_module_names:
-        print >> sys.stderr, 'Call with a pypy interpreter'
+        print('Call with a pypy interpreter', file=sys.stderr)
         sys.exit(1)
 
     tool_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
@@ -69,20 +70,20 @@ if __name__ == '__main__':
     options = Options()
     failures = create_cffi_import_libraries(exename, options, basedir)
     if len(failures) > 0:
-        print >> sys.stderr, '*** failed to build the CFFI modules %r' % (
-            [f[1] for f in failures],)
-        print >> sys.stderr, '''
+        print('*** failed to build the CFFI modules %r' % (
+            [f[1] for f in failures],), file=sys.stderr)
+        print('''
 PyPy can still be used as long as you don't need the corresponding
 modules.  If you do need them, please install the missing headers and
 libraries (see error messages just above) and then re-run the command:
 
     %s %s
-''' % (sys.executable, ' '.join(sys.argv))
+''' % (sys.executable, ' '.join(sys.argv)), file=sys.stderr)
         sys.exit(1)
 
     if len(sys.argv) > 1 and sys.argv[1] == '--test':
         # monkey patch a failure, just to test
-        print >> sys.stderr, 'This line should be followed by a traceback'
+        print('This line should be followed by a traceback', file=sys.stderr)
         for k in cffi_build_scripts:
             setattr(options, 'no_' + k, True)
         must_fail = '_missing_build_script.py'
