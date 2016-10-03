@@ -233,7 +233,6 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             #state.non_heaptypes_w[:] = []
             cls.w_debug_collect = space.wrap(interp2app(debug_collect))
         else:
-            cls.sys_info = get_sys_info_app(udir)
             def w_import_module(self, name, init=None, body='', filename=None,
                     include_dirs=None, PY_SSIZE_T_CLEAN=False):
                 from extbuild import get_sys_info_app
@@ -254,6 +253,21 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                     PY_SSIZE_T_CLEAN=PY_SSIZE_T_CLEAN)
             cls.w_import_extension = w_import_extension
 
+            def w_compile_module(self, name,
+                    source_files=None, source_strings=None):
+                from extbuild import get_sys_info_app
+                sys_info = get_sys_info_app(self.udir)
+                return sys_info.compile_extension_module(name,
+                    source_files=source_files, source_strings=source_strings)
+            cls.w_compile_module = w_compile_module
+
+            def w_load_module(self, mod, name):
+                from extbuild import get_sys_info_app
+                sys_info = get_sys_info_app(self.udir)
+                return sys_info.load_module(mod, name)
+            cls.w_load_module = w_load_module
+
+
     def record_imported_module(self, name):
         """
         Record a module imported in a test so that it can be cleaned up in
@@ -264,6 +278,9 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         self.imported_module_names.append(name)
 
     def setup_method(self, func):
+        if self.runappdirect:
+            return
+
         @unwrap_spec(name=str)
         def compile_module(space, name,
                            w_source_files=None,
@@ -322,21 +339,17 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         # self.space).  These will be cleaned up automatically in teardown.
         self.imported_module_names = []
 
-        if self.runappdirect:
-            self.compile_module = self.sys_info.compile_extension_module
-            self.load_module = self.sys_info.load_module
-        else:
-            wrap = self.space.wrap
-            self.w_compile_module = wrap(interp2app(compile_module))
-            self.w_load_module = wrap(interp2app(load_module))
-            self.w_import_module = wrap(interp2app(import_module))
-            self.w_import_extension = wrap(interp2app(import_extension))
+        wrap = self.space.wrap
+        self.w_compile_module = wrap(interp2app(compile_module))
+        self.w_load_module = wrap(interp2app(load_module))
+        self.w_import_module = wrap(interp2app(import_module))
+        self.w_import_extension = wrap(interp2app(import_extension))
 
-            # create the file lock before we count allocations
-            self.space.call_method(self.space.sys.get("stdout"), "flush")
+        # create the file lock before we count allocations
+        self.space.call_method(self.space.sys.get("stdout"), "flush")
 
-            freeze_refcnts(self)
-            #self.check_and_print_leaks()
+        freeze_refcnts(self)
+        #self.check_and_print_leaks()
 
     def unimport_module(self, name):
         """
