@@ -1,4 +1,4 @@
-import re
+import re, py
 from rpython.rlib import rvmprof, jit
 from rpython.rlib.rvmprof import traceback
 from rpython.translator.interactive import Translation
@@ -68,6 +68,10 @@ def test_compiled():
     assert got == [got[0]] * 3
 
 def test_jitted():
+    from rpython.jit.backend import detect_cpu
+    if not detect_cpu.autodetect().startswith('x86'):
+        py.test.skip("HAS_CODEMAP is only in the x86 jit backend for now")
+
     class MyCode:
         pass
     def get_name(mycode):
