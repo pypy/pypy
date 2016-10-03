@@ -1,22 +1,38 @@
+import sys
 from pypy.interpreter.mixedmodule import MixedModule
+
 
 class Module(MixedModule):
     appleveldefs = {
     }
 
     interpleveldefs = {
-        'enable': 'interp_faulthandler.enable',
-        'disable': 'interp_faulthandler.disable',
-        'is_enabled': 'interp_faulthandler.is_enabled',
-        'register': 'interp_faulthandler.register',
-
-        'dump_traceback': 'interp_faulthandler.dump_traceback',
-
-        '_read_null': 'interp_faulthandler.read_null',
-        '_sigsegv': 'interp_faulthandler.sigsegv',
-        '_sigfpe': 'interp_faulthandler.sigfpe',
-        '_sigabrt': 'interp_faulthandler.sigabrt',
-        #'_sigbus': 'interp_faulthandler.sigbus',
-        #'_sigill': 'interp_faulthandler.sigill',
-        '_fatal_error': 'interp_faulthandler.fatal_error',
+        'enable': 'handler.enable',
+        'disable': 'handler.disable',
+        'is_enabled': 'handler.is_enabled',
+#        'register': 'interp_faulthandler.register',
+#
+        'dump_traceback': 'handler.dump_traceback',
+#
+        '_read_null': 'handler.read_null',
+        '_sigsegv': 'handler.sigsegv',
+        '_sigfpe': 'handler.sigfpe',
+        '_sigabrt': 'handler.sigabrt',
+        '_stack_overflow': 'handler.stack_overflow',
     }
+
+    def setup_after_space_initialization(self):
+        """NOT_RPYTHON"""
+        if self.space.config.translation.thread:
+            self.extra_interpdef('dump_traceback_later',
+                                 'handler.dump_traceback_later')
+            self.extra_interpdef('cancel_dump_traceback_later',
+                                 'handler.cancel_dump_traceback_later')
+        if sys.platform != 'win32':
+            self.extra_interpdef('register', 'handler.register')
+            self.extra_interpdef('unregister', 'handler.unregister')
+
+    def shutdown(self, space):
+        from pypy.module.faulthandler import handler
+        handler.finish(space)
+        MixedModule.shutdown(self, space)

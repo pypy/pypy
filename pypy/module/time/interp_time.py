@@ -160,15 +160,6 @@ class CConfig:
     )
     CLOCKS_PER_SEC = platform.ConstantInteger("CLOCKS_PER_SEC")
     has_gettimeofday = platform.Has('gettimeofday')
-    has_clock_gettime = platform.Has('clock_gettime')
-    CLOCK_PROF = platform.DefinedConstantInteger('CLOCK_PROF')
-
-CLOCK_CONSTANTS = ['CLOCK_HIGHRES', 'CLOCK_MONOTONIC', 'CLOCK_MONOTONIC_RAW',
-                   'CLOCK_PROCESS_CPUTIME_ID', 'CLOCK_REALTIME',
-                   'CLOCK_THREAD_CPUTIME_ID']
-
-for constant in CLOCK_CONSTANTS:
-    setattr(CConfig, constant, platform.DefinedConstantInteger(constant))
 
 if _POSIX:
     calling_conv = 'c'
@@ -227,9 +218,9 @@ if _POSIX:
     timeval = cConfig.timeval
 
 CLOCKS_PER_SEC = cConfig.CLOCKS_PER_SEC
-HAS_CLOCK_GETTIME = cConfig.has_clock_gettime
-HAS_CLOCK_HIGHRES = cConfig.CLOCK_HIGHRES is not None
-HAS_CLOCK_MONOTONIC = cConfig.CLOCK_MONOTONIC is not None
+HAS_CLOCK_GETTIME = rtime.HAS_CLOCK_GETTIME
+HAS_CLOCK_HIGHRES = rtime.CLOCK_HIGHRES is not None
+HAS_CLOCK_MONOTONIC = rtime.CLOCK_MONOTONIC is not None
 HAS_MONOTONIC = (_WIN or _MACOSX or
                  (HAS_CLOCK_GETTIME and (HAS_CLOCK_HIGHRES or HAS_CLOCK_MONOTONIC)))
 tm = cConfig.tm
@@ -316,12 +307,7 @@ c_localtime = external('localtime', [rffi.TIME_TP], TM_P,
                        save_err=rffi.RFFI_SAVE_ERRNO)
 if HAS_CLOCK_GETTIME:
     from rpython.rlib.rtime import TIMESPEC, c_clock_gettime
-    c_clock_settime = external('clock_settime',
-                               [lltype.Signed, lltype.Ptr(TIMESPEC)], rffi.INT,
-                               save_err=rffi.RFFI_SAVE_ERRNO)
-    c_clock_getres = external('clock_getres',
-                              [lltype.Signed, lltype.Ptr(TIMESPEC)], rffi.INT,
-                              save_err=rffi.RFFI_SAVE_ERRNO)
+    from rpython.rlib.rtime import c_clock_settime, c_clock_getres
 if _POSIX:
     c_tzset = external('tzset', [], lltype.Void)
 if _WIN:
@@ -623,11 +609,11 @@ def time(space, w_info=None):
     Fractions of a second may be present if the system clock provides them."""
     if HAS_CLOCK_GETTIME:
         with lltype.scoped_alloc(TIMESPEC) as timespec:
-            ret = c_clock_gettime(cConfig.CLOCK_REALTIME, timespec)
+            ret = c_clock_gettime(rtime.CLOCK_REALTIME, timespec)
             if ret == 0:
                 if w_info is not None:
                     with lltype.scoped_alloc(TIMESPEC) as tsres:
-                        ret = c_clock_getres(cConfig.CLOCK_REALTIME, tsres)
+                        ret = c_clock_getres(rtime.CLOCK_REALTIME, tsres)
                         if ret == 0:
                             res = _timespec_to_seconds(tsres)
                         else:
@@ -903,11 +889,11 @@ if HAS_MONOTONIC:
     else:
         assert _POSIX
         def monotonic(space, w_info=None):
-            if cConfig.CLOCK_HIGHRES is not None:
-                clk_id = cConfig.CLOCK_HIGHRES
+            if rtime.CLOCK_HIGHRES is not None:
+                clk_id = rtime.CLOCK_HIGHRES
                 implementation = "clock_gettime(CLOCK_HIGHRES)"
             else:
-                clk_id = cConfig.CLOCK_MONOTONIC
+                clk_id = rtime.CLOCK_MONOTONIC
                 implementation = "clock_gettime(CLOCK_MONOTONIC)"
             w_result = clock_gettime(space, clk_id)
             if w_info is not None:
@@ -994,13 +980,13 @@ else:
 
     def process_time(space, w_info=None):
         if HAS_CLOCK_GETTIME and (
-                cConfig.CLOCK_PROF is not None or
-                cConfig.CLOCK_PROCESS_CPUTIME_ID is not None):
-            if cConfig.CLOCK_PROF is not None:
-                clk_id = cConfig.CLOCK_PROF
+                rtime.CLOCK_PROF is not None or
+                rtime.CLOCK_PROCESS_CPUTIME_ID is not None):
+            if rtime.CLOCK_PROF is not None:
+                clk_id = rtime.CLOCK_PROF
                 implementation = "clock_gettime(CLOCK_PROF)"
             else:
-                clk_id = cConfig.CLOCK_PROCESS_CPUTIME_ID
+                clk_id = rtime.CLOCK_PROCESS_CPUTIME_ID
                 implementation = "clock_gettime(CLOCK_PROCESS_CPUTIME_ID)"
             with lltype.scoped_alloc(TIMESPEC) as timespec:
                 ret = c_clock_gettime(clk_id, timespec)

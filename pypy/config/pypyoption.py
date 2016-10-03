@@ -40,13 +40,14 @@ working_modules.update([
     "binascii", "_multiprocessing", '_warnings', "_collections",
     "_multibytecodec", "_continuation", "_cffi_backend",
     "_csv", "_pypyjson", "_posixsubprocess", # "cppyy", "micronumpy"
-    "faulthandler", "_jitlog",
+    "_jitlog",
 ])
 
 from rpython.jit.backend import detect_cpu
 try:
     if detect_cpu.autodetect().startswith('x86'):
         working_modules.add('_vmprof')
+        working_modules.add('faulthandler')
 except detect_cpu.ProcessorAutodetectError:
     pass
 
@@ -93,6 +94,7 @@ module_dependencies = {
                          ('objspace.usemodules.thread', True)],
     'cpyext': [('objspace.usemodules.array', True)],
     'cppyy': [('objspace.usemodules.cpyext', True)],
+    'faulthandler': [('objspace.usemodules._vmprof', True)],
     }
 module_suggests = {
     # the reason you want _rawffi is for ctypes, which
@@ -118,7 +120,8 @@ module_import_dependencies = {
     "_hashlib"  : ["pypy.module._ssl.interp_ssl"],
     "_minimal_curses": ["pypy.module._minimal_curses.fficurses"],
     "_continuation": ["rpython.rlib.rstacklet"],
-    "_vmprof" : ["pypy.module._vmprof.interp_vmprof"],
+    "_vmprof"      : ["pypy.module._vmprof.interp_vmprof"],
+    "faulthandler" : ["pypy.module._vmprof.interp_vmprof"],
     "_lzma"     : ["pypy.module._lzma.interp_lzma"],
     }
 

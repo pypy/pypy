@@ -1,12 +1,7 @@
-from pypy.module.faulthandler import interp_faulthandler
-
-class TestFaultHandler:
-    def test_fatal_error(self, space):
-        raises(RuntimeError, interp_faulthandler.fatal_error, space, "Message")
 
 class AppTestFaultHandler:
     spaceconfig = {
-        "usemodules": ["faulthandler"]
+        "usemodules": ["faulthandler", "_vmprof"]
     }
 
     def test_enable(self):
