@@ -256,19 +256,13 @@ class AppTestBytesObject:
         assert b'one'.replace(memoryview(b'o'), memoryview(b'n')) == b'nne'
 
     def test_strip(self):
-        s = " a b "
-        assert s.strip() == "a b"
-        assert s.rstrip() == " a b"
-        assert s.lstrip() == "a b "
+        s = b" a b "
+        assert s.strip() == b"a b"
+        assert s.rstrip() == b" a b"
+        assert s.lstrip() == b"a b "
         assert b'xyzzyhelloxyzzy'.strip(b'xyz') == b'hello'
         assert b'xyzzyhelloxyzzy'.lstrip(b'xyz') == b'helloxyzzy'
         assert b'xyzzyhelloxyzzy'.rstrip(b'xyz') == b'xyzzyhello'
-        exc = raises(TypeError, s.strip, buffer(' '))
-        assert str(exc.value) == 'strip arg must be None, str or unicode'
-        exc = raises(TypeError, s.rstrip, buffer(' '))
-        assert str(exc.value) == 'strip arg must be None, str or unicode'
-        exc = raises(TypeError, s.lstrip, buffer(' '))
-        assert str(exc.value) == 'strip arg must be None, str or unicode'
 
     def test_zfill(self):
         assert b'123'.zfill(2) == b'123'
