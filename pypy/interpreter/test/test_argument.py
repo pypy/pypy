@@ -744,6 +744,11 @@ class AppTestArgument:
         exc = raises(TypeError, f0, 1)
         assert exc.value.message == "f0() takes no arguments (1 given)"
 
+    def test_error_message_module_function(self):
+        import operator # use repeat because it's defined at applevel
+        exc = raises(TypeError, lambda : operator.repeat(1, 2, 3))
+        assert exc.value.message == "repeat() takes exactly 2 arguments (3 given)"
+
 
     def test_unicode_keywords(self):
         def f(**kwargs):
