@@ -33,9 +33,6 @@ class SystemCompilationInfo(object):
 
         name is the name of the module, possibly including dots if it is a
         module inside a package.
-
-        Any extra keyword arguments are passed on to ExternalCompilationInfo to
-        build the module (so specify your source with one of those).
         """
         include_dirs = include_dirs or []
         modname = name.split('.')[-1]
