@@ -571,6 +571,9 @@ class W_InstanceObject(W_Root):
             return space.call_function(w_func)
 
         w_truncated = space.trunc(self)
+        if (space.isinstance_w(w_truncated, space.w_int) or
+            space.isinstance_w(w_truncated, space.w_long)):
+            return w_truncated
         # int() needs to return an int
         try:
             return space.int(w_truncated)
