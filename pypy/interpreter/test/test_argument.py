@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import py
 from pypy.interpreter.argument import (Arguments, ArgErr, ArgErrUnknownKwds,
-        ArgErrMultipleValues, ArgErrMissing, ArgErrTooMany)
+        ArgErrMultipleValues, ArgErrMissing, ArgErrTooMany, ArgErrTooManyMethod)
 from pypy.interpreter.signature import Signature
 from pypy.interpreter.error import OperationError
 
@@ -585,37 +585,81 @@ class TestErrorHandling(object):
         assert s == "missing 1 required keyword-only argument: 'a'"
 
     def test_too_many(self):
-        err = ArgErrTooMany(0, 0, 1, 0)
+        sig0 = Signature([], None, None)
+        err = ArgErrTooMany(sig0, 0, 1, 0)
         s = err.getmsg()
         assert s == "takes 0 positional arguments but 1 was given"
 
-        err = ArgErrTooMany(0, 0, 2, 0)
+        err = ArgErrTooMany(sig0, 0, 2, 0)
         s = err.getmsg()
         assert s == "takes 0 positional arguments but 2 were given"
 
-        err = ArgErrTooMany(1, 0, 2, 0)
+        sig1 = Signature(['a'], None, None)
+        err = ArgErrTooMany(sig1, 0, 2, 0)
         s = err.getmsg()
         assert s == "takes 1 positional argument but 2 were given"
 
-        err = ArgErrTooMany(2, 0, 3, 0)
+        sig2 = Signature(['a', 'b'], None, None)
+        err = ArgErrTooMany(sig2, 0, 3, 0)
         s = err.getmsg()
         assert s == "takes 2 positional arguments but 3 were given"
 
-        err = ArgErrTooMany(2, 1, 3, 0)
+        err = ArgErrTooMany(sig2, 1, 3, 0)
         s = err.getmsg()
         assert s == "takes from 1 to 2 positional arguments but 3 were given"
 
-        err = ArgErrTooMany(0, 0, 1, 1)
+        err = ArgErrTooMany(sig0, 0, 1, 1)
         s = err.getmsg()
         assert s == "takes 0 positional arguments but 1 positional argument (and 1 keyword-only argument) were given"
 
-        err = ArgErrTooMany(0, 0, 2, 1)
+        err = ArgErrTooMany(sig0, 0, 2, 1)
         s = err.getmsg()
         assert s == "takes 0 positional arguments but 2 positional arguments (and 1 keyword-only argument) were given"
 
-        err = ArgErrTooMany(0, 0, 1, 2)
+        err = ArgErrTooMany(sig0, 0, 1, 2)
         s = err.getmsg()
         assert s == "takes 0 positional arguments but 1 positional argument (and 2 keyword-only arguments) were given"
+
+    def test_too_many_method(self):
+        sig0 = Signature([], None, None)
+        err = ArgErrTooManyMethod(sig0, 0, 1, 0)
+        s = err.getmsg()
+        assert s == "takes 0 positional arguments but 1 was given. Did you forget 'self' in the function definition?"
+
+        err = ArgErrTooManyMethod(sig0, 0, 2, 0)
+        s = err.getmsg()
+        assert s == "takes 0 positional arguments but 2 were given"
+
+        sig1 = Signature(['self'], None, None)
+        err = ArgErrTooManyMethod(sig1, 0, 2, 0)
+        s = err.getmsg()
+        assert s == "takes 1 positional argument but 2 were given"
+
+        sig1 = Signature(['a'], None, None)
+        err = ArgErrTooManyMethod(sig1, 0, 2, 0)
+        s = err.getmsg()
+        assert s == "takes 1 positional argument but 2 were given. Did you forget 'self' in the function definition?"
+
+        sig2 = Signature(['a', 'b'], None, None)
+        err = ArgErrTooManyMethod(sig2, 0, 3, 0)
+        s = err.getmsg()
+        assert s == "takes 2 positional arguments but 3 were given. Did you forget 'self' in the function definition?"
+
+        err = ArgErrTooManyMethod(sig2, 1, 3, 0)
+        s = err.getmsg()
+        assert s == "takes from 1 to 2 positional arguments but 3 were given. Did you forget 'self' in the function definition?"
+
+        err = ArgErrTooManyMethod(sig0, 0, 1, 1)
+        s = err.getmsg()
+        assert s == "takes 0 positional arguments but 1 positional argument (and 1 keyword-only argument) were given. Did you forget 'self' in the function definition?"
+
+        err = ArgErrTooManyMethod(sig0, 0, 2, 1)
+        s = err.getmsg()
+        assert s == "takes 0 positional arguments but 2 positional arguments (and 1 keyword-only argument) were given"
+
+        err = ArgErrTooManyMethod(sig0, 0, 1, 2)
+        s = err.getmsg()
+        assert s == "takes 0 positional arguments but 1 positional argument (and 2 keyword-only arguments) were given. Did you forget 'self' in the function definition?"
 
     def test_bad_type_for_star(self):
         space = self.space
@@ -747,6 +791,45 @@ class AppTestArgument:
         assert str(exc.value) == "<lambda>() missing 1 required keyword-only argument: 'b'"
         exc = raises(TypeError, '(lambda *, kw: 0)(1, kw=3)')
         assert str(exc.value) == "<lambda>() takes 0 positional arguments but 1 positional argument (and 1 keyword-only argument) were given"
+
+    @py.test.mark.skipif("config.option.runappdirect")
+    def test_error_message_method(self):
+        class A(object):
+            def f0():
+                pass
+            def f1(a):
+                pass
+        exc = raises(TypeError, lambda : A().f0())
+        assert exc.value.args[0] == "f0() takes 0 positional arguments but 1 was given. Did you forget 'self' in the function definition?"
+        exc = raises(TypeError, lambda : A().f1(1))
+        assert exc.value.args[0] == "f1() takes 1 positional argument but 2 were given. Did you forget 'self' in the function definition?"
+        def f0():
+            pass
+        exc = raises(TypeError, f0, 1)
+        # does not contain the warning about missing self
+        assert exc.value.args[0] == "f0() takes 0 positional arguments but 1 was given"
+
+    @py.test.mark.skipif("config.option.runappdirect")
+    def test_error_message_module_function(self):
+        import operator # use countOf because it's defined at applevel
+        exc = raises(TypeError, lambda : operator.countOf(1, 2, 3))
+        # does not contain the warning about missing self
+        assert exc.value.args[0] == "countOf() takes 2 positional arguments but 3 were given"
+
+    @py.test.mark.skipif("config.option.runappdirect")
+    def test_error_message_bound_method(self):
+        class A(object):
+            def f0():
+                pass
+            def f1(a):
+                pass
+        m0 = A().f0
+        exc = raises(TypeError, lambda : m0())
+        assert exc.value.args[0] == "f0() takes 0 positional arguments but 1 was given. Did you forget 'self' in the function definition?"
+        m1 = A().f1
+        exc = raises(TypeError, lambda : m1(1))
+        assert exc.value.args[0] == "f1() takes 1 positional argument but 2 were given. Did you forget 'self' in the function definition?"
+
 
     def test_unicode_keywords(self):
         """

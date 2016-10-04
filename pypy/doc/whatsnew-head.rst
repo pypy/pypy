@@ -57,3 +57,7 @@ in Python 3.3 but can also be installed from CPython >= 2.6 from PyPI.
 .. branch: test-cpyext
 
 Refactor cpyext testing to be more pypy3-friendly.
+
+.. branch: better-error-missing-self
+
+Improve the error message when the user forgot the "self" argument of a method.

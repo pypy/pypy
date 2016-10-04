@@ -125,7 +125,8 @@ class Function(W_Root):
                                               list(args_w[1:])))
         return self.call_args(Arguments(self.space, list(args_w)))
 
-    def funccall_valuestack(self, nargs, frame): # speed hack
+    def funccall_valuestack(self, nargs, frame, methodcall=False): # speed hack
+        # methodcall is only for better error messages
         from pypy.interpreter import gateway
         from pypy.interpreter.pycode import PyCode
 
@@ -172,7 +173,7 @@ class Function(W_Root):
             args = frame.make_arguments(nargs-1)
             return code.funcrun_obj(self, w_obj, args)
 
-        args = frame.make_arguments(nargs)
+        args = frame.make_arguments(nargs, methodcall=methodcall)
         return self.call_args(args)
 
     @jit.unroll_safe
