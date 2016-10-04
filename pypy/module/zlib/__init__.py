@@ -30,6 +30,7 @@ objects support decompress() and flush()."""
         'decompressobj': 'interp_zlib.Decompress',
         'compress': 'interp_zlib.compress',
         'decompress': 'interp_zlib.decompress',
+        'DEF_BUF_SIZE': 'interp_zlib.default_buffer_size(space)',
         '__version__': 'space.wrap("1.0")',
         'error': 'space.fromcache(interp_zlib.Cache).w_error',
         }

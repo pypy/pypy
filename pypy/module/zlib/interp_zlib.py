@@ -337,6 +337,8 @@ def Decompress___new__(space, w_subtype, wbits=rzlib.MAX_WBITS, w_zdict=None):
     Decompress.__init__(stream, space, wbits, zdict)
     return space.wrap(stream)
 
+def default_buffer_size(space):
+    return space.wrap(rzlib.OUTPUT_BUFFER_SIZE)
 
 Decompress.typedef = TypeDef(
     'Decompress',

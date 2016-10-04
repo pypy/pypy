@@ -29,6 +29,9 @@ class AppTestZlib(object):
             py.path.local(pypy.__file__).dirpath().dirpath()
             .join('LICENSE').read())
 
+    def test_def_buf_size(self):
+        assert self.zlib.DEF_BUF_SIZE >= 0
+
     def test_error(self):
         """
         zlib.error should be an exception class.
