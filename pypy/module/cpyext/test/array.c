@@ -2373,12 +2373,14 @@ array_base_multiply(PyObject* obj1, PyObject* obj2)
     {
         int nn;
         int n = PyList_Size(obj1);
-        PyObject *v = getarrayitem(obj2, 0);
+        PyObject * lhs, * out;
+        PyObject * rhs = getarrayitem(obj2, 0);
         PyObject * ret = PyList_New(n);
         for (nn = 0; nn < n; nn++)
         {
-            v = PyList_GetItem(obj1, nn);
-            PyList_SetItem(ret, nn, v);
+            lhs = PyList_GetItem(obj1, nn);
+            out = lhs->ob_type->tp_as_number->nb_multiply(lhs, rhs);
+            PyList_SetItem(ret, nn, out);
         }
         return ret;
     }
@@ -2386,12 +2388,14 @@ array_base_multiply(PyObject* obj1, PyObject* obj2)
     {
         int nn;
         int n = PyList_Size(obj2);
-        PyObject *v = getarrayitem(obj1, 0);
+        PyObject * rhs, * out;
+        PyObject * lhs = getarrayitem(obj1, 0);
         PyObject * ret = PyList_New(n);
         for (nn = 0; nn < n; nn++)
         {
-            v = PyList_GetItem(obj2, nn);
-            PyList_SetItem(ret, nn, v);
+            rhs = PyList_GetItem(obj2, nn);
+            out = lhs->ob_type->tp_as_number->nb_multiply(lhs, rhs);
+            PyList_SetItem(ret, nn, out);
         }
         return ret;
     }
