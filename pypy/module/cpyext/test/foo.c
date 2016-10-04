@@ -613,7 +613,7 @@ static PyTypeObject CustomType;
 static PyObject *newCustom(PyObject *self, PyObject *args)
 {
     PyObject *obj = calloc(1, sizeof(PyObject));
-    obj->ob_type = &CustomType;
+    Py_TYPE(obj) = &CustomType;
     _Py_NewReference(obj);
     return obj;
 }
@@ -728,7 +728,7 @@ initfoo(void)
     SimplePropertyType.tp_new = PyType_GenericNew;
     InitErrType.tp_new = PyType_GenericNew;
 
-    CustomType.ob_type = &MetaType;
+    Py_TYPE(&CustomType) = &MetaType;
     if (PyType_Ready(&CustomType) < 0)
         INITERROR;
 
