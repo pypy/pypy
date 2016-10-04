@@ -47,6 +47,8 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
 
     @pytest.mark.skipif(only_pypy, reason='pypy only test')
     def test_buffer_info(self):
+        import warnings
+        warnings.filterwarnings("error")
         try:
             from _numpypy import multiarray as np
         except ImportError:
@@ -60,3 +62,24 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
         arr = np.zeros((10, 1), order='C')
         shape, strides = get_buffer_info(arr, ['C_CONTIGUOUS'])
         assert strides[-1] == 8
+        dt1 = np.dtype(
+             [('a', 'b'), ('b', 'i'), 
+              ('sub0', np.dtype('b,i')), 
+              ('sub1', np.dtype('b,i')), 
+              ('sub2', np.dtype('b,i')), 
+              ('sub3', np.dtype('b,i')), 
+              ('sub4', np.dtype('b,i')), 
+              ('sub5', np.dtype('b,i')), 
+              ('sub6', np.dtype('b,i')), 
+              ('sub7', np.dtype('b,i')), 
+              ('c', 'i')],
+             )
+        x = np.arange(dt1.itemsize, dtype='int8').view(dt1)
+        # pytest can catch warnings from v2.8 and up, we ship 2.5
+        try:
+            y = get_buffer_info(x, ['SIMPLE'])
+        except UserWarning as e:
+            pass
+        else:
+            assert False ,"PyPy-specific UserWarning not raised" \
+                          " on too long format string"

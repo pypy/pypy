@@ -34,8 +34,9 @@ def PyObject_GetBuffer(space, w_obj, view, flags):
         view.c_buf = rffi.cast(rffi.VOIDP, buf.get_raw_address())
     except ValueError:
         raise BufferError("could not create buffer from object")
+    ret = fill_Py_buffer(space, buf, view)
     view.c_obj = make_ref(space, w_obj)
-    return fill_Py_buffer(space, buf, view)
+    return ret
 
 def fill_Py_buffer(space, buf, view):
     # c_buf, c_obj have been filled in
@@ -149,6 +150,7 @@ def PyMemoryView_GET_BUFFER(space, w_obj):
     if ndim >= Py_MAX_NDIMS:
         # XXX warn?
         return view
+    fill_Py_buffer(space, w_obj.buf, view)
     try:
         view.c_buf = rffi.cast(rffi.VOIDP, w_obj.buf.get_raw_address())
         view.c_obj = make_ref(space, w_obj)
@@ -160,6 +162,5 @@ def PyMemoryView_GET_BUFFER(space, w_obj):
         view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(space.str_w(w_s), track_allocation=False))
         rffi.setintfield(view, 'c_readonly', 1)
         isstr = True
-    fill_Py_buffer(space, w_obj.buf, view)
     return view
 
