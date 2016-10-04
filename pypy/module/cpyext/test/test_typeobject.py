@@ -50,7 +50,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         raises(TypeError, "obj.int_member = 'not a number'")
         raises(TypeError, "del obj.int_member")
         raises(AttributeError, "obj.int_member_readonly = 42")
-        exc = raises(TypeError, "del obj.int_member_readonly")
+        exc = raises(AttributeError, "del obj.int_member_readonly")
         assert "readonly" in str(exc.value)
         raises(SystemError, "obj.broken_member")
         raises(SystemError, "obj.broken_member = 42")
@@ -971,8 +971,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 assert str(e) == 'instance layout conflicts in multiple inheritance'
 
             else:
-                assert str(e) == ('Error when calling the metaclass bases\n'
-                          '    multiple bases have instance lay-out conflict')
+                assert 'instance lay-out conflict' in str(e)
         else:
             raise AssertionError("did not get TypeError!")
 
