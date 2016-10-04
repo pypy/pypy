@@ -193,10 +193,7 @@ class AppTestObject(AppTestCpythonExtensionBase):
     def setup_class(cls):
         AppTestCpythonExtensionBase.setup_class.im_func(cls)
         tmpname = str(py.test.ensuretemp('out', dir=0))
-        if cls.runappdirect:
-            cls.tmpname = tmpname
-        else:
-            cls.w_tmpname = cls.space.wrap(tmpname)
+        cls.w_tmpname = cls.space.wrap(tmpname)
 
     def test_object_malloc(self):
         module = self.import_extension('foo', [
@@ -230,7 +227,7 @@ class AppTestObject(AppTestCpythonExtensionBase):
                  return ret;
              """)])
         x = module.realloctest()
-        assert x == 'hello world\x00'
+        assert x == b'hello world\x00'
 
     def test_TypeCheck(self):
         module = self.import_extension('foo', [

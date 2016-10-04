@@ -28,18 +28,6 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
              }
              '''
              ),
-            ('getarg_OLD', 'METH_OLDARGS',
-             '''
-             if(args) {
-                 Py_INCREF(args);
-                 return args;
-             }
-             else {
-                 Py_INCREF(Py_None);
-                 return Py_None;
-             }
-             '''
-             ),
             ('isCFunction', 'METH_O',
              '''
              if(PyCFunction_Check(args)) {
@@ -82,10 +70,6 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         assert mod.getarg_NO() is None
         raises(TypeError, mod.getarg_NO, 1)
         raises(TypeError, mod.getarg_NO, 1, 1)
-
-        assert mod.getarg_OLD(1) == 1
-        assert mod.getarg_OLD() is None
-        assert mod.getarg_OLD(1, 2) == (1, 2)
 
         assert mod.isCFunction(mod.getarg_O) == "getarg_O"
         assert mod.getModule(mod.getarg_O) == 'MyModule'
