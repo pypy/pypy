@@ -220,9 +220,9 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         space = cls.space
         cls.w_here = space.wrap(str(HERE))
         cls.w_udir = space.wrap(str(udir))
+        cls.w_runappdirect = space.wrap(cls.runappdirect)
         if not cls.runappdirect:
             cls.sys_info = get_cpyext_info(space)
-            cls.w_runappdirect = space.wrap(cls.runappdirect)
             space.getbuiltinmodule("cpyext")
             # 'import os' to warm up reference counts
             w_import = space.builtin.getdictvalue(space, '__import__')
