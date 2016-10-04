@@ -96,15 +96,8 @@ class W_PyCFunctionObject(W_Root):
             return generic_cpy_call(space, func, w_self, w_arg)
         elif flags & METH_VARARGS:
             return generic_cpy_call(space, func, w_self, w_args)
-        else: # METH_OLDARGS, the really old style
-            size = length
-            if size == 1:
-                w_arg = space.getitem(w_args, space.wrap(0))
-            elif size == 0:
-                w_arg = None
-            else:
-                w_arg = w_args
-            return generic_cpy_call(space, func, w_self, w_arg)
+        else:  # shouldn't happen!
+            raise oefmt(space.w_RuntimeError, "unknown calling convention")
 
     def get_doc(self, space):
         doc = self.ml.c_ml_doc
