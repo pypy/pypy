@@ -742,12 +742,27 @@ class AppTestArgument:
         def f0():
             pass
         exc = raises(TypeError, f0, 1)
+        # does not contain the warning about missing self
         assert exc.value.message == "f0() takes no arguments (1 given)"
 
     def test_error_message_module_function(self):
         import operator # use repeat because it's defined at applevel
         exc = raises(TypeError, lambda : operator.repeat(1, 2, 3))
+        # does not contain the warning about missing self
         assert exc.value.message == "repeat() takes exactly 2 arguments (3 given)"
+
+    def test_error_message_bound_method(self):
+        class A(object):
+            def f0():
+                pass
+            def f1(a):
+                pass
+        m0 = A().f0
+        exc = raises(TypeError, lambda : m0())
+        assert exc.value.message == "f0() takes no arguments (1 given). Did you forget 'self' in the function definition?"
+        m1 = A().f1
+        exc = raises(TypeError, lambda : m1(1))
+        assert exc.value.message == "f1() takes exactly 1 argument (2 given). Did you forget 'self' in the function definition?"
 
 
     def test_unicode_keywords(self):

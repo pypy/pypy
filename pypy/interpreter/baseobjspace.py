@@ -1133,6 +1133,7 @@ class ObjSpace(object):
                     # reuse callable stack place for w_inst
                     frame.settopvalue(w_inst, nargs)
                     nargs += 1
+                    methodcall = True
                 elif nargs > 0 and (
                     self.abstract_isinstance_w(frame.peekvalue(nargs-1),   #    :-(
                                                w_func.w_class)):
