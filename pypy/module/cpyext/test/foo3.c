@@ -92,4 +92,5 @@ PyInit_foo3(void)
     if (PyDict_SetItemString(d, "footype", (PyObject *)&footype) < 0)
         return NULL;
     Py_INCREF(&footype);
+    return mod;
 }

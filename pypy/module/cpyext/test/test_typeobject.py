@@ -50,7 +50,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         raises(TypeError, "obj.int_member = 'not a number'")
         raises(TypeError, "del obj.int_member")
         raises(AttributeError, "obj.int_member_readonly = 42")
-        exc = raises(TypeError, "del obj.int_member_readonly")
+        exc = raises(AttributeError, "del obj.int_member_readonly")
         assert "readonly" in str(exc.value)
         raises(SystemError, "obj.broken_member")
         raises(SystemError, "obj.broken_member = 42")
@@ -196,26 +196,6 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         # does not have flag Py_TPFLAGS_BASETYPE
         module = self.import_module(name='foo')
         raises(TypeError, module.MetaType, 'other', (module.fooType,), {})
-
-    def test_sre(self):
-        import sys
-        for m in ['_sre', 'sre_compile', 'sre_constants', 'sre_parse', 're']:
-            # clear out these modules
-            try:
-                del sys.modules[m]
-            except KeyError:
-                pass
-        module = self.import_module(name='_sre')
-        import re
-        assert re.sre_compile._sre is module
-        s = u"Foo " * 1000 + u"Bar"
-        prog = re.compile("Foo.*Bar")
-        assert prog.match(s)
-        m = re.search("xyz", "xyzxyz")
-        assert m
-        assert "groupdict" in dir(m)
-        re.purge()
-        del prog, m
 
     def test_init_error(self):
         module = self.import_module("foo")
@@ -971,8 +951,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 assert str(e) == 'instance layout conflicts in multiple inheritance'
 
             else:
-                assert str(e) == ('Error when calling the metaclass bases\n'
-                          '    multiple bases have instance lay-out conflict')
+                assert 'instance lay-out conflict' in str(e)
         else:
             raise AssertionError("did not get TypeError!")
 
