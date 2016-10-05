@@ -1,4 +1,8 @@
-#include <stdint.h>
+#ifdef _WIN32
+typedef long intptr_t;
+#else
+# include <stdint.h>
+#endif
 
 RPY_EXTERN char *vmprof_init(int, double, char *);
 RPY_EXTERN void vmprof_ignore_signals(int);
