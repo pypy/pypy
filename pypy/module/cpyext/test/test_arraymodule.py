@@ -2,15 +2,16 @@ from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.conftest import option
 
 class AppTestArrayModule(AppTestCpythonExtensionBase):
+    enable_leak_checking = True
 
     def setup_class(cls):
         from rpython.tool.udir import udir
+        AppTestCpythonExtensionBase.setup_class.im_func(cls)
         if option.runappdirect:
             cls.w_udir = str(udir)
         else:
             cls.w_udir = cls.space.wrap(str(udir))
 
-    #enable_leak_checking = False
 
     def test_basic(self):
         module = self.import_module(name='array')
