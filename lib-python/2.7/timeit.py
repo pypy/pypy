@@ -13,7 +13,7 @@ Command line usage:
 
 Options:
   -n/--number N: how many times to execute 'statement' (default: see below)
-  -r/--repeat N: how many times to repeat the timer (default 3)
+  -r/--repeat N: how many times to repeat the timer (default 7)
   -s/--setup S: statement to be executed once initially (default 'pass')
   -t/--time: use time.time() (default on Unix)
   -c/--clock: use time.clock() (default on Windows)
@@ -53,6 +53,8 @@ instructions.
 """
 
 import gc
+import math
+import os
 import sys
 import time
 
@@ -60,7 +62,7 @@ __all__ = ["Timer"]
 
 dummy_src_name = "<timeit-src>"
 default_number = 1000000
-default_repeat = 3
+default_repeat = 7
 
 if sys.platform == "win32":
     # On Windows, the best timer is time.clock()
@@ -265,6 +267,7 @@ def main(args=None, _wrap_timer=None):
     """
     if args is None:
         args = sys.argv[1:]
+    origargs = args
     import getopt
     try:
         opts, args = getopt.getopt(args, "n:s:r:tcvh",
@@ -281,6 +284,7 @@ def main(args=None, _wrap_timer=None):
     repeat = default_repeat
     verbose = 0
     precision = 3
+    units = {"sec": 1, "msec": 1e3, "usec": 1e6, "ns": 1e9}
     for o, a in opts:
         if o in ("-n", "--number"):
             number = int(a)
@@ -302,17 +306,25 @@ def main(args=None, _wrap_timer=None):
             print __doc__,
             return 0
     setup = "\n".join(setup) or "pass"
+
+    print "WARNING: timeit is a very unreliable tool. use perf or something else for real measurements"
+    executable = os.path.basename(sys.executable)
+    print "%s -m pip install perf" % executable
+    print "%s -m perf timeit %s" % (
+        executable,
+        " ".join([(arg if arg.startswith("-") else repr(arg))
+                        for arg in origargs]), )
+    print "-" * 60
     # Include the current directory, so that local imports work (sys.path
     # contains the directory of this script, rather than the current
     # directory)
-    import os
     sys.path.insert(0, os.curdir)
     if _wrap_timer is not None:
         timer = _wrap_timer(timer)
     t = Timer(stmt, setup, timer)
     if number == 0:
         # determine number so that 0.2 <= total time < 2.0
-        for i in range(1, 10):
+        for i in range(0, 10):
             number = 10**i
             try:
                 x = t.timeit(number)
@@ -324,24 +336,34 @@ def main(args=None, _wrap_timer=None):
             if x >= 0.2:
                 break
     try:
-        r = t.repeat(repeat, number)
+        timings = t.repeat(repeat, number)
     except:
         t.print_exc()
         return 1
-    best = min(r)
     if verbose:
-        print "raw times:", " ".join(["%.*g" % (precision, x) for x in r])
-    print "%d loops," % number,
-    usec = best * 1e6 / number
-    if usec < 1000:
-        print "best of %d: %.*g usec per loop" % (repeat, precision, usec)
-    else:
-        msec = usec / 1000
-        if msec < 1000:
-            print "best of %d: %.*g msec per loop" % (repeat, precision, msec)
-        else:
-            sec = msec / 1000
-            print "best of %d: %.*g sec per loop" % (repeat, precision, sec)
+        print "raw times:", " ".join(["%.*g" % (precision, x) for x in timings])
+
+    timings = [dt / number for dt in timings]
+
+    def _avg(l):
+        return math.fsum(l) / len(l)
+    def _stdev(l):
+        avg = _avg(l)
+        return (math.fsum([(x - avg) ** 2 for x in l]) / len(l)) ** 0.5
+
+    average = _avg(timings)
+
+    scales = [(scale, unit) for unit, scale in units.items()]
+    scales.sort()
+    for scale, time_unit in scales:
+        if average * scale >= 1.0:
+             break
+
+    stdev = _stdev(timings)
+    print("%s loops, average of %d: %.*g +- %.*g %s per loop (using standard deviation)"
+          % (number, repeat,
+             precision, average * scale,
+             precision, stdev * scale, time_unit))
     return None
 
 if __name__ == "__main__":

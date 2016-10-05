@@ -16,7 +16,8 @@ RPY_EXTERN void pypy_faulthandler_disable(void);
 RPY_EXTERN int pypy_faulthandler_is_enabled(void);
 
 RPY_EXTERN void pypy_faulthandler_write(int fd, const char *str);
-RPY_EXTERN void pypy_faulthandler_write_int(int fd, long value);
+RPY_EXTERN void pypy_faulthandler_write_uint(int fd, unsigned long value,
+                                             int min_digits);
 
 RPY_EXTERN void pypy_faulthandler_dump_traceback(int fd, int all_threads,
                                                  void *ucontext);

@@ -13,7 +13,7 @@ from test.test_support import captured_stderr
 DEFAULT_NUMBER = 1000000
 
 # timeit's default number of repetitions.
-DEFAULT_REPEAT = 3
+DEFAULT_REPEAT = timeit.default_repeat
 
 # XXX: some tests are commented out that would improve the coverage but take a
 # long time to run because they test the default number of loops, which is
@@ -204,7 +204,7 @@ class TestTimeit(unittest.TestCase):
             t.print_exc(s)
         self.assert_exc_string(s.getvalue(), 'ZeroDivisionError')
 
-    MAIN_DEFAULT_OUTPUT = "10 loops, best of 3: 1 sec per loop\n"
+    MAIN_DEFAULT_OUTPUT = "1 loops, average of 7: 1 +- 0 sec per loop (using standard deviation)\n"
 
     def run_main(self, seconds_per_increment=1.0, switches=None, timer=None):
         if timer is None:
@@ -230,33 +230,35 @@ class TestTimeit(unittest.TestCase):
 
     def test_main_seconds(self):
         s = self.run_main(seconds_per_increment=5.5)
-        self.assertEqual(s, "10 loops, best of 3: 5.5 sec per loop\n")
+        self.assertIn("1 loops, average of 7: 5.5 +- 0 sec per loop (using standard deviation)\n", s)
 
     def test_main_milliseconds(self):
         s = self.run_main(seconds_per_increment=0.0055)
-        self.assertEqual(s, "100 loops, best of 3: 5.5 msec per loop\n")
+        self.assertIn("100 loops, average of 7: 5.5 +-", s)
+        self.assertIn("msec per loop", s)
 
     def test_main_microseconds(self):
         s = self.run_main(seconds_per_increment=0.0000025, switches=['-n100'])
-        self.assertEqual(s, "100 loops, best of 3: 2.5 usec per loop\n")
+        self.assertIn("100 loops, average of 7: 2.5", s)
+        self.assertIn("usec per loop", s)
 
     def test_main_fixed_iters(self):
         s = self.run_main(seconds_per_increment=2.0, switches=['-n35'])
-        self.assertEqual(s, "35 loops, best of 3: 2 sec per loop\n")
+        self.assertIn("35 loops, average of 7: 2 +- 0 sec per loop (using standard deviation)\n", s)
 
     def test_main_setup(self):
         s = self.run_main(seconds_per_increment=2.0,
                 switches=['-n35', '-s', 'print("CustomSetup")'])
-        self.assertEqual(s, "CustomSetup\n" * 3 +
-                "35 loops, best of 3: 2 sec per loop\n")
+        self.assertIn("CustomSetup\n" * DEFAULT_REPEAT +
+                "35 loops, average of 7: 2 +- 0 sec per loop (using standard deviation)\n", s)
 
     def test_main_fixed_reps(self):
         s = self.run_main(seconds_per_increment=60.0, switches=['-r9'])
-        self.assertEqual(s, "10 loops, best of 9: 60 sec per loop\n")
+        self.assertIn("1 loops, average of 9: 60 +- 0 sec per loop (using standard deviation)\n", s)
 
     def test_main_negative_reps(self):
         s = self.run_main(seconds_per_increment=60.0, switches=['-r-5'])
-        self.assertEqual(s, "10 loops, best of 1: 60 sec per loop\n")
+        self.assertIn("1 loops, average of 1: 60 +- 0 sec per loop (using standard deviation)\n", s)
 
     @unittest.skipIf(sys.flags.optimize >= 2, "need __doc__")
     def test_main_help(self):
@@ -266,33 +268,34 @@ class TestTimeit(unittest.TestCase):
     def test_main_using_time(self):
         fake_timer = FakeTimer()
         s = self.run_main(switches=['-t'], timer=fake_timer)
-        self.assertEqual(s, self.MAIN_DEFAULT_OUTPUT)
+        self.assertIn(self.MAIN_DEFAULT_OUTPUT, s)
         self.assertIs(fake_timer.saved_timer, time.time)
 
     def test_main_using_clock(self):
         fake_timer = FakeTimer()
         s = self.run_main(switches=['-c'], timer=fake_timer)
-        self.assertEqual(s, self.MAIN_DEFAULT_OUTPUT)
+        self.assertIn(self.MAIN_DEFAULT_OUTPUT, s)
         self.assertIs(fake_timer.saved_timer, time.clock)
 
     def test_main_verbose(self):
         s = self.run_main(switches=['-v'])
-        self.assertEqual(s, dedent("""\
-                10 loops -> 10 secs
-                raw times: 10 10 10
-                10 loops, best of 3: 1 sec per loop
-            """))
+        self.assertIn(dedent("""\
+                1 loops -> 1 secs
+                raw times: 1 1 1 1 1 1 1
+                1 loops, average of 7: 1 +- 0 sec per loop (using standard deviation)
+            """), s)
 
     def test_main_very_verbose(self):
         s = self.run_main(seconds_per_increment=0.000050, switches=['-vv'])
-        self.assertEqual(s, dedent("""\
+        self.assertIn(dedent("""\
+                1 loops -> 5e-05 secs
                 10 loops -> 0.0005 secs
                 100 loops -> 0.005 secs
                 1000 loops -> 0.05 secs
                 10000 loops -> 0.5 secs
-                raw times: 0.5 0.5 0.5
-                10000 loops, best of 3: 50 usec per loop
-            """))
+                raw times: 0.5 0.5 0.5 0.5 0.5 0.5 0.5
+                10000 loops, average of 7: 50 +- 0 usec per loop (using standard deviation)
+            """), s)
 
     def test_main_exception(self):
         with captured_stderr() as error_stringio:
@@ -303,6 +306,15 @@ class TestTimeit(unittest.TestCase):
         with captured_stderr() as error_stringio:
             s = self.run_main(switches=['-n1', '1.0/0.0'])
         self.assert_exc_string(error_stringio.getvalue(), 'ZeroDivisionError')
+
+    def test_main_recommends_perf(self):
+        s = self.run_main(seconds_per_increment=2.0, switches=['-n35', '-s', 'print("CustomSetup")'])
+        self.assertIn(dedent("""\
+            WARNING: timeit is a very unreliable tool. use perf or something else for real measurements
+            pypy -m pip install perf
+            pypy -m perf timeit -n35 -s 'print("CustomSetup")' 'import timeit; timeit._fake_timer.inc()'
+        """), s)
+
 
 
 def test_main():

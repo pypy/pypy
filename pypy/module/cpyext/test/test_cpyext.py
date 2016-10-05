@@ -267,6 +267,13 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 return sys_info.load_module(mod, name)
             cls.w_load_module = w_load_module
 
+            def w_debug_collect(self):
+                import gc
+                gc.collect()
+                gc.collect()
+                gc.collect()
+            cls.w_debug_collect = w_debug_collect
+
 
     def record_imported_module(self, name):
         """
