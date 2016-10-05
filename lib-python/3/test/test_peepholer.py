@@ -4,6 +4,7 @@ import sys
 from io import StringIO
 import unittest
 from math import copysign
+from test.support import cpython_only
 
 def disassemble(func):
     f = StringIO()
@@ -211,6 +212,7 @@ class TestTranforms(unittest.TestCase):
         asm = dis_single('a="x"*1000')
         self.assertIn('(1000)', asm)
 
+    @cpython_only # we currently not bother to implement that
     def test_binary_subscr_on_unicode(self):
         # valid code get optimized
         asm = dis_single('"foo"[0]')
