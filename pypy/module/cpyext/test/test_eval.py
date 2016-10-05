@@ -308,6 +308,7 @@ class AppTestCall(AppTestCpythonExtensionBase):
         assert mod.f(42) == 47
 
     def test_merge_compiler_flags(self):
+        import sys
         module = self.import_extension('foo', [
             ("get_flags", "METH_NOARGS",
              """
@@ -321,7 +322,14 @@ class AppTestCall(AppTestCpythonExtensionBase):
         assert module.get_flags() == (0, 0)
 
         ns = {'module':module}
+        if not hasattr(sys, 'pypy_version_info'):  # no barry_as_FLUFL on pypy
+            exec("""from __future__ import barry_as_FLUFL    \nif 1:
+                    def nested_flags():
+                        return module.get_flags()""", ns)
+            assert ns['nested_flags']() == (1, 0x40000)
+
+        # the division future should have no effect on Python 3
         exec("""from __future__ import division    \nif 1:
                 def nested_flags():
                     return module.get_flags()""", ns)
-        assert ns['nested_flags']() == (1, 0x2000)  # CO_FUTURE_DIVISION
+        assert ns['nested_flags']() == (0, 0)
