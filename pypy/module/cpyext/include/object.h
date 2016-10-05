@@ -222,8 +222,6 @@ typedef struct {
 	unaryfunc nb_int;
 	unaryfunc nb_long;
 	unaryfunc nb_float;
-	unaryfunc nb_oct;
-	unaryfunc nb_hex;
 	/* Added in release 2.0 */
 	binaryfunc nb_inplace_add;
 	binaryfunc nb_inplace_subtract;
