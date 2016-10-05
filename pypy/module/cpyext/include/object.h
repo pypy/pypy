@@ -454,9 +454,6 @@ manually remove this flag though!
 /* Type is abstract and cannot be instantiated */
 #define Py_TPFLAGS_IS_ABSTRACT (1L<<20)
 
-/* Has the new buffer protocol */
-#define Py_TPFLAGS_HAVE_NEWBUFFER (1L<<21)
-
 /* These flags are used to determine if a type is a subclass. */
 #define Py_TPFLAGS_INT_SUBCLASS		(1L<<23)
 #define Py_TPFLAGS_LONG_SUBCLASS	(1L<<24)
