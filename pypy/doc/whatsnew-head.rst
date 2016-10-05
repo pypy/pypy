@@ -55,3 +55,9 @@ Refactor cpyext testing to be more pypy3-friendly.
 .. branch: better-error-missing-self
 
 Improve the error message when the user forgot the "self" argument of a method.
+
+
+.. fb6bb835369e
+Change the ``timeit`` module: it now prints the average time and the standard
+deviation over 7 runs by default, instead of the minimum. The minimum is often
+misleading.
