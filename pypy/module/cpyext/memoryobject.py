@@ -113,12 +113,12 @@ def _IsCContiguous(view):
 
 @cpython_api([lltype.Ptr(Py_buffer), lltype.Char], rffi.INT_real, error=CANNOT_FAIL)
 def PyBuffer_IsContiguous(space, view, fort):
-    """Return 1 if the memory defined by the view is C-style (fortran is
-    'C') or Fortran-style (fortran is 'F') contiguous or either one
-    (fortran is 'A').  Return 0 otherwise."""
+    """Return 1 if the memory defined by the view is C-style (fort is
+    'C') or Fortran-style (fort is 'F') contiguous or either one
+    (fort is 'A').  Return 0 otherwise."""
     # traverse the strides, checking for consistent stride increases from
     # right-to-left (c) or left-to-right (fortran). Copied from cpython
-    if not view.c_suboffsets:
+    if view.c_suboffsets:
         return 0
     if (fort == 'C'):
         return _IsCContiguous(view)

@@ -15,6 +15,7 @@ from pypy.module.cpyext.typeobjectdefs import (
     readbufferproc, getbufferproc, ssizessizeobjargproc)
 from pypy.module.cpyext.pyobject import from_ref, make_ref, Py_DecRef
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
+from pypy.module.cpyext.memoryobject import fill_Py_buffer
 from pypy.module.cpyext.state import State
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.argument import Arguments
@@ -621,13 +622,28 @@ def build_slot_tp_function(space, typedef, name):
         @cpython_api([PyObject, Py_bufferP, rffi.INT_real], 
                 rffi.INT_real, header=None, error=-1)
         @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
-        def buff_w(space, w_self, pybuf, flags):
-            # XXX this is wrong, needs a test
-            raise oefmt(space.w_NotImplemented, 
-                "calling bf_getbuffer on a builtin type not supported yet")
-            #args = Arguments(space, [w_self],
-            #                 w_stararg=w_args, w_starstararg=w_kwds)
-            #return space.call_args(space.get(buff_fn, w_self), args)
+        def buff_w(space, w_self, view, flags):
+            args = Arguments(space, [space.newint(flags)])
+            w_obj = space.call_args(space.get(buff_fn, w_self), args)
+            if view:
+                #from PyObject_GetBuffer
+                flags = widen(flags)
+                buf = space.buffer_w(w_obj, flags)
+                try:
+                    view.c_buf = rffi.cast(rffi.VOIDP, buf.get_raw_address())
+                    view.c_obj = make_ref(space, w_obj)
+                except ValueError:
+                    if hasattr(buf, 'as_str'):
+                        w_s = space.newbytes(buf.as_str())
+                    else:
+                        w_s = w_obj.descr_tobytes(space)
+                    view.c_obj = make_ref(space, w_s)
+                    view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(
+                                    space.str_w(w_s), track_allocation=False))
+                    rffi.setintfield(view, 'c_readonly', 1)
+                ret = fill_Py_buffer(space, buf, view)
+                return ret
+            return 0
         api_func = buff_w.api_func
     else:
         # missing: tp_as_number.nb_nonzero, tp_as_number.nb_coerce
