@@ -103,7 +103,7 @@ class State:
                 progname = space.str_w(argv0)
             else:
                 progname = "pypy"
-            progname = progname.decode('ascii')  # XXX: which encoding??
+            progname = progname.decode('latin-1')  # XXX: which encoding??
             self.programname = rffi.unicode2wcharp(progname)
             lltype.render_immortal(self.programname)
         return self.programname
