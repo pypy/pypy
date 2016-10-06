@@ -383,16 +383,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
 class AppTestCpythonExtension(AppTestCpythonExtensionBase):
     def test_createmodule(self):
         import sys
-        init = """
-        if (Py_IsInitialized()) {
-            PyObject *mod = PyImport_AddModule("foo");
-            Py_INCREF(mod);
-            return mod;
-        }
-        PyErr_SetNone(PyExc_RuntimeError);
-        return NULL;
-        """
-        self.import_module(name='foo', init=init)
+        self.import_module(name='foo')
         assert 'foo' in sys.modules
 
     def test_export_function(self):
@@ -408,7 +399,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         };
         static struct PyModuleDef moduledef = {
             PyModuleDef_HEAD_INIT,
-            "%(modname)s",  /* m_name */
+            "foo",          /* m_name */
             NULL,           /* m_doc */
             -1,             /* m_size */
             methods,        /* m_methods */
@@ -436,7 +427,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         };
         static struct PyModuleDef moduledef = {
             PyModuleDef_HEAD_INIT,
-            "%(modname)s",  /* m_name */
+            "foo",          /* m_name */
             NULL,           /* m_doc */
             -1,             /* m_size */
             methods,        /* m_methods */
