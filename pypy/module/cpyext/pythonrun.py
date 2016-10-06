@@ -8,7 +8,7 @@ from pypy.module.cpyext.pyerrors import PyErr_SetNone
 def Py_IsInitialized(space):
     return 1
 
-@cpython_api([], rffi.CCHARP, error=CANNOT_FAIL)
+@cpython_api([], rffi.CWCHARP, error=CANNOT_FAIL)
 def Py_GetProgramName(space):
     """
     Return the program name set with Py_SetProgramName(), or the default.
@@ -52,4 +52,3 @@ def Py_AtExit(space, func_ptr):
 @cpython_api([], PyObject, error=CANNOT_FAIL)
 def PyThread_exit_thread(space):
     PyErr_SetNone(space, space.w_SystemExit)
-

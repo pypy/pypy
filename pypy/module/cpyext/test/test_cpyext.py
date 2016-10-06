@@ -801,14 +801,14 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         mod = self.import_extension('foo', [
             ('get_programname', 'METH_NOARGS',
              '''
-             char* name1 = Py_GetProgramName();
-             char* name2 = Py_GetProgramName();
+             wchar_t* name1 = Py_GetProgramName();
+             wchar_t* name2 = Py_GetProgramName();
              if (name1 != name2)
                  Py_RETURN_FALSE;
-             return PyUnicode_FromString(name1);
+             return PyUnicode_FromWideChar(name1, wcslen(name1));
              '''
-             ),
-            ])
+             )],
+            prologue='#include <wchar.h>')
         p = mod.get_programname()
         print(p)
         assert 'py' in p
