@@ -179,7 +179,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
             )])
         ret = module.bytearray_resize(b'abc', 6)
         assert len(ret) == 6,"%s, len=%d" % (ret, len(ret))
-        assert ret == b'abc\x00\x00\x00'
+        assert ret[:4] == b'abc\x00'
         ret = module.bytearray_resize(b'abcdefghi', 4)
         assert len(ret) == 4,"%s, len=%d" % (ret, len(ret))
         assert ret == b'abcd'
