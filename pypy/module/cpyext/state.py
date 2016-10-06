@@ -12,7 +12,7 @@ class State:
     def __init__(self, space):
         self.space = space
         self.reset()
-        self.programname = lltype.nullptr(rffi.CCHARP.TO)
+        self.programname = lltype.nullptr(rffi.CWCHARP.TO)
         self.version = lltype.nullptr(rffi.CCHARP.TO)
         pyobj_dealloc_action = PyObjDeallocAction(space)
         self.dealloc_trigger = lambda: pyobj_dealloc_action.fire()
