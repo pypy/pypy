@@ -626,17 +626,14 @@ def build_slot_tp_function(space, typedef, name):
             args = Arguments(space, [space.newint(flags)])
             w_obj = space.call_args(space.get(buff_fn, w_self), args)
             if view:
-                #from PyObject_GetBuffer
+                #like PyObject_GetBuffer
                 flags = widen(flags)
                 buf = space.buffer_w(w_obj, flags)
                 try:
                     view.c_buf = rffi.cast(rffi.VOIDP, buf.get_raw_address())
                     view.c_obj = make_ref(space, w_obj)
                 except ValueError:
-                    if hasattr(buf, 'as_str'):
-                        w_s = space.newbytes(buf.as_str())
-                    else:
-                        w_s = w_obj.descr_tobytes(space)
+                    w_s = space.newbytes(buf.as_str())
                     view.c_obj = make_ref(space, w_s)
                     view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(
                                     space.str_w(w_s), track_allocation=False))
