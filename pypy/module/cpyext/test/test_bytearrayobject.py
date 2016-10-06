@@ -101,6 +101,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
         assert s == b'test'
 
     def test_manipulations(self):
+        import sys
         module = self.import_extension('foo', [
             ("bytearray_from_bytes", "METH_VARARGS",
              '''
@@ -143,7 +144,9 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
              """)])
         assert module.bytearray_from_bytes(b"huheduwe") == b"huhe"
         assert module.bytes_from_bytearray(bytearray(b'abc')) == b'abc'
-        raises(ValueError, module.bytes_from_bytearray, 4.0)
+        if '__pypy__' in sys.builtin_module_names:
+            # CPython only makes an assert.
+            raises(ValueError, module.bytes_from_bytearray, 4.0)
         ret = module.concat(b'abc', b'def')
         assert ret == b'abcdef'
         assert not isinstance(ret, str)
