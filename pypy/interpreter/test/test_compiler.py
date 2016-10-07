@@ -763,6 +763,11 @@ class AppTestCompiler(object):
         exec(s, ns)
         assert ns["x"] == .5
 
+    def test_noop_future_import(self):
+        code1 = compile("from __future__ import division", "<test>", "exec")
+        code2 = compile("", "<test>", "exec")
+        assert code1.co_flags == code2.co_flags
+
     def test_values_of_different_types(self):
         ns = {}
         exec("a = 0; c = 0.0; d = 0j", ns)
