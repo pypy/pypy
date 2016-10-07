@@ -2436,7 +2436,7 @@ array_buffer_getbuf(arrayobject *self, Py_buffer *view, int flags)
     if (view->buf == NULL)
         view->buf = (void *)emptybuf;
     view->len = (Py_SIZE(self)) * self->ob_descr->itemsize;
-    view->readonly = 0;
+    view->readonly = ((flags & PyBUF_WRITABLE) == 0);
     view->ndim = 1;
     view->itemsize = self->ob_descr->itemsize;
     view->suboffsets = NULL;

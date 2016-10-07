@@ -56,7 +56,7 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         module = self.import_module(name='array')
         arr = module.array('i', [1,2,3,4])
         buf = memoryview(arr)
-        exc = raises(TypeError, "buf[1] = '1'")
+        exc = raises(TypeError, "buf[1] = 1")
         assert str(exc.value) == "cannot modify read-only memory"
         if sys.byteorder == 'big':
             assert bytes(buf) == (b'\0\0\0\x01'
@@ -87,4 +87,4 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         arr = Sub('i', [2])
         res = [1, 2, 3] * arr
         assert res == [1, 2, 3, 1, 2, 3]
-        
+
