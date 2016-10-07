@@ -209,10 +209,7 @@ class W_Root(object):
         w_impl = space.lookup(self, '__buffer__')
         if w_impl is None:
             # cpyext types that may have only old buffer interface
-            if flags & space.BUF_WRITABLE:
-                w_impl = space.lookup(self, '__wbuffer__')
-            else:
-                w_impl = space.lookup(self, '__wbuffer__')
+            w_impl = space.lookup(self, '__wbuffer__')
         if w_impl is not None:
             w_result = space.get_and_call_function(w_impl, self, 
                                         space.newint(flags))
