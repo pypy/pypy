@@ -59,7 +59,7 @@ class partial(object):
         func, args, keywords, d = state
 
         if (not callable(func) or not isinstance(args, tuple) or
-            (keywords != None and not isinstance(keywords, dict))):
+            (keywords is not None and not isinstance(keywords, dict))):
             raise TypeError("invalid partial state")
 
         self._func = func
