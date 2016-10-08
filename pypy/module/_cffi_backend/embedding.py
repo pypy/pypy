@@ -112,29 +112,7 @@ if os.name == 'nt':
 #define _WIN32_WINNT 0x0501
 #include <windows.h>
 
-#define CFFI_INIT_HOME_PATH_MAX  _MAX_PATH
 static void _cffi_init(void);
-static void _cffi_init_error(const char *msg, const char *extra);
-
-static int _cffi_init_home(char *output_home_path)
-{
-    HMODULE hModule = 0;
-    DWORD res;
-
-    GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | 
-                       GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                       (LPCTSTR)&_cffi_init, &hModule);
-
-    if (hModule == 0 ) {
-        _cffi_init_error("GetModuleHandleEx() failed", "");
-        return -1;
-    }
-    res = GetModuleFileName(hModule, output_home_path, CFFI_INIT_HOME_PATH_MAX);
-    if (res >= CFFI_INIT_HOME_PATH_MAX) {
-        return -1;
-    }
-    return 0;
-}
 
 static void _cffi_init_once(void)
 {
@@ -155,28 +133,9 @@ static void _cffi_init_once(void)
 else:
 
     do_includes = r"""
-#include <dlfcn.h>
 #include <pthread.h>
 
-#define CFFI_INIT_HOME_PATH_MAX  PATH_MAX
 static void _cffi_init(void);
-static void _cffi_init_error(const char *msg, const char *extra);
-
-static int _cffi_init_home(char *output_home_path)
-{
-    Dl_info info;
-    dlerror();   /* reset */
-    if (dladdr(&_cffi_init, &info) == 0) {
-        _cffi_init_error("dladdr() failed: ", dlerror());
-        return -1;
-    }
-    if (realpath(info.dli_fname, output_home_path) == NULL) {
-        perror("realpath() failed");
-        _cffi_init_error("realpath() failed", "");
-        return -1;
-    }
-    return 0;
-}
 
 static void _cffi_init_once(void)
 {
@@ -201,14 +160,10 @@ static void _cffi_init_error(const char *msg, const char *extra)
 
 static void _cffi_init(void)
 {
-    char home[CFFI_INIT_HOME_PATH_MAX + 1];
-
     rpython_startup_code();
     RPyGilAllocate();
 
-    if (_cffi_init_home(home) != 0)
-        return;
-    if (pypy_setup_home(home, 1) != 0) {
+    if (pypy_setup_home(NULL, 1) != 0) {
         _cffi_init_error("pypy_setup_home() failed", "");
         return;
     }

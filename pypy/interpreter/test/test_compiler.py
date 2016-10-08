@@ -83,7 +83,7 @@ class TestPythonAstCompiler:
         code = self.compiler.compile('from __future__ import division\n',
                                      '<hello>', 'exec', 0)
         flags = self.compiler.getcodeflags(code)
-        assert flags & __future__.division.compiler_flag
+        assert flags & __future__.division.compiler_flag == 0
         # check that we don't get more flags than the compiler can accept back
         code2 = self.compiler.compile('print(6*7)', '<hello>', 'exec', flags)
         # check that the flag remains in force
@@ -767,16 +767,25 @@ with somtehing as stuff:
         assert sig == Signature(['a', 'b'], None, 'kwargs', ['m', 'n'])
 
 
-class AppTestCompiler:
+class AppTestCompiler(object):
 
     def setup_class(cls):
         cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
+
+    def w_is_pypy(self):
+        import sys
+        return (not self.runappdirect) or '__pypy__' in sys.modules
 
     def test_bom_with_future(self):
         s = b'\xef\xbb\xbffrom __future__ import division\nx = 1/2'
         ns = {}
         exec(s, ns)
         assert ns["x"] == .5
+
+    def test_noop_future_import(self):
+        code1 = compile("from __future__ import division", "<test>", "exec")
+        code2 = compile("", "<test>", "exec")
+        assert code1.co_flags == code2.co_flags
 
     def test_values_of_different_types(self):
         ns = {}
@@ -796,9 +805,8 @@ class AppTestCompiler:
         import math, sys
         code = compile("x = -0.0; y = 0.0", "<test>", "exec")
         consts = code.co_consts
-        if not self.runappdirect or sys.version_info[:2] != (3, 2):
-            # Only CPython 3.2 does not store -0.0.
-            # PyPy implements 3.3 here.
+        if self.is_pypy():
+            # Hard to test on CPython, since co_consts is randomly ordered
             x, y, z = consts
             assert isinstance(x, float) and isinstance(y, float)
             assert math.copysign(1, x) != math.copysign(1, y)
@@ -938,9 +946,14 @@ class AppTestCompiler:
 
 
 
-class AppTestOptimizer:
+class AppTestOptimizer(object):
     def setup_class(cls):
         cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
+
+    def w_is_pypy(self):
+        import sys
+        return not self.runappdirect or '__pypy__' in sys.modules
+
 
     def test_remove_ending(self):
         source = """def f():
@@ -966,7 +979,7 @@ class AppTestOptimizer:
         for name in "None", "True", "False":
             snip = "def f(): return " + name
             co = compile(snip, "<test>", "exec").co_consts[0]
-            if not self.runappdirect:  # This is a pypy optimization
+            if self.is_pypy():  # This is a pypy optimization
                 assert name not in co.co_names
             co = co.co_code
             op = co[0]
@@ -986,14 +999,14 @@ class AppTestOptimizer:
         def code(source):
             return compile(source, "<test>", "exec")
         co = code("x = 10//4")
-        if self.runappdirect:
+        if not self.is_pypy():
             assert 2 in co.co_consts
         else:
             # PyPy is more precise
             assert len(co.co_consts) == 2
             assert co.co_consts[0] == 2
         co = code("x = 10/4")
-        if self.runappdirect:
+        if not self.is_pypy():
             assert 2.5 in co.co_consts
         else:
             assert len(co.co_consts) == 2
@@ -1001,19 +1014,21 @@ class AppTestOptimizer:
 
     def test_tuple_folding(self):
         co = compile("x = (1, 2, 3)", "<test>", "exec")
-        if not self.runappdirect:
+        if self.is_pypy():
             # PyPy is more precise
             assert co.co_consts == ((1, 2, 3), None)
         else:
             assert (1, 2, 3) in co.co_consts
             assert None in co.co_consts
         co = compile("x = ()", "<test>", "exec")
-        assert set(co.co_consts) == set(((), None))
+        if self.is_pypy():
+            # CPython does not constant-fold the empty tuple
+            assert set(co.co_consts) == set(((), None))
 
     def test_unary_folding(self):
         def check_const(co, value):
             assert value in co.co_consts
-            if not self.runappdirect:
+            if self.is_pypy():
                 # This is a pypy optimization
                 assert co.co_consts[0] == value
         co = compile("x = -(3)", "<test>", "exec")
@@ -1023,7 +1038,7 @@ class AppTestOptimizer:
         co = compile("x = +(-3)", "<test>", "exec")
         check_const(co, -3)
         co = compile("x = not None", "<test>", "exec")
-        if not self.runappdirect:
+        if self.is_pypy():
             # CPython does not have this optimization
             assert co.co_consts == (True, None)
 
@@ -1134,6 +1149,8 @@ class AppTestOptimizer:
         assert isinstance(co.co_consts[i], frozenset)
 
     def test_call_method_kwargs(self):
+        if not self.is_pypy():
+            skip("CALL_METHOD exists only on pypy")
         source = """def _f(a):
             return a.f(a=a)
         """

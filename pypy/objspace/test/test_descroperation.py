@@ -293,7 +293,7 @@ class AppTest_Descroperation:
             x = operate(A())
             assert x == 'àèì'
             assert type(x) is str
-            
+
 
     def test_byte_results_unicode(self):
         class A(object):
@@ -691,6 +691,34 @@ class AppTest_Descroperation:
         raises(TypeError, bool, X(3.0))
         raises(TypeError, bool, X(X(2)))
         raises(OverflowError, len, X(sys.maxsize + 1))
+
+    def test_len_index(self):
+        class Index(object):
+            def __index__(self):
+                return 42
+        class X(object):
+            def __len__(self):
+                return Index()
+        n = len(X())
+        assert type(n) is int
+        assert n == 42
+
+        class BadIndex(object):
+            def __index__(self):
+                return 'foo'
+        class Y(object):
+            def __len__(self):
+                return BadIndex()
+        excinfo = raises(TypeError, len, Y())
+        assert excinfo.value.args[0].startswith("__index__ returned non-")
+
+        class BadIndex2(object):
+            def __index__(self):
+                return 2**100
+        class Z(object):
+            def __len__(self):
+                return BadIndex2()
+        excinfo = raises(OverflowError, len, Z())
 
     def test_sane_len(self):
         # this test just tests our assumptions about __len__

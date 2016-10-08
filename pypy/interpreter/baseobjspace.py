@@ -379,12 +379,12 @@ class DescrMismatch(Exception):
 class BufferInterfaceNotFound(Exception):
     pass
 
+@specialize.memo()
 def wrappable_class_name(Class):
     try:
         return Class.typedef.name
     except AttributeError:
         return 'internal subclass of %s' % (Class.__name__,)
-wrappable_class_name._annspecialcase_ = 'specialize:memo'
 
 class CannotHaveLock(Exception):
     """Raised by space.allocate_lock() if we're translating."""
@@ -841,12 +841,13 @@ class ObjSpace(object):
             return None
         return self.interned_strings.get(u)   # may be None
 
+    @specialize.arg(1)
     def descr_self_interp_w(self, RequiredClass, w_obj):
         if not isinstance(w_obj, RequiredClass):
             raise DescrMismatch()
         return w_obj
-    descr_self_interp_w._annspecialcase_ = 'specialize:arg(1)'
 
+    @specialize.arg(1)
     def interp_w(self, RequiredClass, w_obj, can_be_None=False):
         """
         Unwrap w_obj, checking that it is an instance of the required internal
@@ -861,7 +862,6 @@ class ObjSpace(object):
                         wrappable_class_name(RequiredClass),
                         w_obj.getclass(self))
         return w_obj
-    interp_w._annspecialcase_ = 'specialize:arg(1)'
 
     def unpackiterable(self, w_iterable, expected_length=-1):
         """Unpack an iterable into a real (interpreter-level) list.
@@ -1122,7 +1122,8 @@ class ObjSpace(object):
         args = Arguments(self, list(args_w))
         return self.call_args(w_func, args)
 
-    def call_valuestack(self, w_func, nargs, frame):
+    def call_valuestack(self, w_func, nargs, frame, methodcall=False):
+        # methodcall is only used for better error messages in argument.py
         from pypy.interpreter.function import Function, Method, is_builtin_code
         if frame.get_is_being_profiled() and is_builtin_code(w_func):
             # XXX: this code is copied&pasted :-( from the slow path below
@@ -1136,10 +1137,12 @@ class ObjSpace(object):
                 # reuse callable stack place for w_inst
                 frame.settopvalue(w_func.w_instance, nargs)
                 nargs += 1
+                methodcall = True
                 w_func = w_func.w_function
 
             if isinstance(w_func, Function):
-                return w_func.funccall_valuestack(nargs, frame)
+                return w_func.funccall_valuestack(
+                        nargs, frame, methodcall=methodcall)
             # end of hack for performance
 
         args = frame.make_arguments(nargs)
@@ -1275,6 +1278,7 @@ class ObjSpace(object):
             self.setitem(w_globals, w_key, self.wrap(self.builtin))
         return statement.exec_code(self, w_globals, w_locals)
 
+    @specialize.arg(2)
     def appexec(self, posargs_w, source):
         """ return value from executing given source at applevel.
             EXPERIMENTAL. The source must look like
@@ -1286,7 +1290,6 @@ class ObjSpace(object):
         w_func = self.fromcache(AppExecCache).getorbuild(source)
         args = Arguments(self, list(posargs_w))
         return self.call_args(w_func, args)
-    appexec._annspecialcase_ = 'specialize:arg(2)'
 
     def _next_or_none(self, w_it):
         try:
@@ -1296,6 +1299,7 @@ class ObjSpace(object):
                 raise
             return None
 
+    @specialize.arg(3)
     def compare_by_iteration(self, w_iterable1, w_iterable2, op):
         w_it1 = self.iter(w_iterable1)
         w_it2 = self.iter(w_iterable2)
@@ -1318,7 +1322,6 @@ class ObjSpace(object):
                 if op == 'gt': return self.gt(w_x1, w_x2)
                 if op == 'ge': return self.ge(w_x1, w_x2)
                 assert False, "bad value for op"
-    compare_by_iteration._annspecialcase_ = 'specialize:arg(3)'
 
     def decode_index(self, w_index_or_slice, seqlength):
         """Helper for custom sequence implementations

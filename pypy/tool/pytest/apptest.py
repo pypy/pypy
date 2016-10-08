@@ -173,8 +173,11 @@ if 1:
         f.write('def %s():\n' % target_name)
         f.write('\n'.join(source))
         f.write("\n%s()\n" % target_name)
+    helper_dir = os.path.join(pypydir, 'tool', 'cpyext')
+    env = os.environ.copy()
+    env['PYTHONPATH'] = helper_dir
     res, stdout, stderr = runsubprocess.run_subprocess(
-        python_, [str(pyfile)])
+        python_, [str(pyfile)], env=env)
     print pyfile.read()
     print >> sys.stdout, stdout
     print >> sys.stderr, stderr

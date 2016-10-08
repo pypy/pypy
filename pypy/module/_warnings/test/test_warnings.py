@@ -16,6 +16,7 @@ class AppTestWarnings:
         import _warnings
         _warnings.warn("some message", DeprecationWarning)
         _warnings.warn("some message", Warning)
+        _warnings.warn(("some message",1), Warning)
 
     def test_lineno(self):
         import warnings, _warnings, sys
@@ -45,7 +46,10 @@ class AppTestWarnings:
     def test_show_source_line(self):
         import warnings
         import sys, io
-        from test.warning_tests import inner
+        try:
+            from test.warning_tests import inner
+        except ImportError:
+            skip('no test, -A on cpython?')
         # With showarning() missing, make sure that output is okay.
         del warnings.showwarning
 

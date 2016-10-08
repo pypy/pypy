@@ -125,7 +125,7 @@ class NullImporter:
         elif os.path.isdir(path):
             raise ImportError('existing directory', path=path)
 
-    def find_module(self, fullname, path=None):
+    def find_module(self, fullname):
         """Always returns None."""
         return None
 

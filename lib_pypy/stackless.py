@@ -535,7 +535,7 @@ def _init():
     _main_tasklet = coroutine.getcurrent()
     _main_tasklet.__class__ = tasklet         # XXX HAAAAAAAAAAAAAAAAAAAAACK
     _last_task = _main_tasklet
-    tasklet._init.__func__(_main_tasklet, label='main')
+    tasklet._init(_main_tasklet, label='main')
     _squeue = deque()
     _scheduler_append(_main_tasklet)
 

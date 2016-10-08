@@ -197,13 +197,9 @@ typedef int (*visitproc)(PyObject *, void *);
 typedef int (*traverseproc)(PyObject *, visitproc, void *);
 
 typedef struct {
-	/* For numbers without flag bit Py_TPFLAGS_CHECKTYPES set, all
-	   arguments are guaranteed to be of the object's type (modulo
-	   coercion hacks -- i.e. if the type's coercion function
-	   returns other types, then these are allowed as well).  Numbers that
-	   have the Py_TPFLAGS_CHECKTYPES flag bit set should check *both*
-	   arguments for proper type and implement the necessary conversions
-	   in the slot functions themselves. */
+    /* Number implementations must check *both*
+       arguments for proper type and implement the necessary conversions
+       in the slot functions themselves. */
 
 	binaryfunc nb_add;
 	binaryfunc nb_subtract;
@@ -226,8 +222,6 @@ typedef struct {
 	unaryfunc nb_int;
 	unaryfunc nb_long;
 	unaryfunc nb_float;
-	unaryfunc nb_oct;
-	unaryfunc nb_hex;
 	/* Added in release 2.0 */
 	binaryfunc nb_inplace_add;
 	binaryfunc nb_inplace_subtract;
@@ -414,9 +408,6 @@ manually remove this flag though!
 /* PySequenceMethods and PyNumberMethods contain in-place operators */
 #define Py_TPFLAGS_HAVE_INPLACEOPS (1L<<3)
 
-/* PyNumberMethods do their own coercion */
-#define Py_TPFLAGS_CHECKTYPES (1L<<4)
-
 /* tp_richcompare is defined */
 #define Py_TPFLAGS_HAVE_RICHCOMPARE (1L<<5)
 
@@ -460,9 +451,6 @@ manually remove this flag though!
 
 /* Type is abstract and cannot be instantiated */
 #define Py_TPFLAGS_IS_ABSTRACT (1L<<20)
-
-/* Has the new buffer protocol */
-#define Py_TPFLAGS_HAVE_NEWBUFFER (1L<<21)
 
 /* These flags are used to determine if a type is a subclass. */
 #define Py_TPFLAGS_INT_SUBCLASS		(1L<<23)

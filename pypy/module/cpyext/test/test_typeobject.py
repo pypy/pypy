@@ -50,7 +50,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         raises(TypeError, "obj.int_member = 'not a number'")
         raises(TypeError, "del obj.int_member")
         raises(AttributeError, "obj.int_member_readonly = 42")
-        exc = raises(TypeError, "del obj.int_member_readonly")
+        exc = raises(AttributeError, "del obj.int_member_readonly")
         assert "readonly" in str(exc.value)
         raises(SystemError, "obj.broken_member")
         raises(SystemError, "obj.broken_member = 42")
@@ -196,26 +196,6 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         # does not have flag Py_TPFLAGS_BASETYPE
         module = self.import_module(name='foo')
         raises(TypeError, module.MetaType, 'other', (module.fooType,), {})
-
-    def test_sre(self):
-        import sys
-        for m in ['_sre', 'sre_compile', 'sre_constants', 'sre_parse', 're']:
-            # clear out these modules
-            try:
-                del sys.modules[m]
-            except KeyError:
-                pass
-        module = self.import_module(name='_sre')
-        import re
-        assert re.sre_compile._sre is module
-        s = u"Foo " * 1000 + u"Bar"
-        prog = re.compile("Foo.*Bar")
-        assert prog.match(s)
-        m = re.search("xyz", "xyzxyz")
-        assert m
-        assert "groupdict" in dir(m)
-        re.purge()
-        del prog, m
 
     def test_init_error(self):
         module = self.import_module("foo")
@@ -817,8 +797,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             }
 
             PyTypeObject IntLike_Type = {
-                PyObject_HEAD_INIT(0)
-                /*ob_size*/             0,
+                PyVarObject_HEAD_INIT(NULL, 0)
                 /*tp_name*/             "IntLike",
                 /*tp_basicsize*/        sizeof(IntLikeObject),
             };
@@ -848,7 +827,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                     return NULL;
 
                 IntLike_Type.tp_as_number = &intlike_as_number;
-                IntLike_Type.tp_flags |= Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES;
+                IntLike_Type.tp_flags |= Py_TPFLAGS_DEFAULT;
                 intlike_as_number.nb_add = intlike_nb_add;
                 intlike_as_number.nb_power = intlike_nb_pow;
                 if (PyType_Ready(&IntLike_Type) < 0) return NULL;
@@ -868,7 +847,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 if (!PyArg_ParseTuple(args, "l", &intval))
                     return NULL;
 
-                IntLike_Type_NoOp.tp_flags |= Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES;
+                IntLike_Type_NoOp.tp_flags |= Py_TPFLAGS_DEFAULT;
                 if (PyType_Ready(&IntLike_Type_NoOp) < 0) return NULL;
                 intObjNoOp = PyObject_New(IntLikeObjectNoOp, &IntLike_Type_NoOp);
                 if (!intObjNoOp) {
@@ -913,8 +892,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
              }
 
             PyTypeObject IntLike_Type = {
-                PyObject_HEAD_INIT(0)
-                /*ob_size*/             0,
+                PyVarObject_HEAD_INIT(NULL, 0)
                 /*tp_name*/             "IntLike",
                 /*tp_basicsize*/        sizeof(IntLikeObject),
             };
@@ -927,8 +905,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             } IntLikeObjectNoOp;
 
             PyTypeObject IntLike_Type_NoOp = {
-                PyObject_HEAD_INIT(0)
-                /*ob_size*/             0,
+                PyVarObject_HEAD_INIT(NULL, 0)
                 /*tp_name*/             "IntLikeNoOp",
                 /*tp_basicsize*/        sizeof(IntLikeObjectNoOp),
             };
@@ -974,8 +951,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 assert str(e) == 'instance layout conflicts in multiple inheritance'
 
             else:
-                assert str(e) == ('Error when calling the metaclass bases\n'
-                          '    multiple bases have instance lay-out conflict')
+                assert 'instance lay-out conflict' in str(e)
         else:
             raise AssertionError("did not get TypeError!")
 
@@ -986,8 +962,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 PyObject *o;
                 Foo_Type.tp_basicsize = sizeof(FooObject);
                 Foo_Type.tp_dealloc = &dealloc_foo;
-                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES
-                                    | Py_TPFLAGS_BASETYPE;
+                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
                 Foo_Type.tp_new = &new_foo;
                 Foo_Type.tp_free = &PyObject_Del;
                 if (PyType_Ready(&Foo_Type) < 0) return NULL;

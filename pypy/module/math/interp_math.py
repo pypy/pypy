@@ -2,6 +2,7 @@ import math
 import sys
 
 from rpython.rlib import rfloat
+from rpython.rlib.objectmodel import specialize
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 
@@ -18,6 +19,7 @@ def _get_double(space, w_x):
     else:
         return space.float_w(space.float(w_x))
 
+@specialize.arg(1)
 def math1(space, f, w_x):
     x = _get_double(space, w_x)
     try:
@@ -27,8 +29,8 @@ def math1(space, f, w_x):
     except ValueError:
         raise oefmt(space.w_ValueError, "math domain error")
     return space.wrap(y)
-math1._annspecialcase_ = 'specialize:arg(1)'
 
+@specialize.arg(1)
 def math1_w(space, f, w_x):
     x = _get_double(space, w_x)
     try:
@@ -38,8 +40,8 @@ def math1_w(space, f, w_x):
     except ValueError:
         raise oefmt(space.w_ValueError, "math domain error")
     return r
-math1_w._annspecialcase_ = 'specialize:arg(1)'
 
+@specialize.arg(1)
 def math2(space, f, w_x, w_snd):
     x = _get_double(space, w_x)
     snd = _get_double(space, w_snd)
@@ -50,7 +52,6 @@ def math2(space, f, w_x, w_snd):
     except ValueError:
         raise oefmt(space.w_ValueError, "math domain error")
     return space.wrap(r)
-math2._annspecialcase_ = 'specialize:arg(1)'
 
 def trunc(space, w_x):
     """Truncate x."""

@@ -61,11 +61,12 @@ def PyNumber_Float(space, w_obj):
     This is the equivalent of the Python expression float(o)."""
     return space.call_function(space.w_float, w_obj)
 
-@cpython_api([PyObject, rffi.CCHARPP], PyObject)
-def PyFloat_FromString(space, w_obj, _):
-    """Create a PyFloatObject object based on the string value in str, or
-    NULL on failure.  The pend argument is ignored.  It remains only for
-    backward compatibility."""
+@cpython_api([PyObject], PyObject)
+def PyFloat_FromString(space, w_obj):
+    """
+    Create a PyFloatObject object based on the string value in str, or
+    NULL on failure.
+    """
     return space.call_function(space.w_float, w_obj)
 
 UCHARP = lltype.Ptr(lltype.Array(

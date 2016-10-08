@@ -23,7 +23,8 @@ class Arguments(object):
     ###  Construction  ###
     #@enforceargs(keywords=[unicode])
     def __init__(self, space, args_w, keywords=None, keywords_w=None,
-                 w_stararg=None, w_starstararg=None, keyword_names_w=None):
+                 w_stararg=None, w_starstararg=None, keyword_names_w=None,
+                 methodcall=False):
         self.space = space
         assert isinstance(args_w, list)
         self.arguments_w = args_w
@@ -43,6 +44,9 @@ class Arguments(object):
         # a flag that specifies whether the JIT can unroll loops that operate
         # on the keywords
         self._jit_few_keywords = self.keywords is None or jit.isconstant(len(self.keywords))
+        # a flag whether this is likely a method call, which doesn't change the
+        # behaviour but produces better error messages
+        self.methodcall = methodcall
 
     def __repr__(self):
         """ NOT_RPYTHON """
@@ -270,7 +274,11 @@ class Arguments(object):
             for i in range(co_argcount, co_argcount + co_kwonlyargcount):
                 if scope_w[i] is not None:
                     kwonly_given += 1
-            raise ArgErrTooMany(signature.num_argnames(),
+            if self.methodcall:
+                cls = ArgErrTooManyMethod
+            else:
+                cls = ArgErrTooMany
+            raise cls(signature,
                                 0 if defaults_w is None else len(defaults_w),
                                 avail, kwonly_given)
 
@@ -498,14 +506,14 @@ class ArgErrMissing(ArgErr):
 
 
 class ArgErrTooMany(ArgErr):
-    def __init__(self, num_args, num_defaults, given, kwonly_given):
-        self.num_args = num_args
+    def __init__(self, signature, num_defaults, given, kwonly_given):
+        self.signature = signature
         self.num_defaults = num_defaults
         self.given = given
         self.kwonly_given = kwonly_given
 
     def getmsg(self):
-        num_args = self.num_args
+        num_args = self.signature.num_argnames()
         num_defaults = self.num_defaults
         if num_defaults:
             takes_str = "from %d to %d positional arguments" % (
@@ -523,6 +531,22 @@ class ArgErrTooMany(ArgErr):
                 self.given, "were" if self.given != 1 else "was")
         msg = "takes %s but %s given" % (takes_str, given_str)
         return msg
+
+class ArgErrTooManyMethod(ArgErrTooMany):
+    """ A subclass of ArgErrCount that is used if the argument matching is done
+    as part of a method call, in which case more information is added to the
+    error message, if the cause of the error is likely a forgotten `self`
+    argument.
+    """
+
+    def getmsg(self):
+        msg = ArgErrTooMany.getmsg(self)
+        n = self.signature.num_argnames()
+        if (self.given == n + 1 and
+                (n == 0 or self.signature.argnames[0] != "self")):
+            msg += ". Did you forget 'self' in the function definition?"
+        return msg
+
 
 class ArgErrMultipleValues(ArgErr):
 

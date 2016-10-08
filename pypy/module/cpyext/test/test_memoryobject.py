@@ -60,9 +60,7 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
                  return PyMemoryView_FromBuffer(&info);
                  """)])
         exc = raises(ValueError, module.fillinfo_NULL)
-        expected = ("cannot make memory view from a buffer with a NULL data "
-                    "pointer")
-        assert str(exc.value) == expected
+        assert 'NULL' in str(exc.value)
 
     @pytest.mark.skipif(True, reason='write a test for this')
     def test_get_base_and_get_buffer(self, space, api):
@@ -77,9 +75,7 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
         assert y.format == 'i'
         assert y.shape == (10,)
         assert len(y) == 10
-        s = y[3]
-        assert len(s) == struct.calcsize('i')
-        assert s == struct.pack('i', 3)
+        assert y[3] == 3
         viewlen = module.test_buffer(arr)
         assert viewlen == y.itemsize * len(y)
 

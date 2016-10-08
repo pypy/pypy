@@ -32,6 +32,7 @@ file   : program read from script file
 arg ...: arguments passed to program in sys.argv[1:]
 PyPy options and arguments:
 --info : print translation information about this PyPy executable
+-X faulthandler: attempt to display tracebacks when PyPy crashes
 """
 # Missing vs CPython: PYTHONHOME
 USAGE2 = """
@@ -525,6 +526,14 @@ def parse_command_line(argv):
 
     sys._xoptions = dict(x.split('=', 1) if '=' in x else (x, True)
                          for x in options['_xoptions'])
+
+    if 'faulthandler' in sys.builtin_module_names:
+        if 'faulthandler' in sys._xoptions or os.getenv('PYTHONFAULTHANDLER'):
+            import faulthandler
+            try:
+                faulthandler.enable(2)   # manually set to stderr
+            except ValueError:
+                pass      # ignore "2 is not a valid file descriptor"
 
 ##    if not we_are_translated():
 ##        for key in sorted(options):

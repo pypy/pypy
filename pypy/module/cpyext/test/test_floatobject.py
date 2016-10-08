@@ -38,7 +38,7 @@ class AppTestFloatObject(AppTestCpythonExtensionBase):
             ("from_string", "METH_NOARGS",
              """
                  PyObject* str = PyUnicode_FromString("1234.56");
-                 PyObject* res = PyFloat_FromString(str, NULL);
+                 PyObject* res = PyFloat_FromString(str);
                  Py_DECREF(str);
                  return res;
              """),

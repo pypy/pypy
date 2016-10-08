@@ -445,11 +445,14 @@ class PyFrame(W_Root):
             depth -= 1
         self.valuestackdepth = finaldepth
 
-    def make_arguments(self, nargs):
-        return Arguments(self.space, self.peekvalues(nargs))
+    def make_arguments(self, nargs, methodcall=False):
+        return Arguments(
+                self.space, self.peekvalues(nargs), methodcall=methodcall)
 
-    def argument_factory(self, arguments, keywords, keywords_w, w_star, w_starstar):
-        return Arguments(self.space, arguments, keywords, keywords_w, w_star, w_starstar)
+    def argument_factory(self, arguments, keywords, keywords_w, w_star, w_starstar, methodcall=False):
+        return Arguments(
+                self.space, arguments, keywords, keywords_w, w_star,
+                w_starstar, methodcall=methodcall)
 
     @jit.dont_look_inside
     def descr__reduce__(self, space):

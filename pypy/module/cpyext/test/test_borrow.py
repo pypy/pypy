@@ -49,8 +49,6 @@ class AppTestBorrow(AppTestCpythonExtensionBase):
         assert module.test_borrow_destroy() == 42
 
     def test_double_borrow(self):
-        if self.runappdirect:
-            py.test.xfail('segfault')
         module = self.import_extension('foo', [
             ("run", "METH_NOARGS",
              """

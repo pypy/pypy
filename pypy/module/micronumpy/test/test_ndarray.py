@@ -3659,6 +3659,28 @@ class AppTestSupport(BaseNumpyAppTest):
         assert z.dtype == 'O'
         assert (z == x).all()
 
+        dt1 = np.dtype(
+             [('a', 'b'), ('b', 'i'), ('sub', np.dtype('b,i')), ('c', 'i')],
+             align=True)
+        x = np.arange(dt1.itemsize, dtype=np.int8).view(dt1)
+        y = memoryview(x)
+        if '__pypy__' in sys.builtin_module_names:
+            assert y.format == 'T{b:a:xxxi:b:T{b:f0:i:f1:}:sub:xxxi:c:}'
+        else:
+            assert y.format == 'T{b:a:xxxi:b:T{b:f0:=i:f1:}:sub:xxx@i:c:}'
+ 
+
+        dt1 = np.dtype(
+             [('a', 'b'), ('b', 'i'), ('sub', np.dtype('b,i')), ('c', 'i')],
+             align=True)
+        x = np.arange(dt1.itemsize, dtype=np.int8).view(dt1)
+        y = memoryview(x)
+        if '__pypy__' in sys.builtin_module_names:
+            assert y.format == 'T{b:a:xxxi:b:T{b:f0:i:f1:}:sub:xxxi:c:}'
+        else:
+            assert y.format == 'T{b:a:xxxi:b:T{b:f0:=i:f1:}:sub:xxx@i:c:}'
+ 
+
     def test_fromstring(self):
         import sys
         from numpy import fromstring, dtype

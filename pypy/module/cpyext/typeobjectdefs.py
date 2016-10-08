@@ -87,8 +87,6 @@ PyNumberMethods = cpython_struct("PyNumberMethods", (
     ("nb_int", unaryfunc),
     ("nb_long", unaryfunc),
     ("nb_float", unaryfunc),
-    ("nb_oct", unaryfunc),
-    ("nb_hex", unaryfunc),
     ("nb_inplace_add", binaryfunc),
     ("nb_inplace_subtract", binaryfunc),
     ("nb_inplace_multiply", binaryfunc),
@@ -188,7 +186,7 @@ PyTypeObjectFields.extend([
     ("tp_clear", inquiry),        #U
 
     # Assigned meaning in release 2.1
-    # rich comparisons 
+    # rich comparisons
     ("tp_richcompare", richcmpfunc), #N
 
     # weak reference enabler

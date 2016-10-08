@@ -18,6 +18,7 @@ from rpython.rlib import clibffi, rgc
 from rpython.rlib.rarithmetic import intmask, signedtype, r_uint, \
     r_ulonglong
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib.objectmodel import specialize
 import sys
 
 IS_BIG_ENDIAN = sys.byteorder == 'big'
@@ -285,6 +286,7 @@ def LOW_BIT(x):
 def NUM_BITS(x):
     return x >> 16
 
+@specialize.arg(1)
 def BIT_MASK(x, ll_t):
     if ll_t is lltype.SignedLongLong or ll_t is lltype.UnsignedLongLong:
         one = r_ulonglong(1)
@@ -292,8 +294,8 @@ def BIT_MASK(x, ll_t):
         one = r_uint(1)
     # to avoid left shift by x == sizeof(ll_t)
     return (((one << (x - 1)) - 1) << 1) + 1
-BIT_MASK._annspecialcase_ = 'specialize:arg(1)'
 
+@specialize.argtype(2)
 def push_field(self, num, value):
     ptr = rffi.ptradd(self.ll_buffer, self.shape.ll_positions[num])
     TP = lltype.typeOf(value)
@@ -314,8 +316,8 @@ def push_field(self, num, value):
                 value = rffi.cast(TP, current)
             break
     write_ptr(ptr, 0, value)
-push_field._annspecialcase_ = 'specialize:argtype(2)'
 
+@specialize.arg(2)
 def cast_pos(self, i, ll_t):
     pos = rffi.ptradd(self.ll_buffer, self.shape.ll_positions[i])
     value = read_ptr(pos, 0, ll_t)
@@ -338,7 +340,6 @@ def cast_pos(self, i, ll_t):
                 value = rffi.cast(ll_t, value)
             break
     return value
-cast_pos._annspecialcase_ = 'specialize:arg(2)'
 
 class W_StructureInstance(W_DataInstance):
     def __init__(self, space, shape, address):

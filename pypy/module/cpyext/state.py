@@ -12,7 +12,7 @@ class State:
     def __init__(self, space):
         self.space = space
         self.reset()
-        self.programname = lltype.nullptr(rffi.CCHARP.TO)
+        self.programname = lltype.nullptr(rffi.CWCHARP.TO)
         self.version = lltype.nullptr(rffi.CCHARP.TO)
         pyobj_dealloc_action = PyObjDeallocAction(space)
         self.dealloc_trigger = lambda: pyobj_dealloc_action.fire()
@@ -100,10 +100,10 @@ class State:
             argv = space.sys.get('argv')
             if space.len_w(argv):
                 argv0 = space.getitem(argv, space.wrap(0))
-                progname = space.str_w(argv0)
+                progname = space.unicode_w(argv0)
             else:
-                progname = "pypy"
-            self.programname = rffi.str2charp(progname)
+                progname = u"pypy"
+            self.programname = rffi.unicode2wcharp(progname)
             lltype.render_immortal(self.programname)
         return self.programname
 

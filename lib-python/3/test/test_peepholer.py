@@ -4,6 +4,7 @@ import sys
 from io import StringIO
 import unittest
 from math import copysign
+from test.support import cpython_only
 
 from test.bytecode_helper import BytecodeTestCase
 
@@ -184,6 +185,7 @@ class TestTranforms(BytecodeTestCase):
         code = compile('a="x"*1000', '', 'single')
         self.assertInBytecode(code, 'LOAD_CONST', 1000)
 
+    @cpython_only # we currently not bother to implement that
     def test_binary_subscr_on_unicode(self):
         # valid code get optimized
         code = compile('"foo"[0]', '', 'single')

@@ -18,6 +18,11 @@ class SyntaxError(Exception):
             from rpython.rlib.runicode import str_decode_utf_8
             # self.text may not be UTF-8 in case of decoding errors.
             # adjust the encoded text offset to a decoded offset
+            # XXX do the right thing about continuation lines, which
+            # XXX are their own fun, sometimes giving offset >
+            # XXX len(self.text) for example (right now, avoid crashing)
+            if offset > len(self.text):
+                offset = len(self.text)
             text, _ = str_decode_utf_8(self.text, offset, 'replace')
             offset = len(text)
             if len(self.text) != offset:

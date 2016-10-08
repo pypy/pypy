@@ -87,6 +87,7 @@ PyInit_comparisons(void)
 {
     PyObject *m, *d;
 
+    CmpType.tp_new = PyType_GenericNew;
     if (PyType_Ready(&CmpType) < 0)
         return NULL;
     m = PyModule_Create(&moduledef);

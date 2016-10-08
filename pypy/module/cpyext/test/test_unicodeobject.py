@@ -134,6 +134,21 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         res = module.aswidecharstring("Caf\xe9")
         assert res == ("Caf\xe9\0", 4)
 
+    def test_fromwidechar(self):
+        module = self.import_extension('foo', [
+            ("truncate", "METH_O",
+             '''
+             wchar_t buffer[5] = { 0 };
+
+             if (PyUnicode_AsWideChar(args, buffer, 4) == -1)
+                 return NULL;
+
+             return PyUnicode_FromWideChar(buffer, -1);
+             ''')])
+        assert module.truncate("Caf\xe9") == "Caf\xe9"
+        assert module.truncate("abcde") == "abcd"
+        assert module.truncate("ab") == "ab"
+
     def test_CompareWithASCIIString(self):
         module = self.import_extension('foo', [
             ("compare", "METH_VARARGS",

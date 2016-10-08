@@ -6,7 +6,7 @@ The rest, dealing with variables in optimized ways, is in nestedscope.py.
 
 from rpython.rlib import jit, rstackovf, rstring
 from rpython.rlib.debug import check_nonneg
-from rpython.rlib.objectmodel import we_are_translated, always_inline
+(??)from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.tool.sourcetools import func_with_new_name
 
@@ -484,20 +484,20 @@ class __extend__(pyframe.PyFrame):
         # of oparg failed to produce an integer which is annotated as non-neg
         check_nonneg(oparg)
 
+    @always_inline
     def LOAD_FAST(self, varindex, next_instr):
         # access a local variable directly
         w_value = self.locals_cells_stack_w[varindex]
         if w_value is None:
             self._load_fast_failed(varindex)
         self.pushvalue(w_value)
-    LOAD_FAST._always_inline_ = True
 
+    @dont_inline
     def _load_fast_failed(self, varindex):
         varname = self.getlocalvarname(varindex)
         raise oefmt(self.space.w_UnboundLocalError,
                     "local variable '%s' referenced before assignment",
                     varname)
-    _load_fast_failed._dont_inline_ = True
 
     def LOAD_CONST(self, constindex, next_instr):
         w_const = self.getconstant_w(constindex)
@@ -873,26 +873,26 @@ class __extend__(pyframe.PyFrame):
                         "name %R is not defined", w_varname)
         self.pushvalue(w_value)
 
+    @always_inline
     def _load_global(self, varname):
         w_value = self.space.finditem_str(self.get_w_globals(), varname)
         if w_value is None:
             # not in the globals, now look in the built-ins
             w_value = self.get_builtin().getdictvalue(self.space, varname)
         return w_value
-    _load_global._always_inline_ = True
 
+    @dont_inline
     def _load_global_failed(self, w_varname):
         raise oefmt(self.space.w_NameError,
                     "global name %R is not defined", w_varname)
-    _load_global_failed._dont_inline_ = True
 
+    @always_inline
     def LOAD_GLOBAL(self, nameindex, next_instr):
         w_varname = self.getname_w(nameindex)
         w_value = self._load_global(self.space.identifier_w(w_varname))
         if w_value is None:
             self._load_global_failed(w_varname)
         self.pushvalue(w_value)
-    LOAD_GLOBAL._always_inline_ = True
 
     def DELETE_FAST(self, varindex, next_instr):
         if self.locals_cells_stack_w[varindex] is None:
@@ -926,6 +926,7 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(space.newlist([], sizehint=length_hint))
         self.pushvalue(last_val)
 
+    @always_inline
     def LOAD_ATTR(self, nameindex, next_instr):
         "obj.attributename"
         w_obj = self.popvalue()
@@ -936,7 +937,6 @@ class __extend__(pyframe.PyFrame):
             w_attributename = self.getname_w(nameindex)
             w_value = self.space.getattr(w_obj, w_attributename)
         self.pushvalue(w_value)
-    LOAD_ATTR._always_inline_ = True
 
     @jit.unroll_safe
     def cmp_exc_match(self, w_1, w_2):

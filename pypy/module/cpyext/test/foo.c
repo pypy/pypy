@@ -259,8 +259,7 @@ static PyMethodDef UnicodeSubclass_methods[] = {
 };
 
 PyTypeObject UnicodeSubtype = {
-    PyObject_HEAD_INIT(NULL)
-    0,
+    PyVarObject_HEAD_INIT(NULL, 0)
     "foo.fuu",
     sizeof(UnicodeSubclassObject),
     0,
@@ -281,7 +280,7 @@ PyTypeObject UnicodeSubtype = {
     0,          /*tp_setattro*/
     0,          /*tp_as_buffer*/
 
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES, /*tp_flags*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
     0,          /*tp_doc*/
 
     0,          /*tp_traverse*/
@@ -318,8 +317,7 @@ PyTypeObject UnicodeSubtype = {
 };
 
 PyTypeObject UnicodeSubtype2 = {
-    PyObject_HEAD_INIT(NULL)
-    0,
+    PyVarObject_HEAD_INIT(NULL, 0)
     "foo.fuu2",
     sizeof(UnicodeSubclassObject),
     0,
@@ -340,7 +338,7 @@ PyTypeObject UnicodeSubtype2 = {
     0,          /*tp_setattro*/
     0,          /*tp_as_buffer*/
 
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES, /*tp_flags*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
     0,          /*tp_doc*/
 
     0,          /*tp_traverse*/
@@ -377,8 +375,7 @@ PyTypeObject UnicodeSubtype2 = {
 };
 
 PyTypeObject UnicodeSubtype3 = {
-    PyObject_HEAD_INIT(NULL)
-    0,
+    PyVarObject_HEAD_INIT(NULL, 0)
     "foo.fuu3",
     sizeof(UnicodeSubclassObject)
 };
@@ -386,8 +383,7 @@ PyTypeObject UnicodeSubtype3 = {
 /* A Metatype */
 
 PyTypeObject MetaType = {
-    PyObject_HEAD_INIT(NULL)
-    0,
+    PyVarObject_HEAD_INIT(NULL, 0)
     "foo.Meta",
     sizeof(PyHeapTypeObject),/*tp_basicsize*/
     0,          /*tp_itemsize*/
@@ -408,7 +404,7 @@ PyTypeObject MetaType = {
     0,          /*tp_setattro*/
     0,          /*tp_as_buffer*/
 
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES, /*tp_flags*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
     0,          /*tp_doc*/
 
     0,          /*tp_traverse*/
@@ -466,8 +462,7 @@ static int initerrtype_init(PyObject *self, PyObject *args, PyObject *kwargs) {
 
 
 PyTypeObject InitErrType = {
-    PyObject_HEAD_INIT(NULL)
-    0,
+    PyVarObject_HEAD_INIT(NULL, 0)
     "foo.InitErrType",
     sizeof(PyObject),/*tp_basicsize*/
     0,          /*tp_itemsize*/
@@ -488,7 +483,7 @@ PyTypeObject InitErrType = {
     0,          /*tp_setattro*/
     0,          /*tp_as_buffer*/
 
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES, /*tp_flags*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
     0,          /*tp_doc*/
 
     0,          /*tp_traverse*/
@@ -550,8 +545,7 @@ int prop_descr_set(PyObject *self, PyObject *obj, PyObject *value)
 
 
 PyTypeObject SimplePropertyType = {
-    PyObject_HEAD_INIT(NULL)
-    0,
+    PyVarObject_HEAD_INIT(NULL, 0)
     "foo.Property",
     sizeof(PyObject),
     0,
@@ -572,7 +566,7 @@ PyTypeObject SimplePropertyType = {
     0,          /*tp_setattro*/
     0,          /*tp_as_buffer*/
 
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES, /*tp_flags*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
     0,          /*tp_doc*/
 
     0,          /*tp_traverse*/
@@ -619,14 +613,13 @@ static PyTypeObject CustomType;
 static PyObject *newCustom(PyObject *self, PyObject *args)
 {
     PyObject *obj = calloc(1, sizeof(PyObject));
-    obj->ob_type = &CustomType;
+    Py_TYPE(obj) = &CustomType;
     _Py_NewReference(obj);
     return obj;
 }
 
 static PyTypeObject CustomType = {
-    PyObject_HEAD_INIT(NULL)
-    0,
+    PyVarObject_HEAD_INIT(NULL, 0)
     "foo.Custom",            /*tp_name*/
     sizeof(PyObject),        /*tp_size*/
     0,                       /*tp_itemsize*/
@@ -635,8 +628,7 @@ static PyTypeObject CustomType = {
 };
 
 static PyTypeObject TupleLike = {
-    PyObject_HEAD_INIT(NULL)
-    0,
+    PyVarObject_HEAD_INIT(NULL, 0)
     "foo.TupleLike",         /*tp_name*/
     sizeof(PyObject),        /*tp_size*/
 };
@@ -736,7 +728,7 @@ initfoo(void)
     SimplePropertyType.tp_new = PyType_GenericNew;
     InitErrType.tp_new = PyType_GenericNew;
 
-    CustomType.ob_type = &MetaType;
+    Py_TYPE(&CustomType) = &MetaType;
     if (PyType_Ready(&CustomType) < 0)
         INITERROR;
 
