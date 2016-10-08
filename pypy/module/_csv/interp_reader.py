@@ -10,7 +10,7 @@ from pypy.module._csv.interp_csv import (QUOTE_MINIMAL, QUOTE_ALL,
 
 (START_RECORD, START_FIELD, ESCAPED_CHAR, IN_FIELD,
  IN_QUOTED_FIELD, ESCAPE_IN_QUOTED_FIELD, QUOTE_IN_QUOTED_FIELD,
- EAT_CRNL) = range(8)
+ EAT_CRNL, AFTER_ESCAPED_CRNL) = range(9)
 
 
 class W_Reader(W_Root):
@@ -113,10 +113,14 @@ class W_Reader(W_Root):
                         state = IN_FIELD
 
                 elif state == ESCAPED_CHAR:
-                    self.add_char(field_builder, c)
-                    state = IN_FIELD
+                    if c in '\n\r':
+                        self.add_char(field_builder, c)
+                        state = AFTER_ESCAPED_CRNL
+                    else:
+                        self.add_char(field_builder, c)
+                        state = IN_FIELD
 
-                elif state == IN_FIELD:
+                elif state == IN_FIELD or state == AFTER_ESCAPED_CRNL:
                     # in unquoted field
                     if c == u'\n' or c == u'\r':
                         # end of line
