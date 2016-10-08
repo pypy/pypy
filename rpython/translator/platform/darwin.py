@@ -6,10 +6,10 @@ import os
 #
 # Although Intel 32bit is supported since Apple Mac OS X 10.4, (and PPC since, ever)
 # the @rpath handling used in Darwin._args_for_shared is only availabe
-# since 10.5, so we use that as minimum requirement. Bumped to 10.6
-# because 10.11 does not ship with 10.5 versions of libs
+# since 10.5, so we use that as minimum requirement. Bumped to 10.7
+# to allow the use of thread-local in __thread in C.
 #
-DARWIN_VERSION_MIN = '-mmacosx-version-min=10.6'
+DARWIN_VERSION_MIN = '-mmacosx-version-min=10.7'
 
 class Darwin(posix.BasePosix):
     name = "darwin"
