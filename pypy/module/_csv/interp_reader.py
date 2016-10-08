@@ -203,6 +203,8 @@ class W_Reader(W_Root):
                 field_builder = UnicodeBuilder(1)
                 self.save_field(field_builder)
                 break
+            elif state == AFTER_ESCAPED_CRNL:
+                continue
             else:
                 break
         #
