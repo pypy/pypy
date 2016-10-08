@@ -1795,8 +1795,9 @@ class TestType(unittest.TestCase):
             type('A', (B,), {})
 
     def test_bad_slots(self):
-        with self.assertRaises(TypeError):
-            type('A', (long,), {'__slots__': 'x'})
+        if not check_impl_detail(pypy=True):
+            with self.assertRaises(TypeError):
+                type('A', (long,), {'__slots__': 'x'})
         with self.assertRaises(TypeError):
             type('A', (), {'__slots__': ''})
         with self.assertRaises(TypeError):
