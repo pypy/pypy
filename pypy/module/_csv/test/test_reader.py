@@ -21,6 +21,12 @@ class AppTestReader(object):
             w__read_test = staticmethod(w__read_test)
         cls.w__read_test = w__read_test
 
+    def test_escaped_char_quotes(self):
+        import _csv
+        from io import StringIO
+        r = _csv.reader(StringIO('a\\\nb,c\n'), quoting=_csv.QUOTE_NONE, escapechar='\\')
+        assert next(r) == ['a\nb', 'c']
+
     def test_simple_reader(self):
         self._read_test(['foo:bar\n'], [['foo', 'bar']], delimiter=':')
 
