@@ -35,10 +35,10 @@ def dump_code(pycode, loc, fd):
     else:
         _dump(fd, '  File "')
         _dump(fd, pycode.co_filename)
-        _dump(fd, '" in ')
-        _dump(fd, pycode.co_name)
-        _dump(fd, ", from line ")
+        _dump(fd, '", line ')
         _dump_nonneg_int(fd, pycode.co_firstlineno)
+        _dump(fd, " in ")
+        _dump(fd, pycode.co_name)
     if loc == traceback.LOC_JITTED:
         _dump(fd, " [jitted]")
     elif loc == traceback.LOC_JITTED_INLINED:

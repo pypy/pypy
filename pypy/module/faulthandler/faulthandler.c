@@ -141,7 +141,8 @@ void pypy_faulthandler_dump_traceback(int fd, int all_threads,
             pypy_faulthandler_write(fd, my == p ? "Current thread 0x"
                                                 : "Thread 0x");
             pypy_faulthandler_write_hex(fd, (unsigned long)p->thread_ident);
-            pypy_faulthandler_write(fd, " (most recent call first):\n");
+            pypy_faulthandler_write(fd, " (most recent call first,"
+                                        " approximate line numbers):\n");
 
             array_length = vmprof_get_traceback(p->vmprof_tl_stack,
                                                 my == p ? ucontext : NULL,
@@ -153,7 +154,8 @@ void pypy_faulthandler_dump_traceback(int fd, int all_threads,
         _RPython_ThreadLocals_Release();
     }
     else {
-        pypy_faulthandler_write(fd, "Stack (most recent call first):\n");
+        pypy_faulthandler_write(fd, "Stack (most recent call first,"
+                                    " approximate line numbers):\n");
         array_length = vmprof_get_traceback(NULL, ucontext,
                                             array_p, FRAME_DEPTH_N);
         fn(fd, array_p, array_length);
