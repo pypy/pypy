@@ -29,8 +29,7 @@ def _check_state(state):
         index = 0
     else:
         valpred, index = state
-        # XXX: len(stepsizeTable) = 89
-        if valpred >= 0x8000 or valpred < -0x8000 or index >= 89:
+        if not (-0x8000 <= valpred < 0x8000 and 0 <= index < 89):
             raise ValueError("bad state")
     return (valpred, index)
 
@@ -466,6 +465,9 @@ def ratecv(cp, size, nchannels, inrate, outrate, state, weightA=1, weightB=0):
     d = gcd(inrate, outrate)
     inrate //= d
     outrate //= d
+    d = gcd(weightA, weightB)
+    weightA //= d
+    weightB //= d
 
     if state is None:
         d = -outrate
