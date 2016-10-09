@@ -317,3 +317,9 @@ class AppTestBasic:
         iterator = reversed(d)
         copy = pickle.loads(pickle.dumps(iterator))
         assert list(iterator) == list(copy)
+
+    def test_deque_add(self):
+        from _collections import deque
+        d1 = deque([1,2,3])
+        d2 = deque([3,4,5])
+        assert d1 + d2 == deque([1,2,3,3,4,5])
