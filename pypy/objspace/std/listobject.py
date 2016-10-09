@@ -21,7 +21,6 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
     WrappedDefault, applevel, interp2app, unwrap_spec)
-from pypy.interpreter.generator import GeneratorIterator
 from pypy.interpreter.signature import Signature
 from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std.bytesobject import W_BytesObject
@@ -863,7 +862,7 @@ class ListStrategy(object):
         if type(w_any) is W_ListObject or (isinstance(w_any, W_ListObject) and
                                            self.space._uses_list_iter(w_any)):
             self._extend_from_list(w_list, w_any)
-        elif isinstance(w_any, GeneratorIterator):
+        elif space.is_generator(w_any):
             w_any.unpack_into_w(w_list)
         else:
             self._extend_from_iterable(w_list, w_any)
