@@ -8,13 +8,13 @@ class StringOrUnicodeBuilder(object):
     def __init__(self):
         self._builder = StringBuilder()
     def append(self, string):
-        try:
-            self._builder.append(string)
-        except UnicodeEncodeError:
+        if (isinstance(string, unicode) and
+                type(self._builder) is StringBuilder):
             ub = UnicodeBuilder()
             ub.append(self._builder.build())
             self._builder = ub
-            ub.append(string)
+            self.append = ub.append   # shortcut only
+        self._builder.append(string)
     def build(self):
         return self._builder.build()
 

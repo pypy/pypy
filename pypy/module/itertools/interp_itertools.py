@@ -1,5 +1,5 @@
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from rpython.rlib import jit
@@ -46,8 +46,7 @@ class W_Count(W_Root):
 def check_number(space, w_obj):
     if (space.lookup(w_obj, '__int__') is None and
         space.lookup(w_obj, '__float__') is None):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("expected a number"))
+        raise oefmt(space.w_TypeError, "expected a number")
 
 @unwrap_spec(w_start=WrappedDefault(0), w_step=WrappedDefault(1))
 def W_Count___new__(space, w_subtype, w_start, w_step):
@@ -346,7 +345,9 @@ class W_ISlice(W_Root):
                  "Indicies for islice() must be None or non-negative integers")
             w_stop = args_w[0]
         else:
-            raise OperationError(space.w_TypeError, space.wrap("islice() takes at most 4 arguments (" + str(num_args) + " given)"))
+            raise oefmt(space.w_TypeError,
+                        "islice() takes at most 4 arguments (%d given)",
+                        num_args)
 
         if space.is_w(w_stop, space.w_None):
             stop = -1
@@ -372,8 +373,8 @@ class W_ISlice(W_Root):
     def arg_int_w(self, w_obj, minimum, errormsg):
         space = self.space
         try:
-            result = space.int_w(w_obj)
-        except OperationError, e:
+            result = space.int_w(space.int(w_obj))    # CPython allows floats as parameters
+        except OperationError as e:
             if e.async(space):
                 raise
             result = -1
@@ -474,7 +475,7 @@ class W_Chain(W_Root):
             self._advance()
         try:
             return self.space.next(self.w_it)
-        except OperationError, e:
+        except OperationError as e:
             return self._handle_error(e)
 
     def _handle_error(self, e):
@@ -484,7 +485,7 @@ class W_Chain(W_Root):
             self._advance() # may raise StopIteration itself
             try:
                 return self.space.next(self.w_it)
-            except OperationError, e:
+            except OperationError as e:
                 pass # loop back to the start of _handle_error(e)
 
 def W_Chain___new__(space, w_subtype, args_w):
@@ -538,9 +539,11 @@ class W_IMap(W_Root):
         for iterable_w in args_w:
             try:
                 iterator_w = space.iter(iterable_w)
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(self.space, self.space.w_TypeError):
-                    raise OperationError(space.w_TypeError, space.wrap(self._error_name + " argument #" + str(i + 1) + " must support iteration"))
+                    raise oefmt(space.w_TypeError,
+                                "%s argument #%d must support iteration",
+                                self._error_name, i + 1)
                 else:
                     raise
             else:
@@ -577,8 +580,8 @@ class W_IMap(W_Root):
 
 def W_IMap___new__(space, w_subtype, w_fun, args_w):
     if len(args_w) == 0:
-        raise OperationError(space.w_TypeError,
-                  space.wrap("imap() must have at least two arguments"))
+        raise oefmt(space.w_TypeError,
+                    "imap() must have at least two arguments")
     r = space.allocate_instance(W_IMap, w_subtype)
     r.__init__(space, w_fun, args_w)
     return space.wrap(r)
@@ -657,7 +660,7 @@ class W_IZipLongest(W_IMap):
             space = self.space
             try:
                 return space.next(w_iter)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_StopIteration):
                     raise
                 self.active -= 1
@@ -690,8 +693,8 @@ def W_IZipLongest___new__(space, w_subtype, __args__):
             w_fillvalue = kwds_w["fillvalue"]
             del kwds_w["fillvalue"]
         if kwds_w:
-            raise OperationError(space.w_TypeError, space.wrap(
-                "izip_longest() got unexpected keyword argument(s)"))
+            raise oefmt(space.w_TypeError,
+                        "izip_longest() got unexpected keyword argument(s)")
 
     self = space.allocate_instance(W_IZipLongest, w_subtype)
     self.__init__(space, space.w_None, arguments_w)
@@ -739,7 +742,7 @@ class W_Cycle(W_Root):
         else:
             try:
                 w_obj = self.space.next(self.w_iterable)
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(self.space, self.space.w_StopIteration):
                     self.exhausted = True
                     if not self.saved_w:
@@ -832,7 +835,7 @@ def tee(space, w_iterable, n=2):
     data before the other iterator, it is faster to use list() instead
     of tee()
 
-    Equivalent to :
+    If iter(iterable) has no method __copy__(), this is equivalent to:
 
     def tee(iterable, n=2):
         def gen(next, data={}, cnt=[0]):
@@ -845,17 +848,22 @@ def tee(space, w_iterable, n=2):
                 yield item
         it = iter(iterable)
         return tuple([gen(it.next) for i in range(n)])
+
+    If iter(iterable) has a __copy__ method, though, we just return
+    a tuple t = (iterable, t[0].__copy__(), t[1].__copy__(), ...).
     """
     if n < 0:
-        raise OperationError(space.w_ValueError, space.wrap("n must be >= 0"))
+        raise oefmt(space.w_ValueError, "n must be >= 0")
 
-    if isinstance(w_iterable, W_TeeIterable):     # optimization only
-        chained_list = w_iterable.chained_list
-        w_iterator = w_iterable.w_iterator
+    if space.findattr(w_iterable, space.wrap("__copy__")) is not None:
+        # In this case, we don't instantiate any W_TeeIterable.
+        # We just rely on doing repeated __copy__().  This case
+        # includes the situation where w_iterable is already
+        # a W_TeeIterable itself.
         iterators_w = [w_iterable] * n
         for i in range(1, n):
-            iterators_w[i] = space.wrap(W_TeeIterable(space, w_iterator,
-                                                      chained_list))
+            w_iterable = space.call_method(w_iterable, "__copy__")
+            iterators_w[i] = w_iterable
     else:
         w_iterator = space.iter(w_iterable)
         chained_list = TeeChainedListNode()
@@ -888,6 +896,11 @@ class W_TeeIterable(W_Root):
         self.chained_list = chained_list.next
         return w_obj
 
+    def copy_w(self):
+        space = self.space
+        tee_iter = W_TeeIterable(space, self.w_iterator, self.chained_list)
+        return space.wrap(tee_iter)
+
 def W_TeeIterable___new__(space, w_subtype, w_iterable):
     # Obscure and undocumented function.  PyPy only supports w_iterable
     # being a W_TeeIterable, because the case where it is a general
@@ -903,6 +916,7 @@ W_TeeIterable.typedef = TypeDef(
         __new__ = interp2app(W_TeeIterable___new__),
         __iter__ = interp2app(W_TeeIterable.iter_w),
         next     = interp2app(W_TeeIterable.next_w),
+        __copy__ = interp2app(W_TeeIterable.copy_w),
         __weakref__ = make_weakref_descr(W_TeeIterable),
         )
 W_TeeIterable.typedef.acceptable_as_base_class = False
@@ -939,7 +953,7 @@ class W_GroupBy(W_Root):
             self.started = True
             try:
                 w_obj = self.space.next(self.w_iterable)
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(self.space, self.space.w_StopIteration):
                     self.exhausted = True
                 raise
@@ -975,7 +989,7 @@ class W_GroupBy(W_Root):
 
             try:
                 w_obj = self.space.next(self.w_iterable)
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(self.space, self.space.w_StopIteration):
                     self.exhausted = True
                     raise StopIteration
@@ -1167,8 +1181,8 @@ def W_Product__new__(space, w_subtype, __args__):
             w_repeat = kwds_w['repeat']
             del kwds_w['repeat']
         if kwds_w:
-            raise OperationError(space.w_TypeError, space.wrap(
-                "product() got unexpected keyword argument(s)"))
+            raise oefmt(space.w_TypeError,
+                        "product() got unexpected keyword argument(s)")
 
     r = space.allocate_instance(W_Product, w_subtype)
     r.__init__(space, arguments_w, w_repeat)
@@ -1270,9 +1284,7 @@ class W_Combinations(W_Root):
 def W_Combinations__new__(space, w_subtype, w_iterable, r):
     pool_w = space.fixedview(w_iterable)
     if r < 0:
-        raise OperationError(space.w_ValueError,
-            space.wrap("r must be non-negative")
-        )
+        raise oefmt(space.w_ValueError, "r must be non-negative")
     indices = range(len(pool_w))
     res = space.allocate_instance(W_Combinations, w_subtype)
     res.__init__(space, pool_w, indices, r)
@@ -1305,8 +1317,7 @@ class W_CombinationsWithReplacement(W_Combinations):
 def W_CombinationsWithReplacement__new__(space, w_subtype, w_iterable, r):
     pool_w = space.fixedview(w_iterable)
     if r < 0:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("r must be non-negative"))
+        raise oefmt(space.w_ValueError, "r must be non-negative")
     indices = [0] * r
     res = space.allocate_instance(W_CombinationsWithReplacement, w_subtype)
     res.__init__(space, pool_w, indices, r)

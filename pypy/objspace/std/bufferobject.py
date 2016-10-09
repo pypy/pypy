@@ -135,7 +135,7 @@ class W_Buffer(W_Root):
         return space.wrap(rffi.cast(lltype.Signed, ptr))
 
 W_Buffer.typedef = TypeDef(
-    "buffer",
+    "buffer", None, None, "read-write",
     __doc__ = """\
 buffer(object [, offset[, size]])
 

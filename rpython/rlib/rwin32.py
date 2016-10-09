@@ -5,7 +5,7 @@ Common types, functions from core win32 libraries, such as kernel32
 import os
 import errno
 
-from rpython.rtyper.module.ll_os_environ import make_env_impls
+from rpython.rlib.rposix_environ import make_env_impls
 from rpython.rtyper.tool import rffi_platform
 from rpython.tool.udir import udir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -46,6 +46,7 @@ class CConfig:
         LPWSTR = rffi_platform.SimpleType("LPWSTR", rffi.CWCHARP)
         LPCWSTR = rffi_platform.SimpleType("LPCWSTR", rffi.CWCHARP)
         LPDWORD = rffi_platform.SimpleType("LPDWORD", rffi.UINTP)
+        LPBOOL = rffi_platform.SimpleType("LPBOOL", rffi.LONGP)
         SIZE_T = rffi_platform.SimpleType("SIZE_T", rffi.SIZE_T)
         ULONG_PTR = rffi_platform.SimpleType("ULONG_PTR", rffi.ULONG)
 
@@ -57,6 +58,24 @@ class CConfig:
                                          ('dwHighDateTime', rffi.UINT)])
         SYSTEMTIME = rffi_platform.Struct('SYSTEMTIME',
                                           [])
+
+        Struct = rffi_platform.Struct
+        COORD = Struct("COORD",
+                       [("X", rffi.SHORT),
+                        ("Y", rffi.SHORT)])
+
+        SMALL_RECT = Struct("SMALL_RECT",
+                            [("Left", rffi.SHORT),
+                             ("Top", rffi.SHORT),
+                             ("Right", rffi.SHORT),
+                             ("Bottom", rffi.SHORT)])
+
+        CONSOLE_SCREEN_BUFFER_INFO = Struct("CONSOLE_SCREEN_BUFFER_INFO",
+                                            [("dwSize", COORD),
+                                             ("dwCursorPosition", COORD),
+                                             ("wAttributes", WORD.ctype_hint),
+                                             ("srWindow", SMALL_RECT),
+                                             ("dwMaximumWindowSize", COORD)])
 
         OSVERSIONINFOEX = rffi_platform.Struct(
             'OSVERSIONINFOEX',
@@ -92,7 +111,8 @@ class CConfig:
                        PROCESS_VM_WRITE
                        CTRL_C_EVENT CTRL_BREAK_EVENT
                        MB_ERR_INVALID_CHARS ERROR_NO_UNICODE_TRANSLATION
-                       WC_NO_BEST_FIT_CHARS
+                       WC_NO_BEST_FIT_CHARS STD_INPUT_HANDLE STD_OUTPUT_HANDLE
+                       STD_ERROR_HANDLE
                     """
         from rpython.translator.platform import host_factory
         static_platform = host_factory()
@@ -289,7 +309,7 @@ if WIN32:
                 buflen -= 1
 
             if buflen <= 0:
-                result = fake_FormatError(code)
+                result = 'Windows Error %d' % (code,)
             else:
                 result = rffi.charpsize2str(s_buf, buflen)
         finally:
@@ -297,9 +317,6 @@ if WIN32:
             lltype.free(buf, flavor='raw')
 
         return result
-
-    def fake_FormatError(code):
-        return 'Windows Error %d' % (code,)
 
     def lastSavedWindowsError(context="Windows Error"):
         code = GetLastError_saved()
@@ -445,19 +462,14 @@ if WIN32:
     def GetConsoleOutputCP():
         return rffi.cast(lltype.Signed, _GetConsoleOutputCP())
 
-    def os_kill(pid, sig):
-        if sig == CTRL_C_EVENT or sig == CTRL_BREAK_EVENT:
-            if GenerateConsoleCtrlEvent(sig, pid) == 0:
-                raise lastSavedWindowsError('os_kill failed generating event')
-            return
-        handle = OpenProcess(PROCESS_ALL_ACCESS, False, pid)
-        if handle == NULL_HANDLE:
-            raise lastSavedWindowsError('os_kill failed opening process')
-        try:
-            if TerminateProcess(handle, sig) == 0:
-                raise lastSavedWindowsError(
-                    'os_kill failed to terminate process')
-        finally:
-            CloseHandle(handle)
-
     _wenviron_items, _wgetenv, _wputenv = make_env_impls(win32=True)
+
+
+    _GetStdHandle = winexternal(
+        'GetStdHandle', [DWORD], HANDLE)
+
+    def GetStdHandle(handle_id):
+        return _GetStdHandle(handle_id)
+    CONSOLE_SCREEN_BUFFER_INFO_P = lltype.Ptr(CONSOLE_SCREEN_BUFFER_INFO)
+    GetConsoleScreenBufferInfo = winexternal(
+        "GetConsoleScreenBufferInfo", [HANDLE, CONSOLE_SCREEN_BUFFER_INFO_P], BOOL)

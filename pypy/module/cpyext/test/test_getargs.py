@@ -123,6 +123,7 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             return result;
             ''')
         assert 'foo\0bar\0baz' == pybuffer('foo\0bar\0baz')
+        assert 'foo\0bar\0baz' == pybuffer(bytearray('foo\0bar\0baz'))
 
 
     def test_pyarg_parse_string_old_buffer(self):
@@ -148,7 +149,6 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
         pybuffer = self.import_parser(
             '''
             Py_buffer buf1, buf2, buf3;
-            PyObject *result;
             if (!PyArg_ParseTuple(args, "s*s*s*", &buf1, &buf2, &buf3)) {
                 return NULL;
             }
@@ -161,7 +161,9 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
                 freed.append('x')
         raises(TypeError, pybuffer,
                freestring("string"), freestring("other string"), 42)
-        import gc; gc.collect()
+        self.debug_collect()    # gc.collect() is not enough in this test:
+                                # we need to check and free the PyObject
+                                # linked to the freestring object as well
         assert freed == ['x', 'x']
 
 

@@ -3,6 +3,7 @@ import py
 
 from rpython.annotator.test.test_annrpython import graphof
 from rpython.annotator.test.test_annrpython import TestAnnotateTestCase as parent
+from rpython.annotator.model import AnnotatorError
 
 
 class TestAnnotateAndSimplifyTestCase(parent):
@@ -132,5 +133,5 @@ class TestAnnotateAndSimplifyTestCase(parent):
                 cls = C
             return cls().foo
         a = self.RPythonAnnotator()
-        with py.test.raises(Exception):
+        with py.test.raises(AnnotatorError):
             a.build_types(f, [int])

@@ -67,8 +67,8 @@ with a JIT compiler, use ``--viewloops`` option.
   **module** directory contains extension modules written in RPython
 
 * **rpython compiler** that resides in ``rpython/annotator`` and
-  ``rpython/rtyper`` directories. Consult :doc:`introduction to RPython <getting-started-dev>` for
-  further reading
+  ``rpython/rtyper`` directories. Consult `Getting Started with RPython`_
+  for further reading
 
 * **JIT generator** lives in ``rpython/jit`` directory. optimizations live
   in ``rpython/jit/metainterp/optimizeopt``, the main JIT in
@@ -80,3 +80,14 @@ with a JIT compiler, use ``--viewloops`` option.
 
 The rest of directories serve specific niche goal and are unlikely a good
 entry point.
+
+
+More documentation
+------------------
+
+* `Getting Started Developing With PyPy`_
+
+* `Getting Started with RPython`_
+
+.. _`Getting Started Developing With PyPy`: getting-started-dev.html
+.. _`Getting started with RPython`: http://rpython.readthedocs.org/en/latest/getting-started.html

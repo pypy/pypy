@@ -1,17 +1,23 @@
-
+import sys
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module._rawffi.interp_rawffi import write_ptr
 from pypy.module._rawffi.structure import W_Structure
 from pypy.module._rawffi.interp_rawffi import (W_DataInstance, letter2tp,
-     unwrap_value, unpack_argshapes, got_libffi_error)
+     unwrap_value, unpack_argshapes, got_libffi_error, is_narrow_integer_type,
+     LL_TYPEMAP, NARROW_INTEGER_TYPES)
 from rpython.rlib.clibffi import USERDATA_P, CallbackFuncPtr, FUNCFLAG_CDECL
 from rpython.rlib.clibffi import ffi_type_void, LibFFIError
 from rpython.rlib import rweakref
 from pypy.module._rawffi.tracker import tracker
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import gateway
+from rpython.rlib.unroll import unrolling_iterable
+
+BIGENDIAN = sys.byteorder == 'big'
+
+unroll_narrow_integer_types = unrolling_iterable(NARROW_INTEGER_TYPES)
 
 app = gateway.applevel('''
     def tbprint(tb, err):
@@ -42,9 +48,18 @@ def callback(ll_args, ll_res, ll_userdata):
                 args_w[i] = space.wrap(rffi.cast(rffi.ULONG, ll_args[i]))
         w_res = space.call(w_callable, space.newtuple(args_w))
         if callback_ptr.result is not None: # don't return void
-            unwrap_value(space, write_ptr, ll_res, 0,
-                         callback_ptr.result, w_res)
-    except OperationError, e:
+            ptr = ll_res
+            letter = callback_ptr.result
+            if BIGENDIAN:
+                # take care of narrow integers!
+                for int_type in unroll_narrow_integer_types:
+                    if int_type == letter:
+                        T = LL_TYPEMAP[int_type]
+                        n = rffi.sizeof(lltype.Signed) - rffi.sizeof(T)
+                        ptr = rffi.ptradd(ptr, n)
+                        break
+            unwrap_value(space, write_ptr, ptr, 0, letter, w_res)
+    except OperationError as e:
         tbprint(space, space.wrap(e.get_traceback()),
                 space.wrap(e.errorstr(space)))
         # force the result to be zero

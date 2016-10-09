@@ -270,6 +270,19 @@ def test_array():
                                        [("d_name", lltype.FixedSizeArray(rffi.CHAR, 1))])
     assert dirent.c_d_name.length == 32
 
+def test_array_varsized_struct():
+    dirent = rffi_platform.getstruct("struct dirent",
+                                       """
+           struct dirent  /* for this example only, not the exact dirent */
+           {
+               int d_off;
+               char d_name[1];
+           };
+                                       """,
+                                       [("d_name", rffi.CArray(rffi.CHAR))])
+    assert rffi.offsetof(dirent, 'c_d_name') == 4
+    assert dirent.c_d_name == rffi.CArray(rffi.CHAR)
+
 def test_has_0001():
     assert rffi_platform.has("x", "int x = 3;")
     assert not rffi_platform.has("x", "")
@@ -277,10 +290,14 @@ def test_has_0001():
     assert not rffi_platform.has("x", "#include <some/path/which/cannot/exist>")
 
 def test_has_0002():
+    if platform.name == 'msvc':
+        py.test.skip('no m.lib in msvc')
     assert rffi_platform.has("pow", "#include <math.h>", libraries=["m"])
 
 def test_has_0003():
     """multiple libraries"""
+    if platform.name == 'msvc':
+        py.test.skip('no m.lib in msvc')
     assert rffi_platform.has("pow", "#include <math.h>", libraries=["m", "c"])
 
 def test_has_0004():

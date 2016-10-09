@@ -1,3 +1,4 @@
+import platform as host_platform
 import py
 import sys
 from rpython.tool.udir import udir
@@ -5,41 +6,39 @@ from rpython.tool.version import rpythonroot
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform as platform
-
-from rpython.jit.backend import detect_cpu
+from rpython.rlib import rthread, jit
+from rpython.rlib.objectmodel import we_are_translated
 
 class VMProfPlatformUnsupported(Exception):
     pass
 
+ROOT = py.path.local(rpythonroot).join('rpython', 'rlib', 'rvmprof')
+SRC = ROOT.join('src')
+
+if sys.platform.startswith('linux'):
+    _libs = ['dl']
+else:
+    _libs = []
+eci_kwds = dict(
+    include_dirs = [SRC],
+    includes = ['rvmprof.h', 'vmprof_stack.h'],
+    libraries = _libs,
+    separate_module_files = [SRC.join('rvmprof.c')],
+    post_include_bits=['#define RPYTHON_VMPROF\n'],
+    )
+global_eci = ExternalCompilationInfo(**eci_kwds)
+
+
 def setup():
-    if not detect_cpu.autodetect().startswith(detect_cpu.MODEL_X86_64):
-        raise VMProfPlatformUnsupported("rvmprof only supports"
-                                        " x86-64 CPUs for now")
-
-
-    ROOT = py.path.local(rpythonroot).join('rpython', 'rlib', 'rvmprof')
-    SRC = ROOT.join('src')
-
-
-    if sys.platform.startswith('linux'):
-        libs = ['dl']
-    else:
-        libs = []
-
-    eci_kwds = dict(
-        include_dirs = [SRC],
-        includes = ['rvmprof.h'],
-        libraries = libs,
-        separate_module_files = [SRC.join('rvmprof.c')],
-        post_include_bits=['#define RPYTHON_VMPROF\n'],
-        )
-    eci = ExternalCompilationInfo(**eci_kwds)
-
+    if host_platform.machine() == 's390x':
+        raise VMProfPlatformUnsupported("rvmprof not supported on"
+                                        " s390x CPUs for now")
+    compile_extra = ['-DRPYTHON_LL2CTYPES']
     platform.verify_eci(ExternalCompilationInfo(
-        compile_extra=['-DRPYTHON_LL2CTYPES'],
+        compile_extra=compile_extra,
         **eci_kwds))
 
-
+    eci = global_eci
     vmprof_init = rffi.llexternal("vmprof_init",
                                   [rffi.INT, rffi.DOUBLE, rffi.CCHARP],
                                   rffi.CCHARP, compilation_info=eci)
@@ -55,7 +54,14 @@ def setup():
                                            rffi.INT, compilation_info=eci)
     vmprof_ignore_signals = rffi.llexternal("vmprof_ignore_signals",
                                             [rffi.INT], lltype.Void,
-                                            compilation_info=eci)
+                                            compilation_info=eci,
+                                            _nowrapper=True)
+    vmprof_get_traceback = rffi.llexternal("vmprof_get_traceback",
+                                  [PVMPROFSTACK, llmemory.Address,
+                                   rffi.SIGNEDP, lltype.Signed],
+                                  lltype.Signed, compilation_info=eci,
+                                  _nowrapper=True)
+
     return CInterface(locals())
 
 
@@ -67,111 +73,95 @@ class CInterface(object):
     def _freeze_(self):
         return True
 
-def token2lltype(tok):
-    if tok == 'i':
-        return lltype.Signed
-    if tok == 'r':
-        return llmemory.GCREF
-    raise NotImplementedError(repr(tok))
 
-def make_trampoline_function(name, func, token, restok):
-    from rpython.jit.backend import detect_cpu
+# --- copy a few declarations from src/vmprof_stack.h ---
 
-    cont_name = 'rpyvmprof_f_%s_%s' % (name, token)
-    tramp_name = 'rpyvmprof_t_%s_%s' % (name, token)
-    orig_tramp_name = tramp_name
+VMPROF_CODE_TAG = 1
 
-    func.c_name = cont_name
-    func._dont_inline_ = True
+VMPROFSTACK = lltype.ForwardReference()
+PVMPROFSTACK = lltype.Ptr(VMPROFSTACK)
+VMPROFSTACK.become(rffi.CStruct("vmprof_stack_s",
+                                ('next', PVMPROFSTACK),
+                                ('value', lltype.Signed),
+                                ('kind', lltype.Signed)))
+# ----------
 
-    if sys.platform == 'darwin':
-        # according to internet "At the time UNIX was written in 1974...."
-        # "... all C functions are prefixed with _"
-        cont_name = '_' + cont_name
-        tramp_name = '_' + tramp_name
-        PLT = ""
-        size_decl = ""
-        type_decl = ""
+
+vmprof_tl_stack = rthread.ThreadLocalField(PVMPROFSTACK, "vmprof_tl_stack")
+do_use_eci = rffi.llexternal_use_eci(
+    ExternalCompilationInfo(includes=['vmprof_stack.h'],
+                            include_dirs = [SRC]))
+
+def enter_code(unique_id):
+    do_use_eci()
+    s = lltype.malloc(VMPROFSTACK, flavor='raw')
+    s.c_next = vmprof_tl_stack.get_or_make_raw()
+    s.c_value = unique_id
+    s.c_kind = VMPROF_CODE_TAG
+    vmprof_tl_stack.setraw(s)
+    return s
+
+def leave_code(s):
+    if not we_are_translated():
+        assert vmprof_tl_stack.getraw() == s
+    vmprof_tl_stack.setraw(s.c_next)
+    lltype.free(s, flavor='raw')
+
+#
+# JIT notes:
+#
+# - When running JIT-generated assembler code, we have different custom
+#   code to build the VMPROFSTACK, so the functions above are not used.
+#   (It uses kind == VMPROF_JITTED_TAG and the VMPROFSTACK is allocated
+#   in the C stack.)
+#
+# - The jitcode for decorated_jitted_function() in rvmprof.py is
+#   special-cased by jtransform.py to produce this:
+#
+#        rvmprof_code(0, unique_id)
+#        res = inline_call FUNC         <- for func(*args)
+#        rvmprof_code(1, unique_id)
+#        return res
+#
+#   There is no 'catch_exception', but the second 'rvmprof_code' is
+#   meant to be executed even in case there was an exception.  This is
+#   done by a special case in pyjitpl.py and blackhole.py.  The point
+#   is that the above simple pattern can be detected by the blackhole
+#   interp, when it first rebuilds all the intermediate RPython
+#   frames; at that point it needs to call jit_rvmprof_code(0) on all
+#   intermediate RPython frames, so it does pattern matching to
+#   recognize when it must call that and with which 'unique_id' value.
+#
+# - The jitcode opcode 'rvmprof_code' doesn't produce any resop.  When
+#   meta-interpreting, it causes pyjitpl to call jit_rvmprof_code().
+#   As mentioned above, there is logic to call jit_rvmprof_code(1)
+#   even if we exit with an exception, even though there is no
+#   'catch_exception'.  There is similar logic inside the blackhole
+#   interpreter.
+
+
+def jit_rvmprof_code(leaving, unique_id):
+    if leaving == 0:
+        enter_code(unique_id)    # ignore the return value
     else:
-        PLT = "@PLT"
-        type_decl = "\t.type\t%s, @function" % (tramp_name,)
-        size_decl = "\t.size\t%s, .-%s" % (
-            tramp_name, tramp_name)
+        s = vmprof_tl_stack.getraw()
+        assert s.c_value == unique_id and s.c_kind == VMPROF_CODE_TAG
+        leave_code(s)
 
+#
+# stacklet support
 
-    assert detect_cpu.autodetect().startswith(detect_cpu.MODEL_X86_64), (
-        "rvmprof only supports x86-64 CPUs for now")
+def save_rvmprof_stack():
+    return vmprof_tl_stack.get_or_make_raw()
 
-    # mapping of argument count (not counting the final uid argument) to
-    # the register that holds this uid argument
-    reg = {0: '%rdi',
-           1: '%rsi',
-           2: '%rdx',
-           3: '%rcx',
-           4: '%r8',
-           5: '%r9',
-           }
-    try:
-        reg = reg[len(token)]
-    except KeyError:
-        raise NotImplementedError(
-            "not supported: %r takes more than 5 arguments" % (func,))
+def empty_rvmprof_stack():
+    vmprof_tl_stack.setraw(lltype.nullptr(VMPROFSTACK))
 
-    target = udir.join('module_cache')
-    target.ensure(dir=1)
-    target = target.join('trampoline_%s_%s.vmprof.s' % (name, token))
-    # NOTE! the tabs in this file are absolutely essential, things
-    #       that don't start with \t are silently ignored (<arigato>: WAT!?)
-    target.write("""\
-\t.text
-\t.globl\t%(tramp_name)s
-%(type_decl)s
-%(tramp_name)s:
-\t.cfi_startproc
-\tpushq\t%(reg)s
-\t.cfi_def_cfa_offset 16
-\tcall %(cont_name)s%(PLT)s
-\taddq\t$8, %%rsp
-\t.cfi_def_cfa_offset 8
-\tret
-\t.cfi_endproc
-%(size_decl)s
-""" % locals())
+def restore_rvmprof_stack(x):
+    vmprof_tl_stack.setraw(x)
 
-    def tok2cname(tok):
-        if tok == 'i':
-            return 'long'
-        if tok == 'r':
-            return 'void *'
-        raise NotImplementedError(repr(tok))
+#
+# traceback support
 
-    header = 'RPY_EXTERN %s %s(%s);\n' % (
-        tok2cname(restok),
-        orig_tramp_name,
-        ', '.join([tok2cname(tok) for tok in token] + ['long']))
-
-    header += """\
-static int cmp_%s(void *addr) {
-    if (addr == %s) return 1;
-#ifdef VMPROF_ADDR_OF_TRAMPOLINE
-    return VMPROF_ADDR_OF_TRAMPOLINE(addr);
-#undef VMPROF_ADDR_OF_TRAMPOLINE
-#else
-    return 0;
-#endif
-#define VMPROF_ADDR_OF_TRAMPOLINE cmp_%s
-}
-""" % (tramp_name, orig_tramp_name, tramp_name)
-
-    eci = ExternalCompilationInfo(
-        post_include_bits = [header],
-        separate_module_files = [str(target)],
-    )
-
-    return rffi.llexternal(
-        orig_tramp_name,
-        [token2lltype(tok) for tok in token] + [lltype.Signed],
-        token2lltype(restok),
-        compilation_info=eci,
-        _nowrapper=True, sandboxsafe=True,
-        random_effects_on_gcobjs=True)
+def get_rvmprof_stack():
+    return vmprof_tl_stack.get_or_make_raw()

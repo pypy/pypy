@@ -1376,6 +1376,7 @@ def encode_long(x):
 
 def decode_long(data):
     r"""Decode a long from a two's complement little-endian binary string.
+    This is overriden on PyPy by a RPython version that has linear complexity.
 
     >>> decode_long('')
     0L
@@ -1401,6 +1402,11 @@ def decode_long(data):
     if data[-1] >= '\x80':
         n -= 1L << (nbytes * 8)
     return n
+
+try:
+    from __pypy__ import decode_long
+except ImportError:
+    pass
 
 # Shorthands
 

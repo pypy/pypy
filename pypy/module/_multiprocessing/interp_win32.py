@@ -4,7 +4,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
-from pypy.interpreter.error import OperationError, wrap_windowserror
+from pypy.interpreter.error import oefmt, wrap_windowserror
 from pypy.interpreter.function import StaticMethod
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.module._multiprocessing.interp_connection import w_handle
@@ -17,7 +17,7 @@ CONSTANTS = """
     NMPWAIT_WAIT_FOREVER
     ERROR_PIPE_CONNECTED ERROR_SEM_TIMEOUT ERROR_PIPE_BUSY
     ERROR_NO_SYSTEM_RESOURCES ERROR_BROKEN_PIPE ERROR_MORE_DATA
-    ERROR_ALREADY_EXISTS
+    ERROR_ALREADY_EXISTS ERROR_NO_DATA
 """.split()
 
 class CConfig:
@@ -120,8 +120,7 @@ def CreateNamedPipe(space, name, openmode, pipemode, maxinstances,
                     outputsize, inputsize, timeout, w_security):
     security = space.int_w(w_security)
     if security:
-        raise OperationError(space.w_NotImplementedError,
-                             space.wrap("expected a NULL pointer"))
+        raise oefmt(space.w_NotImplementedError, "expected a NULL pointer")
     handle = _CreateNamedPipe(
         name, openmode, pipemode, maxinstances,
         outputsize, inputsize, timeout, rffi.NULL)
@@ -135,8 +134,7 @@ def ConnectNamedPipe(space, w_handle, w_overlapped):
     handle = handle_w(space, w_handle)
     overlapped = space.int_w(w_overlapped)
     if overlapped:
-        raise OperationError(space.w_NotImplementedError,
-                             space.wrap("expected a NULL pointer"))
+        raise oefmt(space.w_NotImplementedError, "expected a NULL pointer")
     if not _ConnectNamedPipe(handle, rffi.NULL):
         raise wrap_windowserror(space, rwin32.lastSavedWindowsError())
 
@@ -176,8 +174,7 @@ def CreateFile(space, filename, access, share, w_security,
     security = space.int_w(w_security)
     templatefile = space.int_w(w_templatefile)
     if security or templatefile:
-        raise OperationError(space.w_NotImplementedError,
-                             space.wrap("expected a NULL pointer"))
+        raise oefmt(space.w_NotImplementedError, "expected a NULL pointer")
 
     handle = _CreateFile(filename, access, share, rffi.NULL,
                          disposition, flags, rwin32.NULL_HANDLE)

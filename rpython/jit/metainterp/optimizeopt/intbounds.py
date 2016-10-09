@@ -8,6 +8,7 @@ from rpython.jit.metainterp.optimizeopt.optimizer import (Optimization, CONST_1,
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop, AbstractResOp
 from rpython.jit.metainterp.optimizeopt import vstring
+from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.rlib.rarithmetic import intmask
 
 def get_integer_min(is_unsigned, byte_size):
@@ -109,17 +110,14 @@ class OptIntBounds(Optimization):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
         r = self.getintbound(op)
-        if b2.is_constant():
-            val = b2.lower
-            if val >= 0:
-                r.intersect(IntBound(0, val))
-        elif b1.is_constant():
-            val = b1.lower
-            if val >= 0:
-                r.intersect(IntBound(0, val))
-        elif b1.known_ge(IntBound(0, 0)) and b2.known_ge(IntBound(0, 0)):
-            lesser = min(b1.upper, b2.upper)
-            r.intersect(IntBound(0, next_pow2_m1(lesser)))
+        pos1 = b1.known_ge(IntBound(0, 0))
+        pos2 = b2.known_ge(IntBound(0, 0))
+        if pos1 or pos2:
+            r.make_ge(IntBound(0, 0))
+        if pos1:
+            r.make_le(b1)
+        if pos2:
+            r.make_le(b2)
 
     def optimize_INT_SUB(self, op):
         return self.emit(op)
@@ -190,47 +188,36 @@ class OptIntBounds(Optimization):
         if b.bounded():
             r.intersect(b)
 
-    def optimize_INT_FLOORDIV(self, op):
+    def optimize_CALL_PURE_I(self, op):
         return self.emit(op)
 
-    def postprocess_INT_FLOORDIV(self, op):
-        b1 = self.getintbound(op.getarg(0))
-        b2 = self.getintbound(op.getarg(1))
+    def postprocess_CALL_PURE_I(self, op):
+        # dispatch based on 'oopspecindex' to a method that handles
+        # specifically the given oopspec call.
+        effectinfo = op.getdescr().get_extra_info()
+        oopspecindex = effectinfo.oopspecindex
+        if oopspecindex == EffectInfo.OS_INT_PY_DIV:
+            self.post_call_INT_PY_DIV(op)
+        elif oopspecindex == EffectInfo.OS_INT_PY_MOD:
+            self.post_call_INT_PY_MOD(op)
+
+    def post_call_INT_PY_DIV(self, op):
+        b1 = self.getintbound(op.getarg(1))
+        b2 = self.getintbound(op.getarg(2))
         r = self.getintbound(op)
-        r.intersect(b1.div_bound(b2))
+        r.intersect(b1.py_div_bound(b2))
 
-    def optimize_INT_MOD(self, op):
-        b1 = self.getintbound(op.getarg(0))
-        b2 = self.getintbound(op.getarg(1))
-        known_nonneg = (b1.known_ge(IntBound(0, 0)) and
-                        b2.known_ge(IntBound(0, 0)))
-        if known_nonneg and b2.is_constant():
-            val = b2.getint()
-            if (val & (val-1)) == 0:
-                # nonneg % power-of-two ==> nonneg & (power-of-two - 1)
-                arg1 = op.getarg(0)
-                arg2 = ConstInt(val-1)
-                op = self.replace_op_with(op, rop.INT_AND,
-                                          args=[arg1, arg2])
-        return self.emit(op)
-
-    def postprocess_INT_MOD(self, op):
-        b1 = self.getintbound(op.getarg(0))
-        b2 = self.getintbound(op.getarg(1))
-        known_nonneg = (b1.known_ge(IntBound(0, 0)) and
-                        b2.known_ge(IntBound(0, 0)))
+    def post_call_INT_PY_MOD(self, op):
+        b2 = self.getintbound(op.getarg(2))
         if b2.is_constant():
             val = b2.getint()
             r = self.getintbound(op)
-            if val < 0:
-                if val == -sys.maxint-1:
-                    return None     # give up
-                val = -val
-            if known_nonneg:
+            if val >= 0:        # with Python's modulo:  0 <= (x % pos) < pos
                 r.make_ge(IntBound(0, 0))
-            else:
-                r.make_gt(IntBound(-val, -val))
-            r.make_lt(IntBound(val, val))
+                r.make_lt(IntBound(val, val))
+            else:               # with Python's modulo:  neg < (x % neg) <= 0
+                r.make_gt(IntBound(val, val))
+                r.make_le(IntBound(0, 0))
 
     def optimize_INT_LSHIFT(self, op):
         return self.emit(op)
@@ -698,10 +685,10 @@ class OptIntBounds(Optimization):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
         r = self.getintbound(op)
-        b = r.div_bound(b2)
+        b = r.py_div_bound(b2)
         if b1.intersect(b):
             self.propagate_bounds_backward(op.getarg(0))
-        b = r.div_bound(b1)
+        b = r.py_div_bound(b1)
         if b2.intersect(b):
             self.propagate_bounds_backward(op.getarg(1))
 

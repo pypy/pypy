@@ -21,7 +21,8 @@ class Arguments(object):
     ###  Construction  ###
 
     def __init__(self, space, args_w, keywords=None, keywords_w=None,
-                 w_stararg=None, w_starstararg=None, keyword_names_w=None):
+                 w_stararg=None, w_starstararg=None, keyword_names_w=None,
+                 methodcall=False):
         self.space = space
         assert isinstance(args_w, list)
         self.arguments_w = args_w
@@ -41,6 +42,9 @@ class Arguments(object):
         # a flag that specifies whether the JIT can unroll loops that operate
         # on the keywords
         self._jit_few_keywords = self.keywords is None or jit.isconstant(len(self.keywords))
+        # a flag whether this is likely a method call, which doesn't change the
+        # behaviour but produces better error messages
+        self.methodcall = methodcall
 
     def __repr__(self):
         """ NOT_RPYTHON """
@@ -84,7 +88,7 @@ class Arguments(object):
         space = self.space
         try:
             args_w = space.fixedview(w_stararg)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, space.w_TypeError):
                 raise oefmt(space.w_TypeError,
                             "argument after * must be a sequence, not %T",
@@ -111,7 +115,7 @@ class Arguments(object):
         else:
             try:
                 w_keys = space.call_method(w_starstararg, "keys")
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(space, space.w_AttributeError):
                     raise oefmt(space.w_TypeError,
                                 "argument after ** must be a mapping, not %T",
@@ -134,11 +138,11 @@ class Arguments(object):
         """The simplest argument parsing: get the 'argcount' arguments,
         or raise a real ValueError if the length is wrong."""
         if self.keywords:
-            raise ValueError, "no keyword arguments expected"
+            raise ValueError("no keyword arguments expected")
         if len(self.arguments_w) > argcount:
-            raise ValueError, "too many arguments (%d expected)" % argcount
+            raise ValueError("too many arguments (%d expected)" % argcount)
         elif len(self.arguments_w) < argcount:
-            raise ValueError, "not enough arguments (%d expected)" % argcount
+            raise ValueError("not enough arguments (%d expected)" % argcount)
         return self.arguments_w
 
     def firstarg(self):
@@ -207,7 +211,7 @@ class Arguments(object):
                 starargs_w = []
             scope_w[co_argcount] = self.space.newtuple(starargs_w)
         elif avail > co_argcount:
-            raise ArgErrCount(avail, num_kwds, signature, defaults_w, 0)
+            raise self.argerrcount(avail, num_kwds, signature, defaults_w, 0)
 
         # if a **kwargs argument is needed, create the dict
         w_kwds = None
@@ -241,7 +245,7 @@ class Arguments(object):
                             kwds_mapping, self.keyword_names_w, self._jit_few_keywords)
                 else:
                     if co_argcount == 0:
-                        raise ArgErrCount(avail, num_kwds, signature, defaults_w, 0)
+                        raise self.argerrcount(avail, num_kwds, signature, defaults_w, 0)
                     raise ArgErrUnknownKwds(self.space, num_remainingkwds, keywords,
                                             kwds_mapping, self.keyword_names_w)
 
@@ -265,9 +269,12 @@ class Arguments(object):
                 else:
                     missing += 1
             if missing:
-                raise ArgErrCount(avail, num_kwds, signature, defaults_w, missing)
+                raise self.argerrcount(avail, num_kwds, signature, defaults_w, missing)
 
-
+    def argerrcount(self, *args):
+        if self.methodcall:
+            return ArgErrCountMethod(*args)
+        return ArgErrCount(*args)
 
     def parse_into_scope(self, w_firstarg,
                          scope_w, fnname, signature, defaults_w=None):
@@ -279,7 +286,7 @@ class Arguments(object):
         try:
             self._match_signature(w_firstarg,
                                   scope_w, signature, defaults_w, 0)
-        except ArgErr, e:
+        except ArgErr as e:
             raise oefmt(self.space.w_TypeError, "%s() %s", fnname, e.getmsg())
         return signature.scope_length()
 
@@ -301,7 +308,7 @@ class Arguments(object):
         """
         try:
             return self._parse(w_firstarg, signature, defaults_w, blindargs)
-        except ArgErr, e:
+        except ArgErr as e:
             raise oefmt(self.space.w_TypeError, "%s() %s", fnname, e.getmsg())
 
     @staticmethod
@@ -352,11 +359,9 @@ def _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keywords,
     for w_key in keys_w:
         try:
             key = space.str_w(w_key)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, space.w_TypeError):
-                raise OperationError(
-                    space.w_TypeError,
-                    space.wrap("keywords must be strings"))
+                raise oefmt(space.w_TypeError, "keywords must be strings")
             if e.match(space, space.w_UnicodeEncodeError):
                 # Allow this to pass through
                 key = None
@@ -479,6 +484,22 @@ class ArgErrCount(ArgErr):
                 plural,
                 num_args)
         return msg
+
+class ArgErrCountMethod(ArgErrCount):
+    """ A subclass of ArgErrCount that is used if the argument matching is done
+    as part of a method call, in which case more information is added to the
+    error message, if the cause of the error is likely a forgotten `self`
+    argument.
+    """
+
+    def getmsg(self):
+        msg = ArgErrCount.getmsg(self)
+        n = self.signature.num_argnames()
+        if (self.num_args == n + 1 and
+                (n == 0 or self.signature.argnames[0] != "self")):
+            msg += ". Did you forget 'self' in the function definition?"
+        return msg
+
 
 class ArgErrMultipleValues(ArgErr):
 

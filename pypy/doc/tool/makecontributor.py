@@ -69,7 +69,12 @@ alias = {
     'Rami Chowdhury': ['necaris'],
     'Stanislaw Halik':['w31rd0'],
     'Wenzhu Man':['wenzhu man', 'wenzhuman'],
-    'Anton Gulenko':['anton gulenko'],
+    'Anton Gulenko':['anton gulenko', 'anton_gulenko'],
+    'Richard Lancaster':['richardlancaster'],
+    'William Leslie':['William ML Leslie'],
+    'Spenser Bauman':['Spenser Andrew Bauman'],
+    'Raffael Tfirst':['raffael.tfirst@gmail.com'],
+    'timo':['timo@eistee.fritz.box'],
     }
 
 alias_map = {}

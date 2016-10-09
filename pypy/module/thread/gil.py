@@ -11,7 +11,6 @@ from rpython.rlib import rthread, rgil
 from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.executioncontext import PeriodicAsyncAction
 from pypy.module.thread.threadlocals import OSThreadLocals
-from rpython.rlib.objectmodel import invoke_around_extcall
 
 class GILThreadLocals(OSThreadLocals):
     """A version of OSThreadLocals that enforces a GIL."""
@@ -23,34 +22,24 @@ class GILThreadLocals(OSThreadLocals):
         space.actionflag.register_periodic_action(GILReleaseAction(space),
                                                   use_bytecode_counter=True)
 
-    def _initialize_gil(self, space):
-        rgil.gil_allocate()
-
     def setup_threads(self, space):
         """Enable threads in the object space, if they haven't already been."""
         if not self.gil_ready:
-            self._initialize_gil(space)
+            # Note: this is a quasi-immutable read by module/pypyjit/interp_jit
+            # It must be changed (to True) only if it was really False before
+            rgil.allocate()
             self.gil_ready = True
             result = True
         else:
             result = False      # already set up
-
-        # add the GIL-releasing callback around external function calls.
-        #
-        # XXX we assume a single space, but this is not quite true during
-        # testing; for example, if you run the whole of test_lock you get
-        # a deadlock caused by the first test's space being reused by
-        # test_lock_again after the global state was cleared by
-        # test_compile_lock.  As a workaround, we repatch these global
-        # fields systematically.
-        invoke_around_extcall(before_external_call, after_external_call)
         return result
 
-    def reinit_threads(self, space):
-        "Called in the child process after a fork()"
-        OSThreadLocals.reinit_threads(self, space)
-        if self.gil_ready:     # re-initialize the gil if needed
-            self._initialize_gil(space)
+    def threads_initialized(self):
+        return self.gil_ready
+
+    ## def reinit_threads(self, space):
+    ##     "Called in the child process after a fork()"
+    ##     OSThreadLocals.reinit_threads(self, space)
 
 
 class GILReleaseAction(PeriodicAsyncAction):
@@ -59,43 +48,4 @@ class GILReleaseAction(PeriodicAsyncAction):
     """
 
     def perform(self, executioncontext, frame):
-        do_yield_thread()
-
-
-after_thread_switch = lambda: None     # hook for signal.py
-
-def before_external_call():
-    # this function must not raise, in such a way that the exception
-    # transformer knows that it cannot raise!
-    rgil.gil_release()
-before_external_call._gctransformer_hint_cannot_collect_ = True
-before_external_call._dont_reach_me_in_del_ = True
-
-def after_external_call():
-    rgil.gil_acquire()
-    rthread.gc_thread_run()
-    after_thread_switch()
-after_external_call._gctransformer_hint_cannot_collect_ = True
-after_external_call._dont_reach_me_in_del_ = True
-
-# The _gctransformer_hint_cannot_collect_ hack is needed for
-# translations in which the *_external_call() functions are not inlined.
-# They tell the gctransformer not to save and restore the local GC
-# pointers in the shadow stack.  This is necessary because the GIL is
-# not held after the call to before_external_call() or before the call
-# to after_external_call().
-
-def do_yield_thread():
-    # explicitly release the gil, in a way that tries to give more
-    # priority to other threads (as opposed to continuing to run in
-    # the same thread).
-    if rgil.gil_yield_thread():
-        rthread.gc_thread_run()
-        after_thread_switch()
-do_yield_thread._gctransformer_hint_close_stack_ = True
-do_yield_thread._dont_reach_me_in_del_ = True
-do_yield_thread._dont_inline_ = True
-
-# do_yield_thread() needs a different hint: _gctransformer_hint_close_stack_.
-# The *_external_call() functions are themselves called only from the rffi
-# module from a helper function that also has this hint.
+        rgil.yield_thread()

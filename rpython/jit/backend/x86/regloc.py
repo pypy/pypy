@@ -602,6 +602,27 @@ class LocationCodeBuilder(object):
         self._reuse_scratch_register = False
         self._scratch_register_known = False
 
+    def _vector_size_choose(name):
+        def invoke(self, suffix, val1, val2):
+            methname = name + suffix
+            _rx86_getattr(self, methname)(val1, val2)
+        invoke._annspecialcase_ = 'specialize:arg(1)'
+
+        possible_instr_unrolled = unrolling_iterable([(1,'B_xx'),(2,'W_xx'),(4,'D_xx'),(8,'Q_xx')])
+
+        def INSN(self, loc1, loc2, size):
+            code1 = loc1.location_code()
+            code2 = loc2.location_code()
+            assert code1 == code2 == 'x'
+            val1 = loc1.value_x()
+            val2 = loc2.value_x()
+            for s,suffix in possible_instr_unrolled:
+                if s == size:
+                    invoke(self, suffix, val1, val2)
+                    break
+
+        return INSN
+
     AND = _binaryop('AND')
     OR  = _binaryop('OR')
     OR8 = _binaryop('OR8')
@@ -611,6 +632,7 @@ class LocationCodeBuilder(object):
     SHR = _binaryop('SHR')
     SAR = _binaryop('SAR')
     TEST = _binaryop('TEST')
+    PTEST = _binaryop('PTEST')
     TEST8 = _binaryop('TEST8')
     BTS = _binaryop('BTS')
 
@@ -619,9 +641,15 @@ class LocationCodeBuilder(object):
     SUB = _binaryop('SUB')
     IMUL = _binaryop('IMUL')
     NEG = _unaryop('NEG')
+    MUL = _unaryop('MUL')
 
     CMP = _binaryop('CMP')
     CMP16 = _binaryop('CMP16')
+    PCMPEQQ = _binaryop('PCMPEQQ')
+    PCMPEQD = _binaryop('PCMPEQD')
+    PCMPEQW = _binaryop('PCMPEQW')
+    PCMPEQB = _binaryop('PCMPEQB')
+    PCMPEQ = _vector_size_choose('PCMPEQ')
     MOV = _binaryop('MOV')
     MOV8 = _binaryop('MOV8')
     MOV16 = _binaryop('MOV16')
@@ -642,33 +670,84 @@ class LocationCodeBuilder(object):
     LEA = _binaryop('LEA')
 
     MOVSD = _binaryop('MOVSD')
+    MOVSS = _binaryop('MOVSS')
     MOVAPD = _binaryop('MOVAPD')
+    MOVAPS = _binaryop('MOVAPS')
+    MOVDQA = _binaryop('MOVDQA')
+    MOVDQU = _binaryop('MOVDQU')
+    MOVUPD = _binaryop('MOVUPD')
+    MOVUPS = _binaryop('MOVUPS')
     ADDSD = _binaryop('ADDSD')
-    ADDPD = _binaryop('ADDPD')
     SUBSD = _binaryop('SUBSD')
     MULSD = _binaryop('MULSD')
     DIVSD = _binaryop('DIVSD')
+
+    # packed
+    ADDPD = _binaryop('ADDPD')
+    ADDPS = _binaryop('ADDPS')
+    SUBPD = _binaryop('SUBPD')
+    SUBPS = _binaryop('SUBPS')
+    MULPD = _binaryop('MULPD')
+    MULPS = _binaryop('MULPS')
+    DIVPD = _binaryop('DIVPD')
+    DIVPS = _binaryop('DIVPS')
+
     UCOMISD = _binaryop('UCOMISD')
     CVTSI2SD = _binaryop('CVTSI2SD')
     CVTTSD2SI = _binaryop('CVTTSD2SI')
     CVTSD2SS = _binaryop('CVTSD2SS')
     CVTSS2SD = _binaryop('CVTSS2SD')
+    CVTPD2PS = _binaryop('CVTPD2PS')
+    CVTPS2PD = _binaryop('CVTPS2PD')
+    CVTPD2DQ = _binaryop('CVTPD2DQ')
+    CVTDQ2PD = _binaryop('CVTDQ2PD')
     
     SQRTSD = _binaryop('SQRTSD')
 
     ANDPD = _binaryop('ANDPD')
+    ANDPS = _binaryop('ANDPS')
     XORPD = _binaryop('XORPD')
+    XORPS = _binaryop('XORPS')
 
     PADDQ = _binaryop('PADDQ')
+    PADDD = _binaryop('PADDD')
+    PHADDD = _binaryop('PHADDD')
+    PADDW = _binaryop('PADDW')
+    PADDB = _binaryop('PADDB')
+
     PSUBQ = _binaryop('PSUBQ')
+    PSUBD = _binaryop('PSUBD')
+    PSUBW = _binaryop('PSUBW')
+    PSUBB = _binaryop('PSUBB')
+
+    PMULDQ = _binaryop('PMULDQ')
+    PMULLD = _binaryop('PMULLD')
+    PMULLW = _binaryop('PMULLW')
+
     PAND  = _binaryop('PAND')
     POR   = _binaryop('POR')
     PXOR  = _binaryop('PXOR')
-    PCMPEQD = _binaryop('PCMPEQD')
+    PSRLDQ = _binaryop('PSRLDQ')
 
     MOVDQ = _binaryop('MOVDQ')
     MOVD32 = _binaryop('MOVD32')
     MOVUPS = _binaryop('MOVUPS')
+    MOVDDUP = _binaryop('MOVDDUP')
+
+    UNPCKHPD = _binaryop('UNPCKHPD')
+    UNPCKLPD = _binaryop('UNPCKLPD')
+    UNPCKHPS = _binaryop('UNPCKHPS')
+    UNPCKLPS = _binaryop('UNPCKLPS')
+
+    PUNPCKLQDQ = _binaryop('PUNPCKLQDQ')
+    PUNPCKHQDQ = _binaryop('PUNPCKHQDQ')
+    PUNPCKLDQ = _binaryop('PUNPCKLDQ')
+    PUNPCKHDQ = _binaryop('PUNPCKHDQ')
+
+    PSHUFB = _binaryop('PSHUFB')
+
+    HADDPD = _binaryop('HADDPD')
+    HADDPS = _binaryop('HADDPS')
 
     CALL = _relative_unaryop('CALL')
     JMP = _relative_unaryop('JMP')

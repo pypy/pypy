@@ -17,6 +17,7 @@ PyFrameObject = lltype.Ptr(PyFrameObjectStruct)
 PyFrameObjectFields = (PyObjectFields +
     (("f_code", PyCodeObject),
      ("f_globals", PyObject),
+     ("f_locals", PyObject),
      ("f_lineno", rffi.INT),
      ))
 cpython_struct("PyFrameObject", PyFrameObjectFields, PyFrameObjectStruct)
@@ -34,17 +35,19 @@ def frame_attach(space, py_obj, w_obj):
     frame = space.interp_w(PyFrame, w_obj)
     py_frame = rffi.cast(PyFrameObject, py_obj)
     py_frame.c_f_code = rffi.cast(PyCodeObject, make_ref(space, frame.pycode))
-    py_frame.c_f_globals = make_ref(space, frame.w_globals)
+    py_frame.c_f_globals = make_ref(space, frame.get_w_globals())
+    py_frame.c_f_locals = make_ref(space, frame.get_w_locals())
     rffi.setintfield(py_frame, 'c_f_lineno', frame.getorcreatedebug().f_lineno)
 
-@cpython_api([PyObject], lltype.Void, external=False)
+@cpython_api([PyObject], lltype.Void, header=None)
 def frame_dealloc(space, py_obj):
     py_frame = rffi.cast(PyFrameObject, py_obj)
     py_code = rffi.cast(PyObject, py_frame.c_f_code)
     Py_DecRef(space, py_code)
     Py_DecRef(space, py_frame.c_f_globals)
-    from pypy.module.cpyext.object import PyObject_dealloc
-    PyObject_dealloc(space, py_obj)
+    Py_DecRef(space, py_frame.c_f_locals)
+    from pypy.module.cpyext.object import _dealloc
+    _dealloc(space, py_obj)
 
 def frame_realize(space, py_obj):
     """
@@ -64,7 +67,8 @@ def frame_realize(space, py_obj):
     track_reference(space, py_obj, w_obj)
     return w_obj
 
-@cpython_api([PyThreadState, PyCodeObject, PyObject, PyObject], PyFrameObject)
+@cpython_api([PyThreadState, PyCodeObject, PyObject, PyObject], PyFrameObject,
+             result_is_ll=True)
 def PyFrame_New(space, tstate, w_code, w_globals, w_locals):
     typedescr = get_typedescr(PyFrame.typedef)
     py_obj = typedescr.allocate(space, space.gettypeobject(PyFrame.typedef))
@@ -72,6 +76,7 @@ def PyFrame_New(space, tstate, w_code, w_globals, w_locals):
     space.interp_w(PyCode, w_code) # sanity check
     py_frame.c_f_code = rffi.cast(PyCodeObject, make_ref(space, w_code))
     py_frame.c_f_globals = make_ref(space, w_globals)
+    py_frame.c_f_locals = make_ref(space, w_locals)
     return py_frame
 
 @cpython_api([PyFrameObject], rffi.INT_real, error=-1)

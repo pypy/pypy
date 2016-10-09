@@ -74,7 +74,15 @@ class RealizeCache:
     assert len(NAMES) == cffi_opcode._NUM_PRIM
 
     def __init__(self, space):
+        self.space = space
         self.all_primitives = [None] * cffi_opcode._NUM_PRIM
+        self.file_struct = None
+
+    def get_file_struct(self):
+        if self.file_struct is None:
+            self.file_struct = ctypestruct.W_CTypeStruct(self.space, "FILE")
+        return self.file_struct
+
 
 def get_primitive_type(ffi, num):
     space = ffi.space
@@ -230,7 +238,7 @@ class W_RawFuncType(W_Root):
             self.nostruct_nargs = len(ctfuncptr.fargs) - (locs is not None and
                                                           locs[0] == 'R')
 
-    def unexpected_fn_type(self, ffi):
+    def repr_fn_type(self, ffi, repl=""):
         fargs, fret, ellipsis, abi = self._unpack(ffi)
         argnames = [farg.name for farg in fargs]
         if ellipsis:
@@ -238,9 +246,14 @@ class W_RawFuncType(W_Root):
         sargs = ', '.join(argnames)
         sret1 = fret.name[:fret.name_position]
         sret2 = fret.name[fret.name_position:]
+        if len(repl) > 0 and not sret1.endswith('*'):
+            repl = " " + repl
+        return '%s%s(%s)%s' % (sret1, repl, sargs, sret2)
+
+    def unexpected_fn_type(self, ffi):
         raise oefmt(ffi.w_FFIError,
-                    "the type '%s(%s)%s' is a function type, not a "
-                    "pointer-to-function type", sret1, sargs, sret2)
+                    "the type '%s' is a function type, not a "
+                    "pointer-to-function type", self.repr_fn_type(ffi))
 
 
 def realize_c_type(ffi, opcodes, index):
@@ -266,6 +279,10 @@ def _realize_name(prefix, charp_src_name):
 
 
 def _realize_c_struct_or_union(ffi, sindex):
+    if sindex == cffi_opcode._IO_FILE_STRUCT:
+        # returns a single global cached opaque type
+        return ffi.space.fromcache(RealizeCache).get_file_struct()
+
     s = ffi.ctxobj.ctx.c_struct_unions[sindex]
     type_index = rffi.getintfield(s, 'c_type_index')
     if ffi.cached_types[type_index] is not None:
@@ -281,7 +298,10 @@ def _realize_c_struct_or_union(ffi, sindex):
             x = ctypestruct.W_CTypeUnion(space, name)
         else:
             name = _realize_name("struct ", s.c_name)
-            x = ctypestruct.W_CTypeStruct(space, name)
+            if name == "struct _IO_FILE":
+                x = space.fromcache(RealizeCache).get_file_struct()
+            else:
+                x = ctypestruct.W_CTypeStruct(space, name)
         if (c_flags & cffi_opcode.F_OPAQUE) == 0:
             assert c_first_field_index >= 0
             w_ctype = x

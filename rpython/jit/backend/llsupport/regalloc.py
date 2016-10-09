@@ -267,6 +267,7 @@ class FrameManager(object):
         raise NotImplementedError("Purely abstract")
 
 class RegisterManager(object):
+
     """ Class that keeps track of register allocations
     """
     box_types             = None       # or a list of acceptable types
@@ -573,27 +574,139 @@ class RegisterManager(object):
             self.assembler.regalloc_mov(reg, to)
         # otherwise it's clean
 
+    def _bc_spill(self, v, new_free_regs):
+        self._sync_var(v)
+        new_free_regs.append(self.reg_bindings.pop(v))
+
     def before_call(self, force_store=[], save_all_regs=0):
-        """ Spill registers before a call, as described by
-        'self.save_around_call_regs'.  Registers are not spilled if
-        they don't survive past the current operation, unless they
-        are listed in 'force_store'.  'save_all_regs' can be 0 (default),
-        1 (save all), or 2 (save default+PTRs).
+        self.spill_or_move_registers_before_call(self.save_around_call_regs,
+                                                 force_store, save_all_regs)
+
+    def spill_or_move_registers_before_call(self, save_sublist,
+                                            force_store=[], save_all_regs=0):
+        """Spill or move some registers before a call.
+
+        By default, this means: for every register in 'save_sublist',
+        if there is a variable there and it survives longer than
+        the current operation, then it is spilled/moved somewhere else.
+
+        WARNING: this might do the equivalent of possibly_free_vars()
+        on variables dying in the current operation.  It won't
+        immediately overwrite registers that used to be occupied by
+        these variables, though.  Use this function *after* you finished
+        calling self.loc() or self.make_sure_var_in_reg(), i.e. when you
+        know the location of all input arguments.  These locations stay
+        valid, but only *if they are in self.save_around_call_regs,*
+        not if they are callee-saved registers!
+
+        'save_all_regs' can be 0 (default set of registers), 1 (do that
+        for all registers), or 2 (default + gc ptrs).
+
+        Overview of what we do (the implementation does it differently,
+        for the same result):
+
+        * we first check the set of registers that are free: call it F.
+
+        * possibly_free_vars() is implied for all variables (except
+          the ones listed in force_store): if they don't survive past
+          the current operation, they are forgotten now.  (Their
+          register remain not in F, because they are typically
+          arguments to the call, so they should not be overwritten by
+          the next step.)
+
+        * then for every variable that needs to be spilled/moved: if
+          there is an entry in F that is acceptable, pick it and emit a
+          move.  Otherwise, emit a spill.  Start doing this with the
+          variables that survive the shortest time, to give them a
+          better change to remain in a register---similar algo as
+          _pick_variable_to_spill().
+
+        Note: when a register is moved, it often (but not always) means
+        we could have been more clever and picked a better register in
+        the first place, when we did so earlier.  It is done this way
+        anyway, as a local hack in this function, because on x86 CPUs
+        such register-register moves are almost free.
         """
+        if not we_are_translated():
+            # 'save_sublist' is either the whole
+            # 'self.save_around_call_regs', or a sublist thereof, and
+            # then only those registers are spilled/moved.  But when
+            # we move them, we never move them to other registers in
+            # 'self.save_around_call_regs', to avoid ping-pong effects
+            # where the same value is constantly moved around.
+            for reg in save_sublist:
+                assert reg in self.save_around_call_regs
+
+        new_free_regs = []
+        move_or_spill = []
+
         for v, reg in self.reg_bindings.items():
-            if v not in force_store and self.longevity[v][1] <= self.position:
+            max_age = self.longevity[v][1]
+            if v not in force_store and max_age <= self.position:
                 # variable dies
                 del self.reg_bindings[v]
-                self.free_regs.append(reg)
+                new_free_regs.append(reg)
                 continue
-            if save_all_regs != 1 and reg not in self.save_around_call_regs:
-                if save_all_regs == 0:
-                    continue    # we don't have to
-                if v.type != REF:
-                    continue    # only save GC pointers
-            self._sync_var(v)
-            del self.reg_bindings[v]
-            self.free_regs.append(reg)
+
+            if save_all_regs == 1:
+                # we need to spill all registers in this mode
+                self._bc_spill(v, new_free_regs)
+                #
+            elif save_all_regs == 2 and v.type == REF:
+                # we need to spill all GC ptrs in this mode
+                self._bc_spill(v, new_free_regs)
+                #
+            elif reg not in save_sublist:
+                continue  # in a register like ebx/rbx: it is fine where it is
+                #
+            else:
+                # this is a register like eax/rax, which needs either
+                # spilling or moving.
+                move_or_spill.append((v, max_age))
+
+        if len(move_or_spill) > 0:
+            while len(self.free_regs) > 0:
+                new_reg = self.free_regs.pop()
+                if new_reg in self.save_around_call_regs:
+                    new_free_regs.append(new_reg)    # not this register...
+                    continue
+                # This 'new_reg' is suitable for moving a candidate to.
+                # Pick the one with the smallest max_age.  (This
+                # is one step of a naive sorting algo, slow in theory,
+                # but the list should always be very small so it
+                # doesn't matter.)
+                best_i = 0
+                smallest_max_age = move_or_spill[0][1]
+                for i in range(1, len(move_or_spill)):
+                    max_age = move_or_spill[i][1]
+                    if max_age < smallest_max_age:
+                        best_i = i
+                        smallest_max_age = max_age
+                v, max_age = move_or_spill.pop(best_i)
+                # move from 'reg' to 'new_reg'
+                reg = self.reg_bindings[v]
+                if not we_are_translated():
+                    if move_or_spill:
+                        assert max_age <= min([_a for _, _a in move_or_spill])
+                    assert reg in save_sublist
+                    assert reg in self.save_around_call_regs
+                    assert new_reg not in self.save_around_call_regs
+                self.assembler.regalloc_mov(reg, new_reg)
+                self.reg_bindings[v] = new_reg    # change the binding
+                new_free_regs.append(reg)
+                #
+                if len(move_or_spill) == 0:
+                    break
+            else:
+                # no more free registers to move to, spill the rest
+                for v, max_age in move_or_spill:
+                    self._bc_spill(v, new_free_regs)
+
+        # re-add registers in 'new_free_regs', but in reverse order,
+        # so that the last ones (added just above, from
+        # save_around_call_regs) are picked last by future '.pop()'
+        while len(new_free_regs) > 0:
+            self.free_regs.append(new_free_regs.pop())
 
     def after_call(self, v):
         """ Adjust registers according to the result of the call,
@@ -646,6 +759,8 @@ class BaseRegalloc(object):
         if (opnum != rop.GUARD_TRUE and opnum != rop.GUARD_FALSE
                                     and opnum != rop.COND_CALL):
             return False
+        # NB: don't list COND_CALL_VALUE_I/R here, these two variants
+        # of COND_CALL don't accept a cc as input
         if next_op.getarg(0) is not op:
             return False
         if self.longevity[op][1] > i + 1:
@@ -665,6 +780,7 @@ class BaseRegalloc(object):
             self.rm._sync_var(op.getarg(1))
             return [self.loc(op.getarg(0)), self.fm.loc(op.getarg(1))]
         else:
+            assert op.numargs() == 1
             return [self.loc(op.getarg(0))]
 
 
@@ -681,7 +797,7 @@ def compute_vars_longevity(inputargs, operations):
     for i in range(len(operations)-1, -1, -1):
         op = operations[i]
         if op.type != 'v':
-            if op not in last_used and op.has_no_side_effect():
+            if op not in last_used and rop.has_no_side_effect(op.opnum):
                 continue
         opnum = op.getopnum()
         for j in range(op.numargs()):
@@ -693,7 +809,7 @@ def compute_vars_longevity(inputargs, operations):
             if opnum != rop.JUMP and opnum != rop.LABEL:
                 if arg not in last_real_usage:
                     last_real_usage[arg] = i
-        if op.is_guard():
+        if rop.is_guard(op.opnum):
             for arg in op.getfailargs():
                 if arg is None: # hole
                     continue
@@ -730,14 +846,7 @@ def compute_vars_longevity(inputargs, operations):
     return longevity, last_real_usage
 
 def is_comparison_or_ovf_op(opnum):
-    from rpython.jit.metainterp.resoperation import opclasses
-    cls = opclasses[opnum]
-    # hack hack: in theory they are instance method, but they don't use
-    # any instance field, we can use a fake object
-    class Fake(cls):
-        pass
-    op = Fake()
-    return op.is_comparison() or op.is_ovf()
+    return rop.is_comparison(opnum) or rop.is_ovf(opnum)
 
 def valid_addressing_size(size):
     return size == 1 or size == 2 or size == 4 or size == 8

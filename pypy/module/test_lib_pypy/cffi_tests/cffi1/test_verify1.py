@@ -72,8 +72,8 @@ def test_simple_case():
     assert lib.sin(1.23) == math.sin(1.23)
 
 def _Wconversion(cdef, source, **kargs):
-    if sys.platform == 'win32':
-        py.test.skip("needs GCC or Clang")
+    if sys.platform in ('win32', 'darwin'):
+        py.test.skip("needs GCC")
     ffi = FFI()
     ffi.cdef(cdef)
     py.test.raises(VerificationError, ffi.verify, source, **kargs)
@@ -695,25 +695,14 @@ def test_nonfull_enum():
     assert ffi.string(ffi.cast('enum ee', 11)) == "EE2"
     assert ffi.string(ffi.cast('enum ee', -10)) == "EE3"
     #
-    # try again
-    ffi.verify("enum ee { EE1=10, EE2, EE3=-10, EE4 };")
-    assert ffi.string(ffi.cast('enum ee', 11)) == "EE2"
-    #
     assert ffi.typeof("enum ee").relements == {'EE1': 10, 'EE2': 11, 'EE3': -10}
     assert ffi.typeof("enum ee").elements == {10: 'EE1', 11: 'EE2', -10: 'EE3'}
 
 def test_full_enum():
     ffi = FFI()
     ffi.cdef("enum ee { EE1, EE2, EE3 };")
-    ffi.verify("enum ee { EE1, EE2, EE3 };")
-    py.test.raises(VerificationError, ffi.verify, "enum ee { EE1, EE2 };")
-    # disabled: for now, we always accept and fix transparently constant values
-    #e = py.test.raises(VerificationError, ffi.verify,
-    #                   "enum ee { EE1, EE3, EE2 };")
-    #assert str(e.value) == 'enum ee: EE2 has the real value 2, not 1'
-    # extra items cannot be seen and have no bad consequence anyway
-    lib = ffi.verify("enum ee { EE1, EE2, EE3, EE4 };")
-    assert lib.EE3 == 2
+    lib = ffi.verify("enum ee { EE1, EE2, EE3 };")
+    assert [lib.EE1, lib.EE2, lib.EE3] == [0, 1, 2]
 
 def test_enum_usage():
     ffi = FFI()
@@ -1495,15 +1484,6 @@ def test_cannot_pass_float():
             assert lib.foo(0) == 1
             py.test.raises(TypeError, lib.foo, 0.0)
 
-def test_cast_from_int_type_to_bool():
-    ffi = FFI()
-    for basetype in ['char', 'short', 'int', 'long', 'long long']:
-        for sign in ['signed', 'unsigned']:
-            type = '%s %s' % (sign, basetype)
-            assert int(ffi.cast("_Bool", ffi.cast(type, 42))) == 1
-            assert int(ffi.cast("bool", ffi.cast(type, 42))) == 1
-            assert int(ffi.cast("_Bool", ffi.cast(type, 0))) == 0
-
 def test_addressof():
     ffi = FFI()
     ffi.cdef("""
@@ -2101,20 +2081,20 @@ def test_verify_dlopen_flags():
     old = sys.getdlopenflags()
     try:
         ffi1 = FFI()
-        ffi1.cdef("int foo_verify_dlopen_flags;")
+        ffi1.cdef("int foo_verify_dlopen_flags_1;")
         sys.setdlopenflags(ffi1.RTLD_GLOBAL | ffi1.RTLD_NOW)
-        lib1 = ffi1.verify("int foo_verify_dlopen_flags;")
+        lib1 = ffi1.verify("int foo_verify_dlopen_flags_1;")
     finally:
         sys.setdlopenflags(old)
 
     ffi2 = FFI()
     ffi2.cdef("int *getptr(void);")
     lib2 = ffi2.verify("""
-        extern int foo_verify_dlopen_flags;
-        static int *getptr(void) { return &foo_verify_dlopen_flags; }
+        extern int foo_verify_dlopen_flags_1;
+        static int *getptr(void) { return &foo_verify_dlopen_flags_1; }
     """)
     p = lib2.getptr()
-    assert ffi1.addressof(lib1, 'foo_verify_dlopen_flags') == p
+    assert ffi1.addressof(lib1, 'foo_verify_dlopen_flags_1') == p
 
 def test_consider_not_implemented_function_type():
     ffi = FFI()
@@ -2251,3 +2231,31 @@ def test_macro_var():
     assert p == lib.myarray + 4
     p[1] = 82
     assert lib.my_value == 82            # [5]
+
+def test_const_pointer_to_pointer():
+    ffi = FFI()
+    ffi.cdef("struct s { char *const *a; };")
+    ffi.verify("struct s { char *const *a; };")
+
+def test_share_FILE():
+    ffi1 = FFI()
+    ffi1.cdef("void do_stuff(FILE *);")
+    lib1 = ffi1.verify("void do_stuff(FILE *f) { (void)f; }")
+    ffi2 = FFI()
+    ffi2.cdef("FILE *barize(void);")
+    lib2 = ffi2.verify("FILE *barize(void) { return NULL; }")
+    lib1.do_stuff(lib2.barize())
+
+def test_win_common_types():
+    if sys.platform != 'win32':
+        py.test.skip("Windows only")
+    ffi = FFI()
+    ffi.set_unicode(True)
+    ffi.verify("")
+    assert ffi.typeof("PBYTE") is ffi.typeof("unsigned char *")
+    if sys.maxsize > 2**32:
+        expected = "unsigned long long"
+    else:
+        expected = "unsigned int"
+    assert ffi.typeof("UINT_PTR") is ffi.typeof(expected)
+    assert ffi.typeof("PTSTR") is ffi.typeof("wchar_t *")

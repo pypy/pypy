@@ -9,7 +9,7 @@ UNDERSCORE_ON_WIN32 = '_' if _WIN32 else ''
 
 os_read = rffi.llexternal(UNDERSCORE_ON_WIN32 + 'read',
                           [rffi.INT, rffi.CCHARP, rffi.SIZE_T],
-                          rffi.SIZE_T, save_err=rffi.RFFI_SAVE_ERRNO)
+                          rffi.SSIZE_T, save_err=rffi.RFFI_SAVE_ERRNO)
 
 
 def direct_readinto(self, w_rwbuffer):
@@ -61,6 +61,7 @@ def direct_readinto(self, w_rwbuffer):
             stream.flush()
             while True:
                 got = os_read(fd, rffi.ptradd(target_address, target_pos), size)
+                got = rffi.cast(lltype.Signed, got)
                 if got > 0:
                     target_pos += got
                     size -= got

@@ -259,6 +259,13 @@ def test_redefine_common_type():
     assert repr(ffi.cast("FILE", 123)) == "<cdata 'char' %s'{'>" % prefix
     ffi.cdef("typedef char int32_t;")
     assert repr(ffi.cast("int32_t", 123)) == "<cdata 'char' %s'{'>" % prefix
+    ffi = FFI()
+    ffi.cdef("typedef int bool, *FILE;")
+    assert repr(ffi.cast("bool", 123)) == "<cdata 'int' 123>"
+    assert re.match(r"<cdata 'int [*]' 0[xX]?0*7[bB]>",
+                    repr(ffi.cast("FILE", 123)))
+    ffi = FFI()
+    ffi.cdef("typedef bool (*fn_t)(bool, bool);")   # "bool," but within "( )"
 
 def test_bool():
     ffi = FFI()
@@ -267,6 +274,13 @@ def test_bool():
     ffi = FFI()
     ffi.cdef("typedef _Bool bool; void f(bool);")
 
+def test_unknown_argument_type():
+    ffi = FFI()
+    e = py.test.raises(CDefError, ffi.cdef, "void f(foobarbazzz);")
+    assert str(e.value) == ("f arg 1: unknown type 'foobarbazzz' (if you meant"
+                            " to use the old C syntax of giving untyped"
+                            " arguments, it is not supported)")
+
 def test_void_renamed_as_only_arg():
     ffi = FFI()
     ffi.cdef("typedef void void_t1;"
@@ -274,38 +288,16 @@ def test_void_renamed_as_only_arg():
              "typedef int (*func_t)(void_t);")
     assert ffi.typeof("func_t").args == ()
 
-def test_win_common_types():
-    from cffi.commontypes import COMMON_TYPES, _CACHE
-    from cffi.commontypes import win_common_types, resolve_common_type
-    #
-    def clear_all(extra={}, old_dict=COMMON_TYPES.copy()):
-        COMMON_TYPES.clear()
-        COMMON_TYPES.update(old_dict)
-        COMMON_TYPES.update(extra)
-        _CACHE.clear()
-    #
-    for maxsize in [2**32-1, 2**64-1]:
-        ct = win_common_types(maxsize)
-        clear_all(ct)
-        for key in sorted(ct):
-            if ct[key] != 'set-unicode-needed':
-                resolve_common_type(key)
-    # assert did not crash
-    # now try to use e.g. WPARAM (-> UINT_PTR -> unsigned 32/64-bit)
-    for maxsize in [2**32-1, 2**64-1]:
-        ct = win_common_types(maxsize)
-        clear_all(ct)
-        ffi = FFI()
-        value = int(ffi.cast("WPARAM", -1))
-        assert value == maxsize
-    #
-    clear_all()
-
 def test_WPARAM_on_windows():
     if sys.platform != 'win32':
         py.test.skip("Only for Windows")
     ffi = FFI()
     ffi.cdef("void f(WPARAM);")
+    #
+    # WPARAM -> UINT_PTR -> unsigned 32/64-bit integer
+    ffi = FFI()
+    value = int(ffi.cast("WPARAM", -42))
+    assert value == sys.maxsize * 2 - 40
 
 def test__is_constant_globalvar():
     for input, expected_output in [
@@ -355,6 +347,41 @@ def test_different_const_funcptr_types():
     assert lst[0] == lst[2]
     assert lst[1] == lst[3]
 
+def test_const_pointer_to_pointer():
+    from cffi import model
+    ffi = FFI(backend=FakeBackend())
+    #
+    tp, qual = ffi._parser.parse_type_and_quals("char * * (* const)")
+    assert (str(tp), qual) == ("<char * * *>", model.Q_CONST)
+    tp, qual = ffi._parser.parse_type_and_quals("char * (* const (*))")
+    assert (str(tp), qual) == ("<char * * const *>", 0)
+    tp, qual = ffi._parser.parse_type_and_quals("char (* const (* (*)))")
+    assert (str(tp), qual) == ("<char * const * *>", 0)
+    tp, qual = ffi._parser.parse_type_and_quals("char const * * *")
+    assert (str(tp), qual) == ("<char const * * *>", 0)
+    tp, qual = ffi._parser.parse_type_and_quals("const char * * *")
+    assert (str(tp), qual) == ("<char const * * *>", 0)
+    #
+    tp, qual = ffi._parser.parse_type_and_quals("char * * * const const")
+    assert (str(tp), qual) == ("<char * * *>", model.Q_CONST)
+    tp, qual = ffi._parser.parse_type_and_quals("char * * volatile *")
+    assert (str(tp), qual) == ("<char * * volatile *>", 0)
+    tp, qual = ffi._parser.parse_type_and_quals("char * volatile restrict * *")
+    assert (str(tp), qual) == ("<char * __restrict volatile * *>", 0)
+    tp, qual = ffi._parser.parse_type_and_quals("char const volatile * * *")
+    assert (str(tp), qual) == ("<char volatile const * * *>", 0)
+    tp, qual = ffi._parser.parse_type_and_quals("const char * * *")
+    assert (str(tp), qual) == ("<char const * * *>", 0)
+    #
+    tp, qual = ffi._parser.parse_type_and_quals(
+        "int(char*const*, short****const*)")
+    assert (str(tp), qual) == (
+        "<int()(char * const *, short * * * * const *)>", 0)
+    tp, qual = ffi._parser.parse_type_and_quals(
+        "char*const*(short*const****)")
+    assert (str(tp), qual) == (
+        "<char * const *()(short * const * * * *)>", 0)
+
 def test_enum():
     ffi = FFI()
     ffi.cdef("""
@@ -371,7 +398,7 @@ def test_stdcall():
     tp = ffi.typeof("int(*)(int __stdcall x(int),"
                     "       long (__cdecl*y)(void),"
                     "       short(WINAPI *z)(short))")
-    if sys.platform == 'win32':
+    if sys.platform == 'win32' and sys.maxsize < 2**32:
         stdcall = '__stdcall '
     else:
         stdcall = ''
@@ -379,3 +406,31 @@ def test_stdcall():
         "<ctype 'int(*)(int(%s*)(int), "
                         "long(*)(), "
                         "short(%s*)(short))'>" % (stdcall, stdcall))
+
+def test_extern_python():
+    ffi = FFI()
+    ffi.cdef("""
+        int bok(int, int);
+        extern "Python" int foobar(int, int);
+        int baz(int, int);
+    """)
+    assert sorted(ffi._parser._declarations) == [
+        'extern_python foobar', 'function baz', 'function bok']
+    assert (ffi._parser._declarations['function bok'] ==
+            ffi._parser._declarations['extern_python foobar'] ==
+            ffi._parser._declarations['function baz'])
+
+def test_extern_python_group():
+    ffi = FFI()
+    ffi.cdef("""
+        int bok(int);
+        extern "Python" {int foobar(int, int);int bzrrr(int);}
+        int baz(int, int);
+    """)
+    assert sorted(ffi._parser._declarations) == [
+        'extern_python bzrrr', 'extern_python foobar',
+        'function baz', 'function bok']
+    assert (ffi._parser._declarations['function baz'] ==
+            ffi._parser._declarations['extern_python foobar'] !=
+            ffi._parser._declarations['function bok'] ==
+            ffi._parser._declarations['extern_python bzrrr'])

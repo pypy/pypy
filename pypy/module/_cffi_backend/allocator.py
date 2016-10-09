@@ -45,14 +45,11 @@ class W_Allocator(W_Root):
                 rffi.c_memset(rffi.cast(rffi.VOIDP, ptr), 0,
                               rffi.cast(rffi.SIZE_T, datasize))
             #
-            if self.w_free is None:
-                # use this class which does not have a __del__, but still
-                # keeps alive w_raw_cdata
-                res = cdataobj.W_CDataNewNonStdNoFree(space, ptr, ctype, length)
-            else:
-                res = cdataobj.W_CDataNewNonStdFree(space, ptr, ctype, length)
-                res.w_free = self.w_free
+            res = cdataobj.W_CDataNewNonStd(space, ptr, ctype, length)
             res.w_raw_cdata = w_raw_cdata
+            if self.w_free is not None:
+                res.w_free = self.w_free
+                res.register_finalizer(space)
             return res
 
     @unwrap_spec(w_init=WrappedDefault(None))

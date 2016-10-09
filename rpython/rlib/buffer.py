@@ -10,6 +10,7 @@ class Buffer(object):
     _immutable_ = True
 
     def getlength(self):
+        """Returns the size in bytes (even if getitemsize() > 1)."""
         raise NotImplementedError
 
     def __len__(self):
@@ -21,6 +22,14 @@ class Buffer(object):
         "Returns an interp-level string with the whole content of the buffer."
         # May be overridden.
         return self.getslice(0, self.getlength(), 1, self.getlength())
+
+    def as_str_and_offset_maybe(self):
+        """
+        If the buffer is backed by a string, return a pair (string, offset), where
+        offset is the offset inside the string where the buffer start.
+        Else, return (None, 0).
+        """
+        return None, 0
 
     def getitem(self, index):
         "Returns the index'th character in the buffer."
@@ -51,6 +60,20 @@ class Buffer(object):
     def get_raw_address(self):
         raise ValueError("no raw buffer")
 
+    def getformat(self):
+        return 'B'
+
+    def getitemsize(self):
+        return 1
+
+    def getndim(self):
+        return 1
+
+    def getshape(self):
+        return [self.getlength()]
+
+    def getstrides(self):
+        return [1]
 
 class StringBuffer(Buffer):
     __slots__ = ['value']
@@ -65,6 +88,9 @@ class StringBuffer(Buffer):
 
     def as_str(self):
         return self.value
+
+    def as_str_and_offset_maybe(self):
+        return self.value, 0
 
     def getitem(self, index):
         return self.value[index]
@@ -86,6 +112,18 @@ class SubBuffer(Buffer):
 
     def __init__(self, buffer, offset, size):
         self.readonly = buffer.readonly
+        if isinstance(buffer, SubBuffer):     # don't nest them
+            # we want a view (offset, size) over a view
+            # (buffer.offset, buffer.size) over buffer.buffer.
+            # Note that either '.size' can be -1 to mean 'up to the end'.
+            at_most = buffer.getlength() - offset
+            if size > at_most or size < 0:
+                if at_most < 0:
+                    at_most = 0
+                size = at_most
+            offset += buffer.offset
+            buffer = buffer.buffer
+        #
         self.buffer = buffer
         self.offset = offset
         self.size = size
@@ -98,6 +136,12 @@ class SubBuffer(Buffer):
             return at_most
         else:
             return 0
+
+    def as_str_and_offset_maybe(self):
+        string, offset = self.buffer.as_str_and_offset_maybe()
+        if string is not None:
+            return string, offset+self.offset
+        return None, 0
 
     def getitem(self, index):
         return self.buffer.getitem(self.offset + index)

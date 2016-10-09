@@ -3,7 +3,7 @@ from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.baseobjspace import W_Root
-from rpython.rlib import rvmprof
+from rpython.rlib import rvmprof, jit
 
 # ____________________________________________________________
 
@@ -59,10 +59,20 @@ def enable(space, fileno, period):
     'interval' is a float representing the sampling interval, in seconds.
     Must be smaller than 1.0
     """
+    w_modules = space.sys.get('modules')
+    #if space.contains_w(w_modules, space.wrap('_continuation')):
+    #    space.warn(space.wrap("Using _continuation/greenlet/stacklet together "
+    #                          "with vmprof will crash"),
+    #               space.w_RuntimeWarning)
     try:
         rvmprof.enable(fileno, period)
-    except rvmprof.VMProfError, e:
+    except rvmprof.VMProfError as e:
         raise VMProfError(space, e)
+
+def write_all_code_objects(space):
+    """ Needed on cpython, just empty function here
+    """
+    pass
 
 def disable(space):
     """Disable vmprof.  Remember to close the file descriptor afterwards
@@ -70,5 +80,5 @@ def disable(space):
     """
     try:
         rvmprof.disable()
-    except rvmprof.VMProfError, e:
+    except rvmprof.VMProfError as e:
         raise VMProfError(space, e)

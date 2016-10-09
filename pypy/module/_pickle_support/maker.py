@@ -1,10 +1,10 @@
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.function import Function, Method
 from pypy.interpreter.module import Module
 from pypy.interpreter.pytraceback import PyTraceback
-from pypy.interpreter.generator import GeneratorIteratorWithDel
+from pypy.interpreter.generator import GeneratorIterator
 from rpython.rlib.objectmodel import instantiate
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.objspace.std.iterobject import W_SeqIterObject, W_ReverseSeqIterObject
@@ -59,7 +59,7 @@ def traceback_new(space):
     return space.wrap(tb)
 
 def generator_new(space):
-    new_generator = instantiate(GeneratorIteratorWithDel)
+    new_generator = instantiate(GeneratorIterator)
     return space.wrap(new_generator)
 
 @unwrap_spec(current=int, remaining=int, step=int)
@@ -74,9 +74,8 @@ def builtin_code(space, identifier):
     try:
         return gateway.BuiltinCode.find(identifier)
     except KeyError:
-        raise OperationError(space.w_RuntimeError,
-                             space.wrap("cannot unpickle builtin code: "+
-                                        identifier))
+        raise oefmt(space.w_RuntimeError,
+                    "cannot unpickle builtin code: %s", identifier)
 
 @unwrap_spec(identifier=str)
 def builtin_function(space, identifier):
@@ -84,9 +83,8 @@ def builtin_function(space, identifier):
     try:
         return function.Function.find(identifier)
     except KeyError:
-        raise OperationError(space.w_RuntimeError,
-                             space.wrap("cannot unpickle builtin function: "+
-                                        identifier))
+        raise oefmt(space.w_RuntimeError,
+                    "cannot unpickle builtin function: %s", identifier)
 
 
 def enumerate_new(space, w_iter, w_index):

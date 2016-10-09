@@ -18,6 +18,9 @@
 # CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 from __future__ import print_function
+from contextlib import contextmanager
+import os
+
 from pyrepl.reader import Reader
 from pyrepl.console import Console, Event
 
@@ -71,3 +74,14 @@ def read_spec(test_spec, reader_class=BaseTestReader):
     con = TestConsole(test_spec, verbose=True)
     reader = reader_class(con)
     reader.readline()
+
+
+@contextmanager
+def sane_term():
+    """Ensure a TERM that supports clear"""
+    old_term, os.environ['TERM'] = os.environ.get('TERM'), 'xterm'
+    yield
+    if old_term is not None:
+        os.environ['TERM'] = old_term
+    else:
+        del os.environ['TERM']

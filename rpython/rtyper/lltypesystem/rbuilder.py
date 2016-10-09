@@ -1,7 +1,7 @@
 from rpython.rlib import rgc, jit
-from rpython.rlib.objectmodel import enforceargs
+from rpython.rlib.objectmodel import enforceargs, dont_inline, always_inline
 from rpython.rlib.rarithmetic import ovfcheck, r_uint, intmask
-from rpython.rlib.debug import ll_assert
+from rpython.rtyper.debug import ll_assert
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.rptr import PtrRepr
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr
@@ -11,7 +11,7 @@ from rpython.rtyper.lltypesystem.rstr import (STR, UNICODE, char_repr,
 from rpython.rtyper.rbuilder import AbstractStringBuilderRepr
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.annlowlevel import llstr, llunicode
-        
+
 
 
 # ------------------------------------------------------------
@@ -35,15 +35,6 @@ from rpython.rtyper.annlowlevel import llstr, llunicode
 # chain of STRINGPIECEs and reuse them the next time.
 #
 # ------------------------------------------------------------
-
-
-def dont_inline(func):
-    func._dont_inline_ = True
-    return func
-
-def always_inline(func):
-    func._always_inline_ = True
-    return func
 
 
 STRINGPIECE = lltype.GcStruct('stringpiece',

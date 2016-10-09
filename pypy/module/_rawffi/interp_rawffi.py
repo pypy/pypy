@@ -1,12 +1,15 @@
+import sys
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.typedef import interp_attrproperty
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 
 from rpython.rlib.clibffi import *
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib.objectmodel import specialize
 import rpython.rlib.rposix as rposix
 
 _MS_WINDOWS = os.name == "nt"
@@ -18,6 +21,8 @@ from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.rarithmetic import intmask, r_uint
 from pypy.module._rawffi.buffer import RawFFIBuffer
 from pypy.module._rawffi.tracker import tracker
+
+BIGENDIAN = sys.byteorder == 'big'
 
 TYPEMAP = {
     # XXX A mess with unsigned/signed/normal chars :-/
@@ -137,8 +142,7 @@ def unpack_argshapes(space, w_argtypes):
             for w_arg in space.unpackiterable(w_argtypes)]
 
 def got_libffi_error(space):
-    raise OperationError(space.w_SystemError,
-                         space.wrap("not supported by libffi"))
+    raise oefmt(space.w_SystemError, "not supported by libffi")
 
 def wrap_dlopenerror(space, e, filename):
     return oefmt(space.w_OSError,
@@ -165,7 +169,7 @@ class W_CDLL(W_Root):
         w_key = space.newtuple([w_name, w_argtypes, w(resshape)])
         try:
             return space.getitem(self.w_cache, w_key)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, space.w_KeyError):
                 pass
             else:
@@ -204,8 +208,8 @@ class W_CDLL(W_Root):
             except LibFFIError:
                 raise got_libffi_error(space)
         else:
-            raise OperationError(space.w_TypeError, space.wrap(
-                "function name must be string or integer"))
+            raise oefmt(space.w_TypeError,
+                        "function name must be string or integer")
 
         w_funcptr = W_FuncPtr(space, ptr, argshapes, resshape)
         space.setitem(self.w_cache, w_key, w_funcptr)
@@ -224,9 +228,9 @@ class W_CDLL(W_Root):
 def descr_new_cdll(space, w_type, name):
     try:
         cdll = CDLL(name)
-    except DLOpenError, e:
+    except DLOpenError as e:
         raise wrap_dlopenerror(space, e, name)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     return space.wrap(W_CDLL(space, name, cdll))
 
@@ -235,6 +239,7 @@ W_CDLL.typedef = TypeDef(
     __new__     = interp2app(descr_new_cdll),
     ptr         = interp2app(W_CDLL.ptr),
     getaddressindll = interp2app(W_CDLL.getaddressindll),
+    name        = interp_attrproperty('name', W_CDLL),
     __doc__     = """ C Dynamically loaded library
 use CDLL(libname) to create a handle to a C library (the argument is processed
 the same way as dlopen processes it). On such a library you can call:
@@ -251,6 +256,7 @@ unroll_letters_for_floats = unrolling_iterable(TYPEMAP_FLOAT_LETTERS)
 
 _ARM = rffi_platform.getdefined('__arm__', '')
 
+@specialize.arg(2)
 def read_ptr(ptr, ofs, TP):
     T = lltype.Ptr(rffi.CArray(TP))
     for c in unroll_letters_for_floats:
@@ -270,8 +276,8 @@ def read_ptr(ptr, ofs, TP):
                 return ptr_val
     else:
         return rffi.cast(T, ptr)[ofs]
-read_ptr._annspecialcase_ = 'specialize:arg(2)'
 
+@specialize.argtype(2)
 def write_ptr(ptr, ofs, value):
     TP = lltype.typeOf(value)
     T = lltype.Ptr(rffi.CArray(TP))
@@ -292,7 +298,6 @@ def write_ptr(ptr, ofs, value):
                 return
     else:
         rffi.cast(T, ptr)[ofs] = value
-write_ptr._annspecialcase_ = 'specialize:argtype(2)'
 
 def segfault_exception(space, reason):
     w_mod = space.getbuiltinmodule("_rawffi")
@@ -331,9 +336,13 @@ class W_DataInstance(W_Root):
             if tracker.DO_TRACING:
                 ll_buf = rffi.cast(lltype.Signed, self.ll_buffer)
                 tracker.trace_allocation(ll_buf, self)
+        self._ll_buffer = self.ll_buffer
 
     def getbuffer(self, space):
         return space.wrap(rffi.cast(lltype.Unsigned, self.ll_buffer))
+
+    def buffer_advance(self, n):
+        self.ll_buffer = rffi.ptradd(self.ll_buffer, n)
 
     def byptr(self, space):
         from pypy.module._rawffi.array import ARRAY_OF_PTRS
@@ -342,16 +351,17 @@ class W_DataInstance(W_Root):
         return space.wrap(array)
 
     def free(self, space):
-        if not self.ll_buffer:
+        if not self._ll_buffer:
             raise segfault_exception(space, "freeing NULL pointer")
         self._free()
 
     def _free(self):
         if tracker.DO_TRACING:
-            ll_buf = rffi.cast(lltype.Signed, self.ll_buffer)
+            ll_buf = rffi.cast(lltype.Signed, self._ll_buffer)
             tracker.trace_free(ll_buf)
-        lltype.free(self.ll_buffer, flavor='raw')
+        lltype.free(self._ll_buffer, flavor='raw')
         self.ll_buffer = lltype.nullptr(rffi.VOIDP.TO)
+        self._ll_buffer = self.ll_buffer
 
     def buffer_w(self, space, flags):
         return RawFFIBuffer(self)
@@ -365,16 +375,16 @@ class W_DataInstance(W_Root):
     def getrawsize(self):
         raise NotImplementedError("abstract base class")
 
+@specialize.arg(0)
 def unwrap_truncate_int(TP, space, w_arg):
     if space.isinstance_w(w_arg, space.w_int):
         return rffi.cast(TP, space.int_w(w_arg))
     else:
         return rffi.cast(TP, space.bigint_w(w_arg).ulonglongmask())
-unwrap_truncate_int._annspecialcase_ = 'specialize:arg(0)'
 
 
+@specialize.arg(1)
 def unwrap_value(space, push_func, add_arg, argdesc, letter, w_arg):
-    w = space.wrap
     if letter in TYPEMAP_PTR_LETTERS:
         # check for NULL ptr
         if isinstance(w_arg, W_DataInstance):
@@ -393,15 +403,16 @@ def unwrap_value(space, push_func, add_arg, argdesc, letter, w_arg):
     elif letter == "c":
         s = space.str_w(w_arg)
         if len(s) != 1:
-            raise OperationError(space.w_TypeError, w(
-                "Expected string of length one as character"))
+            raise oefmt(space.w_TypeError,
+                        "Expected string of length one as character")
         val = s[0]
         push_func(add_arg, argdesc, val)
     elif letter == 'u':
         s = space.unicode_w(w_arg)
         if len(s) != 1:
-            raise OperationError(space.w_TypeError, w(
-                "Expected unicode string of length one as wide character"))
+            raise oefmt(space.w_TypeError,
+                        "Expected unicode string of length one as wide "
+                        "character")
         val = s[0]
         push_func(add_arg, argdesc, val)
     else:
@@ -412,12 +423,11 @@ def unwrap_value(space, push_func, add_arg, argdesc, letter, w_arg):
                 push_func(add_arg, argdesc, val)
                 return
         else:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("cannot directly write value"))
-unwrap_value._annspecialcase_ = 'specialize:arg(1)'
+            raise oefmt(space.w_TypeError, "cannot directly write value")
 
 ll_typemap_iter = unrolling_iterable(LL_TYPEMAP.items())
 
+@specialize.arg(1)
 def wrap_value(space, func, add_arg, argdesc, letter):
     for c, ll_type in ll_typemap_iter:
         if letter == c:
@@ -428,16 +438,21 @@ def wrap_value(space, func, add_arg, argdesc, letter):
                 return space.wrap(float(func(add_arg, argdesc, ll_type)))
             else:
                 return space.wrap(func(add_arg, argdesc, ll_type))
-    raise OperationError(space.w_TypeError,
-                         space.wrap("cannot directly read value"))
-wrap_value._annspecialcase_ = 'specialize:arg(1)'
+    raise oefmt(space.w_TypeError, "cannot directly read value")
 
+NARROW_INTEGER_TYPES = 'cbhiBIH?'
+
+def is_narrow_integer_type(letter):
+    return letter in NARROW_INTEGER_TYPES
 
 class W_FuncPtr(W_Root):
     def __init__(self, space, ptr, argshapes, resshape):
         self.ptr = ptr
         self.argshapes = argshapes
         self.resshape = resshape
+        self.narrow_integer = False
+        if resshape is not None:
+            self.narrow_integer = is_narrow_integer_type(resshape.itemcode.lower())
 
     def getbuffer(self, space):
         return space.wrap(rffi.cast(lltype.Unsigned, self.ptr.funcsym))
@@ -497,11 +512,15 @@ class W_FuncPtr(W_Root):
                 result = self.resshape.allocate(space, 1, autofree=True)
                 # adjust_return_size() was used here on result.ll_buffer
                 self.ptr.call(args_ll, result.ll_buffer)
+                if BIGENDIAN and self.narrow_integer:
+                    # we get a 8 byte value in big endian
+                    n = rffi.sizeof(lltype.Signed) - result.shape.size
+                    result.buffer_advance(n)
                 return space.wrap(result)
             else:
                 self.ptr.call(args_ll, lltype.nullptr(rffi.VOIDP.TO))
                 return space.w_None
-        except StackCheckError, e:
+        except StackCheckError as e:
             raise OperationError(space.w_ValueError, space.wrap(e.message))
 
 @unwrap_spec(addr=r_uint, flags=int)
@@ -533,8 +552,7 @@ def _create_new_accessor(func_name, name):
     @unwrap_spec(tp_letter=str)
     def accessor(space, tp_letter):
         if len(tp_letter) != 1:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "Expecting string of length one"))
+            raise oefmt(space.w_ValueError, "Expecting string of length one")
         tp_letter = tp_letter[0] # fool annotator
         try:
             return space.wrap(intmask(getattr(TYPEMAP[tp_letter], name)))
@@ -555,7 +573,7 @@ def charp2string(space, address, maxlength=-1):
         s = rffi.charp2str(charp_addr)
     else:
         s = rffi.charp2strn(charp_addr, maxlength)
-    return space.wrap(s)
+    return space.newbytes(s)
 
 @unwrap_spec(address=r_uint, maxlength=int)
 def wcharp2unicode(space, address, maxlength=-1):
@@ -573,7 +591,7 @@ def charp2rawstring(space, address, maxlength=-1):
     if maxlength == -1:
         return charp2string(space, address)
     s = rffi.charpsize2str(rffi.cast(rffi.CCHARP, address), maxlength)
-    return space.wrap(s)
+    return space.newbytes(s)
 
 @unwrap_spec(address=r_uint, maxlength=int)
 def wcharp2rawunicode(space, address, maxlength=-1):
@@ -604,7 +622,7 @@ def get_libc(space):
     name = get_libc_name()
     try:
         cdll = CDLL(name)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     return space.wrap(W_CDLL(space, name, cdll))
 

@@ -126,6 +126,9 @@ translation_optiondescription = OptionDescription(
     ChoiceOption("jit_profiler", "integrate profiler support into the JIT",
                  ["off", "oprofile"],
                  default="off"),
+    ChoiceOption("jit_opencoder_model", "the model limits the maximal length"
+                 " of traces. Use big if you want to go bigger than "
+                 "the default", ["big", "normal"], default="normal"),
     BoolOption("check_str_without_nul",
                "Forbid NUL chars in strings in some external function calls",
                default=False, cmdline=None),
@@ -192,6 +195,8 @@ translation_optiondescription = OptionDescription(
                "If true, makes an lldebug0 build", default=False,
                cmdline="--lldebug0"),
     StrOption("icon", "Path to the (Windows) icon to use for the executable"),
+    StrOption("libname",
+              "Windows: name and possibly location of the lib file to create"),
 
     OptionDescription("backendopt", "Backend Optimization Options", [
         # control inlining
@@ -208,11 +213,6 @@ translation_optiondescription = OptionDescription(
                    default=False),
         BoolOption("merge_if_blocks", "Merge if ... elif chains",
                    cmdline="--if-block-merge", default=True),
-        BoolOption("raisingop2direct_call",
-                   "Transform operations that can implicitly raise an "
-                   "exception into calls to functions that explicitly "
-                   "raise exceptions",
-                   default=False, cmdline="--raisingop2direct_call"),
         BoolOption("mallocs", "Remove mallocs", default=True),
         BoolOption("constfold", "Constant propagation",
                    default=True),
@@ -261,6 +261,9 @@ translation_optiondescription = OptionDescription(
                    "stack based virtual machines (only for backends that support it)",
                    default=True),
         BoolOption("storesink", "Perform store sinking", default=True),
+        BoolOption("replace_we_are_jitted",
+                   "Replace we_are_jitted() calls by False",
+                   default=False, cmdline=None),
         BoolOption("none",
                    "Do not run any backend optimizations",
                    requires=[('translation.backendopt.inline', False),

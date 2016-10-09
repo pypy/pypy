@@ -3,6 +3,7 @@ from . import ffiplatform, model
 from .cffi_opcode import *
 
 VERSION = "0x2601"
+VERSION_EMBEDDED = "0x2701"
 
 
 class GlobalExpr:
@@ -118,6 +119,7 @@ class TypenameExpr:
 
 
 class Recompiler:
+    _num_externpy = 0
 
     def __init__(self, ffi, module_name, target_is_python=False):
         self.ffi = ffi
@@ -273,12 +275,37 @@ class Recompiler:
     def write_c_source_to_f(self, f, preamble):
         self._f = f
         prnt = self._prnt
+        if self.ffi._embedding is not None:
+            prnt('#define _CFFI_USE_EMBEDDING')
         #
         # first the '#include' (actually done by inlining the file's content)
         lines = self._rel_readlines('_cffi_include.h')
         i = lines.index('#include "parse_c_type.h"\n')
         lines[i:i+1] = self._rel_readlines('parse_c_type.h')
         prnt(''.join(lines))
+        #
+        # if we have ffi._embedding != None, we give it here as a macro
+        # and include an extra file
+        base_module_name = self.module_name.split('.')[-1]
+        if self.ffi._embedding is not None:
+            prnt('#define _CFFI_MODULE_NAME  "%s"' % (self.module_name,))
+            prnt('#define _CFFI_PYTHON_STARTUP_CODE  %s' %
+                 (self._string_literal(self.ffi._embedding),))
+            prnt('#ifdef PYPY_VERSION')
+            prnt('# define _CFFI_PYTHON_STARTUP_FUNC  _cffi_pypyinit_%s' % (
+                base_module_name,))
+            prnt('#elif PY_MAJOR_VERSION >= 3')
+            prnt('# define _CFFI_PYTHON_STARTUP_FUNC  PyInit_%s' % (
+                base_module_name,))
+            prnt('#else')
+            prnt('# define _CFFI_PYTHON_STARTUP_FUNC  init%s' % (
+                base_module_name,))
+            prnt('#endif')
+            lines = self._rel_readlines('_embedding.h')
+            prnt(''.join(lines))
+            version = VERSION_EMBEDDED
+        else:
+            version = VERSION
         #
         # then paste the C source given by the user, verbatim.
         prnt('/************************************************************/')
@@ -356,17 +383,24 @@ class Recompiler:
         else:
             prnt('  NULL,  /* no includes */')
         prnt('  %d,  /* num_types */' % (len(self.cffi_types),))
-        prnt('  0,  /* flags */')
+        flags = 0
+        if self._num_externpy:
+            flags |= 1     # set to mean that we use extern "Python"
+        prnt('  %d,  /* flags */' % flags)
         prnt('};')
         prnt()
         #
         # the init function
-        base_module_name = self.module_name.split('.')[-1]
         prnt('#ifdef PYPY_VERSION')
         prnt('PyMODINIT_FUNC')
         prnt('_cffi_pypyinit_%s(const void *p[])' % (base_module_name,))
         prnt('{')
-        prnt('    p[0] = (const void *)%s;' % VERSION)
+        if self._num_externpy:
+            prnt('    if (((intptr_t)p[0]) >= 0x0A03) {')
+            prnt('        _cffi_call_python_org = '
+                 '(void(*)(struct _cffi_externpy_s *, char *))p[1];')
+            prnt('    }')
+        prnt('    p[0] = (const void *)%s;' % version)
         prnt('    p[1] = &_cffi_type_context;')
         prnt('}')
         # on Windows, distutils insists on putting init_cffi_xyz in
@@ -385,14 +419,14 @@ class Recompiler:
         prnt('PyInit_%s(void)' % (base_module_name,))
         prnt('{')
         prnt('  return _cffi_init("%s", %s, &_cffi_type_context);' % (
-            self.module_name, VERSION))
+            self.module_name, version))
         prnt('}')
         prnt('#else')
         prnt('PyMODINIT_FUNC')
         prnt('init%s(void)' % (base_module_name,))
         prnt('{')
         prnt('  _cffi_init("%s", %s, &_cffi_type_context);' % (
-            self.module_name, VERSION))
+            self.module_name, version))
         prnt('}')
         prnt('#endif')
 
@@ -481,7 +515,7 @@ class Recompiler:
                                                     tovar, errcode)
             return
         #
-        elif isinstance(tp, (model.StructOrUnion, model.EnumType)):
+        elif isinstance(tp, model.StructOrUnionOrEnum):
             # a struct (not a struct pointer) as a function argument
             self._prnt('  if (_cffi_to_c((char *)&%s, _cffi_type(%d), %s) < 0)'
                       % (tovar, self._gettypenum(tp), fromvar))
@@ -538,7 +572,7 @@ class Recompiler:
         elif isinstance(tp, model.ArrayType):
             return '_cffi_from_c_pointer((char *)%s, _cffi_type(%d))' % (
                 var, self._gettypenum(model.PointerType(tp.item)))
-        elif isinstance(tp, model.StructType):
+        elif isinstance(tp, model.StructOrUnion):
             if tp.fldnames is None:
                 raise TypeError("'%s' is used as %s, but is opaque" % (
                     tp._get_c_name(), context))
@@ -553,8 +587,11 @@ class Recompiler:
     # ----------
     # typedefs
 
+    def _typedef_type(self, tp, name):
+        return self._global_type(tp, "(*(%s *)0)" % (name,))
+
     def _generate_cpy_typedef_collecttype(self, tp, name):
-        self._do_collect_type(tp)
+        self._do_collect_type(self._typedef_type(tp, name))
 
     def _generate_cpy_typedef_decl(self, tp, name):
         pass
@@ -564,6 +601,7 @@ class Recompiler:
         self._lsts["typename"].append(TypenameExpr(name, type_index))
 
     def _generate_cpy_typedef_ctx(self, tp, name):
+        tp = self._typedef_type(tp, name)
         self._typedef_ctx(tp, name)
         if getattr(tp, "origin", None) == "unknown_type":
             self._struct_ctx(tp, tp.name, approxname=None)
@@ -651,13 +689,11 @@ class Recompiler:
             rng = range(len(tp.args))
             for i in rng:
                 prnt('  PyObject *arg%d;' % i)
-            prnt('  PyObject **aa;')
             prnt()
-            prnt('  aa = _cffi_unpack_args(args, %d, "%s");' % (len(rng), name))
-            prnt('  if (aa == NULL)')
+            prnt('  if (!PyArg_UnpackTuple(args, "%s", %d, %d, %s))' % (
+                name, len(rng), len(rng),
+                ', '.join(['&arg%d' % i for i in rng])))
             prnt('    return NULL;')
-            for i in rng:
-                prnt('  arg%d = aa[%d];' % (i, i))
         prnt()
         #
         for i, type in enumerate(tp.args):
@@ -782,7 +818,7 @@ class Recompiler:
             try:
                 if ftype.is_integer_type() or fbitsize >= 0:
                     # accept all integers, but complain on float or double
-                    prnt("  (void)((p->%s) << 1);  /* check that '%s.%s' is "
+                    prnt("  (void)((p->%s) | 0);  /* check that '%s.%s' is "
                          "an integer */" % (fname, cname, fname))
                     continue
                 # only accept exactly the type declared, except that '[]'
@@ -830,6 +866,8 @@ class Recompiler:
             enumfields = list(tp.enumfields())
             for fldname, fldtype, fbitsize, fqual in enumfields:
                 fldtype = self._field_type(tp, fldname, fldtype)
+                self._check_not_opaque(fldtype,
+                                       "field '%s.%s'" % (tp.name, fldname))
                 # cname is None for _add_missing_struct_unions() only
                 op = OP_NOOP
                 if fbitsize >= 0:
@@ -878,6 +916,13 @@ class Recompiler:
             StructUnionExpr(tp.name, type_index, flags, size, align, comment,
                             first_field_index, c_fields))
         self._seen_struct_unions.add(tp)
+
+    def _check_not_opaque(self, tp, location):
+        while isinstance(tp, model.ArrayType):
+            tp = tp.item
+        if isinstance(tp, model.StructOrUnion) and tp.fldtypes is None:
+            raise TypeError(
+                "%s is of an opaque type (not declared in cdef())" % location)
 
     def _add_missing_struct_unions(self):
         # not very nice, but some struct declarations might be missing
@@ -959,7 +1004,7 @@ class Recompiler:
             prnt('static int %s(unsigned long long *o)' % funcname)
             prnt('{')
             prnt('  int n = (%s) <= 0;' % (name,))
-            prnt('  *o = (unsigned long long)((%s) << 0);'
+            prnt('  *o = (unsigned long long)((%s) | 0);'
                  '  /* check that %s is an integer */' % (name, name))
             if check_value is not None:
                 if check_value > 0:
@@ -1108,6 +1153,105 @@ class Recompiler:
             GlobalExpr(name, '_cffi_var_%s' % name, CffiOp(op, type_index)))
 
     # ----------
+    # extern "Python"
+
+    def _generate_cpy_extern_python_collecttype(self, tp, name):
+        assert isinstance(tp, model.FunctionPtrType)
+        self._do_collect_type(tp)
+    _generate_cpy_dllexport_python_collecttype = \
+      _generate_cpy_extern_python_plus_c_collecttype = \
+      _generate_cpy_extern_python_collecttype
+
+    def _extern_python_decl(self, tp, name, tag_and_space):
+        prnt = self._prnt
+        if isinstance(tp.result, model.VoidType):
+            size_of_result = '0'
+        else:
+            context = 'result of %s' % name
+            size_of_result = '(int)sizeof(%s)' % (
+                tp.result.get_c_name('', context),)
+        prnt('static struct _cffi_externpy_s _cffi_externpy__%s =' % name)
+        prnt('  { "%s", %s };' % (name, size_of_result))
+        prnt()
+        #
+        arguments = []
+        context = 'argument of %s' % name
+        for i, type in enumerate(tp.args):
+            arg = type.get_c_name(' a%d' % i, context)
+            arguments.append(arg)
+        #
+        repr_arguments = ', '.join(arguments)
+        repr_arguments = repr_arguments or 'void'
+        name_and_arguments = '%s(%s)' % (name, repr_arguments)
+        if tp.abi == "__stdcall":
+            name_and_arguments = '_cffi_stdcall ' + name_and_arguments
+        #
+        def may_need_128_bits(tp):
+            return (isinstance(tp, model.PrimitiveType) and
+                    tp.name == 'long double')
+        #
+        size_of_a = max(len(tp.args)*8, 8)
+        if may_need_128_bits(tp.result):
+            size_of_a = max(size_of_a, 16)
+        if isinstance(tp.result, model.StructOrUnion):
+            size_of_a = 'sizeof(%s) > %d ? sizeof(%s) : %d' % (
+                tp.result.get_c_name(''), size_of_a,
+                tp.result.get_c_name(''), size_of_a)
+        prnt('%s%s' % (tag_and_space, tp.result.get_c_name(name_and_arguments)))
+        prnt('{')
+        prnt('  char a[%s];' % size_of_a)
+        prnt('  char *p = a;')
+        for i, type in enumerate(tp.args):
+            arg = 'a%d' % i
+            if (isinstance(type, model.StructOrUnion) or
+                    may_need_128_bits(type)):
+                arg = '&' + arg
+                type = model.PointerType(type)
+            prnt('  *(%s)(p + %d) = %s;' % (type.get_c_name('*'), i*8, arg))
+        prnt('  _cffi_call_python(&_cffi_externpy__%s, p);' % name)
+        if not isinstance(tp.result, model.VoidType):
+            prnt('  return *(%s)p;' % (tp.result.get_c_name('*'),))
+        prnt('}')
+        prnt()
+        self._num_externpy += 1
+
+    def _generate_cpy_extern_python_decl(self, tp, name):
+        self._extern_python_decl(tp, name, 'static ')
+
+    def _generate_cpy_dllexport_python_decl(self, tp, name):
+        self._extern_python_decl(tp, name, 'CFFI_DLLEXPORT ')
+
+    def _generate_cpy_extern_python_plus_c_decl(self, tp, name):
+        self._extern_python_decl(tp, name, '')
+
+    def _generate_cpy_extern_python_ctx(self, tp, name):
+        if self.target_is_python:
+            raise ffiplatform.VerificationError(
+                "cannot use 'extern \"Python\"' in the ABI mode")
+        if tp.ellipsis:
+            raise NotImplementedError("a vararg function is extern \"Python\"")
+        type_index = self._typesdict[tp]
+        type_op = CffiOp(OP_EXTERN_PYTHON, type_index)
+        self._lsts["global"].append(
+            GlobalExpr(name, '&_cffi_externpy__%s' % name, type_op, name))
+
+    _generate_cpy_dllexport_python_ctx = \
+      _generate_cpy_extern_python_plus_c_ctx = \
+      _generate_cpy_extern_python_ctx
+
+    def _string_literal(self, s):
+        def _char_repr(c):
+            # escape with a '\' the characters '\', '"' or (for trigraphs) '?'
+            if c in '\\"?': return '\\' + c
+            if ' ' <= c < '\x7F': return c
+            if c == '\n': return '\\n'
+            return '\\%03o' % ord(c)
+        lines = []
+        for line in s.splitlines(True) or ['']:
+            lines.append('"%s"' % ''.join([_char_repr(c) for c in line]))
+        return ' \\\n'.join(lines)
+
+    # ----------
     # emitting the opcodes for individual types
 
     def _emit_bytecode_VoidType(self, tp, index):
@@ -1119,7 +1263,7 @@ class Recompiler:
 
     def _emit_bytecode_UnknownIntegerType(self, tp, index):
         s = ('_cffi_prim_int(sizeof(%s), (\n'
-             '           ((%s)-1) << 0 /* check that %s is an integer type */\n'
+             '           ((%s)-1) | 0 /* check that %s is an integer type */\n'
              '         ) <= 0)' % (tp.name, tp.name, tp.name))
         self.cffi_types[index] = CffiOp(OP_PRIMITIVE, s)
 
@@ -1191,7 +1335,9 @@ else:
                 s = s.encode('ascii')
             super(NativeIO, self).write(s)
 
-def _make_c_or_py_source(ffi, module_name, preamble, target_file):
+def _make_c_or_py_source(ffi, module_name, preamble, target_file, verbose):
+    if verbose:
+        print("generating %s" % (target_file,))
     recompiler = Recompiler(ffi, module_name,
                             target_is_python=(preamble is None))
     recompiler.collect_type_table()
@@ -1203,6 +1349,8 @@ def _make_c_or_py_source(ffi, module_name, preamble, target_file):
         with open(target_file, 'r') as f1:
             if f1.read(len(output) + 1) != output:
                 raise IOError
+        if verbose:
+            print("(already up-to-date)")
         return False     # already up-to-date
     except IOError:
         tmp_file = '%s.~%d' % (target_file, os.getpid())
@@ -1215,12 +1363,14 @@ def _make_c_or_py_source(ffi, module_name, preamble, target_file):
             os.rename(tmp_file, target_file)
         return True
 
-def make_c_source(ffi, module_name, preamble, target_c_file):
+def make_c_source(ffi, module_name, preamble, target_c_file, verbose=False):
     assert preamble is not None
-    return _make_c_or_py_source(ffi, module_name, preamble, target_c_file)
+    return _make_c_or_py_source(ffi, module_name, preamble, target_c_file,
+                                verbose)
 
-def make_py_source(ffi, module_name, target_py_file):
-    return _make_c_or_py_source(ffi, module_name, None, target_py_file)
+def make_py_source(ffi, module_name, target_py_file, verbose=False):
+    return _make_c_or_py_source(ffi, module_name, None, target_py_file,
+                                verbose)
 
 def _modname_to_file(outputdir, modname, extension):
     parts = modname.split('.')
@@ -1231,13 +1381,69 @@ def _modname_to_file(outputdir, modname, extension):
     parts[-1] += extension
     return os.path.join(outputdir, *parts), parts
 
+
+# Aaargh.  Distutils is not tested at all for the purpose of compiling
+# DLLs that are not extension modules.  Here are some hacks to work
+# around that, in the _patch_for_*() functions...
+
+def _patch_meth(patchlist, cls, name, new_meth):
+    old = getattr(cls, name)
+    patchlist.append((cls, name, old))
+    setattr(cls, name, new_meth)
+    return old
+
+def _unpatch_meths(patchlist):
+    for cls, name, old_meth in reversed(patchlist):
+        setattr(cls, name, old_meth)
+
+def _patch_for_embedding(patchlist):
+    if sys.platform == 'win32':
+        # we must not remove the manifest when building for embedding!
+        from distutils.msvc9compiler import MSVCCompiler
+        _patch_meth(patchlist, MSVCCompiler, '_remove_visual_c_ref',
+                    lambda self, manifest_file: manifest_file)
+
+    if sys.platform == 'darwin':
+        # we must not make a '-bundle', but a '-dynamiclib' instead
+        from distutils.ccompiler import CCompiler
+        def my_link_shared_object(self, *args, **kwds):
+            if '-bundle' in self.linker_so:
+                self.linker_so = list(self.linker_so)
+                i = self.linker_so.index('-bundle')
+                self.linker_so[i] = '-dynamiclib'
+            return old_link_shared_object(self, *args, **kwds)
+        old_link_shared_object = _patch_meth(patchlist, CCompiler,
+                                             'link_shared_object',
+                                             my_link_shared_object)
+
+def _patch_for_target(patchlist, target):
+    from distutils.command.build_ext import build_ext
+    # if 'target' is different from '*', we need to patch some internal
+    # method to just return this 'target' value, instead of having it
+    # built from module_name
+    if target.endswith('.*'):
+        target = target[:-2]
+        if sys.platform == 'win32':
+            target += '.dll'
+        elif sys.platform == 'darwin':
+            target += '.dylib'
+        else:
+            target += '.so'
+    _patch_meth(patchlist, build_ext, 'get_ext_filename',
+                lambda self, ext_name: target)
+
+
 def recompile(ffi, module_name, preamble, tmpdir='.', call_c_compiler=True,
-              c_file=None, source_extension='.c', extradir=None, **kwds):
+              c_file=None, source_extension='.c', extradir=None,
+              compiler_verbose=1, target=None, debug=None, **kwds):
     if not isinstance(module_name, str):
         module_name = module_name.encode('ascii')
     if ffi._windows_unicode:
         ffi._apply_windows_unicode(kwds)
     if preamble is not None:
+        embedding = (ffi._embedding is not None)
+        if embedding:
+            ffi._apply_embedding_fix(kwds)
         if c_file is None:
             c_file, parts = _modname_to_file(tmpdir, module_name,
                                              source_extension)
@@ -1246,22 +1452,38 @@ def recompile(ffi, module_name, preamble, tmpdir='.', call_c_compiler=True,
             ext_c_file = os.path.join(*parts)
         else:
             ext_c_file = c_file
+        #
+        if target is None:
+            if embedding:
+                target = '%s.*' % module_name
+            else:
+                target = '*'
+        #
         ext = ffiplatform.get_extension(ext_c_file, module_name, **kwds)
-        updated = make_c_source(ffi, module_name, preamble, c_file)
+        updated = make_c_source(ffi, module_name, preamble, c_file,
+                                verbose=compiler_verbose)
         if call_c_compiler:
+            patchlist = []
             cwd = os.getcwd()
             try:
+                if embedding:
+                    _patch_for_embedding(patchlist)
+                if target != '*':
+                    _patch_for_target(patchlist, target)
                 os.chdir(tmpdir)
-                outputfilename = ffiplatform.compile('.', ext)
+                outputfilename = ffiplatform.compile('.', ext,
+                                                     compiler_verbose, debug)
             finally:
                 os.chdir(cwd)
+                _unpatch_meths(patchlist)
             return outputfilename
         else:
             return ext, updated
     else:
         if c_file is None:
             c_file, _ = _modname_to_file(tmpdir, module_name, '.py')
-        updated = make_py_source(ffi, module_name, c_file)
+        updated = make_py_source(ffi, module_name, c_file,
+                                 verbose=compiler_verbose)
         if call_c_compiler:
             return c_file
         else:
@@ -1287,4 +1509,7 @@ def _verify(ffi, module_name, preamble, *args, **kwds):
     def typeof_disabled(*args, **kwds):
         raise NotImplementedError
     ffi._typeof = typeof_disabled
+    for name in dir(ffi):
+        if not name.startswith('_') and not hasattr(module.ffi, name):
+            setattr(ffi, name, NotImplemented)
     return module.lib

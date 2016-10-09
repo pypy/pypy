@@ -3,9 +3,10 @@ from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.jit.metainterp.resoperation import AbstractValue, ResOperation,\
      rop, OpHelpers
 from rpython.jit.metainterp.history import ConstInt, Const
-from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.jit.metainterp.optimizeopt.rawbuffer import RawBuffer, InvalidRawOperation
 from rpython.jit.metainterp.executor import execute
+from rpython.jit.metainterp.optimize import InvalidLoop
 
 
 INFO_NULL = 0
@@ -113,7 +114,7 @@ class NonNullPtrInfo(PtrInfo):
         assert self.get_last_guard(optimizer).is_guard()
 
     def make_guards(self, op, short, optimizer):
-        op = ResOperation(rop.GUARD_NONNULL, [op], None)
+        op = ResOperation(rop.GUARD_NONNULL, [op])
         short.append(op)
 
 class AbstractVirtualPtrInfo(NonNullPtrInfo):
@@ -143,7 +144,8 @@ class AbstractVirtualPtrInfo(NonNullPtrInfo):
             op.set_forwarded(None)
             optforce.emit_extra(op)
             newop = optforce.getlastop()
-            op.set_forwarded(newop)
+            if newop is not op:
+                op.set_forwarded(newop)
             newop.set_forwarded(self)
             descr = self.descr
             self._is_virtual = False
@@ -195,28 +197,28 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
     def all_items(self):
         return self._fields
 
-    def setfield(self, descr, struct, op, optheap=None, cf=None):
-        self.init_fields(descr.get_parent_descr(), descr.get_index())
+    def setfield(self, fielddescr, struct, op, optheap=None, cf=None):
+        self.init_fields(fielddescr.get_parent_descr(), fielddescr.get_index())
         assert isinstance(op, AbstractValue)
-        self._fields[descr.get_index()] = op
+        self._fields[fielddescr.get_index()] = op
         if cf is not None:
             assert not self.is_virtual()
             assert struct is not None
-            cf.register_dirty_field(struct, self)
+            cf.register_info(struct, self)
 
-    def getfield(self, descr, optheap=None):
-        self.init_fields(descr.get_parent_descr(), descr.get_index())
-        return self._fields[descr.get_index()]
+    def getfield(self, fielddescr, optheap=None):
+        self.init_fields(fielddescr.get_parent_descr(), fielddescr.get_index())
+        return self._fields[fielddescr.get_index()]
 
     def _force_elements(self, op, optforce, descr):
         if self._fields is None:
             return
-        for i, flddescr in enumerate(descr.get_all_fielddescrs()):
+        for i, fielddescr in enumerate(descr.get_all_fielddescrs()):
             fld = self._fields[i]
             if fld is not None:
                 subbox = optforce.force_box(fld)
                 setfieldop = ResOperation(rop.SETFIELD_GC, [op, subbox],
-                                          descr=flddescr)
+                                          descr=fielddescr)
                 self._fields[i] = None
                 optforce.emit_extra(setfieldop)
 
@@ -248,16 +250,16 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
                 if fieldinfo and fieldinfo.is_virtual():
                     fieldinfo.visitor_walk_recursive(op, visitor, optimizer)
 
-    def produce_short_preamble_ops(self, structbox, descr, index, optimizer,
+    def produce_short_preamble_ops(self, structbox, fielddescr, index, optimizer,
                                    shortboxes):
         if self._fields is None:
             return
-        if descr.get_index() >= len(self._fields):
+        if fielddescr.get_index() >= len(self._fields):
             # we don't know about this item
             return
-        op = optimizer.get_box_replacement(self._fields[descr.get_index()])
-        opnum = OpHelpers.getfield_for_descr(descr)
-        getfield_op = ResOperation(opnum, [structbox], descr=descr)
+        op = optimizer.get_box_replacement(self._fields[fielddescr.get_index()])
+        opnum = OpHelpers.getfield_for_descr(fielddescr)
+        getfield_op = ResOperation(opnum, [structbox], descr=fielddescr)
         shortboxes.add_heap_op(op, getfield_op)
 
     def _is_immutable_and_filled_with_constants(self, optimizer, memo=None):
@@ -293,12 +295,12 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
         return True
 
     def _force_elements_immutable(self, descr, constptr, optforce):
-        for i, flddescr in enumerate(descr.get_all_fielddescrs()):
+        for i, fielddescr in enumerate(descr.get_all_fielddescrs()):
             fld = self._fields[i]
             subbox = optforce.force_box(fld)
             assert isinstance(subbox, Const)
             execute(optforce.optimizer.cpu, None, rop.SETFIELD_GC,
-                    flddescr, constptr, subbox)
+                    fielddescr, constptr, subbox)
 
 class InstancePtrInfo(AbstractStructPtrInfo):
     _attrs_ = ('_known_class',)
@@ -325,17 +327,17 @@ class InstancePtrInfo(AbstractStructPtrInfo):
 
     def make_guards(self, op, short, optimizer):
         if self._known_class is not None:
-            short.append(ResOperation(rop.GUARD_NONNULL, [op], None))
+            short.append(ResOperation(rop.GUARD_NONNULL, [op]))
             if not optimizer.cpu.remove_gctypeptr:
-                short.append(ResOperation(rop.GUARD_IS_OBJECT, [op], None))
+                short.append(ResOperation(rop.GUARD_IS_OBJECT, [op]))
             short.append(ResOperation(rop.GUARD_CLASS,
-                                      [op, self._known_class], None))
+                                      [op, self._known_class]))
         elif self.descr is not None:
-            short.append(ResOperation(rop.GUARD_NONNULL, [op], None))
+            short.append(ResOperation(rop.GUARD_NONNULL, [op]))
             if not optimizer.cpu.remove_gctypeptr:
-                short.append(ResOperation(rop.GUARD_IS_OBJECT, [op], None))
+                short.append(ResOperation(rop.GUARD_IS_OBJECT, [op]))
             short.append(ResOperation(rop.GUARD_SUBCLASS, [op,
-                            ConstInt(self.descr.get_vtable())], None))
+                            ConstInt(self.descr.get_vtable())]))
         else:
             AbstractStructPtrInfo.make_guards(self, op, short, optimizer)
 
@@ -348,8 +350,8 @@ class StructPtrInfo(AbstractStructPtrInfo):
         if self.descr is not None:
             c_typeid = ConstInt(self.descr.get_type_id())
             short.extend([
-                ResOperation(rop.GUARD_NONNULL, [op], None),
-                ResOperation(rop.GUARD_GC_TYPE, [op, c_typeid], None)
+                ResOperation(rop.GUARD_NONNULL, [op]),
+                ResOperation(rop.GUARD_GC_TYPE, [op, c_typeid])
             ])
 
     @specialize.argtype(1)
@@ -363,10 +365,18 @@ class AbstractRawPtrInfo(AbstractVirtualPtrInfo):
     def visitor_dispatch_virtual_type(self, visitor):
         raise NotImplementedError("abstract")
 
+    def make_guards(self, op, short, optimizer):
+        from rpython.jit.metainterp.optimizeopt.optimizer import CONST_0
+        op = ResOperation(rop.INT_EQ, [op, CONST_0])
+        short.append(op)
+        op = ResOperation(rop.GUARD_FALSE, [op])
+        short.append(op)
+
 class RawBufferPtrInfo(AbstractRawPtrInfo):
     buffer = None
-    
-    def __init__(self, cpu, size=-1):
+
+    def __init__(self, cpu, func, size=-1):
+        self.func = func
         self.size = size
         if self.size != -1:
             self.buffer = RawBuffer(cpu, None)
@@ -398,6 +408,12 @@ class RawBufferPtrInfo(AbstractRawPtrInfo):
 
     def _force_elements(self, op, optforce, descr):
         self.size = -1
+        # at this point we have just written the
+        # 'op = CALL_I(..., OS_RAW_MALLOC_VARSIZE_CHAR)'.
+        # Emit now a CHECK_MEMORY_ERROR resop.
+        check_op = ResOperation(rop.CHECK_MEMORY_ERROR, [op])
+        optforce.emit_extra(check_op)
+        #
         buffer = self._get_buffer()
         for i in range(len(buffer.offsets)):
             # write the value
@@ -417,7 +433,8 @@ class RawBufferPtrInfo(AbstractRawPtrInfo):
     @specialize.argtype(1)
     def visitor_dispatch_virtual_type(self, visitor):
         buffer = self._get_buffer()
-        return visitor.visit_vrawbuffer(self.size,
+        return visitor.visit_vrawbuffer(self.func,
+                                        self.size,
                                         buffer.offsets[:],
                                         buffer.descrs[:])
 
@@ -504,6 +521,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
             info._items = self._items[:]
 
     def _force_elements(self, op, optforce, descr):
+        # XXX
         descr = op.getdescr()
         const = optforce.new_const_item(self.descr)
         for i in range(self.length):
@@ -522,15 +540,16 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
             optforce.emit_extra(setop)
         optforce.pure_from_args(rop.ARRAYLEN_GC, [op], ConstInt(len(self._items)))
 
-    def setitem(self, descr, index, struct, op, cf=None, optheap=None):
+    def setitem(self, descr, index, struct, op, optheap=None, cf=None):
         if self._items is None:
             self._items = [None] * (index + 1)
         if index >= len(self._items):
+            assert not self.is_virtual()
             self._items = self._items + [None] * (index - len(self._items) + 1)
         self._items[index] = op
         if cf is not None:
             assert not self.is_virtual()
-            cf.register_dirty_field(struct, self)
+            cf.register_info(struct, self)
 
     def getitem(self, descr, index, optheap=None):
         if self._items is None or index >= len(self._items):
@@ -589,7 +608,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
     def make_guards(self, op, short, optimizer):
         AbstractVirtualPtrInfo.make_guards(self, op, short, optimizer)
         c_type_id = ConstInt(self.descr.get_type_id())
-        short.append(ResOperation(rop.GUARD_GC_TYPE, [op, c_type_id], None))
+        short.append(ResOperation(rop.GUARD_GC_TYPE, [op, c_type_id]))
         if self.lenbound is not None:
             lenop = ResOperation(rop.ARRAYLEN_GC, [op], descr=self.descr)
             short.append(lenop)
@@ -625,13 +644,13 @@ class ArrayStructInfo(ArrayPtrInfo):
         i = 0
         fielddescrs = op.getdescr().get_all_fielddescrs()
         for index in range(self.length):
-            for flddescr in fielddescrs:
+            for fielddescr in fielddescrs:
                 fld = self._items[i]
                 if fld is not None:
                     subbox = optforce.force_box(fld)
                     setfieldop = ResOperation(rop.SETINTERIORFIELD_GC,
                                               [op, ConstInt(index), subbox],
-                                              descr=flddescr)
+                                              descr=fielddescr)
                     optforce.emit_extra(setfieldop)
                     # heapcache does not work for interiorfields
                     # if it does, we would need a fix here
@@ -644,7 +663,7 @@ class ArrayStructInfo(ArrayPtrInfo):
         fielddescrs = self.descr.get_all_fielddescrs()
         i = 0
         for index in range(self.getlength()):
-            for flddescr in fielddescrs:
+            for fielddescr in fielddescrs:
                 itemop = self._items[i]
                 if (itemop is not None and
                     not isinstance(itemop, Const)):
@@ -674,6 +693,7 @@ class ConstPtrInfo(PtrInfo):
 
     def _get_info(self, descr, optheap):
         ref = self._const.getref_base()
+        if not ref: raise InvalidLoop   # null protection
         info = optheap.const_infos.get(ref, None)
         if info is None:
             info = StructPtrInfo(descr)
@@ -682,27 +702,28 @@ class ConstPtrInfo(PtrInfo):
 
     def _get_array_info(self, descr, optheap):
         ref = self._const.getref_base()
+        if not ref: raise InvalidLoop   # null protection
         info = optheap.const_infos.get(ref, None)
         if info is None:
             info = ArrayPtrInfo(descr)
             optheap.const_infos[ref] = info
         return info        
 
-    def getfield(self, descr, optheap=None):
-        info = self._get_info(descr.get_parent_descr(), optheap)
-        return info.getfield(descr)
+    def getfield(self, fielddescr, optheap=None):
+        info = self._get_info(fielddescr.get_parent_descr(), optheap)
+        return info.getfield(fielddescr)
 
     def getitem(self, descr, index, optheap=None):
         info = self._get_array_info(descr, optheap)
         return info.getitem(descr, index)
 
-    def setitem(self, descr, index, struct, op, cf=None, optheap=None):
+    def setitem(self, descr, index, struct, op, optheap=None, cf=None):
         info = self._get_array_info(descr, optheap)
-        info.setitem(descr, index, struct, op, cf)
+        info.setitem(descr, index, struct, op, optheap=optheap, cf=cf)
 
-    def setfield(self, descr, struct, op, optheap=None, cf=None):
-        info = self._get_info(descr.get_parent_descr(), optheap)
-        info.setfield(descr, struct, op, optheap, cf)
+    def setfield(self, fielddescr, struct, op, optheap=None, cf=None):
+        info = self._get_info(fielddescr.get_parent_descr(), optheap)
+        info.setfield(fielddescr, struct, op, optheap=optheap, cf=cf)
 
     def is_null(self):
         return not bool(self._const.getref_base())

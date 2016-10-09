@@ -66,7 +66,8 @@ class TestDicts(BaseTestPyPyC):
             guard_not_invalidated(descr=...)
             p10 = call_r(ConstClass(ll_str__IntegerR_SignedConst_Signed), i5, descr=<Callr . i EF=3>)
             guard_no_exception(descr=...)
-            i12 = call_i(ConstClass(ll_strhash), p10, descr=<Calli . r EF=0>)
+            guard_nonnull(p10, descr=...)
+            i12 = call_i(ConstClass(_ll_strhash__rpy_stringPtr), p10, descr=<Calli . r EF=0>)
             p13 = new(descr=...)
             p15 = new_array_clear(16, descr=<ArrayU 1>)
             {{{
@@ -83,7 +84,7 @@ class TestDicts(BaseTestPyPyC):
             guard_no_exception(descr=...)
             p20 = new_with_vtable(descr=...)
             call_n(ConstClass(_ll_dict_setitem_lookup_done_trampoline), p13, p10, p20, i12, i17, descr=<Callv 0 rrrii EF=5>)
-            setfield_gc(p20, i5, descr=<FieldS .*W_IntObject.inst_intval .*>)
+            setfield_gc(p20, i5, descr=<FieldS .*W_IntObject.inst_intval .* pure>)
             guard_no_exception(descr=...)
             i23 = call_i(ConstClass(ll_call_lookup_function), p13, p10, i12, 0, descr=<Calli . rrii EF=5 OS=4>)
             guard_no_exception(descr=...)
@@ -92,7 +93,7 @@ class TestDicts(BaseTestPyPyC):
             p28 = getfield_gc_r(p13, descr=<FieldP dicttable.entries .*>)
             p29 = getinteriorfield_gc_r(p28, i23, descr=<InteriorFieldDescr <FieldP odictentry.value .*>>)
             guard_nonnull_class(p29, ConstClass(W_IntObject), descr=...)
-            i31 = getfield_gc_pure_i(p29, descr=<FieldS .*W_IntObject.inst_intval .*>)
+            i31 = getfield_gc_i(p29, descr=<FieldS .*W_IntObject.inst_intval .* pure>)
             i32 = int_sub_ovf(i31, i5)
             guard_no_overflow(descr=...)
             i34 = int_add_ovf(i32, 1)
@@ -248,3 +249,23 @@ class TestOtherContainers(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         ops = loop.ops_by_id('getitem', include_guard_not_invalidated=False)
         assert log.opnames(ops) == []
+
+    def test_enumerate_list(self):
+        def main(n):
+            for a, b in enumerate([1, 2] * 1000):
+                a + b
+
+        log = self.run(main, [1000])
+        loop, = log.loops_by_filename(self.filepath)
+        opnames = log.opnames(loop.allops())
+        assert opnames.count('new_with_vtable') == 0
+
+    def test_enumerate(self):
+        def main(n):
+            for a, b in enumerate("abc" * 1000):
+                a + ord(b)
+
+        log = self.run(main, [1000])
+        loop, = log.loops_by_filename(self.filepath)
+        opnames = log.opnames(loop.allops())
+        assert opnames.count('new_with_vtable') == 0

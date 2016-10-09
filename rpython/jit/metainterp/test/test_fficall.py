@@ -11,7 +11,7 @@ from rpython.rlib import jit_libffi
 from rpython.rlib.jit_libffi import (types, CIF_DESCRIPTION, FFI_TYPE_PP,
                                      jit_ffi_call)
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.rarithmetic import intmask, r_longlong, r_singlefloat
+from rpython.rlib.rarithmetic import intmask, r_longlong, r_singlefloat, r_uint
 from rpython.rlib.longlong2float import float2longlong
 
 def get_description(atypes, rtype):
@@ -49,6 +49,7 @@ class FfiCallTests(object):
              expected_call_release_gil_i=1,
              expected_call_release_gil_f=0,
              expected_call_release_gil_n=0,
+             expected_call_may_force_f=0,
              supports_floats=True,
              supports_longlong=False,
              supports_singlefloats=False):
@@ -151,7 +152,7 @@ class FfiCallTests(object):
                 res = float2longlong(res)
             assert matching_result(res, rvalue)
             self.check_operations_history(call_may_force_i=0,
-                                          call_may_force_f=0,
+                            call_may_force_f=expected_call_may_force_f,
                                           call_may_force_n=0,
                             call_release_gil_i=expected_call_release_gil_i,
                             call_release_gil_f=expected_call_release_gil_f,
@@ -229,8 +230,8 @@ class FfiCallTests(object):
 
     def test_handle_unsigned(self):
         self._run([types.ulong], types.ulong,
-                  [rffi.cast(rffi.ULONG, sys.maxint + 91348)],
-                  rffi.cast(rffi.ULONG, sys.maxint + 4242))
+                  [rffi.cast(rffi.ULONG, r_uint(sys.maxint + 91348))],
+                  rffi.cast(rffi.ULONG, r_uint(sys.maxint + 4242)))
 
     def test_handle_unsignedchar(self):
         self._run([types.uint8], types.uint8,
@@ -374,3 +375,13 @@ class TestFfiCall(FfiCallTests, LLJitMixin):
     def test_simple_call_singlefloat_unsupported(self):
         self.test_simple_call_singlefloat(supports_singlefloats=False,
                                           expected_call_release_gil=0)
+
+    def test_calldescrof_dynamic_returning_none(self):
+        from rpython.jit.backend.llgraph.runner import LLGraphCPU
+        old = LLGraphCPU.calldescrof_dynamic
+        try:
+            LLGraphCPU.calldescrof_dynamic = lambda *args: None
+            self.test_simple_call_float(expected_call_release_gil=0,
+                                        expected_call_may_force_f=1)
+        finally:
+            LLGraphCPU.calldescrof_dynamic = old

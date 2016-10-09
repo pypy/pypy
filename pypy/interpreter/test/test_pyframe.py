@@ -1,10 +1,14 @@
 from rpython.tool import udir
 from pypy.conftest import option
+from pypy.interpreter.gateway import interp2app
 
+def check_no_w_locals(space, w_frame):
+    return space.wrap(w_frame.getorcreatedebug().w_locals is None)
 
 class AppTestPyFrame:
 
     def setup_class(cls):
+        space = cls.space
         cls.w_udir = cls.space.wrap(str(udir.udir))
         cls.w_tempfile1 = cls.space.wrap(str(udir.udir.join('tempfile1')))
         if not option.runappdirect:
@@ -17,6 +21,8 @@ class AppTestPyFrame:
             w_call_further.code.hidden_applevel = True       # hack
             cls.w_call_further = w_call_further
 
+            cls.w_check_no_w_locals = space.wrap(interp2app(check_no_w_locals))
+
     # test for the presence of the attributes, not functionality
 
     def test_f_locals(self):
@@ -28,6 +34,7 @@ class AppTestPyFrame:
         import sys
         f = sys._getframe()
         assert f.f_globals is globals()
+        raises(TypeError, "f.f_globals = globals()")
 
     def test_f_builtins(self):
         import sys, __builtin__
@@ -41,10 +48,10 @@ class AppTestPyFrame:
             return f.f_code
         assert g() is g.func_code
 
-    def test_f_trace_del(self): 
+    def test_f_trace_del(self):
         import sys
-        f = sys._getframe() 
-        del f.f_trace 
+        f = sys._getframe()
+        del f.f_trace
         assert f.f_trace is None
 
     def test_f_lineno(self):
@@ -109,7 +116,7 @@ class AppTestPyFrame:
         def f():
             assert sys._getframe().f_code.co_name == g()
         def g():
-            return sys._getframe().f_back.f_code.co_name 
+            return sys._getframe().f_back.f_code.co_name
         f()
 
     def test_f_back_virtualref(self):
@@ -226,7 +233,7 @@ class AppTestPyFrame:
     def test_trace_exc(self):
         import sys
         l = []
-        def ltrace(a,b,c): 
+        def ltrace(a,b,c):
             if b == 'exception':
                 l.append(c)
             return ltrace
@@ -291,7 +298,7 @@ class AppTestPyFrame:
     def test_trace_return_exc(self):
         import sys
         l = []
-        def trace(a,b,c): 
+        def trace(a,b,c):
             if b in ('exception', 'return'):
                 l.append((b, c))
             return trace
@@ -369,7 +376,7 @@ class AppTestPyFrame:
         def g():
             try:
                 raise Exception
-            except Exception, e:
+            except Exception as e:
                 import sys
                 raise Exception, e, sys.exc_info()[2]
 
@@ -437,7 +444,7 @@ class AppTestPyFrame:
     def test_dont_trace_on_reraise(self):
         import sys
         l = []
-        def ltrace(a,b,c): 
+        def ltrace(a,b,c):
             if b == 'exception':
                 l.append(c)
             return ltrace
@@ -459,7 +466,7 @@ class AppTestPyFrame:
     def test_dont_trace_on_raise_with_tb(self):
         import sys
         l = []
-        def ltrace(a,b,c): 
+        def ltrace(a,b,c):
             if b == 'exception':
                 l.append(c)
             return ltrace
@@ -492,6 +499,25 @@ class AppTestPyFrame:
         res = f(1)
         sys.settrace(None)
         assert res == 42
+
+    def test_fast2locals_called_lazily(self):
+        import sys
+        class FrameHolder:
+            pass
+        fh = FrameHolder()
+        def trace(frame, what, arg):
+            # trivial trace function, does not access f_locals
+            fh.frame = frame
+            return trace
+        def f(x):
+            x += 1
+            return x
+        sys.settrace(trace)
+        res = f(1)
+        sys.settrace(None)
+        assert res == 2
+        if hasattr(self, "check_no_w_locals"): # not appdirect
+            assert self.check_no_w_locals(fh.frame)
 
     def test_set_unset_f_trace(self):
         import sys
@@ -536,3 +562,21 @@ class AppTestPyFrame:
         res = f(10).g()
         sys.settrace(None)
         assert res == 10
+
+    def test_throw_trace_bug(self):
+        import sys
+        def f():
+            yield 5
+        gen = f()
+        assert next(gen) == 5
+        seen = []
+        def trace_func(frame, event, *args):
+            seen.append(event)
+            return trace_func
+        sys.settrace(trace_func)
+        try:
+            gen.throw(ValueError)
+        except ValueError:
+            pass
+        sys.settrace(None)
+        assert seen == ['call', 'exception', 'return']

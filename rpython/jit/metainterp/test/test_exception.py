@@ -17,7 +17,7 @@ class ExceptionTests:
         def f(n):
             try:
                 return g(n)
-            except MyError, e:
+            except MyError as e:
                 return e.n + 10
         res = self.interp_operations(f, [9])
         assert res == 8
@@ -141,7 +141,7 @@ class ExceptionTests:
             try:
                 b(n)
                 return 0
-            except MyError, e:
+            except MyError as e:
                 return e.n
         def f(n):
             return a(n)
@@ -161,7 +161,7 @@ class ExceptionTests:
                 myjitdriver.jit_merge_point(n=n)
                 try:
                     check(n, 0)
-                except MyError, e:
+                except MyError as e:
                     n = check(e.n, 1)
             return n
         assert f(53) == -2
@@ -290,7 +290,7 @@ class ExceptionTests:
                     myjitdriver.can_enter_jit(n=n)
                     myjitdriver.jit_merge_point(n=n)
                     n = n - check(n)
-            except MyError, e:
+            except MyError as e:
                 return e.n
         assert f(53) == -2
         res = self.meta_interp(f, [53], policy=StopAtXPolicy(check))
@@ -517,7 +517,7 @@ class ExceptionTests:
         def f(n):
             try:
                 portal(n)
-            except SomeException, e:
+            except SomeException as e:
                 return 3
             return 2
 
@@ -536,7 +536,7 @@ class ExceptionTests:
         def main(n):
             try:
                 f(n)
-            except MyError, e:
+            except MyError as e:
                 return e.n
 
         res = self.meta_interp(main, [41], repeat=7)
@@ -572,7 +572,7 @@ class ExceptionTests:
             try:
                 f(n)
                 return 3
-            except MyError, e:
+            except MyError as e:
                 return e.n
             except ValueError:
                 return 8
@@ -590,7 +590,7 @@ class ExceptionTests:
         def f(x):
             try:
                 return g(x)
-            except Exception, e:
+            except Exception as e:
                 if isinstance(e, OverflowError):
                     return -42
                 raise

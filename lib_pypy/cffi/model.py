@@ -7,10 +7,13 @@ from .lock import allocate_lock
 # type qualifiers
 Q_CONST    = 0x01
 Q_RESTRICT = 0x02
+Q_VOLATILE = 0x04
 
 def qualify(quals, replace_with):
     if quals & Q_CONST:
         replace_with = ' const ' + replace_with.lstrip()
+    if quals & Q_VOLATILE:
+        replace_with = ' volatile ' + replace_with.lstrip()
     if quals & Q_RESTRICT:
         # It seems that __restrict is supported by gcc and msvc.
         # If you hit some different compiler, add a #define in
@@ -511,12 +514,15 @@ class EnumType(StructOrUnionOrEnum):
         if self.baseinttype is not None:
             return self.baseinttype.get_cached_btype(ffi, finishlist)
         #
+        from . import api
         if self.enumvalues:
             smallest_value = min(self.enumvalues)
             largest_value = max(self.enumvalues)
         else:
-            smallest_value = 0
-            largest_value = 0
+            raise api.CDefError("%r has no values explicitly defined: "
+                                "refusing to guess which integer type it is "
+                                "meant to be (unsigned/signed, int/long)"
+                % self._get_c_name())
         if smallest_value < 0:   # needs a signed type
             sign = 1
             candidate1 = PrimitiveType("int")

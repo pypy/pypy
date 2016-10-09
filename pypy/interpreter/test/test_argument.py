@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import py
 from pypy.interpreter.argument import (Arguments, ArgErr, ArgErrUnknownKwds,
-        ArgErrMultipleValues, ArgErrCount)
+        ArgErrMultipleValues, ArgErrCount, ArgErrCountMethod)
 from pypy.interpreter.signature import Signature
 from pypy.interpreter.error import OperationError
 
@@ -45,13 +45,6 @@ class TestSignature(object):
         assert sig.find_argname("b") == 1
         assert sig.find_argname("c") == 2
         assert sig.find_argname("d") == -1
-
-    def test_tuply(self):
-        sig = Signature(["a", "b", "c"], "d", "e")
-        x, y, z = sig
-        assert x == ["a", "b", "c"]
-        assert y == "d"
-        assert z == "e"
 
 class dummy_wrapped_dict(dict):
     def __nonzero__(self):
@@ -348,7 +341,7 @@ class TestArgumentsNormal(object):
         excinfo = py.test.raises(OperationError, Arguments, space, [],
                                  ["a"], [1], w_starstararg={None: 1})
         assert excinfo.value.w_type is TypeError
-        assert excinfo.value._w_value is not None
+        assert excinfo.value._w_value is None
         excinfo = py.test.raises(OperationError, Arguments, space, [],
                                  ["a"], [1], w_starstararg={valuedummy: 1})
         assert excinfo.value.w_type is ValueError
@@ -580,6 +573,10 @@ class TestErrorHandling(object):
         s = err.getmsg()
         assert s == "takes exactly 1 argument (0 given)"
 
+        sig = Signature(['self', 'b'], None, None)
+        err = ArgErrCount(3, 0, sig, [], 0)
+        s = err.getmsg()
+        assert s == "takes exactly 2 arguments (3 given)"
         sig = Signature(['a', 'b'], None, None)
         err = ArgErrCount(3, 0, sig, [], 0)
         s = err.getmsg()
@@ -614,18 +611,69 @@ class TestErrorHandling(object):
         s = err.getmsg()
         assert s == "takes at most 1 non-keyword argument (2 given)"
 
+    def test_missing_args_method(self):
+        # got_nargs, nkwds, expected_nargs, has_vararg, has_kwarg,
+        # defaults_w, missing_args
+        sig = Signature([], None, None)
+        err = ArgErrCountMethod(1, 0, sig, None, 0)
+        s = err.getmsg()
+        assert s == "takes no arguments (1 given). Did you forget 'self' in the function definition?"
+
+        sig = Signature(['a'], None, None)
+        err = ArgErrCountMethod(0, 0, sig, [], 1)
+        s = err.getmsg()
+        assert s == "takes exactly 1 argument (0 given)"
+
+        sig = Signature(['self', 'b'], None, None)
+        err = ArgErrCountMethod(3, 0, sig, [], 0)
+        s = err.getmsg()
+        assert s == "takes exactly 2 arguments (3 given)"
+        sig = Signature(['a', 'b'], None, None)
+        err = ArgErrCountMethod(3, 0, sig, [], 0)
+        s = err.getmsg()
+        assert s == "takes exactly 2 arguments (3 given). Did you forget 'self' in the function definition?"
+        err = ArgErrCountMethod(3, 0, sig, ['a'], 0)
+        s = err.getmsg()
+        assert s == "takes at most 2 arguments (3 given). Did you forget 'self' in the function definition?"
+
+        sig = Signature(['a', 'b'], '*', None)
+        err = ArgErrCountMethod(1, 0, sig, [], 1)
+        s = err.getmsg()
+        assert s == "takes at least 2 arguments (1 given)"
+        err = ArgErrCountMethod(0, 1, sig, ['a'], 1)
+        s = err.getmsg()
+        assert s == "takes at least 1 non-keyword argument (0 given)"
+
+        sig = Signature(['a'], None, '**')
+        err = ArgErrCountMethod(2, 1, sig, [], 0)
+        s = err.getmsg()
+        assert s == "takes exactly 1 non-keyword argument (2 given). Did you forget 'self' in the function definition?"
+        err = ArgErrCountMethod(0, 1, sig, [], 1)
+        s = err.getmsg()
+        assert s == "takes exactly 1 non-keyword argument (0 given)"
+
+        sig = Signature(['a'], '*', '**')
+        err = ArgErrCountMethod(0, 1, sig, [], 1)
+        s = err.getmsg()
+        assert s == "takes at least 1 non-keyword argument (0 given)"
+
+        sig = Signature(['a'], None, '**')
+        err = ArgErrCountMethod(2, 1, sig, ['a'], 0)
+        s = err.getmsg()
+        assert s == "takes at most 1 non-keyword argument (2 given). Did you forget 'self' in the function definition?"
+
     def test_bad_type_for_star(self):
         space = self.space
         try:
             Arguments(space, [], w_stararg=space.wrap(42))
-        except OperationError, e:
+        except OperationError as e:
             msg = space.str_w(space.str(e.get_w_value(space)))
             assert msg == "argument after * must be a sequence, not int"
         else:
             assert 0, "did not raise"
         try:
             Arguments(space, [], w_starstararg=space.wrap(42))
-        except OperationError, e:
+        except OperationError as e:
             msg = space.str_w(space.str(e.get_w_value(space)))
             assert msg == "argument after ** must be a mapping, not int"
         else:
@@ -681,6 +729,45 @@ class AppTestArgument:
         exc = raises(TypeError, (lambda a, b, **kw: 0), a=1)
         assert exc.value.message == "<lambda>() takes exactly 2 non-keyword arguments (0 given)"
 
+    @py.test.mark.skipif("config.option.runappdirect")
+    def test_error_message_method(self):
+        class A(object):
+            def f0():
+                pass
+            def f1(a):
+                pass
+        exc = raises(TypeError, lambda : A().f0())
+        assert exc.value.message == "f0() takes no arguments (1 given). Did you forget 'self' in the function definition?"
+        exc = raises(TypeError, lambda : A().f1(1))
+        assert exc.value.message == "f1() takes exactly 1 argument (2 given). Did you forget 'self' in the function definition?"
+        def f0():
+            pass
+        exc = raises(TypeError, f0, 1)
+        # does not contain the warning about missing self
+        assert exc.value.message == "f0() takes no arguments (1 given)"
+
+    @py.test.mark.skipif("config.option.runappdirect")
+    def test_error_message_module_function(self):
+        import operator # use repeat because it's defined at applevel
+        exc = raises(TypeError, lambda : operator.repeat(1, 2, 3))
+        # does not contain the warning about missing self
+        assert exc.value.message == "repeat() takes exactly 2 arguments (3 given)"
+
+    @py.test.mark.skipif("config.option.runappdirect")
+    def test_error_message_bound_method(self):
+        class A(object):
+            def f0():
+                pass
+            def f1(a):
+                pass
+        m0 = A().f0
+        exc = raises(TypeError, lambda : m0())
+        assert exc.value.message == "f0() takes no arguments (1 given). Did you forget 'self' in the function definition?"
+        m1 = A().f1
+        exc = raises(TypeError, lambda : m1(1))
+        assert exc.value.message == "f1() takes exactly 1 argument (2 given). Did you forget 'self' in the function definition?"
+
+
     def test_unicode_keywords(self):
         def f(**kwargs):
             assert kwargs[u"美"] == 42
@@ -688,3 +775,21 @@ class AppTestArgument:
         def f(x): pass
         e = raises(TypeError, "f(**{u'ü' : 19})")
         assert "?" in str(e.value)
+
+    def test_starstarargs_dict_subclass(self):
+        def f(**kwargs):
+            return kwargs
+        class DictSubclass(dict):
+            def __iter__(self):
+                yield 'x'
+        # CPython, as an optimization, looks directly into dict internals when
+        # passing one via **kwargs.
+        x =DictSubclass()
+        assert f(**x) == {}
+        x['a'] = 1
+        assert f(**x) == {'a': 1}
+
+    def test_starstarargs_module_dict(self):
+        def f(**kwargs):
+            return kwargs
+        assert f(**globals()) == globals()

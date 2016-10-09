@@ -1,13 +1,13 @@
 import py
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.function import Method, Function
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
                                       interp_attrproperty)
 from rpython.rlib import jit
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, always_inline
 from rpython.rlib.rtimer import read_timestamp, _is_64_bit
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -256,7 +256,7 @@ def returns_code(space, w_frame):
         return w_frame.wrap_string(space)
     return w_frame    # actually a PyCode object
 
-
+@always_inline
 def prepare_spec(space, w_arg):
     if isinstance(w_arg, Method):
         return (w_arg.w_function, w_arg.w_class)
@@ -264,8 +264,6 @@ def prepare_spec(space, w_arg):
         return (w_arg, None)
     else:
         return (None, space.type(w_arg))
-prepare_spec._always_inline_ = True
-
 
 def lsprof_call(space, w_self, frame, event, w_arg):
     assert isinstance(w_self, W_Profiler)
@@ -308,7 +306,7 @@ class W_Profiler(W_Root):
                     return space.int_w(space.call_function(self.w_callable))
                 else:
                     return space.r_longlong_w(space.call_function(self.w_callable))
-            except OperationError, e:
+            except OperationError as e:
                 e.write_unraisable(space, "timer function ",
                                    self.w_callable)
                 return timer_size_int(0)
@@ -418,9 +416,9 @@ class W_Profiler(W_Root):
     def getstats(self, space):
         if self.w_callable is None:
             if self.is_enabled:
-                raise OperationError(space.w_RuntimeError,
-                    space.wrap("Profiler instance must be disabled "
-                               "before getting the stats"))
+                raise oefmt(space.w_RuntimeError,
+                            "Profiler instance must be disabled before "
+                            "getting the stats")
             if self.total_timestamp:
                 factor = self.total_real_time / float(self.total_timestamp)
             else:

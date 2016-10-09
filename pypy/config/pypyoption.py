@@ -36,13 +36,16 @@ working_modules.update([
     "cStringIO", "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
     "binascii", "_multiprocessing", '_warnings', "_collections",
     "_multibytecodec", "micronumpy", "_continuation", "_cffi_backend",
-    "_csv", "cppyy", "_pypyjson"
+    "_csv", "cppyy", "_pypyjson", "_jitlog"
 ])
 
-if ((sys.platform.startswith('linux') or sys.platform == 'darwin')
-    and os.uname()[4] == 'x86_64' and sys.maxint > 2**32):
-    # it's not enough that we get x86_64
-    working_modules.add('_vmprof')
+from rpython.jit.backend import detect_cpu
+try:
+    if detect_cpu.autodetect().startswith('x86'):
+        working_modules.add('_vmprof')
+        working_modules.add('faulthandler')
+except detect_cpu.ProcessorAutodetectError:
+    pass
 
 translation_modules = default_modules.copy()
 translation_modules.update([
@@ -65,6 +68,8 @@ if sys.platform == "win32":
 
     if "cppyy" in working_modules:
         working_modules.remove("cppyy")  # not tested on win32
+    if "faulthandler" in working_modules:
+        working_modules.remove("faulthandler")  # missing details
 
     # The _locale module is needed by site.py on Windows
     default_modules.add("_locale")
@@ -76,12 +81,18 @@ if sys.platform == "sunos5":
     if "cppyy" in working_modules:
         working_modules.remove("cppyy")  # depends on ctypes
 
+#if sys.platform.startswith("linux"):
+#    _mach = os.popen('uname -m', 'r').read().strip()
+#    if _mach.startswith(...):
+#        working_modules.remove("_continuation")
+
 
 module_dependencies = {
     '_multiprocessing': [('objspace.usemodules.time', True),
                          ('objspace.usemodules.thread', True)],
     'cpyext': [('objspace.usemodules.array', True)],
     'cppyy': [('objspace.usemodules.cpyext', True)],
+    'faulthandler': [('objspace.usemodules._vmprof', True)],
     }
 module_suggests = {
     # the reason you want _rawffi is for ctypes, which
@@ -107,7 +118,8 @@ module_import_dependencies = {
     "_hashlib"  : ["pypy.module._ssl.interp_ssl"],
     "_minimal_curses": ["pypy.module._minimal_curses.fficurses"],
     "_continuation": ["rpython.rlib.rstacklet"],
-    "_vmprof" : ["pypy.module._vmprof.interp_vmprof"],
+    "_vmprof"      : ["pypy.module._vmprof.interp_vmprof"],
+    "faulthandler" : ["pypy.module._vmprof.interp_vmprof"],
     }
 
 def get_module_validator(modname):
@@ -162,12 +174,8 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                cmdline="--translationmodules",
                suggests=[("objspace.allworkingmodules", False)]),
 
-    BoolOption("usepycfiles", "Write and read pyc files when importing",
-               default=True),
-
     BoolOption("lonepycfiles", "Import pyc files with no matching py file",
-               default=False,
-               requires=[("objspace.usepycfiles", True)]),
+               default=False),
 
     StrOption("soabi",
               "Tag to differentiate extension modules built for different Python interpreters",
@@ -201,15 +209,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("withstrbuf", "use strings optimized for addition (ver 2)",
                    default=False),
 
-        BoolOption("withprebuiltchar",
-                   "use prebuilt single-character string objects",
-                   default=False),
-
-        BoolOption("sharesmallstr",
-                   "always reuse the prebuilt string objects "
-                   "(the empty string and potentially single-char strings)",
-                   default=False),
-
         BoolOption("withspecialisedtuple",
                    "use specialised tuples",
                    default=False),
@@ -219,39 +218,14 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    default=False,
                    requires=[("objspace.honor__builtins__", False)]),
 
-        BoolOption("withmapdict",
-                   "make instances really small but slow without the JIT",
-                   default=False,
-                   requires=[("objspace.std.getattributeshortcut", True),
-                             ("objspace.std.withtypeversion", True),
-                       ]),
-
-        BoolOption("withrangelist",
-                   "enable special range list implementation that does not "
-                   "actually create the full list until the resulting "
-                   "list is mutated",
-                   default=False),
         BoolOption("withliststrategies",
                    "enable optimized ways to store lists of primitives ",
                    default=True),
 
-        BoolOption("withtypeversion",
-                   "version type objects when changing them",
-                   cmdline=None,
-                   default=False,
-                   # weakrefs needed, because of get_subclasses()
-                   requires=[("translation.rweakref", True)]),
-
-        BoolOption("withmethodcache",
-                   "try to cache method lookups",
-                   default=False,
-                   requires=[("objspace.std.withtypeversion", True),
-                             ("translation.rweakref", True)]),
         BoolOption("withmethodcachecounter",
                    "try to cache methods and provide a counter in __pypy__. "
                    "for testing purposes only.",
-                   default=False,
-                   requires=[("objspace.std.withmethodcache", True)]),
+                   default=False),
         IntOption("methodcachesizeexp",
                   " 2 ** methodcachesizeexp is the size of the of the method cache ",
                   default=11),
@@ -262,22 +236,10 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("optimized_list_getitem",
                    "special case the 'list[integer]' expressions",
                    default=False),
-        BoolOption("getattributeshortcut",
-                   "track types that override __getattribute__",
-                   default=False,
-                   # weakrefs needed, because of get_subclasses()
-                   requires=[("translation.rweakref", True)]),
         BoolOption("newshortcut",
                    "cache and shortcut calling __new__ from builtin types",
-                   default=False,
-                   # weakrefs needed, because of get_subclasses()
-                   requires=[("translation.rweakref", True)]),
+                   default=False),
 
-        BoolOption("withidentitydict",
-                   "track types that override __hash__, __eq__ or __cmp__ and use a special dict strategy for those which do not",
-                   default=False,
-                   # weakrefs needed, because of get_subclasses()
-                   requires=[("translation.rweakref", True)]),
      ]),
 ])
 
@@ -293,15 +255,10 @@ def set_pypy_opt_level(config, level):
     """
     # all the good optimizations for PyPy should be listed here
     if level in ['2', '3', 'jit']:
-        config.objspace.std.suggest(withrangelist=True)
-        config.objspace.std.suggest(withmethodcache=True)
-        config.objspace.std.suggest(withprebuiltchar=True)
         config.objspace.std.suggest(intshortcut=True)
         config.objspace.std.suggest(optimized_list_getitem=True)
-        config.objspace.std.suggest(getattributeshortcut=True)
         #config.objspace.std.suggest(newshortcut=True)
         config.objspace.std.suggest(withspecialisedtuple=True)
-        config.objspace.std.suggest(withidentitydict=True)
         #if not IS_64_BITS:
         #    config.objspace.std.suggest(withsmalllong=True)
 
@@ -314,16 +271,13 @@ def set_pypy_opt_level(config, level):
     # memory-saving optimizations
     if level == 'mem':
         config.objspace.std.suggest(withprebuiltint=True)
-        config.objspace.std.suggest(withrangelist=True)
-        config.objspace.std.suggest(withprebuiltchar=True)
-        config.objspace.std.suggest(withmapdict=True)
+        config.objspace.std.suggest(withliststrategies=True)
         if not IS_64_BITS:
             config.objspace.std.suggest(withsmalllong=True)
 
     # extra optimizations with the JIT
     if level == 'jit':
         config.objspace.std.suggest(withcelldict=True)
-        config.objspace.std.suggest(withmapdict=True)
 
 
 def enable_allworkingmodules(config):

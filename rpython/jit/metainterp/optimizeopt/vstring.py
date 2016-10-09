@@ -188,7 +188,7 @@ class VStringPlainInfo(StrPtrInfo):
 
     def string_copy_parts(self, op, string_optimizer, targetbox, offsetbox,
                           mode):
-        if not self.is_virtual(): # and not self.is_completely_initialized():
+        if not self.is_virtual():
             return StrPtrInfo.string_copy_parts(self, op, string_optimizer,
                                                 targetbox, offsetbox, mode)
         else:
@@ -656,12 +656,15 @@ class OptString(optimizer.Optimization):
         vstart = self.getintbound(op.getarg(2))
         vstop = self.getintbound(op.getarg(3))
         #
-        if (isinstance(vstr, VStringPlainInfo) and vstart.is_constant()
-            and vstop.is_constant()):
-            value = self.make_vstring_plain(op, mode, -1)
-            value.setup_slice(vstr._chars, vstart.getint(),
-                              vstop.getint())
-            return True, None
+        #---The following looks reasonable, but see test_str_slice_bug:
+        #   the problem is what occurs if the source string has been forced
+        #   but still contains None in its _chars
+        #if (isinstance(vstr, VStringPlainInfo) and vstart.is_constant()
+        #    and vstop.is_constant()):
+        #    value = self.make_vstring_plain(op, mode, -1)
+        #    value.setup_slice(vstr._chars, vstart.getint(),
+        #                      vstop.getint())
+        #    return True, None
         #
         startbox = op.getarg(2)
         strbox = op.getarg(1)

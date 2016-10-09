@@ -30,6 +30,11 @@ def complete_destrptr(gctransformer):
     mixlevelannotator.finish()
     lltype.attachRuntimeTypeInfo(STACKLET, destrptr=destrptr)
 
+# Note: it's important that this is a light finalizer, otherwise
+# the GC will call it but still expect the object to stay around for
+# a while---and it can't stay around, because s_sscopy points to
+# freed nonsense and customtrace() will crash
+@rgc.must_be_light_finalizer
 def stacklet_destructor(stacklet):
     sscopy = stacklet.s_sscopy
     if sscopy:

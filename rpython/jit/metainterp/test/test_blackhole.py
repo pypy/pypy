@@ -205,7 +205,7 @@ class TestBlackhole(LLJitMixin):
                 myjitdriver.jit_merge_point(x=x, y=y)
                 try:
                     choices(x)
-                except FooError, e:
+                except FooError as e:
                     if e.num == 0:
                         break
                     y += e.num

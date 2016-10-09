@@ -39,7 +39,7 @@ class W_LibObject(W_Root):
                     mod = __import__(modname, None, None, ['ffi', 'lib'])
                     return mod.lib""")
                 lib1 = space.interp_w(W_LibObject, w_lib1)
-            except OperationError, e:
+            except OperationError as e:
                 if e.async(space):
                     raise
                 raise oefmt(space.w_ImportError,
@@ -64,7 +64,8 @@ class W_LibObject(W_Root):
         #
         ptr = rffi.cast(rffi.CCHARP, g.c_address)
         assert ptr
-        return W_FunctionWrapper(self.space, ptr, g.c_size_or_direct_fn,
+        return W_FunctionWrapper(self.space, self.ffi,
+                                 ptr, g.c_size_or_direct_fn,
                                  rawfunctype, fnname, self.libname)
 
     @jit.elidable_promote()
@@ -167,6 +168,14 @@ class W_LibObject(W_Root):
                 w_ctfnptr = w_ct.unwrap_as_fnptr(self.ffi)
                 w_result = W_CData(self.space, ptr, w_ctfnptr)
                 #
+                #
+            elif op == cffi_opcode.OP_EXTERN_PYTHON:
+                # for reading 'lib.bar' where bar is declared
+                # as an extern "Python"
+                w_ct = realize_c_type.realize_c_type(
+                    self.ffi, self.ctx.c_types, getarg(g.c_type_op))
+                ptr = lltype.direct_fieldptr(g, 'c_size_or_direct_fn')
+                w_result = w_ct.convert_to_object(rffi.cast(rffi.CCHARP, ptr))
             else:
                 raise oefmt(space.w_NotImplementedError,
                             "in lib_build_attr: op=%d", op)
@@ -186,8 +195,14 @@ class W_LibObject(W_Root):
                     return self.dir1(ignore_global_vars=True)
                 if is_getattr and attr == '__dict__':
                     return self.full_dict_copy()
+                if is_getattr and attr == '__class__':
+                    # used to be space.type(self).  But HAAAAAACK!
+                    # That makes help() behave correctly.  I couldn't
+                    # find a more reasonable way.  Urgh.
+                    from pypy.interpreter.module import Module
+                    return self.space.gettypeobject(Module.typedef)
                 if is_getattr and attr == '__name__':
-                    return self.descr_repr()
+                    return self.space.wrap("%s.lib" % self.libname)
                 raise oefmt(self.space.w_AttributeError,
                             "cffi library '%s' has no function, constant "
                             "or global variable named '%s'",

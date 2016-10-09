@@ -4,6 +4,8 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.objectmodel import compute_identity_hash
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.jit.codewriter import longlong
+from rpython.jit.backend.llsupport.symbolic import (WORD as INT_WORD,
+        SIZEOF_FLOAT as FLOAT_WORD)
 
 class SettingForwardedOnAbstractValue(Exception):
     pass
@@ -25,14 +27,17 @@ class CountingDict(object):
 class AbstractValue(object):
     _repr_memo = CountingDict()
     is_info_class = False
-    _attrs_ = ()
     namespace = None
+    _attrs_ = ()
 
     def _get_hash_(self):
         return compute_identity_hash(self)
 
     def same_box(self, other):
         return self is other
+
+    def same_shape(self, other):
+        return True
 
     def repr_short(self, memo):
         return self.repr(memo)
@@ -63,6 +68,19 @@ class AbstractValue(object):
     def reset_value(self):
         pass
 
+    def is_inputarg(self):
+        return False
+
+    def returns_vector(self):
+        return False
+
+    def is_vector(self):
+        return False
+
+    def returns_void(self):
+        return False
+
+
 def ResOperation(opnum, args, descr=None):
     cls = opclasses[opnum]
     op = cls()
@@ -71,19 +89,161 @@ def ResOperation(opnum, args, descr=None):
         assert isinstance(op, ResOpWithDescr)
         if opnum == rop.FINISH:
             assert descr.final_descr
-        elif op.is_guard():
+        elif OpHelpers.is_guard(opnum):
             assert not descr.final_descr
         op.setdescr(descr)
     return op
 
+def VecOperation(opnum, args, baseop, count, descr=None):
+    vecinfo = baseop.get_forwarded()
+    assert isinstance(vecinfo, VectorizationInfo)
+    datatype = vecinfo.datatype
+    bytesize = vecinfo.bytesize
+    signed = vecinfo.signed
+    if baseop.is_typecast():
+        ft,tt = baseop.cast_types()
+        datatype = tt
+        bytesize = baseop.cast_to_bytesize()
+    return VecOperationNew(opnum, args, datatype, bytesize, signed, count, descr)
+
+def VecOperationNew(opnum, args, datatype, bytesize, signed, count, descr=None):
+    op = ResOperation(opnum, args, descr=descr)
+    vecinfo = VectorizationInfo(None)
+    vecinfo.setinfo(datatype, bytesize, signed)
+    vecinfo.count = count
+    op.set_forwarded(vecinfo)
+    if isinstance(op,VectorOp):
+        op.datatype = datatype
+        op.bytesize = bytesize
+        op.signed = signed
+        op.count = count
+    else:
+        assert isinstance(op, VectorGuardOp)
+        op.datatype = datatype
+        op.bytesize = bytesize
+        op.signed = signed
+        op.count = count
+    assert op.count > 0
+
+    if not we_are_translated():
+        # for the test suite
+        op._vec_debug_info = vecinfo
+    return op
+
+def vector_repr(self, num):
+    if we_are_translated():
+        # the set_forwarded solution is volatile, we CANNOT acquire
+        # the information (e.g. count, bytesize) here easily
+        return 'v' + str(num)
+    if hasattr(self, '_vec_debug_info'):
+        vecinfo = self._vec_debug_info
+        count = vecinfo.count 
+        datatype = vecinfo.datatype
+        bytesize = vecinfo.bytesize
+    elif self.vector == -2:
+        count = self.count
+        datatype = self.datatype
+        bytesize = self.bytesize
+    else:
+        assert 0, "cannot debug print variable"
+    if self.opnum in (rop.VEC_UNPACK_I, rop.VEC_UNPACK_F):
+        return self.type + str(num)
+    return 'v%d[%dx%s%d]' % (num, count, datatype,
+                             bytesize * 8)
+
+class VectorizationInfo(AbstractValue):
+    _attrs_ = ('datatype', 'bytesize', 'signed', 'count')
+    datatype = '\x00'
+    bytesize = -1 # -1 means the biggest size known to the machine
+    signed = True
+    count = -1
+
+    def __init__(self, op):
+        if op is None:
+            return
+        from rpython.jit.metainterp.history import Const
+        if isinstance(op, Const) or isinstance(op, AbstractInputArg):
+            self.setinfo(op.type, -1, op.type == 'i')
+            return
+        if op.is_primitive_array_access():
+            from rpython.jit.backend.llsupport.descr import ArrayDescr
+            descr = op.getdescr()
+            if not we_are_translated():
+                from rpython.jit.backend.llgraph.runner import _getdescr
+                descr = _getdescr(op)
+            type = op.type
+            bytesize = descr.get_item_size_in_bytes()
+            signed = descr.is_item_signed()
+            datatype = type
+            self.setinfo(datatype, bytesize, signed)
+        elif op.opnum == rop.INT_SIGNEXT:
+            from rpython.jit.metainterp import history
+            arg0 = op.getarg(0)
+            arg1 = op.getarg(1)
+            assert isinstance(arg1, history.ConstInt)
+            self.setinfo('i', arg1.value, True)
+        elif op.is_typecast():
+            ft,tt = op.cast_types()
+            bytesize = op.cast_to_bytesize()
+            self.setinfo(tt, bytesize, True)
+        else:
+            # pass through the type of the first input argument
+            type = op.type
+            signed = type == 'i'
+            bytesize = -1
+            if op.numargs() > 0:
+                i = 0
+                arg = op.getarg(i)
+                while arg.is_constant() and i+1 < op.numargs():
+                    i += 1
+                    arg = op.getarg(i)
+                if not arg.is_constant():
+                    vecinfo = arg.get_forwarded()
+                    if vecinfo is not None and isinstance(vecinfo, VectorizationInfo):
+                        if vecinfo.datatype != '\x00' and \
+                           vecinfo.bytesize != -1:
+                            type = vecinfo.datatype
+                            signed = vecinfo.signed
+                            bytesize = vecinfo.bytesize
+            if rop.returns_bool_result(op.opnum):
+                type = 'i'
+            self.setinfo(type, bytesize, signed)
+
+    def setinfo(self, datatype, bytesize, signed):
+        self.datatype = datatype
+        if bytesize == -1:
+            if datatype == 'i':
+                bytesize = INT_WORD
+            elif datatype == 'f':
+                bytesize = FLOAT_WORD
+            elif datatype == 'r':
+                bytesize = INT_WORD
+            elif datatype == 'v':
+                bytesize = 0
+            elif datatype == 'V': # input arg vector
+                bytesize = INT_WORD
+            else:
+                assert 0, "unknown datasize"
+        self.bytesize = bytesize
+        self.signed = signed
+
 
 class AbstractResOpOrInputArg(AbstractValue):
     _attrs_ = ('_forwarded',)
-    _forwarded = None # either another resop or OptInfo  
+    _forwarded = None # either another resop or OptInfo
 
     def get_forwarded(self):
         return self._forwarded
 
+    def set_forwarded(self, forwarded_to):
+        assert forwarded_to is not self
+        self._forwarded = forwarded_to
+
+    def getdescr(self):
+        return None
+
+    def forget_value(self):
+        pass
 
 class AbstractResOp(AbstractResOpOrInputArg):
     """The central ResOperation class, representing one operation."""
@@ -98,6 +258,8 @@ class AbstractResOp(AbstractResOpOrInputArg):
     type = 'v'
     boolreflex = -1
     boolinverse = -1
+    vector = -1 # -1 means, no vector equivalent, -2 it is a vector statement
+    cls_casts = ('\x00', -1, '\x00', -1, -1)
 
     def getopnum(self):
         return self.opnum
@@ -106,10 +268,6 @@ class AbstractResOp(AbstractResOpOrInputArg):
     #    if self.is_same_as():
     #        return self is other or self.getarg(0).same_box(other)
     #    return self is other
-
-    def set_forwarded(self, forwarded_to):
-        assert forwarded_to is not self
-        self._forwarded = forwarded_to
 
     # methods implemented by the arity mixins
     # ---------------------------------------
@@ -145,8 +303,8 @@ class AbstractResOp(AbstractResOpOrInputArg):
     # methods implemented by ResOpWithDescr
     # -------------------------------------
 
-    def getdescr(self):
-        return None
+    #def getdescr(self): -- in the base class, AbstractResOpOrInputArg
+    #    return None
 
     def setdescr(self, descr):
         raise NotImplementedError
@@ -156,6 +314,9 @@ class AbstractResOp(AbstractResOpOrInputArg):
 
     # common methods
     # --------------
+
+    def copy(self):
+        return self.copy_and_change(self.opnum)
 
     def copy_and_change(self, opnum, args=None, descr=None):
         "shallow copy: the returned operation is meant to be used in place of self"
@@ -168,10 +329,7 @@ class AbstractResOp(AbstractResOpOrInputArg):
             descr = self.getdescr()
         if descr is DONT_CHANGE:
             descr = None
-        newop = ResOperation(opnum, args, descr)
-        if self.type != 'v':
-            newop.copy_value_from(self)
-        return newop
+        return ResOperation(opnum, args, descr)
 
     def repr(self, memo, graytext=False):
         # RPython-friendly version
@@ -181,7 +339,10 @@ class AbstractResOp(AbstractResOpOrInputArg):
             except KeyError:
                 num = len(memo)
                 memo[self] = num
-            sres = self.type + str(num) + ' = '
+            if self.is_vector():
+                sres = vector_repr(self, num) + ' = '
+            else:
+                sres = self.type + str(num) + ' = '
         #if self.result is not None:
         #    sres = '%s = ' % (self.result,)
         else:
@@ -213,6 +374,8 @@ class AbstractResOp(AbstractResOpOrInputArg):
         except KeyError:
             num = len(memo)
             memo[self] = num
+        if self.is_vector():
+            return vector_repr(self, num)
         return self.type + str(num)
 
     def __repr__(self):
@@ -228,105 +391,59 @@ class AbstractResOp(AbstractResOpOrInputArg):
             return '<%d>' % self.getopnum()
 
     def is_guard(self):
-        return rop._GUARD_FIRST <= self.getopnum() <= rop._GUARD_LAST
-
-    def is_foldable_guard(self):
-        return rop._GUARD_FOLDABLE_FIRST <= self.getopnum() <= rop._GUARD_FOLDABLE_LAST
-
-    def is_guard_exception(self):
-        return (self.getopnum() == rop.GUARD_EXCEPTION or
-                self.getopnum() == rop.GUARD_NO_EXCEPTION)
-
-    def is_guard_overflow(self):
-        return (self.getopnum() == rop.GUARD_OVERFLOW or
-                self.getopnum() == rop.GUARD_NO_OVERFLOW)
-
-    def is_jit_debug(self):
-        return rop._JIT_DEBUG_FIRST <= self.getopnum() <= rop._JIT_DEBUG_LAST
-
-    def is_always_pure(self):
-        return rop._ALWAYS_PURE_FIRST <= self.getopnum() <= rop._ALWAYS_PURE_LAST
-
-    def has_no_side_effect(self):
-        return rop._NOSIDEEFFECT_FIRST <= self.getopnum() <= rop._NOSIDEEFFECT_LAST
-
-    def can_raise(self):
-        return rop._CANRAISE_FIRST <= self.getopnum() <= rop._CANRAISE_LAST
-
-    def is_malloc(self):
-        # a slightly different meaning from can_malloc
-        return rop._MALLOC_FIRST <= self.getopnum() <= rop._MALLOC_LAST
-
-    def can_malloc(self):
-        return self.is_call() or self.is_malloc()
-
-    def is_call(self):
-        return rop._CALL_FIRST <= self.getopnum() <= rop._CALL_LAST
-
-    def is_same_as(self):
-        return self.opnum in (rop.SAME_AS_I, rop.SAME_AS_F, rop.SAME_AS_R)
-
-    def is_getfield(self):
-        return self.opnum in (rop.GETFIELD_GC_I, rop.GETFIELD_GC_F,
-                              rop.GETFIELD_GC_R, rop.GETFIELD_GC_PURE_I,
-                              rop.GETFIELD_GC_PURE_R, rop.GETFIELD_GC_PURE_F)
-
-    def is_getarrayitem(self):
-        return self.opnum in (rop.GETARRAYITEM_GC_I, rop.GETARRAYITEM_GC_F,
-                              rop.GETARRAYITEM_GC_R, rop.GETARRAYITEM_GC_PURE_I,
-                              rop.GETARRAYITEM_GC_PURE_F,
-                              rop.GETARRAYITEM_GC_PURE_R)
-
-    def is_real_call(self):
-        opnum = self.opnum
-        return (opnum == rop.CALL_I or
-                opnum == rop.CALL_R or
-                opnum == rop.CALL_F or
-                opnum == rop.CALL_N)
-
-    def is_call_assembler(self):
-        opnum = self.opnum
-        return (opnum == rop.CALL_ASSEMBLER_I or
-                opnum == rop.CALL_ASSEMBLER_R or
-                opnum == rop.CALL_ASSEMBLER_N or
-                opnum == rop.CALL_ASSEMBLER_F)
-
-    def is_call_may_force(self):
-        opnum = self.opnum
-        return (opnum == rop.CALL_MAY_FORCE_I or
-                opnum == rop.CALL_MAY_FORCE_R or
-                opnum == rop.CALL_MAY_FORCE_N or
-                opnum == rop.CALL_MAY_FORCE_F)
-
-    def is_call_pure(self):
-        opnum = self.opnum
-        return (opnum == rop.CALL_PURE_I or
-                opnum == rop.CALL_PURE_R or
-                opnum == rop.CALL_PURE_N or
-                opnum == rop.CALL_PURE_F)
-
-    def is_call_release_gil(self):
-        opnum = self.opnum
-        # no R returning call_release_gil
-        return (opnum == rop.CALL_RELEASE_GIL_I or
-                opnum == rop.CALL_RELEASE_GIL_F or
-                opnum == rop.CALL_RELEASE_GIL_N)
+        return rop.is_guard(self.getopnum())
 
     def is_ovf(self):
-        return rop._OVF_FIRST <= self.getopnum() <= rop._OVF_LAST
+        return rop.is_ovf(self.getopnum())
 
-    def is_comparison(self):
-        return self.is_always_pure() and self.returns_bool_result()
+    def can_raise(self):
+        return rop.can_raise(self.getopnum())
 
-    def is_final(self):
-        return rop._FINAL_FIRST <= self.getopnum() <= rop._FINAL_LAST
+    def is_foldable_guard(self):
+        return rop.is_foldable_guard(self.getopnun())
 
-    def returns_bool_result(self):
-        return self._cls_has_bool_result
+    def is_primitive_array_access(self):
+        """ Indicates that this operations loads/stores a
+        primitive type (int,float) """
+        if rop.is_primitive_load(self.opnum) or rop.is_primitive_store(self.opnum):
+            descr = self.getdescr()
+            if not we_are_translated():
+                from rpython.jit.backend.llgraph.runner import _getdescr
+                descr = _getdescr(self)
+            if descr and descr.is_array_of_primitives():
+                return True
+        return False
 
-    def forget_value(self):
-        pass
+    def is_vector(self):
+        return False
 
+    def returns_void(self):
+        return self.type == 'v'
+
+    def returns_vector(self):
+        return self.type != 'v' and self.vector == -2
+
+    def is_typecast(self):
+        return False
+
+    def cast_count(self, vec_reg_size):
+        return self.cls_casts[4]
+
+    def cast_types(self):
+        return self.cls_casts[0], self.cls_casts[2]
+
+    def cast_to_bytesize(self):
+        return self.cls_casts[3]
+
+    def cast_from_bytesize(self):
+        return self.cls_casts[1]
+
+    def casts_up(self):
+        return self.cast_to_bytesize() > self.cast_from_bytesize()
+
+    def casts_down(self):
+        # includes the cast as noop
+        return self.cast_to_bytesize() <= self.cast_from_bytesize()
 
 # ===================
 # Top of the hierachy
@@ -365,12 +482,13 @@ class ResOpWithDescr(AbstractResOp):
 class GuardResOp(ResOpWithDescr):
 
     _fail_args = None
-
-    rd_snapshot = None
-    rd_frame_info_list = None
+    rd_resume_position = -1
 
     def getfailargs(self):
         return self._fail_args
+
+    def getfailargs_copy(self):
+        return self._fail_args[:]
 
     def setfailargs(self, fail_args):
         self._fail_args = fail_args
@@ -379,9 +497,62 @@ class GuardResOp(ResOpWithDescr):
         newop = AbstractResOp.copy_and_change(self, opnum, args, descr)
         assert isinstance(newop, GuardResOp)
         newop.setfailargs(self.getfailargs())
-        newop.rd_snapshot = self.rd_snapshot
-        newop.rd_frame_info_list = self.rd_frame_info_list
+        newop.rd_resume_position = self.rd_resume_position
         return newop
+
+class VectorGuardOp(GuardResOp):
+    bytesize = 0
+    datatype = '\x00'
+    signed = True
+    count = 0
+
+    def copy_and_change(self, opnum, args=None, descr=None):
+        newop = GuardResOp.copy_and_change(self, opnum, args, descr)
+        assert isinstance(newop, VectorGuardOp)
+        newop.datatype = self.datatype
+        newop.bytesize = self.bytesize
+        newop.signed = self.signed
+        newop.count = self.count
+        return newop
+
+class VectorOp(ResOpWithDescr):
+    bytesize = 0
+    datatype = '\x00'
+    signed = True
+    count = 0
+
+    def is_vector(self):
+        if self.getopnum() in (rop.VEC_UNPACK_I, rop.VEC_UNPACK_F):
+            arg = self.getarg(2)
+            from rpython.jit.metainterp.history import ConstInt
+            assert isinstance(arg, ConstInt)
+            return arg.value > 1
+        return True
+
+    def copy_and_change(self, opnum, args=None, descr=None):
+        newop = ResOpWithDescr.copy_and_change(self, opnum, args, descr)
+        assert isinstance(newop, VectorOp)
+        newop.datatype = self.datatype
+        newop.bytesize = self.bytesize
+        newop.signed = self.signed
+        newop.count = self.count
+        return newop
+
+    def same_shape(self, other):
+        """ NOT_RPYTHON """
+        myvecinfo = self.get_forwarded()
+        othervecinfo = other.get_forwarded()
+        if other.is_vector() != self.is_vector():
+            return False
+        if myvecinfo.datatype != othervecinfo.datatype:
+            return False
+        if myvecinfo.bytesize != othervecinfo.bytesize:
+            return False
+        if myvecinfo.signed != othervecinfo.signed:
+            return False
+        if myvecinfo.count != othervecinfo.count:
+            return False
+        return True
 
 
 # ===========
@@ -477,10 +648,63 @@ class RefOp(object):
         from rpython.jit.metainterp import history
         return history.ConstPtr(self.getref_base())
 
+class CastOp(object):
+    _mixin_ = True
+
+    def is_typecast(self):
+        return True
+
+    def cast_to(self):
+        to_type, size = self.cls_casts[2], self.cls_casts[3]
+        if self.cls_casts[3] == 0:
+            if self.getopnum() == rop.INT_SIGNEXT:
+                from rpython.jit.metainterp.history import ConstInt
+                arg = self.getarg(1)
+                assert isinstance(arg, ConstInt)
+                return (to_type,arg.value)
+            else:
+                raise NotImplementedError
+        return (to_type,size)
+
+    def cast_from(self):
+        type, size, a, b = self.cls_casts
+        if size == -1:
+            return self.bytesize
+        return (type, size)
+
+    def cast_input_bytesize(self, vec_reg_size):
+        count = vec_reg_size // self.cast_to_bytesize()
+        size = self.cast_from_bytesize() * self.cast_count(vec_reg_size)
+        return size
+
+class SignExtOp(object):
+    _mixin_ = True
+
+    def is_typecast(self):
+        return True
+
+    def cast_types(self):
+        return self.cls_casts[0], self.cls_casts[2]
+
+    def cast_to_bytesize(self):
+        from rpython.jit.metainterp.history import ConstInt
+        arg = self.getarg(1)
+        assert isinstance(arg, ConstInt)
+        return arg.value
+
+    def cast_from_bytesize(self):
+        arg = self.getarg(0)
+        vecinfo = arg.get_forwarded()
+        if vecinfo is None or not isinstance(vecinfo, VectorizationInfo):
+            vecinfo = VectorizationInfo(arg)
+        return vecinfo.bytesize
+
+    def cast_input_bytesize(self, vec_reg_size):
+        return vec_reg_size # self.cast_from_bytesize() * self.cast_count(vec_reg_size)
+
 
 class AbstractInputArg(AbstractResOpOrInputArg):
-    def set_forwarded(self, forwarded_to):
-        self._forwarded = forwarded_to
+    _attrs_ = ('_forwarded', 'position')
 
     def repr(self, memo):
         try:
@@ -490,20 +714,28 @@ class AbstractInputArg(AbstractResOpOrInputArg):
             memo[self] = num
         return self.type + str(num)
 
+    def get_position(self):
+        return self.position
+
     def __repr__(self):
         return self.repr(self._repr_memo)
 
-    def getdescr(self):
-        return None
+    def is_inputarg(self):
+        return True
 
-    def forget_value(self):
-        pass
-    
 class InputArgInt(IntOp, AbstractInputArg):
+    datatype = 'i'
+    bytesize = INT_WORD
+    signed = True
+
     def __init__(self, intval=0):
         self.setint(intval)
 
 class InputArgFloat(FloatOp, AbstractInputArg):
+    datatype = 'f'
+    bytesize = FLOAT_WORD
+    signed = True
+
     def __init__(self, f=longlong.ZEROF):
         self.setfloatstorage(f)
 
@@ -512,11 +744,22 @@ class InputArgFloat(FloatOp, AbstractInputArg):
         return InputArgFloat(longlong.getfloatstorage(x))
 
 class InputArgRef(RefOp, AbstractInputArg):
+    datatype = 'r'
+
     def __init__(self, r=lltype.nullptr(llmemory.GCREF.TO)):
         self.setref_base(r)
+        self.datatype = 'r'
 
     def reset_value(self):
         self.setref_base(lltype.nullptr(llmemory.GCREF.TO))
+
+class InputArgVector(AbstractInputArg):
+    type = 'V'
+    def __init__(self):
+        pass
+
+    def returns_vector(self):
+        return True
 
 # ============
 # arity mixins
@@ -566,7 +809,6 @@ class UnaryOp(object):
             self._arg0 = box
         else:
             raise IndexError
-
 
 class BinaryOp(object):
     _mixin_ = True
@@ -686,6 +928,8 @@ _oplist = [
     '_GUARD_FOLDABLE_FIRST',
     'GUARD_TRUE/1d/n',
     'GUARD_FALSE/1d/n',
+    'VEC_GUARD_TRUE/1d/n',
+    'VEC_GUARD_FALSE/1d/n',
     'GUARD_VALUE/2d/n',
     'GUARD_CLASS/2d/n',
     'GUARD_NONNULL/1d/n',
@@ -711,9 +955,7 @@ _oplist = [
     'INT_ADD/2/i',
     'INT_SUB/2/i',
     'INT_MUL/2/i',
-    'INT_FLOORDIV/2/i',
-    'UINT_FLOORDIV/2/i',
-    'INT_MOD/2/i',
+    'UINT_MUL_HIGH/2/i',       # a * b as a double-word, keep the high word
     'INT_AND/2/i',
     'INT_OR/2/i',
     'INT_XOR/2/i',
@@ -733,6 +975,44 @@ _oplist = [
     'CAST_SINGLEFLOAT_TO_FLOAT/1/f',
     'CONVERT_FLOAT_BYTES_TO_LONGLONG/1/' + ('i' if longlong.is_64_bit else 'f'),
     'CONVERT_LONGLONG_BYTES_TO_FLOAT/1/f',
+    #
+    # vector operations
+    '_VEC_PURE_FIRST',
+    '_VEC_ARITHMETIC_FIRST',
+    'VEC_INT_ADD/2/i',
+    'VEC_INT_SUB/2/i',
+    'VEC_INT_MUL/2/i',
+    'VEC_INT_AND/2/i',
+    'VEC_INT_OR/2/i',
+    'VEC_INT_XOR/2/i',
+    'VEC_FLOAT_ADD/2/f',
+    'VEC_FLOAT_SUB/2/f',
+    'VEC_FLOAT_MUL/2/f',
+    'VEC_FLOAT_TRUEDIV/2/f',
+    'VEC_FLOAT_NEG/1/f',
+    'VEC_FLOAT_ABS/1/f',
+    '_VEC_ARITHMETIC_LAST',
+    'VEC_FLOAT_EQ/2b/i',
+    'VEC_FLOAT_NE/2b/i',
+    'VEC_INT_IS_TRUE/1b/i',
+    'VEC_INT_NE/2b/i',
+    'VEC_INT_EQ/2b/i',
+
+    '_VEC_CAST_FIRST',
+    'VEC_INT_SIGNEXT/2/i',
+    # double -> float: v2 = cast(v1, 2) equal to v2 = (v1[0], v1[1], X, X)
+    'VEC_CAST_FLOAT_TO_SINGLEFLOAT/1/i',
+    # v4 = cast(v3, 0, 2), v4 = (v3[0], v3[1])
+    'VEC_CAST_SINGLEFLOAT_TO_FLOAT/1/f',
+    'VEC_CAST_FLOAT_TO_INT/1/i',
+    'VEC_CAST_INT_TO_FLOAT/1/f',
+    '_VEC_CAST_LAST',
+
+    'VEC/0/if',
+    'VEC_UNPACK/3/if',          # iX|fX = VEC_INT_UNPACK(vX, index, count)
+    'VEC_PACK/4/if',            # VEC_INT_PACK(vX, var/const, index, count)
+    'VEC_EXPAND/1/if',          # vX = VEC_INT_EXPAND(var/const)
+    '_VEC_PURE_LAST',
     #
     'INT_LT/2b/i',
     'INT_LE/2b/i',
@@ -770,19 +1050,38 @@ _oplist = [
     'ARRAYLEN_GC/1d/i',
     'STRLEN/1/i',
     'STRGETITEM/2/i',
-    'GETFIELD_GC_PURE/1d/rfi',
-    'GETFIELD_RAW_PURE/1d/rfi',
     'GETARRAYITEM_GC_PURE/2d/rfi',
-    'GETARRAYITEM_RAW_PURE/2d/fi',
     'UNICODELEN/1/i',
     'UNICODEGETITEM/2/i',
     #
+    'LOAD_FROM_GC_TABLE/1/r',    # only emitted by rewrite.py
+    #
     '_ALWAYS_PURE_LAST',  # ----- end of always_pure operations -----
 
+    # parameters GC_LOAD
+    # 1: pointer to complex object
+    # 2: integer describing the offset
+    # 3: constant integer. byte size of datatype to load (negative if it is signed)
+    'GC_LOAD/3/rfi',
+    # parameters GC_LOAD_INDEXED
+    # 1: pointer to complex object
+    # 2: integer describing the index
+    # 3: constant integer scale factor
+    # 4: constant integer base offset   (final offset is 'base + scale * index')
+    # 5: constant integer. byte size of datatype to load (negative if it is signed)
+    # (GC_LOAD is equivalent to GC_LOAD_INDEXED with arg3==1, arg4==0)
+    'GC_LOAD_INDEXED/5/rfi',
+
+    '_RAW_LOAD_FIRST',
     'GETARRAYITEM_GC/2d/rfi',
+    'VEC_GETARRAYITEM_GC/2d/fi',
     'GETARRAYITEM_RAW/2d/fi',
-    'GETINTERIORFIELD_GC/2d/rfi',
+    'VEC_GETARRAYITEM_RAW/2d/fi',
     'RAW_LOAD/2d/fi',
+    'VEC_RAW_LOAD/2d/fi',
+    '_RAW_LOAD_LAST',
+
+    'GETINTERIORFIELD_GC/2d/rfi',
     'GETFIELD_GC/1d/rfi',
     'GETFIELD_RAW/1d/rfi',
     '_MALLOC_FIRST',
@@ -799,17 +1098,31 @@ _oplist = [
     # must be forced, however we need to execute it anyway
     '_NOSIDEEFFECT_LAST', # ----- end of no_side_effect operations -----
 
+    # same paramters as GC_LOAD, but one additional for the value to store
+    # note that the itemsize is not signed (always > 0)
+    # (gcptr, index, value, [scale, base_offset,] itemsize)
+    # invariants for GC_STORE: index is constant, but can be large
+    # invariants for GC_STORE_INDEXED: index is a non-constant box;
+    #                                  scale is a constant;
+    #                                  base_offset is a small constant
+    'GC_STORE/4d/n',
+    'GC_STORE_INDEXED/6d/n',
+
     'INCREMENT_DEBUG_COUNTER/1/n',
+    '_RAW_STORE_FIRST',
     'SETARRAYITEM_GC/3d/n',
+    'VEC_SETARRAYITEM_GC/3d/n',
     'SETARRAYITEM_RAW/3d/n',
+    'VEC_SETARRAYITEM_RAW/3d/n',
+    'RAW_STORE/3d/n',
+    'VEC_RAW_STORE/3d/n',
+    '_RAW_STORE_LAST',
     'SETINTERIORFIELD_GC/3d/n',
     'SETINTERIORFIELD_RAW/3d/n',    # right now, only used by tests
-    'RAW_STORE/3d/n',
     'SETFIELD_GC/2d/n',
-    'ZERO_PTR_FIELD/2/n', # only emitted by the rewrite, clears a pointer field
-                        # at a given constant offset, no descr
-    'ZERO_ARRAY/3d/n',  # only emitted by the rewrite, clears (part of) an array
-                        # [arraygcptr, firstindex, length], descr=ArrayDescr
+    'ZERO_ARRAY/5d/n',  # only emitted by the rewrite, clears (part of) an array
+                        # [arraygcptr, firstindex, length, scale_firstindex,
+                        #  scale_length], descr=ArrayDescr
     'SETFIELD_RAW/2d/n',
     'STRSETITEM/3/n',
     'UNICODESETITEM/3/n',
@@ -821,6 +1134,8 @@ _oplist = [
     'LEAVE_PORTAL_FRAME/1/n',     # debugging only
     'JIT_DEBUG/*/n',              # debugging only
     '_JIT_DEBUG_LAST',
+    'ESCAPE/*/rfin',              # tests only
+    'FORCE_SPILL/1/n',            # tests only
     'VIRTUAL_REF_FINISH/2/n',   # removed before it's passed to the backend
     'COPYSTRCONTENT/5/n',       # src, dst, srcstart, dststart, length
     'COPYUNICODECONTENT/5/n',
@@ -834,15 +1149,15 @@ _oplist = [
     '_CANRAISE_FIRST', # ----- start of can_raise operations -----
     '_CALL_FIRST',
     'CALL/*d/rfin',
-    'COND_CALL/*d/n',
-    # a conditional call, with first argument as a condition
+    'COND_CALL/*d/n',   # a conditional call, with first argument as a condition
+    'COND_CALL_VALUE/*d/ri',  # same but returns a result; emitted by rewrite
     'CALL_ASSEMBLER/*d/rfin',  # call already compiled assembler
     'CALL_MAY_FORCE/*d/rfin',
     'CALL_LOOPINVARIANT/*d/rfin',
-    'CALL_RELEASE_GIL/*d/rfin',
+    'CALL_RELEASE_GIL/*d/fin',
     # release the GIL and "close the stack" for asmgcc
     'CALL_PURE/*d/rfin',             # removed before it's passed to the backend
-    'CALL_MALLOC_GC/*d/r',      # like CALL, but NULL => propagate MemoryError
+    'CHECK_MEMORY_ERROR/1/n',   # after a CALL: NULL => propagate MemoryError
     'CALL_MALLOC_NURSERY/1/r',  # nursery malloc, const number of bytes, zeroed
     'CALL_MALLOC_NURSERY_VARSIZE/3d/r',
     'CALL_MALLOC_NURSERY_VARSIZE_FRAME/1/r',
@@ -860,195 +1175,22 @@ _oplist = [
     '_LAST',     # for the backend to add more internal operations
 ]
 
+_cast_ops = {
+    'CAST_FLOAT_TO_INT': ('f', 8, 'i', 4, 2),
+    'VEC_CAST_FLOAT_TO_INT': ('f', 8, 'i', 4, 2),
+    'CAST_INT_TO_FLOAT': ('i', 4, 'f', 8, 2),
+    'VEC_CAST_INT_TO_FLOAT': ('i', 4, 'f', 8, 2),
+    'CAST_FLOAT_TO_SINGLEFLOAT': ('f', 8, 'i', 4, 2),
+    'VEC_CAST_FLOAT_TO_SINGLEFLOAT': ('f', 8, 'i', 4, 2),
+    'CAST_SINGLEFLOAT_TO_FLOAT': ('i', 4, 'f', 8, 2),
+    'VEC_CAST_SINGLEFLOAT_TO_FLOAT': ('i', 4, 'f', 8, 2),
+    'INT_SIGNEXT': ('i', 0, 'i', 0, 0),
+    'VEC_INT_SIGNEXT': ('i', 0, 'i', 0, 0),
+}
+
 # ____________________________________________________________
 
 class rop(object):
-    pass
-
-opclasses = []   # mapping numbers to the concrete ResOp class
-opname = {}      # mapping numbers to the original names, for debugging
-oparity = []     # mapping numbers to the arity of the operation or -1
-opwithdescr = [] # mapping numbers to a flag "takes a descr"
-optypes = []     # mapping numbers to type of return
-
-def setup(debug_print=False):
-    i = 0
-    for name in _oplist:
-        if '/' in name:
-            name, arity, result = name.split('/')
-            withdescr = 'd' in arity
-            boolresult = 'b' in arity
-            arity = arity.rstrip('db')
-            if arity == '*':
-                arity = -1
-            else:
-                arity = int(arity)
-        else:
-            arity, withdescr, boolresult, result = -1, True, False, None       # default
-        if not name.startswith('_'):
-            for r in result:
-                if len(result) == 1:
-                    cls_name = name
-                else:
-                    cls_name = name + '_' + r.upper()
-                setattr(rop, cls_name, i)
-                opname[i] = cls_name
-                cls = create_class_for_op(cls_name, i, arity, withdescr, r)
-                cls._cls_has_bool_result = boolresult
-                opclasses.append(cls)
-                oparity.append(arity)
-                opwithdescr.append(withdescr)
-                optypes.append(r)
-                if debug_print:
-                    print '%30s = %d' % (cls_name, i)
-                i += 1
-        else:
-            setattr(rop, name, i)
-            opclasses.append(None)
-            oparity.append(-1)
-            opwithdescr.append(False)
-            optypes.append(' ')
-            if debug_print:
-                print '%30s = %d' % (name, i)
-            i += 1
-    # for optimizeopt/pure.py's getrecentops()
-    assert (rop.INT_ADD_OVF - rop._OVF_FIRST ==
-            rop.INT_ADD - rop._ALWAYS_PURE_FIRST)
-    assert (rop.INT_SUB_OVF - rop._OVF_FIRST ==
-            rop.INT_SUB - rop._ALWAYS_PURE_FIRST)
-    assert (rop.INT_MUL_OVF - rop._OVF_FIRST ==
-            rop.INT_MUL - rop._ALWAYS_PURE_FIRST)
-
-def get_base_class(mixins, base):
-    try:
-        return get_base_class.cache[(base,) + mixins]
-    except KeyError:
-        arity_name = mixins[0].__name__[:-2]  # remove the trailing "Op"
-        name = arity_name + base.__name__ # something like BinaryPlainResOp
-        bases = mixins + (base,)
-        cls = type(name, bases, {})
-        get_base_class.cache[(base,) + mixins] = cls
-        return cls
-get_base_class.cache = {}
-
-def create_class_for_op(name, opnum, arity, withdescr, result_type):
-    arity2mixin = {
-        0: NullaryOp,
-        1: UnaryOp,
-        2: BinaryOp,
-        3: TernaryOp
-    }
-
-    is_guard = name.startswith('GUARD')
-    if is_guard:
-        assert withdescr
-        baseclass = GuardResOp
-    elif withdescr:
-        baseclass = ResOpWithDescr
-    else:
-        baseclass = PlainResOp
-    mixins = [arity2mixin.get(arity, N_aryOp)]
-    if result_type == 'i':
-        mixins.append(IntOp)
-    elif result_type == 'f':
-        mixins.append(FloatOp)
-    elif result_type == 'r':
-        mixins.append(RefOp)
-    else:
-        assert result_type == 'n'
-
-    cls_name = '%s_OP' % name
-    bases = (get_base_class(tuple(mixins), baseclass),)
-    dic = {'opnum': opnum}
-    return type(cls_name, bases, dic)
-
-setup(__name__ == '__main__')   # print out the table when run directly
-del _oplist
-
-_opboolinverse = {
-    rop.INT_EQ: rop.INT_NE,
-    rop.INT_NE: rop.INT_EQ,
-    rop.INT_LT: rop.INT_GE,
-    rop.INT_GE: rop.INT_LT,
-    rop.INT_GT: rop.INT_LE,
-    rop.INT_LE: rop.INT_GT,
-
-    rop.UINT_LT: rop.UINT_GE,
-    rop.UINT_GE: rop.UINT_LT,
-    rop.UINT_GT: rop.UINT_LE,
-    rop.UINT_LE: rop.UINT_GT,
-
-    rop.FLOAT_EQ: rop.FLOAT_NE,
-    rop.FLOAT_NE: rop.FLOAT_EQ,
-    rop.FLOAT_LT: rop.FLOAT_GE,
-    rop.FLOAT_GE: rop.FLOAT_LT,
-    rop.FLOAT_GT: rop.FLOAT_LE,
-    rop.FLOAT_LE: rop.FLOAT_GT,
-
-    rop.PTR_EQ: rop.PTR_NE,
-    rop.PTR_NE: rop.PTR_EQ,
-}
-
-_opboolreflex = {
-    rop.INT_EQ: rop.INT_EQ,
-    rop.INT_NE: rop.INT_NE,
-    rop.INT_LT: rop.INT_GT,
-    rop.INT_GE: rop.INT_LE,
-    rop.INT_GT: rop.INT_LT,
-    rop.INT_LE: rop.INT_GE,
-
-    rop.UINT_LT: rop.UINT_GT,
-    rop.UINT_GE: rop.UINT_LE,
-    rop.UINT_GT: rop.UINT_LT,
-    rop.UINT_LE: rop.UINT_GE,
-
-    rop.FLOAT_EQ: rop.FLOAT_EQ,
-    rop.FLOAT_NE: rop.FLOAT_NE,
-    rop.FLOAT_LT: rop.FLOAT_GT,
-    rop.FLOAT_GE: rop.FLOAT_LE,
-    rop.FLOAT_GT: rop.FLOAT_LT,
-    rop.FLOAT_LE: rop.FLOAT_GE,
-
-    rop.PTR_EQ: rop.PTR_EQ,
-    rop.PTR_NE: rop.PTR_NE,
-}
-
-def setup2():
-    for cls in opclasses:
-        if cls is None:
-            continue
-        opnum = cls.opnum
-        if opnum in _opboolreflex:
-            cls.boolreflex = _opboolreflex[opnum]
-        if opnum in _opboolinverse:
-            cls.boolinverse = _opboolinverse[opnum]
-
-setup2()
-del _opboolinverse
-del _opboolreflex
-
-def get_deep_immutable_oplist(operations):
-    """
-    When not we_are_translated(), turns ``operations`` into a frozenlist and
-    monkey-patch its items to make sure they are not mutated.
-
-    When we_are_translated(), do nothing and just return the old list.
-    """
-    from rpython.tool.frozenlist import frozenlist
-    if we_are_translated():
-        return operations
-    #
-    def setarg(*args):
-        assert False, "operations cannot change at this point"
-    def setdescr(*args):
-        assert False, "operations cannot change at this point"
-    newops = frozenlist(operations)
-    for op in newops:
-        op.setarg = setarg
-        op.setdescr = setdescr
-    return newops
-
-class OpHelpers(object):
     @staticmethod
     def call_for_descr(descr):
         tp = descr.get_normalized_result_type()
@@ -1084,6 +1226,19 @@ class OpHelpers(object):
             return rop.CALL_MAY_FORCE_F
         assert tp == 'v'
         return rop.CALL_MAY_FORCE_N
+
+    @staticmethod
+    def call_release_gil_for_descr(descr):
+        tp = descr.get_normalized_result_type()
+        if tp == 'i':
+            return rop.CALL_RELEASE_GIL_I
+        # no such thing
+        #elif tp == 'r':
+        #    return rop.CALL_RELEASE_GIL_R
+        elif tp == 'f':
+            return rop.CALL_RELEASE_GIL_F
+        assert tp == 'v'
+        return rop.CALL_RELEASE_GIL_N
 
     @staticmethod
     def call_assembler_for_descr(descr):
@@ -1162,6 +1317,159 @@ class OpHelpers(object):
         return rop.CALL_N
 
     @staticmethod
+    def is_guard(opnum):
+        return rop._GUARD_FIRST <= opnum <= rop._GUARD_LAST
+
+    @staticmethod
+    def is_comparison(opnum):
+        return rop.is_always_pure(opnum) and rop.returns_bool_result(opnum)
+
+    @staticmethod
+    def is_foldable_guard(opnum):
+        return rop._GUARD_FOLDABLE_FIRST <= opnum <= rop._GUARD_FOLDABLE_LAST
+
+    @staticmethod
+    def is_guard_exception(opnum):
+        return (opnum == rop.GUARD_EXCEPTION or
+                opnum == rop.GUARD_NO_EXCEPTION)
+
+    @staticmethod
+    def is_guard_overflow(opnum):
+        return (opnum == rop.GUARD_OVERFLOW or
+                opnum == rop.GUARD_NO_OVERFLOW)
+
+    @staticmethod
+    def is_jit_debug(opnum):
+        return rop._JIT_DEBUG_FIRST <= opnum <= rop._JIT_DEBUG_LAST
+
+    @staticmethod
+    def is_always_pure(opnum):
+        return rop._ALWAYS_PURE_FIRST <= opnum <= rop._ALWAYS_PURE_LAST
+
+    @staticmethod
+    def is_pure_with_descr(opnum, descr):
+        if rop.is_always_pure(opnum):
+            return True
+        if (opnum == rop.GETFIELD_RAW_I or
+            opnum == rop.GETFIELD_RAW_R or
+            opnum == rop.GETFIELD_RAW_F or
+            opnum == rop.GETFIELD_GC_I or
+            opnum == rop.GETFIELD_GC_R or
+            opnum == rop.GETFIELD_GC_F or
+            opnum == rop.GETARRAYITEM_RAW_I or
+            opnum == rop.GETARRAYITEM_RAW_F):
+            return descr.is_always_pure()
+        return False
+
+    @staticmethod
+    def is_pure_getfield(opnum, descr):
+        if (opnum == rop.GETFIELD_GC_I or
+            opnum == rop.GETFIELD_GC_F or
+            opnum == rop.GETFIELD_GC_R):
+            return descr is not None and descr.is_always_pure()
+        return False
+
+    @staticmethod
+    def has_no_side_effect(opnum):
+        return rop._NOSIDEEFFECT_FIRST <= opnum <= rop._NOSIDEEFFECT_LAST
+
+    @staticmethod
+    def can_raise(opnum):
+        return rop._CANRAISE_FIRST <= opnum <= rop._CANRAISE_LAST
+
+    @staticmethod
+    def is_malloc(opnum):
+        # a slightly different meaning from can_malloc
+        return rop._MALLOC_FIRST <= opnum <= rop._MALLOC_LAST
+
+    @staticmethod
+    def can_malloc(opnum):
+        return rop.is_call(opnum) or rop.is_malloc(opnum)
+
+    @staticmethod
+    def is_same_as(opnum):
+        return opnum in (rop.SAME_AS_I, rop.SAME_AS_F, rop.SAME_AS_R)
+
+    @staticmethod
+    def is_getfield(opnum):
+        return opnum in (rop.GETFIELD_GC_I, rop.GETFIELD_GC_F,
+                              rop.GETFIELD_GC_R)
+
+    @staticmethod
+    def is_getarrayitem(opnum):
+        return opnum in (rop.GETARRAYITEM_GC_I, rop.GETARRAYITEM_GC_F,
+                         rop.GETARRAYITEM_GC_R, rop.GETARRAYITEM_GC_PURE_I,
+                         rop.GETARRAYITEM_GC_PURE_F,
+                         rop.GETARRAYITEM_GC_PURE_R)
+
+    @staticmethod
+    def is_real_call(opnum):
+        return (opnum == rop.CALL_I or
+                opnum == rop.CALL_R or
+                opnum == rop.CALL_F or
+                opnum == rop.CALL_N)
+
+    @staticmethod
+    def is_call_assembler(opnum):
+        return (opnum == rop.CALL_ASSEMBLER_I or
+                opnum == rop.CALL_ASSEMBLER_R or
+                opnum == rop.CALL_ASSEMBLER_N or
+                opnum == rop.CALL_ASSEMBLER_F)
+
+    @staticmethod
+    def is_call_may_force(opnum):
+        return (opnum == rop.CALL_MAY_FORCE_I or
+                opnum == rop.CALL_MAY_FORCE_R or
+                opnum == rop.CALL_MAY_FORCE_N or
+                opnum == rop.CALL_MAY_FORCE_F)
+
+    @staticmethod
+    def is_call_pure(opnum):
+        return (opnum == rop.CALL_PURE_I or
+                opnum == rop.CALL_PURE_R or
+                opnum == rop.CALL_PURE_N or
+                opnum == rop.CALL_PURE_F)
+
+    @staticmethod
+    def is_call_release_gil(opnum):
+        # no R returning call_release_gil
+        return (opnum == rop.CALL_RELEASE_GIL_I or
+                opnum == rop.CALL_RELEASE_GIL_F or
+                opnum == rop.CALL_RELEASE_GIL_N)
+
+    @staticmethod
+    def is_ovf(opnum):
+        return rop._OVF_FIRST <= opnum <= rop._OVF_LAST
+
+    @staticmethod
+    def is_vector_arithmetic(opnum):
+        return rop._VEC_ARITHMETIC_FIRST <= opnum <= rop._VEC_ARITHMETIC_LAST
+
+    @staticmethod
+    def is_raw_array_access(opnum):
+        return rop.is_raw_load(opnum) or rop.is_raw_store(opnum)
+
+    @staticmethod
+    def is_primitive_load(opnum):
+        return rop._RAW_LOAD_FIRST < opnum < rop._RAW_LOAD_LAST
+
+    @staticmethod
+    def is_primitive_store(opnum):
+        return rop._RAW_STORE_FIRST < opnum < rop._RAW_STORE_LAST
+
+    @staticmethod
+    def is_final(opnum):
+        return rop._FINAL_FIRST <= opnum <= rop._FINAL_LAST
+
+    @staticmethod
+    def returns_bool_result(opnum):
+        return opclasses[opnum]._cls_has_bool_result
+
+    @staticmethod
+    def is_label(opnum):
+        return opnum == rop.LABEL
+
+    @staticmethod
     def is_call(opnum):
         return rop._CALL_FIRST <= opnum <= rop._CALL_LAST
 
@@ -1173,13 +1481,6 @@ class OpHelpers(object):
                 opnum == rop.CALL_N)
 
     @staticmethod
-    def is_call_assembler(opnum):
-        return (opnum == rop.CALL_ASSEMBLER_I or
-                opnum == rop.CALL_ASSEMBLER_R or
-                opnum == rop.CALL_ASSEMBLER_F or
-                opnum == rop.CALL_ASSEMBLER_N)
-
-    @staticmethod
     def is_call_loopinvariant(opnum):
         return (opnum == rop.CALL_LOOPINVARIANT_I or
                 opnum == rop.CALL_LOOPINVARIANT_R or
@@ -1187,25 +1488,314 @@ class OpHelpers(object):
                 opnum == rop.CALL_LOOPINVARIANT_N)
 
     @staticmethod
-    def is_call_may_force(opnum):
-        return (opnum == rop.CALL_MAY_FORCE_I or
-                opnum == rop.CALL_MAY_FORCE_R or
-                opnum == rop.CALL_MAY_FORCE_F or
-                opnum == rop.CALL_MAY_FORCE_N)
+    def get_gc_load(tp):
+        if tp == 'i':
+            return rop.GC_LOAD_I
+        elif tp == 'f':
+            return rop.GC_LOAD_F
+        else:
+            assert tp == 'r'
+        return rop.GC_LOAD_R
 
     @staticmethod
-    def is_call_release_gil(opnum):
-        return (opnum == rop.CALL_RELEASE_GIL_I or
-                opnum == rop.CALL_RELEASE_GIL_R or
-                opnum == rop.CALL_RELEASE_GIL_F or
-                opnum == rop.CALL_RELEASE_GIL_N)
+    def get_gc_load_indexed(tp):
+        if tp == 'i':
+            return rop.GC_LOAD_INDEXED_I
+        elif tp == 'f':
+            return rop.GC_LOAD_INDEXED_F
+        else:
+            assert tp == 'r'
+            return rop.GC_LOAD_INDEXED_R
 
     @staticmethod
     def inputarg_from_tp(tp):
         if tp == 'i':
             return InputArgInt()
-        elif tp == 'r':
+        elif tp == 'r' or tp == 'p':
             return InputArgRef()
+        elif tp == 'v':
+            return InputArgVector()
         else:
             assert tp == 'f'
             return InputArgFloat()
+
+    @staticmethod
+    def create_vec_expand(arg, bytesize, signed, count):
+        if arg.type == 'i':
+            opnum = rop.VEC_EXPAND_I
+        else:
+            assert arg.type == 'f'
+            opnum = rop.VEC_EXPAND_F
+        return VecOperationNew(opnum, [arg], arg.type, bytesize, signed, count)
+
+    @staticmethod
+    def create_vec(datatype, bytesize, signed, count):
+        if datatype == 'i':
+            opnum = rop.VEC_I
+        else:
+            assert datatype == 'f'
+            opnum = rop.VEC_F
+        return VecOperationNew(opnum, [], datatype, bytesize, signed, count)
+
+    @staticmethod
+    def create_vec_pack(datatype, args, bytesize, signed, count):
+        if datatype == 'i':
+            opnum = rop.VEC_PACK_I
+        else:
+            assert datatype == 'f'
+            opnum = rop.VEC_PACK_F
+        return VecOperationNew(opnum, args, datatype, bytesize, signed, count)
+
+    @staticmethod
+    def create_vec_unpack(datatype, args, bytesize, signed, count):
+        if datatype == 'i':
+            opnum = rop.VEC_UNPACK_I
+        else:
+            assert datatype == 'f'
+            opnum = rop.VEC_UNPACK_F
+        return VecOperationNew(opnum, args, datatype, bytesize, signed, count)
+
+
+
+opclasses = []   # mapping numbers to the concrete ResOp class
+opname = {}      # mapping numbers to the original names, for debugging
+oparity = []     # mapping numbers to the arity of the operation or -1
+opwithdescr = [] # mapping numbers to a flag "takes a descr"
+optypes = []     # mapping numbers to type of return
+
+def setup(debug_print=False):
+    i = 0
+    for name in _oplist:
+        if '/' in name:
+            name, arity, result = name.split('/')
+            withdescr = 'd' in arity
+            boolresult = 'b' in arity
+            arity = arity.rstrip('db')
+            if arity == '*':
+                arity = -1
+            else:
+                arity = int(arity)
+        else:
+            arity, withdescr, boolresult, result = -1, True, False, None       # default
+        if not name.startswith('_'):
+            for r in result:
+                if len(result) == 1:
+                    cls_name = name
+                else:
+                    cls_name = name + '_' + r.upper()
+                setattr(rop, cls_name, i)
+                opname[i] = cls_name
+                cls = create_class_for_op(cls_name, i, arity, withdescr, r)
+                cls._cls_has_bool_result = boolresult
+                opclasses.append(cls)
+                oparity.append(arity)
+                opwithdescr.append(withdescr)
+                optypes.append(r)
+                if debug_print:
+                    print '%30s = %d' % (cls_name, i)
+                i += 1
+        else:
+            setattr(rop, name, i)
+            opclasses.append(None)
+            oparity.append(-1)
+            opwithdescr.append(False)
+            optypes.append(' ')
+            if debug_print:
+                print '%30s = %d' % (name, i)
+            i += 1
+    # for optimizeopt/pure.py's getrecentops()
+    assert (rop.INT_ADD_OVF - rop._OVF_FIRST ==
+            rop.INT_ADD - rop._ALWAYS_PURE_FIRST)
+    assert (rop.INT_SUB_OVF - rop._OVF_FIRST ==
+            rop.INT_SUB - rop._ALWAYS_PURE_FIRST)
+    assert (rop.INT_MUL_OVF - rop._OVF_FIRST ==
+            rop.INT_MUL - rop._ALWAYS_PURE_FIRST)
+
+def get_base_class(mixins, base):
+    try:
+        return get_base_class.cache[(base,) + mixins]
+    except KeyError:
+        arity_name = mixins[0].__name__[:-2]  # remove the trailing "Op"
+        name = arity_name + base.__name__ # something like BinaryPlainResOp
+        bases = mixins + (base,)
+        cls = type(name, bases, {})
+        get_base_class.cache[(base,) + mixins] = cls
+        return cls
+get_base_class.cache = {}
+
+def create_class_for_op(name, opnum, arity, withdescr, result_type):
+    arity2mixin = {
+        0: NullaryOp,
+        1: UnaryOp,
+        2: BinaryOp,
+        3: TernaryOp
+    }
+
+    is_guard = name.startswith('GUARD')
+    if name.startswith('VEC'):
+        if name.startswith('VEC_GUARD'):
+            baseclass = VectorGuardOp
+        else:
+            baseclass = VectorOp
+    elif is_guard:
+        assert withdescr
+        baseclass = GuardResOp
+    elif withdescr:
+        baseclass = ResOpWithDescr
+    else:
+        baseclass = PlainResOp
+
+    mixins = [arity2mixin.get(arity, N_aryOp)]
+    if name in _cast_ops:
+        if "INT_SIGNEXT" in name:
+            mixins.append(SignExtOp)
+        mixins.append(CastOp)
+
+    cls_name = '%s_OP' % name
+    bases = (get_base_class(tuple(mixins), baseclass),)
+    dic = {'opnum': opnum}
+    res = type(cls_name, bases, dic)
+    if result_type == 'n':
+        result_type = 'v' # why?
+    res.type = result_type
+    return res
+
+setup(__name__ == '__main__')   # print out the table when run directly
+del _oplist
+
+_opboolinverse = {
+    rop.INT_EQ: rop.INT_NE,
+    rop.INT_NE: rop.INT_EQ,
+    rop.INT_LT: rop.INT_GE,
+    rop.INT_GE: rop.INT_LT,
+    rop.INT_GT: rop.INT_LE,
+    rop.INT_LE: rop.INT_GT,
+
+    rop.UINT_LT: rop.UINT_GE,
+    rop.UINT_GE: rop.UINT_LT,
+    rop.UINT_GT: rop.UINT_LE,
+    rop.UINT_LE: rop.UINT_GT,
+
+    rop.FLOAT_EQ: rop.FLOAT_NE,
+    rop.FLOAT_NE: rop.FLOAT_EQ,
+    rop.FLOAT_LT: rop.FLOAT_GE,
+    rop.FLOAT_GE: rop.FLOAT_LT,
+    rop.FLOAT_GT: rop.FLOAT_LE,
+    rop.FLOAT_LE: rop.FLOAT_GT,
+
+    rop.PTR_EQ: rop.PTR_NE,
+    rop.PTR_NE: rop.PTR_EQ,
+}
+
+_opboolreflex = {
+    rop.INT_EQ: rop.INT_EQ,
+    rop.INT_NE: rop.INT_NE,
+    rop.INT_LT: rop.INT_GT,
+    rop.INT_GE: rop.INT_LE,
+    rop.INT_GT: rop.INT_LT,
+    rop.INT_LE: rop.INT_GE,
+
+    rop.UINT_LT: rop.UINT_GT,
+    rop.UINT_GE: rop.UINT_LE,
+    rop.UINT_GT: rop.UINT_LT,
+    rop.UINT_LE: rop.UINT_GE,
+
+    rop.FLOAT_EQ: rop.FLOAT_EQ,
+    rop.FLOAT_NE: rop.FLOAT_NE,
+    rop.FLOAT_LT: rop.FLOAT_GT,
+    rop.FLOAT_GE: rop.FLOAT_LE,
+    rop.FLOAT_GT: rop.FLOAT_LT,
+    rop.FLOAT_LE: rop.FLOAT_GE,
+
+    rop.PTR_EQ: rop.PTR_EQ,
+    rop.PTR_NE: rop.PTR_NE,
+}
+_opvector = {
+    rop.RAW_LOAD_I:         rop.VEC_RAW_LOAD_I,
+    rop.RAW_LOAD_F:         rop.VEC_RAW_LOAD_F,
+    rop.GETARRAYITEM_RAW_I: rop.VEC_GETARRAYITEM_RAW_I,
+    rop.GETARRAYITEM_RAW_F: rop.VEC_GETARRAYITEM_RAW_F,
+    rop.GETARRAYITEM_GC_I: rop.VEC_GETARRAYITEM_GC_I,
+    rop.GETARRAYITEM_GC_F: rop.VEC_GETARRAYITEM_GC_F,
+    # note that there is no _PURE operation for vector operations.
+    # reason: currently we do not care if it is pure or not!
+    rop.GETARRAYITEM_GC_PURE_I: rop.VEC_GETARRAYITEM_GC_I,
+    rop.GETARRAYITEM_GC_PURE_F: rop.VEC_GETARRAYITEM_GC_F,
+    rop.RAW_STORE:        rop.VEC_RAW_STORE,
+    rop.SETARRAYITEM_RAW: rop.VEC_SETARRAYITEM_RAW,
+    rop.SETARRAYITEM_GC: rop.VEC_SETARRAYITEM_GC,
+
+    rop.INT_ADD:   rop.VEC_INT_ADD,
+    rop.INT_SUB:   rop.VEC_INT_SUB,
+    rop.INT_MUL:   rop.VEC_INT_MUL,
+    rop.INT_AND:   rop.VEC_INT_AND,
+    rop.INT_OR:   rop.VEC_INT_OR,
+    rop.INT_XOR:   rop.VEC_INT_XOR,
+    rop.FLOAT_ADD: rop.VEC_FLOAT_ADD,
+    rop.FLOAT_SUB: rop.VEC_FLOAT_SUB,
+    rop.FLOAT_MUL: rop.VEC_FLOAT_MUL,
+    rop.FLOAT_TRUEDIV: rop.VEC_FLOAT_TRUEDIV,
+    rop.FLOAT_ABS: rop.VEC_FLOAT_ABS,
+    rop.FLOAT_NEG: rop.VEC_FLOAT_NEG,
+    rop.FLOAT_EQ:  rop.VEC_FLOAT_EQ,
+    rop.FLOAT_NE:  rop.VEC_FLOAT_NE,
+    rop.INT_IS_TRUE: rop.VEC_INT_IS_TRUE,
+    rop.INT_EQ:  rop.VEC_INT_EQ,
+    rop.INT_NE:  rop.VEC_INT_NE,
+
+    # casts
+    rop.INT_SIGNEXT: rop.VEC_INT_SIGNEXT,
+    rop.CAST_FLOAT_TO_SINGLEFLOAT: rop.VEC_CAST_FLOAT_TO_SINGLEFLOAT,
+    rop.CAST_SINGLEFLOAT_TO_FLOAT: rop.VEC_CAST_SINGLEFLOAT_TO_FLOAT,
+    rop.CAST_INT_TO_FLOAT: rop.VEC_CAST_INT_TO_FLOAT,
+    rop.CAST_FLOAT_TO_INT: rop.VEC_CAST_FLOAT_TO_INT,
+
+    # guard
+    rop.GUARD_TRUE: rop.VEC_GUARD_TRUE,
+    rop.GUARD_FALSE: rop.VEC_GUARD_FALSE,
+}
+
+def setup2():
+    for cls in opclasses:
+        if cls is None:
+            continue
+        opnum = cls.opnum
+        name = opname[opnum]
+        if opnum in _opboolreflex:
+            cls.boolreflex = _opboolreflex[opnum]
+        if opnum in _opboolinverse:
+            cls.boolinverse = _opboolinverse[opnum]
+        if opnum in _opvector:
+            cls.vector = _opvector[opnum]
+        if name in _cast_ops:
+            cls.cls_casts = _cast_ops[name]
+        if name.startswith('VEC'):
+            cls.vector = -2
+setup2()
+del _opboolinverse
+del _opboolreflex
+del _opvector
+del _cast_ops
+
+def get_deep_immutable_oplist(operations):
+    """
+    When not we_are_translated(), turns ``operations`` into a frozenlist and
+    monkey-patch its items to make sure they are not mutated.
+
+    When we_are_translated(), do nothing and just return the old list.
+    """
+    from rpython.tool.frozenlist import frozenlist
+    if we_are_translated():
+        return operations
+    #
+    def setarg(*args):
+        assert False, "operations cannot change at this point"
+    def setdescr(*args):
+        assert False, "operations cannot change at this point"
+    newops = frozenlist(operations)
+    for op in newops:
+        op.setarg = setarg
+        op.setdescr = setdescr
+    return newops
+
+OpHelpers = rop

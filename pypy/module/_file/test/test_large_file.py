@@ -1,4 +1,4 @@
-import py
+import py, sys
 
 from pypy.module._file.test.test_file import getfile
 
@@ -13,6 +13,12 @@ class AppTestLargeFile(object):
     def setup_method(self, meth):
         if getattr(meth, 'need_sparse_files', False):
             from rpython.translator.c.test.test_extfunc import need_sparse_files
+            if sys.maxsize < 2**32 and not self.runappdirect:
+                # this fails because it uses ll2ctypes to call the posix
+                # functions like 'open' and 'lseek', whereas a real compiled
+                # C program would macro-define them to their longlong versions
+                py.test.skip("emulation of files can't use "
+                             "larger-than-long offsets")
             need_sparse_files()
 
     def test_large_seek_offsets(self):

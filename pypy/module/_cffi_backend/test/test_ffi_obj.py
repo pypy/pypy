@@ -12,6 +12,7 @@ class AppTestFFIObj:
         p = ffi.new("int *")
         p[0] = -42
         assert p[0] == -42
+        assert type(ffi) is ffi.__class__ is _cffi1_backend.FFI
 
     def test_ffi_subclass(self):
         import _cffi_backend as _cffi1_backend
@@ -22,6 +23,7 @@ class AppTestFFIObj:
         assert foo.x == 42
         p = foo.new("int *")
         assert p[0] == 0
+        assert type(foo) is foo.__class__ is FOO
 
     def test_ffi_no_argument(self):
         import _cffi_backend as _cffi1_backend
@@ -329,6 +331,25 @@ class AppTestFFIObj:
             gc.collect()
         assert seen == [1]
 
+    def test_ffi_gc_disable(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        p = ffi.new("int *", 123)
+        raises(TypeError, ffi.gc, p, None)
+        seen = []
+        q1 = ffi.gc(p, lambda p: seen.append(1))
+        q2 = ffi.gc(q1, lambda p: seen.append(2))
+        import gc; gc.collect()
+        assert seen == []
+        assert ffi.gc(q1, None) is None
+        del q1, q2
+        for i in range(5):
+            if seen:
+                break
+            import gc
+            gc.collect()
+        assert seen == [2]
+
     def test_ffi_new_allocator_1(self):
         import _cffi_backend as _cffi1_backend
         ffi = _cffi1_backend.FFI()
@@ -424,3 +445,73 @@ class AppTestFFIObj:
             return ffi.NULL
         alloc5 = ffi.new_allocator(myalloc5)
         raises(MemoryError, alloc5, "int[5]")
+
+    def test_bool_issue228(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        fntype = ffi.typeof("int(*callback)(bool is_valid)")
+        assert repr(fntype.args[0]) == "<ctype '_Bool'>"
+
+    def test_FILE_issue228(self):
+        import _cffi_backend as _cffi1_backend
+        fntype1 = _cffi1_backend.FFI().typeof("FILE *")
+        fntype2 = _cffi1_backend.FFI().typeof("FILE *")
+        assert repr(fntype1) == "<ctype 'FILE *'>"
+        assert fntype1 is fntype2
+
+    def test_cast_from_int_type_to_bool(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        for basetype in ['char', 'short', 'int', 'long', 'long long']:
+            for sign in ['signed', 'unsigned']:
+                type = '%s %s' % (sign, basetype)
+                assert int(ffi.cast("_Bool", ffi.cast(type, 42))) == 1
+                assert int(ffi.cast("bool", ffi.cast(type, 42))) == 1
+                assert int(ffi.cast("_Bool", ffi.cast(type, 0))) == 0
+
+    def test_init_once(self):
+        import _cffi_backend as _cffi1_backend
+        def do_init():
+            seen.append(1)
+            return 42
+        ffi = _cffi1_backend.FFI()
+        seen = []
+        for i in range(3):
+            res = ffi.init_once(do_init, "tag1")
+            assert res == 42
+            assert seen == [1]
+        for i in range(3):
+            res = ffi.init_once(do_init, "tag2")
+            assert res == 42
+            assert seen == [1, 1]
+
+    def test_init_once_failure(self):
+        import _cffi_backend as _cffi1_backend
+        def do_init():
+            seen.append(1)
+            raise ValueError
+        ffi = _cffi1_backend.FFI()
+        seen = []
+        for i in range(5):
+            raises(ValueError, ffi.init_once, do_init, "tag")
+            assert seen == [1] * (i + 1)
+
+    def test_unpack(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        p = ffi.new("char[]", b"abc\x00def")
+        assert ffi.unpack(p+1, 7) == b"bc\x00def\x00"
+        p = ffi.new("int[]", [-123456789])
+        assert ffi.unpack(p, 1) == [-123456789]
+
+    def test_bug_1(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        q = ffi.new("char[]", b"abcd")
+        p = ffi.cast("char(*)(void)", q)
+        raises(TypeError, ffi.string, p)
+
+    def test_negative_array_size(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        raises(ffi.error, ffi.cast, "int[-5]", 0)

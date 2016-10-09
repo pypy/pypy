@@ -6,16 +6,18 @@
 extern "C" {
 #endif
 
-/* fake PyComplexObject so that code that doesn't do direct field access works */
-#define PyComplexObject PyObject
-
 typedef struct Py_complex_t {
     double real;
     double imag;
 } Py_complex;
 
+typedef struct {
+    PyObject_HEAD
+    Py_complex cval;
+} PyComplexObject;
+
 /* generated function */
-PyAPI_FUNC(void) _PyComplex_AsCComplex(PyObject *, Py_complex *);
+PyAPI_FUNC(int) _PyComplex_AsCComplex(PyObject *, Py_complex *);
 PyAPI_FUNC(PyObject *) _PyComplex_FromCComplex(Py_complex *);
 
 Py_LOCAL_INLINE(Py_complex) PyComplex_AsCComplex(PyObject *obj)

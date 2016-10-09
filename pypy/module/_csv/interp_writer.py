@@ -1,4 +1,5 @@
 from rpython.rlib.rstring import StringBuilder
+from rpython.rlib import objectmodel
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef, interp2app
@@ -21,12 +22,12 @@ class W_Writer(W_Root):
             special += dialect.quotechar
         self.special_characters = special
 
+    @objectmodel.dont_inline
     def error(self, msg):
         space = self.space
         w_module = space.getbuiltinmodule('_csv')
         w_error = space.getattr(w_module, space.wrap('Error'))
         raise OperationError(w_error, space.wrap(msg))
-    error._dont_inline_ = True
 
     def writerow(self, w_fields):
         """Construct and write a CSV record from a sequence of fields.
@@ -49,7 +50,7 @@ class W_Writer(W_Root):
                 try:
                     space.float_w(w_field)    # is it an int/long/float?
                     quoted = False
-                except OperationError, e:
+                except OperationError as e:
                     if e.async(space):
                         raise
                     quoted = True
@@ -124,7 +125,7 @@ class W_Writer(W_Root):
         while True:
             try:
                 w_seq = space.next(w_iter)
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(space, space.w_StopIteration):
                     break
                 raise

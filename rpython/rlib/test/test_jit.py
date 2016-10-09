@@ -4,7 +4,8 @@ from rpython.conftest import option
 from rpython.annotator.model import UnionError
 from rpython.rlib.jit import (hint, we_are_jitted, JitDriver, elidable_promote,
     JitHintError, oopspec, isconstant, conditional_call,
-    elidable, unroll_safe, dont_look_inside)
+    elidable, unroll_safe, dont_look_inside,
+    enter_portal_frame, leave_portal_frame)
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.lltypesystem import lltype
@@ -300,3 +301,11 @@ class TestJIT(BaseRtypingTest):
         mix = MixLevelHelperAnnotator(t.rtyper)
         mix.getgraph(later, [annmodel.s_Bool], annmodel.s_None)
         mix.finish()
+
+    def test_enter_leave_portal_frame(self):
+        from rpython.translator.interactive import Translation
+        def g():
+            enter_portal_frame(1)
+            leave_portal_frame()
+        t = Translation(g, [])
+        t.compile_c() # does not crash

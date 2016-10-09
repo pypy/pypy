@@ -263,10 +263,11 @@ class Struct(CConfigEntry):
     """An entry in a CConfig class that stands for an externally
     defined structure.
     """
-    def __init__(self, name, interesting_fields, ifdef=None):
+    def __init__(self, name, interesting_fields, ifdef=None, adtmeths={}):
         self.name = name
         self.interesting_fields = interesting_fields
         self.ifdef = ifdef
+        self.adtmeths = adtmeths
 
     def prepare_code(self):
         if self.ifdef is not None:
@@ -313,7 +314,9 @@ class Struct(CConfigEntry):
                 offset = info['fldofs '  + fieldname]
                 size   = info['fldsize ' + fieldname]
                 sign   = info.get('fldunsigned ' + fieldname, False)
-                if (size, sign) != rffi.size_and_sign(fieldtype):
+                if is_array_nolength(fieldtype):
+                    pass       # ignore size and sign
+                elif (size, sign) != rffi.size_and_sign(fieldtype):
                     fieldtype = fixup_ctype(fieldtype, fieldname, (size, sign))
                 layout_addfield(layout, offset, fieldtype, fieldname)
 
@@ -353,7 +356,7 @@ class Struct(CConfigEntry):
             name = name[7:]
         else:
             hints['typedef'] = True
-        kwds = {'hints': hints}
+        kwds = {'hints': hints, 'adtmeths': self.adtmeths}
         return rffi.CStruct(name, *fields, **kwds)
 
 class SimpleType(CConfigEntry):
@@ -682,8 +685,14 @@ class Field(object):
     def __repr__(self):
         return '<field %s: %s>' % (self.name, self.ctype)
 
+def is_array_nolength(TYPE):
+    return isinstance(TYPE, lltype.Array) and TYPE._hints.get('nolength', False)
+
 def layout_addfield(layout, offset, ctype, prefix):
-    size = _sizeof(ctype)
+    if is_array_nolength(ctype):
+        size = len(layout) - offset    # all the rest of the struct
+    else:
+        size = _sizeof(ctype)
     name = prefix
     i = 0
     while name in layout:
@@ -827,7 +836,7 @@ def configure_external_library(name, eci, configurations,
             # verify that this eci can be compiled
             try:
                 verify_eci(eci_lib)
-            except CompilationError, e:
+            except CompilationError as e:
                 last_error = e
             else:
                 _cache[key] = eci_lib

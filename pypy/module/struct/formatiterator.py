@@ -68,7 +68,7 @@ class PackFormatIterator(FormatIterator):
             if space.lookup(w_obj, '__index__'):
                 try:
                     w_index = space.index(w_obj)
-                except OperationError, e:
+                except OperationError as e:
                     if not e.match(space, space.w_TypeError):
                         raise
                     pass
@@ -149,3 +149,13 @@ class UnpackFormatIterator(FormatIterator):
     @specialize.argtype(1)
     def appendobj(self, value):
         self.result_w.append(self.space.wrap(value))
+
+    def get_pos(self):
+        return self.pos
+
+    def get_buffer_as_string_maybe(self):
+        string, pos = self.buf.as_str_and_offset_maybe()
+        return string, pos+self.pos
+
+    def skip(self, size):
+        self.read(size) # XXX, could avoid taking the slice

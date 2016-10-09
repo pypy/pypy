@@ -46,7 +46,10 @@ def free_raw_storage(storage, track_allocation=True):
 
 from rpython.jit.backend import detect_cpu
 try:
-    misaligned_is_fine = detect_cpu.autodetect().startswith('x86')
+    cpuname = detect_cpu.autodetect()
+    misaligned_is_fine = cpuname.startswith('x86') or \
+                         cpuname.startswith('s390x')
+    del cpuname
 except detect_cpu.ProcessorAutodetectError:
     misaligned_is_fine = False
 

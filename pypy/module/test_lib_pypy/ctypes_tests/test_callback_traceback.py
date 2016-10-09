@@ -5,7 +5,7 @@ import sys
 
 def callback_func(arg):
     42 / arg
-    raise ValueError, arg
+    raise ValueError(arg)
 
 class TestCallbackTraceback:
     # When an exception is raised in a ctypes callback function, the C

@@ -2,7 +2,6 @@ import sys
 import types
 
 from rpython.flowspace.model import Constant
-from rpython.flowspace.operation import op
 from rpython.annotator import description, model as annmodel
 from rpython.rlib.objectmodel import UnboxedValue
 from rpython.tool.pairtype import pairtype, pair
@@ -14,8 +13,9 @@ from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lltype import (
     Ptr, Struct, GcStruct, malloc, cast_pointer, castable, nullptr,
     RuntimeTypeInfo, getRuntimeTypeInfo, typeOf, Void, FuncType, Bool, Signed,
-    functionptr)
+    functionptr, attachRuntimeTypeInfo)
 from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rtyper.llannotation import SomePtr
 from rpython.rtyper.lltypesystem import rstr
 from rpython.rtyper.rmodel import (
     Repr, getgcflavor, inputconst, warning, mangle)
@@ -97,8 +97,7 @@ def buildinstancerepr(rtyper, classdef, gcflavor='gc'):
         unboxed = [subdef for subdef in classdef.getallsubdefs() if
             subdef.classdesc.pyobj is not None and
             issubclass(subdef.classdesc.pyobj, UnboxedValue)]
-        virtualizable = classdef.classdesc.read_attribute(
-            '_virtualizable_', Constant(False)).value
+        virtualizable = classdef.classdesc.get_param('_virtualizable_', False)
     config = rtyper.annotator.translator.config
     usetagging = len(unboxed) != 0 and config.translation.taggedpointers
 
@@ -311,10 +310,15 @@ class ClassRepr(Repr):
         # setup class attributes: for each attribute name at the level
         # of 'r_parentcls', look up its value in the class
         def assign(mangled_name, value):
-            if (isinstance(value, Constant) and
-                    isinstance(value.value, staticmethod)):
-                value = Constant(value.value.__get__(42))   # staticmethod => bare function
-            llvalue = r.convert_desc_or_const(value)
+            if value is None:
+                llvalue = r.special_uninitialized_value()
+                if llvalue is None:
+                    return
+            else:
+                if (isinstance(value, Constant) and
+                        isinstance(value.value, staticmethod)):
+                    value = Constant(value.value.__get__(42))   # staticmethod => bare function
+                llvalue = r.convert_desc_or_const(value)
             setattr(vtable, mangled_name, llvalue)
 
         for fldname in r_parentcls.clsfields:
@@ -322,8 +326,7 @@ class ClassRepr(Repr):
             if r.lowleveltype is Void:
                 continue
             value = self.classdef.classdesc.read_attribute(fldname, None)
-            if value is not None:
-                assign(mangled_name, value)
+            assign(mangled_name, value)
         # extra PBC attributes
         for (access_set, attr), (mangled_name, r) in r_parentcls.pbcfields.items():
             if self.classdef.classdesc not in access_set.descs:
@@ -331,8 +334,7 @@ class ClassRepr(Repr):
             if r.lowleveltype is Void:
                 continue
             attrvalue = self.classdef.classdesc.read_attribute(attr, None)
-            if attrvalue is not None:
-                assign(mangled_name, attrvalue)
+            assign(mangled_name, attrvalue)
 
     def fill_vtable_root(self, vtable):
         """Initialize the head of the vtable."""
@@ -447,6 +449,13 @@ class __extend__(annmodel.SomeInstance):
     def rtyper_makekey(self):
         return self.__class__, self.classdef
 
+class __extend__(annmodel.SomeException):
+    def rtyper_makerepr(self, rtyper):
+        return self.as_SomeInstance().rtyper_makerepr(rtyper)
+
+    def rtyper_makekey(self):
+        return self.__class__, frozenset(self.classdefs)
+
 class __extend__(annmodel.SomeType):
     def rtyper_makerepr(self, rtyper):
         return get_type_repr(rtyper)
@@ -529,26 +538,24 @@ class InstanceRepr(Repr):
         self.allinstancefields = allinstancefields
 
     def _check_for_immutable_hints(self, hints):
-        loc = self.classdef.classdesc.lookup('_immutable_')
-        if loc is not None:
-            if loc is not self.classdef.classdesc:
+        hints = hints.copy()
+        classdesc = self.classdef.classdesc
+        immut = classdesc.get_param('_immutable_', inherit=False)
+        if immut is None:
+            if classdesc.get_param('_immutable_', inherit=True):
                 raise ImmutableConflictError(
                     "class %r inherits from its parent _immutable_=True, "
                     "so it should also declare _immutable_=True" % (
                         self.classdef,))
-            if loc.classdict.get('_immutable_').value is not True:
-                raise TyperError(
-                    "class %r: _immutable_ = something else than True" % (
-                        self.classdef,))
-            hints = hints.copy()
+        elif immut is not True:
+            raise TyperError(
+                "class %r: _immutable_ = something else than True" % (
+                    self.classdef,))
+        else:
             hints['immutable'] = True
-        self.immutable_field_set = set()  # unless overwritten below
-        if self.classdef.classdesc.lookup('_immutable_fields_') is not None:
-            hints = hints.copy()
-            immutable_fields = self.classdef.classdesc.classdict.get(
-                '_immutable_fields_')
-            if immutable_fields is not None:
-                self.immutable_field_set = set(immutable_fields.value)
+        self.immutable_field_set = classdesc.immutable_fields
+        if (classdesc.immutable_fields or
+                'immutable_fields' in self.rbase.object_type._hints):
             accessor = FieldListAccessor()
             hints['immutable_fields'] = accessor
         return hints
@@ -580,17 +587,25 @@ class InstanceRepr(Repr):
                 assert len(s_func.descriptions) == 1
                 funcdesc, = s_func.descriptions
                 graph = funcdesc.getuniquegraph()
-                self.check_graph_of_del_does_not_call_too_much(graph)
+                self.check_graph_of_del_does_not_call_too_much(self.rtyper,
+                                                               graph)
                 FUNCTYPE = FuncType([Ptr(source_repr.object_type)], Void)
                 destrptr = functionptr(FUNCTYPE, graph.name,
                                        graph=graph,
                                        _callable=graph.func)
             else:
                 destrptr = None
-            OBJECT = OBJECT_BY_FLAVOR[LLFLAVOR[self.gcflavor]]
-            self.rtyper.attachRuntimeTypeInfoFunc(self.object_type,
-                                                  ll_runtime_type_info,
-                                                  OBJECT, destrptr)
+            self.rtyper.call_all_setups()  # compute ForwardReferences now
+            args_s = [SomePtr(Ptr(OBJECT))]
+            graph = self.rtyper.annotate_helper(ll_runtime_type_info, args_s)
+            s = self.rtyper.annotation(graph.getreturnvar())
+            if (not isinstance(s, SomePtr) or
+                s.ll_ptrtype != Ptr(RuntimeTypeInfo)):
+                raise TyperError("runtime type info function returns %r, "
+                                "expected Ptr(RuntimeTypeInfo)" % (s))
+            funcptr = self.rtyper.getcallable(graph)
+            attachRuntimeTypeInfo(self.object_type, funcptr, destrptr)
+
             vtable = self.rclass.getvtable()
             self.rtyper.set_type_for_typeptr(vtable, self.lowleveltype.TO)
 
@@ -845,7 +860,8 @@ class InstanceRepr(Repr):
     def can_ll_be_null(self, s_value):
         return s_value.can_be_none()
 
-    def check_graph_of_del_does_not_call_too_much(self, graph):
+    @staticmethod
+    def check_graph_of_del_does_not_call_too_much(rtyper, graph):
         # RPython-level __del__() methods should not do "too much".
         # In the PyPy Python interpreter, they usually do simple things
         # like file.__del__() closing the file descriptor; or if they
@@ -858,7 +874,7 @@ class InstanceRepr(Repr):
         #
         # XXX wrong complexity, but good enough because the set of
         # reachable graphs should be small
-        callgraph = self.rtyper.annotator.translator.callgraph.values()
+        callgraph = rtyper.annotator.translator.callgraph.values()
         seen = {graph: None}
         while True:
             oldlength = len(seen)

@@ -83,34 +83,39 @@ Getting Started
 
 **pypy-stm requires 64-bit Linux for now.**
 
-Development is done in the branch `stmgc-c7`_.  If you are only
-interested in trying it out, you can download a Ubuntu binary here__
-(``pypy-stm-2.*.tar.bz2``, for Ubuntu 12.04-14.04).  The current version
-supports four "segments", which means that it will run up to four
-threads in parallel.  (Development recently switched to `stmgc-c8`_,
-but that is not ready for trying out yet.)
+Development is done in the branch `stmgc-c8`_.  If you are only
+interested in trying it out, please pester us until we upload a recent
+prebuilt binary.  The current version supports four "segments", which
+means that it will run up to four threads in parallel.
 
 To build a version from sources, you first need to compile a custom
-version of clang(!); we recommend downloading `llvm and clang like
-described here`__, but at revision 201645 (use ``svn co -r 201645 <path>``
-for all checkouts).  Then apply all the patches in `this directory`__:
-they are fixes for a clang-only feature that hasn't been used so heavily
-in the past (without the patches, you get crashes of clang).  Then get
-the branch `stmgc-c7`_ of PyPy and run::
+version of gcc(!).  See the instructions here:
+https://bitbucket.org/pypy/stmgc/src/default/gcc-seg-gs/
+(Note that these patches are being incorporated into gcc.  It is likely
+that future versions of gcc will not need to be patched any more.)
 
-   rpython/bin/rpython -Ojit --stm pypy/goal/targetpypystandalone.py
+Then get the branch `stmgc-c8`_ of PyPy and run::
 
-.. _`stmgc-c7`: https://bitbucket.org/pypy/pypy/src/stmgc-c7/
+   cd pypy/goal
+   ../../rpython/bin/rpython -Ojit --stm
+
+At the end, this will try to compile the generated C code by calling
+``gcc-seg-gs``, which must be the script you installed in the
+instructions above.
+
 .. _`stmgc-c8`: https://bitbucket.org/pypy/pypy/src/stmgc-c8/
-.. __: https://bitbucket.org/pypy/pypy/downloads/
-.. __: http://clang.llvm.org/get_started.html
-.. __: https://bitbucket.org/pypy/stmgc/src/default/c7/llvmfix/
 
 
 .. _caveats:
 
 Current status (stmgc-c7)
 -------------------------
+
+.. warning::
+    
+    THIS PAGE IS OLD, THE REST IS ABOUT STMGC-C7 WHEREAS THE CURRENT
+    DEVELOPMENT WORK IS DONE ON STMGC-C8
+
 
 * **NEW:** It seems to work fine, without crashing any more.  Please `report
   any crash`_ you find (or other bugs).

@@ -6,6 +6,8 @@ class AbstractShrinkList(object):
     The twist is that occasionally append() will throw away the
     items for which must_keep() returns False.  (It does so without
     changing the order.)
+
+    See also rpython.rlib.rweaklist.
     """
     _mixin_ = True
 

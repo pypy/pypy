@@ -135,8 +135,10 @@ def get_L2cache_linux2():
     arch = os.uname()[4]  # machine
     if arch.endswith('86') or arch == 'x86_64':
         return get_L2cache_linux2_cpuinfo()
-    if arch in ('alpha', 'ppc', 'ppc64'):
+    if arch in ('alpha', 'ppc'):
         return get_L2cache_linux2_cpuinfo(label='L2 cache')
+    if arch in ('s390x'):
+        return get_L2cache_linux2_cpuinfo_s390x()
     if arch == 'ia64':
         return get_L2cache_linux2_ia64()
     if arch in ('parisc', 'parisc64'):
@@ -193,6 +195,57 @@ def get_L2cache_linux2_cpuinfo(filename="/proc/cpuinfo", label='cache size'):
             if data[end] not in ('K', 'k'):    # assume kilobytes for now
                 continue
             number = number * 1024
+            # for now we look for the smallest of the L2 caches of the CPUs
+            if number < L2cache:
+                L2cache = number
+
+    debug_print("L2cache =", L2cache)
+    debug_stop("gc-hardware")
+
+    if L2cache < sys.maxint:
+        return L2cache
+    else:
+        # Print a top-level warning even in non-debug builds
+        llop.debug_print(lltype.Void,
+            "Warning: cannot find your CPU L2 cache size in /proc/cpuinfo")
+        return -1
+
+def get_L2cache_linux2_cpuinfo_s390x(filename="/proc/cpuinfo", label='cache2'):
+    debug_start("gc-hardware")
+    L2cache = sys.maxint
+    try:
+        fd = os.open(filename, os.O_RDONLY, 0644)
+        try:
+            data = []
+            while True:
+                buf = os.read(fd, 4096)
+                if not buf:
+                    break
+                data.append(buf)
+        finally:
+            os.close(fd)
+    except OSError:
+        pass
+    else:
+        data = ''.join(data)
+        linepos = 0
+        while True:
+            start = _findend(data, '\n' + label, linepos)
+            if start < 0:
+                break    # done
+            start = _findend(data, 'size=', start)
+            if start < 0:
+                break
+            end = _findend(data, ' ', start) - 1
+            if end < 0:
+                break
+            linepos = end
+            size = data[start:end]
+            last_char = len(size)-1
+            assert 0 <= last_char < len(size)
+            if size[last_char] not in ('K', 'k'):    # assume kilobytes for now
+                continue
+            number = int(size[:last_char])* 1024
             # for now we look for the smallest of the L2 caches of the CPUs
             if number < L2cache:
                 L2cache = number

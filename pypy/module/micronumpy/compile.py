@@ -2,17 +2,22 @@
 It should not be imported by the module itself
 """
 import re
+import py
 from pypy.interpreter import special
 from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root, ObjSpace
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from rpython.rlib.objectmodel import specialize, instantiate
 from rpython.rlib.nonconst import NonConstant
+from rpython.rlib.rarithmetic import base_int
 from pypy.module.micronumpy import boxes, ufuncs
 from pypy.module.micronumpy.arrayops import where
 from pypy.module.micronumpy.ndarray import W_NDimArray
 from pypy.module.micronumpy.ctors import array
 from pypy.module.micronumpy.descriptor import get_dtype_cache
-
+from pypy.interpreter.miscutils import ThreadLocals, make_weak_value_dictionary
+from pypy.interpreter.executioncontext import (ExecutionContext, ActionFlag,
+    UserDelAction)
+from pypy.interpreter.pyframe import PyFrame
 
 class BogusBytecode(Exception):
     pass
@@ -32,12 +37,11 @@ class TokenizerError(Exception):
 class BadToken(Exception):
     pass
 
-
 SINGLE_ARG_FUNCTIONS = ["sum", "prod", "max", "min", "all", "any",
                         "unegative", "flat", "tostring", "count_nonzero",
                         "argsort", "cumsum", "logical_xor_reduce"]
-TWO_ARG_FUNCTIONS = ["dot", 'take', 'searchsorted']
-TWO_ARG_FUNCTIONS_OR_NONE = ['view', 'astype']
+TWO_ARG_FUNCTIONS = ["dot", 'take', 'searchsorted', 'multiply']
+TWO_ARG_FUNCTIONS_OR_NONE = ['view', 'astype', 'reshape']
 THREE_ARG_FUNCTIONS = ['where']
 
 class W_TypeObject(W_Root):
@@ -57,6 +61,11 @@ class FakeSpace(ObjSpace):
     w_OverflowError = W_TypeObject("OverflowError")
     w_NotImplementedError = W_TypeObject("NotImplementedError")
     w_AttributeError = W_TypeObject("AttributeError")
+    w_StopIteration = W_TypeObject("StopIteration")
+    w_KeyError = W_TypeObject("KeyError")
+    w_SystemExit = W_TypeObject("SystemExit")
+    w_KeyboardInterrupt = W_TypeObject("KeyboardInterrupt")
+    w_VisibleDeprecationWarning = W_TypeObject("VisibleDeprecationWarning")
     w_None = None
 
     w_bool = W_TypeObject("bool")
@@ -72,12 +81,25 @@ class FakeSpace(ObjSpace):
     w_dict = W_TypeObject("dict")
     w_object = W_TypeObject("object")
     w_buffer = W_TypeObject("buffer")
+    w_type = W_TypeObject("type")
 
-    def __init__(self):
+    def __init__(self, config=None):
         """NOT_RPYTHON"""
         self.fromcache = InternalSpaceCache(self).getorbuild
         self.w_Ellipsis = special.Ellipsis()
         self.w_NotImplemented = special.NotImplemented()
+
+        if config is None:
+            from pypy.config.pypyoption import get_pypy_config
+            config = get_pypy_config(translating=False)
+        self.config = config
+
+        self.interned_strings = make_weak_value_dictionary(self, str, W_Root)
+        self.builtin = DictObject({})
+        self.FrameClass = PyFrame
+        self.threadlocals = ThreadLocals()
+        self.actionflag = ActionFlag()    # changed by the signal module
+        self.check_signal_action = None   # changed by the signal module
 
     def _freeze_(self):
         return True
@@ -89,18 +111,43 @@ class FakeSpace(ObjSpace):
         return isinstance(w_obj, ListObject) or isinstance(w_obj, W_NDimArray)
 
     def len(self, w_obj):
-        assert isinstance(w_obj, ListObject)
-        return self.wrap(len(w_obj.items))
+        if isinstance(w_obj, ListObject):
+            return self.wrap(len(w_obj.items))
+        elif isinstance(w_obj, DictObject):
+            return self.wrap(len(w_obj.items))
+        raise NotImplementedError
 
     def getattr(self, w_obj, w_attr):
         assert isinstance(w_attr, StringObject)
-        return w_obj.getdictvalue(self, w_attr.v)
+        if isinstance(w_obj, DictObject):
+            return w_obj.getdictvalue(self, w_attr)
+        return None
+
+    def issubtype_w(self, w_sub, w_type):
+        is_root(w_type)
+        return NonConstant(True)
 
     def isinstance_w(self, w_obj, w_tp):
         try:
             return w_obj.tp == w_tp
         except AttributeError:
             return False
+
+    def iter(self, w_iter):
+        if isinstance(w_iter, ListObject):
+            raise NotImplementedError
+            #return IterObject(space, w_iter.items)
+        elif isinstance(w_iter, DictObject):
+            return IterDictObject(self, w_iter)
+
+    def next(self, w_iter):
+        return w_iter.next()
+
+    def contains(self, w_iter, w_key):
+        if isinstance(w_iter, DictObject):
+            return self.wrap(w_key in w_iter.items)
+
+        raise NotImplementedError
 
     def decode_index4(self, w_idx, size):
         if isinstance(w_idx, IntObject):
@@ -123,6 +170,10 @@ class FakeSpace(ObjSpace):
                 lgt = (stop - start - 1) / step + 1
             return (start, stop, step, lgt)
 
+    def unicode_from_object(self, w_item):
+        # XXX
+        return StringObject("")
+
     @specialize.argtype(1)
     def wrap(self, obj):
         if isinstance(obj, float):
@@ -131,7 +182,7 @@ class FakeSpace(ObjSpace):
             return BoolObject(obj)
         elif isinstance(obj, int):
             return IntObject(obj)
-        elif isinstance(obj, long):
+        elif isinstance(obj, base_int):
             return LongObject(obj)
         elif isinstance(obj, W_Root):
             return obj
@@ -145,7 +196,59 @@ class FakeSpace(ObjSpace):
     def newcomplex(self, r, i):
         return ComplexObject(r, i)
 
+    def newfloat(self, f):
+        return self.float(f)
+
+    def newslice(self, start, stop, step):
+        return SliceObject(self.int_w(start), self.int_w(stop),
+                           self.int_w(step))
+
+    def le(self, w_obj1, w_obj2):
+        assert isinstance(w_obj1, boxes.W_GenericBox)
+        assert isinstance(w_obj2, boxes.W_GenericBox)
+        return w_obj1.descr_le(self, w_obj2)
+
+    def lt(self, w_obj1, w_obj2):
+        assert isinstance(w_obj1, boxes.W_GenericBox)
+        assert isinstance(w_obj2, boxes.W_GenericBox)
+        return w_obj1.descr_lt(self, w_obj2)
+
+    def ge(self, w_obj1, w_obj2):
+        assert isinstance(w_obj1, boxes.W_GenericBox)
+        assert isinstance(w_obj2, boxes.W_GenericBox)
+        return w_obj1.descr_ge(self, w_obj2)
+
+    def add(self, w_obj1, w_obj2):
+        assert isinstance(w_obj1, boxes.W_GenericBox)
+        assert isinstance(w_obj2, boxes.W_GenericBox)
+        return w_obj1.descr_add(self, w_obj2)
+
+    def sub(self, w_obj1, w_obj2):
+        return self.wrap(1)
+
+    def mul(self, w_obj1, w_obj2):
+        assert isinstance(w_obj1, boxes.W_GenericBox)
+        assert isinstance(w_obj2, boxes.W_GenericBox)
+        return w_obj1.descr_mul(self, w_obj2)
+
+    def pow(self, w_obj1, w_obj2, _):
+        return self.wrap(1)
+
+    def neg(self, w_obj1):
+        return self.wrap(0)
+
+    def repr(self, w_obj1):
+        return self.wrap('fake')
+
     def getitem(self, obj, index):
+        if isinstance(obj, DictObject):
+            w_dict = obj.getdict(self)
+            if w_dict is not None:
+                try:
+                    return w_dict[index]
+                except KeyError as e:
+                    raise oefmt(self.w_KeyError, "key error")
+
         assert isinstance(obj, ListObject)
         assert isinstance(index, IntObject)
         return obj.items[index.intval]
@@ -175,7 +278,7 @@ class FakeSpace(ObjSpace):
         elif isinstance(w_obj, FloatObject):
             return int(w_obj.floatval)
         elif isinstance(w_obj, SliceObject):
-            raise OperationError(self.w_TypeError, self.wrap("slice."))
+            raise oefmt(self.w_TypeError, "slice.")
         raise NotImplementedError
 
     def unpackcomplex(self, w_obj):
@@ -191,11 +294,23 @@ class FakeSpace(ObjSpace):
             return w_obj.v
         raise NotImplementedError
 
+    def unicode_w(self, w_obj):
+        # XXX
+        if isinstance(w_obj, StringObject):
+            return unicode(w_obj.v)
+        raise NotImplementedError
+
     def int(self, w_obj):
         if isinstance(w_obj, IntObject):
             return w_obj
         assert isinstance(w_obj, boxes.W_GenericBox)
         return self.int(w_obj.descr_int(self))
+
+    def long(self, w_obj):
+        if isinstance(w_obj, LongObject):
+            return w_obj
+        assert isinstance(w_obj, boxes.W_GenericBox)
+        return self.int(w_obj.descr_long(self))
 
     def str(self, w_obj):
         if isinstance(w_obj, StringObject):
@@ -240,11 +355,36 @@ class FakeSpace(ObjSpace):
     def gettypefor(self, w_obj):
         return W_TypeObject(w_obj.typedef.name)
 
-    def call_function(self, tp, w_dtype):
+    def call_function(self, tp, w_dtype, *args):
+        if tp is self.w_float:
+            if isinstance(w_dtype, boxes.W_Float64Box):
+                return FloatObject(float(w_dtype.value))
+            if isinstance(w_dtype, boxes.W_Float32Box):
+                return FloatObject(float(w_dtype.value))
+            if isinstance(w_dtype, boxes.W_Int64Box):
+                return FloatObject(float(int(w_dtype.value)))
+            if isinstance(w_dtype, boxes.W_Int32Box):
+                return FloatObject(float(int(w_dtype.value)))
+            if isinstance(w_dtype, boxes.W_Int16Box):
+                return FloatObject(float(int(w_dtype.value)))
+            if isinstance(w_dtype, boxes.W_Int8Box):
+                return FloatObject(float(int(w_dtype.value)))
+            if isinstance(w_dtype, IntObject):
+                return FloatObject(float(w_dtype.intval))
+        if tp is self.w_int:
+            if isinstance(w_dtype, FloatObject):
+                return IntObject(int(w_dtype.floatval))
+
         return w_dtype
 
+    @specialize.arg(2)
     def call_method(self, w_obj, s, *args):
         # XXX even the hacks have hacks
+        if s == 'size': # used in _array() but never called by tests
+            return IntObject(0)
+        if s == '__buffer__':
+            # descr___buffer__ does not exist on W_Root
+            return self.w_None
         return getattr(w_obj, 'descr_' + s)(self, *args)
 
     @specialize.arg(1)
@@ -258,21 +398,28 @@ class FakeSpace(ObjSpace):
     def newtuple(self, list_w):
         return ListObject(list_w)
 
-    def newdict(self):
-        return {}
+    def newdict(self, module=True):
+        return DictObject({})
 
-    def setitem(self, dict, item, value):
-        dict[item] = value
+    def newint(self, i):
+        if isinstance(i, IntObject):
+            return i
+        return IntObject(i)
 
-    def len_w(self, w_obj):
-        if isinstance(w_obj, ListObject):
-            return len(w_obj.items)
-        # XXX array probably
-        assert False
+    def setitem(self, obj, index, value):
+        obj.items[index] = value
 
     def exception_match(self, w_exc_type, w_check_class):
-        # Good enough for now
-        raise NotImplementedError
+        assert isinstance(w_exc_type, W_TypeObject)
+        assert isinstance(w_check_class, W_TypeObject)
+        return w_exc_type.name == w_check_class.name
+
+    def warn(self, w_msg, w_warn_type):
+        pass
+
+def is_root(w_obj):
+    assert isinstance(w_obj, W_Root)
+is_root.expecting = W_Root
 
 class FloatObject(W_Root):
     tp = FakeSpace.w_float
@@ -283,6 +430,9 @@ class BoolObject(W_Root):
     tp = FakeSpace.w_bool
     def __init__(self, boolval):
         self.intval = boolval
+FakeSpace.w_True = BoolObject(True)
+FakeSpace.w_False = BoolObject(False)
+
 
 class IntObject(W_Root):
     tp = FakeSpace.w_int
@@ -298,6 +448,36 @@ class ListObject(W_Root):
     tp = FakeSpace.w_list
     def __init__(self, items):
         self.items = items
+
+class DictObject(W_Root):
+    tp = FakeSpace.w_dict
+    def __init__(self, items):
+        self.items = items
+
+    def getdict(self, space):
+        return self.items
+
+    def getdictvalue(self, space, key):
+        return self.items[key]
+
+    def descr_memoryview(self, space, buf):
+        raise oefmt(space.w_TypeError, "error")
+
+class IterDictObject(W_Root):
+    def __init__(self, space, w_dict):
+        self.space = space
+        self.items = w_dict.items.items()
+        self.i = 0
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        space = self.space
+        if self.i >= len(self.items):
+            raise oefmt(space.w_StopIteration, "stop iteration")
+        self.i += 1
+        return self.items[self.i-1][0]
 
 class SliceObject(W_Root):
     tp = FakeSpace.w_slice
@@ -414,6 +594,15 @@ class Operator(Node):
                 w_rhs = IntObject(int(w_rhs.floatval))
             assert isinstance(w_lhs, W_NDimArray)
             w_res = w_lhs.descr_getitem(interp.space, w_rhs)
+            if isinstance(w_rhs, IntObject):
+                if isinstance(w_res, boxes.W_Float64Box):
+                    print "access", w_lhs, "[", w_rhs.intval, "] => ", float(w_res.value)
+                if isinstance(w_res, boxes.W_Float32Box):
+                    print "access", w_lhs, "[", w_rhs.intval, "] => ", float(w_res.value)
+                if isinstance(w_res, boxes.W_Int64Box):
+                    print "access", w_lhs, "[", w_rhs.intval, "] => ", int(w_res.value)
+                if isinstance(w_res, boxes.W_Int32Box):
+                    print "access", w_lhs, "[", w_rhs.intval, "] => ", int(w_res.value)
         else:
             raise NotImplementedError
         if (not isinstance(w_res, W_NDimArray) and
@@ -425,9 +614,22 @@ class Operator(Node):
     def __repr__(self):
         return '(%r %s %r)' % (self.lhs, self.name, self.rhs)
 
-class FloatConstant(Node):
+class NumberConstant(Node):
     def __init__(self, v):
-        self.v = float(v)
+        if isinstance(v, int):
+            self.v = v
+        elif isinstance(v, float):
+            self.v = v
+        else:
+            assert isinstance(v, str)
+            assert len(v) > 0
+            c = v[-1]
+            if c == 'f':
+                self.v = float(v[:-1])
+            elif c == 'i':
+                self.v = int(v[:-1])
+            else:
+                self.v = float(v)
 
     def __repr__(self):
         return "Const(%s)" % self.v
@@ -519,8 +721,24 @@ class DtypeClass(Node):
     def execute(self, interp):
         if self.v == 'int':
             dtype = get_dtype_cache(interp.space).w_int64dtype
+        elif self.v == 'int8':
+            dtype = get_dtype_cache(interp.space).w_int8dtype
+        elif self.v == 'int16':
+            dtype = get_dtype_cache(interp.space).w_int16dtype
+        elif self.v == 'int32':
+            dtype = get_dtype_cache(interp.space).w_int32dtype
+        elif self.v == 'uint':
+            dtype = get_dtype_cache(interp.space).w_uint64dtype
+        elif self.v == 'uint8':
+            dtype = get_dtype_cache(interp.space).w_uint8dtype
+        elif self.v == 'uint16':
+            dtype = get_dtype_cache(interp.space).w_uint16dtype
+        elif self.v == 'uint32':
+            dtype = get_dtype_cache(interp.space).w_uint32dtype
         elif self.v == 'float':
             dtype = get_dtype_cache(interp.space).w_float64dtype
+        elif self.v == 'float32':
+            dtype = get_dtype_cache(interp.space).w_float32dtype
         else:
             raise BadToken('unknown v to dtype "%s"' % self.v)
         return dtype
@@ -556,8 +774,13 @@ class FunctionCall(Node):
                 raise ArgumentMismatch
             if self.name == "sum":
                 if len(self.args)>1:
-                    w_res = arr.descr_sum(interp.space,
+                    var = self.args[1]
+                    if isinstance(var, DtypeClass):
+                        w_res = arr.descr_sum(interp.space, None, var.execute(interp))
+                    else:
+                        w_res = arr.descr_sum(interp.space,
                                           self.args[1].execute(interp))
+
                 else:
                     w_res = arr.descr_sum(interp.space)
             elif self.name == "prod":
@@ -577,10 +800,10 @@ class FunctionCall(Node):
                 w_res = logical_xor.reduce(interp.space, arr, None)
             elif self.name == "unegative":
                 neg = ufuncs.get(interp.space).negative
-                w_res = neg.call(interp.space, [arr], None, None, None)
+                w_res = neg.call(interp.space, [arr], None, 'unsafe', None)
             elif self.name == "cos":
                 cos = ufuncs.get(interp.space).cos
-                w_res = cos.call(interp.space, [arr], None, None, None)
+                w_res = cos.call(interp.space, [arr], None, 'unsafe', None)
             elif self.name == "flat":
                 w_res = arr.descr_get_flatiter(interp.space)
             elif self.name == "argsort":
@@ -598,6 +821,8 @@ class FunctionCall(Node):
                 raise ArgumentNotAnArray
             if self.name == "dot":
                 w_res = arr.descr_dot(interp.space, arg)
+            elif self.name == 'multiply':
+                w_res = arr.descr_mul(interp.space, arg)
             elif self.name == 'take':
                 w_res = arr.descr_take(interp.space, arg)
             elif self.name == "searchsorted":
@@ -617,7 +842,7 @@ class FunctionCall(Node):
             if self.name == "where":
                 w_res = where(interp.space, arr, arg1, arg2)
             else:
-                assert False
+                assert False # unreachable code
         elif self.name in TWO_ARG_FUNCTIONS_OR_NONE:
             if len(self.args) != 2:
                 raise ArgumentMismatch
@@ -626,6 +851,11 @@ class FunctionCall(Node):
                 w_res = arr.descr_view(interp.space, arg)
             elif self.name == 'astype':
                 w_res = arr.descr_astype(interp.space, arg)
+            elif self.name == 'reshape':
+                w_arg = self.args[1]
+                assert isinstance(w_arg, ArrayConstant)
+                order = -1
+                w_res = arr.reshape(interp.space, w_arg.wrap(interp.space), order)
             else:
                 assert False
         else:
@@ -645,7 +875,7 @@ class FunctionCall(Node):
         return W_NDimArray.new_scalar(interp.space, dtype, w_res)
 
 _REGEXES = [
-    ('-?[\d\.]+', 'number'),
+    ('-?[\d\.]+(i|f)?', 'number'),
     ('\[', 'array_left'),
     (':', 'colon'),
     ('\w+', 'identifier'),
@@ -719,7 +949,7 @@ class Parser(object):
             start = 0
         else:
             if tokens.get(0).name != 'colon':
-                return FloatConstant(start_tok.v)
+                return NumberConstant(start_tok.v)
             start = int(start_tok.v)
             tokens.pop()
         if not tokens.get(0).name in ['colon', 'number']:
@@ -751,7 +981,29 @@ class Parser(object):
                     stack.append(ArrayClass())
                 elif token.v.strip(' ') == 'int':
                     stack.append(DtypeClass('int'))
+                elif token.v.strip(' ') == 'int8':
+                    stack.append(DtypeClass('int8'))
+                elif token.v.strip(' ') == 'int16':
+                    stack.append(DtypeClass('int16'))
+                elif token.v.strip(' ') == 'int32':
+                    stack.append(DtypeClass('int32'))
+                elif token.v.strip(' ') == 'int64':
+                    stack.append(DtypeClass('int'))
+                elif token.v.strip(' ') == 'uint':
+                    stack.append(DtypeClass('uint'))
+                elif token.v.strip(' ') == 'uint8':
+                    stack.append(DtypeClass('uint8'))
+                elif token.v.strip(' ') == 'uint16':
+                    stack.append(DtypeClass('uint16'))
+                elif token.v.strip(' ') == 'uint32':
+                    stack.append(DtypeClass('uint32'))
+                elif token.v.strip(' ') == 'uint64':
+                    stack.append(DtypeClass('uint'))
                 elif token.v.strip(' ') == 'float':
+                    stack.append(DtypeClass('float'))
+                elif token.v.strip(' ') == 'float32':
+                    stack.append(DtypeClass('float32'))
+                elif token.v.strip(' ') == 'float64':
                     stack.append(DtypeClass('float'))
                 else:
                     stack.append(Variable(token.v.strip(' ')))
@@ -805,7 +1057,7 @@ class Parser(object):
         while True:
             token = tokens.pop()
             if token.name == 'number':
-                elems.append(FloatConstant(token.v))
+                elems.append(NumberConstant(token.v))
             elif token.name == 'array_left':
                 elems.append(ArrayConstant(self.parse_array_const(tokens)))
             elif token.name == 'paren_left':

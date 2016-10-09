@@ -8,14 +8,13 @@ from rpython.rlib import jit, longlong2float
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_singlefloat, widen
 from rpython.rlib.rstruct import standardfmttable as std
+from rpython.rlib.rstruct.standardfmttable import native_is_bigendian
 from rpython.rlib.rstruct.error import StructError
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
-
-native_is_bigendian = struct.pack("=i", 1) == struct.pack(">i", 1)
 
 native_fmttable = {
     'x': std.standard_fmttable['x'],
@@ -26,9 +25,6 @@ native_fmttable = {
 
 # ____________________________________________________________
 
-
-double_buf = lltype.malloc(rffi.DOUBLEP.TO, 1, flavor='raw', immortal=True)
-float_buf = lltype.malloc(rffi.FLOATP.TO, 1, flavor='raw', immortal=True)
 
 range_8_unroll = unrolling_iterable(list(reversed(range(8))))
 range_4_unroll = unrolling_iterable(list(reversed(range(4))))
@@ -45,14 +41,6 @@ def pack_double(fmtiter):
             fmtiter.result.append(chr(value & 0xff))
             value >>= 8
 
-@specialize.argtype(0)
-def unpack_double(fmtiter):
-    input = fmtiter.read(sizeof_double)
-    p = rffi.cast(rffi.CCHARP, double_buf)
-    for i in range(sizeof_double):
-        p[i] = input[i]
-    doubleval = double_buf[0]
-    fmtiter.appendobj(doubleval)
 
 def pack_float(fmtiter):
     doubleval = fmtiter.accept_float_arg()
@@ -68,16 +56,6 @@ def pack_float(fmtiter):
             fmtiter.result.append(chr(value & 0xff))
             value >>= 8
 
-@specialize.argtype(0)
-def unpack_float(fmtiter):
-    input = fmtiter.read(sizeof_float)
-    p = rffi.cast(rffi.CCHARP, float_buf)
-    for i in range(sizeof_float):
-        p[i] = input[i]
-    floatval = float_buf[0]
-    doubleval = float(floatval)
-    fmtiter.appendobj(doubleval)
-
 # ____________________________________________________________
 #
 # Use rffi_platform to get the native sizes and alignments from the C compiler
@@ -88,11 +66,13 @@ def setup():
                'i': 'signed int',
                'l': 'signed long',
                'q': 'signed long long',
+               'n': 'ssize_t',
                'B': 'unsigned char',
                'H': 'unsigned short',
                'I': 'unsigned int',
                'L': 'unsigned long',
                'Q': 'unsigned long long',
+               'N': 'size_t',
                'P': 'char *',
                'f': 'float',
                'd': 'double',
@@ -100,8 +80,11 @@ def setup():
                }
 
     pre_include_bits = ["""
+        #include <sys/types.h>
         #ifdef _MSC_VER
         #define _Bool char
+        typedef int ssize_t; /* XXX fixme for 64 bit*/
+        typedef unsigned int size_t; /* XXX fixme for 64 bit*/
         #endif"""]
     field_names = dict.fromkeys(INSPECT)
     for fmtchar, ctype in INSPECT.iteritems():
@@ -134,10 +117,10 @@ def setup():
 
         if fmtchar == 'f':
             pack = pack_float
-            unpack = unpack_float
+            unpack = std.unpack_float
         elif fmtchar == 'd':
             pack = pack_double
-            unpack = unpack_double
+            unpack = std.unpack_double
         elif fmtchar == '?':
             pack = std.pack_bool
             unpack = std.unpack_bool

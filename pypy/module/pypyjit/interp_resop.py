@@ -4,12 +4,13 @@ from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.pycode import PyCode
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance, hlstr
 from rpython.rtyper.rclass import OBJECT
 #from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.nonconst import NonConstant
+from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib import jit_hooks
 from rpython.rlib.jit import Counters
 from rpython.rlib.objectmodel import compute_unique_id
@@ -22,6 +23,7 @@ class Cache(object):
     def __init__(self, space):
         self.w_compile_hook = space.w_None
         self.w_abort_hook = space.w_None
+        self.w_trace_too_long_hook = space.w_None
 
     def getno(self):
         self.no += 1
@@ -79,6 +81,21 @@ def set_abort_hook(space, w_hook):
     cache.w_abort_hook = w_hook
     cache.in_recursion = NonConstant(False)
 
+def set_trace_too_long_hook(space, w_hook):
+    """ set_trace_too_long_hook(hook)
+
+    Set a hook (callable) that will be called each time we abort
+    tracing because the trace is too long.
+
+    The hook will be called with the signature:
+
+        hook(jitdriver_name, greenkey)
+    """
+    cache = space.fromcache(Cache)
+    assert w_hook is not None
+    cache.w_trace_too_long_hook = w_hook
+    cache.in_recursion = NonConstant(False)
+
 def wrap_oplist(space, logops, operations, ops_offset=None):
     # this function is called from the JIT
     from rpython.jit.metainterp.resoperation import rop
@@ -103,6 +120,9 @@ def wrap_oplist(space, logops, operations, ops_offset=None):
                                        op.getarg(1).getint(),
                                        op.getarg(2).getint(),
                                        w_greenkey))
+        elif op.is_guard():
+            l_w.append(GuardOp(name, ofs, logops.repr_of_resop(op),
+                op.getdescr().get_jitcounter_hash()))
         else:
             l_w.append(WrappedOp(name, ofs, logops.repr_of_resop(op)))
     return l_w
@@ -110,6 +130,10 @@ def wrap_oplist(space, logops, operations, ops_offset=None):
 @unwrap_spec(offset=int, repr=str, name=str)
 def descr_new_resop(space, w_tp, name, offset=-1, repr=''):
     return WrappedOp(name, offset, repr)
+
+@unwrap_spec(offset=int, repr=str, name=str, hash=r_uint)
+def descr_new_guardop(space, w_tp, name, offset=-1, repr='', hash=r_uint(0)):
+    return GuardOp(name, offset, repr, hash)
 
 @unwrap_spec(repr=str, name=str, jd_name=str, call_depth=int, call_id=int)
 def descr_new_dmp(space, w_tp, name, repr, jd_name, call_depth, call_id,
@@ -133,6 +157,11 @@ class WrappedOp(W_Root):
     def descr_name(self, space):
         return space.wrap(self.name)
 
+class GuardOp(WrappedOp):
+    def __init__(self, name, offset, repr_of_resop, hash):
+        WrappedOp.__init__(self, name, offset, repr_of_resop)
+        self.hash = hash
+
 class DebugMergePoint(WrappedOp):
     """ A class representing Debug Merge Point - the entry point
     to a jitted loop.
@@ -150,12 +179,16 @@ class DebugMergePoint(WrappedOp):
     def get_pycode(self, space):
         if self.jd_name == pypyjitdriver.name:
             return space.getitem(self.w_greenkey, space.wrap(0))
-        raise OperationError(space.w_AttributeError, space.wrap("This DebugMergePoint doesn't belong to the main Python JitDriver"))
+        raise oefmt(space.w_AttributeError,
+                    "This DebugMergePoint doesn't belong to the main Python "
+                    "JitDriver")
 
     def get_bytecode_no(self, space):
         if self.jd_name == pypyjitdriver.name:
             return space.getitem(self.w_greenkey, space.wrap(1))
-        raise OperationError(space.w_AttributeError, space.wrap("This DebugMergePoint doesn't belong to the main Python JitDriver"))
+        raise oefmt(space.w_AttributeError,
+                    "This DebugMergePoint doesn't belong to the main Python "
+                    "JitDriver")
 
     def get_jitdriver_name(self, space):
         return space.wrap(self.jd_name)
@@ -169,6 +202,17 @@ WrappedOp.typedef = TypeDef(
     offset = interp_attrproperty("offset", cls=WrappedOp),
 )
 WrappedOp.typedef.acceptable_as_base_class = False
+
+GuardOp.typedef = TypeDef(
+    'GuardOp',
+    __doc__ = GuardOp.__doc__,
+    __new__ = interp2app(descr_new_guardop),
+    __repr__ = interp2app(GuardOp.descr_repr),
+    name = GetSetProperty(GuardOp.descr_name),
+    offset = interp_attrproperty("offset", cls=GuardOp),
+    hash = interp_attrproperty("hash", cls=GuardOp),
+    )
+GuardOp.typedef.acceptable_as_base_class = False
 
 DebugMergePoint.typedef = TypeDef(
     'DebugMergePoint', WrappedOp.typedef,
@@ -243,7 +287,7 @@ class W_JitLoopInfo(W_Root):
     def descr_get_bridge_no(self, space):
         if space.is_none(self.w_green_key):
             return space.wrap(self.bridge_no)
-        raise OperationError(space.w_TypeError, space.wrap("not a bridge"))
+        raise oefmt(space.w_TypeError, "not a bridge")
 
 
 @unwrap_spec(loopno=int, asmaddr=int, asmlen=int, loop_no=int,

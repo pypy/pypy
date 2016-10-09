@@ -4,10 +4,10 @@ import py
 from rpython.rlib.objectmodel import r_dict, compute_identity_hash, specialize
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.metainterp import resoperation
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.jit.metainterp.resoperation import rop
-from rpython.rlib.objectmodel import we_are_translated
 
 # ____________________________________________________________
 # Misc. utilities
@@ -147,12 +147,14 @@ def equaloplists(oplist1, oplist2, strict_fail_args=True, remap={},
             x = op1.getarg(i)
             y = op2.getarg(i)
             assert x.same_box(remap.get(y, y))
+            assert x.same_shape(remap.get(y, y))
         if op2 in remap:
             assert op1.same_box(remap[op2])
         else:
             if op1.type != 'v':
                 remap[op2] = op1
-        if op1.getopnum() not in [rop.JUMP, rop.LABEL, rop.FINISH] and not op1.is_guard():
+        if (op1.getopnum() not in [rop.JUMP, rop.LABEL, rop.FINISH] and
+            not rop.is_guard(op1.getopnum())):
             assert op1.getdescr() == op2.getdescr()
         if op1.getfailargs() or op2.getfailargs():
             assert len(op1.getfailargs()) == len(op2.getfailargs())
@@ -162,6 +164,7 @@ def equaloplists(oplist1, oplist2, strict_fail_args=True, remap={},
                         assert remap.get(y, y) is None
                     else:
                         assert x.same_box(remap.get(y, y))
+                        assert x.same_shape(remap.get(y, y))
             else:
                 fail_args1 = set(op1.getfailargs())
                 fail_args2 = set([remap.get(y, y) for y in op2.getfailargs()])

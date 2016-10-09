@@ -1606,7 +1606,17 @@ class XMLParser(object):
                     pubid = pubid[1:-1]
                 if hasattr(self.target, "doctype"):
                     self.target.doctype(name, pubid, system[1:-1])
-                elif self.doctype is not self._XMLParser__doctype:
+                elif 1:  # XXX PyPy fix, used to be
+                         #   elif self.doctype is not self._XMLParser__doctype:
+                         # but that condition is always True on CPython, as far
+                         # as I can tell: self._XMLParser__doctype always
+                         # returns a fresh unbound method object.
+                         # On PyPy, unbound and bound methods have stronger
+                         # unicity guarantees: self._XMLParser__doctype
+                         # can return the same unbound method object, in
+                         # some cases making the test above incorrectly False.
+                         # (My guess would be that the line above is a backport
+                         # from Python 3.)
                     # warn about deprecated call
                     self._XMLParser__doctype(name, pubid, system[1:-1])
                     self.doctype(name, pubid, system[1:-1])

@@ -11,37 +11,37 @@ SKIP = 0x7e
 FAIL = 0x7d
 
 table_a2b_hqx = [
-    #^@    ^A    ^B    ^C    ^D    ^E    ^F    ^G   
+    #^@    ^A    ^B    ^C    ^D    ^E    ^F    ^G
     FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL,
-    #\b    \t    \n    ^K    ^L    \r    ^N    ^O   
+    #\b    \t    \n    ^K    ^L    \r    ^N    ^O
     FAIL, FAIL, SKIP, FAIL, FAIL, SKIP, FAIL, FAIL,
-    #^P    ^Q    ^R    ^S    ^T    ^U    ^V    ^W   
+    #^P    ^Q    ^R    ^S    ^T    ^U    ^V    ^W
     FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL,
-    #^X    ^Y    ^Z    ^[    ^\    ^]    ^^    ^_   
+    #^X    ^Y    ^Z    ^[    ^\    ^]    ^^    ^_
     FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL,
-    #      !     "     #     $     %     &     '   
+    #      !     "     #     $     %     &     '
     FAIL, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
-    #(     )     *     +     ,     -     .     /   
+    #(     )     *     +     ,     -     .     /
     0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, FAIL, FAIL,
-    #0     1     2     3     4     5     6     7   
+    #0     1     2     3     4     5     6     7
     0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13, FAIL,
-    #8     9     :     ;     <     =     >     ?   
+    #8     9     :     ;     <     =     >     ?
     0x14, 0x15, DONE, FAIL, FAIL, FAIL, FAIL, FAIL,
-    #@     A     B     C     D     E     F     G   
+    #@     A     B     C     D     E     F     G
     0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D,
-    #H     I     J     K     L     M     N     O   
+    #H     I     J     K     L     M     N     O
     0x1E, 0x1F, 0x20, 0x21, 0x22, 0x23, 0x24, FAIL,
-    #P     Q     R     S     T     U     V     W   
+    #P     Q     R     S     T     U     V     W
     0x25, 0x26, 0x27, 0x28, 0x29, 0x2A, 0x2B, FAIL,
-    #X     Y     Z     [     \     ]     ^     _   
+    #X     Y     Z     [     \     ]     ^     _
     0x2C, 0x2D, 0x2E, 0x2F, FAIL, FAIL, FAIL, FAIL,
-    #`     a     b     c     d     e     f     g   
+    #`     a     b     c     d     e     f     g
     0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, FAIL,
-    #h     i     j     k     l     m     n     o   
+    #h     i     j     k     l     m     n     o
     0x37, 0x38, 0x39, 0x3A, 0x3B, 0x3C, FAIL, FAIL,
-    #p     q     r     s     t     u     v     w   
+    #p     q     r     s     t     u     v     w
     0x3D, 0x3E, 0x3F, FAIL, FAIL, FAIL, FAIL, FAIL,
-    #x     y     z     {     |     }     ~    ^?   
+    #x     y     z     {     |     }     ~    ^?
     FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL,
     FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL,
     FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL, FAIL,
@@ -97,7 +97,7 @@ def a2b_hqx(space, ascii):
     else:
         if pending_bits > 0:
             raise_Incomplete(space, 'String has incomplete number of bytes')
-    return space.newtuple([space.wrap(res.build()), space.wrap(done)])
+    return space.newtuple([space.newbytes(res.build()), space.wrap(done)])
 
 # ____________________________________________________________
 
@@ -128,7 +128,7 @@ def b2a_hqx(space, bin):
     if leftbits > 0:
         leftchar <<= (6 - leftbits)
         res.append(hqx_encoding[leftchar & 0x3f])
-    return space.wrap(res.build())
+    return space.newbytes(res.build())
 
 # ____________________________________________________________
 
@@ -150,7 +150,7 @@ def rledecode_hqx(space, hexbin):
             lastpushed = ord(c)
         else:
             if i == end:
-                raise_Incomplete(space, 'String ends with the RLE code \x90')
+                raise_Incomplete(space, 'String ends with the RLE code \\x90')
             count = ord(hexbin[i]) - 1
             i += 1
             if count < 0:
@@ -158,9 +158,9 @@ def rledecode_hqx(space, hexbin):
                 lastpushed = 0x90
             else:
                 if lastpushed < 0:
-                    raise_Error(space, 'String starts with the RLE code \x90')
+                    raise_Error(space, 'String starts with the RLE code \\x90')
                 res.append_multiple_char(chr(lastpushed), count)
-    return space.wrap(res.build())
+    return space.newbytes(res.build())
 
 # ____________________________________________________________
 
@@ -197,7 +197,7 @@ def rlecode_hqx(space, data):
     # string that rledecode_hqx() would expand back to 'data', there are
     # some programs somewhere that would start failing obscurely in rare
     # cases.
-    return space.wrap(res.build())
+    return space.newbytes(res.build())
 
 # ____________________________________________________________
 

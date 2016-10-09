@@ -2,9 +2,8 @@ import contextlib
 import py
 import sys, os
 from rpython.rlib import exports
-from rpython.rlib.entrypoint import entrypoint
 from rpython.rtyper.lltypesystem.lltype import getfunctionptr
-from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import lltype
 from rpython.tool import runsubprocess
 from rpython.tool.nullpath import NullPyPathLocal
 from rpython.tool.udir import udir
@@ -127,8 +126,10 @@ class CBuilder(object):
             if not self.standalone:
                 raise NotImplementedError("--gcrootfinder=asmgcc requires standalone")
 
+        exctransformer = translator.getexceptiontransformer()
         db = LowLevelDatabase(translator, standalone=self.standalone,
                               gcpolicyclass=gcpolicyclass,
+                              exctransformer=exctransformer,
                               thread_enabled=self.config.translation.thread,
                               sandbox=self.config.translation.sandbox)
         self.db = db
@@ -194,22 +195,8 @@ class CBuilder(object):
     DEBUG_DEFINES = {'RPY_ASSERT': 1,
                      'RPY_LL_ASSERT': 1}
 
-    def generate_graphs_for_llinterp(self, db=None):
-        # prepare the graphs as when the source is generated, but without
-        # actually generating the source.
-        if db is None:
-            db = self.build_database()
-        graphs = db.all_graphs()
-        db.gctransformer.prepare_inline_helpers(graphs)
-        for node in db.containerlist:
-            if hasattr(node, 'funcgens'):
-                for funcgen in node.funcgens:
-                    funcgen.patch_graph(copy_graph=False)
-        return db
-
     def generate_source(self, db=None, defines={}, exe_name=None):
         assert self.c_source_filename is None
-
         if db is None:
             db = self.build_database()
         pf = self.getentrypointptr()
@@ -265,6 +252,8 @@ class CStandaloneBuilder(CBuilder):
     split = True
     executable_name = None
     shared_library_name = None
+    _entrypoint_wrapper = None
+    make_entrypoint_wrapper = True    # for tests
 
     def getprofbased(self):
         profbased = None
@@ -286,12 +275,44 @@ class CStandaloneBuilder(CBuilder):
         if retval and self.translator.platform.name == 'msvc':
             raise ValueError('Cannot do profile based optimization on MSVC,'
                     'it is not supported in free compiler version')
+        return retval
 
     def getentrypointptr(self):
         # XXX check that the entrypoint has the correct
         # signature:  list-of-strings -> int
-        bk = self.translator.annotator.bookkeeper
-        return getfunctionptr(bk.getdesc(self.entrypoint).getuniquegraph())
+        if not self.make_entrypoint_wrapper:
+            bk = self.translator.annotator.bookkeeper
+            return getfunctionptr(bk.getdesc(self.entrypoint).getuniquegraph())
+        if self._entrypoint_wrapper is not None:
+            return self._entrypoint_wrapper
+        #
+        from rpython.annotator import model as annmodel
+        from rpython.rtyper.lltypesystem import rffi
+        from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
+        from rpython.rtyper.llannotation import lltype_to_annotation
+        entrypoint = self.entrypoint
+        #
+        def entrypoint_wrapper(argc, argv):
+            """This is a wrapper that takes "Signed argc" and "char **argv"
+            like the C main function, and puts them inside an RPython list
+            of strings before invoking the real entrypoint() function.
+            """
+            list = [""] * argc
+            i = 0
+            while i < argc:
+                list[i] = rffi.charp2str(argv[i])
+                i += 1
+            return entrypoint(list)
+        #
+        mix = MixLevelHelperAnnotator(self.translator.rtyper)
+        args_s = [annmodel.SomeInteger(),
+                  lltype_to_annotation(rffi.CCHARPP)]
+        s_result = annmodel.SomeInteger()
+        graph = mix.getgraph(entrypoint_wrapper, args_s, s_result)
+        mix.finish()
+        res = getfunctionptr(graph)
+        self._entrypoint_wrapper = res
+        return res
 
     def cmdexec(self, args='', env=None, err=False, expect_crash=False, exe=None):
         assert self._compiled
@@ -402,14 +423,11 @@ class CStandaloneBuilder(CBuilder):
             mk.definition('PROFOPT', profopt)
 
         rules = [
-            ('clean', '', 'rm -f $(OBJECTS) $(DEFAULT_TARGET) $(TARGET) $(GCMAPFILES) $(ASMFILES) *.gc?? ../module_cache/*.gc??'),
-            ('clean_noprof', '', 'rm -f $(OBJECTS) $(DEFAULT_TARGET) $(TARGET) $(GCMAPFILES) $(ASMFILES)'),
             ('debug', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT" debug_target'),
             ('debug_exc', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DDO_LOG_EXC" debug_target'),
             ('debug_mem', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DPYPY_USE_TRIVIAL_MALLOC" debug_target'),
             ('llsafer', '', '$(MAKE) CFLAGS="-O2 -DRPY_LL_ASSERT" $(DEFAULT_TARGET)'),
             ('lldebug', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DRPY_LL_ASSERT" debug_target'),
-            ('lldebug0','', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -O0 -DMAX_STACK_SIZE=8192000 -DRPY_ASSERT -DRPY_LL_ASSERT" debug_target'),
             ('profile', '', '$(MAKE) CFLAGS="-g -O1 -pg $(CFLAGS) -fno-omit-frame-pointer" LDFLAGS="-pg $(LDFLAGS)" $(DEFAULT_TARGET)'),
             ]
         if self.has_profopt():
@@ -423,14 +441,27 @@ class CStandaloneBuilder(CBuilder):
         for rule in rules:
             mk.rule(*rule)
 
+        if self.translator.platform.name == 'msvc':
+            mk.rule('lldebug0','', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -Od -DMAX_STACK_SIZE=8192000 -DRPY_ASSERT -DRPY_LL_ASSERT" debug_target'),
+            wildcards = '..\*.obj ..\*.pdb ..\*.lib ..\*.dll ..\*.manifest ..\*.exp *.pch'
+            cmd =  r'del /s %s $(DEFAULT_TARGET) $(TARGET) $(GCMAPFILES) $(ASMFILES)' % wildcards
+            mk.rule('clean', '',  cmd + ' *.gc?? ..\module_cache\*.gc??')
+            mk.rule('clean_noprof', '', cmd)
+        else:
+            mk.rule('lldebug0','', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -O0 -DMAX_STACK_SIZE=8192000 -DRPY_ASSERT -DRPY_LL_ASSERT" debug_target'),
+            mk.rule('clean', '', 'rm -f $(OBJECTS) $(DEFAULT_TARGET) $(TARGET) $(GCMAPFILES) $(ASMFILES) *.gc?? ../module_cache/*.gc??')
+            mk.rule('clean_noprof', '', 'rm -f $(OBJECTS) $(DEFAULT_TARGET) $(TARGET) $(GCMAPFILES) $(ASMFILES)')
+
         #XXX: this conditional part is not tested at all
         if self.config.translation.gcrootfinder == 'asmgcc':
             if self.translator.platform.name == 'msvc':
                 raise Exception("msvc no longer supports asmgcc")
+            _extra = ''
             if self.config.translation.shared:
-                mk.definition('DEBUGFLAGS', '-O2 -fomit-frame-pointer -g -fPIC')
-            else:
-                mk.definition('DEBUGFLAGS', '-O2 -fomit-frame-pointer -g')
+                _extra = ' -fPIC'
+            _extra += ' -fdisable-tree-fnsplit'   # seems to help
+            mk.definition('DEBUGFLAGS',
+                '-O2 -fomit-frame-pointer -g'+ _extra)
 
             if self.config.translation.shared:
                 mk.definition('PYPY_MAIN_FUNCTION', "pypy_main_startup")
@@ -485,7 +516,7 @@ class CStandaloneBuilder(CBuilder):
                 else:
                     mk.definition('DEBUGFLAGS', '-O1 -g')
         if self.translator.platform.name == 'msvc':
-            mk.rule('debug_target', '$(DEFAULT_TARGET)', 'rem')
+            mk.rule('debug_target', '$(DEFAULT_TARGET) $(WTARGET)', 'rem')
         else:
             mk.rule('debug_target', '$(DEFAULT_TARGET)', '#')
         mk.write()
@@ -560,6 +591,11 @@ class SourceGenerator:
                         relpypath = localpath.relto(pypkgpath.dirname)
                         assert relpypath, ("%r should be relative to %r" %
                             (localpath, pypkgpath.dirname))
+                        if len(relpypath.split(os.path.sep)) > 2:
+                            # pypy detail to agregate the c files by directory,
+                            # since the enormous number of files was causing
+                            # memory issues linking on win32
+                            return os.path.split(relpypath)[0] + '.c'
                         return relpypath.replace('.py', '.c')
             return None
         if hasattr(node.obj, 'graph'):
@@ -734,6 +770,9 @@ def gen_threadlocal_structdef(f, database):
     print >> f, 'struct pypy_threadlocal_s {'
     print >> f, '\tint ready;'
     print >> f, '\tchar *stack_end;'
+    print >> f, '\tstruct pypy_threadlocal_s *prev, *next;'
+    # note: if the four fixed fields above are changed, you need
+    # to adapt threadlocal.c's linkedlist_head declaration too
     for field in fields:
         typename = database.gettype(field.FIELDTYPE)
         print >> f, '\t%s;' % cdecl(typename, field.fieldname)
@@ -844,7 +883,6 @@ def gen_source(database, modulename, targetdir,
     #
     sg = SourceGenerator(database)
     sg.set_strategy(targetdir, split)
-    database.prepare_inline_helpers()
     sg.gen_readable_parts_of_source(f)
     headers_to_precompile = sg.headers_to_precompile[:]
     headers_to_precompile.insert(0, incfilename)

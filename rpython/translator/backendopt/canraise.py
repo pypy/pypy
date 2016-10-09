@@ -1,11 +1,8 @@
-import py
-
 from rpython.rtyper.lltypesystem.lloperation import LL_OPERATIONS
-from rpython.tool.ansi_print import ansi_log
+from rpython.tool.ansi_print import AnsiLogger
 from rpython.translator.backendopt import graphanalyze
 
-log = py.log.Producer("canraise")
-py.log.setconsumer("canraise", ansi_log)
+log = AnsiLogger("canraise")
 
 
 class RaiseAnalyzer(graphanalyze.BoolGraphAnalyzer):
@@ -22,8 +19,7 @@ class RaiseAnalyzer(graphanalyze.BoolGraphAnalyzer):
             log.WARNING("Unknown operation: %s" % op.opname)
             return True
 
-    def analyze_external_call(self, op, seen=None):
-        fnobj = op.args[0].value._obj
+    def analyze_external_call(self, fnobj, seen=None):
         return getattr(fnobj, 'canraise', True)
 
     analyze_exceptblock = None    # don't call this

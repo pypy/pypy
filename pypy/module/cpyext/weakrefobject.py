@@ -1,6 +1,7 @@
 from pypy.module.cpyext.api import cpython_api
-from pypy.module.cpyext.pyobject import PyObject, borrow_from
+from pypy.module.cpyext.pyobject import PyObject
 from pypy.module._weakref.interp__weakref import W_Weakref, proxy
+from rpython.rtyper.lltypesystem import rffi
 
 @cpython_api([PyObject, PyObject], PyObject)
 def PyWeakref_NewRef(space, w_obj, w_callback):
@@ -30,24 +31,26 @@ def PyWeakref_NewProxy(space, w_obj, w_callback):
     """
     return proxy(space, w_obj, w_callback)
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, result_borrowed=True)
 def PyWeakref_GetObject(space, w_ref):
     """Return the referenced object from a weak reference.  If the referent is
     no longer live, returns None. This function returns a borrowed reference.
     """
-    return PyWeakref_GET_OBJECT(space, w_ref)
+    return space.call_function(w_ref)     # borrowed ref
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([rffi.VOIDP], PyObject, result_borrowed=True)
 def PyWeakref_GET_OBJECT(space, w_ref):
     """Similar to PyWeakref_GetObject(), but implemented as a macro that does no
     error checking.
     """
-    return borrow_from(w_ref, space.call_function(w_ref))
+    return space.call_function(w_ref)     # borrowed ref
 
 @cpython_api([PyObject], PyObject)
 def PyWeakref_LockObject(space, w_ref):
     """Return the referenced object from a weak reference.  If the referent is
     no longer live, returns None. This function returns a new reference.
+
+    (A PyPy extension that may not be useful any more: use
+    PyWeakref_GetObject() and Py_INCREF().)
     """
     return space.call_function(w_ref)
-

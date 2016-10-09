@@ -19,7 +19,7 @@ class ImmutableFieldsTests:
             return y.x + 5
         res = self.interp_operations(f, [23])
         assert res == 28
-        self.check_operations_history(getfield_gc_i=0, getfield_gc_pure_i=1, int_add=1)
+        self.check_operations_history(getfield_gc_i=1, int_add=1)
 
     def test_fields_subclass(self):
         class X(object):
@@ -41,8 +41,7 @@ class ImmutableFieldsTests:
             return z.x + z.y + 5
         res = self.interp_operations(f, [23, 11])
         assert res == 39
-        self.check_operations_history(getfield_gc_i=0, getfield_gc_pure_i=2,
-                                      int_add=2)
+        self.check_operations_history(getfield_gc_i=2, int_add=2)
 
         def f(x, y):
             # this time, the field 'x' only shows up on subclass 'Y'
@@ -50,8 +49,7 @@ class ImmutableFieldsTests:
             return z.x + z.y + 5
         res = self.interp_operations(f, [23, 11])
         assert res == 39
-        self.check_operations_history(getfield_gc_i=0, getfield_gc_pure_i=2,
-                                      int_add=2)
+        self.check_operations_history(getfield_gc_i=2, int_add=2)
 
     def test_array(self):
         class X(object):
@@ -66,8 +64,7 @@ class ImmutableFieldsTests:
             return a.y[index]
         res = self.interp_operations(f, [2], listops=True)
         assert res == 30
-        self.check_operations_history(getfield_gc_r=0, getfield_gc_pure_r=1,
-                            getarrayitem_gc_i=0, getarrayitem_gc_pure_i=1)
+        self.check_operations_history(getfield_gc_r=1, getarrayitem_gc_i=0, getarrayitem_gc_pure_i=1)
 
     def test_array_index_error(self):
         class X(object):
@@ -89,8 +86,7 @@ class ImmutableFieldsTests:
             return a.get(index)
         res = self.interp_operations(f, [2], listops=True)
         assert res == 30
-        self.check_operations_history(getfield_gc_r=0, getfield_gc_pure_r=1,
-                            getarrayitem_gc_i=0, getarrayitem_gc_pure_i=1)
+        self.check_operations_history(getfield_gc_r=1, getarrayitem_gc_i=0, getarrayitem_gc_pure_i=1)
 
     def test_array_in_immutable(self):
         class X(object):
@@ -106,8 +102,7 @@ class ImmutableFieldsTests:
             return y.lst[index] + y.y + 5
         res = self.interp_operations(f, [23, 0], listops=True)
         assert res == 23 + 24 + 5
-        self.check_operations_history(getfield_gc_r=0, getfield_gc_pure_r=1,
-                                      getfield_gc_pure_i=1,
+        self.check_operations_history(getfield_gc_r=1, getfield_gc_i=1,
                             getarrayitem_gc_i=0, getarrayitem_gc_pure_i=1,
                             int_add=3)
 
@@ -136,15 +131,15 @@ class ImmutableFieldsTests:
         #
         res = self.interp_operations(f, [0], disable_optimizations=True)
         assert res == 42
-        self.check_operations_history(getfield_raw_pure_i=1,
-                                      getarrayitem_raw_pure_i=1,
+        self.check_operations_history(getfield_raw_i=1,
+                                      getarrayitem_raw_i=1,
                                       int_mul=1)
         #
         # second try, in which we get num=0 constant-folded through f()
         res = self.interp_operations(f, [-1], disable_optimizations=True)
         assert res == 42
-        self.check_operations_history(getfield_raw_pure_i=0,
-                                      getarrayitem_raw_pure_i=0,
+        self.check_operations_history(getfield_raw_i=0,
+                                      getarrayitem_raw_i=0,
                                       int_mul=0)
 
     def test_read_on_promoted(self):

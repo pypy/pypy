@@ -33,7 +33,7 @@ class AppTestBufferTooShort:
         import multiprocessing
         try:
             self.raiseBufferTooShort("data")
-        except multiprocessing.BufferTooShort, e:
+        except multiprocessing.BufferTooShort as e:
             assert isinstance(e, multiprocessing.ProcessError)
             assert e.args == ("data",)
 
@@ -128,7 +128,7 @@ class AppTestSocketConnection(BaseConnectionTest):
         client.setblocking(False)
         try:
             client.connect(('127.0.0.1', serverSocket.getsockname()[1]))
-        except socket.error, e:
+        except socket.error as e:
             assert e.args[0] in (errno.EINPROGRESS, errno.EWOULDBLOCK)
         server, addr = serverSocket.accept()
 

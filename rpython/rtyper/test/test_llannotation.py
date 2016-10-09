@@ -15,6 +15,7 @@ class DummyClassDef:
     def __init__(self, cls=C):
         self.cls = cls
         self.name = cls.__name__
+        self.classdesc = cls
 
 def test_ll_to_annotation():
     s_z = ll_to_annotation(lltype.Signed._defl())

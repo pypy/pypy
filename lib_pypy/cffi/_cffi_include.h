@@ -1,4 +1,20 @@
 #define _CFFI_
+
+/* We try to define Py_LIMITED_API before including Python.h.
+
+   Mess: we can only define it if Py_DEBUG, Py_TRACE_REFS and
+   Py_REF_DEBUG are not defined.  This is a best-effort approximation:
+   we can learn about Py_DEBUG from pyconfig.h, but it is unclear if
+   the same works for the other two macros.  Py_DEBUG implies them,
+   but not the other way around.
+*/
+#ifndef _CFFI_USE_EMBEDDING
+#  include <pyconfig.h>
+#  if !defined(Py_DEBUG) && !defined(Py_TRACE_REFS) && !defined(Py_REF_DEBUG)
+#    define Py_LIMITED_API
+#  endif
+#endif
+
 #include <Python.h>
 #ifdef __cplusplus
 extern "C" {
@@ -42,7 +58,9 @@ extern "C" {
 #  include <stdint.h>
 # endif
 # if _MSC_VER < 1800   /* MSVC < 2013 */
-   typedef unsigned char _Bool;
+#  ifndef __cplusplus
+    typedef unsigned char _Bool;
+#  endif
 # endif
 #else
 # include <stdint.h>
@@ -55,6 +73,12 @@ extern "C" {
 # define _CFFI_UNUSED_FN  __attribute__((unused))
 #else
 # define _CFFI_UNUSED_FN  /* nothing */
+#endif
+
+#ifdef __cplusplus
+# ifndef _Bool
+   typedef bool _Bool;   /* semi-hackish: C++ has no _Bool; bool is builtin */
+# endif
 #endif
 
 /**********  CPython-specific section  **********/
@@ -146,7 +170,10 @@ extern "C" {
     ((Py_ssize_t(*)(CTypeDescrObject *, PyObject *, char **))_cffi_exports[23])
 #define _cffi_convert_array_from_object                                  \
     ((int(*)(char *, CTypeDescrObject *, PyObject *))_cffi_exports[24])
-#define _CFFI_NUM_EXPORTS 25
+#define _CFFI_CPIDX  25
+#define _cffi_call_python                                                \
+    ((void(*)(struct _cffi_externpy_s *, char *))_cffi_exports[_CFFI_CPIDX])
+#define _CFFI_NUM_EXPORTS 26
 
 typedef struct _ctypedescr CTypeDescrObject;
 
@@ -187,22 +214,12 @@ static PyObject *_cffi_init(const char *module_name, Py_ssize_t version,
     return NULL;
 }
 
-_CFFI_UNUSED_FN
-static PyObject **_cffi_unpack_args(PyObject *args_tuple, Py_ssize_t expected,
-                                    const char *fnname)
-{
-    if (PyTuple_GET_SIZE(args_tuple) != expected) {
-        PyErr_Format(PyExc_TypeError,
-                     "%.150s() takes exactly %zd arguments (%zd given)",
-                     fnname, expected, PyTuple_GET_SIZE(args_tuple));
-        return NULL;
-    }
-    return &PyTuple_GET_ITEM(args_tuple, 0);   /* pointer to the first item,
-                                                  the others follow */
-}
-
-#endif
 /**********  end CPython-specific section  **********/
+#else
+_CFFI_UNUSED_FN
+static void (*_cffi_call_python_org)(struct _cffi_externpy_s *, char *);
+# define _cffi_call_python  _cffi_call_python_org
+#endif
 
 
 #define _cffi_array_len(array)   (sizeof(array) / sizeof((array)[0]))
@@ -223,6 +240,12 @@ static PyObject **_cffi_unpack_args(PyObject *args_tuple, Py_ssize_t expected,
 #define _cffi_check_int(got, got_nonpos, expected)      \
     ((got_nonpos) == (expected <= 0) &&                 \
      (got) == (unsigned long long)expected)
+
+#ifdef MS_WIN32
+# define _cffi_stdcall  __stdcall
+#else
+# define _cffi_stdcall  /* nothing */
+#endif
 
 #ifdef __cplusplus
 }

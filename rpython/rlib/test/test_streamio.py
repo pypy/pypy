@@ -675,7 +675,7 @@ class TestMMapFile(BaseTestBufferingInputStreamTests):
             self.tfn = None
             try:
                 os.remove(tfn)
-            except os.error, msg:
+            except os.error as msg:
                 print "can't remove %s: %s" % (tfn, msg)
 
     def makeStream(self, tell=None, seek=None, bufsize=-1, mode="r"):
@@ -1077,6 +1077,7 @@ class TestDiskFile:
             alarm(1)
             assert file.read(10) == "hello"
         finally:
+            alarm(0)
             signal(SIGALRM, SIG_DFL)
 
     def test_write_interrupted(self):
@@ -1102,6 +1103,7 @@ class TestDiskFile:
             # can succeed.
             file.write("hello")
         finally:
+            alarm(0)
             signal(SIGALRM, SIG_DFL)
 
     def test_append_mode(self):

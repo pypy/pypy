@@ -2,8 +2,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, build_type_checkers, Py_ssize_t,
     Py_ssize_tP, CONST_STRING)
-from pypy.module.cpyext.pyobject import PyObject, PyObjectP, borrow_from
-from pypy.module.cpyext.pyobject import RefcountState
+from pypy.module.cpyext.pyobject import PyObject, PyObjectP, as_pyobj
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.interpreter.error import OperationError
 from rpython.rlib.objectmodel import specialize
@@ -14,13 +13,18 @@ def PyDict_New(space):
 
 PyDict_Check, PyDict_CheckExact = build_type_checkers("Dict")
 
-@cpython_api([PyObject, PyObject], PyObject, error=CANNOT_FAIL)
+@cpython_api([PyObject, PyObject], PyObject, error=CANNOT_FAIL,
+             result_borrowed=True)
 def PyDict_GetItem(space, w_dict, w_key):
     try:
         w_res = space.getitem(w_dict, w_key)
     except:
         return None
-    return borrow_from(w_dict, w_res)
+    # NOTE: this works so far because all our dict strategies store
+    # *values* as full objects, which stay alive as long as the dict is
+    # alive and not modified.  So we can return a borrowed ref.
+    # XXX this is wrong with IntMutableCell.  Hope it works...
+    return w_res
 
 @cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
 def PyDict_SetItem(space, w_dict, w_key, w_obj):
@@ -47,7 +51,8 @@ def PyDict_SetItemString(space, w_dict, key_ptr, w_obj):
     else:
         PyErr_BadInternalCall(space)
 
-@cpython_api([PyObject, CONST_STRING], PyObject, error=CANNOT_FAIL)
+@cpython_api([PyObject, CONST_STRING], PyObject, error=CANNOT_FAIL,
+             result_borrowed=True)
 def PyDict_GetItemString(space, w_dict, key):
     """This is the same as PyDict_GetItem(), but key is specified as a
     char*, rather than a PyObject*."""
@@ -55,11 +60,13 @@ def PyDict_GetItemString(space, w_dict, key):
         w_res = space.finditem_str(w_dict, rffi.charp2str(key))
     except:
         w_res = None
-    if w_res is None:
-        return None
-    return borrow_from(w_dict, w_res)
+    # NOTE: this works so far because all our dict strategies store
+    # *values* as full objects, which stay alive as long as the dict is
+    # alive and not modified.  So we can return a borrowed ref.
+    # XXX this is wrong with IntMutableCell.  Hope it works...
+    return w_res
 
-@cpython_api([PyObject, rffi.CCHARP], rffi.INT_real, error=-1)
+@cpython_api([PyObject, CONST_STRING], rffi.INT_real, error=-1)
 def PyDict_DelItemString(space, w_dict, key_ptr):
     """Remove the entry in dictionary p which has a key specified by the string
     key.  Return 0 on success or -1 on failure."""
@@ -98,6 +105,32 @@ def PyDict_Copy(space, w_obj):
     """Return a new dictionary that contains the same key-value pairs as p.
     """
     return space.call_method(space.w_dict, "copy", w_obj)
+
+def _has_val(space, w_dict, w_key):
+    try:
+        w_val = space.getitem(w_dict, w_key)
+    except OperationError as e:
+        if e.match(space, space.w_KeyError):
+            return False
+        else:
+            raise
+    return True
+
+@cpython_api([PyObject, PyObject, rffi.INT_real], rffi.INT_real, error=-1)
+def PyDict_Merge(space, w_a, w_b, override):
+    """Iterate over mapping object b adding key-value pairs to dictionary a.
+    b may be a dictionary, or any object supporting PyMapping_Keys()
+    and PyObject_GetItem(). If override is true, existing pairs in a
+    will be replaced if a matching key is found in b, otherwise pairs will
+    only be added if there is not a matching key in a. Return 0 on
+    success or -1 if an exception was raised.
+    """
+    override = rffi.cast(lltype.Signed, override)
+    w_keys = space.call_method(w_b, "keys")
+    for w_key  in space.iteriterable(w_keys):
+        if not _has_val(space, w_a, w_key) or override != 0:
+            space.setitem(w_a, w_key, space.getitem(w_b, w_key))
+    return 0
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
 def PyDict_Update(space, w_obj, w_other):
@@ -170,10 +203,13 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
     if w_dict is None:
         return 0
 
-    # Note: this is not efficient. Storing an iterator would probably
+    # XXX XXX PyDict_Next is not efficient. Storing an iterator would probably
     # work, but we can't work out how to not leak it if iteration does
-    # not complete.
+    # not complete.  Alternatively, we could add some RPython-only
+    # dict-iterator method to move forward by N steps.
 
+    w_dict.ensure_object_strategy()     # make sure both keys and values can
+                                        # be borrwed
     try:
         w_iter = space.call_method(space.w_dict, "iteritems", w_dict)
         pos = ppos[0]
@@ -183,13 +219,12 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
 
         w_item = space.call_method(w_iter, "next")
         w_key, w_value = space.fixedview(w_item, 2)
-        state = space.fromcache(RefcountState)
         if pkey:
-            pkey[0]   = state.make_borrowed(w_dict, w_key)
+            pkey[0]   = as_pyobj(space, w_key)
         if pvalue:
-            pvalue[0] = state.make_borrowed(w_dict, w_value)
+            pvalue[0] = as_pyobj(space, w_value)
         ppos[0] += 1
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_StopIteration):
             raise
         return 0
@@ -197,6 +232,12 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
 
 @specialize.memo()
 def make_frozendict(space):
+    if space not in _frozendict_cache:
+        _frozendict_cache[space] = _make_frozendict(space)
+    return _frozendict_cache[space]
+        
+_frozendict_cache = {}
+def _make_frozendict(space):
     return space.appexec([], '''():
     import _abcoll
     class FrozenDict(_abcoll.Mapping):
@@ -214,4 +255,16 @@ def make_frozendict(space):
 def PyDictProxy_New(space, w_dict):
     w_frozendict = make_frozendict(space)
     return space.call_function(w_frozendict, w_dict)
+
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+def PyDictProxy_Check(space, w_obj):
+    w_typ = make_frozendict(space)
+    #print 'check', w_typ, space.type(w_obj)
+    return space.isinstance_w(w_obj, w_typ)
+
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+def PyDictProxy_CheckExact(space, w_obj):
+    w_typ = make_frozendict(space)
+    #print 'exact', w_typ, w_obj
+    return space.is_w(space.type(w_obj), w_typ)
 

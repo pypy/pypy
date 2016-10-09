@@ -29,6 +29,7 @@ def expect(f, g, fnname, args, result, resulttype=None):
     assert msg == fnname
     msg = read_message(f)
     assert msg == args
+    assert [type(x) for x in msg] == [type(x) for x in args]
     if isinstance(result, Exception):
         write_exception(g, result)
     else:
@@ -58,7 +59,7 @@ def test_open_dup():
     exe = compile(entry_point)
     g, f = run_in_subprocess(exe)
     expect(f, g, "ll_os.ll_os_open", ("/tmp/foobar", os.O_RDONLY, 0777), 77)
-    expect(f, g, "ll_os.ll_os_dup",  (77,), 78)
+    expect(f, g, "ll_os.ll_os_dup",  (77, True), 78)
     g.close()
     tail = f.read()
     f.close()
@@ -94,7 +95,7 @@ def test_dup2_access():
 
     exe = compile(entry_point)
     g, f = run_in_subprocess(exe)
-    expect(f, g, "ll_os.ll_os_dup2",   (34, 56), None)
+    expect(f, g, "ll_os.ll_os_dup2",   (34, 56, True), None)
     expect(f, g, "ll_os.ll_os_access", ("spam", 77), True)
     g.close()
     tail = f.read()
@@ -134,7 +135,7 @@ def test_time():
     exe = compile(entry_point)
     g, f = run_in_subprocess(exe)
     expect(f, g, "ll_time.ll_time_time", (), 3.141592)
-    expect(f, g, "ll_os.ll_os_dup", (3141,), 3)
+    expect(f, g, "ll_os.ll_os_dup", (3141, True), 3)
     g.close()
     tail = f.read()
     f.close()
@@ -149,7 +150,7 @@ def test_getcwd():
     exe = compile(entry_point)
     g, f = run_in_subprocess(exe)
     expect(f, g, "ll_os.ll_os_getcwd", (), "/tmp/foo/bar")
-    expect(f, g, "ll_os.ll_os_dup", (len("/tmp/foo/bar"),), 3)
+    expect(f, g, "ll_os.ll_os_dup", (len("/tmp/foo/bar"), True), 3)
     g.close()
     tail = f.read()
     f.close()
@@ -159,7 +160,7 @@ def test_oserror():
     def entry_point(argv):
         try:
             os.stat("somewhere")
-        except OSError, e:
+        except OSError as e:
             os.close(e.errno)    # nonsense, just to see outside
         return 0
 
@@ -291,6 +292,21 @@ def test_unsafe_mmap():
     assert tail == ""
     rescode = pipe.wait()
     assert rescode == 0
+
+def test_environ_items():
+    def entry_point(argv):
+        print os.environ.items()
+        return 0
+
+    exe = compile(entry_point)
+    g, f = run_in_subprocess(exe)
+    expect(f, g, "ll_os.ll_os_envitems", (), [])
+    expect(f, g, "ll_os.ll_os_write", (1, "[]\n"), 3)
+    g.close()
+    tail = f.read()
+    f.close()
+    assert tail == ""
+
 
 class TestPrintedResults:
 

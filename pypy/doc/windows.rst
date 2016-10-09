@@ -60,6 +60,7 @@ slower translation::
     set PYPY_GC_MAX_DELTA=200MB
     pypy --jit loop_longevity=300 ../../rpython/bin/rpython -Ojit targetpypystandalone
     set PYPY_GC_MAX_DELTA=
+    PYTHONPATH=../.. ./pypy-c ../tool/build_cffi_imports.py
 
 .. _build instructions: http://pypy.org/download.html#building-from-source
 
@@ -236,6 +237,15 @@ runtime by running::
 Now you should have a tcktk\bin, tcltk\lib, and tcltk\include directory ready
 for use. The release packaging script will pick up the tcltk runtime in the lib
 directory and put it in the archive.
+
+The lzma compression library
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Python 3.3 ship with CFFI wrappers for the lzma library, which can be
+downloaded from this site http://tukaani.org/xz. Python 3.3-3.5 use version
+5.0.5, a prebuilt version can be downloaded from
+http://tukaani.org/xz/xz-5.0.5-windows.zip, check the signature
+http://tukaani.org/xz/xz-5.0.5-windows.zip.sig
 
 
 Using the mingw compiler

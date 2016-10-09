@@ -51,6 +51,8 @@ def syslog(arg1, arg2=None):
     # if log is not opened, open it now
     if not _S_log_open:
         openlog()
+    if isinstance(message, unicode):
+        message = str(message)
     lib.syslog(priority, "%s", message)
 
 @builtinify

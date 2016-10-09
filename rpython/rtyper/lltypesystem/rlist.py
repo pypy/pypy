@@ -1,5 +1,5 @@
 from rpython.rlib import rgc, jit, types
-from rpython.rlib.debug import ll_assert
+from rpython.rtyper.debug import ll_assert
 from rpython.rlib.signature import signature
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem import rstr

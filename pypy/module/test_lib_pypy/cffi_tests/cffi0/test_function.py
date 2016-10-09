@@ -5,35 +5,13 @@ import math, os, sys
 import ctypes.util
 from cffi.backend_ctypes import CTypesBackend
 from pypy.module.test_lib_pypy.cffi_tests.udir import udir
+from pypy.module.test_lib_pypy.cffi_tests.support import FdWriteCapture
 
 try:
     from StringIO import StringIO
 except ImportError:
     from io import StringIO
 
-
-class FdWriteCapture(object):
-    """xxx limited to capture at most 512 bytes of output, according
-    to the Posix manual."""
-
-    def __init__(self, capture_fd):
-        self.capture_fd = capture_fd
-
-    def __enter__(self):
-        self.read_fd, self.write_fd = os.pipe()
-        self.copy_fd = os.dup(self.capture_fd)
-        os.dup2(self.write_fd, self.capture_fd)
-        return self
-
-    def __exit__(self, *args):
-        os.dup2(self.copy_fd, self.capture_fd)
-        os.close(self.copy_fd)
-        os.close(self.write_fd)
-        self._value = os.read(self.read_fd, 512)
-        os.close(self.read_fd)
-
-    def getvalue(self):
-        return self._value
 
 lib_m = 'm'
 if sys.platform == 'win32':
@@ -136,7 +114,7 @@ class TestFunction(object):
         """)
         ffi.C = ffi.dlopen(None)
         ffi.C.fputs   # fetch before capturing, for easier debugging
-        with FdWriteCapture(2) as fd:
+        with FdWriteCapture() as fd:
             ffi.C.fputs(b"hello\n", ffi.C.stderr)
             ffi.C.fputs(b"  world\n", ffi.C.stderr)
         res = fd.getvalue()
@@ -152,7 +130,7 @@ class TestFunction(object):
         """)
         ffi.C = ffi.dlopen(None)
         ffi.C.fputs   # fetch before capturing, for easier debugging
-        with FdWriteCapture(2) as fd:
+        with FdWriteCapture() as fd:
             ffi.C.fputs(b"hello\n", ffi.C.stderr)
             ffi.C.fputs(b"  world\n", ffi.C.stderr)
         res = fd.getvalue()
@@ -167,7 +145,7 @@ class TestFunction(object):
            void *stderr;
         """)
         ffi.C = ffi.dlopen(None)
-        with FdWriteCapture(2) as fd:
+        with FdWriteCapture() as fd:
             ffi.C.fprintf(ffi.C.stderr, b"hello with no arguments\n")
             ffi.C.fprintf(ffi.C.stderr,
                           b"hello, %s!\n", ffi.new("char[]", b"world"))
@@ -229,7 +207,7 @@ class TestFunction(object):
         fptr = ffi.cast("int(*)(const char *txt, void *)", ffi.C.fputs)
         assert fptr == ffi.C.fputs
         assert repr(fptr).startswith("<cdata 'int(*)(char *, void *)' 0x")
-        with FdWriteCapture(2) as fd:
+        with FdWriteCapture() as fd:
             fptr(b"world\n", ffi.C.stderr)
         res = fd.getvalue()
         assert res == b'world\n'
@@ -434,6 +412,7 @@ class TestFunction(object):
             py.test.skip("Windows-only test")
         if self.Backend is CTypesBackend:
             py.test.skip("not with the ctypes backend")
+        win64 = (sys.maxsize > 2**32)
         #
         ffi = FFI(backend=self.Backend())
         ffi.cdef("""
@@ -457,8 +436,11 @@ class TestFunction(object):
         """)
         m = ffi.dlopen("Kernel32.dll")
         tps = ffi.typeof(m.QueryPerformanceFrequency)
-        assert tps is not tpc
-        assert str(tps) == "<ctype 'int(__stdcall *)(long long *)'>"
+        if win64:
+            assert tps is tpc
+        else:
+            assert tps is not tpc
+            assert str(tps) == "<ctype 'int(__stdcall *)(long long *)'>"
         #
         ffi = FFI(backend=self.Backend())
         ffi.cdef("typedef int (__cdecl *fnc_t)(int);")
@@ -466,21 +448,39 @@ class TestFunction(object):
         tpc = ffi.typeof("fnc_t")
         tps = ffi.typeof("fns_t")
         assert str(tpc) == "<ctype 'int(*)(int)'>"
-        assert str(tps) == "<ctype 'int(__stdcall *)(int)'>"
+        if win64:
+            assert tps is tpc
+        else:
+            assert str(tps) == "<ctype 'int(__stdcall *)(int)'>"
         #
         fnc = ffi.cast("fnc_t", 0)
         fns = ffi.cast("fns_t", 0)
         ffi.new("fnc_t[]", [fnc])
-        py.test.raises(TypeError, ffi.new, "fnc_t[]", [fns])
-        py.test.raises(TypeError, ffi.new, "fns_t[]", [fnc])
+        if not win64:
+            py.test.raises(TypeError, ffi.new, "fnc_t[]", [fns])
+            py.test.raises(TypeError, ffi.new, "fns_t[]", [fnc])
         ffi.new("fns_t[]", [fns])
 
     def test_stdcall_only_on_windows(self):
-        if sys.platform == 'win32':
-            py.test.skip("not-Windows-only test")
         ffi = FFI(backend=self.Backend())
         ffi.cdef("double __stdcall sin(double x);")     # stdcall ignored
         m = ffi.dlopen(lib_m)
-        assert "double(*)(double)" in str(ffi.typeof(m.sin))
+        if (sys.platform == 'win32' and sys.maxsize < 2**32 and
+                self.Backend is not CTypesBackend):
+            assert "double(__stdcall *)(double)" in str(ffi.typeof(m.sin))
+        else:
+            assert "double(*)(double)" in str(ffi.typeof(m.sin))
         x = m.sin(1.23)
         assert x == math.sin(1.23)
+
+    def test_dir_on_dlopen_lib(self):
+        ffi = FFI(backend=self.Backend())
+        ffi.cdef("""
+            typedef enum { MYE1, MYE2 } myenum_t;
+            double myfunc(double);
+            double myvar;
+            const double myconst;
+            #define MYFOO 42
+        """)
+        m = ffi.dlopen(lib_m)
+        assert dir(m) == ['MYE1', 'MYE2', 'MYFOO', 'myconst', 'myfunc', 'myvar']

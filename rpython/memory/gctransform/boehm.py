@@ -1,6 +1,7 @@
 from rpython.memory.gctransform.transform import GCTransformer, mallocHelpers
 from rpython.memory.gctransform.support import (get_rtti,
-    _static_deallocator_body_for_type, LLTransformerOp, ll_call_destructor)
+    _static_deallocator_body_for_type, LLTransformerOp, ll_call_destructor,
+    ll_report_finalizer_error)
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.flowspace.model import Constant
 from rpython.rtyper.lltypesystem.lloperation import llop
@@ -46,16 +47,20 @@ class BoehmGCTransformer(GCTransformer):
                 ll_malloc_varsize_no_length, [lltype.Signed]*3, llmemory.Address, inline=False)
             self.malloc_varsize_ptr = self.inittime_helper(
                 ll_malloc_varsize, [lltype.Signed]*4, llmemory.Address, inline=False)
-            self.weakref_create_ptr = self.inittime_helper(
-                ll_weakref_create, [llmemory.Address], llmemory.WeakRefPtr,
-                inline=False)
-            self.weakref_deref_ptr = self.inittime_helper(
-                ll_weakref_deref, [llmemory.WeakRefPtr], llmemory.Address)
+            if self.translator.config.translation.rweakref:
+                self.weakref_create_ptr = self.inittime_helper(
+                    ll_weakref_create, [llmemory.Address], llmemory.WeakRefPtr,
+                    inline=False)
+                self.weakref_deref_ptr = self.inittime_helper(
+                    ll_weakref_deref, [llmemory.WeakRefPtr], llmemory.Address)
             self.identityhash_ptr = self.inittime_helper(
                 ll_identityhash, [llmemory.Address], lltype.Signed,
                 inline=False)
             self.mixlevelannotator.finish()   # for now
             self.mixlevelannotator.backend_optimize()
+
+        self.finalizer_triggers = []
+        self.finalizer_queue_indexes = {}    # {fq: index}
 
     def gct_fv_gc_malloc(self, hop, flags, TYPE, c_size):
         # XXX same behavior for zero=True: in theory that's wrong
@@ -74,7 +79,7 @@ class BoehmGCTransformer(GCTransformer):
 
     def gct_fv_gc_malloc_varsize(self, hop, flags, TYPE, v_length, c_const_size, c_item_size,
                                                                    c_offset_to_length):
-        # XXX same behavior for zero=True: in theory that's wrong        
+        # XXX same behavior for zero=True: in theory that's wrong
         if c_offset_to_length is None:
             v_raw = hop.genop("direct_call",
                                [self.malloc_varsize_no_length_ptr, v_length,
@@ -113,6 +118,39 @@ class BoehmGCTransformer(GCTransformer):
 
         self.finalizer_funcptrs[TYPE] = fptr
         return fptr
+
+    def get_finalizer_queue_index(self, hop):
+        fq_tag = hop.spaceop.args[0].value
+        assert 'FinalizerQueue TAG' in fq_tag.expr
+        fq = fq_tag.default
+        try:
+            index = self.finalizer_queue_indexes[fq]
+        except KeyError:
+            index = len(self.finalizer_queue_indexes)
+            assert index == len(self.finalizer_triggers)
+            #
+            def ll_finalizer_trigger():
+                try:
+                    fq.finalizer_trigger()
+                except Exception as e:
+                    ll_report_finalizer_error(e)
+            ll_trigger = self.annotate_finalizer(ll_finalizer_trigger, [],
+                                                 lltype.Void)
+            self.finalizer_triggers.append(ll_trigger)
+            self.finalizer_queue_indexes[fq] = index
+        return index
+
+    def gct_gc_fq_register(self, hop):
+        index = self.get_finalizer_queue_index(hop)
+        c_index = rmodel.inputconst(lltype.Signed, index)
+        v_ptr = hop.spaceop.args[1]
+        hop.genop("boehm_fq_register", [c_index, v_ptr])
+
+    def gct_gc_fq_next_dead(self, hop):
+        index = self.get_finalizer_queue_index(hop)
+        c_index = rmodel.inputconst(lltype.Signed, index)
+        hop.genop("boehm_fq_next_dead", [c_index],
+                  resultvar = hop.spaceop.result)
 
     def gct_weakref_create(self, hop):
         v_instance, = hop.spaceop.args
@@ -155,6 +193,11 @@ class BoehmGCTransformer(GCTransformer):
         v_int = hop.genop('cast_ptr_to_int', [hop.spaceop.args[0]],
                           resulttype = lltype.Signed)
         hop.genop('int_invert', [v_int], resultvar=hop.spaceop.result)
+
+    def gcheader_initdata(self, obj):
+        hdr = lltype.malloc(self.HDR, immortal=True)
+        hdr.hash = lltype.identityhash_nocache(obj._as_ptr())
+        return hdr._obj
 
 
 ########## weakrefs ##########

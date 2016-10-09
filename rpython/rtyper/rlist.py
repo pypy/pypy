@@ -1,7 +1,7 @@
 from rpython.annotator import model as annmodel
 from rpython.flowspace.model import Constant
 from rpython.rlib import rgc, jit, types
-from rpython.rlib.debug import ll_assert
+from rpython.rtyper.debug import ll_assert
 from rpython.rlib.objectmodel import malloc_zero_filled, enforceargs, specialize
 from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import ovfcheck, widen, r_uint, intmask
@@ -965,14 +965,25 @@ def ll_listdelslice_startstop(l, start, stop):
 ll_listdelslice_startstop.oopspec = 'list.delslice_startstop(l, start, stop)'
 
 def ll_listsetslice(l1, start, stop, l2):
-    count = l2.ll_length()
+    len1 = l1.ll_length()
+    len2 = l2.ll_length()
     ll_assert(start >= 0, "l[start:x] = l with unexpectedly negative start")
-    ll_assert(start <= l1.ll_length(), "l[start:x] = l with start > len(l)")
-    ll_assert(stop <= l1.ll_length(), "stop cannot be past the end of l1")
-    ll_assert(count == stop - start,
-                 "setslice cannot resize lists in RPython")
-    # XXX ...but it would be easy enough to support if really needed
-    ll_arraycopy(l2, l1, 0, start, count)
+    ll_assert(start <= len1, "l[start:x] = l with start > len(l)")
+    ll_assert(stop <= len1, "stop cannot be past the end of l1")
+    if len2 == stop - start:
+        ll_arraycopy(l2, l1, 0, start, len2)
+    elif len2 < stop - start:
+        ll_arraycopy(l2, l1, 0, start, len2)
+        ll_arraycopy(l1, l1, stop, start + len2, len1 - stop)
+        l1._ll_resize_le(len1 + len2 - (stop - start))
+    else: # len2 > stop - start:
+        try:
+            newlength = ovfcheck(len1 + len2)
+        except OverflowError:
+            raise MemoryError
+        l1._ll_resize_ge(newlength)
+        ll_arraycopy(l1, l1, stop, start + len2, len1 - stop)
+        ll_arraycopy(l2, l1, 0, start, len2)
 
 
 # ____________________________________________________________

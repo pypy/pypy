@@ -541,7 +541,8 @@ class RecursiveTests:
             code = hlstr(code)
             return "%s %d %s" % (code, pc, code[pc])
         myjitdriver = JitDriver(greens=['pc', 'code'], reds=['n'],
-                                get_printable_location=p)
+                                get_printable_location=p,
+                                is_recursive=True)
 
         def f(code, n):
             pc = 0
@@ -728,7 +729,7 @@ class RecursiveTests:
                 if codeno == 2:
                     try:
                         portal(1)
-                    except MyException, me:
+                    except MyException as me:
                         i += me.x
                 i += 1
             if codeno == 1:
@@ -1091,7 +1092,7 @@ class RecursiveTests:
                 if codeno < 10:
                     try:
                         portal(codeno + 5, k+1)
-                    except GotValue, e:
+                    except GotValue as e:
                         i += e.result
                     codeno += 1
                 elif codeno == 10:
@@ -1105,7 +1106,7 @@ class RecursiveTests:
         def main(codeno, k):
             try:
                 portal(codeno, k)
-            except GotValue, e:
+            except GotValue as e:
                 return e.result
 
         assert main(0, 1) == 2095
@@ -1311,7 +1312,7 @@ class RecursiveTests:
                 return (code + 1) * 2
 
             driver = JitDriver(greens=["pc", "code"], reds='auto',
-                               get_unique_id=get_unique_id)
+                               get_unique_id=get_unique_id, is_recursive=True)
 
             def f(pc, code):
                 i = 0

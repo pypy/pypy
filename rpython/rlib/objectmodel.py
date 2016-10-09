@@ -9,6 +9,8 @@ import sys
 import types
 import math
 import inspect
+from collections import OrderedDict
+
 from rpython.tool.sourcetools import rpython_wrapper, func_with_new_name
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.flowspace.specialcase import register_flow_sc
@@ -112,6 +114,8 @@ class _Specialize(object):
 
 specialize = _Specialize()
 
+NOT_CONSTANT = object()      # to use in enforceargs()
+
 def enforceargs(*types_, **kwds):
     """ Decorate a function with forcing of RPython-level types on arguments.
     None means no enforcing.
@@ -207,6 +211,18 @@ def always_inline(func):
     func._always_inline_ = True
     return func
 
+def dont_inline(func):
+    """ mark the function as never-to-be-inlined by the RPython optimizations
+    (not the JIT!), no matter its size."""
+    func._dont_inline_ = True
+    return func
+
+def try_inline(func):
+    """ tell the RPython inline (not the JIT!), to try to inline this function,
+    no matter its size."""
+    func._always_inline_ = 'try'
+    return func
+
 
 # ____________________________________________________________
 
@@ -271,8 +287,10 @@ class CDefinedIntSymbolic(Symbolic):
         return lltype.Signed
 
 malloc_zero_filled = CDefinedIntSymbolic('MALLOC_ZERO_FILLED', default=0)
-running_on_llinterp = CDefinedIntSymbolic('RUNNING_ON_LLINTERP', default=1)
-# running_on_llinterp is meant to have the value 0 in all backends
+_translated_to_c = CDefinedIntSymbolic('1 /*_translated_to_c*/', default=0)
+
+def we_are_translated_to_c():
+    return we_are_translated() and _translated_to_c
 
 # ____________________________________________________________
 
@@ -290,6 +308,20 @@ def we_are_translated():
 def sc_we_are_translated(ctx):
     return Constant(True)
 
+def register_replacement_for(replaced_function, sandboxed_name=None):
+    def wrap(func):
+        from rpython.rtyper.extregistry import ExtRegistryEntry
+        class ExtRegistry(ExtRegistryEntry):
+            _about_ = replaced_function
+            def compute_annotation(self):
+                if sandboxed_name:
+                    config = self.bookkeeper.annotator.translator.config
+                    if config.translation.sandbox:
+                        func._sandbox_external_name = sandboxed_name
+                        func._dont_inline_ = True
+                return self.bookkeeper.immutablevalue(func)
+        return func
+    return wrap
 
 def keepalive_until_here(*values):
     pass
@@ -316,6 +348,25 @@ class Entry(ExtRegistryEntry):
 def int_to_bytearray(i):
     # XXX this can be made more efficient in the future
     return bytearray(str(i))
+
+def fetch_translated_config():
+    """Returns the config that is current when translating.
+    Returns None if not translated.
+    """
+    return None
+
+class Entry(ExtRegistryEntry):
+    _about_ = fetch_translated_config
+
+    def compute_result_annotation(self):
+        config = self.bookkeeper.annotator.translator.config
+        return self.bookkeeper.immutablevalue(config)
+
+    def specialize_call(self, hop):
+        from rpython.rtyper.lltypesystem import lltype
+        translator = hop.rtyper.annotator.translator
+        hop.exception_cannot_occur()
+        return hop.inputconst(lltype.Void, translator.config)
 
 # ____________________________________________________________
 
@@ -583,22 +634,10 @@ class Entry(ExtRegistryEntry):
 def hlinvoke(repr, llcallable, *args):
     raise TypeError("hlinvoke is meant to be rtyped and not called direclty")
 
-def invoke_around_extcall(before, after):
-    """Call before() before any external function call, and after() after.
-    At the moment only one pair before()/after() can be registered at a time.
-    """
-    # NOTE: the hooks are cleared during translation!  To be effective
-    # in a compiled program they must be set at run-time.
-    from rpython.rtyper.lltypesystem import rffi
-    rffi.aroundstate.before = before
-    rffi.aroundstate.after = after
-    # the 'aroundstate' contains regular function and not ll pointers to them,
-    # but let's call llhelper() anyway to force their annotation
-    from rpython.rtyper.annlowlevel import llhelper
-    llhelper(rffi.AroundFnPtr, before)
-    llhelper(rffi.AroundFnPtr, after)
-
 def is_in_callback():
+    """Returns True if we're currently in a callback *or* if there are
+    multiple threads around.
+    """
     from rpython.rtyper.lltypesystem import rffi
     return rffi.stackcounter.stacks_counter > 1
 
@@ -744,8 +783,6 @@ class r_dict(object):
 
 class r_ordereddict(r_dict):
     def _newdict(self):
-        from collections import OrderedDict
-
         return OrderedDict()
 
 class _r_dictkey(object):

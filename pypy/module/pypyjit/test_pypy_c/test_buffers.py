@@ -34,7 +34,7 @@ class TestBuffers(BaseTestPyPyC):
             i = 0
             while i < n:
                 i += 1
-                struct.unpack('i', a)  # ID: unpack
+                struct.unpack('<i', a)  # ID: unpack
             return i
         log = self.run(main, [1000])
         assert log.result == 1000

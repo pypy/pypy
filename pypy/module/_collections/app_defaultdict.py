@@ -12,6 +12,7 @@ import _collections
 
 class defaultdict(dict):
     __slots__ = ['default_factory']
+    __module__ = 'collections'
 
     def __init__(self, *args, **kwds):
         if len(args) > 0:

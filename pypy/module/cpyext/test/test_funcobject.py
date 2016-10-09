@@ -78,6 +78,11 @@ class TestFunctionObject(BaseApiTest):
         w_code = api.PyCode_NewEmpty(filename, funcname, 3)
         assert w_code.co_filename == 'filename'
         assert w_code.co_firstlineno == 3
+
+        ref = make_ref(space, w_code)
+        assert "filename" == space.unwrap(
+            from_ref(space, rffi.cast(PyCodeObject, ref).c_co_filename))
+        api.Py_DecRef(ref)
         rffi.free_charp(filename)
         rffi.free_charp(funcname)
 

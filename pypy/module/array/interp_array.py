@@ -19,36 +19,36 @@ from pypy.module._file.interp_file import W_File
 @unwrap_spec(typecode=str)
 def w_array(space, w_cls, typecode, __args__):
     if len(__args__.arguments_w) > 1:
-        msg = 'array() takes at most 2 arguments'
-        raise OperationError(space.w_TypeError, space.wrap(msg))
+        raise oefmt(space.w_TypeError, "array() takes at most 2 arguments")
     if len(typecode) != 1:
-        msg = 'array() argument 1 must be char, not str'
-        raise OperationError(space.w_TypeError, space.wrap(msg))
+        raise oefmt(space.w_TypeError,
+                    "array() argument 1 must be char, not str")
     typecode = typecode[0]
 
     if space.is_w(w_cls, space.gettypeobject(W_ArrayBase.typedef)):
         if __args__.keywords:
-            msg = 'array.array() does not take keyword arguments'
-            raise OperationError(space.w_TypeError, space.wrap(msg))
+            raise oefmt(space.w_TypeError,
+                        "array.array() does not take keyword arguments")
 
     for tc in unroll_typecodes:
         if typecode == tc:
             a = space.allocate_instance(types[tc].w_class, w_cls)
             a.__init__(space)
-
-            if len(__args__.arguments_w) > 0:
-                w_initializer = __args__.arguments_w[0]
-                if space.type(w_initializer) is space.w_str:
-                    a.descr_fromstring(space, w_initializer)
-                elif space.type(w_initializer) is space.w_list:
-                    a.descr_fromlist(space, w_initializer)
-                else:
-                    a.extend(w_initializer, True)
             break
     else:
-        msg = 'bad typecode (must be c, b, B, u, h, H, i, I, l, L, f or d)'
-        raise OperationError(space.w_ValueError, space.wrap(msg))
+        raise oefmt(space.w_ValueError,
+                    "bad typecode (must be c, b, B, u, h, H, i, I, l, L, f or "
+                    "d)")
 
+    if len(__args__.arguments_w) > 0:
+        w_initializer = __args__.arguments_w[0]
+        w_initializer_type = space.type(w_initializer)
+        if w_initializer_type is space.w_str:
+            a.descr_fromstring(space, w_initializer)
+        elif w_initializer_type is space.w_list:
+            a.descr_fromlist(space, w_initializer)
+        else:
+            a.extend(w_initializer, True)
     return a
 
 
@@ -209,8 +209,7 @@ class W_ArrayBase(W_Root):
         Append items to array from list.
         """
         if not space.isinstance_w(w_lst, space.w_list):
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("arg must be list"))
+            raise oefmt(space.w_TypeError, "arg must be list")
         s = self.len
         try:
             self.fromsequence(w_lst)
@@ -226,11 +225,11 @@ class W_ArrayBase(W_Root):
         """
         size = self.len
         if size == 0:
-            return space.wrap('')
+            return space.newbytes('')
         cbuf = self._charbuf_start()
         s = rffi.charpsize2str(cbuf, size * self.itemsize)
         self._charbuf_stop()
-        return self.space.wrap(s)
+        return self.space.newbytes(s)
 
     def descr_fromstring(self, space, w_s):
         """ fromstring(string)
@@ -240,8 +239,8 @@ class W_ArrayBase(W_Root):
         """
         s = space.getarg_w('s#', w_s)
         if len(s) % self.itemsize != 0:
-            msg = 'string length not a multiple of item size'
-            raise OperationError(self.space.w_ValueError, self.space.wrap(msg))
+            raise oefmt(self.space.w_ValueError,
+                        "string length not a multiple of item size")
         oldlen = self.len
         new = len(s) / self.itemsize
         if not new:
@@ -264,15 +263,14 @@ class W_ArrayBase(W_Root):
         except OverflowError:
             raise MemoryError
         w_item = space.call_method(w_f, 'read', space.wrap(size))
-        item = space.str_w(w_item)
+        item = space.bytes_w(w_item)
         if len(item) < size:
             n = len(item) % self.itemsize
             elems = max(0, len(item) - (len(item) % self.itemsize))
             if n != 0:
                 item = item[0:elems]
             self.descr_fromstring(space, space.wrap(item))
-            msg = "not enough items in file"
-            raise OperationError(space.w_EOFError, space.wrap(msg))
+            raise oefmt(space.w_EOFError, "not enough items in file")
         self.descr_fromstring(space, w_item)
 
     @unwrap_spec(w_f=W_File)
@@ -301,8 +299,8 @@ class W_ArrayBase(W_Root):
         if self.typecode == 'u':
             self.fromsequence(w_ustr)
         else:
-            msg = "fromunicode() may only be called on type 'u' arrays"
-            raise OperationError(space.w_ValueError, space.wrap(msg))
+            raise oefmt(space.w_ValueError,
+                        "fromunicode() may only be called on type 'u' arrays")
 
     def descr_tounicode(self, space):
         """ tounicode() -> unicode
@@ -316,8 +314,8 @@ class W_ArrayBase(W_Root):
             buf = rffi.cast(UNICODE_ARRAY, self._buffer_as_unsigned())
             return space.wrap(rffi.wcharpsize2unicode(buf, self.len))
         else:
-            msg = "tounicode() may only be called on type 'u' arrays"
-            raise OperationError(space.w_ValueError, space.wrap(msg))
+            raise oefmt(space.w_ValueError,
+                        "tounicode() may only be called on type 'u' arrays")
 
     def descr_buffer_info(self, space):
         """ buffer_info() -> (address, length)
@@ -340,10 +338,10 @@ class W_ArrayBase(W_Root):
         else:
             args = [space.wrap(self.typecode)]
         try:
-            dct = space.getattr(self, space.wrap('__dict__'))
+            w_dict = space.getattr(self, space.wrap('__dict__'))
         except OperationError:
-            dct = space.w_None
-        return space.newtuple([space.type(self), space.newtuple(args), dct])
+            w_dict = space.w_None
+        return space.newtuple([space.type(self), space.newtuple(args), w_dict])
 
     def descr_copy(self, space):
         """ copy(array)
@@ -366,8 +364,8 @@ class W_ArrayBase(W_Root):
         not 1, 2, 4, or 8 bytes in size, RuntimeError is raised.
         """
         if self.itemsize not in [1, 2, 4, 8]:
-            msg = "byteswap not supported for this array"
-            raise OperationError(space.w_RuntimeError, space.wrap(msg))
+            raise oefmt(space.w_RuntimeError,
+                        "byteswap not supported for this array")
         if self.len == 0:
             return
         bytes = self._charbuf_start()
@@ -556,18 +554,18 @@ class TypeCode(object):
         self.w_class = None
         self.method = method
 
-        if self.canoverflow:
-            assert self.bytes <= rffi.sizeof(rffi.ULONG)
-            if self.bytes == rffi.sizeof(rffi.ULONG) and not signed and \
-                    self.unwrap == 'int_w':
-                # Treat this type as a ULONG
-                self.unwrap = 'bigint_w'
-                self.canoverflow = False
-
     def _freeze_(self):
         # hint for the annotator: track individual constant instances
         return True
 
+if rffi.sizeof(rffi.UINT) == rffi.sizeof(rffi.ULONG):
+    # 32 bits: UINT can't safely overflow into a C long (rpython int)
+    # via int_w, handle it like ULONG below
+    _UINTTypeCode = \
+         TypeCode(rffi.UINT,          'bigint_w')
+else:
+    _UINTTypeCode = \
+         TypeCode(rffi.UINT,          'int_w', True)
 types = {
     'c': TypeCode(lltype.Char,        'str_w', method=''),
     'u': TypeCode(lltype.UniChar,     'unicode_w', method=''),
@@ -576,7 +574,7 @@ types = {
     'h': TypeCode(rffi.SHORT,         'int_w', True, True),
     'H': TypeCode(rffi.USHORT,        'int_w', True),
     'i': TypeCode(rffi.INT,           'int_w', True, True),
-    'I': TypeCode(rffi.UINT,          'int_w', True),
+    'I': _UINTTypeCode,
     'l': TypeCode(rffi.LONG,          'int_w', True, True),
     'L': TypeCode(rffi.ULONG,         'bigint_w'),  # Overflow handled by
                                                     # rbigint.touint() which
@@ -598,6 +596,18 @@ class ArrayBuffer(Buffer):
 
     def getlength(self):
         return self.array.len * self.array.itemsize
+
+    def getformat(self):
+        return self.array.typecode
+
+    def getitemsize(self):
+        return self.array.itemsize
+
+    def getndim(self):
+        return 1
+
+    def getstrides(self):
+        return [self.getitemsize()]
 
     def getitem(self, index):
         array = self.array
@@ -649,7 +659,7 @@ def make_array(mytype):
             unwrap = getattr(space, mytype.unwrap)
             try:
                 item = unwrap(w_item)
-            except OperationError, e:
+            except OperationError as e:
                 if space.isinstance_w(w_item, space.w_float):
                     # Odd special case from cpython
                     raise
@@ -665,15 +675,13 @@ def make_array(mytype):
                 try:
                     item = item.touint()
                 except (ValueError, OverflowError):
-                    msg = 'unsigned %d-byte integer out of range' % \
-                          mytype.bytes
-                    raise OperationError(space.w_OverflowError,
-                                         space.wrap(msg))
+                    raise oefmt(space.w_OverflowError,
+                                "unsigned %d-byte integer out of range",
+                                mytype.bytes)
                 return rffi.cast(mytype.itemtype, item)
             if mytype.unwrap == 'str_w' or mytype.unwrap == 'unicode_w':
                 if len(item) != 1:
-                    msg = 'array item must be char'
-                    raise OperationError(space.w_TypeError, space.wrap(msg))
+                    raise oefmt(space.w_TypeError, "array item must be char")
                 item = item[0]
                 return rffi.cast(mytype.itemtype, item)
             #
@@ -795,7 +803,7 @@ def make_array(mytype):
                 space = self.space
                 try:
                     w_item = space.next(w_iterator)
-                except OperationError, e:
+                except OperationError as e:
                     if not e.match(space, space.w_StopIteration):
                         raise
                     break  # done
@@ -816,8 +824,8 @@ def make_array(mytype):
                 self.setlen(oldlen + i)
             elif (not accept_different_array
                   and isinstance(w_iterable, W_ArrayBase)):
-                msg = "can only extend with array of same kind"
-                raise OperationError(space.w_TypeError, space.wrap(msg))
+                raise oefmt(space.w_TypeError,
+                            "can only extend with array of same kind")
             else:
                 self.fromsequence(w_iterable)
 
@@ -861,8 +869,7 @@ def make_array(mytype):
                 w_item = self.w_getitem(space, i)
                 if space.is_true(space.eq(w_item, w_val)):
                     return space.wrap(i)
-            msg = 'array.index(x): x not in list'
-            raise OperationError(space.w_ValueError, space.wrap(msg))
+            raise oefmt(space.w_ValueError, "array.index(x): x not in list")
 
         def descr_reverse(self, space):
             b = self.buffer
@@ -873,8 +880,7 @@ def make_array(mytype):
             if i < 0:
                 i += self.len
             if i < 0 or i >= self.len:
-                msg = 'pop index out of range'
-                raise OperationError(space.w_IndexError, space.wrap(msg))
+                raise oefmt(space.w_IndexError, "pop index out of range")
             w_val = self.w_getitem(space, i)
             while i < self.len - 1:
                 self.buffer[i] = self.buffer[i + 1]
@@ -916,16 +922,15 @@ def make_array(mytype):
         def setitem(self, space, w_idx, w_item):
             idx, stop, step = space.decode_index(w_idx, self.len)
             if step != 0:
-                msg = 'can only assign array to array slice'
-                raise OperationError(self.space.w_TypeError,
-                                     self.space.wrap(msg))
+                raise oefmt(self.space.w_TypeError,
+                            "can only assign array to array slice")
             item = self.item_w(w_item)
             self.buffer[idx] = item
 
         def setitem_slice(self, space, w_idx, w_item):
             if not isinstance(w_item, W_Array):
-                raise OperationError(space.w_TypeError, space.wrap(
-                    "can only assign to a slice array"))
+                raise oefmt(space.w_TypeError,
+                            "can only assign to a slice array")
             start, stop, step, size = self.space.decode_index4(w_idx, self.len)
             assert step != 0
             if w_item.len != size or self is w_item:
@@ -1018,7 +1023,7 @@ def make_array(mytype):
     def _mul_helper(space, self, w_repeat, is_inplace):
         try:
             repeat = space.getindex_w(w_repeat, space.w_OverflowError)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
             raise

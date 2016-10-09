@@ -10,13 +10,11 @@ import types
 from rpython.translator import simplify
 from rpython.flowspace.model import FunctionGraph, checkgraph, Block
 from rpython.flowspace.objspace import build_flow
-from rpython.tool.ansi_print import ansi_log
+from rpython.tool.ansi_print import AnsiLogger
 from rpython.tool.sourcetools import nice_repr_for_func
 from rpython.config.translationoption import get_platform
 
-import py
-log = py.log.Producer("flowgraph")
-py.log.setconsumer("flowgraph", ansi_log)
+log = AnsiLogger("flowgraph")
 
 class TranslationContext(object):
     FLOWING_FLAGS = {
@@ -50,14 +48,12 @@ class TranslationContext(object):
             graph = self._prebuilt_graphs.pop(func)
         else:
             if self.config.translation.verbose:
-                log.start(nice_repr_for_func(func))
+                log(nice_repr_for_func(func))
             graph = build_flow(func)
             simplify.simplify_graph(graph)
             if self.config.translation.list_comprehension_operations:
                 simplify.detect_list_comprehension(graph)
-            if self.config.translation.verbose:
-                log.done(func.__name__)
-            elif not mute_dot:
+            if not self.config.translation.verbose and not mute_dot:
                 log.dot()
             self.graphs.append(graph)   # store the graph in our list
         return graph

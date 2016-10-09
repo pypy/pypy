@@ -1,5 +1,5 @@
 import os
-from rpython.flowspace.model import Constant, const
+from rpython.flowspace.model import Constant
 
 SPECIAL_CASES = {}
 
@@ -40,12 +40,6 @@ def sc_locals(_, *args):
         "pytest.ini from the root of the PyPy repository into your "
         "own project.")
 
-@register_flow_sc(isinstance)
-def sc_isinstance(ctx, w_instance, w_type):
-    if w_instance.foldable() and w_type.foldable():
-        return const(isinstance(w_instance.value, w_type.value))
-    return ctx.appcall(isinstance, w_instance, w_type)
-
 @register_flow_sc(getattr)
 def sc_getattr(ctx, w_obj, w_index, w_default=None):
     if w_default is not None:
@@ -83,6 +77,7 @@ def rpython_print_item(s):
     for c in s:
         buf.append(c)
     buf.append(' ')
+rpython_print_item._annenforceargs_ = (str,)
 
 def rpython_print_newline():
     buf = stdoutbuffer.linebuf

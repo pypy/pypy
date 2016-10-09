@@ -1,9 +1,14 @@
 .hg
 .svn
 
+# VIM
+*.swp
+*.swo
+
 *.pyc
 *.pyo
 *~
+__pycache__/
 
 bin/pypy-c
 include/*.h
@@ -22,4 +27,6 @@ pypy/translator/c/src/dtoa.o
 pypy/translator/goal/pypy-c
 pypy/translator/goal/target*-c
 release/
+!pypy/tool/release/
 rpython/_cache/
+.cache/

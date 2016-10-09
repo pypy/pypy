@@ -16,8 +16,9 @@ from pypy.objspace.std.basestringtype import basestring_typedef
 from pypy.objspace.std.formatting import mod_format
 from pypy.objspace.std.stringmethods import StringMethods
 from pypy.objspace.std.unicodeobject import (
-    _get_encoding_and_errors, decode_object, unicode_from_encoded_object,
-    unicode_from_string)
+    decode_object, unicode_from_encoded_object,
+    unicode_from_string, getdefaultencoding)
+from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT
 
 
 class W_AbstractBytesObject(W_Root):
@@ -30,22 +31,31 @@ class W_AbstractBytesObject(W_Root):
             return True
         if self.user_overridden_class or w_other.user_overridden_class:
             return False
-        return space.str_w(self) is space.str_w(w_other)
+        s1 = space.str_w(self)
+        s2 = space.str_w(w_other)
+        if len(s2) > 1:
+            return s1 is s2
+        else:            # strings of len <= 1 are unique-ified
+            return s1 == s2
 
     def immutable_unique_id(self, space):
         if self.user_overridden_class:
             return None
-        return space.wrap(compute_unique_id(space.str_w(self)))
+        s = space.str_w(self)
+        if len(s) > 1:
+            uid = compute_unique_id(s)
+        else:            # strings of len <= 1 are unique-ified
+            if len(s) == 1:
+                base = ord(s[0])     # base values 0-255
+            else:
+                base = 256           # empty string: base value 256
+            uid = (base << IDTAG_SHIFT) | IDTAG_SPECIAL
+        return space.wrap(uid)
 
     def unicode_w(self, space):
         # Use the default encoding.
-        w_defaultencoding = space.call_function(space.sys.get(
-                                                'getdefaultencoding'))
-        encoding, errors = _get_encoding_and_errors(space, w_defaultencoding,
-                                                    space.w_None)
-        if encoding is None and errors is None:
-            return space.unicode_w(unicode_from_string(space, self))
-        return space.unicode_w(decode_object(space, self, encoding, errors))
+        encoding = getdefaultencoding(space)
+        return space.unicode_w(decode_object(space, self, encoding, None))
 
     def descr_add(self, space, w_other):
         """x.__add__(y) <==> x+y"""
@@ -424,7 +434,6 @@ class W_AbstractBytesObject(W_Root):
         of the specified width. The string S is never truncated.
         """
 
-
 class W_BytesObject(W_AbstractBytesObject):
     import_from_mixin(StringMethods)
     _immutable_fields_ = ['_value']
@@ -451,8 +460,13 @@ class W_BytesObject(W_AbstractBytesObject):
         return StringBuffer(self._value)
 
     def writebuf_w(self, space):
-        raise OperationError(space.w_TypeError, space.wrap(
-            "Cannot use string as modifiable buffer"))
+        raise oefmt(space.w_TypeError,
+                    "Cannot use string as modifiable buffer")
+
+    def descr_getbuffer(self, space, w_flags):
+        #from pypy.objspace.std.bufferobject import W_Buffer
+        #return W_Buffer(StringBuffer(self._value))
+        return self
 
     charbuf_w = str_w
 
@@ -487,10 +501,13 @@ class W_BytesObject(W_AbstractBytesObject):
                 isinstance(w_other, W_UnicodeObject))
 
     @staticmethod
-    def _op_val(space, w_other):
+    def _op_val(space, w_other, strict=None):
+        if strict and not space.isinstance_w(w_other, space.w_str):
+            raise oefmt(space.w_TypeError,
+                "%s arg must be None, str or unicode", strict)
         try:
             return space.str_w(w_other)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_TypeError):
                 raise
         return space.charbuf_w(w_other)
@@ -569,7 +586,7 @@ class W_BytesObject(W_AbstractBytesObject):
     def descr_str(self, space):
         if type(self) is W_BytesObject:
             return self
-        return wrapstr(space, self._value)
+        return W_BytesObject(self._value)
 
     def descr_hash(self, space):
         x = compute_hash(self._value)
@@ -715,8 +732,8 @@ class W_BytesObject(W_AbstractBytesObject):
         l = space.listview_bytes(w_list)
         if l is not None:
             if len(l) == 1:
-                return space.wrap(l[0])
-            return space.wrap(self._val(space).join(l))
+                return space.newbytes(l[0])
+            return space.newbytes(self._val(space).join(l))
         return self._StringMethods_descr_join(space, w_list)
 
     _StringMethods_descr_split = descr_split
@@ -846,36 +863,10 @@ def _create_list_from_bytes(value):
     return [s for s in value]
 
 W_BytesObject.EMPTY = W_BytesObject('')
-W_BytesObject.PREBUILT = [W_BytesObject(chr(i)) for i in range(256)]
-del i
-
-
-def wrapstr(space, s):
-    if space.config.objspace.std.sharesmallstr:
-        if space.config.objspace.std.withprebuiltchar:
-            # share characters and empty string
-            if len(s) <= 1:
-                if len(s) == 0:
-                    return W_BytesObject.EMPTY
-                else:
-                    s = s[0]     # annotator hint: a single char
-                    return wrapchar(space, s)
-        else:
-            # only share the empty string
-            if len(s) == 0:
-                return W_BytesObject.EMPTY
-    return W_BytesObject(s)
-
-
-def wrapchar(space, c):
-    if space.config.objspace.std.withprebuiltchar and not we_are_jitted():
-        return W_BytesObject.PREBUILT[ord(c)]
-    else:
-        return W_BytesObject(c)
 
 
 W_BytesObject.typedef = TypeDef(
-    "str", basestring_typedef,
+    "str", basestring_typedef, None, "read",
     __new__ = interp2app(W_BytesObject.descr_new),
     __doc__ = """str(object='') -> string
 
@@ -941,6 +932,7 @@ W_BytesObject.typedef = TypeDef(
     translate = interpindirect2app(W_AbstractBytesObject.descr_translate),
     upper = interpindirect2app(W_AbstractBytesObject.descr_upper),
     zfill = interpindirect2app(W_AbstractBytesObject.descr_zfill),
+    __buffer__ = interp2app(W_BytesObject.descr_getbuffer),
 
     format = interpindirect2app(W_BytesObject.descr_format),
     __format__ = interpindirect2app(W_BytesObject.descr__format__),

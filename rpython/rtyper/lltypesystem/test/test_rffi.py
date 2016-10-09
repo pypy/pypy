@@ -38,6 +38,24 @@ class BaseTestRffi:
         xf = self.compile(f, [])
         assert xf() == 8+3
 
+    def test_no_float_to_int_conversion(self):
+        c_source = py.code.Source("""
+        int someexternalfunction(int x)
+        {
+            return (x + 3);
+        }
+        """)
+
+        eci = ExternalCompilationInfo(separate_module_sources=[c_source])
+        z = llexternal('someexternalfunction', [Signed], Signed,
+                       compilation_info=eci)
+
+        def f():
+            return z(8.2)
+
+        py.test.raises(TypeError, f)
+        py.test.raises(TypeError, self.compile, f, [])
+
     def test_hashdefine(self):
         h_source = """
         #define X(i) (i+3)
@@ -49,6 +67,7 @@ class BaseTestRffi:
         eci = ExternalCompilationInfo(includes=['stuff.h'],
                                       include_dirs=[udir])
         z = llexternal('X', [Signed], Signed, compilation_info=eci)
+        py.test.raises(AssertionError, z, 8, 9)
 
         def f():
             return z(8)
@@ -516,7 +535,7 @@ class BaseTestRffi:
     def test_nonmovingbuffer(self):
         d = 'some cool data that should not move'
         def f():
-            buf, is_pinned, is_raw = get_nonmovingbuffer(d)
+            buf, flag = get_nonmovingbuffer(d)
             try:
                 counter = 0
                 for i in range(len(d)):
@@ -524,7 +543,7 @@ class BaseTestRffi:
                         counter += 1
                 return counter
             finally:
-                free_nonmovingbuffer(d, buf, is_pinned, is_raw)
+                free_nonmovingbuffer(d, buf, flag)
         assert f() == len(d)
         fn = self.compile(f, [], gcpolicy='ref')
         assert fn() == len(d)
@@ -534,13 +553,13 @@ class BaseTestRffi:
         def f():
             counter = 0
             for n in range(32):
-                buf, is_pinned, is_raw = get_nonmovingbuffer(d)
+                buf, flag = get_nonmovingbuffer(d)
                 try:
                     for i in range(len(d)):
                         if buf[i] == d[i]:
                             counter += 1
                 finally:
-                    free_nonmovingbuffer(d, buf, is_pinned, is_raw)
+                    free_nonmovingbuffer(d, buf, flag)
             return counter
         fn = self.compile(f, [], gcpolicy='semispace')
         # The semispace gc uses raw_malloc for its internal data structs
@@ -555,13 +574,13 @@ class BaseTestRffi:
         def f():
             counter = 0
             for n in range(32):
-                buf, is_pinned, is_raw = get_nonmovingbuffer(d)
+                buf, flag = get_nonmovingbuffer(d)
                 try:
                     for i in range(len(d)):
                         if buf[i] == d[i]:
                             counter += 1
                 finally:
-                    free_nonmovingbuffer(d, buf, is_pinned, is_raw)
+                    free_nonmovingbuffer(d, buf, flag)
             return counter
         fn = self.compile(f, [], gcpolicy='incminimark')
         # The incminimark gc uses raw_malloc for its internal data structs
@@ -687,42 +706,6 @@ class TestRffiInternals:
             return n
 
         assert interpret(f, []) == 4
-
-    def test_around_extcall(self):
-        if sys.platform == "win32":
-            py.test.skip('No pipes on windows')
-        import os
-        from rpython.annotator import model as annmodel
-        from rpython.rlib.objectmodel import invoke_around_extcall
-        from rpython.rtyper.extfuncregistry import register_external
-        read_fd, write_fd = os.pipe()
-        try:
-            # we need an external function that is not going to get wrapped around
-            # before()/after() calls, in order to call it from before()/after()...
-            def mywrite(s):
-                os.write(write_fd, s)
-            def llimpl(s):
-                s = ''.join(s.chars)
-                os.write(write_fd, s)
-            register_external(mywrite, [str], annmodel.s_None, 'll_mywrite',
-                              llfakeimpl=llimpl, sandboxsafe=True)
-
-            def before():
-                mywrite("B")
-            def after():
-                mywrite("A")
-            def f():
-                os.write(write_fd, "-")
-                invoke_around_extcall(before, after)
-                os.write(write_fd, "E")
-
-            interpret(f, [])
-            data = os.read(read_fd, 99)
-            assert data == "-BEA"
-
-        finally:
-            os.close(write_fd)
-            os.close(read_fd)
 
     def test_external_callable(self):
         """ Try to call some llexternal function with llinterp
@@ -861,3 +844,21 @@ def test_c_memcpy():
     assert charp2str(p2) == "helLD"
     free_charp(p1)
     free_charp(p2)
+
+def test_sign_when_casting_uint_to_larger_int():
+    from rpython.rtyper.lltypesystem import rffi
+    from rpython.rlib.rarithmetic import r_uint32, r_uint64
+    #
+    value = 0xAAAABBBB
+    assert cast(lltype.SignedLongLong, r_uint32(value)) == value
+    if hasattr(rffi, '__INT128_T'):
+        value = 0xAAAABBBBCCCCDDDD
+        assert cast(rffi.__INT128_T, r_uint64(value)) == value
+
+def test_scoped_view_charp():
+    s = 'bar'
+    with scoped_view_charp(s) as buf:
+        assert buf[0] == 'b'
+        assert buf[1] == 'a'
+        assert buf[2] == 'r'
+        assert buf[3] == '\x00'

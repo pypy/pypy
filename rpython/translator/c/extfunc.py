@@ -1,71 +1,15 @@
 import types
 
 from rpython.flowspace.model import FunctionGraph
-from rpython.rtyper.lltypesystem import lltype, rstr, rlist
+from rpython.annotator.listdef import s_list_of_strings
+from rpython.rtyper.lltypesystem import lltype, rlist
 from rpython.rtyper.lltypesystem.rstr import STR, mallocstr
 from rpython.translator.c.support import cdecl
 
 
-def find_list_of_str(rtyper):
-    for r in rtyper.reprs.itervalues():
-        if isinstance(r, rlist.ListRepr) and r.item_repr is rstr.string_repr:
-            return r.lowleveltype.TO
-    return None
-
-def predeclare_common_types(db, rtyper):
-    # Common types
-    yield ('RPyString', STR)
-    LIST_OF_STR = find_list_of_str(rtyper)
-    if LIST_OF_STR is not None:
-        yield ('RPyListOfString', LIST_OF_STR)
-
-def predeclare_utility_functions(db, rtyper):
-    # Common utility functions
-    def RPyString_New(length=lltype.Signed):
-        return mallocstr(length)
-
-    # !!!
-    # be extremely careful passing a gc tracked object
-    # from such an helper result to another one
-    # as argument, this could result in leaks
-    # Such result should be only from C code
-    # returned directly as results
-
-    LIST_OF_STR = find_list_of_str(rtyper)
-    if LIST_OF_STR is not None:
-        p = lltype.Ptr(LIST_OF_STR)
-
-        def _RPyListOfString_New(length=lltype.Signed):
-            return LIST_OF_STR.ll_newlist(length)
-
-        def _RPyListOfString_SetItem(l=p,
-                                    index=lltype.Signed,
-                                    newstring=lltype.Ptr(STR)):
-            rlist.ll_setitem_nonneg(rlist.dum_nocheck, l, index, newstring)
-
-        def _RPyListOfString_GetItem(l=p,
-                                    index=lltype.Signed):
-            return rlist.ll_getitem_fast(l, index)
-
-        def _RPyListOfString_Length(l=p):
-            return rlist.ll_length(l)
-
-    for fname, f in locals().items():
-        if isinstance(f, types.FunctionType):
-            # XXX this is painful :(
-            if (LIST_OF_STR, fname) in db.helper2ptr:
-                yield (fname, db.helper2ptr[LIST_OF_STR, fname])
-            else:
-                # hack: the defaults give the type of the arguments
-                graph = rtyper.annotate_helper(f, f.func_defaults)
-                db.helper2ptr[LIST_OF_STR, fname] = graph
-                yield (fname, graph)
-
-
-def predeclare_exception_data(db, rtyper):
+def predeclare_exception_data(exctransformer, rtyper):
     # Exception-related types and constants
     exceptiondata = rtyper.exceptiondata
-    exctransformer = db.exctransformer
 
     yield ('RPYTHON_EXCEPTION_VTABLE', exceptiondata.lltype_of_exception_type)
     yield ('RPYTHON_EXCEPTION',        exceptiondata.lltype_of_exception_value)
@@ -91,21 +35,18 @@ def predeclare_exception_data(db, rtyper):
 
 
 def predeclare_all(db, rtyper):
-    for fn in [predeclare_common_types,
-               predeclare_utility_functions,
-               predeclare_exception_data,
-               ]:
-        for t in fn(db, rtyper):
-            yield t
+    # Common types
+    yield ('RPyString', STR)
+
+    exctransformer = db.exctransformer
+    for t in predeclare_exception_data(exctransformer, rtyper):
+        yield t
 
 
 def get_all(db, rtyper):
-    for fn in [predeclare_common_types,
-               predeclare_utility_functions,
-               predeclare_exception_data,
-               ]:
-        for t in fn(db, rtyper):
-            yield t[1]
+    for name, fnptr in predeclare_all(db, rtyper):
+        yield fnptr
+
 
 # ____________________________________________________________
 

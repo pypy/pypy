@@ -173,7 +173,6 @@ def create_file(filename, mode="r", buffering=-1):
 
 def create_fdopen_rfile(fd, mode="r", buffering=-1):
     newmode = _sanitize_mode(mode)
-    fd = rffi.cast(rffi.INT, fd)
     rposix.validate_fd(fd)
     ll_mode = rffi.str2charp(newmode)
     try:

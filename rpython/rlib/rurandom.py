@@ -86,27 +86,29 @@ elif 0:  # __VMS
 else:  # Posix implementation
     def init_urandom():
         """NOT_RPYTHON
-        Return an array of one int, initialized to 0.
-        It is filled automatically the first time urandom() is called.
         """
-        return lltype.malloc(rffi.CArray(lltype.Signed), 1,
-                             immortal=True, zero=True)
+        return None
 
     def urandom(context, n):
         "Read n bytes from /dev/urandom."
         result = ''
         if n == 0:
             return result
-        if not context[0]:
-            context[0] = os.open("/dev/urandom", os.O_RDONLY, 0777)
-        while n > 0:
-            try:
-                data = os.read(context[0], n)
-            except OSError, e:
-                if e.errno != errno.EINTR:
-                    raise
-                data = ''
-            result += data
-            n -= len(data)
+        # XXX should somehow cache the file descriptor.  It's a mess.
+        # CPython has a 99% solution and hopes for the remaining 1%
+        # not to occur.  For now, we just don't cache the file
+        # descriptor (any more... 6810f401d08e).
+        fd = os.open("/dev/urandom", os.O_RDONLY, 0777)
+        try:
+            while n > 0:
+                try:
+                    data = os.read(fd, n)
+                except OSError as e:
+                    if e.errno != errno.EINTR:
+                        raise
+                    data = ''
+                result += data
+                n -= len(data)
+        finally:
+            os.close(fd)
         return result
-

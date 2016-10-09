@@ -12,8 +12,6 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.conftest import option
 
-import py
-log = py.log.Producer('test_backendoptimization')
 
 def get_graph(fn, signature, all_opts=True):
     t = TranslationContext()
@@ -21,8 +19,7 @@ def get_graph(fn, signature, all_opts=True):
     t.buildrtyper().specialize()
     if all_opts:
         backend_optimizations(t, inline_threshold=INLINE_THRESHOLD_FOR_TEST,
-                              constfold=False,
-                              raisingop2direct_call=False)
+                              constfold=False)
     graph = graphof(t, fn)
     if option.view:
         t.view()

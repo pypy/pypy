@@ -127,38 +127,65 @@ class _TestIntegration(LLJitMixin):
                 n = n - 1
             return 21
         def f():
-            # Depending on loop_longevity, either:
-            # A. create the loop and the entry bridge for 'g(5)'
-            # B. create 8 loops (and throw them away at each iteration)
-            #    Actually, it's 4 loops and 4 exit bridges thrown away
-            #    every second iteration
-            for i in range(8):
-                g(5)
-            # create another loop and another entry bridge for 'g(7)',
-            # to increase the current_generation
+            # If loop_longevity is large enough, this creates a loop
+            # and an entry bridge for 'g(7)', and another for 'g(5)':
+            # total 4.  If loop_longevity is set to 1 instead, whenever
+            # we create a loop for 'g(7)' we forget the loop created
+            # for 'g(5)' and vice-versa.  We end up creating loops
+            # over and over again, for a total of 40 of them.
             for i in range(20):
                 g(7)
-                # Depending on loop_longevity, either:
-                # A. reuse the existing loop and entry bridge for 'g(5)'.
-                #    The entry bridge for g(5) should never grow too old.
-                #    The loop itself gets old, but is kept alive by the
-                #    entry bridge via contains_jumps_to.
-                # B. or, create another loop (and throw away the previous one)
                 g(5)
             return 42
 
         # case A
         res = self.meta_interp(f, [], loop_longevity=3)
         assert res == 42
-        # we should see only the loop with preamble and the exit bridge
-        # for g(5) and g(7)
+        # we should see (1) the loop-with-preamble, (2) the exit bridge
+        # for g(7), and another time the same for g(5).
         self.check_enter_count(4)
 
         # case B, with a lower longevity
         res = self.meta_interp(f, [], loop_longevity=1)
         assert res == 42
         # we should see a loop for each call to g()
-        self.check_enter_count(8 + 20*2)
+        self.check_enter_count(40)
+
+    def test_target_loop_kept_alive_or_not_2(self):
+        myjitdriver = JitDriver(greens=['m'], reds=['n'])
+        def g(m):
+            n = 10
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n, m=m)
+                myjitdriver.jit_merge_point(n=n, m=m)
+                n = n - 1
+            return 21
+        def f():
+            # If loop_longevity is large enough, this creates a loop
+            # and an entry bridge for 'g(7)', and another for 'g(5)':
+            # total 4.  If loop_longevity is set to 1 instead, whenever
+            # we create a loop for 'g(7)', we create the entry bridge
+            # on the next 'g(7)', but we forget them both when we move
+            # on to 'g(5)', and vice-versa.  We end up creating loops
+            # and entry bridges over and over again, for a total of 32
+            # of them.
+            for i in range(8):
+                g(7); g(7)
+                g(5); g(5)
+            return 42
+
+        # case A
+        res = self.meta_interp(f, [], loop_longevity=5)
+        assert res == 42
+        # we should see (1) the loop-with-preamble, (2) the exit bridge
+        # for g(7), and another time the same for g(5).
+        self.check_enter_count(4)
+
+        # case B, with a lower longevity
+        res = self.meta_interp(f, [], loop_longevity=1)
+        assert res == 42
+        # we should see a loop for each call to g()
+        self.check_enter_count(32)
 
     def test_throw_away_old_loops(self):
         myjitdriver = JitDriver(greens=['m'], reds=['n'])
@@ -221,8 +248,8 @@ class _TestIntegration(LLJitMixin):
         tokens = [t() for t in get_stats().jitcell_token_wrefs]
         # Some loops have been freed
         assert None in tokens
-        # Loop with number 0, h(), has not been freed
-        assert 0 in [t.number for t in tokens if t]
+        # Loop with number 1, h(), has not been freed
+        assert 1 in [t.number for t in tokens if t]
 
 # ____________________________________________________________
 

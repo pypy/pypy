@@ -264,6 +264,7 @@ class AppTestBuiltinApp:
         raises(StopIteration,x.next)
 
     def test_enumerate(self):
+        import sys
         seq = range(2,4)
         enum = enumerate(seq)
         assert enum.next() == (0, 2)
@@ -273,6 +274,15 @@ class AppTestBuiltinApp:
         raises(TypeError, enumerate, None)
         enum = enumerate(range(5), 2)
         assert list(enum) == zip(range(2, 7), range(5))
+
+        enum = enumerate(range(2), 2**100)
+        assert list(enum) == [(2**100, 0), (2**100+1, 1)]
+
+        enum = enumerate(range(2), sys.maxint)
+        assert list(enum) == [(sys.maxint, 0), (sys.maxint+1, 1)]
+
+        raises(TypeError, enumerate, range(2), 5.5)
+
 
     def test_next(self):
         x = iter(['a', 'b', 'c'])
@@ -736,10 +746,6 @@ class AppTestGetattr:
         raises(TypeError, getattr, A(), 42)
         raises(TypeError, setattr, A(), 42, 'x')
         raises(TypeError, delattr, A(), 42)
-
-
-class AppTestGetattrWithGetAttributeShortcut(AppTestGetattr):
-    spaceconfig = {"objspace.std.getattributeshortcut": True}
 
 
 class TestInternal:

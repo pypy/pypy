@@ -27,7 +27,7 @@ class Module(MixedModule):
         from pypy.module.thread import gil
         MixedModule.__init__(self, space, *args)
         prev_ec = space.threadlocals.get_ec()
-        space.threadlocals = gil.GILThreadLocals()
+        space.threadlocals = gil.GILThreadLocals(space)
         space.threadlocals.initialize(space)
         if prev_ec is not None:
             space.threadlocals._set_ec(prev_ec)

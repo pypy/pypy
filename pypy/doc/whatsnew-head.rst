@@ -1,76 +1,63 @@
-=======================
-What's new in PyPy 2.6+
-=======================
+==========================
+What's new in PyPy2.7 5.4+
+==========================
 
-.. this is a revision shortly after release-2.6.1
-.. startrev: 07769be4057b
+.. this is a revision shortly after release-pypy2.7-v5.4
+.. startrev: 522736f816dc
 
-.. branch: keys_with_hash
-Improve the performance of dict.update() and a bunch of methods from
-sets, by reusing the hash value stored in one dict when inspecting
-or changing another dict with that key.
+.. branch: rpython-resync
+Backport rpython changes made directly on the py3k and py3.5 branches.
 
-.. branch: optresult-unroll 
-A major refactoring of the ResOperations that kills Box. Also rewrote
-unrolling to enable future enhancements.  Should improve warmup time
-by 20% or so.
+.. branch: buffer-interface
+Implement PyObject_GetBuffer, PyMemoryView_GET_BUFFER, and handles memoryviews
+in numpypy
 
-.. branch: optimize-cond-call
-Optimize common sequences of operations like
-``int_lt/cond_call`` in the JIT backends
+.. branch: force-virtual-state
+Improve merging of virtual states in the JIT in order to avoid jumping to the
+preamble. Accomplished by allocating virtual objects where non-virtuals are
+expected.
 
-.. branch: missing_openssl_include
-Fix for missing headers in OpenBSD, already applied in downstream ports
+.. branch: conditional_call_value_3
+JIT residual calls: if the called function starts with a fast-path
+like "if x.foo != 0: return x.foo", then inline the check before
+doing the CALL.  For now, string hashing is about the only case.
 
-.. branch: gc-more-incremental
-Remove a source of non-incremental-ness in the GC: now
-external_malloc() no longer runs gc_step_until() any more. If there
-is a currently-running major collection, we do only so many steps
-before returning. This number of steps depends on the size of the
-allocated object. It is controlled by tracking the general progress
-of these major collection steps and the size of old objects that
-keep adding up between them.
+.. branch: search-path-from-libpypy
 
-.. branch: remember-tracing-counts
-Reenable jithooks
+The compiled pypy now looks for its lib-python/lib_pypy path starting
+from the location of the *libpypy-c* instead of the executable. This is
+arguably more consistent, and also it is what occurs anyway if you're
+embedding pypy.  Linux distribution packagers, take note!  At a minimum,
+the ``libpypy-c.so`` must really be inside the path containing
+``lib-python`` and ``lib_pypy``.  Of course, you can put a symlink to it
+from somewhere else.  You no longer have to do the same with the
+``pypy`` executable, as long as it finds its ``libpypy-c.so`` library.
 
-.. branch: detect_egd2
+.. branch: _warnings
 
-.. branch: shadowstack-no-move-2
-Issue #2141: fix a crash on Windows and OS/X and ARM when running
-at least 20 threads.
+CPython allows warning.warn(('something', 1), Warning), on PyPy this
+produced a "expected a readable buffer object" error. Test and fix.
 
-.. branch: numpy-ctypes
+.. branch: stricter-strip
 
-Add support for ndarray.ctypes property.
+CPython rejects 'a'.strip(buffer(' ')); only None, str or unicode are
+allowed as arguments. Test and fix for str and unicode
 
-.. branch: share-guard-info
+.. branch: faulthandler
 
-Share guard resume data between consecutive guards that have only
-pure operations and guards in between.
+Port the 'faulthandler' module to PyPy default.  This module is standard
+in Python 3.3 but can also be installed from CPython >= 2.6 from PyPI.
 
-.. branch: issue-2148
+.. branch: test-cpyext
 
-Fix performance regression on operations mixing numpy scalars and Python 
-floats, cf. issue #2148.
+Refactor cpyext testing to be more pypy3-friendly.
 
-.. branch: cffi-stdcall
-Win32: support '__stdcall' in CFFI.
+.. branch: better-error-missing-self
 
-.. branch: callfamily
+Improve the error message when the user forgot the "self" argument of a method.
 
-Refactorings of annotation and rtyping of function calls.
 
-.. branch: fortran-order
-
-Allow creation of fortran-ordered ndarrays
-
-.. branch: type_system-cleanup
-
-Remove some remnants of the old ootypesystem vs lltypesystem dichotomy.
-
-.. branch: cffi-handle-lifetime
-
-ffi.new_handle() returns handles that work more like CPython's: they
-remain valid as long as the target exists (unlike the previous
-version, where handles become invalid *before* the __del__ is called).
+.. fb6bb835369e
+Change the ``timeit`` module: it now prints the average time and the standard
+deviation over 7 runs by default, instead of the minimum. The minimum is often
+misleading.

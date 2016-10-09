@@ -178,6 +178,10 @@ do any other optimization currently present in the 'optimizeopt' module.
 It is prepended to all optimizations and thus extends the Optimizer class
 and unrolls the loop once before it proceeds.
 
+Vectorization
+-------------
+
+- :doc:`Vectorization <vectorization>`
 
 What is missing from this document
 ----------------------------------

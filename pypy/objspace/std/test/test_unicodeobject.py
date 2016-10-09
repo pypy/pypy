@@ -72,7 +72,7 @@ class AppTestUnicodeString:
         check(u', '.join(['a', 'b']), u'a, b')
         try:
             u''.join([u'a', 2, 3])
-        except TypeError, e:
+        except TypeError as e:
             assert 'sequence item 1' in str(e)
         else:
             raise Exception("DID NOT RAISE")
@@ -332,6 +332,12 @@ class AppTestUnicodeString:
         assert u'xyzzyhelloxyzzy'.strip(u'xyz') == u'hello'
         assert u'xyzzyhelloxyzzy'.lstrip('xyz') == u'helloxyzzy'
         assert u'xyzzyhelloxyzzy'.rstrip(u'xyz') == u'xyzzyhello'
+        exc = raises(TypeError, s.strip, buffer(' '))
+        assert str(exc.value) == 'strip arg must be None, unicode or str'
+        exc = raises(TypeError, s.rstrip, buffer(' '))
+        assert str(exc.value) == 'strip arg must be None, unicode or str'
+        exc = raises(TypeError, s.lstrip, buffer(' '))
+        assert str(exc.value) == 'strip arg must be None, unicode or str'
 
     def test_strip_str_unicode(self):
         x = "--abc--".strip(u"-")
@@ -992,3 +998,10 @@ class AppTestUnicodeString:
         assert u''.join([s1]) is not s1
         s2 = StrSubclass(u'a')
         assert u''.join([s2]) is not s2
+
+    def test_encoding_and_errors_cant_be_none(self):
+        raises(TypeError, "''.decode(None)")
+        raises(TypeError, "u''.encode(None)")
+        raises(TypeError, "unicode('', encoding=None)")
+        raises(TypeError, 'u"".encode("utf-8", None)')
+

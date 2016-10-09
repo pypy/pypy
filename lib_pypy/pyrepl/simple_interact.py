@@ -43,11 +43,13 @@ def _strip_final_indent(text):
         return short
     return text
 
-def run_multiline_interactive_console(mainmodule=None):
+def run_multiline_interactive_console(mainmodule=None, future_flags=0):
     import code
     if mainmodule is None:
         import __main__ as mainmodule
     console = code.InteractiveConsole(mainmodule.__dict__, filename='<stdin>')
+    if future_flags:
+        console.compile.compiler.flags |= future_flags
 
     def more_lines(unicodetext):
         # ooh, look at the hack:

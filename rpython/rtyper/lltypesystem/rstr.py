@@ -2,12 +2,12 @@ from weakref import WeakValueDictionary
 
 from rpython.annotator import model as annmodel
 from rpython.rlib import jit, types
-from rpython.rlib.debug import ll_assert
 from rpython.rlib.objectmodel import (malloc_zero_filled, we_are_translated,
     _hash_string, keepalive_until_here, specialize, enforceargs)
 from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.error import TyperError
+from rpython.rtyper.debug import ll_assert
 from rpython.rtyper.lltypesystem import ll_str, llmemory
 from rpython.rtyper.lltypesystem.lltype import (GcStruct, Signed, Array, Char,
     UniChar, Ptr, malloc, Bool, Void, GcArray, nullptr, cast_primitive,
@@ -60,6 +60,13 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
     @signature(types.any(), types.any(), types.int(), returns=types.any())
     @specialize.arg(0)
     def _get_raw_buf(TP, src, ofs):
+        """
+        WARNING: dragons ahead.
+        Return the address of the internal char* buffer of the low level
+        string. The return value is valid as long as no GC operation occur, so
+        you must ensure that it will be used inside a "GC safe" section, for
+        example by marking your function with @rgc.no_collect
+        """
         assert typeOf(src).TO == TP
         assert ofs >= 0
         return llmemory.cast_ptr_to_adr(src) + _str_ofs(TP, ofs)
@@ -131,9 +138,13 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
 
     return copy_string_to_raw, copy_raw_to_string, copy_string_contents
 
-copy_string_to_raw, copy_raw_to_string, copy_string_contents = _new_copy_contents_fun(STR, STR, Char, 'string')
-copy_unicode_to_raw, copy_raw_to_unicode, copy_unicode_contents = _new_copy_contents_fun(UNICODE, UNICODE,
-                                                                    UniChar, 'unicode')
+(copy_string_to_raw,
+ copy_raw_to_string,
+ copy_string_contents) = _new_copy_contents_fun(STR, STR, Char, 'string')
+
+(copy_unicode_to_raw,
+ copy_raw_to_unicode,
+ copy_unicode_contents) = _new_copy_contents_fun(UNICODE, UNICODE, UniChar, 'unicode')
 
 CONST_STR_CACHE = WeakValueDictionary()
 CONST_UNICODE_CACHE = WeakValueDictionary()
@@ -358,13 +369,19 @@ class LLHelpers(AbstractLLHelpers):
         return b
 
     @staticmethod
-    @jit.elidable
     def ll_strhash(s):
+        if s:
+            return LLHelpers._ll_strhash(s)
+        else:
+            return 0
+
+    @staticmethod
+    @jit.elidable
+    @jit.call_shortcut
+    def _ll_strhash(s):
         # unlike CPython, there is no reason to avoid to return -1
         # but our malloc initializes the memory to zero, so we use zero as the
         # special non-computed-yet value.
-        if not s:
-            return 0
         x = s.hash
         if x == 0:
             x = _hash_string(s.chars)
@@ -637,6 +654,7 @@ class LLHelpers(AbstractLLHelpers):
 
     @staticmethod
     @jit.elidable
+    @signature(types.any(), types.any(), types.int(), types.int(), returns=types.int())
     def ll_rfind_char(s, ch, start, end):
         if end > len(s.chars):
             end = len(s.chars)
@@ -706,10 +724,7 @@ class LLHelpers(AbstractLLHelpers):
             return cls.ll_count_char(s1, s2.chars[0], start, end)
 
         res = cls.ll_search(s1, s2, start, end, FAST_COUNT)
-        # For a few cases ll_search can return -1 to indicate an "impossible"
-        # condition for a string match, count just returns 0 in these cases.
-        if res < 0:
-            res = 0
+        assert res >= 0
         return res
 
     @staticmethod
@@ -730,6 +745,8 @@ class LLHelpers(AbstractLLHelpers):
         w = n - m
 
         if w < 0:
+            if mode == FAST_COUNT:
+                return 0
             return -1
 
         mlast = m - 1
@@ -1228,7 +1245,8 @@ TEMP_UNICODE = GcArray(Ptr(UNICODE))
 # ____________________________________________________________
 
 STR.become(GcStruct('rpy_string', ('hash',  Signed),
-                    ('chars', Array(Char, hints={'immutable': True})),
+                    ('chars', Array(Char, hints={'immutable': True,
+                                    'extra_item_after_alloc': 1})),
                     adtmeths={'malloc' : staticAdtMethod(mallocstr),
                               'empty'  : staticAdtMethod(emptystrfun),
                               'copy_contents' : staticAdtMethod(copy_string_contents),

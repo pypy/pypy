@@ -11,13 +11,13 @@ class VirtualizableInstanceRepr(InstanceRepr):
     def __init__(self, rtyper, classdef):
         self._super().__init__(rtyper, classdef)
         classdesc = classdef.classdesc
-        if '_virtualizable2_' in classdesc.classdict:
+        if classdesc.get_param('_virtualizable2_'):
             raise Exception("_virtualizable2_ is now called _virtualizable_, "
                             "please rename")
-        if '_virtualizable_' in classdesc.classdict:
+        if classdesc.get_param('_virtualizable_', inherit=False):
             basedesc = classdesc.basedesc
-            assert basedesc is None or basedesc.lookup(
-                '_virtualizable_') is None
+            assert (basedesc is None or
+                    basedesc.get_param('_virtualizable_') is None)
             self.top_of_virtualizable_hierarchy = True
             self.accessor = FieldListAccessor()
         else:
@@ -37,9 +37,9 @@ class VirtualizableInstanceRepr(InstanceRepr):
                 self._super()._setup_repr(llfields, hints=hints)
             else:
                 self._super()._setup_repr(hints = hints)
-            c_vfields = self.classdef.classdesc.classdict['_virtualizable_']
+            vfields = self.classdef.classdesc.get_param('_virtualizable_')
             self.my_redirected_fields = self._parse_field_list(
-                c_vfields.value, self.accessor, hints)
+                vfields, self.accessor, hints)
         else:
             self._super()._setup_repr()
             # ootype needs my_redirected_fields even for subclass. lltype does

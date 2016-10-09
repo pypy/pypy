@@ -113,21 +113,14 @@ class BaseGCTransformer(object):
         self.seen_graphs.add(graph)
         self.minimal_transform.add(graph)
 
-    def prepare_inline_helpers(self, graphs):
+    def inline_helpers(self, graphs):
         from rpython.translator.backendopt.inline import iter_callsites
+        raise_analyzer = RaiseAnalyzer(self.translator)
         for graph in graphs:
-            self.graph_dependencies[graph] = {}
+            to_enum = []
             for called, block, i in iter_callsites(graph, None):
                 if called in self.graphs_to_inline:
-                    self.graph_dependencies[graph][called] = True
-        self.prepared = True
-
-    def inline_helpers(self, graph):
-        if not self.prepared:
-            raise Exception("Need to call prepare_inline_helpers first")
-        if self.inline:
-            raise_analyzer = RaiseAnalyzer(self.translator)
-            to_enum = self.graph_dependencies.get(graph, self.graphs_to_inline)
+                    to_enum.append(called)
             must_constfold = False
             for inline_graph in to_enum:
                 try:
@@ -136,7 +129,7 @@ class BaseGCTransformer(object):
                                            raise_analyzer,
                                            cleanup=False)
                     must_constfold = True
-                except inline.CannotInline, e:
+                except inline.CannotInline as e:
                     print 'CANNOT INLINE:', e
                     print '\t%s into %s' % (inline_graph, graph)
             cleanup_graph(graph)
@@ -377,6 +370,10 @@ class BaseGCTransformer(object):
 
         return hop.cast_result(rmodel.inputconst(lltype.Ptr(ARRAY_TYPEID_MAP),
                                         lltype.nullptr(ARRAY_TYPEID_MAP)))
+
+    def get_prebuilt_hash(self, obj):
+        return None
+
 
 class MinimalGCTransformer(BaseGCTransformer):
     def __init__(self, parenttransformer):

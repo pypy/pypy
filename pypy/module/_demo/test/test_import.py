@@ -12,8 +12,7 @@ class TestImport:
         w_modules = space.sys.get('modules')
 
         assert _demo.Module.demo_events == ['setup']
-        assert not space.is_true(space.contains(w_modules,
-                                                space.wrap('_demo')))
+        assert not space.contains_w(w_modules, space.wrap('_demo'))
 
         # first import
         w_import = space.builtin.get('__import__')

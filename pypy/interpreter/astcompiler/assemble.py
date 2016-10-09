@@ -289,6 +289,8 @@ class PythonCodeMaker(ast.ASTVisitor):
             for w_item in space.fixedview(obj):
                 result_w.append(self._make_key(w_item))
             w_key = space.newtuple(result_w[:])
+        elif isinstance(obj, PyCode):
+            w_key = space.newtuple([obj, w_type, space.id(obj)])
         else:
             w_key = space.newtuple([obj, w_type])
         return w_key
@@ -385,7 +387,8 @@ class PythonCodeMaker(ast.ASTVisitor):
     def _stacksize(self, blocks):
         """Compute co_stacksize."""
         for block in blocks:
-            block.initial_depth = 0
+            block.initial_depth = -99
+        blocks[0].initial_depth = 0
         # Assumes that it is sufficient to walk the blocks in 'post-order'.
         # This means we ignore all back-edges, but apart from that, we only
         # look into a block when all the previous blocks have been done.
@@ -404,8 +407,11 @@ class PythonCodeMaker(ast.ASTVisitor):
 
     def _do_stack_depth_walk(self, block):
         depth = block.initial_depth
+        if depth == -99:     # this block is never reached, skip
+             return 0
         for instr in block.instructions:
             depth += _opcode_stack_effect(instr.opcode, instr.arg)
+            assert depth >= 0
             if depth >= self._max_depth:
                 self._max_depth = depth
             jump_op = instr.opcode

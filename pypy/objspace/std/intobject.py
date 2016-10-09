@@ -24,7 +24,7 @@ from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std import newformat
 from pypy.objspace.std.util import (
-    BINARY_OPS, CMP_OPS, COMMUTATIVE_OPS, IDTAG_INT, wrap_parsestringerror)
+    BINARY_OPS, CMP_OPS, COMMUTATIVE_OPS, IDTAG_INT, IDTAG_SHIFT, wrap_parsestringerror)
 
 SENTINEL = object()
 
@@ -46,7 +46,7 @@ class W_AbstractIntObject(W_Root):
         if self.user_overridden_class:
             return None
         b = space.bigint_w(self)
-        b = b.lshift(3).int_or_(IDTAG_INT)
+        b = b.lshift(IDTAG_SHIFT).int_or_(IDTAG_INT)
         return space.newlong_from_rbigint(b)
 
     def int(self, space):
@@ -362,11 +362,13 @@ class W_IntObject(W_AbstractIntObject):
         return _new_int(space, w_inttype, w_x, w_base)
 
     def descr_hash(self, space):
-        # unlike CPython, we don't special-case the value -1 in most of
-        # our hash functions, so there is not much sense special-casing
-        # it here either.  Make sure this is consistent with the hash of
-        # floats and longs.
-        return self.int(space)
+        # For compatibility with CPython, we special-case -1
+        # Make sure this is consistent with the hash of floats and longs.
+        # The complete list of built-in types whose hash should be
+        # consistent is: int, long, bool, float, complex.
+        h = self.intval
+        h -= (h == -1)  # No explicit condition, to avoid JIT bridges
+        return wrapint(space, h)
 
     def _int(self, space):
         return self.int(space)

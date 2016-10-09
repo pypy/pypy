@@ -49,15 +49,52 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         assert arr.tolist() == [1, 21, 22, 23, 4]
         del arr[slice(1, 3)]
         assert arr.tolist() == [1, 23, 4]
+        raises(TypeError, 'arr[slice(1, 3)] = "abc"')
 
     def test_buffer(self):
+        import sys
         module = self.import_module(name='array')
         arr = module.array('i', [1,2,3,4])
         buf = buffer(arr)
         exc = raises(TypeError, "buf[1] = '1'")
         assert str(exc.value) == "buffer is read-only"
-        # XXX big-endian
-        assert str(buf) == ('\x01\0\0\0'
-                            '\x02\0\0\0'
-                            '\x03\0\0\0'
-                            '\x04\0\0\0')
+        if sys.byteorder == 'big':
+            assert str(buf) == ('\0\0\0\x01'
+                                '\0\0\0\x02'
+                                '\0\0\0\x03'
+                                '\0\0\0\x04')
+        else:
+            assert str(buf) == ('\x01\0\0\0'
+                                '\x02\0\0\0'
+                                '\x03\0\0\0'
+                                '\x04\0\0\0')
+
+    def test_pickle(self):
+        import pickle
+        module = self.import_module(name='array')
+        arr = module.array('i', [1,2,3,4])
+        s = pickle.dumps(arr)
+        # pypy exports __dict__ on cpyext objects, so the pickle picks up the {} state value
+        #assert s == "carray\n_reconstruct\np0\n(S'i'\np1\n(lp2\nI1\naI2\naI3\naI4\natp3\nRp4\n."
+        rra = pickle.loads(s) # rra is arr backwards
+        #assert arr.tolist() == rra.tolist()
+
+    def test_binop_mul_impl(self):
+        # check that rmul is called
+        module = self.import_module(name='array')
+        arr = module.array('i', [2])
+        res = [1, 2, 3] * arr
+        assert res == [1, 2, 3, 1, 2, 3]
+        module.switch_multiply()
+        res = [1, 2, 3] * arr
+        assert res == [2, 4, 6]
+
+    def test_subclass(self):
+        module = self.import_module(name='array')
+        class Sub(module.array):
+            pass
+
+        arr = Sub('i', [2])
+        res = [1, 2, 3] * arr
+        assert res == [1, 2, 3, 1, 2, 3]
+        

@@ -71,6 +71,12 @@ PINFO = rffi.CStructPtr('_cffi_parse_info_s',
                         ('error_location', rffi.SIZE_T),
                         ('error_message', rffi.CCHARP))
 
+PEXTERNPY = rffi.CStructPtr('_cffi_externpy_s',
+                            ('name', rffi.CCHARP),
+                            ('size_of_result', rffi.SIZE_T),
+                            ('reserved1', rffi.VOIDP),
+                            ('reserved2', rffi.VOIDP))
+
 GETCONST_S = rffi.CStruct('_cffi_getconst_s',
                           ('value', rffi.ULONGLONG),
                           ('ctx', PCTX),
@@ -87,13 +93,12 @@ ll_search_in_struct_unions = llexternal('pypy_search_in_struct_unions',
 ll_set_cdl_realize_global_int = llexternal('pypy_set_cdl_realize_global_int',
                                            [lltype.Ptr(GLOBAL_S)],
                                            lltype.Void)
+ll_enum_common_types = llexternal('pypy_enum_common_types',
+                                  [rffi.INT], rffi.CCHARP)
 
 def parse_c_type(info, input):
-    p_input = rffi.str2charp(input)
-    try:
+    with rffi.scoped_view_charp(input) as p_input:
         res = ll_parse_c_type(info, p_input)
-    finally:
-        rffi.free_charp(p_input)
     return rffi.cast(lltype.Signed, res)
 
 NULL_CTX = lltype.nullptr(PCTX.TO)
@@ -122,15 +127,13 @@ def get_num_types(src_ctx):
     return rffi.getintfield(src_ctx, 'c_num_types')
 
 def search_in_globals(ctx, name):
-    c_name = rffi.str2charp(name)
-    result = ll_search_in_globals(ctx, c_name,
-                                  rffi.cast(rffi.SIZE_T, len(name)))
-    rffi.free_charp(c_name)
+    with rffi.scoped_view_charp(name) as c_name:
+        result = ll_search_in_globals(ctx, c_name,
+                                      rffi.cast(rffi.SIZE_T, len(name)))
     return rffi.cast(lltype.Signed, result)
 
 def search_in_struct_unions(ctx, name):
-    c_name = rffi.str2charp(name)
-    result = ll_search_in_struct_unions(ctx, c_name,
-                                        rffi.cast(rffi.SIZE_T, len(name)))
-    rffi.free_charp(c_name)
+    with rffi.scoped_view_charp(name) as c_name:
+        result = ll_search_in_struct_unions(ctx, c_name,
+                                            rffi.cast(rffi.SIZE_T, len(name)))
     return rffi.cast(lltype.Signed, result)

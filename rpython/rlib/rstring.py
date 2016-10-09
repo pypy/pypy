@@ -291,6 +291,7 @@ def count(value, other, start, end):
     return _search(value, other, start, end, SEARCH_COUNT)
 
 # -------------- substring searching helper ----------------
+# XXX a lot of code duplication with lltypesystem.rstr :-(
 
 SEARCH_COUNT = 0
 SEARCH_FIND = 1
@@ -309,6 +310,8 @@ def _search(value, other, start, end, mode):
     if end > len(value):
         end = len(value)
     if start > end:
+        if mode == SEARCH_COUNT:
+            return 0
         return -1
 
     count = 0
@@ -326,6 +329,8 @@ def _search(value, other, start, end, mode):
     w = n - m
 
     if w < 0:
+        if mode == SEARCH_COUNT:
+            return 0
         return -1
 
     mlast = m - 1
@@ -485,6 +490,24 @@ class NumberStringParser:
         else:
             return -1
 
+    def prev_digit(self):
+        # After exhausting all n digits in next_digit(), you can walk them
+        # again in reverse order by calling prev_digit() exactly n times
+        i = self.i - 1
+        assert i >= 0
+        self.i = i
+        c = self.s[i]
+        digit = ord(c)
+        if '0' <= c <= '9':
+            digit -= ord('0')
+        elif 'A' <= c <= 'Z':
+            digit = (digit - ord('A')) + 10
+        elif 'a' <= c <= 'z':
+            digit = (digit - ord('a')) + 10
+        else:
+            raise AssertionError
+        return digit
+
 # -------------- public API ---------------------------------
 
 INIT_SIZE = 100 # XXX tweak
@@ -552,18 +575,20 @@ class UnicodeBuilder(AbstractStringBuilder):
 
 class ByteListBuilder(object):
     def __init__(self, init_size=INIT_SIZE):
+        assert init_size >= 0
         self.l = newlist_hint(init_size)
 
     @specialize.argtype(1)
     def append(self, s):
+        l = self.l
         for c in s:
-            self.l.append(c)
+            l.append(c)
 
     @specialize.argtype(1)
     def append_slice(self, s, start, end):
-        assert 0 <= start <= end <= len(s)
-        for c in s[start:end]:
-            self.l.append(c)
+        l = self.l
+        for i in xrange(start, end):
+            l.append(s[i])
 
     def append_multiple_char(self, c, times):
         assert isinstance(c, str)
@@ -571,8 +596,9 @@ class ByteListBuilder(object):
 
     def append_charpsize(self, s, size):
         assert size >= 0
+        l = self.l
         for i in xrange(size):
-            self.l.append(s[i])
+            l.append(s[i])
 
     def build(self):
         return self.l

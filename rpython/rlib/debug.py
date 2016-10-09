@@ -1,76 +1,41 @@
-import sys, time
+import sys
+import time
+
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import is_valid_int
-from rpython.rtyper.extfunc import ExtFuncEntry
+from rpython.rtyper.extfunc import register_external
 from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.lltypesystem import rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
-
-def ll_assert(x, msg):
-    """After translation to C, this becomes an RPyAssert."""
-    assert type(x) is bool, "bad type! got %r" % (type(x),)
-    assert x, msg
-
-class Entry(ExtRegistryEntry):
-    _about_ = ll_assert
-
-    def compute_result_annotation(self, s_x, s_msg):
-        assert s_msg.is_constant(), ("ll_assert(x, msg): "
-                                     "the msg must be constant")
-        return None
-
-    def specialize_call(self, hop):
-        vlist = hop.inputargs(lltype.Bool, lltype.Void)
-        hop.exception_cannot_occur()
-        hop.genop('debug_assert', vlist)
-
-class FatalError(Exception):
-    pass
-
-def fatalerror(msg):
-    # print the RPython traceback and abort with a fatal error
-    if not we_are_translated():
-        raise FatalError(msg)
-    from rpython.rtyper.lltypesystem import lltype
-    from rpython.rtyper.lltypesystem.lloperation import llop
-    llop.debug_print_traceback(lltype.Void)
-    llop.debug_fatalerror(lltype.Void, msg)
-fatalerror._dont_inline_ = True
-fatalerror._jit_look_inside_ = False
-fatalerror._annenforceargs_ = [str]
-
-def fatalerror_notb(msg):
-    # a variant of fatalerror() that doesn't print the RPython traceback
-    if not we_are_translated():
-        raise FatalError(msg)
-    from rpython.rtyper.lltypesystem import lltype
-    from rpython.rtyper.lltypesystem.lloperation import llop
-    llop.debug_fatalerror(lltype.Void, msg)
-fatalerror_notb._dont_inline_ = True
-fatalerror_notb._jit_look_inside_ = False
-fatalerror_notb._annenforceargs_ = [str]
+# Expose these here (public interface)
+from rpython.rtyper.debug import (
+    ll_assert, FatalError, fatalerror, fatalerror_notb)
 
 
 class DebugLog(list):
     def debug_print(self, *args):
         self.append(('debug_print',) + args)
+
     def debug_start(self, category, time=None):
         self.append(('debug_start', category, time))
+
     def debug_stop(self, category, time=None):
-        for i in xrange(len(self)-1, -1, -1):
+        for i in xrange(len(self) - 1, -1, -1):
             if self[i][0] == 'debug_start':
                 assert self[i][1] == category, (
                     "nesting error: starts with %r but stops with %r" %
                     (self[i][1], category))
                 starttime = self[i][2]
                 if starttime is not None or time is not None:
-                    self[i:] = [(category, starttime, time, self[i+1:])]
+                    self[i:] = [(category, starttime, time, self[i + 1:])]
                 else:
-                    self[i:] = [(category, self[i+1:])]
+                    self[i:] = [(category, self[i + 1:])]
                 return
         assert False, ("nesting error: no start corresponding to stop %r" %
                        (category,))
+
     def __repr__(self):
         import pprint
         return pprint.pformat(list(self))
@@ -161,7 +126,6 @@ class Entry(ExtRegistryEntry):
             return self.bookkeeper.immutablevalue(False)
 
     def specialize_call(self, hop):
-        from rpython.rtyper.lltypesystem import lltype
         t = hop.rtyper.annotator.translator
         hop.exception_cannot_occur()
         if t.config.translation.log:
@@ -189,7 +153,6 @@ class Entry(ExtRegistryEntry):
         return annmodel.SomeInteger()
 
     def specialize_call(self, hop):
-        from rpython.rtyper.lltypesystem import lltype
         hop.exception_cannot_occur()
         return hop.genop('debug_offset', [], resulttype=lltype.Signed)
 
@@ -223,7 +186,6 @@ class Entry(ExtRegistryEntry):
         return None
 
     def specialize_call(self, hop):
-        from rpython.rtyper.lltypesystem import lltype
         vlist = hop.inputargs(lltype.Signed)
         hop.exception_cannot_occur()
         return hop.genop('debug_forked', vlist)
@@ -244,7 +206,6 @@ class Entry(ExtRegistryEntry):
     def compute_result_annotation(self, s_RESTYPE, s_pythonfunction, *args_s):
         from rpython.annotator import model as annmodel
         from rpython.rtyper.llannotation import lltype_to_annotation
-        from rpython.rtyper.lltypesystem import lltype
         assert s_RESTYPE.is_constant()
         assert s_pythonfunction.is_constant()
         s_result = s_RESTYPE.const
@@ -255,7 +216,6 @@ class Entry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         from rpython.annotator import model as annmodel
-        from rpython.rtyper.lltypesystem import lltype
         RESTYPE = hop.args_s[0].const
         if not isinstance(RESTYPE, lltype.LowLevelType):
             assert isinstance(RESTYPE, annmodel.SomeObject)
@@ -283,7 +243,8 @@ class Entry(ExtRegistryEntry):
 
     def compute_result_annotation(self, s_arg, s_checker):
         if not s_checker.is_constant():
-            raise ValueError("Second argument of check_annotation must be constant")
+            raise ValueError(
+                "Second argument of check_annotation must be constant")
         checker = s_checker.const
         checker(s_arg, self.bookkeeper)
         return s_arg
@@ -308,11 +269,14 @@ class Entry(ExtRegistryEntry):
         assert isinstance(s_arg, SomeList)
         # the logic behind it is that we try not to propagate
         # make_sure_not_resized, when list comprehension is not on
-        if self.bookkeeper.annotator.translator.config.translation.list_comprehension_operations:
+        config = self.bookkeeper.annotator.translator.config
+        if config.translation.list_comprehension_operations:
             s_arg.listdef.never_resize()
         else:
             from rpython.annotator.annrpython import log
-            log.WARNING('make_sure_not_resized called, but has no effect since list_comprehension is off')
+            log.WARNING(
+                "make_sure_not_resized called, but has no effect since "
+                "list_comprehension is off")
         return s_arg
 
     def specialize_call(self, hop):
@@ -433,15 +397,11 @@ def attach_gdb():
     import pdb; pdb.set_trace()
 
 if not sys.platform.startswith('win'):
-    def _make_impl_attach_gdb():
-        # circular imports fun :-(
-        import sys
-        from rpython.rtyper.lltypesystem import rffi
-        if sys.platform.startswith('linux'):
-            # Only necessary on Linux
-            eci = ExternalCompilationInfo(includes=['string.h', 'assert.h',
-                                                    'sys/prctl.h'],
-                                          post_include_bits=["""
+    if sys.platform.startswith('linux'):
+        # Only necessary on Linux
+        eci = ExternalCompilationInfo(includes=['string.h', 'assert.h',
+                                                'sys/prctl.h'],
+                                        post_include_bits=["""
 /* If we have an old Linux kernel (or compile with old system headers),
    the following two macros are not defined.  But we would still like
    a pypy translated on such a system to run on a more modern system. */
@@ -455,55 +415,38 @@ static void pypy__allow_attach(void) {
     prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY);
 }
 """])
-            allow_attach = rffi.llexternal(
-                "pypy__allow_attach", [], lltype.Void,
-                compilation_info=eci, _nowrapper=True)
-        else:
-            # Do nothing, there's no prctl
-            def allow_attach():
-                pass
+        allow_attach = rffi.llexternal(
+            "pypy__allow_attach", [], lltype.Void,
+            compilation_info=eci, _nowrapper=True)
+    else:
+        # Do nothing, there's no prctl
+        def allow_attach():
+            pass
 
-        def impl_attach_gdb():
-            import os
-            allow_attach()
-            pid = os.getpid()
-            gdbpid = os.fork()
-            if gdbpid == 0:
-                shell = os.environ.get("SHELL") or "/bin/sh"
-                sepidx = shell.rfind(os.sep) + 1
-                if sepidx > 0:
-                    argv0 = shell[sepidx:]
-                else:
-                    argv0 = shell
-                try:
-                    os.execv(shell, [argv0, "-c", "gdb -p %d" % pid])
-                except OSError as e:
-                    os.write(2, "Could not start GDB: %s" % (
-                        os.strerror(e.errno)))
-                    raise SystemExit
+    def impl_attach_gdb():
+        import os
+        allow_attach()
+        pid = os.getpid()
+        gdbpid = os.fork()
+        if gdbpid == 0:
+            shell = os.environ.get("SHELL") or "/bin/sh"
+            sepidx = shell.rfind(os.sep) + 1
+            if sepidx > 0:
+                argv0 = shell[sepidx:]
             else:
-                time.sleep(1) # give the GDB time to attach
+                argv0 = shell
+            try:
+                os.execv(shell, [argv0, "-c", "gdb -p %d" % pid])
+            except OSError as e:
+                os.write(2, "Could not start GDB: %s" % (
+                    os.strerror(e.errno)))
+                raise SystemExit
+        else:
+            time.sleep(1)  # give the GDB time to attach
 
-        return impl_attach_gdb
 else:
-    def _make_impl_attach_gdb():
-        def impl_attach_gdb():
-            print "Don't know how to attach GDB on Windows"
-        return impl_attach_gdb
+    def impl_attach_gdb():
+        print "Don't know how to attach GDB on Windows"
 
-
-class FunEntry(ExtFuncEntry):
-    _about_ = attach_gdb
-    signature_args = []
-    #lltypeimpl = staticmethod(impl_attach_gdb) --- done lazily below
-    name = "impl_attach_gdb"
-
-    @property
-    def lltypeimpl(self):
-        if not hasattr(self.__class__, '_lltypeimpl'):
-            self.__class__._lltypeimpl = staticmethod(_make_impl_attach_gdb())
-        return self._lltypeimpl
-
-    def compute_result_annotation(self, *args_s):
-        from rpython.annotator.model import s_None
-        return s_None
+register_external(attach_gdb, [], result=None,
+                  export_name="impl_attach_gdb", llimpl=impl_attach_gdb)

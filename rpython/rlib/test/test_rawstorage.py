@@ -32,7 +32,6 @@ def test_untranslated_storage_unaligned(monkeypatch):
     assert res == 3.14
     free_raw_storage(r)
 
-
 class TestRawStorage(BaseRtypingTest):
 
     def test_storage_int(self):

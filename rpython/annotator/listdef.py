@@ -128,18 +128,8 @@ class ListDef(object):
         self.listitem.mutated = mutated | resized
         self.listitem.resized = resized
         self.listitem.itemof[self] = True
-        self.bookkeeper = bookkeeper
 
-    def getbookkeeper(self):
-        if self.bookkeeper is None:
-            from rpython.annotator.bookkeeper import getbookkeeper
-            return getbookkeeper()
-        else:
-            return self.bookkeeper
-
-    def read_item(self, position_key=None):
-        if position_key is None:
-            position_key = self.getbookkeeper().position_key
+    def read_item(self, position_key):
         self.listitem.read_locations[position_key] = True
         return self.listitem.s_value
 
@@ -150,9 +140,10 @@ class ListDef(object):
         self.listitem.merge(other.listitem)
         return self
 
-    def agree(self, other):
-        s_self_value = self.read_item()
-        s_other_value = other.read_item()
+    def agree(self, bookkeeper, other):
+        position = bookkeeper.position_key
+        s_self_value = self.read_item(position)
+        s_other_value = other.read_item(position)
         self.generalize(s_other_value)
         other.generalize(s_self_value)
         if self.listitem.range_step is not None:
@@ -160,13 +151,14 @@ class ListDef(object):
         if other.listitem.range_step is not None:
             other.generalize_range_step(self.listitem.range_step)
 
-    def offspring(self, *others):
-        s_self_value = self.read_item()
+    def offspring(self, bookkeeper, *others):
+        position = bookkeeper.position_key
+        s_self_value = self.read_item(position)
         s_other_values = []
         for other in others:
-            s_other_values.append(other.read_item())
-        s_newlst = self.getbookkeeper().newlist(s_self_value, *s_other_values)
-        s_newvalue = s_newlst.listdef.read_item()
+            s_other_values.append(other.read_item(position))
+        s_newlst = bookkeeper.newlist(s_self_value, *s_other_values)
+        s_newvalue = s_newlst.listdef.read_item(position)
         self.generalize(s_newvalue)
         for other in others:
             other.generalize(s_newvalue)

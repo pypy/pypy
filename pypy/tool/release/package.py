@@ -3,10 +3,12 @@
 It uses 'pypy/goal/pypy-c' and parts of the rest of the working
 copy.  Usage:
 
-    package.py [--options] pypy-VER-PLATFORM
+    package.py [--options] --archive-name=pypy-VER-PLATFORM
 
 The output is found in the directory from --builddir,
 by default /tmp/usession-YOURNAME/build/.
+
+For a list of all options, see 'package.py --help'.
 """
 
 import shutil
@@ -61,6 +63,7 @@ def create_package(basedir, options, _fake=False):
     name = options.name
     if not name:
         name = 'pypy-nightly'
+    assert '/' not in name
     rename_pypy_c = options.pypy_c
     override_pypy_c = options.override_pypy_c
 
@@ -108,13 +111,8 @@ def create_package(basedir, options, _fake=False):
     #
     builddir = py.path.local(options.builddir)
     pypydir = builddir.ensure(name, dir=True)
+
     includedir = basedir.join('include')
-    # Recursively copy all headers, shutil has only ignore
-    # so we do a double-negative to include what we want
-    def copyonly(dirpath, contents):
-        return set(contents) - set(    # XXX function not used?
-            shutil.ignore_patterns('*.h', '*.incl')(dirpath, contents),
-        )
     shutil.copytree(str(includedir), str(pypydir.join('include')))
     pypydir.ensure('include', dir=True)
 
@@ -139,22 +137,27 @@ def create_package(basedir, options, _fake=False):
                     continue
             print "Picking %s" % p
             binaries.append((p, p.basename))
-        importlib_name = 'python27.lib'
-        if pypy_c.dirpath().join(importlib_name).check():
-            shutil.copyfile(str(pypy_c.dirpath().join(importlib_name)),
-                        str(pypydir.join('include/python27.lib')))
-            print "Picking %s as %s" % (pypy_c.dirpath().join(importlib_name),
-                        pypydir.join('include/python27.lib'))
+        libsdir = basedir.join('libs')
+        if libsdir.exists():
+            print 'Picking %s (and contents)' % libsdir
+            shutil.copytree(str(libsdir), str(pypydir.join('libs')))
         else:
-            pass
-            # XXX users will complain that they cannot compile cpyext
-            # modules for windows, has the lib moved or are there no
-            # exported functions in the dll so no import library is created?
+            print '"libs" dir with import library not found.'
+            print 'You have to create %r' % (str(libsdir),)
+            print 'and copy libpypy-c.lib in there, renamed to python27.lib'
+            # XXX users will complain that they cannot compile capi (cpyext)
+            # modules for windows, also embedding pypy (i.e. in cffi)
+            # will fail.
+            # Has the lib moved, was translation not 'shared', or are 
+            # there no exported functions in the dll so no import
+            # library was created?
         if not options.no_tk:
             try:
                 p = pypy_c.dirpath().join('tcl85.dll')
                 if not p.check():
                     p = py.path.local.sysfind('tcl85.dll')
+                    if p is None:
+                        raise WindowsError("tcl85.dll not found")
                 tktcldir = p.dirpath().join('..').join('lib')
                 shutil.copytree(str(tktcldir), str(pypydir.join('tcl')))
             except WindowsError:
@@ -169,6 +172,7 @@ directory next to the dlls, as per build instructions."""
 
     # Careful: to copy lib_pypy, copying just the hg-tracked files
     # would not be enough: there are also ctypes_config_cache/_*_cache.py.
+    # XXX ^^^ this is no longer true!
     shutil.copytree(str(basedir.join('lib-python').join(STDLIB_VER)),
                     str(pypydir.join('lib-python').join(STDLIB_VER)),
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~'))
@@ -287,30 +291,20 @@ def package(*args, **kwds):
         help='destination dir for archive')
     parser.add_argument('--override_pypy_c', type=str, default='',
         help='use as pypy exe instead of pypy/goal/pypy-c')
-    # Positional arguments, for backward compatability with buldbots
-    parser.add_argument('extra_args', help='optional interface to positional arguments', nargs=argparse.REMAINDER,
-        metavar='[archive-name] [rename_pypy_c] [targetdir] [override_pypy_c]',
-        )
     options = parser.parse_args(args)
 
-    # Handle positional arguments, choke if both methods are used
-    for i,target, default in ([1, 'name', ''], [2, 'pypy_c', pypy_exe],
-                              [3, 'targetdir', ''], [4,'override_pypy_c', '']):
-        if len(options.extra_args)>i:
-            if getattr(options, target) != default:
-                print 'positional argument',i,target,'already has value',getattr(options, target)
-                parser.print_help()
-                return
-            setattr(options, target, options.extra_args[i])
     if os.environ.has_key("PYPY_PACKAGE_NOSTRIP"):
         options.nostrip = True
-
     if os.environ.has_key("PYPY_PACKAGE_WITHOUTTK"):
-        options.tk = True
+        options.no_tk = True
     if not options.builddir:
         # The import actually creates the udir directory
         from rpython.tool.udir import udir
         options.builddir = udir.ensure("build", dir=True)
+    else:
+        # if a user provides a path it must be converted to a local file system path
+        # otherwise ensure in create_package will fail
+        options.builddir = py.path.local(options.builddir)
     assert '/' not in options.pypy_c
     return create_package(basedir, options, **kwds)
 

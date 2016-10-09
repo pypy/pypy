@@ -70,45 +70,57 @@ zlib
 bz2
     libbz2
 
-lzma (PyPy3 only)
-    liblzma
-
-sqlite3
-    libsqlite3
-
-curses
-    libncurses + cffi dependencies from above
-
 pyexpat
     libexpat1
 
 _ssl
     libssl
 
-Make sure to have these libraries (with development headers) installed before
-building PyPy, otherwise the resulting binary will not contain these modules.
+Make sure to have these libraries (with development headers) installed
+before building PyPy, otherwise the resulting binary will not contain
+these modules.  Furthermore, the following libraries should be present
+after building PyPy, otherwise the corresponding CFFI modules are not
+built (you can run or re-run `pypy/tool/release/package.py` to retry
+to build them; you don't need to re-translate the whole PyPy):
+
+sqlite3
+    libsqlite3
+
+curses
+    libncurses
+
+gdbm
+    libgdbm-dev
+
+tk
+    tk-dev
+
+lzma (PyPy3 only)
+    liblzma
+
+To run untranslated tests, you need the Boehm garbage collector libgc.
 
 On Debian, this is the command to install all build-time dependencies::
 
     apt-get install gcc make libffi-dev pkg-config libz-dev libbz2-dev \
-    libsqlite3-dev libncurses-dev libexpat1-dev libssl-dev
-
-For the optional lzma module on PyPy3 you will also need ``liblzma-dev``.
+    libsqlite3-dev libncurses-dev libexpat1-dev libssl-dev libgdbm-dev \
+    tk-dev libgc-dev \
+    liblzma-dev  # For lzma on PyPy3.
 
 On Fedora::
 
-    yum install gcc make libffi-devel pkgconfig zlib-devel bzip2-devel \
-    lib-sqlite3-devel ncurses-devel expat-devel openssl-devel
-
-For the optional lzma module on PyPy3 you will also need ``xz-devel``.
+    dnf install gcc make libffi-devel pkgconfig zlib-devel bzip2-devel \
+    lib-sqlite3-devel ncurses-devel expat-devel openssl-devel tk-devel \
+    gdbm-devel \
+    xz-devel  # For lzma on PyPy3.
 
 On SLES11::
 
     zypper install gcc make python-devel pkg-config \
     zlib-devel libopenssl-devel libbz2-devel sqlite3-devel \
-    libexpat-devel libffi-devel python-curses
-
-For the optional lzma module on PyPy3 you will also need ``xz-devel``.
+    libexpat-devel libffi-devel python-curses \
+    xz-devel  # For lzma on PyPy3.
+    (XXX plus the SLES11 version of libgdbm-dev and tk-dev)
 
 On Mac OS X, most of these build-time dependencies are installed alongside
 the Developer Tools. However, note that in order for the installation to
@@ -122,11 +134,13 @@ Run the translation
 
 Translate with JIT::
 
-    pypy rpython/bin/rpython --opt=jit pypy/goal/targetpypystandalone.py
+    cd pypy/goal
+    pypy ../../rpython/bin/rpython --opt=jit
 
 Translate without JIT::
 
-    pypy rpython/bin/rpython --opt=2 pypy/goal/targetpypystandalone.py
+    cd pypy/goal
+    pypy ../../rpython/bin/rpython --opt=2
 
 (You can use ``python`` instead of ``pypy`` here, which will take longer
 but works too.)
@@ -135,8 +149,16 @@ If everything works correctly this will create an executable ``pypy-c`` in the
 current directory. The executable behaves mostly like a normal Python
 interpreter (see :doc:`cpython_differences`).
 
+Build cffi import libraries for the stdlib
+------------------------------------------
 
-.. _translate-pypy:
+Various stdlib modules require a separate build step to create the cffi
+import libraries in the `out-of-line API mode`_. This is done by the following
+command::
+
+   PYTHONPATH=. ./pypy-c pypy/tool/build_cffi_imports.py
+
+.. _`out-of-line API mode`: http://cffi.readthedocs.org/en/latest/overview.html#real-example-api-level-out-of-line
 
 Translating with non-standard options
 -------------------------------------
@@ -196,4 +218,3 @@ However, the ``sys.prefix`` will be unset and some existing libraries assume
 that this is never the case.
 
 
-.. TODO windows

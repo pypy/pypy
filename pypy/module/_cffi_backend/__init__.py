@@ -1,8 +1,9 @@
 import sys
 from pypy.interpreter.mixedmodule import MixedModule
-from rpython.rlib import rdynload, clibffi
+from rpython.rlib import rdynload, clibffi, entrypoint
+from rpython.rtyper.lltypesystem import rffi
 
-VERSION = "1.3.0"
+VERSION = "1.8.4"
 
 FFI_DEFAULT_ABI = clibffi.FFI_DEFAULT_ABI
 try:
@@ -43,9 +44,12 @@ class Module(MixedModule):
         'newp_handle': 'handle.newp_handle',
         'from_handle': 'handle.from_handle',
         '_get_types': 'func._get_types',
+        '_get_common_types': 'func._get_common_types',
         'from_buffer': 'func.from_buffer',
+        'gcp': 'func.gcp',
 
         'string': 'func.string',
+        'unpack': 'func.unpack',
         'buffer': 'cbuffer.buffer',
         'memmove': 'func.memmove',
 
@@ -64,6 +68,11 @@ class Module(MixedModule):
     if has_stdcall:
         interpleveldefs['FFI_STDCALL'] = 'space.wrap(%d)' % FFI_STDCALL
 
+    def startup(self, space):
+        from pypy.module._cffi_backend import embedding
+        embedding.glob.space = space
+        embedding.glob.patched_sys = False
+
 
 def get_dict_rtld_constants():
     found = {}
@@ -77,3 +86,11 @@ def get_dict_rtld_constants():
 
 for _name, _value in get_dict_rtld_constants().items():
     Module.interpleveldefs[_name] = 'space.wrap(%d)' % _value
+
+
+# write this entrypoint() here, to make sure it is registered early enough
+@entrypoint.entrypoint_highlevel('main', [rffi.INT, rffi.VOIDP],
+                                 c_name='pypy_init_embedded_cffi_module')
+def pypy_init_embedded_cffi_module(version, init_struct):
+    from pypy.module._cffi_backend import embedding
+    return embedding.pypy_init_embedded_cffi_module(version, init_struct)

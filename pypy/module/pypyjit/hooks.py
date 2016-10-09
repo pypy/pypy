@@ -23,8 +23,25 @@ class PyPyJitIface(JitHookInterface):
                         space.wrap(Counters.counter_names[reason]),
                         space.newlist(oplist_w)
                     )
-                except OperationError, e:
+                except OperationError as e:
                     e.write_unraisable(space, "jit hook ", cache.w_abort_hook)
+            finally:
+                cache.in_recursion = False
+
+    def on_trace_too_long(self, jitdriver, greenkey, greenkey_repr):
+        space = self.space
+        cache = space.fromcache(Cache)
+        if cache.in_recursion:
+            return
+        if space.is_true(cache.w_trace_too_long_hook):
+            cache.in_recursion = True
+            try:
+                try:
+                    space.call_function(cache.w_trace_too_long_hook,
+                        space.wrap(jitdriver.name),
+                        wrap_greenkey(space, jitdriver, greenkey, greenkey_repr))
+                except OperationError as e:
+                    e.write_unraisable(space, "jit hook", cache.w_trace_too_long_hook)
             finally:
                 cache.in_recursion = False
 
@@ -53,7 +70,7 @@ class PyPyJitIface(JitHookInterface):
                 try:
                     space.call_function(cache.w_compile_hook,
                                         space.wrap(w_debug_info))
-                except OperationError, e:
+                except OperationError as e:
                     e.write_unraisable(space, "jit hook ", cache.w_compile_hook)
             finally:
                 cache.in_recursion = False

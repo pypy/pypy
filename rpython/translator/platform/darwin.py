@@ -1,13 +1,15 @@
 """Support for OS X."""
 
 from rpython.translator.platform import posix
+import os
 
 #
 # Although Intel 32bit is supported since Apple Mac OS X 10.4, (and PPC since, ever)
 # the @rpath handling used in Darwin._args_for_shared is only availabe
-# since 10.5, so we use that as minimum requirement.
+# since 10.5, so we use that as minimum requirement. Bumped to 10.6
+# because 10.11 does not ship with 10.5 versions of libs
 #
-DARWIN_VERSION_MIN = '-mmacosx-version-min=10.5'
+DARWIN_VERSION_MIN = '-mmacosx-version-min=10.6'
 
 class Darwin(posix.BasePosix):
     name = "darwin"
@@ -26,18 +28,44 @@ class Darwin(posix.BasePosix):
         # needed for cross compiling on ARM, needs fixing if relevant for darwin
         if len(rel_libdirs) > 0:
             print 'in get_rpath_flags, rel_libdirs is not fixed up',rel_libdirs
-        return self.rpath_flags 
+        return self.rpath_flags
 
     def _args_for_shared(self, args):
         return (list(self.shared_only)
-                + ['-dynamiclib', '-install_name', '@rpath/$(TARGET)', '-undefined', 'dynamic_lookup']
+                + ['-dynamiclib', '-install_name', '@rpath/$(TARGET)', '-undefined', 'dynamic_lookup', '-flat_namespace']
                 + args)
 
     def _include_dirs_for_libffi(self):
-        return ['/usr/include/ffi']
+        return self._pkg_config("libffi", "--cflags-only-I",
+                                ['/usr/include/ffi'],
+                                check_result_dir=True)
 
     def _library_dirs_for_libffi(self):
-        return ['/usr/lib']
+        return self._pkg_config("libffi", "--libs-only-L",
+                                ['/usr/lib'],
+                                check_result_dir=True)
+
+    def include_dirs_for_openssl(self):
+        dirs = self._include_dirs_for_openssl()
+        if 'PYPY_LOCALBASE' in os.environ:
+            return [os.environ['PYPY_LOCALBASE'] + '/include'] + dirs
+        return dirs
+
+    def library_dirs_for_openssl(self):
+        dirs = self._library_dirs_for_openssl()
+        if 'PYPY_LOCALBASE' in os.environ:
+            return [os.environ['PYPY_LOCALBASE'] + '/lib'] + dirs
+        return dirs
+
+    def _include_dirs_for_openssl(self):
+        return self._pkg_config("openssl", "--cflags-only-I",
+                                ['/usr/include'],
+                                check_result_dir=True)
+
+    def _library_dirs_for_openssl(self):
+        return self._pkg_config("openssl", "--libs-only-L",
+                                ['/usr/lib'],
+                                check_result_dir=True)
 
     def _frameworks(self, frameworks):
         args = []

@@ -22,6 +22,16 @@ eci = ExternalCompilationInfo(
     include_dirs = [translator_c_dir],
 )
 
+class CConfig:
+    _compilation_info_ = eci
+    RPYTHREAD_NAME = rffi_platform.DefinedConstantString('RPYTHREAD_NAME')
+    USE_SEMAPHORES = rffi_platform.Defined('USE_SEMAPHORES')
+    CS_GNU_LIBPTHREAD_VERSION = rffi_platform.DefinedConstantInteger(
+        '_CS_GNU_LIBPTHREAD_VERSION')
+cconfig = rffi_platform.configure(CConfig)
+globals().update(cconfig)
+
+
 def llexternal(name, args, result, **kwds):
     kwds.setdefault('sandboxsafe', True)
     return rffi.llexternal(name, args, result, compilation_info=eci,
@@ -79,7 +89,12 @@ def allocate_lock():
 
 @specialize.arg(0)
 def ll_start_new_thread(func):
+    from rpython.rlib import rgil
     _check_thread_enabled()
+    rgil.allocate()
+    # ^^^ convenience: any RPython program which uses explicitly
+    # rthread.start_new_thread() will initialize the GIL at that
+    # point.
     ident = c_thread_start(func)
     if ident == -1:
         raise error("can't start new thread")
@@ -95,8 +110,11 @@ def get_ident():
         return thread.get_ident()
 
 def get_or_make_ident():
-    assert we_are_translated()
-    return tlfield_thread_ident.get_or_make_raw()
+    if we_are_translated():
+        return tlfield_thread_ident.get_or_make_raw()
+    else:
+        import thread
+        return thread.get_ident()
 
 @specialize.arg(0)
 def start_new_thread(x, y):
@@ -286,8 +304,6 @@ def gc_thread_after_fork(result_of_fork, opaqueaddr):
 # ____________________________________________________________
 #
 # Thread-locals.
-# KEEP THE REFERENCE ALIVE, THE GC DOES NOT FOLLOW THEM SO FAR!
-# We use _make_sure_does_not_move() to make sure the pointer will not move.
 
 
 class ThreadLocalField(object):
@@ -305,7 +321,7 @@ class ThreadLocalField(object):
         offset = CDefinedIntSymbolic('RPY_TLOFS_%s' % self.fieldname,
                                      default='?')
         offset.loop_invariant = loop_invariant
-        self.offset = offset
+        self._offset = offset
 
         def getraw():
             if we_are_translated():
@@ -346,6 +362,11 @@ class ThreadLocalField(object):
 
 
 class ThreadLocalReference(ThreadLocalField):
+    # A thread-local that points to an object.  The object stored in such
+    # a thread-local is kept alive as long as the thread is not finished
+    # (but only with our own GCs!  it seems not to work with Boehm...)
+    # (also, on Windows, if you're not making a DLL but an EXE, it will
+    # leak the objects when a thread finishes; see threadlocal.c.)
     _COUNT = 1
 
     def __init__(self, Cls, loop_invariant=False):
@@ -356,7 +377,7 @@ class ThreadLocalReference(ThreadLocalField):
         ThreadLocalField.__init__(self, lltype.Signed, 'tlref%d' % unique_id,
                                   loop_invariant=loop_invariant)
         setraw = self.setraw
-        offset = self.offset
+        offset = self._offset
 
         def get():
             if we_are_translated():
@@ -373,19 +394,40 @@ class ThreadLocalReference(ThreadLocalField):
             assert isinstance(value, Cls) or value is None
             if we_are_translated():
                 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
-                from rpython.rlib.rgc import _make_sure_does_not_move
-                from rpython.rlib.objectmodel import running_on_llinterp
                 gcref = cast_instance_to_gcref(value)
-                if not running_on_llinterp:
-                    if gcref:
-                        _make_sure_does_not_move(gcref)
                 value = lltype.cast_ptr_to_int(gcref)
                 setraw(value)
+                rgc.register_custom_trace_hook(TRACETLREF, _lambda_trace_tlref)
+                rgc.ll_writebarrier(_tracetlref_obj)
             else:
                 self.local.value = value
 
         self.get = get
         self.set = set
+
+        def _trace_tlref(gc, obj, callback, arg):
+            p = llmemory.NULL
+            llop.threadlocalref_acquire(lltype.Void)
+            while True:
+                p = llop.threadlocalref_enum(llmemory.Address, p)
+                if not p:
+                    break
+                gc._trace_callback(callback, arg, p + offset)
+            llop.threadlocalref_release(lltype.Void)
+        _lambda_trace_tlref = lambda: _trace_tlref
+        TRACETLREF = lltype.GcStruct('TRACETLREF')
+        _tracetlref_obj = lltype.malloc(TRACETLREF, immortal=True)
+
+    @staticmethod
+    def automatic_keepalive(config):
+        """Returns True if translated with a GC that keeps alive
+        the set() value until the end of the thread.  Returns False
+        if you need to keep it alive yourself (but in that case, you
+        should also reset it to None before the thread finishes).
+        """
+        return (config.translation.gctransformer == "framework" and
+                # see translator/c/src/threadlocal.c for the following line
+                (not _win32 or config.translation.shared))
 
 
 tlfield_thread_ident = ThreadLocalField(lltype.Signed, "thread_ident",
@@ -394,7 +436,8 @@ tlfield_p_errno = ThreadLocalField(rffi.CArrayPtr(rffi.INT), "p_errno",
                                    loop_invariant=True)
 tlfield_rpy_errno = ThreadLocalField(rffi.INT, "rpy_errno")
 tlfield_alt_errno = ThreadLocalField(rffi.INT, "alt_errno")
-if sys.platform == "win32":
+_win32 = (sys.platform == "win32")
+if _win32:
     from rpython.rlib import rwin32
     tlfield_rpy_lasterror = ThreadLocalField(rwin32.DWORD, "rpy_lasterror")
     tlfield_alt_lasterror = ThreadLocalField(rwin32.DWORD, "alt_lasterror")

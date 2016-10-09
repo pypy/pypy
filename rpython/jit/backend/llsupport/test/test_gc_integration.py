@@ -3,7 +3,7 @@
 """
 
 import py
-import re
+import re, sys, struct
 from rpython.jit.metainterp.history import TargetToken, BasicFinalDescr,\
      JitCellToken, BasicFailDescr, AbstractDescr
 from rpython.jit.backend.llsupport.gc import GcLLDescription, GcLLDescr_boehm,\
@@ -17,7 +17,6 @@ from rpython.rtyper.annlowlevel import llhelper, llhelper_args
 from rpython.jit.backend.llsupport.test.test_regalloc_integration import BaseTestRegalloc
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.codewriter import longlong
-from rpython.rlib.objectmodel import invoke_around_extcall
 
 CPU = getcpuclass()
 
@@ -90,6 +89,10 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
                 assert nos ==  [0, 1, 25]
         elif self.cpu.backend_name.startswith('arm'):
             assert nos == [0, 1, 47]
+        elif self.cpu.backend_name.startswith('ppc64'):
+            assert nos == [0, 1, 33]
+        elif self.cpu.backend_name.startswith('zarch'):
+            assert nos == [0, 1, 29]
         else:
             raise Exception("write the data here")
         assert frame.jf_frame[nos[0]]
@@ -155,6 +158,8 @@ class GCDescrFastpathMalloc(GcLLDescription):
         self.nursery = lltype.malloc(NTP, 64, flavor='raw')
         for i in range(64):
             self.nursery[i] = NOT_INITIALIZED
+        self.nursery_words = rffi.cast(rffi.CArrayPtr(lltype.Signed),
+                                       self.nursery)
         self.addrs = lltype.malloc(rffi.CArray(lltype.Signed), 2,
                                    flavor='raw')
         self.addrs[0] = rffi.cast(lltype.Signed, self.nursery)
@@ -247,7 +252,7 @@ class TestMallocFastpath(BaseTestRegalloc):
         p0 = call_malloc_nursery_varsize_frame(i0)
         p1 = call_malloc_nursery_varsize_frame(i1)
         p2 = call_malloc_nursery_varsize_frame(i2)
-        guard_true(i0) [p0, p1, p2]
+        guard_false(i0) [p0, p1, p2]
         '''
         self.interpret(ops, [16, 32, 16])
         # check the returned pointers
@@ -263,11 +268,11 @@ class TestMallocFastpath(BaseTestRegalloc):
         # slowpath never called
         assert gc_ll_descr.calls == []
 
-    def test_malloc_nursery_varsize(self):
+    def test_malloc_nursery_varsize_nonframe(self):
         self.cpu = self.getcpu(None)
         A = lltype.GcArray(lltype.Signed)
         arraydescr = self.cpu.arraydescrof(A)
-        arraydescr.tid = 15
+        arraydescr.tid = 1515
         ops = '''
         [i0, i1, i2]
         p0 = call_malloc_nursery_varsize(0, 8, i0, descr=arraydescr)
@@ -283,8 +288,8 @@ class TestMallocFastpath(BaseTestRegalloc):
         assert rffi.cast(lltype.Signed, ref(0)) == nurs_adr + 0
         assert rffi.cast(lltype.Signed, ref(1)) == nurs_adr + 2*WORD + 8*1
         # check the nursery content and state
-        assert gc_ll_descr.nursery[0] == chr(15)
-        assert gc_ll_descr.nursery[2 * WORD + 8] == chr(15)
+        assert gc_ll_descr.nursery_words[0] == 1515
+        assert gc_ll_descr.nursery_words[2 + 8 // WORD] == 1515
         assert gc_ll_descr.addrs[0] == nurs_adr + (((4 * WORD + 8*1 + 5*2) + (WORD - 1)) & ~(WORD - 1))
         # slowpath never called
         assert gc_ll_descr.calls == []
@@ -310,24 +315,35 @@ class TestMallocFastpath(BaseTestRegalloc):
                                   'strdescr': arraydescr})
         # check the returned pointers
         gc_ll_descr = self.cpu.gc_ll_descr
-        assert gc_ll_descr.calls == [(8, 15, 10), (5, 15, 3), ('str', 3)]
+        assert gc_ll_descr.calls == [(8, 15, 10),
+                                     (5, 15, 3),
+                                     ('str', 3)]
         # one fit, one was too large, one was not fitting
 
     def test_malloc_slowpath(self):
         def check(frame):
             expected_size = 1
-            idx = 0
+            fixed_size = self.cpu.JITFRAME_FIXED_SIZE
             if self.cpu.backend_name.startswith('arm'):
                 # jitframe fixed part is larger here
                 expected_size = 2
-                idx = 1
+            if self.cpu.backend_name.startswith('zarch') or \
+               self.cpu.backend_name.startswith('ppc'):
+                # the allocation always allocates the register
+                # into the return register. (e.g. r3 on ppc)
+                # the next malloc_nursery will move r3 to the
+                # frame manager, thus the two bits will be on the frame
+                fixed_size += 4
             assert len(frame.jf_gcmap) == expected_size
-            if self.cpu.IS_64_BIT:
-                assert frame.jf_gcmap[idx] == (1<<29) | (1 << 30)
-            else:
-                assert frame.jf_gcmap[idx]
-                exp_idx = self.cpu.JITFRAME_FIXED_SIZE - 32 * idx + 1 # +1 from i0
-                assert frame.jf_gcmap[idx] == (1 << (exp_idx + 1)) | (1 << exp_idx)
+            # check that we have two bits set, and that they are in two
+            # registers (p0 and p1 are moved away when doing p2, but not
+            # spilled, just moved to different registers)
+            bits = [n for n in range(fixed_size)
+                      if frame.jf_gcmap[0] & (1<<n)]
+            if expected_size > 1:
+                bits += [n for n in range(32, fixed_size)
+                           if frame.jf_gcmap[1] & (1<<(n - 32))]
+            assert len(bits) == 2
 
         self.cpu = self.getcpu(check)
         ops = '''
@@ -609,7 +625,10 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         cpu = CPU(None, None)
         cpu.gc_ll_descr = GCDescrShadowstackDirect()
         wbd = cpu.gc_ll_descr.write_barrier_descr
-        wbd.jit_wb_if_flag_byteofs = 0 # directly into 'hdr' field
+        if sys.byteorder == 'little':
+            wbd.jit_wb_if_flag_byteofs = 0 # directly into 'hdr' field
+        else:
+            wbd.jit_wb_if_flag_byteofs = struct.calcsize("l") - 1
         S = lltype.GcForwardReference()
         S.become(lltype.GcStruct('S',
                                  ('hdr', lltype.Signed),
@@ -617,9 +636,6 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         cpu.gc_ll_descr.fielddescr_tid = cpu.fielddescrof(S, 'hdr')
         self.S = S
         self.cpu = cpu
-
-    def teardown_method(self, meth):
-        rffi.aroundstate._cleanup_()
 
     def test_shadowstack_call(self):
         cpu = self.cpu
@@ -636,17 +652,23 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
             frames.append(frame)
             new_frame = JITFRAME.allocate(frame.jf_frame_info)
             gcmap = unpack_gcmap(frame)
-            if self.cpu.IS_64_BIT:
+            if self.cpu.backend_name.startswith('ppc64'):
+                assert gcmap == [30, 31, 32]
+            elif self.cpu.backend_name.startswith('zarch'):
+                # 10 gpr, 14 fpr -> 25 is the first slot
+                assert gcmap == [26, 27, 28]
+            elif self.cpu.IS_64_BIT:
                 assert gcmap == [28, 29, 30]
             elif self.cpu.backend_name.startswith('arm'):
                 assert gcmap == [44, 45, 46]
-                pass
             else:
                 assert gcmap == [22, 23, 24]
             for item, s in zip(gcmap, new_items):
                 new_frame.jf_frame[item] = rffi.cast(lltype.Signed, s)
             assert cpu.gc_ll_descr.gcrootmap.stack[0] == rffi.cast(lltype.Signed, frame)
             cpu.gc_ll_descr.gcrootmap.stack[0] = rffi.cast(lltype.Signed, new_frame)
+            print '"Collecting" moved the frame from %d to %d' % (
+                i, cpu.gc_ll_descr.gcrootmap.stack[0])
             frames.append(new_frame)
 
         def check2(i):
@@ -709,7 +731,7 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         [i0, p0]
         p = force_token()
         cond_call(i0, ConstClass(funcptr), i0, p, descr=calldescr)
-        guard_true(i0, descr=faildescr) [p0]
+        guard_false(i0, descr=faildescr) [p0]
         """, namespace={
             'faildescr': BasicFailDescr(),
             'funcptr': checkptr,

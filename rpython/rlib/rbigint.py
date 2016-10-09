@@ -90,16 +90,16 @@ KARATSUBA_SQUARE_CUTOFF = 2 * KARATSUBA_CUTOFF
 
 FIVEARY_CUTOFF = 8
 
+@specialize.argtype(0)
 def _mask_digit(x):
     return UDIGIT_MASK(x & MASK)
-_mask_digit._annspecialcase_ = 'specialize:argtype(0)'
 
 def _widen_digit(x):
     return rffi.cast(LONG_TYPE, x)
 
+@specialize.argtype(0)
 def _store_digit(x):
     return rffi.cast(STORE_TYPE, x)
-_store_digit._annspecialcase_ = 'specialize:argtype(0)'
 
 def _load_unsigned_digit(x):
     return rffi.cast(UNSIGNED_TYPE, x)
@@ -175,11 +175,11 @@ class rbigint(object):
         return _load_unsigned_digit(self._digits[x])
     udigit._always_inline_ = True
 
+    @specialize.argtype(2)
     def setdigit(self, x, val):
         val = _mask_digit(val)
         assert val >= 0
         self._digits[x] = _store_digit(val)
-    setdigit._annspecialcase_ = 'specialize:argtype(2)'
     setdigit._always_inline_ = True
 
     def numdigits(self):
@@ -296,7 +296,7 @@ class rbigint(object):
         if not s:
             return NULLRBIGINT
 
-        if byteorder != BYTEORDER:
+        if byteorder == 'big':
             msb = ord(s[0])
             itr = range(len(s)-1, -1, -1)
         else:
@@ -336,7 +336,7 @@ class rbigint(object):
         if not signed and self.sign == -1:
             raise InvalidSignednessError()
 
-        bswap = byteorder != BYTEORDER
+        bswap = byteorder == 'big'
         d = _widen_digit(0)
         j = 0
         imax = self.numdigits()
@@ -414,14 +414,18 @@ class rbigint(object):
     @jit.elidable
     def _toint_helper(self):
         x = self._touint_helper()
-        # Haven't lost any bits, but if the sign bit is set we're in
-        # trouble *unless* this is the min negative number.  So,
-        # trouble iff sign bit set && (positive || some bit set other
-        # than the sign bit).
-        sign = self.sign
-        if intmask(x) < 0 and (sign > 0 or (x << 1) != 0):
-            raise OverflowError
-        return intmask(intmask(x) * sign)
+        # Haven't lost any bits so far
+        if self.sign >= 0:
+            res = intmask(x)
+            if res < 0:
+                raise OverflowError
+        else:
+            # Use "-" on the unsigned number, not on the signed number.
+            # This is needed to produce valid C code.
+            res = intmask(-x)
+            if res >= 0:
+                raise OverflowError
+        return res
 
     @jit.elidable
     def tolonglong(self):
@@ -1218,6 +1222,9 @@ class rbigint(object):
         # base is supposed to be positive or 0.0, which means we use e
         if base == 10.0:
             return _loghelper(math.log10, self)
+        if base == 2.0:
+            from rpython.rlib import rfloat
+            return _loghelper(rfloat.log2, self)
         ret = _loghelper(math.log, self)
         if base != 0.0:
             ret /= math.log(base)
@@ -1305,6 +1312,7 @@ def _help_mult(x, y, c):
 
     return res
 
+@specialize.argtype(0)
 def digits_from_nonneg_long(l):
     digits = []
     while True:
@@ -1312,8 +1320,8 @@ def digits_from_nonneg_long(l):
         l = l >> SHIFT
         if not l:
             return digits[:] # to make it non-resizable
-digits_from_nonneg_long._annspecialcase_ = "specialize:argtype(0)"
 
+@specialize.argtype(0)
 def digits_for_most_neg_long(l):
     # This helper only works if 'l' is the most negative integer of its
     # type, which in base 2 looks like: 1000000..0000
@@ -1328,8 +1336,8 @@ def digits_for_most_neg_long(l):
     assert l & MASK == l
     digits.append(_store_digit(l))
     return digits[:] # to make it non-resizable
-digits_for_most_neg_long._annspecialcase_ = "specialize:argtype(0)"
 
+@specialize.argtype(0)
 def args_from_rarith_int1(x):
     if x > 0:
         return digits_from_nonneg_long(x), 1
@@ -1341,11 +1349,10 @@ def args_from_rarith_int1(x):
     else:
         # the most negative integer! hacks needed...
         return digits_for_most_neg_long(x), -1
-args_from_rarith_int1._annspecialcase_ = "specialize:argtype(0)"
 
+@specialize.argtype(0)
 def args_from_rarith_int(x):
     return args_from_rarith_int1(widen(x))
-args_from_rarith_int._annspecialcase_ = "specialize:argtype(0)"
 # ^^^ specialized by the precise type of 'x', which is typically a r_xxx
 #     instance from rlib.rarithmetic
 
@@ -1902,6 +1909,7 @@ def _v_isub(x, xofs, m, y, n):
         i += 1
     return borrow
 
+@specialize.argtype(2)
 def _muladd1(a, n, extra=0):
     """Multiply by a single digit and add a single digit, ignoring the sign.
     """
@@ -1919,7 +1927,7 @@ def _muladd1(a, n, extra=0):
     z.setdigit(i, carry)
     z._normalize()
     return z
-_muladd1._annspecialcase_ = "specialize:argtype(2)"
+
 def _v_lshift(z, a, m, d):
     """ Shift digit vector a[0:m] d bits left, with 0 <= d < SHIFT. Put
         * result in z[0:m], and return the d bits shifted out of the top.
@@ -2171,6 +2179,7 @@ def _AsDouble(n):
         ad = -ad
     return ad
 
+@specialize.arg(0)
 def _loghelper(func, arg):
     """
     A decent logarithm is easy to compute even for huge bigints, but libm can't
@@ -2188,7 +2197,6 @@ def _loghelper(func, arg):
     # CAUTION:  e*SHIFT may overflow using int arithmetic,
     # so force use of double. */
     return func(x) + (e * float(SHIFT) * func(2.0))
-_loghelper._annspecialcase_ = 'specialize:arg(0)'
 
 # ____________________________________________________________
 
@@ -2512,6 +2520,7 @@ def _format(x, digits, prefix='', suffix=''):
     return output.build()
 
 
+@specialize.arg(1)
 def _bitwise(a, op, b): # '&', '|', '^'
     """ Bitwise and/or/xor operations """
 
@@ -2591,8 +2600,8 @@ def _bitwise(a, op, b): # '&', '|', '^'
         return z
 
     return z.invert()
-_bitwise._annspecialcase_ = "specialize:arg(1)"
 
+@specialize.arg(1)
 def _int_bitwise(a, op, b): # '&', '|', '^'
     """ Bitwise and/or/xor operations """
 
@@ -2675,7 +2684,6 @@ def _int_bitwise(a, op, b): # '&', '|', '^'
         return z
 
     return z.invert()
-_int_bitwise._annspecialcase_ = "specialize:arg(1)"
 
 ULONGLONG_BOUND = r_ulonglong(1L << (r_longlong.BITS-1))
 LONGLONG_MIN = r_longlong(-(1L << (r_longlong.BITS-1)))
@@ -2794,8 +2802,10 @@ def _decimalstr_to_bigint(s):
 
 def parse_digit_string(parser):
     # helper for fromstr
-    a = rbigint()
     base = parser.base
+    if (base & (base - 1)) == 0:
+        return parse_string_from_binary_base(parser)
+    a = rbigint()
     digitmax = BASE_MAX[base]
     tens, dig = 1, 0
     while True:
@@ -2811,3 +2821,52 @@ def parse_digit_string(parser):
             tens *= base
     a.sign *= parser.sign
     return a
+
+def parse_string_from_binary_base(parser):
+    # The point to this routine is that it takes time linear in the number of
+    # string characters.
+    from rpython.rlib.rstring import ParseStringError
+
+    base = parser.base
+    if   base ==  2: bits_per_char = 1
+    elif base ==  4: bits_per_char = 2
+    elif base ==  8: bits_per_char = 3
+    elif base == 16: bits_per_char = 4
+    elif base == 32: bits_per_char = 5
+    else:
+        raise AssertionError
+
+    # n <- total number of bits needed, while moving 'parser' to the end
+    n = 0
+    while parser.next_digit() >= 0:
+        n += 1
+
+    # b <- number of Python digits needed, = ceiling(n/SHIFT). */
+    try:
+        b = ovfcheck(n * bits_per_char)
+        b = ovfcheck(b + (SHIFT - 1))
+    except OverflowError:
+        raise ParseStringError("long string too large to convert")
+    b = (b // SHIFT) or 1
+    z = rbigint([NULLDIGIT] * b, sign=parser.sign)
+
+    # Read string from right, and fill in long from left; i.e.,
+    # from least to most significant in both.
+    accum = _widen_digit(0)
+    bits_in_accum = 0
+    pdigit = 0
+    for _ in range(n):
+        k = parser.prev_digit()
+        accum |= _widen_digit(k) << bits_in_accum
+        bits_in_accum += bits_per_char
+        if bits_in_accum >= SHIFT:
+            z.setdigit(pdigit, accum)
+            pdigit += 1
+            assert pdigit <= b
+            accum >>= SHIFT
+            bits_in_accum -= SHIFT
+
+    if bits_in_accum:
+        z.setdigit(pdigit, accum)
+    z._normalize()
+    return z

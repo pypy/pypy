@@ -6,6 +6,7 @@ Tests for the rzlib module.
 import py
 from rpython.rlib import rzlib
 from rpython.rlib.rarithmetic import r_uint
+from rpython.rlib import clibffi # for side effect of testing lib_c_name on win32
 import zlib
 
 expanded = 'some bytes which will be compressed'

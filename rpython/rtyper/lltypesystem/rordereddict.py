@@ -6,7 +6,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib import objectmodel, jit, rgc, types
 from rpython.rlib.signature import signature
 from rpython.rlib.objectmodel import specialize, likely
-from rpython.rlib.debug import ll_assert
+from rpython.rtyper.debug import ll_assert
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rtyper import rmodel
 from rpython.rtyper.error import TyperError

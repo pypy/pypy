@@ -30,23 +30,16 @@ class TestX86(LLtypeBackendTest):
     # ====> ../../test/runner_test.py
 
     if WORD == 4:
-        add_loop_instructions = ['mov',
-                                 'lea',    # a nop, for the label
-                                 'add', 'test', 'je', 'jmp',
-                                 'nop']    # padding
-        bridge_loop_instructions = ['cmp', 'jge', 'mov', 'mov', 'call', 'jmp',
-                                    'lea', 'lea']   # padding
+        add_loop_instructions = ('mov; '
+                                 'lea; '    # a nop, for the label
+                                 'add; test; je; jmp;')   # plus some padding
+        bridge_loop_instructions = 'cmp; jge; mov; mov; call; jmp;'
     else:
-        add_loop_instructions = ['mov',
-                                 'nop',    # for the label
-                                 'add', 'test', 'je', 'jmp',
-                                 'data32']   # padding
-        bridge_loop_instructions = [
-            'cmp', 'jge', 'mov', 'mov', 'mov', 'mov', 'call', 'mov', 'jmp',
-            'nop']      # padding
-        bridge_loop_instructions_alternative = [
-            'cmp', 'jge', 'mov', 'mov', 'mov', 'call', 'mov', 'jmp',
-            'nop']      # padding
+        add_loop_instructions = ('mov; '
+                                 'nop; '    # for the label
+                                 'add; test; je; jmp;')   # plus some padding
+        bridge_loop_instructions = (
+            'cmp; jge; mov;( movabs;)? mov; mov(abs)?; call; mov(abs)?; jmp;')
 
     def get_cpu(self):
         cpu = CPU(rtyper=None, stats=FakeStats())
@@ -271,6 +264,22 @@ class TestX86(LLtypeBackendTest):
         self.execute_operation(rop.SETFIELD_RAW, [res, ConstInt(3**33)],
                                'void', ofsi)
         assert p.i == 3**33
+
+    def test_getfield_64bit_offset(self):
+        if WORD == 4:
+            py.test.skip("only for 64 bits")
+        TP = lltype.Struct('S', ('i', lltype.Signed))
+        p = lltype.malloc(TP, flavor='raw')
+        p.i = 0x123456789ABC
+        offset = 3**33
+        val = rffi.cast(lltype.Signed, rffi.cast(lltype.Signed, p) - offset)
+        res = self.execute_operation(rop.GC_LOAD_I,
+                                     [InputArgInt(val),
+                                      ConstInt(offset),
+                                      ConstInt(WORD)],
+                                     'int')
+        assert res == 0x123456789ABC
+        lltype.free(p, flavor='raw')
 
     def test_and_mask_common_patterns(self):
         cases = [8, 16, 24]
@@ -581,11 +590,11 @@ class TestDebuggingAssembler(object):
             self.cpu.compile_loop(ops.inputargs, ops.operations, looptoken)
             self.cpu.execute_token(looptoken, 0)
             # check debugging info
-            struct = self.cpu.assembler.loop_run_counters[0]
+            struct = self.cpu.assembler.get_loop_run_counters(0)
             assert struct.i == 1
-            struct = self.cpu.assembler.loop_run_counters[1]
+            struct = self.cpu.assembler.get_loop_run_counters(1)
             assert struct.i == 1
-            struct = self.cpu.assembler.loop_run_counters[2]
+            struct = self.cpu.assembler.get_loop_run_counters(2)
             assert struct.i == 9
             self.cpu.finish_once()
         finally:

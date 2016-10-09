@@ -64,6 +64,7 @@ class BlackholeInterpBuilder(object):
             assert self._insns[value] is None
             self._insns[value] = key
         self.op_catch_exception = insns.get('catch_exception/L', -1)
+        self.op_rvmprof_code = insns.get('rvmprof_code/ii', -1)
         #
         all_funcs = []
         for key in self._insns:
@@ -172,7 +173,7 @@ class BlackholeInterpBuilder(object):
             # call the method bhimpl_xxx()
             try:
                 result = unboundmethod(*args)
-            except Exception, e:
+            except Exception as e:
                 if verbose and not we_are_translated():
                     print '-> %s!' % (e.__class__.__name__,)
                 if resulttype == 'i' or resulttype == 'r' or resulttype == 'f':
@@ -270,6 +271,7 @@ class BlackholeInterpreter(object):
         self.dispatch_loop      = builder.dispatch_loop
         self.descrs             = builder.descrs
         self.op_catch_exception = builder.op_catch_exception
+        self.op_rvmprof_code    = builder.op_rvmprof_code
         self.count_interpreter  = count_interpreter
         #
         if we_are_translated():
@@ -323,7 +325,7 @@ class BlackholeInterpreter(object):
                 break
             except jitexc.JitException:
                 raise     # go through
-            except Exception, e:
+            except Exception as e:
                 lle = get_llexception(self.cpu, e)
                 self.handle_exception_in_frame(lle)
 
@@ -373,8 +375,31 @@ class BlackholeInterpreter(object):
                 target = ord(code[position+1]) | (ord(code[position+2])<<8)
                 self.position = target
                 return
+            if opcode == self.op_rvmprof_code:
+                # call the 'jit_rvmprof_code(1)' for rvmprof, but then
+                # continue popping frames.  Decode the 'rvmprof_code' insn
+                # manually here.
+                from rpython.rlib.rvmprof import cintf
+                arg1 = self.registers_i[ord(code[position + 1])]
+                arg2 = self.registers_i[ord(code[position + 2])]
+                assert arg1 == 1
+                cintf.jit_rvmprof_code(arg1, arg2)
         # no 'catch_exception' insn follows: just reraise
         reraise(e)
+
+    def handle_rvmprof_enter(self):
+        code = self.jitcode.code
+        position = self.position
+        opcode = ord(code[position])
+        if opcode == self.op_rvmprof_code:
+            arg1 = self.registers_i[ord(code[position + 1])]
+            arg2 = self.registers_i[ord(code[position + 2])]
+            if arg1 == 1:
+                # we are resuming at a position that will do a
+                # jit_rvmprof_code(1), when really executed.  That's a
+                # hint for the need for a jit_rvmprof_code(0).
+                from rpython.rlib.rvmprof import cintf
+                cintf.jit_rvmprof_code(0, arg2)
 
     def copy_constants(self, registers, constants):
         """Copy jitcode.constants[0] to registers[255],
@@ -408,6 +433,14 @@ class BlackholeInterpreter(object):
     def bhimpl_int_mul(a, b):
         return intmask(a * b)
 
+    @arguments("i", "i", returns="i")
+    def bhimpl_uint_mul_high(a, b):
+        from rpython.jit.metainterp.optimizeopt import intdiv
+        a = r_uint(a)
+        b = r_uint(b)
+        c = intdiv.unsigned_mul_high(a, b)
+        return intmask(c)
+
     @arguments("L", "i", "i", returns="iL")
     def bhimpl_int_add_jump_if_ovf(label, a, b):
         try:
@@ -428,19 +461,6 @@ class BlackholeInterpreter(object):
             return ovfcheck(a * b), -1
         except OverflowError:
             return 0, label
-
-    @arguments("i", "i", returns="i")
-    def bhimpl_int_floordiv(a, b):
-        return llop.int_floordiv(lltype.Signed, a, b)
-
-    @arguments("i", "i", returns="i")
-    def bhimpl_uint_floordiv(a, b):
-        c = llop.uint_floordiv(lltype.Unsigned, r_uint(a), r_uint(b))
-        return intmask(c)
-
-    @arguments("i", "i", returns="i")
-    def bhimpl_int_mod(a, b):
-        return llop.int_mod(lltype.Signed, a, b)
 
     @arguments("i", "i", returns="i")
     def bhimpl_int_and(a, b):
@@ -944,6 +964,14 @@ class BlackholeInterpreter(object):
         pass
 
     @arguments("i")
+    def bhimpl_jit_enter_portal_frame(x):
+        pass
+
+    @arguments()
+    def bhimpl_jit_leave_portal_frame():
+        pass
+
+    @arguments("i")
     def bhimpl_int_assert_green(x):
         pass
     @arguments("r")
@@ -1172,27 +1200,11 @@ class BlackholeInterpreter(object):
         return cpu.bh_call_v(func, args_i, args_r, args_f, calldescr)
 
     # conditional calls - note that they cannot return stuff
-    @arguments("cpu", "i", "i", "I", "d")
-    def bhimpl_conditional_call_i_v(cpu, condition, func, args_i, calldescr):
-        if condition:
-            cpu.bh_call_v(func, args_i, None, None, calldescr)
-
-    @arguments("cpu", "i", "i", "R", "d")
-    def bhimpl_conditional_call_r_v(cpu, condition, func, args_r, calldescr):
-        if condition:
-            cpu.bh_call_v(func, None, args_r, None, calldescr)
-
     @arguments("cpu", "i", "i", "I", "R", "d")
     def bhimpl_conditional_call_ir_v(cpu, condition, func, args_i, args_r,
                                      calldescr):
         if condition:
             cpu.bh_call_v(func, args_i, args_r, None, calldescr)
-
-    @arguments("cpu", "i", "i", "I", "R", "F", "d")
-    def bhimpl_conditional_call_irf_v(cpu, condition, func, args_i, args_r,
-                                      args_f, calldescr):
-        if condition:
-            cpu.bh_call_v(func, args_i, args_r, args_f, calldescr)
 
     @arguments("cpu", "j", "R", returns="i")
     def bhimpl_inline_call_r_i(cpu, jitcode, args_r):
@@ -1265,9 +1277,6 @@ class BlackholeInterpreter(object):
     @arguments("cpu", "i", "i", "d", returns="f")
     def bhimpl_getarrayitem_raw_f(cpu, array, index, arraydescr):
         return cpu.bh_getarrayitem_raw_f(array, index, arraydescr)
-
-    bhimpl_getarrayitem_raw_i_pure = bhimpl_getarrayitem_raw_i
-    bhimpl_getarrayitem_raw_f_pure = bhimpl_getarrayitem_raw_f
 
     @arguments("cpu", "r", "i", "i", "d")
     def bhimpl_setarrayitem_gc_i(cpu, array, index, newvalue, arraydescr):
@@ -1387,16 +1396,11 @@ class BlackholeInterpreter(object):
     def bhimpl_getfield_raw_i(cpu, struct, fielddescr):
         return cpu.bh_getfield_raw_i(struct, fielddescr)
     @arguments("cpu", "i", "d", returns="r")
-    def _bhimpl_getfield_raw_r(cpu, struct, fielddescr):
-        # only for 'getfield_raw_r_pure'
+    def bhimpl_getfield_raw_r(cpu, struct, fielddescr):   # for pure only
         return cpu.bh_getfield_raw_r(struct, fielddescr)
     @arguments("cpu", "i", "d", returns="f")
     def bhimpl_getfield_raw_f(cpu, struct, fielddescr):
         return cpu.bh_getfield_raw_f(struct, fielddescr)
-
-    bhimpl_getfield_raw_i_pure = bhimpl_getfield_raw_i
-    bhimpl_getfield_raw_r_pure = _bhimpl_getfield_raw_r
-    bhimpl_getfield_raw_f_pure = bhimpl_getfield_raw_f
 
     @arguments("cpu", "r", "i", "d")
     def bhimpl_setfield_gc_i(cpu, struct, newvalue, fielddescr):
@@ -1441,6 +1445,13 @@ class BlackholeInterpreter(object):
     @arguments("cpu", "i", "i", "d", returns="f")
     def bhimpl_raw_load_f(cpu, addr, offset, arraydescr):
         return cpu.bh_raw_load_f(addr, offset, arraydescr)
+
+    @arguments("cpu", "r", "i", "i", "i", "i", returns="i")
+    def bhimpl_gc_load_indexed_i(cpu, addr, index, scale, base_ofs, bytes):
+        return cpu.bh_gc_load_indexed_i(addr, index,scale,base_ofs, bytes)
+    @arguments("cpu", "r", "i", "i", "i", "i", returns="f")
+    def bhimpl_gc_load_indexed_f(cpu, addr, index, scale, base_ofs, bytes):
+        return cpu.bh_gc_load_indexed_f(addr, index,scale,base_ofs, bytes)
 
     @arguments("r", "d", "d")
     def bhimpl_record_quasiimmut_field(struct, fielddescr, mutatefielddescr):
@@ -1499,6 +1510,11 @@ class BlackholeInterpreter(object):
     def bhimpl_copyunicodecontent(cpu, src, dst, srcstart, dststart, length):
         cpu.bh_copyunicodecontent(src, dst, srcstart, dststart, length)
 
+    @arguments("i", "i")
+    def bhimpl_rvmprof_code(leaving, unique_id):
+        from rpython.rlib.rvmprof import cintf
+        cintf.jit_rvmprof_code(leaving, unique_id)
+
     # ----------
     # helpers to resume running in blackhole mode when a guard failed
 
@@ -1513,9 +1529,9 @@ class BlackholeInterpreter(object):
             # we now proceed to interpret the bytecode in this frame
             self.run()
         #
-        except jitexc.JitException, e:
+        except jitexc.JitException as e:
             raise     # go through
-        except Exception, e:
+        except Exception as e:
             # if we get an exception, return it to the caller frame
             current_exc = get_llexception(self.cpu, e)
             if not self.nextblackholeinterp:
@@ -1556,7 +1572,6 @@ class BlackholeInterpreter(object):
     def _done_with_this_frame(self):
         # rare case: we only get there if the blackhole interps all returned
         # normally (in general we get a ContinueRunningNormally exception).
-        sd = self.builder.metainterp_sd
         kind = self._return_type
         if kind == 'v':
             raise jitexc.DoneWithThisFrameVoid()
@@ -1645,7 +1660,7 @@ def _handle_jitexception(blackholeinterp, exc):
     # We have reached a recursive portal level.
     try:
         blackholeinterp._handle_jitexception_in_portal(exc)
-    except Exception, e:
+    except Exception as e:
         # It raised a general exception (it should not be a JitException here).
         lle = get_llexception(blackholeinterp.cpu, e)
     else:
@@ -1660,6 +1675,7 @@ def resume_in_blackhole(metainterp_sd, jitdriver_sd, resumedescr, deadframe,
     #debug_start('jit-blackhole')
     blackholeinterp = blackhole_from_resumedata(
         metainterp_sd.blackholeinterpbuilder,
+        metainterp_sd.jitcodes,
         jitdriver_sd,
         resumedescr,
         deadframe,

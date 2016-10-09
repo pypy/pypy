@@ -2,30 +2,36 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.module import Module
+from pypy.module import _cffi_backend
 from pypy.module._cffi_backend import parse_c_type
 from pypy.module._cffi_backend.ffi_obj import W_FFIObject
 from pypy.module._cffi_backend.lib_obj import W_LibObject
 
 
 VERSION_MIN    = 0x2601
-VERSION_MAX    = 0x26FF
+VERSION_MAX    = 0x27FF
 
-VERSION_EXPORT = 0x0A02
+VERSION_EXPORT = 0x0A03
 
-initfunctype = lltype.Ptr(lltype.FuncType([rffi.VOIDPP], lltype.Void))
+INITFUNCPTR = lltype.Ptr(lltype.FuncType([rffi.VOIDPP], lltype.Void))
 
 
 def load_cffi1_module(space, name, path, initptr):
     # This is called from pypy.module.cpyext.api.load_extension_module()
-    initfunc = rffi.cast(initfunctype, initptr)
-    with lltype.scoped_alloc(rffi.VOIDPP.TO, 2) as p:
+    from pypy.module._cffi_backend.call_python import get_ll_cffi_call_python
+
+    initfunc = rffi.cast(INITFUNCPTR, initptr)
+    with lltype.scoped_alloc(rffi.VOIDPP.TO, 16, zero=True) as p:
         p[0] = rffi.cast(rffi.VOIDP, VERSION_EXPORT)
+        p[1] = rffi.cast(rffi.VOIDP, get_ll_cffi_call_python())
         initfunc(p)
         version = rffi.cast(lltype.Signed, p[0])
         if not (VERSION_MIN <= version <= VERSION_MAX):
             raise oefmt(space.w_ImportError,
-                "cffi extension module '%s' has unknown version %s",
-                name, hex(version))
+                "cffi extension module '%s' uses an unknown version tag %s. "
+                "This module might need a more recent version of PyPy. "
+                "The current PyPy provides CFFI %s.",
+                name, hex(version), _cffi_backend.VERSION)
         src_ctx = rffi.cast(parse_c_type.PCTX, p[1])
 
     ffi = W_FFIObject(space, src_ctx)
@@ -35,7 +41,8 @@ def load_cffi1_module(space, name, path, initptr):
 
     w_name = space.wrap(name)
     module = Module(space, w_name)
-    module.setdictvalue(space, '__file__', space.wrap(path))
+    if path is not None:
+        module.setdictvalue(space, '__file__', space.wrap(path))
     module.setdictvalue(space, 'ffi', space.wrap(ffi))
     module.setdictvalue(space, 'lib', space.wrap(lib))
     w_modules_dict = space.sys.get('modules')

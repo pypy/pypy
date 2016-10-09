@@ -3,7 +3,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.interpreter.argument import Arguments
-from rpython.rlib import jit
+from rpython.rlib import jit, rgc
 from rpython.rlib.rarithmetic import LONG_BIT, maxint, _get_bitsize
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.rawstorage import (
@@ -66,10 +66,10 @@ def array_priority(space, w_lhs, w_rhs):
     lhs_for_subtype = w_lhs
     rhs_for_subtype = w_rhs
     #it may be something like a FlatIter, which is not an ndarray
-    if not space.is_true(space.issubtype(lhs_type, w_ndarray)):
+    if not space.issubtype_w(lhs_type, w_ndarray):
         lhs_type = space.type(w_lhs.base)
         lhs_for_subtype = w_lhs.base
-    if not space.is_true(space.issubtype(rhs_type, w_ndarray)):
+    if not space.issubtype_w(rhs_type, w_ndarray):
         rhs_type = space.type(w_rhs.base)
         rhs_for_subtype = w_rhs.base
 
@@ -276,7 +276,7 @@ class W_Ufunc(W_Root):
                 loop.accumulate_flat(
                     space, self.func, obj, dtype, out, self.identity)
             if call__array_wrap__:
-                out = space.call_method(obj, '__array_wrap__', out)
+                out = space.call_method(obj, '__array_wrap__', out, space.w_None)
             return out
 
         axis_flags = [False] * shapelen
@@ -313,7 +313,7 @@ class W_Ufunc(W_Root):
                 out.implementation.setitem(0, res)
                 res = out
             if call__array_wrap__:
-                res = space.call_method(obj, '__array_wrap__', res)
+                res = space.call_method(obj, '__array_wrap__', res, space.w_None)
             return res
 
         else:
@@ -360,15 +360,21 @@ class W_Ufunc(W_Root):
             loop.reduce(
                 space, self.func, obj, axis_flags, dtype, out, self.identity)
             if call__array_wrap__:
-                out = space.call_method(obj, '__array_wrap__', out)
+                out = space.call_method(obj, '__array_wrap__', out, space.w_None)
             return out
 
-    def descr_outer(self, space, __args__):
-        return self._outer(space, __args__)
-
-    def _outer(self, space, __args__):
-        raise OperationError(space.w_ValueError, space.wrap(
-            "outer product only supported for binary functions"))
+    def descr_outer(self, space, args_w):
+        if self.nin != 2:
+            raise oefmt(space.w_ValueError,
+                    "outer product only supported for binary functions")
+        if len(args_w) != 2:
+            raise oefmt(space.w_ValueError,
+                    "exactly two arguments expected")
+        args = [convert_to_array(space, w_obj) for w_obj in args_w]
+        w_outshape = [space.wrap(i) for i in args[0].get_shape() + [1]*args[1].ndims()]
+        args0 = args[0].reshape(space, space.newtuple(w_outshape))
+        return self.descr_call(space, Arguments.frompacked(space, 
+                                                        space.newlist([args0, args[1]])))
 
     def parse_kwargs(self, space, kwds_w):
         w_casting = kwds_w.pop('casting', None)
@@ -386,31 +392,39 @@ def get_extobj(space):
         extobj_w = space.newlist([space.wrap(8192), space.wrap(0), space.w_None])
         return extobj_w
 
+
+_reflected_ops = {
+        'add': 'radd',
+        'subtract': 'rsub',
+        'multiply': 'rmul',
+        'divide': 'rdiv',
+        'true_divide': 'rtruediv',
+        'floor_divide': 'rfloordiv',
+        'remainder': 'rmod',
+        'power': 'rpow',
+        'left_shift': 'rlshift',
+        'right_shift': 'rrshift',
+        'bitwise_and': 'rand',
+        'bitwise_xor': 'rxor',
+        'bitwise_or': 'ror',
+        #/* Comparisons */
+        'equal': 'eq',
+        'not_equal': 'ne',
+        'greater': 'lt',
+        'less': 'gt',
+        'greater_equal': 'le',
+        'less_equal': 'ge',
+}
+
+for key, value in _reflected_ops.items():
+    _reflected_ops[key] = "__" + value + "__"
+del key
+del value
+
 def _has_reflected_op(space, w_obj, op):
-    refops ={ 'add': 'radd',
-            'subtract': 'rsub',
-            'multiply': 'rmul',
-            'divide': 'rdiv',
-            'true_divide': 'rtruediv',
-            'floor_divide': 'rfloordiv',
-            'remainder': 'rmod',
-            'power': 'rpow',
-            'left_shift': 'rlshift',
-            'right_shift': 'rrshift',
-            'bitwise_and': 'rand',
-            'bitwise_xor': 'rxor',
-            'bitwise_or': 'ror',
-            #/* Comparisons */
-            'equal': 'eq',
-            'not_equal': 'ne',
-            'greater': 'lt',
-            'less': 'gt',
-            'greater_equal': 'le',
-            'less_equal': 'ge',
-        }
-    if op not in refops:
+    if op not in _reflected_ops:
         return False
-    return space.getattr(w_obj, space.wrap('__' + refops[op] + '__')) is not None
+    return space.getattr(w_obj, space.wrap(_reflected_ops[op])) is not None
 
 def safe_casting_mode(casting):
     assert casting is not None
@@ -471,7 +485,8 @@ class W_Ufunc1(W_Ufunc):
 
     def find_specialization(self, space, dtype, out, casting):
         if dtype.is_flexible():
-            raise oefmt(space.w_TypeError, 'Not implemented for this type')
+            raise oefmt(space.w_TypeError, "ufunc '%s' did not contain a loop",
+                        self.name)
         if (not self.allow_bool and dtype.is_bool() or
                 not self.allow_complex and dtype.is_complex()):
             raise oefmt(space.w_TypeError,
@@ -555,7 +570,23 @@ class W_Ufunc2(W_Ufunc):
         w_ldtype = w_lhs.get_dtype(space)
         w_rdtype = w_rhs.get_dtype(space)
         if w_ldtype.is_object() or w_rdtype.is_object():
-            pass
+            if ((w_ldtype.is_object() and w_ldtype.is_record()) and
+                (w_rdtype.is_object() and w_rdtype.is_record())):
+                pass
+            elif ((w_ldtype.is_object() and w_ldtype.is_record()) or
+                (w_rdtype.is_object() and w_rdtype.is_record())):
+                if self.name == 'not_equal':
+                    return space.wrap(True)
+                elif self.name == 'equal':
+                    return space.wrap(False)
+                else:
+                    msg = ("ufunc '%s' not supported for the input types, "
+                           "and the inputs could not be safely coerced to "
+                           "any supported types according to the casting "
+                           "rule '%s'")
+                    raise oefmt(space.w_TypeError, msg, self.name, casting)
+            else:
+                pass
         elif w_ldtype.is_str() and w_rdtype.is_str() and \
                 self.bool_result:
             pass
@@ -709,6 +740,32 @@ class W_Ufunc2(W_Ufunc):
             raise oefmt(space.w_TypeError,
                 "ufunc '%s' not supported for the input types", self.name)
 
+def _match_dtypes(space, indtypes, targetdtypes, i_target, casting):
+    allok = True
+    for i in range(len(indtypes)):
+        origin = indtypes[i]
+        target = targetdtypes[i + i_target]
+        if origin is None:
+            continue
+        if target is None:
+            continue
+        if not can_cast_type(space, origin, target, casting):
+            allok = False
+            break
+    return allok
+
+def _raise_err_msg(self, space, dtypes0, dtypes1):
+    dtypesstr = ''
+    for d in dtypes0:
+        if d is None:
+            dtypesstr += 'None,'
+        else:
+            dtypesstr += '%s%s%s,' % (d.byteorder, d.kind, d.elsize)
+    _dtypesstr = ','.join(['%s%s%s' % (d.byteorder, d.kind, d.elsize) \
+                    for d in dtypes1])
+    raise oefmt(space.w_TypeError,
+         "input dtype [%s] did not match any known dtypes [%s] ",
+         dtypesstr,_dtypesstr)
 
 
 class W_UfuncGeneric(W_Ufunc):
@@ -779,8 +836,6 @@ class W_UfuncGeneric(W_Ufunc):
                     raise oefmt(space.w_TypeError,
                          'output arg %d must be an array, not %s', i+self.nin, str(args_w[i+self.nin]))
                 outargs[i] = out
-        if sig is None:
-            sig = space.wrap(self.signature)
         _dtypes = self.dtypes
         if self.match_dtypes:
             _dtypes = [i.get_dtype() for i in inargs if isinstance(i, W_NDimArray)]
@@ -799,29 +854,36 @@ class W_UfuncGeneric(W_Ufunc):
             outargs0 = outargs[0]
             assert isinstance(inargs0, W_NDimArray)
             assert isinstance(outargs0, W_NDimArray)
+            nin = self.nin
+            assert nin >= 0
             res_dtype = outargs0.get_dtype()
             new_shape = inargs0.get_shape()
             # XXX use _find_array_wrap and wrap outargs using __array_wrap__
+            if self.stack_inputs:
+                loop.call_many_to_many(space, new_shape, func,
+                                         dtypes, [], inargs + outargs, [])
+                if len(outargs) < 2:
+                    return outargs[0]
+                return space.newtuple(outargs)
             if len(outargs) < 2:
                 return loop.call_many_to_one(space, new_shape, func,
-                                             res_dtype, inargs, outargs[0])
+                         dtypes[:nin], dtypes[-1], inargs, outargs[0])
             return loop.call_many_to_many(space, new_shape, func,
-                                             res_dtype, inargs, outargs)
+                         dtypes[:nin], dtypes[nin:], inargs, outargs)
+        w_casting = space.w_None
+        w_op_dtypes = space.w_None
         for tf in need_to_cast:
             if tf:
-                raise oefmt(space.w_NotImplementedError, "casting not supported yet")
+                w_casting = space.wrap('safe')
+                w_op_dtypes = space.newtuple([space.wrap(d) for d in dtypes])
+                
         w_flags = space.w_None # NOT 'external_loop', we do coalescing by core_num_dims
-        w_op_flags = space.newtuple([space.wrap(r) for r in ['readonly'] * len(inargs)] + \
-                                    [space.wrap(r) for r in ['readwrite'] * len(outargs)])
-        w_op_dtypes = space.w_None
-        w_casting = space.w_None
+        w_ro = space.newtuple([space.wrap('readonly'), space.wrap('copy')])
+        w_rw = space.newtuple([space.wrap('readwrite'), space.wrap('updateifcopy')])
+        
+        w_op_flags = space.newtuple([w_ro] * len(inargs) + [w_rw] * len(outargs))
         w_op_axes = space.w_None
 
-        #print '\nsignature', sig
-        #print [(d, getattr(self,d)) for d in dir(self) if 'core' in d or 'broad' in d]
-        #print [(d, locals()[d]) for d in locals() if 'core' in d or 'broad' in d]
-        #print 'shapes',[d.get_shape() for d in inargs + outargs]
-        #print 'steps',[d.implementation.strides for d in inargs + outargs]
         if isinstance(func, W_GenericUFuncCaller):
             # Use GeneralizeUfunc interface with signature
             # Unlike numpy, we will not broadcast dims before
@@ -846,7 +908,7 @@ class W_UfuncGeneric(W_Ufunc):
         w_itershape = space.newlist([space.wrap(i) for i in iter_shape])
         nd_it = W_NDIter(space, space.newlist(inargs + outargs), w_flags,
                       w_op_flags, w_op_dtypes, w_casting, w_op_axes,
-                      w_itershape)
+                      w_itershape, allow_backward=False)
         # coalesce each iterators, according to inner_dimensions
         for i in range(len(inargs) + len(outargs)):
             for j in range(self.core_num_dims[i]):
@@ -909,8 +971,8 @@ class W_UfuncGeneric(W_Ufunc):
                 raise oefmt(space.w_RuntimeError,
                         "cannot specify both 'sig' and 'dtype'")
             dtype = decode_w_dtype(space, dtype_w)
-            sig = space.newtuple([dtype])
-        order = kwargs_w.pop('dtype', None)
+            sig = dtype.char
+        order = kwargs_w.pop('order', None)
         if not space.is_w(order, space.w_None) and not order is None:
             raise oefmt(space.w_NotImplementedError, '"order" keyword not implemented')
         parsed_kw = []
@@ -919,7 +981,7 @@ class W_UfuncGeneric(W_Ufunc):
                 if sig:
                     raise oefmt(space.w_RuntimeError,
                             "cannot specify both 'sig' and 'dtype'")
-                sig = kwargs_w[kw]
+                sig = space.str_w(kwargs_w[kw])
                 parsed_kw.append(kw)
             elif kw.startswith('where'):
                 raise oefmt(space.w_NotImplementedError,
@@ -933,20 +995,33 @@ class W_UfuncGeneric(W_Ufunc):
         # Find a match for the inargs.dtype in _dtypes, like
         # linear_search_type_resolver in numpy ufunc_type_resolutions.c
         # type_tup can be '', a tuple of dtypes, or a string
-        # of the form d,t -> D where the letters are dtype specs
-        nop = len(inargs) + len(outargs)
+        # of the form 'dt->D' where the letters are dtype specs
+
+        # XXX why does the next line not pass translation?
+        # dtypes = [i.get_dtype() for i in inargs]
         dtypes = []
+        for i in inargs:
+            if isinstance(i, W_NDimArray):
+                dtypes.append(i.get_dtype())
+            else:
+                dtypes.append(None)
+        for i in outargs:
+            if isinstance(i, W_NDimArray):
+                dtypes.append(i.get_dtype())
+            else:
+                dtypes.append(None)
         if isinstance(type_tup, str) and len(type_tup) > 0:
             try:
                 if len(type_tup) == 1:
-                    dtypes = [get_dtype_cache(space).dtypes_by_name[type_tup]] * self.nargs
+                    s_dtypes = [get_dtype_cache(space).dtypes_by_name[type_tup]] * self.nargs
                 elif len(type_tup) == self.nargs + 2:
+                    s_dtypes = []
                     for i in range(self.nin):
-                        dtypes.append(get_dtype_cache(space).dtypes_by_name[type_tup[i]])
+                        s_dtypes.append(get_dtype_cache(space).dtypes_by_name[type_tup[i]])
                     #skip the '->' in the signature
                     for i in range(self.nout):
                         j = i + self.nin + 2
-                        dtypes.append(get_dtype_cache(space).dtypes_by_name[type_tup[j]])
+                        s_dtypes.append(get_dtype_cache(space).dtypes_by_name[type_tup[j]])
                 else:
                     raise oefmt(space.w_TypeError, "a type-string for %s " \
                         "requires 1 typecode or %d typecode(s) before and %d" \
@@ -955,42 +1030,29 @@ class W_UfuncGeneric(W_Ufunc):
             except KeyError:
                 raise oefmt(space.w_ValueError, "unknown typecode in" \
                         " call to %s with type-string '%s'", self.name, type_tup)
-        else:
-            # XXX why does the next line not pass translation?
-            # dtypes = [i.get_dtype() for i in inargs]
-            for i in inargs:
-                if isinstance(i, W_NDimArray):
-                    dtypes.append(i.get_dtype())
-                else:
-                    dtypes.append(None)
-            for i in outargs:
-                if isinstance(i, W_NDimArray):
-                    dtypes.append(i.get_dtype())
-                else:
-                    dtypes.append(None)
+            # Make sure args can be cast to dtypes
+            if not _match_dtypes(space, dtypes, s_dtypes, 0, "safe"):
+                _raise_err_msg(self, space, dtypes, s_dtypes)
+            dtypes = s_dtypes    
         #Find the first matchup of dtypes with _dtypes
         for i in range(0, len(_dtypes), self.nargs):
-            allok = True
-            for j in range(self.nargs):
-                if dtypes[j] is not None and dtypes[j] != _dtypes[i+j]:
-                    allok = False
+            allok = _match_dtypes(space, dtypes, _dtypes, i, "no")
             if allok:
                 break
         else:
-            if len(self.funcs) > 1:
-
-                dtypesstr = ''
-                for d in dtypes:
-                    if d is None:
-                        dtypesstr += 'None,'
-                    else:
-                        dtypesstr += '%s%s%s,' % (d.byteorder, d.kind, d.elsize)
-                _dtypesstr = ','.join(['%s%s%s' % (d.byteorder, d.kind, d.elsize) \
-                                for d in _dtypes])
-                raise oefmt(space.w_TypeError,
-                     "input dtype [%s] did not match any known dtypes [%s] ",
-                     dtypesstr,_dtypesstr)
-            i = 0
+            # No exact matches, can we cast?
+            for i in range(0, len(_dtypes), self.nargs):
+                allok = _match_dtypes(space, dtypes, _dtypes, i, "safe")
+                if allok:
+                    end = i + self.nargs
+                    assert i >= 0
+                    assert end >=0
+                    dtypes = _dtypes[i:end]
+                    break
+            else:
+                if len(self.funcs) > 1:
+                    _raise_err_msg(self, space, dtypes, _dtypes)
+                i = 0
         # Fill in empty dtypes
         for j in range(self.nargs):
             if dtypes[j] is None:
@@ -1086,7 +1148,7 @@ class W_UfuncGeneric(W_Ufunc):
             for j in range(offset, len(iter_shape)):
                 x = iter_shape[j + offset]
                 y = dims_to_broadcast[j]
-                if (x > y and x % y) or y %x:
+                if y > 1 and x != 0 and ((x > y and x % y) or y %x):
                     raise oefmt(space.w_ValueError, "%s: %s operand %d has a "
                         "mismatch in its broadcast dimension %d "
                         "(size %d is different from %d)",
@@ -1123,7 +1185,7 @@ class W_UfuncGeneric(W_Ufunc):
         # the current op (signalling it can handle ndarray's).
 
         # TODO parse and handle subok
-        # TODO handle flags, op_flags
+        # TODO handle more flags, op_flags
         #print 'iter_shape',iter_shape,'arg_shapes',arg_shapes,'matched_dims',matched_dims
         return iter_shape, arg_shapes, matched_dims
 
@@ -1473,7 +1535,8 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
 # Instantiated in cpyext/ndarrayobject. It is here since ufunc calls
 # set_dims_and_steps, otherwise ufunc, ndarrayobject would have circular
 # imports
-npy_intpp = rffi.LONGP
+Py_ssize_t = lltype.Typedef(rffi.SSIZE_T, 'Py_ssize_t')
+npy_intpp = rffi.CArrayPtr(Py_ssize_t)
 LONG_SIZE = LONG_BIT / 8
 CCHARP_SIZE = _get_bitsize('P') / 8
 
@@ -1486,6 +1549,7 @@ class W_GenericUFuncCaller(W_Root):
         self.steps = alloc_raw_storage(0, track_allocation=False)
         self.dims_steps_set = False
 
+    @rgc.must_be_light_finalizer
     def __del__(self):
         free_raw_storage(self.dims, track_allocation=False)
         free_raw_storage(self.steps, track_allocation=False)

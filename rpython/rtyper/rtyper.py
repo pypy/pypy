@@ -1,14 +1,14 @@
 """
 RTyper: converts high-level operations into low-level operations in flow graphs.
 
-The main class, with code to walk blocks and dispatch individual operations
-to the care of the rtype_*() methods implemented in the other r* modules.
-For each high-level operation 'hop', the rtype_*() methods produce low-level
-operations that are collected in the 'llops' list defined here.  When necessary,
-conversions are inserted.
+The main class, with code to walk blocks and dispatch individual operations to
+the care of the rtype_*() methods implemented in the other r* modules.  For
+each high-level operation 'hop', the rtype_*() methods produce low-level
+operations that are collected in the 'llops' list defined here.  When
+necessary, conversions are inserted.
 
-This logic borrows a bit from rpython.annotator.annrpython, without the fixpoint
-computation part.
+This logic borrows a bit from rpython.annotator.annrpython, without the
+fixpoint computation part.
 """
 
 import os
@@ -16,26 +16,40 @@ import os
 import py, math
 
 from rpython.annotator import model as annmodel, unaryop, binaryop
-from rpython.rtyper.llannotation import SomePtr, lltype_to_annotation
+from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.flowspace.model import Variable, Constant, SpaceOperation
-from rpython.rtyper.annlowlevel import annotate_lowlevel_helper, LowLevelAnnotatorPolicy
+from rpython.rtyper.annlowlevel import (
+        annotate_lowlevel_helper, LowLevelAnnotatorPolicy)
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.exceptiondata import ExceptionData
 from rpython.rtyper.lltypesystem.lltype import (Signed, Void, LowLevelType,
-    Ptr, ContainerType, FuncType, functionptr, typeOf, RuntimeTypeInfo,
-    attachRuntimeTypeInfo, Primitive, getfunctionptr)
-from rpython.rtyper.rmodel import Repr, inputconst, BrokenReprTyperError
+    ContainerType, typeOf, Primitive, getfunctionptr)
+from rpython.rtyper.rmodel import Repr, inputconst
 from rpython.rtyper import rclass
 from rpython.rtyper.rclass import RootClassRepr
 from rpython.tool.pairtype import pair
 from rpython.translator.unsimplify import insert_empty_block
+from rpython.translator.sandbox.rsandbox import make_sandbox_trampoline
+
+
+class RTyperBackend(object):
+    pass
+
+class GenCBackend(RTyperBackend):
+    pass
+genc_backend = GenCBackend()
+
+class LLInterpBackend(RTyperBackend):
+    pass
+llinterp_backend = LLInterpBackend()
 
 
 class RPythonTyper(object):
     from rpython.rtyper.rmodel import log
 
-    def __init__(self, annotator):
+    def __init__(self, annotator, backend=genc_backend):
         self.annotator = annotator
+        self.backend = backend
         self.lowlevel_ann_policy = LowLevelAnnotatorPolicy(self)
         self.reprs = {}
         self._reprs_must_call_setup = []
@@ -190,6 +204,9 @@ class RPythonTyper(object):
         blockcount = 0
         self.annmixlevel = None
         while True:
+            # make sure all reprs so far have had their setup() called
+            self.call_all_setups()
+
             # look for blocks not specialized yet
             pending = [block for block in self.annotator.annotated
                              if block not in self.already_seen]
@@ -222,8 +239,6 @@ class RPythonTyper(object):
                         previous_percentage = percentage
                         self.log.event('specializing: %d / %d blocks   (%d%%)' %
                                        (n, total, percentage))
-            # make sure all reprs so far have had their setup() called
-            self.call_all_setups()
 
         self.log.event('-=- specialized %d%s blocks -=-' % (
             blockcount, newtext))
@@ -561,6 +576,17 @@ class RPythonTyper(object):
     def getcallable(self, graph):
         def getconcretetype(v):
             return self.bindingrepr(v).lowleveltype
+        if self.annotator.translator.config.translation.sandbox:
+            try:
+                name = graph.func._sandbox_external_name
+            except AttributeError:
+                pass
+            else:
+                args_s = [v.annotation for v in graph.getargs()]
+                s_result = graph.getreturnvar().annotation
+                sandboxed = make_sandbox_trampoline(name, args_s, s_result)
+                return self.getannmixlevel().delayedfunction(
+                        sandboxed, args_s, s_result)
 
         return getfunctionptr(graph, getconcretetype)
 
@@ -589,21 +615,6 @@ class RPythonTyper(object):
         """
         graph = self.annotate_helper(ll_function, argtypes)
         return self.getcallable(graph)
-
-    def attachRuntimeTypeInfoFunc(self, GCSTRUCT, func, ARG_GCSTRUCT=None,
-                                  destrptr=None):
-        self.call_all_setups()  # compute ForwardReferences now
-        if ARG_GCSTRUCT is None:
-            ARG_GCSTRUCT = GCSTRUCT
-        args_s = [SomePtr(Ptr(ARG_GCSTRUCT))]
-        graph = self.annotate_helper(func, args_s)
-        s = self.annotation(graph.getreturnvar())
-        if (not isinstance(s, SomePtr) or
-            s.ll_ptrtype != Ptr(RuntimeTypeInfo)):
-            raise TyperError("runtime type info function %r returns %r, "
-                             "excepted Ptr(RuntimeTypeInfo)" % (func, s))
-        funcptr = self.getcallable(graph)
-        attachRuntimeTypeInfo(GCSTRUCT, funcptr, destrptr)
 
 # register operations from annotation model
 RPythonTyper._registeroperations(unaryop.UNARY_OPERATIONS, binaryop.BINARY_OPERATIONS)
@@ -875,18 +886,6 @@ class LowLevelOpList(list):
         fobj = f._obj
         return self.genop('direct_call', [c]+newargs_v,
                           resulttype = typeOf(fobj).RESULT)
-
-    def genexternalcall(self, fnname, args_v, resulttype=None, **flags):
-        if isinstance(resulttype, Repr):
-            resulttype = resulttype.lowleveltype
-        argtypes = [v.concretetype for v in args_v]
-        FUNCTYPE = FuncType(argtypes, resulttype or Void)
-        f = functionptr(FUNCTYPE, fnname, **flags)
-        cf = inputconst(typeOf(f), f)
-        return self.genop('direct_call', [cf]+list(args_v), resulttype)
-
-    def gencapicall(self, cfnname, args_v, resulttype=None, **flags):
-        return self.genexternalcall(cfnname, args_v, resulttype=resulttype, external="CPython", **flags)
 
     def genconst(self, ll_value):
         return inputconst(typeOf(ll_value), ll_value)

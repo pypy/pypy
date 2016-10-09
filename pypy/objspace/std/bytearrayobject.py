@@ -5,6 +5,9 @@ from rpython.rlib.objectmodel import (
 from rpython.rlib.buffer import Buffer
 from rpython.rlib.rstring import StringBuilder, ByteListBuilder
 from rpython.rlib.debug import check_list_of_chars
+from rpython.rtyper.lltypesystem import rffi
+from rpython.rlib.rgc import (resizable_list_supporting_raw_ptr,
+        nonmoving_raw_ptr_for_resizable_list)
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
@@ -16,7 +19,6 @@ from pypy.objspace.std.stringmethods import StringMethods, _get_buffer
 from pypy.objspace.std.bytesobject import W_BytesObject
 from pypy.objspace.std.util import get_positive_index
 
-NON_HEX_MSG = "non-hexadecimal number found in fromhex() arg at position %d"
 
 
 class W_BytearrayObject(W_Root):
@@ -24,7 +26,7 @@ class W_BytearrayObject(W_Root):
 
     def __init__(self, data):
         check_list_of_chars(data)
-        self.data = data
+        self.data = resizable_list_supporting_raw_ptr(data)
 
     def __repr__(self):
         """representation for debugging purposes"""
@@ -41,6 +43,12 @@ class W_BytearrayObject(W_Root):
 
     def charbuf_w(self, space):
         return ''.join(self.data)
+
+    def bytearray_list_of_chars_w(self, space):
+        return self.data
+
+    def nonmovable_carray(self, space):
+        return BytearrayBuffer(self.data, False).get_raw_address()
 
     def _new(self, value):
         if value is self.data:
@@ -74,7 +82,8 @@ class W_BytearrayObject(W_Root):
         return False
 
     @staticmethod
-    def _op_val(space, w_other):
+    def _op_val(space, w_other, strict=None):
+        # bytearray does not enforce the strict restriction (on strip at least)
         return space.buffer_w(w_other, space.BUF_SIMPLE).as_str()
 
     def _chr(self, char):
@@ -167,51 +176,17 @@ class W_BytearrayObject(W_Root):
     @staticmethod
     def descr_fromhex(space, w_bytearraytype, w_hexstring):
         hexstring = space.str_w(w_hexstring)
-        hexstring = hexstring.lower()
-        data = []
-        length = len(hexstring)
-        i = -2
-        while True:
-            i += 2
-            while i < length and hexstring[i] == ' ':
-                i += 1
-            if i >= length:
-                break
-            if i + 1 == length:
-                raise oefmt(space.w_ValueError, NON_HEX_MSG, i)
-
-            top = _hex_digit_to_int(hexstring[i])
-            if top == -1:
-                raise oefmt(space.w_ValueError, NON_HEX_MSG, i)
-            bot = _hex_digit_to_int(hexstring[i+1])
-            if bot == -1:
-                raise oefmt(space.w_ValueError, NON_HEX_MSG, i + 1)
-            data.append(chr(top*16 + bot))
-
+        data = _hexstring_to_array(space, hexstring)
         # in CPython bytearray.fromhex is a staticmethod, so
         # we ignore w_type and always return a bytearray
         return new_bytearray(space, space.w_bytearray, data)
 
-    def descr_init(self, space, __args__):
-        # this is on the silly side
-        w_source, w_encoding, w_errors = __args__.parse_obj(
-                None, 'bytearray', init_signature, init_defaults)
-
+    @unwrap_spec(encoding='str_or_None', errors='str_or_None')
+    def descr_init(self, space, w_source=None, encoding=None, errors=None):
         if w_source is None:
             w_source = space.wrap('')
-        if w_encoding is None:
-            w_encoding = space.w_None
-        if w_errors is None:
-            w_errors = space.w_None
-
-        # Unicode argument
-        if not space.is_w(w_encoding, space.w_None):
-            from pypy.objspace.std.unicodeobject import (
-                _get_encoding_and_errors, encode_object
-            )
-            encoding, errors = _get_encoding_and_errors(space, w_encoding,
-                                                        w_errors)
-
+        if encoding is not None:
+            from pypy.objspace.std.unicodeobject import encode_object
             # if w_source is an integer this correctly raises a
             # TypeError the CPython error message is: "encoding or
             # errors without a string argument" ours is: "expected
@@ -227,11 +202,11 @@ class W_BytearrayObject(W_Root):
         else:
             if count < 0:
                 raise oefmt(space.w_ValueError, "bytearray negative count")
-            self.data = ['\0'] * count
+            self.data = resizable_list_supporting_raw_ptr(['\0'] * count)
             return
 
         data = makebytearraydata_w(space, w_source)
-        self.data = data
+        self.data = resizable_list_supporting_raw_ptr(data)
 
     def descr_repr(self, space):
         s = self.data
@@ -562,9 +537,35 @@ def _hex_digit_to_int(d):
     val = ord(d)
     if 47 < val < 58:
         return val - 48
+    if 64 < val < 71:
+        return val - 55
     if 96 < val < 103:
         return val - 87
     return -1
+
+NON_HEX_MSG = "non-hexadecimal number found in fromhex() arg at position %d"
+
+def _hexstring_to_array(space, s):
+    data = []
+    length = len(s)
+    i = 0
+    while True:
+        while i < length and s[i] == ' ':
+            i += 1
+        if i >= length:
+            break
+        if i + 1 == length:
+            raise oefmt(space.w_ValueError, NON_HEX_MSG, i)
+
+        top = _hex_digit_to_int(s[i])
+        if top == -1:
+            raise oefmt(space.w_ValueError, NON_HEX_MSG, i)
+        bot = _hex_digit_to_int(s[i + 1])
+        if bot == -1:
+            raise oefmt(space.w_ValueError, NON_HEX_MSG, i + 1)
+        data.append(chr(top * 16 + bot))
+        i += 2
+    return data
 
 
 class BytearrayDocstrings:
@@ -991,7 +992,7 @@ class BytearrayDocstrings:
 
 
 W_BytearrayObject.typedef = TypeDef(
-    "bytearray",
+    "bytearray", None, None, "read-write",
     __doc__ = BytearrayDocstrings.__doc__,
     __new__ = interp2app(W_BytearrayObject.descr_new),
     __hash__ = None,
@@ -1135,9 +1136,6 @@ W_BytearrayObject.typedef = TypeDef(
 )
 W_BytearrayObject.typedef.flag_sequence_bug_compat = True
 
-init_signature = Signature(['source', 'encoding', 'errors'], None, None)
-init_defaults = [None, None, None]
-
 
 # XXX share the code again with the stuff in listobject.py
 def _delitem_slice_helper(space, items, start, step, slicelength):
@@ -1234,6 +1232,24 @@ class BytearrayBuffer(Buffer):
 
     def setitem(self, index, char):
         self.data[index] = char
+
+    def getslice(self, start, stop, step, size):
+        if size == 0:
+            return ""
+        if step == 1:
+            assert 0 <= start <= stop
+            if start == 0 and stop == len(self.data):
+                return "".join(self.data)
+            return "".join(self.data[start:stop])
+        return Buffer.getslice(self, start, stop, step, size)
+
+    def setslice(self, start, string):
+        # No bounds checks.
+        for i in range(len(string)):
+            self.data[start + i] = string[i]
+
+    def get_raw_address(self):
+        return nonmoving_raw_ptr_for_resizable_list(self.data)
 
 
 @specialize.argtype(1)

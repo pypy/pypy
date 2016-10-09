@@ -37,7 +37,7 @@
 #  define THREAD_STACK_SIZE   0   /* use default stack size */
 # endif
 
-# if (defined(__APPLE__) || defined(__FreeBSD__)) && defined(THREAD_STACK_SIZE) && THREAD_STACK_SIZE == 0
+# if (defined(__APPLE__) || defined(__FreeBSD__) || defined(__FreeBSD_kernel__)) && defined(THREAD_STACK_SIZE) && THREAD_STACK_SIZE == 0
    /* The default stack size for new threads on OSX is small enough that
     * we'll get hard crashes instead of 'maximum recursion depth exceeded'
     * exceptions.
@@ -58,13 +58,14 @@
 
 static long _pypythread_stacksize = 0;
 
-static void *bootstrap_pthread(void *func)
+long RPyThreadStart(void (*func)(void))
 {
-  ((void(*)(void))func)();
-  return NULL;
+    /* a kind-of-invalid cast, but the 'func' passed here doesn't expect
+       any argument, so it's unlikely to cause problems */
+    return RPyThreadStartEx((void(*)(void *))func, NULL);
 }
 
-long RPyThreadStart(void (*func)(void))
+long RPyThreadStartEx(void (*func)(void *), void *arg)
 {
 	pthread_t th;
 	int status;
@@ -84,7 +85,7 @@ long RPyThreadStart(void (*func)(void))
 	if (tss != 0)
 		pthread_attr_setstacksize(&attrs, tss);
 #endif
-#if defined(PTHREAD_SYSTEM_SCHED_SUPPORTED) && !defined(__FreeBSD__)
+#if defined(PTHREAD_SYSTEM_SCHED_SUPPORTED) && !(defined(__FreeBSD__) || defined(__FreeBSD_kernel__))
         pthread_attr_setscope(&attrs, PTHREAD_SCOPE_SYSTEM);
 #endif
 
@@ -94,8 +95,12 @@ long RPyThreadStart(void (*func)(void))
 #else
 				 (pthread_attr_t*)NULL,
 #endif
-				 bootstrap_pthread,
-				 (void *)func
+    /* the next line does an invalid cast: pthread_create() will see a
+       function that returns random garbage.  The code is the same as
+       CPython: this random garbage will be stored for pthread_join() 
+       to return, but in this case pthread_join() is never called. */
+				 (void* (*)(void *))func,
+				 (void *)arg
 				 );
 
 #if defined(THREAD_STACK_SIZE) || defined(PTHREAD_SYSTEM_SCHED_SUPPORTED)
@@ -546,8 +551,15 @@ static inline int mutex2_lock_timeout(mutex2_t *mutex, double delay) {
     return result;
 }
 
-#define lock_test_and_set(ptr, value)  __sync_lock_test_and_set(ptr, value)
-#define atomic_increment(ptr)          __sync_fetch_and_add(ptr, 1)
-#define atomic_decrement(ptr)          __sync_fetch_and_sub(ptr, 1)
+//#define pypy_lock_test_and_set(ptr, value)  see thread_pthread.h
+#define atomic_increment(ptr)          __sync_add_and_fetch(ptr, 1)
+#define atomic_decrement(ptr)          __sync_sub_and_fetch(ptr, 1)
+#define RPy_CompilerMemoryBarrier()    asm("":::"memory")
+#define HAVE_PTHREAD_ATFORK            1
+
+#include "src/asm.h"   /* for RPy_YieldProcessor() */
+#ifndef RPy_YieldProcessor
+#  define RPy_YieldProcessor()   /* nothing */
+#endif
 
 #include "src/thread_gil.c"

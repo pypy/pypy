@@ -3,7 +3,7 @@
 from rpython.rlib import jit
 from rpython.rlib.signature import signature, types as ann
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.interpreter.error import oefmt, OperationError
+from pypy.interpreter.error import OperationError, oefmt
 
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy import constants as NPY
@@ -38,7 +38,9 @@ def result_type(space, __args__):
             dtypes_w.append(dtype)
     return find_result_type(space, arrays_w, dtypes_w)
 
-
+@jit.look_inside_iff(lambda space, arrays_w, dtypes_w:
+    jit.loop_unrolling_heuristic(arrays_w, len(arrays_w)) and
+    jit.loop_unrolling_heuristic(dtypes_w, len(dtypes_w)))
 def find_result_type(space, arrays_w, dtypes_w):
     # equivalent to PyArray_ResultType
     if len(arrays_w) == 1 and not dtypes_w:
@@ -89,6 +91,9 @@ simple_kind_ordering = {
     NPY.STRINGLTR: 3, NPY.STRINGLTR2: 3,
     UnicodeType.kind: 3, VoidType.kind: 3, ObjectType.kind: 3}
 
+# this is safe to unroll since it'll only be seen if we look inside
+# the find_result_type
+@jit.unroll_safe
 def _use_min_scalar(arrays_w, dtypes_w):
     """Helper for find_result_type()"""
     if not arrays_w:
@@ -321,7 +326,7 @@ def scalar2dtype(space, w_obj):
     elif space.isinstance_w(w_obj, space.w_long):
         try:
             space.int_w(w_obj)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, space.w_OverflowError):
                 if space.is_true(space.le(w_obj, space.wrap(0))):
                     return int64_dtype

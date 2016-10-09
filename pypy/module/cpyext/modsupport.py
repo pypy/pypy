@@ -1,14 +1,14 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import cpython_api, cpython_struct, \
         METH_STATIC, METH_CLASS, METH_COEXIST, CANNOT_FAIL, CONST_STRING
-from pypy.module.cpyext.pyobject import PyObject, borrow_from
+from pypy.module.cpyext.pyobject import PyObject
 from pypy.interpreter.module import Module
 from pypy.module.cpyext.methodobject import (
     W_PyCFunctionObject, PyCFunction_NewEx, PyDescr_NewMethod,
     PyMethodDef, PyDescr_NewClassMethod, PyStaticMethod_New)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.module.cpyext.state import State
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 
 #@cpython_api([rffi.CCHARP], PyObject)
 def PyImport_AddModule(space, name):
@@ -34,7 +34,7 @@ def PyImport_AddModule(space, name):
 # This is actually the Py_InitModule4 function,
 # renamed to refuse modules built against CPython headers.
 @cpython_api([CONST_STRING, lltype.Ptr(PyMethodDef), CONST_STRING,
-              PyObject, rffi.INT_real], PyObject)
+              PyObject, rffi.INT_real], PyObject, result_borrowed=True)
 def _Py_InitPyPyModule(space, name, methods, doc, w_self, apiver):
     """
     Create a new module object based on a name and table of functions, returning
@@ -69,7 +69,7 @@ def _Py_InitPyPyModule(space, name, methods, doc, w_self, apiver):
     if doc:
         space.setattr(w_mod, space.wrap("__doc__"),
                       space.wrap(rffi.charp2str(doc)))
-    return borrow_from(None, w_mod)
+    return w_mod   # borrowed result kept alive in PyImport_AddModule()
 
 
 def convert_method_defs(space, dict_w, methods, w_type, w_self=None, name=None):
@@ -82,21 +82,22 @@ def convert_method_defs(space, dict_w, methods, w_type, w_self=None, name=None):
             method = methods[i]
             if not method.c_ml_name: break
 
-            methodname = rffi.charp2str(method.c_ml_name)
+            methodname = rffi.charp2str(rffi.cast(rffi.CCHARP, method.c_ml_name))
             flags = rffi.cast(lltype.Signed, method.c_ml_flags)
 
             if w_type is None:
                 if flags & METH_CLASS or flags & METH_STATIC:
-                    raise OperationError(space.w_ValueError,
-                            space.wrap("module functions cannot set METH_CLASS or METH_STATIC"))
+                    raise oefmt(space.w_ValueError,
+                            "module functions cannot set METH_CLASS or "
+                            "METH_STATIC")
                 w_obj = space.wrap(W_PyCFunctionObject(space, method, w_self, w_name))
             else:
                 if methodname in dict_w and not (flags & METH_COEXIST):
                     continue
                 if flags & METH_CLASS:
                     if flags & METH_STATIC:
-                        raise OperationError(space.w_ValueError,
-                                space.wrap("method cannot be both class and static"))
+                        raise oefmt(space.w_ValueError,
+                                    "method cannot be both class and static")
                     w_obj = PyDescr_NewClassMethod(space, w_type, method)
                 elif flags & METH_STATIC:
                     w_func = PyCFunction_NewEx(space, method, None, None)
@@ -112,14 +113,14 @@ def PyModule_Check(space, w_obj):
     w_type = space.gettypeobject(Module.typedef)
     w_obj_type = space.type(w_obj)
     return int(space.is_w(w_type, w_obj_type) or
-               space.is_true(space.issubtype(w_obj_type, w_type)))
+               space.issubtype_w(w_obj_type, w_type))
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, result_borrowed=True)
 def PyModule_GetDict(space, w_mod):
     if PyModule_Check(space, w_mod):
         assert isinstance(w_mod, Module)
         w_dict = w_mod.getdict(space)
-        return borrow_from(w_mod, w_dict)
+        return w_dict    # borrowed reference, likely from w_mod.w_dict
     else:
         PyErr_BadInternalCall(space)
 
