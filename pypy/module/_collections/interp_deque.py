@@ -176,7 +176,7 @@ class W_Deque(W_Root):
             self.append(w_obj)
 
     def add(self, w_iterable):
-        copied = self.copy(self)
+        copied = self.copy()
         copied.extend(w_iterable)
         return self.space.wrap(copied)
 
