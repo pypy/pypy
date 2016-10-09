@@ -209,8 +209,11 @@ def iconcat(space, w_obj1, w_obj2):
 
     return space.inplace_add(w_obj1, w_obj2)
 
-# _length_hint (to be length_hint in 3.4)
-
 @unwrap_spec(default=int)
-def _length_hint(space, w_iterable, default):
+def length_hint(space, w_iterable, default):
+    """Return an estimate of the number of items in obj.
+    This is useful for presizing containers when building from an iterable.
+    If the object supports len(), the result will be exact.
+    Otherwise, it may over- or under-estimate by an arbitrary amount.
+    The result will be an integer >= 0."""
     return space.wrap(space.length_hint(w_iterable, default))

@@ -20,7 +20,7 @@ class Module(MixedModule):
                     'iadd', 'iand', 'iconcat', 'ifloordiv',
                     'ilshift', 'imod', 'imul', 'ior', 'ipow',
                     'irshift', 'isub', 'itruediv', 'imatmul', 'ixor',
-                    '_length_hint', 'indexOf']
+                    'length_hint', 'indexOf']
 
     interpleveldefs = {
         '_compare_digest': 'tscmp.compare_digest',
