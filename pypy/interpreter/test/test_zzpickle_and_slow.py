@@ -398,11 +398,17 @@ class AppTestInterpObjectPickling:
 
     def test_pickle_reversed_stopped(self):
         import pickle
-        iter = reversed(())
-        raises(StopIteration, iter.next)
-        pckl   = pickle.dumps(iter)
-        result = pickle.loads(pckl)
-        raises(StopIteration, result.next)
+        class IE(object):
+            def __len__(self):
+                return 1
+            def __getitem__(self, i):
+                raise IndexError
+        for it in (), IE():
+            iter = reversed(it)
+            raises(StopIteration, iter.next)
+            pckl   = pickle.dumps(iter)
+            result = pickle.loads(pckl)
+            raises(StopIteration, result.next)
 
     def test_pickle_enum(self):
         import pickle

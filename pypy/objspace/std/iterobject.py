@@ -143,8 +143,12 @@ class W_ReverseSeqIterObject(W_Root):
             try:
                 w_item = space.getitem(self.w_seq, w_index)
             except OperationError as e:
+                # Done
+                self.index = -1
+                self.w_seq = None
                 if not e.match(space, space.w_IndexError):
                     raise
+                raise OperationError(space.w_StopIteration, space.w_None)
             else:
                 self.index -= 1
                 return w_item
