@@ -1155,11 +1155,15 @@ class __extend__(pyframe.PyFrame):
             old_last_exception = self.last_exception
             self.last_exception = operr
             w_traceback = self.space.wrap(operr.get_traceback())
-            w_res = self.call_contextmanager_exit_function(
-                w_exitfunc,
-                operr.w_type,
-                operr.get_w_value(self.space),
-                w_traceback)
+            try:
+                w_res = self.call_contextmanager_exit_function(
+                    w_exitfunc,
+                    operr.w_type,
+                    operr.get_w_value(self.space),
+                    w_traceback)
+            except:
+                self.last_exception = old_last_exception
+                raise
             # push a marker that also contains the old_last_exception,
             # which must be restored as 'self.last_exception' but only
             # in WITH_CLEANUP_FINISH
