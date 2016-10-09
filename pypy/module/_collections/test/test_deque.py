@@ -328,4 +328,8 @@ class AppTestBasic:
         from _collections import deque
         d = deque([1,2,3])
         assert d*3 == deque([1,2,3]*3)
-    
+
+    def test_copy(self):
+        from _collections import deque
+        d = deque([1,2,3])
+        assert d is not d.copy()

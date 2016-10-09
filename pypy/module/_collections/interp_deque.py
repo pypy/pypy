@@ -184,6 +184,27 @@ class W_Deque(W_Root):
         self.extend(w_iterable)
         return self.space.wrap(self)
 
+    def mul(self, w_iterable):
+        pass
+
+    def imul(self, w_iterable):
+        pass
+
+    def copy(self):
+        """ A shallow copy """
+        space = self.space
+        w_iter = space.iter(w_iterable)
+        copy = W_Deque(self.space)
+        while True:
+            try:
+                w_obj = space.next(w_iter)
+            except OperationError as e:
+                if e.match(space, space.w_StopIteration):
+                    break
+                raise
+            copy.appendleft(w_obj)
+        return copy
+
     def extendleft(self, w_iterable):
         "Extend the left side of the deque with elements from the iterable"
         # Handle case where id(deque) == id(iterable)
@@ -191,7 +212,6 @@ class W_Deque(W_Root):
         if space.is_w(space.wrap(self), w_iterable):
             w_iterable = space.call_function(space.w_list, w_iterable)
         #
-        space = self.space
         w_iter = space.iter(w_iterable)
         while True:
             try:
@@ -477,6 +497,7 @@ Build an ordered collection accessible from endpoints only.""",
     remove     = interp2app(W_Deque.remove),
     reverse    = interp2app(W_Deque.reverse),
     rotate     = interp2app(W_Deque.rotate),
+    copy       = interp2app(W_Deque.copy),
     __weakref__ = make_weakref_descr(W_Deque),
     __iter__ = interp2app(W_Deque.iter),
     __reversed__ = interp2app(W_Deque.reviter),
@@ -496,6 +517,8 @@ Build an ordered collection accessible from endpoints only.""",
     __delitem__ = interp2app(W_Deque.delitem),
     __copy__ = interp2app(W_Deque.copy),
     __reduce__ = interp2app(W_Deque.reduce),
+    __mul__ = interp2app(W_Deque.mul),
+    __imul__ = interp2app(W_Deque.imul),
     maxlen = GetSetProperty(W_Deque.get_maxlen),
 )
 
