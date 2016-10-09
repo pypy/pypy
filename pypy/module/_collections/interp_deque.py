@@ -175,6 +175,11 @@ class W_Deque(W_Root):
                 raise
             self.append(w_obj)
 
+    def add(self, w_iterable):
+        copied = self.copy(self)
+        copied.extend(w_iterable)
+        return self.space.wrap(copied)
+
     def iadd(self, w_iterable):
         self.extend(w_iterable)
         return self.space.wrap(self)
@@ -484,6 +489,7 @@ Build an ordered collection accessible from endpoints only.""",
     __gt__ = interp2app(W_Deque.gt),
     __ge__ = interp2app(W_Deque.ge),
     __hash__ = None,
+    __add__ = interp2app(W_Deque.add),
     __iadd__ = interp2app(W_Deque.iadd),
     __getitem__ = interp2app(W_Deque.getitem),
     __setitem__ = interp2app(W_Deque.setitem),
@@ -536,7 +542,7 @@ def W_DequeIter__new__(space, w_subtype, w_deque):
     w_self = space.allocate_instance(W_DequeIter, w_subtype)
     if not isinstance(w_deque, W_Deque):
         raise oefmt(space.w_TypeError, "must be collections.deque, not %T", w_deque)
-        
+
     W_DequeIter.__init__(space.interp_w(W_DequeIter, w_self), w_deque)
     return w_self
 
@@ -592,7 +598,7 @@ def W_DequeRevIter__new__(space, w_subtype, w_deque):
     w_self = space.allocate_instance(W_DequeRevIter, w_subtype)
     if not isinstance(w_deque, W_Deque):
         raise oefmt(space.w_TypeError, "must be collections.deque, not %T", w_deque)
-        
+
     W_DequeRevIter.__init__(space.interp_w(W_DequeRevIter, w_self), w_deque)
     return w_self
 
