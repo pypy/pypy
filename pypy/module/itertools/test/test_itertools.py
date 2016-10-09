@@ -222,7 +222,7 @@ class AppTestItertools:
             assert wr() is not None
             list(it)  # exhaust the iterator
             import gc; gc.collect()
-            assert wr() is not None
+            assert wr() is None
             raises(StopIteration, next, it)
 
     def test_islice_dropitems_exact(self):
