@@ -1,3 +1,12 @@
+/* Verbatim copy of Modules/_testcapimodule.c from CPython 2.7.12 w/
+ * parts disabled that rely on the not yet supported:
+ * - PyBuffer_To/FromContiguous
+ * - PyThread_exit_thread
+ * - PyMarshal_*
+ * (via the PYPY_NOT_SUPPORTED define)
+ */
+#define PYPY_NOT_SUPPORTED
+
 /*
  * C Extension module to test Python interpreter C APIs.
  *
@@ -9,7 +18,9 @@
 #include <float.h>
 #include "structmember.h"
 #include "datetime.h"
+#ifndef PYPY_NOT_SUPPORTED
 #include "marshal.h"
+#endif
 
 #ifdef WITH_THREAD
 #include "pythread.h"
@@ -377,6 +388,7 @@ test_broken_memoryview(PyObject* self)
     Py_RETURN_NONE;
 }
 
+#ifndef PYPY_NOT_SUPPORTED
 static PyObject *
 test_to_contiguous(PyObject* self, PyObject *noargs)
 {
@@ -475,6 +487,7 @@ test_from_contiguous(PyObject* self, PyObject *noargs)
 
     Py_RETURN_NONE;
 }
+#endif   /* ifndef PYPY_NOT_SUPPORTED */
 
 
 /* Tests of PyLong_{As, From}{Unsigned,}Long(), and (#ifdef HAVE_LONG_LONG)
@@ -2239,6 +2252,7 @@ sequence_delitem(PyObject *self, PyObject *args)
     Py_RETURN_NONE;
 }
 
+#ifndef PYPY_NOT_SUPPORTED
 #ifdef WITH_THREAD
 typedef struct {
     PyThread_type_lock start_event;
@@ -2327,9 +2341,11 @@ exit:
     return res;
 }
 #endif   /* WITH_THREAD */
+#endif   /* ifndef PYPY_NOT_SUPPORTED */
 
 /* marshal */
 
+#ifndef PYPY_NOT_SUPPORTED
 static PyObject*
 pymarshal_write_long_to_file(PyObject* self, PyObject *args)
 {
@@ -2480,6 +2496,7 @@ pymarshal_read_object_from_file(PyObject* self, PyObject *args)
     fclose(fp);
     return Py_BuildValue("Nl", obj, pos);
 }
+#endif   /* ifndef PYPY_NOT_SUPPORTED */
 
 
 static PyMethodDef TestMethods[] = {
@@ -2493,8 +2510,10 @@ static PyMethodDef TestMethods[] = {
     {"test_dict_iteration",     (PyCFunction)test_dict_iteration,METH_NOARGS},
     {"test_lazy_hash_inheritance",      (PyCFunction)test_lazy_hash_inheritance,METH_NOARGS},
     {"test_broken_memoryview",          (PyCFunction)test_broken_memoryview,METH_NOARGS},
+#ifndef PYPY_NOT_SUPPORTED
     {"test_to_contiguous",      (PyCFunction)test_to_contiguous, METH_NOARGS},
     {"test_from_contiguous",    (PyCFunction)test_from_contiguous, METH_NOARGS},
+#endif   /* ifndef PYPY_NOT_SUPPORTED */
     {"test_long_api",           (PyCFunction)test_long_api,      METH_NOARGS},
     {"test_long_and_overflow", (PyCFunction)test_long_and_overflow,
      METH_NOARGS},
@@ -2577,10 +2596,13 @@ static PyMethodDef TestMethods[] = {
     {"make_exception_with_doc", (PyCFunction)make_exception_with_doc,
      METH_VARARGS | METH_KEYWORDS},
     {"sequence_delitem", (PyCFunction)sequence_delitem, METH_VARARGS},
+#ifndef PYPY_NOT_SUPPORTED
 #ifdef WITH_THREAD
     {"call_in_temporary_c_thread", call_in_temporary_c_thread, METH_O,
      PyDoc_STR("set_error_class(error_class) -> None")},
 #endif
+#endif   /* ifndef PYPY_NOT_SUPPORTED */
+#ifndef PYPY_NOT_SUPPORTED
     {"pymarshal_write_long_to_file",
         pymarshal_write_long_to_file, METH_VARARGS},
     {"pymarshal_write_object_to_file",
@@ -2593,6 +2615,7 @@ static PyMethodDef TestMethods[] = {
         pymarshal_read_last_object_from_file, METH_VARARGS},
     {"pymarshal_read_object_from_file",
         pymarshal_read_object_from_file, METH_VARARGS},
+#endif   /* ifndef PYPY_NOT_SUPPORTED */
     {NULL, NULL} /* sentinel */
 };
 

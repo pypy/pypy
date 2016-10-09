@@ -18,6 +18,7 @@ _testcapi = support.import_module('_testcapi')
 
 class CAPITest(unittest.TestCase):
 
+    @support.impl_detail("Currently broken on pypy", pypy=False)
     def test_buildvalue_N(self):
         _testcapi.test_buildvalue_N()
 
@@ -26,6 +27,7 @@ skips = []
 if support.check_impl_detail(pypy=True):
     skips += [
             'test_broken_memoryview',
+            'test_buildvalue_N',
             'test_capsule',
             'test_lazy_hash_inheritance',
             'test_widechar',
