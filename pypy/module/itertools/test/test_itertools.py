@@ -820,6 +820,20 @@ class AppTestItertools26:
         assert list(product('ab', '', 'ef')) == []
         assert list(product('', 'cd', 'ef')) == []
 
+    def test_product_setstate(self):
+        # test that indices are properly clamped to the length of the tuples
+        from itertools import product
+        p = product((1, 2),(3,))
+        # will access tuple element 1 if not clamped
+        p.__setstate__((0, 0x1000))
+        assert next(p) == (2, 3)
+        # test that empty tuple in the list will result in an
+        # immediate StopIteration
+        p = product((1, 2), (), (3,))
+        # will access tuple element 1 if not clamped
+        p.__setstate__((0, 0, 0x1000))
+        raises(StopIteration, next, p)
+
     def test_permutations(self):
         from itertools import permutations
         assert list(permutations('AB')) == [('A', 'B'), ('B', 'A')]

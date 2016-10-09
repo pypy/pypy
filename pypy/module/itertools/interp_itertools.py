@@ -1216,6 +1216,7 @@ class W_Product(W_Root):
         #
         for gear in self.gears:
             if len(gear) == 0:
+                self.indices = None
                 self.lst = None
                 self.stopped = True
                 break
@@ -1303,12 +1304,16 @@ class W_Product(W_Root):
         for i, gear in enumerate(self.gears):
             w_index = indices_w[i]
             index = space.int_w(w_index)
+            gear_size = len(gear)
+            if self.indices is None or gear_size == 0:
+                self.stopped = True
+                return
             if index < 0:
                 index = 0
-            if index > gear_count - 1:
-                index = gear_count - 1
+            if index > gear_size - 1:
+                index = gear_size - 1
             self.indices[i] = index
-            lst.append(gear[self.indices[i]])
+            lst.append(gear[index])
         self.lst = lst
 
 def W_Product__new__(space, w_subtype, __args__):
