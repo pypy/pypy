@@ -40,15 +40,6 @@ class W_AbstractSeqIterObject(W_Root):
     def descr_length_hint(self, space):
         return self.getlength(space)
 
-    def descr_setstate(self, space, w_state):
-        index = space.int_w(w_state)
-        if self.w_seq is not space.w_None:
-            if index < 0:
-                index = 0
-
-            self.index = index
-
-
 W_AbstractSeqIterObject.typedef = TypeDef(
     "sequenceiterator",
     __doc__ = '''iter(collection) -> iterator
@@ -61,7 +52,6 @@ In the second form, the callable is called until it returns the sentinel.''',
     __next__ = interpindirect2app(W_AbstractSeqIterObject.descr_next),
     __reduce__ = interp2app(W_AbstractSeqIterObject.descr_reduce),
     __length_hint__ = interp2app(W_AbstractSeqIterObject.descr_length_hint),
-    __setstate__ = interp2app(W_AbstractSeqIterObject.descr_setstate),
 )
 W_AbstractSeqIterObject.typedef.acceptable_as_base_class = False
 

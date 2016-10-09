@@ -938,6 +938,7 @@ class TestCase(unittest.TestCase):
         with self.assertRaises(OverflowError):
             next(it)
 
+    @cpython_only
     def test_iter_neg_setstate(self):
         it = iter(UnlimitedSequenceClass())
         it.__setstate__(-42)
