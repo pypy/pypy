@@ -185,17 +185,26 @@ class W_Deque(W_Root):
         return self.space.wrap(self)
 
     def mul(self, w_int):
-        copied = self.copy()
-        num = self.space.int_w(w_int)
+        space = self.space
+        copied = W_Deque(space)
+        num = space.int_w(w_int)
 
         for _ in range(num):
-            copied.extend(copied)
+            copied.extend(self)
 
-        return self.space.wrap(copied)
+        return space.wrap(copied)
 
 
-    def imul(self, w_iterable):
-        pass
+    def imul(self, w_int):
+        space = self.space
+        copied = self.copy()
+        num = space.int_w(w_int)
+
+        for _ in range(num - 1):
+            self.extend(copied)
+
+        return space.wrap(self)
+
 
     def copy(self):
         """ A shallow copy """
