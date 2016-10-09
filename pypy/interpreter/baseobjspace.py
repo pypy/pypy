@@ -1223,11 +1223,11 @@ class ObjSpace(object):
     # These methods are patched with the full logic by the __builtin__
     # module when it is loaded
 
-    def abstract_issubclass_w(self, w_cls1, w_cls2):
+    def abstract_issubclass_w(self, w_cls1, w_cls2, allow_override=False):
         # Equivalent to 'issubclass(cls1, cls2)'.
         return self.issubtype_w(w_cls1, w_cls2)
 
-    def abstract_isinstance_w(self, w_obj, w_cls):
+    def abstract_isinstance_w(self, w_obj, w_cls, allow_override=False):
         # Equivalent to 'isinstance(obj, cls)'.
         return self.isinstance_w(w_obj, w_cls)
 
