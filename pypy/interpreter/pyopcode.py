@@ -6,7 +6,8 @@ The rest, dealing with variables in optimized ways, is in nestedscope.py.
 
 from rpython.rlib import jit, rstackovf, rstring
 from rpython.rlib.debug import check_nonneg
-(??)from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import (
+    we_are_translated, always_inline, dont_inline)
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.tool.sourcetools import func_with_new_name
 
@@ -1466,7 +1467,7 @@ class __extend__(pyframe.PyFrame):
                           next_instr + offsettoend, self.lastblock)
         self.lastblock = block
         self.pushvalue(res)
-    
+
     def BEFORE_ASYNC_WITH(self, oparg, next_instr):
         space = self.space
         w_manager = self.peekvalue()
