@@ -859,8 +859,9 @@ class ListStrategy(object):
         raise NotImplementedError
 
     def extend(self, w_list, w_any):
+        space = self.space
         if type(w_any) is W_ListObject or (isinstance(w_any, W_ListObject) and
-                                           self.space._uses_list_iter(w_any)):
+                                           space._uses_list_iter(w_any)):
             self._extend_from_list(w_list, w_any)
         elif space.is_generator(w_any):
             w_any.unpack_into_w(w_list)
