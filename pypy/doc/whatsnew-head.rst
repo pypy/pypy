@@ -61,3 +61,12 @@ Improve the error message when the user forgot the "self" argument of a method.
 Change the ``timeit`` module: it now prints the average time and the standard
 deviation over 7 runs by default, instead of the minimum. The minimum is often
 misleading.
+
+.. branch: stdlib-2.7.11
+
+Update stdlib to version 2.7.11
+
+.. branch: vendor/stdlib
+.. branch: stdlib-2.7.12
+
+Update stdlib to version 2.7.12
