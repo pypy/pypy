@@ -14,11 +14,22 @@ static long pypy_threadlocal_lock = 0;
 
 static int check_valid(void);
 
-void _RPython_ThreadLocals_Acquire(void) {
-    while (!pypy_lock_test_and_set(&pypy_threadlocal_lock, 1)) {
+int _RPython_ThreadLocals_AcquireTimeout(int max_wait_iterations) {
+    while (1) {
+        long old_value = pypy_lock_test_and_set(&pypy_threadlocal_lock, 1);
+        if (old_value == 0)
+            break;
         /* busy loop */
+        if (max_wait_iterations == 0)
+            return -1;
+        if (max_wait_iterations > 0)
+            --max_wait_iterations;
     }
     assert(check_valid());
+    return 0;
+}
+void _RPython_ThreadLocals_Acquire(void) {
+    _RPython_ThreadLocals_AcquireTimeout(-1);
 }
 void _RPython_ThreadLocals_Release(void) {
     assert(check_valid());
@@ -59,11 +70,7 @@ static void cleanup_after_fork(void)
 {
     /* assume that at most one pypy_threadlocal_s survived, the current one */
     struct pypy_threadlocal_s *cur;
-#ifdef USE___THREAD
-    cur = &pypy_threadlocal;
-#else
     cur = (struct pypy_threadlocal_s *)_RPy_ThreadLocals_Get();
-#endif
     if (cur && cur->ready == 42) {
         cur->next = cur->prev = &linkedlist_head;
         linkedlist_head.next = linkedlist_head.prev = cur;

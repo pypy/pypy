@@ -652,7 +652,7 @@ class StringMethods(object):
     def _strip(self, space, w_chars, left, right):
         "internal function called by str_xstrip methods"
         value = self._val(space)
-        chars = self._op_val(space, w_chars)
+        chars = self._op_val(space, w_chars, strict='strip')
 
         lpos = 0
         rpos = len(value)

@@ -21,7 +21,8 @@ class Arguments(object):
     ###  Construction  ###
 
     def __init__(self, space, args_w, keywords=None, keywords_w=None,
-                 w_stararg=None, w_starstararg=None, keyword_names_w=None):
+                 w_stararg=None, w_starstararg=None, keyword_names_w=None,
+                 methodcall=False):
         self.space = space
         assert isinstance(args_w, list)
         self.arguments_w = args_w
@@ -41,6 +42,9 @@ class Arguments(object):
         # a flag that specifies whether the JIT can unroll loops that operate
         # on the keywords
         self._jit_few_keywords = self.keywords is None or jit.isconstant(len(self.keywords))
+        # a flag whether this is likely a method call, which doesn't change the
+        # behaviour but produces better error messages
+        self.methodcall = methodcall
 
     def __repr__(self):
         """ NOT_RPYTHON """
@@ -209,7 +213,7 @@ class Arguments(object):
                 starargs_w = []
             scope_w[co_argcount] = self.space.newtuple(starargs_w)
         elif avail > co_argcount:
-            raise ArgErrCount(avail, num_kwds, signature, defaults_w, 0)
+            raise self.argerrcount(avail, num_kwds, signature, defaults_w, 0)
 
         # if a **kwargs argument is needed, create the dict
         w_kwds = None
@@ -243,7 +247,7 @@ class Arguments(object):
                             kwds_mapping, self.keyword_names_w, self._jit_few_keywords)
                 else:
                     if co_argcount == 0:
-                        raise ArgErrCount(avail, num_kwds, signature, defaults_w, 0)
+                        raise self.argerrcount(avail, num_kwds, signature, defaults_w, 0)
                     raise ArgErrUnknownKwds(self.space, num_remainingkwds, keywords,
                                             kwds_mapping, self.keyword_names_w)
 
@@ -267,9 +271,12 @@ class Arguments(object):
                 else:
                     missing += 1
             if missing:
-                raise ArgErrCount(avail, num_kwds, signature, defaults_w, missing)
+                raise self.argerrcount(avail, num_kwds, signature, defaults_w, missing)
 
-
+    def argerrcount(self, *args):
+        if self.methodcall:
+            return ArgErrCountMethod(*args)
+        return ArgErrCount(*args)
 
     def parse_into_scope(self, w_firstarg,
                          scope_w, fnname, signature, defaults_w=None):
@@ -479,6 +486,22 @@ class ArgErrCount(ArgErr):
                 plural,
                 num_args)
         return msg
+
+class ArgErrCountMethod(ArgErrCount):
+    """ A subclass of ArgErrCount that is used if the argument matching is done
+    as part of a method call, in which case more information is added to the
+    error message, if the cause of the error is likely a forgotten `self`
+    argument.
+    """
+
+    def getmsg(self):
+        msg = ArgErrCount.getmsg(self)
+        n = self.signature.num_argnames()
+        if (self.num_args == n + 1 and
+                (n == 0 or self.signature.argnames[0] != "self")):
+            msg += ". Did you forget 'self' in the function definition?"
+        return msg
+
 
 class ArgErrMultipleValues(ArgErr):
 

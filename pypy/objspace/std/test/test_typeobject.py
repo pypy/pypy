@@ -797,9 +797,7 @@ class AppTestTypeObject:
         class AA(object):
             __slots__ = ('a',)
         aa = AA()
-        # the following line works on CPython >= 2.6 but not on PyPy.
-        # but see below for more
-        raises(TypeError, "aa.__class__ = A")
+        aa.__class__ = A
         raises(TypeError, "aa.__class__ = object")
         class Z1(A):
             pass
@@ -861,9 +859,13 @@ class AppTestTypeObject:
             __slots__ = ['a', 'b']
         class Order2(object):
             __slots__ = ['b', 'a']
-        # the following line works on CPython >= 2.6 but not on PyPy.
-        # but see below for more
-        raises(TypeError, "Order1().__class__ = Order2")
+        Order1().__class__ = Order2
+
+        # like CPython, the order of slot names doesn't matter
+        x = Order1()
+        x.a, x.b = 1, 2
+        x.__class__ = Order2
+        assert (x.a, x.b) == (1, 2)
 
         class U1(object):
             __slots__ = ['a', 'b']
@@ -873,10 +875,11 @@ class AppTestTypeObject:
             __slots__ = ['a', 'b']
         class V2(V1):
             __slots__ = ['c', 'd', 'e']
-        # the following line does not work on CPython >= 2.6 either.
-        # that's just obscure.  Really really.  So we just ignore
-        # the whole issue until someone comes complaining.  Then we'll
-        # just kill slots altogether apart from maybe doing a few checks.
+        # the following line does not work on CPython either: we can't
+        # change a class if the old and new class have different layouts
+        # that look compatible but aren't, because they don't have the
+        # same base-layout class (even if these base classes are
+        # themselves compatible)...  obscure.
         raises(TypeError, "U2().__class__ = V2")
 
     def test_name(self):
