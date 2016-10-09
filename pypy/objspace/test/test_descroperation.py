@@ -464,6 +464,42 @@ class AppTest_Descroperation:
         assert not(A(1) != B(1))
         assert not(B(1) != A(1))
 
+    def test_ne_high_priority(self):
+        """object.__ne__() should allow reflected __ne__() to be tried"""
+        calls = []
+        class Left:
+            # Inherits object.__ne__()
+            def __eq__(*args):
+                calls.append('Left.__eq__')
+                return NotImplemented
+        class Right:
+            def __eq__(*args):
+                calls.append('Right.__eq__')
+                return NotImplemented
+            def __ne__(*args):
+                calls.append('Right.__ne__')
+                return NotImplemented
+        Left() != Right()
+        assert calls == ['Left.__eq__', 'Right.__ne__']
+
+    def test_ne_low_priority(self):
+        """object.__ne__() should not invoke reflected __eq__()"""
+        calls = []
+        class Base:
+            # Inherits object.__ne__()
+            def __eq__(*args):
+                calls.append('Base.__eq__')
+                return NotImplemented
+        class Derived(Base):  # Subclassing forces higher priority
+            def __eq__(*args):
+                calls.append('Derived.__eq__')
+                return NotImplemented
+            def __ne__(*args):
+                calls.append('Derived.__ne__')
+                return NotImplemented
+        Base() != Derived()
+        assert calls == ['Derived.__ne__', 'Base.__eq__']
+
     def test_partial_ordering(self):
         class A(object):
             def __lt__(self, other):

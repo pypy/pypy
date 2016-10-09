@@ -589,7 +589,10 @@ def _make_comparison_impl(symbol, specialnames):
             else:
                 return space.w_False
         elif left == '__ne__':
-            return space.not_(space.eq(w_obj1, w_obj2))
+            if space.is_w(w_obj1, w_obj2):
+                return space.w_False
+            else:
+                return space.w_True
         #
         # if we arrived here, they are unorderable
         raise oefmt(space.w_TypeError,

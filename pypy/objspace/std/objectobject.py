@@ -207,7 +207,13 @@ def descr__eq__(space, w_self, w_other):
     return space.w_NotImplemented
 
 def descr__ne__(space, w_self, w_other):
-    return space.not_(space.eq(w_self, w_other))
+    # By default, __ne__() delegates to __eq__() and inverts the result,
+    # unless the latter returns NotImplemented.
+    w_eq = space.lookup(w_self, '__eq__')
+    w_res = space.get_and_call_function(w_eq, w_self, w_other)
+    if space.is_w(w_res, space.w_NotImplemented):
+        return w_res
+    return space.not_(w_res)
 
 def descr_richcompare(space, w_self, w_other):
     return space.w_NotImplemented
