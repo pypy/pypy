@@ -116,6 +116,12 @@ class AppTestBasic:
         d.extend(d)
         assert list(d) == list('abcdabcd')
 
+    def test_add(self):
+        from _collections import deque
+        d1 = deque([1,2,3])
+        d2 = deque([3,4,5])
+        assert d1 + d2 == deque([1,2,3,3,4,5])
+
     def test_iadd(self):
         from _collections import deque
         d = deque('a')
@@ -318,18 +324,14 @@ class AppTestBasic:
         copy = pickle.loads(pickle.dumps(iterator))
         assert list(iterator) == list(copy)
 
-    def test_deque_add(self):
-        from _collections import deque
-        d1 = deque([1,2,3])
-        d2 = deque([3,4,5])
-        assert d1 + d2 == deque([1,2,3,3,4,5])
-
     def test_queue_mul(self):
         from _collections import deque
         d = deque([1,2,3])
         assert d*3 == deque([1,2,3]*3)
 
-    def test_copy(self):
+    def test_queue_imul(self):
         from _collections import deque
         d = deque([1,2,3])
-        assert d is not d.copy()
+        d *= 3
+        assert d == deque([1,2,3]*3)
+        assert d is not deque([1,2,3]*3)

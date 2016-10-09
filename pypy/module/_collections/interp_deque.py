@@ -184,8 +184,15 @@ class W_Deque(W_Root):
         self.extend(w_iterable)
         return self.space.wrap(self)
 
-    def mul(self, w_iterable):
-        pass
+    def mul(self, w_int):
+        copied = self.copy()
+        num = self.space.int_w(w_int)
+
+        for _ in range(num):
+            copied.extend(copied)
+
+        return self.space.wrap(copied)
+
 
     def imul(self, w_iterable):
         pass
