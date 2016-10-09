@@ -290,6 +290,21 @@ class AppTestBasic:
         mut[0] = 11
         assert d == e
 
+    def test_index(self):
+        from _collections import deque
+        d = deque([1,2,'a',1,2])
+        assert d.index(1) is 0
+        assert d.index('a') is 2
+        assert d.index(1,2) is 3
+        assert d.index('a',-3) is 2
+        assert d.index('a',-3,-1) is 2
+        assert d.index('a',-9) is 2
+        raises(ValueError, d.index, 2, 2, -1)
+        raises(ValueError, d.index, 1, 1, 3)
+        raises(ValueError, d.index, 'a', -3, -3)
+        raises(ValueError, d.index, 'a', 1, -3)
+        raises(ValueError, d.index, 'a', -3, -9)
+
     def test_reversed(self):
         from _collections import deque
         for s in ('abcd', range(200)):

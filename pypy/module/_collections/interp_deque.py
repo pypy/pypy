@@ -194,7 +194,6 @@ class W_Deque(W_Root):
 
         return space.wrap(copied)
 
-
     def imul(self, w_int):
         space = self.space
         copied = self.copy()
@@ -204,7 +203,6 @@ class W_Deque(W_Root):
             self.extend(copied)
 
         return space.wrap(self)
-
 
     def copy(self):
         """ A shallow copy """
@@ -342,6 +340,45 @@ class W_Deque(W_Root):
 
     def iter(self):
         return W_DequeIter(self)
+
+    def index(self, w_x, w_start=None, w_stop=None):
+        space = self.space
+        w_iter = space.iter(self)
+        _len = self.len
+        start = 0
+        stop = _len
+
+        if w_start is not None:
+            start = space.int_w(w_start)
+
+            if start < 0:
+                start += _len
+
+            if start < 0:
+                start = 0
+            elif start > _len:
+                start = _len
+
+        if w_stop is not None:
+            stop = space.int_w(w_stop)
+
+            if stop < 0:
+                stop += _len
+
+            if 0 <= stop > _len:
+                stop = _len
+
+        for i in range(0, stop):
+            value = space.next(w_iter)
+
+            if i < start:
+                continue
+
+            if space.eq_w(value, w_x):
+                return space.wrap(i)
+
+        x = space.repr(w_x)
+        raise oefmt(self.space.w_ValueError, "%s is not in deque" % x)
 
     def reviter(self):
         "Return a reverse iterator over the deque."
@@ -508,6 +545,7 @@ Build an ordered collection accessible from endpoints only.""",
     count      = interp2app(W_Deque.count),
     extend     = interp2app(W_Deque.extend),
     extendleft = interp2app(W_Deque.extendleft),
+    index      = interp2app(W_Deque.index),
     pop        = interp2app(W_Deque.pop),
     popleft    = interp2app(W_Deque.popleft),
     remove     = interp2app(W_Deque.remove),
