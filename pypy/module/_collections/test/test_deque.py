@@ -323,3 +323,9 @@ class AppTestBasic:
         d1 = deque([1,2,3])
         d2 = deque([3,4,5])
         assert d1 + d2 == deque([1,2,3,3,4,5])
+
+    def test_queue_mul(self):
+        from _collections import deque
+        d = deque([1,2,3])
+        assert d*3 == deque([1,2,3]*3)
+    
