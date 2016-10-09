@@ -598,7 +598,7 @@ class AppTestItertools:
         class MyIterator(object):
             def __iter__(self):
                 return self
-            def next(self):
+            def __next__(self):
                 raise NotImplementedError
             def __copy__(self):
                 return iter('def')
@@ -622,12 +622,6 @@ class AppTestItertools:
 
 class AppTestItertools26:
     spaceconfig = dict(usemodules=['itertools'])
-
-    def setup_class(cls):
-        if cls.space.is_true(cls.space.appexec([], """():
-            import sys; return sys.version_info < (2, 6)
-            """)):
-            py.test.skip("Requires Python 2.6")
 
     def test_count_overflow(self):
         import itertools, sys
@@ -1070,12 +1064,6 @@ class AppTestItertools27:
 
 class AppTestItertools32:
     spaceconfig = dict(usemodules=['itertools'])
-
-    def setup_class(cls):
-        if cls.space.is_true(cls.space.appexec([], """():
-            import sys; return sys.version_info < (3, 2)
-            """)):
-            py.test.skip("Requires Python 3.2")
 
     def test_accumulate(self):
         """copied from ./lib-python/3/test/test_itertools.py"""
