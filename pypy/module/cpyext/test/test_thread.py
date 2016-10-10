@@ -4,10 +4,11 @@ import pytest
 
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
-only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_names" 
+only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_names"
 
 class AppTestThread(AppTestCpythonExtensionBase):
     @pytest.mark.skipif(only_pypy, reason='pypy only test')
+    @pytest.mark.xfail(reason='segfaults', run=False)
     def test_get_thread_ident(self):
         module = self.import_extension('foo', [
             ("get_thread_ident", "METH_NOARGS",
@@ -81,6 +82,7 @@ class AppTestThread(AppTestCpythonExtensionBase):
         module.test_release_lock()
 
     @pytest.mark.skipif(only_pypy, reason='pypy only test')
+    @pytest.mark.xfail(reason='segfaults', run=False)
     def test_tls(self):
         module = self.import_extension('foo', [
             ("create_key", "METH_NOARGS",

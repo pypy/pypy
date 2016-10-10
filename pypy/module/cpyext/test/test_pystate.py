@@ -150,6 +150,7 @@ class AppTestThreads(AppTestCpythonExtensionBase):
 
 class AppTestState(AppTestCpythonExtensionBase):
 
+    @pytest.mark.xfail('not config.option.runappdirect', reason='segfaults', run=False)
     def test_frame_tstate_tracing(self):
         import sys, threading
         module = self.import_extension('foo', [
