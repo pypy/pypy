@@ -922,35 +922,6 @@ class Optimizer(Optimization):
         elif op.getopnum() == rop.CAST_PTR_TO_INT:
             optpure.pure_from_args(rop.CAST_INT_TO_PTR, [op], op.getarg(0))
 
-    #def optimize_GUARD_NO_OVERFLOW(self, op):
-    #    # otherwise the default optimizer will clear fields, which is unwanted
-    #    # in this case
-    #    self.emit(op)
-    # FIXME: Is this still needed?
-
-    def optimize_DEBUG_MERGE_POINT(self, op):
-        self.emit(op)
-
-    def optimize_JIT_DEBUG(self, op):
-        self.emit(op)
-
-    def optimize_STRGETITEM(self, op):
-        indexb = self.getintbound(op.getarg(1))
-        if indexb.is_constant():
-            pass
-            #raise Exception("implement me")
-            #arrayvalue = self.getvalue(op.getarg(0))
-            #arrayvalue.make_len_gt(MODE_STR, op.getdescr(), indexvalue.box.getint())
-        self.optimize_default(op)
-
-    def optimize_UNICODEGETITEM(self, op):
-        indexb = self.getintbound(op.getarg(1))
-        if indexb.is_constant():
-            #arrayvalue = self.getvalue(op.getarg(0))
-            #arrayvalue.make_len_gt(MODE_UNICODE, op.getdescr(), indexvalue.box.getint())
-            pass
-        self.optimize_default(op)
-
     # These are typically removed already by OptRewrite, but it can be
     # dissabled and unrolling emits some SAME_AS ops to setup the
     # optimizier state. These needs to always be optimized out.
