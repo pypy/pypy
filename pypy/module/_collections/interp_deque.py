@@ -176,9 +176,10 @@ class W_Deque(W_Root):
             self.append(w_obj)
 
     def add(self, w_iterable):
-        copied = self.copy()
-        copied.extend(w_iterable)
-        return self.space.wrap(copied)
+        copy = W_Deque(self.space)
+        copy.extend(self.iter())
+        copy.extend(w_iterable)
+        return self.space.wrap(copy)
 
     def iadd(self, w_iterable):
         self.extend(w_iterable)
@@ -196,28 +197,14 @@ class W_Deque(W_Root):
 
     def imul(self, w_int):
         space = self.space
-        copied = self.copy()
+        copy = W_Deque(space)
+        copy.extend(self.iter())
         num = space.int_w(w_int)
 
         for _ in range(num - 1):
-            self.extend(copied)
+            self.extend(copy)
 
         return space.wrap(self)
-
-    def copy(self):
-        """ A shallow copy """
-        space = self.space
-        w_iter = space.iter(w_iterable)
-        copy = W_Deque(self.space)
-        while True:
-            try:
-                w_obj = space.next(w_iter)
-            except OperationError as e:
-                if e.match(space, space.w_StopIteration):
-                    break
-                raise
-            copy.appendleft(w_obj)
-        return copy
 
     def extendleft(self, w_iterable):
         "Extend the left side of the deque with elements from the iterable"
@@ -350,10 +337,8 @@ class W_Deque(W_Root):
 
         if w_start is not None:
             start = space.int_w(w_start)
-
             if start < 0:
                 start += _len
-
             if start < 0:
                 start = 0
             elif start > _len:
@@ -361,24 +346,22 @@ class W_Deque(W_Root):
 
         if w_stop is not None:
             stop = space.int_w(w_stop)
-
             if stop < 0:
                 stop += _len
-
             if 0 <= stop > _len:
                 stop = _len
 
         for i in range(0, stop):
-            value = space.next(w_iter)
-
-            if i < start:
-                continue
-
-            if space.eq_w(value, w_x):
-                return space.wrap(i)
-
-        x = space.repr(w_x)
-        raise oefmt(self.space.w_ValueError, "%s is not in deque", x)
+            try:
+                w_obj = space.next(w_iter)
+                if i < start:
+                    continue
+                if space.eq_w(w_obj, w_x):
+                    return space.wrap(i)
+            except OperationError as e:
+                if not e.match(space, space.w_StopIteration):
+                    raise
+        raise oefmt(space.w_ValueError, "%R is not in deque", w_x)
 
     def reviter(self):
         "Return a reverse iterator over the deque."
