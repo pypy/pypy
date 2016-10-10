@@ -120,8 +120,8 @@ class AppTest_IterObject(object):
         n = 10
         d = range(n)
         it = reversed(d)
-        it.next()
-        it.next()
+        next(it)
+        next(it)
         assert it.__length_hint__() == n-2
         d.append(n)
         assert it.__length_hint__() == n-2
