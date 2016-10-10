@@ -464,6 +464,17 @@ class AppTestInt(object):
                 return Integral()
         assert int(TruncReturnsNonInt()) == 42
 
+    def test_trunc_returns_int_subclass(self):
+        class Classic:
+            pass
+        for base in object, Classic:
+            class TruncReturnsNonInt(base):
+                def __trunc__(self):
+                    return True
+            n = int(TruncReturnsNonInt())
+            assert n == 1
+            assert type(n) is bool
+
     def test_int_before_string(self):
         class Integral(str):
             def __int__(self):

@@ -23,15 +23,15 @@ class AppTestCodecs:
         assert x == y
 
     def test_named_unicode(self):
-        assert str(b'\\N{SPACE}','unicode-escape') == " "
+        assert str(b'\\N{SPACE}','unicode-escape') == u" "
         raises( UnicodeDecodeError, str,b'\\N{SPACE','unicode-escape')
         raises( UnicodeDecodeError, str,b'\\NSPACE}','unicode-escape')
         raises( UnicodeDecodeError, str,b'\\NSPACE','unicode-escape')
         raises( UnicodeDecodeError, str,b'\\N','unicode-escape')
-        assert  str(b'\\N{SPACE}\\N{SPACE}','unicode-escape') == "  " 
-        assert  str(b'\\N{SPACE}a\\N{SPACE}','unicode-escape') == " a " 
-        assert b"\\N{foo}xx".decode("unicode-escape", "ignore") == "xx"
-        assert 1 <= len("\N{CJK UNIFIED IDEOGRAPH-20000}") <= 2
+        assert  str(b'\\N{SPACE}\\N{SPACE}','unicode-escape') == u"  "
+        assert  str(b'\\N{SPACE}a\\N{SPACE}','unicode-escape') == u" a "
+        assert b"\\N{foo}xx".decode("unicode-escape", "ignore") == u"xx"
+        assert 1 <= len(u"\N{CJK UNIFIED IDEOGRAPH-20000}") <= 2
 
     def test_literals(self):
         raises(SyntaxError, eval, 'u\'\\Uffffffff\'')
@@ -730,6 +730,9 @@ class AppTestPartialEvaluation:
             (b'a+//,+IKw-b', u'a\ufffd\u20acb'),
             (b'a+///,+IKw-b', u'a\uffff\ufffd\u20acb'),
             (b'a+////,+IKw-b', u'a\uffff\ufffd\u20acb'),
+            (b'a+2AE\xe1b', u'a\ufffdb'),
+            (b'a+2AEA-b', u'a\ufffdb'),
+            (b'a+2AH-b', u'a\ufffdb'),
         ]
         for raw, expected in tests:
             raises(UnicodeDecodeError, codecs.utf_7_decode, raw, 'strict', True)

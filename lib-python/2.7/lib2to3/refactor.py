@@ -184,7 +184,7 @@ class RefactoringTool(object):
 
         Args:
             fixer_names: a list of fixers to import
-            options: an dict with configuration.
+            options: a dict with configuration.
             explicit: a list of fixers to run even if they are explicit.
         """
         self.fixers = fixer_names
@@ -255,7 +255,7 @@ class RefactoringTool(object):
             fixer = fix_class(self.options, self.fixer_log)
             if fixer.explicit and self.explicit is not True and \
                     fix_mod_path not in self.explicit:
-                self.log_message("Skipping implicit fixer: %s", fix_name)
+                self.log_message("Skipping optional fixer: %s", fix_name)
                 continue
 
             self.log_debug("Adding transformation: %s", fix_name)

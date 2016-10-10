@@ -926,6 +926,11 @@ class AppTestUnicodeString:
         assert repr("%s" % u) == "'__str__ overridden'"
         assert repr("{}".format(u)) == "'__str__ overridden'"
 
+    def test_format_c_overflow(self):
+        import sys
+        raises(OverflowError, u'{0:c}'.format, -1)
+        raises(OverflowError, u'{0:c}'.format, sys.maxunicode + 1)
+
     def test_replace_with_buffer(self):
         raises(TypeError, 'abc'.replace, b'b', b'e')
 

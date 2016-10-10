@@ -256,6 +256,9 @@ class W_ArrayBase(W_Root):
 
         This method is deprecated. Use frombytes instead.
         """
+        if self is w_s:
+            raise oefmt(space.w_ValueError,
+                        "array.fromstring(x): x cannot be self")
         s = space.getarg_w('s#', w_s)
         msg = "fromstring() is deprecated. Use frombytes() instead."
         space.warn(space.wrap(msg), self.space.w_DeprecationWarning)

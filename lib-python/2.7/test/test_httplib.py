@@ -5,6 +5,7 @@ import StringIO
 import socket
 import errno
 import os
+import tempfile
 
 import unittest
 TestCase = unittest.TestCase
@@ -212,8 +213,8 @@ class HeaderTests(TestCase):
         self.assertIn(b'\xa0NonbreakSpace: value', conn._buffer)
 
     def test_ipv6host_header(self):
-        # Default host header on IPv6 transaction should wrapped by [] if
-        # its actual IPv6 address
+        # Default host header on IPv6 transaction should be wrapped by [] if
+        # it is an IPv6 address
         expected = 'GET /foo HTTP/1.1\r\nHost: [2001::]:81\r\n' \
                    'Accept-Encoding: identity\r\n\r\n'
         conn = httplib.HTTPConnection('[2001::]:81')
@@ -399,6 +400,22 @@ class BasicTest(TestCase):
         conn.sock = sock
         conn.request('GET', '/foo', body)
         self.assertTrue(sock.data.startswith(expected))
+        self.assertIn('def test_send_file', sock.data)
+
+    def test_send_tempfile(self):
+        expected = ('GET /foo HTTP/1.1\r\nHost: example.com\r\n'
+                    'Accept-Encoding: identity\r\nContent-Length: 9\r\n\r\n'
+                    'fake\ndata')
+
+        with tempfile.TemporaryFile() as body:
+            body.write('fake\ndata')
+            body.seek(0)
+
+            conn = httplib.HTTPConnection('example.com')
+            sock = FakeSocket(body)
+            conn.sock = sock
+            conn.request('GET', '/foo', body)
+        self.assertEqual(sock.data, expected)
 
     def test_send(self):
         expected = 'this is a test this is only a test'
@@ -560,6 +577,16 @@ class BasicTest(TestCase):
         self.assertTrue(response)
         #self.assertTrue(response[0].closed)
         self.assertTrue(conn.sock.file_closed)
+
+    def test_proxy_tunnel_without_status_line(self):
+        # Issue 17849: If a proxy tunnel is created that does not return
+        # a status code, fail.
+        body = 'hello world'
+        conn = httplib.HTTPConnection('example.com', strict=False)
+        conn.set_tunnel('foo')
+        conn.sock = FakeSocket(body)
+        with self.assertRaisesRegexp(socket.error, "Invalid response"):
+            conn._tunnel()
 
 class OfflineTest(TestCase):
     def test_responses(self):
@@ -825,10 +852,12 @@ class TunnelTests(TestCase):
 
         self.assertEqual(conn.sock.host, 'proxy.com')
         self.assertEqual(conn.sock.port, 80)
-        self.assertTrue('CONNECT destination.com' in conn.sock.data)
-        self.assertTrue('Host: destination.com' in conn.sock.data)
+        self.assertIn('CONNECT destination.com', conn.sock.data)
+        # issue22095
+        self.assertNotIn('Host: destination.com:None', conn.sock.data)
+        self.assertIn('Host: destination.com', conn.sock.data)
 
-        self.assertTrue('Host: proxy.com' not in conn.sock.data)
+        self.assertNotIn('Host: proxy.com', conn.sock.data)
 
         conn.close()
 

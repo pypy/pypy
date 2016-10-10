@@ -523,9 +523,7 @@ class W_IntObject(W_AbstractIntObject):
         return space.wrap(_hash_int(self.intval))
 
     def as_w_long(self, space):
-        # XXX: should try smalllong
-        from pypy.objspace.std.longobject import W_LongObject
-        return W_LongObject.fromint(space, self.intval)
+        return space.newlong(self.intval)
 
     def descr_bool(self, space):
         return space.newbool(self.intval != 0)

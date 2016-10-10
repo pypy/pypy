@@ -671,25 +671,34 @@ class W_TypeObject(W_Root):
 
 
 def descr__new__(space, w_typetype, w_name, w_bases=None, w_dict=None):
-    "This is used to create user-defined classes only."
-    # XXX check types
-
+    """This is used to create user-defined classes only."""
     w_typetype = _precheck_for_new(space, w_typetype)
 
     # special case for type(x)
-    if (space.is_w(space.type(w_typetype), space.w_type) and w_bases is None and
-        w_dict is None):
+    if (space.is_w(space.type(w_typetype), space.w_type) and
+        w_bases is None and w_dict is None):
         return space.type(w_name)
-    else:
-        return _create_new_type(space, w_typetype, w_name, w_bases, w_dict)
+    return _create_new_type(space, w_typetype, w_name, w_bases, w_dict)
+
+
+def _check_new_args(space, w_name, w_bases, w_dict):
+    if w_bases is None or w_dict is None:
+        raise oefmt(space.w_TypeError, "type() takes 1 or 3 arguments")
+    if not space.isinstance_w(w_name, space.w_str):
+        raise oefmt(space.w_TypeError,
+                    "type() argument 1 must be string, not %T", w_name)
+    if not space.isinstance_w(w_bases, space.w_tuple):
+        raise oefmt(space.w_TypeError,
+                    "type() argument 2 must be tuple, not %T", w_bases)
+    if not space.isinstance_w(w_dict, space.w_dict):
+        raise oefmt(space.w_TypeError,
+                    "type() argument 3 must be dict, not %T", w_dict)
 
 
 def _create_new_type(space, w_typetype, w_name, w_bases, w_dict):
     # this is in its own function because we want the special case 'type(x)'
     # above to be seen by the jit.
-    if w_bases is None or w_dict is None:
-        raise oefmt(space.w_TypeError, "type() takes 1 or 3 arguments")
-
+    _check_new_args(space, w_name, w_bases, w_dict)
     bases_w = space.fixedview(w_bases)
 
     w_winner = _calculate_metaclass(space, w_typetype, bases_w)
@@ -701,6 +710,8 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict):
 
     name = space.str_w(w_name)
     assert isinstance(name, str)
+    if '\x00' in name:
+        raise oefmt(space.w_ValueError, "type name must not contain null characters")
     dict_w = {}
     dictkeys_w = space.listview(w_dict)
     for w_key in dictkeys_w:
@@ -732,6 +743,16 @@ def _precheck_for_new(space, w_type):
         raise oefmt(space.w_TypeError, "X is not a type object (%T)", w_type)
     return w_type
 
+
+def descr__init__(space, w_type, __args__):
+    if __args__.keywords:
+        raise oefmt(space.w_TypeError,
+                    "type.__init__() takes no keyword arguments")
+    if len(__args__.arguments_w) not in (1, 3):
+        raise oefmt(space.w_TypeError,
+                    "type.__init__() takes 1 or 3 arguments")
+
+
 # ____________________________________________________________
 
 def _check(space, w_type, msg="descriptor is for 'type'"):
@@ -748,9 +769,13 @@ def descr_set__name__(space, w_type, w_value):
     w_type = _check(space, w_type)
     if not w_type.is_heaptype():
         raise oefmt(space.w_TypeError, "can't set %N.__name__", w_type)
+    if not space.isinstance_w(w_value, space.w_str):
+        raise oefmt(space.w_TypeError,
+                    "can only assign string to %N.__name__, not '%T'",
+                    w_type, w_value)
     name = space.str_w(w_value)
     if '\x00' in name:
-        raise oefmt(space.w_ValueError, "__name__ must not contain null bytes")
+        raise oefmt(space.w_ValueError, "type name must not contain null characters")
     w_type.name = name
 
 def descr_get__qualname__(space, w_type):
@@ -945,6 +970,7 @@ def type_get_dict(space, w_cls):
 
 W_TypeObject.typedef = TypeDef("type",
     __new__ = gateway.interp2app(descr__new__),
+    __init__ = gateway.interp2app(descr__init__),
     __name__ = GetSetProperty(descr_get__name__, descr_set__name__),
     __qualname__ = GetSetProperty(descr_get__qualname__, descr_set__qualname__),
     __bases__ = GetSetProperty(descr_get__bases__, descr_set__bases__),

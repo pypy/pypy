@@ -72,3 +72,12 @@ misleading.
 
 Make optimiseopt iterative instead of recursive so it can be reasoned about
 more easily and debugging is faster.
+
+.. branch: stdlib-2.7.11
+
+Update stdlib to version 2.7.11
+
+.. branch: vendor/stdlib
+.. branch: stdlib-2.7.12
+
+Update stdlib to version 2.7.12
