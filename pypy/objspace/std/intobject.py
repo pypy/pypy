@@ -393,9 +393,7 @@ class W_IntObject(W_AbstractIntObject):
         return space.newtuple([self, w_other])
 
     def descr_long(self, space):
-        # XXX: should try smalllong
-        from pypy.objspace.std.longobject import W_LongObject
-        return W_LongObject.fromint(space, self.intval)
+        return space.newlong(self.intval)
 
     def descr_nonzero(self, space):
         return space.newbool(self.intval != 0)
@@ -684,7 +682,11 @@ def _new_int(space, w_inttype, w_x, w_base=None):
             w_obj = w_value
             if space.lookup(w_obj, '__int__') is None:
                 w_obj = space.trunc(w_obj)
-            w_obj = space.int(w_obj)
+                if not (space.isinstance_w(w_obj, space.w_int) or
+                        space.isinstance_w(w_obj, space.w_long)):
+                    w_obj = space.int(w_obj)
+            else:
+                w_obj = space.int(w_obj)
             # 'int(x)' should return what x.__int__() returned, which should
             # be an int or long or a subclass thereof.
             if space.is_w(w_inttype, space.w_int):

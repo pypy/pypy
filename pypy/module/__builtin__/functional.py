@@ -363,14 +363,20 @@ class W_ReversedIterator(W_Root):
             try:
                 w_item = space.getitem(self.w_sequence, w_index)
             except OperationError as e:
-                if not e.match(space, space.w_StopIteration):
+                # Done
+                self.remaining = -1
+                self.w_sequence = None
+                if not (e.match(space, space.w_IndexError) or
+                        e.match(space, space.w_StopIteration)):
                     raise
+                raise OperationError(space.w_StopIteration, space.w_None)
             else:
                 self.remaining -= 1
                 return w_item
 
         # Done
         self.remaining = -1
+        self.w_sequence = None
         raise OperationError(space.w_StopIteration, space.w_None)
 
     def descr___reduce__(self, space):
@@ -378,7 +384,8 @@ class W_ReversedIterator(W_Root):
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)
         w_new_inst = mod.get('reversed_new')
-        info_w = [self.w_sequence, space.wrap(self.remaining)]
+        w_seq = space.w_None if self.w_sequence is None else self.w_sequence
+        info_w = [w_seq, space.wrap(self.remaining)]
         w_info = space.newtuple(info_w)
         return space.newtuple([w_new_inst, w_info])
 
@@ -394,8 +401,12 @@ W_ReversedIterator.typedef.acceptable_as_base_class = False
 def _make_reversed(space, w_seq, w_remaining):
     w_type = space.gettypeobject(W_ReversedIterator.typedef)
     iterator = space.allocate_instance(W_ReversedIterator, w_type)
-    iterator.w_sequence = w_seq
-    iterator.remaining = space.int_w(w_remaining)
+    if space.is_w(w_seq, space.w_None):
+        iterator.w_sequence = None
+        iterator.remaining = -1
+    else:
+        iterator.w_sequence = w_seq
+        iterator.remaining = space.int_w(w_remaining)
     return space.wrap(iterator)
 
 

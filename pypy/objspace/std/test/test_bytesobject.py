@@ -105,6 +105,10 @@ class AppTestBytesObject:
             assert result == "a foo b"
             assert isinstance(result, cls)
 
+    def test_format_c_overflow(self):
+        raises(OverflowError, b'{0:c}'.format, -1)
+        raises(OverflowError, b'{0:c}'.format, 256)
+
     def test_format_wrongtype(self):
         for int_format in '%d', '%o', '%x':
             exc_info = raises(TypeError, int_format.__mod__, '123')
