@@ -363,6 +363,25 @@ class W_Deque(W_Root):
                     raise
         raise oefmt(space.w_ValueError, "%R is not in deque", w_x)
 
+    @unwrap_spec(index=int)
+    def insert(self, index, w_value):
+        space = self.space
+        n = space.len_w(self)
+        if n == self.maxlen:
+            raise oefmt(space.w_IndexError, "deque already at its maximum size")
+
+        if index >= n:
+            self.append(w_value)
+        if index <= -n or index == 0:
+            self.appendleft(w_value)
+
+        self.rotate(-index)
+        if index < 0:
+            self.append(w_value)
+        else:
+            self.appendleft(w_value)
+        self.rotate(index)
+
     def reviter(self):
         "Return a reverse iterator over the deque."
         return W_DequeRevIter(self)
@@ -529,6 +548,7 @@ Build an ordered collection accessible from endpoints only.""",
     extend     = interp2app(W_Deque.extend),
     extendleft = interp2app(W_Deque.extendleft),
     index      = interp2app(W_Deque.index),
+    insert     = interp2app(W_Deque.insert),
     pop        = interp2app(W_Deque.pop),
     popleft    = interp2app(W_Deque.popleft),
     remove     = interp2app(W_Deque.remove),

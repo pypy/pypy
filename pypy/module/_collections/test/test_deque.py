@@ -339,14 +339,26 @@ class AppTestBasic:
         copy = pickle.loads(pickle.dumps(iterator))
         assert list(iterator) == list(copy)
 
-    def test_queue_mul(self):
+    def test_deque_mul(self):
         from _collections import deque
         d = deque([1,2,3])
         assert d*3 == deque([1,2,3]*3)
 
-    def test_queue_imul(self):
+    def test_deque_imul(self):
         from _collections import deque
         d = deque([1,2,3])
         d *= 3
         assert d == deque([1,2,3]*3)
         assert d is not deque([1,2,3]*3)
+
+    def test_deque_insert(self):
+        from _collections import deque
+        for i in range(0,11):
+            d = deque(range(10))
+            d.insert(i, 'a')
+            assert 'a' in d
+            assert 'b' not in d
+            assert d.index('a') == i
+        d = deque(range(10))
+        d.insert(-1, 500)
+        assert d.index(500) == 9
