@@ -32,10 +32,13 @@ class AppTestWeakref(object):
             a2.ref = ref()
         ref1 = _weakref.ref(a1, callback)
         ref2 = _weakref.ref(a1)
+        assert ref1.__callback__ is callback
+        assert ref2.__callback__ is None
         assert _weakref.getweakrefcount(a1) == 2
         del a1
         gc.collect()
         assert ref1() is None
+        assert ref1.__callback__ is None
         assert a2.ref is None
 
     def test_callback_order(self):

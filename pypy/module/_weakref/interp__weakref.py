@@ -2,7 +2,7 @@ import py
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import interp2app, ObjSpace
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.executioncontext import AsyncAction, report_error
 from rpython.rlib import jit, rgc
 from rpython.rlib.rshrinklist import AbstractShrinkList
@@ -150,6 +150,7 @@ class WeakrefLifeline(W_Root):
                 except Exception as e:
                     report_error(self.space, e,
                                  "weakref callback ", w_ref.w_callable)
+                w_ref.w_callable = None
 
 
 # ____________________________________________________________
@@ -186,6 +187,9 @@ class W_WeakrefBase(W_Root):
             else:
                 state = u"; to '%s'" % (typename,)
         return self.getrepr(space, unicode(self.typedef.name), state)
+
+    def descr_callback(self, space):
+        return self.w_callable
 
 
 class W_Weakref(W_WeakrefBase):
@@ -256,6 +260,7 @@ which is called with 'obj' as an argument when it is about to be finalized.""",
     __hash__ = interp2app(W_Weakref.descr_hash),
     __call__ = interp2app(W_Weakref.descr_call),
     __repr__ = interp2app(W_WeakrefBase.descr__repr__),
+    __callback__ = GetSetProperty(W_WeakrefBase.descr_callback),
 )
 
 
