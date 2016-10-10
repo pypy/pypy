@@ -378,7 +378,7 @@ class W_Deque(W_Root):
                 return space.wrap(i)
 
         x = space.repr(w_x)
-        raise oefmt(self.space.w_ValueError, "%s is not in deque" % x)
+        raise oefmt(self.space.w_ValueError, "%s is not in deque", x)
 
     def reviter(self):
         "Return a reverse iterator over the deque."
