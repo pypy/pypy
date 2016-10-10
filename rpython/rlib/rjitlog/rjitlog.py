@@ -312,13 +312,13 @@ def _log_jit_counter(struct):
     content = ''.join(list)
     jitlog_write_marked(content, len(content))
 
-def redirect_assembler(oldtoken, newtoken, target):
+def redirect_assembler(oldtoken, newtoken, asm_adr):
     if not jitlog_enabled():
         return
     descr_nmr = compute_unique_id(oldtoken)
     new_descr_nmr = compute_unique_id(newtoken)
     list = [MARK_REDIRECT_ASSEMBLER, encode_le_addr(descr_nmr),
-            encode_le_addr(new_descr_nmr), encode_le_addr(target)]
+            encode_le_addr(new_descr_nmr), encode_le_addr(asm_adr)]
     content = ''.join(list)
     jitlog_write_marked(content, len(content))
 
