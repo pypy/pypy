@@ -28,7 +28,7 @@ class ObjdumpNotFound(Exception):
     pass
 
 def find_objdump():
-    exe = ('objdump', 'gobjdump')
+    exe = ('objdump', 'gobjdump', 'objdump.exe')
     path = os.environ['PATH'].split(os.pathsep)
     for e in exe:
         for p in path:

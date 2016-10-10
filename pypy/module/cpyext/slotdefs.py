@@ -214,7 +214,9 @@ def wrap_ssizessizeobjargproc(space, w_self, w_args, func):
     i = space.int_w(space.index(args_w[0]))
     j = space.int_w(space.index(args_w[1]))
     w_y = args_w[2]
-    return space.wrap(generic_cpy_call(space, func_target, w_self, i, j, w_y))
+    res = generic_cpy_call(space, func_target, w_self, i, j, w_y)
+    if rffi.cast(lltype.Signed, res) == -1:
+        space.fromcache(State).check_and_raise_exception(always=True)
 
 def wrap_lenfunc(space, w_self, w_args, func):
     func_len = rffi.cast(lenfunc, func)
@@ -296,7 +298,10 @@ def wrap_next(space, w_self, w_args, func):
 def wrap_hashfunc(space, w_self, w_args, func):
     func_target = rffi.cast(hashfunc, func)
     check_num_args(space, w_args, 0)
-    return space.wrap(generic_cpy_call(space, func_target, w_self))
+    res = generic_cpy_call(space, func_target, w_self)
+    if res == -1:
+        space.fromcache(State).check_and_raise_exception(always=True)
+    return space.wrap(res)
 
 class CPyBuffer(Buffer):
     # Similar to Py_buffer
@@ -335,8 +340,14 @@ class CPyBuffer(Buffer):
     def getshape(self):
         return self.shape
 
+    def getstrides(self):
+        return self.strides
+
     def getitemsize(self):
         return self.itemsize
+
+    def getndim(self):
+        return self.ndim
 
 def wrap_getreadbuffer(space, w_self, w_args, func):
     func_target = rffi.cast(readbufferproc, func)

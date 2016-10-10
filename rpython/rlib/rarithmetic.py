@@ -37,6 +37,7 @@ from rpython.rtyper import extregistry
 from rpython.rlib import objectmodel
 from rpython.flowspace.model import Constant, const
 from rpython.flowspace.specialcase import register_flow_sc
+from rpython.rlib.objectmodel import specialize
 
 """
 Long-term target:
@@ -135,14 +136,15 @@ def longlonglongmask(n):
     # We deal directly with overflow there anyway.
     return r_longlonglong(n)
 
+@specialize.argtype(0)
 def widen(n):
     from rpython.rtyper.lltypesystem import lltype
     if _should_widen_type(lltype.typeOf(n)):
         return intmask(n)
     else:
         return n
-widen._annspecialcase_ = 'specialize:argtype(0)'
 
+@specialize.memo()
 def _should_widen_type(tp):
     from rpython.rtyper.lltypesystem import lltype, rffi
     if tp is lltype.Bool:
@@ -153,19 +155,18 @@ def _should_widen_type(tp):
     assert issubclass(r_class, base_int)
     return r_class.BITS < LONG_BIT or (
         r_class.BITS == LONG_BIT and r_class.SIGNED)
-_should_widen_type._annspecialcase_ = 'specialize:memo'
 
 # the replacement for sys.maxint
 maxint = int(LONG_TEST - 1)
 # for now, it should be equal to sys.maxint on all supported platforms
 assert maxint == sys.maxint
 
+@specialize.argtype(0)
 def is_valid_int(r):
     if objectmodel.we_are_translated():
         return isinstance(r, int)
     return isinstance(r, (base_int, int, long, bool)) and (
         -maxint - 1 <= r <= maxint)
-is_valid_int._annspecialcase_ = 'specialize:argtype(0)'
 
 def ovfcheck(r):
     "NOT_RPYTHON"
@@ -225,12 +226,12 @@ def compute_restype(self_type, other_type):
         return build_int(None, self_type.SIGNED, max(self_type.BITS, other_type.BITS))
     raise AssertionError("Merging these types (%s, %s) is not supported" % (self_type, other_type))
 
+@specialize.memo()
 def signedtype(t):
     if t in (bool, int, long):
         return True
     else:
         return t.SIGNED
-signedtype._annspecialcase_ = 'specialize:memo'
 
 def normalizedinttype(t):
     if t is int:
@@ -241,11 +242,12 @@ def normalizedinttype(t):
         assert t.BITS <= r_longlong.BITS
         return build_int(None, t.SIGNED, r_longlong.BITS)
 
+@specialize.argtype(0)
 def most_neg_value_of_same_type(x):
     from rpython.rtyper.lltypesystem import lltype
     return most_neg_value_of(lltype.typeOf(x))
-most_neg_value_of_same_type._annspecialcase_ = 'specialize:argtype(0)'
 
+@specialize.memo()
 def most_neg_value_of(tp):
     from rpython.rtyper.lltypesystem import lltype, rffi
     if tp is lltype.Signed:
@@ -256,13 +258,13 @@ def most_neg_value_of(tp):
         return r_class(-(r_class.MASK >> 1) - 1)
     else:
         return r_class(0)
-most_neg_value_of._annspecialcase_ = 'specialize:memo'
 
+@specialize.argtype(0)
 def most_pos_value_of_same_type(x):
     from rpython.rtyper.lltypesystem import lltype
     return most_pos_value_of(lltype.typeOf(x))
-most_pos_value_of_same_type._annspecialcase_ = 'specialize:argtype(0)'
 
+@specialize.memo()
 def most_pos_value_of(tp):
     from rpython.rtyper.lltypesystem import lltype, rffi
     if tp is lltype.Signed:
@@ -273,8 +275,8 @@ def most_pos_value_of(tp):
         return r_class(r_class.MASK >> 1)
     else:
         return r_class(r_class.MASK)
-most_pos_value_of._annspecialcase_ = 'specialize:memo'
 
+@specialize.memo()
 def is_signed_integer_type(tp):
     from rpython.rtyper.lltypesystem import lltype, rffi
     if tp is lltype.Signed:
@@ -284,7 +286,6 @@ def is_signed_integer_type(tp):
         return r_class.SIGNED
     except KeyError:
         return False   # not an integer type
-is_signed_integer_type._annspecialcase_ = 'specialize:memo'
 
 def highest_bit(n):
     """
@@ -676,7 +677,7 @@ def int_c_mod(x, y):
     from rpython.rtyper.lltypesystem.lloperation import llop
     return llop.int_mod(lltype.Signed, x, y)
 
-@objectmodel.specialize.ll()
+@specialize.ll()
 def byteswap(arg):
     """ Convert little->big endian and the opposite
     """

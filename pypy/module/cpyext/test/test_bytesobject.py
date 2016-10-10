@@ -105,7 +105,7 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
              '''),
             ])
         s = module.alloc_rw()
-        assert s == b'works' + b'\x00' * 5
+        assert s[:6] == b'works\0'  # s[6:10] contains random garbage
         s = module.tpalloc()
         assert s == b'\x00' * 10
 
@@ -183,8 +183,27 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
                  Py_INCREF(Py_None);
                  return Py_None;
              """),
+            ("c_only", "METH_NOARGS",
+            """
+                int ret;
+                char * buf2;
+                PyObject * obj = PyBytes_FromStringAndSize(NULL, 1024);
+                if (!obj)
+                    return NULL;
+                buf2 = PyBytes_AsString(obj);
+                if (!buf2)
+                    return NULL;
+                /* buf should not have been forced, issue #2395 */
+                ret = _PyBytes_Resize(&obj, 512);
+                if (ret < 0)
+                    return NULL;
+                 Py_DECREF(obj);
+                 Py_INCREF(Py_None);
+                 return Py_None;
+            """),
             ])
         module.getbytes()
+        module.c_only()
 
     def test_py_string_as_string_Unicode(self):
         module = self.import_extension('foo', [

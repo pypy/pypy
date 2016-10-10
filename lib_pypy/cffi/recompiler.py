@@ -275,8 +275,8 @@ class Recompiler:
     def write_c_source_to_f(self, f, preamble):
         self._f = f
         prnt = self._prnt
-        if self.ffi._embedding is None:
-            prnt('#define Py_LIMITED_API')
+        if self.ffi._embedding is not None:
+            prnt('#define _CFFI_USE_EMBEDDING')
         #
         # first the '#include' (actually done by inlining the file's content)
         lines = self._rel_readlines('_cffi_include.h')
@@ -587,8 +587,11 @@ class Recompiler:
     # ----------
     # typedefs
 
+    def _typedef_type(self, tp, name):
+        return self._global_type(tp, "(*(%s *)0)" % (name,))
+
     def _generate_cpy_typedef_collecttype(self, tp, name):
-        self._do_collect_type(tp)
+        self._do_collect_type(self._typedef_type(tp, name))
 
     def _generate_cpy_typedef_decl(self, tp, name):
         pass
@@ -598,6 +601,7 @@ class Recompiler:
         self._lsts["typename"].append(TypenameExpr(name, type_index))
 
     def _generate_cpy_typedef_ctx(self, tp, name):
+        tp = self._typedef_type(tp, name)
         self._typedef_ctx(tp, name)
         if getattr(tp, "origin", None) == "unknown_type":
             self._struct_ctx(tp, tp.name, approxname=None)
@@ -1431,7 +1435,7 @@ def _patch_for_target(patchlist, target):
 
 def recompile(ffi, module_name, preamble, tmpdir='.', call_c_compiler=True,
               c_file=None, source_extension='.c', extradir=None,
-              compiler_verbose=1, target=None, **kwds):
+              compiler_verbose=1, target=None, debug=None, **kwds):
     if not isinstance(module_name, str):
         module_name = module_name.encode('ascii')
     if ffi._windows_unicode:
@@ -1467,7 +1471,8 @@ def recompile(ffi, module_name, preamble, tmpdir='.', call_c_compiler=True,
                 if target != '*':
                     _patch_for_target(patchlist, target)
                 os.chdir(tmpdir)
-                outputfilename = ffiplatform.compile('.', ext, compiler_verbose)
+                outputfilename = ffiplatform.compile('.', ext,
+                                                     compiler_verbose, debug)
             finally:
                 os.chdir(cwd)
                 _unpatch_meths(patchlist)

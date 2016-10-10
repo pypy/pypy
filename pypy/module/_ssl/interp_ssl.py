@@ -407,8 +407,12 @@ class _SSLSocket(W_Root):
 
         if w_buffer:
             rwbuffer = space.getarg_w('w*', w_buffer)
-            num_bytes = min(num_bytes, rwbuffer.getlength())
+            buflen = rwbuffer.getlength()
+            if not 0 < num_bytes <= buflen:
+                num_bytes = buflen
         else:
+            if num_bytes < 0:
+                raise oefmt(space.w_ValueError, "size should not be negative")
             rwbuffer = None
 
         with rffi.scoped_alloc_buffer(num_bytes) as buf:
@@ -1290,6 +1294,8 @@ class _SSLContext(W_Root):
         options = SSL_OP_ALL & ~SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
         if protocol != PY_SSL_VERSION_SSL2:
             options |= SSL_OP_NO_SSLv2
+        if protocol != PY_SSL_VERSION_SSL3:
+            options |= SSL_OP_NO_SSLv3
         libssl_SSL_CTX_set_options(ctx, options)
 
         if not OPENSSL_NO_ECDH:

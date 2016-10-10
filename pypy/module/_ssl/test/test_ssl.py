@@ -221,6 +221,18 @@ class AppTestConnectedSSL:
         self.s.close()
         del ss; gc.collect()
 
+    def test_read_buffer(self):
+        import socket, gc
+        ss = socket.ssl(self.s)
+        raises(TypeError, ss.read, "foo")
+        ss.write("hello\n")
+        buf = bytearray(10)
+        read = ss.read(-1, buf)
+        assert read == 10
+        assert ss.pending() > 50 # many more bytes to read
+        self.s.close()
+        del ss; gc.collect()
+
     def test_shutdown(self):
         import socket, ssl, sys, gc
         ss = socket.ssl(self.s)
@@ -450,7 +462,12 @@ class AppTestSSLError:
                 # For compatibility
                 assert exc.value.errno == _ssl.SSL_ERROR_WANT_READ
             finally:
-                c.shutdown()
+                try:
+                    c.shutdown()
+                except _ssl.SSLError:
+                    # If the expected exception was raised, the SSLContext
+                    # can't be shut down yet
+                    pass
         finally:
             s.close()
 

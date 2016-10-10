@@ -34,6 +34,7 @@ if _FREEBSD or _NETBSD or _WIN32:
 else:
     libraries = ['dl']
 
+# this 'eci' is also used in pypy/module/sys/initpath.py
 eci = ExternalCompilationInfo(
     pre_include_bits = pre_include_bits,
     includes = includes,

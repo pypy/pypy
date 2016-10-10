@@ -11,6 +11,8 @@ from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.typesystem import llhelper
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.debug import debug_print
+from rpython.rtyper import rclass
+from rpython.rtyper.lltypesystem import llmemory
 from rpython.jit.metainterp.optimize import SpeculativeError
 
 
@@ -39,6 +41,15 @@ class BasicLoopInfo(LoopInfo):
         pass
 
 
+class OptimizationResult(object):
+    def __init__(self, opt, op):
+        self.opt = opt
+        self.op = op
+
+    def callback(self):
+        self.opt.propagate_postprocess(self.op)
+
+
 class Optimization(object):
     next_optimization = None
     potential_extra_ops = None
@@ -46,15 +57,29 @@ class Optimization(object):
     def __init__(self):
         pass # make rpython happy
 
-    def send_extra_operation(self, op):
-        self.optimizer.send_extra_operation(op)
+    def send_extra_operation(self, op, opt=None):
+        self.optimizer.send_extra_operation(op, opt)
 
     def propagate_forward(self, op):
         raise NotImplementedError
 
+    def propagate_postprocess(self, op):
+        pass
+
     def emit_operation(self, op):
-        self.last_emitted_operation = op
-        self.next_optimization.propagate_forward(op)
+        assert False, "This should never be called."
+
+    def emit(self, op):
+        return self.emit_result(OptimizationResult(self, op))
+
+    def emit_result(self, opt_result):
+        self.last_emitted_operation = opt_result.op
+        return opt_result
+
+    def emit_extra(self, op, emit=True):
+        if emit:
+            self.emit(op)
+        self.send_extra_operation(op, self.next_optimization)
 
     def getintbound(self, op):
         assert op.type == 'i'
@@ -288,7 +313,7 @@ class Optimizer(Optimization):
             optimizations = []
             self.first_optimization = self
 
-        self.optimizations  = optimizations
+        self.optimizations = optimizations
 
     def force_op_from_preamble(self, op):
         return op
@@ -522,7 +547,7 @@ class Optimizer(Optimization):
             if op.getopnum() in (rop.FINISH, rop.JUMP):
                 last_op = op
                 break
-            self.first_optimization.propagate_forward(op)
+            self.send_extra_operation(op)
             trace.kill_cache_at(deadranges[i + trace.start_index])
             if op.type != 'v':
                 i += 1
@@ -530,9 +555,9 @@ class Optimizer(Optimization):
         if flush:
             self.flush()
             if last_op:
-                self.first_optimization.propagate_forward(last_op)
+                self.send_extra_operation(last_op)
         self.resumedata_memo.update_counters(self.metainterp_sd.profiler)
-        
+
         return (BasicLoopInfo(trace.inputargs, self.quasi_immutable_deps, last_op),
                 self._newoperations)
 
@@ -541,13 +566,30 @@ class Optimizer(Optimization):
             if op.get_forwarded() is not None:
                 op.set_forwarded(None)
 
-    def send_extra_operation(self, op):
-        self.first_optimization.propagate_forward(op)
+    def send_extra_operation(self, op, opt=None):
+        if opt is None:
+            opt = self.first_optimization
+        opt_results = []
+        while opt is not None:
+            opt_result = opt.propagate_forward(op)
+            if opt_result is None:
+                op = None
+                break
+            opt_results.append(opt_result)
+            op = opt_result.op
+            opt = opt.next_optimization
+        for opt_result in reversed(opt_results):
+            opt_result.callback()
 
     def propagate_forward(self, op):
         dispatch_opt(self, op)
 
-    def emit_operation(self, op):
+    def emit_extra(self, op, emit=True):
+        # no forwarding, because we're at the end of the chain
+        self.emit(op)
+
+    def emit(self, op):
+        # this actually emits the operation instead of forwarding it
         if rop.returns_bool_result(op.opnum):
             self.getintbound(op).make_bool()
         self._emit_operation(op)
@@ -738,7 +780,7 @@ class Optimizer(Optimization):
         return op
 
     def optimize_default(self, op):
-        self.emit_operation(op)
+        self.emit(op)
 
     def constant_fold(self, op):
         self.protect_speculative_operation(op)
@@ -798,6 +840,21 @@ class Optimizer(Optimization):
         index = self.get_constant_box(op.getarg(1)).getint()
         if not (0 <= index < arraylength):
             raise SpeculativeError
+
+    @staticmethod
+    def _check_subclass(vtable1, vtable2): # checks that vtable1 is a subclass of vtable2
+        known_class = llmemory.cast_adr_to_ptr(
+            llmemory.cast_int_to_adr(vtable1),
+            rclass.CLASSTYPE)
+        expected_class = llmemory.cast_adr_to_ptr(
+            llmemory.cast_int_to_adr(vtable2),
+            rclass.CLASSTYPE)
+        # note: the test is for a range including 'max', but 'max'
+        # should never be used for actual classes.  Including it makes
+        # it easier to pass artificial tests.
+        return (expected_class.subclassrange_min
+                <= known_class.subclassrange_min
+                <= expected_class.subclassrange_max)
 
     def is_virtual(self, op):
         if op.type == 'r':
@@ -868,14 +925,14 @@ class Optimizer(Optimization):
     #def optimize_GUARD_NO_OVERFLOW(self, op):
     #    # otherwise the default optimizer will clear fields, which is unwanted
     #    # in this case
-    #    self.emit_operation(op)
+    #    self.emit(op)
     # FIXME: Is this still needed?
 
     def optimize_DEBUG_MERGE_POINT(self, op):
-        self.emit_operation(op)
+        self.emit(op)
 
     def optimize_JIT_DEBUG(self, op):
-        self.emit_operation(op)
+        self.emit(op)
 
     def optimize_STRGETITEM(self, op):
         indexb = self.getintbound(op.getarg(1))

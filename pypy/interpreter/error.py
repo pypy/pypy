@@ -88,7 +88,8 @@ class OperationError(Exception):
                         exc_value = space.str_w(space.str(w_value))
                 except OperationError:
                     # oups, cannot __str__ the exception object
-                    exc_value = "<oups, exception object itself cannot be str'd>"
+                    exc_value = ("<exception %s() failed>" %
+                                 ("repr" if use_repr else "str"))
         if not exc_value:
             return exc_typename
         else:
@@ -238,7 +239,7 @@ class OperationError(Exception):
             try:
                 objrepr = space.str_w(space.repr(w_object))
             except OperationError:
-                objrepr = '?'
+                objrepr = "<object repr() failed>"
         #
         try:
             if with_traceback:
@@ -374,11 +375,8 @@ class OpErrFmtNoArgs(OperationError):
         self._value = value
         self.setup(w_type)
 
-    def get_w_value(self, space):
-        w_value = self._w_value
-        if w_value is None:
-            self._w_value = w_value = space.wrap(self._value)
-        return w_value
+    def _compute_value(self, space):
+        return self._value
 
 @specialize.memo()
 def get_operr_class(valuefmt):
