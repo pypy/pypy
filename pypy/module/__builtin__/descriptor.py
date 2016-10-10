@@ -196,6 +196,13 @@ class W_Property(W_Root):
     def deleter(self, space, w_deleter):
         return self._copy(space, w_deleter=w_deleter)
 
+    def get_doc(self, space):
+        return self.w_doc
+
+    def set_doc(self, space, w_doc):
+        self.w_doc = w_doc
+        self.getter_doc = False
+
     def _copy(self, space, w_getter=None, w_setter=None, w_deleter=None):
         if w_getter is None:
             w_getter = self.w_fget
@@ -244,5 +251,5 @@ class C(object):
 )
 # This allows there to be a __doc__ of the property type and a __doc__
 # descriptor for the instances.
-W_Property.typedef.rawdict['__doc__'] = interp_attrproperty_w('w_doc',
-                                                              W_Property)
+W_Property.typedef.rawdict['__doc__'] = GetSetProperty(
+    W_Property.get_doc, W_Property.set_doc)

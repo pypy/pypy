@@ -53,7 +53,7 @@ class AppTestBuiltinApp:
         assert isinstance(x, Classm)
 
     def test_property_simple(self):
-        
+
         class a(object):
             def _get(self): return 42
             def _set(self, value): raise AttributeError
@@ -137,7 +137,7 @@ class AppTestBuiltinApp:
             assert message.startswith('super(type, obj): obj must be an instance or subtype of type')
 
     def test_super_various(self):
-        
+
         class A(object):
             def meth(self, a):
                 return "A(%r)" % a
@@ -367,11 +367,13 @@ class AppTestBuiltinApp:
         assert "fdel" in attrs
 
         assert raw.__doc__ == "I'm the x property."
+        raw.__doc__ = "modified"
+        assert raw.__doc__ == "modified"
         assert raw.fget is C.__dict__['getx']
         assert raw.fset is C.__dict__['setx']
         assert raw.fdel is C.__dict__['delx']
 
-        for attr in "__doc__", "fget", "fset", "fdel":
+        for attr in "fget", "fset", "fdel":
             try:
                 setattr(raw, attr, 42)
             # it raises TypeError on pypy, AttributeError on CPython: we catch
@@ -407,10 +409,10 @@ class AppTestBuiltinApp:
 
     def test_property_subclass_with_init(self):
         l = []
-        
+
         def x(self):
             l.append('x')
-        
+
         class P(property):
             def __init__(self):
                 property.__init__(self, x)
