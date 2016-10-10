@@ -142,7 +142,7 @@ class AbstractVirtualPtrInfo(NonNullPtrInfo):
                 return constptr
             #
             op.set_forwarded(None)
-            optforce.emit_operation(op)
+            optforce.emit_extra(op)
             newop = optforce.getlastop()
             if newop is not op:
                 op.set_forwarded(newop)
@@ -220,7 +220,7 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
                 setfieldop = ResOperation(rop.SETFIELD_GC, [op, subbox],
                                           descr=fielddescr)
                 self._fields[i] = None
-                optforce.emit_operation(setfieldop)
+                optforce.emit_extra(setfieldop)
 
     def _force_at_the_end_of_preamble(self, op, optforce, rec):
         if self._fields is None:
@@ -412,7 +412,7 @@ class RawBufferPtrInfo(AbstractRawPtrInfo):
         # 'op = CALL_I(..., OS_RAW_MALLOC_VARSIZE_CHAR)'.
         # Emit now a CHECK_MEMORY_ERROR resop.
         check_op = ResOperation(rop.CHECK_MEMORY_ERROR, [op])
-        optforce.emit_operation(check_op)
+        optforce.emit_extra(check_op)
         #
         buffer = self._get_buffer()
         for i in range(len(buffer.offsets)):
@@ -422,7 +422,7 @@ class RawBufferPtrInfo(AbstractRawPtrInfo):
             itembox = buffer.values[i]
             setfield_op = ResOperation(rop.RAW_STORE,
                               [op, ConstInt(offset), itembox], descr=descr)
-            optforce.emit_operation(setfield_op)
+            optforce.emit_extra(setfield_op)
 
     def _visitor_walk_recursive(self, op, visitor, optimizer):
         itemboxes = [optimizer.get_box_replacement(box)
@@ -537,7 +537,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
                                  [op, ConstInt(i), subbox],
                                   descr=descr)
             self._items[i] = None
-            optforce.emit_operation(setop)
+            optforce.emit_extra(setop)
         optforce.pure_from_args(rop.ARRAYLEN_GC, [op], ConstInt(len(self._items)))
 
     def setitem(self, descr, index, struct, op, optheap=None, cf=None):
@@ -651,7 +651,7 @@ class ArrayStructInfo(ArrayPtrInfo):
                     setfieldop = ResOperation(rop.SETINTERIORFIELD_GC,
                                               [op, ConstInt(index), subbox],
                                               descr=fielddescr)
-                    optforce.emit_operation(setfieldop)
+                    optforce.emit_extra(setfieldop)
                     # heapcache does not work for interiorfields
                     # if it does, we would need a fix here
                 i += 1
