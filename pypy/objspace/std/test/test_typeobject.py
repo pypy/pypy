@@ -897,7 +897,7 @@ class AppTestTypeObject:
         Abc.__name__ = 'Def'
         assert Abc.__name__ == 'Def'
         raises(TypeError, "Abc.__name__ = 42")
-        raises(TypeError, "Abc.__name__ = u'A'")
+        raises(TypeError, "Abc.__name__ = b'A'")
         try:
             Abc.__name__ = 'G\x00hi'
         except ValueError as e:
@@ -1221,12 +1221,12 @@ class AppTestTypeObject:
         assert int.__subclasscheck__(AbstractClass()) is True
 
     def test_bad_args(self):
-        import UserDict
+        import collections
         raises(TypeError, type, 'A', (), dict={})
         raises(TypeError, type, 'A', [], {})
-        raises(TypeError, type, 'A', (), UserDict.UserDict())
+        raises(TypeError, type, 'A', (), collections.UserDict())
         raises(ValueError, type, 'A\x00B', (), {})
-        raises(TypeError, type, u'A', (), {})
+        raises(TypeError, type, b'A', (), {})
 
 
 class AppTestWithMethodCacheCounter:
