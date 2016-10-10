@@ -72,6 +72,16 @@ class AppTest_IterObject(object):
         assert next(iterable) == 1
         raises(TypeError, iterable.__setstate__, '0')
 
+    def test_reversed_iter_setstate(self):
+        iterable = reversed([1,2,3,4])
+        assert next(iterable) == 4
+        iterable.__setstate__(0)
+        assert next(iterable) == 1
+        iterable.__setstate__(2)
+        next(iterable); next(iterable)
+        assert next(iterable) == 1
+        iterable.__setstate__(3)
+        assert next(iterable) == 4
 
     def test_no_len_on_tuple_iter(self):
         iterable = (1,2,3,4)

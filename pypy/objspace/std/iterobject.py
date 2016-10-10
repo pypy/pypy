@@ -35,7 +35,15 @@ class W_AbstractSeqIterObject(W_Root):
         mod = space.interp_w(MixedModule, w_mod)
         new_inst = mod.get('seqiter_new')
         tup = [self.w_seq, space.wrap(self.index)]
+        # note that setstate is not called, because this setup already sets the index
         return space.newtuple([new_inst, space.newtuple(tup)])
+
+    def descr_setstate(self, space, w_state):
+        index = space.int_w(w_state)
+        if self.w_seq is not space.w_None:
+            if index < 0:
+                index = 0
+            self.index = index
 
     def descr_length_hint(self, space):
         return self.getlength(space)
@@ -52,6 +60,7 @@ In the second form, the callable is called until it returns the sentinel.''',
     __next__ = interpindirect2app(W_AbstractSeqIterObject.descr_next),
     __reduce__ = interp2app(W_AbstractSeqIterObject.descr_reduce),
     __length_hint__ = interp2app(W_AbstractSeqIterObject.descr_length_hint),
+    __setstate__ = interp2app(W_AbstractSeqIterObject.descr_setstate),
 )
 W_AbstractSeqIterObject.typedef.acceptable_as_base_class = False
 
@@ -151,7 +160,16 @@ class W_ReverseSeqIterObject(W_Root):
         mod = space.interp_w(MixedModule, w_mod)
         new_inst = mod.get('reverseseqiter_new')
         tup = [self.w_seq, space.wrap(self.index)]
+        # note that setstate is not called, because this setup already sets the index
         return space.newtuple([new_inst, space.newtuple(tup)])
+
+    def descr_setstate(self, space, w_state):
+        index = space.int_w(w_state)
+        if self.w_seq is not space.w_None:
+            length = space.int_w(space.len(self.w_seq))
+            if index < 0: index = 0
+            if index >= length: index = length-1
+            self.index = index
 
     def descr_length_hint(self, space):
         if space.is_none(self.w_seq):
@@ -189,6 +207,7 @@ W_ReverseSeqIterObject.typedef = TypeDef(
     __iter__ = interp2app(W_ReverseSeqIterObject.descr_iter),
     __next__ = interp2app(W_ReverseSeqIterObject.descr_next),
     __reduce__ = interp2app(W_ReverseSeqIterObject.descr_reduce),
+    __setstate__ = interp2app(W_ReverseSeqIterObject.descr_setstate),
     __length_hint__ = interp2app(W_ReverseSeqIterObject.descr_length_hint),
 )
 W_ReverseSeqIterObject.typedef.acceptable_as_base_class = False
