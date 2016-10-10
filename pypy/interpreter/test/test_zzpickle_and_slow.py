@@ -370,10 +370,10 @@ class AppTestInterpObjectPickling:
     def test_pickle_reversesequenceiter_stopped(self):
         import pickle
         iter = reversed([])
-        raises(StopIteration, iter.next)
+        raises(StopIteration, next, iter)
         pckl   = pickle.dumps(iter)
         result = pickle.loads(pckl)
-        raises(StopIteration, result.next)
+        raises(StopIteration, next, result)
 
     # This test used to be marked xfail and it tried to test for the past
     # support of pickling dictiter objects.
@@ -405,10 +405,10 @@ class AppTestInterpObjectPickling:
                 raise IndexError
         for it in (), IE():
             iter = reversed(it)
-            raises(StopIteration, iter.next)
+            raises(StopIteration, next, iter)
             pckl   = pickle.dumps(iter)
             result = pickle.loads(pckl)
-            raises(StopIteration, result.next)
+            raises(StopIteration, next, result)
 
     def test_pickle_enum(self):
         import pickle
