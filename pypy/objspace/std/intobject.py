@@ -864,9 +864,12 @@ def _new_int(space, w_inttype, w_x, w_base=None):
                 return w_value
             return newbigint(space, w_inttype, space.bigint_w(w_value))
         elif space.lookup(w_value, '__int__') is not None:
-            return _from_intlike(space, w_inttype, w_value)
+            return _from_intlike(space, w_inttype, space.int(w_value))
         elif space.lookup(w_value, '__trunc__') is not None:
-            return _from_intlike(space, w_inttype, space.trunc(w_value))
+            w_obj = space.trunc(w_value)
+            if not space.isinstance_w(w_obj, space.w_int):
+                w_obj = space.int(w_obj)
+            return _from_intlike(space, w_inttype, w_obj)
         elif space.isinstance_w(w_value, space.w_unicode):
             from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
             b = unicode_to_decimal_w(space, w_value, allow_surrogates=True)
@@ -910,11 +913,10 @@ def _new_int(space, w_inttype, w_x, w_base=None):
 
 
 def _from_intlike(space, w_inttype, w_intlike):
-    w_obj = space.int(w_intlike)
     if space.is_w(w_inttype, space.w_int):
-        return w_obj
+        return w_intlike
     from pypy.objspace.std.longobject import newbigint
-    return newbigint(space, w_inttype, space.bigint_w(w_obj))
+    return newbigint(space, w_inttype, space.bigint_w(w_intlike))
 
 
 W_AbstractIntObject.typedef = TypeDef("int",
