@@ -31,6 +31,7 @@ from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rtyper import rclass
 from rpython.jit.backend.arm import callbuilder
 from rpython.rlib.rarithmetic import r_uint
+from rpython.rlib.rjitlog import rjitlog as jl
 
 
 class ArmGuardToken(GuardToken):
@@ -1012,6 +1013,8 @@ class ResOpAssembler(BaseAssembler):
         mc = InstrBuilder(self.cpu.cpuinfo.arch_version)
         mc.B(target)
         mc.copy_to_raw_memory(oldadr)
+        #
+        jl.redirect_assembler(oldlooptoken, newlooptoken, newlooptoken.number)
 
     def emit_op_guard_not_forced(self, op, arglocs, regalloc, fcond):
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
