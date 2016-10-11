@@ -182,7 +182,6 @@ class ResumeDataLoopMemo(object):
         self.consts = []
         self.large_ints = {}
         self.refs = self.cpu.ts.new_ref_dict_2()
-        self.numberings = {}
         self.cached_boxes = {}
         self.cached_virtuals = {}
 
@@ -282,11 +281,7 @@ class ResumeDataLoopMemo(object):
 
         numb = resumecode.create_numbering(state.current)
         return numb, state.liveboxes, state.v
-        
-    def forget_numberings(self):
-        # XXX ideally clear only the affected numberings
-        self.numberings.clear()
-        self.clear_box_virtual_numbers()
+
 
     # caching for virtuals and boxes inside them
 
@@ -526,7 +521,7 @@ class ResumeDataVirtualAdder(VirtualVisitor):
 
         if self._invalidation_needed(len(liveboxes), nholes):
             memo.clear_box_virtual_numbers()
-        
+
     def _invalidation_needed(self, nliveboxes, nholes):
         memo = self.memo
         # xxx heuristic a bit out of thin air

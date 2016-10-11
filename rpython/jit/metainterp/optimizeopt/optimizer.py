@@ -249,9 +249,6 @@ class Optimization(object):
     def produce_potential_short_preamble_ops(self, potential_ops):
         pass
 
-    def forget_numberings(self):
-        self.optimizer.forget_numberings()
-
     def _can_optimize_call_pure(self, op):
         arg_consts = []
         for i in range(op.numargs()):
@@ -349,10 +346,6 @@ class Optimizer(Optimization):
     def produce_potential_short_preamble_ops(self, sb):
         for opt in self.optimizations:
             opt.produce_potential_short_preamble_ops(sb)
-
-    def forget_numberings(self):
-        self.metainterp_sd.profiler.count(jitprof.Counters.OPT_FORCINGS)
-        self.resumedata_memo.forget_numberings()
 
     def getinfo(self, op):
         if op.type == 'r':

@@ -132,7 +132,6 @@ class AbstractVirtualPtrInfo(NonNullPtrInfo):
 
     def force_box(self, op, optforce):
         if self.is_virtual():
-            optforce.forget_numberings()
             #
             if self._is_immutable_and_filled_with_constants(optforce.optimizer):
                 constptr = optforce.optimizer.constant_fold(op)
