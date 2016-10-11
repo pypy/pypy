@@ -1364,6 +1364,8 @@ class SSLContext(W_Root):
         options = SSL_OP_ALL & ~SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
         if protocol != PY_SSL_VERSION_SSL2:
             options |= SSL_OP_NO_SSLv2
+        if protocol != PY_SSL_VERSION_SSL3:
+            options |= SSL_OP_NO_SSLv3
         libssl_SSL_CTX_set_options(self.ctx, options)
         libssl_SSL_CTX_set_session_id_context(self.ctx, "Python", len("Python"))
 
