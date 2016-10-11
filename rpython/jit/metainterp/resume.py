@@ -165,7 +165,7 @@ TAG_CONST_OFFSET = 0
 class NumberingState(object):
     def __init__(self, size):
         self.liveboxes = {}
-        self.current = [0] * size
+        self.current = [rffi.cast(rffi.SHORT, 0)] * size
         self._pos = 0
         self.num_boxes = 0
         self.num_virtuals = 0
@@ -178,6 +178,9 @@ class NumberingState(object):
         short = rffi.cast(rffi.SHORT, item)
         assert rffi.cast(lltype.Signed, short) == item
         return self.append_short(short)
+
+    def create_numbering(self):
+        return resumecode.create_numbering(self.current)
 
 class ResumeDataLoopMemo(object):
 
@@ -229,12 +232,12 @@ class ResumeDataLoopMemo(object):
 
     # env numbering
 
-    def _number_boxes(self, iter, arr, optimizer, state):
+    def _number_boxes(self, iter, arr, optimizer, numb_state):
         """ Number boxes from one snapshot
         """
-        num_boxes = state.num_boxes
-        num_virtuals = state.num_virtuals
-        liveboxes = state.liveboxes
+        num_boxes = numb_state.num_boxes
+        num_virtuals = numb_state.num_virtuals
+        liveboxes = numb_state.liveboxes
         for item in arr:
             box = iter.get(rffi.cast(lltype.Signed, item))
             box = optimizer.get_box_replacement(box)
@@ -258,34 +261,35 @@ class ResumeDataLoopMemo(object):
                     tagged = tag(num_boxes, TAGBOX)
                     num_boxes += 1
                 liveboxes[box] = tagged
-            state.append_short(tagged)
-        state.num_boxes = num_boxes
-        state.num_virtuals = num_virtuals
+            numb_state.append_short(tagged)
+        numb_state.num_boxes = num_boxes
+        numb_state.num_virtuals = num_virtuals
 
     def number(self, optimizer, position, trace):
         snapshot_iter = trace.get_snapshot_iter(position)
-        state = NumberingState(snapshot_iter.size)
+        numb_state = NumberingState(snapshot_iter.size)
 
         arr = snapshot_iter.vable_array
 
-        state.append_int(len(arr))
-        self._number_boxes(snapshot_iter, arr, optimizer, state)
+        numb_state.append_int(len(arr))
+        self._number_boxes(snapshot_iter, arr, optimizer, numb_state)
 
         arr = snapshot_iter.vref_array
         n = len(arr)
         assert not (n & 1)
-        state.append_int(n >> 1)
+        numb_state.append_int(n >> 1)
 
-        self._number_boxes(snapshot_iter, arr, optimizer, state)
+        self._number_boxes(snapshot_iter, arr, optimizer, numb_state)
 
         for snapshot in snapshot_iter.framestack:
             jitcode_index, pc = snapshot_iter.unpack_jitcode_pc(snapshot)
-            state.append_int(jitcode_index)
-            state.append_int(pc)
-            self._number_boxes(snapshot_iter, snapshot.box_array, optimizer, state)
+            numb_state.append_int(jitcode_index)
+            numb_state.append_int(pc)
+            self._number_boxes(
+                    snapshot_iter, snapshot.box_array, optimizer, numb_state)
 
-        numb = resumecode.create_numbering(state.current)
-        return numb, state.liveboxes, state.num_virtuals
+        numb = numb_state.create_numbering()
+        return numb, numb_state.liveboxes, numb_state.num_virtuals
 
 
     # caching for virtuals and boxes inside them
