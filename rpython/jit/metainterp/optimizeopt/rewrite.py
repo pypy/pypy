@@ -143,7 +143,21 @@ class OptRewrite(Optimization):
             return self.emit(op)
 
     def postprocess_INT_SUB(self, op):
-        self.optimizer.pure_reverse(op)
+        import sys
+        arg0 = op.getarg(0)
+        arg1 = op.getarg(1)
+        self.optimizer.pure_from_args(rop.INT_ADD, [op, arg1], arg0)
+        self.optimizer.pure_from_args(rop.INT_SUB, [arg0, op], arg1)
+        if isinstance(arg1, ConstInt):
+            # invert the constant
+            i1 = arg1.getint()
+            if i1 == -sys.maxint - 1:
+                return
+            inv_arg1 = ConstInt(-i1)
+            self.optimizer.pure_from_args(rop.INT_ADD, [arg0, inv_arg1], op)
+            self.optimizer.pure_from_args(rop.INT_ADD, [inv_arg1, arg0], op)
+            self.optimizer.pure_from_args(rop.INT_SUB, [op, inv_arg1], arg0)
+            self.optimizer.pure_from_args(rop.INT_SUB, [op, arg0], inv_arg1)
 
     def optimize_INT_ADD(self, op):
         if self.is_raw_ptr(op.getarg(0)) or self.is_raw_ptr(op.getarg(1)):
@@ -162,7 +176,32 @@ class OptRewrite(Optimization):
             return self.emit(op)
 
     def postprocess_INT_ADD(self, op):
-        self.optimizer.pure_reverse(op)
+        import sys
+        arg0 = op.getarg(0)
+        arg1 = op.getarg(1)
+        self.optimizer.pure_from_args(rop.INT_ADD, [arg1, arg0], op)
+        # Synthesize the reverse op for optimize_default to reuse
+        self.optimizer.pure_from_args(rop.INT_SUB, [op, arg1], arg0)
+        self.optimizer.pure_from_args(rop.INT_SUB, [op, arg0], arg1)
+        if isinstance(arg0, ConstInt):
+            # invert the constant
+            i0 = arg0.getint()
+            if i0 == -sys.maxint - 1:
+                return
+            inv_arg0 = ConstInt(-i0)
+        elif isinstance(arg1, ConstInt):
+            # commutative
+            i0 = arg1.getint()
+            if i0 == -sys.maxint - 1:
+                return
+            inv_arg0 = ConstInt(-i0)
+            arg1 = arg0
+        else:
+            return
+        self.optimizer.pure_from_args(rop.INT_SUB, [arg1, inv_arg0], op)
+        self.optimizer.pure_from_args(rop.INT_SUB, [arg1, op], inv_arg0)
+        self.optimizer.pure_from_args(rop.INT_ADD, [op, inv_arg0], arg1)
+        self.optimizer.pure_from_args(rop.INT_ADD, [inv_arg0, op], arg1)
 
     def optimize_INT_MUL(self, op):
         arg1 = self.get_box_replacement(op.getarg(0))
@@ -250,7 +289,8 @@ class OptRewrite(Optimization):
         return self.emit(op)
 
     def postprocess_FLOAT_MUL(self, op):
-        self.optimizer.pure_reverse(op)
+        self.optimizer.pure_from_args(rop.FLOAT_MUL,
+                                      [op.getarg(1), op.getarg(0)], op)
 
     def optimize_FLOAT_TRUEDIV(self, op):
         arg1 = op.getarg(0)
@@ -277,7 +317,7 @@ class OptRewrite(Optimization):
         return self.emit(op)
 
     def postprocess_FLOAT_NEG(self, op):
-        self.optimizer.pure_reverse(op)
+        self.optimizer.pure_from_args(rop.FLOAT_NEG, [op], op.getarg(0))
 
     def optimize_guard(self, op, constbox):
         box = op.getarg(0)
@@ -799,11 +839,11 @@ class OptRewrite(Optimization):
             return True
 
     def optimize_CAST_PTR_TO_INT(self, op):
-        self.optimizer.pure_reverse(op)
+        self.optimizer.pure_from_args(rop.CAST_INT_TO_PTR, [op], op.getarg(0))
         return self.emit(op)
 
     def optimize_CAST_INT_TO_PTR(self, op):
-        self.optimizer.pure_reverse(op)
+        self.optimizer.pure_from_args(rop.CAST_PTR_TO_INT, [op], op.getarg(0))
         return self.emit(op)
 
     def optimize_SAME_AS_I(self, op):
