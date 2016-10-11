@@ -154,6 +154,15 @@ class Module(MixedModule):
             from pypy.module.sys.interp_encoding import base_encoding
             self.filesystemencoding = base_encoding
 
+            # Set up sys.prefix and friends, like app_main.py would do
+            # We somewhat arbitrarily use the repo's root dir as sys.prefix
+            from pypy import pypydir
+            import os
+            rootdir = os.path.dirname(pypydir)
+            for attr in ['prefix', 'exec_prefix', 'base_prefix', 'base_exec_prefix']:
+                space.setitem(self.w_dict, space.wrap(attr), space.wrap(rootdir))
+
+
     def flush_std_files(self, space):
         w_stdout = space.sys.getdictvalue(space, 'stdout')
         w_stderr = space.sys.getdictvalue(space, 'stderr')
