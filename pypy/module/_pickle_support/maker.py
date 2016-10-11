@@ -48,7 +48,7 @@ def seqiter_new(space, w_seq, w_index):
 def reverseseqiter_new(space, w_seq, w_index):
     w_rev = instantiate(W_ReverseSeqIterObject)
     if space.is_w(w_seq, space.w_None):
-        w_rev.w_seq = None
+        w_rev.w_seq = space.w_None
         w_rev.index = -1
     else:
         w_rev.w_seq = w_seq

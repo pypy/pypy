@@ -150,6 +150,9 @@ class W_StringIterObject(W_AbstractSeqIterObject):
 
 class W_ReverseSeqIterObject(W_Root):
     def __init__(self, space, w_seq, index=-1):
+        # w_seq is normally a list object, but can be space.w_None after
+        # the iterator is exhausted or after a reduce().  In that case,
+        # self.index == -1.
         self.w_seq = w_seq
         self.index = space.len_w(w_seq) + index
 
@@ -158,8 +161,7 @@ class W_ReverseSeqIterObject(W_Root):
         w_mod = space.getbuiltinmodule('_pickle_support')
         mod = space.interp_w(MixedModule, w_mod)
         new_inst = mod.get('reverseseqiter_new')
-        w_seq = space.w_None if self.w_seq is None else self.w_seq
-        tup = [w_seq, space.wrap(self.index)]
+        tup = [self.w_seq, space.wrap(self.index)]
         # note that setstate is not called, because this setup already sets the index
         return space.newtuple([new_inst, space.newtuple(tup)])
 
@@ -173,7 +175,7 @@ class W_ReverseSeqIterObject(W_Root):
 
     def descr_length_hint(self, space):
         length = self.index + 1
-        if self.w_seq is None or space.len_w(self.w_seq) < length:
+        if self.w_seq is space.w_None or space.len_w(self.w_seq) < length:
             length = 0
         return space.wrap(length)
 
@@ -198,7 +200,7 @@ class W_ReverseSeqIterObject(W_Root):
 
         # Done
         self.index = -1
-        self.w_seq = None
+        self.w_seq = space.w_None
         raise OperationError(space.w_StopIteration, space.w_None)
 
 W_ReverseSeqIterObject.typedef = TypeDef(
