@@ -857,13 +857,11 @@ class ObjSpace(object):
         Raise an OperationError(w_ValueError) if the length is wrong."""
         w_iterator = self.iter(w_iterable)
         if expected_length == -1:
-            # xxx special hack for speed
-            from pypy.interpreter.generator import GeneratorIterator
-            if isinstance(w_iterator, GeneratorIterator):
+            if self.is_generator(w_iterator):
+                # special hack for speed
                 lst_w = []
                 w_iterator.unpack_into(lst_w)
                 return lst_w
-            # /xxx
             return self._unpackiterable_unknown_length(w_iterator, w_iterable)
         else:
             lst_w = self._unpackiterable_known_length(w_iterator,
@@ -1115,7 +1113,8 @@ class ObjSpace(object):
         args = Arguments(self, list(args_w))
         return self.call_args(w_func, args)
 
-    def call_valuestack(self, w_func, nargs, frame):
+    def call_valuestack(self, w_func, nargs, frame, methodcall=False):
+        # methodcall is only used for better error messages in argument.py
         from pypy.interpreter.function import Function, Method, is_builtin_code
         if frame.get_is_being_profiled() and is_builtin_code(w_func):
             # XXX: this code is copied&pasted :-( from the slow path below
@@ -1132,13 +1131,15 @@ class ObjSpace(object):
                     # reuse callable stack place for w_inst
                     frame.settopvalue(w_inst, nargs)
                     nargs += 1
+                    methodcall = True
                 elif nargs > 0 and (
                     self.abstract_isinstance_w(frame.peekvalue(nargs-1),   #    :-(
                                                w_func.w_class)):
                     w_func = w_func.w_function
 
             if isinstance(w_func, Function):
-                return w_func.funccall_valuestack(nargs, frame)
+                return w_func.funccall_valuestack(
+                        nargs, frame, methodcall=methodcall)
             # end of hack for performance
 
         args = frame.make_arguments(nargs)
@@ -1176,6 +1177,10 @@ class ObjSpace(object):
         # xxx hack hack hack
         from pypy.module.__builtin__.interp_classobj import W_InstanceObject
         return isinstance(w_obj, W_InstanceObject)
+
+    def is_generator(self, w_obj):
+        from pypy.interpreter.generator import GeneratorIterator
+        return isinstance(w_obj, GeneratorIterator)
 
     def callable(self, w_obj):
         if self.lookup(w_obj, "__call__") is not None:
@@ -1220,11 +1225,11 @@ class ObjSpace(object):
     # These methods are patched with the full logic by the __builtin__
     # module when it is loaded
 
-    def abstract_issubclass_w(self, w_cls1, w_cls2):
+    def abstract_issubclass_w(self, w_cls1, w_cls2, allow_override=False):
         # Equivalent to 'issubclass(cls1, cls2)'.
         return self.issubtype_w(w_cls1, w_cls2)
 
-    def abstract_isinstance_w(self, w_obj, w_cls):
+    def abstract_isinstance_w(self, w_obj, w_cls, allow_override=False):
         # Equivalent to 'isinstance(obj, cls)'.
         return self.isinstance_w(w_obj, w_cls)
 

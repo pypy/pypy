@@ -105,7 +105,7 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
              '''),
             ])
         s = module.alloc_rw()
-        assert s == b'works' + b'\x00' * 5
+        assert s[:6] == b'works\0'  # s[6:10] contains random garbage
         s = module.tpalloc()
         assert s == b'\x00' * 10
 

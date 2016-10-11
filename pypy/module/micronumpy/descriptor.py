@@ -24,7 +24,6 @@ def decode_w_dtype(space, w_dtype):
     return space.interp_w(
         W_Dtype, space.call_function(space.gettypefor(W_Dtype), w_dtype))
 
-
 @jit.unroll_safe
 def dtype_agreement(space, w_arr_list, shape, out=None):
     """ agree on dtype from a list of arrays. if out is allocated,
@@ -178,6 +177,38 @@ class W_Dtype(W_Root):
             dtype = dtype.descr_newbyteorder(space)
         assert dtype.is_float()
         return dtype
+
+    def getformat(self, stringbuilder):
+        # adapted from _buffer_format_string in multiarray/buffer.c
+        # byte-order not supported yet
+        if self.is_record():
+            #subs = sorted(self.fields.items(), key=lambda (k,v): v[0])
+            subs = []
+            for name in self.fields:
+                offset, dtyp = self.fields[name]
+                i = 0
+                for i in range(len(subs)):
+                    if offset < subs[i][0]:
+                        break
+                else:
+                    i = len(subs)
+                subs.insert(i, (offset, dtyp, name))
+            start = 0
+            stringbuilder.append('T{')
+            for s in subs:
+                stringbuilder.append('x' * (s[0] - start))
+                start = s[0] + s[1].elsize
+                s[1].getformat(stringbuilder)
+                stringbuilder.append(':')
+                stringbuilder.append(s[2])
+                stringbuilder.append(':')
+            stringbuilder.append('}')
+        else:
+            if self.byteorder == NPY.OPPBYTE:
+                raise oefmt(self.itemtype.space.w_NotImplementedError,
+                                 "non-native byte order not supported yet")
+            # even if not, NumPy adds a '=', '@', for 'i' types
+            stringbuilder.append(self.char)
 
     def get_name(self):
         name = self.w_box_type.getname(self.itemtype.space)
@@ -743,6 +774,9 @@ def dtype_from_list(space, w_lst, simple, alignment, offsets=None, itemsize=0):
                         offsets[j+1] = delta + offsets[j]
                 if  i + 1 < len(offsets) and offsets[i + 1] == 0:
                     offsets[i + 1] = offsets[i] + max(delta, subdtype.elsize)
+                # sanity check
+                if offsets[i] % maxalign:
+                    offsets[i] = ((offsets[i] // maxalign) + 1) * maxalign
         elif not use_supplied_offsets:
             if  i + 1 < len(offsets) and offsets[i + 1] == 0:
                 offsets[i+1] = offsets[i] + subdtype.elsize

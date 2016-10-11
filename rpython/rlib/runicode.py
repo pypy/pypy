@@ -831,10 +831,9 @@ def str_decode_utf_7(s, size, errors, final=False,
     startinpos = 0
     while pos < size:
         ch = s[pos]
-        oc = ord(ch)
 
         if inShift: # in a base-64 section
-            if _utf7_IS_BASE64(oc): #consume a base-64 character
+            if _utf7_IS_BASE64(ord(ch)): #consume a base-64 character
                 base64buffer = (base64buffer << 6) | _utf7_FROM_BASE64(ch)
                 base64bits += 6
                 pos += 1
@@ -847,7 +846,7 @@ def str_decode_utf_7(s, size, errors, final=False,
                     assert outCh <= 0xffff
                     if surrogate:
                         # expecting a second surrogate
-                        if outCh >= 0xDC00 and outCh <= 0xDFFFF:
+                        if outCh >= 0xDC00 and outCh <= 0xDFFF:
                             if MAXUNICODE < 65536:
                                 result.append(unichr(surrogate))
                                 result.append(unichr(outCh))
@@ -870,15 +869,11 @@ def str_decode_utf_7(s, size, errors, final=False,
             else:
                 # now leaving a base-64 section
                 inShift = False
-                pos += 1
-
-                if surrogate:
-                    result.append(unichr(surrogate))
-                    surrogate = 0
 
                 if base64bits > 0: # left-over bits
                     if base64bits >= 6:
                         # We've seen at least one base-64 character
+                        pos += 1
                         msg = "partial character in shift sequence"
                         res, pos = errorhandler(errors, 'utf7',
                                                 msg, s, pos-1, pos)
@@ -887,20 +882,21 @@ def str_decode_utf_7(s, size, errors, final=False,
                     else:
                         # Some bits remain; they should be zero
                         if base64buffer != 0:
+                            pos += 1
                             msg = "non-zero padding bits in shift sequence"
                             res, pos = errorhandler(errors, 'utf7',
                                                     msg, s, pos-1, pos)
                             result.append(res)
                             continue
 
+                if surrogate and _utf7_DECODE_DIRECT(ord(ch)):
+                    result.append(unichr(surrogate))
+                surrogate = 0
+
                 if ch == '-':
                     # '-' is absorbed; other terminating characters are
                     # preserved
-                    base64bits = 0
-                    base64buffer = 0
-                    surrogate = 0
-                else:
-                    result.append(unichr(ord(ch)))
+                    pos += 1
 
         elif ch == '+':
             startinpos = pos
@@ -910,12 +906,13 @@ def str_decode_utf_7(s, size, errors, final=False,
                 result.append(u'+')
             else: # begin base64-encoded section
                 inShift = 1
+                surrogate = 0
                 shiftOutStartPos = result.getlength()
                 base64bits = 0
                 base64buffer = 0
 
-        elif _utf7_DECODE_DIRECT(oc): # character decodes at itself
-            result.append(unichr(oc))
+        elif _utf7_DECODE_DIRECT(ord(ch)): # character decodes at itself
+            result.append(unichr(ord(ch)))
             pos += 1
         else:
             startinpos = pos
@@ -928,6 +925,7 @@ def str_decode_utf_7(s, size, errors, final=False,
     final_length = result.getlength()
     if inShift and final: # in shift sequence, no more to follow
         # if we're in an inconsistent state, that's an error
+        inShift = 0
         if (surrogate or
             base64bits >= 6 or
             (base64bits > 0 and base64buffer != 0)):

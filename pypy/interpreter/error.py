@@ -88,7 +88,8 @@ class OperationError(Exception):
                         exc_value = space.str_w(space.str(w_value))
                 except OperationError:
                     # oups, cannot __str__ the exception object
-                    exc_value = "<oups, exception object itself cannot be str'd>"
+                    exc_value = ("<exception %s() failed>" %
+                                 ("repr" if use_repr else "str"))
         if not exc_value:
             return exc_typename
         else:
@@ -238,7 +239,7 @@ class OperationError(Exception):
             try:
                 objrepr = space.str_w(space.repr(w_object))
             except OperationError:
-                objrepr = '?'
+                objrepr = "<object repr() failed>"
         #
         try:
             if with_traceback:

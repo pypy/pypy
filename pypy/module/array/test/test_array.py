@@ -152,6 +152,8 @@ class BaseArrayTests:
             raises(OverflowError, a.append, 2 ** (8 * b))
 
     def test_fromstring(self):
+        import sys
+
         a = self.array('c')
         a.fromstring('Hi!')
         assert a[0] == 'H' and a[1] == 'i' and a[2] == '!' and len(a) == 3
@@ -175,6 +177,8 @@ class BaseArrayTests:
                 raises(ValueError, a.fromstring, '\x00' * (2 * a.itemsize + 1))
             b = self.array(t, '\x00' * a.itemsize * 2)
             assert len(b) == 2 and b[0] == 0 and b[1] == 0
+            if sys.version_info >= (2, 7, 11):
+                raises(ValueError, a.fromstring, a)
 
     def test_fromfile(self):
 

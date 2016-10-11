@@ -4,6 +4,7 @@ from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib.listsort import make_timsort_class
 from rpython.rlib.buffer import Buffer
 from rpython.rlib.debug import make_sure_not_resized
+from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rawstorage import alloc_raw_storage, free_raw_storage, \
     raw_storage_getitem, raw_storage_setitem, RAW_STORAGE
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
@@ -725,7 +726,9 @@ class ArrayBuffer(Buffer):
         return rffi.ptradd(self.impl.storage, self.impl.start)
 
     def getformat(self):
-        return self.impl.dtype.char
+        sb = StringBuilder()
+        self.impl.dtype.getformat(sb)
+        return sb.build()
 
     def getitemsize(self):
         return self.impl.dtype.elsize

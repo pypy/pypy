@@ -466,6 +466,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                       operations, looptoken, log):
         '''adds the following attributes to looptoken:
                _ll_function_addr    (address of the generated func, as an int)
+               _ll_raw_start        (jitlog: address of the first byte to asm memory)
                _ll_loop_code       (debug: addr of the start of the ResOps)
                _x86_fullsize        (debug: full size including failure)
         '''
@@ -539,10 +540,11 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             looptoken._x86_fullsize = full_size
             looptoken._x86_ops_offset = ops_offset
         looptoken._ll_function_addr = rawstart + functionpos
+        looptoken._ll_raw_start = rawstart
 
-        if logger:
-            log = logger.log_trace(jl.MARK_TRACE_ASM, None, self.mc)
-            log.write(inputargs, operations, ops_offset=ops_offset)
+        if log and logger:
+            l = logger.log_trace(jl.MARK_TRACE_ASM, None, self.mc)
+            l.write(inputargs, operations, ops_offset=ops_offset)
 
             # legacy
             if logger.logger_ops:
@@ -594,6 +596,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         fullsize = self.mc.get_relative_pos()
         #
         rawstart = self.materialize_loop(original_loop_token)
+        original_loop_token._ll_raw_start = rawstart
         self.patch_gcref_table(original_loop_token, rawstart)
         self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE,
                                 rawstart)
@@ -1065,7 +1068,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             assert mc.get_relative_pos() <= 13
         mc.copy_to_raw_memory(oldadr)
         # log the redirection of the call_assembler_* operation
-        jl.redirect_assembler(oldlooptoken, newlooptoken, target)
+        asm_adr = newlooptoken._ll_raw_start
+        jl.redirect_assembler(oldlooptoken, newlooptoken, asm_adr)
 
     def dump(self, text):
         if not self.verbose:
