@@ -22,6 +22,12 @@ class AppTestWeakref(object):
         import _weakref
         raises(TypeError, _weakref.ref)
 
+    def test_no_kwargs(self):
+        import _weakref
+        class C(object):
+            pass
+        raises(TypeError, _weakref.ref, C(), callback=None)
+
     def test_callback(self):
         import _weakref, gc
         class A(object):

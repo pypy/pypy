@@ -414,8 +414,12 @@ class SSLSocket(W_Root):
 
         if w_buffer:
             rwbuffer = space.getarg_w('w*', w_buffer)
-            num_bytes = min(num_bytes, rwbuffer.getlength())
+            buflen = rwbuffer.getlength()
+            if not 0 < num_bytes <= buflen:
+                num_bytes = buflen
         else:
+            if num_bytes < 0:
+                raise oefmt(space.w_ValueError, "size should not be negative")
             rwbuffer = None
 
         with rffi.scoped_alloc_buffer(num_bytes) as buf:

@@ -32,6 +32,9 @@ class partial(object):
     partial(func, *args, **keywords) - new function with partial application
     of the given arguments and keywords.
     """
+
+    __slots__ = ('_func', '_args', '_keywords', '__dict__')
+
     def __init__(*args, **keywords):
         if len(args) < 2:
             raise TypeError('__init__() takes at least 2 arguments (%d given)'
@@ -88,9 +91,25 @@ class partial(object):
                 (self._func, self._args, self._keywords, d))
 
     def __setstate__(self, state):
+        if not isinstance(state, tuple) or len(state) != 4:
+            raise TypeError("invalid partial state")
+
         func, args, keywords, d = state
-        if d is not None:
-            self.__dict__.update(d)
+
+        if (not callable(func) or not isinstance(args, tuple) or
+            (keywords is not None and not isinstance(keywords, dict))):
+            raise TypeError("invalid partial state")
+
         self._func = func
-        self._args = args
+        self._args = tuple(args)
+
+        if keywords is None:
+            keywords = {}
+        elif type(keywords) is not dict:
+            keywords = dict(keywords)
         self._keywords = keywords
+
+        if d is None:
+            self.__dict__.clear()
+        else:
+            self.__dict__.update(d)

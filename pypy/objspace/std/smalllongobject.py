@@ -124,7 +124,7 @@ class W_SmallLongObject(W_AbstractLongObject):
                 self = _small2long(space, self)
                 return self.descr_pow(space, w_exponent, w_modulus)
         elif isinstance(w_modulus, W_IntObject):
-            w_modulus = _int2small(space, w_modulus)
+            w_modulus = w_modulus.as_w_long(space)
         elif not isinstance(w_modulus, W_AbstractLongObject):
             return space.w_NotImplemented
         elif not isinstance(w_modulus, W_SmallLongObject):
@@ -147,7 +147,7 @@ class W_SmallLongObject(W_AbstractLongObject):
     def descr_rpow(self, space, w_base, w_modulus=None):
         if isinstance(w_base, W_IntObject):
             # Defer to w_base<W_SmallLongObject>.descr_pow
-            w_base = _int2small(space, w_base)
+            w_base = w_base.descr_long(space)
         elif not isinstance(w_base, W_AbstractLongObject):
             return space.w_NotImplemented
         return w_base.descr_pow(space, self, w_modulus)
@@ -183,7 +183,7 @@ class W_SmallLongObject(W_AbstractLongObject):
         @func_renamer(descr_name)
         def descr_binop(self, space, w_other):
             if isinstance(w_other, W_IntObject):
-                w_other = _int2small(space, w_other)
+                w_other = w_other.as_w_long(space)
             elif not isinstance(w_other, W_AbstractLongObject):
                 return space.w_NotImplemented
             elif not isinstance(w_other, W_SmallLongObject):
@@ -210,7 +210,7 @@ class W_SmallLongObject(W_AbstractLongObject):
         @func_renamer(descr_rname)
         def descr_rbinop(self, space, w_other):
             if isinstance(w_other, W_IntObject):
-                w_other = _int2small(space, w_other)
+                w_other = w_other.as_w_long(space)
             elif not isinstance(w_other, W_AbstractLongObject):
                 return space.w_NotImplemented
             elif not isinstance(w_other, W_SmallLongObject):
@@ -370,11 +370,6 @@ def _llong_mul_ovf(a, b):
     if 32.0 * absdiff <= absprod:
         return longprod
     raise OverflowError("integer multiplication")
-
-
-def _int2small(space, w_int):
-    # XXX: W_IntObject.as_w_long should probably return W_SmallLongs
-    return W_SmallLongObject.fromint(w_int.int_w(space))
 
 
 def _small2long(space, w_small):

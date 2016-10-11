@@ -307,6 +307,17 @@ class AppTestLong:
             def __int__(self):
                 return 42
         assert int(A()) == 42
+
+        class IntSubclass(int):
+            pass
+        class ReturnsIntSubclass(object):
+            def __int__(self):
+                return IntSubclass(42)
+        n = int(ReturnsIntSubclass())
+        assert n == 42
+        assert type(n) is IntSubclass
+
+    def test_trunc_returns(self):
         # but!: (blame CPython 2.7)
         class Integral(object):
             def __int__(self):
@@ -314,7 +325,18 @@ class AppTestLong:
         class TruncReturnsNonInt(object):
             def __trunc__(self):
                 return Integral()
-        assert int(TruncReturnsNonInt()) == 42
+        n = int(TruncReturnsNonInt())
+        assert type(n) is int
+        assert n == 42
+
+        class IntSubclass(int):
+            pass
+        class TruncReturnsNonInt(object):
+            def __trunc__(self):
+                return IntSubclass(42)
+        n = int(TruncReturnsNonInt())
+        assert n == 42
+        assert type(n) is IntSubclass
 
     def test_long_before_string(self):
         class A(str):

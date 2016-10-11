@@ -897,10 +897,11 @@ class AppTestTypeObject:
         Abc.__name__ = 'Def'
         assert Abc.__name__ == 'Def'
         raises(TypeError, "Abc.__name__ = 42")
+        raises(TypeError, "Abc.__name__ = b'A'")
         try:
             Abc.__name__ = 'G\x00hi'
         except ValueError as e:
-            assert str(e) == "__name__ must not contain null bytes"
+            assert str(e) == "type name must not contain null characters"
         else:
             assert False
 
@@ -1219,6 +1220,14 @@ class AppTestTypeObject:
             __bases__ = (int,)
         assert int.__subclasscheck__(AbstractClass()) is True
 
+    def test_bad_args(self):
+        import collections
+        raises(TypeError, type, 'A', (), dict={})
+        raises(TypeError, type, 'A', [], {})
+        raises(TypeError, type, 'A', (), collections.UserDict())
+        raises(ValueError, type, 'A\x00B', (), {})
+        raises(TypeError, type, b'A', (), {})
+
 
 class AppTestWithMethodCacheCounter:
     spaceconfig = {"objspace.std.withmethodcachecounter": True}
@@ -1309,7 +1318,7 @@ class TestNewShortcut:
         assert w_B.w_new_function is not None
         w_b = space.call_function(w_B)
 
-        w_m = space.call_function(w_M, space.wrap('C'), space.newlist([]),
+        w_m = space.call_function(w_M, space.wrap('C'), space.newtuple([]),
                                   space.newdict())
         assert w_M.w_new_function is not None
 

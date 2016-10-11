@@ -344,14 +344,20 @@ class W_ReversedIterator(W_Root):
             try:
                 w_item = space.getitem(self.w_sequence, w_index)
             except OperationError as e:
-                if not e.match(space, space.w_StopIteration):
+                # Done
+                self.remaining = -1
+                self.w_sequence = None
+                if not (e.match(space, space.w_IndexError) or
+                        e.match(space, space.w_StopIteration)):
                     raise
+                raise OperationError(space.w_StopIteration, space.w_None)
             else:
                 self.remaining -= 1
                 return w_item
 
         # Done
         self.remaining = -1
+        self.w_sequence = None
         raise OperationError(space.w_StopIteration, space.w_None)
 
     def descr___reduce__(self, space):

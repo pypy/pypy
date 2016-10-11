@@ -323,7 +323,7 @@ static int
 faulthandler_register(int signum, int chain, _Py_sighandler_t *p_previous)
 {
     struct sigaction action;
-    action.sa_handler = faulthandler_user;
+    action.sa_sigaction = faulthandler_user;
     sigemptyset(&action.sa_mask);
     /* if the signal is received while the kernel is executing a system
        call, try to restart the system call instead of interrupting it and

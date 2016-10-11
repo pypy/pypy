@@ -4,6 +4,6 @@ at http://hg.python.org/cpython/
 the outputs for hg id of each are:
 
     2.7::
-        15c95b7d81dc (2.7) v2.7.10
+        d33e0cf91556 (2.7) v2.7.12
     3::
         37a07cee5969 (3.5) v3.5.1
