@@ -288,8 +288,7 @@ class ResumeDataLoopMemo(object):
             self._number_boxes(
                     snapshot_iter, snapshot.box_array, optimizer, numb_state)
 
-        numb = numb_state.create_numbering()
-        return numb, numb_state.liveboxes, numb_state.num_virtuals
+        return numb_state
 
 
     # caching for virtuals and boxes inside them
@@ -422,7 +421,8 @@ class ResumeDataVirtualAdder(VirtualVisitor):
         _, tagbits = untag(tagged)
         return tagbits == TAGVIRTUAL
 
-    def finish(self, optimizer, pending_setfields=[]):
+    def finish(self, pending_setfields=[]):
+        optimizer = self.optimizer
         # compute the numbering
         storage = self.storage
         # make sure that nobody attached resume data to this guard yet
@@ -430,12 +430,12 @@ class ResumeDataVirtualAdder(VirtualVisitor):
         resume_position = self.guard_op.rd_resume_position
         assert resume_position >= 0
         # count stack depth
-        numb, liveboxes_from_env, num_virtuals = self.memo.number(optimizer,
-            resume_position, self.optimizer.trace)
-        self.liveboxes_from_env = liveboxes_from_env
+        numb_state = self.memo.number(optimizer,
+            resume_position, optimizer.trace)
+        self.liveboxes_from_env = liveboxes_from_env = numb_state.liveboxes
+        num_virtuals = numb_state.num_virtuals
         self.liveboxes = {}
-        storage.rd_numb = numb
-        
+
         # collect liveboxes and virtuals
         n = len(liveboxes_from_env) - num_virtuals
         liveboxes = [None] * n
@@ -471,6 +471,7 @@ class ResumeDataVirtualAdder(VirtualVisitor):
         self._number_virtuals(liveboxes, optimizer, num_virtuals)
         self._add_pending_fields(optimizer, pending_setfields)
 
+        storage.rd_numb = numb_state.create_numbering()
         storage.rd_consts = self.memo.consts
         return liveboxes[:]
 
