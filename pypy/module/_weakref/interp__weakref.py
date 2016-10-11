@@ -188,9 +188,6 @@ class W_WeakrefBase(W_Root):
                 state = u"; to '%s'" % (typename,)
         return self.getrepr(space, unicode(self.typedef.name), state)
 
-    def descr_callback(self, space):
-        return self.w_callable
-
 
 class W_Weakref(W_WeakrefBase):
     def __init__(self, space, w_obj, w_callable):
@@ -232,6 +229,9 @@ class W_Weakref(W_WeakrefBase):
     def descr__ne__(self, space, w_ref2):
         return space.not_(space.eq(self, w_ref2))
 
+    def descr_callback(self, space):
+        return self.w_callable
+
 def getlifeline(space, w_obj):
     lifeline = w_obj.getweakref()
     if lifeline is None:
@@ -260,7 +260,7 @@ which is called with 'obj' as an argument when it is about to be finalized.""",
     __hash__ = interp2app(W_Weakref.descr_hash),
     __call__ = interp2app(W_Weakref.descr_call),
     __repr__ = interp2app(W_WeakrefBase.descr__repr__),
-    __callback__ = GetSetProperty(W_WeakrefBase.descr_callback),
+    __callback__ = GetSetProperty(W_Weakref.descr_callback),
 )
 
 
