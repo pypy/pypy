@@ -71,16 +71,9 @@ def _detach_helpers(space):
 
 
 class AppTestInterpObjectPickling:
-    pytestmark = py.test.mark.skipif("config.option.runappdirect")
     spaceconfig = {
         "usemodules": ["struct", "binascii"]
     }
-
-    def setup_class(cls):
-        _attach_helpers(cls.space)
-
-    def teardown_class(cls):
-        _detach_helpers(cls.space)
 
     def test_pickle_basic(self):
         import pickle
@@ -160,123 +153,6 @@ class AppTestInterpObjectPickling:
         result = pickle.loads(pckl)
         assert cell == result
         assert not (cell != result)
-
-    def test_pickle_frame(self):
-        #import sys
-        # avoid creating a closure for now
-        def f():
-            try:
-                raise Exception()
-            except:
-                import sys
-                exc_type, exc, tb = sys.exc_info()
-                return tb.tb_frame
-        import pickle
-        f1     = f()
-        saved = hide_top_frame(f1)
-        pckl   = pickle.dumps(f1)
-        restore_top_frame(f1, saved)
-        f2     = pickle.loads(pckl)
-
-        assert type(f1) is type(f2)
-        assert dir(f1) == dir(f2)
-        assert f1.__doc__ == f2.__doc__
-        assert f2.f_back is None # because we pruned it
-        assert f1.f_builtins is f2.f_builtins
-        assert f1.f_code == f2.f_code
-        assert f1.f_exc_traceback is f2.f_exc_traceback
-        assert f1.f_exc_type is f2.f_exc_type
-        assert f1.f_exc_value is f2.f_exc_value
-        assert f1.f_lasti == f2.f_lasti
-        assert f1.f_lineno == f2.f_lineno
-        assert f1.f_restricted is f2.f_restricted
-        assert f1.f_trace is f2.f_trace
-
-    def test_pickle_frame_with_exc(self):
-        #import sys
-        # avoid creating a closure for now
-        self = None
-        def f():
-            try:
-                raise ValueError
-            except:
-                import sys, pickle
-                f = sys._getframe()
-                saved = hide_top_frame(f)
-                pckl = pickle.dumps(f)
-                restore_top_frame(f, saved)
-                return pckl
-
-        import pickle
-        pckl   = f()
-        f2     = pickle.loads(pckl)
-
-        assert read_exc_type(f2) is ValueError
-
-    def test_pickle_frame_with_exc_nested(self):
-        # avoid creating a closure for now
-        self = None
-        def f():
-            try:
-                1/0
-            except:
-                try:
-                    raise ValueError
-                except:
-                    import sys, pickle
-                    f = sys._getframe()
-                    saved = hide_top_frame(f)
-                    pckl = pickle.dumps(f)
-                    restore_top_frame(f, saved)
-                    return pckl
-
-        import pickle
-        pckl   = f()
-        f2     = pickle.loads(pckl)
-
-        assert read_exc_type(f2) is ValueError
-
-    def test_pickle_frame_clos(self):
-        # similar to above, therefore skipping the asserts.
-        # we just want to see that the closure works
-        import sys # this is the difference!
-        def f():
-            try:
-                raise Exception()
-            except:
-                exc_type, exc, tb = sys.exc_info()
-                return tb.tb_frame
-        import pickle
-        f1     = f()
-        saved = hide_top_frame(f1)
-        pckl   = pickle.dumps(f1)
-        restore_top_frame(f1, saved)
-        f2     = pickle.loads(pckl)
-
-    def test_frame_setstate_crash(self):
-        import sys
-        raises(ValueError, sys._getframe().__setstate__, [])
-
-    def test_pickle_traceback(self):
-        def f():
-            try:
-                raise Exception()
-            except:
-                from sys import exc_info
-                exc_type, exc, tb = exc_info()
-                return tb
-        import pickle
-        tb     = f()
-        saved = hide_top_frame(tb.tb_frame)
-        pckl   = pickle.dumps(tb)
-        result = pickle.loads(pckl)
-
-        assert type(tb) is type(result)
-        assert tb.tb_lasti == result.tb_lasti
-        assert tb.tb_lineno == result.tb_lineno
-        assert tb.tb_next == result.tb_next
-
-        restore_top_frame(tb.tb_frame, saved)
 
     def test_pickle_module(self):
         import pickle
@@ -644,3 +520,133 @@ class AppTestGeneratorCloning:
             raises(StopIteration, next, g2)
             raises(StopIteration, next, g3)
             raises(StopIteration, next, g4)
+
+class AppTestFramePickling(object):
+    pytestmark = py.test.mark.skipif("config.option.runappdirect")
+    spaceconfig = {
+        "usemodules": ["struct"]
+    }
+
+    def setup_class(cls):
+        _attach_helpers(cls.space)
+
+    def teardown_class(cls):
+        _detach_helpers(cls.space)
+
+    def test_pickle_frame(self):
+        #import sys
+        # avoid creating a closure for now
+        def f():
+            try:
+                raise Exception()
+            except:
+                import sys
+                exc_type, exc, tb = sys.exc_info()
+                return tb.tb_frame
+        import pickle
+        f1     = f()
+        saved = hide_top_frame(f1)
+        pckl   = pickle.dumps(f1)
+        restore_top_frame(f1, saved)
+        f2     = pickle.loads(pckl)
+
+        assert type(f1) is type(f2)
+        assert dir(f1) == dir(f2)
+        assert f1.__doc__ == f2.__doc__
+        assert f2.f_back is None # because we pruned it
+        assert f1.f_builtins is f2.f_builtins
+        assert f1.f_code == f2.f_code
+        assert f1.f_exc_traceback is f2.f_exc_traceback
+        assert f1.f_exc_type is f2.f_exc_type
+        assert f1.f_exc_value is f2.f_exc_value
+        assert f1.f_lasti == f2.f_lasti
+        assert f1.f_lineno == f2.f_lineno
+        assert f1.f_restricted is f2.f_restricted
+        assert f1.f_trace is f2.f_trace
+
+    def test_pickle_frame_with_exc(self):
+        #import sys
+        # avoid creating a closure for now
+        self = None
+        def f():
+            try:
+                raise ValueError
+            except:
+                import sys, pickle
+                f = sys._getframe()
+                saved = hide_top_frame(f)
+                pckl = pickle.dumps(f)
+                restore_top_frame(f, saved)
+                return pckl
+
+        import pickle
+        pckl   = f()
+        f2     = pickle.loads(pckl)
+
+        assert read_exc_type(f2) is ValueError
+
+    def test_pickle_frame_with_exc_nested(self):
+        # avoid creating a closure for now
+        self = None
+        def f():
+            try:
+                1/0
+            except:
+                try:
+                    raise ValueError
+                except:
+                    import sys, pickle
+                    f = sys._getframe()
+                    saved = hide_top_frame(f)
+                    pckl = pickle.dumps(f)
+                    restore_top_frame(f, saved)
+                    return pckl
+
+        import pickle
+        pckl   = f()
+        f2     = pickle.loads(pckl)
+
+        assert read_exc_type(f2) is ValueError
+
+    def test_pickle_frame_clos(self):
+        # similar to above, therefore skipping the asserts.
+        # we just want to see that the closure works
+        import sys # this is the difference!
+        def f():
+            try:
+                raise Exception()
+            except:
+                exc_type, exc, tb = sys.exc_info()
+                return tb.tb_frame
+        import pickle
+        f1     = f()
+        saved = hide_top_frame(f1)
+        pckl   = pickle.dumps(f1)
+        restore_top_frame(f1, saved)
+        f2     = pickle.loads(pckl)
+
+    def test_frame_setstate_crash(self):
+        import sys
+        raises(ValueError, sys._getframe().__setstate__, [])
+
+    def test_pickle_traceback(self):
+        def f():
+            try:
+                raise Exception()
+            except:
+                from sys import exc_info
+                exc_type, exc, tb = exc_info()
+                return tb
+        import pickle
+        tb     = f()
+        saved = hide_top_frame(tb.tb_frame)
+        pckl   = pickle.dumps(tb)
+        result = pickle.loads(pckl)
+
+        assert type(tb) is type(result)
+        assert tb.tb_lasti == result.tb_lasti
+        assert tb.tb_lineno == result.tb_lineno
+        assert tb.tb_next == result.tb_next
+
+        restore_top_frame(tb.tb_frame, saved)
+
