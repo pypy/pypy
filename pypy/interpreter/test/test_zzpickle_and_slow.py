@@ -74,6 +74,14 @@ class AppTestInterpObjectPickling:
     spaceconfig = {
         "usemodules": ["struct", "binascii"]
     }
+    def setup_class(cls):
+        runappdirect = py.test.config.option.runappdirect
+        cls.w_runappdirect = cls.space.wrap(runappdirect)
+
+    def w_skip_on_cpython(self):
+        import sys
+        if self.runappdirect and '__pypy__' not in sys.modules:
+            skip('Does not work on CPython')
 
     def test_pickle_basic(self):
         import pickle
@@ -82,6 +90,7 @@ class AppTestInterpObjectPickling:
         assert result == (u'abc', 0)
 
     def test_pickle_code(self):
+        self.skip_on_cpython()
         def f():
             return 42
         import pickle
@@ -100,6 +109,7 @@ class AppTestInterpObjectPickling:
                 return 42
             mod.__dict__['func'] = func
             func.__module__ = 'mod'
+            func.__qualname__ = 'func'
             import pickle
             pckl = pickle.dumps(func)
             result = pickle.loads(pckl)
@@ -108,6 +118,7 @@ class AppTestInterpObjectPickling:
             del sys.modules['mod']
 
     def test_pickle_not_imported_module(self):
+        self.skip_on_cpython()
         import types
         mod = types.ModuleType('mod')
         mod.__dict__['a'] = 1
@@ -124,6 +135,7 @@ class AppTestInterpObjectPickling:
         assert map is result
 
     def test_pickle_non_top_reachable_func(self):
+        self.skip_on_cpython()
         def func():
             return 42
         global a
@@ -141,6 +153,7 @@ class AppTestInterpObjectPickling:
         assert func.__globals__  == result.__globals__
 
     def test_pickle_cell(self):
+        self.skip_on_cpython()
         def g():
             x = [42]
             def f():
@@ -155,40 +168,34 @@ class AppTestInterpObjectPickling:
         assert not (cell != result)
 
     def test_pickle_module(self):
+        self.skip_on_cpython()
         import pickle
-        mod    = pickle
-        pckl   = pickle.dumps(mod)
+        mod = pickle
+        pckl = pickle.dumps(mod)
         result = pickle.loads(pckl)
         assert mod is result
 
     def test_pickle_moduledict(self):
+        self.skip_on_cpython()
         import pickle
-        moddict  = pickle.__dict__
-        pckl     = pickle.dumps(moddict)
-        result   = pickle.loads(pckl)
+        moddict = pickle.__dict__
+        pckl = pickle.dumps(moddict)
+        result = pickle.loads(pckl)
         assert moddict is result
 
     def test_pickle_bltins_module(self):
+        self.skip_on_cpython()
         import pickle
-        mod  = __builtins__
-        pckl     = pickle.dumps(mod)
-        result   = pickle.loads(pckl)
+        mod = __builtins__
+        pckl = pickle.dumps(mod)
+        result = pickle.loads(pckl)
         assert mod is result
-
-    def test_pickle_buffer(self):
-        skip("Can't pickle buffer objects on top of CPython either.  "
-             "Do we really need it?")
-        import pickle
-        a = buffer('ABCDEF')
-        pckl     = pickle.dumps(a)
-        result   = pickle.loads(pckl)
-        assert a == result
 
     def test_pickle_complex(self):
         import pickle
         a = complex(1.23,4.567)
-        pckl     = pickle.dumps(a)
-        result   = pickle.loads(pckl)
+        pckl = pickle.dumps(a)
+        result = pickle.loads(pckl)
         assert a == result
 
     def test_pickle_method(self):
@@ -199,28 +206,30 @@ class AppTestInterpObjectPickling:
                 return (myclass, ())
         import pickle, sys, types
         myclass.__module__ = 'mod'
+        myclass.__qualname__ = 'myclass'
         myclass_inst = myclass()
         mod = types.ModuleType('mod')
         mod.myclass = myclass
         sys.modules['mod'] = mod
         try:
-            method   = myclass_inst.f
-            pckl     = pickle.dumps(method)
-            result   = pickle.loads(pckl)
+            method = myclass_inst.f
+            pckl = pickle.dumps(method)
+            result = pickle.loads(pckl)
             # we cannot compare the objects, because the method will be a fresh one
             assert method() == result()
         finally:
             del sys.modules['mod']
 
     def test_pickle_staticmethod(self):
+        self.skip_on_cpython()
         class myclass(object):
             def f():
                 return 42
             f = staticmethod(f)
         import pickle
-        method   = myclass.f
-        pckl     = pickle.dumps(method)
-        result   = pickle.loads(pckl)
+        method = myclass.f
+        pckl = pickle.dumps(method)
+        result = pickle.loads(pckl)
         assert method() == result()
 
     def test_pickle_classmethod(self):
@@ -230,6 +239,7 @@ class AppTestInterpObjectPickling:
             f = classmethod(f)
         import pickle, sys, types
         myclass.__module__ = 'mod'
+        myclass.__qualname__ = 'myclass'
         mod = types.ModuleType('mod')
         mod.myclass = myclass
         sys.modules['mod'] = mod
@@ -248,9 +258,9 @@ class AppTestInterpObjectPickling:
         test_pickle_tupleiter here, just this test.
         '''
         import pickle
-        liter  = iter([3,9,6,12,15,17,19,111])
+        liter = iter([3,9,6,12,15,17,19,111])
         next(liter)
-        pckl   = pickle.dumps(liter)
+        pckl = pickle.dumps(liter)
         result = pickle.loads(pckl)
         next(liter)
         next(result)
@@ -262,7 +272,7 @@ class AppTestInterpObjectPickling:
         import pickle
         liter  = reversed([3,9,6,12,15,17,19,111])
         next(liter)
-        pckl   = pickle.dumps(liter)
+        pckl = pickle.dumps(liter)
         result = pickle.loads(pckl)
         next(liter)
         next(result)
@@ -274,16 +284,14 @@ class AppTestInterpObjectPickling:
         import pickle
         iter = reversed([])
         raises(StopIteration, next, iter)
-        pckl   = pickle.dumps(iter)
+        pckl = pickle.dumps(iter)
         result = pickle.loads(pckl)
         raises(StopIteration, next, result)
 
-    # This test used to be marked xfail and it tried to test for the past
-    # support of pickling dictiter objects.
     def test_pickle_dictiter(self):
         import pickle
         tdict = {'2':2, '3':3, '5':5}
-        diter  = iter(tdict)
+        diter = iter(tdict)
         seen = next(diter)
         pckl = pickle.dumps(diter)
         result = pickle.loads(pckl)
@@ -311,7 +319,7 @@ class AppTestInterpObjectPickling:
         for it in (), IE():
             iter = reversed(it)
             raises(StopIteration, next, iter)
-            pckl   = pickle.dumps(iter)
+            pckl = pickle.dumps(iter)
             result = pickle.loads(pckl)
             raises(StopIteration, next, result)
 
@@ -320,7 +328,7 @@ class AppTestInterpObjectPickling:
         e = enumerate(range(100, 106))
         next(e)
         next(e)
-        pckl   = pickle.dumps(e)
+        pckl = pickle.dumps(e)
         result = pickle.loads(pckl)
         res = next(e)
         assert res == (2, 102)
@@ -356,11 +364,11 @@ class AppTestInterpObjectPickling:
             import pickle
             mod.giveme = giveme
             giveme.__module__ = mod
-            g1   = mod.giveme(10)
+            g1 = mod.giveme(10)
             #next(g1)
             #next(g1)
             pckl = pickle.dumps(g1)
-            g2   = pickle.loads(pckl)
+            g2 = pickle.loads(pckl)
             assert list(g1) == list(g2)
         finally:
             del sys.modules['mod']
@@ -380,11 +388,12 @@ class AppTestInterpObjectPickling:
             import pickle
             mod.giveme = giveme
             giveme.__module__ = mod
-            g1   = mod.giveme(10)
+            giveme.__qualname__ = 'giveme'
+            g1 = mod.giveme(10)
             next(g1)
             next(g1)
             pckl = pickle.dumps(g1)
-            g2   = pickle.loads(pckl)
+            g2 = pickle.loads(pckl)
             assert list(g1) == list(g2)
         finally:
             del sys.modules['mod']
@@ -401,15 +410,8 @@ class AppTestInterpObjectPickling:
         assert a_list == [1, 1]
         assert meth2.__self__ == [1, 2]
 
-    def test_pickle_builtin_method_unbound(self):
-        skip('we no longer have unbound methods in py3k: is this test still valid?')
-        unbound_meth = list.append
-        unbound_meth2 = pickle.loads(pickle.dumps(unbound_meth))
-        l = []
-        unbound_meth2(l, 1)
-        assert l == [1]
-
     def test_pickle_submodule(self):
+        self.skip_on_cpython()
         import pickle
         import sys, types
 
@@ -431,7 +433,9 @@ class AppTestInterpObjectPickling:
         sys.modules['mod'] = mod = types.ModuleType('mod')
         try:
             class MyDict(dict):
-                __module__ = 'mod'
+                pass
+            MyDict.__module__ = 'mod'
+            MyDict.__qualname__ = MyDict.__name__
             mod.MyDict = MyDict
             obj = MyDict()
             pckl = pickle.dumps(obj)
