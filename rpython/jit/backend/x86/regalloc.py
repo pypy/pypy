@@ -1428,6 +1428,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
 
     def consider_guard_not_forced_2(self, op):
         self.rm.before_call(op.getfailargs(), save_all_regs=True)
+        self.xrm.before_call(op.getfailargs(), save_all_regs=True)
         fail_locs = [self.loc(v) for v in op.getfailargs()]
         self.assembler.store_force_descr(op, fail_locs,
                                          self.fm.get_frame_depth())

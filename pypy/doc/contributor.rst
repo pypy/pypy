@@ -1,10 +1,3 @@
-Contributors to PyPy
-====================
-
-Here is a list of developers who have committed to the PyPy source
-code base, ordered by number of commits (which is certainly not a very
-appropriate measure but it's something)::
-
   Armin Rigo
   Maciej Fijalkowski
   Carl Friedrich Bolz
@@ -14,15 +7,15 @@ appropriate measure but it's something)::
   Matti Picus
   Alex Gaynor
   Philip Jenvey
-  Brian Kearns
   Ronan Lamy
+  Brian Kearns
   Michael Hudson
+  Richard Plangger
   Manuel Jacob
   David Schneider
   Holger Krekel
   Christian Tismer
   Hakan Ardo
-  Richard Plangger
   Benjamin Peterson
   Anders Chrigstrom
   Eric van Riet Paap
@@ -38,8 +31,8 @@ appropriate measure but it's something)::
   Niklaus Haldimann
   Camillo Bruni
   Laura Creighton
-  Toon Verwaest
   Romain Guillebert
+  Toon Verwaest
   Leonardo Santagada
   Seo Sanghyeon
   Ronny Pfannschmidt
@@ -59,10 +52,12 @@ appropriate measure but it's something)::
   Ludovic Aubry
   Jacob Hallen
   Jason Creighton
+  Mark Young
   Alex Martelli
   Michal Bendowski
   stian
   Jan de Mooij
+  Spenser Bauman
   Tyler Wade
   Vincent Legoll
   Michael Foord
@@ -71,19 +66,20 @@ appropriate measure but it's something)::
   Valentino Volonghi
   Tomek Meka
   Patrick Maupin
+  Devin Jeanpierre
   Bob Ippolito
   Bruno Gola
   David Malcolm
   Jean-Paul Calderone
-  Mark Young
+  Stefano Rivera
   Timo Paulssen
+  Edd Barrett
   Squeaky
-  Devin Jeanpierre
   Marius Gedminas
   Alexandre Fayolle
   Simon Burton
-  Stefano Rivera
   Martin Matusiak
+  Nicolas Truessel
   Konstantin Lopuhin
   Wenzhu Man
   John Witulski
@@ -93,13 +89,11 @@ appropriate measure but it's something)::
   Dario Bertini
   Mark Pearse
   Simon Cross
-  Edd Barrett
   Andreas Stührk
   Tobias Pape
   Jean-Philippe St. Pierre
   Guido van Rossum
   Pavel Vinogradov
-  Spenser Bauman
   Jeremy Thurgood
   Paweł Piotr Przeradowski
   Paul deGrandis
@@ -111,7 +105,6 @@ appropriate measure but it's something)::
   tav
   Taavi Burns
   Georg Brandl
-  Nicolas Truessel
   Bert Freudenberg
   Stian Andreassen
   Wanja Saatkamp
@@ -126,12 +119,12 @@ appropriate measure but it's something)::
   Preston Timmons
   David Ripton
   Jeff Terrace
+  Tim Felgentreff
   Dusty Phillips
   Lukas Renggli
   Guenter Jantzen
   William Leslie
   Ned Batchelder
-  Tim Felgentreff
   Anton Gulenko
   Amit Regmi
   Ben Young
@@ -159,6 +152,7 @@ appropriate measure but it's something)::
   Victor Stinner
   Andrews Medina
   Stuart Williams
+  Daniel Patrick
   Jasper Schulz
   Christian Hudon
   Toby Watson
@@ -283,6 +277,7 @@ appropriate measure but it's something)::
   Daniel Neuhäuser
   Ben Mather
   Niclas Olofsson
+  "Aaron Gallagher
   halgari
   Boglarka Vezer
   Chris Pressey
@@ -311,8 +306,10 @@ appropriate measure but it's something)::
   jiaaro
   Mads Kiilerich
   opassembler.py
+  JohnDoe
   Antony Lee
   Jason Madden
+  reubano@gmail.com
   Yaroslav Fedevych
   Jim Hunziker
   Markus Unterwaditzer
@@ -331,6 +328,7 @@ appropriate measure but it's something)::
   Michael Chermside
   Anna Ravencroft
   pizi
+  remarkablerocket
   Andrey Churin
   Dan Crosta
   Eli Stevens
@@ -339,3 +337,4 @@ appropriate measure but it's something)::
   Roman Podoliaka
   Dan Loewenherz
   werat
+  hgattic
