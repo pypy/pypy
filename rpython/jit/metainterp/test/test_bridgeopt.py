@@ -22,6 +22,7 @@ class FakeCPU(object):
 
 class FakeOptimizer(object):
     metainterp_sd = None
+    optheap = None
 
     def __init__(self, dct={}, cpu=None):
         self.dct = dct
@@ -37,6 +38,10 @@ class FakeOptimizer(object):
 class FakeClass(object):
     pass
 
+class FakeStorage(object):
+    def __init__(self, numb):
+        self.rd_numb = numb
+
 def test_simple():
     box1 = InputArgRef()
     box2 = InputArgRef()
@@ -50,16 +55,16 @@ def test_simple():
     numb_state.append_int(1) # vinfo
     liveboxes = [InputArgInt(), box2, box1, box3]
 
-    serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, None)
+    serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, {}, None)
 
-    assert numb_state.current[:numb_state._pos] == [1, 0b0100000]
+    assert numb_state.current[:numb_state._pos] == [1, 0b0100000, 0]
 
     rbox1 = InputArgRef()
     rbox2 = InputArgRef()
     rbox3 = InputArgRef()
     after_optimizer = FakeOptimizer(cpu=FakeCPU({rbox1: cls}))
     deserialize_optimizer_knowledge(
-        after_optimizer, numb_state.create_numbering(),
+        after_optimizer, FakeStorage(numb_state.create_numbering()),
         [InputArgInt(), rbox2, rbox1, rbox3], liveboxes)
     assert box1 in after_optimizer.constant_classes
     assert box2 not in after_optimizer.constant_classes
@@ -68,7 +73,7 @@ def test_simple():
 
 class TestOptBridge(LLJitMixin):
     # integration tests
-    def test_bridge(self):
+    def test_bridge_guard_class(self):
         myjitdriver = jit.JitDriver(greens=[], reds=['y', 'res', 'n', 'a'])
         class A(object):
             def f(self):
@@ -96,3 +101,50 @@ class TestOptBridge(LLJitMixin):
         assert res == f(6, 32, 16)
         self.check_trace_count(3)
         self.check_resops(guard_class=1)
+
+    def test_bridge_field_read(self):
+        myjitdriver = jit.JitDriver(greens=[], reds=['y', 'res', 'n', 'a'])
+        class A(object):
+            def f(self):
+                return 1
+        class B(A):
+            def f(self):
+                return 2
+        class M(object):
+            _immutable_fields_ = ['x']
+            def __init__(self, x):
+                self.x = x
+
+        m1 = M(1)
+        m2 = M(2)
+        def f(x, y, n):
+            if x:
+                a = A()
+                a.m = m1
+                a.n = n
+            else:
+                a = B()
+                a.m = m2
+                a.n = n
+            a.x = 0
+            res = 0
+            while y > 0:
+                myjitdriver.jit_merge_point(y=y, n=n, res=res, a=a)
+                n1 = a.n
+                m = jit.promote(a.m)
+                res += m.x
+                a.x += 1
+                if y > n:
+                    res += 1
+                m = jit.promote(a.m)
+                res += m.x
+                res += n1 + a.n
+                y -= 1
+            return res
+        res = self.meta_interp(f, [6, 32, 16])
+        assert res == f(6, 32, 16)
+        self.check_trace_count(3)
+        self.check_resops(guard_value=1)
+        self.check_resops(getfield_gc_i=4) # 3x a.x, 1x a.n
+        self.check_resops(getfield_gc_r=1) # in main loop
+

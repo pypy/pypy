@@ -15,9 +15,43 @@ from rpython.jit.metainterp.resumecode import numb_next_item, numb_next_n_items,
 #            (the class is found by actually looking at the runtime value)
 #            the bits are bunched in bunches of 7
 #
+# ---- heap knowledge
+# <length>
+# (<box1> <descr> <box2>) length times, if getfield(box1, descr) == box2
+#                         both boxes should be in the liveboxes
+#
 # ----
 
-def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, memo):
+def tag_box(box, liveboxes_from_env, memo):
+    from rpython.jit.metainterp.history import Const
+    # XXX bit of code duplication (but it's a subset)
+    if isinstance(box, Const):
+        return memo.getconst(box)
+    else:
+        return liveboxes_from_env[box] # has to exist
+
+def decode_box(resumestorage, tagged, liveboxes, cpu):
+    from rpython.jit.metainterp.resume import untag, TAGCONST, TAGINT, TAGBOX
+    from rpython.jit.metainterp.resume import NULLREF, TAG_CONST_OFFSET, tagged_eq
+    from rpython.jit.metainterp.history import ConstInt
+    num, tag = untag(tagged)
+    if tag == TAGCONST:
+        if tagged_eq(tagged, NULLREF):
+            box = cpu.ts.CONST_NULL
+        else:
+            box = resumestorage.rd_consts[num - TAG_CONST_OFFSET]
+    elif tag == TAGINT:
+        box = ConstInt(num)
+    elif tag == TAGBOX:
+        box = liveboxes[num]
+    else:
+        raise AssertionError("unreachable")
+    return box
+
+def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, liveboxes_from_env, memo):
+    liveboxes_set = set(liveboxes)
+    metainterp_sd = optimizer.metainterp_sd
+
     numb_state.grow(len(liveboxes)) # bit too much
     # class knowledge
     bitfield = 0
@@ -36,9 +70,26 @@ def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, memo):
     if shifts:
         numb_state.append_int(bitfield << (7 - shifts))
 
-def deserialize_optimizer_knowledge(optimizer, numb, runtime_boxes, liveboxes):
+    # heap knowledge
+    if optimizer.optheap:
+        triples = optimizer.optheap.serialize_optheap(liveboxes_set)
+        numb_state.grow(len(triples) * 3 + 1)
+        numb_state.append_int(len(triples))
+        for box1, descr, box2 in triples:
+            numb_state.append_short(tag_box(box1, liveboxes_from_env, memo))
+            numb_state.append_int(metainterp_sd.descrs_dct[descr])
+            numb_state.append_short(tag_box(box2, liveboxes_from_env, memo))
+    else:
+        numb_state.grow(1)
+        numb_state.append_int(0)
+
+def deserialize_optimizer_knowledge(optimizer, resumestorage, runtime_boxes, liveboxes):
+    numb = resumestorage.rd_numb
+    metainterp_sd = optimizer.metainterp_sd
+
     # skip resume section
     index = skip_resume_section(numb, optimizer)
+
     # class knowledge
     bitfield = 0
     mask = 0
@@ -53,6 +104,20 @@ def deserialize_optimizer_knowledge(optimizer, numb, runtime_boxes, liveboxes):
         if class_known:
             cls = optimizer.cpu.ts.cls_of_box(runtime_boxes[i])
             optimizer.make_constant_class(box, cls)
+
+    # heap knowledge
+    length, index = numb_next_item(numb, index)
+    result = []
+    for i in range(length):
+        tagged, index = numb_next_item(numb, index)
+        box1 = decode_box(resumestorage, tagged, liveboxes, metainterp_sd.cpu)
+        tagged, index = numb_next_item(numb, index)
+        descr = metainterp_sd.opcode_descrs[tagged]
+        tagged, index = numb_next_item(numb, index)
+        box2 = decode_box(resumestorage, tagged, liveboxes, metainterp_sd.cpu)
+        result.append((box1, descr, box2))
+    if optimizer.optheap:
+        optimizer.optheap.deserialize_optheap(result)
 
 def skip_resume_section(numb, optimizer):
     startcount, index = numb_next_item(numb, 0)

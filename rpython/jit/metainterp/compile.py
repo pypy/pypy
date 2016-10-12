@@ -102,7 +102,7 @@ class BridgeCompileData(CompileData):
                                    self.call_pure_results,
                                    self.inline_short_preamble,
                                    self.box_names_memo,
-                                   self.resumestorage.rd_numb)
+                                   self.resumestorage)
 
 class UnrolledLoopData(CompileData):
     """ This represents label() ops jump with extra info that's from the
