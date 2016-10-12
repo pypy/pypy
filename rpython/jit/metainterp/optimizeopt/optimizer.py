@@ -27,6 +27,9 @@ REMOVED = AbstractResOp()
 class LoopInfo(object):
     label_op = None
 
+    def forget_optimization_info(self):
+        pass
+
 class BasicLoopInfo(LoopInfo):
     def __init__(self, inputargs, quasi_immutable_deps, jump_op):
         self.inputargs = inputargs
@@ -561,7 +564,8 @@ class Optimizer(Optimization):
         return (BasicLoopInfo(trace.inputargs, self.quasi_immutable_deps, last_op),
                 self._newoperations)
 
-    def _clean_optimization_info(self, lst):
+    @staticmethod
+    def _clean_optimization_info(lst):
         for op in lst:
             if op.get_forwarded() is not None:
                 op.set_forwarded(None)

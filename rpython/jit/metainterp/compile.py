@@ -126,6 +126,10 @@ class UnrolledLoopData(CompileData):
         return opt.optimize_peeled_loop(self.trace, self.celltoken, self.state,
             self.call_pure_results, self.inline_short_preamble)
 
+    def forget_optimization_info(self):
+        self.state.forget_optimization_info()
+        CompileData.forget_optimization_info(self)
+
 def show_procedures(metainterp_sd, procedure=None, error=None):
     # debugging
     if option and (option.view or option.viewloops):
@@ -515,7 +519,7 @@ def forget_optimization_info(lst, reset_values=False):
     for item in lst:
         item.set_forwarded(None)
         # XXX we should really do it, but we need to remember the values
-        #     somehoe for ContinueRunningNormally
+        #     somehow for ContinueRunningNormally
         if reset_values:
             item.reset_value()
 

@@ -462,7 +462,6 @@ class UnrollOptimizer(Optimization):
             op = produced_op.short_op.res
             if not isinstance(op, Const):
                 self._expand_info(op, infos)
-        self.optimizer._clean_optimization_info(end_args)
         return ExportedState(label_args, end_args, virtual_state, infos,
                              short_boxes, renamed_inputargs,
                              short_inputargs, runtime_boxes, memo)
@@ -472,6 +471,7 @@ class UnrollOptimizer(Optimization):
         # to actually emit. Update the info
         assert (len(exported_state.next_iteration_args) ==
                 len(targetargs))
+        exported_state._check_no_forwarding(self)
         for i, target in enumerate(exported_state.next_iteration_args):
             source = targetargs[i]
             assert source is not target
@@ -542,6 +542,7 @@ class ExportedState(LoopInfo):
         self.short_inputargs = short_inputargs
         self.runtime_boxes = runtime_boxes
         self.dump(memo)
+        self.forget_optimization_info()
 
     def dump(self, memo):
         if have_debug_prints():
@@ -550,6 +551,33 @@ class ExportedState(LoopInfo):
             for box in self.short_boxes:
                 debug_print("  " + box.repr(memo))
             debug_stop("jit-log-exported-state")
+
+    def _check_no_forwarding(self, optimizer):
+        """ Ensures that no optimization state is attached to relevant operations
+        before importing anything. """
+        shortops = [pop.short_op.res for pop in self.short_boxes]
+        optimizer._check_no_forwarding([
+            self.end_args, self.next_iteration_args, self.renamed_inputargs,
+            self.short_inputargs, shortops, self.exported_infos.keys()])
+
+    def forget_optimization_info(self):
+        """ Clean up optimization info on all operations stored in the ExportedState.
+
+        This function needs to be called when exporting the optimizer state to
+        prevent leaking of optimization information between invocations of the
+        optimizer.
+
+        That includes cleaning up in the event that optimize_peeled_loop() fails
+        with an InvalidLoop exception, as optimize_peeled_loop() mutates the
+        contents of ExportedState.
+        """
+        # These first two may be subsumed by clearing self.exported_infos
+        # but I am not 100% certain
+        Optimizer._clean_optimization_info(self.end_args)
+        Optimizer._clean_optimization_info(self.next_iteration_args)
+        Optimizer._clean_optimization_info(self.renamed_inputargs)
+        Optimizer._clean_optimization_info(self.short_inputargs)
+        Optimizer._clean_optimization_info(self.exported_infos.keys())
 
     def final(self):
         return False
