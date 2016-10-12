@@ -285,6 +285,7 @@ class Optimizer(Optimization):
         self.optrewrite = None
         self.optearlyforce = None
         self.optunroll = None
+        self._really_emitted_operation = None
 
         self._last_guard_op = None
 

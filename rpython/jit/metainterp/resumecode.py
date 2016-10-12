@@ -1,6 +1,8 @@
 
 """ Resume bytecode. It goes as following:
 
+  # ----- resume section
+  [total size of resume section, unencoded]
   [<length> <virtualizable object> <numb> <numb> <numb>]    if vinfo is not None
    -OR-
   [1 <ginfo object>]                                        if ginfo is not None
@@ -13,7 +15,10 @@
   [<pc> <jitcode> <numb> <numb>]
   ...
 
-  until the length of the array.
+  until the size of the resume section
+
+  # ----- optimization section
+  <more code>                                      further sections according to bridgeopt.py
 """
 
 from rpython.rtyper.lltypesystem import rffi, lltype

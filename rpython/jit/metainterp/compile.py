@@ -85,13 +85,14 @@ class BridgeCompileData(CompileData):
     """ This represents ops() with a jump at the end that goes to some
     loop, we need to deal with virtual state and inlining of short preamble
     """
-    def __init__(self, trace, runtime_boxes, call_pure_results=None,
+    def __init__(self, trace, runtime_boxes, key, call_pure_results=None,
                  enable_opts=None, inline_short_preamble=False):
         self.trace = trace
         self.runtime_boxes = runtime_boxes
         self.call_pure_results = call_pure_results
         self.enable_opts = enable_opts
         self.inline_short_preamble = inline_short_preamble
+        self.resumestorage = key
 
     def optimize(self, metainterp_sd, jitdriver_sd, optimizations, unroll):
         from rpython.jit.metainterp.optimizeopt.unroll import UnrollOptimizer
@@ -100,7 +101,8 @@ class BridgeCompileData(CompileData):
         return opt.optimize_bridge(self.trace, self.runtime_boxes,
                                    self.call_pure_results,
                                    self.inline_short_preamble,
-                                   self.box_names_memo)
+                                   self.box_names_memo,
+                                   self.resumestorage.rd_numb)
 
 class UnrolledLoopData(CompileData):
     """ This represents label() ops jump with extra info that's from the
@@ -1068,7 +1070,11 @@ def compile_trace(metainterp, resumekey, runtime_boxes):
     call_pure_results = metainterp.call_pure_results
 
     if metainterp.history.ends_with_jump:
-        data = BridgeCompileData(trace, runtime_boxes,
+        if isinstance(resumekey, ResumeGuardCopiedDescr):
+            key = resumekey.prev
+        else:
+            key = resumekey
+        data = BridgeCompileData(trace, runtime_boxes, key,
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts,
                                  inline_short_preamble=inline_short_preamble)

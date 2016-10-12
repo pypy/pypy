@@ -237,9 +237,13 @@ class UnrollOptimizer(Optimization):
         return label_vs
 
     def optimize_bridge(self, trace, runtime_boxes, call_pure_results,
-                        inline_short_preamble, box_names_memo):
+                        inline_short_preamble, box_names_memo, numb):
+        from rpython.jit.metainterp.optimizeopt.bridgeopt import deserialize_optimizer_knowledge
         trace = trace.get_iter()
         self._check_no_forwarding([trace.inputargs])
+        deserialize_optimizer_knowledge(self.optimizer,
+                                        numb, runtime_boxes,
+                                        trace.inputargs)
         info, ops = self.optimizer.propagate_all_forward(trace,
             call_pure_results, False)
         jump_op = info.jump_op

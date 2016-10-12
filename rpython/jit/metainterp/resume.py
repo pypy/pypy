@@ -165,7 +165,8 @@ TAG_CONST_OFFSET = 0
 class NumberingState(object):
     def __init__(self, size):
         self.liveboxes = {}
-        self.current = [rffi.cast(rffi.SHORT, 0)] * size
+        self.current = []
+        self.grow(size)
         self._pos = 0
         self.num_boxes = 0
         self.num_virtuals = 0
@@ -180,7 +181,16 @@ class NumberingState(object):
         return self.append_short(short)
 
     def create_numbering(self):
-        return resumecode.create_numbering(self.current)
+        return resumecode.create_numbering(self.current[:self._pos])
+
+    def grow(self, size):
+        self.current.extend([rffi.cast(rffi.SHORT, 0)] * size)
+
+    def patch_current_size(self, index):
+        item = self._pos
+        short = rffi.cast(rffi.SHORT, item)
+        assert rffi.cast(lltype.Signed, short) == item
+        self.current[index] = item
 
 class ResumeDataLoopMemo(object):
 
@@ -268,6 +278,7 @@ class ResumeDataLoopMemo(object):
     def number(self, optimizer, position, trace):
         snapshot_iter = trace.get_snapshot_iter(position)
         numb_state = NumberingState(snapshot_iter.size)
+        numb_state.append_int(-1) # patch later
 
         arr = snapshot_iter.vable_array
 
@@ -287,6 +298,7 @@ class ResumeDataLoopMemo(object):
             numb_state.append_int(pc)
             self._number_boxes(
                     snapshot_iter, snapshot.box_array, optimizer, numb_state)
+        numb_state.patch_current_size(0)
 
         return numb_state
 
@@ -471,6 +483,7 @@ class ResumeDataVirtualAdder(VirtualVisitor):
         self._number_virtuals(liveboxes, optimizer, num_virtuals)
         self._add_pending_fields(optimizer, pending_setfields)
 
+        self._add_optimizer_sections(numb_state, liveboxes)
         storage.rd_numb = numb_state.create_numbering()
         storage.rd_consts = self.memo.consts
         return liveboxes[:]
@@ -589,6 +602,11 @@ class ResumeDataVirtualAdder(VirtualVisitor):
             if box in self.liveboxes_from_env:
                 return self.liveboxes_from_env[box]
             return self.liveboxes[box]
+
+    def _add_optimizer_sections(self, numb_state, liveboxes):
+        # add extra information about things the optimizer learned
+        from rpython.jit.metainterp.optimizeopt.bridgeopt import serialize_optimizer_knowledge
+        serialize_optimizer_knowledge(self.optimizer, numb_state, liveboxes, self.memo)
 
 class AbstractVirtualInfo(object):
     kind = REF
@@ -932,7 +950,11 @@ class AbstractResumeDataReader(object):
     def _init(self, cpu, storage):
         self.cpu = cpu
         self.numb = storage.rd_numb
-        self.cur_index = 0
+        count, self.cur_index = resumecode.numb_next_item(
+            self.numb, 0)
+        # XXX inefficient
+        self.size_resume_section = resumecode.numb_next_n_items(
+            self.numb, count, 0)
         self.count = storage.rd_count
         self.consts = storage.rd_consts
 
@@ -948,7 +970,7 @@ class AbstractResumeDataReader(object):
         return jitcode_pos, pc
 
     def done_reading(self):
-        return self.cur_index >= len(self.numb.code)
+        return self.cur_index >= self.size_resume_section
 
     def getvirtual_ptr(self, index):
         # Returns the index'th virtual, building it lazily if needed.
@@ -1057,6 +1079,7 @@ def rebuild_from_resumedata(metainterp, storage, deadframe,
     boxes = resumereader.consume_vref_and_vable_boxes(virtualizable_info,
                                                       greenfield_info)
     virtualizable_boxes, virtualref_boxes = boxes
+
     while not resumereader.done_reading():
         jitcode_pos, pc = resumereader.read_jitcode_pos_pc()
         jitcode = metainterp.staticdata.jitcodes[jitcode_pos]
@@ -1110,7 +1133,7 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         return lst, index
 
     def consume_vref_and_vable_boxes(self, vinfo, ginfo):
-        vable_size, index = resumecode.numb_next_item(self.numb, 0)
+        vable_size, index = resumecode.numb_next_item(self.numb, self.cur_index)
         if vinfo is not None:
             virtualizable_boxes, index = self.consume_virtualizable_boxes(vinfo,
                                                                           index)
@@ -1443,7 +1466,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
     load_value_of_type._annspecialcase_ = 'specialize:arg(1)'
 
     def consume_vref_and_vable(self, vrefinfo, vinfo, ginfo):
-        vable_size, index = resumecode.numb_next_item(self.numb, 0)
+        vable_size, index = resumecode.numb_next_item(self.numb, self.cur_index)
         if self.resume_after_guard_not_forced != 2:
             if vinfo is not None:
                 index = self.consume_vable_info(vinfo, index)

@@ -289,7 +289,8 @@ def _next_section(reader, *expected):
     assert bh.written_f == expected_f
 
 
-Numbering = create_numbering
+def Numbering(l):
+    return create_numbering([len(l)] + l) # prefix index to the end of thing
 
 def tagconst(i):
     return tag(i + TAG_CONST_OFFSET, TAGCONST)
@@ -362,7 +363,7 @@ def test_prepare_virtuals():
             return s
     class FakeStorage(object):
         rd_virtuals = [FakeVinfo(), None]
-        rd_numb = []
+        rd_numb = Numbering([])
         rd_consts = []
         rd_pendingfields = None
         rd_count = 0
@@ -858,7 +859,7 @@ def test_ResumeDataLoopMemo_number():
     base = [0, 0, tag(0, TAGBOX), tag(1, TAGINT),
             tag(1, TAGBOX), tag(0, TAGBOX), tag(2, TAGINT)]
 
-    assert unpack_numbering(numb) == [0, 0] + base + [0, 2, tag(3, TAGINT), tag(2, TAGBOX),
+    assert unpack_numbering(numb) == [16, 0, 0] + base + [0, 2, tag(3, TAGINT), tag(2, TAGBOX),
                                       tag(0, TAGBOX), tag(1, TAGINT)]
     t.append(0)
     snap2 = t.create_top_snapshot(FakeJitCode("jitcode", 0), 2, Frame(env2),
@@ -872,7 +873,7 @@ def test_ResumeDataLoopMemo_number():
     assert numb_state2.liveboxes == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX),
                                      b3: tag(2, TAGBOX)}
     assert numb_state2.liveboxes is not numb_state.liveboxes
-    assert unpack_numbering(numb2) == [0, 0] + base + [0, 2, tag(3, TAGINT), tag(2, TAGBOX),
+    assert unpack_numbering(numb2) == [16, 0, 0] + base + [0, 2, tag(3, TAGINT), tag(2, TAGBOX),
                                        tag(0, TAGBOX), tag(3, TAGINT)]
 
     t.append(0)
@@ -894,7 +895,7 @@ def test_ResumeDataLoopMemo_number():
     assert numb_state3.num_virtuals == 0
     
     assert numb_state3.liveboxes == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX)}
-    assert unpack_numbering(numb3) == ([0, 2, tag(3, TAGINT), tag(4, TAGINT),
+    assert unpack_numbering(numb3) == ([16, 0, 2, tag(3, TAGINT), tag(4, TAGINT),
                                        tag(0, TAGBOX), tag(3, TAGINT)] +
                                        base + [0, 2])
 
@@ -911,7 +912,7 @@ def test_ResumeDataLoopMemo_number():
     
     assert numb_state4.liveboxes == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX),
                                      b4: tag(0, TAGVIRTUAL)}
-    assert unpack_numbering(numb4) == [0, 2, tag(3, TAGINT), tag(0, TAGVIRTUAL),
+    assert unpack_numbering(numb4) == [16, 0, 2, tag(3, TAGINT), tag(0, TAGVIRTUAL),
                                        tag(0, TAGBOX), tag(3, TAGINT)] + base + [0, 2]
 
     t.append(0)
@@ -930,7 +931,7 @@ def test_ResumeDataLoopMemo_number():
 
     assert numb_state5.liveboxes == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX),
                                      b4: tag(0, TAGVIRTUAL), b5: tag(1, TAGVIRTUAL)}
-    assert unpack_numbering(numb5) == [
+    assert unpack_numbering(numb5) == [21,
         3, tag(0, TAGBOX), tag(0, TAGVIRTUAL), tag(1, TAGVIRTUAL),
         0] + base + [
         2, 1, tag(3, TAGINT), tag(0, TAGVIRTUAL), tag(0, TAGBOX), tag(3, TAGINT)
@@ -949,15 +950,16 @@ def test_ResumeDataLoopMemo_random(lst):
     numb_state = memo.number(FakeOptimizer(), 0, i)
     numb = numb_state.create_numbering()
     l = unpack_numbering(numb)
-    assert l[0] == 0
+    assert l[0] == len(l)
     assert l[1] == 0
     assert l[2] == 0
     assert l[3] == 0
+    assert l[4] == 0
     mapping = dict(zip(inpargs, i.inputargs))
     for i, item in enumerate(lst):
-        v, tag = untag(l[i + 4])
+        v, tag = untag(l[i + 5])
         if tag == TAGBOX:
-            assert l[i + 4] == numb_state.liveboxes[mapping[item]]
+            assert l[i + 5] == numb_state.liveboxes[mapping[item]]
         elif tag == TAGCONST:
             assert memo.consts[v].getint() == item.getint()
         elif tag == TAGINT:
@@ -1228,7 +1230,7 @@ def test_virtual_adder_make_virtual():
     liveboxes = []
     modifier._number_virtuals(liveboxes, FakeOptimizer(), 0)
     storage.rd_consts = memo.consts[:]
-    storage.rd_numb = None
+    storage.rd_numb = Numbering([])
     # resume
     b3t, b5t = [IntFrontendOp(0), RefFrontendOp(0)]
     b5t.setref_base(demo55o)
@@ -1299,7 +1301,7 @@ def test_virtual_adder_make_varray():
     modifier._number_virtuals(liveboxes, FakeOptimizer(), 0)
     dump_storage(storage, liveboxes)
     storage.rd_consts = memo.consts[:]
-    storage.rd_numb = None
+    storage.rd_numb = Numbering([])
     # resume
     b1t, b3t, b4t = [IntFrontendOp(0), IntFrontendOp(0), IntFrontendOp(0)]
     b1t.setint(11)
@@ -1352,7 +1354,7 @@ def test_virtual_adder_make_vstruct():
     modifier._number_virtuals(liveboxes, FakeOptimizer(), 0)
     dump_storage(storage, liveboxes)
     storage.rd_consts = memo.consts[:]
-    storage.rd_numb = None
+    storage.rd_numb = Numbering([])
     b4t = RefFrontendOp(0)
     newboxes = _resume_remap(liveboxes, [#b2s -- virtual
                                          b4s], b4t)
@@ -1398,7 +1400,7 @@ def test_virtual_adder_pending_fields():
     modifier._add_pending_fields(FakeOptimizer(), [
         ResOperation(rop.SETFIELD_GC, [b2s, b4s], descr=LLtypeMixin.nextdescr)])
     storage.rd_consts = memo.consts[:]
-    storage.rd_numb = None
+    storage.rd_numb = Numbering([])
     # resume
     demo55.next = lltype.nullptr(LLtypeMixin.NODE)
     b2t = RefFrontendOp(0)
