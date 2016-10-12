@@ -187,8 +187,9 @@ def _get_module_lock(name):
             lock = _DummyModuleLock(name)
         else:
             lock = _ModuleLock(name)
-        def cb(_):
-            del _module_locks[name]
+        def cb(wr):
+            if _module_locks.get(name) is wr:    # XXX PyPy fix?
+                del _module_locks[name]
         _module_locks[name] = _weakref.ref(lock, cb)
     return lock
 
