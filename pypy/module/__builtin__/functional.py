@@ -370,7 +370,7 @@ class W_ReversedIterator(W_Root):
         else:
             return space.newtuple([
                 space.type(self),
-                space.newtuple([])])
+                space.newtuple([space.newtuple([])])])
 
     def descr___setstate__(self, space, w_state):
         self.remaining = space.int_w(w_state)
