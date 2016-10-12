@@ -244,9 +244,9 @@ class AppTestInterpObjectPickling:
         mod.myclass = myclass
         sys.modules['mod'] = mod
         try:
-            method   = myclass.f
-            pckl     = pickle.dumps(method)
-            result   = pickle.loads(pckl)
+            method = myclass.f
+            pckl = pickle.dumps(method)
+            result = pickle.loads(pckl)
             assert method() == result()
         finally:
             del sys.modules['mod']

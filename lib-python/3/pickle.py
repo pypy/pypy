@@ -1008,7 +1008,6 @@ class _Pickler:
             return self.save_reduce(type, (...,), obj=obj)
         return self.save_global(obj)
 
-    dispatch[FunctionType] = save_global
     dispatch[type] = save_type
 
 
