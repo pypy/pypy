@@ -471,6 +471,7 @@ class UnrollOptimizer(Optimization):
         # to actually emit. Update the info
         assert (len(exported_state.next_iteration_args) ==
                 len(targetargs))
+        self._check_no_forwarding([targetargs])
         exported_state._check_no_forwarding(self)
         for i, target in enumerate(exported_state.next_iteration_args):
             source = targetargs[i]
