@@ -850,6 +850,7 @@ class _Pickler:
 
     def _pickle_maybe_moduledict(self, obj):
         # save module dictionary as "getattr(module, '__dict__')"
+        from types import ModuleType
         try:
             name = obj['__name__']
             if type(name) is not str:
@@ -1008,7 +1009,6 @@ class _Pickler:
             return self.save_reduce(type, (...,), obj=obj)
         return self.save_global(obj)
 
-    dispatch[FunctionType] = save_global
     dispatch[type] = save_type
 
 

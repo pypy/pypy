@@ -47,20 +47,16 @@ class GeneratorOrCoroutine(W_Root):
 
     def descr__reduce__(self, space):
         from pypy.interpreter.mixedmodule import MixedModule
-        w_mod    = space.getbuiltinmodule('_pickle_support')
-        mod      = space.interp_w(MixedModule, w_mod)
+        w_mod = space.getbuiltinmodule('_pickle_support')
+        mod = space.interp_w(MixedModule, w_mod)
         new_inst = mod.get(self.KIND + '_new')
-        w        = space.wrap
+        w = space.wrap
         if self.frame:
             w_frame = self.frame._reduce_state(space)
         else:
             w_frame = space.w_None
 
-        tup = [
-            w_frame,
-            w(self.running),
-            ]
-
+        tup = [w_frame, w(self.running)]
         return space.newtuple([new_inst, space.newtuple([]),
                                space.newtuple(tup)])
 
@@ -72,6 +68,8 @@ class GeneratorOrCoroutine(W_Root):
             self.frame = None
             self.space = space
             self.pycode = None
+            self._name = None
+            self._qualname = None
         else:
             frame = instantiate(space.FrameClass)   # XXX fish
             frame.descr__setstate__(space, w_framestate)

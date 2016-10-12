@@ -244,9 +244,9 @@ class AppTestInterpObjectPickling:
         mod.myclass = myclass
         sys.modules['mod'] = mod
         try:
-            method   = myclass.f
-            pckl     = pickle.dumps(method)
-            result   = pickle.loads(pckl)
+            method = myclass.f
+            pckl = pickle.dumps(method)
+            result = pickle.loads(pckl)
             assert method() == result()
         finally:
             del sys.modules['mod']
@@ -351,6 +351,7 @@ class AppTestInterpObjectPickling:
         assert list(result) == [2,3,4]
 
     def test_pickle_generator(self):
+        self.skip_on_cpython()
         import types
         mod = types.ModuleType('mod')
         import sys
@@ -374,6 +375,7 @@ class AppTestInterpObjectPickling:
             del sys.modules['mod']
 
     def test_pickle_generator_blk(self):
+        self.skip_on_cpython()
         # same as above but with the generator inside a block
         import types
         mod = types.ModuleType('mod')
@@ -446,6 +448,7 @@ class AppTestInterpObjectPickling:
 
 
     def test_pickle_generator_crash(self):
+        self.skip_on_cpython()
         import pickle
 
         def f():
