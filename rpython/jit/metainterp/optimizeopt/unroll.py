@@ -350,9 +350,6 @@ class UnrollOptimizer(Optimization):
                 self.optimizer.metainterp_sd.logger_ops.log_short_preamble([],
                     short_preamble, {})
                 raise
-            except InvalidLoop:
-                assert force_boxes
-                raise
 
             self.send_extra_operation(jump_op.copy_and_change(rop.JUMP,
                                       args=args + extra,
