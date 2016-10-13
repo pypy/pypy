@@ -671,6 +671,10 @@ class UnicodeTest(string_tests.CommonTest,
                    '\U000104A0', '\U0001F107']:
             self.assertTrue(ch.isnumeric(), '{!a} is numeric.'.format(ch))
 
+    def test_format_c_overflow(self):
+        raises(OverflowError, b'{0:c}'.format, -1)
+        raises(OverflowError, b'{0:c}'.format, 2**64)
+
     def test_isidentifier(self):
         self.assertTrue("a".isidentifier())
         self.assertTrue("Z".isidentifier())
