@@ -734,7 +734,7 @@ class Optimizer(Optimization):
         modifier = resume.ResumeDataVirtualAdder(self, descr, op, self.trace,
                                                  self.resumedata_memo)
         try:
-            newboxes = modifier.finish(self, pendingfields)
+            newboxes = modifier.finish(pendingfields)
             if (newboxes is not None and
                 len(newboxes) > self.metainterp_sd.options.failargs_limit):
                 raise resume.TagOverflow
