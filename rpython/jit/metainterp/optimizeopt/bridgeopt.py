@@ -49,9 +49,10 @@ def decode_box(resumestorage, tagged, liveboxes, cpu):
     return box
 
 def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, liveboxes_from_env, memo):
-    liveboxes_set = set(liveboxes)
-    if None in liveboxes_set:
-        liveboxes_set.remove(None)
+    liveboxes_set = {}
+    for box in liveboxes:
+        if box is not None:
+            liveboxes_set[box] = None
     metainterp_sd = optimizer.metainterp_sd
 
     numb_state.grow(len(liveboxes)) # bit too much
@@ -78,8 +79,11 @@ def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, liveboxes_fr
         numb_state.grow(len(triples) * 3 + 1)
         numb_state.append_int(len(triples))
         for box1, descr, box2 in triples:
+            index = metainterp_sd.descrs_dct.get(descr, -1)
+            if index == -1:
+                continue # just skip it, if the descr is not encodable
             numb_state.append_short(tag_box(box1, liveboxes_from_env, memo))
-            numb_state.append_int(metainterp_sd.descrs_dct[descr])
+            numb_state.append_int(index)
             numb_state.append_short(tag_box(box2, liveboxes_from_env, memo))
     else:
         numb_state.grow(1)

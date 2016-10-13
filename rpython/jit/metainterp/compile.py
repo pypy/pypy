@@ -85,14 +85,14 @@ class BridgeCompileData(CompileData):
     """ This represents ops() with a jump at the end that goes to some
     loop, we need to deal with virtual state and inlining of short preamble
     """
-    def __init__(self, trace, runtime_boxes, key, call_pure_results=None,
+    def __init__(self, trace, runtime_boxes, resumestorage=None, call_pure_results=None,
                  enable_opts=None, inline_short_preamble=False):
         self.trace = trace
         self.runtime_boxes = runtime_boxes
         self.call_pure_results = call_pure_results
         self.enable_opts = enable_opts
         self.inline_short_preamble = inline_short_preamble
-        self.resumestorage = key
+        self.resumestorage = resumestorage
 
     def optimize(self, metainterp_sd, jitdriver_sd, optimizations, unroll):
         from rpython.jit.metainterp.optimizeopt.unroll import UnrollOptimizer
@@ -1072,10 +1072,12 @@ def compile_trace(metainterp, resumekey, runtime_boxes):
     if metainterp.history.ends_with_jump:
         if isinstance(resumekey, ResumeGuardCopiedDescr):
             key = resumekey.prev
+            assert isinstance(key, ResumeGuardDescr)
         elif isinstance(resumekey, ResumeFromInterpDescr):
             key = None
         else:
             key = resumekey
+            assert isinstance(key, ResumeGuardDescr)
         data = BridgeCompileData(trace, runtime_boxes, key,
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts,
