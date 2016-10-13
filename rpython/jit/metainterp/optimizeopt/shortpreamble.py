@@ -5,6 +5,7 @@ from rpython.jit.metainterp.resoperation import ResOperation, OpHelpers,\
      rop, AbstractResOp, AbstractInputArg
 from rpython.jit.metainterp.history import Const, make_hashable_int,\
      TreeLoop
+from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt import info
 
 class PreambleOp(AbstractResOp):
@@ -494,16 +495,23 @@ class ExtendedShortPreambleBuilder(AbstractShortPreambleBuilder):
         self.sb = sb
         self.extra_same_as = self.sb.extra_same_as
         self.target_token = target_token
+        self.build_inplace = False
 
     def setup(self, jump_args, short, label_args):
         self.jump_args = jump_args
         self.short = short
         self.label_args = label_args
+        self.build_inplace = True
 
     def add_preamble_op(self, preamble_op):
         """ Notice that we're actually using the preamble_op, add it to
         label and jump
         """
+        # Could this be considered a speculative error?
+        # This check should only fail when trying to jump to an existing trace
+        # by forcing portions of the virtualstate.
+        if not self.build_inplace:
+            raise InvalidLoop("Forcing boxes would modify an existing short preamble")
         op = preamble_op.op.get_box_replacement()
         if preamble_op.invented_name:
             self.extra_same_as.append(op)
