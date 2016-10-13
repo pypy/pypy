@@ -35,7 +35,7 @@ class UnrollableOptimizer(Optimizer):
 
     def setinfo_from_preamble_list(self, lst, infos):
         for item in lst:
-            if item is None:
+            if item is None or isinstance(item, Const):
                 continue
             i = infos.get(item, None)
             if i is not None:
