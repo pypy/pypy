@@ -187,7 +187,7 @@ class W_BytearrayObject(W_Root):
     @unwrap_spec(encoding='str_or_None', errors='str_or_None')
     def descr_init(self, space, w_source=None, encoding=None, errors=None):
         assert isinstance(self, W_BytearrayObject)
-        data = newbytesdata_w(space, w_source, encoding, errors)
+        data = [c for c in newbytesdata_w(space, w_source, encoding, errors)]
         self.data = resizable_list_supporting_raw_ptr(data)
 
     def descr_repr(self, space):
