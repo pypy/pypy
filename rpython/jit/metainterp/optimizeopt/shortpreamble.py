@@ -81,13 +81,13 @@ class HeapOp(AbstractShortOp):
         descr = self.getfield_op.getdescr()
         if rop.is_getfield(g.opnum):
             cf = optheap.field_cache(descr)
-            opinfo.setfield(preamble_op.getdescr(), self.res, pop,
+            opinfo.setfield(preamble_op.getdescr(), g.getarg(0), pop,
                             optheap, cf)
         else:
             index = g.getarg(1).getint()
             assert index >= 0
             cf = optheap.arrayitem_cache(descr, index)
-            opinfo.setitem(self.getfield_op.getdescr(), index, self.res,
+            opinfo.setitem(self.getfield_op.getdescr(), index, g.getarg(0),
                            pop, optheap, cf)
 
     def repr(self, memo):
