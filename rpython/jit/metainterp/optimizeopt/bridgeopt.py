@@ -51,7 +51,7 @@ def decode_box(resumestorage, tagged, liveboxes, cpu):
 def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, liveboxes_from_env, memo):
     liveboxes_set = {}
     for box in liveboxes:
-        if box is not None:
+        if box is not None and box in liveboxes_from_env:
             liveboxes_set[box] = None
     metainterp_sd = optimizer.metainterp_sd
 
