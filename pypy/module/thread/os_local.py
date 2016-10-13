@@ -13,6 +13,7 @@ class WRefShrinkList(AbstractShrinkList):
 
 
 ExecutionContext._thread_local_objs = None
+ExecutionContext._sentinel_lock = None
 
 
 class Local(W_Root):
@@ -90,6 +91,10 @@ Local.typedef = TypeDef("thread._local",
                         )
 
 def thread_is_stopping(ec):
+    sentinel_lock = ec._sentinel_lock
+    if sentinel_lock is not None:
+        if sentinel_lock.lock.is_acquired():
+            sentinel_lock.descr_lock_release(ec.space)
     tlobjs = ec._thread_local_objs
     if tlobjs is None:
         return

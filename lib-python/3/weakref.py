@@ -111,7 +111,14 @@ class WeakValueDictionary(collections.MutableMapping):
                 if self._iterating:
                     self._pending_removals.append(wr.key)
                 else:
-                    del self.data[wr.key]
+                    # Changed this for PyPy: made more resistent.  The
+                    # issue is that in some corner cases, self.data
+                    # might already be changed or removed by the time
+                    # this weakref's callback is called.  If that is
+                    # the case, we don't want to randomly kill an
+                    # unrelated entry.
+                    if self.data.get(wr.key) is wr:
+                        del self.data[wr.key]
         self._remove = remove
         # A list of keys to be removed
         self._pending_removals = []
@@ -239,24 +246,28 @@ class WeakValueDictionary(collections.MutableMapping):
         try:
             o = self.data.pop(key)()
         except KeyError:
+            o = None
+        if o is None:
             if args:
                 return args[0]
-            raise
-        if o is None:
             raise KeyError(key)
         else:
             return o
+        # The logic above was fixed in PyPy
 
     def setdefault(self, key, default=None):
         try:
-            wr = self.data[key]
+            o = self.data[key]()
         except KeyError:
+            o = None
+        if o is None:
             if self._pending_removals:
                 self._commit_removals()
             self.data[key] = KeyedRef(default, self._remove, key)
             return default
         else:
-            return wr()
+            return o
+        # The logic above was fixed in PyPy
 
     def update(*args, **kwargs):
         if not args:

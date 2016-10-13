@@ -318,9 +318,8 @@ class TestTimeit(unittest.TestCase):
         s = self.run_main(seconds_per_increment=2.0, switches=['-n35', '-s', 'print("CustomSetup")'])
         self.assertIn(dedent("""\
             WARNING: timeit is a very unreliable tool. use perf or something else for real measurements
-            pypy -m pip install perf
-            pypy -m perf timeit -n35 -s 'print("CustomSetup")' 'import timeit; timeit._fake_timer.inc()'
         """), s)
+        self.assertIn("-m pip install perf", s)
 
 
 
