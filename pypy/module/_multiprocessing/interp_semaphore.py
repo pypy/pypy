@@ -211,6 +211,12 @@ else:
     def handle_w(space, w_handle):
         return rffi.cast(SEM_T, space.int_w(w_handle))
 
+    def semaphore_unlink(space, w_name):
+        name = space.str_w(w_name)
+        res = _sem_unlink(name)
+        if res < 0:
+            raise oefmt(space.w_OSError, "sem unlink failed with errno: %d", rposix.get_saved_errno())
+
 class CounterState:
     def __init__(self, space):
         self.counter = 0

@@ -1,3 +1,4 @@
+import py
 import sys
 
 from pypy.module._multiprocessing.interp_semaphore import (
@@ -17,6 +18,12 @@ class AppTestSemaphore:
     def setup_class(cls):
         cls.w_SEMAPHORE = cls.space.wrap(SEMAPHORE)
         cls.w_RECURSIVE = cls.space.wrap(RECURSIVE_MUTEX)
+
+    @py.test.mark.skipif("sys.platform == 'win32'")
+    def test_sem_unlink(self):
+        from _multiprocessing import sem_unlink
+        try: sem_unlink("non-existent")
+        except OSError: pass
 
     def test_semaphore(self):
         from _multiprocessing import SemLock
