@@ -79,7 +79,6 @@ class StrPtrInfo(info.AbstractVirtualPtrInfo):
     def force_box(self, op, optforce):
         if not self.is_virtual():
             return op
-        optforce.forget_numberings()
         if self.mode is mode_string:
             s = self.get_constant_string_spec(optforce, mode_string)
             if s is not None:

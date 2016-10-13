@@ -275,7 +275,7 @@ class LowLevelDatabase(object):
         finish_callbacks = []
         if self.gctransformer:
             finish_callbacks.append(('GC transformer: finished helpers',
-                                     self.gctransformer.finish_helpers))
+                                     self.gctransformer.get_finish_helpers()))
             finish_callbacks.append(('GC transformer: finished tables',
                                      self.gctransformer.get_finish_tables()))
 
