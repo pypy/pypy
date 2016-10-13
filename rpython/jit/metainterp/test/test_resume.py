@@ -40,6 +40,9 @@ class Storage:
 
 
 class FakeOptimizer(object):
+    metainterp_sd = None
+    optheap = None
+
     def __init__(self, trace=None):
         self.trace = trace
 
@@ -1115,7 +1118,7 @@ class ResumeDataFakeReader(ResumeDataBoxReader):
         class MyInfo:
             @staticmethod
             def enumerate_vars(callback_i, callback_r, callback_f, _, index):
-                while index < len(self.numb.code):
+                while index < max_index:
                     tagged, _ = resumecode.numb_next_item(self.numb, index)
                     _, tag = untag(tagged)
                     if tag == TAGVIRTUAL:
@@ -1132,7 +1135,9 @@ class ResumeDataFakeReader(ResumeDataBoxReader):
                     else:
                         assert 0
 
-        size, self.cur_index = resumecode.numb_next_item(self.numb, 0)
+        size_section, self.cur_index = resumecode.numb_next_item(self.numb, 0)
+        max_index = resumecode.numb_next_n_items(self.numb, size_section, 0)
+        size, self.cur_index = resumecode.numb_next_item(self.numb, self.cur_index)
         assert size == 0
         size, self.cur_index = resumecode.numb_next_item(self.numb, self.cur_index)
         assert size == 0

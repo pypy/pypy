@@ -239,11 +239,13 @@ class UnrollOptimizer(Optimization):
     def optimize_bridge(self, trace, runtime_boxes, call_pure_results,
                         inline_short_preamble, box_names_memo, resumestorage):
         from rpython.jit.metainterp.optimizeopt.bridgeopt import deserialize_optimizer_knowledge
+        frontend_inputargs = trace.inputargs
         trace = trace.get_iter()
         self._check_no_forwarding([trace.inputargs])
-        deserialize_optimizer_knowledge(self.optimizer,
-                                        resumestorage, runtime_boxes,
-                                        trace.inputargs)
+        if resumestorage:
+            deserialize_optimizer_knowledge(self.optimizer,
+                                            resumestorage, frontend_inputargs,
+                                            trace.inputargs)
         info, ops = self.optimizer.propagate_all_forward(trace,
             call_pure_results, False)
         jump_op = info.jump_op

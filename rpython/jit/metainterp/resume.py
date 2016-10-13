@@ -190,7 +190,7 @@ class NumberingState(object):
         item = self._pos
         short = rffi.cast(rffi.SHORT, item)
         assert rffi.cast(lltype.Signed, short) == item
-        self.current[index] = item
+        self.current[index] = short
 
 class ResumeDataLoopMemo(object):
 

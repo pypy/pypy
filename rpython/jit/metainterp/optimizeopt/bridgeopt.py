@@ -50,6 +50,8 @@ def decode_box(resumestorage, tagged, liveboxes, cpu):
 
 def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, liveboxes_from_env, memo):
     liveboxes_set = set(liveboxes)
+    if None in liveboxes_set:
+        liveboxes_set.remove(None)
     metainterp_sd = optimizer.metainterp_sd
 
     numb_state.grow(len(liveboxes)) # bit too much
@@ -57,7 +59,7 @@ def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, liveboxes_fr
     bitfield = 0
     shifts = 0
     for box in liveboxes:
-        if box.type != "r":
+        if box is None or box.type != "r":
             continue
         info = optimizer.getptrinfo(box)
         known_class = info is not None and info.get_known_class(optimizer.cpu) is not None
@@ -83,7 +85,8 @@ def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, liveboxes_fr
         numb_state.grow(1)
         numb_state.append_int(0)
 
-def deserialize_optimizer_knowledge(optimizer, resumestorage, runtime_boxes, liveboxes):
+def deserialize_optimizer_knowledge(optimizer, resumestorage, frontend_boxes, liveboxes):
+    assert len(frontend_boxes) == len(liveboxes)
     numb = resumestorage.rd_numb
     metainterp_sd = optimizer.metainterp_sd
 
@@ -102,7 +105,7 @@ def deserialize_optimizer_knowledge(optimizer, resumestorage, runtime_boxes, liv
         class_known = bitfield & mask
         mask >>= 1
         if class_known:
-            cls = optimizer.cpu.ts.cls_of_box(runtime_boxes[i])
+            cls = optimizer.cpu.ts.cls_of_box(frontend_boxes[i])
             optimizer.make_constant_class(box, cls)
 
     # heap knowledge

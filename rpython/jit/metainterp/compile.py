@@ -1072,6 +1072,8 @@ def compile_trace(metainterp, resumekey, runtime_boxes):
     if metainterp.history.ends_with_jump:
         if isinstance(resumekey, ResumeGuardCopiedDescr):
             key = resumekey.prev
+        elif isinstance(resumekey, ResumeFromInterpDescr):
+            key = None
         else:
             key = resumekey
         data = BridgeCompileData(trace, runtime_boxes, key,
