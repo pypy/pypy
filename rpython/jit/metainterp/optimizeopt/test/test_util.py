@@ -621,7 +621,7 @@ class BaseTest(object):
         start_state, preamble_ops = self._do_optimize_loop(preamble_data)
         preamble_data.forget_optimization_info()
         loop_data = compile.UnrolledLoopData(preamble_data.trace,
-            celltoken, start_state, call_pure_results)
+            celltoken, start_state, runtime_boxes, call_pure_results)
         loop_info, ops = self._do_optimize_loop(loop_data)
         preamble = TreeLoop('preamble')
         preamble.inputargs = start_state.renamed_inputargs
