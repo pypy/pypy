@@ -11,7 +11,6 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.error import oefmt
 from rpython.rlib.rarithmetic import r_longlong, ovfcheck, ovfcheck_float_to_longlong
-from rpython.rlib.rthread import ThreadLocalReference
 
 # Force the declaration of the type 'thread.LockType' for RPython
 #import pypy.module.thread.rpython.exttable
@@ -147,8 +146,6 @@ def allocate_lock(space):
 See LockType.__doc__ for information about locks."""
     return space.wrap(Lock(space))
 
-tlref_sentinel_lock = ThreadLocalReference(Lock)
-
 def _set_sentinel(space):
     """_set_sentinel() -> lock
 
@@ -158,12 +155,11 @@ def _set_sentinel(space):
     This is a private API for the threading module."""
     # see issue 18808. We need to release this lock just before exiting
     # the any thread!
-    lock = Lock(space)
-    # create a weak reference to the lock object and set it
-    # pass save it as a thread local reference
-    # see os_thread.py just before gc_thread_die
-    tlref_sentinel_lock.set(lock)
-    #
+    ec = space.getexecutioncontext()
+    lock = ec._sentinel_lock
+    if lock is None:
+        lock = Lock(space)
+        ec._sentinel_lock = lock
     return space.wrap(lock)
 
 class W_RLock(W_Root):
