@@ -550,10 +550,15 @@ class ExportedState(LoopInfo):
     def _check_no_forwarding(self, optimizer):
         """ Ensures that no optimization state is attached to relevant operations
         before importing anything. """
-        shortops = [pop.short_op.res for pop in self.short_boxes]
+        # Some of these may be redunant
         optimizer._check_no_forwarding([
-            self.end_args, self.next_iteration_args, self.renamed_inputargs,
-            self.short_inputargs, shortops, self.exported_infos.keys()])
+            self.end_args,
+            self.next_iteration_args,
+            self.renamed_inputargs,
+            self.short_inputargs,
+            self.exported_infos.keys()])
+        for box in self.short_boxes:
+            box._check_no_forwarding()
 
     def forget_optimization_info(self):
         """ Clean up optimization info on all operations stored in the ExportedState.
@@ -566,13 +571,11 @@ class ExportedState(LoopInfo):
         with an InvalidLoop exception, as optimize_peeled_loop() mutates the
         contents of ExportedState.
         """
-        # These first two may be subsumed by clearing self.exported_infos
-        # but I am not 100% certain
-        Optimizer._clean_optimization_info(self.end_args)
-        Optimizer._clean_optimization_info(self.next_iteration_args)
         Optimizer._clean_optimization_info(self.renamed_inputargs)
-        Optimizer._clean_optimization_info(self.short_inputargs)
-        Optimizer._clean_optimization_info(self.exported_infos.keys())
+        for box in self.exported_infos.iterkeys():
+            box.clear_forwarded()
+        for box in self.short_boxes:
+            box.forget_optimization_info()
 
     def final(self):
         return False

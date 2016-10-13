@@ -18,7 +18,7 @@ class PreambleOp(AbstractResOp):
     See force_op_from_preamble for details how the extra things are put.
     """
     op = None
-    
+
     def __init__(self, op, preamble_op, invented_name):
         self.op = op
         self.preamble_op = preamble_op
@@ -51,7 +51,13 @@ class PreambleOp(AbstractResOp):
 class AbstractShortOp(object):
     """ An operation that is potentially produced by the short preamble
     """
-    pass
+    res = None
+
+    def _check_no_forwarding(self):
+        assert self.res.get_forwarded() is None
+
+    def forget_optimization_info(self):
+        self.res.clear_forwarded()
 
 class HeapOp(AbstractShortOp):
     def __init__(self, res, getfield_op):
@@ -100,6 +106,14 @@ class HeapOp(AbstractShortOp):
                                                         sop.getarg(1)],
                                        descr=sop.getdescr())
         return ProducedShortOp(self, preamble_op)
+
+    def _check_no_forwarding(self):
+        AbstractShortOp._check_no_forwarding(self)
+        assert self.getfield_op.get_forwarded() is None
+
+    def forget_optimization_info(self):
+        AbstractShortOp.forget_optimization_info(self)
+        self.getfield_op.clear_forwarded()
 
     def __repr__(self):
         return "HeapOp(%r)" % (self.res,)
@@ -193,6 +207,16 @@ class CompoundOp(AbstractShortOp):
                 l.append(pop)
         return l
 
+    def _check_no_forwarding(self):
+        AbstractShortOp._check_no_forwarding(self)
+        self.one._check_no_forwarding()
+        self.two._check_no_forwarding()
+
+    def forget_optimization_info(self):
+        AbstractShortOp.forget_optimization_info(self)
+        self.one.forget_optimization_info()
+        self.two.forget_optimization_info()
+
     def repr(self, memo):
         return "CompoundOp(%s, %s, %s)" % (self.res.repr(memo),
                                            self.one.repr(memo),
@@ -203,7 +227,7 @@ class AbstractProducedShortOp(object):
 
 class ProducedShortOp(AbstractProducedShortOp):
     invented_name = False
-    
+
     def __init__(self, short_op, preamble_op):
         self.short_op = short_op
         self.preamble_op = preamble_op
@@ -214,6 +238,14 @@ class ProducedShortOp(AbstractProducedShortOp):
 
     def repr(self, memo):
         return self.short_op.repr(memo)
+
+    def _check_no_forwarding(self):
+        self.short_op._check_no_forwarding()
+        assert self.preamble_op.get_forwarded() is None
+
+    def forget_optimization_info(self):
+        self.short_op.forget_optimization_info()
+        self.preamble_op.clear_forwarded()
 
     def __repr__(self):
         return "%r -> %r" % (self.short_op, self.preamble_op)
@@ -234,6 +266,14 @@ class ShortInputArg(AbstractShortOp):
 
     def repr(self, memo):
         return "INP(%s)" % (self.res.repr(memo),)
+
+    def _check_no_forwarding(self):
+        AbstractShortOp._check_no_forwarding(self)
+        assert self.preamble_op.get_forwarded() is None
+
+    def forget_optimization_info(self):
+        AbstractShortOp.forget_optimization_info(self)
+        self.preamble_op.clear_forwarded()
 
     def __repr__(self):
         return "INP(%r -> %r)" % (self.res, self.preamble_op)
