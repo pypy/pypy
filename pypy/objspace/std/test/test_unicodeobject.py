@@ -1006,3 +1006,4 @@ class AppTestUnicodeString:
         assert u'A\u0345\u03a3'.lower() == u'a\u0345\u03c2'
         assert u'A\u03a3\u0345'.lower() == u'a\u03c2\u0345'
         assert u'\u03a3\u0345 '.lower() == u'\u03c3\u0345 '
+

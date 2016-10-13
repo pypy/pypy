@@ -533,7 +533,7 @@ class W_BytesObject(W_AbstractBytesObject):
         if (w_source and space.is_w(space.type(w_source), space.w_bytes) and
             space.is_w(w_stringtype, space.w_bytes)):
             return w_source
-        value = ''.join(newbytesdata_w(space, w_source, encoding, errors))
+        value = newbytesdata_w(space, w_source, encoding, errors)
         w_obj = space.allocate_instance(W_BytesObject, w_stringtype)
         W_BytesObject.__init__(w_obj, value)
         return w_obj
@@ -699,7 +699,7 @@ def newbytesdata_w(space, w_source, encoding, errors):
         if encoding is not None or errors is not None:
             raise oefmt(space.w_TypeError,
                         "encoding or errors without string argument")
-        return []
+        return b""
     # Some object with __bytes__ special method
     w_bytes_method = space.lookup(w_source, "__bytes__")
     if w_bytes_method is not None:
@@ -707,7 +707,7 @@ def newbytesdata_w(space, w_source, encoding, errors):
         if not space.isinstance_w(w_bytes, space.w_bytes):
             raise oefmt(space.w_TypeError,
                         "__bytes__ returned non-bytes (type '%T')", w_bytes)
-        return [c for c in space.bytes_w(w_bytes)]
+        return space.bytes_w(w_bytes)
     # Is it an integer?
     # Note that we're calling space.getindex_w() instead of space.int_w().
     try:
@@ -721,7 +721,7 @@ def newbytesdata_w(space, w_source, encoding, errors):
         if encoding is not None or errors is not None:
             raise oefmt(space.w_TypeError,
                         "encoding or errors without string argument")
-        return ['\0'] * count
+        return '\0' * count
     # Unicode with encoding
     if space.isinstance_w(w_source, space.w_unicode):
         if encoding is None:
@@ -740,7 +740,7 @@ def makebytesdata_w(space, w_source):
         if not space.isinstance_w(w_bytes, space.w_bytes):
             raise oefmt(space.w_TypeError,
                         "__bytes__ returned non-bytes (type '%T')", w_bytes)
-        return [c for c in space.bytes_w(w_bytes)]
+        return space.bytes_w(w_bytes)
     return _convert_from_buffer_or_iterable(space, w_source)
 
 def _convert_from_buffer_or_iterable(space, w_source):
@@ -751,7 +751,7 @@ def _convert_from_buffer_or_iterable(space, w_source):
         if not e.match(space, space.w_TypeError):
             raise
     else:
-        return [c for c in buf.as_str()]
+        return buf.as_str()
 
     if space.isinstance_w(w_source, space.w_unicode):
         raise oefmt(space.w_TypeError,
@@ -760,8 +760,7 @@ def _convert_from_buffer_or_iterable(space, w_source):
     # sequence of bytes
     w_iter = space.iter(w_source)
     length_hint = space.length_hint(w_source, 0)
-    data = newlist_hint(length_hint)
-    extended = 0
+    builder = StringBuilder(length_hint)
     while True:
         try:
             w_item = space.next(w_iter)
@@ -770,11 +769,8 @@ def _convert_from_buffer_or_iterable(space, w_source):
                 raise
             break
         value = getbytevalue(space, w_item)
-        data.append(value)
-        extended += 1
-    if extended < length_hint:
-        resizelist_hint(data, extended)
-    return data
+        builder.append(value)
+    return builder.build()
 
 
 W_BytesObject.typedef = TypeDef(
