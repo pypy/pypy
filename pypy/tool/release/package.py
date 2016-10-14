@@ -29,9 +29,9 @@ USE_ZIPFILE_MODULE = sys.platform == 'win32'
 STDLIB_VER = "3"
 
 # XXX: don't hardcode the version
-POSIX_EXE = 'pypy3.3'
+POSIX_EXE = 'pypy3.5'
 
-from pypy.tool.build_cffi_imports import (create_cffi_import_libraries, 
+from pypy.tool.build_cffi_imports import (create_cffi_import_libraries,
         MissingDependenciesError, cffi_build_scripts)
 
 def ignore_patterns(*patterns):
@@ -151,7 +151,7 @@ def create_package(basedir, options, _fake=False):
             # XXX users will complain that they cannot compile capi (cpyext)
             # modules for windows, also embedding pypy (i.e. in cffi)
             # will fail.
-            # Has the lib moved, was translation not 'shared', or are 
+            # Has the lib moved, was translation not 'shared', or are
             # there no exported functions in the dll so no import
             # library was created?
         if not options.no_tk:
@@ -323,7 +323,7 @@ def package(*args, **kwds):
 if __name__ == '__main__':
     import sys
     if sys.platform == 'win32':
-        # Try to avoid opeing a dialog box if one of the 
+        # Try to avoid opeing a dialog box if one of the
         # subprocesses causes a system error
         import ctypes
         winapi = ctypes.windll.kernel32
