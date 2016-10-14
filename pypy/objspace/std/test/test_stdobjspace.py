@@ -1,3 +1,4 @@
+# coding: utf-8
 import py
 from py.test import raises
 from pypy.interpreter.error import OperationError
@@ -10,6 +11,10 @@ class TestW_StdObjSpace:
         raises(TypeError,
                           self.space.wrap,
                           self.space.wrap(0))
+
+    def test_utf8(self):
+        assert self.space.isinstance_w(self.space.newutf8("abc"), self.space.w_unicode)
+        assert self.space.eq_w(self.space.newutf8("üöä"), self.space.newunicode(u"üöä"))
 
     def test_str_w_non_str(self):
         raises(OperationError,self.space.str_w,self.space.wrap(None))
