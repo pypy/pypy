@@ -10,7 +10,7 @@ CPYTHON_VERSION            = (3, 5, 1, "final", 0)
 #XXX # sync CPYTHON_VERSION with patchlevel.h, package.py
 CPYTHON_API_VERSION        = 1013   #XXX # sync with include/modsupport.h
 
-PYPY_VERSION               = (5, 5, 0, "alpha", 0)    #XXX # sync patchlevel.h
+PYPY_VERSION               = (5, 6, 0, "alpha", 0)    #XXX # sync patchlevel.h
 
 
 import pypy
