@@ -55,8 +55,8 @@ def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, liveboxes_fr
             liveboxes_set[box] = None
     metainterp_sd = optimizer.metainterp_sd
 
-    numb_state.grow(len(liveboxes)) # bit too much
     # class knowledge
+    numb_state.grow(len(liveboxes)) # bit too much
     bitfield = 0
     shifts = 0
     for box in liveboxes:
@@ -67,11 +67,11 @@ def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, liveboxes_fr
         bitfield <<= 1
         bitfield |= known_class
         shifts += 1
-        if shifts == 7:
+        if shifts == 6:
             numb_state.append_int(bitfield)
             bitfield = shifts = 0
     if shifts:
-        numb_state.append_int(bitfield << (7 - shifts))
+        numb_state.append_int(bitfield << (6 - shifts))
 
     # heap knowledge
     if optimizer.optheap:
@@ -105,7 +105,7 @@ def deserialize_optimizer_knowledge(optimizer, resumestorage, frontend_boxes, li
             continue
         if not mask:
             bitfield, index = numb_next_item(numb, index)
-            mask = 0b1000000
+            mask = 0b100000
         class_known = bitfield & mask
         mask >>= 1
         if class_known:

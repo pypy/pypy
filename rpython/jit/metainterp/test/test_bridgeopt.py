@@ -1,5 +1,6 @@
 # tests that check that information is fed from the optimizer into the bridges
 
+import math
 from rpython.rlib import jit
 from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.jit.metainterp.optimizeopt.bridgeopt import serialize_optimizer_knowledge
@@ -7,6 +8,8 @@ from rpython.jit.metainterp.optimizeopt.bridgeopt import deserialize_optimizer_k
 from rpython.jit.metainterp.resoperation import InputArgRef, InputArgInt
 from rpython.jit.metainterp.resume import NumberingState
 from rpython.jit.metainterp.optimizeopt.info import InstancePtrInfo
+
+from hypothesis import strategies, given
 
 class FakeTS(object):
     def __init__(self, dct):
@@ -42,7 +45,7 @@ class FakeStorage(object):
     def __init__(self, numb):
         self.rd_numb = numb
 
-def test_simple():
+def test_known_classes():
     box1 = InputArgRef()
     box2 = InputArgRef()
     box3 = InputArgRef()
@@ -52,12 +55,12 @@ def test_simple():
     optimizer = FakeOptimizer(dct)
 
     numb_state = NumberingState(4)
-    numb_state.append_int(1) # vinfo
+    numb_state.append_int(1) # size of resume block
     liveboxes = [InputArgInt(), box2, box1, box3]
 
     serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, {}, None)
 
-    assert numb_state.current[:numb_state._pos] == [1, 0b0100000, 0]
+    assert numb_state.current[:numb_state._pos] == [1, 0b010000, 0]
 
     rbox1 = InputArgRef()
     rbox2 = InputArgRef()
@@ -70,6 +73,41 @@ def test_simple():
     assert box2 not in after_optimizer.constant_classes
     assert box3 not in after_optimizer.constant_classes
 
+
+box_strategy = strategies.builds(InputArgInt) | strategies.builds(InputArgRef)
+tuples = strategies.tuples(box_strategy, strategies.booleans()).filter(
+        lambda (box, known_class): isinstance(box, InputArgRef) or not known_class)
+boxes_known_classes = strategies.lists(tuples, min_size=1)
+
+@given(boxes_known_classes)
+def test_random_class_knowledge(boxes_known_classes):
+    cls = FakeClass()
+    dct1 = {box: InstancePtrInfo(known_class=cls)
+              for box, known_class in boxes_known_classes
+                  if known_class}
+    optimizer = FakeOptimizer(dct1)
+
+    refboxes = [box for (box, _) in boxes_known_classes
+                    if isinstance(box, InputArgRef)]
+
+    numb_state = NumberingState(1)
+    numb_state.append_int(1) # size of resume block
+    liveboxes = [box for (box, _) in boxes_known_classes]
+
+    serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, {}, None)
+
+    #assert numb_state.current[:numb_state._pos] == [1, 0b0100000, 0]
+    assert len(numb_state.create_numbering().code) == 2 + math.ceil(len(refboxes) / 6.0)
+
+    dct = {box: cls
+              for box, known_class in boxes_known_classes
+                  if known_class}
+    after_optimizer = FakeOptimizer(cpu=FakeCPU(dct))
+    deserialize_optimizer_knowledge(
+        after_optimizer, FakeStorage(numb_state.create_numbering()),
+        liveboxes, liveboxes)
+    for box, known_class in boxes_known_classes:
+        assert (box in after_optimizer.constant_classes) == known_class
 
 class TestOptBridge(LLJitMixin):
     # integration tests
