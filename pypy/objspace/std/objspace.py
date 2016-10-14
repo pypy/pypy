@@ -355,7 +355,7 @@ class StdObjSpace(ObjSpace):
         return W_BytearrayObject(l)
 
     def newutf8(self, string):
-        return space.newunicode(decode_utf8(string))
+        return self.newunicode(decode_utf8(string))
 
     def newunicode(self, uni):
         return W_UnicodeObject(uni)
