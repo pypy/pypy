@@ -145,6 +145,7 @@ class AppTestScandir(object):
         assert not d.is_file()
         assert not d.is_dir()
         assert     d.is_symlink()
+        raises(OSError, d.stat)
 
     def test_dir6(self):
         posix = self.posix

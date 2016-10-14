@@ -284,8 +284,11 @@ class W_DirEntry(W_Root):
     @unwrap_spec(follow_symlinks=bool)
     def descr_stat(self, space, __kwonly__, follow_symlinks=True):
         """return stat_result object for the entry; cached per entry"""
-        st = self.get_stat_or_lstat(follow_symlinks)
-        return build_stat_result(self.space, st)
+        try:
+            st = self.get_stat_or_lstat(follow_symlinks)
+        except OSError as e:
+            raise wrap_oserror2(space, e, self.fget_path(space))
+        return build_stat_result(space, st)
 
     def descr_inode(self, space):
         return space.wrap(self.inode)
