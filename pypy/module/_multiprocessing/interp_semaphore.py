@@ -436,17 +436,23 @@ else:
 
 
 class W_SemLock(W_Root):
-    def __init__(self, space, handle, kind, maxvalue):
+    def __init__(self, space, handle, kind, maxvalue, name):
         self.handle = handle
         self.kind = kind
         self.count = 0
         self.maxvalue = maxvalue
         self.register_finalizer(space)
+        self.name = name
+
+    def name_get(self, space):
+        return space.newutf8(self.name)
 
     def kind_get(self, space):
         return space.newint(self.kind)
+
     def maxvalue_get(self, space):
         return space.newint(self.maxvalue)
+
     def handle_get(self, space):
         return w_handle(space, self.handle)
 
@@ -527,21 +533,24 @@ class W_SemLock(W_Root):
     def _finalize_(self):
         delete_semaphore(self.handle)
 
-@unwrap_spec(kind=int, value=int, maxvalue=int)
-def descr_new(space, w_subtype, kind, value, maxvalue):
+@unwrap_spec(kind=int, value=int, maxvalue=int, name=str, unlink=int)
+def descr_new(space, w_subtype, kind, value, maxvalue, name, unlink):
     if kind != RECURSIVE_MUTEX and kind != SEMAPHORE:
         raise oefmt(space.w_ValueError, "unrecognized kind")
 
     counter = space.fromcache(CounterState).getCount()
-    name = "/mp%d-%d" % (os.getpid(), counter)
 
     try:
         handle = create_semaphore(space, name, value, maxvalue)
+        if unlink:
+            sem_unlink(name)
+            name = None
     except OSError as e:
         raise wrap_oserror(space, e)
 
+
     self = space.allocate_instance(W_SemLock, w_subtype)
-    self.__init__(space, handle, kind, maxvalue)
+    self.__init__(space, handle, kind, maxvalue, name)
 
     return space.wrap(self)
 
@@ -551,6 +560,7 @@ W_SemLock.typedef = TypeDef(
     kind = GetSetProperty(W_SemLock.kind_get),
     maxvalue = GetSetProperty(W_SemLock.maxvalue_get),
     handle = GetSetProperty(W_SemLock.handle_get),
+    name = GetSetProperty(W_SemLock.name_get),
     _count = interp2app(W_SemLock.get_count),
     _is_mine = interp2app(W_SemLock.is_mine),
     _is_zero = interp2app(W_SemLock.is_zero),
