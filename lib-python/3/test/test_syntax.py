@@ -346,7 +346,7 @@ This should probably raise a better error than a SystemError (or none at all).
 In 2.5 there was a missing exception and an assert was triggered in a debug
 build.  The number of blocks must be greater than CO_MAXBLOCKS.  SF #1565514
 
-   >>> while 1:
+   >>> while 1: # doctest:+SKIP
    ...  while 2:
    ...   while 3:
    ...    while 4:
