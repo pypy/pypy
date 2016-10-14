@@ -153,13 +153,11 @@ def _set_sentinel(space):
     state is finalized (after it is untied from the interpreter).
 
     This is a private API for the threading module."""
-    # see issue 18808. We need to release this lock just before exiting
-    # the any thread!
+    # see issue 18808. We need to release this lock just before exiting any thread!
     ec = space.getexecutioncontext()
-    lock = ec._sentinel_lock
-    if lock is None:
-        lock = Lock(space)
-        ec._sentinel_lock = lock
+    # after forking the lock must be recreated! forget the old lock
+    lock = Lock(space)
+    ec._sentinel_lock = lock
     return space.wrap(lock)
 
 class W_RLock(W_Root):
