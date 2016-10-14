@@ -1288,6 +1288,9 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         assert box.type == kind
         return box
 
+    def next_box_of_type(self, kind):
+        return self.decode_box(self.resumecodereader.next_item(), kind)
+
     def load_box_from_cpu(self, num, kind):
         if num < 0:
             num += len(self.liveboxes)
@@ -1306,7 +1309,7 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         self.liveboxes[num] = box
         return box
 
-    def decode_box_of_type(self, TYPE, tagged):
+    def next_box_of_type(self, TYPE):
         kind = getkind(TYPE)
         if kind == 'int':
             kind = INT
@@ -1317,7 +1320,7 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         else:
             raise AssertionError(kind)
         return self.decode_box(tagged, kind)
-    decode_box_of_type._annspecialcase_ = 'specialize:arg(1)'
+    next_box_of_type._annspecialcase_ = 'specialize:arg(1)'
 
     def write_an_int(self, index, box):
         self.boxes_i[index] = box
@@ -1430,19 +1433,19 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
             index, numb)
         return index
 
-    def load_value_of_type(self, TYPE, tagged):
+    def load_next_value_of_type(self, TYPE):
         from rpython.jit.metainterp.warmstate import specialize_value
         kind = getkind(TYPE)
         if kind == 'int':
-            x = self.decode_int(tagged)
+            x = self.next_int()
         elif kind == 'ref':
-            x = self.decode_ref(tagged)
+            x = self.next_ref()
         elif kind == 'float':
-            x = self.decode_float(tagged)
+            x = self.next_float()
         else:
             raise AssertionError(kind)
         return specialize_value(TYPE, x)
-    load_value_of_type._annspecialcase_ = 'specialize:arg(1)'
+    load_next_value_of_type._annspecialcase_ = 'specialize:arg(1)'
 
     def consume_vref_and_vable(self, vrefinfo, vinfo, ginfo):
         vable_size = self.resumecodereader.next_item()
