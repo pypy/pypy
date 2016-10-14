@@ -561,7 +561,7 @@ class W_ListObject(W_Root):
             return self.getslice(start, stop, step, slicelength)
 
         try:
-            index = space.getindex_w(w_index, space.w_IndexError, "list index")
+            index = space.getindex_w(w_index, space.w_IndexError, "list")
             return self.getitem(index)
         except IndexError:
             raise oefmt(space.w_IndexError, "list index out of range")
@@ -578,7 +578,7 @@ class W_ListObject(W_Root):
                 self.setslice(start, step, slicelength, w_other)
             return
 
-        idx = space.getindex_w(w_index, space.w_IndexError, "list index")
+        idx = space.getindex_w(w_index, space.w_IndexError, "list")
         try:
             self.setitem(idx, w_any)
         except IndexError:
@@ -591,7 +591,7 @@ class W_ListObject(W_Root):
             self.deleteslice(start, step, slicelength)
             return
 
-        idx = space.getindex_w(w_idx, space.w_IndexError, "list index")
+        idx = space.getindex_w(w_idx, space.w_IndexError, "list")
         if idx < 0:
             idx += self.length()
         try:

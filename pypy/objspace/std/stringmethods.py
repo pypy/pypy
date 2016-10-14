@@ -130,7 +130,7 @@ class StringMethods(object):
                 ret = _descr_getslice_slowpath(selfvalue, start, step, sl)
                 return self._new_from_list(ret)
 
-        index = space.getindex_w(w_index, space.w_IndexError, "string index")
+        index = space.getindex_w(w_index, space.w_IndexError, "string")
         return self._getitem_result(space, index)
 
     def _getitem_result(self, space, index):

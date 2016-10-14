@@ -358,8 +358,7 @@ class W_BytearrayObject(W_Root):
             _setitem_slice_helper(space, self.data, start, step,
                                   slicelength, sequence2, empty_elem='\x00')
         else:
-            idx = space.getindex_w(w_index, space.w_IndexError,
-                                   "bytearray index")
+            idx = space.getindex_w(w_index, space.w_IndexError, "bytearray")
             try:
                 self.data[idx] = getbytevalue(space, w_other)
             except IndexError:
@@ -371,8 +370,7 @@ class W_BytearrayObject(W_Root):
                                                             len(self.data))
             _delitem_slice_helper(space, self.data, start, step, slicelength)
         else:
-            idx = space.getindex_w(w_idx, space.w_IndexError,
-                                   "bytearray index")
+            idx = space.getindex_w(w_idx, space.w_IndexError, "bytearray")
             try:
                 del self.data[idx]
             except IndexError:

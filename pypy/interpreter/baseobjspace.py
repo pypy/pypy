@@ -1375,7 +1375,8 @@ class ObjSpace(object):
         except OperationError as err:
             if objdescr is None or not err.match(self, self.w_TypeError):
                 raise
-            raise oefmt(self.w_TypeError, "%s must be an integer, not %T",
+            raise oefmt(self.w_TypeError,
+                        "%s indices must be integers or slices, not %T",
                         objdescr, w_obj)
         try:
             # allow_conversion=False it's not really necessary because the

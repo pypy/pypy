@@ -189,7 +189,7 @@ class W_AbstractTupleObject(W_Root):
     def descr_getitem(self, space, w_index):
         if isinstance(w_index, W_SliceObject):
             return self._getslice(space, w_index)
-        index = space.getindex_w(w_index, space.w_IndexError, "tuple index")
+        index = space.getindex_w(w_index, space.w_IndexError, "tuple")
         return self.getitem(space, index)
 
     def _getslice(self, space, w_index):
