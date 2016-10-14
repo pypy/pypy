@@ -42,6 +42,7 @@ corresponding Unix manual entries for more information on calls."""
         'read': 'interp_posix.read',
         'close': 'interp_posix.close',
         'closerange': 'interp_posix.closerange',
+        'cpu_count': 'interp_posix.cpu_count',
 
         'fstat': 'interp_posix.fstat',
         'stat': 'interp_posix.stat',

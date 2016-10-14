@@ -22,6 +22,7 @@ class TestPexpect(object):
         child.logfile = sys.stdout
         return child
 
+
     def spawn(self, argv):
         py_py = py.path.local(pypydir).join('bin', 'pyinteractive.py')
         return self._spawn(sys.executable, [str(py_py), '-S'] + argv)
@@ -59,3 +60,12 @@ def test_convert_seconds_full(space):
         err = (sec * 10**9 + nsec) - (s * 10**9 + ns)
         assert -MAX_ERR < err < MAX_ERR
     _test_convert_seconds_full(space)
+
+class AppTestOS:
+    spaceconfig = {'usemodules': []}
+    def test_cpu_count(self):
+        """
+        import os
+        cc = os.cpu_count()
+        assert cc is None or (isinstance(cc, int) and cc > 0)
+        """

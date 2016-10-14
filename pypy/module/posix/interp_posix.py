@@ -2211,3 +2211,9 @@ def get_terminal_size(space, w_fd=None):
                                     space.wrap('terminal_size'))
 
     return space.call_function(w_terminal_size, w_tuple)
+
+def cpu_count(space):
+    count = rposix.cpu_count()
+    if count <= 0:
+        return space.w_None
+    return space.wrap(count)
