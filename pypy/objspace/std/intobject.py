@@ -79,7 +79,7 @@ class W_AbstractIntObject(W_Root):
         complement is used to represent the integer.
         """
         from pypy.objspace.std.bytesobject import makebytesdata_w
-        bytes = ''.join(makebytesdata_w(space, w_obj))
+        bytes = makebytesdata_w(space, w_obj)
         try:
             bigint = rbigint.frombytes(bytes, byteorder=byteorder,
                                        signed=signed)
