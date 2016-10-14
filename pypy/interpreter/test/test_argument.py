@@ -878,3 +878,11 @@ class AppTestArgument:
             return (x, y)
         assert f(**{'x': 5}, y=6) == (5, 6)
         """
+
+    def test_error_message_kwargs(self):
+        def f(x, y):
+            pass
+        e = raises(TypeError, "f(y=2, **{3: 5}, x=6)")
+        assert "keywords must be strings" in str(e.value)
+        e = raises(TypeError, "f(y=2, **{'x': 5}, x=6)")
+        assert "got multiple values for keyword argument 'x'" in str(e.value)

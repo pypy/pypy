@@ -46,14 +46,6 @@ def binaryoperation(operationname):
 
     return func_with_new_name(opimpl, "opcode_impl_for_%s" % operationname)
 
-def get_func_desc(space, func):
-    if isinstance(func,function.Function):
-        return "()"
-    elif isinstance(func, function.Method):
-        return "()"
-    else:
-        return " object";
-
 
 opcodedesc = bytecode_spec.opcodedesc
 HAVE_ARGUMENT = bytecode_spec.HAVE_ARGUMENT
@@ -1389,53 +1381,49 @@ class __extend__(pyframe.PyFrame):
         w_sum = self.list_unpack_helper(itemcount)
         self.pushvalue(w_sum)
 
-    @jit.unroll_safe
-    def BUILD_MAP_UNPACK_WITH_CALL(self, itemcount, next_instr):
-        space = self.space
-        num_maps = itemcount & 0xff
-        function_location = (itemcount>>8) & 0xff
-        w_dict = space.newdict()
-        for i in range(num_maps, 0, -1):
-            w_item = self.peekvalue(i-1)
-            if not space.ismapping_w(w_item):
-                raise oefmt(space.w_TypeError,
-                        "'%T' object is not a mapping", w_item)
-            iterator = w_item.iterkeys()
-            while True:
-                w_key = iterator.next_key()
-                if w_key is None:
-                    break
-                if not space.isinstance_w(w_key, space.w_unicode):
-                    err_fun = self.peekvalue(num_maps + function_location-1)
-                    raise oefmt(space.w_TypeError,
-                        "%N%s keywords must be strings", err_fun,
-                                                         get_func_desc(space, err_fun))
-                if space.is_true(space.contains(w_dict,w_key)):
-                    err_fun = self.peekvalue(num_maps + function_location-1)
-                    err_arg = w_key
-                    raise oefmt(space.w_TypeError,
-                        "%N%s got multiple values for keyword argument '%s'",
-                          err_fun, get_func_desc(space, err_fun), space.str_w(err_arg))
-            space.call_method(w_dict, 'update', w_item)
-        while num_maps != 0:
-            self.popvalue()
-            num_maps -= 1
-        self.pushvalue(w_dict)
+    def BUILD_MAP_UNPACK(self, itemcount, next_instr):
+        self._build_map_unpack(itemcount, with_call=False)
+
+    def BUILD_MAP_UNPACK_WITH_CALL(self, oparg, next_instr):
+        num_maps = oparg & 0xff
+        self._build_map_unpack(num_maps, with_call=True)
 
     @jit.unroll_safe
-    def BUILD_MAP_UNPACK(self, itemcount, next_instr):
+    def _build_map_unpack(self, itemcount, with_call):
         space = self.space
         w_dict = space.newdict()
-        for i in range(itemcount, 0, -1):
-            w_item = self.peekvalue(i-1)
+        expected_length = 0
+        for i in range(itemcount-1, -1, -1):
+            w_item = self.peekvalue(i)
             if not space.ismapping_w(w_item):
-                raise oefmt(self.space.w_TypeError,
-                        "'%T' object is not a mapping", w_item)
+                raise oefmt(space.w_TypeError,
+                            "'%T' object is not a mapping", w_item)
+            if with_call:
+                expected_length += space.len_w(w_item)
             space.call_method(w_dict, 'update', w_item)
-        while itemcount != 0:
+        if with_call and space.len_w(w_dict) < expected_length:
+            self._build_map_unpack_error(itemcount)
+        while itemcount > 0:
             self.popvalue()
             itemcount -= 1
         self.pushvalue(w_dict)
+
+    @jit.dont_look_inside
+    def _build_map_unpack_error(self, itemcount):
+        space = self.space
+        w_set = space.newset()
+        for i in range(itemcount-1, -1, -1):
+            w_item = self.peekvalue(i)
+            w_inter = space.call_method(w_set, 'intersection', w_item)
+            if space.is_true(w_inter):
+                w_key = space.next(space.iter(w_inter))
+                if not space.isinstance_w(w_key, space.w_unicode):
+                    raise oefmt(space.w_TypeError,
+                            "keywords must be strings, not '%T'", w_key)
+                raise oefmt(space.w_TypeError,
+                    "got multiple values for keyword argument %R",
+                    w_key)
+            space.call_method(w_set, 'update', w_item)
 
     def GET_YIELD_FROM_ITER(self, oparg, next_instr):
         from pypy.interpreter.astcompiler import consts
