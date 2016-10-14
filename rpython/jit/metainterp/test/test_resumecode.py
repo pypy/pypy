@@ -37,10 +37,26 @@ def test_reader(l):
         assert elt == item
 
 @hypothesis_and_examples
-def test_reader(l):
+def test_writer(l):
     for size in [len(l), 0]:
         w = Writer(len(l))
         for num in l:
             w.append_int(num)
         n = w.create_numbering()
         assert unpack_numbering(n) == l
+
+@hypothesis_and_examples
+def test_patch(l):
+    for middle in range(len(l)):
+        l1 = l[:middle]
+        l2 = l[middle:]
+        w = Writer(len(l))
+        w.append_int(0)
+        for num in l1:
+            w.append_int(num)
+        w.patch_current_size(0)
+        for num in l2:
+            w.append_int(num)
+        n = w.create_numbering()
+        assert unpack_numbering(n)[1:] == l
+        assert unpack_numbering(n)[0] == middle + 1

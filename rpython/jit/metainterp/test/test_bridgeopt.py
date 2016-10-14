@@ -7,6 +7,7 @@ from rpython.jit.metainterp.optimizeopt.bridgeopt import serialize_optimizer_kno
 from rpython.jit.metainterp.optimizeopt.bridgeopt import deserialize_optimizer_knowledge
 from rpython.jit.metainterp.resoperation import InputArgRef, InputArgInt
 from rpython.jit.metainterp.resume import NumberingState
+from rpython.jit.metainterp.resumecode import unpack_numbering
 from rpython.jit.metainterp.optimizeopt.info import InstancePtrInfo
 
 from hypothesis import strategies, given
@@ -60,7 +61,7 @@ def test_known_classes():
 
     serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, {}, None)
 
-    assert numb_state.current[:numb_state._pos] == [1, 0b010000, 0]
+    assert unpack_numbering(numb_state.create_numbering()) == [1, 0b010000, 0]
 
     rbox1 = InputArgRef()
     rbox2 = InputArgRef()

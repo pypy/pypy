@@ -256,7 +256,7 @@ class ResumeDataLoopMemo(object):
     def number(self, optimizer, position, trace):
         snapshot_iter = trace.get_snapshot_iter(position)
         numb_state = NumberingState(snapshot_iter.size)
-        numb_state.append_int(-1) # patch later
+        numb_state.append_int(0) # patch later
 
         arr = snapshot_iter.vable_array
 
@@ -1407,8 +1407,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         virtualizable = self.next_ref()
         # just reset the token, we'll force it later
         vinfo.reset_token_gcref(virtualizable)
-        index = vinfo.write_from_resume_data_partial(virtualizable, self,
-            index, numb)
+        vinfo.write_from_resume_data_partial(virtualizable, self)
         return index
 
     def load_next_value_of_type(self, TYPE):

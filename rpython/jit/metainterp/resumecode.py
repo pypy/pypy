@@ -30,33 +30,24 @@ NUMBERING = lltype.GcStruct('Numbering',
 NUMBERINGP.TO.become(NUMBERING)
 NULL_NUMBER = lltype.nullptr(NUMBERING)
 
-def create_numbering(lst, total=-1):
-    if total == -1:
-        total = len(lst)
-    result = []
-    for i in range(total):
-        item = lst[i]
-        item = rffi.cast(lltype.Signed, item)
-        item *= 2
-        if item < 0:
-            item = -1 - item
+def append_numbering(lst, item):
+    item = rffi.cast(lltype.Signed, item)
+    item *= 2
+    if item < 0:
+        item = -1 - item
 
-        assert item >= 0
-        if item < 2**7:
-            result.append(rffi.cast(rffi.UCHAR, item))
-        elif item < 2**14:
-            result.append(rffi.cast(rffi.UCHAR, item | 0x80))
-            result.append(rffi.cast(rffi.UCHAR, item >> 7))
-        else:
-            assert item < 2**16
-            result.append(rffi.cast(rffi.UCHAR, item | 0x80))
-            result.append(rffi.cast(rffi.UCHAR, (item >> 7) | 0x80))
-            result.append(rffi.cast(rffi.UCHAR, item >> 14))
+    assert item >= 0
+    if item < 2**7:
+        lst.append(rffi.cast(rffi.UCHAR, item))
+    elif item < 2**14:
+        lst.append(rffi.cast(rffi.UCHAR, item | 0x80))
+        lst.append(rffi.cast(rffi.UCHAR, item >> 7))
+    else:
+        assert item < 2**16
+        lst.append(rffi.cast(rffi.UCHAR, item | 0x80))
+        lst.append(rffi.cast(rffi.UCHAR, (item >> 7) | 0x80))
+        lst.append(rffi.cast(rffi.UCHAR, item >> 14))
 
-    numb = lltype.malloc(NUMBERING, len(result))
-    for i in range(len(result)):
-        numb.code[i] = result[i]
-    return numb
 
 def numb_next_item(numb, index):
     value = rffi.cast(lltype.Signed, numb.code[index])
@@ -90,11 +81,13 @@ def unpack_numbering(numb):
 
 class Writer(object):
     def __init__(self, size):
-        self.current = objectmodel.newlist_hint(size)
+        self.current = objectmodel.newlist_hint(3 * size)
         self.grow(size)
+        self.items = 0
 
     def append_short(self, item):
-        self.current.append(item)
+        self.items += 1
+        append_numbering(self.current, item)
 
     def append_int(self, item):
         short = rffi.cast(rffi.SHORT, item)
@@ -102,16 +95,21 @@ class Writer(object):
         return self.append_short(short)
 
     def create_numbering(self):
-        return create_numbering(self.current)
+        numb = lltype.malloc(NUMBERING, len(self.current))
+        for i, elt in enumerate(self.current):
+            numb.code[i] = elt
+        return numb
 
     def grow(self, size):
         pass
 
     def patch_current_size(self, index):
-        item = len(self.current)
-        short = rffi.cast(rffi.SHORT, item)
-        assert rffi.cast(lltype.Signed, short) == item
-        self.current[index] = short
+        # mess :-(
+        assert rffi.cast(lltype.Signed, self.current[index]) == 0
+        l = []
+        append_numbering(l, self.items)
+        self.current = l + self.current[1:]
+
 
 class Reader(object):
     def __init__(self, code):

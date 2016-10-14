@@ -139,7 +139,6 @@ class VirtualizableInfo(object):
                 for j in range(getlength(lst)):
                     x = reader.load_next_value_of_type(ARRAYITEMTYPE)
                     setarrayitem(lst, j, x)
-            return index
 
         def load_list_of_boxes(virtualizable, reader, vable_box):
             virtualizable = cast_gcref_to_vtype(virtualizable)
@@ -157,7 +156,7 @@ class VirtualizableInfo(object):
                     box = reader.next_box_of_type(ARRAYITEMTYPE)
                     boxes.append(box)
             boxes.append(vable_box)
-            return boxes, index
+            return boxes
 
         def check_boxes(virtualizable, boxes):
             virtualizable = cast_gcref_to_vtype(virtualizable)
