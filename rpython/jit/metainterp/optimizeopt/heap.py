@@ -12,7 +12,7 @@ from rpython.jit.metainterp.optimizeopt.shortpreamble import PreambleOp
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.resoperation import rop, ResOperation, OpHelpers,\
      AbstractResOp, GuardResOp
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, we_are_lldebug
 from rpython.jit.metainterp.optimizeopt import info
         
 
@@ -172,7 +172,7 @@ class CachedField(AbstractCachedEntry):
 
     def _getfield(self, opinfo, descr, optheap, true_force=True):
         res = opinfo.getfield(descr, optheap)
-        if not we_are_translated() and res:
+        if we_are_debug() and res:
             if isinstance(opinfo, info.AbstractStructPtrInfo):
                 assert opinfo in self.cached_infos
         if isinstance(res, PreambleOp):
@@ -202,7 +202,7 @@ class ArrayCachedItem(AbstractCachedEntry):
 
     def _getfield(self, opinfo, descr, optheap, true_force=True):
         res = opinfo.getitem(descr, self.index, optheap)
-        if not we_are_translated() and res:
+        if we_are_debug() and res:
             if isinstance(opinfo, info.ArrayPtrInfo):
                 assert opinfo in self.cached_infos
         if (isinstance(res, PreambleOp) and

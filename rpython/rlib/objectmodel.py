@@ -288,9 +288,14 @@ class CDefinedIntSymbolic(Symbolic):
 
 malloc_zero_filled = CDefinedIntSymbolic('MALLOC_ZERO_FILLED', default=0)
 _translated_to_c = CDefinedIntSymbolic('1 /*_translated_to_c*/', default=0)
+_rpy_assert_value = CDefinedIntSymbolic('RPY_ASSERT_VALUE', default=1)
 
 def we_are_translated_to_c():
     return we_are_translated() and _translated_to_c
+
+def we_are_debug():
+    """ Returns True when not translated or translated with debugging enabled. """
+    return not we_are_translated() or (_translated_to_c and _rpy_assert_value)
 
 # ____________________________________________________________
 
