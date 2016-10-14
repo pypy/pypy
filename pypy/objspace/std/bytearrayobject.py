@@ -354,7 +354,7 @@ class W_BytearrayObject(W_Root):
         if isinstance(w_index, W_SliceObject):
             oldsize = len(self.data)
             start, stop, step, slicelength = w_index.indices4(space, oldsize)
-            sequence2 = makebytesdata_w(space, w_other)
+            sequence2 = [c for c in makebytesdata_w(space, w_other)]
             _setitem_slice_helper(space, self.data, start, step,
                                   slicelength, sequence2, empty_elem='\x00')
         else:
@@ -386,7 +386,7 @@ class W_BytearrayObject(W_Root):
         if isinstance(w_other, W_BytearrayObject):
             self.data += w_other.data
         else:
-            self.data += makebytesdata_w(space, w_other)
+            self.data += [c for c in makebytesdata_w(space, w_other)]
         return self
 
     def descr_insert(self, space, w_idx, w_other):
