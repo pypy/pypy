@@ -519,9 +519,10 @@ class W_SemLock(W_Root):
         self.count = 0
 
     @unwrap_spec(kind=int, maxvalue=int)
-    def rebuild(space, w_cls, w_handle, kind, maxvalue):
+    def rebuild(space, w_cls, w_handle, kind, maxvalue, w_name):
+        name = space.str_or_None_w(w_name)
         self = space.allocate_instance(W_SemLock, w_cls)
-        self.__init__(space, handle_w(space, w_handle), kind, maxvalue)
+        self.__init__(space, handle_w(space, w_handle), kind, maxvalue, name)
         return space.wrap(self)
 
     def enter(self, space):
