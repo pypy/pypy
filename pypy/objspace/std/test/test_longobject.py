@@ -425,7 +425,8 @@ class AppTestLong:
     def test_long_error_msg(self):
         e = raises(TypeError, int, [])
         assert str(e.value) == (
-            "int() argument must be a string or a number, not 'list'")
+            "int() argument must be a string, a bytes-like object "
+            "or a number, not 'list'")
 
     def test_linear_long_base_16(self):
         # never finishes if int(_, 16) is not linear-time
