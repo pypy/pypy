@@ -56,7 +56,6 @@ def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, liveboxes_fr
     metainterp_sd = optimizer.metainterp_sd
 
     # class knowledge
-    numb_state.grow(len(liveboxes)) # bit too much
     bitfield = 0
     shifts = 0
     for box in liveboxes:
@@ -76,7 +75,6 @@ def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, liveboxes_fr
     # heap knowledge
     if optimizer.optheap:
         triples = optimizer.optheap.serialize_optheap(liveboxes_set)
-        numb_state.grow(len(triples) * 3 + 1)
         numb_state.append_int(len(triples))
         for box1, descr, box2 in triples:
             index = metainterp_sd.descrs_dct.get(descr, -1)
@@ -87,7 +85,6 @@ def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, liveboxes_fr
             numb_state.append_int(index)
             numb_state.append_short(tag_box(box2, liveboxes_from_env, memo))
     else:
-        numb_state.grow(1)
         numb_state.append_int(0)
 
 def deserialize_optimizer_knowledge(optimizer, resumestorage, frontend_boxes, liveboxes):

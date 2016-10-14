@@ -38,8 +38,9 @@ def test_reader(l):
 
 @hypothesis_and_examples
 def test_reader(l):
-    w = Writer(len(l))
-    for num in l:
-        w.append_int(num)
-    n = w.create_numbering()
-    assert unpack_numbering(n) == l
+    for size in [len(l), 0]:
+        w = Writer(len(l))
+        for num in l:
+            w.append_int(num)
+        n = w.create_numbering()
+        assert unpack_numbering(n) == l

@@ -22,6 +22,7 @@
 """
 
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib import objectmodel
 
 NUMBERINGP = lltype.Ptr(lltype.GcForwardReference())
 NUMBERING = lltype.GcStruct('Numbering',
@@ -89,13 +90,11 @@ def unpack_numbering(numb):
 
 class Writer(object):
     def __init__(self, size):
-        self.current = []
+        self.current = objectmodel.newlist_hint(size)
         self.grow(size)
-        self._pos = 0
 
     def append_short(self, item):
-        self.current[self._pos] = item
-        self._pos += 1
+        self.current.append(item)
 
     def append_int(self, item):
         short = rffi.cast(rffi.SHORT, item)
@@ -103,13 +102,13 @@ class Writer(object):
         return self.append_short(short)
 
     def create_numbering(self):
-        return create_numbering(self.current[:self._pos])
+        return create_numbering(self.current)
 
     def grow(self, size):
-        self.current.extend([rffi.cast(rffi.SHORT, 0)] * size)
+        pass
 
     def patch_current_size(self, index):
-        item = self._pos
+        item = len(self.current)
         short = rffi.cast(rffi.SHORT, item)
         assert rffi.cast(lltype.Signed, short) == item
         self.current[index] = short
