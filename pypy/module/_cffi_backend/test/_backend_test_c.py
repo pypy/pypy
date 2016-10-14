@@ -3689,3 +3689,5 @@ def test_char_pointer_conversion():
         assert len(w) == 2
         newp(new_pointer_type(BIntP), z3)    # fine
         assert len(w) == 2
+    # check that the warnings are associated with lines in this file
+    assert w[1].lineno == w[0].lineno + 4
