@@ -20,9 +20,6 @@ sys.path.insert(0,basedir)
 import py
 import fnmatch
 import subprocess
-import glob
-
-if sys.version_info < (2,6): py.test.skip("requires 2.6 so far")
 
 USE_ZIPFILE_MODULE = sys.platform == 'win32'
 
@@ -267,11 +264,7 @@ using another platform..."""
     return retval, builddir # for tests
 
 def package(*args, **kwds):
-    try:
-        import argparse
-    except ImportError:
-        import imp
-        argparse = imp.load_source('argparse', 'lib-python/2.7/argparse.py')
+    import argparse
     if sys.platform == 'win32':
         pypy_exe = 'pypy.exe'
     else:
