@@ -12,7 +12,7 @@ from rpython.jit.metainterp.optimizeopt.shortpreamble import PreambleOp
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.resoperation import rop, ResOperation, OpHelpers,\
      AbstractResOp, GuardResOp
-from rpython.rlib.objectmodel import we_are_translated, we_are_lldebug
+from rpython.rlib.objectmodel import we_are_translated, we_are_debug
 from rpython.jit.metainterp.optimizeopt import info
         
 
