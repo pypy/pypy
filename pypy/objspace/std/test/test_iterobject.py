@@ -83,6 +83,36 @@ class AppTest_IterObject(object):
         iterable.__setstate__(3)
         assert next(iterable) == 4
 
+    def test_forward_iter_reduce(self):
+        T = "abc"
+        iterable = iter(T)
+        assert iterable.__reduce__() == (iter, (T, ), 0)
+        assert next(iterable) == "a"
+        assert iterable.__reduce__() == (iter, (T, ), 1)
+        assert next(iterable) == "b"
+        assert iterable.__reduce__() == (iter, (T, ), 2)
+        assert next(iterable) == "c"
+        assert iterable.__reduce__() == (iter, (T, ), 3)
+        raises(StopIteration, next, iterable)
+        assert (iterable.__reduce__() == (iter, ((), )) or   # pypy
+                iterable.__reduce__() == (iter, ("", )))     # cpython
+
+    def test_reversed_iter_reduce(self):
+        T = [1, 2, 3, 4]
+        iterable = reversed(T)
+        assert iterable.__reduce__() == (reversed, (T, ), 3)
+        assert next(iterable) == 4
+        assert iterable.__reduce__() == (reversed, (T, ), 2)
+        assert next(iterable) == 3
+        assert iterable.__reduce__() == (reversed, (T, ), 1)
+        assert next(iterable) == 2
+        assert iterable.__reduce__() == (reversed, (T, ), 0)
+        assert next(iterable) == 1
+        assert iterable.__reduce__() == (reversed, (T, ), -1)
+        raises(StopIteration, next, iterable)
+        assert (iterable.__reduce__() == (iter, ((), )) or   # pypy
+                iterable.__reduce__() == (iter, ([], )))     # cpython
+
     def test_no_len_on_tuple_iter(self):
         iterable = (1,2,3,4)
         raises(TypeError, len, iter(iterable))
@@ -126,7 +156,7 @@ class AppTest_IterObject(object):
 
     def test_reversed_frees_empty(self):
         import gc
-        for typ in list, unicode:
+        for typ in list, str:
             free = [False]
             class U(typ):
                 def __del__(self):
@@ -138,7 +168,7 @@ class AppTest_IterObject(object):
 
     def test_reversed_mutation(self):
         n = 10
-        d = range(n)
+        d = list(range(n))
         it = reversed(d)
         next(it)
         next(it)
@@ -148,7 +178,7 @@ class AppTest_IterObject(object):
         d[1:] = []
         assert it.__length_hint__() == 0
         assert list(it) == []
-        d.extend(xrange(20))
+        d.extend(range(20))
         assert it.__length_hint__() == 0
 
     def test_no_len_on_set_iter(self):

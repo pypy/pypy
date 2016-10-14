@@ -14,7 +14,7 @@ class W_AbstractSeqIterObject(W_Root):
         self.index = index
 
     def getlength(self, space):
-        if space.is_none(self.w_seq):
+        if self.w_seq is None:
             return space.wrap(0)
         index = self.index
         w_length = space.len(self.w_seq)
@@ -30,17 +30,16 @@ class W_AbstractSeqIterObject(W_Root):
         raise NotImplementedError
 
     def descr_reduce(self, space):
-        from pypy.interpreter.mixedmodule import MixedModule
-        w_mod = space.getbuiltinmodule('_pickle_support')
-        mod = space.interp_w(MixedModule, w_mod)
-        new_inst = mod.get('seqiter_new')
-        tup = [self.w_seq, space.wrap(self.index)]
-        # note that setstate is not called, because this setup already sets the index
-        return space.newtuple([new_inst, space.newtuple(tup)])
+        w_seq = self.w_seq
+        if w_seq is None:
+            return _empty_iterable(space)
+        w_callable = space.builtin.get('iter')
+        items = [w_callable, space.newtuple([w_seq]), space.wrap(self.index)]
+        return space.newtuple(items)
 
     def descr_setstate(self, space, w_state):
         index = space.int_w(w_state)
-        if self.w_seq is not space.w_None:
+        if self.w_seq is not None:
             if index < 0:
                 index = 0
             self.index = index
@@ -69,7 +68,7 @@ class W_SeqIterObject(W_AbstractSeqIterObject):
     """Sequence iterator implementation for general sequences."""
 
     def descr_next(self, space):
-        if space.is_none(self.w_seq):
+        if self.w_seq is None:
             raise OperationError(space.w_StopIteration, space.w_None)
         try:
             w_item = space.getitem(self.w_seq, space.wrap(self.index))
@@ -88,7 +87,7 @@ class W_FastListIterObject(W_AbstractSeqIterObject):
     def descr_next(self, space):
         from pypy.objspace.std.listobject import W_ListObject
         w_seq = self.w_seq
-        if space.is_none(w_seq):
+        if w_seq is None:
             raise OperationError(space.w_StopIteration, space.w_None)
         assert isinstance(w_seq, W_ListObject)
         index = self.index
@@ -150,24 +149,20 @@ class W_StringIterObject(W_AbstractSeqIterObject):
 
 class W_ReverseSeqIterObject(W_Root):
     def __init__(self, space, w_seq, index=-1):
-        # w_seq is normally a list object, but can be space.w_None after
-        # the iterator is exhausted or after a reduce().  In that case,
-        # self.index == -1.
         self.w_seq = w_seq
         self.index = space.len_w(w_seq) + index
 
     def descr_reduce(self, space):
-        from pypy.interpreter.mixedmodule import MixedModule
-        w_mod = space.getbuiltinmodule('_pickle_support')
-        mod = space.interp_w(MixedModule, w_mod)
-        new_inst = mod.get('reverseseqiter_new')
-        tup = [self.w_seq, space.wrap(self.index)]
-        # note that setstate is not called, because this setup already sets the index
-        return space.newtuple([new_inst, space.newtuple(tup)])
+        w_seq = self.w_seq
+        if w_seq is None:
+            return _empty_iterable(space)
+        w_callable = space.builtin.get('reversed')
+        items = [w_callable, space.newtuple([w_seq]), space.wrap(self.index)]
+        return space.newtuple(items)
 
     def descr_setstate(self, space, w_state):
         index = space.int_w(w_state)
-        if self.w_seq is not space.w_None:
+        if self.w_seq is not None:
             length = space.int_w(space.len(self.w_seq))
             if index < 0: index = 0
             if index >= length: index = length-1
@@ -175,7 +170,7 @@ class W_ReverseSeqIterObject(W_Root):
 
     def descr_length_hint(self, space):
         length = self.index + 1
-        if self.w_seq is space.w_None or space.len_w(self.w_seq) < length:
+        if self.w_seq is None or space.len_w(self.w_seq) < length:
             length = 0
         return space.wrap(length)
 
@@ -200,7 +195,7 @@ class W_ReverseSeqIterObject(W_Root):
 
         # Done
         self.index = -1
-        self.w_seq = space.w_None
+        self.w_seq = None
         raise OperationError(space.w_StopIteration, space.w_None)
 
 W_ReverseSeqIterObject.typedef = TypeDef(
@@ -212,3 +207,8 @@ W_ReverseSeqIterObject.typedef = TypeDef(
     __length_hint__ = interp2app(W_ReverseSeqIterObject.descr_length_hint),
 )
 W_ReverseSeqIterObject.typedef.acceptable_as_base_class = False
+
+
+def _empty_iterable(space):
+    w_callable = space.builtin.get('iter')
+    return space.newtuple([w_callable, space.newtuple([space.newtuple([])])])

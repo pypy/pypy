@@ -42,19 +42,6 @@ def dictiter_surrogate_new(space, w_lis):
     # simply create an iterator and that's it.
     return space.iter(w_lis)
 
-def seqiter_new(space, w_seq, w_index):
-    return W_SeqIterObject(w_seq, space.int_w(w_index))
-
-def reverseseqiter_new(space, w_seq, w_index):
-    w_rev = instantiate(W_ReverseSeqIterObject)
-    if space.is_w(w_seq, space.w_None):
-        w_rev.w_seq = space.w_None
-        w_rev.index = -1
-    else:
-        w_rev.w_seq = w_seq
-        w_rev.index = space.int_w(w_index)
-    return w_rev
-
 def frame_new(space):
     new_frame = instantiate(space.FrameClass)   # XXX fish
     return space.wrap(new_frame)
