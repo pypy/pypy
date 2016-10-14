@@ -87,6 +87,33 @@ def unpack_numbering(numb):
         l.append(next)
     return l
 
+class Writer(object):
+    def __init__(self, size):
+        self.current = []
+        self.grow(size)
+        self._pos = 0
+
+    def append_short(self, item):
+        self.current[self._pos] = item
+        self._pos += 1
+
+    def append_int(self, item):
+        short = rffi.cast(rffi.SHORT, item)
+        assert rffi.cast(lltype.Signed, short) == item
+        return self.append_short(short)
+
+    def create_numbering(self):
+        return create_numbering(self.current[:self._pos])
+
+    def grow(self, size):
+        self.current.extend([rffi.cast(rffi.SHORT, 0)] * size)
+
+    def patch_current_size(self, index):
+        item = self._pos
+        short = rffi.cast(rffi.SHORT, item)
+        assert rffi.cast(lltype.Signed, short) == item
+        self.current[index] = short
+
 class Reader(object):
     def __init__(self, code):
         self.code = code

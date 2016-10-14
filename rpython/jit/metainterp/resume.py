@@ -162,35 +162,13 @@ NULLREF = tag(-1, TAGCONST)
 UNINITIALIZED = tag(-2, TAGCONST)   # used for uninitialized string characters
 TAG_CONST_OFFSET = 0
 
-class NumberingState(object):
+class NumberingState(resumecode.Writer):
     def __init__(self, size):
+        resumecode.Writer.__init__(self, size)
         self.liveboxes = {}
-        self.current = []
-        self.grow(size)
-        self._pos = 0
         self.num_boxes = 0
         self.num_virtuals = 0
 
-    def append_short(self, item):
-        self.current[self._pos] = item
-        self._pos += 1
-
-    def append_int(self, item):
-        short = rffi.cast(rffi.SHORT, item)
-        assert rffi.cast(lltype.Signed, short) == item
-        return self.append_short(short)
-
-    def create_numbering(self):
-        return resumecode.create_numbering(self.current[:self._pos])
-
-    def grow(self, size):
-        self.current.extend([rffi.cast(rffi.SHORT, 0)] * size)
-
-    def patch_current_size(self, index):
-        item = self._pos
-        short = rffi.cast(rffi.SHORT, item)
-        assert rffi.cast(lltype.Signed, short) == item
-        self.current[index] = short
 
 class ResumeDataLoopMemo(object):
 
