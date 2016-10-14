@@ -950,12 +950,9 @@ class AbstractResumeDataReader(object):
 
     def _init(self, cpu, storage):
         self.cpu = cpu
-        self.numb = storage.rd_numb
-        count, self.cur_index = resumecode.numb_next_item(
-            self.numb, 0)
-        # XXX inefficient
-        self.size_resume_section = resumecode.numb_next_n_items(
-            self.numb, count, 0)
+        self.resumecodereader = resumecode.Reader(storage.rd_numb)
+        count = self.resumecodereader.next_item()
+        self.items_resume_section = count
         self.count = storage.rd_count
         self.consts = storage.rd_consts
 
@@ -964,14 +961,12 @@ class AbstractResumeDataReader(object):
         self._prepare_pendingfields(storage.rd_pendingfields)
 
     def read_jitcode_pos_pc(self):
-        jitcode_pos, self.cur_index = resumecode.numb_next_item(self.numb,
-            self.cur_index)
-        pc, self.cur_index = resumecode.numb_next_item(self.numb,
-            self.cur_index)
+        jitcode_pos = self.resumecodereader.next_item()
+        pc = self.resumecodereader.next_item()
         return jitcode_pos, pc
 
     def done_reading(self):
-        return self.cur_index >= self.size_resume_section
+        return self.resumecodereader.items_read >= self.items_resume_section
 
     def getvirtual_ptr(self, index):
         # Returns the index'th virtual, building it lazily if needed.
@@ -1048,29 +1043,25 @@ class AbstractResumeDataReader(object):
     def _prepare_next_section(self, info):
         # Use info.enumerate_vars(), normally dispatching to
         # rpython.jit.codewriter.jitcode.  Some tests give a different 'info'.
-        self.cur_index = info.enumerate_vars(self._callback_i,
-                                        self._callback_r,
-                                        self._callback_f,
-                                        self.unique_id,  # <-- annotation hack
-                                        self.cur_index)
+        info.enumerate_vars(self._callback_i,
+                            self._callback_r,
+                            self._callback_f,
+                            self.unique_id)  # <-- annotation hack
 
-    def _callback_i(self, index, register_index):
-        item, index = resumecode.numb_next_item(self.numb, index)
+    def _callback_i(self, register_index):
+        item = self.resumecodereader.next_item()
         value = self.decode_int(item)
         self.write_an_int(register_index, value)
-        return index
 
-    def _callback_r(self, index, register_index):
-        item, index = resumecode.numb_next_item(self.numb, index)
+    def _callback_r(self, register_index):
+        item = self.resumecodereader.next_item()
         value = self.decode_ref(item)
         self.write_a_ref(register_index, value)
-        return index
 
-    def _callback_f(self, index, register_index):
-        item, index = resumecode.numb_next_item(self.numb, index)
+    def _callback_f(self, register_index):
+        item = self.resumecodereader.next_item()
         value = self.decode_float(item)
         self.write_a_float(register_index, value)
-        return index
 
 # ---------- when resuming for pyjitpl.py, make boxes ----------
 
@@ -1109,42 +1100,33 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         self.boxes_f = boxes_f
         self._prepare_next_section(info)
 
-    def consume_virtualizable_boxes(self, vinfo, index):
+    def consume_virtualizable_boxes(self, vinfo):
         # we have to ignore the initial part of 'nums' (containing vrefs),
         # find the virtualizable from nums[-1], and use it to know how many
         # boxes of which type we have to return.  This does not write
         # anything into the virtualizable.
-        numb = self.numb
-        item, index = resumecode.numb_next_item(numb, index)
+        item = self.resumecodereader.next_item()
         virtualizablebox = self.decode_ref(item)
         virtualizable = vinfo.unwrap_virtualizable_box(virtualizablebox)
-        return vinfo.load_list_of_boxes(virtualizable, self, virtualizablebox,
-            numb, index)
+        return vinfo.load_list_of_boxes(virtualizable, self, virtualizablebox)
 
-    def consume_virtualref_boxes(self, index):
+    def consume_virtualref_boxes(self):
         # Returns a list of boxes, assumed to be all BoxPtrs.
         # We leave up to the caller to call vrefinfo.continue_tracing().
-        size, index = resumecode.numb_next_item(self.numb, index)
-        if size == 0:
-            return [], index
-        lst = []
-        for i in range(size * 2):
-            item, index = resumecode.numb_next_item(self.numb, index)
-            lst.append(self.decode_ref(item))
-        return lst, index
+        size = self.resumecodereader.next_item()
+        return [self.decode_ref(self.resumecodereader.next_item())
+                    for i in range(size * 2)]
 
     def consume_vref_and_vable_boxes(self, vinfo, ginfo):
-        vable_size, index = resumecode.numb_next_item(self.numb, self.cur_index)
+        vable_size = self.resumecodereader.next_item()
         if vinfo is not None:
-            virtualizable_boxes, index = self.consume_virtualizable_boxes(vinfo,
-                                                                          index)
+            virtualizable_boxes = self.consume_virtualizable_boxes(vinfo)
         elif ginfo is not None:
-            item, index = resumecode.numb_next_item(self.numb, index)
+            item = self.resumecodereader.next_item()
             virtualizable_boxes = [self.decode_ref(item)]
         else:
             virtualizable_boxes = None
-        virtualref_boxes, index = self.consume_virtualref_boxes(index)
-        self.cur_index = index
+        virtualref_boxes = self.consume_virtualref_boxes()
         return virtualizable_boxes, virtualref_boxes
 
     def allocate_with_vtable(self, descr=None):
@@ -1421,30 +1403,26 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         info = blackholeinterp.get_current_position_info()
         self._prepare_next_section(info)
 
-    def consume_virtualref_info(self, vrefinfo, index):
+    def consume_virtualref_info(self, vrefinfo):
         # we have to decode a list of references containing pairs
         # [..., virtual, vref, ...] and returns the index at the end
-        size, index = resumecode.numb_next_item(self.numb, index)
+        size = self.resumecodereader.next_item()
         if vrefinfo is None or size == 0:
             assert size == 0
-            return index
+            return
         for i in range(size):
-            virtual_item, index = resumecode.numb_next_item(
-                self.numb, index)
-            vref_item, index = resumecode.numb_next_item(
-                self.numb, index)
+            virtual_item = self.resumecodereader.next_item()
+            vref_item = self.resumecodereader.next_item()
             virtual = self.decode_ref(virtual_item)
             vref = self.decode_ref(vref_item)
             # For each pair, we store the virtual inside the vref.
             vrefinfo.continue_tracing(vref, virtual)
-        return index
 
-    def consume_vable_info(self, vinfo, index):
+    def consume_vable_info(self, vinfo):
         # we have to ignore the initial part of 'nums' (containing vrefs),
         # find the virtualizable from nums[-1], load all other values
         # from the CPU stack, and copy them into the virtualizable
-        numb = self.numb
-        item, index = resumecode.numb_next_item(self.numb, index)
+        item = self.resumecodereader.next_item()
         virtualizable = self.decode_ref(item)
         # just reset the token, we'll force it later
         vinfo.reset_token_gcref(virtualizable)
@@ -1467,18 +1445,17 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
     load_value_of_type._annspecialcase_ = 'specialize:arg(1)'
 
     def consume_vref_and_vable(self, vrefinfo, vinfo, ginfo):
-        vable_size, index = resumecode.numb_next_item(self.numb, self.cur_index)
+        vable_size = self.resumecodereader.next_item()
         if self.resume_after_guard_not_forced != 2:
             if vinfo is not None:
-                index = self.consume_vable_info(vinfo, index)
+                self.consume_vable_info(vinfo)
             if ginfo is not None:
-                _, index = resumecode.numb_next_item(self.numb, index)
-            index = self.consume_virtualref_info(vrefinfo, index)
+                _ = self.resumecodereader.next_item()
+            self.consume_virtualref_info(vrefinfo)
         else:
-            index = resumecode.numb_next_n_items(self.numb, vable_size, index)
-            vref_size, index = resumecode.numb_next_item(self.numb, index)
-            index = resumecode.numb_next_n_items(self.numb, vref_size * 2, index)
-        self.cur_index = index 
+            self.resumecodereader.jump(vable_size)
+            vref_size = self.resumecodereader.next_item()
+            self.resumecodereader.jump(vref_size * 2)
 
     def allocate_with_vtable(self, descr=None):
         from rpython.jit.metainterp.executor import exec_new_with_vtable

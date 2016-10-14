@@ -86,3 +86,30 @@ def unpack_numbering(numb):
         next, i = numb_next_item(numb, i)
         l.append(next)
     return l
+
+class Reader(object):
+    def __init__(self, code):
+        self.code = code
+        self.cur_pos = 0 # index into the code
+        self.items_read = 0 # number of items read
+
+    def next_item(self):
+        result, self.cur_pos =  numb_next_item(self.code, self.cur_pos)
+        self.items_read += 1
+        return result
+
+    def peek(self):
+        result, _ =  numb_next_item(self.code, self.cur_pos)
+        return result
+
+    def jump(self, size):
+        """ jump n items forward without returning anything """
+        index = self.cur_pos
+        for i in range(size):
+            _, index = numb_next_item(self.code, index)
+        self.items_read += size
+        self.cur_pos = index
+
+    def unpack(self):
+        # mainly for debugging
+        return unpack_numbering(self.code)

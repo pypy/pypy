@@ -144,7 +144,7 @@ class VirtualizableInfo(object):
                     setarrayitem(lst, j, x)
             return index
 
-        def load_list_of_boxes(virtualizable, reader, vable_box, numb, index):
+        def load_list_of_boxes(virtualizable, reader, vable_box):
             virtualizable = cast_gcref_to_vtype(virtualizable)
             # Uses 'virtualizable' only to know the length of the arrays;
             # does not write anything into it.  The returned list is in
@@ -152,13 +152,13 @@ class VirtualizableInfo(object):
             # the virtualizable itself.
             boxes = []
             for FIELDTYPE, fieldname in unroll_static_fields:
-                item, index = numb_next_item(numb, index)
+                item = reader.resumecodereader.next_item()
                 box = reader.decode_box_of_type(FIELDTYPE, item)
                 boxes.append(box)
             for ARRAYITEMTYPE, fieldname in unroll_array_fields:
                 lst = getattr(virtualizable, fieldname)
                 for j in range(getlength(lst)):
-                    item, index = numb_next_item(numb, index)                    
+                    item = reader.resumecodereader.next_item()
                     box = reader.decode_box_of_type(ARRAYITEMTYPE, item)
                     boxes.append(box)
             boxes.append(vable_box)

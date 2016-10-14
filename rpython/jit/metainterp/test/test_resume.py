@@ -254,18 +254,17 @@ class MyBlackholeInterp:
     def get_current_position_info(self):
         class MyInfo:
             @staticmethod
-            def enumerate_vars(callback_i, callback_r, callback_f, _, index):
+            def enumerate_vars(callback_i, callback_r, callback_f, _):
                 count_i = count_r = count_f = 0
                 for ARG in self.ARGS:
                     if ARG == lltype.Signed:
-                        index = callback_i(index, count_i); count_i += 1
+                        callback_i(count_i); count_i += 1
                     elif ARG == llmemory.GCREF:
-                        index = callback_r(index, count_r); count_r += 1
+                        callback_r(count_r); count_r += 1
                     elif ARG == longlong.FLOATSTORAGE:
-                        index = callback_f(index, count_f); count_f += 1
+                        callback_f(count_f); count_f += 1
                     else:
                         assert 0
-                return index
         return MyInfo()
 
     def setarg_i(self, index, value):
@@ -1074,11 +1073,11 @@ def test_virtual_adder_int_constants():
     cpu = MyCPU([])
     reader = ResumeDataDirectReader(MyMetaInterp(cpu), storage, "deadframe")
     reader.consume_vref_and_vable(None, None, None)
-    reader.cur_index += 2 # framestack
+    reader.resumecodereader.jump(2) # framestack
     _next_section(reader, sys.maxint, 1, sys.maxint, 2**16)
-    reader.cur_index += 2 # framestack
+    reader.resumecodereader.jump(2) # framestack
     _next_section(reader, 2, 3)
-    reader.cur_index += 2 # framestack
+    reader.resumecodereader.jump(2) # framestack
     _next_section(reader, sys.maxint, 2**16, -65)
 
 def test_virtual_adder_memo_const_sharing():
@@ -1117,9 +1116,10 @@ class ResumeDataFakeReader(ResumeDataBoxReader):
                 return True
         class MyInfo:
             @staticmethod
-            def enumerate_vars(callback_i, callback_r, callback_f, _, index):
-                while index < max_index:
-                    tagged, _ = resumecode.numb_next_item(self.numb, index)
+            def enumerate_vars(callback_i, callback_r, callback_f, _):
+                index = 0
+                while not self.done_reading():
+                    tagged = self.resumecodereader.peek()
                     _, tag = untag(tagged)
                     if tag == TAGVIRTUAL:
                         kind = REF
@@ -1127,22 +1127,21 @@ class ResumeDataFakeReader(ResumeDataBoxReader):
                         kind = Whatever()
                     box = self.decode_box(tagged, kind)
                     if box.type == INT:
-                        index = callback_i(index, index)
+                        callback_i(index)
                     elif box.type == REF:
-                        index = callback_r(index, index)
+                        callback_r(index)
                     elif box.type == FLOAT:
-                        index = callback_f(index, index)
+                        callback_f(index)
                     else:
                         assert 0
+                    index += 1
 
-        size_section, self.cur_index = resumecode.numb_next_item(self.numb, 0)
-        max_index = resumecode.numb_next_n_items(self.numb, size_section, 0)
-        size, self.cur_index = resumecode.numb_next_item(self.numb, self.cur_index)
+        size = self.resumecodereader.next_item()
         assert size == 0
-        size, self.cur_index = resumecode.numb_next_item(self.numb, self.cur_index)
+        size = self.resumecodereader.next_item()
         assert size == 0
-        pc, self.cur_index = resumecode.numb_next_item(self.numb, self.cur_index)
-        jitcode_pos, self.cur_index = resumecode.numb_next_item(self.numb, self.cur_index)
+        pc = self.resumecodereader.next_item()
+        jitcode_pos = self.resumecodereader.next_item()
 
         self._prepare_next_section(MyInfo())
         return self.lst

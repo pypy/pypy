@@ -1,7 +1,7 @@
 """ Code to feed information from the optimizer via the resume code into the
 optimizer of the bridge attached to a guard. """
 
-from rpython.jit.metainterp.resumecode import numb_next_item, numb_next_n_items, unpack_numbering
+from rpython.jit.metainterp import resumecode
 
 # XXX at the moment this is all quite ad-hoc. Could be delegated to the
 # different optimization passes
@@ -81,6 +81,7 @@ def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, liveboxes_fr
         for box1, descr, box2 in triples:
             index = metainterp_sd.descrs_dct.get(descr, -1)
             if index == -1:
+                # XXX XXX XXX fix length!
                 continue # just skip it, if the descr is not encodable
             numb_state.append_short(tag_box(box1, liveboxes_from_env, memo))
             numb_state.append_int(index)
@@ -90,12 +91,13 @@ def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, liveboxes_fr
         numb_state.append_int(0)
 
 def deserialize_optimizer_knowledge(optimizer, resumestorage, frontend_boxes, liveboxes):
+    reader = resumecode.Reader(resumestorage.rd_numb)
     assert len(frontend_boxes) == len(liveboxes)
-    numb = resumestorage.rd_numb
     metainterp_sd = optimizer.metainterp_sd
 
     # skip resume section
-    index = skip_resume_section(numb, optimizer)
+    startcount = reader.next_item()
+    reader.jump(startcount - 1)
 
     # class knowledge
     bitfield = 0
@@ -104,7 +106,7 @@ def deserialize_optimizer_knowledge(optimizer, resumestorage, frontend_boxes, li
         if box.type != "r":
             continue
         if not mask:
-            bitfield, index = numb_next_item(numb, index)
+            bitfield = reader.next_item()
             mask = 0b100000
         class_known = bitfield & mask
         mask >>= 1
@@ -113,19 +115,15 @@ def deserialize_optimizer_knowledge(optimizer, resumestorage, frontend_boxes, li
             optimizer.make_constant_class(box, cls)
 
     # heap knowledge
-    length, index = numb_next_item(numb, index)
+    length = reader.next_item()
     result = []
     for i in range(length):
-        tagged, index = numb_next_item(numb, index)
+        tagged = reader.next_item()
         box1 = decode_box(resumestorage, tagged, liveboxes, metainterp_sd.cpu)
-        tagged, index = numb_next_item(numb, index)
+        tagged = reader.next_item()
         descr = metainterp_sd.opcode_descrs[tagged]
-        tagged, index = numb_next_item(numb, index)
+        tagged = reader.next_item()
         box2 = decode_box(resumestorage, tagged, liveboxes, metainterp_sd.cpu)
         result.append((box1, descr, box2))
     if optimizer.optheap:
         optimizer.optheap.deserialize_optheap(result)
-
-def skip_resume_section(numb, optimizer):
-    startcount, index = numb_next_item(numb, 0)
-    return numb_next_n_items(numb, startcount, 0)
