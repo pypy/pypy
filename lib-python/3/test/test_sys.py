@@ -447,13 +447,17 @@ class SysModuleTest(unittest.TestCase):
         self.assertEqual(len(sys.float_info), 11)
         self.assertEqual(sys.float_info.radix, 2)
         self.assertEqual(len(sys.int_info), 2)
-        self.assertTrue(sys.int_info.bits_per_digit % 5 == 0)
+        if test.support.check_impl_detail(cpython=True):
+            self.assertTrue(sys.int_info.bits_per_digit % 5 == 0)
+        else:
+            self.assertTrue(sys.int_info.bits_per_digit >= 1)
         self.assertTrue(sys.int_info.sizeof_digit >= 1)
         self.assertEqual(type(sys.int_info.bits_per_digit), int)
         self.assertEqual(type(sys.int_info.sizeof_digit), int)
         self.assertIsInstance(sys.hexversion, int)
 
-        self.assertEqual(len(sys.hash_info), 9)
+        if test.support.check_impl_detail(cpython=True):
+            self.assertEqual(len(sys.hash_info), 9)
         self.assertLess(sys.hash_info.modulus, 2**sys.hash_info.width)
         # sys.hash_info.modulus should be a prime; we do a quick
         # probable primality test (doesn't exclude the possibility of
@@ -468,22 +472,23 @@ class SysModuleTest(unittest.TestCase):
         self.assertIsInstance(sys.hash_info.inf, int)
         self.assertIsInstance(sys.hash_info.nan, int)
         self.assertIsInstance(sys.hash_info.imag, int)
-        algo = sysconfig.get_config_var("Py_HASH_ALGORITHM")
-        if sys.hash_info.algorithm in {"fnv", "siphash24"}:
-            self.assertIn(sys.hash_info.hash_bits, {32, 64})
-            self.assertIn(sys.hash_info.seed_bits, {32, 64, 128})
+        if test.support.check_impl_detail(cpython=True):
+            algo = sysconfig.get_config_var("Py_HASH_ALGORITHM")
+            if sys.hash_info.algorithm in {"fnv", "siphash24"}:
+                self.assertIn(sys.hash_info.hash_bits, {32, 64})
+                self.assertIn(sys.hash_info.seed_bits, {32, 64, 128})
 
-            if algo == 1:
-                self.assertEqual(sys.hash_info.algorithm, "siphash24")
-            elif algo == 2:
-                self.assertEqual(sys.hash_info.algorithm, "fnv")
+                if algo == 1:
+                    self.assertEqual(sys.hash_info.algorithm, "siphash24")
+                elif algo == 2:
+                    self.assertEqual(sys.hash_info.algorithm, "fnv")
+                else:
+                    self.assertIn(sys.hash_info.algorithm, {"fnv", "siphash24"})
             else:
-                self.assertIn(sys.hash_info.algorithm, {"fnv", "siphash24"})
-        else:
-            # PY_HASH_EXTERNAL
-            self.assertEqual(algo, 0)
-        self.assertGreaterEqual(sys.hash_info.cutoff, 0)
-        self.assertLess(sys.hash_info.cutoff, 8)
+                # PY_HASH_EXTERNAL
+                self.assertEqual(algo, 0)
+            self.assertGreaterEqual(sys.hash_info.cutoff, 0)
+            self.assertLess(sys.hash_info.cutoff, 8)
 
         self.assertIsInstance(sys.maxsize, int)
         self.assertIsInstance(sys.maxunicode, int)
