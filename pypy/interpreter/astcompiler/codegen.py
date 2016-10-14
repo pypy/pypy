@@ -1340,8 +1340,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     nsubkwargs += 1
                 elif nsubkwargs:
                     # A keyword argument and we already have a dict.
-                    self.load_const(self.space.wrap(kw.arg.decode('utf-8')))
                     kw.value.walkabout(self)
+                    self.load_const(self.space.wrap(kw.arg.decode('utf-8')))
                     nseen += 1
                 else:
                     # keyword argument

@@ -871,3 +871,10 @@ class AppTestArgument:
             assert str(e) == "myerror"
         else:
             assert False, "Expected TypeError"
+
+    def test_keyword_arg_after_keywords_dict(self):
+        """
+        def f(x, y):
+            return (x, y)
+        assert f(**{'x': 5}, y=6) == (5, 6)
+        """

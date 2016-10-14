@@ -1405,7 +1405,7 @@ class __extend__(pyframe.PyFrame):
                 w_key = iterator.next_key()
                 if w_key is None:
                     break
-                if not isinstance(w_key, space.UnicodeObjectCls):
+                if not space.isinstance_w(w_key, space.w_unicode):
                     err_fun = self.peekvalue(num_maps + function_location-1)
                     raise oefmt(space.w_TypeError,
                         "%N%s keywords must be strings", err_fun,
