@@ -965,6 +965,15 @@ class AbstractResumeDataReader(object):
         pc = self.resumecodereader.next_item()
         return jitcode_pos, pc
 
+    def next_int(self):
+        return self.decode_int(self.resumecodereader.next_item())
+
+    def next_ref(self):
+        return self.decode_ref(self.resumecodereader.next_item())
+
+    def next_float(self):
+        return self.decode_float(self.resumecodereader.next_item())
+
     def done_reading(self):
         return self.resumecodereader.items_read >= self.items_resume_section
 
@@ -1049,18 +1058,15 @@ class AbstractResumeDataReader(object):
                             self.unique_id)  # <-- annotation hack
 
     def _callback_i(self, register_index):
-        item = self.resumecodereader.next_item()
-        value = self.decode_int(item)
+        value = self.next_int()
         self.write_an_int(register_index, value)
 
     def _callback_r(self, register_index):
-        item = self.resumecodereader.next_item()
-        value = self.decode_ref(item)
+        value = self.next_ref()
         self.write_a_ref(register_index, value)
 
     def _callback_f(self, register_index):
-        item = self.resumecodereader.next_item()
-        value = self.decode_float(item)
+        value = self.next_float()
         self.write_a_float(register_index, value)
 
 # ---------- when resuming for pyjitpl.py, make boxes ----------
@@ -1105,8 +1111,7 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         # find the virtualizable from nums[-1], and use it to know how many
         # boxes of which type we have to return.  This does not write
         # anything into the virtualizable.
-        item = self.resumecodereader.next_item()
-        virtualizablebox = self.decode_ref(item)
+        virtualizablebox = self.next_ref()
         virtualizable = vinfo.unwrap_virtualizable_box(virtualizablebox)
         return vinfo.load_list_of_boxes(virtualizable, self, virtualizablebox)
 
@@ -1114,16 +1119,14 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         # Returns a list of boxes, assumed to be all BoxPtrs.
         # We leave up to the caller to call vrefinfo.continue_tracing().
         size = self.resumecodereader.next_item()
-        return [self.decode_ref(self.resumecodereader.next_item())
-                    for i in range(size * 2)]
+        return [self.next_ref() for i in range(size * 2)]
 
     def consume_vref_and_vable_boxes(self, vinfo, ginfo):
         vable_size = self.resumecodereader.next_item()
         if vinfo is not None:
             virtualizable_boxes = self.consume_virtualizable_boxes(vinfo)
         elif ginfo is not None:
-            item = self.resumecodereader.next_item()
-            virtualizable_boxes = [self.decode_ref(item)]
+            virtualizable_boxes = [self.next_ref()]
         else:
             virtualizable_boxes = None
         virtualref_boxes = self.consume_virtualref_boxes()
@@ -1411,10 +1414,8 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
             assert size == 0
             return
         for i in range(size):
-            virtual_item = self.resumecodereader.next_item()
-            vref_item = self.resumecodereader.next_item()
-            virtual = self.decode_ref(virtual_item)
-            vref = self.decode_ref(vref_item)
+            virtual = self.next_ref()
+            vref = self.next_ref()
             # For each pair, we store the virtual inside the vref.
             vrefinfo.continue_tracing(vref, virtual)
 
@@ -1422,8 +1423,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         # we have to ignore the initial part of 'nums' (containing vrefs),
         # find the virtualizable from nums[-1], load all other values
         # from the CPU stack, and copy them into the virtualizable
-        item = self.resumecodereader.next_item()
-        virtualizable = self.decode_ref(item)
+        virtualizable = self.next_ref()
         # just reset the token, we'll force it later
         vinfo.reset_token_gcref(virtualizable)
         index = vinfo.write_from_resume_data_partial(virtualizable, self,
