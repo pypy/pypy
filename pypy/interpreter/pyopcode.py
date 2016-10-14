@@ -1333,10 +1333,11 @@ class __extend__(pyframe.PyFrame):
     @jit.unroll_safe
     def BUILD_MAP(self, itemcount, next_instr):
         w_dict = self.space.newdict()
-        for i in range(itemcount):
-            w_key = self.popvalue()
-            w_value = self.popvalue()
+        for i in range(itemcount-1, -1, -1):
+            w_key = self.peekvalue(2 * i)
+            w_value = self.peekvalue(2 * i + 1)
             self.space.setitem(w_dict, w_key, w_value)
+        self.popvalues(2 * itemcount)
         self.pushvalue(w_dict)
 
     @jit.unroll_safe

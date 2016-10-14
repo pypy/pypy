@@ -1,6 +1,7 @@
 import py 
 import sys
 from pypy.interpreter import gateway, module, error
+from hypothesis import given, strategies
 
 class TestInterpreter: 
 
@@ -298,7 +299,31 @@ class TestInterpreter:
         res = self.codetest(code, 'g', [])
         assert "TypeError:" in res
         assert "'tuple' object is not a mapping" in res
-    
+
+    @given(strategies.lists(strategies.one_of(strategies.none(),
+                                 strategies.lists(strategies.none()))))
+    def test_build_map_order(self, shape):
+        value = [10]
+        def build_expr(shape):
+            if shape is None:
+                value[0] += 1
+                return '0: %d' % value[0]
+            else:
+                return '**{%s}' % (', '.join(
+                    [build_expr(shape1) for shape1 in shape]),)
+
+        expr = build_expr(shape)[2:]
+        code = """
+        def f():
+            return %s
+        """ % (expr, )
+        res = self.codetest(code, 'f', [])
+        if value[0] == 10:
+            expected = {}
+        else:
+            expected = {0: value[0]}
+        assert res == expected, "got %r for %r" % (res, expr)
+
     def test_build_map_unpack_with_call(self):
         code = """
         def f(a,b,c,d):
