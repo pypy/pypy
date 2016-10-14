@@ -165,7 +165,7 @@ class W_CTypePtrBase(W_CTypePtrOrArray):
                     "will be forbidden in the future (check that the types "
                     "are as you expect; use an explicit ffi.cast() if they "
                     "are correct)" % (other.name, self.name))
-                space.warn(space.wrap(msg), space.w_UserWarning, stacklevel=1)
+                space.warn(space.wrap(msg), space.w_UserWarning)
             else:
                 raise self._convert_error("compatible pointer", w_ob)
 
