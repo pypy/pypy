@@ -14,8 +14,6 @@ class Module(MixedModule):
         'method_new'   : 'maker.method_new',
         'builtin_method_new'   : 'maker.builtin_method_new',
         'dictiter_surrogate_new' : 'maker.dictiter_surrogate_new',
-        'seqiter_new'  : 'maker.seqiter_new',
-        'reverseseqiter_new' : 'maker.reverseseqiter_new',
         'frame_new'    : 'maker.frame_new',
         'traceback_new' : 'maker.traceback_new',
         'generator_new' : 'maker.generator_new',
