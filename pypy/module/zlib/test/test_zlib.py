@@ -129,9 +129,10 @@ class AppTestZlib(object):
         zlib.decompressobj should return an object which can be used to
         decompress bytes.
         """
+        import sys
         decompressor = self.zlib.decompressobj()
         bytes = decompressor.decompress(self.compressed)
-        raises(OverflowError, decompressor.flush, 2**31)
+        raises(OverflowError, decompressor.flush, sys.maxsize + 1)
         bytes += decompressor.flush()
         assert bytes == self.expanded
 
@@ -157,16 +158,17 @@ class AppTestZlib(object):
         raises(self.zlib.error, self.zlib.decompress, b'foobar')
 
     def test_bad_arguments(self):
-        import zlib
+        import zlib, sys
+        BIG = sys.maxsize + 1
         raises(ValueError, zlib.decompressobj().flush, 0)
         raises(ValueError, zlib.decompressobj().flush, -1)
         raises(TypeError, zlib.decompressobj().flush, None)
-        raises(OverflowError, zlib.decompressobj().flush, 2**31)
+        raises(OverflowError, zlib.decompressobj().flush, BIG)
         raises(ValueError, zlib.decompressobj().decompress, b'abc', -1)
         raises(TypeError, zlib.decompressobj().decompress, b'abc', None)
-        raises(OverflowError, zlib.decompressobj().decompress, b'abc', 2**31)
+        raises(OverflowError, zlib.decompressobj().decompress, b'abc', BIG)
         raises(TypeError, self.zlib.decompress, self.compressed, None)
-        raises(OverflowError, self.zlib.decompress, self.compressed, 2**31)
+        raises(OverflowError, self.zlib.decompress, self.compressed, BIG)
 
     def test_empty_flush(self):
         import zlib

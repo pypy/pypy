@@ -265,7 +265,7 @@ class Decompress(ZLibObject):
         else:
             self.unconsumed_tail = tail
 
-    @unwrap_spec(data='bufferstr', max_length="c_int")
+    @unwrap_spec(data='bufferstr', max_length=int)
     def decompress(self, space, data, max_length=0):
         """
         decompress(data[, max_length]) -- Return a string containing the
@@ -303,7 +303,7 @@ class Decompress(ZLibObject):
         data as possible.
         """
         if w_length is not None:
-            length = space.c_int_w(w_length)
+            length = space.int_w(w_length)
             if length <= 0:
                 raise oefmt(space.w_ValueError,
                             "length must be greater than zero")
