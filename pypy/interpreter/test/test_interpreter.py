@@ -346,7 +346,7 @@ class TestInterpreter:
         assert "keywords must be strings" in resg3
         resg4 = self.codetest(code, 'g4', [])
         assert "TypeError:" in resg4
-        assert "f() got multiple values for keyword argument 'a'" in resg4
+        assert "got multiple values for keyword argument 'a'" in resg4
 
 
 class AppTestInterpreter: 
