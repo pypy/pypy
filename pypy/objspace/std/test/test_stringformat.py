@@ -329,5 +329,13 @@ class AppTestUnicodeObject:
     def test_ascii(self):
         assert "<%a>" % "test" == "<'test'>"
         assert "<%a>" % "\t\x80" == "<'\\t\\x80'>"
+        assert repr("\xe9") == "'\xe9'"
         assert "<%r>" % "\xe9" == "<'\xe9'>"
         assert "<%a>" % "\xe9" == "<'\\xe9'>"
+
+    def test_ascii_bytes(self):
+        assert b"<%a>" % b"test" == b"<b'test'>"
+        assert b"<%a>" % b"\t\x80" == b"<b'\\t\\x80'>"
+        assert repr(b"\xe9") == "b'\\xe9'"
+        assert b"<%r>" % b"\xe9" == b"<b'\\xe9'>"
+        assert b"<%a>" % b"\xe9" == b"<b'\\xe9'>"
