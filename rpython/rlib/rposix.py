@@ -2319,7 +2319,6 @@ elif sys.platform == "win32":
     cpucount_eci = ExternalCompilationInfo(includes=["Windows.h"],
             separate_module_sources=["""
         RPY_EXTERN int _cpu_count(void) {
-            int ncpu = 0;
             SYSTEM_INFO sysinfo;
             GetSystemInfo(&sysinfo);
             return sysinfo.dwNumberOfProcessors;
@@ -2346,6 +2345,8 @@ else:
             }
             """])
 
-cpu_count = rffi.llexternal('_cpu_count', [], rffi.INT_real,
+_cpu_count = rffi.llexternal('_cpu_count', [], rffi.INT_real,
                             compilation_info=cpucount_eci)
 
+def cpu_count():
+    return rffi.cast(lltype.Signed, _cpu_count())
