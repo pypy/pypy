@@ -1439,8 +1439,10 @@ class CoroutineTests(unittest.TestCase):
 
         for name in ('__name__', '__qualname__', 'gi_code',
                      'gi_running', 'gi_frame'):
-            self.assertIs(getattr(foo(), name),
-                          getattr(gen, name))
+            # pypy: changed assertIs() to assertEqual()
+            # because we don't guarantee identity on long strings
+            self.assertEqual(getattr(foo(), name),
+                             getattr(gen, name))
         self.assertIs(foo().cr_code, gen.gi_code)
 
         self.assertEqual(next(wrapper), 1)
