@@ -41,6 +41,11 @@ def getframe(space, depth):
         f = ec.getnextframe_nohidden(f)
 
 
+def _stack_check_noinline():
+    from rpython.rlib.rstack import stack_check
+    stack_check()
+_stack_check_noinline._dont_inline_ = True
+
 @jit.dont_look_inside
 @unwrap_spec(new_limit="c_int")
 def setrecursionlimit(space, new_limit):
@@ -51,13 +56,13 @@ reserves 768KB of stack space, which should suffice (on Linux,
 depending on the compiler settings) for ~1400 calls.  Setting the
 value to N reserves N/1000 times 768KB of stack space.
 """
-    from rpython.rlib.rstack import _stack_set_length_fraction, stack_check
+    from rpython.rlib.rstack import _stack_set_length_fraction
     from rpython.rlib.rstackovf import StackOverflow
     if new_limit <= 0:
         raise oefmt(space.w_ValueError, "recursion limit must be positive")
     try:
         _stack_set_length_fraction(new_limit * 0.001)
-        stack_check()
+        _stack_check_noinline()
     except StackOverflow:
         old_limit = space.sys.recursionlimit
         _stack_set_length_fraction(old_limit * 0.001)
