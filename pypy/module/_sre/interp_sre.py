@@ -262,6 +262,14 @@ class W_SRE_Pattern(W_Root):
     @unwrap_spec(maxsplit=int)
     def split_w(self, w_string, maxsplit=0):
         space = self.space
+        if self.code[0] != rsre_core.OPCODE_INFO or self.code[3] == 0:
+            if self.code[0] == rsre_core.OPCODE_INFO and self.code[4] == 0:
+                raise oefmt(space.w_ValueError,
+                            "split() requires a non-empty pattern match.")
+            space.warn(
+                space.wrap("split() requires a non-empty pattern match."),
+                space.w_FutureWarning)
+        #
         splitlist = []
         n = 0
         last = 0

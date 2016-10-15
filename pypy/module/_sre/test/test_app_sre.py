@@ -1041,3 +1041,8 @@ class AppTestOptimizations:
         import re
         assert re.search(".+ab", "wowowowawoabwowo")
         assert None == re.search(".+ab", "wowowaowowo")
+
+    def test_split_nonempty(self):
+        import re
+        raises(ValueError, re.split, '', '')
+        re.split("a*", '')    # -> warning
