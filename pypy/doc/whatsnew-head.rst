@@ -67,11 +67,16 @@ misleading.
 Make optimiseopt iterative instead of recursive so it can be reasoned about
 more easily and debugging is faster.
 
-.. branch: stdlib-2.7.11
+.. branch: Tiberiumk/fix-2412-1476011166874
+.. branch: redirect-assembler-jitlog
 
-Update stdlib to version 2.7.11
 
-.. branch: vendor/stdlib
+
 .. branch: stdlib-2.7.12
 
 Update stdlib to version 2.7.12
+
+.. branch: buffer-interface2
+
+Improve support for new buffer interface in cpyext, bf_getbuffer on built-in
+types still missing
