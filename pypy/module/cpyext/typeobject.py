@@ -514,10 +514,13 @@ def bf_segcount(space, w_obj, ref):
 @cpython_api([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed,
              header=None, error=-1)
 def bf_getreadbuffer(space, w_buf, segment, ref):
+    from rpython.rlib.buffer import StringBuffer
     if segment != 0:
         raise oefmt(space.w_SystemError,
                     "accessing non-existent segment")
     buf = space.readbuf_w(w_buf)
+    if isinstance(buf, StringBuffer):
+        return str_getreadbuffer(space, w_buf, segment, ref)
     address = buf.get_raw_address()
     ref[0] = address
     return len(buf)
@@ -533,7 +536,6 @@ def bf_getwritebuffer(space, w_buf, segment, ref):
     if segment != 0:
         raise oefmt(space.w_SystemError,
                     "accessing non-existent segment")
-
     buf = space.writebuf_w(w_buf)
     ref[0] = buf.get_raw_address()
     return len(buf)
@@ -550,6 +552,20 @@ def str_getreadbuffer(space, w_str, segment, ref):
     # Stolen reference: the object has better exist somewhere else
     Py_DecRef(space, pyref)
     return space.len_w(w_str)
+
+@cpython_api([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed,
+             header=None, error=-1)
+def unicode_getreadbuffer(space, w_str, segment, ref):
+    from pypy.module.cpyext.unicodeobject import (
+                PyUnicode_AS_UNICODE, PyUnicode_GET_DATA_SIZE)
+    if segment != 0:
+        raise oefmt(space.w_SystemError,
+                    "accessing non-existent unicode segment")
+    pyref = make_ref(space, w_str)
+    ref[0] = PyUnicode_AS_UNICODE(space, pyref)
+    # Stolen reference: the object has better exist somewhere else
+    Py_DecRef(space, pyref)
+    return PyUnicode_GET_DATA_SIZE(space, w_str)
 
 @cpython_api([PyObject, Py_ssize_t, rffi.CCHARPP], lltype.Signed,
              header=None, error=-1)
@@ -574,8 +590,8 @@ def buf_getcharbuffer(space, w_buf, segment, ref):
 
 def setup_buffer_procs(space, w_type, pto):
     bufspec = w_type.layout.typedef.buffer
-    if bufspec is None:
-        # not a buffer
+    if bufspec is None and not space.is_w(w_type, space.w_unicode):
+        # not a buffer, but let w_unicode be a read buffer
         return
     c_buf = lltype.malloc(PyBufferProcs, flavor='raw', zero=True)
     lltype.render_immortal(c_buf)
@@ -591,6 +607,13 @@ def setup_buffer_procs(space, w_type, pto):
         c_buf.c_bf_getcharbuffer = llhelper(
             str_getcharbuffer.api_func.functype,
             str_getcharbuffer.api_func.get_wrapper(space))
+    elif space.is_w(w_type, space.w_unicode):
+        # Special case: unicode doesn't support get_raw_address(), so we have a
+        # custom get*buffer that instead gives the address of the char* in the
+        # PyUnicodeObject*!
+        c_buf.c_bf_getreadbuffer = llhelper(
+            unicode_getreadbuffer.api_func.functype,
+            unicode_getreadbuffer.api_func.get_wrapper(space))
     elif space.is_w(w_type, space.w_buffer):
         # Special case: we store a permanent address on the cpyext wrapper,
         # so we'll reuse that.
@@ -706,7 +729,7 @@ def type_attach(space, py_obj, w_type):
     # uninitialized fields:
     # c_tp_print
     # XXX implement
-    # c_tp_compare and the following fields (see http://docs.python.org/c-api/typeobj.html )
+    # c_tp_compare and more?
     w_base = best_base(space, w_type.bases_w)
     pto.c_tp_base = rffi.cast(PyTypeObjectPtr, make_ref(space, w_base))
 
@@ -764,7 +787,6 @@ def best_base(space, bases_w):
     return find_best_base(bases_w)
 
 def inherit_slots(space, pto, w_base):
-    # XXX missing: nearly everything
     base_pyo = make_ref(space, w_base)
     try:
         base = rffi.cast(PyTypeObjectPtr, base_pyo)
@@ -783,6 +805,25 @@ def inherit_slots(space, pto, w_base):
             pto.c_tp_getattro = base.c_tp_getattro
         if not pto.c_tp_as_buffer:
             pto.c_tp_as_buffer = base.c_tp_as_buffer
+        if base.c_tp_as_buffer:
+            # inherit base.c_tp_as_buffer functions not inherited from w_type
+            # note: builtin types are handled in setup_buffer_procs
+            pto_as = pto.c_tp_as_buffer
+            base_as = base.c_tp_as_buffer
+            if not pto_as.c_bf_getbuffer:
+                pto_as.c_bf_getbuffer = base_as.c_bf_getbuffer
+            if not pto_as.c_bf_getcharbuffer:
+                pto_as.c_bf_getcharbuffer = base_as.c_bf_getcharbuffer
+            if not pto_as.c_bf_getwritebuffer:
+                pto_as.c_bf_getwritebuffer = base_as.c_bf_getwritebuffer
+            if not pto_as.c_bf_getreadbuffer:
+                pto_as.c_bf_getreadbuffer = base_as.c_bf_getreadbuffer
+            if not pto_as.c_bf_getsegcount:
+                pto_as.c_bf_getsegcount = base_as.c_bf_getsegcount
+            if not pto_as.c_bf_getcharbuffer:
+                pto_as.c_bf_getcharbuffer = base_as.c_bf_getcharbuffer
+            if not pto_as.c_bf_releasebuffer:
+                pto_as.c_bf_releasebuffer = base_as.c_bf_releasebuffer
     finally:
         Py_DecRef(space, base_pyo)
 
@@ -812,13 +853,14 @@ def _type_realize(space, py_obj):
 
     w_obj = space.allocate_instance(W_PyCTypeObject, w_metatype)
     track_reference(space, py_obj, w_obj)
-    w_obj.__init__(space, py_type)
+    # __init__ wraps all slotdefs functions from py_type via add_operators
+    w_obj.__init__(space, py_type) 
     w_obj.ready()
 
     finish_type_2(space, py_type, w_obj)
-    # inheriting tp_as_* slots
     base = py_type.c_tp_base
     if base:
+        # XXX refactor - parts of this are done in finish_type_2 -> inherit_slots
         if not py_type.c_tp_as_number: 
             py_type.c_tp_as_number = base.c_tp_as_number
             py_type.c_tp_flags |= base.c_tp_flags & Py_TPFLAGS_CHECKTYPES
@@ -827,7 +869,7 @@ def _type_realize(space, py_obj):
             py_type.c_tp_as_sequence = base.c_tp_as_sequence
             py_type.c_tp_flags |= base.c_tp_flags & Py_TPFLAGS_HAVE_INPLACEOPS
         if not py_type.c_tp_as_mapping: py_type.c_tp_as_mapping = base.c_tp_as_mapping
-        if not py_type.c_tp_as_buffer: py_type.c_tp_as_buffer = base.c_tp_as_buffer
+        #if not py_type.c_tp_as_buffer: py_type.c_tp_as_buffer = base.c_tp_as_buffer
 
     return w_obj
 

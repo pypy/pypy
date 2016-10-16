@@ -21,7 +21,7 @@ def PyErr_SetObject(space, w_type, w_value):
 @cpython_api([PyObject, CONST_STRING], lltype.Void)
 def PyErr_SetString(space, w_type, message_ptr):
     message = rffi.charp2str(message_ptr)
-    PyErr_SetObject(space, w_type, space.wrap(message))
+    PyErr_SetObject(space, w_type, space.newbytes(message))
 
 @cpython_api([PyObject], lltype.Void, error=CANNOT_FAIL)
 def PyErr_SetNone(space, w_type):
@@ -150,12 +150,12 @@ def PyErr_SetFromErrnoWithFilename(space, w_type, llfilename):
     Return value: always NULL."""
     # XXX Doesn't actually do anything with PyErr_CheckSignals.
     if llfilename:
-        w_filename = rffi.charp2str(llfilename)
-        filename = space.wrap(w_filename)
+        filename = rffi.charp2str(llfilename)
+        w_filename = space.newbytes(filename)
     else:
-        filename = space.w_None
+        w_filename = space.w_None
 
-    PyErr_SetFromErrnoWithFilenameObject(space, w_type, filename)
+    PyErr_SetFromErrnoWithFilenameObject(space, w_type, w_filename)
 
 @cpython_api([PyObject, PyObject], PyObject)
 @jit.dont_look_inside       # direct use of _get_errno()
@@ -170,13 +170,13 @@ def PyErr_SetFromErrnoWithFilenameObject(space, w_type, w_value):
     msg = os.strerror(errno)
     if w_value:
         w_error = space.call_function(w_type,
-                                      space.wrap(errno),
-                                      space.wrap(msg),
+                                      space.newint(errno),
+                                      space.newbytes(msg),
                                       w_value)
     else:
         w_error = space.call_function(w_type,
-                                      space.wrap(errno),
-                                      space.wrap(msg))
+                                      space.newint(errno),
+                                      space.newbytes(msg))
     raise OperationError(w_type, w_error)
 
 @cpython_api([], rffi.INT_real, error=-1)
@@ -252,11 +252,11 @@ def PyErr_WarnEx(space, w_category, message_ptr, stacklevel):
     documentation.  There is no C API for warning control."""
     if w_category is None:
         w_category = space.w_None
-    w_message = space.wrap(rffi.charp2str(message_ptr))
-    w_stacklevel = space.wrap(rffi.cast(lltype.Signed, stacklevel))
+    w_message = space.newbytes(rffi.charp2str(message_ptr))
+    w_stacklevel = space.newint(rffi.cast(lltype.Signed, stacklevel))
 
-    w_module = PyImport_Import(space, space.wrap("warnings"))
-    w_warn = space.getattr(w_module, space.wrap("warn"))
+    w_module = PyImport_Import(space, space.newbytes("warnings"))
+    w_warn = space.getattr(w_module, space.newbytes("warn"))
     space.call_function(w_warn, w_message, w_category, w_stacklevel)
     return 0
 
@@ -317,10 +317,10 @@ def PyErr_Display(space, w_type, w_value, tb):
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
 def PyTraceBack_Print(space, w_tb, w_file):
-    space.call_method(w_file, "write", space.wrap(
+    space.call_method(w_file, "write", space.newbytes(
         'Traceback (most recent call last):\n'))
     w_traceback = space.call_method(space.builtin, '__import__',
-                                    space.wrap("traceback"))
+                                    space.newbytes("traceback"))
     space.call_method(w_traceback, "print_tb", w_tb, space.w_None, w_file)
     return 0
 

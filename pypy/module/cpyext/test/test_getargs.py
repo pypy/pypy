@@ -139,6 +139,12 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             return result;
             ''')
         assert 'foo\0bar\0baz' == pybuffer(buffer('foo\0bar\0baz'))
+        import sys
+        if '__pypy__' not in sys.builtin_module_names:
+            class A(object):
+                def __buffer__(self, flags):
+                    return buffer('123')
+            assert pybuffer(A()) == '123'
 
 
     def test_pyarg_parse_string_fails(self):
