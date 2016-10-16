@@ -42,8 +42,9 @@ pypy_faulthandler_is_enabled = direct_llexternal(
 pypy_faulthandler_write = direct_llexternal(
     'pypy_faulthandler_write', [rffi.INT, rffi.CCHARP], lltype.Void)
 
-pypy_faulthandler_write_int = direct_llexternal(
-    'pypy_faulthandler_write_int', [rffi.INT, lltype.Signed], lltype.Void)
+pypy_faulthandler_write_uint = direct_llexternal(
+    'pypy_faulthandler_write_uint', [rffi.INT, lltype.Unsigned, rffi.INT],
+                                    lltype.Void)
 
 pypy_faulthandler_dump_traceback = direct_llexternal(
     'pypy_faulthandler_dump_traceback',

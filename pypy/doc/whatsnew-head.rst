@@ -55,3 +55,23 @@ Refactor cpyext testing to be more pypy3-friendly.
 .. branch: better-error-missing-self
 
 Improve the error message when the user forgot the "self" argument of a method.
+
+
+.. fb6bb835369e
+Change the ``timeit`` module: it now prints the average time and the standard
+deviation over 7 runs by default, instead of the minimum. The minimum is often
+misleading.
+
+.. branch: unrecursive-opt
+
+Make optimiseopt iterative instead of recursive so it can be reasoned about
+more easily and debugging is faster.
+
+.. branch: stdlib-2.7.11
+
+Update stdlib to version 2.7.11
+
+.. branch: vendor/stdlib
+.. branch: stdlib-2.7.12
+
+Update stdlib to version 2.7.12

@@ -564,9 +564,15 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
         elif (space.lookup(w_value, '__long__') is not None or
               space.lookup(w_value, '__int__') is not None):
             w_obj = space.long(w_value)
+            if (space.is_w(w_longtype, space.w_long) and
+                space.isinstance_w(w_obj, space.w_long)):
+                return w_obj
             return newbigint(space, w_longtype, space.bigint_w(w_obj))
         elif space.lookup(w_value, '__trunc__') is not None:
             w_obj = space.trunc(w_value)
+            if (space.is_w(w_longtype, space.w_long) and
+                space.isinstance_w(w_obj, space.w_long)):
+                return w_obj
             # :-(  blame CPython 2.7
             if space.lookup(w_obj, '__long__') is not None:
                 w_obj = space.long(w_obj)

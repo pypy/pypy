@@ -7,6 +7,7 @@ from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib import rstack
 from rpython.rlib.jit import JitDebugInfo, Counters, dont_look_inside
 from rpython.rlib.rjitlog import rjitlog as jl
+from rpython.rlib.objectmodel import compute_unique_id
 from rpython.conftest import option
 
 from rpython.jit.metainterp.resoperation import ResOperation, rop,\
@@ -1121,6 +1122,10 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redargtypes,
     version of the code may end up replacing it.
     """
     jitcell_token = make_jitcell_token(jitdriver_sd)
+    #
+    # record the target of a temporary callback to the interpreter
+    jl.tmp_callback(jitcell_token)
+    #
     nb_red_args = jitdriver_sd.num_red_args
     assert len(redargtypes) == nb_red_args
     inputargs = []
@@ -1156,6 +1161,7 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redargtypes,
     operations[1].setfailargs([])
     operations = get_deep_immutable_oplist(operations)
     cpu.compile_loop(inputargs, operations, jitcell_token, log=False)
+
     if memory_manager is not None:    # for tests
         memory_manager.keep_loop_alive(jitcell_token)
     return jitcell_token

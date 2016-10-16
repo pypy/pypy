@@ -505,6 +505,8 @@ def current_object_addr_as_int(x):
 
 # ----------
 
+HASH_ALGORITHM = "rpython"  # XXX Is there a better name?
+
 def _hash_string(s):
     """The algorithm behind compute_hash() for a string or a unicode."""
     from rpython.rlib.rarithmetic import intmask

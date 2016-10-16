@@ -75,7 +75,7 @@ class CmdLineTest(unittest.TestCase):
         p.stdin.write('Timer\n')
         p.stdin.write('exit()\n')
         data = kill_python(p)
-        self.assertTrue(data.startswith('1 loop'))
+        self.assertIn('1 loop', data)
         self.assertIn('__main__.Timer', data)
 
     def test_run_code(self):

@@ -1138,6 +1138,7 @@ class Regalloc(BaseRegalloc):
 
     def prepare_guard_not_forced_2(self, op):
         self.rm.before_call(op.getfailargs(), save_all_regs=True)
+        self.fprm.before_call(op.getfailargs(), save_all_regs=True)
         arglocs = self._prepare_guard(op)
         return arglocs
 

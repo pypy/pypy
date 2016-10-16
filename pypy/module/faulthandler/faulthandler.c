@@ -60,15 +60,53 @@ static const int faulthandler_nsignals =
 RPY_EXTERN
 void pypy_faulthandler_write(int fd, const char *str)
 {
-    (void)write(fd, str, strlen(str));
+    ssize_t n, count;
+    count = 0;
+    while (str[count] != 0)
+        count++;
+
+    while (count > 0) {
+        n = write(fd, str, count);
+        if (n < 0) {
+            if (errno != EINTR)
+                return;   /* give up */
+            n = 0;
+        }
+        str += n;
+        count -= n;
+    }
 }
 
 RPY_EXTERN
-void pypy_faulthandler_write_int(int fd, long value)
+void pypy_faulthandler_write_uint(int fd, unsigned long uvalue, int min_digits)
 {
-    char buf[48];
-    sprintf(buf, "%ld", value);
-    pypy_faulthandler_write(fd, buf);
+    char buf[48], *p = buf + 48;
+    *--p = 0;
+    while (uvalue || min_digits > 0) {
+        assert(p > buf);
+        *--p = '0' + (uvalue % 10UL);
+        uvalue /= 10UL;
+        min_digits--;
+    }
+
+    pypy_faulthandler_write(fd, p);
+}
+
+static void pypy_faulthandler_write_hex(int fd, unsigned long uvalue)
+{
+    char buf[48], *p = buf + 48;
+    *--p = 0;
+    do {
+        unsigned long byte = uvalue % 16UL;
+        assert(p > buf);
+        if (byte < 10)
+            *--p = '0' + byte;
+        else
+            *--p = 'A' + byte - 10;
+        uvalue /= 16UL;
+    } while (uvalue > 0UL);
+
+    pypy_faulthandler_write(fd, p);
 }
 
 
@@ -91,7 +129,6 @@ void pypy_faulthandler_dump_traceback(int fd, int all_threads,
         */
         struct pypy_threadlocal_s *my, *p;
         int blankline = 0;
-        char buf[40];
 
         my = (struct pypy_threadlocal_s *)_RPy_ThreadLocals_Get();
         p = _RPython_ThreadLocals_Head();
@@ -101,10 +138,11 @@ void pypy_faulthandler_dump_traceback(int fd, int all_threads,
                 pypy_faulthandler_write(fd, "\n");
             blankline = 1;
 
-            pypy_faulthandler_write(fd, my == p ? "Current thread" : "Thread");
-            sprintf(buf, " 0x%lx", (unsigned long)p->thread_ident);
-            pypy_faulthandler_write(fd, buf);
-            pypy_faulthandler_write(fd, " (most recent call first):\n");
+            pypy_faulthandler_write(fd, my == p ? "Current thread 0x"
+                                                : "Thread 0x");
+            pypy_faulthandler_write_hex(fd, (unsigned long)p->thread_ident);
+            pypy_faulthandler_write(fd, " (most recent call first,"
+                                        " approximate line numbers):\n");
 
             array_length = vmprof_get_traceback(p->vmprof_tl_stack,
                                                 my == p ? ucontext : NULL,
@@ -116,7 +154,8 @@ void pypy_faulthandler_dump_traceback(int fd, int all_threads,
         _RPython_ThreadLocals_Release();
     }
     else {
-        pypy_faulthandler_write(fd, "Stack (most recent call first):\n");
+        pypy_faulthandler_write(fd, "Stack (most recent call first,"
+                                    " approximate line numbers):\n");
         array_length = vmprof_get_traceback(NULL, ucontext,
                                             array_p, FRAME_DEPTH_N);
         fn(fd, array_p, array_length);
@@ -166,9 +205,9 @@ static void faulthandler_thread(void)
 #endif
 
     RPyLockStatus st;
-    char buf[64];
-    unsigned long hour, minutes, seconds, fraction;
+    unsigned long hours, minutes, seconds, fraction;
     long long t;
+    int fd;
 
     do {
         st = RPyThreadAcquireLockTimed(&thread_later.cancel_event,
@@ -190,16 +229,21 @@ static void faulthandler_thread(void)
         t /= 60;
         minutes = (unsigned long)(t % 60);
         t /= 60;
-        hour = (unsigned long)t;
-        if (fraction == 0)
-            sprintf(buf, "Timeout (%lu:%02lu:%02lu)!\n",
-                    hour, minutes, seconds);
-        else
-            sprintf(buf, "Timeout (%lu:%02lu:%02lu.%06lu)!\n",
-                    hour, minutes, seconds, fraction);
+        hours = (unsigned long)t;
 
-        pypy_faulthandler_write(thread_later.fd, buf);
-        pypy_faulthandler_dump_traceback(thread_later.fd, 1, NULL);
+        fd = thread_later.fd;
+        pypy_faulthandler_write(fd, "Timeout (");
+        pypy_faulthandler_write_uint(fd, hours, 1);
+        pypy_faulthandler_write(fd, ":");
+        pypy_faulthandler_write_uint(fd, minutes, 2);
+        pypy_faulthandler_write(fd, ":");
+        pypy_faulthandler_write_uint(fd, seconds, 2);
+        if (fraction != 0) {
+            pypy_faulthandler_write(fd, ".");
+            pypy_faulthandler_write_uint(fd, fraction, 6);
+        }
+        pypy_faulthandler_write(fd, ")!\n");
+        pypy_faulthandler_dump_traceback(fd, 1, NULL);
 
         if (thread_later.exit)
             _exit(1);
@@ -279,7 +323,7 @@ static int
 faulthandler_register(int signum, int chain, _Py_sighandler_t *p_previous)
 {
     struct sigaction action;
-    action.sa_handler = faulthandler_user;
+    action.sa_sigaction = faulthandler_user;
     sigemptyset(&action.sa_mask);
     /* if the signal is received while the kernel is executing a system
        call, try to restart the system call instead of interrupting it and

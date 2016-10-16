@@ -4,7 +4,7 @@ from rpython.rlib.rvmprof import traceback
 
 from pypy.interpreter.pycode import PyCode
 from pypy.module.faulthandler.cintf import pypy_faulthandler_write
-from pypy.module.faulthandler.cintf import pypy_faulthandler_write_int
+from pypy.module.faulthandler.cintf import pypy_faulthandler_write_uint
 
 
 MAX_STRING_LENGTH = 500
@@ -24,8 +24,9 @@ def _dump(fd, s):
     global_buf[l] = '\x00'
     pypy_faulthandler_write(fd, global_buf)
 
-def _dump_int(fd, i):
-    pypy_faulthandler_write_int(fd, i)
+def _dump_nonneg_int(fd, i):
+    pypy_faulthandler_write_uint(fd, rffi.cast(lltype.Unsigned, i),
+                                 rffi.cast(rffi.INT, 1))
 
 
 def dump_code(pycode, loc, fd):
@@ -34,10 +35,10 @@ def dump_code(pycode, loc, fd):
     else:
         _dump(fd, '  File "')
         _dump(fd, pycode.co_filename)
-        _dump(fd, '" in ')
+        _dump(fd, '", line ')
+        _dump_nonneg_int(fd, pycode.co_firstlineno)
+        _dump(fd, " in ")
         _dump(fd, pycode.co_name)
-        _dump(fd, ", from line ")
-        _dump_int(fd, pycode.co_firstlineno)
     if loc == traceback.LOC_JITTED:
         _dump(fd, " [jitted]")
     elif loc == traceback.LOC_JITTED_INLINED:

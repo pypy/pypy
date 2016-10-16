@@ -134,7 +134,11 @@ intptr_t vmprof_get_traceback(void *stack, void *ucontext,
                               intptr_t *result_p, intptr_t result_length)
 {
     int n;
+#ifdef _WIN32
+    intptr_t pc = 0;   /* XXX implement me */
+#else
     intptr_t pc = ucontext ? GetPC((ucontext_t *)ucontext) : 0;
+#endif
     if (stack == NULL)
         stack = get_vmprof_stack();
     n = get_stack_trace(stack, result_p, result_length - 2, pc);

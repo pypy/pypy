@@ -333,6 +333,9 @@ class FakeObjSpace(ObjSpace):
     def _try_fetch_pycode(self, w_func):
         return None
 
+    def is_generator(self, w_obj):
+        return NonConstant(False)
+
     # ----------
 
     def translates(self, func=None, argtypes=None, seeobj_w=[], **kwds):

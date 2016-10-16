@@ -1067,6 +1067,7 @@ class Regalloc(BaseRegalloc):
 
     def prepare_op_guard_not_forced_2(self, op, fcond):
         self.rm.before_call(op.getfailargs(), save_all_regs=True)
+        self.vfprm.before_call(op.getfailargs(), save_all_regs=True)
         fail_locs = self._prepare_guard(op)
         self.assembler.store_force_descr(op, fail_locs[1:], fail_locs[0].value)
         self.possibly_free_vars(op.getfailargs())

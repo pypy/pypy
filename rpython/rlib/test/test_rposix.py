@@ -608,3 +608,7 @@ def test_SetNonInheritableCache():
 def test_sync():
     if sys.platform != 'win32':
         rposix.sync()
+
+def test_cpu_count():
+    cc = rposix.cpu_count()
+    assert cc >= 1
