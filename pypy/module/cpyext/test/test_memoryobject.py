@@ -8,6 +8,7 @@ from rpython.rlib.buffer import StringBuffer
 only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_names" 
 
 class TestMemoryViewObject(BaseApiTest):
+    skip('needs c_bf_getbuffer wrapper from slotdefs')
     def test_fromobject(self, space, api):
         w_hello = space.newbytes("hello")
         assert api.PyObject_CheckBuffer(w_hello)
