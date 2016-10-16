@@ -1358,6 +1358,7 @@ def make_unicode_escape_function(pass_printable=False, unicode_output=False,
 
             if size == 0:
                 return STR('')
+
         pos = 0
         while pos < size:
             ch = s[pos]

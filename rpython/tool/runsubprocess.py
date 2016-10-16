@@ -6,7 +6,6 @@ if the current process already grew very large.
 import sys
 import gc
 import os
-from io import TextIOWrapper
 from subprocess import PIPE, Popen
 
 PY2 = (sys.version_info.major == 2)
@@ -87,6 +86,7 @@ if sys.platform != 'win32' and hasattr(os, 'fork') and not os.getenv("PYPY_DONT_
         else:
             # create TextIOWrappers which (hopefully) have the same newline
             # behavior as the child's stdin / stdout
+            from io import TextIOWrapper
             child_stdin = TextIOWrapper(_child.stdin,
                                         newline=sys.stdin.newlines,
                                         write_through=True)
