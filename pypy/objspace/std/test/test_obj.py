@@ -89,13 +89,7 @@ class AppTestObject:
             def __init__(self):
                 super(B, self).__init__(a=3)
 
-        #-- pypy doesn't raise the DeprecationWarning
-        #with warnings.catch_warnings(record=True) as log:
-        #    warnings.simplefilter("always", DeprecationWarning)
-        #    B()
-        #assert len(log) == 1
-        #assert log[0].message.args == ("object.__init__() takes no parameters",)
-        #assert type(log[0].message) is DeprecationWarning
+        raises(TypeError, B)
 
     def test_object_str(self):
         # obscure case: __str__() must delegate to __repr__() without adding

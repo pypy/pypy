@@ -112,7 +112,9 @@ def descr__init__(space, w_obj, __args__):
     if _excess_args(__args__):
         w_type = space.type(w_obj)
         w_parent_new, _ = space.lookup_in_type_where(w_type, '__new__')
-        if w_parent_new is space.w_object:
+        w_parent_init, _ = space.lookup_in_type_where(w_type, '__init__')
+        if (w_parent_new is space.w_object or
+            w_parent_init is not space.w_object):
             raise oefmt(space.w_TypeError,
                         "object.__init__() takes no parameters")
 
