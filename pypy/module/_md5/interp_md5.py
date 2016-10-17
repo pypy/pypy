@@ -44,7 +44,7 @@ def W_MD5___new__(space, w_subtype, initialdata=''):
 
 
 W_MD5.typedef = TypeDef(
-    'MD5Type',
+    '_md5_md5',
     __new__   = interp2app(W_MD5___new__),
     update    = interp2app(W_MD5.update_w),
     digest    = interp2app(W_MD5.digest_w),

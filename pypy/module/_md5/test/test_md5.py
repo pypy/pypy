@@ -98,3 +98,7 @@ class AppTestMD5(object):
         raises(TypeError, md5.md5, "abcde")
         d1 = md5.md5()
         raises(TypeError, d1.update, "jkl")
+
+    def test_repr(self):
+        md5 = self.md5
+        assert 'md5' in repr(md5.md5())
