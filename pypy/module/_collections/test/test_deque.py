@@ -362,3 +362,21 @@ class AppTestBasic:
         d = deque(range(10))
         d.insert(-1, 500)
         assert d.index(500) == 9
+
+    def test_deque_raises_runtimeerror(self):
+        from _collections import deque
+        n = 200
+        class MutateCmp:
+            def __init__(self, deque, result):
+                self.deque = deque
+                self.result = result
+            def __eq__(self, other):
+                self.deque.clear()
+                return self.result
+        d = deque(range(n))
+        d[n//2] = MutateCmp(d, False)
+        try:
+            d.index(n)
+            assert 0, "must raise!"
+        except RuntimeError:
+            pass

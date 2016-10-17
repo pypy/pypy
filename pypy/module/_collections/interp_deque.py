@@ -334,6 +334,7 @@ class W_Deque(W_Root):
         _len = self.len
         start = 0
         stop = _len
+        lock = self.getlock()
 
         if w_start is not None:
             start = space.int_w(w_start)
@@ -358,6 +359,7 @@ class W_Deque(W_Root):
                     continue
                 if space.eq_w(w_obj, w_x):
                     return space.wrap(i)
+                self.checklock(lock)
             except OperationError as e:
                 if not e.match(space, space.w_StopIteration):
                     raise
