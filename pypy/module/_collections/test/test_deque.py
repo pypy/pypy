@@ -395,3 +395,13 @@ class AppTestBasic:
         assert ''.join(g + h) == 'efgh'
         assert g + h == deque('efgh')
 
+    def test_deque_insert2(self):
+        from _collections import deque
+        elements = 'ABCDEFGHI'
+        for i in range(-5 - len(elements)*2, 5 + len(elements) * 2):
+            d = deque('ABCDEFGHI')
+            s = list('ABCDEFGHI')
+            d.insert(i, 'Z')
+            s.insert(i, 'Z')
+            assert list(d) == s
+

@@ -375,13 +375,15 @@ class W_Deque(W_Root):
     def insert(self, index, w_value):
         space = self.space
         n = space.len_w(self)
-        if n == self.maxlen:
+        if n >= self.maxlen:
             raise oefmt(space.w_IndexError, "deque already at its maximum size")
 
         if index >= n:
             self.append(w_value)
+            return
         if index <= -n or index == 0:
             self.appendleft(w_value)
+            return
 
         self.rotate(-index)
         if index < 0:
