@@ -195,6 +195,9 @@ class W_Deque(W_Root):
 
         return space.wrap(copied)
 
+    def rmul(self, w_int):
+        return self.mul(w_int)
+
     def imul(self, w_int):
         space = self.space
         copy = W_Deque(space)
@@ -578,6 +581,7 @@ Build an ordered collection accessible from endpoints only.""",
     __reduce__ = interp2app(W_Deque.reduce),
     __mul__ = interp2app(W_Deque.mul),
     __imul__ = interp2app(W_Deque.imul),
+    __rmul__ = interp2app(W_Deque.rmul),
     maxlen = GetSetProperty(W_Deque.get_maxlen),
 )
 

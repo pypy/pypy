@@ -380,3 +380,9 @@ class AppTestBasic:
             assert 0, "must raise!"
         except RuntimeError:
             pass
+
+    def test_deque_rmul(self):
+        from _collections import deque
+        d = deque([1,2])
+        assert 2 * d == deque([1,2,1,2])
+        assert -5 * d == deque()
