@@ -25,8 +25,6 @@ unpackiterable_driver = jit.JitDriver(name='unpackiterable',
                                       reds=['items', 'w_iterator'])
 
 
-# It seems there's no way to do it without top-level-functions.
-
 @specialize.memo()
 def _does_override_buffer_w(type):
     return type.buffer_w != W_Root.buffer_w
@@ -34,18 +32,6 @@ def _does_override_buffer_w(type):
 @specialize.memo()
 def _does_override_buffer_w_ex(type):
     return type.buffer_w_ex != W_Root.buffer_w_ex
-
-@specialize.argtype(0)
-def W_Root_buffer_w(self, space, flags):
-    if _does_override_buffer_w_ex(self.__class__):
-        return self.buffer_w_ex(space, flags)[0]
-    return self._buffer(space, flags).buffer_w(space, flags)
-
-@specialize.argtype(0)
-def W_Root_buffer_w_ex(self, space, flags):
-    if _does_override_buffer_w(self.__class__):
-        return self.buffer_w(space, flags), 'B', 1
-    return self._buffer(space, flags).buffer_w_ex(space, flags)
 
 
 class W_Root(object):
@@ -229,10 +215,14 @@ class W_Root(object):
         return None
 
     def buffer_w(self, space, flags):
-        return W_Root_buffer_w(self, space, flags)
+        if _does_override_buffer_w_ex(self.__class__):
+            return self.buffer_w_ex(space, flags)[0]
+        return self._buffer(space, flags).buffer_w(space, flags)
 
     def buffer_w_ex(self, space, flags):
-        return W_Root_buffer_w_ex(self, space, flags)
+        if _does_override_buffer_w(self.__class__):
+            return self.buffer_w(space, flags), 'B', 1
+        return self._buffer(space, flags).buffer_w_ex(space, flags)
 
     def _buffer(self, space, flags):
         w_impl = space.lookup(self, '__buffer__')
