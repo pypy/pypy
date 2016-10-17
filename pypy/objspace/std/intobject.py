@@ -902,13 +902,12 @@ def _new_int(space, w_inttype, w_x, w_base=None):
         if space.isinstance_w(w_value, space.w_unicode):
             from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
             s = unicode_to_decimal_w(space, w_value, allow_surrogates=True)
+        elif (space.isinstance_w(w_value, space.w_bytes) or
+              space.isinstance_w(w_value, space.w_bytearray)):
+            s = space.bufferstr_w(w_value)
         else:
-            try:
-                s = space.bufferstr_w(w_value)
-            except OperationError as e:
-                raise oefmt(space.w_TypeError,
-                            "int() can't convert non-string with explicit "
-                            "base")
+            raise oefmt(space.w_TypeError,
+                        "int() can't convert non-string with explicit base")
 
         return _string_to_int_or_long(space, w_inttype, w_value, s, base)
 

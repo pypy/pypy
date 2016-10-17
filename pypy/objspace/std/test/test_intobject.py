@@ -602,6 +602,11 @@ class AppTestInt(object):
         assert m is False
         assert len(log) == 2
 
+    def test_int_nonstr_with_base(self):
+        assert int(b'100', 2) == 4
+        assert int(bytearray(b'100'), 2) == 4
+        raises(TypeError, int, memoryview(b'100'), 2)
+
 
 class AppTestIntShortcut(AppTestInt):
     spaceconfig = {"objspace.std.intshortcut": True}
