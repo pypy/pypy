@@ -386,3 +386,12 @@ class AppTestBasic:
         d = deque([1,2])
         assert 2 * d == deque([1,2,1,2])
         assert -5 * d == deque()
+
+    def test_deque_maxlen(self):
+        from _collections import deque
+        g = deque('abcdef', maxlen=4)
+        assert len(g) == 4 and g == deque('cdef')
+        h = deque('gh')
+        assert ''.join(g + h) == 'efgh'
+        assert g + h == deque('efgh')
+

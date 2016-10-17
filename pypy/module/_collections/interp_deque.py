@@ -177,6 +177,7 @@ class W_Deque(W_Root):
 
     def add(self, w_iterable):
         copy = W_Deque(self.space)
+        copy.maxlen = self.maxlen
         copy.extend(self.iter())
         copy.extend(w_iterable)
         return self.space.wrap(copy)
@@ -188,6 +189,7 @@ class W_Deque(W_Root):
     def mul(self, w_int):
         space = self.space
         copied = W_Deque(space)
+        copied.maxlen = self.maxlen
         num = space.int_w(w_int)
 
         for _ in range(num):
@@ -201,6 +203,7 @@ class W_Deque(W_Root):
     def imul(self, w_int):
         space = self.space
         copy = W_Deque(space)
+        copy.maxlen = self.maxlen
         copy.extend(self.iter())
         num = space.int_w(w_int)
 
