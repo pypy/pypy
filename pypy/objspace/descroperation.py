@@ -480,7 +480,15 @@ class DescrOperation(object):
                         w_obj)
         w_result = space.get_and_call_function(w_impl, w_obj)
 
+        if space.is_w(space.type(w_result), space.w_int):
+            return w_result
         if space.isinstance_w(w_result, space.w_int):
+            tp = space.type(w_result).name.decode('utf-8')
+            space.warn(space.wrap(
+                "__index__ returned non-int (type %s).  "
+                "The ability to return an instance of a strict subclass of int "
+                "is deprecated, and may be removed in a future version of "
+                "Python." % (tp,)), space.w_DeprecationWarning)
             return w_result
         raise oefmt(space.w_TypeError,
                     "__index__ returned non-int (type %T)", w_result)

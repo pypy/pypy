@@ -586,6 +586,22 @@ class AppTestInt(object):
     def test_floor(self):
         assert 8 .__floor__() == 8
 
+    def test_deprecation_warning_1(self):
+        import warnings, _operator
+        class BadInt:
+            def __int__(self):
+                return True
+            def __index__(self):
+                return False
+        bad = BadInt()
+        with warnings.catch_warnings(record=True) as log:
+            warnings.simplefilter("always", DeprecationWarning)
+            n = int(bad)
+            m = _operator.index(bad)
+        assert n is True
+        assert m is False
+        assert len(log) == 2
+
 
 class AppTestIntShortcut(AppTestInt):
     spaceconfig = {"objspace.std.intshortcut": True}
