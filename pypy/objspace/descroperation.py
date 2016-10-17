@@ -522,6 +522,23 @@ class DescrOperation(object):
     def isinstance(space, w_inst, w_type):
         return space.wrap(space.isinstance_w(w_inst, w_type))
 
+    def index(space, w_obj):
+        if (space.isinstance_w(w_obj, space.w_int) or
+            space.isinstance_w(w_obj, space.w_long)):
+            return w_obj
+        w_impl = space.lookup(w_obj, '__index__')
+        if w_impl is None:
+            raise oefmt(space.w_TypeError,
+                        "'%T' object cannot be interpreted as an index",
+                        w_obj)
+        w_result = space.get_and_call_function(w_impl, w_obj)
+
+        if (space.isinstance_w(w_result, space.w_int) or
+            space.isinstance_w(w_result, space.w_long)):
+            return w_result
+        raise oefmt(space.w_TypeError,
+                    "__index__ returned non-(int,long) (type '%T')", w_result)
+
 
 # helpers
 
@@ -797,17 +814,13 @@ def _make_unaryop_impl(symbol, specialnames):
 # more of the above manually-coded operations as well)
 
 for targetname, specialname, checkerspec in [
-    ('index', '__index__', ("space.w_int", "space.w_long")),
     ('long', '__long__', ("space.w_int", "space.w_long")),
     ('float', '__float__', ("space.w_float",))]:
 
     l = ["space.isinstance_w(w_result, %s)" % x
                 for x in checkerspec]
     checker = " or ".join(l)
-    if targetname == 'index':
-        msg = "'%%T' object cannot be interpreted as an index"
-    else:
-        msg = "unsupported operand type for %(targetname)s(): '%%T'"
+    msg = "unsupported operand type for %(targetname)s(): '%%T'"
     msg = msg % locals()
     source = """if 1:
         def %(targetname)s(space, w_obj):
