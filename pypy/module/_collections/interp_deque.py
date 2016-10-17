@@ -202,10 +202,16 @@ class W_Deque(W_Root):
 
     def imul(self, w_int):
         space = self.space
+        num = space.int_w(w_int)
+        if self.len == 0 or num == 1:
+            return space.wrap(self)
+        if num <= 0:
+            self.clear()
+            return space.wrap(self)
+        # use a copy to extend self
         copy = W_Deque(space)
         copy.maxlen = self.maxlen
         copy.extend(self.iter())
-        num = space.int_w(w_int)
 
         for _ in range(num - 1):
             self.extend(copy)
