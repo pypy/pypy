@@ -335,9 +335,9 @@ class AppTestUnicodeString:
         exc = raises(TypeError, s.strip, buffer(' '))
         assert str(exc.value) == 'strip arg must be None, unicode or str'
         exc = raises(TypeError, s.rstrip, buffer(' '))
-        assert str(exc.value) == 'strip arg must be None, unicode or str'
+        assert str(exc.value) == 'rstrip arg must be None, unicode or str'
         exc = raises(TypeError, s.lstrip, buffer(' '))
-        assert str(exc.value) == 'strip arg must be None, unicode or str'
+        assert str(exc.value) == 'lstrip arg must be None, unicode or str'
 
     def test_strip_str_unicode(self):
         x = "--abc--".strip(u"-")
@@ -748,7 +748,9 @@ class AppTestUnicodeString:
         assert 'abc'.__add__(u'def') == u'abcdef'
         assert u'abc'.__add__(u'def') == u'abcdef'
         assert u'abc'.__add__('def') == u'abcdef'
-        # xxx CPython has no str.__radd__ and no unicode.__radd__
+        assert u'abc'.__rmod__(u'%s') == u'abc'
+        ret = u'abc'.__rmod__('%s')
+        raises(AttributeError, "u'abc'.__radd__(u'def')")
 
     def test_str_unicode_concat_overrides(self):
         "Test from Jython about being bug-compatible with CPython."
