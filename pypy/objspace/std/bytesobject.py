@@ -672,6 +672,9 @@ class W_BytesObject(W_AbstractBytesObject):
     def descr_mod(self, space, w_values):
         return mod_format(space, self, w_values, fmt_type=FORMAT_BYTES)
 
+    def descr_rmod(self, space, w_values):
+        return mod_format(space, w_values, self, fmt_type=FORMAT_BYTES)
+
     @staticmethod
     def _iter_getitem_result(self, space, index):
         assert isinstance(self, W_BytesObject)
@@ -809,6 +812,7 @@ W_BytesObject.typedef = TypeDef(
     __rmul__ = interpindirect2app(W_AbstractBytesObject.descr_rmul),
 
     __mod__ = interpindirect2app(W_AbstractBytesObject.descr_mod),
+    __rmod__ = interpindirect2app(W_AbstractBytesObject.descr_rmod),
 
     __getitem__ = interpindirect2app(W_AbstractBytesObject.descr_getitem),
 

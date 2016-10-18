@@ -740,9 +740,9 @@ class AppTestUnicodeString:
     def test_call_special_methods(self):
         # xxx not completely clear if these are implementation details or not
         assert 'abc'.__add__('def') == 'abcdef'
-        assert 'abc'.__add__('def') == 'abcdef'
-        assert 'abc'.__add__('def') == 'abcdef'
-        # xxx CPython has no str.__radd__ and no unicode.__radd__
+        assert u'abc'.__rmod__(u'%s') == u'abc'
+        ret = u'abc'.__rmod__('%s')
+        raises(AttributeError, "u'abc'.__radd__(u'def')")
 
     def test_str_unicode_concat_overrides(self):
         "Test from Jython about being bug-compatible with CPython."

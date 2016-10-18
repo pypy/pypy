@@ -106,11 +106,43 @@ class AppTestBytesObject:
         raises(TypeError, bytes.fromhex, True)
         raises(ValueError, bytes.fromhex, "hello world")
 
+    def test_format(self):
+        raises(TypeError, "foo".__mod__, "bar")
+        raises(TypeError, u"foo".__mod__, "bar")
+        raises(TypeError, "foo".__mod__, u"bar")
+
+        for format, arg, cls in [("a %s b", "foo", str),
+                                 (u"a %s b", "foo", unicode),
+                                 ("a %s b", u"foo", unicode),
+                                 (u"a %s b", u"foo", unicode)]:
+            raises(TypeError, format[:2].__mod__, arg)
+            result = format % arg
+            assert result == "a foo b"
+            assert isinstance(result, cls)
+
+
+        for format, arg, cls in [("a %s b", "foo", str),
+                                 (u"a %s b", u"foo", unicode)]:
+            raises(TypeError, arg.__rmod__, format[:2])
+            result = arg.__rmod__(format)
+            assert result == "a foo b"
+            assert isinstance(result, cls)
+        for format, arg, cls in [(u"a %s b", "foo", str),
+                                 ("a %s b", u"foo", unicode)]:
+            result = arg.__rmod__(format)
+            if '__pypy__' in sys.builtin_module_names:
+                raises(TypeError, arg.__rmod__, format[:2])
+                assert result == "a foo b"
+                assert isinstance(result, cls)
+            else:
+                assert result is NotImplemented
+
     def test_format_wrongtype(self):
         for int_format in '%d', '%o', '%x':
             exc_info = raises(TypeError, int_format.__mod__, '123')
             expected = int_format + ' format: a number is required, not str'
             assert str(exc_info.value) == expected
+        raises(TypeError, "None % 'abc'") # __rmod__
 
     def test_split(self):
         assert b"".split() == []
@@ -822,6 +854,10 @@ class AppTestBytesObject:
         raises(TypeError, len, iter(iterable))
 
     def test___radd__(self):
+        raises(TypeError, "None + ''")
+        raises(AttributeError, "'abc'.__radd__('def')")
+
+
         class Foo(object):
             def __radd__(self, other):
                 return 42
