@@ -101,5 +101,8 @@ def add_future_flags(future_flags, tokens):
         it.skip(pygram.tokens.SEMI)    # optionally
         it.skip_newlines()
 
+    # remove the flags that were specified but are anyway mandatory
+    result &= ~future_flags.mandatory_flags
+
     position = (it.tok[2], it.tok[3])
     return result, position
