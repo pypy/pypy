@@ -203,6 +203,13 @@ class AppTestOperator:
                 return 13289
         assert operator.index(myint(7)) == 7
 
+    def test_index_int_subclass(self):
+        import operator
+        class myint(int):
+            def __index__(self):
+                return 13289
+        assert operator.index(myint(7)) == 7
+
     def test_compare_digest(self):
         import _operator as operator
 

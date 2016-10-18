@@ -29,7 +29,8 @@ del types
 globals()['uint'] = dtype('uint').type
 
 types = ['Generic', 'Number', 'Integer', 'SignedInteger', 'UnsignedInteger',
-         'Inexact', 'Floating', 'ComplexFloating', 'Flexible', 'Character']
+         'Inexact', 'Floating', 'ComplexFloating', 'Flexible', 'Character',
+        ]
 for t in types:
     globals()[t.lower()] = typeinfo[t]
 
@@ -42,4 +43,4 @@ def ones(*args, **kwargs):
     return a
 
 def isscalar(a):
-    return type(a) in [typeinfo[t] for t in types]
+    return any([isinstance(a, typeinfo[t]) for t in types])

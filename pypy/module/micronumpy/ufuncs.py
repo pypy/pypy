@@ -288,10 +288,8 @@ class W_Ufunc(W_Root):
 
         _, dtype, _ = self.find_specialization(space, dtype, dtype, out,
                                                    casting='unsafe')
-        call__array_wrap__ = True
         if shapelen == len(axes):
             if out:
-                call__array_wrap__ = False
                 if out.ndims() > 0:
                     raise oefmt(space.w_ValueError,
                                 "output parameter for reduction operation %s has "
@@ -302,15 +300,20 @@ class W_Ufunc(W_Root):
             if out:
                 out.set_scalar_value(res)
                 return out
+            w_NDimArray = space.gettypefor(W_NDimArray)
+            call__array_wrap__ = False
             if keepdims:
                 shape = [1] * len(obj_shape)
                 out = W_NDimArray.from_shape(space, shape, dtype, w_instance=obj)
                 out.implementation.setitem(0, res)
+                call__array_wrap__ = True
                 res = out
-            elif not space.is_w(space.type(w_obj), space.gettypefor(W_NDimArray)):
+            elif (space.issubtype_w(space.type(w_obj), w_NDimArray) and 
+                  not space.is_w(space.type(w_obj), w_NDimArray)):
                 # subtypes return a ndarray subtype, not a scalar
                 out = W_NDimArray.from_shape(space, [1], dtype, w_instance=obj)
                 out.implementation.setitem(0, res)
+                call__array_wrap__ = True
                 res = out
             if call__array_wrap__:
                 res = space.call_method(obj, '__array_wrap__', res, space.w_None)
@@ -359,8 +362,7 @@ class W_Ufunc(W_Root):
                 return out
             loop.reduce(
                 space, self.func, obj, axis_flags, dtype, out, self.identity)
-            if call__array_wrap__:
-                out = space.call_method(obj, '__array_wrap__', out, space.w_None)
+            out = space.call_method(obj, '__array_wrap__', out, space.w_None)
             return out
 
     def descr_outer(self, space, args_w):

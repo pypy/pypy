@@ -610,7 +610,7 @@ def type_attach(space, py_obj, w_type):
     # uninitialized fields:
     # c_tp_print
     # XXX implement
-    # c_tp_compare and the following fields (see http://docs.python.org/c-api/typeobj.html )
+    # c_tp_compare and more?
     w_base = best_base(space, w_type.bases_w)
     pto.c_tp_base = rffi.cast(PyTypeObjectPtr, make_ref(space, w_base))
 
@@ -668,7 +668,6 @@ def best_base(space, bases_w):
     return find_best_base(bases_w)
 
 def inherit_slots(space, pto, w_base):
-    # XXX missing: nearly everything
     base_pyo = make_ref(space, w_base)
     try:
         base = rffi.cast(PyTypeObjectPtr, base_pyo)
@@ -687,6 +686,15 @@ def inherit_slots(space, pto, w_base):
             pto.c_tp_getattro = base.c_tp_getattro
         if not pto.c_tp_as_buffer:
             pto.c_tp_as_buffer = base.c_tp_as_buffer
+        if base.c_tp_as_buffer:
+            # inherit base.c_tp_as_buffer functions not inherited from w_type
+            # note: builtin types are handled in setup_buffer_procs
+            pto_as = pto.c_tp_as_buffer
+            base_as = base.c_tp_as_buffer
+            if not pto_as.c_bf_getbuffer:
+                pto_as.c_bf_getbuffer = base_as.c_bf_getbuffer
+            if not pto_as.c_bf_releasebuffer:
+                pto_as.c_bf_releasebuffer = base_as.c_bf_releasebuffer
     finally:
         Py_DecRef(space, base_pyo)
 
@@ -716,21 +724,22 @@ def _type_realize(space, py_obj):
 
     w_obj = space.allocate_instance(W_PyCTypeObject, w_metatype)
     track_reference(space, py_obj, w_obj)
-    w_obj.__init__(space, py_type)
+    # __init__ wraps all slotdefs functions from py_type via add_operators
+    w_obj.__init__(space, py_type) 
     w_obj.ready()
 
     finish_type_2(space, py_type, w_obj)
-    # inheriting tp_as_* slots
     base = py_type.c_tp_base
     if base:
-        if not py_type.c_tp_as_number:
+        # XXX refactor - parts of this are done in finish_type_2 -> inherit_slots
+        if not py_type.c_tp_as_number: 
             py_type.c_tp_as_number = base.c_tp_as_number
             py_type.c_tp_flags |= base.c_tp_flags & Py_TPFLAGS_HAVE_INPLACEOPS
         if not py_type.c_tp_as_sequence:
             py_type.c_tp_as_sequence = base.c_tp_as_sequence
             py_type.c_tp_flags |= base.c_tp_flags & Py_TPFLAGS_HAVE_INPLACEOPS
         if not py_type.c_tp_as_mapping: py_type.c_tp_as_mapping = base.c_tp_as_mapping
-        if not py_type.c_tp_as_buffer: py_type.c_tp_as_buffer = base.c_tp_as_buffer
+        #if not py_type.c_tp_as_buffer: py_type.c_tp_as_buffer = base.c_tp_as_buffer
 
     return w_obj
 
