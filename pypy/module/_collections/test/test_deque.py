@@ -350,6 +350,12 @@ class AppTestBasic:
         d *= 3
         assert d == deque([1,2,3]*3)
         assert d is not deque([1,2,3]*3)
+        d = deque('a')
+        for n in (-10, -1, 0, 1, 2, 10, 1000):
+            d = deque('a')
+            d *= n
+            assert d == deque('a' * n)
+            assert d.maxlen is None
 
     def test_deque_insert(self):
         from _collections import deque
@@ -386,3 +392,28 @@ class AppTestBasic:
         d = deque([1,2])
         assert 2 * d == deque([1,2,1,2])
         assert -5 * d == deque()
+
+    def test_deque_maxlen(self):
+        from _collections import deque
+        g = deque('abcdef', maxlen=4)
+        assert len(g) == 4 and g == deque('cdef')
+        h = deque('gh')
+        assert ''.join(g + h) == 'efgh'
+        assert g + h == deque('efgh')
+
+    def test_deque_insert2(self):
+        from _collections import deque
+        elements = 'ABCDEFGHI'
+        for i in range(-5 - len(elements)*2, 5 + len(elements) * 2):
+            d = deque('ABCDEFGHI')
+            s = list('ABCDEFGHI')
+            d.insert(i, 'Z')
+            s.insert(i, 'Z')
+            assert list(d) == s
+
+    def test_deque_index_overflow_start_end(self):
+        from _collections import deque
+        import sys
+        elements = 'ABCDEFGHI'
+        d = deque([-2, -1, 0, 0, 1, 2])
+        assert a.index(0, -4*sys.maxsize, 4*sys.maxsize) == 2
