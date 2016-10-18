@@ -2868,7 +2868,7 @@ readbuffer_as_string(PyObject *self, PyObject *args)
     }
     if (PyObject_AsReadBuffer(obj, &ptr, &size) < 0)
         return NULL;
-    return PyString_FromStringAndSize((char*)ptr, size);
+    return PyBytes_FromStringAndSize((char*)ptr, size);
 }
 
 
