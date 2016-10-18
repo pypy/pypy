@@ -820,8 +820,6 @@ def inherit_slots(space, pto, w_base):
                 pto_as.c_bf_getreadbuffer = base_as.c_bf_getreadbuffer
             if not pto_as.c_bf_getsegcount:
                 pto_as.c_bf_getsegcount = base_as.c_bf_getsegcount
-            if not pto_as.c_bf_getcharbuffer:
-                pto_as.c_bf_getcharbuffer = base_as.c_bf_getcharbuffer
             if not pto_as.c_bf_releasebuffer:
                 pto_as.c_bf_releasebuffer = base_as.c_bf_releasebuffer
     finally:
