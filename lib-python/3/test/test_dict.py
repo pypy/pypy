@@ -951,7 +951,12 @@ class DictTest(unittest.TestCase):
         other = dict(l)
         other[X()] = 0
         d = {X(): 0, 1: 1}
-        self.assertRaises(RuntimeError, d.update, other)
+        # should not crash, but can raise RuntimeError (CPython)
+        # or not (PyPy)
+        try:
+            d.update(other)
+        except RuntimeError:
+            pass
 
 from test import mapping_tests
 
