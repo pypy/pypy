@@ -4,8 +4,7 @@ from pypy.interpreter.error import OperationError, oefmt, strerror as _strerror,
 from pypy.interpreter.gateway import unwrap_spec
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import intmask, r_ulonglong, r_longfloat, widen
-from rpython.rlib.rtime import (TIMEB, c_ftime,
-                                GETTIMEOFDAY_NO_TZ, TIMEVAL,
+from rpython.rlib.rtime import (GETTIMEOFDAY_NO_TZ, TIMEVAL,
                                 HAVE_GETTIMEOFDAY, HAVE_FTIME)
 from rpython.rlib import rposix, rtime
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -13,6 +12,9 @@ import math
 import os
 import sys
 import time as pytime
+
+if HAVE_FTIME:
+    from rpython.rlib.rtime import TIMEB, c_ftime
 
 _POSIX = os.name == "posix"
 _WIN = os.name == "nt"
