@@ -188,6 +188,7 @@ Creation of Application Level objects
 
 .. py:function:: wrap(x)
 
+   **Deprecated! Eventually this method should disappear.**
    Returns a wrapped object that is a reference to the interpreter-level object
    :py:obj:`x`. This can be used either on simple immutable objects (integers,
    strings, etc) to create a new wrapped object, or on instances of :py:class:`W_Root`
@@ -195,6 +196,25 @@ Creation of Application Level objects
    most classes of the bytecode interpreter subclass :py:class:`W_Root` and can
    be directly exposed to application-level code in this way - functions, frames,
    code objects, etc.
+
+.. py:function:: newint(i)
+
+   Creates a wrapped object holding an integral value. `newint` creates an object
+   of type `W_IntObject`.
+
+.. py:function:: newlong(l)
+
+   Creates a wrapped object holding an integral value. The main difference to newint
+   is the type of the argument (which is rpython.rlib.rbigint.rbigint). On PyPy3 this
+   method will return an :py:class:`int` (PyPy2 it returns a :py:class:`long`).
+
+.. py:function:: newtext(t)
+
+   The given argument is a rpython bytestring. Creates a wrapped object of type :py:class:`str`.
+   On PyPy3 this will return a wrapped unicode object. The object will hold a utf8 decoded
+   value of `t`.
+
+   PyPy2 will return a bytestring object. No encoding/decoding steps will be applied.
 
 .. py:function:: newbool(b)
 
@@ -217,15 +237,12 @@ Creation of Application Level objects
 
    Creates a new slice object.
 
-.. py:function:: newstring(asciilist)
-
-   Creates a string from a list of wrapped integers. Note that this may not be
-   a very useful method; usually you can just write ``space.wrap("mystring")``.
-
 .. py:function:: newunicode(codelist)
 
-   Creates a Unicode string from a list of integers (code points).
+   Creates a Unicode string from a rpython unicode string.
 
+Many more space operations can be found in `pypy/interpeter/baseobjspace.py` and
+`pypy/objspace/std/objspace.py`.
 
 Conversions from Application Level to Interpreter Level
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -258,8 +275,19 @@ Conversions from Application Level to Interpreter Level
    If :py:obj:`w_x` is an application-level integer or long, return an interpreter-level
    :py:class:`rbigint`. Otherwise raise :py:exc:`TypeError`.
 
+.. py:function:: text_w(w_x)
+
+   Takes an application level py:class:`str` and converts it to a rpython byte string.
+   PyPy3 this method will return an utf8 encoded result.
+
+.. py:function:: bytes_w(w_x)
+
+   Takes an application level py:class:`bytes` (PyPy2 this equals `str`) and returns a rpython
+   byte string.
+
 .. py:function:: str_w(w_x)
 
+   **Deprecated. use text_w or bytes_w instead**
    If :py:obj:`w_x` is an application-level string, return an interpreter-level string.
    Otherwise raise :py:exc:`TypeError`.
 
