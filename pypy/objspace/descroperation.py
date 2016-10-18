@@ -483,7 +483,7 @@ class DescrOperation(object):
         if space.is_w(space.type(w_result), space.w_int):
             return w_result
         if space.isinstance_w(w_result, space.w_int):
-            tp = space.type(w_result).name.decode('utf-8')
+            tp = space.type(w_result).name
             space.warn(space.wrap(
                 "__index__ returned non-int (type %s).  "
                 "The ability to return an instance of a strict subclass of int "
