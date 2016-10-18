@@ -252,8 +252,9 @@ class TestASTValidator:
     def test_dict(self):
         d = ast.Dict([], [ast.Name("x", ast.Load, 0, 0)], 0, 0)
         self.expr(d, "same number of keys as values")
-        d = ast.Dict([None], [ast.Name("x", ast.Load, 0, 0)], 0, 0)
-        self.expr(d, "None disallowed")
+        # This is now valid, and used for ``{**x}``
+        #d = ast.Dict([None], [ast.Name("x", ast.Load, 0, 0)], 0, 0)
+        #self.expr(d, "None disallowed")
         d = ast.Dict([ast.Name("x", ast.Load, 0, 0)], [None], 0, 0)
         self.expr(d, "None disallowed")
 
