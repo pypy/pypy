@@ -2,7 +2,6 @@ from rpython.rtyper.lltypesystem import rffi
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, Py_TPFLAGS_HAVE_NEWBUFFER)
 from pypy.module.cpyext.pyobject import PyObject
-from pypy.module.cpyext.bytesobject import PyBytesObject
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyObject_CheckBuffer(space, pyobj):
