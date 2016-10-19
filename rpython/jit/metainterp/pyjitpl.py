@@ -1974,6 +1974,8 @@ class MetaInterp(object):
         self.aborted_tracing_greenkey = None
 
     def retrace_needed(self, trace, exported_state):
+        if not we_are_translated():
+            exported_state._check_no_forwarding()
         self.partial_trace = trace
         self.retracing_from = self.potential_retrace_position
         self.exported_state = exported_state
