@@ -124,6 +124,7 @@ initinjection(void)
 
     if (PyType_Ready(&mytype_type) < 0)
         INITERROR;
+    PyModule_AddObject(module, "test_mytype", (PyObject *)&mytype_type);
 #if PY_MAJOR_VERSION >=3
     return module;
 #endif

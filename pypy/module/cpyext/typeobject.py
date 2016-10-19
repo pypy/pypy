@@ -1,7 +1,7 @@
 import os
 
 from rpython.rlib import jit
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.rstring import rsplit
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.lltypesystem import rffi, lltype
@@ -967,5 +967,6 @@ def PyType_Modified(space, w_obj):
 
 def inject_operators(space, dict_w, pto):
     name = rffi.charp2str(pto.c_tp_name)
-    if name == 'test_module.test_mytype':
-        pass #xxx
+    if not we_are_translated() and name == 'test_module.test_mytype':
+        from pypy.module.cpyext.injection._test_module import inject
+        inject(space, name, dict_w, pto)
