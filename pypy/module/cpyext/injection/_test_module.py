@@ -10,12 +10,21 @@ mytype_object = lltype.Ptr(lltype.Struct(
     *(PyObjectFields + (("foo", rffi.INT),))))
 
 
+class Original:
+    def __init__(self, space):
+        pass
+
+
 @unwrap_spec(index=int)
 def injected_getitem(space, w_self, index):
-    py_obj = as_pyobj(space, w_self)
-    py_obj = rffi.cast(mytype_object, py_obj)
-    return space.wrap(index * rffi.getintfield(py_obj, "foo"))
-
+    if index > 0:
+        py_obj = as_pyobj(space, w_self)
+        py_obj = rffi.cast(mytype_object, py_obj)
+        return space.wrap(index * rffi.getintfield(py_obj, "foo"))
+    else:
+        org = space.fromcache(Original)
+        return space.call_function(org.w_original_getitem, w_self,
+                                   space.wrap(index))
 
 injected_methods = {
     '__getitem__': interp2app(injected_getitem),
@@ -23,5 +32,7 @@ injected_methods = {
 
 def inject(space, name, dict_w, pto):
     assert name == 'test_module.test_mytype'
+    org = space.fromcache(Original)
+    org.w_original_getitem = dict_w['__getitem__']
     for key, value in injected_methods.items():
         dict_w[key] = space.wrap(value)

@@ -456,7 +456,6 @@ class W_PyCTypeObject(W_TypeObject):
     def __init__(self, space, pto):
         bases_w = space.fixedview(from_ref(space, pto.c_tp_bases))
         dict_w = {}
-        inject_operators(space, dict_w, pto)
 
         add_operators(space, dict_w, pto)
         convert_method_defs(space, dict_w, pto.c_tp_methods, self)
@@ -464,6 +463,7 @@ class W_PyCTypeObject(W_TypeObject):
         convert_member_defs(space, dict_w, pto.c_tp_members, self)
 
         name = rffi.charp2str(pto.c_tp_name)
+        inject_operators(space, name, dict_w, pto)
         new_layout = (pto.c_tp_basicsize > rffi.sizeof(PyObject.TO) or
                       pto.c_tp_itemsize > 0)
 
@@ -965,8 +965,7 @@ def PyType_Modified(space, w_obj):
         w_obj.mutated(None)
 
 
-def inject_operators(space, dict_w, pto):
-    name = rffi.charp2str(pto.c_tp_name)
+def inject_operators(space, name, dict_w, pto):
     if not we_are_translated() and name == 'test_module.test_mytype':
         from pypy.module.cpyext.injection._test_module import inject
         inject(space, name, dict_w, pto)

@@ -7,3 +7,4 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         module = self.import_module(name='injection')
         mything = module.test_mytype()
         assert mything[100] == 4200
+        assert mything[-100] == -100+42
