@@ -9,13 +9,15 @@ typedef struct {
 static PyObject *
 mytype_item(mytype_object *o, Py_ssize_t i)
 {
-    return PyInt_FromLong(i + 42);
+    return PyInt_FromLong(i + o->foo);
 }
 
 static PyObject *
 mytype_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
-    return type->tp_alloc(type, 0);
+    mytype_object *o = (mytype_object *)type->tp_alloc(type, 0);
+    o->foo = 42;
+    return (PyObject *)o;
 }
 
 static PySequenceMethods mytype_as_sequence = {
