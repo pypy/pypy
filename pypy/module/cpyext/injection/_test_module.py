@@ -28,6 +28,9 @@ def injected_getitem(space, w_self, index):
 
 @unwrap_spec(arg=int)
 def injected_make(space, arg):
+    if arg == 15:
+        org = space.fromcache(Original)
+        return space.call_function(org.w_original_make, space.wrap(arg))
     return space.w_Ellipsis
 
 

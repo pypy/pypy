@@ -13,3 +13,5 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         module = self.import_module(name='injection')
         mything = module.make(5)
         assert mything is Ellipsis
+        mything = module.make(15)
+        assert mything[-100] == -100+15
