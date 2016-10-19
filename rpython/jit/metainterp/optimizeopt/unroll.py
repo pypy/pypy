@@ -6,7 +6,7 @@ from rpython.jit.metainterp.optimizeopt.shortpreamble import ShortBoxes,\
 from rpython.jit.metainterp.optimizeopt import info, intutils
 from rpython.jit.metainterp.optimize import InvalidLoop, SpeculativeError
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer,\
-     Optimization, LoopInfo, MININT, MAXINT, BasicLoopInfo
+     Optimization, LoopInfo, MININT, MAXINT, BasicLoopInfo, check_no_forwarding
 from rpython.jit.metainterp.optimizeopt.vstring import StrPtrInfo
 from rpython.jit.metainterp.optimizeopt.virtualstate import (
     VirtualStateConstructor, VirtualStatesCantMatch)
@@ -97,7 +97,6 @@ class UnrollableOptimizer(Optimizer):
         elif isinstance(preamble_info, info.FloatConstInfo):
             op.set_forwarded(preamble_info._const)
 
-
 class UnrollOptimizer(Optimization):
     """Unroll the loop into two iterations. The first one will
     become the preamble or entry bridge (don't think there is a
@@ -115,12 +114,9 @@ class UnrollOptimizer(Optimization):
         return modifier.get_virtual_state(args)
 
     def _check_no_forwarding(self, lsts, check_newops=True):
-        for lst in lsts:
-            for op in lst:
-                assert op.get_forwarded() is None
+        check_no_forwarding(lsts)
         if check_newops:
             assert not self.optimizer._newoperations
-
 
     def optimize_preamble(self, trace, runtime_boxes, call_pure_results, memo):
         info, newops = self.optimizer.propagate_all_forward(
@@ -469,7 +465,7 @@ class UnrollOptimizer(Optimization):
         assert (len(exported_state.next_iteration_args) ==
                 len(targetargs))
         self._check_no_forwarding([targetargs])
-        exported_state._check_no_forwarding(self)
+        exported_state._check_no_forwarding()
         for i, target in enumerate(exported_state.next_iteration_args):
             source = targetargs[i]
             assert source is not target
@@ -547,11 +543,11 @@ class ExportedState(LoopInfo):
                 debug_print("  " + box.repr(memo))
             debug_stop("jit-log-exported-state")
 
-    def _check_no_forwarding(self, optimizer):
+    def _check_no_forwarding(self):
         """ Ensures that no optimization state is attached to relevant operations
         before importing anything. """
         # Some of these may be redunant
-        optimizer._check_no_forwarding([
+        check_no_forwarding([
             self.end_args,
             self.next_iteration_args,
             self.renamed_inputargs,

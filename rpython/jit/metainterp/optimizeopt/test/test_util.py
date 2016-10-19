@@ -573,6 +573,7 @@ class BaseTest(object):
         #
         compile_data.enable_opts = self.enable_opts
         state = optimize_trace(metainterp_sd, None, compile_data)
+        state[0]._check_no_forwarding()
         return state
 
     def _convert_call_pure_results(self, d):
