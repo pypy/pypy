@@ -11,6 +11,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
             return space.w_False
         cls.w_is_there_an_pyobj_version = cls.space.wrap(
                          interp2app(is_there_an_pyobj_version))
+        AppTestCpythonExtensionBase.setup_class.im_func(cls)
 
     def test_getitem_basic(self):
         module = self.import_module(name='injection')

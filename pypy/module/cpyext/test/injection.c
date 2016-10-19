@@ -129,7 +129,6 @@ PyMODINIT_FUNC
 initinjection(void)
 #endif
 {
-    PyObject *d;
 #if PY_MAJOR_VERSION >= 3
     PyObject *module = PyModule_Create(&moduledef);
 #else
