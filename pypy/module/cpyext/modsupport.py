@@ -1,4 +1,5 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.objectmodel import we_are_translated
 from pypy.module.cpyext.api import cpython_api, cpython_struct, \
         METH_STATIC, METH_CLASS, METH_COEXIST, CANNOT_FAIL, CONST_STRING
 from pypy.module.cpyext.pyobject import PyObject
@@ -91,6 +92,7 @@ def convert_method_defs(space, dict_w, methods, w_type, w_self=None, name=None):
                             "module functions cannot set METH_CLASS or "
                             "METH_STATIC")
                 w_obj = space.wrap(W_PyCFunctionObject(space, method, w_self, w_name))
+                w_obj = inject_global(space, w_obj, name, methodname)
             else:
                 if methodname in dict_w and not (flags & METH_COEXIST):
                     continue
@@ -132,3 +134,9 @@ def PyModule_GetName(space, module):
     raise NotImplementedError
 
 
+def inject_global(space, w_func, modulename, funcname):
+    if (not we_are_translated() and modulename == 'injection'
+          and funcname == 'make'):
+        from pypy.module.cpyext.injection._test_module import inject_global
+        w_func = inject_global(space, w_func, funcname)
+    return w_func

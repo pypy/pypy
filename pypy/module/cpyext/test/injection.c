@@ -70,9 +70,23 @@ static PyTypeObject mytype_type = {
     PyObject_Del,                               /* tp_free */
 };
 
+
+static PyObject *glob_make(PyObject *self, PyObject *args)
+{
+    int i;
+    if (!PyArg_ParseTuple(args, "i", &i))
+        return NULL;
+
+    PyTypeObject *type = &mytype_type;
+    mytype_object *o = (mytype_object *)type->tp_alloc(type, 0);
+    o->foo = i;
+    return (PyObject *)o;
+}
+
 /* List of functions exported by this module */
 
 static PyMethodDef foo_functions[] = {
+    {"make",      (PyCFunction)glob_make, METH_VARARGS, NULL},
     {NULL,        NULL}    /* Sentinel */
 };
 

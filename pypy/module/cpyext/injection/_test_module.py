@@ -26,9 +26,15 @@ def injected_getitem(space, w_self, index):
         return space.call_function(org.w_original_getitem, w_self,
                                    space.wrap(index))
 
+@unwrap_spec(arg=int)
+def injected_make(space, arg):
+    return space.w_Ellipsis
+
+
 injected_methods = {
     '__getitem__': interp2app(injected_getitem),
 }
+interp_injected_make = interp2app(injected_make)
 
 def inject(space, name, dict_w, pto):
     assert name == 'test_module.test_mytype'
@@ -36,3 +42,9 @@ def inject(space, name, dict_w, pto):
     org.w_original_getitem = dict_w['__getitem__']
     for key, value in injected_methods.items():
         dict_w[key] = space.wrap(value)
+
+def inject_global(space, w_func, name):
+    assert name == 'make'
+    org = space.fromcache(Original)
+    org.w_original_make = w_func
+    return space.wrap(interp_injected_make)
