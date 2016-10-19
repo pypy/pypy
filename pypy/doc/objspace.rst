@@ -210,9 +210,14 @@ Creation of Application Level objects
 
 .. py:function:: newtext(t)
 
-   The given argument is a rpython bytestring. Creates a wrapped object of type :py:class:`str`.
-   On PyPy3 this will return a wrapped unicode object. The object will hold a utf8 decoded
-   value of `t`.
+   The given argument is a rpython bytestring. Creates a wrapped object
+   of type :py:class:`str`.  On PyPy3 this will return a wrapped unicode
+   object. The object will hold a utf-8-nosg decoded value of `t`.
+   The "utf-8-nosg" codec used here is slightly different from the
+   "utf-8" implemented in Python 2 or Python 3: it is defined as utf-8
+   without any special handling of surrogate characters.  They are
+   encoded using the same three-bytes sequence that encodes any char in
+   the range from ``'\u0800'`` to ``'\uffff'``.
 
    PyPy2 will return a bytestring object. No encoding/decoding steps will be applied.
 
@@ -237,9 +242,15 @@ Creation of Application Level objects
 
    Creates a new slice object.
 
-.. py:function:: newunicode(codelist)
+.. py:function:: newunicode(ustr)
 
-   Creates a Unicode string from a rpython unicode string.
+   Creates a Unicode string from an rpython unicode string.
+   This method may disappear soon and be replaced by :py:function:`newutf8()`.
+
+.. py:function:: newutf8(bytestr)
+
+   Creates a Unicode string from an rpython byte string, decoded as
+   "utf-8-nosg".  On PyPy3 it is the same as :py:function:`newtext()`.
 
 Many more space operations can be found in `pypy/interpeter/baseobjspace.py` and
 `pypy/objspace/std/objspace.py`.
@@ -277,12 +288,12 @@ Conversions from Application Level to Interpreter Level
 
 .. py:function:: text_w(w_x)
 
-   Takes an application level py:class:`str` and converts it to a rpython byte string.
-   PyPy3 this method will return an utf8 encoded result.
+   Takes an application level :py:class:`str` and converts it to a rpython byte string.
+   PyPy3 this method will return an utf-8-nosg encoded result.
 
 .. py:function:: bytes_w(w_x)
 
-   Takes an application level py:class:`bytes` (PyPy2 this equals `str`) and returns a rpython
+   Takes an application level :py:class:`bytes` (PyPy2 this equals `str`) and returns a rpython
    byte string.
 
 .. py:function:: str_w(w_x)
@@ -290,6 +301,12 @@ Conversions from Application Level to Interpreter Level
    **Deprecated. use text_w or bytes_w instead**
    If :py:obj:`w_x` is an application-level string, return an interpreter-level string.
    Otherwise raise :py:exc:`TypeError`.
+
+.. py:function:: unicode_w(w_x)
+
+   Takes an application level :py:class:`unicode` and return an
+   interpreter-level unicode string.  This method may disappear soon and
+   be replaced by :py:function:`text_w()`.
 
 .. py:function:: float_w(w_x)
 
