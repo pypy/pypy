@@ -256,7 +256,7 @@ def update_all_slots(space, w_type, pto):
         slot_func_helper = None
 
         if slot_func is None and typedef is not None:
-            get_slot = get_slot_tp_function(space, w_type, slot_name)
+            get_slot = get_slot_tp_function(space, typedef, slot_name)
             if get_slot:
                 slot_func_helper = get_slot()
         elif slot_func:

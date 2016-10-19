@@ -429,19 +429,20 @@ from rpython.rlib.nonconst import NonConstant
 SLOTS = {}
 
 @specialize.memo()
-def get_slot_tp_function(space, w_type, name):
-    key = (w_type, name)
+def get_slot_tp_function(space, typedef, name):
+    key = (typedef, name)
     try:
         return SLOTS[key]
     except KeyError:
-        ret = build_slot_tp_function(space, w_type, name)
+        ret = build_slot_tp_function(space, typedef, name)
         SLOTS[key] = ret
         return ret
 
-def build_slot_tp_function(space, w_type, name):
+def build_slot_tp_function(space, typedef, name):
+    w_type = space.gettypeobject(typedef)
 
     header = pypy_decl
-    if mangle_name('', w_type.name) is None:
+    if mangle_name('', typedef.name) is None:
         header = None
     handled = False
     # unary functions
@@ -465,7 +466,7 @@ def build_slot_tp_function(space, w_type, name):
                 return
 
             @cpython_api([PyObject], PyObject, header=header)
-            @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), w_type.name))
+            @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
             def slot_func(space, w_self):
                 return space.call_function(slot_fn, w_self)
             api_func = slot_func.api_func
@@ -492,7 +493,7 @@ def build_slot_tp_function(space, w_type, name):
                 return
 
             @cpython_api([PyObject, PyObject], PyObject, header=header)
-            @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), w_type.name))
+            @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
             def slot_func(space, w_self, w_arg):
                 return space.call_function(slot_fn, w_self, w_arg)
             api_func = slot_func.api_func
@@ -510,7 +511,7 @@ def build_slot_tp_function(space, w_type, name):
                 return
 
             @cpython_api([PyObject, Py_ssize_t], PyObject, header=header)
-            @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), w_type.name))
+            @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
             def slot_func(space, w_self, arg):
                 return space.call_function(slot_fn, w_self, space.wrap(arg))
             api_func = slot_func.api_func
@@ -525,7 +526,7 @@ def build_slot_tp_function(space, w_type, name):
                 return
 
             @cpython_api([PyObject, PyObject, PyObject], PyObject, header=header)
-            @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), w_type.name))
+            @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
             def slot_func(space, w_self, w_arg1, w_arg2):
                 return space.call_function(slot_fn, w_self, w_arg1, w_arg2)
             api_func = slot_func.api_func
@@ -541,7 +542,7 @@ def build_slot_tp_function(space, w_type, name):
 
         @cpython_api([PyObject, PyObject, PyObject], rffi.INT_real,
                      error=-1, header=header)
-        @func_renamer("cpyext_tp_setattro_%s" % (w_type.name,))
+        @func_renamer("cpyext_tp_setattro_%s" % (typedef.name,))
         def slot_tp_setattro(space, w_self, w_name, w_value):
             if w_value is not None:
                 space.call_function(setattr_fn, w_self, w_name, w_value)
@@ -555,7 +556,7 @@ def build_slot_tp_function(space, w_type, name):
             return
 
         @cpython_api([PyObject, PyObject], PyObject, header=header)
-        @func_renamer("cpyext_tp_getattro_%s" % (w_type.name,))
+        @func_renamer("cpyext_tp_getattro_%s" % (typedef.name,))
         def slot_tp_getattro(space, w_self, w_name):
             return space.call_function(getattr_fn, w_self, w_name)
         api_func = slot_tp_getattro.api_func
@@ -565,7 +566,7 @@ def build_slot_tp_function(space, w_type, name):
             return
 
         @cpython_api([PyObject, PyObject, PyObject], PyObject, header=header)
-        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), w_type.name))
+        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
         def slot_tp_call(space, w_self, w_args, w_kwds):
             args = Arguments(space, [w_self],
                              w_stararg=w_args, w_starstararg=w_kwds)
@@ -578,7 +579,7 @@ def build_slot_tp_function(space, w_type, name):
             return
 
         @cpython_api([PyObject], PyObject, header=header)
-        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), w_type.name))
+        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
         def slot_tp_iternext(space, w_self):
             try:
                 return space.call_function(iternext_fn, w_self)
@@ -595,7 +596,7 @@ def build_slot_tp_function(space, w_type, name):
 
         @cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1,
                      header=header)
-        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), w_type.name))
+        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
         def slot_tp_init(space, w_self, w_args, w_kwds):
             args = Arguments(space, [w_self],
                              w_stararg=w_args, w_starstararg=w_kwds)
@@ -608,7 +609,7 @@ def build_slot_tp_function(space, w_type, name):
             return
 
         @cpython_api([PyTypeObjectPtr, PyObject, PyObject], PyObject, header=None)
-        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), w_type.name))
+        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
         def slot_tp_new(space, w_self, w_args, w_kwds):
             args = Arguments(space, [w_self],
                              w_stararg=w_args, w_starstararg=w_kwds)
@@ -620,7 +621,7 @@ def build_slot_tp_function(space, w_type, name):
             return
         @cpython_api([PyObject, Py_bufferP, rffi.INT_real], 
                 rffi.INT_real, header=None, error=-1)
-        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), w_type.name))
+        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
         def buff_w(space, w_self, view, flags):
             args = Arguments(space, [space.newint(flags)])
             w_obj = space.call_args(space.get(buff_fn, w_self), args)
