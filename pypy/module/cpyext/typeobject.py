@@ -456,6 +456,7 @@ class W_PyCTypeObject(W_TypeObject):
     def __init__(self, space, pto):
         bases_w = space.fixedview(from_ref(space, pto.c_tp_bases))
         dict_w = {}
+        ...
 
         add_operators(space, dict_w, pto)
         convert_method_defs(space, dict_w, pto.c_tp_methods, self)
