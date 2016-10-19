@@ -247,6 +247,9 @@ def update_all_slots(space, w_type, pto):
     # coming from a parent C type.
 
     typedef = w_type.layout.typedef
+    if w_type is not space.w_object:
+        # XXX fix, to prevent problems with slot lookups
+        assert typedef is not space.w_object.layout.typedef
     for method_name, slot_name, slot_names, slot_func in slotdefs_for_tp_slots:
         w_descr = w_type.lookup(method_name)
         if w_descr is None:
