@@ -340,3 +340,12 @@ def _Py_Dealloc(space, obj):
 @cpython_api([rffi.VOIDP], lltype.Signed, error=CANNOT_FAIL)
 def _Py_HashPointer(space, ptr):
     return rffi.cast(lltype.Signed, ptr)
+
+def _has_a_pyobj(space, w_obj):
+    """ NOT_RPYTHON only for tests """
+    assert w_obj is not None
+    assert not is_pyobj(w_obj)
+    py_obj = rawrefcount.from_obj(PyObject, w_obj)
+    if not py_obj:
+        return False
+    return True
