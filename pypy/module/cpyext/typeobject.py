@@ -456,7 +456,7 @@ class W_PyCTypeObject(W_TypeObject):
     def __init__(self, space, pto):
         bases_w = space.fixedview(from_ref(space, pto.c_tp_bases))
         dict_w = {}
-        ...
+        inject_operators(space, dict_w, pto)
 
         add_operators(space, dict_w, pto)
         convert_method_defs(space, dict_w, pto.c_tp_methods, self)
@@ -964,3 +964,8 @@ def PyType_Modified(space, w_obj):
     if w_obj.is_cpytype():
         w_obj.mutated(None)
 
+
+def inject_operators(space, dict_w, pto):
+    name = rffi.charp2str(pto.c_tp_name)
+    if name == 'test_module.test_mytype':
+        pass #xxx
