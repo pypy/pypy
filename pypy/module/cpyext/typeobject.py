@@ -391,13 +391,6 @@ def inherit_special(space, pto, base_pto):
         pto.c_tp_itemsize = base_pto.c_tp_itemsize
     pto.c_tp_flags |= base_pto.c_tp_flags & Py_TPFLAGS_CHECKTYPES
     pto.c_tp_flags |= base_pto.c_tp_flags & Py_TPFLAGS_HAVE_INPLACEOPS
-    flags = rffi.cast(lltype.Signed, pto.c_tp_flags)
-    base_object_pyo = make_ref(space, space.w_object)
-    base_object_pto = rffi.cast(PyTypeObjectPtr, base_object_pyo)
-    if base_pto != base_object_pto or flags & Py_TPFLAGS_HEAPTYPE:
-        if not pto.c_tp_new:
-            pto.c_tp_new = base_pto.c_tp_new
-    Py_DecRef(space, base_object_pyo)
 
 def check_descr(space, w_self, w_type):
     if not space.isinstance_w(w_self, w_type):
@@ -751,6 +744,13 @@ def type_attach(space, py_obj, w_type):
     if space.is_w(w_type, space.w_object):
         pto.c_tp_new = rffi.cast(newfunc, 1)
     update_all_slots(space, w_type, pto)
+    if not pto.c_tp_new:
+        base_object_pyo = make_ref(space, space.w_object)
+        base_object_pto = rffi.cast(PyTypeObjectPtr, base_object_pyo)
+        flags = rffi.cast(lltype.Signed, pto.c_tp_flags)
+        if pto.c_tp_base != base_object_pto or flags & Py_TPFLAGS_HEAPTYPE:
+                pto.c_tp_new = pto.c_tp_base.c_tp_new
+        Py_DecRef(space, base_object_pyo)
     pto.c_tp_flags |= Py_TPFLAGS_READY
     return pto
 
