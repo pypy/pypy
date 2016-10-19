@@ -956,9 +956,11 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert (d + a) == 5
         assert pow(d,b) == 16
 
-    def test_tp_new_in_subclass_of_type(self):
+    def test_tp_new_in_subclass(self):
+        import datetime
         module = self.import_module(name='foo3')
         module.footype("X", (object,), {})
+        module.datetimetype(1, 1, 1)
 
     def test_app_subclass_of_c_type(self):
         import sys
@@ -1146,3 +1148,4 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             __metaclass__ = FooType
         print repr(X)
         X()
+
