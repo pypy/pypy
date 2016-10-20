@@ -84,7 +84,7 @@ class __extend__(pyframe.PyFrame):
             rstackovf.check_stack_overflow()
             next_instr = self.handle_asynchronous_error(ec,
                 self.space.w_RuntimeError,
-                self.space.wrap("maximum recursion depth exceeded"))
+                self.space.newtext("maximum recursion depth exceeded"))
         return next_instr
 
     def handle_asynchronous_error(self, ec, w_type, w_value=None):
@@ -530,7 +530,7 @@ class __extend__(pyframe.PyFrame):
                 message = ("free variable '%s' referenced before assignment"
                            " in enclosing scope" % varname)
                 w_exc_type = self.space.w_NameError
-            raise OperationError(w_exc_type, self.space.wrap(message))
+            raise OperationError(w_exc_type, self.space.newtext(message))
         else:
             self.pushvalue(w_value)
 
@@ -542,8 +542,7 @@ class __extend__(pyframe.PyFrame):
 
     def LOAD_CLOSURE(self, varindex, next_instr):
         # nested scopes: access the cell object
-        cell = self._getcell(varindex)
-        w_value = self.space.wrap(cell)
+        w_value = self._getcell(varindex)
         self.pushvalue(w_value)
 
     def POP_TOP(self, oparg, next_instr):
@@ -959,10 +958,10 @@ class __extend__(pyframe.PyFrame):
             for w_t in space.fixedview(w_2):
                 if space.isinstance_w(w_t, space.w_str):
                     msg = "catching of string exceptions is deprecated"
-                    space.warn(space.wrap(msg), space.w_DeprecationWarning)
+                    space.warn(space.newtext(msg), space.w_DeprecationWarning)
         elif space.isinstance_w(w_2, space.w_str):
             msg = "catching of string exceptions is deprecated"
-            space.warn(space.wrap(msg), space.w_DeprecationWarning)
+            space.warn(space.newtext(msg), space.w_DeprecationWarning)
         return space.newbool(space.exception_match(w_1, w_2))
 
     def COMPARE_OP(self, testnum, next_instr):
@@ -1011,7 +1010,7 @@ class __extend__(pyframe.PyFrame):
         w_import = self.get_builtin().getdictvalue(space, '__import__')
         if w_import is None:
             raise OperationError(space.w_ImportError,
-                                 space.wrap("__import__ not found"))
+                                 space.newtext("__import__ not found"))
         d = self.getdebug()
         if d is None:
             w_locals = None
@@ -1019,7 +1018,7 @@ class __extend__(pyframe.PyFrame):
             w_locals = d.w_locals
         if w_locals is None:            # CPython does this
             w_locals = space.w_None
-        w_modulename = space.wrap(modulename)
+        w_modulename = space.newtext(modulename)
         w_globals = self.get_w_globals()
         if w_flag is None:
             w_obj = space.call_function(w_import, w_modulename, w_globals,
@@ -1149,7 +1148,7 @@ class __extend__(pyframe.PyFrame):
             # app-level exception
             operr = w_unroller.operr
             self.last_exception = operr
-            w_traceback = self.space.wrap(operr.get_traceback())
+            w_traceback = operr.get_traceback()
             w_suppress = self.call_contextmanager_exit_function(
                 w_exitfunc,
                 operr.w_type,
@@ -1230,7 +1229,7 @@ class __extend__(pyframe.PyFrame):
         defaultarguments = self.popvalues(numdefaults)
         fn = function.Function(self.space, codeobj, self.get_w_globals(),
                                defaultarguments)
-        self.pushvalue(self.space.wrap(fn))
+        self.pushvalue(fn)
 
     @jit.unroll_safe
     def MAKE_CLOSURE(self, numdefaults, next_instr):
@@ -1242,7 +1241,7 @@ class __extend__(pyframe.PyFrame):
         defaultarguments = self.popvalues(numdefaults)
         fn = function.Function(self.space, codeobj, self.get_w_globals(),
                                defaultarguments, freevars)
-        self.pushvalue(self.space.wrap(fn))
+        self.pushvalue(fn)
 
     def BUILD_SLICE(self, numargs, next_instr):
         if numargs == 3:
@@ -1463,7 +1462,7 @@ class ExceptBlock(FrameBlock):
         # the stack setup is slightly different than in CPython:
         # instead of the traceback, we store the unroller object,
         # wrapped.
-        frame.pushvalue(frame.space.wrap(unroller))
+        frame.pushvalue(unroller)
         frame.pushvalue(operationerr.get_w_value(frame.space))
         frame.pushvalue(operationerr.w_type)
         frame.last_exception = operationerr
@@ -1482,7 +1481,7 @@ class FinallyBlock(FrameBlock):
         # the block unrolling and the entering the finally: handler.
         # see comments in cleanup().
         self.cleanupstack(frame)
-        frame.pushvalue(frame.space.wrap(unroller))
+        frame.pushvalue(unroller)
         return r_uint(self.handlerposition)   # jump to the handler
 
 

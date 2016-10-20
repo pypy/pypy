@@ -670,7 +670,7 @@ class BuiltinCode(Code):
         mod = space.interp_w(MixedModule, w_mod)
         builtin_code = mod.get('builtin_code')
         return space.newtuple([builtin_code,
-                               space.newtuple([space.wrap(self.identifier)])])
+                               space.newtuple([space.newtext(self.identifier)])])
 
     def find(indentifier):
         from pypy.interpreter.function import Function
@@ -681,7 +681,7 @@ class BuiltinCode(Code):
         return self.sig
 
     def getdocstring(self, space):
-        return space.wrap(self.docstring)
+        return space.newtext(self.docstring)
 
     def funcrun(self, func, args):
         return BuiltinCode.funcrun_obj(self, func, None, args)
@@ -1062,11 +1062,11 @@ class ApplevelClass:
 
     def buildmodule(self, space, name='applevel'):
         from pypy.interpreter.module import Module
-        return Module(space, space.wrap(name), self.getwdict(space))
+        return Module(space, space.newtext(name), self.getwdict(space))
 
     def wget(self, space, name):
         w_globals = self.getwdict(space)
-        return space.getitem(w_globals, space.wrap(name))
+        return space.getitem(w_globals, space.newtext(name))
 
     def interphook(self, name):
         "NOT_RPYTHON"
@@ -1116,7 +1116,7 @@ class ApplevelCache(SpaceCache):
 def build_applevel_dict(self, space):
     "NOT_RPYTHON"
     w_glob = space.newdict(module=True)
-    space.setitem(w_glob, space.wrap('__name__'), space.wrap(self.modname))
+    space.setitem(w_glob, space.newtext('__name__'), space.newtext(self.modname))
     space.exec_(self.source, w_glob, w_glob,
                 hidden_applevel=self.hidden_applevel,
                 filename=self.filename)

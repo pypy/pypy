@@ -72,12 +72,11 @@ class OperationError(Exception):
             exc_typename = str(self.w_type)
             exc_value = str(w_value)
         else:
-            w = space.wrap
             if space.is_w(space.type(self.w_type), space.w_str):
                 exc_typename = space.str_w(self.w_type)
             else:
                 exc_typename = space.str_w(
-                    space.getattr(self.w_type, w('__name__')))
+                    space.getattr(self.w_type, space.newtext('__name__')))
             if space.is_w(w_value, space.w_None):
                 exc_value = ""
             else:
@@ -187,7 +186,7 @@ class OperationError(Exception):
         w_type = self.w_type
         w_value = self.get_w_value(space)
         while space.isinstance_w(w_type, space.w_tuple):
-            w_type = space.getitem(w_type, space.wrap(0))
+            w_type = space.getitem(w_type, space.newint(0))
 
         if space.exception_is_valid_obj_as_class_w(w_type):
             # this is for all cases of the form (Class, something)

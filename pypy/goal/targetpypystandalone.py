@@ -159,7 +159,7 @@ def create_entry_point(space, w_dict):
             space.setitem(w_globals, space.newtext('__builtins__'),
                           space.builtin_modules['__builtin__'])
             space.setitem(w_globals, space.newtext('c_argument'),
-                          space.newtext(c_argument))
+                          space.newint(c_argument))
             space.appexec([space.newtext(source), w_globals], """(src, glob):
                 import sys
                 stmt = compile(src, 'c callback', 'exec')
