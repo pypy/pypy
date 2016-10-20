@@ -44,6 +44,70 @@ typedef struct tagPyArrayObject_fields {
     PyObject *weakreflist;
 } PyArrayObject;
 
+typedef struct {
+    PyObject_HEAD
+    double value;
+} PyDoubleScalarObject;
+
+static PyTypeObject PyDoubleArrType_Type = {
+#if defined(NPY_PY3K)
+    PyVarObject_HEAD_INIT(NULL, 0)
+#else
+    PyObject_HEAD_INIT(NULL)
+    0,                                          /* ob_size */
+#endif
+    "numpy.float64",                            /* tp_name*/
+    sizeof(PyDoubleScalarObject),               /* tp_basicsize*/
+    0,                                          /* tp_itemsize */
+    0,                                          /* tp_dealloc */
+    0,                                          /* tp_print */
+    0,                                          /* tp_getattr */
+    0,                                          /* tp_setattr */
+#if defined(NPY_PY3K)
+    0,                                          /* tp_reserved */
+#else
+    0,                                          /* tp_compare */
+#endif
+    0,                                          /* tp_repr */
+    0,                                          /* tp_as_number */
+    0,                                          /* tp_as_sequence */
+    0,                                          /* tp_as_mapping */
+    0,                                          /* tp_hash */
+    0,                                          /* tp_call */
+    0,                                          /* tp_str */
+    0,                                          /* tp_getattro */
+    0,                                          /* tp_setattro */
+    0,                                          /* tp_as_buffer */
+    0,                                          /* tp_flags */
+    0,                                          /* tp_doc */
+    0,                                          /* tp_traverse */
+    0,                                          /* tp_clear */
+    0,                                          /* tp_richcompare */
+    0,                                          /* tp_weaklistoffset */
+    0,                                          /* tp_iter */
+    0,                                          /* tp_iternext */
+    0,                                          /* tp_methods */
+    0,                                          /* tp_members */
+    0,                                          /* tp_getset */
+    &PyFloat_Type,                              /* tp_base */
+    0,                                          /* tp_dict */
+    0,                                          /* tp_descr_get */
+    0,                                          /* tp_descr_set */
+    0,                                          /* tp_dictoffset */
+    0,                                          /* tp_init */
+    0,                                          /* tp_alloc */
+    0,                                          /* tp_new */
+    0,                                          /* tp_free */
+    0,                                          /* tp_is_gc */
+    0,                                          /* tp_bases */
+    0,                                          /* tp_mro */
+    0,                                          /* tp_cache */
+    0,                                          /* tp_subclasses */
+    0,                                          /* tp_weaklist */
+    0,                                          /* tp_del */
+    0,                                          /* tp_version_tag */
+};
+
 static
 void array_dealloc(PyArrayObject * self){
     free(self->data);
@@ -84,7 +148,10 @@ array_item(PyArrayObject *self, Py_ssize_t i)
        value += 42;
    }
 
-   return PyFloat_FromDouble(value);
+   PyDoubleScalarObject *o = PyObject_New(PyDoubleScalarObject,
+                                          &PyDoubleArrType_Type);
+   o->value = value;
+   return (PyObject *)o;
 }
 
 static
@@ -254,6 +321,7 @@ PyMODINIT_FUNC
 initmultiarray(void)
 #endif
 {
+    PyObject *infodict, *s;
 #if PY_MAJOR_VERSION >= 3
     PyObject *module = PyModule_Create(&moduledef);
 #else
@@ -265,7 +333,33 @@ initmultiarray(void)
     if (PyType_Ready(&PyArray_Type) < 0)
         INITERROR;
     PyModule_AddObject(module, "ndarray", (PyObject *)&PyArray_Type);
+
+    if (PyType_Ready(&PyDoubleArrType_Type) < 0)
+        INITERROR;
+    infodict = PyDict_New();
+
+    PyDict_SetItemString(infodict, "DOUBLE",
+#if defined(NPY_PY3K)
+            s = Py_BuildValue("CiiiO", whatever,
+#else
+            s = Py_BuildValue("ciiiO", 'd',
+#endif
+                12,
+                64,
+                8,
+                (PyObject *) &PyDoubleArrType_Type));
+    Py_DECREF(s);
+
+    PyModule_AddObject(module, "typeinfo", infodict);
+
 #if PY_MAJOR_VERSION >=3
     return module;
 #endif
+}
+
+PyMODINIT_FUNC
+initmultiarray_PLAIN(void)
+{
+    PyArray_Type.tp_name = "ndarray_dont_patch_me_please";
+    initmultiarray();
 }

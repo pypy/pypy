@@ -1,12 +1,13 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import unwrap_spec, TypeDef
+from pypy.interpreter.error import oefmt
 from pypy.module.cpyext.pyobject import as_pyobj, make_typedescr, track_reference
 from pypy.module.cpyext.api import PyObjectFields
-from pypy.interpreter import typedef
-from pypy.objspace.std.intobject import W_IntObject
 from pypy.module.cpyext.api import bootstrap_function
-from pypy.interpreter.error import oefmt
+from pypy.objspace.std.floatobject import W_FloatObject
+
 
 PyArrayObject = lltype.Ptr(lltype.Struct(
     'PyArrayObject',
@@ -24,10 +25,15 @@ class Original:
     def __init__(self, space):
         pass
 
-class W_ArrayObject(object):
+class W_ArrayObject(W_Root):
     pass
-
 W_ArrayObject.typedef = TypeDef("ndarray")
+
+class W_Float64Object(W_FloatObject):
+    def getclass(self, space):
+        org = space.fromcache(Original)
+        w_type = org.w_float64_type
+        return w_type
 
 def mything_realize(space, obj):
     intval = rffi.cast(lltype.Signed, rffi.cast(PyArrayObject, obj).foo)
@@ -47,7 +53,7 @@ def injected_getitem(space, w_self, index):
     if index < 0 or index >= py_obj.dimensions[0]:
         raise oefmt(space.w_IndexError, "index out of bounds")
     data = rffi.cast(rffi.DOUBLEP, py_obj.data)
-    return space.newfloat(data[index])
+    return W_Float64Object(data[index])
 
 injected_methods = {
     '__getitem__': interp2app(injected_getitem),
@@ -59,3 +65,11 @@ def inject_operator(space, name, dict_w, pto):
     org.w_original_getitem = dict_w['__getitem__']
     for key, value in injected_methods.items():
         dict_w[key] = space.wrap(value)
+
+def inject_module(space, w_mod, name):
+    assert name == 'numpy.core.multiarray'
+    org = space.fromcache(Original)
+    w_type = space.appexec([w_mod], """(mod):
+        return mod.typeinfo['DOUBLE'][-1]
+    """)
+    org.w_float64_type = w_type

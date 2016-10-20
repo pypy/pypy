@@ -4,7 +4,6 @@ def inject_operators(space, name, dict_w, pto):
     if not we_are_translated() and name == 'test_module.test_mytype':
         from pypy.module.cpyext.injection._test_module import inject
         inject(space, name, dict_w, pto)
-    
     if name == 'numpy.ndarray':
         from pypy.module.cpyext.injection.numpy import inject_operator
         inject_operator(space, name, dict_w, pto)
@@ -19,4 +18,7 @@ def inject_global(space, w_func, modulename, funcname):
 def inject_module(space, w_mod, name):
     if not we_are_translated() and name == 'injection':
         from pypy.module.cpyext.injection._test_module import inject_module
+        inject_module(space, w_mod, name)
+    if name == 'numpy.core.multiarray':
+        from pypy.module.cpyext.injection.numpy import inject_module
         inject_module(space, w_mod, name)
