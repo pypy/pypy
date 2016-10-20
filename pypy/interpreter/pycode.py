@@ -96,10 +96,10 @@ class PyCode(eval.Code):
         self._initialize()
         self._init_ready()
         self.new_code_hook()
-        self.record = None
+        self.recorded = None
 
     def start_type_recording(self):
-        self.record = []
+        self.recorded = []
 
     def frame_stores_global(self, w_globals):
         if self.w_globals is None:

@@ -312,6 +312,10 @@ class PyFrame(W_Root):
         w_object = self.locals_cells_stack_w[depth]
         self.locals_cells_stack_w[depth] = None
         self.valuestackdepth = depth
+        #
+        if not jit.we_are_jitted() and self.pycode.recorded is not None:
+            self.pycode.recorded.append((self.last_instr, depth+1, type(w_object)))
+        #
         return w_object
 
 
