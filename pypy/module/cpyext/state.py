@@ -2,6 +2,7 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.executioncontext import AsyncAction
+from pypy.module.cpyext.injection.injection import inject_module
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.rdynload import DLLHANDLE
@@ -141,6 +142,8 @@ class State:
         w_dict = w_mod.getdict(space)
         w_copy = space.call_method(w_dict, 'copy')
         self.extensions[path] = w_copy
+        #
+        inject_module(space, w_mod, name)
 
 
 class PyObjDeallocAction(AsyncAction):

@@ -9,6 +9,7 @@ from pypy.module.cpyext.methodobject import (
     PyMethodDef, PyDescr_NewClassMethod, PyStaticMethod_New)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.module.cpyext.state import State
+from pypy.module.cpyext.injection.injection import inject_global
 from pypy.interpreter.error import oefmt
 
 #@cpython_api([rffi.CCHARP], PyObject)
@@ -134,9 +135,3 @@ def PyModule_GetName(space, module):
     raise NotImplementedError
 
 
-def inject_global(space, w_func, modulename, funcname):
-    if (not we_are_translated() and modulename == 'injection'
-          and funcname == 'make'):
-        from pypy.module.cpyext.injection._test_module import inject_global
-        w_func = inject_global(space, w_func, funcname)
-    return w_func

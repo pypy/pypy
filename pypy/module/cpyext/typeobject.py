@@ -5,6 +5,7 @@ from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.rstring import rsplit
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.lltypesystem import rffi, lltype
+from pypy.module.cpyext.injection.injection import inject_operators
 
 from pypy.interpreter.baseobjspace import W_Root, DescrMismatch
 from pypy.interpreter.error import oefmt
@@ -965,7 +966,3 @@ def PyType_Modified(space, w_obj):
         w_obj.mutated(None)
 
 
-def inject_operators(space, name, dict_w, pto):
-    if not we_are_translated() and name == 'test_module.test_mytype':
-        from pypy.module.cpyext.injection._test_module import inject
-        inject(space, name, dict_w, pto)

@@ -21,18 +21,20 @@ class Original:
 @unwrap_spec(index=int)
 def injected_getitem(space, w_self, index):
     if index > 0:
-        py_obj = as_pyobj(space, w_self)
-        py_obj = rffi.cast(mytype_object, py_obj)
-        return space.wrap(index * rffi.getintfield(py_obj, "foo"))
+        intval = space.int_w(w_self)
+        return space.wrap(index * intval)
     else:
         org = space.fromcache(Original)
         return space.call_function(org.w_original_getitem, w_self,
                                    space.wrap(index))
 
-class W_MyItem(W_IntObject):
-    pass
+class W_MyThing(W_IntObject):
+    def getclass(self, space):
+        org = space.fromcache(Original)
+        w_type = org.w_original_type
+        return w_type
 
-W_MyItem.typedef = TypeDef("mything", __doc__ = "foo")
+W_MyThing.typedef = TypeDef("mything", __doc__ = "foo")
 
 def mything_attach(space, py_obj, w_obj):
     py_mything = rffi.cast(mytype_object, py_obj)
@@ -40,13 +42,13 @@ def mything_attach(space, py_obj, w_obj):
 
 def mything_realize(space, obj):
     intval = rffi.cast(lltype.Signed, rffi.cast(mytype_object, obj).foo)
-    w_obj = W_MyItem(intval)
+    w_obj = W_MyThing(intval)
     track_reference(space, obj, w_obj)
     return w_obj
 
 @bootstrap_function
 def init_mything(space):
-    make_typedescr(W_MyItem.typedef,
+    make_typedescr(W_MyThing.typedef,
                    basestruct=mytype_object.TO,
                    attach=mything_attach,
                    realize=mything_realize)
@@ -58,7 +60,7 @@ def injected_make(space, arg):
         return space.call_function(org.w_original_make, space.wrap(arg))
     if arg == 25:
         org = space.fromcache(Original)
-        return space.wrap(W_MyItem(2))
+        return space.wrap(W_MyThing(arg))
     return space.w_Ellipsis
 
 
@@ -79,3 +81,9 @@ def inject_global(space, w_func, name):
     org = space.fromcache(Original)
     org.w_original_make = w_func
     return space.wrap(interp_injected_make)
+
+def inject_module(space, w_mod, name):
+    assert name == 'injection'
+    org = space.fromcache(Original)
+    w_type = space.getattr(w_mod, space.wrap('test_mytype'))
+    org.w_original_type = w_type
