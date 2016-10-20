@@ -7,6 +7,7 @@ from pypy.module.cpyext.pyobject import as_pyobj, make_typedescr, track_referenc
 from pypy.module.cpyext.api import PyObjectFields
 from pypy.module.cpyext.api import bootstrap_function
 from pypy.objspace.std.floatobject import W_FloatObject
+from pypy.objspace.std.typeobject import W_TypeObject
 
 
 PyArrayObject = lltype.Ptr(lltype.Struct(
@@ -74,4 +75,5 @@ def inject_module(space, w_mod, name):
     w_type = space.appexec([w_mod], """(mod):
         return mod.typeinfo['DOUBLE'][-1]
     """)
+    assert isinstance(w_type, W_TypeObject)
     org.w_float64_type = w_type
