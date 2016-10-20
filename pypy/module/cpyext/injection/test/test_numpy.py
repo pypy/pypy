@@ -8,4 +8,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         AppTestCpythonExtensionBase.setup_class.im_func(cls)
 
     def test_getitem_basic(self):
-        module = self.import_module(name='multiarray', filename='../injection/test/multiarray')
+        np = self.import_module(name='multiarray', filename='../injection/test/multiarray')
+        array = np.ndarray(100)
+        array[10] = 1.0
+        assert array[10] == 1.0

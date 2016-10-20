@@ -46,8 +46,56 @@ typedef struct tagPyArrayObject_fields {
 
 static
 void array_dealloc(PyArrayObject * self){
+    free(self->data);
+    free(self->dimensions);
+    free(self->strides);
     Py_TYPE(self)->tp_free((PyObject *)self);
 }
+
+static
+PyObject * array_new(PyTypeObject *subtype, PyObject *args, PyObject *kwds);
+
+static int
+array_assign_item(PyArrayObject *self, Py_ssize_t i, PyObject *op)
+{
+   if (i < 0 || i >= self->dimensions[0]) {
+       PyErr_SetString(PyExc_IndexError, "index out of bounds");
+       return -1;
+   }
+
+   double * data = (double*)self->data;
+   double value = PyFloat_AsDouble(op);
+   data[i] = value;
+
+   return 0;
+}
+
+static PyObject *
+array_item(PyArrayObject *self, Py_ssize_t i)
+{
+   if (i < 0 || i >= self->dimensions[0]) {
+       PyErr_SetString(PyExc_IndexError, "index out of bounds");
+       return NULL;
+   }
+   double * data = (double*)self->data;
+   double value = data[i];
+
+   return PyFloat_FromDouble(value);
+}
+
+static
+PySequenceMethods array_as_sequence = {
+    (lenfunc)NULL,                  /*sq_length*/
+    (binaryfunc)NULL,                       /*sq_concat is handled by nb_add*/
+    (ssizeargfunc)NULL,
+    (ssizeargfunc)array_item,
+    (ssizessizeargfunc)NULL,
+    (ssizeobjargproc)array_assign_item,        /*sq_ass_item*/
+    (ssizessizeobjargproc)NULL,               /*sq_ass_slice*/
+    (objobjproc) NULL,                         /*sq_contains */
+    (binaryfunc) NULL,                      /*sg_inplace_concat */
+    (ssizeargfunc)NULL,
+};
 
 static
 PyTypeObject PyArray_Type = {
@@ -73,8 +121,7 @@ PyTypeObject PyArray_Type = {
     (reprfunc)NULL,                       /* tp_repr */
     0,
     //&array_as_number,                           /* tp_as_number */
-    0,
-    //&array_as_sequence,                         /* tp_as_sequence */
+    &array_as_sequence,                         /* tp_as_sequence */
     0,
     //&array_as_mapping,                          /* tp_as_mapping */
     /*
@@ -118,8 +165,7 @@ PyTypeObject PyArray_Type = {
     (initproc)0,                                /* tp_init */
     0,
     //(allocfunc)array_alloc,                     /* tp_alloc */
-    0,
-    //(newfunc)array_new,                         /* tp_new */
+    (newfunc)array_new,                         /* tp_new */
     0,
     //(freefunc)array_free,                       /* tp_free */
     0,                                          /* tp_is_gc */
@@ -131,6 +177,32 @@ PyTypeObject PyArray_Type = {
     0,                                          /* tp_del */
     0,                                          /* tp_version_tag */
 };
+
+static PyObject *
+array_new(PyTypeObject *subtype, PyObject *args, PyObject *kwds)
+{
+    Py_ssize_t size;
+    if (!PyArg_ParseTuple(args, "n", &size)) {
+        goto fail;
+    }
+
+    PyArrayObject * array = PyObject_New(PyArrayObject, &PyArray_Type);
+    array->data = malloc(sizeof(double)*size);
+    array->nd = 1;
+    npy_intp * dims = malloc(sizeof(npy_intp)*1);
+    dims[0] = size;
+    array->dimensions = dims;
+    npy_intp * strides = malloc(sizeof(npy_intp)*1);
+    strides[0] = 0;
+    array->strides = strides;
+    array->base = NULL;
+    array->descr = NULL;
+    array->flags = 0;
+    array->weakreflist = NULL;
+    return (PyObject*)array;
+fail:
+    return NULL;
+}
 
 /* List of functions exported by this module */
 
