@@ -22,8 +22,8 @@ class BaseArrayTests:
         a = self.array('u')
         raises(TypeError, a.append, 7)
         raises(TypeError, a.append, u'hi')
-        a.append(unicode('h'))
-        assert a[0] == unicode('h')
+        a.append(u'h')
+        assert a[0] == u'h'
         assert type(a[0]) is unicode
         assert len(a) == 1
 
@@ -181,13 +181,6 @@ class BaseArrayTests:
                 raises(ValueError, a.fromstring, a)
 
     def test_fromfile(self):
-
-        ## class myfile(object):
-        ##     def __init__(self, c, s):
-        ##         self.c = c
-        ##         self.s = s
-        ##     def read(self,n):
-        ##         return self.c*min(n,self.s)
         def myfile(c, s):
             f = open(self.tempfile, 'w')
             f.write(c * s)
@@ -250,12 +243,12 @@ class BaseArrayTests:
         assert repr(a) == "array('b', [1, 2, 1, 2])"
 
     def test_fromunicode(self):
-        raises(ValueError, self.array('i').fromunicode, unicode('hi'))
+        raises(ValueError, self.array('i').fromunicode, u'hi')
         a = self.array('u')
-        a.fromunicode(unicode('hi'))
+        a.fromunicode(u'hi')
         assert len(a) == 2 and a[0] == 'h' and a[1] == 'i'
 
-        b = self.array('u', unicode('hi'))
+        b = self.array('u', u'hi')
         assert len(b) == 2 and b[0] == 'h' and b[1] == 'i'
 
     def test_sequence(self):
@@ -357,23 +350,6 @@ class BaseArrayTests:
                         except ValueError:
                             assert not ok
 
-    def test_reversingslice_pre26(self):
-        import sys
-        if sys.version_info >= (2, 6):
-            skip('arrays can handle more slice ops than lists in 2.6')
-
-        for a in range(-4, 5):
-            for b in range(-4, 5):
-                for c in [-4, -3, -2, -1, 1, 2, 3, 4]:
-                    lst = [1, 2, 3]
-                    arr = self.array('i', lst)
-                    for vals in ([4, 5], [6], []):
-                        try:
-                            lst[a:b:c] = vals
-                        except ValueError:
-                            raises(ValueError,
-                                   "arr[a:b:c]=self.array('i', vals)")
-
     def test_toxxx(self):
         a = self.array('i', [1, 2, 3])
         l = a.tolist()
@@ -420,8 +396,7 @@ class BaseArrayTests:
         assert repr(a) == "array('c', 'hi')"
 
         raises(ValueError, self.array('i').tounicode)
-        assert self.array('u', unicode('hello')).tounicode() == \
-               unicode('hello')
+        assert self.array('u', u'hello').tounicode() == u'hello'
 
     def test_empty_tostring(self):
         a = self.array('l')
@@ -493,14 +468,14 @@ class BaseArrayTests:
 
     def test_compare(self):
         class comparable(object):
-            def __cmp__(self, other):
-                return 0
+            def __eq__(self, other):
+                return True
         class incomparable(object):
             pass
 
         for v1, v2, tt in (([1, 2, 3], [1, 3, 2], 'bhilBHIL'),
                          ('abc', 'acb', 'c'),
-                         (unicode('abc'), unicode('acb'), 'u')):
+                         (u'abc', u'acb', 'u')):
             for t in tt:
                 a = self.array(t, v1)
                 b = self.array(t, v1)
@@ -844,8 +819,8 @@ class BaseArrayTests:
         assert repr(mya('i', (1, 2, 3))) == "array('i', [1, 2, 3])"
 
     def test_unicode_outofrange(self):
-        a = self.array('u', unicode(r'\x01\u263a\x00\ufeff', 'unicode-escape'))
-        b = self.array('u', unicode(r'\x01\u263a\x00\ufeff', 'unicode-escape'))
+        a = self.array('u', u'\x01\u263a\x00\ufeff')
+        b = self.array('u', u'\x01\u263a\x00\ufeff')
         b.byteswap()
         assert a != b
 
