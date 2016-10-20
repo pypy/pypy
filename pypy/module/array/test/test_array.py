@@ -2,7 +2,18 @@ import sys
 import pytest
 
 
-class BaseArrayTests:
+class AppTestArray(object):
+    spaceconfig = {'usemodules': ['array', 'struct', '_rawffi', 'binascii']}
+
+    def setup_class(cls):
+        cls.w_array = cls.space.appexec([], """():
+            import array
+            return array.array
+        """)
+        cls.w_tempfile = cls.space.wrap(
+            str(pytest.ensuretemp('array').join('tmpfile')))
+        cls.w_maxint = cls.space.wrap(sys.maxint)
+
     def test_ctor(self):
         assert len(self.array('c')) == 0
         assert len(self.array('i')) == 0
@@ -928,18 +939,6 @@ class BaseArrayTests:
         a[0] = u'b'
         assert a[0] == u'b'
 
-
-class AppTestArray(BaseArrayTests):
-    spaceconfig = {'usemodules': ['array', 'struct', '_rawffi', 'binascii']}
-
-    def setup_class(cls):
-        cls.w_array = cls.space.appexec([], """():
-            import array
-            return array.array
-        """)
-        cls.w_tempfile = cls.space.wrap(
-            str(pytest.ensuretemp('array').join('tmpfile')))
-        cls.w_maxint = cls.space.wrap(sys.maxint)
 
     def test_buffer_info(self):
         a = self.array('c', 'Hi!')
