@@ -979,7 +979,7 @@ class DontTestCPythonsOwnArray(BaseArrayTests):
 
 
 class AppTestArray(BaseArrayTests):
-    spaceconfig = {'usemodules': ['array', 'struct', '_rawffi', 'binascii']}
+    spaceconfig = {'usemodules': ['array', 'struct', 'binascii']}
 
     def setup_class(cls):
         cls.w_array = cls.space.appexec([], """():
@@ -995,9 +995,6 @@ class AppTestArray(BaseArrayTests):
         bi = a.buffer_info()
         assert bi[0] != 0
         assert bi[1] == 3
-        import _rawffi
-        data = _rawffi.charp2string(bi[0])
-        assert data[0:3] == b'Hi!'
 
     def test_array_reverse_slice_assign_self(self):
         a = self.array('b', range(4))
