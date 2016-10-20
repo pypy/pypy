@@ -929,16 +929,6 @@ class BaseArrayTests:
         assert a[0] == u'b'
 
 
-class TestCPythonsOwnArray(BaseArrayTests):
-    def setup_class(cls):
-        import array
-        cls.array = array.array
-        import struct
-        cls.struct = struct
-        cls.tempfile = str(pytest.ensuretemp('array').join('tmpfile'))
-        cls.maxint = sys.maxint
-
-
 class AppTestArray(BaseArrayTests):
     spaceconfig = {'usemodules': ['array', 'struct', '_rawffi', 'binascii']}
 
