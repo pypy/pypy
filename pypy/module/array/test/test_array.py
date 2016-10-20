@@ -78,7 +78,7 @@ class AppTestArray(object):
                            ('H', (     0, 56783, 65535),  int),
                            ('i', (-32768, 30535, 32767),  int),
                            ('I', (     0, 56783, 65535), long),
-                           ('l', (-2 ** 32 / 2, 34, 2 ** 32 / 2 - 1),  int),
+                           ('l', (-2 ** 32 // 2, 34, 2 ** 32 // 2 - 1),  int),
                            ('L', (0, 3523532, 2 ** 32 - 1), long),
                            ):
             a = self.array(tc, ok)
@@ -116,7 +116,7 @@ class AppTestArray(object):
             assert a.tolist() == vals
 
             a = self.array(tc.lower())
-            vals = [-1 * (2 ** itembits) / 2,  (2 ** itembits) / 2 - 1]
+            vals = [-1 * (2 ** itembits) // 2,  (2 ** itembits) // 2 - 1]
             a.fromlist(vals)
             assert a.tolist() == vals
 
@@ -148,11 +148,11 @@ class AppTestArray(object):
         for t in inttypes:
             a = self.array(t, [1, 2, 3])
             b = a.itemsize
-            for v in (-2 ** (8 * b) / 2, 2 ** (8 * b) / 2 - 1):
+            for v in (-2 ** (8 * b) // 2, 2 ** (8 * b) // 2 - 1):
                 a[1] = v
                 assert a[0] == 1 and a[1] == v and a[2] == 3
-            raises(OverflowError, a.append, -2 ** (8 * b) / 2 - 1)
-            raises(OverflowError, a.append, 2 ** (8 * b) / 2)
+            raises(OverflowError, a.append, -2 ** (8 * b) // 2 - 1)
+            raises(OverflowError, a.append, 2 ** (8 * b) // 2)
 
             a = self.array(t.upper(), [1, 2, 3])
             b = a.itemsize
@@ -186,35 +186,35 @@ class AppTestArray(object):
                 raises(ValueError, a.fromstring, '\x00' * (a.itemsize + 1))
                 raises(ValueError, a.fromstring, '\x00' * (2 * a.itemsize - 1))
                 raises(ValueError, a.fromstring, '\x00' * (2 * a.itemsize + 1))
-            b = self.array(t, '\x00' * a.itemsize * 2)
+            b = self.array(t, b'\x00' * a.itemsize * 2)
             assert len(b) == 2 and b[0] == 0 and b[1] == 0
             if sys.version_info >= (2, 7, 11):
                 raises(ValueError, a.fromstring, a)
 
     def test_fromfile(self):
         def myfile(c, s):
-            f = open(self.tempfile, 'w')
+            f = open(self.tempfile, 'wb')
             f.write(c * s)
             f.close()
-            return open(self.tempfile, 'r')
+            return open(self.tempfile, 'rb')
 
-        f = myfile('\x00', 100)
+        f = myfile(b'\x00', 100)
         for t in 'bBhHiIlLfd':
             a = self.array(t)
             a.fromfile(f, 2)
             assert len(a) == 2 and a[0] == 0 and a[1] == 0
 
         a = self.array('b')
-        a.fromfile(myfile('\x01', 20), 2)
+        a.fromfile(myfile(b'\x01', 20), 2)
         assert len(a) == 2 and a[0] == 1 and a[1] == 1
 
         a = self.array('h')
-        a.fromfile(myfile('\x01', 20), 2)
+        a.fromfile(myfile(b'\x01', 20), 2)
         assert len(a) == 2 and a[0] == 257 and a[1] == 257
 
         for i in (0, 1):
             a = self.array('h')
-            raises(EOFError, a.fromfile, myfile('\x01', 2 + i), 2)
+            raises(EOFError, a.fromfile, myfile(b'\x01', 2 + i), 2)
             assert len(a) == 1 and a[0] == 257
 
     def test_fromlist(self):
@@ -392,7 +392,7 @@ class AppTestArray(object):
                                ('BHILfd', (127, 0, 1, 7, 255, 169)),
                                ('hilHILfd', (32760, 30123, 3422, 23244))):
             for tc in tcodes:
-                values += ((2 ** self.array(tc).itemsize) / 2 - 1, )
+                values += ((2 ** self.array(tc).itemsize) // 2 - 1, )
                 s = self.array(tc, values).tostring()
                 a = unpack(tc * len(values), s)
                 assert a == values
@@ -753,16 +753,16 @@ class AppTestArray(object):
                 self.height = height
                 return self
 
-            def _index(self, (x,y)):
+            def _index(self, x, y):
                 x = min(max(x, 0), self.width-1)
                 y = min(max(y, 0), self.height-1)
                 return y * self.width + x
 
             def __getitem__(self, i):
-                return array.__getitem__(self, self._index(i))
+                return array.__getitem__(self, self._index(*i))
 
             def __setitem__(self, i, val):
-                return array.__setitem__(self, self._index(i), val)
+                return array.__setitem__(self, self._index(*i), val)
 
         img = Image(5, 10, 'B')
         for y in range(10):
@@ -839,7 +839,7 @@ class AppTestArray(object):
         import sys
         if sys.maxunicode == 0xffff:
             skip("test for 32-bit unicodes")
-        a = self.array('u', '\xff\xff\xff\xff')
+        a = self.array('u', b'\xff\xff\xff\xff')
         assert len(a) == 1
         assert repr(a[0]) == "u'\Uffffffff'"
         if sys.maxint == 2147483647:
