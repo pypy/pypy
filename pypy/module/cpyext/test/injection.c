@@ -2,7 +2,7 @@
 
 typedef struct {
     PyObject_HEAD
-    int foo;
+    long foo;
 } mytype_object;
 
 
@@ -59,7 +59,7 @@ static PyTypeObject mytype_type = {
     0,                       /*tp_methods*/
     0,                       /*tp_members*/
     0,                       /*tp_getset*/
-    0,                                          /* tp_base */
+    &PyInt_Type,                                /* tp_base */
     0,                                          /* tp_dict */
     0,                                          /* tp_descr_get */
     0,                                          /* tp_descr_set */

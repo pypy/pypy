@@ -10,7 +10,7 @@ from pypy.module.cpyext.api import bootstrap_function
 
 mytype_object = lltype.Ptr(lltype.Struct(
     'mytype_object',
-    *(PyObjectFields + (("foo", rffi.INT),))))
+    *(PyObjectFields + (("foo", rffi.LONG),))))
 
 
 class Original:
