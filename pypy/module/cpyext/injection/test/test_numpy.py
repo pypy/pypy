@@ -12,3 +12,4 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         array = np.ndarray(100)
         array[10] = 1.0
         assert array[10] == 1.0
+        assert type(array[10]) is np.float64
