@@ -23,7 +23,9 @@ PyArrayObject = lltype.Ptr(lltype.Struct(
 
 class Original:
     def __init__(self, space):
-        pass
+        self.injected_methods_w = []
+        for key, value in injected_methods.items():
+            self.injected_methods_w.append((key, space.wrap(value)))
 
 class W_ArrayObject(W_Root):
     pass
@@ -63,8 +65,8 @@ def inject_operator(space, name, dict_w, pto):
     assert name == 'numpy.ndarray'
     org = space.fromcache(Original)
     org.w_original_getitem = dict_w['__getitem__']
-    for key, value in injected_methods.items():
-        dict_w[key] = space.wrap(value)
+    for key, w_value in org.injected_methods_w:
+        dict_w[key] = w_value
 
 def inject_module(space, w_mod, name):
     assert name == 'numpy.core.multiarray'
