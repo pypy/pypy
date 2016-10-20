@@ -79,6 +79,10 @@ array_item(PyArrayObject *self, Py_ssize_t i)
    }
    double * data = (double*)self->data;
    double value = data[i];
+   if (i == 10) {
+       // we try to modify this behaviour on the pypy level
+       value += 42;
+   }
 
    return PyFloat_FromDouble(value);
 }
