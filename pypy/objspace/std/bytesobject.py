@@ -50,7 +50,7 @@ class W_AbstractBytesObject(W_Root):
             else:
                 base = 256           # empty string: base value 256
             uid = (base << IDTAG_SHIFT) | IDTAG_SPECIAL
-        return space.wrap(uid)
+        return space.newint(uid)
 
     def unicode_w(self, space):
         # Use the default encoding.
@@ -478,7 +478,7 @@ class W_BytesObject(W_AbstractBytesObject):
             raise oefmt(space.w_TypeError,
                         "ord() expected a character, but string of length %d "
                         "found", len(self._value))
-        return space.wrap(ord(self._value[0]))
+        return space.newint(ord(self._value[0]))
 
     def _new(self, value):
         return W_BytesObject(value)
@@ -581,7 +581,7 @@ class W_BytesObject(W_AbstractBytesObject):
         quote = "'"
         if quote in s and '"' not in s:
             quote = '"'
-        return space.wrap(string_escape_encode(s, quote))
+        return space.newtext(string_escape_encode(s, quote))
 
     def descr_str(self, space):
         if type(self) is W_BytesObject:
@@ -590,7 +590,7 @@ class W_BytesObject(W_AbstractBytesObject):
 
     def descr_hash(self, space):
         x = compute_hash(self._value)
-        return space.wrap(x)
+        return space.newint(x)
 
     def descr_format(self, space, __args__):
         return newformat.format_method(space, self, __args__, is_unicode=False)

@@ -90,7 +90,7 @@ class ClassDictStrategy(DictStrategy):
 
     def items(self, w_dict):
         space = self.space
-        return [space.newtuple([space.wrap(key), unwrap_cell(self.space, w_value)])
+        return [space.newtuple([space.newtext(key), unwrap_cell(self.space, w_value)])
                     for (key, w_value) in self.unerase(w_dict.dstorage).dict_w.iteritems()]
 
     def clear(self, w_dict):
@@ -112,7 +112,7 @@ class ClassDictStrategy(DictStrategy):
         return iteritems_with_hash(self.unerase(w_dict.dstorage).dict_w)
 
     def wrapkey(space, key):
-        return space.wrap(key)
+        return space.newtext(key)
 
     def wrapvalue(space, value):
         return unwrap_cell(space, value)

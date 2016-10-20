@@ -208,6 +208,11 @@ Creation of Application Level objects
    is the type of the argument (which is rpython.rlib.rbigint.rbigint). On PyPy3 this
    method will return an :py:class:`int` (PyPy2 it returns a :py:class:`long`).
 
+.. py:function:: newbytes(t)
+
+   The given argument is a rpython bytestring. Creates a wrapped object
+   of type :py:class:`bytes` (both on PyPy2 and PyPy3).
+
 .. py:function:: newtext(t)
 
    The given argument is a rpython bytestring. Creates a wrapped object

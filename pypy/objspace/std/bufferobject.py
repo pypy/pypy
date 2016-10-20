@@ -51,12 +51,13 @@ class W_Buffer(W_Root):
         return W_Buffer(buf)
 
     def descr_len(self, space):
-        return space.wrap(self.buf.getlength())
+        return space.newint(self.buf.getlength())
 
     def descr_getitem(self, space, w_index):
         start, stop, step, size = space.decode_index4(w_index,
                                                       self.buf.getlength())
         if step == 0:  # index only
+            import pdb; pdb.set_trace()
             return space.wrap(self.buf.getitem(start))
         res = self.buf.getslice(start, stop, step, size)
         return space.wrap(res)

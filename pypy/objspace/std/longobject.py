@@ -75,7 +75,7 @@ class W_AbstractLongObject(W_Root):
         """
         bigint = space.bigint_w(self)
         try:
-            return space.wrap(bigint.bit_length())
+            return space.newint(bigint.bit_length())
         except OverflowError:
             raise oefmt(space.w_OverflowError, "too many digits in integer")
 
@@ -120,24 +120,24 @@ class W_AbstractLongObject(W_Root):
     def descr_get_imag(self, space):
         return space.newlong(0)
 
-    def _make_descr_unaryop(opname):
+    def _make_descr_unaryop_text(opname):
         op = getattr(rbigint, opname)
         @func_renamer('descr_' + opname)
         def descr_unaryop(self, space):
-            return space.wrap(op(self.asbigint()))
+            return space.newtext(op(self.asbigint()))
         descr_unaryop.__doc__ = 'x.__%s__(y) <==> %s(x, y)' % (opname, opname)
         return descr_unaryop
 
-    descr_repr = _make_descr_unaryop('repr')
-    descr_str = _make_descr_unaryop('str')
+    descr_repr = _make_descr_unaryop_text('repr')
+    descr_str = _make_descr_unaryop_text('str')
 
     def descr_hash(self, space):
         h = self.asbigint().hash()
         h -= (h == -1)
         return space.newint(h)
 
-    descr_oct = _make_descr_unaryop('oct')
-    descr_hex = _make_descr_unaryop('hex')
+    descr_oct = _make_descr_unaryop_text('oct')
+    descr_hex = _make_descr_unaryop_text('hex')
 
     def descr_pow(self, space, w_exponent, w_modulus=None):
         """x.__pow__(y[, z]) <==> pow(x, y[, z])"""

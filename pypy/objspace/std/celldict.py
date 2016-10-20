@@ -23,7 +23,7 @@ def unwrap_cell(space, w_value):
 
 
 def _wrapkey(space, key):
-    return space.wrap(key)
+    return space.newtext(key)
 
 
 class ModuleDictStrategy(DictStrategy):

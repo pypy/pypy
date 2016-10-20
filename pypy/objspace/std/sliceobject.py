@@ -105,7 +105,7 @@ class W_SliceObject(W_Root):
         return w_obj
 
     def descr_repr(self, space):
-        return space.wrap("slice(%s, %s, %s)" % (
+        return space.newtext("slice(%s, %s, %s)" % (
             space.str_w(space.repr(self.w_start)),
             space.str_w(space.repr(self.w_stop)),
             space.str_w(space.repr(self.w_step))))
@@ -155,8 +155,8 @@ class W_SliceObject(W_Root):
         """
         length = space.getindex_w(w_length, space.w_OverflowError)
         start, stop, step = self.indices3(space, length)
-        return space.newtuple([space.wrap(start), space.wrap(stop),
-                               space.wrap(step)])
+        return space.newtuple([space.newint(start), space.newint(stop),
+                               space.newint(step)])
 
 
 def slicewprop(name):

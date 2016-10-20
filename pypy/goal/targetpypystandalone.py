@@ -31,8 +31,8 @@ def debug(msg):
 
 def create_entry_point(space, w_dict):
     if w_dict is not None: # for tests
-        w_entry_point = space.getitem(w_dict, space.wrap('entry_point'))
-        w_run_toplevel = space.getitem(w_dict, space.wrap('run_toplevel'))
+        w_entry_point = space.getitem(w_dict, space.newtext('entry_point'))
+        w_run_toplevel = space.getitem(w_dict, space.newtext('run_toplevel'))
         withjit = space.config.objspace.usemodules.pypyjit
 
     def entry_point(argv):
@@ -55,8 +55,8 @@ def create_entry_point(space, w_dict):
         try:
             try:
                 space.startup()
-                w_executable = space.wrap(argv[0])
-                w_argv = space.newlist([space.wrap(s) for s in argv[1:]])
+                w_executable = space.newtext(argv[0])
+                w_argv = space.newlist([space.newtext(s) for s in argv[1:]])
                 w_exitcode = space.call_function(w_entry_point, w_executable, w_argv)
                 exitcode = space.int_w(w_exitcode)
                 # try to pull it all in
@@ -110,11 +110,11 @@ def create_entry_point(space, w_dict):
         # import site
         try:
             space.setattr(space.getbuiltinmodule('sys'),
-                          space.wrap('executable'),
-                          space.wrap(home))
+                          space.newtext('executable'),
+                          space.newtext(home))
             import_ = space.getattr(space.getbuiltinmodule('__builtin__'),
-                                    space.wrap('__import__'))
-            space.call_function(import_, space.wrap('site'))
+                                    space.newtext('__import__'))
+            space.call_function(import_, space.newtext('site'))
             return rffi.cast(rffi.INT, 0)
         except OperationError as e:
             if verbose:
@@ -156,11 +156,11 @@ def create_entry_point(space, w_dict):
     def _pypy_execute_source(source, c_argument):
         try:
             w_globals = space.newdict(module=True)
-            space.setitem(w_globals, space.wrap('__builtins__'),
+            space.setitem(w_globals, space.newtext('__builtins__'),
                           space.builtin_modules['__builtin__'])
-            space.setitem(w_globals, space.wrap('c_argument'),
-                          space.wrap(c_argument))
-            space.appexec([space.wrap(source), w_globals], """(src, glob):
+            space.setitem(w_globals, space.newtext('c_argument'),
+                          space.newtext(c_argument))
+            space.appexec([space.newtext(source), w_globals], """(src, glob):
                 import sys
                 stmt = compile(src, 'c callback', 'exec')
                 if not hasattr(sys, '_pypy_execute_source'):
@@ -292,7 +292,7 @@ class PyPyTarget(object):
         # obscure hack to stuff the translation options into the translated PyPy
         import pypy.module.sys
         options = make_dict(config)
-        wrapstr = 'space.wrap(%r)' % (options)
+        wrapstr = 'space.newtext(%r)' % (options)
         pypy.module.sys.Module.interpleveldefs['pypy_translation_info'] = wrapstr
         if config.objspace.usemodules._cffi_backend:
             self.hack_for_cffi_modules(driver)

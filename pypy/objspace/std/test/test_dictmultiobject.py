@@ -1098,6 +1098,7 @@ class FakeSpace:
     def str_w(self, string):
         assert isinstance(string, str)
         return string
+    bytes_w = str_w
 
     def int_w(self, integer, allow_conversion=True):
         assert isinstance(integer, int)
@@ -1105,6 +1106,7 @@ class FakeSpace:
 
     def wrap(self, obj):
         return obj
+    newtext = newbytes = wrap
 
     def isinstance_w(self, obj, klass):
         return isinstance(obj, klass)

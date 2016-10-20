@@ -34,7 +34,7 @@ class IntMutableCell(MutableCell):
         self.intvalue = intvalue
 
     def unwrap_cell(self, space):
-        return space.wrap(self.intvalue)
+        return space.newint(self.intvalue)
 
     def __repr__(self):
         return "<IntMutableCell: %s>" % (self.intvalue, )
@@ -337,7 +337,7 @@ class W_TypeObject(W_Root):
         if name == "__del__" and name not in self.dict_w:
             msg = ("a __del__ method added to an existing type will not be "
                    "called")
-            space.warn(space.wrap(msg), space.w_RuntimeWarning)
+            space.warn(space.newtext(msg), space.w_RuntimeWarning)
         version_tag = self.version_tag()
         if version_tag is not None:
             w_curr = self._pure_getdictvalue_no_unwrapping(
@@ -533,7 +533,7 @@ class W_TypeObject(W_Root):
                 mod = self.name[:dot]
             else:
                 mod = "__builtin__"
-            return space.wrap(mod)
+            return space.newtext(mod)
 
     def getname(self, space):
         if self.is_heaptype():
@@ -644,9 +644,9 @@ class W_TypeObject(W_Root):
         else:
             kind = 'class'
         if mod is not None and mod != '__builtin__':
-            return space.wrap("<%s '%s.%s'>" % (kind, mod, self.getname(space)))
+            return space.newtext("<%s '%s.%s'>" % (kind, mod, self.getname(space)))
         else:
-            return space.wrap("<%s '%s'>" % (kind, self.name))
+            return space.newtext("<%s '%s'>" % (kind, self.name))
 
     def descr_getattribute(self, space, w_name):
         name = space.str_w(w_name)
@@ -724,8 +724,8 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict):
                     " bases")
 
     if not space.is_w(w_winner, w_typetype):
-        newfunc = space.getattr(w_winner, space.wrap('__new__'))
-        if not space.is_w(newfunc, space.getattr(space.w_type, space.wrap('__new__'))):
+        newfunc = space.getattr(w_winner, space.newtext('__new__'))
+        if not space.is_w(newfunc, space.getattr(space.w_type, space.newtext('__new__'))):
             return space.call_function(newfunc, w_winner, w_name, w_bases, w_dict)
         w_typetype = w_winner
 
@@ -763,13 +763,13 @@ def descr__init__(space, w_type, __args__):
 
 def _check(space, w_type, msg="descriptor is for 'type'"):
     if not isinstance(w_type, W_TypeObject):
-        raise OperationError(space.w_TypeError, space.wrap(msg))
+        raise OperationError(space.w_TypeError, space.newtext(msg))
     return w_type
 
 
 def descr_get__name__(space, w_type):
     w_type = _check(space, w_type)
-    return space.wrap(w_type.getname(space))
+    return space.newtext(w_type.getname(space))
 
 def descr_set__name__(space, w_type, w_value):
     w_type = _check(space, w_type)
@@ -870,7 +870,7 @@ def descr__base(space, w_type):
 
 def descr__doc(space, w_type):
     if space.is_w(w_type, space.w_type):
-        return space.wrap("""type(object) -> the object's type
+        return space.newtext("""type(object) -> the object's type
 type(name, bases, dict) -> a new type""")
     w_type = _check(space, w_type)
     if not w_type.is_heaptype():
@@ -894,7 +894,7 @@ def descr__flags(space, w_type):
         flags |= _CPYTYPE
     if w_type.flag_abstract:
         flags |= _ABSTRACT
-    return space.wrap(flags)
+    return space.newint(flags)
 
 def descr_get__module(space, w_type):
     w_type = _check(space, w_type)
@@ -1195,7 +1195,7 @@ def ensure_module_attr(w_self):
         caller = space.getexecutioncontext().gettopframe_nohidden()
         if caller is not None:
             w_globals = caller.get_w_globals()
-            w_name = space.finditem(w_globals, space.wrap('__name__'))
+            w_name = space.finditem(w_globals, space.newtext('__name__'))
             if w_name is not None:
                 w_self.dict_w['__module__'] = w_name
 

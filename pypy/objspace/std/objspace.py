@@ -325,9 +325,15 @@ class StdObjSpace(ObjSpace):
         return W_Buffer(w_obj)
 
     def newbytes(self, s):
+        assert isinstance(s, str)
         return W_BytesObject(s)
 
+    def newtext(self, s):
+        assert isinstance(s, str)
+        return W_BytesObject(s) # Python3 this is unicode
+
     def newunicode(self, uni):
+        assert isinstance(uni, unicode)
         return W_UnicodeObject(uni)
 
     def type(self, w_obj):

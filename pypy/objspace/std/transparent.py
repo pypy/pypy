@@ -39,8 +39,8 @@ type_cache = TypeCache()
 def setup(space):
     """Add proxy functions to the __pypy__ module."""
     w___pypy__ = space.getbuiltinmodule("__pypy__")
-    space.setattr(w___pypy__, space.wrap('tproxy'), space.wrap(app_proxy))
-    space.setattr(w___pypy__, space.wrap('get_tproxy_controller'),
+    space.setattr(w___pypy__, space.newtext('tproxy'), space.wrap(app_proxy))
+    space.setattr(w___pypy__, space.newtext('get_tproxy_controller'),
                   space.wrap(app_proxy_controller))
 
 

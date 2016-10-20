@@ -99,7 +99,7 @@ class PyPyConsole(code.InteractiveConsole):
 
         # forbidden:
         #space.exec_("__pytrace__ = 0", self.w_globals, self.w_globals)
-        space.setitem(self.w_globals, space.wrap('__pytrace__'),space.wrap(0))
+        space.setitem(self.w_globals, space.wrap('__pytrace__'),space.newint(0))
         self.tracelevel = 0
         self.console_locals = {}
 
