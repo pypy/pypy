@@ -29,6 +29,12 @@ class TestMemoryViewObject(BaseApiTest):
         assert w_view.c_len == 5
         o = rffi.charp2str(w_view.c_buf)
         assert o == 'hello'
+        w_mv = api.PyMemoryView_FromBuffer(w_view)
+        for f in ('format', 'itemsize', 'ndim', 'readonly', 
+                  'shape', 'strides', 'suboffsets'):
+            w_f = space.wrap(f)
+            assert space.eq_w(space.getattr(w_mv, w_f), 
+                              space.getattr(w_memoryview, w_f))
 
 class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
     def test_fillWithObject(self):

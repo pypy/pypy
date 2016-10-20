@@ -301,7 +301,7 @@ def PyStaticMethod_New(space, w_func):
 def PyClassMethod_New(space, w_func):
     return space.wrap(ClassMethod(w_func))
 
-@cpython_api([PyObject, lltype.Ptr(PyMethodDef)], PyObject)
+@cpython_api([PyTypeObjectPtr, lltype.Ptr(PyMethodDef)], PyObject)
 def PyDescr_NewMethod(space, w_type, method):
     return space.wrap(W_PyCMethodObject(space, method, w_type))
 

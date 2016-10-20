@@ -236,6 +236,8 @@ else:
                 'utime.h', 'sys/time.h', 'sys/times.h',
                 'grp.h', 'dirent.h', 'sys/stat.h', 'fcntl.h',
                 'signal.h', 'sys/utsname.h', _ptyh]
+    if sys.platform.startswith('freebsd'):
+        includes.append('sys/ttycom.h')
     libraries = ['util']
 eci = ExternalCompilationInfo(
     includes=includes,
