@@ -14,20 +14,20 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         AppTestCpythonExtensionBase.setup_class.im_func(cls)
 
     def test_getitem_basic(self):
-        module = self.import_module(name='injection')
+        module = self.import_module(name='injection', filename='../injection/test/injection')
         mything = module.test_mytype()
         assert mything[100] == 4200
         assert mything[-100] == -100+42
 
     def test_glob_make(self):
-        module = self.import_module(name='injection')
+        module = self.import_module(name='injection', filename='../injection/test/injection')
         mything = module.make(5)
         assert mything is Ellipsis
         mything = module.make(15)
         assert mything[-100] == -100+15
 
     def test_pypy_only_version_of_object(self):
-        module = self.import_module(name='injection')
+        module = self.import_module(name='injection', filename='../injection/test/injection')
         mything = module.make(25)
         assert not self.is_there_an_pyobj_version(mything)
         assert mything[100] == 25*100
