@@ -778,11 +778,11 @@ class __extend__(pyframe.PyFrame):
         w_prog = self.popvalue()
         ec = self.space.getexecutioncontext()
         flags = ec.compiler.getcodeflags(self.pycode)
-        w_compile_flags = self.space.wrap(flags)
-        w_resulttuple = prepare_exec(self.space, self.space.wrap(self), w_prog,
+        w_compile_flags = self.space.newint(flags)
+        w_resulttuple = prepare_exec(self.space, self, w_prog,
                                      w_globals, w_locals,
                                      w_compile_flags,
-                                     self.space.wrap(self.get_builtin()),
+                                     self.get_builtin(),
                                      self.space.gettypeobject(PyCode.typedef))
         w_prog, w_globals, w_locals = self.space.fixedview(w_resulttuple, 3)
 
@@ -829,7 +829,7 @@ class __extend__(pyframe.PyFrame):
         w_name = self.popvalue()
         w_metaclass = find_metaclass(self.space, w_bases,
                                      w_methodsdict, self.get_w_globals(),
-                                     self.space.wrap(self.get_builtin()))
+                                     self.get_builtin())
         w_newclass = self.space.call_function(w_metaclass, w_name,
                                               w_bases, w_methodsdict)
         self.pushvalue(w_newclass)
@@ -1414,9 +1414,8 @@ class FrameBlock(object):
 
     # internal pickling interface, not using the standard protocol
     def _get_state_(self, space):
-        w = space.wrap
-        return space.newtuple([w(self._opname), w(self.handlerposition),
-                               w(self.valuestackdepth)])
+        return space.newtuple([space.newtext(self._opname), space.newint(self.handlerposition),
+                               space.newint(self.valuestackdepth)])
 
     def handle(self, frame, unroller):
         """ Purely abstract method

@@ -78,7 +78,7 @@ class Module(W_Root):
     def descr_module__new__(space, w_subtype, __args__):
         module = space.allocate_instance(Module, w_subtype)
         Module.__init__(module, space, None, add_package=False)
-        return space.wrap(module)
+        return module
 
     def descr_module__init__(self, w_name, w_doc=None):
         space = self.space
@@ -89,7 +89,7 @@ class Module(W_Root):
         space.setitem(self.w_dict, space.new_interned_str('__doc__'), w_doc)
 
     def descr__reduce__(self, space):
-        w_name = space.finditem(self.w_dict, space.wrap('__name__'))
+        w_name = space.finditem(self.w_dict, space.newtext('__name__'))
         if (w_name is None or
             not space.isinstance_w(w_name, space.w_str)):
             # maybe raise exception here (XXX this path is untested)
@@ -113,7 +113,7 @@ class Module(W_Root):
                 w_name,
                 space.w_None,
                 space.w_None,
-                space.newtuple([space.wrap('')])
+                space.newtuple([space.newtext('')])
             ])
         ]
 
@@ -126,10 +126,10 @@ class Module(W_Root):
         else:
             name = "'?'"
         if isinstance(self, MixedModule):
-            return space.wrap("<module %s (built-in)>" % name)
+            return space.newtext("<module %s (built-in)>" % name)
         try:
-            w___file__ = space.getattr(self, space.wrap('__file__'))
+            w___file__ = space.getattr(self, space.newtext('__file__'))
             __file__ = space.str_w(space.repr(w___file__))
         except OperationError:
             __file__ = '?'
-        return space.wrap("<module %s from %s>" % (name, __file__))
+        return space.newtext("<module %s from %s>" % (name, __file__))

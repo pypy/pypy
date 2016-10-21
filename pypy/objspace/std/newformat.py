@@ -48,6 +48,13 @@ def make_template_formatting_class(for_unicode):
     class TemplateFormatter(object):
         is_unicode = for_unicode
 
+        if for_unicode:
+            def wrap(self, u):
+                return self.space.newunicode(u)
+        else:
+            def wrap(self, s):
+                return self.space.newbytes(s)
+
         parser_list_w = None
 
         def __init__(self, space, template):
@@ -113,7 +120,7 @@ def make_template_formatting_class(for_unicode):
                             assert end_literal > last_literal
                             literal = self.template[last_literal:end_literal]
                             w_entry = space.newtuple([
-                                space.wrap(literal),
+                                self.wrap(literal),
                                 space.w_None, space.w_None, space.w_None])
                             self.parser_list_w.append(w_entry)
                             self.last_end = i
@@ -211,13 +218,13 @@ def make_template_formatting_class(for_unicode):
             if index == -1:
                 kwarg = name[:i]
                 if self.is_unicode:
-                    w_arg = space.getitem(self.w_kwargs, space.wrap(kwarg))
+                    w_arg = space.getitem(self.w_kwargs, self.wrap(kwarg))
                 else:
                     try:
                         w_arg = self.kwargs[kwarg]
                     except KeyError:
                         raise OperationError(space.w_KeyError,
-                                             space.wrap(kwarg))
+                                             space.newtext(kwarg))
             else:
                 try:
                     w_arg = self.args[index]
@@ -243,7 +250,7 @@ def make_template_formatting_class(for_unicode):
                     if start == i:
                         raise oefmt(space.w_ValueError,
                                     "Empty attribute in format string")
-                    w_attr = space.wrap(name[start:i])
+                    w_attr = self.wrap(name[start:i])
                     if w_obj is not None:
                         w_obj = space.getattr(w_obj, w_attr)
                     else:
@@ -263,9 +270,9 @@ def make_template_formatting_class(for_unicode):
                         raise oefmt(space.w_ValueError, "Missing ']'")
                     index, reached = _parse_int(self.space, name, start, i)
                     if index != -1 and reached == i:
-                        w_item = space.wrap(index)
+                        w_item = space.newint(index)
                     else:
-                        w_item = space.wrap(name[start:i])
+                        w_item = self.wrap(name[start:i])
                     i += 1 # Skip "]"
                     if w_obj is not None:
                         w_obj = space.getitem(w_obj, w_item)
@@ -294,9 +301,9 @@ def make_template_formatting_class(for_unicode):
                 if stop != i:
                     index = -1
             if index >= 0:
-                w_first = space.wrap(index)
+                w_first = space.newint(index)
             else:
-                w_first = space.wrap(name[:i])
+                w_first = self.wrap(name[:i])
             #
             self.parser_list_w = []
             self._resolve_lookups(None, name, i, end)
@@ -326,11 +333,15 @@ def make_template_formatting_class(for_unicode):
                     space = self.space
                     startm1 = start - 1
                     assert startm1 >= self.last_end
+                    if conversion is None:
+                        w_conversion = space.w_None
+                    else:
+                        w_conversion = self.wrap(conversion)
                     w_entry = space.newtuple([
-                        space.wrap(self.template[self.last_end:startm1]),
-                        space.wrap(name),
-                        space.wrap(spec),
-                        space.wrap(conversion)])
+                        self.wrap(self.template[self.last_end:startm1]),
+                        self.wrap(name),
+                        self.wrap(spec),
+                        w_conversion])
                     self.parser_list_w.append(w_entry)
                     self.last_end = end + 1
                 return self.empty
@@ -340,7 +351,7 @@ def make_template_formatting_class(for_unicode):
                 w_obj = self._convert(w_obj, conversion)
             if recursive:
                 spec = self._build_string(spec_start, end, level)
-            w_rendered = self.space.format(w_obj, self.space.wrap(spec))
+            w_rendered = self.space.format(w_obj, self.wrap(spec))
             unwrapper = "unicode_w" if self.is_unicode else "str_w"
             to_interp = getattr(self.space, unwrapper)
             return to_interp(w_rendered)
@@ -353,7 +364,7 @@ def make_template_formatting_class(for_unicode):
             space = self.space
             if self.last_end < len(self.template):
                 w_lastentry = space.newtuple([
-                    space.wrap(self.template[self.last_end:]),
+                    self.wrap(self.template[self.last_end:]),
                     space.w_None,
                     space.w_None,
                     space.w_None])
@@ -369,10 +380,10 @@ def format_method(space, w_string, args, is_unicode):
     if is_unicode:
         template = unicode_template_formatter(space,
                                               space.unicode_w(w_string))
-        return space.wrap(template.build(args))
+        return space.newunicode(template.build(args))
     else:
         template = str_template_formatter(space, space.str_w(w_string))
-        return space.wrap(template.build(args))
+        return space.newbytes(template.build(args))
 
 
 class NumberSpec(object):
@@ -402,6 +413,13 @@ LONG_DIGITS = string.digits + string.ascii_lowercase
 def make_formatting_class(for_unicode):
     class Formatter(BaseFormatter):
         """__format__ implementation for builtin types."""
+
+        if for_unicode:
+            def wrap(self, u):
+                return self.space.newunicode(u)
+        else:
+            def wrap(self, s):
+                return self.space.newbytes(s)
 
         is_unicode = for_unicode
         _grouped_digits = None
@@ -545,7 +563,7 @@ def make_formatting_class(for_unicode):
         def format_string(self, string):
             space = self.space
             if self._parse_spec("s", "<"):
-                return space.wrap(string)
+                return self.wrap(string)
             if self._type != "s":
                 self._unknown_presentation("string")
             if self._sign != "\0":
@@ -566,7 +584,7 @@ def make_formatting_class(for_unicode):
                 length = precision
                 string = string[:precision]
             self._calc_padding(string, length)
-            return space.wrap(self._pad(string))
+            return self.wrap(self._pad(string))
 
         def _get_locale(self, tp):
             if tp == "n":
@@ -814,8 +832,8 @@ def make_formatting_class(for_unicode):
                                         n_remainder, False, result)
             fill = self._fill_char
             upper = self._type == "X"
-            return self.space.wrap(self._fill_number(spec, result, to_numeric,
-                                     to_prefix, fill, to_remainder, upper))
+            return self.wrap(self._fill_number(spec, result, to_numeric,
+                             to_prefix, fill, to_remainder, upper))
 
         def _long_to_base(self, base, value):
             prefix = ""
@@ -963,8 +981,8 @@ def make_formatting_class(for_unicode):
             spec = self._calc_num_width(0, sign, to_number, n_digits,
                                         n_remainder, have_dec_point, digits)
             fill = self._fill_char
-            return self.space.wrap(self._fill_number(spec, digits, to_number, 0,
-                                      fill, to_remainder, False))
+            return self.wrap(self._fill_number(spec, digits, to_number, 0,
+                             fill, to_remainder, False))
 
         def format_float(self, w_float):
             space = self.space
@@ -1125,7 +1143,7 @@ def make_formatting_class(for_unicode):
             #add right padding
             out.append_multiple_char(fill, self._right_pad)
 
-            return self.space.wrap(out.build())
+            return self.wrap(out.build())
 
 
         def format_complex(self, w_complex):

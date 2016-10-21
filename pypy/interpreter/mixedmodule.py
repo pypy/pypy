@@ -110,7 +110,7 @@ class MixedModule(Module):
                     bltin.w_module = self.w_name
                     func._builtinversion_ = bltin
                     bltin.name = name
-                w_value = space.wrap(bltin)
+                w_value = bltin
             space.setitem(self.w_dict, w_name, w_value)
             return w_value
 
@@ -158,7 +158,7 @@ class MixedModule(Module):
 
     @classmethod
     def get__doc__(cls, space):
-        return space.wrap(cls.__doc__)
+        return space.newtext_or_none(cls.__doc__)
 
 
 def getinterpevalloader(pkgroot, spec):
@@ -186,7 +186,7 @@ def getinterpevalloader(pkgroot, spec):
             else:
                 #print spec, "->", value
                 if hasattr(value, 'func_code'):  # semi-evil
-                    return space.wrap(gateway.interp2app(value))
+                    return gateway.interp2app(value).get_function(space)
 
                 try:
                     is_type = issubclass(value, W_Root)  # pseudo-evil

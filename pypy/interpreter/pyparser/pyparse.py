@@ -3,11 +3,11 @@ from pypy.interpreter.pyparser import future, parser, pytokenizer, pygram, error
 from pypy.interpreter.astcompiler import consts
 
 def recode_to_utf8(space, bytes, encoding):
-    w_text = space.call_method(space.wrap(bytes), "decode",
-                               space.wrap(encoding))
+    w_text = space.call_method(space.newbytes(bytes), "decode",
+                               space.newtext(encoding))
     if not space.isinstance_w(w_text, space.w_unicode):
         raise error.SyntaxError("codec did not return a unicode object")
-    w_recoded = space.call_method(w_text, "encode", space.wrap("utf-8"))
+    w_recoded = space.call_method(w_text, "encode", space.newtext("utf-8"))
     return space.str_w(w_recoded)
 
 def _normalize_encoding(encoding):

@@ -1109,21 +1109,19 @@ def create_slot(w_self, slot_name, index_next_extra_slot):
         slot_name = space.str_w(space.new_interned_str(slot_name))
         # in cpython it is ignored less, but we probably don't care
         member = Member(index_next_extra_slot, slot_name, w_self)
-        w_self.dict_w[slot_name] = space.wrap(member)
+        w_self.dict_w[slot_name] = member
         return True
     else:
         return False
 
 def create_dict_slot(w_self):
     if not w_self.hasdict:
-        w_self.dict_w.setdefault('__dict__',
-                                 w_self.space.wrap(dict_descr))
+        w_self.dict_w.setdefault('__dict__', dict_descr)
         w_self.hasdict = True
 
 def create_weakref_slot(w_self):
     if not w_self.weakrefable:
-        w_self.dict_w.setdefault('__weakref__',
-                                 w_self.space.wrap(weakref_descr))
+        w_self.dict_w.setdefault('__weakref__', weakref_descr)
         w_self.weakrefable = True
 
 def valid_slot_name(slot_name):
@@ -1157,7 +1155,11 @@ def setup_user_defined_type(w_self, force_new_layout):
 def setup_builtin_type(w_self, instancetypedef):
     w_self.hasdict = instancetypedef.hasdict
     w_self.weakrefable = instancetypedef.weakrefable
-    w_self.w_doc = w_self.space.wrap(instancetypedef.doc)
+    if isinstance(instancetypedef.doc, W_Root):
+        w_doc = instancetypedef.doc
+    else:
+        w_doc = w_self.space.newtext_or_none(instancetypedef.doc)
+    w_self.w_doc = w_doc
     ensure_common_attributes(w_self)
     w_self.flag_heaptype = instancetypedef.heaptype
     #
@@ -1335,7 +1337,7 @@ class TypeCache(SpaceCache):
         w_type = W_TypeObject(space, typedef.name, bases_w, dict_w,
                               overridetypedef=overridetypedef)
         if typedef is not overridetypedef:
-            w_type.w_doc = space.wrap(typedef.doc)
+            w_type.w_doc = space.newtext_or_none(typedef.doc)
         if hasattr(typedef, 'flag_sequence_bug_compat'):
             w_type.flag_sequence_bug_compat = typedef.flag_sequence_bug_compat
         w_type.lazyloaders = lazyloaders

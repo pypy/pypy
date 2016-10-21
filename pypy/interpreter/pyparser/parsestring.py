@@ -62,7 +62,7 @@ def parsestr(space, encoding, s, unicode_literal=False):
             v = unicodehelper.decode_raw_unicode_escape(space, substr)
         else:
             v = unicodehelper.decode_unicode_escape(space, substr)
-        return space.wrap(v)
+        return space.newunicode(v)
 
     need_encoding = (encoding is not None and
                      encoding != "utf-8" and encoding != "utf8" and
@@ -71,11 +71,11 @@ def parsestr(space, encoding, s, unicode_literal=False):
     substr = s[ps : q]
     if rawmode or '\\' not in s[ps:]:
         if need_encoding:
-            w_u = space.wrap(unicodehelper.decode_utf8(space, substr))
+            w_u = space.newunicode(unicodehelper.decode_utf8(space, substr))
             w_v = unicodehelper.encode(space, w_u, encoding)
             return w_v
         else:
-            return space.wrap(substr)
+            return space.newbytes(substr)
 
     enc = None
     if need_encoding:
@@ -226,9 +226,9 @@ def decode_utf8(space, s, ps, end):
 
 def decode_utf8_recode(space, s, ps, end, recode_encoding):
     u, ps = decode_utf8(space, s, ps, end)
-    w_v = unicodehelper.encode(space, space.wrap(u), recode_encoding)
+    w_v = unicodehelper.encode(space, space.newunicode(u), recode_encoding)
     v = space.str_w(w_v)
     return v, ps
 
 def raise_app_valueerror(space, msg):
-    raise OperationError(space.w_ValueError, space.wrap(msg))
+    raise OperationError(space.w_ValueError, space.newtext(msg))

@@ -244,10 +244,10 @@ class OperationError(Exception):
             if with_traceback:
                 w_t = self.w_type
                 w_v = self.get_w_value(space)
-                w_tb = space.wrap(self.get_traceback())
-                space.appexec([space.wrap(where),
-                               space.wrap(objrepr),
-                               space.wrap(extra_line),
+                w_tb = self.get_traceback()
+                space.appexec([space.newtext(where),
+                               space.newtext(objrepr),
+                               space.newtext(extra_line),
                                w_t, w_v, w_tb],
                 """(where, objrepr, extra_line, t, v, tb):
                     import sys, traceback
@@ -261,7 +261,7 @@ class OperationError(Exception):
                 msg = 'Exception %s in %s%s ignored\n' % (
                     self.errorstr(space, use_repr=True), where, objrepr)
                 space.call_method(space.sys.get('stderr'), 'write',
-                                  space.wrap(msg))
+                                  space.newtext(msg))
         except OperationError:
             pass   # ignored
 
@@ -269,7 +269,7 @@ class OperationError(Exception):
         w_value = self._w_value
         if w_value is None:
             value = self._compute_value(space)
-            self._w_value = w_value = space.wrap(value)
+            self._w_value = w_value = space.newtext(value)
         return w_value
 
     def _compute_value(self, space):
@@ -387,7 +387,7 @@ def get_operr_class(valuefmt):
 
 @specialize.arg(1)
 def oefmt(w_type, valuefmt, *args):
-    """Equivalent to OperationError(w_type, space.wrap(valuefmt % args)).
+    """Equivalent to OperationError(w_type, space.newtext(valuefmt % args)).
     More efficient in the (common) case where the value is not actually
     needed.
 
@@ -429,11 +429,11 @@ else:
             msg = 'Windows Error %d' % winerror
         exc = space.w_WindowsError
         if w_filename is not None:
-            w_error = space.call_function(exc, space.wrap(winerror),
-                                          space.wrap(msg), w_filename)
+            w_error = space.call_function(exc, space.newint(winerror),
+                                          space.newtext(msg), w_filename)
         else:
-            w_error = space.call_function(exc, space.wrap(winerror),
-                                          space.wrap(msg))
+            w_error = space.call_function(exc, space.newint(winerror),
+                                          space.newtext(msg))
         return OperationError(exc, w_error)
 
 def wrap_oserror2(space, e, w_filename=None, exception_name='w_OSError',
@@ -457,18 +457,18 @@ def wrap_oserror2(space, e, w_filename=None, exception_name='w_OSError',
     else:
         exc = w_exception_class
     if w_filename is not None:
-        w_error = space.call_function(exc, space.wrap(errno),
-                                      space.wrap(msg), w_filename)
+        w_error = space.call_function(exc, space.newint(errno),
+                                      space.newtext(msg), w_filename)
     else:
-        w_error = space.call_function(exc, space.wrap(errno),
-                                      space.wrap(msg))
+        w_error = space.call_function(exc, space.newint(errno),
+                                      space.newtext(msg))
     return OperationError(exc, w_error)
 wrap_oserror2._annspecialcase_ = 'specialize:arg(3)'
 
 def wrap_oserror(space, e, filename=None, exception_name='w_OSError',
                  w_exception_class=None):
     if filename is not None:
-        return wrap_oserror2(space, e, space.wrap(filename),
+        return wrap_oserror2(space, e, space.newtext(filename),
                              exception_name=exception_name,
                              w_exception_class=w_exception_class)
     else:
@@ -482,7 +482,7 @@ def exception_from_saved_errno(space, w_type):
 
     errno = get_saved_errno()
     msg = os.strerror(errno)
-    w_error = space.call_function(w_type, space.wrap(errno), space.wrap(msg))
+    w_error = space.call_function(w_type, space.newint(errno), space.newtext(msg))
     return OperationError(w_type, w_error)
 
 def new_exception_class(space, name, w_bases=None, w_dict=None):
@@ -503,7 +503,7 @@ def new_exception_class(space, name, w_bases=None, w_dict=None):
     if w_dict is None:
         w_dict = space.newdict()
     w_exc = space.call_function(
-        space.w_type, space.wrap(name), w_bases, w_dict)
+        space.w_type, space.newtext(name), w_bases, w_dict)
     if module:
-        space.setattr(w_exc, space.wrap("__module__"), space.wrap(module))
+        space.setattr(w_exc, space.newtext("__module__"), space.newtext(module))
     return w_exc

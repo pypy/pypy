@@ -158,18 +158,7 @@ class StdObjSpace(ObjSpace):
             #print 'wrapping', x, '->', w_result
             return w_result
         if isinstance(x, base_int):
-            if self.config.objspace.std.withsmalllong:
-                from pypy.objspace.std.smalllongobject import W_SmallLongObject
-                from rpython.rlib.rarithmetic import r_longlong, r_ulonglong
-                from rpython.rlib.rarithmetic import longlongmax
-                if (not isinstance(x, r_ulonglong)
-                    or x <= r_ulonglong(longlongmax)):
-                    return W_SmallLongObject(r_longlong(x))
-            x = widen(x)
-            if isinstance(x, int):
-                return self.newint(x)
-            else:
-                return W_LongObject.fromrarith_int(x)
+            return self.newint(x)
         return self._wrap_not_rpython(x)
 
     def _wrap_not_rpython(self, x):
@@ -251,7 +240,18 @@ class StdObjSpace(ObjSpace):
             return w_obj.unwrap(self)
         raise TypeError("cannot unwrap: %r" % w_obj)
 
+    @specialize.argtype(1)
     def newint(self, intval):
+        if self.config.objspace.std.withsmalllong:
+            from pypy.objspace.std.smalllongobject import W_SmallLongObject
+            from rpython.rlib.rarithmetic import r_longlong, r_ulonglong
+            from rpython.rlib.rarithmetic import longlongmax
+            if (not isinstance(intval, r_ulonglong)
+                or intval <= r_ulonglong(longlongmax)):
+                return W_SmallLongObject(r_longlong(intval))
+        intval = widen(intval)
+        if not isinstance(intval, int):
+            return W_LongObject.fromrarith_int(intval)
         return wrapint(self, intval)
 
     def newfloat(self, floatval):
@@ -331,6 +331,11 @@ class StdObjSpace(ObjSpace):
     def newtext(self, s):
         assert isinstance(s, str)
         return W_BytesObject(s) # Python3 this is unicode
+
+    def newtext_or_none(self, s):
+        if s is None:
+            return self.w_None
+        return self.newtext(s)
 
     def newunicode(self, uni):
         assert isinstance(uni, unicode)

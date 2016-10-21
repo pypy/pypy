@@ -200,7 +200,10 @@ def make_formatter_subclass(do_unicode):
             space = self.space
             if self.w_valuedict is None:
                 raise oefmt(space.w_TypeError, "format requires a mapping")
-            w_key = space.wrap(key)
+            if do_unicode:
+                w_key = space.newunicode(key)
+            else:
+                w_key = space.newbytes(key)
             return space.getitem(self.w_valuedict, w_key)
 
         def parse_fmt(self):
@@ -334,10 +337,10 @@ def make_formatter_subclass(do_unicode):
             if do_unicode:
                 w_defaultencoding = space.call_function(
                     space.sys.get('getdefaultencoding'))
-                w_s = space.call_method(space.wrap(c),
+                w_s = space.call_method(space.newunicode(c),
                                         "encode",
                                         w_defaultencoding,
-                                        space.wrap('replace'))
+                                        space.newtext('replace'))
                 s = space.str_w(w_s)
             else:
                 s = c
@@ -350,7 +353,7 @@ def make_formatter_subclass(do_unicode):
             length = len(r)
             if do_unicode and isinstance(r, str):
                 # convert string to unicode using the default encoding
-                r = self.space.unicode_w(self.space.wrap(r))
+                r = self.space.unicode_w(self.space.newbytes(r))
             prec = self.prec
             if prec == -1 and self.width == 0:
                 # fast path
@@ -454,7 +457,7 @@ def make_formatter_subclass(do_unicode):
             self.std_wp(s)
 
         def fmt_r(self, w_value):
-            self.std_wp(self.space.str_w(self.space.repr(w_value)))
+            self.std_wp(self.space.text_w(self.space.repr(w_value)))
 
         def fmt_c(self, w_value):
             self.prec = -1     # just because
@@ -516,11 +519,11 @@ def format(space, w_fmt, values_w, w_valuedict, do_unicode):
             # fall through to the unicode case
             pass
         else:
-            return space.wrap(result)
+            return space.newbytes(result)
     fmt = space.unicode_w(w_fmt)
     formatter = UnicodeFormatter(space, fmt, values_w, w_valuedict)
     result = formatter.format()
-    return space.wrap(result)
+    return space.newunicode(result)
 
 def mod_format(space, w_format, w_values, do_unicode=False):
     if space.isinstance_w(w_values, space.w_tuple):

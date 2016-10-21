@@ -1577,7 +1577,8 @@ class ObjSpace(object):
     def str_w(self, w_obj):
         return w_obj.str_w(self)
 
-    bytes_w = str_w  # Python2
+    bytes_w = str_w  # the same on Python3
+    text_w = str_w # equivalent to identifier_w on Python3
 
     def str0_w(self, w_obj):
         "Like str_w, but rejects strings with NUL bytes."
