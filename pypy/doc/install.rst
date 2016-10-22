@@ -1,8 +1,17 @@
 Downloading and Installing PyPy
 ===============================
 
-.. _prebuilt-pypy:
+Using a packaged PyPy
+~~~~~~~~~~~~~~~~~~~~~
 
+Some Linux distributions provide a pypy package. Note that in order to
+install additional modules that require compilation, you may need to install
+additional packages such as pypy-dev. This will manifest as an error about
+"missing Python.h". Distributions do not as of yet supply many pypy-ready
+packages, if you require additionall modules we recommend creating a virtualenv
+and using pip. 
+
+.. _prebuilt-pypy:
 Download a pre-built PyPy
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -37,6 +46,9 @@ If you want to make PyPy available system-wide, you can put a symlink to the
 ``pypy`` executable in ``/usr/local/bin``.  It is important to put a symlink
 and not move the binary there, else PyPy would not be able to find its
 library.
+
+Installing more modules
+~~~~~~~~~~~~~~~~~~~~~~~
 
 If you want to install 3rd party libraries, the most convenient way is
 to install pip_ using ensurepip_ (unless you want to install virtualenv as 
