@@ -8,7 +8,7 @@ Some Linux distributions provide a pypy package. Note that in order to
 install additional modules that require compilation, you may need to install
 additional packages such as pypy-dev. This will manifest as an error about
 "missing Python.h". Distributions do not as of yet supply many pypy-ready
-packages, if you require additionall modules we recommend creating a virtualenv
+packages, if you require additional modules we recommend creating a virtualenv
 and using pip. 
 
 .. _prebuilt-pypy:
