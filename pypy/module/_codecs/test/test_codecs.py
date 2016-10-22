@@ -28,8 +28,8 @@ class AppTestCodecs:
         raises( UnicodeDecodeError, unicode,'\\NSPACE}','unicode-escape')
         raises( UnicodeDecodeError, unicode,'\\NSPACE','unicode-escape')
         raises( UnicodeDecodeError, unicode,'\\N','unicode-escape')
-        assert  unicode('\\N{SPACE}\\N{SPACE}','unicode-escape') == u"  " 
-        assert  unicode('\\N{SPACE}a\\N{SPACE}','unicode-escape') == u" a " 
+        assert  unicode('\\N{SPACE}\\N{SPACE}','unicode-escape') == u"  "
+        assert  unicode('\\N{SPACE}a\\N{SPACE}','unicode-escape') == u" a "
         assert "\\N{foo}xx".decode("unicode-escape", "ignore") == u"xx"
         assert 1 <= len(u"\N{CJK UNIFIED IDEOGRAPH-20000}") <= 2
 
@@ -676,6 +676,9 @@ class AppTestPartialEvaluation:
             (b'a+//,+IKw-b', u'a\ufffd\u20acb'),
             (b'a+///,+IKw-b', u'a\uffff\ufffd\u20acb'),
             (b'a+////,+IKw-b', u'a\uffff\ufffd\u20acb'),
+            (b'a+2AE\xe1b', u'a\ufffdb'),
+            (b'a+2AEA-b', u'a\ufffdb'),
+            (b'a+2AH-b', u'a\ufffdb'),
         ]
         for raw, expected in tests:
             raises(UnicodeDecodeError, codecs.utf_7_decode, raw, 'strict', True)

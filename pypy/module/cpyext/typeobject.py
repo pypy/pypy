@@ -17,9 +17,11 @@ from pypy.module.cpyext.api import (
     generic_cpy_call, Py_TPFLAGS_READY, Py_TPFLAGS_READYING,
     Py_TPFLAGS_HEAPTYPE, METH_VARARGS, METH_KEYWORDS, CANNOT_FAIL,
     Py_TPFLAGS_HAVE_GETCHARBUFFER, build_type_checkers, StaticObjectBuilder,
-    PyObjectFields, Py_TPFLAGS_BASETYPE)
+    PyObjectFields, Py_TPFLAGS_BASETYPE, PyTypeObject, PyTypeObjectPtr,
+    Py_TPFLAGS_HAVE_NEWBUFFER, Py_TPFLAGS_CHECKTYPES,
+    Py_TPFLAGS_HAVE_INPLACEOPS)
 from pypy.module.cpyext.methodobject import (W_PyCClassMethodObject,
-    PyDescr_NewWrapper, PyCFunction_NewEx, PyCFunction_typedef, PyMethodDef,
+    W_PyCWrapperObject, PyCFunction_NewEx, PyCFunction_typedef, PyMethodDef,
     W_PyCMethodObject, W_PyCFunctionObject)
 from pypy.module.cpyext.modsupport import convert_method_defs
 from pypy.module.cpyext.pyobject import (
@@ -30,7 +32,7 @@ from pypy.module.cpyext.slotdefs import (
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.structmember import PyMember_GetOne, PyMember_SetOne
 from pypy.module.cpyext.typeobjectdefs import (
-    PyTypeObjectPtr, PyTypeObject, PyGetSetDef, PyMemberDef, newfunc,
+    PyGetSetDef, PyMemberDef, newfunc,
     PyNumberMethods, PyMappingMethods, PySequenceMethods, PyBufferProcs)
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 
@@ -167,7 +169,7 @@ def memberdescr_attach(space, py_obj, w_obj):
     py_memberdescr.c_d_member = w_obj.member
 
 def memberdescr_realize(space, obj):
-    # XXX NOT TESTED When is this ever called? 
+    # XXX NOT TESTED When is this ever called?
     member = rffi.cast(lltype.Ptr(PyMemberDef), obj)
     w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
     w_obj = space.allocate_instance(W_MemberDescr, w_type)
@@ -192,7 +194,7 @@ def methoddescr_attach(space, py_obj, w_obj):
     py_methoddescr.c_d_method = w_obj.ml
 
 def classmethoddescr_realize(space, obj):
-    # XXX NOT TESTED When is this ever called? 
+    # XXX NOT TESTED When is this ever called?
     method = rffi.cast(lltype.Ptr(PyMethodDef), obj)
     w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
     w_obj = space.allocate_instance(W_PyCClassMethodObject, w_type)
@@ -201,7 +203,7 @@ def classmethoddescr_realize(space, obj):
     return w_obj
 
 def methoddescr_realize(space, obj):
-    # XXX NOT TESTED When is this ever called? 
+    # XXX NOT TESTED When is this ever called?
     method = rffi.cast(lltype.Ptr(PyMethodDef), obj)
     w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
     w_obj = space.allocate_instance(W_PyCMethodObject, w_type)
@@ -238,7 +240,7 @@ def convert_member_defs(space, dict_w, members, w_type):
             i += 1
 
 def update_all_slots(space, w_type, pto):
-    #  XXX fill slots in pto
+    # fill slots in pto
     # Not very sure about it, but according to
     # test_call_tp_dealloc_when_created_from_python, we should not
     # overwrite slots that are already set: these ones are probably
@@ -272,6 +274,15 @@ def update_all_slots(space, w_type, pto):
         if len(slot_names) == 1:
             if not getattr(pto, slot_names[0]):
                 setattr(pto, slot_names[0], slot_func_helper)
+        elif (w_type.getname(space) in ('list', 'tuple') and
+              slot_names[0] == 'c_tp_as_number'):
+            # XXX hack - hwo can we generalize this? The problem is method
+            # names like __mul__ map to more than one slot, and we have no
+            # convenient way to indicate which slots CPython have filled
+            #
+            # We need at least this special case since Numpy checks that
+            # (list, tuple) do __not__ fill tp_as_number
+            pass
         else:
             assert len(slot_names) == 2
             struct = getattr(pto, slot_names[0])
@@ -282,6 +293,8 @@ def update_all_slots(space, w_type, pto):
                     STRUCT_TYPE = PyNumberMethods
                 elif slot_names[0] == 'c_tp_as_sequence':
                     STRUCT_TYPE = PySequenceMethods
+                elif slot_names[0] == 'c_tp_as_buffer':
+                    STRUCT_TYPE = PyBufferProcs
                 else:
                     raise AssertionError(
                         "Structure not allocated: %s" % (slot_names[0],))
@@ -296,6 +309,7 @@ def add_operators(space, dict_w, pto):
     for method_name, slot_names, wrapper_func, wrapper_func_kwds, doc in slotdefs_for_wrappers:
         if method_name in dict_w:
             continue
+        offset = [rffi.offsetof(lltype.typeOf(pto).TO, slot_names[0])]
         if len(slot_names) == 1:
             func = getattr(pto, slot_names[0])
         else:
@@ -303,14 +317,16 @@ def add_operators(space, dict_w, pto):
             struct = getattr(pto, slot_names[0])
             if not struct:
                 continue
+            offset.append(rffi.offsetof(lltype.typeOf(struct).TO, slot_names[1]))
             func = getattr(struct, slot_names[1])
         func_voidp = rffi.cast(rffi.VOIDP, func)
         if not func:
             continue
         if wrapper_func is None and wrapper_func_kwds is None:
             continue
-        dict_w[method_name] = PyDescr_NewWrapper(space, pto, method_name, wrapper_func,
-                wrapper_func_kwds, doc, func_voidp)
+        w_obj = W_PyCWrapperObject(space, pto, method_name, wrapper_func,
+                wrapper_func_kwds, doc, func_voidp, offset=offset)
+        dict_w[method_name] = space.wrap(w_obj)
     if pto.c_tp_new:
         add_tp_new_wrapper(space, dict_w, pto)
 
@@ -371,6 +387,10 @@ def inherit_special(space, pto, base_pto):
     # (minimally, if tp_basicsize is zero we copy it from the base)
     if not pto.c_tp_basicsize:
         pto.c_tp_basicsize = base_pto.c_tp_basicsize
+    if pto.c_tp_itemsize < base_pto.c_tp_itemsize:
+        pto.c_tp_itemsize = base_pto.c_tp_itemsize
+    pto.c_tp_flags |= base_pto.c_tp_flags & Py_TPFLAGS_CHECKTYPES
+    pto.c_tp_flags |= base_pto.c_tp_flags & Py_TPFLAGS_HAVE_INPLACEOPS
     flags = rffi.cast(lltype.Signed, pto.c_tp_flags)
     base_object_pyo = make_ref(space, space.w_object)
     base_object_pto = rffi.cast(PyTypeObjectPtr, base_object_pyo)
@@ -486,10 +506,39 @@ def subtype_dealloc(space, obj):
 
 @cpython_api([PyObject, Py_ssize_tP], lltype.Signed, header=None,
              error=CANNOT_FAIL)
-def str_segcount(space, w_obj, ref):
+def bf_segcount(space, w_obj, ref):
     if ref:
         ref[0] = space.len_w(w_obj)
     return 1
+
+@cpython_api([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed,
+             header=None, error=-1)
+def bf_getreadbuffer(space, w_buf, segment, ref):
+    from rpython.rlib.buffer import StringBuffer
+    if segment != 0:
+        raise oefmt(space.w_SystemError,
+                    "accessing non-existent segment")
+    buf = space.readbuf_w(w_buf)
+    if isinstance(buf, StringBuffer):
+        return str_getreadbuffer(space, w_buf, segment, ref)
+    address = buf.get_raw_address()
+    ref[0] = address
+    return len(buf)
+
+@cpython_api([PyObject, Py_ssize_t, rffi.CCHARPP], lltype.Signed,
+             header=None, error=-1)
+def bf_getcharbuffer(space, w_buf, segment, ref):
+    return bf_getreadbuffer(space, w_buf, segment, rffi.cast(rffi.VOIDPP, ref))
+
+@cpython_api([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed,
+             header=None, error=-1)
+def bf_getwritebuffer(space, w_buf, segment, ref):
+    if segment != 0:
+        raise oefmt(space.w_SystemError,
+                    "accessing non-existent segment")
+    buf = space.writebuf_w(w_buf)
+    ref[0] = buf.get_raw_address()
+    return len(buf)
 
 @cpython_api([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed,
              header=None, error=-1)
@@ -504,18 +553,24 @@ def str_getreadbuffer(space, w_str, segment, ref):
     Py_DecRef(space, pyref)
     return space.len_w(w_str)
 
-@cpython_api([PyObject, Py_ssize_t, rffi.CCHARPP], lltype.Signed,
+@cpython_api([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed,
              header=None, error=-1)
-def str_getcharbuffer(space, w_str, segment, ref):
-    from pypy.module.cpyext.bytesobject import PyString_AsString
+def unicode_getreadbuffer(space, w_str, segment, ref):
+    from pypy.module.cpyext.unicodeobject import (
+                PyUnicode_AS_UNICODE, PyUnicode_GET_DATA_SIZE)
     if segment != 0:
         raise oefmt(space.w_SystemError,
-                    "accessing non-existent string segment")
+                    "accessing non-existent unicode segment")
     pyref = make_ref(space, w_str)
-    ref[0] = PyString_AsString(space, pyref)
+    ref[0] = PyUnicode_AS_UNICODE(space, pyref)
     # Stolen reference: the object has better exist somewhere else
     Py_DecRef(space, pyref)
-    return space.len_w(w_str)
+    return PyUnicode_GET_DATA_SIZE(space, w_str)
+
+@cpython_api([PyObject, Py_ssize_t, rffi.CCHARPP], lltype.Signed,
+             header=None, error=-1)
+def str_getcharbuffer(space, w_buf, segment, ref):
+    return str_getreadbuffer(space, w_buf, segment, rffi.cast(rffi.VOIDPP, ref))
 
 @cpython_api([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed,
              header=None, error=-1)
@@ -523,36 +578,70 @@ def buf_getreadbuffer(space, pyref, segment, ref):
     from pypy.module.cpyext.bufferobject import PyBufferObject
     if segment != 0:
         raise oefmt(space.w_SystemError,
-                    "accessing non-existent string segment")
+                    "accessing non-existent buffer segment")
     py_buf = rffi.cast(PyBufferObject, pyref)
     ref[0] = py_buf.c_b_ptr
-    #Py_DecRef(space, pyref)
     return py_buf.c_b_size
 
-def setup_string_buffer_procs(space, pto):
+@cpython_api([PyObject, Py_ssize_t, rffi.CCHARPP], lltype.Signed,
+             header=None, error=-1)
+def buf_getcharbuffer(space, w_buf, segment, ref):
+    return buf_getreadbuffer(space, w_buf, segment, rffi.cast(rffi.VOIDPP, ref))
+
+def setup_buffer_procs(space, w_type, pto):
+    bufspec = w_type.layout.typedef.buffer
+    if bufspec is None and not space.is_w(w_type, space.w_unicode):
+        # not a buffer, but let w_unicode be a read buffer
+        return
     c_buf = lltype.malloc(PyBufferProcs, flavor='raw', zero=True)
     lltype.render_immortal(c_buf)
-    c_buf.c_bf_getsegcount = llhelper(str_segcount.api_func.functype,
-                                      str_segcount.api_func.get_wrapper(space))
-    c_buf.c_bf_getreadbuffer = llhelper(str_getreadbuffer.api_func.functype,
-                                 str_getreadbuffer.api_func.get_wrapper(space))
-    c_buf.c_bf_getcharbuffer = llhelper(str_getcharbuffer.api_func.functype,
-                                 str_getcharbuffer.api_func.get_wrapper(space))
+    c_buf.c_bf_getsegcount = llhelper(bf_segcount.api_func.functype,
+                                      bf_segcount.api_func.get_wrapper(space))
+    if space.is_w(w_type, space.w_str):
+        # Special case: str doesn't support get_raw_address(), so we have a
+        # custom get*buffer that instead gives the address of the char* in the
+        # PyBytesObject*!
+        c_buf.c_bf_getreadbuffer = llhelper(
+            str_getreadbuffer.api_func.functype,
+            str_getreadbuffer.api_func.get_wrapper(space))
+        c_buf.c_bf_getcharbuffer = llhelper(
+            str_getcharbuffer.api_func.functype,
+            str_getcharbuffer.api_func.get_wrapper(space))
+    elif space.is_w(w_type, space.w_unicode):
+        # Special case: unicode doesn't support get_raw_address(), so we have a
+        # custom get*buffer that instead gives the address of the char* in the
+        # PyUnicodeObject*!
+        c_buf.c_bf_getreadbuffer = llhelper(
+            unicode_getreadbuffer.api_func.functype,
+            unicode_getreadbuffer.api_func.get_wrapper(space))
+    elif space.is_w(w_type, space.w_buffer):
+        # Special case: we store a permanent address on the cpyext wrapper,
+        # so we'll reuse that.
+        # Note: we could instead store a permanent address on the buffer object,
+        # and use get_raw_address()
+        c_buf.c_bf_getreadbuffer = llhelper(
+            buf_getreadbuffer.api_func.functype,
+            buf_getreadbuffer.api_func.get_wrapper(space))
+        c_buf.c_bf_getcharbuffer = llhelper(
+            buf_getcharbuffer.api_func.functype,
+            buf_getcharbuffer.api_func.get_wrapper(space))
+    else:
+        # use get_raw_address()
+        c_buf.c_bf_getreadbuffer = llhelper(bf_getreadbuffer.api_func.functype,
+                                    bf_getreadbuffer.api_func.get_wrapper(space))
+        c_buf.c_bf_getcharbuffer = llhelper(bf_getcharbuffer.api_func.functype,
+                                    bf_getcharbuffer.api_func.get_wrapper(space))
+        if bufspec == 'read-write':
+            c_buf.c_bf_getwritebuffer = llhelper(
+                bf_getwritebuffer.api_func.functype,
+                bf_getwritebuffer.api_func.get_wrapper(space))
     pto.c_tp_as_buffer = c_buf
     pto.c_tp_flags |= Py_TPFLAGS_HAVE_GETCHARBUFFER
-
-def setup_buffer_buffer_procs(space, pto):
-    c_buf = lltype.malloc(PyBufferProcs, flavor='raw', zero=True)
-    lltype.render_immortal(c_buf)
-    c_buf.c_bf_getsegcount = llhelper(str_segcount.api_func.functype,
-                                      str_segcount.api_func.get_wrapper(space))
-    c_buf.c_bf_getreadbuffer = llhelper(buf_getreadbuffer.api_func.functype,
-                                 buf_getreadbuffer.api_func.get_wrapper(space))
-    pto.c_tp_as_buffer = c_buf
+    pto.c_tp_flags |= Py_TPFLAGS_HAVE_NEWBUFFER
 
 @cpython_api([PyObject], lltype.Void, header=None)
 def type_dealloc(space, obj):
-    from pypy.module.cpyext.object import PyObject_dealloc
+    from pypy.module.cpyext.object import _dealloc
     obj_pto = rffi.cast(PyTypeObjectPtr, obj)
     base_pyo = rffi.cast(PyObject, obj_pto.c_tp_base)
     Py_DecRef(space, obj_pto.c_tp_bases)
@@ -563,7 +652,7 @@ def type_dealloc(space, obj):
         heaptype = rffi.cast(PyHeapTypeObject, obj)
         Py_DecRef(space, heaptype.c_ht_name)
         Py_DecRef(space, base_pyo)
-        PyObject_dealloc(space, obj)
+        _dealloc(space, obj)
 
 
 def type_alloc(space, w_metatype, itemsize=0):
@@ -612,11 +701,12 @@ def type_attach(space, py_obj, w_type):
         pto.c_tp_dealloc = llhelper(
             subtype_dealloc.api_func.functype,
             subtype_dealloc.api_func.get_wrapper(space))
-    # buffer protocol
     if space.is_w(w_type, space.w_str):
-        setup_string_buffer_procs(space, pto)
-    if space.is_w(w_type, space.w_buffer):
-        setup_buffer_buffer_procs(space, pto)
+        pto.c_tp_itemsize = 1
+    elif space.is_w(w_type, space.w_tuple):
+        pto.c_tp_itemsize = rffi.sizeof(PyObject)
+    # buffer protocol
+    setup_buffer_procs(space, w_type, pto)
 
     pto.c_tp_free = llhelper(PyObject_Free.api_func.functype,
             PyObject_Free.api_func.get_wrapper(space))
@@ -639,7 +729,7 @@ def type_attach(space, py_obj, w_type):
     # uninitialized fields:
     # c_tp_print
     # XXX implement
-    # c_tp_compare and the following fields (see http://docs.python.org/c-api/typeobj.html )
+    # c_tp_compare and more?
     w_base = best_base(space, w_type.bases_w)
     pto.c_tp_base = rffi.cast(PyTypeObjectPtr, make_ref(space, w_base))
 
@@ -653,6 +743,8 @@ def type_attach(space, py_obj, w_type):
     if pto.c_tp_base:
         if pto.c_tp_base.c_tp_basicsize > pto.c_tp_basicsize:
             pto.c_tp_basicsize = pto.c_tp_base.c_tp_basicsize
+        if pto.c_tp_itemsize < pto.c_tp_base.c_tp_itemsize:
+            pto.c_tp_itemsize = pto.c_tp_base.c_tp_itemsize
 
     # will be filled later on with the correct value
     # may not be 0
@@ -680,6 +772,7 @@ def type_realize(space, py_obj):
     try:
         w_obj = _type_realize(space, py_obj)
     finally:
+        name = rffi.charp2str(pto.c_tp_name)
         pto.c_tp_flags &= ~Py_TPFLAGS_READYING
     pto.c_tp_flags |= Py_TPFLAGS_READY
     return w_obj
@@ -694,7 +787,6 @@ def best_base(space, bases_w):
     return find_best_base(bases_w)
 
 def inherit_slots(space, pto, w_base):
-    # XXX missing: nearly everything
     base_pyo = make_ref(space, w_base)
     try:
         base = rffi.cast(PyTypeObjectPtr, base_pyo)
@@ -711,6 +803,25 @@ def inherit_slots(space, pto, w_base):
             pto.c_tp_setattro = base.c_tp_setattro
         if not pto.c_tp_getattro:
             pto.c_tp_getattro = base.c_tp_getattro
+        if not pto.c_tp_as_buffer:
+            pto.c_tp_as_buffer = base.c_tp_as_buffer
+        if base.c_tp_as_buffer:
+            # inherit base.c_tp_as_buffer functions not inherited from w_type
+            # note: builtin types are handled in setup_buffer_procs
+            pto_as = pto.c_tp_as_buffer
+            base_as = base.c_tp_as_buffer
+            if not pto_as.c_bf_getbuffer:
+                pto_as.c_bf_getbuffer = base_as.c_bf_getbuffer
+            if not pto_as.c_bf_getcharbuffer:
+                pto_as.c_bf_getcharbuffer = base_as.c_bf_getcharbuffer
+            if not pto_as.c_bf_getwritebuffer:
+                pto_as.c_bf_getwritebuffer = base_as.c_bf_getwritebuffer
+            if not pto_as.c_bf_getreadbuffer:
+                pto_as.c_bf_getreadbuffer = base_as.c_bf_getreadbuffer
+            if not pto_as.c_bf_getsegcount:
+                pto_as.c_bf_getsegcount = base_as.c_bf_getsegcount
+            if not pto_as.c_bf_releasebuffer:
+                pto_as.c_bf_releasebuffer = base_as.c_bf_releasebuffer
     finally:
         Py_DecRef(space, base_pyo)
 
@@ -732,7 +843,7 @@ def _type_realize(space, py_obj):
 
     if py_type.c_ob_type:
         w_metatype = from_ref(space, rffi.cast(PyObject, py_type.c_ob_type))
-    else: 
+    else:
         # Somehow the tp_base type is created with no ob_type, notably
         # PyString_Type and PyBaseString_Type
         # While this is a hack, cpython does it as well.
@@ -740,17 +851,23 @@ def _type_realize(space, py_obj):
 
     w_obj = space.allocate_instance(W_PyCTypeObject, w_metatype)
     track_reference(space, py_obj, w_obj)
-    w_obj.__init__(space, py_type)
+    # __init__ wraps all slotdefs functions from py_type via add_operators
+    w_obj.__init__(space, py_type) 
     w_obj.ready()
 
     finish_type_2(space, py_type, w_obj)
-    # inheriting tp_as_* slots
     base = py_type.c_tp_base
     if base:
-        if not py_type.c_tp_as_number: py_type.c_tp_as_number = base.c_tp_as_number 
-        if not py_type.c_tp_as_sequence: py_type.c_tp_as_sequence = base.c_tp_as_sequence 
-        if not py_type.c_tp_as_mapping: py_type.c_tp_as_mapping = base.c_tp_as_mapping 
-        if not py_type.c_tp_as_buffer: py_type.c_tp_as_buffer = base.c_tp_as_buffer 
+        # XXX refactor - parts of this are done in finish_type_2 -> inherit_slots
+        if not py_type.c_tp_as_number: 
+            py_type.c_tp_as_number = base.c_tp_as_number
+            py_type.c_tp_flags |= base.c_tp_flags & Py_TPFLAGS_CHECKTYPES
+            py_type.c_tp_flags |= base.c_tp_flags & Py_TPFLAGS_HAVE_INPLACEOPS
+        if not py_type.c_tp_as_sequence:
+            py_type.c_tp_as_sequence = base.c_tp_as_sequence
+            py_type.c_tp_flags |= base.c_tp_flags & Py_TPFLAGS_HAVE_INPLACEOPS
+        if not py_type.c_tp_as_mapping: py_type.c_tp_as_mapping = base.c_tp_as_mapping
+        #if not py_type.c_tp_as_buffer: py_type.c_tp_as_buffer = base.c_tp_as_buffer
 
     return w_obj
 
@@ -761,7 +878,8 @@ def finish_type_1(space, pto):
     base = pto.c_tp_base
     base_pyo = rffi.cast(PyObject, pto.c_tp_base)
     if base and not base.c_tp_flags & Py_TPFLAGS_READY:
-        type_realize(space, rffi.cast(PyObject, base_pyo))
+        name = rffi.charp2str(base.c_tp_name)
+        type_realize(space, base_pyo)
     if base and not pto.c_ob_type: # will be filled later
         pto.c_ob_type = base.c_ob_type
     if not pto.c_tp_bases:
@@ -796,8 +914,8 @@ def finish_type_2(space, pto, w_obj):
 
     if w_obj.is_cpytype():
         Py_DecRef(space, pto.c_tp_dict)
-        w_dict = w_obj.getdict(space)
-        pto.c_tp_dict = make_ref(space, w_dict)
+    w_dict = w_obj.getdict(space)
+    pto.c_tp_dict = make_ref(space, w_dict)
 
 @cpython_api([PyTypeObjectPtr, PyTypeObjectPtr], rffi.INT_real, error=CANNOT_FAIL)
 def PyType_IsSubtype(space, a, b):

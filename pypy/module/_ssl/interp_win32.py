@@ -74,7 +74,7 @@ def w_certEncodingType(space, encodingType):
 
 def w_parseKeyUsage(space, pCertCtx, flags):
     with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as size_ptr:
-        if not CertGetEnhancedKeyUsage(pCertCtx, flags, 
+        if not CertGetEnhancedKeyUsage(pCertCtx, flags,
                              lltype.nullptr(CERT_ENHKEY_USAGE), size_ptr):
             last_error = rwin32.lastSavedWindowsError()
             if last_error.winerror == CRYPT_E_NOT_FOUND:
@@ -120,7 +120,7 @@ def enum_certificates_w(space, store_name):
             pCertCtx = CertEnumCertificatesInStore(hStore, pCertCtx)
             if not pCertCtx:
                 break
-            w_cert = space.wrapbytes(
+            w_cert = space.newbytes(
                 rffi.charpsize2str(pCertCtx.c_pbCertEncoded,
                                    intmask(pCertCtx.c_cbCertEncoded)))
             w_enc = w_certEncodingType(space, pCertCtx.c_dwCertEncodingType)
@@ -162,7 +162,7 @@ def enum_crls_w(space, store_name):
             pCrlCtx = CertEnumCRLsInStore(hStore, pCrlCtx)
             if not pCrlCtx:
                 break
-            w_crl = space.wrapbytes(
+            w_crl = space.newbytes(
                 rffi.charpsize2str(pCrlCtx.c_pbCrlEncoded,
                                    intmask(pCrlCtx.c_cbCrlEncoded)))
             w_enc = w_certEncodingType(space, pCrlCtx.c_dwCertEncodingType)

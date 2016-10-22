@@ -65,8 +65,9 @@ def setup_directory_structure(space):
              )
     setuppkg("pkg.pkg2", a='', b='')
     setuppkg("pkg.withall",
-             __init__  = "__all__ = ['foobar']",
-             foobar    = "found = 123")
+             __init__  = "__all__ = ['foobar', 'barbaz']",
+             foobar    = "found = 123",
+             barbaz    = "other = 543")
     setuppkg("pkg.withoutall",
              __init__  = "",
              foobar    = "found = 123")
@@ -118,7 +119,7 @@ def setup_directory_structure(space):
         filename = str(p.join("x.py"))
         stream = streamio.open_file_as_stream(filename, "r")
         try:
-            importing.load_source_module(
+            _load_source_module(
                 space, w_modname, w(importing.Module(space, w_modname)),
                 filename, stream.readall(),
                 stream.try_to_find_file_descriptor())
@@ -139,11 +140,20 @@ def setup_directory_structure(space):
 
     return str(root)
 
+def _load_source_module(space, w_modname, w_mod, *args, **kwds):
+    kwds.setdefault('check_afterwards', False)
+    return importing.load_source_module(space, w_modname, w_mod, *args, **kwds)
+
+def _load_compiled_module(space, w_modname, w_mod, *args, **kwds):
+    kwds.setdefault('check_afterwards', False)
+    return importing.load_compiled_module(space, w_modname, w_mod,
+                                          *args, **kwds)
+
 
 def _setup(space):
     dn = setup_directory_structure(space)
     return space.appexec([space.wrap(dn)], """
-        (dn): 
+        (dn):
             import sys
             path = list(sys.path)
             sys.path.insert(0, dn)
@@ -698,6 +708,7 @@ class AppTestImport:
             d = {}
             exec "from pkg.withall import *" in d
             assert d["foobar"].found == 123
+            assert d["barbaz"].other == 543
 
     def test_import_star_does_not_find_submodules_without___all__(self):
         for case in ["not-imported-yet", "already-imported"]:
@@ -887,8 +898,7 @@ class TestPycStuff:
             w_mod = space.wrap(Module(space, w_modulename))
             magic = importing._r_long(stream)
             timestamp = importing._r_long(stream)
-            w_ret = importing.load_compiled_module(space,
-                                                   w_modulename,
+            w_ret = _load_compiled_module(space,   w_modulename,
                                                    w_mod,
                                                    cpathname,
                                                    magic,
@@ -946,7 +956,7 @@ class TestPycStuff:
         pathname = _testfilesource()
         stream = streamio.open_file_as_stream(pathname, "r")
         try:
-            w_ret = importing.load_source_module(
+            w_ret = _load_source_module(
                 space, w_modulename, w_mod,
                 pathname, stream.readall(),
                 stream.try_to_find_file_descriptor())
@@ -968,7 +978,7 @@ class TestPycStuff:
         pathname = _testfilesource()
         stream = streamio.open_file_as_stream(pathname, "r")
         try:
-            w_ret = importing.load_source_module(
+            w_ret = _load_source_module(
                 space, w_modulename, w_mod,
                 pathname, stream.readall(),
                 stream.try_to_find_file_descriptor(),
@@ -987,7 +997,7 @@ class TestPycStuff:
         try:
             space.setattr(space.sys, space.wrap('dont_write_bytecode'),
                           space.w_True)
-            w_ret = importing.load_source_module(
+            w_ret = _load_source_module(
                 space, w_modulename, w_mod,
                 pathname, stream.readall(),
                 stream.try_to_find_file_descriptor())
@@ -1006,7 +1016,7 @@ class TestPycStuff:
         pathname = _testfilesource(source="<Syntax Error>")
         stream = streamio.open_file_as_stream(pathname, "r")
         try:
-            w_ret = importing.load_source_module(
+            w_ret = _load_source_module(
                 space, w_modulename, w_mod,
                 pathname, stream.readall(),
                 stream.try_to_find_file_descriptor())
@@ -1017,7 +1027,7 @@ class TestPycStuff:
 
         cpathname = udir.join('test.pyc')
         assert not cpathname.check()
-        
+
     def test_load_source_module_importerror(self):
         # the .pyc file is created before executing the module
         space = self.space
@@ -1026,7 +1036,7 @@ class TestPycStuff:
         pathname = _testfilesource(source="a = unknown_name")
         stream = streamio.open_file_as_stream(pathname, "r")
         try:
-            w_ret = importing.load_source_module(
+            w_ret = _load_source_module(
                 space, w_modulename, w_mod,
                 pathname, stream.readall(),
                 stream.try_to_find_file_descriptor())
@@ -1114,7 +1124,7 @@ class TestPycStuff:
                     magic = importing._r_long(stream)
                     timestamp = importing._r_long(stream)
                     space2.raises_w(space2.w_ImportError,
-                                    importing.load_compiled_module,
+                                    _load_compiled_module,
                                     space2,
                                     w_modulename,
                                     w_mod,
@@ -1126,11 +1136,11 @@ class TestPycStuff:
                     stream.close()
 
 
-def test_PYTHONPATH_takes_precedence(space): 
+def test_PYTHONPATH_takes_precedence(space):
     if sys.platform == "win32":
         py.test.skip("unresolved issues with win32 shell quoting rules")
-    from pypy.interpreter.test.test_zpy import pypypath 
-    extrapath = udir.ensure("pythonpath", dir=1) 
+    from pypy.interpreter.test.test_zpy import pypypath
+    extrapath = udir.ensure("pythonpath", dir=1)
     extrapath.join("sched.py").write("print 42\n")
     old = os.environ.get('PYTHONPATH', None)
     oldlang = os.environ.pop('LANG', None)
@@ -1326,10 +1336,7 @@ class AppTestImportHooks(object):
         # use an import hook that doesn't update sys.modules, then the
         # import succeeds; but at the same time, you can have the same
         # result without an import hook (see test_del_from_sys_modules)
-        # and then the import fails.  This looks like even more mess
-        # to replicate, so we ignore it until someone really hits this
-        # case...
-        skip("looks like an inconsistency in CPython")
+        # and then the import fails.  Mess mess mess.
 
         class ImportHook(object):
             def find_module(self, fullname, path=None):

@@ -148,7 +148,7 @@ and call the translator
 
 ::
 
-  pypy ~/path_to_pypy_checkout/rpython/bin/rpython -O1 --platform=arm target.py
+  pypy ~/path_to_pypy_checkout/rpython/bin/rpython -O2 --platform=arm target.py
 
 If everything worked correctly this should yield an ARM binary. Running this binary in the ARM chroot or on an ARM device should produce the output ``"Hello World"``.
 

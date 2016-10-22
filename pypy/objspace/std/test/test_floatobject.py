@@ -455,6 +455,10 @@ class AppTestAppFloatTest:
         else:
             assert False, 'did not raise'
 
+    def test_hash_minus_one(self):
+        assert hash(-1.0) == -2
+        assert (-1.0).__hash__() == -2
+
 
 class AppTestFloatHex:
     spaceconfig = {

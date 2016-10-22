@@ -196,7 +196,13 @@ def descr__reduce_ex__(space, w_obj, proto=0):
     if w_reduce is not None:
         w_cls = space.getattr(w_obj, space.wrap('__class__'))
         w_cls_reduce_meth = space.getattr(w_cls, w_st_reduce)
-        w_cls_reduce = space.getattr(w_cls_reduce_meth, space.wrap('im_func'))
+        try:
+            w_cls_reduce = space.getattr(w_cls_reduce_meth, space.wrap('im_func'))
+        except OperationError as e:
+            # i.e. PyCFunction from cpyext
+            if not e.match(space, space.w_AttributeError):
+                raise
+            w_cls_reduce = space.w_None
         w_objtype = space.w_object
         w_obj_dict = space.getattr(w_objtype, space.wrap('__dict__'))
         w_obj_reduce = space.getitem(w_obj_dict, w_st_reduce)

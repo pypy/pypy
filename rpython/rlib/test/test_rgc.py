@@ -1,6 +1,6 @@
 from rpython.rtyper.test.test_llinterp import gengraph, interpret
 from rpython.rtyper.error import TyperError
-from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib import rgc # Force registration of gc.collect
 import gc
 import py, sys
@@ -254,6 +254,153 @@ def test_register_custom_trace_hook():
 
     assert typer.custom_trace_funcs == [(TP, trace_func)]
 
+def test_nonmoving_raw_ptr_for_resizable_list():
+    def f(n):
+        lst = ['a', 'b', 'c']
+        lst = rgc.resizable_list_supporting_raw_ptr(lst)
+        lst.append(chr(n))
+        assert lst[3] == chr(n)
+        assert lst[-1] == chr(n)
+        #
+        ptr = rgc.nonmoving_raw_ptr_for_resizable_list(lst)
+        assert lst[:] == ['a', 'b', 'c', chr(n)]
+        assert lltype.typeOf(ptr) == rffi.CCHARP
+        assert [ptr[i] for i in range(4)] == ['a', 'b', 'c', chr(n)]
+        #
+        lst[-3] = 'X'
+        assert ptr[1] == 'X'
+        ptr[2] = 'Y'
+        assert lst[-2] == 'Y'
+        #
+        addr = rffi.cast(lltype.Signed, ptr)
+        ptr = rffi.cast(rffi.CCHARP, addr)
+        rgc.collect()    # should not move lst.items
+        lst[-4] = 'g'
+        assert ptr[0] == 'g'
+        ptr[3] = 'H'
+        assert lst[-1] == 'H'
+        return lst
+    #
+    # direct untranslated run
+    lst = f(35)
+    assert isinstance(lst, rgc._ResizableListSupportingRawPtr)
+    #
+    # llinterp run
+    interpret(f, [35])
+    #
+    # compilation with the GC transformer
+    import subprocess
+    from rpython.translator.interactive import Translation
+    #
+    def main(argv):
+        f(len(argv))
+        print "OK!"
+        return 0
+    #
+    t = Translation(main, gc="incminimark")
+    t.disable(['backendopt'])
+    t.set_backend_extra_options(c_debug_defines=True)
+    exename = t.compile()
+    data = subprocess.check_output([str(exename), '.', '.', '.'])
+    assert data.strip().endswith('OK!')
+
+def test_ListSupportingRawPtr_direct():
+    lst = ['a', 'b', 'c']
+    lst = rgc.resizable_list_supporting_raw_ptr(lst)
+
+    def check_nonresizing():
+        assert lst[1] == lst[-2] == 'b'
+        lst[1] = 'X'
+        assert lst[1] == 'X'
+        lst[-1] = 'Y'
+        assert lst[1:3] == ['X', 'Y']
+        assert lst[-2:9] == ['X', 'Y']
+        lst[1:2] = 'B'
+        assert lst[:] == ['a', 'B', 'Y']
+        assert list(iter(lst)) == ['a', 'B', 'Y']
+        assert list(reversed(lst)) == ['Y', 'B', 'a']
+        assert 'B' in lst
+        assert 'b' not in lst
+        assert p[0] == 'a'
+        assert p[1] == 'B'
+        assert p[2] == 'Y'
+        assert lst + ['*'] == ['a', 'B', 'Y', '*']
+        assert ['*'] + lst == ['*', 'a', 'B', 'Y']
+        assert lst + lst == ['a', 'B', 'Y', 'a', 'B', 'Y']
+        base = ['8']
+        base += lst
+        assert base == ['8', 'a', 'B', 'Y']
+        assert lst == ['a', 'B', 'Y']
+        assert ['a', 'B', 'Y'] == lst
+        assert ['a', 'B', 'Z'] != lst
+        assert ['a', 'B', 'Z'] >  lst
+        assert ['a', 'B', 'Z'] >= lst
+        assert lst * 2 == ['a', 'B', 'Y', 'a', 'B', 'Y']
+        assert 2 * lst == ['a', 'B', 'Y', 'a', 'B', 'Y']
+        assert lst.count('B') == 1
+        assert lst.index('Y') == 2
+        lst.reverse()
+        assert lst == ['Y', 'B', 'a']
+        lst.sort()
+        assert lst == ['B', 'Y', 'a']
+        lst.sort(reverse=True)
+        assert lst == ['a', 'Y', 'B']
+        lst[1] = 'b'
+        lst[2] = 'c'
+        assert list(lst) == ['a', 'b', 'c']
+
+    p = lst
+    check_nonresizing()
+    assert lst._raw_items is None
+    lst._nonmoving_raw_ptr_for_resizable_list()
+    p = lst._raw_items
+    check_nonresizing()
+    assert lst._raw_items == p
+    assert p[0] == 'a'
+    assert p[1] == 'b'
+    assert p[2] == 'c'
+
+    def do_resizing_operation():
+        del lst[1]
+        yield ['a', 'c']
+
+        lst[:2] = ['X']
+        yield ['X', 'c']
+
+        del lst[:2]
+        yield ['c']
+
+        x = lst
+        x += ['t']
+        yield ['a', 'b', 'c', 't']
+
+        x = lst
+        x *= 3
+        yield ['a', 'b', 'c'] * 3
+
+        lst.append('f')
+        yield ['a', 'b', 'c', 'f']
+
+        lst.extend('fg')
+        yield ['a', 'b', 'c', 'f', 'g']
+
+        lst.insert(1, 'k')
+        yield ['a', 'k', 'b', 'c']
+
+        n = lst.pop(1)
+        assert n == 'b'
+        yield ['a', 'c']
+
+        lst.remove('c')
+        yield ['a', 'b']
+
+    assert lst == ['a', 'b', 'c']
+    for expect in do_resizing_operation():
+        assert lst == expect
+        assert lst._raw_items is None
+        lst = ['a', 'b', 'c']
+        lst = rgc.resizable_list_supporting_raw_ptr(lst)
+        lst._nonmoving_raw_ptr_for_resizable_list()
 
 # ____________________________________________________________
 
@@ -368,7 +515,6 @@ class TestFinalizerQueue:
         assert fq._triggered == 1
 
     def test_finalizer_trigger_calls_too_much(self):
-        from rpython.rtyper.lltypesystem import lltype, rffi
         external_func = rffi.llexternal("foo", [], lltype.Void)
         # ^^^ with release_gil=True
         class X(object):

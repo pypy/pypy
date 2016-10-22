@@ -16,7 +16,7 @@ from pypy.objspace.std.basestringtype import basestring_typedef
 from pypy.objspace.std.boolobject import W_BoolObject
 from pypy.objspace.std.bufferobject import W_Buffer
 from pypy.objspace.std.bytearrayobject import W_BytearrayObject
-from pypy.objspace.std.bytesobject import W_AbstractBytesObject, W_BytesObject, wrapstr
+from pypy.objspace.std.bytesobject import W_AbstractBytesObject, W_BytesObject
 from pypy.objspace.std.complexobject import W_ComplexObject
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject, W_DictObject
 from pypy.objspace.std.floatobject import W_FloatObject
@@ -31,7 +31,7 @@ from pypy.objspace.std.setobject import W_SetObject, W_FrozensetObject
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.tupleobject import W_AbstractTupleObject, W_TupleObject
 from pypy.objspace.std.typeobject import W_TypeObject, TypeCache
-from pypy.objspace.std.unicodeobject import W_UnicodeObject, wrapunicode
+from pypy.objspace.std.unicodeobject import W_UnicodeObject
 
 
 class StdObjSpace(ObjSpace):
@@ -128,9 +128,6 @@ class StdObjSpace(ObjSpace):
         assert typedef is not None
         return self.fromcache(TypeCache).getorbuild(typedef)
 
-    def wrapbytes(self, x):
-        return wrapstr(self, x)
-
     @specialize.argtype(1)
     def wrap(self, x):
         "Wraps the Python value 'x' into one of the wrapper classes."
@@ -151,9 +148,9 @@ class StdObjSpace(ObjSpace):
             else:
                 return self.newint(x)
         if isinstance(x, str):
-            return wrapstr(self, x)
+            return self.newbytes(x)
         if isinstance(x, unicode):
-            return wrapunicode(self, x)
+            return self.newunicode(x)
         if isinstance(x, float):
             return W_FloatObject(x)
         if isinstance(x, W_Root):
@@ -273,6 +270,10 @@ class StdObjSpace(ObjSpace):
             return W_SmallLongObject.fromint(val)
         return W_LongObject.fromint(self, val)
 
+    @specialize.argtype(1)
+    def newlong_from_rarith_int(self, val): # val is an rarithmetic type 
+        return W_LongObject.fromrarith_int(val)
+
     def newlong_from_rbigint(self, val):
         return newlong(self, val)
 
@@ -323,6 +324,12 @@ class StdObjSpace(ObjSpace):
     def newbuffer(self, w_obj):
         return W_Buffer(w_obj)
 
+    def newbytes(self, s):
+        return W_BytesObject(s)
+
+    def newunicode(self, uni):
+        return W_UnicodeObject(uni)
+
     def type(self, w_obj):
         jit.promote(w_obj.__class__)
         return w_obj.getclass(self)
@@ -344,6 +351,7 @@ class StdObjSpace(ObjSpace):
         assert isinstance(w_starttype, W_TypeObject)
         return w_type.lookup_starting_at(w_starttype, name)
 
+    @specialize.arg(1)
     def allocate_instance(self, cls, w_subtype):
         """Allocate the memory needed for an instance of an internal or
         user-defined type, without actually __init__ializing the instance."""
@@ -368,7 +376,6 @@ class StdObjSpace(ObjSpace):
                         "%N.__new__(%N): only for the type %N",
                         w_type, w_subtype, w_type)
         return instance
-    allocate_instance._annspecialcase_ = "specialize:arg(1)"
 
     # two following functions are almost identical, but in fact they
     # have different return type. First one is a resizable list, second
@@ -442,7 +449,7 @@ class StdObjSpace(ObjSpace):
             return w_obj.listview_bytes()
         if type(w_obj) is W_SetObject or type(w_obj) is W_FrozensetObject:
             return w_obj.listview_bytes()
-        if isinstance(w_obj, W_BytesObject) and self._uses_no_iter(w_obj):
+        if isinstance(w_obj, W_BytesObject) and self._str_uses_no_iter(w_obj):
             return w_obj.listview_bytes()
         if isinstance(w_obj, W_ListObject) and self._uses_list_iter(w_obj):
             return w_obj.getitems_bytes()
@@ -457,7 +464,7 @@ class StdObjSpace(ObjSpace):
             return w_obj.listview_unicode()
         if type(w_obj) is W_SetObject or type(w_obj) is W_FrozensetObject:
             return w_obj.listview_unicode()
-        if isinstance(w_obj, W_UnicodeObject) and self._uses_no_iter(w_obj):
+        if isinstance(w_obj, W_UnicodeObject) and self._uni_uses_no_iter(w_obj):
             return w_obj.listview_unicode()
         if isinstance(w_obj, W_ListObject) and self._uses_list_iter(w_obj):
             return w_obj.getitems_unicode()
@@ -501,8 +508,15 @@ class StdObjSpace(ObjSpace):
         from pypy.objspace.descroperation import tuple_iter
         return self.lookup(w_obj, '__iter__') is tuple_iter(self)
 
-    def _uses_no_iter(self, w_obj):
-        return self.lookup(w_obj, '__iter__') is None
+    def _str_uses_no_iter(self, w_obj):
+        from pypy.objspace.descroperation import str_getitem
+        return (self.lookup(w_obj, '__iter__') is None and
+                self.lookup(w_obj, '__getitem__') is str_getitem(self))
+
+    def _uni_uses_no_iter(self, w_obj):
+        from pypy.objspace.descroperation import unicode_getitem
+        return (self.lookup(w_obj, '__iter__') is None and
+                self.lookup(w_obj, '__getitem__') is unicode_getitem(self))
 
     def sliceindices(self, w_slice, w_length):
         if isinstance(w_slice, W_SliceObject):
@@ -617,7 +631,7 @@ class StdObjSpace(ObjSpace):
 
     def _type_issubtype(self, w_sub, w_type):
         if isinstance(w_sub, W_TypeObject) and isinstance(w_type, W_TypeObject):
-            return self.wrap(w_sub.issubtype(w_type))
+            return w_sub.issubtype(w_type)
         raise oefmt(self.w_TypeError, "need type objects")
 
     @specialize.arg_or_var(2)

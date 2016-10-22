@@ -7,6 +7,8 @@ from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib import rstring, runicode, rlocale, rfloat, jit
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rfloat import copysign, formatd
+from rpython.rlib.rarithmetic import r_uint, intmask
+from pypy.interpreter.signature import Signature
 
 
 @specialize.argtype(1)
@@ -39,19 +41,32 @@ ANS_AUTO = 2
 ANS_MANUAL = 3
 
 
-def make_template_formatting_class():
+format_signature = Signature([], 'args', 'kwargs')
+
+
+def make_template_formatting_class(for_unicode):
     class TemplateFormatter(object):
+        is_unicode = for_unicode
 
         parser_list_w = None
 
-        def __init__(self, space, is_unicode, template):
+        def __init__(self, space, template):
             self.space = space
-            self.is_unicode = is_unicode
-            self.empty = u"" if is_unicode else ""
+            self.empty = u"" if self.is_unicode else ""
             self.template = template
 
         def build(self, args):
-            self.args, self.kwargs = args.unpack()
+            if self.is_unicode:
+                # for unicode, use the slower parse_obj() to get self.w_kwargs
+                # as a wrapped dictionary that may contain full-range unicode
+                # keys.  See test_non_latin1_key
+                space = self.space
+                w_args, w_kwds = args.parse_obj(None, 'format',
+                                                format_signature)
+                self.args = space.listview(w_args)
+                self.w_kwargs = w_kwds
+            else:
+                self.args, self.kwargs = args.unpack()
             self.auto_numbering = 0
             self.auto_numbering_state = ANS_INIT
             return self._build_string(0, len(self.template), 2)
@@ -196,17 +211,13 @@ def make_template_formatting_class():
             if index == -1:
                 kwarg = name[:i]
                 if self.is_unicode:
-                    try:
-                        arg_key = kwarg.encode("latin-1")
-                    except UnicodeEncodeError:
-                        # Not going to be found in a dict of strings.
-                        raise OperationError(space.w_KeyError, space.wrap(kwarg))
+                    w_arg = space.getitem(self.w_kwargs, space.wrap(kwarg))
                 else:
-                    arg_key = kwarg
-                try:
-                    w_arg = self.kwargs[arg_key]
-                except KeyError:
-                    raise OperationError(space.w_KeyError, space.wrap(arg_key))
+                    try:
+                        w_arg = self.kwargs[kwarg]
+                    except KeyError:
+                        raise OperationError(space.w_KeyError,
+                                             space.wrap(kwarg))
             else:
                 try:
                     w_arg = self.args[index]
@@ -350,14 +361,8 @@ def make_template_formatting_class():
             return space.iter(space.newlist(self.parser_list_w))
     return TemplateFormatter
 
-StrTemplateFormatter = make_template_formatting_class()
-UnicodeTemplateFormatter = make_template_formatting_class()
-
-def str_template_formatter(space, template):
-    return StrTemplateFormatter(space, False, template)
-
-def unicode_template_formatter(space, template):
-    return UnicodeTemplateFormatter(space, True, template)
+str_template_formatter = make_template_formatting_class(for_unicode=False)
+unicode_template_formatter = make_template_formatting_class(for_unicode=True)
 
 
 def format_method(space, w_string, args, is_unicode):
@@ -394,16 +399,16 @@ CURRENT_LOCALE = 3
 
 LONG_DIGITS = string.digits + string.ascii_lowercase
 
-def make_formatting_class():
+def make_formatting_class(for_unicode):
     class Formatter(BaseFormatter):
         """__format__ implementation for builtin types."""
 
+        is_unicode = for_unicode
         _grouped_digits = None
 
-        def __init__(self, space, is_unicode, spec):
+        def __init__(self, space, spec):
             self.space = space
-            self.is_unicode = is_unicode
-            self.empty = u"" if is_unicode else ""
+            self.empty = u"" if self.is_unicode else ""
             self.spec = spec
 
         def _is_alignment(self, c):
@@ -760,6 +765,11 @@ def make_formatting_class():
                     raise oefmt(space.w_ValueError,
                                 "sign not allowed with 'c' presentation type")
                 value = space.int_w(w_num)
+                max_char = runicode.MAXUNICODE if self.is_unicode else 0xFF
+                if not (0 <= value <= max_char):
+                    raise oefmt(space.w_OverflowError,
+                                "%%c arg not in range(%s)",
+                                hex(max_char))
                 if self.is_unicode:
                     result = runicode.UNICHR(value)
                 else:
@@ -828,33 +838,37 @@ def make_formatting_class():
                 return s
             # This part is slow.
             negative = value < 0
-            value = abs(value)
+            base = r_uint(base)
+            value = r_uint(value)
+            if negative:   # change the sign on the unsigned number: otherwise,
+                value = -value   #   we'd risk overflow if value==-sys.maxint-1
+            #
             buf = ["\0"] * (8 * 8 + 6) # Too much on 32 bit, but who cares?
             i = len(buf) - 1
             while True:
-                div = value // base
-                mod = value - div * base
-                digit = abs(mod)
+                div = value // base         # unsigned
+                mod = value - div * base    # unsigned, always in range(0,base)
+                digit = intmask(mod)
                 digit += ord("0") if digit < 10 else ord("a") - 10
                 buf[i] = chr(digit)
-                value = div
+                value = div                 # unsigned
                 i -= 1
                 if not value:
                     break
-            if base == 2:
+            if base == r_uint(2):
                 buf[i] = "b"
                 buf[i - 1] = "0"
-            elif base == 8:
+            elif base == r_uint(8):
                 buf[i] = "o"
                 buf[i - 1] = "0"
-            elif base == 16:
+            elif base == r_uint(16):
                 buf[i] = "x"
                 buf[i - 1] = "0"
             else:
                 buf[i] = "#"
-                buf[i - 1] = chr(ord("0") + base % 10)
-                if base > 10:
-                    buf[i - 2] = chr(ord("0") + base // 10)
+                buf[i - 1] = chr(ord("0") + intmask(base % r_uint(10)))
+                if base > r_uint(10):
+                    buf[i - 2] = chr(ord("0") + intmask(base // r_uint(10)))
                     i -= 1
             i -= 1
             if negative:
@@ -1133,15 +1147,8 @@ def make_formatting_class():
             self._unknown_presentation("complex")
     return Formatter
 
-StrFormatter = make_formatting_class()
-UnicodeFormatter = make_formatting_class()
-
-
-def unicode_formatter(space, spec):
-    return StrFormatter(space, True, spec)
-
-def str_formatter(space, spec):
-    return UnicodeFormatter(space, False, spec)
+str_formatter = make_formatting_class(for_unicode=False)
+unicode_formatter = make_formatting_class(for_unicode=True)
 
 
 @specialize.arg(2)

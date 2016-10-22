@@ -554,6 +554,7 @@ class TestMiniMarkGCSimple(DirectGCTest):
         assert res # we optimized it
         assert hdr_dst.tid & minimark.GCFLAG_TRACK_YOUNG_PTRS == 0 # and we copied the flag
         #
+        self.gc.card_page_indices = 128     # force > 0
         hdr_src.tid |= minimark.GCFLAG_TRACK_YOUNG_PTRS
         hdr_dst.tid |= minimark.GCFLAG_TRACK_YOUNG_PTRS
         hdr_src.tid |= minimark.GCFLAG_HAS_CARDS

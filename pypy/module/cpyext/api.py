@@ -4,13 +4,16 @@ import atexit
 
 import py
 
-from pypy.conftest import pypydir
+from pypy import pypydir
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import ll2ctypes
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.objectmodel import we_are_translated, keepalive_until_here
 from rpython.rlib.objectmodel import dont_inline
+from rpython.rlib.rfile import (FILEP, c_fread, c_fclose, c_fwrite,
+        c_fdopen, c_fileno,
+        c_fopen)# for tests
 from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.gensupp import NameManager
@@ -76,62 +79,55 @@ VA_LIST_P = rffi.VOIDP # rffi.COpaquePtr('va_list')
 CONST_STRING = lltype.Ptr(lltype.Array(lltype.Char,
                                        hints={'nolength': True}),
                           use_cache=False)
+CONST_STRINGP = lltype.Ptr(lltype.Array(rffi.CCHARP,
+                                       hints={'nolength': True}),
+                          use_cache=False)
 CONST_WSTRING = lltype.Ptr(lltype.Array(lltype.UniChar,
                                         hints={'nolength': True}),
                            use_cache=False)
 assert CONST_STRING is not rffi.CCHARP
 assert CONST_STRING == rffi.CCHARP
+assert CONST_STRINGP is not rffi.CCHARPP
+assert CONST_STRINGP == rffi.CCHARPP
 assert CONST_WSTRING is not rffi.CWCHARP
 assert CONST_WSTRING == rffi.CWCHARP
 
 # FILE* interface
-FILEP = rffi.COpaquePtr('FILE')
 
 if sys.platform == 'win32':
     dash = '_'
 else:
     dash = ''
-fileno = rffi.llexternal(dash + 'fileno', [FILEP], rffi.INT)
-fopen = rffi.llexternal('fopen', [CONST_STRING, CONST_STRING], FILEP)
-fdopen = rffi.llexternal(dash + 'fdopen', [rffi.INT, CONST_STRING],
-                  FILEP, save_err=rffi.RFFI_SAVE_ERRNO)
 
-_fclose = rffi.llexternal('fclose', [FILEP], rffi.INT)
 def fclose(fp):
-    if not is_valid_fd(fileno(fp)):
+    if not is_valid_fd(c_fileno(fp)):
         return -1
-    return _fclose(fp)
+    return c_fclose(fp)
 
-_fwrite = rffi.llexternal('fwrite',
-                         [rffi.VOIDP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
-                         rffi.SIZE_T)
 def fwrite(buf, sz, n, fp):
-    validate_fd(fileno(fp))
-    return _fwrite(buf, sz, n, fp)
+    validate_fd(c_fileno(fp))
+    return c_fwrite(buf, sz, n, fp)
 
-_fread = rffi.llexternal('fread',
-                        [rffi.VOIDP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
-                        rffi.SIZE_T)
 def fread(buf, sz, n, fp):
-    validate_fd(fileno(fp))
-    return _fread(buf, sz, n, fp)
+    validate_fd(c_fileno(fp))
+    return c_fread(buf, sz, n, fp)
 
 _feof = rffi.llexternal('feof', [FILEP], rffi.INT)
 def feof(fp):
-    validate_fd(fileno(fp))
+    validate_fd(c_fileno(fp))
     return _feof(fp)
 
 def is_valid_fp(fp):
-    return is_valid_fd(fileno(fp))
+    return is_valid_fd(c_fileno(fp))
 
 pypy_decl = 'pypy_decl.h'
 
 constant_names = """
 Py_TPFLAGS_READY Py_TPFLAGS_READYING Py_TPFLAGS_HAVE_GETCHARBUFFER
-METH_COEXIST METH_STATIC METH_CLASS Py_TPFLAGS_BASETYPE
-METH_NOARGS METH_VARARGS METH_KEYWORDS METH_O
-Py_TPFLAGS_HEAPTYPE Py_TPFLAGS_HAVE_CLASS
-Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE Py_TPFLAGS_CHECKTYPES
+METH_COEXIST METH_STATIC METH_CLASS Py_TPFLAGS_BASETYPE Py_MAX_FMT
+METH_NOARGS METH_VARARGS METH_KEYWORDS METH_O Py_TPFLAGS_HAVE_INPLACEOPS
+Py_TPFLAGS_HEAPTYPE Py_TPFLAGS_HAVE_CLASS Py_TPFLAGS_HAVE_NEWBUFFER
+Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE Py_TPFLAGS_CHECKTYPES Py_MAX_NDIMS
 """.split()
 for name in constant_names:
     setattr(CConfig_constants, name, rffi_platform.ConstantInteger(name))
@@ -161,12 +157,13 @@ def copy_header_files(dstdir, copy_numpy_headers):
 
     if copy_numpy_headers:
         try:
-            dstdir.mkdir('numpy')
+            dstdir.mkdir('_numpypy')
+            dstdir.mkdir('_numpypy/numpy')
         except py.error.EEXIST:
             pass
-        numpy_dstdir = dstdir / 'numpy'
+        numpy_dstdir = dstdir / '_numpypy' / 'numpy'
 
-        numpy_include_dir = include_dir / 'numpy'
+        numpy_include_dir = include_dir / '_numpypy' / 'numpy'
         numpy_headers = numpy_include_dir.listdir('*.h') + numpy_include_dir.listdir('*.inl')
         _copy_header_files(numpy_headers, numpy_dstdir)
 
@@ -267,14 +264,14 @@ class ApiFunction(object):
 
         # extract the signature from the (CPython-level) code object
         from pypy.interpreter import pycode
-        argnames, varargname, kwargname = pycode.cpython_code_signature(callable.func_code)
-
-        assert argnames[0] == 'space'
+        sig = pycode.cpython_code_signature(callable.func_code)
+        assert sig.argnames[0] == 'space'
+        self.argnames = sig.argnames[1:]
         if gil == 'pygilstate_ensure':
-            assert argnames[-1] == 'previous_state'
-            del argnames[-1]
-        self.argnames = argnames[1:]
+            assert self.argnames[-1] == 'previous_state'
+            del self.argnames[-1]
         assert len(self.argnames) == len(self.argtypes)
+
         self.gil = gil
         self.result_borrowed = result_borrowed
         self.result_is_ll = result_is_ll
@@ -653,10 +650,14 @@ Py_buffer = cpython_struct(
         ('format', rffi.CCHARP),
         ('shape', Py_ssize_tP),
         ('strides', Py_ssize_tP),
+        ('_format', rffi.CFixedArray(rffi.UCHAR, Py_MAX_FMT)),
+        ('_shape', rffi.CFixedArray(Py_ssize_t, Py_MAX_NDIMS)),
+        ('_strides', rffi.CFixedArray(Py_ssize_t, Py_MAX_NDIMS)),
         ('suboffsets', Py_ssize_tP),
         #('smalltable', rffi.CFixedArray(Py_ssize_t, 2)),
         ('internal', rffi.VOIDP)
         ))
+Py_bufferP = lltype.Ptr(Py_buffer)
 
 @specialize.memo()
 def is_PyObject(TYPE):
@@ -706,7 +707,7 @@ def build_type_checkers(type_name, cls=None):
         w_obj_type = space.type(w_obj)
         w_type = get_w_type(space)
         return (space.is_w(w_obj_type, w_type) or
-                space.is_true(space.issubtype(w_obj_type, w_type)))
+                space.issubtype_w(w_obj_type, w_type))
     def check_exact(space, w_obj):
         "Implements the Py_Xxx_CheckExact function"
         w_obj_type = space.type(w_obj)
@@ -799,6 +800,21 @@ def unexpected_exception(funcname, e, tb):
         pypy_debug_catch_fatal_exception()
         assert False
 
+def _restore_gil_state(pygilstate_release, gilstate, gil_release, _gil_auto, tid):
+    from rpython.rlib import rgil
+    # see "Handling of the GIL" above
+    assert cpyext_glob_tid_ptr[0] == 0
+    if pygilstate_release:
+        from pypy.module.cpyext import pystate
+        unlock = (gilstate == pystate.PyGILState_UNLOCKED)
+    else:
+        unlock = gil_release or _gil_auto
+    if unlock:
+        rgil.release()
+    else:
+        cpyext_glob_tid_ptr[0] = tid
+
+
 def make_wrapper_second_level(space, argtypesw, restype,
                               result_kind, error_value, gil):
     from rpython.rlib import rgil
@@ -826,6 +842,7 @@ def make_wrapper_second_level(space, argtypesw, restype,
     def wrapper_second_level(callable, pname, *args):
         from pypy.module.cpyext.pyobject import make_ref, from_ref, is_pyobj
         from pypy.module.cpyext.pyobject import as_pyobj
+        from pypy.module.cpyext import pystate
         # we hope that malloc removal removes the newtuple() that is
         # inserted exactly here by the varargs specializer
 
@@ -838,7 +855,6 @@ def make_wrapper_second_level(space, argtypesw, restype,
             rgil.acquire()
             assert cpyext_glob_tid_ptr[0] == 0
         elif pygilstate_ensure:
-            from pypy.module.cpyext import pystate
             if cpyext_glob_tid_ptr[0] == tid:
                 cpyext_glob_tid_ptr[0] = 0
                 args += (pystate.PyGILState_LOCKED,)
@@ -849,6 +865,10 @@ def make_wrapper_second_level(space, argtypesw, restype,
             if cpyext_glob_tid_ptr[0] != tid:
                 no_gil_error(pname)
             cpyext_glob_tid_ptr[0] = 0
+        if pygilstate_release:
+            gilstate = rffi.cast(lltype.Signed, args[-1])
+        else:
+            gilstate = pystate.PyGILState_IGNORE
 
         rffi.stackcounter.stacks_counter += 1
         llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
@@ -918,24 +938,13 @@ def make_wrapper_second_level(space, argtypesw, restype,
 
         except Exception as e:
             unexpected_exception(pname, e, tb)
+            _restore_gil_state(pygilstate_release, gilstate, gil_release, _gil_auto, tid)
             return fatal_value
 
         assert lltype.typeOf(retval) == restype
         rffi.stackcounter.stacks_counter -= 1
 
-        # see "Handling of the GIL" above
-        assert cpyext_glob_tid_ptr[0] == 0
-        if pygilstate_release:
-            from pypy.module.cpyext import pystate
-            arg = rffi.cast(lltype.Signed, args[-1])
-            unlock = (arg == pystate.PyGILState_UNLOCKED)
-        else:
-            unlock = gil_release or _gil_auto
-        if unlock:
-            rgil.release()
-        else:
-            cpyext_glob_tid_ptr[0] = tid
-
+        _restore_gil_state(pygilstate_release, gilstate, gil_release, _gil_auto, tid)
         return retval
 
     wrapper_second_level._dont_inline_ = True
@@ -976,8 +985,10 @@ def setup_init_functions(eci, translating):
         py_type_ready(space, get_capsule_type())
     INIT_FUNCTIONS.append(init_types)
     from pypy.module.posix.interp_posix import add_fork_hook
-    reinit_tls = rffi.llexternal('%sThread_ReInitTLS' % prefix, [], lltype.Void,
-                                 compilation_info=eci)
+    _reinit_tls = rffi.llexternal('%sThread_ReInitTLS' % prefix, [], 
+                                  lltype.Void, compilation_info=eci)
+    def reinit_tls(space):
+        _reinit_tls()
     add_fork_hook('child', reinit_tls)
 
 def init_function(func):
@@ -998,6 +1009,8 @@ def c_function_signature(db, func):
     for i, argtype in enumerate(func.argtypes):
         if argtype is CONST_STRING:
             arg = 'const char *@'
+        elif argtype is CONST_STRINGP:
+            arg = 'const char **@'
         elif argtype is CONST_WSTRING:
             arg = 'const wchar_t *@'
         else:
@@ -1201,8 +1214,6 @@ class StaticObjectBuilder:
         cpyext_type_init = self.cpyext_type_init
         self.cpyext_type_init = None
         for pto, w_type in cpyext_type_init:
-            if space.is_w(w_type, space.w_str):
-                pto.c_tp_itemsize = 1
             finish_type_1(space, pto)
             finish_type_2(space, pto, w_type)
 
@@ -1428,7 +1439,7 @@ def setup_library(space):
                                             prefix=prefix)
     code = "#include <Python.h>\n"
     if use_micronumpy:
-        code += "#include <pypy_numpy.h> /* api.py line 1290 */"
+        code += "#include <pypy_numpy.h> /* api.py line 1290 */\n"
     code  += "\n".join(functions)
 
     eci = build_eci(False, export_symbols, code, use_micronumpy)
@@ -1511,7 +1522,7 @@ def load_extension_module(space, path, name):
     try:
         ll_libname = rffi.str2charp(path)
         try:
-            dll = rdynload.dlopen(ll_libname)
+            dll = rdynload.dlopen(ll_libname, space.sys.dlopenflags)
         finally:
             lltype.free(ll_libname, flavor='raw')
     except rdynload.DLOpenError as e:

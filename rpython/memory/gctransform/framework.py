@@ -5,7 +5,7 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper import rmodel, annlowlevel
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, llgroup
-from rpython.rtyper.lltypesystem.lloperation import LL_OPERATIONS, llop
+from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.memory import gctypelayout
 from rpython.memory.gctransform.log import log
 from rpython.memory.gctransform.support import get_rtti, ll_call_destructor
@@ -14,7 +14,7 @@ from rpython.memory.gctransform.transform import GCTransformer
 from rpython.memory.gctypelayout import ll_weakref_deref, WEAKREF, WEAKREFPTR
 from rpython.memory.gctypelayout import FIN_TRIGGER_FUNC, FIN_HANDLER_ARRAY
 from rpython.tool.sourcetools import func_with_new_name
-from rpython.translator.backendopt import graphanalyze
+from rpython.translator.backendopt.collectanalyze import CollectAnalyzer
 from rpython.translator.backendopt.finalizer import FinalizerAnalyzer
 from rpython.translator.backendopt.support import var_needsgc
 import types
@@ -22,33 +22,6 @@ import types
 
 TYPE_ID = llgroup.HALFWORD
 
-
-class CollectAnalyzer(graphanalyze.BoolGraphAnalyzer):
-
-    def analyze_direct_call(self, graph, seen=None):
-        try:
-            func = graph.func
-        except AttributeError:
-            pass
-        else:
-            if getattr(func, '_gctransformer_hint_cannot_collect_', False):
-                return False
-            if getattr(func, '_gctransformer_hint_close_stack_', False):
-                return True
-        return graphanalyze.BoolGraphAnalyzer.analyze_direct_call(self, graph,
-                                                                  seen)
-    def analyze_external_call(self, funcobj, seen=None):
-        if funcobj.random_effects_on_gcobjs:
-            return True
-        return graphanalyze.BoolGraphAnalyzer.analyze_external_call(
-            self, funcobj, seen)
-    def analyze_simple_operation(self, op, graphinfo):
-        if op.opname in ('malloc', 'malloc_varsize'):
-            flags = op.args[1].value
-            return flags['flavor'] == 'gc'
-        else:
-            return (op.opname in LL_OPERATIONS and
-                    LL_OPERATIONS[op.opname].canmallocgc)
 
 def propagate_no_write_barrier_needed(result, block, mallocvars,
                                       collect_analyzer, entrymap,
@@ -557,9 +530,10 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                              getfn(func,
                                                    [SomeAddress()],
                                                    annmodel.s_None)
-        self.malloc_nonmovable_ptr = getfn(GCClass.malloc_fixedsize_nonmovable,
-                                           [s_gc, s_typeid16],
-                                           s_gcref)
+        self.malloc_nonmovable_ptr = getfn(
+            GCClass.malloc_fixed_or_varsize_nonmovable,
+            [s_gc, s_typeid16, annmodel.SomeInteger()],
+            s_gcref)
 
         self.register_finalizer_ptr = getfn(GCClass.register_finalizer,
                                             [s_gc,
@@ -705,7 +679,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         #
         return newgcdependencies
 
-    def get_finish_tables(self):
+    def enum_type_info_members(self):
         # We must first make sure that the type_info_group's members
         # are all followed.  Do it repeatedly while new members show up.
         # Once it is really done, do finish_tables().
@@ -714,6 +688,15 @@ class BaseFrameworkGCTransformer(GCTransformer):
             curtotal = len(self.layoutbuilder.type_info_group.members)
             yield self.layoutbuilder.type_info_group.members[seen:curtotal]
             seen = curtotal
+
+    def get_finish_helpers(self):
+        for dep in self.enum_type_info_members():
+            yield dep
+        yield self.finish_helpers()
+
+    def get_finish_tables(self):
+        for dep in self.enum_type_info_members():
+            yield dep
         yield self.finish_tables()
 
     def write_typeid_list(self):
@@ -800,12 +783,16 @@ class BaseFrameworkGCTransformer(GCTransformer):
         c_has_light_finalizer = rmodel.inputconst(lltype.Bool,
                                                   has_light_finalizer)
 
+        is_varsize = op.opname.endswith('_varsize') or flags.get('varsize')
+
         if flags.get('nonmovable'):
-            assert op.opname == 'malloc'
-            assert not flags.get('varsize')
+            if not is_varsize:
+                v_length = rmodel.inputconst(lltype.Signed, 0)
+            else:
+                v_length = op.args[-1]
             malloc_ptr = self.malloc_nonmovable_ptr
-            args = [self.c_const_gc, c_type_id]
-        elif not op.opname.endswith('_varsize') and not flags.get('varsize'):
+            args = [self.c_const_gc, c_type_id, v_length]
+        elif not is_varsize:
             zero = flags.get('zero', False)
             if (self.malloc_fast_ptr is not None and
                 not c_has_finalizer.value and

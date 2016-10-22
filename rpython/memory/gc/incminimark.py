@@ -281,11 +281,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
                  large_object=8*WORD,
                  ArenaCollectionClass=None,
                  **kwds):
+        "NOT_RPYTHON"
         MovingGCBase.__init__(self, config, **kwds)
         assert small_request_threshold % WORD == 0
         self.read_from_env = read_from_env
         self.nursery_size = nursery_size
-        
+
         self.small_request_threshold = small_request_threshold
         self.major_collection_threshold = major_collection_threshold
         self.growth_rate_max = growth_rate_max
@@ -644,6 +645,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # Get the memory from the nursery.  If there is not enough space
             # there, do a collect first.
             result = self.nursery_free
+            ll_assert(result != llmemory.NULL, "uninitialized nursery")
             self.nursery_free = new_free = result + totalsize
             if new_free > self.nursery_top:
                 result = self.collect_and_reserve(totalsize)
@@ -703,6 +705,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # Get the memory from the nursery.  If there is not enough space
             # there, do a collect first.
             result = self.nursery_free
+            ll_assert(result != llmemory.NULL, "uninitialized nursery")
             self.nursery_free = new_free = result + totalsize
             if new_free > self.nursery_top:
                 result = self.collect_and_reserve(totalsize)
@@ -718,8 +721,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
 
-    def malloc_fixedsize_nonmovable(self, typeid):
-        obj = self.external_malloc(typeid, 0, alloc_young=True)
+    def malloc_fixed_or_varsize_nonmovable(self, typeid, length):
+        # length==0 for fixedsize
+        obj = self.external_malloc(typeid, length, alloc_young=True)
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
 
@@ -1138,7 +1142,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         Implemented a bit obscurely by checking an unrelated flag
         that can never be set on a young object -- except if tid == -42.
         """
-        assert self.is_in_nursery(obj)
+        ll_assert(self.is_in_nursery(obj),
+                  "Can't forward an object outside the nursery.")
         tid = self.header(obj).tid
         result = (tid & GCFLAG_FINALIZATION_ORDERING != 0)
         if result:
@@ -1357,11 +1362,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
         return cls.minimal_size_in_nursery
 
     def write_barrier(self, addr_struct):
-        if self.header(addr_struct).tid & GCFLAG_TRACK_YOUNG_PTRS:
+        # see OP_GC_BIT in translator/c/gc.py
+        if llop.gc_bit(lltype.Signed, self.header(addr_struct),
+                       GCFLAG_TRACK_YOUNG_PTRS):
             self.remember_young_pointer(addr_struct)
 
     def write_barrier_from_array(self, addr_array, index):
-        if self.header(addr_array).tid & GCFLAG_TRACK_YOUNG_PTRS:
+        if llop.gc_bit(lltype.Signed, self.header(addr_array),
+                       GCFLAG_TRACK_YOUNG_PTRS):
             if self.card_page_indices > 0:
                 self.remember_young_pointer_from_array2(addr_array, index)
             else:
@@ -1459,7 +1467,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 objhdr.tid |= GCFLAG_CARDS_SET
 
         remember_young_pointer_from_array2._dont_inline_ = True
-        assert self.card_page_indices > 0
+        ll_assert(self.card_page_indices > 0,
+                  "non-positive card_page_indices")
         self.remember_young_pointer_from_array2 = (
             remember_young_pointer_from_array2)
 
@@ -1509,7 +1518,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
             return True
         # ^^^ a fast path of write-barrier
         #
-        if source_hdr.tid & GCFLAG_HAS_CARDS != 0:
+        if (self.card_page_indices > 0 and     # check constant-folded
+            source_hdr.tid & GCFLAG_HAS_CARDS != 0):
             #
             if source_hdr.tid & GCFLAG_TRACK_YOUNG_PTRS == 0:
                 # The source object may have random young pointers.
@@ -1544,7 +1554,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
     def manually_copy_card_bits(self, source_addr, dest_addr, length):
         # manually copy the individual card marks from source to dest
-        assert self.card_page_indices > 0
+        ll_assert(self.card_page_indices > 0,
+                  "non-positive card_page_indices")
         bytes = self.card_marking_bytes_for_length(length)
         #
         anybyte = 0
@@ -1621,7 +1632,15 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # This is because these are precisely the old objects that
             # have been modified and need rescanning.
             self.old_objects_pointing_to_young.foreach(
-                self._add_to_more_objects_to_trace, None)
+                self._add_to_more_objects_to_trace_if_black, None)
+            # Old black objects pointing to pinned objects that may no
+            # longer be pinned now: careful,
+            # _visit_old_objects_pointing_to_pinned() will move the
+            # previously-pinned object, and that creates a white object.
+            # We prevent the "black->white" situation by forcing the
+            # old black object to become gray again.
+            self.old_objects_pointing_to_pinned.foreach(
+                self._add_to_more_objects_to_trace_if_black, None)
         #
         # First, find the roots that point to young objects.  All nursery
         # objects found are copied out of the nursery, and the occasional
@@ -1717,12 +1736,15 @@ class IncrementalMiniMarkGC(MovingGCBase):
         nursery_barriers = self.AddressDeque()
         prev = self.nursery
         self.surviving_pinned_objects.sort()
-        assert self.pinned_objects_in_nursery == \
-            self.surviving_pinned_objects.length()
+        ll_assert(
+            self.pinned_objects_in_nursery == \
+            self.surviving_pinned_objects.length(),
+            "pinned_objects_in_nursery != surviving_pinned_objects.length()")
         while self.surviving_pinned_objects.non_empty():
             #
             cur = self.surviving_pinned_objects.pop()
-            assert cur >= prev
+            ll_assert(
+                cur >= prev, "pinned objects encountered in backwards order")
             #
             # clear the arena between the last pinned object (or arena start)
             # and the pinned object
@@ -1780,7 +1802,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         debug_stop("gc-minor")
 
     def _reset_flag_old_objects_pointing_to_pinned(self, obj, ignore):
-        assert self.header(obj).tid & GCFLAG_PINNED_OBJECT_PARENT_KNOWN
+        ll_assert(self.header(obj).tid & GCFLAG_PINNED_OBJECT_PARENT_KNOWN != 0,
+                  "!GCFLAG_PINNED_OBJECT_PARENT_KNOWN, but requested to reset.")
         self.header(obj).tid &= ~GCFLAG_PINNED_OBJECT_PARENT_KNOWN
 
     def _visit_old_objects_pointing_to_pinned(self, obj, ignore):
@@ -2129,6 +2152,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.header(obj).tid &= ~GCFLAG_VISITED
         self.more_objects_to_trace.append(obj)
 
+    def _add_to_more_objects_to_trace_if_black(self, obj, ignored):
+        if self.header(obj).tid & GCFLAG_VISITED:
+            self._add_to_more_objects_to_trace(obj, ignored)
+
     def minor_and_major_collection(self):
         # First, finish the current major gc, if there is one in progress.
         # This is a no-op if the gc_state is already STATE_SCANNING.
@@ -2241,6 +2268,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # For now, the same applies to rawrefcount'ed objects.
             if (not self.objects_to_trace.non_empty() and
                 not self.more_objects_to_trace.non_empty()):
+                #
+                # First, 'prebuilt_root_objects' might have grown since
+                # we scanned it in collect_roots() (rare case).  Rescan.
+                self.collect_nonstack_roots()
+                self.visit_all_objects()
                 #
                 if self.rrc_enabled:
                     self.rrc_major_collection_trace()
@@ -2422,20 +2454,29 @@ class IncrementalMiniMarkGC(MovingGCBase):
         return nobjects
 
 
-    def collect_roots(self):
-        # Collect all roots.  Starts from all the objects
-        # from 'prebuilt_root_objects'.
+    def collect_nonstack_roots(self):
+        # Non-stack roots: first, the objects from 'prebuilt_root_objects'
         self.prebuilt_root_objects.foreach(self._collect_obj, None)
         #
-        # Add the roots from the other sources.
+        # Add the roots from static prebuilt non-gc structures
         self.root_walker.walk_roots(
-            IncrementalMiniMarkGC._collect_ref_stk, # stack roots
-            IncrementalMiniMarkGC._collect_ref_stk, # static in prebuilt non-gc structures
+            None,
+            IncrementalMiniMarkGC._collect_ref_stk,
             None)   # we don't need the static in all prebuilt gc objects
         #
         # If we are in an inner collection caused by a call to a finalizer,
         # the 'run_finalizers' objects also need to be kept alive.
         self.enum_pending_finalizers(self._collect_obj, None)
+
+    def collect_roots(self):
+        # Collect all roots.  Starts from the non-stack roots.
+        self.collect_nonstack_roots()
+        #
+        # Add the stack roots.
+        self.root_walker.walk_roots(
+            IncrementalMiniMarkGC._collect_ref_stk, # stack roots
+            None,
+            None)
 
     def enumerate_all_roots(self, callback, arg):
         self.prebuilt_root_objects.foreach(callback, arg)

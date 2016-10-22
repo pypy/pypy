@@ -66,11 +66,13 @@ def setup():
                'i': 'signed int',
                'l': 'signed long',
                'q': 'signed long long',
+               'n': 'ssize_t',
                'B': 'unsigned char',
                'H': 'unsigned short',
                'I': 'unsigned int',
                'L': 'unsigned long',
                'Q': 'unsigned long long',
+               'N': 'size_t',
                'P': 'char *',
                'f': 'float',
                'd': 'double',
@@ -78,8 +80,11 @@ def setup():
                }
 
     pre_include_bits = ["""
+        #include <sys/types.h>
         #ifdef _MSC_VER
         #define _Bool char
+        typedef int ssize_t; /* XXX fixme for 64 bit*/
+        typedef unsigned int size_t; /* XXX fixme for 64 bit*/
         #endif"""]
     field_names = dict.fromkeys(INSPECT)
     for fmtchar, ctype in INSPECT.iteritems():

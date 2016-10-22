@@ -498,7 +498,6 @@ def _args_from_interpreter_flags():
         'ignore_environment': 'E',
         'verbose': 'v',
         'bytes_warning': 'b',
-        'hash_randomization': 'R',
         'py3k_warning': '3',
     }
     args = []
@@ -506,6 +505,8 @@ def _args_from_interpreter_flags():
         v = getattr(sys.flags, flag)
         if v > 0:
             args.append('-' + opt * v)
+    if getattr(sys.flags, 'hash_randomization') != 0:
+        args.append('-R')
     for opt in sys.warnoptions:
         args.append('-W' + opt)
     return args
@@ -834,54 +835,63 @@ class Popen(object):
             c2pread, c2pwrite = None, None
             errread, errwrite = None, None
 
+            ispread = False
             if stdin is None:
                 p2cread = _subprocess.GetStdHandle(_subprocess.STD_INPUT_HANDLE)
                 if p2cread is None:
                     p2cread, _ = _subprocess.CreatePipe(None, 0)
+                    ispread = True
             elif stdin == PIPE:
                 p2cread, p2cwrite = _subprocess.CreatePipe(None, 0)
+                ispread = True
             elif isinstance(stdin, int):
                 p2cread = msvcrt.get_osfhandle(stdin)
             else:
                 # Assuming file-like object
                 p2cread = msvcrt.get_osfhandle(stdin.fileno())
-            p2cread = self._make_inheritable(p2cread)
+            p2cread = self._make_inheritable(p2cread, ispread)
             # We just duplicated the handle, it has to be closed at the end
             to_close.add(p2cread)
             if stdin == PIPE:
                 to_close.add(p2cwrite)
 
+            ispwrite = False
             if stdout is None:
                 c2pwrite = _subprocess.GetStdHandle(_subprocess.STD_OUTPUT_HANDLE)
                 if c2pwrite is None:
                     _, c2pwrite = _subprocess.CreatePipe(None, 0)
+                    ispwrite = True
             elif stdout == PIPE:
                 c2pread, c2pwrite = _subprocess.CreatePipe(None, 0)
+                ispwrite = True
             elif isinstance(stdout, int):
                 c2pwrite = msvcrt.get_osfhandle(stdout)
             else:
                 # Assuming file-like object
                 c2pwrite = msvcrt.get_osfhandle(stdout.fileno())
-            c2pwrite = self._make_inheritable(c2pwrite)
+            c2pwrite = self._make_inheritable(c2pwrite, ispwrite)
             # We just duplicated the handle, it has to be closed at the end
             to_close.add(c2pwrite)
             if stdout == PIPE:
                 to_close.add(c2pread)
 
+            ispwrite = False
             if stderr is None:
                 errwrite = _subprocess.GetStdHandle(_subprocess.STD_ERROR_HANDLE)
                 if errwrite is None:
                     _, errwrite = _subprocess.CreatePipe(None, 0)
+                    ispwrite = True
             elif stderr == PIPE:
                 errread, errwrite = _subprocess.CreatePipe(None, 0)
+                ispwrite = True
             elif stderr == STDOUT:
-                errwrite = c2pwrite.handle # pass id to not close it
+                errwrite = c2pwrite
             elif isinstance(stderr, int):
                 errwrite = msvcrt.get_osfhandle(stderr)
             else:
                 # Assuming file-like object
                 errwrite = msvcrt.get_osfhandle(stderr.fileno())
-            errwrite = self._make_inheritable(errwrite)
+            errwrite = self._make_inheritable(errwrite, ispwrite)
             # We just duplicated the handle, it has to be closed at the end
             to_close.add(errwrite)
             if stderr == PIPE:
@@ -892,13 +902,14 @@ class Popen(object):
                     errread, errwrite), to_close
 
 
-        def _make_inheritable(self, handle):
+        def _make_inheritable(self, handle, close=False):
             """Return a duplicate of handle, which is inheritable"""
             dupl = _subprocess.DuplicateHandle(_subprocess.GetCurrentProcess(),
                                 handle, _subprocess.GetCurrentProcess(), 0, 1,
                                 _subprocess.DUPLICATE_SAME_ACCESS)
-            # If the initial handle was obtained with CreatePipe, close it.
-            if not isinstance(handle, int):
+            # PyPy: If the initial handle was obtained with CreatePipe,
+            # close it.
+            if close:
                 handle.Close()
             return dupl
 
@@ -1160,7 +1171,10 @@ class Popen(object):
                 errread, errwrite = self.pipe_cloexec()
                 to_close.update((errread, errwrite))
             elif stderr == STDOUT:
-                errwrite = c2pwrite
+                if c2pwrite is not None:
+                    errwrite = c2pwrite
+                else: # child's stdout is not set, use parent's stdout
+                    errwrite = sys.__stdout__.fileno()
             elif isinstance(stderr, int):
                 errwrite = stderr
             else:
@@ -1331,8 +1345,12 @@ class Popen(object):
                     os.close(errpipe_write)
 
                 # Wait for exec to fail or succeed; possibly raising exception
-                # Exception limited to 1M
                 data = _eintr_retry_call(os.read, errpipe_read, 1048576)
+                pickle_bits = []
+                while data:
+                    pickle_bits.append(data)
+                    data = _eintr_retry_call(os.read, errpipe_read, 1048576)
+                data = "".join(pickle_bits)
             finally:
                 if p2cread is not None and p2cwrite is not None:
                     _close_in_parent(p2cread)

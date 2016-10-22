@@ -13,6 +13,7 @@ from rpython.jit.metainterp.jitprof import EmptyProfiler
 from rpython.jit.metainterp.logger import Logger
 from rpython.jit.metainterp.optimizeopt.util import args_dict
 from rpython.jit.metainterp.resoperation import rop, OpHelpers, GuardResOp
+from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.rlib import nonconst, rstack
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.rlib.debug import have_debug_prints, make_sure_not_resized
@@ -201,11 +202,10 @@ class MIFrame(object):
 
     # ------------------------------
 
-    for _opimpl in ['int_add', 'int_sub', 'int_mul', 'int_floordiv', 'int_mod',
+    for _opimpl in ['int_add', 'int_sub', 'int_mul',
                     'int_and', 'int_or', 'int_xor', 'int_signext',
                     'int_rshift', 'int_lshift', 'uint_rshift',
                     'uint_lt', 'uint_le', 'uint_gt', 'uint_ge',
-                    'uint_floordiv',
                     'float_add', 'float_sub', 'float_mul', 'float_truediv',
                     'float_lt', 'float_le', 'float_eq',
                     'float_ne', 'float_gt', 'float_ge',
@@ -830,8 +830,11 @@ class MIFrame(object):
                                        mutatefielddescr, orgpc):
         from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
         cpu = self.metainterp.cpu
+        if self.metainterp.heapcache.is_quasi_immut_known(fielddescr, box):
+            return
         descr = QuasiImmutDescr(cpu, box.getref_base(), fielddescr,
                                 mutatefielddescr)
+        self.metainterp.heapcache.quasi_immut_now_known(fielddescr, box)
         self.metainterp.history.record(rop.QUASIIMMUT_FIELD, [box],
                                        None, descr=descr)
         self.metainterp.generate_guard(rop.GUARD_NOT_INVALIDATED,
@@ -1053,21 +1056,9 @@ class MIFrame(object):
     opimpl_residual_call_irf_f = _opimpl_residual_call3
     opimpl_residual_call_irf_v = _opimpl_residual_call3
 
-    @arguments("box", "box", "boxes", "descr", "orgpc")
-    def opimpl_conditional_call_i_v(self, condbox, funcbox, argboxes, calldescr,
-                                    pc):
-        self.do_conditional_call(condbox, funcbox, argboxes, calldescr, pc)
-
-    opimpl_conditional_call_r_v = opimpl_conditional_call_i_v
-
     @arguments("box", "box", "boxes2", "descr", "orgpc")
     def opimpl_conditional_call_ir_v(self, condbox, funcbox, argboxes,
                                      calldescr, pc):
-        self.do_conditional_call(condbox, funcbox, argboxes, calldescr, pc)
-
-    @arguments("box", "box", "boxes3", "descr", "orgpc")
-    def opimpl_conditional_call_irf_v(self, condbox, funcbox, argboxes,
-                                      calldescr, pc):
         self.do_conditional_call(condbox, funcbox, argboxes, calldescr, pc)
 
     @arguments("int", "boxes3", "boxes3", "orgpc")
@@ -1450,6 +1441,25 @@ class MIFrame(object):
             metainterp.history.record(rop.VIRTUAL_REF_FINISH,
                                       [vrefbox, nullbox], None)
 
+    @arguments("int", "box")
+    def opimpl_rvmprof_code(self, leaving, box_unique_id):
+        from rpython.rlib.rvmprof import cintf
+        cintf.jit_rvmprof_code(leaving, box_unique_id.getint())
+
+    def handle_rvmprof_enter_on_resume(self):
+        code = self.bytecode
+        position = self.pc
+        opcode = ord(code[position])
+        if opcode == self.metainterp.staticdata.op_rvmprof_code:
+            arg1 = self.registers_i[ord(code[position + 1])].getint()
+            arg2 = self.registers_i[ord(code[position + 2])].getint()
+            if arg1 == 1:
+                # we are resuming at a position that will do a
+                # jit_rvmprof_code(1), when really executed.  That's a
+                # hint for the need for a jit_rvmprof_code(0).
+                from rpython.rlib.rvmprof import cintf
+                cintf.jit_rvmprof_code(0, arg2)
+
     # ------------------------------
 
     def setup_call(self, argboxes):
@@ -1758,8 +1768,12 @@ class MetaInterpStaticData(object):
         self.cpu = cpu
         self.stats = self.cpu.stats
         self.options = options
+        self.jitlog = jl.JitLogger(self.cpu)
         self.logger_noopt = Logger(self)
         self.logger_ops = Logger(self, guard_number=True)
+        # legacy loggers
+        self.jitlog.logger_noopt = self.logger_noopt
+        self.jitlog.logger_ops = self.logger_ops
 
         self.profiler = ProfilerClass()
         self.profiler.cpu = cpu
@@ -1797,6 +1811,7 @@ class MetaInterpStaticData(object):
             opimpl = _get_opimpl_method(name, argcodes)
             self.opcode_implementations[value] = opimpl
         self.op_catch_exception = insns.get('catch_exception/L', -1)
+        self.op_rvmprof_code = insns.get('rvmprof_code/ii', -1)
 
     def setup_descrs(self, descrs):
         self.opcode_descrs = descrs
@@ -1847,6 +1862,7 @@ class MetaInterpStaticData(object):
     def _setup_once(self):
         """Runtime setup needed by the various components of the JIT."""
         if not self.globaldata.initialized:
+            self.jitlog.setup_once()
             debug_print(self.jit_starting_line)
             self.cpu.setup_once()
             if not self.profiler.initialized:
@@ -1923,7 +1939,6 @@ class MetaInterpGlobalData(object):
         self.initialized = False
         self.indirectcall_dict = None
         self.addr2name = None
-        self.loopnumbering = 0
 
 # ____________________________________________________________
 
@@ -2064,6 +2079,15 @@ class MetaInterp(object):
                     target = ord(code[position+1]) | (ord(code[position+2])<<8)
                     frame.pc = target
                     raise ChangeFrame
+                if opcode == self.staticdata.op_rvmprof_code:
+                    # call the 'jit_rvmprof_code(1)' for rvmprof, but then
+                    # continue popping frames.  Decode the 'rvmprof_code' insn
+                    # manually here.
+                    from rpython.rlib.rvmprof import cintf
+                    arg1 = frame.registers_i[ord(code[position + 1])].getint()
+                    arg2 = frame.registers_i[ord(code[position + 2])].getint()
+                    assert arg1 == 1
+                    cintf.jit_rvmprof_code(arg1, arg2)
             self.popframe()
         try:
             self.compile_exit_frame_with_exception(self.last_exc_box)
@@ -2541,7 +2565,13 @@ class MetaInterp(object):
             elif box.type == history.REF: args.append(box.getref_base())
             elif box.type == history.FLOAT: args.append(box.getfloatstorage())
             else: assert 0
-        self.jitdriver_sd.warmstate.execute_assembler(loop_token, *args)
+        res = self.jitdriver_sd.warmstate.execute_assembler(loop_token, *args)
+        kind = history.getkind(lltype.typeOf(res))
+        if kind == 'void':  raise jitexc.DoneWithThisFrameVoid()
+        if kind == 'int':   raise jitexc.DoneWithThisFrameInt(res)
+        if kind == 'ref':   raise jitexc.DoneWithThisFrameRef(self.cpu, res)
+        if kind == 'float': raise jitexc.DoneWithThisFrameFloat(res)
+        raise AssertionError(kind)
 
     def prepare_resume_from_failure(self, deadframe, inputargs, resumedescr):
         exception = self.cpu.grab_exc_value(deadframe)

@@ -480,3 +480,7 @@ class TestBitfield:
         assert ffi.unpack(p+1, 7) == b"bc\x00def\x00"
         p = ffi.new("int[]", [-123456789])
         assert ffi.unpack(p, 1) == [-123456789]
+
+    def test_negative_array_size(self):
+        ffi = FFI()
+        py.test.raises(ValueError, ffi.cast, "int[-5]", 0)

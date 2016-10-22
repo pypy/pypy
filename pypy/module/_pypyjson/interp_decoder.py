@@ -1,6 +1,6 @@
 import sys
 from rpython.rlib.rstring import StringBuilder
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, always_inline
 from rpython.rlib import rfloat, runicode
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import oefmt
@@ -188,6 +188,7 @@ class JSONDecoder(object):
         self.pos = i
         return self.space.call_function(self.space.w_int, self.space.wrap(s))
 
+    @always_inline
     def parse_integer(self, i):
         "Parse a decimal number with an optional minus sign"
         sign = 1
@@ -218,7 +219,6 @@ class JSONDecoder(object):
         # overflowed
         ovf_maybe = (count >= OVF_DIGITS)
         return i, ovf_maybe, sign * intval
-    parse_integer._always_inline_ = True
 
     def decode_array(self, i):
         w_list = self.space.newlist([])
@@ -360,10 +360,11 @@ class JSONDecoder(object):
         hexdigits = self.getslice(start, i)
         try:
             val = int(hexdigits, 16)
-            if val & 0xfc00 == 0xd800:
+            if sys.maxunicode > 65535 and 0xd800 <= val <= 0xdfff:
                 # surrogate pair
-                val = self.decode_surrogate_pair(i, val)
-                i += 6
+                if self.ll_chars[i] == '\\' and self.ll_chars[i+1] == 'u':
+                    val = self.decode_surrogate_pair(i, val)
+                    i += 6
         except ValueError:
             self._raise("Invalid \uXXXX escape (char %d)", i-1)
             return # help the annotator to know that we'll never go beyond
@@ -375,8 +376,9 @@ class JSONDecoder(object):
         return i
 
     def decode_surrogate_pair(self, i, highsurr):
-        if self.ll_chars[i] != '\\' or self.ll_chars[i+1] != 'u':
-            self._raise("Unpaired high surrogate at char %d", i)
+        """ uppon enter the following must hold:
+              chars[i] == "\\" and chars[i+1] == "u"
+        """
         i += 2
         hexdigits = self.getslice(i, i+4)
         lowsurr = int(hexdigits, 16) # the possible ValueError is caugth by the caller

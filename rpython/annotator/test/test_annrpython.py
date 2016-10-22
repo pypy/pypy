@@ -4610,6 +4610,27 @@ class TestAnnotateTestCase:
         a.build_types(fd, [])
         py.test.raises(AnnotatorError, a.build_types, fb, [])
 
+    def test_annotate_generator_with_unreachable_yields(self):
+        def f(n):
+            if n < 0:
+                yield 42
+            yield n
+            yield n
+        def main(n):
+            for x in f(abs(n)):
+                pass
+        #
+        a = self.RPythonAnnotator()
+        a.build_types(main, [int])
+
+    def test_string_mod_nonconstant(self):
+        def f(x):
+            return x % 5
+        a = self.RPythonAnnotator()
+        e = py.test.raises(AnnotatorError, a.build_types, f, [str])
+        assert ('string formatting requires a constant string/unicode'
+                in str(e.value))
+
 
 def g(n):
     return [0, 1, 2, n]

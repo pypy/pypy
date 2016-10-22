@@ -361,7 +361,7 @@ class W_FileIO(W_RawIOBase):
             raise wrap_oserror(space, e,
                                exception_name='w_IOError')
 
-        return space.wrap(s)
+        return space.newbytes(s)
 
     def readinto_w(self, space, w_buffer):
         self._check_closed(space)
@@ -405,7 +405,7 @@ class W_FileIO(W_RawIOBase):
                 break
             builder.append(chunk)
             total += len(chunk)
-        return space.wrap(builder.build())
+        return space.newbytes(builder.build())
 
     if sys.platform == "win32":
         def _truncate(self, size):

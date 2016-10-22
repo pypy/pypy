@@ -12,7 +12,8 @@ from rpython.tool.sourcetools import compile2, func_with_new_name
 
 
 class TypeDef(object):
-    def __init__(self, __name, __base=None, __total_ordering__=None, **rawdict):
+    def __init__(self, __name, __base=None, __total_ordering__=None,
+                 __buffer=None, **rawdict):
         "NOT_RPYTHON: initialization-time only"
         self.name = __name
         if __base is None:
@@ -22,6 +23,9 @@ class TypeDef(object):
         else:
             bases = [__base]
         self.bases = bases
+        # Used in cpyext to fill tp_as_buffer slots
+        assert __buffer in {None, 'read-write', 'read'}, "Unknown value for __buffer"
+        self.buffer = __buffer
         self.heaptype = False
         self.hasdict = '__dict__' in rawdict
         # no __del__: use an RPython _finalize_() method and register_finalizer
@@ -105,6 +109,7 @@ def default_identity_hash(space, w_obj):
 # we need two subclasses of the app-level type, one to add mapdict, and then one
 # to add del to not slow down the GC.
 
+@specialize.memo()
 def get_unique_interplevel_subclass(space, cls):
     "NOT_RPYTHON: initialization-time only"
     assert cls.typedef.acceptable_as_base_class
@@ -115,7 +120,6 @@ def get_unique_interplevel_subclass(space, cls):
         assert cls not in _unique_subclass_cache
         _unique_subclass_cache[cls] = subcls
         return subcls
-get_unique_interplevel_subclass._annspecialcase_ = "specialize:memo"
 _unique_subclass_cache = {}
 
 def _getusercls(cls, reallywantdict=False):
@@ -199,7 +203,8 @@ def _make_descr_typecheck_wrapper(tag, func, extraargs, cls, use_closure):
     name = func.__name__
     extra = ', '.join(extraargs)
     from pypy.interpreter import pycode
-    argnames, _, _ = pycode.cpython_code_signature(func.func_code)
+    sig = pycode.cpython_code_signature(func.func_code)
+    argnames = sig.argnames
     if use_closure:
         if argnames[1] == 'space':
             args = "closure, space, obj"

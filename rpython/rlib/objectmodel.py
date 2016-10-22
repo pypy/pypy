@@ -217,6 +217,12 @@ def dont_inline(func):
     func._dont_inline_ = True
     return func
 
+def try_inline(func):
+    """ tell the RPython inline (not the JIT!), to try to inline this function,
+    no matter its size."""
+    func._always_inline_ = 'try'
+    return func
+
 
 # ____________________________________________________________
 
@@ -281,6 +287,10 @@ class CDefinedIntSymbolic(Symbolic):
         return lltype.Signed
 
 malloc_zero_filled = CDefinedIntSymbolic('MALLOC_ZERO_FILLED', default=0)
+_translated_to_c = CDefinedIntSymbolic('1 /*_translated_to_c*/', default=0)
+
+def we_are_translated_to_c():
+    return we_are_translated() and _translated_to_c
 
 # ____________________________________________________________
 
@@ -494,6 +504,8 @@ def current_object_addr_as_int(x):
     return intmask(id(x))
 
 # ----------
+
+HASH_ALGORITHM = "rpython"  # XXX Is there a better name?
 
 def _hash_string(s):
     """The algorithm behind compute_hash() for a string or a unicode."""

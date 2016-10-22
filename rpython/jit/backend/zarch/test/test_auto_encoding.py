@@ -204,7 +204,7 @@ class TestZARCH(object):
                 g.write('%s\n' % op)
                 oplist.append(op)
             g.write('\t.string "%s"\n' % END_TAG)
-        proc = subprocess.Popen(['as', '-m64', '-mzarch', '-march=zEC12',
+        proc = subprocess.Popen(['as', '-m64', '-mzarch', '-march=z196',
                                  inputname, '-o', filename],
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE)

@@ -172,6 +172,9 @@ class Block(object):
                                           #  Constant(last_exception), see below
         self.exits = []                   # list of Link(s)
 
+    def is_final_block(self):
+        return self.operations == ()      # return or except block
+
     def at(self):
         if self.operations and self.operations[0].offset >= 0:
             return "@%d" % self.operations[0].offset

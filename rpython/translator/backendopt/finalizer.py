@@ -36,8 +36,8 @@ class FinalizerAnalyzer(graphanalyze.BoolGraphAnalyzer):
                 raise FinalizerError(msg)
         else:
             result = self.analyze_direct_call(graph)
-            if result is self.top_result():
-                log.red('old-style non-light finalizer: %r' % (graph,))
+            #if result is self.top_result():
+            #    log.red('old-style non-light finalizer: %r' % (graph,))
         return result
 
     def analyze_simple_operation(self, op, graphinfo):

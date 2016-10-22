@@ -81,7 +81,7 @@ def parsestr(space, encoding, s, unicode_literal=False):
     if need_encoding:
         enc = encoding
     v = PyString_DecodeEscape(space, substr, 'strict', enc)
-    return space.wrap(v)
+    return space.newbytes(v)
 
 def decode_unicode_utf8(space, s, ps, q):
     # ****The Python 2.7 version, producing UTF-32 escapes****

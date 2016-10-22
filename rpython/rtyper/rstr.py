@@ -30,12 +30,13 @@ class AbstractStringRepr(Repr):
         assert value is not None
         result = UnicodeBuilder(len(value))
         self.rstr_decode_utf_8(
-            value, len(value), 'strict', final=False,
+            value, len(value), 'strict', final=True,
             errorhandler=self.ll_raise_unicode_exception_decode,
             allow_surrogates=False, result=result)
         return self.ll.llunicode(result.build())
 
-    def ll_raise_unicode_exception_decode(self, errors, encoding, msg, s,
+    @staticmethod
+    def ll_raise_unicode_exception_decode(errors, encoding, msg, s,
                                        startingpos, endingpos):
         raise UnicodeDecodeError(encoding, s, startingpos, endingpos, msg)
 
@@ -411,7 +412,8 @@ class AbstractUnicodeRepr(AbstractStringRepr):
             allow_surrogates=False)
         return self.ll.llstr(bytes)
 
-    def ll_raise_unicode_exception_encode(self, errors, encoding, msg, u,
+    @staticmethod
+    def ll_raise_unicode_exception_encode(errors, encoding, msg, u,
                                           startingpos, endingpos):
         raise UnicodeEncodeError(encoding, u, startingpos, endingpos, msg)
 
@@ -591,7 +593,9 @@ class __extend__(pairtype(AbstractStringRepr, IntegerRepr)):
 
 class __extend__(pairtype(IntegerRepr, AbstractStringRepr)):
     def rtype_mul((r_int, r_str), hop):
-        return pair(r_str, r_int).rtype_mul(hop)
+        str_repr = r_str.repr
+        v_int, v_str = hop.inputargs(Signed, str_repr)
+        return hop.gendirectcall(r_str.ll.ll_str_mul, v_str, v_int)
     rtype_inplace_mul = rtype_mul
 
 

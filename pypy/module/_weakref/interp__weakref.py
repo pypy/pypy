@@ -156,12 +156,12 @@ class WeakrefLifeline(W_Root):
 
 
 class W_WeakrefBase(W_Root):
-    def __init__(w_self, space, w_obj, w_callable):
+    def __init__(self, space, w_obj, w_callable):
         assert w_callable is not space.w_None    # should be really None
-        w_self.space = space
+        self.space = space
         assert w_obj is not None
-        w_self.w_obj_weak = weakref.ref(w_obj)
-        w_self.w_callable = w_callable
+        self.w_obj_weak = weakref.ref(w_obj)
+        self.w_callable = w_callable
 
     @jit.dont_look_inside
     def dereference(self):
@@ -171,8 +171,8 @@ class W_WeakrefBase(W_Root):
     def clear(self):
         self.w_obj_weak = dead_ref
 
-    def activate_callback(w_self):
-        w_self.space.call_function(w_self.w_callable, w_self)
+    def activate_callback(self):
+        self.space.call_function(self.w_callable, self)
 
     def descr__repr__(self, space):
         w_obj = self.dereference()
@@ -189,15 +189,18 @@ class W_WeakrefBase(W_Root):
 
 
 class W_Weakref(W_WeakrefBase):
-    def __init__(w_self, space, w_obj, w_callable):
-        W_WeakrefBase.__init__(w_self, space, w_obj, w_callable)
-        w_self.w_hash = None
+    def __init__(self, space, w_obj, w_callable):
+        W_WeakrefBase.__init__(self, space, w_obj, w_callable)
+        self.w_hash = None
 
     def descr__init__weakref(self, space, w_obj, w_callable=None,
                              __args__=None):
         if __args__.arguments_w:
             raise oefmt(space.w_TypeError,
                         "__init__ expected at most 2 arguments")
+        if __args__.keywords:
+            raise oefmt(space.w_TypeError,
+                        "ref() does not take keyword arguments")
 
     def descr_hash(self):
         if self.w_hash is not None:

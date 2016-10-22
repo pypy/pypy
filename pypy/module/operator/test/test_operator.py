@@ -251,6 +251,13 @@ class AppTestOperator:
         exc = raises(TypeError, operator.index, "abc")
         assert str(exc.value) == "'str' object cannot be interpreted as an index"
 
+    def test_index_int_subclass(self):
+        import operator
+        class myint(int):
+            def __index__(self):
+                return 13289
+        assert operator.index(myint(7)) == 7
+
     def test_compare_digest(self):
         import operator
 

@@ -64,7 +64,7 @@ class CheckSignalAction(PeriodicAsyncAction):
         AsyncAction.__init__(self, space)
         self.pending_signal = -1
         self.fire_in_another_thread = False
-        #
+
         @rgc.no_collect
         def _after_thread_switch():
             if self.fire_in_another_thread:
@@ -251,7 +251,7 @@ def set_wakeup_fd(space, fd):
         except OSError as e:
             if e.errno == errno.EBADF:
                 raise oefmt(space.w_ValueError, "invalid fd")
-    old_fd = pypysig_set_wakeup_fd(fd)
+    old_fd = pypysig_set_wakeup_fd(fd, True)
     return space.wrap(intmask(old_fd))
 
 

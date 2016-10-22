@@ -120,8 +120,7 @@ class AppTestIntObject(AppTestCpythonExtensionBase):
             };
 
             PyTypeObject Enum_Type = {
-                PyObject_HEAD_INIT(0)
-                /*ob_size*/             0,
+                PyVarObject_HEAD_INIT(NULL, 0)
                 /*tp_name*/             "Enum",
                 /*tp_basicsize*/        sizeof(EnumObject),
                 /*tp_itemsize*/         0,

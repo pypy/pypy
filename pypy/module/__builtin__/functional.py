@@ -145,8 +145,17 @@ def make_min_max(unroll):
         else:
             compare = space.lt
             jitdriver = min_jitdriver
+        any_kwds = bool(args.keywords)
         args_w = args.arguments_w
         if len(args_w) > 1:
+            if unroll and len(args_w) == 2 and not any_kwds:
+                # a fast path for the common case, useful for interpreted
+                # mode and to reduce the length of the jit trace
+                w0, w1 = args_w
+                if space.is_true(compare(w1, w0)):
+                    return w1
+                else:
+                    return w0
             w_sequence = space.newtuple(args_w)
         elif len(args_w):
             w_sequence = args_w[0]
@@ -155,8 +164,8 @@ def make_min_max(unroll):
                         "%s() expects at least one argument",
                         implementation_of)
         w_key = None
-        kwds = args.keywords
-        if kwds:
+        if any_kwds:
+            kwds = args.keywords
             if kwds[0] == "key" and len(kwds) == 1:
                 w_key = args.keywords_w[0]
             else:
@@ -354,14 +363,20 @@ class W_ReversedIterator(W_Root):
             try:
                 w_item = space.getitem(self.w_sequence, w_index)
             except OperationError as e:
-                if not e.match(space, space.w_StopIteration):
+                # Done
+                self.remaining = -1
+                self.w_sequence = None
+                if not (e.match(space, space.w_IndexError) or
+                        e.match(space, space.w_StopIteration)):
                     raise
+                raise OperationError(space.w_StopIteration, space.w_None)
             else:
                 self.remaining -= 1
                 return w_item
 
         # Done
         self.remaining = -1
+        self.w_sequence = None
         raise OperationError(space.w_StopIteration, space.w_None)
 
     def descr___reduce__(self, space):
@@ -369,7 +384,8 @@ class W_ReversedIterator(W_Root):
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)
         w_new_inst = mod.get('reversed_new')
-        info_w = [self.w_sequence, space.wrap(self.remaining)]
+        w_seq = space.w_None if self.w_sequence is None else self.w_sequence
+        info_w = [w_seq, space.wrap(self.remaining)]
         w_info = space.newtuple(info_w)
         return space.newtuple([w_new_inst, w_info])
 
@@ -385,8 +401,12 @@ W_ReversedIterator.typedef.acceptable_as_base_class = False
 def _make_reversed(space, w_seq, w_remaining):
     w_type = space.gettypeobject(W_ReversedIterator.typedef)
     iterator = space.allocate_instance(W_ReversedIterator, w_type)
-    iterator.w_sequence = w_seq
-    iterator.remaining = space.int_w(w_remaining)
+    if space.is_w(w_seq, space.w_None):
+        iterator.w_sequence = None
+        iterator.remaining = -1
+    else:
+        iterator.w_sequence = w_seq
+        iterator.remaining = space.int_w(w_remaining)
     return space.wrap(iterator)
 
 

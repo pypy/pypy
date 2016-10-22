@@ -1,107 +1,82 @@
-=========================
-What's new in PyPy 5.1+
-=========================
+==========================
+What's new in PyPy2.7 5.4+
+==========================
 
-.. this is a revision shortly after release-5.1
-.. startrev: aa60332382a1
+.. this is a revision shortly after release-pypy2.7-v5.4
+.. startrev: 522736f816dc
 
-.. branch: techtonik/introductionrst-simplify-explanation-abo-1460879168046
+.. branch: rpython-resync
+Backport rpython changes made directly on the py3k and py3.5 branches.
 
-.. branch: gcheader-decl
+.. branch: buffer-interface
+Implement PyObject_GetBuffer, PyMemoryView_GET_BUFFER, and handles memoryviews
+in numpypy
 
-Reduce the size of generated C sources.
+.. branch: force-virtual-state
+Improve merging of virtual states in the JIT in order to avoid jumping to the
+preamble. Accomplished by allocating virtual objects where non-virtuals are
+expected.
+
+.. branch: conditional_call_value_3
+JIT residual calls: if the called function starts with a fast-path
+like "if x.foo != 0: return x.foo", then inline the check before
+doing the CALL.  For now, string hashing is about the only case.
+
+.. branch: search-path-from-libpypy
+
+The compiled pypy now looks for its lib-python/lib_pypy path starting
+from the location of the *libpypy-c* instead of the executable. This is
+arguably more consistent, and also it is what occurs anyway if you're
+embedding pypy.  Linux distribution packagers, take note!  At a minimum,
+the ``libpypy-c.so`` must really be inside the path containing
+``lib-python`` and ``lib_pypy``.  Of course, you can put a symlink to it
+from somewhere else.  You no longer have to do the same with the
+``pypy`` executable, as long as it finds its ``libpypy-c.so`` library.
+
+.. branch: _warnings
+
+CPython allows warning.warn(('something', 1), Warning), on PyPy this
+produced a "expected a readable buffer object" error. Test and fix.
+
+.. branch: stricter-strip
+
+CPython rejects 'a'.strip(buffer(' ')); only None, str or unicode are
+allowed as arguments. Test and fix for str and unicode
+
+.. branch: faulthandler
+
+Port the 'faulthandler' module to PyPy default.  This module is standard
+in Python 3.3 but can also be installed from CPython >= 2.6 from PyPI.
+
+.. branch: test-cpyext
+
+Refactor cpyext testing to be more pypy3-friendly.
+
+.. branch: better-error-missing-self
+
+Improve the error message when the user forgot the "self" argument of a method.
 
 
-.. branch: remove-objspace-options
+.. fb6bb835369e
+Change the ``timeit`` module: it now prints the average time and the standard
+deviation over 7 runs by default, instead of the minimum. The minimum is often
+misleading.
 
-Remove a number of options from the build process that were never tested and
-never set. Fix a performance bug in the method cache.
+.. branch: unrecursive-opt
 
-.. branch: bitstring
+Make optimiseopt iterative instead of recursive so it can be reasoned about
+more easily and debugging is faster.
 
-JIT: use bitstrings to compress the lists of read or written descrs
-that we attach to EffectInfo.  Fixes a problem we had in
-remove-objspace-options.
+.. branch: Tiberiumk/fix-2412-1476011166874
+.. branch: redirect-assembler-jitlog
 
-.. branch: cpyext-for-merge
 
-Update cpyext C-API support After this branch, we are almost able to support 
-upstream numpy via cpyext, so we created (yet another) fork of numpy at 
-github.com/pypy/numpy with the needed changes. Among the significant changes 
-to cpyext:
-  - allow c-snippet tests to be run with -A so we can verify we are compatible
-  - fix many edge cases exposed by fixing tests to run with -A
-  - issequence() logic matches cpython
-  - make PyStringObject and PyUnicodeObject field names compatible with cpython
-  - add prelminary support for PyDateTime_*
-  - support PyComplexObject, PyFloatObject, PyDict_Merge, PyDictProxy,
-    PyMemoryView_*, _Py_HashDouble, PyFile_AsFile, PyFile_FromFile,
-  - PyAnySet_CheckExact, PyUnicode_Concat
-  - improve support for PyGILState_Ensure, PyGILState_Release, and thread
-    primitives, also find a case where CPython will allow thread creation
-    before PyEval_InitThreads is run, dissallow on PyPy 
-  - create a PyObject-specific list strategy
-  - rewrite slot assignment for typeobjects
-  - improve tracking of PyObject to rpython object mapping
-  - support tp_as_{number, sequence, mapping, buffer} slots
 
-(makes the pypy-c bigger; this was fixed subsequently by the
-share-cpyext-cpython-api branch)
+.. branch: stdlib-2.7.12
 
-.. branch: share-mapdict-methods-2
+Update stdlib to version 2.7.12
 
-Reduce generated code for subclasses by using the same function objects in all
-generated subclasses.
+.. branch: buffer-interface2
 
-.. branch: share-cpyext-cpython-api
-
-.. branch: cpyext-auto-gil
-
-CPyExt tweak: instead of "GIL not held when a CPython C extension module
-calls PyXxx", we now silently acquire/release the GIL.  Helps with
-CPython C extension modules that call some PyXxx() functions without
-holding the GIL (arguably, they are theorically buggy).
-
-.. branch: cpyext-test-A
-
-Get the cpyext tests to pass with "-A" (i.e. when tested directly with
-CPython).
-
-.. branch: oefmt
-
-.. branch: cpyext-werror
-
-Compile c snippets with -Werror in cpyext
-
-.. branch: gc-del-3
-
-Add rgc.FinalizerQueue, documented in pypy/doc/discussion/finalizer-order.rst.
-It is a more flexible way to make RPython finalizers.
-
-.. branch: unpacking-cpython-shortcut
-
-.. branch: cleanups
-
-.. branch: cpyext-more-slots
-
-.. branch: use-gc-del-3
-
-Use the new rgc.FinalizerQueue mechanism to clean up the handling of
-``__del__`` methods.  Fixes notably issue #2287.  (All RPython
-subclasses of W_Root need to use FinalizerQueue now.)
-
-.. branch: ufunc-outer
-
-Implement ufunc.outer on numpypy
-
-.. branch: verbose-imports
-
-Support ``pypy -v``: verbose imports.  It does not log as much as
-cpython, but it should be enough to help when debugging package layout
-problems.
-
-.. branch: cpyext-macros-cast
-
-Fix some warnings when compiling CPython C extension modules
-
-.. branch: syntax_fix
+Improve support for new buffer interface in cpyext, bf_getbuffer on built-in
+types still missing

@@ -32,12 +32,12 @@ class W_BytesIO(W_BufferedIOBase):
     def read_w(self, space, w_size=None):
         self._check_closed(space)
         size = convert_size(space, w_size)
-        return space.wrap(self.read(size))
+        return space.newbytes(self.read(size))
 
     def readline_w(self, space, w_limit=None):
         self._check_closed(space)
         limit = convert_size(space, w_limit)
-        return space.wrap(self.readline(limit))
+        return space.newbytes(self.readline(limit))
 
     def read1_w(self, space, w_size):
         return self.read_w(space, w_size)
@@ -81,7 +81,7 @@ class W_BytesIO(W_BufferedIOBase):
 
     def getvalue_w(self, space):
         self._check_closed(space)
-        return space.wrap(self.getvalue())
+        return space.newbytes(self.getvalue())
 
     def tell_w(self, space):
         self._check_closed(space)
@@ -128,7 +128,7 @@ class W_BytesIO(W_BufferedIOBase):
     def getstate_w(self, space):
         self._check_closed(space)
         return space.newtuple([
-            space.wrap(self.getvalue()),
+            space.newbytes(self.getvalue()),
             space.wrap(self.tell()),
             self.getdict(space)])
 

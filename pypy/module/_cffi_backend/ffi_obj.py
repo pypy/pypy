@@ -347,13 +347,13 @@ casted between integers or pointers of any type."""
         """\
 Return a <cdata 'char[]'> that points to the data of the given Python
 object, which must support the buffer interface.  Note that this is
-not meant to be used on the built-in types str, unicode, or bytearray
+not meant to be used on the built-in types str or unicode
 (you can build 'char[]' arrays explicitly) but only on objects
 containing large quantities of raw data in some other format, like
 'array.array' or numpy arrays."""
         #
         w_ctchara = newtype._new_chara_type(self.space)
-        return func.from_buffer(self.space, w_ctchara, w_python_buffer)
+        return func._from_buffer(self.space, w_ctchara, w_python_buffer)
 
 
     @unwrap_spec(w_arg=W_CData)

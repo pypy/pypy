@@ -44,6 +44,7 @@ class W_MyObject(W_Root):
 
     def str_w(self, space):
         return NonConstant("foobar")
+    identifier_w = bytes_w = str_w
 
     def unicode_w(self, space):
         return NonConstant(u"foobar")
@@ -195,7 +196,10 @@ class FakeObjSpace(ObjSpace):
         "NOT_RPYTHON"
         raise NotImplementedError
 
-    def wrapbytes(self, x):
+    def newbytes(self, x):
+        return w_some_obj()
+
+    def newunicode(self, x):
         return w_some_obj()
 
     def wrap(self, x):
@@ -281,6 +285,11 @@ class FakeObjSpace(ObjSpace):
     def type(self, w_obj):
         return w_some_type()
 
+    def issubtype_w(self, w_sub, w_type):
+        is_root(w_sub)
+        is_root(w_type)
+        return NonConstant(True)
+
     def isinstance_w(self, w_inst, w_type):
         is_root(w_inst)
         is_root(w_type)
@@ -323,6 +332,9 @@ class FakeObjSpace(ObjSpace):
 
     def _try_fetch_pycode(self, w_func):
         return None
+
+    def is_generator(self, w_obj):
+        return NonConstant(False)
 
     # ----------
 
@@ -412,11 +424,12 @@ class FakePyCode(W_Root):
 class FakeModule(W_Root):
     def __init__(self):
         self.w_dict = w_some_obj()
-
     def get(self, name):
         name + "xx"   # check that it's a string
         return w_some_obj()
 FakeObjSpace.sys = FakeModule()
 FakeObjSpace.sys.filesystemencoding = 'foobar'
 FakeObjSpace.sys.defaultencoding = 'ascii'
+FakeObjSpace.sys.dlopenflags = 123
+FakeObjSpace.sys.track_resources = False
 FakeObjSpace.builtin = FakeModule()

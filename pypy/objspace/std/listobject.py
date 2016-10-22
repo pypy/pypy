@@ -21,7 +21,6 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
     WrappedDefault, applevel, interp2app, unwrap_spec)
-from pypy.interpreter.generator import GeneratorIterator
 from pypy.interpreter.signature import Signature
 from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std.bytesobject import W_BytesObject
@@ -795,7 +794,7 @@ class ListStrategy(object):
         tp = space.type(w_item)
         while i < stop and i < w_list.length():
             find_jmp.jit_merge_point(tp=tp)
-            if space.eq_w(w_list.getitem(i), w_item):
+            if space.eq_w(w_item, w_list.getitem(i)):
                 return i
             i += 1
         raise ValueError
@@ -860,10 +859,11 @@ class ListStrategy(object):
         raise NotImplementedError
 
     def extend(self, w_list, w_any):
+        space = self.space
         if type(w_any) is W_ListObject or (isinstance(w_any, W_ListObject) and
-                                           self.space._uses_list_iter(w_any)):
+                                           space._uses_list_iter(w_any)):
             self._extend_from_list(w_list, w_any)
-        elif isinstance(w_any, GeneratorIterator):
+        elif space.is_generator(w_any):
             w_any.unpack_into_w(w_list)
         else:
             self._extend_from_iterable(w_list, w_any)

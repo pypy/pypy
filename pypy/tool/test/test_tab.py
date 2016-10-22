@@ -3,7 +3,7 @@ Verify that the PyPy source files have no tabs.
 """
 
 import os
-from pypy.conftest import pypydir
+from pypy import pypydir
 
 ROOT = os.path.abspath(os.path.join(pypydir, '..'))
 RPYTHONDIR = os.path.join(ROOT, "rpython")

@@ -8,7 +8,7 @@ import pypy.module.cpyext.api     # side-effect of pre-importing it
 
 @unwrap_spec(cdef=str, module_name=str, source=str)
 def prepare(space, cdef, module_name, source, w_includes=None,
-            w_extra_source=None):
+            w_extra_source=None, w_min_version=None):
     try:
         import cffi
         from cffi import FFI            # <== the system one, which
@@ -16,8 +16,13 @@ def prepare(space, cdef, module_name, source, w_includes=None,
         from cffi import ffiplatform
     except ImportError:
         py.test.skip("system cffi module not found or older than 1.0.0")
-    if cffi.__version_info__ < (1, 4, 0):
-        py.test.skip("system cffi module needs to be at least 1.4.0")
+    if w_min_version is None:
+        min_version = (1, 4, 0)
+    else:
+        min_version = tuple(space.unwrap(w_min_version))
+    if cffi.__version_info__ < min_version:
+        py.test.skip("system cffi module needs to be at least %s, got %s" % (
+            min_version, cffi.__version_info__))
     space.appexec([], """():
         import _cffi_backend     # force it to be initialized
     """)
@@ -1039,8 +1044,8 @@ class AppTestRecompiler:
         assert MYFOO == 42
         assert hasattr(lib, '__dict__')
         assert lib.__all__ == ['MYFOO', 'mybar']   # but not 'myvar'
-        assert lib.__name__ == repr(lib)
-        assert lib.__class__ is type(lib)
+        assert lib.__name__ == '_CFFI_test_import_from_lib.lib'
+        assert lib.__class__ is type(sys)   # !! hack for help()
 
     def test_macro_var_callback(self):
         ffi, lib = self.prepare(
@@ -1784,3 +1789,34 @@ class AppTestRecompiler:
         assert ffi.list_types() == (['CFFIb', 'CFFIbb', 'CFFIbbb'],
                                     ['CFFIa', 'CFFIcc', 'CFFIccc'],
                                     ['CFFIaa', 'CFFIaaa', 'CFFIg'])
+
+    def test_FFIFunctionWrapper(self):
+        ffi, lib = self.prepare("void f(void);", "test_FFIFunctionWrapper",
+                                "void f(void) { }")
+        assert lib.f.__get__(42) is lib.f
+        assert lib.f.__get__(42, int) is lib.f
+
+    def test_typedef_array_dotdotdot(self):
+        ffi, lib = self.prepare("""
+            typedef int foo_t[...], bar_t[...];
+            int gv[...];
+            typedef int mat_t[...][...];
+            typedef int vmat_t[][...];
+            """,
+            "test_typedef_array_dotdotdot", """
+            typedef int foo_t[50], bar_t[50];
+            int gv[23];
+            typedef int mat_t[6][7];
+            typedef int vmat_t[][8];
+        """, min_version=(1, 8, 4))
+        assert ffi.sizeof("foo_t") == 50 * ffi.sizeof("int")
+        assert ffi.sizeof("bar_t") == 50 * ffi.sizeof("int")
+        assert len(ffi.new("foo_t")) == 50
+        assert len(ffi.new("bar_t")) == 50
+        assert ffi.sizeof(lib.gv) == 23 * ffi.sizeof("int")
+        assert ffi.sizeof("mat_t") == 6 * 7 * ffi.sizeof("int")
+        assert len(ffi.new("mat_t")) == 6
+        assert len(ffi.new("mat_t")[3]) == 7
+        raises(ffi.error, ffi.sizeof, "vmat_t")
+        p = ffi.new("vmat_t", 4)
+        assert ffi.sizeof(p[3]) == 8 * ffi.sizeof("int")

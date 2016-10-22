@@ -66,10 +66,10 @@ def array_priority(space, w_lhs, w_rhs):
     lhs_for_subtype = w_lhs
     rhs_for_subtype = w_rhs
     #it may be something like a FlatIter, which is not an ndarray
-    if not space.is_true(space.issubtype(lhs_type, w_ndarray)):
+    if not space.issubtype_w(lhs_type, w_ndarray):
         lhs_type = space.type(w_lhs.base)
         lhs_for_subtype = w_lhs.base
-    if not space.is_true(space.issubtype(rhs_type, w_ndarray)):
+    if not space.issubtype_w(rhs_type, w_ndarray):
         rhs_type = space.type(w_rhs.base)
         rhs_for_subtype = w_rhs.base
 
@@ -288,10 +288,8 @@ class W_Ufunc(W_Root):
 
         _, dtype, _ = self.find_specialization(space, dtype, dtype, out,
                                                    casting='unsafe')
-        call__array_wrap__ = True
         if shapelen == len(axes):
             if out:
-                call__array_wrap__ = False
                 if out.ndims() > 0:
                     raise oefmt(space.w_ValueError,
                                 "output parameter for reduction operation %s has "
@@ -302,15 +300,20 @@ class W_Ufunc(W_Root):
             if out:
                 out.set_scalar_value(res)
                 return out
+            w_NDimArray = space.gettypefor(W_NDimArray)
+            call__array_wrap__ = False
             if keepdims:
                 shape = [1] * len(obj_shape)
                 out = W_NDimArray.from_shape(space, shape, dtype, w_instance=obj)
                 out.implementation.setitem(0, res)
+                call__array_wrap__ = True
                 res = out
-            elif not space.is_w(space.type(w_obj), space.gettypefor(W_NDimArray)):
+            elif (space.issubtype_w(space.type(w_obj), w_NDimArray) and 
+                  not space.is_w(space.type(w_obj), w_NDimArray)):
                 # subtypes return a ndarray subtype, not a scalar
                 out = W_NDimArray.from_shape(space, [1], dtype, w_instance=obj)
                 out.implementation.setitem(0, res)
+                call__array_wrap__ = True
                 res = out
             if call__array_wrap__:
                 res = space.call_method(obj, '__array_wrap__', res, space.w_None)
@@ -359,8 +362,7 @@ class W_Ufunc(W_Root):
                 return out
             loop.reduce(
                 space, self.func, obj, axis_flags, dtype, out, self.identity)
-            if call__array_wrap__:
-                out = space.call_method(obj, '__array_wrap__', out, space.w_None)
+            out = space.call_method(obj, '__array_wrap__', out, space.w_None)
             return out
 
     def descr_outer(self, space, args_w):
@@ -392,31 +394,39 @@ def get_extobj(space):
         extobj_w = space.newlist([space.wrap(8192), space.wrap(0), space.w_None])
         return extobj_w
 
+
+_reflected_ops = {
+        'add': 'radd',
+        'subtract': 'rsub',
+        'multiply': 'rmul',
+        'divide': 'rdiv',
+        'true_divide': 'rtruediv',
+        'floor_divide': 'rfloordiv',
+        'remainder': 'rmod',
+        'power': 'rpow',
+        'left_shift': 'rlshift',
+        'right_shift': 'rrshift',
+        'bitwise_and': 'rand',
+        'bitwise_xor': 'rxor',
+        'bitwise_or': 'ror',
+        #/* Comparisons */
+        'equal': 'eq',
+        'not_equal': 'ne',
+        'greater': 'lt',
+        'less': 'gt',
+        'greater_equal': 'le',
+        'less_equal': 'ge',
+}
+
+for key, value in _reflected_ops.items():
+    _reflected_ops[key] = "__" + value + "__"
+del key
+del value
+
 def _has_reflected_op(space, w_obj, op):
-    refops ={ 'add': 'radd',
-            'subtract': 'rsub',
-            'multiply': 'rmul',
-            'divide': 'rdiv',
-            'true_divide': 'rtruediv',
-            'floor_divide': 'rfloordiv',
-            'remainder': 'rmod',
-            'power': 'rpow',
-            'left_shift': 'rlshift',
-            'right_shift': 'rrshift',
-            'bitwise_and': 'rand',
-            'bitwise_xor': 'rxor',
-            'bitwise_or': 'ror',
-            #/* Comparisons */
-            'equal': 'eq',
-            'not_equal': 'ne',
-            'greater': 'lt',
-            'less': 'gt',
-            'greater_equal': 'le',
-            'less_equal': 'ge',
-        }
-    if op not in refops:
+    if op not in _reflected_ops:
         return False
-    return space.getattr(w_obj, space.wrap('__' + refops[op] + '__')) is not None
+    return space.getattr(w_obj, space.wrap(_reflected_ops[op])) is not None
 
 def safe_casting_mode(casting):
     assert casting is not None

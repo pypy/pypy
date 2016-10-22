@@ -174,16 +174,21 @@ class IntBound(AbstractInfo):
         else:
             return IntUnbounded()
 
-    def div_bound(self, other):
+    def py_div_bound(self, other):
         if self.has_upper and self.has_lower and \
            other.has_upper and other.has_lower and \
-           not other.contains(0) and self.lower > (-sys.maxint-1):
-            vals = (
-                llop.int_floordiv(lltype.Signed, self.upper, other.upper),
-                llop.int_floordiv(lltype.Signed, self.upper, other.lower),
-                llop.int_floordiv(lltype.Signed, self.lower, other.upper),
-                llop.int_floordiv(lltype.Signed, self.lower, other.lower))
-            return IntBound(min4(vals), max4(vals))
+           not other.contains(0):
+            try:
+                # this gives the bounds for 'int_py_div', so use the
+                # Python-style handling of negative numbers and not
+                # the C-style one
+                vals = (ovfcheck(self.upper / other.upper),
+                        ovfcheck(self.upper / other.lower),
+                        ovfcheck(self.lower / other.upper),
+                        ovfcheck(self.lower / other.lower))
+                return IntBound(min4(vals), max4(vals))
+            except OverflowError:
+                return IntUnbounded()
         else:
             return IntUnbounded()
 
