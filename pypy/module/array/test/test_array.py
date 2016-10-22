@@ -2,7 +2,18 @@ import sys
 import pytest
 
 
-class BaseArrayTests:
+class AppTestArray(object):
+    spaceconfig = {'usemodules': ['array', 'struct', 'binascii']}
+
+    def setup_class(cls):
+        cls.w_array = cls.space.appexec([], """():
+            import array
+            return array.array
+        """)
+        cls.w_tempfile = cls.space.wrap(
+            str(pytest.ensuretemp('array').join('tmpfile')))
+        cls.w_maxint = cls.space.wrap(sys.maxint)
+
     def test_ctor(self):
         assert len(self.array('i')) == 0
 
@@ -173,13 +184,6 @@ class BaseArrayTests:
             raises(ValueError, a.frombytes, a)
 
     def test_fromfile(self):
-
-        ## class myfile(object):
-        ##     def __init__(self, c, s):
-        ##         self.c = c
-        ##         self.s = s
-        ##     def read(self,n):
-        ##         return self.c*min(n,self.s)
         def myfile(c, s):
             f = open(self.tempfile, 'wb')
             f.write(c * s)
@@ -242,12 +246,12 @@ class BaseArrayTests:
         assert repr(a) == "array('b', [1, 2, 1, 2])"
 
     def test_fromunicode(self):
-        raises(ValueError, self.array('i').fromunicode, 'hi')
+        raises(ValueError, self.array('i').fromunicode, u'hi')
         a = self.array('u')
-        a.fromunicode('hi')
+        a.fromunicode(u'hi')
         assert len(a) == 2 and a[0] == 'h' and a[1] == 'i'
 
-        b = self.array('u', 'hi')
+        b = self.array('u', u'hi')
         assert len(b) == 2 and b[0] == 'h' and b[1] == 'i'
 
     def test_sequence(self):
@@ -344,23 +348,6 @@ class BaseArrayTests:
                         except ValueError:
                             assert not ok
 
-    def test_reversingslice_pre26(self):
-        import sys
-        if sys.version_info >= (2, 6):
-            skip('arrays can handle more slice ops than lists in 2.6')
-
-        for a in range(-4, 5):
-            for b in range(-4, 5):
-                for c in [-4, -3, -2, -1, 1, 2, 3, 4]:
-                    lst = [1, 2, 3]
-                    arr = self.array('i', lst)
-                    for vals in ([4, 5], [6], []):
-                        try:
-                            lst[a:b:c] = vals
-                        except ValueError:
-                            raises(ValueError,
-                                   "arr[a:b:c]=self.array('i', vals)")
-
     def test_toxxx(self):
         a = self.array('i', [1, 2, 3])
         l = a.tolist()
@@ -406,7 +393,7 @@ class BaseArrayTests:
         assert repr(a) == "array('b', [104, 105])"
 
         raises(ValueError, self.array('i').tounicode)
-        assert self.array('u', 'hello').tounicode() == 'hello'
+        assert self.array('u', u'hello').tounicode() == u'hello'
 
     def test_empty_tostring(self):
         a = self.array('l')
@@ -770,17 +757,16 @@ class BaseArrayTests:
                 self.height = height
                 return self
 
-            def _index(self, xy):
-                x, y = xy
+            def _index(self, x, y):
                 x = min(max(x, 0), self.width-1)
                 y = min(max(y, 0), self.height-1)
                 return y * self.width + x
 
             def __getitem__(self, i):
-                return array.__getitem__(self, self._index(i))
+                return array.__getitem__(self, self._index(*i))
 
             def __setitem__(self, i, val):
-                return array.__setitem__(self, self._index(i), val)
+                return array.__setitem__(self, self._index(*i), val)
 
         img = Image(5, 10, 'B')
         for y in range(10):
@@ -846,8 +832,8 @@ class BaseArrayTests:
         assert repr(mya('i', (1, 2, 3))) == "array('i', [1, 2, 3])"
 
     def test_unicode_outofrange(self):
-        a = self.array('u', '\x01\u263a\x00\ufeff')
-        b = self.array('u', '\x01\u263a\x00\ufeff')
+        a = self.array('u', u'\x01\u263a\x00\ufeff')
+        b = self.array('u', u'\x01\u263a\x00\ufeff')
         b.byteswap()
         assert a != b
 
@@ -961,34 +947,6 @@ class BaseArrayTests:
         b.frombytes(bytearray(a.tobytes()))
         assert a == b
         assert self.array('u', bytearray(a.tobytes())) == a
-
-    def test_repr(self):
-        s = '\x00="\'a\\b\x80\xff\u0000\u0001\u1234'
-        a = self.array('u', s)
-        assert repr(a) == "array('u', {!r})".format(s)
-        assert eval(repr(a), {'array': self.array}) == a
-
-class DontTestCPythonsOwnArray(BaseArrayTests):
-    def setup_class(cls):
-        import array
-        cls.array = array.array
-        import struct
-        cls.struct = struct
-        cls.tempfile = str(pytest.ensuretemp('array').join('tmpfile'))
-        cls.maxint = sys.maxint
-
-
-class AppTestArray(BaseArrayTests):
-    spaceconfig = {'usemodules': ['array', 'struct', 'binascii']}
-
-    def setup_class(cls):
-        cls.w_array = cls.space.appexec([], """():
-            import array
-            return array.array
-        """)
-        cls.w_tempfile = cls.space.wrap(
-            str(pytest.ensuretemp('array').join('tmpfile')))
-        cls.w_maxint = cls.space.wrap(sys.maxint)
 
     def test_buffer_info(self):
         a = self.array('b', b'Hi!')
