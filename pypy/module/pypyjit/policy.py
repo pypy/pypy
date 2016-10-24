@@ -14,6 +14,9 @@ class PyPyJitPolicy(JitPolicy):
             return True
         if '.' in modname:
             modname, rest = modname.split('.', 1)
+            if modname == 'cpyext':
+                if 'injection' in rest:
+                    return True
             if modname in ['unicodedata', 'gc', '_minimal_curses', 'cpyext']:
                 return False
         else:

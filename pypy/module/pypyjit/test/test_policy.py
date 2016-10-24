@@ -58,6 +58,8 @@ def test_pypy_module():
         assert pypypolicy.look_inside_pypy_module(modname)
         assert pypypolicy.look_inside_pypy_module(modname + '.foo')
     assert not pypypolicy.look_inside_pypy_module('pypyjit.interp_resop')
+    assert pypypolicy.look_inside_pypy_module('cpyext.injection.numpy')
+    assert not pypypolicy.look_inside_pypy_module('cpyext.intobject')
 
 def test_see_jit_module():
     assert pypypolicy.look_inside_pypy_module('pypyjit.interp_jit')
