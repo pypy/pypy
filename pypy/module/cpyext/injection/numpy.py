@@ -30,7 +30,10 @@ class Original:
 
 class W_ArrayObject(W_Root):
     def getclass(self, space):
+        import pdb
+        pdb.set_trace()
         return space.fromcache(Original).w_array_type
+        return W_Root.getclass(self, space)
 W_ArrayObject.typedef = TypeDef("ndarray")
 
 class W_Float64Object(W_FloatObject):
