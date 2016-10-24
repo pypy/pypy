@@ -38,7 +38,7 @@ class W_Float64Object(W_FloatObject):
         w_type = org.w_float64_type
         return w_type
 
-def mything_realize(space, obj):
+def array_realize(space, obj):
     intval = rffi.cast(lltype.Signed, rffi.cast(PyArrayObject, obj).foo)
     w_obj = W_ArrayObject(intval)
     track_reference(space, obj, w_obj)
@@ -47,8 +47,8 @@ def mything_realize(space, obj):
 @bootstrap_function
 def init_mything(space):
     make_typedescr(W_ArrayObject.typedef,
-                   basestruct=mytype_object.TO,
-                   realize=mything_realize)
+                   basestruct=PyArrayObject.TO,
+                   realize=array_realize)
 
 @unwrap_spec(index=int)
 def injected_getitem(space, w_self, index):
