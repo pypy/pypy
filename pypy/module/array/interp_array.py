@@ -53,7 +53,7 @@ def w_array(space, w_cls, typecode, __args__):
                     raise
                 a.extend(w_initializer, True)
             else:
-                a.descr_frombytes(space, buf)
+                a._frombytes(space, buf)
     return a
 
 
@@ -262,18 +262,24 @@ class W_ArrayBase(W_Root):
         s = space.getarg_w('s#', w_s)
         msg = "fromstring() is deprecated. Use frombytes() instead."
         space.warn(space.wrap(msg), self.space.w_DeprecationWarning)
-        self.descr_frombytes(space, s)
+        self._frombytes(space, s)
 
-    @unwrap_spec(s='bufferstr')
-    def descr_frombytes(self, space, s):
+    def descr_frombytes(self, space, w_s):
         """frombytes(bytestring)
 
         Appends items from the string, interpreting it as an array of
         machine values, as if it had been read from a file using the
         fromfile() method).
         """
+        buf = space.getarg_w('y*', w_s)
+        if buf.getitemsize() != 1:
+            raise oefmt(space.w_TypeError, "a bytes-like object is required")
+        s = buf.as_str()
+        self._frombytes(space, s)
+
+    def _frombytes(self, space, s):
         if len(s) % self.itemsize != 0:
-            raise oefmt(self.space.w_ValueError,
+            raise oefmt(space.w_ValueError,
                         "string length not a multiple of item size")
         oldlen = self.len
         new = len(s) / self.itemsize
@@ -303,7 +309,7 @@ class W_ArrayBase(W_Root):
             elems = max(0, len(item) - (len(item) % self.itemsize))
             if n != 0:
                 item = item[0:elems]
-            self.descr_frombytes(space, item)
+            self._frombytes(space, item)
             raise oefmt(space.w_EOFError, "not enough items in file")
         self.descr_fromstring(space, w_item)
 

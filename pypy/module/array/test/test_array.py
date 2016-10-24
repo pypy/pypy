@@ -181,7 +181,10 @@ class AppTestArray(object):
                 raises(ValueError, a.frombytes, b'\x00' * (2 * a.itemsize + 1))
             b = self.array(t, b'\x00' * a.itemsize * 2)
             assert len(b) == 2 and b[0] == 0 and b[1] == 0
-            raises(ValueError, a.frombytes, a)
+            if t in 'bB':
+                raises(BufferError, a.frombytes, a)
+            else:
+                raises(TypeError, a.frombytes, a)
 
     def test_fromfile(self):
         def myfile(c, s):
