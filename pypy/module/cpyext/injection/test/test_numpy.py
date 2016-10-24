@@ -27,9 +27,12 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         array = np.ndarray(100)
         array[10] = 1.0
         assert array[10] == 1.0
+        assert array[10] + array[10] == 2.0
         float64 = np.typeinfo['DOUBLE'][-1]
         assert type(array[10]) is float64
         class X(np.ndarray):
             pass
 
         x = X(1)
+        assert isinstance(x, X)
+        assert isinstance(x, np.ndarray)
