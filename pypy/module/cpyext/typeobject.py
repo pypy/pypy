@@ -464,12 +464,14 @@ class W_PyCTypeObject(W_TypeObject):
         convert_member_defs(space, dict_w, pto.c_tp_members, self)
 
         name = rffi.charp2str(pto.c_tp_name)
-        inject_operators(space, name, dict_w, pto)
+        newtypedef = inject_operators(space, name, dict_w, pto)
         new_layout = (pto.c_tp_basicsize > rffi.sizeof(PyObject.TO) or
-                      pto.c_tp_itemsize > 0)
+                      pto.c_tp_itemsize > 0 or newtypedef is not None)
 
         W_TypeObject.__init__(self, space, name,
             bases_w or [space.w_object], dict_w, force_new_layout=new_layout)
+        if newtypedef is not None:
+            self.layout.typedef = newtypedef
         self.flag_cpytype = True
         self.flag_heaptype = False
         # if a sequence or a mapping, then set the flag to force it
@@ -774,7 +776,6 @@ def type_realize(space, py_obj):
     try:
         w_obj = _type_realize(space, py_obj)
     finally:
-        name = rffi.charp2str(pto.c_tp_name)
         pto.c_tp_flags &= ~Py_TPFLAGS_READYING
     pto.c_tp_flags |= Py_TPFLAGS_READY
     return w_obj

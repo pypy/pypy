@@ -3,10 +3,10 @@ from rpython.rlib.objectmodel import we_are_translated
 def inject_operators(space, name, dict_w, pto):
     if not we_are_translated() and name == 'test_module.test_mytype':
         from pypy.module.cpyext.injection._test_module import inject
-        inject(space, name, dict_w, pto)
+        return inject(space, name, dict_w, pto)
     if name == 'numpy.ndarray':
         from pypy.module.cpyext.injection.numpy import inject_operator
-        inject_operator(space, name, dict_w, pto)
+        return inject_operator(space, name, dict_w, pto)
 
 def inject_global(space, w_func, modulename, funcname):
     if (not we_are_translated() and modulename == 'injection'
