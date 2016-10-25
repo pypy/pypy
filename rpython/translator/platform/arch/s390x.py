@@ -42,7 +42,7 @@ def extract_s390x_cpu_ids(lines):
 def s390x_detect_vx():
     chunks = []
     try:
-        fd = os.open("/proc/self/auxv", os.O_RDONLY, 0644)
+        fd = os.open("/proc/cpuinfo", os.O_RDONLY, 0644)
         try:
             while True:
                 chunk = os.read(fd, 4096)
