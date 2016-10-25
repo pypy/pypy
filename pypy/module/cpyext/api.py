@@ -1406,6 +1406,7 @@ def build_eci(building_bridge, export_symbols, code, use_micronumpy=False):
     return eci
 
 def setup_micronumpy(space):
+    return False
     use_micronumpy = space.config.objspace.usemodules.micronumpy
     if not use_micronumpy:
         return use_micronumpy
