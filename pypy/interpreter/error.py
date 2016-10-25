@@ -73,11 +73,8 @@ class OperationError(Exception):
             exc_value = str(w_value)
         else:
             w = space.wrap
-            if space.is_w(space.type(self.w_type), space.w_str):
-                exc_typename = space.str_w(self.w_type)
-            else:
-                exc_typename = space.str_w(
-                    space.getattr(self.w_type, w('__name__')))
+            exc_typename = space.str_w(
+                space.getattr(self.w_type, w('__name__')))
             if space.is_w(w_value, space.w_None):
                 exc_value = ""
             else:
