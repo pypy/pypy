@@ -125,6 +125,7 @@ class MixedModule(Module):
                     bltin.w_module = self.w_name
                     func._builtinversion_ = bltin
                     bltin.name = name
+                    bltin.qualname = bltin.name.decode('utf-8')
                 w_value = space.wrap(bltin)
             space.setitem(self.w_dict, w_name, w_value)
             return w_value
