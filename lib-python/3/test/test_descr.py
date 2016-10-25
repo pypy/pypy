@@ -4497,8 +4497,6 @@ order (MRO) for bases """
         for o in gc.get_objects():
             self.assertIsNot(type(o), X)
 
-    @unittest.skipIf(support.check_impl_detail(pypy=True),
-                     "https://bitbucket.org/pypy/pypy/issues/2306")
     def test_object_new_and_init_with_parameters(self):
         # See issue #1683368
         class OverrideNeither:
