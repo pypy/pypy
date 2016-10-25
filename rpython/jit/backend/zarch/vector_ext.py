@@ -1,12 +1,8 @@
-import py
 from rpython.jit.metainterp.compile import ResumeGuardDescr
-from rpython.jit.metainterp.history import (ConstInt, INT, REF,
-    FLOAT, VECTOR, TargetToken)
-from rpython.jit.backend.llsupport.descr import (ArrayDescr, CallDescr,
-    unpack_arraydescr, unpack_fielddescr, unpack_interiorfielddescr)
-from rpython.jit.backend.llsupport.regalloc import get_scale
-from rpython.jit.metainterp.resoperation import (rop, ResOperation,
-        VectorOp, VectorGuardOp)
+from rpython.jit.metainterp.history import (ConstInt, INT, FLOAT)
+from rpython.jit.backend.llsupport.descr import (ArrayDescr, 
+    unpack_arraydescr)
+from rpython.jit.metainterp.resoperation import VectorOp
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem import lltype
@@ -17,8 +13,7 @@ import rpython.jit.backend.zarch.conditions as c
 import rpython.jit.backend.zarch.locations as l
 import rpython.jit.backend.zarch.masks as m
 from rpython.jit.backend.zarch.locations import imm
-from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
-from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import rffi
 from rpython.jit.codewriter import longlong
 from rpython.rlib.objectmodel import always_inline
 from rpython.jit.backend.zarch.arch import WORD
@@ -60,8 +55,6 @@ class ZSIMDVectorExt(VectorExt):
 class VectorAssembler(object):
     _mixin_ = True
 
-    # TODO VEC_DOUBLE_WORD_ONES = 0
-
     def setup_once_vector(self):
         pass
 
@@ -79,7 +72,6 @@ class VectorAssembler(object):
 
     def emit_vec_int_add(self, op, arglocs, regalloc):
         resloc, loc0, loc1, size_loc = arglocs
-        size = size_loc.value
         mask = l.itemsize_to_mask(size_loc.value)
         self.mc.VA(resloc, loc0, loc1, mask)
 
@@ -348,7 +340,6 @@ class VectorAssembler(object):
         assert isinstance(op, VectorOp)
         resloc, srcloc, srcidxloc, countloc = arglocs
         srcidx = srcidxloc.value
-        size = op.bytesize
         # srcloc is always a floating point register f, this means it is
         # vsr[0] == valueof(f)
         if srcidx == 0:
@@ -359,7 +350,7 @@ class VectorAssembler(object):
             # r = (s[1], s[0])
             self.mc.VPDI(resloc, srcloc, srcloc, permi(1,0))
             return
-        not_implemented("unpack for combination src %d -> res %d" % (srcidx, residx))
+        not_implemented("unpack for combination src %d -> res %d" % (srcidx, 0))
 
     def emit_vec_f(self, op, arglocs, regalloc):
         pass
@@ -394,7 +385,6 @@ class VectorRegalloc(object):
                not descr.is_array_of_structs()
         itemsize, ofs, _ = unpack_arraydescr(descr)
         integer = not (descr.is_array_of_floats() or descr.getconcrete_type() == FLOAT)
-        args = op.getarglist()
         a0 = op.getarg(0)
         a1 = op.getarg(1)
         base_loc = self.ensure_reg(a0)
@@ -411,7 +401,6 @@ class VectorRegalloc(object):
         a0 = op.getarg(0)
         a1 = op.getarg(1)
         size = op.bytesize
-        args = op.getarglist()
         loc0 = self.ensure_vector_reg(a0)
         loc1 = self.ensure_vector_reg(a1)
         resloc = self.force_allocate_vector_reg(op)
@@ -437,7 +426,6 @@ class VectorRegalloc(object):
         a0 = op.getarg(0)
         a1 = op.getarg(1)
         size = op.bytesize
-        args = op.getarglist()
         loc0 = self.ensure_vector_reg(a0)
         loc1 = self.ensure_vector_reg(a1)
         resloc = self.force_allocate_vector_reg_or_cc(op)
