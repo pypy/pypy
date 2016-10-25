@@ -765,6 +765,11 @@ def make_formatting_class(for_unicode):
                     raise oefmt(space.w_ValueError,
                                 "sign not allowed with 'c' presentation type")
                 value = space.int_w(w_num)
+                max_char = runicode.MAXUNICODE if self.is_unicode else 0xFF
+                if not (0 <= value <= max_char):
+                    raise oefmt(space.w_OverflowError,
+                                "%%c arg not in range(%s)",
+                                hex(max_char))
                 if self.is_unicode:
                     result = runicode.UNICHR(value)
                 else:

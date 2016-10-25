@@ -1322,6 +1322,8 @@ class ForceOpAssembler(object):
         mc = PPCBuilder()
         mc.b_abs(target)
         mc.copy_to_raw_memory(oldadr)
+        jl.redirect_assembler(oldlooptoken, newlooptoken, newlooptoken.number)
+
 
 class OpAssembler(IntOpAssembler, GuardOpAssembler,
                   MiscOpAssembler, FieldOpAssembler,

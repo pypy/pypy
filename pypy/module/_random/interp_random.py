@@ -73,7 +73,10 @@ class W_Random(W_Root):
                 w_item = space.add(w_item, w_add)
             self._rnd.state[i] = space.uint_w(w_item)
         w_item = space.getitem(w_state, space.newint(rrandom.N))
-        self._rnd.index = space.int_w(w_item)
+        index = space.int_w(w_item)
+        if index < 0 or index > rrandom.N:
+            raise oefmt(space.w_ValueError, "invalid state")
+        self._rnd.index = index
 
     def jumpahead(self, space, w_n):
         if space.isinstance_w(w_n, space.w_long):

@@ -237,6 +237,9 @@ class W_ArrayBase(W_Root):
         Appends items from the string, interpreting it as an array of machine
         values,as if it had been read from a file using the fromfile() method).
         """
+        if self is w_s:
+            raise oefmt(space.w_ValueError,
+                        "array.fromstring(x): x cannot be self")
         s = space.getarg_w('s#', w_s)
         if len(s) % self.itemsize != 0:
             raise oefmt(self.space.w_ValueError,

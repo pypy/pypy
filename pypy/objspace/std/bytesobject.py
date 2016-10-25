@@ -501,7 +501,10 @@ class W_BytesObject(W_AbstractBytesObject):
                 isinstance(w_other, W_UnicodeObject))
 
     @staticmethod
-    def _op_val(space, w_other):
+    def _op_val(space, w_other, strict=None):
+        if strict and not space.isinstance_w(w_other, space.w_str):
+            raise oefmt(space.w_TypeError,
+                "%s arg must be None, str or unicode", strict)
         try:
             return space.str_w(w_other)
         except OperationError as e:
@@ -601,6 +604,9 @@ class W_BytesObject(W_AbstractBytesObject):
 
     def descr_mod(self, space, w_values):
         return mod_format(space, self, w_values, do_unicode=False)
+
+    def descr_rmod(self, space, w_values):
+        return mod_format(space, w_values, self, do_unicode=False)
 
     def descr_eq(self, space, w_other):
         if space.config.objspace.std.withstrbuf:
@@ -934,6 +940,7 @@ W_BytesObject.typedef = TypeDef(
     format = interpindirect2app(W_BytesObject.descr_format),
     __format__ = interpindirect2app(W_BytesObject.descr__format__),
     __mod__ = interpindirect2app(W_BytesObject.descr_mod),
+    __rmod__ = interpindirect2app(W_BytesObject.descr_rmod),
     __getnewargs__ = interpindirect2app(
         W_AbstractBytesObject.descr_getnewargs),
     _formatter_parser = interp2app(W_BytesObject.descr_formatter_parser),

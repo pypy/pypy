@@ -10,6 +10,10 @@ def PyObject_CheckBuffer(space, pyobj):
     flags = pyobj.c_ob_type.c_tp_flags
     if (flags & Py_TPFLAGS_HAVE_NEWBUFFER and as_buffer.c_bf_getbuffer):
         return 1
+    name = rffi.charp2str(pyobj.c_ob_type.c_tp_name)
+    if  name in ('str', 'bytes'):
+        # XXX remove once wrapper of __buffer__ -> bf_getbuffer works
+        return 1
     return 0  
 
     

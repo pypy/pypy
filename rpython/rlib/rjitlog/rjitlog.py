@@ -212,7 +212,7 @@ def returns(*args):
         return method
     return decor
 
-JITLOG_VERSION = 3
+JITLOG_VERSION = 4
 JITLOG_VERSION_16BIT_LE = struct.pack("<H", JITLOG_VERSION)
 
 marks = [
@@ -245,6 +245,7 @@ marks = [
     ('ABORT_TRACE',),
     ('SOURCE_CODE',),
     ('REDIRECT_ASSEMBLER',),
+    ('TMP_CALLBACK',),
 ]
 
 start = 0x11
@@ -254,12 +255,13 @@ for mark, in marks:
 
 if __name__ == "__main__":
     print("# generated constants from rpython/rlib/jitlog.py")
-    print 'MARK_JITLOG_START = struct.pack("b", "%s")' % hex(0x10)
+    print('import struct')
+    print('MARK_JITLOG_START = struct.pack("b", %s)' % hex(0x10))
     for mark, in marks:
         nmr = globals()['MARK_' + mark]
         h = hex(ord(nmr))
-        print '%s = struct.pack("b", "%s")' % ('MARK_' + mark, h)
-    print 'MARK_JITLOG_END = struct.pack("b", "%s")' % hex(start)
+        print '%s = struct.pack("b", %s)' % ('MARK_' + mark, h)
+    print 'MARK_JITLOG_END = struct.pack("b", %s)' % hex(start)
     for key,value in locals().items():
         if key.startswith("MP_"):
             print '%s = (%s,"%s")' % (key, hex(value[0]), value[1])
@@ -310,16 +312,22 @@ def _log_jit_counter(struct):
     content = ''.join(list)
     jitlog_write_marked(content, len(content))
 
-def redirect_assembler(oldtoken, newtoken, target):
+def redirect_assembler(oldtoken, newtoken, asm_adr):
     if not jitlog_enabled():
         return
     descr_nmr = compute_unique_id(oldtoken)
     new_descr_nmr = compute_unique_id(newtoken)
     list = [MARK_REDIRECT_ASSEMBLER, encode_le_addr(descr_nmr),
-            encode_le_addr(new_descr_nmr), encode_le_addr(target)]
+            encode_le_addr(new_descr_nmr), encode_le_addr(asm_adr)]
     content = ''.join(list)
     jitlog_write_marked(content, len(content))
 
+def tmp_callback(looptoken):
+    mark_tmp_callback = ''.join([
+        MARK_TMP_CALLBACK,
+        encode_le_addr(compute_unique_id(looptoken)),
+        encode_le_64bit(looptoken.number)])
+    jitlog_write_marked(mark_tmp_callback, len(mark_tmp_callback))
 
 class JitLogger(object):
     def __init__(self, cpu=None):
@@ -342,6 +350,10 @@ class JitLogger(object):
 
     def finish(self):
         jitlog_teardown()
+
+    def next_id(self):
+        self.trace_id += 1
+        return self.trace_id
 
     def start_new_trace(self, metainterp_sd, faildescr=None, entry_bridge=False, jd_name=""):
         # even if the logger is not enabled, increment the trace id

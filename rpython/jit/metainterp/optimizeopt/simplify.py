@@ -8,16 +8,16 @@ class OptSimplify(Optimization):
         self.last_label_descr = None
         self.unroll = unroll
 
-    def emit_operation(self, op):
+    def emit(self, op):
         if op.is_guard():
             if self.optimizer.pendingfields is None:
                 self.optimizer.pendingfields = []
-        Optimization.emit_operation(self, op)
+        return Optimization.emit(self, op)
 
     def optimize_CALL_PURE_I(self, op):
         opnum = OpHelpers.call_for_descr(op.getdescr())
         newop = self.optimizer.replace_op_with(op, opnum)
-        self.emit_operation(newop)
+        return self.emit(newop)
     optimize_CALL_PURE_R = optimize_CALL_PURE_I
     optimize_CALL_PURE_F = optimize_CALL_PURE_I
     optimize_CALL_PURE_N = optimize_CALL_PURE_I
@@ -25,7 +25,7 @@ class OptSimplify(Optimization):
     def optimize_CALL_LOOPINVARIANT_I(self, op):
         opnum = OpHelpers.call_for_descr(op.getdescr())
         op = op.copy_and_change(opnum)
-        self.emit_operation(op)
+        return self.emit(op)
     optimize_CALL_LOOPINVARIANT_R = optimize_CALL_LOOPINVARIANT_I
     optimize_CALL_LOOPINVARIANT_F = optimize_CALL_LOOPINVARIANT_I
     optimize_CALL_LOOPINVARIANT_N = optimize_CALL_LOOPINVARIANT_I
@@ -35,7 +35,7 @@ class OptSimplify(Optimization):
 
     def optimize_VIRTUAL_REF(self, op):
         newop = self.replace_op_with(op, rop.SAME_AS_R, [op.getarg(0)])
-        self.emit_operation(newop)
+        return self.emit(newop)
 
     def optimize_QUASIIMMUT_FIELD(self, op):
         # xxx ideally we could also kill the following GUARD_NOT_INVALIDATED
@@ -51,7 +51,7 @@ class OptSimplify(Optimization):
     #         if isinstance(descr, JitCellToken):
     #             return self.optimize_JUMP(op.copy_and_change(rop.JUMP))
     #         self.last_label_descr = op.getdescr()
-    #     self.emit_operation(op)
+    #     return self.emit(op)
 
     # def optimize_JUMP(self, op):
     #     if not self.unroll:
@@ -67,11 +67,11 @@ class OptSimplify(Optimization):
     #         else:
     #             assert len(descr.target_tokens) == 1
     #             op.setdescr(descr.target_tokens[0])
-    #     self.emit_operation(op)
+    #     return self.emit(op)
 
     def optimize_GUARD_FUTURE_CONDITION(self, op):
         self.optimizer.notice_guard_future_condition(op)
 
 dispatch_opt = make_dispatcher_method(OptSimplify, 'optimize_',
-        default=OptSimplify.emit_operation)
+                                      default=OptSimplify.emit)
 OptSimplify.propagate_forward = dispatch_opt

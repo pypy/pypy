@@ -15,6 +15,7 @@ from pypy.module.cpyext.typeobjectdefs import (
     readbufferproc, getbufferproc, ssizessizeobjargproc)
 from pypy.module.cpyext.pyobject import from_ref, make_ref, Py_DecRef
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
+from pypy.module.cpyext.memoryobject import fill_Py_buffer
 from pypy.module.cpyext.state import State
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.argument import Arguments
@@ -214,7 +215,9 @@ def wrap_ssizessizeobjargproc(space, w_self, w_args, func):
     i = space.int_w(space.index(args_w[0]))
     j = space.int_w(space.index(args_w[1]))
     w_y = args_w[2]
-    return space.wrap(generic_cpy_call(space, func_target, w_self, i, j, w_y))
+    res = generic_cpy_call(space, func_target, w_self, i, j, w_y)
+    if rffi.cast(lltype.Signed, res) == -1:
+        space.fromcache(State).check_and_raise_exception(always=True)
 
 def wrap_lenfunc(space, w_self, w_args, func):
     func_len = rffi.cast(lenfunc, func)
@@ -296,7 +299,10 @@ def wrap_next(space, w_self, w_args, func):
 def wrap_hashfunc(space, w_self, w_args, func):
     func_target = rffi.cast(hashfunc, func)
     check_num_args(space, w_args, 0)
-    return space.wrap(generic_cpy_call(space, func_target, w_self))
+    res = generic_cpy_call(space, func_target, w_self)
+    if res == -1:
+        space.fromcache(State).check_and_raise_exception(always=True)
+    return space.wrap(res)
 
 class CPyBuffer(Buffer):
     # Similar to Py_buffer
@@ -344,6 +350,10 @@ class CPyBuffer(Buffer):
     def getndim(self):
         return self.ndim
 
+    def setitem(self, index, char):
+        # absolutely no safety checks, what could go wrong?
+        self.ptr[index] = char
+
 def wrap_getreadbuffer(space, w_self, w_args, func):
     func_target = rffi.cast(readbufferproc, func)
     with lltype.scoped_alloc(rffi.VOIDPP.TO, 1) as ptr:
@@ -352,6 +362,15 @@ def wrap_getreadbuffer(space, w_self, w_args, func):
         if size < 0:
             space.fromcache(State).check_and_raise_exception(always=True)
         return space.newbuffer(CPyBuffer(ptr[0], size, w_self))
+
+def wrap_getwritebuffer(space, w_self, w_args, func):
+    func_target = rffi.cast(readbufferproc, func)
+    with lltype.scoped_alloc(rffi.VOIDPP.TO, 1) as ptr:
+        index = rffi.cast(Py_ssize_t, 0)
+        size = generic_cpy_call(space, func_target, w_self, index, ptr)
+        if size < 0:
+            space.fromcache(State).check_and_raise_exception(always=True)
+        return space.newbuffer(CPyBuffer(ptr[0], size, w_self, readonly=False))
 
 def wrap_getbuffer(space, w_self, w_args, func):
     func_target = rffi.cast(getbufferproc, func)
@@ -603,13 +622,27 @@ def build_slot_tp_function(space, typedef, name):
         @cpython_api([PyObject, Py_bufferP, rffi.INT_real], 
                 rffi.INT_real, header=None, error=-1)
         @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
-        def buff_w(space, w_self, pybuf, flags):
-            # XXX this is wrong, needs a test
-            raise oefmt(space.w_NotImplemented, 
-                "calling bf_getbuffer on a builtin type not supported yet")
-            #args = Arguments(space, [w_self],
-            #                 w_stararg=w_args, w_starstararg=w_kwds)
-            #return space.call_args(space.get(buff_fn, w_self), args)
+        def buff_w(space, w_self, view, flags):
+            args = Arguments(space, [space.newint(flags)])
+            w_obj = space.call_args(space.get(buff_fn, w_self), args)
+            if view:
+                #like PyObject_GetBuffer
+                flags = widen(flags)
+                buf = space.buffer_w(w_obj, flags)
+                try:
+                    view.c_buf = rffi.cast(rffi.VOIDP, buf.get_raw_address())
+                    view.c_obj = make_ref(space, w_obj)
+                except ValueError:
+                    w_s = space.newbytes(buf.as_str())
+                    view.c_obj = make_ref(space, w_s)
+                    view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(
+                                    space.str_w(w_s), track_allocation=False))
+                    rffi.setintfield(view, 'c_readonly', 1)
+                ret = fill_Py_buffer(space, buf, view)
+                return ret
+            return 0
+        # XXX remove this when it no longer crashes a translated PyPy
+        return
         api_func = buff_w.api_func
     else:
         # missing: tp_as_number.nb_nonzero, tp_as_number.nb_coerce
@@ -919,13 +952,13 @@ for regex, repl in slotdef_replacements:
 slotdefs = eval(slotdefs_str)
 # PyPy addition
 slotdefs += (
-    # XXX that might not be what we want!
     TPSLOT("__buffer__", "tp_as_buffer.c_bf_getbuffer", None, "wrap_getbuffer", ""),
 )
 
 if not PY3:
     slotdefs += (
-        TPSLOT("__buffer__", "tp_as_buffer.c_bf_getreadbuffer", None, "wrap_getreadbuffer", ""),
+        TPSLOT("__rbuffer__", "tp_as_buffer.c_bf_getreadbuffer", None, "wrap_getreadbuffer", ""),
+        TPSLOT("__wbuffer__", "tp_as_buffer.c_bf_getwritebuffer", None, "wrap_getwritebuffer", ""),
     )
 
 

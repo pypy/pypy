@@ -351,6 +351,7 @@ class StdObjSpace(ObjSpace):
         assert isinstance(w_starttype, W_TypeObject)
         return w_type.lookup_starting_at(w_starttype, name)
 
+    @specialize.arg(1)
     def allocate_instance(self, cls, w_subtype):
         """Allocate the memory needed for an instance of an internal or
         user-defined type, without actually __init__ializing the instance."""
@@ -375,7 +376,6 @@ class StdObjSpace(ObjSpace):
                         "%N.__new__(%N): only for the type %N",
                         w_type, w_subtype, w_type)
         return instance
-    allocate_instance._annspecialcase_ = "specialize:arg(1)"
 
     # two following functions are almost identical, but in fact they
     # have different return type. First one is a resizable list, second
