@@ -236,6 +236,8 @@ else:
                 'utime.h', 'sys/time.h', 'sys/times.h',
                 'grp.h', 'dirent.h', 'sys/stat.h', 'fcntl.h',
                 'signal.h', 'sys/utsname.h', _ptyh]
+    if sys.platform.startswith('freebsd'):
+        includes.append('sys/ttycom.h')
     libraries = ['util']
 eci = ExternalCompilationInfo(
     includes=includes,
@@ -2306,6 +2308,7 @@ class ENoSysCache(object):
 
 _pipe2_syscall = ENoSysCache()
 
+post_include_bits=['int _cpu_count(void);']
 # cpu count for linux, windows and mac (+ bsds)
 # note that the code is copied from cpython and split up here
 if sys.platform.startswith('linux'):
@@ -2314,17 +2317,16 @@ if sys.platform.startswith('linux'):
             RPY_EXTERN int _cpu_count(void) {
                 return sysconf(_SC_NPROCESSORS_ONLN);
             }
-            """])
+            """], post_include_bits=post_include_bits)
 elif sys.platform == "win32":
     cpucount_eci = ExternalCompilationInfo(includes=["Windows.h"],
             separate_module_sources=["""
         RPY_EXTERN int _cpu_count(void) {
-            int ncpu = 0;
             SYSTEM_INFO sysinfo;
             GetSystemInfo(&sysinfo);
             return sysinfo.dwNumberOfProcessors;
         }
-        """])
+        """], post_include_bits=post_include_bits)
 else:
     cpucount_eci = ExternalCompilationInfo(includes=["sys/types.h", "sys/sysctl.h"],
             separate_module_sources=["""
@@ -2344,8 +2346,10 @@ else:
             #endif
                 return ncpu;
             }
-            """])
+            """], post_include_bits=post_include_bits)
 
-cpu_count = rffi.llexternal('_cpu_count', [], rffi.INT_real,
+_cpu_count = rffi.llexternal('_cpu_count', [], rffi.INT_real,
                             compilation_info=cpucount_eci)
 
+def cpu_count():
+    return rffi.cast(lltype.Signed, _cpu_count())

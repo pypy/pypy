@@ -207,6 +207,9 @@ class W_Root(object):
 
     def buffer_w(self, space, flags):
         w_impl = space.lookup(self, '__buffer__')
+        if w_impl is None:
+            # cpyext types that may have only old buffer interface
+            w_impl = space.lookup(self, '__wbuffer__')
         if w_impl is not None:
             w_result = space.get_and_call_function(w_impl, self, 
                                         space.newint(flags))
@@ -215,7 +218,10 @@ class W_Root(object):
         raise BufferInterfaceNotFound
 
     def readbuf_w(self, space):
-        w_impl = space.lookup(self, '__buffer__')
+        # cpyext types that may have old buffer protocol
+        w_impl = space.lookup(self, '__rbuffer__')
+        if w_impl is None:
+            w_impl = space.lookup(self, '__buffer__')
         if w_impl is not None:
             w_result = space.get_and_call_function(w_impl, self,
                                         space.newint(space.BUF_FULL_RO))
@@ -224,7 +230,10 @@ class W_Root(object):
         raise BufferInterfaceNotFound
 
     def writebuf_w(self, space):
-        w_impl = space.lookup(self, '__buffer__')
+        # cpyext types that may have old buffer protocol
+        w_impl = space.lookup(self, '__wbuffer__')
+        if w_impl is None:
+            w_impl = space.lookup(self, '__buffer__')
         if w_impl is not None:
             w_result = space.get_and_call_function(w_impl, self,
                                         space.newint(space.BUF_FULL))

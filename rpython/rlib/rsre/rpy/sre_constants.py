@@ -58,6 +58,7 @@ REPEAT = "repeat"
 REPEAT_ONE = "repeat_one"
 SUBPATTERN = "subpattern"
 MIN_REPEAT_ONE = "min_repeat_one"
+RANGE_IGNORE = "range_ignore"
 
 # positions
 AT_BEGINNING = "at_beginning"
@@ -119,8 +120,8 @@ OPCODES = [
     REPEAT,
     REPEAT_ONE,
     SUBPATTERN,
-    MIN_REPEAT_ONE
-
+    MIN_REPEAT_ONE,
+    RANGE_IGNORE,
 ]
 
 ATCODES = [
