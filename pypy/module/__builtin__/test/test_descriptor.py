@@ -31,6 +31,12 @@ class AppTestBuiltinApp:
         x = Static(1)
         assert isinstance(x, Static)
 
+        class C(Static):
+            def __init__(self, callable):
+                super().__init__(callable)
+        y = C(1)
+        assert isinstance(y, C)
+
     def test_classmethod(self):
         class C(object):
             def f(cls, stuff):
@@ -51,6 +57,12 @@ class AppTestBuiltinApp:
             pass
         x = Classm(1)
         assert isinstance(x, Classm)
+
+        class C(Classm):
+            def __init__(self, callable):
+                super().__init__(callable)
+        y = C(1)
+        assert isinstance(y, C)
 
     def test_property_simple(self):
 

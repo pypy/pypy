@@ -628,8 +628,11 @@ class StaticMethod(W_Root):
 
     def descr_staticmethod__new__(space, w_subtype, w_function):
         instance = space.allocate_instance(StaticMethod, w_subtype)
-        instance.__init__(w_function)
-        return space.wrap(instance)
+        instance.__init__(space.w_None)
+        return instance
+
+    def descr_init(self, space, w_function):
+        self.w_function = w_function
 
     def descr_isabstract(self, space):
         return space.newbool(space.isabstractmethod_w(self.w_function))
@@ -662,8 +665,11 @@ class ClassMethod(W_Root):
 
     def descr_classmethod__new__(space, w_subtype, w_function):
         instance = space.allocate_instance(ClassMethod, w_subtype)
-        instance.__init__(w_function)
-        return space.wrap(instance)
+        instance.__init__(space.w_None)
+        return instance
+
+    def descr_init(self, space, w_function):
+        self.w_function = w_function
 
     def descr_isabstract(self, space):
         return space.newbool(space.isabstractmethod_w(self.w_function))
