@@ -12,10 +12,14 @@ from rpython.tool.sourcetools import compile2, func_with_new_name
 
 
 class TypeDef(object):
+    _immutable_fields_ = ["w_type_injected?"]
+
     def __init__(self, __name, __base=None, __total_ordering__=None,
                  __buffer=None, **rawdict):
         "NOT_RPYTHON: initialization-time only"
         self.name = __name
+        self.injected_type = False
+        self.w_type_injected = None
         if __base is None:
             bases = []
         elif isinstance(__base, tuple):

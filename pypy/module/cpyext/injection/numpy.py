@@ -3,7 +3,8 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import unwrap_spec, TypeDef
 from pypy.interpreter.error import oefmt
-from pypy.module.cpyext.pyobject import as_pyobj, make_typedescr, track_reference
+from pypy.module.cpyext.pyobject import from_ref, make_typedescr,\
+     track_reference, PyObject
 from pypy.module.cpyext.api import PyObjectFields
 from pypy.module.cpyext.api import bootstrap_function
 from pypy.objspace.std.floatobject import W_FloatObject
@@ -30,15 +31,20 @@ class Original:
 
 class W_ArrayObject(W_Root):
     def getclass(self, space):
-        return space.fromcache(Original).w_array_type
+        if type(self) is W_ArrayObject:
+            return space.fromcache(Original).w_array_type
+        return W_Root.getclass(self, space)
 W_ArrayObject.typedef = TypeDef("ndarray")
+W_ArrayObject.typedef.injected_type = True
+W_ArrayObject.typedef.acceptable_as_base_class = True
 
 class W_Float64Object(W_FloatObject):
     def getclass(self, space):
         return space.fromcache(Original).w_float64_type
 
 def array_realize(space, obj):
-    w_obj = W_ArrayObject()
+    w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
+    w_obj = space.allocate_instance(W_ArrayObject, w_type)
     w_obj.pyobj = rffi.cast(PyArrayObject, obj)
     track_reference(space, obj, w_obj)
     return w_obj
