@@ -257,7 +257,7 @@ array_new(PyTypeObject *subtype, PyObject *args, PyObject *kwds)
         goto fail;
     }
 
-    PyArrayObject * array = PyObject_New(PyArrayObject, &PyArray_Type);
+    PyArrayObject * array = (PyArrayObject *)subtype->tp_alloc(subtype, 0);
     array->data = malloc(sizeof(double)*size);
     array->nd = 1;
     npy_intp * dims = malloc(sizeof(npy_intp)*1);
