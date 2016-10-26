@@ -8,7 +8,6 @@ import io
 import linecache
 import os
 from os.path import normcase
-import _pickle
 import pickle
 import re
 import shutil
@@ -751,6 +750,7 @@ class TestClassesAndFunctions(unittest.TestCase):
     @unittest.skipIf(MISSING_C_DOCSTRINGS,
                      "Signature information for builtins requires docstrings")
     def test_getfullargspec_builtin_methods(self):
+        import _pickle
         self.assertFullArgSpecEquals(_pickle.Pickler.dump,
                                      args_e=['self', 'obj'], formatted='(self, obj)')
 
@@ -1959,6 +1959,7 @@ class TestSignatureObject(unittest.TestCase):
                      "Signature information for builtins requires docstrings")
     def test_signature_on_builtins(self):
         import _testcapi
+        import _pickle
 
         def test_unbound_method(o):
             """Use this to test unbound methods (things that should have a self)"""
@@ -2629,6 +2630,7 @@ class TestSignatureObject(unittest.TestCase):
     @unittest.skipIf(MISSING_C_DOCSTRINGS,
                      "Signature information for builtins requires docstrings")
     def test_signature_on_builtin_class(self):
+        import _pickle
         self.assertEqual(str(inspect.signature(_pickle.Pickler)),
                          '(file, protocol=None, fix_imports=True)')
 
@@ -2877,6 +2879,7 @@ class TestSignatureObject(unittest.TestCase):
     @unittest.skipIf(MISSING_C_DOCSTRINGS,
                      "Signature information for builtins requires docstrings")
     def test_signature_from_callable_builtin_obj(self):
+        import _pickle
         class MySignature(inspect.Signature): pass
         sig = MySignature.from_callable(_pickle.Pickler)
         self.assertTrue(isinstance(sig, MySignature))
