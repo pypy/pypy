@@ -1,4 +1,5 @@
 #include "Python.h"
+#include "pymath.h"
 
 typedef Py_intptr_t npy_intp;
 
@@ -275,6 +276,106 @@ fail:
     return NULL;
 }
 
+enum kOP {MULT, ADD, SUB, DIV};
+
+static PyObject*
+array_op(PyObject* obj1, PyObject* obj2, enum kOP op)
+{
+    int n1=-1, n2=-1, m, i1, i2, j;
+    double *v1, *v2, *r, tmp1, tmp2;
+    PyObject* ret = NULL, *tuple=NULL;
+    if (obj1->ob_type == &PyArray_Type)
+    {
+        n1 = ((PyArrayObject*)obj1)->dimensions[0];
+        v1 = (double*)((PyArrayObject*)obj1)->data;       
+    }
+    else
+    {
+        tmp1 = PyFloat_AsDouble(obj1);
+        if (PyErr_Occurred())
+            return NULL;
+        v1 = &tmp1;
+    }
+    if (obj2->ob_type == &PyArray_Type)
+    {
+        n2 = ((PyArrayObject*)obj2)->dimensions[0];
+        v2 = (double*)((PyArrayObject*)obj2)->data;       
+    }
+    else
+    {
+        tmp2 = PyFloat_AsDouble(obj2);
+        if (PyErr_Occurred())
+            return NULL;
+        v2 = &tmp2;
+    }
+    if (!(n1 == n2 || n1 == 1 || n2 == 1))
+    {
+        PyErr_SetString(PyExc_ValueError, "dimension mismatch");
+        return NULL;
+    }
+    m = n1 > n2? n1 : n2;
+    tuple = PyTuple_New(1);
+    PyTuple_SetItem(tuple, 0, PyInt_FromLong(m));
+    ret = array_new(&PyArray_Type, tuple, NULL);
+    Py_DECREF(tuple);
+    r = (double*)((PyArrayObject*)ret)->data;
+    for (i1=0, i2=0, j=0; j < m; j++, i1++, i2++)
+    {
+        if (i1 >= n1) i1 = 0;
+        if (i2 >= n2) i2 = 0;
+        switch (op)
+        {
+            case MULT:
+                r[j] = v1[i1] * v2[i2];
+                break;
+            case ADD:
+                r[j] = v1[i1] + v2[i2];
+                break;
+            case SUB:
+                r[j] = v1[i1] - v2[i2];
+                break;
+            case DIV:
+                if (v2[i2] == 0)
+                    r[j] = Py_NAN;
+                else
+                    r[j] = v1[i1] / v2[i2];
+                break;
+        }
+    } 
+    return ret;
+}
+
+static PyObject*
+array_multiply(PyObject* obj1, PyObject* obj2)
+{
+    return array_op(obj1, obj2, MULT);
+}
+
+static PyObject*
+array_add(PyObject* obj1, PyObject* obj2)
+{
+    return array_op(obj1, obj2, ADD);
+}
+
+static PyObject*
+array_sub(PyObject* obj1, PyObject* obj2)
+{
+    return array_op(obj1, obj2, SUB);
+}
+
+static PyObject*
+array_divide(PyObject* obj1, PyObject* obj2)
+{
+    return array_op(obj1, obj2, DIV);
+}
+
+static PyNumberMethods array_as_number = {
+    (binaryfunc)array_add, /* nb_add*/
+    (binaryfunc)array_sub, /* nb_subtract */
+    (binaryfunc)array_multiply, /* nb_multiply */
+    (binaryfunc)array_divide, /* nb_divide */
+};
+
 /* List of functions exported by this module */
 
 static PyMethodDef multiarray_functions[] = {
@@ -330,6 +431,8 @@ initmultiarray(void)
     if (module == NULL)
         INITERROR;
 
+    PyArray_Type.tp_as_number = &array_as_number;
+    
     if (PyType_Ready(&PyArray_Type) < 0)
         INITERROR;
     PyModule_AddObject(module, "ndarray", (PyObject *)&PyArray_Type);
