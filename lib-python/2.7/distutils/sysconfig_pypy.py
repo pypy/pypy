@@ -61,21 +61,21 @@ _config_vars = None
 
 def _init_posix():
     """Initialize the module as appropriate for POSIX systems."""
-    g = {}
-    g['EXE'] = ""
-    g['SO'] = [s[0] for s in imp.get_suffixes() if s[2] == imp.C_EXTENSION][0]
-    g['LIBDIR'] = os.path.join(sys.prefix, 'lib')
-    g['CC'] = "gcc -pthread" # -pthread might not be valid on OS/X, check
-
+    # _sysconfigdata is generated at build time, see the sysconfig module
+    from _sysconfigdata import build_time_vars
     global _config_vars
-    _config_vars = g
+    _config_vars = {}
+    _config_vars.update(build_time_vars)
+
 
 
 def _init_nt():
     """Initialize the module as appropriate for NT"""
     g = {}
-    g['EXE'] = ".exe"
     g['SO'] = [s[0] for s in imp.get_suffixes() if s[2] == imp.C_EXTENSION][0]
+    g['EXE'] = ".exe"
+    g['VERSION'] = get_python_version().replace(".", "")
+    g['BINDIR'] = os.path.dirname(os.path.abspath(sys.executable))
 
     global _config_vars
     _config_vars = g
@@ -99,6 +99,9 @@ def get_config_vars(*args):
         else:
             _config_vars = {}
 
+        # Normalized versions of prefix and exec_prefix are handy to have;
+        # in fact, these are the standard versions used most places in the
+        # Distutils.
         _config_vars['prefix'] = PREFIX
         _config_vars['exec_prefix'] = EXEC_PREFIX
 
