@@ -33,7 +33,7 @@ class AppTestBuiltinApp:
 
         class C(Static):
             def __init__(self, callable):
-                super().__init__(callable)
+                super(C, self).__init__(callable)
         y = C(1)
         assert isinstance(y, C)
 
@@ -60,7 +60,7 @@ class AppTestBuiltinApp:
 
         class C(Classm):
             def __init__(self, callable):
-                super().__init__(callable)
+                super(C, self).__init__(callable)
         y = C(1)
         assert isinstance(y, C)
 
