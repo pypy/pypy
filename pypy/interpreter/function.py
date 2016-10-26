@@ -611,7 +611,7 @@ class Method(W_Root):
 
 class StaticMethod(W_Root):
     """The staticmethod objects."""
-    _immutable_fields_ = ['w_function']
+    _immutable_fields_ = ['w_function?']
 
     def __init__(self, w_function):
         self.w_function = w_function
@@ -631,7 +631,7 @@ class StaticMethod(W_Root):
 
 class ClassMethod(W_Root):
     """The classmethod objects."""
-    _immutable_fields_ = ['w_function']
+    _immutable_fields_ = ['w_function?']
 
     def __init__(self, w_function):
         self.w_function = w_function
