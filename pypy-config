@@ -15,7 +15,6 @@ import os
 import getopt
 
 sys.argv = ['$interp'] + '$@'.split()
-print sys.argv
 
 from distutils import sysconfig
 
@@ -59,7 +58,7 @@ for opt in opt_flags:
         print ' '.join(flags)
 
     elif opt in ('--libs', '--ldflags'):
-        libs = ['-lpython' + pyver]
+        libs = ['-lpypy-c']
         libs += getvar('LIBS').split()
         libs += getvar('SYSLIBS').split()
         # add the prefix/lib/pythonX.Y/config dir, but only if there is no
