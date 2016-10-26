@@ -1,7 +1,7 @@
 import unittest
 import os
 import sys
-from test.support import TESTFN, import_fresh_module
+from test.support import TESTFN, import_fresh_module, check_impl_detail
 
 c_stat = import_fresh_module('stat', fresh=['_stat'])
 py_stat = import_fresh_module('stat', blocked=['_stat'])
@@ -215,6 +215,8 @@ class TestFilemode:
             self.assertEqual(value, modvalue, key)
 
 
+@unittest.skipIf(check_impl_detail(pypy=True),
+                 "No _stat module on PyPy")
 class TestFilemodeCStat(TestFilemode, unittest.TestCase):
     statmod = c_stat
 
