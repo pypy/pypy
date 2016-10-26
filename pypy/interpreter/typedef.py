@@ -7,19 +7,24 @@ from pypy.interpreter.gateway import (interp2app, BuiltinCode, unwrap_spec,
      WrappedDefault)
 
 from rpython.rlib.jit import promote
-from rpython.rlib.objectmodel import compute_identity_hash, specialize
+from rpython.rlib.objectmodel import compute_identity_hash, specialize,\
+     we_are_translated
 from rpython.tool.sourcetools import compile2, func_with_new_name
 
+class TypeContainer(object):
+    _immutable_fields_ = ['w_value?']
+
+    def __init__(self):
+        self.w_value = None
 
 class TypeDef(object):
-    _immutable_fields_ = ["w_type_injected?"]
 
     def __init__(self, __name, __base=None, __total_ordering__=None,
                  __buffer=None, **rawdict):
         "NOT_RPYTHON: initialization-time only"
         self.name = __name
         self.injected_type = False
-        self.w_type_injected = None
+        self.type_injected_container = None
         if __base is None:
             bases = []
         elif isinstance(__base, tuple):
@@ -54,6 +59,16 @@ class TypeDef(object):
                 value.name = key
         self.rawdict.update(rawdict)
 
+    def set_injected_type(self, w_type):
+        if self.type_injected_container is None and not we_are_translated():
+            self.type_injected_container = TypeContainer()
+        self.type_injected_container.w_value = w_type
+
+    def get_injected_type(self):
+        if self.type_injected_container is None:
+            return None
+        return self.type_injected_container.w_value
+
     def auto_total_ordering(self):
         assert '__lt__' in self.rawdict, "__total_ordering='auto' requires __lt__"
         assert '__eq__' in self.rawdict, "__total_ordering='auto' requires __eq__"
@@ -64,6 +79,8 @@ class TypeDef(object):
 
     def _freeze_(self):
         # hint for the annotator: track individual constant instances of TypeDef
+        if self.injected_type:
+            self.type_injected_container = TypeContainer()
         return True
 
     def __repr__(self):

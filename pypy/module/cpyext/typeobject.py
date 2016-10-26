@@ -467,7 +467,7 @@ class W_PyCTypeObject(W_TypeObject):
         newtypedef = inject_operators(space, name, dict_w, pto)
         if newtypedef is not None:
             assert newtypedef.injected_type
-            newtypedef.w_type_injected = self
+            newtypedef.set_injected_type(self)
         new_layout = (pto.c_tp_basicsize > rffi.sizeof(PyObject.TO) or
                       pto.c_tp_itemsize > 0 or newtypedef is not None)
 

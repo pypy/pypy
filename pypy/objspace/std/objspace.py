@@ -127,9 +127,10 @@ class StdObjSpace(ObjSpace):
         # unique-for-this-space W_TypeObject instance
         assert typedef is not None
         if typedef.injected_type:
-            assert typedef.w_type_injected is not None
-            assert typedef.w_type_injected.space is self
-            return typedef.w_type_injected
+            w_type_injected = typedef.get_injected_type()
+            assert w_type_injected is not None
+            assert w_type_injected.space is self
+            return w_type_injected
         return self.fromcache(TypeCache).getorbuild(typedef)
 
     @specialize.argtype(1)
