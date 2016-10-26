@@ -125,12 +125,14 @@ class StdObjSpace(ObjSpace):
     def gettypeobject(self, typedef):
         # typeobject.TypeCache maps a TypeDef instance to its
         # unique-for-this-space W_TypeObject instance
+        from rpython.rlib.objectmodel import we_are_translated
         assert typedef is not None
         if typedef.injected_type:
             w_type_injected = typedef.get_injected_type()
-            assert w_type_injected is not None
-            assert w_type_injected.space is self
-            return w_type_injected
+            if w_type_injected is not None or we_are_translated():
+                assert w_type_injected is not None
+                assert w_type_injected.space is self
+                return w_type_injected
         return self.fromcache(TypeCache).getorbuild(typedef)
 
     @specialize.argtype(1)
