@@ -1140,6 +1140,17 @@ class AppTestPosix:
         def test_sync(self):
             self.posix.sync()   # does not raise
 
+        def test_blocking(self):
+            posix = self.posix
+            fd = posix.open(self.path, posix.O_RDONLY)
+            assert posix.get_blocking(fd) is True
+            posix.set_blocking(fd, False)
+            assert posix.get_blocking(fd) is False
+            posix.set_blocking(fd, True)
+            assert posix.get_blocking(fd) is True
+            posix.close(fd)
+
+
     def test_urandom(self):
         os = self.posix
         s = os.urandom(5)

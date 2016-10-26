@@ -203,6 +203,8 @@ corresponding Unix manual entries for more information on calls."""
 
     if not rposix._WIN32:
         interpleveldefs['sync'] = 'interp_posix.sync'
+        interpleveldefs['get_blocking'] = 'interp_posix.get_blocking'
+        interpleveldefs['set_blocking'] = 'interp_posix.set_blocking'
 
     def startup(self, space):
         from pypy.module.posix import interp_posix

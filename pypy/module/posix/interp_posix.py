@@ -2217,3 +2217,16 @@ def cpu_count(space):
     if count <= 0:
         return space.w_None
     return space.wrap(count)
+
+@unwrap_spec(fd=c_int)
+def get_blocking(space, fd):
+    return space.newbool(rposix.get_status_flags(fd) & rposix.O_NONBLOCK == 0)
+
+@unwrap_spec(fd=c_int, blocking=int)
+def set_blocking(space, fd, blocking):
+    flags = rposix.get_status_flags(fd)
+    if blocking:
+        flags &= ~rposix.O_NONBLOCK
+    else:
+        flags |= rposix.O_NONBLOCK
+    rposix.set_status_flags(fd, flags)
