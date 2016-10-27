@@ -11,6 +11,7 @@ import collections
 from collections import UserString as ustr
 import gc
 import contextlib
+from test import support
 
 
 class Foo:
