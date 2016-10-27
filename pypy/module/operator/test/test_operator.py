@@ -322,3 +322,7 @@ class AppTestOperator:
         assert operator._compare_digest(u'asd', u'asd')
         assert not operator._compare_digest(u'asd', u'qwe')
         raises(TypeError, operator._compare_digest, u'asd', b'qwe')
+
+    def test_length_hint(self):
+        import _operator as operator
+        assert operator.length_hint([1, 2]) == 2
