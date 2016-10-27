@@ -400,11 +400,14 @@ def test_misdeclared_field_1():
         pass    # ok, fail during compilation already (e.g. C++)
     else:
         assert ffi.sizeof("struct foo_s") == 24  # found by the actual C code
-        p = ffi.new("struct foo_s *")
-        # lazily build the fields and boom:
-        e = py.test.raises(ffi.error, "p.a")
-        assert str(e.value).startswith("struct foo_s: wrong size for field 'a' "
-                                       "(cdef says 20, but C compiler says 24)")
+        try:
+            # lazily build the fields and boom:
+            p = ffi.new("struct foo_s *")
+            p.a
+            assert False, "should have raised"
+        except ffi.error as e:
+            assert str(e).startswith("struct foo_s: wrong size for field 'a' "
+                                     "(cdef says 20, but C compiler says 24)")
 
 def test_open_array_in_struct():
     ffi = FFI()
