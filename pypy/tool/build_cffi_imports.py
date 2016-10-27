@@ -1,5 +1,6 @@
 from __future__ import print_function
 import sys, shutil, os
+from os.path import join
 
 class MissingDependenciesError(Exception):
     pass
@@ -22,7 +23,7 @@ cffi_build_scripts = {
 def create_cffi_import_libraries(pypy_c, options, basedir):
     from rpython.tool.runsubprocess import run_subprocess
 
-    shutil.rmtree(str(basedir.join('lib_pypy', '__pycache__')),
+    shutil.rmtree(str(join(basedir,'lib_pypy','__pycache__')),
                   ignore_errors=True)
     failures = []
     for key, module in sorted(cffi_build_scripts.items()):
@@ -30,7 +31,7 @@ def create_cffi_import_libraries(pypy_c, options, basedir):
             continue
         if module.endswith('.py'):
             args = [module]
-            cwd = str(basedir.join('lib_pypy'))
+            cwd = str(join(basedir,'lib_pypy'))
         else:
             args = ['-c', 'import ' + module]
             cwd = None
@@ -38,15 +39,18 @@ def create_cffi_import_libraries(pypy_c, options, basedir):
         try:
             status, stdout, stderr = run_subprocess(str(pypy_c), args, cwd=cwd)
             if status != 0:
-                print(stdout, stderr, file=sys.stderr)
                 failures.append((key, module))
+                print("stdout:")
+                print(stdout.decode('utf-8'))
+                print("stderr:")
+                print(stderr.decode('utf-8'))
         except:
             import traceback;traceback.print_exc()
             failures.append((key, module))
     return failures
 
 if __name__ == '__main__':
-    import py, argparse
+    import argparse
     if '__pypy__' not in sys.builtin_module_names:
         print('Call with a pypy interpreter', file=sys.stderr)
         sys.exit(1)
@@ -64,11 +68,11 @@ if __name__ == '__main__':
                              ' you can specify an alternative pypy vm here')
     args = parser.parse_args()
 
-    exename = py.path.local(args.exefile)
+    exename = join(os.getcwd(), args.exefile)
     basedir = exename
 
-    while not basedir.join('include').exists():
-        _basedir = basedir.dirpath()
+    while not os.path.exists(join(basedir,'include')):
+        _basedir = os.path.dirname(basedir)
         if _basedir == basedir:
             raise ValueError('interpreter %s not inside pypy repo', 
                                  str(exename))
@@ -93,7 +97,7 @@ libraries (see error messages just above) and then re-run the command:
         for k in cffi_build_scripts:
             setattr(options, 'no_' + k, True)
         must_fail = '_missing_build_script.py'
-        assert not os.path.exists(str(basedir.join('lib_pypy').join(must_fail)))
+        assert not os.path.exists(str(join(join(basedir,'lib_pypy'),must_fail)))
         cffi_build_scripts['should_fail'] = must_fail
         failures = create_cffi_import_libraries(exename, options, basedir)
         assert len(failures) == 1
