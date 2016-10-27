@@ -247,7 +247,7 @@ def get_fp_offset(base_ofs, position):
     from rpython.jit.backend.zarch.registers import JITFRAME_FIXED_SIZE
     return base_ofs + WORD * (position + JITFRAME_FIXED_SIZE)
 
-imm3 = imm(1)
+imm3 = imm(3)
 imm1 = imm(1)
 imm0 = imm(0)
 
