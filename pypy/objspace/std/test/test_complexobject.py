@@ -265,27 +265,16 @@ class AppTestAppComplexTest:
         assert self.close(complex(5.3, 9.8).conjugate(), 5.3-9.8j)
 
     def test_constructor(self):
-        class OS:
-            def __init__(self, value):
-                self.value = value
-            def __complex__(self):
-                return self.value
         class NS(object):
             def __init__(self, value):
                 self.value = value
             def __complex__(self):
                 return self.value
-        assert complex(OS(1+10j)) == 1+10j
         assert complex(NS(1+10j)) == 1+10j
-        assert complex(OS(1+10j), 5) == 1+15j
         assert complex(NS(1+10j), 5) == 1+15j
-        assert complex(OS(1+10j), 5j) == -4+10j
         assert complex(NS(1+10j), 5j) == -4+10j
-        assert complex(OS(2.0)) == 2+0j
         assert complex(NS(2.0)) == 2+0j
-        assert complex(OS(2)) == 2+0j
         assert complex(NS(2)) == 2+0j
-        raises(TypeError, complex, OS(None))
         raises(TypeError, complex, NS(None))
         raises(TypeError, complex, b'10')
 
@@ -299,7 +288,6 @@ class AppTestAppComplexTest:
         class F(object):
             def __float__(self):
                 return 2.0
-        assert complex(OS(1+10j), F()) == 1+12j
         assert complex(NS(1+10j), F()) == 1+12j
 
         assert self.almost_equal(complex("1+10j"), 1+10j)
@@ -670,7 +658,7 @@ class AppTestAppComplexTest:
         assert sign(z1.imag) == -1
         assert sign(z2.real) == -1
         assert sign(z2.real) == -1
-        
+
     def test_hash_minus_one(self):
         assert hash(-1.0 + 0j) == -2
         assert (-1.0 + 0j).__hash__() == -2
