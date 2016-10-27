@@ -20,6 +20,8 @@ PyArrayObject = lltype.Ptr(lltype.Struct(
          ("strides", rffi.SIGNEDP),
          ("base", rffi.VOIDP),
          ("descr", rffi.VOIDP),
+         ("flags", rffi.INT),
+         ("weakreflist", PyObject),
         )))
     )
 
@@ -64,14 +66,72 @@ def injected_getitem(space, w_self, index):
     data = rffi.cast(rffi.DOUBLEP, py_obj.data)
     return W_Float64Object(data[index])
 
+def injected_op(space, w_self, w_other, op):
+    # translate array_op in multiarray.c from c to rpython
+    if isinstance(w_self, W_ArrayObject):
+        arr1 = rffi.cast(PyArrayObject, w_self.pyobj)
+        data1 = rffi.cast(rffi.DOUBLEP, arr1.data)
+        n1 = arr1.dimensions[0]
+    else:
+        data1 = [space.float_w(w_self),]
+        n1 = 1
+    if isinstance(w_other, W_ArrayObject):
+        arr2 = rffi.cast(PyArrayObject, w_self.pyobj)
+        data2 = rffi.cast(rffi.DOUBLEP, arr2.data)
+        n2 = arr2.dimensions[0]
+    else:
+        data2 = [space.int_w(w_other),]
+        n2 = 1
+    if not (n1 == n2 or n1 == 1 or n2 == 1):
+        raise oefmt(space.w_ValueError, 'dimension mismatch')
+    m = max(n1, n2)
+    org = space.fromcache(Original)
+    ret = space.call(org.w_array_type, space.newtuple([space.newint(m)]))
+    assert isinstance(ret, W_ArrayObject)
+    r = rffi.cast(rffi.DOUBLEP, ret.pyobj.data)
+    i1 = 0; i2 = 0
+    for j in range(m):
+        if i1 > n1: i1 = 0
+        if i2 > n2: i2 = 0
+        if op == 'mul':
+            r[j] = data1[i1] * data2[i2]
+        elif op == 'add':
+            r[j] = data1[i1] + data2[i2]
+        elif op == 'sub':
+            r[j] = data1[i1] - data2[i2]
+        elif op == 'div':
+            if data2[i2] == 0:
+                r[j] = float('nan')
+            else:
+                r[j] = data1[i1] / data2[i2]
+        i1 += 1; i2 += 1
+    return ret
+
+def injected_mul(space, w_self, w_other):
+    return injected_op(space, w_self, w_other, 'mul')
+
+def injected_add(space, w_self, w_other):
+    return injected_op(space, w_self, w_other, 'add')
+
+def injected_sub(space, w_self, w_other):
+    return injected_op(space, w_self, w_other, 'sub')
+
+def injected_div(space, w_self, w_other):
+    return injected_op(space, w_self, w_other, 'div')
+
 injected_methods = {
     '__getitem__': interp2app(injected_getitem),
+    '__mul__': interp2app(injected_mul),
+    '__add__': interp2app(injected_add),
+    '__sub__': interp2app(injected_sub),
+    '__div__': interp2app(injected_div),
 }
 
 def inject_operator(space, name, dict_w, pto):
     assert name == 'numpy.ndarray'
     org = space.fromcache(Original)
     org.w_original_getitem = dict_w['__getitem__']
+    org.w_original_getitem = dict_w['__mul__']
     for key, w_value in org.injected_methods_w:
         dict_w[key] = w_value
     return W_ArrayObject.typedef
