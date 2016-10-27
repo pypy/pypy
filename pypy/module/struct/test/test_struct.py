@@ -431,6 +431,17 @@ class AppTestStruct(object):
     def test_overflow(self):
         raises(self.struct.error, self.struct.pack, 'i', 1<<65)
 
+    def test_unpack_Q(self):
+        import sys
+        buf = self.struct.pack('Q', sys.maxint)
+        obj, = self.struct.unpack('Q', buf)
+        assert obj == sys.maxint
+        assert type(obj) is int
+        #
+        buf = self.struct.pack('Q', sys.maxint+1)
+        obj, = self.struct.unpack('Q', buf)
+        assert obj == sys.maxint+1
+        assert type(obj) is long
 
 class AppTestStructBuffer(object):
     spaceconfig = dict(usemodules=['struct', '__pypy__'])

@@ -148,7 +148,18 @@ class UnpackFormatIterator(FormatIterator):
 
     @specialize.argtype(1)
     def appendobj(self, value):
-        self.result_w.append(self.space.wrap(value))
+        from rpython.rlib.rarithmetic import r_uint, maxint, intmask
+        if isinstance(value, r_uint):
+            # native-size uint: try to wrap it inside a native int if it fits,
+            # as CPython does
+            if value <= maxint:
+                w_value = self.space.wrap(intmask(value))
+            else:
+                w_value = self.space.wrap(value)
+        else:
+            w_value = self.space.wrap(value)
+        #
+        self.result_w.append(w_value)
 
     def get_pos(self):
         return self.pos
