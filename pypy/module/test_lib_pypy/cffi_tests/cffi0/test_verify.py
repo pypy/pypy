@@ -595,7 +595,7 @@ def test_struct_array_c99_1():
     assert ffi.sizeof(ffi.typeof(s[0])) == 1 * ffi.sizeof('int')
     assert ffi.sizeof(s[0]) == 5 * ffi.sizeof('int')
     # ^^^ explanation: if you write in C: "char x[5];", then
-    # "sizeof(ax" will evaluate to 5.  The behavior above is
+    # "sizeof(x)" will evaluate to 5.  The behavior above is
     # a generalization of that to "struct foo_s[len(a)=5] x;"
     # if you could do that in C.
     assert s.a[3] == 0

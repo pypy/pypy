@@ -577,10 +577,15 @@ def test_struct_array_c99_1():
     ffi.verify("struct foo_s { int x; int a[]; };")
     assert ffi.sizeof('struct foo_s') == 1 * ffi.sizeof('int')
     s = ffi.new("struct foo_s *", [424242, 4])
-    assert ffi.sizeof(s[0]) == 1 * ffi.sizeof('int')   # the same in C
+    assert ffi.sizeof(ffi.typeof(s[0])) == 1 * ffi.sizeof('int')
+    assert ffi.sizeof(s[0]) == 5 * ffi.sizeof('int')
+    # ^^^ explanation: if you write in C: "char x[5];", then
+    # "sizeof(x)" will evaluate to 5.  The behavior above is
+    # a generalization of that to "struct foo_s[len(a)=5] x;"
+    # if you could do that in C.
     assert s.a[3] == 0
     s = ffi.new("struct foo_s *", [424242, [-40, -30, -20, -10]])
-    assert ffi.sizeof(s[0]) == 1 * ffi.sizeof('int')
+    assert ffi.sizeof(s[0]) == 5 * ffi.sizeof('int')
     assert s.a[3] == -10
     s = ffi.new("struct foo_s *")
     assert ffi.sizeof(s[0]) == 1 * ffi.sizeof('int')
@@ -595,10 +600,10 @@ def test_struct_array_c99_2():
     ffi.verify("struct foo_s { int x, y; int a[]; };")
     assert ffi.sizeof('struct foo_s') == 2 * ffi.sizeof('int')
     s = ffi.new("struct foo_s *", [424242, 4])
-    assert ffi.sizeof(s[0]) == 2 * ffi.sizeof('int')
+    assert ffi.sizeof(s[0]) == 6 * ffi.sizeof('int')
     assert s.a[3] == 0
     s = ffi.new("struct foo_s *", [424242, [-40, -30, -20, -10]])
-    assert ffi.sizeof(s[0]) == 2 * ffi.sizeof('int')
+    assert ffi.sizeof(s[0]) == 6 * ffi.sizeof('int')
     assert s.a[3] == -10
     s = ffi.new("struct foo_s *")
     assert ffi.sizeof(s[0]) == 2 * ffi.sizeof('int')
