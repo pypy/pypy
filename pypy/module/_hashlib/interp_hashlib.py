@@ -58,14 +58,14 @@ class W_Hash(W_Root):
     def __init__(self, space, name, copy_from=NULL_CTX):
         self.name = name
         digest_type = self.digest_type_by_name(space)
-        self.digest_size = rffi.getintfield(digest_type, 'c_md_size')
+        self.digest_size = ropenssl.EVP_MD_size(digest_type)
 
         # Allocate a lock for each HASH object.
         # An optimization would be to not release the GIL on small requests,
         # and use a custom lock only when needed.
         self.lock = Lock(space)
 
-        ctx = lltype.malloc(ropenssl.EVP_MD_CTX.TO, flavor='raw')
+        ctx = ropenssl.EVP_MD_CTX_new()
         rgc.add_memory_pressure(ropenssl.HASH_MALLOC_SIZE + self.digest_size)
         try:
             if copy_from:
@@ -74,7 +74,7 @@ class W_Hash(W_Root):
                 ropenssl.EVP_DigestInit(ctx, digest_type)
             self.ctx = ctx
         except:
-            lltype.free(ctx, flavor='raw')
+            ropenssl.EVP_MD_CTX_free(ctx)
             raise
         self.register_finalizer(space)
 
@@ -82,8 +82,7 @@ class W_Hash(W_Root):
         ctx = self.ctx
         if ctx:
             self.ctx = lltype.nullptr(ropenssl.EVP_MD_CTX.TO)
-            ropenssl.EVP_MD_CTX_cleanup(ctx)
-            lltype.free(ctx, flavor='raw')
+            ropenssl.EVP_MD_CTX_free(ctx)
 
     def digest_type_by_name(self, space):
         digest_type = ropenssl.EVP_get_digestbyname(self.name)
@@ -128,21 +127,23 @@ class W_Hash(W_Root):
 
     def get_block_size(self, space):
         digest_type = self.digest_type_by_name(space)
-        block_size = rffi.getintfield(digest_type, 'c_block_size')
+        block_size = ropenssl.EVP_MD_block_size(digest_type)
         return space.wrap(block_size)
 
     def get_name(self, space):
         return space.wrap(self.name)
 
     def _digest(self, space):
-        with lltype.scoped_alloc(ropenssl.EVP_MD_CTX.TO) as ctx:
+        ctx = ropenssl.EVP_MD_CTX_new()
+        try:
             with self.lock:
                 ropenssl.EVP_MD_CTX_copy(ctx, self.ctx)
             digest_size = self.digest_size
             with rffi.scoped_alloc_buffer(digest_size) as buf:
                 ropenssl.EVP_DigestFinal(ctx, buf.raw, None)
-                ropenssl.EVP_MD_CTX_cleanup(ctx)
                 return buf.str(digest_size)
+        finally:
+            ropenssl.EVP_MD_CTX_free(ctx)
 
 
 W_Hash.typedef = TypeDef(

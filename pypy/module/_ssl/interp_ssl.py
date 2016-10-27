@@ -33,8 +33,9 @@ PY_SSL_CERT_NONE, PY_SSL_CERT_OPTIONAL, PY_SSL_CERT_REQUIRED = 0, 1, 2
 PY_SSL_CLIENT, PY_SSL_SERVER = 0, 1
 
 (PY_SSL_VERSION_SSL2, PY_SSL_VERSION_SSL3,
- PY_SSL_VERSION_SSL23, PY_SSL_VERSION_TLS1, PY_SSL_VERSION_TLS1_1,
+ PY_SSL_VERSION_TLS, PY_SSL_VERSION_TLS1, PY_SSL_VERSION_TLS1_1,
  PY_SSL_VERSION_TLS1_2) = range(6)
+
 
 SOCKET_IS_NONBLOCKING, SOCKET_IS_BLOCKING = 0, 1
 SOCKET_HAS_TIMED_OUT, SOCKET_HAS_BEEN_CLOSED = 2, 3
@@ -68,11 +69,12 @@ constants["HAS_ECDH"] = not OPENSSL_NO_ECDH
 constants["HAS_NPN"] = HAS_NPN
 constants["HAS_ALPN"] = HAS_ALPN
 
+constants["PROTOCOL_TLS"] = PY_SSL_VERSION_TLS
+constants["PROTOCOL_SSLv23"] = PY_SSL_VERSION_TLS  # Legacy name
 if not OPENSSL_NO_SSL2:
     constants["PROTOCOL_SSLv2"]  = PY_SSL_VERSION_SSL2
 if not OPENSSL_NO_SSL3:
     constants["PROTOCOL_SSLv3"]  = PY_SSL_VERSION_SSL3
-constants["PROTOCOL_SSLv23"] = PY_SSL_VERSION_SSL23
 constants["PROTOCOL_TLSv1"]  = PY_SSL_VERSION_TLS1
 if HAVE_TLSv1_2:
     constants["PROTOCOL_TLSv1_1"] = PY_SSL_VERSION_TLS1_1
@@ -637,9 +639,12 @@ class _SSLSocket(W_Root):
         if not self.ssl:
             return space.w_None
         comp_method = libssl_SSL_get_current_compression(self.ssl)
-        if not comp_method or intmask(comp_method[0].c_type) == NID_undef:
+        if not comp_method:
             return space.w_None
-        short_name = libssl_OBJ_nid2sn(comp_method[0].c_type)
+        method_type = intmask(libssl_COMP_get_type(comp_method))
+        if method_type == NID_undef:
+            return space.w_None
+        short_name = libssl_OBJ_nid2sn(method_type)
         if not short_name:
             return space.w_None
         return space.wrap(rffi.charp2str(short_name))
@@ -795,7 +800,7 @@ def _create_tuple_for_X509_NAME(space, xname):
     for index in range(entry_count):
         entry = libssl_X509_NAME_get_entry(xname, index)
         # check to see if we've gotten to a new RDN
-        entry_level = intmask(entry[0].c_set)
+        entry_level = intmask(libssl_X509_NAME_ENTRY_set(entry))
         if rdn_level >= 0:
             if rdn_level != entry_level:
                 # yes, new RDN
@@ -846,8 +851,9 @@ def _get_peer_alt_names(space, certificate):
                                 "No method for internalizing subjectAltName!'")
 
             with lltype.scoped_alloc(rffi.CCHARPP.TO, 1) as p_ptr:
-                p_ptr[0] = ext[0].c_value.c_data
-                length = intmask(ext[0].c_value.c_length)
+                ext_value = libssl_X509_EXTENSION_get_data(ext)
+                p_ptr[0] = ext_value.c_data
+                length = intmask(ext_value.c_length)
                 null = lltype.nullptr(rffi.VOIDP.TO)
                 if method[0].c_it:
                     names = rffi.cast(GENERAL_NAMES, libssl_ASN1_item_d2i(
@@ -967,10 +973,8 @@ def _get_crl_dp(space, certificate):
     if OPENSSL_VERSION_NUMBER >= 0x10001000:
         # Calls x509v3_cache_extensions and sets up crldp
         libssl_X509_check_ca(certificate)
-        dps = certificate[0].c_crldp
-    else:
-        dps = rffi.cast(stack_st_DIST_POINT, libssl_X509_get_ext_d2i(
-            certificate, NID_crl_distribution_points, None, None))
+    dps = rffi.cast(stack_st_DIST_POINT, libssl_X509_get_ext_d2i(
+        certificate, NID_crl_distribution_points, None, None))
     if not dps:
         return None
 
@@ -1268,14 +1272,14 @@ class _SSLContext(W_Root):
     @staticmethod
     @unwrap_spec(protocol=int)
     def descr_new(space, w_subtype, protocol):
-        if protocol == PY_SSL_VERSION_TLS1:
+        if protocol == PY_SSL_VERSION_TLS:
+            method = libssl_TLS_method()
+        elif protocol == PY_SSL_VERSION_TLS1:
             method = libssl_TLSv1_method()
         elif protocol == PY_SSL_VERSION_SSL3 and not OPENSSL_NO_SSL3:
             method = libssl_SSLv3_method()
         elif protocol == PY_SSL_VERSION_SSL2 and not OPENSSL_NO_SSL2:
             method = libssl_SSLv2_method()
-        elif protocol == PY_SSL_VERSION_SSL23:
-            method = libssl_SSLv23_method()
         elif protocol == PY_SSL_VERSION_TLS1_1 and HAVE_TLSv1_2:
             method = libssl_TLSv1_1_method()
         elif protocol == PY_SSL_VERSION_TLS1_2 and HAVE_TLSv1_2:
@@ -1390,20 +1394,22 @@ class _SSLContext(W_Root):
 
     def descr_get_verify_flags(self, space):
         store = libssl_SSL_CTX_get_cert_store(self.ctx)
-        flags = libssl_X509_VERIFY_PARAM_get_flags(store[0].c_param)
+        param = libssl_X509_STORE_get0_param(store)
+        flags = libssl_X509_VERIFY_PARAM_get_flags(param)
         return space.wrap(flags)
 
     def descr_set_verify_flags(self, space, w_obj):
         new_flags = space.int_w(w_obj)
         store = libssl_SSL_CTX_get_cert_store(self.ctx)
-        flags = libssl_X509_VERIFY_PARAM_get_flags(store[0].c_param)
+        param = libssl_X509_STORE_get0_param(store)
+        flags = libssl_X509_VERIFY_PARAM_get_flags(param)
         flags_clear = flags & ~new_flags
         flags_set = ~flags & new_flags
         if flags_clear and not libssl_X509_VERIFY_PARAM_clear_flags(
-                store[0].c_param, flags_clear):
+                param, flags_clear):
             raise _ssl_seterror(space, None, 0)
         if flags_set and not libssl_X509_VERIFY_PARAM_set_flags(
-                store[0].c_param, flags_set):
+                param, flags_set):
             raise _ssl_seterror(space, None, 0)
 
     def descr_get_check_hostname(self, space):
@@ -1614,14 +1620,16 @@ class _SSLContext(W_Root):
         x509 = 0
         x509_ca = 0
         crl = 0
-        for i in range(libssl_sk_X509_OBJECT_num(store[0].c_objs)):
-            obj = libssl_sk_X509_OBJECT_value(store[0].c_objs, i)
-            if intmask(obj.c_type) == X509_LU_X509:
+        objs = libssl_X509_STORE_get0_objects(store)
+        for i in range(libssl_sk_X509_OBJECT_num(objs)):
+            obj = libssl_sk_X509_OBJECT_value(objs, i)
+            obj_type = intmask(libssl_X509_OBJECT_get_type(obj))
+            if obj_type == X509_LU_X509:
                 x509 += 1
                 if libssl_X509_check_ca(
-                        libssl_pypy_X509_OBJECT_data_x509(obj)):
+                        libssl_X509_OBJECT_get0_X509(obj)):
                     x509_ca += 1
-            elif intmask(obj.c_type) == X509_LU_CRL:
+            elif obj_type == X509_LU_CRL:
                 crl += 1
             else:
                 # Ignore X509_LU_FAIL, X509_LU_RETRY, X509_LU_PKEY.
@@ -1660,13 +1668,14 @@ class _SSLContext(W_Root):
             binary_mode = False
         rlist = []
         store = libssl_SSL_CTX_get_cert_store(self.ctx)
-        for i in range(libssl_sk_X509_OBJECT_num(store[0].c_objs)):
-            obj = libssl_sk_X509_OBJECT_value(store[0].c_objs, i)
-            if intmask(obj.c_type) != X509_LU_X509:
+        objs = libssl_X509_STORE_get0_objects(store)
+        for i in range(libssl_sk_X509_OBJECT_num(objs)):
+            obj = libssl_sk_X509_OBJECT_value(objs, i)
+            if intmask(libssl_X509_OBJECT_get_type(obj)) != X509_LU_X509:
                 # not a x509 cert
                 continue
             # CA for any purpose
-            cert = libssl_pypy_X509_OBJECT_data_x509(obj)
+            cert = libssl_X509_OBJECT_get0_X509(obj)
             if not libssl_X509_check_ca(cert):
                 continue
             if binary_mode:

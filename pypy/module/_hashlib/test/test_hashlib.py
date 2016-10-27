@@ -15,17 +15,19 @@ class AppTestHashlib:
 
     def test_attributes(self):
         import hashlib
-        for name, expected_size in {'md5': 16,
-                                    'sha1': 20,
-                                    'sha224': 28,
-                                    'sha256': 32,
-                                    'sha384': 48,
-                                    'sha512': 64,
-                                    }.items():
+        for name, (expected_size, expected_block_size) in {
+                'md5': (16, 64),
+                'sha1': (20, 64),
+                'sha224': (28, 64),
+                'sha256': (32, 64),
+                'sha384': (48, 128),
+                'sha512': (64, 128),
+                }.items():
             h = hashlib.new(name)
             assert h.name == name
             assert h.digest_size == expected_size
             assert h.digestsize == expected_size
+            assert h.block_size == expected_block_size
             #
             h.update('abc')
             h2 = h.copy()
@@ -46,6 +48,7 @@ class AppTestHashlib:
             h = py_new(name)('')
             assert h.digest_size == expected_size
             assert h.digestsize == expected_size
+            assert h.block_size == expected_block_size
             #
             h.update('abc')
             h2 = h.copy()
