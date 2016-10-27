@@ -273,16 +273,13 @@ class AppTestAppComplexTest:
         assert complex(NS(1+10j)) == 1+10j
         assert complex(NS(1+10j), 5) == 1+15j
         assert complex(NS(1+10j), 5j) == -4+10j
-        assert complex(NS(2.0)) == 2+0j
-        assert complex(NS(2)) == 2+0j
+        raises(TypeError, complex, NS(2.0))
+        raises(TypeError, complex, NS(2))
         raises(TypeError, complex, NS(None))
         raises(TypeError, complex, b'10')
 
         # -- The following cases are not supported by CPython, but they
         # -- are supported by PyPy, which is most probably ok
-        #raises((TypeError, AttributeError), complex, OS(1+10j), OS(1+10j))
-        #raises((TypeError, AttributeError), complex, NS(1+10j), OS(1+10j))
-        #raises((TypeError, AttributeError), complex, OS(1+10j), NS(1+10j))
         #raises((TypeError, AttributeError), complex, NS(1+10j), NS(1+10j))
 
         class F(object):
@@ -380,23 +377,6 @@ class AppTestAppComplexTest:
         s = '{0}+{1}j'.format(b1, b2)
         assert complex(s) == 1+2j
         assert complex('\N{EM SPACE}(\N{EN SPACE}1+1j ) ') == 1+1j
-
-    def test___complex___returning_non_complex(self):
-        import cmath
-        class Obj(object):
-            def __init__(self, value):
-                self.value = value
-            def __complex__(self):
-                return self.value
-
-        # "bug-to-bug" compatibility to CPython: complex() is more relaxed in
-        # what __complex__ can return. cmath functions really wants a complex
-        # number to be returned by __complex__.
-        assert complex(Obj(2.0)) == 2+0j
-        assert complex(Obj(2)) == 2+0j
-        #
-        assert cmath.polar(1) == (1.0, 0.0)
-        raises(TypeError, "cmath.polar(Obj(1))")
 
     def test_hash(self):
         for x in range(-30, 30):
