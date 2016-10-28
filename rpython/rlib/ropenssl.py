@@ -60,15 +60,16 @@ eci = ExternalCompilationInfo(
         '#define pypy_DIST_POINT_fullname(obj) (obj->distpoint->name.fullname)',
         # Backwards compatibility for functions introduced in 1.1
         '#if (OPENSSL_VERSION_NUMBER < 0x10100000)',
+        '#  define COMP_get_name(meth) (meth->name)',
+        '#  define COMP_get_type(meth) (meth->type)',
+        '#  define EVP_MD_CTX_free EVP_MD_CTX_destroy',
+        '#  define EVP_MD_CTX_new EVP_MD_CTX_create',
+        '#  define TLS_method SSLv23_method',
+        '#  define X509_NAME_ENTRY_set(ne) (ne->set)',
         '#  define X509_OBJECT_get0_X509(obj) (obj->data.x509)',
         '#  define X509_OBJECT_get_type(obj) (obj->type)',
-        '#  define COMP_get_type(meth) (meth->type)',
-        '#  define X509_NAME_ENTRY_set(ne) (ne->set)',
         '#  define X509_STORE_get0_objects(store) (store->objs)',
         '#  define X509_STORE_get0_param(store) (store->param)',
-        '#  define TLS_method SSLv23_method',
-        '#  define EVP_MD_CTX_new EVP_MD_CTX_create',
-        '#  define EVP_MD_CTX_free EVP_MD_CTX_destroy',
         '#else /* (OPENSSL_VERSION_NUMBER < 0x10100000) */',
         '#  define OPENSSL_NO_SSL2',
         '#endif /* (OPENSSL_VERSION_NUMBER < 0x10100000) */',
@@ -451,6 +452,8 @@ ssl_external('sk_X509_OBJECT_value', [stack_st_X509_OBJECT, rffi.INT],
 ssl_external('X509_OBJECT_get0_X509', [X509_OBJECT], X509,
              macro=bool(OPENSSL_VERSION_NUMBER < 0x10100000) or None)
 ssl_external('X509_OBJECT_get_type', [X509_OBJECT], rffi.INT,
+             macro=bool(OPENSSL_VERSION_NUMBER < 0x10100000) or None)
+ssl_external('COMP_get_name', [COMP_METHOD], rffi.CCHARP,
              macro=bool(OPENSSL_VERSION_NUMBER < 0x10100000) or None)
 ssl_external('COMP_get_type', [COMP_METHOD], rffi.INT,
              macro=bool(OPENSSL_VERSION_NUMBER < 0x10100000) or None)

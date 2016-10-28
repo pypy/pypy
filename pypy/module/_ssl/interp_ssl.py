@@ -647,7 +647,7 @@ class _SSLSocket(W_Root):
         method_type = intmask(libssl_COMP_get_type(comp_method))
         if method_type == NID_undef:
             return space.w_None
-        short_name = libssl_OBJ_nid2sn(method_type)
+        short_name = libssl_COMP_get_name(comp_method)
         if not short_name:
             return space.w_None
         return space.wrap(rffi.charp2str(short_name))
