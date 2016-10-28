@@ -592,6 +592,13 @@ EVP_MD_CTX_free = external(
     'EVP_MD_CTX_free', [EVP_MD_CTX], lltype.Void, releasegil=False,
     macro=bool(OPENSSL_VERSION_NUMBER < 0x10100000) or None)
 
+if OPENSSL_VERSION_NUMBER >= 0x10100000 and not LIBRESSL:
+    PKCS5_PBKDF2_HMAC = external('PKCS5_PBKDF2_HMAC', [
+        rffi.CCHARP, rffi.INT, rffi.CCHARP, rffi.INT, rffi.INT, EVP_MD,
+        rffi.INT, rffi.CCHARP], rffi.INT)
+else:
+    PKCS5_PBKDF2_HMAC = None
+
 OBJ_NAME_CALLBACK = lltype.Ptr(lltype.FuncType(
         [OBJ_NAME, rffi.VOIDP], lltype.Void))
 OBJ_NAME_do_all = external(

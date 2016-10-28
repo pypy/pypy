@@ -111,3 +111,13 @@ class AppTestHashlib:
             got.decode('hex')
             if expected is not None:
                 assert got == expected
+
+    def test_pbkdf2(self):
+        try:
+            from _hashlib import pbkdf2_hmac
+        except ImportError:
+            skip("Requires OpenSSL >= 1.1")
+        out = pbkdf2_hmac('sha1', 'password', 'salt', 1)
+        assert out == '0c60c80f961f0e71f3a9b524af6012062fe037a6'.decode('hex')
+        out = pbkdf2_hmac('sha1', 'password', 'salt', 2, None)
+        assert out == 'ea6c014dc72d6f8ccd1ed92ace1d41f0d8de8957'.decode('hex')

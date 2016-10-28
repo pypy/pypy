@@ -8,7 +8,7 @@ from rpython.tool.sourcetools import func_renamer
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.gateway import unwrap_spec, interp2app
+from pypy.interpreter.gateway import unwrap_spec, interp2app, WrappedDefault
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module.thread.os_lock import Lock
 
@@ -184,3 +184,27 @@ def make_new_hash(name, funcname):
 for _name in algorithms:
     _newname = 'new_%s' % (_name,)
     globals()[_newname] = make_new_hash(_name, _newname)
+
+
+HAS_FAST_PKCS5_PBKDF2_HMAC = ropenssl.PKCS5_PBKDF2_HMAC is not None
+if HAS_FAST_PKCS5_PBKDF2_HMAC:
+    @unwrap_spec(name=str, password=str, salt=str, rounds=int,
+                 w_dklen=WrappedDefault(None))
+    def pbkdf2_hmac(space, name, password, salt, rounds, w_dklen):
+        digest = ropenssl.EVP_get_digestbyname(name)
+        if not digest:
+            raise oefmt(space.w_ValueError, "unknown hash function")
+        if space.is_w(w_dklen, space.w_None):
+            dklen = ropenssl.EVP_MD_size(digest)
+        else:
+            dklen = space.int_w(w_dklen)
+        if dklen < 1:
+            raise oefmt(space.w_ValueError,
+                        "key length must be greater than 0.")
+        with rffi.scoped_alloc_buffer(dklen) as buf:
+            r = ropenssl.PKCS5_PBKDF2_HMAC(
+                password, len(password), salt, len(salt), rounds, digest,
+                dklen, buf.raw)
+            if not r:
+                raise ValueError
+            return space.wrap(buf.str(dklen))
