@@ -2092,6 +2092,7 @@ class ElementIterTest(unittest.TestCase):
         with self.assertRaises(TypeError):
             copy.copy(it)
 
+    @impl_detail
     def test_pickle(self):
         a = ET.Element('a')
         it = a.iter()
