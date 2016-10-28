@@ -1,3 +1,4 @@
+from rpython.rlib.rarithmetic import r_uint, r_ulonglong, maxint, intmask
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rstring import StringBuilder
@@ -148,15 +149,15 @@ class UnpackFormatIterator(FormatIterator):
 
     @specialize.argtype(1)
     def appendobj(self, value):
-        from rpython.rlib.rarithmetic import r_uint, maxint, intmask
-        if isinstance(value, r_uint):
-            # native-size uint: try to wrap it inside a native int if it fits,
-            # as CPython does
+        if isinstance(value, (r_uint, r_ulonglong)):
+            # unsigned int: space.wrap would wrap it inside a long, but
+            # CPython tries hard to return an int, if it fits
             if value <= maxint:
                 w_value = self.space.wrap(intmask(value))
             else:
                 w_value = self.space.wrap(value)
         else:
+            # generic type, just use space.wrap
             w_value = self.space.wrap(value)
         #
         self.result_w.append(w_value)
