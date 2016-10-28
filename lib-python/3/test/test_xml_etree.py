@@ -2085,6 +2085,7 @@ class ElementIterTest(unittest.TestCase):
         self.assertEqual(self._ilist(doc), all_tags)
         self.assertEqual(self._ilist(doc, '*'), all_tags)
 
+    @impl_detail
     def test_copy(self):
         a = ET.Element('a')
         it = a.iter()
