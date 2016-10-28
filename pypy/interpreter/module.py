@@ -147,6 +147,21 @@ class Module(W_Root):
             __file__ = space.unicode_w(space.repr(w___file__))
             return space.wrap(u"<module %s from %s>" % (name, __file__))
 
+    def descr_getattribute(self, space, w_attr):
+        from pypy.objspace.descroperation import object_getattribute
+        try:
+            return space.call_function(object_getattribute(space), self, w_attr)
+        except OperationError as e:
+            if not e.match(space, space.w_AttributeError):
+                raise
+            w_name = space.finditem(self.w_dict, space.wrap('__name__'))
+            if w_name is None:
+                raise oefmt(space.w_AttributeError,
+                    "module has no attribute %R", w_attr)
+            else:
+                raise oefmt(space.w_AttributeError,
+                    "module %R has no attribute %R", w_name, w_attr)
+
     def descr_module__dir__(self, space):
         w_dict = space.getattr(self, space.wrap('__dict__'))
         if not space.isinstance_w(w_dict, space.w_dict):

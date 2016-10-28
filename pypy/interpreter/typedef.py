@@ -628,6 +628,7 @@ Module.typedef = TypeDef("module",
     __new__ = interp2app(Module.descr_module__new__.im_func),
     __init__ = interp2app(Module.descr_module__init__),
     __repr__ = interp2app(Module.descr_module__repr__),
+    __getattribute__=interp2app(Module.descr_getattribute),
     __dir__ = interp2app(Module.descr_module__dir__),
     __reduce__ = interp2app(Module.descr__reduce__),
     __dict__ = GetSetProperty(descr_get_dict, cls=Module), # module dictionaries are readonly attributes

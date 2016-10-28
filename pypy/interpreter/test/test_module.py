@@ -3,7 +3,7 @@ import py
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.module import Module
 
-class TestModule: 
+class TestModule:
     def test_name(self, space):
         w = space.wrap
         m = Module(space, space.wrap('m'))
@@ -31,7 +31,7 @@ class TestModule:
         py.test.raises(OperationError, space.getattr, w(m), w('__file__'))
 
 
-class AppTest_ModuleObject: 
+class AppTest_ModuleObject:
     def test_attr(self):
         m = __import__('builtins')
         m.x = 15
@@ -66,7 +66,7 @@ class AppTest_ModuleObject:
             skip("need PyPy for _pypy_interact")
         r = repr(sys)
         assert r == "<module 'sys' (built-in)>"
-        
+
         import _pypy_interact # known to be in lib_pypy
         r = repr(_pypy_interact)
         assert (r.startswith("<module '_pypy_interact' from ") and
@@ -123,7 +123,7 @@ class AppTest_ModuleObject:
         test_module.__loader__ = CustomLoaderWithRaisingRepr
         mod_repr = repr(test_module)
 
-        # The module has no __file__ attribute, so the repr should use 
+        # The module has no __file__ attribute, so the repr should use
         # the loader and name
         loader_repr = repr(test_module.__loader__)
         expected_repr = "<module 'test_module' ({})>".format(loader_repr)
@@ -174,3 +174,17 @@ class AppTest_ModuleObject:
         m = type(sys)('日本')
         assert m.__name__ == '日本'
         assert repr(m).startswith("<module '日本'")
+
+    def test_AttributeError_message(self):
+        import sys
+        test_module = type(sys)("test_module", "doc")
+        excinfo = raises(AttributeError, 'test_module.does_not_exist')
+        assert (excinfo.value.args[0] ==
+            "module 'test_module' has no attribute 'does_not_exist'")
+
+        nameless = type(sys)("nameless", "doc")
+        del nameless.__name__
+        assert not hasattr(nameless, '__name__')
+        excinfo = raises(AttributeError, 'nameless.does_not_exist')
+        assert (excinfo.value.args[0] ==
+            "module has no attribute 'does_not_exist'")
