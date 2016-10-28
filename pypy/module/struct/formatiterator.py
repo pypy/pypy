@@ -149,7 +149,7 @@ class UnpackFormatIterator(FormatIterator):
 
     @specialize.argtype(1)
     def appendobj(self, value):
-        if isinstance(value, (r_uint, r_ulonglong)):
+        if isinstance(value, r_uint) or isinstance(value, r_ulonglong):
             # unsigned int: space.wrap would wrap it inside a long, but
             # CPython tries hard to return an int, if it fits
             if value <= maxint:
