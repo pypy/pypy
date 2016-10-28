@@ -113,7 +113,10 @@ def ssl_error(space, msg, errno=0, w_errtype=None, errcode=0):
         err_reason = libssl_ERR_GET_REASON(errcode)
         reason_str = ERROR_CODES_TO_NAMES.get((err_lib, err_reason), None)
         lib_str = LIBRARY_CODES_TO_NAMES.get(err_lib, None)
-        msg = rffi.charp2str(libssl_ERR_reason_error_string(errcode))
+        raw_msg = libssl_ERR_reason_error_string(errcode)
+        msg = None
+        if raw_msg:
+            msg = rffi.charp2str(raw_msg)
     if not msg:
         msg = "unknown error"
     if reason_str and lib_str:
