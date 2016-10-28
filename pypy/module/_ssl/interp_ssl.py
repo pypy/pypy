@@ -1310,6 +1310,7 @@ class _SSLContext(W_Root):
             # OpenSSL 1.0.2+), or use prime256v1 by default.
             # This is Apache mod_ssl's initialization
             # policy, so we should be safe.
+            # OpenSSL 1.1 has it enabled by default.
             if libssl_SSL_CTX_set_ecdh_auto:
                 libssl_SSL_CTX_set_ecdh_auto(self.ctx, 1)
             else:

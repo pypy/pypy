@@ -344,7 +344,7 @@ ssl_external('SSL_CTX_set_tlsext_servername_callback', [SSL_CTX, servername_cb],
              lltype.Void, macro=True)
 ssl_external('SSL_CTX_set_tlsext_servername_arg', [SSL_CTX, rffi.VOIDP], lltype.Void, macro=True)
 ssl_external('SSL_CTX_set_tmp_ecdh', [SSL_CTX, EC_KEY], lltype.Void, macro=True)
-if OPENSSL_VERSION_NUMBER >= 0x10002000:
+if 0x10100000 > OPENSSL_VERSION_NUMBER >= 0x10002000:
     ssl_external('SSL_CTX_set_ecdh_auto', [SSL_CTX, rffi.INT], lltype.Void,
                  macro=True)
 else:
