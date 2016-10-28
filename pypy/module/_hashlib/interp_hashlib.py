@@ -66,10 +66,13 @@ class W_Hash(W_Root):
         self.lock = Lock(space)
 
         ctx = ropenssl.EVP_MD_CTX_new()
+        if ctx is None:
+            raise MemoryError
         rgc.add_memory_pressure(ropenssl.HASH_MALLOC_SIZE + self.digest_size)
         try:
             if copy_from:
-                ropenssl.EVP_MD_CTX_copy(ctx, copy_from)
+                if not ropenssl.EVP_MD_CTX_copy(ctx, copy_from):
+                    raise ValueError
             else:
                 ropenssl.EVP_DigestInit(ctx, digest_type)
             self.ctx = ctx
@@ -135,9 +138,12 @@ class W_Hash(W_Root):
 
     def _digest(self, space):
         ctx = ropenssl.EVP_MD_CTX_new()
+        if ctx is None:
+            raise MemoryError
         try:
             with self.lock:
-                ropenssl.EVP_MD_CTX_copy(ctx, self.ctx)
+                if not ropenssl.EVP_MD_CTX_copy(ctx, self.ctx):
+                    raise ValueError
             digest_size = self.digest_size
             with rffi.scoped_alloc_buffer(digest_size) as buf:
                 ropenssl.EVP_DigestFinal(ctx, buf.raw, None)
