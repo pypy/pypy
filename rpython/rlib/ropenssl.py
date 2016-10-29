@@ -59,19 +59,19 @@ eci = ExternalCompilationInfo(
         '#define pypy_GENERAL_NAME_pop_free(names) (sk_GENERAL_NAME_pop_free(names, GENERAL_NAME_free))',
         '#define pypy_DIST_POINT_fullname(obj) (obj->distpoint->name.fullname)',
         # Backwards compatibility for functions introduced in 1.1
-        '#if (OPENSSL_VERSION_NUMBER < 0x10100000)',
-        '#  define COMP_get_name(meth) (meth->name)',
-        '#  define COMP_get_type(meth) (meth->type)',
-        '#  define EVP_MD_CTX_free EVP_MD_CTX_destroy',
-        '#  define EVP_MD_CTX_new EVP_MD_CTX_create',
-        '#  define TLS_method SSLv23_method',
-        '#  define X509_NAME_ENTRY_set(ne) (ne->set)',
-        '#  define X509_OBJECT_get0_X509(obj) (obj->data.x509)',
-        '#  define X509_OBJECT_get_type(obj) (obj->type)',
-        '#  define X509_STORE_get0_objects(store) (store->objs)',
-        '#  define X509_STORE_get0_param(store) (store->param)',
-        '#else /* (OPENSSL_VERSION_NUMBER < 0x10100000) */',
-        '#  define OPENSSL_NO_SSL2',
+        '#if (OPENSSL_VERSION_NUMBER < 0x10100000)\n'
+        '#  define COMP_get_name(meth) (meth->name)\n'
+        '#  define COMP_get_type(meth) (meth->type)\n'
+        '#  define EVP_MD_CTX_free EVP_MD_CTX_destroy\n'
+        '#  define EVP_MD_CTX_new EVP_MD_CTX_create\n'
+        '#  define TLS_method SSLv23_method\n'
+        '#  define X509_NAME_ENTRY_set(ne) (ne->set)\n'
+        '#  define X509_OBJECT_get0_X509(obj) (obj->data.x509)\n'
+        '#  define X509_OBJECT_get_type(obj) (obj->type)\n'
+        '#  define X509_STORE_get0_objects(store) (store->objs)\n'
+        '#  define X509_STORE_get0_param(store) (store->param)\n'
+        '#else /* (OPENSSL_VERSION_NUMBER < 0x10100000) */\n'
+        '#  define OPENSSL_NO_SSL2\n'
         '#endif /* (OPENSSL_VERSION_NUMBER < 0x10100000) */',
     ],
 )
