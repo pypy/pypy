@@ -1575,16 +1575,13 @@ class TestMiniMarkGC(TestSemiSpaceGC):
 
         class A:
             def __init__(self):
-                self.ctx = lltype.malloc(ropenssl.EVP_MD_CTX.TO,
-                    flavor='raw')
                 digest = ropenssl.EVP_get_digestbyname('sha1')
+                self.ctx = ropenssl.EVP_MD_CTX_new()
                 ropenssl.EVP_DigestInit(self.ctx, digest)
                 rgc.add_memory_pressure(ropenssl.HASH_MALLOC_SIZE + 64)
 
             def __del__(self):
-                #ropenssl.EVP_MD_CTX_cleanup(self.ctx) -- disappeared in
-                # the refactoring to openssl 1.1, and not important here
-                lltype.free(self.ctx, flavor='raw')
+                ropenssl.EVP_MD_CTX_free(self.ctx)
         #A() --- can't call it here?? get glibc crashes on tannit64
         def f():
             am1 = am2 = am3 = None
