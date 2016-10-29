@@ -1582,7 +1582,8 @@ class TestMiniMarkGC(TestSemiSpaceGC):
                 rgc.add_memory_pressure(ropenssl.HASH_MALLOC_SIZE + 64)
 
             def __del__(self):
-                ropenssl.EVP_MD_CTX_cleanup(self.ctx)
+                #ropenssl.EVP_MD_CTX_cleanup(self.ctx) -- disappeared in
+                # the refactoring to openssl 1.1, and not important here
                 lltype.free(self.ctx, flavor='raw')
         #A() --- can't call it here?? get glibc crashes on tannit64
         def f():
