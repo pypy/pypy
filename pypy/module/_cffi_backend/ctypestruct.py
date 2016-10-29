@@ -219,7 +219,7 @@ class W_CField(W_Root):
             ctype = self.ctype
             assert isinstance(ctype, ctypearray.W_CTypeArray)
             structobj = w_cdata.get_structobj()
-            if structobj is not None and self.offset == structobj.ctype.size:
+            if structobj is not None:
                 # variable-length array
                 size = structobj.allocated_length - self.offset
                 if size >= 0:

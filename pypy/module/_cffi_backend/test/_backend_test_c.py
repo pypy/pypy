@@ -3288,6 +3288,33 @@ def test_struct_array_no_length_explicit_position():
         assert p.x[5] == 60
         assert p.x[6] == 70
 
+def test_struct_array_not_aligned():
+    # struct a { int x; char y; char z[]; };
+    # ends up of size 8, but 'z' is at offset 5
+    BChar = new_primitive_type("char")
+    BInt = new_primitive_type("int")
+    BCharP = new_pointer_type(BChar)
+    BArray = new_array_type(BCharP, None)
+    BStruct = new_struct_type("foo")
+    complete_struct_or_union(BStruct, [('x', BInt),
+                                       ('y', BChar),
+                                       ('z', BArray)])
+    assert sizeof(BStruct) == 2 * size_of_int()
+    def offsetof(BType, fieldname):
+        return typeoffsetof(BType, fieldname)[1]
+    base = offsetof(BStruct, 'z')
+    assert base == size_of_int() + 1
+    #
+    p = newp(new_pointer_type(BStruct), {'z': 3})
+    assert sizeof(p[0]) == base + 3
+    q = newp(new_pointer_type(BStruct), {'z': size_of_int()})
+    assert sizeof(q) == size_of_ptr()
+    assert sizeof(q[0]) == base + size_of_int()
+    assert len(p.z) == 3
+    assert len(p[0].z) == 3
+    assert len(q.z) == size_of_int()
+    assert len(q[0].z) == size_of_int()
+
 def test_ass_slice():
     BChar = new_primitive_type("char")
     BArray = new_array_type(new_pointer_type(BChar), None)
