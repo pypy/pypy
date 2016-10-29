@@ -562,7 +562,8 @@ def test_struct_array_no_length():
                      "int bar(struct foo_s *f) { return f->a[14]; }\n")
     assert ffi.sizeof('struct foo_s') == 19 * ffi.sizeof('int')
     s = ffi.new("struct foo_s *")
-    assert ffi.typeof(s.a) is ffi.typeof('int *')   # because no length
+    assert ffi.typeof(s.a) is ffi.typeof('int[]')   # implicit max length
+    assert len(s.a) == 18  # max length, computed from the size and start offset
     s.a[14] = 4242
     assert lib.bar(s) == 4242
     # with no declared length, out-of-bound accesses are not detected
