@@ -1,7 +1,7 @@
 import os
 
 from rpython.rlib import jit
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.rstring import rsplit
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.lltypesystem import rffi, lltype
@@ -36,8 +36,6 @@ from pypy.module.cpyext.typeobjectdefs import (
     PyNumberMethods, PyMappingMethods, PySequenceMethods, PyBufferProcs)
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 
-
-WARN_ABOUT_MISSING_SLOT_FUNCTIONS = False
 
 PyType_Check, PyType_CheckExact = build_type_checkers("Type", "w_type")
 
@@ -246,33 +244,32 @@ def update_all_slots(space, w_type, pto):
     # overwrite slots that are already set: these ones are probably
     # coming from a parent C type.
 
-    typedef = w_type.layout.typedef
+    if w_type.is_heaptype():
+        typedef = None
+    else:
+        typedef = w_type.layout.typedef
+
     for method_name, slot_name, slot_names, slot_func in slotdefs_for_tp_slots:
         w_descr = w_type.lookup(method_name)
         if w_descr is None:
             # XXX special case iternext
             continue
 
-        slot_func_helper = None
-
-        if slot_func is None and typedef is not None:
-            # XXX note that the w_type is retrieved inside this call via
-            # w_type = space.gettypeobject(typedef)
-            if w_type.name == 'Date' and slot_name == 'tp_new':
-                name = space.gettypeobject(typedef).name
-                print 'w_type inside build_slot_tp_function is "%s", wanted "%s"' %(
-                        name, w_type.name)
-            get_slot = get_slot_tp_function(space, typedef, slot_name)
-            if get_slot:
-                slot_func_helper = get_slot()
-        elif slot_func:
+        if slot_func is None:
+            slot_func_helper = None
+        else:
             slot_func_helper = llhelper(slot_func.api_func.functype,
                                         slot_func.api_func.get_wrapper(space))
 
+        if typedef is not None:
+            get_slot = get_slot_tp_function(space, typedef, slot_name)
+            if get_slot:
+                slot_func_helper = get_slot()
+
         if slot_func_helper is None:
-            if WARN_ABOUT_MISSING_SLOT_FUNCTIONS:
-                os.write(2, "%s defined by %s but no slot function defined!\n" % (
-                        method_name, w_type.getname(space)))
+            if not we_are_translated():
+                print "missing slot %r/%r for %r" % (
+                    method_name, slot_name, w_type.getname(space))
             continue
 
         # XXX special case wrapper-functions and use a "specific" slot func
