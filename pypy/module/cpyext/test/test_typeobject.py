@@ -430,6 +430,22 @@ class TestTypes(BaseApiTest):
         ref = make_ref(space, w_obj)
         api.Py_DecRef(ref)
 
+    def test_nb_add_from_python(self, space, api):
+        w_date = space.appexec([], """():
+            class DateType(object):
+                def __add__(self, other):
+                    return 'sum!'
+            return DateType()
+            """)
+        w_datetype = space.type(w_date)
+        py_date = make_ref(space, w_date)
+        py_datetype = rffi.cast(PyTypeObjectPtr, make_ref(space, w_datetype))
+        assert py_datetype.c_tp_as_number
+        assert py_datetype.c_tp_as_number.c_nb_add
+        w_obj = generic_cpy_call(space, py_datetype.c_tp_as_number.c_nb_add,
+                                 py_date, py_date)
+        assert space.str_w(w_obj) == 'sum!'
+
     def test_tp_new_from_python(self, space, api):
         w_date = space.appexec([], """():
             class Date(object):
