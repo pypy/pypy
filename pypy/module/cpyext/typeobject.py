@@ -246,11 +246,22 @@ def update_all_slots(space, w_type, pto):
 
     if w_type.is_heaptype():
         typedef = None
+        search_dict_w = w_type.dict_w
     else:
         typedef = w_type.layout.typedef
+        search_dict_w = None
 
     for method_name, slot_name, slot_names, slot_func in slotdefs_for_tp_slots:
-        w_descr = w_type.lookup(method_name)
+        if search_dict_w is not None:
+            # heap type: only look in this exact class
+            #if method_name in search_dict_w and method_name == '__new__':
+            #    import pdb;pdb.set_trace()
+            w_descr = search_dict_w.get(method_name, None)
+        else:
+            # built-in types: expose as many slots as possible, even
+            # if it happens to come from some parent class
+            w_descr = w_type.lookup(method_name)
+
         if w_descr is None:
             # XXX special case iternext
             continue
