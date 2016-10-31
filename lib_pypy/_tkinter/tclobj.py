@@ -160,7 +160,7 @@ def AsObj(value):
         encoded = value.encode('utf-16')[2:]
         buf = tkffi.new("char[]", encoded)
         inbuf = tkffi.cast("Tcl_UniChar*", buf)
-        return tklib.Tcl_NewUnicodeObj(inbuf, len(encoded)/2)
+        return tklib.Tcl_NewUnicodeObj(inbuf, len(encoded)//2)
     if isinstance(value, Tcl_Obj):
         tklib.Tcl_IncrRefCount(value._value)
         return value._value
