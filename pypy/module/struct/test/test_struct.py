@@ -394,6 +394,13 @@ class AppTestStruct(object):
         exc = raises(self.struct.error, self.struct.unpack_from, "ii", memoryview(b''))
         assert str(exc.value) == "unpack_from requires a buffer of at least 8 bytes"
 
+    def test_iter_unpack(self):
+        import array
+        b = array.array('b', b'\0' * 16)
+        s = self.struct.Struct('ii')
+        it = s.iter_unpack(b)
+        assert list(it) == [(0, 0), (0, 0)]
+
     def test___float__(self):
         class MyFloat(object):
             def __init__(self, x):

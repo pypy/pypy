@@ -108,6 +108,40 @@ def unpack_from(space, format, w_buffer, offset=0):
     return _unpack(space, format, buf)
 
 
+class W_UnpackIter(W_Root):
+    def __init__(self, w_struct, buf):
+        self.w_struct = w_struct
+        self.buf = buf
+        self.index = 0
+
+    def descr_iter(self, space):
+        return self
+
+    def descr_next(self, space):
+        if self.w_struct is None:
+            raise OperationError(space.w_StopIteration, space.w_None)
+        if self.index >= self.buf.getlength():
+            raise OperationError(space.w_StopIteration, space.w_None)
+        size = self.w_struct.size
+        buf = SubBuffer(self.buf, self.index, size)
+        w_res = _unpack(space, self.w_struct.format, buf)
+        self.index += size
+        return w_res
+
+def new_unpackiter(space, w_subtype, w_struct, w_buffer):
+    buf = space.buffer_w(w_buffer, space.BUF_SIMPLE)
+    w_res = space.allocate_instance(W_UnpackIter, w_subtype)
+    w_res.__init__(w_struct, buf)
+    return w_res
+
+W_UnpackIter.typedef = TypeDef("unpack_iterator",
+    __new__=interp2app(new_unpackiter),
+    __iter__=interp2app(W_UnpackIter.descr_iter),
+    __next__=interp2app(W_UnpackIter.descr_next),
+    #__length_hint__=
+)
+
+
 class W_Struct(W_Root):
     _immutable_fields_ = ["format", "size"]
 
@@ -135,6 +169,10 @@ class W_Struct(W_Root):
     def descr_unpack_from(self, space, w_buffer, offset=0):
         return unpack_from(space, jit.promote_string(self.format), w_buffer, offset)
 
+    def descr_iter_unpack(self, space, w_buffer):
+        buf = space.buffer_w(w_buffer, space.BUF_SIMPLE)
+        return W_UnpackIter(self, buf)
+
 W_Struct.typedef = TypeDef("Struct",
     __new__=interp2app(W_Struct.descr__new__.im_func),
     format=interp_attrproperty_bytes("format", cls=W_Struct),
@@ -144,6 +182,7 @@ W_Struct.typedef = TypeDef("Struct",
     unpack=interp2app(W_Struct.descr_unpack),
     pack_into=interp2app(W_Struct.descr_pack_into),
     unpack_from=interp2app(W_Struct.descr_unpack_from),
+    iter_unpack=interp2app(W_Struct.descr_iter_unpack),
 )
 
 def clearcache(space):
