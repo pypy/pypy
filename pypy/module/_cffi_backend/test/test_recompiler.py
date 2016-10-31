@@ -408,11 +408,14 @@ class AppTestRecompiler:
             'test_misdeclared_field_1',
             "struct foo_s { int a[6]; };")
         assert ffi.sizeof("struct foo_s") == 24  # found by the actual C code
-        p = ffi.new("struct foo_s *")
-        # lazily build the fields and boom:
-        e = raises(ffi.error, getattr, p, "a")
-        assert str(e.value).startswith("struct foo_s: wrong size for field 'a' "
-                                       "(cdef says 20, but C compiler says 24)")
+        try:
+            # lazily build the fields and boom:
+            p = ffi.new("struct foo_s *")
+            p.a
+            assert False, "should have raised"
+        except ffi.error as e:
+            assert str(e).startswith("struct foo_s: wrong size for field 'a' "
+                                     "(cdef says 20, but C compiler says 24)")
 
     def test_open_array_in_struct(self):
         ffi, lib = self.prepare(
@@ -420,8 +423,10 @@ class AppTestRecompiler:
             'test_open_array_in_struct',
             "struct foo_s { int b; int a[]; };")
         assert ffi.sizeof("struct foo_s") == 4
-        p = ffi.new("struct foo_s *", [5, [10, 20, 30]])
+        p = ffi.new("struct foo_s *", [5, [10, 20, 30, 40]])
         assert p.a[2] == 30
+        assert ffi.sizeof(p) == ffi.sizeof("void *")
+        assert ffi.sizeof(p[0]) == 5 * ffi.sizeof("int")
 
     def test_math_sin_type(self):
         ffi, lib = self.prepare(
@@ -954,12 +959,25 @@ class AppTestRecompiler:
             "struct foo_s { int x; int a[5][8]; int y; };")
         assert ffi.sizeof('struct foo_s') == 42 * ffi.sizeof('int')
         s = ffi.new("struct foo_s *")
+        assert ffi.typeof(s.a) == ffi.typeof("int[5][8]")
         assert ffi.sizeof(s.a) == 40 * ffi.sizeof('int')
         assert s.a[4][7] == 0
         raises(IndexError, 's.a[4][8]')
         raises(IndexError, 's.a[5][0]')
         assert ffi.typeof(s.a) == ffi.typeof("int[5][8]")
         assert ffi.typeof(s.a[0]) == ffi.typeof("int[8]")
+
+    def test_struct_array_guess_length_3(self):
+        ffi, lib = self.prepare(
+            "struct foo_s { int a[][...]; };",
+            'test_struct_array_guess_length_3',
+            "struct foo_s { int x; int a[5][7]; int y; };")
+        assert ffi.sizeof('struct foo_s') == 37 * ffi.sizeof('int')
+        s = ffi.new("struct foo_s *")
+        assert ffi.typeof(s.a) == ffi.typeof("int[][7]")
+        assert s.a[4][6] == 0
+        raises(IndexError, 's.a[4][7]')
+        assert ffi.typeof(s.a[0]) == ffi.typeof("int[7]")
 
     def test_global_var_array_2(self):
         ffi, lib = self.prepare(
