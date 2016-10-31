@@ -3161,17 +3161,19 @@ def test_struct_array_no_length():
     assert d[1][0] == 'y'
     assert d[1][1].type is BArray
     assert d[1][1].offset == size_of_int()
-    assert d[1][1].bitshift == -1
+    assert d[1][1].bitshift == -2
     assert d[1][1].bitsize == -1
     #
     p = newp(new_pointer_type(BStruct))
     p.x = 42
     assert p.x == 42
-    assert typeof(p.y) is BIntP
+    assert typeof(p.y) is BArray
+    assert len(p.y) == 0
     assert p.y == cast(BIntP, p) + 1
     #
     p = newp(new_pointer_type(BStruct), [100])
     assert p.x == 100
+    assert len(p.y) == 0
     #
     # Tests for
     #    ffi.new("struct_with_var_array *", [field.., [the_array_items..]])
@@ -3186,6 +3188,10 @@ def test_struct_array_no_length():
             p.y[0] = 200
             assert p.y[2] == 0
             p.y[2] = 400
+        assert len(p.y) == 3
+        assert len(p[0].y) == 3
+        assert len(buffer(p)) == sizeof(BInt) * 4
+        assert sizeof(p[0]) == sizeof(BInt) * 4
         plist.append(p)
     for i in range(20):
         p = plist[i]
@@ -3193,13 +3199,31 @@ def test_struct_array_no_length():
         assert p.y[0] == 200
         assert p.y[1] == i
         assert p.y[2] == 400
-        assert list(p.y[0:3]) == [200, i, 400]
+        assert list(p.y) == [200, i, 400]
     #
     # the following assignment works, as it normally would, for any array field
-    p.y = [500, 600]
-    assert list(p.y[0:3]) == [500, 600, 400]
+    p.y = [501, 601]
+    assert list(p.y) == [501, 601, 400]
+    p[0].y = [500, 600]
+    assert list(p[0].y) == [500, 600, 400]
+    assert repr(p) == "<cdata 'foo *' owning %d bytes>" % (
+        sizeof(BStruct) + 3 * sizeof(BInt),)
+    assert repr(p[0]) == "<cdata 'foo' owning %d bytes>" % (
+        sizeof(BStruct) + 3 * sizeof(BInt),)
+    assert sizeof(p[0]) == sizeof(BStruct) + 3 * sizeof(BInt)
+    #
+    # from a non-owning pointer, we can't get the length
+    q = cast(new_pointer_type(BStruct), p)
+    assert q.y[0] == 500
+    assert q[0].y[0] == 500
+    py.test.raises(TypeError, len, q.y)
+    py.test.raises(TypeError, len, q[0].y)
+    assert typeof(q.y) is BIntP
+    assert typeof(q[0].y) is BIntP
+    assert sizeof(q[0]) == sizeof(BStruct)
     #
     # error cases
+    py.test.raises(IndexError, "p.y[4]")
     py.test.raises(TypeError, "p.y = cast(BIntP, 0)")
     py.test.raises(TypeError, "p.y = 15")
     py.test.raises(TypeError, "p.y = None")
@@ -3263,6 +3287,33 @@ def test_struct_array_no_length_explicit_position():
         assert p.x[4] == 50
         assert p.x[5] == 60
         assert p.x[6] == 70
+
+def test_struct_array_not_aligned():
+    # struct a { int x; char y; char z[]; };
+    # ends up of size 8, but 'z' is at offset 5
+    BChar = new_primitive_type("char")
+    BInt = new_primitive_type("int")
+    BCharP = new_pointer_type(BChar)
+    BArray = new_array_type(BCharP, None)
+    BStruct = new_struct_type("foo")
+    complete_struct_or_union(BStruct, [('x', BInt),
+                                       ('y', BChar),
+                                       ('z', BArray)])
+    assert sizeof(BStruct) == 2 * size_of_int()
+    def offsetof(BType, fieldname):
+        return typeoffsetof(BType, fieldname)[1]
+    base = offsetof(BStruct, 'z')
+    assert base == size_of_int() + 1
+    #
+    p = newp(new_pointer_type(BStruct), {'z': 3})
+    assert sizeof(p[0]) == base + 3
+    q = newp(new_pointer_type(BStruct), {'z': size_of_int()})
+    assert sizeof(q) == size_of_ptr()
+    assert sizeof(q[0]) == base + size_of_int()
+    assert len(p.z) == 3
+    assert len(p[0].z) == 3
+    assert len(q.z) == size_of_int()
+    assert len(q[0].z) == size_of_int()
 
 def test_ass_slice():
     BChar = new_primitive_type("char")

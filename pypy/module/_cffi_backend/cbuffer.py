@@ -3,6 +3,7 @@ from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.module._cffi_backend import cdataobj, ctypeptr, ctypearray
+from pypy.module._cffi_backend import ctypestruct
 
 from rpython.rlib.buffer import Buffer
 from rpython.rtyper.annlowlevel import llstr
@@ -89,7 +90,12 @@ def buffer(space, w_cdata, size=-1):
     ctype = w_cdata.ctype
     if isinstance(ctype, ctypeptr.W_CTypePointer):
         if size < 0:
-            size = ctype.ctitem.size
+            structobj = w_cdata.get_structobj()
+            if (structobj is not None and
+                isinstance(structobj.ctype, ctypestruct.W_CTypeStructOrUnion)):
+                size = structobj._sizeof()
+            if size < 0:
+                size = ctype.ctitem.size
     elif isinstance(ctype, ctypearray.W_CTypeArray):
         if size < 0:
             size = w_cdata._sizeof()

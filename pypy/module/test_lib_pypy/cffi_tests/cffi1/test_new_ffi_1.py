@@ -1634,10 +1634,19 @@ class TestNewFFI1:
         # struct array_no_length { int x; int a[]; };
         p = ffi.new("struct array_no_length *", [100, [200, 300, 400]])
         assert p.x == 100
-        assert ffi.typeof(p.a) is ffi.typeof("int *")   # no length available
+        assert ffi.typeof(p.a) is ffi.typeof("int[]")   # length available
         assert p.a[0] == 200
         assert p.a[1] == 300
         assert p.a[2] == 400
+        assert len(p.a) == 3
+        assert list(p.a) == [200, 300, 400]
+        q = ffi.cast("struct array_no_length *", p)
+        assert ffi.typeof(q.a) is ffi.typeof("int *")   # no length available
+        assert q.a[0] == 200
+        assert q.a[1] == 300
+        assert q.a[2] == 400
+        py.test.raises(TypeError, len, q.a)
+        py.test.raises(TypeError, list, q.a)
 
     def test_from_buffer(self):
         import array
