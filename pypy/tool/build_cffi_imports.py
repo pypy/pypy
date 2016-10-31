@@ -17,7 +17,7 @@ cffi_build_scripts = {
     "resource": "_resource_build.py" if sys.platform != "win32" else None,
     "lzma": "_lzma_build.py",
     "_decimal": "_decimal_build.py",
-    "ssl": "ssl_build.py",
+    "ssl": "_ssl_build.py",
     "xx": None,    # for testing: 'None' should be completely ignored
     }
 
