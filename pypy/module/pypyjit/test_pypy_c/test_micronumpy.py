@@ -3,6 +3,18 @@ import sys
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 from rpython.rlib.rawstorage import misaligned_is_fine
 
+def no_vector_backend():
+    import platform
+    if platform.machine().startswith('x86'):
+        from rpython.jit.backend.x86.detect_feature import detect_sse4_2
+        return not detect_sse4_2()
+    if platform.machine().startswith('ppc'):
+        from rpython.jit.backend.ppc.detect_feature import detect_vsx
+        return not detect_vsx()
+    if platform.machine() == "s390x":
+        from rpython.jit.backend.zarch.detect_feature import detect_simd_z
+        return not detect_simd_z()
+    return True
 
 class TestMicroNumPy(BaseTestPyPyC):
 
@@ -36,6 +48,7 @@ class TestMicroNumPy(BaseTestPyPyC):
                 type_permuated.append(t)
 
     @py.test.mark.parametrize("op,adtype,bdtype,result,count,a,b", type_permuated)
+    @py.test.mark.skipif('no_vector_backend()')
     def test_vector_call2(self, op, adtype, bdtype, result, count, a, b):
         source = """
         def main():
@@ -83,6 +96,7 @@ class TestMicroNumPy(BaseTestPyPyC):
             type_permuated.append(t)
 
     @py.test.mark.parametrize("op,dtype,result,count,a", type_permuated)
+    @py.test.mark.skipif('no_vector_backend()')
     def test_reduce_generic(self,op,dtype,result,count,a):
         source = """
         def main():
