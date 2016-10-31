@@ -291,6 +291,9 @@ class FakeObjSpace(ObjSpace):
     def type(self, w_obj):
         return w_some_type()
 
+    def lookup_in_type_where(self, w_type, key):
+        return w_some_obj(), w_some_obj()
+
     def issubtype_w(self, w_sub, w_type):
         is_root(w_sub)
         is_root(w_type)
