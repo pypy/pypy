@@ -431,9 +431,9 @@ class AppTestStruct(object):
     def test_overflow(self):
         raises(self.struct.error, self.struct.pack, 'i', 1<<65)
 
-    def test_unpack_unsigned(self):
+    def test_unpack_fits_into_int(self):
         import sys
-        for fmt in 'ILQ':
+        for fmt in 'ILQq':
             # check that we return an int, if it fits
             buf = self.struct.pack(fmt, 42)
             val, = self.struct.unpack(fmt, buf)
