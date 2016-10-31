@@ -41,14 +41,6 @@ def PyBuffer_FillContiguousStrides(space, ndim, shape, strides, itemsize, fortra
     given shape with the given number of bytes per element."""
     raise NotImplementedError
 
-@cpython_api([Py_buffer], PyObject)
-def PyMemoryView_FromBuffer(space, view):
-    """Create a memoryview object wrapping the given buffer-info structure view.
-    The memoryview object then owns the buffer, which means you shouldn't
-    try to release it yourself: it will be released on deallocation of the
-    memoryview object."""
-    raise NotImplementedError
-
 @cpython_api([PyObject, rffi.INT_real, lltype.Char], PyObject)
 def PyMemoryView_GetContiguous(space, obj, buffertype, order):
     """Create a memoryview object to a contiguous chunk of memory (in either

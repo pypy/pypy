@@ -397,3 +397,13 @@ debugging an annoying PyPy problem usually involves quite a lot of gdb
 in auto-generated C code, and at least some knowledge about the
 various components involved, from PyPy's own RPython source code to
 the GC and possibly the JIT.
+
+
+Why doesn't PyPy move to GitHub, Gitlab, ...?
+----------------------------------------------
+
+We've been quite happy with bitbucket.org. Moving version control systems and
+hosting is a lot of hard work: On the one hand, PyPy's mercurial history is
+long and gnarly. On the other hand, all our infrastructure (buildbots,
+benchmarking, etc) would have to be adapted. So unless somebody steps up and
+volunteers to do all that work, it will likely not happen.

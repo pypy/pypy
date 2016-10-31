@@ -612,3 +612,15 @@ def test_sync():
 def test_cpu_count():
     cc = rposix.cpu_count()
     assert cc >= 1
+
+@rposix_requires('set_status_flags')
+def test_set_status_flags():
+    fd1, fd2 = os.pipe()
+    try:
+        flags = rposix.get_status_flags(fd1)
+        assert flags & rposix.O_NONBLOCK == 0
+        rposix.set_status_flags(fd1, flags | rposix.O_NONBLOCK)
+        assert rposix.get_status_flags(fd1) & rposix.O_NONBLOCK != 0
+    finally:
+        os.close(fd1)
+        os.close(fd2)
