@@ -1132,6 +1132,15 @@ class TestCompiler:
         """
         py.test.raises(SyntaxError, self.simple_test, source, None, None)
 
+    def test_error_message_1(self):
+        source = """if 1:
+        async def f():
+            {await a for a in b}
+        """
+        e = py.test.raises(SyntaxError, self.simple_test, source, None, None)
+        assert e.value.msg == (
+            "'await' expressions in comprehensions are not supported")
+
 
 class AppTestCompiler:
 

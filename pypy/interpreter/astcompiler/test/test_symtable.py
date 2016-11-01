@@ -44,7 +44,7 @@ class TestSymbolTable:
         gen_scope = mod_scope.children[0]
         assert isinstance(gen_scope, symtable.FunctionScope)
         assert not gen_scope.children
-        assert gen_scope.name == "genexp"
+        assert gen_scope.name == "<genexpr>"
         return mod_scope, gen_scope
 
     def check_unknown(self, scp, *names):
@@ -251,7 +251,7 @@ class TestSymbolTable:
         assert len(scp.children) == 1
         lscp = scp.children[0]
         assert isinstance(lscp, symtable.FunctionScope)
-        assert lscp.name == "lambda"
+        assert lscp.name == "<lambda>"
         assert lscp.lookup("x") == symtable.SCOPE_LOCAL
         assert lscp.lookup("y") == symtable.SCOPE_GLOBAL_IMPLICIT
         scp = self.mod_scope("lambda x=a: b")
