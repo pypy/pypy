@@ -728,6 +728,7 @@ def newbytesdata_w(space, w_source, encoding, errors):
     # Unicode with encoding
     if space.isinstance_w(w_source, space.w_unicode):
         if encoding is None:
+            raise RuntimeError
             raise oefmt(space.w_TypeError,
                         "string argument without an encoding")
         from pypy.objspace.std.unicodeobject import encode_object
