@@ -50,7 +50,7 @@ class AppTestCodecs:
                     ]
         for s in insecure:
             buf = b"S" + s + b"\012p0\012."
-            raises (ValueError, pickle.loads, buf)
+            raises ((ValueError, pickle.UnpicklingError), pickle.loads, buf)
 
     def test_unicodedecodeerror(self):
         assert str(UnicodeDecodeError(
@@ -112,7 +112,7 @@ class AppTestCodecs:
         assert charmap_decode(b'xxx\xff', 'strict', map) == ('xxx\xff', 4)
 
         exc = raises(TypeError, charmap_decode, b'\xff', "strict",  {0xff: b'a'})
-        assert str(exc.value) == "character mapping must return integer, None or unicode"
+        assert str(exc.value) == "character mapping must return integer, None or str"
         raises(TypeError, charmap_decode, b'\xff', "strict",  {0xff: 0x110000})
         assert (charmap_decode(b"\x00\x01\x02", "strict",
                                {0: 0x10FFFF, 1: ord('b'), 2: ord('c')}) ==
@@ -561,8 +561,13 @@ class AppTestPartialEvaluation:
         assert b'\xff'.decode('utf-7', 'ignore') == ''
         assert b'\x00'.decode('unicode-internal', 'ignore') == ''
 
-    def test_backslahreplace(self):
+    def test_backslashreplace(self):
         assert 'a\xac\u1234\u20ac\u8000'.encode('ascii', 'backslashreplace') == b'a\\xac\u1234\u20ac\u8000'
+
+    def test_namereplace(self):
+        assert 'a\xac\u1234\u20ac\u8000'.encode('ascii', 'namereplace') == (
+            b'a\\N{NOT SIGN}\\N{ETHIOPIC SYLLABLE SEE}\\N{EURO SIGN}'
+            b'\\N{CJK UNIFIED IDEOGRAPH-8000}')
 
     def test_surrogateescape(self):
         assert b'a\x80b'.decode('utf-8', 'surrogateescape') == 'a\udc80b'
@@ -682,7 +687,7 @@ class AppTestPartialEvaluation:
         exc = raises(TypeError, codecs.charmap_encode, u'\xff', "replace",  {0xff: 300})
         assert str(exc.value) == 'character mapping must be in range(256)'
         exc = raises(TypeError, codecs.charmap_encode, u'\xff', "replace",  {0xff: u'a'})
-        assert str(exc.value) == 'character mapping must return integer, None or str'
+        assert str(exc.value) == 'character mapping must return integer, bytes or None, not str'
         raises(UnicodeError, codecs.charmap_encode, u"\xff", "replace", {0xff: None})
 
     def test_charmap_encode_replace(self):
