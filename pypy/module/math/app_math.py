@@ -1,4 +1,5 @@
 import sys
+from _operator import index
 
 def factorial(x):
     """factorial(x) -> Integral
@@ -45,8 +46,8 @@ def factorial(x):
 
 def gcd(x, y):
     """greatest common divisor of x and y"""
-    x = abs(x)
-    y = abs(y)
+    x = abs(index(x))
+    y = abs(index(y))
     while x > 0:
         x, y = y % x, x
     return y

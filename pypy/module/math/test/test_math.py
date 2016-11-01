@@ -369,6 +369,7 @@ class AppTestMath:
         assert math.gcd(-4, -10) == 2
         assert math.gcd(0, -10) == 10
         assert math.gcd(0, 0) == 0
+        raises(TypeError, math.gcd, 0, 0.0)
 
     def test_inf_nan(self):
         import math
