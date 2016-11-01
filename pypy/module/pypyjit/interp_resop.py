@@ -39,10 +39,10 @@ def wrap_greenkey(space, jitdriver, greenkey, greenkey_repr):
         ll_code = lltype.cast_opaque_ptr(lltype.Ptr(OBJECT),
                                          greenkey[2].getref_base())
         pycode = cast_base_ptr_to_instance(PyCode, ll_code)
-        return space.newtuple([space.wrap(pycode), space.wrap(next_instr),
+        return space.newtuple([pycode, space.newint(next_instr),
                                space.newbool(bool(is_being_profiled))])
     else:
-        return space.wrap(greenkey_repr)
+        return space.newtext(greenkey_repr)
 
 @unwrap_spec(operations=bool)
 def set_compile_hook(space, w_hook, operations=True):
@@ -152,10 +152,10 @@ class WrappedOp(W_Root):
         self.repr_of_resop = repr_of_resop
 
     def descr_repr(self, space):
-        return space.wrap(self.repr_of_resop)
+        return space.newtext(self.repr_of_resop)
 
     def descr_name(self, space):
-        return space.wrap(self.name)
+        return space.newtext(self.name)
 
 class GuardOp(WrappedOp):
     def __init__(self, name, offset, repr_of_resop, hash):
@@ -178,20 +178,20 @@ class DebugMergePoint(WrappedOp):
 
     def get_pycode(self, space):
         if self.jd_name == pypyjitdriver.name:
-            return space.getitem(self.w_greenkey, space.wrap(0))
+            return space.getitem(self.w_greenkey, space.newint(0))
         raise oefmt(space.w_AttributeError,
                     "This DebugMergePoint doesn't belong to the main Python "
                     "JitDriver")
 
     def get_bytecode_no(self, space):
         if self.jd_name == pypyjitdriver.name:
-            return space.getitem(self.w_greenkey, space.wrap(1))
+            return space.getitem(self.w_greenkey, space.newint(1))
         raise oefmt(space.w_AttributeError,
                     "This DebugMergePoint doesn't belong to the main Python "
                     "JitDriver")
 
     def get_jitdriver_name(self, space):
-        return space.wrap(self.jd_name)
+        return space.newtext(self.jd_name)
 
 WrappedOp.typedef = TypeDef(
     'ResOperation',
@@ -281,12 +281,12 @@ class W_JitLoopInfo(W_Root):
             code_repr = 'bridge no %d' % self.bridge_no
         else:
             code_repr = space.str_w(space.repr(self.w_green_key))
-        return space.wrap('<JitLoopInfo %s, %d operations, starting at <%s>>' %
-                          (self.jd_name, lgt, code_repr))
+        return space.newtext('<JitLoopInfo %s, %d operations, starting at <%s>>' %
+                             (self.jd_name, lgt, code_repr))
 
     def descr_get_bridge_no(self, space):
         if space.is_none(self.w_green_key):
-            return space.wrap(self.bridge_no)
+            return space.newint(self.bridge_no)
         raise oefmt(space.w_TypeError, "not a bridge")
 
 
@@ -374,15 +374,14 @@ def get_stats_snapshot(space):
     space.setitem_str(w_counter_times, 'TRACING', space.wrap(tr_time))
     b_time = jit_hooks.stats_get_times_value(None, Counters.BACKEND)
     space.setitem_str(w_counter_times, 'BACKEND', space.wrap(b_time))
-    return space.wrap(W_JitInfoSnapshot(space, w_times, w_counters,
-                                        w_counter_times))
+    return W_JitInfoSnapshot(space, w_times, w_counters, w_counter_times)
 
 def get_stats_asmmemmgr(space):
     """Returns the raw memory currently used by the JIT backend,
     as a pair (total_memory_allocated, memory_in_use)."""
     m1 = jit_hooks.stats_asmmemmgr_allocated(None)
     m2 = jit_hooks.stats_asmmemmgr_used(None)
-    return space.newtuple([space.wrap(m1), space.wrap(m2)])
+    return space.newtuple([space.newint(m1), space.newint(m2)])
 
 def enable_debug(space):
     """ Set the jit debugging - completely necessary for some stats to work,

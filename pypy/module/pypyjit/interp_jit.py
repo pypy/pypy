@@ -213,7 +213,7 @@ W_NotFromAssembler.typedef.acceptable_as_base_class = False
 @dont_look_inside
 def get_jitcell_at_key(space, next_instr, is_being_profiled, w_pycode):
     ll_pycode = cast_instance_to_gcref(w_pycode)
-    return space.wrap(bool(jit_hooks.get_jitcell_at_key(
+    return space.newbool(bool(jit_hooks.get_jitcell_at_key(
         'pypyjit', r_uint(next_instr), int(is_being_profiled), ll_pycode)))
 
 @unwrap_spec(next_instr=int, is_being_profiled=bool, w_pycode=PyCode)
@@ -269,7 +269,7 @@ def trace_next_iteration_hash(space, hash):
 #             return
 #         for i, op in enumerate(debug_info.operations):
 #             if op.is_guard():
-#                 w_t = space.newtuple([space.wrap(i), space.wrap(op.getopnum()), space.wrap(op.getdescr().get_jitcounter_hash())])
+#                 w_t = space.newtuple([space.newint(i), space.newint(op.getopnum()), space.newint(op.getdescr().get_jitcounter_hash())])
 #                 l_w.append(w_t)
 #         try:
 #             cache.in_recursion = True
@@ -287,7 +287,7 @@ def trace_next_iteration_hash(space, hash):
 #             return
 #         if not space.is_true(cache.w_compile_bridge):
 #             return
-#         w_hash = space.wrap(debug_info.fail_descr.get_jitcounter_hash())
+#         w_hash = space.newint(debug_info.fail_descr.get_jitcounter_hash())
 #         try:
 #             cache.in_recursion = True
 #             try:

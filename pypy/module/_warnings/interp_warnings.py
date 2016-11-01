@@ -3,14 +3,14 @@ from pypy.interpreter.error import OperationError, oefmt
 
 def create_filter(space, w_category, action):
     return space.newtuple([
-        space.wrap(action), space.w_None, w_category,
-        space.w_None, space.wrap(0)])
+        space.newtext(action), space.w_None, w_category,
+        space.w_None, space.newint(0)])
 
 class State:
     def __init__(self, space):
         self.init_filters(space)
         self.w_once_registry = space.newdict()
-        self.w_default_action = space.wrap("default")
+        self.w_default_action = space.newtext("default")
 
     def init_filters(self, space):
         filters_w = []
@@ -40,14 +40,14 @@ class State:
 def get_warnings_attr(space, name):
     try:
         w_module = space.getitem(space.sys.get('modules'),
-                                 space.wrap('warnings'))
+                                 space.newtext('warnings'))
     except OperationError as e:
         if not e.match(space, space.w_KeyError):
             raise
         return None
 
     try:
-        return space.getattr(w_module, space.wrap(name))
+        return space.getattr(w_module, space.newtext(name))
     except OperationError as e:
         if not e.match(space, space.w_AttributeError):
             raise
@@ -83,43 +83,43 @@ def setup_context(space, stacklevel):
 
     # setup registry
     try:
-        w_registry = space.getitem(w_globals, space.wrap("__warningregistry__"))
+        w_registry = space.getitem(w_globals, space.newtext("__warningregistry__"))
     except OperationError as e:
         if not e.match(space, space.w_KeyError):
             raise
         w_registry = space.newdict()
-        space.setitem(w_globals, space.wrap("__warningregistry__"), w_registry)
+        space.setitem(w_globals, space.newtext("__warningregistry__"), w_registry)
 
     # setup module
     try:
-        w_module = space.getitem(w_globals, space.wrap("__name__"))
+        w_module = space.getitem(w_globals, space.newtext("__name__"))
     except OperationError as e:
         if not e.match(space, space.w_KeyError):
             raise
-        w_module = space.wrap("<string>")
+        w_module = space.newtext("<string>")
 
     # setup filename
     try:
-        w_filename = space.getitem(w_globals, space.wrap("__file__"))
+        w_filename = space.getitem(w_globals, space.newtext("__file__"))
         filename = space.str_w(w_filename)
     except OperationError as e:
         if space.str_w(w_module) == '__main__':
             w_argv = space.sys.getdictvalue(space, 'argv')
             if w_argv and space.len_w(w_argv) > 0:
-                w_filename = space.getitem(w_argv, space.wrap(0))
+                w_filename = space.getitem(w_argv, space.newint(0))
                 if not space.is_true(w_filename):
-                    w_filename = space.wrap('__main__')
+                    w_filename = space.newtext('__main__')
             else:
                 # embedded interpreters don't have sys.argv
-                w_filename = space.wrap('__main__')
+                w_filename = space.newtext('__main__')
         else:
             w_filename = w_module
     else:
         lc_filename = filename.lower()
-        if (lc_filename.endswith(".pyc") or 
+        if (lc_filename.endswith(".pyc") or
             lc_filename.endswith(".pyo")):
             # strip last character
-            w_filename = space.wrap(filename[:-1])
+            w_filename = space.newtext(filename[:-1])
 
     return (w_filename, lineno, w_module, w_registry)
 
@@ -186,24 +186,24 @@ def already_warned(space, w_registry, w_key, should_set=False):
 
 def normalize_module(space, w_filename):
     if not space.is_true(w_filename):
-        return space.wrap("<unknown>")
+        return space.newtext("<unknown>")
 
     filename = space.str_w(w_filename)
     if filename.endswith(".py"):
         n = len(filename) - 3
         assert n >= 0
         filename = filename[:n]
-    return space.wrap(filename)
+    return space.newtext(filename)
 
 def show_warning(space, w_filename, lineno, w_text, w_category,
                  w_sourceline=None):
-    w_name = space.getattr(w_category, space.wrap("__name__"))
+    w_name = space.getattr(w_category, space.newtext("__name__"))
     w_stderr = space.sys.get("stderr")
 
     # Print "filename:lineno: category: text\n"
     message = "%s:%d: %s: %s\n" % (space.str_w(w_filename), lineno,
                                    space.str_w(w_name), space.str_w(w_text))
-    space.call_method(w_stderr, "write", space.wrap(message))
+    space.call_method(w_stderr, "write", space.newtext(message))
 
     # Print "  source_line\n"
     if not w_sourceline:
@@ -211,9 +211,9 @@ def show_warning(space, w_filename, lineno, w_text, w_category,
             # sourceline = linecache.getline(filename, lineno).strip()
             w_builtins = space.getbuiltinmodule('__builtin__')
             w_linecachemodule = space.call_method(w_builtins, '__import__',
-                                                  space.wrap("linecache"))
+                                                  space.newtext("linecache"))
             w_sourceline = space.call_method(w_linecachemodule, "getline",
-                                             w_filename, space.wrap(lineno))
+                                             w_filename, space.newint(lineno))
             w_sourceline = space.call_method(w_sourceline, "strip")
         except OperationError:
             w_sourceline = None
@@ -230,7 +230,7 @@ def show_warning(space, w_filename, lineno, w_text, w_category,
         if c not in ' \t\014':
             message = "  %s\n" % (line[i:],)
             break
-    space.call_method(w_stderr, "write", space.wrap(message))
+    space.call_method(w_stderr, "write", space.newtext(message))
 
 def do_warn(space, w_message, w_category, stacklevel):
     context_w = setup_context(space, stacklevel)
@@ -256,7 +256,7 @@ def do_warn_explicit(space, w_category, w_message, context_w,
         w_text = w_message
         w_message = space.call_function(w_category, w_message)
 
-    w_lineno = space.wrap(lineno)
+    w_lineno = space.newint(lineno)
 
     # create key
     w_key = space.newtuple([w_text, w_category, w_lineno])
@@ -318,8 +318,8 @@ def get_source_line(space, w_globals, lineno):
 
     # Check/get the requisite pieces needed for the loader.
     try:
-        w_loader = space.getitem(w_globals, space.wrap("__loader__"))
-        w_module_name = space.getitem(w_globals, space.wrap("__name__"))
+        w_loader = space.getitem(w_globals, space.newtext("__loader__"))
+        w_module_name = space.getitem(w_globals, space.newtext("__name__"))
     except OperationError as e:
         if not e.match(space, space.w_KeyError):
             raise
@@ -327,7 +327,7 @@ def get_source_line(space, w_globals, lineno):
 
     # Make sure the loader implements the optional get_source() method.
     try:
-        w_get_source = space.getattr(w_loader, space.wrap("get_source"))
+        w_get_source = space.getattr(w_loader, space.newtext("get_source"))
     except OperationError as e:
         if not e.match(space, space.w_AttributeError):
             raise
@@ -342,7 +342,7 @@ def get_source_line(space, w_globals, lineno):
     w_source_list = space.call_method(w_source, "splitlines")
 
     # Get the source line.
-    w_source_line = space.getitem(w_source_list, space.wrap(lineno - 1))
+    w_source_line = space.getitem(w_source_list, space.newint(lineno - 1))
     return w_source_line
 
 @unwrap_spec(lineno=int, w_module = WrappedDefault(None),
