@@ -78,7 +78,7 @@ class PackFormatIterator(FormatIterator):
                 else:
                     msg = "integer argument expected, got non-integer" \
                           " (implicit conversion using __int__ is deprecated)"
-                space.warn(space.wrap(msg), space.w_DeprecationWarning)
+                space.warn(space.newtext(msg), space.w_DeprecationWarning)
                 w_index = space.int(w_obj)   # wrapped float -> wrapped int or long
             if w_index is None:
                 raise StructError("cannot convert argument to integer")
@@ -148,7 +148,7 @@ class UnpackFormatIterator(FormatIterator):
 
     @specialize.argtype(1)
     def appendobj(self, value):
-        self.result_w.append(self.space.wrap(value))
+        self.result_w.append(self.space.wrap(value)) # YYY
 
     def get_pos(self):
         return self.pos
