@@ -30,10 +30,7 @@ def slot_nb_add(space, w_obj1, w_obj2):
 
 @cpython_api([PyTypeObjectPtr, PyObject, PyObject], PyObject, header=None)
 def slot_tp_new(space, w_type, w_args, w_kwds):
-    _, w_descr = space.lookup_in_type_where(w_type, '__new__')
-    if w_descr is None:
-        raise oefmt(space.w_RuntimeError, "cpyext: '__new__' not found")
-    # w_descr is typically a StaticMethod
+    w_impl = space.getattr(w_type, space.wrap('__new__'))
     args = Arguments(space, [w_type],
                      w_stararg=w_args, w_starstararg=w_kwds)
-    return space.call_args(space.get(w_descr, w_type), args)
+    return space.call_args(w_impl, args)
