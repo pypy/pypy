@@ -188,3 +188,7 @@ class AppTest_ModuleObject:
         excinfo = raises(AttributeError, 'nameless.does_not_exist')
         assert (excinfo.value.args[0] ==
             "module has no attribute 'does_not_exist'")
+
+    def test_weakrefable(self):
+        import weakref
+        weakref.ref(weakref)
