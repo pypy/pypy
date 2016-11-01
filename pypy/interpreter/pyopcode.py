@@ -468,7 +468,7 @@ class __extend__(pyframe.PyFrame):
         return self.getcode().co_consts_w[index]
 
     def getname_u(self, index):
-        return self.space.str_w(self.getcode().co_names_w[index])
+        return self.space.text_w(self.getcode().co_names_w[index])
 
     def getname_w(self, index):
         return self.getcode().co_names_w[index]

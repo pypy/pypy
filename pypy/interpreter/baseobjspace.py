@@ -636,7 +636,7 @@ class ObjSpace(object):
         w_keys = self.call_method(w_dic, "keys")
         exc_types_w = {}
         for w_name in self.unpackiterable(w_keys):
-            name = self.str_w(w_name)
+            name = self.text_w(w_name)
             if not name.startswith('__'):
                 excname = name
                 w_exc = self.getitem(w_dic, w_name)
