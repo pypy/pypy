@@ -21,8 +21,8 @@ def descr_classobj_new(space, w_subtype, w_name, w_bases, w_dict):
     if not space.isinstance_w(w_dict, space.w_dict):
         raise_type_err(space, 'bases', 'tuple', w_bases)
 
-    if not space.contains_w(w_dict, space.wrap("__doc__")):
-        space.setitem(w_dict, space.wrap("__doc__"), space.w_None)
+    if not space.contains_w(w_dict, space.newtext("__doc__")):
+        space.setitem(w_dict, space.newtext("__doc__"), space.w_None)
 
     # XXX missing: lengthy and obscure logic about "__module__"
 
@@ -109,7 +109,7 @@ class W_ClassObject(W_Root):
             if name == "__dict__":
                 return self.w_dict
             elif name == "__name__":
-                return space.wrap(self.name)
+                return space.newtext(self.name)
             elif name == "__bases__":
                 return space.newtuple(self.bases_w)
         w_value = self.lookup(space, name)
@@ -138,7 +138,7 @@ class W_ClassObject(W_Root):
                 if not self.has_user_del(space):
                     msg = ("a __del__ method added to an existing class will "
                            "only be called on instances made from now on")
-                    space.warn(space.wrap(msg), space.w_RuntimeWarning)
+                    space.warn(space.newtext(msg), space.w_RuntimeWarning)
         space.setitem(self.w_dict, w_attr, w_value)
 
     def descr_delattr(self, space, w_attr):
@@ -161,9 +161,9 @@ class W_ClassObject(W_Root):
     def descr_str(self, space):
         mod = self.get_module_string(space)
         if mod == "?":
-            return space.wrap(self.name)
+            return space.newtext(self.name)
         else:
-            return space.wrap("%s.%s" % (mod, self.name))
+            return space.newtext("%s.%s" % (mod, self.name))
 
     def get_module_string(self, space):
         try:
@@ -338,7 +338,7 @@ class W_InstanceObject(W_Root):
         w_meth = self.getattr_from_class(space, '__getattr__')
         if w_meth is not None:
             try:
-                return space.call_function(w_meth, space.wrap(name))
+                return space.call_function(w_meth, space.newtext(name))
             except OperationError as e:
                 if not exc and e.match(space, space.w_AttributeError):
                     return None     # eat the AttributeError
@@ -375,7 +375,7 @@ class W_InstanceObject(W_Root):
                     and self.getdictvalue(space, '__del__') is None):
                     msg = ("a __del__ method added to an instance with no "
                            "__del__ in the class will not be called")
-                    space.warn(space.wrap(msg), space.w_RuntimeWarning)
+                    space.warn(space.newtext(msg), space.w_RuntimeWarning)
         if w_meth is not None:
             space.call_function(w_meth, w_name, w_value)
         else:
@@ -433,14 +433,14 @@ class W_InstanceObject(W_Root):
             if space.len_w(w_format_spec) > 0:
                 msg = ("object.__format__ with a non-empty format string is "
                        "deprecated")
-                space.warn(space.wrap(msg), space.w_PendingDeprecationWarning)
+                space.warn(space.newtext(msg), space.w_PendingDeprecationWarning)
             return space.format(w_as_str, w_format_spec)
 
     def descr_len(self, space):
         w_meth = self.getattr(space, '__len__')
         w_result = space.call_function(w_meth)
         if space.isinstance_w(w_result, space.w_int):
-            if space.is_true(space.lt(w_result, space.wrap(0))):
+            if space.is_true(space.lt(w_result, space.newint(0))):
                 raise oefmt(space.w_ValueError, "__len__() should return >= 0")
             return w_result
         raise oefmt(space.w_TypeError, "__len__() should return an int")
@@ -502,7 +502,7 @@ class W_InstanceObject(W_Root):
                 return space.w_True
         w_result = space.call_function(w_func)
         if space.isinstance_w(w_result, space.w_int):
-            if space.is_true(space.lt(w_result, space.wrap(0))):
+            if space.is_true(space.lt(w_result, space.newint(0))):
                 raise oefmt(space.w_ValueError,
                             "__nonzero__() should return >= 0")
             return w_result
@@ -527,10 +527,10 @@ class W_InstanceObject(W_Root):
                                     "__cmp__ must return int")
                     raise
                 if res > 0:
-                    return space.wrap(1)
+                    return space.newint(1)
                 if res < 0:
-                    return space.wrap(-1)
-                return space.wrap(0)
+                    return space.newint(-1)
+                return space.newint(0)
         if isinstance(w_b, W_InstanceObject):
             w_func = w_b.getattr(space, '__cmp__', False)
             if w_func is not None:
@@ -545,10 +545,10 @@ class W_InstanceObject(W_Root):
                                     "__cmp__ must return int")
                     raise
                 if res < 0:
-                    return space.wrap(1)
+                    return space.newint(1)
                 if res > 0:
-                    return space.wrap(-1)
-                return space.wrap(0)
+                    return space.newint(-1)
+                return space.newint(0)
         return space.w_NotImplemented
 
     def descr_hash(self, space):
@@ -559,7 +559,7 @@ class W_InstanceObject(W_Root):
             if w_eq is not None or w_cmp is not None:
                 raise oefmt(space.w_TypeError, "unhashable instance")
             else:
-                return space.wrap(compute_identity_hash(self))
+                return space.newint(compute_identity_hash(self))
         w_ret = space.call_function(w_func)
         if (not space.isinstance_w(w_ret, space.w_int) and
             not space.isinstance_w(w_ret, space.w_long)):
@@ -598,7 +598,7 @@ class W_InstanceObject(W_Root):
     def descr_contains(self, space, w_obj):
         w_func = self.getattr(space, '__contains__', False)
         if w_func is not None:
-            return space.wrap(space.is_true(space.call_function(w_func, w_obj)))
+            return space.newbool(space.is_true(space.call_function(w_func, w_obj)))
         # now do it ourselves
         w_iter = space.iter(self)
         while 1:

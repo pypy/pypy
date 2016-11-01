@@ -39,12 +39,11 @@ in addition to any features explicitly specified.
 
     if space.isinstance_w(w_source, space.gettypeobject(ast.W_AST.typedef)):
         ast_node = ast.mod.from_object(space, w_source)
-        code = ec.compiler.compile_ast(ast_node, filename, mode, flags)
-        return space.wrap(code)
+        return ec.compiler.compile_ast(ast_node, filename, mode, flags)
 
     if space.isinstance_w(w_source, space.w_unicode):
         w_utf_8_source = space.call_method(w_source, "encode",
-                                           space.wrap("utf-8"))
+                                           space.newtext("utf-8"))
         source = space.str_w(w_utf_8_source)
         # This flag tells the parser to reject any coding cookies it sees.
         flags |= consts.PyCF_SOURCE_IS_UTF8
@@ -60,8 +59,7 @@ in addition to any features explicitly specified.
         node = ec.compiler.compile_to_ast(source, filename, mode, flags)
         return node.to_object(space)
     else:
-        code = ec.compiler.compile(source, filename, mode, flags)
-        return space.wrap(code)
+        return ec.compiler.compile(source, filename, mode, flags)
 
 
 def eval(space, w_code, w_globals=None, w_locals=None):
@@ -75,7 +73,7 @@ If only globals is given, locals defaults to it.
         space.isinstance_w(w_code, space.w_unicode)):
         w_code = compile(space,
                          space.call_method(w_code, 'lstrip',
-                                           space.wrap(' \t')),
+                                           space.newtext(' \t')),
                          "<string>", "eval")
 
     if not isinstance(w_code, PyCode):
