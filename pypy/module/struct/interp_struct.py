@@ -128,6 +128,12 @@ class W_UnpackIter(W_Root):
         self.index += size
         return w_res
 
+    def descr_length_hint(self, space):
+        if self.w_struct is None:
+            return space.newint(0)
+        length = (self.buf.getlength() - self.index) // self.w_struct.size
+        return space.newint(length)
+
 
 class W_Struct(W_Root):
     _immutable_fields_ = ["format", "size"]
@@ -183,7 +189,7 @@ W_UnpackIter.typedef = TypeDef("unpack_iterator",
     __new__=interp2app(new_unpackiter),
     __iter__=interp2app(W_UnpackIter.descr_iter),
     __next__=interp2app(W_UnpackIter.descr_next),
-    #__length_hint__=
+    __length_hint__=interp2app(W_UnpackIter.descr_length_hint)
 )
 
 @unwrap_spec(format=str)

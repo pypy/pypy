@@ -399,6 +399,7 @@ class AppTestStruct(object):
         b = array.array('b', b'\0' * 16)
         s = self.struct.Struct('ii')
         it = s.iter_unpack(b)
+        assert it.__length_hint__() == 2
         assert list(it) == [(0, 0), (0, 0)]
         it = self.struct.iter_unpack('ii', b)
         assert list(it) == [(0, 0), (0, 0)]
