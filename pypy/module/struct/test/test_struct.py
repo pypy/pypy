@@ -400,6 +400,8 @@ class AppTestStruct(object):
         s = self.struct.Struct('ii')
         it = s.iter_unpack(b)
         assert list(it) == [(0, 0), (0, 0)]
+        it = self.struct.iter_unpack('ii', b)
+        assert list(it) == [(0, 0), (0, 0)]
 
     def test___float__(self):
         class MyFloat(object):

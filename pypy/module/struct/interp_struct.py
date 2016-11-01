@@ -186,5 +186,11 @@ W_UnpackIter.typedef = TypeDef("unpack_iterator",
     #__length_hint__=
 )
 
+@unwrap_spec(format=str)
+def iter_unpack(space, format, w_buffer):
+    w_struct = W_Struct(space, format)
+    buf = space.buffer_w(w_buffer, space.BUF_SIMPLE)
+    return W_UnpackIter(w_struct, buf)
+
 def clearcache(space):
     """No-op on PyPy"""
