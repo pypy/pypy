@@ -10,6 +10,8 @@ class State:
     def __init__(self, space):
         self.w_e = space.wrap(math.e)
         self.w_pi = space.wrap(math.pi)
+        self.w_inf = space.wrap(rfloat.INFINITY)
+        self.w_nan = space.wrap(rfloat.NAN)
 def get(space):
     return space.fromcache(State)
 
