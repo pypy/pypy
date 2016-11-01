@@ -1,10 +1,11 @@
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib.rstring import UnicodeBuilder
+from rpython.rlib.rstring import UnicodeBuilder, StringBuilder
 from rpython.rlib.runicode import code_to_unichr, MAXUNICODE
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
+from pypy.module.unicodedata import unicodedb
 
 
 class VersionTag(object):
@@ -295,6 +296,26 @@ def backslashreplace_errors(space, w_exc):
         raise oefmt(space.w_TypeError,
                     "don't know how to handle %T in error callback", w_exc)
 
+def namereplace_errors(space, w_exc):
+    check_exception(space, w_exc)
+    if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
+        obj = space.realunicode_w(space.getattr(w_exc, space.wrap('object')))
+        start = space.int_w(space.getattr(w_exc, space.wrap('start')))
+        w_end = space.getattr(w_exc, space.wrap('end'))
+        end = space.int_w(w_end)
+        builder = StringBuilder()
+        pos = start
+        while pos < end:
+            oc = ord(obj[pos])
+            builder.append('\\N{')
+            builder.append(unicodedb.name(oc))
+            builder.append('}')
+            pos += 1
+        return space.newtuple([space.newbytes(builder.build()), w_end])
+    else:
+        raise oefmt(space.w_TypeError,
+                    "don't know how to handle %T in error callback", w_exc)
+
 def surrogatepass_errors(space, w_exc):
     check_exception(space, w_exc)
     if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
@@ -382,7 +403,8 @@ def register_builtin_error_handlers(space):
     "NOT_RPYTHON"
     state = space.fromcache(CodecState)
     for error in ("strict", "ignore", "replace", "xmlcharrefreplace",
-                  "backslashreplace", "surrogateescape", "surrogatepass"):
+                  "backslashreplace", "surrogateescape", "surrogatepass",
+                  "namereplace"):
         name = error + "_errors"
         state.codec_error_registry[error] = space.wrap(interp2app(globals()[name]))
 

@@ -561,8 +561,13 @@ class AppTestPartialEvaluation:
         assert b'\xff'.decode('utf-7', 'ignore') == ''
         assert b'\x00'.decode('unicode-internal', 'ignore') == ''
 
-    def test_backslahreplace(self):
+    def test_backslashreplace(self):
         assert 'a\xac\u1234\u20ac\u8000'.encode('ascii', 'backslashreplace') == b'a\\xac\u1234\u20ac\u8000'
+
+    def test_namereplace(self):
+        assert 'a\xac\u1234\u20ac\u8000'.encode('ascii', 'namereplace') == (
+            b'a\\N{NOT SIGN}\\N{ETHIOPIC SYLLABLE SEE}\\N{EURO SIGN}'
+            b'\\N{CJK UNIFIED IDEOGRAPH-8000}')
 
     def test_surrogateescape(self):
         assert b'a\x80b'.decode('utf-8', 'surrogateescape') == 'a\udc80b'
