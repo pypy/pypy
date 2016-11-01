@@ -254,12 +254,10 @@ return next yielded value or raise StopIteration."""
         operr.normalize_exception(space)
 
         # note: w_yielded_from is always None if 'self.running'
-        w_yf = self.w_yielded_from
-        if (w_yf is not None and
+        if (self.w_yielded_from is not None and
                     operr.match(space, space.w_GeneratorExit)):
-            self.w_yielded_from = None
             try:
-                gen_close_iter(space, w_yf)
+                self._gen_close_iter(space)
             except OperationError as e:
                 return self.send_error(e)
 
@@ -270,6 +268,16 @@ return next yielded value or raise StopIteration."""
                 operr.set_traceback(tb)
         return self.send_error(operr)
 
+    def _gen_close_iter(self, space):
+        assert not self.running
+        w_yf = self.w_yielded_from
+        self.w_yielded_from = None
+        self.running = True
+        try:
+            gen_close_iter(space, w_yf)
+        finally:
+            self.running = False
+
     def descr_close(self):
         """close() -> raise GeneratorExit inside generator/coroutine."""
         if self.frame is None:
@@ -279,9 +287,8 @@ return next yielded value or raise StopIteration."""
         # note: w_yielded_from is always None if 'self.running'
         w_yf = self.w_yielded_from
         if w_yf is not None:
-            self.w_yielded_from = None
             try:
-                gen_close_iter(space, w_yf)
+                self._gen_close_iter(space)
             except OperationError as e:
                 operr = e
         try:

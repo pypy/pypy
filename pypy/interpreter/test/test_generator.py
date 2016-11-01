@@ -417,6 +417,25 @@ res = f()
         assert gen.gi_yieldfrom is None
         """
 
+    def test_gi_running_in_throw_generatorexit(self): """
+        # We must force gi_running to be True on the outer generators
+        # when running an inner custom close() method.
+        class A:
+            def __iter__(self):
+                return self
+            def __next__(self):
+                return 42
+            def close(self):
+                closed.append(gen.gi_running)
+        def g():
+            yield from A()
+        gen = g()
+        assert next(gen) == 42
+        closed = []
+        raises(GeneratorExit, gen.throw, GeneratorExit)
+        assert closed == [True]
+        """
+
 
 def test_should_not_inline(space):
     from pypy.interpreter.generator import should_not_inline
