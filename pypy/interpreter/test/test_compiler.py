@@ -944,6 +944,19 @@ class AppTestCompiler(object):
         exc = raises(ValueError, compile, mod, 'filename', 'exec')
         assert str(exc.value) == "empty targets on Delete"
 
+    def test_evaluate_argument_definition_order(self): """
+        lst = [1, 2, 3, 4]
+        def f(a=lst.pop(), b=lst.pop(), *, c=lst.pop(), d=lst.pop()):
+            return (a, b, c, d)
+        assert f('a') == ('a', 3, 2, 1), repr(f('a'))
+        assert f() == (4, 3, 2, 1), repr(f())
+        #
+        lst = [1, 2, 3, 4]
+        f = lambda a=lst.pop(), b=lst.pop(), *, c=lst.pop(), d=lst.pop(): (
+            a, b, c, d)
+        assert f('a') == ('a', 3, 2, 1), repr(f('a'))
+        assert f() == (4, 3, 2, 1), repr(f())
+        """
 
 
 class AppTestOptimizer(object):

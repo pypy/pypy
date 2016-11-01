@@ -376,10 +376,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.visit_sequence(func.decorator_list)
         args = func.args
         assert isinstance(args, ast.arguments)
+        self.visit_sequence(args.defaults)
         kw_default_count = 0
         if args.kwonlyargs:
             kw_default_count = self._visit_kwonlydefaults(args)
-        self.visit_sequence(args.defaults)
         num_annotations = self._visit_annotations(func, args, func.returns)
         num_defaults = len(args.defaults) if args.defaults is not None else 0
         oparg = num_defaults
@@ -406,10 +406,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.update_position(lam.lineno)
         args = lam.args
         assert isinstance(args, ast.arguments)
+        self.visit_sequence(args.defaults)
         kw_default_count = 0
         if args.kwonlyargs:
             kw_default_count = self._visit_kwonlydefaults(args)
-        self.visit_sequence(args.defaults)
         default_count = len(args.defaults) if args.defaults is not None else 0
         code, qualname = self.sub_scope(
             LambdaCodeGenerator, "<lambda>", lam, lam.lineno)
