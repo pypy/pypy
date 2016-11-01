@@ -43,8 +43,8 @@ class TempVector(TempVar):
         return "<TempVector at %s>" % (id(self),)
 
 class TempInt(TempVar):
-    def __init__(self):
-        self.type = INT
+    type = INT
+
     def __repr__(self):
         return "<TempInt at %s>" % (id(self),)
 

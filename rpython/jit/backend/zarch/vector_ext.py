@@ -180,6 +180,32 @@ class VectorAssembler(object):
                 self.regalloc_mov(scalar_loc, orig_scalar_loc)
             accum_info = accum_info.next()
 
+    def _accum_reduce(self, op, arg, accumloc, targetloc):
+        # Currently the accumulator can ONLY be 64 bit float/int
+        if arg.type == FLOAT:
+            self.mc.VX(targetloc, targetloc, targetloc)
+            self.mc.VPDI(targetloc, accumloc, accumloc, permi(1,0))
+            if op == '+':
+                self.mc.VFA(targetloc, targetloc, accumloc, l.imm3, l.imm(0b1000), l.imm(0))
+                return
+            elif op == '*':
+                self.mc.VFM(targetloc, targetloc, accumloc, l.imm3, l.imm(0b1000), l.imm(0))
+                return
+        else:
+            assert arg.type == INT
+            # store the vector onto the stack, just below the stack pointer
+            self.mc.VLGV(r.SCRATCH, accumloc, l.addr(0), l.itemsize_to_mask(8))
+            self.mc.VLGV(targetloc, accumloc, l.addr(1), l.itemsize_to_mask(8))
+            if op == '+':
+                self.mc.AGR(targetloc, r.SCRATCH)
+                return
+            elif op == '*':
+                self.mc.MSGR(targetloc, r.SCRATCH)
+                return
+        not_implemented("reduce sum for %s not impl." % arg)
+
+
+
     def emit_vec_int_is_true(self, op, arglocs, regalloc):
         assert isinstance(op, VectorOp)
         resloc, argloc, sizeloc = arglocs
@@ -258,30 +284,6 @@ class VectorAssembler(object):
             self.mc.VREP(resloc, loc0, l.imm0, l.itemsize_to_mask(size))
         else:
             self.mc.VLREP(resloc, loc0, l.itemsize_to_mask(size))
-
-    def _accum_reduce(self, op, arg, accumloc, targetloc):
-        # Currently the accumulator can ONLY be 64 bit float/int
-        if arg.type == FLOAT:
-            self.mc.VPDI(targetloc, accumloc, accumloc, permi(1,0))
-            if op == '+':
-                self.mc.VFA(targetloc, targetloc, accumloc, l.imm3, l.imm(0b1000), l.imm(0))
-                return
-            elif op == '*':
-                self.mc.VFM(targetloc, targetloc, accumloc, l.imm3, l.imm(0b1000), l.imm(0))
-                return
-        else:
-            assert arg.type == INT
-            # store the vector onto the stack, just below the stack pointer
-            self.mc.VLGV(r.SCRATCH, accumloc, l.addr(0), l.itemsize_to_mask(8))
-            self.mc.VLGV(targetloc, accumloc, l.addr(1), l.itemsize_to_mask(8))
-            if op == '+':
-                self.mc.AGR(targetloc, r.SCRATCH)
-                return
-            elif op == '*':
-                self.mc.MSGR(targetloc, r.SCRATCH)
-                return
-        not_implemented("reduce sum for %s not impl." % arg)
-
 
     def emit_vec_pack_i(self, op, arglocs, regalloc):
         assert isinstance(op, VectorOp)

@@ -215,9 +215,6 @@ class VectorizeTests(object):
         la = data.draw(st.lists(integers, min_size=10, max_size=150))
         l = len(la)
         lb = data.draw(st.lists(integers, min_size=l, max_size=l))
-        #la = [0] * 10
-        #l = 10
-        #lb = [0] * 10
 
         rawstorage = RawStorage()
         va = rawstorage.new(la, type)
@@ -422,7 +419,8 @@ class VectorizeTests(object):
     test_vec_int_sum = vec_reduce(st.integers(min_value=-2**(64-1), max_value=2**(64-1)-1),
                              lambda a,b: lltype.intmask(lltype.intmask(a)+lltype.intmask(b)), lltype.Signed)
     test_vec_float_sum = vec_reduce(st.floats(), lambda a,b: a+b, rffi.DOUBLE)
-    test_vec_float_prod = vec_reduce(st.floats(), lambda a,b: a*b, rffi.DOUBLE)
+    test_vec_float_prod = vec_reduce(st.floats(min_value=-100, max_value=100,
+                                               allow_nan=False, allow_infinity=False), lambda a,b: a*b, rffi.DOUBLE)
 
 
     def test_constant_expand(self):
