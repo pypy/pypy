@@ -343,11 +343,11 @@ class GeneratorIterator(GeneratorOrCoroutine):
     KIND = "generator"
 
     def descr__iter__(self):
-        """x.__iter__() <==> iter(x)"""
+        """Implement iter(self)."""
         return self.space.wrap(self)
 
     def descr_next(self):
-        """x.__next__() <==> next(x)"""
+        """Implement next(self)."""
         return self.send_ex(self.space.w_None)
 
     # Results can be either an RPython list of W_Root, or it can be an
