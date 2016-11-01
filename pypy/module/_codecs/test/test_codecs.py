@@ -50,7 +50,7 @@ class AppTestCodecs:
                     ]
         for s in insecure:
             buf = b"S" + s + b"\012p0\012."
-            raises (ValueError, pickle.loads, buf)
+            raises ((ValueError, pickle.UnpicklingError), pickle.loads, buf)
 
     def test_unicodedecodeerror(self):
         assert str(UnicodeDecodeError(
