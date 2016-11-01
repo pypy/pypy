@@ -16,6 +16,9 @@ changes have been backported to PyPy2.7 where relevant
 We changed ``timeit`` to now report average +- standard deviation, which is
 better than the misleading minimum value reported in CPython.
 
+We now support building PyPy with OpenSSL 1.1 in our built-in _sll module, as
+well as maintaining support for previous versions.
+
 XXX
 
 As always, this release fixed many issues and bugs raised by the
@@ -72,7 +75,7 @@ Other Highlights (since 5.4 released Aug 31, 2016)
 * New features
   * Allow tests run with `-A` to find `libm.so` even if it is a script not a
     dynamically loadable file
-  * Backport fixes to rposix on windows from py2.5
+  * Backport fixes to rposix on windows from py3.5
   * Allow user-defined ``__getitem__`` on subclasses of ``str`` and ``unicode``
   * Add ``inode`` to ``scandir()`` on posix systems
   * Support more attributes on ``super``
@@ -98,6 +101,8 @@ Other Highlights (since 5.4 released Aug 31, 2016)
   * Support translation on FreeBSD running on PowerPC
   * Implement ``__rmod__`` on ``str`` and ``unicode`` types
   * Issue warnings for stricter handling of ``__new__``, ``__init__`` args
+  * When using ``struct.unpack('q', ...`` try harder to prefer int to long
+  * Support OpenSSL version 1.1 (in addition to version 1.0)
 
 * Bug Fixes
   * Tweak a float comparison with 0 in `backendopt.inline` to avoid rounding errors
