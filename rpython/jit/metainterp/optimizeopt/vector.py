@@ -83,7 +83,12 @@ class VectorLoop(object):
             oplist = self.prefix
         if label:
             oplist = [self.label] + oplist
-        return oplist + self.operations + [self.jump]
+        if label != True:
+            for op in oplist:
+                op.set_forwarded(None)
+            self.jump.set_forwarded(None)
+        ops = oplist + self.operations + [self.jump]
+        return ops
 
     def clone(self):
         renamer = Renamer()
