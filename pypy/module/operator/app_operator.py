@@ -56,6 +56,17 @@ class attrgetter(object):
             for attrs in self._multi_attrs
         ])
 
+    def __repr__(self):
+        try:
+            a = repr(self._simple_attr)
+        except AttributeError:
+            try:
+                a = repr('.'.join(self._single_attr))
+            except AttributeError:
+                lst = self._multi_attrs
+                a = ', '.join([repr('.'.join(a1)) for a1 in lst])
+        return 'operator.attrgetter(%s)' % (a,)
+
 
 class itemgetter(object):
     def __init__(self, item, *items):
@@ -71,6 +82,13 @@ class itemgetter(object):
         else:
             return tuple([obj[i] for i in self._idx])
 
+    def __repr__(self):
+        if self._single:
+            a = repr(self._idx)
+        else:
+            a = ', '.join([repr(i) for i in self._idx])
+        return 'operator.itemgetter(%s)' % (a,)
+
 
 class methodcaller(object):
     def __init__(self, method_name, *args, **kwargs):
@@ -80,3 +98,11 @@ class methodcaller(object):
 
     def __call__(self, obj):
         return getattr(obj, self._method_name)(*self._args, **self._kwargs)
+
+    def __repr__(self):
+        args = [repr(self._method_name)]
+        for a in self._args:
+            args.append(repr(a))
+        for key, value in self._kwargs.items():
+            args.append('%s=%r' % (key, value))
+        return 'operator.methodcaller(%s)' % (', '.join(args),)

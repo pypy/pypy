@@ -326,3 +326,23 @@ class AppTestOperator:
     def test_length_hint(self):
         import _operator as operator
         assert operator.length_hint([1, 2]) == 2
+
+    def test_repr_attrgetter(self):
+        import _operator as operator
+        assert repr(operator.attrgetter("foo")) == "operator.attrgetter('foo')"
+        assert repr(operator.attrgetter("foo", 'bar')) == (
+            "operator.attrgetter('foo', 'bar')")
+        assert repr(operator.attrgetter("foo.bar")) == (
+            "operator.attrgetter('foo.bar')")
+        assert repr(operator.attrgetter("foo", 'bar.baz')) == (
+            "operator.attrgetter('foo', 'bar.baz')")
+
+    def test_repr_itemgetter(self):
+        import _operator as operator
+        assert repr(operator.itemgetter(2)) == "operator.itemgetter(2)"
+        assert repr(operator.itemgetter(2, 3)) == "operator.itemgetter(2, 3)"
+
+    def test_repr_methodcaller(self):
+        import _operator as operator
+        assert repr(operator.methodcaller("foo", "bar", baz=42)) == (
+            "operator.methodcaller('foo', 'bar', baz=42)")
