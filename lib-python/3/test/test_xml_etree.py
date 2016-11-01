@@ -2085,12 +2085,14 @@ class ElementIterTest(unittest.TestCase):
         self.assertEqual(self._ilist(doc), all_tags)
         self.assertEqual(self._ilist(doc, '*'), all_tags)
 
+    @impl_detail
     def test_copy(self):
         a = ET.Element('a')
         it = a.iter()
         with self.assertRaises(TypeError):
             copy.copy(it)
 
+    @impl_detail
     def test_pickle(self):
         a = ET.Element('a')
         it = a.iter()

@@ -210,9 +210,9 @@ class TestObjSpace:
         space = self.space
         w = space.wrap
         assert space.str0_w(w("123")) == "123"
-        exc = space.raises_w(space.w_TypeError, space.str0_w, w("123\x004"))
+        exc = space.raises_w(space.w_ValueError, space.str0_w, w("123\x004"))
         assert space.unicode0_w(w(u"123")) == u"123"
-        exc = space.raises_w(space.w_TypeError, space.unicode0_w, w(u"123\x004"))
+        exc = space.raises_w(space.w_ValueError, space.unicode0_w, w(u"123\x004"))
 
     def test_identifier_w(self):
         space = self.space

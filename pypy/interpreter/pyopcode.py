@@ -1258,7 +1258,6 @@ class __extend__(pyframe.PyFrame):
             w_ann = space.newdict(strdict=True)
             for i in range(len(names_w) - 1, -1, -1):
                 space.setitem(w_ann, names_w[i], self.popvalue())
-        defaultarguments = self.popvalues(posdefaults)
         kw_defs_w = None
         if kwdefaults:
             kw_defs_w = []
@@ -1266,7 +1265,9 @@ class __extend__(pyframe.PyFrame):
                 w_defvalue = self.popvalue()
                 w_defname = self.popvalue()
                 kw_defs_w.append((w_defname, w_defvalue))
-        fn = function.Function(space, codeobj, self.get_w_globals(), defaultarguments,
+        defaultarguments = self.popvalues(posdefaults)
+        fn = function.Function(space, codeobj, self.get_w_globals(),
+                               defaultarguments,
                                kw_defs_w, freevars, w_ann, qualname=qualname)
         self.pushvalue(space.wrap(fn))
 

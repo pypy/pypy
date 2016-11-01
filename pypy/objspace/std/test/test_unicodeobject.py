@@ -39,7 +39,7 @@ class AppTestUnicodeStringStdOnly:
         assert not ('a' == 5)
         assert 'a' != 5
         raises(TypeError, "'a' < 5")
-        
+
 
 class AppTestUnicodeString:
     spaceconfig = dict(usemodules=('unicodedata',))
@@ -54,7 +54,7 @@ class AppTestUnicodeString:
             assert a == b
             assert type(a) == type(b)
         check(', '.join(['a']), 'a')
-        raises(TypeError, ','.join, [b'a']) 
+        raises(TypeError, ','.join, [b'a'])
         exc = raises(TypeError, ''.join, ['a', 2, 3])
         assert 'sequence item 1' in str(exc.value)
 
@@ -211,7 +211,7 @@ class AppTestUnicodeString:
         assert "_var".isidentifier() is True
         assert "_!var".isidentifier() is False
         assert "3abc".isidentifier() is False
-        
+
     def test_capitalize(self):
         assert "brown fox".capitalize() == "Brown fox"
         assert ' hello '.capitalize() == ' hello '
@@ -395,10 +395,10 @@ class AppTestUnicodeString:
     def test_startswith_too_large(self):
         assert u'ab'.startswith(u'b', 1) is True
         assert u'ab'.startswith(u'', 2) is True
-        assert u'ab'.startswith(u'', 3) is True   # not False
+        assert u'ab'.startswith(u'', 3) is False
         assert u'ab'.endswith(u'b', 1) is True
         assert u'ab'.endswith(u'', 2) is True
-        assert u'ab'.endswith(u'', 3) is True   # not False
+        assert u'ab'.endswith(u'', 3) is False
 
     def test_startswith_tuples(self):
         assert 'hello'.startswith(('he', 'ha'))
@@ -581,7 +581,7 @@ class AppTestUnicodeString:
             '\u90e8\u306f\u30c9\u30a4\u30c4\u8a9e\u3067\u3059\u304c'
             '\u3001\u3042\u3068\u306f\u3067\u305f\u3089\u3081\u3067'
             '\u3059\u3002\u5b9f\u969b\u306b\u306f\u300cWenn ist das'
-            ' Nunstuck git und'.encode('utf-8') == 
+            ' Nunstuck git und'.encode('utf-8') ==
             b'\xe6\xad\xa3\xe7\xa2\xba\xe3\x81\xab\xe8\xa8\x80\xe3\x81'
             b'\x86\xe3\x81\xa8\xe7\xbf\xbb\xe8\xa8\xb3\xe3\x81\xaf\xe3'
             b'\x81\x95\xe3\x82\x8c\xe3\x81\xa6\xe3\x81\x84\xe3\x81\xbe'
@@ -595,9 +595,9 @@ class AppTestUnicodeString:
         )
 
         # UTF-8 specific decoding tests
-        assert str(b'\xf0\xa3\x91\x96', 'utf-8') == '\U00023456' 
-        assert str(b'\xf0\x90\x80\x82', 'utf-8') == '\U00010002' 
-        assert str(b'\xe2\x82\xac', 'utf-8') == '\u20ac' 
+        assert str(b'\xf0\xa3\x91\x96', 'utf-8') == '\U00023456'
+        assert str(b'\xf0\x90\x80\x82', 'utf-8') == '\U00010002'
+        assert str(b'\xe2\x82\xac', 'utf-8') == '\u20ac'
         # Invalid Continuation Bytes, EOF
         raises(UnicodeDecodeError, b'\xc4\x00'.decode, 'utf-8')
         raises(UnicodeDecodeError, b'\xe2\x82'.decode, 'utf-8')
@@ -609,7 +609,7 @@ class AppTestUnicodeString:
         raises(UnicodeDecodeError, b'\xf5\x80\x81\x82'.decode, 'utf-8')
         raises(UnicodeDecodeError, b'\xf4\x90\x80\x80'.decode, 'utf-8')
         # CESU-8
-        raises(UnicodeDecodeError, b'\xed\xa0\xbc\xed\xb2\xb1'.decode, 'utf-8') 
+        raises(UnicodeDecodeError, b'\xed\xa0\xbc\xed\xb2\xb1'.decode, 'utf-8')
 
     def test_codecs_errors(self):
         # Error handling (encoding)
@@ -641,7 +641,7 @@ class AppTestUnicodeString:
         x = '\U00090418\u027d\U000582b9\u54c3\U000fcb6e'
         y = "'\\U00090418\u027d\\U000582b9\u54c3\\U000fcb6e'"
         assert (repr(x) == y)
-        assert (repr('\n') == 
+        assert (repr('\n') ==
                 "'\\n'")
 
 

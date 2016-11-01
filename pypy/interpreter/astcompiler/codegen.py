@@ -370,48 +370,24 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             l += 1
         return l
 
-    def visit_FunctionDef(self, func):
+    def _visit_function(self, func, function_code_generator, extra_flag):
         self.update_position(func.lineno, True)
         # Load decorators first, but apply them after the function is created.
         self.visit_sequence(func.decorator_list)
         args = func.args
         assert isinstance(args, ast.arguments)
+        self.visit_sequence(args.defaults)
         kw_default_count = 0
         if args.kwonlyargs:
             kw_default_count = self._visit_kwonlydefaults(args)
-        self.visit_sequence(args.defaults)
         num_annotations = self._visit_annotations(func, args, func.returns)
         num_defaults = len(args.defaults) if args.defaults is not None else 0
         oparg = num_defaults
         oparg |= kw_default_count << 8
         oparg |= num_annotations << 16
-        code, qualname = self.sub_scope(FunctionCodeGenerator, func.name, func,
-                                        func.lineno)
-        self._make_function(code, oparg, qualname=qualname)
-        # Apply decorators.
-        if func.decorator_list:
-            for i in range(len(func.decorator_list)):
-                self.emit_op_arg(ops.CALL_FUNCTION, 1)
-        self.name_op(func.name, ast.Store)
-    
-    def visit_AsyncFunctionDef(self, func):
-        self.update_position(func.lineno, True)
-        # Load decorators first, but apply them after the function is created.
-        self.visit_sequence(func.decorator_list)
-        args = func.args
-        assert isinstance(args, ast.arguments)
-        kw_default_count = 0
-        if args.kwonlyargs:
-            kw_default_count = self._visit_kwonlydefaults(args)
-        self.visit_sequence(args.defaults)
-        num_annotations = self._visit_annotations(func, args, func.returns)
-        num_defaults = len(args.defaults) if args.defaults is not None else 0
-        oparg = num_defaults
-        oparg |= kw_default_count << 8
-        oparg |= num_annotations << 16
-        code, qualname = self.sub_scope(AsyncFunctionCodeGenerator, func.name, func,
-                                        func.lineno)
-        code.co_flags |= consts.CO_COROUTINE
+        code, qualname = self.sub_scope(function_code_generator, func.name,
+                                        func, func.lineno)
+        code.co_flags |= extra_flag
         self._make_function(code, oparg, qualname=qualname)
         # Apply decorators.
         if func.decorator_list:
@@ -419,14 +395,21 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.emit_op_arg(ops.CALL_FUNCTION, 1)
         self.name_op(func.name, ast.Store)
 
+    def visit_FunctionDef(self, func):
+        self._visit_function(func, FunctionCodeGenerator, 0)
+
+    def visit_AsyncFunctionDef(self, func):
+        self._visit_function(func, AsyncFunctionCodeGenerator,
+                             consts.CO_COROUTINE)
+
     def visit_Lambda(self, lam):
         self.update_position(lam.lineno)
         args = lam.args
         assert isinstance(args, ast.arguments)
+        self.visit_sequence(args.defaults)
         kw_default_count = 0
         if args.kwonlyargs:
             kw_default_count = self._visit_kwonlydefaults(args)
-        self.visit_sequence(args.defaults)
         default_count = len(args.defaults) if args.defaults is not None else 0
         code, qualname = self.sub_scope(
             LambdaCodeGenerator, "<lambda>", lam, lam.lineno)
@@ -935,14 +918,22 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_With(self, wih):
         self.update_position(wih.lineno, True)
-        self.handle_withitem(wih, 0)
+        self.handle_withitem(wih, 0, is_async=False)
 
-    def handle_withitem(self, wih, pos):
+    def handle_withitem(self, wih, pos, is_async):
         body_block = self.new_block()
         cleanup = self.new_block()
         witem = wih.items[pos]
         witem.context_expr.walkabout(self)
-        self.emit_jump(ops.SETUP_WITH, cleanup)
+        if not is_async:
+            self.emit_jump(ops.SETUP_WITH, cleanup)
+        else:
+            self.emit_op(ops.BEFORE_ASYNC_WITH)
+            self.emit_op(ops.GET_AWAITABLE)
+            self.load_const(self.space.w_None)
+            self.emit_op(ops.YIELD_FROM)
+            self.emit_jump(ops.SETUP_ASYNC_WITH, cleanup)
+
         self.use_next_block(body_block)
         self.push_frame_block(F_BLOCK_FINALLY, body_block)
         if witem.optional_vars:
@@ -952,54 +943,24 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if pos == len(wih.items) - 1:
             self.visit_sequence(wih.body)
         else:
-            self.handle_withitem(wih, pos + 1)
+            self.handle_withitem(wih, pos + 1, is_async=is_async)
         self.emit_op(ops.POP_BLOCK)
         self.pop_frame_block(F_BLOCK_FINALLY, body_block)
         self.load_const(self.space.w_None)
         self.use_next_block(cleanup)
         self.push_frame_block(F_BLOCK_FINALLY_END, cleanup)
         self.emit_op(ops.WITH_CLEANUP_START)
+        if is_async:
+            self.emit_op(ops.GET_AWAITABLE)
+            self.load_const(self.space.w_None)
+            self.emit_op(ops.YIELD_FROM)
         self.emit_op(ops.WITH_CLEANUP_FINISH)
         self.emit_op(ops.END_FINALLY)
         self.pop_frame_block(F_BLOCK_FINALLY_END, cleanup)
 
     def visit_AsyncWith(self, wih):
         self.update_position(wih.lineno, True)
-        self.handle_asyncwithitem(wih, 0)
-
-    def handle_asyncwithitem(self, wih, pos):
-        body_block = self.new_block()
-        cleanup = self.new_block()
-        witem = wih.items[pos]
-        witem.context_expr.walkabout(self)
-        self.emit_op(ops.BEFORE_ASYNC_WITH)
-        self.emit_op(ops.GET_AWAITABLE)
-        self.load_const(self.space.w_None)
-        self.emit_op(ops.YIELD_FROM)
-        self.emit_jump(ops.SETUP_ASYNC_WITH, cleanup)
-        self.use_next_block(body_block)
-        self.push_frame_block(F_BLOCK_FINALLY, body_block)
-        if witem.optional_vars:
-            witem.optional_vars.walkabout(self)
-        else:
-            self.emit_op(ops.POP_TOP)
-        if pos == len(wih.items) - 1:
-            self.visit_sequence(wih.body)
-        else:
-            self.handle_asyncwithitem(wih, pos + 1)
-        self.emit_op(ops.POP_BLOCK)
-        self.pop_frame_block(F_BLOCK_FINALLY, body_block)
-        self.load_const(self.space.w_None)
-        self.use_next_block(cleanup)
-        self.push_frame_block(F_BLOCK_FINALLY_END, cleanup)
-        self.emit_op(ops.WITH_CLEANUP_START)
-        self.emit_op(ops.GET_AWAITABLE)
-        self.load_const(self.space.w_None)
-        self.emit_op(ops.YIELD_FROM)
-        self.emit_op(ops.WITH_CLEANUP_FINISH)
-        self.emit_op(ops.END_FINALLY)
-        self.pop_frame_block(F_BLOCK_FINALLY_END, cleanup)
-
+        self.handle_asyncwithitem(wih, 0, is_async=True)
 
     def visit_Raise(self, rais):
         self.update_position(rais.lineno, True)

@@ -182,6 +182,11 @@ class AppTestOperator:
         assert methodcaller("method", 4, 5)(x) == (4, 5)
         assert methodcaller("method", 4, arg2=42)(x) == (4, 42)
 
+    def test_methodcaller_not_string(self):
+        import _operator as operator
+        e = raises(TypeError, operator.methodcaller, 42)
+        assert str(e.value) == "method name must be a string"
+
     def test_index(self):
         import _operator as operator
         assert operator.index(42) == 42
@@ -322,3 +327,27 @@ class AppTestOperator:
         assert operator._compare_digest(u'asd', u'asd')
         assert not operator._compare_digest(u'asd', u'qwe')
         raises(TypeError, operator._compare_digest, u'asd', b'qwe')
+
+    def test_length_hint(self):
+        import _operator as operator
+        assert operator.length_hint([1, 2]) == 2
+
+    def test_repr_attrgetter(self):
+        import _operator as operator
+        assert repr(operator.attrgetter("foo")) == "operator.attrgetter('foo')"
+        assert repr(operator.attrgetter("foo", 'bar')) == (
+            "operator.attrgetter('foo', 'bar')")
+        assert repr(operator.attrgetter("foo.bar")) == (
+            "operator.attrgetter('foo.bar')")
+        assert repr(operator.attrgetter("foo", 'bar.baz')) == (
+            "operator.attrgetter('foo', 'bar.baz')")
+
+    def test_repr_itemgetter(self):
+        import _operator as operator
+        assert repr(operator.itemgetter(2)) == "operator.itemgetter(2)"
+        assert repr(operator.itemgetter(2, 3)) == "operator.itemgetter(2, 3)"
+
+    def test_repr_methodcaller(self):
+        import _operator as operator
+        assert repr(operator.methodcaller("foo", "bar", baz=42)) == (
+            "operator.methodcaller('foo', 'bar', baz=42)")

@@ -35,6 +35,9 @@ if sys.platform == 'win32':
         rwin32.BOOL,
         save_err=rffi.RFFI_SAVE_LASTERROR)
 
+    def sem_unlink(name):
+        pass
+
 else:
     from rpython.rlib import rposix
 
@@ -325,12 +328,7 @@ if sys.platform == 'win32':
 else:
     def create_semaphore(space, name, val, max):
         sem = sem_open(name, os.O_CREAT | os.O_EXCL, 0600, val)
-        try:
-            sem_unlink(name)
-        except OSError:
-            pass
-        else:
-            rgc.add_memory_pressure(SEM_T_SIZE)
+        rgc.add_memory_pressure(SEM_T_SIZE)
         return sem
 
     def delete_semaphore(handle):

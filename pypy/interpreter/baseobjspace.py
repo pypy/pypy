@@ -1582,7 +1582,7 @@ class ObjSpace(object):
         from rpython.rlib import rstring
         result = self.str_w(w_obj)
         if '\x00' in result:
-            raise oefmt(self.w_TypeError,
+            raise oefmt(self.w_ValueError,
                         "argument must be a string without NUL characters")
         return rstring.assert_str0(result)
 
@@ -1591,7 +1591,7 @@ class ObjSpace(object):
         from rpython.rlib import rstring
         result = self.bytes_w(w_obj)
         if '\x00' in result:
-            raise oefmt(self.w_TypeError,
+            raise oefmt(self.w_ValueError,
                         "argument must be a string without NUL characters")
         return rstring.assert_str0(result)
 
@@ -1637,7 +1637,7 @@ class ObjSpace(object):
         from rpython.rlib import rstring
         result = w_obj.unicode_w(self)
         if u'\x00' in result:
-            raise oefmt(self.w_TypeError,
+            raise oefmt(self.w_ValueError,
                         "argument must be a unicode string without NUL "
                         "characters")
         return rstring.assert_str0(result)
@@ -1671,7 +1671,7 @@ class ObjSpace(object):
             w_obj = self.fsencode(w_obj)
         result = self.bufferstr_w(w_obj, self.BUF_FULL_RO)
         if '\x00' in result:
-            raise oefmt(self.w_TypeError,
+            raise oefmt(self.w_ValueError,
                         "argument must be a string without NUL characters")
         return rstring.assert_str0(result)
 

@@ -232,11 +232,7 @@ class Scope(object):
 class ModuleScope(Scope):
 
     def __init__(self):
-        Scope.__init__(self, "top")
-
-    def note_await(self, await_node):
-        raise SyntaxError("'await' outside async function", await_node.lineno,
-                          await_node.col_offset)
+        Scope.__init__(self, "<top-level>")
 
 
 class FunctionScope(Scope):
@@ -270,8 +266,11 @@ class FunctionScope(Scope):
             self.has_yield_inside_try = True
             
     def note_await(self, await_node):
-        raise SyntaxError("'await' outside async function", await_node.lineno,
-                          await_node.col_offset)
+        if self.name == '<genexpr>':
+            msg = "'await' expressions in comprehensions are not supported"
+        else:
+            msg = "'await' outside async function"
+        raise SyntaxError(msg, await_node.lineno, await_node.col_offset)
 
     def note_return(self, ret):
         if ret.value:
@@ -305,10 +304,8 @@ class FunctionScope(Scope):
         if (self.has_free or self.child_has_free) and not self.optimized:
             raise AssertionError("unknown reason for unoptimization")
 
-class AsyncFunctionScope(FunctionScope):
 
-    def __init__(self, name, lineno, col_offset):
-        FunctionScope.__init__(self, name, lineno, col_offset)
+class AsyncFunctionScope(FunctionScope):
 
     def note_yield(self, yield_node):
         raise SyntaxError("'yield' inside async function", yield_node.lineno,
@@ -521,7 +518,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
         assert isinstance(args, ast.arguments)
         self.visit_sequence(args.defaults)
         self.visit_kwonlydefaults(args.kw_defaults)
-        new_scope = FunctionScope("lambda", lamb.lineno, lamb.col_offset)
+        new_scope = FunctionScope("<lambda>", lamb.lineno, lamb.col_offset)
         self.push_scope(new_scope, lamb)
         lamb.args.walkabout(self)
         lamb.body.walkabout(self)
@@ -531,7 +528,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
         outer = comps[0]
         assert isinstance(outer, ast.comprehension)
         outer.iter.walkabout(self)
-        new_scope = FunctionScope("genexp", node.lineno, node.col_offset)
+        new_scope = FunctionScope("<genexpr>", node.lineno, node.col_offset)
         self.push_scope(new_scope, node)
         self.implicit_arg(0)
         outer.target.walkabout(self)
