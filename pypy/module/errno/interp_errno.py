@@ -1,5 +1,5 @@
 import errno
 
 def get_errorcode(space):
-    return space.wrap(errno.errorcode)
+    return space.newint(errno.errorcode)
 

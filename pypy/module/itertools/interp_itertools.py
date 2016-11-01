@@ -12,7 +12,7 @@ class W_Count(W_Root):
         self.w_step = w_step
 
     def iter_w(self):
-        return self.space.wrap(self)
+        return self
 
     def next_w(self):
         w_c = self.w_c
@@ -22,7 +22,7 @@ class W_Count(W_Root):
     def single_argument(self):
         space = self.space
         return (space.isinstance_w(self.w_step, space.w_int) and
-                space.eq_w(self.w_step, space.wrap(1)))
+                space.eq_w(self.w_step, space.newint(1)))
 
     def repr_w(self):
         space = self.space
@@ -32,7 +32,7 @@ class W_Count(W_Root):
         else:
             step = space.str_w(space.repr(self.w_step))
             s = 'count(%s, %s)' % (c, step)
-        return self.space.wrap(s)
+        return self.space.newtext(s)
 
     def reduce_w(self):
         space = self.space
@@ -54,7 +54,7 @@ def W_Count___new__(space, w_subtype, w_start, w_step):
     check_number(space, w_step)
     r = space.allocate_instance(W_Count, w_subtype)
     r.__init__(space, w_start, w_step)
-    return space.wrap(r)
+    return r
 
 W_Count.typedef = TypeDef(
         'itertools.count',
@@ -98,12 +98,12 @@ class W_Repeat(W_Root):
         return self.w_obj
 
     def iter_w(self):
-        return self.space.wrap(self)
+        return self
 
     def length_w(self):
         if not self.counting:
             return self.space.w_NotImplemented
-        return self.space.wrap(self.count)
+        return self.space.newint(self.count)
 
     def repr_w(self):
         objrepr = self.space.str_w(self.space.repr(self.w_obj))
@@ -111,12 +111,12 @@ class W_Repeat(W_Root):
             s = 'repeat(%s, %d)' % (objrepr, self.count)
         else:
             s = 'repeat(%s)' % (objrepr,)
-        return self.space.wrap(s)
+        return self.space.newtext(s)
 
 def W_Repeat___new__(space, w_subtype, w_object, w_times=None):
     r = space.allocate_instance(W_Repeat, w_subtype)
     r.__init__(space, w_object, w_times)
-    return space.wrap(r)
+    return r
 
 W_Repeat.typedef = TypeDef(
         'itertools.repeat',
@@ -151,7 +151,7 @@ class W_TakeWhile(W_Root):
         self.stopped = False
 
     def iter_w(self):
-        return self.space.wrap(self)
+        return self
 
     def next_w(self):
         if self.stopped:
@@ -168,7 +168,7 @@ class W_TakeWhile(W_Root):
 def W_TakeWhile___new__(space, w_subtype, w_predicate, w_iterable):
     r = space.allocate_instance(W_TakeWhile, w_subtype)
     r.__init__(space, w_predicate, w_iterable)
-    return space.wrap(r)
+    return r
 
 
 W_TakeWhile.typedef = TypeDef(
@@ -198,7 +198,7 @@ class W_DropWhile(W_Root):
         self.started = False
 
     def iter_w(self):
-        return self.space.wrap(self)
+        return self
 
     def next_w(self):
         if self.started:
@@ -216,7 +216,7 @@ class W_DropWhile(W_Root):
 def W_DropWhile___new__(space, w_subtype, w_predicate, w_iterable):
     r = space.allocate_instance(W_DropWhile, w_subtype)
     r.__init__(space, w_predicate, w_iterable)
-    return space.wrap(r)
+    return r
 
 
 W_DropWhile.typedef = TypeDef(
@@ -253,7 +253,7 @@ class _IFilterBase(W_Root):
         self.iterable = space.iter(w_iterable)
 
     def iter_w(self):
-        return self.space.wrap(self)
+        return self
 
     def next_w(self):
         while True:
@@ -273,7 +273,7 @@ class W_IFilter(_IFilterBase):
 def W_IFilter___new__(space, w_subtype, w_predicate, w_iterable):
     r = space.allocate_instance(W_IFilter, w_subtype)
     r.__init__(space, w_predicate, w_iterable)
-    return space.wrap(r)
+    return r
 
 W_IFilter.typedef = TypeDef(
         'itertools.ifilter',
@@ -300,7 +300,7 @@ class W_IFilterFalse(_IFilterBase):
 def W_IFilterFalse___new__(space, w_subtype, w_predicate, w_iterable):
     r = space.allocate_instance(W_IFilterFalse, w_subtype)
     r.__init__(space, w_predicate, w_iterable)
-    return space.wrap(r)
+    return r
 
 W_IFilterFalse.typedef = TypeDef(
         'itertools.ifilterfalse',
@@ -379,11 +379,11 @@ class W_ISlice(W_Root):
                 raise
             result = -1
         if result < minimum:
-            raise OperationError(space.w_ValueError, space.wrap(errormsg))
+            raise OperationError(space.w_ValueError, space.newtext(errormsg))
         return result
 
     def iter_w(self):
-        return self.space.wrap(self)
+        return self
 
     def next_w(self):
         if self.start >= 0:               # first call only
@@ -437,7 +437,7 @@ class W_ISlice(W_Root):
 def W_ISlice___new__(space, w_subtype, w_iterable, w_startstop, args_w):
     r = space.allocate_instance(W_ISlice, w_subtype)
     r.__init__(space, w_iterable, w_startstop, args_w)
-    return space.wrap(r)
+    return r
 
 W_ISlice.typedef = TypeDef(
         'itertools.islice',
@@ -465,7 +465,7 @@ class W_Chain(W_Root):
         self.w_it = None
 
     def iter_w(self):
-        return self.space.wrap(self)
+        return self
 
     def _advance(self):
         self.w_it = self.space.iter(self.space.next(self.w_iterables))
@@ -492,7 +492,7 @@ def W_Chain___new__(space, w_subtype, args_w):
     r = space.allocate_instance(W_Chain, w_subtype)
     w_args = space.newtuple(args_w)
     r.__init__(space, space.iter(w_args))
-    return space.wrap(r)
+    return r
 
 def chain_from_iterable(space, w_cls, w_arg):
     """chain.from_iterable(iterable) --> chain object
@@ -501,7 +501,7 @@ def chain_from_iterable(space, w_cls, w_arg):
     that evaluates lazily."""
     r = space.allocate_instance(W_Chain, w_cls)
     r.__init__(space, space.iter(w_arg))
-    return space.wrap(r)
+    return r
 
 W_Chain.typedef = TypeDef(
         'itertools.chain',
@@ -554,7 +554,7 @@ class W_IMap(W_Root):
         self.iterators_w = iterators_w
 
     def iter_w(self):
-        return self.space.wrap(self)
+        return self
 
     def next_w(self):
         # common case: 1 or 2 arguments
@@ -584,7 +584,7 @@ def W_IMap___new__(space, w_subtype, w_fun, args_w):
                     "imap() must have at least two arguments")
     r = space.allocate_instance(W_IMap, w_subtype)
     r.__init__(space, w_fun, args_w)
-    return space.wrap(r)
+    return r
 
 W_IMap.typedef = TypeDef(
         'itertools.imap',
@@ -628,7 +628,7 @@ class W_IZip(W_IMap):
 def W_IZip___new__(space, w_subtype, args_w):
     r = space.allocate_instance(W_IZip, w_subtype)
     r.__init__(space, space.w_None, args_w)
-    return space.wrap(r)
+    return r
 
 W_IZip.typedef = TypeDef(
         'itertools.izip',
@@ -701,7 +701,7 @@ def W_IZipLongest___new__(space, w_subtype, __args__):
     self.w_fillvalue = w_fillvalue
     self.active = len(self.iterators_w)
 
-    return space.wrap(self)
+    return self
 
 W_IZipLongest.typedef = TypeDef(
         'itertools.izip_longest',
@@ -726,7 +726,7 @@ class W_Cycle(W_Root):
         self.exhausted = False
 
     def iter_w(self):
-        return self.space.wrap(self)
+        return self
 
     def next_w(self):
         if self.exhausted:
@@ -759,7 +759,7 @@ class W_Cycle(W_Root):
 def W_Cycle___new__(space, w_subtype, w_iterable):
     r = space.allocate_instance(W_Cycle, w_subtype)
     r.__init__(space, w_iterable)
-    return space.wrap(r)
+    return r
 
 W_Cycle.typedef = TypeDef(
         'itertools.cycle',
@@ -790,7 +790,7 @@ class W_StarMap(W_Root):
         self.w_iterable = self.space.iter(w_iterable)
 
     def iter_w(self):
-        return self.space.wrap(self)
+        return self
 
     def next_w(self):
         w_obj = self.space.next(self.w_iterable)
@@ -799,7 +799,7 @@ class W_StarMap(W_Root):
 def W_StarMap___new__(space, w_subtype, w_fun, w_iterable):
     r = space.allocate_instance(W_StarMap, w_subtype)
     r.__init__(space, w_fun, w_iterable)
-    return space.wrap(r)
+    return r
 
 W_StarMap.typedef = TypeDef(
         'itertools.starmap',
@@ -855,7 +855,7 @@ def tee(space, w_iterable, n=2):
     if n < 0:
         raise oefmt(space.w_ValueError, "n must be >= 0")
 
-    if space.findattr(w_iterable, space.wrap("__copy__")) is not None:
+    if space.findattr(w_iterable, space.newtext("__copy__")) is not None:
         # In this case, we don't instantiate any W_TeeIterable.
         # We just rely on doing repeated __copy__().  This case
         # includes the situation where w_iterable is already
@@ -867,8 +867,7 @@ def tee(space, w_iterable, n=2):
     else:
         w_iterator = space.iter(w_iterable)
         chained_list = TeeChainedListNode()
-        iterators_w = [space.wrap(
-                           W_TeeIterable(space, w_iterator, chained_list))
+        iterators_w = [W_TeeIterable(space, w_iterator, chained_list)
                        for x in range(n)]
     return space.newtuple(iterators_w)
 
@@ -884,7 +883,7 @@ class W_TeeIterable(W_Root):
         self.chained_list = chained_list
 
     def iter_w(self):
-        return self.space.wrap(self)
+        return self
 
     def next_w(self):
         chained_list = self.chained_list
@@ -899,7 +898,7 @@ class W_TeeIterable(W_Root):
     def copy_w(self):
         space = self.space
         tee_iter = W_TeeIterable(space, self.w_iterator, self.chained_list)
-        return space.wrap(tee_iter)
+        return tee_iter
 
 def W_TeeIterable___new__(space, w_subtype, w_iterable):
     # Obscure and undocumented function.  PyPy only supports w_iterable
@@ -908,8 +907,7 @@ def W_TeeIterable___new__(space, w_subtype, w_iterable):
     # semantics are then slightly different; see the XXX in lib-python's
     # test_itertools).
     myiter = space.interp_w(W_TeeIterable, w_iterable)
-    return space.wrap(W_TeeIterable(space, myiter.w_iterator,
-                                           myiter.chained_list))
+    return W_TeeIterable(space, myiter.w_iterator, myiter.chained_list)
 
 W_TeeIterable.typedef = TypeDef(
         'itertools._tee',
@@ -940,7 +938,7 @@ class W_GroupBy(W_Root):
         self.w_key = self.space.w_None
 
     def iter_w(self):
-        return self.space.wrap(self)
+        return self
 
     def next_w(self):
         if self.exhausted:
@@ -966,7 +964,7 @@ class W_GroupBy(W_Root):
                 self.lookahead = True
 
         self.new_group = False
-        w_iterator = self.space.wrap(W_GroupByIterator(self.space, self.index, self))
+        w_iterator = W_GroupByIterator(self.space, self.index, self)
         return self.space.newtuple([self.w_key, w_iterator])
 
     def _consume_unwanted_input(self):
@@ -1013,7 +1011,7 @@ class W_GroupBy(W_Root):
 def W_GroupBy___new__(space, w_subtype, w_iterable, w_key=None):
     r = space.allocate_instance(W_GroupBy, w_subtype)
     r.__init__(space, w_iterable, w_key)
-    return space.wrap(r)
+    return r
 
 W_GroupBy.typedef = TypeDef(
         'itertools.groupby',
@@ -1048,7 +1046,7 @@ class W_GroupByIterator(W_Root):
         self.exhausted = False
 
     def iter_w(self):
-        return self.space.wrap(self)
+        return self
 
     def next_w(self):
         if self.exhausted:
@@ -1076,7 +1074,7 @@ class W_Compress(W_Root):
         self.w_selectors = space.iter(w_selectors)
 
     def iter_w(self):
-        return self.space.wrap(self)
+        return self
 
     def next_w(self):
         # No need to check for StopIteration since either w_data
@@ -1091,7 +1089,7 @@ class W_Compress(W_Root):
 def W_Compress__new__(space, w_subtype, w_data, w_selectors):
     r = space.allocate_instance(W_Compress, w_subtype)
     r.__init__(space, w_data, w_selectors)
-    return space.wrap(r)
+    return r
 
 W_Compress.typedef = TypeDef(
     'itertools.compress',
@@ -1163,7 +1161,7 @@ class W_Product(W_Root):
             self.lst = None
 
     def iter_w(self, space):
-        return space.wrap(self)
+        return self
 
     def next_w(self, space):
         if self.lst is None:
@@ -1175,7 +1173,7 @@ class W_Product(W_Root):
 
 def W_Product__new__(space, w_subtype, __args__):
     arguments_w, kwds_w = __args__.unpack()
-    w_repeat = space.wrap(1)
+    w_repeat = space.newint(1)
     if kwds_w:
         if 'repeat' in kwds_w:
             w_repeat = kwds_w['repeat']
@@ -1186,7 +1184,7 @@ def W_Product__new__(space, w_subtype, __args__):
 
     r = space.allocate_instance(W_Product, w_subtype)
     r.__init__(space, arguments_w, w_repeat)
-    return space.wrap(r)
+    return r
 
 W_Product.typedef = TypeDef(
     'itertools.product',
@@ -1288,7 +1286,7 @@ def W_Combinations__new__(space, w_subtype, w_iterable, r):
     indices = range(len(pool_w))
     res = space.allocate_instance(W_Combinations, w_subtype)
     res.__init__(space, pool_w, indices, r)
-    return space.wrap(res)
+    return res
 
 W_Combinations.typedef = TypeDef("itertools.combinations",
     __new__ = interp2app(W_Combinations__new__),
@@ -1321,7 +1319,7 @@ def W_CombinationsWithReplacement__new__(space, w_subtype, w_iterable, r):
     indices = [0] * r
     res = space.allocate_instance(W_CombinationsWithReplacement, w_subtype)
     res.__init__(space, pool_w, indices, r)
-    return space.wrap(res)
+    return res
 
 W_CombinationsWithReplacement.typedef = TypeDef(
     "itertools.combinations_with_replacement",
@@ -1387,7 +1385,7 @@ def W_Permutations__new__(space, w_subtype, w_iterable, w_r=None):
         r = space.gateway_nonnegint_w(w_r)
     res = space.allocate_instance(W_Permutations, w_subtype)
     res.__init__(space, pool_w, r)
-    return space.wrap(res)
+    return res
 
 W_Permutations.typedef = TypeDef("itertools.permutations",
     __new__ = interp2app(W_Permutations__new__),
