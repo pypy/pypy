@@ -5,7 +5,7 @@ from rpython.jit.backend.llsupport.assembler import (GuardToken, BaseAssembler)
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.metainterp.history import (AbstractFailDescr, INT, REF, FLOAT,
-        Const)
+        Const, VOID)
 from rpython.jit.metainterp.compile import ResumeGuardDescr
 from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.rtyper.lltypesystem import lltype, rffi
