@@ -527,6 +527,25 @@ class AppTestReversed:
         assert list(reversed(list(reversed("hello")))) == ['h','e','l','l','o']
         raises(TypeError, reversed, reversed("hello"))
 
+    def test_reversed_length_hint(self):
+        lst = [1, 2, 3]
+        r = reversed(lst)
+        assert r.__length_hint__() == 3
+        assert next(r) == 3
+        assert r.__length_hint__() == 2
+        lst.pop()
+        assert r.__length_hint__() == 2
+        lst.pop()
+        assert r.__length_hint__() == 0
+        raises(StopIteration, next, r)
+        #
+        r = reversed(lst)
+        assert r.__length_hint__() == 1
+        assert next(r) == 1
+        assert r.__length_hint__() == 0
+        raises(StopIteration, next, r)
+        assert r.__length_hint__() == 0
+
 
 class AppTestAllAny:
     """

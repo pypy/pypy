@@ -335,8 +335,16 @@ class W_ReversedIterator(W_Root):
     def descr___iter__(self, space):
         return space.wrap(self)
 
-    def descr_length(self, space):
-        return space.wrap(0 if self.remaining == -1 else self.remaining + 1)
+    def descr_length_hint(self, space):
+        # bah, there is even a CPython test that checks that this
+        # actually calls 'len_w(w_sequence)'.  Obscure.
+        res = 0
+        if self.remaining >= 0:
+            total_length = space.len_w(self.w_sequence)
+            rem_length = self.remaining + 1
+            if rem_length <= total_length:
+                res = rem_length
+        return space.wrap(res)
 
     def descr_next(self, space):
         if self.remaining >= 0:
@@ -383,7 +391,7 @@ class W_ReversedIterator(W_Root):
 W_ReversedIterator.typedef = TypeDef("reversed",
     __new__         = interp2app(W_ReversedIterator.descr___new__2),
     __iter__        = interp2app(W_ReversedIterator.descr___iter__),
-    __length_hint__ = interp2app(W_ReversedIterator.descr_length),
+    __length_hint__ = interp2app(W_ReversedIterator.descr_length_hint),
     __next__        = interp2app(W_ReversedIterator.descr_next),
     __reduce__      = interp2app(W_ReversedIterator.descr___reduce__),
     __setstate__      = interp2app(W_ReversedIterator.descr___setstate__),
