@@ -689,7 +689,7 @@ class Charmap_Decode:
             return errorchar
 
         raise oefmt(space.w_TypeError,
-            "character mapping must return integer, None or unicode")
+            "character mapping must return integer, None or str")
 
 class Charmap_Encode:
     def __init__(self, space, w_mapping):
@@ -722,7 +722,7 @@ class Charmap_Encode:
             return errorchar
 
         raise oefmt(space.w_TypeError,
-            "character mapping must return integer, None or str")
+            "character mapping must return integer, bytes or None, not str")
 
 
 @unwrap_spec(string='bufferstr', errors='str_or_None')
