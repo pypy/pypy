@@ -273,6 +273,8 @@ class AppTestConnectedSSL:
     def test_peer_certificate_verify(self):
         import _ssl, ssl, gc
         paths = ssl.get_default_verify_paths()
+        if not paths.capath and not paths.cafile:
+            skip("ssl.get_default_verify_paths() failed to return any path")
 
         ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLS)
         ctx.verify_mode = _ssl.CERT_REQUIRED
