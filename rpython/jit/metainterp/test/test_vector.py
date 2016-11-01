@@ -400,9 +400,8 @@ class VectorizeTests(object):
                 i += size
             return accum
 
-        bits = 64
         la = data.draw(st.lists(strat, min_size=10, max_size=150))
-        la = [1.0] * 10
+        #la = [1.0] * 10
         l = len(la)
 
         accum = data.draw(strat)

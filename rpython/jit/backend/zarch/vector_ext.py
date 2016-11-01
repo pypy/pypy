@@ -172,7 +172,7 @@ class VectorAssembler(object):
             assert scalar_arg is not None
             op = accum_info.accum_operation
             self._accum_reduce(op, scalar_arg, vector_loc, scalar_loc)
-            if scalar_loc is r. FP_SCRATCH:
+            if scalar_loc is r.FP_SCRATCH:
                 self.regalloc_mov(scalar_loc, orig_scalar_loc)
             accum_info = accum_info.next()
 

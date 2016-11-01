@@ -10,7 +10,8 @@ from rpython.jit.backend.x86.regloc import (FrameLoc, RegLoc, ConstFloatLoc,
     xmm5, xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14,
     X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG, AddressLoc)
 from rpython.jit.backend.llsupport.vector_ext import VectorExt
-from rpython.jit.backend.llsupport.regalloc import get_scale, TempVar, NoVariableToSpill
+from rpython.jit.backend.llsupport.regalloc import (get_scale, TempVar,
+    NoVariableToSpill)
 from rpython.jit.metainterp.resoperation import (rop, ResOperation,
         VectorOp, VectorGuardOp)
 from rpython.rlib.objectmodel import we_are_translated, always_inline
@@ -39,7 +40,13 @@ class TempVector(TempVar):
     def is_vector(self):
         return True
     def __repr__(self):
-        return "<TempVector At %s>" % (id(self),)
+        return "<TempVector at %s>" % (id(self),)
+
+class TempInt(TempVar):
+    def __init__(self):
+        self.type = INT
+    def __repr__(self):
+        return "<TempInt at %s>" % (id(self),)
 
 class X86VectorExt(VectorExt):
 
@@ -123,12 +130,14 @@ class VectorAssemblerMixin(object):
             assert isinstance(vector_loc, RegLoc)
             assert scalar_arg is not None
             orig_scalar_loc = scalar_loc
+            tmpvar = None
             if not isinstance(scalar_loc, RegLoc):
                 # scalar loc might live in memory, use scratch register and save it back later
                 if scalar_arg.type == FLOAT:
                     scalar_loc = X86_64_XMM_SCRATCH_REG
                 else:
-                    scalar_loc = X86_64_SCRATCH_REG
+                    tmpvar = TempInt()
+                    scalar_loc = regalloc.rm.try_allocate_reg(tmpvar)
                 self.mov(orig_scalar_loc, scalar_loc)
             if accum_info.accum_operation == '+':
                 self._accum_reduce_sum(scalar_arg, vector_loc, scalar_loc)
@@ -137,12 +146,13 @@ class VectorAssemblerMixin(object):
             else:
                 not_implemented("accum operator %s not implemented" %
                                             (accum_info.accum_operation)) 
+            if tmpvar:
+                regalloc.rm.possibly_free_var(tmpvar)
             if scalar_loc is not orig_scalar_loc:
                 self.mov(scalar_loc, orig_scalar_loc)
             accum_info = accum_info.next()
 
     def _accum_reduce_mul(self, arg, accumloc, targetloc):
-        scratchloc = X86_64_XMM_SCRATCH_REG
         self.mov(accumloc, targetloc)
         # swap the two elements
         self.mc.SHUFPD_xxi(targetloc.value, targetloc.value, 0x01)

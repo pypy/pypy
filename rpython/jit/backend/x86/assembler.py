@@ -1,16 +1,14 @@
 import sys
-import os
-import py
 
-from rpython.jit.backend.llsupport import symbolic, jitframe, rewrite
-from rpython.jit.backend.llsupport.assembler import (GuardToken, BaseAssembler, debug_bridge)
+from rpython.jit.backend.llsupport import jitframe, rewrite
+from rpython.jit.backend.llsupport.assembler import (GuardToken, BaseAssembler)
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
-from rpython.jit.metainterp.history import (Const, VOID, ConstInt)
-from rpython.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT
+from rpython.jit.metainterp.history import (AbstractFailDescr, INT, REF, FLOAT,
+        Const)
 from rpython.jit.metainterp.compile import ResumeGuardDescr
 from rpython.rlib.rjitlog import rjitlog as jl
-from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
+from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rtyper import rclass
