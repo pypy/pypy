@@ -182,6 +182,11 @@ class AppTestOperator:
         assert methodcaller("method", 4, 5)(x) == (4, 5)
         assert methodcaller("method", 4, arg2=42)(x) == (4, 42)
 
+    def test_methodcaller_not_string(self):
+        import _operator as operator
+        e = raises(TypeError, operator.methodcaller, 42)
+        assert str(e.value) == "method name must be a string"
+
     def test_index(self):
         import _operator as operator
         assert operator.index(42) == 42

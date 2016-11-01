@@ -92,6 +92,8 @@ class itemgetter(object):
 
 class methodcaller(object):
     def __init__(self, method_name, *args, **kwargs):
+        if not isinstance(method_name, str):
+            raise TypeError("method name must be a string")
         self._method_name = method_name
         self._args = args
         self._kwargs = kwargs
