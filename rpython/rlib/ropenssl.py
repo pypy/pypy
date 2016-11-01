@@ -499,10 +499,12 @@ ssl_external('ERR_GET_REASON', [rffi.ULONG], rffi.INT, macro=True)
 # with the GIL held, and so is allowed to run in a RPython __del__ method.
 ssl_external('SSL_free', [SSL], lltype.Void, releasegil=False)
 ssl_external('SSL_CTX_free', [SSL_CTX], lltype.Void, releasegil=False)
-libssl_OPENSSL_free = external(
-    'OPENSSL_free' if OPENSSL_VERSION_NUMBER >= 0x10100000
-    else 'CRYPTO_free',
-    [rffi.VOIDP], lltype.Void)
+if OPENSSL_VERSION_NUMBER >= 0x10100000:
+    ssl_external('OPENSSL_free', [rffi.VOIDP], lltype.Void, macro=True)
+else:
+    ssl_external('CRYPTO_free', [rffi.VOIDP], lltype.Void)
+    libssl_OPENSSL_free = libssl_CRYPTO_free
+    del libssl_CRYPTO_free
 
 ssl_external('SSL_write', [SSL, rffi.CCHARP, rffi.INT], rffi.INT,
              save_err=SAVE_ERR)
