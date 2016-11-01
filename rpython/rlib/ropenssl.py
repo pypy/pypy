@@ -62,9 +62,6 @@ eci = ExternalCompilationInfo(
         '#if (OPENSSL_VERSION_NUMBER < 0x10100000)\n'
         '#  define COMP_get_name(meth) (meth->name)\n'
         '#  define COMP_get_type(meth) (meth->type)\n'
-        '#  define EVP_MD_CTX_free EVP_MD_CTX_destroy\n'
-        '#  define EVP_MD_CTX_new EVP_MD_CTX_create\n'
-        '#  define TLS_method SSLv23_method\n'
         '#  define X509_NAME_ENTRY_set(ne) (ne->set)\n'
         '#  define X509_OBJECT_get0_X509(obj) (obj->data.x509)\n'
         '#  define X509_OBJECT_get_type(obj) (obj->type)\n'
@@ -314,8 +311,12 @@ if HAVE_TLSv1_2:
     ssl_external('TLSv1_2_method', [], SSL_METHOD)
 ssl_external('SSLv2_method', [], SSL_METHOD)
 ssl_external('SSLv3_method', [], SSL_METHOD)
-ssl_external('TLS_method', [], SSL_METHOD,
-    macro=bool(OPENSSL_VERSION_NUMBER < 0x10100000) or None)
+# Windows note: fails in untranslated tests if the following function is
+# made 'macro=True'.  Not sure I want to dig into the reason for that mess.
+libssl_TLS_method = external(
+    'TLS_method' if OPENSSL_VERSION_NUMBER >= 0x10100000
+    else 'SSLv23_method',
+    [], SSL_METHOD)
 ssl_external('SSL_CTX_use_PrivateKey_file', [SSL_CTX, rffi.CCHARP, rffi.INT], rffi.INT,
              save_err=rffi.RFFI_FULL_ERRNO_ZERO)
 ssl_external('SSL_CTX_use_certificate_chain_file', [SSL_CTX, rffi.CCHARP], rffi.INT,
@@ -498,7 +499,10 @@ ssl_external('ERR_GET_REASON', [rffi.ULONG], rffi.INT, macro=True)
 # with the GIL held, and so is allowed to run in a RPython __del__ method.
 ssl_external('SSL_free', [SSL], lltype.Void, releasegil=False)
 ssl_external('SSL_CTX_free', [SSL_CTX], lltype.Void, releasegil=False)
-ssl_external('OPENSSL_free', [rffi.VOIDP], lltype.Void, macro=True)
+libssl_OPENSSL_free = external(
+    'OPENSSL_free' if OPENSSL_VERSION_NUMBER >= 0x10100000
+    else 'CRYPTO_free',
+    [rffi.VOIDP], lltype.Void)
 
 ssl_external('SSL_write', [SSL, rffi.CCHARP, rffi.INT], rffi.INT,
              save_err=SAVE_ERR)
@@ -586,11 +590,13 @@ EVP_MD_block_size = external(
 EVP_MD_CTX_copy = external(
     'EVP_MD_CTX_copy', [EVP_MD_CTX, EVP_MD_CTX], rffi.INT)
 EVP_MD_CTX_new = external(
-    'EVP_MD_CTX_new', [], EVP_MD_CTX,
-    macro=bool(OPENSSL_VERSION_NUMBER < 0x10100000) or None)
+    'EVP_MD_CTX_new' if OPENSSL_VERSION_NUMBER >= 0x10100000
+    else 'EVP_MD_CTX_create',
+    [], EVP_MD_CTX)
 EVP_MD_CTX_free = external(
-    'EVP_MD_CTX_free', [EVP_MD_CTX], lltype.Void, releasegil=False,
-    macro=bool(OPENSSL_VERSION_NUMBER < 0x10100000) or None)
+    'EVP_MD_CTX_free' if OPENSSL_VERSION_NUMBER >= 0x10100000
+    else 'EVP_MD_CTX_destroy',
+    [EVP_MD_CTX], lltype.Void, releasegil=False)
 
 if OPENSSL_VERSION_NUMBER >= 0x10100000 and not LIBRESSL:
     PKCS5_PBKDF2_HMAC = external('PKCS5_PBKDF2_HMAC', [
