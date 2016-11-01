@@ -26,6 +26,8 @@ ssl = support.import_module("ssl")
 
 PROTOCOLS = sorted(ssl._PROTOCOL_NAMES)
 HOST = support.HOST
+IS_LIBRESSL = ssl.OPENSSL_VERSION.startswith('LibreSSL')
+IS_OPENSSL_1_1 = not IS_LIBRESSL and ssl.OPENSSL_VERSION_INFO >= (1, 1, 0)
 
 def data_file(*name):
     return os.path.join(os.path.dirname(__file__), *name)
@@ -742,15 +744,15 @@ class ContextTests(unittest.TestCase):
     def test_options(self):
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
         # OP_ALL | OP_NO_SSLv2 | OP_NO_SSLv3 is the default value
-        self.assertEqual(ssl.OP_ALL | ssl.OP_NO_SSLv2 | ssl.OP_NO_SSLv3,
-                         ctx.options)
+        default = (ssl.OP_ALL | ssl.OP_NO_SSLv2 | ssl.OP_NO_SSLv3)
+        if not IS_LIBRESSL and ssl.OPENSSL_VERSION_INFO >= (1, 1, 0):
+            default |= ssl.OP_NO_COMPRESSION
+        self.assertEqual(default, ctx.options)
         ctx.options |= ssl.OP_NO_TLSv1
-        self.assertEqual(ssl.OP_ALL | ssl.OP_NO_SSLv2 | ssl.OP_NO_SSLv3 | ssl.OP_NO_TLSv1,
-                         ctx.options)
+        self.assertEqual(default | ssl.OP_NO_TLSv1, ctx.options)
         if can_clear_options():
-            ctx.options = (ctx.options & ~ssl.OP_NO_SSLv2) | ssl.OP_NO_TLSv1
-            self.assertEqual(ssl.OP_ALL | ssl.OP_NO_TLSv1 | ssl.OP_NO_SSLv3,
-                             ctx.options)
+            ctx.options = (ctx.options & ~ssl.OP_NO_TLSv1)
+            self.assertEqual(default, ctx.options)
             ctx.options = 0
             self.assertEqual(0, ctx.options)
         else:
@@ -2918,18 +2920,27 @@ else:
                 client_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
                 client_context.load_cert_chain(CERTFILE)
                 client_context.set_alpn_protocols(client_protocols)
-                stats = server_params_test(client_context, server_context,
-                                           chatty=True, connectionchatty=True)
+                try:
+                    stats = server_params_test(client_context, server_context,
+                                               chatty=True, connectionchatty=True)
+                except ssl.SSLError as e:
+                    stats = e
 
-                msg = "failed trying %s (s) and %s (c).\n" \
-                      "was expecting %s, but got %%s from the %%s" \
-                          % (str(server_protocols), str(client_protocols),
-                             str(expected))
-                client_result = stats['client_alpn_protocol']
-                self.assertEqual(client_result, expected, msg % (client_result, "client"))
-                server_result = stats['server_alpn_protocols'][-1] \
-                    if len(stats['server_alpn_protocols']) else 'nothing'
-                self.assertEqual(server_result, expected, msg % (server_result, "server"))
+                if expected is None and IS_OPENSSL_1_1:
+                    # OpenSSL 1.1.0 raises handshake error
+                    self.assertIsInstance(stats, ssl.SSLError)
+                else:
+                    msg = "failed trying %s (s) and %s (c).\n" \
+                          "was expecting %s, but got %%s from the %%s" \
+                              % (str(server_protocols), str(client_protocols),
+                                 str(expected))
+                    client_result = stats['client_alpn_protocol']
+                    self.assertEqual(client_result, expected,
+                                     msg % (client_result, "client"))
+                    server_result = stats['server_alpn_protocols'][-1] \
+                        if len(stats['server_alpn_protocols']) else 'nothing'
+                    self.assertEqual(server_result, expected,
+                                     msg % (server_result, "server"))
 
         def test_selected_npn_protocol(self):
             # selected_npn_protocol() is None unless NPN is used
