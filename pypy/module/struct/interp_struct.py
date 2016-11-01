@@ -128,19 +128,6 @@ class W_UnpackIter(W_Root):
         self.index += size
         return w_res
 
-def new_unpackiter(space, w_subtype, w_struct, w_buffer):
-    buf = space.buffer_w(w_buffer, space.BUF_SIMPLE)
-    w_res = space.allocate_instance(W_UnpackIter, w_subtype)
-    w_res.__init__(w_struct, buf)
-    return w_res
-
-W_UnpackIter.typedef = TypeDef("unpack_iterator",
-    __new__=interp2app(new_unpackiter),
-    __iter__=interp2app(W_UnpackIter.descr_iter),
-    __next__=interp2app(W_UnpackIter.descr_next),
-    #__length_hint__=
-)
-
 
 class W_Struct(W_Root):
     _immutable_fields_ = ["format", "size"]
@@ -183,6 +170,20 @@ W_Struct.typedef = TypeDef("Struct",
     pack_into=interp2app(W_Struct.descr_pack_into),
     unpack_from=interp2app(W_Struct.descr_unpack_from),
     iter_unpack=interp2app(W_Struct.descr_iter_unpack),
+)
+
+@unwrap_spec(w_struct=W_Struct)
+def new_unpackiter(space, w_subtype, w_struct, w_buffer):
+    buf = space.buffer_w(w_buffer, space.BUF_SIMPLE)
+    w_res = space.allocate_instance(W_UnpackIter, w_subtype)
+    w_res.__init__(w_struct, buf)
+    return w_res
+
+W_UnpackIter.typedef = TypeDef("unpack_iterator",
+    __new__=interp2app(new_unpackiter),
+    __iter__=interp2app(W_UnpackIter.descr_iter),
+    __next__=interp2app(W_UnpackIter.descr_next),
+    #__length_hint__=
 )
 
 def clearcache(space):
