@@ -693,11 +693,6 @@ class AssemblerZARCH(BaseAssembler, OpAssembler,
 
         self.fixup_target_tokens(rawstart)
         self.teardown()
-        # oprofile support
-        #if self.cpu.profile_agent is not None:
-        #    name = "Loop # %s: %s" % (looptoken.number, loopname)
-        #    self.cpu.profile_agent.native_code_written(name,
-        #                                               rawstart, full_size)
         #print(hex(rawstart+looppos))
         #import pdb; pdb.set_trace()
         return AsmInfo(ops_offset, rawstart + looppos,
@@ -1006,7 +1001,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler,
                 return
             # move from fp register to memory
             elif loc.is_stack():
-                assert loc.type == FLOAT, "target not float location"
+                assert prev_loc.type == FLOAT, "source is not a float location"
                 offset = loc.value
                 self.mc.STDY(prev_loc, l.addr(offset, r.SPP))
                 return
@@ -1600,8 +1595,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler,
         remap_frame_layout_mixed(self, src_locations1, dst_locations1, r.SCRATCH,
                                  src_locations2, dst_locations2, r.FP_SCRATCH, WORD)
 
-        offset = self.mc.get_relative_pos()
-        self.mc.b_abs(asminfo.rawstart)
+        self.mc.b_abs(asminfo.asmaddr)
 
         rawstart = self.materialize_loop(looptoken)
         # update the guard to jump right to this custom piece of assembler

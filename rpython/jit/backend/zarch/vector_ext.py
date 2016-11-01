@@ -168,11 +168,15 @@ class VectorAssembler(object):
             scalar_arg = accum_info.getoriginal()
             orig_scalar_loc = scalar_loc
             if not scalar_loc.is_reg():
-                scalar_loc = r.FP_SCRATCH
+                if scalar_arg.type == FLOAT:
+                    scalar_loc = r.FP_SCRATCH
+                else:
+                    scalar_loc = r.SCRATCH2
+                self.regalloc_mov(orig_scalar_loc, scalar_loc)
             assert scalar_arg is not None
             op = accum_info.accum_operation
             self._accum_reduce(op, scalar_arg, vector_loc, scalar_loc)
-            if scalar_loc is r.FP_SCRATCH:
+            if scalar_loc is not orig_scalar_loc:
                 self.regalloc_mov(scalar_loc, orig_scalar_loc)
             accum_info = accum_info.next()
 
@@ -268,9 +272,8 @@ class VectorAssembler(object):
         else:
             assert arg.type == INT
             # store the vector onto the stack, just below the stack pointer
-            self.mc.VST(accumloc, l.addr(0, r.SP))
-            self.mc.LG(r.SCRATCH, l.addr(0, r.SP))
-            self.mc.LG(targetloc, l.addr(8, r.SP))
+            self.mc.VLGV(r.SCRATCH, accumloc, l.addr(0), l.itemsize_to_mask(8))
+            self.mc.VLGV(targetloc, accumloc, l.addr(1), l.itemsize_to_mask(8))
             if op == '+':
                 self.mc.AGR(targetloc, r.SCRATCH)
                 return
