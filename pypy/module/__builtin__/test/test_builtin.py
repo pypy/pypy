@@ -502,7 +502,7 @@ class AppTestBuiltinApp:
         assert eval(co) == 3
         co = compile(memoryview(b'1+2'), '?', 'eval')
         assert eval(co) == 3
-        exc = raises(TypeError, compile, chr(0), '?', 'eval')
+        exc = raises(ValueError, compile, chr(0), '?', 'eval')
         assert str(exc.value) == "source code string cannot contain null bytes"
         compile("from __future__ import with_statement", "<test>", "exec")
         raises(SyntaxError, compile, '-', '?', 'eval')
@@ -646,10 +646,10 @@ def fn(): pass
         assert firstlineno == 2
 
     def test_compile_null_bytes(self):
-        raises(TypeError, compile, '\x00', 'mymod', 'exec', 0)
+        raises(ValueError, compile, '\x00', 'mymod', 'exec', 0)
         src = "#abc\x00def\n"
-        raises(TypeError, compile, src, 'mymod', 'exec')
-        raises(TypeError, compile, src, 'mymod', 'exec', 0)
+        raises(ValueError, compile, src, 'mymod', 'exec')
+        raises(ValueError, compile, src, 'mymod', 'exec', 0)
 
     def test_compile_null_bytes_flag(self):
         try:
