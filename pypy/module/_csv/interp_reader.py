@@ -24,13 +24,13 @@ class W_Reader(W_Root):
         self.line_num = 0
 
     def iter_w(self):
-        return self.space.wrap(self)
+        return self
 
     @objectmodel.dont_inline
     def error(self, msg):
         space = self.space
         w_module = space.getbuiltinmodule('_csv')
-        w_error = space.getattr(w_module, space.wrap('Error'))
+        w_error = space.getattr(w_module, space.newtext('Error'))
         raise oefmt(w_error, "line %d: %s", self.line_num, msg)
 
     def add_char(self, field_builder, c):
@@ -49,10 +49,10 @@ class W_Reader(W_Root):
             try:
                 ff = string_to_float(field)
             except ParseStringError as e:
-                raise wrap_parsestringerror(space, e, space.wrap(field))
-            w_obj = space.wrap(ff)
+                raise wrap_parsestringerror(space, e, space.newtext(field))
+            w_obj = space.newfloat(ff)
         else:
-            w_obj = space.wrap(field)
+            w_obj = space.newtext(field)
         self.fields_w.append(w_obj)
 
     def next_w(self):
@@ -267,4 +267,4 @@ def csv_field_size_limit(space, new_limit=-1):
     old_limit = field_limit.limit
     if new_limit >= 0:
         field_limit.limit = new_limit
-    return space.wrap(old_limit)
+    return space.newint(old_limit)
