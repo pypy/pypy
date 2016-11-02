@@ -302,7 +302,8 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
         history.cut(cut_at)
         return None
 
-    if ((warmstate.vec and jitdriver_sd.vec) or warmstate.vec_all) and metainterp.cpu.vector_ext.is_enabled():
+    if ((warmstate.vec and jitdriver_sd.vec) or warmstate.vec_all) and \
+        metainterp.cpu.vector_ext and metainterp.cpu.vector_ext.is_enabled():
         from rpython.jit.metainterp.optimizeopt.vector import optimize_vector
         loop_info, loop_ops = optimize_vector(trace, metainterp_sd,
                                               jitdriver_sd, warmstate,
