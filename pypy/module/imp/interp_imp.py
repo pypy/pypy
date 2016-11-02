@@ -9,15 +9,19 @@ from pypy.interpreter.streamutil import wrap_streamerror
 
 
 def get_suffixes(space):
-    w = space.wrap
     suffixes_w = []
     if importing.has_so_extension(space):
         suffixes_w.append(
-            space.newtuple([w(importing.get_so_extension(space)),
-                            w('rb'), w(importing.C_EXTENSION)]))
+            space.newtuple([space.newtext(importing.get_so_extension(space)),
+                            space.newtext('rb'),
+                            space.newtext(importing.C_EXTENSION)]))
     suffixes_w.extend([
-        space.newtuple([w('.py'), w('U'), w(importing.PY_SOURCE)]),
-        space.newtuple([w('.pyc'), w('rb'), w(importing.PY_COMPILED)]),
+        space.newtuple([space.newtext('.py'),
+                        space.newtext('U'),
+                        space.newtext(importing.PY_SOURCE)]),
+        space.newtuple([space.newtext('.pyc'),
+                        space.newtext('rb'),
+                        space.newtext(importing.PY_COMPILED)]),
         ])
     return space.newlist(suffixes_w)
 
@@ -30,7 +34,7 @@ def get_magic(space):
     c = x & 0xff
     x >>= 8
     d = x & 0xff
-    return space.wrap(chr(a) + chr(b) + chr(c) + chr(d))
+    return space.newbytes(chr(a) + chr(b) + chr(c) + chr(d))
 
 def get_file(space, w_file, filename, filemode):
     if space.is_none(w_file):
