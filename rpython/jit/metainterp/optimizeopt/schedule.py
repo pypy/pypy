@@ -138,10 +138,10 @@ class SchedulerState(object):
     def delay_emit(self, node):
         """ it has been decided that the operation might be scheduled later """
         delayed = node.delayed or []
-        delayed.append(node)
+        if node not in delayed:
+            delayed.append(node)
         node.delayed = None
         provides = node.provides()
-        op = node.getoperation()
         if len(provides) == 0:
             for n in delayed:
                 self.delayed.append(n)
@@ -158,7 +158,8 @@ class SchedulerState(object):
         else:
             delayedlist = node.delayed
             for d in delayed:
-                delayedlist.append(d)
+                if d not in delayedlist:
+                    delayedlist.append(d)
 
 
     def mark_emitted(state, node, unpack=True):
@@ -347,7 +348,7 @@ def turn_into_vector(state, pack):
             state.renamer.start_renaming(op, vecop)
     if left.is_guard():
         prepare_fail_arguments(state, pack, left, vecop)
-    state.oplist.append(vecop)
+    state.append_to_oplist(vecop)
     assert vecop.count >= 1
 
 def prepare_arguments(state, oprestrict, pack, args):
@@ -414,7 +415,7 @@ def crop_vector(state, oprestrict, restrict, pack, args, i):
         count = vecinfo.count
         vecop = VecOperationNew(rop.VEC_INT_SIGNEXT, [arg, ConstInt(newsize)],
                                 'i', newsize, vecinfo.signed, count)
-        state.oplist.append(vecop)
+        state.append_to_oplist(vecop)
         state.costmodel.record_cast_int(size, newsize, count)
         args[i] = vecop
 
@@ -483,7 +484,7 @@ def unpack_from_vector(state, arg, index, count):
     vecop = OpHelpers.create_vec_unpack(arg.type, args, vecinfo.bytesize,
                                         vecinfo.signed, count)
     state.costmodel.record_vector_unpack(arg, index, count)
-    state.oplist.append(vecop)
+    state.append_to_oplist(vecop)
     return vecop
 
 def pack_into_vector(state, tgt, tidx, src, sidx, scount):
@@ -496,7 +497,7 @@ def pack_into_vector(state, tgt, tidx, src, sidx, scount):
     newcount = vecinfo.count + scount
     args = [tgt, src, ConstInt(tidx), ConstInt(scount)]
     vecop = OpHelpers.create_vec_pack(tgt.type, args, vecinfo.bytesize, vecinfo.signed, newcount)
-    state.oplist.append(vecop)
+    state.append_to_oplist(vecop)
     state.costmodel.record_vector_pack(src, sidx, scount)
     if not we_are_translated():
         _check_vec_pack(vecop)
@@ -678,7 +679,6 @@ class VecScheduleState(SchedulerState):
                 self.pre_emit(node, i==0)
                 self.mark_emitted(node, unpack=False)
             turn_into_vector(self, node.pack)
-            return
         elif not node.emitted:
             SchedulerState.try_emit_or_delay(self, node)
 
