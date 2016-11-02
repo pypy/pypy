@@ -16,27 +16,27 @@ from pypy.interpreter.typedef import (
 )
 
 
-# XXX Hack to seperate rpython and pypy
+# XXX Hack to separate rpython and pypy
 def addr_as_object(addr, fd, space):
     if isinstance(addr, rsocket.INETAddress):
-        return space.newtuple([space.wrap(addr.get_host()),
-                               space.wrap(addr.get_port())])
+        return space.newtuple([space.newtext(addr.get_host()),
+                               space.newint(addr.get_port())])
     elif isinstance(addr, rsocket.INET6Address):
-        return space.newtuple([space.wrap(addr.get_host()),
-                               space.wrap(addr.get_port()),
-                               space.wrap(addr.get_flowinfo()),
-                               space.wrap(addr.get_scope_id())])
+        return space.newtuple([space.newtext(addr.get_host()),
+                               space.newint(addr.get_port()),
+                               space.wrap(addr.get_flowinfo()), # YYY
+                               space.wrap(addr.get_scope_id())]) # YYY
     elif rsocket.HAS_AF_PACKET and isinstance(addr, rsocket.PacketAddress):
-        return space.newtuple([space.wrap(addr.get_ifname(fd)),
-                               space.wrap(addr.get_protocol()),
-                               space.wrap(addr.get_pkttype()),
-                               space.wrap(addr.get_hatype()),
-                               space.wrap(addr.get_haddr())])
+        return space.newtuple([space.newtext(addr.get_ifname(fd)),
+                               space.newint(addr.get_protocol()),
+                               space.newint(addr.get_pkttype()),
+                               space.newint(addr.get_hatype()),
+                               space.newtext(addr.get_haddr())])
     elif rsocket.HAS_AF_UNIX and isinstance(addr, rsocket.UNIXAddress):
-        return space.wrap(addr.get_path())
+        return space.newtext(addr.get_path())
     elif rsocket.HAS_AF_NETLINK and isinstance(addr, rsocket.NETLINKAddress):
-        return space.newtuple([space.wrap(addr.get_pid()),
-                               space.wrap(addr.get_groups())])
+        return space.newtuple([space.newint(addr.get_pid()),
+                               space.newint(addr.get_groups())])
     # If we don't know the address family, don't raise an
     # exception -- return it as a tuple.
     from rpython.rlib import _rsocket_rffi as _c
@@ -45,8 +45,8 @@ def addr_as_object(addr, fd, space):
     datalen = addr.addrlen - rsocket.offsetof(_c.sockaddr, 'c_sa_data')
     rawdata = ''.join([a.c_sa_data[i] for i in range(datalen)])
     addr.unlock()
-    return space.newtuple([space.wrap(family),
-                          space.wrap(rawdata)])
+    return space.newtuple([space.newint(family),
+                           space.newtext(rawdata)])
 
 # XXX Hack to seperate rpython and pypy
 # XXX a bit of code duplication
@@ -144,7 +144,7 @@ def make_unsigned_flowinfo(space, flowinfo):
 
 # XXX Hack to seperate rpython and pypy
 def ipaddr_from_object(space, w_sockaddr):
-    host = space.str_w(space.getitem(w_sockaddr, space.wrap(0)))
+    host = space.str_w(space.getitem(w_sockaddr, space.newint(0)))
     addr = rsocket.makeipaddr(host)
     fill_from_object(addr, space, w_sockaddr)
     return addr
@@ -166,21 +166,21 @@ class W_Socket(W_Root):
         if is_open and self.space.sys.track_resources:
             w_repr = self.space.repr(self)
             str_repr = self.space.str_w(w_repr)
-            w_msg = self.space.wrap("WARNING: unclosed " + str_repr)
+            w_msg = self.space.newtext("WARNING: unclosed " + str_repr)
             self.space.resource_warning(w_msg, self.w_tb)
 
     def get_type_w(self, space):
-        return space.wrap(self.sock.type)
+        return space.newint(self.sock.type)
 
     def get_proto_w(self, space):
-        return space.wrap(self.sock.proto)
+        return space.newint(self.sock.proto)
 
     def get_family_w(self, space):
-        return space.wrap(self.sock.family)
+        return space.newint(self.sock.family)
 
     def descr_repr(self, space):
         fd = intmask(self.sock.fd)  # Force to signed type even on Windows.
-        return space.wrap("<socket object, fd=%d, family=%d,"
+        return space.newtext("<socket object, fd=%d, family=%d,"
                           " type=%d, protocol=%d>" %
                           (fd, self.sock.family,
                            self.sock.type, self.sock.proto))
@@ -196,7 +196,7 @@ class W_Socket(W_Root):
             fd, addr = self.sock.accept()
             sock = rsocket.make_socket(
                 fd, self.sock.family, self.sock.type, self.sock.proto)
-            return space.newtuple([space.wrap(W_Socket(space, sock)),
+            return space.newtuple([W_Socket(space, sock),
                                    addr_as_object(addr, sock.fd, space)])
         except SocketError as e:
             raise converted_error(space, e)
@@ -256,7 +256,7 @@ class W_Socket(W_Root):
         except SocketError as e:
             raise converted_error(space, e)
         error = self.sock.connect_ex(addr)
-        return space.wrap(error)
+        return space.newint(error)
 
     def dup_w(self, space):
         try:
@@ -270,7 +270,7 @@ class W_Socket(W_Root):
 
         Return the integer file descriptor of the socket.
         """
-        return space.wrap(intmask(self.sock.fd))
+        return space.newint(intmask(self.sock.fd))
 
     def getpeername_w(self, space):
         """getpeername() -> address info
@@ -306,7 +306,7 @@ class W_Socket(W_Root):
         """
         if w_buflen is None:
             try:
-                return space.wrap(self.sock.getsockopt_int(level, optname))
+                return space.newint(self.sock.getsockopt_int(level, optname))
             except SocketError as e:
                 raise converted_error(space, e)
         buflen = space.int_w(w_buflen)
@@ -321,7 +321,7 @@ class W_Socket(W_Root):
         timeout = self.sock.gettimeout()
         if timeout < 0.0:
             return space.w_None
-        return space.wrap(timeout)
+        return space.newfloat(timeout)
 
     @unwrap_spec(backlog="c_int")
     def listen_w(self, space, backlog):
@@ -389,7 +389,7 @@ class W_Socket(W_Root):
             count = self.sock.send(data, flags)
         except SocketError as e:
             raise converted_error(space, e)
-        return space.wrap(count)
+        return space.newint(count)
 
     @unwrap_spec(data='bufferstr', flags=int)
     def sendall_w(self, space, data, flags=0):
@@ -426,7 +426,7 @@ class W_Socket(W_Root):
             count = self.sock.sendto(data, flags, addr)
         except SocketError as e:
             raise converted_error(space, e)
-        return space.wrap(count)
+        return space.newint(count)
 
     @unwrap_spec(flag=bool)
     def setblocking_w(self, flag):
@@ -484,7 +484,7 @@ class W_Socket(W_Root):
         if nbytes == 0 or nbytes > lgt:
             nbytes = lgt
         try:
-            return space.wrap(self.sock.recvinto(rwbuffer, nbytes, flags))
+            return space.newint(self.sock.recvinto(rwbuffer, nbytes, flags))
         except SocketError as e:
             raise converted_error(space, e)
 
@@ -503,7 +503,7 @@ class W_Socket(W_Root):
                 w_addr = addr_as_object(addr, self.sock.fd, space)
             else:
                 w_addr = space.w_None
-            return space.newtuple([space.wrap(readlgt), w_addr])
+            return space.newtuple([space.newint(readlgt), w_addr])
         except SocketError as e:
             raise converted_error(space, e)
 
@@ -544,7 +544,7 @@ class W_Socket(W_Root):
                 if value_ptr:
                     lltype.free(value_ptr, flavor='raw')
 
-            return space.wrap(recv_ptr[0])
+            return space.wrap(recv_ptr[0]) # YYY
         finally:
             lltype.free(recv_ptr, flavor='raw')
 
@@ -605,7 +605,7 @@ def newsocket(space, w_subtype, family=AF_INET,
     except SocketError as e:
         raise converted_error(space, e)
     W_Socket.__init__(self, space, sock)
-    return space.wrap(self)
+    return self
 descr_socket_new = interp2app(newsocket)
 
 
@@ -678,10 +678,10 @@ def converted_error(space, e):
     message = e.get_msg()
     w_exception_class = get_error(space, e.applevelerrcls)
     if isinstance(e, SocketErrorWithErrno):
-        w_exception = space.call_function(w_exception_class, space.wrap(e.errno),
-                                      space.wrap(message))
+        w_exception = space.call_function(w_exception_class, space.newint(e.errno),
+                                      space.newtext(message))
     else:
-        w_exception = space.call_function(w_exception_class, space.wrap(message))
+        w_exception = space.call_function(w_exception_class, space.newtext(message))
     return OperationError(w_exception_class, w_exception)
 
 # ____________________________________________________________
