@@ -59,6 +59,17 @@ class TestPosixFunction:
         compile(f, (str, float))(str(fname), t1)
         assert t1 == os.stat(str(fname)).st_mtime
 
+    def test_utime_negative_fraction(self):
+        def f(fname, t1):
+            os.utime(fname, (t1, t1))
+
+        fname = udir.join('test_utime_negative_fraction.txt')
+        fname.ensure()
+        t1 = -123.75
+        compile(f, (str, float))(str(fname), t1)
+        got = os.stat(str(fname)).st_mtime
+        assert got == -123 or got == -123.75
+
     @win_only
     def test__getfullpathname(self):
         posix = __import__(os.name)
