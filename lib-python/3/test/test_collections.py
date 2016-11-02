@@ -13,6 +13,7 @@ import keyword
 import re
 import sys
 import types
+import gc
 from collections import UserDict, UserString, UserList
 from collections import ChainMap
 from collections import deque
@@ -2052,7 +2053,9 @@ class OrderedDictTests:
             obj = MyOD([(None, obj)])
             obj.i = i
         del obj
-        support.gc_collect()
+        # PyPy change: we only collect 1 MyOD instance per GC
+        for _ in range(100):
+            gc.collect()
         self.assertEqual(deleted, list(reversed(range(100))))
 
     def test_delitem_hash_collision(self):
