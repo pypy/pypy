@@ -22,6 +22,8 @@ class AbstractX86CPU(AbstractLLCPU):
     with_threads = False
     frame_reg = regloc.ebp
 
+    vector_ext = X86VectorExt()
+
     # can an ISA instruction handle a factor to the offset?
     load_supported_factors = (1,2,4,8)
 
@@ -146,7 +148,6 @@ class CPU386_NO_SSE2(CPU386):
     supports_longlong = False
 
 class CPU_X86_64(AbstractX86CPU):
-    vector_ext = X86VectorExt()
 
     backend_name = 'x86_64'
     NUM_REGS = 16
