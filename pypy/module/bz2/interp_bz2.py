@@ -277,9 +277,6 @@ class W_BZ2File(W_File):
             head = "closed"
         else:
             head = "open"
-        w_name = self.w_name
-        if w_name is None:
-            w_name = self.space.wrap('?')
         info = "%s bz2.BZ2File %s, mode '%s'" % (head, self.getdisplayname(),
                                                  self.mode)
         return self.getrepr(self.space, info)
@@ -287,7 +284,7 @@ class W_BZ2File(W_File):
 def descr_bz2file__new__(space, w_subtype, __args__):
     bz2file = space.allocate_instance(W_BZ2File, w_subtype)
     W_BZ2File.__init__(bz2file, space)
-    return space.wrap(bz2file)
+    return bz2file
 
 same_attributes_as_in_file = list(W_File._exposed_method_names)
 same_attributes_as_in_file.remove('__init__')
@@ -504,9 +501,8 @@ class WriteBZ2Filter(Stream):
 @unwrap_spec(compresslevel=int)
 def descr_compressor__new__(space, w_subtype, compresslevel=9):
     x = space.allocate_instance(W_BZ2Compressor, w_subtype)
-    x = space.interp_w(W_BZ2Compressor, x)
     W_BZ2Compressor.__init__(x, space, compresslevel)
-    return space.wrap(x)
+    return x
 
 class W_BZ2Compressor(W_Root):
     """BZ2Compressor([compresslevel=9]) -> compressor object
@@ -614,9 +610,8 @@ W_BZ2Compressor.typedef = TypeDef("BZ2Compressor",
 
 def descr_decompressor__new__(space, w_subtype):
     x = space.allocate_instance(W_BZ2Decompressor, w_subtype)
-    x = space.interp_w(W_BZ2Decompressor, x)
     W_BZ2Decompressor.__init__(x, space)
-    return space.wrap(x)
+    return x
 
 
 class W_BZ2Decompressor(W_Root):
@@ -750,7 +745,7 @@ def compress(space, data, compresslevel=9):
 
                 res = out.make_result_string()
                 BZ2_bzCompressEnd(bzs)
-                return space.wrap(res)
+                return space.newbytes(res)
 
 @unwrap_spec(data='bufferstr')
 def decompress(space, data):
@@ -761,7 +756,7 @@ def decompress(space, data):
 
     in_bufsize = len(data)
     if in_bufsize == 0:
-        return space.wrap("")
+        return space.newbytes("")
 
     with lltype.scoped_alloc(bz_stream.TO, zero=True) as bzs:
         with rffi.scoped_nonmovingbuffer(data) as in_buf:
@@ -790,4 +785,4 @@ def decompress(space, data):
 
                 res = out.make_result_string()
                 BZ2_bzDecompressEnd(bzs)
-                return space.wrap(res)
+                return space.newbytes(res)

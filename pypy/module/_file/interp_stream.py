@@ -114,13 +114,13 @@ for name, argtypes in streamio.STREAM_METHODS.iteritems():
                 result = self.stream.%(name)s(%(args)s)
             except streamio.StreamError, e:
                 raise OperationError(space.w_ValueError,
-                                     space.wrap(e.message))
+                                     space.newtext(e.message))
             except OSError, e:
                 raise wrap_oserror_as_ioerror(space, e)
         finally:
             if acquired:
                 self.release_lock()
-        return space.wrap(result)
+        return space.wrap(result) # YYY
     %(name)s.unwrap_spec = [W_Stream, ObjSpace] + argtypes
     """ % locals()).compile() in globals()
 

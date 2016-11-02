@@ -20,7 +20,7 @@ def chr(space, w_ascii):
         char = __builtin__.chr(space.int_w(w_ascii))
     except ValueError:  # chr(out-of-range)
         raise oefmt(space.w_ValueError, "character code not in range(256)")
-    return space.wrap(char)
+    return space.wrap(char) # YYY
 
 @unwrap_spec(code=int)
 def unichr(space, code):

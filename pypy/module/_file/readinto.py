@@ -79,4 +79,4 @@ def direct_readinto(self, w_rwbuffer):
                     raise OSError(err, "read error")
             keepalive_until_here(rwbuffer)
 
-    return self.space.wrap(target_pos)
+    return self.space.newint(target_pos)
