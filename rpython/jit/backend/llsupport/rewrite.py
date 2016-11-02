@@ -15,6 +15,7 @@ from rpython.jit.backend.llsupport.descr import SizeDescr, ArrayDescr,\
 from rpython.jit.metainterp.history import JitCellToken
 from rpython.jit.backend.llsupport.descr import (unpack_arraydescr,
         unpack_fielddescr, unpack_interiorfielddescr)
+from rpython.rtyper.lltypesystem.lloperation import llop
 
 FLAG_ARRAY = 0
 FLAG_STR = 1
@@ -302,7 +303,11 @@ class GcRewriterAssembler(object):
         self._changed_op = None
         for i in range(len(operations)):
             op = operations[i]
-            assert op.get_forwarded() is None
+            if op.get_forwarded():
+                msg = '[rewrite] operations at %d has forwarded info %s\n' % (i, op.repr({}))
+                if we_are_translated():
+                    llop.debug_print(lltype.Void, msg)
+                raise NotImplementedError(msg)
             if op.getopnum() == rop.DEBUG_MERGE_POINT:
                 continue
             if op is self._changed_op:

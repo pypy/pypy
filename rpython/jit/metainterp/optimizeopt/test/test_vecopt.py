@@ -1373,5 +1373,25 @@ class BaseTestVectorize(VecTestHelper):
             'i2 = int_add(i0, 16)',
         ], trace)
 
+    def test_schedule_signext_twice(self):
+        trace = self.parse_loop("""
+        [p0, i1, p2, i3, p4, p5, i6, i7]
+        i8 = raw_load_i(i6, i3, descr=chararraydescr)
+        i10 = int_signext(i8, 1)
+        guard_not_invalidated() [p2, i10, i3, i1, p0]
+        i11 = int_is_true(i10)
+        guard_false(i11) [p2, i10, i3, i1, p0]
+        i13 = int_add(i1, 1)
+        i15 = int_add(i3, 1)
+        i16 = int_ge(i13, i7)
+        guard_false(i16) [p2, i10, i3, i1, p0]
+        jump(p0, i13, p2, i15, p4, p5, i6, i7)
+        """)
+        self.schedule(trace, unroll_factor=15)
+        dups = set()
+        for op in trace.operations:
+            assert op not in dups
+            dups.add(op)
+
 class TestLLtype(BaseTestVectorize, LLtypeMixin):
     pass

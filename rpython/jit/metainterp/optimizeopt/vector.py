@@ -83,7 +83,7 @@ class VectorLoop(object):
             oplist = self.prefix
         if label:
             oplist = [self.label] + oplist
-        if label != True:
+        if not label:
             for op in oplist:
                 op.set_forwarded(None)
             self.jump.set_forwarded(None)
@@ -264,6 +264,8 @@ class VectorizingOptimizer(Optimizer):
         state.schedule()
 
         info.extra_before_label = loop.align_operations
+        for op in loop.align_operations:
+            op.set_forwarded(None)
 
         return loop.finaloplist(jitcell_token=jitcell_token, reset_label_token=False)
 

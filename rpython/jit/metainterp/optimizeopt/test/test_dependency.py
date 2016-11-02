@@ -61,7 +61,7 @@ class DependencyBaseTest(BaseTest):
                 return False
         return True
 
-    def ensure_operations(self, opstrlist, trace, inthatorder=True):
+    def ensure_operations(self, opstrlist, trace):
         oparse = OpParser('', self.cpu, self.namespace, None,
                           None, True, None)
         oplist = []
@@ -75,7 +75,6 @@ class DependencyBaseTest(BaseTest):
                 oparse._cache['lltype', elem] = op
             oplist.append(op)
         oplist_i = 0
-        match = False
         remap = {}
         last_match = 0
         for i, op in enumerate(trace.operations):
