@@ -24,8 +24,8 @@ class MultibyteCodec(W_Root):
             raise wrap_unicodedecodeerror(space, e, input, self.name)
         except RuntimeError:
             raise wrap_runtimeerror(space)
-        return space.newtuple([space.wrap(output),
-                               space.wrap(len(input))])
+        return space.newtuple([space.newunicode(output),
+                               space.newint(len(input))])
 
     @unwrap_spec(input=unicode, errors="str_or_None")
     def encode(self, space, input, errors=None):
@@ -41,7 +41,7 @@ class MultibyteCodec(W_Root):
         except RuntimeError:
             raise wrap_runtimeerror(space)
         return space.newtuple([space.newbytes(output),
-                               space.wrap(len(input))])
+                               space.newint(len(input))])
 
 
 MultibyteCodec.typedef = TypeDef(
@@ -58,28 +58,28 @@ def getcodec(space, name):
         codec = c_codecs.getcodec(name)
     except KeyError:
         raise oefmt(space.w_LookupError, "no such codec is supported.")
-    return space.wrap(MultibyteCodec(name, codec))
+    return MultibyteCodec(name, codec)
 
 
 def wrap_unicodedecodeerror(space, e, input, name):
     return OperationError(
         space.w_UnicodeDecodeError,
         space.newtuple([
-            space.wrap(name),
+            space.newtext(name),
             space.newbytes(input),
-            space.wrap(e.start),
-            space.wrap(e.end),
-            space.wrap(e.reason)]))
+            space.newint(e.start),
+            space.newint(e.end),
+            space.newtext(e.reason)]))
 
 def wrap_unicodeencodeerror(space, e, input, name):
     raise OperationError(
         space.w_UnicodeEncodeError,
         space.newtuple([
-            space.wrap(name),
-            space.wrap(input),
-            space.wrap(e.start),
-            space.wrap(e.end),
-            space.wrap(e.reason)]))
+            space.newtext(name),
+            space.newunicode(input),
+            space.newint(e.start),
+            space.newint(e.end),
+            space.newtext(e.reason)]))
 
 def wrap_runtimeerror(space):
     raise oefmt(space.w_RuntimeError, "internal codec error")
