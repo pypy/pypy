@@ -13,7 +13,7 @@ from rpython.rlib import rposix, rgc
 
 
 def internal_repr(space, w_object):
-    return space.wrap('%r' % (w_object,))
+    return space.newtext('%r' % (w_object,))
 
 
 def attach_gdb(space):
@@ -59,7 +59,7 @@ def builtinify(space, w_func):
     from pypy.interpreter.function import Function, BuiltinFunction
     func = space.interp_w(Function, w_func)
     bltn = BuiltinFunction(func)
-    return space.wrap(bltn)
+    return bltn
 
 def hidden_applevel(space, w_func):
     """Decorator that hides a function's frame from app-level"""
@@ -73,7 +73,7 @@ def get_hidden_tb(space):
     frame hidden from applevel.
     """
     operr = space.getexecutioncontext().sys_exc_info(for_hidden=True)
-    return space.w_None if operr is None else space.wrap(operr.get_traceback())
+    return space.w_None if operr is None else operr.get_traceback()
 
 @unwrap_spec(meth=str)
 def lookup_special(space, w_obj, meth):
@@ -87,7 +87,7 @@ def lookup_special(space, w_obj, meth):
     return space.get(w_descr, w_obj)
 
 def do_what_I_mean(space):
-    return space.wrap(42)
+    return space.newint(42)
 
 
 def strategy(space, w_obj):
@@ -103,7 +103,7 @@ def strategy(space, w_obj):
         name = w_obj.strategy.__class__.__name__
     else:
         raise oefmt(space.w_TypeError, "expecting dict or list or set object")
-    return space.wrap(name)
+    return space.newtext(name)
 
 
 @unwrap_spec(fd='c_int')
@@ -116,8 +116,8 @@ def validate_fd(space, fd):
 def get_console_cp(space):
     from rpython.rlib import rwin32    # Windows only
     return space.newtuple([
-        space.wrap('cp%d' % rwin32.GetConsoleCP()),
-        space.wrap('cp%d' % rwin32.GetConsoleOutputCP()),
+        space.newtext('cp%d' % rwin32.GetConsoleCP()),
+        space.newtext('cp%d' % rwin32.GetConsoleOutputCP()),
         ])
 
 @unwrap_spec(sizehint=int)
@@ -134,8 +134,8 @@ def newlist_hint(space, sizehint):
 def set_debug(space, debug):
     space.sys.debug = debug
     space.setitem(space.builtin.w_dict,
-                  space.wrap('__debug__'),
-                  space.wrap(debug))
+                  space.newtext('__debug__'),
+                  space.newbool(debug))
 
 @unwrap_spec(estimate=int)
 def add_memory_pressure(estimate):
