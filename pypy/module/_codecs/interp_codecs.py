@@ -1,7 +1,8 @@
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib.rstring import UnicodeBuilder, StringBuilder
-from rpython.rlib.runicode import code_to_unichr, MAXUNICODE
+from rpython.rlib.rstring import StringBuilder
+from rpython.rlib.runicode import (
+    code_to_unichr, MAXUNICODE, raw_unicode_escape_helper)
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
@@ -245,7 +246,7 @@ def xmlcharrefreplace_errors(space, w_exc):
         start = space.int_w(space.getattr(w_exc, space.wrap('start')))
         w_end = space.getattr(w_exc, space.wrap('end'))
         end = space.int_w(w_end)
-        builder = UnicodeBuilder()
+        builder = StringBuilder()
         pos = start
         while pos < end:
             code = ord(obj[pos])
@@ -255,9 +256,9 @@ def xmlcharrefreplace_errors(space, w_exc):
                 code |= ord(obj[pos+1]) & 0x03FF
                 code += 0x10000
                 pos += 1
-            builder.append(u"&#")
-            builder.append(unicode(str(code)))
-            builder.append(u";")
+            builder.append("&#")
+            builder.append(str(code))
+            builder.append(";")
             pos += 1
         return space.newtuple([space.wrap(builder.build()), w_end])
     else:
@@ -271,25 +272,11 @@ def backslashreplace_errors(space, w_exc):
         start = space.int_w(space.getattr(w_exc, space.wrap('start')))
         w_end = space.getattr(w_exc, space.wrap('end'))
         end = space.int_w(w_end)
-        builder = UnicodeBuilder()
+        builder = StringBuilder()
         pos = start
         while pos < end:
             oc = ord(obj[pos])
-            num = hex(oc)
-            if (oc >= 0x10000):
-                builder.append(u"\\U")
-                zeros = 8
-            elif (oc >= 0x100):
-                builder.append(u"\\u")
-                zeros = 4
-            else:
-                builder.append(u"\\x")
-                zeros = 2
-            lnum = len(num)
-            nb = zeros + 2 - lnum # num starts with '0x'
-            if nb > 0:
-                builder.append_multiple_char(u'0', nb)
-            builder.append_slice(unicode(num), 2, lnum)
+            raw_unicode_escape_helper(builder, oc)
             pos += 1
         return space.newtuple([space.wrap(builder.build()), w_end])
     else:
@@ -307,9 +294,14 @@ def namereplace_errors(space, w_exc):
         pos = start
         while pos < end:
             oc = ord(obj[pos])
-            builder.append('\\N{')
-            builder.append(unicodedb.name(oc))
-            builder.append('}')
+            try:
+                name = unicodedb.name(oc)
+            except KeyError:
+                raw_unicode_escape_helper(builder, oc)
+            else:
+                builder.append('\\N{')
+                builder.append(name)
+                builder.append('}')
             pos += 1
         return space.newtuple([space.newbytes(builder.build()), w_end])
     else:

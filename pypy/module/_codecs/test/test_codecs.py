@@ -568,6 +568,7 @@ class AppTestPartialEvaluation:
         assert 'a\xac\u1234\u20ac\u8000'.encode('ascii', 'namereplace') == (
             b'a\\N{NOT SIGN}\\N{ETHIOPIC SYLLABLE SEE}\\N{EURO SIGN}'
             b'\\N{CJK UNIFIED IDEOGRAPH-8000}')
+        assert '[\uDC80]'.encode('utf-8', 'namereplace') == b'[\\udc80]'
 
     def test_surrogateescape(self):
         assert b'a\x80b'.decode('utf-8', 'surrogateescape') == 'a\udc80b'
