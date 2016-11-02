@@ -1,5 +1,11 @@
 from _openssl import ffi
 from _openssl import lib
+from _ssl._stdssl.certificate import *
+from _ssl._stdssl.certificate import _test_decode_cert
+from _ssl._stdssl.utility import _str_with_len
+
+from _ssl._stdssl.error import *
+from _ssl._stdssl.error import _last_error
 
 OPENSSL_VERSION = ffi.string(lib.OPENSSL_VERSION_TEXT).decode('utf-8')
 OPENSSL_VERSION_NUMBER = lib.OPENSSL_VERSION_NUMBER
@@ -11,13 +17,14 @@ ver, minor  = divmod(ver, 256)
 ver, major  = divmod(ver, 256)
 version_info = (major, minor, fix, patch, status)
 OPENSSL_VERSION_INFO = version_info
+_OPENSSL_API_VERSION = version_info
 del ver, version_info, status, patch, fix, minor, major
 
 HAS_ECDH = bool(lib.Cryptography_HAS_ECDH)
 HAS_SNI = bool(lib.Cryptography_HAS_TLSEXT_HOSTNAME)
 HAS_ALPN = bool(lib.Cryptography_HAS_ALPN)
 HAS_NPN = False
-_HAS_TLS_UNIQUE = True
+HAS_TLS_UNIQUE = True
 
 CLIENT = 0
 SERVER = 1
@@ -30,34 +37,6 @@ for name in dir(lib):
     if name.startswith('SSL_OP'):
         globals()[name[4:]] = getattr(lib, name)
 
-def ssl_error(msg, errno=0, errtype=None, errcode=0):
-    reason_str = None
-    lib_str = None
-    if errcode:
-        err_lib = lib.ERR_GET_LIB(errcode)
-        err_reason = lib.ERR_GET_REASON(errcode)
-        reason_str = ERROR_CODES_TO_NAMES.get((err_lib, err_reason), None)
-        lib_str = LIBRARY_CODES_TO_NAMES.get(err_lib, None)
-        msg = ffi.string(lib.ERR_reason_error_string(errcode)).decode('utf-8')
-    if not msg:
-        msg = "unknown error"
-    if reason_str and lib_str:
-        msg = "[%s: %s] %s" % (lib_str, reason_str, msg)
-    elif lib_str:
-        msg = "[%s] %s" % (lib_str, msg)
-
-    raise Exception(msg)
-    #w_exception_class = w_errtype or get_error(space).w_error
-    #if errno or errcode:
-    #    w_exception = space.call_function(w_exception_class,
-    #                                      space.wrap(errno), space.wrap(msg))
-    #else:
-    #    w_exception = space.call_function(w_exception_class, space.wrap(msg))
-    #space.setattr(w_exception, space.wrap("reason"),
-    #              space.wrap(reason_str) if reason_str else space.w_None)
-    #space.setattr(w_exception, space.wrap("library"),
-    #              space.wrap(lib_str) if lib_str else space.w_None)
-    #return OperationError(w_exception_class, w_exception)
 
 PROTOCOL_SSLv2  = 0
 PROTOCOL_SSLv3  = 1
@@ -74,79 +53,30 @@ from enum import Enum as _Enum, IntEnum as _IntEnum
 _IntEnum._convert('_SSLMethod', __name__,
         lambda name: name.startswith('PROTOCOL_'))
 
-if _HAS_TLS_UNIQUE:
+if HAS_TLS_UNIQUE:
     CHANNEL_BINDING_TYPES = ['tls-unique']
 else:
     CHANNEL_BINDING_TYPES = []
 
-def _ssl_seterror(ss, ret):
-    assert ret <= 0
+# init open ssl
+lib.SSL_load_error_strings()
+lib.SSL_library_init()
+# TODO threads?
+lib.OpenSSL_add_all_algorithms()
 
-    errcode = lib.ERR_peek_last_error()
+class PasswordInfo(object):
+    w_callable = None
+    password = None
+    operationerror = None
+PWINFO_STORAGE = {}
 
-    if ss is None:
-        return ssl_error(None, errcode=errcode)
-    elif ss.ssl:
-        err = lib.SSL_get_error(ss.ssl, ret)
-    else:
-        err = SSL_ERROR_SSL
-    w_errtype = None
-    errstr = ""
-    errval = 0
 
-    if err == SSL_ERROR_ZERO_RETURN:
-        w_errtype = get_error(space).w_ZeroReturnError
-        errstr = "TLS/SSL connection has been closed"
-        errval = PY_SSL_ERROR_ZERO_RETURN
-    elif err == SSL_ERROR_WANT_READ:
-        w_errtype = get_error(space).w_WantReadError
-        errstr = "The operation did not complete (read)"
-        errval = PY_SSL_ERROR_WANT_READ
-    elif err == SSL_ERROR_WANT_WRITE:
-        w_errtype = get_error(space).w_WantWriteError
-        errstr = "The operation did not complete (write)"
-        errval = PY_SSL_ERROR_WANT_WRITE
-    elif err == SSL_ERROR_WANT_X509_LOOKUP:
-        errstr = "The operation did not complete (X509 lookup)"
-        errval = PY_SSL_ERROR_WANT_X509_LOOKUP
-    elif err == SSL_ERROR_WANT_CONNECT:
-        errstr = "The operation did not complete (connect)"
-        errval = PY_SSL_ERROR_WANT_CONNECT
-    elif err == SSL_ERROR_SYSCALL:
-        e = libssl_ERR_get_error()
-        if e == 0:
-            if ret == 0 or ss.w_socket() is None:
-                w_errtype = get_error(space).w_EOFError
-                errstr = "EOF occurred in violation of protocol"
-                errval = PY_SSL_ERROR_EOF
-            elif ret == -1:
-                # the underlying BIO reported an I/0 error
-                error = rsocket.last_error()
-                return interp_socket.converted_error(space, error)
-            else:
-                w_errtype = get_error(space).w_SyscallError
-                errstr = "Some I/O error occurred"
-                errval = PY_SSL_ERROR_SYSCALL
-        else:
-            errstr = rffi.charp2str(libssl_ERR_error_string(e, None))
-            errval = PY_SSL_ERROR_SYSCALL
-    elif err == SSL_ERROR_SSL:
-        errval = PY_SSL_ERROR_SSL
-        if errcode != 0:
-            errstr = rffi.charp2str(libssl_ERR_error_string(errcode, None))
-        else:
-            errstr = "A failure in the SSL library occurred"
-    else:
-        errstr = "Invalid error code"
-        errval = PY_SSL_ERROR_INVALID_ERROR_CODE
+class _SSLContext(object):
+    __slots__ = ('ctx', 'check_hostname', 'verify_mode')
 
-    return ssl_error(space, errstr, errval, w_errtype=w_errtype,
-                     errcode=errcode)
-
-class SSLContext(object):
-    ctx = ffi.NULL
-
-    def __init__(self, protocol):
+    def __new__(cls, protocol):
+        self = object.__new__(cls)
+        self.ctx = ffi.NULL
         if protocol == PROTOCOL_TLSv1:
             method = lib.TLSv1_method()
         elif lib.Cryptography_HAS_TLSv1_2 and protocol == PROTOCOL_TLSv1_1:
@@ -163,14 +93,14 @@ class SSLContext(object):
             raise ValueError("invalid protocol version")
 
         self.ctx = lib.SSL_CTX_new(method)
-        if self.ctx is ffi.NULL:
+        if self.ctx == ffi.NULL: 
             raise ssl_error("failed to allocate SSL context")
 
         self.check_hostname = False
         # TODO self.register_finalizer(space)
 
         # Defaults
-        lib.SSL_CTX_set_verify(self.ctx, lib.SSL_VERIFY_NONE, None)
+        lib.SSL_CTX_set_verify(self.ctx, lib.SSL_VERIFY_NONE, ffi.NULL)
         options = lib.SSL_OP_ALL & ~lib.SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
         if protocol != PROTOCOL_SSLv2:
             options |= lib.SSL_OP_NO_SSLv2
@@ -195,6 +125,83 @@ class SSLContext(object):
                     lib.SSL_CTX_set_tmp_ecdh(self.ctx, key)
                 finally:
                     lib.EC_KEY_free(key)
+        return self
+
+    def set_ciphers(self, cipherlist):
+        cipherlistbuf = _str_to_ffi_buffer(cipherlist)
+        ret = lib.SSL_CTX_set_cipher_list(self.ctx, cipherlistbuf)
+        if ret == 0:
+            # Clearing the error queue is necessary on some OpenSSL
+            # versions, otherwise the error will be reported again
+            # when another SSL call is done.
+            lib.ERR_clear_error()
+            raise ssl_error("No cipher can be selected.")
+
+    def load_cert_chain(self, certfile, keyfile=None, password=None):
+        if keyfile is None:
+            keyfile = certfile
+        pw_info = PasswordInfo()
+        index = -1
+        if password is None:
+            index = rthread.get_ident()
+            PWINFO_STORAGE[index] = pw_info
+
+            if space.is_true(space.callable(w_password)):
+                pw_info.w_callable = w_password
+            else:
+                if space.isinstance_w(w_password, space.w_unicode):
+                    pw_info.password = space.str_w(w_password)
+                else:
+                    try:
+                        pw_info.password = space.bufferstr_w(w_password)
+                    except OperationError as e:
+                        if not e.match(space, space.w_TypeError):
+                            raise
+                        raise oefmt(space.w_TypeError,
+                                    "password should be a string or callable")
+
+            lib.SSL_CTX_set_default_passwd_cb(self.ctx, _password_callback)
+            lib.SSL_CTX_set_default_passwd_cb_userdata(
+                self.ctx, rffi.cast(rffi.VOIDP, index))
+
+        try:
+            ret = lib.SSL_CTX_use_certificate_chain_file(self.ctx, certfile)
+            if ret != 1:
+                if pw_info.operationerror:
+                    libssl_ERR_clear_error()
+                    raise pw_info.operationerror
+                errno = get_saved_errno()
+                if errno:
+                    lib.ERR_clear_error()
+                    raise OSError(OSError(errno, ''))
+                else:
+                    raise _ssl_seterror(space, None, -1)
+
+            ret = lib.SSL_CTX_use_PrivateKey_file(self.ctx, keyfile,
+                                                  lib.SSL_FILETYPE_PEM)
+            if ret != 1:
+                if pw_info.operationerror:
+                    libssl_ERR_clear_error()
+                    raise pw_info.operationerror
+                errno = get_saved_errno()
+                if errno:
+                    libssl_ERR_clear_error()
+                    raise wrap_oserror(space, OSError(errno, ''),
+                                       exception_name = 'w_IOError')
+                else:
+                    raise _ssl_seterror(space, None, -1)
+
+            ret = libssl_SSL_CTX_check_private_key(self.ctx)
+            if ret != 1:
+                raise _ssl_seterror(space, None, -1)
+        finally:
+            if index >= 0:
+                del PWINFO_STORAGE[index]
+            lib.SSL_CTX_set_default_passwd_cb(
+                self.ctx, lltype.nullptr(pem_password_cb.TO))
+            lib.SSL_CTX_set_default_passwd_cb_userdata(
+                self.ctx, None)
+
 
 #    def _finalize_(self):
 #        ctx = self.ctx
@@ -208,16 +215,6 @@ class SSLContext(object):
 #        self = space.allocate_instance(SSLContext, w_subtype)
 #        self.__init__(space, protocol)
 #        return space.wrap(self)
-#
-#    @unwrap_spec(cipherlist=str)
-#    def set_ciphers_w(self, space, cipherlist):
-#        ret = libssl_SSL_CTX_set_cipher_list(self.ctx, cipherlist)
-#        if ret == 0:
-#            # Clearing the error queue is necessary on some OpenSSL
-#            # versions, otherwise the error will be reported again
-#            # when another SSL call is done.
-#            libssl_ERR_clear_error()
-#            raise ssl_error(space, "No cipher can be selected.")
 #
 #    @unwrap_spec(server_side=int)
 #    def wrap_socket_w(self, space, w_sock, server_side,
@@ -322,81 +319,6 @@ class SSLContext(object):
 #                        "check_hostname needs a SSL context with either "
 #                        "CERT_OPTIONAL or CERT_REQUIRED")
 #        self.check_hostname = check_hostname
-#
-#    def load_cert_chain_w(self, space, w_certfile, w_keyfile=None,
-#                          w_password=None):
-#        if space.is_none(w_certfile):
-#            certfile = None
-#        else:
-#            certfile = space.str_w(w_certfile)
-#        if space.is_none(w_keyfile):
-#            keyfile = certfile
-#        else:
-#            keyfile = space.str_w(w_keyfile)
-#        pw_info = PasswordInfo()
-#        pw_info.space = space
-#        index = -1
-#        if not space.is_none(w_password):
-#            index = rthread.get_ident()
-#            PWINFO_STORAGE[index] = pw_info
-#
-#            if space.is_true(space.callable(w_password)):
-#                pw_info.w_callable = w_password
-#            else:
-#                if space.isinstance_w(w_password, space.w_unicode):
-#                    pw_info.password = space.str_w(w_password)
-#                else:
-#                    try:
-#                        pw_info.password = space.bufferstr_w(w_password)
-#                    except OperationError as e:
-#                        if not e.match(space, space.w_TypeError):
-#                            raise
-#                        raise oefmt(space.w_TypeError,
-#                                    "password should be a string or callable")
-#
-#            libssl_SSL_CTX_set_default_passwd_cb(
-#                self.ctx, _password_callback)
-#            libssl_SSL_CTX_set_default_passwd_cb_userdata(
-#                self.ctx, rffi.cast(rffi.VOIDP, index))
-#
-#        try:
-#            ret = libssl_SSL_CTX_use_certificate_chain_file(self.ctx, certfile)
-#            if ret != 1:
-#                if pw_info.operationerror:
-#                    libssl_ERR_clear_error()
-#                    raise pw_info.operationerror
-#                errno = get_saved_errno()
-#                if errno:
-#                    libssl_ERR_clear_error()
-#                    raise wrap_oserror(space, OSError(errno, ''),
-#                                       exception_name = 'w_IOError')
-#                else:
-#                    raise _ssl_seterror(space, None, -1)
-#
-#            ret = libssl_SSL_CTX_use_PrivateKey_file(self.ctx, keyfile,
-#                                                     SSL_FILETYPE_PEM)
-#            if ret != 1:
-#                if pw_info.operationerror:
-#                    libssl_ERR_clear_error()
-#                    raise pw_info.operationerror
-#                errno = get_saved_errno()
-#                if errno:
-#                    libssl_ERR_clear_error()
-#                    raise wrap_oserror(space, OSError(errno, ''),
-#                                       exception_name = 'w_IOError')
-#                else:
-#                    raise _ssl_seterror(space, None, -1)
-#
-#            ret = libssl_SSL_CTX_check_private_key(self.ctx)
-#            if ret != 1:
-#                raise _ssl_seterror(space, None, -1)
-#        finally:
-#            if index >= 0:
-#                del PWINFO_STORAGE[index]
-#            libssl_SSL_CTX_set_default_passwd_cb(
-#                self.ctx, lltype.nullptr(pem_password_cb.TO))
-#            libssl_SSL_CTX_set_default_passwd_cb_userdata(
-#                self.ctx, None)
 #
 #    @unwrap_spec(filepath=str)
 #    def load_dh_params_w(self, space, filepath):
@@ -620,6 +542,37 @@ class SSLContext(object):
 #
 #
 
+def _asn1obj2py(obj):
+    nid = lib.OBJ_obj2nid(obj)
+    if nid == lib.NID_undef:
+        raise ValueError("Unknown object")
+    sn = lib.OBJ_nid2sn(nid)
+    ln = lib.OBJ_nid2ln(nid)
+    buf = ffi.new("char[255]")
+    length = lib.OBJ_obj2txt(buf, len(buf), obj, 1)
+    if length < 0:
+        _setSSLError("todo")
+    if length > 0:
+        return (nid, sn, ln, _str_with_len(buf, length))
+    else:
+        return (nid, sn, ln, None)
+
+def txt2obj(txt, name):
+    _bytes = _str_to_ffi_buffer(txt)
+    obj = lib.OBJ_txt2obj(_bytes, int(name))
+    if obj is ffi.NULL:
+        raise ValueError("unkown object '%s'", txt)
+    result = _asn1obj2py(obj)
+    lib.ASN1_OBJECT_free(obj)
+    return result
+
+def nid2obj(nid):
+    raise NotImplementedError
+                                                               
+
+class MemoryBIO(object):
+    pass # TODO
+
 RAND_status = lib.RAND_status
 RAND_add = lib.RAND_add
 
@@ -643,211 +596,20 @@ def RAND_pseudo_bytes(count):
 def RAND_bytes(count):
     return _RAND_bytes(count, False)
 
-def RAND_add(view, entropy):
+def _str_to_ffi_buffer(view):
     # REVIEW unsure how to solve this. might be easy:
     # str does not support buffer protocol.
     # I think a user should really encode the string before it is 
     # passed here!
     if isinstance(view, str):
-        buf = ffi.from_buffer(view.encode())
+        return ffi.from_buffer(view.encode())
     else:
-        buf = ffi.from_buffer(view)
+        return ffi.from_buffer(view)
+
+def RAND_add(view, entropy):
+    buf = _str_to_ffi_buffer(view)
     lib.RAND_add(buf, len(buf), entropy)
 
-def wrap_socket(s):
-    pass
-
-X509_NAME_MAXLEN = 256
-
-def _create_tuple_for_attribute(name, value):
-    buf = ffi.new("char[]", X509_NAME_MAXLEN)
-    length = lib.OBJ_obj2txt(buf, X509_NAME_MAXLEN, name, 0)
-    if length < 0:
-        raise _ssl_seterror(None, 0)
-    name = ffi.string(buf, length).decode('utf-8')
-
-    buf_ptr = ffi.new("unsigned char**")
-    length = lib.ASN1_STRING_to_UTF8(buf_ptr, value)
-    if length < 0:
-        raise _ssl_seterror(None, 0)
-    try:
-        value = ffi.string(buf_ptr[0]).decode('utf-8')
-    finally:
-        lib.OPENSSL_free(buf_ptr[0])
-    return (name, value)
-
-def _get_aia_uri(certificate, nid):
-    info = lib.X509_get_ext_d2i(certificate, lib.NID_info_access, ffi.NULL, ffi.NULL)
-    if (info == ffi.NULL):
-        return None;
-    if lib.sk_ACCESS_DESCRIPTION_num(info) == 0:
-        lib.AUTHORITY_INFO_ACCESS_free(info)
-        return None
-
-    lst = []
-    count = lib.sk_ACCESS_DESCRIPTION_num(info)
-    for i in range(count):
-        ad = lib.sk_ACCESS_DESCRIPTION_value(info, i)
-
-        if lib.OBJ_obj2nid(ad.method) != nid or \
-           ad.location.type != GEN_URI:
-            continue
-        uri = ad.location.d.uniformResourceIdentifier
-        ostr = ffi.string(uri.data, uri.length)
-        lst.append(ostr)
-    lib.AUTHORITY_INFO_ACCESS_free(info)
-
-    # convert to tuple or None
-    if len(lst) == 0: return None
-    return tuple(lst)
 
 
-def _create_tuple_for_X509_NAME(xname):
-    dn = []
-    rdn = []
-    rdn_level = -1
-    entry_count = lib.X509_NAME_entry_count(xname);
-    for index_counter in range(entry_count):
-        entry = lib.X509_NAME_get_entry(xname, index_counter);
 
-        # check to see if we've gotten to a new RDN
-        if rdn_level >= 0:
-            if rdn_level != entry.set:
-                dn.append(tuple(rdn))
-                rdn = []
-        rdn_level = entry.set
-
-        # now add this attribute to the current RDN
-        name = lib.X509_NAME_ENTRY_get_object(entry);
-        value = lib.X509_NAME_ENTRY_get_data(entry);
-        attr = _create_tuple_for_attribute(name, value);
-        if attr == ffi.NULL:
-            pass # TODO error
-            raise NotImplementedError
-        rdn.append(attr)
-
-    # now, there's typically a dangling RDN
-    if rdn and len(rdn) > 0:
-        dn.append(tuple(rdn))
-
-    return tuple(dn)
-
-def _decode_certificate(certificate):
-    #PyObject *retval = NULL;
-    #BIO *biobuf = NULL;
-    #PyObject *peer;
-    #PyObject *peer_alt_names = NULL;
-    #PyObject *issuer;
-    #PyObject *version;
-    #PyObject *sn_obj;
-    #PyObject *obj;
-    #ASN1_INTEGER *serialNumber;
-    #char buf[2048];
-    #int len, result;
-    #ASN1_TIME *notBefore, *notAfter;
-    #PyObject *pnotBefore, *pnotAfter;
-
-    retval = {}
-
-    peer = _create_tuple_for_X509_NAME(lib.X509_get_subject_name(certificate));
-    if not peer:
-        return None
-    retval["subject"] = peer
-
-    issuer = _create_tuple_for_X509_NAME(lib.X509_get_issuer_name(certificate));
-    if not issuer:
-        return None
-    retval["issuer"] = issuer
-
-    version = lib.X509_get_version(certificate) + 1
-    if version == 0:
-        return None
-    retval["version"] = version
-
-    biobuf = lib.BIO_new(lib.BIO_s_mem());
-
-    lib.BIO_reset(biobuf);
-    serialNumber = lib.X509_get_serialNumber(certificate);
-    # should not exceed 20 octets, 160 bits, so buf is big enough
-    lib.i2a_ASN1_INTEGER(biobuf, serialNumber)
-    buf = ffi.buf("char[2048]")
-    len = bio.BIO_gets(biobuf, buf, len(buf)-1)
-    if len < 0:
-        if biobuf: lib.BIO_free(biobuf)
-        raise _ssl_error(None) # TODO _setSSLError
-    retval["serialNumber"] = ffi.string(buf, len).decode('utf-8')
-
-    lib.BIO_reset(biobuf);
-    notBefore = lib.X509_get_notBefore(certificate);
-    lib.ASN1_TIME_print(biobuf, notBefore);
-    len = lib.BIO_gets(biobuf, buf, len(buf)-1);
-    if len < 0:
-        if biobuf: lib.BIO_free(biobuf)
-        raise _ssl_error(None) # TODO _setSSLError
-    retval["notBefore"] = ffi.string(buf, len).decode('utf-8')
-
-    lib.BIO_reset(biobuf);
-    notAfter = lib.X509_get_notAfter(certificate);
-    lib.ASN1_TIME_print(biobuf, notAfter);
-    len = lib.BIO_gets(biobuf, buf, len(buf)-1);
-    if len < 0:
-        raise _ssl_error(None) # TODO _setSSLError
-    retval["notAfter"] = ffi.string(buf, len);
-
-    # Now look for subjectAltName
-
-    peer_alt_names = _get_peer_alt_names(certificate);
-    if not peer_alt_names:
-        if biobuf: lib.BIO_free(biobuf)
-        return None
-    retval["subjectAltName"] = peer_alt_names
-
-    # Authority Information Access: OCSP URIs
-    obj = _get_aia_uri(certificate, lib.NID_ad_OCSP)
-    if not obj:
-        if biobuf: lib.BIO_free(biobuf)
-        return None
-    retval["OCSP"] = obj
-
-    obj = _get_aia_uri(certificate, lib.NID_ad_ca_issuers)
-    if not obj:
-        if biobuf: lib.BIO_free(biobuf)
-        return None
-    retval["caIssuers"] = obj
-
-    # CDP (CRL distribution points)
-    obj = _ssl._get_crl_dp(certificate)
-    if not obj:
-        if biobuf: lib.BIO_free(biobuf)
-        return None
-    retval["crlDistributionPoints"] = obj
-
-    lib.BIO_free(biobuf)
-    return retval
-
-
-class _ssl(object):
-    # for testing only
-    @staticmethod
-    def _test_decode_cert(path):
-        cert = lib.BIO_new(lib.BIO_s_file())
-        if cert is ffi.NULL:
-            lib.BIO_free(cert)
-            raise ssl_error("Can't malloc memory to read file")
-
-        # REVIEW how to encode this properly?
-        epath = path.encode()
-        if lib.BIO_read_filename(cert, epath) <= 0:
-            lib.BIO_free(cert)
-            raise ssl_error("Can't open file")
-
-        x = lib.PEM_read_bio_X509_AUX(cert, ffi.NULL, ffi.NULL, ffi.NULL)
-        if x is ffi.NULL:
-            ssl_error("Error decoding PEM-encoded file")
-
-        retval = _decode_certificate(x)
-        lib.X509_free(x);
-
-        if cert != ffi.NULL:
-            lib.BIO_free(cert)
-        return retval

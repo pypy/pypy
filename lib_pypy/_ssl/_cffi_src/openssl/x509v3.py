@@ -170,6 +170,8 @@ typedef struct {
     ASN1_OBJECT *policyid;
     Cryptography_STACK_OF_POLICYQUALINFO *qualifiers;
 } POLICYINFO;
+
+typedef void (*sk_GENERAL_NAME_freefunc)(struct GENERAL_NAME_st *);
 """
 
 
@@ -181,6 +183,13 @@ int GENERAL_NAME_print(BIO *, GENERAL_NAME *);
 GENERAL_NAMES *GENERAL_NAMES_new(void);
 void GENERAL_NAMES_free(GENERAL_NAMES *);
 void *X509V3_EXT_d2i(X509_EXTENSION *);
+/* X509_get_ext_d2i is already defined, there might be a better solution
+   to expose it to the lib object?  */
+void * _X509_get_ext_d2i(const X509 *, int, int *, int *);
+/* X509 is private, there is no way to access the field crldp other than
+   adding it to the typedef or expose a function like this: */
+Cryptography_STACK_OF_DIST_POINT * _X509_get_crldp(const X509 *);
+int X509_check_ca(X509 *);
 """
 
 MACROS = """
@@ -213,6 +222,9 @@ GENERAL_NAMES *d2i_GENERAL_NAMES(GENERAL_NAMES **, const unsigned char **,
 int sk_GENERAL_NAME_num(struct stack_st_GENERAL_NAME *);
 int sk_GENERAL_NAME_push(struct stack_st_GENERAL_NAME *, GENERAL_NAME *);
 GENERAL_NAME *sk_GENERAL_NAME_value(struct stack_st_GENERAL_NAME *, int);
+
+void sk_GENERAL_NAME_pop_free(struct stack_st_GENERAL_NAME*, sk_GENERAL_NAME_freefunc);
+void GENERAL_NAME_free(struct GENERAL_NAME_st*);
 
 Cryptography_STACK_OF_ACCESS_DESCRIPTION *sk_ACCESS_DESCRIPTION_new_null(void);
 int sk_ACCESS_DESCRIPTION_num(Cryptography_STACK_OF_ACCESS_DESCRIPTION *);
@@ -293,4 +305,12 @@ void DIST_POINT_NAME_free(DIST_POINT_NAME *);
 """
 
 CUSTOMIZATIONS = """
+void * _X509_get_ext_d2i(const X509 * x, int nid, int * a, int * b) {
+    return X509_get_ext_d2i(x, nid, a, b);
+}
+#if OPENSSL_VERSION_NUMBER >= 0x10001000L
+Cryptography_STACK_OF_DIST_POINT * _X509_get_crldp(const X509 * x) {
+    return x->crldp;
+}
+#endif
 """

@@ -35,6 +35,7 @@ void X509_NAME_ENTRY_free(X509_NAME_ENTRY *);
 int X509_NAME_get_index_by_NID(X509_NAME *, int, int);
 int X509_NAME_cmp(const X509_NAME *, const X509_NAME *);
 X509_NAME *X509_NAME_dup(X509_NAME *);
+int X509_NAME_ENTRY_set(const X509_NAME_ENTRY * ne);
 """
 
 MACROS = """
@@ -76,4 +77,7 @@ Cryptography_STACK_OF_X509_NAME_ENTRY *sk_X509_NAME_ENTRY_dup(
 """
 
 CUSTOMIZATIONS = """
+int X509_NAME_ENTRY_set(const X509_NAME_ENTRY * ne) {
+    return ne->set;
+}
 """
