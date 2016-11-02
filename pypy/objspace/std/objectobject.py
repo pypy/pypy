@@ -18,17 +18,27 @@ def reduce_1(obj, proto):
     import copyreg
     return copyreg._reduce_ex(obj, proto)
 
-def reduce_2(obj):
-    cls = obj.__class__
+def _getnewargs(obj):
 
     try:
-        getnewargs = obj.__getnewargs__
+        getnewargs = obj.__getnewargs_ex__
     except AttributeError:
-        args = ()
+        try:
+            getnewargs = obj.__getnewargs__
+        except AttributeError:
+            args = ()
+        else:
+            args = getnewargs()
+        kwargs = None
     else:
-        args = getnewargs()
-        if not isinstance(args, tuple):
-            raise TypeError("__getnewargs__ should return a tuple")
+        args, kwargs = getnewargs()
+
+    if not isinstance(args, tuple):
+        raise TypeError("__getnewargs__ should return a tuple")
+    return args, kwargs
+
+def _getstate(obj):
+    cls = obj.__class__
 
     try:
         getstate = obj.__getstate__
@@ -48,15 +58,32 @@ def reduce_2(obj):
                 state = state, slots
     else:
         state = getstate()
+    return state
 
+def reduce_2(obj, proto):
+    cls = obj.__class__
+
+    import copyreg
+
+    args, kwargs = _getnewargs(obj)
+
+    if not kwargs:
+       newobj = copyreg.__newobj__
+       args2 = (cls,) + args
+    elif proto >= 4:
+       newobj = copyreg.__newobj_ex__
+       args2 = (cls, args, kwargs)
+    else:
+       raise ValueError("must use protocol 4 or greater to copy this "
+                        "object; since __getnewargs_ex__ returned "
+                        "keyword arguments.")
+
+    state = _getstate(obj)
     listitems = iter(obj) if isinstance(obj, list) else None
     dictitems = iter(obj.items()) if isinstance(obj, dict) else None
 
-    import copyreg
-    newobj = copyreg.__newobj__
-
-    args2 = (cls,) + args
     return newobj, args2, state, listitems, dictitems
+
 
 def slotnames(cls):
     if not isinstance(cls, type):
@@ -169,9 +196,9 @@ def descr__str__(space, w_obj):
 
 @unwrap_spec(proto=int)
 def descr__reduce__(space, w_obj, proto=0):
-    if proto >= 2:
-        return reduce_2(space, w_obj)
     w_proto = space.wrap(proto)
+    if proto >= 2:
+        return reduce_2(space, w_obj, w_proto)
     return reduce_1(space, w_obj, w_proto)
 
 @unwrap_spec(proto=int)

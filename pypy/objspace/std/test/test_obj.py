@@ -59,6 +59,22 @@ class AppTestObject:
         s = X().__reduce__()
         assert s[-1] == ':-)'
 
+    def test_getnewargs_ex(self):
+        class NamedInt(int):
+            def __new__(cls, name, **kwargs):
+                if len(kwargs) == 0:
+                    raise TypeError("name and value must be specified")
+                self = int.__new__(cls, kwargs['value'])
+                self._name = name
+                return self
+            def __getnewargs_ex__(self):
+                return (self._name,), dict(value=int(self))
+        import copyreg
+        assert NamedInt("Name", value=42).__reduce__(4) == (
+            copyreg.__newobj_ex__,
+            (NamedInt, ('Name',), dict(value=42)),
+            dict(_name='Name'), None, None)
+
     def test_default_format(self):
         class x(object):
             def __str__(self):
