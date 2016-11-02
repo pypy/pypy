@@ -48,7 +48,7 @@ class Poll(W_Root):
         try:
             del self.fddict[fd]
         except KeyError:
-            raise OperationError(space.w_KeyError, space.wrap(fd))
+            raise OperationError(space.w_KeyError, space.newint(fd))
 
     @unwrap_spec(w_timeout=WrappedDefault(None))
     def poll(self, space, w_timeout):
@@ -74,15 +74,15 @@ class Poll(W_Root):
             w_errortype = space.fromcache(Cache).w_error
             message = e.get_msg()
             raise OperationError(w_errortype,
-                                 space.newtuple([space.wrap(e.errno),
-                                                 space.wrap(message)]))
+                                 space.newtuple([space.newint(e.errno),
+                                                 space.newtext(message)]))
         finally:
             self.running = False
 
         retval_w = []
         for fd, revents in retval:
-            retval_w.append(space.newtuple([space.wrap(fd),
-                                            space.wrap(revents)]))
+            retval_w.append(space.newtuple([space.newint(fd),
+                                            space.newtext(revents)]))
         return space.newlist(retval_w)
 
 pollmethods = {}
@@ -133,7 +133,7 @@ def _call_select(space, iwtd_w, owtd_w, ewtd_w,
         msg = _c.socket_strerror_str(errno)
         w_errortype = space.fromcache(Cache).w_error
         raise OperationError(w_errortype, space.newtuple([
-            space.wrap(errno), space.wrap(msg)]))
+            space.newint(errno), space.newtext(msg)]))
 
     resin_w = []
     resout_w = []
