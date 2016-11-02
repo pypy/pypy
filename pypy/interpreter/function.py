@@ -610,7 +610,7 @@ class Method(W_Root):
 
 class StaticMethod(W_Root):
     """The staticmethod objects."""
-    _immutable_fields_ = ['w_function']
+    _immutable_fields_ = ['w_function?']
 
     def __init__(self, w_function):
         self.w_function = w_function
@@ -621,13 +621,16 @@ class StaticMethod(W_Root):
 
     def descr_staticmethod__new__(space, w_subtype, w_function):
         instance = space.allocate_instance(StaticMethod, w_subtype)
-        instance.__init__(w_function)
+        instance.__init__(space.w_None)
         return instance
+
+    def descr_init(self, space, w_function):
+        self.w_function = w_function
 
 
 class ClassMethod(W_Root):
     """The classmethod objects."""
-    _immutable_fields_ = ['w_function']
+    _immutable_fields_ = ['w_function?']
 
     def __init__(self, w_function):
         self.w_function = w_function
@@ -640,8 +643,11 @@ class ClassMethod(W_Root):
 
     def descr_classmethod__new__(space, w_subtype, w_function):
         instance = space.allocate_instance(ClassMethod, w_subtype)
-        instance.__init__(w_function)
+        instance.__init__(space.w_None)
         return instance
+
+    def descr_init(self, space, w_function):
+        self.w_function = w_function
 
 class FunctionWithFixedCode(Function):
     can_change_code = False

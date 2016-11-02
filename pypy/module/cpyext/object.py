@@ -3,7 +3,7 @@ from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, CANNOT_FAIL, Py_ssize_t, Py_ssize_tP,
     PyVarObject, Py_buffer, size_t,
     Py_TPFLAGS_HEAPTYPE, Py_LT, Py_LE, Py_EQ, Py_NE, Py_GT,
-    Py_GE, CONST_STRING, FILEP, fwrite)
+    Py_GE, CONST_STRING, CONST_STRINGP, FILEP, fwrite)
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, create_ref, from_ref, Py_IncRef, Py_DecRef,
     get_typedescr, _Py_NewReference)
@@ -429,7 +429,7 @@ def PyObject_Dir(space, w_o):
     is active then NULL is returned but PyErr_Occurred() will return false."""
     return space.call_function(space.builtin.get('dir'), w_o)
 
-@cpython_api([PyObject, rffi.CCHARPP, Py_ssize_tP], rffi.INT_real, error=-1)
+@cpython_api([PyObject, CONST_STRINGP, Py_ssize_tP], rffi.INT_real, error=-1)
 def PyObject_AsCharBuffer(space, obj, bufferp, sizep):
     """Returns a pointer to a read-only memory location usable as
     character-based input.  The obj argument must support the single-segment

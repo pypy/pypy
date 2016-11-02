@@ -605,6 +605,9 @@ class W_BytesObject(W_AbstractBytesObject):
     def descr_mod(self, space, w_values):
         return mod_format(space, self, w_values, do_unicode=False)
 
+    def descr_rmod(self, space, w_values):
+        return mod_format(space, w_values, self, do_unicode=False)
+
     def descr_eq(self, space, w_other):
         if space.config.objspace.std.withstrbuf:
             from pypy.objspace.std.strbufobject import W_StringBufferObject
@@ -937,6 +940,7 @@ W_BytesObject.typedef = TypeDef(
     format = interpindirect2app(W_BytesObject.descr_format),
     __format__ = interpindirect2app(W_BytesObject.descr__format__),
     __mod__ = interpindirect2app(W_BytesObject.descr_mod),
+    __rmod__ = interpindirect2app(W_BytesObject.descr_rmod),
     __getnewargs__ = interpindirect2app(
         W_AbstractBytesObject.descr_getnewargs),
     _formatter_parser = interp2app(W_BytesObject.descr_formatter_parser),

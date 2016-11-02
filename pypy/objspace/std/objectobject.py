@@ -91,11 +91,17 @@ def descr__new__(space, w_type, __args__):
     from pypy.objspace.std.typeobject import _precheck_for_new
     w_type = _precheck_for_new(space, w_type)
 
-    # don't allow arguments if the default object.__init__() is about
-    # to be called
     if _excess_args(__args__):
+        w_parent_new, _ = space.lookup_in_type_where(w_type, '__new__')
         w_parent_init, _ = space.lookup_in_type_where(w_type, '__init__')
-        if w_parent_init is space.w_object:
+        if (w_parent_new is not space.w_object and
+            w_parent_init is not space.w_object):
+            # 2.7: warn about excess arguments when both methods are
+            # overridden
+            space.warn(space.wrap("object() takes no parameters"),
+                       space.w_DeprecationWarning, 1)
+        elif (w_parent_new is not space.w_object or
+              w_parent_init is space.w_object):
             raise oefmt(space.w_TypeError,
                         "object() takes no parameters")
     if w_type.is_abstract():
@@ -108,11 +114,18 @@ def descr___subclasshook__(space, __args__):
 
 
 def descr__init__(space, w_obj, __args__):
-    # don't allow arguments unless __new__ is overridden
     if _excess_args(__args__):
         w_type = space.type(w_obj)
+        w_parent_init, _ = space.lookup_in_type_where(w_type, '__init__')
         w_parent_new, _ = space.lookup_in_type_where(w_type, '__new__')
-        if w_parent_new is space.w_object:
+        if (w_parent_init is not space.w_object and
+            w_parent_new is not space.w_object):
+            # 2.7: warn about excess arguments when both methods are
+            # overridden
+            space.warn(space.wrap("object.__init__() takes no parameters"),
+                       space.w_DeprecationWarning, 1)
+        elif (w_parent_init is not space.w_object or
+              w_parent_new is space.w_object):
             raise oefmt(space.w_TypeError,
                         "object.__init__() takes no parameters")
 

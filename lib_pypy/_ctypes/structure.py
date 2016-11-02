@@ -229,7 +229,7 @@ class StructOrUnion(_CData):
     __metaclass__ = StructOrUnionMeta
 
     def __new__(cls, *args, **kwds):
-        self = super(_CData, cls).__new__(cls, *args, **kwds)
+        self = super(_CData, cls).__new__(cls)
         if '_abstract_' in cls.__dict__:
             raise TypeError("abstract class")
         if hasattr(cls, '_ffistruct_'):

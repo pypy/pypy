@@ -236,6 +236,8 @@ else:
                 'utime.h', 'sys/time.h', 'sys/times.h',
                 'grp.h', 'dirent.h', 'sys/stat.h', 'fcntl.h',
                 'signal.h', 'sys/utsname.h', _ptyh]
+    if sys.platform.startswith('freebsd'):
+        includes.append('sys/ttycom.h')
     libraries = ['util']
 eci = ExternalCompilationInfo(
     includes=includes,
@@ -247,6 +249,7 @@ class CConfig:
     SEEK_SET = rffi_platform.DefinedConstantInteger('SEEK_SET')
     SEEK_CUR = rffi_platform.DefinedConstantInteger('SEEK_CUR')
     SEEK_END = rffi_platform.DefinedConstantInteger('SEEK_END')
+    O_NONBLOCK = rffi_platform.DefinedConstantInteger('O_NONBLOCK')
     OFF_T_SIZE = rffi_platform.SizeOf('off_t')
 
     HAVE_UTIMES = rffi_platform.Has('utimes')
@@ -2351,3 +2354,42 @@ _cpu_count = rffi.llexternal('_cpu_count', [], rffi.INT_real,
 
 def cpu_count():
     return rffi.cast(lltype.Signed, _cpu_count())
+
+if not _WIN32:
+    eci_status_flags = eci.merge(ExternalCompilationInfo(separate_module_sources=["""
+    RPY_EXTERN
+    int rpy_get_status_flags(int fd)
+    {
+        int flags;
+        flags = fcntl(fd, F_GETFL, 0);
+        return flags;
+    }
+
+    RPY_EXTERN
+    int rpy_set_status_flags(int fd, int flags)
+    {
+        int res;
+        res = fcntl(fd, F_SETFL, flags);
+        return res;
+    }
+    """], post_include_bits=[
+        "RPY_EXTERN int rpy_get_status_flags(int);\n"
+        "RPY_EXTERN int rpy_set_status_flags(int, int);"]
+    ))
+
+
+    c_get_status_flags = external('rpy_get_status_flags', [rffi.INT],
+                                rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
+                                compilation_info=eci_status_flags)
+    c_set_status_flags = external('rpy_set_status_flags', [rffi.INT, rffi.INT],
+                                rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
+                                compilation_info=eci_status_flags)
+
+    def get_status_flags(fd):
+        res = c_get_status_flags(fd)
+        res = handle_posix_error('get_status_flags', res)
+        return res
+
+    def set_status_flags(fd, flags):
+        res = c_set_status_flags(fd, flags)
+        handle_posix_error('set_status_flags', res)
