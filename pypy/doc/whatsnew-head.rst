@@ -81,6 +81,14 @@ Update stdlib to version 2.7.12
 Improve support for new buffer interface in cpyext, bf_getbuffer on built-in
 types still missing
 
+
+.. branch: fix-struct-unpack-Q
+
+Improve compatibility with CPython in the ``struct`` module. In particular,
+``struct.unpack`` now returns an ``int`` whenever the returned value fits,
+while previously it always returned a ``long`` for certains format codes such
+as ``Q`` (and also ``I``, ``L`` and ``q`` on 32 bit)
+
 .. branch: zarch-simd-support
 
 s390x implementation for vector operations used in VecOpt

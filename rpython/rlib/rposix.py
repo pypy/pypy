@@ -1362,8 +1362,14 @@ def times_to_timeval2p(times, l_timeval2p):
 def _time_to_timeval(t, l_timeval):
     import math
     fracpart, intpart = math.modf(t)
-    rffi.setintfield(l_timeval, 'c_tv_sec', int(intpart))
-    rffi.setintfield(l_timeval, 'c_tv_usec', int(fracpart * 1e6))
+    intpart = int(intpart)
+    fracpart = int(fracpart * 1e6)
+    if fracpart < 0:
+        intpart -= 1
+        fracpart += 1000000
+    assert 0 <= fracpart < 1000000
+    rffi.setintfield(l_timeval, 'c_tv_sec', intpart)
+    rffi.setintfield(l_timeval, 'c_tv_usec', fracpart)
 
 if not _WIN32:
     TMSP = lltype.Ptr(TMS)

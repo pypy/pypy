@@ -16,7 +16,7 @@ changes have been backported to PyPy2.7 where relevant
 We changed ``timeit`` to now report average +- standard deviation, which is
 better than the misleading minimum value reported in CPython.
 
-We now support building PyPy with OpenSSL 1.1 in our built-in _sll module, as
+We now support building PyPy with OpenSSL 1.1 in our built-in _ssl module, as
 well as maintaining support for previous versions.
 
 XXX
