@@ -236,14 +236,14 @@ class VectorizeTests(object):
     vec_int_arith = functools.partial(vec_int_arith, _vector_simple_int)
 
     test_vec_signed_add = \
-        vec_int_arith(lambda a,b: intmask(a+b), rffi.SIGNED)
+        vec_int_arith(lambda a,b: intmask(intmask(a)+intmask(b)), rffi.SIGNED)
     test_vec_int_add = \
         vec_int_arith(lambda a,b: r_int(a)+r_int(b), rffi.INT)
     test_vec_short_add = \
         vec_int_arith(lambda a,b: r_int(a)+r_int(b), rffi.SHORT)
 
-    test_vec_sub_signed = \
-        vec_int_arith(lambda a,b: intmask(a-b), rffi.SIGNED)
+    test_vec_signed_sub = \
+        vec_int_arith(lambda a,b: intmask(intmask(a)-intmask(b)), rffi.SIGNED)
     test_vec_sub_int = \
         vec_int_arith(lambda a,b: r_int(a)-r_int(b), rffi.INT)
     test_vec_sub_short = \
