@@ -1327,8 +1327,8 @@ class __extend__(pyframe.PyFrame):
     def BUILD_MAP(self, itemcount, next_instr):
         w_dict = self.space.newdict()
         for i in range(itemcount-1, -1, -1):
-            w_key = self.peekvalue(2 * i)
-            w_value = self.peekvalue(2 * i + 1)
+            w_value = self.peekvalue(2 * i)
+            w_key = self.peekvalue(2 * i + 1)
             self.space.setitem(w_dict, w_key, w_value)
         self.popvalues(2 * itemcount)
         self.pushvalue(w_dict)

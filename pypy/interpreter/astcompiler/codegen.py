@@ -1216,8 +1216,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     # in some cases, so another error has to be fixed in order for
                     # this to work, otherwise it breaks everything
                     # after fix: remove dirty fixes in pyopcode
-                    d.values[i].walkabout(self)
                     key.walkabout(self)
+                    d.values[i].walkabout(self)
                     elements += 1
         if elements or containers == 0:
             self.emit_op_arg(ops.BUILD_MAP, elements)
@@ -1301,8 +1301,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     nsubkwargs += 1
                 elif nsubkwargs:
                     # A keyword argument and we already have a dict.
-                    kw.value.walkabout(self)
                     self.load_const(self.space.wrap(kw.arg.decode('utf-8')))
+                    kw.value.walkabout(self)
                     nseen += 1
                 else:
                     # keyword argument
