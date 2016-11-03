@@ -31,7 +31,7 @@ def dumps(space, w_data, w_version):
 by dump(data, file)."""
     m = StringMarshaller(space, space.int_w(w_version))
     m.dump_w_obj(w_data)
-    return space.wrap(m.get_value())
+    return space.newbytes(m.get_value())
 
 def load(space, w_f):
     """Read one value from the file 'f' and return it."""
@@ -75,7 +75,7 @@ class FileWriter(AbstractReaderWriter):
     def __init__(self, space, w_f):
         AbstractReaderWriter.__init__(self, space)
         try:
-            self.func = space.getattr(w_f, space.wrap('write'))
+            self.func = space.getattr(w_f, space.newtext('write'))
             # XXX how to check if it is callable?
         except OperationError as e:
             if not e.match(space, space.w_AttributeError):
@@ -85,14 +85,14 @@ class FileWriter(AbstractReaderWriter):
 
     def write(self, data):
         space = self.space
-        space.call_function(self.func, space.wrap(data))
+        space.call_function(self.func, space.newbytes(data))
 
 
 class FileReader(AbstractReaderWriter):
     def __init__(self, space, w_f):
         AbstractReaderWriter.__init__(self, space)
         try:
-            self.func = space.getattr(w_f, space.wrap('read'))
+            self.func = space.getattr(w_f, space.newtext('read'))
             # XXX how to check if it is callable?
         except OperationError as e:
             if not e.match(space, space.w_AttributeError):
@@ -102,7 +102,7 @@ class FileReader(AbstractReaderWriter):
 
     def read(self, n):
         space = self.space
-        w_ret = space.call_function(self.func, space.wrap(n))
+        w_ret = space.call_function(self.func, space.newint(n))
         ret = space.str_w(w_ret)
         if len(ret) != n:
             self.raise_eof()
@@ -133,7 +133,7 @@ class DirectStreamReader(StreamReaderWriter):
 class _Base(object):
     def raise_exc(self, msg):
         space = self.space
-        raise OperationError(space.w_ValueError, space.wrap(msg))
+        raise OperationError(space.w_ValueError, space.newtext(msg))
 
 class Marshaller(_Base):
     """
