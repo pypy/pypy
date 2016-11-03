@@ -487,9 +487,9 @@ getting the advantage of providing document type information to the parser.
     def w_convert(self, space, s):
         if self.returns_unicode:
             from pypy.interpreter.unicodehelper import decode_utf8
-            return space.wrap(decode_utf8(space, s))
+            return space.newunicode(decode_utf8(space, s))
         else:
-            return space.wrap(s)
+            return space.newtext(s)
 
     def w_convert_charp(self, space, data):
         if data:
@@ -591,8 +591,8 @@ getting the advantage of providing document type information to the parser.
         # Yes, supports only 8bit encodings
         translationmap = space.unicode_w(
             space.call_method(
-                space.wrap(self.all_chars), "decode",
-                space.wrap(name), space.wrap("replace")))
+                space.newbytes(self.all_chars), "decode",
+                space.newtext(name), space.newtext("replace")))
 
         if len(translationmap) != 256:
             raise oefmt(space.w_ValueError,
@@ -627,7 +627,7 @@ getting the advantage of providing document type information to the parser.
 
 
     def get_namespace_prefixes(self, space):
-        return space.wrap(self.ns_prefixes)
+        return space.newbool(self.ns_prefixes)
 
     def set_namespace_prefixes(self, space, w_value):
         self.ns_prefixes = space.bool_w(w_value)
@@ -649,14 +649,14 @@ Parse XML data.  `isfinal' should be true at end of input."""
             exc = self.set_error(space, XML_GetErrorCode(self.itself))
             raise exc
         self.flush_character_buffer(space)
-        return space.wrap(res)
+        return space.newint(res)
 
     def ParseFile(self, space, w_file):
         """ParseFile(file)
 Parse XML data from file-like object."""
         eof = False
         while not eof:
-            w_data = space.call_method(w_file, 'read', space.wrap(2048))
+            w_data = space.call_method(w_file, 'read', space.newint(2048))
             data = space.str_w(w_data)
             eof = len(data) == 0
             w_res = self.Parse(space, data, isfinal=eof)
@@ -691,13 +691,13 @@ information passed to the ExternalEntityRefHandler."""
         for i in range(NB_HANDLERS):
             parser.handlers[i] = self.handlers[i]
 
-        return space.wrap(parser)
+        return parser
 
     def flush_character_buffer(self, space):
         if not self.buffer:
             return
         w_data = space.call_function(
-            space.getattr(space.wrap(''), space.wrap('join')),
+            space.getattr(space.newtext(''), space.newtext('join')),
             space.newlist(self.buffer))
         self.buffer = []
         self.buffer_used = 0
@@ -713,28 +713,28 @@ information passed to the ExternalEntityRefHandler."""
         colno = XML_GetCurrentColumnNumber(self.itself)
         msg = "%s: line %d, column %d" % (err, lineno, colno)
         w_errorcls = space.fromcache(Cache).w_error
-        w_error = space.call_function(w_errorcls, space.wrap(msg))
-        space.setattr(w_error, space.wrap("code"), space.wrap(code))
-        space.setattr(w_error, space.wrap("offset"), space.wrap(colno))
-        space.setattr(w_error, space.wrap("lineno"), space.wrap(lineno))
+        w_error = space.call_function(w_errorcls, space.newtext(msg))
+        space.setattr(w_error, space.newtext("code"), space.newint(code))
+        space.setattr(w_error, space.newtext("offset"), space.newint(colno))
+        space.setattr(w_error, space.newtext("lineno"), space.newint(lineno))
 
         self.w_error = w_error
         return OperationError(w_errorcls, w_error)
 
     def descr_ErrorCode(self, space):
-        return space.wrap(XML_GetErrorCode(self.itself))
+        return space.newint(XML_GetErrorCode(self.itself))
 
     def descr_ErrorLineNumber(self, space):
-        return space.wrap(XML_GetErrorLineNumber(self.itself))
+        return space.newint(XML_GetErrorLineNumber(self.itself))
 
     def descr_ErrorColumnNumber(self, space):
-        return space.wrap(XML_GetErrorColumnNumber(self.itself))
+        return space.newint(XML_GetErrorColumnNumber(self.itself))
 
     def descr_ErrorByteIndex(self, space):
-        return space.wrap(XML_GetErrorByteIndex(self.itself))
+        return space.newint(XML_GetErrorByteIndex(self.itself))
 
     def get_buffer_size(self, space):
-        return space.wrap(self.buffer_size)
+        return space.newint(self.buffer_size)
     def set_buffer_size(self, space, w_value):
         value = space.getindex_w(w_value, space.w_TypeError)
         if value <= 0:
@@ -744,7 +744,7 @@ information passed to the ExternalEntityRefHandler."""
         self.buffer_size = value
 
     def get_buffer_text(self, space):
-        return space.wrap(self.buffer is not None)
+        return space.newbool(self.buffer is not None)
     def set_buffer_text(self, space, w_value):
         if space.is_true(w_value):
             self.buffer = []
@@ -762,7 +762,7 @@ information passed to the ExternalEntityRefHandler."""
 
 def bool_property(name, cls, doc=None):
     def fget(space, obj):
-        return space.wrap(getattr(obj, name))
+        return space.newbool(getattr(obj, name))
     def fset(space, obj, value):
         setattr(obj, name, space.bool_w(value))
     return GetSetProperty(fget, fset, cls=cls, doc=doc)
@@ -859,11 +859,11 @@ Return a new XML parser object."""
     XML_SetUnknownEncodingHandler(
         parser.itself, UnknownEncodingHandlerData_callback,
         rffi.cast(rffi.VOIDP, parser.id))
-    return space.wrap(parser)
+    return parser
 
 @unwrap_spec(code=int)
 def ErrorString(space, code):
     """ErrorString(errno) -> string
 Returns string error for given number."""
-    return space.wrap(rffi.charp2str(XML_ErrorString(code)))
+    return space.newtext(rffi.charp2str(XML_ErrorString(code)))
 
