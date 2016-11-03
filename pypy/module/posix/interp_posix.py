@@ -760,7 +760,7 @@ def getlogin(space):
         cur = os.getlogin()
     except OSError as e:
         raise wrap_oserror(space, e)
-    return space.fsdecode(space.newbytes(cur))
+    return space.wrap_fsdecoded(cur)
 
 # ____________________________________________________________
 
@@ -882,8 +882,7 @@ On some platforms, path may also be specified as an open file descriptor;
         if _WIN32:
             result_w[i] = space.wrap(result[i])
         else:
-            w_bytes = space.newbytes(result[i])
-            result_w[i] = space.fsdecode(w_bytes)
+            result_w[i] = space.wrap_fsdecoded(result[i])
     return space.newlist(result_w)
 
 @unwrap_spec(fd=c_int)
@@ -1543,7 +1542,7 @@ def uname(space):
         r = os.uname()
     except OSError as e:
         raise wrap_oserror(space, e)
-    l_w = [space.fsdecode(space.newbytes(i))
+    l_w = [space.wrap_fsdecoded(i)
            for i in [r[0], r[1], r[2], r[3], r[4]]]
     w_tuple = space.newtuple(l_w)
     w_uname_result = space.getattr(space.getbuiltinmodule(os.name),
@@ -1858,7 +1857,7 @@ for name in rposix.WAIT_MACROS:
 @unwrap_spec(fd=c_int)
 def ttyname(space, fd):
     try:
-        return space.fsdecode(space.newbytes(os.ttyname(fd)))
+        return space.wrap_fsdecoded(os.ttyname(fd))
     except OSError as e:
         raise wrap_oserror(space, e)
 
@@ -2047,7 +2046,7 @@ def ctermid(space):
 
     Return the name of the controlling terminal for this process.
     """
-    return space.fsdecode(space.newbytes(os.ctermid()))
+    return space.wrap_fsdecoded(os.ctermid())
 
 @unwrap_spec(fd=c_int)
 def device_encoding(space, fd):
