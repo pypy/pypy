@@ -209,7 +209,7 @@ def _init_accept2dyear(space):
         accept2dyear = 0
     else:
         accept2dyear = 1
-    _set_module_object(space, "accept2dyear", space.newtext(accept2dyear))
+    _set_module_object(space, "accept2dyear", space.newint(accept2dyear))
 
 def _init_timezone(space):
     timezone = daylight = altzone = 0

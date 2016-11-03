@@ -15,7 +15,7 @@ class MultibyteIncrementalBase(W_Root):
             errors = 'strict'
         self.space = space
         self.errors = errors
-        w_codec = space.getattr(space.wrap(self), space.wrap("codec"))
+        w_codec = space.getattr(self, space.newtext("codec"))
         codec = space.interp_w(MultibyteCodec, w_codec)
         self.codec = codec.codec
         self.name = codec.name
@@ -30,7 +30,7 @@ class MultibyteIncrementalBase(W_Root):
         self._initialize()
 
     def fget_errors(self, space):
-        return space.wrap(self.errors)
+        return space.newtext(self.errors)
 
     def fset_errors(self, space, w_errors):
         self.errors = space.str_w(w_errors)
@@ -65,14 +65,14 @@ class MultibyteIncrementalDecoder(MultibyteIncrementalBase):
         pos = c_codecs.pypy_cjk_dec_inbuf_consumed(self.decodebuf)
         assert 0 <= pos <= len(object)
         self.pending = object[pos:]
-        return space.wrap(output)
+        return space.newunicode(output)
 
 
 @unwrap_spec(errors="str_or_None")
 def mbidecoder_new(space, w_subtype, errors=None):
     r = space.allocate_instance(MultibyteIncrementalDecoder, w_subtype)
     r.__init__(space, errors)
-    return space.wrap(r)
+    return r
 
 MultibyteIncrementalDecoder.typedef = TypeDef(
     'MultibyteIncrementalDecoder',
@@ -120,7 +120,7 @@ class MultibyteIncrementalEncoder(MultibyteIncrementalBase):
 def mbiencoder_new(space, w_subtype, errors=None):
     r = space.allocate_instance(MultibyteIncrementalEncoder, w_subtype)
     r.__init__(space, errors)
-    return space.wrap(r)
+    return r
 
 MultibyteIncrementalEncoder.typedef = TypeDef(
     'MultibyteIncrementalEncoder',

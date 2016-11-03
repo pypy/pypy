@@ -1213,7 +1213,7 @@ for name in rposix.WAIT_MACROS:
 @unwrap_spec(fd=c_int)
 def ttyname(space, fd):
     try:
-        return space.wrap(os.ttyname(fd))
+        return space.newtext(os.ttyname(fd))
     except OSError as e:
         raise wrap_oserror(space, e)
 
