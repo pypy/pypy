@@ -13,11 +13,6 @@ Command line flags:
   (e.g. those in the NumPyPy module).
 * --jit vec_all=1: turns on the vectorization for any jit driver. See parameters for
   the filtering heuristics of traces.
-* --jit vec_ratio=2: A number from 0 to 10 that represents a real number (vec_ratio / 10).
-  This filters traces if vec_all is enabled. N is the trace count then the number of
-  vector transformable operations (add_int -> vec_add_int) M, the following must hold:
-  M / N >= (vec_ratio / 10)
-* --jit vec_length=60: The maximum number of trace instructions the vectorizer filters for.
 
 Features
 --------

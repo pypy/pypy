@@ -1,3 +1,4 @@
+from rpython.jit.backend.llsupport.rewrite import cpu_simplify_scale
 from rpython.jit.metainterp.history import (VECTOR, FLOAT, INT,
         ConstInt, ConstFloat, TargetToken)
 from rpython.jit.metainterp.resoperation import (rop, ResOperation,
@@ -26,7 +27,8 @@ def forwarded_vecinfo(op):
     return fwd
 
 class SchedulerState(object):
-    def __init__(self, graph):
+    def __init__(self, cpu, graph):
+        self.cpu = cpu
         self.renamer = Renamer()
         self.graph = graph
         self.oplist = []
@@ -34,26 +36,83 @@ class SchedulerState(object):
         self.invariant_oplist = []
         self.invariant_vector_vars = []
         self.seen = {}
+        self.delayed = []
+
+    def resolve_delayed(self, needs_resolving, delayed, op):
+        # recursive solving of all delayed objects
+        if not delayed:
+            return
+        args = op.getarglist()
+        if op.is_guard():
+            args = args[:] + op.getfailargs()
+        for arg in args:
+            if arg is None or arg.is_constant() or arg.is_inputarg():
+                continue
+            if arg not in self.seen:
+                box = self.renamer.rename_box(arg)
+                needs_resolving[box] = None
+
+        indexvars = self.graph.index_vars
+        i = len(delayed)-1
+        while i >= 0:
+            node = delayed[i]
+            op = node.getoperation()
+            if op in needs_resolving:
+                # either it is a normal operation, or we know that there is a linear combination
+                del needs_resolving[op]
+                if op in indexvars:
+                    opindexvar = indexvars[op]
+                    # there might be a variable already, that
+                    # calculated the index variable, thus just reuse it
+                    for var, indexvar in indexvars.items(): 
+                        if indexvar == opindexvar and var in self.seen:
+                            self.renamer.start_renaming(op, var)
+                            break
+                    else:
+                        if opindexvar.calculated_by(op):
+                            # just append this operation
+                            self.seen[op] = None
+                            self.append_to_oplist(op)
+                        else:
+                            # here is an easier way to calculate just this operation
+                            last = op
+                            for operation in opindexvar.get_operations():
+                                self.append_to_oplist(operation)
+                                last = operation
+                            indexvars[last] = opindexvar
+                            self.renamer.start_renaming(op, last)
+                            self.seen[op] = None
+                            self.seen[last] = None
+                else: 
+                    self.resolve_delayed(needs_resolving, delayed, op)
+                    self.append_to_oplist(op)
+                    self.seen[op] = None
+                if len(delayed) > i:
+                    del delayed[i]
+            i -= 1
+            # some times the recursive call can remove several items from delayed,
+            # thus we correct the index here
+            if len(delayed) <= i:
+                i = len(delayed)-1
+
+    def append_to_oplist(self, op):
+        self.renamer.rename(op)
+        self.oplist.append(op)
+
+    def schedule(self):
+        self.prepare()
+        Scheduler().walk_and_emit(self)
+        self.post_schedule()
 
     def post_schedule(self):
         loop = self.graph.loop
-        self.renamer.rename(loop.jump)
-        self.ensure_args_unpacked(loop.jump)
+        jump = loop.jump
+        if self.delayed:
+            # some operations can be delayed until the jump instruction,
+            # handle them here
+            self.resolve_delayed({}, self.delayed, jump)
+        self.renamer.rename(jump)
         loop.operations = self.oplist
-        loop.prefix = self.invariant_oplist
-        if len(self.invariant_vector_vars) + len(self.invariant_oplist) > 0:
-            # label
-            args = loop.label.getarglist_copy() + self.invariant_vector_vars
-            opnum = loop.label.getopnum()
-            op = loop.label.copy_and_change(opnum, args)
-            self.renamer.rename(op)
-            loop.prefix_label = op
-            # jump
-            args = loop.jump.getarglist_copy() + self.invariant_vector_vars
-            opnum = loop.jump.getopnum()
-            op = loop.jump.copy_and_change(opnum, args)
-            self.renamer.rename(op)
-            loop.jump = op
 
     def profitable(self):
         return True
@@ -63,9 +122,82 @@ class SchedulerState(object):
             if node.depends_count() == 0:
                 self.worklist.insert(0, node)
 
-    def emit(self, node, scheduler):
-        # implement me in subclass. e.g. as in VecScheduleState
-        return False
+    def try_emit_or_delay(self, node):
+        if not node.is_imaginary() and node.is_pure():
+            # this operation might never be emitted. only if it is really needed
+            self.delay_emit(node)
+            return
+        # emit a now!
+        self.pre_emit(node, True)
+        self.mark_emitted(node)
+        if not node.is_imaginary():
+            op = node.getoperation()
+            self.seen[op] = None
+            self.append_to_oplist(op)
+
+    def delay_emit(self, node):
+        """ it has been decided that the operation might be scheduled later """
+        delayed = node.delayed or []
+        if node not in delayed:
+            delayed.append(node)
+        node.delayed = None
+        provides = node.provides()
+        if len(provides) == 0:
+            for n in delayed:
+                self.delayed.append(n)
+        else:
+            for to in node.provides():
+                tnode = to.target_node()
+                self.delegate_delay(tnode, delayed[:])
+        self.mark_emitted(node)
+
+    def delegate_delay(self, node, delayed):
+        """ Chain up delays, this can reduce many more of the operations """
+        if node.delayed is None:
+            node.delayed = delayed
+        else:
+            delayedlist = node.delayed
+            for d in delayed:
+                if d not in delayedlist:
+                    delayedlist.append(d)
+
+
+    def mark_emitted(state, node, unpack=True):
+        """ An operation has been emitted, adds new operations to the worklist
+            whenever their dependency count drops to zero.
+            Keeps worklist sorted (see priority) """
+        worklist = state.worklist
+        provides = node.provides()[:]
+        for dep in provides: # COPY
+            target = dep.to
+            node.remove_edge_to(target)
+            if not target.emitted and target.depends_count() == 0:
+                # sorts them by priority
+                i = len(worklist)-1
+                while i >= 0:
+                    cur = worklist[i]
+                    c = (cur.priority - target.priority)
+                    if c < 0: # meaning itnode.priority < target.priority:
+                        worklist.insert(i+1, target)
+                        break
+                    elif c == 0:
+                        # if they have the same priority, sort them
+                        # using the original position in the trace
+                        if target.getindex() < cur.getindex():
+                            worklist.insert(i+1, target)
+                            break
+                    i -= 1
+                else:
+                    worklist.insert(0, target)
+        node.clear_dependencies()
+        node.emitted = True
+        if not node.is_imaginary():
+            op = node.getoperation()
+            state.renamer.rename(op)
+            if unpack:
+                state.ensure_args_unpacked(op)
+            state.post_emit(node)
+
 
     def delay(self, node):
         return False
@@ -79,8 +211,29 @@ class SchedulerState(object):
     def post_emit(self, node):
         pass
 
-    def pre_emit(self, node):
-        pass
+    def pre_emit(self, orignode, pack_first=True):
+        delayed = orignode.delayed
+        if delayed:
+            # there are some nodes that have been delayed just for this operation
+            if pack_first:
+                op = orignode.getoperation()
+                self.resolve_delayed({}, delayed, op)
+
+            for node in delayed:
+                op = node.getoperation()
+                if op in self.seen:
+                    continue
+                if node is not None:
+                    provides = node.provides()
+                    if len(provides) == 0:
+                        # add this node to the final delay list
+                        # might be emitted before jump!
+                        self.delayed.append(node)
+                    else:
+                        for to in node.provides():
+                            tnode = to.target_node()
+                            self.delegate_delay(tnode, [node])
+            orignode.delayed = None
 
 class Scheduler(object):
     """ Create an instance of this class to (re)schedule a vector trace. """
@@ -135,42 +288,6 @@ class Scheduler(object):
             return True
         return node.depends_count() != 0
 
-    def mark_emitted(self, node, state, unpack=True):
-        """ An operation has been emitted, adds new operations to the worklist
-            whenever their dependency count drops to zero.
-            Keeps worklist sorted (see priority) """
-        worklist = state.worklist
-        provides = node.provides()[:]
-        for dep in provides: # COPY
-            target = dep.to
-            node.remove_edge_to(target)
-            if not target.emitted and target.depends_count() == 0:
-                # sorts them by priority
-                i = len(worklist)-1
-                while i >= 0:
-                    cur = worklist[i]
-                    c = (cur.priority - target.priority)
-                    if c < 0: # meaning itnode.priority < target.priority:
-                        worklist.insert(i+1, target)
-                        break
-                    elif c == 0:
-                        # if they have the same priority, sort them
-                        # using the original position in the trace
-                        if target.getindex() < cur.getindex():
-                            worklist.insert(i+1, target)
-                            break
-                    i -= 1
-                else:
-                    worklist.insert(0, target)
-        node.clear_dependencies()
-        node.emitted = True
-        if not node.is_imaginary():
-            op = node.getoperation()
-            state.renamer.rename(op)
-            if unpack:
-                state.ensure_args_unpacked(op)
-            state.post_emit(node)
-
     def walk_and_emit(self, state):
         """ Emit all the operations into the oplist parameter.
             Initiates the scheduling. """
@@ -178,14 +295,7 @@ class Scheduler(object):
         while state.has_more():
             node = self.next(state)
             if node:
-                if not state.emit(node, self):
-                    if not node.emitted:
-                        state.pre_emit(node)
-                        self.mark_emitted(node, state)
-                        if not node.is_imaginary():
-                            op = node.getoperation()
-                            state.seen[op] = None
-                            state.oplist.append(op)
+                state.try_emit_or_delay(node)
                 continue
 
             # it happens that packs can emit many nodes that have been
@@ -211,232 +321,24 @@ def failnbail_transformation(msg):
         import pdb; pdb.set_trace()
     raise NotImplementedError(msg)
 
-class TypeRestrict(object):
-    ANY_TYPE = '\x00'
-    ANY_SIZE = -1
-    ANY_SIGN = -1
-    ANY_COUNT = -1
-    SIGNED = 1
-    UNSIGNED = 0
-
-    def __init__(self,
-                 type=ANY_TYPE,
-                 bytesize=ANY_SIZE,
-                 count=ANY_SIGN,
-                 sign=ANY_COUNT):
-        self.type = type
-        self.bytesize = bytesize
-        self.sign = sign
-        self.count = count
-
-    @always_inline
-    def any_size(self):
-        return self.bytesize == TypeRestrict.ANY_SIZE
-
-    @always_inline
-    def any_count(self):
-        return self.count == TypeRestrict.ANY_COUNT
-
-    def check(self, value):
-        vecinfo = forwarded_vecinfo(value)
-        assert vecinfo.datatype != '\x00'
-        if self.type != TypeRestrict.ANY_TYPE:
-            if self.type != vecinfo.datatype:
-                msg = "type mismatch %s != %s" % \
-                        (self.type, vecinfo.datatype)
-                failnbail_transformation(msg)
-        assert vecinfo.bytesize > 0
-        if not self.any_size():
-            if self.bytesize != vecinfo.bytesize:
-                msg = "bytesize mismatch %s != %s" % \
-                        (self.bytesize, vecinfo.bytesize)
-                failnbail_transformation(msg)
-        assert vecinfo.count > 0
-        if self.count != TypeRestrict.ANY_COUNT:
-            if vecinfo.count < self.count:
-                msg = "count mismatch %s < %s" % \
-                        (self.count, vecinfo.count)
-                failnbail_transformation(msg)
-        if self.sign != TypeRestrict.ANY_SIGN:
-            if bool(self.sign) == vecinfo.sign:
-                msg = "sign mismatch %s < %s" % \
-                        (self.sign, vecinfo.sign)
-                failnbail_transformation(msg)
-
-    def max_input_count(self, count):
-        """ How many """
-        if self.count != TypeRestrict.ANY_COUNT:
-            return self.count
-        return count
-
-class OpRestrict(object):
-    def __init__(self, argument_restris):
-        self.argument_restrictions = argument_restris
-
-    def check_operation(self, state, pack, op):
-        pass
-
-    def crop_vector(self, op, newsize, size):
-        return newsize, size
-
-    def must_crop_vector(self, op, index):
-        restrict = self.argument_restrictions[index]
-        vecinfo = forwarded_vecinfo(op.getarg(index))
-        size = vecinfo.bytesize
-        newsize = self.crop_to_size(op, index)
-        return not restrict.any_size() and newsize != size
-
-    @always_inline
-    def crop_to_size(self, op, index):
-        restrict = self.argument_restrictions[index]
-        return restrict.bytesize
-
-    def opcount_filling_vector_register(self, op, vec_reg_size):
-        """ How many operations of that kind can one execute
-            with a machine instruction of register size X?
-        """
-        if op.is_typecast():
-            if op.casts_down():
-                size = op.cast_input_bytesize(vec_reg_size)
-                return size // op.cast_from_bytesize()
-            else:
-                return vec_reg_size // op.cast_to_bytesize()
-        vecinfo = forwarded_vecinfo(op)
-        return  vec_reg_size // vecinfo.bytesize
-
-class GuardRestrict(OpRestrict):
-    def opcount_filling_vector_register(self, op, vec_reg_size):
-        arg = op.getarg(0)
-        vecinfo = forwarded_vecinfo(arg)
-        return vec_reg_size // vecinfo.bytesize
-
-class LoadRestrict(OpRestrict):
-    def opcount_filling_vector_register(self, op, vec_reg_size):
-        assert rop.is_primitive_load(op.opnum)
-        descr = op.getdescr()
-        return vec_reg_size // descr.get_item_size_in_bytes()
-
-class StoreRestrict(OpRestrict):
-    def __init__(self, argument_restris):
-        self.argument_restrictions = argument_restris
-
-    def must_crop_vector(self, op, index):
-        vecinfo = forwarded_vecinfo(op.getarg(index))
-        bytesize = vecinfo.bytesize
-        return self.crop_to_size(op, index) != bytesize
-
-    @always_inline
-    def crop_to_size(self, op, index):
-        # there is only one parameter that needs to be transformed!
-        descr = op.getdescr()
-        return descr.get_item_size_in_bytes()
-
-    def opcount_filling_vector_register(self, op, vec_reg_size):
-        assert rop.is_primitive_store(op.opnum)
-        descr = op.getdescr()
-        return vec_reg_size // descr.get_item_size_in_bytes()
-
-class OpMatchSizeTypeFirst(OpRestrict):
-    def check_operation(self, state, pack, op):
-        i = 0
-        infos = [forwarded_vecinfo(o) for o in op.getarglist()]
-        arg0 = op.getarg(i)
-        while arg0.is_constant() and i < op.numargs():
-            i += 1
-            arg0 = op.getarg(i)
-        vecinfo = forwarded_vecinfo(arg0)
-        bytesize = vecinfo.bytesize
-        datatype = vecinfo.datatype
-
-        for arg in op.getarglist():
-            if arg.is_constant():
-                continue
-            curvecinfo = forwarded_vecinfo(arg)
-            if curvecinfo.bytesize != bytesize:
-                raise NotAVectorizeableLoop()
-            if curvecinfo.datatype != datatype:
-                raise NotAVectorizeableLoop()
-
-class trans(object):
-
-    TR_ANY = TypeRestrict()
-    TR_ANY_FLOAT = TypeRestrict(FLOAT)
-    TR_ANY_INTEGER = TypeRestrict(INT)
-    TR_FLOAT_2 = TypeRestrict(FLOAT, 4, 2)
-    TR_DOUBLE_2 = TypeRestrict(FLOAT, 8, 2)
-    TR_INT32_2 = TypeRestrict(INT, 4, 2)
-
-    OR_MSTF_I = OpMatchSizeTypeFirst([TR_ANY_INTEGER, TR_ANY_INTEGER])
-    OR_MSTF_F = OpMatchSizeTypeFirst([TR_ANY_FLOAT, TR_ANY_FLOAT])
-    STORE_RESTRICT = StoreRestrict([None, None, TR_ANY])
-    LOAD_RESTRICT = LoadRestrict([])
-    GUARD_RESTRICT = GuardRestrict([TR_ANY_INTEGER])
-
-    # note that the following definition is x86 arch specific
-    MAPPING = {
-        rop.VEC_INT_ADD:            OR_MSTF_I,
-        rop.VEC_INT_SUB:            OR_MSTF_I,
-        rop.VEC_INT_MUL:            OR_MSTF_I,
-        rop.VEC_INT_AND:            OR_MSTF_I,
-        rop.VEC_INT_OR:             OR_MSTF_I,
-        rop.VEC_INT_XOR:            OR_MSTF_I,
-        rop.VEC_INT_EQ:             OR_MSTF_I,
-        rop.VEC_INT_NE:             OR_MSTF_I,
-
-        rop.VEC_FLOAT_ADD:          OR_MSTF_F,
-        rop.VEC_FLOAT_SUB:          OR_MSTF_F,
-        rop.VEC_FLOAT_MUL:          OR_MSTF_F,
-        rop.VEC_FLOAT_TRUEDIV:      OR_MSTF_F,
-        rop.VEC_FLOAT_ABS:          OpRestrict([TR_ANY_FLOAT]),
-        rop.VEC_FLOAT_NEG:          OpRestrict([TR_ANY_FLOAT]),
-
-        rop.VEC_RAW_STORE:          STORE_RESTRICT,
-        rop.VEC_SETARRAYITEM_RAW:   STORE_RESTRICT,
-        rop.VEC_SETARRAYITEM_GC:    STORE_RESTRICT,
-
-        rop.VEC_RAW_LOAD_I:         LOAD_RESTRICT,
-        rop.VEC_RAW_LOAD_F:         LOAD_RESTRICT,
-        rop.VEC_GETARRAYITEM_RAW_I: LOAD_RESTRICT,
-        rop.VEC_GETARRAYITEM_RAW_F: LOAD_RESTRICT,
-        rop.VEC_GETARRAYITEM_GC_I:  LOAD_RESTRICT,
-        rop.VEC_GETARRAYITEM_GC_F:  LOAD_RESTRICT,
-
-        rop.VEC_GUARD_TRUE:             GUARD_RESTRICT,
-        rop.VEC_GUARD_FALSE:            GUARD_RESTRICT,
-
-        ## irregular
-        rop.VEC_INT_SIGNEXT:        OpRestrict([TR_ANY_INTEGER]),
-
-        rop.VEC_CAST_FLOAT_TO_SINGLEFLOAT:  OpRestrict([TR_DOUBLE_2]),
-        # weird but the trace will store single floats in int boxes
-        rop.VEC_CAST_SINGLEFLOAT_TO_FLOAT:  OpRestrict([TR_INT32_2]),
-        rop.VEC_CAST_FLOAT_TO_INT:          OpRestrict([TR_DOUBLE_2]),
-        rop.VEC_CAST_INT_TO_FLOAT:          OpRestrict([TR_INT32_2]),
-
-        rop.VEC_FLOAT_EQ:           OpRestrict([TR_ANY_FLOAT,TR_ANY_FLOAT]),
-        rop.VEC_FLOAT_NE:           OpRestrict([TR_ANY_FLOAT,TR_ANY_FLOAT]),
-        rop.VEC_INT_IS_TRUE:        OpRestrict([TR_ANY_INTEGER,TR_ANY_INTEGER]),
-    }
-
-    @staticmethod
-    def get(op):
-        res = trans.MAPPING.get(op.vector, None)
-        if not res:
-            failnbail_transformation("could not get OpRestrict for " + str(op))
-        return res
-
 def turn_into_vector(state, pack):
     """ Turn a pack into a vector instruction """
     check_if_pack_supported(state, pack)
     state.costmodel.record_pack_savings(pack, pack.numops())
     left = pack.leftmost()
-    oprestrict = trans.get(left)
+    oprestrict = state.cpu.vector_ext.get_operation_restriction(left)
     if oprestrict is not None:
-        oprestrict.check_operation(state, pack, left)
-    args = left.getarglist_copy()
-    prepare_arguments(state, pack, args)
+        newargs = oprestrict.check_operation(state, pack, left)
+        if newargs:
+            args = newargs
+        else:
+            args = left.getarglist_copy()
+    else:
+        args = left.getarglist_copy()
+    prepare_arguments(state, oprestrict, pack, args)
     vecop = VecOperation(left.vector, args, left,
                          pack.numops(), left.getdescr())
+
     for i,node in enumerate(pack.operations):
         op = node.getoperation()
         if op.returns_void():
@@ -446,10 +348,10 @@ def turn_into_vector(state, pack):
             state.renamer.start_renaming(op, vecop)
     if left.is_guard():
         prepare_fail_arguments(state, pack, left, vecop)
-    state.oplist.append(vecop)
+    state.append_to_oplist(vecop)
     assert vecop.count >= 1
 
-def prepare_arguments(state, pack, args):
+def prepare_arguments(state, oprestrict, pack, args):
     # Transforming one argument to a vector box argument
     # The following cases can occur:
     # 1) argument is present in the box_to_vbox map.
@@ -461,7 +363,6 @@ def prepare_arguments(state, pack, args):
     #    a) expand vars/consts before the label and add as argument
     #    b) expand vars created in the loop body
     #
-    oprestrict = trans.MAPPING.get(pack.leftmost().vector, None)
     if not oprestrict:
         return
     restrictions = oprestrict.argument_restrictions
@@ -514,7 +415,7 @@ def crop_vector(state, oprestrict, restrict, pack, args, i):
         count = vecinfo.count
         vecop = VecOperationNew(rop.VEC_INT_SIGNEXT, [arg, ConstInt(newsize)],
                                 'i', newsize, vecinfo.signed, count)
-        state.oplist.append(vecop)
+        state.append_to_oplist(vecop)
         state.costmodel.record_cast_int(size, newsize, count)
         args[i] = vecop
 
@@ -583,7 +484,7 @@ def unpack_from_vector(state, arg, index, count):
     vecop = OpHelpers.create_vec_unpack(arg.type, args, vecinfo.bytesize,
                                         vecinfo.signed, count)
     state.costmodel.record_vector_unpack(arg, index, count)
-    state.oplist.append(vecop)
+    state.append_to_oplist(vecop)
     return vecop
 
 def pack_into_vector(state, tgt, tidx, src, sidx, scount):
@@ -596,7 +497,7 @@ def pack_into_vector(state, tgt, tidx, src, sidx, scount):
     newcount = vecinfo.count + scount
     args = [tgt, src, ConstInt(tidx), ConstInt(scount)]
     vecop = OpHelpers.create_vec_pack(tgt.type, args, vecinfo.bytesize, vecinfo.signed, newcount)
-    state.oplist.append(vecop)
+    state.append_to_oplist(vecop)
     state.costmodel.record_vector_pack(src, sidx, scount)
     if not we_are_translated():
         _check_vec_pack(vecop)
@@ -623,7 +524,7 @@ def _check_vec_pack(op):
     assert vecinfo.count > argvecinfo.count
 
 def expand(state, pack, args, arg, index):
-    """ Expand a value into a vector box. useful for arith metic
+    """ Expand a value into a vector box. useful for arithmetic
         of one vector with a scalar (either constant/varialbe)
     """
     left = pack.leftmost()
@@ -684,10 +585,9 @@ def expand(state, pack, args, arg, index):
 
 class VecScheduleState(SchedulerState):
     def __init__(self, graph, packset, cpu, costmodel):
-        SchedulerState.__init__(self, graph)
+        SchedulerState.__init__(self, cpu, graph)
         self.box_to_vbox = {}
-        self.cpu = cpu
-        self.vec_reg_size = cpu.vector_register_size
+        self.vec_reg_size = cpu.vector_ext.vec_size()
         self.expanded_map = {}
         self.costmodel = costmodel
         self.inputargs = {}
@@ -737,7 +637,7 @@ class VecScheduleState(SchedulerState):
     def post_emit(self, node):
         pass
 
-    def pre_emit(self, node):
+    def pre_emit(self, node, pack_first=True):
         op = node.getoperation()
         if op.is_guard():
             # add accumulation info to the descriptor
@@ -759,6 +659,9 @@ class VecScheduleState(SchedulerState):
                     failargs[i] = self.renamer.rename_map.get(seed, seed)
             op.setfailargs(failargs)
 
+        SchedulerState.pre_emit(self, node, pack_first)
+
+
     def profitable(self):
         return self.costmodel.profitable()
 
@@ -768,18 +671,16 @@ class VecScheduleState(SchedulerState):
         for arg in self.graph.loop.label.getarglist():
             self.seen[arg] = None
 
-    def emit(self, node, scheduler):
-        """ If you implement a scheduler this operations is called
-            to emit the actual operation into the oplist of the scheduler.
-        """
+    def try_emit_or_delay(self, node):
+        # emission might be blocked by other nodes if this node has a pack!
         if node.pack:
             assert node.pack.numops() > 1
-            for node in node.pack.operations:
-                self.pre_emit(node)
-                scheduler.mark_emitted(node, self, unpack=False)
+            for i,node in enumerate(node.pack.operations):
+                self.pre_emit(node, i==0)
+                self.mark_emitted(node, unpack=False)
             turn_into_vector(self, node.pack)
-            return True
-        return False
+        elif not node.emitted:
+            SchedulerState.try_emit_or_delay(self, node)
 
     def delay(self, node):
         if node.pack:
@@ -832,7 +733,7 @@ class VecScheduleState(SchedulerState):
             self.renamer.start_renaming(arg, vecop)
             self.seen[vecop] = None
             self.costmodel.record_vector_unpack(var, pos, 1)
-            self.oplist.append(vecop)
+            self.append_to_oplist(vecop)
             return vecop
         return arg
 
@@ -859,6 +760,25 @@ class VecScheduleState(SchedulerState):
             if i >= vecinfo.count:
                 break
             self.setvector_of_box(arg, i, box)
+
+    def post_schedule(self):
+        SchedulerState.post_schedule(self)
+        loop = self.graph.loop
+        self.ensure_args_unpacked(loop.jump)
+        loop.prefix = self.invariant_oplist
+        if len(self.invariant_vector_vars) + len(self.invariant_oplist) > 0:
+            # label
+            args = loop.label.getarglist_copy() + self.invariant_vector_vars
+            opnum = loop.label.getopnum()
+            op = loop.label.copy_and_change(opnum, args)
+            self.renamer.rename(op)
+            loop.prefix_label = op
+            # jump
+            args = loop.jump.getarglist_copy() + self.invariant_vector_vars
+            opnum = loop.jump.getopnum()
+            op = loop.jump.copy_and_change(opnum, args)
+            self.renamer.rename(op)
+            loop.jump = op
 
 class Pack(object):
     """ A pack is a set of n statements that are:
@@ -969,7 +889,7 @@ class Pack(object):
             node.pack = self
             node.pack_position = i
 
-    def split(self, packlist, vec_reg_size):
+    def split(self, packlist, vec_reg_size, vector_ext):
         """ Combination phase creates the biggest packs that are possible.
             In this step the pack is reduced in size to fit into an
             vector register.
@@ -978,7 +898,7 @@ class Pack(object):
         pack = self
         while pack.pack_load(vec_reg_size) > Pack.FULL:
             pack.clear()
-            oplist, newoplist = pack.slice_operations(vec_reg_size)
+            oplist, newoplist = pack.slice_operations(vec_reg_size, vector_ext)
             pack.operations = oplist
             pack.update_pack_of_nodes()
             if not pack.leftmost().is_typecast():
@@ -996,13 +916,13 @@ class Pack(object):
                 break
         pack.update_pack_of_nodes()
 
-    def opcount_filling_vector_register(self, vec_reg_size):
+    def opcount_filling_vector_register(self, vec_reg_size, vector_ext):
         left = self.leftmost()
-        oprestrict = trans.get(left)
+        oprestrict = vector_ext.get_operation_restriction(left)
         return oprestrict.opcount_filling_vector_register(left, vec_reg_size)
 
-    def slice_operations(self, vec_reg_size):
-        count = self.opcount_filling_vector_register(vec_reg_size)
+    def slice_operations(self, vec_reg_size, vector_ext):
+        count = self.opcount_filling_vector_register(vec_reg_size, vector_ext)
         assert count > 0
         newoplist = self.operations[count:]
         oplist = self.operations[:count]

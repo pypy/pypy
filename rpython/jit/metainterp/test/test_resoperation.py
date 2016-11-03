@@ -117,7 +117,8 @@ def test_load_singlefloat():
     args = [rop.InputArgInt(), ConstInt(0)]
     baseop = rop.ResOperation(rop.rop.RAW_LOAD_I, args, descr=descr)
     baseop.set_forwarded(rop.VectorizationInfo(baseop))
-    op = rop.VecOperation(rop.rop.VEC_RAW_LOAD_I, args, baseop, 4, descr=descr)
+    op = rop.VecOperation(rop.rop.VEC_LOAD_I, args + [ConstInt(1), ConstInt(0)],
+                          baseop, 4, descr=descr)
     assert (op.type, op.datatype, op.bytesize, op.is_vector()) == ('i', 'i', 4, True)
 
 def test_vec_store():
@@ -126,7 +127,8 @@ def test_vec_store():
     args = [rop.InputArgRef(), ConstInt(0), vec]
     baseop = rop.ResOperation(rop.rop.RAW_STORE,  args, descr=descr)
     baseop.set_forwarded(rop.VectorizationInfo(baseop))
-    op = rop.VecOperation(rop.rop.VEC_RAW_STORE, args, baseop, 2, descr=descr)
+    op = rop.VecOperation(rop.rop.VEC_STORE, args + [ConstInt(1), ConstInt(0)],
+                          baseop, 2, descr=descr)
     assert (op.type, op.datatype, op.bytesize, op.is_vector()) == ('v', 'v', 8, True)
 
 def test_vec_guard():

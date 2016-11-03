@@ -4,8 +4,9 @@ from rpython.jit.metainterp.history import TargetToken, JitCellToken, TreeLoop
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
 from rpython.jit.metainterp.optimizeopt.renamer import Renamer
 from rpython.jit.metainterp.optimizeopt.vector import (VecScheduleState,
-        Pack, Pair, NotAProfitableLoop, VectorizingOptimizer, X86_CostModel,
-        PackSet)
+        Pack, Pair, NotAProfitableLoop, VectorizingOptimizer, GenericCostModel,
+        PackSet, SchedulerState)
+from rpython.jit.backend.llsupport.vector_ext import VectorExt
 from rpython.jit.metainterp.optimizeopt.dependency import Node, DependencyGraph
 from rpython.jit.metainterp.optimizeopt.schedule import Scheduler
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
@@ -15,11 +16,6 @@ from rpython.jit.metainterp.optimizeopt.test.test_vecopt import (FakeMetaInterpS
 from rpython.jit.metainterp.resoperation import rop, ResOperation, VectorizationInfo
 from rpython.jit.tool.oparser import parse as opparse
 from rpython.jit.tool.oparser_model import get_model
-from rpython.jit.backend.detect_cpu import getcpuclass
-
-CPU = getcpuclass()
-if not CPU.vector_extension:
-    py.test.skip("this cpu %s has no implemented vector backend" % CPU)
 
 class FakeVecScheduleState(VecScheduleState):
     def __init__(self):
@@ -38,12 +34,16 @@ class SchedulerBaseTest(DependencyBaseTest):
             'char': self.chararraydescr,
         }
 
+    def setup_method(self, name):
+        self.vector_ext = VectorExt()
+        self.vector_ext.enable(16, True)
+
     def pack(self, loop, l, r, input_type=None, output_type=None):
         return Pack(loop.graph.nodes[l:r])
 
     def schedule(self, loop, packs, vec_reg_size=16,
                  prepend_invariant=False, overwrite_funcs=None):
-        cm = X86_CostModel(self.cpu, 0)
+        cm = GenericCostModel(self.cpu, 0)
         cm.profitable = lambda: True
         pairs = []
         for pack in packs:
@@ -97,7 +97,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         ps.packs = [self.pack(loop1, 0, 3)]
         op1 = ps.packs[0].operations[0]
         op2 = ps.packs[0].operations[1]
-        ps.split_overloaded_packs()
+        ps.split_overloaded_packs(self.vector_ext)
         assert len(ps.packs) == 1
         assert ps.packs[0].leftmost() is op1.getoperation()
         assert ps.packs[0].rightmost() is op2.getoperation()
@@ -114,7 +114,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         pack1 = self.pack(loop1, 0, 6)
         loop2 = self.schedule(loop1, [pack1])
         loop3 = self.parse_trace("""
-        v10[4xi32] = vec_raw_load_f(p0, i0, descr=float)
+        v10[4xi32] = vec_load_f(p0, i0, 1, 0, descr=float)
         f10 = raw_load_f(p0, i4, descr=float)
         f11 = raw_load_f(p0, i5, descr=float)
         """, False)
@@ -134,7 +134,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         pack3 = self.pack(loop1, 4, 6)
         loop2 = self.schedule(loop1, [pack1, pack2, pack3])
         loop3 = self.parse_trace("""
-        v10[2xi64] = vec_raw_load_i(p0, i0, descr=long)
+        v10[2xi64] = vec_load_i(p0, i0, 1, 0, descr=long)
         v20[2xi32] = vec_int_signext(v10[2xi64], 4)
         v30[2xf64] = vec_cast_int_to_float(v20[2xi32])
         """, False)
@@ -271,10 +271,10 @@ class Test(SchedulerBaseTest, LLtypeMixin):
                                   '_prevent_signext': void
                               })
         loop3 = self.parse_trace("""
-        v10[2xf64] = vec_raw_load_f(p0, i1, descr=double)
-        v11[2xf64] = vec_raw_load_f(p0, i3, descr=double)
-        v12[2xf64] = vec_raw_load_f(p0, i5, descr=double)
-        v13[2xf64] = vec_raw_load_f(p0, i7, descr=double)
+        v10[2xf64] = vec_load_f(p0, i1, 1, 0, descr=double)
+        v11[2xf64] = vec_load_f(p0, i3, 1, 0, descr=double)
+        v12[2xf64] = vec_load_f(p0, i5, 1, 0, descr=double)
+        v13[2xf64] = vec_load_f(p0, i7, 1, 0, descr=double)
         v14[2xi32] = vec_cast_float_to_int(v10[2xf64])
         v15[2xi32] = vec_cast_float_to_int(v11[2xf64])
         v16[2xi32] = vec_cast_float_to_int(v12[2xf64])
@@ -284,7 +284,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         v23[6xi16] = vec_pack_i(v16[2xi32], v17[2xi32], 2, 2)
         v20[4xi16] = vec_int_signext(v23[4xi32],2)
         v24[8xi16] = vec_pack_i(v18[4xi16], v20[4xi16], 4, 4)
-        vec_raw_store(p1, i1, v24[8xi16], descr=short)
+        vec_store(p1, i1, v24[8xi16], 1, 0, descr=short)
         """, False)
         self.assert_equal(loop2, loop3)
 
@@ -310,12 +310,12 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         pack3 = self.pack(loop1, 8, 12)
         loop2 = self.schedule(loop1, [pack1,pack2,pack3])
         loop3 = self.parse_trace("""
-        v44[2xf64] = vec_raw_load_f(p0, i1, descr=double) 
-        v45[2xf64] = vec_raw_load_f(p0, i3, descr=double) 
+        v44[2xf64] = vec_load_f(p0, i1, 1, 0, descr=double) 
+        v45[2xf64] = vec_load_f(p0, i3, 1, 0, descr=double) 
         v46[2xi32] = vec_cast_float_to_singlefloat(v44[2xf64]) 
         v47[2xi32] = vec_cast_float_to_singlefloat(v45[2xf64]) 
         v41[4xi32] = vec_pack_i(v46[2xi32], v47[2xi32], 2, 2) 
-        vec_raw_store(p1, i1, v41[4xi32], descr=float)
+        vec_store(p1, i1, v41[4xi32], 1, 0, descr=float)
         """, False)
         self.assert_equal(loop2, loop3)
 
@@ -336,7 +336,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         loop2 = self.schedule(loop1, [pack1,pack2,pack3], prepend_invariant=True)
         loop3 = self.parse_trace("""
         v9[2xi64] = vec_expand_i(255)
-        v10[2xi64] = vec_raw_load_i(p0, i1, descr=long)
+        v10[2xi64] = vec_load_i(p0, i1, 1, 0, descr=long)
         v11[2xi64] = vec_int_and(v10[2xi64], v9[2xi64])
         vec_guard_true(v11[2xi64]) []
         """, False)
@@ -355,7 +355,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         pack2 = self.pack(loop1, 4, 6)
         loop2 = self.schedule(loop1, [pack1,pack2], prepend_invariant=True)
         loop3 = self.parse_trace("""
-        v1[4xi32] = vec_raw_load_i(p0, i1, descr=float)
+        v1[4xi32] = vec_load_i(p0, i1, 1, 0, descr=float)
         i10 = vec_unpack_i(v1[4xi32], 0, 1)
         raw_store(p0, i3, i10, descr=float)
         i11 = vec_unpack_i(v1[4xi32], 1, 1)
@@ -431,7 +431,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         """)
         pack = self.pack(trace, 0, 4)
         packs = []
-        pack.split(packs, 16)
+        pack.split(packs, 16, self.vector_ext)
         packs.append(pack)
         assert len(packs) == 2
 
@@ -443,7 +443,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         """)
         pack = self.pack(trace, 0, 2)
         packset = FakePackSet([pack])
-        packset.split_overloaded_packs()
+        packset.split_overloaded_packs(self.vector_ext)
         assert len(packset.packs) == 1
 
     def test_expand(self):
@@ -460,5 +460,18 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         state.expand(['d','d','c'], 'ddc')
         assert state.find_expanded(['d','d','c']) == 'ddc'
 
-
-
+    def test_delayed_schedule(self):
+        loop = self.parse("""
+        [i0]
+        i1 = int_add(i0,1)
+        i2 = int_add(i0,1)
+        jump(i2)
+        """)
+        loop.prefix_label = None
+        loop.label = ResOperation(rop.LABEL, loop.inputargs)
+        ops = loop.operations
+        loop.operations = ops[:-1]
+        loop.jump = ops[-1]
+        state = SchedulerState(self.cpu, DependencyGraph(loop))
+        state.schedule()
+        assert len(loop.operations) == 1

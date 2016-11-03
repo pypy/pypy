@@ -2,7 +2,7 @@ import py
 
 from rpython.jit.metainterp.history import TargetToken, JitCellToken, TreeLoop
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
-from rpython.jit.metainterp.optimizeopt.vector import (Pack, X86_CostModel,
+from rpython.jit.metainterp.optimizeopt.vector import (Pack, GenericCostModel,
         NotAProfitableLoop, VectorizingOptimizer, CostModel)
 from rpython.jit.metainterp.optimizeopt.schedule import VecScheduleState
 from rpython.jit.metainterp.optimizeopt.dependency import Node, DependencyGraph
@@ -13,11 +13,6 @@ from rpython.jit.metainterp.optimizeopt.test.test_vecopt import (FakeMetaInterpS
 from rpython.jit.metainterp.resoperation import rop, ResOperation, AbstractValue
 from rpython.jit.tool.oparser import parse as opparse
 from rpython.jit.tool.oparser_model import get_model
-from rpython.jit.backend.detect_cpu import getcpuclass
-
-CPU = getcpuclass()
-if not CPU.vector_extension:
-    py.test.skip("this cpu %s has no implemented vector backend" % CPU)
 
 class FakeMemoryRef(object):
     def __init__(self, array, iv):
@@ -106,7 +101,7 @@ class CostModelBaseTest(SchedulerBaseTest):
             print "pack: \n   ",
             print '\n    '.join([str(op.getoperation()) for op in pack.operations])
             print
-        costmodel = FakeCostModel(X86_CostModel(self.cpu, 0))
+        costmodel = FakeCostModel(GenericCostModel(self.cpu, 0))
         costmodel.reset_savings()
         state = VecScheduleState(graph, opt.packset, self.cpu, costmodel)
         opt.schedule(state)
