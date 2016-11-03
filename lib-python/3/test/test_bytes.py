@@ -1006,9 +1006,13 @@ class ByteArrayTest(BaseBytesTest, unittest.TestCase):
     def test_del_expand(self):
         # Reducing the size should not expand the buffer (issue #23985)
         b = bytearray(10)
-        size = sys.getsizeof(b)
-        del b[:1]
-        self.assertLessEqual(sys.getsizeof(b), size)
+        try:
+            size = sys.getsizeof(b)
+        except TypeError:
+            pass            # e.g. on pypy
+        else:
+            del b[:1]
+            self.assertLessEqual(sys.getsizeof(b), size)
 
     def test_extended_set_del_slice(self):
         indices = (0, None, 1, 3, 19, 300, 1<<333, -1, -2, -31, -300)
