@@ -14,14 +14,14 @@ def get_suffixes(space):
         suffixes_w.append(
             space.newtuple([space.newtext(importing.get_so_extension(space)),
                             space.newtext('rb'),
-                            space.newtext(importing.C_EXTENSION)]))
+                            space.newint(importing.C_EXTENSION)]))
     suffixes_w.extend([
         space.newtuple([space.newtext('.py'),
                         space.newtext('U'),
-                        space.newtext(importing.PY_SOURCE)]),
+                        space.newint(importing.PY_SOURCE)]),
         space.newtuple([space.newtext('.pyc'),
                         space.newtext('rb'),
-                        space.newtext(importing.PY_COMPILED)]),
+                        space.newint(importing.PY_COMPILED)]),
         ])
     return space.newlist(suffixes_w)
 
