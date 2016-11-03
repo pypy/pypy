@@ -305,9 +305,9 @@ def PyString_AsEncodedObject(space, w_str, encoding, errors):
 
     w_encoding = w_errors = None
     if encoding:
-        w_encoding = space.wrap(rffi.charp2str(encoding))
+        w_encoding = space.newtext(rffi.charp2str(encoding))
     if errors:
-        w_errors = space.wrap(rffi.charp2str(errors))
+        w_errors = space.newtext(rffi.charp2str(errors))
     return space.call_method(w_str, 'encode', w_encoding, w_errors)
 
 @cpython_api([PyObject, CONST_STRING, CONST_STRING], PyObject)
@@ -325,9 +325,9 @@ def PyString_AsDecodedObject(space, w_str, encoding, errors):
 
     w_encoding = w_errors = None
     if encoding:
-        w_encoding = space.wrap(rffi.charp2str(encoding))
+        w_encoding = space.newtext(rffi.charp2str(encoding))
     if errors:
-        w_errors = space.wrap(rffi.charp2str(errors))
+        w_errors = space.newtext(rffi.charp2str(errors))
     return space.call_method(w_str, "decode", w_encoding, w_errors)
 
 @cpython_api([PyObject, PyObject], PyObject)

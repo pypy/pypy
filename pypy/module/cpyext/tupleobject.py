@@ -210,4 +210,4 @@ def PyTuple_GetSlice(space, w_obj, low, high):
     """Take a slice of the tuple pointed to by p from low to high and return it
     as a new tuple.
     """
-    return space.getslice(w_obj, space.wrap(low), space.wrap(high))
+    return space.getslice(w_obj, space.newint(low), space.newint(high))

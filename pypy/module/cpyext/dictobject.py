@@ -74,7 +74,7 @@ def PyDict_DelItemString(space, w_dict, key_ptr):
         key = rffi.charp2str(key_ptr)
         # our dicts dont have a standardized interface, so we need
         # to go through the space
-        space.delitem(w_dict, space.wrap(key))
+        space.delitem(w_dict, space.newtext(key))
         return 0
     else:
         PyErr_BadInternalCall(space)

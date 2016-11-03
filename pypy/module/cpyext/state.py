@@ -99,7 +99,7 @@ class State:
             space = self.space
             argv = space.sys.get('argv')
             if space.len_w(argv):
-                argv0 = space.getitem(argv, space.wrap(0))
+                argv0 = space.getitem(argv, space.newint(0))
                 progname = space.str_w(argv0)
             else:
                 progname = "pypy"
@@ -137,7 +137,7 @@ class State:
         if not isinstance(w_mod, Module):
             msg = "fixup_extension: module '%s' not loaded" % name
             raise OperationError(space.w_SystemError,
-                                 space.wrap(msg))
+                                 space.newtext(msg))
         w_dict = w_mod.getdict(space)
         w_copy = space.call_method(w_dict, 'copy')
         self.extensions[path] = w_copy

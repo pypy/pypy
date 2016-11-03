@@ -22,15 +22,15 @@ def PyFile_GetLine(space, w_obj, n):
     0, however, one line is read regardless of length, but EOFError is
     raised if the end of the file is reached immediately."""
     try:
-        w_readline = space.getattr(w_obj, space.wrap('readline'))
+        w_readline = space.getattr(w_obj, space.newtext('readline'))
     except OperationError:
         raise oefmt(space.w_TypeError,
             "argument must be a file, or have a readline() method.")
 
     n = rffi.cast(lltype.Signed, n)
-    if space.is_true(space.gt(space.wrap(n), space.wrap(0))):
-        return space.call_function(w_readline, space.wrap(n))
-    elif space.is_true(space.lt(space.wrap(n), space.wrap(0))):
+    if space.is_true(space.gt(space.newint(n), space.newint(0))):
+        return space.call_function(w_readline, space.newint(n))
+    elif space.is_true(space.lt(space.newint(n), space.newint(0))):
         return space.call_function(w_readline)
     else:
         # XXX Raise EOFError as specified
@@ -117,7 +117,7 @@ def PyFile_WriteObject(space, w_obj, w_p, flags):
 @cpython_api([PyObject], PyObject)
 def PyFile_Name(space, w_p):
     """Return the name of the file specified by p as a string object."""
-    w_name = space.getattr(w_p, space.wrap("name"))
+    w_name = space.getattr(w_p, space.newtext("name"))
     return w_name     # borrowed ref, should be a W_StringObject from the file
 
 @cpython_api([PyObject, rffi.INT_real], rffi.INT_real, error=CANNOT_FAIL)
@@ -137,8 +137,8 @@ def PyFile_SoftSpace(space, w_p, newflag):
             w_newflag = space.w_True
         else:
             w_newflag = space.w_False
-        oldflag = space.int_w(space.getattr(w_p, space.wrap("softspace")))
-        space.setattr(w_p, space.wrap("softspace"), w_newflag)
+        oldflag = space.int_w(space.getattr(w_p, space.newtext("softspace")))
+        space.setattr(w_p, space.newtext("softspace"), w_newflag)
         return oldflag
     except OperationError as e:
         return 0

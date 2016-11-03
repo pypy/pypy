@@ -63,9 +63,8 @@ def frame_realize(space, py_obj):
     frame = space.FrameClass(space, code, w_globals, outer_func=None)
     d = frame.getorcreatedebug()
     d.f_lineno = rffi.getintfield(py_frame, 'c_f_lineno')
-    w_obj = space.wrap(frame)
-    track_reference(space, py_obj, w_obj)
-    return w_obj
+    track_reference(space, py_obj, frame)
+    return frame
 
 @cpython_api([PyThreadState, PyCodeObject, PyObject, PyObject], PyFrameObject,
              result_is_ll=True)
