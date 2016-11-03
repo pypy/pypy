@@ -209,7 +209,7 @@ def _init_accept2dyear(space):
         accept2dyear = 0
     else:
         accept2dyear = 1
-    _set_module_object(space, "accept2dyear", space.wrap(accept2dyear))
+    _set_module_object(space, "accept2dyear", space.newtext(accept2dyear))
 
 def _init_timezone(space):
     timezone = daylight = altzone = 0
@@ -351,12 +351,12 @@ else:
 
 def _get_module_object(space, obj_name):
     w_module = space.getbuiltinmodule('time')
-    w_obj = space.getattr(w_module, space.wrap(obj_name))
+    w_obj = space.getattr(w_module, space.newtext(obj_name))
     return w_obj
 
 def _set_module_object(space, obj_name, w_obj_value):
     w_module = space.getbuiltinmodule('time')
-    space.setattr(w_module, space.wrap(obj_name), w_obj_value)
+    space.setattr(w_module, space.newtext(obj_name), w_obj_value)
 
 def _get_inttime(space, w_seconds):
     # w_seconds can be a wrapped None (it will be automatically wrapped
@@ -379,15 +379,15 @@ def _get_inttime(space, w_seconds):
 
 def _tm_to_tuple(space, t):
     time_tuple = [
-        space.wrap(rffi.getintfield(t, 'c_tm_year') + 1900),
-        space.wrap(rffi.getintfield(t, 'c_tm_mon') + 1), # want january == 1
-        space.wrap(rffi.getintfield(t, 'c_tm_mday')),
-        space.wrap(rffi.getintfield(t, 'c_tm_hour')),
-        space.wrap(rffi.getintfield(t, 'c_tm_min')),
-        space.wrap(rffi.getintfield(t, 'c_tm_sec')),
-        space.wrap((rffi.getintfield(t, 'c_tm_wday') + 6) % 7), # want monday == 0
-        space.wrap(rffi.getintfield(t, 'c_tm_yday') + 1), # want january, 1 == 1
-        space.wrap(rffi.getintfield(t, 'c_tm_isdst'))]
+        space.newint(rffi.getintfield(t, 'c_tm_year') + 1900),
+        space.newint(rffi.getintfield(t, 'c_tm_mon') + 1), # want january == 1
+        space.newint(rffi.getintfield(t, 'c_tm_mday')),
+        space.newint(rffi.getintfield(t, 'c_tm_hour')),
+        space.newint(rffi.getintfield(t, 'c_tm_min')),
+        space.newint(rffi.getintfield(t, 'c_tm_sec')),
+        space.newint((rffi.getintfield(t, 'c_tm_wday') + 6) % 7), # want monday == 0
+        space.newint(rffi.getintfield(t, 'c_tm_yday') + 1), # want january, 1 == 1
+        space.newint(rffi.getintfield(t, 'c_tm_isdst'))]
 
     w_struct_time = _get_module_object(space, 'struct_time')
     w_time_tuple = space.newtuple(time_tuple)
@@ -405,7 +405,7 @@ def _gettmarg(space, w_tup, allowNone=True):
         lltype.free(t_ref, flavor='raw')
         if not pbuf:
             raise OperationError(space.w_ValueError,
-                space.wrap(_get_error_msg()))
+                space.newtext(_get_error_msg()))
         return pbuf
 
     tup_w = space.fixedview(w_tup)
@@ -476,7 +476,7 @@ def time(space):
     Fractions of a second may be present if the system clock provides them."""
 
     secs = pytime.time()
-    return space.wrap(secs)
+    return space.newfloat(secs)
 
 def clock(space):
     """clock() -> floating point number
@@ -485,7 +485,7 @@ def clock(space):
     the first call to clock().  This has as much precision as the system
     records."""
 
-    return space.wrap(pytime.clock())
+    return space.newfloat(pytime.clock())
 
 def ctime(space, w_seconds=None):
     """ctime([seconds]) -> string
@@ -503,7 +503,7 @@ def ctime(space, w_seconds=None):
     if not p:
         raise oefmt(space.w_ValueError, "unconvertible time")
 
-    return space.wrap(rffi.charp2str(p)[:-1]) # get rid of new line
+    return space.newtext(rffi.charp2str(p)[:-1]) # get rid of new line
 
 # by now w_tup is an optional argument (and not *args)
 # because of the ext. compiler bugs in handling such arguments (*args, **kwds)
@@ -518,7 +518,7 @@ def asctime(space, w_tup=None):
     if not p:
         raise oefmt(space.w_ValueError, "unconvertible time")
 
-    return space.wrap(rffi.charp2str(p)[:-1]) # get rid of new line
+    return space.newtext(rffi.charp2str(p)[:-1]) # get rid of new line
 
 def gmtime(space, w_seconds=None):
     """gmtime([seconds]) -> (tm_year, tm_mon, tm_day, tm_hour, tm_min,
@@ -537,7 +537,7 @@ def gmtime(space, w_seconds=None):
     lltype.free(t_ref, flavor='raw')
 
     if not p:
-        raise OperationError(space.w_ValueError, space.wrap(_get_error_msg()))
+        raise OperationError(space.w_ValueError, space.newtext(_get_error_msg()))
     return _tm_to_tuple(space, p)
 
 def localtime(space, w_seconds=None):
@@ -554,7 +554,7 @@ def localtime(space, w_seconds=None):
     lltype.free(t_ref, flavor='raw')
 
     if not p:
-        raise OperationError(space.w_ValueError, space.wrap(_get_error_msg()))
+        raise OperationError(space.w_ValueError, space.newtext(_get_error_msg()))
     return _tm_to_tuple(space, p)
 
 def mktime(space, w_tup):
@@ -570,7 +570,7 @@ def mktime(space, w_tup):
     if tt == -1 and rffi.getintfield(buf, "c_tm_wday") == -1:
         raise oefmt(space.w_OverflowError, "mktime argument out of range")
 
-    return space.wrap(float(tt))
+    return space.newfloat(float(tt))
 
 if _POSIX:
     def tzset(space):
@@ -645,7 +645,7 @@ def strftime(space, format, w_tup=None):
                 # e.g. an empty format, or %Z when the timezone
                 # is unknown.
                 result = rffi.charp2strn(outbuf, intmask(buflen))
-                return space.wrap(result)
+                return space.newtext(result)
         finally:
             lltype.free(outbuf, flavor='raw')
         i += i
