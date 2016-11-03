@@ -140,8 +140,9 @@ class AppTestBytesObject:
     def test_format_wrongtype(self):
         for int_format in '%d', '%o', '%x':
             exc_info = raises(TypeError, int_format.__mod__, '123')
-            expected = int_format + ' format: a number is required, not str'
-            assert str(exc_info.value) == expected
+            expected1 = int_format + ' format: a number is required, not str'
+            expected2 = int_format + ' format: an integer is required, not str'
+            assert str(exc_info.value) in (expected1, expected2)
         raises(TypeError, "None % 'abc'") # __rmod__
 
     def test_split(self):
