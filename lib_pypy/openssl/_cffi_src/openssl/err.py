@@ -17,6 +17,7 @@ struct ERR_string_data_st {
     const char *string;
 };
 typedef struct ERR_string_data_st ERR_STRING_DATA;
+typedef ... ERR_STATE;
 
 static const int ERR_LIB_DH;
 static const int ERR_LIB_EVP;
@@ -224,6 +225,7 @@ unsigned long ERR_peek_last_error_line_data(const char **,
 void ERR_put_error(int, int, int, const char *, int);
 void ERR_add_error_data(int, ...);
 int ERR_get_next_error_library(void);
+ERR_STATE *ERR_get_state(void);
 """
 
 MACROS = """

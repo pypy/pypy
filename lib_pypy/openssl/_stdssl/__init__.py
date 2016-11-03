@@ -1,11 +1,15 @@
+import time
+import _thread
+import weakref
 from _openssl import ffi
 from _openssl import lib
-from _ssl._stdssl.certificate import *
-from _ssl._stdssl.certificate import _test_decode_cert
-from _ssl._stdssl.utility import _str_with_len
+from openssl._stdssl.certificate import _test_decode_cert
+from openssl._stdssl.utility import _str_with_len
+from openssl._stdssl.error import (ssl_error,
+        SSLError, SSLZeroReturnError, SSLWantReadError,
+        SSLWantWriteError, SSLSyscallError,
+        SSLEOFError)
 
-from _ssl._stdssl.error import *
-from _ssl._stdssl.error import _last_error
 
 OPENSSL_VERSION = ffi.string(lib.OPENSSL_VERSION_TEXT).decode('utf-8')
 OPENSSL_VERSION_NUMBER = lib.OPENSSL_VERSION_NUMBER
@@ -37,6 +41,8 @@ for name in dir(lib):
     if name.startswith('SSL_OP'):
         globals()[name[4:]] = getattr(lib, name)
 
+SSL_CLIENT = 0
+SSL_SERVER = 1
 
 PROTOCOL_SSLv2  = 0
 PROTOCOL_SSLv3  = 1
@@ -69,6 +75,144 @@ class PasswordInfo(object):
     password = None
     operationerror = None
 PWINFO_STORAGE = {}
+
+@ffi.def_extern
+def _password_callback(buf, size, rwflag, userdata):
+    pass
+
+def _ssl_select(sock, write, timeout):
+    pass
+    raise NotImplementedError
+
+class _SSLSocket(object):
+
+    @staticmethod
+    def _new__ssl_socket(sslctx, sock, socket_type, hostname, inbio, outbio):
+        self = _SSLSocket(sslctx, sock, socket_type, hostname)
+        ctx = sslctx.ctx
+
+        lib.ERR_get_state()
+        lib.ERR_clear_error()
+        self.ssl = ssl = lib.SSL_new(ctx)
+
+        # TODO _server_name_callback self.SSL_set_app_data(self.ssl, self);
+        if sock:
+            lib.SSL_set_fd(ssl, sock.fileno())
+        else:
+            raise NotImplementedError("implement _SSLSocket inbio, outbio params")
+            # /* BIOs are reference counted and SSL_set_bio borrows our reference.
+            #  * To prevent a double free in memory_bio_dealloc() we need to take an
+            #  * extra reference here. */
+            # CRYPTO_add(&inbio->bio->references, 1, CRYPTO_LOCK_BIO);
+            # CRYPTO_add(&outbio->bio->references, 1, CRYPTO_LOCK_BIO);
+            # SSL_set_bio(self->ssl, inbio->bio, outbio->bio);
+
+        mode = lib.SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER
+        if lib.SSL_MODE_AUTO_RETRY:
+            mode |= lib.SSL_MODE_AUTO_RETRY
+        lib.SSL_set_mode(ssl, mode)
+
+        if HAS_SNI and self.server_hostname:
+            name = _str_to_ffi_buffer(self.server_hostname)
+            lib.SSL_set_tlsext_host_name(ssl, name)
+
+        timeout = sock.gettimeout() or -1
+
+        # If the socket is in non-blocking mode or timeout mode, set the BIO
+        # to non-blocking mode (blocking is the default)
+        #
+        if sock and timeout >= 0:
+            lib.BIO_set_nbio(lib.SSL_get_rbio(ssl), 1)
+            lib.BIO_set_nbio(lib.SSL_get_wbio(ssl), 1)
+
+        #PySSL_BEGIN_ALLOW_THREADS
+        if socket_type == SSL_CLIENT:
+            lib.SSL_set_connect_state(ssl)
+        else:
+            lib.SSL_set_accept_state(ssl)
+        #PySSL_END_ALLOW_THREADS
+
+        if sock:
+            self.Socket = weakref.ref(sock)
+
+        return self
+
+
+    def __init__(self, sslctx, sock, sockettype, hostname):
+        self.sock = sock
+        self.ssl = ffi.NULL
+        self.sockettype = sockettype
+        self.ctx = sslctx
+        self.shutdown_seen_zero = 0
+        self.handshake_done = 0
+        self.owner = None
+        if hostname:
+            self.server_hostname = hostname.decode('idna', 'strict')
+        else:
+            self.server_hostname = None
+
+    def do_handshake(self):
+
+        sock = self.sock
+        if sock is None:
+            _setSSLError("Underlying socket connection gone", lib.SSL_ERROR_NO_SOCKET)
+
+        ssl = self.ssl
+
+        nonblocking = timeout >= 0
+        lib.BIO_set_nbio(lib.SSL_getrbio(ssl), nonblocking)
+        lib.BIO_set_nbio(lib.SSL_getwbio(ssl), nonblocking)
+
+        has_timeout = timeout > 0
+        has_timeout = (timeout > 0);
+        deadline = -1
+        if has_timeout:
+            # REVIEW, cpython uses a monotonic clock here
+            deadline = time.time() + timeout;
+
+        # Actually negotiate SSL connection
+        # XXX If SSL_do_handshake() returns 0, it's also a failure.
+        while True:
+            # allow threads
+            ret = lib.SSL_do_handshake(ssl)
+            err = lib.SSL_get_error(ssl, ret)
+            # end allow threads
+
+            #if (PyErr_CheckSignals())
+            #    goto error;
+
+            if has_timeout:
+                # REIVIEW monotonic clock?
+                timeout = deadline - time.time()
+
+            if err == lib.SSL_ERROR_WANT_READ:
+                sockstate = _ssl_select(sock, 0, timeout)
+            elif err == lib.SSL_ERROR_WANT_WRITE:
+                sockstate = _ssl_select(sock, 1, timeout)
+            else:
+                sockstate = SOCKET_OPERATION_OK
+
+            if sockstate == SOCKET_HAS_TIMED_OUT:
+                raise SSLError("The handshake operation timed out")
+            elif sockstate == SOCKET_HAS_BEEN_CLOSED:
+                raise SSLError("Underlying socket has been closed.")
+            elif sockstate == SOCKET_TOO_LARGE_FOR_SELECT:
+                raise SSLError("Underlying socket too large for select().")
+            elif sockstate == SOCKET_IS_NONBLOCKING:
+                break
+            if not (err == SSL_ERROR_WANT_READ or err == SSL_ERROR_WANT_WRITE):
+                break
+        #if (ret < 1:
+        #    return PySSL_SetError(self, ret, __FILE__, __LINE__);
+
+        if self.peer_cert:
+            lib.X509_free(self.peer_cert)
+        #PySSL_BEGIN_ALLOW_THREADS
+        self.peer_cert = lib.SSL_get_peer_certificate(ssl)
+        #PySSL_END_ALLOW_THREADS
+        self.handshake_done = 1
+        return None
+
 
 
 class _SSLContext(object):
@@ -137,70 +281,70 @@ class _SSLContext(object):
             lib.ERR_clear_error()
             raise ssl_error("No cipher can be selected.")
 
+
     def load_cert_chain(self, certfile, keyfile=None, password=None):
         if keyfile is None:
             keyfile = certfile
         pw_info = PasswordInfo()
         index = -1
-        if password is None:
-            index = rthread.get_ident()
+        if password is not None:
+            index = _thread.get_ident()
             PWINFO_STORAGE[index] = pw_info
 
-            if space.is_true(space.callable(w_password)):
-                pw_info.w_callable = w_password
+            if callable(password):
+                pw_info.callable = password
             else:
-                if space.isinstance_w(w_password, space.w_unicode):
-                    pw_info.password = space.str_w(w_password)
-                else:
-                    try:
-                        pw_info.password = space.bufferstr_w(w_password)
-                    except OperationError as e:
-                        if not e.match(space, space.w_TypeError):
-                            raise
-                        raise oefmt(space.w_TypeError,
-                                    "password should be a string or callable")
+                if isinstance(password, str):
+                    pw_info.password = password
+
+                raise TypeError("password should be a string or callable")
 
             lib.SSL_CTX_set_default_passwd_cb(self.ctx, _password_callback)
-            lib.SSL_CTX_set_default_passwd_cb_userdata(
-                self.ctx, rffi.cast(rffi.VOIDP, index))
+            lib.SSL_CTX_set_default_passwd_cb_userdata(self.ctx, ffi.cast("void*", index))
 
         try:
-            ret = lib.SSL_CTX_use_certificate_chain_file(self.ctx, certfile)
+            certfilebuf = _str_to_ffi_buffer(certfile)
+            ret = lib.SSL_CTX_use_certificate_chain_file(self.ctx, certfilebuf)
             if ret != 1:
                 if pw_info.operationerror:
-                    libssl_ERR_clear_error()
+                    lib.ERR_clear_error()
                     raise pw_info.operationerror
-                errno = get_saved_errno()
+                errno = ffi.errno
                 if errno:
                     lib.ERR_clear_error()
-                    raise OSError(OSError(errno, ''))
+                    raise OSError(errno, '')
                 else:
-                    raise _ssl_seterror(space, None, -1)
+                    raise _ssl_seterror(None, -1)
 
-            ret = lib.SSL_CTX_use_PrivateKey_file(self.ctx, keyfile,
+            keyfilebuf = _str_to_ffi_buffer(keyfile)
+            ret = lib.SSL_CTX_use_PrivateKey_file(self.ctx, keyfilebuf,
                                                   lib.SSL_FILETYPE_PEM)
             if ret != 1:
                 if pw_info.operationerror:
-                    libssl_ERR_clear_error()
+                    lib.ERR_clear_error()
                     raise pw_info.operationerror
-                errno = get_saved_errno()
+                errno = ffi.errno
                 if errno:
-                    libssl_ERR_clear_error()
-                    raise wrap_oserror(space, OSError(errno, ''),
-                                       exception_name = 'w_IOError')
+                    lib.ERR_clear_error()
+                    raise OSError(errno, '')
                 else:
-                    raise _ssl_seterror(space, None, -1)
+                    raise _ssl_seterror(None, -1)
 
-            ret = libssl_SSL_CTX_check_private_key(self.ctx)
+            ret = lib.SSL_CTX_check_private_key(self.ctx)
             if ret != 1:
-                raise _ssl_seterror(space, None, -1)
+                raise _ssl_seterror(None, -1)
         finally:
             if index >= 0:
                 del PWINFO_STORAGE[index]
-            lib.SSL_CTX_set_default_passwd_cb(
-                self.ctx, lltype.nullptr(pem_password_cb.TO))
-            lib.SSL_CTX_set_default_passwd_cb_userdata(
-                self.ctx, None)
+            lib.SSL_CTX_set_default_passwd_cb(self.ctx, ffi.NULL)
+            lib.SSL_CTX_set_default_passwd_cb_userdata(self.ctx, ffi.NULL)
+
+
+    def _wrap_socket(self, sock, server_side, server_hostname=None):
+        if server_hostname:
+            server_hostname = server_hostname.encode('idna')
+        return _SSLSocket._new__ssl_socket(self, sock, server_side,
+                server_hostname, None, None)
 
 
 #    def _finalize_(self):
@@ -215,27 +359,6 @@ class _SSLContext(object):
 #        self = space.allocate_instance(SSLContext, w_subtype)
 #        self.__init__(space, protocol)
 #        return space.wrap(self)
-#
-#    @unwrap_spec(server_side=int)
-#    def wrap_socket_w(self, space, w_sock, server_side,
-#                      w_server_hostname=None):
-#        assert w_sock is not None
-#        # server_hostname is either None (or absent), or to be encoded
-#        # using the idna encoding.
-#        if space.is_none(w_server_hostname):
-#            hostname = None
-#        else:
-#            hostname = space.bytes_w(
-#                space.call_method(w_server_hostname,
-#                                  "encode", space.wrap("idna")))
-#
-#        if hostname and not HAS_SNI:
-#            raise oefmt(space.w_ValueError,
-#                        "server_hostname is not supported by your OpenSSL "
-#                        "library")
-#
-#        return new_sslobject(space, self, w_sock, server_side, hostname)
-#
 #    def session_stats_w(self, space):
 #        w_stats = space.newdict()
 #        for name, ssl_func in SSL_CTX_STATS:
@@ -611,5 +734,31 @@ def RAND_add(view, entropy):
     lib.RAND_add(buf, len(buf), entropy)
 
 
+def _cstr_decode_fs(buf):
+#define CONVERT(info, target) { \
+#        const char *tmp = (info); \
+#        target = NULL; \
+#        if (!tmp) { Py_INCREF(Py_None); target = Py_None; } \
+#        else if ((target = PyUnicode_DecodeFSDefault(tmp)) == NULL) { \
+#            target = PyBytes_FromString(tmp); } \
+#        if (!target) goto error; \
+#    }
+    # XXX
+    return ffi.string(buf).decode('utf-8')
 
+def get_default_verify_paths():
 
+    ofile_env = _cstr_decode_fs(lib.X509_get_default_cert_file_env())
+    if ofile_env is None:
+        return None
+    ofile = _cstr_decode_fs(lib.X509_get_default_cert_file())
+    if ofile is None:
+        return None
+    odir_env = _cstr_decode_fs(lib.X509_get_default_cert_dir_env())
+    if odir_env is None:
+        return None
+    odir = _cstr_decode_fs(lib.X509_get_default_cert_dir())
+    if odir is None:
+        return odir
+
+    return (ofile_env, ofile, odir_env, odir);
