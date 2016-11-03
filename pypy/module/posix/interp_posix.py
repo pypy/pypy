@@ -1497,7 +1497,7 @@ def do_utimes(space, func, arg, utime):
             mtime = mtime_s + (mtime_ns / 1e9)
             func(arg, (atime, mtime))
     except OSError as e:
-        # see comment above
+        # see comment above: don't use wrap_oserror2()
         raise wrap_oserror(space, e)
 
 @specialize.argtype(1)
