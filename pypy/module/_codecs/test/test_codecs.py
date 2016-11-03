@@ -562,7 +562,12 @@ class AppTestPartialEvaluation:
         assert b'\x00'.decode('unicode-internal', 'ignore') == ''
 
     def test_backslashreplace(self):
+        import codecs
         assert 'a\xac\u1234\u20ac\u8000'.encode('ascii', 'backslashreplace') == b'a\\xac\u1234\u20ac\u8000'
+        assert b'\x00\x60\x80'.decode(
+            'ascii', 'backslashreplace') == u'\x00\x60\\x80'
+        assert codecs.charmap_decode(
+            b"\x00\x01\x02", "backslashreplace", "ab") == ("ab\\x02", 3)
 
     def test_namereplace(self):
         assert 'a\xac\u1234\u20ac\u8000'.encode('ascii', 'namereplace') == (

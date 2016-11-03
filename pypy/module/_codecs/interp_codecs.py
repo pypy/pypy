@@ -1,8 +1,9 @@
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib.rstring import StringBuilder
+from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rlib.runicode import (
-    code_to_unichr, MAXUNICODE, raw_unicode_escape_helper)
+    code_to_unichr, MAXUNICODE,
+    raw_unicode_escape_helper, raw_unicode_escape_helper)
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
@@ -260,14 +261,15 @@ def xmlcharrefreplace_errors(space, w_exc):
             builder.append(str(code))
             builder.append(";")
             pos += 1
-        return space.newtuple([space.wrap(builder.build()), w_end])
+        return space.newtuple([space.newbytes(builder.build()), w_end])
     else:
         raise oefmt(space.w_TypeError,
                     "don't know how to handle %T in error callback", w_exc)
 
 def backslashreplace_errors(space, w_exc):
     check_exception(space, w_exc)
-    if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
+    if (space.isinstance_w(w_exc, space.w_UnicodeEncodeError) or
+        space.isinstance_w(w_exc, space.w_UnicodeTranslateError)):
         obj = space.realunicode_w(space.getattr(w_exc, space.wrap('object')))
         start = space.int_w(space.getattr(w_exc, space.wrap('start')))
         w_end = space.getattr(w_exc, space.wrap('end'))
@@ -277,6 +279,18 @@ def backslashreplace_errors(space, w_exc):
         while pos < end:
             oc = ord(obj[pos])
             raw_unicode_escape_helper(builder, oc)
+            pos += 1
+        return space.newtuple([space.newbytes(builder.build()), w_end])
+    elif space.isinstance_w(w_exc, space.w_UnicodeDecodeError):
+        obj = space.bytes_w(space.getattr(w_exc, space.wrap('object')))
+        start = space.int_w(space.getattr(w_exc, space.wrap('start')))
+        w_end = space.getattr(w_exc, space.wrap('end'))
+        end = space.int_w(w_end)
+        builder = UnicodeBuilder()
+        pos = start
+        while pos < end:
+            oc = ord(obj[pos])
+            runicode.raw_unicode_escape_helper_unicode(builder, oc)
             pos += 1
         return space.newtuple([space.wrap(builder.build()), w_end])
     else:
