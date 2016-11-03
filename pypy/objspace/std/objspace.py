@@ -242,7 +242,7 @@ class StdObjSpace(ObjSpace):
 
     @specialize.argtype(1)
     def newint(self, intval):
-        if self.config.objspace.std.withsmalllong:
+        if self.config.objspace.std.withsmalllong and isinstance(intval, base_int):
             from pypy.objspace.std.smalllongobject import W_SmallLongObject
             from rpython.rlib.rarithmetic import r_longlong, r_ulonglong
             from rpython.rlib.rarithmetic import longlongmax
