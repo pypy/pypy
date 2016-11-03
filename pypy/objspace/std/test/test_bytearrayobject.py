@@ -545,3 +545,6 @@ class AppTestBytesArray:
         raises(TypeError, 'bytearray(b"%b") % "hello world"')
         assert bytearray(b'%b %b') % (b'a', bytearray(b'f f e')) == b'a f f e'
         """
+
+    def test_format_bytes(self):
+        assert bytearray(b'<%s>') % b'abc' == b'<abc>'

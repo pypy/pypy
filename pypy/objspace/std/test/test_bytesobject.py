@@ -145,6 +145,9 @@ class AppTestBytesObject:
             assert str(exc_info.value) in (expected1, expected2)
         raises(TypeError, "None % 'abc'") # __rmod__
 
+    def test_format_bytes(self):
+        assert b'<%s>' % b'abc' == b'<abc>'
+
     def test_split(self):
         assert b"".split() == []
         assert b"".split(b'x') == [b'']
