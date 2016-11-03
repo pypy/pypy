@@ -1210,12 +1210,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     d.values[i].walkabout(self)
                     containers += 1
                 else:
-                    # TODO: key.walkabout has to be called before d.values.walkabout
-                    # that would fix the error "keywords must be strings"
-                    # for some reason the keys and values seem to be in reverse order
-                    # in some cases, so another error has to be fixed in order for
-                    # this to work, otherwise it breaks everything
-                    # after fix: remove dirty fixes in pyopcode
                     key.walkabout(self)
                     d.values[i].walkabout(self)
                     elements += 1
