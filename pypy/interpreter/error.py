@@ -374,7 +374,7 @@ def get_cleared_operation_error(space):
 
 _fmtcache = {}
 _fmtcache2 = {}
-_FMTS = tuple('8NRTds')
+_FMTS = tuple('8NRSTds')
 
 def decompose_valuefmt(valuefmt):
     """Returns a tuple of string parts extracted from valuefmt,
@@ -425,6 +425,8 @@ def get_operrcls2(valuefmt):
                         result = str(value).decode('ascii')
                     elif fmt == 'R':
                         result = space.unicode_w(space.repr(value))
+                    elif fmt == 'S':
+                        result = space.unicode_w(space.str(value))
                     elif fmt == 'T':
                         result = space.type(value).name.decode('utf-8')
                     elif fmt == 'N':
@@ -468,6 +470,7 @@ def oefmt(w_type, valuefmt, *args):
     %8 - The result of arg.decode('utf-8')
     %N - The result of w_arg.getname(space)
     %R - The result of space.unicode_w(space.repr(w_arg))
+    %S - The result of space.unicode_w(space.str(w_arg))
     %T - The result of space.type(w_arg).name
 
     """

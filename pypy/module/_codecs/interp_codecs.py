@@ -415,6 +415,34 @@ def register_builtin_error_handlers(space):
         state.codec_error_registry[error] = space.wrap(interp2app(globals()[name]))
 
 
+# A simplified version of the incredibly complex CPython function
+# _PyErr_TrySetFromCause, which returns a new exception with another
+# error message.  Subclasses of UnicodeErrors are returned inchanged,
+# but this is only a side-effect: they cannot be constructed with a
+# simple message.
+def _wrap_codec_error(space, operr, action, encoding):
+    w_exc = operr.get_w_value(space)
+    try:
+        new_operr = oefmt(space.type(w_exc),
+                          "%s with '%s' codec failed (%T: %S)",
+                          action, encoding, w_exc, w_exc)
+        new_operr.w_cause = w_exc
+        new_operr.normalize_exception(space)
+    except OperationError:
+        # Return the original error
+        return operr
+    return new_operr
+
+def _call_codec(space, w_decoder, w_obj, action, encoding, errors):
+    try:
+        w_res = space.call_function(w_decoder, w_obj, space.wrap(errors))
+    except OperationError as operr:
+        raise _wrap_codec_error(space, operr, action, encoding)
+    if (not space.isinstance_w(w_res, space.w_tuple) or space.len_w(w_res) != 2):
+        raise oefmt(space.w_TypeError,
+                    "encoder must return a tuple (object, integer)")
+    return space.getitem(w_res, space.wrap(0))
+
 @unwrap_spec(errors=str)
 def lookup_error(space, errors):
     """lookup_error(errors) -> handler
@@ -448,8 +476,7 @@ def encode(space, w_obj, w_encoding=None, errors='strict'):
     else:
         encoding = space.str_w(w_encoding)
     w_encoder = space.getitem(lookup_codec(space, encoding), space.wrap(0))
-    w_res = space.call_function(w_encoder, w_obj, space.wrap(errors))
-    return space.getitem(w_res, space.wrap(0))
+    return _call_codec(space, w_encoder, w_obj, "encoding", encoding, errors)
 
 @unwrap_spec(errors='str_or_None')
 def readbuffer_encode(space, w_data, errors='strict'):
@@ -472,14 +499,7 @@ def decode(space, w_obj, w_encoding=None, errors='strict'):
     else:
         encoding = space.str_w(w_encoding)
     w_decoder = space.getitem(lookup_codec(space, encoding), space.wrap(1))
-    if space.is_true(w_decoder):
-        w_res = space.call_function(w_decoder, w_obj, space.wrap(errors))
-        if (not space.isinstance_w(w_res, space.w_tuple) or space.len_w(w_res) != 2):
-            raise oefmt(space.w_TypeError,
-                        "encoder must return a tuple (object, integer)")
-        return space.getitem(w_res, space.wrap(0))
-    else:
-        assert 0, "XXX, what to do here?"
+    return _call_codec(space, w_decoder, w_obj, "decoding", encoding, errors)
 
 @unwrap_spec(errors=str)
 def register_error(space, errors, w_handler):
@@ -496,6 +516,38 @@ def register_error(space, errors, w_handler):
         state.codec_error_registry[errors] = w_handler
     else:
         raise oefmt(space.w_TypeError, "handler must be callable")
+
+# ____________________________________________________________
+# Helpers for unicode.encode() and bytes.decode()
+def lookup_text_codec(space, action, encoding):
+    codec_info = lookup_codec(space, encoding)
+    try:
+        is_text_encoding = space.is_true(
+                space.getattr(codec_info, space.wrap('_is_text_encoding')))
+    except OperationError as e:
+        if e.match(space, space.w_AttributeError):
+            is_text_encoding = True
+        else:
+            raise
+    if not is_text_encoding:
+        raise oefmt(space.w_LookupError,
+                    "'%s' is not a text encoding; "
+                    "use %s to handle arbitrary codecs", encoding, action)
+    return codec_info
+
+def encode_text(space, w_obj, encoding, errors):
+    if errors is None:
+        errors = 'strict'
+    w_encoder = space.getitem(
+        lookup_text_codec(space, "codecs.encode()", encoding), space.wrap(0))
+    return _call_codec(space, w_encoder, w_obj, "encoding", encoding, errors)
+
+def decode_text(space, w_obj, encoding, errors):
+    if errors is None:
+        errors = 'strict'
+    w_decoder = space.getitem(
+        lookup_text_codec(space, "codecs.decode()", encoding), space.wrap(1))
+    return _call_codec(space, w_decoder, w_obj, "decoding", encoding, errors)
 
 # ____________________________________________________________
 # delegation to runicode

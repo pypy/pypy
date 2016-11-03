@@ -376,12 +376,30 @@ class AppTestPartialEvaluation:
         raises(TypeError, b"hello".decode, "test.mytestenc")
         raises(TypeError, "hello".encode, "test.mytestenc")
 
+    def test_codec_wrapped_exception(self):
+        import _codecs
+        def search_function(encoding):
+            def f(input, errors="strict"):
+                raise RuntimeError('should be wrapped')
+            if encoding == 'test.failingenc':
+                return (f, f, None, None)
+            return None
+        _codecs.register(search_function)
+        exc = raises(RuntimeError, b"hello".decode, "test.failingenc")
+        assert str(exc.value) == (
+            "decoding with 'test.failingenc' codec failed "
+            "(RuntimeError: should be wrapped)")
+        exc = raises(RuntimeError, u"hello".encode, "test.failingenc")
+        assert str(exc.value) == (
+            "encoding with 'test.failingenc' codec failed "
+            "(RuntimeError: should be wrapped)")
+
     def test_cpytest_decode(self):
         import codecs
         assert codecs.decode(b'\xe4\xf6\xfc', 'latin-1') == '\xe4\xf6\xfc'
         raises(TypeError, codecs.decode)
         assert codecs.decode(b'abc') == 'abc'
-        raises(UnicodeDecodeError, codecs.decode, b'\xff', 'ascii')
+        exc = raises(UnicodeDecodeError, codecs.decode, b'\xff', 'ascii')
 
     def test_bad_errorhandler_return(self):
         import codecs
