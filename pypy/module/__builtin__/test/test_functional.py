@@ -527,6 +527,9 @@ class AppTestReversed:
         assert list(reversed(list(reversed("hello")))) == ['h','e','l','l','o']
         raises(TypeError, reversed, reversed("hello"))
 
+    def test_reversed_nonsequence(self):
+        raises(TypeError, reversed, {})
+
     def test_reversed_length_hint(self):
         lst = [1, 2, 3]
         r = reversed(lst)
