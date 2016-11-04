@@ -97,7 +97,6 @@ class __extend__(pyframe.PyFrame):
     def handle_generator_error(self, operr):
         # for generator.py
         ec = self.space.getexecutioncontext()
-        operr.record_context(self.space, self)
         return self.handle_operation_error(ec, operr)
 
     def handle_operation_error(self, ec, operr, attach_tb=True):

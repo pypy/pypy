@@ -185,6 +185,27 @@ class AppTestGenerator:
             tb = tb.tb_next
         assert levels == 3
 
+    def test_throw_context(self):
+        # gen.throw(exc) must not modify exc.__context__
+        def gen():
+            try:
+                yield
+            except:
+                raise ValueError
+
+        try:
+            raise KeyError
+        except KeyError:
+            g = gen()
+            next(g)
+            exc1 = Exception(1)
+            exc2 = Exception(2)
+            exc2.__context__ = exc1
+            try:
+                g.throw(exc2)
+            except ValueError:
+                assert exc2.__context__ is exc1
+
     def test_close(self):
         def f():
             yield 1
@@ -637,7 +658,7 @@ class AppTestYieldFrom:
         sys.stderr = io.StringIO()
         gi.close()
         assert 'ZeroDivisionError' in sys.stderr.getvalue()
-    
+
     def test_returning_value_from_delegated_throw(self):
         """
         Test returning value from delegated 'throw'
