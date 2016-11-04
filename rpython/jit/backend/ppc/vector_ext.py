@@ -12,7 +12,6 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem import lltype
 from rpython.jit.backend.ppc.locations import imm, RegisterLocation
 from rpython.jit.backend.ppc.arch import IS_BIG_ENDIAN
-from rpython.jit.backend.llsupport.vector_ext import VectorExt
 from rpython.jit.backend.ppc.arch import PARAM_SAVE_AREA_OFFSET, WORD
 import rpython.jit.backend.ppc.register as r
 import rpython.jit.backend.ppc.condition as c
@@ -22,6 +21,8 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.jit.codewriter import longlong
 from rpython.jit.backend.ppc.detect_feature import detect_vsx
 from rpython.rlib.objectmodel import always_inline
+from rpython.jit.backend.llsupport.vector_ext import (VectorExt,
+        OpRestrict, TR_INT64_2)
 
 def not_implemented(msg):
     msg = '[ppc/vector_ext] %s\n' % msg
@@ -89,6 +90,7 @@ class AltiVectorExt(VectorExt):
             self.enable(16, accum=True)
             asm.setup_once_vector()
         self._setup = True
+AltiVectorExt.TR_MAPPING[rop.VEC_CAST_INT_TO_FLOAT] = OpRestrict([TR_INT64_2])
 
 class VectorAssembler(object):
     _mixin_ = True
@@ -201,8 +203,7 @@ class VectorAssembler(object):
             self.mc.xvdivdp(resloc.value, loc0.value, loc1.value)
 
     def emit_vec_int_mul(self, op, arglocs, regalloc):
-        raise NotImplementedError
-        pass # TODO
+        not_implemented("vec_int_mul must never be emitted by the backend")
 
     def emit_vec_int_and(self, op, arglocs, regalloc):
         resloc, loc0, loc1, sizeloc = arglocs
@@ -217,9 +218,42 @@ class VectorAssembler(object):
         self.mc.vxor(resloc.value, loc0.value, loc1.value)
 
     def emit_vec_int_signext(self, op, arglocs, regalloc):
-        resloc, loc0 = arglocs
-        # TODO
-        self.regalloc_mov(loc0, resloc)
+        resloc, loc0, osizeloc, nsizeloc = arglocs
+        # signext is only allowed if the data type sizes do not change.
+        # e.g. [byte,byte] = sign_ext([byte, byte]), a simple move is sufficient!
+        src = loc0.value
+        res = resloc.value
+        osize = osizeloc.value
+        nsize = nsizeloc.value
+        if osize == nsize:
+            self.regalloc_mov(loc0, resloc)
+        else:
+            assert (osize == 4 and nsize == 8) or (osize == 8 and nsize == 4)
+            self.mc.load_imm(r.SCRATCH2, PARAM_SAVE_AREA_OFFSET)
+            self.mc.stvx(src, r.SCRATCH2.value, r.SP.value)
+            self.mc.load_imm(r.SCRATCH2, PARAM_SAVE_AREA_OFFSET+16)
+            self.mc.stvx(res, r.SCRATCH2.value, r.SP.value)
+            for i in range(2): # at most 2 operations
+                if IS_BIG_ENDIAN:
+                    srcoff = (i * osize)
+                    resoff = (i * nsize)
+                else:
+                    if osize == 4:
+                        srcoff = 8 + (i * osize)
+                        resoff = (i * nsize)
+                    else:
+                        srcoff = (i * osize)
+                        resoff = 8 + (i * nsize)
+                if osize == 8:
+                    self.mc.load(r.SCRATCH.value, r.SP.value, srcoff + PARAM_SAVE_AREA_OFFSET)
+                else:
+                    self.mc.lwa(r.SCRATCH.value, r.SP.value, srcoff + PARAM_SAVE_AREA_OFFSET)
+                if nsize == 8:
+                    self.mc.store(r.SCRATCH.value, r.SP.value, resoff + PARAM_SAVE_AREA_OFFSET+16)
+                else:
+                    self.mc.stw(r.SCRATCH.value, r.SP.value, resoff + PARAM_SAVE_AREA_OFFSET+16)
+
+            self.mc.lvx(res, r.SCRATCH2.value, r.SP.value)
 
     def emit_vec_float_abs(self, op, arglocs, regalloc):
         resloc, argloc, sizeloc = arglocs
@@ -724,9 +758,10 @@ class VectorRegalloc(object):
     def prepare_vec_int_signext(self, op):
         assert isinstance(op, VectorOp)
         a0 = op.getarg(0)
+        assert isinstance(a0, VectorOp)
         loc0 = self.ensure_vector_reg(a0)
         resloc = self.force_allocate_vector_reg(op)
-        return [resloc, loc0]
+        return [resloc, loc0, imm(a0.bytesize), imm(op.bytesize)]
 
     def prepare_vec_arith_unary(self, op):
         assert isinstance(op, VectorOp)
