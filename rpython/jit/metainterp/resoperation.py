@@ -1185,6 +1185,12 @@ _cast_ops = {
     'VEC_INT_SIGNEXT': ('i', 0, 'i', 0, 0),
 }
 
+import platform
+if not platform.machine().startswith('x86'):
+    # Uh, that should be moved to vector_ext really!
+    _cast_ops['CAST_FLOAT_TO_INT'] = ('f', 8, 'i', 8, 2)
+    _cast_ops['VEC_CAST_FLOAT_TO_INT'] = ('f', 8, 'i', 8, 2)
+
 # ____________________________________________________________
 
 class rop(object):

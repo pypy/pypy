@@ -159,13 +159,10 @@ class VectorAssembler(object):
         resloc, loc0, loc1, size_loc = arglocs
         size = size_loc.value
         if size == 1:
-            # TODO verify if unsigned subtract is the wanted feature
             self.mc.vsububm(resloc.value, loc0.value, loc1.value)
         elif size == 2:
-            # TODO verify if unsigned subtract is the wanted feature
             self.mc.vsubuhm(resloc.value, loc0.value, loc1.value)
         elif size == 4:
-            # TODO verify if unsigned subtract is the wanted feature
             self.mc.vsubuwm(resloc.value, loc0.value, loc1.value)
         elif size == 8:
             self.mc.vsubudm(resloc.value, loc0.value, loc1.value)
