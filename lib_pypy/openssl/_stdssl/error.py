@@ -23,6 +23,9 @@ class SSLSyscallError(SSLError):
 class SSLEOFError(SSLError):
     """ SSL/TLS connection terminated abruptly. """
 
+def ssl_lib_error():
+    errcode = lib.ERR_peek_last_error()
+    return ssl_error(None, 0, None, errcode)
 
 def ssl_error(msg, errno=0, errtype=None, errcode=0):
     reason_str = None
@@ -30,8 +33,8 @@ def ssl_error(msg, errno=0, errtype=None, errcode=0):
     if errcode:
         err_lib = lib.ERR_GET_LIB(errcode)
         err_reason = lib.ERR_GET_REASON(errcode)
-        reason_str = ERROR_CODES_TO_NAMES.get((err_lib, err_reason), None)
-        lib_str = LIBRARY_CODES_TO_NAMES.get(err_lib, None)
+        reason_str = ERR_CODES_TO_NAMES.get((err_lib, err_reason), None)
+        lib_str = LIB_CODES_TO_NAMES.get(err_lib, None)
         msg = ffi.string(lib.ERR_reason_error_string(errcode)).decode('utf-8')
     if not msg:
         msg = "unknown error"
@@ -54,22 +57,16 @@ def ssl_error(msg, errno=0, errtype=None, errcode=0):
     #return OperationError(w_exception_class, w_exception)
 
 ERR_CODES_TO_NAMES = {}
+ERR_NAMES_TO_CODES = {}
 LIB_CODES_TO_NAMES = {}
 
-# TODO errcode = error_codes;
-# TODO while (errcode->mnemonic != NULL) {
-# TODO     mnemo = PyUnicode_FromString(errcode->mnemonic);
-# TODO     key = Py_BuildValue("ii", errcode->library, errcode->reason);
-# TODO     if (mnemo == NULL || key == NULL)
-# TODO         return NULL;
-# TODO     if (PyDict_SetItem(err_codes_to_names, key, mnemo))
-# TODO         return NULL;
-# TODO     if (PyDict_SetItem(err_names_to_codes, mnemo, key))
-# TODO         return NULL;
-# TODO     Py_DECREF(key);
-# TODO     Py_DECREF(mnemo);
-# TODO     errcode++;
-# TODO }
+from openssl._stdssl.errorcodes import _error_codes
+
+for mnemo, library, reason in _error_codes:
+    key = (library, reason)
+    assert mnemo is not None and key is not None
+    ERR_CODES_TO_NAMES[key] = mnemo
+    ERR_NAMES_TO_CODES[mnemo] = key
 
 def _fill_and_raise_ssl_error(error, errcode):
     pass

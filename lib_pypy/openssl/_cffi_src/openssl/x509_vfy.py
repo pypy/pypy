@@ -133,7 +133,7 @@ int X509_STORE_set1_param(X509_STORE *, X509_VERIFY_PARAM *);
 int X509_STORE_set_default_paths(X509_STORE *);
 int X509_STORE_set_flags(X509_STORE *, unsigned long);
 void X509_STORE_free(X509_STORE *);
-
+X509_VERIFY_PARAM *_X509_STORE_get0_param(X509_STORE *);
 
 /* X509_STORE_CTX */
 X509_STORE_CTX *X509_STORE_CTX_new(void);
@@ -250,4 +250,8 @@ static const long Cryptography_HAS_X509_V_FLAG_TRUSTED_FIRST = 1;
 static const long Cryptography_HAS_X509_V_FLAG_TRUSTED_FIRST = 0;
 static const long X509_V_FLAG_TRUSTED_FIRST = 0;
 #endif
+
+X509_VERIFY_PARAM *_X509_STORE_get0_param(X509_STORE *store) {
+    return store->param;
+}
 """

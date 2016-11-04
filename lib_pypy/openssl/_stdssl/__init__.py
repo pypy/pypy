@@ -1,3 +1,5 @@
+import sys
+import errno
 import time
 import _thread
 import weakref
@@ -5,7 +7,7 @@ from _openssl import ffi
 from _openssl import lib
 from openssl._stdssl.certificate import _test_decode_cert
 from openssl._stdssl.utility import _str_with_len
-from openssl._stdssl.error import (ssl_error,
+from openssl._stdssl.error import (ssl_error, ssl_lib_error,
         SSLError, SSLZeroReturnError, SSLWantReadError,
         SSLWantWriteError, SSLSyscallError,
         SSLEOFError)
@@ -33,6 +35,13 @@ HAS_TLS_UNIQUE = True
 CLIENT = 0
 SERVER = 1
 
+VERIFY_DEFAULT = 0
+VERIFY_CRL_CHECK_LEAF = lib.X509_V_FLAG_CRL_CHECK 
+VERIFY_CRL_CHECK_CHAIN = lib.X509_V_FLAG_CRL_CHECK | lib.X509_V_FLAG_CRL_CHECK_ALL
+VERIFY_X509_STRICT = lib.X509_V_FLAG_X509_STRICT
+if lib.Cryptography_HAS_X509_V_FLAG_TRUSTED_FIRST:
+    VERIFY_X509_TRUSTED_FIRST = lib.X509_V_FLAG_TRUSTED_FIRST
+
 CERT_NONE = 0
 CERT_OPTIONAL = 1
 CERT_REQUIRED = 2
@@ -41,10 +50,13 @@ for name in dir(lib):
     if name.startswith('SSL_OP'):
         globals()[name[4:]] = getattr(lib, name)
 
+OP_ALL = lib.SSL_OP_ALL & ~lib.SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
+
 SSL_CLIENT = 0
 SSL_SERVER = 1
 
-PROTOCOL_SSLv2  = 0
+if lib.Cryptography_HAS_SSL2:
+    PROTOCOL_SSLv2  = 0
 PROTOCOL_SSLv3  = 1
 PROTOCOL_SSLv23 = 2
 PROTOCOL_TLSv1    = 3
@@ -71,14 +83,43 @@ lib.SSL_library_init()
 lib.OpenSSL_add_all_algorithms()
 
 class PasswordInfo(object):
-    w_callable = None
+    callable = None
     password = None
     operationerror = None
 PWINFO_STORAGE = {}
 
-@ffi.def_extern
-def _password_callback(buf, size, rwflag, userdata):
-    pass
+def _Cryptography_pem_password_cb(buf, size, rwflag, userdata):
+    pw_info = ffi.from_handle(userdata)
+
+    # TODO PySSL_END_ALLOW_THREADS_S(pw_info->thread_state);
+    password = pw_info.password
+
+    if pw_info.callable:
+        try:
+            password = pw_info.callable()
+        except Exception as e:
+            pw_info.operationerror = e
+            return 0
+
+        if not isinstance(password, (str, bytes, bytearray)):
+            pw_info.operationerror = TypeError("password callback must return a string")
+            return 0
+
+    password = _str_to_ffi_buffer(password)
+
+    if (len(password) > size):
+        pw_info.operationerror = ValueError("password cannot be longer than %d bytes" % size)
+        return 0
+
+    #PySSL_BEGIN_ALLOW_THREADS_S(pw_info->thread_state);
+    ffi.memmove(buf, password, len(password))
+    return len(password)
+
+if lib.Cryptography_STATIC_CALLBACKS:
+    ffi.def_extern(_Cryptography_pem_password_cb)
+    Cryptography_pem_password_cb = lib.Cryptography_pem_password_cb
+else:
+    Cryptography_pem_password_cb = ffi.callback("int(char*,int,int,void*)")(_Cryptography_pem_password_cb)
 
 def _ssl_select(sock, write, timeout):
     pass
@@ -216,7 +257,7 @@ class _SSLSocket(object):
 
 
 class _SSLContext(object):
-    __slots__ = ('ctx', 'check_hostname', 'verify_mode')
+    __slots__ = ('ctx', 'check_hostname')
 
     def __new__(cls, protocol):
         self = object.__new__(cls)
@@ -229,7 +270,7 @@ class _SSLContext(object):
             method = lib.TLSv1_2_method()
         elif protocol == PROTOCOL_SSLv3 and lib.Cryptography_HAS_SSL3_METHOD:
             method = lib.SSLv3_method()
-        elif protocol == PROTOCOL_SSLv2 and lib.Cryptography_HAS_SSL2_METHOD:
+        elif lib.Cryptography_HAS_SSL2 and protocol == PROTOCOL_SSLv2:
             method = lib.SSLv2_method()
         elif protocol == PROTOCOL_SSLv23:
             method = lib.SSLv23_method()
@@ -246,7 +287,7 @@ class _SSLContext(object):
         # Defaults
         lib.SSL_CTX_set_verify(self.ctx, lib.SSL_VERIFY_NONE, ffi.NULL)
         options = lib.SSL_OP_ALL & ~lib.SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
-        if protocol != PROTOCOL_SSLv2:
+        if not lib.Cryptography_HAS_SSL2 or protocol != PROTOCOL_SSLv2:
             options |= lib.SSL_OP_NO_SSLv2
         if protocol != PROTOCOL_SSLv3:
             options |= lib.SSL_OP_NO_SSLv3
@@ -269,7 +310,79 @@ class _SSLContext(object):
                     lib.SSL_CTX_set_tmp_ecdh(self.ctx, key)
                 finally:
                     lib.EC_KEY_free(key)
+        if lib.Cryptography_HAS_X509_V_FLAG_TRUSTED_FIRST:
+            store = lib.SSL_CTX_get_cert_store(self.ctx)
+            lib.X509_STORE_set_flags(store, lib.X509_V_FLAG_TRUSTED_FIRST)
         return self
+
+    @property
+    def options(self):
+        return lib.SSL_CTX_get_options(self.ctx)
+
+    @options.setter
+    def options(self, value):
+        new_opts = int(value)
+        opts = lib.SSL_CTX_get_options(self.ctx)
+        clear = opts & ~new_opts
+        set = ~opts & new_opts
+        if clear:
+            if lib.Cryptography_HAS_SSL_CTX_CLEAR_OPTIONS:
+                lib.SSL_CTX_clear_options(self.ctx, clear)
+            else:
+                raise ValueError("can't clear options before OpenSSL 0.9.8m")
+        if set:
+            lib.SSL_CTX_set_options(self.ctx, set)
+
+    @property
+    def verify_mode(self):
+        mode = lib.SSL_CTX_get_verify_mode(self.ctx)
+        if mode == lib.SSL_VERIFY_NONE:
+            return CERT_NONE
+        elif mode == lib.SSL_VERIFY_PEER:
+            return CERT_OPTIONAL
+        elif mode == lib.SSL_VERIFY_PEER | lib.SSL_VERIFY_FAIL_IF_NO_PEER_CERT:
+            return CERT_REQUIRED
+        raise ssl_error("invalid return value from SSL_CTX_get_verify_mode")
+
+    @verify_mode.setter
+    def verify_mode(self, value):
+        n = int(value)
+        if n == CERT_NONE:
+            mode = lib.SSL_VERIFY_NONE
+        elif n == CERT_OPTIONAL:
+            mode = lib.SSL_VERIFY_PEER
+        elif n == CERT_REQUIRED:
+            mode = lib.SSL_VERIFY_PEER | lib.SSL_VERIFY_FAIL_IF_NO_PEER_CERT
+        else:
+            raise ValueError("invalid value for verify_mode")
+        if mode == lib.SSL_VERIFY_NONE and self.check_hostname:
+            raise ValueError("Cannot set verify_mode to CERT_NONE when " \
+                             "check_hostname is enabled.")
+        lib.SSL_CTX_set_verify(self.ctx, mode, ffi.NULL);
+
+    @property
+    def verify_flags(self):
+        store = lib.SSL_CTX_get_cert_store(self.ctx)
+        param = lib._X509_STORE_get0_param(store)
+        flags = lib.X509_VERIFY_PARAM_get_flags(param)
+        return int(flags)
+
+    @verify_flags.setter
+    def verify_flags(self, value):
+        new_flags = int(value)
+        store = lib.SSL_CTX_get_cert_store(self.ctx);
+        param = lib._X509_STORE_get0_param(store)
+        flags = lib.X509_VERIFY_PARAM_get_flags(param);
+        clear = flags & ~new_flags;
+        set = ~flags & new_flags;
+        if clear:
+            param = lib._X509_STORE_get0_param(store)
+            if not lib.X509_VERIFY_PARAM_clear_flags(param, clear):
+                raise ssl_error(None, 0)
+        if set:
+            param = lib._X509_STORE_get0_param(store)
+            if not lib.X509_VERIFY_PARAM_set_flags(param, set):
+                raise ssl_error(None, 0)
 
     def set_ciphers(self, cipherlist):
         cipherlistbuf = _str_to_ffi_buffer(cipherlist)
@@ -294,13 +407,13 @@ class _SSLContext(object):
             if callable(password):
                 pw_info.callable = password
             else:
-                if isinstance(password, str):
+                if isinstance(password, (str, bytes, bytearray)):
                     pw_info.password = password
+                else:
+                    raise TypeError("password should be a string or callable")
 
-                raise TypeError("password should be a string or callable")
-
-            lib.SSL_CTX_set_default_passwd_cb(self.ctx, _password_callback)
-            lib.SSL_CTX_set_default_passwd_cb_userdata(self.ctx, ffi.cast("void*", index))
+            lib.SSL_CTX_set_default_passwd_cb(self.ctx, Cryptography_pem_password_cb)
+            lib.SSL_CTX_set_default_passwd_cb_userdata(self.ctx, ffi.new_handle(pw_info))
 
         try:
             certfilebuf = _str_to_ffi_buffer(certfile)
@@ -309,12 +422,12 @@ class _SSLContext(object):
                 if pw_info.operationerror:
                     lib.ERR_clear_error()
                     raise pw_info.operationerror
-                errno = ffi.errno
-                if errno:
+                _errno = ffi.errno
+                if _errno:
                     lib.ERR_clear_error()
-                    raise OSError(errno, '')
+                    raise OSError(_errno, "Error")
                 else:
-                    raise _ssl_seterror(None, -1)
+                    raise ssl_lib_error()
 
             keyfilebuf = _str_to_ffi_buffer(keyfile)
             ret = lib.SSL_CTX_use_PrivateKey_file(self.ctx, keyfilebuf,
@@ -323,12 +436,12 @@ class _SSLContext(object):
                 if pw_info.operationerror:
                     lib.ERR_clear_error()
                     raise pw_info.operationerror
-                errno = ffi.errno
-                if errno:
+                _errno = ffi.errno
+                if _errno:
                     lib.ERR_clear_error()
-                    raise OSError(errno, '')
+                    raise OSError(_errno, None)
                 else:
-                    raise _ssl_seterror(None, -1)
+                    raise ssl_lib_error()
 
             ret = lib.SSL_CTX_check_private_key(self.ctx)
             if ret != 1:
@@ -665,12 +778,15 @@ class _SSLContext(object):
 #
 #
 
+def _str_from_buf(buf):
+    return ffi.string(buf).decode('utf-8')
+
 def _asn1obj2py(obj):
     nid = lib.OBJ_obj2nid(obj)
     if nid == lib.NID_undef:
         raise ValueError("Unknown object")
-    sn = lib.OBJ_nid2sn(nid)
-    ln = lib.OBJ_nid2ln(nid)
+    sn = _str_from_buf(lib.OBJ_nid2sn(nid))
+    ln = _str_from_buf(lib.OBJ_nid2ln(nid))
     buf = ffi.new("char[255]")
     length = lib.OBJ_obj2txt(buf, len(buf), obj, 1)
     if length < 0:
@@ -682,15 +798,23 @@ def _asn1obj2py(obj):
 
 def txt2obj(txt, name):
     _bytes = _str_to_ffi_buffer(txt)
-    obj = lib.OBJ_txt2obj(_bytes, int(name))
-    if obj is ffi.NULL:
-        raise ValueError("unkown object '%s'", txt)
+    is_name = 0 if name else 1
+    obj = lib.OBJ_txt2obj(_bytes, is_name)
+    if obj == ffi.NULL:
+        raise ValueError("unknown object '%s'" % txt)
     result = _asn1obj2py(obj)
     lib.ASN1_OBJECT_free(obj)
     return result
 
 def nid2obj(nid):
-    raise NotImplementedError
+    if nid < lib.NID_undef:
+        raise ValueError("NID must be positive.")
+    obj = lib.OBJ_nid2obj(nid);
+    if obj == ffi.NULL:
+        raise ValueError("unknown NID %i" % nid)
+    result = _asn1obj2py(obj);
+    lib.ASN1_OBJECT_free(obj);
+    return result;
                                                                
 
 class MemoryBIO(object):
@@ -744,7 +868,7 @@ def _cstr_decode_fs(buf):
 #        if (!target) goto error; \
 #    }
     # XXX
-    return ffi.string(buf).decode('utf-8')
+    return ffi.string(buf).decode(sys.getfilesystemencoding())
 
 def get_default_verify_paths():
 
