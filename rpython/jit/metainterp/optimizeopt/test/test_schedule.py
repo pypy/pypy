@@ -1,4 +1,6 @@
 import py
+import sys
+import pytest
 
 from rpython.jit.metainterp.history import TargetToken, JitCellToken, TreeLoop
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
@@ -16,6 +18,9 @@ from rpython.jit.metainterp.optimizeopt.test.test_vecopt import (FakeMetaInterpS
 from rpython.jit.metainterp.resoperation import rop, ResOperation, VectorizationInfo
 from rpython.jit.tool.oparser import parse as opparse
 from rpython.jit.tool.oparser_model import get_model
+
+if sys.maxint == 2**31-1:
+    pytest.skip("32bit platforms are not supported")
 
 class FakeVecScheduleState(VecScheduleState):
     def __init__(self):

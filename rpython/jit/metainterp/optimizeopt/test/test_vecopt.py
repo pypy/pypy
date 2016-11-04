@@ -1,4 +1,5 @@
 import py
+import sys
 import pytest
 
 from rpython.rlib.objectmodel import instantiate
@@ -28,6 +29,9 @@ from rpython.jit.tool.oparser import OpParser, convert_loop_to_trace
 from rpython.jit.backend.detect_cpu import getcpuclass
 
 CPU = getcpuclass()
+
+if sys.maxint == 2**31-1:
+    pytest.skip("32bit platforms are not supported")
 
 class FakeJitDriverStaticData(object):
     vec=True

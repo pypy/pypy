@@ -1,4 +1,5 @@
 import py
+import sys
 import pytest
 import math
 import functools
@@ -27,6 +28,9 @@ from rpython.jit.metainterp.history import (AbstractFailDescr,
                                             Const, ConstFloat)
 
 CPU = getcpuclass()
+
+if sys.maxint == 2**31-1:
+    pytest.skip("32bit platforms are not supported")
 
 @specialize.argtype(0,1)
 def malloc(T,n):
@@ -195,7 +199,7 @@ class VectorizeTests(object):
     test_vec_float_cmp_ne = \
         vec_float_binary(lambda a,b: a != b, rffi.DOUBLE)
 
-    def _vector_simple_int(self, func, type, data):
+    def _vector_simple_int(self, func, type, strat, data):
         func = always_inline(func)
 
         size = rffi.sizeof(type)
@@ -210,11 +214,9 @@ class VectorizeTests(object):
                 raw_storage_setitem(vc, i, rffi.cast(type,c))
                 i += size
 
-        bits = size*8
-        integers = st.integers(min_value=-2**(bits-1), max_value=2**(bits-1)-1)
-        la = data.draw(st.lists(integers, min_size=10, max_size=150))
+        la = data.draw(st.lists(strat, min_size=10, max_size=150))
         l = len(la)
-        lb = data.draw(st.lists(integers, min_size=l, max_size=l))
+        lb = data.draw(st.lists(strat, min_size=l, max_size=l))
 
         rawstorage = RawStorage()
         va = rawstorage.new(la, type)
@@ -229,21 +231,25 @@ class VectorizeTests(object):
         rawstorage.clear()
 
     def vec_int_arith(test_func, arith_func, type):
-        return pytest.mark.parametrize('func,type', [
-            (arith_func, type)
+        size = rffi.sizeof(type)
+        bits = size*8
+        assert 0 <= bits <= 64
+        integers = st.integers(min_value=-2**(bits-1), max_value=2**(bits-1)-1)
+        return pytest.mark.parametrize('func,type,strat', [
+            (arith_func, type, integers)
         ])(given(data=st.data())(test_func))
 
     vec_int_arith = functools.partial(vec_int_arith, _vector_simple_int)
 
     test_vec_signed_add = \
-        vec_int_arith(lambda a,b: intmask(intmask(a)+intmask(b)), rffi.SIGNED)
+        vec_int_arith(lambda a,b: intmask(a+b), rffi.SIGNED)
     test_vec_int_add = \
         vec_int_arith(lambda a,b: r_int(a)+r_int(b), rffi.INT)
     test_vec_short_add = \
         vec_int_arith(lambda a,b: r_int(a)+r_int(b), rffi.SHORT)
 
     test_vec_signed_sub = \
-        vec_int_arith(lambda a,b: intmask(intmask(a)-intmask(b)), rffi.SIGNED)
+        vec_int_arith(lambda a,b: intmask(a-b), rffi.SIGNED)
     test_vec_sub_int = \
         vec_int_arith(lambda a,b: r_int(a)-r_int(b), rffi.INT)
     test_vec_sub_short = \
