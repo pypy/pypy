@@ -2,11 +2,10 @@ from rpython.jit.metainterp.compile import ResumeGuardDescr
 from rpython.jit.metainterp.history import (ConstInt, INT, FLOAT)
 from rpython.jit.backend.llsupport.descr import (ArrayDescr, 
     unpack_arraydescr)
-from rpython.jit.metainterp.resoperation import VectorOp
+from rpython.jit.metainterp.resoperation import VectorOp, rop
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem import lltype
-from rpython.jit.backend.llsupport.vector_ext import VectorExt
 from rpython.jit.backend.zarch.detect_feature import detect_simd_z
 import rpython.jit.backend.zarch.registers as r
 import rpython.jit.backend.zarch.conditions as c
@@ -17,6 +16,8 @@ from rpython.rtyper.lltypesystem import rffi
 from rpython.jit.codewriter import longlong
 from rpython.rlib.objectmodel import always_inline
 from rpython.jit.backend.zarch.arch import WORD
+from rpython.jit.backend.llsupport.vector_ext import (VectorExt,
+        OpRestrict, TR_INT64_2)
 
 def not_implemented(msg):
     msg = '[zarch/vector_ext] %s\n' % msg
@@ -51,6 +52,7 @@ class ZSIMDVectorExt(VectorExt):
             self.enable(16, accum=True)
             asm.setup_once_vector()
         self._setup = True
+ZSIMDVectorExt.TR_MAPPING[rop.VEC_CAST_INT_TO_FLOAT] = OpRestrict([TR_INT64_2])
 
 class VectorAssembler(object):
     _mixin_ = True
@@ -125,10 +127,18 @@ class VectorAssembler(object):
         self.mc.VX(resloc, loc0, loc1)
 
     def emit_vec_int_signext(self, op, arglocs, regalloc):
-        resloc, loc0 = arglocs
+        resloc, loc0, osizeloc, nsizeloc = arglocs
         # signext is only allowed if the data type sizes do not change.
         # e.g. [byte,byte] = sign_ext([byte, byte]), a simple move is sufficient!
-        self.regalloc_mov(loc0, resloc)
+        osize = osizeloc.value
+        nsize = nsizeloc.value
+        if osize == nsize:
+            self.regalloc_mov(loc0, resloc)
+        elif (osize == 4 and nsize == 8) or (osize == 8 and nsize == 4):
+            self.mc.VLGV(r.SCRATCH, loc0, l.addr(0), l.itemsize_to_mask(osize))
+            self.mc.VLVG(resloc, r.SCRATCH, l.addr(0), l.itemsize_to_mask(nsize))
+            self.mc.VLGV(r.SCRATCH, loc0, l.addr(1), l.itemsize_to_mask(osize))
+            self.mc.VLVG(resloc, r.SCRATCH, l.addr(1), l.itemsize_to_mask(nsize))
 
     def emit_vec_float_abs(self, op, arglocs, regalloc):
         resloc, argloc, sizeloc = arglocs
@@ -291,6 +301,8 @@ class VectorAssembler(object):
         srcidx = srcidxloc.value
         count = countloc.value
         size = sizeloc.value
+        assert isinstance(op, VectorOp)
+        newsize = op.bytesize
         if count == 1:
             if resloc.is_core_reg():
                 assert sourceloc.is_vector_reg()
@@ -301,7 +313,7 @@ class VectorAssembler(object):
                 assert resloc.is_vector_reg()
                 index = l.addr(residx)
                 self.mc.VLR(resloc, vecloc)
-                self.mc.VLVG(resloc, sourceloc, index, l.itemsize_to_mask(size))
+                self.mc.VLVG(resloc, sourceloc, index, l.itemsize_to_mask(newsize))
         else:
             assert resloc.is_vector_reg()
             assert sourceloc.is_vector_reg()
@@ -311,7 +323,7 @@ class VectorAssembler(object):
                 # load from sourceloc into GP reg and store back into resloc
                 self.mc.VLGV(r.SCRATCH, sourceloc, sindex, l.itemsize_to_mask(size))
                 rindex = l.addr(j + residx)
-                self.mc.VLVG(resloc, r.SCRATCH, rindex, l.itemsize_to_mask(size))
+                self.mc.VLVG(resloc, r.SCRATCH, rindex, l.itemsize_to_mask(newsize))
 
     emit_vec_unpack_i = emit_vec_pack_i
 
@@ -461,9 +473,10 @@ class VectorRegalloc(object):
     def prepare_vec_int_signext(self, op):
         assert isinstance(op, VectorOp)
         a0 = op.getarg(0)
+        assert isinstance(a0, VectorOp)
         loc0 = self.ensure_vector_reg(a0)
         resloc = self.force_allocate_vector_reg(op)
-        return [resloc, loc0]
+        return [resloc, loc0, imm(a0.bytesize), imm(op.bytesize)]
 
     def prepare_vec_arith_unary(self, op):
         assert isinstance(op, VectorOp)

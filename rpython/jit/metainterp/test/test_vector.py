@@ -878,21 +878,21 @@ class VectorizeTests(object):
                 a = raw_storage_getitem(rffi.INT,va,j)
                 b = raw_storage_getitem(rffi.DOUBLE,vb,i)
                 c = rffi.cast(rffi.DOUBLE,a)+b
-                raw_storage_setitem(vc, i, rffi.cast(rffi.DOUBLE,c))
+                raw_storage_setitem(vc, i, c)
                 j += 4
                 i += 8
 
         va = alloc_raw_storage(4*30, zero=True)
         vb = alloc_raw_storage(8*30, zero=True)
         for i,v in enumerate([1]*30):
-            raw_storage_setitem(vb, i*4, rffi.cast(rffi.INT,v))
+            raw_storage_setitem(va, i*4, rffi.cast(rffi.INT,v))
         for i,v in enumerate([-9.0]*30):
             raw_storage_setitem(vb, i*8, rffi.cast(rffi.DOUBLE,v))
         vc = alloc_raw_storage(8*30, zero=True)
         self.meta_interp(f, [8*30, va, vb, vc], vec=True)
 
         for i in range(30):
-            assert raw_storage_getitem(rffi.INT,vc,i*8) == 8.0
+            assert raw_storage_getitem(rffi.DOUBLE,vc,i*8) == -8.0
 
         free_raw_storage(va)
         free_raw_storage(vb)

@@ -208,6 +208,7 @@ TR_ANY_INTEGER = TypeRestrict(INT)
 TR_FLOAT_2 = TypeRestrict(FLOAT, 4, 2)
 TR_DOUBLE_2 = TypeRestrict(FLOAT, 8, 2)
 TR_INT32_2 = TypeRestrict(INT, 4, 2)
+TR_INT64_2 = TypeRestrict(INT, 8, 2)
 
 OR_MSTF_I = OpMatchSizeTypeFirst([TR_ANY_INTEGER, TR_ANY_INTEGER])
 OR_MSTF_F = OpMatchSizeTypeFirst([TR_ANY_FLOAT, TR_ANY_FLOAT])

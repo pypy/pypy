@@ -383,8 +383,8 @@ def prepare_arguments(state, oprestrict, pack, args):
         # 1)
         args[i] = vecop # a)
         assemble_scattered_values(state, pack, args, i) # c)
-        crop_vector(state, oprestrict, restrict, pack, args, i) # b)
         position_values(state, restrict, pack, args, i, pos) # d)
+        crop_vector(state, oprestrict, restrict, pack, args, i) # b)
         restrict.check(args[i])
 
 def prepare_fail_arguments(state, pack, left, vecop):
