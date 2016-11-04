@@ -183,7 +183,6 @@ class VectorAssembler(object):
     def _accum_reduce(self, op, arg, accumloc, targetloc):
         # Currently the accumulator can ONLY be 64 bit float/int
         if arg.type == FLOAT:
-            self.mc.VX(targetloc, targetloc, targetloc)
             self.mc.VPDI(targetloc, accumloc, accumloc, permi(1,0))
             if op == '+':
                 self.mc.VFA(targetloc, targetloc, accumloc, l.imm3, l.imm(0b1000), l.imm(0))

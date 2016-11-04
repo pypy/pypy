@@ -868,6 +868,36 @@ class VectorizeTests(object):
                   "i{i} = vec_unpack_i(v{v}[8xi8], %d, 1)" % (i % 8)]
             assert self.run_unpack(op, "[16xi8]", {'x': values}, float=False) == v
 
+    def test_int32_float_casts(self):
+        myjitdriver = JitDriver(greens = [], reds = 'auto', vectorize=True)
+        def f(bytecount, va, vb, vc):
+            i = 0
+            j = 0
+            while i < bytecount:
+                myjitdriver.jit_merge_point()
+                a = raw_storage_getitem(rffi.INT,va,j)
+                b = raw_storage_getitem(rffi.DOUBLE,vb,i)
+                c = rffi.cast(rffi.DOUBLE,a)+b
+                raw_storage_setitem(vc, i, rffi.cast(rffi.DOUBLE,c))
+                j += 4
+                i += 8
+
+        va = alloc_raw_storage(4*30, zero=True)
+        vb = alloc_raw_storage(8*30, zero=True)
+        for i,v in enumerate([1]*30):
+            raw_storage_setitem(vb, i*4, rffi.cast(rffi.INT,v))
+        for i,v in enumerate([-9.0]*30):
+            raw_storage_setitem(vb, i*8, rffi.cast(rffi.DOUBLE,v))
+        vc = alloc_raw_storage(8*30, zero=True)
+        self.meta_interp(f, [8*30, va, vb, vc], vec=True)
+
+        for i in range(30):
+            assert raw_storage_getitem(rffi.INT,vc,i*8) == 8.0
+
+        free_raw_storage(va)
+        free_raw_storage(vb)
+        free_raw_storage(vc)
+
 
 class TestLLtype(LLJitMixin, VectorizeTests):
     pass
