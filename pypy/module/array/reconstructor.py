@@ -182,6 +182,12 @@ def typecode_to_mformat_code(typecode):
     elif typecode == 'L':
         intsize = rffi.sizeof(rffi.LONG)
         is_signed = False
+    elif typecode == 'q':
+        intsize = rffi.sizeof(rffi.LONGLONG)
+        is_signed = True
+    elif typecode == 'Q':
+        intsize = rffi.sizeof(rffi.LONGLONG)
+        is_signed = False
     else:
         return UNKNOWN_FORMAT
     if intsize == 2:
