@@ -96,3 +96,7 @@ s390x implementation for vector operations used in VecOpt
 .. branch: ppc-vsx-support
 
 PowerPC implementation for vector operations used in VecOpt
+
+.. branch: newinitwarn
+
+Match CPython's stricter handling of __new/init__ arguments
