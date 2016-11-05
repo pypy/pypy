@@ -1,5 +1,7 @@
 import py
+import pytest
 import re
+import sys
 from rpython.jit.metainterp import resoperation as rop
 from rpython.jit.metainterp.history import AbstractDescr, AbstractFailDescr
 from rpython.jit.metainterp.history import ConstInt
@@ -96,6 +98,7 @@ VARF = rop.InputArgFloat()
       (rop.rop.CAST_SINGLEFLOAT_TO_FLOAT, [VARI], {'from': 4, 'to': 8}),
       (rop.rop.CAST_FLOAT_TO_SINGLEFLOAT, [VARF], {'from': 8, 'to': 4}),
     ])
+@pytest.mark.skipif("sys.maxint == 2**31-1")
 def test_cast_ops(opnum, args, kwargs):
     op = rop.ResOperation(opnum, args)
     assert op.is_typecast()
