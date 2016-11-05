@@ -339,6 +339,9 @@ class W_CDLL(W_Root):
                         "No symbol %s found in library %s", name, self.name)
         return space.wrap(address_as_uint)
 
+    def getidentifier(self, space):
+        return space.wrap(self.cdll.getidentifier())
+
 @unwrap_spec(name='str_or_None', mode=int)
 def descr_new_cdll(space, w_type, name, mode=-1):
     return space.wrap(W_CDLL(space, name, mode))
@@ -349,6 +352,8 @@ W_CDLL.typedef = TypeDef(
     __new__     = interp2app(descr_new_cdll),
     getfunc     = interp2app(W_CDLL.getfunc),
     getaddressindll = interp2app(W_CDLL.getaddressindll),
+    __int__     = interp2app(W_CDLL.getidentifier),
+    __long__    = interp2app(W_CDLL.getidentifier),
     )
 
 class W_WinDLL(W_CDLL):

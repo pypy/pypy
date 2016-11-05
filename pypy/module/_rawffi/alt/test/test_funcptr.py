@@ -643,3 +643,11 @@ class AppTestFFI(BaseAppTestFFI):
         f_name = libfoo.getfunc('AAA_first_ordinal_function', [], types.sint)
         f_ordinal = libfoo.getfunc(1, [], types.sint)
         assert f_name.getaddr() == f_ordinal.getaddr()
+
+    def test_cdll_as_integer(self):
+        import _rawffi
+        from _rawffi.alt import CDLL
+        libfoo = CDLL(self.libfoo_name)
+        A = _rawffi.Array('i')
+        a = A(1, autofree=True)
+        a[0] = libfoo      # should cast libfoo to int/long automatically
