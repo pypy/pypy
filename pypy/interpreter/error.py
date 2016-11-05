@@ -344,6 +344,42 @@ class OperationError(Exception):
         finally:
             self._context_recorded = True
 
+    # A simplified version of _PyErr_TrySetFromCause, which returns a
+    # new exception of the same class, but with another error message.
+    # This only works for exceptions which have just a single message,
+    # and no other attribute.
+    # Otherwise the same OperationError is returned.
+    def try_set_from_cause(self, space, message):
+        from pypy.module.exceptions.interp_exceptions import W_BaseException
+        self.normalize_exception(space)
+        w_value = self.get_w_value(space)
+        if not isinstance(w_value, W_BaseException):
+            return self
+        exc = w_value
+        # "args" should be empty or contain a single string
+        if len(exc.args_w) == 0:
+            pass
+        elif len(exc.args_w) == 1:
+            if not space.isinstance_w(exc.args_w[0], space.w_unicode):
+                return self
+        else:
+            return self
+        # No instance attribute.
+        if exc.w_dict and space.is_true(exc.w_dict):
+            return self
+        # Try to create the new exception.
+        try:
+            new_error = oefmt(space.type(w_value),
+                              "%s (%T: %S)", message, w_value, w_value)
+            new_error.w_cause = w_value
+            new_error.normalize_exception(space)
+            # Copy the traceback, but it does not escape.
+            new_error.set_traceback(self._application_traceback)
+        except OperationError:
+            # Return the original error
+            return self
+        return new_error
+
 
 def _break_context_cycle(space, w_value, w_context):
     """Break reference cycles in the __context__ chain.

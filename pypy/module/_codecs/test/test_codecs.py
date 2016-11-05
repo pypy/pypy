@@ -380,11 +380,12 @@ class AppTestPartialEvaluation:
         import _codecs
         def search_function(encoding):
             def f(input, errors="strict"):
-                raise RuntimeError('should be wrapped')
+                raise to_raise
             if encoding == 'test.failingenc':
                 return (f, f, None, None)
             return None
         _codecs.register(search_function)
+        to_raise = RuntimeError('should be wrapped')
         exc = raises(RuntimeError, b"hello".decode, "test.failingenc")
         assert str(exc.value) == (
             "decoding with 'test.failingenc' codec failed "
@@ -393,6 +394,14 @@ class AppTestPartialEvaluation:
         assert str(exc.value) == (
             "encoding with 'test.failingenc' codec failed "
             "(RuntimeError: should be wrapped)")
+        #
+        to_raise.attr = "don't wrap"
+        exc = raises(RuntimeError, u"hello".encode, "test.failingenc")
+        assert exc.value == to_raise
+        #
+        to_raise = RuntimeError("Should", "Not", "Wrap")
+        exc = raises(RuntimeError, u"hello".encode, "test.failingenc")
+        assert exc.value == to_raise
 
     def test_cpytest_decode(self):
         import codecs

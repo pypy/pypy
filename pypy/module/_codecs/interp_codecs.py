@@ -415,23 +415,11 @@ def register_builtin_error_handlers(space):
         state.codec_error_registry[error] = space.wrap(interp2app(globals()[name]))
 
 
-# A simplified version of the incredibly complex CPython function
-# _PyErr_TrySetFromCause, which returns a new exception with another
-# error message.  Subclasses of UnicodeErrors are returned inchanged,
-# but this is only a side-effect: they cannot be constructed with a
-# simple message.
 def _wrap_codec_error(space, operr, action, encoding):
-    w_exc = operr.get_w_value(space)
-    try:
-        new_operr = oefmt(space.type(w_exc),
-                          "%s with '%s' codec failed (%T: %S)",
-                          action, encoding, w_exc, w_exc)
-        new_operr.w_cause = w_exc
-        new_operr.normalize_exception(space)
-    except OperationError:
-        # Return the original error
-        return operr
-    return new_operr
+    # Note that UnicodeErrors are not wrapped and returned as is,
+    # "thanks to" a limitation of try_set_from_cause.
+    message = "%s with '%s' codec failed" % (action, encoding)
+    return operr.try_set_from_cause(space, message)
 
 def _call_codec(space, w_decoder, w_obj, action, encoding, errors):
     try:
