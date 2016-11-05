@@ -1,9 +1,9 @@
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
+from rpython.rlib.rstring import UnicodeBuilder
 from rpython.rlib.runicode import (
     code_to_unichr, MAXUNICODE,
-    raw_unicode_escape_helper, raw_unicode_escape_helper)
+    raw_unicode_escape_helper_unicode)
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
@@ -247,7 +247,7 @@ def xmlcharrefreplace_errors(space, w_exc):
         start = space.int_w(space.getattr(w_exc, space.wrap('start')))
         w_end = space.getattr(w_exc, space.wrap('end'))
         end = space.int_w(w_end)
-        builder = StringBuilder()
+        builder = UnicodeBuilder()
         pos = start
         while pos < end:
             code = ord(obj[pos])
@@ -257,11 +257,11 @@ def xmlcharrefreplace_errors(space, w_exc):
                 code |= ord(obj[pos+1]) & 0x03FF
                 code += 0x10000
                 pos += 1
-            builder.append("&#")
-            builder.append(str(code))
-            builder.append(";")
+            builder.append(u"&#")
+            builder.append(unicode(str(code)))
+            builder.append(u";")
             pos += 1
-        return space.newtuple([space.newbytes(builder.build()), w_end])
+        return space.newtuple([space.wrap(builder.build()), w_end])
     else:
         raise oefmt(space.w_TypeError,
                     "don't know how to handle %T in error callback", w_exc)
@@ -274,13 +274,13 @@ def backslashreplace_errors(space, w_exc):
         start = space.int_w(space.getattr(w_exc, space.wrap('start')))
         w_end = space.getattr(w_exc, space.wrap('end'))
         end = space.int_w(w_end)
-        builder = StringBuilder()
+        builder = UnicodeBuilder()
         pos = start
         while pos < end:
             oc = ord(obj[pos])
-            raw_unicode_escape_helper(builder, oc)
+            raw_unicode_escape_helper_unicode(builder, oc)
             pos += 1
-        return space.newtuple([space.newbytes(builder.build()), w_end])
+        return space.newtuple([space.wrap(builder.build()), w_end])
     elif space.isinstance_w(w_exc, space.w_UnicodeDecodeError):
         obj = space.bytes_w(space.getattr(w_exc, space.wrap('object')))
         start = space.int_w(space.getattr(w_exc, space.wrap('start')))
@@ -290,7 +290,7 @@ def backslashreplace_errors(space, w_exc):
         pos = start
         while pos < end:
             oc = ord(obj[pos])
-            runicode.raw_unicode_escape_helper_unicode(builder, oc)
+            raw_unicode_escape_helper_unicode(builder, oc)
             pos += 1
         return space.newtuple([space.wrap(builder.build()), w_end])
     else:
@@ -304,20 +304,20 @@ def namereplace_errors(space, w_exc):
         start = space.int_w(space.getattr(w_exc, space.wrap('start')))
         w_end = space.getattr(w_exc, space.wrap('end'))
         end = space.int_w(w_end)
-        builder = StringBuilder()
+        builder = UnicodeBuilder()
         pos = start
         while pos < end:
             oc = ord(obj[pos])
             try:
                 name = unicodedb.name(oc)
             except KeyError:
-                raw_unicode_escape_helper(builder, oc)
+                raw_unicode_escape_helper_unicode(builder, oc)
             else:
-                builder.append('\\N{')
-                builder.append(name)
-                builder.append('}')
+                builder.append(u'\\N{')
+                builder.append(unicode(name))
+                builder.append(u'}')
             pos += 1
-        return space.newtuple([space.newbytes(builder.build()), w_end])
+        return space.newtuple([space.wrap(builder.build()), w_end])
     else:
         raise oefmt(space.w_TypeError,
                     "don't know how to handle %T in error callback", w_exc)
