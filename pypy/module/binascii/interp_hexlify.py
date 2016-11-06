@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rarithmetic import ovfcheck
@@ -24,7 +24,7 @@ This function is also available as "hexlify()".'''
     for c in data:
         res.append(_value2char(ord(c) >> 4))
         res.append(_value2char(ord(c) & 0xf))
-    return space.wrap(res.build())
+    return space.newbytes(res.build())
 
 # ____________________________________________________________
 
@@ -38,8 +38,7 @@ def _char2value(space, c):
     elif c <= 'f':
         if c >= 'a':
             return ord(c) - (ord('a')-10)
-    raise OperationError(space.w_TypeError,
-                         space.wrap('Non-hexadecimal digit found'))
+    raise oefmt(space.w_TypeError, "Non-hexadecimal digit found")
 _char2value._always_inline_ = True
 
 @unwrap_spec(hexstr='bufferstr')
@@ -48,11 +47,10 @@ def unhexlify(space, hexstr):
 hexstr must contain an even number of hex digits (upper or lower case).
 This function is also available as "unhexlify()".'''
     if len(hexstr) & 1:
-        raise OperationError(space.w_TypeError,
-                             space.wrap('Odd-length string'))
+        raise oefmt(space.w_TypeError, "Odd-length string")
     res = StringBuilder(len(hexstr) >> 1)
     for i in range(0, len(hexstr), 2):
         a = _char2value(space, hexstr[i])
         b = _char2value(space, hexstr[i+1])
         res.append(chr((a << 4) | b))
-    return space.wrap(res.build())
+    return space.newbytes(res.build())

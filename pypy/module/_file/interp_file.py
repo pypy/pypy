@@ -38,25 +38,31 @@ class W_File(W_AbstractStream):
     errors   = None
     fd       = -1
     cffi_fileobj = None    # pypy/module/_cffi_backend
+    w_tb     = None  # String representation of the traceback at creation time
 
     newlines = 0     # Updated when the stream is closed
 
     def __init__(self, space):
         self.space = space
+        self.register_finalizer(space)
+        if self.space.sys.track_resources:
+            self.w_tb = self.space.format_traceback()
 
-    def __del__(self):
+    def _finalize_(self):
         # assume that the file and stream objects are only visible in the
-        # thread that runs __del__, so no race condition should be possible
-        self.clear_all_weakrefs()
-        if self.stream is not None:
-            self.enqueue_for_destruction(self.space, W_File.destructor,
-                                         'close() method of ')
-
-    def destructor(self):
-        assert isinstance(self, W_File)
+        # thread that runs _finalize_, so no race condition should be
+        # possible and no locking is done here.
+        if self.stream is None:
+            return
+        if self.space.sys.track_resources:
+            w_repr = self.space.repr(self)
+            str_repr = self.space.str_w(w_repr)
+            w_msg = self.space.wrap("WARNING: unclosed file: " + str_repr)
+            self.space.resource_warning(w_msg, self.w_tb)
+        #
         try:
             self.direct_close()
-        except StreamErrors, e:
+        except StreamErrors as e:
             operr = wrap_streamerror(self.space, e, self.w_name)
             raise operr
 
@@ -94,19 +100,16 @@ class W_File(W_AbstractStream):
 
     def check_closed(self):
         if self.stream is None:
-            raise OperationError(self.space.w_ValueError,
-                self.space.wrap("I/O operation on closed file")
-            )
+            raise oefmt(self.space.w_ValueError,
+                        "I/O operation on closed file")
 
     def check_readable(self):
         if not self.readable:
-            raise OperationError(self.space.w_IOError, self.space.wrap(
-                "File not open for reading"))
+            raise oefmt(self.space.w_IOError, "File not open for reading")
 
     def check_writable(self):
         if not self.writable:
-            raise OperationError(self.space.w_IOError, self.space.wrap(
-                "File not open for writing"))
+            raise oefmt(self.space.w_IOError, "File not open for writing")
 
     def getstream(self):
         """Return self.stream or raise an app-level ValueError if missing
@@ -137,7 +140,11 @@ class W_File(W_AbstractStream):
         stream = dispatch_filename(streamio.open_file_as_stream)(
             self.space, w_name, mode, buffering, signal_checker(self.space))
         fd = stream.try_to_find_file_descriptor()
-        self.check_not_dir(fd)
+        try:
+            self.check_not_dir(fd)
+        except:
+            stream.close()
+            raise
         self.fdopenstream(stream, fd, mode)
 
     def direct___enter__(self):
@@ -203,7 +210,7 @@ class W_File(W_AbstractStream):
             while n > 0:
                 try:
                     data = stream.read(n)
-                except OSError, e:
+                except OSError as e:
                     # a special-case only for read() (similar to CPython, which
                     # also loses partial data with other methods): if we get
                     # EAGAIN after already some data was received, return it.
@@ -512,8 +519,9 @@ producing strings. This is equivalent to calling write() for each string."""
                     else:
                         line = w_line.charbuf_w(space)
                 except BufferInterfaceNotFound:
-                    raise OperationError(space.w_TypeError, space.wrap(
-                        "writelines() argument must be a sequence of strings"))
+                    raise oefmt(space.w_TypeError,
+                                "writelines() argument must be a sequence of "
+                                "strings")
                 else:
                     lines[i] = space.wrap(line)
         for w_line in lines:

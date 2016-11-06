@@ -1,160 +1,102 @@
-=========================
-What's new in PyPy 4.1.+
-=========================
+==========================
+What's new in PyPy2.7 5.4+
+==========================
 
-.. this is a revision shortly after release-4.0.1
-.. startrev: 4b5c840d0da2
+.. this is a revision shortly after release-pypy2.7-v5.4
+.. startrev: 522736f816dc
 
-Fixed ``_PyLong_FromByteArray()``, which was buggy.
+.. branch: rpython-resync
+Backport rpython changes made directly on the py3k and py3.5 branches.
 
-Fixed a crash with stacklets (or greenlets) on non-Linux machines
-which showed up if you forget stacklets without resuming them.
+.. branch: buffer-interface
+Implement PyObject_GetBuffer, PyMemoryView_GET_BUFFER, and handles memoryviews
+in numpypy
 
-.. branch: numpy-1.10
+.. branch: force-virtual-state
+Improve merging of virtual states in the JIT in order to avoid jumping to the
+preamble. Accomplished by allocating virtual objects where non-virtuals are
+expected.
 
-Fix tests to run cleanly with -A and start to fix micronumpy for upstream numpy
-which is now 1.10.2
+.. branch: conditional_call_value_3
+JIT residual calls: if the called function starts with a fast-path
+like "if x.foo != 0: return x.foo", then inline the check before
+doing the CALL.  For now, string hashing is about the only case.
 
-.. branch: osx-flat-namespace
+.. branch: search-path-from-libpypy
 
-Fix the cpyext tests on OSX by linking with -flat_namespace
+The compiled pypy now looks for its lib-python/lib_pypy path starting
+from the location of the *libpypy-c* instead of the executable. This is
+arguably more consistent, and also it is what occurs anyway if you're
+embedding pypy.  Linux distribution packagers, take note!  At a minimum,
+the ``libpypy-c.so`` must really be inside the path containing
+``lib-python`` and ``lib_pypy``.  Of course, you can put a symlink to it
+from somewhere else.  You no longer have to do the same with the
+``pypy`` executable, as long as it finds its ``libpypy-c.so`` library.
 
-.. branch: anntype
+.. branch: _warnings
 
-Refactor and improve exception analysis in the annotator.
+CPython allows warning.warn(('something', 1), Warning), on PyPy this
+produced a "expected a readable buffer object" error. Test and fix.
 
-.. branch: posita/2193-datetime-timedelta-integrals
+.. branch: stricter-strip
 
-Fix issue #2193. ``isinstance(..., int)`` => ``isinstance(..., numbers.Integral)`` 
-to allow for alternate ``int``-like implementations (e.g., ``future.types.newint``)
+CPython rejects 'a'.strip(buffer(' ')); only None, str or unicode are
+allowed as arguments. Test and fix for str and unicode
 
-.. branch: faster-rstruct
+.. branch: faulthandler
 
-Improve the performace of struct.unpack, which now directly reads inside the
-string buffer and directly casts the bytes to the appropriate type, when
-allowed. Unpacking of floats and doubles is about 15 times faster now, while
-for integer types it's up to ~50% faster for 64bit integers.
+Port the 'faulthandler' module to PyPy default.  This module is standard
+in Python 3.3 but can also be installed from CPython >= 2.6 from PyPI.
 
-.. branch: wrap-specialisation
+.. branch: test-cpyext
 
-Remove unnecessary special handling of space.wrap().
+Refactor cpyext testing to be more pypy3-friendly.
 
-.. branch: compress-numbering
+.. branch: better-error-missing-self
 
-Improve the memory signature of numbering instances in the JIT. This should massively
-decrease the amount of memory consumed by the JIT, which is significant for most programs.
+Improve the error message when the user forgot the "self" argument of a method.
 
-.. branch: fix-trace-too-long-heuristic
 
-Improve the heuristic when disable trace-too-long
+.. fb6bb835369e
+Change the ``timeit`` module: it now prints the average time and the standard
+deviation over 7 runs by default, instead of the minimum. The minimum is often
+misleading.
 
-.. branch: fix-setslice-can-resize
+.. branch: unrecursive-opt
 
-Make rlist's ll_listsetslice() able to resize the target list to help
-simplify objspace/std/listobject.py. Was issue #2196.
+Make optimiseopt iterative instead of recursive so it can be reasoned about
+more easily and debugging is faster.
 
-.. branch: anntype2
+.. branch: Tiberiumk/fix-2412-1476011166874
+.. branch: redirect-assembler-jitlog
 
-A somewhat random bunch of changes and fixes following up on branch 'anntype'. Highlights:
 
-- Implement @doubledispatch decorator and use it for intersection() and difference().
 
-- Turn isinstance into a SpaceOperation
+.. branch: stdlib-2.7.12
 
-- Create a few direct tests of the fundamental annotation invariant in test_model.py
+Update stdlib to version 2.7.12
 
-- Remove bookkeeper attribute from DictDef and ListDef.
+.. branch: buffer-interface2
 
-.. branch: cffi-static-callback
+Improve support for new buffer interface in cpyext, bf_getbuffer on built-in
+types still missing
 
-.. branch: vecopt-absvalue
 
-- Enhancement. Removed vector fields from AbstractValue.
+.. branch: fix-struct-unpack-Q
 
-.. branch: memop-simplify2
+Improve compatibility with CPython in the ``struct`` module. In particular,
+``struct.unpack`` now returns an ``int`` whenever the returned value fits,
+while previously it always returned a ``long`` for certains format codes such
+as ``Q`` (and also ``I``, ``L`` and ``q`` on 32 bit)
 
-Simplification. Backends implement too many loading instructions, only having a slightly different interface.
-Four new operations (gc_load/gc_load_indexed, gc_store/gc_store_indexed) replace all the
-commonly known loading operations
+.. branch: zarch-simd-support
 
-.. branch: more-rposix
+s390x implementation for vector operations used in VecOpt
 
-Move wrappers for OS functions from `rpython/rtyper` to `rpython/rlib` and 
-turn them into regular RPython functions. Most RPython-compatible `os.*` 
-functions are now directly accessible as `rpython.rposix.*`.
+.. branch: ppc-vsx-support
 
-.. branch: always-enable-gil
+PowerPC implementation for vector operations used in VecOpt
 
-Simplify a bit the GIL handling in non-jitted code.  Fixes issue #2205.
+.. branch: newinitwarn
 
-.. branch: flowspace-cleanups
-
-Trivial cleanups in flowspace.operation : fix comment & duplicated method
-
-.. branch: test-AF_NETLINK
-
-Add a test for pre-existing AF_NETLINK support. Was part of issue #1942.
-
-.. branch: small-cleanups-misc
-
-Trivial misc cleanups: typo, whitespace, obsolete comments
-
-.. branch: cpyext-slotdefs
-.. branch: fix-missing-canraise
-.. branch: whatsnew
-
-.. branch: fix-2211
-
-Fix the cryptic exception message when attempting to use extended slicing
-in rpython. Was issue #2211.
-
-.. branch: ec-keepalive
-
-Optimize the case where, in a new C-created thread, we keep invoking
-short-running Python callbacks.  (CFFI on CPython has a hack to achieve
-the same result.)  This can also be seen as a bug fix: previously,
-thread-local objects would be reset between two such calls.
-
-.. branch: globals-quasiimmut
-
-Optimize global lookups.
-
-.. branch: cffi-static-callback-embedding
-
-Updated to CFFI 1.5, which supports a new way to do embedding.
-Deprecates http://pypy.readthedocs.org/en/latest/embedding.html.
-
-.. branch: fix-cpython-ssl-tests-2.7
-
-Fix SSL tests by importing cpython's patch
-
-.. branch: remove-getfield-pure
-
-Remove pure variants of ``getfield_gc_*`` operations from the JIT. Relevant
-optimizations instead consult the field descriptor to determine the purity of
-the operation. Additionally, pure ``getfield`` operations are now handled
-entirely by `rpython/jit/metainterp/optimizeopt/heap.py` rather than
-`rpython/jit/metainterp/optimizeopt/pure.py`, which can result in better codegen
-for traces containing a large number of pure getfield operations.
-
-.. branch: exctrans
-
-Try to ensure that no new functions get annotated during the 'source_c' phase.
-Refactor sandboxing to operate at a higher level.
-
-.. branch: cpyext-bootstrap
-
-.. branch: vmprof-newstack
-
-Refactor vmprof to work cross-operating-system.
-
-.. branch: seperate-strucmember_h
-
-Seperate structmember.h from Python.h Also enhance creating api functions
-to specify which header file they appear in (previously only pypy_decl.h) 
-
-.. branch: llimpl
-
-Refactor register_external(), remove running_on_llinterp mechanism and
-apply sandbox transform on externals at the end of annotation.
-
+Match CPython's stricter handling of __new/init__ arguments

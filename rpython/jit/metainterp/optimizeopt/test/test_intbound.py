@@ -240,20 +240,22 @@ def test_shift_overflow():
 
 
 def test_div_bound():
+    from rpython.rtyper.lltypesystem import lltype
+    from rpython.rtyper.lltypesystem.lloperation import llop
     for _, _, b1 in some_bounds():
         for _, _, b2 in some_bounds():
-            b3 = b1.div_bound(b2)
+            b3 = b1.py_div_bound(b2)
             for n1 in nbr:
                 for n2 in nbr:
                     if b1.contains(n1) and b2.contains(n2):
                         if n2 != 0:
-                            assert b3.contains(n1 / n2)
+                            assert b3.contains(n1 / n2)   # Python-style div
 
-    a=bound(2, 4).div_bound(bound(1, 2))
+    a=bound(2, 4).py_div_bound(bound(1, 2))
     assert not a.contains(0)
     assert not a.contains(5)
 
-    a=bound(-3, 2).div_bound(bound(1, 2))
+    a=bound(-3, 2).py_div_bound(bound(1, 2))
     assert not a.contains(-4)
     assert not a.contains(3)
     assert a.contains(-3)

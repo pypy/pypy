@@ -35,8 +35,7 @@ class W_CTypeFunc(W_CTypePtrBase):
         assert isinstance(ellipsis, bool)
         extra, xpos = self._compute_extra_text(fargs, fresult, ellipsis, abi)
         size = rffi.sizeof(rffi.VOIDP)
-        W_CTypePtrBase.__init__(self, space, size, extra, xpos, fresult,
-                                could_cast_anything=False)
+        W_CTypePtrBase.__init__(self, space, size, extra, xpos, fresult)
         self.fargs = fargs
         self.ellipsis = ellipsis
         self.abi = abi
@@ -50,7 +49,7 @@ class W_CTypeFunc(W_CTypePtrBase):
             builder = CifDescrBuilder(fargs, fresult, abi)
             try:
                 builder.rawallocate(self)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_NotImplementedError):
                     raise
                 # else, eat the NotImplementedError.  We will get the
@@ -58,6 +57,16 @@ class W_CTypeFunc(W_CTypePtrBase):
                 if self.cif_descr:   # should not be True, but you never know
                     lltype.free(self.cif_descr, flavor='raw')
                     self.cif_descr = lltype.nullptr(CIF_DESCRIPTION)
+
+    def is_unichar_ptr_or_array(self):
+        return False
+
+    def is_char_or_unichar_ptr_or_array(self):
+        return False
+
+    def string(self, cdataobj, maxlen):
+        # Can't use ffi.string() on a function pointer
+        return W_CType.string(self, cdataobj, maxlen)
 
     def new_ctypefunc_completing_argtypes(self, args_w):
         space = self.space
@@ -157,11 +166,13 @@ class W_CTypeFunc(W_CTypePtrBase):
         mustfree_max_plus_1 = 0
         buffer = lltype.malloc(rffi.CCHARP.TO, size, flavor='raw')
         try:
+            keepalives = [None] * len(args_w)    # None or strings
             for i in range(len(args_w)):
                 data = rffi.ptradd(buffer, cif_descr.exchange_args[i])
                 w_obj = args_w[i]
                 argtype = self.fargs[i]
-                if argtype.convert_argument_from_object(data, w_obj):
+                if argtype.convert_argument_from_object(data, w_obj,
+                                                        keepalives, i):
                     # argtype is a pointer type, and w_obj a list/tuple/str
                     mustfree_max_plus_1 = i + 1
 
@@ -177,9 +188,13 @@ class W_CTypeFunc(W_CTypePtrBase):
                 if isinstance(argtype, W_CTypePointer):
                     data = rffi.ptradd(buffer, cif_descr.exchange_args[i])
                     flag = get_mustfree_flag(data)
+                    raw_cdata = rffi.cast(rffi.CCHARPP, data)[0]
                     if flag == 1:
-                        raw_cdata = rffi.cast(rffi.CCHARPP, data)[0]
                         lltype.free(raw_cdata, flavor='raw')
+                    elif flag >= 4:
+                        value = keepalives[i]
+                        assert value is not None
+                        rffi.free_nonmovingbuffer(value, raw_cdata, chr(flag))
             lltype.free(buffer, flavor='raw')
             keepalive_until_here(args_w)
         return w_res
@@ -471,5 +486,5 @@ class CifDescrBuilder(object):
         # call libffi's ffi_prep_cif() function
         res = jit_libffi.jit_ffi_prep_cif(rawmem)
         if res != clibffi.FFI_OK:
-            raise OperationError(space.w_SystemError,
-                space.wrap("libffi failed to build this function type"))
+            raise oefmt(space.w_SystemError,
+                        "libffi failed to build this function type")

@@ -125,6 +125,9 @@ class Repr(object):
                 self, value))
         return value
 
+    def special_uninitialized_value(self):
+        return None
+
     def get_ll_eq_function(self):
         """Return an eq(x,y) function to use to compare two low-level
         values of this Repr.
@@ -454,13 +457,9 @@ class DummyValueBuilder(object):
 
 # logging/warning
 
-import py
-from rpython.tool.ansi_print import ansi_log
+from rpython.tool.ansi_print import AnsiLogger
 
-log = py.log.Producer("rtyper")
-py.log.setconsumer("rtyper", ansi_log)
-py.log.setconsumer("rtyper translating", None)
-py.log.setconsumer("rtyper debug", None)
+log = AnsiLogger("rtyper")
 
 def warning(msg):
     log.WARNING(msg)

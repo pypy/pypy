@@ -2,7 +2,7 @@ from rpython.rlib import rgc
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.interpreter.error import wrap_oserror, OperationError
+from pypy.interpreter.error import oefmt, wrap_oserror
 from rpython.rlib.objectmodel import we_are_translated
 
 
@@ -41,8 +41,8 @@ def unwrap(space, w_obj):
     return gcref
 
 def missing_operation(space):
-    return OperationError(space.w_NotImplementedError,
-                          space.wrap("operation not implemented by this GC"))
+    return oefmt(space.w_NotImplementedError,
+                 "operation not implemented by this GC")
 
 
 # ____________________________________________________________
@@ -194,7 +194,7 @@ def get_referrers(space, args_w):
 def _dump_rpy_heap(space, fd):
     try:
         ok = rgc.dump_rpy_heap(fd)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     if not ok:
         raise missing_operation(space)

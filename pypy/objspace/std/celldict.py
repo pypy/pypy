@@ -64,6 +64,9 @@ class ModuleDictStrategy(DictStrategy):
 
     def setitem_str(self, w_dict, key, w_value):
         cell = self.getdictvalue_no_unwrapping(w_dict, key)
+        return self._setitem_str_cell_known(cell, w_dict, key, w_value)
+
+    def _setitem_str_cell_known(self, cell, w_dict, key, w_value):
         w_value = write_cell(self.space, cell, w_value)
         if w_value is None:
             return
@@ -74,10 +77,11 @@ class ModuleDictStrategy(DictStrategy):
         space = self.space
         if space.is_w(space.type(w_key), space.w_str):
             key = space.str_w(w_key)
-            w_result = self.getitem_str(w_dict, key)
+            cell = self.getdictvalue_no_unwrapping(w_dict, key)
+            w_result = unwrap_cell(self.space, cell)
             if w_result is not None:
                 return w_result
-            self.setitem_str(w_dict, key, w_default)
+            self._setitem_str_cell_known(cell, w_dict, key, w_default)
             return w_default
         else:
             self.switch_to_object_strategy(w_dict)

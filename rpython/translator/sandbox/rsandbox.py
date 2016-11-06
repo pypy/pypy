@@ -17,10 +17,9 @@ from rpython.rlib import rposix
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
-from rpython.tool.ansi_print import ansi_log
+from rpython.tool.ansi_print import AnsiLogger
 
-log = py.log.Producer("sandbox")
-py.log.setconsumer("sandbox", ansi_log)
+log = AnsiLogger("sandbox")
 
 
 # a version of os.read() and os.write() that are not mangled

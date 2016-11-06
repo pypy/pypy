@@ -253,8 +253,11 @@ class ArrayDefNode(NodeWithDependencies):
             yield '\t' + cdecl(typename, fname) + ';'
         if not self.ARRAY._hints.get('nolength', False):
             yield '\tlong length;'
+        varlength = self.varlength
+        if varlength is not None:
+            varlength += self.ARRAY._hints.get('extra_item_after_alloc', 0)
         line = '%s;' % cdecl(self.itemtypename,
-                             'items[%s]' % deflength(self.varlength))
+                             'items[%s]' % deflength(varlength))
         if self.ARRAY.OF is Void:    # strange
             line = '/* array of void */'
             if self.ARRAY._hints.get('nolength', False):
@@ -546,8 +549,7 @@ class StructNode(ContainerNode):
         if needs_gcheader(T):
             gct = self.db.gctransformer
             if gct is not None:
-                self.gc_init = gct.gcheader_initdata(self)
-                db.getcontainernode(self.gc_init)
+                self.gc_init = gct.gcheader_initdata(self.obj)
             else:
                 self.gc_init = None
 
@@ -677,8 +679,7 @@ class ArrayNode(ContainerNode):
         if needs_gcheader(T):
             gct = self.db.gctransformer
             if gct is not None:
-                self.gc_init = gct.gcheader_initdata(self)
-                db.getcontainernode(self.gc_init)
+                self.gc_init = gct.gcheader_initdata(self.obj)
             else:
                 self.gc_init = None
 

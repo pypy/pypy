@@ -1,5 +1,9 @@
 import py
-
+import sys
+import pytest
+import math
+import functools
+from hypothesis import given, note, strategies as st
 from rpython.jit.metainterp.warmspot import ll_meta_interp, get_stats
 from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.jit.codewriter.policy import StopAtXPolicy
@@ -9,15 +13,24 @@ from rpython.rlib.jit import JitDriver, hint, set_param
 from rpython.rlib.objectmodel import compute_hash
 from rpython.rlib import rfloat
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib.rarithmetic import r_uint, intmask
+from rpython.rlib.rarithmetic import r_uint, intmask, r_int
 from rpython.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
                                      free_raw_storage, raw_storage_getitem)
-from rpython.rlib.objectmodel import specialize, is_annotation_constant
+from rpython.rlib.objectmodel import (specialize, is_annotation_constant,
+        always_inline)
 from rpython.jit.backend.detect_cpu import getcpuclass
+from rpython.jit.tool.oparser import parse
+from rpython.jit.metainterp.history import (AbstractFailDescr,
+                                            AbstractDescr,
+                                            BasicFailDescr, BasicFinalDescr,
+                                            JitCellToken, TargetToken,
+                                            ConstInt, ConstPtr,
+                                            Const, ConstFloat)
 
 CPU = getcpuclass()
-if not CPU.vector_extension:
-    py.test.skip("this cpu %s has no implemented vector backend" % CPU)
+
+if sys.maxint == 2**31-1:
+    pytest.skip("32bit platforms are not supported")
 
 @specialize.argtype(0,1)
 def malloc(T,n):
@@ -25,11 +38,59 @@ def malloc(T,n):
 def free(mem):
     lltype.free(mem, flavor='raw')
 
-class VectorizeTests:
+def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
+    return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol) \
+           or (math.isnan(a) and math.isnan(b)) or \
+                  (math.isinf(a) and math.isinf(b) and \
+                   (a < 0.0 and b < 0.0) or \
+                   (a > 0.0 and b > 0.0))
+
+class RawStorage(object):
+    def __init__(self):
+        self.arrays = []
+
+    def new(self, values, type, size=None, zero=True):
+        bytecount = rffi.sizeof(type)
+        if not values:
+            array = alloc_raw_storage(size*bytecount, zero=zero)
+            self.arrays.append(array)
+            return array
+        else:
+            size = len(values)*bytecount
+            array = alloc_raw_storage(size, zero=zero)
+            for i,v in enumerate(values):
+                raw_storage_setitem(array, i*bytecount, rffi.cast(type,v))
+            self.arrays.append(array)
+            return array
+
+    def clear(self):
+        while self.arrays:
+            array = self.arrays.pop()
+            free_raw_storage(array)
+
+@pytest.fixture(scope='function')
+def rawstorage(request):
+    rs = RawStorage()
+    request.addfinalizer(rs.clear)
+    request.cls.a
+    return rs
+
+
+def rdiv(v1,v2):
+    # TODO unused, interpeting this on top of llgraph does not work correctly
+    try:
+        return v1 / v2
+    except ZeroDivisionError:
+        if v1 == v2 == 0.0:
+            return rfloat.NAN
+        return rfloat.copysign(rfloat.INFINITY, v1 * v2)
+
+class VectorizeTests(object):
     enable_opts = 'intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll'
 
     def setup_method(self, method):
-        print "RUNNING", method.__name__
+        if not self.supports_vector_ext():
+            py.test.skip("this cpu %s has no implemented vector backend" % CPU)
 
     def meta_interp(self, f, args, policy=None, vec=True, vec_all=False):
         return ll_meta_interp(f, args, enable_opts=self.enable_opts,
@@ -38,75 +99,190 @@ class VectorizeTests:
                               type_system=self.type_system,
                               vec=vec, vec_all=vec_all)
 
-    @py.test.mark.parametrize('i',[3,4,5,6,7,8,9,50])
-    def test_vectorize_simple_load_arith_store_int_add_index(self,i):
-        myjitdriver = JitDriver(greens = [],
-                                reds = 'auto',
-                                vectorize=True)
-        def f(d):
-            bc = d*rffi.sizeof(rffi.SIGNED)
-            va = alloc_raw_storage(bc, zero=True)
-            vb = alloc_raw_storage(bc, zero=True)
-            vc = alloc_raw_storage(bc, zero=True)
-            x = 1
-            for i in range(d):
-                j = i*rffi.sizeof(rffi.SIGNED)
-                raw_storage_setitem(va, j, rffi.cast(rffi.SIGNED,i))
-                raw_storage_setitem(vb, j, rffi.cast(rffi.SIGNED,i))
+    # FLOAT UNARY
+
+    def _vector_float_unary(self, func, type, data):
+        func = always_inline(func)
+
+        size = rffi.sizeof(type)
+        myjitdriver = JitDriver(greens = [], reds = 'auto', vectorize=True)
+        def f(bytecount, va, vc):
             i = 0
-            while i < bc:
+            while i < bytecount:
                 myjitdriver.jit_merge_point()
-                a = raw_storage_getitem(rffi.SIGNED,va,i)
-                b = raw_storage_getitem(rffi.SIGNED,vb,i)
-                c = a+b
-                raw_storage_setitem(vc, i, rffi.cast(rffi.SIGNED,c))
-                i += 1*rffi.sizeof(rffi.SIGNED)
-            res = 0
-            for i in range(d):
-                res += raw_storage_getitem(rffi.SIGNED,vc,i*rffi.sizeof(rffi.SIGNED))
+                a = raw_storage_getitem(type,va,i)
+                c = func(a)
+                raw_storage_setitem(vc, i, rffi.cast(type,c))
+                i += size
 
-            free_raw_storage(va)
-            free_raw_storage(vb)
-            free_raw_storage(vc)
-            return res
-        res = self.meta_interp(f, [i])
-        assert res == f(i)
+        la = data.draw(st.lists(st.floats(), min_size=10, max_size=150))
+        l = len(la)
 
-    @py.test.mark.parametrize('i',[1,2,3,8,17,128,130,131,142,143])
-    def test_vectorize_array_get_set(self,i):
-        myjitdriver = JitDriver(greens = [],
-                                reds = 'auto',
-                                vectorize=True)
-        T = lltype.Array(rffi.INT, hints={'nolength': True})
-        def f(d):
+        rawstorage = RawStorage()
+        va = rawstorage.new(la, type)
+        vc = rawstorage.new(None, type, size=l)
+        self.meta_interp(f, [l*size, va, vc], vec=True)
+
+        for i in range(l):
+            c = raw_storage_getitem(type,vc,i*size)
+            r = func(la[i])
+            assert isclose(r, c)
+
+        rawstorage.clear()
+
+    def vec_int_unary(test_func, unary_func, type):
+        return pytest.mark.parametrize('func,type', [
+            (unary_func, type)
+        ])(given(data=st.data())(test_func))
+
+    vec_float_unary = functools.partial(vec_int_unary, _vector_float_unary)
+
+    test_vec_float_abs = \
+            vec_float_unary(lambda v: abs(v), rffi.DOUBLE)
+    test_vec_float_neg = \
+            vec_float_unary(lambda v: -v, rffi.DOUBLE)
+
+    # FLOAT BINARY
+
+    def _vector_simple_float(self, func, type, data):
+        func = always_inline(func)
+
+        size = rffi.sizeof(rffi.DOUBLE)
+        myjitdriver = JitDriver(greens = [], reds = 'auto', vectorize=True)
+        def f(bytecount, va, vb, vc):
             i = 0
-            va = lltype.malloc(T, d, flavor='raw', zero=True)
-            vb = lltype.malloc(T, d, flavor='raw', zero=True)
-            vc = lltype.malloc(T, d, flavor='raw', zero=True)
-            for j in range(d):
-                va[j] = rffi.r_int(j)
-                vb[j] = rffi.r_int(j)
-            while i < d:
+            while i < bytecount:
                 myjitdriver.jit_merge_point()
+                a = raw_storage_getitem(type,va,i)
+                b = raw_storage_getitem(type,vb,i)
+                c = func(a,b)
+                raw_storage_setitem(vc, i, rffi.cast(type,c))
+                i += size
 
-                a = va[i]
-                b = vb[i]
-                ec = intmask(a)+intmask(b)
-                vc[i] = rffi.r_int(ec)
+        la = data.draw(st.lists(st.floats(), min_size=10, max_size=150))
+        #la = [0.0, 0.0, 0.0, 0.0, 5e-324, 0.0, 0.0, 5e-324, 0.0, 0.0]
+        l = len(la)
+        #lb = [0.0] * l
+        lb = data.draw(st.lists(st.floats(), min_size=l, max_size=l))
 
-                i += 1
-            res = 0
-            for j in range(d):
-                res += intmask(vc[j])
-            lltype.free(va, flavor='raw')
-            lltype.free(vb, flavor='raw')
-            lltype.free(vc, flavor='raw')
-            return res
-        res = self.meta_interp(f, [i])
-        assert res == f(i)
+        rawstorage = RawStorage()
+        va = rawstorage.new(la, type)
+        vb = rawstorage.new(lb, type)
+        vc = rawstorage.new(None, type, size=l)
+        self.meta_interp(f, [l*size, va, vb, vc], vec=True)
+
+        for i in range(l):
+            c = raw_storage_getitem(type,vc,i*size)
+            r = rffi.cast(type, func(la[i], lb[i]))
+            assert isclose(r, c)
+
+        rawstorage.clear()
+
+    def _vec_float_binary(test_func, func, type):
+        return pytest.mark.parametrize('func,type', [
+            (func, type)
+        ])(given(data=st.data())(test_func))
+
+    vec_float_binary = functools.partial(_vec_float_binary, _vector_simple_float)
+
+    test_vec_float_add = \
+        vec_float_binary(lambda a,b: a+b, rffi.DOUBLE)
+    test_vec_float_sub = \
+        vec_float_binary(lambda a,b: a-b, rffi.DOUBLE)
+    test_vec_float_mul = \
+        vec_float_binary(lambda a,b: a*b, rffi.DOUBLE)
+    #test_vec_float_div = \
+    #    vec_float_binary(lambda a,b: a/b, rffi.DOUBLE)
+
+    test_vec_float_cmp_eq = \
+        vec_float_binary(lambda a,b: a == b, rffi.DOUBLE)
+    test_vec_float_cmp_ne = \
+        vec_float_binary(lambda a,b: a != b, rffi.DOUBLE)
+
+    def _vector_simple_int(self, func, type, strat, data):
+        func = always_inline(func)
+
+        size = rffi.sizeof(type)
+        myjitdriver = JitDriver(greens = [], reds = 'auto', vectorize=True)
+        def f(bytecount, va, vb, vc):
+            i = 0
+            while i < bytecount:
+                myjitdriver.jit_merge_point()
+                a = raw_storage_getitem(type,va,i)
+                b = raw_storage_getitem(type,vb,i)
+                c = func(a,b)
+                raw_storage_setitem(vc, i, rffi.cast(type,c))
+                i += size
+
+        la = data.draw(st.lists(strat, min_size=10, max_size=150))
+        l = len(la)
+        lb = data.draw(st.lists(strat, min_size=l, max_size=l))
+
+        rawstorage = RawStorage()
+        va = rawstorage.new(la, type)
+        vb = rawstorage.new(lb, type)
+        vc = rawstorage.new(None, type, size=l)
+        self.meta_interp(f, [l*size, va, vb, vc], vec=True)
+
+        for i in range(l):
+            c = raw_storage_getitem(type,vc,i*size)
+            assert rffi.cast(type, func(la[i], lb[i])) == c
+
+        rawstorage.clear()
+
+    def vec_int_arith(test_func, arith_func, type):
+        size = rffi.sizeof(type)
+        bits = size*8
+        assert 0 <= bits <= 64
+        integers = st.integers(min_value=-2**(bits-1), max_value=2**(bits-1)-1)
+        return pytest.mark.parametrize('func,type,strat', [
+            (arith_func, type, integers)
+        ])(given(data=st.data())(test_func))
+
+    vec_int_arith = functools.partial(vec_int_arith, _vector_simple_int)
+
+    test_vec_signed_add = \
+        vec_int_arith(lambda a,b: intmask(a+b), rffi.SIGNED)
+    test_vec_int_add = \
+        vec_int_arith(lambda a,b: r_int(a)+r_int(b), rffi.INT)
+    test_vec_short_add = \
+        vec_int_arith(lambda a,b: r_int(a)+r_int(b), rffi.SHORT)
+
+    test_vec_signed_sub = \
+        vec_int_arith(lambda a,b: intmask(a-b), rffi.SIGNED)
+    test_vec_sub_int = \
+        vec_int_arith(lambda a,b: r_int(a)-r_int(b), rffi.INT)
+    test_vec_sub_short = \
+        vec_int_arith(lambda a,b: r_int(a)-r_int(b), rffi.SHORT)
+
+    test_vec_signed_and = \
+        vec_int_arith(lambda a,b: intmask(a)&intmask(b), rffi.SIGNED)
+    test_vec_int_and = \
+        vec_int_arith(lambda a,b: intmask(a)&intmask(b), rffi.INT)
+    test_vec_short_and = \
+        vec_int_arith(lambda a,b: intmask(a)&intmask(b), rffi.SHORT)
+
+    test_vec_or_signed = \
+        vec_int_arith(lambda a,b: intmask(a)|intmask(b), rffi.SIGNED)
+    test_vec_or_int = \
+        vec_int_arith(lambda a,b: intmask(a)|intmask(b), rffi.INT)
+    test_vec_or_short = \
+        vec_int_arith(lambda a,b: intmask(a)|intmask(b), rffi.SHORT)
+
+    test_vec_xor_signed = \
+        vec_int_arith(lambda a,b: intmask(a)^intmask(b), rffi.SIGNED)
+    test_vec_xor_int = \
+        vec_int_arith(lambda a,b: intmask(a)^intmask(b), rffi.INT)
+    test_vec_xor_short = \
+        vec_int_arith(lambda a,b: intmask(a)^intmask(b), rffi.SHORT)
+
+    test_vec_int_cmp_eq = \
+        vec_int_arith(lambda a,b: a == b, rffi.SIGNED)
+    test_vec_int_cmp_ne = \
+        vec_int_arith(lambda a,b: a == b, rffi.SIGNED)
 
     @py.test.mark.parametrize('i',[1,2,3,4,9])
-    def test_vector_register_too_small_vector(self, i):
+    def test_vec_register_too_small_vector(self, i):
         myjitdriver = JitDriver(greens = [],
                                 reds = 'auto',
                                 vectorize=True)
@@ -137,10 +313,10 @@ class VectorizeTests:
             lltype.free(va, flavor='raw')
             lltype.free(vb, flavor='raw')
             return res
-        res = self.meta_interp(f, [i])
+        res = self.meta_interp(f, [i], vec=True)
         assert res == f(i) == 3
 
-    def test_vectorize_max(self):
+    def test_vec_max(self):
         myjitdriver = JitDriver(greens = [],
                                 reds = 'auto',
                                 vectorize=True)
@@ -161,7 +337,7 @@ class VectorizeTests:
                 i += 1
             lltype.free(va, flavor='raw')
             return m
-        res = self.meta_interp(f, [30])
+        res = self.meta_interp(f, [30], vec=True)
         assert res == f(30) == 128
 
     @py.test.mark.parametrize('type,func,init,insert,at,count,breaks',
@@ -210,26 +386,48 @@ class VectorizeTests:
                 nobreak = True
             lltype.free(va, flavor='raw')
             return not nobreak
-        res = self.meta_interp(f, [count])
+        res = self.meta_interp(f, [count], vec=True)
         assert res == f(count) == breaks
 
-    def test_sum(self):
+    def _vec_reduce(self, strat, func, type, data):
+        func = always_inline(func)
+
+        size = rffi.sizeof(type)
         myjitdriver = JitDriver(greens = [], reds = 'auto', vectorize=True)
-        T = lltype.Array(rffi.DOUBLE, hints={'nolength': True})
-        def f(d):
-            va = lltype.malloc(T, d, flavor='raw', zero=True)
-            for j in range(d):
-                va[j] = float(j)
+        def f(accum, bytecount, v):
             i = 0
-            accum = 0
-            while i < d:
+            while i < bytecount:
                 myjitdriver.jit_merge_point()
-                accum += va[i]
-                i += 1
-            lltype.free(va, flavor='raw')
+                e = raw_storage_getitem(type,v,i)
+                accum = func(accum,e)
+                i += size
             return accum
-        res = self.meta_interp(f, [60])
-        assert res == f(60) == sum(range(60))
+
+        la = data.draw(st.lists(strat, min_size=10, max_size=150))
+        #la = [1.0] * 10
+        l = len(la)
+
+        accum = data.draw(strat)
+        rawstorage = RawStorage()
+        va = rawstorage.new(la, type)
+        res = self.meta_interp(f, [accum, l*size, va], vec=True)
+
+        assert isclose(rffi.cast(type, res), f(accum, l*size, va))
+
+        rawstorage.clear()
+
+    def vec_reduce(test_func, strat, arith_func, type):
+        return pytest.mark.parametrize('strat,func,type', [
+            (strat, arith_func, type)
+        ])(given(data=st.data())(test_func))
+    vec_reduce = functools.partial(vec_reduce, _vec_reduce)
+
+    test_vec_int_sum = vec_reduce(st.integers(min_value=-2**(64-1), max_value=2**(64-1)-1),
+                             lambda a,b: lltype.intmask(lltype.intmask(a)+lltype.intmask(b)), lltype.Signed)
+    test_vec_float_sum = vec_reduce(st.floats(), lambda a,b: a+b, rffi.DOUBLE)
+    test_vec_float_prod = vec_reduce(st.floats(min_value=-100, max_value=100,
+                                               allow_nan=False, allow_infinity=False), lambda a,b: a*b, rffi.DOUBLE)
+
 
     def test_constant_expand(self):
         myjitdriver = JitDriver(greens = [], reds = 'auto', vectorize=True)
@@ -244,7 +442,7 @@ class VectorizeTests:
             val = va[0]
             lltype.free(va, flavor='raw')
             return val
-        res = self.meta_interp(f, [60])
+        res = self.meta_interp(f, [60], vec=True)
         assert res == f(60) == 34.5
 
     def test_constant_expand_vec_all(self):
@@ -262,24 +460,27 @@ class VectorizeTests:
             val = va[0]
             lltype.free(va, flavor='raw')
             return val
-        res = self.meta_interp(f, [60], vec_all=True)
+        res = self.meta_interp(f, [60], vec=True, vec_all=True)
         assert res == f(60) == 34.5
 
-    def test_variable_expand(self):
+    @py.test.mark.parametrize('type,value', [(rffi.DOUBLE, 58.4547),
+        (lltype.Signed, 2300000), (rffi.INT, 4321),
+        (rffi.SHORT, 9922), (rffi.SIGNEDCHAR, -127)])
+    def test_variable_expand(self, type, value):
         myjitdriver = JitDriver(greens = [], reds = 'auto', vectorize=True)
-        T = lltype.Array(rffi.DOUBLE, hints={'nolength': True})
+        T = lltype.Array(type, hints={'nolength': True})
         def f(d,variable):
             va = lltype.malloc(T, d, flavor='raw', zero=True)
             i = 0
             while i < d:
                 myjitdriver.jit_merge_point()
-                va[i] = va[i] + variable
+                va[i] = rffi.cast(type, variable)
                 i += 1
-            val = va[0]
+            val = va[d//2]
             lltype.free(va, flavor='raw')
             return val
-        res = self.meta_interp(f, [60,58.4547])
-        assert res == f(60,58.4547) == 58.4547
+        res = self.meta_interp(f, [60,value], vec=True)
+        assert res == f(60,value) == value
 
     @py.test.mark.parametrize('vec,vec_all',[(False,True),(True,False),(True,True),(False,False)])
     def test_accum(self, vec, vec_all):
@@ -342,7 +543,7 @@ class VectorizeTests:
             lltype.free(va, flavor='raw')
             lltype.free(vb, flavor='raw')
             return 0
-        res = self.meta_interp(f, [i])
+        res = self.meta_interp(f, [i], vec=True)
         assert res == f(i)
 
     @py.test.mark.parametrize('i,v1,v2',[(25,2.5,0.3),(25,2.5,0.3)])
@@ -368,7 +569,7 @@ class VectorizeTests:
             for i in range(d):
                 s += a[i]
             return s
-        res = self.meta_interp(f, [i,v1,v2], vec_all=True)
+        res = self.meta_interp(f, [i,v1,v2], vec=True, vec_all=True)
         # sum helps to generate the rounding error of floating points
         # return 69.999 ... instead of 70, (v1+v2)*i == 70.0
         assert res == f(i,v1,v2) == sum([v1+v2]*i)
@@ -395,7 +596,7 @@ class VectorizeTests:
             free(vector_a)
             free(vector_b)
             return 0
-        res = self.meta_interp(f, [size], vec_all=True)
+        res = self.meta_interp(f, [size], vec=True, vec_all=True)
         assert res == f(size)
 
     def test_max_byte(self):
@@ -418,7 +619,7 @@ class VectorizeTests:
                 i += 1
             free(vector_a)
             return max
-        res = self.meta_interp(f, [128], vec_all=True)
+        res = self.meta_interp(f, [128], vec=True, vec_all=True)
         assert res == f(128)
 
 
@@ -439,7 +640,7 @@ class VectorizeTests:
             yield (size, Typ(*t1), Typ(*t2), Typ(*t3), op[0], op[1])
     types = [('rffi.DOUBLE', 'float', 'float'),
              ('rffi.SIGNED', 'int', 'int'),
-             ('rffi.FLOAT', 'rffi.r_singlefloat', 'float'),
+             #('rffi.FLOAT', 'rffi.r_singlefloat', 'float'),
             ]
     operators = [('add', '+'),
                 ]
@@ -455,11 +656,11 @@ class VectorizeTests:
                 vector_b = lltype.malloc(T2, size, flavor='raw')
                 vector_c = lltype.malloc(T3, size, flavor='raw')
                 for i in range(size):
-                    vector_a[i] = {type_a_storecast}(i+1)
+                    vector_a[i] = {type_a_storecast}(1)
                 for i in range(size):
-                    vector_b[i] = {type_b_storecast}(i+1)
+                    vector_b[i] = {type_b_storecast}(1)
                 for i in range(size):
-                    vector_c[i] = {type_c_storecast}(i+1)
+                    vector_c[i] = {type_c_storecast}(1)
                 i = 0
                 while i < size:
                     myjitdriver.jit_merge_point()
@@ -475,7 +676,7 @@ class VectorizeTests:
                     c += {type_c_loadcast}(vector_c[i])
                 lltype.free(vector_c, flavor='raw')
                 return c
-            res = self.meta_interp(f, [{size}], vec_all=True)
+            res = self.meta_interp(f, [{size}], vec=True, vec_all=True)
             assert res == f({size})
         """
         env = {
@@ -519,7 +720,7 @@ class VectorizeTests:
             #    c += vector_c[i]
             lltype.free(vector_c, flavor='raw')
             return 0
-        res = self.meta_interp(f, [22], vec_all=True)
+        res = self.meta_interp(f, [22], vec=True, vec_all=True)
         assert res == f(22)
 
     def test_guard_test_location_assert(self):
@@ -541,8 +742,162 @@ class VectorizeTests:
                 i += 1
             lltype.free(vector_a, flavor='raw')
             return breaks
-        res = self.meta_interp(f, [22], vec_all=True, vec_guard_ratio=5)
+        res = self.meta_interp(f, [22], vec=True, vec_all=True)
         assert res == f(22)
+
+    def run_unpack(self, unpack, vector_type, assignments, float=True):
+        vars = {'v':0,'f':0,'i':0}
+        def newvar(type):
+            c = vars[type]
+            vars[type] = c + 1
+            if type == 'v':
+                return type + str(c) + vector_type
+            return type + str(c)
+        targettoken = TargetToken()
+        finaldescr = BasicFinalDescr(1)
+        args = []
+        args_values = []
+        pack = []
+        suffix = 'f' if float else 'i'
+        for var, vals in assignments.items():
+            v = newvar('v')
+            pack.append('%s = vec_%s()' % (v, suffix))
+            for i,val in enumerate(vals):
+                args_values.append(val)
+                f = newvar(suffix)
+                args.append(f)
+                count = 1
+                # create a new variable
+                vo = v
+                v = newvar('v')
+                pack.append('%s = vec_pack_%s(%s, %s, %d, %d)' % \
+                            (v, suffix, vo, f, i, count))
+            vars['x'] = v
+        packs = '\n        '.join(pack)
+        resvar = suffix + '{'+suffix+'}'
+
+        # format the resoperations, take care that the lhs of =
+        # is formated later with a new variable name
+        unpackops = unpack
+        if isinstance(unpack, str):
+            unpackops = [unpack]
+        unpacksf = []
+        for up in unpackops:
+            lhs, rhs = up.split("=")
+            rhsf = rhs.format(**vars)
+            newvar('i'); newvar('f'); newvar('v')
+            lhsf = lhs.format(**vars)
+            unpacksf.append(lhsf + '=' + rhsf)
+        unpacks = '\n        '.join(unpacksf)
+
+        source = '''
+        [{args}]
+        label({args}, descr=targettoken)
+        {packs}
+        {unpacks}
+        finish({resvar}, descr=finaldescr)
+        '''.format(args=','.join(args),packs=packs, unpacks=unpacks,
+                   resvar=resvar.format(**vars))
+        print(source)
+        return self._compile_and_run(source, args_values, float,
+                ns={'targettoken': targettoken, 'finaldescr': finaldescr})
+
+
+    def _compile_and_run(self, source, args_values, float=True, ns={}):
+        loop = parse(source, namespace=ns)
+        cpu = self.CPUClass(rtyper=None, stats=None)
+        cpu.setup_once()
+        #
+        looptoken = JitCellToken()
+        cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        #import pdb; pdb.set_trace()
+        deadframe = cpu.execute_token(looptoken, *args_values)
+        print(source)
+        if float:
+            return cpu.get_float_value(deadframe, 0)
+        else:
+            return cpu.get_int_value(deadframe, 0)
+
+    def test_unpack_f(self):
+        # double unpack
+        assert self.run_unpack("f{f} = vec_unpack_f({x}, 0, 1)",
+                               "[2xf64]", {'x': (1.2,-1.0)}) == 1.2
+        assert self.run_unpack("f{f} = vec_unpack_f({x}, 1, 1)",
+                               "[2xf64]", {'x': (50.33,4321.0)}) == 4321.0
+    def test_unpack_i64(self):
+        # int64
+        assert self.run_unpack("i{i} = vec_unpack_i({x}, 1, 1)",
+                               "[2xi64]", {'x': (14,15)}, float=False) == 15
+        assert self.run_unpack("i{i} = vec_unpack_i({x}, 0, 1)",
+                               "[2xi64]", {'x': (11,12)}, float=False) == 11
+
+    def test_unpack_i(self):
+        for i in range(16):
+            # i8
+            op = "i{i} = vec_unpack_i({x}, %d, 1)" % i
+            assert self.run_unpack(op, "[16xi8]", {'x': [127,1]*8}, float=False) == \
+                   (127 if i%2==0 else 1)
+            # i16
+            if i < 8:
+                assert self.run_unpack(op, "[8xi16]", {'x': [2**15-1,0]*4}, float=False) == \
+                       (2**15-1 if i%2==0 else 0)
+            # i32
+            if i < 4:
+                assert self.run_unpack(op, "[4xi32]", {'x': [2**31-1,0]*4}, float=False) == \
+                       (2**31-1 if i%2==0 else 0)
+
+    def test_unpack_several(self):
+        values = [1,2,3,4]
+        for i,v in enumerate(values):
+            j = (i // 2) * 2
+            op = ["v{v}[2xi32] = vec_unpack_i({x}, %d, 2)" % j,
+                  "i{i} = vec_unpack_i(v{v}[2xi32], %d, 1)" % (i % 2)]
+            assert self.run_unpack(op, "[4xi32]", {'x': values}, float=False) == v
+
+        values = [1,2,3,4,5,6,7,8]
+        for i,v in enumerate(values):
+            j = (i // 4) * 4
+            op = ["v{v}[4xi16] = vec_unpack_i({x}, %d, 4)" % j,
+                  "i{i} = vec_unpack_i(v{v}[4xi16], %d, 1)" % (i % 4)]
+            assert self.run_unpack(op, "[8xi16]", {'x': values}, float=False) == v
+
+        values = [1,2,3,4,5,6,7,8] * 2
+        for i,v in enumerate(values):
+            j = (i // 8) * 8
+            op = ["v{v}[8xi8] = vec_unpack_i({x}, %d, 8)" % j,
+                  "i{i} = vec_unpack_i(v{v}[8xi8], %d, 1)" % (i % 8)]
+            assert self.run_unpack(op, "[16xi8]", {'x': values}, float=False) == v
+
+    def test_int32_float_casts(self):
+        myjitdriver = JitDriver(greens = [], reds = 'auto', vectorize=True)
+        def f(bytecount, va, vb, vc):
+            i = 0
+            j = 0
+            while i < bytecount:
+                myjitdriver.jit_merge_point()
+                a = raw_storage_getitem(rffi.INT,va,j)
+                b = raw_storage_getitem(rffi.DOUBLE,vb,i)
+                c = rffi.cast(rffi.DOUBLE,a)+b
+                raw_storage_setitem(vc, i, c)
+                j += 4
+                i += 8
+
+        va = alloc_raw_storage(4*30, zero=True)
+        vb = alloc_raw_storage(8*30, zero=True)
+        for i,v in enumerate([1]*30):
+            raw_storage_setitem(va, i*4, rffi.cast(rffi.INT,v))
+        for i,v in enumerate([-9.0]*30):
+            raw_storage_setitem(vb, i*8, rffi.cast(rffi.DOUBLE,v))
+        vc = alloc_raw_storage(8*30, zero=True)
+        self.meta_interp(f, [8*30, va, vb, vc], vec=True)
+
+        for i in range(30):
+            assert raw_storage_getitem(rffi.DOUBLE,vc,i*8) == -8.0
+
+        free_raw_storage(va)
+        free_raw_storage(vb)
+        free_raw_storage(vc)
+
 
 class TestLLtype(LLJitMixin, VectorizeTests):
     pass

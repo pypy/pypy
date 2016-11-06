@@ -21,15 +21,22 @@
 /* Version parsed out into numeric values */
 #define PY_MAJOR_VERSION	2
 #define PY_MINOR_VERSION	7
-#define PY_MICRO_VERSION	10
+#define PY_MICRO_VERSION	12
 #define PY_RELEASE_LEVEL	PY_RELEASE_LEVEL_FINAL
 #define PY_RELEASE_SERIAL	0
 
 /* Version as a string */
-#define PY_VERSION		"2.7.10"
+#define PY_VERSION		"2.7.12"
 
 /* PyPy version as a string */
-#define PYPY_VERSION "4.1.0-alpha0"
+#define PYPY_VERSION "5.5.0-alpha0"
+#define PYPY_VERSION_NUM  0x05050000
+
+/* Defined to mean a PyPy where cpyext holds more regular references
+   to PyObjects, e.g. staying alive as long as the internal PyPy object
+   stays alive. */
+#define PYPY_CPYEXT_GC      1
+#define PyPy_Borrow(a, b)   ((void) 0)
 
 /* Subversion Revision number of this file (not of the repository).
  * Empty since Mercurial migration. */

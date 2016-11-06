@@ -18,12 +18,12 @@ class JitHookInterfaceTests(object):
         reasons = []
 
         class MyJitIface(JitHookInterface):
-            def on_abort(self, reason, jitdriver, greenkey, greenkey_repr, logops, operations):
+            def on_abort(self, reason, jitdriver, greenkey, greenkey_repr, logops, ops):
                 assert jitdriver is myjitdriver
                 assert len(greenkey) == 1
                 reasons.append(reason)
                 assert greenkey_repr == 'blah'
-                assert len(operations) > 1
+                assert len(ops) > 1
 
         iface = MyJitIface()
 

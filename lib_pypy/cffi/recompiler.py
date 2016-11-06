@@ -275,6 +275,8 @@ class Recompiler:
     def write_c_source_to_f(self, f, preamble):
         self._f = f
         prnt = self._prnt
+        if self.ffi._embedding is not None:
+            prnt('#define _CFFI_USE_EMBEDDING')
         #
         # first the '#include' (actually done by inlining the file's content)
         lines = self._rel_readlines('_cffi_include.h')
@@ -513,7 +515,7 @@ class Recompiler:
                                                     tovar, errcode)
             return
         #
-        elif isinstance(tp, (model.StructOrUnion, model.EnumType)):
+        elif isinstance(tp, model.StructOrUnionOrEnum):
             # a struct (not a struct pointer) as a function argument
             self._prnt('  if (_cffi_to_c((char *)&%s, _cffi_type(%d), %s) < 0)'
                       % (tovar, self._gettypenum(tp), fromvar))
@@ -570,7 +572,7 @@ class Recompiler:
         elif isinstance(tp, model.ArrayType):
             return '_cffi_from_c_pointer((char *)%s, _cffi_type(%d))' % (
                 var, self._gettypenum(model.PointerType(tp.item)))
-        elif isinstance(tp, model.StructType):
+        elif isinstance(tp, model.StructOrUnion):
             if tp.fldnames is None:
                 raise TypeError("'%s' is used as %s, but is opaque" % (
                     tp._get_c_name(), context))
@@ -585,8 +587,11 @@ class Recompiler:
     # ----------
     # typedefs
 
+    def _typedef_type(self, tp, name):
+        return self._global_type(tp, "(*(%s *)0)" % (name,))
+
     def _generate_cpy_typedef_collecttype(self, tp, name):
-        self._do_collect_type(tp)
+        self._do_collect_type(self._typedef_type(tp, name))
 
     def _generate_cpy_typedef_decl(self, tp, name):
         pass
@@ -596,6 +601,7 @@ class Recompiler:
         self._lsts["typename"].append(TypenameExpr(name, type_index))
 
     def _generate_cpy_typedef_ctx(self, tp, name):
+        tp = self._typedef_type(tp, name)
         self._typedef_ctx(tp, name)
         if getattr(tp, "origin", None) == "unknown_type":
             self._struct_ctx(tp, tp.name, approxname=None)
@@ -683,13 +689,11 @@ class Recompiler:
             rng = range(len(tp.args))
             for i in rng:
                 prnt('  PyObject *arg%d;' % i)
-            prnt('  PyObject **aa;')
             prnt()
-            prnt('  aa = _cffi_unpack_args(args, %d, "%s");' % (len(rng), name))
-            prnt('  if (aa == NULL)')
+            prnt('  if (!PyArg_UnpackTuple(args, "%s", %d, %d, %s))' % (
+                name, len(rng), len(rng),
+                ', '.join(['&arg%d' % i for i in rng])))
             prnt('    return NULL;')
-            for i in rng:
-                prnt('  arg%d = aa[%d];' % (i, i))
         prnt()
         #
         for i, type in enumerate(tp.args):
@@ -814,7 +818,7 @@ class Recompiler:
             try:
                 if ftype.is_integer_type() or fbitsize >= 0:
                     # accept all integers, but complain on float or double
-                    prnt("  (void)((p->%s) << 1);  /* check that '%s.%s' is "
+                    prnt("  (void)((p->%s) | 0);  /* check that '%s.%s' is "
                          "an integer */" % (fname, cname, fname))
                     continue
                 # only accept exactly the type declared, except that '[]'
@@ -862,6 +866,8 @@ class Recompiler:
             enumfields = list(tp.enumfields())
             for fldname, fldtype, fbitsize, fqual in enumfields:
                 fldtype = self._field_type(tp, fldname, fldtype)
+                self._check_not_opaque(fldtype,
+                                       "field '%s.%s'" % (tp.name, fldname))
                 # cname is None for _add_missing_struct_unions() only
                 op = OP_NOOP
                 if fbitsize >= 0:
@@ -910,6 +916,13 @@ class Recompiler:
             StructUnionExpr(tp.name, type_index, flags, size, align, comment,
                             first_field_index, c_fields))
         self._seen_struct_unions.add(tp)
+
+    def _check_not_opaque(self, tp, location):
+        while isinstance(tp, model.ArrayType):
+            tp = tp.item
+        if isinstance(tp, model.StructOrUnion) and tp.fldtypes is None:
+            raise TypeError(
+                "%s is of an opaque type (not declared in cdef())" % location)
 
     def _add_missing_struct_unions(self):
         # not very nice, but some struct declarations might be missing
@@ -991,7 +1004,7 @@ class Recompiler:
             prnt('static int %s(unsigned long long *o)' % funcname)
             prnt('{')
             prnt('  int n = (%s) <= 0;' % (name,))
-            prnt('  *o = (unsigned long long)((%s) << 0);'
+            prnt('  *o = (unsigned long long)((%s) | 0);'
                  '  /* check that %s is an integer */' % (name, name))
             if check_value is not None:
                 if check_value > 0:
@@ -1145,11 +1158,11 @@ class Recompiler:
     def _generate_cpy_extern_python_collecttype(self, tp, name):
         assert isinstance(tp, model.FunctionPtrType)
         self._do_collect_type(tp)
+    _generate_cpy_dllexport_python_collecttype = \
+      _generate_cpy_extern_python_plus_c_collecttype = \
+      _generate_cpy_extern_python_collecttype
 
-    def _generate_cpy_dllexport_python_collecttype(self, tp, name):
-        self._generate_cpy_extern_python_collecttype(tp, name)
-
-    def _generate_cpy_extern_python_decl(self, tp, name, dllexport=False):
+    def _extern_python_decl(self, tp, name, tag_and_space):
         prnt = self._prnt
         if isinstance(tp.result, model.VoidType):
             size_of_result = '0'
@@ -1184,11 +1197,7 @@ class Recompiler:
             size_of_a = 'sizeof(%s) > %d ? sizeof(%s) : %d' % (
                 tp.result.get_c_name(''), size_of_a,
                 tp.result.get_c_name(''), size_of_a)
-        if dllexport:
-            tag = 'CFFI_DLLEXPORT'
-        else:
-            tag = 'static'
-        prnt('%s %s' % (tag, tp.result.get_c_name(name_and_arguments)))
+        prnt('%s%s' % (tag_and_space, tp.result.get_c_name(name_and_arguments)))
         prnt('{')
         prnt('  char a[%s];' % size_of_a)
         prnt('  char *p = a;')
@@ -1206,8 +1215,14 @@ class Recompiler:
         prnt()
         self._num_externpy += 1
 
+    def _generate_cpy_extern_python_decl(self, tp, name):
+        self._extern_python_decl(tp, name, 'static ')
+
     def _generate_cpy_dllexport_python_decl(self, tp, name):
-        self._generate_cpy_extern_python_decl(tp, name, dllexport=True)
+        self._extern_python_decl(tp, name, 'CFFI_DLLEXPORT ')
+
+    def _generate_cpy_extern_python_plus_c_decl(self, tp, name):
+        self._extern_python_decl(tp, name, '')
 
     def _generate_cpy_extern_python_ctx(self, tp, name):
         if self.target_is_python:
@@ -1220,8 +1235,9 @@ class Recompiler:
         self._lsts["global"].append(
             GlobalExpr(name, '&_cffi_externpy__%s' % name, type_op, name))
 
-    def _generate_cpy_dllexport_python_ctx(self, tp, name):
-        self._generate_cpy_extern_python_ctx(tp, name)
+    _generate_cpy_dllexport_python_ctx = \
+      _generate_cpy_extern_python_plus_c_ctx = \
+      _generate_cpy_extern_python_ctx
 
     def _string_literal(self, s):
         def _char_repr(c):
@@ -1231,7 +1247,7 @@ class Recompiler:
             if c == '\n': return '\\n'
             return '\\%03o' % ord(c)
         lines = []
-        for line in s.splitlines(True):
+        for line in s.splitlines(True) or ['']:
             lines.append('"%s"' % ''.join([_char_repr(c) for c in line]))
         return ' \\\n'.join(lines)
 
@@ -1247,7 +1263,7 @@ class Recompiler:
 
     def _emit_bytecode_UnknownIntegerType(self, tp, index):
         s = ('_cffi_prim_int(sizeof(%s), (\n'
-             '           ((%s)-1) << 0 /* check that %s is an integer type */\n'
+             '           ((%s)-1) | 0 /* check that %s is an integer type */\n'
              '         ) <= 0)' % (tp.name, tp.name, tp.name))
         self.cffi_types[index] = CffiOp(OP_PRIMITIVE, s)
 
@@ -1319,7 +1335,9 @@ else:
                 s = s.encode('ascii')
             super(NativeIO, self).write(s)
 
-def _make_c_or_py_source(ffi, module_name, preamble, target_file):
+def _make_c_or_py_source(ffi, module_name, preamble, target_file, verbose):
+    if verbose:
+        print("generating %s" % (target_file,))
     recompiler = Recompiler(ffi, module_name,
                             target_is_python=(preamble is None))
     recompiler.collect_type_table()
@@ -1331,6 +1349,8 @@ def _make_c_or_py_source(ffi, module_name, preamble, target_file):
         with open(target_file, 'r') as f1:
             if f1.read(len(output) + 1) != output:
                 raise IOError
+        if verbose:
+            print("(already up-to-date)")
         return False     # already up-to-date
     except IOError:
         tmp_file = '%s.~%d' % (target_file, os.getpid())
@@ -1343,12 +1363,14 @@ def _make_c_or_py_source(ffi, module_name, preamble, target_file):
             os.rename(tmp_file, target_file)
         return True
 
-def make_c_source(ffi, module_name, preamble, target_c_file):
+def make_c_source(ffi, module_name, preamble, target_c_file, verbose=False):
     assert preamble is not None
-    return _make_c_or_py_source(ffi, module_name, preamble, target_c_file)
+    return _make_c_or_py_source(ffi, module_name, preamble, target_c_file,
+                                verbose)
 
-def make_py_source(ffi, module_name, target_py_file):
-    return _make_c_or_py_source(ffi, module_name, None, target_py_file)
+def make_py_source(ffi, module_name, target_py_file, verbose=False):
+    return _make_c_or_py_source(ffi, module_name, None, target_py_file,
+                                verbose)
 
 def _modname_to_file(outputdir, modname, extension):
     parts = modname.split('.')
@@ -1413,7 +1435,7 @@ def _patch_for_target(patchlist, target):
 
 def recompile(ffi, module_name, preamble, tmpdir='.', call_c_compiler=True,
               c_file=None, source_extension='.c', extradir=None,
-              compiler_verbose=1, target=None, **kwds):
+              compiler_verbose=1, target=None, debug=None, **kwds):
     if not isinstance(module_name, str):
         module_name = module_name.encode('ascii')
     if ffi._windows_unicode:
@@ -1438,7 +1460,8 @@ def recompile(ffi, module_name, preamble, tmpdir='.', call_c_compiler=True,
                 target = '*'
         #
         ext = ffiplatform.get_extension(ext_c_file, module_name, **kwds)
-        updated = make_c_source(ffi, module_name, preamble, c_file)
+        updated = make_c_source(ffi, module_name, preamble, c_file,
+                                verbose=compiler_verbose)
         if call_c_compiler:
             patchlist = []
             cwd = os.getcwd()
@@ -1448,7 +1471,8 @@ def recompile(ffi, module_name, preamble, tmpdir='.', call_c_compiler=True,
                 if target != '*':
                     _patch_for_target(patchlist, target)
                 os.chdir(tmpdir)
-                outputfilename = ffiplatform.compile('.', ext, compiler_verbose)
+                outputfilename = ffiplatform.compile('.', ext,
+                                                     compiler_verbose, debug)
             finally:
                 os.chdir(cwd)
                 _unpatch_meths(patchlist)
@@ -1458,7 +1482,8 @@ def recompile(ffi, module_name, preamble, tmpdir='.', call_c_compiler=True,
     else:
         if c_file is None:
             c_file, _ = _modname_to_file(tmpdir, module_name, '.py')
-        updated = make_py_source(ffi, module_name, c_file)
+        updated = make_py_source(ffi, module_name, c_file,
+                                 verbose=compiler_verbose)
         if call_c_compiler:
             return c_file
         else:
@@ -1484,4 +1509,7 @@ def _verify(ffi, module_name, preamble, *args, **kwds):
     def typeof_disabled(*args, **kwds):
         raise NotImplementedError
     ffi._typeof = typeof_disabled
+    for name in dir(ffi):
+        if not name.startswith('_') and not hasattr(module.ffi, name):
+            setattr(ffi, name, NotImplemented)
     return module.lib

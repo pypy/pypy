@@ -1,5 +1,6 @@
 import new
 from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.executioncontext import report_error
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.baseobjspace import W_Root
@@ -32,56 +33,52 @@ def descr_classobj_new(space, w_subtype, w_name, w_bases, w_dict):
             if space.is_true(space.callable(w_metaclass)):
                 return space.call_function(w_metaclass, w_name,
                                            w_bases, w_dict)
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("base must be class"))
+            raise oefmt(space.w_TypeError, "base must be class")
 
     return W_ClassObject(space, w_name, bases_w, w_dict)
 
 
 class W_ClassObject(W_Root):
+    _immutable_fields_ = ['bases_w?[*]', 'w_dict?']
+
     def __init__(self, space, w_name, bases, w_dict):
         self.name = space.str_w(w_name)
         make_sure_not_resized(bases)
         self.bases_w = bases
         self.w_dict = w_dict
 
+    def has_user_del(self, space):
+        return self.lookup(space, '__del__') is not None
+
     def instantiate(self, space):
         cache = space.fromcache(Cache)
-        if self.lookup(space, '__del__') is not None:
-            w_inst = cache.cls_with_del(space, self)
-        else:
-            w_inst = cache.cls_without_del(space, self)
-        return w_inst
+        return cache.InstanceObjectCls(space, self)
 
     def getdict(self, space):
         return self.w_dict
 
     def setdict(self, space, w_dict):
         if not space.isinstance_w(w_dict, space.w_dict):
-            raise OperationError(
-                space.w_TypeError,
-                space.wrap("__dict__ must be a dictionary object"))
+            raise oefmt(space.w_TypeError,
+                        "__dict__ must be a dictionary object")
         self.w_dict = w_dict
 
     def setname(self, space, w_newname):
         if not space.isinstance_w(w_newname, space.w_str):
-            raise OperationError(space.w_TypeError,
-                space.wrap("__name__ must be a string object")
-            )
+            raise oefmt(space.w_TypeError, "__name__ must be a string object")
         self.name = space.str_w(w_newname)
 
     def setbases(self, space, w_bases):
         if not space.isinstance_w(w_bases, space.w_tuple):
-            raise OperationError(space.w_TypeError,
-                space.wrap("__bases__ must be a tuple object")
-            )
+            raise oefmt(space.w_TypeError, "__bases__ must be a tuple object")
         bases_w = space.fixedview(w_bases)
         for w_base in bases_w:
             if not isinstance(w_base, W_ClassObject):
-                raise OperationError(space.w_TypeError,
-                                     space.wrap("__bases__ items must be classes"))
+                raise oefmt(space.w_TypeError,
+                            "__bases__ items must be classes")
         self.bases_w = bases_w
 
+    @jit.unroll_safe
     def is_subclass_of(self, other):
         assert isinstance(other, W_ClassObject)
         if self is other:
@@ -138,9 +135,9 @@ class W_ClassObject(W_Root):
                 self.setbases(space, w_value)
                 return
             elif name == "__del__":
-                if self.lookup(space, name) is None:
+                if not self.has_user_del(space):
                     msg = ("a __del__ method added to an existing class will "
-                           "not be called")
+                           "only be called on instances made from now on")
                     space.warn(space.wrap(msg), space.w_RuntimeWarning)
         space.setitem(self.w_dict, w_attr, w_value)
 
@@ -151,7 +148,7 @@ class W_ClassObject(W_Root):
                         "cannot delete attribute '%s'", name)
         try:
             space.delitem(self.w_dict, w_attr)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_KeyError):
                 raise
             raise oefmt(space.w_AttributeError,
@@ -171,7 +168,7 @@ class W_ClassObject(W_Root):
     def get_module_string(self, space):
         try:
             w_mod = self.descr_getattribute(space, "__module__")
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_AttributeError):
                 raise
             return "?"
@@ -185,12 +182,16 @@ class W_ClassObject(W_Root):
 
 class Cache:
     def __init__(self, space):
-        from pypy.interpreter.typedef import _usersubclswithfeature
-        # evil
-        self.cls_without_del = _usersubclswithfeature(
-                space.config, W_InstanceObject, "dict", "weakref")
-        self.cls_with_del = _usersubclswithfeature(
-                space.config, self.cls_without_del, "del")
+        from pypy.interpreter.typedef import _getusercls
+
+        if hasattr(space, 'is_fake_objspace'):
+            # hack: with the fake objspace, we don't want to see typedef's
+            # _getusercls() at all
+            self.InstanceObjectCls = W_InstanceObject
+            return
+
+        self.InstanceObjectCls = _getusercls(
+                W_InstanceObject, reallywantdict=True)
 
 
 def class_descr_call(space, w_self, __args__):
@@ -200,13 +201,9 @@ def class_descr_call(space, w_self, __args__):
     if w_init is not None:
         w_result = space.call_args(w_init, __args__)
         if not space.is_w(w_result, space.w_None):
-            raise OperationError(
-                space.w_TypeError,
-                space.wrap("__init__() should return None"))
+            raise oefmt(space.w_TypeError, "__init__() should return None")
     elif __args__.arguments_w or __args__.keywords:
-        raise OperationError(
-                space.w_TypeError,
-                space.wrap("this constructor takes no arguments"))
+        raise oefmt(space.w_TypeError, "this constructor takes no arguments")
     return w_inst
 
 W_ClassObject.typedef = TypeDef("classobj",
@@ -233,7 +230,7 @@ def make_binary_returning_notimplemented_instance_method(name):
     def binaryop(self, space, w_other):
         try:
             w_meth = self.getattr(space, name, False)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, space.w_AttributeError):
                 return space.w_NotImplemented
             raise
@@ -281,7 +278,7 @@ def make_binary_instance_method(name):
 def _coerce_helper(space, w_self, w_other):
     try:
         w_tup = space.coerce(w_self, w_other)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise
         return [w_self, w_other]
@@ -290,9 +287,7 @@ def _coerce_helper(space, w_self, w_other):
 def descr_instance_new(space, w_type, w_class, w_dict=None):
     # w_type is not used at all
     if not isinstance(w_class, W_ClassObject):
-        raise OperationError(
-            space.w_TypeError,
-            space.wrap("instance() first arg must be class"))
+        raise oefmt(space.w_TypeError, "instance() first arg must be class")
     w_result = w_class.instantiate(space)
     if not space.is_none(w_dict):
         w_result.setdict(space, w_dict)
@@ -302,18 +297,19 @@ def descr_instance_new(space, w_type, w_class, w_dict=None):
 class W_InstanceObject(W_Root):
     def __init__(self, space, w_class):
         # note that user_setup is overridden by the typedef.py machinery
+        self.space = space
         self.user_setup(space, space.gettypeobject(self.typedef))
         assert isinstance(w_class, W_ClassObject)
         self.w_class = w_class
+        if w_class.has_user_del(space):
+            space.finalizer_queue.register_finalizer(self)
 
     def user_setup(self, space, w_subtype):
-        self.space = space
+        pass
 
     def set_oldstyle_class(self, space, w_class):
         if w_class is None or not isinstance(w_class, W_ClassObject):
-            raise OperationError(
-                space.w_TypeError,
-                space.wrap("__class__ must be set to a class"))
+            raise oefmt(space.w_TypeError, "__class__ must be set to a class")
         self.w_class = w_class
 
     def getattr_from_class(self, space, name):
@@ -321,7 +317,7 @@ class W_InstanceObject(W_Root):
         # This method ignores the instance dict and the __getattr__.
         # Returns None if not found.
         assert isinstance(name, str)
-        w_value = self.w_class.lookup(space, name)
+        w_value = jit.promote(self.w_class).lookup(space, name)
         if w_value is None:
             return None
         w_descr_get = space.lookup(w_value, '__get__')
@@ -343,7 +339,7 @@ class W_InstanceObject(W_Root):
         if w_meth is not None:
             try:
                 return space.call_function(w_meth, space.wrap(name))
-            except OperationError, e:
+            except OperationError as e:
                 if not exc and e.match(space, space.w_AttributeError):
                     return None     # eat the AttributeError
                 raise
@@ -375,8 +371,7 @@ class W_InstanceObject(W_Root):
                 self.set_oldstyle_class(space, w_value)
                 return
             if name == '__del__' and w_meth is None:
-                cache = space.fromcache(Cache)
-                if (not isinstance(self, cache.cls_with_del)
+                if (not self.w_class.has_user_del(space)
                     and self.getdictvalue(space, '__del__') is None):
                     msg = ("a __del__ method added to an instance with no "
                            "__del__ in the class will not be called")
@@ -446,13 +441,9 @@ class W_InstanceObject(W_Root):
         w_result = space.call_function(w_meth)
         if space.isinstance_w(w_result, space.w_int):
             if space.is_true(space.lt(w_result, space.wrap(0))):
-                raise OperationError(
-                    space.w_ValueError,
-                    space.wrap("__len__() should return >= 0"))
+                raise oefmt(space.w_ValueError, "__len__() should return >= 0")
             return w_result
-        raise OperationError(
-            space.w_TypeError,
-            space.wrap("__len__() should return an int"))
+        raise oefmt(space.w_TypeError, "__len__() should return an int")
 
     def descr_getitem(self, space, w_key):
         w_meth = self.getattr(space, '__getitem__')
@@ -472,9 +463,7 @@ class W_InstanceObject(W_Root):
             return space.call_function(w_meth)
         w_meth = self.getattr(space, '__getitem__', False)
         if w_meth is None:
-            raise OperationError(
-                space.w_TypeError,
-                space.wrap("iteration over non-sequence"))
+            raise oefmt(space.w_TypeError, "iteration over non-sequence")
         return space.newseqiter(self)
     #XXX do I really need a next method? the old implementation had one, but I
     # don't see the point
@@ -514,13 +503,10 @@ class W_InstanceObject(W_Root):
         w_result = space.call_function(w_func)
         if space.isinstance_w(w_result, space.w_int):
             if space.is_true(space.lt(w_result, space.wrap(0))):
-                raise OperationError(
-                    space.w_ValueError,
-                    space.wrap("__nonzero__() should return >= 0"))
+                raise oefmt(space.w_ValueError,
+                            "__nonzero__() should return >= 0")
             return w_result
-        raise OperationError(
-            space.w_TypeError,
-            space.wrap("__nonzero__() should return an int"))
+        raise oefmt(space.w_TypeError, "__nonzero__() should return an int")
 
     def descr_cmp(self, space, w_other): # do all the work here like CPython
         w_a, w_b = _coerce_helper(space, self, w_other)
@@ -535,11 +521,10 @@ class W_InstanceObject(W_Root):
                     return w_res
                 try:
                     res = space.int_w(w_res)
-                except OperationError, e:
+                except OperationError as e:
                     if e.match(space, space.w_TypeError):
-                        raise OperationError(
-                            space.w_TypeError,
-                            space.wrap("__cmp__ must return int"))
+                        raise oefmt(space.w_TypeError,
+                                    "__cmp__ must return int")
                     raise
                 if res > 0:
                     return space.wrap(1)
@@ -554,11 +539,10 @@ class W_InstanceObject(W_Root):
                     return w_res
                 try:
                     res = space.int_w(w_res)
-                except OperationError, e:
+                except OperationError as e:
                     if e.match(space, space.w_TypeError):
-                        raise OperationError(
-                            space.w_TypeError,
-                            space.wrap("__cmp__ must return int"))
+                        raise oefmt(space.w_TypeError,
+                                    "__cmp__ must return int")
                     raise
                 if res < 0:
                     return space.wrap(1)
@@ -573,16 +557,13 @@ class W_InstanceObject(W_Root):
             w_eq = self.getattr(space, '__eq__', False)
             w_cmp = self.getattr(space, '__cmp__', False)
             if w_eq is not None or w_cmp is not None:
-                raise OperationError(space.w_TypeError,
-                                     space.wrap("unhashable instance"))
+                raise oefmt(space.w_TypeError, "unhashable instance")
             else:
                 return space.wrap(compute_identity_hash(self))
         w_ret = space.call_function(w_func)
         if (not space.isinstance_w(w_ret, space.w_int) and
             not space.isinstance_w(w_ret, space.w_long)):
-            raise OperationError(
-                space.w_TypeError,
-                space.wrap("__hash__ must return int or long"))
+            raise oefmt(space.w_TypeError, "__hash__ must return int or long")
         return w_ret
 
     def descr_int(self, space):
@@ -591,14 +572,15 @@ class W_InstanceObject(W_Root):
             return space.call_function(w_func)
 
         w_truncated = space.trunc(self)
+        if (space.isinstance_w(w_truncated, space.w_int) or
+            space.isinstance_w(w_truncated, space.w_long)):
+            return w_truncated
         # int() needs to return an int
         try:
             return space.int(w_truncated)
         except OperationError:
             # Raise a different error
-            raise OperationError(
-                space.w_TypeError,
-                space.wrap("__trunc__ returned non-Integral"))
+            raise oefmt(space.w_TypeError, "__trunc__ returned non-Integral")
 
     def descr_long(self, space):
         w_func = self.getattr(space, '__long__', False)
@@ -610,9 +592,8 @@ class W_InstanceObject(W_Root):
         w_func = self.getattr(space, '__index__', False)
         if w_func is not None:
             return space.call_function(w_func)
-        raise OperationError(
-            space.w_TypeError,
-            space.wrap("object cannot be interpreted as an index"))
+        raise oefmt(space.w_TypeError,
+                    "object cannot be interpreted as an index")
 
     def descr_contains(self, space, w_obj):
         w_func = self.getattr(space, '__contains__', False)
@@ -623,7 +604,7 @@ class W_InstanceObject(W_Root):
         while 1:
             try:
                 w_x = space.next(w_iter)
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(space, space.w_StopIteration):
                     return space.w_False
                 raise
@@ -667,18 +648,22 @@ class W_InstanceObject(W_Root):
     def descr_next(self, space):
         w_func = self.getattr(space, 'next', False)
         if w_func is None:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("instance has no next() method"))
+            raise oefmt(space.w_TypeError, "instance has no next() method")
         return space.call_function(w_func)
 
-    def descr_del(self, space):
-        # Note that this is called from executioncontext.UserDelAction
-        # via the space.userdel() method.
+    def _finalize_(self):
+        space = self.space
         w_func = self.getdictvalue(space, '__del__')
         if w_func is None:
             w_func = self.getattr_from_class(space, '__del__')
         if w_func is not None:
-            space.call_function(w_func)
+            if space.user_del_action.gc_disabled(self):
+                return
+            try:
+                space.call_function(w_func)
+            except Exception as e:
+                # report this came from __del__ vs a generic finalizer
+                report_error(space, e, "method __del__ of ", self)
 
     def descr_exit(self, space, w_type, w_value, w_tb):
         w_func = self.getattr(space, '__exit__', False)
@@ -754,7 +739,6 @@ W_InstanceObject.typedef = TypeDef("instance",
     __pow__ = interp2app(W_InstanceObject.descr_pow),
     __rpow__ = interp2app(W_InstanceObject.descr_rpow),
     next = interp2app(W_InstanceObject.descr_next),
-    __del__ = interp2app(W_InstanceObject.descr_del),
     __exit__ = interp2app(W_InstanceObject.descr_exit),
     __dict__ = dict_descr,
     **rawdict

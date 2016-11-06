@@ -2,6 +2,7 @@ import errno
 
 from rpython.rlib import _rsocket_rffi as _c, rpoll
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib import objectmodel
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
@@ -69,7 +70,7 @@ class Poll(W_Root):
         self.running = True
         try:
             retval = rpoll.poll(self.fddict, timeout)
-        except rpoll.PollError, e:
+        except rpoll.PollError as e:
             w_errortype = space.fromcache(Cache).w_error
             message = e.get_msg()
             raise OperationError(w_errortype,
@@ -91,7 +92,7 @@ Poll.typedef = TypeDef('select.poll', **pollmethods)
 
 # ____________________________________________________________
 
-
+@objectmodel.always_inline  # get rid of the tuple result
 def _build_fd_set(space, list_w, ll_list, nfds):
     _c.FD_ZERO(ll_list)
     fdlist = []
@@ -105,7 +106,6 @@ def _build_fd_set(space, list_w, ll_list, nfds):
         _c.FD_SET(fd, ll_list)
         fdlist.append(fd)
     return fdlist, nfds
-_build_fd_set._always_inline_ = True    # get rid of the tuple result
 
 
 def _unbuild_fd_set(space, list_w, fdlist, ll_list, reslist_w):

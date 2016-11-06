@@ -70,7 +70,7 @@ class AppTestUnicodeData:
                 char = ('\\U%08X' % i).decode('unicode-escape')
                 try:
                     unicodedata.name(char)
-                except ValueError, e:
+                except ValueError as e:
                     assert e.message == 'no such name'
                 raises(KeyError, unicodedata.lookup, charname)
 
@@ -78,9 +78,14 @@ class AppTestUnicodeData:
         import unicodedata
         assert unicodedata.lookup("GOTHIC LETTER FAIHU") == u'\U00010346'
 
-    def test_normalize(self):
+    def test_normalize_bad_argcount(self):
         import unicodedata
         raises(TypeError, unicodedata.normalize, 'x')
+
+    def test_normalize_nonunicode(self):
+        import unicodedata
+        exc_info = raises(TypeError, unicodedata.normalize, 'NFC', 'x')
+        assert str(exc_info.value).endswith('must be unicode, not str')
 
     @py.test.mark.skipif("sys.maxunicode < 0x10ffff")
     def test_normalize_wide(self):
@@ -103,6 +108,12 @@ class AppTestUnicodeData:
         # For no reason, unicodedata.mirrored() returns an int, not a bool
         assert repr(unicodedata.mirrored(u' ')) == '0'
 
-    def test_bidirectional(self):
+    def test_bidirectional_not_one_character(self):
         import unicodedata
-        raises(TypeError, unicodedata.bidirectional, u'xx')
+        exc_info = raises(TypeError, unicodedata.bidirectional, u'xx')
+        assert str(exc_info.value) == 'need a single Unicode character as parameter'
+
+    def test_bidirectional_not_one_character(self):
+        import unicodedata
+        exc_info = raises(TypeError, unicodedata.bidirectional, 'x')
+        assert str(exc_info.value).endswith('must be unicode, not str')

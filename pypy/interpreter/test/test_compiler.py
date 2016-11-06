@@ -696,7 +696,7 @@ with somtehing as stuff:
         """)
         try:
             self.compiler.compile(str(source), '<filename>', 'exec', 0)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(self.space, self.space.w_SyntaxError):
                 raise
         else:
@@ -706,7 +706,7 @@ with somtehing as stuff:
         code = 'def f(): (yield bar) += y'
         try:
             self.compiler.compile(code, '', 'single', 0)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(self.space, self.space.w_SyntaxError):
                 raise
         else:
@@ -716,7 +716,7 @@ with somtehing as stuff:
         code = 'dict(a = i for i in xrange(10))'
         try:
             self.compiler.compile(code, '', 'single', 0)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(self.space, self.space.w_SyntaxError):
                 raise
         else:
@@ -1011,7 +1011,7 @@ class AppTestExceptions:
         """
         try:
             exec source
-        except IndentationError, e:
+        except IndentationError as e:
             assert e.msg == 'unindent does not match any outer indentation level'
         else:
             raise Exception("DID NOT RAISE")
@@ -1021,13 +1021,13 @@ class AppTestExceptions:
         source2 = "x = (\n\n"
         try:
             exec source1
-        except SyntaxError, err1:
+        except SyntaxError as err1:
             pass
         else:
             raise Exception("DID NOT RAISE")
         try:
             exec source2
-        except SyntaxError, err2:
+        except SyntaxError as err2:
             pass
         else:
             raise Exception("DID NOT RAISE")

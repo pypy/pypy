@@ -1,5 +1,7 @@
 import py
+import pytest
 import re
+import sys
 from rpython.jit.metainterp import resoperation as rop
 from rpython.jit.metainterp.history import AbstractDescr, AbstractFailDescr
 from rpython.jit.metainterp.history import ConstInt
@@ -52,7 +54,7 @@ def test_mixins_in_common_base():
     assert len(INT_ADD.__bases__) == 1
     BinaryPlainResOp = INT_ADD.__bases__[0]
     assert BinaryPlainResOp.__name__ == 'BinaryPlainResOp'
-    assert BinaryPlainResOp.__bases__ == (rop.BinaryOp, rop.IntOp, rop.PlainResOp)
+    assert BinaryPlainResOp.__bases__ == (rop.BinaryOp, rop.PlainResOp)
     INT_SUB = rop.opclasses[rop.rop.INT_SUB]
     assert INT_SUB.__bases__[0] is BinaryPlainResOp
 
@@ -74,13 +76,9 @@ def test_instantiate():
     #assert re.match("guard_no_exception\(descr=<.+>\)$", repr(op))
 
 def test_can_malloc():
-    a = ConstInt(1)
-    b = ConstInt(2)
-    mydescr = AbstractDescr()
-    assert rop.ResOperation(rop.rop.NEW, []).can_malloc()
-    call = rop.ResOperation(rop.rop.CALL_N, [a, b], descr=mydescr)
-    assert call.can_malloc()
-    assert not rop.ResOperation(rop.rop.INT_ADD, [a, b]).can_malloc()
+    assert rop.rop.can_malloc(rop.rop.NEW)
+    assert rop.rop.can_malloc(rop.rop.CALL_N)
+    assert not rop.rop.can_malloc(rop.rop.INT_ADD)
 
 def test_get_deep_immutable_oplist():
     a = ConstInt(1)
@@ -100,6 +98,7 @@ VARF = rop.InputArgFloat()
       (rop.rop.CAST_SINGLEFLOAT_TO_FLOAT, [VARI], {'from': 4, 'to': 8}),
       (rop.rop.CAST_FLOAT_TO_SINGLEFLOAT, [VARF], {'from': 8, 'to': 4}),
     ])
+@pytest.mark.skipif("sys.maxint == 2**31-1")
 def test_cast_ops(opnum, args, kwargs):
     op = rop.ResOperation(opnum, args)
     assert op.is_typecast()
@@ -121,7 +120,8 @@ def test_load_singlefloat():
     args = [rop.InputArgInt(), ConstInt(0)]
     baseop = rop.ResOperation(rop.rop.RAW_LOAD_I, args, descr=descr)
     baseop.set_forwarded(rop.VectorizationInfo(baseop))
-    op = rop.VecOperation(rop.rop.VEC_RAW_LOAD_I, args, baseop, 4, descr=descr)
+    op = rop.VecOperation(rop.rop.VEC_LOAD_I, args + [ConstInt(1), ConstInt(0)],
+                          baseop, 4, descr=descr)
     assert (op.type, op.datatype, op.bytesize, op.is_vector()) == ('i', 'i', 4, True)
 
 def test_vec_store():
@@ -130,7 +130,8 @@ def test_vec_store():
     args = [rop.InputArgRef(), ConstInt(0), vec]
     baseop = rop.ResOperation(rop.rop.RAW_STORE,  args, descr=descr)
     baseop.set_forwarded(rop.VectorizationInfo(baseop))
-    op = rop.VecOperation(rop.rop.VEC_RAW_STORE, args, baseop, 2, descr=descr)
+    op = rop.VecOperation(rop.rop.VEC_STORE, args + [ConstInt(1), ConstInt(0)],
+                          baseop, 2, descr=descr)
     assert (op.type, op.datatype, op.bytesize, op.is_vector()) == ('v', 'v', 8, True)
 
 def test_vec_guard():

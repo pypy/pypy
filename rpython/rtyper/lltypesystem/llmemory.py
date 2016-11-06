@@ -304,8 +304,15 @@ class ArrayItemsOffset(AddressOffset):
         return cast_ptr_to_adr(p)
 
     def raw_memcopy(self, srcadr, dstadr):
-        # should really copy the length field, but we can't
-        pass
+        # copy the length field, if we can
+        srclen = srcadr.ptr._obj.getlength()
+        dstlen = dstadr.ptr._obj.getlength()
+        if dstlen != srclen:
+            assert dstlen > srclen, "can't increase the length"
+            # a decrease in length occurs in the GC tests when copying a STR:
+            # the copy is initially allocated with really one extra char,
+            # the 'extra_item_after_alloc', and must be fixed.
+            dstadr.ptr._obj.shrinklength(srclen)
 
 
 class ArrayLengthOffset(AddressOffset):
@@ -389,11 +396,23 @@ def _sizeof_int(TYPE, n):
     else:
         raise Exception("don't know how to take the size of a %r"%TYPE)
 
+@specialize.memo()
+def extra_item_after_alloc(ARRAY):
+    assert isinstance(ARRAY, lltype.Array)
+    return ARRAY._hints.get('extra_item_after_alloc', 0)
+
 @specialize.arg(0)
 def sizeof(TYPE, n=None):
+    """Return the symbolic size of TYPE.
+    For a Struct with no varsized part, it must be called with n=None.
+    For an Array or a Struct with a varsized part, it is the number of items.
+    There is a special case to return 1 more than requested if the array
+    has the hint 'extra_item_after_alloc' set to 1.
+    """
     if n is None:
         return _sizeof_none(TYPE)
     elif isinstance(TYPE, lltype.Array):
+        n += extra_item_after_alloc(TYPE)
         return itemoffsetof(TYPE) + _sizeof_none(TYPE.OF) * n
     else:
         return _sizeof_int(TYPE, n)
@@ -1035,7 +1054,7 @@ def _reccopy(source, dest):
                 _reccopy(subsrc, subdst)
             else:
                 # this is a hack XXX de-hack this
-                llvalue = source._obj.getitem(i, uninitialized_ok=True)
+                llvalue = source._obj.getitem(i, uninitialized_ok=2)
                 if not isinstance(llvalue, lltype._uninitialized):
                     dest._obj.setitem(i, llvalue)
     elif isinstance(T, lltype.Struct):

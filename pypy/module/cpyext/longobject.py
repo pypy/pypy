@@ -6,7 +6,6 @@ from pypy.objspace.std.longobject import W_LongObject
 from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.intobject import PyInt_AsUnsignedLongMask
 from rpython.rlib.rbigint import rbigint
-from rpython.rlib.rarithmetic import intmask
 
 
 PyLong_Check, PyLong_CheckExact = build_type_checkers("Long")
@@ -28,25 +27,25 @@ def PyLong_FromSize_t(space, val):
     """Return a new PyLongObject object from a C size_t, or NULL on
     failure.
     """
-    return space.wrap(val)
+    return space.newlong_from_rarith_int(val)
 
 @cpython_api([rffi.LONGLONG], PyObject)
 def PyLong_FromLongLong(space, val):
     """Return a new PyLongObject object from a C long long, or NULL
     on failure."""
-    return space.wrap(val)
+    return space.newlong_from_rarith_int(val)
 
 @cpython_api([rffi.ULONG], PyObject)
 def PyLong_FromUnsignedLong(space, val):
     """Return a new PyLongObject object from a C unsigned long, or
     NULL on failure."""
-    return space.wrap(val)
+    return space.newlong_from_rarith_int(val)
 
 @cpython_api([rffi.ULONGLONG], PyObject)
 def PyLong_FromUnsignedLongLong(space, val):
     """Return a new PyLongObject object from a C unsigned long long,
     or NULL on failure."""
-    return space.wrap(val)
+    return space.newlong_from_rarith_int(val)
 
 @cpython_api([PyObject], rffi.ULONG, error=-1)
 def PyLong_AsUnsignedLong(space, w_long):
@@ -56,7 +55,7 @@ def PyLong_AsUnsignedLong(space, w_long):
     raised."""
     try:
         return rffi.cast(rffi.ULONG, space.uint_w(w_long))
-    except OperationError, e:
+    except OperationError as e:
         if e.match(space, space.w_ValueError):
             e.w_type = space.w_OverflowError
         raise
@@ -100,7 +99,7 @@ def PyLong_AsUnsignedLongLong(space, w_long):
     raised."""
     try:
         return rffi.cast(rffi.ULONGLONG, space.r_ulonglong_w(w_long))
-    except OperationError, e:
+    except OperationError as e:
         if e.match(space, space.w_ValueError):
             e.w_type = space.w_OverflowError
         raise
@@ -126,7 +125,7 @@ def PyLong_AsLongAndOverflow(space, w_long, overflow_ptr):
     overflow_ptr[0] = rffi.cast(rffi.INT_real, 0)
     try:
         return space.int_w(w_long)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_OverflowError):
             raise
     if space.is_true(space.gt(w_long, space.wrap(0))):
@@ -147,7 +146,7 @@ def PyLong_AsLongLongAndOverflow(space, w_long, overflow_ptr):
     overflow_ptr[0] = rffi.cast(rffi.INT_real, 0)
     try:
         return rffi.cast(rffi.LONGLONG, space.r_longlong_w(w_long))
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_OverflowError):
             raise
     if space.is_true(space.gt(w_long, space.wrap(0))):
@@ -203,7 +202,10 @@ def PyLong_FromVoidPtr(space, p):
     can be retrieved from the resulting value using PyLong_AsVoidPtr().
 
     If the integer is larger than LONG_MAX, a positive long integer is returned."""
-    return space.wrap(rffi.cast(ADDR, p))
+    value = rffi.cast(ADDR, p)    # signed integer
+    if value < 0:
+        return space.newlong_from_rarith_int(rffi.cast(lltype.Unsigned, p))
+    return space.wrap(value)
 
 @cpython_api([PyObject], rffi.VOIDP, error=lltype.nullptr(rffi.VOIDP.TO))
 def PyLong_AsVoidPtr(space, w_long):

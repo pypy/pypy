@@ -55,12 +55,12 @@ def uid_converter(space, w_uid):
             raise oefmt(space.w_OverflowError, "user id is less than minimum")
         else:
             val = r_uint(val)
-    except OperationError, e:
+    except OperationError as e:
         if not e.match(space, space.w_OverflowError):
             raise
         try:
             val = space.uint_w(w_uid)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, space.w_ValueError):
                 raise oefmt(space.w_OverflowError, "user id is less than minimum")
             elif e.match(space, space.w_OverflowError):
@@ -96,7 +96,7 @@ def getpwuid(space, w_uid):
     msg = "getpwuid(): uid not found"
     try:
         uid = uid_converter(space, w_uid)
-    except OperationError, e:
+    except OperationError as e:
         if e.match(space, space.w_OverflowError):
             raise oefmt(space.w_KeyError, msg)
         raise

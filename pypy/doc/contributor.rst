@@ -1,49 +1,43 @@
-Contributors to PyPy
-====================
-
-Here is a list of developers who have committed to the PyPy source
-code base, ordered by number of commits (which is certainly not a very
-appropriate measure but it's something)::
-
   Armin Rigo
   Maciej Fijalkowski
   Carl Friedrich Bolz
   Amaury Forgeot d'Arc
   Antonio Cuni
   Samuele Pedroni
-  Alex Gaynor
-  Brian Kearns
   Matti Picus
+  Alex Gaynor
   Philip Jenvey
+  Ronan Lamy
+  Brian Kearns
   Michael Hudson
+  Richard Plangger
+  Manuel Jacob
   David Schneider
   Holger Krekel
   Christian Tismer
   Hakan Ardo
-  Manuel Jacob
-  Ronan Lamy
   Benjamin Peterson
   Anders Chrigstrom
   Eric van Riet Paap
   Wim Lavrijsen
-  Richard Plangger
   Richard Emslie
   Alexander Schremmer
   Dan Villiom Podlaski Christiansen
+  Remi Meier
   Lukas Diekmann
   Sven Hager
   Anders Lehmann
-  Remi Meier
   Aurelien Campeas
   Niklaus Haldimann
   Camillo Bruni
   Laura Creighton
-  Toon Verwaest
   Romain Guillebert
+  Toon Verwaest
   Leonardo Santagada
   Seo Sanghyeon
-  Justin Peel
   Ronny Pfannschmidt
+  Justin Peel
+  Raffael Tfirst
   David Edelsohn
   Anders Hammarquist
   Jakub Gustak
@@ -58,27 +52,34 @@ appropriate measure but it's something)::
   Ludovic Aubry
   Jacob Hallen
   Jason Creighton
+  Mark Young
   Alex Martelli
   Michal Bendowski
   stian
   Jan de Mooij
+  Spenser Bauman
   Tyler Wade
+  Vincent Legoll
   Michael Foord
   Stephan Diehl
   Stefan Schwarzer
   Valentino Volonghi
   Tomek Meka
   Patrick Maupin
+  Devin Jeanpierre
   Bob Ippolito
   Bruno Gola
   David Malcolm
   Jean-Paul Calderone
+  Stefano Rivera
   Timo Paulssen
+  Edd Barrett
   Squeaky
+  Marius Gedminas
   Alexandre Fayolle
   Simon Burton
-  Marius Gedminas
   Martin Matusiak
+  Nicolas Truessel
   Konstantin Lopuhin
   Wenzhu Man
   John Witulski
@@ -89,13 +90,15 @@ appropriate measure but it's something)::
   Mark Pearse
   Simon Cross
   Andreas Stührk
-  Stefano Rivera
+  Tobias Pape
   Jean-Philippe St. Pierre
   Guido van Rossum
   Pavel Vinogradov
+  Jeremy Thurgood
   Paweł Piotr Przeradowski
   Paul deGrandis
   Ilya Osadchiy
+  marky1991
   Tobias Oberstein
   Adrian Kuhn
   Boris Feigin
@@ -104,14 +107,11 @@ appropriate measure but it's something)::
   Georg Brandl
   Bert Freudenberg
   Stian Andreassen
-  Edd Barrett
   Wanja Saatkamp
   Gerald Klix
   Mike Blume
-  Tobias Pape
   Oscar Nierstrasz
   Stefan H. Muller
-  Jeremy Thurgood
   Rami Chowdhury
   Eugene Oden
   Henry Mason
@@ -119,12 +119,16 @@ appropriate measure but it's something)::
   Preston Timmons
   David Ripton
   Jeff Terrace
+  Tim Felgentreff
   Dusty Phillips
   Lukas Renggli
   Guenter Jantzen
+  William Leslie
   Ned Batchelder
+  Anton Gulenko
   Amit Regmi
   Ben Young
+  Sergey Matyunin
   Nicolas Chauvat
   Andrew Durdin
   Andrew Chambers
@@ -132,12 +136,12 @@ appropriate measure but it's something)::
   Nicholas Riley
   Jason Chu
   Igor Trindade Oliveira
-  Tim Felgentreff
+  Yichao Yu
   Rocco Moretti
   Gintautas Miliauskas
   Michael Twomey
   Lucian Branescu Mihaila
-  Yichao Yu
+  anatoly techtonik
   Gabriel Lavoie
   Olivier Dormond
   Jared Grubb
@@ -147,8 +151,8 @@ appropriate measure but it's something)::
   Brian Dorsey
   Victor Stinner
   Andrews Medina
-  anatoly techtonik
   Stuart Williams
+  Daniel Patrick
   Jasper Schulz
   Christian Hudon
   Toby Watson
@@ -161,40 +165,45 @@ appropriate measure but it's something)::
   Stanislaw Halik
   Mikael Schönenberg
   Berkin Ilbeyi
-  Elmo M?ntynen
+  Elmo Mäntynen
+  Faye Zhao
   Jonathan David Riehl
   Anders Qvist
   Corbin Simpson
   Chirag Jadwani
   Beatrice During
   Alex Perry
-  Vincent Legoll
-  Alan McIntyre
-  Spenser Bauman
-  Alexander Sedov
-  Attila Gobi
-  Christopher Pope
-  Devin Jeanpierre
   Vaibhav Sood
+  Alan McIntyre
+  Alexander Sedov
+  p_zieschang@yahoo.de
+  Attila Gobi
+  Jasper.Schulz
+  Christopher Pope
+  Florin Papa
   Christian Tismer 
   Marc Abramowitz
   Dan Stromberg
   Arjun Naik
   Valentina Mukhamedzhanova
   Stefano Parmesan
+  touilleMan
   Alexis Daboville
   Jens-Uwe Mager
   Carl Meyer
   Karl Ramm
   Pieter Zieschang
-  Anton Gulenko
   Gabriel
   Lukas Vacek
+  Kunal Grover
+  Aaron Gallagher
   Andrew Dalke
   Sylvain Thenault
   Jakub Stasiak
   Nathan Taylor
   Vladimir Kryachko
+  Omer Katz
+  Mark Williams
   Jacek Generowicz
   Alejandro J. Cura
   Jacob Oscarson
@@ -209,31 +218,36 @@ appropriate measure but it's something)::
   Lars Wassermann
   Philipp Rustemeuer
   Henrik Vendelbo
+  Richard Lancaster
   Dan Buch
   Miguel de Val Borro
   Artur Lisiecki
   Sergey Kishchenko
   Ignas Mikalajunas
+  Alecsandru Patrascu
   Christoph Gerum
   Martin Blais
   Lene Wagner
+  Catalin Gabriel Manciu
   Tomo Cocoa
   Kim Jin Su
   Toni Mattis
+  Amber Brown
   Lucas Stadler
   Julian Berman
   Markus Holtermann
   roberto@goyle
   Yury V. Zaytsev
   Anna Katrina Dominguez
-  William Leslie
   Bobby Impollonia
-  Faye Zhao
-  timo@eistee.fritz.box
+  Vasantha Ganesh K
   Andrew Thompson
+  florinpapa
   Yusei Tahara
+  Aaron Tubbs
   Ben Darnell
   Roberto De Ioris
+  Logan Chien
   Juan Francisco Cantero Hurtado
   Ruochen Huang
   Jeong YunWon
@@ -243,6 +257,7 @@ appropriate measure but it's something)::
   Christopher Armstrong
   Michael Hudson-Doyle
   Anders Sigfridsson
+  Nikolay Zinov
   Yasir Suhail
   Jason Michalski
   rafalgalczynski@gmail.com
@@ -252,6 +267,8 @@ appropriate measure but it's something)::
   Gustavo Niemeyer
   Stephan Busemann
   Rafał Gałczyński
+  Matt Bogosian
+  timo
   Christian Muirhead
   Berker Peksag
   James Lan
@@ -260,10 +277,12 @@ appropriate measure but it's something)::
   Daniel Neuhäuser
   Ben Mather
   Niclas Olofsson
+  "Aaron Gallagher
   halgari
   Boglarka Vezer
   Chris Pressey
   Buck Golemon
+  Diana Popa
   Konrad Delong
   Dinu Gherman
   Chris Lambacher
@@ -286,9 +305,11 @@ appropriate measure but it's something)::
   Stefan Marr
   jiaaro
   Mads Kiilerich
-  Richard Lancaster
   opassembler.py
+  JohnDoe
   Antony Lee
+  Jason Madden
+  reubano@gmail.com
   Yaroslav Fedevych
   Jim Hunziker
   Markus Unterwaditzer
@@ -297,6 +318,7 @@ appropriate measure but it's something)::
   squeaky
   Zearin
   soareschen
+  Jonas Pfannschmidt
   Kurt Griffiths
   Mike Bayer
   Matthew Miller
@@ -305,10 +327,14 @@ appropriate measure but it's something)::
   yasirs
   Michael Chermside
   Anna Ravencroft
+  pizi
+  remarkablerocket
   Andrey Churin
   Dan Crosta
+  Eli Stevens
   Tobias Diaz
   Julien Phalip
   Roman Podoliaka
   Dan Loewenherz
-
+  werat
+  hgattic

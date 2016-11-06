@@ -76,7 +76,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty, descr_get_dict,
     descr_set_dict, descr_del_dict)
 from pypy.interpreter.gateway import interp2app
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib import rwin32
 
 
@@ -157,7 +157,8 @@ class W_BaseException(W_Root):
 
     def setdict(self, space, w_dict):
         if not space.isinstance_w(w_dict, space.w_dict):
-            raise OperationError(space.w_TypeError, space.wrap("setting exceptions's dictionary to a non-dict"))
+            raise oefmt(space.w_TypeError,
+                        "setting exceptions's dictionary to a non-dict")
         self.w_dict = w_dict
 
     def descr_reduce(self, space):
@@ -177,8 +178,7 @@ class W_BaseException(W_Root):
             if w_msg is not None:
                 return w_msg
         if self.w_message is None:
-            raise OperationError(space.w_AttributeError,
-                                 space.wrap("message was deleted"))
+            raise oefmt(space.w_AttributeError, "message was deleted")
         msg = "BaseException.message has been deprecated as of Python 2.6"
         space.warn(space.wrap(msg), space.w_DeprecationWarning)
         return self.w_message
@@ -191,7 +191,7 @@ class W_BaseException(W_Root):
         if w_dict is not None:
             try:
                 space.delitem(w_dict, space.wrap("message"))
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_KeyError):
                     raise
         self.w_message = None

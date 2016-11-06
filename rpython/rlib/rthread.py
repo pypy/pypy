@@ -22,6 +22,16 @@ eci = ExternalCompilationInfo(
     include_dirs = [translator_c_dir],
 )
 
+class CConfig:
+    _compilation_info_ = eci
+    RPYTHREAD_NAME = rffi_platform.DefinedConstantString('RPYTHREAD_NAME')
+    USE_SEMAPHORES = rffi_platform.Defined('USE_SEMAPHORES')
+    CS_GNU_LIBPTHREAD_VERSION = rffi_platform.DefinedConstantInteger(
+        '_CS_GNU_LIBPTHREAD_VERSION')
+cconfig = rffi_platform.configure(CConfig)
+globals().update(cconfig)
+
+
 def llexternal(name, args, result, **kwds):
     kwds.setdefault('sandboxsafe', True)
     return rffi.llexternal(name, args, result, compilation_info=eci,
@@ -100,8 +110,11 @@ def get_ident():
         return thread.get_ident()
 
 def get_or_make_ident():
-    assert we_are_translated()
-    return tlfield_thread_ident.get_or_make_raw()
+    if we_are_translated():
+        return tlfield_thread_ident.get_or_make_raw()
+    else:
+        import thread
+        return thread.get_ident()
 
 @specialize.arg(0)
 def start_new_thread(x, y):
@@ -115,6 +128,9 @@ def start_new_thread(x, y):
 class DummyLock(object):
     def acquire(self, flag):
         return True
+
+    def is_acquired(self):
+        return False
 
     def release(self):
         pass
@@ -150,6 +166,15 @@ class Lock(object):
                 rffi.cast(rffi.INT, 0))
             res = rffi.cast(lltype.Signed, res)
             return bool(res)
+
+    def is_acquired(self):
+        """ check if the lock is acquired (does not release the GIL) """
+        res = c_thread_acquirelock_timed_NOAUTO(
+            self._lock,
+            rffi.cast(rffi.LONGLONG, 0),
+            rffi.cast(rffi.INT, 0))
+        res = rffi.cast(lltype.Signed, res)
+        return not bool(res)
 
     def acquire_timed(self, timeout):
         """Timeout is in microseconds.  Returns 0 in case of failure,

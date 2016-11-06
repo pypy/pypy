@@ -265,3 +265,10 @@ class TestPointers(BaseCTypesTestChecker):
         class A(object):
             _byref = byref
         A._byref(c_int(5))
+
+    def test_byref_with_offset(self):
+        c = c_int()
+        d = byref(c)
+        base = cast(d, c_void_p).value
+        for i in [0, 1, 4, 1444, -10293]:
+            assert cast(byref(c, i), c_void_p).value == base + i

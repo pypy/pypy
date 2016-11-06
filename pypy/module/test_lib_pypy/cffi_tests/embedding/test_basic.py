@@ -28,10 +28,17 @@ def check_lib_python_found(tmpdir):
 
 def prefix_pythonpath():
     cffi_base = os.path.dirname(os.path.dirname(local_dir))
-    pythonpath = os.environ.get('PYTHONPATH', '').split(os.pathsep)
+    pythonpath = org_env.get('PYTHONPATH', '').split(os.pathsep)
     if cffi_base not in pythonpath:
         pythonpath.insert(0, cffi_base)
     return os.pathsep.join(pythonpath)
+
+def copy_away_env():
+    global org_env
+    try:
+        org_env
+    except NameError:
+        org_env = os.environ.copy()
 
 
 class EmbeddingTests:
@@ -46,14 +53,12 @@ class EmbeddingTests:
     def get_path(self):
         return str(self._path.ensure(dir=1))
 
-    def _run_base(self, args, env_extra={}, **kwds):
-        print('RUNNING:', args, env_extra, kwds)
-        env = os.environ.copy()
-        env.update(env_extra)
-        return subprocess.Popen(args, env=env, **kwds)
+    def _run_base(self, args, **kwds):
+        print('RUNNING:', args, kwds)
+        return subprocess.Popen(args, **kwds)
 
-    def _run(self, args, env_extra={}):
-        popen = self._run_base(args, env_extra, cwd=self.get_path(),
+    def _run(self, args):
+        popen = self._run_base(args, cwd=self.get_path(),
                                  stdout=subprocess.PIPE,
                                  universal_newlines=True)
         output = popen.stdout.read()
@@ -65,6 +70,7 @@ class EmbeddingTests:
         return output
 
     def prepare_module(self, name):
+        self.patch_environment()
         if name not in self._compiled_modules:
             path = self.get_path()
             filename = '%s.py' % name
@@ -74,9 +80,21 @@ class EmbeddingTests:
             # find a solution to that: we could hack sys.path inside the
             # script run here, but we can't hack it in the same way in
             # execute().
-            env_extra = {'PYTHONPATH': prefix_pythonpath()}
-            output = self._run([sys.executable, os.path.join(local_dir, filename)],
-                               env_extra=env_extra)
+            pathname = os.path.join(path, filename)
+            with open(pathname, 'w') as g:
+                g.write('''
+# https://bugs.python.org/issue23246
+import sys
+if sys.platform == 'win32':
+    try:
+        import setuptools
+    except ImportError:
+        pass
+''')
+                with open(os.path.join(local_dir, filename), 'r') as f:
+                    g.write(f.read())
+
+            output = self._run([sys.executable, pathname])
             match = re.compile(r"\bFILENAME: (.+)").search(output)
             assert match
             dynamic_lib_name = match.group(1)
@@ -120,28 +138,36 @@ class EmbeddingTests:
         finally:
             os.chdir(curdir)
 
-    def execute(self, name):
+    def patch_environment(self):
+        copy_away_env()
         path = self.get_path()
+        # for libpypy-c.dll or Python27.dll
+        path = os.path.split(sys.executable)[0] + os.path.pathsep + path
         env_extra = {'PYTHONPATH': prefix_pythonpath()}
         if sys.platform == 'win32':
-            _path = os.environ.get('PATH')
-            # for libpypy-c.dll or Python27.dll
-            _path = os.path.split(sys.executable)[0] + ';' + _path
-            env_extra['PATH'] = _path
+            envname = 'PATH'
         else:
-            libpath = os.environ.get('LD_LIBRARY_PATH')
-            if libpath:
-                libpath = path + ':' + libpath
-            else:
-                libpath = path
-            env_extra['LD_LIBRARY_PATH'] = libpath
+            envname = 'LD_LIBRARY_PATH'
+        libpath = org_env.get(envname)
+        if libpath:
+            libpath = path + os.path.pathsep + libpath
+        else:
+            libpath = path
+        env_extra[envname] = libpath
+        for key, value in sorted(env_extra.items()):
+            if os.environ.get(key) != value:
+                print('* setting env var %r to %r' % (key, value))
+                os.environ[key] = value
+
+    def execute(self, name):
+        path = self.get_path()
         print('running %r in %r' % (name, path))
         executable_name = name
         if sys.platform == 'win32':
             executable_name = os.path.join(path, executable_name + '.exe')
         else:
             executable_name = os.path.join('.', executable_name)
-        popen = self._run_base([executable_name], env_extra, cwd=path,
+        popen = self._run_base([executable_name], cwd=path,
                                stdout=subprocess.PIPE,
                                universal_newlines=True)
         result = popen.stdout.read()
@@ -152,6 +178,9 @@ class EmbeddingTests:
 
 
 class TestBasic(EmbeddingTests):
+    def test_empty(self):
+        empty_cffi = self.prepare_module('empty')
+
     def test_basic(self):
         add1_cffi = self.prepare_module('add1')
         self.compile('add1-test', [add1_cffi])

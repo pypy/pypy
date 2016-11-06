@@ -1,11 +1,12 @@
-import py
-from rpython.rtyper.lltypesystem import rffi, lltype
+import py, pytest
+from rpython.rtyper.lltypesystem import lltype
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext import api
 from pypy.module.cpyext.test.test_cpyext import freeze_refcnts, LeakCheckingTest
 PyObject = api.PyObject
 from pypy.interpreter.error import OperationError
+from rpython.rlib import rawrefcount
 import os
 
 @api.cpython_api([PyObject], lltype.Void)
@@ -36,6 +37,9 @@ class BaseApiTest(LeakCheckingTest):
         cls.api = CAPI()
         CAPI.__dict__.update(api.INTERPLEVEL_API)
 
+        print 'DONT_FREE_ANY_MORE'
+        rawrefcount._dont_free_any_more()
+
     def raises(self, space, api, expected_exc, f, *args):
         if not callable(f):
             raise Exception("%s is not callable" % (f,))
@@ -55,12 +59,12 @@ class BaseApiTest(LeakCheckingTest):
         state = self.space.fromcache(State)
         try:
             state.check_and_raise_exception()
-        except OperationError, e:
+        except OperationError as e:
             print e.errorstr(self.space)
             raise
 
         try:
-            del self.space.getexecutioncontext().cpyext_threadstate
+            self.space.getexecutioncontext().cleanup_cpyext_threadstate()
         except AttributeError:
             pass
 
@@ -96,7 +100,8 @@ class TestConversion(BaseApiTest):
         PyPy_TypedefTest2(space, ppos)
         lltype.free(ppos, flavor='raw')
 
-
+@pytest.mark.skipif(os.environ.get('USER')=='root', 
+                    reason='root can write to all files')
 def test_copy_header_files(tmpdir):
     api.copy_header_files(tmpdir, True)
     def check(name):

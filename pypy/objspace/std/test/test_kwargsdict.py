@@ -118,9 +118,15 @@ class TestKwargsDictImplementation(BaseTestRDictImplementation):
     def test_delitem(self):
         pass # delitem devolves for now
 
+    def test_setdefault_fast(self):
+        pass # not based on hashing at all
+
 class TestDevolvedKwargsDictImplementation(BaseTestDevolvedDictImplementation):
     get_impl = get_impl
     StrategyClass = KwargsDictStrategy
+
+    def test_setdefault_fast(self):
+        pass # not based on hashing at all
 
 
 class AppTestKwargsDictStrategy(object):

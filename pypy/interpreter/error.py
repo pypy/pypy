@@ -73,11 +73,8 @@ class OperationError(Exception):
             exc_value = str(w_value)
         else:
             w = space.wrap
-            if space.is_w(space.type(self.w_type), space.w_str):
-                exc_typename = space.str_w(self.w_type)
-            else:
-                exc_typename = space.str_w(
-                    space.getattr(self.w_type, w('__name__')))
+            exc_typename = space.str_w(
+                space.getattr(self.w_type, w('__name__')))
             if space.is_w(w_value, space.w_None):
                 exc_value = ""
             else:
@@ -88,7 +85,8 @@ class OperationError(Exception):
                         exc_value = space.str_w(space.str(w_value))
                 except OperationError:
                     # oups, cannot __str__ the exception object
-                    exc_value = "<oups, exception object itself cannot be str'd>"
+                    exc_value = ("<exception %s() failed>" %
+                                 ("repr" if use_repr else "str"))
         if not exc_value:
             return exc_typename
         else:
@@ -214,9 +212,8 @@ class OperationError(Exception):
             w_inst = w_type
             w_instclass = self._exception_getclass(space, w_inst)
             if not space.is_w(w_value, space.w_None):
-                raise OperationError(space.w_TypeError,
-                                     space.wrap("instance exception may not "
-                                                "have a separate value"))
+                raise oefmt(space.w_TypeError,
+                            "instance exception may not have a separate value")
             w_value = w_inst
             w_type = w_instclass
 
@@ -239,7 +236,7 @@ class OperationError(Exception):
             try:
                 objrepr = space.str_w(space.repr(w_object))
             except OperationError:
-                objrepr = '?'
+                objrepr = "<object repr() failed>"
         #
         try:
             if with_traceback:
@@ -291,13 +288,7 @@ class OperationError(Exception):
         return tb
 
     def set_traceback(self, traceback):
-        """Set the current traceback.  It should either be a traceback
-        pointing to some already-escaped frame, or a traceback for the
-        current frame.  To support the latter case we do not mark the
-        frame as escaped.  The idea is that it will be marked as escaping
-        only if the exception really propagates out of this frame, by
-        executioncontext.leave() being called with got_exception=True.
-        """
+        """Set the current traceback."""
         self._application_traceback = traceback
 
 
@@ -381,11 +372,8 @@ class OpErrFmtNoArgs(OperationError):
         self._value = value
         self.setup(w_type)
 
-    def get_w_value(self, space):
-        w_value = self._w_value
-        if w_value is None:
-            self._w_value = w_value = space.wrap(self._value)
-        return w_value
+    def _compute_value(self, space):
+        return self._value
 
 @specialize.memo()
 def get_operr_class(valuefmt):

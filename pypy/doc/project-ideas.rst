@@ -53,15 +53,17 @@ when doing ``myslice = mylist[a:b]``: the new list is not constructed
 immediately, but only when (and if) ``myslice`` or ``mylist`` are mutated.
 
 
-Numpy improvements
-------------------
+NumPy rebooted
+--------------
 
-The numpy is rapidly progressing in pypy, so feel free to come to IRC and
-ask for proposed topic. A not necesarilly up-to-date `list of topics`_
-is also available.
+Our cpyext C-API compatiblity layer can now run upstream NumPy unmodified.
+Release PyPy2.7-v5.4 still fails about 60 of the ~6000 test in the NumPy
+test suite. We could use help analyzing the failures and fixing them either
+as patches to upstream NumPy, or as fixes to PyPy.
 
-.. _list of topics: https://bitbucket.org/pypy/extradoc/src/extradoc/planning/micronumpy.txt
-
+We also are looking for help in how to hijack NumPy dtype conversion and
+ufunc calls to allow the JIT to make them fast, using our internal _numpypy
+module.
 
 Improving the jitviewer
 ------------------------
@@ -167,22 +169,13 @@ to be got from them!):
 * `hg`
 
 
-Embedding PyPy and improving CFFI
----------------------------------
-
-PyPy has some basic :doc:`embedding infrastructure <embedding>`. The idea would be to improve
-upon that with cffi hacks that can automatically generate embeddable .so/.dll
-library
-
-
 Optimising cpyext (CPython C-API compatibility layer)
 -----------------------------------------------------
 
 A lot of work has gone into PyPy's implementation of CPython's C-API over
 the last years to let it reach a practical level of compatibility, so that
 C extensions for CPython work on PyPy without major rewrites. However,
-there are still many edges and corner cases where it misbehaves, and it has
-not received any substantial optimisation so far.
+there are still many edges and corner cases where it misbehaves.
 
 The objective of this project is to fix bugs in cpyext and to optimise
 several performance critical parts of it, such as the reference counting

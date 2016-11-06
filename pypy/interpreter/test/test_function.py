@@ -1,5 +1,4 @@
-
-import unittest
+import pytest
 from pypy.interpreter import eval
 from pypy.interpreter.function import Function, Method, descr_function_get
 from pypy.interpreter.pycode import PyCode
@@ -187,6 +186,7 @@ class AppTestFunction:
         raises(
             TypeError, func, 42, {'arg1': 23})
 
+    @pytest.mark.skipif("config.option.runappdirect")
     def test_kwargs_nondict_mapping(self):
         class Mapping:
             def keys(self):
@@ -257,6 +257,14 @@ class AppTestFunction:
         meth = func.__get__(obj, object)
         assert meth() == obj
 
+    def test_none_get_interaction(self):
+        skip("XXX issue #2083")
+        assert type(None).__repr__(None) == 'None'
+
+    def test_none_get_interaction_2(self):
+        f = None.__repr__
+        assert f() == 'None'
+
     def test_no_get_builtin(self):
         assert not hasattr(dir, '__get__')
         class A(object):
@@ -284,17 +292,18 @@ class AppTestFunction:
         raises(TypeError, len, s, some_unknown_keyword=s)
         raises(TypeError, len, s, s, some_unknown_keyword=s)
 
+    @pytest.mark.skipif("config.option.runappdirect")
     def test_call_error_message(self):
         try:
             len()
-        except TypeError, e:
+        except TypeError as e:
             assert "len() takes exactly 1 argument (0 given)" in e.message
         else:
             assert 0, "did not raise"
 
         try:
             len(1, 2)
-        except TypeError, e:
+        except TypeError as e:
             assert "len() takes exactly 1 argument (2 given)" in e.message
         else:
             assert 0, "did not raise"
@@ -325,6 +334,7 @@ class AppTestFunction:
         f = lambda: 42
         assert f.func_doc is None
 
+    @pytest.mark.skipif("config.option.runappdirect")
     def test_setstate_called_with_wrong_args(self):
         f = lambda: 42
         # not sure what it should raise, since CPython doesn't have setstate
@@ -549,6 +559,37 @@ class AppTestMethod:
 
         assert A().m == X()
         assert X() == A().m
+
+    @pytest.mark.skipif("config.option.runappdirect")
+    def test_method_identity(self):
+        class A(object):
+            def m(self):
+                pass
+            def n(self):
+                pass
+
+        class B(A):
+            pass
+
+        class X(object):
+            def __eq__(self, other):
+                return True
+
+        a = A()
+        a2 = A()
+        assert a.m is a.m
+        assert id(a.m) == id(a.m)
+        assert a.m is not a.n
+        assert id(a.m) != id(a.n)
+        assert a.m is not a2.m
+        assert id(a.m) != id(a2.m)
+
+        assert A.m is A.m
+        assert id(A.m) == id(A.m)
+        assert A.m is not A.n
+        assert id(A.m) != id(A.n)
+        assert A.m is not B.m
+        assert id(A.m) != id(B.m)
 
 
 class TestMethod:

@@ -1,12 +1,12 @@
 import os
 
 from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter import pytraceback
 from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL, CONST_STRING
 from pypy.module.exceptions.interp_exceptions import W_RuntimeWarning
 from pypy.module.cpyext.pyobject import (
-    PyObject, PyObjectP, make_ref, from_ref, Py_DecRef, borrow_from)
+    PyObject, PyObjectP, make_ref, from_ref, Py_DecRef)
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.import_ import PyImport_Import
 from rpython.rlib import rposix, jit
@@ -28,12 +28,12 @@ def PyErr_SetNone(space, w_type):
     """This is a shorthand for PyErr_SetObject(type, Py_None)."""
     PyErr_SetObject(space, w_type, space.w_None)
 
-@cpython_api([], PyObject)
+@cpython_api([], PyObject, result_borrowed=True)
 def PyErr_Occurred(space):
     state = space.fromcache(State)
     if state.operror is None:
         return None
-    return borrow_from(None, state.operror.w_type)
+    return state.operror.w_type     # borrowed ref
 
 @cpython_api([], lltype.Void)
 def PyErr_Clear(space):
@@ -110,12 +110,11 @@ def PyErr_BadArgument(space):
     argument.  It is mostly for internal use. In CPython this function always
     raises an exception and returns 0 in all cases, hence the (ab)use of the
     error indicator."""
-    raise OperationError(space.w_TypeError,
-            space.wrap("bad argument type for built-in operation"))
+    raise oefmt(space.w_TypeError, "bad argument type for built-in operation")
 
 @cpython_api([], lltype.Void)
 def PyErr_BadInternalCall(space):
-    raise OperationError(space.w_SystemError, space.wrap("Bad internal call!"))
+    raise oefmt(space.w_SystemError, "Bad internal call!")
 
 @cpython_api([], PyObject, error=CANNOT_FAIL)
 def PyErr_NoMemory(space):
@@ -151,12 +150,12 @@ def PyErr_SetFromErrnoWithFilename(space, w_type, llfilename):
     Return value: always NULL."""
     # XXX Doesn't actually do anything with PyErr_CheckSignals.
     if llfilename:
-        w_filename = rffi.charp2str(llfilename)
-        filename = space.wrap(w_filename)
+        filename = rffi.charp2str(llfilename)
+        w_filename = space.wrap(filename)
     else:
-        filename = space.w_None
+        w_filename = space.w_None
 
-    PyErr_SetFromErrnoWithFilenameObject(space, w_type, filename)
+    PyErr_SetFromErrnoWithFilenameObject(space, w_type, w_filename)
 
 @cpython_api([PyObject, PyObject], PyObject)
 @jit.dont_look_inside       # direct use of _get_errno()
@@ -413,3 +412,7 @@ def PyErr_SetExcInfo(space, w_type, w_value, w_traceback):
     Py_DecRef(space, w_type)
     Py_DecRef(space, w_value)
     Py_DecRef(space, w_traceback)
+
+@cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
+def PyOS_InterruptOccurred(space):
+    return 0;

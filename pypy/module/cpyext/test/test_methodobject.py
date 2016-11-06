@@ -90,7 +90,7 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         assert mod.isCFunction(mod.getarg_O) == "getarg_O"
         assert mod.getModule(mod.getarg_O) == 'MyModule'
         assert mod.isSameFunction(mod.getarg_O)
-        raises(TypeError, mod.isSameFunction, 1)
+        raises(SystemError, mod.isSameFunction, 1)
 
 class TestPyCMethodObject(BaseApiTest):
     def test_repr(self, space, api):
@@ -103,7 +103,7 @@ class TestPyCMethodObject(BaseApiTest):
         c_func = ApiFunction([PyObject, PyObject], PyObject, func)
         func.api_func = c_func
         ml = lltype.malloc(PyMethodDef, flavor='raw', zero=True)
-        namebuf = rffi.str2charp('func')
+        namebuf = rffi.cast(rffi.CONST_CCHARP, rffi.str2charp('func'))
         ml.c_ml_name = namebuf
         ml.c_ml_meth = rffi.cast(PyCFunction_typedef,
                                  c_func.get_llhelper(space))

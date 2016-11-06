@@ -576,7 +576,7 @@ class AppTestFFI(BaseAppTestFFI):
         pow = libm.getfunc('pow', [types.double, types.double], types.double)
         try:
             pow(2, 3)
-        except ValueError, e:
+        except ValueError as e:
             assert e.message.startswith('Procedure called with')
         else:
             assert 0, 'test must assert, wrong calling convention'
@@ -597,7 +597,7 @@ class AppTestFFI(BaseAppTestFFI):
         wrong_sleep = wrong_kernel.getfunc('Sleep', [types.uint], types.void)
         try:
             wrong_sleep(10)
-        except ValueError, e:
+        except ValueError as e:
             assert e.message.startswith('Procedure called with')
         else:
             assert 0, 'test must assert, wrong calling convention'
@@ -613,7 +613,7 @@ class AppTestFFI(BaseAppTestFFI):
                 [types.double, types.double], types.double, FUNCFLAG_STDCALL)
         try:
             wrong_pow(2, 3) == 8
-        except ValueError, e:
+        except ValueError as e:
             assert e.message.startswith('Procedure called with')
         else:
             assert 0, 'test must assert, wrong calling convention'
@@ -643,3 +643,11 @@ class AppTestFFI(BaseAppTestFFI):
         f_name = libfoo.getfunc('AAA_first_ordinal_function', [], types.sint)
         f_ordinal = libfoo.getfunc(1, [], types.sint)
         assert f_name.getaddr() == f_ordinal.getaddr()
+
+    def test_cdll_as_integer(self):
+        import _rawffi
+        from _rawffi.alt import CDLL
+        libfoo = CDLL(self.libfoo_name)
+        A = _rawffi.Array('i')
+        a = A(1, autofree=True)
+        a[0] = libfoo      # should cast libfoo to int/long automatically

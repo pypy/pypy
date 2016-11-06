@@ -1486,7 +1486,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert d[1] == 12
 
     def test_sum(self):
-        from numpy import array, zeros, float16, complex64, str_
+        from numpy import array, zeros, float16, complex64, str_, isscalar, add
         a = array(range(5))
         assert a.sum() == 10
         assert a[:4].sum() == 6
@@ -1514,6 +1514,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert c.imag == 5
 
         assert list(zeros((0, 2)).sum(axis=1)) == []
+
+        a = array([1, 2, 3, 4]).sum()
+        s = isscalar(a)
+        assert s is True
+        a = add.reduce([1.0, 2, 3, 4])
+        s = isscalar(a)
+        assert s is True,'%r is not a scalar' % type(a)
 
     def test_reduce_nd(self):
         from numpy import arange, array
@@ -1791,6 +1798,7 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_scalar_view(self):
         from numpy import array
+        import sys
         a = array(3, dtype='int32')
         b = a.view(dtype='float32')
         assert b.shape == ()
@@ -1799,17 +1807,27 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert exc.value[0] == "new type not compatible with array."
         exc = raises(TypeError, a.view, 'string')
         assert exc.value[0] == "data-type must not be 0-sized"
-        assert a.view('S4') == '\x03'
+        if sys.byteorder == 'big':
+            assert a.view('S4') == '\x00\x00\x00\x03'
+        else:
+            assert a.view('S4') == '\x03'
         a = array('abc1', dtype='c')
         assert (a == ['a', 'b', 'c', '1']).all()
         assert a.view('S4') == 'abc1'
         b = a.view([('a', 'i2'), ('b', 'i2')])
         assert b.shape == (1,)
-        assert b[0][0] == 25185
-        assert b[0][1] == 12643
+        if sys.byteorder == 'big':
+            assert b[0][0] == 0x6162
+            assert b[0][1] == 0x6331
+        else:
+            assert b[0][0] == 25185
+            assert b[0][1] == 12643
         a = array([(1, 2)], dtype=[('a', 'int64'), ('b', 'int64')])[0]
         assert a.shape == ()
-        assert a.view('S16') == '\x01' + '\x00' * 7 + '\x02'
+        if sys.byteorder == 'big':
+            assert a.view('S16') == '\x00' * 7 + '\x01' + '\x00' * 7 + '\x02'
+        else:
+            assert a.view('S16') == '\x01' + '\x00' * 7 + '\x02'
         a = array(2, dtype='<i8')
         b = a.view('<c8')
         assert 0 < b.real < 1
@@ -1818,15 +1836,23 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_array_view(self):
         from numpy import array, dtype
+        import sys
         x = array((1, 2), dtype='int8')
         assert x.shape == (2,)
         y = x.view(dtype='int16')
         assert x.shape == (2,)
-        assert y[0] == 513
+        if sys.byteorder == 'big':
+            assert y[0] == 0x0102
+        else:
+            assert y[0] == 513 == 0x0201
         assert y.dtype == dtype('int16')
         y[0] = 670
-        assert x[0] == -98
-        assert x[1] == 2
+        if sys.byteorder == 'little':
+            assert x[0] == -98
+            assert x[1] == 2
+        else:
+            assert x[0] == 2
+            assert x[1] == -98
         f = array([1000, -1234], dtype='i4')
         nnp = self.non_native_prefix
         d = f.view(dtype=nnp + 'i4')
@@ -1847,7 +1873,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert x.view('S4')[0] == 'abc'
         assert x.view('S4')[1] == 'defg'
         a = array([(1, 2)], dtype=[('a', 'int64'), ('b', 'int64')])
-        assert a.view('S16')[0] == '\x01' + '\x00' * 7 + '\x02'
+        if sys.byteorder == 'big':
+            assert a.view('S16')[0] == '\x00' * 7 + '\x01' + '\x00' * 7 + '\x02'
+        else:
+            assert a.view('S16')[0] == '\x01' + '\x00' * 7 + '\x02'
 
     def test_half_conversions(self):
         from numpy import array, arange
@@ -1856,7 +1885,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert map(isnan, e) == [False, False, False, True, False]
         assert map(isinf, e) == [False, False, True, False, False]
         assert e.argmax() == 3
-        # numpy preserves value for uint16 -> cast_as_float16 -> 
+        # numpy preserves value for uint16 -> cast_as_float16 ->
         #     convert_to_float64 -> convert_to_float16 -> uint16
         #  even for float16 various float16 nans
         all_f16 = arange(0xfe00, 0xffff, dtype='uint16')
@@ -1935,6 +1964,22 @@ class AppTestNumArray(BaseNumpyAppTest):
         from numpy import array
         a = array([[1, 2], [3, 4]])
         assert (a + a).tolist() == [[2, 4], [6, 8]]
+
+    def test_tolist_object(self):
+        from numpy import array
+        a = array([0], dtype=object)
+        assert a.tolist() == [0]
+
+    def test_tolist_object_slice(self):
+        from numpy import array
+        list_expected = [slice(0, 1), 0]
+        a = array(list_expected, dtype=object)
+        assert a.tolist() == list_expected
+
+    def test_tolist_object_slice_2d(self):
+        from numpy import array
+        a = array([(slice(0, 1), 1), (0, 1)], dtype=object)
+        assert a.tolist() == [[slice(0, 1, None), 1], [0, 1]]
 
     def test_tolist_slice(self):
         from numpy import array
@@ -2409,11 +2454,16 @@ class AppTestNumArray(BaseNumpyAppTest):
         from numpy import array
         import sys
         a = array([1, 2, 3, 4], dtype='i4')
-        assert a.data[0] == '\x01'
+        assert a.data[0] == ('\x01' if sys.byteorder == 'little' else '\x00')
         assert a.data[1] == '\x00'
-        assert a.data[4] == '\x02'
-        a.data[4] = '\xff'
-        assert a[1] == 0xff
+        assert a.data[3] == ('\x00' if sys.byteorder == 'little' else '\x01')
+        assert a.data[4] == ('\x02' if sys.byteorder == 'little' else '\x00')
+        a.data[4] = '\x7f'
+        if sys.byteorder == 'big':
+            a.data[7] = '\x00' # make sure 0x02 is reset to 0
+            assert a[1] == (0x7f000000)
+        else:
+            assert a[1] == 0x7f
         assert len(a.data) == 16
         assert type(a.data) is buffer
         if '__pypy__' in sys.builtin_module_names:
@@ -2485,12 +2535,17 @@ class AppTestNumArray(BaseNumpyAppTest):
     def test__reduce__(self):
         from numpy import array, dtype
         from cPickle import loads, dumps
+        import sys
 
         a = array([1, 2], dtype="int64")
         data = a.__reduce__()
 
-        assert data[2][4] == '\x01\x00\x00\x00\x00\x00\x00\x00' \
-                             '\x02\x00\x00\x00\x00\x00\x00\x00'
+        if sys.byteorder == 'big':
+            assert data[2][4] == '\x00\x00\x00\x00\x00\x00\x00\x01' \
+                                 '\x00\x00\x00\x00\x00\x00\x00\x02'
+        else:
+            assert data[2][4] == '\x01\x00\x00\x00\x00\x00\x00\x00' \
+                                 '\x02\x00\x00\x00\x00\x00\x00\x00'
 
         pickled_data = dumps(a)
         assert (loads(pickled_data) == a).all()
@@ -2541,21 +2596,36 @@ class AppTestNumArray(BaseNumpyAppTest):
         a[b] = np.array([[4.]])
         assert (a == [[4., 4., 4.]]).all()
 
+    def test_indexing_by_boolean(self):
+        import numpy as np
+        a = np.arange(6).reshape(2,3)
+        assert (a[[True, False], :] == [[3, 4, 5], [0, 1, 2]]).all()
+        b = a[np.array([True, False]), :]
+        assert (b == [[0, 1, 2]]).all()
+        assert b.base is None
+        b = a[:, np.array([True, False, True])]
+        assert b.base is not None
+        a[np.array([True, False]), 0] = 100
+        b = a[np.array([True, False]), 0]
+        assert b.shape == (1,)
+        assert (b ==[100]).all()
+
+    def test_scalar_indexing(self):
+        import numpy as np
+        a = np.arange(6).reshape(2,3)
+        i = np.dtype('int32').type(0)
+        assert (a[0] == a[i]).all()
+
+
     def test_ellipsis_indexing(self):
         import numpy as np
         import sys
         a = np.array(1.5)
-        if '__pypy__' in sys.builtin_module_names:
-            assert a[...] is a
-        else:
-            assert a[...].base is a
+        assert a[...].base is a
         a[...] = 2.5
         assert a == 2.5
         a = np.array([1, 2, 3])
-        if '__pypy__' in sys.builtin_module_names:
-            assert a[...] is a
-        else:
-            assert a[...].base is a
+        assert a[...].base is a
         a[...] = 4
         assert (a == [4, 4, 4]).all()
         assert a[..., 0] == 4
@@ -2602,12 +2672,16 @@ class AppTestNumArrayFromBuffer(BaseNumpyAppTest):
     def test_ndarray_from_buffer(self):
         import numpy as np
         import array
+        import sys
         buf = array.array('c', ['\x00']*2*3)
         a = np.ndarray((3,), buffer=buf, dtype='i2')
         a[0] = ord('b')
         a[1] = ord('a')
         a[2] = ord('r')
-        assert list(buf) == ['b', '\x00', 'a', '\x00', 'r', '\x00']
+        if sys.byteorder == 'big':
+            assert list(buf) == ['\x00', 'b', '\x00', 'a', '\x00', 'r']
+        else:
+            assert list(buf) == ['b', '\x00', 'a', '\x00', 'r', '\x00']
         assert a.base is buf
 
     def test_ndarray_subclass_from_buffer(self):
@@ -2622,13 +2696,17 @@ class AppTestNumArrayFromBuffer(BaseNumpyAppTest):
     def test_ndarray_from_buffer_and_offset(self):
         import numpy as np
         import array
+        import sys
         buf = array.array('c', ['\x00']*7)
         buf[0] = 'X'
         a = np.ndarray((3,), buffer=buf, offset=1, dtype='i2')
         a[0] = ord('b')
         a[1] = ord('a')
         a[2] = ord('r')
-        assert list(buf) == ['X', 'b', '\x00', 'a', '\x00', 'r', '\x00']
+        if sys.byteorder == 'big':
+            assert list(buf) == ['X', '\x00', 'b', '\x00', 'a', '\x00', 'r']
+        else:
+            assert list(buf) == ['X', 'b', '\x00', 'a', '\x00', 'r', '\x00']
 
     def test_ndarray_from_buffer_out_of_bounds(self):
         import numpy as np
@@ -2883,6 +2961,36 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (a.transpose() == b).all()
         assert (a.transpose(None) == b).all()
 
+    def test_transpose_arg_tuple(self):
+        import numpy as np
+        a = np.arange(24).reshape(2, 3, 4)
+        transpose_args = a.transpose(1, 2, 0)
+
+        transpose_test = a.transpose((1, 2, 0))
+
+        assert transpose_test.shape == (3, 4, 2)
+        assert (transpose_args == transpose_test).all()
+
+    def test_transpose_arg_list(self):
+        import numpy as np
+        a = np.arange(24).reshape(2, 3, 4)
+        transpose_args = a.transpose(1, 2, 0)
+
+        transpose_test = a.transpose([1, 2, 0])
+
+        assert transpose_test.shape == (3, 4, 2)
+        assert (transpose_args == transpose_test).all()
+
+    def test_transpose_arg_array(self):
+        import numpy as np
+        a = np.arange(24).reshape(2, 3, 4)
+        transpose_args = a.transpose(1, 2, 0)
+
+        transpose_test = a.transpose(np.array([1, 2, 0]))
+
+        assert transpose_test.shape == (3, 4, 2)
+        assert (transpose_args == transpose_test).all()
+
     def test_transpose_error(self):
         import numpy as np
         a = np.arange(24).reshape(2, 3, 4)
@@ -2890,6 +2998,11 @@ class AppTestMultiDim(BaseNumpyAppTest):
         raises(ValueError, a.transpose, 1, 0, 3)
         raises(ValueError, a.transpose, 1, 0, 1)
         raises(TypeError, a.transpose, 1, 0, '2')
+
+    def test_transpose_unexpected_argument(self):
+        import numpy as np
+        a = np.array([[1, 2], [3, 4], [5, 6]])
+        raises(TypeError, 'a.transpose(axes=(1,2,0))')
 
     def test_flatiter(self):
         from numpy import array, flatiter, arange, zeros
@@ -3109,7 +3222,9 @@ class AppTestMultiDim(BaseNumpyAppTest):
         raises(TypeError, array, Dummy({'version': 3, 'typestr': 'f8', 'shape': ('a', 3)}))
 
         a = array([1, 2, 3])
-        b = array(Dummy(a.__array_interface__))
+        d = Dummy(a.__array_interface__)
+        b = array(d)
+        assert b.base is None
         b[1] = 200
         assert a[1] == 2 # upstream compatibility, is this a bug?
         interface_a = a.__array_interface__
@@ -3120,6 +3235,8 @@ class AppTestMultiDim(BaseNumpyAppTest):
         interface_b.pop('data')
         interface_a.pop('data')
         assert interface_a == interface_b
+        b = array(d, copy=False)
+        assert b.base is d
 
         b = array(Dummy({'version':3, 'shape': (50,), 'typestr': 'u1',
                          'data': 'a'*100}))
@@ -3360,6 +3477,21 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a.itemset(1, 2, 100)
         assert a[1, 2] == 100
 
+    def test_index_int(self):
+        import numpy as np
+        a = np.array([10, 20, 30], dtype='int64')
+        res = a[np.int64(1)]
+        assert isinstance(res, np.int64)
+        assert res == 20
+        res = a[np.int32(0)]
+        assert isinstance(res, np.int64)
+        assert res == 10
+
+        b = a.astype(float)
+        res = b[np.int64(1)]
+        assert res == 20.0
+        assert isinstance(res, np.float64)
+
     def test_index(self):
         import numpy as np
         a = np.array([1], np.uint16)
@@ -3370,6 +3502,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
             exc = raises(TypeError, a.__index__)
             assert exc.value.message == 'only integer arrays with one element ' \
                                         'can be converted to an index'
+
 
     def test_int_array_index(self):
         from numpy import array
@@ -3464,10 +3597,15 @@ class AppTestSupport(BaseNumpyAppTest):
         BaseNumpyAppTest.setup_class.im_func(cls)
         cls.w_data = cls.space.wrap(struct.pack('dddd', 1, 2, 3, 4))
         cls.w_fdata = cls.space.wrap(struct.pack('f', 2.3))
-        cls.w_float16val = cls.space.wrap('\x00E') # 5.0 in float16
+        import sys
+        if sys.byteorder == 'big':
+            cls.w_float16val = cls.space.wrap('E\x00') # 5.0 in float16
+        else:
+            cls.w_float16val = cls.space.wrap('\x00E') # 5.0 in float16
         cls.w_float32val = cls.space.wrap(struct.pack('f', 5.2))
         cls.w_float64val = cls.space.wrap(struct.pack('d', 300.4))
         cls.w_ulongval = cls.space.wrap(struct.pack('L', 12))
+        cls.w_one = cls.space.wrap(struct.pack('i', 1))
 
     def test_frombuffer(self):
         import numpy as np
@@ -3500,12 +3638,64 @@ class AppTestSupport(BaseNumpyAppTest):
         assert str(exc.value) == "assignment destination is read-only"
 
         class A(object):
-            __buffer__ = 'abc'
+            def __buffer__(self, flags):
+                return 'abc'
 
         data = A()
         a = np.frombuffer(data, 'c')
         #assert a.base is data.__buffer__
         assert a.tostring() == 'abc'
+
+    def test_memoryview(self):
+        import numpy as np
+        import sys
+        if sys.version_info[:2] > (3, 2):
+            # In Python 3.3 the representation of empty shape, strides and sub-offsets
+            # is an empty tuple instead of None.
+            # http://docs.python.org/dev/whatsnew/3.3.html#api-changes
+            EMPTY = ()
+        else:
+            EMPTY = None
+        x = np.array([1, 2, 3, 4, 5], dtype='i')
+        y = memoryview(x)
+        assert y.format == 'i'
+        assert y.shape == (5,)
+        assert y.ndim == 1
+        assert y.strides == (4,)
+        assert y.suboffsets == EMPTY
+        assert y.itemsize == 4
+        assert isinstance(y, memoryview)
+        assert y[0] == self.one
+        assert (np.array(y) == x).all()
+
+        x = np.array([0, 0, 0, 0], dtype='O')
+        y = memoryview(x)
+        # handles conversion of address to pinned object?
+        z = np.array(y)
+        assert z.dtype == 'O'
+        assert (z == x).all()
+
+        dt1 = np.dtype(
+             [('a', 'b'), ('b', 'i'), ('sub', np.dtype('b,i')), ('c', 'i')],
+             align=True)
+        x = np.arange(dt1.itemsize, dtype=np.int8).view(dt1)
+        y = memoryview(x)
+        if '__pypy__' in sys.builtin_module_names:
+            assert y.format == 'T{b:a:xxxi:b:T{b:f0:i:f1:}:sub:xxxi:c:}'
+        else:
+            assert y.format == 'T{b:a:xxxi:b:T{b:f0:=i:f1:}:sub:xxx@i:c:}'
+ 
+
+        dt1 = np.dtype(
+             [('a', 'b'), ('b', 'i'), ('sub', np.dtype('b,i')), ('c', 'i')],
+             align=True)
+        x = np.arange(dt1.itemsize, dtype=np.int8).view(dt1)
+        y = memoryview(x)
+        if '__pypy__' in sys.builtin_module_names:
+            assert y.format == 'T{b:a:xxxi:b:T{b:f0:i:f1:}:sub:xxxi:c:}'
+        else:
+            assert y.format == 'T{b:a:xxxi:b:T{b:f0:=i:f1:}:sub:xxx@i:c:}'
+ 
 
     def test_fromstring(self):
         import sys
@@ -3572,9 +3762,15 @@ class AppTestSupport(BaseNumpyAppTest):
         assert (t == []).all()
         u = fromstring("\x01\x00\x00\x00\x00\x00\x00\x00", dtype=int)
         if sys.maxint > 2 ** 31 - 1:
-            assert (u == [1]).all()
+            if sys.byteorder == 'big':
+                assert (u == [0x0100000000000000]).all()
+            else:
+                assert (u == [1]).all()
         else:
-            assert (u == [1, 0]).all()
+            if sys.byteorder == 'big':
+                assert (u == [0x01000000, 0]).all()
+            else:
+                assert (u == [1, 0]).all()
         v = fromstring("abcd", dtype="|S2")
         assert v[0] == "ab"
         assert v[1] == "cd"
@@ -3631,9 +3827,15 @@ class AppTestSupport(BaseNumpyAppTest):
         k = fromstring(self.float16val, dtype='float16')
         assert k[0] == dtype('float16').type(5.)
         dt =  array([5], dtype='longfloat').dtype
+        print(dt.itemsize)
         if dt.itemsize == 8:
-            m = fromstring('\x00\x00\x00\x00\x00\x00\x14@',
-                           dtype='float64')
+            import sys
+            if sys.byteorder == 'big':
+                m = fromstring('@\x14\x00\x00\x00\x00\x00\x00',
+                               dtype='float64')
+            else:
+                m = fromstring('\x00\x00\x00\x00\x00\x00\x14@',
+                               dtype='float64')
         elif dt.itemsize == 12:
             m = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x00\x00',
                            dtype='float96')
@@ -3655,8 +3857,13 @@ class AppTestSupport(BaseNumpyAppTest):
 
     def test_tostring(self):
         from numpy import array
-        assert array([1, 2, 3], 'i2').tostring() == '\x01\x00\x02\x00\x03\x00'
-        assert array([1, 2, 3], 'i2')[::2].tostring() == '\x01\x00\x03\x00'
+        import sys
+        if sys.byteorder == 'big':
+            assert array([1, 2, 3], 'i2').tostring() == '\x00\x01\x00\x02\x00\x03'
+            assert array([1, 2, 3], 'i2')[::2].tostring() == '\x00\x01\x00\x03'
+        else:
+            assert array([1, 2, 3], 'i2').tostring() == '\x01\x00\x02\x00\x03\x00'
+            assert array([1, 2, 3], 'i2')[::2].tostring() == '\x01\x00\x03\x00'
         assert array([1, 2, 3], '<i2')[::2].tostring() == '\x01\x00\x03\x00'
         assert array([1, 2, 3], '>i2')[::2].tostring() == '\x00\x01\x00\x03'
         assert array(0, dtype='i2').tostring() == '\x00\x00'
@@ -4152,7 +4359,11 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         v = a.view(('float32', 4))
         assert v.dtype == np.dtype('float32')
         assert v.shape == (10, 4)
-        assert v[0][-1] == 2.53125
+        import sys
+        if sys.byteorder == 'big':
+            assert v[0][-2] == 2.53125
+        else:
+            assert v[0][-1] == 2.53125
         exc = raises(ValueError, "a.view(('float32', 2))")
         assert exc.value[0] == 'new type not compatible with array.'
 

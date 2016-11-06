@@ -134,7 +134,7 @@ class TestPPC(LLtypeBackendTest):
 
     def test_debugger_on(self):
         py.test.skip("XXX")
-        from pypy.rlib import debug
+        from rpython.rlib import debug
 
         targettoken, preambletoken = TargetToken(), TargetToken()
         loop = """

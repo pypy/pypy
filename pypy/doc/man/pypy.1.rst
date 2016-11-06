@@ -2,6 +2,9 @@
  pypy
 ======
 
+.. note: this is turned into a regular man page "pypy.1" by
+   doing "make man" in pypy/doc/
+
 SYNOPSIS
 ========
 
@@ -47,6 +50,10 @@ OPTIONS
 
 -B
     Disable writing bytecode (``.pyc``) files.
+
+-X track-resources
+    Produce a ``ResourceWarning`` whenever a file or socket is closed by the
+    garbage collector.
 
 --version
     Print the PyPy version.

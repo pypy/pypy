@@ -129,7 +129,7 @@ class BaseGCTransformer(object):
                                            raise_analyzer,
                                            cleanup=False)
                     must_constfold = True
-                except inline.CannotInline, e:
+                except inline.CannotInline as e:
                     print 'CANNOT INLINE:', e
                     print '\t%s into %s' % (inline_graph, graph)
             cleanup_graph(graph)
@@ -285,6 +285,9 @@ class BaseGCTransformer(object):
         # It is likely that the finalizers need special support there
         newgcdependencies = self.ll_finalizers_ptrs
         return newgcdependencies
+
+    def get_finish_helpers(self):
+        return self.finish_helpers
 
     def finish_tables(self):
         pass

@@ -9,7 +9,7 @@ from pypy.tool.ann_override import PyPyAnnotatorPolicy
 from rpython.config.config import to_optparse, make_dict, SUPPRESS_USAGE
 from rpython.config.config import ConflictConfigError
 from pypy.tool.option import make_objspace
-from pypy.conftest import pypydir
+from pypy import pypydir
 from rpython.rlib import rthread
 from pypy.module.thread import os_thread
 
@@ -63,7 +63,7 @@ def create_entry_point(space, w_dict):
             ##    from pypy.interpreter import main, interactive, error
             ##    con = interactive.PyPyConsole(space)
             ##    con.interact()
-            except OperationError, e:
+            except OperationError as e:
                 debug("OperationError:")
                 debug(" operror-type: " + e.w_type.getname(space))
                 debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
@@ -71,7 +71,7 @@ def create_entry_point(space, w_dict):
         finally:
             try:
                 space.finish()
-            except OperationError, e:
+            except OperationError as e:
                 debug("OperationError:")
                 debug(" operror-type: " + e.w_type.getname(space))
                 debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
@@ -89,17 +89,18 @@ def create_entry_point(space, w_dict):
     def pypy_setup_home(ll_home, verbose):
         from pypy.module.sys.initpath import pypy_find_stdlib
         verbose = rffi.cast(lltype.Signed, verbose)
-        if ll_home:
+        if ll_home and ord(ll_home[0]):
             home1 = rffi.charp2str(ll_home)
             home = os.path.join(home1, 'x') # <- so that 'll_home' can be
                                             # directly the root directory
         else:
-            home = home1 = pypydir
+            home1 = "pypy's shared library location"
+            home = '*'
         w_path = pypy_find_stdlib(space, home)
         if space.is_none(w_path):
             if verbose:
                 debug("pypy_setup_home: directories 'lib-python' and 'lib_pypy'"
-                      " not found in '%s' or in any parent directory" % home1)
+                      " not found in %s or in any parent directory" % home1)
             return rffi.cast(rffi.INT, 1)
         space.startup()
         space.appexec([w_path], """(path):
@@ -115,7 +116,7 @@ def create_entry_point(space, w_dict):
                                     space.wrap('__import__'))
             space.call_function(import_, space.wrap('site'))
             return rffi.cast(rffi.INT, 0)
-        except OperationError, e:
+        except OperationError as e:
             if verbose:
                 debug("OperationError:")
                 debug(" operror-type: " + e.w_type.getname(space))
@@ -167,7 +168,7 @@ def create_entry_point(space, w_dict):
                 sys._pypy_execute_source.append(glob)
                 exec stmt in glob
             """)
-        except OperationError, e:
+        except OperationError as e:
             debug("OperationError:")
             debug(" operror-type: " + e.w_type.getname(space))
             debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
@@ -239,9 +240,14 @@ class PyPyTarget(object):
                 raise Exception("Cannot use the --output option with PyPy "
                                 "when --shared is on (it is by default). "
                                 "See issue #1971.")
+            if config.translation.profopt is not None:
+                raise Exception("Cannot use the --profopt option "
+                                "when --shared is on (it is by default). "
+                                "See issue #2398.")
         if sys.platform == 'win32':
-            config.translation.libname = '..\\..\\libs\\python27.lib'
-            thisdir.join('..', '..', 'libs').ensure(dir=1)
+            libdir = thisdir.join('..', '..', 'libs')
+            libdir.ensure(dir=1)
+            config.translation.libname = str(libdir.join('python27.lib'))
 
         if config.translation.thread:
             config.objspace.usemodules.thread = True
@@ -277,7 +283,6 @@ class PyPyTarget(object):
 
         if config.translation.sandbox:
             config.objspace.lonepycfiles = False
-            config.objspace.usepycfiles = False
 
         config.translating = True
 
@@ -293,42 +298,25 @@ class PyPyTarget(object):
             self.hack_for_cffi_modules(driver)
 
         return self.get_entry_point(config)
-    
+
     def hack_for_cffi_modules(self, driver):
         # HACKHACKHACK
         # ugly hack to modify target goal from compile_* to build_cffi_imports
         # this should probably get cleaned up and merged with driver.create_exe
+        from rpython.tool.runsubprocess import run_subprocess
         from rpython.translator.driver import taskdef
         import types
-
-        class Options(object):
-            pass
-
-
-        def mkexename(name):
-            if sys.platform == 'win32':
-                name = name.new(ext='exe')
-            return name
 
         compile_goal, = driver.backend_select_goals(['compile'])
         @taskdef([compile_goal], "Create cffi bindings for modules")
         def task_build_cffi_imports(self):
-            from pypy.tool.build_cffi_imports import create_cffi_import_libraries
             ''' Use cffi to compile cffi interfaces to modules'''
-            exename = mkexename(driver.compute_exe_name())
-            basedir = exename
-            while not basedir.join('include').exists():
-                _basedir = basedir.dirpath()
-                if _basedir == basedir:
-                    raise ValueError('interpreter %s not inside pypy repo', 
-                                     str(exename))
-                basedir = _basedir
-            modules = self.config.objspace.usemodules.getpaths()
-            options = Options()
-            # XXX possibly adapt options using modules
-            failures = create_cffi_import_libraries(exename, options, basedir)
-            # if failures, they were already printed
-            print  >> sys.stderr, str(exename),'successfully built, but errors while building the above modules will be ignored'
+            filename = os.path.join(pypydir, 'tool', 'build_cffi_imports.py')
+            status, out, err = run_subprocess(str(driver.compute_exe_name()),
+                                              [filename])
+            sys.stdout.write(out)
+            sys.stderr.write(err)
+            # otherwise, ignore errors
         driver.task_build_cffi_imports = types.MethodType(task_build_cffi_imports, driver)
         driver.tasks['build_cffi_imports'] = driver.task_build_cffi_imports, [compile_goal]
         driver.default_goal = 'build_cffi_imports'
@@ -340,10 +328,6 @@ class PyPyTarget(object):
         return PyPyJitPolicy(pypy_hooks)
 
     def get_entry_point(self, config):
-        from pypy.tool.lib_pypy import import_from_lib_pypy
-        rebuild = import_from_lib_pypy('ctypes_config_cache/rebuild')
-        rebuild.try_rebuild()
-
         space = make_objspace(config)
 
         # manually imports app_main.py

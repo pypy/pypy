@@ -1,4 +1,4 @@
-# encoding: iso-8859-15
+# encoding: utf-8
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.unicodeobject import (
@@ -21,18 +21,21 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
                  PyObject* s = PyUnicode_FromString("Hello world");
                  int result = 0;
 
-                 if(PyUnicode_GetSize(s) == 11) {
-                     result = 1;
+                 if(PyUnicode_GetSize(s) != 11) {
+                     result = -PyUnicode_GetSize(s);
                  }
-                 if(s->ob_type->tp_basicsize != sizeof(void*)*4)
-                     result = 0;
+#ifdef PYPY_VERSION
+                 // Slightly silly test that tp_basicsize is reasonable.
+                 if(s->ob_type->tp_basicsize != sizeof(void*)*7)
+                     result = s->ob_type->tp_basicsize;
+#endif  // PYPY_VERSION
                  Py_DECREF(s);
-                 return PyBool_FromLong(result);
+                 return PyLong_FromLong(result);
              """),
             ("test_GetSize_exception", "METH_NOARGS",
              """
                  PyObject* f = PyFloat_FromDouble(1.0);
-                 Py_ssize_t size = PyUnicode_GetSize(f);
+                 PyUnicode_GetSize(f);
 
                  Py_DECREF(f);
                  return NULL;
@@ -42,7 +45,7 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
                 return PyBool_FromLong(PyUnicode_Check(PyTuple_GetItem(args, 0)));
              """)])
         assert module.get_hello1() == u'Hello world'
-        assert module.test_GetSize()
+        assert module.test_GetSize() == 0
         raises(TypeError, module.test_GetSize_exception)
 
         assert module.test_is_unicode(u"")
@@ -54,7 +57,6 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
              """
                  PyObject *s, *t;
                  Py_UNICODE* c;
-                 Py_ssize_t len;
 
                  s = PyUnicode_FromUnicode(NULL, 4);
                  if (s == NULL)
@@ -66,22 +68,74 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
                  c = PyUnicode_AsUnicode(s);
                  c[0] = 'a';
                  c[1] = 0xe9;
+                 c[2] = 0x00;
                  c[3] = 'c';
                  return s;
              """),
             ])
         s = module.getunicode()
         assert len(s) == 4
-        assert s == u'aé\x00c'
+        assert s == u'a\xe9\x00c'
 
+    def test_hash(self):
+        module = self.import_extension('foo', [
+            ("test_hash", "METH_VARARGS",
+             '''
+                PyObject* obj = (PyTuple_GetItem(args, 0));
+                long hash = ((PyUnicodeObject*)obj)->hash;
+                return PyLong_FromLong(hash);
+             '''
+             ),
+            ])
+        obj = u'xyz'
+        # CPython in particular does not precompute ->hash, so we need to call
+        # hash() first.
+        expected_hash = hash(obj)
+        assert module.test_hash(obj) == expected_hash
 
+    def test_default_encoded_string(self):
+        module = self.import_extension('foo', [
+            ("test_default_encoded_string", "METH_O",
+             '''
+                PyObject* result = _PyUnicode_AsDefaultEncodedString(args, "replace");
+                Py_INCREF(result);
+                return result;
+             '''
+             ),
+            ])
+        res = module.test_default_encoded_string(u"xyz")
+        assert isinstance(res, str)
+        assert res == 'xyz'
+        res = module.test_default_encoded_string(u"caf\xe9")
+        assert isinstance(res, str)
+        assert res == 'caf?'
+
+    def test_unicode_macros(self):
+        """The PyUnicode_* macros cast, and calls expecting that build."""
+        module = self.import_extension('foo', [
+             ("test_macro_invocations", "METH_NOARGS",
+             """
+                PyObject* o = PyUnicode_FromString("");
+                PyUnicodeObject* u = (PyUnicodeObject*)o;
+
+                PyUnicode_GET_SIZE(u);
+                PyUnicode_GET_SIZE(o);
+
+                PyUnicode_GET_DATA_SIZE(u);
+                PyUnicode_GET_DATA_SIZE(o);
+
+                PyUnicode_AS_UNICODE(o);
+                PyUnicode_AS_UNICODE(u);
+                return o;
+             """)])
+        assert module.test_macro_invocations() == u''
 
 class TestUnicode(BaseApiTest):
     def test_unicodeobject(self, space, api):
-        assert api.PyUnicode_GET_SIZE(space.wrap(u'späm')) == 4
-        assert api.PyUnicode_GetSize(space.wrap(u'späm')) == 4
+        assert api.PyUnicode_GET_SIZE(space.wrap(u'spï¿½m')) == 4
+        assert api.PyUnicode_GetSize(space.wrap(u'spï¿½m')) == 4
         unichar = rffi.sizeof(Py_UNICODE)
-        assert api.PyUnicode_GET_DATA_SIZE(space.wrap(u'späm')) == 4 * unichar
+        assert api.PyUnicode_GET_DATA_SIZE(space.wrap(u'spï¿½m')) == 4 * unichar
 
         encoding = rffi.charp2str(api.PyUnicode_GetDefaultEncoding())
         w_default_encoding = space.call_function(
@@ -115,10 +169,10 @@ class TestUnicode(BaseApiTest):
                     space.wrap('spam'))
 
         utf_8 = rffi.str2charp('utf-8')
-        encoded = api.PyUnicode_AsEncodedString(space.wrap(u'späm'),
+        encoded = api.PyUnicode_AsEncodedString(space.wrap(u'spï¿½m'),
                                                 utf_8, None)
-        assert space.unwrap(encoded) == 'sp\xc3\xa4m'
-        encoded_obj = api.PyUnicode_AsEncodedObject(space.wrap(u'späm'),
+        assert space.unwrap(encoded) == 'sp\xef\xbf\xbdm'
+        encoded_obj = api.PyUnicode_AsEncodedObject(space.wrap(u'spï¿½m'),
                                                 utf_8, None)
         assert space.eq_w(encoded, encoded_obj)
         self.raises(space, api, TypeError, api.PyUnicode_AsEncodedString,
@@ -127,7 +181,7 @@ class TestUnicode(BaseApiTest):
                space.wrap(''), None, None)
         ascii = rffi.str2charp('ascii')
         replace = rffi.str2charp('replace')
-        encoded = api.PyUnicode_AsEncodedString(space.wrap(u'späm'),
+        encoded = api.PyUnicode_AsEncodedString(space.wrap(u'spï¿½m'),
                                                 ascii, replace)
         assert space.unwrap(encoded) == 'sp?m'
         rffi.free_charp(utf_8)
@@ -142,59 +196,59 @@ class TestUnicode(BaseApiTest):
         rffi.free_wcharp(buf)
 
     def test_fromstring(self, space, api):
-        s = rffi.str2charp(u'späm'.encode("utf-8"))
+        s = rffi.str2charp(u'sp\x09m'.encode("utf-8"))
         w_res = api.PyUnicode_FromString(s)
-        assert space.unwrap(w_res) == u'späm'
+        assert space.unwrap(w_res) == u'sp\x09m'
 
         res = api.PyUnicode_FromStringAndSize(s, 4)
         w_res = from_ref(space, res)
         api.Py_DecRef(res)
-        assert space.unwrap(w_res) == u'spä'
+        assert space.unwrap(w_res) == u'sp\x09m'
         rffi.free_charp(s)
 
     def test_unicode_resize(self, space, api):
         py_uni = new_empty_unicode(space, 10)
         ar = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
-        py_uni.c_buffer[0] = u'a'
-        py_uni.c_buffer[1] = u'b'
-        py_uni.c_buffer[2] = u'c'
+        py_uni.c_str[0] = u'a'
+        py_uni.c_str[1] = u'b'
+        py_uni.c_str[2] = u'c'
         ar[0] = rffi.cast(PyObject, py_uni)
         api.PyUnicode_Resize(ar, 3)
         py_uni = rffi.cast(PyUnicodeObject, ar[0])
-        assert py_uni.c_size == 3
-        assert py_uni.c_buffer[1] == u'b'
-        assert py_uni.c_buffer[3] == u'\x00'
+        assert py_uni.c_length == 3
+        assert py_uni.c_str[1] == u'b'
+        assert py_uni.c_str[3] == u'\x00'
         # the same for growing
         ar[0] = rffi.cast(PyObject, py_uni)
         api.PyUnicode_Resize(ar, 10)
         py_uni = rffi.cast(PyUnicodeObject, ar[0])
-        assert py_uni.c_size == 10
-        assert py_uni.c_buffer[1] == 'b'
-        assert py_uni.c_buffer[10] == '\x00'
+        assert py_uni.c_length == 10
+        assert py_uni.c_str[1] == 'b'
+        assert py_uni.c_str[10] == '\x00'
         Py_DecRef(space, ar[0])
         lltype.free(ar, flavor='raw')
 
     def test_AsUTF8String(self, space, api):
-        w_u = space.wrap(u'späm')
+        w_u = space.wrap(u'sp\x09m')
         w_res = api.PyUnicode_AsUTF8String(w_u)
         assert space.type(w_res) is space.w_str
-        assert space.unwrap(w_res) == 'sp\xc3\xa4m'
-    
+        assert space.unwrap(w_res) == 'sp\tm'
+
     def test_decode_utf8(self, space, api):
-        u = rffi.str2charp(u'späm'.encode("utf-8"))
+        u = rffi.str2charp(u'sp\x134m'.encode("utf-8"))
         w_u = api.PyUnicode_DecodeUTF8(u, 5, None)
         assert space.type(w_u) is space.w_unicode
-        assert space.unwrap(w_u) == u'späm'
-        
+        assert space.unwrap(w_u) == u'sp\x134m'
+
         w_u = api.PyUnicode_DecodeUTF8(u, 2, None)
         assert space.type(w_u) is space.w_unicode
         assert space.unwrap(w_u) == 'sp'
         rffi.free_charp(u)
 
     def test_encode_utf8(self, space, api):
-        u = rffi.unicode2wcharp(u'späm')
+        u = rffi.unicode2wcharp(u'sp\x09m')
         w_s = api.PyUnicode_EncodeUTF8(u, 4, None)
-        assert space.unwrap(w_s) == u'späm'.encode('utf-8')
+        assert space.unwrap(w_s) == u'sp\x09m'.encode('utf-8')
         rffi.free_wcharp(u)
 
     def test_encode_decimal(self, space, api):
@@ -256,28 +310,26 @@ class TestUnicode(BaseApiTest):
         for char in [0x0a, 0x0d, 0x1c, 0x1d, 0x1e, 0x85, 0x2028, 0x2029]:
             assert api.Py_UNICODE_ISLINEBREAK(unichr(char))
 
-        assert api.Py_UNICODE_ISLOWER(u'ä')
-        assert not api.Py_UNICODE_ISUPPER(u'ä')
+        assert api.Py_UNICODE_ISLOWER(u'\xdf') # sharp s
+        assert api.Py_UNICODE_ISUPPER(u'\xde') # capital thorn
         assert api.Py_UNICODE_ISLOWER(u'a')
         assert not api.Py_UNICODE_ISUPPER(u'a')
-        assert not api.Py_UNICODE_ISLOWER(u'Ä')
-        assert api.Py_UNICODE_ISUPPER(u'Ä')
-        assert not api.Py_UNICODE_ISTITLE(u'A')
+        assert not api.Py_UNICODE_ISTITLE(u'\xce')
         assert api.Py_UNICODE_ISTITLE(
             u'\N{LATIN CAPITAL LETTER L WITH SMALL LETTER J}')
 
     def test_TOLOWER(self, space, api):
-        assert api.Py_UNICODE_TOLOWER(u'ä') == u'ä'
-        assert api.Py_UNICODE_TOLOWER(u'Ä') == u'ä'
+        assert api.Py_UNICODE_TOLOWER(u'ï¿½') == u'ï¿½'
+        assert api.Py_UNICODE_TOLOWER(u'ï¿½') == u'ï¿½'
 
     def test_TOUPPER(self, space, api):
-        assert api.Py_UNICODE_TOUPPER(u'ä') == u'Ä'
-        assert api.Py_UNICODE_TOUPPER(u'Ä') == u'Ä'
+        assert api.Py_UNICODE_TOUPPER(u'ï¿½') == u'ï¿½'
+        assert api.Py_UNICODE_TOUPPER(u'ï¿½') == u'ï¿½'
 
     def test_TOTITLE(self, space, api):
         assert api.Py_UNICODE_TOTITLE(u'/') == u'/'
-        assert api.Py_UNICODE_TOTITLE(u'ä') == u'Ä'
-        assert api.Py_UNICODE_TOTITLE(u'Ä') == u'Ä'
+        assert api.Py_UNICODE_TOTITLE(u'ï¿½') == u'ï¿½'
+        assert api.Py_UNICODE_TOTITLE(u'ï¿½') == u'ï¿½'
 
     def test_TODECIMAL(self, space, api):
         assert api.Py_UNICODE_TODECIMAL(u'6') == 6
@@ -352,7 +404,7 @@ class TestUnicode(BaseApiTest):
         ustr = "abcdef"
         w_ustr = space.wrap(ustr.decode("ascii"))
         result = api.PyUnicode_AsASCIIString(w_ustr)
-        
+
         assert space.eq_w(space.wrap(ustr), result)
 
         w_ustr = space.wrap(u"abcd\xe9f")
@@ -386,11 +438,11 @@ class TestUnicode(BaseApiTest):
                 lltype.free(pendian, flavor='raw')
 
         test("\x61\x00\x62\x00\x63\x00\x64\x00", -1)
-
-        test("\x61\x00\x62\x00\x63\x00\x64\x00", None)
-
+        if sys.byteorder == 'big':
+            test("\x00\x61\x00\x62\x00\x63\x00\x64", None)
+        else:
+            test("\x61\x00\x62\x00\x63\x00\x64\x00", None)
         test("\x00\x61\x00\x62\x00\x63\x00\x64", 1)
-
         test("\xFE\xFF\x00\x61\x00\x62\x00\x63\x00\x64", 0, 1)
         test("\xFF\xFE\x61\x00\x62\x00\x63\x00\x64\x00", 0, -1)
 
@@ -423,7 +475,10 @@ class TestUnicode(BaseApiTest):
 
         test("\x61\x00\x00\x00\x62\x00\x00\x00", -1)
 
-        test("\x61\x00\x00\x00\x62\x00\x00\x00", None)
+        if sys.byteorder == 'big':
+            test("\x00\x00\x00\x61\x00\x00\x00\x62", None)
+        else:
+            test("\x61\x00\x00\x00\x62\x00\x00\x00", None)
 
         test("\x00\x00\x00\x61\x00\x00\x00\x62", 1)
 
@@ -432,6 +487,10 @@ class TestUnicode(BaseApiTest):
 
     def test_compare(self, space, api):
         assert api.PyUnicode_Compare(space.wrap('a'), space.wrap('b')) == -1
+
+    def test_concat(self, space, api):
+        w_res = api.PyUnicode_Concat(space.wrap(u'a'), space.wrap(u'b'))
+        assert space.unwrap(w_res) == u'ab'
 
     def test_copy(self, space, api):
         w_x = space.wrap(u"abcd\u0660")
@@ -471,7 +530,7 @@ class TestUnicode(BaseApiTest):
         assert space.eq_w(space.wrap("abcdefg"), w_s)
         rffi.free_wcharp(data)
 
-        u = u'äbcdéfg'
+        u = u'ï¿½bcdï¿½fg'
         data = rffi.unicode2wcharp(u)
         w_s = api.PyUnicode_EncodeASCII(data, len(u), lltype.nullptr(rffi.CCHARP.TO))
         self.raises(space, api, UnicodeEncodeError, api.PyUnicode_EncodeASCII,

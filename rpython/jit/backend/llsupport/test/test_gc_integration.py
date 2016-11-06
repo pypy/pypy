@@ -91,6 +91,8 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
             assert nos == [0, 1, 47]
         elif self.cpu.backend_name.startswith('ppc64'):
             assert nos == [0, 1, 33]
+        elif self.cpu.backend_name.startswith('zarch'):
+            assert nos == [0, 1, 29]
         else:
             raise Exception("write the data here")
         assert frame.jf_frame[nos[0]]
@@ -313,24 +315,35 @@ class TestMallocFastpath(BaseTestRegalloc):
                                   'strdescr': arraydescr})
         # check the returned pointers
         gc_ll_descr = self.cpu.gc_ll_descr
-        assert gc_ll_descr.calls == [(8, 15, 10), (5, 15, 3), ('str', 3)]
+        assert gc_ll_descr.calls == [(8, 15, 10),
+                                     (5, 15, 3),
+                                     ('str', 3)]
         # one fit, one was too large, one was not fitting
 
     def test_malloc_slowpath(self):
         def check(frame):
             expected_size = 1
-            idx = 0
+            fixed_size = self.cpu.JITFRAME_FIXED_SIZE
             if self.cpu.backend_name.startswith('arm'):
                 # jitframe fixed part is larger here
                 expected_size = 2
-                idx = 1
+            if self.cpu.backend_name.startswith('zarch') or \
+               self.cpu.backend_name.startswith('ppc'):
+                # the allocation always allocates the register
+                # into the return register. (e.g. r3 on ppc)
+                # the next malloc_nursery will move r3 to the
+                # frame manager, thus the two bits will be on the frame
+                fixed_size += 4
             assert len(frame.jf_gcmap) == expected_size
-            if self.cpu.IS_64_BIT:
-                exp_idx = self.cpu.JITFRAME_FIXED_SIZE + 1  # +1 from i0
-            else:
-                assert frame.jf_gcmap[idx]
-                exp_idx = self.cpu.JITFRAME_FIXED_SIZE - 32 * idx + 1 # +1 from i0
-            assert frame.jf_gcmap[idx] == (1 << (exp_idx + 1)) | (1 << exp_idx)
+            # check that we have two bits set, and that they are in two
+            # registers (p0 and p1 are moved away when doing p2, but not
+            # spilled, just moved to different registers)
+            bits = [n for n in range(fixed_size)
+                      if frame.jf_gcmap[0] & (1<<n)]
+            if expected_size > 1:
+                bits += [n for n in range(32, fixed_size)
+                           if frame.jf_gcmap[1] & (1<<(n - 32))]
+            assert len(bits) == 2
 
         self.cpu = self.getcpu(check)
         ops = '''
@@ -641,11 +654,13 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
             gcmap = unpack_gcmap(frame)
             if self.cpu.backend_name.startswith('ppc64'):
                 assert gcmap == [30, 31, 32]
+            elif self.cpu.backend_name.startswith('zarch'):
+                # 10 gpr, 14 fpr -> 25 is the first slot
+                assert gcmap == [26, 27, 28]
             elif self.cpu.IS_64_BIT:
                 assert gcmap == [28, 29, 30]
             elif self.cpu.backend_name.startswith('arm'):
                 assert gcmap == [44, 45, 46]
-                pass
             else:
                 assert gcmap == [22, 23, 24]
             for item, s in zip(gcmap, new_items):

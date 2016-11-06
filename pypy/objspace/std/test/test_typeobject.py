@@ -1,3 +1,4 @@
+import py
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef
@@ -142,7 +143,6 @@ class AppTestTypeObject:
         e = E()
         D.__bases__ = (C,)
         D.__bases__ = (C2,)
-        #import pdb; pdb.set_trace()
         assert d.meth() == 1
         assert e.meth() == 1
         assert d.a == 2
@@ -183,7 +183,7 @@ class AppTestTypeObject:
 
         try:
             D.__bases__ = ()
-        except TypeError, msg:
+        except TypeError as msg:
             if str(msg) == "a new-style class can't have only classic bases":
                 assert 0, "wrong error message for .__bases__ = ()"
         else:
@@ -241,7 +241,7 @@ class AppTestTypeObject:
                 return super(WorkOnce, self).__new__(WorkOnce, name, bases, ns)
             def mro(instance):
                 if instance.flag > 0:
-                    raise RuntimeError, "bozo"
+                    raise RuntimeError("bozo")
                 else:
                     instance.flag += 1
                     return type.mro(instance)
@@ -308,7 +308,7 @@ class AppTestTypeObject:
         except TypeError:
             pass
         else:
-            raise TestFailed, "didn't catch MRO conflict"
+            raise TestFailed("didn't catch MRO conflict")
 
     def test_mutable_bases_versus_nonheap_types(self):
         class A(int):
@@ -441,7 +441,7 @@ class AppTestTypeObject:
         except TypeError:
             pass
         else:
-            raise AssertionError, "this multiple inheritance should fail"
+            raise AssertionError("this multiple inheritance should fail")
 
     def test_outer_metaclass(self):
         class OuterMetaClass(type):
@@ -511,7 +511,7 @@ class AppTestTypeObject:
         try:
             assert NoDoc.__doc__ == None
         except AttributeError:
-            raise AssertionError, "__doc__ missing!"
+            raise AssertionError("__doc__ missing!")
 
     def test_explicitdoc(self):
         class ExplicitDoc(object):
@@ -538,7 +538,7 @@ class AppTestTypeObject:
             #       we always raise AttributeError.
             pass
         else:
-            raise AssertionError, '__doc__ should not be writable'
+            raise AssertionError('__doc__ should not be writable')
 
         assert ImmutableDoc.__doc__ == 'foo'
 
@@ -797,9 +797,7 @@ class AppTestTypeObject:
         class AA(object):
             __slots__ = ('a',)
         aa = AA()
-        # the following line works on CPython >= 2.6 but not on PyPy.
-        # but see below for more
-        raises(TypeError, "aa.__class__ = A")
+        aa.__class__ = A
         raises(TypeError, "aa.__class__ = object")
         class Z1(A):
             pass
@@ -861,9 +859,13 @@ class AppTestTypeObject:
             __slots__ = ['a', 'b']
         class Order2(object):
             __slots__ = ['b', 'a']
-        # the following line works on CPython >= 2.6 but not on PyPy.
-        # but see below for more
-        raises(TypeError, "Order1().__class__ = Order2")
+        Order1().__class__ = Order2
+
+        # like CPython, the order of slot names doesn't matter
+        x = Order1()
+        x.a, x.b = 1, 2
+        x.__class__ = Order2
+        assert (x.a, x.b) == (1, 2)
 
         class U1(object):
             __slots__ = ['a', 'b']
@@ -873,10 +875,11 @@ class AppTestTypeObject:
             __slots__ = ['a', 'b']
         class V2(V1):
             __slots__ = ['c', 'd', 'e']
-        # the following line does not work on CPython >= 2.6 either.
-        # that's just obscure.  Really really.  So we just ignore
-        # the whole issue until someone comes complaining.  Then we'll
-        # just kill slots altogether apart from maybe doing a few checks.
+        # the following line does not work on CPython either: we can't
+        # change a class if the old and new class have different layouts
+        # that look compatible but aren't, because they don't have the
+        # same base-layout class (even if these base classes are
+        # themselves compatible)...  obscure.
         raises(TypeError, "U2().__class__ = V2")
 
     def test_name(self):
@@ -886,10 +889,11 @@ class AppTestTypeObject:
         Abc.__name__ = 'Def'
         assert Abc.__name__ == 'Def'
         raises(TypeError, "Abc.__name__ = 42")
+        raises(TypeError, "Abc.__name__ = u'A'")
         try:
             Abc.__name__ = 'G\x00hi'
         except ValueError as e:
-            assert str(e) == "__name__ must not contain null bytes"
+            assert str(e) == "type name must not contain null characters"
         else:
             assert False
 
@@ -968,7 +972,6 @@ class AppTestTypeObject:
         raises(TypeError, setattr, list, 'foobar', 42)
         raises(TypeError, delattr, dict, 'keys')
         raises(TypeError, 'int.__dict__["a"] = 1')
-        raises(TypeError, 'int.__dict__.clear()')
 
     def test_nontype_in_mro(self):
         class OldStyle:
@@ -1026,10 +1029,9 @@ class AppTestTypeObject:
             pass
 
         a = A()
+        d = A.__dict__
         A.x = 1
-        assert A.__dict__["x"] == 1
-        A.__dict__['x'] = 5
-        assert A.x == 5
+        assert d["x"] == 1
 
     def test_we_already_got_one_1(self):
         # Issue #2079: highly obscure: CPython complains if we say
@@ -1047,14 +1049,14 @@ class AppTestTypeObject:
         try:
             class E(B, A):   # "best base" is B
                 __slots__ = ("__dict__",)
-        except TypeError, e:
+        except TypeError as e:
             assert 'we already got one' in str(e)
         else:
             raise AssertionError("TypeError not raised")
         try:
             class F(B, A):   # "best base" is B
                 __slots__ = ("__weakref__",)
-        except TypeError, e:
+        except TypeError as e:
             assert 'we already got one' in str(e)
         else:
             raise AssertionError("TypeError not raised")
@@ -1073,6 +1075,55 @@ class AppTestTypeObject:
         class D(B, A):     # "best base" is A
             __slots__ = ("__weakref__",)
 
+    def test_crash_mro_without_object_1(self):
+        class X(type):
+            def mro(self):
+                return [self]
+        class C:
+            __metaclass__ = X
+        e = raises(TypeError, C)     # the lookup of '__new__' fails
+        assert str(e.value) == "cannot create 'C' instances"
+
+    def test_crash_mro_without_object_2(self):
+        class X(type):
+            def mro(self):
+                return [self, int]
+        class C(int):
+            __metaclass__ = X
+        C()    # the lookup of '__new__' succeeds in 'int',
+               # but the lookup of '__init__' fails
+
+    def test_instancecheck(self):
+        assert int.__instancecheck__(42) is True
+        assert int.__instancecheck__(42.0) is False
+        class Foo:
+            __class__ = int
+        assert int.__instancecheck__(Foo()) is False
+        class Bar(object):
+            __class__ = int
+        assert int.__instancecheck__(Bar()) is True
+
+    def test_subclasscheck(self):
+        assert int.__subclasscheck__(bool) is True
+        assert int.__subclasscheck__(float) is False
+        class Foo:
+            __class__ = int
+        assert int.__subclasscheck__(Foo) is False
+        class Bar(object):
+            __class__ = int
+        assert int.__subclasscheck__(Bar) is False
+        class AbstractClass(object):
+            __bases__ = (int,)
+        assert int.__subclasscheck__(AbstractClass()) is True
+
+    def test_bad_args(self):
+        import UserDict
+        raises(TypeError, type, 'A', (), dict={})
+        raises(TypeError, type, 'A', [], {})
+        raises(TypeError, type, 'A', (), UserDict.UserDict())
+        raises(ValueError, type, 'A\x00B', (), {})
+        raises(TypeError, type, u'A', (), {})
+
 
 class AppTestWithMethodCacheCounter:
     spaceconfig = {"objspace.std.withmethodcachecounter": True}
@@ -1087,7 +1138,6 @@ class AppTestWithMethodCacheCounter:
 
 
 class AppTestGetattributeShortcut:
-    spaceconfig = {"objspace.std.getattributeshortcut": True}
 
     def test_reset_logic(self):
         class X(object):
@@ -1162,7 +1212,7 @@ class TestNewShortcut:
         assert w_B.w_new_function is not None
         w_b = space.call_function(w_B)
 
-        w_m = space.call_function(w_M, space.wrap('C'), space.newlist([]),
+        w_m = space.call_function(w_M, space.wrap('C'), space.newtuple([]),
                                   space.newdict())
         assert w_M.w_new_function is not None
 
@@ -1221,3 +1271,55 @@ class AppTestNewShortcut:
         class Y:
             __metaclass__ = X
         assert (Y < Y) is True
+
+
+class AppTestComparesByIdentity:
+
+    def setup_class(cls):
+        if cls.runappdirect:
+            py.test.skip("interp2app doesn't work on appdirect")
+
+        def compares_by_identity(space, w_cls):
+            return space.wrap(w_cls.compares_by_identity())
+        cls.w_compares_by_identity = cls.space.wrap(interp2app(compares_by_identity))
+
+    def test_compares_by_identity(self):
+        class Plain(object):
+            pass
+
+        class CustomEq(object):
+            def __eq__(self, other):
+                return True
+
+        class CustomCmp (object):
+            def __cmp__(self, other):
+                return 0
+
+        class CustomHash(object):
+            def __hash__(self):
+                return 0
+
+        class TypeSubclass(type):
+            pass
+
+        class TypeSubclassCustomCmp(type):
+            def __cmp__(self, other):
+                return 0
+
+        assert self.compares_by_identity(Plain)
+        assert not self.compares_by_identity(CustomEq)
+        assert not self.compares_by_identity(CustomCmp)
+        assert not self.compares_by_identity(CustomHash)
+        assert self.compares_by_identity(type)
+        assert self.compares_by_identity(TypeSubclass)
+        assert not self.compares_by_identity(TypeSubclassCustomCmp)
+
+    def test_modify_class(self):
+        class X(object):
+            pass
+
+        assert self.compares_by_identity(X)
+        X.__eq__ = lambda x: None
+        assert not self.compares_by_identity(X)
+        del X.__eq__
+        assert self.compares_by_identity(X)

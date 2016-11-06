@@ -5,6 +5,7 @@ from rpython.rlib import objectmodel
 from rpython.translator.c.test.test_boehm import AbstractGCTestClass
 from rpython.rtyper.lltypesystem import lltype, rffi
 import py
+import platform
 
 def test_lock():
     l = allocate_lock()
@@ -14,6 +15,14 @@ def test_lock():
     ok3 = l.acquire(False)
     res = ok1 and not ok2 and ok3
     assert res == 1
+
+def test_lock_is_aquired():
+    l = allocate_lock()
+    ok1 = l.acquire(True)
+    assert l.is_acquired() == True
+    assert l.is_acquired() == True
+    l.release()
+    assert l.is_acquired() == False
 
 def test_thread_error():
     l = allocate_lock()
@@ -92,6 +101,8 @@ class AbstractThreadTests(AbstractGCTestClass):
         res = fn()
         assert res == 42
 
+    @py.test.mark.xfail(platform.machine() == 's390x',
+                        reason='may fail this test under heavy load')
     def test_gc_locking(self):
         import time
         from rpython.rlib.debug import ll_assert
@@ -150,6 +161,7 @@ class AbstractThreadTests(AbstractGCTestClass):
                 willing_to_wait_more -= 1
                 done = len(state.answers) == expected
 
+                print "waitting %d more iterations" % willing_to_wait_more
                 time.sleep(0.01)
 
             time.sleep(0.1)
@@ -283,7 +295,12 @@ class TestUsingFramework(AbstractThreadTests):
             wr_from_thread.seen = False
             start_new_thread(thread_entry_point, ())
             wr1 = f()
-            time.sleep(0.5)
+            count = 0
+            while True:
+                time.sleep(0.5)
+                if wr_from_thread.seen or count >= 50:
+                    break
+                count += 1
             assert wr_from_thread.seen is True
             wr2 = wr_from_thread.wr
             import gc; gc.collect()      # wr2() should be collected here

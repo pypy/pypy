@@ -586,7 +586,7 @@ class BasicTests:
         def internfn(y):
             return y * 3
         def externfn(y):
-            return y % 4
+            return y ^ 4
         def f(y):
             while y >= 0:
                 myjitdriver.can_enter_jit(y=y)
@@ -601,7 +601,7 @@ class BasicTests:
         policy = StopAtXPolicy(externfn)
         res = self.meta_interp(f, [31], policy=policy)
         assert res == 42
-        self.check_resops(int_mul=2, int_mod=0)
+        self.check_resops(int_mul=2, int_xor=0)
 
     def test_we_are_jitted(self):
         myjitdriver = JitDriver(greens = [], reds = ['y'])
@@ -936,10 +936,11 @@ class BasicTests:
                 myjitdriver.can_enter_jit(x=x, y=y, n=n)
                 myjitdriver.jit_merge_point(x=x, y=y, n=n)
                 n -= ovfcheck(x % y)
+                x += 1
             return n
         res = self.meta_interp(f, [20, 1, 2])
         assert res == 0
-        self.check_resops(call_i=0, call_r=0)
+        self.check_resops(call_i=2, int_eq=3, int_and=2)
 
     def test_abs(self):
         myjitdriver = JitDriver(greens = [], reds = ['i', 't'])
@@ -953,6 +954,75 @@ class BasicTests:
             return t
         res = self.meta_interp(f, [-5])
         assert res == 5+4+3+2+1+0+1+2+3+4+5+6+7+8+9
+
+    def test_int_c_div(self):
+        from rpython.rlib.rarithmetic import int_c_div
+        myjitdriver = JitDriver(greens = [], reds = ['i', 't'])
+        def f(i):
+            t = 0
+            while i < 10:
+                myjitdriver.can_enter_jit(i=i, t=t)
+                myjitdriver.jit_merge_point(i=i, t=t)
+                t += int_c_div(-100, i)
+                i += 1
+            return t
+        expected = -sum([100 // n for n in range(1, 10)])
+        assert f(1) == expected
+        res = self.meta_interp(f, [1])
+        assert res == expected
+        # should contain a call_i(..., OS=OS_INT_PY_DIV)
+
+    def test_int_c_mod(self):
+        from rpython.rlib.rarithmetic import int_c_mod
+        myjitdriver = JitDriver(greens = [], reds = ['i', 't'])
+        def f(i):
+            t = 0
+            while i < 10:
+                myjitdriver.can_enter_jit(i=i, t=t)
+                myjitdriver.jit_merge_point(i=i, t=t)
+                t += int_c_mod(-100, i)
+                i += 1
+            return t
+        expected = -sum([100 % n for n in range(1, 10)])
+        assert f(1) == expected
+        res = self.meta_interp(f, [1])
+        assert res == expected
+        # should contain a call_i(..., OS=OS_INT_PY_MOD)
+
+    def test_positive_c_div_mod(self):
+        from rpython.rlib.rarithmetic import int_c_div, int_c_mod
+        myjitdriver = JitDriver(greens = [], reds = ['i', 't'])
+        def f(i):
+            t = 0
+            while i < 10:
+                myjitdriver.can_enter_jit(i=i, t=t)
+                myjitdriver.jit_merge_point(i=i, t=t)
+                assert i > 0
+                t += int_c_div(100, i) - int_c_mod(100, i)
+                i += 1
+            return t
+        expected = sum([100 // n - 100 % n for n in range(1, 10)])
+        assert f(1) == expected
+        res = self.meta_interp(f, [1])
+        assert res == expected
+        # all the correction code should be dead now, xxx test that
+
+    def test_int_c_div_by_constant(self):
+        from rpython.rlib.rarithmetic import int_c_div
+        myjitdriver = JitDriver(greens = ['k'], reds = ['i', 't'])
+        def f(i, k):
+            t = 0
+            while i < 100:
+                myjitdriver.can_enter_jit(i=i, t=t, k=k)
+                myjitdriver.jit_merge_point(i=i, t=t, k=k)
+                t += int_c_div(i, k)
+                i += 1
+            return t
+        expected = sum([i // 10 for i in range(51, 100)])
+        assert f(-50, 10) == expected
+        res = self.meta_interp(f, [-50, 10])
+        assert res == expected
+        self.check_resops(call=0, uint_mul_high=2)
 
     def test_float(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res'])
@@ -1133,7 +1203,7 @@ class BasicTests:
             while n > 0:
                 mydriver.can_enter_jit(n=n, x=x)
                 mydriver.jit_merge_point(n=n, x=x)
-                if n % 2 == 0:
+                if n & 1 == 0:
                     cls = A
                 else:
                     cls = B
@@ -1173,7 +1243,6 @@ class BasicTests:
 
     def test_div_overflow(self):
         import sys
-        from rpython.rtyper.lltypesystem.lloperation import llop
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res'])
         def f(x, y):
             res = 0
@@ -1181,15 +1250,13 @@ class BasicTests:
                 myjitdriver.can_enter_jit(x=x, y=y, res=res)
                 myjitdriver.jit_merge_point(x=x, y=y, res=res)
                 try:
-                    res += llop.int_floordiv_ovf(lltype.Signed,
-                                                 -sys.maxint-1, x)
+                    res += ovfcheck((-sys.maxint-1) // x)
                     x += 5
                 except OverflowError:
                     res += 100
                 y -= 1
             return res
-        res = self.meta_interp(f, [-41, 16])
-        assert res == ((-sys.maxint-1) // (-41) +
+        expected =    ((-sys.maxint-1) // (-41) +
                        (-sys.maxint-1) // (-36) +
                        (-sys.maxint-1) // (-31) +
                        (-sys.maxint-1) // (-26) +
@@ -1198,6 +1265,31 @@ class BasicTests:
                        (-sys.maxint-1) // (-11) +
                        (-sys.maxint-1) // (-6) +
                        100 * 8)
+        assert f(-41, 16) == expected
+        res = self.meta_interp(f, [-41, 16])
+        assert res == expected
+
+    def test_overflow_fold_if_divisor_constant(self):
+        import sys
+        myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res'])
+        def f(x, y):
+            res = 0
+            while y > 0:
+                myjitdriver.can_enter_jit(x=x, y=y, res=res)
+                myjitdriver.jit_merge_point(x=x, y=y, res=res)
+                try:
+                    res += ovfcheck(x // 2)
+                    res += ovfcheck(x % 2)
+                    x += 5
+                except OverflowError:
+                    res += 100
+                y -= 1
+            return res
+        res = self.meta_interp(f, [-41, 8])
+        # the guard_true are for the loop condition
+        # the guard_false needed to check whether an overflow can occur have
+        # been folded away
+        self.check_resops(guard_true=2, guard_false=0)
 
     def test_isinstance(self):
         class A:
@@ -1287,7 +1379,6 @@ class BasicTests:
 
     def test_free_object(self):
         import weakref
-        from rpython.rtyper.lltypesystem.lloperation import llop
         myjitdriver = JitDriver(greens = [], reds = ['n', 'x'])
         class X(object):
             pass
@@ -1982,7 +2073,7 @@ class BasicTests:
         res = self.meta_interp(g, [3, 14])
         assert res == g(3, 14)
 
-    def test_specialied_bridge(self):
+    def test_specialized_bridge(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'x', 'res'])
         class A:
             def __init__(self, val):
@@ -3799,7 +3890,6 @@ class BaseLLtypeTests(BasicTests):
         self.check_operations_history(guard_class=0, record_exact_class=1)
 
     def test_give_class_knowledge_to_tracer_explicitly(self):
-        from rpython.rtyper.lltypesystem.lloperation import llop
         class Base(object):
             def f(self):
                 raise NotImplementedError
@@ -4352,3 +4442,136 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
             assert res == -1
         else:
             assert res == 4294967295
+
+    def test_issue2200_recursion(self):
+        # Reproduces issue #2200.  This test contains no recursion,
+        # but due to an unlikely combination of factors it ends up
+        # creating an RPython-level recursion, one per loop iteration.
+        # The recursion is: blackhole interp from the failing guard ->
+        # does the call to enter() as a normal call -> enter() runs
+        # can_enter_jit() as if we're interpreted -> we enter the JIT
+        # again from the start of the loop -> the guard fails again
+        # during the next iteration -> blackhole interp.  All arrows
+        # in the previous sentence are one or more levels of RPython
+        # function calls.
+        driver = JitDriver(greens=[], reds=["i"])
+        def enter(i):
+            driver.can_enter_jit(i=i)
+        def f():
+            set_param(None, 'trace_eagerness', 999999)
+            i = 0
+            while True:
+                driver.jit_merge_point(i=i)
+                i += 1
+                if i >= 300:
+                    return i
+                promote(i + 1)   # a failing guard
+                enter(i)
+
+        self.meta_interp(f, [])
+
+    def test_issue2335_recursion(self):
+        # Reproduces issue #2335: same as issue #2200, but the workaround
+        # in c4c54cb69aba was not enough.
+        driver = JitDriver(greens=["level"], reds=["i"])
+        def enter(level, i):
+            if level == 0:
+                f(1)     # recursive call
+            driver.can_enter_jit(level=level, i=i)
+        def f(level):
+            i = 0 if level == 0 else 298
+            while True:
+                driver.jit_merge_point(level=level, i=i)
+                i += 1
+                if i >= 300:
+                    return i
+                promote(i + 1)   # a failing guard
+                enter(level, i)
+        def main():
+            set_param(None, 'trace_eagerness', 999999)
+            f(0)
+        self.meta_interp(main, [])
+
+    def test_pending_setarrayitem_with_indirect_constant_index(self):
+        driver = JitDriver(greens=[], reds='auto')
+        class X:
+            pass
+        def f():
+            xs = [None]
+            i = 0
+            while i < 17:
+                driver.jit_merge_point()
+                xs[noConst(0)] = X()
+                if i & 5:
+                    pass
+                i += 1
+            return i
+        self.meta_interp(f, [])
+
+    def test_round_trip_raw_pointer(self):
+        # The goal of this test to to get a raw pointer op into the short preamble
+        # so we can check that the proper guards are generated
+        # In this case, the resulting short preamble contains
+        #
+        # i1 = getfield_gc_i(p0, descr=inst__ptr)
+        # i2 = int_eq(i1, 0)
+        # guard_false(i2)
+        #
+        # as opposed to what the JIT used to produce
+        #
+        # i1 = getfield_gc_i(p0, descr=inst__ptr)
+        # guard_nonnull(i1)
+        #
+        # Which will probably generate correct assembly, but the optimization
+        # pipline expects guard_nonnull arguments to be pointer ops and may crash
+        # and may crash on other input types.
+        driver = JitDriver(greens=[], reds=['i', 'val'])
+
+        class Box(object):
+            _ptr = lltype.nullptr(rffi.CCHARP.TO)
+
+        def new_int_buffer(value):
+            data = lltype.malloc(rffi.CCHARP.TO, rffi.sizeof(rffi.INT), flavor='raw')
+            rffi.cast(rffi.INTP, data)[0] = rffi.cast(rffi.INT, value)
+            return data
+
+        def read_int_buffer(buf):
+            return rffi.cast(rffi.INTP, buf)[0]
+
+        def f():
+            i = 0
+            val = Box()
+            val._ptr = new_int_buffer(1)
+
+            set_param(None, 'retrace_limit', -1)
+            while i < 100:
+                driver.jit_merge_point(i=i, val=val)
+                driver.can_enter_jit(i=i, val=val)
+                # Just to produce a side exit
+                if i & 0b100:
+                    i += 1
+                i += int(read_int_buffer(val._ptr))
+                lltype.free(val._ptr, flavor='raw')
+                val._ptr = new_int_buffer(1)
+            lltype.free(val._ptr, flavor='raw')
+
+        self.meta_interp(f, [])
+        self.check_resops(guard_nonnull=0)
+
+    def test_loop_before_main_loop(self):
+        fdriver = JitDriver(greens=[], reds='auto')
+        gdriver = JitDriver(greens=[], reds='auto')
+        def f(i, j):
+            while j > 0:   # this loop unrolls because it is in the same
+                j -= 1     # function as a jit_merge_point()
+            while i > 0:
+                fdriver.jit_merge_point()
+                i -= 1
+        def g(i, j, k):
+            while k > 0:
+                gdriver.jit_merge_point()
+                f(i, j)
+                k -= 1
+
+        self.meta_interp(g, [5, 5, 5])
+        self.check_resops(guard_true=10)   # 5 unrolled, plus 5 unrelated

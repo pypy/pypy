@@ -7,25 +7,27 @@ from rpython.jit.backend.x86.regalloc import gpr_reg_mgr_cls, xmm_reg_mgr_cls
 from rpython.jit.backend.x86.profagent import ProfileAgent
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
 from rpython.jit.backend.x86 import regloc
+from rpython.jit.backend.x86.vector_ext import X86VectorExt
 
 import sys
-
-from rpython.tool.ansi_print import ansi_log
-log = py.log.Producer('jitbackend')
-py.log.setconsumer('jitbackend', ansi_log)
 
 
 class AbstractX86CPU(AbstractLLCPU):
     debug = True
     supports_floats = True
     supports_singlefloats = True
+    supports_cond_call_value = True
 
     dont_keepalive_stuff = False # for tests
     with_threads = False
     frame_reg = regloc.ebp
 
+    vector_ext = None
+
     # can an ISA instruction handle a factor to the offset?
     load_supported_factors = (1,2,4,8)
+
+    HAS_CODEMAP = True
 
     from rpython.jit.backend.x86.arch import JITFRAME_FIXED_SIZE
     all_reg_indexes = gpr_reg_mgr_cls.all_reg_indexes
@@ -118,9 +120,10 @@ class AbstractX86CPU(AbstractLLCPU):
         looptoken.compiled_loop_token.invalidate_positions = []
 
     def get_all_loop_runs(self):
+        asm = self.assembler
         l = lltype.malloc(LOOP_RUN_CONTAINER,
-                          len(self.assembler.loop_run_counters))
-        for i, ll_s in enumerate(self.assembler.loop_run_counters):
+                          len(asm.loop_run_counters))
+        for i, ll_s in enumerate(asm.loop_run_counters):
             l[i].type = ll_s.type
             l[i].number = ll_s.number
             l[i].counter = ll_s.i
@@ -145,16 +148,11 @@ class CPU386_NO_SSE2(CPU386):
     supports_longlong = False
 
 class CPU_X86_64(AbstractX86CPU):
+    vector_ext = X86VectorExt()
     backend_name = 'x86_64'
     NUM_REGS = 16
     CALLEE_SAVE_REGISTERS = [regloc.ebx, regloc.r12, regloc.r13, regloc.r14, regloc.r15]
 
     IS_64_BIT = True
-    HAS_CODEMAP = True
-
-class CPU_X86_64_SSE4(CPU_X86_64):
-    vector_extension = True
-    vector_register_size = 16
-    vector_horizontal_operations = True
 
 CPU = CPU386

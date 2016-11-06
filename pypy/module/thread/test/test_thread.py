@@ -239,14 +239,12 @@ class AppTestThread(GenericTestThread):
                 if waiting:
                     thread.interrupt_main()
                     return
-                print 'tock...', x  # <-force the GIL to be released, as
-                time.sleep(0.1)    #   time.sleep doesn't do non-translated
+                time.sleep(0.1)
 
         def busy_wait():
             waiting.append(None)
             for x in range(50):
-                print 'tick...', x  # <-force the GIL to be released, as
-                time.sleep(0.1)    #   time.sleep doesn't do non-translated
+                time.sleep(0.1)
             waiting.pop()
 
         # This is normally called by app_main.py

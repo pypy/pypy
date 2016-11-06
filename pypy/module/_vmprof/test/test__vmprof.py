@@ -1,22 +1,23 @@
-
 from rpython.tool.udir import udir
 from pypy.tool.pytest.objspace import gettestobjspace
 
 class AppTestVMProf(object):
+    spaceconfig = {'usemodules': ['_vmprof', 'struct']}
+
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_vmprof', 'struct'])
-        cls.tmpfile = udir.join('test__vmprof.1').open('wb')
-        cls.w_tmpfileno = cls.space.wrap(cls.tmpfile.fileno())
-        cls.w_tmpfilename = cls.space.wrap(cls.tmpfile.name)
-        cls.tmpfile2 = udir.join('test__vmprof.2').open('wb')
-        cls.w_tmpfileno2 = cls.space.wrap(cls.tmpfile2.fileno())
-        cls.w_tmpfilename2 = cls.space.wrap(cls.tmpfile2.name)
+        cls.w_tmpfilename = cls.space.wrap(str(udir.join('test__vmprof.1')))
+        cls.w_tmpfilename2 = cls.space.wrap(str(udir.join('test__vmprof.2')))
 
     def test_import_vmprof(self):
-        import struct, sys
+        tmpfile = open(self.tmpfilename, 'wb')
+        tmpfileno = tmpfile.fileno()
+        tmpfile2 = open(self.tmpfilename2, 'wb')
+        tmpfileno2 = tmpfile2.fileno()
+
+        import struct, sys, gc
 
         WORD = struct.calcsize('l')
-        
+
         def count(s):
             i = 0
             count = 0
@@ -43,9 +44,11 @@ class AppTestVMProf(object):
                 else:
                     raise AssertionError(ord(s[i]))
             return count
-        
+
         import _vmprof
-        _vmprof.enable(self.tmpfileno, 0.01)
+        gc.collect()  # try to make the weakref list deterministic
+        gc.collect()  # by freeing all dead code objects
+        _vmprof.enable(tmpfileno, 0.01)
         _vmprof.disable()
         s = open(self.tmpfilename, 'rb').read()
         no_of_codes = count(s)
@@ -56,7 +59,9 @@ class AppTestVMProf(object):
             pass
         """ in d
 
-        _vmprof.enable(self.tmpfileno2, 0.01)
+        gc.collect()
+        gc.collect()
+        _vmprof.enable(tmpfileno2, 0.01)
 
         exec """def foo2():
             pass
@@ -71,9 +76,9 @@ class AppTestVMProf(object):
 
     def test_enable_ovf(self):
         import _vmprof
-        raises(_vmprof.VMProfError, _vmprof.enable, 999, 0)
-        raises(_vmprof.VMProfError, _vmprof.enable, 999, -2.5)
-        raises(_vmprof.VMProfError, _vmprof.enable, 999, 1e300)
-        raises(_vmprof.VMProfError, _vmprof.enable, 999, 1e300 * 1e300)
+        raises(_vmprof.VMProfError, _vmprof.enable, 2, 0)
+        raises(_vmprof.VMProfError, _vmprof.enable, 2, -2.5)
+        raises(_vmprof.VMProfError, _vmprof.enable, 2, 1e300)
+        raises(_vmprof.VMProfError, _vmprof.enable, 2, 1e300 * 1e300)
         NaN = (1e300*1e300) / (1e300*1e300)
-        raises(_vmprof.VMProfError, _vmprof.enable, 999, NaN)
+        raises(_vmprof.VMProfError, _vmprof.enable, 2, NaN)

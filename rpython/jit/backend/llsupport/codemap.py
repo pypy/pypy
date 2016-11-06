@@ -41,10 +41,6 @@ RPY_EXTERN void *pypy_find_codemap_at_addr(long addr, long* start_addr);
 RPY_EXTERN long pypy_yield_codemap_at_addr(void *codemap_raw, long addr,
                                            long *current_pos_addr);
 
-RPY_EXTERN long pypy_jit_depthmap_add(unsigned long addr, unsigned int size,
-                                      unsigned int stackdepth);
-RPY_EXTERN void pypy_jit_depthmap_clear(unsigned long addr, unsigned int size);
-
 """], separate_module_sources=[
     open(os.path.join(srcdir, 'skiplist.c'), 'r').read() +
     open(os.path.join(srcdir, 'codemap.c'), 'r').read()
@@ -64,15 +60,6 @@ pypy_jit_codemap_del = llexternal('pypy_jit_codemap_del',
 pypy_jit_codemap_firstkey = llexternal('pypy_jit_codemap_firstkey',
                                        [], lltype.Signed)
 
-pypy_jit_depthmap_add = llexternal('pypy_jit_depthmap_add',
-                                   [lltype.Signed, lltype.Signed,
-                                    lltype.Signed], lltype.Signed)
-pypy_jit_depthmap_clear = llexternal('pypy_jit_depthmap_clear',
-                                     [lltype.Signed, lltype.Signed],
-                                     lltype.Void)
-
-stack_depth_at_loc = llexternal('pypy_jit_stack_depth_at_loc',
-                                [lltype.Signed], lltype.Signed)
 find_codemap_at_addr = llexternal('pypy_find_codemap_at_addr',
                                  [lltype.Signed, rffi.CArrayPtr(lltype.Signed)],
                                  llmemory.Address)
@@ -102,20 +89,6 @@ class CodemapStorage(object):
         items = pypy_jit_codemap_del(start, stop - start)
         if items:
             lltype.free(items, flavor='raw', track_allocation=False)
-        pypy_jit_depthmap_clear(start, stop - start)
-
-    def register_frame_depth_map(self, rawstart, rawstop, frame_positions,
-                                 frame_assignments):
-        if not frame_positions:
-            return
-        assert len(frame_positions) == len(frame_assignments)
-        for i in range(len(frame_positions)-1, -1, -1):
-            pos = rawstart + frame_positions[i]
-            length = rawstop - pos
-            if length > 0:
-                #print "ADD:", pos, length, frame_assignments[i]
-                pypy_jit_depthmap_add(pos, length, frame_assignments[i])
-            rawstop = pos
 
     def register_codemap(self, (start, size, l)):
         items = lltype.malloc(INT_LIST_PTR.TO, len(l), flavor='raw',

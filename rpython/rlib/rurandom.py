@@ -103,7 +103,7 @@ else:  # Posix implementation
             while n > 0:
                 try:
                     data = os.read(fd, n)
-                except OSError, e:
+                except OSError as e:
                     if e.errno != errno.EINTR:
                         raise
                     data = ''

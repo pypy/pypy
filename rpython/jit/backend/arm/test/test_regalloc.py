@@ -545,23 +545,6 @@ class TestRegallocMoreRegisters(CustomBaseTestRegalloc):
         self.interpret(ops, [s, 1234567890])
         assert s[1] == 1234567890
 
-    def test_division_optimized(self):
-        ops = '''
-        [i7, i6]
-        label(i7, i6, descr=targettoken)
-        i18 = int_floordiv(i7, i6)
-        i19 = int_xor(i7, i6)
-        i21 = int_lt(i19, 0)
-        i22 = int_mod(i7, i6)
-        i23 = int_is_true(i22)
-        i24 = int_eq(i6, 4)
-        guard_false(i24) [i18]
-        jump(i18, i6, descr=targettoken)
-        '''
-        self.interpret(ops, [10, 4])
-        assert self.getint(0) == 2
-        # FIXME: Verify that i19 - i23 are removed
-
 
 class TestRegallocFloats(CustomBaseTestRegalloc):
     def test_float_add(self):

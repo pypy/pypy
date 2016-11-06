@@ -579,6 +579,14 @@ class ClassDesc(Desc):
             if cls not in FORCE_ATTRIBUTES_INTO_CLASSES:
                 self.all_enforced_attrs = []    # no attribute allowed
 
+        if (getattr(cls, '_must_be_light_finalizer_', False) and
+            hasattr(cls, '__del__') and
+            not getattr(cls.__del__, '_must_be_light_finalizer_', False)):
+            raise AnnotatorError(
+                "Class %r is in a class hierarchy with "
+                "_must_be_light_finalizer_ = True: it cannot have a "
+                "finalizer without @rgc.must_be_light_finalizer" % (cls,))
+
     def add_source_attribute(self, name, value, mixin=False):
         if isinstance(value, property):
             # special case for property object

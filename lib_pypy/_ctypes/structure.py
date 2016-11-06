@@ -67,7 +67,8 @@ def names_and_fields(self, _fields_, superclass, anonymous_fields=None):
                     subvalue = subfield.ctype
                     fields[subname] = Field(subname,
                                             relpos, subvalue._sizeofinstances(),
-                                            subvalue, i, is_bitfield)
+                                            subvalue, i, is_bitfield,
+                                            inside_anon_field=fields[name])
             else:
                 resnames.append(name)
         names = resnames
@@ -77,13 +78,15 @@ def names_and_fields(self, _fields_, superclass, anonymous_fields=None):
 
 
 class Field(object):
-    def __init__(self, name, offset, size, ctype, num, is_bitfield):
+    def __init__(self, name, offset, size, ctype, num, is_bitfield,
+                 inside_anon_field=None):
         self.__dict__['name'] = name
         self.__dict__['offset'] = offset
         self.__dict__['size'] = size
         self.__dict__['ctype'] = ctype
         self.__dict__['num'] = num
         self.__dict__['is_bitfield'] = is_bitfield
+        self.__dict__['inside_anon_field'] = inside_anon_field
 
     def __setattr__(self, name, value):
         raise AttributeError(name)
@@ -95,6 +98,8 @@ class Field(object):
     def __get__(self, obj, cls=None):
         if obj is None:
             return self
+        if self.inside_anon_field is not None:
+            return getattr(self.inside_anon_field.__get__(obj), self.name)
         if self.is_bitfield:
             # bitfield member, use direct access
             return obj._buffer.__getattr__(self.name)
@@ -105,6 +110,9 @@ class Field(object):
             return fieldtype._CData_output(suba, obj, offset)
 
     def __set__(self, obj, value):
+        if self.inside_anon_field is not None:
+            setattr(self.inside_anon_field.__get__(obj), self.name, value)
+            return
         fieldtype = self.ctype
         cobj = fieldtype.from_param(value)
         key = keepalive_key(self.num)
@@ -221,7 +229,7 @@ class StructOrUnion(_CData):
     __metaclass__ = StructOrUnionMeta
 
     def __new__(cls, *args, **kwds):
-        self = super(_CData, cls).__new__(cls, *args, **kwds)
+        self = super(_CData, cls).__new__(cls)
         if '_abstract_' in cls.__dict__:
             raise TypeError("abstract class")
         if hasattr(cls, '_ffistruct_'):

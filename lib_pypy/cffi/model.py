@@ -520,9 +520,15 @@ class EnumType(StructOrUnionOrEnum):
             largest_value = max(self.enumvalues)
         else:
             import warnings
-            warnings.warn("%r has no values explicitly defined; next version "
-                          "will refuse to guess which integer type it is "
-                          "meant to be (unsigned/signed, int/long)"
+            try:
+                # XXX!  The goal is to ensure that the warnings.warn()
+                # will not suppress the warning.  We want to get it
+                # several times if we reach this point several times.
+                __warningregistry__.clear()
+            except NameError:
+                pass
+            warnings.warn("%r has no values explicitly defined; "
+                          "guessing that it is equivalent to 'unsigned int'"
                           % self._get_c_name())
             smallest_value = largest_value = 0
         if smallest_value < 0:   # needs a signed type

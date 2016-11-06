@@ -19,6 +19,9 @@ from rpython.rlib.rarithmetic import intmask, signedtype, r_uint, \
     r_ulonglong
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.objectmodel import specialize
+import sys
+
+IS_BIG_ENDIAN = sys.byteorder == 'big'
 
 
 
@@ -30,8 +33,8 @@ def unpack_fields(space, w_fields):
         len_l = len(l_w)
 
         if len_l < 2 or len_l > 3:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "Expected list of 2- or 3-size tuples"))
+            raise oefmt(space.w_ValueError,
+                        "Expected list of 2- or 3-size tuples")
 
         try:
             name = space.str_w(l_w[0])
@@ -45,12 +48,12 @@ def unpack_fields(space, w_fields):
                 if c == tp.itemcode:
                     break
             else:
-                raise OperationError(space.w_TypeError, space.wrap(
-                    "bit fields not allowed for type"))
+                raise oefmt(space.w_TypeError,
+                            "bit fields not allowed for type")
             bitsize = space.int_w(l_w[2])
             if bitsize <= 0 or bitsize > tp.size * 8:
-                raise OperationError(space.w_ValueError, space.wrap(
-                    "number of bits invalid for bit field"))
+                raise oefmt(space.w_ValueError,
+                            "number of bits invalid for bit field")
         else:
             bitsize = 0
 
@@ -115,20 +118,32 @@ def size_alignment_pos(fields, is_union=False, pack=0):
                 size += intmask(fieldsize)
                 bitsizes.append(fieldsize)
             elif field_type == NEW_BITFIELD:
-                bitsizes.append((bitsize << 16) + bitoffset)
+                if IS_BIG_ENDIAN:
+                    off = last_size - bitoffset - bitsize
+                else:
+                    off = bitoffset
+                bitsizes.append((bitsize << 16) + off)
                 bitoffset = bitsize
                 size = round_up(size, fieldalignment)
                 pos.append(size)
                 size += fieldsize
             elif field_type == CONT_BITFIELD:
-                bitsizes.append((bitsize << 16) + bitoffset)
+                if IS_BIG_ENDIAN:
+                    off = last_size - bitoffset - bitsize
+                else:
+                    off = bitoffset
+                bitsizes.append((bitsize << 16) + off)
                 bitoffset += bitsize
                 # offset is already updated for the NEXT field
                 pos.append(size - fieldsize)
             elif field_type == EXPAND_BITFIELD:
                 size += fieldsize - last_size / 8
                 last_size = fieldsize * 8
-                bitsizes.append((bitsize << 16) + bitoffset)
+                if IS_BIG_ENDIAN:
+                    off = last_size - bitoffset - bitsize
+                else:
+                    off = bitoffset
+                bitsizes.append((bitsize << 16) + off)
                 bitoffset += bitsize
                 # offset is already updated for the NEXT field
                 pos.append(size - fieldsize)
@@ -237,8 +252,8 @@ class W_Structure(W_DataShape):
 @unwrap_spec(union=bool, pack=int)
 def descr_new_structure(space, w_type, w_shapeinfo, union=False, pack=0):
     if pack < 0:
-        raise OperationError(space.w_ValueError, space.wrap(
-            "_pack_ must be a non-negative integer"))
+        raise oefmt(space.w_ValueError,
+                    "_pack_ must be a non-negative integer")
 
     if space.isinstance_w(w_shapeinfo, space.w_tuple):
         w_size, w_alignment = space.fixedview(w_shapeinfo, expected_length=2)

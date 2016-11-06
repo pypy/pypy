@@ -1,12 +1,12 @@
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.structmemberdefs import *
-from pypy.module.cpyext.api import ADDR, PyObjectP, cpython_api
+from pypy.module.cpyext.api import ADDR, PyObjectP, cpython_api, CONST_STRING
 from pypy.module.cpyext.intobject import PyInt_AsLong, PyInt_AsUnsignedLong
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.pyobject import PyObject, Py_DecRef, from_ref, make_ref
-from pypy.module.cpyext.stringobject import (
+from pypy.module.cpyext.bytesobject import (
     PyString_FromString, PyString_FromStringAndSize)
 from pypy.module.cpyext.floatobject import PyFloat_AsDouble
 from pypy.module.cpyext.longobject import (
@@ -34,7 +34,7 @@ integer_converters = unrolling_iterable([
 _HEADER = 'pypy_structmember_decl.h'
 
 
-@cpython_api([PyObject, lltype.Ptr(PyMemberDef)], PyObject, header=_HEADER)
+@cpython_api([CONST_STRING, lltype.Ptr(PyMemberDef)], PyObject, header=_HEADER)
 def PyMember_GetOne(space, obj, w_member):
     addr = rffi.cast(ADDR, obj)
     addr += w_member.c_offset
@@ -80,12 +80,11 @@ def PyMember_GetOne(space, obj, w_member):
             w_name = space.wrap(rffi.charp2str(w_member.c_name))
             raise OperationError(space.w_AttributeError, w_name)
     else:
-        raise OperationError(space.w_SystemError,
-                             space.wrap("bad memberdescr type"))
+        raise oefmt(space.w_SystemError, "bad memberdescr type")
     return w_result
 
 
-@cpython_api([PyObject, lltype.Ptr(PyMemberDef), PyObject], rffi.INT_real,
+@cpython_api([rffi.CCHARP, lltype.Ptr(PyMemberDef), PyObject], rffi.INT_real,
              error=-1, header=_HEADER)
 def PyMember_SetOne(space, obj, w_member, w_value):
     addr = rffi.cast(ADDR, obj)
@@ -95,16 +94,15 @@ def PyMember_SetOne(space, obj, w_member, w_value):
 
     if (flags & READONLY or
         member_type in [T_STRING, T_STRING_INPLACE]):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("readonly attribute"))
+        raise oefmt(space.w_TypeError, "readonly attribute")
     elif w_value is None:
         if member_type == T_OBJECT_EX:
             if not rffi.cast(PyObjectP, addr)[0]:
                 w_name = space.wrap(rffi.charp2str(w_member.c_name))
                 raise OperationError(space.w_AttributeError, w_name)
         elif member_type != T_OBJECT:
-            raise OperationError(space.w_TypeError,
-                             space.wrap("can't delete numeric/char attribute"))
+            raise oefmt(space.w_TypeError,
+                        "can't delete numeric/char attribute")
 
     for converter in integer_converters:
         typ, lltyp, getter = converter
@@ -117,8 +115,7 @@ def PyMember_SetOne(space, obj, w_member, w_value):
     if member_type == T_CHAR:
         str_value = space.str_w(w_value)
         if len(str_value) != 1:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("string of length 1 expected"))
+            raise oefmt(space.w_TypeError, "string of length 1 expected")
         array = rffi.cast(rffi.CCHARP, addr)
         array[0] = str_value[0]
     elif member_type in [T_OBJECT, T_OBJECT_EX]:
@@ -127,6 +124,5 @@ def PyMember_SetOne(space, obj, w_member, w_value):
             Py_DecRef(space, array[0])
         array[0] = make_ref(space, w_value)
     else:
-        raise OperationError(space.w_SystemError,
-                             space.wrap("bad memberdescr type"))
+        raise oefmt(space.w_SystemError, "bad memberdescr type")
     return 0

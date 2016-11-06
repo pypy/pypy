@@ -40,6 +40,7 @@ OPCODE_REPEAT             = 28
 OPCODE_REPEAT_ONE         = 29
 #OPCODE_SUBPATTERN        = 30
 OPCODE_MIN_REPEAT_ONE     = 31
+OPCODE_RANGE_IGNORE       = 32
 
 # not used by Python itself
 OPCODE_UNICODE_GENERAL_CATEGORY = 70
@@ -89,6 +90,7 @@ class AbstractMatchContext(object):
     match_end = 0
     match_marks = None
     match_marks_flat = None
+    fullmatch_only = False
 
     def __init__(self, pattern, match_start, end, flags):
         # 'match_start' and 'end' must be known to be non-negative
@@ -364,7 +366,9 @@ class MinRepeatOneMatchResult(MatchResult):
         for op1, checkerfn in unroll_char_checker:
             if op1 == op:
                 return checkerfn(ctx, ptr, ppos)
-        raise Error("next_char_ok[%d]" % op)
+        # obscure case: it should be a single char pattern, but isn't
+        # one of the opcodes in unroll_char_checker (see test_ext_opcode)
+        return sre_match(ctx, ppos, ptr, self.start_marks) is not None
 
 class AbstractUntilMatchResult(MatchResult):
 
@@ -526,9 +530,16 @@ def sre_match(ctx, ppos, ptr, marks):
         if op == OPCODE_FAILURE:
             return
 
-        if (op == OPCODE_SUCCESS or
-            op == OPCODE_MAX_UNTIL or
-            op == OPCODE_MIN_UNTIL):
+        elif op == OPCODE_SUCCESS:
+            if ctx.fullmatch_only:
+                if ptr != ctx.end:
+                    return     # not a full match
+            ctx.match_end = ptr
+            ctx.match_marks = marks
+            return MATCHED_OK
+
+        elif (op == OPCODE_MAX_UNTIL or
+              op == OPCODE_MIN_UNTIL):
             ctx.match_end = ptr
             ctx.match_marks = marks
             return MATCHED_OK
@@ -551,7 +562,11 @@ def sre_match(ctx, ppos, ptr, marks):
             # assert subpattern
             # <ASSERT> <0=skip> <1=back> <pattern>
             ptr1 = ptr - ctx.pat(ppos+1)
-            if ptr1 < 0 or sre_match(ctx, ppos + 2, ptr1, marks) is None:
+            saved = ctx.fullmatch_only
+            ctx.fullmatch_only = False
+            stop = ptr1 < 0 or sre_match(ctx, ppos + 2, ptr1, marks) is None
+            ctx.fullmatch_only = saved
+            if stop:
                 return
             marks = ctx.match_marks
             ppos += ctx.pat(ppos)
@@ -560,7 +575,12 @@ def sre_match(ctx, ppos, ptr, marks):
             # assert not subpattern
             # <ASSERT_NOT> <0=skip> <1=back> <pattern>
             ptr1 = ptr - ctx.pat(ppos+1)
-            if ptr1 >= 0 and sre_match(ctx, ppos + 2, ptr1, marks) is not None:
+            saved = ctx.fullmatch_only
+            ctx.fullmatch_only = False
+            stop = (ptr1 >= 0 and sre_match(ctx, ppos + 2, ptr1, marks)
+                                      is not None)
+            ctx.fullmatch_only = saved
+            if stop:
                 return
             ppos += ctx.pat(ppos)
 
@@ -621,8 +641,7 @@ def sre_match(ctx, ppos, ptr, marks):
         elif op == OPCODE_IN:
             # match set member (or non_member)
             # <IN> <skip> <set>
-            if ptr >= ctx.end or not rsre_char.check_charset(ctx.pattern,
-                                                             ppos+1,
+            if ptr >= ctx.end or not rsre_char.check_charset(ctx, ppos+1,
                                                              ctx.str(ptr)):
                 return
             ppos += ctx.pat(ppos)
@@ -631,8 +650,7 @@ def sre_match(ctx, ppos, ptr, marks):
         elif op == OPCODE_IN_IGNORE:
             # match set member (or non_member), ignoring case
             # <IN> <skip> <set>
-            if ptr >= ctx.end or not rsre_char.check_charset(ctx.pattern,
-                                                             ppos+1,
+            if ptr >= ctx.end or not rsre_char.check_charset(ctx, ppos+1,
                                                              ctx.lowstr(ptr)):
                 return
             ppos += ctx.pat(ppos)
@@ -726,7 +744,8 @@ def sre_match(ctx, ppos, ptr, marks):
             minptr = start + ctx.pat(ppos+1)
             if minptr > ctx.end:
                 return    # cannot match
-            ptr = find_repetition_end(ctx, ppos+3, start, ctx.pat(ppos+2))
+            ptr = find_repetition_end(ctx, ppos+3, start, ctx.pat(ppos+2),
+                                      marks)
             # when we arrive here, ptr points to the tail of the target
             # string.  check if the rest of the pattern matches,
             # and backtrack if not.
@@ -748,7 +767,7 @@ def sre_match(ctx, ppos, ptr, marks):
                 if minptr > ctx.end:
                     return   # cannot match
                 # count using pattern min as the maximum
-                ptr = find_repetition_end(ctx, ppos+3, ptr, min)
+                ptr = find_repetition_end(ctx, ppos+3, ptr, min, marks)
                 if ptr < minptr:
                     return   # did not match minimum number of times
 
@@ -795,7 +814,7 @@ def match_repeated_ignore(ctx, ptr, oldptr, length):
     return True
 
 @specializectx
-def find_repetition_end(ctx, ppos, ptr, maxcount):
+def find_repetition_end(ctx, ppos, ptr, maxcount, marks):
     end = ctx.end
     ptrp1 = ptr + 1
     # First get rid of the cases where we don't have room for any match.
@@ -810,8 +829,11 @@ def find_repetition_end(ctx, ppos, ptr, maxcount):
         if op1 == op:
             if checkerfn(ctx, ptr, ppos):
                 break
+            return ptr
     else:
-        return ptr
+        # obscure case: it should be a single char pattern, but isn't
+        # one of the opcodes in unroll_char_checker (see test_ext_opcode)
+        return general_find_repetition_end(ctx, ppos, ptr, maxcount, marks)
     # It matches at least once.  If maxcount == 1 (relatively common),
     # then we are done.
     if maxcount == 1:
@@ -829,16 +851,29 @@ def find_repetition_end(ctx, ppos, ptr, maxcount):
     raise Error("rsre.find_repetition_end[%d]" % op)
 
 @specializectx
+def general_find_repetition_end(ctx, ppos, ptr, maxcount, marks):
+    # moved into its own JIT-opaque function
+    end = ctx.end
+    if maxcount != rsre_char.MAXREPEAT:
+        # adjust end
+        end1 = ptr + maxcount
+        if end1 <= end:
+            end = end1
+    while ptr < end and sre_match(ctx, ppos, ptr, marks) is not None:
+        ptr += 1
+    return ptr
+
+@specializectx
 def match_ANY(ctx, ptr, ppos):   # dot wildcard.
     return not rsre_char.is_linebreak(ctx.str(ptr))
 def match_ANY_ALL(ctx, ptr, ppos):
     return True    # match anything (including a newline)
 @specializectx
 def match_IN(ctx, ptr, ppos):
-    return rsre_char.check_charset(ctx.pattern, ppos+2, ctx.str(ptr))
+    return rsre_char.check_charset(ctx, ppos+2, ctx.str(ptr))
 @specializectx
 def match_IN_IGNORE(ctx, ptr, ppos):
-    return rsre_char.check_charset(ctx.pattern, ppos+2, ctx.lowstr(ptr))
+    return rsre_char.check_charset(ctx, ppos+2, ctx.lowstr(ptr))
 @specializectx
 def match_LITERAL(ctx, ptr, ppos):
     return ctx.str(ptr) == ctx.pat(ppos+1)
@@ -999,13 +1034,17 @@ def _adjust(start, end, length):
     elif end > length: end = length
     return start, end
 
-def match(pattern, string, start=0, end=sys.maxint, flags=0):
+def match(pattern, string, start=0, end=sys.maxint, flags=0, fullmatch=False):
     start, end = _adjust(start, end, len(string))
     ctx = StrMatchContext(pattern, string, start, end, flags)
+    ctx.fullmatch_only = fullmatch
     if match_context(ctx):
         return ctx
     else:
         return None
+
+def fullmatch(pattern, string, start=0, end=sys.maxint, flags=0):
+    return match(pattern, string, start, end, flags, fullmatch=True)
 
 def search(pattern, string, start=0, end=sys.maxint, flags=0):
     start, end = _adjust(start, end, len(string))
@@ -1094,7 +1133,7 @@ def charset_search(ctx, base):
     while start < ctx.end:
         ctx.jitdriver_CharsetSearch.jit_merge_point(ctx=ctx, start=start,
                                                     base=base)
-        if rsre_char.check_charset(ctx.pattern, 5, ctx.str(start)):
+        if rsre_char.check_charset(ctx, 5, ctx.str(start)):
             if sre_match(ctx, base, start, None) is not None:
                 ctx.match_start = start
                 return True

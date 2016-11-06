@@ -24,7 +24,7 @@ from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std import newformat
 from pypy.objspace.std.util import (
-    BINARY_OPS, CMP_OPS, COMMUTATIVE_OPS, IDTAG_INT, wrap_parsestringerror)
+    BINARY_OPS, CMP_OPS, COMMUTATIVE_OPS, IDTAG_INT, IDTAG_SHIFT, wrap_parsestringerror)
 
 SENTINEL = object()
 
@@ -46,7 +46,7 @@ class W_AbstractIntObject(W_Root):
         if self.user_overridden_class:
             return None
         b = space.bigint_w(self)
-        b = b.lshift(3).int_or_(IDTAG_INT)
+        b = b.lshift(IDTAG_SHIFT).int_or_(IDTAG_INT)
         return space.newlong_from_rbigint(b)
 
     def int(self, space):
@@ -362,11 +362,13 @@ class W_IntObject(W_AbstractIntObject):
         return _new_int(space, w_inttype, w_x, w_base)
 
     def descr_hash(self, space):
-        # unlike CPython, we don't special-case the value -1 in most of
-        # our hash functions, so there is not much sense special-casing
-        # it here either.  Make sure this is consistent with the hash of
-        # floats and longs.
-        return self.int(space)
+        # For compatibility with CPython, we special-case -1
+        # Make sure this is consistent with the hash of floats and longs.
+        # The complete list of built-in types whose hash should be
+        # consistent is: int, long, bool, float, complex.
+        h = self.intval
+        h -= (h == -1)  # No explicit condition, to avoid JIT bridges
+        return wrapint(space, h)
 
     def _int(self, space):
         return self.int(space)
@@ -391,9 +393,7 @@ class W_IntObject(W_AbstractIntObject):
         return space.newtuple([self, w_other])
 
     def descr_long(self, space):
-        # XXX: should try smalllong
-        from pypy.objspace.std.longobject import W_LongObject
-        return W_LongObject.fromint(space, self.intval)
+        return space.newlong(self.intval)
 
     def descr_nonzero(self, space):
         return space.newbool(self.intval != 0)
@@ -682,7 +682,11 @@ def _new_int(space, w_inttype, w_x, w_base=None):
             w_obj = w_value
             if space.lookup(w_obj, '__int__') is None:
                 w_obj = space.trunc(w_obj)
-            w_obj = space.int(w_obj)
+                if not (space.isinstance_w(w_obj, space.w_int) or
+                        space.isinstance_w(w_obj, space.w_long)):
+                    w_obj = space.int(w_obj)
+            else:
+                w_obj = space.int(w_obj)
             # 'int(x)' should return what x.__int__() returned, which should
             # be an int or long or a subclass thereof.
             if space.is_w(w_inttype, space.w_int):

@@ -1,4 +1,5 @@
 import ctypes
+import re
 from collections import OrderedDict
 
 import py
@@ -13,6 +14,7 @@ from rpython.rtyper.lltypesystem.lltype import *
 from rpython.rtyper.lltypesystem.rstr import STR
 from rpython.tool.nullpath import NullPyPathLocal
 from rpython.translator.c import genc
+from rpython.translator.backendopt.merge_if_blocks import merge_if_blocks
 from rpython.translator.interactive import Translation
 from rpython.translator.translator import TranslationContext, graphof
 
@@ -243,10 +245,11 @@ def test_string_arg():
 
 
 def test_dont_write_source_files():
-    def f(x):
-        return x*2
+    from rpython.annotator.listdef import s_list_of_strings
+    def f(argv):
+        return len(argv)*2
     t = TranslationContext()
-    t.buildannotator().build_types(f, [int])
+    t.buildannotator().build_types(f, [s_list_of_strings])
     t.buildrtyper().specialize()
 
     t.config.translation.countmallocs = True
@@ -596,10 +599,30 @@ def test_inhibit_tail_call():
     t.context._graphof(foobar_fn).inhibit_tail_call = True
     t.source_c()
     lines = t.driver.cbuilder.c_source_filename.join('..',
-                              'rpython_translator_c_test_test_genc.c').readlines()
+                              'rpython_translator_c_test.c').readlines()
     for i, line in enumerate(lines):
         if '= pypy_g_foobar_fn' in line:
             break
     else:
         assert 0, "the call was not found in the C source"
     assert 'PYPY_INHIBIT_TAIL_CALL();' in lines[i+1]
+
+def get_generated_c_source(fn, types):
+    """Return the generated C source for fn."""
+    t = Translation(fn, types, backend="c")
+    t.annotate()
+    merge_if_blocks(t.driver.translator.graphs[0])
+    c_filename_path = t.source_c()
+    return t.driver.cbuilder.c_source_filename.join('..',
+                              'rpython_translator_c_test.c').read()
+
+def test_generated_c_source_no_gotos():
+    # We want simple functions to have no indirection/goto.
+    # Instead, PyPy can inline blocks when they aren't reused.
+
+    def main(x):
+        return x + 1
+
+    c_src = get_generated_c_source(main, [int])
+    assert 'goto' not in c_src
+    assert not re.search(r'block\w*:(?! \(inlined\))', c_src)

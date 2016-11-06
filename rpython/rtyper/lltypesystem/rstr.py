@@ -369,13 +369,19 @@ class LLHelpers(AbstractLLHelpers):
         return b
 
     @staticmethod
-    @jit.elidable
     def ll_strhash(s):
+        if s:
+            return LLHelpers._ll_strhash(s)
+        else:
+            return 0
+
+    @staticmethod
+    @jit.elidable
+    @jit.call_shortcut
+    def _ll_strhash(s):
         # unlike CPython, there is no reason to avoid to return -1
         # but our malloc initializes the memory to zero, so we use zero as the
         # special non-computed-yet value.
-        if not s:
-            return 0
         x = s.hash
         if x == 0:
             x = _hash_string(s.chars)
@@ -648,6 +654,7 @@ class LLHelpers(AbstractLLHelpers):
 
     @staticmethod
     @jit.elidable
+    @signature(types.any(), types.any(), types.int(), types.int(), returns=types.int())
     def ll_rfind_char(s, ch, start, end):
         if end > len(s.chars):
             end = len(s.chars)
@@ -717,10 +724,7 @@ class LLHelpers(AbstractLLHelpers):
             return cls.ll_count_char(s1, s2.chars[0], start, end)
 
         res = cls.ll_search(s1, s2, start, end, FAST_COUNT)
-        # For a few cases ll_search can return -1 to indicate an "impossible"
-        # condition for a string match, count just returns 0 in these cases.
-        if res < 0:
-            res = 0
+        assert res >= 0
         return res
 
     @staticmethod
@@ -741,6 +745,8 @@ class LLHelpers(AbstractLLHelpers):
         w = n - m
 
         if w < 0:
+            if mode == FAST_COUNT:
+                return 0
             return -1
 
         mlast = m - 1
@@ -1239,7 +1245,8 @@ TEMP_UNICODE = GcArray(Ptr(UNICODE))
 # ____________________________________________________________
 
 STR.become(GcStruct('rpy_string', ('hash',  Signed),
-                    ('chars', Array(Char, hints={'immutable': True})),
+                    ('chars', Array(Char, hints={'immutable': True,
+                                    'extra_item_after_alloc': 1})),
                     adtmeths={'malloc' : staticAdtMethod(mallocstr),
                               'empty'  : staticAdtMethod(emptystrfun),
                               'copy_contents' : staticAdtMethod(copy_string_contents),
