@@ -1,6 +1,7 @@
+import sys
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib.rstring import UnicodeBuilder
+from rpython.rlib.rstring import UnicodeBuilder, StringBuilder
 from rpython.rlib.runicode import (
     code_to_unichr, MAXUNICODE,
     raw_unicode_escape_helper_unicode)
@@ -322,14 +323,55 @@ def namereplace_errors(space, w_exc):
         raise oefmt(space.w_TypeError,
                     "don't know how to handle %T in error callback", w_exc)
 
+
+(ENC_UNKNOWN, ENC_UTF8,
+ ENC_UTF16BE, ENC_UTF16LE,
+ ENC_UTF32BE, ENC_UTF32LE) = range(-1, 5)
+BIG_ENDIAN = sys.byteorder == 'big'
+
+STANDARD_ENCODINGS = {
+    'utf8':      (3, ENC_UTF8),
+    'utf_8':     (3, ENC_UTF8),
+    'cp_utf8':   (3, ENC_UTF8),
+    'utf16':     (2, ENC_UTF16BE) if BIG_ENDIAN else (2, ENC_UTF16LE),
+    'utf_16':    (2, ENC_UTF16BE) if BIG_ENDIAN else (2, ENC_UTF16LE),
+    'utf16be':   (2, ENC_UTF16BE),
+    'utf_16be':  (2, ENC_UTF16BE),
+    'utf16_be':  (2, ENC_UTF16BE),
+    'utf_16_be': (2, ENC_UTF16BE),
+    'utf16le':   (2, ENC_UTF16LE),
+    'utf_16le':  (2, ENC_UTF16LE),
+    'utf16_le':  (2, ENC_UTF16LE),
+    'utf_16_le': (2, ENC_UTF16LE),
+    'utf32':     (4, ENC_UTF32BE) if BIG_ENDIAN else (4, ENC_UTF32LE),
+    'utf_32':    (4, ENC_UTF32BE) if BIG_ENDIAN else (4, ENC_UTF32LE),
+    'utf32be':   (4, ENC_UTF32BE),
+    'utf_32be':  (4, ENC_UTF32BE),
+    'utf32_be':  (4, ENC_UTF32BE),
+    'utf_32_be': (4, ENC_UTF32BE),
+    'utf32le':   (4, ENC_UTF32LE),
+    'utf_32le':  (4, ENC_UTF32LE),
+    'utf32_le':  (4, ENC_UTF32LE),
+    'utf_32_le': (4, ENC_UTF32LE),
+}
+
+def get_standard_encoding(encoding):
+    encoding = encoding.lower().replace('-', '_')
+    return STANDARD_ENCODINGS.get(encoding, (0, ENC_UNKNOWN))
+
 def surrogatepass_errors(space, w_exc):
     check_exception(space, w_exc)
     if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
         obj = space.realunicode_w(space.getattr(w_exc, space.wrap('object')))
         start = space.int_w(space.getattr(w_exc, space.wrap('start')))
         w_end = space.getattr(w_exc, space.wrap('end'))
+        encoding = space.str_w(space.getattr(w_exc, space.wrap('encoding')))
+        bytelength, code = get_standard_encoding(encoding)
+        if code == ENC_UNKNOWN:
+            # Not supported, fail with original exception
+            raise OperationError(space.type(w_exc), w_exc)
         end = space.int_w(w_end)
-        res = ''
+        builder = StringBuilder()
         pos = start
         while pos < end:
             ch = ord(obj[pos])
@@ -337,31 +379,61 @@ def surrogatepass_errors(space, w_exc):
             if ch < 0xd800 or ch > 0xdfff:
                 # Not a surrogate, fail with original exception
                 raise OperationError(space.type(w_exc), w_exc)
-            res += chr(0xe0 | (ch >> 12))
-            res += chr(0x80 | ((ch >> 6) & 0x3f))
-            res += chr(0x80 | (ch & 0x3f))
-        return space.newtuple([space.newbytes(res), w_end])
+            if code == ENC_UTF8:
+                builder.append(chr(0xe0 | (ch >> 12)))
+                builder.append(chr(0x80 | ((ch >> 6) & 0x3f)))
+                builder.append(chr(0x80 | (ch & 0x3f)))
+            elif code == ENC_UTF16LE:
+                builder.append(chr(ch & 0xff))
+                builder.append(chr(ch >> 8))
+            elif code == ENC_UTF16BE:
+                builder.append(chr(ch >> 8))
+                builder.append(chr(ch & 0xff))
+            elif code == ENC_UTF32LE:
+                builder.append(chr(ch & 0xff))
+                builder.append(chr(ch >> 8))
+                builder.append(chr(0))
+                builder.append(chr(0))
+            elif code == ENC_UTF32BE:
+                builder.append(chr(0))
+                builder.append(chr(0))
+                builder.append(chr(ch >> 8))
+                builder.append(chr(ch & 0xff))
+        return space.newtuple([space.newbytes(builder.build()), w_end])
     elif space.isinstance_w(w_exc, space.w_UnicodeDecodeError):
         start = space.int_w(space.getattr(w_exc, space.wrap('start')))
         obj = space.bytes_w(space.getattr(w_exc, space.wrap('object')))
+        encoding = space.str_w(space.getattr(w_exc, space.wrap('encoding')))
+        bytelength, code = get_standard_encoding(encoding)
         ch = 0
         # Try decoding a single surrogate character. If there are more,
         # let the codec call us again
-        ch0 = ord(obj[start + 0])
-        ch1 = ord(obj[start + 1])
+        ch0 = ord(obj[start + 0]) if len(obj) > start + 0 else -1
+        ch1 = ord(obj[start + 1]) if len(obj) > start + 1 else -1
         ch2 = ord(obj[start + 2]) if len(obj) > start + 2 else -1
-        if (ch2 != -1 and
-            ch0 & 0xf0 == 0xe0 and
-            ch1 & 0xc0 == 0x80 and
-            ch2 & 0xc0 == 0x80):
-            # it's a three-byte code
-            ch = ((ch0 & 0x0f) << 12) + ((ch1 & 0x3f) << 6) + (ch2 & 0x3f)
-            if ch < 0xd800 or ch > 0xdfff:
-                # it's not a surrogate - fail
-                ch = 0
+        ch3 = ord(obj[start + 3]) if len(obj) > start + 3 else -1
+        if code == ENC_UTF8:
+            if (ch1 != -1 and ch2 != -1 and
+                ch0 & 0xf0 == 0xe0 and
+                ch1 & 0xc0 == 0x80 and
+                ch2 & 0xc0 == 0x80):
+                # it's a three-byte code
+                ch = ((ch0 & 0x0f) << 12) + ((ch1 & 0x3f) << 6) + (ch2 & 0x3f)
+        elif code == ENC_UTF16LE:
+            ch = (ch1 << 8) | ch0
+        elif code == ENC_UTF16BE:
+            ch = (ch0 << 8) | ch1
+        elif code == ENC_UTF32LE:
+            ch = (ch3 << 24) | (ch2 << 16) | (ch1 << 8) | ch0
+        elif code == ENC_UTF32BE:
+            ch = (ch0 << 24) | (ch1 << 16) | (ch2 << 8) | ch3
+        if ch < 0xd800 or ch > 0xdfff:
+            # it's not a surrogate - fail
+            ch = 0
         if ch == 0:
             raise OperationError(space.type(w_exc), w_exc)
-        return space.newtuple([space.wrap(unichr(ch)), space.wrap(start + 3)])
+        return space.newtuple([space.wrap(unichr(ch)),
+                               space.wrap(start + bytelength)])
     else:
         raise oefmt(space.w_TypeError,
                     "don't know how to handle %T in error callback", w_exc)
