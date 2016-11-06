@@ -423,6 +423,39 @@ Signed rpy_reverse_db_identityhash(struct pypy_header0 *obj)
     return obj->h_hash;
 }
 
+RPY_EXTERN
+Signed rpy_reverse_db_cast_ptr_to_int(struct pypy_header0 *obj)
+{
+    /* Returns the "id" of the object.  Should return a unique number
+       among all objects, including prebuilt ones.
+    */
+    if (obj->h_uid == 0) {
+        /* prebuilt object: the object address is good enough, because
+           such addresses should not change between recording and
+           replaying.  The address is even and non-null, so the
+           following formula gives a unique negative result.
+        */
+        return (Signed)(-(((Unsigned)obj) >> 1));
+    }
+    else {
+        /* regular object: for now, may fail to work on 32-bit, where
+           h_uid is a 64-bit number that may grow bigger than 31 bits
+           if the program runs for long enough.  Print a warning if it
+           is the case. */
+        if (((Signed)(obj->h_uid)) != obj->h_uid) {
+            static int warning_printed = 0;
+            if (!warning_printed) {
+                fprintf(stderr, "WARNING: the program executes for long enough "
+                                "that it creates more than 2**31 objects.  In "
+                                "this situation, the id() function may return "
+                                "non-unique results.\n");
+                warning_printed = 1;
+            }
+        }
+        return (Signed)(obj->h_uid);
+    }
+}
+
 static uint64_t recording_offset(void)
 {
     /* must be called with the lock held */

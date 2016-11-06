@@ -231,10 +231,8 @@ RPY_EXTERN void seeing_uid(uint64_t uid);
 #define OP_REVDB_CALL_DESTRUCTOR(obj, r)                                \
     rpy_reverse_db_call_destructor(obj)
 
-/* Used only for getting a fast hash value that doesn't change too
-   often (with the minimark GC, it changes at most once).  Here,
-   we'll just return the UID. */
-#define RPY_REVDB_CAST_PTR_TO_INT(obj)   (((struct pypy_header0 *)obj)->h_uid)
+#define RPY_REVDB_CAST_PTR_TO_INT(obj)                                  \
+    rpy_reverse_db_cast_ptr_to_int((struct pypy_header0 *)(obj))
 
 #define OP_REVDB_SET_THREAD_BREAKPOINT(tnum, r)                         \
     rpy_reverse_db_set_thread_breakpoint(tnum)
@@ -279,6 +277,7 @@ RPY_EXTERN void rpy_reverse_db_stop_point(long place);
 RPY_EXTERN void rpy_reverse_db_send_answer(int cmd, int64_t arg1, int64_t arg2,
                                            int64_t arg3, RPyString *extra);
 RPY_EXTERN Signed rpy_reverse_db_identityhash(struct pypy_header0 *obj);
+RPY_EXTERN Signed rpy_reverse_db_cast_ptr_to_int(struct pypy_header0 *obj);
 RPY_EXTERN void rpy_reverse_db_breakpoint(int64_t num);
 RPY_EXTERN long long rpy_reverse_db_get_value(char value_id);
 RPY_EXTERN uint64_t rpy_reverse_db_unique_id_break(void *new_object);
