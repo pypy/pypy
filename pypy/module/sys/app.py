@@ -126,6 +126,10 @@ class SimpleNamespace:
         finally:
             recurse.remove(ident)
 
+    def __eq__(self, other):
+        return (isinstance(other, SimpleNamespace) and
+                self.__dict__ == other.__dict__)
+
 # This class is not exposed in sys, but by the types module.
 SimpleNamespace.__module__ = 'types'
 

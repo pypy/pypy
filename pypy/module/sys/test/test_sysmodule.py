@@ -595,7 +595,7 @@ class AppTestSysModulePortedFromCPython:
         SimpleNamespace = type(sys.implementation)
         ns = SimpleNamespace(x=1, y=2, w=3)
         copy = pickle.loads(pickle.dumps(ns))
-        copy.__dict__ == dict(x=1, y=2, w=3, z=4)
+        assert copy == ns
 
     def test_reload_doesnt_override_sys_executable(self):
         import sys
