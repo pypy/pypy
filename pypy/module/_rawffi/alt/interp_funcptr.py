@@ -325,6 +325,8 @@ class W_CDLL(W_Root):
             self.cdll = libffi.CDLL(name, mode)
         except DLOpenError as e:
             raise wrap_dlopenerror(space, e, self.name)
+        except OSError as e:
+            raise wrap_oserror(space, e)
 
     def getfunc(self, space, w_name, w_argtypes, w_restype):
         return _getfunc(space, self, w_name, w_argtypes, w_restype)
@@ -376,8 +378,4 @@ W_WinDLL.typedef = TypeDef(
 # ========================================================================
 
 def get_libc(space):
-    try:
-        return space.wrap(W_CDLL(space, get_libc_name(), -1))
-    except OSError as e:
-        raise wrap_oserror(space, e)
-
+    return space.wrap(W_CDLL(space, get_libc_name(), -1))
