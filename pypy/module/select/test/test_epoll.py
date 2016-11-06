@@ -57,6 +57,16 @@ class AppTestEpoll(object):
         assert ep.closed
         raises(ValueError, ep.fileno)
 
+    def test_with(self):
+        import select
+
+        ep = select.epoll(16)
+        assert ep.fileno() > 0
+        with ep:
+            assert not ep.closed
+        assert ep.closed
+        raises(ValueError, ep.__enter__)
+
     def test_badcreate(self):
         import select
 
