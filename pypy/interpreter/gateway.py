@@ -712,6 +712,8 @@ class BuiltinCode(Code):
             if not we_are_translated():
                 raise
             raise e
+        except OperationError:
+            raise
         except KeyboardInterrupt:
             raise OperationError(space.w_KeyboardInterrupt, space.w_None)
         except MemoryError:
@@ -722,6 +724,8 @@ class BuiltinCode(Code):
                         "maximum recursion depth exceeded")
         except RuntimeError:   # not on top of py.py
             raise OperationError(space.w_RuntimeError, space.w_None)
+        except Exception as e:      # general fall-back
+            raise space._convert_unexpected_exception(e)
 
 # (verbose) performance hack below
 

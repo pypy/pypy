@@ -58,10 +58,14 @@ class OperationError(Exception):
     def __str__(self):
         "NOT_RPYTHON: Convenience for tracebacks."
         s = self._w_value
-        if self.__class__ is not OperationError and s is None:
-            space = getattr(self.w_type, 'space')
-            if space is not None:
+        space = getattr(self.w_type, 'space', None)
+        if space is not None:
+            if self.__class__ is not OperationError and s is None:
                 s = self._compute_value(space)
+            try:
+                s = space.str_w(s)
+            except Exception:
+                pass
         return '[%s: %s]' % (self.w_type, s)
 
     def errorstr(self, space, use_repr=False):
