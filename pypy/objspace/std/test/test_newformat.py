@@ -241,6 +241,7 @@ class BaseIntegralFormattingTest:
         assert format(a, "c") == "a"
         raises(ValueError, format, a, "-c")
         raises(ValueError, format, a, ",c")
+        raises(ValueError, format, a, "#c")
         assert format(a, "3c") == "  a"
         assert format(a, "<3c") == "a  "
         assert format(a, "^3c") == " a "
