@@ -35,18 +35,27 @@ def Windows_x64(cc=None):
     return _get_compiler_type(cc, True)
 
 def _get_msvc_env(vsver, x64flag):
+    vcvars = None
     try:
         toolsdir = os.environ['VS%sCOMNTOOLS' % vsver]
     except KeyError:
-        return None
+        # try to import from the "Microsoft Visual C++ Compiler for Python 2.7"
+        try:
+            import setuptools
+        except ImportError:
+            return None
+        # XXX works for 90 but is it generalizable?
+        toolsdir = ''
+        vcvars = setuptools.msvc.msvc9_find_vcvarsall(vsver/10)
 
-    if x64flag:
-        vsinstalldir = os.path.abspath(os.path.join(toolsdir, '..', '..'))
-        vcinstalldir = os.path.join(vsinstalldir, 'VC')
-        vcbindir = os.path.join(vcinstalldir, 'BIN')
-        vcvars = os.path.join(vcbindir, 'amd64', 'vcvarsamd64.bat')
-    else:
-        vcvars = os.path.join(toolsdir, 'vsvars32.bat')
+    if not vcvars:
+        if x64flag:
+            vsinstalldir = os.path.abspath(os.path.join(toolsdir, '..', '..'))
+            vcinstalldir = os.path.join(vsinstalldir, 'VC')
+            vcbindir = os.path.join(vcinstalldir, 'BIN')
+            vcvars = os.path.join(vcbindir, 'amd64', 'vcvarsamd64.bat')
+        else:
+            vcvars = os.path.join(toolsdir, 'vsvars32.bat')
 
     import subprocess
     try:
