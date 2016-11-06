@@ -126,6 +126,9 @@ class SimpleNamespace:
         finally:
             recurse.remove(ident)
 
+# This class is not exposed in sys, but by the types module.
+SimpleNamespace.__module__ = 'types'
+
 
 implementation = SimpleNamespace(
     name='pypy',
