@@ -6,7 +6,7 @@ We have released PyPy2.7 v5.6, about two months after PyPy2.7 v5.4.
 This new PyPy2.7 release includes the upstream stdlib version 2.7.12.
 
 We continue to make incremental improvements to our C-API
-compatability layer (cpyext). We pass all but a few of the tests in the
+compatibility layer (cpyext). We pass all but a few of the tests in the
 upstream numpy `test suite`_. 
 
 Work proceeds at a good pace on the PyPy3.5
