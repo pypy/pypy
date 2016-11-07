@@ -96,7 +96,7 @@ Other Highlights (since 5.4 released Aug 31, 2016)
   * Allow ``warning.warn(('something', 1), Warning)`` like on CPython
   * Refactor ``rclock`` and add some more ``CLOCK_xxx`` constants on
     relevant platforms
-  * Backport the ``'faulthandler`` module from py3.5
+  * Backport the ``faulthandler`` module from py3.5
   * Improve the error message when trying to call a method where the ``self``
     parameter is missing in the definition
   * Implement ``rposix.cpu_count``
