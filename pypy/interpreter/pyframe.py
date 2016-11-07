@@ -907,7 +907,7 @@ class PyFrame(W_Root):
         if we_are_translated():
             from rpython.rlib.debug import debug_print_traceback
             debug_print_traceback()
-            extra = '; internal traceback was dumped to stderr'
+            extra = '; internal traceback(s) were dumped to stderr'
         else:
             extra = self._convert_unexpected_exception_extra(e)
         operr = OperationError(self.space.w_SystemError, self.space.wrap(
