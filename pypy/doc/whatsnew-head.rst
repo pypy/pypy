@@ -100,3 +100,8 @@ PowerPC implementation for vector operations used in VecOpt
 .. branch: newinitwarn
 
 Match CPython's stricter handling of __new/init__ arguments
+
+.. branch: openssl-1.1
+
+Support for OpenSSL version 1.1 (in addition to version 1.0).
+Tested on Linux (1.1, 1.0), on Win32, and Mac (1.0 only)
