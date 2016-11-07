@@ -130,7 +130,7 @@ class MsvcPlatform(Platform):
     link = 'link.exe'
 
     cflags = ('/MD', '/O2', '/Zi')
-    link_flags = ('/debug',)
+    link_flags = ('/debug','/LARGEADDRESSAWARE')
     standalone_only = ()
     shared_only = ()
     environ = None
