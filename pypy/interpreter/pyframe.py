@@ -307,19 +307,18 @@ class PyFrame(W_Root):
             # last_instr is -1.  After a generator suspends it points to
             # the YIELD_VALUE/YIELD_FROM instruction.
             try:
-                if in_generator is None:
-                    assert self.last_instr == -1
-                    next_instr = r_uint(0)
+                try:
+                    if in_generator is None:
+                        assert self.last_instr == -1
+                        next_instr = r_uint(0)
+                    else:
+                        next_instr = in_generator.resume_execute_frame(
+                                                        self, w_arg_or_err)
+                except pyopcode.Yield:
+                    w_exitvalue = self.popvalue()
                 else:
-                    next_instr = in_generator.resume_execute_frame(
-                                                    self, w_arg_or_err)
-                #
-                self.dispatch(self.pycode, next_instr, executioncontext)
-            except pyopcode.Return:
-                self.last_exception = None
-                w_exitvalue = self.popvalue()
-            except pyopcode.Yield:
-                w_exitvalue = self.popvalue()
+                    w_exitvalue = self.dispatch(self.pycode, next_instr,
+                                                executioncontext)
             finally:
                 executioncontext.return_trace(self, w_exitvalue)
             # it used to say self.last_exception = None

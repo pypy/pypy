@@ -60,8 +60,14 @@ class __extend__(pyframe.PyFrame):
         # For the sequel, force 'next_instr' to be unsigned for performance
         next_instr = r_uint(next_instr)
         co_code = pycode.co_code
-        while True:
-            next_instr = self.handle_bytecode(co_code, next_instr, ec)
+        try:
+            while True:
+                next_instr = self.handle_bytecode(co_code, next_instr, ec)
+        except Return:
+            self.last_exception = None
+            return self.popvalue()
+        except Yield:
+            return self.popvalue()
 
     def handle_bytecode(self, co_code, next_instr, ec):
         try:
@@ -1538,6 +1544,7 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_awaitable)
 
 ### ____________________________________________________________ ###
+
 
 class Return(Exception):
     """Raised when exiting a frame via a 'return' statement."""

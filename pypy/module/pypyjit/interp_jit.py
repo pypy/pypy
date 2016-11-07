@@ -91,8 +91,12 @@ class __extend__(PyFrame):
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
                 is_being_profiled = self.get_is_being_profiled()
         except Yield:
+            w_result = self.popvalue()
             jit.hint(self, force_virtualizable=True)
-            raise
+            return w_result
+        except Return:
+            self.last_exception = None
+            return self.popvalue()
 
     def jump_absolute(self, jumpto, ec):
         if we_are_jitted():
