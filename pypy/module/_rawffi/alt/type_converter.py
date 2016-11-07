@@ -225,7 +225,7 @@ class ToAppLevelConverter(object):
             return space.wrap(uintval)
         elif w_ffitype.is_char():
             ucharval = self.get_char(w_ffitype)
-            return space.wrap(chr(ucharval))
+            return space.newbytes(chr(ucharval))
         elif w_ffitype.is_unichar():
             wcharval = self.get_unichar(w_ffitype)
             return space.wrap(unichr(wcharval))

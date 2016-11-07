@@ -377,7 +377,9 @@ class AppTestFFI(BaseAppTestFFI):
         libfoo = CDLL(self.libfoo_name)
         my_toupper = libfoo.getfunc('my_toupper', [types.char],
                                     types.char)
-        assert my_toupper('c') == 'C'
+        res = my_toupper(b'c')
+        assert type(res) is bytes
+        assert res == b'C'
 
     def test_unichar_args(self):
         """
