@@ -19,7 +19,8 @@ better than the misleading minimum value reported in CPython.
 We now support building PyPy with OpenSSL 1.1 in our built-in _ssl module, as
 well as maintaining support for previous versions.
 
-XXX
+CFFI_ has been updated to 1.9, improving an already great package for
+interfacing with C.
 
 As always, this release fixed many issues and bugs raised by the
 growing community of PyPy users. We strongly recommend updating.
@@ -38,7 +39,7 @@ improvements, tweaking popular `modules`_ to run on pypy, or general `help`_
 with making RPython's JIT even better.
 
 .. _`test suite`: https://bitbucket.org/pypy/pypy/wiki/Adventures%20in%20cpyext%20compatibility
-.. _cffi: https://cffi.readthedocs.org
+.. _CFFI: https://cffi.readthedocs.io/latest/whatsnew.html
 .. _grant: https://morepypy.blogspot.com/2016/08/pypy-gets-funding-from-mozilla-for.html
 .. _`PyPy`: http://doc.pypy.org
 .. _`RPython`: https://rpython.readthedocs.org
@@ -81,7 +82,7 @@ Other Highlights (since 5.4 released Aug 31, 2016)
   * Support more attributes on ``super``
   * Issue #2386: non-latin1 unicode keys were ignored in ``unicode.format(**d)``
   * Restore the ability to translate with CPython
-  * Update to CFFI 1.8.4
+  * Update to CFFI 1.9.0
   * Support the new buffer protocol in cpyext and numpypy
   * Add ``rposix.sync()``
   * Support full-precision nanosecond times in os.stat()
