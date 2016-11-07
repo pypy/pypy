@@ -712,6 +712,8 @@ class BuiltinCode(Code):
             if not we_are_translated():
                 raise
             raise e
+        except OperationError:
+            raise
         except KeyboardInterrupt:
             raise OperationError(space.w_KeyboardInterrupt, space.w_None)
         except MemoryError:
@@ -722,6 +724,14 @@ class BuiltinCode(Code):
                         "maximum recursion depth exceeded")
         except RuntimeError:   # not on top of py.py
             raise OperationError(space.w_RuntimeError, space.w_None)
+        except Exception as e:      # general fall-back
+            if we_are_translated():
+                from rpython.rlib.debug import debug_print_traceback
+                debug_print_traceback()
+            # propagate the exception anyway, which will be turned
+            # into a proper OperationError(SystemError) when we
+            # reach PyFrame.execute_frame()
+            raise
 
 # (verbose) performance hack below
 
