@@ -74,6 +74,7 @@ Other Highlights (since 5.4 released Aug 31, 2016)
 =========================================================
 
 * New features
+
   * Allow tests run with `-A` to find `libm.so` even if it is a script not a
     dynamically loadable file
   * Backport fixes to rposix on windows from py3.5
@@ -88,7 +89,7 @@ Other Highlights (since 5.4 released Aug 31, 2016)
   * Support full-precision nanosecond times in os.stat()
   * Add documentation about the assembler backends to RPYthon
   * Search for the stdlibs from the libpypy shared object rather than the pypy-c exe,
-    changes downstream packaging requirments
+    changes downstream packaging requirements
   * Add ``try_inline``, like ``always_inline`` and ``dont_inline`` to RPython
   * Reject ``'a'.strip(buffer(' '))`` like cpython (the argument to strip must
     be ``str`` or ``unicode``)
@@ -106,6 +107,7 @@ Other Highlights (since 5.4 released Aug 31, 2016)
   * Support OpenSSL version 1.1 (in addition to version 1.0)
 
 * Bug Fixes
+
   * Tweak a float comparison with 0 in `backendopt.inline` to avoid rounding errors
   * Fix translation of the sandbox
   * Fix for an issue where `unicode.decode('utf8', 'custom_replace')` messed up
@@ -126,6 +128,7 @@ Other Highlights (since 5.4 released Aug 31, 2016)
   * ``_numpypy.add.reduce`` returns a scalar now
 
 * Performance improvements:
+
   * Improve method calls on oldstyle classes
   * Clean and refactor code for testing cpyext to allow sharing with py3.5
   * Refactor a building the map of reflected ops in ``_numpypy``
