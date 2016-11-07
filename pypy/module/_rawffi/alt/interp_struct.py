@@ -176,7 +176,7 @@ class W__StructInstance(W_Root):
 
     def getaddr(self, space):
         addr = rffi.cast(rffi.ULONG, self.rawmem)
-        return space.wrap(addr)
+        return space.newint(addr)
 
     @unwrap_spec(name=str)
     def getfield(self, space, name):

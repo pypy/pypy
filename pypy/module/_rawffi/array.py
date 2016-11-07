@@ -49,16 +49,16 @@ class W_Array(W_DataShape):
                 w_item = items_w[num]
                 unwrap_value(space, write_ptr, result.ll_buffer, num,
                              self.itemcode, w_item)
-        return space.wrap(result)
+        return result
 
     def descr_repr(self, space):
-        return space.wrap("<_rawffi.Array '%s' (%d, %d)>" % (self.itemcode,
-                                                             self.size,
-                                                             self.alignment))
+        return space.newtext("<_rawffi.Array '%s' (%d, %d)>" % (self.itemcode,
+                                                                self.size,
+                                                                self.alignment))
 
     @unwrap_spec(address=r_uint, length=int)
     def fromaddress(self, space, address, length):
-        return space.wrap(W_ArrayInstance(space, self, length, address))
+        return W_ArrayInstance(space, self, length, address)
 
 PRIMITIVE_ARRAY_TYPES = {}
 for _code in TYPEMAP:
@@ -94,8 +94,8 @@ class W_ArrayInstance(W_DataInstance):
 
     def descr_repr(self, space):
         addr = rffi.cast(lltype.Unsigned, self.ll_buffer)
-        return space.wrap("<_rawffi array %x of length %d>" % (addr,
-                                                               self.length))
+        return space.newtext("<_rawffi array %x of length %d>" % (addr,
+                                                                  self.length))
 
     # This only allows non-negative indexes.  Arrays of shape 'c' also
     # support simple slices.
@@ -137,13 +137,13 @@ class W_ArrayInstance(W_DataInstance):
             return self.getitem(space, num)
 
     def getlength(self, space):
-        return space.wrap(self.length)
+        return space.newint(self.length)
 
     @unwrap_spec(num=int)
     def descr_itemaddress(self, space, num):
         itemsize = self.shape.size
         ptr = rffi.ptradd(self.ll_buffer, itemsize * num)
-        return space.wrap(rffi.cast(lltype.Unsigned, ptr))
+        return space.newint(rffi.cast(lltype.Unsigned, ptr))
 
     def getrawsize(self):
         itemsize = self.shape.size
@@ -155,9 +155,9 @@ class W_ArrayInstance(W_DataInstance):
         letter = self.shape.itemcode
         if letter != 'c':
             raise oefmt(space.w_TypeError, "only 'c' arrays support slicing")
-        w_start = space.getattr(w_slice, space.wrap('start'))
-        w_stop = space.getattr(w_slice, space.wrap('stop'))
-        w_step = space.getattr(w_slice, space.wrap('step'))
+        w_start = space.getattr(w_slice, space.newtext('start'))
+        w_stop = space.getattr(w_slice, space.newtext('stop'))
+        w_step = space.getattr(w_slice, space.newtext('step'))
 
         if space.is_w(w_start, space.w_None):
             start = 0
