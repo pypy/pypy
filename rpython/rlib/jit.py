@@ -3,7 +3,7 @@ import sys
 import py
 
 from rpython.rlib.nonconst import NonConstant
-from rpython.rlib.objectmodel import CDefinedIntSymbolic, keepalive_until_here, specialize
+from rpython.rlib.objectmodel import CDefinedIntSymbolic, keepalive_until_here, specialize, not_rpython
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool.sourcetools import rpython_wrapper
@@ -614,14 +614,14 @@ class JitDriver(object):
     inline_jit_merge_point = False
     _store_last_enter_jit = None
 
+    @not_rpython
     def __init__(self, greens=None, reds=None, virtualizables=None,
                  get_jitcell_at=None, set_jitcell_at=None,
                  get_printable_location=None, confirm_enter_jit=None,
                  can_never_inline=None, should_unroll_one_iteration=None,
                  name='jitdriver', check_untranslated=True, vectorize=False,
                  get_unique_id=None, is_recursive=False, get_location=None):
-        """ NOT_RPYTHON
-            get_location:
+        """get_location:
               The return value is designed to provide enough information to express the
               state of an interpreter when invoking jit_merge_point.
               For a bytecode interperter such as PyPy this includes, filename, line number,

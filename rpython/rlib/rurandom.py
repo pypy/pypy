@@ -6,6 +6,7 @@ import os, sys
 import errno
 
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib.objectmodel import not_rpython
 
 
 if sys.platform == 'win32':
@@ -46,8 +47,9 @@ if sys.platform == 'win32':
         compilation_info=eci,
         save_err=rffi.RFFI_SAVE_LASTERROR)
 
+    @not_rpython
     def init_urandom():
-        """NOT_RPYTHON
+        """
         Return an array of one HCRYPTPROV, initialized to NULL.
         It is filled automatically the first time urandom() is called.
         """
@@ -84,9 +86,8 @@ elif 0:  # __VMS
                 raise ValueError("RAND_pseudo_bytes")
             return buf.str(n)
 else:  # Posix implementation
+    @not_rpython
     def init_urandom():
-        """NOT_RPYTHON
-        """
         return None
 
     def urandom(context, n):

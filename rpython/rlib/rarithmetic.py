@@ -37,7 +37,7 @@ from rpython.rtyper import extregistry
 from rpython.rlib import objectmodel
 from rpython.flowspace.model import Constant, const
 from rpython.flowspace.specialcase import register_flow_sc
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, not_rpython
 
 """
 Long-term target:
@@ -105,10 +105,8 @@ to use long everywhere.
 # XXX returning int(n) should not be necessary and should be simply n.
 # XXX TODO: replace all int(n) by long(n) and fix everything that breaks.
 # XXX       Then relax it and replace int(n) by n.
+@not_rpython
 def intmask(n):
-    """
-    NOT_RPYTHON
-    """
     if isinstance(n, objectmodel.Symbolic):
         return n        # assume Symbolics don't overflow
     assert not isinstance(n, float)
@@ -120,10 +118,8 @@ def intmask(n):
         n -= 2*LONG_TEST
     return int(n)
 
+@not_rpython
 def longlongmask(n):
-    """
-    NOT_RPYTHON
-    """
     assert isinstance(n, (int, long))
     n = long(n)
     n &= LONGLONG_MASK
@@ -168,8 +164,8 @@ def is_valid_int(r):
     return isinstance(r, (base_int, int, long, bool)) and (
         -maxint - 1 <= r <= maxint)
 
+@not_rpython
 def ovfcheck(r):
-    "NOT_RPYTHON"
     # to be used as ovfcheck(x <op> y)
     # raise OverflowError if the operation did overflow
     assert not isinstance(r, r_uint), "unexpected ovf check on unsigned"
