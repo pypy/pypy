@@ -70,7 +70,7 @@ def FromBignumObj(app, value):
 
 def AsBignumObj(value):
     sign = -1 if value < 0 else 1
-    hexstr = '%x' % abs(value)
+    hexstr = b'%x' % abs(value)
     bigValue = tkffi.new("mp_int*")
     tklib.mp_init(bigValue)
     try:
@@ -133,7 +133,7 @@ def FromObj(app, value):
 
 def AsObj(value):
     if isinstance(value, bytes):
-        return tklib.Tcl_NewStringObj(value, len(value))
+        return tklib.Tcl_NewByteArrayObj(value, len(value))
     if isinstance(value, bool):
         return tklib.Tcl_NewBooleanObj(value)
     if isinstance(value, int):
@@ -151,7 +151,7 @@ def AsObj(value):
                 return AsBignumObj(value)
     if isinstance(value, float):
         return tklib.Tcl_NewDoubleObj(value)
-    if isinstance(value, tuple):
+    if isinstance(value, (tuple, list)):
         argv = tkffi.new("Tcl_Obj*[]", len(value))
         for i in range(len(value)):
             argv[i] = AsObj(value[i])

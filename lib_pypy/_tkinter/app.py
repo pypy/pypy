@@ -359,7 +359,7 @@ class TkApp(object):
             for i in range(objc[0]):
                 result.append(FromObj(self, objv[0][i]))
             return tuple(result)
-        elif isinstance(arg, tuple):
+        elif isinstance(arg, (tuple, list)):
             return self._splitObj(arg)
         if isinstance(arg, str):
             arg = arg.encode('utf-8')
@@ -378,6 +378,8 @@ class TkApp(object):
             return tuple(result)
         elif isinstance(arg, tuple):
             return arg
+        elif isinstance(arg, list):
+            return tuple(arg)
         elif isinstance(arg, str):
             arg = arg.encode('utf8')
 
@@ -411,6 +413,9 @@ class TkApp(object):
                 result[i] = newelem
             if result is not None:
                 return tuple(result)
+        if isinstance(arg, list):
+            # Recursively invoke SplitObj for all list items.
+            return tuple(self._splitObj(elem) for elem in arg)
         elif isinstance(arg, str):
             argc = tkffi.new("int*")
             argv = tkffi.new("char***")
@@ -483,7 +488,10 @@ class TkApp(object):
     def getboolean(self, s):
         if isinstance(s, int):
             return bool(s)
-        s = s.encode('utf-8')
+        try:
+            s = s.encode('utf-8')
+        except AttributeError:
+            raise TypeError
         if b'\x00' in s:
             raise TypeError
         v = tkffi.new("int*")
@@ -493,9 +501,12 @@ class TkApp(object):
         return bool(v[0])
 
     def getint(self, s):
-        if isinstance(s, (int, long)):
+        if isinstance(s, int):
             return s
-        s = s.encode('utf-8')
+        try:
+            s = s.encode('utf-8')
+        except AttributeError:
+            raise TypeError
         if b'\x00' in s:
             raise TypeError
         if tklib.HAVE_LIBTOMMATH or tklib.HAVE_WIDE_INT_TYPE:
@@ -517,11 +528,14 @@ class TkApp(object):
             return v[0]
 
     def getdouble(self, s):
-        if isinstance(s, float):
-            return s
-        if '\x00' in s:
+        if isinstance(s, (float, int)):
+            return float(s)
+        try:
+            s = s.encode('utf-8')
+        except AttributeError:
             raise TypeError
-        s = s.encode('utf-8')
+        if b'\x00' in s:
+            raise TypeError
         v = tkffi.new("double*")
         res = tklib.Tcl_GetDouble(self.interp, s, v)
         if res == tklib.TCL_ERROR:
