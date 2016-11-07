@@ -140,9 +140,8 @@ class TestEval(BaseApiTest):
 
         # try again, but with a closed file
         fp = c_fopen(str(filepath), "rb")
-        os.close(c_fileno(fp))
-        api.PyRun_File(fp, filename, Py_file_input, w_globals, w_locals)
         c_fclose(fp)
+        api.PyRun_File(fp, filename, Py_file_input, w_globals, w_locals)
         assert api.PyErr_Occurred() is space.w_IOError
         api.PyErr_Clear()
 
