@@ -1,6 +1,7 @@
 """ PyFrame class implementation with the interpreter main loop.
 """
 
+import sys
 from rpython.rlib import jit
 from rpython.rlib.debug import make_sure_not_resized, check_nonneg
 from rpython.rlib.jit import hint
@@ -276,8 +277,13 @@ class PyFrame(W_Root):
                     next_instr = r_uint(self.last_instr + 1)
                     if next_instr != 0:
                         self.pushvalue(w_inputvalue)
-                w_exitvalue = self.dispatch(self.pycode, next_instr,
-                                            executioncontext)
+                try:
+                    w_exitvalue = self.dispatch(self.pycode, next_instr,
+                                                executioncontext)
+                except OperationError:
+                    raise
+                except Exception as e:      # general fall-back
+                    raise self._convert_unexpected_exception(e)
             finally:
                 executioncontext.return_trace(self, w_exitvalue)
             # it used to say self.last_exception = None
@@ -882,6 +888,34 @@ class PyFrame(W_Root):
                     return last
             frame = frame.f_backref()
         return None
+
+    def _convert_unexpected_exception_extra(self, e):
+        "NOT_RPYTHON"
+        if e.__class__.__name__ in (
+            'Skipped',     # list of exception class names that are ok
+            ):             # to get during ==untranslated tests== only
+            raise
+        # include the RPython-level traceback
+        exc = sys.exc_info()
+        import traceback, cStringIO
+        f = cStringIO.StringIO()
+        print >> f, "\nTraceback (interpreter-level):"
+        traceback.print_tb(exc[2], file=f)
+        return f.getvalue()
+
+    def _convert_unexpected_exception(self, e):
+        if we_are_translated():
+            from rpython.rlib.debug import debug_print_traceback
+            debug_print_traceback()
+            extra = '; internal traceback(s) were dumped to stderr'
+        else:
+            extra = self._convert_unexpected_exception_extra(e)
+        operr = OperationError(self.space.w_SystemError, self.space.wrap(
+            "unexpected internal exception (please report a bug): %r%s" %
+            (e, extra)))
+        pytraceback.record_application_traceback(
+            self.space, operr, self, self.last_instr)
+        raise operr
 
 # ____________________________________________________________
 
