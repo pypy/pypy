@@ -70,8 +70,6 @@ class __extend__(pyframe.PyFrame):
             next_instr = self.dispatch_bytecode(co_code, next_instr, ec)
         except OperationError as operr:
             next_instr = self.handle_operation_error(ec, operr)
-        except ExitFrame:
-            raise
         except RaiseWithExplicitTraceback as e:
             next_instr = self.handle_operation_error(ec, e.operr,
                                                      attach_tb=False)
@@ -87,8 +85,6 @@ class __extend__(pyframe.PyFrame):
             next_instr = self.handle_asynchronous_error(ec,
                 self.space.w_RuntimeError,
                 self.space.wrap("maximum recursion depth exceeded"))
-        except Exception as e:      # general fall-back
-            raise self.space._convert_unexpected_exception(e)
         return next_instr
 
     def handle_asynchronous_error(self, ec, w_type, w_value=None):

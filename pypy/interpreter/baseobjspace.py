@@ -3,7 +3,7 @@ import sys
 from rpython.rlib.cache import Cache
 from rpython.tool.uid import HUGEVAL_BYTES
 from rpython.rlib import jit, types
-from rpython.rlib.debug import make_sure_not_resized, debug_print_traceback
+from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.objectmodel import (we_are_translated, newlist_hint,
      compute_unique_id, specialize)
 from rpython.rlib.signature import signature
@@ -1835,30 +1835,6 @@ class ObjSpace(object):
             """)
         finally:
             self.sys.track_resources = flag
-
-    def _convert_unexpected_exception_extra(self, e):
-        "NOT_RPYTHON"
-        if e.__class__.__name__ in (
-            'Skipped',     # list of exception class names that are ok
-            ):             # to get during ==untranslated tests== only
-            raise
-        # include the RPython-level traceback
-        exc = sys.exc_info()
-        import traceback, cStringIO
-        f = cStringIO.StringIO()
-        print >> f, "\nTraceback (interpreter-level):"
-        traceback.print_tb(exc[2], file=f)
-        return f.getvalue()
-
-    def _convert_unexpected_exception(self, e):
-        if we_are_translated():
-            debug_print_traceback()
-            extra = '; internal traceback was dumped to stderr'
-        else:
-            extra = self._convert_unexpected_exception_extra(e)
-        raise OperationError(self.w_SystemError, self.wrap(
-            "unexpected internal exception (please report a bug): %r%s" %
-            (e, extra)))
 
 
 class AppExecCache(SpaceCache):
