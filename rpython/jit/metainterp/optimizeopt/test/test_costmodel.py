@@ -172,16 +172,20 @@ class CostModelBaseTest(SchedulerBaseTest):
         assert savings == 6
 
     def test_load_arith_store(self):
+        import platform
+        size = 4
+        if not platform.machine().startswith('x86'):
+            size = 8
         loop1 = self.parse_trace("""
         f10 = raw_load_f(p0, i0, descr=double)
         f11 = raw_load_f(p0, i1, descr=double)
         i20 = cast_float_to_int(f10)
         i21 = cast_float_to_int(f11)
-        i30 = int_signext(i20, 4)
-        i31 = int_signext(i21, 4)
+        i30 = int_signext(i20, {size})
+        i31 = int_signext(i21, {size})
         raw_store(p0, i3, i30, descr=int)
         raw_store(p0, i4, i31, descr=int)
-        """)
+        """.format(size=size))
         savings = self.savings(loop1)
         assert savings >= 0
 
@@ -195,7 +199,7 @@ class CostModelBaseTest(SchedulerBaseTest):
         savings = self.savings(loop1)
         assert savings == 2
 
-    @py.test.mark.parametrize("bytes,s", [(1,0),(2,0),(4,0),(8,0)])
+    @py.test.mark.parametrize("bytes,s", [(4,0),(8,0)])
     def test_sum_float_to_int(self, bytes, s):
         loop1 = self.parse_trace("""
         f10 = raw_load_f(p0, i0, descr=double)
@@ -254,7 +258,7 @@ class CostModelBaseTest(SchedulerBaseTest):
         except NotAProfitableLoop:
             pass
 
-    def test_force_long_to_int_cast(self):
+    def test_force_int_to_float_cast(self):
         trace = self.parse_trace("""
         i10 = raw_load_i(p0, i1, descr=long)
         i11 = raw_load_i(p0, i2, descr=long)
@@ -262,7 +266,7 @@ class CostModelBaseTest(SchedulerBaseTest):
         f11 = cast_int_to_float(i11)
         """)
         number = self.savings(trace)
-        assert number == 1
+        assert number >= 1
 
 
 class Test(CostModelBaseTest, LLtypeMixin):
