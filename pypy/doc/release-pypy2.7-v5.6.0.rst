@@ -39,7 +39,7 @@ improvements, tweaking popular `modules`_ to run on pypy, or general `help`_
 with making RPython's JIT even better.
 
 .. _`test suite`: https://bitbucket.org/pypy/pypy/wiki/Adventures%20in%20cpyext%20compatibility
-.. _CFFI: https://cffi.readthedocs.io/latest/whatsnew.html
+.. _CFFI: https://cffi.readthedocs.io/en/latest/whatsnew.html
 .. _grant: https://morepypy.blogspot.com/2016/08/pypy-gets-funding-from-mozilla-for.html
 .. _`PyPy`: http://doc.pypy.org
 .. _`RPython`: https://rpython.readthedocs.org
