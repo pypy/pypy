@@ -1215,8 +1215,8 @@ class AppTestWithMapDictAndCounters(object):
         a.z = 6
         a.y = 7
         assert list(a.__dict__) == ['x', 'z', 'y']
-        assert a.__dict__.values() == [5, 6, 7]
-        assert list(a.__dict__.iteritems()) == [('x', 5), ('z', 6), ('y', 7)]
+        assert list(a.__dict__.values()) == [5, 6, 7]
+        assert list(a.__dict__.items()) == [('x', 5), ('z', 6), ('y', 7)]
 
     def test_bug_method_change(self):
         class A(object):
