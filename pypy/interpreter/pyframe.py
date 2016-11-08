@@ -277,13 +277,12 @@ class PyFrame(W_Root):
                     next_instr = r_uint(self.last_instr + 1)
                     if next_instr != 0:
                         self.pushvalue(w_inputvalue)
-                try:
-                    w_exitvalue = self.dispatch(self.pycode, next_instr,
-                                                executioncontext)
-                except OperationError:
-                    raise
-                except Exception as e:      # general fall-back
-                    raise self._convert_unexpected_exception(e)
+                w_exitvalue = self.dispatch(self.pycode, next_instr,
+                                            executioncontext)
+            except OperationError:
+                raise
+            except Exception as e:      # general fall-back
+                raise self._convert_unexpected_exception(e)
             finally:
                 executioncontext.return_trace(self, w_exitvalue)
             # it used to say self.last_exception = None
