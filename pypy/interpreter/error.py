@@ -543,6 +543,9 @@ def get_converted_unexpected_exception(space, e):
         return OperationError(space.w_KeyboardInterrupt, space.w_None)
     except MemoryError:
         return OperationError(space.w_MemoryError, space.w_None)
+    except NotImplementedError:   # not on top of pypy! tests only
+        return OperationError(space.w_SystemError,
+                              space.wrap("NotImplementedError"))
     except rstackovf.StackOverflow as e:
         rstackovf.check_stack_overflow()
         return oefmt(space.w_RuntimeError,
