@@ -470,11 +470,18 @@ class BasePosixUnicodeOrAscii:
         assert rposix.is_valid_fd(fd) == 0
 
     def test_putenv(self):
+        from rpython.rlib import rposix_environ
+
         def f():
             rposix.putenv(self.path, self.path)
             rposix.unsetenv(self.path)
 
-        interpret(f, []) # does not crash
+        interpret(f, [],     # does not crash
+                  malloc_check=rposix_environ.REAL_UNSETENV)
+        # If we have a real unsetenv(), check that it frees the string
+        # kept alive by putenv().  Otherwise, we can't check that,
+        # because unsetenv() will keep another string alive itself.
+    test_putenv.dont_track_allocations = True
 
 
 class TestPosixAscii(BasePosixUnicodeOrAscii):
