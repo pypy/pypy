@@ -481,6 +481,10 @@ if WIN32:
 
     def set_inheritable(fd, inheritable):
         handle = get_osfhandle(fd)
+        set_handle_inheritable(handle, inheritable)
+
+    def set_handle_inheritable(handle, inheritable):
+        assert lltype.typeOf(handle) is HANDLE
         if inheritable:
             flags = HANDLE_FLAG_INHERIT
         else:
@@ -490,6 +494,10 @@ if WIN32:
 
     def get_inheritable(fd):
         handle = get_osfhandle(fd)
+        return get_handle_inheritable(handle)
+
+    def get_handle_inheritable(handle):
+        assert lltype.typeOf(handle) is HANDLE
         pflags = lltype.malloc(LPDWORD.TO, 1, flavor='raw')
         try:
             if not _GetHandleInformation(handle, pflags):

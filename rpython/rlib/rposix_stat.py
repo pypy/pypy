@@ -641,6 +641,7 @@ if _WIN32:
 
     @specialize.arg(0)
     def win32_xstat(traits, path, traverse=False):
+        # XXX 'traverse' is ignored
         win32traits = make_win32_traits(traits)
         with lltype.scoped_alloc(
                 win32traits.WIN32_FILE_ATTRIBUTE_DATA) as data:
