@@ -100,7 +100,7 @@ class W_CTypeArray(W_CTypePtrOrArray):
             return self.space.wrap(self.ctitem)
         if attrchar == 'l':     # length
             if self.length >= 0:
-                return self.space.wrap(self.length)
+                return self.space.newint(self.length)
             else:
                 return self.space.w_None
         return W_CTypePtrOrArray._fget(self, attrchar)
@@ -121,7 +121,7 @@ class W_CDataIter(W_Root):
         self._stop = rffi.ptradd(self._next, length * ctitem.size)
 
     def iter_w(self):
-        return self.space.wrap(self)
+        return self
 
     def next_w(self):
         result = self._next

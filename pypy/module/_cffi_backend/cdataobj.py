@@ -66,13 +66,13 @@ class W_CData(W_Root):
             from pypy.module._cffi_backend import ctypestruct
             if isinstance(self.ctype, ctypestruct.W_CTypeStructOrUnion):
                 extra1 = ' &'
-        return self.space.wrap("<cdata '%s%s' %s>" % (
+        return self.space.newtext("<cdata '%s%s' %s>" % (
             self.ctype.name, extra1, extra2))
 
     def nonzero(self):
         with self as ptr:
             nonzero = self.ctype.nonzero(ptr)
-        return self.space.wrap(nonzero)
+        return self.space.newbool(nonzero)
 
     def int(self, space):
         with self as ptr:
@@ -95,7 +95,7 @@ class W_CData(W_Root):
         from pypy.module._cffi_backend import ctypearray
         space = self.space
         if isinstance(self.ctype, ctypearray.W_CTypeArray):
-            return space.wrap(self.get_array_length())
+            return space.newint(self.get_array_length())
         raise oefmt(space.w_TypeError,
                     "cdata of type '%s' has no len()", self.ctype.name)
 
@@ -137,7 +137,7 @@ class W_CData(W_Root):
         # alignment (to 4, 8, maybe 16 bytes), so we use the following
         # formula to avoid the trailing bits being always 0.
         h = h ^ (h >> 4)
-        return self.space.wrap(h)
+        return self.space.newint(h)
 
     def getitem(self, w_index):
         space = self.space
@@ -319,7 +319,7 @@ class W_CData(W_Root):
                         "pointer subtraction: the distance between the two "
                         "pointers is not a multiple of the item size")
                 diff //= itemsize
-            return space.wrap(diff)
+            return space.newint(diff)
         #
         return self._add_or_sub(w_other, -1)
 
@@ -430,7 +430,7 @@ class W_CData(W_Root):
         if isinstance(ct, W_CTypePointer):
             ct = ct.ctitem
         lst = ct.cdata_dir()
-        return space.newlist([space.wrap(s) for s in lst])
+        return space.newlist([space.newtext(s) for s in lst])
 
     def get_structobj(self):
         return None

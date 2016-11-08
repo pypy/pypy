@@ -146,7 +146,7 @@ def _new_primitive_type(space, name):
     try:
         ctypecls, size, align = PRIMITIVE_TYPES[name]
     except KeyError:
-        raise OperationError(space.w_KeyError, space.wrap(name))
+        raise OperationError(space.w_KeyError, space.newtext(name))
     ctype = ctypecls(space, size, name, len(name), align)
     unique_cache.primitives[name] = ctype
     return ctype

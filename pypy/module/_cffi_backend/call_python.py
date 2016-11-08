@@ -90,7 +90,7 @@ def externpy_deco(space, w_ffi, w_python_callable, w_name, w_error, w_onerror):
     ffi = space.interp_w(W_FFIObject, w_ffi)
 
     if space.is_w(w_name, space.w_None):
-        w_name = space.getattr(w_python_callable, space.wrap('__name__'))
+        w_name = space.getattr(w_python_callable, space.newtext('__name__'))
     name = space.str_w(w_name)
 
     ctx = ffi.ctxobj.ctx
@@ -130,4 +130,4 @@ def externpy_not_found(ffi, name):
 
 @specialize.memo()
 def get_generic_decorator(space):
-    return space.wrap(interp2app(externpy_deco))
+    return space.wrap(interp2app(externpy_deco)) # init time
