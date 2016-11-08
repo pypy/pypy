@@ -725,13 +725,8 @@ class BuiltinCode(Code):
         except RuntimeError:   # not on top of py.py
             raise OperationError(space.w_RuntimeError, space.w_None)
         except Exception as e:      # general fall-back
-            if we_are_translated():
-                from rpython.rlib.debug import debug_print_traceback
-                debug_print_traceback()
-            # propagate the exception anyway, which will be turned
-            # into a proper OperationError(SystemError) when we
-            # reach PyFrame.execute_frame()
-            raise
+            from pypy.interpreter import error
+            raise error.get_converted_unexpected_exception(space, e)
 
 # (verbose) performance hack below
 

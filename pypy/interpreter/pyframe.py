@@ -889,30 +889,10 @@ class PyFrame(W_Root):
             frame = frame.f_backref()
         return None
 
-    def _convert_unexpected_exception_extra(self, e):
-        "NOT_RPYTHON"
-        if e.__class__.__name__ in (
-            'Skipped',     # list of exception class names that are ok
-            ):             # to get during ==untranslated tests== only
-            raise
-        # include the RPython-level traceback
-        exc = sys.exc_info()
-        import traceback, cStringIO
-        f = cStringIO.StringIO()
-        print >> f, "\nTraceback (interpreter-level):"
-        traceback.print_tb(exc[2], file=f)
-        return f.getvalue()
-
     def _convert_unexpected_exception(self, e):
-        if we_are_translated():
-            from rpython.rlib.debug import debug_print_traceback
-            debug_print_traceback()
-            extra = '; internal traceback(s) were dumped to stderr'
-        else:
-            extra = self._convert_unexpected_exception_extra(e)
-        operr = OperationError(self.space.w_SystemError, self.space.wrap(
-            "unexpected internal exception (please report a bug): %r%s" %
-            (e, extra)))
+        from pypy.interpreter import error
+
+        operr = error.get_converted_unexpected_exception(self.space, e)
         pytraceback.record_application_traceback(
             self.space, operr, self, self.last_instr)
         raise operr

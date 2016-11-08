@@ -787,6 +787,23 @@ class TestGateway:
         assert ('unexpected internal exception (please '
                 'report a bug): UnexpectedException') in err
 
+    def test_system_error_2(self):
+        class UnexpectedException(Exception):
+            pass
+        space = self.space
+        def g(space):
+            raise UnexpectedException
+        w_g = space.wrap(gateway.interp2app_temp(g))
+        w_msg = space.appexec([w_g], """(my_g):
+            try:
+                my_g()
+            except SystemError as e:
+                return str(e)
+        """)
+        err = space.str_w(w_msg)
+        assert ('unexpected internal exception (please '
+                'report a bug): UnexpectedException') in err
+
 
 class AppTestPyTestMark:
     @py.test.mark.unlikely_to_exist
