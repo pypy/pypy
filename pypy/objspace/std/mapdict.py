@@ -829,65 +829,83 @@ def materialize_r_dict(space, obj, dict_w):
     new_obj = map.materialize_r_dict(space, obj, dict_w)
     obj._set_mapdict_storage_and_map(new_obj.storage, new_obj.map)
 
-class MapDictIteratorKeys(BaseKeyIterator):
-    def __init__(self, space, strategy, w_dict):
-        BaseKeyIterator.__init__(self, space, strategy, w_dict)
+
+class IteratorMixin(object):
+
+    def _init(self, strategy, w_dict):
         w_obj = strategy.unerase(w_dict.dstorage)
         self.w_obj = w_obj
-        self.orig_map = self.curr_map = w_obj._get_mapdict_map()
+        self.orig_map = curr_map = w_obj._get_mapdict_map()
+        # We enumerate non-lazily the attributes, and store them in the
+        # 'attrs' list.  We then walk that list in opposite order.  This
+        # gives an ordering that is more natural (roughly corresponding
+        # to oldest-first) than the one we get in the direct algorithm
+        # (from leaves to root, looks like backward order).  See issue
+        # #2426: it should improve the performance of code like
+        # copy.copy().
+        attrs = []
+        while True:
+            curr_map = curr_map.search(DICT)
+            if curr_map is None:
+                break
+            attrs.append(curr_map.name)
+            curr_map = curr_map.back
+        self.attrs = attrs
+
+
+class MapDictIteratorKeys(BaseKeyIterator):
+    objectmodel.import_from_mixin(IteratorMixin)
+
+    def __init__(self, space, strategy, w_dict):
+        BaseKeyIterator.__init__(self, space, strategy, w_dict)
+        self._init(strategy, w_dict)
 
     def next_key_entry(self):
         assert isinstance(self.w_dict.get_strategy(), MapDictStrategy)
         if self.orig_map is not self.w_obj._get_mapdict_map():
             return None
-        if self.curr_map:
-            curr_map = self.curr_map.search(DICT)
-            if curr_map:
-                self.curr_map = curr_map.back
-                attr = curr_map.name
-                w_attr = self.space.wrap(attr.decode('utf-8'))
-                return w_attr
+        attrs = self.attrs
+        if len(attrs) > 0:
+            attr = attrs.pop()
+            w_attr = self.space.wrap(attr.decode('utf-8'))
+            return w_attr
         return None
 
 
 class MapDictIteratorValues(BaseValueIterator):
+    objectmodel.import_from_mixin(IteratorMixin)
+
     def __init__(self, space, strategy, w_dict):
         BaseValueIterator.__init__(self, space, strategy, w_dict)
-        w_obj = strategy.unerase(w_dict.dstorage)
-        self.w_obj = w_obj
-        self.orig_map = self.curr_map = w_obj._get_mapdict_map()
+        self._init(strategy, w_dict)
 
     def next_value_entry(self):
         assert isinstance(self.w_dict.get_strategy(), MapDictStrategy)
         if self.orig_map is not self.w_obj._get_mapdict_map():
             return None
-        if self.curr_map:
-            curr_map = self.curr_map.search(DICT)
-            if curr_map:
-                self.curr_map = curr_map.back
-                attr = curr_map.name
-                return self.w_obj.getdictvalue(self.space, attr)
+        attrs = self.attrs
+        if len(attrs) > 0:
+            attr = attrs.pop()
+            return self.w_obj.getdictvalue(self.space, attr)
         return None
 
 
 class MapDictIteratorItems(BaseItemIterator):
+    objectmodel.import_from_mixin(IteratorMixin)
+
     def __init__(self, space, strategy, w_dict):
         BaseItemIterator.__init__(self, space, strategy, w_dict)
-        w_obj = strategy.unerase(w_dict.dstorage)
-        self.w_obj = w_obj
-        self.orig_map = self.curr_map = w_obj._get_mapdict_map()
+        self._init(strategy, w_dict)
 
     def next_item_entry(self):
         assert isinstance(self.w_dict.get_strategy(), MapDictStrategy)
         if self.orig_map is not self.w_obj._get_mapdict_map():
             return None, None
-        if self.curr_map:
-            curr_map = self.curr_map.search(DICT)
-            if curr_map:
-                self.curr_map = curr_map.back
-                attr = curr_map.name
-                w_attr = self.space.wrap(attr.decode('utf-8'))
-                return w_attr, self.w_obj.getdictvalue(self.space, attr)
+        attrs = self.attrs
+        if len(attrs) > 0:
+            attr = attrs.pop()
+            w_attr = self.space.wrap(attr.decode('utf-8'))
+            return w_attr, self.w_obj.getdictvalue(self.space, attr)
         return None, None
 
 

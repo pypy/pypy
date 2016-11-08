@@ -194,6 +194,13 @@ def c_compile(cfilenames, outputfilename,
 
 def _build(cfilenames, outputfilename, compile_extra, link_extra,
         include_dirs, libraries, library_dirs):
+    try:
+        # monkeypatch distutils for some versions of msvc compiler
+        import setuptools
+    except ImportError:
+        # XXX if this fails and is required, 
+        #     we must call pypy -mensurepip after translation
+        pass
     from distutils.ccompiler import new_compiler
     from distutils import sysconfig
     compiler = new_compiler(force=1)

@@ -6,7 +6,7 @@ We have released PyPy2.7 v5.6, about two months after PyPy2.7 v5.4.
 This new PyPy2.7 release includes the upstream stdlib version 2.7.12.
 
 We continue to make incremental improvements to our C-API
-compatability layer (cpyext). We pass all but a few of the tests in the
+compatibility layer (cpyext). We pass all but a few of the tests in the
 upstream numpy `test suite`_. 
 
 Work proceeds at a good pace on the PyPy3.5
@@ -16,10 +16,11 @@ changes have been backported to PyPy2.7 where relevant
 We changed ``timeit`` to now report average +- standard deviation, which is
 better than the misleading minimum value reported in CPython.
 
-We now support building PyPy with OpenSSL 1.1 in our built-in _sll module, as
+We now support building PyPy with OpenSSL 1.1 in our built-in _ssl module, as
 well as maintaining support for previous versions.
 
-XXX
+CFFI_ has been updated to 1.9, improving an already great package for
+interfacing with C.
 
 As always, this release fixed many issues and bugs raised by the
 growing community of PyPy users. We strongly recommend updating.
@@ -38,7 +39,7 @@ improvements, tweaking popular `modules`_ to run on pypy, or general `help`_
 with making RPython's JIT even better.
 
 .. _`test suite`: https://bitbucket.org/pypy/pypy/wiki/Adventures%20in%20cpyext%20compatibility
-.. _cffi: https://cffi.readthedocs.org
+.. _CFFI: https://cffi.readthedocs.io/en/latest/whatsnew.html
 .. _grant: https://morepypy.blogspot.com/2016/08/pypy-gets-funding-from-mozilla-for.html
 .. _`PyPy`: http://doc.pypy.org
 .. _`RPython`: https://rpython.readthedocs.org
@@ -73,6 +74,7 @@ Other Highlights (since 5.4 released Aug 31, 2016)
 =========================================================
 
 * New features
+
   * Allow tests run with `-A` to find `libm.so` even if it is a script not a
     dynamically loadable file
   * Backport fixes to rposix on windows from py3.5
@@ -81,20 +83,20 @@ Other Highlights (since 5.4 released Aug 31, 2016)
   * Support more attributes on ``super``
   * Issue #2386: non-latin1 unicode keys were ignored in ``unicode.format(**d)``
   * Restore the ability to translate with CPython
-  * Update to CFFI 1.8.4
+  * Update to CFFI 1.9.0
   * Support the new buffer protocol in cpyext and numpypy
   * Add ``rposix.sync()``
   * Support full-precision nanosecond times in os.stat()
   * Add documentation about the assembler backends to RPYthon
   * Search for the stdlibs from the libpypy shared object rather than the pypy-c exe,
-    changes downstream packaging requirments
+    changes downstream packaging requirements
   * Add ``try_inline``, like ``always_inline`` and ``dont_inline`` to RPython
   * Reject ``'a'.strip(buffer(' '))`` like cpython (the argument to strip must
     be ``str`` or ``unicode``)
   * Allow ``warning.warn(('something', 1), Warning)`` like on CPython
   * Refactor ``rclock`` and add some more ``CLOCK_xxx`` constants on
     relevant platforms
-  * Backport the ``'faulthandler`` module from py3.5
+  * Backport the ``faulthandler`` module from py3.5
   * Improve the error message when trying to call a method where the ``self``
     parameter is missing in the definition
   * Implement ``rposix.cpu_count``
@@ -105,6 +107,7 @@ Other Highlights (since 5.4 released Aug 31, 2016)
   * Support OpenSSL version 1.1 (in addition to version 1.0)
 
 * Bug Fixes
+
   * Tweak a float comparison with 0 in `backendopt.inline` to avoid rounding errors
   * Fix translation of the sandbox
   * Fix for an issue where `unicode.decode('utf8', 'custom_replace')` messed up
@@ -125,6 +128,7 @@ Other Highlights (since 5.4 released Aug 31, 2016)
   * ``_numpypy.add.reduce`` returns a scalar now
 
 * Performance improvements:
+
   * Improve method calls on oldstyle classes
   * Clean and refactor code for testing cpyext to allow sharing with py3.5
   * Refactor a building the map of reflected ops in ``_numpypy``

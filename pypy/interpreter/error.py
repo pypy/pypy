@@ -7,6 +7,7 @@ from errno import EINTR
 
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated, specialize
+from rpython.rlib import rstackovf
 
 from pypy.interpreter import debug
 
@@ -65,10 +66,14 @@ class OperationError(Exception):
     def __str__(self):
         "NOT_RPYTHON: Convenience for tracebacks."
         s = self._w_value
-        if self.__class__ is not OperationError and s is None:
-            space = getattr(self.w_type, 'space')
-            if space is not None:
+        space = getattr(self.w_type, 'space', None)
+        if space is not None:
+            if self.__class__ is not OperationError and s is None:
                 s = self._compute_value(space)
+            try:
+                s = space.str_w(s)
+            except Exception:
+                pass
         return '[%s: %s]' % (self.w_type, s)
 
     def __repr__(self):
@@ -632,3 +637,55 @@ def new_import_error(space, w_msg, w_name, w_path):
 def raise_import_error(space, w_msg, w_name, w_path):
     w_exc = new_import_error(space, w_msg, w_name, w_path)
     raise OperationError(space.w_ImportError, w_exc)
+
+def _convert_unexpected_exception_extra(space, e):
+    "NOT_RPYTHON"
+    if e.__class__.__name__ in (
+        'Skipped',     # list of exception class names that are ok
+        ):             # to get during ==untranslated tests== only
+        raise
+    # include the RPython-level traceback
+    exc = sys.exc_info()
+    import traceback, cStringIO
+    f = cStringIO.StringIO()
+    print >> f, "\nTraceback (interpreter-level):"
+    traceback.print_tb(exc[2], file=f)
+    return f.getvalue()
+
+@jit.dont_look_inside
+def get_converted_unexpected_exception(space, e):
+    """This is used in two places when we get an non-OperationError
+    RPython exception: from gateway.py when calling an interp-level
+    function raises; and from pyopcode.py when we're exiting the
+    interpretation of the frame with an exception.  Note that it
+    *cannot* be used in pyopcode.py: that place gets a
+    ContinueRunningNormally exception from the JIT, which must not end
+    up here!
+    """
+    try:
+        if not we_are_translated():
+            raise
+        raise e
+    except KeyboardInterrupt:
+        return OperationError(space.w_KeyboardInterrupt, space.w_None)
+    except MemoryError:
+        return OperationError(space.w_MemoryError, space.w_None)
+    except NotImplementedError:   # not on top of pypy! tests only
+        return OperationError(space.w_SystemError,
+                              space.wrap("NotImplementedError"))
+    except rstackovf.StackOverflow as e:
+        rstackovf.check_stack_overflow()
+        return oefmt(space.w_RecursionError,
+                     "maximum recursion depth exceeded")
+    except RuntimeError:   # not on top of py.py
+        return OperationError(space.w_RuntimeError, space.w_None)
+    except:
+        if we_are_translated():
+            from rpython.rlib.debug import debug_print_traceback
+            debug_print_traceback()
+            extra = '; internal traceback was dumped to stderr'
+        else:
+            extra = _convert_unexpected_exception_extra(space, e)
+        return OperationError(space.w_SystemError, space.wrap(
+            "unexpected internal exception (please report a bug): %r%s" %
+            (e, extra)))

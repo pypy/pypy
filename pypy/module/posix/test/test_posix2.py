@@ -1009,7 +1009,8 @@ class AppTestPosix:
             pid1, status1 = os.waitpid(pid, 0)
             assert pid1 == pid
             assert os.WIFEXITED(status1)
-            assert os.WEXITSTATUS(status1) == myprio + 3
+            expected = min(myprio + 3, 19)
+            assert os.WEXITSTATUS(status1) == expected
 
     if hasattr(os, 'symlink'):
         def test_symlink(self):

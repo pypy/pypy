@@ -2315,7 +2315,7 @@ class ENoSysCache(object):
 
 _pipe2_syscall = ENoSysCache()
 
-post_include_bits=['int _cpu_count(void);']
+post_include_bits=['RPY_EXTERN int _cpu_count(void);']
 # cpu count for linux, windows and mac (+ bsds)
 # note that the code is copied from cpython and split up here
 if sys.platform.startswith('linux'):

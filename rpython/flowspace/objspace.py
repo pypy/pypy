@@ -18,6 +18,8 @@ def _assert_rpythonic(func):
     except AttributeError:
         raise ValueError("%r is not RPython: it is likely an unexpected "
                          "built-in function or type" % (func,))
+    if getattr(func, "_not_rpython_", False):
+        raise ValueError("%r is tagged as @not_rpython" % (func,))
     if func.func_doc and func.func_doc.lstrip().startswith('NOT_RPYTHON'):
         raise ValueError("%r is tagged as NOT_RPYTHON" % (func,))
     if func.func_code.co_cellvars:

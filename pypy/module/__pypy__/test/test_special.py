@@ -73,6 +73,7 @@ class AppTest(object):
         from __pypy__ import do_what_I_mean
         x = do_what_I_mean()
         assert x == 42
+        raises(SystemError, do_what_I_mean, 1)
 
     def test_list_strategy(self):
         from __pypy__ import strategy
