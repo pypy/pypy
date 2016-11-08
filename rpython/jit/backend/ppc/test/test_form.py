@@ -28,18 +28,18 @@ def p(a):
     w = a.insts[-1].assemble()
     return struct.pack('>i', w)
 
-class TestForm(Form):
+class TForm(Form):
     fieldmap = test_fieldmap
 
 class TestForms(object):
     def test_bitclash(self):
-        raises(FormException, TestForm, 'h', 'hh')
-        raises(FormException, TestForm,
+        raises(FormException, TForm, 'h', 'hh')
+        raises(FormException, TForm,
                Field('t1', 0, 0), Field('t2', 0, 0))
 
     def test_basic(self):
         class T(Assembler):
-            i = TestForm('h', 'l')()
+            i = TForm('h', 'l')()
             j = i(h=1)
             k = i(l=3)
             raises(FormException, k, l=0)
@@ -56,7 +56,7 @@ class TestForms(object):
 
     def test_defdesc(self):
         class T(Assembler):
-            i = TestForm('hh', 'hl', 'lh', 'll')()
+            i = TForm('hh', 'hl', 'lh', 'll')()
             i.default(hl=0).default(hh=1)
             insts = []
         a = T()
