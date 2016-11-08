@@ -105,10 +105,10 @@ class W_Ufunc(W_Root):
         self.complex_to_float = complex_to_float
 
     def descr_get_name(self, space):
-        return space.wrap(self.name)
+        return space.newtext(self.name)
 
     def descr_repr(self, space):
-        return space.wrap("<ufunc '%s'>" % self.name)
+        return space.newtext("<ufunc '%s'>" % self.name)
 
     def get_doc(self, space):
         # Note: allows any object to be set as docstring, because why not?
@@ -160,7 +160,7 @@ class W_Ufunc(W_Root):
 
     def descr_accumulate(self, space, w_obj, w_axis=None, w_dtype=None, w_out=None):
         if w_axis is None:
-            w_axis = space.wrap(0)
+            w_axis = space.newint(0)
         out = out_converter(space, w_out)
         return self.reduce(space, w_obj, w_axis, True, #keepdims must be true
                            out, w_dtype, variant=ACCUMULATE)
@@ -170,7 +170,7 @@ class W_Ufunc(W_Root):
                      w_out=None, keepdims=False):
         from pypy.module.micronumpy.ndarray import W_NDimArray
         if w_axis is None:
-            w_axis = space.wrap(0)
+            w_axis = space.newint(0)
         out = out_converter(space, w_out)
         return self.reduce(space, w_obj, w_axis, keepdims, out, w_dtype)
 
@@ -207,7 +207,7 @@ class W_Ufunc(W_Root):
                 axes[i] = x
         else:
             if space.isinstance_w(w_axis, space.w_tuple) and space.len_w(w_axis) == 1:
-                w_axis = space.getitem(w_axis, space.wrap(0))
+                w_axis = space.getitem(w_axis, space.newint(0))
             axis = space.int_w(w_axis)
             if axis < -shapelen or axis >= shapelen:
                 raise oefmt(space.w_ValueError, "'axis' entry is out of bounds")
@@ -373,7 +373,7 @@ class W_Ufunc(W_Root):
             raise oefmt(space.w_ValueError,
                     "exactly two arguments expected")
         args = [convert_to_array(space, w_obj) for w_obj in args_w]
-        w_outshape = [space.wrap(i) for i in args[0].get_shape() + [1]*args[1].ndims()]
+        w_outshape = [space.newint(i) for i in args[0].get_shape() + [1]*args[1].ndims()]
         args0 = args[0].reshape(space, space.newtuple(w_outshape))
         return self.descr_call(space, Arguments.frompacked(space, 
                                                         space.newlist([args0, args[1]])))
@@ -391,7 +391,7 @@ class W_Ufunc(W_Root):
         return w_subok, w_out, sig, w_casting, extobj_w
 
 def get_extobj(space):
-        extobj_w = space.newlist([space.wrap(8192), space.wrap(0), space.w_None])
+        extobj_w = space.newlist([space.newint(8192), space.newint(0), space.w_None])
         return extobj_w
 
 
@@ -426,7 +426,7 @@ del value
 def _has_reflected_op(space, w_obj, op):
     if op not in _reflected_ops:
         return False
-    return space.getattr(w_obj, space.wrap(_reflected_ops[op])) is not None
+    return space.getattr(w_obj, space.newtext(_reflected_ops[op])) is not None
 
 def safe_casting_mode(casting):
     assert casting is not None
@@ -475,7 +475,7 @@ class W_Ufunc1(W_Ufunc):
         if out is None:
             if w_res.is_scalar():
                 return w_res.get_scalar_value()
-            ctxt = space.newtuple([self, space.newtuple([w_obj]), space.wrap(0)])
+            ctxt = space.newtuple([self, space.newtuple([w_obj]), space.newint(0)])
             w_res = space.call_method(w_obj, '__array_wrap__', w_res, ctxt)
         return w_res
 
@@ -578,9 +578,9 @@ class W_Ufunc2(W_Ufunc):
             elif ((w_ldtype.is_object() and w_ldtype.is_record()) or
                 (w_rdtype.is_object() and w_rdtype.is_record())):
                 if self.name == 'not_equal':
-                    return space.wrap(True)
+                    return space.w_True
                 elif self.name == 'equal':
-                    return space.wrap(False)
+                    return space.w_False
                 else:
                     msg = ("ufunc '%s' not supported for the input types, "
                            "and the inputs could not be safely coerced to "
@@ -595,19 +595,19 @@ class W_Ufunc2(W_Ufunc):
         elif (w_ldtype.is_str()) and \
                 self.bool_result and out is None:
             if self.name in ('equal', 'less_equal', 'less'):
-               return space.wrap(False)
-            return space.wrap(True)
+               return space.w_False
+            return space.w_True
         elif (w_rdtype.is_str()) and \
                 self.bool_result and out is None:
             if self.name in ('not_equal','less', 'less_equal'):
-               return space.wrap(True)
-            return space.wrap(False)
+               return space.w_True
+            return space.w_False
         elif w_ldtype.is_flexible() or w_rdtype.is_flexible():
             if self.bool_result:
                 if self.name == 'equal' or self.name == 'not_equal':
                     res = w_ldtype.eq(space, w_rdtype)
                     if not res:
-                        return space.wrap(self.name == 'not_equal')
+                        return space.newbool(self.name == 'not_equal')
                 else:
                     return space.w_NotImplemented
             else:
@@ -641,7 +641,7 @@ class W_Ufunc2(W_Ufunc):
         if out is None:
             if w_res.is_scalar():
                 return w_res.get_scalar_value()
-            ctxt = space.newtuple([self, space.newtuple([w_lhs, w_rhs]), space.wrap(0)])
+            ctxt = space.newtuple([self, space.newtuple([w_lhs, w_rhs]), space.newint(0)])
             w_res = space.call_method(w_highpriority, '__array_wrap__', w_res, ctxt)
         return w_res
 
@@ -907,7 +907,7 @@ class W_UfuncGeneric(W_Ufunc):
             # from frompyfunc
             pass
         # mimic NpyIter_AdvancedNew with a nditer
-        w_itershape = space.newlist([space.wrap(i) for i in iter_shape])
+        w_itershape = space.newlist([space.newint(i) for i in iter_shape])
         nd_it = W_NDIter(space, space.newlist(inargs + outargs), w_flags,
                       w_op_flags, w_op_dtypes, w_casting, w_op_axes,
                       w_itershape, allow_backward=False)
@@ -956,7 +956,7 @@ class W_UfuncGeneric(W_Ufunc):
                     outiters[0].descr_setitem(space, space.w_Ellipsis, outs)
                 else:
                     for i in range(self.nout):
-                        w_val = space.getitem(outs, space.wrap(i))
+                        w_val = space.getitem(outs, space.newint(i))
                         outiters[i].descr_setitem(space, space.w_Ellipsis, w_val)
         # XXX use _find_array_wrap and wrap outargs using __array_wrap__
         if len(outargs) > 1:
@@ -1531,7 +1531,7 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
     if w_ret.external_loop:
         _parse_signature(space, w_ret, w_ret.signature)
     if doc:
-        w_ret.set_doc(space, space.wrap(doc))
+        w_ret.set_doc(space, space.newtext(doc))
     return w_ret
 
 # Instantiated in cpyext/ndarrayobject. It is here since ufunc calls
@@ -1572,8 +1572,8 @@ class W_GenericUFuncCaller(W_Root):
                 arg_i = args_w[i]
                 if not isinstance(arg_i, W_NDimArray):
                     raise OperationError(space.w_NotImplementedError,
-                         space.wrap("cannot mix ndarray and %r (arg %d) in call to ufunc" % (
-                                    arg_i, i)))
+                         space.newtext("cannot mix ndarray and %r (arg %d) in call to ufunc" % (
+                                       arg_i, i)))
                 with arg_i.implementation as storage:
                     addr = get_storage_as_int(storage, arg_i.get_start())
                     raw_storage_setitem(dataps, CCHARP_SIZE * i, rffi.cast(rffi.CCHARP, addr))

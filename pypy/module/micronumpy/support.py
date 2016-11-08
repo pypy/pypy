@@ -181,9 +181,9 @@ def get_storage_as_int(storage, start=0):
         return rffi.cast(lltype.Signed, storage) + start
 
 def is_rhs_priority_higher(space, w_lhs, w_rhs):
-    w_zero = space.wrap(0.0)
-    w_priority_l = space.findattr(w_lhs, space.wrap('__array_priority__')) or w_zero
-    w_priority_r = space.findattr(w_rhs, space.wrap('__array_priority__')) or w_zero
+    w_zero = space.newfloat(0.0)
+    w_priority_l = space.findattr(w_lhs, space.newtext('__array_priority__')) or w_zero
+    w_priority_r = space.findattr(w_rhs, space.newtext('__array_priority__')) or w_zero
     # XXX what is better, unwrapping values or space.gt?
     return space.is_true(space.gt(w_priority_r, w_priority_l))
 

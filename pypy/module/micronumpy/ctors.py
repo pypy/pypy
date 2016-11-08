@@ -45,10 +45,10 @@ def try_array_method(space, w_object, w_dtype=None):
 
 def try_interface_method(space, w_object, copy):
     try:
-        w_interface = space.getattr(w_object, space.wrap("__array_interface__"))
+        w_interface = space.getattr(w_object, space.newtext("__array_interface__"))
         if w_interface is None:
             return None, False
-        version_w = space.finditem(w_interface, space.wrap("version"))
+        version_w = space.finditem(w_interface, space.newtext("version"))
         if version_w is None:
             raise oefmt(space.w_ValueError, "__array_interface__ found without"
                         " 'version' key")
@@ -60,11 +60,11 @@ def try_interface_method(space, w_object, copy):
             raise oefmt(space.w_ValueError,
                     "__array_interface__ version %d not supported", version)
         # make a view into the data
-        w_shape = space.finditem(w_interface, space.wrap('shape'))
-        w_dtype = space.finditem(w_interface, space.wrap('typestr'))
-        w_descr = space.finditem(w_interface, space.wrap('descr'))
-        w_data = space.finditem(w_interface, space.wrap('data'))
-        w_strides = space.finditem(w_interface, space.wrap('strides'))
+        w_shape = space.finditem(w_interface, space.newtext('shape'))
+        w_dtype = space.finditem(w_interface, space.newtext('typestr'))
+        w_descr = space.finditem(w_interface, space.newtext('descr'))
+        w_data = space.finditem(w_interface, space.newtext('data'))
+        w_strides = space.finditem(w_interface, space.newtext('strides'))
         if w_shape is None or w_dtype is None:
             raise oefmt(space.w_ValueError,
                     "__array_interface__ missing one or more required keys: shape, typestr"
@@ -96,7 +96,7 @@ def try_interface_method(space, w_object, copy):
                                 start=offset), read_only
         if w_data is None:
             w_data = w_object
-        w_offset = space.finditem(w_interface, space.wrap('offset'))
+        w_offset = space.finditem(w_interface, space.newtext('offset'))
         if w_offset is None:
             offset = 0
         else:
@@ -115,11 +115,11 @@ def try_interface_method(space, w_object, copy):
         raise
 
 def _descriptor_from_pep3118_format(space, c_format):
-    descr = descriptor.decode_w_dtype(space, space.wrap(c_format))
+    descr = descriptor.decode_w_dtype(space, space.newtext(c_format))
     if descr:
         return descr
     msg = "invalid PEP 3118 format string: '%s'" % c_format
-    space.warn(space.wrap(msg), space.w_RuntimeWarning)
+    space.warn(space.newtext(msg), space.w_RuntimeWarning)
     return None 
 
 def _array_from_buffer_3118(space, w_object, dtype):
@@ -142,7 +142,7 @@ def _array_from_buffer_3118(space, w_object, dtype):
         if descr.elsize != space.int_w(space.getattr(w_buf, space.newbytes('itemsize'))): 
             msg = ("Item size computed from the PEP 3118 buffer format "
                   "string does not match the actual item size.")
-            space.warn(space.wrap(msg), space.w_RuntimeWarning)
+            space.warn(space.newtext(msg), space.w_RuntimeWarning)
             return w_object
         dtype = descr 
     elif not dtype:
@@ -170,7 +170,7 @@ def _array_from_buffer_3118(space, w_object, dtype):
         elif nd > 1:
             msg = ("ndim computed from the PEP 3118 buffer format "
                    "is greater than 1, but shape is NULL.")
-            space.warn(space.wrap(msg), space.w_RuntimeWarning)
+            space.warn(space.newtext(msg), space.w_RuntimeWarning)
             return w_object
     try:
         w_data = rffi.cast(RAW_STORAGE_PTR, space.int_w(space.call_method(w_buf, '_pypy_raw_address')))
@@ -238,7 +238,7 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
             must_copy |= (npy_order == NPY.CORDER and not flags & NPY.ARRAY_C_CONTIGUOUS)
             must_copy |= (npy_order == NPY.FORTRANORDER and not flags & NPY.ARRAY_F_CONTIGUOUS)
             if must_copy:
-                return w_object.descr_copy(space, space.wrap(npy_order))
+                return w_object.descr_copy(space, space.newint(npy_order))
             else:
                 return w_object
         if subok and not type(w_object) is W_NDimArray:
@@ -338,9 +338,9 @@ def _find_shape_and_elems(space, w_iterable, is_rec_type=False):
     from pypy.objspace.std.bufferobject import W_Buffer
     shape = [space.len_w(w_iterable)]
     if space.isinstance_w(w_iterable, space.w_buffer):
-        batch = [space.wrap(0)] * shape[0]
+        batch = [space.newint(0)] * shape[0]
         for i in range(shape[0]):
-            batch[i] = space.ord(space.getitem(w_iterable, space.wrap(i)))
+            batch[i] = space.ord(space.getitem(w_iterable, space.newint(i)))
     else:
         batch = space.listview(w_iterable)
     while True:
@@ -498,7 +498,7 @@ def _fromstring_text(space, s, count, sep, length, dtype):
         ai.setitem(state, val)
         state = ai.next(state)
 
-    return space.wrap(a)
+    return a
 
 
 def _fromstring_bin(space, s, count, length, dtype):
@@ -516,7 +516,7 @@ def _fromstring_bin(space, s, count, length, dtype):
 
     a = W_NDimArray.from_shape(space, [count], dtype=dtype)
     loop.fromstring_loop(space, a, dtype, itemsize, s)
-    return space.wrap(a)
+    return a
 
 
 @unwrap_spec(s=str, count=int, sep=str, w_dtype=WrappedDefault(None))

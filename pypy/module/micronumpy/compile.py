@@ -190,6 +190,10 @@ class FakeSpace(ObjSpace):
             return StringObject(obj)
         raise NotImplementedError
 
+    def newtext(self, obj):
+        return StringObject(obj)
+    newbytes = newtext
+
     def newlist(self, items):
         return ListObject(items)
 
@@ -197,7 +201,7 @@ class FakeSpace(ObjSpace):
         return ComplexObject(r, i)
 
     def newfloat(self, f):
-        return self.float(f)
+        return FloatObject(f)
 
     def newslice(self, start, stop, step):
         return SliceObject(self.int_w(start), self.int_w(stop),
@@ -293,6 +297,7 @@ class FakeSpace(ObjSpace):
         if isinstance(w_obj, StringObject):
             return w_obj.v
         raise NotImplementedError
+    text_w = str_w
 
     def unicode_w(self, w_obj):
         # XXX

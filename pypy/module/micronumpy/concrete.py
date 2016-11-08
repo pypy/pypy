@@ -233,7 +233,7 @@ class BaseConcreteArray(object):
         elif shape_len > 1:
             raise IndexError
         idx = support.index_w(space, w_idx)
-        return self._lookup_by_index(space, [space.wrap(idx)])
+        return self._lookup_by_index(space, [space.newint(idx)])
 
     @jit.unroll_safe
     def _prepare_slice_args(self, space, w_idx):
@@ -366,7 +366,7 @@ class BaseConcreteArray(object):
         w_res = W_NDimArray.from_shape(space, [s, nd], index_type)
         loop.nonzero(w_res, self, box)
         w_res = w_res.implementation.swapaxes(space, w_res, 0, 1)
-        l_w = [w_res.descr_getitem(space, space.wrap(d)) for d in range(nd)]
+        l_w = [w_res.descr_getitem(space, space.newint(d)) for d in range(nd)]
         return space.newtuple(l_w)
 
     ##def get_storage(self):

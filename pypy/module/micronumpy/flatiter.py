@@ -53,7 +53,7 @@ class W_FlatIterator(W_NDimArray):
         return self
 
     def descr_len(self, space):
-        return space.wrap(self.iter.size)
+        return space.newint(self.iter.size)
 
     def descr_next(self, space):
         if self.iter.done(self.state):
