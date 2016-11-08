@@ -1190,6 +1190,8 @@ if not platform.machine().startswith('x86'):
     # Uh, that should be moved to vector_ext really!
     _cast_ops['CAST_FLOAT_TO_INT'] = ('f', 8, 'i', 8, 2)
     _cast_ops['VEC_CAST_FLOAT_TO_INT'] = ('f', 8, 'i', 8, 2)
+    _cast_ops['CAST_INT_TO_FLOAT'] = ('i', 8, 'f', 8, 2)
+    _cast_ops['VEC_CAST_INT_TO_FLOAT'] = ('i', 8, 'f', 8, 2)
 
 # ____________________________________________________________
 
