@@ -1,6 +1,7 @@
 import py
 import sys
 import pytest
+import platform
 
 from rpython.jit.metainterp.history import TargetToken, JitCellToken, TreeLoop
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
@@ -125,6 +126,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         """, False)
         self.assert_equal(loop2, loop3)
 
+    @py.test.mark.skipif("not platform.machine().startswith('x86')")
     def test_int_to_float(self):
         loop1 = self.parse_trace("""
         i10 = raw_load_i(p0, i0, descr=long)
@@ -227,6 +229,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         """, False, additional_args=['v10[2xi64]'])
         self.assert_equal(loop2, loop3)
 
+    @py.test.mark.skipif("not platform.machine().startswith('x86')")
     def test_cast_float_to_int(self):
         loop1 = self.parse_trace("""
         f10 = raw_load_f(p0, i1, descr=double)

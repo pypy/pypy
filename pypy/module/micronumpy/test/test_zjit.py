@@ -418,9 +418,7 @@ class TestNumpyJit(LLJitMixin):
     def test_sum_float_to_int16(self):
         result = self.run("sum_float_to_int16")
         assert result == sum(range(30))
-        # one can argue that this is not desired,
-        # but unpacking exactly hits savings = 0
-        self.check_vectorized(1, 1)
+
     def define_sum_float_to_int32():
         return """
         a = |30|
@@ -429,7 +427,6 @@ class TestNumpyJit(LLJitMixin):
     def test_sum_float_to_int32(self):
         result = self.run("sum_float_to_int32")
         assert result == sum(range(30))
-        self.check_vectorized(1, 1)
 
     def define_sum_float_to_float32():
         return """
