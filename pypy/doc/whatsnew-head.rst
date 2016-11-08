@@ -86,3 +86,20 @@ Update stdlib to version 2.7.12
 
 Improve support for new buffer interface in cpyext, bf_getbuffer on built-in
 types still missing
+
+.. branch: fix-struct-unpack-Q
+
+Improve compatibility with CPython in the ``struct`` module. In particular,
+``struct.unpack`` now returns an ``int`` whenever the returned value fits,
+while previously it always returned a ``long`` for certains format codes such
+as ``Q`` (and also ``I``, ``L`` and ``q`` on 32 bit)
+
+.. branch: newinitwarn
+
+Issue warnings for stricter handling of ``__new/init__`` args (that
+become TypeErrors in python 3)
+
+.. branch: openssl-1.1
+
+PyPy can now be translated on a machine where the newer OpenSSL 1.1 is
+installed.  Thanks tumbleweed!
