@@ -2315,20 +2315,20 @@ class ENoSysCache(object):
 
 _pipe2_syscall = ENoSysCache()
 
-post_include_bits=['RPY_EXTERN int _cpu_count(void);']
+post_include_bits=['RPY_EXTERN int rpy_cpu_count(void);']
 # cpu count for linux, windows and mac (+ bsds)
 # note that the code is copied from cpython and split up here
 if sys.platform.startswith('linux'):
     cpucount_eci = ExternalCompilationInfo(includes=["unistd.h"],
             separate_module_sources=["""
-            RPY_EXTERN int _cpu_count(void) {
+            RPY_EXTERN int rpy_cpu_count(void) {
                 return sysconf(_SC_NPROCESSORS_ONLN);
             }
             """], post_include_bits=post_include_bits)
 elif sys.platform == "win32":
     cpucount_eci = ExternalCompilationInfo(includes=["Windows.h"],
             separate_module_sources=["""
-        RPY_EXTERN int _cpu_count(void) {
+        RPY_EXTERN int rpy_cpu_count(void) {
             SYSTEM_INFO sysinfo;
             GetSystemInfo(&sysinfo);
             return sysinfo.dwNumberOfProcessors;
@@ -2337,7 +2337,7 @@ elif sys.platform == "win32":
 else:
     cpucount_eci = ExternalCompilationInfo(includes=["sys/types.h", "sys/sysctl.h"],
             separate_module_sources=["""
-            RPY_EXTERN int _cpu_count(void) {
+            RPY_EXTERN int rpy_cpu_count(void) {
                 int ncpu = 0;
             #if defined(__DragonFly__) || \
                 defined(__OpenBSD__)   || \
@@ -2355,7 +2355,7 @@ else:
             }
             """], post_include_bits=post_include_bits)
 
-_cpu_count = rffi.llexternal('_cpu_count', [], rffi.INT_real,
+_cpu_count = rffi.llexternal('rpy_cpu_count', [], rffi.INT_real,
                             compilation_info=cpucount_eci)
 
 def cpu_count():
