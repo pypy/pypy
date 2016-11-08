@@ -210,7 +210,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def sub_scope(self, kind, name, node, lineno):
         """Convenience function for compiling a sub scope."""
-        if self.qualname:
+        if self.scope.lookup(name) == symtable.SCOPE_GLOBAL_EXPLICIT:
+            qualname = name
+        elif self.qualname:
             qualname = '%s.%s' % (self.qualname, name)
         else:
             qualname = name
