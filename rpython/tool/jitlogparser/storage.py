@@ -62,7 +62,7 @@ class LoopStorage(object):
         guard_dict = {}
         for loop_no, loop in enumerate(loops):
             for op in loop.operations:
-                if op.name.startswith('guard_'):
+                if op.name.startswith('guard_') or op.name.startswith('vec_guard_'):
                     guard_dict[int(op.descr[len('<Guard0x'):-1], 16)] = (op, loop)
         for loop in loops:
             if loop.comment:
