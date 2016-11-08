@@ -7,6 +7,7 @@ from errno import EINTR
 
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated, specialize
+from rpython.rlib import rstackovf
 
 from pypy.interpreter import debug
 
@@ -524,13 +525,37 @@ def _convert_unexpected_exception_extra(space, e):
     traceback.print_tb(exc[2], file=f)
     return f.getvalue()
 
+@jit.dont_look_inside
 def get_converted_unexpected_exception(space, e):
-    if we_are_translated():
-        from rpython.rlib.debug import debug_print_traceback
-        debug_print_traceback()
-        extra = '; internal traceback was dumped to stderr'
-    else:
-        extra = _convert_unexpected_exception_extra(space, e)
-    return OperationError(space.w_SystemError, space.wrap(
-        "unexpected internal exception (please report a bug): %r%s" %
-        (e, extra)))
+    """This is used in two places when we get an non-OperationError
+    RPython exception: from gateway.py when calling an interp-level
+    function raises; and from pyopcode.py when we're exiting the
+    interpretation of the frame with an exception.  Note that it
+    *cannot* be used in pyopcode.py: that place gets a
+    ContinueRunningNormally exception from the JIT, which must not end
+    up here!
+    """
+    try:
+        if not we_are_translated():
+            raise
+        raise e
+    except KeyboardInterrupt:
+        return OperationError(space.w_KeyboardInterrupt, space.w_None)
+    except MemoryError:
+        return OperationError(space.w_MemoryError, space.w_None)
+    except rstackovf.StackOverflow as e:
+        rstackovf.check_stack_overflow()
+        return oefmt(space.w_RuntimeError,
+                     "maximum recursion depth exceeded")
+    except RuntimeError:   # not on top of py.py
+        return OperationError(space.w_RuntimeError, space.w_None)
+    except:
+        if we_are_translated():
+            from rpython.rlib.debug import debug_print_traceback
+            debug_print_traceback()
+            extra = '; internal traceback was dumped to stderr'
+        else:
+            extra = _convert_unexpected_exception_extra(space, e)
+        return OperationError(space.w_SystemError, space.wrap(
+            "unexpected internal exception (please report a bug): %r%s" %
+            (e, extra)))
