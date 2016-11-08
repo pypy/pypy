@@ -679,21 +679,22 @@ def _listdir(dirp, rewind=False):
         raise OSError(error, "readdir failed")
     return result
 
-def fdlistdir(dirfd):
-    """
-    Like listdir(), except that the directory is specified as an open
-    file descriptor.
+if not _WIN32:
+    def fdlistdir(dirfd):
+        """
+        Like listdir(), except that the directory is specified as an open
+        file descriptor.
 
-    Note: fdlistdir() closes the file descriptor.  To emulate the
-    Python 3.x 'os.opendir(dirfd)', you must first duplicate the
-    file descriptor.
-    """
-    dirp = c_fdopendir(dirfd)
-    if not dirp:
-        error = get_saved_errno()
-        c_close(dirfd)
-        raise OSError(error, "opendir failed")
-    return _listdir(dirp, rewind=True)
+        Note: fdlistdir() closes the file descriptor.  To emulate the
+        Python 3.x 'os.opendir(dirfd)', you must first duplicate the
+        file descriptor.
+        """
+        dirp = c_fdopendir(dirfd)
+        if not dirp:
+            error = get_saved_errno()
+            c_close(dirfd)
+            raise OSError(error, "opendir failed")
+        return _listdir(dirp, rewind=True)
 
 @replace_os_function('listdir')
 @specialize.argtype(0)
