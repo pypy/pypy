@@ -112,7 +112,7 @@ class CConfig:
                        CTRL_C_EVENT CTRL_BREAK_EVENT
                        MB_ERR_INVALID_CHARS ERROR_NO_UNICODE_TRANSLATION
                        WC_NO_BEST_FIT_CHARS STD_INPUT_HANDLE STD_OUTPUT_HANDLE
-                       STD_ERROR_HANDLE
+                       STD_ERROR_HANDLE HANDLE_FLAG_INHERIT FILE_TYPE_CHAR
                     """
         from rpython.translator.platform import host_factory
         static_platform = host_factory()
@@ -473,3 +473,56 @@ if WIN32:
     CONSOLE_SCREEN_BUFFER_INFO_P = lltype.Ptr(CONSOLE_SCREEN_BUFFER_INFO)
     GetConsoleScreenBufferInfo = winexternal(
         "GetConsoleScreenBufferInfo", [HANDLE, CONSOLE_SCREEN_BUFFER_INFO_P], BOOL)
+
+    _GetHandleInformation = winexternal(
+        'GetHandleInformation', [HANDLE, LPDWORD], BOOL)
+    _SetHandleInformation = winexternal(
+        'SetHandleInformation', [HANDLE, DWORD, DWORD], BOOL)
+
+    def set_inheritable(fd, inheritable):
+        handle = get_osfhandle(fd)
+        if inheritable:
+            flags = HANDLE_FLAG_INHERIT
+        else:
+            flags = 0
+        if not _SetHandleInformation(handle, HANDLE_FLAG_INHERIT, flags):
+            raise lastSavedWindowsError("SetHandleInformation")
+
+    def get_inheritable(fd):
+        handle = get_osfhandle(fd)
+        pflags = lltype.malloc(LPDWORD.TO, 1, flavor='raw')
+        try:
+            if not _GetHandleInformation(handle, pflags):
+                raise lastSavedWindowsError("GetHandleInformation")
+            flags = pflags[0]
+        finally:
+            lltype.free(pflags, flavor='raw')
+        return (flags & HANDLE_FLAG_INHERIT) != 0
+
+    _GetFileType = winexternal('GetFileType', [HANDLE], DWORD)
+
+    def c_dup_noninheritable(fd1):
+        from rpython.rlib.rposix import c_dup
+
+        ftype = _GetFileType(get_osfhandle(fd1))
+        fd2 = c_dup(fd1)     # the inheritable version
+        if fd2 >= 0 and ftype != FILE_TYPE_CHAR:
+            try:
+                set_inheritable(fd2, False)
+            except:
+                os.close(fd2)
+                raise
+        return fd2
+
+    def c_dup2_noninheritable(fd1, fd2):
+        from rpython.rlib.rposix import c_dup2
+
+        ftype = _GetFileType(get_osfhandle(fd1))
+        res = c_dup2(fd1, fd2)     # the inheritable version
+        if res >= 0 and ftype != FILE_TYPE_CHAR:
+            try:
+                set_inheritable(fd2, False)
+            except:
+                os.close(fd2)
+                raise
+        return res

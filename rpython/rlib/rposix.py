@@ -1166,6 +1166,10 @@ else:
 @replace_os_function('pipe')
 def pipe(flags=0):
     # 'flags' might be ignored.  Check the result.
+    # The handles returned are always inheritable on Posix.
+    # The situation on Windows is not completely clear: I think
+    # it should always return non-inheritable handles, but CPython
+    # uses SECURITY_ATTRIBUTES to ensure that and we don't.
     if _WIN32:
         # 'flags' ignored
         ralloc = lltype.scoped_alloc(rwin32.LPHANDLE.TO, 1)
@@ -2146,8 +2150,9 @@ if HAVE_MKNODAT:
         handle_posix_error('mknodat', error)
 
 
-eci_inheritable = eci.merge(ExternalCompilationInfo(
-    separate_module_sources=[r"""
+if not _WIN32:
+    eci_inheritable = eci.merge(ExternalCompilationInfo(
+        separate_module_sources=[r"""
 #include <errno.h>
 #include <sys/ioctl.h>
 
@@ -2200,10 +2205,6 @@ int rpy_get_inheritable(int fd)
 RPY_EXTERN
 int rpy_dup_noninheritable(int fd)
 {
-#ifdef _WIN32
-#error NotImplementedError
-#endif
-
 #ifdef F_DUPFD_CLOEXEC
     return fcntl(fd, F_DUPFD_CLOEXEC, 0);
 #else
@@ -2221,10 +2222,6 @@ int rpy_dup_noninheritable(int fd)
 RPY_EXTERN
 int rpy_dup2_noninheritable(int fd, int fd2)
 {
-#ifdef _WIN32
-#error NotImplementedError
-#endif
-
 #ifdef F_DUP2FD_CLOEXEC
     return fcntl(fd, F_DUP2FD_CLOEXEC, fd2);
 
@@ -2249,33 +2246,41 @@ int rpy_dup2_noninheritable(int fd, int fd2)
     return 0;
 #endif
 }
-    """ % {'HAVE_DUP3': HAVE_DUP3}],
-    post_include_bits=['RPY_EXTERN int rpy_set_inheritable(int, int);\n'
-                       'RPY_EXTERN int rpy_get_inheritable(int);\n'
-                       'RPY_EXTERN int rpy_dup_noninheritable(int);\n'
-                       'RPY_EXTERN int rpy_dup2_noninheritable(int, int);\n']))
+        """ % {'HAVE_DUP3': HAVE_DUP3}],
+        post_include_bits=['RPY_EXTERN int rpy_set_inheritable(int, int);\n'
+                           'RPY_EXTERN int rpy_get_inheritable(int);\n'
+                           'RPY_EXTERN int rpy_dup_noninheritable(int);\n'
+                           'RPY_EXTERN int rpy_dup2_noninheritable(int, int);\n'
+                           ]))
 
-c_set_inheritable = external('rpy_set_inheritable', [rffi.INT, rffi.INT],
-                             rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
-                             compilation_info=eci_inheritable)
-c_get_inheritable = external('rpy_get_inheritable', [rffi.INT],
-                             rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
-                             compilation_info=eci_inheritable)
-c_dup_noninheritable = external('rpy_dup_noninheritable', [rffi.INT],
-                                rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
-                                compilation_info=eci_inheritable)
-c_dup2_noninheritable = external('rpy_dup2_noninheritable', [rffi.INT,rffi.INT],
-                                 rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
-                                 compilation_info=eci_inheritable)
+    _c_set_inheritable = external('rpy_set_inheritable', [rffi.INT, rffi.INT],
+                                  rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
+                                  compilation_info=eci_inheritable)
+    _c_get_inheritable = external('rpy_get_inheritable', [rffi.INT],
+                                  rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
+                                  compilation_info=eci_inheritable)
+    c_dup_noninheritable = external('rpy_dup_noninheritable', [rffi.INT],
+                                    rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
+                                    compilation_info=eci_inheritable)
+    c_dup2_noninheritable = external('rpy_dup2_noninheritable', [rffi.INT,rffi.INT],
+                                     rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
+                                     compilation_info=eci_inheritable)
 
-def set_inheritable(fd, inheritable):
-    result = c_set_inheritable(fd, inheritable)
-    handle_posix_error('set_inheritable', result)
+    def set_inheritable(fd, inheritable):
+        result = _c_set_inheritable(fd, inheritable)
+        handle_posix_error('set_inheritable', result)
 
-def get_inheritable(fd):
-    res = c_get_inheritable(fd)
-    res = handle_posix_error('get_inheritable', res)
-    return res != 0
+    def get_inheritable(fd):
+        res = _c_get_inheritable(fd)
+        res = handle_posix_error('get_inheritable', res)
+        return res != 0
+
+else:
+    # _WIN32
+    from rpython.rlib.rwin32 import set_inheritable, get_inheritable
+    from rpython.rlib.rwin32 import c_dup_noninheritable
+    from rpython.rlib.rwin32 import c_dup2_noninheritable
+
 
 class SetNonInheritableCache(object):
     """Make one prebuilt instance of this for each path that creates
