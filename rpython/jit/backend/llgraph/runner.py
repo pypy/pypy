@@ -937,27 +937,26 @@ class LLGraphCPU(model.AbstractCPU):
         return [heaptracker.int_signext(_vx, ext) for _vx in vx]
 
     def build_load(func):
-        def method(self, struct, offset, scale, disp, descr, _count):
+        def load(self, struct, offset, scale, disp, descr, _count):
             values = []
             count = self.vector_ext.vec_size() // descr.get_item_size_in_bytes()
             assert _count == count
             assert count > 0
-            adr = struct + (offset * scale + disp)
+            adr = support.addr_add_bytes(struct, (offset * scale + disp))
             a = support.cast_arg(lltype.Ptr(descr.A), adr)
             array = a._obj
             for i in range(count):
                 val = support.cast_result(descr.A.OF, array.getitem(i))
                 values.append(val)
             return values
-        return method
+        return load
 
     bh_vec_load_i = build_load(bh_getarrayitem_raw)
     bh_vec_load_f = build_load(bh_getarrayitem_raw)
     del build_load
 
     def bh_vec_store(self, struct, offset, newvalues, scale, disp, descr, count):
-        stride = descr.get_item_size_in_bytes()
-        adr = struct + (offset * scale + disp)
+        adr = support.addr_add_bytes(struct, offset * scale + disp)
         a = support.cast_arg(lltype.Ptr(descr.A), adr)
         array = a._obj
         for i,n in enumerate(newvalues):
@@ -1560,7 +1559,7 @@ def _setup():
             if opname.startswith('vec_'):
                 # pre vector op
                 count = self.current_op.count
-                assert count >= 1
+                assert count >= 0
                 new_args = new_args + (count,)
             result = getattr(self.cpu, 'bh_' + opname)(*new_args)
             if isinstance(result, list):
