@@ -18,7 +18,7 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper import rclass
 
 from rpython.rlib.clibffi import FFI_DEFAULT_ABI
-from rpython.rlib.rarithmetic import ovfcheck, r_uint, r_ulonglong
+from rpython.rlib.rarithmetic import ovfcheck, r_uint, r_ulonglong, intmask
 from rpython.rlib.objectmodel import Symbolic
 
 class LLAsmInfo(object):
@@ -840,7 +840,7 @@ class LLGraphCPU(model.AbstractCPU):
     vector_arith_code = """
     def bh_vec_{0}_{1}(self, vx, vy, count):
         assert len(vx) == len(vy) == count
-        return [_vx {2} _vy for _vx,_vy in zip(vx,vy)]
+        return [intmask(_vx {2} _vy) for _vx,_vy in zip(vx,vy)]
     """
     exec py.code.Source(vector_arith_code.format('int','add','+')).compile()
     exec py.code.Source(vector_arith_code.format('int','sub','-')).compile()
@@ -890,9 +890,6 @@ class LLGraphCPU(model.AbstractCPU):
     def bh_vec_cast_singlefloat_to_float(self, vx, count):
         return [longlong.getfloatstorage(float(longlong.int2singlefloat(v)))
                 for v in vx]
-
-        a = float(a)
-        return longlong.getfloatstorage(a)
 
     def bh_vec_cast_float_to_int(self, vx, count):
         return [int(x) for x in vx]
