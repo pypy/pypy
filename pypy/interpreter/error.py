@@ -670,10 +670,14 @@ def get_converted_unexpected_exception(space, e):
         return OperationError(space.w_KeyboardInterrupt, space.w_None)
     except MemoryError:
         return OperationError(space.w_MemoryError, space.w_None)
-    except NotImplementedError:   # not on top of pypy! tests only
-        return OperationError(space.w_SystemError,
-                              space.wrap("NotImplementedError"))
     except rstackovf.StackOverflow as e:
+        # xxx twisted logic which happens to give the result that we
+        # want: when untranslated, a RuntimeError or its subclass
+        # NotImplementedError is caught here.  Then
+        # check_stack_overflow() will re-raise it directly.  We see
+        # the result as this exception propagates directly.  But when
+        # translated, an RPython-level RuntimeError is turned into
+        # an app-level RuntimeError by the next case.
         rstackovf.check_stack_overflow()
         return oefmt(space.w_RecursionError,
                      "maximum recursion depth exceeded")
