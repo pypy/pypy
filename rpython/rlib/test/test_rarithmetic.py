@@ -602,3 +602,12 @@ class TestExplicitIntsizes:
 
         assert r_uint64(self._64_umax) + r_uint64(1) == r_uint64(0)
         assert r_uint64(0) - r_uint64(1) == r_uint64(self._64_umax)
+
+    def test_operation_with_float(self):
+        def f(x):
+            assert r_longlong(x) + 0.5 == 43.5
+            assert r_longlong(x) - 0.5 == 42.5
+            assert r_longlong(x) * 0.5 == 21.5
+            assert r_longlong(x) / 0.8 == 53.75
+        f(43)
+        interpret(f, [43])
