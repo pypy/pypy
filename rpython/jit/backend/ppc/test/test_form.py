@@ -1,6 +1,3 @@
-from rpython.jit.backend.ppc.codebuilder import b
-import random
-import sys
 from py.test import raises
 
 from rpython.jit.backend.ppc.form import Form, FormException
