@@ -58,7 +58,7 @@ def find_module(space, w_name, w_path=None):
     if not find_info:
         raise oefmt(space.w_ImportError, "No module named %s", name)
 
-    w_filename = space.wrap(find_info.filename)
+    w_filename = space.newtext(find_info.filename)
     stream = find_info.stream
 
     if stream is not None:
@@ -66,13 +66,13 @@ def find_module(space, w_name, w_path=None):
         fileobj.fdopenstream(
             stream, stream.try_to_find_file_descriptor(),
             find_info.filemode, w_filename)
-        w_fileobj = space.wrap(fileobj)
+        w_fileobj = fileobj
     else:
         w_fileobj = space.w_None
     w_import_info = space.newtuple(
-        [space.wrap(find_info.suffix),
-         space.wrap(find_info.filemode),
-         space.wrap(find_info.modtype)])
+        [space.newtext(find_info.suffix),
+         space.newtext(find_info.filemode),
+         space.newint(find_info.modtype)])
     return space.newtuple([w_fileobj, w_filename, w_import_info])
 
 def load_module(space, w_name, w_file, w_filename, w_info):
@@ -99,7 +99,7 @@ def load_source(space, w_modulename, w_filename, w_file=None):
 
     stream = get_file(space, w_file, filename, 'U')
 
-    w_mod = space.wrap(Module(space, w_modulename))
+    w_mod = Module(space, w_modulename)
     importing._prepare_module(space, w_mod, filename, None)
 
     w_mod = importing.load_source_module(
@@ -127,7 +127,7 @@ def _run_compiled_module(space, w_modulename, filename, w_file, w_module,
 
 @unwrap_spec(filename='str0')
 def load_compiled(space, w_modulename, filename, w_file=None):
-    w_mod = space.wrap(Module(space, w_modulename))
+    w_mod = Module(space, w_modulename)
     importing._prepare_module(space, w_mod, filename, None)
     return _run_compiled_module(space, w_modulename, filename, w_file, w_mod,
                                 check_afterwards=True)
@@ -140,7 +140,7 @@ def load_dynamic(space, w_modulename, filename, w_file=None):
     return importing.check_sys_modules(space, w_modulename)
 
 def new_module(space, w_name):
-    return space.wrap(Module(space, w_name, add_package=False))
+    return Module(space, w_name, add_package=False)
 
 def init_builtin(space, w_name):
     name = space.str0_w(w_name)
@@ -157,10 +157,10 @@ def init_frozen(space, w_name):
 def is_builtin(space, w_name):
     name = space.str0_w(w_name)
     if name not in space.builtin_modules:
-        return space.wrap(0)
+        return space.newint(0)
     if space.finditem(space.sys.get('modules'), w_name) is not None:
-        return space.wrap(-1)   # cannot be initialized again
-    return space.wrap(1)
+        return space.newint(-1)   # cannot be initialized again
+    return space.newint(1)
 
 def is_frozen(space, w_name):
     return space.w_False
@@ -169,7 +169,7 @@ def is_frozen(space, w_name):
 
 def lock_held(space):
     if space.config.objspace.usemodules.thread:
-        return space.wrap(importing.getimportlock(space).lock_held_by_anyone())
+        return space.newbool(importing.getimportlock(space).lock_held_by_anyone())
     else:
         return space.w_False
 
