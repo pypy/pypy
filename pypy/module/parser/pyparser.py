@@ -17,26 +17,26 @@ class W_STType(W_Root):
     def _build_app_tree(self, space, node, seq_maker, with_lineno, with_column):
         if node.num_children():
             seq_w = [None]*(node.num_children() + 1)
-            seq_w[0] = space.wrap(node.type)
+            seq_w[0] = space.newint(node.type)
             for i in range(1, node.num_children() + 1):
                 seq_w[i] = self._build_app_tree(space, node.get_child(i - 1),
                                                 seq_maker, with_lineno,
                                                 with_column)
         else:
             seq_w = [None]*(2 + with_lineno + with_column)
-            seq_w[0] = space.wrap(node.type)
-            seq_w[1] = space.wrap(node.get_value())
+            seq_w[0] = space.newint(node.type)
+            seq_w[1] = space.newtext(node.get_value())
             if with_lineno:
-                seq_w[2] = space.wrap(node.get_lineno())
+                seq_w[2] = space.newint(node.get_lineno())
             if with_column:
-                seq_w[3] = space.wrap(node.get_column())
+                seq_w[3] = space.newint(node.get_column())
         return seq_maker(seq_w)
 
     def descr_issuite(self, space):
-        return space.wrap(self.tree.type == pygram.syms.file_input)
+        return space.newbool(self.tree.type == pygram.syms.file_input)
 
     def descr_isexpr(self, space):
-        return space.wrap(self.tree.type == pygram.syms.eval_input)
+        return space.newbool(self.tree.type == pygram.syms.eval_input)
 
     @unwrap_spec(line_info=bool, col_info=bool)
     def descr_totuple(self, space, line_info=False, col_info=False):
@@ -60,7 +60,7 @@ class W_STType(W_Root):
         except error.SyntaxError as e:
             raise OperationError(space.w_SyntaxError,
                                  e.wrap_info(space))
-        return space.wrap(result)
+        return result
 
 W_STType.typedef = TypeDef("parser.st",
     issuite=interp2app(W_STType.descr_issuite),
@@ -82,7 +82,7 @@ def parse_python(space, source, mode):
     except error.SyntaxError as e:
         raise OperationError(space.w_SyntaxError,
                              e.wrap_info(space))
-    return space.wrap(W_STType(tree, mode))
+    return W_STType(tree, mode)
 
 
 @unwrap_spec(source=str)
@@ -105,12 +105,12 @@ def issuite(space, w_st):
 
 @unwrap_spec(w_st=W_STType)
 def st2tuple(space, w_st, __args__):
-    return space.call_args(space.getattr(w_st, space.wrap("totuple")), __args__)
+    return space.call_args(space.getattr(w_st, space.newtext("totuple")), __args__)
 
 @unwrap_spec(w_st=W_STType)
 def st2list(space, w_st, __args__):
-    return space.call_args(space.getattr(w_st, space.wrap("tolist")), __args__)
+    return space.call_args(space.getattr(w_st, space.newtext("tolist")), __args__)
 
 @unwrap_spec(w_st=W_STType)
 def compilest(space, w_st, __args__):
-    return space.call_args(space.getattr(w_st, space.wrap("compile")), __args__)
+    return space.call_args(space.getattr(w_st, space.newtext("compile")), __args__)
