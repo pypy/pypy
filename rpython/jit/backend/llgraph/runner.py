@@ -842,16 +842,22 @@ class LLGraphCPU(model.AbstractCPU):
         assert len(vx) == len(vy) == count
         return [intmask(_vx {2} _vy) for _vx,_vy in zip(vx,vy)]
     """
+    vector_float_arith_code = """
+    def bh_vec_{0}_{1}(self, vx, vy, count):
+        assert len(vx) == len(vy) == count
+        return [_vx {2} _vy for _vx,_vy in zip(vx,vy)]
+    """
     exec py.code.Source(vector_arith_code.format('int','add','+')).compile()
     exec py.code.Source(vector_arith_code.format('int','sub','-')).compile()
     exec py.code.Source(vector_arith_code.format('int','mul','*')).compile()
     exec py.code.Source(vector_arith_code.format('int','and','&')).compile()
     exec py.code.Source(vector_arith_code.format('int','or','|')).compile()
-    exec py.code.Source(vector_arith_code.format('float','add','+')).compile()
-    exec py.code.Source(vector_arith_code.format('float','sub','-')).compile()
-    exec py.code.Source(vector_arith_code.format('float','mul','*')).compile()
-    exec py.code.Source(vector_arith_code.format('float','truediv','/')).compile()
-    exec py.code.Source(vector_arith_code.format('float','eq','==')).compile()
+
+    exec py.code.Source(vector_float_arith_code.format('float','add','+')).compile()
+    exec py.code.Source(vector_float_arith_code.format('float','sub','-')).compile()
+    exec py.code.Source(vector_float_arith_code.format('float','mul','*')).compile()
+    exec py.code.Source(vector_float_arith_code.format('float','truediv','/')).compile()
+    exec py.code.Source(vector_float_arith_code.format('float','eq','==')).compile()
 
     def bh_vec_float_neg(self, vx, count):
         return [e * -1 for e in vx]
