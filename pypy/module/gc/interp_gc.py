@@ -15,7 +15,7 @@ def collect(space, generation=0):
     cache = space.fromcache(MapAttrCache)
     cache.clear()
     rgc.collect()
-    return space.wrap(0)
+    return space.newint(0)
 
 def enable(space):
     """Non-recursive version.  Enable finalizers now.

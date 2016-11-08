@@ -478,7 +478,7 @@ def utf_16_ex_decode(space, data, errors='strict', byteorder=0, w_final=None):
     res, consumed, byteorder = runicode.str_decode_utf_16_helper(
         data, len(data), errors, final, state.decode_error_handler, byteorder)
     return space.newtuple([space.newunicode(res), space.newint(consumed),
-                           space.newtext(byteorder)])
+                           space.newint(byteorder)])
 
 @unwrap_spec(data='bufferstr', errors='str_or_None', byteorder=int,
              w_final=WrappedDefault(False))
@@ -497,7 +497,7 @@ def utf_32_ex_decode(space, data, errors='strict', byteorder=0, w_final=None):
     res, consumed, byteorder = runicode.str_decode_utf_32_helper(
         data, len(data), errors, final, state.decode_error_handler, byteorder)
     return space.newtuple([space.newunicode(res), space.newint(consumed),
-                           space.newtext(byteorder)])
+                           space.newint(byteorder)])
 
 # ____________________________________________________________
 # Charmap
