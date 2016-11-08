@@ -254,7 +254,8 @@ class RequestHandlerLoggingTestCase(BaseTestCase):
 
         with support.captured_stderr() as err:
             self.con.request('GET', '/')
-            self.con.getresponse()
+            with self.con.getresponse():
+                pass
 
         self.assertTrue(
             err.getvalue().endswith('"GET / HTTP/1.1" 200 -\n'))
@@ -265,7 +266,8 @@ class RequestHandlerLoggingTestCase(BaseTestCase):
 
         with support.captured_stderr() as err:
             self.con.request('ERROR', '/')
-            self.con.getresponse()
+            with self.con.getresponse():
+                pass
 
         lines = err.getvalue().split('\n')
         self.assertTrue(lines[0].endswith('code 404, message File not found'))
