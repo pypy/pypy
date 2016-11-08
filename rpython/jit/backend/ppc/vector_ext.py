@@ -230,26 +230,19 @@ class VectorAssembler(object):
             self.mc.stvx(src, r.SCRATCH2.value, r.SP.value)
             self.mc.load_imm(r.SCRATCH2, PARAM_SAVE_AREA_OFFSET+16)
             self.mc.stvx(res, r.SCRATCH2.value, r.SP.value)
-            for i in range(2): # at most 2 operations
-                if IS_BIG_ENDIAN:
-                    srcoff = (i * osize)
-                    resoff = (i * nsize)
-                else:
-                    if osize == 4:
-                        srcoff = 8 + (i * osize)
-                        resoff = (i * nsize)
-                    else:
-                        srcoff = (i * osize)
-                        resoff = 8 + (i * nsize)
-                if osize == 8:
-                    self.mc.load(r.SCRATCH.value, r.SP.value, srcoff + PARAM_SAVE_AREA_OFFSET)
-                else:
-                    self.mc.lwa(r.SCRATCH.value, r.SP.value, srcoff + PARAM_SAVE_AREA_OFFSET)
-                if nsize == 8:
-                    self.mc.store(r.SCRATCH.value, r.SP.value, resoff + PARAM_SAVE_AREA_OFFSET+16)
-                else:
-                    self.mc.stw(r.SCRATCH.value, r.SP.value, resoff + PARAM_SAVE_AREA_OFFSET+16)
-
+            for j in range(2): # at most 2 operations
+                off = PARAM_SAVE_AREA_OFFSET
+                i = j
+                if not IS_BIG_ENDIAN:
+                    i = (16 // osize) - 1 - i
+                off += osize * i
+                self._load_from_sp(r.SCRATCH.value, osize, off)
+                off = PARAM_SAVE_AREA_OFFSET
+                i = j
+                if not IS_BIG_ENDIAN:
+                    i = (16 // nsize) - 1 - i
+                off += nsize * i
+                self._store_to_sp(r.SCRATCH.value, nsize, off+16)
             self.mc.lvx(res, r.SCRATCH2.value, r.SP.value)
 
     def emit_vec_float_abs(self, op, arglocs, regalloc):
@@ -531,6 +524,37 @@ class VectorAssembler(object):
                 self.mc.stb(src, r.SP.value, PARAM_SAVE_AREA_OFFSET+idx)
         self.mc.lvx(res, r.SCRATCH2.value, r.SP.value)
 
+    def _load_from_sp(self, res, size, off):
+        if size == 8:
+            self.mc.load(res, r.SP.value, off)
+            return True
+        elif size == 4:
+            self.mc.lwa(res, r.SP.value, off)
+            return True
+        elif size == 2:
+            self.mc.lha(res, r.SP.value, off)
+            return True
+        elif size == 1:
+            self.mc.lbz(res, r.SP.value, off)
+            self.mc.extsb(res, res)
+            return True
+        return False
+
+    def _store_to_sp(self, res, size, off):
+        if size == 8:
+            self.mc.store(res, r.SP.value, off)
+            return True
+        elif size == 4:
+            self.mc.stw(res, r.SP.value, off)
+            return True
+        elif size == 2:
+            self.mc.sth(res, r.SP.value, off)
+            return True
+        elif size == 1:
+            self.mc.stz(res, r.SP.value, off)
+            return True
+        return False
+
     def emit_vec_unpack_i(self, op, arglocs, regalloc):
         assert isinstance(op, VectorOp)
         resloc, srcloc, idxloc, countloc, sizeloc = arglocs
@@ -539,6 +563,7 @@ class VectorAssembler(object):
         src = srcloc.value
         size = sizeloc.value
         count = countloc.value
+        newsize = op.bytesize
         if count == 1:
             assert srcloc.is_vector_reg()
             assert not resloc.is_vector_reg()
@@ -548,18 +573,7 @@ class VectorAssembler(object):
             if not IS_BIG_ENDIAN:
                 idx = (16 // size) - 1 - idx
             off += size * idx
-            if size == 8:
-                self.mc.load(res, r.SP.value, off)
-                return
-            elif size == 4:
-                self.mc.lwa(res, r.SP.value, off)
-                return
-            elif size == 2:
-                self.mc.lha(res, r.SP.value, off)
-                return
-            elif size == 1:
-                self.mc.lbz(res, r.SP.value, off)
-                self.mc.extsb(res, res)
+            if self._load_from_sp(res, size, off):
                 return
         else:
             # count is not 1, but only 2 is supported for i32
@@ -571,16 +585,21 @@ class VectorAssembler(object):
             self.mc.stvx(src, r.SCRATCH2.value, r.SP.value)
             self.mc.load_imm(r.SCRATCH2, PARAM_SAVE_AREA_OFFSET+16)
             self.mc.stvx(res, r.SCRATCH2.value, r.SP.value)
-            if count * size == 8:
-                if not IS_BIG_ENDIAN:
-                    endian_off = 8
+            for j in range(count):
                 off = PARAM_SAVE_AREA_OFFSET
-                off = off + endian_off - (idx * size)
-                assert idx * size + 8 <= 16
-                self.mc.load(r.SCRATCH.value, r.SP.value, off)
-                self.mc.store(r.SCRATCH.value, r.SP.value, PARAM_SAVE_AREA_OFFSET+16+endian_off)
-                self.mc.lvx(res, r.SCRATCH2.value, r.SP.value)
-                return
+                i = j+idx
+                if not IS_BIG_ENDIAN:
+                    i = (16 // size) - 1 - i
+                off += size * i
+                self._load_from_sp(r.SCRATCH.value, size, off)
+                off = PARAM_SAVE_AREA_OFFSET
+                i = j
+                if not IS_BIG_ENDIAN:
+                    i = (16 // size) - 1 - i
+                off += size * i
+                self._store_to_sp(r.SCRATCH.value, newsize, off+16)
+            self.mc.lvx(res, r.SCRATCH2.value, r.SP.value)
+            return
 
         not_implemented("%d bit integer, count %d" % \
                        (size*8, count))
