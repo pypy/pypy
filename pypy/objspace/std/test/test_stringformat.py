@@ -333,9 +333,102 @@ class AppTestUnicodeObject:
         assert "<%r>" % "\xe9" == "<'\xe9'>"
         assert "<%a>" % "\xe9" == "<'\\xe9'>"
 
+
+class AppTestBytes:
+
     def test_ascii_bytes(self):
         assert b"<%a>" % b"test" == b"<b'test'>"
         assert b"<%a>" % b"\t\x80" == b"<b'\\t\\x80'>"
         assert repr(b"\xe9") == "b'\\xe9'"
-        assert b"<%r>" % b"\xe9" == b"<b'\\xe9'>"
         assert b"<%a>" % b"\xe9" == b"<b'\\xe9'>"
+        assert b"<%a>" % "foo" == b"<'foo'>"
+        assert b"<%a>" % "\u1234" == b"<'\\u1234'>"
+
+    def test_r_compat_bytes(self):
+        assert b"<%r>" % b"test" == b"<b'test'>"
+        assert b"<%r>" % b"\t\x80" == b"<b'\\t\\x80'>"
+        assert repr(b"\xe9") == "b'\\xe9'"
+        assert b"<%r>" % b"\xe9" == b"<b'\\xe9'>"
+        assert b"<%r>" % "foo" == b"<'foo'>"
+        assert b"<%r>" % "\u1234" == b"<'\\u1234'>"
+
+    def test_numeric_bytes(self):
+        assert b"<%4x>" % 10 == b"<   a>"
+        assert b"<%#4x>" % 10 == b"< 0xa>"
+        assert b"<%04X>" % 10 == b"<000A>"
+
+    def test_char_bytes(self):
+        assert b"<%c>" % 48 == b"<0>"
+        assert b"<%c>" % b"?" == b"<?>"
+        raises(TypeError, 'b"<%c>" % "?"')
+
+    def test_bytes_bytes(self):
+        assert b"<%b>" % b"123" == b"<123>"
+        class Foo:
+            def __bytes__(self):
+                return b"123"
+        assert b"<%b>" % Foo() == b"<123>"
+        raises(TypeError, 'b"<%b>" % 42')
+        raises(TypeError, 'b"<%b>" % "?"')
+
+    def test_s_compat_bytes(self):
+        assert b"<%s>" % b"123" == b"<123>"
+        class Foo:
+            def __bytes__(self):
+                return b"123"
+        assert b"<%s>" % Foo() == b"<123>"
+        raises(TypeError, 'b"<%s>" % 42')
+        raises(TypeError, 'b"<%s>" % "?"')
+
+
+class AppTestBytearray:
+
+    def test_ascii_bytes(self):
+        assert bytearray(b"<%a>") % b"test" == bytearray(b"<b'test'>")
+        assert bytearray(b"<%a>") % b"\t\x80" == bytearray(b"<b'\\t\\x80'>")
+        assert repr(b"\xe9") == "b'\\xe9'"
+        assert bytearray(b"<%a>") % b"\xe9" == bytearray(b"<b'\\xe9'>")
+        assert bytearray(b"<%a>") % "foo" == bytearray(b"<'foo'>")
+        assert bytearray(b"<%a>") % "\u1234" == bytearray(b"<'\\u1234'>")
+
+    def test_bytearray_not_modified(self):
+        b1 = bytearray(b"<%a>")
+        b2 = b1 % b"test"
+        assert b1 == bytearray(b"<%a>")
+        assert b2 == bytearray(b"<b'test'>")
+
+    def test_r_compat_bytes(self):
+        assert bytearray(b"<%r>") % b"test" == bytearray(b"<b'test'>")
+        assert bytearray(b"<%r>") % b"\t\x80" == bytearray(b"<b'\\t\\x80'>")
+        assert repr(b"\xe9") == "b'\\xe9'"
+        assert bytearray(b"<%r>") % b"\xe9" == bytearray(b"<b'\\xe9'>")
+        assert bytearray(b"<%r>") % "foo" == bytearray(b"<'foo'>")
+        assert bytearray(b"<%r>") % "\u1234" == bytearray(b"<'\\u1234'>")
+
+    def test_numeric_bytes(self):
+        assert bytearray(b"<%4x>") % 10 == bytearray(b"<   a>")
+        assert bytearray(b"<%#4x>") % 10 == bytearray(b"< 0xa>")
+        assert bytearray(b"<%04X>") % 10 == bytearray(b"<000A>")
+
+    def test_char_bytes(self):
+        assert bytearray(b"<%c>") % 48 == bytearray(b"<0>")
+        assert bytearray(b"<%c>") % b"?" == bytearray(b"<?>")
+        raises(TypeError, 'bytearray(b"<%c>") % "?"')
+
+    def test_bytes_bytes(self):
+        assert bytearray(b"<%b>") % b"123" == bytearray(b"<123>")
+        class Foo:
+            def __bytes__(self):
+                return b"123"
+        assert bytearray(b"<%b>") % Foo() == bytearray(b"<123>")
+        raises(TypeError, 'bytearray(b"<%b>") % 42')
+        raises(TypeError, 'bytearray(b"<%b>") % "?"')
+
+    def test_s_compat_bytes(self):
+        assert bytearray(b"<%s>") % b"123" == bytearray(b"<123>")
+        class Foo:
+            def __bytes__(self):
+                return b"123"
+        assert bytearray(b"<%s>") % Foo() == bytearray(b"<123>")
+        raises(TypeError, 'bytearray(b"<%s>") % 42')
+        raises(TypeError, 'bytearray(b"<%s>") % "?"')
