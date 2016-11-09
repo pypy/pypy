@@ -867,7 +867,7 @@ class VectorizeTests(object):
         def f(bytecount, va, vb, vc):
             i = 0
             j = 0
-            while i < bytecount:
+            while j < bytecount:
                 myjitdriver.jit_merge_point()
                 a = raw_storage_getitem(rffi.DOUBLE,va,j)
                 b = raw_storage_getitem(rffi.INT,vb,i)
