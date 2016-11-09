@@ -358,7 +358,7 @@ static int _cffi_carefully_make_gil(void)
 
 /**********  PyPy-specific section  **********/
 
-PyMODINIT_FUNC _CFFI_PYTHON_STARTUP_FUNC(const void *[]);   /* forward */
+void _CFFI_PYTHON_STARTUP_FUNC(const void *[]);   /* forward */
 
 static struct _cffi_pypy_init_s {
     const char *name;

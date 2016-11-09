@@ -323,50 +323,48 @@ class base_int(long):
 
     def __add__(self, other):
         x = long(self)
-        y = long(other)
+        y = other      # may be a float
         return self._widen(other, x + y)
     __radd__ = __add__
 
     def __sub__(self, other):
         x = long(self)
-        y = long(other)
+        y = other      # may be a float
         return self._widen(other, x - y)
 
     def __rsub__(self, other):
         y = long(self)
-        x = long(other)
+        x = other      # may be a float
         return self._widen(other, x - y)
 
     def __mul__(self, other):
         x = long(self)
-        if not isinstance(other, (int, long)):
-            return x * other
-        y = long(other)
+        y = other      # may be a float
         return self._widen(other, x * y)
     __rmul__ = __mul__
 
     def __div__(self, other):
         x = long(self)
-        y = long(other)
-        return self._widen(other, x // y)
+        y = other      # may be a float
+        return self._widen(other, x / y)
 
     __floordiv__ = __div__
 
     def __rdiv__(self, other):
         y = long(self)
-        x = long(other)
-        return self._widen(other, x // y)
+        x = other      # may be a float
+        return self._widen(other, x / y)
 
     __rfloordiv__ = __rdiv__
 
     def __mod__(self, other):
         x = long(self)
-        y = long(other)
+        y = other      # not rpython if it is a float
         return self._widen(other, x % y)
 
     def __rmod__(self, other):
         y = long(self)
-        x = long(other)
+        x = other      # not rpython if it is a float
         return self._widen(other, x % y)
 
     def __divmod__(self, other):
