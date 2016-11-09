@@ -1,6 +1,7 @@
 import sys
+from pypy.interpreter.error import OperationError
 
-class BaseImportTest:
+class BaseFSEncodeTest:
 
     def setup_class(cls):
         space = cls.space
@@ -60,3 +61,20 @@ def get_special_char():
 
     if special_char:
         return special_char.decode(fsenc)
+
+class TestFSEncode(BaseFSEncodeTest):
+    def test_fsencode_fsdecode(self):
+        space = self.space
+        strs = [u"/home/bar/baz", u"c:\\"]
+        if self.special_char:
+            strs.append(self.special_char)
+        for st in strs:
+            # check roundtrip
+            w_st = space.newunicode(st)
+            w_enc = space.fsencode(w_st)
+            w_st2 = space.fsdecode(w_enc)
+            assert space.eq_w(w_st, w_st2)
+            assert space.fsdecode_w(w_enc) == st
+
+            assert space.fsencode_w(w_enc) == space.bytes_w(w_enc)
+            assert space.eq_w(space.wrap_fsdecoded(space.bytes_w(w_enc)), w_st2)

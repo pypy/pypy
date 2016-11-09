@@ -1,6 +1,8 @@
 from rpython.tool.udir import udir
 import os
 
+from pypy.interpreter.test.test_fsencode import BaseFSEncodeTest
+
 class AppTestSSL:
     spaceconfig = dict(usemodules=('_ssl', '_socket', 'select', 'struct',
                                    'binascii', 'thread'))
@@ -341,10 +343,11 @@ class AppTestConnectedSSL_Timeout(AppTestConnectedSSL):
             """)
 
 
-class AppTestContext:
+class AppTestContext(BaseFSEncodeTest):
     spaceconfig = dict(usemodules=('_ssl',))
 
     def setup_class(cls):
+        BaseFSEncodeTest.setup_class.im_func(cls)
         tmpfile = udir / "tmpfile.pem"
         tmpfile.write(SSL_CERTIFICATE + SSL_PRIVATE_KEY)
         cls.w_keycert = cls.space.wrap(str(tmpfile))
@@ -366,8 +369,14 @@ class AppTestContext:
         tmpfile = udir / "python.org.pem"
         tmpfile.write(SVN_PYTHON_ORG_ROOT_CERT)
         cls.w_python_org_cert = cls.space.wrap(str(tmpfile))
-        cls.w_dh512 = cls.space.wrap(os.path.join(
-            os.path.dirname(__file__), 'dh512.pem'))
+        tmpfile = udir / cls.special_char
+        fn = os.path.join(
+            os.path.dirname(__file__), 'dh512.pem')
+        with file(fn) as f:
+            s = f.read()
+        tmpfile.write(s)
+        cls.w_dh512 = cls.space.wrap(fn)
+        cls.w_dh512special = cls.space.wrap(str(tmpfile))
 
     def test_load_cert_chain(self):
         import _ssl, errno
@@ -442,6 +451,9 @@ class AppTestContext:
         raises(_ssl.SSLError, ctx.load_dh_params, self.keycert)
         exc = raises(IOError, ctx.load_dh_params, "inexistent.pem")
         assert exc.value.errno == errno.ENOENT
+
+        ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLS)
+        ctx.load_dh_params(self.dh512special)
 
     def test_set_ecdh_curve(self):
         import _ssl

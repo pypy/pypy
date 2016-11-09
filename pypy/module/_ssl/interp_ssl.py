@@ -1597,7 +1597,7 @@ class SSLContext(W_Root):
             libssl_SSL_CTX_set_default_passwd_cb_userdata(
                 self.ctx, None)
 
-    @unwrap_spec(filepath=str)
+    @unwrap_spec(filepath='fsencode')
     def load_dh_params_w(self, space, filepath):
         bio = libssl_BIO_new_file(filepath, "r")
         if not bio:
