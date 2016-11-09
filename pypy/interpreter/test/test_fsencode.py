@@ -78,7 +78,3 @@ class TestFSEncode(BaseFSEncodeTest):
 
             assert space.fsencode_w(w_enc) == space.bytes_w(w_enc)
             assert space.eq_w(space.wrap_fsdecoded(space.bytes_w(w_enc)), w_st2)
-
-    def test_error(self):
-        raises(OperationError, self.space.fsencode, self.space.newbytes(self.testfn_unencodable))
-
