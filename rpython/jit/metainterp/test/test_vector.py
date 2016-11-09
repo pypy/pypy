@@ -860,6 +860,37 @@ class VectorizeTests(object):
         free_raw_storage(vb)
         free_raw_storage(vc)
 
+    def test_float_int32_casts(self):
+        myjitdriver = JitDriver(greens = [], reds = 'auto', vectorize=True)
+        def f(bytecount, va, vb, vc):
+            i = 0
+            j = 0
+            while i < bytecount:
+                myjitdriver.jit_merge_point()
+                a = raw_storage_getitem(rffi.DOUBLE,va,j)
+                b = raw_storage_getitem(rffi.INT,vb,i)
+                c = a+rffi.cast(rffi.DOUBLE,b)
+                raw_storage_setitem(vc, j, c)
+                i += 4
+                j += 8
+
+        count = 32
+        va = alloc_raw_storage(8*count, zero=True)
+        vb = alloc_raw_storage(4*count, zero=True)
+        for i,v in enumerate([1.0,2.0,3.0,4.0]*(count/4)):
+            raw_storage_setitem(va, i*8, rffi.cast(rffi.DOUBLE,v))
+        for i,v in enumerate([-1,-2,-3,-4]*(count/4)):
+            raw_storage_setitem(vb, i*4, rffi.cast(rffi.INT,v))
+        vc = alloc_raw_storage(8*count, zero=True)
+        self.meta_interp(f, [8*count, va, vb, vc], vec=True)
+
+        for i in range(count):
+            assert raw_storage_getitem(rffi.DOUBLE,vc,i*8) == 0.0
+
+        free_raw_storage(va)
+        free_raw_storage(vb)
+        free_raw_storage(vc)
+
 
 class TestLLtype(LLJitMixin, VectorizeTests):
     # skip some tests on this backend
