@@ -422,20 +422,18 @@ def make_formatter_subclass(do_unicode):
             return space.str_w(w_result)
 
         def fmt_s(self, w_value):
-            space = self.space
-            got_unicode = space.isinstance_w(w_value,
-                                                         space.w_unicode)
             if not do_unicode:
-                if got_unicode:
-                    raise NeedUnicodeFormattingError
-                s = self.string_formatting(w_value)
+                # on bytes, %s is equivalent to %b
+                self.fmt_b(w_value)
+                return
+            space = self.space
+            got_unicode = space.isinstance_w(w_value, space.w_unicode)
+            if not got_unicode:
+                w_value = space.call_function(space.w_unicode, w_value)
             else:
-                if not got_unicode:
-                    w_value = space.call_function(space.w_unicode, w_value)
-                else:
-                    from pypy.objspace.std.unicodeobject import unicode_from_object
-                    w_value = unicode_from_object(space, w_value)
-                s = space.unicode_w(w_value)
+                from pypy.objspace.std.unicodeobject import unicode_from_object
+                w_value = unicode_from_object(space, w_value)
+            s = space.unicode_w(w_value)
             self.std_wp(s)
 
         def fmt_r(self, w_value):
