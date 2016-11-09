@@ -213,7 +213,7 @@ def make_formatter_subclass(do_unicode):
 
             if self.peekchr() == '.':
                 self.forward()
-                self.prec = self.peel_num('prec', INT_MAX)
+                self.prec = self.peel_num('precision', INT_MAX)
                 if self.prec < 0:
                     self.prec = 0    # this can happen:  '%.*f' % (-5, 3)
             else:
@@ -259,7 +259,7 @@ def make_formatter_subclass(do_unicode):
                 w_value = self.nextinputvalue()
                 if name == 'width':
                     return space.int_w(w_value)
-                elif name == 'prec':
+                elif name == 'precision':
                     return space.c_int_w(w_value)
                 else:
                     assert False
@@ -460,18 +460,12 @@ def make_formatter_subclass(do_unicode):
         def fmt_c(self, w_value):
             self.prec = -1     # just because
             space = self.space
-            if space.isinstance_w(w_value, space.w_str):
-                s = space.str_w(w_value)
-                if len(s) != 1:
-                    raise oefmt(space.w_TypeError, "%c requires int or char")
-                self.std_wp(s)
-            elif space.isinstance_w(w_value, space.w_unicode):
-                if not do_unicode:
-                    raise NeedUnicodeFormattingError
-                ustr = space.unicode_w(w_value)
-                if len(ustr) != 1:
-                    raise oefmt(space.w_TypeError, "%c requires int or unichar")
-                self.std_wp(ustr)
+            try:
+                w_value = space.index(w_value)
+            except OperationError as e:
+                if e.async(space):
+                    raise
+                # otherwise, eats all exceptions, like CPython
             else:
                 n = space.int_w(w_value)
                 if do_unicode:
@@ -488,6 +482,23 @@ def make_formatter_subclass(do_unicode):
                         raise oefmt(space.w_OverflowError,
                                     "character code not in range(256)")
                     self.std_wp(s)
+                return
+            if space.isinstance_w(w_value, space.w_str):
+                s = space.str_w(w_value)
+                if len(s) == 1:
+                    self.std_wp(s)
+                    return
+            elif space.isinstance_w(w_value, space.w_unicode):
+                if not do_unicode:
+                    raise NeedUnicodeFormattingError
+                ustr = space.unicode_w(w_value)
+                if len(ustr) == 1:
+                    self.std_wp(ustr)
+                    return
+            if do_unicode:
+                raise oefmt(space.w_TypeError, "%c requires int or char")
+            else:
+                raise oefmt(space.w_TypeError, "%c requires int or single byte")
 
         def fmt_b(self, w_value):
             space = self.space
@@ -581,18 +592,22 @@ def maybe_int(space, w_value):
     # make sure that w_value is a wrapped integer
     return space.int(w_value)
 
+def maybe_index(space, w_value):
+    return space.index(w_value)
+
 def maybe_float(space, w_value):
     # make sure that w_value is a wrapped float
     return space.float(w_value)
 
-def format_num_helper_generator(fmt, digits):
+def format_num_helper_generator(fmt, digits, decoder=maybe_int,
+                                expect_text="a number"):
     def format_num_helper(space, w_value):
         try:
-            w_value = maybe_int(space, w_value)
+            w_value = decoder(space, w_value)
         except OperationError:
             raise oefmt(space.w_TypeError,
-                        "%s format: a number is required, not %T",
-                        fmt, w_value)
+                        "%s format: %s is required, not %T",
+                        fmt, expect_text, w_value)
         try:
             value = space.int_w(w_value)
             return fmt % (value,)
@@ -605,5 +620,7 @@ def format_num_helper_generator(fmt, digits):
                               'base%d_num_helper' % len(digits))
 
 int_num_helper = format_num_helper_generator('%d', '0123456789')
-oct_num_helper = format_num_helper_generator('%o', '01234567')
-hex_num_helper = format_num_helper_generator('%x', '0123456789abcdef')
+oct_num_helper = format_num_helper_generator('%o', '01234567',
+                     decoder=maybe_index, expect_text="an integer")
+hex_num_helper = format_num_helper_generator('%x', '0123456789abcdef',
+                     decoder=maybe_index, expect_text="an integer")

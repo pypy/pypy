@@ -78,10 +78,14 @@ class AppTestStringObject:
         raises(TypeError, '%d'.__mod__, s)
 
     def test_format_float(self):
-        f = 23.456
-        assert '23' == '%d' % f
+        f = -23.456
+        assert '-23' == '%d' % f
+        assert '-23' == '%i' % f
+        assert '-23' == '%u' % f
         raises(TypeError, "'%x' % f")
-        assert '23.456' == '%s' % f
+        raises(TypeError, "'%X' % f")
+        raises(TypeError, "'%o' % f")
+        assert '-23.456' == '%s' % f
         # for 'r' use a float that has an exact decimal rep:
         g = 23.125
         assert '23.125' == '%r' % g
@@ -194,6 +198,7 @@ class AppTestStringObject:
         exc = raises(TypeError, "%x".__mod__, IndexFails())
         expected = "%x format: an integer is required, not IndexFails"
         assert str(exc.value) == expected
+        raises(TypeError, "%c".__mod__, IndexFails())
 
     def test_formatting_huge_precision(self):
         prec = 2**31
