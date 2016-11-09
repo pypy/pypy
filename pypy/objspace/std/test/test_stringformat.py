@@ -80,7 +80,7 @@ class AppTestStringObject:
     def test_format_float(self):
         f = 23.456
         assert '23' == '%d' % f
-        assert '17' == '%x' % f
+        raises(TypeError, "'%x' % f")
         assert '23.456' == '%s' % f
         # for 'r' use a float that has an exact decimal rep:
         g = 23.125
@@ -175,29 +175,31 @@ class AppTestStringObject:
         raises(TypeError, '%c'.__mod__, ("",))
         raises(TypeError, '%c'.__mod__, (['c'],))
 
-    def test___int__(self):
+    def test___int__index__(self):
         class MyInt(object):
             def __init__(self, x):
                 self.x = x
             def __int__(self):
                 return self.x
-        x = MyInt(65)
-        assert '%c' % x == 'A'
+        x = MyInt(33)
+        raises(TypeError, "'%c' % x")
+        MyInt.__index__ = lambda self: self.x * 2
+        assert '%c' % x == 'B'
 
-    def test_int_fails(self):
-        class IntFails(object):
-            def __int__(self):
+    def test_index_fails(self):
+        class IndexFails(object):
+            def __index__(self):
                 raise Exception
 
-        exc = raises(TypeError, "%x".__mod__, IntFails())
-        expected = "%x format: a number is required, not IntFails"
+        exc = raises(TypeError, "%x".__mod__, IndexFails())
+        expected = "%x format: an integer is required, not IndexFails"
         assert str(exc.value) == expected
 
     def test_formatting_huge_precision(self):
         prec = 2**31
         format_string = "%.{}f".format(prec)
         exc = raises(ValueError, "format_string % 2.34")
-        assert str(exc.value) == 'prec too big'
+        assert str(exc.value) == 'precision too big'
         raises(OverflowError, lambda: u'%.*f' % (prec, 1. / 7))
 
     def test_formatting_huge_width(self):
@@ -317,7 +319,7 @@ class AppTestUnicodeObject:
         prec = 2**31
         format_string = u"%.{}f".format(prec)
         exc = raises(ValueError, "format_string % 2.34")
-        assert str(exc.value) == 'prec too big'
+        assert str(exc.value) == 'precision too big'
         raises(OverflowError, lambda: u'%.*f' % (prec, 1. / 7))
 
     def test_formatting_huge_width(self):
