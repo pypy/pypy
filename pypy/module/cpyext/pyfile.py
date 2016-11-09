@@ -43,7 +43,7 @@ def PyFile_FromString(space, filename, mode):
     filename, with a file mode given by mode, where mode has the same
     semantics as the standard C routine fopen().  On failure, return NULL."""
     w_filename = space.newbytes(rffi.charp2str(filename))
-    w_mode = space.wrap(rffi.charp2str(mode))
+    w_mode = space.newtext(rffi.charp2str(mode))
     return space.call_method(space.builtin, 'file', w_filename, w_mode)
 
 @cpython_api([PyObject], FILEP, error=lltype.nullptr(FILEP.TO))
@@ -81,7 +81,7 @@ def PyFile_FromFile(space, fp, name, mode, close):
         raise oefmt(space.w_NotImplementedError, 
             'PyFromFile(..., close) with close function not implemented')
     w_ret = space.allocate_instance(W_File, space.gettypefor(W_File))
-    w_ret.w_name = space.wrap(rffi.charp2str(name))
+    w_ret.w_name = space.newtext(rffi.charp2str(name))
     w_ret.check_mode_ok(rffi.charp2str(mode))
     w_ret.fp = fp
     return w_ret
@@ -96,7 +96,7 @@ def PyFile_SetBufSize(space, w_file, n):
 def PyFile_WriteString(space, s, w_p):
     """Write string s to file object p.  Return 0 on success or -1 on
     failure; the appropriate exception will be set."""
-    w_str = space.wrap(rffi.charp2str(s))
+    w_str = space.newtext(rffi.charp2str(s))
     space.call_method(w_p, "write", w_str)
     return 0
 

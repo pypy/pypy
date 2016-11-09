@@ -83,7 +83,7 @@ def PyByteArray_Resize(space, w_obj, newlen):
             space.call_method(w_obj, 'extend', space.newbytes('\x00' * (newlen - oldlen)))
         elif oldlen > newlen:
             assert newlen >= 0
-            space.delslice(w_obj, space.wrap(newlen), space.wrap(oldlen))
+            space.delslice(w_obj, space.newint(newlen), space.newint(oldlen))
         return 0
     else:
         raise oefmt(space.w_TypeError,

@@ -60,7 +60,7 @@ def _Py_InitPyPyModule(space, name, methods, doc, w_self, apiver):
     state.package_context = None, None
 
     if f_path is not None:
-        dict_w = {'__file__': space.wrap(f_path)}
+        dict_w = {'__file__': space.newtext(f_path)}
     else:
         dict_w = {}
     convert_method_defs(space, dict_w, methods, None, w_self, modname)

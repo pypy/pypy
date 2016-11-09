@@ -34,9 +34,9 @@ def traceback_attach(space, py_obj, w_obj):
     if traceback.next is None:
         w_next_traceback = None
     else:
-        w_next_traceback = space.wrap(traceback.next)
+        w_next_traceback = traceback.next
     py_traceback.c_tb_next = rffi.cast(PyTracebackObject, make_ref(space, w_next_traceback))
-    py_traceback.c_tb_frame = rffi.cast(PyFrameObject, make_ref(space, space.wrap(traceback.frame)))
+    py_traceback.c_tb_frame = rffi.cast(PyFrameObject, make_ref(space, traceback.frame))
     rffi.setintfield(py_traceback, 'c_tb_lasti', traceback.lasti)
     rffi.setintfield(py_traceback, 'c_tb_lineno',traceback.get_lineno())
 
