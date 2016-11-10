@@ -53,15 +53,14 @@ class W_ZipCache(W_Root):
         except KeyError:
             raise OperationError(space.w_KeyError, space.newtext(name))
         assert isinstance(w_zipimporter, W_ZipImporter)
-        w = space.wrap
         w_d = space.newdict()
         for key, info in w_zipimporter.zip_file.NameToInfo.iteritems():
             if ZIPSEP != os.path.sep:
                 key = key.replace(ZIPSEP, os.path.sep)
             space.setitem(w_d, space.newtext(key), space.newtuple([
-                w(info.filename), w(info.compress_type), w(info.compress_size),
-                w(info.file_size), w(info.file_offset), w(info.dostime),
-                w(info.dosdate), w(info.CRC)]))
+                space.newtext(info.filename), space.newint(info.compress_type), space.newint(info.compress_size),
+                space.newint(info.file_size), space.newint(info.file_offset), space.newint(info.dostime),
+                space.newint(info.dosdate), space.newint(info.CRC)]))
         return w_d
 
     def keys(self, space):
@@ -74,7 +73,6 @@ class W_ZipCache(W_Root):
         return space.newlist(values_w)
 
     def items(self, space):
-        w = space.wrap
         items_w = [space.newtuple([space.newtext(key), self.getitem(space, key)])
                    for key in self.cache.keys()]
         return space.newlist(items_w)
@@ -145,7 +143,6 @@ class W_ZipImporter(W_Root):
             return fname
 
     def import_py_file(self, space, modname, filename, buf, pkgpath):
-        w = space.wrap
         w_mod = Module(space, space.newtext(modname))
         real_name = self.filename + os.path.sep + self.corr_zname(filename)
         space.setattr(w_mod, space.newtext('__loader__'), self)
