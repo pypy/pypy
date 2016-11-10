@@ -361,19 +361,19 @@ def get_stats_snapshot(space):
     w_times = space.newdict()
     if ll_times:
         for i in range(len(ll_times)):
-            w_key = space.newtuple([space.wrap(ll_times[i].type),
-                                    space.wrap(ll_times[i].number)])
+            w_key = space.newtuple([space.newtext(ll_times[i].type),
+                                    space.newint(ll_times[i].number)])
             space.setitem(w_times, w_key,
-                          space.wrap(ll_times[i].counter))
+                          space.newint(ll_times[i].counter))
     w_counters = space.newdict()
     for i, counter_name in enumerate(Counters.counter_names):
         v = jit_hooks.stats_get_counter_value(None, i)
-        space.setitem_str(w_counters, counter_name, space.wrap(v))
+        space.setitem_str(w_counters, counter_name, space.newint(v))
     w_counter_times = space.newdict()
     tr_time = jit_hooks.stats_get_times_value(None, Counters.TRACING)
-    space.setitem_str(w_counter_times, 'TRACING', space.wrap(tr_time))
+    space.setitem_str(w_counter_times, 'TRACING', space.newfloat(tr_time))
     b_time = jit_hooks.stats_get_times_value(None, Counters.BACKEND)
-    space.setitem_str(w_counter_times, 'BACKEND', space.wrap(b_time))
+    space.setitem_str(w_counter_times, 'BACKEND', space.newfloat(b_time))
     return W_JitInfoSnapshot(space, w_times, w_counters, w_counter_times)
 
 def get_stats_asmmemmgr(space):
