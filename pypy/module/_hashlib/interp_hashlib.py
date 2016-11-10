@@ -24,32 +24,25 @@ def hash_name_mapper_callback(obj_name, userdata):
     # algorithms.
     if rffi.cast(lltype.Signed, obj_name[0].c_alias):
         return
-    try:
-        space = global_name_fetcher.space
-        w_name = space.wrap(rffi.charp2str(obj_name[0].c_name))
-        global_name_fetcher.meth_names.append(w_name)
-    except OperationError as e:
-        global_name_fetcher.w_error = e
+    name = rffi.charp2str(obj_name[0].c_name)
+    global_name_fetcher.meth_names.append(name)
 
 class NameFetcher:
-    def setup(self, space):
-        self.space = space
+    def setup(self):
         self.meth_names = []
-        self.w_error = None
     def _cleanup_(self):
         self.__dict__.clear()
 global_name_fetcher = NameFetcher()
 
 def fetch_names(space):
-    global_name_fetcher.setup(space)
+    global_name_fetcher.setup()
     ropenssl.init_digests()
     ropenssl.OBJ_NAME_do_all(ropenssl.OBJ_NAME_TYPE_MD_METH,
                              hash_name_mapper_callback, None)
-    if global_name_fetcher.w_error:
-        raise global_name_fetcher.w_error
     meth_names = global_name_fetcher.meth_names
     global_name_fetcher.meth_names = None
-    return space.call_function(space.w_frozenset, space.newlist(meth_names))
+    return space.call_function(space.w_frozenset, space.newlist(
+        [space.newtext(name) for name in meth_names]))
 
 class W_Hash(W_Root):
     NULL_CTX = lltype.nullptr(ropenssl.EVP_MD_CTX.TO)
