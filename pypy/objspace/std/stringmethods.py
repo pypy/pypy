@@ -280,8 +280,6 @@ class StringMethods(object):
     def descr_rindex(self, space, w_sub, w_start=None, w_end=None):
         (value, start, end) = self._convert_idx_params(space, w_start, w_end)
 
-        from pypy.objspace.std.bytearrayobject import W_BytearrayObject
-        from pypy.objspace.std.bytesobject import W_BytesObject
         sub = self._op_val(space, w_sub, allow_char=True)
         if self._use_rstr_ops(space, w_sub):
             res = value.rfind(sub, start, end)
