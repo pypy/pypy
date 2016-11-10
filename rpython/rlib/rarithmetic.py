@@ -340,7 +340,10 @@ class base_int(long):
     def __mul__(self, other):
         x = long(self)
         y = other      # may be a float
-        return self._widen(other, x * y)
+        z = x * y
+        if isinstance(z, (int, long)):
+            z = self._widen(other, z)
+        return z
     __rmul__ = __mul__
 
     def __div__(self, other):
