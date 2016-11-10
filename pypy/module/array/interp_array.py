@@ -716,9 +716,15 @@ def make_array(mytype):
                 if mytype.method != '' and e.match(space, space.w_TypeError):
                     try:
                         item = unwrap(space.call_method(w_item, mytype.method))
-                    except OperationError:
-                        raise oefmt(space.w_TypeError,
-                                    "array item must be " + mytype.unwrap[:-2])
+                    except OperationError as e:
+                        if e.async(space):
+                            raise
+                        if space.isinstance_w(w_item, space.w_unicode):
+                            msg = ("cannot use a str to initialize an array"
+                                   " with typecode '" + mytype.typecode + "'")
+                        else:
+                            msg = "array item must be " + mytype.unwrap[:-2]
+                        raise OperationError(space.w_TypeError, space.wrap(msg))
                 else:
                     raise
             if mytype.convert:
