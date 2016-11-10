@@ -2,8 +2,9 @@ import math
 from rpython.rlib.objectmodel import specialize
 from rpython.tool.sourcetools import func_with_new_name
 from pypy.interpreter.error import oefmt
+from pypy.interpreter.gateway import unwrap_spec
 from pypy.module.cmath import names_and_docstrings
-from rpython.rlib import rcomplex
+from rpython.rlib import rcomplex, rfloat
 
 pi = math.pi
 e  = math.e
@@ -174,3 +175,54 @@ def wrapped_isfinite(space, w_z):
     res = c_isfinite(x, y)
     return space.newbool(res)
 wrapped_isfinite.func_doc = names_and_docstrings['isfinite']
+
+
+@unwrap_spec(rel_tol=float, abs_tol=float)
+def isclose(space, w_a, w_b, __kwonly__, rel_tol=1e-09, abs_tol=0.0):
+    """isclose(a, b, *, rel_tol=1e-09, abs_tol=0.0) -> bool
+
+Determine whether two complex numbers are close in value.
+
+   rel_tol
+       maximum difference for being considered "close", relative to the
+       magnitude of the input values
+   abs_tol
+       maximum difference for being considered "close", regardless of the
+       magnitude of the input values
+
+Return True if a is close in value to b, and False otherwise.
+
+For the values to be considered close, the difference between them
+must be smaller than at least one of the tolerances.
+
+-inf, inf and NaN behave similarly to the IEEE 754 Standard.  That
+is, NaN is not close to anything, even itself.  inf and -inf are
+only close to themselves."""
+    ax, ay = space.unpackcomplex(w_a)
+    bx, by = space.unpackcomplex(w_b)
+    #
+    # sanity check on the inputs
+    if rel_tol < 0.0 or abs_tol < 0.0:
+        raise oefmt(space.w_ValueError, "tolerances must be non-negative")
+    #
+    # short circuit exact equality -- needed to catch two infinities of
+    # the same sign. And perhaps speeds things up a bit sometimes.
+    if ax == bx and ay == by:
+        return space.w_True
+    #
+    # This catches the case of two infinities of opposite sign, or
+    # one infinity and one finite number. Two infinities of opposite
+    # sign would otherwise have an infinite relative tolerance.
+    # Two infinities of the same sign are caught by the equality check
+    # above.
+    if (rfloat.isinf(ax) or rfloat.isinf(ay) or
+        rfloat.isinf(bx) or rfloat.isinf(by)):
+        return space.w_False
+    #
+    # now do the regular computation
+    # this is essentially the "weak" test from the Boost library
+    diff = c_abs(bx - ax, by - ay)
+    result = ((diff <= rel_tol * c_abs(bx, by) or
+               diff <= rel_tol * c_abs(ax, ay)) or
+              diff <= abs_tol)
+    return space.newbool(result)
