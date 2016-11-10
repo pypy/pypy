@@ -297,7 +297,7 @@ handle what occurs if the Python function raises an exception
         #
         # returns a single-argument function
         space = self.space
-        w_ffi = space.wrap(self)
+        w_ffi = self
         w_decorator = call_python.get_generic_decorator(space)
         return space.appexec([w_decorator, w_ffi, w_name, w_error, w_onerror],
         """(decorator, ffi, name, error, onerror):
@@ -405,7 +405,7 @@ variable name, or '*' to get actually the C type 'pointer-to-cdecl'."""
                 result += ')'
             result += w_ctype.name[w_ctype.name_position:]
         # Python 3: bytes -> unicode string
-        return self.space.wrap(result)
+        return self.space.newtext(result)
 
 
     @unwrap_spec(code=int)
@@ -518,7 +518,7 @@ values which correspond to array items, in case of an array type."""
             _, offset = w_ctype.direct_typeoffsetof(w_field_or_array, False)
         else:
             offset = self._more_offsetof(w_ctype, w_field_or_array, args_w)
-        return self.space.wrap(offset)
+        return self.space.newint(offset)
 
 
     @unwrap_spec(w_cdata=W_CData, maxlen=int)
@@ -574,7 +574,7 @@ It can be a string naming a C type, or a 'cdata' instance."""
             if size < 0:
                 raise oefmt(self.w_FFIError,
                             "don't know the size of ctype '%s'", w_ctype.name)
-        return self.space.wrap(size)
+        return self.space.newint(size)
 
 
     def descr_typeof(self, w_arg):
@@ -642,7 +642,7 @@ This returns a tuple containing three lists of names:
         lst1_w = []
         for i in range(rffi.getintfield(ctx, 'c_num_typenames')):
             s = rffi.charp2str(ctx.c_typenames[i].c_name)
-            lst1_w.append(space.wrap(s))
+            lst1_w.append(space.newtext(s))
 
         lst2_w = []
         lst3_w = []
@@ -655,7 +655,7 @@ This returns a tuple containing three lists of names:
                 lst_w = lst3_w
             else:
                 lst_w = lst2_w
-            lst_w.append(space.wrap(s))
+            lst_w.append(space.newtext(s))
 
         return space.newtuple([space.newlist(lst1_w),
                                space.newlist(lst2_w),
@@ -734,7 +734,7 @@ def make_plain_ffi_object(space, w_ffitype=None):
     return r
 
 def W_FFIObject___new__(space, w_subtype, __args__):
-    return space.wrap(make_plain_ffi_object(space, w_subtype))
+    return make_plain_ffi_object(space, w_subtype)
 
 def make_CData(space):
     return space.gettypefor(W_CData)
@@ -744,7 +744,7 @@ def make_CType(space):
 
 def make_NULL(space):
     ctvoidp = newtype._new_voidp_type(space)
-    w_NULL = ctvoidp.cast(space.wrap(0))
+    w_NULL = ctvoidp.cast(space.newint(0))
     return w_NULL
 
 def make_error(space):

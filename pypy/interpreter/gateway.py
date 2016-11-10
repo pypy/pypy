@@ -986,7 +986,7 @@ class interp2app(W_Root):
 
     # lazy binding to space
 
-    def __spacebind__(self, space):
+    def spacebind(self, space):
         # we first make a real Function object out of it
         # and the result is a wrapped version of this Function.
         return self.get_function(space)

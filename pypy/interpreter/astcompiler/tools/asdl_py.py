@@ -437,7 +437,7 @@ class _FieldsWrapper(W_Root):
     def __init__(self, fields):
         self.fields = fields
 
-    def __spacebind__(self, space):
+    def spacebind(self, space):
         return space.newtuple([space.newtext(field) for field in self.fields])
 
 

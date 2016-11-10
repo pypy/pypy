@@ -1132,7 +1132,7 @@ class Cache:
         self.w_sslerror = space.new_exception_class(
             "_ssl.SSLError", w_socketerror)
         space.setattr(self.w_sslerror, space.newtext('__str__'),
-                      interp2app(SSLError_descr_str).__spacebind__(space))
+                      interp2app(SSLError_descr_str).spacebind(space))
         self.w_sslzeroreturnerror = space.new_exception_class(
             "_ssl.SSLZeroReturnError", self.w_sslerror)
         self.w_sslwantreaderror = space.new_exception_class(
