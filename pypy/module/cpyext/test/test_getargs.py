@@ -200,3 +200,16 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             return PyLong_FromSsize_t(y);
             ''', PY_SSIZE_T_CLEAN=True)
         assert charbuf(b'12345') == 5
+
+    def test_pyarg_parse_with_py_ssize_t_bytes(self):
+        charbuf = self.import_parser(
+            '''
+            char *buf;
+            Py_ssize_t len = -1;
+            if (!PyArg_ParseTuple(args, "y#", &buf, &len)) {
+                return NULL;
+            }
+            return PyBytes_FromStringAndSize(buf, len);
+            ''', PY_SSIZE_T_CLEAN=True)
+        assert type(charbuf(b'12345')) is bytes
+        assert charbuf(b'12345') == b'12345'
