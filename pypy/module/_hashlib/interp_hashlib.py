@@ -88,7 +88,7 @@ class W_Hash(W_Root):
 
     def descr_repr(self, space):
         addrstring = self.getaddrstring(space)
-        return space.wrap("<%s HASH object at 0x%s>" % (
+        return space.newtext("<%s HASH object at 0x%s>" % (
             self.name, addrstring))
 
     @unwrap_spec(string='bufferstr')
@@ -116,18 +116,18 @@ class W_Hash(W_Root):
         for c in digest:
             result.append(hexdigits[(ord(c) >> 4) & 0xf])
             result.append(hexdigits[ ord(c)       & 0xf])
-        return space.wrap(result.build())
+        return space.newtext(result.build())
 
     def get_digest_size(self, space):
-        return space.wrap(self.digest_size)
+        return space.newint(self.digest_size)
 
     def get_block_size(self, space):
         digest_type = self.digest_type_by_name(space)
         block_size = ropenssl.EVP_MD_block_size(digest_type)
-        return space.wrap(block_size)
+        return space.newint(block_size)
 
     def get_name(self, space):
-        return space.wrap(self.name)
+        return space.newtext(self.name)
 
     def _digest(self, space):
         ctx = ropenssl.EVP_MD_CTX_new()
@@ -164,7 +164,7 @@ W_Hash.typedef.acceptable_as_base_class = False
 def new(space, name, string=''):
     w_hash = W_Hash(space, name)
     w_hash.update(space, string)
-    return space.wrap(w_hash)
+    return w_hash
 
 # shortcut functions
 def make_new_hash(name, funcname):
@@ -200,4 +200,4 @@ if HAS_FAST_PKCS5_PBKDF2_HMAC:
                 dklen, buf.raw)
             if not r:
                 raise ValueError
-            return space.wrap(buf.str(dklen))
+            return space.newbytes(buf.str(dklen))
