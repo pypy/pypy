@@ -206,4 +206,4 @@ if HAS_FAST_PKCS5_PBKDF2_HMAC:
                 dklen, buf.raw)
             if not r:
                 raise ValueError
-            return space.wrap(buf.str(dklen))
+            return space.newbytes(buf.str(dklen))
