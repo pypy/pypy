@@ -1,5 +1,8 @@
 import sys
-from _operator import index
+try:
+    from _operator import index
+except ImportError:
+    pass      # for tests only
 
 def factorial(x):
     """factorial(x) -> Integral
