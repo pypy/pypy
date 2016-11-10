@@ -41,6 +41,7 @@ class AppTestSemaphore:
         assert sem.kind == kind
         assert sem.maxvalue == maxvalue
         assert isinstance(sem.handle, int)
+        assert sem.name is None
 
         assert sem._count() == 0
         if sys.platform == 'darwin':
