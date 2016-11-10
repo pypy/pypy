@@ -668,6 +668,12 @@ class AppTestSysModulePortedFromCPython:
         # be changed.
         assert sys.float_repr_style == "short"
 
+    def test_is_finalizing(self):
+        import sys
+        assert not sys.is_finalizing()
+        # xxx should also test when it is True, but maybe not worth the effort
+
+
 class AppTestSysSettracePortedFromCpython(object):
     def test_sys_settrace(self):
         import sys

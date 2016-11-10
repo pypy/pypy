@@ -443,6 +443,7 @@ class ObjSpace(object):
         self.wait_for_thread_shutdown()
         w_atexit = self.getbuiltinmodule('atexit')
         self.call_method(w_atexit, '_run_exitfuncs')
+        self.sys.finalizing = True
         self.sys.flush_std_files(self)
         from pypy.interpreter.module import Module
         for w_mod in self.builtin_modules.values():
