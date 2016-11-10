@@ -511,20 +511,6 @@ def new_exception_class(space, name, w_bases=None, w_dict=None):
         space.setattr(w_exc, space.wrap("__module__"), space.wrap(module))
     return w_exc
 
-def _convert_unexpected_exception_extra(space, e):
-    "NOT_RPYTHON"
-    if e.__class__.__name__ in (
-        'Skipped',     # list of exception class names that are ok
-        ):             # to get during ==untranslated tests== only
-        raise
-    # include the RPython-level traceback
-    exc = sys.exc_info()
-    import traceback, cStringIO
-    f = cStringIO.StringIO()
-    print >> f, "\nTraceback (interpreter-level):"
-    traceback.print_tb(exc[2], file=f)
-    return f.getvalue()
-
 @jit.dont_look_inside
 def get_converted_unexpected_exception(space, e):
     """This is used in two places when we get an non-OperationError
@@ -562,7 +548,9 @@ def get_converted_unexpected_exception(space, e):
             debug_print_traceback()
             extra = '; internal traceback was dumped to stderr'
         else:
-            extra = _convert_unexpected_exception_extra(space, e)
+            # when untranslated, we don't wrap into an app-level
+            # SystemError (this makes debugging tests harder)
+            raise
         return OperationError(space.w_SystemError, space.wrap(
             "unexpected internal exception (please report a bug): %r%s" %
             (e, extra)))
