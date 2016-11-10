@@ -187,7 +187,7 @@ for _name in algorithms:
 
 HAS_FAST_PKCS5_PBKDF2_HMAC = ropenssl.PKCS5_PBKDF2_HMAC is not None
 if HAS_FAST_PKCS5_PBKDF2_HMAC:
-    @unwrap_spec(name=str, password=str, salt=str, rounds=int,
+    @unwrap_spec(name=str, password='bytes', salt='bytes', rounds=int,
                  w_dklen=WrappedDefault(None))
     def pbkdf2_hmac(space, name, password, salt, rounds, w_dklen):
         digest = ropenssl.EVP_get_digestbyname(name)
