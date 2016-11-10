@@ -22,8 +22,8 @@ FORCE_ATTRIBUTES_INTO_CLASSES[curses_error] = {'msg': SomeString()}
 def convert_error(space, error):
     msg = error.msg
     w_module = space.getbuiltinmodule('_minimal_curses')
-    w_exception_class = space.getattr(w_module, space.wrap('error'))
-    w_exception = space.call_function(w_exception_class, space.wrap(msg))
+    w_exception_class = space.getattr(w_module, space.newtext('error'))
+    w_exception = space.call_function(w_exception_class, space.newtext(msg))
     return OperationError(w_exception_class, w_exception)
 
 def _curses_setupterm_null(fd):
@@ -44,9 +44,9 @@ def _curses_setupterm(termname, fd):
 def setupterm(space, w_termname=None, fd=-1):
     if fd == -1:
         w_stdout = space.getattr(space.getbuiltinmodule('sys'),
-                                 space.wrap('stdout'))
+                                 space.newtext('stdout'))
         fd = space.int_w(space.call_function(space.getattr(w_stdout,
-                                             space.wrap('fileno'))))
+                                             space.newtext('fileno'))))
     try:
         if space.is_none(w_termname):
             _curses_setupterm_null(fd)
