@@ -274,7 +274,8 @@ def register_builtin_error_handlers(space):
     for error in ("strict", "ignore", "replace", "xmlcharrefreplace",
                   "backslashreplace"):
         name = error + "_errors"
-        state.codec_error_registry[error] = space.wrap(interp2app(globals()[name]))
+        state.codec_error_registry[error] = interp2app(
+                globals()[name]).spacebind(space)
 
 
 @unwrap_spec(errors=str)
