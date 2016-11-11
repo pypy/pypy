@@ -421,4 +421,4 @@ Windows 64 support, we encourage you to volunteer `to make it happen`_! Another
 option would be to pay some PyPy developers to implement Windows 64 support,
 but so far there doesn't seem to be an overwhelming commercial interest in it.
 
-.. _`to make it happen`: http://doc.pypy.org/en/latest/windows.html#what-is-missing-for-a-full-64-bit-translation
+.. _`to make it happen`: windows.html#what-is-missing-for-a-full-64-bit-translation
