@@ -80,6 +80,9 @@ class W_MemoryView(W_Root):
 
     @staticmethod
     def descr_new_memoryview(space, w_subtype, w_object):
+        if isinstance(w_object, W_MemoryView):
+            w_object._check_released(space)
+            return W_MemoryView.copy(w_object)
         return W_MemoryView(*space.buffer_w_ex(w_object, space.BUF_FULL_RO))
 
     def _make_descr__cmp(name):
