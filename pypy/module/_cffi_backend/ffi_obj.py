@@ -262,7 +262,7 @@ It can be a string naming a C type, or a 'cdata' instance."""
         #
         w_ctype = self.ffi_type(w_arg, ACCEPT_ALL)
         align = w_ctype.alignof()
-        return self.space.wrap(align)
+        return self.space.newint(align)
 
 
     @unwrap_spec(w_cdata=W_CData, size=int)

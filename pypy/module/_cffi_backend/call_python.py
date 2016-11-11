@@ -130,4 +130,4 @@ def externpy_not_found(ffi, name):
 
 @specialize.memo()
 def get_generic_decorator(space):
-    return space.wrap(interp2app(externpy_deco)) # init time
+    return interp2app(externpy_deco).spacebind(space)
