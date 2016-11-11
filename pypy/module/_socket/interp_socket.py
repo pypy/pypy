@@ -24,8 +24,8 @@ def addr_as_object(addr, fd, space):
     elif isinstance(addr, rsocket.INET6Address):
         return space.newtuple([space.newtext(addr.get_host()),
                                space.newint(addr.get_port()),
-                               space.wrap(addr.get_flowinfo()), # YYY
-                               space.wrap(addr.get_scope_id())]) # YYY
+                               space.newint(addr.get_flowinfo()),
+                               space.newint(addr.get_scope_id())])
     elif rsocket.HAS_AF_PACKET and isinstance(addr, rsocket.PacketAddress):
         return space.newtuple([space.newtext(addr.get_ifname(fd)),
                                space.newint(addr.get_protocol()),
@@ -556,7 +556,7 @@ class W_Socket(W_Root):
                 if value_ptr:
                     lltype.free(value_ptr, flavor='raw')
 
-            return space.wrap(recv_ptr[0]) # YYY
+            return space.newint(recv_ptr[0])
         finally:
             lltype.free(recv_ptr, flavor='raw')
 
