@@ -41,6 +41,18 @@ def w_array(space, w_cls, typecode, __args__):
 
     if len(__args__.arguments_w) > 0:
         w_initializer = __args__.arguments_w[0]
+        if tc != 'u':
+            if space.isinstance_w(w_initializer, space.w_unicode):
+                raise oefmt(
+                    space.w_TypeError,
+                    "cannot use a str to initialize an array with "
+                    "typecode '%s'", tc)
+            elif (isinstance(w_initializer, W_ArrayBase)
+                    and w_initializer.typecode == 'u'):
+                raise oefmt(
+                    space.w_TypeError,
+                    "cannot use a unicode array to initialize an array with "
+                    "typecode '%s'", tc)
         if isinstance(w_initializer, W_ArrayBase):
             a.extend(w_initializer, True)
         elif space.type(w_initializer) is space.w_list:
@@ -719,11 +731,7 @@ def make_array(mytype):
                     except OperationError as e:
                         if e.async(space):
                             raise
-                        if space.isinstance_w(w_item, space.w_unicode):
-                            msg = ("cannot use a str to initialize an array"
-                                   " with typecode '" + mytype.typecode + "'")
-                        else:
-                            msg = "array item must be " + mytype.unwrap[:-2]
+                        msg = "array item must be " + mytype.unwrap[:-2]
                         raise OperationError(space.w_TypeError, space.wrap(msg))
                 else:
                     raise
