@@ -253,7 +253,8 @@ class PyPyTarget(object):
                 raise Exception("Cannot use the --output option with PyPy "
                                 "when --shared is on (it is by default). "
                                 "See issue #1971.")
-            if config.translation.profopt is not None:
+            if (config.translation.profopt is not None
+                    and not config.translation.noprofopt):
                 raise Exception("Cannot use the --profopt option "
                                 "when --shared is on (it is by default). "
                                 "See issue #2398.")
