@@ -239,6 +239,21 @@ class AppTestMemoryView:
         m3[1:5:2] = memoryview(b"xyXY").cast('h')
         assert data == bytearray(eval("b'abxyefXYij'"))
 
+    def test_cast_and_slice(self):
+        import array
+        data = array.array('h', [1, 2])
+        m = memoryview(memoryview(data).cast('B'))
+        assert len(m[2:4:1]) == 2
+
+    def test_cast_and_view(self):
+        import array
+        data = array.array('h', [1, 2])
+        m1 = memoryview(data).cast('B')
+        m2 = memoryview(m1)
+        assert m2.strides == m1.strides
+        assert m2.itemsize == m1.itemsize
+        assert m2.shape == m1.shape
+
 class MockBuffer(Buffer):
     def __init__(self, space, w_arr, w_dim, w_fmt, \
                  w_itemsize, w_strides, w_shape):
