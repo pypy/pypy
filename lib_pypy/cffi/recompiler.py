@@ -392,7 +392,7 @@ class Recompiler:
         #
         # the init function
         prnt('#ifdef PYPY_VERSION')
-        prnt('void')
+        prnt('PyMODINIT_FUNC')
         prnt('_cffi_pypyinit_%s(const void *p[])' % (base_module_name,))
         prnt('{')
         if self._num_externpy:
