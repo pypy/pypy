@@ -241,7 +241,7 @@ class OperationError(Exception):
             if with_traceback:
                 w_t = self.w_type
                 w_v = self.get_w_value(space)
-                w_tb = self.get_traceback()
+                w_tb = self.get_w_traceback(space)
                 space.appexec([space.newtext(where),
                                space.newtext(objrepr),
                                space.newtext(extra_line),
@@ -284,6 +284,13 @@ class OperationError(Exception):
         tb = self._application_traceback
         if tb is not None and isinstance(tb, PyTraceback):
             tb.frame.mark_as_escaped()
+        return tb
+
+    def get_w_traceback(self, space):
+        """Return a traceback or w_None. """
+        tb = self.get_traceback()
+        if tb is None:
+            return space.w_None
         return tb
 
     def set_traceback(self, traceback):

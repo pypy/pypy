@@ -183,7 +183,7 @@ class W_ExternPython(W_CData):
                 e.normalize_exception(space)
                 w_t = e.w_type
                 w_v = e.get_w_value(space)
-                w_tb = space.wrap(e.get_traceback())
+                w_tb = e.get_w_traceback(space)
                 w_res = space.call_function(self.w_onerror, w_t, w_v, w_tb)
                 if not space.is_none(w_res):
                     self.convert_result(ll_res, w_res)

@@ -1148,7 +1148,7 @@ class __extend__(pyframe.PyFrame):
             # app-level exception
             operr = w_unroller.operr
             self.last_exception = operr
-            w_traceback = operr.get_traceback()
+            w_traceback = operr.get_w_traceback(self.space)
             w_suppress = self.call_contextmanager_exit_function(
                 w_exitfunc,
                 operr.w_type,

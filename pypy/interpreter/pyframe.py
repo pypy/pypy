@@ -443,7 +443,7 @@ class PyFrame(W_Root):
             w_tb = space.w_None
         else:
             w_exc_value = self.last_exception.get_w_value(space)
-            w_tb = w(self.last_exception.get_traceback())
+            w_tb = self.last_exception.get_w_traceback(space)
 
         d = self.getorcreatedebug()
         tup_state = [
@@ -858,7 +858,7 @@ class PyFrame(W_Root):
             while f is not None and f.last_exception is None:
                 f = f.f_backref()
             if f is not None:
-                return f.last_exception.get_traceback()
+                return f.last_exception.get_w_traceback(space)
         return space.w_None
 
     def fget_f_restricted(self, space):

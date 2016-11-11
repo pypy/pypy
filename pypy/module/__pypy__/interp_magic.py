@@ -73,7 +73,7 @@ def get_hidden_tb(space):
     frame hidden from applevel.
     """
     operr = space.getexecutioncontext().sys_exc_info(for_hidden=True)
-    return space.w_None if operr is None else operr.get_traceback()
+    return space.w_None if operr is None else operr.get_w_traceback(space)
 
 @unwrap_spec(meth=str)
 def lookup_special(space, w_obj, meth):

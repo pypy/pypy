@@ -161,7 +161,7 @@ class Module(MixedModule):
             if operror is None:
                 return space.w_None
             else:
-                return operror.get_traceback()
+                return operror.get_w_traceback(space)
         return None
 
     def get_w_default_encoder(self):

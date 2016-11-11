@@ -58,7 +58,7 @@ def PyErr_Fetch(space, ptype, pvalue, ptraceback):
     if operror:
         ptype[0] = make_ref(space, operror.w_type)
         pvalue[0] = make_ref(space, operror.get_w_value(space))
-        ptraceback[0] = make_ref(space, operror.get_traceback())
+        ptraceback[0] = make_ref(space, operror.get_w_traceback(space))
     else:
         ptype[0] = lltype.nullptr(PyObject.TO)
         pvalue[0] = lltype.nullptr(PyObject.TO)
@@ -286,7 +286,7 @@ def PyErr_PrintEx(space, set_sys_last_vars):
 
     w_type = operror.w_type
     w_value = operror.get_w_value(space)
-    w_tb = operror.get_traceback()
+    w_tb = operror.get_w_traceback(space)
 
     if rffi.cast(lltype.Signed, set_sys_last_vars):
         space.sys.setdictvalue(space, "last_type", w_type)
@@ -373,7 +373,7 @@ def PyErr_GetExcInfo(space, ptype, pvalue, ptraceback):
     if operror:
         ptype[0] = make_ref(space, operror.w_type)
         pvalue[0] = make_ref(space, operror.get_w_value(space))
-        ptraceback[0] = make_ref(space, operror.get_traceback())
+        ptraceback[0] = make_ref(space, operror.get_w_traceback(space))
     else:
         ptype[0] = lltype.nullptr(PyObject.TO)
         pvalue[0] = lltype.nullptr(PyObject.TO)
