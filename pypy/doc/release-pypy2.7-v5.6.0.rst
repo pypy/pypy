@@ -72,7 +72,7 @@ This release supports:
   * **s390x** running Linux
 
 .. _`PyPy and CPython 2.7.x`: http://speed.pypy.org
-.. _`dynamic languages`: http://pypyjs.org
+.. _`dynamic languages`: http://rpython.readthedocs.io/en/latest/examples.html
 
 Other Highlights (since 5.4 released Aug 31, 2016)
 =========================================================
