@@ -12,8 +12,10 @@ Actively Developed:
   * RSqueak VM, Smalltalk, core complete, JIT working, graphics etc getting there, in active development https://github.com/HPI-SWA-Lab/RSqueak
   * Pixie, 'A small, fast, native lisp with "magical" powers', jitted, maintained, https://github.com/pixie-lang/pixie
   * Monte, 'A dynamic language inspired by Python and E.' has an rpython implementation, in active development, https://github.com/monte-language/typhon
+  * Typhon, 'A virtual machine for Monte', in active development, https://github.com/monte-language/typhon
   * Tulip, an untyped functional language, in language design mode, maintained, https://github.com/tulip-lang/tulip/
   * Pycket, a Racket implementation, proof of concept, small language core working, a lot of primitives are missing. Slow development https://github.com/samth/pycket
+  * Lever, a dynamic language with a modifiable grammer, actively developed, https://github.com/cheery/lever
 
 Complete, functioning, but inactive
 
