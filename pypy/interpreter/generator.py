@@ -224,8 +224,8 @@ return next yielded value or raise StopIteration."""
                                    consts.CO_ITERABLE_COROUTINE):
             e2 = OperationError(space.w_RuntimeError,
                                 space.wrap("%s raised StopIteration" %
-                                           self.KIND),
-                                w_cause=e.get_w_value(space))
+                                           self.KIND))
+            e2.chain_exceptions(space, e)
             e2.record_context(space, self.frame)
             raise e2
         else:

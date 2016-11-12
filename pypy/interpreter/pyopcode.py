@@ -707,8 +707,9 @@ class __extend__(pyframe.PyFrame):
             w_value = space.call_function(w_type)
         else:
             w_type = space.type(w_value)
-        operror = OperationError(w_type, w_value, w_cause=w_cause)
+        operror = OperationError(w_type, w_value)
         operror.normalize_exception(space)
+        operror.set_cause(space, w_cause)
         tb = space.getattr(w_value, space.wrap('__traceback__'))
         if not space.is_w(tb, space.w_None):
             operror.set_traceback(tb)

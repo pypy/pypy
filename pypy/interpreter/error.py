@@ -33,12 +33,10 @@ class OperationError(Exception):
     _w_value = None
     _application_traceback = None
     _context_recorded = False
-    w_cause = None
 
-    def __init__(self, w_type, w_value, tb=None, w_cause=None):
+    def __init__(self, w_type, w_value, tb=None):
         self.setup(w_type, w_value)
         self._application_traceback = tb
-        self.w_cause = w_cause
 
     def setup(self, w_type, w_value=None):
         assert w_type is not None
@@ -215,13 +213,6 @@ class OperationError(Exception):
                         # raise Type, X: assume X is the constructor argument
                         w_value = space.call_function(w_type, w_value)
                     w_type = self._exception_getclass(space, w_value)
-            if self.w_cause:
-                # ensure w_cause is of a valid type
-                if space.is_none(self.w_cause):
-                    pass
-                else:
-                    self._exception_getclass(space, self.w_cause, "exception causes")
-                space.setattr(w_value, space.wrap("__cause__"), self.w_cause)
             if self._application_traceback:
                 from pypy.interpreter.pytraceback import PyTraceback
                 from pypy.module.exceptions.interp_exceptions import W_BaseException
@@ -318,6 +309,17 @@ class OperationError(Exception):
             tb.frame.mark_as_escaped()
         return tb
 
+    def set_cause(self, space, w_cause):
+        if w_cause is None:
+            return
+        # ensure w_cause is of a valid type
+        if space.is_none(w_cause):
+            pass
+        else:
+            self._exception_getclass(space, w_cause, "exception causes")
+        w_value = self.get_w_value(space)
+        space.setattr(w_value, space.wrap("__cause__"), w_cause)
+
     def set_traceback(self, traceback):
         """Set the current traceback."""
         self._application_traceback = traceback
@@ -340,14 +342,19 @@ class OperationError(Exception):
         last = frame._exc_info_unroll(space)
         try:
             if last is not None:
-                self.normalize_exception(space)
-                w_value = self.get_w_value(space)
-                w_last = last.get_w_value(space)
-                if not space.is_w(w_value, w_last):
-                    _break_context_cycle(space, w_value, w_last)
-                    space.setattr(w_value, space.wrap('__context__'), w_last)
+                self.chain_exceptions(space, last)
         finally:
             self._context_recorded = True
+
+    def chain_exceptions(self, space, context):
+        """Attach another OperationError as __context__."""
+        self.normalize_exception(space)
+        w_value = self.get_w_value(space)
+        context.normalize_exception(space)
+        w_context = context.get_w_value(space)
+        if not space.is_w(w_value, w_context):
+            _break_context_cycle(space, w_value, w_context)
+            space.setattr(w_value, space.wrap('__context__'), w_context)
 
     # A simplified version of _PyErr_TrySetFromCause, which returns a
     # new exception of the same class, but with another error message.
@@ -376,8 +383,8 @@ class OperationError(Exception):
         try:
             new_error = oefmt(space.type(w_value),
                               "%s (%T: %S)", message, w_value, w_value)
-            new_error.w_cause = w_value
             new_error.normalize_exception(space)
+            new_error.set_cause(space, w_value)
             # Copy the traceback, but it does not escape.
             new_error.set_traceback(self._application_traceback)
         except OperationError:
