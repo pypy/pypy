@@ -15,7 +15,7 @@ Actively Developed:
   * Typhon, 'A virtual machine for Monte', in active development, https://github.com/monte-language/typhon
   * Tulip, an untyped functional language, in language design mode, maintained, https://github.com/tulip-lang/tulip/
   * Pycket, a Racket implementation, proof of concept, small language core working, a lot of primitives are missing. Slow development https://github.com/samth/pycket
-  * Lever, a dynamic language with a modifiable grammer, actively developed, https://github.com/cheery/lever
+  * Lever, a dynamic language with a modifiable grammar, actively developed, https://github.com/cheery/lever
 
 Complete, functioning, but inactive
 
