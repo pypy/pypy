@@ -805,6 +805,8 @@ class TestGateway:
         assert space.unwrap(space.getattr(w_g, space.wrap('__doc__'))) == 'bar'
 
     def test_system_error(self):
+        py.test.skip("we don't wrap a random exception inside SystemError "
+                     "when untranslated, because it makes testing harder")
         class UnexpectedException(Exception):
             pass
         space = self.space
@@ -820,6 +822,8 @@ class TestGateway:
                 'report a bug): UnexpectedException') in err
 
     def test_system_error_2(self):
+        py.test.skip("we don't wrap a random exception inside SystemError "
+                     "when untranslated, because it makes testing harder")
         class UnexpectedException(Exception):
             pass
         space = self.space

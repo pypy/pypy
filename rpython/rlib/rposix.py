@@ -655,7 +655,8 @@ if not _WIN32:
     c_readdir = external('readdir', [DIRP], DIRENTP,
                          macro=True, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
     c_closedir = external('closedir', [DIRP], rffi.INT, releasegil=False)
-    c_dirfd = external('dirfd', [DIRP], rffi.INT, releasegil=False)
+    c_dirfd = external('dirfd', [DIRP], rffi.INT, releasegil=False,
+                       macro=True)
     c_ioctl_voidp = external('ioctl', [rffi.INT, rffi.UINT, rffi.VOIDP], rffi.INT,
                          save_err=rffi.RFFI_SAVE_ERRNO)
 else:

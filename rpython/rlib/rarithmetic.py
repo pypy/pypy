@@ -323,93 +323,165 @@ class base_int(long):
 
     def __add__(self, other):
         x = long(self)
-        y = other      # may be a float
+        if not isinstance(other, (int, long)):
+            return x + other
+        y = long(other)
         return self._widen(other, x + y)
-    __radd__ = __add__
+
+    def __radd__(self, other):
+        x = long(self)
+        if not isinstance(other, (int, long)):
+            return other + x
+        y = long(other)
+        return self._widen(other, x + y)
 
     def __sub__(self, other):
         x = long(self)
-        y = other      # may be a float
+        if not isinstance(other, (int, long)):
+            return x - other
+        y = long(other)
         return self._widen(other, x - y)
 
     def __rsub__(self, other):
         y = long(self)
-        x = other      # may be a float
+        if not isinstance(other, (int, long)):
+            return other - y
+        x = long(other)
         return self._widen(other, x - y)
 
     def __mul__(self, other):
         x = long(self)
-        y = other      # may be a float
+        if not isinstance(other, (int, long)):
+            return x * other
+        y = long(other)
         return self._widen(other, x * y)
-    __rmul__ = __mul__
+
+    def __rmul__(self, other):
+        x = long(self)
+        if not isinstance(other, (int, long)):
+            return other * x
+        y = long(other)
+        return self._widen(other, x * y)
 
     def __div__(self, other):
         x = long(self)
-        y = other      # may be a float
-        return self._widen(other, x / y)
-
-    __floordiv__ = __div__
+        if not isinstance(other, (int, long)):
+            return x / other
+        y = long(other)
+        return self._widen(other, x // y)
 
     def __rdiv__(self, other):
         y = long(self)
-        x = other      # may be a float
-        return self._widen(other, x / y)
+        if not isinstance(other, (int, long)):
+            return other / y
+        x = long(other)
+        return self._widen(other, x // y)
 
-    __rfloordiv__ = __rdiv__
+    def __floordiv__(self, other):
+        x = long(self)
+        if not isinstance(other, (int, long)):
+            return x // other
+        y = long(other)
+        return self._widen(other, x // y)
+
+    def __rfloordiv__(self, other):
+        y = long(self)
+        if not isinstance(other, (int, long)):
+            return other // y
+        x = long(other)
+        return self._widen(other, x // y)
 
     def __mod__(self, other):
         x = long(self)
-        y = other      # not rpython if it is a float
+        if not isinstance(other, (int, long)):
+            return x % other
+        y = long(other)
         return self._widen(other, x % y)
 
     def __rmod__(self, other):
         y = long(self)
-        x = other      # not rpython if it is a float
+        if not isinstance(other, (int, long)):
+            return other % y
+        x = long(other)
         return self._widen(other, x % y)
 
     def __divmod__(self, other):
         x = long(self)
+        if not isinstance(other, (int, long)):
+            return divmod(x, other)
         y = long(other)
         res = divmod(x, y)
-        return (self.__class__(res[0]), self.__class__(res[1]))
+        return (self._widen(other, res[0]), self._widen(other, res[1]))
 
     def __lshift__(self, n):
         x = long(self)
+        if not isinstance(n, (int, long)):
+            raise TypeError
         y = long(n)
         return self.__class__(x << y)
 
     def __rlshift__(self, n):
         y = long(self)
+        if not isinstance(n, (int, long)):
+            raise TypeError
         x = long(n)
-        return self._widen(n, x << y)
+        return n.__class__(x << y)
 
     def __rshift__(self, n):
         x = long(self)
+        if not isinstance(n, (int, long)):
+            raise TypeError
         y = long(n)
-        return self._widen(n, x >> y)
+        return self.__class__(x >> y)
 
     def __rrshift__(self, n):
         y = long(self)
+        if not isinstance(n, (int, long)):
+            raise TypeError
         x = long(n)
-        return self._widen(n, x >> y)
+        return n.__class__(x >> y)
 
     def __or__(self, other):
         x = long(self)
+        if not isinstance(other, (int, long)):
+            return x | other
         y = long(other)
         return self._widen(other, x | y)
-    __ror__ = __or__
+
+    def __ror__(self, other):
+        x = long(self)
+        if not isinstance(other, (int, long)):
+            return other | x
+        y = long(other)
+        return self._widen(other, x | y)
 
     def __and__(self, other):
         x = long(self)
+        if not isinstance(other, (int, long)):
+            return x & other
         y = long(other)
         return self._widen(other, x & y)
-    __rand__ = __and__
+
+    def __rand__(self, other):
+        x = long(self)
+        if not isinstance(other, (int, long)):
+            return other & x
+        y = long(other)
+        return self._widen(other, x & y)
 
     def __xor__(self, other):
         x = long(self)
+        if not isinstance(other, (int, long)):
+            return x ^ other
         y = long(other)
         return self._widen(other, x ^ y)
-    __rxor__ = __xor__
+
+    def __rxor__(self, other):
+        x = long(self)
+        if not isinstance(other, (int, long)):
+            return other ^ x
+        y = long(other)
+        return self._widen(other, x ^ y)
 
     def __neg__(self):
         x = long(self)
@@ -428,12 +500,16 @@ class base_int(long):
 
     def __pow__(self, other, m=None):
         x = long(self)
+        if not isinstance(other, (int, long)):
+            return pow(x, other, m)
         y = long(other)
         res = pow(x, y, m)
         return self._widen(other, res)
 
     def __rpow__(self, other, m=None):
         y = long(self)
+        if not isinstance(other, (int, long)):
+            return pow(other, y, m)
         x = long(other)
         res = pow(x, y, m)
         return self._widen(other, res)

@@ -11,7 +11,10 @@ upstream numpy `test suite`_.
 
 Work proceeds at a good pace on the PyPy3.5
 version due to a grant_ from the Mozilla Foundation, and some of those
-changes have been backported to PyPy2.7 where relevant
+changes have been backported to PyPy2.7 where relevant.
+
+The PowerPC and s390x backend have been enhanced_ with the capability use SIMD instructions
+ for micronumpy loops.
 
 We changed ``timeit`` to now report average +- standard deviation, which is
 better than the misleading minimum value reported in CPython.
@@ -45,6 +48,7 @@ with making RPython's JIT even better.
 .. _`RPython`: https://rpython.readthedocs.org
 .. _`modules`: http://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
 .. _`help`: http://doc.pypy.org/en/latest/project-ideas.html
+.. _`enhanced`: https://morepypy.blogspot.co.at/2016/11/vectorization-extended-powerpc-and-s390x.html
 
 What is PyPy?
 =============
