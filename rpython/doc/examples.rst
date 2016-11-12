@@ -3,21 +3,25 @@ Projects Using RPython
 
 A very time-dependent list of interpreters written in RPython. Corrections welcome,
 this list was last curated in
-September 2015
+Nov 2016
 
 Actively Developed:
 
   * PyPy, Python, very complete and maintained, http://pypy.org
-  * Converge 2, complete, maintained, http://convergepl.org/
   * Pydgin, CPU emulation framework, supports ARM well, jitted, active development, https://github.com/cornell-brg/pydgin
-  * Pyrolog, Prolog, core complete, extensions missing, sort of maintained, http://bitbucket.org/cfbolz/pyrolog
   * RSqueak VM, Smalltalk, core complete, JIT working, graphics etc getting there, in active development https://github.com/HPI-SWA-Lab/RSqueak
   * Pixie, 'A small, fast, native lisp with "magical" powers', jitted, maintained, https://github.com/pixie-lang/pixie
   * Monte, 'A dynamic language inspired by Python and E.' has an rpython implementation, in active development, https://github.com/monte-language/typhon
   * Tulip, an untyped functional language, in language design mode, maintained, https://github.com/tulip-lang/tulip/
   * Pycket, a Racket implementation, proof of concept, small language core working, a lot of primitives are missing. Slow development https://github.com/samth/pycket
 
-Inactive?:
+Complete, functioning, but inactive
+
+  * Converge 2, complete, last release version 2.1 in Feb 2015, http://convergepl.org/
+  * Pyrolog, Prolog, core complete, extensions missing, last commit in Nov 2015, http://bitbucket.org/cfbolz/pyrolog
+  * PyPy.js, adds a JavaScript backend to pypy, http://pypyjs.org
+
+Inactive (last reviewed Sept 2015):
 
   * Topaz, Ruby, major functionality complete, library missing, inactive http://topazruby.com
   * Rapydo, R, execution semantics complete, most builtins missing, inactive, http://bitbucket.org/cfbolz/rapydo
@@ -33,5 +37,4 @@ Inactive?:
   * RPySOM, an RPython implementation of SOM (Simple Object Model) https://github.com/SOM-st/RPySOM          
   * SQPyte, really experimental implementation of the SQLite bytecode VM, jitted, probably inactive, https://bitbucket.org/softdevteam/sqpyte
   * Icbink, an implementation of Kernel, core complete, naive, no JIT optimizations yet, on hiatus https://github.com/euccastro/icbink
-  * PyPy.js, adds a JavaScript backend to pypy, http://pypyjs.org
 
