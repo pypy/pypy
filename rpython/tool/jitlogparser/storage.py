@@ -95,7 +95,7 @@ class GenericCode(object):
         self.filename = fname
         self.startlineno = startlineno
         self.name = name
-        self._first_bytecodes = {}     # {lineno: info}
+        self._first_bytecodes = {}     # {lineno: bytecode_name}
         self._source = None
 
     def __repr__(self):
@@ -104,13 +104,14 @@ class GenericCode(object):
 
     def get_opcode_from_info(self, info):
         lineno = ~info.bytecode_no
-        if self._first_bytecodes.setdefault(lineno, info) is info:
+        bname = info.bytecode_name
+        if self._first_bytecodes.setdefault(lineno, bname) == bname:
             # this is the first opcode of the line---or, at least,
             # the first time we ask for an Opcode on that line.
             line_starts_here = True
         else:
             line_starts_here = False
-        return GenericOpcode(lineno, line_starts_here)
+        return GenericOpcode(lineno, line_starts_here, bname)
 
     @property
     def source(self):
@@ -121,7 +122,32 @@ class GenericCode(object):
             self._source = [s.rstrip('\n\r') for s in src]
         return self._source
 
+
 class GenericOpcode(object):
-    def __init__(self, lineno, line_starts_here):
+    def __init__(self, lineno, line_starts_here, bytecode_extra=''):
         self.lineno = lineno
         self.line_starts_here = line_starts_here
+        self.bytecode_extra = bytecode_extra
+
+    def __repr__(self):
+        return 'GenericOpcode(%r, %r, %r)' % (
+            self.lineno, self.line_starts_here, self.bytecode_extra)
+
+    def __eq__(self, other):
+        if not isinstance(other, GenericOpcode):
+            return NotImplemented
+        return (self.lineno == other.lineno and
+                self.line_starts_here == other.line_starts_here and
+                self.bytecode_extra == other.bytecode_extra)
+
+    def __ne__(self, other):
+        if not isinstance(other, GenericOpcode):
+            return NotImplemented
+        return not (self == other)
+
+    def __hash__(self):
+        return hash((self.lineno, self.line_starts_here, self.bytecode_extra))
+
+    def match_name(self, opcode_name):
+        return (self.bytecode_extra == opcode_name or
+                self.bytecode_extra.endswith(' ' + opcode_name))
