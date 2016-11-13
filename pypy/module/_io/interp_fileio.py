@@ -5,9 +5,13 @@ from pypy.interpreter.error import (
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib import rposix
+from rpython.rlib.rposix_stat import STAT_FIELD_TYPES
 from os import O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_TRUNC, O_EXCL
 import sys, os, stat, errno
-from pypy.module._io.interp_iobase import W_RawIOBase, convert_size
+from pypy.module._io.interp_iobase import (
+    W_RawIOBase, convert_size, DEFAULT_BUFFER_SIZE)
+
+HAS_BLKSIZE = 'st_blksize' in STAT_FIELD_TYPES
 
 def interp_member_w(name, cls, doc=None):
     "NOT_RPYTHON: initialization-time only"
@@ -162,12 +166,6 @@ class W_FileIO(W_RawIOBase):
         fd_is_own = False
         try:
             if fd >= 0:
-                try:
-                    os.fstat(fd)
-                except OSError as e:
-                    if e.errno == errno.EBADF:
-                        raise wrap_oserror(space, e)
-                    # else: pass
                 self.fd = fd
                 self.closefd = bool(closefd)
             elif space.is_none(w_opener):
@@ -207,7 +205,20 @@ class W_FileIO(W_RawIOBase):
                     except OSError as e:
                         raise wrap_oserror2(space, e, w_name)
 
-            self._dircheck(space, w_name)
+            try:
+                st = os.fstat(self.fd)
+            except OSError as e:
+                raise wrap_oserror(space, e)
+            # On Unix, fopen will succeed for directories.
+            # In Python, there should be no file objects referring to
+            # directories, so we need a check.
+            if stat.S_ISDIR(st.st_mode):
+                raise wrap_oserror2(space, OSError(errno.EISDIR, "fstat"),
+                                    w_name, exception_name='w_IOError')
+            self.blksize = DEFAULT_BUFFER_SIZE
+            if HAS_BLKSIZE and st.st_blksize > 1:
+                self.blksize = st.st_blksize
+
             space.setattr(self, space.wrap("name"), w_name)
 
             if self.appending:
@@ -243,6 +254,9 @@ class W_FileIO(W_RawIOBase):
 
     def descr_get_mode(self, space):
         return space.wrap(self._mode())
+
+    def get_blksize(self, space):
+        return space.wrap(self.blksize)
 
     def _closed(self, space):
         return self.fd < 0
@@ -297,20 +311,6 @@ class W_FileIO(W_RawIOBase):
                 # Spurious errors can appear at shutdown
                 if e.match(space, space.w_Warning):
                     e.write_unraisable(space, '', space.wrap(self))
-
-    def _dircheck(self, space, w_filename):
-        # On Unix, fopen will succeed for directories.
-        # In Python, there should be no file objects referring to
-        # directories, so we need a check.
-        if self.fd < 0:
-            return
-        try:
-            st = os.fstat(self.fd)
-        except OSError:
-            return
-        if stat.S_ISDIR(st.st_mode):
-            raise wrap_oserror2(space, OSError(errno.EISDIR, "fstat"),
-                                w_filename, exception_name='w_IOError')
 
     @unwrap_spec(pos=r_longlong, whence=int)
     def seek_w(self, space, pos, whence=0):
@@ -506,5 +506,6 @@ W_FileIO.typedef = TypeDef(
         doc="True if the file descriptor will be closed"),
     mode = GetSetProperty(W_FileIO.descr_get_mode,
                           doc="String giving the file mode"),
+    _blksize = GetSetProperty(W_FileIO.get_blksize),
     )
 

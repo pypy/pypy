@@ -21,6 +21,8 @@ class AppTestFileIO:
         assert f.name.endswith('tmpfile')
         assert f.mode == 'ab'
         assert f.closefd is True
+        assert f._blksize >= 1024
+        assert f._blksize % 1024 == 0
         f.close()
 
     def test_invalid_fd(self):
