@@ -27,7 +27,7 @@ class BaseTestPyPyC(object):
             assert 'True' in out, "%r is a not a JIT-enabled pypy" % (pypy_c,)
             out = subprocess.check_output([pypy_c, '-c',
             "import sys; print(sys.version)"])
-            assert out.startswith('3'), "%r is a not a pypy 3" % (pypy_c,)
+            assert out.startswith('2.7'), "%r is a not a pypy 2.7" % (pypy_c,)
         else:
             # backward compatibility: use pypy_c = sys.executable
             # if that's a pypy with a JIT
