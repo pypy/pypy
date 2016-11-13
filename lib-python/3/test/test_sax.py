@@ -16,7 +16,6 @@ from xml.sax.handler import feature_namespaces
 from xml.sax.xmlreader import InputSource, AttributesImpl, AttributesNSImpl
 from io import BytesIO, StringIO
 import codecs
-import gc
 import os.path
 import shutil
 from test import support
@@ -180,7 +179,7 @@ class ParseTest(unittest.TestCase):
             with self.assertRaises(SAXException):
                 self.check_parse(TESTFN)
             # Collect leaked file.
-            gc.collect()
+            support.gc_collect()
         with open(TESTFN, 'rb') as f:
             with self.assertRaises(SAXException):
                 self.check_parse(f)
