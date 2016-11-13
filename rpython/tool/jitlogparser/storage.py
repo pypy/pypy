@@ -5,6 +5,7 @@ for all loops and bridges, so http requests can refer to them by name
 
 import py
 import os
+import linecache
 from rpython.tool.disassembler import dis
 from rpython.tool.jitlogparser.module_finder import gather_all_code_objs
 
@@ -29,7 +30,10 @@ class LoopStorage(object):
             self.codes[fname] = res
             return res
 
-    def disassemble_code(self, fname, startlineno, name):
+    def disassemble_code(self, fname, startlineno, name, generic_format=False):
+        # 'generic_format' is False for PyPy2 (returns a
+        # disassembler.CodeRepresentation) or True otherwise (returns a
+        # GenericCode, without attempting any disassembly)
         try:
             if py.path.local(fname).check(file=False):
                 return None # cannot find source file
@@ -39,6 +43,10 @@ class LoopStorage(object):
         try:
             return self.disassembled_codes[key]
         except KeyError:
+            pass
+        if generic_format:
+            res = GenericCode(fname, startlineno, name)
+        else:
             codeobjs = self.load_code(fname)
             if (startlineno, name) not in codeobjs:
                 # cannot find the code obj at this line: this can happen for
@@ -50,8 +58,8 @@ class LoopStorage(object):
                 return None
             code = codeobjs[(startlineno, name)]
             res = dis(code)
-            self.disassembled_codes[key] = res
-            return res
+        self.disassembled_codes[key] = res
+        return res
 
     def reconnect_loops(self, loops):
         """ Re-connect loops in a way that entry bridges are filtered out
@@ -80,3 +88,40 @@ class LoopStorage(object):
             res.append(loop)
         self.loops = res
         return res
+
+
+class GenericCode(object):
+    def __init__(self, fname, startlineno, name):
+        self._fname = fname
+        self._startlineno = startlineno
+        self._name = name
+        self._first_bytecodes = {}     # {lineno: info}
+        self._source = None
+
+    def __repr__(self):
+        return 'GenericCode(%r, %r, %r)' % (
+            self._fname, self._startlineno, self._name)
+
+    def get_opcode_from_info(self, info):
+        lineno = ~info.bytecode_no
+        if self._first_bytecodes.setdefault(lineno, info) is info:
+            # this is the first opcode of the line---or, at least,
+            # the first time we ask for an Opcode on that line.
+            line_starts_here = True
+        else:
+            line_starts_here = False
+        return GenericOpcode(lineno, line_starts_here)
+
+    @property
+    def source(self):
+        if self._source is None:
+            src = linecache.getlines(self._fname)
+            if self._startlineno > 0:
+                src = src[self._startlineno - 1:]
+            self._source = [s.rstrip('\n\r') for s in src]
+        return self._source
+
+class GenericOpcode(object):
+    def __init__(self, lineno, line_starts_here):
+        self.lineno = lineno
+        self.line_starts_here = line_starts_here
