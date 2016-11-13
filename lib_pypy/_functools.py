@@ -42,6 +42,13 @@ class partial(object):
         self, func, args = args[0], args[1], args[2:]
         if not callable(func):
             raise TypeError("the first argument must be callable")
+        if isinstance(func, partial):
+            args = func._args + args
+            tmpkw = func._keywords.copy()
+            tmpkw.update(keywords)
+            keywords = tmpkw
+            del tmpkw
+            func = func._func
         self._func = func
         self._args = args
         self._keywords = keywords
@@ -113,3 +120,24 @@ class partial(object):
             self.__dict__.clear()
         else:
             self.__dict__.update(d)
+
+
+@builtinify
+def cmp_to_key(mycmp):
+    """Convert a cmp= function into a key= function"""
+    class K(object):
+        __slots__ = ['obj']
+        def __init__(self, obj):
+            self.obj = obj
+        def __lt__(self, other):
+            return mycmp(self.obj, other.obj) < 0
+        def __gt__(self, other):
+            return mycmp(self.obj, other.obj) > 0
+        def __eq__(self, other):
+            return mycmp(self.obj, other.obj) == 0
+        def __le__(self, other):
+            return mycmp(self.obj, other.obj) <= 0
+        def __ge__(self, other):
+            return mycmp(self.obj, other.obj) >= 0
+        __hash__ = None
+    return K
