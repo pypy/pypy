@@ -95,10 +95,16 @@ class TraceWithIds(Function):
         #
         # 1. compute the ids of self, i.e. the outer function
         id2lineno = find_id_linenos(self.code)
-        all_my_opcodes = self.get_list_of_opcodes()
+        all_my_tracecodes = self.get_list_of_tracecodes()
         for id, lineno in id2lineno.iteritems():
-            opcodes = [opcode for opcode in all_my_opcodes
-                              if opcode.lineno == lineno]
+            seen = set()
+            opcodes = []
+            for tracecode in all_my_tracecodes:
+                if tracecode.lineno == lineno:
+                    opcode = tracecode.getopcode()
+                    if opcode not in seen:
+                        seen.add(opcode)
+                        opcodes.append(opcode)
             if opcodes:
                 ids[id] = opcodes
         #
@@ -107,7 +113,7 @@ class TraceWithIds(Function):
             if isinstance(chunk, TraceWithIds) and chunk.code:
                 chunk.compute_ids(ids)
 
-    def get_list_of_opcodes(self):
+    def get_list_of_tracecodes(self):
         result = []
         for chunk in self.chunks:
             if isinstance(chunk, TraceForOpcode):
@@ -129,7 +135,7 @@ class TraceWithIds(Function):
         for chunk in self.flatten_chunks():
             opcode = chunk.getopcode()
             if opcode_name is None or \
-                   (opcode and opcode.__class__.__name__ == opcode_name):
+                   (opcode and opcode.match_name(opcode_name)):
                 for op in self._ops_for_chunk(chunk, include_guard_not_invalidated):
                     yield op
             else:
@@ -157,7 +163,7 @@ class TraceWithIds(Function):
         for chunk in self.flatten_chunks():
             opcode = chunk.getopcode()
             if opcode in target_opcodes and (opcode_name is None or
-                                             opcode.__class__.__name__ == opcode_name):
+                                             opcode.match_name(opcode_name)):
                 for op in self._ops_for_chunk(chunk, include_guard_not_invalidated):
                     if op in loop_ops:
                         yield op
