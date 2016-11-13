@@ -50,6 +50,9 @@ class CodeRepresentation(object):
             current_lineno = opcode.lineno
         self.source = source.split("\n")
 
+    def get_opcode_from_info(self, info):
+        return self.map[info.bytecode_no]
+
 def _setup():
     for opcode in opname:
         if not opcode.startswith('<'):
