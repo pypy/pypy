@@ -65,6 +65,9 @@ class CodeRepresentation(object):
     def name(self):
         return self.co.co_name
 
+    def match_name(self, opcode_name):
+        return self.__class__.__name__ == opcode_name
+
 
 def _setup():
     for opcode in opname:
