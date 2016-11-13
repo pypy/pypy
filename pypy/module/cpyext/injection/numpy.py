@@ -73,14 +73,16 @@ def injected_op(space, w_self, w_other, op):
         data1 = rffi.cast(rffi.DOUBLEP, arr1.data)
         n1 = arr1.dimensions[0]
     else:
+        # XXX this should be a pointer to a float, not a list
         data1 = [space.float_w(w_self),]
         n1 = 1
     if isinstance(w_other, W_ArrayObject):
-        arr2 = rffi.cast(PyArrayObject, w_self.pyobj)
+        arr2 = rffi.cast(PyArrayObject, w_other.pyobj)
         data2 = rffi.cast(rffi.DOUBLEP, arr2.data)
         n2 = arr2.dimensions[0]
     else:
-        data2 = [space.int_w(w_other),]
+        # XXX this should be a pointer to a float, not a list
+        data2 = [space.float_w(w_other),]
         n2 = 1
     if not (n1 == n2 or n1 == 1 or n2 == 1):
         raise oefmt(space.w_ValueError, 'dimension mismatch')
