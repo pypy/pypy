@@ -3,12 +3,16 @@ import sys, os
 import types
 import subprocess
 import py, pytest
-from rpython.tool import disassembler
 from rpython.tool.udir import udir
 from rpython.tool import logparser
 from rpython.jit.tool.jitoutput import parse_prof
+from rpython.tool.jitlogparser import storage
 from pypy.module.pypyjit.test_pypy_c.model import \
-    Log, find_ids_range, find_ids, OpMatcher, InvalidMatch
+    Log, find_id_linenos, OpMatcher, InvalidMatch
+
+my_file = __file__
+if my_file.endswith('pyc'):
+    my_file = my_file[:-1]
 
 
 class BaseTestPyPyC(object):
@@ -121,31 +125,16 @@ class BaseTestPyPyC(object):
 
 
 class TestLog(object):
-    def test_find_ids_range(self):
+    def test_find_id_linenos(self):
         def f():
             a = 0 # ID: myline
             return a
         #
         start_lineno = f.func_code.co_firstlineno
-        code = disassembler.dis(f)
-        ids = find_ids_range(code)
-        assert len(ids) == 1
-        myline_range = ids['myline']
-        assert list(myline_range) == range(start_lineno+1, start_lineno+2)
-
-    def test_find_ids(self):
-        def f():
-            i = 0
-            x = 0
-            z = x + 3 # ID: myline
-            return z
-        #
-        code = disassembler.dis(f)
-        ids = find_ids(code)
-        assert len(ids) == 1
+        code = storage.GenericCode(my_file, start_lineno, 'f')
+        ids = find_id_linenos(code)
         myline = ids['myline']
-        opcodes_names = [opcode.__class__.__name__ for opcode in myline]
-        assert opcodes_names == ['LOAD_FAST', 'LOAD_CONST', 'BINARY_ADD', 'STORE_FAST']
+        assert myline == start_lineno + 1
 
 
 class TestOpMatcher_(object):
@@ -486,7 +475,7 @@ class TestRunPyPyC(BaseTestPyPyC):
         log = self.run(f)
         loop, = log.loops_by_id('increment')
         assert loop.filename == self.filepath
-        assert loop.code.co.co_name == 'f'
+        assert loop.code.name == 'f'
         #
         ops = loop.allops()
         assert log.opnames(ops) == [

@@ -11,36 +11,23 @@ from rpython.tool.jitlogparser.parser import (SimpleParser, Function,
 from rpython.tool.jitlogparser.storage import LoopStorage
 
 
-def find_ids_range(code):
+def find_id_linenos(code):
     """
     Parse the given function and return a dictionary mapping "ids" to
-    "line ranges".  Ids are identified by comments with a special syntax::
+    "line number".  Ids are identified by comments with a special syntax::
 
         # "myid" corresponds to the whole line
         print 'foo' # ID: myid
     """
     result = {}
-    start_lineno = code.co.co_firstlineno
+    start_lineno = code.startlineno
     for i, line in enumerate(py.code.Source(code.source)):
         m = re.search('# ID: (\w+)', line)
         if m:
             name = m.group(1)
             lineno = start_lineno+i
-            result[name] = xrange(lineno, lineno+1)
+            result.setdefault(name, lineno)
     return result
-
-def find_ids(code):
-    """
-    Parse the given function and return a dictionary mapping "ids" to
-    "opcodes".
-    """
-    ids = {}
-    ranges = find_ids_range(code)
-    for name, linerange in ranges.iteritems():
-        opcodes = [opcode for opcode in code.opcodes
-                   if opcode.lineno in linerange]
-        ids[name] = opcodes
-    return ids
 
 
 class Log(object):
@@ -107,13 +94,12 @@ class TraceWithIds(Function):
     def compute_ids(self, ids):
         #
         # 1. compute the ids of self, i.e. the outer function
-        id2opcodes = find_ids(self.code)
-        all_my_opcodes = self.get_set_of_opcodes()
-        for id, opcodes in id2opcodes.iteritems():
-            if not opcodes:
-                continue
-            target_opcodes = set(opcodes)
-            if all_my_opcodes.intersection(target_opcodes):
+        id2lineno = find_id_linenos(self.code)
+        all_my_opcodes = self.get_list_of_opcodes()
+        for id, lineno in id2lineno.iteritems():
+            opcodes = [opcode for opcode in all_my_opcodes
+                              if opcode.lineno == lineno]
+            if opcodes:
                 ids[id] = opcodes
         #
         # 2. compute the ids of all the inlined functions
@@ -121,12 +107,11 @@ class TraceWithIds(Function):
             if isinstance(chunk, TraceWithIds) and chunk.code:
                 chunk.compute_ids(ids)
 
-    def get_set_of_opcodes(self):
-        result = set()
+    def get_list_of_opcodes(self):
+        result = []
         for chunk in self.chunks:
             if isinstance(chunk, TraceForOpcode):
-                opcode = chunk.getopcode()
-                result.add(opcode)
+                result.append(chunk)
         return result
 
     def has_id(self, id):
