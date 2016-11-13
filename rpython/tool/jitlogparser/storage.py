@@ -92,15 +92,15 @@ class LoopStorage(object):
 
 class GenericCode(object):
     def __init__(self, fname, startlineno, name):
-        self._fname = fname
-        self._startlineno = startlineno
-        self._name = name
+        self.filename = fname
+        self.startlineno = startlineno
+        self.name = name
         self._first_bytecodes = {}     # {lineno: info}
         self._source = None
 
     def __repr__(self):
         return 'GenericCode(%r, %r, %r)' % (
-            self._fname, self._startlineno, self._name)
+            self.filename, self.startlineno, self.name)
 
     def get_opcode_from_info(self, info):
         lineno = ~info.bytecode_no
@@ -115,9 +115,9 @@ class GenericCode(object):
     @property
     def source(self):
         if self._source is None:
-            src = linecache.getlines(self._fname)
-            if self._startlineno > 0:
-                src = src[self._startlineno - 1:]
+            src = linecache.getlines(self.filename)
+            if self.startlineno > 0:
+                src = src[self.startlineno - 1:]
             self._source = [s.rstrip('\n\r') for s in src]
         return self._source
 
