@@ -368,15 +368,17 @@ class W_FileIO(W_RawIOBase):
         if self.fd < 0:
             return space.wrap("<_io.FileIO [closed]>")
 
+        closefd = "True" if self.closefd else "False"
+
         if self.w_name is None:
             return space.wrap(
-                "<_io.FileIO fd=%d mode='%s'>" % (
-                    self.fd, self._mode()))
+                "<_io.FileIO fd=%d mode='%s' closefd=%s>" % (
+                    self.fd, self._mode(), closefd))
         else:
             w_repr = space.repr(self.w_name)
             return space.wrap(
-                "<_io.FileIO name=%s mode='%s'>" % (
-                    space.str_w(w_repr), self._mode()))
+                "<_io.FileIO name=%s mode='%s' closefd=%s>" % (
+                    space.str_w(w_repr), self._mode(), closefd))
 
     # ______________________________________________
 
