@@ -28,6 +28,12 @@ class BaseTestPyPyC(object):
             out = subprocess.check_output([pypy_c, '-c',
             "import sys; print(sys.version)"])
             assert out.startswith('3'), "%r is a not a pypy 3" % (pypy_c,)
+        else:
+            # backward compatibility: use pypy_c = sys.executable
+            # if that's a pypy with a JIT
+            if ('__pypy__' in sys.builtin_module_names and
+                sys.pypy_translation_info['translation.jit']):
+                pypy_c = sys.executable
         cls.pypy_c = pypy_c
         cls.tmpdir = udir.join('test-pypy-jit')
         cls.tmpdir.ensure(dir=True)
