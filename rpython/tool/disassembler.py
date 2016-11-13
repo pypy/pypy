@@ -53,6 +53,19 @@ class CodeRepresentation(object):
     def get_opcode_from_info(self, info):
         return self.map[info.bytecode_no]
 
+    @property
+    def filename(self):
+        return self.co.co_filename
+
+    @property
+    def startlineno(self):
+        return self.co.co_firstlineno
+
+    @property
+    def name(self):
+        return self.co.co_name
+
+
 def _setup():
     for opcode in opname:
         if not opcode.startswith('<'):
