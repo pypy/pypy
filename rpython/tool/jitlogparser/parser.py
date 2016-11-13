@@ -17,7 +17,7 @@ def parse_code_data(arg):
     # 'bytecode_no = currentlineno ^ -1': i.e. it abuses bytecode_no,
     # which doesn't make sense in the generic format, as a negative
     # number
-    m = re.match(r'(.+?);(.+?):(\d+)-(\d+) (.*)', arg)
+    m = re.match(r'(.+?);(.+?):(\d+)-(\d+)~(.*)', arg)
     if m is not None:
         mask = -1
     else:

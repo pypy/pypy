@@ -404,16 +404,16 @@ def test_embedded_lineno():
         print >> f, "F#6"
     loop = parse("""
     []
-    debug_merge_point(0, 0, 'myfunc;%(filename)s:2-2 one')
-    debug_merge_point(0, 0, 'myfunc;%(filename)s:2-2 two')
-    debug_merge_point(0, 0, 'myfunc;%(filename)s:2-4 three')
-    debug_merge_point(0, 0, 'myfunc;%(filename)s:2-4 four')
+    debug_merge_point(0, 0, 'myfunc;%(filename)s:2-2~one')
+    debug_merge_point(0, 0, 'myfunc;%(filename)s:2-2~two')
+    debug_merge_point(0, 0, 'myfunc;%(filename)s:2-4~')
+    debug_merge_point(0, 0, 'myfunc;%(filename)s:2-4~four')
     """ % {'filename': sourcefile})
     f = Function.from_operations(loop.operations, LoopStorage())
 
     expect = [(2, 'one', True),
               (2, 'two', False),
-              (4, 'three', True),
+              (4, '', True),
               (4, 'four', False)]
     assert len(f.chunks) == len(expect)
 
