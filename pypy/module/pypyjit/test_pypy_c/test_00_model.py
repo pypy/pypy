@@ -2,7 +2,7 @@ from __future__ import with_statement
 import sys, os
 import types
 import subprocess
-import py
+import py, pytest
 from rpython.tool import disassembler
 from rpython.tool.udir import udir
 from rpython.tool import logparser
@@ -15,10 +15,20 @@ class BaseTestPyPyC(object):
     log_string = 'jit-log-opt,jit-log-noopt,jit-log-virtualstate,jit-summary'
 
     def setup_class(cls):
-        if '__pypy__' not in sys.builtin_module_names:
-            py.test.skip("must run this test with pypy")
-        if not sys.pypy_translation_info['translation.jit']:
-            py.test.skip("must give a pypy-c with the jit enabled")
+        pypy_c = pytest.config.option.pypy_c or None
+        if pypy_c:
+            assert os.path.exists(pypy_c), (
+                "--pypy specifies %r, which does not exist" % (pypy_c,))
+            out = subprocess.check_output([pypy_c, '-c',
+            "import sys; print('__pypy__' in sys.builtin_module_names)"])
+            assert 'True' in out, "%r is not a pypy executable" % (pypy_c,)
+            out = subprocess.check_output([pypy_c, '-c',
+            "import sys; print(sys.pypy_translation_info['translation.jit'])"])
+            assert 'True' in out, "%r is a not a JIT-enabled pypy" % (pypy_c,)
+            out = subprocess.check_output([pypy_c, '-c',
+            "import sys; print(sys.version)"])
+            assert out.startswith('3'), "%r is a not a pypy 3" % (pypy_c,)
+        cls.pypy_c = pypy_c
         cls.tmpdir = udir.join('test-pypy-jit')
         cls.tmpdir.ensure(dir=True)
 
@@ -29,6 +39,8 @@ class BaseTestPyPyC(object):
             discard_stdout_before_last_line=False, **jitopts):
         jitopts.setdefault('threshold', 200)
         jitopts.setdefault('disable_unrolling', 9999)
+        if self.pypy_c is None:
+            py.test.skip("run with --pypy=PATH")
         src = py.code.Source(func_or_src)
         if isinstance(func_or_src, types.FunctionType):
             funcname = func_or_src.func_name
@@ -42,12 +54,12 @@ class BaseTestPyPyC(object):
             f.write("import sys\n")
             f.write("sys.setcheckinterval(10000000)\n")
             f.write(str(src) + "\n")
-            f.write("print %s(%s)\n" % (funcname, arglist))
+            f.write("print(%s(%s))\n" % (funcname, arglist))
         #
         # run a child pypy-c with logging enabled
         logfile = self.filepath.new(ext='.log')
         #
-        cmdline = [sys.executable]
+        cmdline = [self.pypy_c]
         if not import_site:
             cmdline.append('-S')
         if jitopts:
@@ -74,6 +86,9 @@ class BaseTestPyPyC(object):
         #if stderr.startswith('debug_alloc.h:'):   # lldebug builds
         #    stderr = ''
         #assert not stderr
+        if not stdout:
+            raise Exception("no stdout produced; stderr='''\n%s'''"
+                            % (stderr,))
         if stderr:
             print '*** stderr of the subprocess: ***'
             print stderr
@@ -433,7 +448,7 @@ class TestRunPyPyC(BaseTestPyPyC):
         import pytest
         def f():
             import sys
-            print >> sys.stderr, 'SKIP: foobar'
+            sys.stderr.write('SKIP: foobar\n')
         #
         raises(pytest.skip.Exception, "self.run(f, [])")
 
