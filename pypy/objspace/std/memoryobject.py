@@ -80,6 +80,9 @@ class W_MemoryView(W_Root):
 
     @staticmethod
     def descr_new_memoryview(space, w_subtype, w_object):
+        if isinstance(w_object, W_MemoryView):
+            w_object._check_released(space)
+            return W_MemoryView.copy(w_object)
         return W_MemoryView(*space.buffer_w_ex(w_object, space.BUF_FULL_RO))
 
     def _make_descr__cmp(name):
@@ -259,40 +262,38 @@ class W_MemoryView(W_Root):
 
         start, stop, step, size = space.decode_index4(w_index, self.getlength())
         # ^^^ for a non-slice index, this returns (index, 0, 0, 1)
-        itemsize = self.getitemsize()
-        start, stop, size = self._apply_itemsize(space, start, size, itemsize)
         if step == 0:  # index only
+            itemsize = self.getitemsize()
             if itemsize == 1:
                 ch = self.buf.getitem(start)
                 return space.newint(ord(ch))
             else:
                 # TODO: this probably isn't very fast
-                buf = SubBuffer(self.buf, start, itemsize)
+                buf = SubBuffer(self.buf, start*itemsize, itemsize)
                 fmtiter = UnpackFormatIterator(space, buf)
                 fmtiter.interpret(self.format)
                 return fmtiter.result_w[0]
         elif step == 1:
             mv = W_MemoryView.copy(self)
-            mv.slice(start, stop, step, size)
+            mv.slice(start, step, size)
             mv._init_flags()
             return mv
         else:
             mv = W_MemoryView.copy(self)
-            mv.slice(start, stop, step, size)
+            mv.slice(start, step, size)
             mv.length = mv.bytecount_from_shape()
             mv._init_flags()
             return mv
 
-    def slice(self, start, stop, step, size):
+    def slice(self, start, step, size):
         # modifies the buffer, shape and stride to allow step to be > 1
-        # NOTE that start, stop & size are already byte offsets/count
         # TODO subbuffer
         strides = self.getstrides()[:]
         shape = self.getshape()[:]
         itemsize = self.getitemsize()
         dim = 0
-        self.buf = SubBuffer(self.buf, strides[dim] * (start//itemsize), size*step)
-        shape[dim] = size//itemsize
+        self.buf = SubBuffer(self.buf, strides[dim] * start, size*step*itemsize)
+        shape[dim] = size
         strides[dim] = strides[dim] * step
         self.strides = strides
         self.shape = shape
@@ -313,18 +314,6 @@ class W_MemoryView(W_Root):
         return W_MemoryView(buf, view.getformat(), view.getitemsize(),
                             view.getndim(), view.getshape()[:], view.getstrides()[:])
 
-    def _apply_itemsize(self, space, start, size, itemsize):
-        if itemsize > 1:
-            start *= itemsize
-            size *= itemsize
-
-        stop  = start + size
-        # start & stop are now byte offset, thus use self.buf.getlength()
-        if stop > self.buf.getlength():
-            raise oefmt(space.w_IndexError, 'index out of range')
-
-        return start, stop, size
-
     def descr_setitem(self, space, w_index, w_obj):
         self._check_released(space)
         if self.buf.readonly:
@@ -333,7 +322,6 @@ class W_MemoryView(W_Root):
             raise oefmt(space.w_NotImplementedError, "")
         start, stop, step, size = space.decode_index4(w_index, self.getlength())
         itemsize = self.getitemsize()
-        start, stop, size = self._apply_itemsize(space, start, size, itemsize)
         if step == 0:  # index only
             if itemsize == 1:
                 ch = getbytevalue(space, w_obj)
@@ -347,13 +335,13 @@ class W_MemoryView(W_Root):
                     raise oefmt(space.w_TypeError,
                                 "memoryview: invalid type for format '%s'",
                                 self.format)
-                self.buf.setslice(start, fmtiter.result.build())
+                self.buf.setslice(start * itemsize, fmtiter.result.build())
         elif step == 1:
             value = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
-            if value.getlength() != size:
+            if value.getlength() != size * itemsize:
                 raise oefmt(space.w_ValueError,
                             "cannot modify size of memoryview object")
-            self.buf.setslice(start, value.as_str())
+            self.buf.setslice(start * itemsize, value.as_str())
         else:
             if self.getndim() != 1:
                 raise oefmt(space.w_NotImplementedError,
@@ -366,11 +354,11 @@ class W_MemoryView(W_Root):
             src = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
             dst_strides = self.getstrides()
             dim = 0
-            dst = SubBuffer(self.buf, start, size)
+            dst = SubBuffer(self.buf, start * itemsize, size * itemsize)
             src_stride0 = dst_strides[dim]
 
             off = 0
-            src_shape0 = size // itemsize
+            src_shape0 = size
             src_stride0 = src.getstrides()[0]
             if isinstance(w_obj, W_MemoryView):
                 src_stride0 = w_obj.getstrides()[0]

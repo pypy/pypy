@@ -210,7 +210,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def sub_scope(self, kind, name, node, lineno):
         """Convenience function for compiling a sub scope."""
-        if self.qualname:
+        if self.scope.lookup(name) == symtable.SCOPE_GLOBAL_EXPLICIT:
+            qualname = name
+        elif self.qualname:
             qualname = '%s.%s' % (self.qualname, name)
         else:
             qualname = name
@@ -578,7 +580,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.pop_frame_block(F_BLOCK_LOOP, start)
         self.visit_sequence(fr.orelse)
         self.use_next_block(end)
-    
+
     def visit_AsyncFor(self, fr):
         self.update_position(fr.lineno, True)
         b_try = self.new_block()
@@ -588,21 +590,21 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         b_try_cleanup = self.new_block()
         b_after_loop = self.new_block()
         b_after_loop_else = self.new_block()
-        
+
         self.emit_jump(ops.SETUP_LOOP, b_after_loop)
         self.push_frame_block(F_BLOCK_LOOP, b_try)
-        
+
         fr.iter.walkabout(self)
         self.emit_op(ops.GET_AITER)
         self.load_const(self.space.w_None)
         self.emit_op(ops.YIELD_FROM)
-        
+
         self.use_next_block(b_try)
         # This adds another line, so each for iteration can be traced.
         self.lineno_set = False
         self.emit_jump(ops.SETUP_EXCEPT, b_except)
         self.push_frame_block(F_BLOCK_EXCEPT, b_try)
-        
+
         self.emit_op(ops.GET_ANEXT)
         self.load_const(self.space.w_None)
         self.emit_op(ops.YIELD_FROM)
@@ -610,13 +612,13 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op(ops.POP_BLOCK)
         self.pop_frame_block(F_BLOCK_EXCEPT, b_try)
         self.emit_jump(ops.JUMP_FORWARD, b_after_try)
-        
+
         self.use_next_block(b_except)
         self.emit_op(ops.DUP_TOP)
         self.emit_op_name(ops.LOAD_GLOBAL, self.names, "StopAsyncIteration")
         self.emit_op_arg(ops.COMPARE_OP, 10)
         self.emit_jump(ops.POP_JUMP_IF_FALSE, b_try_cleanup, True)
-        
+
         self.emit_op(ops.POP_TOP)
         self.emit_op(ops.POP_TOP)
         self.emit_op(ops.POP_TOP)
@@ -630,23 +632,23 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op(ops.POP_TOP)
         self.emit_op(ops.POP_BLOCK) # for SETUP_LOOP
         self.emit_jump(ops.JUMP_ABSOLUTE, b_after_loop_else, True)
-        
+
         self.use_next_block(b_try_cleanup)
         self.emit_op(ops.END_FINALLY)
-        
+
         self.use_next_block(b_after_try)
         self.visit_sequence(fr.body)
         self.emit_jump(ops.JUMP_ABSOLUTE, b_try, True)
-        
+
         self.emit_op(ops.POP_BLOCK) # for SETUP_LOOP
         self.pop_frame_block(F_BLOCK_LOOP, b_try)
-        
+
         self.use_next_block(b_after_loop)
         self.emit_jump(ops.JUMP_ABSOLUTE, b_end, True)
-        
+
         self.use_next_block(b_after_loop_else)
         self.visit_sequence(fr.orelse)
-        
+
         self.use_next_block(b_end)
 
     def visit_While(self, wh):
@@ -701,7 +703,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_op(ops.POP_TOP)
             if handler.name:
                 ## generate the equivalent of:
-                ## 
+                ##
                 ## try:
                 ##     # body
                 ## except type as name:
@@ -960,7 +962,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_AsyncWith(self, wih):
         self.update_position(wih.lineno, True)
-        self.handle_asyncwithitem(wih, 0, is_async=True)
+        self.handle_withitem(wih, 0, is_async=True)
 
     def visit_Raise(self, rais):
         self.update_position(rais.lineno, True)
@@ -1008,7 +1010,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op(ops.GET_YIELD_FROM_ITER)
         self.load_const(self.space.w_None)
         self.emit_op(ops.YIELD_FROM)
-    
+
     def visit_Await(self, aw):
         self.update_position(aw.lineno)
         aw.value.walkabout(self)
@@ -1147,7 +1149,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_op_arg(outer_op, elt_subitems)
         else:
             self.emit_op_arg(single_op, seen_star)
-    
+
     def _visit_assignment(self, node, elts, ctx):
         elt_count = len(elts) if elts else 0
         if ctx == ast.Store:
@@ -1210,14 +1212,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     d.values[i].walkabout(self)
                     containers += 1
                 else:
-                    # TODO: key.walkabout has to be called before d.values.walkabout
-                    # that would fix the error "keywords must be strings"
-                    # for some reason the keys and values seem to be in reverse order
-                    # in some cases, so another error has to be fixed in order for
-                    # this to work, otherwise it breaks everything
-                    # after fix: remove dirty fixes in pyopcode
-                    d.values[i].walkabout(self)
                     key.walkabout(self)
+                    d.values[i].walkabout(self)
                     elements += 1
         if elements or containers == 0:
             self.emit_op_arg(ops.BUILD_MAP, elements)
@@ -1230,7 +1226,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_op_arg(ops.BUILD_MAP_UNPACK, oparg)
             containers -= (oparg - 1)
             is_unpacking = False
-    
+
     def visit_Set(self, s):
         self._visit_starunpack(s, s.elts, ops.BUILD_SET, ops.BUILD_SET, ops.BUILD_SET_UNPACK)
 
@@ -1286,7 +1282,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     # If we ended up with more than one stararg, we need
                     # to concatenate them into a single sequence.
                     self.emit_op_arg(ops.BUILD_LIST_UNPACK, nsubargs)
-        
+
         # Repeat procedure for keyword args
         nseen = 0 # the number of keyword arguments on the stack following
         if keywords is not None:
@@ -1301,8 +1297,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     nsubkwargs += 1
                 elif nsubkwargs:
                     # A keyword argument and we already have a dict.
-                    kw.value.walkabout(self)
                     self.load_const(self.space.wrap(kw.arg.decode('utf-8')))
+                    kw.value.walkabout(self)
                     nseen += 1
                 else:
                     # keyword argument
@@ -1340,7 +1336,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             return
         call.func.walkabout(self)
         self._make_call(0, call.args, call.keywords)
-    
+
     def _call_has_no_star_args(self, call):
         if call.args is not None:
             for elt in call.args:

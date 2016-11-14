@@ -226,6 +226,10 @@ class AppTestAppSysTests:
 
 
 class AppTestSysModulePortedFromCPython:
+    spaceconfig = {
+        "usemodules": ["struct"],
+    }
+
     def setup_class(cls):
         cls.w_appdirect = cls.space.wrap(cls.runappdirect)
 
@@ -586,6 +590,13 @@ class AppTestSysModulePortedFromCPython:
         raises(AttributeError, "del ns.spam")
         del ns.y
 
+    def test_pickle_simplenamespace(self):
+        import pickle, sys
+        SimpleNamespace = type(sys.implementation)
+        ns = SimpleNamespace(x=1, y=2, w=3)
+        copy = pickle.loads(pickle.dumps(ns))
+        assert copy == ns
+
     def test_reload_doesnt_override_sys_executable(self):
         import sys
         from imp import reload
@@ -656,6 +667,12 @@ class AppTestSysModulePortedFromCPython:
         # If this ever actually becomes a compilation option this test should
         # be changed.
         assert sys.float_repr_style == "short"
+
+    def test_is_finalizing(self):
+        import sys
+        assert not sys.is_finalizing()
+        # xxx should also test when it is True, but maybe not worth the effort
+
 
 class AppTestSysSettracePortedFromCpython(object):
     def test_sys_settrace(self):

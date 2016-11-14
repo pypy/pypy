@@ -177,6 +177,13 @@ class W_Epoll(W_Root):
                 )
             return space.newlist(elist_w)
 
+    def descr_enter(self, space):
+        self.check_closed(space)
+        return self
+
+    def descr_exit(self, space, __args__):
+        self.close()
+
 
 W_Epoll.typedef = TypeDef("select.epoll",
     __new__ = interp2app(W_Epoll.descr__new__.im_func),
@@ -189,5 +196,7 @@ W_Epoll.typedef = TypeDef("select.epoll",
     unregister = interp2app(W_Epoll.descr_unregister),
     modify = interp2app(W_Epoll.descr_modify),
     poll = interp2app(W_Epoll.descr_poll),
+    __enter__ = interp2app(W_Epoll.descr_enter),
+    __exit__ = interp2app(W_Epoll.descr_exit),
 )
 W_Epoll.typedef.acceptable_as_base_class = False

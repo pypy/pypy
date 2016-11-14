@@ -38,7 +38,7 @@ cpython_magic, = struct.unpack("<i", imp.get_magic())   # host magic number
 # time you make pyc files incompatible.  This value ends up in the frozen
 # importlib, via MAGIC_NUMBER in module/_frozen_importlib/__init__.
 
-pypy_incremental_magic = 96 # bump it by 16
+pypy_incremental_magic = 112 # bump it by 16
 assert pypy_incremental_magic % 16 == 0
 assert pypy_incremental_magic < 3000 # the magic number of Python 3. There are
                                      # no known magic numbers below this value

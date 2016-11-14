@@ -129,6 +129,7 @@ class TestPartial:
         p = proxy(f)
         self.assertEqual(f.func, p.func)
         f = None
+        support.gc_collect()
         self.assertRaises(ReferenceError, getattr, p, 'func')
 
     def test_with_bound_and_unbound_methods(self):
@@ -229,13 +230,7 @@ class TestPartialC(TestPartial, unittest.TestCase):
                 raise IndexError
 
         f = self.partial(object)
-        if support.check_impl_detail(pypy=True):
-            # CPython fails, pypy does not :-)
-            f.__setstate__(BadSequence())
-        else:
-            self.assertRaisesRegex(SystemError,
-                    "new style getargs format but argument is not a tuple",
-                    f.__setstate__, BadSequence())
+        self.assertRaises(TypeError, f.__setstate__, BadSequence())
 
 
 class TestPartialPy(TestPartial, unittest.TestCase):

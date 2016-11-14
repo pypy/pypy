@@ -118,6 +118,22 @@ class AppTestCMath:
                 return 2.0
         assert cmath.polar(Foo()) == (2, 0)
 
+    def test_isclose(self):
+        import cmath
+        raises(ValueError, cmath.isclose, 2, 3, rel_tol=-0.5)
+        raises(ValueError, cmath.isclose, 2, 3, abs_tol=-0.5)
+        for z in [0.0, 1.0, 1j,
+                  complex("inf"), complex("infj"),
+                  complex("-inf"), complex("-infj")]:
+            assert cmath.isclose(z, z)
+        assert not cmath.isclose(complex("infj"), complex("-infj"))
+        assert cmath.isclose(1j, 1j+1e-12)
+        assert not cmath.isclose(1j, 1j+1e-12, rel_tol=1e-13)
+        assert not cmath.isclose(100000j, 100001j)
+        assert cmath.isclose(100000j, 100001j, rel_tol=1e-4)
+        assert cmath.isclose(100000j, 100001j, abs_tol=1.5)
+        assert not cmath.isclose(100000j, 100001j, abs_tol=0.5)
+
 
 def parse_testfile(fname):
     """Parse a file with test values

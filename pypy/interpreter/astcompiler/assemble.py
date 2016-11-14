@@ -662,7 +662,7 @@ _static_opcode_stack_effects = {
     ops.LOAD_DEREF: 1,
     ops.STORE_DEREF: -1,
     ops.DELETE_DEREF: 0,
-    
+
     ops.GET_AWAITABLE: 0,
     ops.SETUP_ASYNC_WITH: 0,
     ops.BEFORE_ASYNC_WITH: 1,
@@ -682,10 +682,10 @@ _static_opcode_stack_effects = {
     ops.JUMP_IF_FALSE_OR_POP: 0,
     ops.POP_JUMP_IF_TRUE: -1,
     ops.POP_JUMP_IF_FALSE: -1,
-    # TODO 
+    # TODO
     ops.JUMP_IF_NOT_DEBUG: 0,
 
-    # TODO 
+    # TODO
     ops.BUILD_LIST_FROM_ARG: 1,
     # TODO
     ops.LOAD_CLASSDEREF: 1,

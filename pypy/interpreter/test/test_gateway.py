@@ -4,6 +4,7 @@ from __future__ import division, print_function  # for test_app2interp_future
 from pypy.interpreter import gateway, argument
 from pypy.interpreter.gateway import ObjSpace, W_Root, WrappedDefault
 from pypy.interpreter.signature import Signature
+from pypy.interpreter.error import OperationError
 import py
 import sys
 
@@ -254,6 +255,20 @@ class TestGateway:
         w_app_g = space.wrap(app_g)
         assert self.space.eq_w(space.call_function(w_app_g, space.wrap(True)),
                                space.wrap(True))
+
+    def test_interp2app_unwrap_spec_bytes(self):
+        # we can't use the "bytes" object for the unwrap_spec, because that's
+        # an alias for "str" on the underlying Python2
+        space = self.space
+        w = space.wrap
+        def g(space, b):
+            return space.newbytes(b)
+        app_g = gateway.interp2app(g, unwrap_spec=[gateway.ObjSpace, 'bytes'])
+        app_g2 = gateway.interp2app(g, unwrap_spec=[gateway.ObjSpace, 'bytes'])
+        assert app_g is app_g2
+        w_app_g = space.wrap(app_g)
+        assert self.space.eq_w(space.call_function(w_app_g, space.newbytes("abc")),
+                               space.newbytes("abc"))
 
     def test_caching_methods(self):
         class Base(gateway.W_Root):
@@ -788,6 +803,42 @@ class TestGateway:
             never_called
         w_g = space.wrap(gateway.interp2app_temp(g, doc='bar'))
         assert space.unwrap(space.getattr(w_g, space.wrap('__doc__'))) == 'bar'
+
+    def test_system_error(self):
+        py.test.skip("we don't wrap a random exception inside SystemError "
+                     "when untranslated, because it makes testing harder")
+        class UnexpectedException(Exception):
+            pass
+        space = self.space
+        def g(space):
+            raise UnexpectedException
+        w_g = space.wrap(gateway.interp2app_temp(g))
+        e = py.test.raises(OperationError, space.appexec, [w_g], """(my_g):
+            my_g()
+        """)
+        err = str(e.value)
+        assert 'SystemError' in err
+        assert ('unexpected internal exception (please '
+                'report a bug): UnexpectedException') in err
+
+    def test_system_error_2(self):
+        py.test.skip("we don't wrap a random exception inside SystemError "
+                     "when untranslated, because it makes testing harder")
+        class UnexpectedException(Exception):
+            pass
+        space = self.space
+        def g(space):
+            raise UnexpectedException
+        w_g = space.wrap(gateway.interp2app_temp(g))
+        w_msg = space.appexec([w_g], """(my_g):
+            try:
+                my_g()
+            except SystemError as e:
+                return str(e)
+        """)
+        err = space.str_w(w_msg)
+        assert ('unexpected internal exception (please '
+                'report a bug): UnexpectedException') in err
 
     def test_unwrap_spec_default_bytes(self):
         space = self.space

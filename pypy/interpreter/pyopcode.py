@@ -60,8 +60,14 @@ class __extend__(pyframe.PyFrame):
         # For the sequel, force 'next_instr' to be unsigned for performance
         next_instr = r_uint(next_instr)
         co_code = pycode.co_code
-        while True:
-            next_instr = self.handle_bytecode(co_code, next_instr, ec)
+        try:
+            while True:
+                next_instr = self.handle_bytecode(co_code, next_instr, ec)
+        except Return:
+            self.last_exception = None
+            return self.popvalue()
+        except Yield:
+            return self.popvalue()
 
     def handle_bytecode(self, co_code, next_instr, ec):
         try:
@@ -97,7 +103,6 @@ class __extend__(pyframe.PyFrame):
     def handle_generator_error(self, operr):
         # for generator.py
         ec = self.space.getexecutioncontext()
-        operr.record_context(self.space, self)
         return self.handle_operation_error(ec, operr)
 
     def handle_operation_error(self, ec, operr, attach_tb=True):
@@ -702,8 +707,9 @@ class __extend__(pyframe.PyFrame):
             w_value = space.call_function(w_type)
         else:
             w_type = space.type(w_value)
-        operror = OperationError(w_type, w_value, w_cause=w_cause)
+        operror = OperationError(w_type, w_value)
         operror.normalize_exception(space)
+        operror.set_cause(space, w_cause)
         tb = space.getattr(w_value, space.wrap('__traceback__'))
         if not space.is_w(tb, space.w_None):
             operror.set_traceback(tb)
@@ -1327,8 +1333,8 @@ class __extend__(pyframe.PyFrame):
     def BUILD_MAP(self, itemcount, next_instr):
         w_dict = self.space.newdict()
         for i in range(itemcount-1, -1, -1):
-            w_key = self.peekvalue(2 * i)
-            w_value = self.peekvalue(2 * i + 1)
+            w_value = self.peekvalue(2 * i)
+            w_key = self.peekvalue(2 * i + 1)
             self.space.setitem(w_dict, w_key, w_value)
         self.popvalues(2 * itemcount)
         self.pushvalue(w_dict)
@@ -1539,6 +1545,7 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_awaitable)
 
 ### ____________________________________________________________ ###
+
 
 class Return(Exception):
     """Raised when exiting a frame via a 'return' statement."""
@@ -1819,7 +1826,7 @@ def source_as_str(space, w_source, funcname, what, flags):
 
     if not (flags & consts.PyCF_ACCEPT_NULL_BYTES):
         if '\x00' in source:
-            raise oefmt(space.w_TypeError,
+            raise oefmt(space.w_ValueError,
                         "source code string cannot contain null bytes")
         source = rstring.assert_str0(source)
     return source, flags

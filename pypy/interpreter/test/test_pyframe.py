@@ -601,3 +601,29 @@ class AppTestPyFrame:
             pass
         sys.settrace(None)
         assert seen == ['call', 'exception', 'return']
+
+    def test_clear_locals(self):
+        def make_frames():
+            def outer():
+                x = 5
+                y = 6
+                def inner():
+                    z = x + 2
+                    1/0
+                    t = 9
+                return inner()
+            try:
+                outer()
+            except ZeroDivisionError as e:
+                tb = e.__traceback__
+                frames = []
+                while tb:
+                    frames.append(tb.tb_frame)
+                    tb = tb.tb_next
+            return frames
+
+        f, outer, inner = make_frames()
+        outer.clear()
+        inner.clear()
+        assert not outer.f_locals
+        assert not inner.f_locals

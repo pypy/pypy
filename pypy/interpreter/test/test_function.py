@@ -38,6 +38,17 @@ class AppTestFunctionIntrospection:
                 pass
         assert A.f.__qualname__ == 'test_qualname_method.<locals>.A.f'
 
+    def test_qualname_global(self):
+        def f():
+            global inner_global
+            def inner_global():
+                def inner_function2():
+                    pass
+                return inner_function2
+            return inner_global
+        assert f().__qualname__ == 'inner_global'
+        assert f()().__qualname__ == 'inner_global.<locals>.inner_function2'
+
     def test_annotations(self):
         def f(): pass
         ann = f.__annotations__

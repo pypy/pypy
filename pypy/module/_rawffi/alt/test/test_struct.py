@@ -183,8 +183,8 @@ class AppTestStruct(BaseAppTestFFI):
         assert struct.getfield('ulong') == sys.maxsize*2 + 1
         struct.setfield('ulong', sys.maxsize*2 + 2)
         assert struct.getfield('ulong') == 0
-        struct.setfield('char', 'a')
-        assert struct.getfield('char') == 'a'
+        struct.setfield('char', b'a')
+        assert struct.getfield('char') == b'a'
         struct.setfield('unichar', '\u1234')
         assert struct.getfield('unichar') == '\u1234'
         struct.setfield('ptr', -1)

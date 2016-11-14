@@ -15,7 +15,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.pycode import CO_GENERATOR, CO_COROUTINE, PyCode
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.pyframe import PyFrame
-from pypy.interpreter.pyopcode import Yield
+from pypy.interpreter.pyopcode import Yield, Return
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app
@@ -35,9 +35,12 @@ JUMP_ABSOLUTE = opmap['JUMP_ABSOLUTE']
 
 def get_printable_location(next_instr, is_being_profiled, bytecode):
     from pypy.tool.stdlib_opcode import opcode_method_names
-    from rpython.rlib.runicode import unicode_encode_utf_8
-    name = opcode_method_names[ord(bytecode.co_code[next_instr])]
-    return '%s #%d %s' % (bytecode.get_repr(), next_instr, name)
+    from pypy.interpreter.pytraceback import offset2lineno
+    bytecode_name = opcode_method_names[ord(bytecode.co_code[next_instr])]
+    lineno = offset2lineno(bytecode, intmask(next_instr))
+    return '%s;%s:%d-%d~#%d %s' % (
+        bytecode.co_name, bytecode.co_filename, bytecode.co_firstlineno,
+        lineno, next_instr, bytecode_name)
 
 def get_unique_id(next_instr, is_being_profiled, bytecode):
     from rpython.rlib import rvmprof
@@ -47,7 +50,7 @@ def get_unique_id(next_instr, is_being_profiled, bytecode):
             jl.MP_SCOPE, jl.MP_INDEX, jl.MP_OPCODE)
 def get_location(next_instr, is_being_profiled, bytecode):
     from pypy.tool.stdlib_opcode import opcode_method_names
-    from rpython.tool.error import offset2lineno
+    from pypy.interpreter.pytraceback import offset2lineno
     bcindex = ord(bytecode.co_code[next_instr])
     opname = ""
     if 0 <= bcindex < len(opcode_method_names):
@@ -91,8 +94,12 @@ class __extend__(PyFrame):
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
                 is_being_profiled = self.get_is_being_profiled()
         except Yield:
+            w_result = self.popvalue()
             jit.hint(self, force_virtualizable=True)
-            raise
+            return w_result
+        except Return:
+            self.last_exception = None
+            return self.popvalue()
 
     def jump_absolute(self, jumpto, ec):
         if we_are_jitted():

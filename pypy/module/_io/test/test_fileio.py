@@ -21,6 +21,8 @@ class AppTestFileIO:
         assert f.name.endswith('tmpfile')
         assert f.mode == 'ab'
         assert f.closefd is True
+        assert f._blksize >= 1024
+        assert f._blksize % 1024 == 0
         f.close()
 
     def test_invalid_fd(self):
@@ -186,10 +188,10 @@ class AppTestFileIO:
     def test_repr(self):
         import _io
         f = _io.FileIO(self.tmpfile, 'r')
-        assert repr(f) == ("<_io.FileIO name=%r mode='%s'>"
+        assert repr(f) == ("<_io.FileIO name=%r mode='%s' closefd=True>"
                            % (f.name, f.mode))
         del f.name
-        assert repr(f) == ("<_io.FileIO fd=%r mode='%s'>"
+        assert repr(f) == ("<_io.FileIO fd=%r mode='%s' closefd=True>"
                            % (f.fileno(), f.mode))
         f.close()
         assert repr(f) == "<_io.FileIO [closed]>"

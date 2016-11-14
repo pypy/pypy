@@ -23,7 +23,6 @@ from pypy.interpreter.baseobjspace import (W_Root, ObjSpace, SpaceCache,
     DescrMismatch)
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.function import ClassMethod, FunctionWithFixedCode
-from rpython.rlib import rstackovf
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_longlong, r_int, r_ulonglong, r_uint
 from rpython.tool.sourcetools import func_with_new_name, compile2
@@ -158,6 +157,9 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
         self.checked_space_method(el, app_sig)
 
     def visit_str0(self, el, app_sig):
+        self.checked_space_method(el, app_sig)
+
+    def visit_bytes(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
     def visit_fsencode(self, el, app_sig):
@@ -296,6 +298,9 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
 
     def visit_str0(self, typ):
         self.run_args.append("space.str0_w(%s)" % (self.scopenext(),))
+
+    def visit_bytes(self, typ):
+        self.run_args.append("space.bytes_w(%s)" % (self.scopenext(),))
 
     def visit_fsencode(self, typ):
         self.run_args.append("space.fsencode_w(%s)" % (self.scopenext(),))
@@ -452,6 +457,9 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
 
     def visit_str0(self, typ):
         self.unwrap.append("space.str0_w(%s)" % (self.nextarg(),))
+
+    def visit_bytes(self, typ):
+        self.unwrap.append("space.bytes_w(%s)" % (self.nextarg(),))
 
     def visit_fsencode(self, typ):
         self.unwrap.append("space.fsencode_w(%s)" % (self.nextarg(),))
@@ -756,16 +764,11 @@ class BuiltinCode(Code):
             if not we_are_translated():
                 raise
             raise e
-        except KeyboardInterrupt:
-            raise OperationError(space.w_KeyboardInterrupt, space.w_None)
-        except MemoryError:
-            raise OperationError(space.w_MemoryError, space.w_None)
-        except rstackovf.StackOverflow as e:
-            rstackovf.check_stack_overflow()
-            raise oefmt(space.w_RecursionError,
-                        "maximum recursion depth exceeded")
-        except RuntimeError:   # not on top of py.py
-            raise OperationError(space.w_RuntimeError, space.w_None)
+        except OperationError:
+            raise
+        except Exception as e:      # general fall-back
+            from pypy.interpreter import error
+            raise error.get_converted_unexpected_exception(space, e)
 
 # (verbose) performance hack below
 

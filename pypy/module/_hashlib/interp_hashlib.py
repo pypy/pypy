@@ -8,7 +8,7 @@ from rpython.tool.sourcetools import func_renamer
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.gateway import unwrap_spec, interp2app
+from pypy.interpreter.gateway import unwrap_spec, interp2app, WrappedDefault
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module.thread.os_lock import Lock
 
@@ -58,23 +58,26 @@ class W_Hash(W_Root):
     def __init__(self, space, name, copy_from=NULL_CTX):
         self.name = name
         digest_type = self.digest_type_by_name(space)
-        self.digest_size = rffi.getintfield(digest_type, 'c_md_size')
+        self.digest_size = ropenssl.EVP_MD_size(digest_type)
 
         # Allocate a lock for each HASH object.
         # An optimization would be to not release the GIL on small requests,
         # and use a custom lock only when needed.
         self.lock = Lock(space)
 
-        ctx = lltype.malloc(ropenssl.EVP_MD_CTX.TO, flavor='raw')
+        ctx = ropenssl.EVP_MD_CTX_new()
+        if ctx is None:
+            raise MemoryError
         rgc.add_memory_pressure(ropenssl.HASH_MALLOC_SIZE + self.digest_size)
         try:
             if copy_from:
-                ropenssl.EVP_MD_CTX_copy(ctx, copy_from)
+                if not ropenssl.EVP_MD_CTX_copy(ctx, copy_from):
+                    raise ValueError
             else:
                 ropenssl.EVP_DigestInit(ctx, digest_type)
             self.ctx = ctx
         except:
-            lltype.free(ctx, flavor='raw')
+            ropenssl.EVP_MD_CTX_free(ctx)
             raise
         self.register_finalizer(space)
 
@@ -82,8 +85,7 @@ class W_Hash(W_Root):
         ctx = self.ctx
         if ctx:
             self.ctx = lltype.nullptr(ropenssl.EVP_MD_CTX.TO)
-            ropenssl.EVP_MD_CTX_cleanup(ctx)
-            lltype.free(ctx, flavor='raw')
+            ropenssl.EVP_MD_CTX_free(ctx)
 
     def digest_type_by_name(self, space):
         digest_type = ropenssl.EVP_get_digestbyname(self.name)
@@ -128,21 +130,26 @@ class W_Hash(W_Root):
 
     def get_block_size(self, space):
         digest_type = self.digest_type_by_name(space)
-        block_size = rffi.getintfield(digest_type, 'c_block_size')
+        block_size = ropenssl.EVP_MD_block_size(digest_type)
         return space.wrap(block_size)
 
     def get_name(self, space):
         return space.wrap(self.name)
 
     def _digest(self, space):
-        with lltype.scoped_alloc(ropenssl.EVP_MD_CTX.TO) as ctx:
+        ctx = ropenssl.EVP_MD_CTX_new()
+        if ctx is None:
+            raise MemoryError
+        try:
             with self.lock:
-                ropenssl.EVP_MD_CTX_copy(ctx, self.ctx)
+                if not ropenssl.EVP_MD_CTX_copy(ctx, self.ctx):
+                    raise ValueError
             digest_size = self.digest_size
             with rffi.scoped_alloc_buffer(digest_size) as buf:
                 ropenssl.EVP_DigestFinal(ctx, buf.raw, None)
-                ropenssl.EVP_MD_CTX_cleanup(ctx)
                 return buf.str(digest_size)
+        finally:
+            ropenssl.EVP_MD_CTX_free(ctx)
 
 
 W_Hash.typedef = TypeDef(
@@ -176,3 +183,27 @@ def make_new_hash(name, funcname):
 for _name in algorithms:
     _newname = 'new_%s' % (_name,)
     globals()[_newname] = make_new_hash(_name, _newname)
+
+
+HAS_FAST_PKCS5_PBKDF2_HMAC = ropenssl.PKCS5_PBKDF2_HMAC is not None
+if HAS_FAST_PKCS5_PBKDF2_HMAC:
+    @unwrap_spec(name=str, password='bytes', salt='bytes', rounds=int,
+                 w_dklen=WrappedDefault(None))
+    def pbkdf2_hmac(space, name, password, salt, rounds, w_dklen):
+        digest = ropenssl.EVP_get_digestbyname(name)
+        if not digest:
+            raise oefmt(space.w_ValueError, "unknown hash function")
+        if space.is_w(w_dklen, space.w_None):
+            dklen = ropenssl.EVP_MD_size(digest)
+        else:
+            dklen = space.int_w(w_dklen)
+        if dklen < 1:
+            raise oefmt(space.w_ValueError,
+                        "key length must be greater than 0.")
+        with rffi.scoped_alloc_buffer(dklen) as buf:
+            r = ropenssl.PKCS5_PBKDF2_HMAC(
+                password, len(password), salt, len(salt), rounds, digest,
+                dklen, buf.raw)
+            if not r:
+                raise ValueError
+            return space.newbytes(buf.str(dklen))

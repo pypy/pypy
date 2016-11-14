@@ -6,9 +6,6 @@ from pypy.interpreter.typedef import (
     TypeDef, interp_attrproperty, generic_new_descr)
 from pypy.module._io.interp_fileio import W_FileIO
 from pypy.module._io.interp_textio import W_TextIOWrapper
-from rpython.rlib.rposix_stat import STAT_FIELD_TYPES
-
-HAS_BLKSIZE = 'st_blksize' in STAT_FIELD_TYPES
 
 
 class Cache:
@@ -16,8 +13,6 @@ class Cache:
         self.w_unsupportedoperation = space.new_exception_class(
             "io.UnsupportedOperation",
             space.newtuple([space.w_ValueError, space.w_IOError]))
-
-DEFAULT_BUFFER_SIZE = 8 * 1024
 
 @unwrap_spec(mode=str, buffering=int,
              encoding="str_or_None", errors="str_or_None",
@@ -96,18 +91,7 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
         buffering = -1
 
     if buffering < 0:
-        buffering = DEFAULT_BUFFER_SIZE
-
-        if HAS_BLKSIZE:
-            fileno = space.c_int_w(space.call_method(w_raw, "fileno"))
-            try:
-                st = os.fstat(fileno)
-            except OSError:
-                # Errors should never pass silently, except this one time.
-                pass
-            else:
-                if st.st_blksize > 1:
-                    buffering = st.st_blksize
+        buffering = space.c_int_w(space.getattr(w_raw, space.wrap("_blksize")))
 
     if buffering < 0:
         raise oefmt(space.w_ValueError, "invalid buffering size")

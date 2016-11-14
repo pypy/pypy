@@ -34,19 +34,46 @@ def Windows_x64(cc=None):
                     " or contribute the missing support in PyPy.")
     return _get_compiler_type(cc, True)
 
+def _find_vcvarsall(version):
+    # copied from setuptools.msvc9_support.py
+    from distutils.msvc9compiler import Reg
+    VC_BASE = r'Software\%sMicrosoft\DevDiv\VCForPython\%0.1f'
+    key = VC_BASE % ('', version)
+    try:
+        # Per-user installs register the compiler path here
+        productdir = Reg.get_value(key, "installdir")
+    except KeyError:
+        try:
+            # All-user installs on a 64-bit system register here
+            key = VC_BASE % ('Wow6432Node\\', version)
+            productdir = Reg.get_value(key, "installdir")
+        except KeyError:
+            productdir = None
+
+    if productdir:
+        vcvarsall = os.path.join(productdir, "vcvarsall.bat")
+        if os.path.isfile(vcvarsall):
+            return vcvarsall
+    return None
+
 def _get_msvc_env(vsver, x64flag):
+    vcvars = None
     try:
         toolsdir = os.environ['VS%sCOMNTOOLS' % vsver]
     except KeyError:
-        return None
+        # try to import from the registry, as done in setuptools
+        # XXX works for 90 but is it generalizable?
+        toolsdir = ''
+        vcvars = _find_vcvarsall(vsver/10)
 
-    if x64flag:
-        vsinstalldir = os.path.abspath(os.path.join(toolsdir, '..', '..'))
-        vcinstalldir = os.path.join(vsinstalldir, 'VC')
-        vcbindir = os.path.join(vcinstalldir, 'BIN')
-        vcvars = os.path.join(vcbindir, 'amd64', 'vcvarsamd64.bat')
-    else:
-        vcvars = os.path.join(toolsdir, 'vsvars32.bat')
+    if not vcvars:
+        if x64flag:
+            vsinstalldir = os.path.abspath(os.path.join(toolsdir, '..', '..'))
+            vcinstalldir = os.path.join(vsinstalldir, 'VC')
+            vcbindir = os.path.join(vcinstalldir, 'BIN')
+            vcvars = os.path.join(vcbindir, 'amd64', 'vcvarsamd64.bat')
+        else:
+            vcvars = os.path.join(toolsdir, 'vsvars32.bat')
 
     import subprocess
     try:
@@ -103,7 +130,7 @@ class MsvcPlatform(Platform):
     link = 'link.exe'
 
     cflags = ('/MD', '/O2', '/Zi')
-    link_flags = ('/debug',)
+    link_flags = ('/debug','/LARGEADDRESSAWARE')
     standalone_only = ()
     shared_only = ()
     environ = None

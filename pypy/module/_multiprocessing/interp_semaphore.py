@@ -443,6 +443,8 @@ class W_SemLock(W_Root):
         self.name = name
 
     def name_get(self, space):
+        if self.name is None:
+            return space.w_None
         return space.newutf8(self.name)
 
     def kind_get(self, space):

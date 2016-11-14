@@ -4,7 +4,7 @@ from pypy.interpreter.module import Module
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.pycode import PyCode
-from pypy.module.imp.test.support import BaseImportTest
+from pypy.interpreter.test.test_fsencode import BaseFSEncodeTest
 from rpython.tool.udir import udir
 from rpython.rlib import streamio
 from pypy.tool.option import make_config
@@ -177,13 +177,13 @@ def _teardown(space, w_saved_modules):
     """)
 
 
-class AppTestImport(BaseImportTest):
+class AppTestImport(BaseFSEncodeTest):
     spaceconfig = {
         "usemodules": ['_md5', 'time', 'struct', '_pypyjson'],
     }
 
     def setup_class(cls):
-        BaseImportTest.setup_class.im_func(cls)
+        BaseFSEncodeTest.setup_class.im_func(cls)
         cls.w_runappdirect = cls.space.wrap(conftest.option.runappdirect)
         cls.w_saved_modules = _setup(cls)
         #XXX Compile class

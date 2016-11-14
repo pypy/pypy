@@ -745,8 +745,7 @@ class SSLSocket(socket):
                         # non-blocking
                         raise ValueError("do_handshake_on_connect should not be specified for non-blocking sockets")
                     self.do_handshake()
-
-            except (OSError, ValueError):
+            except:
                 self.close()
                 raise
 

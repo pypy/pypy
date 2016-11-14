@@ -7,6 +7,7 @@ from errno import EINTR
 
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated, specialize
+from rpython.rlib import rstackovf
 
 from pypy.interpreter import debug
 
@@ -32,12 +33,10 @@ class OperationError(Exception):
     _w_value = None
     _application_traceback = None
     _context_recorded = False
-    w_cause = None
 
-    def __init__(self, w_type, w_value, tb=None, w_cause=None):
+    def __init__(self, w_type, w_value, tb=None):
         self.setup(w_type, w_value)
         self._application_traceback = tb
-        self.w_cause = w_cause
 
     def setup(self, w_type, w_value=None):
         assert w_type is not None
@@ -65,10 +64,14 @@ class OperationError(Exception):
     def __str__(self):
         "NOT_RPYTHON: Convenience for tracebacks."
         s = self._w_value
-        if self.__class__ is not OperationError and s is None:
-            space = getattr(self.w_type, 'space')
-            if space is not None:
+        space = getattr(self.w_type, 'space', None)
+        if space is not None:
+            if self.__class__ is not OperationError and s is None:
                 s = self._compute_value(space)
+            try:
+                s = space.str_w(s)
+            except Exception:
+                pass
         return '[%s: %s]' % (self.w_type, s)
 
     def __repr__(self):
@@ -210,13 +213,6 @@ class OperationError(Exception):
                         # raise Type, X: assume X is the constructor argument
                         w_value = space.call_function(w_type, w_value)
                     w_type = self._exception_getclass(space, w_value)
-            if self.w_cause:
-                # ensure w_cause is of a valid type
-                if space.is_none(self.w_cause):
-                    pass
-                else:
-                    self._exception_getclass(space, self.w_cause, "exception causes")
-                space.setattr(w_value, space.wrap("__cause__"), self.w_cause)
             if self._application_traceback:
                 from pypy.interpreter.pytraceback import PyTraceback
                 from pypy.module.exceptions.interp_exceptions import W_BaseException
@@ -313,6 +309,17 @@ class OperationError(Exception):
             tb.frame.mark_as_escaped()
         return tb
 
+    def set_cause(self, space, w_cause):
+        if w_cause is None:
+            return
+        # ensure w_cause is of a valid type
+        if space.is_none(w_cause):
+            pass
+        else:
+            self._exception_getclass(space, w_cause, "exception causes")
+        w_value = self.get_w_value(space)
+        space.setattr(w_value, space.wrap("__cause__"), w_cause)
+
     def set_traceback(self, traceback):
         """Set the current traceback."""
         self._application_traceback = traceback
@@ -335,14 +342,55 @@ class OperationError(Exception):
         last = frame._exc_info_unroll(space)
         try:
             if last is not None:
-                self.normalize_exception(space)
-                w_value = self.get_w_value(space)
-                w_last = last.get_w_value(space)
-                if not space.is_w(w_value, w_last):
-                    _break_context_cycle(space, w_value, w_last)
-                    space.setattr(w_value, space.wrap('__context__'), w_last)
+                self.chain_exceptions(space, last)
         finally:
             self._context_recorded = True
+
+    def chain_exceptions(self, space, context):
+        """Attach another OperationError as __context__."""
+        self.normalize_exception(space)
+        w_value = self.get_w_value(space)
+        context.normalize_exception(space)
+        w_context = context.get_w_value(space)
+        if not space.is_w(w_value, w_context):
+            _break_context_cycle(space, w_value, w_context)
+            space.setattr(w_value, space.wrap('__context__'), w_context)
+
+    # A simplified version of _PyErr_TrySetFromCause, which returns a
+    # new exception of the same class, but with another error message.
+    # This only works for exceptions which have just a single message,
+    # and no other attribute.
+    # Otherwise the same OperationError is returned.
+    def try_set_from_cause(self, space, message):
+        from pypy.module.exceptions.interp_exceptions import W_BaseException
+        self.normalize_exception(space)
+        w_value = self.get_w_value(space)
+        if not isinstance(w_value, W_BaseException):
+            return self
+        exc = w_value
+        # "args" should be empty or contain a single string
+        if len(exc.args_w) == 0:
+            pass
+        elif len(exc.args_w) == 1:
+            if not space.isinstance_w(exc.args_w[0], space.w_unicode):
+                return self
+        else:
+            return self
+        # No instance attribute.
+        if exc.w_dict and space.is_true(exc.w_dict):
+            return self
+        # Try to create the new exception.
+        try:
+            new_error = oefmt(space.type(w_value),
+                              "%s (%T: %S)", message, w_value, w_value)
+            new_error.normalize_exception(space)
+            new_error.set_cause(space, w_value)
+            # Copy the traceback, but it does not escape.
+            new_error.set_traceback(self._application_traceback)
+        except OperationError:
+            # Return the original error
+            return self
+        return new_error
 
 
 def _break_context_cycle(space, w_value, w_context):
@@ -374,7 +422,7 @@ def get_cleared_operation_error(space):
 
 _fmtcache = {}
 _fmtcache2 = {}
-_FMTS = tuple('8NRTds')
+_FMTS = tuple('8NRSTds')
 
 def decompose_valuefmt(valuefmt):
     """Returns a tuple of string parts extracted from valuefmt,
@@ -425,6 +473,8 @@ def get_operrcls2(valuefmt):
                         result = str(value).decode('ascii')
                     elif fmt == 'R':
                         result = space.unicode_w(space.repr(value))
+                    elif fmt == 'S':
+                        result = space.unicode_w(space.str(value))
                     elif fmt == 'T':
                         result = space.type(value).name.decode('utf-8')
                     elif fmt == 'N':
@@ -468,6 +518,7 @@ def oefmt(w_type, valuefmt, *args):
     %8 - The result of arg.decode('utf-8')
     %N - The result of w_arg.getname(space)
     %R - The result of space.unicode_w(space.repr(w_arg))
+    %S - The result of space.unicode_w(space.str(w_arg))
     %T - The result of space.type(w_arg).name
 
     """
@@ -593,3 +644,47 @@ def new_import_error(space, w_msg, w_name, w_path):
 def raise_import_error(space, w_msg, w_name, w_path):
     w_exc = new_import_error(space, w_msg, w_name, w_path)
     raise OperationError(space.w_ImportError, w_exc)
+
+@jit.dont_look_inside
+def get_converted_unexpected_exception(space, e):
+    """This is used in two places when we get an non-OperationError
+    RPython exception: from gateway.py when calling an interp-level
+    function raises; and from pyopcode.py when we're exiting the
+    interpretation of the frame with an exception.  Note that it
+    *cannot* be used in pyopcode.py: that place gets a
+    ContinueRunningNormally exception from the JIT, which must not end
+    up here!
+    """
+    try:
+        if not we_are_translated():
+            raise
+        raise e
+    except KeyboardInterrupt:
+        return OperationError(space.w_KeyboardInterrupt, space.w_None)
+    except MemoryError:
+        return OperationError(space.w_MemoryError, space.w_None)
+    except rstackovf.StackOverflow as e:
+        # xxx twisted logic which happens to give the result that we
+        # want: when untranslated, a RuntimeError or its subclass
+        # NotImplementedError is caught here.  Then
+        # check_stack_overflow() will re-raise it directly.  We see
+        # the result as this exception propagates directly.  But when
+        # translated, an RPython-level RuntimeError is turned into
+        # an app-level RuntimeError by the next case.
+        rstackovf.check_stack_overflow()
+        return oefmt(space.w_RecursionError,
+                     "maximum recursion depth exceeded")
+    except RuntimeError:   # not on top of py.py
+        return OperationError(space.w_RuntimeError, space.w_None)
+    except:
+        if we_are_translated():
+            from rpython.rlib.debug import debug_print_traceback
+            debug_print_traceback()
+            extra = '; internal traceback was dumped to stderr'
+        else:
+            # when untranslated, we don't wrap into an app-level
+            # SystemError (this makes debugging tests harder)
+            raise
+        return OperationError(space.w_SystemError, space.wrap(
+            "unexpected internal exception (please report a bug): %r%s" %
+            (e, extra)))

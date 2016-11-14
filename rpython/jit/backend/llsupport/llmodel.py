@@ -35,10 +35,7 @@ class AbstractLLCPU(AbstractCPU):
     # can an ISA instruction handle a factor to the offset?
     load_supported_factors = (1,)
 
-    vector_extension = False
-    vector_register_size = 0 # in bytes
-    vector_horizontal_operations = False
-    vector_pack_slots = False
+    vector_ext = None
 
     def __init__(self, rtyper, stats, opts, translate_support_code=False,
                  gcdescr=None):

@@ -1898,7 +1898,14 @@ else:
                 else:
                     self.sock.close()
 
+            # PyPy change
             def run(self):
+                try:
+                    self._run()
+                finally:
+                    self.close()
+
+            def _run(self):
                 self.running = True
                 if not self.server.starttls_server:
                     if not self.wrap_conn():

@@ -162,6 +162,7 @@ return next yielded value or raise StopIteration."""
             try:
                 self.next_yield_from(frame, w_yf, w_arg_or_err)
             except OperationError as operr:
+                operr.record_context(space, frame)
                 return frame.handle_generator_error(operr)
             # Normal case: the call above raises Yield.
             # We reach this point if the iterable is exhausted.
@@ -223,8 +224,8 @@ return next yielded value or raise StopIteration."""
                                    consts.CO_ITERABLE_COROUTINE):
             e2 = OperationError(space.w_RuntimeError,
                                 space.wrap("%s raised StopIteration" %
-                                           self.KIND),
-                                w_cause=e.get_w_value(space))
+                                           self.KIND))
+            e2.chain_exceptions(space, e)
             e2.record_context(space, self.frame)
             raise e2
         else:

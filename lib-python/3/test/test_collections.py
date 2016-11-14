@@ -13,6 +13,7 @@ import keyword
 import re
 import sys
 import types
+import gc
 from collections import UserDict, UserString, UserList
 from collections import ChainMap
 from collections import deque
@@ -1630,7 +1631,7 @@ class TestCounter(unittest.TestCase):
 ################################################################################
 
 py_coll = import_fresh_module('collections', blocked=['_collections'])
-c_coll = import_fresh_module('collections', fresh=['_collections'])
+c_coll = import_fresh_module('_collections', fresh=['_collections'])
 
 
 @contextlib.contextmanager
@@ -2052,7 +2053,9 @@ class OrderedDictTests:
             obj = MyOD([(None, obj)])
             obj.i = i
         del obj
-        support.gc_collect()
+        # PyPy change: we only collect 1 MyOD instance per GC
+        for _ in range(100):
+            gc.collect()
         self.assertEqual(deleted, list(reversed(range(100))))
 
     def test_delitem_hash_collision(self):
@@ -2212,11 +2215,11 @@ class PurePythonOrderedDictTests(OrderedDictTests, unittest.TestCase):
     OrderedDict = py_coll.OrderedDict
 
 
-@unittest.skipUnless(c_coll, 'requires the C version of the collections module')
+@unittest.skipUnless(hasattr(c_coll, 'OrderedDict'), 'requires the C version of the collections module')
 class CPythonOrderedDictTests(OrderedDictTests, unittest.TestCase):
 
     module = c_coll
-    OrderedDict = c_coll.OrderedDict
+    OrderedDict = getattr(c_coll, 'OrderedDict', None)
 
     def test_key_change_during_iteration(self):
         OrderedDict = self.OrderedDict
@@ -2246,8 +2249,10 @@ class PurePythonOrderedDictSubclassTests(PurePythonOrderedDictTests):
 class CPythonOrderedDictSubclassTests(CPythonOrderedDictTests):
 
     module = c_coll
-    class OrderedDict(c_coll.OrderedDict):
-        pass
+
+    if hasattr(c_coll, 'OrderedDict'):
+        class OrderedDict(c_coll.OrderedDict):
+            pass
 
 
 class PurePythonGeneralMappingTests(mapping_tests.BasicTestMappingProtocol):
@@ -2261,7 +2266,7 @@ class PurePythonGeneralMappingTests(mapping_tests.BasicTestMappingProtocol):
         self.assertRaises(KeyError, d.popitem)
 
 
-@unittest.skipUnless(c_coll, 'requires the C version of the collections module')
+@unittest.skipUnless(hasattr(c_coll, 'OrderedDict'), 'requires the C version of the collections module')
 class CPythonGeneralMappingTests(mapping_tests.BasicTestMappingProtocol):
 
     @classmethod
@@ -2286,7 +2291,7 @@ class PurePythonSubclassMappingTests(mapping_tests.BasicTestMappingProtocol):
         self.assertRaises(KeyError, d.popitem)
 
 
-@unittest.skipUnless(c_coll, 'requires the C version of the collections module')
+@unittest.skipUnless(hasattr(c_coll, 'OrderedDict'), 'requires the C version of the collections module')
 class CPythonSubclassMappingTests(mapping_tests.BasicTestMappingProtocol):
 
     @classmethod

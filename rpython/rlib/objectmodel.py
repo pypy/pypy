@@ -223,6 +223,13 @@ def try_inline(func):
     func._always_inline_ = 'try'
     return func
 
+def not_rpython(func):
+    """ mark a function as not rpython. the translation process will raise an
+    error if it encounters the function. """
+    # test is in annotator/test/test_annrpython.py
+    func._not_rpython_ = True
+    return func
+
 
 # ____________________________________________________________
 
@@ -545,8 +552,9 @@ def _hash_float(f):
     return intmask(x)
 TAKE_NEXT = float(2**31)
 
+@not_rpython
 def _hash_tuple(t):
-    """NOT_RPYTHON.  The algorithm behind compute_hash() for a tuple.
+    """The algorithm behind compute_hash() for a tuple.
     It is modelled after the old algorithm of Python 2.3, which is
     a bit faster than the one introduced by Python 2.4.  We assume
     that nested tuples are very uncommon in RPython, making the bad

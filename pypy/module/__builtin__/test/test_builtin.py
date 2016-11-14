@@ -497,73 +497,6 @@ class AppTestBuiltinApp:
         assert eval("i", None, None) == 4
         assert eval('a', None, dict(a=42)) == 42
 
-    def test_compile(self):
-        co = compile('1+2', '?', 'eval')
-        assert eval(co) == 3
-        co = compile(memoryview(b'1+2'), '?', 'eval')
-        assert eval(co) == 3
-        exc = raises(TypeError, compile, chr(0), '?', 'eval')
-        assert str(exc.value) == "source code string cannot contain null bytes"
-        compile("from __future__ import with_statement", "<test>", "exec")
-        raises(SyntaxError, compile, '-', '?', 'eval')
-        raises(SyntaxError, compile, '"\\xt"', '?', 'eval')
-        raises(ValueError, compile, '1+2', '?', 'maybenot')
-        raises(ValueError, compile, "\n", "<string>", "exec", 0xff)
-        raises(TypeError, compile, '1+2', 12, 34)
-
-    def test_compile_error_message(self):
-        import re
-        compile('# -*- coding: iso-8859-15 -*-\n', 'dummy', 'exec')
-        compile(b'\xef\xbb\xbf\n', 'dummy', 'exec')
-        compile(b'\xef\xbb\xbf# -*- coding: utf-8 -*-\n', 'dummy', 'exec')
-        exc = raises(SyntaxError, compile,
-            b'# -*- coding: fake -*-\n', 'dummy', 'exec')
-        assert 'fake' in str(exc.value)
-        exc = raises(SyntaxError, compile,
-            b'\xef\xbb\xbf# -*- coding: iso-8859-15 -*-\n', 'dummy', 'exec')
-        assert 'iso-8859-15' in str(exc.value)
-        assert 'BOM' in str(exc.value)
-        exc = raises(SyntaxError, compile,
-            b'\xef\xbb\xbf# -*- coding: fake -*-\n', 'dummy', 'exec')
-        assert 'fake' in str(exc.value)
-        assert 'BOM' in str(exc.value)
-
-    def test_unicode_compile(self):
-        try:
-            compile(u'-', '?', 'eval')
-        except SyntaxError as e:
-            assert e.lineno == 1
-
-    def test_unicode_encoding_compile(self):
-        code = "# -*- coding: utf-8 -*-\npass\n"
-        compile(code, "tmp", "exec")
-
-    def test_bytes_compile(self):
-        code = b"# -*- coding: utf-8 -*-\npass\n"
-        compile(code, "tmp", "exec")
-        c = compile(b"# coding: latin1\nfoo = 'caf\xe9'\n", "<string>", "exec")
-        ns = {}
-        exec(c, ns)
-        assert ns['foo'] == 'café'
-        assert eval(b"# coding: latin1\n'caf\xe9'\n") == 'café'
-
-    def test_memoryview_compile(self):
-        m = memoryview(b'2 + 1')
-        co = compile(m, 'baz', 'eval')
-        assert eval(co) == 3
-        assert eval(m) == 3
-        ns = {}
-        exec(memoryview(b'r = 2 + 1'), ns)
-        assert ns['r'] == 3
-
-    def test_recompile_ast(self):
-        import _ast
-        # raise exception when node type doesn't match with compile mode
-        co1 = compile('print(1)', '<string>', 'exec', _ast.PyCF_ONLY_AST)
-        raises(TypeError, compile, co1, '<ast>', 'eval')
-        co2 = compile('1+1', '<string>', 'eval', _ast.PyCF_ONLY_AST)
-        compile(co2, '<ast>', 'eval')
-
     def test_isinstance(self):
         assert isinstance(5, int)
         assert isinstance(5, object)
@@ -636,30 +569,6 @@ class AppTestBuiltinApp:
         x = X()
         assert hasattr(x, 'foo') is False
         raises(KeyError, "hasattr(x, 'bar')")
-
-    def test_compile_leading_newlines(self):
-        src = """
-def fn(): pass
-"""
-        co = compile(src, 'mymod', 'exec')
-        firstlineno = co.co_firstlineno
-        assert firstlineno == 2
-
-    def test_compile_null_bytes(self):
-        raises(TypeError, compile, '\x00', 'mymod', 'exec', 0)
-        src = "#abc\x00def\n"
-        raises(TypeError, compile, src, 'mymod', 'exec')
-        raises(TypeError, compile, src, 'mymod', 'exec', 0)
-
-    def test_compile_null_bytes_flag(self):
-        try:
-            from _ast import PyCF_ACCEPT_NULL_BYTES
-        except ImportError:
-            skip('PyPy only (requires _ast.PyCF_ACCEPT_NULL_BYTES)')
-        raises(SyntaxError, compile, '\x00', 'mymod', 'exec',
-               PyCF_ACCEPT_NULL_BYTES)
-        src = "#abc\x00def\n"
-        compile(src, 'mymod', 'exec', PyCF_ACCEPT_NULL_BYTES)  # works
 
     def test_print_function(self):
         import builtins

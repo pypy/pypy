@@ -1158,3 +1158,9 @@ class AppTestArrayReconstructor:
         it = iter(array.array('b'))
         assert list(it) == []
         assert list(iter(it)) == []
+
+    def test_array_cannot_use_str(self):
+        import array
+        e = raises(TypeError, array.array, 'i', 'abcd')
+        assert str(e.value) == ("cannot use a str to initialize an array"
+                                " with typecode 'i'")

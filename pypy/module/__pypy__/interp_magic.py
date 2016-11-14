@@ -76,7 +76,9 @@ def lookup_special(space, w_obj, meth):
         return space.w_None
     return space.get(w_descr, w_obj)
 
-def do_what_I_mean(space):
+def do_what_I_mean(space, w_crash=None):
+    if not space.is_none(w_crash):
+        raise ValueError    # RPython-level, uncaught
     return space.wrap(42)
 
 

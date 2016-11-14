@@ -231,14 +231,17 @@ class W_CDLL(W_Root):
             raise oefmt(space.w_ValueError, "Cannot find symbol %s", name)
         return space.wrap(address_as_uint)
 
-@unwrap_spec(name='str_or_None')
-def descr_new_cdll(space, w_type, name):
+def open_cdll(space, name):
     try:
-        cdll = CDLL(name)
+        return CDLL(name)
     except DLOpenError as e:
-        raise wrap_dlopenerror(space, e, name)
+        raise wrap_dlopenerror(space, e, name or "<None>")
     except OSError as e:
         raise wrap_oserror(space, e)
+
+@unwrap_spec(name='str_or_None')
+def descr_new_cdll(space, w_type, name):
+    cdll = open_cdll(space, name)
     return space.wrap(W_CDLL(space, name, cdll))
 
 W_CDLL.typedef = TypeDef(
@@ -623,10 +626,7 @@ if _MS_WINDOWS:
 
 def get_libc(space):
     name = get_libc_name()
-    try:
-        cdll = CDLL(name)
-    except OSError as e:
-        raise wrap_oserror(space, e)
+    cdll = open_cdll(space, name)
     return space.wrap(W_CDLL(space, name, cdll))
 
 def get_errno(space):

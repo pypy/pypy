@@ -792,7 +792,7 @@ class TestCompiler:
             for i in arg:
                 ret.append(i)
             return ret
-        
+
         args = [4,5,6]
         res = call(*args, *args)
         """)

@@ -325,6 +325,8 @@ class W_CDLL(W_Root):
             self.cdll = libffi.CDLL(name, mode)
         except DLOpenError as e:
             raise wrap_dlopenerror(space, e, self.name)
+        except OSError as e:
+            raise wrap_oserror(space, e)
 
     def getfunc(self, space, w_name, w_argtypes, w_restype):
         return _getfunc(space, self, w_name, w_argtypes, w_restype)
@@ -339,6 +341,9 @@ class W_CDLL(W_Root):
                         "No symbol %s found in library %s", name, self.name)
         return space.wrap(address_as_uint)
 
+    def getidentifier(self, space):
+        return space.wrap(self.cdll.getidentifier())
+
 @unwrap_spec(name='str_or_None', mode=int)
 def descr_new_cdll(space, w_type, name, mode=-1):
     return space.wrap(W_CDLL(space, name, mode))
@@ -349,6 +354,8 @@ W_CDLL.typedef = TypeDef(
     __new__     = interp2app(descr_new_cdll),
     getfunc     = interp2app(W_CDLL.getfunc),
     getaddressindll = interp2app(W_CDLL.getaddressindll),
+    __int__     = interp2app(W_CDLL.getidentifier),
+    __long__    = interp2app(W_CDLL.getidentifier),
     )
 
 class W_WinDLL(W_CDLL):
@@ -366,13 +373,11 @@ W_WinDLL.typedef = TypeDef(
     __new__     = interp2app(descr_new_windll),
     getfunc     = interp2app(W_WinDLL.getfunc),
     getaddressindll = interp2app(W_WinDLL.getaddressindll),
+    __int__     = interp2app(W_CDLL.getidentifier),
+    __long__    = interp2app(W_CDLL.getidentifier),
     )
 
 # ========================================================================
 
 def get_libc(space):
-    try:
-        return space.wrap(W_CDLL(space, get_libc_name(), -1))
-    except OSError as e:
-        raise wrap_oserror(space, e)
-
+    return space.wrap(W_CDLL(space, get_libc_name(), -1))

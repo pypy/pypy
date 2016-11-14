@@ -308,3 +308,6 @@ def set_coroutine_wrapper(space, w_wrapper):
         ec.w_coroutine_wrapper_fn = w_wrapper
     else:
         raise oefmt(space.w_TypeError, "callable expected, got %T", w_wrapper)
+
+def is_finalizing(space):
+    return space.wrap(space.sys.finalizing)

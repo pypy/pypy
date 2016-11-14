@@ -102,6 +102,8 @@ else:
     INITIAL_BUFFER_SIZE = 8192
 
 UINT_MAX = 2**32-1
+MAX_BUFSIZE = min(sys.maxint, UINT_MAX)
+assert isinstance(MAX_BUFSIZE, int)
 
 if rffi.sizeof(rffi.INT) > 4:
     BIGCHUNK = 512 * 32
@@ -455,7 +457,7 @@ class W_BZ2Decompressor(W_Root):
 
     def _decompress_buf(self, data, max_length):
         total_in = len(data)
-        in_bufsize = min(total_in, UINT_MAX)
+        in_bufsize = min(total_in, MAX_BUFSIZE)
         total_in -= in_bufsize
         with rffi.scoped_nonmovingbuffer(data) as in_buf:
             # setup the input and the size it can consume

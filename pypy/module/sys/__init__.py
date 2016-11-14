@@ -27,6 +27,7 @@ class Module(MixedModule):
         self.filesystemencoding = None
         self.debug = True
         self.track_resources = False
+        self.finalizing = False
         self.dlopenflags = rdynload._dlopen_default_mode()
 
     interpleveldefs = {
@@ -94,6 +95,8 @@ class Module(MixedModule):
 
         'get_coroutine_wrapper' : 'vm.get_coroutine_wrapper',
         'set_coroutine_wrapper' : 'vm.set_coroutine_wrapper',
+
+        'is_finalizing'         : 'vm.is_finalizing',
         }
 
     if sys.platform == 'win32':

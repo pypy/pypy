@@ -523,8 +523,8 @@ getting the advantage of providing document type information to the parser.
             maxindex = XML_GetSpecifiedAttributeCount(self.itself)
         else:
             maxindex = 0
-        while attrs[maxindex]:
-            maxindex += 2 # copied
+            while attrs[maxindex]:
+                maxindex += 2 # copied
 
         if self.ordered_attributes:
             w_attrs = space.newlist([

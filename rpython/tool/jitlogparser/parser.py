@@ -11,15 +11,28 @@ def parse_code_data(arg):
     filename = None
     bytecode_no = 0
     bytecode_name = None
-    m = re.search('<code object ([<>\w]+)[\.,] file \'(.+?)\'[\.,] line (\d+)> #(\d+) (\w+)',
-                  arg)
+    mask = 0
+    # generic format: the numbers are 'startlineno-currentlineno',
+    # and this function returns currentlineno as the value
+    # 'bytecode_no = currentlineno ^ -1': i.e. it abuses bytecode_no,
+    # which doesn't make sense in the generic format, as a negative
+    # number
+    m = re.match(r'(.+?);(.+?):(\d+)-(\d+)~(.*)', arg)
+    if m is not None:
+        mask = -1
+    else:
+        # PyPy2 format: bytecode_no is really a bytecode index,
+        # which must be turned into a real line number by parsing the
+        # source file
+        m = re.search(r'<code object ([<>\w]+)[\.,] file \'(.+?)\'[\.,] '
+                      r'line (\d+)> #(\d+) (\w+)', arg)
     if m is None:
         # a non-code loop, like StrLiteralSearch or something
         if arg:
             bytecode_name = arg
     else:
         name, filename, lineno, bytecode_no, bytecode_name = m.groups()
-    return name, bytecode_name, filename, int(lineno), int(bytecode_no)
+    return name, bytecode_name, filename, int(lineno), int(bytecode_no) ^ mask
 
 class Op(object):
     bridge = None
@@ -195,8 +208,9 @@ class TraceForOpcode(object):
              self.startlineno, self.bytecode_no) = parsed
         self.operations = operations
         self.storage = storage
+        generic_format = (self.bytecode_no < 0)
         self.code = storage.disassemble_code(self.filename, self.startlineno,
-                                             self.name)
+                                             self.name, generic_format)
 
     def repr(self):
         if self.filename is None:
@@ -213,7 +227,7 @@ class TraceForOpcode(object):
     def getopcode(self):
         if self.code is None:
             return None
-        return self.code.map[self.bytecode_no]
+        return self.code.get_opcode_from_info(self)
 
     def getlineno(self):
         code = self.getopcode()

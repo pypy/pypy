@@ -50,7 +50,7 @@ class AppTestCodecs:
                     ]
         for s in insecure:
             buf = b"S" + s + b"\012p0\012."
-            raises (ValueError, pickle.loads, buf)
+            raises ((ValueError, pickle.UnpicklingError), pickle.loads, buf)
 
     def test_unicodedecodeerror(self):
         assert str(UnicodeDecodeError(
@@ -112,7 +112,7 @@ class AppTestCodecs:
         assert charmap_decode(b'xxx\xff', 'strict', map) == ('xxx\xff', 4)
 
         exc = raises(TypeError, charmap_decode, b'\xff', "strict",  {0xff: b'a'})
-        assert str(exc.value) == "character mapping must return integer, None or unicode"
+        assert str(exc.value) == "character mapping must return integer, None or str"
         raises(TypeError, charmap_decode, b'\xff', "strict",  {0xff: 0x110000})
         assert (charmap_decode(b"\x00\x01\x02", "strict",
                                {0: 0x10FFFF, 1: ord('b'), 2: ord('c')}) ==
@@ -376,12 +376,39 @@ class AppTestPartialEvaluation:
         raises(TypeError, b"hello".decode, "test.mytestenc")
         raises(TypeError, "hello".encode, "test.mytestenc")
 
+    def test_codec_wrapped_exception(self):
+        import _codecs
+        def search_function(encoding):
+            def f(input, errors="strict"):
+                raise to_raise
+            if encoding == 'test.failingenc':
+                return (f, f, None, None)
+            return None
+        _codecs.register(search_function)
+        to_raise = RuntimeError('should be wrapped')
+        exc = raises(RuntimeError, b"hello".decode, "test.failingenc")
+        assert str(exc.value) == (
+            "decoding with 'test.failingenc' codec failed "
+            "(RuntimeError: should be wrapped)")
+        exc = raises(RuntimeError, u"hello".encode, "test.failingenc")
+        assert str(exc.value) == (
+            "encoding with 'test.failingenc' codec failed "
+            "(RuntimeError: should be wrapped)")
+        #
+        to_raise.attr = "don't wrap"
+        exc = raises(RuntimeError, u"hello".encode, "test.failingenc")
+        assert exc.value == to_raise
+        #
+        to_raise = RuntimeError("Should", "Not", "Wrap")
+        exc = raises(RuntimeError, u"hello".encode, "test.failingenc")
+        assert exc.value == to_raise
+
     def test_cpytest_decode(self):
         import codecs
         assert codecs.decode(b'\xe4\xf6\xfc', 'latin-1') == '\xe4\xf6\xfc'
         raises(TypeError, codecs.decode)
         assert codecs.decode(b'abc') == 'abc'
-        raises(UnicodeDecodeError, codecs.decode, b'\xff', 'ascii')
+        exc = raises(UnicodeDecodeError, codecs.decode, b'\xff', 'ascii')
 
     def test_bad_errorhandler_return(self):
         import codecs
@@ -561,8 +588,19 @@ class AppTestPartialEvaluation:
         assert b'\xff'.decode('utf-7', 'ignore') == ''
         assert b'\x00'.decode('unicode-internal', 'ignore') == ''
 
-    def test_backslahreplace(self):
+    def test_backslashreplace(self):
+        import codecs
         assert 'a\xac\u1234\u20ac\u8000'.encode('ascii', 'backslashreplace') == b'a\\xac\u1234\u20ac\u8000'
+        assert b'\x00\x60\x80'.decode(
+            'ascii', 'backslashreplace') == u'\x00\x60\\x80'
+        assert codecs.charmap_decode(
+            b"\x00\x01\x02", "backslashreplace", "ab") == ("ab\\x02", 3)
+
+    def test_namereplace(self):
+        assert 'a\xac\u1234\u20ac\u8000'.encode('ascii', 'namereplace') == (
+            b'a\\N{NOT SIGN}\\N{ETHIOPIC SYLLABLE SEE}\\N{EURO SIGN}'
+            b'\\N{CJK UNIFIED IDEOGRAPH-8000}')
+        assert '[\uDC80]'.encode('utf-8', 'namereplace') == b'[\\udc80]'
 
     def test_surrogateescape(self):
         assert b'a\x80b'.decode('utf-8', 'surrogateescape') == 'a\udc80b'
@@ -585,6 +623,51 @@ class AppTestPartialEvaluation:
                "surrogatepass")
         raises(UnicodeDecodeError, b"abc\xed\xa0z".decode, "utf-8",
                "surrogatepass")
+
+    def test_badandgoodsurrogatepassexceptions(self):
+        import codecs
+        surrogatepass_errors = codecs.lookup_error('surrogatepass')
+        # "surrogatepass" complains about a non-exception passed in
+        raises(TypeError, surrogatepass_errors, 42)
+        # "surrogatepass" complains about the wrong exception types
+        raises(TypeError, surrogatepass_errors, UnicodeError("ouch"))
+        # "surrogatepass" can not be used for translating
+        raises(TypeError, surrogatepass_errors,
+               UnicodeTranslateError("\ud800", 0, 1, "ouch"))
+        # Use the correct exception
+        for enc in ("utf-8", "utf-16le", "utf-16be", "utf-32le", "utf-32be"):
+            raises(UnicodeEncodeError, surrogatepass_errors,
+                   UnicodeEncodeError(enc, "a", 0, 1, "ouch"))
+            raises(UnicodeDecodeError, surrogatepass_errors,
+                   UnicodeDecodeError(enc, "a".encode(enc), 0, 1, "ouch"))
+        for s in ("\ud800", "\udfff", "\ud800\udfff"):
+            raises(UnicodeEncodeError, surrogatepass_errors,
+                   UnicodeEncodeError("ascii", s, 0, len(s), "ouch"))
+        tests = [
+            ("utf-8", "\ud800", b'\xed\xa0\x80', 3),
+            ("utf-16le", "\ud800", b'\x00\xd8', 2),
+            ("utf-16be", "\ud800", b'\xd8\x00', 2),
+            ("utf-32le", "\ud800", b'\x00\xd8\x00\x00', 4),
+            ("utf-32be", "\ud800", b'\x00\x00\xd8\x00', 4),
+            ("utf-8", "\udfff", b'\xed\xbf\xbf', 3),
+            ("utf-16le", "\udfff", b'\xff\xdf', 2),
+            ("utf-16be", "\udfff", b'\xdf\xff', 2),
+            ("utf-32le", "\udfff", b'\xff\xdf\x00\x00', 4),
+            ("utf-32be", "\udfff", b'\x00\x00\xdf\xff', 4),
+            ("utf-8", "\ud800\udfff", b'\xed\xa0\x80\xed\xbf\xbf', 3),
+            ("utf-16le", "\ud800\udfff", b'\x00\xd8\xff\xdf', 2),
+            ("utf-16be", "\ud800\udfff", b'\xd8\x00\xdf\xff', 2),
+            ("utf-32le", "\ud800\udfff", b'\x00\xd8\x00\x00\xff\xdf\x00\x00', 4),
+            ("utf-32be", "\ud800\udfff", b'\x00\x00\xd8\x00\x00\x00\xdf\xff', 4),
+        ]
+        for enc, s, b, n in tests:
+            assert surrogatepass_errors(
+                UnicodeEncodeError(enc, "a" + s + "b", 1, 1 + len(s), "ouch")
+            ) == (b, 1 + len(s))
+            assert surrogatepass_errors(
+                UnicodeDecodeError(enc, bytearray(b"a" + b[:n] + b"b"),
+                                   1, 1 + n, "ouch")
+            ) == (s[:1], 1 + n)
 
     def test_badhandler(self):
         import codecs
@@ -682,7 +765,7 @@ class AppTestPartialEvaluation:
         exc = raises(TypeError, codecs.charmap_encode, u'\xff', "replace",  {0xff: 300})
         assert str(exc.value) == 'character mapping must be in range(256)'
         exc = raises(TypeError, codecs.charmap_encode, u'\xff', "replace",  {0xff: u'a'})
-        assert str(exc.value) == 'character mapping must return integer, None or str'
+        assert str(exc.value) == 'character mapping must return integer, bytes or None, not str'
         raises(UnicodeError, codecs.charmap_encode, u"\xff", "replace", {0xff: None})
 
     def test_charmap_encode_replace(self):

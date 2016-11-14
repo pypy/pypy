@@ -96,8 +96,8 @@ class GeneratorTest(unittest.TestCase):
         # generator names must be a string and cannot be deleted
         self.assertRaises(TypeError, setattr, gen, '__name__', 123)
         self.assertRaises(TypeError, setattr, gen, '__qualname__', 123)
-        self.assertRaises(TypeError, delattr, gen, '__name__')
-        self.assertRaises(TypeError, delattr, gen, '__qualname__')
+        self.assertRaises((TypeError, AttributeError), delattr, gen, '__name__')
+        self.assertRaises((TypeError, AttributeError), delattr, gen, '__qualname__')
 
         # modify names of the function creating the generator
         func.__qualname__ = "func_qualname"

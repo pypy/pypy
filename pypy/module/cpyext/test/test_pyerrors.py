@@ -105,6 +105,13 @@ class TestExceptions(BaseApiTest):
         assert api.PyOS_InterruptOccurred()
 
 class AppTestFetch(AppTestCpythonExtensionBase):
+    def setup_class(cls):
+        from pypy.module.imp.test.support import get_special_char
+        space = cls.space
+        cls.special_char = get_special_char()
+        cls.w_special_char = space.wrap(cls.special_char)
+        AppTestCpythonExtensionBase.setup_class.im_func(cls)
+
 
     def test_occurred(self):
         module = self.import_extension('foo', [
@@ -199,6 +206,9 @@ class AppTestFetch(AppTestCpythonExtensionBase):
             assert e.filename is None
 
     def test_SetFromErrnoWithFilename(self):
+        char = self.special_char
+        if char is None:
+            char = "a" # boring
         import errno, os
 
         module = self.import_extension('foo', [
@@ -208,10 +218,21 @@ class AppTestFetch(AppTestCpythonExtensionBase):
                  PyErr_SetFromErrnoWithFilename(PyExc_OSError, "/path/to/file");
                  return NULL;
                  '''),
+                ("set_from_errno_special", "METH_NOARGS",
+                 '''
+                 errno = EBADF;
+                 PyErr_SetFromErrnoWithFilename(PyExc_OSError, "/path/to/%s");
+                 return NULL;
+                 ''' % (char, )),
                 ],
                 prologue="#include <errno.h>")
         exc_info = raises(OSError, module.set_from_errno)
         assert exc_info.value.filename == "/path/to/file"
+        assert exc_info.value.errno == errno.EBADF
+        assert exc_info.value.strerror == os.strerror(errno.EBADF)
+
+        exc_info = raises(OSError, module.set_from_errno_special)
+        assert exc_info.value.filename == "/path/to/%s" % (char, )
         assert exc_info.value.errno == errno.EBADF
         assert exc_info.value.strerror == os.strerror(errno.EBADF)
 
