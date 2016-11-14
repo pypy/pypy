@@ -130,6 +130,8 @@ long BIO_set_write_buffer_size(BIO *, long);
 long BIO_set_buffer_size(BIO *, long);
 long BIO_set_buffer_read_data(BIO *, void *, long);
 long BIO_set_nbio(BIO *, long);
+void BIO_set_retry_read(BIO *);
+void BIO_clear_retry_flags(BIO *);
 """
 
 CUSTOMIZATIONS = """

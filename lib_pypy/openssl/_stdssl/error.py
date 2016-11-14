@@ -1,8 +1,27 @@
 from _openssl import ffi
 from _openssl import lib
 
+from openssl._stdssl.utility import _string_from_asn1, _str_to_ffi_buffer
+
+SSL_ERROR_NONE = 0
+SSL_ERROR_SSL = 1
+SSL_ERROR_WANT_READ = 2
+SSL_ERROR_WANT_WRITE = 3
+SSL_ERROR_WANT_X509_LOOKUP = 4
+SSL_ERROR_SYSCALL = 5
+SSL_ERROR_ZERO_RETURN = 6
+SSL_ERROR_WANT_CONNECT = 7
+# start of non ssl.h errorcodes
+SSL_ERROR_EOF = 8 # special case of SSL_ERROR_SYSCALL
+SSL_ERROR_NO_SOCKET = 9 # socket has been GC'd
+SSL_ERROR_INVALID_ERROR_CODE = 10
+
 class SSLError(OSError):
     """ An error occurred in the SSL implementation. """
+    def __str__(self):
+        if self.strerror and isinstance(self.strerror, str):
+            return self.strerror
+        return str(self.args)
 
 class SSLZeroReturnError(SSLError):
     """ SSL/TLS session closed cleanly. """
@@ -25,6 +44,7 @@ class SSLEOFError(SSLError):
 
 def ssl_lib_error():
     errcode = lib.ERR_peek_last_error()
+    lib.ERR_clear_error()
     return ssl_error(None, 0, None, errcode)
 
 def ssl_error(msg, errno=0, errtype=None, errcode=0):
@@ -43,30 +63,29 @@ def ssl_error(msg, errno=0, errtype=None, errcode=0):
     elif lib_str:
         msg = "[%s] %s" % (lib_str, msg)
 
-    raise SSLError(msg)
-    #w_exception_class = w_errtype or get_error(space).w_error
-    #if errno or errcode:
-    #    w_exception = space.call_function(w_exception_class,
-    #                                      space.wrap(errno), space.wrap(msg))
-    #else:
-    #    w_exception = space.call_function(w_exception_class, space.wrap(msg))
-    #space.setattr(w_exception, space.wrap("reason"),
-    #              space.wrap(reason_str) if reason_str else space.w_None)
-    #space.setattr(w_exception, space.wrap("library"),
-    #              space.wrap(lib_str) if lib_str else space.w_None)
-    #return OperationError(w_exception_class, w_exception)
+    if errno or errcode:
+        error = SSLError(errno, msg)
+    else:
+        error = SSLError(msg)
+    error.reason = reason_str if reason_str else None
+    error.library = lib_str if lib_str else None
+    return error
 
 ERR_CODES_TO_NAMES = {}
 ERR_NAMES_TO_CODES = {}
 LIB_CODES_TO_NAMES = {}
 
-from openssl._stdssl.errorcodes import _error_codes
+from openssl._stdssl.errorcodes import _error_codes, _lib_codes
 
 for mnemo, library, reason in _error_codes:
     key = (library, reason)
     assert mnemo is not None and key is not None
     ERR_CODES_TO_NAMES[key] = mnemo
     ERR_NAMES_TO_CODES[mnemo] = key
+
+
+for mnemo, number in _lib_codes:
+    LIB_CODES_TO_NAMES[number] = mnemo
 
 def _fill_and_raise_ssl_error(error, errcode):
     pass
@@ -86,9 +105,8 @@ def _last_error():
     #return ffi.string(buf).decode()
 
 
-def _ssl_seterror(ss, ret):
-    assert ret <= 0
-
+# the PySSL_SetError equivalent
+def ssl_socket_error(ss, ret):
     errcode = lib.ERR_peek_last_error()
 
     if ss is None:
@@ -97,30 +115,31 @@ def _ssl_seterror(ss, ret):
         err = lib.SSL_get_error(ss.ssl, ret)
     else:
         err = SSL_ERROR_SSL
-    w_errtype = None
     errstr = ""
     errval = 0
+    errtype = SSLError
 
     if err == SSL_ERROR_ZERO_RETURN:
-        w_errtype = get_error(space).w_ZeroReturnError
+        errtype = ZeroReturnError
         errstr = "TLS/SSL connection has been closed"
-        errval = PY_SSL_ERROR_ZERO_RETURN
+        errval = SSL_ERROR_ZERO_RETURN
     elif err == SSL_ERROR_WANT_READ:
-        w_errtype = get_error(space).w_WantReadError
+        errtype = WantReadError
         errstr = "The operation did not complete (read)"
-        errval = PY_SSL_ERROR_WANT_READ
+        errval = SSL_ERROR_WANT_READ
     elif err == SSL_ERROR_WANT_WRITE:
-        w_errtype = get_error(space).w_WantWriteError
+        errtype = WantWriteError
         errstr = "The operation did not complete (write)"
-        errval = PY_SSL_ERROR_WANT_WRITE
+        errval = SSL_ERROR_WANT_WRITE
     elif err == SSL_ERROR_WANT_X509_LOOKUP:
         errstr = "The operation did not complete (X509 lookup)"
-        errval = PY_SSL_ERROR_WANT_X509_LOOKUP
+        errval = SSL_ERROR_WANT_X509_LOOKUP
     elif err == SSL_ERROR_WANT_CONNECT:
         errstr = "The operation did not complete (connect)"
-        errval = PY_SSL_ERROR_WANT_CONNECT
+        errval = SSL_ERROR_WANT_CONNECT
     elif err == SSL_ERROR_SYSCALL:
-        e = libssl_ERR_get_error()
+        xxx
+        e = lib.ERR_get_error()
         if e == 0:
             if ret == 0 or ss.w_socket() is None:
                 w_errtype = get_error(space).w_EOFError
@@ -138,15 +157,14 @@ def _ssl_seterror(ss, ret):
             errstr = rffi.charp2str(libssl_ERR_error_string(e, None))
             errval = PY_SSL_ERROR_SYSCALL
     elif err == SSL_ERROR_SSL:
-        errval = PY_SSL_ERROR_SSL
+        errval = SSL_ERROR_SSL
         if errcode != 0:
-            errstr = rffi.charp2str(libssl_ERR_error_string(errcode, None))
+            errstr = _str_to_ffi_buffer(lib.ERR_error_string(errcode, ffi.NULL))
         else:
             errstr = "A failure in the SSL library occurred"
     else:
         errstr = "Invalid error code"
-        errval = PY_SSL_ERROR_INVALID_ERROR_CODE
+        errval = SSL_ERROR_INVALID_ERROR_CODE
 
-    return ssl_error(space, errstr, errval, w_errtype=w_errtype,
-                     errcode=errcode)
+    return errtype(errstr, errval)
 

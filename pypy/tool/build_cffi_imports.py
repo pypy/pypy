@@ -21,13 +21,16 @@ cffi_build_scripts = {
     "xx": None,    # for testing: 'None' should be completely ignored
     }
 
-def create_cffi_import_libraries(pypy_c, options, basedir):
+def create_cffi_import_libraries(pypy_c, options, basedir, only):
     from rpython.tool.runsubprocess import run_subprocess
 
     shutil.rmtree(str(join(basedir,'lib_pypy','__pycache__')),
                   ignore_errors=True)
     failures = []
     for key, module in sorted(cffi_build_scripts.items()):
+        if only and key not in only:
+            print("* SKIPPING", key, '(not specified in --only)')
+            continue
         if module is None or getattr(options, 'no_' + key, False):
             continue
         if module.endswith('.py'):
@@ -67,6 +70,8 @@ if __name__ == '__main__':
     parser.add_argument('--exefile', dest='exefile', default=sys.executable,
                         help='instead of executing sys.executable' \
                              ' you can specify an alternative pypy vm here')
+    parser.add_argument('--only', dest='only', default=None,
+                        help='Only build the modules delimited by a colon. E.g. ssl,sqlite')
     args = parser.parse_args()
 
     exename = join(os.getcwd(), args.exefile)
@@ -79,7 +84,11 @@ if __name__ == '__main__':
                                  str(exename))
         basedir = _basedir
     options = Options()
-    failures = create_cffi_import_libraries(exename, options, basedir)
+    if args.only is None:
+        only = None
+    else:
+        only = set(args.only.split(','))
+    failures = create_cffi_import_libraries(exename, options, basedir, only=only)
     if len(failures) > 0:
         print('*** failed to build the CFFI modules %r' % (
             [f[1] for f in failures],), file=sys.stderr)
@@ -100,5 +109,5 @@ libraries (see error messages just above) and then re-run the command:
         must_fail = '_missing_build_script.py'
         assert not os.path.exists(str(join(join(basedir,'lib_pypy'),must_fail)))
         cffi_build_scripts['should_fail'] = must_fail
-        failures = create_cffi_import_libraries(exename, options, basedir)
+        failures = create_cffi_import_libraries(exename, options, basedir, only=only)
         assert len(failures) == 1

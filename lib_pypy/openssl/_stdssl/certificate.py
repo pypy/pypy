@@ -3,8 +3,8 @@ import base64
 import textwrap
 from _openssl import ffi
 from _openssl import lib
-from openssl._stdssl.utility import _string_from_asn1, _str_with_len
-from openssl._stdssl.error import ssl_error, _ssl_seterror
+from openssl._stdssl.utility import _string_from_asn1, _str_with_len, _bytes_with_len
+from openssl._stdssl.error import ssl_error, ssl_socket_error, ssl_lib_error
 
 X509_NAME_MAXLEN = 256
 
@@ -12,13 +12,13 @@ def _create_tuple_for_attribute(name, value):
     buf = ffi.new("char[]", X509_NAME_MAXLEN)
     length = lib.OBJ_obj2txt(buf, X509_NAME_MAXLEN, name, 0)
     if length < 0:
-        raise _ssl_seterror(None, 0)
+        raise ssl_socket_error(None, 0)
     name = _str_with_len(buf, length)
 
     buf_ptr = ffi.new("unsigned char**")
     length = lib.ASN1_STRING_to_UTF8(buf_ptr, value)
     if length < 0:
-        raise _ssl_seterror(None, 0)
+        raise ssl_socket_error(None, 0)
     try:
         value = _str_with_len(buf_ptr[0], length)
     finally:
@@ -167,7 +167,7 @@ def _bio_get_str(biobuf):
     length = lib.BIO_gets(biobuf, STATIC_BIO_BUF, len(STATIC_BIO_BUF)-1)
     if length < 0:
         if biobuf: lib.BIO_free(biobuf)
-        raise _ssl_error(None) # TODO _setSSLError
+        raise ssl_lib_error()
     return _str_with_len(STATIC_BIO_BUF, length)
 
 def _decode_certificate(certificate):
@@ -198,8 +198,7 @@ def _decode_certificate(certificate):
         buf = ffi.new("char[]", 2048)
         length = lib.BIO_gets(biobuf, buf, len(buf)-1)
         if length < 0:
-            if biobuf: lib.BIO_free(biobuf)
-            raise _ssl_error(None) # TODO _setSSLError
+            raise ssl_lib_error()
         retval["serialNumber"] = _str_with_len(buf, length)
 
         lib.BIO_reset(biobuf);
@@ -207,8 +206,7 @@ def _decode_certificate(certificate):
         lib.ASN1_TIME_print(biobuf, notBefore);
         length = lib.BIO_gets(biobuf, buf, len(buf)-1);
         if length < 0:
-            if biobuf: lib.BIO_free(biobuf)
-            raise _ssl_error(None) # TODO _setSSLError
+            raise ssl_lib_error()
         retval["notBefore"] = _str_with_len(buf, length)
 
         lib.BIO_reset(biobuf);
@@ -216,15 +214,15 @@ def _decode_certificate(certificate):
         lib.ASN1_TIME_print(biobuf, notAfter);
         length = lib.BIO_gets(biobuf, buf, len(buf)-1);
         if length < 0:
-            raise _ssl_error(None) # TODO _setSSLError
+            raise ssl_lib_error()
         retval["notAfter"] = _str_with_len(buf, length)
 
         # Now look for subjectAltName
         peer_alt_names = _get_peer_alt_names(certificate);
-        if not peer_alt_names:
-            if biobuf: lib.BIO_free(biobuf)
+        if peer_alt_names is None:
             return None
-        retval["subjectAltName"] = peer_alt_names
+        if len(peer_alt_names) > 0:
+            retval["subjectAltName"] = peer_alt_names
 
         # Authority Information Access: OCSP URIs
         obj = _get_aia_uri(certificate, lib.NID_ad_OCSP)
@@ -328,3 +326,14 @@ def DER_cert_to_PEM_cert(der_cert_bytes):
     return (PEM_HEADER + '\n' +
             textwrap.fill(f, 64) + '\n' +
             PEM_FOOTER + '\n')
+
+def _certificate_to_der(certificate):
+    buf_ptr = ffi.new("unsigned char**")
+    buf_ptr[0] = ffi.NULL
+    length = lib.i2d_X509(certificate, buf_ptr)
+    if length < 0:
+        raise ssl_lib_error()
+    try:
+        return _bytes_with_len(ffi.cast("char*",buf_ptr[0]), length)
+    finally:
+        lib.OPENSSL_free(buf_ptr[0])

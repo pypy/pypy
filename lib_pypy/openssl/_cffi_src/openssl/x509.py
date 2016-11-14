@@ -18,6 +18,7 @@ typedef STACK_OF(X509) Cryptography_STACK_OF_X509;
 typedef STACK_OF(X509_CRL) Cryptography_STACK_OF_X509_CRL;
 typedef STACK_OF(X509_REVOKED) Cryptography_STACK_OF_X509_REVOKED;
 typedef STACK_OF(ACCESS_DESCRIPTION) Cryptography_AUTHORITY_INFO_ACCESS;
+typedef STACK_OF(X509_OBJECT) Cryptography_STACK_OF_X509_OBJECT;
 """
 
 TYPES = """
@@ -340,6 +341,9 @@ void X509_REQ_get0_signature(const X509_REQ *, const ASN1_BIT_STRING **,
                              const X509_ALGOR **);
 
 void AUTHORITY_INFO_ACCESS_free(Cryptography_AUTHORITY_INFO_ACCESS*);
+
+#define X509_R_CERT_ALREADY_IN_HASH_TABLE ...
+#define ASN1_R_HEADER_TOO_LONG ...
 """
 
 CUSTOMIZATIONS = """

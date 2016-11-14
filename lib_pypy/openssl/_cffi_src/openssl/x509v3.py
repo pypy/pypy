@@ -185,7 +185,7 @@ void GENERAL_NAMES_free(GENERAL_NAMES *);
 void *X509V3_EXT_d2i(X509_EXTENSION *);
 /* X509_get_ext_d2i is already defined, there might be a better solution
    to expose it to the lib object?  */
-void * _X509_get_ext_d2i(const X509 *, int, int *, int *);
+void * _X509_get_ext_d2i(X509 *, int, int *, int *);
 /* X509 is private, there is no way to access the field crldp other than
    adding it to the typedef or expose a function like this: */
 Cryptography_STACK_OF_DIST_POINT * _X509_get_crldp(const X509 *);
@@ -305,7 +305,7 @@ void DIST_POINT_NAME_free(DIST_POINT_NAME *);
 """
 
 CUSTOMIZATIONS = """
-void * _X509_get_ext_d2i(const X509 * x, int nid, int * a, int * b) {
+void * _X509_get_ext_d2i(X509 * x, int nid, int * a, int * b) {
     return X509_get_ext_d2i(x, nid, a, b);
 }
 #if OPENSSL_VERSION_NUMBER >= 0x10001000L

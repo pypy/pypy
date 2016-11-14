@@ -8,3 +8,28 @@ def _string_from_asn1(asn1):
 
 def _str_with_len(char_ptr, length):
     return ffi.buffer(char_ptr, length)[:].decode('utf-8')
+
+def _bytes_with_len(char_ptr, length):
+    return ffi.buffer(char_ptr, length)[:]
+
+def _str_to_ffi_buffer(view, zeroterm=False):
+    # REVIEW unsure how to solve this. might be easy:
+    # str does not support buffer protocol.
+    # I think a user should really encode the string before it is 
+    # passed here!
+    if isinstance(view, str):
+        enc = view.encode()
+        if zeroterm:
+            return ffi.from_buffer(enc + b'\x00')
+        else:
+            return ffi.from_buffer(enc)
+    else:
+        if isinstance(view, memoryview):
+            # TODO pypy limitation StringBuffer does not allow
+            # to get a raw address to the string!
+            view = bytes(view)
+        if zeroterm:
+            return ffi.from_buffer(view + b'\x00')
+        else:
+            return ffi.from_buffer(view)
+
