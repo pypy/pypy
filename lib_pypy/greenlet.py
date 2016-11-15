@@ -1,7 +1,7 @@
 import sys
 import _continuation
 
-__version__ = "0.4.0"
+__version__ = "0.4.10"
 
 # ____________________________________________________________
 # Exceptions
@@ -88,9 +88,19 @@ class greenlet(_continulet):
         #
         try:
             unbound_method = getattr(_continulet, methodname)
+            _tls.leaving = current
             args, kwds = unbound_method(current, *baseargs, to=target)
-        finally:
             _tls.current = current
+        except:
+            _tls.current = current
+            if hasattr(_tls, 'trace'):
+                _run_trace_callback('throw')
+            _tls.leaving = None
+            raise
+        else:
+            if hasattr(_tls, 'trace'):
+                _run_trace_callback('switch')
+            _tls.leaving = None
         #
         if kwds:
             if args:
@@ -122,6 +132,34 @@ class greenlet(_continulet):
         return f.f_back.f_back.f_back   # go past start(), __switch(), switch()
 
 # ____________________________________________________________
+# Recent additions
+
+GREENLET_USE_GC = True
+GREENLET_USE_TRACING = True
+
+def gettrace():
+    return getattr(_tls, 'trace', None)
+
+def settrace(callback):
+    try:
+        prev = _tls.trace
+        del _tls.trace
+    except AttributeError:
+        prev = None
+    if callback is not None:
+        _tls.trace = callback
+    return prev
+
+def _run_trace_callback(event):
+    try:
+        _tls.trace(event, (_tls.leaving, _tls.current))
+    except:
+        # In case of exceptions trace function is removed
+        if hasattr(_tls, 'trace'):
+            del _tls.trace
+        raise
+
+# ____________________________________________________________
 # Internal stuff
 
 try:
@@ -143,22 +181,32 @@ def _green_create_main():
     _tls.current = gmain
 
 def _greenlet_start(greenlet, args):
-    args, kwds = args
-    _tls.current = greenlet
     try:
-        res = greenlet.run(*args, **kwds)
-    except GreenletExit, e:
-        res = e
+        args, kwds = args
+        _tls.current = greenlet
+        try:
+            if hasattr(_tls, 'trace'):
+                _run_trace_callback('switch')
+            res = greenlet.run(*args, **kwds)
+        except GreenletExit, e:
+            res = e
+        finally:
+            _continuation.permute(greenlet, greenlet.parent)
+        return ((res,), None)
     finally:
-        _continuation.permute(greenlet, greenlet.parent)
-    return ((res,), None)
+        _tls.leaving = greenlet
 
 def _greenlet_throw(greenlet, exc, value, tb):
-    _tls.current = greenlet
     try:
-        raise exc, value, tb
-    except GreenletExit, e:
-        res = e
+        _tls.current = greenlet
+        try:
+            if hasattr(_tls, 'trace'):
+                _run_trace_callback('throw')
+            raise exc, value, tb
+        except GreenletExit, e:
+            res = e
+        finally:
+            _continuation.permute(greenlet, greenlet.parent)
+        return ((res,), None)
     finally:
-        _continuation.permute(greenlet, greenlet.parent)
-    return ((res,), None)
+        _tls.leaving = greenlet

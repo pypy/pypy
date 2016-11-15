@@ -1,8 +1,9 @@
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, unwrap_spec
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import rstackovf
 from pypy.module._file.interp_file import W_File
+from pypy.objspace.std.marshal_impl import marshal, get_unmarshallers
 
 
 Py_MARSHAL_VERSION = 2
@@ -59,8 +60,7 @@ class AbstractReaderWriter(object):
 
     def raise_eof(self):
         space = self.space
-        raise OperationError(space.w_EOFError, space.wrap(
-            'EOF read where object expected'))
+        raise oefmt(space.w_EOFError, "EOF read where object expected")
 
     def finished(self):
         pass
@@ -77,11 +77,11 @@ class FileWriter(AbstractReaderWriter):
         try:
             self.func = space.getattr(w_f, space.wrap('write'))
             # XXX how to check if it is callable?
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_AttributeError):
                 raise
-            raise OperationError(space.w_TypeError, space.wrap(
-            'marshal.dump() 2nd arg must be file-like object'))
+            raise oefmt(space.w_TypeError,
+                        "marshal.dump() 2nd arg must be file-like object")
 
     def write(self, data):
         space = self.space
@@ -94,11 +94,11 @@ class FileReader(AbstractReaderWriter):
         try:
             self.func = space.getattr(w_f, space.wrap('read'))
             # XXX how to check if it is callable?
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_AttributeError):
                 raise
-            raise OperationError(space.w_TypeError, space.wrap(
-            'marshal.load() arg must be file-like object'))
+            raise oefmt(space.w_TypeError,
+                        "marshal.load() arg must be file-like object")
 
     def read(self, n):
         space = self.space
@@ -136,8 +136,24 @@ class _Base(object):
         raise OperationError(space.w_ValueError, space.wrap(msg))
 
 class Marshaller(_Base):
-    # _annspecialcase_ = "specialize:ctr_location" # polymorphic
-    # does not work with subclassing
+    """
+    atomic types including typecode:
+
+    atom(tc)                    puts single typecode
+    atom_int(tc, int)           puts code and int
+    atom_int64(tc, int64)       puts code and int64
+    atom_str(tc, str)           puts code, len and string
+
+    building blocks for compound types:
+
+    start(typecode)             sets the type character
+    put(s)                      puts a string with fixed length
+    put_short(int)              puts a short integer
+    put_int(int)                puts an integer
+    put_pascal(s)               puts a short string
+    put_w_obj(w_obj)            puts a wrapped object
+    put_tuple_w(TYPE, tuple_w)  puts tuple_w, an unwrapped list of wrapped objects
+    """
 
     def __init__(self, space, writer, version):
         self.space = space
@@ -177,15 +193,6 @@ class Marshaller(_Base):
         self.atom_int(typecode, len(x))
         self.put(x)
 
-    def atom_strlist(self, typecode, tc2, x):
-        self.atom_int(typecode, len(x))
-        atom_str = self.atom_str
-        for item in x:
-            # type(str) seems to be forbidden
-            #if type(item) is not str:
-            #    self.raise_exc('object with wrong type in strlist')
-            atom_str(tc2, item)
-
     def start(self, typecode):
         # type(char) not supported
         self.put(typecode)
@@ -214,19 +221,10 @@ class Marshaller(_Base):
         self.put(x)
 
     def put_w_obj(self, w_obj):
-        self.space.marshal_w(w_obj, self)
+        marshal(self.space, w_obj, self)
 
     def dump_w_obj(self, w_obj):
         space = self.space
-        if space.type(w_obj).is_heaptype():
-            try:
-                buf = space.buffer_w(w_obj)
-            except OperationError as e:
-                if not e.match(space, space.w_TypeError):
-                    raise
-                self.raise_exc("unmarshallable object")
-            else:
-                w_obj = space.newbuffer(buf)
         try:
             self.put_w_obj(w_obj)
         except rstackovf.StackOverflow:
@@ -240,7 +238,7 @@ class Marshaller(_Base):
         idx = 0
         while idx < lng:
             w_obj = lst_w[idx]
-            self.space.marshal_w(w_obj, self)
+            marshal(self.space, w_obj, self)
             idx += 1
 
     def _overflow(self):
@@ -327,30 +325,14 @@ class StringMarshaller(Marshaller):
 
 
 def invalid_typecode(space, u, tc):
-    # %r not supported in rpython
-    #u.raise_exc('invalid typecode in unmarshal: %r' % tc)
-    c = ord(tc)
-    if c < 16:
-        s = '\\x0%x' % c
-    elif c < 32 or c > 126:
-        s = '\\x%x' % c
-    elif tc == '\\':
-        s = r'\\'
-    else:
-        s = tc
-    q = "'"
-    if s[0] == "'":
-        q = '"'
-    u.raise_exc('invalid typecode in unmarshal: ' + q + s + q)
+    u.raise_exc("bad marshal data (unknown type code)")
 
-def register(codes, func):
-    """NOT_RPYTHON"""
-    for code in codes:
-        Unmarshaller._dispatch[ord(code)] = func
 
 
 class Unmarshaller(_Base):
     _dispatch = [invalid_typecode] * 256
+    for tc, func in get_unmarshallers():
+        _dispatch[ord(tc)] = func
 
     def __init__(self, space, reader):
         self.space = space
@@ -373,16 +355,6 @@ class Unmarshaller(_Base):
     def atom_lng(self, typecode):
         self.start(typecode)
         return self.get_lng()
-
-    def atom_strlist(self, typecode, tc2):
-        self.start(typecode)
-        lng = self.get_lng()
-        res = [None] * lng
-        idx = 0
-        while idx < lng:
-            res[idx] = self.atom_str(tc2)
-            idx += 1
-        return res
 
     def start(self, typecode):
         tc = self.get1()
@@ -431,12 +403,10 @@ class Unmarshaller(_Base):
 
     def get_w_obj(self, allow_null=False):
         space = self.space
-        w_ret = space.w_None # something not None
         tc = self.get1()
         w_ret = self._dispatch[ord(tc)](space, self, tc)
         if w_ret is None and not allow_null:
-            raise OperationError(space.w_TypeError, space.wrap(
-                'NULL object in marshal data'))
+            raise oefmt(space.w_TypeError, "NULL object in marshal data")
         return w_ret
 
     def load_w_obj(self):
@@ -461,8 +431,7 @@ class Unmarshaller(_Base):
             res_w[idx] = w_ret
             idx += 1
         if w_ret is None:
-            raise OperationError(space.w_TypeError, space.wrap(
-                'NULL object in marshal data'))
+            raise oefmt(space.w_TypeError, "NULL object in marshal data")
         return res_w
 
     def get_list_w(self):
@@ -476,20 +445,13 @@ class StringUnmarshaller(Unmarshaller):
     # Unmarshaller with inlined buffer string
     def __init__(self, space, w_str):
         Unmarshaller.__init__(self, space, None)
-        try:
-            self.bufstr = space.bufferstr_w(w_str)
-        except OperationError, e:
-            if not e.match(space, space.w_TypeError):
-                raise
-            raise OperationError(space.w_TypeError, space.wrap(
-                'marshal.loads() arg must be string or buffer'))
+        self.bufstr = space.getarg_w('s#', w_str)
         self.bufpos = 0
         self.limit = len(self.bufstr)
 
     def raise_eof(self):
         space = self.space
-        raise OperationError(space.w_EOFError, space.wrap(
-            'EOF read where object expected'))
+        raise oefmt(space.w_EOFError, "EOF read where object expected")
 
     def get(self, n):
         pos = self.bufpos

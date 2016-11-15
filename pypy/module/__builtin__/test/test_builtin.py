@@ -1,7 +1,10 @@
 import sys
 
+from rpython.tool.udir import udir
+
 class AppTestBuiltinApp:
     def setup_class(cls):
+        space = cls.space
         class X(object):
             def __eq__(self, other):
                 raise OverflowError
@@ -11,18 +14,27 @@ class AppTestBuiltinApp:
         try:
             d[X()]
         except OverflowError:
-            cls.w_sane_lookup = cls.space.wrap(True)
+            cls.w_sane_lookup = space.wrap(True)
         except KeyError:
-            cls.w_sane_lookup = cls.space.wrap(False)
+            cls.w_sane_lookup = space.wrap(False)
         # starting with CPython 2.6, when the stack is almost out, we
         # can get a random error, instead of just a RuntimeError.
         # For example if an object x has a __getattr__, we can get
         # AttributeError if attempting to call x.__getattr__ runs out
         # of stack.  That's annoying, so we just work around it.
         if cls.runappdirect:
-            cls.w_safe_runtimerror = cls.space.wrap(True)
+            cls.w_safe_runtimerror = space.wrap(True)
         else:
-            cls.w_safe_runtimerror = cls.space.wrap(sys.version_info < (2, 6))
+            cls.w_safe_runtimerror = space.wrap(sys.version_info < (2, 6))
+
+        emptyfile = udir.join('emptyfile.py')
+        emptyfile.write('')
+        nullbytes = udir.join('nullbytes.py')
+        nullbytes.write('#abc\x00def\n')
+        nonexistent = udir.join('builtins-nonexistent')
+        cls.w_emptyfile = space.wrap(str(emptyfile))
+        cls.w_nullbytes = space.wrap(str(nullbytes))
+        cls.w_nonexistent = space.wrap(str(nonexistent))
 
     def test_builtin_names(self):
         import __builtin__
@@ -252,6 +264,7 @@ class AppTestBuiltinApp:
         raises(StopIteration,x.next)
 
     def test_enumerate(self):
+        import sys
         seq = range(2,4)
         enum = enumerate(seq)
         assert enum.next() == (0, 2)
@@ -261,6 +274,15 @@ class AppTestBuiltinApp:
         raises(TypeError, enumerate, None)
         enum = enumerate(range(5), 2)
         assert list(enum) == zip(range(2, 7), range(5))
+
+        enum = enumerate(range(2), 2**100)
+        assert list(enum) == [(2**100, 0), (2**100+1, 1)]
+
+        enum = enumerate(range(2), sys.maxint)
+        assert list(enum) == [(sys.maxint, 0), (sys.maxint+1, 1)]
+
+        raises(TypeError, enumerate, range(2), 5.5)
+
 
     def test_next(self):
         x = iter(['a', 'b', 'c'])
@@ -311,14 +333,14 @@ class AppTestBuiltinApp:
     def test_xrange_len(self):
         x = xrange(33)
         assert len(x) == 33
-        x = xrange(33.2)
-        assert len(x) == 33
+        exc = raises(TypeError, xrange, 33.2)
+        assert "integer" in str(exc.value)
         x = xrange(33,0,-1)
         assert len(x) == 33
         x = xrange(33,0)
         assert len(x) == 0
-        x = xrange(33,0.2)
-        assert len(x) == 0
+        exc = raises(TypeError, xrange, 33, 0.2)
+        assert "integer" in str(exc.value)
         x = xrange(0,33)
         assert len(x) == 33
         x = xrange(0,33,-1)
@@ -431,7 +453,7 @@ class AppTestBuiltinApp:
         assert setattr(x, 'x', 11) == None
         assert delattr(x, 'x') == None
         # To make this test, we need autopath to work in application space.
-        #self.assertEquals(execfile('emptyfile.py'), None)
+        assert execfile(self.emptyfile) == None
 
     def test_divmod(self):
         assert divmod(15,10) ==(1,5)
@@ -486,51 +508,6 @@ class AppTestBuiltinApp:
         i = 4
         assert eval("i", None, None) == 4
         assert eval('a', None, dict(a=42)) == 42
-
-    def test_compile(self):
-        co = compile('1+2', '?', 'eval')
-        assert eval(co) == 3
-        compile("from __future__ import with_statement", "<test>", "exec")
-        raises(SyntaxError, compile, '-', '?', 'eval')
-        raises(ValueError, compile, '"\\xt"', '?', 'eval')
-        raises(ValueError, compile, '1+2', '?', 'maybenot')
-        raises(ValueError, compile, "\n", "<string>", "exec", 0xff)
-        raises(TypeError, compile, '1+2', 12, 34)
-
-    def test_compile_error_message(self):
-        import re
-        compile('# -*- coding: iso-8859-15 -*-\n', 'dummy', 'exec')
-        compile(b'\xef\xbb\xbf\n', 'dummy', 'exec')
-        compile(b'\xef\xbb\xbf# -*- coding: utf-8 -*-\n', 'dummy', 'exec')
-        exc = raises(SyntaxError, compile,
-            b'# -*- coding: fake -*-\n', 'dummy', 'exec')
-        assert 'fake' in str(exc.value)
-        exc = raises(SyntaxError, compile,
-            b'\xef\xbb\xbf# -*- coding: iso-8859-15 -*-\n', 'dummy', 'exec')
-        assert 'iso-8859-15' in str(exc.value)
-        assert 'BOM' in str(exc.value)
-        exc = raises(SyntaxError, compile,
-            b'\xef\xbb\xbf# -*- coding: fake -*-\n', 'dummy', 'exec')
-        assert 'fake' in str(exc.value)
-        assert 'BOM' in str(exc.value)
-
-    def test_unicode_compile(self):
-        try:
-            compile(u'-', '?', 'eval')
-        except SyntaxError as e:
-            assert e.lineno == 1
-
-    def test_unicode_encoding_compile(self):
-        code = u"# -*- coding: utf-8 -*-\npass\n"
-        raises(SyntaxError, compile, code, "tmp", "exec")
-
-    def test_recompile_ast(self):
-        import _ast
-        # raise exception when node type doesn't match with compile mode
-        co1 = compile('print 1', '<string>', 'exec', _ast.PyCF_ONLY_AST)
-        raises(TypeError, compile, co1, '<ast>', 'eval')
-        co2 = compile('1+1', '<string>', 'eval', _ast.PyCF_ONLY_AST)
-        compile(co2, '<ast>', 'eval')
 
     def test_isinstance(self):
         assert isinstance(5, int)
@@ -594,13 +571,9 @@ class AppTestBuiltinApp:
         raises(TypeError, hasattr, x, 42)
         raises(UnicodeError, hasattr, x, u'\u5678')  # cannot encode attr name
 
-    def test_compile_leading_newlines(self):
-        src = """
-def fn(): pass
-"""
-        co = compile(src, 'mymod', 'exec')
-        firstlineno = co.co_firstlineno
-        assert firstlineno == 2
+    def test_execfile_args(self):
+        execfile(self.nullbytes) # works
+        raises(TypeError, execfile, self.nonexistent, {}, ())
 
     def test_print_function(self):
         import __builtin__
@@ -611,9 +584,12 @@ def fn(): pass
         out = sys.stdout = StringIO.StringIO()
         try:
             pr("Hello,", "person!")
+            pr("2nd line", file=None)
+            sys.stdout = None
+            pr("nowhere")
         finally:
             sys.stdout = save
-        assert out.getvalue() == "Hello, person!\n"
+        assert out.getvalue() == "Hello, person!\n2nd line\n"
         out = StringIO.StringIO()
         pr("Hello,", "person!", file=out)
         assert out.getvalue() == "Hello, person!\n"
@@ -628,7 +604,6 @@ def fn(): pass
         result = out.getvalue()
         assert isinstance(result, unicode)
         assert result == u"Hello, person!\n"
-        pr("Hello", file=None) # This works.
         out = StringIO.StringIO()
         pr(None, file=out)
         assert out.getvalue() == "None\n"
@@ -696,13 +671,8 @@ class AppTestGetattr:
         raises(TypeError, delattr, A(), 42)
 
 
-class AppTestGetattrWithGetAttributeShortcut(AppTestGetattr):
-    spaceconfig = {"objspace.std.getattributeshortcut": True}
-
-
 class TestInternal:
     def test_execfile(self, space):
-        from rpython.tool.udir import udir
         fn = str(udir.join('test_execfile'))
         f = open(fn, 'w')
         print >>f, "i=42"

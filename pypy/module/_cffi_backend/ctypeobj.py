@@ -1,3 +1,4 @@
+import sys
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app
@@ -10,15 +11,17 @@ from pypy.module._cffi_backend import cdataobj
 
 
 class W_CType(W_Root):
-    _attrs_ = ['space', 'size',  'name', 'name_position', '_lifeline_']
+    _attrs_ = ['space', 'size',  'name', 'name_position', '_lifeline_',
+               '_pointer_type']
     _immutable_fields_ = ['size?', 'name', 'name_position']
     # note that 'size' is not strictly immutable, because it can change
     # from -1 to the real value in the W_CTypeStruct subclass.
     # XXX this could be improved with an elidable method get_size()
     # that raises in case it's still -1...
 
-    cast_anything = False
     is_primitive_integer = False
+    is_nonfunc_pointer_or_array = False
+    is_indirect_arg_for_call_python = False
     kind = "?"
 
     def __init__(self, space, size, name, name_position):
@@ -39,22 +42,19 @@ class W_CType(W_Root):
         else:
             return 'NULL'
 
-    def is_char_ptr_or_array(self):
-        return False
-
     def is_unichar_ptr_or_array(self):
         return False
 
-    def unpack_list_of_int_items(self, cdata):
+    def unpack_list_of_int_items(self, ptr, length):
         return None
 
-    def unpack_list_of_float_items(self, cdata):
+    def unpack_list_of_float_items(self, ptr, length):
         return None
 
     def pack_list_of_items(self, cdata, w_ob):
         return False
 
-    def newp(self, w_init):
+    def newp(self, w_init, allocator):
         space = self.space
         raise oefmt(space.w_TypeError,
                     "expected a pointer or array ctype, got '%s'", self.name)
@@ -82,13 +82,23 @@ class W_CType(W_Root):
         raise oefmt(space.w_TypeError, "cannot initialize cdata '%s'",
                     self.name)
 
-    def convert_argument_from_object(self, cdata, w_ob):
+    def convert_argument_from_object(self, cdata, w_ob, keepalives, i):
         self.convert_from_object(cdata, w_ob)
         return False
 
     def _convert_error(self, expected, w_got):
         space = self.space
         if isinstance(w_got, cdataobj.W_CData):
+            if self.name == w_got.ctype.name:
+                # in case we'd give the error message "initializer for
+                # ctype 'A' must be a pointer to same type, not cdata
+                # 'B'", but with A=B, then give instead a different error
+                # message to try to clear up the confusion
+                return oefmt(space.w_TypeError,
+                             "initializer for ctype '%s' appears indeed to "
+                             "be '%s', but the types are different (check "
+                             "that you are not e.g. mixing up different ffi "
+                             "instances)", self.name, w_got.ctype.name)
             return oefmt(space.w_TypeError,
                          "initializer for ctype '%s' must be a %s, not cdata "
                          "'%s'", self.name, expected, w_got.ctype.name)
@@ -113,10 +123,28 @@ class W_CType(W_Root):
         raise oefmt(space.w_TypeError,
                     "string(): unexpected cdata '%s' argument", self.name)
 
+    def unpack_ptr(self, w_ctypeptr, ptr, length):
+        # generic implementation, when the type of items is not known to
+        # be one for which a fast-case exists
+        space = self.space
+        itemsize = self.size
+        if itemsize < 0:
+            raise oefmt(space.w_ValueError,
+                        "'%s' points to items of unknown size",
+                        w_ctypeptr.name)
+        result_w = [None] * length
+        for i in range(length):
+            result_w[i] = self.convert_to_object(ptr)
+            ptr = rffi.ptradd(ptr, itemsize)
+        return space.newlist(result_w)
+
     def add(self, cdata, i):
         space = self.space
         raise oefmt(space.w_TypeError, "cannot add a cdata '%s' and a number",
                     self.name)
+
+    def nonzero(self, cdata):
+        return bool(cdata)
 
     def insert_name(self, extra, extra_position):
         name = '%s%s%s' % (self.name[:self.name_position],
@@ -131,6 +159,8 @@ class W_CType(W_Root):
             # obscure hack when untranslated, maybe, approximate, don't use
             if isinstance(align, llmemory.FieldOffset):
                 align = rffi.sizeof(align.TYPE.y)
+                if sys.platform != 'win32' and (1 << (8*align-2)) > sys.maxint:
+                    align /= 2
         else:
             # a different hack when translated, to avoid seeing constants
             # of a symbolic integer type
@@ -142,18 +172,36 @@ class W_CType(W_Root):
         raise oefmt(space.w_ValueError, "ctype '%s' is of unknown alignment",
                     self.name)
 
-    def typeoffsetof(self, fieldname):
+    def direct_typeoffsetof(self, w_field_or_index, following=0):
         space = self.space
-        if fieldname is None:
-            msg = "expected a struct or union ctype"
+        try:
+            fieldname = space.str_w(w_field_or_index)
+        except OperationError as e:
+            if not e.match(space, space.w_TypeError):
+                raise
+            try:
+                index = space.int_w(w_field_or_index)
+            except OperationError as e:
+                if not e.match(space, space.w_TypeError):
+                    raise
+                raise oefmt(space.w_TypeError,
+                            "field name or array index expected")
+            return self.typeoffsetof_index(index)
         else:
-            msg = "expected a struct or union ctype, or a pointer to one"
-        raise OperationError(space.w_TypeError, space.wrap(msg))
+            return self.typeoffsetof_field(fieldname, following)
+
+    def typeoffsetof_field(self, fieldname, following):
+        raise oefmt(self.space.w_TypeError,
+                    "with a field name argument, expected a struct or union "
+                    "ctype")
+
+    def typeoffsetof_index(self, index):
+        raise oefmt(self.space.w_TypeError,
+                    "with an integer argument, expected an array or pointer "
+                    "ctype")
 
     def rawaddressof(self, cdata, offset):
-        space = self.space
-        raise OperationError(space.w_TypeError,
-                             space.wrap("expected a pointer ctype"))
+        raise oefmt(self.space.w_TypeError, "expected a pointer ctype")
 
     def call(self, funcaddr, args_w):
         space = self.space
@@ -175,16 +223,15 @@ class W_CType(W_Root):
         raise oefmt(space.w_AttributeError,
                     "cdata '%s' has no attribute '%s'", self.name, attr)
 
-    def copy_and_convert_to_object(self, cdata):
-        return self.convert_to_object(cdata)
+    def copy_and_convert_to_object(self, source):
+        return self.convert_to_object(source)
 
     # __________ app-level attributes __________
     def dir(self):
         space = self.space
-        w_self = space.wrap(self)
         lst = [space.wrap(name)
                   for name in _name_of_attributes
-                  if space.findattr(w_self, space.wrap(name)) is not None]
+                  if space.findattr(self, space.wrap(name)) is not None]
         return space.newlist(lst)
 
     def _fget(self, attrchar):
@@ -208,10 +255,12 @@ class W_CType(W_Root):
     def fget_elements(self, space): return self._fget('e')
     def fget_relements(self, space):return self._fget('R')
 
+    def cdata_dir(self):
+        return []
+
 
 W_CType.typedef = TypeDef(
-    'CTypeDescr',
-    __module__ = '_cffi_backend',
+    '_cffi_backend.CTypeDescr',
     __repr__ = interp2app(W_CType.repr),
     __weakref__ = make_weakref_descr(W_CType),
     kind = GetSetProperty(W_CType.fget_kind, doc="kind"),

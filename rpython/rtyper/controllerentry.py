@@ -1,6 +1,5 @@
 from rpython.annotator import model as annmodel
 from rpython.tool.pairtype import pairtype
-from rpython.annotator.binaryop import _make_none_union, SomePBC # SomePBC needed by _make_none_union
 from rpython.annotator.bookkeeper import getbookkeeper
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.annlowlevel import cachedtype
@@ -216,15 +215,17 @@ class SomeControlledInstance(annmodel.SomeObject):
     def can_be_none(self):
         return self.controller.can_be_None
 
+    def noneify(self):
+        return SomeControlledInstance(self.s_real_obj, self.controller)
+
     def rtyper_makerepr(self, rtyper):
         from rpython.rtyper.rcontrollerentry import ControlledInstanceRepr
         return ControlledInstanceRepr(rtyper, self.s_real_obj, self.controller)
 
-    def rtyper_makekey_ex(self, rtyper):
-        real_key = rtyper.makekey(self.s_real_obj)
+    def rtyper_makekey(self):
+        real_key = self.s_real_obj.rtyper_makekey()
         return self.__class__, real_key, self.controller
 
-_make_none_union("SomeControlledInstance", "obj.s_real_obj, obj.controller", globals())
 
 class __extend__(SomeControlledInstance):
 

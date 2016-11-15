@@ -6,6 +6,7 @@ Tests for the rzlib module.
 import py
 from rpython.rlib import rzlib
 from rpython.rlib.rarithmetic import r_uint
+from rpython.rlib import clibffi # for side effect of testing lib_c_name on win32
 import zlib
 
 expanded = 'some bytes which will be compressed'
@@ -80,6 +81,39 @@ def test_deflate_init_end():
     """
     stream = rzlib.deflateInit()
     rzlib.deflateEnd(stream)
+
+
+def test_deflate_set_dictionary():
+    text = 'abcabc'
+    zdict = 'abc'
+    stream = rzlib.deflateInit()
+    rzlib.deflateSetDictionary(stream, zdict)
+    bytes = rzlib.compress(stream, text, rzlib.Z_FINISH)
+    rzlib.deflateEnd(stream)
+    
+    stream2 = rzlib.inflateInit()
+
+    from rpython.rtyper.lltypesystem import lltype, rffi, rstr
+    from rpython.rtyper.annlowlevel import llstr
+    from rpython.rlib.rstring import StringBuilder
+    with lltype.scoped_alloc(rffi.CCHARP.TO, len(bytes)) as inbuf:
+        rstr.copy_string_to_raw(llstr(bytes), inbuf, 0, len(bytes))
+        stream2.c_next_in = rffi.cast(rzlib.Bytefp, inbuf)
+        rffi.setintfield(stream2, 'c_avail_in', len(bytes))
+        with lltype.scoped_alloc(rffi.CCHARP.TO, 100) as outbuf:
+            stream2.c_next_out = rffi.cast(rzlib.Bytefp, outbuf)
+            bufsize = 100
+            rffi.setintfield(stream2, 'c_avail_out', bufsize)
+            err = rzlib._inflate(stream2, rzlib.Z_SYNC_FLUSH)
+            assert err == rzlib.Z_NEED_DICT
+            rzlib.inflateSetDictionary(stream2, zdict)
+            rzlib._inflate(stream2, rzlib.Z_SYNC_FLUSH)
+            avail_out = rffi.cast(lltype.Signed, stream2.c_avail_out)
+            result = StringBuilder()
+            result.append_charpsize(outbuf, bufsize - avail_out)
+
+    rzlib.inflateEnd(stream2)
+    assert result.build() == text
 
 
 def test_compression():
@@ -236,3 +270,7 @@ def test_cornercases():
         assert unused > 0
         buf = buf[-unused:]
     rzlib.deflateEnd(stream)
+
+def test_zlibVersion():
+    runtime_version = rzlib.zlibVersion()
+    assert runtime_version[0] == rzlib.ZLIB_VERSION[0]

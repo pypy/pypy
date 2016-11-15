@@ -1,7 +1,8 @@
 import sys
 from pypy.interpreter.error import OperationError, get_cleared_operation_error
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib import jit
+from rpython.rlib.objectmodel import specialize
+from rpython.rlib import jit, rgc, objectmodel
 
 TICK_COUNTER_STEP = 100
 
@@ -32,6 +33,17 @@ class ExecutionContext(object):
         self.compiler = space.createcompiler()
         self.profilefunc = None
         self.w_profilefuncarg = None
+        self.thread_disappeared = False   # might be set to True after os.fork()
+
+    @staticmethod
+    def _mark_thread_disappeared(space):
+        # Called in the child process after os.fork() by interp_posix.py.
+        # Marks all ExecutionContexts except the current one
+        # with 'thread_disappeared = True'.
+        me = space.getexecutioncontext()
+        for ec in space.threadlocals.getallvalues().values():
+            if ec is not me:
+                ec.thread_disappeared = True
 
     def gettopframe(self):
         return self.topframeref()
@@ -85,7 +97,7 @@ class ExecutionContext(object):
 
     def _c_call_return_trace(self, frame, w_func, args, event):
         if self.profilefunc is None:
-            frame.is_being_profiled = False
+            frame.getorcreatedebug().is_being_profiled = False
         else:
             # undo the effect of the CALL_METHOD bytecode, which would be
             # that even on a built-in method call like '[].append()',
@@ -103,7 +115,7 @@ class ExecutionContext(object):
     def c_exception_trace(self, frame, w_exc):
         "Profile function called upon OperationError."
         if self.profilefunc is None:
-            frame.is_being_profiled = False
+            frame.getorcreatedebug().is_being_profiled = False
         else:
             self._trace(frame, 'c_exception', w_exc)
 
@@ -112,13 +124,14 @@ class ExecutionContext(object):
         if self.gettrace() is not None or self.profilefunc is not None:
             self._trace(frame, 'call', self.space.w_None)
             if self.profilefunc:
-                frame.is_being_profiled = True
+                frame.getorcreatedebug().is_being_profiled = True
 
     def return_trace(self, frame, w_retval):
         "Trace the return from a function"
         if self.gettrace() is not None:
             self._trace(frame, 'return', w_retval)
 
+    @objectmodel.always_inline
     def bytecode_trace(self, frame, decr_by=TICK_COUNTER_STEP):
         "Trace function called before each bytecode."
         # this is split into a fast path and a slower path that is
@@ -127,24 +140,30 @@ class ExecutionContext(object):
         actionflag = self.space.actionflag
         if actionflag.decrement_ticker(decr_by) < 0:
             actionflag.action_dispatcher(self, frame)     # slow path
-    bytecode_trace._always_inline_ = True
 
+    def _run_finalizers_now(self):
+        # Tests only: run the actions now, to ensure that the
+        # finalizable objects are really finalized.  Used notably by
+        # pypy.tool.pytest.apptest.
+        self.space.actionflag.action_dispatcher(self, None)
+
+    @objectmodel.always_inline
     def bytecode_only_trace(self, frame):
         """
         Like bytecode_trace() but doesn't invoke any other events besides the
         trace function.
         """
-        if (frame.w_f_trace is None or self.is_tracing or
+        if (frame.get_w_f_trace() is None or self.is_tracing or
             self.gettrace() is None):
             return
         self.run_trace_func(frame)
-    bytecode_only_trace._always_inline_ = True
 
     @jit.unroll_safe
     def run_trace_func(self, frame):
         code = frame.pycode
-        if frame.instr_lb <= frame.last_instr < frame.instr_ub:
-            if frame.last_instr < frame.instr_prev_plus_one:
+        d = frame.getorcreatedebug()
+        if d.instr_lb <= frame.last_instr < d.instr_ub:
+            if frame.last_instr < d.instr_prev_plus_one:
                 # We jumped backwards in the same line.
                 self._trace(frame, 'line', self.space.w_None)
         else:
@@ -159,7 +178,7 @@ class ExecutionContext(object):
                     break
                 addr += c
                 if c:
-                    frame.instr_lb = addr
+                    d.instr_lb = addr
 
                 line += ord(lineno[p + 1])
                 p += 2
@@ -174,43 +193,46 @@ class ExecutionContext(object):
                     if ord(lineno[p + 1]):
                         break
                     p += 2
-                frame.instr_ub = addr
+                d.instr_ub = addr
             else:
-                frame.instr_ub = sys.maxint
+                d.instr_ub = sys.maxint
 
-            if frame.instr_lb == frame.last_instr: # At start of line!
-                frame.f_lineno = line
+            if d.instr_lb == frame.last_instr: # At start of line!
+                d.f_lineno = line
                 self._trace(frame, 'line', self.space.w_None)
 
-        frame.instr_prev_plus_one = frame.last_instr + 1
+        d.instr_prev_plus_one = frame.last_instr + 1
 
+    @objectmodel.try_inline
     def bytecode_trace_after_exception(self, frame):
         "Like bytecode_trace(), but without increasing the ticker."
         actionflag = self.space.actionflag
         self.bytecode_only_trace(frame)
         if actionflag.get_ticker() < 0:
             actionflag.action_dispatcher(self, frame)     # slow path
-    bytecode_trace_after_exception._always_inline_ = 'try'
     # NB. this function is not inlined right now.  backendopt.inline would
     # need some improvements to handle this case, but it's not really an
     # issue
 
     def exception_trace(self, frame, operationerr):
         "Trace function called upon OperationError."
-        operationerr.record_interpreter_traceback()
         if self.gettrace() is not None:
             self._trace(frame, 'exception', None, operationerr)
         #operationerr.print_detailed_traceback(self.space)
 
-    def sys_exc_info(self): # attn: the result is not the wrapped sys.exc_info() !!!
+    @jit.dont_look_inside
+    @specialize.arg(1)
+    def sys_exc_info(self, for_hidden=False):
         """Implements sys.exc_info().
-        Return an OperationError instance or None."""
-        frame = self.gettopframe_nohidden()
-        while frame:
-            if frame.last_exception is not None:
-                return frame.last_exception
-            frame = self.getnextframe_nohidden(frame)
-        return None
+        Return an OperationError instance or None.
+
+        Ignores exceptions within hidden frames unless for_hidden=True
+        is specified.
+
+        # NOTE: the result is not the wrapped sys.exc_info() !!!
+
+        """
+        return self.gettopframe()._exc_info_unroll(self.space, for_hidden)
 
     def set_sys_exc_info(self, operror):
         frame = self.gettopframe_nohidden()
@@ -274,7 +296,7 @@ class ExecutionContext(object):
         frame = self.gettopframe_nohidden()
         while frame:
             if is_being_profiled:
-                frame.is_being_profiled = True
+                frame.getorcreatedebug().is_being_profiled = True
             frame = self.getnextframe_nohidden(frame)
 
     def call_tracing(self, w_func, w_args):
@@ -295,7 +317,7 @@ class ExecutionContext(object):
         if event == 'call':
             w_callback = self.gettrace()
         else:
-            w_callback = frame.w_f_trace
+            w_callback = frame.get_w_f_trace()
 
         if w_callback is not None and event != "leaveframe":
             if operr is not None:
@@ -303,22 +325,28 @@ class ExecutionContext(object):
                 w_arg = space.newtuple([operr.w_type, w_value,
                                      space.wrap(operr.get_traceback())])
 
-            frame.fast2locals()
+            d = frame.getorcreatedebug()
+            if d.w_locals is not None:
+                # only update the w_locals dict if it exists
+                # if it does not exist yet and the tracer accesses it via
+                # frame.f_locals, it is filled by PyFrame.getdictscope
+                frame.fast2locals()
             self.is_tracing += 1
             try:
                 try:
                     w_result = space.call_function(w_callback, space.wrap(frame), space.wrap(event), w_arg)
                     if space.is_w(w_result, space.w_None):
-                        frame.w_f_trace = None
+                        d.w_f_trace = None
                     else:
-                        frame.w_f_trace = w_result
+                        d.w_f_trace = w_result
                 except:
                     self.settrace(space.w_None)
-                    frame.w_f_trace = None
+                    d.w_f_trace = None
                     raise
             finally:
                 self.is_tracing -= 1
-                frame.locals2fast()
+                if d.w_locals is not None:
+                    frame.locals2fast()
 
         # Profile cases
         if self.profilefunc is not None:
@@ -428,6 +456,7 @@ class AbstractActionFlag(object):
         periodic_actions = unrolling_iterable(self._periodic_actions)
 
         @jit.unroll_safe
+        @objectmodel.dont_inline
         def action_dispatcher(ec, frame):
             # periodic actions (first reset the bytecode counter)
             self.reset_ticker(self.checkinterval_scaled)
@@ -438,11 +467,17 @@ class AbstractActionFlag(object):
             list = self.fired_actions
             if list is not None:
                 self.fired_actions = None
+                # NB. in case there are several actions, we reset each
+                # 'action._fired' to false only when we're about to call
+                # 'action.perform()'.  This means that if
+                # 'action.fire()' happens to be called any time before
+                # the corresponding perform(), the fire() has no
+                # effect---which is the effect we want, because
+                # perform() will be called anyway.
                 for action in list:
                     action._fired = False
                     action.perform(ec, frame)
 
-        action_dispatcher._dont_inline_ = True
         self.action_dispatcher = action_dispatcher
 
 
@@ -496,39 +531,95 @@ class PeriodicAsyncAction(AsyncAction):
 class UserDelAction(AsyncAction):
     """An action that invokes all pending app-level __del__() method.
     This is done as an action instead of immediately when the
-    interp-level __del__() is invoked, because the latter can occur more
+    WRootFinalizerQueue is triggered, because the latter can occur more
     or less anywhere in the middle of code that might not be happy with
     random app-level code mutating data structures under its feet.
     """
 
     def __init__(self, space):
         AsyncAction.__init__(self, space)
-        self.dying_objects = []
-        self.finalizers_lock_count = 0
-        self.enabled_at_app_level = True
-
-    def register_callback(self, w_obj, callback, descrname):
-        self.dying_objects.append((w_obj, callback, descrname))
-        self.fire()
+        self.finalizers_lock_count = 0        # see pypy/module/gc
+        self.enabled_at_app_level = True      # see pypy/module/gc
+        self.pending_with_disabled_del = None
 
     def perform(self, executioncontext, frame):
-        if self.finalizers_lock_count > 0:
-            return
         self._run_finalizers()
 
+    @jit.dont_look_inside
     def _run_finalizers(self):
-        # Each call to perform() first grabs the self.dying_objects
-        # and replaces it with an empty list.  We do this to try to
-        # avoid too deep recursions of the kind of __del__ being called
-        # while in the middle of another __del__ call.
-        pending = self.dying_objects
-        self.dying_objects = []
+        while True:
+            w_obj = self.space.finalizer_queue.next_dead()
+            if w_obj is None:
+                break
+            self._call_finalizer(w_obj)
+
+    def gc_disabled(self, w_obj):
+        # If we're running in 'gc.disable()' mode, record w_obj in the
+        # "call me later" list and return True.  In normal mode, return
+        # False.  Use this function from some _finalize_() methods:
+        # if a _finalize_() method would call some user-defined
+        # app-level function, like a weakref callback, then first do
+        # 'if gc.disabled(self): return'.  Another attempt at
+        # calling _finalize_() will be made after 'gc.enable()'.
+        # (The exact rule for when to use gc_disabled() or not is a bit
+        # vague, but most importantly this includes all user-level
+        # __del__().)
+        pdd = self.pending_with_disabled_del
+        if pdd is None:
+            return False
+        else:
+            pdd.append(w_obj)
+            return True
+
+    def _call_finalizer(self, w_obj):
+        # Before calling the finalizers, clear the weakrefs, if any.
+        w_obj.clear_all_weakrefs()
+
+        # Look up and call the app-level __del__, if any.
         space = self.space
-        for i in range(len(pending)):
-            w_obj, callback, descrname = pending[i]
-            pending[i] = (None, None, None)
+        if w_obj.typedef is None:
+            w_del = None       # obscure case: for WeakrefLifeline
+        else:
+            w_del = space.lookup(w_obj, '__del__')
+        if w_del is not None:
+            if self.gc_disabled(w_obj):
+                return
             try:
-                callback(w_obj)
-            except OperationError, e:
-                e.write_unraisable(space, descrname, w_obj)
-                e.clear(space)   # break up reference cycles
+                space.get_and_call_function(w_del, w_obj)
+            except Exception as e:
+                report_error(space, e, "method __del__ of ", w_obj)
+
+        # Call the RPython-level _finalize_() method.
+        try:
+            w_obj._finalize_()
+        except Exception as e:
+            report_error(space, e, "finalizer of ", w_obj)
+
+
+def report_error(space, e, where, w_obj):
+    if isinstance(e, OperationError):
+        e.write_unraisable(space, where, w_obj)
+        e.clear(space)   # break up reference cycles
+    else:
+        addrstring = w_obj.getaddrstring(space)
+        msg = ("RPython exception %s in %s<%s at 0x%s> ignored\n" % (
+                   str(e), where, space.type(w_obj).name, addrstring))
+        space.call_method(space.sys.get('stderr'), 'write',
+                          space.wrap(msg))
+
+
+def make_finalizer_queue(W_Root, space):
+    """Make a FinalizerQueue subclass which responds to GC finalizer
+    events by 'firing' the UserDelAction class above.  It does not
+    directly fetches the objects to finalize at all; they stay in the 
+    GC-managed queue, and will only be fetched by UserDelAction
+    (between bytecodes)."""
+
+    class WRootFinalizerQueue(rgc.FinalizerQueue):
+        Class = W_Root
+
+        def finalizer_trigger(self):
+            space.user_del_action.fire()
+
+    space.user_del_action = UserDelAction(space)
+    space.finalizer_queue = WRootFinalizerQueue()

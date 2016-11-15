@@ -1,5 +1,4 @@
 class AppTestMap:
-
     def test_trivial_map_one_seq(self):
         assert map(lambda x: x+2, [1, 2, 3, 4]) == [3, 4, 5, 6]
 
@@ -58,6 +57,11 @@ class AppTestMap:
         b = []
         assert map(lambda x, y: x, a, b) == a
 
+    def test_map_second_item(self):
+        a = []
+        b = [1, 2, 3, 4, 5]
+        assert map(lambda x, y: y, a, b) == b
+
     def test_map_iterables(self):
         class A(object):
             def __init__(self, n):
@@ -77,6 +81,7 @@ class AppTestMap:
         assert result == [(2, 7), (1, 6), (None, 5), (None, 4),
                           (None, 3), (None, 2), (None, 1)]
 
+
 class AppTestZip:
     def test_one_list(self):
         assert zip([1,2,3]) == [(1,), (2,), (3,)]
@@ -93,6 +98,7 @@ class AppTestZip:
                     yield None
         assert zip(Foo()) == []
 
+
 class AppTestReduce:
     def test_None(self):
         raises(TypeError, reduce, lambda x, y: x+y, [1,2,3], None)
@@ -104,6 +110,7 @@ class AppTestReduce:
     def test_minus(self):
         assert reduce(lambda x, y: x-y, [10, 2, 8]) == 0
         assert reduce(lambda x, y: x-y, [2, 8], 10) == 0
+
 
 class AppTestFilter:
     def test_None(self):
@@ -124,6 +131,7 @@ class AppTestFilter:
             def __getitem__(self, i):
                 return i * 10
         assert filter(lambda x: x != 20, T("abcd")) == (0, 10, 30)
+
 
 class AppTestXRange:
     def test_xrange(self):
@@ -155,7 +163,8 @@ class AppTestXRange:
         assert list(xrange(0, 10, A())) == [0, 5]
 
     def test_xrange_float(self):
-        assert list(xrange(0.1, 2.0, 1.1)) == [0, 1]
+        exc = raises(TypeError, xrange, 0.1, 2.0, 1.1)
+        assert "integer" in str(exc.value)
 
     def test_xrange_long(self):
         import sys
@@ -218,6 +227,7 @@ class AppTestReversed:
         assert list(reversed(list(reversed("hello")))) == ['h','e','l','l','o']
         raises(TypeError, reversed, reversed("hello"))
 
+
 class AppTestApply:
     def test_apply(self):
         def f(*args, **kw):
@@ -227,6 +237,7 @@ class AppTestApply:
         assert apply(f) == ((), {})
         assert apply(f, args) == (args, {})
         assert apply(f, args, kw) == (args, kw)
+
 
 class AppTestAllAny:
     """
@@ -277,6 +288,7 @@ class AppTestAllAny:
         S = [10, 20, 30]
         assert any([x > 42 for x in S]) == False
 
+
 class AppTestMinMax:
     def test_min(self):
         assert min(1, 2) == 1
@@ -284,6 +296,11 @@ class AppTestMinMax:
         assert min([1, 2, 3]) == 1
         raises(TypeError, min, 1, 2, bar=2)
         raises(TypeError, min, 1, 2, key=lambda x: x, bar=2)
+        assert type(min(1, 1.0)) is int
+        assert type(min(1.0, 1)) is float
+        assert type(min(1, 1.0, 1L)) is int
+        assert type(min(1.0, 1L, 1)) is float
+        assert type(min(1L, 1, 1.0)) is long
 
     def test_max(self):
         assert max(1, 2) == 2
@@ -291,3 +308,8 @@ class AppTestMinMax:
         assert max([1, 2, 3]) == 3
         raises(TypeError, max, 1, 2, bar=2)
         raises(TypeError, max, 1, 2, key=lambda x: x, bar=2)
+        assert type(max(1, 1.0)) is int
+        assert type(max(1.0, 1)) is float
+        assert type(max(1, 1.0, 1L)) is int
+        assert type(max(1.0, 1L, 1)) is float
+        assert type(max(1L, 1, 1.0)) is long

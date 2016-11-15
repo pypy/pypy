@@ -1,9 +1,11 @@
-from __future__ import with_statement
 import py
+import sys
 from rpython.rtyper.lltypesystem.lltype import *
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool.identity_dict import identity_dict
 from rpython.tool import leakfinder
+from rpython.annotator.annrpython import RPythonAnnotator
+from rpython.rtyper.rtyper import RPythonTyper
 
 def isweak(p, T):
     try:
@@ -210,33 +212,6 @@ def test_cast_pointer():
     assert p1b == cast_pointer(Ptr(S1bis), p3)
     py.test.raises(RuntimeError, "cast_pointer(Ptr(S1), p3)")
 
-def test_best_effort_gced_parent_detection():
-    py.test.skip("test not relevant any more")
-    S2 = Struct("s2", ('a', Signed))
-    S1 = GcStruct("s1", ('sub1', S2), ('sub2', S2), ('tail', Array(('e', Signed))))
-    p1 = malloc(S1, 1)
-    p2 = p1.sub2
-    p3 = p1.tail
-    p3[0].e = 1
-    assert p3[0].e == 1
-    del p1
-    import gc
-    gc.collect()
-    py.test.raises(RuntimeError, "p2.a")
-    py.test.raises(RuntimeError, "p3[0]")
-
-def test_best_effort_gced_parent_for_arrays():
-    py.test.skip("test not relevant any more")
-    A1 = GcArray(('v', Signed))
-    p1 = malloc(A1, 10)
-    p1[5].v=3
-    assert p1[5].v == 3
-    p1_5 = p1[5]
-    del p1
-    import gc
-    gc.collect()
-    py.test.raises(RuntimeError, "p1_5.v")        
-
 def test_examples():
     A1 = GcArray(('v', Signed))
     S = GcStruct("s", ('v', Signed))
@@ -388,11 +363,11 @@ def test_getRuntimeTypeInfo_destrpointer():
         s.x = 1
     def type_info_S(p):
         return getRuntimeTypeInfo(S)
-    qp = functionptr(FuncType([Ptr(S)], Ptr(RuntimeTypeInfo)), 
-                     "type_info_S", 
+    qp = functionptr(FuncType([Ptr(S)], Ptr(RuntimeTypeInfo)),
+                     "type_info_S",
                      _callable=type_info_S)
-    dp = functionptr(FuncType([Ptr(S)], Void), 
-                     "destructor_funcptr", 
+    dp = functionptr(FuncType([Ptr(S)], Void),
+                     "destructor_funcptr",
                      _callable=f)
     pinf0 = attachRuntimeTypeInfo(S, qp, destrptr=dp)
     assert pinf0._obj.about == S
@@ -422,8 +397,8 @@ def test_runtime_type_info():
             return getRuntimeTypeInfo(S)
         else:
             return getRuntimeTypeInfo(S1)
-    fp = functionptr(FuncType([Ptr(S)], Ptr(RuntimeTypeInfo)), 
-                     "dynamic_type_info_S", 
+    fp = functionptr(FuncType([Ptr(S)], Ptr(RuntimeTypeInfo)),
+                     "dynamic_type_info_S",
                      _callable=dynamic_type_info_S)
     attachRuntimeTypeInfo(S, fp)
     assert s.x == 0
@@ -434,7 +409,7 @@ def test_runtime_type_info():
     py.test.raises(RuntimeError, "runtime_type_info(s1.sub)")
     s1.sub.x = 1
     assert runtime_type_info(s1.sub) == getRuntimeTypeInfo(S1)
-    
+
 def test_flavor_malloc():
     def isweak(p, T):
         return p._weak and typeOf(p).TO == T
@@ -450,7 +425,7 @@ def test_flavor_malloc():
     p = malloc(T, flavor="gc")
     assert typeOf(p).TO == T
     assert not isweak(p, T)
-    
+
 def test_opaque():
     O = OpaqueType('O')
     p1 = opaqueptr(O, 'p1', hello="world")
@@ -520,8 +495,8 @@ def test_is_atomic():
 def test_adtmeths():
     def h_newstruct():
         return malloc(S)
-    
-    S = GcStruct('s', ('x', Signed), 
+
+    S = GcStruct('s', ('x', Signed),
                  adtmeths={"h_newstruct": h_newstruct})
 
     s = S.h_newstruct()
@@ -553,18 +528,36 @@ def test_adt_typemethod():
     def h_newstruct(S):
         return malloc(S)
     h_newstruct = typeMethod(h_newstruct)
-    
-    S = GcStruct('s', ('x', Signed), 
+
+    S = GcStruct('s', ('x', Signed),
                  adtmeths={"h_newstruct": h_newstruct})
 
     s = S.h_newstruct()
 
     assert typeOf(s) == Ptr(S)
 
-    Sprime = GcStruct('s', ('x', Signed), 
+    Sprime = GcStruct('s', ('x', Signed),
                       adtmeths={"h_newstruct": h_newstruct})
 
     assert S == Sprime
+
+class Frozen(object):
+    def _freeze_(self):
+        return True
+
+@py.test.mark.parametrize('x', [
+    1, sys.maxint, 1.5, 'a', 'abc', u'abc', None, [],
+    lambda: None,
+    {1.23: 'abc'},
+    (1, 'x', [2, 3.],),
+    Frozen(),])
+def test_typeOf_const(x):
+    a = RPythonAnnotator()
+    bk = a.bookkeeper
+    rtyper = RPythonTyper(a)
+    s_x = bk.immutablevalue(x)
+    r_x = rtyper.getrepr(s_x)
+    assert typeOf(r_x.convert_const(x)) == r_x.lowleveltype
 
 def test_cast_primitive():
     cases = [
@@ -592,7 +585,7 @@ def test_cast_identical_array_ptr_types():
     PA = Ptr(A)
     a = malloc(A, 2)
     assert cast_pointer(PA, a) == a
-        
+
 def test_array_with_no_length():
     A = GcArray(Signed, hints={'nolength': True})
     a = malloc(A, 10)
@@ -604,7 +597,7 @@ def test_dissect_ll_instance():
     s = malloc(GcS)
     s.x = 1
     assert list(dissect_ll_instance(s)) == [(Ptr(GcS), s), (GcS, s._obj), (Signed, 1)]
-    
+
     A = GcArray(('x', Signed))
     a = malloc(A, 10)
     for i in range(10):
@@ -666,6 +659,7 @@ def test_direct_arrayitems():
         a[3] = 30
         a[4] = 40
         b0 = direct_arrayitems(a)
+        assert typeOf(b0) == Ptr(FixedSizeArray(Signed, 1))
         b1 = direct_ptradd(b0, 1)
         b2 = direct_ptradd(b1, 1)
         b3 = direct_ptradd(b0, 3)
@@ -808,6 +802,20 @@ def test_typedef():
     assert F.RESULT == Signed
     assert F.ARGS == (Signed,)
 
+def test_cannot_inline_random_stuff_in_gcstruct():
+    S = GcStruct('S')
+    GcStruct('X', ('a', S))    # works
+    py.test.raises(TypeError, GcStruct, 'X', ('a', Signed), ('b', S))
+    GcStruct('X', ('a', Array(Signed)))   # works
+    py.test.raises(TypeError, GcStruct, 'X', ('a', Array(Signed)),
+                                             ('b', Signed))
+    Struct('X', ('a', Array(Signed, hints={'nolength': True})))   # works
+    py.test.raises(TypeError, GcStruct, 'X',
+                   ('a', Array(Signed, hints={'nolength': True})))
+    GcStruct('X', ('a', OpaqueType('foo')))   # works
+    py.test.raises(TypeError, GcStruct, 'X', ('a', GcOpaqueType('foo')))
+
+
 class TestTrackAllocation:
     def test_automatic_tracking(self):
         # calls to start_tracking_allocations/stop_tracking_allocations
@@ -827,10 +835,10 @@ class TestTrackAllocation:
     def test_str_from_buffer(self):
         """gc-managed memory does not need to be freed"""
         size = 50
-        raw_buf, gc_buf = rffi.alloc_buffer(size)
+        raw_buf, gc_buf, case_num = rffi.alloc_buffer(size)
         for i in range(size): raw_buf[i] = 'a'
-        rstr = rffi.str_from_buffer(raw_buf, gc_buf, size, size)
-        rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
+        rstr = rffi.str_from_buffer(raw_buf, gc_buf, case_num, size, size)
+        rffi.keep_buffer_alive_until_here(raw_buf, gc_buf, case_num)
         assert not leakfinder.ALLOCATED
 
     def test_leak_traceback(self):

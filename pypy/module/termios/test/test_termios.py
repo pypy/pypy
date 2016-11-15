@@ -1,7 +1,7 @@
 import os
 import sys
 import py
-from pypy.conftest import pypydir
+from pypy import pypydir
 from rpython.tool.udir import udir
 
 if os.name != 'posix':
@@ -41,6 +41,10 @@ class TestTermios(object):
         child.expect("Python ")
         child.expect('>>> ')
         child.sendline('import termios')
+        child.expect('>>> ')
+        child.sendline('termios.tcgetattr(0)')
+        # output of the first time is ignored: it contains the compilation
+        # of more C stuff relating to errno
         child.expect('>>> ')
         child.sendline('termios.tcgetattr(0)')
         child.expect('\[.*?\[.*?\]\]')
@@ -86,7 +90,7 @@ class TestTermios(object):
         child.expect('ok!')
 
     def test_ioctl_termios(self):
-        source = py.code.Source("""
+        source = py.code.Source(r"""
         import termios
         import fcntl
         lgt = len(fcntl.ioctl(2, termios.TIOCGWINSZ, '\000'*8))
@@ -136,7 +140,7 @@ class AppTestTermios(object):
             val = getattr(termios, name)
             if name.isupper() and type(val) is int:
                 d[name] = val
-        assert d == self.orig_module_dict
+        assert sorted(d.items()) == sorted(self.orig_module_dict.items())
 
     def test_error(self):
         import termios, errno, os
@@ -149,4 +153,7 @@ class AppTestTermios(object):
 
     def test_error_tcsetattr(self):
         import termios
-        raises(ValueError, termios.tcsetattr, 0, 1, (1, 2))
+        exc = raises(TypeError, termios.tcsetattr, 0, 1, (1, 2))
+        assert str(exc.value) == "tcsetattr, arg 3: must be 7 element list"
+        exc = raises(TypeError, termios.tcsetattr, 0, 1, (1, 2, 3, 4, 5, 6, 7))
+        assert str(exc.value) == "tcsetattr, arg 3: must be 7 element list"

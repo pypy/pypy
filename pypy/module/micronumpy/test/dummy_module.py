@@ -20,13 +20,15 @@ for s in (64, 128):
 for t in types:
     globals()[t] = dtype(t).type
 
-types = ['bool', 'int', 'float', 'complex', 'str', 'string', 'unicode']
+types = ['bool', 'int', 'float', 'complex', 'str', 'string', 'unicode', 'object']
 for t in types:
     globals()[t + '_'] = dtype(t).type
 del types
+globals()['uint'] = dtype('uint').type
 
 types = ['Generic', 'Number', 'Integer', 'SignedInteger', 'UnsignedInteger',
-         'Inexact', 'Floating', 'ComplexFloating', 'Flexible', 'Character']
+         'Inexact', 'Floating', 'ComplexFloating', 'Flexible', 'Character',
+        ]
 for t in types:
     globals()[t.lower()] = typeinfo[t]
 
@@ -37,3 +39,6 @@ def ones(*args, **kwargs):
     a = zeros(*args, **kwargs)
     a.fill(1)
     return a
+
+def isscalar(a):
+    return any([isinstance(a, typeinfo[t]) for t in types])

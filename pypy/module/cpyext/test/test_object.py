@@ -1,4 +1,4 @@
-import py
+import py, pytest
 
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
@@ -127,12 +127,12 @@ class TestObject(BaseApiTest):
         test_compare(1, 2)
         test_compare(2, 2)
         test_compare('2', '1')
-        
+
         w_i = space.wrap(1)
         assert api.PyObject_RichCompareBool(w_i, w_i, 123456) == -1
         assert api.PyErr_Occurred() is space.w_SystemError
         api.PyErr_Clear()
-        
+
     def test_IsInstance(self, space, api):
         assert api.PyObject_IsInstance(space.wrap(1), space.w_int) == 1
         assert api.PyObject_IsInstance(space.wrap(1), space.w_float) == 0
@@ -165,13 +165,16 @@ class TestObject(BaseApiTest):
             return File""")
         w_f = space.call_function(w_File)
         assert api.PyObject_AsFileDescriptor(w_f) == 42
-    
+
     def test_hash(self, space, api):
         assert api.PyObject_Hash(space.wrap(72)) == 72
-        assert api.PyObject_Hash(space.wrap(-1)) == -1
+        assert api.PyObject_Hash(space.wrap(-1)) == -2
         assert (api.PyObject_Hash(space.wrap([])) == -1 and
             api.PyErr_Occurred() is space.w_TypeError)
         api.PyErr_Clear()
+
+    def test_hash_double(self, space, api):
+        assert api._Py_HashDouble(72.0) == 72
 
     def test_type(self, space, api):
         assert api.PyObject_Type(space.wrap(72)) is space.w_int
@@ -202,12 +205,55 @@ class TestObject(BaseApiTest):
     def test_dir(self, space, api):
         w_dir = api.PyObject_Dir(space.sys)
         assert space.isinstance_w(w_dir, space.w_list)
-        assert space.is_true(space.contains(w_dir, space.wrap('modules')))
+        assert space.contains_w(w_dir, space.wrap('modules'))
+
+    def test_format(self, space, api):
+        w_int = space.wrap(42)
+        fmt = space.str_w(api.PyObject_Format(w_int, space.wrap('#b')))
+        assert fmt == '0b101010'
 
 class AppTestObject(AppTestCpythonExtensionBase):
     def setup_class(cls):
         AppTestCpythonExtensionBase.setup_class.im_func(cls)
-        cls.w_tmpname = cls.space.wrap(str(py.test.ensuretemp("out", dir=0)))
+        tmpname = str(py.test.ensuretemp('out', dir=0))
+        if cls.runappdirect:
+            cls.tmpname = tmpname
+        else:
+            cls.w_tmpname = cls.space.wrap(tmpname)
+
+    def test_object_malloc(self):
+        module = self.import_extension('foo', [
+            ("malloctest", "METH_NOARGS",
+             """
+                 PyObject *obj = PyObject_MALLOC(sizeof(PyIntObject));
+                 obj = PyObject_Init(obj, &PyInt_Type);
+                 if (obj != NULL)
+                     ((PyIntObject *)obj)->ob_ival = -424344;
+                 return obj;
+             """)])
+        x = module.malloctest()
+        assert type(x) is int
+        assert x == -424344
+
+    def test_object_realloc(self):
+        if not self.runappdirect:
+            skip('no untranslated support for realloc')
+        module = self.import_extension('foo', [
+            ("realloctest", "METH_NOARGS",
+             """
+                 PyObject * ret;
+                 char *copy, *orig = PyObject_MALLOC(12);
+                 memcpy(orig, "hello world", 12);
+                 copy = PyObject_REALLOC(orig, 15);
+                 /* realloc() takes care of freeing orig, if changed */
+                 if (copy == NULL)
+                     Py_RETURN_NONE;
+                 ret = PyString_FromStringAndSize(copy, 12);
+                 PyObject_Free(copy);
+                 return ret;
+             """)])
+        x = module.realloctest()
+        assert x == 'hello world\x00'
 
     def test_TypeCheck(self):
         module = self.import_extension('foo', [
@@ -245,6 +291,26 @@ class AppTestObject(AppTestCpythonExtensionBase):
         assert module.dump(self.tmpname, None)
         assert open(self.tmpname).read() == 'None'
 
+    def test_issue1970(self):
+        module = self.import_extension('foo', [
+            ("ismapping", "METH_O",
+             """
+                 PyObject* collections_mod =
+                     PyImport_ImportModule("collections");
+                 PyObject* mapping_t = PyObject_GetAttrString(
+                     collections_mod, "Mapping");
+                 Py_DECREF(collections_mod);
+                 if (PyObject_IsInstance(args, mapping_t)) {
+                     Py_DECREF(mapping_t);
+                     Py_RETURN_TRUE;
+                 } else {
+                     Py_DECREF(mapping_t);
+                     Py_RETURN_FALSE;
+                 }
+             """)])
+        import collections
+        assert isinstance(dict(), collections.Mapping)
+        assert module.ismapping(dict())
 
 
 class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
@@ -359,7 +425,6 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
                  """
     Py_buffer buf;
     PyObject *str = PyString_FromString("hello, world.");
-    PyObject *result;
 
     if (PyBuffer_FillInfo(&buf, str, PyString_AsString(str), 13,
                           1, PyBUF_WRITABLE)) {
@@ -370,7 +435,7 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
     PyBuffer_Release(&buf);
     Py_RETURN_NONE;
                  """)])
-        raises(ValueError, module.fillinfo)
+        raises((BufferError, ValueError), module.fillinfo)
 
 
 class AppTestPyBuffer_Release(AppTestCpythonExtensionBase):

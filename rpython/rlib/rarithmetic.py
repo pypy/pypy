@@ -14,6 +14,8 @@ ovfcheck check on CPython whether the result of a signed
          integer operation did overflow
 ovfcheck_float_to_int
          convert to an integer or raise OverflowError
+ovfcheck_float_to_longlong
+         convert to a longlong or raise OverflowError
 r_longlong
          like r_int but double word size
 r_ulonglong
@@ -35,6 +37,7 @@ from rpython.rtyper import extregistry
 from rpython.rlib import objectmodel
 from rpython.flowspace.model import Constant, const
 from rpython.flowspace.specialcase import register_flow_sc
+from rpython.rlib.objectmodel import specialize, not_rpython
 
 """
 Long-term target:
@@ -102,10 +105,8 @@ to use long everywhere.
 # XXX returning int(n) should not be necessary and should be simply n.
 # XXX TODO: replace all int(n) by long(n) and fix everything that breaks.
 # XXX       Then relax it and replace int(n) by n.
+@not_rpython
 def intmask(n):
-    """
-    NOT_RPYTHON
-    """
     if isinstance(n, objectmodel.Symbolic):
         return n        # assume Symbolics don't overflow
     assert not isinstance(n, float)
@@ -117,10 +118,8 @@ def intmask(n):
         n -= 2*LONG_TEST
     return int(n)
 
+@not_rpython
 def longlongmask(n):
-    """
-    NOT_RPYTHON
-    """
     assert isinstance(n, (int, long))
     n = long(n)
     n &= LONGLONG_MASK
@@ -133,14 +132,15 @@ def longlonglongmask(n):
     # We deal directly with overflow there anyway.
     return r_longlonglong(n)
 
+@specialize.argtype(0)
 def widen(n):
     from rpython.rtyper.lltypesystem import lltype
     if _should_widen_type(lltype.typeOf(n)):
         return intmask(n)
     else:
         return n
-widen._annspecialcase_ = 'specialize:argtype(0)'
 
+@specialize.memo()
 def _should_widen_type(tp):
     from rpython.rtyper.lltypesystem import lltype, rffi
     if tp is lltype.Bool:
@@ -151,20 +151,21 @@ def _should_widen_type(tp):
     assert issubclass(r_class, base_int)
     return r_class.BITS < LONG_BIT or (
         r_class.BITS == LONG_BIT and r_class.SIGNED)
-_should_widen_type._annspecialcase_ = 'specialize:memo'
 
 # the replacement for sys.maxint
 maxint = int(LONG_TEST - 1)
+# for now, it should be equal to sys.maxint on all supported platforms
+assert maxint == sys.maxint
 
+@specialize.argtype(0)
 def is_valid_int(r):
     if objectmodel.we_are_translated():
         return isinstance(r, int)
     return isinstance(r, (base_int, int, long, bool)) and (
         -maxint - 1 <= r <= maxint)
-is_valid_int._annspecialcase_ = 'specialize:argtype(0)'
 
+@not_rpython
 def ovfcheck(r):
-    "NOT_RPYTHON"
     # to be used as ovfcheck(x <op> y)
     # raise OverflowError if the operation did overflow
     assert not isinstance(r, r_uint), "unexpected ovf check on unsigned"
@@ -173,13 +174,25 @@ def ovfcheck(r):
     if type(r) is long and not is_valid_int(r):
         # checks only if applicable to r's type.
         # this happens in the garbage collector.
-        raise OverflowError, "signed integer expression did overflow"
+        raise OverflowError("signed integer expression did overflow")
     return r
 
 # Strange things happening for float to int on 64 bit:
 # int(float(i)) != i  because of rounding issues.
 # These are the minimum and maximum float value that can
 # successfully be casted to an int.
+
+# The following values are not quite +/-sys.maxint.
+# Note the "<= x <" here, as opposed to "< x <" above.
+# This is justified by test_typed in translator/c/test.
+def ovfcheck_float_to_longlong(x):
+    from rpython.rlib.rfloat import isnan
+    if isnan(x):
+        raise OverflowError
+    if -9223372036854776832.0 <= x < 9223372036854775296.0:
+        return r_longlong(x)
+    raise OverflowError
+
 if sys.maxint == 2147483647:
     def ovfcheck_float_to_int(x):
         from rpython.rlib.rfloat import isnan
@@ -189,16 +202,8 @@ if sys.maxint == 2147483647:
             return int(x)
         raise OverflowError
 else:
-    # The following values are not quite +/-sys.maxint.
-    # Note the "<= x <" here, as opposed to "< x <" above.
-    # This is justified by test_typed in translator/c/test.
     def ovfcheck_float_to_int(x):
-        from rpython.rlib.rfloat import isnan
-        if isnan(x):
-            raise OverflowError
-        if -9223372036854776832.0 <= x < 9223372036854775296.0:
-            return int(x)
-        raise OverflowError
+        return int(ovfcheck_float_to_longlong(x))
 
 def compute_restype(self_type, other_type):
     if self_type is other_type:
@@ -211,16 +216,18 @@ def compute_restype(self_type, other_type):
         return self_type
     if self_type in (bool, int, long):
         return other_type
+    if self_type is float or other_type is float:
+        return float
     if self_type.SIGNED == other_type.SIGNED:
         return build_int(None, self_type.SIGNED, max(self_type.BITS, other_type.BITS))
-    raise AssertionError, "Merging these types (%s, %s) is not supported" % (self_type, other_type)
+    raise AssertionError("Merging these types (%s, %s) is not supported" % (self_type, other_type))
 
+@specialize.memo()
 def signedtype(t):
     if t in (bool, int, long):
         return True
     else:
         return t.SIGNED
-signedtype._annspecialcase_ = 'specialize:memo'
 
 def normalizedinttype(t):
     if t is int:
@@ -231,11 +238,12 @@ def normalizedinttype(t):
         assert t.BITS <= r_longlong.BITS
         return build_int(None, t.SIGNED, r_longlong.BITS)
 
+@specialize.argtype(0)
 def most_neg_value_of_same_type(x):
     from rpython.rtyper.lltypesystem import lltype
     return most_neg_value_of(lltype.typeOf(x))
-most_neg_value_of_same_type._annspecialcase_ = 'specialize:argtype(0)'
 
+@specialize.memo()
 def most_neg_value_of(tp):
     from rpython.rtyper.lltypesystem import lltype, rffi
     if tp is lltype.Signed:
@@ -246,13 +254,13 @@ def most_neg_value_of(tp):
         return r_class(-(r_class.MASK >> 1) - 1)
     else:
         return r_class(0)
-most_neg_value_of._annspecialcase_ = 'specialize:memo'
 
+@specialize.argtype(0)
 def most_pos_value_of_same_type(x):
     from rpython.rtyper.lltypesystem import lltype
     return most_pos_value_of(lltype.typeOf(x))
-most_pos_value_of_same_type._annspecialcase_ = 'specialize:argtype(0)'
 
+@specialize.memo()
 def most_pos_value_of(tp):
     from rpython.rtyper.lltypesystem import lltype, rffi
     if tp is lltype.Signed:
@@ -263,8 +271,8 @@ def most_pos_value_of(tp):
         return r_class(r_class.MASK >> 1)
     else:
         return r_class(r_class.MASK)
-most_pos_value_of._annspecialcase_ = 'specialize:memo'
 
+@specialize.memo()
 def is_signed_integer_type(tp):
     from rpython.rtyper.lltypesystem import lltype, rffi
     if tp is lltype.Signed:
@@ -274,7 +282,6 @@ def is_signed_integer_type(tp):
         return r_class.SIGNED
     except KeyError:
         return False   # not an integer type
-is_signed_integer_type._annspecialcase_ = 'specialize:memo'
 
 def highest_bit(n):
     """
@@ -295,6 +302,7 @@ class base_int(long):
     def _widen(self, other, value):
         """
         if one argument is int or long, the other type wins.
+        if one argument is float, the result is float.
         otherwise, produce the largest class to hold the result.
         """
         self_type = type(self)
@@ -315,17 +323,29 @@ class base_int(long):
 
     def __add__(self, other):
         x = long(self)
+        if not isinstance(other, (int, long)):
+            return x + other
         y = long(other)
         return self._widen(other, x + y)
-    __radd__ = __add__
+
+    def __radd__(self, other):
+        x = long(self)
+        if not isinstance(other, (int, long)):
+            return other + x
+        y = long(other)
+        return self._widen(other, x + y)
 
     def __sub__(self, other):
         x = long(self)
+        if not isinstance(other, (int, long)):
+            return x - other
         y = long(other)
         return self._widen(other, x - y)
 
     def __rsub__(self, other):
         y = long(self)
+        if not isinstance(other, (int, long)):
+            return other - y
         x = long(other)
         return self._widen(other, x - y)
 
@@ -335,75 +355,133 @@ class base_int(long):
             return x * other
         y = long(other)
         return self._widen(other, x * y)
-    __rmul__ = __mul__
+
+    def __rmul__(self, other):
+        x = long(self)
+        if not isinstance(other, (int, long)):
+            return other * x
+        y = long(other)
+        return self._widen(other, x * y)
 
     def __div__(self, other):
         x = long(self)
+        if not isinstance(other, (int, long)):
+            return x / other
         y = long(other)
         return self._widen(other, x // y)
 
-    __floordiv__ = __div__
-
     def __rdiv__(self, other):
         y = long(self)
+        if not isinstance(other, (int, long)):
+            return other / y
         x = long(other)
         return self._widen(other, x // y)
 
-    __rfloordiv__ = __rdiv__
+    def __floordiv__(self, other):
+        x = long(self)
+        if not isinstance(other, (int, long)):
+            return x // other
+        y = long(other)
+        return self._widen(other, x // y)
+
+    def __rfloordiv__(self, other):
+        y = long(self)
+        if not isinstance(other, (int, long)):
+            return other // y
+        x = long(other)
+        return self._widen(other, x // y)
 
     def __mod__(self, other):
         x = long(self)
+        if not isinstance(other, (int, long)):
+            return x % other
         y = long(other)
         return self._widen(other, x % y)
 
     def __rmod__(self, other):
         y = long(self)
+        if not isinstance(other, (int, long)):
+            return other % y
         x = long(other)
         return self._widen(other, x % y)
 
     def __divmod__(self, other):
         x = long(self)
+        if not isinstance(other, (int, long)):
+            return divmod(x, other)
         y = long(other)
         res = divmod(x, y)
-        return (self.__class__(res[0]), self.__class__(res[1]))
+        return (self._widen(other, res[0]), self._widen(other, res[1]))
 
     def __lshift__(self, n):
         x = long(self)
+        if not isinstance(n, (int, long)):
+            raise TypeError
         y = long(n)
         return self.__class__(x << y)
 
     def __rlshift__(self, n):
         y = long(self)
+        if not isinstance(n, (int, long)):
+            raise TypeError
         x = long(n)
-        return self._widen(n, x << y)
+        return n.__class__(x << y)
 
     def __rshift__(self, n):
         x = long(self)
+        if not isinstance(n, (int, long)):
+            raise TypeError
         y = long(n)
-        return self._widen(n, x >> y)
+        return self.__class__(x >> y)
 
     def __rrshift__(self, n):
         y = long(self)
+        if not isinstance(n, (int, long)):
+            raise TypeError
         x = long(n)
-        return self._widen(n, x >> y)
+        return n.__class__(x >> y)
 
     def __or__(self, other):
         x = long(self)
+        if not isinstance(other, (int, long)):
+            return x | other
         y = long(other)
         return self._widen(other, x | y)
-    __ror__ = __or__
+
+    def __ror__(self, other):
+        x = long(self)
+        if not isinstance(other, (int, long)):
+            return other | x
+        y = long(other)
+        return self._widen(other, x | y)
 
     def __and__(self, other):
         x = long(self)
+        if not isinstance(other, (int, long)):
+            return x & other
         y = long(other)
         return self._widen(other, x & y)
-    __rand__ = __and__
+
+    def __rand__(self, other):
+        x = long(self)
+        if not isinstance(other, (int, long)):
+            return other & x
+        y = long(other)
+        return self._widen(other, x & y)
 
     def __xor__(self, other):
         x = long(self)
+        if not isinstance(other, (int, long)):
+            return x ^ other
         y = long(other)
         return self._widen(other, x ^ y)
-    __rxor__ = __xor__
+
+    def __rxor__(self, other):
+        x = long(self)
+        if not isinstance(other, (int, long)):
+            return other ^ x
+        y = long(other)
+        return self._widen(other, x ^ y)
 
     def __neg__(self):
         x = long(self)
@@ -422,12 +500,16 @@ class base_int(long):
 
     def __pow__(self, other, m=None):
         x = long(self)
+        if not isinstance(other, (int, long)):
+            return pow(x, other, m)
         y = long(other)
         res = pow(x, y, m)
         return self._widen(other, res)
 
     def __rpow__(self, other, m=None):
         y = long(self)
+        if not isinstance(other, (int, long)):
+            return pow(other, y, m)
         x = long(other)
         res = pow(x, y, m)
         return self._widen(other, res)
@@ -531,14 +613,19 @@ longlongmax = r_longlong(LONGLONG_TEST - 1)
 
 if r_longlong is not r_int:
     r_int64 = r_longlong
+    r_uint64 = r_ulonglong
+    r_int32 = int # XXX: what about r_int
+    r_uint32 = r_uint
 else:
-    r_int64 = int
+    r_int64 = int # XXX: what about r_int
+    r_uint64 = r_uint # is r_ulonglong
+    r_int32 = build_int('r_int32', True, 32)     # also needed for rposix_stat.time_t_to_FILE_TIME in the 64 bit case
+    r_uint32 = build_int('r_uint32', False, 32)
 
-# needed for ll_os_stat.time_t_to_FILE_TIME in the 64 bit case
-r_uint32 = build_int('r_uint32', False, 32)
 
 SHRT_MIN = -2**(_get_bitsize('h') - 1)
 SHRT_MAX = 2**(_get_bitsize('h') - 1) - 1
+USHRT_MAX = 2**_get_bitsize('h') - 1
 INT_MIN = int(-2**(_get_bitsize('i') - 1))
 INT_MAX = int(2**(_get_bitsize('i') - 1) - 1)
 UINT_MAX = r_uint(2**_get_bitsize('i') - 1)
@@ -634,7 +721,33 @@ def int_between(n, m, p):
         assert n <= p
     return llop.int_between(lltype.Bool, n, m, p)
 
-@objectmodel.specialize.ll()
+def int_force_ge_zero(n):
+    """ The JIT special-cases this too. """
+    from rpython.rtyper.lltypesystem import lltype
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    return llop.int_force_ge_zero(lltype.Signed, n)
+
+def int_c_div(x, y):
+    """Return the result of the C-style 'x / y'.  This differs from the
+    Python-style division if (x < 0  xor y < 0).  The JIT implements it
+    with a Python-style division followed by correction code.  This
+    is not that bad, because the JIT removes the correction code if
+    x and y are both nonnegative, and if y is any nonnegative constant
+    then the division turns into a rshift or a mul.
+    """
+    from rpython.rtyper.lltypesystem import lltype
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    return llop.int_floordiv(lltype.Signed, x, y)
+
+def int_c_mod(x, y):
+    """Return the result of the C-style 'x % y'.  This differs from the
+    Python-style division if (x < 0  xor y < 0).
+    """
+    from rpython.rtyper.lltypesystem import lltype
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    return llop.int_mod(lltype.Signed, x, y)
+
+@specialize.ll()
 def byteswap(arg):
     """ Convert little->big endian and the opposite
     """

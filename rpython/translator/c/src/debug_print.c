@@ -23,18 +23,23 @@ static char *debug_start_colors_1 = "";
 static char *debug_start_colors_2 = "";
 static char *debug_stop_colors = "";
 static char *debug_prefix = NULL;
-static char *debug_filename = NULL;
-static char *debug_filename_with_fork = NULL;
 
 static void pypy_debug_open(void)
 {
   char *filename = getenv("PYPYLOG");
+
   if (filename && filename[0])
     {
+      char *newfilename = NULL, *escape;
       char *colon = strchr(filename, ':');
+      if (filename[0] == '+')
+        {
+          filename += 1;
+          colon = NULL;
+        }
       if (!colon)
         {
-          /* PYPYLOG=filename --- profiling version */
+          /* PYPYLOG=+filename (or just 'filename') --- profiling version */
           debug_profile = 1;
           pypy_setup_profiling();
         }
@@ -47,10 +52,37 @@ static void pypy_debug_open(void)
           debug_prefix[n] = '\0';
           filename = colon + 1;
         }
+      escape = strstr(filename, "%d");
+      if (escape)  /* a "%d" in the filename is replaced with the pid */
+        {
+          newfilename = malloc(strlen(filename) + 32);
+          if (newfilename != NULL)
+            {
+              char *p = newfilename;
+              memcpy(p, filename, escape - filename);
+              p += escape - filename;
+              sprintf(p, "%ld", (long)getpid());
+              strcat(p, escape + 2);
+              filename = newfilename;
+            }
+        }
       if (strcmp(filename, "-") != 0)
         {
-          debug_filename = strdup(filename);
           pypy_debug_file = fopen(filename, "w");
+        }
+
+      if (escape)
+        {
+          free(newfilename);   /* if not null */
+          /* the env var is kept and passed to subprocesses */
+        }
+      else
+        {
+#ifndef _WIN32
+          unsetenv("PYPYLOG");
+#else
+          putenv("PYPYLOG=");
+#endif
         }
     }
   if (!pypy_debug_file)
@@ -63,12 +95,6 @@ static void pypy_debug_open(void)
           debug_stop_colors = "\033[0m";
         }
     }
-  if (filename)
-#ifndef _WIN32
-    unsetenv("PYPYLOG");   /* don't pass it to subprocesses */
-#else
-    putenv("PYPYLOG=");    /* don't pass it to subprocesses */
-#endif
   debug_ready = 1;
 }
 
@@ -76,9 +102,14 @@ long pypy_debug_offset(void)
 {
   if (!debug_ready)
     return -1;
+  /* The following fflush() makes sure everything is written now, which
+     is just before a fork().  So we can fork() and close the file in
+     the subprocess without ending up with the content of the buffer
+     written twice. */
+  fflush(pypy_debug_file);
+
   // note that we deliberately ignore errno, since -1 is fine
   // in case this is not a real file
-  fflush(pypy_debug_file);
   return ftell(pypy_debug_file);
 }
 
@@ -90,28 +121,27 @@ void pypy_debug_ensure_opened(void)
 
 void pypy_debug_forked(long original_offset)
 {
-  if (debug_filename != NULL)
+  /* 'original_offset' ignored.  It used to be that the forked log
+     files started with this offset printed out, so that we can
+     rebuild the tree structure.  That's overkill... */
+  (void)original_offset;
+
+  if (pypy_debug_file)
     {
-      char *filename = malloc(strlen(debug_filename) + 32);
-      fclose(pypy_debug_file);
+      if (pypy_debug_file != stderr)
+        fclose(pypy_debug_file);
       pypy_debug_file = NULL;
-      if (filename == NULL)
-        return;   /* bah */
-      sprintf(filename, "%s.fork%ld", debug_filename, (long)getpid());
-      pypy_debug_file = fopen(filename, "w");
-      if (pypy_debug_file)
-        fprintf(pypy_debug_file, "FORKED: %ld %s\n", original_offset,
-                debug_filename_with_fork ? debug_filename_with_fork
-                                         : debug_filename);
-      free(debug_filename_with_fork);
-      debug_filename_with_fork = filename;
+      /* if PYPYLOG was set to a name with "%d" in it, it is still
+         alive, and will be reopened with the new subprocess' pid as
+         soon as it logs anything */
+      debug_ready = 0;
     }
 }
 
 
 #ifndef _WIN32
 
-     long long pypy_read_timestamp(void)
+     RPY_EXTERN long long pypy_read_timestamp(void)
      {
 #  ifdef CLOCK_THREAD_CPUTIME_ID
        struct timespec tspec;
@@ -129,6 +159,7 @@ void pypy_debug_forked(long original_offset)
 
 static unsigned char startswithoneof(const char *str, const char *substr)
 {
+    /* any([str.startswith(x) for x in substr.split(',')]) */
   const char *p = str;
   for (; *substr; substr++)
     {
@@ -143,6 +174,23 @@ static unsigned char startswithoneof(const char *str, const char *substr)
         p = str;    /* mismatched, retry with the next */
     }
   return p != NULL;
+}
+
+static long oneofstartswith(const char *str, const char *substr)
+{
+    /* any([x.startswith(substr) for x in str.split(',')]) */
+    const char *p = substr;
+    for (; *str; str++) {
+        if (p) {
+            if (*p++ != *str)
+                p = NULL;   /* mismatch */
+            else if (*p == '\0')
+                return 1;   /* full substring match */
+        }
+        if (*str == ',')
+            p = substr;     /* restart looking */
+    }
+    return 0;
 }
 
 #if defined(_MSC_VER) || defined(__MINGW32__)
@@ -189,4 +237,14 @@ void pypy_debug_stop(const char *category)
   if (debug_profile | (pypy_have_debug_prints & 1))
     display_startstop("", "}", category, debug_start_colors_2);
   pypy_have_debug_prints >>= 1;
+}
+
+long pypy_have_debug_prints_for(const char *category_prefix)
+{
+  pypy_debug_ensure_opened();
+  return (!debug_profile && debug_prefix &&
+          /* if 'PYPYLOG=abc,xyz:-' and prefix=="ab", then return 1 */
+          (oneofstartswith(debug_prefix, category_prefix) ||
+           /* if prefix=="abcdef" and 'PYPYLOG=abc,xyz:-' then return 1 */
+           startswithoneof(category_prefix, debug_prefix)));
 }

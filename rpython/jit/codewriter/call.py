@@ -7,11 +7,15 @@ from rpython.jit.codewriter import support
 from rpython.jit.codewriter.jitcode import JitCode
 from rpython.jit.codewriter.effectinfo import (VirtualizableAnalyzer,
     QuasiImmutAnalyzer, RandomEffectsAnalyzer, effectinfo_from_writeanalyze,
-    EffectInfo, CallInfoCollection)
+    EffectInfo, CallInfoCollection, CallShortcut)
 from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper.lltypesystem.lltype import getfunctionptr
+from rpython.flowspace.model import Constant, Variable
+from rpython.rlib import rposix
 from rpython.translator.backendopt.canraise import RaiseAnalyzer
 from rpython.translator.backendopt.writeanalyze import ReadWriteAnalyzer
 from rpython.translator.backendopt.graphanalyze import DependencyTracker
+from rpython.translator.backendopt.collectanalyze import CollectAnalyzer
 
 
 class CallControl(object):
@@ -29,13 +33,15 @@ class CallControl(object):
             self.rtyper = cpu.rtyper
             translator = self.rtyper.annotator.translator
             self.raise_analyzer = RaiseAnalyzer(translator)
+            self.raise_analyzer_ignore_memoryerror = RaiseAnalyzer(translator)
+            self.raise_analyzer_ignore_memoryerror.do_ignore_memory_error()
             self.readwrite_analyzer = ReadWriteAnalyzer(translator)
             self.virtualizable_analyzer = VirtualizableAnalyzer(translator)
             self.quasiimmut_analyzer = QuasiImmutAnalyzer(translator)
             self.randomeffects_analyzer = RandomEffectsAnalyzer(translator)
-            self.seen = DependencyTracker(self.readwrite_analyzer)
-        else:
-            self.seen = None
+            self.collect_analyzer = CollectAnalyzer(translator)
+            self.seen_rw = DependencyTracker(self.readwrite_analyzer)
+            self.seen_gc = DependencyTracker(self.collect_analyzer)
         #
         for index, jd in enumerate(jitdrivers_sd):
             jd.index = index
@@ -113,6 +119,10 @@ class CallControl(object):
             if self.jitdriver_sd_from_portal_runner_ptr(funcptr) is not None:
                 return 'recursive'
             funcobj = funcptr._obj
+            assert (funcobj is not rposix._get_errno and
+                    funcobj is not rposix._set_errno), (
+                "the JIT must never come close to _get_errno() or _set_errno();"
+                " it should all be done at a lower level")
             if getattr(funcobj, 'graph', None) is None:
                 return 'residual'
             targetgraph = funcobj.graph
@@ -135,7 +145,7 @@ class CallControl(object):
     def grab_initial_jitcodes(self):
         for jd in self.jitdrivers_sd:
             jd.mainjitcode = self.get_jitcode(jd.portal_graph)
-            jd.mainjitcode.is_portal = True
+            jd.mainjitcode.jitdriver_sd = jd
 
     def enum_pending_graphs(self):
         while self.unfinished_graphs:
@@ -168,9 +178,8 @@ class CallControl(object):
         because it is not needed there; it is only used by the blackhole
         interp to really do the call corresponding to 'inline_call' ops.
         """
-        fnptr = self.rtyper.type_system.getcallable(graph)
+        fnptr = getfunctionptr(graph)
         FUNC = lltype.typeOf(fnptr).TO
-        assert self.rtyper.type_system.name == "lltypesystem"
         fnaddr = llmemory.cast_ptr_to_adr(fnptr)
         NON_VOID_ARGS = [ARG for ARG in FUNC.ARGS if ARG is not lltype.Void]
         calldescr = self.cpu.calldescrof(FUNC, tuple(NON_VOID_ARGS),
@@ -205,7 +214,8 @@ class CallControl(object):
         # get the 'elidable' and 'loopinvariant' flags from the function object
         elidable = False
         loopinvariant = False
-        call_release_gil_target = llmemory.NULL
+        call_release_gil_target = EffectInfo._NO_CALL_RELEASE_GIL_TARGET
+        call_shortcut = None
         if op.opname == "direct_call":
             funcobj = op.args[0].value._obj
             assert getattr(funcobj, 'calling_conv', 'c') == 'c', (
@@ -217,9 +227,39 @@ class CallControl(object):
                 assert not NON_VOID_ARGS, ("arguments not supported for "
                                            "loop-invariant function!")
             if getattr(func, "_call_aroundstate_target_", None):
-                call_release_gil_target = func._call_aroundstate_target_
-                call_release_gil_target = llmemory.cast_ptr_to_adr(
-                    call_release_gil_target)
+                tgt_func, tgt_saveerr = func._call_aroundstate_target_
+                tgt_func = llmemory.cast_ptr_to_adr(tgt_func)
+                call_release_gil_target = (tgt_func, tgt_saveerr)
+            if hasattr(funcobj, 'graph'):
+                call_shortcut = self.find_call_shortcut(funcobj.graph)
+            if getattr(func, "_call_shortcut_", False):
+                assert call_shortcut is not None, (
+                    "%r: marked as @jit.call_shortcut but shortcut not found"
+                    % (func,))
+        elif op.opname == 'indirect_call':
+            # check that we're not trying to call indirectly some
+            # function with the special flags
+            graphs = op.args[-1].value
+            for graph in (graphs or ()):
+                if not hasattr(graph, 'func'):
+                    continue
+                error = None
+                if hasattr(graph.func, '_elidable_function_'):
+                    error = '@jit.elidable'
+                if hasattr(graph.func, '_jit_loop_invariant_'):
+                    error = '@jit.loop_invariant'
+                if hasattr(graph.func, '_call_aroundstate_target_'):
+                    error = '_call_aroundstate_target_'
+                if hasattr(graph.func, '_call_shortcut_'):
+                    error = '@jit.call_shortcut'
+                if not error:
+                    continue
+                raise Exception(
+                    "%r is an indirect call to a family of functions "
+                    "(or methods) that includes %r. However, the latter "
+                    "is marked %r. You need to use an indirection: replace "
+                    "it with a non-marked function/method which calls the "
+                    "marked function." % (op, graph, error))
         # build the extraeffect
         random_effects = self.randomeffects_analyzer.analyze(op)
         if random_effects:
@@ -232,11 +272,14 @@ class CallControl(object):
             elif loopinvariant:
                 extraeffect = EffectInfo.EF_LOOPINVARIANT
             elif elidable:
-                if self._canraise(op):
+                cr = self._canraise(op)
+                if cr == "mem":
+                    extraeffect = EffectInfo.EF_ELIDABLE_OR_MEMORYERROR
+                elif cr:
                     extraeffect = EffectInfo.EF_ELIDABLE_CAN_RAISE
                 else:
                     extraeffect = EffectInfo.EF_ELIDABLE_CANNOT_RAISE
-            elif self._canraise(op):
+            elif self._canraise(op):   # True or "mem"
                 extraeffect = EffectInfo.EF_CAN_RAISE
             else:
                 extraeffect = EffectInfo.EF_CANNOT_RAISE
@@ -244,27 +287,34 @@ class CallControl(object):
         # check that the result is really as expected
         if loopinvariant:
             if extraeffect != EffectInfo.EF_LOOPINVARIANT:
-                from rpython.jit.codewriter.policy import log; log.WARNING(
+                raise Exception(
                 "in operation %r: this calls a _jit_loop_invariant_ function,"
                 " but this contradicts other sources (e.g. it can have random"
                 " effects): EF=%s" % (op, extraeffect))
         if elidable:
             if extraeffect not in (EffectInfo.EF_ELIDABLE_CANNOT_RAISE,
+                                   EffectInfo.EF_ELIDABLE_OR_MEMORYERROR,
                                    EffectInfo.EF_ELIDABLE_CAN_RAISE):
-                from rpython.jit.codewriter.policy import log; log.WARNING(
-                "in operation %r: this calls an _elidable_function_,"
+                raise Exception(
+                "in operation %r: this calls an elidable function,"
                 " but this contradicts other sources (e.g. it can have random"
                 " effects): EF=%s" % (op, extraeffect))
+            elif RESULT is lltype.Void:
+                raise Exception(
+                    "in operation %r: this calls an elidable function "
+                    "but the function has no result" % (op, ))
         #
         effectinfo = effectinfo_from_writeanalyze(
-            self.readwrite_analyzer.analyze(op, self.seen), self.cpu,
+            self.readwrite_analyzer.analyze(op, self.seen_rw), self.cpu,
             extraeffect, oopspecindex, can_invalidate, call_release_gil_target,
-            extradescr,
+            extradescr, self.collect_analyzer.analyze(op, self.seen_gc),
+            call_shortcut,
         )
         #
         assert effectinfo is not None
         if elidable or loopinvariant:
-            assert extraeffect != EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE
+            assert (effectinfo.extraeffect <
+                    EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE)
             # XXX this should also say assert not can_invalidate, but
             #     it can't because our analyzer is not good enough for now
             #     (and getexecutioncontext() can't really invalidate)
@@ -273,10 +323,17 @@ class CallControl(object):
                                     effectinfo)
 
     def _canraise(self, op):
+        """Returns True, False, or "mem" to mean 'only MemoryError'."""
         if op.opname == 'pseudo_call_cannot_raise':
             return False
         try:
-            return self.raise_analyzer.can_raise(op)
+            if self.raise_analyzer.can_raise(op):
+                if self.raise_analyzer_ignore_memoryerror.can_raise(op):
+                    return True
+                else:
+                    return "mem"
+            else:
+                return False
         except lltype.DelayedPointer:
             return True  # if we need to look into the delayed ptr that is
                          # the portal, then it's certainly going to raise
@@ -322,3 +379,65 @@ class CallControl(object):
                 if GTYPE_fieldname in jd.greenfield_info.green_fields:
                     return True
         return False
+
+    def find_call_shortcut(self, graph):
+        """Identifies graphs that start like this:
+
+           def graph(x, y, z):         def graph(x, y, z):
+               if y.field:                 r = y.field
+                   return y.field          if r: return r
+        """
+        block = graph.startblock
+        if len(block.operations) == 0:
+            return
+        op = block.operations[0]
+        if op.opname != 'getfield':
+            return
+        [v_inst, c_fieldname] = op.args
+        if not isinstance(v_inst, Variable):
+            return
+        v_result = op.result
+        if v_result.concretetype != graph.getreturnvar().concretetype:
+            return
+        if v_result.concretetype == lltype.Void:
+            return
+        argnum = i = 0
+        while block.inputargs[i] is not v_inst:
+            if block.inputargs[i].concretetype != lltype.Void:
+                argnum += 1
+            i += 1
+        PSTRUCT = v_inst.concretetype
+        v_check = v_result
+        fastcase = True
+        for op in block.operations[1:]:
+            if (op.opname in ('int_is_true', 'ptr_nonzero', 'same_as')
+                    and v_check is op.args[0]):
+                v_check = op.result
+            elif op.opname == 'ptr_iszero' and v_check is op.args[0]:
+                v_check = op.result
+                fastcase = not fastcase
+            elif (op.opname in ('int_eq', 'int_ne')
+                    and v_check is op.args[0]
+                    and isinstance(op.args[1], Constant)
+                    and op.args[1].value == 0):
+                v_check = op.result
+                if op.opname == 'int_eq':
+                    fastcase = not fastcase
+            else:
+                return
+        if v_check.concretetype is not lltype.Bool:
+            return
+        if block.exitswitch is not v_check:
+            return
+
+        links = [link for link in block.exits if link.exitcase == fastcase]
+        if len(links) != 1:
+            return
+        [link] = links
+        if link.args != [v_result]:
+            return
+        if not link.target.is_final_block():
+            return
+
+        fielddescr = self.cpu.fielddescrof(PSTRUCT.TO, c_fieldname.value)
+        return CallShortcut(argnum, fielddescr)

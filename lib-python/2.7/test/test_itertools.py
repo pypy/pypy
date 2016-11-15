@@ -1,7 +1,7 @@
 import unittest
 from test import test_support
 from itertools import *
-from weakref import proxy
+import weakref
 from decimal import Decimal
 from fractions import Fraction
 import sys
@@ -137,9 +137,13 @@ class TestBasicOps(unittest.TestCase):
                 self.assertEqual(result, list(combinations2(values, r))) # matches second pure python version
                 self.assertEqual(result, list(combinations3(values, r))) # matches second pure python version
 
+    @test_support.bigaddrspacetest
+    def test_combinations_overflow(self):
+        with self.assertRaises((OverflowError, MemoryError)):
+            combinations("AA", 2**29)
+
     @test_support.impl_detail("tuple reuse is specific to CPython")
     def test_combinations_tuple_reuse(self):
-        # Test implementation detail:  tuple re-use
         self.assertEqual(len(set(map(id, combinations('abcde', 3)))), 1)
         self.assertNotEqual(len(set(map(id, list(combinations('abcde', 3))))), 1)
 
@@ -209,9 +213,13 @@ class TestBasicOps(unittest.TestCase):
                 self.assertEqual(result, list(cwr1(values, r)))         # matches first pure python version
                 self.assertEqual(result, list(cwr2(values, r)))         # matches second pure python version
 
+    @test_support.bigaddrspacetest
+    def test_combinations_with_replacement_overflow(self):
+        with self.assertRaises((OverflowError, MemoryError)):
+            combinations_with_replacement("AA", 2**30)
+
     @test_support.impl_detail("tuple reuse is specific to CPython")
     def test_combinations_with_replacement_tuple_reuse(self):
-        # Test implementation detail:  tuple re-use
         cwr = combinations_with_replacement
         self.assertEqual(len(set(map(id, cwr('abcde', 3)))), 1)
         self.assertNotEqual(len(set(map(id, list(cwr('abcde', 3))))), 1)
@@ -276,9 +284,13 @@ class TestBasicOps(unittest.TestCase):
                     self.assertEqual(result, list(permutations(values, None))) # test r as None
                     self.assertEqual(result, list(permutations(values)))       # test default r
 
+    @test_support.bigaddrspacetest
+    def test_permutations_overflow(self):
+        with self.assertRaises((OverflowError, MemoryError)):
+            permutations("A", 2**30)
+
     @test_support.impl_detail("tuple reuse is specific to CPython")
     def test_permutations_tuple_reuse(self):
-        # Test implementation detail:  tuple re-use
         self.assertEqual(len(set(map(id, permutations('abcde', 3)))), 1)
         self.assertNotEqual(len(set(map(id, list(permutations('abcde', 3))))), 1)
 
@@ -361,7 +373,8 @@ class TestBasicOps(unittest.TestCase):
             c = count(value)
             self.assertEqual(next(copy.copy(c)), value)
             self.assertEqual(next(copy.deepcopy(c)), value)
-            self.assertEqual(next(pickle.loads(pickle.dumps(c))), value)
+            for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+                self.assertEqual(next(pickle.loads(pickle.dumps(c, proto))), value)
 
     def test_count_with_stride(self):
         self.assertEqual(zip('abc',count(2,3)), [('a', 2), ('b', 5), ('c', 8)])
@@ -694,6 +707,11 @@ class TestBasicOps(unittest.TestCase):
             args = map(iter, args)
             self.assertEqual(len(list(product(*args))), expected_len)
 
+    @test_support.bigaddrspacetest
+    def test_product_overflow(self):
+        with self.assertRaises((OverflowError, MemoryError)):
+            product(*(['ab']*2**5), repeat=2**25)
+
     @test_support.impl_detail("tuple reuse is specific to CPython")
     def test_product_tuple_reuse(self):
         self.assertEqual(len(set(map(id, product('abc', 'def')))), 1)
@@ -701,6 +719,9 @@ class TestBasicOps(unittest.TestCase):
 
     def test_repeat(self):
         self.assertEqual(list(repeat(object='a', times=3)), ['a', 'a', 'a'])
+        self.assertEqual(list(repeat(object='a', times=0)), [])
+        self.assertEqual(list(repeat(object='a', times=-1)), [])
+        self.assertEqual(list(repeat(object='a', times=-2)), [])
         self.assertEqual(zip(xrange(3),repeat('a')),
                          [(0, 'a'), (1, 'a'), (2, 'a')])
         self.assertEqual(list(repeat('a', 3)), ['a', 'a', 'a'])
@@ -716,6 +737,12 @@ class TestBasicOps(unittest.TestCase):
         self.assertEqual(repr(r), 'repeat((1+0j), 5)')
         list(r)
         self.assertEqual(repr(r), 'repeat((1+0j), 0)')
+
+    def test_repeat_with_negative_times(self):
+        self.assertEqual(repr(repeat('a', -1)), "repeat('a', 0)")
+        self.assertEqual(repr(repeat('a', -2)), "repeat('a', 0)")
+        self.assertEqual(repr(repeat('a', times=-1)), "repeat('a', 0)")
+        self.assertEqual(repr(repeat('a', times=-2)), "repeat('a', 0)")
 
     def test_imap(self):
         self.assertEqual(list(imap(operator.pow, range(3), range(1,7))),
@@ -794,6 +821,16 @@ class TestBasicOps(unittest.TestCase):
         c = count()
         self.assertEqual(list(islice(c, 1, 3, 50)), [1])
         self.assertEqual(next(c), 3)
+
+        # Issue #21321: check source iterator is not referenced
+        # from islice() after the latter has been exhausted
+        it = (x for x in (1, 2))
+        wr = weakref.ref(it)
+        it = islice(it, 1)
+        self.assertIsNotNone(wr())
+        list(it) # exhaust the iterator
+        test_support.gc_collect()
+        self.assertIsNone(wr())
 
     def test_takewhile(self):
         data = [1, 3, 5, 20, 2, 4, 6, 8]
@@ -912,7 +949,7 @@ class TestBasicOps(unittest.TestCase):
 
         # test that tee objects are weak referencable
         a, b = tee(xrange(10))
-        p = proxy(a)
+        p = weakref.proxy(a)
         self.assertEqual(getattr(p, '__class__'), type(b))
         del a
         test_support.gc_collect()
@@ -921,8 +958,12 @@ class TestBasicOps(unittest.TestCase):
     # Issue 13454: Crash when deleting backward iterator from tee()
     def test_tee_del_backward(self):
         forward, backward = tee(repeat(None, 20000000))
-        any(forward)  # exhaust the iterator
-        del backward
+        try:
+            any(forward)  # exhaust the iterator
+            del backward
+        except:
+            del forward, backward
+            raise
 
     def test_StopIteration(self):
         self.assertRaises(StopIteration, izip().next)
@@ -1494,6 +1535,11 @@ Samuele
 ...     "Returns the nth item or a default value"
 ...     return next(islice(iterable, n, None), default)
 
+>>> def all_equal(iterable):
+...     "Returns True if all the elements are equal to each other"
+...     g = groupby(iterable)
+...     return next(g, True) and not next(g, False)
+
 >>> def quantify(iterable, pred=bool):
 ...     "Count how many times the predicate is true"
 ...     return sum(imap(pred, iterable))
@@ -1591,6 +1637,9 @@ perform as purported.
 
 >>> nth('abcde', 9) is None
 True
+
+>>> [all_equal(s) for s in ('', 'A', 'AAAA', 'AAAB', 'AAABA')]
+[True, True, True, False, False]
 
 >>> quantify(xrange(99), lambda x: x%2==0)
 50

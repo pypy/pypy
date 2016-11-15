@@ -440,6 +440,25 @@ class TestRclass(BaseRtypingTest):
         res = self.interpret(f, [3])
         assert res == ~0x0200 & 0x3ff
 
+    def test_class___name__(self):
+        class ACLS(object): pass
+        class Bcls(ACLS): pass
+        class CCls(ACLS): pass
+        def nameof(cls):
+            return cls.__name__
+        nameof._annspecialcase_ = "specialize:memo"
+        def f(i):
+            if i == 1: x = ACLS()
+            elif i == 2: x = Bcls()
+            else: x = CCls()
+            return nameof(x.__class__)
+        res = self.interpret(f, [1])
+        assert ''.join(res.chars) == 'ACLS'
+        res = self.interpret(f, [2])
+        assert ''.join(res.chars) == 'Bcls'
+        res = self.interpret(f, [3])
+        assert ''.join(res.chars) == 'CCls'
+
     def test_hash_preservation(self):
         from rpython.rlib.objectmodel import current_object_addr_as_int
         from rpython.rlib.objectmodel import compute_identity_hash
@@ -924,6 +943,19 @@ class TestRclass(BaseRtypingTest):
                 found.append(op.args[1].value)
         assert found == ['mutate_a', 'mutate_a', 'mutate_b']
 
+    def test_quasi_immutable_clashes_with_immutable(self):
+        from rpython.jit.metainterp.typesystem import deref
+        class A(object):
+            _immutable_ = True
+            _immutable_fields_ = ['a?']
+        def f():
+            a = A()
+            a.x = 42
+            a.a = 142
+            return A()
+        with py.test.raises(TyperError):
+            self.gengraph(f, [])
+
     def test_quasi_immutable_array(self):
         from rpython.jit.metainterp.typesystem import deref
         class A(object):
@@ -1125,17 +1157,6 @@ class TestRclass(BaseRtypingTest):
             assert sorted([u]) == [6]                    # 32-bit types
             assert sorted([i, r, d, l]) == [2, 3, 4, 5]  # 64-bit types
 
-    def test_nonmovable(self):
-        for (nonmovable, opname) in [(True, 'malloc_nonmovable'),
-                                     (False, 'malloc')]:
-            class A(object):
-                _alloc_nonmovable_ = nonmovable
-            def f():
-                return A()
-            t, typer, graph = self.gengraph(f, [])
-            assert summary(graph) == {opname: 1,
-                                      'cast_pointer': 1,
-                                      'setfield': 1}
 
     def test_iter(self):
         class Iterable(object):
@@ -1193,6 +1214,69 @@ class TestRclass(BaseRtypingTest):
         assert self.interpret(f, [True]) == f(True)
         assert self.interpret(f, [False]) == f(False)
 
+    def test_indexing(self):
+        class A(object):
+            def __init__(self, data):
+                self.data = data
+
+            def __getitem__(self, i):
+                return self.data[i]
+
+            def __setitem__(self, i, v):
+                self.data[i] = v
+
+            def __getslice__(self, start, stop):
+                assert start >= 0
+                assert stop >= 0
+                return self.data[start:stop]
+
+            def __setslice__(self, start, stop, v):
+                assert start >= 0
+                assert stop >= 0
+                i = 0
+                for n in range(start, stop):
+                    self.data[n] = v[i]
+                    i += 1
+
+        def getitem(i):
+            a = A("abcdefg")
+            return a[i]
+
+        def setitem(i, v):
+            a = A([0] * 5)
+            a[i] = v
+            return a[i]
+
+        def getslice(start, stop):
+            a = A([1, 2, 3, 4, 5, 6])
+            sum = 0
+            for i in a[start:stop]:
+                sum += i
+            return sum
+
+        def setslice(start, stop, i):
+            a = A([0] * stop)
+            a[start:stop] = range(start, stop)
+            return a[i]
+
+        assert self.interpret(getitem, [0]) == getitem(0)
+        assert self.interpret(getitem, [1]) == getitem(1)
+        assert self.interpret(setitem, [0, 5]) == setitem(0, 5)
+        assert self.interpret(getslice, [0, 4]) == getslice(0, 4)
+        assert self.interpret(getslice, [1, 4]) == getslice(1, 4)
+        assert self.interpret(setslice, [4, 6, 5]) == setslice(4, 6, 5)
+
+    def test_len(self):
+        class A(object):
+            def __len__(self):
+                return 5
+
+        def fn():
+            a = A()
+            return len(a)
+
+        assert self.interpret(fn, []) == fn()
+
     def test_init_with_star_args(self):
         class Base(object):
             def __init__(self, a, b):
@@ -1208,3 +1292,16 @@ class TestRclass(BaseRtypingTest):
             return cls[k](a, b).b
 
         assert self.interpret(f, [1, 4, 7]) == 7
+
+    def test_flatten_convert_const(self):
+        # check that we can convert_const() a chain of more than 1000
+        # instances
+        class A(object):
+            def __init__(self, next):
+                self.next = next
+        a = None
+        for i in range(1500):
+            a = A(a)
+        def f():
+            return a.next.next.next.next is not None
+        assert self.interpret(f, []) == True

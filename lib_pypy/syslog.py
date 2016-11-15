@@ -10,84 +10,10 @@ import sys
 if sys.platform == 'win32':
     raise ImportError("No syslog on Windows")
 
-from cffi import FFI
-
 try: from __pypy__ import builtinify
 except ImportError: builtinify = lambda f: f
 
-ffi = FFI()
-
-ffi.cdef("""
-/* mandatory constants */
-#define LOG_EMERG ...
-#define LOG_ALERT ...
-#define LOG_CRIT ...
-#define LOG_ERR ...
-#define LOG_WARNING ...
-#define LOG_NOTICE ...
-#define LOG_INFO ...
-#define LOG_DEBUG ...
-
-#define LOG_PID ...
-#define LOG_CONS ...
-#define LOG_NDELAY ...
-
-#define LOG_KERN ...
-#define LOG_USER ...
-#define LOG_MAIL ...
-#define LOG_DAEMON ...
-#define LOG_AUTH ...
-#define LOG_LPR ...
-#define LOG_LOCAL0 ...
-#define LOG_LOCAL1 ...
-#define LOG_LOCAL2 ...
-#define LOG_LOCAL3 ...
-#define LOG_LOCAL4 ...
-#define LOG_LOCAL5 ...
-#define LOG_LOCAL6 ...
-#define LOG_LOCAL7 ...
-
-/* optional constants, gets defined to -919919 if missing */
-#define LOG_NOWAIT ...
-#define LOG_PERROR ...
-
-/* aliased constants, gets defined as some other constant if missing */
-#define LOG_SYSLOG ...
-#define LOG_CRON ...
-#define LOG_UUCP ...
-#define LOG_NEWS ...
-
-/* functions */
-void openlog(const char *ident, int option, int facility);
-void syslog(int priority, const char *format, const char *string);
-// NB. the signature of syslog() is specialized to the only case we use
-void closelog(void);
-int setlogmask(int mask);
-""")
-
-lib = ffi.verify("""
-#include <syslog.h>
-
-#ifndef LOG_NOWAIT
-#define LOG_NOWAIT -919919
-#endif
-#ifndef LOG_PERROR
-#define LOG_PERROR -919919
-#endif
-#ifndef LOG_SYSLOG
-#define LOG_SYSLOG LOG_DAEMON
-#endif
-#ifndef LOG_CRON
-#define LOG_CRON LOG_DAEMON
-#endif
-#ifndef LOG_UUCP
-#define LOG_UUCP LOG_MAIL
-#endif
-#ifndef LOG_NEWS
-#define LOG_NEWS LOG_MAIL
-#endif
-""")
-
+from _syslog_cffi import ffi, lib
 
 _S_log_open = False
 _S_ident_o = None
@@ -125,6 +51,8 @@ def syslog(arg1, arg2=None):
     # if log is not opened, open it now
     if not _S_log_open:
         openlog()
+    if isinstance(message, unicode):
+        message = str(message)
     lib.syslog(priority, "%s", message)
 
 @builtinify
@@ -149,7 +77,7 @@ def LOG_UPTO(pri):
 
 __all__ = []
 
-for name in sorted(lib.__dict__):
+for name in dir(lib):
     if name.startswith('LOG_'):
         value = getattr(lib, name)
         if value != -919919:

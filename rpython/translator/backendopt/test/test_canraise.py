@@ -204,8 +204,7 @@ class TestCanRaise(object):
         result = ra.can_raise(fgraph.startblock.operations[0])
         assert not result
 
-        z = lltype.functionptr(lltype.FuncType([lltype.Signed], lltype.Signed),
-                               'foobar')
+        z = llexternal('z', [lltype.Signed], lltype.Signed)
         def g(x):
             return z(x)
         t, ra = self.translate(g, [int])
@@ -225,3 +224,32 @@ class TestCanRaise(object):
         fgraph = graphof(t, f)
         result = ra.can_raise(fgraph.startblock.operations[0])
         assert not result
+
+    def test_memoryerror(self):
+        def f(x):
+            return [x, 42]
+        t, ra = self.translate(f, [int])
+        result = ra.analyze_direct_call(graphof(t, f))
+        assert result
+        #
+        ra = RaiseAnalyzer(t)
+        ra.do_ignore_memory_error()
+        result = ra.analyze_direct_call(graphof(t, f))
+        assert not result
+        #
+        def g(x):
+            try:
+                return f(x)
+            except:
+                raise
+        t, ra = self.translate(g, [int])
+        ra.do_ignore_memory_error()
+        result = ra.analyze_direct_call(graphof(t, g))
+        assert not result
+        #
+        def h(x):
+            return {5:6}[x]
+        t, ra = self.translate(h, [int])
+        ra.do_ignore_memory_error()     # but it's potentially a KeyError
+        result = ra.analyze_direct_call(graphof(t, h))
+        assert result

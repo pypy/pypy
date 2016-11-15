@@ -1,7 +1,47 @@
+# -*- encoding:utf-8 -*-
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 class AppTestScalar(BaseNumpyAppTest):
     spaceconfig = dict(usemodules=["micronumpy", "binascii", "struct"])
+
+    def test_integer_types(self):
+        import numpy as np
+        _32BIT = np.dtype('int').itemsize == 4
+        if _32BIT:
+            assert np.int32 is np.dtype('l').type
+            assert np.uint32 is np.dtype('L').type
+            assert np.intp is np.dtype('i').type
+            assert np.uintp is np.dtype('I').type
+            assert np.int64 is np.dtype('q').type
+            assert np.uint64 is np.dtype('Q').type
+        else:
+            assert np.int32 is np.dtype('i').type
+            assert np.uint32 is np.dtype('I').type
+            assert np.intp is np.dtype('l').type
+            assert np.uintp is np.dtype('L').type
+            assert np.int64 is np.dtype('l').type
+            assert np.uint64 is np.dtype('L').type
+        assert np.int16 is np.short is np.dtype('h').type
+        assert np.int_ is np.dtype('l').type
+        assert np.uint is np.dtype('L').type
+        assert np.dtype('intp') == np.dtype('int')
+        assert np.dtype('uintp') == np.dtype('uint')
+        assert np.dtype('i') is not np.dtype('l') is not np.dtype('q')
+        assert np.dtype('I') is not np.dtype('L') is not np.dtype('Q')
+
+    def test_hierarchy(self):
+        import numpy
+        assert issubclass(numpy.float64, numpy.floating)
+        assert issubclass(numpy.longfloat, numpy.floating)
+        assert not issubclass(numpy.float64, numpy.longfloat)
+        assert not issubclass(numpy.longfloat, numpy.float64)
+
+    def test_mro(self):
+        import numpy
+        assert numpy.int16.__mro__ == (numpy.int16, numpy.signedinteger,
+                                       numpy.integer, numpy.number,
+                                       numpy.generic, object)
+        assert numpy.bool_.__mro__ == (numpy.bool_, numpy.generic, object)
 
     def test_init(self):
         import numpy as np
@@ -69,6 +109,7 @@ class AppTestScalar(BaseNumpyAppTest):
 
     def test_pickle(self):
         from numpy import dtype, zeros
+        import sys
         try:
             from numpy.core.multiarray import scalar
         except ImportError:
@@ -79,9 +120,11 @@ class AppTestScalar(BaseNumpyAppTest):
         f = dtype('float64').type(13.37)
         c = dtype('complex128').type(13 + 37.j)
 
-        assert i.__reduce__() == (scalar, (dtype('int32'), '9\x05\x00\x00'))
-        assert f.__reduce__() == (scalar, (dtype('float64'), '=\n\xd7\xa3p\xbd*@'))
-        assert c.__reduce__() == (scalar, (dtype('complex128'), '\x00\x00\x00\x00\x00\x00*@\x00\x00\x00\x00\x00\x80B@'))
+        swap = lambda s: (''.join(reversed(s))) if sys.byteorder == 'big' else s
+        assert i.__reduce__() == (scalar, (dtype('int32'), swap('9\x05\x00\x00')))
+        assert f.__reduce__() == (scalar, (dtype('float64'), swap('=\n\xd7\xa3p\xbd*@')))
+        assert c.__reduce__() == (scalar, (dtype('complex128'), swap('\x00\x00\x00\x00\x00\x00*@') + \
+                                                                swap('\x00\x00\x00\x00\x00\x80B@')))
 
         assert loads(dumps(i)) == i
         assert loads(dumps(f)) == f
@@ -102,9 +145,9 @@ class AppTestScalar(BaseNumpyAppTest):
         assert f.round() == 13.
         assert f.round(decimals=-1) == 10.
         assert f.round(decimals=1) == 13.4
+        raises(TypeError, b.round, decimals=5)
         assert f.round(decimals=1, out=None) == 13.4
         assert b.round() == 1.0
-        assert b.round(decimals=5) is b
 
     def test_astype(self):
         import numpy as np
@@ -183,10 +226,14 @@ class AppTestScalar(BaseNumpyAppTest):
     def test_indexing(self):
         import numpy as np
         v = np.int32(2)
-        for b in [v[()], v[...]]:
-            assert isinstance(b, np.ndarray)
-            assert b.shape == ()
-            assert b == v
+        b = v[()]
+        assert isinstance(b, np.int32)
+        assert b.shape == ()
+        assert b == v
+        b = v[...]
+        assert isinstance(b, np.ndarray)
+        assert b.shape == ()
+        assert b == v
         raises(IndexError, "v['blah']")
 
     def test_realimag(self):
@@ -212,13 +259,20 @@ class AppTestScalar(BaseNumpyAppTest):
         assert t < 7e-323
         t = s.view('complex64')
         assert type(t) is np.complex64
-        assert 0 < t.real < 1
-        assert t.imag == 0
+        if sys.byteorder == 'big':
+            assert 0 < t.imag < 1
+            assert t.real == 0
+        else:
+            assert 0 < t.real < 1
+            assert t.imag == 0
         exc = raises(TypeError, s.view, 'string')
         assert exc.value[0] == "data-type must not be 0-sized"
         t = s.view('S8')
         assert type(t) is np.string_
-        assert t == '\x0c'
+        if sys.byteorder == 'big':
+            assert t == '\x00' * 7 + '\x0c'
+        else:
+            assert t == '\x0c'
         s = np.dtype('string').type('abc1')
         assert s.view('S4') == 'abc1'
         if '__pypy__' in sys.builtin_module_names:
@@ -254,6 +308,7 @@ class AppTestScalar(BaseNumpyAppTest):
         assert np.int64(123).reshape((1,)).shape == (1,)
         exc = raises(ValueError, "np.int64(123).reshape((2,))")
         assert exc.value[0] == 'total size of new array must be unchanged'
+        assert type(np.int64(123).reshape(())) == np.int64
 
     def test_complex_scalar_complex_cast(self):
         import numpy as np
@@ -290,3 +345,154 @@ class AppTestScalar(BaseNumpyAppTest):
             assert np.isnan(b/a)
             b = t(0.)
             assert np.isnan(b/a)
+
+    def test_scalar_iter(self):
+        from numpy import int8, int16, int32, int64, float32, float64
+        from numpy import complex64, complex128
+        for t in (int8, int16, int32, int64, float32, float64,
+                  complex64, complex128):
+            raises(TypeError, iter, t(17))
+
+    def test_item_tolist(self):
+        from numpy import int8, int16, int32, int64, float32, float64
+        from numpy import complex64, complex128, dtype
+
+        def _do_test(np_type, py_type, orig_val, exp_val):
+            val = np_type(orig_val)
+            assert val == orig_val
+            assert val.item() == exp_val
+            assert val.tolist() == exp_val
+            assert type(val.item()) is py_type
+            assert type(val.tolist()) is py_type
+            val.item(0)
+            val.item(())
+            val.item((0,))
+            raises(ValueError, val.item, 0, 1)
+            raises(ValueError, val.item, 0, '')
+            raises(TypeError, val.item, '')
+            raises(IndexError, val.item, 2)
+
+        for t in int8, int16, int32:
+            _do_test(t, int, 17, 17)
+
+        py_type = int if dtype('int').itemsize == 8 else long
+        _do_test(int64, py_type, 17, 17)
+
+        for t in float32, float64:
+            _do_test(t, float, 17, 17)
+
+        for t in complex64, complex128:
+            _do_test(t, complex, 17j, 17j)
+
+    def test_transpose(self):
+        from numpy import int8, int16, int32, int64, float32, float64
+        from numpy import complex64, complex128
+
+        def _do_test(np_type, orig_val, exp_val):
+            val = np_type(orig_val)
+            assert val == orig_val
+            assert val.transpose() == exp_val
+            assert type(val.transpose()) is np_type
+            val.transpose(())
+            raises(ValueError, val.transpose, 0, 1)
+            raises(TypeError, val.transpose, 0, '')
+            raises(ValueError, val.transpose, 0)
+
+        for t in int8, int16, int32, int64:
+            _do_test(t, 17, 17)
+
+        for t in float32, float64:
+            _do_test(t, 17, 17)
+
+        for t in complex64, complex128:
+            _do_test(t, 17j, 17j)
+
+    def test_swapaxes(self):
+        from numpy import int8, int16, int32, int64, float32, float64
+        from numpy import complex64, complex128
+
+        def _do_test(np_type, orig_val, exp_val):
+            val = np_type(orig_val)
+            assert val == orig_val
+            raises(ValueError, val.swapaxes, 10, 20)
+            raises(ValueError, val.swapaxes, 0, 1)
+            raises(TypeError, val.swapaxes, 0, ())
+
+        for t in int8, int16, int32, int64:
+            _do_test(t, 17, 17)
+
+        for t in float32, float64:
+            _do_test(t, 17, 17)
+
+        for t in complex64, complex128:
+            _do_test(t, 17j, 17j)
+
+    def test_nonzero(self):
+        from numpy import int8, int16, int32, int64, float32, float64
+        from numpy import complex64, complex128
+
+        for t in (int8, int16, int32, int64, float32, float64,
+                  complex64, complex128):
+            res, = t(17).nonzero()
+            assert len(res) == 1
+            assert res[0] == 0
+            res, = t(0).nonzero()
+            assert len(res) == 0
+
+    def test_fill(self):
+        import sys
+        from numpy import int8, int16, int32, int64, float32, float64
+        from numpy import complex64, complex128
+
+        for t in (int8, int16, int32, int64, float32, float64,
+                  complex64, complex128):
+            t(17).fill(2)
+            exc = (TypeError if t in (complex64, complex128)
+                   and '__pypy__' not in sys.builtin_module_names
+                   else ValueError)
+            raises(exc, t(17).fill, '')
+
+    def test_conj(self):
+        from numpy import int8, int16, int32, int64, float32, float64
+        from numpy import complex64, complex128
+
+        def _do_test(np_type, orig_val, exp_val):
+            val = np_type(orig_val)
+            assert val == orig_val
+            assert val.conj() == exp_val
+            assert val.conjugate() == exp_val
+
+        for t in (int8, int16, int32, int64, float32, float64,
+                  complex64, complex128):
+            _do_test(t, 17, 17)
+
+        for t in complex64, complex128:
+            _do_test(t, 17j, -17j)
+
+    def test_string_boxes(self):
+        from numpy import str_
+        assert isinstance(str_(3), str_)
+        assert str_(3) == '3'
+        assert str(str_(3)) == '3'
+        assert repr(str_(3)) == "'3'"
+
+    def test_unicode_boxes(self):
+        from numpy import unicode_
+        u = unicode_(3)
+        assert isinstance(u, unicode)
+        assert u == u'3'
+
+    def test_unicode_repr(self):
+        from numpy import unicode_
+        u = unicode_(3)
+        assert str(u) == '3'
+        assert repr(u) == "u'3'"
+        u = unicode_(u'Aÿ')
+        # raises(UnicodeEncodeError, "str(u)")  # XXX
+        assert repr(u) == repr(u'Aÿ')
+
+    def test_binop_with_sequence(self):
+        import numpy as np
+        c = np.float64(1.) + [1.]
+        assert isinstance(c, np.ndarray)
+        assert (c == [2.]).all()

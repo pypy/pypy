@@ -1,8 +1,8 @@
-from rpython.translator.backendopt.raisingop2direct_call import raisingop2direct_call
 from rpython.translator.backendopt import removenoops
 from rpython.translator.backendopt import inline
 from rpython.translator.backendopt.malloc import remove_mallocs
 from rpython.translator.backendopt.constfold import constant_fold_graph
+from rpython.translator.backendopt.constfold import replace_we_are_jitted
 from rpython.translator.backendopt.stat import print_statistics
 from rpython.translator.backendopt.merge_if_blocks import merge_if_blocks
 from rpython.translator import simplify
@@ -21,22 +21,23 @@ def get_function(dottedname):
     name = parts[-1]
     try:
         mod = __import__(module, {}, {}, ['__doc__'])
-    except ImportError, e:
-        raise Exception, "Import error loading %s: %s" % (dottedname, e)
+    except ImportError as e:
+        raise Exception("Import error loading %s: %s" % (dottedname, e))
 
     try:
         func = getattr(mod, name)
     except AttributeError:
-        raise Exception, "Function %s not found in module" % dottedname
+        raise Exception("Function %s not found in module" % dottedname)
 
     return func
 
 def backend_optimizations(translator, graphs=None, secondary=False,
                           inline_graph_from_anywhere=False, **kwds):
     # sensible keywords are
-    # raisingop2direct_call, inline_threshold, mallocs
+    # inline_threshold, mallocs
     # merge_if_blocks, constfold, heap2stack
     # clever_malloc_removal, remove_asserts
+    # replace_we_are_jitted
 
     config = translator.config.translation.backendopt.copy(as_default=True)
     config.set(**kwds)
@@ -50,8 +51,9 @@ def backend_optimizations(translator, graphs=None, secondary=False,
         print "before optimizations:"
         print_statistics(translator.graphs[0], translator, "per-graph.txt")
 
-    if config.raisingop2direct_call:
-        raisingop2direct_call(translator, graphs)
+    if config.replace_we_are_jitted:
+        for graph in graphs:
+            replace_we_are_jitted(graph)
 
     if config.remove_asserts:
         constfold(config, graphs)
@@ -151,8 +153,6 @@ def inline_malloc_removal_phase(config, translator, graphs, inline_threshold,
                                 inline_heuristic,
                                 call_count_pred=None,
                                 inline_graph_from_anywhere=False):
-
-    type_system = translator.rtyper.type_system.name
     # inline functions in each other
     if inline_threshold:
         log.inlining("phase with threshold factor: %s" % inline_threshold)
@@ -171,7 +171,7 @@ def inline_malloc_removal_phase(config, translator, graphs, inline_threshold,
     # vaporize mallocs
     if config.mallocs:
         log.malloc("starting malloc removal")
-        remove_mallocs(translator, graphs, type_system)
+        remove_mallocs(translator, graphs)
 
         if config.print_statistics:
             print "after malloc removal:"

@@ -1,10 +1,9 @@
 """
 Utility RPython functions to inspect objects in the GC.
 """
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, llgroup
 from rpython.rlib.objectmodel import free_non_gc_object
-from rpython.rtyper.module.ll_os import UNDERSCORE_ON_WIN32
-from rpython.rlib import rposix, rgc
+from rpython.rlib import rposix, rgc, jit
 
 from rpython.memory.support import AddressDict, get_address_stack
 
@@ -94,7 +93,7 @@ def is_rpy_instance(gc, gcref):
 
 # ----------
 
-raw_os_write = rffi.llexternal(UNDERSCORE_ON_WIN32 + 'write',
+raw_os_write = rffi.llexternal(rposix.UNDERSCORE_ON_WIN32 + 'write',
                                [rffi.INT, llmemory.Address, rffi.SIZE_T],
                                rffi.SIZE_T,
                                sandboxsafe=True, _nowrapper=True)
@@ -123,6 +122,7 @@ class HeapDumper(object):
         lltype.free(self.writebuffer, flavor='raw')
         free_non_gc_object(self)
 
+    @jit.dont_look_inside
     def flush(self):
         if self.buf_count > 0:
             bytes = self.buf_count * rffi.sizeof(rffi.LONG)
@@ -130,7 +130,8 @@ class HeapDumper(object):
                                  rffi.cast(llmemory.Address, self.writebuffer),
                                  rffi.cast(rffi.SIZE_T, bytes))
             if rffi.cast(lltype.Signed, count) != bytes:
-                raise OSError(rposix.get_errno(), "raw_os_write failed")
+                raise OSError(rffi.cast(lltype.Signed, rposix._get_errno()),
+                              "raw_os_write failed")
             self.buf_count = 0
     flush._dont_inline_ = True
 
@@ -238,3 +239,8 @@ def dump_rpy_heap(gc, fd):
 def get_typeids_z(gc):
     srcaddress = gc.root_walker.gcdata.typeids_z
     return llmemory.cast_adr_to_ptr(srcaddress, lltype.Ptr(rgc.ARRAY_OF_CHAR))
+
+def get_typeids_list(gc):
+    srcaddress = gc.root_walker.gcdata.typeids_list
+    return llmemory.cast_adr_to_ptr(srcaddress, lltype.Ptr(ARRAY_OF_HALFWORDS))
+ARRAY_OF_HALFWORDS = lltype.Array(llgroup.HALFWORD)

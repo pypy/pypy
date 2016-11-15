@@ -7,6 +7,10 @@ from pypy.module.cppyy import capi
 if capi.identify() != 'CINT':
     py.test.skip("backend-specific: CINT-only tests")
 
+# load _cffi_backend early, or its global vars are counted as leaks in the
+# test (note that the module is not otherwise used in the test itself)
+from pypy.module._cffi_backend import newtype
+
 currpath = py.path.local(__file__).dirpath()
 iotypes_dct = str(currpath.join("iotypesDict.so"))
 
@@ -18,7 +22,7 @@ def setup_module(mod):
         raise OSError("'make' failed (see stderr)")
 
 class AppTestCINT:
-    spaceconfig = dict(usemodules=['cppyy'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
 
     def test01_globals(self):
         """Test the availability of ROOT globals"""
@@ -96,7 +100,7 @@ class AppTestCINT:
 
 
 class AppTestCINTPYTHONIZATIONS:
-    spaceconfig = dict(usemodules=['cppyy'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
 
     def test01_strings(self):
         """Test TString/TObjString compatibility"""
@@ -137,9 +141,32 @@ class AppTestCINTPYTHONIZATIONS:
         for j in v:
             assert round(v[int(math.sqrt(j)+0.5)]-j, 5) == 0.
 
+    def test04_TStringTObjString(self):
+        """Test string/TString interchangebility"""
+
+        import cppyy
+
+        test = "aap noot mies"
+
+        s1 = cppyy.gbl.TString(test )
+        s2 = str(s1)
+
+        assert s1 == test
+        assert test == s2
+        assert s1 == s2
+
+        s3 = cppyy.gbl.TObjString(s2)
+        assert s3 == test
+        assert s2 == s3
+
+        # force use of: TNamed(const TString &name, const TString &title)
+        n = cppyy.gbl.TNamed(test, cppyy.gbl.TString("title"))
+        assert n.GetTitle() == "title"
+        assert n.GetName() == test
+
 
 class AppTestCINTTTREE:
-    spaceconfig = dict(usemodules=['cppyy', 'array', '_rawffi', '_cffi_backend'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
         cls.w_N = cls.space.wrap(5)
@@ -148,8 +175,7 @@ class AppTestCINTTTREE:
         cls.w_tname = cls.space.wrap("test")
         cls.w_title = cls.space.wrap("test tree")
         cls.w_iotypes = cls.space.appexec([], """():
-            import cppyy, _cffi_backend
-            _cffi_backend.new_primitive_type      # prevents leak-checking complaints on _cffi_backend
+            import cppyy
             return cppyy.load_reflection_info(%r)""" % (iotypes_dct,))
 
     def test01_write_stdvector(self):
@@ -317,6 +343,8 @@ class AppTestCINTTTREE:
             i += 1
         assert i == self.N
 
+        f.Close()
+
     def test07_write_builtin(self):
         """Test writing of builtins"""
 
@@ -383,9 +411,10 @@ class AppTestCINTTTREE:
             assert mytree.my_int  == i+1
             assert mytree.my_int2 == i+1
 
+        f.Close()
 
 class AppTestCINTREGRESSION:
-    spaceconfig = dict(usemodules=['cppyy'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
 
     # these are tests that at some point in the past resulted in failures on
     # PyROOT; kept here to confirm no regression from PyROOT
@@ -404,8 +433,97 @@ class AppTestCINTREGRESSION:
         hello.AddText( 'Hello, World!' )
 
 
+class AppTestCINTFUNCTION:
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
+    _pypytest_leaks = None   # TODO: figure out the false positives
+
+    # test the function callbacks; this does not work with Reflex, as it can
+    # not generate functions on the fly (it might with cffi?)
+
+    @py.test.mark.dont_track_allocations("TODO: understand; initialization left-over?")
+    def test01_global_function_callback(self):
+        """Test callback of a python global function"""
+
+        import cppyy, gc
+        TF1 = cppyy.gbl.TF1
+
+        def identity(x):
+            return x[0]
+
+        f = TF1("pyf1", identity, -1., 1., 0)
+
+        assert f.Eval(0.5)  == 0.5
+        assert f.Eval(-10.) == -10.
+        assert f.Eval(1.0)  == 1.0
+
+        # check proper propagation of default value
+        f = TF1("pyf1d", identity, -1., 1.)
+
+        assert f.Eval(0.5) == 0.5
+
+        del f      # force here, to prevent leak-check complaints
+        gc.collect()
+
+    def test02_callable_object_callback(self):
+        """Test callback of a python callable object"""
+
+        import cppyy, gc
+        TF1 = cppyy.gbl.TF1
+
+        class Linear:
+            def __call__(self, x, par):
+                return par[0] + x[0]*par[1]
+
+        f = TF1("pyf2", Linear(), -1., 1., 2)
+        f.SetParameters(5., 2.)
+
+        assert f.Eval(-0.1) == 4.8
+        assert f.Eval(1.3)  == 7.6
+
+        del f      # force here, to prevent leak-check complaints
+        gc.collect()
+
+    def test03_fit_with_python_gaussian(self):
+        """Test fitting with a python global function"""
+
+        # note: this function is dread-fully slow when running testing un-translated
+
+        import cppyy, gc, math
+        TF1, TH1F = cppyy.gbl.TF1, cppyy.gbl.TH1F
+
+        def pygaus(x, par):
+            arg1 = 0
+            scale1 = 0
+            ddx = 0.01
+
+            if (par[2] != 0.0):
+                arg1 = (x[0]-par[1])/par[2]
+                scale1 = (ddx*0.39894228)/par[2]
+                h1 = par[0]/(1+par[3])
+
+                gauss = h1*scale1*math.exp(-0.5*arg1*arg1)
+            else:
+                gauss = 0.
+            return gauss
+
+        f = TF1("pygaus", pygaus, -4, 4, 4)
+        f.SetParameters(600, 0.43, 0.35, 600)
+
+        h = TH1F("h", "test", 100, -4, 4)
+        h.FillRandom("gaus", 200000)
+        h.Fit(f, "0Q")
+
+        assert f.GetNDF() == 96
+        result = f.GetParameters()
+        assert round(result[1] - 0., 1) == 0  # mean
+        assert round(result[2] - 1., 1) == 0  # s.d.
+
+        del f      # force here, to prevent leak-check complaints
+        gc.collect()
+
+
 class AppTestSURPLUS:
-    spaceconfig = dict(usemodules=['cppyy'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
 
     # these are tests that were historically exercised on ROOT classes and
     # have twins on custom classes; kept here just in case differences crop
@@ -576,3 +694,17 @@ class AppTestSURPLUS:
         assert None != l3                 # id.
         assert l3 != l5
         assert l5 != l3
+
+    def test10_recursive_remove(self):
+        """Verify that objects are recursively removed when destroyed"""
+
+        import cppyy
+
+        c = cppyy.gbl.TClass.GetClass("TObject")
+
+        o = cppyy.gbl.TObject()
+        assert o
+
+        o.SetBit(cppyy.gbl.TObject.kMustCleanup)
+        c.Destructor(o)
+        assert not o

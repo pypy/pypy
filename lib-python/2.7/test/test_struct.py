@@ -433,24 +433,24 @@ class StructTest(unittest.TestCase):
             self.assertRaises(struct.error, s.unpack_from, data, i)
             self.assertRaises(struct.error, struct.unpack_from, fmt, data, i)
 
-    def test_pack_into(self):
+    def test_pack_into(self, cls=bytearray, tobytes=str):
         test_string = 'Reykjavik rocks, eow!'
-        writable_buf = array.array('c', ' '*100)
+        writable_buf = cls(' '*100)
         fmt = '21s'
         s = struct.Struct(fmt)
 
         # Test without offset
         s.pack_into(writable_buf, 0, test_string)
-        from_buf = writable_buf.tostring()[:len(test_string)]
+        from_buf = tobytes(writable_buf)[:len(test_string)]
         self.assertEqual(from_buf, test_string)
 
         # Test with offset.
         s.pack_into(writable_buf, 10, test_string)
-        from_buf = writable_buf.tostring()[:len(test_string)+10]
+        from_buf = tobytes(writable_buf)[:len(test_string)+10]
         self.assertEqual(from_buf, test_string[:10] + test_string)
 
         # Go beyond boundaries.
-        small_buf = array.array('c', ' '*10)
+        small_buf = cls(' '*10)
         self.assertRaises((ValueError, struct.error), s.pack_into, small_buf, 0,
                           test_string)
         self.assertRaises((ValueError, struct.error), s.pack_into, small_buf, 2,
@@ -460,6 +460,15 @@ class StructTest(unittest.TestCase):
         sb = small_buf
         self.assertRaises((TypeError, struct.error), struct.pack_into, b'', sb,
                           None)
+
+    def test_pack_into_array(self):
+        self.test_pack_into(cls=lambda b: array.array('c', b),
+                            tobytes=array.array.tostring)
+
+    def test_pack_into_memoryview(self):
+        # Issue #22113
+        self.test_pack_into(cls=lambda b: memoryview(bytearray(b)),
+                            tobytes=memoryview.tobytes)
 
     def test_pack_into_fn(self):
         test_string = 'Reykjavik rocks, eow!'
@@ -574,6 +583,18 @@ class StructTest(unittest.TestCase):
         self.check_sizeof('20p', 1)
         self.check_sizeof('0s', 1)
         self.check_sizeof('0c', 0)
+
+    def test_unicode_format(self):
+        try:
+            unicode
+        except NameError:
+            self.skipTest('no unicode support')
+        # Issue #19099
+        s = struct.Struct(unichr(ord('I')))
+        self.assertEqual(s.format, 'I')
+        self.assertIs(type(s.format), str)
+        self.assertRaises(ValueError, struct.Struct, unichr(0x80))
+
 
 def test_main():
     support.run_unittest(StructTest)

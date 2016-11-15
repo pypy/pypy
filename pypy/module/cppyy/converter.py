@@ -6,8 +6,8 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.rarithmetic import r_singlefloat
 from rpython.rlib import jit_libffi, rfloat
 
-from pypy.module._rawffi.interp_rawffi import unpack_simple_shape
-from pypy.module._rawffi.array import W_Array
+from pypy.module._rawffi.interp_rawffi import letter2tp
+from pypy.module._rawffi.array import W_Array, W_ArrayInstance
 
 from pypy.module.cppyy import helper, capi, ffitypes
 
@@ -47,21 +47,35 @@ def get_rawobject_nonnull(space, w_obj):
         return rawobject
     return capi.C_NULL_OBJECT
 
-def get_rawbuffer(space, w_obj):
+def is_nullpointer_specialcase(space, w_obj):
+    # 0, None, and nullptr may serve as "NULL", check for any of them
+
+    # integer 0
     try:
-        buf = space.buffer_w(w_obj)
+        return space.int_w(w_obj) == 0
+    except Exception:
+        pass
+    # None or nullptr
+    from pypy.module.cppyy import interp_cppyy
+    return space.is_true(space.is_(w_obj, space.w_None)) or \
+        space.is_true(space.is_(w_obj, interp_cppyy.get_nullptr(space)))
+
+def get_rawbuffer(space, w_obj):
+    # raw buffer
+    try:
+        buf = space.getarg_w('s*', w_obj)
         return rffi.cast(rffi.VOIDP, buf.get_raw_address())
     except Exception:
         pass
-    # special case: allow integer 0 as NULL
+    # array type
     try:
-        buf = space.int_w(w_obj)
-        if buf == 0:
-            return rffi.cast(rffi.VOIDP, 0)
+        arr = space.interp_w(W_ArrayInstance, w_obj, can_be_None=True)
+        if arr:
+            return rffi.cast(rffi.VOIDP, space.uint_w(arr.getbuffer(space)))
     except Exception:
         pass
-    # special case: allow None as NULL
-    if space.is_true(space.is_(w_obj, space.w_None)):
+    # pre-defined NULL
+    if is_nullpointer_specialcase(space, w_obj):
         return rffi.cast(rffi.VOIDP, 0)
     raise TypeError("not an addressable buffer")
 
@@ -86,7 +100,8 @@ class TypeConverter(object):
         return fieldptr
 
     def _is_abstract(self, space):
-        raise OperationError(space.w_TypeError, space.wrap("no converter available for '%s'" % self.name))
+        raise oefmt(space.w_TypeError,
+                    "no converter available for '%s'", self.name)
 
     def convert_argument(self, space, w_obj, address, call_local):
         self._is_abstract(space)
@@ -118,7 +133,7 @@ class ArrayCache(object):
     def __getattr__(self, name):
         if name.startswith('array_'):
             typecode = name[len('array_'):]
-            arr = self.space.interp_w(W_Array, unpack_simple_shape(self.space, self.space.wrap(typecode)))
+            arr = self.space.interp_w(W_Array, letter2tp(self.space, typecode))
             setattr(self, name, arr)
             return arr
         raise AttributeError(name)
@@ -139,8 +154,6 @@ class ArrayTypeConverterMixin(object):
             self.size = array_size
 
     def from_memory(self, space, w_obj, w_pycppclass, offset):
-        if hasattr(space, "fake"):
-            raise NotImplementedError
         # read access, so no copy needed
         address_value = self._get_raw_address(space, w_obj, offset)
         address = rffi.cast(rffi.ULONG, address_value)
@@ -151,7 +164,7 @@ class ArrayTypeConverterMixin(object):
     def to_memory(self, space, w_obj, w_value, offset):
         # copy the full array (uses byte copy for now)
         address = rffi.cast(rffi.CCHARP, self._get_raw_address(space, w_obj, offset))
-        buf = space.buffer_w(w_value)
+        buf = space.getarg_w('s*', w_value)
         # TODO: report if too many items given?
         for i in range(min(self.size*self.typesize, buf.getlength())):
             address[i] = buf.getitem(i)
@@ -169,14 +182,15 @@ class PtrTypeConverterMixin(object):
     def convert_argument(self, space, w_obj, address, call_local):
         w_tc = space.findattr(w_obj, space.wrap('typecode'))
         if w_tc is not None and space.str_w(w_tc) != self.typecode:
-            msg = "expected %s pointer type, but received %s" % (self.typecode, space.str_w(w_tc))
-            raise OperationError(space.w_TypeError, space.wrap(msg))
+            raise oefmt(space.w_TypeError,
+                        "expected %s pointer type, but received %s",
+                        self.typecode, space.str_w(w_tc))
         x = rffi.cast(rffi.VOIDPP, address)
         try:
             x[0] = rffi.cast(rffi.VOIDP, get_rawbuffer(space, w_obj))
         except TypeError:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("raw buffer interface not supported"))
+            raise oefmt(space.w_TypeError,
+                        "raw buffer interface not supported")
         ba = rffi.cast(rffi.CCHARP, address)
         ba[capi.c_function_arg_typeoffset(space)] = 'o'
 
@@ -192,12 +206,12 @@ class PtrTypeConverterMixin(object):
         # copy only the pointer value
         rawobject = get_rawobject_nonnull(space, w_obj)
         byteptr = rffi.cast(rffi.CCHARPP, capi.direct_ptradd(rawobject, offset))
-        buf = space.buffer_w(w_value)
+        buf = space.getarg_w('s*', w_value)
         try:
             byteptr[0] = buf.get_raw_address()
         except ValueError:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("raw buffer interface not supported"))
+            raise oefmt(space.w_TypeError,
+                        "raw buffer interface not supported")
 
 
 class NumericTypeConverterMixin(object):
@@ -261,8 +275,7 @@ class VoidConverter(TypeConverter):
         self.name = name
 
     def convert_argument(self, space, w_obj, address, call_local):
-        raise OperationError(space.w_TypeError,
-                             space.wrap('no converter available for type "%s"' % self.name))
+        self._is_abstract(space)
 
 
 class BoolConverter(ffitypes.typeid(bool), TypeConverter):
@@ -372,7 +385,12 @@ class VoidPtrConverter(TypeConverter):
         try:
             obj = get_rawbuffer(space, w_obj)
         except TypeError:
-            obj = rffi.cast(rffi.VOIDP, get_rawobject(space, w_obj))
+            try:
+                # TODO: accept a 'capsule' rather than naked int
+                # (do accept int(0), though)
+                obj = rffi.cast(rffi.VOIDP, space.uint_w(w_obj))
+            except Exception:
+                obj = rffi.cast(rffi.VOIDP, get_rawobject(space, w_obj))
         return obj
 
     def convert_argument(self, space, w_obj, address, call_local):
@@ -384,6 +402,24 @@ class VoidPtrConverter(TypeConverter):
     def convert_argument_libffi(self, space, w_obj, address, call_local):
         x = rffi.cast(rffi.VOIDPP, address)
         x[0] = self._unwrap_object(space, w_obj)
+
+    def from_memory(self, space, w_obj, w_pycppclass, offset):
+        # returned as a long value for the address (INTPTR_T is not proper
+        # per se, but rffi does not come with a PTRDIFF_T)
+        address = self._get_raw_address(space, w_obj, offset)
+        ptrval = rffi.cast(rffi.ULONG, rffi.cast(rffi.VOIDPP, address)[0])
+        if ptrval == 0:
+            from pypy.module.cppyy import interp_cppyy
+            return interp_cppyy.get_nullptr(space)
+        arr = space.interp_w(W_Array, letter2tp(space, 'P'))
+        return arr.fromaddress(space, ptrval, sys.maxint)
+
+    def to_memory(self, space, w_obj, w_value, offset):
+        address = rffi.cast(rffi.VOIDPP, self._get_raw_address(space, w_obj, offset))
+        if is_nullpointer_specialcase(space, w_value):
+            address[0] = rffi.cast(rffi.VOIDP, 0)
+        else:
+            address[0] = rffi.cast(rffi.VOIDP, self._unwrap_object(space, w_value))
 
 class VoidPtrPtrConverter(TypeConverter):
     _immutable_fields_ = ['uses_local']
@@ -412,7 +448,7 @@ class VoidPtrRefConverter(VoidPtrPtrConverter):
     _immutable_fields_ = ['uses_local']
     uses_local = True
 
-class InstancePtrConverter(TypeConverter):
+class InstanceRefConverter(TypeConverter):
     _immutable_fields_ = ['libffitype', 'cppclass']
 
     libffitype  = jit_libffi.types.pointer
@@ -430,8 +466,8 @@ class InstancePtrConverter(TypeConverter):
                 offset = capi.c_base_offset(space, w_obj.cppclass, self.cppclass, rawobject, 1)
                 obj_address = capi.direct_ptradd(rawobject, offset)
                 return rffi.cast(capi.C_OBJECT, obj_address)
-        raise oefmt(space.w_TypeError, "cannot pass %T as %s",
-                    w_obj, self.cppclass.name)
+        raise oefmt(space.w_TypeError,
+                    "cannot pass %T as %s", w_obj, self.cppclass.name)
 
     def convert_argument(self, space, w_obj, address, call_local):
         x = rffi.cast(rffi.VOIDPP, address)
@@ -444,17 +480,7 @@ class InstancePtrConverter(TypeConverter):
         x = rffi.cast(rffi.VOIDPP, address)
         x[0] = rffi.cast(rffi.VOIDP, self._unwrap_object(space, w_obj))
 
-    def from_memory(self, space, w_obj, w_pycppclass, offset):
-        address = rffi.cast(capi.C_OBJECT, self._get_raw_address(space, w_obj, offset))
-        from pypy.module.cppyy import interp_cppyy
-        return interp_cppyy.wrap_cppobject(space, address, self.cppclass,
-                                           do_cast=False, is_ref=True)
-
-    def to_memory(self, space, w_obj, w_value, offset):
-        address = rffi.cast(rffi.VOIDPP, self._get_raw_address(space, w_obj, offset))
-        address[0] = rffi.cast(rffi.VOIDP, self._unwrap_object(space, w_value))
-
-class InstanceConverter(InstancePtrConverter):
+class InstanceConverter(InstanceRefConverter):
 
     def convert_argument_libffi(self, space, w_obj, address, call_local):
         from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
@@ -467,6 +493,28 @@ class InstanceConverter(InstancePtrConverter):
 
     def to_memory(self, space, w_obj, w_value, offset):
         self._is_abstract(space)
+
+
+class InstancePtrConverter(InstanceRefConverter):
+
+    def _unwrap_object(self, space, w_obj):
+        try:
+            return InstanceRefConverter._unwrap_object(self, space, w_obj)
+        except OperationError as e:
+            # if not instance, allow certain special cases
+            if is_nullpointer_specialcase(space, w_obj):
+                return capi.C_NULL_OBJECT
+            raise e
+
+    def from_memory(self, space, w_obj, w_pycppclass, offset):
+        address = rffi.cast(capi.C_OBJECT, self._get_raw_address(space, w_obj, offset))
+        from pypy.module.cppyy import interp_cppyy
+        return interp_cppyy.wrap_cppobject(space, address, self.cppclass,
+                                           do_cast=False, is_ref=True)
+
+    def to_memory(self, space, w_obj, w_value, offset):
+        address = rffi.cast(rffi.VOIDPP, self._get_raw_address(space, w_obj, offset))
+        address[0] = rffi.cast(rffi.VOIDP, self._unwrap_object(space, w_value))
 
 class InstancePtrPtrConverter(InstancePtrConverter):
     _immutable_fields_ = ['uses_local']
@@ -487,12 +535,6 @@ class InstancePtrPtrConverter(InstancePtrConverter):
         from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
         raise FastCallNotPossible
 
-    def from_memory(self, space, w_obj, w_pycppclass, offset):
-        self._is_abstract(space)
-
-    def to_memory(self, space, w_obj, w_value, offset):
-        self._is_abstract(space)
-
     def finalize_call(self, space, w_obj, call_local):
         from pypy.module.cppyy.interp_cppyy import W_CPPInstance
         assert isinstance(w_obj, W_CPPInstance)
@@ -501,7 +543,6 @@ class InstancePtrPtrConverter(InstancePtrConverter):
 
 
 class StdStringConverter(InstanceConverter):
-    _immutable_fields_ = ['cppclass']
 
     def __init__(self, space, extra):
         from pypy.module.cppyy import interp_cppyy
@@ -509,24 +550,25 @@ class StdStringConverter(InstanceConverter):
         InstanceConverter.__init__(self, space, cppclass)
 
     def _unwrap_object(self, space, w_obj):
-        try:
-            return capi.c_charp2stdstring(space, space.str_w(w_obj))
-        except Exception, e:
+        from pypy.module.cppyy.interp_cppyy import W_CPPInstance
+        if isinstance(w_obj, W_CPPInstance):
             arg = InstanceConverter._unwrap_object(self, space, w_obj)
-            result = capi.c_stdstring2stdstring(space, arg)
-            return result
+            return capi.c_stdstring2stdstring(space, arg)
+        else:
+            return capi.c_charp2stdstring(space, space.str_w(w_obj))
 
     def to_memory(self, space, w_obj, w_value, offset):
         try:
             address = rffi.cast(capi.C_OBJECT, self._get_raw_address(space, w_obj, offset))
-            capi.c_assign2stdstring(space, address, space.str_w(w_value))
-            return
+            assign = self.cppclass.get_overload("__assign__")
+            from pypy.module.cppyy import interp_cppyy
+            assign.call(
+                interp_cppyy.wrap_cppobject(space, address, self.cppclass, do_cast=False), [w_value])
         except Exception:
-            pass
-        return InstanceConverter.to_memory(self, space, w_obj, w_value, offset)
+            InstanceConverter.to_memory(self, space, w_obj, w_value, offset)
 
     def free_argument(self, space, arg, call_local):
-        capi.c_free_stdstring(space, rffi.cast(capi.C_OBJECT, rffi.cast(rffi.VOIDPP, arg)[0]))
+        capi.c_destruct(space, self.cppclass, rffi.cast(capi.C_OBJECT, rffi.cast(rffi.VOIDPP, arg)[0]))
 
 class StdStringRefConverter(InstancePtrConverter):
     _immutable_fields_ = ['cppclass']
@@ -570,6 +612,7 @@ class PyObjectConverter(TypeConverter):
     def free_argument(self, space, arg, call_local):
         if hasattr(space, "fake"):
             raise NotImplementedError
+        space.getbuiltinmodule("cpyext")
         from pypy.module.cpyext.pyobject import Py_DecRef, PyObject
         Py_DecRef(space, rffi.cast(PyObject, rffi.cast(rffi.VOIDPP, arg)[0]))
 
@@ -627,8 +670,10 @@ def get_converter(space, name, default):
         # type check for the benefit of the annotator
         from pypy.module.cppyy.interp_cppyy import W_CPPClass
         cppclass = space.interp_w(W_CPPClass, cppclass, can_be_None=False)
-        if compound == "*" or compound == "&":
+        if compound == "*":
             return InstancePtrConverter(space, cppclass)
+        elif compound == "&":
+            return InstanceRefConverter(space, cppclass)
         elif compound == "**":
             return InstancePtrPtrConverter(space, cppclass)
         elif compound == "":
@@ -654,7 +699,7 @@ _converters["void*"]                    = VoidPtrConverter
 _converters["void**"]                   = VoidPtrPtrConverter
 _converters["void*&"]                   = VoidPtrRefConverter
 
-# special cases (note: CINT backend requires the simple name 'string')
+# special cases (note: 'string' aliases added below)
 _converters["std::basic_string<char>"]           = StdStringConverter
 _converters["const std::basic_string<char>&"]    = StdStringConverter     # TODO: shouldn't copy
 _converters["std::basic_string<char>&"]          = StdStringRefConverter
@@ -776,3 +821,27 @@ def _add_aliased_converters():
     for c_type, alias in aliases:
         _converters[alias] = _converters[c_type]
 _add_aliased_converters()
+
+# ROOT-specific converters (TODO: this is a general use case and should grow
+# an API; putting it here is done only to circumvent circular imports)
+if capi.identify() == "CINT":
+
+    class TStringConverter(InstanceConverter):
+        def __init__(self, space, extra):
+            from pypy.module.cppyy import interp_cppyy
+            cppclass = interp_cppyy.scope_byname(space, "TString")
+            InstanceConverter.__init__(self, space, cppclass)
+
+        def _unwrap_object(self, space, w_obj):
+            from pypy.module.cppyy import interp_cppyy
+            if isinstance(w_obj, interp_cppyy.W_CPPInstance):
+                arg = InstanceConverter._unwrap_object(self, space, w_obj)
+                return capi.backend.c_TString2TString(space, arg)
+            else:
+                return capi.backend.c_charp2TString(space, space.str_w(w_obj))
+
+        def free_argument(self, space, arg, call_local):
+            capi.c_destruct(space, self.cppclass, rffi.cast(capi.C_OBJECT, rffi.cast(rffi.VOIDPP, arg)[0]))
+
+    _converters["TString"]        = TStringConverter
+    _converters["const TString&"] = TStringConverter

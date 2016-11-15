@@ -1,3 +1,5 @@
+.. _sandbox:
+
 PyPy's sandboxing features
 ==========================
 
@@ -36,11 +38,15 @@ checks (against buffer overflows for example)
 that are normally only present in debugging versions.
 
 .. warning::
+
+   The hard work from the PyPy side is done --- you get a fully secure
+   version.  What is only experimental and unpolished is the library to
+   use this sandboxed PyPy from a regular Python interpreter (CPython, or
+   an unsandboxed PyPy).  Contributions welcome.
+
+.. warning::
   
-  The hard work from the PyPy side is done --- you get a fully secure
-  version.  What is only experimental and unpolished is the library to
-  use this sandboxed PyPy from a regular Python interpreter (CPython, or
-  an unsandboxed PyPy).  Contributions welcome.
+  Tested with PyPy2.  May not work out of the box with PyPy3.
 
 
 Overview
@@ -49,7 +55,7 @@ Overview
 One of PyPy's translation aspects is a sandboxing feature. It's "sandboxing" as
 in "full virtualization", but done in normal C with no OS support at all.  It's
 a two-processes model: we can translate PyPy to a special "pypy-c-sandbox"
-executable, which is safe in the sense that it doesn't do any library or 
+executable, which is safe in the sense that it doesn't do any library or
 system calls - instead, whenever it would like to perform such an operation, it
 marshals the operation name and the arguments to its stdout and it waits for
 the marshalled result on its stdin.  This pypy-c-sandbox process is meant to be
@@ -93,16 +99,19 @@ virtual directories like /bin/lib/pypy1.2/lib-python and
 /bin/lib/pypy1.2/lib_pypy and it
 pretends that the executable is /bin/pypy-c.
 
+
 Howto
 -----
 
-
-In pypy/goal::
+Grab a copy of the pypy repository_.  In the directory pypy/goal, run::
 
    ../../rpython/bin/rpython -O2 --sandbox targetpypystandalone.py
 
 If you don't have a regular PyPy installed, you should, because it's
-faster to translate, but you can also run ``python translate.py`` instead.
+faster to translate; but you can also run the same line with ``python``
+in front.
+
+.. _repository: https://bitbucket.org/pypy/pypy
 
 
 To run it, use the tools in the pypy/sandbox directory::
@@ -130,8 +139,6 @@ using the ``--timeout=N`` option.
 Not all operations are supported; e.g. if you type os.readlink('...'),
 the controller crashes with an exception and the subprocess is killed.
 Other operations make the subprocess die directly with a "Fatal RPython
-error".  None of this is a security hole; it just means that if you try
-to run some random program, it risks getting killed depending on the
-Python built-in functions it tries to call.  This is a matter of the
-sandboxing layer being incomplete so far, but it should not really be
-a problem in practice.
+error".  None of this is a security hole.  More importantly, *most other
+built-in modules are not enabled.  Please read all the warnings in this
+page before complaining about this.  Contributions welcome.*

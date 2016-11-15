@@ -1,35 +1,29 @@
-
-Contributors to PyPy
-====================
-
-Here is a list of developers who have committed to the PyPy source
-code base, ordered by number of commits (which is certainly not a very
-appropriate measure but it's something)::
-
   Armin Rigo
   Maciej Fijalkowski
   Carl Friedrich Bolz
-  Antonio Cuni
   Amaury Forgeot d'Arc
+  Antonio Cuni
   Samuele Pedroni
+  Matti Picus
   Alex Gaynor
+  Philip Jenvey
+  Ronan Lamy
+  Brian Kearns
+  Richard Plangger
   Michael Hudson
+  Manuel Jacob
   David Schneider
   Holger Krekel
   Christian Tismer
-  Matti Picus
   Hakan Ardo
   Benjamin Peterson
-  Philip Jenvey
   Anders Chrigstrom
-  Brian Kearns
-  Manuel Jacob
   Eric van Riet Paap
   Wim Lavrijsen
   Richard Emslie
   Alexander Schremmer
   Dan Villiom Podlaski Christiansen
-  Ronan Lamy
+  Remi Meier
   Lukas Diekmann
   Sven Hager
   Anders Lehmann
@@ -37,59 +31,77 @@ appropriate measure but it's something)::
   Niklaus Haldimann
   Camillo Bruni
   Laura Creighton
+  Romain Guillebert
   Toon Verwaest
   Leonardo Santagada
   Seo Sanghyeon
-  Justin Peel
   Ronny Pfannschmidt
+  Justin Peel
+  Raffael Tfirst
   David Edelsohn
   Anders Hammarquist
   Jakub Gustak
-  Romain Guillebert
+  Gregor Wegberg
   Guido Wesdorp
   Lawrence Oluyede
-  Remi Meier
   Bartosz Skowron
   Daniel Roberts
   Niko Matsakis
   Adrien Di Mascio
-  Ludovic Aubry
   Alexander Hesse
+  Ludovic Aubry
   Jacob Hallen
   Jason Creighton
+  Mark Young
   Alex Martelli
+  Spenser Bauman
   Michal Bendowski
-  Jan de Mooij
   stian
+  Jan de Mooij
+  Tyler Wade
+  Vincent Legoll
   Michael Foord
   Stephan Diehl
   Stefan Schwarzer
   Valentino Volonghi
   Tomek Meka
+  Stefano Rivera
   Patrick Maupin
+  Devin Jeanpierre
   Bob Ippolito
   Bruno Gola
+  David Malcolm
   Jean-Paul Calderone
   Timo Paulssen
+  Edd Barrett
+  Squeaky
+  Marius Gedminas
   Alexandre Fayolle
   Simon Burton
-  Marius Gedminas
-  John Witulski
+  Martin Matusiak
+  Nicolas Truessel
   Konstantin Lopuhin
+  Wenzhu Man
+  John Witulski
+  Laurence Tratt
+  Ivan Sichmann Freitas
   Greg Price
   Dario Bertini
   Mark Pearse
   Simon Cross
+  Jeremy Thurgood
   Andreas Stührk
+  Tobias Pape
   Jean-Philippe St. Pierre
   Guido van Rossum
   Pavel Vinogradov
   Paweł Piotr Przeradowski
   Paul deGrandis
   Ilya Osadchiy
+  marky1991
+  Tobias Oberstein
   Adrian Kuhn
   Boris Feigin
-  Stefano Rivera
   tav
   Taavi Burns
   Georg Brandl
@@ -100,153 +112,227 @@ appropriate measure but it's something)::
   Mike Blume
   Oscar Nierstrasz
   Stefan H. Muller
-  Laurence Tratt
   Rami Chowdhury
-  David Malcolm
   Eugene Oden
   Henry Mason
+  Vasily Kuznetsov
   Preston Timmons
-  Jeff Terrace
   David Ripton
+  Jeff Terrace
+  Tim Felgentreff
   Dusty Phillips
   Lukas Renggli
-  Edd Barrett
   Guenter Jantzen
-  Tobias Oberstein
+  William Leslie
   Ned Batchelder
+  Anton Gulenko
   Amit Regmi
   Ben Young
+  Jasper Schulz
   Nicolas Chauvat
   Andrew Durdin
   Andrew Chambers
+  Sergey Matyunin
   Michael Schneider
   Nicholas Riley
   Jason Chu
   Igor Trindade Oliveira
-  Jeremy Thurgood
+  Yichao Yu
   Rocco Moretti
   Gintautas Miliauskas
   Michael Twomey
   Lucian Branescu Mihaila
-  Tim Felgentreff
-  Tyler Wade
+  anatoly techtonik
   Gabriel Lavoie
   Olivier Dormond
   Jared Grubb
   Karl Bartel
-  Tobias Pape
+  Wouter van Heyst
   Brian Dorsey
   Victor Stinner
   Andrews Medina
+  Sebastian Pawluś
   Stuart Williams
-  Jasper Schulz
-  Christian Hudon
+  Daniel Patrick
+  Aaron Iles
   Toby Watson
   Antoine Pitrou
-  Aaron Iles
+  Christian Hudon
   Michael Cheng
   Justas Sadzevicius
   Gasper Zejn
   Neil Shepperd
+  Stanislaw Halik
   Mikael Schönenberg
+  Berkin Ilbeyi
+  Faye Zhao
   Elmo Mäntynen
   Jonathan David Riehl
-  Stanislaw Halik
   Anders Qvist
+  Corbin Simpson
   Chirag Jadwani
   Beatrice During
   Alex Perry
-  Vincent Legoll
+  Vaibhav Sood
   Alan McIntyre
+  Reuben Cummings
   Alexander Sedov
-  Corbin Simpson
+  p_zieschang@yahoo.de
+  Attila Gobi
   Christopher Pope
+  Aaron Gallagher
+  Florin Papa
   Christian Tismer 
+  Marc Abramowitz
   Dan Stromberg
+  Arjun Naik
+  Valentina Mukhamedzhanova
   Stefano Parmesan
+  touilleMan
   Alexis Daboville
   Jens-Uwe Mager
   Carl Meyer
   Karl Ramm
   Pieter Zieschang
   Gabriel
+  Lukas Vacek
+  Kunal Grover
   Andrew Dalke
   Sylvain Thenault
+  Jakub Stasiak
   Nathan Taylor
   Vladimir Kryachko
+  Omer Katz
+  Mark Williams
   Jacek Generowicz
   Alejandro J. Cura
   Jacob Oscarson
   Travis Francis Athougies
+  Ryan Gonzalez
+  Ian Foote
   Kristjan Valur Jonsson
+  David Lievens
   Neil Blakey-Milner
   Lutz Paelike
   Lucio Torre
   Lars Wassermann
+  Philipp Rustemeuer
   Henrik Vendelbo
+  Richard Lancaster
+  Yasir Suhail
   Dan Buch
   Miguel de Val Borro
   Artur Lisiecki
   Sergey Kishchenko
   Ignas Mikalajunas
+  Alecsandru Patrascu
   Christoph Gerum
   Martin Blais
   Lene Wagner
+  Catalin Gabriel Manciu
   Tomo Cocoa
+  Kim Jin Su
+  rafalgalczynski@gmail.com
+  Toni Mattis
+  Amber Brown
+  Lucas Stadler
+  Julian Berman
+  Markus Holtermann
   roberto@goyle
   Yury V. Zaytsev
   Anna Katrina Dominguez
-  William Leslie
   Bobby Impollonia
-  timo@eistee.fritz.box
+  Vasantha Ganesh K
   Andrew Thompson
+  florinpapa
   Yusei Tahara
+  Aaron Tubbs
   Ben Darnell
   Roberto De Ioris
+  Logan Chien
   Juan Francisco Cantero Hurtado
+  Ruochen Huang
+  Jeong YunWon
   Godefroid Chappelle
   Joshua Gilbert
   Dan Colish
   Christopher Armstrong
   Michael Hudson-Doyle
   Anders Sigfridsson
-  Yasir Suhail
+  Nikolay Zinov
+  Jason Michalski
   Floris Bruynooghe
+  Laurens Van Houtven
   Akira Li
   Gustavo Niemeyer
   Stephan Busemann
   Rafał Gałczyński
+  Matt Bogosian
+  timo
   Christian Muirhead
+  Berker Peksag
   James Lan
+  Volodymyr Vladymyrov
   shoma hosaka
-  Daniel Neuhäuser
+  Ben Mather
+  Niclas Olofsson
+  Matthew Miller
+  Rodrigo Araújo
+  halgari
+  Boglarka Vezer
+  Chris Pressey
   Buck Golemon
+  Diana Popa
   Konrad Delong
   Dinu Gherman
   Chris Lambacher
   coolbutuseless@gmail.com
-  w31rd0
+  Daniil Yarancev
   Jim Baker
-  Rodrigo Araújo
+  Dan Crosta
+  Nikolaos-Digenis Karagiannis
+  James Robert
   Armin Ronacher
   Brett Cannon
+  Donald Stufft
   yrttyr
+  aliceinwire
+  OlivierBlanvillain
+  Dan Sanders
   Zooko Wilcox-O Hearn
   Tomer Chachamu
   Christopher Groskopf
-  opassembler.py
+  Asmo Soinio
+  jiaaro
+  Mads Kiilerich
   Antony Lee
+  Jason Madden
+  Daniel Neuh�user
+  reubano@gmail.com
+  Yaroslav Fedevych
   Jim Hunziker
   Markus Unterwaditzer
   Even Wiik Thomassen
   jbs
+  squeaky
   soareschen
+  Jonas Pfannschmidt
+  Kurt Griffiths
   Mike Bayer
+  Stefan Marr
   Flavio Percoco
   Kristoffer Kleine
-  yasirs
   Michael Chermside
   Anna Ravencroft
+  pizi
+  remarkablerocket
+  Andrey Churin
+  Zearin
+  Eli Stevens
+  Tobias Diaz
   Julien Phalip
+  Roman Podoliaka
   Dan Loewenherz
+  werat
+
 

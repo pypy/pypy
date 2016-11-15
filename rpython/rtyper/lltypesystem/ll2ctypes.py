@@ -25,7 +25,7 @@ from rpython.annotator import model as annmodel
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rtyper.llannotation import SomePtr
 from rpython.rtyper.llinterp import LLInterpreter, LLException
-from rpython.rtyper.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
+from rpython.rtyper.rclass import OBJECT, OBJECT_VTABLE
 from rpython.rtyper import raddress
 from rpython.translator.platform import platform
 from array import array
@@ -46,6 +46,7 @@ rlock = RLock()
 
 _POSIX = os.name == "posix"
 _MS_WINDOWS = os.name == "nt"
+_FREEBSD = sys.platform.startswith('freebsd')
 _64BIT = "64bit" in host_platform.architecture()[0]
 
 
@@ -165,7 +166,16 @@ def _setup_ctypes_cache():
         })
 
     if '__int128_t' in rffi.TYPES:
-        _ctypes_cache[rffi.__INT128_T] = ctypes.c_longlong # XXX: Not right at all. But for some reason, It started by while doing JIT compile after a merge with default. Can't extend ctypes, because thats a python standard, right?
+        class c_int128(ctypes.Array):   # based on 2 ulongs
+            _type_ = ctypes.c_uint64
+            _length_ = 2
+            @property
+            def value(self):
+                res = self[0] | (self[1] << 64)
+                if res >= (1 << 127):
+                    res -= 1 << 128
+                return res
+        _ctypes_cache[rffi.__INT128_T] = c_int128
 
     # for unicode strings, do not use ctypes.c_wchar because ctypes
     # automatically converts arrays into unicode strings.
@@ -230,17 +240,7 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
     assert max_n >= 0
     ITEM = A.OF
     ctypes_item = get_ctypes_type(ITEM, delayed_builders)
-    # Python 2.5 ctypes can raise OverflowError on 64-bit builds
-    for n in [maxint, 2**31]:
-        MAX_SIZE = n/64
-        try:
-            PtrType = ctypes.POINTER(MAX_SIZE * ctypes_item)
-        except (OverflowError, AttributeError), e:
-            pass      #        ^^^ bah, blame ctypes
-        else:
-            break
-    else:
-        raise e
+    ctypes_item_ptr = ctypes.POINTER(ctypes_item)
 
     class CArray(ctypes.Structure):
         if is_emulated_long:
@@ -250,49 +250,25 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
 
         if not A._hints.get('nolength'):
             _fields_ = [('length', lentype),
-                        ('items',  max_n * ctypes_item)]
+                        ('items',
+                           (max_n + A._hints.get('extra_item_after_alloc', 0))
+                           * ctypes_item)]
         else:
             _fields_ = [('items',  max_n * ctypes_item)]
 
         @classmethod
         def _malloc(cls, n=None):
             if not isinstance(n, int):
-                raise TypeError, "array length must be an int"
+                raise TypeError("array length must be an int")
             biggercls = get_ctypes_array_of_size(A, n)
             bigarray = allocate_ctypes(biggercls)
             if hasattr(bigarray, 'length'):
                 bigarray.length = n
             return bigarray
 
-        _ptrtype = None
-
-        @classmethod
-        def _get_ptrtype(cls):
-            if cls._ptrtype:
-                return cls._ptrtype
-            # ctypes can raise OverflowError on 64-bit builds
-            # on windows it raises AttributeError even for 2**31 (_length_ missing)
-            if _MS_WINDOWS:
-                other_limit = 2**31-1
-            else:
-                other_limit = 2**31
-            for n in [maxint, other_limit]:
-                cls.MAX_SIZE = n / ctypes.sizeof(ctypes_item)
-                try:
-                    cls._ptrtype = ctypes.POINTER(cls.MAX_SIZE * ctypes_item)
-                except (OverflowError, AttributeError), e:
-                    pass
-                else:
-                    break
-            else:
-                raise e
-            return cls._ptrtype
-
         def _indexable(self, index):
-            PtrType = self._get_ptrtype()
-            assert index + 1 < self.MAX_SIZE
-            p = ctypes.cast(ctypes.pointer(self.items), PtrType)
-            return p.contents
+            p = ctypes.cast(self.items, ctypes_item_ptr)
+            return p
 
         def _getitem(self, index, boundscheck=True):
             if boundscheck:
@@ -425,7 +401,12 @@ def convert_struct(container, cstruct=None, delayed_converters=None):
         else:
             n = None
         cstruct = cls._malloc(n)
-    add_storage(container, _struct_mixin, ctypes.pointer(cstruct))
+
+    if isinstance(container, lltype._fixedsizearray):
+        cls_mixin = _fixedsizedarray_mixin
+    else:
+        cls_mixin = _struct_mixin
+    add_storage(container, cls_mixin, ctypes.pointer(cstruct))
 
     if delayed_converters is None:
         delayed_converters_was_None = True
@@ -458,10 +439,14 @@ def convert_struct(container, cstruct=None, delayed_converters=None):
     if delayed_converters_was_None:
         for converter in delayed_converters:
             converter()
+
     remove_regular_struct_content(container)
 
 def remove_regular_struct_content(container):
     STRUCT = container._TYPE
+    if isinstance(STRUCT, lltype.FixedSizeArray):
+        del container._items
+        return
     for field_name in STRUCT._names:
         FIELDTYPE = getattr(STRUCT, field_name)
         if not isinstance(FIELDTYPE, lltype.ContainerType):
@@ -502,7 +487,11 @@ def remove_regular_array_content(container):
 def struct_use_ctypes_storage(container, ctypes_storage):
     STRUCT = container._TYPE
     assert isinstance(STRUCT, lltype.Struct)
-    add_storage(container, _struct_mixin, ctypes_storage)
+    if isinstance(container, lltype._fixedsizearray):
+        cls_mixin = _fixedsizedarray_mixin
+    else:
+        cls_mixin = _struct_mixin
+    add_storage(container, cls_mixin, ctypes_storage)
     remove_regular_struct_content(container)
     for field_name in STRUCT._names:
         FIELDTYPE = getattr(STRUCT, field_name)
@@ -514,8 +503,10 @@ def struct_use_ctypes_storage(container, ctypes_storage):
                 struct_use_ctypes_storage(struct_container, struct_storage)
                 struct_container._setparentstructure(container, field_name)
             elif isinstance(FIELDTYPE, lltype.Array):
-                assert FIELDTYPE._hints.get('nolength', False) == False
-                arraycontainer = _array_of_known_length(FIELDTYPE)
+                if FIELDTYPE._hints.get('nolength', False):
+                    arraycontainer = _array_of_unknown_length(FIELDTYPE)
+                else:
+                    arraycontainer = _array_of_known_length(FIELDTYPE)
                 arraycontainer._storage = ctypes.pointer(
                     getattr(ctypes_storage.contents, field_name))
                 arraycontainer._setparentstructure(container, field_name)
@@ -527,6 +518,7 @@ def struct_use_ctypes_storage(container, ctypes_storage):
 # Ctypes-aware subclasses of the _parentable classes
 
 ALLOCATED = {}     # mapping {address: _container}
+DEBUG_ALLOCATED = False
 
 def get_common_subclass(cls1, cls2, cache={}):
     """Return a unique subclass with (cls1, cls2) as bases."""
@@ -566,6 +558,8 @@ class _parentable_mixin(object):
             raise Exception("internal ll2ctypes error - "
                             "double conversion from lltype to ctypes?")
         # XXX don't store here immortal structures
+        if DEBUG_ALLOCATED:
+            print >> sys.stderr, "LL2CTYPES:", hex(addr)
         ALLOCATED[addr] = self
 
     def _addressof_storage(self):
@@ -578,6 +572,8 @@ class _parentable_mixin(object):
         self._check()   # no double-frees
         # allow the ctypes object to go away now
         addr = ctypes.cast(self._storage, ctypes.c_void_p).value
+        if DEBUG_ALLOCATED:
+            print >> sys.stderr, "LL2C FREE:", hex(addr)
         try:
             del ALLOCATED[addr]
         except KeyError:
@@ -612,11 +608,14 @@ class _parentable_mixin(object):
             return object.__hash__(self)
 
     def __repr__(self):
-        if self._storage is None:
-            return '<freed C object %s>' % (self._TYPE,)
+        if '__str__' in self._TYPE._adtmeths:
+            r = self._TYPE._adtmeths['__str__'](self)
         else:
-            return '<C object %s at 0x%x>' % (self._TYPE,
-                                              fixid(self._addressof_storage()))
+            r = 'C object %s' % (self._TYPE,)
+        if self._storage is None:
+            return '<freed %s>' % (r,)
+        else:
+            return '<%s at 0x%x>' % (r, fixid(self._addressof_storage()))
 
     def __str__(self):
         return repr(self)
@@ -641,6 +640,45 @@ class _struct_mixin(_parentable_mixin):
             cobj = lltype2ctypes(value)
             setattr(self._storage.contents, field_name, cobj)
 
+class _fixedsizedarray_mixin(_parentable_mixin):
+    """Mixin added to _fixedsizearray containers when they become ctypes-based."""
+    __slots__ = ()
+
+    def __getattr__(self, field_name):
+        if hasattr(self, '_items'):
+            obj = lltype._fixedsizearray.__getattr__.im_func(self, field_name)
+            return obj
+        else:
+            cobj = getattr(self._storage.contents, field_name)
+            T = getattr(self._TYPE, field_name)
+            return ctypes2lltype(T, cobj)
+
+    def __setattr__(self, field_name, value):
+        if field_name.startswith('_'):
+            object.__setattr__(self, field_name, value)  # '_xxx' attributes
+        else:
+            cobj = lltype2ctypes(value)
+            if hasattr(self, '_items'):
+                lltype._fixedsizearray.__setattr__.im_func(self, field_name, cobj)
+            else:
+                setattr(self._storage.contents, field_name, cobj)
+
+
+    def getitem(self, index, uninitialized_ok=False):
+        if hasattr(self, '_items'):
+            obj = lltype._fixedsizearray.getitem.im_func(self, 
+                                     index, uninitialized_ok=uninitialized_ok)
+            return obj
+        else:
+            return getattr(self, 'item%d' % index)
+
+    def setitem(self, index, value):
+        cobj = lltype2ctypes(value)
+        if hasattr(self, '_items'):
+            lltype._fixedsizearray.setitem.im_func(self, index, value)
+        else:
+            setattr(self, 'item%d' % index, cobj)
+
 class _array_mixin(_parentable_mixin):
     """Mixin added to _array containers when they become ctypes-based."""
     __slots__ = ()
@@ -658,6 +696,9 @@ class _array_of_unknown_length(_parentable_mixin, lltype._parentable):
     def getbounds(self):
         # we have no clue, so we allow whatever index
         return 0, maxint
+
+    def shrinklength(self, newlength):
+        raise NotImplementedError
 
     def getitem(self, index, uninitialized_ok=False):
         res = self._storage.contents._getitem(index, boundscheck=False)
@@ -802,7 +843,7 @@ def lltype2ctypes(llobj, normalize=True):
                         llinterp = LLInterpreter.current_interpreter
                         try:
                             llres = llinterp.eval_graph(container.graph, llargs)
-                        except LLException, lle:
+                        except LLException as lle:
                             llinterp._store_exception(lle)
                             return 0
                         #except:
@@ -811,7 +852,7 @@ def lltype2ctypes(llobj, normalize=True):
                     else:
                         try:
                             llres = container._callable(*llargs)
-                        except LLException, lle:
+                        except LLException as lle:
                             llinterp = LLInterpreter.current_interpreter
                             llinterp._store_exception(lle)
                             return 0
@@ -901,6 +942,14 @@ def lltype2ctypes(llobj, normalize=True):
                 llobj = ctypes.sizeof(get_ctypes_type(llobj.TYPE)) * llobj.repeat
             elif isinstance(llobj, ComputedIntSymbolic):
                 llobj = llobj.compute_fn()
+            elif isinstance(llobj, llmemory.CompositeOffset):
+                llobj = sum([lltype2ctypes(c) for c in llobj.offsets])
+            elif isinstance(llobj, llmemory.FieldOffset):
+                CSTRUCT = get_ctypes_type(llobj.TYPE)
+                llobj = getattr(CSTRUCT, llobj.fldname).offset
+            elif isinstance(llobj, llmemory.ArrayItemsOffset):
+                CARRAY = get_ctypes_type(llobj.TYPE)
+                llobj = CARRAY.items.offset
             else:
                 raise NotImplementedError(llobj)  # don't know about symbolic value
 
@@ -933,7 +982,8 @@ def ctypes2lltype(T, cobj):
                 REAL_TYPE = T.TO
                 if T.TO._arrayfld is not None:
                     carray = getattr(cobj.contents, T.TO._arrayfld)
-                    container = lltype._struct(T.TO, carray.length)
+                    length = getattr(carray, 'length', 9999)   # XXX
+                    container = lltype._struct(T.TO, length)
                 else:
                     # special treatment of 'OBJECT' subclasses
                     if get_rtyper() and lltype._castdepth(REAL_TYPE, OBJECT) >= 0:
@@ -948,6 +998,11 @@ def ctypes2lltype(T, cobj):
                         REAL_T = lltype.Ptr(REAL_TYPE)
                         cobj = ctypes.cast(cobj, get_ctypes_type(REAL_T))
                     container = lltype._struct(REAL_TYPE)
+                # obscuuuuuuuuure: 'cobj' is a ctypes pointer, which is
+                # mutable; and so if we save away the 'cobj' object
+                # itself, it might suddenly later be unexpectedly
+                # modified!  Make a copy.
+                cobj = ctypes.cast(cobj, type(cobj))
                 struct_use_ctypes_storage(container, cobj)
                 if REAL_TYPE != T.TO:
                     p = container._as_ptr()
@@ -968,12 +1023,22 @@ def ctypes2lltype(T, cobj):
                     container = _array_of_known_length(T.TO)
                     container._storage = type(cobj)(cobj.contents)
             elif isinstance(T.TO, lltype.FuncType):
+                # cobj is a CFunctionType object.  We naively think
+                # that it should be a function pointer.  No no no.  If
+                # it was read out of an array, say, then it is a *pointer*
+                # to a function pointer.  In other words, the read doesn't
+                # read anything, it just takes the address of the function
+                # pointer inside the array.  If later the array is modified
+                # or goes out of scope, then we crash.  CTypes is fun.
+                # It works if we cast it now to an int and back.
                 cobjkey = intmask(ctypes.cast(cobj, ctypes.c_void_p).value)
                 if cobjkey in _int2obj:
                     container = _int2obj[cobjkey]
                 else:
+                    name = getattr(cobj, '__name__', '?')
+                    cobj = ctypes.cast(cobjkey, type(cobj))
                     _callable = get_ctypes_trampoline(T.TO, cobj)
-                    return lltype.functionptr(T.TO, getattr(cobj, '__name__', '?'),
+                    return lltype.functionptr(T.TO, name,
                                               _callable=_callable)
             elif isinstance(T.TO, lltype.OpaqueType):
                 if T == llmemory.GCREF:
@@ -1075,8 +1140,11 @@ if ctypes:
             return ctypes.util.find_library('c')
 
     libc_name = get_libc_name()     # Make sure the name is determined during import, not at runtime
+    if _FREEBSD:
+        RTLD_DEFAULT = -2  # see <dlfcn.h>
+        rtld_default_lib = ctypes.CDLL("RTLD_DEFAULT", handle=RTLD_DEFAULT, **load_library_kwargs)
     # XXX is this always correct???
-    standard_c_lib = ctypes.CDLL(get_libc_name(), **load_library_kwargs)
+    standard_c_lib = ctypes.CDLL(libc_name, **load_library_kwargs)
 
 # ____________________________________________
 
@@ -1098,7 +1166,7 @@ if sys.platform == 'darwin':
         finally:
             try:
                 os.unlink(ccout)
-            except OSError, e:
+            except OSError as e:
                 if e.errno != errno.ENOENT:
                     raise
         res = re.search(expr, trace)
@@ -1128,7 +1196,8 @@ def get_ctypes_callable(funcptr, calling_conv):
     try:
         eci = _eci_cache[old_eci]
     except KeyError:
-        eci = old_eci.compile_shared_lib(ignore_a_files=True)
+        eci = old_eci.compile_shared_lib(ignore_a_files=True,
+                                         defines=['RPYTHON_LL2CTYPES'])
         _eci_cache[old_eci] = eci
 
     libraries = eci.testonly_libraries + eci.libraries + eci.frameworks
@@ -1168,7 +1237,10 @@ def get_ctypes_callable(funcptr, calling_conv):
                 not_found.append(libname)
 
     if cfunc is None:
-        cfunc = get_on_lib(standard_c_lib, funcname)
+        if _FREEBSD and funcname in ('dlopen', 'fdlopen', 'dlsym', 'dlfunc', 'dlerror', 'dlclose'):
+            cfunc = get_on_lib(rtld_default_lib, funcname)
+        else:
+            cfunc = get_on_lib(standard_c_lib, funcname)
         # XXX magic: on Windows try to load the function from 'kernel32' too
         if cfunc is None and hasattr(ctypes, 'windll'):
             cfunc = get_on_lib(ctypes.windll.kernel32, funcname)
@@ -1487,18 +1559,17 @@ else:
             _where_is_errno().contents.value = TLS.errno
 
     if ctypes:
-        if sys.platform == 'win32':
+        if _MS_WINDOWS:
             standard_c_lib._errno.restype = ctypes.POINTER(ctypes.c_int)
             def _where_is_errno():
                 return standard_c_lib._errno()
 
-        elif sys.platform.startswith('linux') or sys.platform == 'freebsd6':
+        elif sys.platform.startswith('linux'):
             standard_c_lib.__errno_location.restype = ctypes.POINTER(ctypes.c_int)
             def _where_is_errno():
                 return standard_c_lib.__errno_location()
 
-        elif any(plat in sys.platform
-                 for plat in ('darwin', 'freebsd7', 'freebsd8', 'freebsd9')):
+        elif sys.platform == 'darwin' or _FREEBSD:
             standard_c_lib.__error.restype = ctypes.POINTER(ctypes.c_int)
             def _where_is_errno():
                 return standard_c_lib.__error()

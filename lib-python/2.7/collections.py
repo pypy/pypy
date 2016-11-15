@@ -1,3 +1,15 @@
+'''This module implements specialized container datatypes providing
+alternatives to Python's general purpose built-in containers, dict,
+list, set, and tuple.
+
+* namedtuple   factory function for creating tuple subclasses with named fields
+* deque        list-like container with fast appends and pops on either end
+* Counter      dict subclass for counting hashable objects
+* OrderedDict  dict subclass that remembers the order entries were added
+* defaultdict  dict subclass that calls a factory function to supply missing values
+
+'''
+
 __all__ = ['Counter', 'deque', 'defaultdict', 'namedtuple', 'OrderedDict']
 # For bootstrapping reasons, the collection ABCs are defined in _abcoll.py.
 # They should however be considered an integral part of collections.py.
@@ -17,6 +29,10 @@ try:
 except ImportError:
     assert '__pypy__' not in _sys.builtin_module_names
     newdict = lambda _ : {}
+try:
+    from __pypy__ import reversed_dict as _reversed_dict
+except ImportError:
+    _reversed_dict = None     # don't have ordered dicts
 
 try:
     from thread import get_ident as _get_ident
@@ -29,7 +45,97 @@ except ImportError:
 ################################################################################
 
 class OrderedDict(dict):
-    'Dictionary that remembers insertion order'
+    '''Dictionary that remembers insertion order.
+
+    In PyPy all dicts are ordered anyway.  This is mostly useful as a
+    placeholder to mean "this dict must be ordered even on CPython".
+
+    Known difference: iterating over an OrderedDict which is being
+    concurrently modified raises RuntimeError in PyPy.  In CPython
+    instead we get some behavior that appears reasonable in some
+    cases but is nonsensical in other cases.  This is officially
+    forbidden by the CPython docs, so we forbid it explicitly for now.
+    '''
+
+    def __reversed__(self):
+        return _reversed_dict(self)
+
+    def popitem(self, last=True):
+        '''od.popitem() -> (k, v), return and remove a (key, value) pair.
+        Pairs are returned in LIFO order if last is true or FIFO order if false.
+
+        '''
+        if last:
+            return dict.popitem(self)
+        else:
+            it = dict.__iter__(self)
+            try:
+                k = it.next()
+            except StopIteration:
+                raise KeyError('dictionary is empty')
+            return (k, self.pop(k))
+
+    def __repr__(self, _repr_running={}):
+        'od.__repr__() <==> repr(od)'
+        call_key = id(self), _get_ident()
+        if call_key in _repr_running:
+            return '...'
+        _repr_running[call_key] = 1
+        try:
+            if not self:
+                return '%s()' % (self.__class__.__name__,)
+            return '%s(%r)' % (self.__class__.__name__, self.items())
+        finally:
+            del _repr_running[call_key]
+
+    def __reduce__(self):
+        'Return state information for pickling'
+        items = [[k, self[k]] for k in self]
+        inst_dict = vars(self).copy()
+        if inst_dict:
+            return (self.__class__, (items,), inst_dict)
+        return self.__class__, (items,)
+
+    def copy(self):
+        'od.copy() -> a shallow copy of od'
+        return self.__class__(self)
+
+    def __eq__(self, other):
+        '''od.__eq__(y) <==> od==y.  Comparison to another OD is order-sensitive
+        while comparison to a regular mapping is order-insensitive.
+
+        '''
+        if isinstance(other, OrderedDict):
+            return dict.__eq__(self, other) and all(_imap(_eq, self, other))
+        return dict.__eq__(self, other)
+
+    def __ne__(self, other):
+        'od.__ne__(y) <==> od!=y'
+        return not self == other
+
+    # -- the following methods support python 3.x style dictionary views --
+
+    def viewkeys(self):
+        "od.viewkeys() -> a set-like object providing a view on od's keys"
+        return KeysView(self)
+
+    def viewvalues(self):
+        "od.viewvalues() -> an object providing a view on od's values"
+        return ValuesView(self)
+
+    def viewitems(self):
+        "od.viewitems() -> a set-like object providing a view on od's items"
+        return ItemsView(self)
+
+
+def _compat_with_unordered_dicts():
+    # This returns the methods needed in OrderedDict in case the base
+    # 'dict' class is not actually ordered, like on top of CPython or
+    # old PyPy or PyPy-STM.
+
+    # ===== Original comments and code follows      =====
+    # ===== The unmodified methods are not repeated =====
+
     # An inherited dict maps keys to values.
     # The inherited dict provides __getitem__, __len__, __contains__, and get.
     # The remaining methods are order-aware.
@@ -166,19 +272,6 @@ class OrderedDict(dict):
         value = self.pop(key)
         return key, value
 
-    def __repr__(self, _repr_running={}):
-        'od.__repr__() <==> repr(od)'
-        call_key = id(self), _get_ident()
-        if call_key in _repr_running:
-            return '...'
-        _repr_running[call_key] = 1
-        try:
-            if not self:
-                return '%s()' % (self.__class__.__name__,)
-            return '%s(%r)' % (self.__class__.__name__, self.items())
-        finally:
-            del _repr_running[call_key]
-
     def __reduce__(self):
         'Return state information for pickling'
         items = [[k, self[k]] for k in self]
@@ -188,10 +281,6 @@ class OrderedDict(dict):
         if inst_dict:
             return (self.__class__, (items,), inst_dict)
         return self.__class__, (items,)
-
-    def copy(self):
-        'od.copy() -> a shallow copy of od'
-        return self.__class__(self)
 
     @classmethod
     def fromkeys(cls, iterable, value=None):
@@ -204,33 +293,12 @@ class OrderedDict(dict):
             self[key] = value
         return self
 
-    def __eq__(self, other):
-        '''od.__eq__(y) <==> od==y.  Comparison to another OD is order-sensitive
-        while comparison to a regular mapping is order-insensitive.
+    return locals()
 
-        '''
-        if isinstance(other, OrderedDict):
-            return dict.__eq__(self, other) and all(_imap(_eq, self, other))
-        return dict.__eq__(self, other)
-
-    def __ne__(self, other):
-        'od.__ne__(y) <==> od!=y'
-        return not self == other
-
-    # -- the following methods support python 3.x style dictionary views --
-
-    def viewkeys(self):
-        "od.viewkeys() -> a set-like object providing a view on od's keys"
-        return KeysView(self)
-
-    def viewvalues(self):
-        "od.viewvalues() -> an object providing a view on od's values"
-        return ValuesView(self)
-
-    def viewitems(self):
-        "od.viewitems() -> a set-like object providing a view on od's items"
-        return ItemsView(self)
-
+if _reversed_dict is None:
+    for _key, _value in _compat_with_unordered_dicts().items():
+        setattr(OrderedDict, _key, _value)
+    del _key, _value
 
 ################################################################################
 ### namedtuple
@@ -302,7 +370,7 @@ def namedtuple(typename, field_names, verbose=False, rename=False):
     >>> x, y = p                        # unpack like a regular tuple
     >>> x, y
     (11, 22)
-    >>> p.x + p.y                       # fields also accessable by name
+    >>> p.x + p.y                       # fields also accessible by name
     33
     >>> d = p._asdict()                 # convert to a dictionary
     >>> d['x']
@@ -319,6 +387,7 @@ def namedtuple(typename, field_names, verbose=False, rename=False):
     if isinstance(field_names, basestring):
         field_names = field_names.replace(',', ' ').split()
     field_names = map(str, field_names)
+    typename = str(typename)
     if rename:
         seen = set()
         for index, name in enumerate(field_names):
@@ -331,6 +400,8 @@ def namedtuple(typename, field_names, verbose=False, rename=False):
                 field_names[index] = '_%d' % index
             seen.add(name)
     for name in [typename] + field_names:
+        if type(name) != str:
+            raise TypeError('Type names and field names must be strings')
         if not all(c.isalnum() or c=='_' for c in name):
             raise ValueError('Type names and field names can only contain '
                              'alphanumeric characters and underscores: %r' % name)
@@ -443,7 +514,7 @@ class Counter(dict):
     #   http://code.activestate.com/recipes/259174/
     #   Knuth, TAOCP Vol. II section 4.6.3
 
-    def __init__(self, iterable=None, **kwds):
+    def __init__(*args, **kwds):
         '''Create a new, empty Counter object.  And if given, count elements
         from an input iterable.  Or, initialize the count from another mapping
         of elements to their counts.
@@ -454,8 +525,15 @@ class Counter(dict):
         >>> c = Counter(a=4, b=2)                   # a new counter from keyword args
 
         '''
+        if not args:
+            raise TypeError("descriptor '__init__' of 'Counter' object "
+                            "needs an argument")
+        self = args[0]
+        args = args[1:]
+        if len(args) > 1:
+            raise TypeError('expected at most 1 arguments, got %d' % len(args))
         super(Counter, self).__init__()
-        self.update(iterable, **kwds)
+        self.update(*args, **kwds)
 
     def __missing__(self, key):
         'The count of elements not in the Counter is zero.'
@@ -506,7 +584,7 @@ class Counter(dict):
         raise NotImplementedError(
             'Counter.fromkeys() is undefined.  Use Counter(iterable) instead.')
 
-    def update(self, iterable=None, **kwds):
+    def update(*args, **kwds):
         '''Like dict.update() but add counts instead of replacing them.
 
         Source can be an iterable, a dictionary, or another Counter instance.
@@ -526,6 +604,14 @@ class Counter(dict):
         # contexts.  Instead, we implement straight-addition.  Both the inputs
         # and outputs are allowed to contain zero and negative counts.
 
+        if not args:
+            raise TypeError("descriptor 'update' of 'Counter' object "
+                            "needs an argument")
+        self = args[0]
+        args = args[1:]
+        if len(args) > 1:
+            raise TypeError('expected at most 1 arguments, got %d' % len(args))
+        iterable = args[0] if args else None
         if iterable is not None:
             if isinstance(iterable, Mapping):
                 if self:
@@ -541,7 +627,7 @@ class Counter(dict):
         if kwds:
             self.update(kwds)
 
-    def subtract(self, iterable=None, **kwds):
+    def subtract(*args, **kwds):
         '''Like dict.update() but subtracts counts instead of replacing them.
         Counts can be reduced below zero.  Both the inputs and outputs are
         allowed to contain zero and negative counts.
@@ -557,6 +643,14 @@ class Counter(dict):
         -1
 
         '''
+        if not args:
+            raise TypeError("descriptor 'subtract' of 'Counter' object "
+                            "needs an argument")
+        self = args[0]
+        args = args[1:]
+        if len(args) > 1:
+            raise TypeError('expected at most 1 arguments, got %d' % len(args))
+        iterable = args[0] if args else None
         if iterable is not None:
             self_get = self.get
             if isinstance(iterable, Mapping):

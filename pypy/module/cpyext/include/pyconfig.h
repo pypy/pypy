@@ -28,7 +28,7 @@ extern "C" {
 #endif
 
 #ifndef Py_BUILD_CORE /* not building the core - must be an ext */
-#    if defined(_MSC_VER)
+#    if defined(_MSC_VER) && !defined(_CFFI_)
      /* So MSVC users need not specify the .lib file in
       * their Makefile (other compilers are generally
       * taken care of by distutils.) */

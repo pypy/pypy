@@ -1,6 +1,6 @@
 import py
 from pypy.module.micronumpy.compile import (numpy_compile, Assignment,
-    ArrayConstant, FloatConstant, Operator, Variable, RangeConstant, Execute,
+    ArrayConstant, NumberConstant, Operator, Variable, RangeConstant, Execute,
     FunctionCall, FakeSpace, W_NDimArray)
 
 
@@ -25,30 +25,30 @@ class TestCompiler(object):
         interp = self.compile(code)
         assert isinstance(interp.code.statements[0].expr, ArrayConstant)
         st = interp.code.statements[0]
-        assert st.expr.items == [FloatConstant(1), FloatConstant(2),
-                                 FloatConstant(3)]
+        assert st.expr.items == [NumberConstant(1), NumberConstant(2),
+                                 NumberConstant(3)]
 
     def test_array_literal2(self):
         code = "a = [[1],[2],[3]]"
         interp = self.compile(code)
         assert isinstance(interp.code.statements[0].expr, ArrayConstant)
         st = interp.code.statements[0]
-        assert st.expr.items == [ArrayConstant([FloatConstant(1)]),
-                                 ArrayConstant([FloatConstant(2)]),
-                                 ArrayConstant([FloatConstant(3)])]
+        assert st.expr.items == [ArrayConstant([NumberConstant(1)]),
+                                 ArrayConstant([NumberConstant(2)]),
+                                 ArrayConstant([NumberConstant(3)])]
 
     def test_expr_1(self):
         code = "b = a + 1"
         interp = self.compile(code)
         assert (interp.code.statements[0].expr ==
-                Operator(Variable("a"), "+", FloatConstant(1)))
+                Operator(Variable("a"), "+", NumberConstant(1)))
 
     def test_expr_2(self):
         code = "b = a + b - 3"
         interp = self.compile(code)
         assert (interp.code.statements[0].expr ==
                 Operator(Operator(Variable("a"), "+", Variable("b")), "-",
-                         FloatConstant(3)))
+                         NumberConstant(3)))
 
     def test_expr_3(self):
         # an equivalent of range
@@ -60,13 +60,13 @@ class TestCompiler(object):
         code = "3 + a"
         interp = self.compile(code)
         assert interp.code.statements[0] == Execute(
-            Operator(FloatConstant(3), "+", Variable("a")))
+            Operator(NumberConstant(3), "+", Variable("a")))
 
     def test_array_access(self):
         code = "a -> 3"
         interp = self.compile(code)
         assert interp.code.statements[0] == Execute(
-            Operator(Variable("a"), "->", FloatConstant(3)))
+            Operator(Variable("a"), "->", NumberConstant(3)))
 
     def test_function_call(self):
         code = "sum(a)"
@@ -81,7 +81,7 @@ class TestCompiler(object):
         """
         interp = self.compile(code)
         assert interp.code.statements[0] == Assignment(
-            'a', Operator(Variable('b'), "+", FloatConstant(3)))
+            'a', Operator(Variable('b'), "+", NumberConstant(3)))
 
 
 class TestRunner(object):
@@ -272,6 +272,14 @@ class TestRunner(object):
         """)
         assert interp.results[0].value == 3
 
+    def test_any(self):
+        interp = self.run("""
+        a = [0,0,0,0,0.1,0,0,0,0]
+        b = any(a)
+        b -> 0
+        """)
+        assert interp.results[0].value == 1
+
     def test_where(self):
         interp = self.run('''
         a = [1, 0, 3, 0]
@@ -319,3 +327,23 @@ class TestRunner(object):
         ''')
         results = interp.results[0]
         assert isinstance(results, W_NDimArray)
+
+    def test_astype_dtype(self):
+        interp = self.run('''
+        a = [1, 0, 3, 0]
+        b = int
+        c = astype(a, b)
+        c
+        ''')
+        results = interp.results[0]
+        assert isinstance(results, W_NDimArray)
+        assert results.get_dtype().is_int()
+
+    def test_searchsorted(self):
+        interp = self.run('''
+        a = [1, 4, 5, 6, 9]
+        b = |30| -> ::-1
+        c = searchsorted(a, b)
+        c -> -1
+        ''')
+        assert interp.results[0].value == 0

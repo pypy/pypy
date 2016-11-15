@@ -5,6 +5,7 @@ functional programming.
 from __future__ import with_statement
 import operator
 from __pypy__ import resizelist_hint, newlist_hint
+from __pypy__ import specialized_zip_2_lists
 
 # ____________________________________________________________
 
@@ -14,9 +15,9 @@ def apply(function, args=(), kwds={}):
 
 # ____________________________________________________________
 
-def sorted(lst, cmp=None, key=None, reverse=False):
+def sorted(iterable, cmp=None, key=None, reverse=False):
     "sorted(iterable, cmp=None, key=None, reverse=False) --> new sorted list"
-    sorted_lst = list(lst)
+    sorted_lst = list(iterable)
     sorted_lst.sort(cmp, key, reverse)
     return sorted_lst
 
@@ -53,6 +54,33 @@ empty, returns start."""
         last = last + x
     return last
 
+
+class _Cons(object):
+    def __init__(self, prev, iter):
+        self.prev = prev
+        self.iter = iter
+
+    def fetch(self):
+        # recursive, loop-less version of the algorithm: works best for a
+        # fixed number of "collections" in the call to map(func, *collections)
+        prev = self.prev
+        if prev is None:
+            args1 = ()
+            stop = True
+        else:
+            args1, stop = prev.fetch()
+        iter = self.iter
+        if iter is None:
+            val = None
+        else:
+            try:
+                val = next(iter)
+                stop = False
+            except StopIteration:
+                self.iter = None
+                val = None
+        return args1 + (val,), stop
+
 def map(func, *collections):
     """map(function, sequence[, sequence, ...]) -> list
 
@@ -69,45 +97,30 @@ the items of the sequence (or a list of tuples if more than one sequence)."""
     if num_collections == 1:
         if none_func:
             return list(collections[0])
-        # Special case for the really common case of a single collection,
-        # this can be eliminated if we could unroll that loop that creates
-        # `args` based on whether or not len(collections) was constant
+        # Special case for the really common case of a single collection
         seq = collections[0]
         with _ManagedNewlistHint(operator._length_hint(seq, 0)) as result:
             for item in seq:
                 result.append(func(item))
             return result
 
-    # Gather the iterators (pair of (iter, has_finished)) and guess the
+    # Gather the iterators into _Cons objects and guess the
     # result length (the max of the input lengths)
-    iterators = []
+    c = None
     max_hint = 0
     for seq in collections:
-        iterators.append((iter(seq), False))
+        c = _Cons(c, iter(seq))
         max_hint = max(max_hint, operator._length_hint(seq, 0))
 
     with _ManagedNewlistHint(max_hint) as result:
         while True:
-            cont = False
-            args = []
-            for idx, (iterator, has_finished) in enumerate(iterators):
-                val = None
-                if not has_finished:
-                    try:
-                        val = next(iterator)
-                    except StopIteration:
-                        iterators[idx] = (None, True)
-                    else:
-                        cont = True
-                args.append(val)
-            args = tuple(args)
-            if cont:
-                if none_func:
-                    result.append(args)
-                else:
-                    result.append(func(*args))
-            else:
+            args, stop = c.fetch()
+            if stop:
                 return result
+            if none_func:
+                result.append(args)
+            else:
+                result.append(func(*args))
 
 class _ManagedNewlistHint(object):
     """ Context manager returning a newlist_hint upon entry.
@@ -205,11 +218,16 @@ from each of the argument sequences.  The returned list is truncated
 in length to the length of the shortest argument sequence."""
     l = len(sequences)
     if l == 2:
+        # A very fast path if the two sequences are lists
+        seq0 = sequences[0]
+        seq1 = sequences[1]
+        try:
+            return specialized_zip_2_lists(seq0, seq1)
+        except TypeError:
+            pass
         # This is functionally the same as the code below, but more
         # efficient because it unrolls the loops over 'sequences'.
         # Only for two arguments, which is the most common case.
-        seq0 = sequences[0]
-        seq1 = sequences[1]
         iter0 = iter(seq0)
         iter1 = iter(seq1)
         hint = min(100000000,   # max 100M

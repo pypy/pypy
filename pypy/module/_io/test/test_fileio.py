@@ -82,7 +82,8 @@ class AppTestFileIO:
         import _io
         filename = self.tmpfile + '_w'
         f = _io.FileIO(filename, 'wb')
-        f.write("test")
+        f.write("te")
+        f.write(u"st")
         # try without flushing
         f2 = _io.FileIO(filename, 'rb')
         assert f2.read() == "test"
@@ -135,6 +136,14 @@ class AppTestFileIO:
         a = bytearray('x' * 10)
         f = _io.FileIO(self.tmpfile, 'r+')
         assert f.readinto(a) == 10
+        exc = raises(TypeError, f.readinto, u"hello")
+        assert str(exc.value) == "cannot use unicode as modifiable buffer"
+        exc = raises(TypeError, f.readinto, buffer(b"hello"))
+        assert str(exc.value) == "must be read-write buffer, not buffer"
+        exc = raises(TypeError, f.readinto, buffer(bytearray("hello")))
+        assert str(exc.value) == "must be read-write buffer, not buffer"
+        exc = raises(TypeError, f.readinto, memoryview(b"hello"))
+        assert str(exc.value) == "must be read-write buffer, not memoryview"
         f.close()
         assert a == 'a\nb\nc\0\0\0\0\0'
         #
@@ -188,18 +197,30 @@ class AppTestFileIO:
     def test_mode_strings(self):
         import _io
         import os
-        try:
-            for modes in [('w', 'wb'), ('wb', 'wb'), ('wb+', 'rb+'),
-                          ('w+b', 'rb+'), ('a', 'ab'), ('ab', 'ab'),
-                          ('ab+', 'ab+'), ('a+b', 'ab+'), ('r', 'rb'),
-                          ('rb', 'rb'), ('rb+', 'rb+'), ('r+b', 'rb+')]:
-                # read modes are last so that TESTFN will exist first
-                with _io.FileIO(self.tmpfile, modes[0]) as f:
-                    assert f.mode == modes[1]
-        finally:
-            if os.path.exists(self.tmpfile):
-                os.unlink(self.tmpfile)
+        for modes in [('w', 'wb'), ('wb', 'wb'), ('wb+', 'rb+'),
+                      ('w+b', 'rb+'), ('a', 'ab'), ('ab', 'ab'),
+                      ('ab+', 'ab+'), ('a+b', 'ab+'), ('r', 'rb'),
+                      ('rb', 'rb'), ('rb+', 'rb+'), ('r+b', 'rb+')]:
+            # read modes are last so that TESTFN will exist first
+            with _io.FileIO(self.tmpfile, modes[0]) as f:
+                assert f.mode == modes[1]
 
+    def test_flush_error_on_close(self):
+        # Test that the file is closed despite failed flush
+        # and that flush() is called before file closed.
+        import _io, os
+        fd = os.open(self.tmpfile, os.O_RDONLY, 0666)
+        f = _io.FileIO(fd, 'r', closefd=False)
+        closed = []
+        def bad_flush():
+            closed[:] = [f.closed]
+            raise IOError()
+        f.flush = bad_flush
+        raises(IOError, f.close) # exception not swallowed
+        assert f.closed
+        assert closed         # flush() called
+        assert not closed[0]  # flush() called before file closed
+        os.close(fd)
 
 def test_flush_at_exit():
     from pypy import conftest

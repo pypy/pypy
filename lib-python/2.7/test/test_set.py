@@ -233,7 +233,7 @@ class TestJointOps(unittest.TestCase):
             self.assertEqual(self.s, dup, "%s != %s" % (self.s, dup))
             if type(self.s) not in (set, frozenset):
                 self.s.x = 10
-                p = pickle.dumps(self.s)
+                p = pickle.dumps(self.s, i)
                 dup = pickle.loads(p)
                 self.assertEqual(self.s.x, dup.x)
 
@@ -340,6 +340,9 @@ class TestJointOps(unittest.TestCase):
         del obj, container
         gc.collect()
         self.assertTrue(ref() is None, "Cycle was not collected")
+
+    def test_free_after_iterating(self):
+        test_support.check_free_after_iterating(self, iter, self.thetype)
 
 class TestSet(TestJointOps):
     thetype = set
@@ -563,10 +566,10 @@ class TestSet(TestJointOps):
         test_support.gc_collect()
         self.assertRaises(ReferenceError, str, p)
 
-    # C API test only available in a debug build
-    if hasattr(set, "test_c_api"):
-        def test_c_api(self):
-            self.assertEqual(set().test_c_api(), True)
+    @unittest.skipUnless(hasattr(set, "test_c_api"),
+                         'C API test only available in a debug build')
+    def test_c_api(self):
+        self.assertEqual(set().test_c_api(), True)
 
 class SetSubclass(set):
     pass
@@ -789,10 +792,11 @@ class TestBasicOps(unittest.TestCase):
         self.assertEqual(setiter.__length_hint__(), len(self.set))
 
     def test_pickling(self):
-        p = pickle.dumps(self.set)
-        copy = pickle.loads(p)
-        self.assertEqual(self.set, copy,
-                         "%s != %s" % (self.set, copy))
+        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+            p = pickle.dumps(self.set, proto)
+            copy = pickle.loads(p)
+            self.assertEqual(self.set, copy,
+                             "%s != %s" % (self.set, copy))
 
 #------------------------------------------------------------------------------
 
@@ -1020,8 +1024,6 @@ class TestBinaryOps(unittest.TestCase):
         # without calling __cmp__.
         self.assertEqual(cmp(a, a), 0)
 
-        self.assertRaises(TypeError, cmp, a, 12)
-        self.assertRaises(TypeError, cmp, "abc", a)
 
 #==============================================================================
 
@@ -1272,17 +1274,6 @@ class TestOnlySetsInBinaryOps(unittest.TestCase):
         self.assertEqual(self.other != self.set, True)
         self.assertEqual(self.set != self.other, True)
 
-    def test_ge_gt_le_lt(self):
-        self.assertRaises(TypeError, lambda: self.set < self.other)
-        self.assertRaises(TypeError, lambda: self.set <= self.other)
-        self.assertRaises(TypeError, lambda: self.set > self.other)
-        self.assertRaises(TypeError, lambda: self.set >= self.other)
-
-        self.assertRaises(TypeError, lambda: self.other < self.set)
-        self.assertRaises(TypeError, lambda: self.other <= self.set)
-        self.assertRaises(TypeError, lambda: self.other > self.set)
-        self.assertRaises(TypeError, lambda: self.other >= self.set)
-
     def test_update_operator(self):
         try:
             self.set |= self.other
@@ -1392,18 +1383,6 @@ class TestOnlySetsDict(TestOnlySetsInBinaryOps):
         self.set   = set((1, 2, 3))
         self.other = {1:2, 3:4}
         self.otherIsIterable = True
-
-#------------------------------------------------------------------------------
-
-class TestOnlySetsOperator(TestOnlySetsInBinaryOps):
-    def setUp(self):
-        self.set   = set((1, 2, 3))
-        self.other = operator.add
-        self.otherIsIterable = False
-
-    def test_ge_gt_le_lt(self):
-        with test_support.check_py3k_warnings():
-            super(TestOnlySetsOperator, self).test_ge_gt_le_lt()
 
 #------------------------------------------------------------------------------
 
@@ -1675,6 +1654,17 @@ class TestWeirdBugs(unittest.TestCase):
         be_bad = True
         set1.symmetric_difference_update(dict2)
 
+    def test_iter_and_mutate(self):
+        # Issue #24581
+        s = set(range(100))
+        s.clear()
+        s.update(range(100))
+        si = iter(s)
+        s.clear()
+        a = list(range(100))
+        s.update(range(100))
+        list(si)
+
 # Application tests (based on David Eppstein's graph recipes ====================================
 
 def powerset(U):
@@ -1753,7 +1743,7 @@ class TestGraphs(unittest.TestCase):
 
         # http://en.wikipedia.org/wiki/Cuboctahedron
         # 8 triangular faces and 6 square faces
-        # 12 indentical vertices each connecting a triangle and square
+        # 12 identical vertices each connecting a triangle and square
 
         g = cube(3)
         cuboctahedron = linegraph(g)            # V( --> {V1, V2, V3, V4}
@@ -1804,7 +1794,6 @@ def test_main(verbose=None):
         TestSubsetNonOverlap,
         TestOnlySetsNumeric,
         TestOnlySetsDict,
-        TestOnlySetsOperator,
         TestOnlySetsTuple,
         TestOnlySetsString,
         TestOnlySetsGenerator,

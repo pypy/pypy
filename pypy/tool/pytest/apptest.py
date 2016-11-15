@@ -7,13 +7,12 @@
 # ...unless the -A option ('runappdirect') is passed.
 
 import py
-import sys, textwrap, types
+import sys, textwrap, types, gc
 from pypy.interpreter.gateway import app2interp_temp
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import Method
 from pypy.tool.pytest import appsupport
 from pypy.tool.pytest.objspace import gettestobjspace
-from pypy.conftest import PyPyClassCollector
 from inspect import getmro
 
 
@@ -23,18 +22,15 @@ class AppError(Exception):
 
 
 class AppTestFunction(py.test.collect.Function):
-    def __init__(self, *args, **kwargs):
-        super(AppTestFunction, self).__init__(*args, **kwargs)
-        self.keywords['applevel'] = True
-
     def _prunetraceback(self, traceback):
         return traceback
 
     def execute_appex(self, space, target, *args):
+        self.space = space
         try:
             target(*args)
-        except OperationError, e:
-            if self.config.option.verbose:
+        except OperationError as e:
+            if self.config.option.raise_operr:
                 raise
             tb = sys.exc_info()[2]
             if e.match(space, space.w_KeyboardInterrupt):
@@ -62,6 +58,13 @@ class AppTestFunction(py.test.collect.Function):
     def _getdynfilename(self, func):
         code = getattr(func, 'im_func', func).func_code
         return "[%s:%s]" % (code.co_filename, code.co_firstlineno)
+
+    def track_allocations_collect(self):
+        gc.collect()
+        # must also invoke finalizers now; UserDelAction
+        # would not run at all unless invoked explicitly
+        if hasattr(self, 'space'):
+            self.space.getexecutioncontext()._run_finalizers_now()
 
 
 class AppTestMethod(AppTestFunction):
@@ -113,15 +116,8 @@ class AppClassInstance(py.test.collect.Instance):
             self.w_instance = space.call_function(w_class)
 
 
-class AppClassCollector(PyPyClassCollector):
+class AppClassCollector(py.test.Class):
     Instance = AppClassInstance
-
-    def _haskeyword(self, keyword):
-        return keyword == 'applevel' or \
-               super(AppClassCollector, self)._haskeyword(keyword)
-
-    def _keywords(self):
-        return super(AppClassCollector, self)._keywords() + ['applevel']
 
     def setup(self):
         super(AppClassCollector, self).setup()

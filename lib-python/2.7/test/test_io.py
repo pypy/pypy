@@ -15,7 +15,7 @@
 ################################################################################
 # When writing tests for io, it's important to test both the C and Python
 # implementations. This is usually done by writing a base test that refers to
-# the type it is testing as a attribute. Then it provides custom subclasses to
+# the type it is testing as an attribute. Then it provides custom subclasses to
 # test both implementations. This file has lots of examples.
 ################################################################################
 
@@ -29,6 +29,7 @@ import array
 import random
 import unittest
 import weakref
+import warnings
 import abc
 import signal
 import errno
@@ -52,6 +53,9 @@ except ImportError:
 
 __metaclass__ = type
 bytes = support.py3k_bytes
+
+def byteslike(*pos, **kw):
+    return memoryview(bytearray(*pos, **kw))
 
 def _default_chunk_size():
     """Get the default TextIOWrapper chunk size"""
@@ -272,7 +276,9 @@ class IOTest(unittest.TestCase):
         self.assertEqual(f.tell(), 6)
         self.assertEqual(f.seek(-1, 1), 5)
         self.assertEqual(f.tell(), 5)
-        self.assertEqual(f.write(bytearray(b" world\n\n\n")), 9)
+        buffer = bytearray(b" world\n\n\n")
+        self.assertEqual(f.write(buffer), 9)
+        buffer[:] = b"*" * 9  # Overwrite our copy of the data
         self.assertEqual(f.seek(0), 0)
         self.assertEqual(f.write(b"h"), 1)
         self.assertEqual(f.seek(-1, 2), 13)
@@ -285,20 +291,21 @@ class IOTest(unittest.TestCase):
     def read_ops(self, f, buffered=False):
         data = f.read(5)
         self.assertEqual(data, b"hello")
-        data = bytearray(data)
+        data = byteslike(data)
         self.assertEqual(f.readinto(data), 5)
-        self.assertEqual(data, b" worl")
+        self.assertEqual(data.tobytes(), b" worl")
+        data = bytearray(5)
         self.assertEqual(f.readinto(data), 2)
         self.assertEqual(len(data), 5)
         self.assertEqual(data[:2], b"d\n")
         self.assertEqual(f.seek(0), 0)
         self.assertEqual(f.read(20), b"hello world\n")
         self.assertEqual(f.read(1), b"")
-        self.assertEqual(f.readinto(bytearray(b"x")), 0)
+        self.assertEqual(f.readinto(byteslike(b"x")), 0)
         self.assertEqual(f.seek(-6, 2), 6)
         self.assertEqual(f.read(5), b"world")
         self.assertEqual(f.read(0), b"")
-        self.assertEqual(f.readinto(bytearray()), 0)
+        self.assertEqual(f.readinto(byteslike()), 0)
         self.assertEqual(f.seek(-6, 1), 5)
         self.assertEqual(f.read(5), b" worl")
         self.assertEqual(f.tell(), 10)
@@ -393,14 +400,9 @@ class IOTest(unittest.TestCase):
         # a long time to build the >2GB file and takes >2GB of disk space
         # therefore the resource must be enabled to run this test.
         if sys.platform[:3] == 'win' or sys.platform == 'darwin':
-            if not support.is_resource_enabled("largefile"):
-                print("\nTesting large file ops skipped on %s." % sys.platform,
-                      file=sys.stderr)
-                print("It requires %d bytes and a long time." % self.LARGE,
-                      file=sys.stderr)
-                print("Use 'regrtest.py -u largefile test_io' to run it.",
-                      file=sys.stderr)
-                return
+            support.requires(
+                'largefile',
+                'test requires %s bytes and a long time to run' % self.LARGE)
         with self.open(support.TESTFN, "w+b", 0) as f:
             self.large_file_ops(f)
         with self.open(support.TESTFN, "w+b") as f:
@@ -430,7 +432,7 @@ class IOTest(unittest.TestCase):
         with self.open(support.TESTFN, "ab") as f:
             self.assertEqual(f.tell(), 3)
         with self.open(support.TESTFN, "a") as f:
-            self.assertTrue(f.tell() > 0)
+            self.assertGreater(f.tell(), 0)
 
     def test_destructor(self):
         record = []
@@ -548,7 +550,7 @@ class IOTest(unittest.TestCase):
         wr = weakref.ref(f)
         del f
         support.gc_collect()
-        self.assertTrue(wr() is None, wr)
+        self.assertIsNone(wr(), wr)
         with self.open(support.TESTFN, "rb") as f:
             self.assertEqual(f.read(), b"abcxxx")
 
@@ -568,13 +570,44 @@ class IOTest(unittest.TestCase):
         with self.open(zero, "r") as f:
             self.assertRaises(OverflowError, f.read)
 
-    def test_flush_error_on_close(self):
-        f = self.open(support.TESTFN, "wb", buffering=0)
+    def check_flush_error_on_close(self, *args, **kwargs):
+        # Test that the file is closed despite failed flush
+        # and that flush() is called before file closed.
+        f = self.open(*args, **kwargs)
+        closed = []
         def bad_flush():
+            closed[:] = [f.closed]
             raise IOError()
         f.flush = bad_flush
         self.assertRaises(IOError, f.close) # exception not swallowed
         self.assertTrue(f.closed)
+        self.assertTrue(closed)      # flush() called
+        self.assertFalse(closed[0])  # flush() called before file closed
+        f.flush = lambda: None  # break reference loop
+
+    def test_flush_error_on_close(self):
+        # raw file
+        # Issue #5700: io.FileIO calls flush() after file closed
+        self.check_flush_error_on_close(support.TESTFN, 'wb', buffering=0)
+        fd = os.open(support.TESTFN, os.O_WRONLY|os.O_CREAT)
+        self.check_flush_error_on_close(fd, 'wb', buffering=0)
+        fd = os.open(support.TESTFN, os.O_WRONLY|os.O_CREAT)
+        self.check_flush_error_on_close(fd, 'wb', buffering=0, closefd=False)
+        os.close(fd)
+        # buffered io
+        self.check_flush_error_on_close(support.TESTFN, 'wb')
+        fd = os.open(support.TESTFN, os.O_WRONLY|os.O_CREAT)
+        self.check_flush_error_on_close(fd, 'wb')
+        fd = os.open(support.TESTFN, os.O_WRONLY|os.O_CREAT)
+        self.check_flush_error_on_close(fd, 'wb', closefd=False)
+        os.close(fd)
+        # text io
+        self.check_flush_error_on_close(support.TESTFN, 'w')
+        fd = os.open(support.TESTFN, os.O_WRONLY|os.O_CREAT)
+        self.check_flush_error_on_close(fd, 'w')
+        fd = os.open(support.TESTFN, os.O_WRONLY|os.O_CREAT)
+        self.check_flush_error_on_close(fd, 'w', closefd=False)
+        os.close(fd)
 
     def test_multi_close(self):
         f = self.open(support.TESTFN, "wb", buffering=0)
@@ -608,6 +641,30 @@ class IOTest(unittest.TestCase):
             fileio.close()
             f2.readline()
 
+    def test_nonbuffered_textio(self):
+        with warnings.catch_warnings(record=True) as recorded:
+            with self.assertRaises(ValueError):
+                self.open(support.TESTFN, 'w', buffering=0)
+            support.gc_collect()
+        self.assertEqual(recorded, [])
+
+    def test_invalid_newline(self):
+        with warnings.catch_warnings(record=True) as recorded:
+            with self.assertRaises(ValueError):
+                self.open(support.TESTFN, 'w', newline='invalid')
+            support.gc_collect()
+        self.assertEqual(recorded, [])
+
+    def test_buffered_readinto_mixin(self):
+        # Test the implementation provided by BufferedIOBase
+        class Stream(self.BufferedIOBase):
+            def read(self, size):
+                return b"12345"
+        stream = Stream()
+        buffer = byteslike(5)
+        self.assertEqual(stream.readinto(buffer), 5)
+        self.assertEqual(buffer.tobytes(), b"12345")
+
 
 class CIOTest(IOTest):
 
@@ -627,7 +684,7 @@ class CIOTest(IOTest):
         del MyIO
         del obj
         support.gc_collect()
-        self.assertTrue(wr() is None, wr)
+        self.assertIsNone(wr(), wr)
 
 class PyIOTest(IOTest):
     test_array_writes = unittest.skip(
@@ -644,16 +701,13 @@ class CommonBufferedTests:
         self.assertIs(buf.detach(), raw)
         self.assertRaises(ValueError, buf.detach)
 
+        repr(buf)  # Should still work
+
     def test_fileno(self):
         rawio = self.MockRawIO()
         bufio = self.tp(rawio)
 
         self.assertEqual(42, bufio.fileno())
-
-    def test_no_fileno(self):
-        # XXX will we always have fileno() function? If so, kill
-        # this test. Else, write it.
-        pass
 
     def test_invalid_args(self):
         rawio = self.MockRawIO()
@@ -728,13 +782,22 @@ class CommonBufferedTests:
         self.assertEqual(repr(b), "<%s name='dummy'>" % clsname)
 
     def test_flush_error_on_close(self):
+        # Test that buffered file is closed despite failed flush
+        # and that flush() is called before file closed.
         raw = self.MockRawIO()
+        closed = []
         def bad_flush():
+            closed[:] = [b.closed, raw.closed]
             raise IOError()
         raw.flush = bad_flush
         b = self.tp(raw)
         self.assertRaises(IOError, b.close) # exception not swallowed
         self.assertTrue(b.closed)
+        self.assertTrue(raw.closed)
+        self.assertTrue(closed)      # flush() called
+        self.assertFalse(closed[0])  # flush() called before file closed
+        self.assertFalse(closed[1])
+        raw.flush = lambda: None  # break reference loop
 
     def test_close_error_on_close(self):
         raw = self.MockRawIO()
@@ -796,6 +859,16 @@ class BufferedReaderTest(unittest.TestCase, CommonBufferedTests):
         rawio = self.MockRawIO([b"abc"])
         bufio.__init__(rawio)
         self.assertEqual(b"abc", bufio.read())
+
+    def test_uninitialized(self):
+        bufio = self.tp.__new__(self.tp)
+        del bufio
+        bufio = self.tp.__new__(self.tp)
+        self.assertRaisesRegexp((ValueError, AttributeError),
+                                'uninitialized|has no attribute',
+                                bufio.read, 0)
+        bufio.__init__(self.MockRawIO())
+        self.assertEqual(bufio.read(0), b'')
 
     def test_read(self):
         for arg in (None, 7):
@@ -922,11 +995,8 @@ class BufferedReaderTest(unittest.TestCase, CommonBufferedTests):
                         errors.append(e)
                         raise
                 threads = [threading.Thread(target=f) for x in range(20)]
-                for t in threads:
-                    t.start()
-                time.sleep(0.02) # yield
-                for t in threads:
-                    t.join()
+                with support.start_threads(threads):
+                    time.sleep(0.02) # yield
                 self.assertFalse(errors,
                     "the following exceptions were caught: %r" % errors)
                 s = b''.join(results)
@@ -1002,7 +1072,7 @@ class CBufferedReaderTest(BufferedReaderTest, SizeofTest):
         wr = weakref.ref(f)
         del f
         support.gc_collect()
-        self.assertTrue(wr() is None, wr)
+        self.assertIsNone(wr(), wr)
 
     @support.impl_detail(cpython=True)
     def test_args_error(self):
@@ -1034,6 +1104,16 @@ class BufferedWriterTest(unittest.TestCase, CommonBufferedTests):
         bufio.flush()
         self.assertEqual(b"".join(rawio._write_stack), b"abcghi")
 
+    def test_uninitialized(self):
+        bufio = self.tp.__new__(self.tp)
+        del bufio
+        bufio = self.tp.__new__(self.tp)
+        self.assertRaisesRegexp((ValueError, AttributeError),
+                                'uninitialized|has no attribute',
+                                bufio.write, b'')
+        bufio.__init__(self.MockRawIO())
+        self.assertEqual(bufio.write(b''), 0)
+
     def test_detach_flush(self):
         raw = self.MockRawIO()
         buf = self.tp(raw)
@@ -1048,6 +1128,11 @@ class BufferedWriterTest(unittest.TestCase, CommonBufferedTests):
         bufio = self.tp(writer, 8)
         bufio.write(b"abc")
         self.assertFalse(writer._write_stack)
+        buffer = bytearray(b"def")
+        bufio.write(buffer)
+        buffer[:] = b"***"  # Overwrite our copy of the data
+        bufio.flush()
+        self.assertEqual(b"".join(writer._write_stack), b"abcdef")
 
     def test_write_overflow(self):
         writer = self.MockRawIO()
@@ -1227,11 +1312,8 @@ class BufferedWriterTest(unittest.TestCase, CommonBufferedTests):
                         errors.append(e)
                         raise
                 threads = [threading.Thread(target=f) for x in range(20)]
-                for t in threads:
-                    t.start()
-                time.sleep(0.02) # yield
-                for t in threads:
-                    t.join()
+                with support.start_threads(threads):
+                    time.sleep(0.02) # yield
                 self.assertFalse(errors,
                     "the following exceptions were caught: %r" % errors)
                 bufio.close()
@@ -1299,7 +1381,7 @@ class CBufferedWriterTest(BufferedWriterTest, SizeofTest):
         wr = weakref.ref(f)
         del f
         support.gc_collect()
-        self.assertTrue(wr() is None, wr)
+        self.assertIsNone(wr(), wr)
         with self.open(support.TESTFN, "rb") as f:
             self.assertEqual(f.read(), b"123xxx")
 
@@ -1318,6 +1400,20 @@ class BufferedRWPairTest(unittest.TestCase):
     def test_constructor(self):
         pair = self.tp(self.MockRawIO(), self.MockRawIO())
         self.assertFalse(pair.closed)
+
+    def test_uninitialized(self):
+        pair = self.tp.__new__(self.tp)
+        del pair
+        pair = self.tp.__new__(self.tp)
+        self.assertRaisesRegexp((ValueError, AttributeError),
+                                'uninitialized|has no attribute',
+                                pair.read, 0)
+        self.assertRaisesRegexp((ValueError, AttributeError),
+                                'uninitialized|has no attribute',
+                                pair.write, b'')
+        pair.__init__(self.MockRawIO(), self.MockRawIO())
+        self.assertEqual(pair.read(0), b'')
+        self.assertEqual(pair.write(b''), 0)
 
     def test_detach(self):
         pair = self.tp(self.MockRawIO(), self.MockRawIO())
@@ -1367,9 +1463,9 @@ class BufferedRWPairTest(unittest.TestCase):
     def test_readinto(self):
         pair = self.tp(self.BytesIO(b"abcdef"), self.MockRawIO())
 
-        data = bytearray(5)
+        data = byteslike(5)
         self.assertEqual(pair.readinto(data), 5)
-        self.assertEqual(data, b"abcde")
+        self.assertEqual(data.tobytes(), b"abcde")
 
     def test_write(self):
         w = self.MockRawIO()
@@ -1377,7 +1473,9 @@ class BufferedRWPairTest(unittest.TestCase):
 
         pair.write(b"abc")
         pair.flush()
-        pair.write(b"def")
+        buffer = bytearray(b"def")
+        pair.write(buffer)
+        buffer[:] = b"***"  # Overwrite our copy of the data
         pair.flush()
         self.assertEqual(w._write_stack, [b"abc", b"def"])
 
@@ -1410,6 +1508,51 @@ class BufferedRWPairTest(unittest.TestCase):
         pair.close()
         self.assertTrue(pair.closed)
 
+    def test_reader_close_error_on_close(self):
+        def reader_close():
+            reader_non_existing
+        reader = self.MockRawIO()
+        reader.close = reader_close
+        writer = self.MockRawIO()
+        pair = self.tp(reader, writer)
+        with self.assertRaises(NameError) as err:
+            pair.close()
+        self.assertIn('reader_non_existing', str(err.exception))
+        self.assertTrue(pair.closed)
+        self.assertFalse(reader.closed)
+        self.assertTrue(writer.closed)
+
+    def test_writer_close_error_on_close(self):
+        def writer_close():
+            writer_non_existing
+        reader = self.MockRawIO()
+        writer = self.MockRawIO()
+        writer.close = writer_close
+        pair = self.tp(reader, writer)
+        with self.assertRaises(NameError) as err:
+            pair.close()
+        self.assertIn('writer_non_existing', str(err.exception))
+        self.assertFalse(pair.closed)
+        self.assertTrue(reader.closed)
+        self.assertFalse(writer.closed)
+
+    def test_reader_writer_close_error_on_close(self):
+        def reader_close():
+            reader_non_existing
+        def writer_close():
+            writer_non_existing
+        reader = self.MockRawIO()
+        reader.close = reader_close
+        writer = self.MockRawIO()
+        writer.close = writer_close
+        pair = self.tp(reader, writer)
+        with self.assertRaises(NameError) as err:
+            pair.close()
+        self.assertIn('reader_non_existing', str(err.exception))
+        self.assertFalse(pair.closed)
+        self.assertFalse(reader.closed)
+        self.assertFalse(writer.closed)
+
     def test_isatty(self):
         class SelectableIsAtty(MockRawIO):
             def __init__(self, isatty):
@@ -1431,6 +1574,12 @@ class BufferedRWPairTest(unittest.TestCase):
         pair = self.tp(SelectableIsAtty(True), SelectableIsAtty(True))
         self.assertTrue(pair.isatty())
 
+    def test_weakref_clearing(self):
+        brw = self.tp(self.MockRawIO(), self.MockRawIO())
+        ref = weakref.ref(brw)
+        brw = None
+        ref = None # Shouldn't segfault.
+
 class CBufferedRWPairTest(BufferedRWPairTest):
     tp = io.BufferedRWPair
 
@@ -1445,6 +1594,10 @@ class BufferedRandomTest(BufferedReaderTest, BufferedWriterTest):
     def test_constructor(self):
         BufferedReaderTest.test_constructor(self)
         BufferedWriterTest.test_constructor(self)
+
+    def test_uninitialized(self):
+        BufferedReaderTest.test_uninitialized(self)
+        BufferedWriterTest.test_uninitialized(self)
 
     def test_read_and_write(self):
         raw = self.MockRawIO((b"asdf", b"ghjk"))
@@ -1857,6 +2010,26 @@ class TextIOWrapperTest(unittest.TestCase):
         self.assertRaises(TypeError, t.__init__, b, newline=42)
         self.assertRaises(ValueError, t.__init__, b, newline='xyzzy')
 
+    def test_uninitialized(self):
+        t = self.TextIOWrapper.__new__(self.TextIOWrapper)
+        del t
+        t = self.TextIOWrapper.__new__(self.TextIOWrapper)
+        self.assertRaises(Exception, repr, t)
+        self.assertRaisesRegexp((ValueError, AttributeError),
+                                'uninitialized|has no attribute',
+                                t.read, 0)
+        t.__init__(self.MockRawIO())
+        self.assertEqual(t.read(0), u'')
+
+    def test_non_text_encoding_codecs_are_rejected(self):
+        # Ensure the constructor complains if passed a codec that isn't
+        # marked as a text encoding
+        # http://bugs.python.org/issue20404
+        r = self.BytesIO()
+        b = self.BufferedWriter(r)
+        with support.check_py3k_warnings():
+            self.TextIOWrapper(b, encoding="hex_codec")
+
     def test_detach(self):
         r = self.BytesIO()
         b = self.BufferedWriter(r)
@@ -1869,6 +2042,12 @@ class TextIOWrapperTest(unittest.TestCase):
         t.detach()
         self.assertEqual(r.getvalue(), b"howdy")
         self.assertRaises(ValueError, t.detach)
+
+        # Operations independent of the detached stream should still work
+        repr(t)
+        self.assertEqual(t.encoding, "ascii")
+        self.assertEqual(t.errors, "strict")
+        self.assertFalse(t.line_buffering)
 
     def test_repr(self):
         raw = self.BytesIO("hello".encode("utf-8"))
@@ -1883,6 +2062,9 @@ class TextIOWrapperTest(unittest.TestCase):
         raw.name = b"dummy"
         self.assertEqual(repr(t),
                          "<%s.TextIOWrapper name='dummy' encoding='utf-8'>" % modname)
+
+        t.buffer.detach()
+        repr(t)  # Should not raise an exception
 
     def test_line_buffering(self):
         r = self.BytesIO()
@@ -1901,7 +2083,7 @@ class TextIOWrapperTest(unittest.TestCase):
         t = self.TextIOWrapper(b, encoding="utf8")
         self.assertEqual(t.encoding, "utf8")
         t = self.TextIOWrapper(b)
-        self.assertTrue(t.encoding is not None)
+        self.assertIsNotNone(t.encoding)
         codecs.lookup(t.encoding)
 
     def test_encoding_errors_reading(self):
@@ -2407,26 +2589,31 @@ class TextIOWrapperTest(unittest.TestCase):
                 text = "Thread%03d\n" % n
                 event.wait()
                 f.write(text)
-            threads = [threading.Thread(target=lambda n=x: run(n))
+            threads = [threading.Thread(target=run, args=(x,))
                        for x in range(20)]
-            for t in threads:
-                t.start()
-            time.sleep(0.02)
-            event.set()
-            for t in threads:
-                t.join()
+            with support.start_threads(threads, event.set):
+                time.sleep(0.02)
         with self.open(support.TESTFN) as f:
             content = f.read()
             for n in range(20):
                 self.assertEqual(content.count("Thread%03d\n" % n), 1)
 
     def test_flush_error_on_close(self):
+        # Test that text file is closed despite failed flush
+        # and that flush() is called before file closed.
         txt = self.TextIOWrapper(self.BytesIO(self.testdata), encoding="ascii")
+        closed = []
         def bad_flush():
+            closed[:] = [txt.closed, txt.buffer.closed]
             raise IOError()
         txt.flush = bad_flush
         self.assertRaises(IOError, txt.close) # exception not swallowed
         self.assertTrue(txt.closed)
+        self.assertTrue(txt.buffer.closed)
+        self.assertTrue(closed)      # flush() called
+        self.assertFalse(closed[0])  # flush() called before file closed
+        self.assertFalse(closed[1])
+        txt.flush = lambda: None  # break reference loop
 
     def test_multi_close(self):
         txt = self.TextIOWrapper(self.BytesIO(self.testdata), encoding="ascii")
@@ -2459,19 +2646,39 @@ class TextIOWrapperTest(unittest.TestCase):
 
     def test_illegal_decoder(self):
         # Issue #17106
+        # Bypass the early encoding check added in issue 20404
+        def _make_illegal_wrapper():
+            quopri = codecs.lookup("quopri_codec")
+            quopri._is_text_encoding = True
+            try:
+                t = self.TextIOWrapper(self.BytesIO(b'aaaaaa'),
+                                       newline='\n', encoding="quopri_codec")
+            finally:
+                quopri._is_text_encoding = False
+            return t
         # Crash when decoder returns non-string
-        t = self.TextIOWrapper(self.BytesIO(b'aaaaaa'), newline='\n',
-                               encoding='quopri_codec')
+        with support.check_py3k_warnings():
+            t = self.TextIOWrapper(self.BytesIO(b'aaaaaa'), newline='\n',
+                                   encoding='quopri_codec')
         with self.maybeRaises(TypeError):
             t.read(1)
-        t = self.TextIOWrapper(self.BytesIO(b'aaaaaa'), newline='\n',
-                               encoding='quopri_codec')
+        with support.check_py3k_warnings():
+            t = self.TextIOWrapper(self.BytesIO(b'aaaaaa'), newline='\n',
+                                   encoding='quopri_codec')
         with self.maybeRaises(TypeError):
             t.readline()
-        t = self.TextIOWrapper(self.BytesIO(b'aaaaaa'), newline='\n',
-                               encoding='quopri_codec')
+        with support.check_py3k_warnings():
+            t = self.TextIOWrapper(self.BytesIO(b'aaaaaa'), newline='\n',
+                                   encoding='quopri_codec')
         with self.maybeRaises(TypeError):
             t.read()
+        #else:
+            #t = _make_illegal_wrapper()
+            #self.assertRaises(TypeError, t.read, 1)
+            #t = _make_illegal_wrapper()
+            #self.assertRaises(TypeError, t.readline)
+            #t = _make_illegal_wrapper()
+            #self.assertRaises(TypeError, t.read)
 
 
 class CTextIOWrapperTest(TextIOWrapperTest):
@@ -2485,6 +2692,9 @@ class CTextIOWrapperTest(TextIOWrapperTest):
         self.assertRaises(ValueError, t.__init__, b, newline='xyzzy')
         self.assertRaises(ValueError, t.read)
 
+        t = self.TextIOWrapper.__new__(self.TextIOWrapper)
+        self.assertRaises(Exception, repr, t)
+
     def test_garbage_collection(self):
         # C TextIOWrapper objects are collected, and collecting them flushes
         # all data to disk.
@@ -2497,7 +2707,7 @@ class CTextIOWrapperTest(TextIOWrapperTest):
         wr = weakref.ref(t)
         del t
         support.gc_collect()
-        self.assertTrue(wr() is None, wr)
+        self.assertIsNone(wr(), wr)
         with self.open(support.TESTFN, "rb") as f:
             self.assertEqual(f.read(), b"456def")
 
@@ -2647,7 +2857,7 @@ class MiscIOTest(unittest.TestCase):
     def test___all__(self):
         for name in self.io.__all__:
             obj = getattr(self.io, name, None)
-            self.assertTrue(obj is not None, name)
+            self.assertIsNotNone(obj, name)
             if name == "open":
                 continue
             elif "error" in name.lower() or name == "UnsupportedOperation":
@@ -2742,7 +2952,7 @@ class MiscIOTest(unittest.TestCase):
         wr = weakref.ref(c)
         del c, b
         support.gc_collect()
-        self.assertTrue(wr() is None, wr)
+        self.assertIsNone(wr(), wr)
 
     def test_abcs(self):
         # Test the visible base classes are ABCs.
@@ -2835,15 +3045,17 @@ class MiscIOTest(unittest.TestCase):
             received += iter(rf.read, None)
 
         sent, received = b''.join(sent), b''.join(received)
-        self.assertTrue(sent == received)
+        self.assertEqual(sent, received)
         self.assertTrue(wf.closed)
         self.assertTrue(rf.closed)
 
 class CMiscIOTest(MiscIOTest):
     io = io
+    shutdown_error = "RuntimeError: could not find io module state"
 
 class PyMiscIOTest(MiscIOTest):
     io = pyio
+    shutdown_error = "LookupError: unknown encoding: ascii"
 
 
 @unittest.skipIf(os.name == 'nt', 'POSIX signals required for this test.')
@@ -2907,9 +3119,11 @@ class SignalsTest(unittest.TestCase):
             # return with a successful (partial) result rather than an EINTR.
             # The buffered IO layer must check for pending signal
             # handlers, which in this case will invoke alarm_interrupt().
-            self.assertRaises(ZeroDivisionError,
-                        wio.write, item * (support.PIPE_MAX_SIZE // len(item) + 1))
-            t.join()
+            try:
+                with self.assertRaises(ZeroDivisionError):
+                    wio.write(item * (support.PIPE_MAX_SIZE // len(item) + 1))
+            finally:
+                t.join()
             # We got one byte, get another one and check that it isn't a
             # repeat of the first one.
             read_results.append(os.read(r, 1))
@@ -3014,11 +3228,15 @@ class SignalsTest(unittest.TestCase):
         # received (forcing a first EINTR in write()).
         read_results = []
         write_finished = False
+        error = [None]
         def _read():
-            while not write_finished:
-                while r in select.select([r], [], [], 1.0)[0]:
-                    s = os.read(r, 1024)
-                    read_results.append(s)
+            try:
+                while not write_finished:
+                    while r in select.select([r], [], [], 1.0)[0]:
+                        s = os.read(r, 1024)
+                        read_results.append(s)
+            except BaseException as exc:
+                error[0] = exc
         t = threading.Thread(target=_read)
         t.daemon = True
         def alarm1(sig, frame):
@@ -3039,6 +3257,8 @@ class SignalsTest(unittest.TestCase):
             wio.flush()
             write_finished = True
             t.join()
+
+            self.assertIsNone(error[0])
             self.assertEqual(N, sum(len(x) for x in read_results))
         finally:
             write_finished = True

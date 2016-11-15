@@ -4,12 +4,13 @@ from rpython.rlib.rzipfile import RZipFile
 from rpython.tool.udir import udir
 from zipfile import ZIP_STORED, ZIP_DEFLATED, ZipInfo, ZipFile
 from rpython.rtyper.test.tool import BaseRtypingTest
+from rpython.rlib import clibffi # for side effect of testing lib_c_name on win32
 import os
 import time
 
 try:
     from rpython.rlib import rzlib
-except ImportError, e:
+except CompilationError as e:
     py.test.skip("zlib not installed: %s " % (e, ))
 
 class BaseTestRZipFile(BaseRtypingTest):

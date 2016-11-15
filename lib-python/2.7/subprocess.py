@@ -11,7 +11,7 @@ r"""subprocess - Subprocesses with accessible I/O streams
 
 This module allows you to spawn processes, connect to their
 input/output/error pipes, and obtain their return codes.  This module
-intends to replace several other, older modules and functions, like:
+intends to replace several older modules and functions:
 
 os.system
 os.spawn*
@@ -498,7 +498,6 @@ def _args_from_interpreter_flags():
         'ignore_environment': 'E',
         'verbose': 'v',
         'bytes_warning': 'b',
-        'hash_randomization': 'R',
         'py3k_warning': '3',
     }
     args = []
@@ -506,6 +505,8 @@ def _args_from_interpreter_flags():
         v = getattr(sys.flags, flag)
         if v > 0:
             args.append('-' + opt * v)
+    if getattr(sys.flags, 'hash_randomization') != 0:
+        args.append('-R')
     for opt in sys.warnoptions:
         args.append('-W' + opt)
     return args
@@ -645,6 +646,8 @@ def list2cmdline(seq):
 
 
 class Popen(object):
+    _child_created = False  # Set here since __del__ checks it
+
     def __init__(self, args, bufsize=0, executable=None,
                  stdin=None, stdout=None, stderr=None,
                  preexec_fn=None, close_fds=False, shell=False,
@@ -653,7 +656,21 @@ class Popen(object):
         """Create new Popen instance."""
         _cleanup()
 
-        self._child_created = False
+        # --- PyPy hack, see _pypy_install_libs_after_virtualenv() ---
+        # match arguments passed by different versions of virtualenv
+        if args[1:] in (
+            ['-c', 'import sys; print(sys.prefix)'],        # 1.6 10ba3f3c
+            ['-c', "\nimport sys\nprefix = sys.prefix\n"    # 1.7 0e9342ce
+             "if sys.version_info[0] == 3:\n"
+             "    prefix = prefix.encode('utf8')\n"
+             "if hasattr(sys.stdout, 'detach'):\n"
+             "    sys.stdout = sys.stdout.detach()\n"
+             "elif hasattr(sys.stdout, 'buffer'):\n"
+             "    sys.stdout = sys.stdout.buffer\nsys.stdout.write(prefix)\n"],
+            ['-c', 'import sys;out=sys.stdout;getattr(out, "buffer"'
+             ', out).write(sys.prefix.encode("utf-8"))']):  # 1.7.2 a9454bce
+            _pypy_install_libs_after_virtualenv(args[0])
+
         if not isinstance(bufsize, (int, long)):
             raise TypeError("bufsize must be an integer")
 
@@ -750,11 +767,11 @@ class Popen(object):
         return data
 
 
-    def __del__(self, _maxint=sys.maxint, _active=_active):
+    def __del__(self, _maxint=sys.maxint):
         # If __init__ hasn't had a chance to execute (e.g. if it
         # was passed an undeclared keyword argument), we don't
         # have a _child_created attribute at all.
-        if not getattr(self, '_child_created', False):
+        if not self._child_created:
             # We didn't get to successfully create a child process.
             return
         # In case the child hasn't been waited on, check if it's done.
@@ -818,54 +835,63 @@ class Popen(object):
             c2pread, c2pwrite = None, None
             errread, errwrite = None, None
 
+            ispread = False
             if stdin is None:
                 p2cread = _subprocess.GetStdHandle(_subprocess.STD_INPUT_HANDLE)
                 if p2cread is None:
                     p2cread, _ = _subprocess.CreatePipe(None, 0)
+                    ispread = True
             elif stdin == PIPE:
                 p2cread, p2cwrite = _subprocess.CreatePipe(None, 0)
+                ispread = True
             elif isinstance(stdin, int):
                 p2cread = msvcrt.get_osfhandle(stdin)
             else:
                 # Assuming file-like object
                 p2cread = msvcrt.get_osfhandle(stdin.fileno())
-            p2cread = self._make_inheritable(p2cread)
+            p2cread = self._make_inheritable(p2cread, ispread)
             # We just duplicated the handle, it has to be closed at the end
             to_close.add(p2cread)
             if stdin == PIPE:
                 to_close.add(p2cwrite)
 
+            ispwrite = False
             if stdout is None:
                 c2pwrite = _subprocess.GetStdHandle(_subprocess.STD_OUTPUT_HANDLE)
                 if c2pwrite is None:
                     _, c2pwrite = _subprocess.CreatePipe(None, 0)
+                    ispwrite = True
             elif stdout == PIPE:
                 c2pread, c2pwrite = _subprocess.CreatePipe(None, 0)
+                ispwrite = True
             elif isinstance(stdout, int):
                 c2pwrite = msvcrt.get_osfhandle(stdout)
             else:
                 # Assuming file-like object
                 c2pwrite = msvcrt.get_osfhandle(stdout.fileno())
-            c2pwrite = self._make_inheritable(c2pwrite)
+            c2pwrite = self._make_inheritable(c2pwrite, ispwrite)
             # We just duplicated the handle, it has to be closed at the end
             to_close.add(c2pwrite)
             if stdout == PIPE:
                 to_close.add(c2pread)
 
+            ispwrite = False
             if stderr is None:
                 errwrite = _subprocess.GetStdHandle(_subprocess.STD_ERROR_HANDLE)
                 if errwrite is None:
                     _, errwrite = _subprocess.CreatePipe(None, 0)
+                    ispwrite = True
             elif stderr == PIPE:
                 errread, errwrite = _subprocess.CreatePipe(None, 0)
+                ispwrite = True
             elif stderr == STDOUT:
-                errwrite = c2pwrite.handle # pass id to not close it
+                errwrite = c2pwrite
             elif isinstance(stderr, int):
                 errwrite = msvcrt.get_osfhandle(stderr)
             else:
                 # Assuming file-like object
                 errwrite = msvcrt.get_osfhandle(stderr.fileno())
-            errwrite = self._make_inheritable(errwrite)
+            errwrite = self._make_inheritable(errwrite, ispwrite)
             # We just duplicated the handle, it has to be closed at the end
             to_close.add(errwrite)
             if stderr == PIPE:
@@ -876,13 +902,14 @@ class Popen(object):
                     errread, errwrite), to_close
 
 
-        def _make_inheritable(self, handle):
+        def _make_inheritable(self, handle, close=False):
             """Return a duplicate of handle, which is inheritable"""
             dupl = _subprocess.DuplicateHandle(_subprocess.GetCurrentProcess(),
                                 handle, _subprocess.GetCurrentProcess(), 0, 1,
                                 _subprocess.DUPLICATE_SAME_ACCESS)
-            # If the initial handle was obtained with CreatePipe, close it.
-            if not isinstance(handle, int):
+            # PyPy: If the initial handle was obtained with CreatePipe,
+            # close it.
+            if close:
                 handle.Close()
             return dupl
 
@@ -1038,7 +1065,15 @@ class Popen(object):
                     try:
                         self.stdin.write(input)
                     except IOError as e:
-                        if e.errno != errno.EPIPE:
+                        if e.errno == errno.EPIPE:
+                            # communicate() should ignore broken pipe error
+                            pass
+                        elif (e.errno == errno.EINVAL
+                              and self.poll() is not None):
+                            # Issue #19612: stdin.write() fails with EINVAL
+                            # if the process already exited before the write
+                            pass
+                        else:
                             raise
                 self.stdin.close()
 
@@ -1136,7 +1171,10 @@ class Popen(object):
                 errread, errwrite = self.pipe_cloexec()
                 to_close.update((errread, errwrite))
             elif stderr == STDOUT:
-                errwrite = c2pwrite
+                if c2pwrite is not None:
+                    errwrite = c2pwrite
+                else: # child's stdout is not set, use parent's stdout
+                    errwrite = sys.__stdout__.fileno()
             elif isinstance(stderr, int):
                 errwrite = stderr
             else:
@@ -1307,8 +1345,12 @@ class Popen(object):
                     os.close(errpipe_write)
 
                 # Wait for exec to fail or succeed; possibly raising exception
-                # Exception limited to 1M
                 data = _eintr_retry_call(os.read, errpipe_read, 1048576)
+                pickle_bits = []
+                while data:
+                    pickle_bits.append(data)
+                    data = _eintr_retry_call(os.read, errpipe_read, 1048576)
+                data = "".join(pickle_bits)
             finally:
                 if p2cread is not None and p2cwrite is not None:
                     _close_in_parent(p2cread)
@@ -1334,7 +1376,7 @@ class Popen(object):
                 _WTERMSIG=os.WTERMSIG, _WIFEXITED=os.WIFEXITED,
                 _WEXITSTATUS=os.WEXITSTATUS):
             # This method is called (indirectly) by __del__, so it cannot
-            # refer to anything outside of its local scope."""
+            # refer to anything outside of its local scope.
             if _WIFSIGNALED(sts):
                 self.returncode = -_WTERMSIG(sts)
             elif _WIFEXITED(sts):
@@ -1557,6 +1599,27 @@ class Popen(object):
             """Kill the process with SIGKILL
             """
             self.send_signal(signal.SIGKILL)
+
+
+def _pypy_install_libs_after_virtualenv(target_executable):
+    # https://bitbucket.org/pypy/pypy/issue/1922/future-proofing-virtualenv
+    #
+    # PyPy 2.4.1 turned --shared on by default.  This means the pypy binary
+    # depends on the 'libpypy-c.so' shared library to be able to run.
+    # The virtualenv code existing at the time did not account for this
+    # and would break.  Try to detect that we're running under such a
+    # virtualenv in the "Testing executable with" phase and copy the
+    # library ourselves.
+    caller = sys._getframe(2)
+    if ('virtualenv_version' in caller.f_globals and
+                  'copyfile' in caller.f_globals):
+        dest_dir = sys.pypy_resolvedirof(target_executable)
+        src_dir = sys.pypy_resolvedirof(sys.executable)
+        for libname in ['libpypy-c.so', 'libpypy-c.dylib']:
+            dest_library = os.path.join(dest_dir, libname)
+            src_library = os.path.join(src_dir, libname)
+            if os.path.exists(src_library):
+                caller.f_globals['copyfile'](src_library, dest_library)
 
 
 def _demo_posix():

@@ -4,8 +4,8 @@ The ``--opt`` or ``-O`` translation option
 This meta-option selects a default set of optimization
 settings to use during a translation.  Usage::
 
-    translate.py --opt=#
-    translate.py -O#
+    bin/rpython --opt=#
+    bin/rpython -O#
 
 where ``#`` is the desired optimization level.  The valid choices are:
 

@@ -1,20 +1,111 @@
-from rpython.jit.metainterp.optimizeopt.optimizer import Optimization, REMOVED
-from rpython.jit.metainterp.resoperation import rop, ResOperation
-from rpython.jit.metainterp.optimizeopt.util import (make_dispatcher_method,
-    args_dict)
+from rpython.jit.metainterp.optimizeopt.optimizer import (
+    Optimization, OptimizationResult, REMOVED)
+from rpython.jit.metainterp.resoperation import rop, OpHelpers, AbstractResOp,\
+     ResOperation
+from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
+from rpython.jit.metainterp.optimizeopt.shortpreamble import PreambleOp
+from rpython.jit.metainterp.optimize import SpeculativeError
+
+
+class DefaultOptimizationResult(OptimizationResult):
+    def __init__(self, opt, op, save, nextop):
+        OptimizationResult.__init__(self, opt, op)
+        self.save = save
+        self.nextop = nextop
+
+    def callback(self):
+        self._callback(self.op, self.save, self.nextop)
+
+    def _callback(self, op, save, nextop):
+        if rop.returns_bool_result(op.opnum):
+            self.opt.getintbound(op).make_bool()
+        if save:
+            recentops = self.opt.getrecentops(op.getopnum())
+            recentops.add(op)
+        if nextop:
+            self.opt.emit_extra(nextop)
+
+
+class CallPureOptimizationResult(OptimizationResult):
+    def callback(self):
+        self.opt.call_pure_positions.append(
+            len(self.opt.optimizer._newoperations) - 1)
+
+
+class RecentPureOps(object):
+    REMEMBER_LIMIT = 16
+
+    def __init__(self):
+        self.lst = [None] * self.REMEMBER_LIMIT
+        self.next_index = 0
+
+    def add(self, op):
+        assert isinstance(op, AbstractResOp)
+        next_index = self.next_index
+        self.next_index = (next_index + 1) % self.REMEMBER_LIMIT
+        self.lst[next_index] = op
+
+    def force_preamble_op(self, opt, op, i):
+        if not isinstance(op, PreambleOp):
+            return op
+        op = opt.force_op_from_preamble(op)
+        self.lst[i] = op
+        return op
+
+    def lookup1(self, opt, box0, descr):
+        for i in range(self.REMEMBER_LIMIT):
+            op = self.lst[i]
+            if op is None:
+                break
+            if box0.same_box(opt.get_box_replacement(op.getarg(0))) and op.getdescr() is descr:
+                op = self.force_preamble_op(opt, op, i)
+                return opt.get_box_replacement(op)
+        return None
+
+    def lookup2(self, opt, box0, box1, descr):
+        for i in range(self.REMEMBER_LIMIT):
+            op = self.lst[i]
+            if op is None:
+                break
+            if (box0.same_box(opt.get_box_replacement(op.getarg(0))) and
+                box1.same_box(opt.get_box_replacement(op.getarg(1))) and
+                op.getdescr() is descr):
+                op = self.force_preamble_op(opt, op, i)
+                return opt.get_box_replacement(op)
+        return None
+
+    def lookup(self, optimizer, op):
+        numargs = op.numargs()
+        if numargs == 1:
+            return self.lookup1(optimizer,
+                                optimizer.get_box_replacement(op.getarg(0)),
+                                op.getdescr())
+        elif numargs == 2:
+            return self.lookup2(optimizer,
+                                optimizer.get_box_replacement(op.getarg(0)),
+                                optimizer.get_box_replacement(op.getarg(1)),
+                                op.getdescr())
+        else:
+            assert False
+
 
 class OptPure(Optimization):
     def __init__(self):
         self.postponed_op = None
-        self.pure_operations = args_dict()
-        self.emitted_pure_operations = {}
+        self._pure_operations = [None] * (rop._ALWAYS_PURE_LAST -
+                                          rop._ALWAYS_PURE_FIRST)
+        self.call_pure_positions = []
+        self.extra_call_pure = []
 
     def propagate_forward(self, op):
-        dispatch_opt(self, op)
+        return dispatch_opt(self, op)
+
+    def propagate_postprocess(self, op):
+        dispatch_postprocess(self, op)
 
     def optimize_default(self, op):
-        canfold = op.is_always_pure()
-        if op.is_ovf():
+        canfold = rop.is_always_pure(op.opnum)
+        if rop.is_ovf(op.opnum):
             self.postponed_op = op
             return
         if self.postponed_op:
@@ -25,6 +116,7 @@ class OptPure(Optimization):
         else:
             nextop = None
 
+        save = False
         if canfold:
             for i in range(op.numargs()):
                 if self.get_constant_box(op.getarg(i)) is None:
@@ -34,53 +126,92 @@ class OptPure(Optimization):
                 resbox = self.optimizer.constant_fold(op)
                 # note that INT_xxx_OVF is not done from here, and the
                 # overflows in the INT_xxx operations are ignored
-                self.optimizer.make_constant(op.result, resbox)
+                self.optimizer.make_constant(op, resbox)
                 return
 
             # did we do the exact same operation already?
-            args = self.optimizer.make_args_key(op)
-            oldop = self.pure_operations.get(args, None)
-            if oldop is not None and oldop.getdescr() is op.getdescr():
-                assert oldop.getopnum() == op.getopnum()
-                self.optimizer.make_equal_to(op.result, self.getvalue(oldop.result),
-                                   True)
+            recentops = self.getrecentops(op.getopnum())
+            save = True
+            oldop = recentops.lookup(self.optimizer, op)
+            if oldop is not None:
+                self.optimizer.make_equal_to(op, oldop)
                 return
-            else:
-                self.pure_operations[args] = op
-                self.remember_emitting_pure(op)
 
         # otherwise, the operation remains
-        self.emit_operation(op)
-        if op.returns_bool_result():
-            self.optimizer.bool_boxes[self.getvalue(op.result)] = None
-        if nextop:
-            self.emit_operation(nextop)
+        return self.emit_result(DefaultOptimizationResult(self, op, save, nextop))
 
-    def optimize_CALL_PURE(self, op):
-        args = self.optimizer.make_args_key(op)
-        oldop = self.pure_operations.get(args, None)
-        if oldop is not None and oldop.getdescr() is op.getdescr():
-            assert oldop.getopnum() == op.getopnum()
-            # this removes a CALL_PURE that has the same (non-constant)
-            # arguments as a previous CALL_PURE.
-            self.make_equal_to(op.result, self.getvalue(oldop.result))
+    def getrecentops(self, opnum):
+        if rop._OVF_FIRST <= opnum <= rop._OVF_LAST:
+            opnum = opnum - rop._OVF_FIRST
+        else:
+            opnum = opnum - rop._ALWAYS_PURE_FIRST
+        assert 0 <= opnum < len(self._pure_operations)
+        recentops = self._pure_operations[opnum]
+        if recentops is None:
+            self._pure_operations[opnum] = recentops = RecentPureOps()
+        return recentops
+
+    def optimize_CALL_PURE_I(self, op):
+        # Step 1: check if all arguments are constant
+        for arg in op.getarglist():
+            self.optimizer.force_box(arg)
+            # XXX hack to ensure that virtuals that are
+            #     constant are presented that way
+        result = self._can_optimize_call_pure(op)
+        if result is not None:
+            # this removes a CALL_PURE with all constant arguments.
+            self.make_constant(op, result)
             self.last_emitted_operation = REMOVED
             return
-        else:
-            self.pure_operations[args] = op
-            self.remember_emitting_pure(op)
+
+        # Step 2: check if all arguments are the same as a previous
+        # CALL_PURE.
+        for pos in self.call_pure_positions:
+            old_op = self.optimizer._newoperations[pos]
+            if self.optimize_call_pure(op, old_op):
+                return
+        if self.extra_call_pure:
+            for i, old_op in enumerate(self.extra_call_pure):
+                if self.optimize_call_pure(op, old_op):
+                    if isinstance(old_op, PreambleOp):
+                        old_op = self.optimizer.force_op_from_preamble(old_op)
+                        self.extra_call_pure[i] = old_op
+                    return
 
         # replace CALL_PURE with just CALL
-        args = op.getarglist()
-        self.emit_operation(ResOperation(rop.CALL, args, op.result,
-                                         op.getdescr()))
+        opnum = OpHelpers.call_for_descr(op.getdescr())
+        newop = self.optimizer.replace_op_with(op, opnum)
+        return self.emit_result(CallPureOptimizationResult(self, newop))
+
+    optimize_CALL_PURE_R = optimize_CALL_PURE_I
+    optimize_CALL_PURE_F = optimize_CALL_PURE_I
+    optimize_CALL_PURE_N = optimize_CALL_PURE_I
+
+    def optimize_call_pure(self, op, old_op):
+        if (op.numargs() != old_op.numargs() or
+            op.getdescr() is not old_op.getdescr()):
+            return False
+        for i, box in enumerate(old_op.getarglist()):
+            if not self.get_box_replacement(op.getarg(i)).same_box(box):
+                break
+        else:
+            # all identical
+            # this removes a CALL_PURE that has the same (non-constant)
+            # arguments as a previous CALL_PURE.
+            if isinstance(old_op, PreambleOp):
+                # xxx obscure, it's dealt with in the caller
+                old_op = old_op.op
+            self.make_equal_to(op, old_op)
+            self.last_emitted_operation = REMOVED
+            return True
+        return False
 
     def optimize_GUARD_NO_EXCEPTION(self, op):
         if self.last_emitted_operation is REMOVED:
             # it was a CALL_PURE that was killed; so we also kill the
             # following GUARD_NO_EXCEPTION
             return
-        self.emit_operation(op)
+        return self.emit(op)
 
     def flush(self):
         assert self.postponed_op is None
@@ -88,29 +219,42 @@ class OptPure(Optimization):
     def setup(self):
         self.optimizer.optpure = self
 
-    def pure(self, opnum, args, result):
-        op = ResOperation(opnum, args, result)
-        key = self.optimizer.make_args_key(op)
-        if key not in self.pure_operations:
-            self.pure_operations[key] = op
+    def pure(self, opnum, op):
+        recentops = self.getrecentops(opnum)
+        recentops.add(op)
+
+    def pure_from_args(self, opnum, args, op, descr=None):
+        newop = ResOperation(opnum,
+                             [self.get_box_replacement(arg) for arg in args],
+                             descr=descr)
+        newop.set_forwarded(op)
+        self.pure(opnum, newop)
 
     def has_pure_result(self, opnum, args, descr):
-        op = ResOperation(opnum, args, None, descr)
-        key = self.optimizer.make_args_key(op)
-        op = self.pure_operations.get(key, None)
-        if op is None:
-            return False
-        return op.getdescr() is descr
+        return False
+    # XXX
 
-    def get_pure_result(self, key):
-        return self.pure_operations.get(key, None)
-
-    def remember_emitting_pure(self, op):
-        self.emitted_pure_operations[op] = True
+    def get_pure_result(self, op):
+        recentops = self.getrecentops(op.getopnum())
+        return recentops.lookup(self.optimizer, op)
 
     def produce_potential_short_preamble_ops(self, sb):
-        for op in self.emitted_pure_operations:
-            sb.add_potential(op)
+        ops = self.optimizer._newoperations
+        for i, op in enumerate(ops):
+            if rop.is_always_pure(op.opnum):
+                sb.add_pure_op(op)
+            if rop.is_ovf(op.opnum) and ops[i + 1].getopnum() == rop.GUARD_NO_OVERFLOW:
+                sb.add_pure_op(op)
+        for i in self.call_pure_positions:
+            op = ops[i]
+            # don't move call_pure_with_exception in the short preamble...
+            # issue #2015
+
+            effectinfo = op.getdescr().get_extra_info()
+            if not effectinfo.check_can_raise(ignore_memoryerror=True):
+                assert rop.is_call(op.opnum)
+                sb.add_pure_op(op)
 
 dispatch_opt = make_dispatcher_method(OptPure, 'optimize_',
                                       default=OptPure.optimize_default)
+dispatch_postprocess = make_dispatcher_method(OptPure, 'postprocess_')

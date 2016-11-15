@@ -62,6 +62,28 @@ class AppTestThread(GenericTestThread):
         self.waitfor(lambda: done)
         assert done
 
+    def test_lock_held_by_another_thread(self):
+        import thread, imp
+        lock_held = thread.allocate_lock()
+        test_complete = thread.allocate_lock()
+        lock_released = thread.allocate_lock()
+        def other_thread():
+            imp.acquire_lock()        # 3
+            assert imp.lock_held()
+            lock_held.release()       # 4
+            test_complete.acquire()   # 7
+            imp.release_lock()        # 8
+            lock_released.release()   # 9
+        lock_held.acquire()
+        test_complete.acquire()
+        lock_released.acquire()
+        #
+        thread.start_new_thread(other_thread, ())  # 1
+        lock_held.acquire()                        # 2
+        assert imp.lock_held()                     # 5
+        test_complete.release()                    # 6
+        lock_released.acquire()                    # 10
+
 class TestImportLock:
     def test_lock(self, space, monkeypatch):
         from pypy.module.imp.importing import getimportlock, importhook
@@ -83,7 +105,7 @@ class TestImportLock:
         assert importlock.count == 0
         # A new module
         importhook(space, 're')
-        assert importlock.count == 7
+        assert importlock.count == 9
         # Import it again
         previous_count = importlock.count
         importhook(space, 're')

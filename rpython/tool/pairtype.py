@@ -61,3 +61,73 @@ def pairtype(cls1, cls2):
         bases = tuple(bases1 + bases2) or (tuple,)  # 'tuple': ultimate base
         pair = pairtypecache[cls1, cls2] = extendabletype(name, bases, {})
     return pair
+
+def pairmro(cls1, cls2):
+    """
+    Return the resolution order on pairs of types for double dispatch.
+
+    This order is compatible with the mro of pairtype(cls1, cls2).
+    """
+    for base2 in cls2.__mro__:
+        for base1 in cls1.__mro__:
+            yield (base1, base2)
+
+class DoubleDispatchRegistry(object):
+    """
+    A mapping of pairs of types to arbitrary objects respecting inheritance
+    """
+    def __init__(self):
+        self._registry = {}
+        self._cache = {}
+
+    def __getitem__(self, clspair):
+        try:
+            return self._cache[clspair]
+        except KeyError:
+            cls1, cls2 = clspair
+            for c1, c2 in pairmro(cls1, cls2):
+                if (c1, c2) in self._cache:
+                    return self._cache[(c1, c2)]
+            else:
+                raise
+
+    def __setitem__(self, clspair, value):
+        self._registry[clspair] = value
+        self._cache = self._registry.copy()
+
+def doubledispatch(func):
+    """
+    Decorator returning a double-dispatch function
+
+    Usage
+    -----
+        >>> @doubledispatch
+        ... def func(x, y):
+        ...     return 0
+        >>> @func.register(basestring, basestring)
+        ... def func_string_string(x, y):
+        ...     return 42
+        >>> func(1, 2)
+        0
+        >>> func('x', u'y')
+        42
+    """
+    return DoubleDispatchFunction(func)
+
+class DoubleDispatchFunction(object):
+    def __init__(self, func):
+        self._registry = DoubleDispatchRegistry()
+        self._default = func
+
+    def __call__(self, arg1, arg2, *args, **kwargs):
+        try:
+            func = self._registry[type(arg1), type(arg2)]
+        except KeyError:
+            func = self._default
+        return func(arg1, arg2, *args, **kwargs)
+
+    def register(self, cls1, cls2):
+        def decorator(func):
+            self._registry[cls1, cls2] = func
+            return func
+        return decorator

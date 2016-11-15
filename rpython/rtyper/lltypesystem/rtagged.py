@@ -1,9 +1,7 @@
-from rpython.flowspace.model import Constant
-from rpython.rtyper.rclass import getclassrepr, getinstancerepr, get_type_repr
 from rpython.rtyper.lltypesystem import lltype
-from rpython.rtyper.lltypesystem.rclass import InstanceRepr, CLASSTYPE, ll_inst_type
-from rpython.rtyper.lltypesystem.rclass import MissingRTypeAttribute
-from rpython.rtyper.lltypesystem.rclass import ll_issubclass_const
+from rpython.rtyper.rclass import (
+    InstanceRepr, CLASSTYPE, ll_inst_type, MissingRTypeAttribute,
+    ll_issubclass_const, getclassrepr, getinstancerepr, get_type_repr)
 from rpython.rtyper.rmodel import TyperError, inputconst
 
 
@@ -29,7 +27,8 @@ class TaggedInstanceRepr(InstanceRepr):
                     self.classdef, flds))
             self.specialfieldname = flds[0]
 
-    def new_instance(self, llops, classcallhop=None):
+    def new_instance(self, llops, classcallhop=None, nonmovable=False):
+        assert not nonmovable
         if self.is_parent:
             raise TyperError("don't instantiate %r, it is a parent of an "
                              "UnboxedValue class" % (self.classdef,))

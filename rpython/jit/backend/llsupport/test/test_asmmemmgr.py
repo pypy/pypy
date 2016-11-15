@@ -2,6 +2,7 @@ import random
 from rpython.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
+from rpython.jit.backend.llsupport.codemap import CodemapStorage
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib import debug
 
@@ -95,20 +96,21 @@ def test_malloc_with_fragment():
 class TestAsmMemoryManager:
 
     def setup_method(self, _):
-        self.memmgr = AsmMemoryManager(min_fragment=8,
+        self.asmmemmgr = AsmMemoryManager(min_fragment=8,
                                        num_indices=10,
                                        large_alloc_size=8192)
+        self.codemap = CodemapStorage()
 
     def teardown_method(self, _):
-        self.memmgr._delete()
+        self.asmmemmgr._delete()
 
     def test_malloc_simple(self):
         for i in range(100):
-            while self.memmgr.total_memory_allocated < 16384:
+            while self.asmmemmgr.total_memory_allocated < 16384:
                 reqsize = random.randrange(1, 200)
-                (start, stop) = self.memmgr.malloc(reqsize, reqsize)
+                (start, stop) = self.asmmemmgr.malloc(reqsize, reqsize)
                 assert reqsize <= stop - start < reqsize + 8
-                assert self.memmgr.total_memory_allocated in [8192, 16384]
+                assert self.asmmemmgr.total_memory_allocated in [8192, 16384]
             self.teardown_method(None)
             self.setup_method(None)
 
@@ -122,7 +124,7 @@ class TestAsmMemoryManager:
             if got and (random.random() < 0.4 or len(got) == 1000):
                 # free
                 start, stop = got.pop(random.randrange(0, len(got)))
-                self.memmgr.free(start, stop)
+                self.asmmemmgr.free(start, stop)
                 real_use -= (stop - start)
                 assert real_use >= 0
             #
@@ -133,18 +135,18 @@ class TestAsmMemoryManager:
                     reqmaxsize = reqsize
                 else:
                     reqmaxsize = reqsize + random.randrange(0, 200)
-                (start, stop) = self.memmgr.malloc(reqsize, reqmaxsize)
+                (start, stop) = self.asmmemmgr.malloc(reqsize, reqmaxsize)
                 assert reqsize <= stop - start < reqmaxsize + 8
                 for otherstart, otherstop in got:           # no overlap
                     assert otherstop <= start or stop <= otherstart
                 got.append((start, stop))
                 real_use += (stop - start)
-                if self.memmgr.total_memory_allocated == prev_total:
+                if self.asmmemmgr.total_memory_allocated == prev_total:
                     iterations_without_allocating_more += 1
                     if iterations_without_allocating_more == 40000:
                         break    # ok
                 else:
-                    new_total = self.memmgr.total_memory_allocated
+                    new_total = self.asmmemmgr.total_memory_allocated
                     iterations_without_allocating_more = 0
                     print real_use, new_total
                     # We seem to never see a printed value greater
@@ -157,6 +159,7 @@ class TestAsmMemoryManager:
         class FakeGcRootMap:
             def register_asm_addr(self, retaddr, mark):
                 puts.append((retaddr, mark))
+
         #
         mc = BlockBuilderMixin()
         mc.writechar('X')
@@ -170,7 +173,8 @@ class TestAsmMemoryManager:
         #
         gcrootmap = FakeGcRootMap()
         allblocks = []
-        rawstart = mc.materialize(self.memmgr, allblocks, gcrootmap)
+        self.HAS_CODEMAP = False
+        rawstart = mc.materialize(self, allblocks, gcrootmap)
         p = rffi.cast(rffi.CArrayPtr(lltype.Char), rawstart)
         assert p[0] == 'X'
         assert p[1] == 'x'
@@ -178,7 +182,11 @@ class TestAsmMemoryManager:
         assert p[3] == 'y'
         assert p[4] == 'Z'
         assert p[5] == 'z'
-        assert allblocks == [(rawstart, rawstart + 6)]
+        # 'allblocks' should be one block of length 6 + 15
+        # (15 = alignment - 1) containing the range(rawstart, rawstart + 6)
+        [(blockstart, blockend)] = allblocks
+        assert blockend == blockstart + 6 + (mc.ALIGN_MATERIALIZE - 1)
+        assert blockstart <= rawstart < rawstart + 6 <= blockend
         assert puts == [(rawstart + 2, ['a', 'b', 'c', 'd']),
                         (rawstart + 4, ['e', 'f', 'g'])]
 

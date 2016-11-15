@@ -1,7 +1,7 @@
 # Very rudimentary test of threading module
 
 import test.test_support
-from test.test_support import verbose
+from test.test_support import verbose, cpython_only
 from test.script_helper import assert_python_ok
 
 import random
@@ -14,6 +14,10 @@ import unittest
 import weakref
 import os
 import subprocess
+try:
+    import _testcapi
+except ImportError:
+    _testcapi = None
 
 from test import lock_tests
 
@@ -47,7 +51,7 @@ class TestThread(threading.Thread):
                 self.nrunning.inc()
                 if verbose:
                     print self.nrunning.get(), 'tasks are running'
-                self.testcase.assertTrue(self.nrunning.get() <= 3)
+                self.testcase.assertLessEqual(self.nrunning.get(), 3)
 
             time.sleep(delay)
             if verbose:
@@ -55,7 +59,7 @@ class TestThread(threading.Thread):
 
             with self.mutex:
                 self.nrunning.dec()
-                self.testcase.assertTrue(self.nrunning.get() >= 0)
+                self.testcase.assertGreaterEqual(self.nrunning.get(), 0)
                 if verbose:
                     print '%s is finished. %d tasks are running' % (
                         self.name, self.nrunning.get())
@@ -88,25 +92,25 @@ class ThreadTests(BaseTestCase):
         for i in range(NUMTASKS):
             t = TestThread("<thread %d>"%i, self, sema, mutex, numrunning)
             threads.append(t)
-            self.assertEqual(t.ident, None)
-            self.assertTrue(re.match('<TestThread\(.*, initial\)>', repr(t)))
+            self.assertIsNone(t.ident)
+            self.assertRegexpMatches(repr(t), r'^<TestThread\(.*, initial\)>$')
             t.start()
 
         if verbose:
             print 'waiting for all tasks to complete'
         for t in threads:
             t.join(NUMTASKS)
-            self.assertTrue(not t.is_alive())
+            self.assertFalse(t.is_alive())
             self.assertNotEqual(t.ident, 0)
-            self.assertFalse(t.ident is None)
-            self.assertTrue(re.match('<TestThread\(.*, \w+ -?\d+\)>', repr(t)))
+            self.assertIsNotNone(t.ident)
+            self.assertRegexpMatches(repr(t), r'^<TestThread\(.*, \w+ -?\d+\)>$')
         if verbose:
             print 'all tasks done'
         self.assertEqual(numrunning.get(), 0)
 
     def test_ident_of_no_threading_threads(self):
         # The ident still must work for the main thread and dummy threads.
-        self.assertFalse(threading.currentThread().ident is None)
+        self.assertIsNotNone(threading.currentThread().ident)
         def f():
             ident.append(threading.currentThread().ident)
             done.set()
@@ -114,7 +118,7 @@ class ThreadTests(BaseTestCase):
         ident = []
         thread.start_new_thread(f, ())
         done.wait()
-        self.assertFalse(ident[0] is None)
+        self.assertIsNotNone(ident[0])
         # Kill the "immortal" _DummyThread
         del threading._active[ident[0]]
 
@@ -125,9 +129,7 @@ class ThreadTests(BaseTestCase):
         try:
             threading.stack_size(262144)
         except thread.error:
-            if verbose:
-                print 'platform does not support changing thread stack size'
-            return
+            self.skipTest('platform does not support changing thread stack size')
         self.test_various_ops()
         threading.stack_size(0)
 
@@ -138,9 +140,7 @@ class ThreadTests(BaseTestCase):
         try:
             threading.stack_size(0x100000)
         except thread.error:
-            if verbose:
-                print 'platform does not support changing thread stack size'
-            return
+            self.skipTest('platform does not support changing thread stack size')
         self.test_various_ops()
         threading.stack_size(0)
 
@@ -168,9 +168,7 @@ class ThreadTests(BaseTestCase):
         try:
             import ctypes
         except ImportError:
-            if verbose:
-                print "test_PyThreadState_SetAsyncExc can't import ctypes"
-            return  # can't do anything
+            self.skipTest('requires ctypes')
 
         set_async_exc = ctypes.pythonapi.PyThreadState_SetAsyncExc
 
@@ -239,7 +237,7 @@ class ThreadTests(BaseTestCase):
         self.assertTrue(ret)
         if verbose:
             print "    verifying worker hasn't exited"
-        self.assertTrue(not t.finished)
+        self.assertFalse(t.finished)
         if verbose:
             print "    attempting to raise asynch exception in worker"
         result = set_async_exc(ctypes.c_long(t.id), exception)
@@ -277,9 +275,7 @@ class ThreadTests(BaseTestCase):
         try:
             import ctypes
         except ImportError:
-            if verbose:
-                print("test_finalize_with_runnning_thread can't import ctypes")
-            return  # can't do anything
+            self.skipTest('requires ctypes')
 
         rc = subprocess.call([sys.executable, "-c", """if 1:
             import ctypes, sys, time, thread
@@ -734,6 +730,46 @@ class ThreadJoinOnShutdown(BaseTestCase):
         for t in threads:
             t.join()
 
+    @cpython_only
+    @unittest.skipIf(_testcapi is None, "need _testcapi module")
+    def test_frame_tstate_tracing(self):
+        # Issue #14432: Crash when a generator is created in a C thread that is
+        # destroyed while the generator is still used. The issue was that a
+        # generator contains a frame, and the frame kept a reference to the
+        # Python state of the destroyed C thread. The crash occurs when a trace
+        # function is setup.
+
+        def noop_trace(frame, event, arg):
+            # no operation
+            return noop_trace
+
+        def generator():
+            while 1:
+                yield "genereator"
+
+        def callback():
+            if callback.gen is None:
+                callback.gen = generator()
+            return next(callback.gen)
+        callback.gen = None
+
+        old_trace = sys.gettrace()
+        sys.settrace(noop_trace)
+        try:
+            # Install a trace function
+            threading.settrace(noop_trace)
+
+            # Create a generator in a C thread which exits after the call
+            _testcapi.call_in_temporary_c_thread(callback)
+
+            # Call the generator in a different Python thread, check that the
+            # generator didn't keep a reference to the destroyed thread state
+            for test in range(3):
+                # The trace function is still called here
+                callback()
+        finally:
+            sys.settrace(old_trace)
+
 
 class ThreadingExceptionTests(BaseTestCase):
     # A RuntimeError should be raised if Thread.start() is called
@@ -756,6 +792,85 @@ class ThreadingExceptionTests(BaseTestCase):
         thread.start()
         self.assertRaises(RuntimeError, setattr, thread, "daemon", True)
 
+    def test_print_exception(self):
+        script = r"""if 1:
+            import threading
+            import time
+
+            running = False
+            def run():
+                global running
+                running = True
+                while running:
+                    time.sleep(0.01)
+                1.0/0.0
+            t = threading.Thread(target=run)
+            t.start()
+            while not running:
+                time.sleep(0.01)
+            running = False
+            t.join()
+            """
+        rc, out, err = assert_python_ok("-c", script)
+        self.assertEqual(out, '')
+        self.assertIn("Exception in thread", err)
+        self.assertIn("Traceback (most recent call last):", err)
+        self.assertIn("ZeroDivisionError", err)
+        self.assertNotIn("Unhandled exception", err)
+
+    def test_print_exception_stderr_is_none_1(self):
+        script = r"""if 1:
+            import sys
+            import threading
+            import time
+
+            running = False
+            def run():
+                global running
+                running = True
+                while running:
+                    time.sleep(0.01)
+                1.0/0.0
+            t = threading.Thread(target=run)
+            t.start()
+            while not running:
+                time.sleep(0.01)
+            sys.stderr = None
+            running = False
+            t.join()
+            """
+        rc, out, err = assert_python_ok("-c", script)
+        self.assertEqual(out, '')
+        self.assertIn("Exception in thread", err)
+        self.assertIn("Traceback (most recent call last):", err)
+        self.assertIn("ZeroDivisionError", err)
+        self.assertNotIn("Unhandled exception", err)
+
+    def test_print_exception_stderr_is_none_2(self):
+        script = r"""if 1:
+            import sys
+            import threading
+            import time
+
+            running = False
+            def run():
+                global running
+                running = True
+                while running:
+                    time.sleep(0.01)
+                1.0/0.0
+            sys.stderr = None
+            t = threading.Thread(target=run)
+            t.start()
+            while not running:
+                time.sleep(0.01)
+            running = False
+            t.join()
+            """
+        rc, out, err = assert_python_ok("-c", script)
+        self.assertEqual(out, '')
+        self.assertNotIn("Unhandled exception", err)
+
 
 class LockTests(lock_tests.LockTests):
     locktype = staticmethod(threading.Lock)
@@ -767,7 +882,7 @@ class EventTests(lock_tests.EventTests):
     eventtype = staticmethod(threading.Event)
 
 class ConditionAsRLockTests(lock_tests.RLockTests):
-    # An Condition uses an RLock by default and exports its API.
+    # Condition uses an RLock by default and exports its API.
     locktype = staticmethod(threading.Condition)
 
 class ConditionTests(lock_tests.ConditionTests):

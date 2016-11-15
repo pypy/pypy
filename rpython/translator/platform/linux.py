@@ -21,16 +21,22 @@ class BaseLinux(BasePosix):
     so_ext = 'so'
     so_prefixes = ('lib', '')
 
+    if platform.machine() == 's390x':
+        from rpython.translator.platform.arch import s390x
+        cflags = s390x.update_cflags(cflags)
+
     def _args_for_shared(self, args):
         return ['-shared'] + args
 
     def _include_dirs_for_libffi(self):
         return self._pkg_config("libffi", "--cflags-only-I",
-                                ['/usr/include/libffi'])
+                                ['/usr/include/libffi'],
+                                check_result_dir=True)
 
     def _library_dirs_for_libffi(self):
         return self._pkg_config("libffi", "--libs-only-L",
-                                ['/usr/lib/libffi'])
+                                ['/usr/lib/libffi'],
+                                check_result_dir=True)
 
 
 class Linux(BaseLinux):

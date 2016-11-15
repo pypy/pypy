@@ -56,6 +56,8 @@ class W_ZipCache(W_Root):
         w = space.wrap
         w_d = space.newdict()
         for key, info in w_zipimporter.zip_file.NameToInfo.iteritems():
+            if ZIPSEP != os.path.sep:
+                key = key.replace(ZIPSEP, os.path.sep)
             space.setitem(w_d, w(key), space.newtuple([
                 w(info.filename), w(info.compress_type), w(info.compress_size),
                 w(info.file_size), w(info.file_offset), w(info.dostime),
@@ -150,8 +152,7 @@ class W_ZipImporter(W_Root):
         importing._prepare_module(space, w_mod, real_name, pkgpath)
         co_filename = self.make_co_filename(filename)
         code_w = importing.parse_source_module(space, co_filename, buf)
-        importing.exec_code_module(space, w_mod, code_w)
-        return w_mod
+        return importing.exec_code_module(space, w_mod, code_w, w(modname))
 
     def _parse_mtime(self, space, filename):
         w = space.wrap
@@ -197,17 +198,16 @@ class W_ZipImporter(W_Root):
         magic = importing._get_long(buf[:4])
         timestamp = importing._get_long(buf[4:8])
         if not self.can_use_pyc(space, filename, magic, timestamp):
-            return self.import_py_file(space, modname, filename[:-1], buf,
-                                       pkgpath)
+            return None
         buf = buf[8:] # XXX ugly copy, should use sequential read instead
         w_mod = w(Module(space, w(modname)))
         real_name = self.filename + os.path.sep + self.corr_zname(filename)
         space.setattr(w_mod, w('__loader__'), space.wrap(self))
         importing._prepare_module(space, w_mod, real_name, pkgpath)
-        result = importing.load_compiled_module(space, w(modname), w_mod,
+        w_result = importing.load_compiled_module(space, w(modname), w_mod,
                                                 filename, magic, timestamp,
                                                 buf)
-        return result
+        return w_result
 
     def have_modulefile(self, space, filename):
         if ZIPSEP != os.path.sep:
@@ -247,14 +247,13 @@ class W_ZipImporter(W_Root):
     def load_module(self, space, fullname):
         w = space.wrap
         filename = self.make_filename(fullname)
-        last_exc = None
         for compiled, is_package, ext in ENUMERATE_EXTS:
             fname = filename + ext
             try:
                 buf = self.zip_file.read(fname)
             except (KeyError, OSError, BadZipfile):
                 pass
-            except RZlibError, e:
+            except RZlibError as e:
                 # in this case, CPython raises the direct exception coming
                 # from the zlib module: let's to the same
                 raise zlib_error(space, e.msg)
@@ -266,19 +265,18 @@ class W_ZipImporter(W_Root):
                     pkgpath = None
                 try:
                     if compiled:
-                        return self.import_pyc_file(space, fullname, fname,
-                                                    buf, pkgpath)
+                        w_result = self.import_pyc_file(space, fullname, fname,
+                                                        buf, pkgpath)
+                        if w_result is not None:
+                            return w_result
                     else:
                         return self.import_py_file(space, fullname, fname,
                                                    buf, pkgpath)
-                except OperationError, e:
-                    last_exc = e
+                except:
                     w_mods = space.sys.get('modules')
-                space.call_method(w_mods, 'pop', w(fullname), space.w_None)
-        if last_exc:
-            raise OperationError(get_error(space), last_exc.get_w_value(space))
-        # should never happen I think
-        return space.w_None
+                    space.call_method(w_mods, 'pop', w(fullname), space.w_None)
+                    raise
+        raise oefmt(get_error(space), "can't find module '%s'", fullname)
 
     @unwrap_spec(filename=str)
     def get_data(self, space, filename):
@@ -288,8 +286,8 @@ class W_ZipImporter(W_Root):
             data = self.zip_file.read(filename)
             return w(data)
         except (KeyError, OSError, BadZipfile):
-            raise OperationError(space.w_IOError, space.wrap("Error reading file"))
-        except RZlibError, e:
+            raise oefmt(space.w_IOError, "Error reading file")
+        except RZlibError as e:
             # in this case, CPython raises the direct exception coming
             # from the zlib module: let's to the same
             raise zlib_error(space, e.msg)
@@ -390,7 +388,7 @@ def descr_new_zipimporter(space, w_type, name):
         zip_file = RZipFile(filename, 'r')
     except (BadZipfile, OSError):
         raise oefmt(get_error(space), "%s seems not to be a zipfile", filename)
-    except RZlibError, e:
+    except RZlibError as e:
         # in this case, CPython raises the direct exception coming
         # from the zlib module: let's to the same
         raise zlib_error(space, e.msg)

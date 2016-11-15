@@ -153,6 +153,8 @@ class MiniMarkGC(MovingGCBase):
     # ^^^ prebuilt objects may have the flag GCFLAG_HAS_SHADOW;
     #     then they are one word longer, the extra word storing the hash.
 
+    _ADDRARRAY = lltype.Array(llmemory.Address, hints={'nolength': True})
+
 
     # During a minor collection, the objects in the nursery that are
     # moved outside are changed in-place: their header is replaced with
@@ -174,8 +176,8 @@ class MiniMarkGC(MovingGCBase):
         # fall-back number.
         "nursery_size": 896*1024,
 
-        # The system page size.  Like obmalloc.c, we assume that it is 4K
-        # for 32-bit systems; unlike obmalloc.c, we assume that it is 8K
+        # The system page size.  Like malloc, we assume that it is 4K
+        # for 32-bit systems; unlike malloc, we assume that it is 8K
         # for 64-bit systems, for consistent results.
         "page_size": 1024*WORD,
 
@@ -309,10 +311,19 @@ class MiniMarkGC(MovingGCBase):
         self.old_rawmalloced_objects = self.AddressStack()
         self.rawmalloced_total_size = r_uint(0)
         #
-        # A list of all objects with finalizers (these are never young).
-        self.objects_with_finalizers = self.AddressDeque()
-        self.young_objects_with_light_finalizers = self.AddressStack()
-        self.old_objects_with_light_finalizers = self.AddressStack()
+        # Two lists of all objects with finalizers.  Actually they are lists
+        # of pairs (finalization_queue_nr, object).  "probably young objects"
+        # are all traced and moved to the "old" list by the next minor
+        # collection.
+        self.probably_young_objects_with_finalizers = self.AddressDeque()
+        self.old_objects_with_finalizers = self.AddressDeque()
+        p = lltype.malloc(self._ADDRARRAY, 1, flavor='raw',
+                          track_allocation=False)
+        self.singleaddr = llmemory.cast_ptr_to_adr(p)
+        #
+        # Two lists of all objects with destructors.
+        self.young_objects_with_destructors = self.AddressStack()
+        self.old_objects_with_destructors = self.AddressStack()
         #
         # Two lists of the objects with weakrefs.  No weakref can be an
         # old object weakly pointing to a young object: indeed, weakrefs
@@ -517,18 +528,21 @@ class MiniMarkGC(MovingGCBase):
         # If the object needs a finalizer, ask for a rawmalloc.
         # The following check should be constant-folded.
         if needs_finalizer and not is_finalizer_light:
+            # old-style finalizers only!
             ll_assert(not contains_weakptr,
                      "'needs_finalizer' and 'contains_weakptr' both specified")
-            obj = self.external_malloc(typeid, 0, can_make_young=False)
-            self.objects_with_finalizers.append(obj)
+            obj = self.external_malloc(typeid, 0, alloc_young=False)
+            res = llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
+            self.register_finalizer(-1, res)
+            return res
         #
         # If totalsize is greater than nonlarge_max (which should never be
         # the case in practice), ask for a rawmalloc.  The following check
         # should be constant-folded.
-        elif rawtotalsize > self.nonlarge_max:
+        if rawtotalsize > self.nonlarge_max:
             ll_assert(not contains_weakptr,
                       "'contains_weakptr' specified for a large object")
-            obj = self.external_malloc(typeid, 0)
+            obj = self.external_malloc(typeid, 0, alloc_young=True)
             #
         else:
             # If totalsize is smaller than minimal_size_in_nursery, round it
@@ -547,14 +561,14 @@ class MiniMarkGC(MovingGCBase):
             # Build the object.
             llarena.arena_reserve(result, totalsize)
             obj = result + size_gc_header
-            if is_finalizer_light:
-                self.young_objects_with_light_finalizers.append(obj)
             self.init_gc_object(result, typeid, flags=0)
-            #
-            # If it is a weakref, record it (check constant-folded).
-            if contains_weakptr:
-                self.young_objects_with_weakrefs.append(obj)
         #
+        # If it is a weakref or has a lightweight destructor, record it
+        # (checks constant-folded).
+        if needs_finalizer:
+            self.young_objects_with_destructors.append(obj)
+        if contains_weakptr:
+            self.young_objects_with_weakrefs.append(obj)
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
 
@@ -581,7 +595,7 @@ class MiniMarkGC(MovingGCBase):
             # If the total size of the object would be larger than
             # 'nonlarge_max', then allocate it externally.  We also
             # go there if 'length' is actually negative.
-            obj = self.external_malloc(typeid, length)
+            obj = self.external_malloc(typeid, length, alloc_young=True)
             #
         else:
             # With the above checks we know now that totalsize cannot be more
@@ -611,6 +625,12 @@ class MiniMarkGC(MovingGCBase):
             obj = result + size_gc_header
             (obj + offset_to_length).signed[0] = length
         #
+        return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
+
+
+    def malloc_fixed_or_varsize_nonmovable(self, typeid, length):
+        # length==0 for fixedsize
+        obj = self.external_malloc(typeid, length, alloc_young=True)
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
 
@@ -671,7 +691,8 @@ class MiniMarkGC(MovingGCBase):
     collect_and_reserve._dont_inline_ = True
 
 
-    def external_malloc(self, typeid, length, can_make_young=True):
+    # XXX kill alloc_young and make it always True
+    def external_malloc(self, typeid, length, alloc_young):
         """Allocate a large object using the ArenaCollection or
         raw_malloc(), possibly as an object with card marking enabled,
         if it has gc pointers in its var-sized part.  'length' should be
@@ -711,7 +732,9 @@ class MiniMarkGC(MovingGCBase):
             self.major_collection(raw_malloc_usage(totalsize))
         #
         # Check if the object would fit in the ArenaCollection.
-        if raw_malloc_usage(totalsize) <= self.small_request_threshold:
+        # Also, an object allocated from ArenaCollection must be old.
+        if (raw_malloc_usage(totalsize) <= self.small_request_threshold
+            and not alloc_young):
             #
             # Yes.  Round up 'totalsize' (it cannot overflow and it
             # must remain <= self.small_request_threshold.)
@@ -724,10 +747,6 @@ class MiniMarkGC(MovingGCBase):
             result = self.ac.malloc(totalsize)
             llmemory.raw_memclear(result, totalsize)
             #
-            # An object allocated from ArenaCollection is always old, even
-            # if 'can_make_young'.  The interesting case of 'can_make_young'
-            # is for large objects, bigger than the 'large_objects' threshold,
-            # which are raw-malloced but still young.
             extra_flags = GCFLAG_TRACK_YOUNG_PTRS
             #
         else:
@@ -747,11 +766,11 @@ class MiniMarkGC(MovingGCBase):
                 extra_words = self.card_marking_words_for_length(length)
                 cardheadersize = WORD * extra_words
                 extra_flags = GCFLAG_HAS_CARDS | GCFLAG_TRACK_YOUNG_PTRS
-                # if 'can_make_young', then we also immediately set
+                # if 'alloc_young', then we also immediately set
                 # GCFLAG_CARDS_SET, but without adding the object to
                 # 'old_objects_with_cards_set'.  In this way it should
                 # never be added to that list as long as it is young.
-                if can_make_young:
+                if alloc_young:
                     extra_flags |= GCFLAG_CARDS_SET
             #
             # Detect very rare cases of overflows
@@ -787,7 +806,7 @@ class MiniMarkGC(MovingGCBase):
             # Record the newly allocated object and its full malloced size.
             # The object is young or old depending on the argument.
             self.rawmalloced_total_size += r_uint(allocsize)
-            if can_make_young:
+            if alloc_young:
                 if not self.young_rawmalloced_objects:
                     self.young_rawmalloced_objects = self.AddressDict()
                 self.young_rawmalloced_objects.add(result + size_gc_header)
@@ -821,9 +840,6 @@ class MiniMarkGC(MovingGCBase):
             # that one will occur very soon
             self.nursery_top = self.nursery_real_top
             self.nursery_free = self.nursery_real_top
-
-    def can_malloc_nonmovable(self):
-        return True
 
     def can_optimize_clean_setarrayitems(self):
         if self.card_page_indices > 0:
@@ -859,19 +875,6 @@ class MiniMarkGC(MovingGCBase):
         offset_to_length = self.varsize_offset_to_length(typeid)
         (obj + offset_to_length).signed[0] = smallerlength
         return True
-
-
-    def malloc_fixedsize_nonmovable(self, typeid):
-        obj = self.external_malloc(typeid, 0)
-        return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
-
-    def malloc_varsize_nonmovable(self, typeid, length):
-        obj = self.external_malloc(typeid, length)
-        return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
-
-    def malloc_nonmovable(self, typeid, length, zero):
-        # helper for testing, same as GCBase.malloc
-        return self.external_malloc(typeid, length or 0)    # None -> 0
 
 
     # ----------
@@ -1254,6 +1257,13 @@ class MiniMarkGC(MovingGCBase):
                 self.old_objects_with_cards_set.append(dest_addr)
                 dest_hdr.tid |= GCFLAG_CARDS_SET
 
+    def register_finalizer(self, fq_index, gcobj):
+        from rpython.rtyper.lltypesystem import rffi
+        obj = llmemory.cast_ptr_to_adr(gcobj)
+        fq_index = rffi.cast(llmemory.Address, fq_index)
+        self.probably_young_objects_with_finalizers.append(obj)
+        self.probably_young_objects_with_finalizers.append(fq_index)
+
     # ----------
     # Nursery collection
 
@@ -1276,6 +1286,11 @@ class MiniMarkGC(MovingGCBase):
         # are copied out or flagged.  They are also added to the list
         # 'old_objects_pointing_to_young'.
         self.collect_roots_in_nursery()
+        #
+        # visit the "probably young" objects with finalizers.  They
+        # always all survive.
+        if self.probably_young_objects_with_finalizers.non_empty():
+            self.deal_with_young_objects_with_finalizers()
         #
         while True:
             # If we are using card marking, do a partial trace of the arrays
@@ -1301,8 +1316,8 @@ class MiniMarkGC(MovingGCBase):
         # weakrefs' targets.
         if self.young_objects_with_weakrefs.non_empty():
             self.invalidate_young_weakrefs()
-        if self.young_objects_with_light_finalizers.non_empty():
-            self.deal_with_young_objects_with_finalizers()
+        if self.young_objects_with_destructors.non_empty():
+            self.deal_with_young_objects_with_destructors()
         #
         # Clear this mapping.
         if self.nursery_objects_shadows.length() > 0:
@@ -1338,7 +1353,8 @@ class MiniMarkGC(MovingGCBase):
         self.root_walker.walk_roots(
             MiniMarkGC._trace_drag_out1,  # stack roots
             MiniMarkGC._trace_drag_out1,  # static in prebuilt non-gc
-            None)                         # static in prebuilt gc
+            None,                         # static in prebuilt gc
+            is_minor=True)
         debug_stop("gc-minor-walkroots")
 
     def collect_cardrefs_to_nursery(self):
@@ -1625,7 +1641,7 @@ class MiniMarkGC(MovingGCBase):
         # with a finalizer and all objects reachable from there (and also
         # moves some objects from 'objects_with_finalizers' to
         # 'run_finalizers').
-        if self.objects_with_finalizers.non_empty():
+        if self.old_objects_with_finalizers.non_empty():
             self.deal_with_objects_with_finalizers()
         #
         self.objects_to_trace.delete()
@@ -1633,8 +1649,8 @@ class MiniMarkGC(MovingGCBase):
         # Weakref support: clear the weak pointers to dying objects
         if self.old_objects_with_weakrefs.non_empty():
             self.invalidate_old_weakrefs()
-        if self.old_objects_with_light_finalizers.non_empty():
-            self.deal_with_old_objects_with_finalizers()
+        if self.old_objects_with_destructors.non_empty():
+            self.deal_with_old_objects_with_destructors()
 
         #
         # Walk all rawmalloced objects and free the ones that don't
@@ -1757,8 +1773,8 @@ class MiniMarkGC(MovingGCBase):
         #
         # If we are in an inner collection caused by a call to a finalizer,
         # the 'run_finalizers' objects also need to be kept alive.
-        self.run_finalizers.foreach(self._collect_obj,
-                                    self.objects_to_trace)
+        self.enum_pending_finalizers(self._collect_obj,
+                                     self.objects_to_trace)
 
     def enumerate_all_roots(self, callback, arg):
         self.prebuilt_root_objects.foreach(callback, arg)
@@ -1890,41 +1906,45 @@ class MiniMarkGC(MovingGCBase):
     # ----------
     # Finalizers
 
-    def deal_with_young_objects_with_finalizers(self):
-        """ This is a much simpler version of dealing with finalizers
-        and an optimization - we can reasonably assume that those finalizers
-        don't do anything fancy and *just* call them. Among other things
+    def deal_with_young_objects_with_destructors(self):
+        """We can reasonably assume that destructors don't do
+        anything fancy and *just* call them. Among other things
         they won't resurrect objects
         """
-        while self.young_objects_with_light_finalizers.non_empty():
-            obj = self.young_objects_with_light_finalizers.pop()
+        while self.young_objects_with_destructors.non_empty():
+            obj = self.young_objects_with_destructors.pop()
             if not self.is_forwarded(obj):
-                finalizer = self.getlightfinalizer(self.get_type_id(obj))
-                ll_assert(bool(finalizer), "no light finalizer found")
-                finalizer(obj)
+                self.call_destructor(obj)
             else:
                 obj = self.get_forwarding_address(obj)
-                self.old_objects_with_light_finalizers.append(obj)
+                self.old_objects_with_destructors.append(obj)
 
-    def deal_with_old_objects_with_finalizers(self):
-        """ This is a much simpler version of dealing with finalizers
-        and an optimization - we can reasonably assume that those finalizers
-        don't do anything fancy and *just* call them. Among other things
+    def deal_with_old_objects_with_destructors(self):
+        """We can reasonably assume that destructors don't do
+        anything fancy and *just* call them. Among other things
         they won't resurrect objects
         """
         new_objects = self.AddressStack()
-        while self.old_objects_with_light_finalizers.non_empty():
-            obj = self.old_objects_with_light_finalizers.pop()
+        while self.old_objects_with_destructors.non_empty():
+            obj = self.old_objects_with_destructors.pop()
             if self.header(obj).tid & GCFLAG_VISITED:
                 # surviving
                 new_objects.append(obj)
             else:
                 # dying
-                finalizer = self.getlightfinalizer(self.get_type_id(obj))
-                ll_assert(bool(finalizer), "no light finalizer found")
-                finalizer(obj)
-        self.old_objects_with_light_finalizers.delete()
-        self.old_objects_with_light_finalizers = new_objects
+                self.call_destructor(obj)
+        self.old_objects_with_destructors.delete()
+        self.old_objects_with_destructors = new_objects
+
+    def deal_with_young_objects_with_finalizers(self):
+        while self.probably_young_objects_with_finalizers.non_empty():
+            obj = self.probably_young_objects_with_finalizers.popleft()
+            fq_nr = self.probably_young_objects_with_finalizers.popleft()
+            self.singleaddr.address[0] = obj
+            self._trace_drag_out1(self.singleaddr)
+            obj = self.singleaddr.address[0]
+            self.old_objects_with_finalizers.append(obj)
+            self.old_objects_with_finalizers.append(fq_nr)
 
     def deal_with_objects_with_finalizers(self):
         # Walk over list of objects with finalizers.
@@ -1937,14 +1957,17 @@ class MiniMarkGC(MovingGCBase):
         marked = self.AddressDeque()
         pending = self.AddressStack()
         self.tmpstack = self.AddressStack()
-        while self.objects_with_finalizers.non_empty():
-            x = self.objects_with_finalizers.popleft()
+        while self.old_objects_with_finalizers.non_empty():
+            x = self.old_objects_with_finalizers.popleft()
+            fq_nr = self.old_objects_with_finalizers.popleft()
             ll_assert(self._finalization_state(x) != 1,
                       "bad finalization state 1")
             if self.header(x).tid & GCFLAG_VISITED:
                 new_with_finalizer.append(x)
+                new_with_finalizer.append(fq_nr)
                 continue
             marked.append(x)
+            marked.append(fq_nr)
             pending.append(x)
             while pending.non_empty():
                 y = pending.pop()
@@ -1958,22 +1981,26 @@ class MiniMarkGC(MovingGCBase):
 
         while marked.non_empty():
             x = marked.popleft()
+            fq_nr = marked.popleft()
             state = self._finalization_state(x)
             ll_assert(state >= 2, "unexpected finalization state < 2")
             if state == 2:
-                self.run_finalizers.append(x)
+                from rpython.rtyper.lltypesystem import rffi
+                fq_index = rffi.cast(lltype.Signed, fq_nr)
+                self.mark_finalizer_to_run(fq_index, x)
                 # we must also fix the state from 2 to 3 here, otherwise
                 # we leave the GCFLAG_FINALIZATION_ORDERING bit behind
                 # which will confuse the next collection
                 self._recursively_bump_finalization_state_from_2_to_3(x)
             else:
                 new_with_finalizer.append(x)
+                new_with_finalizer.append(fq_nr)
 
         self.tmpstack.delete()
         pending.delete()
         marked.delete()
-        self.objects_with_finalizers.delete()
-        self.objects_with_finalizers = new_with_finalizer
+        self.old_objects_with_finalizers.delete()
+        self.old_objects_with_finalizers = new_with_finalizer
 
     def _append_if_nonnull(pointer, stack):
         stack.append(pointer.address[0])

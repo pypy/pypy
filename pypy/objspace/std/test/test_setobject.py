@@ -8,10 +8,8 @@ go there and invoke::
 This file just contains some basic tests that make sure, the implementation
 is not too wrong.
 """
-import py.test
 from pypy.objspace.std.setobject import W_SetObject, W_FrozensetObject, IntegerSetStrategy
 from pypy.objspace.std.setobject import _initialize_set
-from pypy.objspace.std.setobject import newset
 from pypy.objspace.std.listobject import W_ListObject
 
 letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
@@ -86,6 +84,7 @@ class TestW_SetObject:
         from pypy.objspace.std.floatobject import W_FloatObject
 
         w = self.space.wrap
+        wb = self.space.newbytes
         intstr = self.space.fromcache(IntegerSetStrategy)
         tmp_func = intstr.get_storage_from_list
         # test if get_storage_from_list is no longer used
@@ -97,7 +96,7 @@ class TestW_SetObject:
         assert w_set.strategy is intstr
         assert intstr.unerase(w_set.sstorage) == {1:None, 2:None, 3:None}
 
-        w_list = W_ListObject(self.space, [w("1"), w("2"), w("3")])
+        w_list = W_ListObject(self.space, [wb("1"), wb("2"), wb("3")])
         w_set = W_SetObject(self.space)
         _initialize_set(self.space, w_set, w_list)
         assert w_set.strategy is self.space.fromcache(BytesSetStrategy)
@@ -128,9 +127,10 @@ class TestW_SetObject:
 
     def test_listview_bytes_int_on_set(self):
         w = self.space.wrap
+        wb = self.space.newbytes
 
         w_a = W_SetObject(self.space)
-        _initialize_set(self.space, w_a, w("abcdefg"))
+        _initialize_set(self.space, w_a, wb("abcdefg"))
         assert sorted(self.space.listview_bytes(w_a)) == list("abcdefg")
         assert self.space.listview_int(w_a) is None
 
@@ -341,8 +341,9 @@ class AppTestAppSetTest:
 
     def test_compare(self):
         raises(TypeError, cmp, set('abc'), set('abd'))
+        raises(TypeError, cmp, frozenset('abc'), frozenset('abd'))
         assert set('abc') != 'abc'
-        raises(TypeError, "set('abc') < 42")
+        assert not set('abc') < 42
         assert not (set('abc') < set('def'))
         assert not (set('abc') <= frozenset('abd'))
         assert not (set('abc') < frozenset('abd'))
@@ -376,6 +377,11 @@ class AppTestAppSetTest:
         assert (frozenset('abc') != set('abcd'))
         assert set() != set('abc')
         assert set('abc') != set('abd')
+
+        class X(set):
+            pass
+
+        raises(TypeError, cmp, X(), X())
 
     def test_libpython_equality(self):
         for thetype in [frozenset, set]:
@@ -435,7 +441,7 @@ class AppTestAppSetTest:
                 self.s = s
             def __repr__(self):
                 return repr(self.s)
-        
+
         s = set([1, 2, 3])
         s.add(A(s))
         therepr = repr(s)
@@ -456,12 +462,12 @@ class AppTestAppSetTest:
         assert therepr.endswith("])")
         inner = set(therepr[11:-2].split(", "))
         assert inner == set(["1", "2", "3", "frozenset(...)"])
-        
+
     def test_keyerror_has_key(self):
         s = set()
         try:
             s.remove(1)
-        except KeyError, e:
+        except KeyError as e:
             assert e.args[0] == 1
         else:
             assert 0, "should raise"
@@ -473,7 +479,7 @@ class AppTestAppSetTest:
                 return int(id(self) & 0x7fffffff)
         s = H()
         f = set([s])
-        print f
+        print(f)
         assert s in f
         f.remove(s)
         f.add(s)
@@ -515,7 +521,7 @@ class AppTestAppSetTest:
         key = set([2, 3])
         try:
             s.remove(key)
-        except KeyError, e:
+        except KeyError as e:
             assert e.args[0] is key
 
     def test_contains(self):
@@ -525,6 +531,39 @@ class AppTestAppSetTest:
         for c in letters:
             assert (c in s) == (c in word)
         raises(TypeError, s.__contains__, [])
+
+        logger = []
+
+        class Foo(object):
+
+            def __init__(self, value, name=None):
+                self.value = value
+                self.name = name or value
+
+            def __repr__(self):
+                return '<Foo %s>' % self.name
+
+            def __eq__(self, other):
+                logger.append((self, other))
+                return self.value == other.value
+
+            def __hash__(self):
+                return 42  # __eq__ will be used given all objects' hashes clash
+
+        foo1, foo2, foo3 = Foo(1), Foo(2), Foo(3)
+        foo42 = Foo(42)
+        foo_set = {foo1, foo2, foo3}
+        del logger[:]
+        foo42 in foo_set
+        logger_copy = set(logger[:])  # prevent re-evaluation during pytest error print
+        assert logger_copy == {(foo3, foo42), (foo2, foo42), (foo1, foo42)}
+
+        del logger[:]
+        foo2_bis = Foo(2, '2 bis')
+        foo2_bis in foo_set
+        logger_copy = set(logger[:])  # prevent re-evaluation during pytest error print
+        assert (foo2, foo2_bis) in logger_copy
+        assert logger_copy.issubset({(foo1, foo2_bis), (foo2, foo2_bis), (foo3, foo2_bis)})
 
     def test_remove(self):
         s = set('abc')
@@ -544,12 +583,12 @@ class AppTestAppSetTest:
         for v1 in ['Q', (1,)]:
             try:
                 s.remove(v1)
-            except KeyError, e:
+            except KeyError as e:
                 v2 = e.args[0]
                 assert v1 == v2
             else:
                 assert False, 'Expected KeyError'
-        
+
     def test_singleton_empty_frozenset(self):
         class Frozenset(frozenset):
             pass
@@ -960,3 +999,41 @@ class AppTestAppSetTest:
         # did not work before because of an optimization that swaps both
         # operands when the first set is larger than the second
         assert type(frozenset([1, 2]) & set([2])) is frozenset
+
+    def test_update_bug_strategy(self):
+        from __pypy__ import strategy
+        s = set([1, 2, 3])
+        assert strategy(s) == "IntegerSetStrategy"
+        s.update(set())
+        assert strategy(s) == "IntegerSetStrategy"
+        #
+        s = set([1, 2, 3])
+        s |= set()
+        assert strategy(s) == "IntegerSetStrategy"
+        #
+        s = set([1, 2, 3]).difference(set())
+        assert strategy(s) == "IntegerSetStrategy"
+        #
+        s = set([1, 2, 3])
+        s.difference_update(set())
+        assert strategy(s) == "IntegerSetStrategy"
+        #
+        s = set([1, 2, 3]).symmetric_difference(set())
+        assert strategy(s) == "IntegerSetStrategy"
+        #
+        s = set([1, 2, 3])
+        s.symmetric_difference_update(set())
+        assert strategy(s) == "IntegerSetStrategy"
+        #
+        s = set([1, 2, 3]).intersection(set())
+        assert strategy(s) == "EmptySetStrategy"
+        #
+        s = set([1, 2, 3])
+        s.intersection_update(set())
+        assert strategy(s) == "EmptySetStrategy"
+
+    def test_weird_exception_from_iterable(self):
+        def f():
+           raise ValueError
+           yield 1
+        raises(ValueError, set, f())

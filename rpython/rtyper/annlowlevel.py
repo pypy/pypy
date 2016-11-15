@@ -41,9 +41,10 @@ class KeyComp(object):
     __repr__ = __str__
 
 class LowLevelAnnotatorPolicy(AnnotatorPolicy):
-    def __init__(pol, rtyper=None):
-        pol.rtyper = rtyper
+    def __init__(self, rtyper=None):
+        self.rtyper = rtyper
 
+    @staticmethod
     def lowlevelspecialize(funcdesc, args_s, key_for_args):
         args_s, key1, builder = flatten_star_args(funcdesc, args_s)
         key = []
@@ -55,6 +56,9 @@ class LowLevelAnnotatorPolicy(AnnotatorPolicy):
             elif isinstance(s_obj, annmodel.SomePBC):
                 assert s_obj.is_constant(), "ambiguous low-level helper specialization"
                 key.append(KeyComp(s_obj.const))
+                new_args_s.append(s_obj)
+            elif isinstance(s_obj, annmodel.SomeNone):
+                key.append(KeyComp(None))
                 new_args_s.append(s_obj)
             else:
                 new_args_s.append(annmodel.not_const(s_obj))
@@ -70,28 +74,20 @@ class LowLevelAnnotatorPolicy(AnnotatorPolicy):
         flowgraph = funcdesc.cachedgraph(key, builder=builder)
         args_s[:] = new_args_s
         return flowgraph
-    lowlevelspecialize = staticmethod(lowlevelspecialize)
 
+    @staticmethod
     def default_specialize(funcdesc, args_s):
         return LowLevelAnnotatorPolicy.lowlevelspecialize(funcdesc, args_s, {})
-    default_specialize = staticmethod(default_specialize)
-
-    def specialize__semierased(funcdesc, args_s):
-        a2l = annotation_to_lltype
-        l2a = lltype_to_annotation
-        args_s[:] = [l2a(a2l(s)) for s in args_s]
-        return LowLevelAnnotatorPolicy.default_specialize(funcdesc, args_s)
-    specialize__semierased = staticmethod(specialize__semierased)
 
     specialize__ll = default_specialize
 
+    @staticmethod
     def specialize__ll_and_arg(funcdesc, args_s, *argindices):
         keys = {}
         for i in argindices:
             keys[i] = args_s[i].const
         return LowLevelAnnotatorPolicy.lowlevelspecialize(funcdesc, args_s,
                                                           keys)
-    specialize__ll_and_arg = staticmethod(specialize__ll_and_arg)
 
 def annotate_lowlevel_helper(annotator, ll_function, args_s, policy=None):
     if policy is None:
@@ -103,24 +99,23 @@ def annotate_lowlevel_helper(annotator, ll_function, args_s, policy=None):
 
 class MixLevelAnnotatorPolicy(LowLevelAnnotatorPolicy):
 
-    def __init__(pol, annhelper):
-        pol.annhelper = annhelper
-        pol.rtyper = annhelper.rtyper
+    def __init__(self, annhelper):
+        self.rtyper = annhelper.rtyper
 
-    def default_specialize(pol, funcdesc, args_s):
+    def default_specialize(self, funcdesc, args_s):
         name = funcdesc.name
         if name.startswith('ll_') or name.startswith('_ll_'): # xxx can we do better?
-            return super(MixLevelAnnotatorPolicy, pol).default_specialize(
+            return super(MixLevelAnnotatorPolicy, self).default_specialize(
                 funcdesc, args_s)
         else:
             return AnnotatorPolicy.default_specialize(funcdesc, args_s)
 
-    def specialize__arglltype(pol, funcdesc, args_s, i):
-        key = pol.rtyper.getrepr(args_s[i]).lowleveltype
+    def specialize__arglltype(self, funcdesc, args_s, i):
+        key = self.rtyper.getrepr(args_s[i]).lowleveltype
         alt_name = funcdesc.name+"__for_%sLlT" % key._short_name()
         return funcdesc.cachedgraph(key, alt_name=valid_identifier(alt_name))
 
-    def specialize__genconst(pol, funcdesc, args_s, i):
+    def specialize__genconst(self, funcdesc, args_s, i):
         # XXX this is specific to the JIT
         TYPE = annotation_to_lltype(args_s[i], 'genconst')
         args_s[i] = lltype_to_annotation(TYPE)
@@ -254,7 +249,7 @@ class MixLevelHelperAnnotator(object):
         rtyper = self.rtyper
         translator = rtyper.annotator.translator
         original_graph_count = len(translator.graphs)
-        perform_normalizations(rtyper)
+        perform_normalizations(rtyper.annotator)
         for r in self.delayedreprs:
             r.set_setup_delayed(False)
         rtyper.call_all_setups()
@@ -353,19 +348,30 @@ class LLHelperEntry(extregistry.ExtRegistryEntry):
     _about_ = llhelper
 
     def compute_result_annotation(self, s_F, s_callable):
+        from rpython.annotator.description import FunctionDesc
         assert s_F.is_constant()
-        assert s_callable.is_constant()
+        assert isinstance(s_callable, annmodel.SomePBC)
         F = s_F.const
         FUNC = F.TO
         args_s = [lltype_to_annotation(T) for T in FUNC.ARGS]
-        key = (llhelper, s_callable.const)
-        s_res = self.bookkeeper.emulate_pbc_call(key, s_callable, args_s)
-        assert lltype_to_annotation(FUNC.RESULT).contains(s_res)
+        for desc in s_callable.descriptions:
+            assert isinstance(desc, FunctionDesc)
+            assert desc.pyobj is not None
+            if s_callable.is_constant():
+                assert s_callable.const is desc.pyobj
+            key = (llhelper, desc.pyobj)
+            s_res = self.bookkeeper.emulate_pbc_call(key, s_callable, args_s)
+            assert lltype_to_annotation(FUNC.RESULT).contains(s_res)
         return SomePtr(F)
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
-        return hop.args_r[1].get_unique_llfn()
+        if hop.args_s[1].is_constant():
+            return hop.args_r[1].get_unique_llfn()
+        else:
+            F = hop.args_s[0].const
+            assert hop.args_r[1].lowleveltype == F
+            return hop.inputarg(hop.args_r[1], 1)
 
 # ____________________________________________________________
 
@@ -425,9 +431,13 @@ def make_string_entries(strtype):
                 return lltype_to_annotation(lltype.Ptr(UNICODE))
 
         def specialize_call(self, hop):
+            from rpython.rtyper.lltypesystem.rstr import (string_repr,
+                                                          unicode_repr)
             hop.exception_cannot_occur()
-            assert hop.args_r[0].lowleveltype == hop.r_result.lowleveltype
-            v_ll_str, = hop.inputargs(*hop.args_r)
+            if strtype is str:
+                v_ll_str = hop.inputarg(string_repr, 0)
+            else:
+                v_ll_str = hop.inputarg(unicode_repr, 0)
             return hop.genop('same_as', [v_ll_str],
                              resulttype = hop.r_result.lowleveltype)
 
@@ -464,13 +474,22 @@ def cast_object_to_ptr(PTR, object):
 
 @specialize.argtype(0)
 def cast_instance_to_base_ptr(instance):
-    from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
+    from rpython.rtyper.rclass import OBJECTPTR
     return cast_object_to_ptr(OBJECTPTR, instance)
 
 @specialize.argtype(0)
 def cast_instance_to_gcref(instance):
     return lltype.cast_opaque_ptr(llmemory.GCREF,
                                   cast_instance_to_base_ptr(instance))
+
+@specialize.argtype(0)
+def cast_nongc_instance_to_base_ptr(instance):
+    from rpython.rtyper.rclass import NONGCOBJECTPTR
+    return cast_object_to_ptr(NONGCOBJECTPTR, instance)
+
+@specialize.argtype(0)
+def cast_nongc_instance_to_adr(instance):
+    return llmemory.cast_ptr_to_adr(cast_nongc_instance_to_base_ptr(instance))
 
 class CastObjectToPtrEntry(extregistry.ExtRegistryEntry):
     _about_ = cast_object_to_ptr
@@ -483,7 +502,7 @@ class CastObjectToPtrEntry(extregistry.ExtRegistryEntry):
             assert False
 
     def specialize_call(self, hop):
-        from rpython.rtyper import rpbc
+        from rpython.rtyper.rnone import NoneRepr
         PTR = hop.r_result.lowleveltype
         if isinstance(PTR, lltype.Ptr):
             T = lltype.Ptr
@@ -493,7 +512,7 @@ class CastObjectToPtrEntry(extregistry.ExtRegistryEntry):
             assert False
 
         hop.exception_cannot_occur()
-        if isinstance(hop.args_r[1], rpbc.NoneFrozenPBCRepr):
+        if isinstance(hop.args_r[1], NoneRepr):
             return hop.inputconst(PTR, null)
         v_arg = hop.inputarg(hop.args_r[1], arg=1)
         assert isinstance(v_arg.concretetype, T)
@@ -512,6 +531,21 @@ def cast_base_ptr_to_instance(Class, ptr):
         raise NotImplementedError("cast_base_ptr_to_instance: casting %r to %r"
                                   % (ptr, Class))
     return ptr
+
+cast_base_ptr_to_nongc_instance = cast_base_ptr_to_instance
+
+@specialize.arg(0)
+def cast_gcref_to_instance(Class, ptr):
+    """Reverse the hacking done in cast_instance_to_gcref()."""
+    from rpython.rtyper.rclass import OBJECTPTR
+    ptr = lltype.cast_opaque_ptr(OBJECTPTR, ptr)
+    return cast_base_ptr_to_instance(Class, ptr)
+
+@specialize.arg(0)
+def cast_adr_to_nongc_instance(Class, ptr):
+    from rpython.rtyper.rclass import NONGCOBJECTPTR
+    ptr = llmemory.cast_adr_to_ptr(ptr, NONGCOBJECTPTR)
+    return cast_base_ptr_to_nongc_instance(Class, ptr)
 
 class CastBasePtrToInstanceEntry(extregistry.ExtRegistryEntry):
     _about_ = cast_base_ptr_to_instance

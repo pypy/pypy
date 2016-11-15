@@ -32,10 +32,11 @@ from __future__ import absolute_import
 import inspect
 import weakref
 from types import BuiltinFunctionType, MethodType
+from collections import OrderedDict, defaultdict
 
 import rpython
 from rpython.tool import descriptor
-from rpython.tool.pairtype import pair, extendabletype
+from rpython.tool.pairtype import pair, extendabletype, doubledispatch
 from rpython.rlib.rarithmetic import r_uint, base_int, r_singlefloat, r_longfloat
 
 
@@ -43,6 +44,7 @@ class State(object):
     # A global attribute :-(  Patch it with 'True' to enable checking of
     # the no_nul attribute...
     check_str_without_nul = False
+    allow_int_to_float = True
 TLS = State()
 
 class SomeObject(object):
@@ -92,16 +94,9 @@ class SomeObject(object):
         if self == other:
             return True
         try:
-            TLS.no_side_effects_in_union += 1
-        except AttributeError:
-            TLS.no_side_effects_in_union = 1
-        try:
-            try:
-                return pair(self, other).union() == self
-            except UnionError:
-                return False
-        finally:
-            TLS.no_side_effects_in_union -= 1
+            return union(self, other) == self
+        except UnionError:
+            return False
 
     def is_constant(self):
         d = self.__dict__
@@ -122,8 +117,21 @@ class SomeObject(object):
     def can_be_none(self):
         return True
 
+    def noneify(self):
+        raise UnionError(self, s_None)
+
     def nonnoneify(self):
         return self
+
+@doubledispatch
+def intersection(s_obj1, s_obj2):
+    """Return the intersection of two annotations, or an over-approximation thereof"""
+    raise NotImplementedError
+
+@doubledispatch
+def difference(s_obj1, s_obj2):
+    """Return the set difference of two annotations, or an over-approximation thereof"""
+    raise NotImplementedError
 
 
 class SomeType(SomeObject):
@@ -133,6 +141,23 @@ class SomeType(SomeObject):
 
     def can_be_none(self):
         return False
+
+class SomeTypeOf(SomeType):
+    """The type of a variable"""
+    def __init__(self, args_v):
+        self.is_type_of = args_v
+
+def typeof(args_v):
+    if args_v:
+        result = SomeTypeOf(args_v)
+        if len(args_v) == 1:
+            s_arg = args_v[0].annotation
+            if isinstance(s_arg, SomeException) and len(s_arg.classdefs) == 1:
+                cdef, = s_arg.classdefs
+                result.const = cdef.classdesc.pyobj
+        return result
+    else:
+        return SomeType()
 
 
 class SomeFloat(SomeObject):
@@ -210,6 +235,9 @@ class SomeBool(SomeInteger):
 
     def set_knowntypedata(self, knowntypedata):
         assert not hasattr(self, 'knowntypedata')
+        for key, value in knowntypedata.items():
+            if not value:
+                del knowntypedata[key]
         if knowntypedata:
             self.knowntypedata = knowntypedata
 
@@ -251,17 +279,26 @@ class SomeStringOrUnicode(SomeObject):
         return self.__class__(can_be_None=False, no_nul=self.no_nul)
 
     def nonnulify(self):
-        return self.__class__(can_be_None=self.can_be_None, no_nul=True)
+        if self.can_be_None:
+            return self.__class__(can_be_None=True, no_nul=True)
+        else:
+            return self.__class__(no_nul=True)
 
 
 class SomeString(SomeStringOrUnicode):
     "Stands for an object which is known to be a string."
     knowntype = str
 
+    def noneify(self):
+        return SomeString(can_be_None=True, no_nul=self.no_nul)
+
 
 class SomeUnicodeString(SomeStringOrUnicode):
     "Stands for an object which is known to be an unicode string"
     knowntype = unicode
+
+    def noneify(self):
+        return SomeUnicodeString(can_be_None=True, no_nul=self.no_nul)
 
 
 class SomeByteArray(SomeStringOrUnicode):
@@ -313,6 +350,9 @@ class SomeList(SomeObject):
     def can_be_none(self):
         return True
 
+    def noneify(self):
+        return SomeList(self.listdef)
+
 
 class SomeTuple(SomeObject):
     "Stands for a tuple of known length."
@@ -358,12 +398,11 @@ class SomeDict(SomeObject):
         else:
             return '{...%s...}' % (len(const),)
 
+    def noneify(self):
+        return type(self)(self.dictdef)
+
 class SomeOrderedDict(SomeDict):
-    try:
-        from collections import OrderedDict as knowntype
-    except ImportError:    # Python 2.6
-        class PseudoOrderedDict(dict): pass
-        knowntype = PseudoOrderedDict
+    knowntype = OrderedDict
 
     def method_copy(dct):
         return SomeOrderedDict(dct.dictdef)
@@ -373,6 +412,8 @@ class SomeOrderedDict(SomeDict):
             return SomeImpossibleValue()
         assert isinstance(dct2, SomeOrderedDict), "OrderedDict.update(dict) not allowed"
         dct1.dictdef.union(dct2.dictdef)
+
+SomeDict = SomeOrderedDict      # all dicts are ordered!
 
 
 class SomeIterator(SomeObject):
@@ -392,7 +433,7 @@ class SomeInstance(SomeObject):
 
     def __init__(self, classdef, can_be_None=False, flags={}):
         self.classdef = classdef
-        self.knowntype = classdef or object
+        self.knowntype = classdef.classdesc if classdef else None
         self.can_be_None = can_be_None
         self.flags = flags
 
@@ -417,6 +458,55 @@ class SomeInstance(SomeObject):
     def nonnoneify(self):
         return SomeInstance(self.classdef, can_be_None=False)
 
+    def noneify(self):
+        return SomeInstance(self.classdef, can_be_None=True)
+
+@intersection.register(SomeInstance, SomeInstance)
+def intersection_Instance(s_inst1, s_inst2):
+    can_be_None = s_inst1.can_be_None and s_inst2.can_be_None
+    if s_inst1.classdef.issubclass(s_inst2.classdef):
+        return SomeInstance(s_inst1.classdef, can_be_None=can_be_None)
+    elif s_inst2.classdef.issubclass(s_inst1.classdef):
+        return SomeInstance(s_inst2.classdef, can_be_None=can_be_None)
+    else:
+        return s_ImpossibleValue
+
+@difference.register(SomeInstance, SomeInstance)
+def difference_Instance_Instance(s_inst1, s_inst2):
+    if s_inst1.classdef.issubclass(s_inst2.classdef):
+        return s_ImpossibleValue
+    else:
+        return s_inst1
+
+
+class SomeException(SomeObject):
+    """The set of exceptions obeying type(exc) in self.classes"""
+    def __init__(self, classdefs):
+        self.classdefs = classdefs
+
+    def as_SomeInstance(self):
+        return unionof(*[SomeInstance(cdef) for cdef in self.classdefs])
+
+@intersection.register(SomeException, SomeInstance)
+def intersection_Exception_Instance(s_exc, s_inst):
+    classdefs = {c for c in s_exc.classdefs if c.issubclass(s_inst.classdef)}
+    if classdefs:
+        return SomeException(classdefs)
+    else:
+        return s_ImpossibleValue
+
+@intersection.register(SomeInstance, SomeException)
+def intersection_Exception_Instance(s_inst, s_exc):
+    return intersection(s_exc, s_inst)
+
+@difference.register(SomeException, SomeInstance)
+def difference_Exception_Instance(s_exc, s_inst):
+    classdefs = {c for c in s_exc.classdefs
+        if not c.issubclass(s_inst.classdef)}
+    if classdefs:
+        return SomeException(classdefs)
+    else:
+        return s_ImpossibleValue
 
 class SomePBC(SomeObject):
     """Stands for a global user instance, built prior to the analysis,
@@ -424,36 +514,32 @@ class SomePBC(SomeObject):
     immutable = True
 
     def __init__(self, descriptions, can_be_None=False, subset_of=None):
+        assert descriptions
         # descriptions is a set of Desc instances
         descriptions = set(descriptions)
         self.descriptions = descriptions
         self.can_be_None = can_be_None
         self.subset_of = subset_of
         self.simplify()
-        if self.isNone():
-            self.knowntype = type(None)
-            self.const = None
-        else:
-            knowntype = reduce(commonbase,
-                               [x.knowntype for x in descriptions])
-            if knowntype == type(Exception):
-                knowntype = type
-            if knowntype != object:
-                self.knowntype = knowntype
-            if len(descriptions) == 1 and not can_be_None:
-                # hack for the convenience of direct callers to SomePBC():
-                # only if there is a single object in descriptions
-                desc, = descriptions
-                if desc.pyobj is not None:
-                    self.const = desc.pyobj
-            elif len(descriptions) > 1:
-                from rpython.annotator.description import ClassDesc
-                if self.getKind() is ClassDesc:
-                    # a PBC of several classes: enforce them all to be
-                    # built, without support for specialization.  See
-                    # rpython/test/test_rpbc.test_pbc_of_classes_not_all_used
-                    for desc in descriptions:
-                        desc.getuniqueclassdef()
+        knowntype = reduce(commonbase, [x.knowntype for x in descriptions])
+        if knowntype == type(Exception):
+            knowntype = type
+        if knowntype != object:
+            self.knowntype = knowntype
+        if len(descriptions) == 1 and not can_be_None:
+            # hack for the convenience of direct callers to SomePBC():
+            # only if there is a single object in descriptions
+            desc, = descriptions
+            if desc.pyobj is not None:
+                self.const = desc.pyobj
+        elif len(descriptions) > 1:
+            from rpython.annotator.classdesc import ClassDesc
+            if self.getKind() is ClassDesc:
+                # a PBC of several classes: enforce them all to be
+                # built, without support for specialization.  See
+                # rpython/test/test_rpbc.test_pbc_of_classes_not_all_used
+                for desc in descriptions:
+                    desc.getuniqueclassdef()
 
     def any_description(self):
         return iter(self.descriptions).next()
@@ -466,32 +552,30 @@ class SomePBC(SomeObject):
             kinds.add(x.__class__)
         if len(kinds) > 1:
             raise AnnotatorError("mixing several kinds of PBCs: %r" % kinds)
-        if not kinds:
-            raise ValueError("no 'kind' on the 'None' PBC")
         return kinds.pop()
 
     def simplify(self):
-        if self.descriptions:
-            # We check that the set only contains a single kind of Desc instance
-            kind = self.getKind()
-            # then we remove unnecessary entries in self.descriptions:
-            # some MethodDescs can be 'shadowed' by others
-            if len(self.descriptions) > 1:
-                kind.simplify_desc_set(self.descriptions)
-        else:
-            assert self.can_be_None, "use s_ImpossibleValue"
+        # We check that the set only contains a single kind of Desc instance
+        kind = self.getKind()
+        # then we remove unnecessary entries in self.descriptions:
+        # some MethodDescs can be 'shadowed' by others
+        if len(self.descriptions) > 1:
+            kind.simplify_desc_set(self.descriptions)
 
-    def isNone(self):
-        return len(self.descriptions) == 0
+    def consider_call_site(self, args, s_result, call_op):
+        descs = list(self.descriptions)
+        self.getKind().consider_call_site(descs, args, s_result, call_op)
 
     def can_be_none(self):
         return self.can_be_None
 
     def nonnoneify(self):
-        if self.isNone():
-            return s_ImpossibleValue
-        else:
-            return SomePBC(self.descriptions, can_be_None=False)
+        return SomePBC(self.descriptions, can_be_None=False,
+                subset_of=self.subset_of)
+
+    def noneify(self):
+        return SomePBC(self.descriptions, can_be_None=True,
+                subset_of=self.subset_of)
 
     def fmt_descriptions(self, pbis):
         if hasattr(self, 'const'):
@@ -504,6 +588,23 @@ class SomePBC(SomeObject):
             return None
         else:
             return kt.__name__
+
+class SomeNone(SomeObject):
+    knowntype = type(None)
+    const = None
+
+    def __init__(self):
+        pass
+
+    def is_constant(self):
+        return True
+
+    def is_immutable_constant(self):
+        return True
+
+    def nonnoneify(self):
+        return s_ImpossibleValue
+
 
 class SomeConstantType(SomePBC):
     can_be_None = False
@@ -536,7 +637,15 @@ class SomeBuiltin(SomeObject):
 class SomeBuiltinMethod(SomeBuiltin):
     """ Stands for a built-in method which has got special meaning
     """
-    knowntype = MethodType
+    def __init__(self, analyser, s_self, methodname):
+        if isinstance(analyser, MethodType):
+            analyser = descriptor.InstanceMethod(
+                analyser.im_func,
+                analyser.im_self,
+                analyser.im_class)
+        self.analyser = analyser
+        self.s_self = s_self
+        self.methodname = methodname
 
 
 class SomeImpossibleValue(SomeObject):
@@ -549,8 +658,25 @@ class SomeImpossibleValue(SomeObject):
         return False
 
 
-s_None = SomePBC([], can_be_None=True)
+class SomeProperty(SomeObject):
+    # used for union error only
+    immutable = True
+    knowntype = type(property)
+
+    def __init__(self, prop):
+        self.fget = prop.fget
+        self.fset = prop.fset
+
+    def can_be_none(self):
+        return False
+
+
+s_None = SomeNone()
 s_Bool = SomeBool()
+s_True = SomeBool()
+s_True.const = True
+s_False = SomeBool()
+s_False.const = False
 s_Int = SomeInteger()
 s_ImpossibleValue = SomeImpossibleValue()
 s_Str0 = SomeString(no_nul=True)
@@ -567,6 +693,9 @@ class SomeWeakRef(SomeObject):
     def __init__(self, classdef):
         # 'classdef' is None for known-to-be-dead weakrefs.
         self.classdef = classdef
+
+    def noneify(self):
+        return SomeWeakRef(self.classdef)
 
 # ____________________________________________________________
 
@@ -607,6 +736,27 @@ class UnionError(AnnotatorError):
     def __repr__(self):
         return str(self)
 
+def union(s1, s2):
+    """The join operation in the lattice of annotations.
+
+    It is the most precise SomeObject instance that contains both arguments.
+
+    union() is (supposed to be) idempotent, commutative, associative and has
+    no side-effects.
+    """
+    try:
+        TLS.no_side_effects_in_union += 1
+    except AttributeError:
+        TLS.no_side_effects_in_union = 1
+    try:
+        if s1 == s2:
+            # Most pair(...).union() methods deal incorrectly with that case
+            # when constants are involved.
+            return s1
+        return pair(s1, s2).union()
+    finally:
+        TLS.no_side_effects_in_union -= 1
+
 def unionof(*somevalues):
     "The most precise SomeValue instance that contains all the values."
     try:
@@ -617,7 +767,7 @@ def unionof(*somevalues):
             if s1 != s2:
                 s1 = pair(s1, s2).union()
     else:
-        # this is just a performance shortcut
+        # See comment in union() above
         if s1 != s2:
             s1 = pair(s1, s2).union()
     return s1
@@ -627,19 +777,20 @@ def unionof(*somevalues):
 
 def add_knowntypedata(ktd, truth, vars, s_obj):
     for v in vars:
-        ktd[(truth, v)] = s_obj
+        ktd[truth][v] = s_obj
 
 
 def merge_knowntypedata(ktd1, ktd2):
-    r = {}
-    for truth_v in ktd1:
-        if truth_v in ktd2:
-            r[truth_v] = unionof(ktd1[truth_v], ktd2[truth_v])
+    r = defaultdict(dict)
+    for truth, constraints in ktd1.items():
+        for v in constraints:
+            if truth in ktd2 and v in ktd2[truth]:
+                r[truth][v] = unionof(ktd1[truth][v], ktd2[truth][v])
     return r
 
 
 def not_const(s_obj):
-    if s_obj.is_constant() and not isinstance(s_obj, SomePBC):
+    if s_obj.is_constant() and not isinstance(s_obj, (SomePBC, SomeNone)):
         new_s_obj = SomeObject.__new__(s_obj.__class__)
         dic = new_s_obj.__dict__ = s_obj.__dict__.copy()
         if 'const' in dic:

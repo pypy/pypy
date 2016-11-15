@@ -1,20 +1,21 @@
 import py
-from rpython.jit.metainterp.history import BoxInt, ConstInt, BoxFloat, INT, FLOAT,\
-     BoxPtr
+from rpython.jit.metainterp.history import ConstInt, INT, FLOAT
 from rpython.jit.backend.llsupport.regalloc import FrameManager, LinkedList
 from rpython.jit.backend.llsupport.regalloc import RegisterManager as BaseRegMan
+from rpython.jit.metainterp.resoperation import InputArgInt, InputArgRef,\
+     InputArgFloat
 
 def newboxes(*values):
-    return [BoxInt(v) for v in values]
+    return [InputArgInt(v) for v in values]
 
 def newrefboxes(count):
-    return [BoxPtr() for _ in range(count)]
+    return [InputArgRef() for _ in range(count)]
 
 def boxes_and_longevity(num):
     res = []
     longevity = {}
     for i in range(num):
-        box = BoxInt(0)
+        box = InputArgInt(0)
         res.append(box)
         longevity[box] = (0, 1)
     return res, longevity
@@ -348,11 +349,11 @@ class TestRegalloc(object):
             pass
 
         fm = TFrameManager()
-        b0 = BoxInt()
+        b0 = InputArgInt()
         longevity = {b0: (0, 1)}
         asm = MockAsm()
         rm = RegisterManager(longevity, frame_manager=fm, assembler=asm)
-        f0 = BoxFloat()
+        f0 = InputArgFloat()
         longevity = {f0: (0, 1)}
         xrm = XRegisterManager(longevity, frame_manager=fm, assembler=asm)
         xrm.loc(f0)
@@ -474,42 +475,42 @@ class TestRegalloc(object):
         loc0b = fm.loc(b0)
         assert loc0b == loc0
         #
-        fm.loc(BoxInt())
+        fm.loc(InputArgInt())
         assert fm.get_frame_depth() == 3
         #
-        f0 = BoxFloat()
+        f0 = InputArgFloat()
         locf0 = fm.loc(f0)
         assert fm.get_loc_index(locf0) == 3
         assert fm.get_frame_depth() == 4
         #
-        f1 = BoxFloat()
+        f1 = InputArgFloat()
         locf1 = fm.loc(f1)
         assert fm.get_loc_index(locf1) == 4
         assert fm.get_frame_depth() == 5
         fm.mark_as_free(b1)
         assert fm.freelist
-        b2 = BoxInt()
+        b2 = InputArgInt()
         fm.loc(b2) # should be in the same spot as b1 before
         assert fm.get(b1) is None
         assert fm.get(b2) == loc1
         fm.mark_as_free(b0)
-        p0 = BoxPtr()
+        p0 = InputArgRef()
         ploc = fm.loc(p0)
         assert fm.get_loc_index(ploc) == 0
         assert fm.get_frame_depth() == 5
         assert ploc != loc1
-        p1 = BoxPtr()
+        p1 = InputArgRef()
         p1loc = fm.loc(p1)
         assert fm.get_loc_index(p1loc) == 5
         assert fm.get_frame_depth() == 6
         fm.mark_as_free(p0)
-        p2 = BoxPtr()
+        p2 = InputArgRef()
         p2loc = fm.loc(p2)
         assert p2loc == ploc
         assert len(fm.freelist) == 0
         for box in fm.bindings.keys():
             fm.mark_as_free(box)
-        fm.bind(BoxPtr(), FakeFramePos(3, 'r'))
+        fm.bind(InputArgRef(), FakeFramePos(3, 'r'))
         assert len(fm.freelist) == 6
 
     def test_frame_manager_basic(self):
@@ -526,42 +527,42 @@ class TestRegalloc(object):
         loc0b = fm.loc(b0)
         assert loc0b == loc0
         #
-        fm.loc(BoxInt())
+        fm.loc(InputArgInt())
         assert fm.get_frame_depth() == 3
         #
-        f0 = BoxFloat()
+        f0 = InputArgFloat()
         locf0 = fm.loc(f0)
         # can't be odd
         assert fm.get_loc_index(locf0) == 4
         assert fm.get_frame_depth() == 6
         #
-        f1 = BoxFloat()
+        f1 = InputArgFloat()
         locf1 = fm.loc(f1)
         assert fm.get_loc_index(locf1) == 6
         assert fm.get_frame_depth() == 8
         fm.mark_as_free(b1)
         assert fm.freelist
-        b2 = BoxInt()
+        b2 = InputArgInt()
         fm.loc(b2) # should be in the same spot as b1 before
         assert fm.get(b1) is None
         assert fm.get(b2) == loc1
         fm.mark_as_free(b0)
-        p0 = BoxPtr()
+        p0 = InputArgRef()
         ploc = fm.loc(p0)
         assert fm.get_loc_index(ploc) == 0
         assert fm.get_frame_depth() == 8
         assert ploc != loc1
-        p1 = BoxPtr()
+        p1 = InputArgRef()
         p1loc = fm.loc(p1)
         assert fm.get_loc_index(p1loc) == 3
         assert fm.get_frame_depth() == 8
         fm.mark_as_free(p0)
-        p2 = BoxPtr()
+        p2 = InputArgRef()
         p2loc = fm.loc(p2)
         assert p2loc == ploc
         assert len(fm.freelist) == 0
         fm.mark_as_free(b2)
-        f3 = BoxFloat()
+        f3 = InputArgFloat()
         fm.mark_as_free(p2)
         floc = fm.loc(f3)
         assert fm.get_loc_index(floc) == 0

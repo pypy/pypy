@@ -1,49 +1,159 @@
 """
 Unary operations on SomeValues.
 """
-
 from __future__ import absolute_import
 
+from collections import defaultdict
+
+from rpython.tool.pairtype import pair
 from rpython.flowspace.operation import op
+from rpython.flowspace.model import const, Constant
+from rpython.flowspace.argument import CallSpec
 from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
     SomeString, SomeChar, SomeList, SomeDict, SomeTuple, SomeImpossibleValue,
-    SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeFloat, SomeIterator,
-    SomePBC, SomeType, s_ImpossibleValue,
-    s_Bool, s_None, unionof, add_knowntypedata,
-    HarmlesslyBlocked, SomeWeakRef, SomeUnicodeString, SomeByteArray)
-from rpython.annotator.bookkeeper import getbookkeeper
-from rpython.annotator import builtin
+    SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeBuiltinMethod,
+    SomeFloat, SomeIterator, SomePBC, SomeNone, SomeTypeOf, s_ImpossibleValue,
+    s_Bool, s_None, s_Int, unionof, add_knowntypedata,
+    SomeWeakRef, SomeUnicodeString, SomeByteArray)
+from rpython.annotator.bookkeeper import getbookkeeper, immutablevalue
 from rpython.annotator.binaryop import _clone ## XXX where to put this?
+from rpython.annotator.binaryop import _dict_can_only_throw_keyerror
+from rpython.annotator.binaryop import _dict_can_only_throw_nothing
+from rpython.annotator.classdesc import ClassDesc, is_primitive_type, BuiltinTypeDesc
 from rpython.annotator.model import AnnotatorError
-
-# convenience only!
-def immutablevalue(x):
-    return getbookkeeper().immutablevalue(x)
+from rpython.annotator.argument import simple_args, complex_args
 
 UNARY_OPERATIONS = set([oper.opname for oper in op.__dict__.values()
                         if oper.dispatch == 1])
+UNARY_OPERATIONS.remove('contains')
 
+
+@op.type.register(SomeObject)
+def type_SomeObject(annotator, v_arg):
+    return SomeTypeOf([v_arg])
+
+
+def our_issubclass(bk, cls1, cls2):
+    def toclassdesc(cls):
+        if isinstance(cls, ClassDesc):
+            return cls
+        elif is_primitive_type(cls):
+            return BuiltinTypeDesc(cls)
+        else:
+            return bk.getdesc(cls)
+    return toclassdesc(cls1).issubclass(toclassdesc(cls2))
+
+
+def s_isinstance(annotator, s_obj, s_type, variables):
+    if not s_type.is_constant():
+        return SomeBool()
+    r = SomeBool()
+    typ = s_type.const
+    bk = annotator.bookkeeper
+    if s_obj.is_constant():
+        r.const = isinstance(s_obj.const, typ)
+    elif our_issubclass(bk, s_obj.knowntype, typ):
+        if not s_obj.can_be_none():
+            r.const = True
+    elif not our_issubclass(bk, typ, s_obj.knowntype):
+        r.const = False
+    elif s_obj.knowntype == int and typ == bool: # xxx this will explode in case of generalisation
+                                            # from bool to int, notice that isinstance( , bool|int)
+                                            # is quite border case for RPython
+        r.const = False
+    for v in variables:
+        assert v.annotation == s_obj
+    knowntypedata = defaultdict(dict)
+    if not hasattr(typ, '_freeze_') and isinstance(s_type, SomePBC):
+        add_knowntypedata(knowntypedata, True, variables, bk.valueoftype(typ))
+    r.set_knowntypedata(knowntypedata)
+    return r
+
+@op.isinstance.register(SomeObject)
+def isinstance_SomeObject(annotator, v_obj, v_cls):
+    s_obj = annotator.annotation(v_obj)
+    s_cls = annotator.annotation(v_cls)
+    return s_isinstance(annotator, s_obj, s_cls, variables=[v_obj])
+
+
+@op.bool.register(SomeObject)
+def bool_SomeObject(annotator, obj):
+    r = SomeBool()
+    annotator.annotation(obj).bool_behavior(r)
+    s_nonnone_obj = annotator.annotation(obj)
+    if s_nonnone_obj.can_be_none():
+        s_nonnone_obj = s_nonnone_obj.nonnoneify()
+    knowntypedata = defaultdict(dict)
+    add_knowntypedata(knowntypedata, True, [obj], s_nonnone_obj)
+    r.set_knowntypedata(knowntypedata)
+    return r
+
+@op.contains.register(SomeObject)
+def contains_SomeObject(annotator, obj, element):
+    return s_Bool
+contains_SomeObject.can_only_throw = []
+
+@op.contains.register(SomeNone)
+def contains_SomeNone(annotator, obj, element):
+    # return False here for the case "... in None", because it can be later
+    # generalized to "... in d" where d is either None or the empty dict
+    # (which would also return the constant False)
+    s_bool = SomeBool()
+    s_bool.const = False
+    return s_bool
+contains_SomeNone.can_only_throw = []
+
+
+@op.contains.register(SomeInteger)
+@op.contains.register(SomeFloat)
+@op.contains.register(SomeBool)
+def contains_number(annotator, number, element):
+    raise AnnotatorError("number is not iterable")
+
+
+@op.simple_call.register(SomeObject)
+def simple_call_SomeObject(annotator, func, *args):
+    s_func = annotator.annotation(func)
+    argspec = simple_args([annotator.annotation(arg) for arg in args])
+    return s_func.call(argspec)
+
+@op.call_args.register_transform(SomeObject)
+def transform_varargs(annotator, v_func, v_shape, *data_v):
+    callspec = CallSpec.fromshape(v_shape.value, list(data_v))
+    v_vararg = callspec.w_stararg
+    if callspec.w_stararg:
+        s_vararg = annotator.annotation(callspec.w_stararg)
+        if not isinstance(s_vararg, SomeTuple):
+            raise AnnotatorError(
+                "Calls like f(..., *arg) require 'arg' to be a tuple")
+        n_items = len(s_vararg.items)
+        ops = [op.getitem(v_vararg, const(i)) for i in range(n_items)]
+        new_args = callspec.arguments_w + [hlop.result for hlop in ops]
+        if callspec.keywords:
+            newspec = CallSpec(new_args, callspec.keywords)
+            shape, data_v = newspec.flatten()
+            call_op = op.call_args(v_func, const(shape), *data_v)
+        else:
+            call_op = op.simple_call(v_func, *new_args)
+        ops.append(call_op)
+        return ops
+
+
+@op.call_args.register(SomeObject)
+def call_args(annotator, func, *args_v):
+    callspec = complex_args([annotator.annotation(v_arg) for v_arg in args_v])
+    return annotator.annotation(func).call(callspec)
+
+@op.issubtype.register(SomeObject)
+def issubtype(annotator, v_type, v_cls):
+    s_type = v_type.annotation
+    s_cls = annotator.annotation(v_cls)
+    if s_type.is_constant() and s_cls.is_constant():
+        return annotator.bookkeeper.immutablevalue(
+            issubclass(s_type.const, s_cls.const))
+    return s_Bool
 
 class __extend__(SomeObject):
-
-    def type(self, *moreargs):
-        if moreargs:
-            raise Exception('type() called with more than one argument')
-        r = SomeType()
-        bk = getbookkeeper()
-        op = bk._find_current_op(opname="type", arity=1, pos=0, s_type=self)
-        r.is_type_of = [op.args[0]]
-        return r
-
-    def issubtype(self, s_cls):
-        if hasattr(self, 'is_type_of'):
-            vars = self.is_type_of
-            annotator = getbookkeeper().annotator
-            return builtin.builtin_isinstance(annotator.binding(vars[0]),
-                                              s_cls, vars)
-        if self.is_constant() and s_cls.is_constant():
-            return immutablevalue(issubclass(self.const, s_cls.const))
-        return s_Bool
 
     def len(self):
         return SomeInteger(nonneg=True)
@@ -55,21 +165,6 @@ class __extend__(SomeObject):
             s_len = self.len()
             if s_len.is_immutable_constant():
                 s.const = s_len.const > 0
-
-    def bool(s_obj):
-        r = SomeBool()
-        s_obj.bool_behavior(r)
-
-        bk = getbookkeeper()
-        knowntypedata = {}
-        op = bk._find_current_op(opname="bool", arity=1)
-        arg = op.args[0]
-        s_nonnone_obj = s_obj
-        if s_obj.can_be_none():
-            s_nonnone_obj = s_obj.nonnoneify()
-        add_knowntypedata(knowntypedata, True, [arg], s_nonnone_obj)
-        r.set_knowntypedata(knowntypedata)
-        return r
 
     def hash(self):
         raise AnnotatorError("cannot use hash() in RPython")
@@ -112,7 +207,7 @@ class __extend__(SomeObject):
         except AttributeError:
             return None
         else:
-            return SomeBuiltin(analyser, self, name)
+            return SomeBuiltinMethod(analyser, self, name)
 
     def getattr(self, s_attr):
         # get a SomeBuiltin if the SomeObject has
@@ -136,18 +231,8 @@ class __extend__(SomeObject):
     def bind_callables_under(self, classdef, name):
         return self   # default unbound __get__ implementation
 
-    def simple_call(self, *args_s):
-        return self.call(getbookkeeper().build_args("simple_call", args_s))
-
-    def call_args(self, *args_s):
-        return self.call(getbookkeeper().build_args("call_args", args_s))
-
     def call(self, args, implicit_init=False):
         raise AnnotatorError("Cannot prove that the object is callable")
-
-    def op_contains(self, s_element):
-        return s_Bool
-    op_contains.can_only_throw = []
 
     def hint(self, *args_s):
         return self
@@ -181,6 +266,9 @@ class __extend__(SomeFloat):
             return getbookkeeper().immutablevalue(bool(self.const))
         return s_Bool
 
+    def len(self):
+        raise AnnotatorError("'float' has no length")
+
 class __extend__(SomeInteger):
 
     def invert(self):
@@ -206,6 +294,10 @@ class __extend__(SomeInteger):
 
     abs.can_only_throw = []
     abs_ovf = _clone(abs, [OverflowError])
+
+    def len(self):
+        raise AnnotatorError("'int' has no length")
+
 
 class __extend__(SomeBool):
     def bool(self):
@@ -243,7 +335,7 @@ class __extend__(SomeTuple):
         return SomeIterator(self)
     iter.can_only_throw = []
 
-    def getanyitem(self):
+    def getanyitem(self, position):
         return unionof(*self.items)
 
     def getslice(self, s_start, s_stop):
@@ -251,6 +343,12 @@ class __extend__(SomeTuple):
         assert s_stop.is_immutable_constant(), "tuple slicing: needs constants"
         items = self.items[s_start.const:s_stop.const]
         return SomeTuple(items)
+
+@op.contains.register(SomeList)
+def contains_SomeList(annotator, obj, element):
+    annotator.annotation(obj).listdef.generalize(annotator.annotation(element))
+    return s_Bool
+contains_SomeList.can_only_throw = []
 
 
 class __extend__(SomeList):
@@ -262,7 +360,7 @@ class __extend__(SomeList):
     def method_extend(self, s_iterable):
         self.listdef.resize()
         if isinstance(s_iterable, SomeList):   # unify the two lists
-            self.listdef.agree(s_iterable.listdef)
+            self.listdef.agree(getbookkeeper(), s_iterable.listdef)
         else:
             s_iter = s_iterable.iter()
             self.method_append(s_iter.next())
@@ -278,8 +376,9 @@ class __extend__(SomeList):
         self.listdef.generalize(s_value)
 
     def method_pop(self, s_index=None):
+        position = getbookkeeper().position_key
         self.listdef.resize()
-        return self.listdef.read_item()
+        return self.listdef.read_item(position)
     method_pop.can_only_throw = [IndexError]
 
     def method_index(self, s_value):
@@ -287,7 +386,8 @@ class __extend__(SomeList):
         return SomeInteger(nonneg=True)
 
     def len(self):
-        s_item = self.listdef.read_item()
+        position = getbookkeeper().position_key
+        s_item = self.listdef.read_item(position)
         if isinstance(s_item, SomeImpossibleValue):
             return immutablevalue(0)
         return SomeObject.len(self)
@@ -296,39 +396,35 @@ class __extend__(SomeList):
         return SomeIterator(self)
     iter.can_only_throw = []
 
-    def getanyitem(self):
-        return self.listdef.read_item()
-
-    def op_contains(self, s_element):
-        self.listdef.generalize(s_element)
-        return s_Bool
-    op_contains.can_only_throw = []
+    def getanyitem(self, position):
+        return self.listdef.read_item(position)
 
     def hint(self, *args_s):
         hints = args_s[-1].const
         if 'maxlength' in hints:
-            # only for iteration over lists or dicts at the moment,
+            # only for iteration over lists or dicts or strs at the moment,
             # not over an iterator object (because it has no known length)
             s_iterable = args_s[0]
-            if isinstance(s_iterable, (SomeList, SomeDict)):
+            if isinstance(s_iterable, (SomeList, SomeDict, SomeString)):
                 self = SomeList(self.listdef) # create a fresh copy
                 self.listdef.resize()
                 self.listdef.listitem.hint_maxlength = True
         elif 'fence' in hints:
-            self = self.listdef.offspring()
+            self = self.listdef.offspring(getbookkeeper())
         return self
 
     def getslice(self, s_start, s_stop):
+        bk = getbookkeeper()
         check_negative_slice(s_start, s_stop)
-        return self.listdef.offspring()
+        return self.listdef.offspring(bk)
 
     def setslice(self, s_start, s_stop, s_iterable):
         check_negative_slice(s_start, s_stop)
         if not isinstance(s_iterable, SomeList):
             raise Exception("list[start:stop] = x: x must be a list")
         self.listdef.mutate()
-        self.listdef.agree(s_iterable.listdef)
-        # note that setslice is not allowed to resize a list in RPython
+        self.listdef.agree(getbookkeeper(), s_iterable.listdef)
+        self.listdef.resize()
 
     def delslice(self, s_start, s_stop):
         check_negative_slice(s_start, s_stop)
@@ -343,16 +439,33 @@ def check_negative_slice(s_start, s_stop, error="slicing"):
         raise AnnotatorError("%s: not proven to have non-negative stop" % error)
 
 
+def dict_contains(s_dct, s_element, position):
+    s_dct.dictdef.generalize_key(s_element)
+    if s_dct._is_empty(position):
+        s_bool = SomeBool()
+        s_bool.const = False
+        return s_bool
+    return s_Bool
+
+@op.contains.register(SomeDict)
+def contains_SomeDict(annotator, dct, element):
+    position = annotator.bookkeeper.position_key
+    return dict_contains(annotator.annotation(dct),
+                         annotator.annotation(element),
+                         position)
+contains_SomeDict.can_only_throw = _dict_can_only_throw_nothing
+
 class __extend__(SomeDict):
 
-    def _is_empty(self):
-        s_key = self.dictdef.read_key()
-        s_value = self.dictdef.read_value()
+    def _is_empty(self, position):
+        s_key = self.dictdef.read_key(position)
+        s_value = self.dictdef.read_value(position)
         return (isinstance(s_key, SomeImpossibleValue) or
                 isinstance(s_value, SomeImpossibleValue))
 
     def len(self):
-        if self._is_empty():
+        position = getbookkeeper().position_key
+        if self._is_empty(position):
             return immutablevalue(0)
         return SomeObject.len(self)
 
@@ -360,26 +473,33 @@ class __extend__(SomeDict):
         return SomeIterator(self)
     iter.can_only_throw = []
 
-    def getanyitem(self, variant='keys'):
+    def getanyitem(self, position, variant='keys'):
         if variant == 'keys':
-            return self.dictdef.read_key()
+            return self.dictdef.read_key(position)
         elif variant == 'values':
-            return self.dictdef.read_value()
-        elif variant == 'items':
-            s_key   = self.dictdef.read_key()
-            s_value = self.dictdef.read_value()
+            return self.dictdef.read_value(position)
+        elif variant == 'items' or variant == 'items_with_hash':
+            s_key   = self.dictdef.read_key(position)
+            s_value = self.dictdef.read_value(position)
             if (isinstance(s_key, SomeImpossibleValue) or
                 isinstance(s_value, SomeImpossibleValue)):
                 return s_ImpossibleValue
-            else:
+            elif variant == 'items':
                 return SomeTuple((s_key, s_value))
-        else:
-            raise ValueError
+            elif variant == 'items_with_hash':
+                return SomeTuple((s_key, s_value, s_Int))
+        elif variant == 'keys_with_hash':
+            s_key = self.dictdef.read_key(position)
+            if isinstance(s_key, SomeImpossibleValue):
+                return s_ImpossibleValue
+            return SomeTuple((s_key, s_Int))
+        raise ValueError(variant)
 
     def method_get(self, key, dfl):
+        position = getbookkeeper().position_key
         self.dictdef.generalize_key(key)
         self.dictdef.generalize_value(dfl)
-        return self.dictdef.read_value()
+        return self.dictdef.read_value(position)
 
     method_setdefault = method_get
 
@@ -391,14 +511,20 @@ class __extend__(SomeDict):
             return SomeImpossibleValue()
         dct1.dictdef.union(dct2.dictdef)
 
+    def method__prepare_dict_update(dct, num):
+        pass
+
     def method_keys(self):
-        return getbookkeeper().newlist(self.dictdef.read_key())
+        bk = getbookkeeper()
+        return bk.newlist(self.dictdef.read_key(bk.position_key))
 
     def method_values(self):
-        return getbookkeeper().newlist(self.dictdef.read_value())
+        bk = getbookkeeper()
+        return bk.newlist(self.dictdef.read_value(bk.position_key))
 
     def method_items(self):
-        return getbookkeeper().newlist(self.getanyitem('items'))
+        bk = getbookkeeper()
+        return bk.newlist(self.getanyitem(bk.position_key, variant='items'))
 
     def method_iterkeys(self):
         return SomeIterator(self, 'keys')
@@ -409,31 +535,59 @@ class __extend__(SomeDict):
     def method_iteritems(self):
         return SomeIterator(self, 'items')
 
+    def method_iterkeys_with_hash(self):
+        return SomeIterator(self, 'keys_with_hash')
+
+    def method_iteritems_with_hash(self):
+        return SomeIterator(self, 'items_with_hash')
+
     def method_clear(self):
         pass
 
     def method_popitem(self):
-        return self.getanyitem('items')
+        position = getbookkeeper().position_key
+        return self.getanyitem(position, variant='items')
 
     def method_pop(self, s_key, s_dfl=None):
         self.dictdef.generalize_key(s_key)
         if s_dfl is not None:
             self.dictdef.generalize_value(s_dfl)
-        return self.dictdef.read_value()
+        position = getbookkeeper().position_key
+        return self.dictdef.read_value(position)
 
-    def _can_only_throw(self, *ignore):
-        if self.dictdef.dictkey.custom_eq_hash:
-            return None    # r_dict: can throw anything
-        return []          # else: no possible exception
+    def method_contains_with_hash(self, s_key, s_hash):
+        position = getbookkeeper().position_key
+        return dict_contains(self, s_key, position)
+    method_contains_with_hash.can_only_throw = _dict_can_only_throw_nothing
 
-    def op_contains(self, s_element):
-        self.dictdef.generalize_key(s_element)
-        if self._is_empty():
-            s_bool = SomeBool()
-            s_bool.const = False
-            return s_bool
-        return s_Bool
-    op_contains.can_only_throw = _can_only_throw
+    def method_setitem_with_hash(self, s_key, s_hash, s_value):
+        pair(self, s_key).setitem(s_value)
+    method_setitem_with_hash.can_only_throw = _dict_can_only_throw_nothing
+
+    def method_getitem_with_hash(self, s_key, s_hash):
+        # XXX: copy of binaryop.getitem_SomeDict
+        self.dictdef.generalize_key(s_key)
+        position = getbookkeeper().position_key
+        return self.dictdef.read_value(position)
+    method_getitem_with_hash.can_only_throw = _dict_can_only_throw_keyerror
+
+    def method_delitem_with_hash(self, s_key, s_hash):
+        pair(self, s_key).delitem()
+    method_delitem_with_hash.can_only_throw = _dict_can_only_throw_keyerror
+
+@op.contains.register(SomeString)
+@op.contains.register(SomeUnicodeString)
+def contains_String(annotator, string, char):
+    if annotator.annotation(char).is_constant() and annotator.annotation(char).const == "\0":
+        r = SomeBool()
+        knowntypedata = defaultdict(dict)
+        add_knowntypedata(knowntypedata, False, [string],
+                          annotator.annotation(string).nonnulify())
+        r.set_knowntypedata(knowntypedata)
+        return r
+    else:
+        return contains_SomeObject(annotator, string, char)
+contains_String.can_only_throw = []
 
 
 class __extend__(SomeString,
@@ -462,18 +616,25 @@ class __extend__(SomeString,
         return SomeInteger(nonneg=True)
 
     def method_strip(self, chr=None):
+        if chr is None and isinstance(self, SomeUnicodeString):
+            raise AnnotatorError("unicode.strip() with no arg is not RPython")
         return self.basestringclass(no_nul=self.no_nul)
 
     def method_lstrip(self, chr=None):
+        if chr is None and isinstance(self, SomeUnicodeString):
+            raise AnnotatorError("unicode.lstrip() with no arg is not RPython")
         return self.basestringclass(no_nul=self.no_nul)
 
     def method_rstrip(self, chr=None):
+        if chr is None and isinstance(self, SomeUnicodeString):
+            raise AnnotatorError("unicode.rstrip() with no arg is not RPython")
         return self.basestringclass(no_nul=self.no_nul)
 
     def method_join(self, s_list):
         if s_None.contains(s_list):
             return SomeImpossibleValue()
-        s_item = s_list.listdef.read_item()
+        position = getbookkeeper().position_key
+        s_item = s_list.listdef.read_item(position)
         if s_None.contains(s_item):
             if isinstance(self, SomeUnicodeString):
                 return immutablevalue(u"")
@@ -485,11 +646,13 @@ class __extend__(SomeString,
         return SomeIterator(self)
     iter.can_only_throw = []
 
-    def getanyitem(self):
+    def getanyitem(self, position):
         return self.basecharclass()
 
     def method_split(self, patt, max=-1):
-        if max == -1 and patt.is_constant() and patt.const == "\0":
+        # special-case for .split( '\x00') or .split(u'\x00')
+        if max == -1 and patt.is_constant() and (
+               len(patt.const) == 1 and ord(patt.const) == 0):
             no_nul = True
         else:
             no_nul = self.no_nul
@@ -508,19 +671,6 @@ class __extend__(SomeString,
         result = self.basestringclass(no_nul=self.no_nul)
         return result
 
-    def op_contains(self, s_element):
-        if s_element.is_constant() and s_element.const == "\0":
-            r = SomeBool()
-            bk = getbookkeeper()
-            op = bk._find_current_op(opname="contains", arity=2, pos=0, s_type=self)
-            knowntypedata = {}
-            add_knowntypedata(knowntypedata, False, [op.args[0]], self.nonnulify())
-            r.set_knowntypedata(knowntypedata)
-            return r
-        else:
-            return SomeObject.op_contains(self, s_element)
-    op_contains.can_only_throw = []
-
     def method_format(self, *args):
         raise AnnotatorError("Method format() is not RPython")
 
@@ -537,7 +687,7 @@ class __extend__(SomeUnicodeString):
         enc = s_enc.const
         if enc not in ('ascii', 'latin-1', 'utf-8'):
             raise AnnotatorError("Encoding %s not supported for unicode" % (enc,))
-        return SomeString()
+        return SomeString(no_nul=self.no_nul)
     method_encode.can_only_throw = [UnicodeEncodeError]
 
 
@@ -570,7 +720,7 @@ class __extend__(SomeString):
         enc = s_enc.const
         if enc not in ('ascii', 'latin-1', 'utf-8'):
             raise AnnotatorError("Encoding %s not supported for strings" % (enc,))
-        return SomeUnicodeString()
+        return SomeUnicodeString(no_nul=self.no_nul)
     method_decode.can_only_throw = [UnicodeDecodeError]
 
 class __extend__(SomeChar, SomeUnicodeCodePoint):
@@ -578,10 +728,10 @@ class __extend__(SomeChar, SomeUnicodeCodePoint):
     def len(self):
         return immutablevalue(1)
 
+class __extend__(SomeChar):
+
     def ord(self):
         return SomeInteger(nonneg=True)
-
-class __extend__(SomeChar):
 
     def method_isspace(self):
         return s_Bool
@@ -601,6 +751,13 @@ class __extend__(SomeChar):
     def method_upper(self):
         return self
 
+class __extend__(SomeUnicodeCodePoint):
+
+    def ord(self):
+        # warning, on 32-bit with 32-bit unichars, this might return
+        # negative numbers
+        return SomeInteger()
+
 class __extend__(SomeIterator):
 
     def iter(self):
@@ -614,55 +771,32 @@ class __extend__(SomeIterator):
         return can_throw
 
     def next(self):
+        position = getbookkeeper().position_key
         if s_None.contains(self.s_container):
             return s_ImpossibleValue     # so far
         if self.variant == ("enumerate",):
-            s_item = self.s_container.getanyitem()
+            s_item = self.s_container.getanyitem(position)
             return SomeTuple((SomeInteger(nonneg=True), s_item))
         variant = self.variant
         if variant == ("reversed",):
             variant = ()
-        return self.s_container.getanyitem(*variant)
+        return self.s_container.getanyitem(position, *variant)
     next.can_only_throw = _can_only_throw
     method_next = next
 
 
 class __extend__(SomeInstance):
-
-    def _true_getattr(self, attr):
+    def getattr(self, s_attr):
+        if not(s_attr.is_constant() and isinstance(s_attr.const, str)):
+            raise AnnotatorError("A variable argument to getattr is not RPython")
+        attr = s_attr.const
         if attr == '__class__':
             return self.classdef.read_attr__class__()
-        attrdef = self.classdef.find_attribute(attr)
-        position = getbookkeeper().position_key
-        attrdef.read_locations[position] = True
-        s_result = attrdef.getvalue()
-        # hack: if s_result is a set of methods, discard the ones
-        #       that can't possibly apply to an instance of self.classdef.
-        # XXX do it more nicely
-        if isinstance(s_result, SomePBC):
-            s_result = self.classdef.lookup_filter(s_result, attr,
-                                                  self.flags)
-        elif isinstance(s_result, SomeImpossibleValue):
-            self.classdef.check_missing_attribute_update(attr)
-            # blocking is harmless if the attribute is explicitly listed
-            # in the class or a parent class.
-            for basedef in self.classdef.getmro():
-                if basedef.classdesc.all_enforced_attrs is not None:
-                    if attr in basedef.classdesc.all_enforced_attrs:
-                        raise HarmlesslyBlocked("get enforced attr")
-        elif isinstance(s_result, SomeList):
-            s_result = self.classdef.classdesc.maybe_return_immutable_list(
-                attr, s_result)
-        return s_result
-
-    def getattr(self, s_attr):
-        if s_attr.is_constant() and isinstance(s_attr.const, str):
-            attr = s_attr.const
-            return self._true_getattr(attr)
-        raise AnnotatorError("A variable argument to getattr is not RPython")
+        getbookkeeper().record_getattr(self.classdef.classdesc, attr)
+        return self.classdef.s_getattr(attr, self.flags)
     getattr.can_only_throw = []
 
-    def setattr(self, s_attr, s_value):
+    def setattr(self, s_attr, s_obj):
         if s_attr.is_constant() and isinstance(s_attr.const, str):
             attr = s_attr.const
             # find the (possibly parent) class where this attr is defined
@@ -671,14 +805,13 @@ class __extend__(SomeInstance):
             attrdef.modified(clsdef)
 
             # if the attrdef is new, this must fail
-            if attrdef.getvalue().contains(s_value):
+            if attrdef.s_value.contains(s_obj):
                 return
             # create or update the attribute in clsdef
-            clsdef.generalize_attr(attr, s_value)
+            clsdef.generalize_attr(attr, s_obj)
 
-            if isinstance(s_value, SomeList):
-                clsdef.classdesc.maybe_return_immutable_list(
-                    attr, s_value)
+            if isinstance(s_obj, SomeList):
+                clsdef.classdesc.maybe_return_immutable_list(attr, s_obj)
         else:
             raise AnnotatorError("setattr(instance, variable_attr, value)")
 
@@ -686,36 +819,98 @@ class __extend__(SomeInstance):
         if not self.can_be_None:
             s.const = True
 
-    def iter(self):
-        s_iterable = self._true_getattr('__iter__')
-        bk = getbookkeeper()
-        # record for calltables
-        bk.emulate_pbc_call(bk.position_key, s_iterable, [])
-        return s_iterable.call(bk.build_args("simple_call", []))
+@op.len.register_transform(SomeInstance)
+def len_SomeInstance(annotator, v_arg):
+    get_len = op.getattr(v_arg, const('__len__'))
+    return [get_len, op.simple_call(get_len.result)]
 
-    def next(self):
-        s_next = self._true_getattr('next')
-        bk = getbookkeeper()
-        # record for calltables
-        bk.emulate_pbc_call(bk.position_key, s_next, [])
-        return s_next.call(bk.build_args("simple_call", []))
+@op.iter.register_transform(SomeInstance)
+def iter_SomeInstance(annotator, v_arg):
+    get_iter = op.getattr(v_arg, const('__iter__'))
+    return [get_iter, op.simple_call(get_iter.result)]
+
+@op.next.register_transform(SomeInstance)
+def next_SomeInstance(annotator, v_arg):
+    get_next = op.getattr(v_arg, const('next'))
+    return [get_next, op.simple_call(get_next.result)]
+
+@op.getslice.register_transform(SomeInstance)
+def getslice_SomeInstance(annotator, v_obj, v_start, v_stop):
+    get_getslice = op.getattr(v_obj, const('__getslice__'))
+    return [get_getslice, op.simple_call(get_getslice.result, v_start, v_stop)]
+
+
+@op.setslice.register_transform(SomeInstance)
+def setslice_SomeInstance(annotator, v_obj, v_start, v_stop, v_iterable):
+    get_setslice = op.getattr(v_obj, const('__setslice__'))
+    return [get_setslice,
+            op.simple_call(get_setslice.result, v_start, v_stop, v_iterable)]
+
+
+def _find_property_meth(s_obj, attr, meth):
+    result = []
+    for clsdef in s_obj.classdef.getmro():
+        dct = clsdef.classdesc.classdict
+        if attr not in dct:
+            continue
+        obj = dct[attr]
+        if (not isinstance(obj, Constant) or
+                not isinstance(obj.value, property)):
+            return
+        result.append(getattr(obj.value, meth))
+    return result
+
+
+@op.getattr.register_transform(SomeInstance)
+def getattr_SomeInstance(annotator, v_obj, v_attr):
+    s_attr = annotator.annotation(v_attr)
+    if not s_attr.is_constant() or not isinstance(s_attr.const, str):
+        return
+    attr = s_attr.const
+    getters = _find_property_meth(annotator.annotation(v_obj), attr, 'fget')
+    if getters:
+        if all(getters):
+            get_getter = op.getattr(v_obj, const(attr + '__getter__'))
+            return [get_getter, op.simple_call(get_getter.result)]
+        elif not any(getters):
+            raise AnnotatorError("Attribute %r is unreadable" % attr)
+
+
+@op.setattr.register_transform(SomeInstance)
+def setattr_SomeInstance(annotator, v_obj, v_attr, v_value):
+    s_attr = annotator.annotation(v_attr)
+    if not s_attr.is_constant() or not isinstance(s_attr.const, str):
+        return
+    attr = s_attr.const
+    setters = _find_property_meth(annotator.annotation(v_obj), attr, 'fset')
+    if setters:
+        if all(setters):
+            get_setter = op.getattr(v_obj, const(attr + '__setter__'))
+            return [get_setter, op.simple_call(get_setter.result, v_value)]
+        elif not any(setters):
+            raise AnnotatorError("Attribute %r is unwritable" % attr)
+
 
 class __extend__(SomeBuiltin):
+    def call(self, args, implicit_init=False):
+        args_s, kwds = args.unpack()
+        # prefix keyword arguments with 's_'
+        kwds_s = {}
+        for key, s_value in kwds.items():
+            kwds_s['s_'+key] = s_value
+        return self.analyser(*args_s, **kwds_s)
+
+
+class __extend__(SomeBuiltinMethod):
     def _can_only_throw(self, *args):
         analyser_func = getattr(self.analyser, 'im_func', None)
         can_only_throw = getattr(analyser_func, 'can_only_throw', None)
         if can_only_throw is None or isinstance(can_only_throw, list):
             return can_only_throw
-        if self.s_self is not None:
-            return can_only_throw(self.s_self, *args)
-        else:
-            return can_only_throw(*args)
+        return can_only_throw(self.s_self, *args)
 
     def simple_call(self, *args):
-        if self.s_self is not None:
-            return self.analyser(self.s_self, *args)
-        else:
-            return self.analyser(*args)
+        return self.analyser(self.s_self, *args)
     simple_call.can_only_throw = _can_only_throw
 
     def call(self, args, implicit_init=False):
@@ -724,22 +919,23 @@ class __extend__(SomeBuiltin):
         kwds_s = {}
         for key, s_value in kwds.items():
             kwds_s['s_'+key] = s_value
-        if self.s_self is not None:
-            return self.analyser(self.s_self, *args_s, **kwds_s)
-        else:
-            return self.analyser(*args_s, **kwds_s)
+        return self.analyser(self.s_self, *args_s, **kwds_s)
 
 
 class __extend__(SomePBC):
 
     def getattr(self, s_attr):
+        assert s_attr.is_constant()
+        if s_attr.const == '__name__':
+            from rpython.annotator.classdesc import ClassDesc
+            if self.getKind() is ClassDesc:
+                return SomeString()
         bookkeeper = getbookkeeper()
         return bookkeeper.pbc_getattr(self, s_attr)
     getattr.can_only_throw = []
 
     def setattr(self, s_attr, s_value):
-        if not self.isNone():
-            raise AnnotatorError("Cannot modify attribute of a pre-built constant")
+        raise AnnotatorError("Cannot modify attribute of a pre-built constant")
 
     def call(self, args):
         bookkeeper = getbookkeeper()
@@ -750,19 +946,40 @@ class __extend__(SomePBC):
         return SomePBC(d, can_be_None=self.can_be_None)
 
     def bool_behavior(self, s):
-        if self.isNone():
-            s.const = False
-        elif not self.can_be_None:
+        if not self.can_be_None:
             s.const = True
 
     def len(self):
-        if self.isNone():
-            # this None could later be generalized into an empty list,
-            # whose length is the constant 0; so let's tentatively answer 0.
-            return immutablevalue(0)
-        else:
-            # This should probably never happen
-            raise AnnotatorError("Cannot call len on a pbc")
+        raise AnnotatorError("Cannot call len on a pbc")
+
+class __extend__(SomeNone):
+    def bind_callables_under(self, classdef, name):
+        return self
+
+    def getattr(self, s_attr):
+        return s_ImpossibleValue
+    getattr.can_only_throw = []
+
+    def setattr(self, s_attr, s_value):
+        return None
+
+    def call(self, args):
+        return s_ImpossibleValue
+
+    def bool_behavior(self, s):
+        s.const = False
+
+    def len(self):
+        # This None could later be generalized into a list, for example.
+        # For now, we give the impossible answer (because len(None) would
+        # really crash translated code).  It can be generalized later.
+        return SomeImpossibleValue()
+
+@op.issubtype.register(SomeTypeOf)
+def issubtype(annotator, v_type, v_cls):
+    args_v = v_type.annotation.is_type_of
+    return s_isinstance(annotator, args_v[0].annotation,
+                        annotator.annotation(v_cls), args_v)
 
 #_________________________________________
 # weakrefs

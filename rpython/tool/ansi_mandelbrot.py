@@ -21,22 +21,15 @@ if os.environ.get('TERM', 'dumb').find('256') > 0:
 else:
     palette = [39, 34, 35, 36, 31, 33, 32, 37]
 
-colour_range = None # used for debugging
-
-
-def print_pixel(colour, value_range, invert=1):
-    global colour_range
-    chars = [".", ".", "+", "*", "%", "#"]
-    idx = lambda chars: (colour+1) * (len(chars) - 1) / value_range
-    if invert:
-        idx = lambda chars, idx=idx:len(chars) - 1 - idx(chars)
-    char = chars[idx(chars)]
-    ansi_colour = palette[idx(palette)]
-    ansi_print(char, ansi_colour, newline=False, flush=True)
-    #if colour_range is None:
-    #    colour_range = [colour, colour]
-    #else:
-    #    colour_range = [min(colour_range[0], colour), max(colour_range[1], colour)]
+# used for debugging/finding new coordinates
+# How to:
+#   1. Set DEBUG to True
+#   2. Add a new coordinate to coordinates with a high distance and high max colour (e.g. 300)
+#   3. Run, pick an interesting coordinate from the shown list and replace the newly added
+#      coordinate by it.
+#   4. Rerun to see the max colour, insert this max colour where you put the high max colour.
+#   5. Set DEBUG to False
+DEBUG = False
 
 
 class Mandelbrot:
@@ -58,9 +51,6 @@ class Mandelbrot:
         ymin = self.ypos - self.yscale * self.y / 2
         self.x_range = [xmin + self.xscale * ix for ix in range(self.x)]
         self.y_range = [ymin + self.yscale * iy for iy in range(self.y)]
-        
-        #print "x", self.x_range[0], self.x_range[-1]
-        #print "y", self.y_range[0], self.y_range[-1]
 
     def reset(self, cnt):
         self.reset_lines = cnt
@@ -100,8 +90,11 @@ class Mandelbrot:
 
 class Driver(object):
     zoom_locations = [
-        # x, y, "distance", range
+        # x, y, "distance", max color range
         (0.37865401, 0.669227668, 0.04, 111),
+        (-1.2693, -0.4145, 0.2, 105),
+        (-1.2693, -0.4145, 0.05, 97),
+        (-1.2642, -0.4185, 0.01, 95),
         (-1.15, -0.28, 0.9, 94),
         (-1.15, -0.28, 0.3, 58),
         (-1.15, -0.28, 0.05, 26),
@@ -109,8 +102,10 @@ class Driver(object):
     def __init__(self, **kwargs):
         self.kwargs = kwargs
         self.zoom_location = -1
-        self.colour_range = 256
+        self.max_colour = 256
+        self.colour_range = None
         self.invert = True
+        self.interesting_coordinates = []
         self.init()
 
     def init(self):
@@ -122,14 +117,6 @@ class Driver(object):
     def reset(self, cnt=0):
         """ Resets to the beginning of the line and drops cnt lines internally. """
         self.mandelbrot.reset(cnt)
-
-    def catchup(self):
-        """ Fills the current line. """
-        x = 0
-        while x != self.width - 1:
-            x, y, c = self.gen.next()
-            print_pixel(c, self.colour_range, self.invert)
-        print >>sys.stderr
 
     def restart(self):
         """ Restarts the current generator. """
@@ -146,19 +133,43 @@ class Driver(object):
                 if width != self.width:
                     self.init()
         except StopIteration:
+            if DEBUG and self.interesting_coordinates:
+                print >>sys.stderr, "Interesting coordinates:", self.interesting_coordinates
+                self.interesting_coordinates = []
             kwargs = self.kwargs
             self.zoom_location += 1
             self.zoom_location %= len(self.zoom_locations)
             loc = self.zoom_locations[self.zoom_location]
             kwargs.update({"x_pos": loc[0], "y_pos": loc[1], "distance": loc[2]})
-            self.colour_range = loc[3]
-            #global colour_range
-            #print colour_range, loc[2]
-            #colour_range = None
-            return self.restart()
-        print_pixel(c, self.colour_range, self.invert)
+            self.max_colour = loc[3]
+            if DEBUG:
+                # Only used for debugging new locations:
+                print "Colour range", self.colour_range
+            self.colour_range = None
+            self.restart()
+            return
+        if self.print_pixel(c, self.invert):
+            self.interesting_coordinates.append(dict(x=(x, self.mandelbrot.x_range[x]),
+                                                     y=(y, self.mandelbrot.y_range[y])))
         if x == self.width - 1:
             print >>sys.stderr
+
+    def print_pixel(self, colour, invert=1):
+        chars = [".", ".", "+", "*", "%", "#"]
+        idx = lambda chars: (colour+1) * (len(chars) - 1) / self.max_colour
+        if invert:
+            idx = lambda chars, idx=idx:len(chars) - 1 - idx(chars)
+        char = chars[idx(chars)]
+        ansi_colour = palette[idx(palette)]
+        ansi_print(char, ansi_colour, newline=False, flush=True)
+        if DEBUG:
+            if self.colour_range is None:
+                self.colour_range = [colour, colour]
+            else:
+                old_colour_range = self.colour_range
+                self.colour_range = [min(self.colour_range[0], colour), max(self.colour_range[1], colour)]
+                if old_colour_range[0] - colour > 3 or colour - old_colour_range[1] > 3:
+                    return True
 
 
 if __name__ == '__main__':
@@ -166,16 +177,10 @@ if __name__ == '__main__':
     from time import sleep
 
     d = Driver()
-    for x in xrange(15000):
-        sleep(random.random() / 300)
+    while True:
+        sleep(random.random() / 800)
         d.dot()
-        if 0 and random.random() < 0.01:
-            d.catchup()
-            print "WARNING! " * 3
-            d.reset(1)
-        #    print "R",
         if 0 and random.random() < 0.01:
             string = "WARNING! " * 3
             d.jump(len(string))
             print string,
-

@@ -2,35 +2,34 @@ from __future__ import with_statement
 from rpython.jit.backend.arm import conditions as c
 from rpython.jit.backend.arm import registers as r
 from rpython.jit.backend.arm.codebuilder import InstrBuilder
-from rpython.jit.metainterp.history import ConstInt, BoxInt, FLOAT
+from rpython.jit.metainterp.history import FLOAT
 from rpython.rlib.rarithmetic import r_uint, r_longlong, intmask
 from rpython.jit.metainterp.resoperation import rop
 
+
+def flush_cc(asm, condition, result_loc):
+    # After emitting an instruction that leaves a boolean result in
+    # a condition code (cc), call this.  In the common case, result_loc
+    # will be set to 'fp' by the regalloc, which in this case means
+    # "propagate it between this operation and the next guard by keeping
+    # it in the cc".  In the uncommon case, result_loc is another
+    # register, and we emit a load from the cc into this register.
+    assert asm.guard_success_cc == c.cond_none
+    if result_loc is r.fp:
+        asm.guard_success_cc = condition
+    else:
+        asm.mc.MOV_ri(result_loc.value, 1, condition)
+        asm.mc.MOV_ri(result_loc.value, 0, c.get_opposite_of(condition))
+
+
 def gen_emit_op_unary_cmp(name, true_cond):
-    false_cond = c.get_opposite_of(true_cond)
     def f(self, op, arglocs, regalloc, fcond):
         assert fcond is not None
         reg, res = arglocs
         self.mc.CMP_ri(reg.value, 0)
-        self.mc.MOV_ri(res.value, 1, true_cond)
-        self.mc.MOV_ri(res.value, 0, false_cond)
+        flush_cc(self, true_cond, res)
         return fcond
     f.__name__ = 'emit_op_%s' % name
-    return f
-
-def gen_emit_guard_unary_cmp(name, true_cond):
-    false_cond = c.get_opposite_of(true_cond)
-    def f(self, op, guard, arglocs, regalloc, fcond):
-        assert fcond is not None
-        assert guard is not None
-        reg = arglocs[0]
-        self.mc.CMP_ri(reg.value, 0)
-        cond = true_cond
-        guard_opnum = guard.getopnum()
-        if guard_opnum == rop.GUARD_FALSE:
-            cond = false_cond
-        return self._emit_guard(guard, arglocs[1:], cond, save_exc=False)
-    f.__name__ = 'emit_guard_%s' % name
     return f
 
 def gen_emit_op_ri(name, opname):
@@ -47,22 +46,7 @@ def gen_emit_op_ri(name, opname):
     f.__name__ = 'emit_op_%s' % name
     return f
 
-def gen_emit_op_by_helper_call(name, opname):
-    helper = getattr(InstrBuilder, opname)
-    def f(self, op, arglocs, regalloc, fcond):
-        assert fcond is not None
-        if op.result:
-            regs = r.caller_resp[1:] + [r.ip]
-        else:
-            regs = r.caller_resp
-        with saved_registers(self.mc, regs, r.caller_vfp_resp):
-            helper(self.mc, fcond)
-        return fcond
-    f.__name__ = 'emit_op_%s' % name
-    return f
-
-def gen_emit_cmp_op(name, condition):
-    inv = c.get_opposite_of(condition)
+def gen_emit_cmp_op(name, true_cond):
     def f(self, op, arglocs, regalloc, fcond):
         l0, l1, res = arglocs
 
@@ -70,30 +54,9 @@ def gen_emit_cmp_op(name, condition):
             self.mc.CMP_ri(l0.value, imm=l1.getint(), cond=fcond)
         else:
             self.mc.CMP_rr(l0.value, l1.value, cond=fcond)
-        self.mc.MOV_ri(res.value, 1, cond=condition)
-        self.mc.MOV_ri(res.value, 0, cond=inv)
+        flush_cc(self, true_cond, res)
         return fcond
     f.__name__ = 'emit_op_%s' % name
-    return f
-
-def gen_emit_cmp_op_guard(name, true_cond):
-    false_cond = c.get_opposite_of(true_cond)
-    def f(self, op, guard, arglocs, regalloc, fcond):
-        assert guard is not None
-        l0 = arglocs[0]
-        l1 = arglocs[1]
-        assert l0.is_core_reg()
-
-        if l1.is_imm():
-            self.mc.CMP_ri(l0.value, imm=l1.getint(), cond=fcond)
-        else:
-            self.mc.CMP_rr(l0.value, l1.value, cond=fcond)
-        guard_opnum = guard.getopnum()
-        cond = true_cond
-        if guard_opnum == rop.GUARD_FALSE:
-            cond = false_cond
-        return self._emit_guard(guard, arglocs[2:], cond, save_exc=False)
-    f.__name__ = 'emit_guard_%s' % name
     return f
 
 def gen_emit_float_op(name, opname):
@@ -104,6 +67,7 @@ def gen_emit_float_op(name, opname):
         return fcond
     f.__name__ = 'emit_op_%s' % name
     return f
+
 def gen_emit_unary_float_op(name, opname):
     op_rr = getattr(InstrBuilder, opname)
     def f(self, op, arglocs, regalloc, fcond):
@@ -113,32 +77,14 @@ def gen_emit_unary_float_op(name, opname):
     f.__name__ = 'emit_op_%s' % name
     return f
 
-def gen_emit_float_cmp_op(name, cond):
-    inv = c.get_opposite_of(cond)
+def gen_emit_float_cmp_op(name, true_cond):
     def f(self, op, arglocs, regalloc, fcond):
         arg1, arg2, res = arglocs
         self.mc.VCMP(arg1.value, arg2.value)
         self.mc.VMRS(cond=fcond)
-        self.mc.MOV_ri(res.value, 1, cond=cond)
-        self.mc.MOV_ri(res.value, 0, cond=inv)
+        flush_cc(self, true_cond, res)
         return fcond
     f.__name__ = 'emit_op_%s' % name
-    return f
-
-def gen_emit_float_cmp_op_guard(name, true_cond):
-    false_cond = c.get_opposite_of(true_cond)
-    def f(self, op, guard, arglocs, regalloc, fcond):
-        assert guard is not None
-        arg1 = arglocs[0]
-        arg2 = arglocs[1]
-        self.mc.VCMP(arg1.value, arg2.value)
-        self.mc.VMRS(cond=fcond)
-        cond = true_cond
-        guard_opnum = guard.getopnum()
-        if guard_opnum == rop.GUARD_FALSE:
-            cond = false_cond
-        return self._emit_guard(guard, arglocs[2:], cond, save_exc=False)
-    f.__name__ = 'emit_guard_%s' % name
     return f
 
 

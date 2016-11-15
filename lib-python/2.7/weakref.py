@@ -20,7 +20,7 @@ from _weakref import (
      ProxyType,
      ReferenceType)
 
-from _weakrefset import WeakSet
+from _weakrefset import WeakSet, _IterationGuard
 
 from exceptions import ReferenceError
 
@@ -44,20 +44,41 @@ class WeakValueDictionary(UserDict.UserDict):
     # objects are unwrapped on the way out, and we always wrap on the
     # way in).
 
-    def __init__(self, *args, **kw):
+    def __init__(*args, **kw):
+        if not args:
+            raise TypeError("descriptor '__init__' of 'WeakValueDictionary' "
+                            "object needs an argument")
+        self = args[0]
+        args = args[1:]
+        if len(args) > 1:
+            raise TypeError('expected at most 1 arguments, got %d' % len(args))
         def remove(wr, selfref=ref(self)):
             self = selfref()
             if self is not None:
-                # Changed this for PyPy: made more resistent.  The
-                # issue is that in some corner cases, self.data
-                # might already be changed or removed by the time
-                # this weakref's callback is called.  If that is
-                # the case, we don't want to randomly kill an
-                # unrelated entry.
-                if self.data.get(wr.key) is wr:
-                    del self.data[wr.key]
+                if self._iterating:
+                    self._pending_removals.append(wr.key)
+                else:
+                    # Changed this for PyPy: made more resistent.  The
+                    # issue is that in some corner cases, self.data
+                    # might already be changed or removed by the time
+                    # this weakref's callback is called.  If that is
+                    # the case, we don't want to randomly kill an
+                    # unrelated entry.
+                    if self.data.get(wr.key) is wr:
+                        del self.data[wr.key]
         self._remove = remove
+        # A list of keys to be removed
+        self._pending_removals = []
+        self._iterating = set()
         UserDict.UserDict.__init__(self, *args, **kw)
+
+    def _commit_removals(self):
+        l = self._pending_removals
+        d = self.data
+        # We shouldn't encounter any KeyError, because this method should
+        # always be called *before* mutating the dict.
+        while l:
+            del d[l.pop()]
 
     def __getitem__(self, key):
         o = self.data[key]()
@@ -65,6 +86,11 @@ class WeakValueDictionary(UserDict.UserDict):
             raise KeyError, key
         else:
             return o
+
+    def __delitem__(self, key):
+        if self._pending_removals:
+            self._commit_removals()
+        del self.data[key]
 
     def __contains__(self, key):
         try:
@@ -84,7 +110,14 @@ class WeakValueDictionary(UserDict.UserDict):
         return "<WeakValueDictionary at %s>" % id(self)
 
     def __setitem__(self, key, value):
+        if self._pending_removals:
+            self._commit_removals()
         self.data[key] = KeyedRef(value, self._remove, key)
+
+    def clear(self):
+        if self._pending_removals:
+            self._commit_removals()
+        self.data.clear()
 
     def copy(self):
         new = WeakValueDictionary()
@@ -127,16 +160,18 @@ class WeakValueDictionary(UserDict.UserDict):
         return L
 
     def iteritems(self):
-        for wr in self.data.itervalues():
-            value = wr()
-            if value is not None:
-                yield wr.key, value
+        with _IterationGuard(self):
+            for wr in self.data.itervalues():
+                value = wr()
+                if value is not None:
+                    yield wr.key, value
 
     def iterkeys(self):
-        return self.data.iterkeys()
+        with _IterationGuard(self):
+            for k in self.data.iterkeys():
+                yield k
 
-    def __iter__(self):
-        return self.data.iterkeys()
+    __iter__ = iterkeys
 
     def itervaluerefs(self):
         """Return an iterator that yields the weak references to the values.
@@ -148,15 +183,20 @@ class WeakValueDictionary(UserDict.UserDict):
         keep the values around longer than needed.
 
         """
-        return self.data.itervalues()
+        with _IterationGuard(self):
+            for wr in self.data.itervalues():
+                yield wr
 
     def itervalues(self):
-        for wr in self.data.itervalues():
-            obj = wr()
-            if obj is not None:
-                yield obj
+        with _IterationGuard(self):
+            for wr in self.data.itervalues():
+                obj = wr()
+                if obj is not None:
+                    yield obj
 
     def popitem(self):
+        if self._pending_removals:
+            self._commit_removals()
         while 1:
             key, wr = self.data.popitem()
             o = wr()
@@ -164,6 +204,8 @@ class WeakValueDictionary(UserDict.UserDict):
                 return key, o
 
     def pop(self, key, *args):
+        if self._pending_removals:
+            self._commit_removals()
         try:
             o = self.data.pop(key)()
         except KeyError:
@@ -182,13 +224,25 @@ class WeakValueDictionary(UserDict.UserDict):
         except KeyError:
             o = None
         if o is None:
+            if self._pending_removals:
+                self._commit_removals()
             self.data[key] = KeyedRef(default, self._remove, key)
             return default
         else:
             return o
         # The logic above was fixed in PyPy
 
-    def update(self, dict=None, **kwargs):
+    def update(*args, **kwargs):
+        if not args:
+            raise TypeError("descriptor 'update' of 'WeakValueDictionary' "
+                            "object needs an argument")
+        self = args[0]
+        args = args[1:]
+        if len(args) > 1:
+            raise TypeError('expected at most 1 arguments, got %d' % len(args))
+        dict = args[0] if args else None
+        if self._pending_removals:
+            self._commit_removals()
         d = self.data
         if dict is not None:
             if not hasattr(dict, "items"):
@@ -256,9 +310,29 @@ class WeakKeyDictionary(UserDict.UserDict):
         def remove(k, selfref=ref(self)):
             self = selfref()
             if self is not None:
-                del self.data[k]
+                if self._iterating:
+                    self._pending_removals.append(k)
+                else:
+                    del self.data[k]
         self._remove = remove
-        if dict is not None: self.update(dict)
+        # A list of dead weakrefs (keys to be removed)
+        self._pending_removals = []
+        self._iterating = set()
+        if dict is not None:
+            self.update(dict)
+
+    def _commit_removals(self):
+        # NOTE: We don't need to call this method before mutating the dict,
+        # because a dead weakref never compares equal to a live weakref,
+        # even if they happened to refer to equal objects.
+        # However, it means keys may already have been removed.
+        l = self._pending_removals
+        d = self.data
+        while l:
+            try:
+                del d[l.pop()]
+            except KeyError:
+                pass
 
     def __delitem__(self, key):
         del self.data[ref(key)]
@@ -317,10 +391,11 @@ class WeakKeyDictionary(UserDict.UserDict):
         return L
 
     def iteritems(self):
-        for wr, value in self.data.iteritems():
-            key = wr()
-            if key is not None:
-                yield key, value
+        with _IterationGuard(self):
+            for wr, value in self.data.iteritems():
+                key = wr()
+                if key is not None:
+                    yield key, value
 
     def iterkeyrefs(self):
         """Return an iterator that yields the weak references to the keys.
@@ -332,19 +407,23 @@ class WeakKeyDictionary(UserDict.UserDict):
         keep the keys around longer than needed.
 
         """
-        return self.data.iterkeys()
+        with _IterationGuard(self):
+            for wr in self.data.iterkeys():
+                yield wr
 
     def iterkeys(self):
-        for wr in self.data.iterkeys():
-            obj = wr()
-            if obj is not None:
-                yield obj
+        with _IterationGuard(self):
+            for wr in self.data.iterkeys():
+                obj = wr()
+                if obj is not None:
+                    yield obj
 
-    def __iter__(self):
-        return self.iterkeys()
+    __iter__ = iterkeys
 
     def itervalues(self):
-        return self.data.itervalues()
+        with _IterationGuard(self):
+            for value in self.data.itervalues():
+                yield value
 
     def keyrefs(self):
         """Return a list of weak references to the keys.

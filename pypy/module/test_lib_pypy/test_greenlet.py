@@ -289,6 +289,24 @@ class AppTestGreenlet:
 
         greenlet(f).switch()
 
+    def test_exc_info_save_restore2(self):
+        import sys
+        from greenlet import greenlet
+
+        result = []
+
+        def f():
+            result.append(sys.exc_info())
+
+        g = greenlet(f)
+        try:
+            1 / 0
+        except ZeroDivisionError:
+            g.switch()
+
+        assert result == [(None, None, None)]
+
+
     def test_gr_frame(self):
         from greenlet import greenlet
         import sys

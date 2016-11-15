@@ -11,20 +11,17 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rmmap import alloc
 from rpython.rlib.rdynload import dlopen, dlclose, dlsym, dlsym_byordinal
 from rpython.rlib.rdynload import DLOpenError, DLLHANDLE
-from rpython.rlib import jit
+from rpython.rlib import jit, rposix
 from rpython.rlib.objectmodel import specialize
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform
-from rpython.conftest import cdir
+from rpython.translator import cdir
 from platform import machine
 import py
 import os
 import sys
 import ctypes.util
 
-from rpython.tool.ansi_print import ansi_log
-log = py.log.Producer("libffi")
-py.log.setconsumer("libffi", ansi_log)
 
 # maaaybe isinstance here would be better. Think
 _MSVC = platform.name == "msvc"
@@ -32,7 +29,6 @@ _MINGW = platform.name == "mingw32"
 _WIN32 = _MSVC or _MINGW
 _WIN64 = _WIN32 and is_emulated_long
 _MAC_OS = platform.name == "darwin"
-_FREEBSD_7 = platform.name == "freebsd7"
 
 _LITTLE_ENDIAN = sys.byteorder == 'little'
 _BIG_ENDIAN = sys.byteorder == 'big'
@@ -44,10 +40,12 @@ if _WIN32:
 
 if _WIN32:
     separate_module_sources = ['''
+    #include "src/precommondefs.h"
     #include <stdio.h>
     #include <windows.h>
 
     /* Get the module where the "fopen" function resides in */
+    RPY_EXTERN
     HANDLE pypy_get_libc_handle() {
         MEMORY_BASIC_INFORMATION  mi;
         char buf[1000];
@@ -93,7 +91,6 @@ elif _MINGW:
     eci = ExternalCompilationInfo(
         libraries = libraries,
         includes = includes,
-        export_symbols = [],
         separate_module_sources = separate_module_sources,
         )
 
@@ -113,15 +110,13 @@ else:
     eci = ExternalCompilationInfo(
         includes = ['ffi.h', 'windows.h'],
         libraries = ['kernel32'],
-        include_dirs = [libffidir],
+        include_dirs = [libffidir, cdir],
         separate_module_sources = separate_module_sources,
         separate_module_files = [libffidir.join('ffi.c'),
                                  libffidir.join('prep_cif.c'),
                                  libffidir.join(asm_ifc),
                                  libffidir.join('pypy_ffi.c'),
                                  ],
-        export_symbols = ['ffi_call', 'ffi_prep_cif', 'ffi_prep_closure',
-                          'pypy_get_libc_handle'],
         )
 
 FFI_TYPE_P = lltype.Ptr(lltype.ForwardReference())
@@ -153,7 +148,8 @@ class CConfig:
                                                  ('elements', FFI_TYPE_PP)])
 
     ffi_cif = rffi_platform.Struct('ffi_cif', [])
-    ffi_closure = rffi_platform.Struct('ffi_closure', [])
+    ffi_closure = rffi_platform.Struct('ffi_closure',
+                                       [('user_data', rffi.VOIDP)])
 
 def add_simple_type(type_name):
     for name in ['size', 'alignment', 'type']:
@@ -331,7 +327,9 @@ if _MSVC:
 else:
     c_ffi_call_return_type = lltype.Void
 c_ffi_call = external('ffi_call', [FFI_CIFP, rffi.VOIDP, rffi.VOIDP,
-                                   VOIDPP], c_ffi_call_return_type)
+                                   VOIDPP], c_ffi_call_return_type,
+                      save_err=rffi.RFFI_ERR_ALL | rffi.RFFI_ALT_ERRNO)
+# Note: the RFFI_ALT_ERRNO flag matches the one in pyjitpl.direct_libffi_call
 CALLBACK_TP = rffi.CCallback([FFI_CIFP, rffi.VOIDP, rffi.VOIDPP, rffi.VOIDP],
                              lltype.Void)
 c_ffi_prep_closure = external('ffi_prep_closure', [FFI_CLOSUREP, FFI_CIFP,
@@ -361,12 +359,13 @@ def make_struct_ffitype_e(size, aligment, field_types, track_allocation=True):
     tpe.members[n] = lltype.nullptr(FFI_TYPE_P.TO)
     return tpe
 
+@specialize.memo()
 def cast_type_to_ffitype(tp):
     """ This function returns ffi representation of rpython type tp
     """
     return TYPE_MAP[tp]
-cast_type_to_ffitype._annspecialcase_ = 'specialize:memo'
 
+@specialize.argtype(1)
 def push_arg_as_ffiptr(ffitp, arg, ll_buf):
     # This is for primitive types.  Note that the exact type of 'arg' may be
     # different from the expected 'c_size'.  To cope with that, we fall back
@@ -398,7 +397,6 @@ def push_arg_as_ffiptr(ffitp, arg, ll_buf):
                 arg >>= 8
         else:
             raise AssertionError
-push_arg_as_ffiptr._annspecialcase_ = 'specialize:argtype(1)'
 
 
 # type defs for callback and closure userdata
@@ -412,7 +410,7 @@ USERDATA_P.TO.become(lltype.Struct('userdata',
 
 
 @jit.jit_callback("CLIBFFI")
-def ll_callback(ffi_cif, ll_res, ll_args, ll_userdata):
+def _ll_callback(ffi_cif, ll_res, ll_args, ll_userdata):
     """ Callback specification.
     ffi_cif - something ffi specific, don't care
     ll_args - rffi.VOIDPP - pointer to array of pointers to args
@@ -422,6 +420,12 @@ def ll_callback(ffi_cif, ll_res, ll_args, ll_userdata):
     """
     userdata = rffi.cast(USERDATA_P, ll_userdata)
     userdata.callback(ll_args, ll_res, userdata)
+
+def ll_callback(ffi_cif, ll_res, ll_args, ll_userdata):
+    rposix._errno_after(rffi.RFFI_ERR_ALL | rffi.RFFI_ALT_ERRNO)
+    _ll_callback(ffi_cif, ll_res, ll_args, ll_userdata)
+    rposix._errno_before(rffi.RFFI_ERR_ALL | rffi.RFFI_ALT_ERRNO)
+
 
 class StackCheckError(ValueError):
     message = None
@@ -466,12 +470,12 @@ FUNCFLAG_PYTHONAPI = 4
 FUNCFLAG_USE_ERRNO = 8
 FUNCFLAG_USE_LASTERROR = 16
 
+@specialize.arg(1)     # hack :-/
 def get_call_conv(flags, from_jit):
     if _WIN32 and not _WIN64 and (flags & FUNCFLAG_CDECL == 0):
         return FFI_STDCALL
     else:
         return FFI_DEFAULT_ABI
-get_call_conv._annspecialcase_ = 'specialize:arg(1)'     # hack :-/
 
 
 class AbstractFuncPtr(object):
@@ -557,6 +561,7 @@ class RawFuncPtr(AbstractFuncPtr):
         self.funcsym = funcsym
 
     def call(self, args_ll, ll_result):
+        # adjust_return_size() should always be used here on ll_result
         assert len(args_ll) == len(self.argtypes), (
             "wrong number of arguments in call to %s(): "
             "%d instead of %d" % (self.name, len(args_ll), len(self.argtypes)))
@@ -587,10 +592,14 @@ class FuncPtr(AbstractFuncPtr):
                                             intmask(argtypes[i].c_size),
                                             flavor='raw')
         if restype != ffi_type_void:
-            self.ll_result = lltype.malloc(rffi.VOIDP.TO,
-                                           intmask(restype.c_size),
+            self.restype_size = intmask(restype.c_size)
+            size = adjust_return_size(self.restype_size)
+            self.ll_result = lltype.malloc(rffi.VOIDP.TO, size,
                                            flavor='raw')
+        else:
+            self.restype_size = -1
 
+    @specialize.argtype(1)
     def push_arg(self, value):
         #if self.pushed_args == self.argnum:
         #    raise TypeError("Too many arguments, eats %d, pushed %d" %
@@ -610,7 +619,6 @@ class FuncPtr(AbstractFuncPtr):
         push_arg_as_ffiptr(self.argtypes[self.pushed_args], value,
                            self.ll_args[self.pushed_args])
         self.pushed_args += 1
-    push_arg._annspecialcase_ = 'specialize:argtype(1)'
 
     def _check_args(self):
         if self.pushed_args < self.argnum:
@@ -619,6 +627,7 @@ class FuncPtr(AbstractFuncPtr):
     def _clean_args(self):
         self.pushed_args = 0
 
+    @specialize.arg(1)
     def call(self, RES_TP):
         self._check_args()
         ffires = c_ffi_call(self.ll_cif, self.funcsym,
@@ -626,13 +635,17 @@ class FuncPtr(AbstractFuncPtr):
                             rffi.cast(VOIDPP, self.ll_args))
         if RES_TP is not lltype.Void:
             TP = lltype.Ptr(rffi.CArray(RES_TP))
-            res = rffi.cast(TP, self.ll_result)[0]
+            ptr = self.ll_result
+            if _BIG_ENDIAN and RES_TP in TYPE_MAP_INT:
+                # we get a 8 byte value in big endian
+                n = rffi.sizeof(lltype.Signed) - self.restype_size
+                ptr = rffi.ptradd(ptr, n)
+            res = rffi.cast(TP, ptr)[0]
         else:
             res = None
         self._clean_args()
         check_fficall_result(ffires, self.flags)
         return res
-    call._annspecialcase_ = 'specialize:arg(1)'
 
     def __del__(self):
         if self.ll_args:
@@ -686,3 +699,12 @@ class CDLL(RawCDLL):
             dlclose(self.lib)
             self.lib = rffi.cast(DLLHANDLE, -1)
 
+
+def adjust_return_size(memsize):
+    # Workaround for a strange behavior of libffi: make sure that
+    # we always have at least 8 bytes.  ffi_call() writes 8 bytes
+    # into the buffer even if the function's result type asks for
+    # less.  This strange behavior is documented.
+    if memsize < 8:
+        memsize = 8
+    return memsize

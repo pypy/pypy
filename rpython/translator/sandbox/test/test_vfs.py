@@ -30,6 +30,8 @@ def test_dir():
     py.test.raises(OSError, d.join, 'bar')
     st = d.stat()
     assert stat.S_ISDIR(st.st_mode)
+    assert d.access(os.R_OK | os.X_OK)
+    assert not d.access(os.W_OK)
 
 def test_file():
     f = File('hello world')
@@ -43,6 +45,8 @@ def test_file():
     st = f.stat()
     assert stat.S_ISREG(st.st_mode)
     assert st.st_size == 11
+    assert f.access(os.R_OK)
+    assert not f.access(os.W_OK)
 
 def test_realdir_realfile():
     for show_dotfiles in [False, True]:
@@ -63,11 +67,12 @@ def test_realdir_realfile():
 
             f = v_test_vfs.join('file2')
             assert f.getsize() == len('somelongerdata2')
-            py.test.raises(OSError, f.open)
+            if os.name != 'nt':     # can't have unreadable files there?
+                py.test.raises(OSError, f.open)
 
             py.test.raises(OSError, v_test_vfs.join, 'does_not_exist')
             py.test.raises(OSError, v_test_vfs.join, 'symlink3')
-            if follow_links:
+            if follow_links and HASLINK:
                 d = v_test_vfs.join('symlink1')
                 assert stat.S_ISDIR(d.stat().st_mode)
                 assert d.keys() == ['subfile1']
@@ -75,6 +80,7 @@ def test_realdir_realfile():
 
                 f = v_test_vfs.join('symlink2')
                 assert stat.S_ISREG(f.stat().st_mode)
+                assert f.access(os.R_OK)
                 assert f.open().read() == 'secret'
             else:
                 py.test.raises(OSError, v_test_vfs.join, 'symlink1')

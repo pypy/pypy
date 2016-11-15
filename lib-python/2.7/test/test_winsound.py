@@ -159,18 +159,15 @@ class PlaySoundTest(unittest.TestCase):
             )
 
     def test_alias_fallback(self):
-        # This test can't be expected to work on all systems.  The MS
-        # PlaySound() docs say:
-        #
-        #     If it cannot find the specified sound, PlaySound uses the
-        #     default system event sound entry instead.  If the function
-        #     can find neither the system default entry nor the default
-        #     sound, it makes no sound and returns FALSE.
-        #
-        # It's known to return FALSE on some real systems.
-
-        # winsound.PlaySound('!"$%&/(#+*', winsound.SND_ALIAS)
-        return
+        # In the absence of the ability to tell if a sound was actually
+        # played, this test has two acceptable outcomes: success (no error,
+        # sound was theoretically played; although as issue #19987 shows
+        # a box without a soundcard can "succeed") or RuntimeError.  Any
+        # other error is a failure.
+        try:
+            winsound.PlaySound('!"$%&/(#+*', winsound.SND_ALIAS)
+        except RuntimeError:
+            pass
 
     def test_alias_nofallback(self):
         if _have_soundcard():

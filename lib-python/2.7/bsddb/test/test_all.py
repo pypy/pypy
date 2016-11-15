@@ -412,9 +412,6 @@ if sys.version_info[0] >= 3 :
         def get_dbp(self) :
             return self._db
 
-    import string
-    string.letters=[chr(i) for i in xrange(65,91)]
-
     bsddb._db.DBEnv_orig = bsddb._db.DBEnv
     bsddb._db.DB_orig = bsddb._db.DB
     if bsddb.db.version() <= (4, 3) :
@@ -526,7 +523,7 @@ def get_new_database_path() :
     return path
 
 
-# This path can be overriden via "set_test_path_prefix()".
+# This path can be overridden via "set_test_path_prefix()".
 import os, os.path
 get_new_path.prefix=os.path.join(os.environ.get("TMPDIR",
     os.path.join(os.sep,"tmp")), "z-Berkeley_DB")

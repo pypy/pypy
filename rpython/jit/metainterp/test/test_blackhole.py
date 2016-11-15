@@ -4,7 +4,7 @@ from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.jit.metainterp.blackhole import BlackholeInterpBuilder
 from rpython.jit.metainterp.blackhole import BlackholeInterpreter
 from rpython.jit.metainterp.blackhole import convert_and_run_from_pyjitpl
-from rpython.jit.metainterp import history, pyjitpl, jitexc
+from rpython.jit.metainterp import history, pyjitpl, jitexc, resoperation
 from rpython.jit.codewriter.assembler import JitCode
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.llinterp import LLException
@@ -119,9 +119,9 @@ def test_convert_and_run_from_pyjitpl():
                       "\x01\x02",          # int_return/i
                       [],
                       num_regs_i=3, num_regs_r=0, num_regs_f=0)
-        jitcode.is_portal = True
+        jitcode.jitdriver_sd = "foo" # not none
         pc = 1
-        registers_i = [history.BoxInt(40), history.ConstInt(2), None]
+        registers_i = [resoperation.InputArgInt(40), history.ConstInt(2), None]
     class MyMetaInterp:
         class staticdata:
             result_type = 'int'
@@ -130,7 +130,7 @@ def test_convert_and_run_from_pyjitpl():
                 def start_blackhole(): pass
                 @staticmethod
                 def end_blackhole(): pass
-        last_exc_value_box = None
+        last_exc_value = None
         framestack = [MyMIFrame()]
     MyMetaInterp.staticdata.blackholeinterpbuilder = getblackholeinterp(
         {'int_add/ii>i': 0, 'int_return/i': 1}).builder
@@ -205,7 +205,7 @@ class TestBlackhole(LLJitMixin):
                 myjitdriver.jit_merge_point(x=x, y=y)
                 try:
                     choices(x)
-                except FooError, e:
+                except FooError as e:
                     if e.num == 0:
                         break
                     y += e.num

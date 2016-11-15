@@ -73,15 +73,27 @@ class LLTransformerOpEntry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.inputconst(hop.r_result.lowleveltype, hop.s_result.const)
 
+def write(fd, string):
+    from rpython.rlib.rposix import c_write
+    return c_write(fd, string, len(string))
+
 def ll_call_destructor(destrptr, destr_v, typename):
     try:
         destrptr(destr_v)
-    except Exception, e:
+    except Exception as e:
         try:
-            os.write(2, "a destructor of type ")
-            os.write(2, typename)
-            os.write(2, " raised an exception ")
-            os.write(2, str(e))
-            os.write(2, " ignoring it\n")
+            write(2, "a destructor of type ")
+            write(2, typename)
+            write(2, " raised an exception ")
+            write(2, str(e))
+            write(2, " ignoring it\n")
         except:
             pass
+
+def ll_report_finalizer_error(e):
+    try:
+        write(2, "triggering finalizers raised an exception ")
+        write(2, str(e))
+        write(2, " ignoring it\n")
+    except:
+        pass

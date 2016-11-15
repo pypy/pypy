@@ -780,7 +780,8 @@ class LocalPath(FSBase):
     mkdtemp = classmethod(mkdtemp)
 
     def make_numbered_dir(cls, prefix='session-', rootdir=None, keep=3,
-                          lock_timeout = 172800):   # two days
+                          lock_timeout = 172800,   # two days
+                          min_timeout = 300):      # five minutes
         """ return unique directory with a number greater than the current
             maximum one.  The number is assumed to start directly after prefix.
             if keep is true directories with a number less than (maxnum-keep)
@@ -848,6 +849,20 @@ class LocalPath(FSBase):
             for path in rootdir.listdir():
                 num = parse_num(path)
                 if num is not None and num <= (maxnum - keep):
+                    if min_timeout:
+                        # NB: doing this is needed to prevent (or reduce
+                        # a lot the chance of) the following situation:
+                        # 'keep+1' processes call make_numbered_dir() at
+                        # the same time, they create dirs, but then the
+                        # last process notices the first dir doesn't have
+                        # (yet) a .lock in it and kills it.
+                        try:
+                            t1 = path.lstat().mtime
+                            t2 = lockfile.lstat().mtime
+                            if abs(t2-t1) < min_timeout:
+                                continue   # skip directories too recent
+                        except py.error.Error:
+                            continue   # failure to get a time, better skip
                     lf = path.join('.lock')
                     try:
                         t1 = lf.lstat().mtime

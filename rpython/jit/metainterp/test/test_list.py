@@ -8,7 +8,8 @@ class ListTests:
 
     def check_all_virtualized(self):
         self.check_resops(setarrayitem_gc=0, new_array=0, arraylen_gc=0,
-                          getarrayitem_gc=0)
+                          getarrayitem_gc_i=0, getarrayitem_gc_r=0,
+                          getarrayitem_gc_f=0)        
 
     def test_simple_array(self):
         jitdriver = JitDriver(greens = [], reds = ['n'])
@@ -43,12 +44,12 @@ class ListTests:
     def test_cannot_be_virtual(self):
         jitdriver = JitDriver(greens = [], reds = ['n', 'l'])
         def f(n):
-            l = [3] * 100
+            l = [3] * 200
             while n > 0:
                 jitdriver.can_enter_jit(n=n, l=l)
                 jitdriver.jit_merge_point(n=n, l=l)
                 x = l[n]
-                l = [3] * 100
+                l = [3] * 200
                 l[3] = x
                 l[4] = x + 1
                 n -= 1
@@ -57,7 +58,7 @@ class ListTests:
         res = self.meta_interp(f, [10], listops=True)
         assert res == f(10)
         # one setitem should be gone by now
-        self.check_resops(setarrayitem_gc=4, getarrayitem_gc=2, call=2)
+        self.check_resops(setarrayitem_gc=4, getarrayitem_gc_i=2, call_r=2)
 
 
     def test_ll_fixed_setitem_fast(self):
@@ -95,29 +96,7 @@ class ListTests:
 
         res = self.meta_interp(f, [10], listops=True, backendopt=True)
         assert res == f(10)
-        self.check_resops(setarrayitem_gc=0, call=0, getarrayitem_gc=0)
-
-    def test_vlist_alloc_and_set(self):
-        # the check_loops fails, because [non-null] * n is only supported
-        # if n < 15 (otherwise it is implemented as a residual call)
-        jitdriver = JitDriver(greens = [], reds = ['n'])
-        def f(n):
-            l = [1] * 20
-            while n > 0:
-                jitdriver.can_enter_jit(n=n)
-                jitdriver.jit_merge_point(n=n)
-                l = [1] * 20
-                l[3] = 5
-                x = l[-17] + l[5] - 1
-                if n < 3:
-                    return x
-                n -= 1
-            return l[0]
-
-        res = self.meta_interp(f, [10], listops=True)
-        assert res == f(10)
-        py.test.skip("'[non-null] * n' for n >= 15 gives a residual call so far")
-        self.check_loops(setarrayitem_gc=0, getarrayitem_gc=0, call=0)
+        self.check_resops(setarrayitem_gc=0, call=0, getarrayitem_gc_i=0)
 
     def test_arraycopy_simpleoptimize(self):
         def f():
@@ -233,7 +212,7 @@ class ListTests:
                 s += lst[0]
                 lst.pop()
                 lst.append(1)
-                s /= lst.pop()
+                s *= lst.pop()
             return s
         res = self.meta_interp(f, [15], listops=True)
         assert res == f(15)
@@ -383,7 +362,7 @@ class TestLLtype(ListTests, LLJitMixin):
         assert res == f(37)
         # There is the one actual field on a, plus several fields on the list
         # itself
-        self.check_resops(getfield_gc=7)
+        self.check_resops(getfield_gc_i=2, getfield_gc_r=5)
 
     def test_conditional_call_append(self):
         jitdriver = JitDriver(greens = [], reds = 'auto')
@@ -414,3 +393,13 @@ class TestLLtype(ListTests, LLJitMixin):
         res = self.meta_interp(f, [10])
         assert res == 0
         self.check_resops(call=0, cond_call=2)
+
+    def test_zero_init_resizable(self):
+        def f(n):
+            l = [0] * n
+            l.append(123)
+            return len(l) + l[0] + l[1] + l[2] + l[3] + l[4] + l[5] + l[6]
+
+        res = self.interp_operations(f, [10], listops=True, inline=True)
+        assert res == 11
+        self.check_operations_history(new_array_clear=1)

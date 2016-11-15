@@ -5,10 +5,14 @@
 # sizeof, offsetof
 
 import weakref
+from rpython.annotator.bookkeeper import analyzer_for
+from rpython.annotator.model import SomeInteger, SomeObject, SomeString, s_Bool
 from rpython.rlib.objectmodel import Symbolic, specialize
 from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.lltypesystem.lltype import SomePtr
 from rpython.tool.uid import uid
 from rpython.rlib.rarithmetic import is_valid_int
+from rpython.rtyper.extregistry import ExtRegistryEntry
 
 
 class AddressOffset(Symbolic):
@@ -300,8 +304,15 @@ class ArrayItemsOffset(AddressOffset):
         return cast_ptr_to_adr(p)
 
     def raw_memcopy(self, srcadr, dstadr):
-        # should really copy the length field, but we can't
-        pass
+        # copy the length field, if we can
+        srclen = srcadr.ptr._obj.getlength()
+        dstlen = dstadr.ptr._obj.getlength()
+        if dstlen != srclen:
+            assert dstlen > srclen, "can't increase the length"
+            # a decrease in length occurs in the GC tests when copying a STR:
+            # the copy is initially allocated with really one extra char,
+            # the 'extra_item_after_alloc', and must be fixed.
+            dstadr.ptr._obj.shrinklength(srclen)
 
 
 class ArrayLengthOffset(AddressOffset):
@@ -386,11 +397,23 @@ def _sizeof_int(TYPE, n):
     else:
         raise Exception("don't know how to take the size of a %r"%TYPE)
 
+@specialize.memo()
+def extra_item_after_alloc(ARRAY):
+    assert isinstance(ARRAY, lltype.Array)
+    return ARRAY._hints.get('extra_item_after_alloc', 0)
+
 @specialize.arg(0)
 def sizeof(TYPE, n=None):
+    """Return the symbolic size of TYPE.
+    For a Struct with no varsized part, it must be called with n=None.
+    For an Array or a Struct with a varsized part, it is the number of items.
+    There is a special case to return 1 more than requested if the array
+    has the hint 'extra_item_after_alloc' set to 1.
+    """
     if n is None:
         return _sizeof_none(TYPE)
     elif isinstance(TYPE, lltype.Array):
+        n += extra_item_after_alloc(TYPE)
         return itemoffsetof(TYPE) + _sizeof_none(TYPE.OF) * n
     else:
         return _sizeof_int(TYPE, n)
@@ -399,6 +422,11 @@ def sizeof(TYPE, n=None):
 def offsetof(TYPE, fldname):
     assert fldname in TYPE._flds
     return FieldOffset(TYPE, fldname)
+
+@analyzer_for(offsetof)
+def ann_offsetof(TYPE, fldname):
+    return SomeInteger()
+
 
 @specialize.memo()
 def itemoffsetof(TYPE, n=0):
@@ -528,6 +556,44 @@ class fakeaddress(object):
             return llarena.getfakearenaaddress(self)
         else:
             return self
+
+class fakeaddressEntry(ExtRegistryEntry):
+    _type_ = fakeaddress
+
+    def compute_annotation(self):
+        from rpython.rtyper.llannotation import SomeAddress
+        return SomeAddress()
+
+class SomeAddress(SomeObject):
+    immutable = True
+
+    def can_be_none(self):
+        return False
+
+    def is_null_address(self):
+        return self.is_immutable_constant() and not self.const
+
+    def getattr(self, s_attr):
+        assert s_attr.is_constant()
+        assert isinstance(s_attr, SomeString)
+        assert s_attr.const in supported_access_types
+        return SomeTypedAddressAccess(supported_access_types[s_attr.const])
+    getattr.can_only_throw = []
+
+    def bool(self):
+        return s_Bool
+
+class SomeTypedAddressAccess(SomeObject):
+    """This class is used to annotate the intermediate value that
+    appears in expressions of the form:
+    addr.signed[offset] and addr.signed[offset] = value
+    """
+
+    def __init__(self, type):
+        self.type = type
+
+    def can_be_none(self):
+        return False
 
 # ____________________________________________________________
 
@@ -675,8 +741,21 @@ def cast_ptr_to_adr(obj):
     assert isinstance(lltype.typeOf(obj), lltype.Ptr)
     return obj._cast_to_adr()
 
+@analyzer_for(cast_ptr_to_adr)
+def ann_cast_ptr_to_adr(s):
+    from rpython.rtyper.llannotation import SomeInteriorPtr
+    assert not isinstance(s, SomeInteriorPtr)
+    return SomeAddress()
+
+
 def cast_adr_to_ptr(adr, EXPECTED_TYPE):
     return adr._cast_to_ptr(EXPECTED_TYPE)
+
+@analyzer_for(cast_adr_to_ptr)
+def ann_cast_adr_to_ptr(s, s_type):
+    assert s_type.is_constant()
+    return SomePtr(s_type.const)
+
 
 def cast_adr_to_int(adr, mode="emulated"):
     # The following modes are supported before translation (after
@@ -694,6 +773,11 @@ def cast_adr_to_int(adr, mode="emulated"):
         res = cast(lltype.Signed, res)
     return res
 
+@analyzer_for(cast_adr_to_int)
+def ann_cast_adr_to_int(s, s_mode=None):
+    return SomeInteger()  # xxx
+
+
 _NONGCREF = lltype.Ptr(lltype.OpaqueType('NONGCREF'))
 def cast_int_to_adr(int):
     if isinstance(int, AddressAsInt):
@@ -705,6 +789,10 @@ def cast_int_to_adr(int):
         ptr = ll2ctypes._int2obj[int]._as_ptr()
     return cast_ptr_to_adr(ptr)
 
+@analyzer_for(cast_int_to_adr)
+def ann_cast_int_to_adr(s):
+    return SomeAddress()
+
 # ____________________________________________________________
 # Weakrefs.
 #
@@ -714,6 +802,7 @@ def cast_int_to_adr(int):
 
 class _WeakRefType(lltype.ContainerType):
     _gckind = 'gc'
+
     def __str__(self):
         return "WeakRef"
 
@@ -728,6 +817,15 @@ def weakref_create(ptarget):
     assert ptarget
     return _wref(ptarget)._as_ptr()
 
+@analyzer_for(weakref_create)
+def ann_weakref_create(s_obj):
+    if (not isinstance(s_obj, SomePtr) or
+            s_obj.ll_ptrtype.TO._gckind != 'gc'):
+        raise Exception("bad type for argument to weakref_create(): %r" % (
+            s_obj,))
+    return SomePtr(WeakRefPtr)
+
+
 def weakref_deref(PTRTYPE, pwref):
     # pwref should not be a nullptr
     assert isinstance(PTRTYPE, lltype.Ptr)
@@ -738,6 +836,20 @@ def weakref_deref(PTRTYPE, pwref):
         return lltype.nullptr(PTRTYPE.TO)
     else:
         return cast_any_ptr(PTRTYPE, p)
+
+@analyzer_for(weakref_deref)
+def ann_weakref_deref(s_ptrtype, s_wref):
+    if not (s_ptrtype.is_constant() and
+            isinstance(s_ptrtype.const, lltype.Ptr) and
+            s_ptrtype.const.TO._gckind == 'gc'):
+        raise Exception("weakref_deref() arg 1 must be a constant "
+                        "ptr type, got %s" % (s_ptrtype,))
+    if not (isinstance(s_wref, SomePtr) and
+            s_wref.ll_ptrtype == WeakRefPtr):
+        raise Exception("weakref_deref() arg 2 must be a WeakRefPtr, "
+                        "got %s" % (s_wref,))
+    return SomePtr(s_ptrtype.const)
+
 
 class _wref(lltype._container):
     _gckind = 'gc'
@@ -781,6 +893,12 @@ def cast_ptr_to_weakrefptr(ptr):
     else:
         return lltype.nullptr(WeakRef)
 
+@analyzer_for(cast_ptr_to_weakrefptr)
+def llcast_ptr_to_weakrefptr(s_ptr):
+    assert isinstance(s_ptr, SomePtr)
+    return SomePtr(WeakRefPtr)
+
+
 def cast_weakrefptr_to_ptr(PTRTYPE, pwref):
     assert lltype.typeOf(pwref) == WeakRefPtr
     if pwref:
@@ -790,6 +908,18 @@ def cast_weakrefptr_to_ptr(PTRTYPE, pwref):
         return pwref._obj._ptr
     else:
         return lltype.nullptr(PTRTYPE.TO)
+
+@analyzer_for(cast_weakrefptr_to_ptr)
+def llcast_weakrefptr_to_ptr(s_ptrtype, s_wref):
+    if not (s_ptrtype.is_constant() and
+            isinstance(s_ptrtype.const, lltype.Ptr)):
+        raise Exception("cast_weakrefptr_to_ptr() arg 1 must be a constant "
+                        "ptr type, got %s" % (s_ptrtype,))
+    if not (isinstance(s_wref, SomePtr) and s_wref.ll_ptrtype == WeakRefPtr):
+        raise Exception("cast_weakrefptr_to_ptr() arg 2 must be a WeakRefPtr, "
+                        "got %s" % (s_wref,))
+    return SomePtr(s_ptrtype.const)
+
 
 class _gctransformed_wref(lltype._container):
     _gckind = 'gc'
@@ -812,6 +942,12 @@ def raw_malloc(size):
         raise NotImplementedError(size)
     return size._raw_malloc([], zero=False)
 
+@analyzer_for(raw_malloc)
+def ann_raw_malloc(s_size):
+    assert isinstance(s_size, SomeInteger)  # XXX add noneg...?
+    return SomeAddress()
+
+
 def raw_free(adr):
     # try to free the whole object if 'adr' is the address of the header
     from rpython.memory.gcheader import GCHeaderBuilder
@@ -824,12 +960,22 @@ def raw_free(adr):
     assert isinstance(adr.ref()._obj, lltype._parentable)
     adr.ptr._as_obj()._free()
 
+@analyzer_for(raw_free)
+def ann_raw_free(s_addr):
+    assert isinstance(s_addr, SomeAddress)
+
 def raw_malloc_usage(size):
     if isinstance(size, AddressOffset):
         # ouah
         from rpython.memory.lltypelayout import convert_offset_to_int
         size = convert_offset_to_int(size)
     return size
+
+@analyzer_for(raw_malloc_usage)
+def ann_raw_malloc_usage(s_size):
+    assert isinstance(s_size, SomeInteger)  # XXX add noneg...?
+    return SomeInteger(nonneg=True)
+
 
 def raw_memclear(adr, size):
     if not isinstance(size, AddressOffset):
@@ -838,16 +984,42 @@ def raw_memclear(adr, size):
     zeroadr = size._raw_malloc([], zero=True)
     size.raw_memcopy(zeroadr, adr)
 
+@analyzer_for(raw_memclear)
+def ann_raw_memclear(s_addr, s_int):
+    assert isinstance(s_addr, SomeAddress)
+    assert isinstance(s_int, SomeInteger)
+
+
 def raw_memcopy(source, dest, size):
     assert lltype.typeOf(source) == Address
-    assert lltype.typeOf(dest)   == Address
+    assert lltype.typeOf(dest) == Address
     size.raw_memcopy(source, dest)
+
+@analyzer_for(raw_memcopy)
+def ann_raw_memcopy(s_addr1, s_addr2, s_int):
+    assert isinstance(s_addr1, SomeAddress)
+    assert isinstance(s_addr2, SomeAddress)
+    assert isinstance(s_int, SomeInteger)  # XXX add noneg...?
+
 
 def raw_memmove(source, dest, size):
     # for now let's assume that raw_memmove is the same as raw_memcopy,
     # when run on top of fake addresses, but we _free the source object
     raw_memcopy(source, dest, size)
     source.ptr._as_obj()._free()
+
+class RawMemmoveEntry(ExtRegistryEntry):
+    _about_ = raw_memmove
+
+    def compute_result_annotation(self, s_from, s_to, s_size):
+        assert isinstance(s_from, SomeAddress)
+        assert isinstance(s_to, SomeAddress)
+        assert isinstance(s_size, SomeInteger)
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        v_list = hop.inputargs(Address, Address, lltype.Signed)
+        return hop.genop('raw_memmove', v_list)
 
 def cast_any_ptr(EXPECTED_TYPE, ptr):
     # this is a generalization of the various cast_xxx_ptr() functions.
@@ -860,7 +1032,7 @@ def cast_any_ptr(EXPECTED_TYPE, ptr):
         ptr = cast_weakrefptr_to_ptr(None, ptr)
         return cast_any_ptr(EXPECTED_TYPE, ptr)
     elif (isinstance(EXPECTED_TYPE.TO, lltype.OpaqueType) or
-        isinstance(PTRTYPE.TO, lltype.OpaqueType)):
+            isinstance(PTRTYPE.TO, lltype.OpaqueType)):
         return lltype.cast_opaque_ptr(EXPECTED_TYPE, ptr)
     else:
         # regular case
@@ -883,8 +1055,9 @@ def _reccopy(source, dest):
                 _reccopy(subsrc, subdst)
             else:
                 # this is a hack XXX de-hack this
-                llvalue = source._obj.getitem(i, uninitialized_ok=True)
-                dest._obj.setitem(i, llvalue)
+                llvalue = source._obj.getitem(i, uninitialized_ok=2)
+                if not isinstance(llvalue, lltype._uninitialized):
+                    dest._obj.setitem(i, llvalue)
     elif isinstance(T, lltype.Struct):
         for name in T._names:
             FIELDTYPE = getattr(T, name)
@@ -898,20 +1071,3 @@ def _reccopy(source, dest):
                 setattr(dest._obj, name, llvalue)
     else:
         raise TypeError(T)
-
-from rpython.rtyper.extregistry import ExtRegistryEntry
-
-class RawMemmoveEntry(ExtRegistryEntry):
-    _about_ = raw_memmove
-
-    def compute_result_annotation(self, s_from, s_to, s_size):
-        from rpython.annotator.model import SomeInteger
-        from rpython.rtyper.llannotation import SomeAddress
-        assert isinstance(s_from, SomeAddress)
-        assert isinstance(s_to, SomeAddress)
-        assert isinstance(s_size, SomeInteger)
-
-    def specialize_call(self, hop):
-        hop.exception_cannot_occur()
-        v_list = hop.inputargs(Address, Address, lltype.Signed)
-        return hop.genop('raw_memmove', v_list)

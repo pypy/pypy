@@ -1,11 +1,12 @@
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.module.micronumpy import loop, descriptor, ufuncs, support, \
-    constants as NPY
+from pypy.module.micronumpy import loop, descriptor, support
+from pypy.module.micronumpy import constants as NPY
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
 from pypy.module.micronumpy.converters import clipmode_converter
-from pypy.module.micronumpy.strides import Chunk, Chunks, shape_agreement, \
-    shape_agreement_multiple
+from pypy.module.micronumpy.strides import (
+    Chunk, new_view, shape_agreement, shape_agreement_multiple)
+from .casting import find_binop_result_dtype, find_result_type
 
 
 def where(space, w_arr, w_x=None, w_y=None):
@@ -70,13 +71,13 @@ def where(space, w_arr, w_x=None, w_y=None):
     """
     if space.is_none(w_y):
         if space.is_none(w_x):
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                "1-arg where unsupported right now"))
-        raise OperationError(space.w_ValueError, space.wrap(
-            "Where should be called with either 1 or 3 arguments"))
+            arr = convert_to_array(space, w_arr)
+            return arr.descr_nonzero(space)
+        raise oefmt(space.w_ValueError,
+                    "Where should be called with either 1 or 3 arguments")
     if space.is_none(w_x):
-        raise OperationError(space.w_ValueError, space.wrap(
-            "Where should be called with either 1 or 3 arguments"))
+        raise oefmt(space.w_ValueError,
+                    "Where should be called with either 1 or 3 arguments")
     arr = convert_to_array(space, w_arr)
     x = convert_to_array(space, w_x)
     y = convert_to_array(space, w_y)
@@ -84,8 +85,7 @@ def where(space, w_arr, w_x=None, w_y=None):
         if arr.get_dtype().itemtype.bool(arr.get_scalar_value()):
             return x
         return y
-    dtype = ufuncs.find_binop_result_dtype(space, x.get_dtype(),
-                                                  y.get_dtype())
+    dtype = find_result_type(space, [x, y], [])
     shape = shape_agreement(space, arr.get_shape(), x)
     shape = shape_agreement(space, shape, y)
     out = W_NDimArray.from_shape(space, shape, dtype)
@@ -108,7 +108,8 @@ def concatenate(space, w_args, w_axis=None):
         w_axis = space.wrap(0)
     if space.is_none(w_axis):
         args_w = [w_arg.reshape(space,
-                                space.newlist([w_arg.descr_get_size(space)]))
+                                space.newlist([w_arg.descr_get_size(space)]),
+                                w_arg.get_order())
                   for w_arg in args_w]
         w_axis = space.wrap(0)
     dtype = args_w[0].get_dtype()
@@ -128,30 +129,20 @@ def concatenate(space, w_args, w_axis=None):
                     orig_axis, ndim)
     for arr in args_w[1:]:
         if len(arr.get_shape()) != ndim:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "all the input arrays must have same number of dimensions"))
+            raise oefmt(space.w_ValueError,
+                        "all the input arrays must have same number of "
+                        "dimensions")
         for i, axis_size in enumerate(arr.get_shape()):
             if i == axis:
                 shape[i] += axis_size
             elif axis_size != shape[i]:
-                raise OperationError(space.w_ValueError, space.wrap(
-                    "all the input array dimensions except for the "
-                    "concatenation axis must match exactly"))
-        a_dt = arr.get_dtype()
-        if dtype.is_record() and a_dt.is_record():
-            # Record types must match
-            for f in dtype.fields:
-                if f not in a_dt.fields or \
-                             dtype.fields[f] != a_dt.fields[f]:
-                    raise OperationError(space.w_TypeError,
-                               space.wrap("invalid type promotion"))
-        elif dtype.is_record() or a_dt.is_record():
-            raise OperationError(space.w_TypeError,
-                        space.wrap("invalid type promotion"))
-        dtype = ufuncs.find_binop_result_dtype(space, dtype,
-                                                      arr.get_dtype())
+                raise oefmt(space.w_ValueError,
+                            "all the input array dimensions except for the "
+                            "concatenation axis must match exactly")
+
+    dtype = find_result_type(space, args_w, [])
     # concatenate does not handle ndarray subtypes, it always returns a ndarray
-    res = W_NDimArray.from_shape(space, shape, dtype, 'C')
+    res = W_NDimArray.from_shape(space, shape, dtype, NPY.CORDER)
     chunks = [Chunk(0, i, 1, i) for i in shape]
     axis_start = 0
     for arr in args_w:
@@ -159,7 +150,8 @@ def concatenate(space, w_args, w_axis=None):
             continue
         chunks[axis] = Chunk(axis_start, axis_start + arr.get_shape()[axis], 1,
                              arr.get_shape()[axis])
-        Chunks(chunks).apply(space, res).implementation.setslice(space, arr)
+        view = new_view(space, res, chunks)
+        view.implementation.setslice(space, arr)
         axis_start += arr.get_shape()[axis]
     return res
 
@@ -173,8 +165,9 @@ def repeat(space, w_arr, repeats, w_axis):
         shape = [arr.get_shape()[0] * repeats]
         w_res = W_NDimArray.from_shape(space, shape, arr.get_dtype(), w_instance=arr)
         for i in range(repeats):
-            Chunks([Chunk(i, shape[0] - repeats + i, repeats,
-                 orig_size)]).apply(space, w_res).implementation.setslice(space, arr)
+            chunks = [Chunk(i, shape[0] - repeats + i, repeats, orig_size)]
+            view = new_view(space, w_res, chunks)
+            view.implementation.setslice(space, arr)
     else:
         axis = space.int_w(w_axis)
         shape = arr.get_shape()[:]
@@ -185,7 +178,8 @@ def repeat(space, w_arr, repeats, w_axis):
         for i in range(repeats):
             chunks[axis] = Chunk(i, shape[axis] - repeats + i, repeats,
                                  orig_size)
-            Chunks(chunks).apply(space, w_res).implementation.setslice(space, arr)
+            view = new_view(space, w_res, chunks)
+            view.implementation.setslice(space, arr)
     return w_res
 
 
@@ -202,8 +196,7 @@ def choose(space, w_arr, w_choices, w_out, w_mode):
     if space.is_none(w_out):
         w_out = None
     elif not isinstance(w_out, W_NDimArray):
-        raise OperationError(space.w_TypeError, space.wrap(
-            "return arrays must be of ArrayType"))
+        raise oefmt(space.w_TypeError, "return arrays must be of ArrayType")
     shape = shape_agreement_multiple(space, choices + [w_out])
     out = descriptor.dtype_agreement(space, choices, shape, w_out)
     dtype = out.get_dtype()

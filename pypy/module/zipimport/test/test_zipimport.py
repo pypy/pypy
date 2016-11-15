@@ -16,7 +16,7 @@ class AppTestZipimport:
     """
     compression = ZIP_STORED
     spaceconfig = {
-        "usemodules": ['zipimport', 'rctime', 'struct', 'itertools', 'binascii'],
+        "usemodules": ['zipimport', 'time', 'struct', 'itertools', 'binascii'],
     }
     pathsep = os.path.sep
 
@@ -157,7 +157,6 @@ class AppTestZipimport:
         import sys, os
         self.writefile("uuu.py", "def f(x): return x")
         mod = __import__('uuu', globals(), locals(), [])
-        print mod
         assert mod.f(3) == 3
         expected = {
             '__doc__' : None,
@@ -196,7 +195,8 @@ class AppTestZipimport:
         m0 ^= 0x04
         test_pyc = chr(m0) + self.test_pyc[1:]
         self.writefile("uu.pyc", test_pyc)
-        raises(ImportError, "__import__('uu', globals(), locals(), [])")
+        raises(zipimport.ZipImportError,
+               "__import__('uu', globals(), locals(), [])")
         assert 'uu' not in sys.modules
 
     def test_force_py(self):
@@ -334,7 +334,9 @@ class AppTestZipimport:
         self.writefile("directory/package/__init__.py", "")
         importer = zipimport.zipimporter(self.zipfile + "/directory")
         l = [i for i in zipimport._zip_directory_cache]
-        assert len(l)
+        assert len(l) == 1
+        k = zipimport._zip_directory_cache[l[0]].keys()
+        assert k[0] == os.path.sep.join(['directory','package','__init__.py'])
 
     def test_path_hooks(self):
         import sys
@@ -358,6 +360,11 @@ def get_co_filename():
         code = z.get_code('mymodule')
         co_filename = code.co_filename
         assert co_filename == expected
+
+    def test_import_exception(self):
+        self.writefile('x1test.py', '1/0')
+        self.writefile('x1test/__init__.py', 'raise ValueError')
+        raises(ValueError, __import__, 'x1test', None, None, [])
 
 
 if os.sep != '/':

@@ -1,9 +1,10 @@
 import py
-from rpython.rlib.jit import JitDriver, promote, dont_look_inside
+from rpython.rlib.jit import JitDriver, promote, dont_look_inside, set_param
 from rpython.rlib.objectmodel import compute_unique_id
 from rpython.jit.codewriter.policy import StopAtXPolicy
-from rpython.jit.metainterp.test.support import LLJitMixin
-from rpython.rtyper.lltypesystem import lltype, rclass, rffi
+from rpython.jit.metainterp.test.support import LLJitMixin, get_stats
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.jit.codewriter import heaptracker
 
@@ -32,7 +33,7 @@ class VirtualTests:
         assert res == 55 * 10
         self.check_trace_count(1)
         self.check_resops(new_with_vtable=0, setfield_gc=0,
-                          getfield_gc=2, new=0)
+                          getfield_gc_i=2, new=0)
 
     def test_virtualized2(self):
         myjitdriver = JitDriver(greens=[], reds=['n', 'node1', 'node2'])
@@ -53,7 +54,7 @@ class VirtualTests:
                 n -= 1
             return node1.value * node2.value
         assert f(10) == self.meta_interp(f, [10])
-        self.check_resops(new_with_vtable=0, setfield_gc=0, getfield_gc=2,
+        self.check_resops(new_with_vtable=0, setfield_gc=0, getfield_gc_i=2,
                           new=0)
 
     def test_virtualized_circular1(self):
@@ -79,8 +80,8 @@ class VirtualTests:
         res = self.meta_interp(f, [10])
         assert res == 55 * 10
         self.check_trace_count(1)
-        self.check_resops(new_with_vtable=0, setfield_gc=0, getfield_gc=3,
-                          new=0)
+        self.check_resops(new_with_vtable=0, setfield_gc=0, getfield_gc_i=2,
+                          getfield_gc_r=1, new=0)
 
     def test_virtualized_float(self):
         myjitdriver = JitDriver(greens=[], reds=['n', 'node'])
@@ -139,7 +140,7 @@ class VirtualTests:
         res = self.meta_interp(f, [10])
         assert res == 55 * 30
         self.check_trace_count(1)
-        self.check_resops(new_with_vtable=0, setfield_gc=0, getfield_gc=2,
+        self.check_resops(new_with_vtable=0, setfield_gc=0, getfield_gc_i=2,
                           new=0)
 
     def test_nonvirtual_obj_delays_loop(self):
@@ -160,7 +161,7 @@ class VirtualTests:
         res = self.meta_interp(f, [500])
         assert res == 640
         self.check_trace_count(1)
-        self.check_resops(new_with_vtable=0, setfield_gc=0, getfield_gc=1,
+        self.check_resops(new_with_vtable=0, setfield_gc=0, getfield_gc_i=1,
                           new=0)
 
     def test_two_loops_with_virtual(self):
@@ -184,7 +185,7 @@ class VirtualTests:
         res = self.meta_interp(f, [18])
         assert res == f(18)
         self.check_trace_count(2)
-        self.check_resops(new_with_vtable=0, setfield_gc=0, getfield_gc=2,
+        self.check_resops(new_with_vtable=0, setfield_gc=0, getfield_gc_i=2,
                           new=0)
 
     def test_two_loops_with_escaping_virtual(self):
@@ -213,7 +214,7 @@ class VirtualTests:
         assert res == f(20)
         self.check_trace_count(2)
         self.check_resops(**{self._new_op: 1})
-        self.check_resops(int_mul=0, call=1)
+        self.check_resops(int_mul=0, call_i=1)
 
     def test_two_virtuals(self):
         myjitdriver = JitDriver(greens=[], reds=['n', 'prev'])
@@ -307,7 +308,7 @@ class VirtualTests:
 
         res = self.meta_interp(f, [10, 1, 0], listops=True)
         assert res == 0
-        self.check_resops(getfield_gc=0)
+        self.check_resops(getfield_gc_i=0)
 
     def test_escapes(self):
         myjitdriver = JitDriver(greens=[], reds=['n', 'parent'])
@@ -707,6 +708,25 @@ class VirtualTests:
             return node[0] + node[1]
         assert self.meta_interp(f, [40]) == f(40)
 
+    def test_virtual_array_with_nulls(self):
+        class Foo:
+            pass
+        myjitdriver = JitDriver(greens=[], reds=['n', 'node'])
+        def f(n):
+            node = [None, Foo()]
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n, node=node)
+                myjitdriver.jit_merge_point(n=n, node=node)
+                newnode = [None] * 2
+                if (n >> 3) & 1:
+                    newnode[1] = node[1]
+                else:
+                    newnode[1] = node[1]
+                node = newnode
+                n -= 1
+            return 42
+        assert self.meta_interp(f, [40]) == 42
+
     def test_this_doesnt_force1(self):
         mydriver = JitDriver(reds=['i', 'j'], greens=[])
         def f():
@@ -899,7 +919,7 @@ class VirtualTests:
         assert res == f(10)
         self.check_aborted_count(0)
         self.check_target_token_count(3)
-        self.check_resops(int_mul=2)
+        self.check_resops(int_mul=3)
 
     def test_nested_loops_bridge(self):
         class Int(object):
@@ -943,7 +963,83 @@ class VirtualTests:
         res = self.meta_interp(f, [32])
         assert res == f(32)
         self.check_aborted_count(0)
-        self.check_target_token_count(3)
+        self.check_target_token_count(4)
+
+    def test_avoid_preamble(self):
+        driver = JitDriver(greens=[], reds=['i', 'val'])
+        class X(object):
+            def __init__(self, v):
+                self.v = v
+
+        class Box(object):
+            def __init__(self, v):
+                self.unbox = v
+
+        mask = -2
+        const = Box(X(5))
+        def f():
+            # Prevent all retracing of side exits. Ensures that the unroll
+            # optimizer will attempt to jump to either the preamble or loop.
+            set_param(driver, 'retrace_limit', -1)
+            set_param(driver, 'threshold', 1)
+            val   = X(0)
+            i     = 0
+            const.unbox = X(5)
+            while i < 17:
+                driver.can_enter_jit(i=i, val=val)
+                driver.jit_merge_point(i=i, val=val)
+                # Logical & rather than comparison to confuse range analysis.
+                # Test only succeeds on the first 2 iterations
+                if i & -2 == 0:
+                    val = const.unbox
+                else:
+                    val = X(i)
+                i += 1
+            return 0
+
+        self.meta_interp(f, [])
+
+        # With retracing disable, there will be one optimized loop expecting a
+        # non-virtual X object. The side exit creates a virtual object which must
+        # be allocated to jump to the optimized trace.
+        self.check_resops(jump=3, label=2, new_with_vtable=2)
+        self.check_target_token_count(2)
+        self.check_trace_count(3)
+
+    def test_conflated_virtual_states(self):
+        # All cases are covered when forcing one component of the virtual state
+        # also forces an as yet unseen component.
+        # i.e. expect [NotVirtual, Virtual] and given a pair of aliasing virtual
+        # objects
+        driver = JitDriver(greens=[], reds=['i', 'v1', 'v2'])
+        class Box(object):
+            def __init__(self, v):
+                self.v = v
+
+        class X(object):
+            def __init__(self, v):
+                self.v = v
+
+        const = Box(X(0))
+        def f():
+            set_param(None, 'retrace_limit', -1)
+            set_param(None, 'threshold', 1)
+            i = 0
+            v1 = X(0)
+            v2 = X(0)
+            const.v = X(0)
+            while i < 17:
+                driver.jit_merge_point(i=i, v1=v1, v2=v2)
+                driver.can_enter_jit(i=i, v1=v1, v2=v2)
+                if i & 1 == 0:
+                    v1 = const.v
+                    v2 = X(i)
+                else:
+                    v1 = v2 = X(i)
+                i += 1
+            return None
+        self.meta_interp(f, [])
+        # assert did not crash
 
 
 class VirtualMiscTests:
@@ -1057,7 +1153,7 @@ class VirtualMiscTests:
         res = self.meta_interp(f, [], repeat=7)
         assert res == f()
 
-    def test_getfield_gc_pure_nobug(self):
+    def test_pure_getfield_gc_nobug(self):
         mydriver = JitDriver(reds=['i', 's', 'a'], greens=[])
 
         class A(object):
@@ -1129,7 +1225,7 @@ class VirtualMiscTests:
 
         res = self.meta_interp(f, [16])
         assert res == f(16)
-        self.check_resops(getfield_gc=7)
+        self.check_resops(getfield_gc_i=7)
 
     def test_raw_malloc(self):
         mydriver = JitDriver(greens=[], reds='auto')
@@ -1194,7 +1290,7 @@ class VirtualMiscTests:
         assert res == 45
         # make sure that the raw buffer is *not* virtualized because we do not
         # support virtualstate
-        self.check_resops(getarrayitem_raw=2, raw_store=2)
+        self.check_resops(getarrayitem_raw_i=2, raw_store=2)
 
     def test_raw_malloc_only_chars(self):
         mydriver = JitDriver(greens=[], reds='auto')
@@ -1214,7 +1310,7 @@ class VirtualMiscTests:
         res = self.meta_interp(f, [10])
         assert res == 55
         self.check_trace_count(1)
-        self.check_resops(setarrayitem_raw=2, getarrayitem_raw=4)
+        self.check_resops(setarrayitem_raw=2, getarrayitem_raw_i=4)
 
 # ____________________________________________________________
 # Run 1: all the tests instantiate a real RPython class
@@ -1256,7 +1352,7 @@ class TestLLtype_Instance(VirtualTests, LLJitMixin):
         res = self.meta_interp(f, [10])
         assert res == 20
         self.check_trace_count(1)
-        self.check_resops(new_with_vtable=0, setfield_gc=0, getfield_gc=0,
+        self.check_resops(new_with_vtable=0, setfield_gc=0, getfield_gc_i=0,
                           new=0)
 
 # ____________________________________________________________

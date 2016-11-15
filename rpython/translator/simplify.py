@@ -5,14 +5,17 @@
 simplify_graph() applies all simplifications defined in this file.
 """
 import py
+from collections import defaultdict
 
-from rpython.flowspace.model import (Variable, Constant,
-                                     c_last_exception, checkgraph, mkentrymap)
+from rpython.tool.algo.unionfind import UnionFind
+from rpython.flowspace.model import (
+        Variable, Constant, checkgraph, mkentrymap)
 from rpython.flowspace.operation import OverflowingOperation, op
 from rpython.rlib import rarithmetic
 from rpython.translator import unsimplify
-from rpython.translator.backendopt import ssa
 from rpython.rtyper.lltypesystem import lloperation, lltype
+from rpython.translator.backendopt.ssa import (
+        SSA_to_SSI, DataFlowFamilyBuilder)
 
 def get_graph(arg, translator):
     if isinstance(arg, Variable):
@@ -21,27 +24,16 @@ def get_graph(arg, translator):
     if not isinstance(f, lltype._ptr):
         return None
     try:
-        funcobj = f._getobj()
+        funcobj = f._obj
     except lltype.DelayedPointer:
-        return None
-    try:
-        callable = funcobj._callable
-    except (AttributeError, KeyError, AssertionError):
         return None
     try:
         return funcobj.graph
     except AttributeError:
         return None
-    try:
-        callable = funcobj._callable
-        return translator._graphof(callable)
-    except (AttributeError, KeyError, AssertionError):
-        return None
 
 
 def replace_exitswitch_by_constant(block, const):
-    assert isinstance(const, Constant)
-    assert const != c_last_exception
     newexits = [link for link in block.exits
                      if link.exitcase == const.value]
     if len(newexits) == 0:
@@ -62,26 +54,19 @@ def eliminate_empty_blocks(graph):
     When this happens, we need to replace the preceeding link with the
     following link.  Arguments of the links should be updated."""
     for link in list(graph.iterlinks()):
-            while not link.target.operations:
-                block1 = link.target
-                if block1.exitswitch is not None:
-                    break
-                if not block1.exits:
-                    break
-                exit = block1.exits[0]
-                assert block1 is not exit.target, (
-                    "the graph contains an empty infinite loop")
-                outputargs = []
-                for v in exit.args:
-                    if isinstance(v, Variable):
-                        # this variable is valid in the context of block1
-                        # but it must come from 'link'
-                        i = block1.inputargs.index(v)
-                        v = link.args[i]
-                    outputargs.append(v)
-                link.args = outputargs
-                link.target = exit.target
-                # the while loop above will simplify recursively the new link
+        while not link.target.operations:
+            block1 = link.target
+            if block1.exitswitch is not None:
+                break
+            if not block1.exits:
+                break
+            exit = block1.exits[0]
+            assert block1 is not exit.target, (
+                "the graph contains an empty infinite loop")
+            subst = dict(zip(block1.inputargs, link.args))
+            link.args = [v.replace(subst) for v in exit.args]
+            link.target = exit.target
+            # the while loop above will simplify recursively the new link
 
 def transform_ovfcheck(graph):
     """The special function calls ovfcheck needs to
@@ -128,13 +113,9 @@ def simplify_exceptions(graph):
     chain of is_/issubtype tests. We collapse them all into
     the block's single list of exits.
     """
-    clastexc = c_last_exception
     renaming = {}
-    def rename(v):
-        return renaming.get(v, v)
-
     for block in graph.iterblocks():
-        if not (block.exitswitch == clastexc
+        if not (block.canraise
                 and block.exits[-1].exitcase is Exception):
             continue
         covered = [link.exitcase for link in block.exits[1:-1]]
@@ -149,10 +130,10 @@ def simplify_exceptions(graph):
         while len(query.exits) == 2:
             newrenaming = {}
             for lprev, ltarg in zip(exc.args, query.inputargs):
-                newrenaming[ltarg] = rename(lprev)
+                newrenaming[ltarg] = lprev.replace(renaming)
             op = query.operations[0]
             if not (op.opname in ("is_", "issubtype") and
-                    newrenaming.get(op.args[0]) == last_exception):
+                    op.args[0].replace(newrenaming) == last_exception):
                 break
             renaming.update(newrenaming)
             case = query.operations[0].args[-1].value
@@ -175,34 +156,29 @@ def simplify_exceptions(graph):
         # construct the block's new exits
         exits = []
         for case, oldlink in switches:
-            link = oldlink.copy(rename)
+            link = oldlink.replace(renaming)
             assert case is not None
             link.last_exception = last_exception
             link.last_exc_value = last_exc_value
             # make the above two variables unique
             renaming2 = {}
-            def rename2(v):
-                return renaming2.get(v, v)
             for v in link.getextravars():
                 renaming2[v] = Variable(v)
-            link = link.copy(rename2)
+            link = link.replace(renaming2)
             link.exitcase = case
-            link.prevblock = block
             exits.append(link)
         block.recloseblock(*(preserve + exits))
 
 def transform_xxxitem(graph):
     # xxx setitem too
     for block in graph.iterblocks():
-        if block.operations and block.exitswitch == c_last_exception:
-            last_op = block.operations[-1]
+        if block.canraise:
+            last_op = block.raising_op
             if last_op.opname == 'getitem':
                 postfx = []
                 for exit in block.exits:
                     if exit.exitcase is IndexError:
                         postfx.append('idx')
-                    elif exit.exitcase is KeyError:
-                        postfx.append('key')
                 if postfx:
                     Op = getattr(op, '_'.join(['getitem'] + postfx))
                     newop = Op(*last_op.args)
@@ -212,9 +188,6 @@ def transform_xxxitem(graph):
 
 def remove_dead_exceptions(graph):
     """Exceptions can be removed if they are unreachable"""
-
-    clastexc = c_last_exception
-
     def issubclassofmember(cls, seq):
         for member in seq:
             if member and issubclass(cls, member):
@@ -222,7 +195,7 @@ def remove_dead_exceptions(graph):
         return False
 
     for block in list(graph.iterblocks()):
-        if block.exitswitch != clastexc:
+        if not block.canraise:
             continue
         exits = []
         seen = []
@@ -241,6 +214,59 @@ def remove_dead_exceptions(graph):
             exits.append(link)
             seen.append(case)
         block.recloseblock(*exits)
+
+def constfold_exitswitch(graph):
+    """Remove trivial links by merging their source and target blocks
+
+    A link is trivial if it has no arguments, is the single exit of its
+    source and the single parent of its target.
+    """
+    block = graph.startblock
+    seen = set([block])
+    stack = list(block.exits)
+    while stack:
+        link = stack.pop()
+        target = link.target
+        if target in seen:
+            continue
+        source = link.prevblock
+        switch = source.exitswitch
+        if (isinstance(switch, Constant) and not source.canraise):
+            exits = replace_exitswitch_by_constant(source, switch)
+            stack.extend(exits)
+        else:
+            seen.add(target)
+            stack.extend(target.exits)
+
+
+def remove_trivial_links(graph):
+    """Remove trivial links by merging their source and target blocks
+
+    A link is trivial if it has no arguments, is the single exit of its
+    source and the single parent of its target.
+    """
+    entrymap = mkentrymap(graph)
+    block = graph.startblock
+    seen = set([block])
+    stack = list(block.exits)
+    while stack:
+        link = stack.pop()
+        if link.target in seen:
+            continue
+        source = link.prevblock
+        target = link.target
+        if (not link.args and source.exitswitch is None and
+                len(entrymap[target]) == 1 and
+                target.exits):  # stop at the returnblock
+            assert len(source.exits) == 1
+            source.operations.extend(target.operations)
+            source.exitswitch = newexitswitch = target.exitswitch
+            source.recloseblock(*target.exits)
+            stack.extend(source.exits)
+        else:
+            seen.add(target)
+            stack.extend(target.exits)
+
 
 def join_blocks(graph):
     """Links can be deleted if they are the single exit of a block and
@@ -261,8 +287,6 @@ def join_blocks(graph):
             renaming = {}
             for vprev, vtarg in zip(link.args, link.target.inputargs):
                 renaming[vtarg] = vprev
-            def rename(v):
-                return renaming.get(v, v)
             def rename_op(op):
                 op = op.replace(renaming)
                 # special case...
@@ -276,12 +300,16 @@ def join_blocks(graph):
                 link.prevblock.operations.append(rename_op(op))
             exits = []
             for exit in link.target.exits:
-                newexit = exit.copy(rename)
+                newexit = exit.replace(renaming)
                 exits.append(newexit)
-            newexitswitch = rename(link.target.exitswitch)
+            if link.target.exitswitch:
+                newexitswitch = link.target.exitswitch.replace(renaming)
+            else:
+                newexitswitch = None
             link.prevblock.exitswitch = newexitswitch
             link.prevblock.recloseblock(*exits)
-            if isinstance(newexitswitch, Constant) and newexitswitch != c_last_exception:
+            if (isinstance(newexitswitch, Constant) and
+                    not link.prevblock.canraise):
                 exits = replace_exitswitch_by_constant(link.prevblock,
                                                        newexitswitch)
             stack.extend(exits)
@@ -297,25 +325,25 @@ def remove_assertion_errors(graph):
     flowcontext.py).
     """
     for block in list(graph.iterblocks()):
-            for i in range(len(block.exits)-1, -1, -1):
-                exit = block.exits[i]
-                if not (exit.target is graph.exceptblock and
-                        exit.args[0] == Constant(AssertionError)):
-                    continue
-                # can we remove this exit without breaking the graph?
-                if len(block.exits) < 2:
+        for i in range(len(block.exits)-1, -1, -1):
+            exit = block.exits[i]
+            if not (exit.target is graph.exceptblock and
+                    exit.args[0] == Constant(AssertionError)):
+                continue
+            # can we remove this exit without breaking the graph?
+            if len(block.exits) < 2:
+                break
+            if block.canraise:
+                if exit.exitcase is None:
                     break
-                if block.exitswitch == c_last_exception:
-                    if exit.exitcase is None:
-                        break
-                    if len(block.exits) == 2:
-                        # removing the last non-exceptional exit
-                        block.exitswitch = None
-                        exit.exitcase = None
-                # remove this exit
-                lst = list(block.exits)
-                del lst[i]
-                block.recloseblock(*lst)
+                if len(block.exits) == 2:
+                    # removing the last non-exceptional exit
+                    block.exitswitch = None
+                    exit.exitcase = None
+            # remove this exit
+            lst = list(block.exits)
+            del lst[i]
+            block.recloseblock(*lst)
 
 
 # _____________________________________________________________________
@@ -377,7 +405,7 @@ def transform_dead_op_vars(graph, translator=None):
 CanRemove = {}
 for _op in '''
         newtuple newlist newdict bool
-        is_ id type issubtype repr str len hash getattr getitem
+        is_ id type issubtype isinstance repr str len hash getattr getitem
         pos neg abs hex oct ord invert add sub mul
         truediv floordiv div mod divmod pow lshift rshift and_ or_
         xor int float long lt le eq ne gt ge cmp coerce contains
@@ -388,7 +416,6 @@ for _op in enum_ops_without_sideeffects():
     CanRemove[_op] = True
 del _op
 CanRemoveBuiltins = {
-    isinstance: True,
     hasattr: True,
     }
 
@@ -401,66 +428,56 @@ def find_start_blocks(graphs):
 def transform_dead_op_vars_in_blocks(blocks, graphs, translator=None):
     """Remove dead operations and variables that are passed over a link
     but not used in the target block. Input is a set of blocks"""
-    read_vars = {}  # set of variables really used
-    variable_flow = {}  # map {Var: list-of-Vars-it-depends-on}
+    read_vars = set()  # set of variables really used
+    dependencies = defaultdict(set) # map {Var: list-of-Vars-it-depends-on}
     set_of_blocks = set(blocks)
     start_blocks = find_start_blocks(graphs)
 
     def canremove(op, block):
-        if op.opname not in CanRemove:
-            return False
-        if block.exitswitch != c_last_exception:
-            return True
-        # cannot remove the exc-raising operation
-        return op is not block.operations[-1]
+        return op.opname in CanRemove and op is not block.raising_op
 
-    # compute variable_flow and an initial read_vars
+    # compute dependencies and an initial read_vars
     for block in blocks:
         # figure out which variables are ever read
         for op in block.operations:
-            if not canremove(op, block):   # mark the inputs as really needed
-                for arg in op.args:
-                    read_vars[arg] = True
+            if not canremove(op, block):   # the inputs are always needed
+                read_vars.update(op.args)
             else:
-                # if CanRemove, only mark dependencies of the result
-                # on the input variables
-                deps = variable_flow.setdefault(op.result, [])
-                deps.extend(op.args)
+                dependencies[op.result].update(op.args)
 
         if isinstance(block.exitswitch, Variable):
-            read_vars[block.exitswitch] = True
+            read_vars.add(block.exitswitch)
 
         if block.exits:
             for link in block.exits:
                 if link.target not in set_of_blocks:
                     for arg, targetarg in zip(link.args, link.target.inputargs):
-                        read_vars[arg] = True
-                        read_vars[targetarg] = True
+                        read_vars.add(arg)
+                        read_vars.add(targetarg)
                 else:
                     for arg, targetarg in zip(link.args, link.target.inputargs):
-                        deps = variable_flow.setdefault(targetarg, [])
-                        deps.append(arg)
+                        dependencies[targetarg].add(arg)
         else:
             # return and except blocks implicitely use their input variable(s)
             for arg in block.inputargs:
-                read_vars[arg] = True
-        # an input block's inputargs should not be modified, even if some
+                read_vars.add(arg)
+        # a start block's inputargs should not be modified, even if some
         # of the function's input arguments are not actually used
         if block in start_blocks:
             for arg in block.inputargs:
-                read_vars[arg] = True
+                read_vars.add(arg)
 
     # flow read_vars backwards so that any variable on which a read_vars
     # depends is also included in read_vars
     def flow_read_var_backward(pending):
-        pending = list(pending)
-        for var in pending:
-            for prevvar in variable_flow.get(var, []):
+        while pending:
+            var = pending.pop()
+            for prevvar in dependencies[var]:
                 if prevvar not in read_vars:
-                    read_vars[prevvar] = True
-                    pending.append(prevvar)
+                    read_vars.add(prevvar)
+                    pending.add(prevvar)
 
-    flow_read_var_backward(read_vars)
+    flow_read_var_backward(set(read_vars))
 
     for block in blocks:
 
@@ -485,9 +502,8 @@ def transform_dead_op_vars_in_blocks(blocks, graphs, translator=None):
                     if translator is not None:
                         graph = get_graph(op.args[0], translator)
                         if (graph is not None and
-                            has_no_side_effects(translator, graph) and
-                            (block.exitswitch != c_last_exception or
-                             i != len(block.operations)- 1)):
+                                has_no_side_effects(translator, graph) and
+                                op is not block.raising_op):
                             del block.operations[i]
         # look for output variables never used
         # warning: this must be completely done *before* we attempt to
@@ -507,6 +523,77 @@ def transform_dead_op_vars_in_blocks(blocks, graphs, translator=None):
         for i in range(len(block.inputargs)-1, -1, -1):
             if block.inputargs[i] not in read_vars:
                 del block.inputargs[i]
+
+class Representative(object):
+    def __init__(self, var):
+        self.rep = var
+
+    def absorb(self, other):
+        pass
+
+def all_equal(lst):
+    first = lst[0]
+    return all(first == x for x in lst[1:])
+
+def isspecialvar(v):
+    return isinstance(v, Variable) and v._name in ('last_exception_', 'last_exc_value_')
+
+def remove_identical_vars_SSA(graph):
+    """When the same variable is passed multiple times into the next block,
+    pass it only once.  This enables further optimizations by the annotator,
+    which otherwise doesn't realize that tests performed on one of the copies
+    of the variable also affect the other."""
+    uf = UnionFind(Representative)
+    entrymap = mkentrymap(graph)
+    del entrymap[graph.startblock]
+    entrymap.pop(graph.returnblock, None)
+    entrymap.pop(graph.exceptblock, None)
+    inputs = {}
+    for block, links in entrymap.items():
+        phis = zip(block.inputargs, zip(*[link.args for link in links]))
+        inputs[block] = phis
+
+    def simplify_phis(block):
+        phis = inputs[block]
+        to_remove = []
+        unique_phis = {}
+        for i, (input, phi_args) in enumerate(phis):
+            new_args = [uf.find_rep(arg) for arg in phi_args]
+            if all_equal(new_args) and not isspecialvar(new_args[0]):
+                uf.union(new_args[0], input)
+                to_remove.append(i)
+            else:
+                t = tuple(new_args)
+                if t in unique_phis:
+                    uf.union(unique_phis[t], input)
+                    to_remove.append(i)
+                else:
+                    unique_phis[t] = input
+        for i in reversed(to_remove):
+            del phis[i]
+        return bool(to_remove)
+
+    progress = True
+    while progress:
+        progress = False
+        for block in inputs:
+            if simplify_phis(block):
+                progress = True
+
+    renaming = dict((key, uf[key].rep) for key in uf)
+    for block, links in entrymap.items():
+        if inputs[block]:
+            new_inputs, new_args = zip(*inputs[block])
+            new_args = map(list, zip(*new_args))
+        else:
+            new_inputs = []
+            new_args = [[] for _ in links]
+        block.inputargs = new_inputs
+        assert len(links) == len(new_args)
+        for link, args in zip(links, new_args):
+            link.args = args
+    for block in entrymap:
+        block.renamevariables(renaming)
 
 def remove_identical_vars(graph):
     """When the same variable is passed multiple times into the next block,
@@ -534,7 +621,7 @@ def remove_identical_vars(graph):
     #    when for all possible incoming paths they would get twice the same
     #    value (this is really the purpose of remove_identical_vars()).
     #
-    builder = ssa.DataFlowFamilyBuilder(graph)
+    builder = DataFlowFamilyBuilder(graph)
     variable_families = builder.get_variable_families()  # vertical removal
     while True:
         if not builder.merge_identical_phi_nodes():    # horizontal removal
@@ -629,7 +716,7 @@ def detect_list_comprehension(graph):
     # NB. this assumes RPythonicity: we can only iterate over something
     # that has a len(), and this len() cannot change as long as we are
     # using the iterator.
-    builder = ssa.DataFlowFamilyBuilder(graph)
+    builder = DataFlowFamilyBuilder(graph)
     variable_families = builder.get_variable_families()
     c_append = Constant('append')
     newlist_v = {}
@@ -640,9 +727,8 @@ def detect_list_comprehension(graph):
     # collect relevant operations based on the family of their result
     for block in graph.iterblocks():
         if (len(block.operations) == 1 and
-            block.operations[0].opname == 'next' and
-            block.exitswitch == c_last_exception and
-            len(block.exits) >= 2):
+                block.operations[0].opname == 'next' and
+                block.canraise and len(block.exits) >= 2):
             cases = [link.exitcase for link in block.exits]
             if None in cases and StopIteration in cases:
                 # it's a straightforward loop start block
@@ -948,7 +1034,7 @@ class ListComprehensionDetector(object):
                         link.target in stopblocks):
                         hints['exactlength'] = True
                     chints = Constant(hints)
-                    newblock = unsimplify.insert_empty_block(None, link)
+                    newblock = unsimplify.insert_empty_block(link)
                     index = link.args.index(vlist)
                     vlist2 = newblock.inputargs[index]
                     vlist3 = Variable(vlist2)
@@ -962,12 +1048,14 @@ class ListComprehensionDetector(object):
 # ____ all passes & simplify_graph
 
 all_passes = [
+    transform_dead_op_vars,
     eliminate_empty_blocks,
     remove_assertion_errors,
-    join_blocks,
+    remove_identical_vars_SSA,
+    constfold_exitswitch,
+    remove_trivial_links,
+    SSA_to_SSI,
     coalesce_bool,
-    transform_dead_op_vars,
-    remove_identical_vars,
     transform_ovfcheck,
     simplify_exceptions,
     transform_xxxitem,
@@ -978,7 +1066,6 @@ def simplify_graph(graph, passes=True): # can take a list of passes to apply, Tr
     """inplace-apply all the existing optimisations to the graph."""
     if passes is True:
         passes = all_passes
-    checkgraph(graph)
     for pass_ in passes:
         pass_(graph)
     checkgraph(graph)

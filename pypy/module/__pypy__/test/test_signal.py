@@ -2,12 +2,12 @@ import sys
 
 from pypy.module.thread.test.support import GenericTestThread
 
-
 class AppTestMinimal:
     spaceconfig = dict(usemodules=['__pypy__'])
 
     def test_signal(self):
         from __pypy__ import thread
+        assert type(thread.signals_enabled).__module__ == '__pypy__.thread'
         with thread.signals_enabled:
             pass
         # assert did not crash
@@ -35,7 +35,7 @@ class AppTestThreadSignal(GenericTestThread):
                     for i in range(10):
                         print('x')
                         time.sleep(0.25)
-            except BaseException, e:
+            except BaseException as e:
                 interrupted.append(e)
             finally:
                 print('subthread stops, interrupted=%r' % (interrupted,))
@@ -120,7 +120,7 @@ class AppTestThreadSignalLock:
                 time.sleep(0.5)
                 with __pypy__.thread.signals_enabled:
                     thread.interrupt_main()
-            except BaseException, e:
+            except BaseException as e:
                 interrupted.append(e)
             finally:
                 lock.release()

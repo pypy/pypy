@@ -1,21 +1,31 @@
 import os, sys, imp
 import tempfile, binascii
 
+
 def get_hashed_dir(cfile):
     with open(cfile,'r') as fid:
         content = fid.read()
     # from cffi's Verifier()
     key = '\x00'.join([sys.version[:3], content])
+    key += 'cpyext-gc-support-2'   # this branch requires recompilation!
     if sys.version_info >= (3,):
         key = key.encode('utf-8')
     k1 = hex(binascii.crc32(key[0::2]) & 0xffffffff)
     k1 = k1.lstrip('0x').rstrip('L')
     k2 = hex(binascii.crc32(key[1::2]) & 0xffffffff)
     k2 = k2.lstrip('0').rstrip('L')
-    output_dir = tempfile.gettempdir() + os.path.sep + 'tmp_%s%s' %(k1, k2)
+    try:
+        username = os.environ['USER']           #linux, et al
+    except KeyError:
+        try:
+            username = os.environ['USERNAME']   #windows
+        except KeyError:
+            username = os.getuid()
+    output_dir = tempfile.gettempdir() + os.path.sep + 'tmp_%s_%s%s' % (
+        username, k1, k2)
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
-    return output_dir 
+    return output_dir
 
 
 def _get_c_extension_suffix():
@@ -53,7 +63,7 @@ def compile_shared(csource, modulename, output_dir=None):
     if sys.platform == 'win32':
         # XXX pyconfig.h uses a pragma to link to the import library,
         #     which is currently python27.lib
-        library = os.path.join(thisdir, '..', 'include', 'python27')
+        library = os.path.join(thisdir, '..', 'libs', 'python27')
         if not os.path.exists(library + '.lib'):
             # For a local translation or nightly build
             library = os.path.join(thisdir, '..', 'pypy', 'goal', 'python27')

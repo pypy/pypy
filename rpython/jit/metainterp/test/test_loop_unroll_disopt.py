@@ -5,6 +5,7 @@ from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.jit.metainterp.optimizeopt import ALL_OPTS_NAMES
 
 allopts = ALL_OPTS_NAMES.split(':')
+del allopts[allopts.index('unroll')]
 for optnum in range(len(allopts)):
     myopts = allopts[:]
     del myopts[optnum]
@@ -21,5 +22,5 @@ for optnum in range(len(allopts)):
     exec "TestLoopNo%sLLtype = TestLLtype" % (opt[0].upper() + opt[1:])
 
 del TestLLtype # No need to run the last set twice
-del TestLoopNoUnrollLLtype # This case is take care of by test_loop
+#del TestLoopNoUnrollLLtype # This case is take care of by test_loop
 

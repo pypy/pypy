@@ -104,7 +104,7 @@ class MultipleJitDriversTests(object):
         res = self.meta_interp(loop2, [4, 40], repeat=7, inline=True)
         assert res == loop2(4, 40)
         # we expect no int_sub, but a residual call
-        self.check_resops(call=2, int_sub=0)
+        self.check_resops(call_i=2, int_sub=0)
 
     def test_multiple_jits_trace_too_long(self):
         myjitdriver1 = JitDriver(greens=["n"], reds=["i", "box"])
@@ -188,6 +188,46 @@ class MultipleJitDriversTests(object):
                          listops=True, inline=True)
         self.check_resops(call_assembler=0)
 
+    def test_get_unique_id(self):
+        def get_unique_id(pc):
+            return pc + 1
+        
+        driver = JitDriver(greens=["pc"], reds='auto',
+                           get_unique_id=get_unique_id, is_recursive=True)
+
+        def f(arg):
+            i = 0
+            pc = 0
+            while i < 30 and pc < 3:
+                driver.jit_merge_point(pc=pc)
+                pc += 1
+                if arg == 0 and pc == 3:
+                    pc = 0
+                if arg == 0:
+                    f(1)
+                i += 1
+
+        self.meta_interp(f, [0], inline=True)
+        loop = get_stats().loops[1]
+        for op in loop.operations:
+            if op.getopname() == 'enter_portal_frame':
+                assert op.getarg(0).getint() == 0
+                assert op.getarg(1).getint() == 1
+
+    def test_manual_leave_enter_portal_frame(self):
+        from rpython.rlib import jit
+        driver = JitDriver(greens=[], reds='auto', is_recursive=True)
+
+        def f(arg):
+            i = 0
+            while i < 100:
+                driver.jit_merge_point()
+                jit.enter_portal_frame(42)
+                jit.leave_portal_frame()
+                i += 1
+
+        self.meta_interp(f, [0])
+        self.check_simple_loop(enter_portal_frame=1, leave_portal_frame=1)
 
 class TestLLtype(MultipleJitDriversTests, LLJitMixin):
     pass

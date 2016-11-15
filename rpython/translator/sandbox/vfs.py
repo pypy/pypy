@@ -22,7 +22,7 @@ class FSObject(object):
         st_size = self.getsize()
         st_mode = self.kind
         st_mode |= stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
-        if self.kind == stat.S_IFDIR:
+        if stat.S_ISDIR(self.kind):
             st_mode |= stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
         if self.read_only:
             st_uid = 0       # read-only files are virtually owned by root
@@ -36,6 +36,15 @@ class FSObject(object):
         return os.stat_result(
             (st_mode, st_ino, st_dev, st_nlink, st_uid, st_gid,
              st_size, st_atime, st_mtime, st_ctime))
+
+    def access(self, mode):
+        s = self.stat()
+        e_mode = s.st_mode & stat.S_IRWXO
+        if UID == s.st_uid:
+            e_mode |= (s.st_mode & stat.S_IRWXU) >> 6
+        if GID == s.st_gid:
+            e_mode |= (s.st_mode & stat.S_IRWXG) >> 3
+        return (e_mode & mode) == mode
 
     def keys(self):
         raise OSError(errno.ENOTDIR, self)
@@ -114,8 +123,9 @@ class File(FSObject):
         return cStringIO.StringIO(self.data)
 
 class RealFile(File):
-    def __init__(self, path):
+    def __init__(self, path, mode=0):
         self.path = path
+        self.kind |= mode
     def __repr__(self):
         return '<RealFile %s>' % (self.path,)
     def getsize(self):
@@ -123,5 +133,5 @@ class RealFile(File):
     def open(self):
         try:
             return open(self.path, "rb")
-        except IOError, e:
+        except IOError as e:
             raise OSError(e.errno, "open failed")

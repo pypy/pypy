@@ -3,7 +3,7 @@
 Numpy C-API for PyPy - S. H. Muller, 2013/07/26
 """
 
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import cpython_api, Py_ssize_t, CANNOT_FAIL
 from pypy.module.cpyext.api import PyObject
@@ -11,103 +11,81 @@ from pypy.module.micronumpy.ndarray import W_NDimArray
 from pypy.module.micronumpy.ctors import array
 from pypy.module.micronumpy.descriptor import get_dtype_cache, W_Dtype
 from pypy.module.micronumpy.concrete import ConcreteArray
+from pypy.module.micronumpy.constants import (ARRAY_C_CONTIGUOUS, 
+    ARRAY_F_CONTIGUOUS, ARRAY_OWNDATA, ARRAY_ALIGNED, ARRAY_WRITEABLE,
+    ARRAY_NOTSWAPPED, CORDER, FORTRANORDER)
+from pypy.module.micronumpy import ufuncs
 from rpython.rlib.rawstorage import RAW_STORAGE_PTR
+from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.argument import Arguments
+from pypy.interpreter.gateway import interp2app
 
-NPY_C_CONTIGUOUS   = 0x0001
-NPY_F_CONTIGUOUS   = 0x0002
-NPY_OWNDATA        = 0x0004
-NPY_FORCECAST      = 0x0010
-NPY_ENSURECOPY     = 0x0020
-NPY_ENSUREARRAY    = 0x0040
-NPY_ELEMENTSTRIDES = 0x0080
-NPY_ALIGNED        = 0x0100
-NPY_NOTSWAPPED     = 0x0200
-NPY_WRITEABLE      = 0x0400
-NPY_UPDATEIFCOPY   = 0x1000
+ARRAY_BEHAVED      = ARRAY_ALIGNED | ARRAY_WRITEABLE
+ARRAY_BEHAVED_NS   = ARRAY_ALIGNED | ARRAY_WRITEABLE | ARRAY_NOTSWAPPED
+ARRAY_CARRAY       = ARRAY_C_CONTIGUOUS | ARRAY_BEHAVED
+ARRAY_DEFAULT      = ARRAY_CARRAY
 
-NPY_BEHAVED      = NPY_ALIGNED | NPY_WRITEABLE
-NPY_BEHAVED_NS   = NPY_ALIGNED | NPY_WRITEABLE | NPY_NOTSWAPPED
-NPY_CARRAY       = NPY_C_CONTIGUOUS | NPY_BEHAVED
-NPY_CARRAY_RO    = NPY_C_CONTIGUOUS | NPY_ALIGNED
-NPY_FARRAY       = NPY_F_CONTIGUOUS | NPY_BEHAVED
-NPY_FARRAY_RO    = NPY_F_CONTIGUOUS | NPY_ALIGNED
-NPY_DEFAULT      = NPY_CARRAY
-NPY_IN           = NPY_CARRAY_RO
-NPY_OUT          = NPY_CARRAY
-NPY_INOUT        = NPY_CARRAY | NPY_UPDATEIFCOPY
-NPY_IN_FARRAY    = NPY_FARRAY_RO
-NPY_OUT_FARRAY   = NPY_FARRAY
-NPY_INOUT_FARRAY = NPY_FARRAY | NPY_UPDATEIFCOPY
-NPY_CONTIGUOUS   = NPY_C_CONTIGUOUS | NPY_F_CONTIGUOUS
-NPY_UPDATE_ALL   = NPY_CONTIGUOUS | NPY_ALIGNED
+npy_intpp = rffi.CArrayPtr(Py_ssize_t)
 
 
-# the asserts are needed, otherwise the translation fails
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+HEADER = 'pypy_numpy.h'
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL, header=HEADER)
 def _PyArray_Check(space, w_obj):
     w_obj_type = space.type(w_obj)
     w_type = space.gettypeobject(W_NDimArray.typedef)
     return (space.is_w(w_obj_type, w_type) or
-            space.is_true(space.issubtype(w_obj_type, w_type)))
+            space.issubtype_w(w_obj_type, w_type))
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL, header=HEADER)
 def _PyArray_CheckExact(space, w_obj):
     w_obj_type = space.type(w_obj)
     w_type = space.gettypeobject(W_NDimArray.typedef)
     return space.is_w(w_obj_type, w_type)
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL, header=HEADER)
 def _PyArray_FLAGS(space, w_array):
     assert isinstance(w_array, W_NDimArray)
-    flags = NPY_BEHAVED_NS
-    if isinstance(w_array.implementation, ConcreteArray):
-        flags |= NPY_OWNDATA
-    if len(w_array.get_shape()) < 2:
-        flags |= NPY_CONTIGUOUS
-    elif w_array.implementation.order == 'C':
-        flags |= NPY_C_CONTIGUOUS
-    else:
-        flags |= NPY_F_CONTIGUOUS
+    flags = ARRAY_BEHAVED_NS | w_array.get_flags()
     return flags
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL, header=HEADER)
 def _PyArray_NDIM(space, w_array):
     assert isinstance(w_array, W_NDimArray)
     return len(w_array.get_shape())
 
-@cpython_api([PyObject, Py_ssize_t], Py_ssize_t, error=CANNOT_FAIL)
+@cpython_api([PyObject, Py_ssize_t], Py_ssize_t, error=CANNOT_FAIL, header=HEADER)
 def _PyArray_DIM(space, w_array, n):
     assert isinstance(w_array, W_NDimArray)
     return w_array.get_shape()[n]
 
-@cpython_api([PyObject, Py_ssize_t], Py_ssize_t, error=CANNOT_FAIL)
+@cpython_api([PyObject, Py_ssize_t], Py_ssize_t, error=CANNOT_FAIL, header=HEADER)
 def _PyArray_STRIDE(space, w_array, n):
     assert isinstance(w_array, W_NDimArray)
     return w_array.implementation.get_strides()[n]
 
-@cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
+@cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL, header=HEADER)
 def _PyArray_SIZE(space, w_array):
     assert isinstance(w_array, W_NDimArray)
     return w_array.get_size()
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL, header=HEADER)
 def _PyArray_ITEMSIZE(space, w_array):
     assert isinstance(w_array, W_NDimArray)
     return w_array.get_dtype().elsize
 
-@cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
+@cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL, header=HEADER)
 def _PyArray_NBYTES(space, w_array):
     assert isinstance(w_array, W_NDimArray)
     return w_array.get_size() * w_array.get_dtype().elsize
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL, header=HEADER)
 def _PyArray_TYPE(space, w_array):
     assert isinstance(w_array, W_NDimArray)
     return w_array.get_dtype().num
 
 
-@cpython_api([PyObject], rffi.VOIDP, error=CANNOT_FAIL)
+@cpython_api([PyObject], rffi.VOIDP, error=CANNOT_FAIL, header=HEADER)
 def _PyArray_DATA(space, w_array):
     # fails on scalars - see PyArray_FromAny()
     assert isinstance(w_array, W_NDimArray)
@@ -117,7 +95,7 @@ PyArray_Descr = PyObject
 NULL = lltype.nullptr(rffi.VOIDP.TO)
 
 @cpython_api([PyObject, PyArray_Descr, Py_ssize_t, Py_ssize_t, Py_ssize_t, rffi.VOIDP],
-             PyObject)
+             PyObject, header=HEADER)
 def _PyArray_FromAny(space, w_obj, w_dtype, min_depth, max_depth, requirements, context):
     """ This is the main function used to obtain an array from any nested
          sequence, or object that exposes the array interface, op. The
@@ -143,22 +121,23 @@ def _PyArray_FromAny(space, w_obj, w_dtype, min_depth, max_depth, requirements, 
          may be 0. Also, if op is not already an array (or does not expose
          the array interface), then a new array will be created (and filled
          from op using the sequence protocol). The new array will have
-         NPY_DEFAULT as its flags member.
+         ARRAY_DEFAULT as its flags member.
 
          The context argument is passed to the __array__ method of op and is
          only used if the array is constructed that way. Almost always this
          parameter is NULL.
     """
-    if requirements not in (0, NPY_DEFAULT):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            '_PyArray_FromAny called with not-implemented requirements argument'))
+    if requirements not in (0, ARRAY_DEFAULT):
+        raise oefmt(space.w_NotImplementedError,
+                    "_PyArray_FromAny called with not-implemented "
+                    "requirements argument")
     w_array = array(space, w_obj, w_dtype=w_dtype, copy=False)
     if min_depth !=0 and len(w_array.get_shape()) < min_depth:
-        raise OperationError(space.w_ValueError, space.wrap(
-            'object of too small depth for desired array'))
+        raise oefmt(space.w_ValueError,
+                    "object of too small depth for desired array")
     elif max_depth !=0 and len(w_array.get_shape()) > max_depth:
-        raise OperationError(space.w_ValueError, space.wrap(
-            'object of too deep for desired array'))
+        raise oefmt(space.w_ValueError,
+                    "object of too deep for desired array")
     elif w_array.is_scalar():
         # since PyArray_DATA() fails on scalars, create a 1D array and set empty
         # shape. So the following combination works for *reading* scalars:
@@ -171,31 +150,32 @@ def _PyArray_FromAny(space, w_obj, w_dtype, min_depth, max_depth, requirements, 
         w_array.implementation.shape = []
     return w_array
 
-@cpython_api([Py_ssize_t], PyObject)
-def _PyArray_DescrFromType(space, typenum):
+@cpython_api([Py_ssize_t], PyObject, header=HEADER)
+def PyArray_DescrFromType(space, typenum):
     try:
         dtype = get_dtype_cache(space).dtypes_by_num[typenum]
         return dtype
     except KeyError:
-        raise OperationError(space.w_ValueError, space.wrap(
-            '_PyArray_DescrFromType called with invalid dtype %d' % typenum))
+        raise oefmt(space.w_ValueError,
+                    "PyArray_DescrFromType called with invalid dtype %d",
+                    typenum)
 
-@cpython_api([PyObject, Py_ssize_t, Py_ssize_t, Py_ssize_t], PyObject)
+@cpython_api([PyObject, Py_ssize_t, Py_ssize_t, Py_ssize_t], PyObject, header=HEADER)
 def _PyArray_FromObject(space, w_obj, typenum, min_depth, max_depth):
     try:
         dtype = get_dtype_cache(space).dtypes_by_num[typenum]
     except KeyError:
-        raise OperationError(space.w_ValueError, space.wrap(
-            '_PyArray_FromObject called with invalid dtype %d' % typenum))
+        raise oefmt(space.w_ValueError,
+                    "_PyArray_FromObject called with invalid dtype %d",
+                    typenum)
     try:
         return _PyArray_FromAny(space, w_obj, dtype, min_depth, max_depth,
                             0, NULL);
-    except OperationError, e:
+    except OperationError as e:
         if e.match(space, space.w_NotImplementedError):
             errstr = space.str_w(e.get_w_value(space))
-            errstr = '_PyArray_FromObject' + errstr[16:]
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                errstr))
+            raise oefmt(space.w_NotImplementedError,
+                        "_PyArray_FromObject %s", errstr[16:])
         raise
 
 def get_shape_and_dtype(space, nd, dims, typenum):
@@ -206,43 +186,42 @@ def get_shape_and_dtype(space, nd, dims, typenum):
     return shape, dtype
 
 def simple_new(space, nd, dims, typenum,
-        order='C', owning=False, w_subtype=None):
+        order=CORDER, owning=False, w_subtype=None):
     shape, dtype = get_shape_and_dtype(space, nd, dims, typenum)
     return W_NDimArray.from_shape(space, shape, dtype)
 
 def simple_new_from_data(space, nd, dims, typenum, data,
-        order='C', owning=False, w_subtype=None):
+        order=CORDER, owning=False, w_subtype=None):
     shape, dtype = get_shape_and_dtype(space, nd, dims, typenum)
     storage = rffi.cast(RAW_STORAGE_PTR, data)
     return W_NDimArray.from_shape_and_storage(space, shape, storage, dtype,
             order=order, owning=owning, w_subtype=w_subtype)
 
 
-@cpython_api([Py_ssize_t, rffi.LONGP, Py_ssize_t], PyObject)
+@cpython_api([Py_ssize_t, npy_intpp, Py_ssize_t], PyObject, header=HEADER)
 def _PyArray_SimpleNew(space, nd, dims, typenum):
     return simple_new(space, nd, dims, typenum)
 
-@cpython_api([Py_ssize_t, rffi.LONGP, Py_ssize_t, rffi.VOIDP], PyObject)
+@cpython_api([Py_ssize_t, npy_intpp, Py_ssize_t, rffi.VOIDP], PyObject, header=HEADER)
 def _PyArray_SimpleNewFromData(space, nd, dims, typenum, data):
     return simple_new_from_data(space, nd, dims, typenum, data, owning=False)
 
-@cpython_api([Py_ssize_t, rffi.LONGP, Py_ssize_t, rffi.VOIDP], PyObject)
+@cpython_api([Py_ssize_t, npy_intpp, Py_ssize_t, rffi.VOIDP], PyObject, header=HEADER)
 def _PyArray_SimpleNewFromDataOwning(space, nd, dims, typenum, data):
     # Variant to take over ownership of the memory, equivalent to:
     #     PyObject *arr = PyArray_SimpleNewFromData(nd, dims, typenum, data);
-    #     ((PyArrayObject*)arr)->flags |= NPY_OWNDATA;
+    #     ((PyArrayObject*)arr)->flags |= ARRAY_OWNDATA;
     return simple_new_from_data(space, nd, dims, typenum, data, owning=True)
 
 
-@cpython_api([rffi.VOIDP, Py_ssize_t, rffi.LONGP, Py_ssize_t, rffi.LONGP,
-    rffi.VOIDP, Py_ssize_t, Py_ssize_t, PyObject], PyObject)
+@cpython_api([rffi.VOIDP, Py_ssize_t, npy_intpp, Py_ssize_t, npy_intpp,
+    rffi.VOIDP, Py_ssize_t, Py_ssize_t, PyObject], PyObject, header=HEADER)
 def _PyArray_New(space, subtype, nd, dims, typenum, strides, data, itemsize, flags, obj):
     if strides:
-        raise OperationError(space.w_NotImplementedError,
-                             space.wrap("strides must be NULL"))
+        raise oefmt(space.w_NotImplementedError, "strides must be NULL")
 
-    order = 'C' if flags & NPY_C_CONTIGUOUS else 'F'
-    owning = True if flags & NPY_OWNDATA else False
+    order = CORDER if flags & ARRAY_C_CONTIGUOUS else FORTRANORDER
+    owning = True if flags & ARRAY_OWNDATA else False
     w_subtype = None
 
     if data:
@@ -252,3 +231,48 @@ def _PyArray_New(space, subtype, nd, dims, typenum, strides, data, itemsize, fla
         return simple_new(space, nd, dims, typenum,
             order=order, owning=owning, w_subtype=w_subtype)
 
+@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1, header=HEADER)
+def PyArray_CopyInto(space, w_dest, w_src):
+    assert isinstance(w_dest, W_NDimArray)
+    assert isinstance(w_src, W_NDimArray)
+    space.appexec([w_dest, w_src], """(dest, src):
+        dest[:] = src
+        """ )
+    return 0
+    
+
+gufunctype = lltype.Ptr(ufuncs.GenericUfunc)
+@cpython_api([rffi.CArrayPtr(gufunctype), rffi.VOIDP, rffi.CCHARP, Py_ssize_t, Py_ssize_t,
+              Py_ssize_t, Py_ssize_t, rffi.CCHARP, rffi.CCHARP, Py_ssize_t,
+              rffi.CCHARP], PyObject, header=HEADER)
+def PyUFunc_FromFuncAndDataAndSignature(space, funcs, data, types, ntypes,
+                    nin, nout, identity, name, doc, check_return, signature):
+    w_signature = rffi.charp2str(signature)
+    return do_ufunc(space, funcs, data, types, ntypes, nin, nout, identity, name, doc,
+             check_return, w_signature)
+
+
+def do_ufunc(space, funcs, data, types, ntypes, nin, nout, identity, name, doc,
+             check_return, w_signature):
+    funcs_w = [None] * ntypes
+    dtypes_w = [None] * ntypes * (nin + nout)
+    for i in range(ntypes):
+        funcs_w[i] = ufuncs.W_GenericUFuncCaller(funcs[i], data)
+    for i in range(ntypes*(nin+nout)):
+        dtypes_w[i] = get_dtype_cache(space).dtypes_by_num[ord(types[i])]
+    w_funcs = space.newlist(funcs_w)
+    w_dtypes = space.newlist(dtypes_w)
+    w_doc = rffi.charp2str(doc)
+    w_name = rffi.charp2str(name)
+    w_identity = space.wrap(identity)
+    ufunc_generic = ufuncs.frompyfunc(space, w_funcs, nin, nout, w_dtypes,
+                 w_signature, w_identity, w_name, w_doc, stack_inputs=True)
+    return ufunc_generic
+
+@cpython_api([rffi.CArrayPtr(gufunctype), rffi.VOIDP, rffi.CCHARP, Py_ssize_t, Py_ssize_t,
+              Py_ssize_t, Py_ssize_t, rffi.CCHARP, rffi.CCHARP, Py_ssize_t], PyObject, header=HEADER)
+def PyUFunc_FromFuncAndData(space, funcs, data, types, ntypes,
+                    nin, nout, identity, name, doc, check_return):
+    w_signature =  ','.join(['()'] * nin) + '->' + ','.join(['()'] * nout)
+    return do_ufunc(space, funcs, data, types, ntypes, nin, nout, identity,
+                    name, doc, check_return, w_signature)

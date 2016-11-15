@@ -3,7 +3,7 @@ import py
 from rpython.tool.udir import udir
 try:
     from lib_pypy import dbm
-except ImportError, e:
+except ImportError as e:
     py.test.skip(e)
 
 import sys
@@ -61,3 +61,16 @@ def test_null():
     db = dbm.open('test', 'r')
     assert db['1'] == 'a\x00b'
     db.close()
+
+def test_key_with_empty_value():
+    # this test fails on CPython too (at least on tannit), and the
+    # case shows up when gdbm is not installed and test_anydbm.py
+    # falls back dbm.
+    py.test.skip("test may fail on CPython too")
+    path = str(udir.join('test_dbm_extra.test_key_with_empty_value'))
+    d = dbm.open(path, 'c')
+    assert 'key_with_empty_value' not in d
+    d['key_with_empty_value'] = ''
+    assert 'key_with_empty_value' in d
+    assert d['key_with_empty_value'] == ''
+    d.close()

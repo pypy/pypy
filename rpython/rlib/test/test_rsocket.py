@@ -2,11 +2,8 @@ import py, errno, sys
 from rpython.rlib import rsocket
 from rpython.rlib.rsocket import *
 import socket as cpy_socket
+from rpython.translator.c.test.test_genc import compile
 
-# cannot test error codes in Win32 because ll2ctypes doesn't save
-# the errors that WSAGetLastError() should return, making it likely
-# that other operations stamped on it inbetween.
-errcodesok = sys.platform != 'win32'
 
 def setup_module(mod):
     rsocket_startup()
@@ -70,12 +67,14 @@ def test_gethostbyaddr():
     try:
         cpy_socket.gethostbyaddr("::1")
     except cpy_socket.herror:
-        ipv6 = False
+        ipv6 = HSocketError
+    except cpy_socket.gaierror:
+        ipv6 = GAIError
     else:
-        ipv6 = True
+        ipv6 = None
     for host in ["localhost", "127.0.0.1", "::1"]:
-        if host == "::1" and not ipv6:
-            with py.test.raises(HSocketError):
+        if host == "::1" and ipv6:
+            with py.test.raises(ipv6):
                 gethostbyaddr(host)
             continue
         name, aliases, address_list = gethostbyaddr(host)
@@ -120,31 +119,127 @@ def test_socketpair():
     s1.close()
     s2.close()
 
-def test_socketpair_recvinto():
+def test_socketpair_inheritable():
+    if sys.platform == "win32":
+        py.test.skip('No socketpair on Windows')
+    for inh in [False, True]:
+        s1, s2 = socketpair(inheritable=inh)
+        assert sock_get_inheritable(s1.fd) == inh
+        assert sock_get_inheritable(s2.fd) == inh
+        s1.close()
+        s2.close()
+
+def test_socketpair_recvinto_1():
     class Buffer:
         def setslice(self, start, string):
             self.x = string
 
-        def as_str(self):
-            return self.x
+        def get_raw_address(self):
+            raise ValueError
 
     if sys.platform == "win32":
         py.test.skip('No socketpair on Windows')
     s1, s2 = socketpair()
     buf = Buffer()
     s1.sendall('?')
-    s2.recvinto(buf, 1)
-    assert buf.as_str() == '?'
+    n = s2.recvinto(buf, 1)
+    assert n == 1
+    assert buf.x == '?'
     count = s2.send('x'*99)
     assert 1 <= count <= 99
-    s1.recvinto(buf, 100)
-    assert buf.as_str() == 'x'*count
+    n = s1.recvinto(buf, 100)
+    assert n == count
+    assert buf.x == 'x'*count
+    s1.close()
+    s2.close()
+
+def test_socketpair_recvinto_2():
+    class Buffer:
+        def __init__(self):
+            self._p = lltype.malloc(rffi.CCHARP.TO, 100, flavor='raw',
+                                    track_allocation=False)
+
+        def _as_str(self, count):
+            return rffi.charpsize2str(self._p, count)
+
+        def get_raw_address(self):
+            return self._p
+
+    if sys.platform == "win32":
+        py.test.skip('No socketpair on Windows')
+    s1, s2 = socketpair()
+    buf = Buffer()
+    s1.sendall('?')
+    n = s2.recvinto(buf, 1)
+    assert n == 1
+    assert buf._as_str(1) == '?'
+    count = s2.send('x'*99)
+    assert 1 <= count <= 99
+    n = s1.recvinto(buf, 100)
+    assert n == count
+    assert buf._as_str(n) == 'x'*count
+    s1.close()
+    s2.close()
+
+def test_socketpair_recvfrom_into_1():
+    class Buffer:
+        def setslice(self, start, string):
+            self.x = string
+
+        def get_raw_address(self):
+            raise ValueError
+
+    if sys.platform == "win32":
+        py.test.skip('No socketpair on Windows')
+    s1, s2 = socketpair()
+    buf = Buffer()
+    s1.sendall('?')
+    n, addr = s2.recvfrom_into(buf, 1)
+    assert n == 1
+    assert addr is None
+    assert buf.x == '?'
+    count = s2.send('x'*99)
+    assert 1 <= count <= 99
+    n, addr = s1.recvfrom_into(buf, 100)
+    assert n == count
+    assert addr is None
+    assert buf.x == 'x'*count
+    s1.close()
+    s2.close()
+
+def test_socketpair_recvfrom_into_2():
+    class Buffer:
+        def __init__(self):
+            self._p = lltype.malloc(rffi.CCHARP.TO, 100, flavor='raw',
+                                    track_allocation=False)
+
+        def _as_str(self, count):
+            return rffi.charpsize2str(self._p, count)
+
+        def get_raw_address(self):
+            return self._p
+
+    if sys.platform == "win32":
+        py.test.skip('No socketpair on Windows')
+    s1, s2 = socketpair()
+    buf = Buffer()
+    s1.sendall('?')
+    n, addr = s2.recvfrom_into(buf, 1)
+    assert n == 1
+    assert addr is None
+    assert buf._as_str(1) == '?'
+    count = s2.send('x'*99)
+    assert 1 <= count <= 99
+    n, addr = s1.recvfrom_into(buf, 100)
+    assert n == count
+    assert addr is None
+    assert buf._as_str(n) == 'x'*count
     s1.close()
     s2.close()
 
 
 def test_simple_tcp():
-    import thread
+    from rpython.rlib import rthread
     sock = RSocket()
     try_ports = [1023] + range(20000, 30000, 437)
     for port in try_ports:
@@ -153,7 +248,7 @@ def test_simple_tcp():
             sock.bind(INETAddress('127.0.0.1', port))
             print 'works'
             break
-        except SocketError, e:   # should get a "Permission denied"
+        except SocketError as e:   # should get a "Permission denied"
             print e
     else:
         raise e
@@ -163,17 +258,22 @@ def test_simple_tcp():
     sock.listen(1)
     s2 = RSocket(AF_INET, SOCK_STREAM)
     s2.settimeout(10.0) # test one side with timeouts so select is used, shouldn't affect test
+    connected = [False] #thread-mutable list
     def connecting():
-        s2.connect(addr)
-        lock.release()
-    lock = thread.allocate_lock()
-    lock.acquire()
-    thread.start_new_thread(connecting, ())
+        try:
+            s2.connect(addr)
+            connected[0] = True
+        finally:
+            lock.release()
+    lock = rthread.allocate_lock()
+    lock.acquire(True)
+    rthread.start_new_thread(connecting, ())
     print 'waiting for connection'
     fd1, addr2 = sock.accept()
     s1 = RSocket(fd=fd1)
     print 'connection accepted'
-    lock.acquire()
+    lock.acquire(True)
+    assert connected[0]
     print 'connecting side knows that the connection was accepted too'
     assert addr.eq(s2.getpeername())
     #assert addr2.eq(s2.getsockname())
@@ -184,7 +284,9 @@ def test_simple_tcp():
     buf = s2.recv(100)
     assert buf == '?'
     print 'received ok'
-    thread.start_new_thread(s2.sendall, ('x'*50000,))
+    def sendstuff():
+        s2.sendall('x'*50000)
+    rthread.start_new_thread(sendstuff, ())
     buf = ''
     while len(buf) < 50000:
         data = s1.recv(50100)
@@ -206,7 +308,7 @@ def test_simple_udp():
             s1.bind(INETAddress('127.0.0.1', port))
             print 'works'
             break
-        except SocketError, e:   # should get a "Permission denied"
+        except SocketError as e:   # should get a "Permission denied"
             print e
     else:
         raise e
@@ -241,7 +343,7 @@ def test_nonblocking():
             sock.bind(INETAddress('127.0.0.1', port))
             print 'works'
             break
-        except SocketError, e:   # should get a "Permission denied"
+        except SocketError as e:   # should get a "Permission denied"
             print e
     else:
         raise e
@@ -250,14 +352,12 @@ def test_nonblocking():
     assert addr.eq(sock.getsockname())
     sock.listen(1)
     err = py.test.raises(CSocketError, sock.accept)
-    if errcodesok:
-        assert err.value.errno in (errno.EAGAIN, errno.EWOULDBLOCK)
+    assert err.value.errno in (errno.EAGAIN, errno.EWOULDBLOCK)
 
     s2 = RSocket(AF_INET, SOCK_STREAM)
     s2.setblocking(False)
     err = py.test.raises(CSocketError, s2.connect, addr)
-    if errcodesok:
-        assert err.value.errno in (errno.EINPROGRESS, errno.EWOULDBLOCK)
+    assert err.value.errno in (errno.EINPROGRESS, errno.EWOULDBLOCK)
 
     fd1, addr2 = sock.accept()
     s1 = RSocket(fd=fd1)
@@ -267,8 +367,7 @@ def test_nonblocking():
     assert addr2.eq(s1.getpeername())
 
     err = s2.connect_ex(addr)   # should now work
-    if errcodesok:
-        assert err in (0, errno.EISCONN)
+    assert err in (0, errno.EISCONN)
 
     s1.send('?')
     import time
@@ -276,8 +375,7 @@ def test_nonblocking():
     buf = s2.recv(100)
     assert buf == '?'
     err = py.test.raises(CSocketError, s1.recv, 5000)
-    if errcodesok:
-        assert err.value.errno in (errno.EAGAIN, errno.EWOULDBLOCK)
+    assert err.value.errno in (errno.EAGAIN, errno.EWOULDBLOCK)
     count = s2.send('x'*50000)
     assert 1 <= count <= 50000
     while count: # Recv may return less than requested
@@ -289,6 +387,12 @@ def test_nonblocking():
     err = py.test.raises(CSocketError, s1.recv, 5000)
     s1.close()
     s2.close()
+
+def test_inheritable():
+    for inh in [False, True]:
+        s1 = RSocket(inheritable=inh)
+        assert sock_get_inheritable(s1.fd) == inh
+        s1.close()
 
 def test_getaddrinfo_http():
     lst = getaddrinfo('localhost', 'http')
@@ -306,14 +410,22 @@ def test_getaddrinfo_http():
     e = py.test.raises(GAIError, getaddrinfo, 'www.very-invalidaddress.com', None)
     assert isinstance(e.value.get_msg(), str)
 
-def test_getaddrinfo_pydotorg():
+def getaddrinfo_pydotorg(i, result):
     lst = getaddrinfo('python.org', None)
     assert isinstance(lst, list)
     found = False
     for family, socktype, protocol, canonname, addr in lst:
-        if addr.get_host() == '140.211.10.69':
+        if addr.get_host() in ('104.130.43.121', '23.253.135.79'):
             found = True
-    assert found, lst
+        elif family == AF_INET:
+            print 'pydotorg changed to', addr.get_host()
+    result[i] += found
+
+def test_getaddrinfo_pydotorg():
+    result = [0,]
+    getaddrinfo_pydotorg(0, result)
+    assert result[0] == 1
+
 
 def test_getaddrinfo_no_reverse_lookup():
     # It seems that getaddrinfo never runs a reverse lookup on Linux.
@@ -336,14 +448,14 @@ def test_getaddrinfo_osx_crash():
 def test_connect_ex():
     s = RSocket()
     err = s.connect_ex(INETAddress('0.0.0.0', 0))   # should not work
-    if errcodesok:
-        assert err in (errno.ECONNREFUSED, errno.EADDRNOTAVAIL)
+    assert err in (errno.ECONNREFUSED, errno.EADDRNOTAVAIL)
+    s.close()
 
 def test_connect_with_timeout_fail():
     s = RSocket()
     s.settimeout(0.1)
     with py.test.raises(SocketTimeout):
-        s.connect(INETAddress('240.240.240.240', 12345))
+        s.connect(INETAddress('172.30.172.30', 12345))
     s.close()
 
 def test_connect_with_timeout_succeed():
@@ -374,26 +486,35 @@ def test_getsetsockopt():
     assert value != 0
 
 def test_dup():
-    if sys.platform == "win32":
-        skip("dup does not work on Windows")
     s = RSocket(AF_INET, SOCK_STREAM)
-    s.bind(INETAddress('localhost', 50007))
-    s2 = s.dup()
-    assert s.fd != s2.fd
-    assert s.getsockname().eq(s2.getsockname())
-    s.close()
-    s2.close()
+    try:
+        s.bind(INETAddress('localhost', 50007))
+        if sys.platform == "win32":
+            assert not hasattr(s, 'dup')
+            return
+        s2 = s.dup()
+        try:
+            assert s.fd != s2.fd
+            assert s.getsockname().eq(s2.getsockname())
+        finally:
+            s2.close()
+    finally:
+        s.close()
 
 def test_c_dup():
     # rsocket.dup() duplicates fd, it also works on Windows
     # (but only on socket handles!)
     s = RSocket(AF_INET, SOCK_STREAM)
-    s.bind(INETAddress('localhost', 50007))
-    s2 = RSocket(fd=dup(s.fd))
-    assert s.fd != s2.fd
-    assert s.getsockname().eq(s2.getsockname())
-    s.close()
-    s2.close()
+    try:
+        s.bind(INETAddress('localhost', 50007))
+        s2 = RSocket(fd=dup(s.fd))
+        try:
+            assert s.fd != s2.fd
+            assert s.getsockname().eq(s2.getsockname())
+        finally:
+            s2.close()
+    finally:
+        s.close()
 
 def test_inet_aton():
     assert inet_aton('1.2.3.4') == '\x01\x02\x03\x04'
@@ -504,3 +625,83 @@ def test_no_AF_PACKET():
 
 def test_no_AF_NETLINK():
     _test_cond_include('AF_NETLINK')
+
+def test_thread_safe_gethostbyaddr():
+    py.test.skip("hits non-thread-safe issues with ll2ctypes")
+    import threading
+    nthreads = 10
+    ip = '8.8.8.8'
+    domain = gethostbyaddr(ip)[0]
+    result = [0] * nthreads
+    threads = [None] * nthreads
+    lock = threading.Lock()
+    def lookup_addr(ip, i):
+        name, aliases, address_list = gethostbyaddr(ip, lock)
+        if name == domain:
+            result[i] += 1
+    for i in range(nthreads):
+        threads[i] = threading.Thread(target = lookup_addr, args=[ip, i])
+        threads[i].start()
+    for i in range(nthreads):
+        threads[i].join()
+    assert sum(result) == nthreads
+
+def test_thread_safe_gethostbyname_ex():
+    py.test.skip("hits non-thread-safe issues with ll2ctypes")
+    import threading
+    nthreads = 10
+    domain = 'google.com'
+    result = [0] * nthreads
+    threads = [None] * nthreads
+    lock = threading.Lock()
+    def lookup_name(i):
+        name, aliases, address_list = gethostbyname_ex(domain, lock)
+        if name == domain:
+            result[i] += 1
+    for i in range(nthreads):
+        threads[i] = threading.Thread(target = lookup_name, args=[i])
+        threads[i].start()
+    for i in range(nthreads):
+        threads[i].join()
+    assert sum(result) == nthreads
+
+def test_getaddrinfo_pydotorg_threadsafe():
+    py.test.skip("hits non-thread-safe issues with ll2ctypes")
+    import threading
+    nthreads = 10
+    result = [0] * nthreads
+    threads = [None] * nthreads
+    for i in range(nthreads):
+        threads[i] = threading.Thread(target = getaddrinfo_pydotorg, args=[i, result])
+        threads[i].start()
+    for i in range(nthreads):
+        threads[i].join()
+    assert sum(result) == nthreads
+
+def test_translate_netdb_lock():
+    def f():
+        rsocket_startup()
+        gethostbyaddr("localhost")
+        return 0
+    fc = compile(f, [])
+    assert fc() == 0
+
+def test_translate_netdb_lock_thread():
+    def f():
+        rsocket_startup()
+        gethostbyaddr("localhost")
+        return 0
+    fc = compile(f, [], thread=True)
+    assert fc() == 0
+
+def test_socket_saves_errno(tmpdir):
+    # ensure errno is set to a known value...
+    unconnected_sock = RSocket()
+    e = py.test.raises(CSocketError, unconnected_sock.recv, 1024)
+    # ...which is ENOTCONN
+    assert e.value.errno == errno.ENOTCONN
+
+    e = py.test.raises(CSocketError,
+                       RSocket,
+                       family=AF_INET, type=SOCK_STREAM, proto=SOL_UDP)
+    assert e.value.errno in (errno.EPROTOTYPE, errno.EPROTONOSUPPORT)

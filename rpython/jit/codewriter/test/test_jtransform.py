@@ -1,23 +1,12 @@
 
 import py
 import random
-try:
-    from itertools import product
-except ImportError:
-    # Python 2.5, this is taken from the CPython docs, but simplified.
-    def product(*args):
-        # product('ABCD', 'xy') --> Ax Ay Bx By Cx Cy Dx Dy
-        # product(range(2), repeat=3) --> 000 001 010 011 100 101 110 111
-        pools = map(tuple, args)
-        result = [[]]
-        for pool in pools:
-            result = [x+[y] for x in result for y in pool]
-        for prod in result:
-            yield tuple(prod)
+from itertools import product
 
-from rpython.flowspace.model import FunctionGraph, Block, Link
+from rpython.flowspace.model import FunctionGraph, Block, Link, c_last_exception
 from rpython.flowspace.model import SpaceOperation, Variable, Constant
-from rpython.rtyper.lltypesystem import lltype, llmemory, rclass, rstr, rffi
+from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rffi
+from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem.module import ll_math
 from rpython.translator.unsimplify import varoftype
 from rpython.jit.codewriter import heaptracker, effectinfo
@@ -29,7 +18,6 @@ def const(x):
     return Constant(x, lltype.typeOf(x))
 
 class FakeRTyper:
-    class type_system: name = 'lltypesystem'
     instance_reprs = {}
 
 class FakeCPU:
@@ -45,12 +33,11 @@ class FakeCPU:
         return ('interiorfielddescr', ARRAY, name)
     def arraydescrof(self, ARRAY):
         return FakeDescr(('arraydescr', ARRAY))
-    def sizeof(self, STRUCT):
+    def sizeof(self, STRUCT, vtable=None):
         return FakeDescr(('sizedescr', STRUCT))
 
 class FakeDescr(tuple):
-    def as_vtable_size_descr(self):
-        return self
+    pass
 
 class FakeLink:
     args = []
@@ -147,6 +134,11 @@ class FakeBuiltinCallControl:
              EI.OS_UNIEQ_LENGTHOK:       ([PUNICODE, PUNICODE], INT),
              EI.OS_RAW_MALLOC_VARSIZE_CHAR: ([INT], ARRAYPTR),
              EI.OS_RAW_FREE:             ([ARRAYPTR], lltype.Void),
+             EI.OS_THREADLOCALREF_GET:   ([INT], INT),   # for example
+             EI.OS_INT_PY_DIV: ([INT, INT], INT),
+             EI.OS_INT_UDIV:   ([INT, INT], INT),
+             EI.OS_INT_PY_MOD: ([INT, INT], INT),
+             EI.OS_INT_UMOD:   ([INT, INT], INT),
             }
             argtypes = argtypes[oopspecindex]
             assert argtypes[0] == [v.concretetype for v in op.args[1:]]
@@ -157,6 +149,11 @@ class FakeBuiltinCallControl:
                 assert extraeffect == EI.EF_CAN_RAISE
             elif oopspecindex == EI.OS_RAW_FREE:
                 assert extraeffect == EI.EF_CANNOT_RAISE
+            elif oopspecindex == EI.OS_THREADLOCALREF_GET:
+                assert extraeffect == self.expected_effect_of_threadlocalref_get
+            elif oopspecindex in (EI.OS_STR_CONCAT, EI.OS_UNI_CONCAT,
+                                  EI.OS_STR_SLICE, EI.OS_UNI_SLICE):
+                assert extraeffect == EI.EF_ELIDABLE_OR_MEMORYERROR
             else:
                 assert extraeffect == EI.EF_ELIDABLE_CANNOT_RAISE
         return 'calldescr-%d' % oopspecindex
@@ -181,7 +178,7 @@ def test_optimize_goto_if_not():
     res = Transformer().optimize_goto_if_not(block)
     assert res == True
     assert block.operations == [sp1, sp2]
-    assert block.exitswitch == ('int_gt', v1, v2)
+    assert block.exitswitch == ('int_gt', v1, v2, '-live-before')
     assert block.exits == exits
 
 def test_optimize_goto_if_not__incoming():
@@ -205,7 +202,7 @@ def test_optimize_goto_if_not__exit():
     res = Transformer().optimize_goto_if_not(block)
     assert res == True
     assert block.operations == []
-    assert block.exitswitch == ('int_gt', v1, v2)
+    assert block.exitswitch == ('int_gt', v1, v2, '-live-before')
     assert block.exits == exits
     assert exits[1].args == [const(True)]
 
@@ -229,7 +226,7 @@ def test_optimize_goto_if_not__ptr_eq():
         res = Transformer().optimize_goto_if_not(block)
         assert res == True
         assert block.operations == []
-        assert block.exitswitch == (opname, v1, v2)
+        assert block.exitswitch == (opname, v1, v2, '-live-before')
         assert block.exits == exits
 
 def test_optimize_goto_if_not__ptr_iszero():
@@ -245,6 +242,20 @@ def test_optimize_goto_if_not__ptr_iszero():
         assert block.operations == []
         assert block.exitswitch == (opname, v1, '-live-before')
         assert block.exits == exits
+
+def test_optimize_goto_if_not__argument_to_call():
+    for opname in ['ptr_iszero', 'ptr_nonzero']:
+        v1 = Variable()
+        v3 = Variable(); v3.concretetype = lltype.Bool
+        v4 = Variable()
+        block = Block([v1])
+        callop = SpaceOperation('residual_call_r_i',
+                ["fake", ListOfKind('int', [v3])], v4)
+        block.operations = [SpaceOperation(opname, [v1], v3), callop]
+        block.exitswitch = v3
+        block.exits = exits = [FakeLink(False), FakeLink(True)]
+        res = Transformer().optimize_goto_if_not(block)
+        assert not res
 
 def test_symmetric():
     ops = {'int_add': 'int_add',
@@ -275,15 +286,17 @@ def test_symmetric():
                     assert op1.result == v3
                     assert op1.opname == name2[0]
 
-def test_symmetric_int_add_ovf():
+@py.test.mark.parametrize('opname', ['add_ovf', 'sub_ovf', 'mul_ovf'])
+def test_int_op_ovf(opname):
     v3 = varoftype(lltype.Signed)
     for v1 in [varoftype(lltype.Signed), const(42)]:
         for v2 in [varoftype(lltype.Signed), const(43)]:
-            op = SpaceOperation('int_add_nonneg_ovf', [v1, v2], v3)
+            op = SpaceOperation('int_' + opname, [v1, v2], v3)
             oplist = Transformer(FakeCPU()).rewrite_operation(op)
-            op0, op1 = oplist
-            assert op0.opname == 'int_add_ovf'
-            if isinstance(v1, Constant) and isinstance(v2, Variable):
+            op1, op0 = oplist
+            assert op0.opname == 'int_' + opname
+            if (isinstance(v1, Constant) and isinstance(v2, Variable)
+                    and opname != 'sub_ovf'):
                 assert op0.args == [v2, v1]
                 assert op0.result == v3
             else:
@@ -292,6 +305,34 @@ def test_symmetric_int_add_ovf():
             assert op1.opname == '-live-'
             assert op1.args == []
             assert op1.result is None
+
+def test_neg_ovf():
+    v3 = varoftype(lltype.Signed)
+    for v1 in [varoftype(lltype.Signed), const(42)]:
+        op = SpaceOperation('direct_call', [Constant('neg_ovf'), v1], v3)
+        oplist = Transformer(FakeCPU())._handle_int_special(op, 'int.neg_ovf',
+                                                            [v1])
+        op1, op0 = oplist
+        assert op0.opname == 'int_sub_ovf'
+        assert op0.args == [Constant(0), v1]
+        assert op0.result == v3
+        assert op1.opname == '-live-'
+        assert op1.args == []
+        assert op1.result is None
+
+@py.test.mark.parametrize('opname', ['py_div', 'udiv', 'py_mod', 'umod'])
+def test_int_op_residual(opname):
+    v3 = varoftype(lltype.Signed)
+    tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
+    for v1 in [varoftype(lltype.Signed), const(42)]:
+        for v2 in [varoftype(lltype.Signed), const(43)]:
+            op = SpaceOperation('direct_call', [Constant(opname), v1, v2], v3)
+            op0 = tr._handle_int_special(op, 'int.'+opname, [v1, v2])
+            assert op0.opname == 'residual_call_ir_i'
+            assert op0.args[0].value == opname  # pseudo-function as str
+            expected = ('int_' + opname).upper()
+            assert (op0.args[-1] == 'calldescr-%d' %
+                     getattr(effectinfo.EffectInfo, 'OS_' + expected))
 
 def test_calls():
     for RESTYPE, with_void, with_i, with_r, with_f in product(
@@ -522,6 +563,35 @@ def test_malloc_new():
     assert op1.opname == 'new'
     assert op1.args == [('sizedescr', S)]
 
+def test_malloc_new_zero_2():
+    S = lltype.GcStruct('S', ('x', lltype.Signed))
+    v = varoftype(lltype.Ptr(S))
+    op = SpaceOperation('malloc', [Constant(S, lltype.Void),
+                                   Constant({'flavor': 'gc',
+                                             'zero': True}, lltype.Void)], v)
+    op1, op2 = Transformer(FakeCPU()).rewrite_operation(op)
+    assert op1.opname == 'new'
+    assert op1.args == [('sizedescr', S)]
+    assert op2.opname == 'setfield_gc_i'
+    assert op2.args[0] == v
+
+def test_malloc_new_zero_nested():
+    S0 = lltype.GcStruct('S0')
+    S = lltype.Struct('S', ('x', lltype.Ptr(S0)))
+    S2 = lltype.GcStruct('S2', ('parent', S),
+                         ('xx', lltype.Ptr(S0)))
+    v = varoftype(lltype.Ptr(S2))
+    op = SpaceOperation('malloc', [Constant(S2, lltype.Void),
+                                   Constant({'flavor': 'gc',
+                                             'zero': True}, lltype.Void)], v)
+    op1, op2, op3 = Transformer(FakeCPU()).rewrite_operation(op)
+    assert op1.opname == 'new'
+    assert op1.args == [('sizedescr', S2)]
+    assert op2.opname == 'setfield_gc_r'
+    assert op2.args[0] == v
+    assert op3.opname == 'setfield_gc_r'
+    assert op3.args[0] == v
+
 def test_malloc_new_with_vtable():
     vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
     S = lltype.GcStruct('S', ('parent', rclass.OBJECT))
@@ -533,9 +603,6 @@ def test_malloc_new_with_vtable():
     op1 = Transformer(cpu).rewrite_operation(op)
     assert op1.opname == 'new_with_vtable'
     assert op1.args == [('sizedescr', S)]
-    #assert heaptracker.descr2vtable(cpu, op1.args[0]) == vtable [type check]
-    vtable_int = heaptracker.adr2int(llmemory.cast_ptr_to_adr(vtable))
-    assert heaptracker.vtable2descr(cpu, vtable_int) == op1.args[0]
 
 def test_malloc_new_with_destructor():
     vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
@@ -993,7 +1060,8 @@ def test_getfield_gc_greenfield():
     v1 = varoftype(lltype.Ptr(S))
     v2 = varoftype(lltype.Char)
     op = SpaceOperation('getfield', [v1, Constant('x', lltype.Void)], v2)
-    op1 = Transformer(FakeCPU(), FakeCC()).rewrite_operation(op)
+    op0, op1 = Transformer(FakeCPU(), FakeCC()).rewrite_operation(op)
+    assert op0.opname == '-live-'
     assert op1.opname == 'getfield_gc_i_greenfield'
     assert op1.args == [v1, ('fielddescr', S, 'x')]
     assert op1.result == v2
@@ -1018,6 +1086,15 @@ def test_str_newstr():
     assert op1.opname == 'newstr'
     assert op1.args == [v1]
     assert op1.result == v2
+
+def test_malloc_varsize_zero():
+    c_A = Constant(lltype.GcArray(lltype.Signed), lltype.Void)
+    v1 = varoftype(lltype.Signed)
+    v2 = varoftype(c_A.value)
+    c_flags = Constant({"flavor": "gc", "zero": True}, lltype.Void)
+    op = SpaceOperation('malloc_varsize', [c_A, c_flags, v1], v2)
+    op1 = Transformer(FakeCPU()).rewrite_operation(op)
+    assert op1.opname == 'new_array_clear'
 
 def test_str_concat():
     # test that the oopspec is present and correctly transformed
@@ -1251,7 +1328,7 @@ def test_quasi_immutable():
         assert op1.args[1] == ('fielddescr', STRUCT, 'inst_x')
         assert op1.args[2] == ('fielddescr', STRUCT, 'mutate_x')
         assert op1.result is None
-        assert op2.opname == 'getfield_gc_i'
+        assert op2.opname == 'getfield_gc_i_pure'
         assert len(op2.args) == 2
         assert op2.args[0] == v_x
         assert op2.args[1] == ('fielddescr', STRUCT, 'inst_x')
@@ -1287,23 +1364,61 @@ def test_no_gcstruct_nesting_outside_of_OBJECT():
     tr = Transformer(None, None)
     py.test.raises(NotImplementedError, tr.rewrite_operation, op)
 
-def test_cast_opaque_ptr():
-    S = lltype.GcStruct("S", ("x", lltype.Signed))
-    v1 = varoftype(lltype.Ptr(S))
-    v2 = varoftype(lltype.Ptr(rclass.OBJECT))
+def test_no_fixedsizearray():
+    A = lltype.FixedSizeArray(lltype.Signed, 5)
+    v_x = varoftype(lltype.Ptr(A))
+    op = SpaceOperation('getarrayitem', [v_x, Constant(0, lltype.Signed)],
+                        varoftype(lltype.Signed))
+    tr = Transformer(None, None)
+    tr.graph = 'demo'
+    py.test.raises(NotImplementedError, tr.rewrite_operation, op)
+    op = SpaceOperation('setarrayitem', [v_x, Constant(0, lltype.Signed),
+                                              Constant(42, lltype.Signed)],
+                        varoftype(lltype.Void))
+    e = py.test.raises(NotImplementedError, tr.rewrite_operation, op)
+    assert str(e.value) == (
+        "'demo' uses %r, which is not supported by the JIT codewriter" % (A,))
 
-    op = SpaceOperation('cast_opaque_ptr', [v1], v2)
-    tr = Transformer()
-    [op1, op2] = tr.rewrite_operation(op)
-    assert op1.opname == 'mark_opaque_ptr'
-    assert op1.args == [v1]
-    assert op1.result is None
-    assert op2 is None
+def _test_threadlocalref_get(loop_inv):
+    from rpython.rlib.rthread import ThreadLocalField
+    tlfield = ThreadLocalField(lltype.Signed, 'foobar_test_',
+                               loop_invariant=loop_inv)
+    OS_THREADLOCALREF_GET = effectinfo.EffectInfo.OS_THREADLOCALREF_GET
+    c = const(tlfield.getoffset())
+    v = varoftype(lltype.Signed)
+    op = SpaceOperation('threadlocalref_get', [c], v)
+    cc = FakeBuiltinCallControl()
+    cc.expected_effect_of_threadlocalref_get = (
+        effectinfo.EffectInfo.EF_LOOPINVARIANT if loop_inv
+        else effectinfo.EffectInfo.EF_CANNOT_RAISE)
+    tr = Transformer(FakeCPU(), cc)
+    op0 = tr.rewrite_operation(op)
+    assert op0.opname == 'residual_call_ir_i'
+    assert op0.args[0].value == 'threadlocalref_get' # pseudo-function as str
+    assert op0.args[1] == ListOfKind("int", [c])
+    assert op0.args[2] == ListOfKind("ref", [])
+    assert op0.args[3] == 'calldescr-%d' % OS_THREADLOCALREF_GET
+    assert op0.result == v
+
+def test_threadlocalref_get_no_loop_inv():
+    _test_threadlocalref_get(loop_inv=False)
+
+def test_threadlocalref_get_with_loop_inv():
+    _test_threadlocalref_get(loop_inv=True)
 
 def test_unknown_operation():
     op = SpaceOperation('foobar', [], varoftype(lltype.Void))
     tr = Transformer()
     try:
         tr.rewrite_operation(op)
-    except Exception, e:
+    except Exception as e:
         assert 'foobar' in str(e)
+
+def test_likely_unlikely():
+    v1 = varoftype(lltype.Bool)
+    v2 = varoftype(lltype.Bool)
+    op = SpaceOperation('likely', [v1], v2)
+    tr = Transformer()
+    assert tr.rewrite_operation(op) is None
+    op = SpaceOperation('unlikely', [v1], v2)
+    assert tr.rewrite_operation(op) is None

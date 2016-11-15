@@ -8,7 +8,7 @@ class TestTargetPyPy(object):
         entry_point = get_entry_point(config)[0]
         entry_point(['pypy-c' , '-S', '-c', 'print 3'])
 
-def test_exeucte_source(space):
+def test_execute_source(space):
     _, d = create_entry_point(space, None)
     execute_source = d['pypy_execute_source']
     lls = rffi.str2charp("import sys; sys.modules['xyz'] = 3")
@@ -20,11 +20,13 @@ def test_exeucte_source(space):
                                                 space.wrap('modules')),
                                                 space.wrap('xyz')))
     assert x == 3
-    lls = rffi.str2charp("sys")
+    lls = rffi.str2charp("sys   # should give a NameError")
     execute_source(lls)
     lltype.free(lls, flavor='raw')
     # did not crash - the same globals
     pypy_setup_home = d['pypy_setup_home']
     lls = rffi.str2charp(__file__)
-    pypy_setup_home(lls, rffi.cast(rffi.INT, 1))
+    res = pypy_setup_home(lls, rffi.cast(rffi.INT, 1))
+    assert lltype.typeOf(res) == rffi.INT
+    assert rffi.cast(lltype.Signed, res) == 0
     lltype.free(lls, flavor='raw')

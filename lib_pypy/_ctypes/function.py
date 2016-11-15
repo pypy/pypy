@@ -65,9 +65,9 @@ class CFuncPtr(_CData):
     _restype_ = None
     _errcheck_ = None
     _flags_ = 0
-    _ffiargshape = 'P'
-    _ffishape = 'P'
-    _fficompositesize = None
+    _ffiargshape_ = 'P'
+    _ffishape_ = 'P'
+    _fficompositesize_ = None
     _ffiarray = _rawffi.Array('P')
     _needs_free = False
     callable = None
@@ -98,7 +98,7 @@ class CFuncPtr(_CData):
     argtypes = property(_getargtypes, _setargtypes)
 
     def _check_argtypes_for_fastpath(self):
-        if all([hasattr(argtype, '_ffiargshape') for argtype in self._argtypes_]):
+        if all([hasattr(argtype, '_ffiargshape_') for argtype in self._argtypes_]):
             fastpath_cls = make_fastpath_subclass(self.__class__)
             fastpath_cls.enable_fastpath_maybe(self)
 
@@ -135,7 +135,7 @@ class CFuncPtr(_CData):
             _flag = flag & PARAMFLAG_COMBINED
             if _flag == PARAMFLAG_FOUT:
                 typ = self._argtypes_[idx]
-                if getattr(typ, '_ffiargshape', None) not in ('P', 'z', 'Z'):
+                if getattr(typ, '_ffiargshape_', None) not in ('P', 'z', 'Z'):
                     raise TypeError(
                         "'out' parameter %d must be a pointer type, not %s"
                         % (idx+1, type(typ).__name__)
@@ -182,11 +182,11 @@ class CFuncPtr(_CData):
     def _ffishapes(self, args, restype):
         if args is None:
             args = []
-        argtypes = [arg._ffiargshape for arg in args]
+        argtypes = [arg._ffiargshape_ for arg in args]
         if restype is not None:
             if not isinstance(restype, SimpleType):
                 raise TypeError("invalid result type for callback function")
-            restype = restype._ffiargshape
+            restype = restype._ffiargshape_
         else:
             restype = 'O' # void
         return argtypes, restype
@@ -219,6 +219,8 @@ class CFuncPtr(_CData):
             if restype is None:
                 import ctypes
                 restype = ctypes.c_int
+            if self._argtypes_ is None:
+                self._argtypes_ = []
             self._ptr = self._getfuncptr_fromaddress(self._argtypes_, restype)
             self._check_argtypes_for_fastpath()
             return
@@ -274,7 +276,11 @@ class CFuncPtr(_CData):
             if argtypes:
                 args = [argtype._CData_retval(argtype.from_address(arg)._buffer)
                         for argtype, arg in zip(argtypes, args)]
-            return to_call(*args)
+            try:
+                return to_call(*args)
+            except SystemExit as e:
+                handle_system_exit(e)
+                raise
         return f
 
     def __call__(self, *args, **kwargs):
@@ -300,10 +306,14 @@ class CFuncPtr(_CData):
 
             try:
                 newargs = self._convert_args_for_callback(argtypes, args)
-            except (UnicodeError, TypeError, ValueError), e:
+            except (UnicodeError, TypeError, ValueError) as e:
                 raise ArgumentError(str(e))
             try:
-                res = self.callable(*newargs)
+                try:
+                    res = self.callable(*newargs)
+                except SystemExit as e:
+                    handle_system_exit(e)
+                    raise
             except:
                 exc_info = sys.exc_info()
                 traceback.print_tb(exc_info[2], file=sys.stderr)
@@ -332,7 +342,7 @@ class CFuncPtr(_CData):
             thisarg = cast(thisvalue, POINTER(POINTER(c_void_p)))
             keepalives, newargs, argtypes, outargs, errcheckargs = (
                 self._convert_args(argtypes, args[1:], kwargs))
-            newargs.insert(0, thisvalue.value)
+            newargs.insert(0, thisarg)
             argtypes.insert(0, c_void_p)
         else:
             thisarg = None
@@ -565,7 +575,7 @@ class CFuncPtr(_CData):
             for i, argtype in enumerate(argtypes):
                 try:
                     keepalive, newarg, newargtype = self._conv_param(argtype, args[i])
-                except (UnicodeError, TypeError, ValueError), e:
+                except (UnicodeError, TypeError, ValueError) as e:
                     raise ArgumentError(str(e))
                 keepalives.append(keepalive)
                 newargs.append(newarg)
@@ -576,7 +586,7 @@ class CFuncPtr(_CData):
             for i, arg in enumerate(extra):
                 try:
                     keepalive, newarg, newargtype = self._conv_param(None, arg)
-                except (UnicodeError, TypeError, ValueError), e:
+                except (UnicodeError, TypeError, ValueError) as e:
                     raise ArgumentError(str(e))
                 keepalives.append(keepalive)
                 newargs.append(newarg)
@@ -597,7 +607,7 @@ class CFuncPtr(_CData):
         if self._is_primitive(restype) and not restype._is_pointer_like():
             return result
         #
-        shape = restype._ffishape
+        shape = restype._ffishape_
         if is_struct_shape(shape):
             buf = result
         else:
@@ -713,3 +723,22 @@ def make_fastpath_subclass(CFuncPtr):
     make_fastpath_subclass.memo[CFuncPtr] = CFuncPtrFast
     return CFuncPtrFast
 make_fastpath_subclass.memo = {}
+
+
+def handle_system_exit(e):
+    # issue #1194: if we get SystemExit here, then exit the interpreter.
+    # Highly obscure imho but some people seem to depend on it.
+    if sys.flags.inspect:
+        return   # Don't exit if -i flag was given.
+    else:
+        code = e.code
+        if isinstance(code, int):
+            exitcode = code
+        else:
+            f = getattr(sys, 'stderr', None)
+            if f is None:
+                f = sys.__stderr__
+            print >> f, code
+            exitcode = 1
+
+        _rawffi.exit(exitcode)

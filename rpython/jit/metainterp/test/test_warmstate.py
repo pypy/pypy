@@ -4,14 +4,16 @@ from rpython.rtyper.annlowlevel import llhelper
 from rpython.jit.metainterp.warmstate import wrap, unwrap, specialize_value
 from rpython.jit.metainterp.warmstate import equal_whatever, hash_whatever
 from rpython.jit.metainterp.warmstate import WarmEnterState
-from rpython.jit.metainterp.history import BoxInt, BoxFloat, BoxPtr
-from rpython.jit.metainterp.history import ConstInt, ConstFloat, ConstPtr
+from rpython.jit.metainterp.resoperation import InputArgInt, InputArgRef,\
+     InputArgFloat
+from rpython.jit.metainterp.history import ConstInt, ConstFloat, ConstPtr,\
+     IntFrontendOp, FloatFrontendOp, RefFrontendOp
 from rpython.jit.metainterp.counter import DeterministicJitCounter
 from rpython.jit.codewriter import longlong
 from rpython.rlib.rarithmetic import r_singlefloat
 
 def boxfloat(x):
-    return BoxFloat(longlong.getfloatstorage(x))
+    return InputArgFloat(longlong.getfloatstorage(x))
 
 def constfloat(x):
     return ConstFloat(longlong.getfloatstorage(x))
@@ -22,22 +24,40 @@ def test_unwrap():
     RS = lltype.Struct('S')
     p = lltype.malloc(S)
     po = lltype.cast_opaque_ptr(llmemory.GCREF, p)
-    assert unwrap(lltype.Void, BoxInt(42)) is None
-    assert unwrap(lltype.Signed, BoxInt(42)) == 42
-    assert unwrap(lltype.Char, BoxInt(42)) == chr(42)
+    assert unwrap(lltype.Void, InputArgInt(42)) is None
+    assert unwrap(lltype.Signed, InputArgInt(42)) == 42
+    assert unwrap(lltype.Char, InputArgInt(42)) == chr(42)
     assert unwrap(lltype.Float, boxfloat(42.5)) == 42.5
-    assert unwrap(lltype.Ptr(S), BoxPtr(po)) == p
-    assert unwrap(lltype.Ptr(RS), BoxInt(0)) == lltype.nullptr(RS)
+    assert unwrap(lltype.Ptr(S), InputArgRef(po)) == p
+    assert unwrap(lltype.Ptr(RS), InputArgInt(0)) == lltype.nullptr(RS)
 
 def test_wrap():
+    def InputArgInt(a):
+        i = IntFrontendOp(0)
+        i.setint(a)
+        return i
+
+    def InputArgFloat(a):
+        i = FloatFrontendOp(0)
+        i.setfloatstorage(a)
+        return i
+
+    def InputArgRef(a):
+        i = RefFrontendOp(0)
+        i.setref_base(a)
+        return i
+
+    def boxfloat(x):
+        return InputArgFloat(longlong.getfloatstorage(x))
+
     def _is(box1, box2):
         return (box1.__class__ == box2.__class__ and
-                box1.value == box2.value)
+                box1.getvalue() == box2.getvalue())
     p = lltype.malloc(lltype.GcStruct('S'))
     po = lltype.cast_opaque_ptr(llmemory.GCREF, p)
-    assert _is(wrap(None, 42), BoxInt(42))
+    assert _is(wrap(None, 42), InputArgInt(42))
     assert _is(wrap(None, 42.5), boxfloat(42.5))
-    assert _is(wrap(None, p), BoxPtr(po))
+    assert _is(wrap(None, p), InputArgRef(po))
     assert _is(wrap(None, 42, in_const_box=True), ConstInt(42))
     assert _is(wrap(None, 42.5, in_const_box=True), constfloat(42.5))
     assert _is(wrap(None, p, in_const_box=True), ConstPtr(po))
@@ -45,13 +65,13 @@ def test_wrap():
         import sys
         from rpython.rlib.rarithmetic import r_longlong, r_ulonglong
         value = r_longlong(-sys.maxint*17)
-        assert _is(wrap(None, value), BoxFloat(value))
+        assert _is(wrap(None, value), InputArgFloat(value))
         assert _is(wrap(None, value, in_const_box=True), ConstFloat(value))
         value_unsigned = r_ulonglong(-sys.maxint*17)
-        assert _is(wrap(None, value_unsigned), BoxFloat(value))
+        assert _is(wrap(None, value_unsigned), InputArgFloat(value))
     sfval = r_singlefloat(42.5)
     ival = longlong.singlefloat2int(sfval)
-    assert _is(wrap(None, sfval), BoxInt(ival))
+    assert _is(wrap(None, sfval), InputArgInt(ival))
     assert _is(wrap(None, sfval, in_const_box=True), ConstInt(ival))
 
 def test_specialize_value():
@@ -75,7 +95,7 @@ def test_hash_equal_whatever_lltype():
                 hash_whatever(lltype.typeOf(s2), s2))
         assert equal_whatever(lltype.typeOf(s1), s1, s2)
     fn(42)
-    interpret(fn, [42], type_system='lltype')
+    interpret(fn, [42])
 
 
 def test_make_unwrap_greenkey():
@@ -91,12 +111,14 @@ def test_make_jitdriver_callbacks_1():
     class FakeWarmRunnerDesc:
         cpu = None
         memory_manager = None
+        rtyper = None
         jitcounter = DeterministicJitCounter()
     class FakeJitDriverSD:
         jitdriver = None
         _green_args_spec = [lltype.Signed, lltype.Float]
         _get_printable_location_ptr = None
         _confirm_enter_jit_ptr = None
+        _get_unique_id_ptr = None
         _can_never_inline_ptr = None
         _should_unroll_one_iteration_ptr = None
         red_args_types = []
@@ -128,6 +150,7 @@ def test_make_jitdriver_callbacks_3():
         _get_printable_location_ptr = llhelper(GET_LOCATION, get_location)
         _confirm_enter_jit_ptr = None
         _can_never_inline_ptr = None
+        _get_unique_id_ptr = None
         _should_unroll_one_iteration_ptr = None
         red_args_types = []
     state = WarmEnterState(FakeWarmRunnerDesc(), FakeJitDriverSD())
@@ -154,6 +177,7 @@ def test_make_jitdriver_callbacks_4():
         _get_printable_location_ptr = None
         _confirm_enter_jit_ptr = llhelper(ENTER_JIT, confirm_enter_jit)
         _can_never_inline_ptr = None
+        _get_unique_id_ptr = None
         _should_unroll_one_iteration_ptr = None
         red_args_types = []
 
@@ -179,6 +203,7 @@ def test_make_jitdriver_callbacks_5():
         _green_args_spec = [lltype.Signed, lltype.Float]
         _get_printable_location_ptr = None
         _confirm_enter_jit_ptr = None
+        _get_unique_id_ptr = None
         _can_never_inline_ptr = llhelper(CAN_NEVER_INLINE, can_never_inline)
         _should_unroll_one_iteration_ptr = None
         red_args_types = []

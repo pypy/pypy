@@ -1,10 +1,10 @@
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.astcompiler import consts
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, CONST_STRING, FILEP, fread, feof, Py_ssize_tP,
-    cpython_struct)
-from pypy.module.cpyext.pyobject import PyObject, borrow_from
+    cpython_struct, is_valid_fp)
+from pypy.module.cpyext.pyobject import PyObject
 from pypy.module.cpyext.pyerrors import PyErr_SetFromErrno
 from pypy.module.cpyext.funcobject import PyCodeObject
 from pypy.module.__builtin__ import compiling
@@ -13,7 +13,7 @@ PyCompilerFlags = cpython_struct(
     "PyCompilerFlags", (("cf_flags", rffi.INT),))
 PyCompilerFlagsPtr = lltype.Ptr(PyCompilerFlags)
 
-PyCF_MASK = (consts.CO_FUTURE_DIVISION | 
+PyCF_MASK = (consts.CO_FUTURE_DIVISION |
              consts.CO_FUTURE_ABSOLUTE_IMPORT |
              consts.CO_FUTURE_WITH_STATEMENT |
              consts.CO_FUTURE_PRINT_FUNCTION |
@@ -23,38 +23,38 @@ PyCF_MASK = (consts.CO_FUTURE_DIVISION |
 def PyEval_CallObjectWithKeywords(space, w_obj, w_arg, w_kwds):
     return space.call(w_obj, w_arg, w_kwds)
 
-@cpython_api([], PyObject)
+@cpython_api([], PyObject, result_borrowed=True)
 def PyEval_GetBuiltins(space):
     """Return a dictionary of the builtins in the current execution
     frame, or the interpreter of the thread state if no frame is
     currently executing."""
     caller = space.getexecutioncontext().gettopframe_nohidden()
     if caller is not None:
-        w_globals = caller.w_globals
+        w_globals = caller.get_w_globals()
         w_builtins = space.getitem(w_globals, space.wrap('__builtins__'))
         if not space.isinstance_w(w_builtins, space.w_dict):
             w_builtins = w_builtins.getdict(space)
     else:
         w_builtins = space.builtin.getdict(space)
-    return borrow_from(None, w_builtins)
+    return w_builtins      # borrowed ref in all cases
 
-@cpython_api([], PyObject, error=CANNOT_FAIL)
+@cpython_api([], PyObject, error=CANNOT_FAIL, result_borrowed=True)
 def PyEval_GetLocals(space):
     """Return a dictionary of the local variables in the current execution
     frame, or NULL if no frame is currently executing."""
     caller = space.getexecutioncontext().gettopframe_nohidden()
     if caller is None:
         return None
-    return borrow_from(None, caller.getdictscope())
+    return caller.getdictscope()    # borrowed ref
 
-@cpython_api([], PyObject, error=CANNOT_FAIL)
+@cpython_api([], PyObject, error=CANNOT_FAIL, result_borrowed=True)
 def PyEval_GetGlobals(space):
     """Return a dictionary of the global variables in the current execution
     frame, or NULL if no frame is currently executing."""
     caller = space.getexecutioncontext().gettopframe_nohidden()
     if caller is None:
         return None
-    return borrow_from(None, caller.w_globals)
+    return caller.get_w_globals()    # borrowed ref
 
 @cpython_api([PyCodeObject, PyObject, PyObject], PyObject)
 def PyEval_EvalCode(space, w_code, w_globals, w_locals):
@@ -94,7 +94,7 @@ Py_file_input = 257
 Py_eval_input = 258
 
 def compile_string(space, source, filename, start, flags=0):
-    w_source = space.wrap(source)
+    w_source = space.newbytes(source)
     start = rffi.cast(lltype.Signed, start)
     if start == Py_file_input:
         mode = 'exec'
@@ -103,8 +103,8 @@ def compile_string(space, source, filename, start, flags=0):
     elif start == Py_single_input:
         mode = 'single'
     else:
-        raise OperationError(space.w_ValueError, space.wrap(
-            "invalid mode parameter for compilation"))
+        raise oefmt(space.w_ValueError,
+                    "invalid mode parameter for compilation")
     return compiling.compile(space, w_source, filename, mode, flags)
 
 def run_string(space, source, filename, start, w_globals, w_locals):
@@ -128,7 +128,7 @@ def PyRun_String(space, source, start, w_globals, w_locals):
     filename = "<string>"
     return run_string(space, source, filename, start, w_globals, w_locals)
 
-@cpython_api([rffi.CCHARP, rffi.INT_real, PyObject, PyObject,
+@cpython_api([CONST_STRING, rffi.INT_real, PyObject, PyObject,
               PyCompilerFlagsPtr], PyObject)
 def PyRun_StringFlags(space, source, start, w_globals, w_locals, flagsptr):
     """Execute Python source code from str in the context specified by the
@@ -154,6 +154,10 @@ def PyRun_File(space, fp, filename, start, w_globals, w_locals):
     source = ""
     filename = rffi.charp2str(filename)
     buf = lltype.malloc(rffi.CCHARP.TO, BUF_SIZE, flavor='raw')
+    if not is_valid_fp(fp):
+        lltype.free(buf, flavor='raw')
+        PyErr_SetFromErrno(space, space.w_IOError)
+        return None
     try:
         while True:
             count = fread(buf, 1, BUF_SIZE, fp)
@@ -185,7 +189,7 @@ def _PyEval_SliceIndex(space, w_obj, pi):
         pi[0] = space.getindex_w(w_obj, None)
     return 1
 
-@cpython_api([rffi.CCHARP, rffi.CCHARP, rffi.INT_real, PyCompilerFlagsPtr],
+@cpython_api([CONST_STRING, CONST_STRING, rffi.INT_real, PyCompilerFlagsPtr],
              PyObject)
 def Py_CompileStringFlags(space, source, filename, start, flagsptr):
     """Parse and compile the Python source code in str, returning the
@@ -223,4 +227,4 @@ def PyEval_MergeCompilerFlags(space, cf):
     cf.c_cf_flags = rffi.cast(rffi.INT, flags)
     return result
 
-        
+

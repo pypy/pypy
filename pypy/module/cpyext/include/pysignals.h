@@ -9,8 +9,8 @@ extern "C" {
 
 typedef void (*PyOS_sighandler_t)(int);
 
-PyOS_sighandler_t PyOS_setsig(int sig, PyOS_sighandler_t handler);
-PyOS_sighandler_t PyOS_getsig(int sig);
+PyAPI_FUNC(PyOS_sighandler_t) PyOS_setsig(int sig, PyOS_sighandler_t handler);
+PyAPI_FUNC(PyOS_sighandler_t) PyOS_getsig(int sig);
 
 
 #ifdef __cplusplus

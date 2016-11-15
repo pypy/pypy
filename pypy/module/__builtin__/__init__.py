@@ -7,7 +7,6 @@ import pypy.module.imp.importing
 
 class Module(MixedModule):
     """Built-in functions, exceptions, and other objects."""
-    expose__file__attribute = False
 
     appleveldefs = {
         'execfile'      : 'app_io.execfile',
@@ -33,7 +32,7 @@ class Module(MixedModule):
 
     interpleveldefs = {
         # constants
-        '__debug__'     : '(space.w_True)',      # XXX
+        '__debug__'     : '(space.w_True)',
         'None'          : '(space.w_None)',
         'False'         : '(space.w_False)',
         'True'          : '(space.w_True)',
@@ -87,8 +86,8 @@ class Module(MixedModule):
         'max'           : 'functional.max',
         'reversed'      : 'functional.reversed',
         'super'         : 'descriptor.W_Super',
-        'staticmethod'  : 'descriptor.StaticMethod',
-        'classmethod'   : 'descriptor.ClassMethod',
+        'staticmethod'  : 'pypy.interpreter.function.StaticMethod',
+        'classmethod'   : 'pypy.interpreter.function.ClassMethod',
         'property'      : 'descriptor.W_Property',
 
         'globals'       : 'interp_inspect.globals',
@@ -103,7 +102,7 @@ class Module(MixedModule):
         space = self.space
         try:
             w_builtin = space.getitem(w_globals, space.wrap('__builtins__'))
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_KeyError):
                 raise
         else:

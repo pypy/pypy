@@ -221,7 +221,7 @@ class AppTestFile(BaseROTests):
     expected_filename = str(udir.join('sample'))
     expected_mode = 'rb'
     extra_args = ()
-    spaceconfig = {"usemodules": ["binascii", "rctime"]}
+    spaceconfig = {'usemodules': ['binascii', 'time', 'struct']}
 
     def setup_method(self, method):
         space = self.space
@@ -281,7 +281,7 @@ class AppTestFdOpen(BaseROTests):
     expected_filename = '<fdopen>'
     expected_mode = 'rb'
     extra_args = ()
-    spaceconfig = {"usemodules": ["binascii", "rctime"]}
+    spaceconfig = {'usemodules': ['binascii', 'time', 'struct']}
 
     def setup_method(self, method):
         space = self.space
@@ -359,7 +359,8 @@ class AppTestLargeBufferUniversal(AppTestUniversalNewlines):
 #  A few extra tests
 
 class AppTestAFewExtra:
-    spaceconfig = {"usemodules": ['array', '_socket', 'binascii', 'rctime']}
+    spaceconfig = {'usemodules': ['_socket', 'array', 'binascii', 'time',
+                                  'struct']}
 
     def setup_method(self, method):
         fn = str(udir.join('temptestfile'))
@@ -385,6 +386,37 @@ class AppTestAFewExtra:
         somelines = file(fn, 'r').readlines(2000)
         assert len(somelines) > 200
         assert somelines == lines[:len(somelines)]
+
+    def test_writelines(self):
+        import array
+        import sys
+        fn = self.temptestfile
+        with file(fn, 'w') as f:
+            f.writelines(['abc'])
+            f.writelines([u'def'])
+            exc = raises(TypeError, f.writelines, [array.array('c', 'ghi')])
+            assert str(exc.value) == "writelines() argument must be a sequence of strings"
+            exc = raises(TypeError, f.writelines, [memoryview('jkl')])
+            assert str(exc.value) == "writelines() argument must be a sequence of strings"
+        assert open(fn, 'r').readlines() == ['abcdef']
+
+        with file(fn, 'wb') as f:
+            f.writelines(['abc'])
+            f.writelines([u'def'])
+            f.writelines([array.array('c', 'ghi')])
+            exc = raises(TypeError, f.writelines, [memoryview('jkl')])
+            assert str(exc.value) == "writelines() argument must be a sequence of strings"
+        out = open(fn, 'rb').readlines()[0]
+        if sys.byteorder == 'big':
+            assert out[0:7] == 'abc\x00\x00\x00d'
+        else:
+            assert out[0:5] == 'abcd\x00'
+        assert out[-3:] == 'ghi'
+
+        with file(fn, 'wb') as f:
+            exc = raises(TypeError, f.writelines, ['abc', memoryview('def')])
+            assert str(exc.value) == "writelines() argument must be a sequence of strings"
+        assert open(fn, 'rb').readlines() == []
 
     def test_nasty_writelines(self):
         # The stream lock should be released between writes
@@ -526,14 +558,8 @@ class AppTestAFewExtra:
 
         import errno, sys
         f = open(fn)
-        exc = raises(EnvironmentError, f.truncate, 3)
-        if sys.platform == 'win32':
-            assert exc.value.errno == 5 # ERROR_ACCESS_DENIED
-        else:
-            # CPython explicitely checks the file mode
-            # PyPy relies on the libc to raise the error
-            assert (exc.value.message == "File not open for writing" or
-                    exc.value.errno == errno.EINVAL)
+        exc = raises(IOError, f.truncate, 3)
+        assert str(exc.value) == "File not open for writing"
         f.close()
 
     def test_readinto(self):
@@ -549,6 +575,17 @@ class AppTestAFewExtra:
         assert n == 6
         assert len(a) == 10
         assert a.tostring() == 'foobar6789'
+
+    @py.test.mark.skipif("os.name != 'posix'")
+    def test_readinto_error(self):
+        import _socket, posix, array
+        s = _socket.socket()
+        buff = array.array("c", "X" * 65)
+        fh = posix.fdopen(posix.dup(s.fileno()), 'rb')
+        # "Transport endpoint is not connected"
+        raises(IOError, fh.readinto, buff)
+        fh.close()
+        s.close()
 
     def test_weakref(self):
         """Files are weakrefable."""
@@ -630,3 +667,20 @@ class AppTestAFewExtra:
         f2.close()
         s2.close()
         s1.close()
+
+    def test_close_fd_if_dir_check_fails(self):
+        from errno import EMFILE
+        for i in range(1700):
+            try:
+                open('/')
+            except IOError as e:
+                assert e.errno != EMFILE
+            else:
+                assert False
+
+    @py.test.mark.skipif("os.name != 'posix'")
+    def test_dont_close_fd_if_dir_check_fails_in_fdopen(self):
+        import posix
+        fd = posix.open('/', posix.O_RDONLY)
+        raises(IOError, posix.fdopen, fd)
+        posix.close(fd)

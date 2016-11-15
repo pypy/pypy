@@ -39,7 +39,7 @@ class NameManager(object):
         before generating any new names."""
         for name in txt.split():
             if name in self.seennames:
-                raise NameError, "%s has already been seen!"
+                raise NameError("%s has already been seen!")
             self.seennames[name] = 1
 
     def _ensure_unique(self, basename):

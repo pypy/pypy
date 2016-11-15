@@ -49,6 +49,7 @@
 # 2003-07-12 gp  Correct marshalling of Faults
 # 2003-10-31 mvl Add multicall support
 # 2004-08-20 mvl Bump minimum supported Python version to 2.1
+# 2014-12-02 ch/doko  Add workaround for gzip bomb vulnerability
 #
 # Copyright (c) 1999-2002 by Secret Labs AB.
 # Copyright (c) 1999-2002 by Fredrik Lundh.
@@ -357,7 +358,7 @@ del modules, mod_dict
 # tuple.
 #
 # @param value The time, given as an ISO 8601 string, a time
-#              tuple, or a integer time value.
+#              tuple, or an integer time value.
 
 def _strftime(value):
     if datetime:
@@ -392,7 +393,7 @@ class DateTime:
         elif datetime and isinstance(other, datetime.datetime):
             s = self.value
             o = other.strftime("%Y%m%dT%H:%M:%S")
-        elif isinstance(other, (str, unicode)):
+        elif isinstance(other, basestring):
             s = self.value
             o = other
         elif hasattr(other, "timetuple"):
@@ -557,8 +558,13 @@ else:
             self._parser.Parse(data, 0)
 
         def close(self):
-            self._parser.Parse("", 1) # end of data
-            del self._target, self._parser # get rid of circular references
+            try:
+                parser = self._parser
+            except AttributeError:
+                pass
+            else:
+                del self._target, self._parser # get rid of circular references
+                parser.Parse("", 1) # end of data
 
 class SlowParser:
     """Default XML parser (based on xmllib.XMLParser)."""
@@ -697,9 +703,8 @@ class Marshaller:
 
     if unicode:
         def dump_unicode(self, value, write, escape=escape):
-            value = value.encode(self.encoding)
             write("<value><string>")
-            write(escape(value))
+            write(escape(value).encode(self.encoding, 'xmlcharrefreplace'))
             write("</string></value>\n")
         dispatch[UnicodeType] = dump_unicode
 
@@ -726,12 +731,13 @@ class Marshaller:
         write("<value><struct>\n")
         for k, v in value.items():
             write("<member>\n")
-            if type(k) is not StringType:
-                if unicode and type(k) is UnicodeType:
-                    k = k.encode(self.encoding)
-                else:
-                    raise TypeError, "dictionary key must be string"
-            write("<name>%s</name>\n" % escape(k))
+            if type(k) is StringType:
+                k = escape(k)
+            elif unicode and type(k) is UnicodeType:
+                k = escape(k).encode(self.encoding, 'xmlcharrefreplace')
+            else:
+                raise TypeError, "dictionary key must be string"
+            write("<name>%s</name>\n" % k)
             dump(v, write)
             write("</member>\n")
         write("</struct></value>\n")
@@ -778,6 +784,7 @@ class Unmarshaller:
         self._stack = []
         self._marks = []
         self._data = []
+        self._value = False
         self._methodname = None
         self._encoding = "utf-8"
         self.append = self._stack.append
@@ -808,6 +815,8 @@ class Unmarshaller:
         if tag == "array" or tag == "struct":
             self._marks.append(len(self._stack))
         self._data = []
+        if self._value and tag not in self.dispatch:
+            raise ResponseError("unknown tag %r" % tag)
         self._value = (tag == "value")
 
     def data(self, text):
@@ -1093,7 +1102,7 @@ def dumps(params, methodname=None, methodresponse=None, encoding=None,
     if methodname:
         # a method call
         if not isinstance(methodname, StringType):
-            methodname = methodname.encode(encoding)
+            methodname = methodname.encode(encoding, 'xmlcharrefreplace')
         data = (
             xmlheader,
             "<methodCall>\n"
@@ -1165,10 +1174,13 @@ def gzip_encode(data):
 # in the HTTP header, as described in RFC 1952
 #
 # @param data The encoded data
+# @keyparam max_decode Maximum bytes to decode (20MB default), use negative
+#    values for unlimited decoding
 # @return the unencoded data
 # @raises ValueError if data is not correctly coded.
+# @raises ValueError if max gzipped payload length exceeded
 
-def gzip_decode(data):
+def gzip_decode(data, max_decode=20971520):
     """gzip encoded data -> unencoded data
 
     Decode data using the gzip content encoding as described in RFC 1952
@@ -1178,11 +1190,16 @@ def gzip_decode(data):
     f = StringIO.StringIO(data)
     gzf = gzip.GzipFile(mode="rb", fileobj=f)
     try:
-        decoded = gzf.read()
+        if max_decode < 0: # no limit
+            decoded = gzf.read()
+        else:
+            decoded = gzf.read(max_decode + 1)
     except IOError:
         raise ValueError("invalid data")
     f.close()
     gzf.close()
+    if max_decode >= 0 and len(decoded) > max_decode:
+        raise ValueError("max gzipped payload length exceeded")
     return decoded
 
 ##
@@ -1205,8 +1222,10 @@ class GzipDecodedResponse(gzip.GzipFile if gzip else object):
         gzip.GzipFile.__init__(self, mode="rb", fileobj=self.stringio)
 
     def close(self):
-        gzip.GzipFile.close(self)
-        self.stringio.close()
+        try:
+            gzip.GzipFile.close(self)
+        finally:
+            self.stringio.close()
 
 
 # --------------------------------------------------------------------
@@ -1375,9 +1394,10 @@ class Transport:
     # Used in the event of socket errors.
     #
     def close(self):
-        if self._connection[1]:
-            self._connection[1].close()
+        host, connection = self._connection
+        if connection:
             self._connection = (None, None)
+            connection.close()
 
     ##
     # Send request header.
@@ -1478,6 +1498,10 @@ class Transport:
 class SafeTransport(Transport):
     """Handles an HTTPS transaction to an XML-RPC server."""
 
+    def __init__(self, use_datetime=0, context=None):
+        Transport.__init__(self, use_datetime=use_datetime)
+        self.context = context
+
     # FIXME: mostly untested
 
     def make_connection(self, host):
@@ -1493,7 +1517,7 @@ class SafeTransport(Transport):
                 )
         else:
             chost, self._extra_headers, x509 = self.get_host_info(host)
-            self._connection = host, HTTPS(chost, None, **(x509 or {}))
+            self._connection = host, HTTPS(chost, None, context=self.context, **(x509 or {}))
             return self._connection[1]
 
 ##
@@ -1536,10 +1560,10 @@ class ServerProxy:
     """
 
     def __init__(self, uri, transport=None, encoding=None, verbose=0,
-                 allow_none=0, use_datetime=0):
+                 allow_none=0, use_datetime=0, context=None):
         # establish a "logical" server connection
 
-        if isinstance(uri, unicode):
+        if unicode and isinstance(uri, unicode):
             uri = uri.encode('ISO-8859-1')
 
         # get the url
@@ -1553,7 +1577,7 @@ class ServerProxy:
 
         if transport is None:
             if type == "https":
-                transport = SafeTransport(use_datetime=use_datetime)
+                transport = SafeTransport(use_datetime=use_datetime, context=context)
             else:
                 transport = Transport(use_datetime=use_datetime)
         self.__transport = transport
@@ -1595,7 +1619,7 @@ class ServerProxy:
         # magic method dispatcher
         return _Method(self.__request, name)
 
-    # note: to call a remote object with an non-standard name, use
+    # note: to call a remote object with a non-standard name, use
     # result getattr(server, "strange-python-name")(args)
 
     def __call__(self, attr):
@@ -1617,21 +1641,14 @@ Server = ServerProxy
 
 if __name__ == "__main__":
 
-    # simple test program (from the XML-RPC specification)
-
-    # server = ServerProxy("http://localhost:8000") # local server
-    server = ServerProxy("http://time.xmlrpc.com/RPC2")
+    server = ServerProxy("http://localhost:8000")
 
     print server
 
-    try:
-        print server.currentTime.getCurrentTime()
-    except Error, v:
-        print "ERROR", v
-
     multi = MultiCall(server)
-    multi.currentTime.getCurrentTime()
-    multi.currentTime.getCurrentTime()
+    multi.pow(2, 9)
+    multi.add(5, 1)
+    multi.add(24, 11)
     try:
         for response in multi():
             print response

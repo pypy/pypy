@@ -4,7 +4,7 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib import rmmap
 from rpython.rlib.debug import debug_start, debug_print, debug_stop
 from rpython.rlib.debug import have_debug_prints
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi
 
 
 class AsmMemoryManager(object):
@@ -24,6 +24,10 @@ class AsmMemoryManager(object):
         self.free_blocks = {}      # map {start: stop}
         self.free_blocks_end = {}  # map {stop: start}
         self.blocks_by_size = [[] for i in range(self.num_indices)]
+
+    def get_stats(self):
+        """Returns stats for rlib.jit.jit_hooks.stats_asmmemmgr_*()."""
+        return (self.total_memory_allocated, self.total_mallocs)
 
     def malloc(self, minsize, maxsize):
         """Allocate executable memory, between minsize and maxsize bytes,
@@ -208,6 +212,8 @@ class BlockBuilderMixin(object):
                    ('data', lltype.FixedSizeArray(lltype.Char, SUBBLOCK_SIZE)))
     SUBBLOCK_PTR.TO.become(SUBBLOCK)
 
+    ALIGN_MATERIALIZE = 16
+
     gcroot_markers = None
 
     def __init__(self, translated=None):
@@ -217,6 +223,7 @@ class BlockBuilderMixin(object):
             self.init_block_builder()
         else:
             self._become_a_plain_block_builder()
+        self.rawstart = 0
 
     def init_block_builder(self):
         self._cursubblock = lltype.nullptr(self.SUBBLOCK)
@@ -238,6 +245,9 @@ class BlockBuilderMixin(object):
             index = 0
         self._cursubblock.data[index] = char
         self._cursubindex = index + 1
+
+    def absolute_addr(self):
+        return self.rawstart
 
     def overwrite(self, index, char):
         assert 0 <= index < self.get_relative_pos()
@@ -274,6 +284,19 @@ class BlockBuilderMixin(object):
             targetindex -= self.SUBBLOCK_SIZE
         assert not block
 
+    def copy_core_dump(self, addr, offset=0, count=-1):
+        HEX = '0123456789ABCDEF'
+        dump = []
+        src = rffi.cast(rffi.CCHARP, addr)
+        end = self.get_relative_pos()
+        if count != -1:
+            end = offset + count
+        for p in range(offset, end):
+            o = ord(src[p])
+            dump.append(HEX[o >> 4])
+            dump.append(HEX[o & 15])
+        return ''.join(dump)
+
     def _dump(self, addr, logname, backend=None):
         debug_start(logname)
         if have_debug_prints():
@@ -287,25 +310,23 @@ class BlockBuilderMixin(object):
             else:
                 debug_print('SYS_EXECUTABLE', '??')
             #
-            HEX = '0123456789ABCDEF'
-            dump = []
-            src = rffi.cast(rffi.CCHARP, addr)
-            for p in range(self.get_relative_pos()):
-                o = ord(src[p])
-                dump.append(HEX[o >> 4])
-                dump.append(HEX[o & 15])
+            dump = self.copy_core_dump(addr)
             debug_print('CODE_DUMP',
                         '@%x' % addr,
                         '+0 ',     # backwards compatibility
-                        ''.join(dump))
+                        dump)
             #
         debug_stop(logname)
 
-    def materialize(self, asmmemmgr, allblocks, gcrootmap=None):
+    def materialize(self, cpu, allblocks, gcrootmap=None):
         size = self.get_relative_pos()
-        malloced = asmmemmgr.malloc(size, size)
+        align = self.ALIGN_MATERIALIZE
+        size += align - 1
+        malloced = cpu.asmmemmgr.malloc(size, size)
         allblocks.append(malloced)
         rawstart = malloced[0]
+        rawstart = (rawstart + align - 1) & (-align)
+        self.rawstart = rawstart
         self.copy_to_raw_memory(rawstart)
         if self.gcroot_markers is not None:
             assert gcrootmap is not None

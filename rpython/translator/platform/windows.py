@@ -1,6 +1,6 @@
 """Support for Windows."""
 
-import py, os, sys, re
+import py, os, sys, re, shutil
 
 from rpython.translator.platform import CompilationError
 from rpython.translator.platform import log, _run_subprocess
@@ -14,14 +14,16 @@ def _get_compiler_type(cc, x64_flag):
     if not cc:
         cc = os.environ.get('CC','')
     if not cc:
-        return MsvcPlatform(cc=cc, x64=x64_flag)
+        return MsvcPlatform(x64=x64_flag)
     elif cc.startswith('mingw') or cc == 'gcc':
         return MingwPlatform(cc)
+    else:
+        return MsvcPlatform(cc=cc, x64=x64_flag)
     try:
         subprocess.check_output([cc, '--version'])
     except:
-        raise ValueError,"Could not find compiler specified by cc option" + \
-                " '%s', it must be a valid exe file on your path"%cc
+        raise ValueError("Could not find compiler specified by cc option '%s',"
+                         " it must be a valid exe file on your path" % cc)
     return MingwPlatform(cc)
 
 def Windows(cc=None):
@@ -31,20 +33,47 @@ def Windows_x64(cc=None):
     raise Exception("Win64 is not supported.  You must either build for Win32"
                     " or contribute the missing support in PyPy.")
     return _get_compiler_type(cc, True)
-    
+
+def _find_vcvarsall(version):
+    # copied from setuptools.msvc9_support.py
+    from distutils.msvc9compiler import Reg
+    VC_BASE = r'Software\%sMicrosoft\DevDiv\VCForPython\%0.1f'
+    key = VC_BASE % ('', version)
+    try:
+        # Per-user installs register the compiler path here
+        productdir = Reg.get_value(key, "installdir")
+    except KeyError:
+        try:
+            # All-user installs on a 64-bit system register here
+            key = VC_BASE % ('Wow6432Node\\', version)
+            productdir = Reg.get_value(key, "installdir")
+        except KeyError:
+            productdir = None
+
+    if productdir:
+        vcvarsall = os.path.join(productdir, "vcvarsall.bat")
+        if os.path.isfile(vcvarsall):
+            return vcvarsall
+    return None
+
 def _get_msvc_env(vsver, x64flag):
+    vcvars = None
     try:
         toolsdir = os.environ['VS%sCOMNTOOLS' % vsver]
     except KeyError:
-        return None
+        # try to import from the registry, as done in setuptools
+        # XXX works for 90 but is it generalizable?
+        toolsdir = ''
+        vcvars = _find_vcvarsall(vsver/10)
 
-    if x64flag:
-        vsinstalldir = os.path.abspath(os.path.join(toolsdir, '..', '..'))
-        vcinstalldir = os.path.join(vsinstalldir, 'VC')
-        vcbindir = os.path.join(vcinstalldir, 'BIN')
-        vcvars = os.path.join(vcbindir, 'amd64', 'vcvarsamd64.bat')
-    else:
-        vcvars = os.path.join(toolsdir, 'vsvars32.bat')
+    if not vcvars:
+        if x64flag:
+            vsinstalldir = os.path.abspath(os.path.join(toolsdir, '..', '..'))
+            vcinstalldir = os.path.join(vsinstalldir, 'VC')
+            vcbindir = os.path.join(vcinstalldir, 'BIN')
+            vcvars = os.path.join(vcbindir, 'amd64', 'vcvarsamd64.bat')
+        else:
+            vcvars = os.path.join(toolsdir, 'vsvars32.bat')
 
     import subprocess
     try:
@@ -94,25 +123,28 @@ class MsvcPlatform(Platform):
     name = "msvc"
     so_ext = 'dll'
     exe_ext = 'exe'
-    
+
     relevant_environ = ('PATH', 'INCLUDE', 'LIB')
 
     cc = 'cl.exe'
     link = 'link.exe'
 
-    cflags = ('/MD', '/O2')
-    link_flags = ()
+    cflags = ('/MD', '/O2', '/Zi')
+    link_flags = ('/debug','/LARGEADDRESSAWARE')
     standalone_only = ()
     shared_only = ()
     environ = None
-    
+
     def __init__(self, cc=None, x64=False):
         self.x64 = x64
-        msvc_compiler_environ = find_msvc_env(x64)
-        Platform.__init__(self, 'cl.exe')
-        if msvc_compiler_environ:
-            self.c_environ = os.environ.copy()
-            self.c_environ.update(msvc_compiler_environ)
+        if cc is None:
+            msvc_compiler_environ = find_msvc_env(x64)
+            Platform.__init__(self, 'cl.exe')
+            if msvc_compiler_environ:
+                self.c_environ = os.environ.copy()
+                self.c_environ.update(msvc_compiler_environ)
+        else:
+            self.cc = cc
 
         # detect version of current compiler
         returncode, stdout, stderr = _run_subprocess(self.cc, '',
@@ -134,7 +166,7 @@ class MsvcPlatform(Platform):
         else:
             masm32 = 'ml.exe'
             masm64 = 'ml64.exe'
-        
+
         if x64:
             self.masm = masm64
         else:
@@ -143,11 +175,10 @@ class MsvcPlatform(Platform):
         # Install debug options only when interpreter is in debug mode
         if sys.executable.lower().endswith('_d.exe'):
             self.cflags = ['/MDd', '/Z7', '/Od']
-            self.link_flags = ['/debug']
 
             # Increase stack size, for the linker and the stack check code.
             stack_size = 8 << 20  # 8 Mb
-            self.link_flags.append('/STACK:%d' % stack_size)
+            self.link_flags = self.link_flags + ('/STACK:%d' % stack_size,)
             # The following symbol is used in c/src/stack.h
             self.cflags.append('/DMAX_STACK_SIZE=%d' % (stack_size - 1024))
 
@@ -182,20 +213,6 @@ class MsvcPlatform(Platform):
         # Windows needs to resolve all symbols even for DLLs
         return super(MsvcPlatform, self)._link_args_from_eci(eci, standalone=True)
 
-    def _exportsymbols_link_flags(self, eci, relto=None):
-        if not eci.export_symbols:
-            return []
-
-        response_file = self._make_response_file("exported_symbols_")
-        f = response_file.open("w")
-        for sym in eci.export_symbols:
-            f.write("/EXPORT:%s\n" % (sym,))
-        f.close()
-
-        if relto:
-            response_file = relto.bestrelpath(response_file)
-        return ["@%s" % (response_file,)]
-
     def _compile_c_file(self, cc, cfile, compile_args):
         oname = self._make_o_file(cfile, ext='obj')
         # notabene: (tismer)
@@ -204,6 +221,9 @@ class MsvcPlatform(Platform):
         # the assembler still has the old behavior that all options
         # must come first, and after the file name all options are ignored.
         # So please be careful with the order of parameters! ;-)
+        pdb_dir = oname.dirname
+        if pdb_dir:
+                compile_args = compile_args + ['/Fd%s\\' % (pdb_dir,)]
         args = ['/nologo', '/c'] + compile_args + ['/Fo%s' % (oname,), str(cfile)]
         self._execute_c_compiler(cc, args, oname)
         return oname
@@ -240,15 +260,18 @@ class MsvcPlatform(Platform):
             stderr = stdout + stderr
             errorfile = outname.new(ext='errors')
             errorfile.write(stderr, mode='wb')
-            stderrlines = stderr.splitlines()
-            for line in stderrlines:
-                log.ERROR(line)
+            if self.log_errors:
+                stderrlines = stderr.splitlines()
+                for line in stderrlines:
+                    log.Error(line)
+                # ^^^ don't use ERROR, because it might actually be fine.
+                # Also, ERROR confuses lib-python/conftest.py.
             raise CompilationError(stdout, stderr)
 
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
                      shared=False, headers_to_precompile=[],
-                     no_precompile_cfiles = []):
+                     no_precompile_cfiles = [], icon=None):
         cfiles = self._all_cfiles(cfiles, eci)
 
         if path is None:
@@ -264,6 +287,8 @@ class MsvcPlatform(Platform):
         if shared:
             so_name = exe_name.new(purebasename='lib' + exe_name.purebasename,
                                    ext=self.so_ext)
+            wtarget_name = exe_name.new(purebasename=exe_name.purebasename + 'w',
+                                   ext=self.exe_ext)
             target_name = so_name.basename
         else:
             target_name = exe_name.basename
@@ -274,9 +299,8 @@ class MsvcPlatform(Platform):
 
         linkflags = list(self.link_flags)
         if shared:
-            linkflags = self._args_for_shared(linkflags) + [
-                '/EXPORT:$(PYPY_MAIN_FUNCTION)']
-        linkflags += self._exportsymbols_link_flags(eci, relto=path)
+            linkflags = self._args_for_shared(linkflags)
+        linkflags += self._exportsymbols_link_flags()
         # Make sure different functions end up at different addresses!
         # This is required for the JIT.
         linkflags.append('/opt:noicf')
@@ -292,17 +316,20 @@ class MsvcPlatform(Platform):
         rel_ofiles = [rel_cfile[:rel_cfile.rfind('.')]+'.obj' for rel_cfile in rel_cfiles]
         m.cfiles = rel_cfiles
 
-        rel_includedirs = [rpyrel(incldir) for incldir in eci.include_dirs]
+        rel_includedirs = [rpyrel(incldir) for incldir in
+                           self.preprocess_include_dirs(eci.include_dirs)]
+        rel_libdirs = [rpyrel(libdir) for libdir in
+                       self.preprocess_library_dirs(eci.library_dirs)]
 
         m.comment('automatically generated makefile')
         definitions = [
-            ('RPYDIR', rpydir),
+            ('RPYDIR', '"%s"' % rpydir),
             ('TARGET', target_name),
             ('DEFAULT_TARGET', exe_name.basename),
             ('SOURCES', rel_cfiles),
             ('OBJECTS', rel_ofiles),
             ('LIBS', self._libs(eci.libraries)),
-            ('LIBDIRS', self._libdirs(eci.library_dirs)),
+            ('LIBDIRS', self._libdirs(rel_libdirs)),
             ('INCLUDEDIRS', self._includedirs(rel_includedirs)),
             ('CFLAGS', self.cflags),
             ('CFLAGSEXTRA', list(eci.compile_extra)),
@@ -315,11 +342,13 @@ class MsvcPlatform(Platform):
             ('MAKE', 'nmake.exe'),
             ('_WIN32', '1'),
             ]
+        if shared:
+            definitions.insert(0, ('WTARGET', wtarget_name.basename))
         if self.x64:
             definitions.append(('_WIN64', '1'))
 
         rules = [
-            ('all', '$(DEFAULT_TARGET)', []),
+            ('all', '$(DEFAULT_TARGET) $(WTARGET)', []),
             ('.asm.obj', '', '$(MASM) /nologo /Fo$@ /c $< $(INCLUDEDIRS)'),
             ]
 
@@ -335,10 +364,10 @@ class MsvcPlatform(Platform):
             definitions.append(('CREATE_PCH', '/Ycstdafx.h /Fpstdafx.pch /FIstdafx.h'))
             definitions.append(('USE_PCH', '/Yustdafx.h /Fpstdafx.pch /FIstdafx.h'))
             rules.append(('$(OBJECTS)', 'stdafx.pch', []))
-            rules.append(('stdafx.pch', 'stdafx.h', 
+            rules.append(('stdafx.pch', 'stdafx.h',
                '$(CC) stdafx.c /c /nologo $(CFLAGS) $(CFLAGSEXTRA) '
                '$(CREATE_PCH) $(INCLUDEDIRS)'))
-            rules.append(('.c.obj', '', 
+            rules.append(('.c.obj', '',
                     '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) $(USE_PCH) '
                     '/Fo$@ /c $< $(INCLUDEDIRS)'))
             #Do not use precompiled headers for some files
@@ -358,9 +387,16 @@ class MsvcPlatform(Platform):
                         '/Fo%s /c %s $(INCLUDEDIRS)' %(target, f)))
 
         else:
-            rules.append(('.c.obj', '', 
+            rules.append(('.c.obj', '',
                           '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) '
                           '/Fo$@ /c $< $(INCLUDEDIRS)'))
+
+
+        if icon:
+            shutil.copyfile(icon, str(path.join('icon.ico')))
+            rc_file = path.join('icon.rc')
+            rc_file.write('IDI_ICON1 ICON DISCARDABLE "icon.ico"')
+            rules.append(('icon.res', 'icon.rc', 'rc icon.rc'))
 
 
         for args in definitions:
@@ -368,22 +404,33 @@ class MsvcPlatform(Platform):
 
         for rule in rules:
             m.rule(*rule)
-        
+
+        if len(headers_to_precompile)>0 and self.version >= 80:
+            # at least from VS2013 onwards we need to include PCH
+            # objects in the final link command
+            linkobjs = 'stdafx.obj @<<\n$(OBJECTS)\n<<'
+        else:
+            linkobjs = '@<<\n$(OBJECTS)\n<<'
+
+        extra_deps = []
+        if icon and not shared:
+            extra_deps.append('icon.res')
+            linkobjs = 'icon.res ' + linkobjs
         if self.version < 80:
-            m.rule('$(TARGET)', '$(OBJECTS)',
+            m.rule('$(TARGET)', ['$(OBJECTS)'] + extra_deps,
                     [ '$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA) /out:$@' +\
-                      ' $(LIBDIRS) $(LIBS) @<<\n$(OBJECTS)\n<<',
+                      ' $(LIBDIRS) $(LIBS) ' + linkobjs,
                    ])
         else:
-            m.rule('$(TARGET)', '$(OBJECTS)',
+            m.rule('$(TARGET)', ['$(OBJECTS)'] + extra_deps,
                     [ '$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA)' + \
                       ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) /MANIFEST' + \
-                      ' /MANIFESTFILE:$*.manifest @<<\n$(OBJECTS)\n<<',
+                      ' /MANIFESTFILE:$*.manifest ' + linkobjs,
                     'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
                     ])
-        m.rule('debugmode_$(TARGET)', '$(OBJECTS)',
+        m.rule('debugmode_$(TARGET)', ['$(OBJECTS)'] + extra_deps,
                 [ '$(CC_LINK) /nologo /DEBUG $(LDFLAGS) $(LDFLAGSEXTRA)' + \
-                  ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) @<<\n$(OBJECTS)\n<<',
+                  ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) ' + linkobjs,
                 ])
 
         if shared:
@@ -394,12 +441,38 @@ class MsvcPlatform(Platform):
                    'int $(PYPY_MAIN_FUNCTION)(int, char*[]); '
                    'int main(int argc, char* argv[]) '
                    '{ return $(PYPY_MAIN_FUNCTION)(argc, argv); } > $@')
-            m.rule('$(DEFAULT_TARGET)', ['$(TARGET)', 'main.obj'],
-                   ['$(CC_LINK) /nologo main.obj $(SHARED_IMPORT_LIB) /out:$@ /MANIFEST /MANIFESTFILE:$*.manifest',
+            deps = ['main.obj']
+            m.rule('wmain.c', '',
+                   ['echo #define WIN32_LEAN_AND_MEAN > $@',
+                   'echo #include "stdlib.h" >> $@',
+                   'echo #include "windows.h" >> $@',
+                   'echo int $(PYPY_MAIN_FUNCTION)(int, char*[]); >> $@',
+                   'echo int WINAPI WinMain( >> $@',
+                   'echo     HINSTANCE hInstance,      /* handle to current instance */ >> $@',
+                   'echo     HINSTANCE hPrevInstance,  /* handle to previous instance */ >> $@',
+                   'echo     LPSTR lpCmdLine,          /* pointer to command line */ >> $@',
+                   'echo     int nCmdShow              /* show state of window */ >> $@',
+                   'echo ) >> $@',
+                   'echo    { return $(PYPY_MAIN_FUNCTION)(__argc, __argv); } >> $@'])
+            wdeps = ['wmain.obj']
+            if icon:
+                deps.append('icon.res')
+                wdeps.append('icon.res')
+            m.rule('$(DEFAULT_TARGET)', ['$(TARGET)'] + deps,
+                   ['$(CC_LINK) /nologo /debug %s ' % (' '.join(deps),) + \
+                    '$(SHARED_IMPORT_LIB) /out:$@ ' + \
+                    '/MANIFEST /MANIFESTFILE:$*.manifest',
                     'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
                     ])
-            m.rule('debugmode_$(DEFAULT_TARGET)', ['debugmode_$(TARGET)', 'main.obj'],
-                   ['$(CC_LINK) /nologo /DEBUG main.obj debugmode_$(SHARED_IMPORT_LIB) /out:$@'
+            m.rule('$(WTARGET)', ['$(TARGET)'] + wdeps,
+                   ['$(CC_LINK) /nologo /debug /SUBSYSTEM:WINDOWS %s ' % (' '.join(wdeps),) + \
+                    '$(SHARED_IMPORT_LIB) /out:$@ ' + \
+                    '/MANIFEST /MANIFESTFILE:$*.manifest',
+                    'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
+                    ])
+            m.rule('debugmode_$(DEFAULT_TARGET)', ['debugmode_$(TARGET)']+deps,
+                   ['$(CC_LINK) /nologo /DEBUG %s ' % (' '.join(deps),) + \
+                    'debugmode_$(SHARED_IMPORT_LIB) /out:$@',
                     ])
 
         return m

@@ -20,7 +20,8 @@ if os.name == 'nt':
     def _getfunc(space, CDLL, w_name, w_argtypes, w_restype):
         argtypes_w, argtypes, w_restype, restype = unpack_argtypes(
             space, w_argtypes, w_restype)
-        if space.isinstance_w(w_name, space.w_str):
+        if (space.isinstance_w(w_name, space.w_str) or
+                space.isinstance_w(w_name, space.w_unicode)):
             name = space.str_w(w_name)
             try:
                 func = CDLL.cdll.getpointer(name, argtypes, restype,
@@ -48,8 +49,8 @@ if os.name == 'nt':
 
             return W_FuncPtr(func, argtypes_w, w_restype)
         else:
-            raise OperationError(space.w_TypeError, space.wrap(
-                    'function name must be a string or integer'))
+            raise oefmt(space.w_TypeError,
+                        "function name must be a string or integer")
 else:
     @unwrap_spec(name=str)
     def _getfunc(space, CDLL, w_name, w_argtypes, w_restype):
@@ -70,8 +71,7 @@ else:
 def unwrap_ffitype(space, w_argtype, allow_void=False):
     res = w_argtype.get_ffitype()
     if res is libffi.types.void and not allow_void:
-        msg = 'void is not a valid argument type'
-        raise OperationError(space.w_TypeError, space.wrap(msg))
+        raise oefmt(space.w_TypeError, "void is not a valid argument type")
     return res
 
 
@@ -113,7 +113,7 @@ class W_FuncPtr(W_Root):
         func_caller = CallFunctionConverter(space, self.func, argchain)
         try:
             return func_caller.do_and_wrap(self.w_restype)
-        except StackCheckError, e:
+        except StackCheckError as e:
             raise OperationError(space.w_ValueError, space.wrap(e.message))
         #return self._do_call(space, argchain)
 
@@ -218,15 +218,16 @@ class CallFunctionConverter(ToAppLevelConverter):
         restype = w_ffitype.get_ffitype()
         call = self.func.call
         if restype is libffi.types.slong:
-            return call(self.argchain, rffi.LONG)
+            x = call(self.argchain, rffi.LONG)
         elif restype is libffi.types.sint:
-            return rffi.cast(rffi.LONG, call(self.argchain, rffi.INT))
+            x = rffi.cast(rffi.LONG, call(self.argchain, rffi.INT))
         elif restype is libffi.types.sshort:
-            return rffi.cast(rffi.LONG, call(self.argchain, rffi.SHORT))
+            x = rffi.cast(rffi.LONG, call(self.argchain, rffi.SHORT))
         elif restype is libffi.types.schar:
-            return rffi.cast(rffi.LONG, call(self.argchain, rffi.SIGNEDCHAR))
+            x = rffi.cast(rffi.LONG, call(self.argchain, rffi.SIGNEDCHAR))
         else:
-            self.error(w_ffitype)
+            raise self.error(w_ffitype)
+        return x
 
     def get_unsigned(self, w_ffitype):
         return self.func.call(self.argchain, rffi.ULONG)
@@ -239,13 +240,14 @@ class CallFunctionConverter(ToAppLevelConverter):
             assert not libffi.IS_32_BIT
             # on 32bit machines, we should never get here, because it's a case
             # which has already been handled by get_unsigned above.
-            return rffi.cast(rffi.LONG, call(self.argchain, rffi.UINT))
+            x = rffi.cast(rffi.LONG, call(self.argchain, rffi.UINT))
         elif restype is libffi.types.ushort:
-            return rffi.cast(rffi.LONG, call(self.argchain, rffi.USHORT))
+            x = rffi.cast(rffi.LONG, call(self.argchain, rffi.USHORT))
         elif restype is libffi.types.uchar:
-            return rffi.cast(rffi.LONG, call(self.argchain, rffi.UCHAR))
+            x = rffi.cast(rffi.LONG, call(self.argchain, rffi.UCHAR))
         else:
-            self.error(w_ffitype)
+            raise self.error(w_ffitype)
+        return x
 
 
     def get_pointer(self, w_ffitype):
@@ -321,8 +323,10 @@ class W_CDLL(W_Root):
             self.name = name
         try:
             self.cdll = libffi.CDLL(name, mode)
-        except DLOpenError, e:
+        except DLOpenError as e:
             raise wrap_dlopenerror(space, e, self.name)
+        except OSError as e:
+            raise wrap_oserror(space, e)
 
     def getfunc(self, space, w_name, w_argtypes, w_restype):
         return _getfunc(space, self, w_name, w_argtypes, w_restype)
@@ -337,6 +341,9 @@ class W_CDLL(W_Root):
                         "No symbol %s found in library %s", name, self.name)
         return space.wrap(address_as_uint)
 
+    def getidentifier(self, space):
+        return space.wrap(self.cdll.getidentifier())
+
 @unwrap_spec(name='str_or_None', mode=int)
 def descr_new_cdll(space, w_type, name, mode=-1):
     return space.wrap(W_CDLL(space, name, mode))
@@ -347,6 +354,8 @@ W_CDLL.typedef = TypeDef(
     __new__     = interp2app(descr_new_cdll),
     getfunc     = interp2app(W_CDLL.getfunc),
     getaddressindll = interp2app(W_CDLL.getaddressindll),
+    __int__     = interp2app(W_CDLL.getidentifier),
+    __long__    = interp2app(W_CDLL.getidentifier),
     )
 
 class W_WinDLL(W_CDLL):
@@ -364,13 +373,11 @@ W_WinDLL.typedef = TypeDef(
     __new__     = interp2app(descr_new_windll),
     getfunc     = interp2app(W_WinDLL.getfunc),
     getaddressindll = interp2app(W_WinDLL.getaddressindll),
+    __int__     = interp2app(W_CDLL.getidentifier),
+    __long__    = interp2app(W_CDLL.getidentifier),
     )
 
 # ========================================================================
 
 def get_libc(space):
-    try:
-        return space.wrap(W_CDLL(space, get_libc_name(), -1))
-    except OSError, e:
-        raise wrap_oserror(space, e)
-
+    return space.wrap(W_CDLL(space, get_libc_name(), -1))

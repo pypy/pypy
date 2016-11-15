@@ -7,6 +7,7 @@ from rpython.rlib.test.test_clibffi import BaseFfiTest, make_struct_ffitype_e
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.lltypesystem.ll2ctypes import ALLOCATED
 from rpython.rtyper.llinterp import LLException
+from rpython.translator import cdir
 from rpython.rlib.libffi import (CDLL, ArgChain, types,
                               IS_32_BIT, array_getitem, array_setitem)
 from rpython.rlib.libffi import (struct_getfield_int, struct_setfield_int,
@@ -204,7 +205,6 @@ class TestLibffiCall(BaseFfiTest):
     def setup_class(cls):
         from rpython.tool.udir import udir
         from rpython.translator.tool.cbuild import ExternalCompilationInfo
-        from rpython.translator.tool.cbuild import STANDARD_DEFINES
         from rpython.translator.platform import platform
 
         BaseFfiTest.setup_class()
@@ -213,7 +213,6 @@ class TestLibffiCall(BaseFfiTest):
         c_file = udir.ensure("test_libffi", dir=1).join("foolib.c")
         # automatically collect the C source from the docstrings of the tests
         snippets = []
-        exports = []
         for name in dir(cls):
             if name.startswith('test_'):
                 meth = getattr(cls, name)
@@ -221,12 +220,10 @@ class TestLibffiCall(BaseFfiTest):
                 # improved: so far we just check that there is a '{' :-)
                 if meth.__doc__ is not None and '{' in meth.__doc__:
                     snippets.append(meth.__doc__)
-                    import re
-                    for match in re.finditer(" ([A-Za-z_]+)\(", meth.__doc__):
-                        exports.append(match.group(1))
         #
-        c_file.write(STANDARD_DEFINES + str(py.code.Source('\n'.join(snippets))))
-        eci = ExternalCompilationInfo(export_symbols=exports)
+        INCLUDE = '#include "src/precommondefs.h"\n'
+        c_file.write(INCLUDE + str(py.code.Source('\n'.join(snippets))))
+        eci = ExternalCompilationInfo(include_dirs=[cdir])
         cls.libfoo_name = str(platform.compile([c_file], eci, 'x',
                                                standalone=False))
         cls.dll = cls.CDLL(cls.libfoo_name)
@@ -269,6 +266,7 @@ class TestLibffiCall(BaseFfiTest):
 
     def test_very_simple(self):
         """
+            RPY_EXPORTED
             int diff_xy(int x, Signed y)
             {
                 return x - y;
@@ -276,11 +274,12 @@ class TestLibffiCall(BaseFfiTest):
         """
         libfoo = self.get_libfoo()
         func = (libfoo, 'diff_xy', [types.sint, types.signed], types.sint)
-        res = self.call(func, [50, 8], lltype.Signed)
+        res = self.call(func, [50, 8], rffi.INT)
         assert res == 42
 
     def test_simple(self):
         """
+            RPY_EXPORTED
             int sum_xy(int x, double y)
             {
                 return (x + (int)y);
@@ -288,7 +287,7 @@ class TestLibffiCall(BaseFfiTest):
         """
         libfoo = self.get_libfoo()
         func = (libfoo, 'sum_xy', [types.sint, types.double], types.sint)
-        res = self.call(func, [38, 4.2], lltype.Signed, jitif=["floats"])
+        res = self.call(func, [38, 4.2], rffi.INT, jitif=["floats"])
         assert res == 42
 
     def test_float_result(self):
@@ -299,6 +298,7 @@ class TestLibffiCall(BaseFfiTest):
 
     def test_cast_result(self):
         """
+            RPY_EXPORTED
             unsigned char cast_to_uchar_and_ovf(int x)
             {
                 return 200+(unsigned char)x;
@@ -311,6 +311,7 @@ class TestLibffiCall(BaseFfiTest):
 
     def test_cast_argument(self):
         """
+            RPY_EXPORTED
             int many_args(char a, int b)
             {
                 return a+b;
@@ -318,11 +319,12 @@ class TestLibffiCall(BaseFfiTest):
         """
         libfoo = self.get_libfoo()
         func = (libfoo, 'many_args', [types.uchar, types.sint], types.sint)
-        res = self.call(func, [chr(20), 22], rffi.SIGNED)
+        res = self.call(func, [chr(20), 22], rffi.INT)
         assert res == 42
 
     def test_char_args(self):
         """
+        RPY_EXPORTED
         char sum_args(char a, char b) {
             return a + b;
         }
@@ -334,6 +336,7 @@ class TestLibffiCall(BaseFfiTest):
 
     def test_unsigned_short_args(self):
         """
+            RPY_EXPORTED
             unsigned short sum_xy_us(unsigned short x, unsigned short y)
             {
                 return x+y;
@@ -347,6 +350,7 @@ class TestLibffiCall(BaseFfiTest):
 
     def test_pointer_as_argument(self):
         """#include <stdlib.h>
+            RPY_EXPORTED
             Signed inc(Signed* x)
             {
                 Signed oldval;
@@ -391,6 +395,7 @@ class TestLibffiCall(BaseFfiTest):
 
             struct pair my_static_pair = {10, 20};
 
+            RPY_EXPORTED
             Signed* get_pointer_to_b()
             {
                 return &my_static_pair.b;
@@ -404,23 +409,26 @@ class TestLibffiCall(BaseFfiTest):
     def test_void_result(self):
         """
             int dummy;
+            RPY_EXPORTED
             void set_dummy(int val) { dummy = val; }
+            RPY_EXPORTED
             int get_dummy() { return dummy; }
         """
         libfoo = self.get_libfoo()
         set_dummy = (libfoo, 'set_dummy', [types.sint], types.void)
         get_dummy = (libfoo, 'get_dummy', [], types.sint)
         #
-        initval = self.call(get_dummy, [], rffi.SIGNED)
+        initval = self.call(get_dummy, [], rffi.INT)
         #
         res = self.call(set_dummy, [initval+1], lltype.Void)
         assert res is None
         #
-        res = self.call(get_dummy, [], rffi.SIGNED)
+        res = self.call(get_dummy, [], rffi.INT)
         assert res == initval+1
 
     def test_single_float_args(self):
         """
+            RPY_EXPORTED
             float sum_xy_float(float x, float y)
             {
                 return x+y;
@@ -437,6 +445,7 @@ class TestLibffiCall(BaseFfiTest):
 
     def test_slonglong_args(self):
         """
+            RPY_EXPORTED
             long long sum_xy_longlong(long long x, long long y)
             {
                 return x+y;
@@ -460,6 +469,7 @@ class TestLibffiCall(BaseFfiTest):
 
     def test_ulonglong_args(self):
         """
+            RPY_EXPORTED
             unsigned long long sum_xy_ulonglong(unsigned long long x,
                                                 unsigned long long y)
             {
@@ -490,7 +500,7 @@ class TestLibffiCall(BaseFfiTest):
                 exec s in glob, loc
             except TypeError:
                 pass
-            except LLException, e:
+            except LLException as e:
                 if str(e) != "<LLException 'TypeError'>":
                     raise
             else:
@@ -507,6 +517,7 @@ class TestLibffiCall(BaseFfiTest):
                 Signed y;
             };
 
+            RPY_EXPORTED
             Signed sum_point(struct Point p) {
                 return p.x + p.y;
             }
@@ -532,6 +543,7 @@ class TestLibffiCall(BaseFfiTest):
 
     def test_byval_result(self):
         """
+            RPY_EXPORTED
             struct Point make_point(Signed x, Signed y) {
                 struct Point p;
                 p.x = x;
@@ -557,19 +569,22 @@ class TestLibffiCall(BaseFfiTest):
     if os.name == 'nt':
         def test_stdcall_simple(self):
             """
+            RPY_EXPORTED
             int __stdcall std_diff_xy(int x, Signed y)
             {
                 return x - y;
             }
             """
             libfoo = self.get_libfoo()
-            func = (libfoo, 'std_diff_xy', [types.sint, types.signed], types.sint)
+            # __stdcall without a DEF file decorates the name with the number of bytes
+            # that the callee will remove from the call stack
+            func = (libfoo, '_std_diff_xy@8', [types.sint, types.signed], types.sint)
             try:
                 self.call(func, [50, 8], lltype.Signed)
-            except ValueError, e:
+            except ValueError as e:
                 assert e.message == 'Procedure called with not enough ' + \
                      'arguments (8 bytes missing) or wrong calling convention'
-            except LLException, e:
+            except LLException as e:
                 #jitted code raises this
                 assert str(e) == "<LLException 'StackCheckError'>"
             else:
@@ -577,6 +592,7 @@ class TestLibffiCall(BaseFfiTest):
 
         def test_by_ordinal(self):
             """
+            RPY_EXPORTED
             int AAA_first_ordinal_function()
             {
                 return 42;
@@ -591,6 +607,7 @@ class TestLibffiCall(BaseFfiTest):
 
         def test_by_ordinal2(self):
             """
+            RPY_EXPORTED
             int __stdcall BBB_second_ordinal_function()
             {
                 return 24;
@@ -598,7 +615,9 @@ class TestLibffiCall(BaseFfiTest):
             """
             from rpython.rlib.libffi import WinDLL
             dll = WinDLL(self.libfoo_name)
-            f_by_name = dll.getpointer('BBB_second_ordinal_function' ,[],
+            # __stdcall without a DEF file decorates the name with the number of bytes
+            # that the callee will remove from the call stack
+            f_by_name = dll.getpointer('_BBB_second_ordinal_function@0' ,[],
                                           types.uint)
             f_by_ordinal = dll.getpointer_by_ordinal(2 ,[], types.uint)
             print dir(f_by_name)

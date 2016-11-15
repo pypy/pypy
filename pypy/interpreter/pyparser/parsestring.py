@@ -81,13 +81,7 @@ def parsestr(space, encoding, s, unicode_literal=False):
     if need_encoding:
         enc = encoding
     v = PyString_DecodeEscape(space, substr, 'strict', enc)
-    return space.wrap(v)
-
-def hexbyte(val):
-    result = "%x" % val
-    if len(result) == 1:
-        result = "0" + result
-    return result
+    return space.newbytes(v)
 
 def decode_unicode_utf8(space, s, ps, q):
     # ****The Python 2.7 version, producing UTF-32 escapes****
@@ -108,15 +102,14 @@ def decode_unicode_utf8(space, s, ps, q):
                 # instead.
                 lis.append("u005c")
         if ord(s[ps]) & 0x80: # XXX inefficient
-            w, ps = decode_utf8(space, s, ps, end, "utf-32-be")
-            rn = len(w)
-            assert rn % 4 == 0
-            for i in range(0, rn, 4):
-                lis.append('\\U')
-                lis.append(hexbyte(ord(w[i])))
-                lis.append(hexbyte(ord(w[i+1])))
-                lis.append(hexbyte(ord(w[i+2])))
-                lis.append(hexbyte(ord(w[i+3])))
+            w, ps = decode_utf8(space, s, ps, end)
+            for c in w:
+                # The equivalent of %08x, which is not supported by RPython.
+                # 7 zeroes are enough for the unicode range, and the
+                # result still fits in 32-bit.
+                hexa = hex(ord(c) + 0x10000000)
+                lis.append('\\U0')
+                lis.append(hexa[3:])  # Skip 0x and the leading 1
         else:
             lis.append(s[ps])
             ps += 1
@@ -136,7 +129,7 @@ def PyString_DecodeEscape(space, s, errors, recode_encoding):
             # note that the C code has a label here.
             # the logic is the same.
             if recode_encoding and ord(s[ps]) & 0x80:
-                w, ps = decode_utf8(space, s, ps, end, recode_encoding)
+                w, ps = decode_utf8_recode(space, s, ps, end, recode_encoding)
                 # Append bytes to output buffer.
                 builder.append(w)
             else:
@@ -222,14 +215,18 @@ def isxdigit(ch):
             ch >= 'A' and ch <= 'F')
 
 
-def decode_utf8(space, s, ps, end, encoding):
+def decode_utf8(space, s, ps, end):
     assert ps >= 0
     pt = ps
     # while (s < end && *s != '\\') s++; */ /* inefficient for u".."
     while ps < end and ord(s[ps]) & 0x80:
         ps += 1
-    w_u = space.wrap(unicodehelper.decode_utf8(space, s[pt:ps]))
-    w_v = unicodehelper.encode(space, w_u, encoding)
+    u = unicodehelper.decode_utf8(space, s[pt:ps])
+    return u, ps
+
+def decode_utf8_recode(space, s, ps, end, recode_encoding):
+    u, ps = decode_utf8(space, s, ps, end)
+    w_v = unicodehelper.encode(space, space.wrap(u), recode_encoding)
     v = space.str_w(w_v)
     return v, ps
 

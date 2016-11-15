@@ -4,9 +4,11 @@ Operator interface.
 This module exports a set of operators as functions. E.g. operator.add(x,y) is
 equivalent to x+y.
 '''
-from __pypy__ import builtinify
 
-def countOf(a,b): 
+import __pypy__
+
+
+def countOf(a,b):
     'countOf(a, b) -- Return the number of times b occurs in a.'
     count = 0
     for x in a:
@@ -25,7 +27,7 @@ def getslice(a, start, end):
     'getslice(a, b, c) -- Same as a[b:c].'
     if not isinstance(start, int) or not isinstance(end, int):
         raise TypeError("an integer is expected")
-    return a[start:end] 
+    return a[start:end]
 __getslice__ = getslice
 
 def indexOf(a, b):
@@ -35,28 +37,21 @@ def indexOf(a, b):
         if x == b:
             return index
         index += 1
-    raise ValueError, 'sequence.index(x): x not in sequence'
-
-# XXX the following is approximative
-def isMappingType(obj,):
-    'isMappingType(a) -- Return True if a has a mapping type, False otherwise.'
-    # XXX this is fragile and approximative anyway
-    return hasattr(obj, '__getitem__') and hasattr(obj, 'keys')
+    raise ValueError('sequence.index(x): x not in sequence')
 
 def isNumberType(obj,):
     'isNumberType(a) -- Return True if a has a numeric type, False otherwise.'
-    return hasattr(obj, '__int__') or hasattr(obj, '__float__')
-
-def isSequenceType(obj,):
-    'isSequenceType(a) -- Return True if a has a sequence type, False otherwise.'
-    return hasattr(obj, '__getitem__') and not hasattr(obj, 'keys')
+    return (__pypy__.lookup_special(obj, '__int__') is not None or
+            __pypy__.lookup_special(obj, '__float__') is not None)
 
 def repeat(obj, num):
     'repeat(a, b) -- Return a * b, where a is a sequence, and b is an integer.'
+    import operator
+
     if not isinstance(num, (int, long)):
-        raise TypeError, 'an integer is required'
-    if not isSequenceType(obj):
-        raise TypeError, "non-sequence object can't be repeated"
+        raise TypeError('an integer is required')
+    if not operator.isSequenceType(obj):
+        raise TypeError("non-sequence object can't be repeated")
 
     return obj * num
 
@@ -64,59 +59,81 @@ __repeat__ = repeat
 
 def setslice(a, b, c, d):
     'setslice(a, b, c, d) -- Same as a[b:c] = d.'
-    a[b:c] = d 
+    a[b:c] = d
 __setslice__ = setslice
 
 
-def attrgetter(attr, *attrs):
-    if attrs:
-        getters = [single_attr_getter(a) for a in (attr,) + attrs]
-        def getter(obj):
-            return tuple([getter(obj) for getter in getters])
+def _resolve_attr_chain(chain, obj, idx=0):
+    obj = getattr(obj, chain[idx])
+    if idx + 1 == len(chain):
+        return obj
     else:
-        getter = single_attr_getter(attr)
-    return builtinify(getter)
+        return _resolve_attr_chain(chain, obj, idx + 1)
 
-def single_attr_getter(attr):
-    if not isinstance(attr, str):
-        if not isinstance(attr, unicode):
-            def _raise_typeerror(obj):
-                raise TypeError("argument must be a string, not %r" %
-                                (type(attr).__name__,))
-            return _raise_typeerror
-        attr = attr.encode('ascii')
-    #
-    def make_getter(name, prevfn=None):
-        if prevfn is None:
-            def getter(obj):
-                return getattr(obj, name)
+class attrgetter(object):
+    def __init__(self, attr, *attrs):
+        if not isinstance(attr, basestring):
+            self._error(attr)
+            return
+        if attrs:
+            for a in attrs:
+                if not isinstance(a, basestring):
+                    self._error(a)
+                    return
+            self._multi_attrs = [
+                a.split(".") for a in [attr] + list(attrs)
+            ]
+            self._call = self._multi_attrgetter
+        elif "." not in attr:
+            self._simple_attr = attr
+            self._call = self._simple_attrgetter
         else:
-            def getter(obj):
-                return getattr(prevfn(obj), name)
-        return getter
-    #
-    last = 0
-    getter = None
-    while True:
-        dot = attr.find(".", last)
-        if dot < 0: break
-        getter = make_getter(attr[last:dot], getter)
-        last = dot + 1
-    return make_getter(attr[last:], getter)
+            self._single_attr = attr.split(".")
+            self._call = self._single_attrgetter
+
+    def _error(self, attr):
+        def _raise_typeerror(obj):
+            raise TypeError(
+                "attribute name must be a string, not %r" % type(attr).__name__
+            )
+        self._call = _raise_typeerror
+
+    def __call__(self, obj):
+        return self._call(obj)
+
+    def _simple_attrgetter(self, obj):
+        return getattr(obj, self._simple_attr)
+
+    def _single_attrgetter(self, obj):
+        return _resolve_attr_chain(self._single_attr, obj)
+
+    def _multi_attrgetter(self, obj):
+        return tuple([
+            _resolve_attr_chain(attrs, obj)
+            for attrs in self._multi_attrs
+        ])
 
 
-def itemgetter(item, *items):
-    if items:
-        list_of_indices = [item] + list(items)
-        def getter(obj):
-            return tuple([obj[i] for i in list_of_indices])
-    else:
-        def getter(obj):
-            return obj[item]
-    return builtinify(getter)
+class itemgetter(object):
+    def __init__(self, item, *items):
+        self._single = not bool(items)
+        if self._single:
+            self._idx = item
+        else:
+            self._idx = [item] + list(items)
+
+    def __call__(self, obj):
+        if self._single:
+            return obj[self._idx]
+        else:
+            return tuple([obj[i] for i in self._idx])
 
 
-def methodcaller(method_name, *args, **kwargs):
-    def call(obj):
-        return getattr(obj, method_name)(*args, **kwargs)
-    return builtinify(call)
+class methodcaller(object):
+    def __init__(self, method_name, *args, **kwargs):
+        self._method_name = method_name
+        self._args = args
+        self._kwargs = kwargs
+
+    def __call__(self, obj):
+        return getattr(obj, self._method_name)(*self._args, **self._kwargs)

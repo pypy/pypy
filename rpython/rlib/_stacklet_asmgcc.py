@@ -1,4 +1,6 @@
 from rpython.rlib.debug import ll_assert
+from rpython.rlib import rgc
+from rpython.rlib.objectmodel import specialize
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.annlowlevel import llhelper, MixLevelHelperAnnotator
@@ -11,6 +13,10 @@ _asmstackrootwalker = None    # BIG HACK: monkey-patched by asmgcroot.py
 _stackletrootwalker = None
 
 def get_stackletrootwalker():
+    # XXX this is too complicated now; we don't need a StackletRootWalker
+    # instance to store global state.  We could rewrite it all in one big
+    # function.  We don't care enough for now.
+
     # lazily called, to make the following imports lazy
     global _stackletrootwalker
     if _stackletrootwalker is not None:
@@ -24,8 +30,6 @@ def get_stackletrootwalker():
 
     class StackletRootWalker(object):
         _alloc_flavor_ = "raw"
-
-        enumerating = False
 
         def setup(self, obj):
             # initialization: read the SUSPSTACK object
@@ -66,7 +70,8 @@ def get_stackletrootwalker():
                 self.fill_initial_frame(self.curframe, anchor)
                 return True
 
-        def next(self, obj, prev):
+        @specialize.arg(3)
+        def customtrace(self, gc, obj, callback, arg):
             #
             # Pointers to the stack can be "translated" or not:
             #
@@ -79,29 +84,20 @@ def get_stackletrootwalker():
             # Note that 'curframe' contains non-translated pointers, and
             # of course the stack itself is full of non-translated pointers.
             #
+            if not self.setup(obj):
+                return
+
             while True:
-                if not self.enumerating:
-                    if not prev:
-                        if not self.setup(obj):      # one-time initialization
-                            return llmemory.NULL
-                        prev = obj   # random value, but non-NULL
-                    callee = self.curframe
-                    retaddraddr = self.translateptr(callee.frame_address)
-                    retaddr = retaddraddr.address[0]
-                    ebp_in_caller = callee.regs_stored_at[INDEX_OF_EBP]
-                    ebp_in_caller = self.translateptr(ebp_in_caller)
-                    ebp_in_caller = ebp_in_caller.address[0]
-                    basewalker.locate_caller_based_on_retaddr(retaddr,
-                                                              ebp_in_caller)
-                    self.enumerating = True
-                else:
-                    callee = self.curframe
-                    ebp_in_caller = callee.regs_stored_at[INDEX_OF_EBP]
-                    ebp_in_caller = self.translateptr(ebp_in_caller)
-                    ebp_in_caller = ebp_in_caller.address[0]
-                #
-                # not really a loop, but kept this way for similarity
-                # with asmgcroot:
+                callee = self.curframe
+                retaddraddr = self.translateptr(callee.frame_address)
+                retaddr = retaddraddr.address[0]
+                ebp_in_caller = callee.regs_stored_at[INDEX_OF_EBP]
+                ebp_in_caller = self.translateptr(ebp_in_caller)
+                ebp_in_caller = ebp_in_caller.address[0]
+                basewalker.locate_caller_based_on_retaddr(retaddr,
+                                                          ebp_in_caller)
+
+                # see asmgcroot for similarity:
                 while True:
                     location = basewalker._shape_decompressor.next()
                     if location == 0:
@@ -109,9 +105,9 @@ def get_stackletrootwalker():
                     addr = basewalker.getlocation(callee, ebp_in_caller,
                                                   location)
                     # yield the translated addr of the next GCREF in the stack
-                    return self.translateptr(addr)
-                #
-                self.enumerating = False
+                    addr = self.translateptr(addr)
+                    gc._trace_callback(callback, arg, addr)
+
                 caller = self.otherframe
                 reg = CALLEE_SAVED_REGS - 1
                 while reg >= 0:
@@ -129,7 +125,7 @@ def get_stackletrootwalker():
                 if caller.frame_address == llmemory.NULL:
                     # completely done with this piece of stack
                     if not self.fetch_next_stack_piece():
-                        return llmemory.NULL
+                        return
                     continue
                 #
                 self.otherframe = callee
@@ -154,9 +150,10 @@ def complete_destrptr(gctransformer):
     lltype.attachRuntimeTypeInfo(SUSPSTACK, destrptr=destrptr)
 
 
-def customtrace(obj, prev):
+def customtrace(gc, obj, callback, arg):
     stackletrootwalker = get_stackletrootwalker()
-    return stackletrootwalker.next(obj, prev)
+    stackletrootwalker.customtrace(gc, obj, callback, arg)
+lambda_customtrace = lambda: customtrace
 
 def suspstack_destructor(suspstack):
     h = suspstack.handle
@@ -170,10 +167,6 @@ SUSPSTACK = lltype.GcStruct('SuspStack',
                             ('callback_pieces', llmemory.Address),
                             rtti=True)
 NULL_SUSPSTACK = lltype.nullptr(SUSPSTACK)
-CUSTOMTRACEFUNC = lltype.FuncType([llmemory.Address, llmemory.Address],
-                                  llmemory.Address)
-customtraceptr = llhelper(lltype.Ptr(CUSTOMTRACEFUNC), customtrace)
-lltype.attachRuntimeTypeInfo(SUSPSTACK, customtraceptr=customtraceptr)
 
 ASM_FRAMEDATA_HEAD_PTR = lltype.Ptr(lltype.ForwardReference())
 ASM_FRAMEDATA_HEAD_PTR.TO.become(lltype.Struct('ASM_FRAMEDATA_HEAD',
@@ -263,6 +256,7 @@ class StackletGcRootFinder(object):
         self.runfn = callback
         self.arg = arg
         # make a fresh new clean SUSPSTACK
+        rgc.register_custom_trace_hook(SUSPSTACK, lambda_customtrace)
         newsuspstack = lltype.malloc(SUSPSTACK)
         newsuspstack.handle = _c.null_handle
         self.suspstack = newsuspstack

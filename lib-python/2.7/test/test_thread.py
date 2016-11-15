@@ -70,39 +70,35 @@ class ThreadRunningTests(BasicThreadTest):
         thread.stack_size(0)
         self.assertEqual(thread.stack_size(), 0, "stack_size not reset to default")
 
-        if os.name not in ("nt", "os2", "posix"):
-            return
-
-        tss_supported = True
+    @unittest.skipIf(os.name not in ("nt", "os2", "posix"), 'test meant for nt, os2, and posix')
+    def test_nt_and_posix_stack_size(self):
         try:
             thread.stack_size(4096)
         except ValueError:
             verbose_print("caught expected ValueError setting "
                             "stack_size(4096)")
         except thread.error:
-            tss_supported = False
-            verbose_print("platform does not support changing thread stack "
-                            "size")
+            self.skipTest("platform does not support changing thread stack "
+                          "size")
 
-        if tss_supported:
-            fail_msg = "stack_size(%d) failed - should succeed"
-            for tss in (262144, 0x100000, 0):
-                thread.stack_size(tss)
-                self.assertEqual(thread.stack_size(), tss, fail_msg % tss)
-                verbose_print("successfully set stack_size(%d)" % tss)
+        fail_msg = "stack_size(%d) failed - should succeed"
+        for tss in (262144, 0x100000, 0):
+            thread.stack_size(tss)
+            self.assertEqual(thread.stack_size(), tss, fail_msg % tss)
+            verbose_print("successfully set stack_size(%d)" % tss)
 
-            for tss in (262144, 0x100000):
-                verbose_print("trying stack_size = (%d)" % tss)
-                self.next_ident = 0
-                self.created = 0
-                for i in range(NUMTASKS):
-                    self.newtask()
+        for tss in (262144, 0x100000):
+            verbose_print("trying stack_size = (%d)" % tss)
+            self.next_ident = 0
+            self.created = 0
+            for i in range(NUMTASKS):
+                self.newtask()
 
-                verbose_print("waiting for all tasks to complete")
-                self.done_mutex.acquire()
-                verbose_print("all tasks done")
+            verbose_print("waiting for all tasks to complete")
+            self.done_mutex.acquire()
+            verbose_print("all tasks done")
 
-            thread.stack_size(0)
+        thread.stack_size(0)
 
     def test__count(self):
         # Test the _count() function.
@@ -238,7 +234,12 @@ class TestForkInThread(unittest.TestCase):
             if pid == 0: # child
                 os.close(self.read_fd)
                 os.write(self.write_fd, "OK")
-                sys.exit(0)
+                # Exiting the thread normally in the child process can leave
+                # any additional threads (such as the one started by
+                # importing _tkinter) still running, and this can prevent
+                # the half-zombie child process from being cleaned up. See
+                # Issue #26456.
+                os._exit(0)
             else: # parent
                 os.close(self.write_fd)
 

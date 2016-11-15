@@ -28,8 +28,8 @@ class AppTestCodecs:
         raises( UnicodeDecodeError, unicode,'\\NSPACE}','unicode-escape')
         raises( UnicodeDecodeError, unicode,'\\NSPACE','unicode-escape')
         raises( UnicodeDecodeError, unicode,'\\N','unicode-escape')
-        assert  unicode('\\N{SPACE}\\N{SPACE}','unicode-escape') == u"  " 
-        assert  unicode('\\N{SPACE}a\\N{SPACE}','unicode-escape') == u" a " 
+        assert  unicode('\\N{SPACE}\\N{SPACE}','unicode-escape') == u"  "
+        assert  unicode('\\N{SPACE}a\\N{SPACE}','unicode-escape') == u" a "
         assert "\\N{foo}xx".decode("unicode-escape", "ignore") == u"xx"
         assert 1 <= len(u"\N{CJK UNIFIED IDEOGRAPH-20000}") <= 2
 
@@ -276,7 +276,7 @@ class AppTestPartialEvaluation:
                 assert enc == "a\x00\x00\x00"
 
     def test_unicode_internal_decode(self):
-        import sys
+        import sys, _codecs, array
         if sys.maxunicode == 65535: # UCS2 build
             if sys.byteorder == "big":
                 bytes = "\x00a"
@@ -291,6 +291,9 @@ class AppTestPartialEvaluation:
                 bytes2 = "\x98\x00\x01\x00"
             assert bytes2.decode("unicode_internal") == u"\U00010098"
         assert bytes.decode("unicode_internal") == u"a"
+        assert _codecs.unicode_internal_decode(array.array('c', bytes))[0] == u"a"
+        exc = raises(TypeError, _codecs.unicode_internal_decode, memoryview(bytes))
+        assert str(exc.value) == "expected a readable buffer object"
 
     def test_raw_unicode_escape(self):
         assert unicode("\u0663", "raw-unicode-escape") == u"\u0663"
@@ -420,9 +423,13 @@ class AppTestPartialEvaluation:
         for (i, line) in enumerate(reader):
             assert line == s[i]
 
-    def test_array(self):
+    def test_buffer_encode(self):
         import _codecs, array
-        _codecs.readbuffer_encode(array.array('c', 'spam')) == ('spam', 4)
+        assert _codecs.readbuffer_encode(array.array('c', 'spam')) == ('spam', 4)
+        exc = raises(TypeError, _codecs.charbuffer_encode, array.array('c', 'spam'))
+        assert str(exc.value) == "must be string or read-only character buffer, not array.array"
+        assert _codecs.readbuffer_encode(u"test") == ('test', 4)
+        assert _codecs.charbuffer_encode(u"test") == ('test', 4)
 
     def test_utf8sig(self):
         import codecs
@@ -451,7 +458,7 @@ class AppTestPartialEvaluation:
         if sys.maxunicode > 0xffff:
             try:
                 "\x00\x00\x00\x00\x00\x11\x11\x00".decode("unicode_internal")
-            except UnicodeDecodeError, ex:
+            except UnicodeDecodeError as ex:
                 assert "unicode_internal" == ex.encoding
                 assert "\x00\x00\x00\x00\x00\x11\x11\x00" == ex.object
                 assert ex.start == 4
@@ -643,7 +650,7 @@ class AppTestPartialEvaluation:
     def test_utf7_start_end_in_exception(self):
         try:
             '+IC'.decode('utf-7')
-        except UnicodeDecodeError, exc:
+        except UnicodeDecodeError as exc:
             assert exc.start == 0
             assert exc.end == 3
 
@@ -669,6 +676,9 @@ class AppTestPartialEvaluation:
             (b'a+//,+IKw-b', u'a\ufffd\u20acb'),
             (b'a+///,+IKw-b', u'a\uffff\ufffd\u20acb'),
             (b'a+////,+IKw-b', u'a\uffff\ufffd\u20acb'),
+            (b'a+2AE\xe1b', u'a\ufffdb'),
+            (b'a+2AEA-b', u'a\ufffdb'),
+            (b'a+2AH-b', u'a\ufffdb'),
         ]
         for raw, expected in tests:
             raises(UnicodeDecodeError, codecs.utf_7_decode, raw, 'strict', True)
@@ -720,3 +730,23 @@ class AppTestPartialEvaluation:
         _codecs.register_error("test.test_codecs_not_a_string", f)
         raises(TypeError, u'\u1234'.encode, 'ascii',
                'test.test_codecs_not_a_string')
+
+    def test_decode_bytearray(self):
+        import _codecs
+        b = bytearray()
+        assert _codecs.ascii_decode(b) == (u'', 0)
+        assert _codecs.latin_1_decode(b) == (u'', 0)
+        assert _codecs.utf_7_decode(b) == (u'', 0)
+        assert _codecs.utf_8_decode(b) == (u'', 0)
+        assert _codecs.utf_16_be_decode(b) == (u'', 0)
+        assert _codecs.utf_16_decode(b) == (u'', 0)
+        assert _codecs.utf_16_le_decode(b) == (u'', 0)
+        assert _codecs.utf_16_ex_decode(b) == (u'', 0, 0)
+        assert _codecs.utf_32_decode(b) == (u'', 0)
+        assert _codecs.utf_32_be_decode(b) == (u'', 0)
+        assert _codecs.utf_32_le_decode(b) == (u'', 0)
+        assert _codecs.utf_32_ex_decode(b) == (u'', 0, 0)
+        assert _codecs.charmap_decode(b) == (u'', 0)
+        assert _codecs.unicode_escape_decode(b) == (u'', 0)
+        assert _codecs.raw_unicode_escape_decode(b) == (u'', 0)
+        assert _codecs.unicode_internal_decode(b) == (u'', 0)

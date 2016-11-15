@@ -9,15 +9,16 @@
 
 
 #define OP_RAW_MALLOC(size, r, restype)  {				\
-	r = (restype) PyObject_Malloc(size);				\
+	r = (restype) malloc(size);				\
 	if (r != NULL) {						\
 	    COUNT_MALLOC;						\
 	}								\
     }
 
-#define OP_RAW_FREE(p, r) PyObject_Free(p); COUNT_FREE;
+#define OP_RAW_FREE(p, r) free(p); COUNT_FREE;
 
 #define OP_RAW_MEMCLEAR(p, size, r) memset((void*)p, 0, size)
+#define OP_RAW_MEMSET(p, byte, size, r) memset((void*)p, byte, size)
 
 #define OP_RAW_MALLOC_USAGE(size, r) r = size
 
@@ -69,9 +70,9 @@ static int count_mallocs=0, count_frees=0;
                                                                 __FUNCTION__)
 #  define OP_TRACK_ALLOC_STOP(addr, r)   pypy_debug_alloc_stop(addr)
 
-void pypy_debug_alloc_start(void*, const char*);
-void pypy_debug_alloc_stop(void*);
-void pypy_debug_alloc_results(void);
+RPY_EXTERN void pypy_debug_alloc_start(void*, const char*);
+RPY_EXTERN void pypy_debug_alloc_stop(void*);
+RPY_EXTERN void pypy_debug_alloc_results(void);
 
 #endif /* RPY_ASSERT */
 
@@ -100,13 +101,24 @@ void pypy_debug_alloc_results(void);
     else								\
 	GC_GENERAL_REGISTER_DISAPPEARING_LINK(link, obj)
 
-extern int boehm_gc_finalizer_lock;
-void boehm_gc_startup_code(void);
-void boehm_gc_finalizer_notifier(void);
+RPY_EXTERN int boehm_gc_finalizer_lock;
+RPY_EXTERN void boehm_gc_startup_code(void);
+RPY_EXTERN void boehm_gc_finalizer_notifier(void);
+struct boehm_fq_s;
+RPY_EXTERN struct boehm_fq_s *boehm_fq_queues[];
+RPY_EXTERN void (*boehm_fq_trigger[])(void);
+RPY_EXTERN void boehm_fq_callback(void *, void *);
+RPY_EXTERN void *boehm_fq_next_dead(struct boehm_fq_s **);
 
 #define OP_GC__DISABLE_FINALIZERS(r)  boehm_gc_finalizer_lock++
 #define OP_GC__ENABLE_FINALIZERS(r)  (boehm_gc_finalizer_lock--,	\
 				      boehm_gc_finalizer_notifier())
+
+#define OP_BOEHM_FQ_REGISTER(tagindex, obj, r)                          \
+    GC_REGISTER_FINALIZER(obj, boehm_fq_callback,                       \
+                          boehm_fq_queues + tagindex, NULL, NULL)
+#define OP_BOEHM_FQ_NEXT_DEAD(tagindex, r)                              \
+    r = boehm_fq_next_dead(boehm_fq_queues + tagindex)
 
 #endif /* PYPY_USING_BOEHM_GC */
 
@@ -117,6 +129,11 @@ void boehm_gc_finalizer_notifier(void);
 #define OP_BOEHM_DISAPPEARING_LINK(link, obj, r)  /* nothing */
 #define OP_GC__DISABLE_FINALIZERS(r)  /* nothing */
 #define OP_GC__ENABLE_FINALIZERS(r)  /* nothing */
+#define GC_REGISTER_FINALIZER(a, b, c, d, e)  /* nothing */
+#define GC_gcollect()  /* nothing */
+#define GC_set_max_heap_size(a)  /* nothing */
+#define OP_GC_FQ_REGISTER(tag, obj, r)   /* nothing */
+#define OP_GC_FQ_NEXT_DEAD(tag, r)       (r = NULL)
 #endif
 
 /************************************************************/
@@ -142,10 +159,10 @@ void boehm_gc_finalizer_notifier(void);
 
 #ifndef _MSC_VER
 /* Implementation for Linux */
-extern char __gcmapstart;
-extern char __gcmapend;
-extern char __gccallshapes;
-extern long pypy_asm_stackwalk(void*, void*);
+RPY_EXTERN char __gcmapstart;
+RPY_EXTERN char __gcmapend;
+RPY_EXTERN char __gccallshapes;
+RPY_EXTERN long pypy_asm_stackwalk(void*, void*);
 #define __gcnoreorderhack __gcmapend
 
 /* The following pseudo-instruction is used by --gcrootfinder=asmgcc
@@ -182,7 +199,7 @@ extern long pypy_asm_stackwalk(void*, void*);
 #define pypy_asm_stack_bottom() { asm volatile ("/* GC_STACK_BOTTOM */" : : : \
                                   "memory"); pypy_check_stack_count(); }
 #ifdef RPY_ASSERT
-void pypy_check_stack_count(void);
+RPY_EXTERN void pypy_check_stack_count(void);
 #else
 static void pypy_check_stack_count(void) { }
 #endif
@@ -196,10 +213,10 @@ static void pypy_check_stack_count(void) { }
 
 #else
 /* implementation of asmgcroot for Windows */
-extern void* __gcmapstart;
-extern void* __gcmapend;
-extern char* __gccallshapes;
-extern Signed pypy_asm_stackwalk(void*, void*);
+RPY_EXTERN void* __gcmapstart;
+RPY_EXTERN void* __gcmapend;
+RPY_EXTERN char* __gccallshapes;
+RPY_EXTERN Signed pypy_asm_stackwalk(void*, void*);
 
 /* With the msvc Microsoft Compiler, the optimizer seems free to move
    any code (even asm) that involves local memory (registers and stack).

@@ -120,25 +120,25 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 try:
                     retVal = c_pow(*map(space.unwrap, args_w))
                     return space.wrap(retVal)
-                except ZeroDivisionError, e:
+                except ZeroDivisionError as e:
                     raise OperationError(cls.space.w_ZeroDivisionError,
                             cls.space.wrap(e.message))
-                except OverflowError, e:
+                except OverflowError as e:
                     raise OperationError(cls.space.w_OverflowError,
                             cls.space.wrap(e.message))
-                except ValueError, e:
+                except ValueError as e:
                     raise OperationError(cls.space.w_ValueError,
                             cls.space.wrap(e.message))
             cls.w_c_pow = cls.space.wrap(interp2app(cls_c_pow))
 
     def test_fabs(self):
-        from numpypy import fabs, dtype
+        from numpy import fabs, dtype
 
         a = dtype('complex128').type(complex(-5., 5.))
         raises(TypeError, fabs, a)
 
     def test_fmax(self):
-        from numpypy import fmax, array
+        from numpy import fmax, array
         nnan, nan, inf, ninf = float('-nan'), float('nan'), float('inf'), float('-inf')
         a = array((complex(ninf, 10), complex(10, ninf),
                    complex( inf, 10), complex(10,  inf),
@@ -165,7 +165,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert (fmax(a, b) == res).all()
 
     def test_fmin(self):
-        from numpypy import fmin, array
+        from numpy import fmin, array
         nnan, nan, inf, ninf = float('-nan'), float('nan'), float('inf'), float('-inf')
         a = array((complex(ninf, 10), complex(10, ninf),
                    complex( inf, 10), complex(10,  inf),
@@ -192,11 +192,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert (fmin(a, b) == res).all()
 
     def test_signbit(self):
-        from numpypy import signbit
+        from numpy import signbit
         raises(TypeError, signbit, complex(1,1))
 
     def test_reciprocal(self):
-        from numpypy import array, reciprocal
+        from numpy import array, reciprocal
         inf = float('inf')
         nan = float('nan')
         #complex
@@ -218,21 +218,21 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 assert (a[0].imag - e.imag) < rel_err
 
     def test_floorceiltrunc(self):
-        from numpypy import array, floor, ceil, trunc
+        from numpy import array, floor, ceil, trunc
         a = array([ complex(-1.4, -1.4), complex(-1.5, -1.5)])
         raises(TypeError, floor, a)
         raises(TypeError, ceil, a)
         raises(TypeError, trunc, a)
 
     def test_copysign(self):
-        from numpypy import copysign, dtype
+        from numpy import copysign, dtype
         complex128 = dtype('complex128').type
         a = complex128(complex(-5., 5.))
         b = complex128(complex(0., 0.))
         raises(TypeError, copysign, a, b)
 
     def test_exp2(self):
-        from numpypy import array, exp2
+        from numpy import array, exp2
         inf = float('inf')
         ninf = -float('inf')
         nan = float('nan')
@@ -268,7 +268,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_expm1(self):
         import math, cmath
-        from numpypy import array, expm1
+        from numpy import array, expm1
         inf = float('inf')
         ninf = -float('inf')
         nan = float('nan')
@@ -307,7 +307,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
 
     def test_not_complex(self):
-        from numpypy import (radians, deg2rad, degrees, rad2deg,
+        from numpy import (radians, deg2rad, degrees, rad2deg,
                   logaddexp, logaddexp2, fmod,
                   arctan2)
         raises(TypeError, radians, complex(90,90))
@@ -320,7 +320,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         raises (TypeError, fmod, complex(90,90), 3)
 
     def test_isnan_isinf(self):
-        from numpypy import isnan, isinf, array
+        from numpy import isnan, isinf, array
         assert (isnan(array([0.2+2j, complex(float('inf'),0),
                 complex(0,float('inf')), complex(0,float('nan')),
                 complex(float('nan'), 0)], dtype=complex)) == \
@@ -331,9 +331,15 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 complex(float('nan'), 0)], dtype=complex)) == \
                 [False, True, True, False, False]).all()
 
+    def test_sign_for_complex_nan(self):
+        from numpy import array, nan, sign, isnan
+        C = array([nan], dtype=complex)
+        res = sign(C)
+        assert isnan(res.real)
+        assert res.imag == 0+0j
 
     def test_square(self):
-        from numpypy import square
+        from numpy import square
         assert square(complex(3, 4)) == complex(3,4) * complex(3, 4)
 
     def test_power_simple(self):
@@ -364,8 +370,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
             self.rAlmostEqual(float(n_r_a[i].imag), float(p_r[i].imag), msg=msg)
 
     def test_conjugate(self):
-        from numpypy import conj, conjugate, dtype
-        import numpypy as np
+        from numpy import conj, conjugate, dtype
+        import numpy as np
 
         c0 = dtype('complex128').type(complex(2.5, 0))
         c1 = dtype('complex64').type(complex(1, 2))
@@ -382,6 +388,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert np.conjugate(1+2j) == 1-2j
 
         eye2 = np.array([[1, 0], [0, 1]])
+        assert (eye2.conjugate() == eye2).all()
         x = eye2 + 1j * eye2
         for a, b in zip(np.conjugate(x), np.array([[ 1.-1.j,  0.-0.j], [ 0.-0.j,  1.-1.j]])):
             assert a[0] == b[0]
@@ -390,7 +397,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
     def test_logn(self):
         import math, cmath
         # log and log10 are tested in math (1:1 from rcomplex)
-        from numpypy import log2, array, log1p
+        from numpy import log2, array, log1p
         inf = float('inf')
         ninf = -float('inf')
         nan = float('nan')
@@ -447,7 +454,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
 
     def test_logical_ops(self):
-        from numpypy import logical_and, logical_or, logical_xor, logical_not
+        from numpy import logical_and, logical_or, logical_xor, logical_not
 
         c1 = complex(1, 1)
         c3 = complex(3, 0)
@@ -461,7 +468,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert (logical_not([c1, c0]) == [False, True]).all()
 
     def test_minimum(self):
-        from numpypy import array, minimum
+        from numpy import array, minimum
 
         a = array([-5.0+5j, -5.0-5j, -0.0-10j, 1.0+10j])
         b = array([ 3.0+10.0j, 3.0, -2.0+2.0j, -3.0+4.0j])
@@ -470,7 +477,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert c[i] == min(a[i], b[i])
 
     def test_maximum(self):
-        from numpypy import array, maximum
+        from numpy import array, maximum
 
         a = array([-5.0+5j, -5.0-5j, -0.0-10j, 1.0+10j])
         b = array([ 3.0+10.0j, 3.0, -2.0+2.0j, -3.0+4.0j])
@@ -478,12 +485,25 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for i in range(4):
             assert c[i] == max(a[i], b[i])
 
+
+    def test_complex_overflow(self):
+        from numpy import array, absolute, isinf, complex128, floor_divide
+        a = array(complex(1.5e308,1.5e308))
+        # Prints a RuntimeWarning, but does not raise
+        b = absolute(a)
+        assert isinf(b)
+        c = array([1.e+110, 1.e-110], dtype=complex128)
+        d = floor_divide(c**2, c)
+        assert (d == [1.e+110, 0]).all()
+
+
+
     def test_basic(self):
         import sys
-        from numpypy import (dtype, add, array, dtype,
+        from numpy import (dtype, add, array, dtype,
             subtract as sub, multiply, divide, negative, absolute as abs,
             floor_divide, real, imag, sign)
-        from numpypy import (equal, not_equal, greater, greater_equal, less,
+        from numpy import (equal, not_equal, greater, greater_equal, less,
                 less_equal, isnan)
         assert real(4.0) == 4.0
         assert imag(0.0) == 0.0
@@ -579,10 +599,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert repr(abs(inf_c)) == 'inf'
             assert repr(abs(complex(float('nan'), float('nan')))) == 'nan'
             # numpy actually raises an AttributeError,
-            # but numpypy raises a TypeError
+            # but numpy.raises a TypeError
             if '__pypy__' in sys.builtin_module_names:
                 exct, excm = TypeError, 'readonly attribute'
-            else:
+            else :
                 exct, excm = AttributeError, 'is not writable'
             exc = raises(exct, 'c2.real = 10.')
             assert excm in exc.value[0]
@@ -592,7 +612,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert(imag(c2) == 4.0)
 
     def test_conj(self):
-        from numpypy import array
+        from numpy import array
 
         a = array([1 + 2j, 1 - 2j])
         assert (a.conj() == [1 - 2j, 1 + 2j]).all()
@@ -603,7 +623,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         if self.isWindows:
             skip('windows does not support c99 complex')
         import sys
-        import numpypy as np
+        import numpy as np
         rAlmostEqual = self.rAlmostEqual
 
         for t, testcases in (
@@ -658,6 +678,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
             sys.stderr.write('\n')
 
     def test_complexbox_to_pycomplex(self):
-        from numpypy import dtype
+        from numpy import dtype
         x = dtype('complex128').type(3.4j)
         assert complex(x) == 3.4j

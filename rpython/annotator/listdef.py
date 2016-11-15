@@ -83,9 +83,6 @@ class ListItem(object):
                 self.setrangestep(self._step_map[type(self.range_step),
                                                  type(other.range_step)])
             self.itemof.update(other.itemof)
-            read_locations = self.read_locations.copy()
-            other_read_locations = other.read_locations.copy()
-            self.read_locations.update(other.read_locations)
             s_value = self.s_value
             s_other_value = other.s_value
             s_new_value = unionof(s_value, s_other_value)
@@ -95,17 +92,19 @@ class ListItem(object):
             self.patch()    # which should patch all refs to 'other'
             if s_new_value != s_value:
                 self.s_value = s_new_value
-                # reflow from reading points
-                for position_key in read_locations:
-                    self.bookkeeper.annotator.reflowfromposition(position_key) 
+                self.notify_update()
             if s_new_value != s_other_value:
-                # reflow from reading points
-                for position_key in other_read_locations:
-                    other.bookkeeper.annotator.reflowfromposition(position_key)
+                other.notify_update()
+            self.read_locations.update(other.read_locations)
 
     def patch(self):
         for listdef in self.itemof:
             listdef.listitem = self
+
+    def notify_update(self):
+        '''Reflow from all reading points'''
+        for position_key in self.read_locations:
+            self.bookkeeper.annotator.reflowfromposition(position_key)
 
     def generalize(self, s_other_value):
         s_new_value = unionof(self.s_value, s_other_value)
@@ -114,9 +113,7 @@ class ListItem(object):
             if self.dont_change_any_more:
                 raise TooLateForChange
             self.s_value = s_new_value
-            # reflow from all reading points
-            for position_key in self.read_locations:
-                self.bookkeeper.annotator.reflowfromposition(position_key)
+            self.notify_update()
         return updated
 
 
@@ -131,18 +128,8 @@ class ListDef(object):
         self.listitem.mutated = mutated | resized
         self.listitem.resized = resized
         self.listitem.itemof[self] = True
-        self.bookkeeper = bookkeeper
 
-    def getbookkeeper(self):
-        if self.bookkeeper is None:
-            from rpython.annotator.bookkeeper import getbookkeeper
-            return getbookkeeper()
-        else:
-            return self.bookkeeper
-
-    def read_item(self, position_key=None):
-        if position_key is None:
-            position_key = self.getbookkeeper().position_key
+    def read_item(self, position_key):
         self.listitem.read_locations[position_key] = True
         return self.listitem.s_value
 
@@ -153,19 +140,25 @@ class ListDef(object):
         self.listitem.merge(other.listitem)
         return self
 
-    def agree(self, other):
-        s_self_value = self.read_item()
-        s_other_value = other.read_item()
+    def agree(self, bookkeeper, other):
+        position = bookkeeper.position_key
+        s_self_value = self.read_item(position)
+        s_other_value = other.read_item(position)
         self.generalize(s_other_value)
         other.generalize(s_self_value)
+        if self.listitem.range_step is not None:
+            self.generalize_range_step(other.listitem.range_step)
+        if other.listitem.range_step is not None:
+            other.generalize_range_step(self.listitem.range_step)
 
-    def offspring(self, *others):
-        s_self_value = self.read_item()
+    def offspring(self, bookkeeper, *others):
+        position = bookkeeper.position_key
+        s_self_value = self.read_item(position)
         s_other_values = []
         for other in others:
-            s_other_values.append(other.read_item())
-        s_newlst = self.getbookkeeper().newlist(s_self_value, *s_other_values)
-        s_newvalue = s_newlst.listdef.read_item()
+            s_other_values.append(other.read_item(position))
+        s_newlst = bookkeeper.newlist(s_self_value, *s_other_values)
+        s_newvalue = s_newlst.listdef.read_item(position)
         self.generalize(s_newvalue)
         for other in others:
             other.generalize(s_newvalue)

@@ -3,7 +3,9 @@
 Plain Python definition of the builtin I/O-related functions.
 """
 
+import operator
 import sys
+from _ast import PyCF_ACCEPT_NULL_BYTES
 
 def execfile(filename, glob=None, loc=None):
     """execfile(filename[, globals[, locals]])
@@ -11,6 +13,12 @@ def execfile(filename, glob=None, loc=None):
 Read and execute a Python script from a file.
 The globals and locals are dictionaries, defaulting to the current
 globals and locals.  If only globals is given, locals defaults to it."""
+    if glob is not None and not isinstance(glob, dict):
+        raise TypeError("execfile() arg 2 must be a dict, not %s",
+                        type(glob).__name__)
+    if loc is not None and not operator.isMappingType(loc):
+        raise TypeError("execfile() arg 3 must be a mapping, not %s",
+                        type(loc).__name__)
     if glob is None:
         # Warning this is at hidden_applevel
         glob = globals()
@@ -24,7 +32,8 @@ globals and locals.  If only globals is given, locals defaults to it."""
     finally:
         f.close()
     #Don't exec the source directly, as this loses the filename info
-    co = compile(source.rstrip()+"\n", filename, 'exec')
+    co = compile(source.rstrip()+"\n", filename, 'exec',
+                 PyCF_ACCEPT_NULL_BYTES)
     exec co in glob, loc
 
 def _write_prompt(stdout, prompt):
@@ -77,9 +86,11 @@ def input(prompt=''):
 
 def print_(*args, **kwargs):
     """The new-style print function from py3k."""
-    fp = kwargs.pop("file", sys.stdout)
+    fp = kwargs.pop("file", None)
     if fp is None:
-        return
+        fp = sys.stdout
+        if fp is None:
+            return
     def write(data):
         if not isinstance(data, basestring):
             data = str(data)

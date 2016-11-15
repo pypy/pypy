@@ -1,8 +1,8 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 
 # shared ll definitions
-_C_OPAQUE_PTR = rffi.LONG
-_C_OPAQUE_NULL = lltype.nullptr(rffi.LONGP.TO)# ALT: _C_OPAQUE_PTR.TO
+_C_OPAQUE_PTR = rffi.ULONG
+_C_OPAQUE_NULL = lltype.nullptr(rffi.ULONGP.TO)# ALT: _C_OPAQUE_PTR.TO
 
 C_SCOPE = _C_OPAQUE_PTR
 C_NULL_SCOPE = rffi.cast(C_SCOPE, _C_OPAQUE_NULL)

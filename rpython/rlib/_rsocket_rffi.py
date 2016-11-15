@@ -30,7 +30,7 @@ if _POSIX:
                 'stdio.h',
                 'netdb.h',
                 'arpa/inet.h',
-                'stdint.h', 
+                'stdint.h',
                 'errno.h',
                 )
     if _HAS_AF_PACKET:
@@ -105,6 +105,9 @@ class CConfig:
     linux = platform.Defined('linux')
     WIN32 = platform.Defined('_WIN32')
 
+    O_RDONLY = platform.DefinedConstantInteger('O_RDONLY')
+    O_WRONLY = platform.DefinedConstantInteger('O_WRONLY')
+    O_RDWR = platform.DefinedConstantInteger('O_RDWR')
     O_NONBLOCK = platform.DefinedConstantInteger('O_NONBLOCK')
     F_GETFL = platform.DefinedConstantInteger('F_GETFL')
     F_SETFL = platform.DefinedConstantInteger('F_SETFL')
@@ -139,7 +142,7 @@ EAI_MEMORY EAI_NODATA EAI_NONAME EAI_OVERFLOW EAI_PROTOCOL EAI_SERVICE
 EAI_SOCKTYPE EAI_SYSTEM
 
 IPPROTO_AH IPPROTO_BIP IPPROTO_DSTOPTS IPPROTO_EGP IPPROTO_EON IPPROTO_ESP
-IPPROTO_FRAGMENT IPPROTO_GGP IPPROTO_GRE IPPROTO_HELLO IPPROTO_HOPOPTS 
+IPPROTO_FRAGMENT IPPROTO_GGP IPPROTO_GRE IPPROTO_HELLO IPPROTO_HOPOPTS
 IPPROTO_ICMPV6 IPPROTO_IDP IPPROTO_IGMP IPPROTO_IPCOMP IPPROTO_IPIP
 IPPROTO_IPV4 IPPROTO_IPV6 IPPROTO_MAX IPPROTO_MOBILE IPPROTO_ND IPPROTO_NONE
 IPPROTO_PIM IPPROTO_PUP IPPROTO_ROUTING IPPROTO_RSVP IPPROTO_TCP IPPROTO_TP
@@ -173,8 +176,9 @@ PACKET_LOOPBACK PACKET_FASTROUTE
 
 
 SOCK_DGRAM SOCK_RAW SOCK_RDM SOCK_SEQPACKET SOCK_STREAM
+SOCK_CLOEXEC
 
-SOL_SOCKET SOL_IPX SOL_AX25 SOL_ATALK SOL_NETROM SOL_ROSE 
+SOL_SOCKET SOL_IPX SOL_AX25 SOL_ATALK SOL_NETROM SOL_ROSE
 
 SO_ACCEPTCONN SO_BROADCAST SO_DEBUG SO_DONTROUTE SO_ERROR SO_EXCLUSIVEADDRUSE
 SO_KEEPALIVE SO_LINGER SO_OOBINLINE SO_RCVBUF SO_RCVLOWAT SO_RCVTIMEO
@@ -196,7 +200,7 @@ WSA_IO_PENDING WSA_IO_INCOMPLETE WSA_INVALID_HANDLE
 WSA_INVALID_PARAMETER WSA_NOT_ENOUGH_MEMORY WSA_OPERATION_ABORTED
 SIO_RCVALL SIO_KEEPALIVE_VALS
 
-SIOCGIFNAME
+SIOCGIFNAME SIOCGIFINDEX
 '''.split()
 
 for name in constant_names:
@@ -286,7 +290,7 @@ CConfig.sockaddr_nl = platform.Struct('struct sockaddr_nl',
                                               ('nl_pid', rffi.INT),
                                               ('nl_groups', rffi.INT)],
                                              ifdef='AF_NETLINK')
-                                             
+
 CConfig.addrinfo = platform.Struct('struct addrinfo',
                                      [('ai_flags', rffi.INT),
                                       ('ai_family', rffi.INT),
@@ -316,6 +320,8 @@ CConfig.protoent = platform.Struct('struct protoent',
                                           [('p_proto', rffi.INT),
                                            ])
 
+CConfig.HAVE_ACCEPT4 = platform.Has('accept4')
+
 if _POSIX:
     CConfig.nfds_t = platform.SimpleType('nfds_t')
     CConfig.pollfd = platform.Struct('struct pollfd',
@@ -325,7 +331,8 @@ if _POSIX:
 
     if _HAS_AF_PACKET:
         CConfig.sockaddr_ll = platform.Struct('struct sockaddr_ll',
-                              [('sll_ifindex', rffi.INT),
+                              [('sll_family', rffi.INT),
+                               ('sll_ifindex', rffi.INT),
                                ('sll_protocol', rffi.INT),
                                ('sll_pkttype', rffi.INT),
                                ('sll_hatype', rffi.INT),
@@ -406,6 +413,9 @@ for name, value in constants.items():
 
 locals().update(constants)
 
+O_RDONLY = cConfig.O_RDONLY
+O_WRONLY = cConfig.O_WRONLY
+O_RDWR = cConfig.O_RDWR
 O_NONBLOCK = cConfig.O_NONBLOCK
 F_GETFL = cConfig.F_GETFL
 F_SETFL = cConfig.F_SETFL
@@ -456,6 +466,9 @@ if _POSIX:
 if WIN32:
     WSAEVENT = cConfig.WSAEVENT
     WSANETWORKEVENTS = cConfig.WSANETWORKEVENTS
+    SAVE_ERR = rffi.RFFI_SAVE_WSALASTERROR
+else:
+    SAVE_ERR = rffi.RFFI_SAVE_ERRNO
 timeval = cConfig.timeval
 
 
@@ -468,7 +481,7 @@ def external_c(name, args, result, **kwargs):
                            calling_conv='c', **kwargs)
 
 if _POSIX:
-    dup = external('dup', [socketfd_type], socketfd_type)
+    dup = external('dup', [socketfd_type], socketfd_type, save_err=SAVE_ERR)
     gai_strerror = external('gai_strerror', [rffi.INT], CCHARP)
 
 #h_errno = c_int.in_dll(socketdll, 'h_errno')
@@ -477,14 +490,21 @@ if _POSIX:
 #hstrerror.argtypes = [c_int]
 #hstrerror.restype = c_char_p
 
-socket = external('socket', [rffi.INT, rffi.INT, rffi.INT], socketfd_type)
+socket = external('socket', [rffi.INT, rffi.INT, rffi.INT], socketfd_type,
+                  save_err=SAVE_ERR)
+
 
 if WIN32:
-    socketclose = external('closesocket', [socketfd_type], rffi.INT, releasegil=False)
+    socketclosename = 'closesocket'
 else:
-    socketclose = external('close', [socketfd_type], rffi.INT, releasegil=False)
+    socketclosename = 'close'
+socketclose = external(socketclosename, [socketfd_type], rffi.INT,
+                       releasegil=False, save_err=SAVE_ERR)
+socketclose_no_errno = external(socketclosename, [socketfd_type], rffi.INT,
+                                releasegil=False)
 
-socketconnect = external('connect', [socketfd_type, sockaddr_ptr, socklen_t], rffi.INT)
+socketconnect = external('connect', [socketfd_type, sockaddr_ptr, socklen_t],
+                         rffi.INT, save_err=SAVE_ERR)
 
 getaddrinfo = external('getaddrinfo', [CCHARP, CCHARP,
                         addrinfo_ptr,
@@ -493,10 +513,16 @@ freeaddrinfo = external('freeaddrinfo', [addrinfo_ptr], lltype.Void)
 getnameinfo = external('getnameinfo', [sockaddr_ptr, socklen_t, CCHARP,
                        size_t, CCHARP, size_t, rffi.INT], rffi.INT)
 
-htonl = external('htonl', [rffi.UINT], rffi.UINT, releasegil=False)
-htons = external('htons', [rffi.USHORT], rffi.USHORT, releasegil=False)
-ntohl = external('ntohl', [rffi.UINT], rffi.UINT, releasegil=False)
-ntohs = external('ntohs', [rffi.USHORT], rffi.USHORT, releasegil=False)
+if sys.platform.startswith("openbsd") or sys.platform.startswith("darwin"):
+    htonl = external('htonl', [rffi.UINT], rffi.UINT, releasegil=False, macro=True)
+    htons = external('htons', [rffi.USHORT], rffi.USHORT, releasegil=False, macro=True)
+    ntohl = external('ntohl', [rffi.UINT], rffi.UINT, releasegil=False, macro=True)
+    ntohs = external('ntohs', [rffi.USHORT], rffi.USHORT, releasegil=False, macro=True)
+else:
+    htonl = external('htonl', [rffi.UINT], rffi.UINT, releasegil=False)
+    htons = external('htons', [rffi.USHORT], rffi.USHORT, releasegil=False)
+    ntohl = external('ntohl', [rffi.UINT], rffi.UINT, releasegil=False)
+    ntohs = external('ntohs', [rffi.USHORT], rffi.USHORT, releasegil=False)
 
 if _POSIX:
     inet_aton = external('inet_aton', [CCHARP, lltype.Ptr(in_addr)],
@@ -506,36 +532,54 @@ inet_ntoa = external('inet_ntoa', [in_addr], rffi.CCHARP)
 
 if _POSIX:
     inet_pton = external('inet_pton', [rffi.INT, rffi.CCHARP,
-                                              rffi.VOIDP], rffi.INT)
+                                       rffi.VOIDP], rffi.INT,
+                         save_err=SAVE_ERR)
 
     inet_ntop = external('inet_ntop', [rffi.INT, rffi.VOIDP, CCHARP,
-                                              socklen_t], CCHARP)
+                                       socklen_t], CCHARP,
+                         save_err=SAVE_ERR)
 
 inet_addr = external('inet_addr', [rffi.CCHARP], rffi.UINT)
 socklen_t_ptr = lltype.Ptr(rffi.CFixedArray(socklen_t, 1))
 socketaccept = external('accept', [socketfd_type, sockaddr_ptr,
-                              socklen_t_ptr], socketfd_type)
+                                   socklen_t_ptr], socketfd_type,
+                        save_err=SAVE_ERR)
+HAVE_ACCEPT4 = cConfig.HAVE_ACCEPT4
+if HAVE_ACCEPT4:
+    socketaccept4 = external('accept4', [socketfd_type, sockaddr_ptr,
+                                         socklen_t_ptr, rffi.INT],
+                                        socketfd_type,
+                             save_err=SAVE_ERR)
 socketbind = external('bind', [socketfd_type, sockaddr_ptr, socklen_t],
-                              rffi.INT)
-socketlisten = external('listen', [socketfd_type, rffi.INT], rffi.INT)
+                              rffi.INT, save_err=SAVE_ERR)
+socketlisten = external('listen', [socketfd_type, rffi.INT], rffi.INT,
+                        save_err=SAVE_ERR)
 socketgetpeername = external('getpeername', [socketfd_type,
-                                    sockaddr_ptr, socklen_t_ptr], rffi.INT)
+                                    sockaddr_ptr, socklen_t_ptr], rffi.INT,
+                             save_err=SAVE_ERR)
 socketgetsockname = external('getsockname', [socketfd_type,
-                                   sockaddr_ptr, socklen_t_ptr], rffi.INT)
+                                   sockaddr_ptr, socklen_t_ptr], rffi.INT,
+                             save_err=SAVE_ERR)
 socketgetsockopt = external('getsockopt', [socketfd_type, rffi.INT,
-                               rffi.INT, rffi.VOIDP, socklen_t_ptr], rffi.INT)
+                               rffi.INT, rffi.VOIDP, socklen_t_ptr], rffi.INT,
+                            save_err=SAVE_ERR)
 socketsetsockopt = external('setsockopt', [socketfd_type, rffi.INT,
-                                   rffi.INT, rffi.VOIDP, socklen_t], rffi.INT)
+                                   rffi.INT, rffi.VOIDP, socklen_t], rffi.INT,
+                            save_err=SAVE_ERR)
 socketrecv = external('recv', [socketfd_type, rffi.VOIDP, rffi.INT,
-                                      rffi.INT], ssize_t)
+                               rffi.INT], ssize_t, save_err=SAVE_ERR)
 recvfrom = external('recvfrom', [socketfd_type, rffi.VOIDP, size_t,
-                           rffi.INT, sockaddr_ptr, socklen_t_ptr], rffi.INT)
+                           rffi.INT, sockaddr_ptr, socklen_t_ptr], rffi.INT,
+                    save_err=SAVE_ERR)
 send = external('send', [socketfd_type, rffi.CCHARP, size_t, rffi.INT],
-                       ssize_t)
+                       ssize_t, save_err=SAVE_ERR)
 sendto = external('sendto', [socketfd_type, rffi.VOIDP, size_t, rffi.INT,
-                                    sockaddr_ptr, socklen_t], ssize_t)
-socketshutdown = external('shutdown', [socketfd_type, rffi.INT], rffi.INT)
-gethostname = external('gethostname', [rffi.CCHARP, rffi.INT], rffi.INT)
+                                    sockaddr_ptr, socklen_t], ssize_t,
+                  save_err=SAVE_ERR)
+socketshutdown = external('shutdown', [socketfd_type, rffi.INT], rffi.INT,
+                          save_err=SAVE_ERR)
+gethostname = external('gethostname', [rffi.CCHARP, rffi.INT], rffi.INT,
+                       save_err=SAVE_ERR)
 gethostbyname = external('gethostbyname', [rffi.CCHARP],
                                 lltype.Ptr(cConfig.hostent))
 gethostbyaddr = external('gethostbyaddr', [rffi.VOIDP, rffi.INT, rffi.INT], lltype.Ptr(cConfig.hostent))
@@ -547,7 +591,8 @@ if _POSIX:
     fcntl = external('fcntl', [socketfd_type, rffi.INT, rffi.INT], rffi.INT)
     socketpair_t = rffi.CArray(socketfd_type)
     socketpair = external('socketpair', [rffi.INT, rffi.INT, rffi.INT,
-                          lltype.Ptr(socketpair_t)], rffi.INT)
+                          lltype.Ptr(socketpair_t)], rffi.INT,
+                          save_err=SAVE_ERR)
     if _HAS_AF_PACKET:
         ioctl = external('ioctl', [socketfd_type, rffi.INT, lltype.Ptr(ifreq)],
                          rffi.INT)
@@ -560,7 +605,8 @@ if _WIN32:
 select = external('select',
                   [rffi.INT, fd_set, fd_set,
                    fd_set, lltype.Ptr(timeval)],
-                  rffi.INT)
+                  rffi.INT,
+                  save_err=SAVE_ERR)
 
 FD_CLR = external_c('FD_CLR', [rffi.INT, fd_set], lltype.Void, macro=True)
 FD_ISSET = external_c('FD_ISSET', [rffi.INT, fd_set], rffi.INT, macro=True)
@@ -570,7 +616,7 @@ FD_ZERO = external_c('FD_ZERO', [fd_set], lltype.Void, macro=True)
 if _POSIX:
     pollfdarray = rffi.CArray(pollfd)
     poll = external('poll', [lltype.Ptr(pollfdarray), nfds_t, rffi.INT],
-                    rffi.INT)
+                    rffi.INT, save_err=SAVE_ERR)
     # workaround for Mac OS/X on which poll() seems to behave a bit strangely
     # (see test_recv_send_timeout in pypy.module._socket.test.test_sock_app)
     # https://issues.apache.org/bugzilla/show_bug.cgi?id=34332
@@ -606,7 +652,7 @@ elif WIN32:
                          rffi.VOIDP, rwin32.DWORD,
                          rffi.VOIDP, rwin32.DWORD,
                          rwin32.LPDWORD, rffi.VOIDP, rffi.VOIDP],
-                        rffi.INT)
+                        rffi.INT, save_err=SAVE_ERR)
     tcp_keepalive = cConfig.tcp_keepalive
 
     WSAPROTOCOL_INFO = cConfig.WSAPROTOCOL_INFO
@@ -614,30 +660,41 @@ elif WIN32:
     WSADuplicateSocket = external('WSADuplicateSocketA',
                                   [socketfd_type, rwin32.DWORD,
                                    lltype.Ptr(WSAPROTOCOL_INFO)],
-                                  rffi.INT)
+                                  rffi.INT, save_err=SAVE_ERR)
     WSASocket = external('WSASocketA',
                          [rffi.INT, rffi.INT, rffi.INT,
                           lltype.Ptr(WSAPROTOCOL_INFO),
                           rwin32.DWORD, rwin32.DWORD],
-                         socketfd_type)
+                         socketfd_type, save_err=SAVE_ERR)
 
 if WIN32:
     WSAData = cConfig.WSAData
-    WSAStartup = external('WSAStartup', [rffi.INT, lltype.Ptr(WSAData)],
+    WSAStartup = external('WSAStartup', [rwin32.WORD, lltype.Ptr(WSAData)],
                           rffi.INT)
 
-    WSAGetLastError = external('WSAGetLastError', [], rffi.INT)
-    geterrno = WSAGetLastError
+    _WSAGetLastError = external('WSAGetLastError', [], rwin32.DWORD,
+                                _nowrapper=True, sandboxsafe=True)
 
-    from rpython.rlib import rwin32
+    geterrno = rwin32.GetLastError_saved
+
+    # In tests, the first call to GetLastError is always wrong, because error
+    # is hidden by operations in ll2ctypes.  Call it now.
+    _WSAGetLastError()
 
     def socket_strerror_str(errno):
         return rwin32.FormatError(errno)
     def gai_strerror_str(errno):
         return rwin32.FormatError(errno)
+
+    # WinSock does not use a bitmask in select, and uses
+    # socket handles greater than FD_SETSIZE
+    MAX_FD_SIZE = None
+
 else:
-    from rpython.rlib.rposix import get_errno as geterrno
+    from rpython.rlib.rposix import get_saved_errno as geterrno
 
     socket_strerror_str = os.strerror
     def gai_strerror_str(errno):
         return rffi.charp2str(gai_strerror(errno))
+
+    MAX_FD_SIZE = FD_SETSIZE

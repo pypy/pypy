@@ -5,22 +5,24 @@ Note that the interface has to be slightly different - this is not
 a drop-in replacement for the 'socket' module.
 """
 
-# Known missing features:
-#
-#   - address families other than AF_INET, AF_INET6, AF_UNIX, AF_PACKET
-#   - AF_PACKET is only supported on Linux
-#   - methods makefile(),
-#   - SSL
-#
-# It's unclear if makefile() and SSL support belong here or only as
-# app-level code for PyPy.
+# XXX this does not support yet the least common AF_xxx address families
+# supported by CPython.  See http://bugs.pypy.org/issue1942
 
+from errno import EINVAL
+from rpython.rlib import _rsocket_rffi as _c, jit, rgc
 from rpython.rlib.objectmodel import instantiate, keepalive_until_here
-from rpython.rlib import _rsocket_rffi as _c
 from rpython.rlib.rarithmetic import intmask, r_uint
+from rpython.rlib import rthread, rposix
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.rffi import sizeof, offsetof
+from rpython.rtyper.extregistry import ExtRegistryEntry
+
+
+# Usage of @jit.dont_look_inside in this file is possibly temporary
+# and only because some lltypes declared in _rsocket_rffi choke the
+# JIT's codewriter right now (notably, FixedSizeArray).
 INVALID_SOCKET = _c.INVALID_SOCKET
+
 
 def mallocbuf(buffersize):
     return lltype.malloc(rffi.CCHARP.TO, buffersize, flavor='raw')
@@ -33,15 +35,18 @@ if _c.WIN32:
     from rpython.rlib import rwin32
     def rsocket_startup():
         wsadata = lltype.malloc(_c.WSAData, flavor='raw', zero=True)
-        res = _c.WSAStartup(1, wsadata)
-        lltype.free(wsadata, flavor='raw')
-        assert res == 0
+        try:
+            res = _c.WSAStartup(0x0101, wsadata)
+            assert res == 0
+        finally:
+            lltype.free(wsadata, flavor='raw')
 else:
     def rsocket_startup():
         pass
 
 
 def ntohs(x):
+    assert isinstance(x, int)
     return rffi.cast(lltype.Signed, _c.ntohs(x))
 
 def ntohl(x):
@@ -49,6 +54,7 @@ def ntohl(x):
     return rffi.cast(lltype.Unsigned, _c.ntohl(x))
 
 def htons(x):
+    assert isinstance(x, int)
     return rffi.cast(lltype.Signed, _c.htons(x))
 
 def htonl(x):
@@ -78,6 +84,7 @@ class Address(object):
         self.addr_p = addr
         self.addrlen = addrlen
 
+    @rgc.must_be_light_finalizer
     def __del__(self):
         if self.addr_p:
             lltype.free(self.addr_p, flavor='raw', track_allocation=False)
@@ -187,30 +194,55 @@ if HAS_AF_PACKET:
         family = AF_PACKET
         struct = _c.sockaddr_ll
         maxlen = minlen = sizeof(struct)
+        ifr_name_size = _c.ifreq.c_ifr_name.length
+        sll_addr_size = _c.sockaddr_ll.c_sll_addr.length
+
+        def __init__(self, ifindex, protocol, pkttype=0, hatype=0, haddr=""):
+            addr = lltype.malloc(_c.sockaddr_ll, flavor='raw', zero=True,
+                                 track_allocation=False)
+            self.setdata(addr, PacketAddress.maxlen)
+            rffi.setintfield(addr, 'c_sll_family', AF_PACKET)
+            rffi.setintfield(addr, 'c_sll_protocol', htons(protocol))
+            rffi.setintfield(addr, 'c_sll_ifindex', ifindex)
+            rffi.setintfield(addr, 'c_sll_pkttype', pkttype)
+            rffi.setintfield(addr, 'c_sll_hatype', hatype)
+            halen = rffi.str2chararray(haddr,
+                                       rffi.cast(rffi.CCHARP, addr.c_sll_addr),
+                                       PacketAddress.sll_addr_size)
+            rffi.setintfield(addr, 'c_sll_halen', halen)
+
+        @staticmethod
+        def get_ifindex_from_ifname(fd, ifname):
+            p = lltype.malloc(_c.ifreq, flavor='raw')
+            iflen = rffi.str2chararray(ifname,
+                                       rffi.cast(rffi.CCHARP, p.c_ifr_name),
+                                       PacketAddress.ifr_name_size - 1)
+            p.c_ifr_name[iflen] = '\0'
+            err = _c.ioctl(fd, _c.SIOCGIFINDEX, p)
+            ifindex = p.c_ifr_ifindex
+            lltype.free(p, flavor='raw')
+            if err != 0:
+                raise RSocketError("invalid interface name")
+            return ifindex
 
         def get_ifname(self, fd):
+            ifname = ""
             a = self.lock(_c.sockaddr_ll)
-            p = lltype.malloc(_c.ifreq, flavor='raw')
-            rffi.setintfield(p, 'c_ifr_ifindex',
-                             rffi.getintfield(a, 'c_sll_ifindex'))
-            if (_c.ioctl(fd, _c.SIOCGIFNAME, p) == 0):
-                # eh, the iface name is a constant length array
-                i = 0
-                d = []
-                while p.c_ifr_name[i] != '\x00' and i < len(p.c_ifr_name):
-                    d.append(p.c_ifr_name[i])
-                    i += 1
-                ifname = ''.join(d)
-            else:
-                ifname = ""
-            lltype.free(p, flavor='raw')
+            ifindex = rffi.getintfield(a, 'c_sll_ifindex')
+            if ifindex:
+                p = lltype.malloc(_c.ifreq, flavor='raw')
+                rffi.setintfield(p, 'c_ifr_ifindex', ifindex)
+                if (_c.ioctl(fd, _c.SIOCGIFNAME, p) == 0):
+                    ifname = rffi.charp2strn(
+                        rffi.cast(rffi.CCHARP, p.c_ifr_name),
+                        PacketAddress.ifr_name_size)
+                lltype.free(p, flavor='raw')
             self.unlock()
             return ifname
 
         def get_protocol(self):
             a = self.lock(_c.sockaddr_ll)
             proto = rffi.getintfield(a, 'c_sll_protocol')
-            proto = rffi.cast(rffi.USHORT, proto)
             res = ntohs(proto)
             self.unlock()
             return res
@@ -223,11 +255,11 @@ if HAS_AF_PACKET:
 
         def get_hatype(self):
             a = self.lock(_c.sockaddr_ll)
-            res = bool(rffi.getintfield(a, 'c_sll_hatype'))
+            res = rffi.getintfield(a, 'c_sll_hatype')
             self.unlock()
             return res
 
-        def get_addr(self):
+        def get_haddr(self):
             a = self.lock(_c.sockaddr_ll)
             lgt = rffi.getintfield(a, 'c_sll_halen')
             d = []
@@ -246,7 +278,6 @@ class INETAddress(IPAddress):
     def __init__(self, host, port):
         makeipaddr(host, self)
         a = self.lock(_c.sockaddr_in)
-        port = rffi.cast(rffi.USHORT, port)
         rffi.setintfield(a, 'c_sin_port', htons(port))
         self.unlock()
 
@@ -258,7 +289,7 @@ class INETAddress(IPAddress):
 
     def get_port(self):
         a = self.lock(_c.sockaddr_in)
-        port = ntohs(a.c_sin_port)
+        port = ntohs(rffi.getintfield(a, 'c_sin_port'))
         self.unlock()
         return port
 
@@ -311,7 +342,7 @@ class INET6Address(IPAddress):
 
     def get_port(self):
         a = self.lock(_c.sockaddr_in6)
-        port = ntohs(a.c_sin6_port)
+        port = ntohs(rffi.getintfield(a, 'c_sin6_port'))
         self.unlock()
         return port
 
@@ -485,15 +516,35 @@ def make_null_address(family):
 class RSocket(object):
     """RPython-level socket object.
     """
-    _mixin_ = True        # for interp_socket.py
     fd = _c.INVALID_SOCKET
+    family = 0
+    type = 0
+    proto = 0
+    timeout = -1.0
+
     def __init__(self, family=AF_INET, type=SOCK_STREAM, proto=0,
-                 fd=_c.INVALID_SOCKET):
+                 fd=_c.INVALID_SOCKET, inheritable=True):
         """Create a new socket."""
         if _c.invalid_socket(fd):
-            fd = _c.socket(family, type, proto)
-        if _c.invalid_socket(fd):
-            raise self.error_handler()
+            if not inheritable and 'SOCK_CLOEXEC' in constants:
+                # Non-inheritable: we try to call socket() with
+                # SOCK_CLOEXEC, which may fail.  If we get EINVAL,
+                # then we fall back to the SOCK_CLOEXEC-less case.
+                fd = _c.socket(family, type | SOCK_CLOEXEC, proto)
+                if fd < 0:
+                    if _c.geterrno() == EINVAL:
+                        # Linux older than 2.6.27 does not support
+                        # SOCK_CLOEXEC.  An EINVAL might be caused by
+                        # random other things, though.  Don't cache.
+                        pass
+                    else:
+                        raise self.error_handler()
+            if _c.invalid_socket(fd):
+                fd = _c.socket(family, type, proto)
+                if _c.invalid_socket(fd):
+                    raise self.error_handler()
+                if not inheritable:
+                    sock_set_inheritable(fd, False)
         # PLAT RISCOS
         self.fd = fd
         self.family = family
@@ -501,11 +552,17 @@ class RSocket(object):
         self.proto = proto
         self.timeout = defaults.timeout
 
+    @staticmethod
+    def empty_rsocket():
+        rsocket = instantiate(RSocket)
+        return rsocket
+
+    @rgc.must_be_light_finalizer
     def __del__(self):
         fd = self.fd
         if fd != _c.INVALID_SOCKET:
             self.fd = _c.INVALID_SOCKET
-            _c.socketclose(fd)
+            _c.socketclose_no_errno(fd)
 
     if hasattr(_c, 'fcntl'):
         def _setblocking(self, block):
@@ -589,20 +646,34 @@ class RSocket(object):
         addrlen_p[0] = rffi.cast(_c.socklen_t, maxlen)
         return addr, addr.addr_p, addrlen_p
 
-    def accept(self):
+    @jit.dont_look_inside
+    def accept(self, inheritable=True):
         """Wait for an incoming connection.
         Return (new socket fd, client address)."""
         if self._select(False) == 1:
             raise SocketTimeout
         address, addr_p, addrlen_p = self._addrbuf()
         try:
-            newfd = _c.socketaccept(self.fd, addr_p, addrlen_p)
+            remove_inheritable = not inheritable
+            if (not inheritable and 'SOCK_CLOEXEC' in constants
+                    and _c.HAVE_ACCEPT4
+                    and _accept4_syscall.attempt_syscall()):
+                newfd = _c.socketaccept4(self.fd, addr_p, addrlen_p,
+                                         SOCK_CLOEXEC)
+                if _accept4_syscall.fallback(newfd):
+                    newfd = _c.socketaccept(self.fd, addr_p, addrlen_p)
+                else:
+                    remove_inheritable = False
+            else:
+                newfd = _c.socketaccept(self.fd, addr_p, addrlen_p)
             addrlen = addrlen_p[0]
         finally:
             lltype.free(addrlen_p, flavor='raw')
             address.unlock()
         if _c.invalid_socket(newfd):
             raise self.error_handler()
+        if remove_inheritable:
+            sock_set_inheritable(newfd, False)
         address.addrlen = rffi.cast(lltype.Signed, addrlen)
         return (newfd, address)
 
@@ -721,6 +792,7 @@ class RSocket(object):
             return make_socket(fd, self.family, self.type, self.proto,
                                SocketClass=SocketClass)
 
+    @jit.dont_look_inside
     def getpeername(self):
         """Return the address of the remote endpoint."""
         address, addr_p, addrlen_p = self._addrbuf()
@@ -735,6 +807,7 @@ class RSocket(object):
         address.addrlen = rffi.cast(lltype.Signed, addrlen)
         return address
 
+    @jit.dont_look_inside
     def getsockname(self):
         """Return the address of the local endpoint."""
         address, addr_p, addrlen_p = self._addrbuf()
@@ -749,6 +822,7 @@ class RSocket(object):
         address.addrlen = rffi.cast(lltype.Signed, addrlen)
         return address
 
+    @jit.dont_look_inside
     def getsockopt(self, level, option, maxlen):
         buf = mallocbuf(maxlen)
         try:
@@ -768,6 +842,7 @@ class RSocket(object):
             lltype.free(buf, flavor='raw')
         return result
 
+    @jit.dont_look_inside
     def getsockopt_int(self, level, option):
         flag_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
         try:
@@ -801,72 +876,97 @@ class RSocket(object):
         if res < 0:
             raise self.error_handler()
 
+    def wait_for_data(self, for_writing):
+        timeout = self._select(for_writing)
+        if timeout != 0:
+            if timeout == 1:
+                raise SocketTimeout
+            else:
+                raise self.error_handler()
+
     def recv(self, buffersize, flags=0):
         """Receive up to buffersize bytes from the socket.  For the optional
         flags argument, see the Unix manual.  When no data is available, block
         until at least one byte is available or until the remote end is closed.
         When the remote end is closed and all data is read, return the empty
         string."""
-        timeout = self._select(False)
-        if timeout == 1:
-            raise SocketTimeout
-        elif timeout == 0:
-            raw_buf, gc_buf = rffi.alloc_buffer(buffersize)
-            try:
-                read_bytes = _c.socketrecv(self.fd, raw_buf, buffersize, flags)
-                if read_bytes >= 0:
-                    return rffi.str_from_buffer(raw_buf, gc_buf, buffersize, read_bytes)
-            finally:
-                rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
+        self.wait_for_data(False)
+        with rffi.scoped_alloc_buffer(buffersize) as buf:
+            read_bytes = _c.socketrecv(self.fd, buf.raw, buffersize, flags)
+            if read_bytes >= 0:
+                return buf.str(read_bytes)
         raise self.error_handler()
 
     def recvinto(self, rwbuffer, nbytes, flags=0):
-        buf = self.recv(nbytes, flags)
-        rwbuffer.setslice(0, buf)
-        return len(buf)
+        try:
+            rwbuffer.get_raw_address()
+        except ValueError:
+            buf = self.recv(nbytes, flags)
+            rwbuffer.setslice(0, buf)
+            return len(buf)
+        else:
+            self.wait_for_data(False)
+            raw = rwbuffer.get_raw_address()
+            read_bytes = _c.socketrecv(self.fd, raw, nbytes, flags)
+            keepalive_until_here(rwbuffer)
+            if read_bytes >= 0:
+                return read_bytes
+            raise self.error_handler()
 
+    @jit.dont_look_inside
     def recvfrom(self, buffersize, flags=0):
         """Like recv(buffersize, flags) but also return the sender's
         address."""
-        read_bytes = -1
-        timeout = self._select(False)
-        if timeout == 1:
-            raise SocketTimeout
-        elif timeout == 0:
-            raw_buf, gc_buf = rffi.alloc_buffer(buffersize)
+        self.wait_for_data(False)
+        with rffi.scoped_alloc_buffer(buffersize) as buf:
+            address, addr_p, addrlen_p = self._addrbuf()
             try:
-                address, addr_p, addrlen_p = self._addrbuf()
-                try:
-                    read_bytes = _c.recvfrom(self.fd, raw_buf, buffersize, flags,
-                                             addr_p, addrlen_p)
-                    addrlen = rffi.cast(lltype.Signed, addrlen_p[0])
-                finally:
-                    lltype.free(addrlen_p, flavor='raw')
-                    address.unlock()
-                if read_bytes >= 0:
-                    if addrlen:
-                        address.addrlen = addrlen
-                    else:
-                        address = None
-                    data = rffi.str_from_buffer(raw_buf, gc_buf, buffersize, read_bytes)
-                    return (data, address)
+                read_bytes = _c.recvfrom(self.fd, buf.raw, buffersize, flags,
+                                         addr_p, addrlen_p)
+                addrlen = rffi.cast(lltype.Signed, addrlen_p[0])
             finally:
-                rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
+                lltype.free(addrlen_p, flavor='raw')
+                address.unlock()
+            if read_bytes >= 0:
+                if addrlen:
+                    address.addrlen = addrlen
+                else:
+                    address = None
+                data = buf.str(read_bytes)
+                return (data, address)
         raise self.error_handler()
 
     def recvfrom_into(self, rwbuffer, nbytes, flags=0):
-        buf, addr = self.recvfrom(nbytes, flags)
-        rwbuffer.setslice(0, buf)
-        return len(buf), addr
+        try:
+            rwbuffer.get_raw_address()
+        except ValueError:
+            buf, addr = self.recvfrom(nbytes, flags)
+            rwbuffer.setslice(0, buf)
+            return len(buf), addr
+        else:
+            self.wait_for_data(False)
+            address, addr_p, addrlen_p = self._addrbuf()
+            try:
+                raw = rwbuffer.get_raw_address()
+                read_bytes = _c.recvfrom(self.fd, raw, nbytes, flags,
+                                         addr_p, addrlen_p)
+                keepalive_until_here(rwbuffer)
+                addrlen = rffi.cast(lltype.Signed, addrlen_p[0])
+            finally:
+                lltype.free(addrlen_p, flavor='raw')
+                address.unlock()
+            if read_bytes >= 0:
+                if addrlen:
+                    address.addrlen = addrlen
+                else:
+                    address = None
+                return (read_bytes, address)
+            raise self.error_handler()
 
     def send_raw(self, dataptr, length, flags=0):
         """Send data from a CCHARP buffer."""
-        res = -1
-        timeout = self._select(True)
-        if timeout == 1:
-            raise SocketTimeout
-        elif timeout == 0:
-            res = _c.send(self.fd, dataptr, length, flags)
+        self.wait_for_data(True)
+        res = _c.send(self.fd, dataptr, length, flags)
         if res < 0:
             raise self.error_handler()
         return res
@@ -875,19 +975,15 @@ class RSocket(object):
         """Send a data string to the socket.  For the optional flags
         argument, see the Unix manual.  Return the number of bytes
         sent; this may be less than len(data) if the network is busy."""
-        dataptr = rffi.get_nonmovingbuffer(data)
-        try:
+        with rffi.scoped_nonmovingbuffer(data) as dataptr:
             return self.send_raw(dataptr, len(data), flags)
-        finally:
-            rffi.free_nonmovingbuffer(data, dataptr)
 
     def sendall(self, data, flags=0, signal_checker=None):
         """Send a data string to the socket.  For the optional flags
         argument, see the Unix manual.  This calls send() repeatedly
         until all data is sent.  If an error occurs, it's impossible
         to tell how much data has been sent."""
-        dataptr = rffi.get_nonmovingbuffer(data)
-        try:
+        with rffi.scoped_nonmovingbuffer(data) as dataptr:
             remaining = len(data)
             p = dataptr
             while remaining > 0:
@@ -895,26 +991,20 @@ class RSocket(object):
                     res = self.send_raw(p, remaining, flags)
                     p = rffi.ptradd(p, res)
                     remaining -= res
-                except CSocketError, e:
+                except CSocketError as e:
                     if e.errno != _c.EINTR:
                         raise
                 if signal_checker is not None:
                     signal_checker()
-        finally:
-            rffi.free_nonmovingbuffer(data, dataptr)
 
     def sendto(self, data, flags, address):
         """Like send(data, flags) but allows specifying the destination
         address.  (Note that 'flags' is mandatory here.)"""
-        res = -1
-        timeout = self._select(True)
-        if timeout == 1:
-            raise SocketTimeout
-        elif timeout == 0:
-            addr = address.lock()
-            res = _c.sendto(self.fd, data, len(data), flags,
-                            addr, address.addrlen)
-            address.unlock()
+        self.wait_for_data(True)
+        addr = address.lock()
+        res = _c.sendto(self.fd, data, len(data), flags,
+                        addr, address.addrlen)
+        address.unlock()
         if res < 0:
             raise self.error_handler()
         return res
@@ -972,6 +1062,33 @@ def make_socket(fd, family, type, proto, SocketClass=RSocket):
     return result
 make_socket._annspecialcase_ = 'specialize:arg(4)'
 
+if _c.WIN32:
+    def sock_set_inheritable(fd, inheritable):
+        handle = rffi.cast(rwin32.HANDLE, fd)
+        try:
+            rwin32.set_handle_inheritable(handle, inheritable)
+        except WindowsError:
+            raise RSocketError("SetHandleInformation failed")   # xxx
+
+    def sock_get_inheritable(fd):
+        handle = rffi.cast(rwin32.HANDLE, fd)
+        try:
+            return rwin32.get_handle_inheritable(handle)
+        except WindowsError:
+            raise RSocketError("GetHandleInformation failed")   # xxx
+else:
+    def sock_set_inheritable(fd, inheritable):
+        try:
+            rposix.set_inheritable(fd, inheritable)
+        except OSError as e:
+            raise CSocketError(e.errno)
+
+    def sock_get_inheritable(fd):
+        try:
+            return rposix.get_inheritable(fd)
+        except OSError as e:
+            raise CSocketError(e.errno)
+
 class SocketError(Exception):
     applevelerrcls = 'error'
     def __init__(self):
@@ -995,12 +1112,8 @@ class CSocketError(SocketErrorWithErrno):
     def get_msg(self):
         return _c.socket_strerror_str(self.errno)
 
-if _c.WIN32:
-    def last_error():
-        return CSocketError(rwin32.GetLastError())
-else:
-    def last_error():
-        return CSocketError(_c.geterrno())
+def last_error():
+    return CSocketError(_c.geterrno())
 
 class GAIError(SocketErrorWithErrno):
     applevelerrcls = 'gaierror'
@@ -1034,7 +1147,7 @@ else:
 
 if hasattr(_c, 'socketpair'):
     def socketpair(family=socketpair_default_family, type=SOCK_STREAM, proto=0,
-                   SocketClass=RSocket):
+                   SocketClass=RSocket, inheritable=True):
         """socketpair([family[, type[, proto]]]) -> (socket object, socket object)
 
         Create a pair of socket objects from the sockets returned by the platform
@@ -1043,17 +1156,42 @@ if hasattr(_c, 'socketpair'):
         AF_UNIX if defined on the platform; otherwise, the default is AF_INET.
         """
         result = lltype.malloc(_c.socketpair_t, 2, flavor='raw')
-        res = _c.socketpair(family, type, proto, result)
-        if res < 0:
-            raise last_error()
-        fd0 = rffi.cast(lltype.Signed, result[0])
-        fd1 = rffi.cast(lltype.Signed, result[1])
-        lltype.free(result, flavor='raw')
+        try:
+            res = -1
+            remove_inheritable = not inheritable
+            if not inheritable and 'SOCK_CLOEXEC' in constants:
+                # Non-inheritable: we try to call socketpair() with
+                # SOCK_CLOEXEC, which may fail.  If we get EINVAL,
+                # then we fall back to the SOCK_CLOEXEC-less case.
+                res = _c.socketpair(family, type | SOCK_CLOEXEC,
+                                    proto, result)
+                if res < 0:
+                    if _c.geterrno() == EINVAL:
+                        # Linux older than 2.6.27 does not support
+                        # SOCK_CLOEXEC.  An EINVAL might be caused by
+                        # random other things, though.  Don't cache.
+                        pass
+                    else:
+                        raise last_error()
+                else:
+                    remove_inheritable = False
+            #
+            if res < 0:
+                res = _c.socketpair(family, type, proto, result)
+                if res < 0:
+                    raise last_error()
+            fd0 = rffi.cast(lltype.Signed, result[0])
+            fd1 = rffi.cast(lltype.Signed, result[1])
+        finally:
+            lltype.free(result, flavor='raw')
+        if remove_inheritable:
+            sock_set_inheritable(fd0, False)
+            sock_set_inheritable(fd1, False)
         return (make_socket(fd0, family, type, proto, SocketClass),
                 make_socket(fd1, family, type, proto, SocketClass))
 
 if _c.WIN32:
-    def dup(fd):
+    def dup(fd, inheritable=True):
         with lltype.scoped_alloc(_c.WSAPROTOCOL_INFO, zero=True) as info:
             if _c.WSADuplicateSocket(fd, rwin32.GetCurrentProcessId(), info):
                 raise last_error()
@@ -1064,15 +1202,16 @@ if _c.WIN32:
                 raise last_error()
             return result
 else:
-    def dup(fd):
-        return _c.dup(fd)
-
-    def fromfd(fd, family, type, proto=0, SocketClass=RSocket):
-        # Dup the fd so it and the socket can be closed independently
-        fd = _c.dup(fd)
+    def dup(fd, inheritable=True):
+        fd = rposix._dup(fd, inheritable)
         if fd < 0:
             raise last_error()
-        return make_socket(fd, family, type, proto, SocketClass)
+        return fd
+
+def fromfd(fd, family, type, proto=0, SocketClass=RSocket, inheritable=True):
+    # Dup the fd so it and the socket can be closed independently
+    fd = dup(fd, inheritable=inheritable)
+    return make_socket(fd, family, type, proto, SocketClass)
 
 def getdefaulttimeout():
     return defaults.timeout
@@ -1127,30 +1266,62 @@ def gethost_common(hostname, hostent, addr=None):
     return (rffi.charp2str(hostent.c_h_name), aliases, address_list)
 
 def gethostbyname_ex(name):
-    # XXX use gethostbyname_r() if available, and/or use locks if not
+    # XXX use gethostbyname_r() if available instead of locks
     addr = gethostbyname(name)
-    hostent = _c.gethostbyname(name)
-    return gethost_common(name, hostent, addr)
+    with _get_netdb_lock():
+        hostent = _c.gethostbyname(name)
+        return gethost_common(name, hostent, addr)
 
 def gethostbyaddr(ip):
-    # XXX use gethostbyaddr_r() if available, and/or use locks if not
+    # XXX use gethostbyaddr_r() if available, instead of locks
     addr = makeipaddr(ip)
     assert isinstance(addr, IPAddress)
-    p, size = addr.lock_in_addr()
-    try:
-        hostent = _c.gethostbyaddr(p, size, addr.family)
-    finally:
-        addr.unlock()
-    return gethost_common(ip, hostent, addr)
+    with _get_netdb_lock():
+        p, size = addr.lock_in_addr()
+        try:
+            hostent = _c.gethostbyaddr(p, size, addr.family)
+        finally:
+            addr.unlock()
+        return gethost_common(ip, hostent, addr)
+
+# RPython magic to make _netdb_lock turn either into a regular
+# rthread.Lock or a rthread.DummyLock, depending on the config
+def _get_netdb_lock():
+    return rthread.dummy_lock
+
+class _Entry(ExtRegistryEntry):
+    _about_ = _get_netdb_lock
+
+    def compute_annotation(self):
+        config = self.bookkeeper.annotator.translator.config
+        if config.translation.thread:
+            fn = _get_netdb_lock_thread
+        else:
+            fn = _get_netdb_lock_nothread
+        return self.bookkeeper.immutablevalue(fn)
+
+def _get_netdb_lock_nothread():
+    return rthread.dummy_lock
+
+class _LockCache(object):
+    lock = None
+_lock_cache = _LockCache()
+
+@jit.elidable
+def _get_netdb_lock_thread():
+    if _lock_cache.lock is None:
+        _lock_cache.lock = rthread.allocate_lock()
+    return _lock_cache.lock
+# done RPython magic
 
 def getaddrinfo(host, port_or_service,
                 family=AF_UNSPEC, socktype=0, proto=0, flags=0,
                 address_to_fill=None):
     # port_or_service is a string, not an int (but try str(port_number)).
     assert port_or_service is None or isinstance(port_or_service, str)
-    if _c._MACOSX:
-        if port_or_service is None or port_or_service == '0':
-            port_or_service = '00'
+    if _c._MACOSX and flags & AI_NUMERICSERV and \
+            (port_or_service is None or port_or_service == '0'):
+        port_or_service = '00'
     hints = lltype.malloc(_c.addrinfo, flavor='raw', zero=True)
     rffi.setintfield(hints, 'c_ai_family',   family)
     rffi.setintfield(hints, 'c_ai_socktype', socktype)
@@ -1190,13 +1361,13 @@ def getservbyname(name, proto=None):
     servent = _c.getservbyname(name, proto)
     if not servent:
         raise RSocketError("service/proto not found")
-    port = rffi.cast(rffi.UINT, servent.c_s_port)
+    port = rffi.getintfield(servent, 'c_s_port')
     return ntohs(port)
 
 def getservbyport(port, proto=None):
     # This function is only called from pypy/module/_socket and the range of
     # port is checked there
-    port = rffi.cast(rffi.USHORT, port)
+    assert isinstance(port, int)
     servent = _c.getservbyport(htons(port), proto)
     if not servent:
         raise RSocketError("port/proto not found")
@@ -1302,20 +1473,20 @@ if hasattr(_c, 'inet_ntop'):
             raise RSocketError("unknown address family")
         if len(packed) != srcsize:
             raise ValueError("packed IP wrong length for inet_ntop")
-        srcbuf = rffi.get_nonmovingbuffer(packed)
-        try:
+        with rffi.scoped_nonmovingbuffer(packed) as srcbuf:
             dstbuf = mallocbuf(dstsize)
             try:
-                res = _c.inet_ntop(family, srcbuf, dstbuf, dstsize)
+                res = _c.inet_ntop(family, rffi.cast(rffi.VOIDP, srcbuf),
+                                   dstbuf, dstsize)
                 if not res:
                     raise last_error()
                 return rffi.charp2str(res)
             finally:
                 lltype.free(dstbuf, flavor='raw')
-        finally:
-            rffi.free_nonmovingbuffer(packed, srcbuf)
 
 def setdefaulttimeout(timeout):
     if timeout < 0.0:
         timeout = -1.0
     defaults.timeout = timeout
+
+_accept4_syscall = rposix.ENoSysCache()

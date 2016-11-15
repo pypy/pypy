@@ -1,14 +1,14 @@
 import sys
 
 from rpython.flowspace.model import (Variable, Constant, Block, Link,
-    SpaceOperation, c_last_exception, FunctionGraph, mkentrymap)
+    SpaceOperation, FunctionGraph, mkentrymap)
 from rpython.rtyper.lltypesystem.lltype import Bool, Signed, typeOf, Void, Ptr, normalizeptr
 from rpython.tool.algo import sparsemat
 from rpython.translator.backendopt import removenoops
 from rpython.translator.backendopt.canraise import RaiseAnalyzer
 from rpython.translator.backendopt.support import log, find_loop_blocks
 from rpython.translator.simplify import join_blocks, cleanup_graph, get_graph
-from rpython.translator.unsimplify import copyvar, split_block
+from rpython.translator.unsimplify import split_block
 
 
 class CannotInline(Exception):
@@ -112,7 +112,7 @@ def does_raise_directly(graph, raise_analyzer):
     for block in graph.iterblocks():
         if block is graph.exceptblock:
             return True      # the except block is reachable
-        if block.exitswitch == c_last_exception:
+        if block.canraise:
             consider_ops_to = -1
         else:
             consider_ops_to = len(block.operations)
@@ -132,7 +132,7 @@ def any_call_to_raising_graphs(from_graph, translator, raise_analyzer):
         else:
             return True # conservatively
     for block in from_graph.iterblocks():
-        if block.exitswitch == c_last_exception:
+        if block.canraise:
             consider_ops_to = -1
         else:
             consider_ops_to = len(block.operations)
@@ -196,8 +196,7 @@ class BaseInliner(object):
         self.op = block.operations[index_operation]
         self.graph_to_inline = self.get_graph_from_op(self.op)
         self.exception_guarded = False
-        if (block.exitswitch == c_last_exception and
-            index_operation == len(block.operations) - 1):
+        if self.op is block.raising_op:
             self.exception_guarded = True
             if self.inline_guarded_calls:
                 if (not self.inline_guarded_calls_no_matter_what and
@@ -236,14 +235,13 @@ class BaseInliner(object):
         if isinstance(var, Constant):
             return var
         if var not in self.varmap:
-            self.varmap[var] = copyvar(None, var)
+            self.varmap[var] = var.copy()
         return self.varmap[var]
 
     def passon_vars(self, cache_key):
         if cache_key in self._passon_vars:
             return self._passon_vars[cache_key]
-        result = [copyvar(None, var)
-                      for var in self.original_passon_vars]
+        result = [var.copy() for var in self.original_passon_vars]
         self._passon_vars[cache_key] = result
         return result
 
@@ -328,7 +326,7 @@ class BaseInliner(object):
     def rewire_exceptblock_with_guard(self, afterblock, copiedexceptblock):
         # this rewiring does not always succeed. in the cases where it doesn't
         # there will be generic code inserted
-        from rpython.rtyper.lltypesystem import rclass
+        from rpython.rtyper import rclass
         excdata = self.translator.rtyper.exceptiondata
         exc_match = excdata.fn_exception_match
         for link in self.entrymap[self.graph_to_inline.exceptblock]:
@@ -362,8 +360,8 @@ class BaseInliner(object):
         exc_match.concretetype = typeOf(exc_match.value)
         blocks = []
         for i, link in enumerate(afterblock.exits[1:]):
-            etype = copyvar(None, copiedexceptblock.inputargs[0])
-            evalue = copyvar(None, copiedexceptblock.inputargs[1])
+            etype = copiedexceptblock.inputargs[0].copy()
+            evalue = copiedexceptblock.inputargs[1].copy()
             passon_vars = self.passon_vars(i)
             block = Block([etype, evalue] + passon_vars)
             res = Variable()
@@ -397,7 +395,7 @@ class BaseInliner(object):
         copiedexceptblock.recloseblock(Link(linkargs, blocks[0]))
 
     def do_inline(self, block, index_operation):
-        splitlink = split_block(None, block, index_operation)
+        splitlink = split_block(block, index_operation)
         afterblock = splitlink.target
         # these variables have to be passed along all the links in the inlined
         # graph because the original function needs them in the blocks after
@@ -479,6 +477,7 @@ OP_WEIGHTS = {'same_as': 0,
               'malloc': 2,
               'instrument_count': 0,
               'debug_assert': -1,
+              'jit_force_virtualizable': 0,
               }
 
 def block_weight(block, weights=OP_WEIGHTS):
@@ -533,8 +532,7 @@ def measure_median_execution_cost(graph):
         return sys.maxint
     else:
         res = Solution[blockmap[graph.startblock]]
-        assert res >= 0
-        return res
+        return max(res, 0.0)
 
 def static_instruction_count(graph):
     count = 0
@@ -680,7 +678,7 @@ def auto_inlining(translator, threshold=None,
                                            call_count_pred, cleanup=False)
                 to_cleanup[parentgraph] = True
                 res = bool(subcount)
-            except CannotInline, e:
+            except CannotInline as e:
                 try_again[graph] = str(e)
                 res = CannotInline
             if res is True:

@@ -1,6 +1,6 @@
 """
 This file defines utilities for manipulating the stack in an
-RPython-compliant way, intended mostly for use by the Stackless PyPy.
+RPython-compliant way.  It is mainly about the stack_check() function.
 """
 
 import py
@@ -10,18 +10,11 @@ from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib import rgc
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.conftest import cdir
-from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 # ____________________________________________________________
 
-srcdir = py.path.local(cdir) / 'src'
-compilation_info = ExternalCompilationInfo(
-        includes=['src/stack.h'],
-        separate_module_files=[srcdir / 'stack.c', srcdir / 'threadlocal.c'])
-
 def llexternal(name, args, res, _callable=None):
-    return rffi.llexternal(name, args, res, compilation_info=compilation_info,
+    return rffi.llexternal(name, args, res,
                            sandboxsafe=True, _nowrapper=True,
                            _callable=_callable)
 

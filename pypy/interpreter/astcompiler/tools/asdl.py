@@ -96,7 +96,7 @@ class ASDLScanner(spark.GenericScanner, object):
 
     def t_default(self, s):
         r" . +"
-        raise ValueError, "unmatched input: %s" % `s`
+        raise ValueError("unmatched input: %s" % `s`)
 
 class ASDLParser(spark.GenericParser, object):
     def __init__(self):
@@ -302,16 +302,7 @@ class VisitorBase(object):
         meth = self._dispatch(object)
         if meth is None:
             return
-        try:
-            meth(object, *args)
-        except Exception, err:
-            print "Error visiting", repr(object)
-            print err
-            traceback.print_exc()
-            # XXX hack
-            if hasattr(self, 'file'):
-                self.file.flush()
-            os._exit(1)
+        meth(object, *args)
 
     def _dispatch(self, object):
         assert isinstance(object, AST), repr(object)
@@ -386,7 +377,7 @@ def parse(file):
     tokens = scanner.tokenize(buf)
     try:
         return parser.parse(tokens)
-    except ASDLSyntaxError, err:
+    except ASDLSyntaxError as err:
         print err
         lines = buf.split("\n")
         print lines[err.lineno - 1] # lines starts at 0, files at 1

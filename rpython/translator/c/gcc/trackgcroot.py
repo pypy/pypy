@@ -8,7 +8,7 @@ from rpython.translator.c.gcc.instruction import InsnFunctionStart, InsnStop
 from rpython.translator.c.gcc.instruction import InsnSetLocal, InsnCopyLocal
 from rpython.translator.c.gcc.instruction import InsnPrologue, InsnEpilogue
 from rpython.translator.c.gcc.instruction import InsnGCROOT, InsnCondJump
-from rpython.translator.c.gcc.instruction import InsnStackAdjust
+from rpython.translator.c.gcc.instruction import InsnStackAdjust, InsnPushed
 from rpython.translator.c.gcc.instruction import InsnCannotFollowEsp
 from rpython.translator.c.gcc.instruction import LocalVar, somenewvalue
 from rpython.translator.c.gcc.instruction import frameloc_esp, frameloc_ebp
@@ -296,10 +296,11 @@ class FunctionGcRootTracker(object):
 
         # trim: instructions with no framesize are removed from self.insns,
         # and from the 'previous_insns' lists
-        assert hasattr(self.insns[0], 'framesize')
-        old = self.insns[1:]
-        del self.insns[1:]
-        for insn in old:
+        if 0:    # <- XXX disabled because it seems bogus, investigate more
+          assert hasattr(self.insns[0], 'framesize')
+          old = self.insns[1:]
+          del self.insns[1:]
+          for insn in old:
             if hasattr(insn, 'framesize'):
                 self.insns.append(insn)
                 insn.previous_insns = [previnsn for previnsn in insn.previous_insns
@@ -422,6 +423,7 @@ class FunctionGcRootTracker(object):
                 # the original value for gcmaptable.s.  That's a hack.
                 self.lines.insert(call.lineno+1, '%s=.+%d\n' % (label,
                                                                 self.OFFSET_LABELS))
+                self.lines.insert(call.lineno+1, '\t.hidden\t%s\n' % (label,))
                 self.lines.insert(call.lineno+1, '\t.globl\t%s\n' % (label,))
         call.global_label = label
 
@@ -521,7 +523,13 @@ class FunctionGcRootTracker(object):
         # raw data, not GC pointers
         'movnt', 'mfence', 'lfence', 'sfence',
         # bit manipulations
-        'bextr',
+        'andn', 'bextr', 'blsi', 'blsmask', 'blsr', 'tzcnt', 'lzcnt',
+        # uh, this can occur with a 'call' on the following line...
+        'rex64',
+        # movbe, converts from big-endian, so most probably not GC pointers
+        'movbe',
+        # xchgb, byte-sized, so not GC pointers
+        'xchgb',
     ])
 
     # a partial list is hopefully good enough for now; it's all to support
@@ -584,13 +592,6 @@ class FunctionGcRootTracker(object):
             raise UnrecognizedOperation(line)
         else:
             return []
-
-    # The various cmov* operations
-    for name in '''
-        e ne g ge l le a ae b be p np s ns o no
-        '''.split():
-        locals()['visit_cmov' + name] = binary_insn
-        locals()['visit_cmov' + name + 'l'] = binary_insn
 
     def _visit_and(self, line):
         match = self.r_binaryinsn.match(line)
@@ -664,14 +665,22 @@ class FunctionGcRootTracker(object):
         match = self.r_unaryinsn.match(line)
         source = match.group(1)
         return self.insns_for_copy(source, self.TOP_OF_STACK_MINUS_WORD) + \
-               [InsnStackAdjust(-self.WORD)]
+               [InsnPushed(-self.WORD)]
 
     def _visit_pop(self, target):
         return [InsnStackAdjust(+self.WORD)] + \
                self.insns_for_copy(self.TOP_OF_STACK_MINUS_WORD, target)
 
     def _visit_prologue(self):
-        # for the prologue of functions that use %ebp as frame pointer
+        # For the prologue of functions that use %ebp as frame pointer.
+        # First, find the latest InsnStackAdjust; if it's not a PUSH,
+        # then consider that this 'mov %rsp, %rbp' is actually unrelated
+        i = -1
+        while not isinstance(self.insns[i], InsnStackAdjust):
+            i -= 1
+        if not isinstance(self.insns[i], InsnPushed):
+            return []
+        #
         self.uses_frame_pointer = True
         self.r_localvar = self.r_localvarfp
         return [InsnPrologue(self.WORD)]
@@ -692,6 +701,9 @@ class FunctionGcRootTracker(object):
         if line.split()[:2] == ['rep', 'ret']:
             return self.visit_ret(line)
         return []
+
+    def visit_ud2(self, line):
+        return InsnStop("ud2")    # unreachable instruction
 
     def visit_jmp(self, line):
         tablelabels = []
@@ -814,22 +826,18 @@ class FunctionGcRootTracker(object):
         return prefix + [InsnCondJump(label)] + postfix
 
     visit_jmpl = visit_jmp
-    visit_jg = conditional_jump
-    visit_jge = conditional_jump
-    visit_jl = conditional_jump
-    visit_jle = conditional_jump
-    visit_ja = conditional_jump
-    visit_jae = conditional_jump
-    visit_jb = conditional_jump
-    visit_jbe = conditional_jump
-    visit_jp = conditional_jump
-    visit_jnp = conditional_jump
-    visit_js = conditional_jump
-    visit_jns = conditional_jump
-    visit_jo = conditional_jump
-    visit_jno = conditional_jump
-    visit_jc = conditional_jump
-    visit_jnc = conditional_jump
+
+    # The various conditional jumps and cmov* operations
+    for name in '''
+        e g ge l le a ae b be p s o c
+        '''.split():
+        # NB. visit_je() and visit_jne() are overridden below
+        locals()['visit_j' + name] = conditional_jump
+        locals()['visit_jn' + name] = conditional_jump
+        locals()['visit_cmov' + name] = binary_insn
+        locals()['visit_cmov' + name + 'l'] = binary_insn
+        locals()['visit_cmovn' + name] = binary_insn
+        locals()['visit_cmovn' + name + 'l'] = binary_insn
 
     def visit_je(self, line):
         return self.conditional_jump(line, je=True)
@@ -846,12 +854,16 @@ class FunctionGcRootTracker(object):
         return []
 
     def _visit_xchg(self, line):
-        # only support the format used in VALGRIND_DISCARD_TRANSLATIONS
+        # support the format used in VALGRIND_DISCARD_TRANSLATIONS
         # which is to use a marker no-op "xchgl %ebx, %ebx"
         match = self.r_binaryinsn.match(line)
         source = match.group("source")
         target = match.group("target")
         if source == target:
+            return []
+        # ignore the 'rpy_fastgil' atomic exchange, or any locked
+        # atomic exchange at all (involving memory)
+        if not source.startswith('%'):
             return []
         raise UnrecognizedOperation(line)
 
@@ -913,6 +925,13 @@ class FunctionGcRootTracker(object):
             if lineoffset >= 0:
                 assert  lineoffset in (1,2)
                 return [InsnStackAdjust(-4)]
+
+        if target.startswith('__x86.get_pc_thunk.'):
+            # special case, found on x86-32: these static functions
+            # contain only a simple load of some non-GC pointer to
+            # a specific register (not necessarily EAX)
+            reg = '%e' + target.split('.')[-1]
+            return [InsnSetLocal(reg)]
 
         insns = [InsnCall(target, self.currentlineno),
                  InsnSetLocal(self.EAX)]      # the result is there
@@ -1062,6 +1081,7 @@ class FunctionGcRootTracker64(FunctionGcRootTracker):
     visit_leaq = FunctionGcRootTracker._visit_lea
 
     visit_xorq = FunctionGcRootTracker.binary_insn
+    visit_xchgl = FunctionGcRootTracker._visit_xchg
     visit_xchgq = FunctionGcRootTracker._visit_xchg
     visit_testq = FunctionGcRootTracker._visit_test
 
@@ -1110,7 +1130,7 @@ class ElfFunctionGcRootTracker32(FunctionGcRootTracker32):
     REG2LOC = dict((_reg, LOC_REG | ((_i+1)<<2))
                    for _i, _reg in enumerate(CALLEE_SAVE_REGISTERS))
     OPERAND = r'(?:[-\w$%+.:@"]+(?:[(][\w%,]+[)])?|[(][\w%,]+[)])'
-    LABEL   = r'([a-zA-Z_$.][a-zA-Z0-9_$@.]*)'
+    LABEL   = r'([a-zA-Z_$.][a-zA-Z0-9_$.]*)(?:@[@a-zA-Z0-9_$.]*)?'
     OFFSET_LABELS   = 2**30
     TOP_OF_STACK_MINUS_WORD = '-4(%esp)'
 
@@ -1172,7 +1192,7 @@ class ElfFunctionGcRootTracker64(FunctionGcRootTracker64):
     REG2LOC = dict((_reg, LOC_REG | ((_i+1)<<2))
                    for _i, _reg in enumerate(CALLEE_SAVE_REGISTERS))
     OPERAND = r'(?:[-\w$%+.:@"]+(?:[(][\w%,]+[)])?|[(][\w%,]+[)])'
-    LABEL   = r'([a-zA-Z_$.][a-zA-Z0-9_$@.]*)'
+    LABEL   = r'([a-zA-Z_$.][a-zA-Z0-9_$.]*)(?:@[@a-zA-Z0-9_$.]*)?'
     OFFSET_LABELS   = 2**30
     TOP_OF_STACK_MINUS_WORD = '-8(%rsp)'
 
@@ -1494,7 +1514,8 @@ class ElfAssemblerParser(AssemblerParser):
         functionlines = []
         in_function = False
         for line in iterlines:
-            if self.FunctionGcRootTracker.r_functionstart.match(line):
+            match = self.FunctionGcRootTracker.r_functionstart.match(line)
+            if match and not match.group(1).startswith('__x86.get_pc_thunk.'):
                 assert not in_function, (
                     "missed the end of the previous function")
                 yield False, functionlines
@@ -1507,6 +1528,9 @@ class ElfAssemblerParser(AssemblerParser):
                 yield True, functionlines
                 in_function = False
                 functionlines = []
+        if in_function and ".get_pc_thunk.bx" in functionlines[0]:
+            in_function = False     # xxx? ignore this rare unclosed stub at
+                                    # the end of the file
         assert not in_function, (
             "missed the end of the previous function")
         yield False, functionlines

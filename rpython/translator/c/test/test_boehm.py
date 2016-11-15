@@ -2,7 +2,7 @@ import weakref
 
 import py
 
-from rpython.rlib import rgc
+from rpython.rlib import rgc, debug
 from rpython.rlib.objectmodel import (keepalive_until_here, compute_unique_id,
     compute_hash, current_object_addr_as_int)
 from rpython.rtyper.lltypesystem import lltype, llmemory
@@ -23,6 +23,7 @@ def setup_module(mod):
 class AbstractGCTestClass(object):
     gcpolicy = "boehm"
     use_threads = False
+    extra_options = {}
 
     # deal with cleanups
     def setup_method(self, meth):
@@ -33,8 +34,10 @@ class AbstractGCTestClass(object):
             #print "CLEANUP"
             self._cleanups.pop()()
 
-    def getcompiled(self, func, argstypelist=[], annotatorpolicy=None):
-        return compile(func, argstypelist, gcpolicy=self.gcpolicy, thread=self.use_threads)
+    def getcompiled(self, func, argstypelist=[], annotatorpolicy=None,
+                    extra_options={}):
+        return compile(func, argstypelist, gcpolicy=self.gcpolicy,
+                       thread=self.use_threads, **extra_options)
 
 
 class TestUsingBoehm(AbstractGCTestClass):
@@ -336,22 +339,6 @@ class TestUsingBoehm(AbstractGCTestClass):
         c_fn = self.getcompiled(fn, [])
         assert not c_fn()
 
-    def test_malloc_nonmovable(self):
-        TP = lltype.GcArray(lltype.Char)
-        def func():
-            try:
-                a = rgc.malloc_nonmovable(TP, 3)
-                rgc.collect()
-                if a:
-                    assert not rgc.can_move(a)
-                    return 0
-                return 1
-            except Exception:
-                return 2
-
-        run = self.getcompiled(func)
-        assert run() == 0
-
     def test_shrink_array(self):
         def f():
             ptr = lltype.malloc(STR, 3)
@@ -405,3 +392,41 @@ class TestUsingBoehm(AbstractGCTestClass):
         assert res[2] != compute_hash(c)     # likely
         assert res[3] == compute_hash(d)
         assert res[4] == compute_hash(("Hi", None, (7.5, 2, d)))
+
+    def test_finalizer_queue(self):
+        class A(object):
+            def __init__(self, i):
+                self.i = i
+        class Glob:
+            triggered = 0
+        glob = Glob()
+        class FQ(rgc.FinalizerQueue):
+            Class = A
+            triggered = 0
+            def finalizer_trigger(self):
+                glob.triggered += 1
+        fq = FQ()
+        #
+        def fn():
+            for i in range(1000):
+                fq.register_finalizer(A(i))
+            rgc.collect()
+            rgc.collect()
+            if glob.triggered == 0:
+                print "not triggered!"
+                return 50
+            seen = {}
+            while True:
+                a = fq.next_dead()
+                if a is None:
+                    break
+                assert a.i not in seen
+                seen[a.i] = True
+            if len(seen) < 500:
+                print "seen only %d!" % len(seen)
+                return 51
+            return 42
+
+        f = self.getcompiled(fn)
+        res = f()
+        assert res == 42

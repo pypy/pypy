@@ -17,12 +17,15 @@ from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, intmask
 #
 # Helpers for simple cases
 
-def eci_from_header(c_header_source, include_dirs=None):
+def eci_from_header(c_header_source, include_dirs=None, libraries=None):
     if include_dirs is None:
         include_dirs = []
+    if libraries is None:
+        libraries = []
     return ExternalCompilationInfo(
         post_include_bits=[c_header_source],
-        include_dirs=include_dirs
+        include_dirs=include_dirs,
+        libraries=libraries,
     )
 
 def getstruct(name, c_header_source, interesting_fields):
@@ -75,9 +78,10 @@ def getintegerfunctionresult(function, args=None, c_header_source='', includes=[
         CConfig._compilation_info_.includes = includes
     return configure(CConfig)['RESULT']
 
-def has(name, c_header_source, include_dirs=None):
+def has(name, c_header_source, include_dirs=None, libraries=None):
     class CConfig:
-        _compilation_info_ = eci_from_header(c_header_source, include_dirs)
+        _compilation_info_ = \
+            eci_from_header(c_header_source, include_dirs, libraries)
         HAS = Has(name)
     return configure(CConfig)['HAS']
 
@@ -88,11 +92,11 @@ def verify_eci(eci):
         _compilation_info_ = eci
         WORKS = Works()
     configure(CConfig)
-    
+
 def checkcompiles(expression, c_header_source, include_dirs=None):
     """Check if expression compiles. If not, returns False"""
     return has(expression, c_header_source, include_dirs)
-    
+
 def sizeof(name, eci, **kwds):
     class CConfig:
         _compilation_info_ = eci
@@ -107,15 +111,18 @@ def memory_alignment():
     fields is properly aligned."""
     global _memory_alignment
     if _memory_alignment is None:
-        S = getstruct('struct memory_alignment_test', """
-           struct memory_alignment_test {
-               double d;
-               void* p;
-           };
-        """, [])
-        result = S._hints['align']
-        assert result & (result-1) == 0, "not a power of two??"
-        _memory_alignment = result
+        if sys.platform == 'win32':
+            _memory_alignment = 4
+        else:
+            S = getstruct('struct memory_alignment_test', """
+               struct memory_alignment_test {
+                   double d;
+                   void* p;
+               };
+            """, [])
+            result = S._hints['align']
+            assert result & (result-1) == 0, "not a power of two??"
+            _memory_alignment = result
     return _memory_alignment
 _memory_alignment = None
 
@@ -129,7 +136,7 @@ class ConfigResult:
         self.result = {}
         self.info = info
         self.entries = entries
-        
+
     def get_entry_result(self, entry):
         try:
             return self.result[entry]
@@ -213,7 +220,6 @@ def configure(CConfig, ignore_errors=False):
         for key, entry in entries:
             writer.write_entry(key, entry)
 
-        f = writer.f
         writer.start_main()
         for key, entry in entries:
             writer.write_entry_main(key)
@@ -257,10 +263,11 @@ class Struct(CConfigEntry):
     """An entry in a CConfig class that stands for an externally
     defined structure.
     """
-    def __init__(self, name, interesting_fields, ifdef=None):
+    def __init__(self, name, interesting_fields, ifdef=None, adtmeths={}):
         self.name = name
         self.interesting_fields = interesting_fields
         self.ifdef = ifdef
+        self.adtmeths = adtmeths
 
     def prepare_code(self):
         if self.ifdef is not None:
@@ -307,7 +314,9 @@ class Struct(CConfigEntry):
                 offset = info['fldofs '  + fieldname]
                 size   = info['fldsize ' + fieldname]
                 sign   = info.get('fldunsigned ' + fieldname, False)
-                if (size, sign) != rffi.size_and_sign(fieldtype):
+                if is_array_nolength(fieldtype):
+                    pass       # ignore size and sign
+                elif (size, sign) != rffi.size_and_sign(fieldtype):
                     fieldtype = fixup_ctype(fieldtype, fieldname, (size, sign))
                 layout_addfield(layout, offset, fieldtype, fieldname)
 
@@ -347,7 +356,7 @@ class Struct(CConfigEntry):
             name = name[7:]
         else:
             hints['typedef'] = True
-        kwds = {'hints': hints}
+        kwds = {'hints': hints, 'adtmeths': self.adtmeths}
         return rffi.CStruct(name, *fields, **kwds)
 
 class SimpleType(CConfigEntry):
@@ -358,7 +367,7 @@ class SimpleType(CConfigEntry):
         self.name = name
         self.ctype_hint = ctype_hint
         self.ifdef = ifdef
-        
+
     def prepare_code(self):
         if self.ifdef is not None:
             yield '#ifdef %s' % (self.ifdef,)
@@ -491,7 +500,7 @@ class DefinedConstantString(CConfigEntry):
     def prepare_code(self):
         yield '#ifdef %s' % self.macro
         yield 'int i;'
-        yield 'char *p = %s;' % self.name
+        yield 'const char *p = %s;' % self.name
         yield 'dump("defined", 1);'
         yield 'for (i = 0; p[i] != 0; i++ ) {'
         yield '  printf("value_%d: %d\\n", i, (int)(unsigned char)p[i]);'
@@ -537,7 +546,7 @@ class CConfigSingleEntry(object):
 class Has(CConfigSingleEntry):
     def __init__(self, name):
         self.name = name
-    
+
     def question(self, ask_gcc):
         try:
             ask_gcc(self.name + ';')
@@ -676,8 +685,14 @@ class Field(object):
     def __repr__(self):
         return '<field %s: %s>' % (self.name, self.ctype)
 
+def is_array_nolength(TYPE):
+    return isinstance(TYPE, lltype.Array) and TYPE._hints.get('nolength', False)
+
 def layout_addfield(layout, offset, ctype, prefix):
-    size = _sizeof(ctype)
+    if is_array_nolength(ctype):
+        size = len(layout) - offset    # all the rest of the struct
+    else:
+        size = _sizeof(ctype)
     name = prefix
     i = 0
     while name in layout:
@@ -769,7 +784,7 @@ def configure_external_library(name, eci, configurations,
     On Windows, various configurations may be tried to compile the
     given eci object.  These configurations are a list of dicts,
     containing:
-    
+
     - prefix: if an absolute path, will prefix each include and
               library directories.  If a relative path, the external
               directory is searched for directories which names start
@@ -777,13 +792,13 @@ def configure_external_library(name, eci, configurations,
               chosen, and becomes the prefix.
 
     - include_dir: prefix + include_dir is added to the include directories
-    
+
     - library_dir: prefix + library_dir is added to the library directories
     """
 
     if sys.platform != 'win32':
         configurations = []
-    
+
     key = (name, eci)
     try:
         return _cache[key]
@@ -821,7 +836,7 @@ def configure_external_library(name, eci, configurations,
             # verify that this eci can be compiled
             try:
                 verify_eci(eci_lib)
-            except CompilationError, e:
+            except CompilationError as e:
                 last_error = e
             else:
                 _cache[key] = eci_lib
@@ -849,10 +864,10 @@ def configure_boehm(platform=None):
         # since config_external_library does not use a platform kwarg,
         # somehow using a platform kw arg make the merge fail in
         # config_external_library
-        platform = None    
+        platform = None
     else:
         library_dir = ''
-        libraries = ['gc', 'dl']
+        libraries = ['gc']
         includes=['gc/gc.h']
     eci = ExternalCompilationInfo(
         platform=platform,
@@ -866,7 +881,7 @@ def configure_boehm(platform=None):
 
 if __name__ == '__main__':
     doc = """Example:
-    
+
        rffi_platform.py  -h sys/types.h  -h netinet/in.h
                            'struct sockaddr_in'
                            sin_port  INT

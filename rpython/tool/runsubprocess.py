@@ -8,14 +8,27 @@ import gc
 import os
 from subprocess import PIPE, Popen
 
+PY2 = (sys.version_info.major == 2)
+if PY2:
+    text = unicode
+else:
+    text = str
+
 def run_subprocess(executable, args, env=None, cwd=None):
+    if isinstance(args, list):
+        args = [a.encode('latin1') if isinstance(a, text) else a
+                for a in args]
     return _run(executable, args, env, cwd)
 
 shell_default = False
 if sys.platform == 'win32':
     shell_default = True
 
-def _run(executable, args, env, cwd):   # unless overridden below
+def _run(executable, args, env, cwd):
+    # note that this function can be *overridden* below
+    # in some cases!
+    if sys.platform == 'win32':
+        executable = executable.replace('/','\\')
     if isinstance(args, str):
         args = str(executable) + ' ' + args
         shell = True
@@ -35,6 +48,10 @@ def _run(executable, args, env, cwd):   # unless overridden below
 
     pipe = Popen(args, stdout=PIPE, stderr=PIPE, shell=shell, env=env, cwd=cwd)
     stdout, stderr = pipe.communicate()
+    if (sys.platform == 'win32' and pipe.returncode == 1 and 
+        'is not recognized' in stderr):
+        # Setting shell=True on windows messes up expected exceptions
+        raise EnvironmentError(stderr)
     return pipe.returncode, stdout, stderr
 
 
@@ -48,7 +65,7 @@ if __name__ == '__main__':
         args = eval(operation)
         try:
             results = _run(*args)
-        except EnvironmentError, e:
+        except EnvironmentError as e:
             results = (None, str(e))
         sys.stdout.write('%r\n' % (results,))
         sys.stdout.flush()
@@ -60,24 +77,38 @@ if sys.platform != 'win32' and hasattr(os, 'fork') and not os.getenv("PYPY_DONT_
     _source = os.path.join(_source, 'runsubprocess.py')   # and not e.g. '.pyc'
 
     def spawn_subprocess():
-        global _child
+        global _child, child_stdin, child_stdout
         _child = Popen([sys.executable, _source], bufsize=0,
                        stdin=PIPE, stdout=PIPE, close_fds=True)
+        if PY2:
+            child_stdin = _child.stdin
+            child_stdout = _child.stdout
+        else:
+            # create TextIOWrappers which (hopefully) have the same newline
+            # behavior as the child's stdin / stdout
+            from io import TextIOWrapper
+            child_stdin = TextIOWrapper(_child.stdin,
+                                        newline=sys.stdin.newlines,
+                                        write_through=True)
+            child_stdout = TextIOWrapper(_child.stdout,
+                                         newline=sys.stdout.newlines)
     spawn_subprocess()
 
     def cleanup_subprocess():
-        global _child
+        global _child, child_stdin, child_stdout
         _child = None
+        child_stdin = None
+        child_stdout = None
     import atexit; atexit.register(cleanup_subprocess)
 
     def _run(*args):
         try:
-            _child.stdin.write('%r\n' % (args,))
+            child_stdin.write('%r\n' % (args,))
         except (OSError, IOError):
             # lost the child.  Try again...
             spawn_subprocess()
-            _child.stdin.write('%r\n' % (args,))
-        results = _child.stdout.readline()
+            child_stdin.write('%r\n' % (args,))
+        results = child_stdout.readline()
         assert results.startswith('(')
         results = eval(results)
         if results[0] is None:

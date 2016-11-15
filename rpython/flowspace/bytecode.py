@@ -5,7 +5,6 @@ from rpython.tool.stdlib_opcode import host_bytecode_spec
 from opcode import EXTENDED_ARG, HAVE_ARGUMENT
 import opcode
 from rpython.flowspace.argument import Signature
-from rpython.flowspace.flowcontext import BytecodeCorruption
 
 CO_GENERATOR = 0x0020
 CO_VARARGS = 0x0004
@@ -26,6 +25,11 @@ def cpython_code_signature(code):
     else:
         kwargname = None
     return Signature(argnames, varargname, kwargname)
+
+
+class BytecodeCorruption(Exception):
+    pass
+
 
 class HostCode(object):
     """
@@ -77,37 +81,37 @@ class HostCode(object):
         and **varkwarg, if they exist."""
         return self.signature.scope_length()
 
-    def read(self, pos):
+    def read(self, offset):
         """
-        Decode the instruction starting at position ``next_instr``.
+        Decode the instruction starting at position ``offset``.
 
-        Returns (next_instr, opname, oparg).
+        Returns (next_offset, opname, oparg).
         """
         co_code = self.co_code
-        opnum = ord(co_code[pos])
-        next_instr = pos + 1
+        opnum = ord(co_code[offset])
+        next_offset = offset + 1
 
         if opnum >= HAVE_ARGUMENT:
-            lo = ord(co_code[next_instr])
-            hi = ord(co_code[next_instr+1])
-            next_instr += 2
+            lo = ord(co_code[next_offset])
+            hi = ord(co_code[next_offset + 1])
+            next_offset += 2
             oparg = (hi * 256) | lo
         else:
             oparg = 0
 
         while opnum == EXTENDED_ARG:
-            opnum = ord(co_code[next_instr])
+            opnum = ord(co_code[next_offset])
             if opnum < HAVE_ARGUMENT:
                 raise BytecodeCorruption
-            lo = ord(co_code[next_instr+1])
-            hi = ord(co_code[next_instr+2])
-            next_instr += 3
+            lo = ord(co_code[next_offset + 1])
+            hi = ord(co_code[next_offset + 2])
+            next_offset += 3
             oparg = (oparg * 65536) | (hi * 256) | lo
 
         if opnum in opcode.hasjrel:
-            oparg += next_instr
+            oparg += next_offset
         opname = self.opnames[opnum]
-        return next_instr, opname, oparg
+        return next_offset, opname, oparg
 
     @property
     def is_generator(self):

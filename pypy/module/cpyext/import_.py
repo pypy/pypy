@@ -1,7 +1,6 @@
 from pypy.interpreter import module
 from pypy.module.cpyext.api import (
     generic_cpy_call, cpython_api, PyObject, CONST_STRING)
-from pypy.module.cpyext.pyobject import borrow_from
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.module import Module
@@ -20,7 +19,7 @@ def PyImport_Import(space, w_name):
     caller = space.getexecutioncontext().gettopframe_nohidden()
     # Get the builtins from current globals
     if caller is not None:
-        w_globals = caller.w_globals
+        w_globals = caller.get_w_globals()
         w_builtin = space.getitem(w_globals, space.wrap('__builtins__'))
     else:
         # No globals -- use standard builtins, and fake globals
@@ -56,7 +55,7 @@ def PyImport_ReloadModule(space, w_mod):
     from pypy.module.imp.importing import reload
     return reload(space, w_mod)
 
-@cpython_api([CONST_STRING], PyObject)
+@cpython_api([CONST_STRING], PyObject, result_borrowed=True)
 def PyImport_AddModule(space, name):
     """Return the module object corresponding to a module name.  The name
     argument may be of the form package.module. First check the modules
@@ -74,14 +73,16 @@ def PyImport_AddModule(space, name):
     w_mod = check_sys_modules_w(space, modulename)
     if not w_mod or space.is_w(w_mod, space.w_None):
         w_mod = Module(space, space.wrap(modulename))
-    return borrow_from(None, w_mod)
+        space.setitem(space.sys.get('modules'), space.wrap(modulename), w_mod)
+    # return a borrowed ref --- assumes one copy in sys.modules
+    return w_mod
 
-@cpython_api([], PyObject)
+@cpython_api([], PyObject, result_borrowed=True)
 def PyImport_GetModuleDict(space):
     """Return the dictionary used for the module administration (a.k.a.
     sys.modules).  Note that this is a per-interpreter variable."""
     w_modulesDict = space.sys.get('modules')
-    return borrow_from(None, w_modulesDict)
+    return w_modulesDict     # borrowed ref
 
 @cpython_api([rffi.CCHARP, PyObject], PyObject)
 def PyImport_ExecCodeModule(space, name, w_code):
@@ -122,5 +123,4 @@ def PyImport_ExecCodeModuleEx(space, name, w_code, pathname):
         pathname = code.co_filename
     w_mod = importing.add_module(space, w_name)
     space.setattr(w_mod, space.wrap('__file__'), space.wrap(pathname))
-    importing.exec_code_module(space, w_mod, code)
-    return w_mod
+    return importing.exec_code_module(space, w_mod, code, w_name)

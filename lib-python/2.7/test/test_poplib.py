@@ -11,7 +11,7 @@ import os
 import time
 import errno
 
-from unittest import TestCase
+from unittest import TestCase, skipUnless
 from test import test_support
 from test.test_support import HOST
 threading = test_support.import_module('threading')
@@ -198,6 +198,10 @@ class TestPOP3Class(TestCase):
                     113)
         self.assertEqual(self.client.retr('foo'), expected)
 
+    def test_too_long_lines(self):
+        self.assertRaises(poplib.error_proto, self.client._shortcmd,
+                          'echo +%s' % ((poplib._MAXLINE + 10) * 'a'))
+
     def test_dele(self):
         self.assertOK(self.client.dele('foo'))
 
@@ -263,17 +267,20 @@ if hasattr(poplib, 'POP3_SSL'):
             else:
                 DummyPOP3Handler.handle_read(self)
 
-    class TestPOP3_SSLClass(TestPOP3Class):
-        # repeat previous tests by using poplib.POP3_SSL
+requires_ssl = skipUnless(SUPPORTS_SSL, 'SSL not supported')
 
-        def setUp(self):
-            self.server = DummyPOP3Server((HOST, 0))
-            self.server.handler = DummyPOP3_SSLHandler
-            self.server.start()
-            self.client = poplib.POP3_SSL(self.server.host, self.server.port)
+@requires_ssl
+class TestPOP3_SSLClass(TestPOP3Class):
+    # repeat previous tests by using poplib.POP3_SSL
 
-        def test__all__(self):
-            self.assertIn('POP3_SSL', poplib.__all__)
+    def setUp(self):
+        self.server = DummyPOP3Server((HOST, 0))
+        self.server.handler = DummyPOP3_SSLHandler
+        self.server.start()
+        self.client = poplib.POP3_SSL(self.server.host, self.server.port)
+
+    def test__all__(self):
+        self.assertIn('POP3_SSL', poplib.__all__)
 
 
 class TestTimeouts(TestCase):
@@ -305,7 +312,7 @@ class TestTimeouts(TestCase):
             serv.close()
 
     def testTimeoutDefault(self):
-        self.assertTrue(socket.getdefaulttimeout() is None)
+        self.assertIsNone(socket.getdefaulttimeout())
         socket.setdefaulttimeout(30)
         try:
             pop = poplib.POP3(HOST, self.port)
@@ -315,13 +322,13 @@ class TestTimeouts(TestCase):
         pop.sock.close()
 
     def testTimeoutNone(self):
-        self.assertTrue(socket.getdefaulttimeout() is None)
+        self.assertIsNone(socket.getdefaulttimeout())
         socket.setdefaulttimeout(30)
         try:
             pop = poplib.POP3(HOST, self.port, timeout=None)
         finally:
             socket.setdefaulttimeout(None)
-        self.assertTrue(pop.sock.gettimeout() is None)
+        self.assertIsNone(pop.sock.gettimeout())
         pop.sock.close()
 
     def testTimeoutValue(self):
@@ -331,9 +338,8 @@ class TestTimeouts(TestCase):
 
 
 def test_main():
-    tests = [TestPOP3Class, TestTimeouts]
-    if SUPPORTS_SSL:
-        tests.append(TestPOP3_SSLClass)
+    tests = [TestPOP3Class, TestTimeouts,
+             TestPOP3_SSLClass]
     thread_info = test_support.threading_setup()
     try:
         test_support.run_unittest(*tests)

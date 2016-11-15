@@ -114,13 +114,13 @@ def test_socketio():
 
     proc = SocketProc([exe])
     output, error = proc.communicate("")
-    assert output.startswith('HTTP/1.0 503 Service Unavailable')
+    assert output.startswith('HTTP/1.1 301 Moved Permanently')
 
 def test_oserror():
     def entry_point(argv):
         try:
             os.open("/tmp/foobar", os.O_RDONLY, 0777)
-        except OSError, e:
+        except OSError as e:
             os.close(e.errno)    # nonsense, just to see outside
         return 0
     exe = compile(entry_point)
@@ -155,7 +155,7 @@ def test_too_many_opens():
                 txt = os.read(fd, 100)
                 if txt != "Hello, world!\n":
                     print "Wrong content: %s" % txt
-        except OSError, e:
+        except OSError as e:
             # We expect to get EMFILE, for opening too many files.
             if e.errno != errno.EMFILE:
                 print "OSError: %s!" % (e.errno,)
@@ -170,7 +170,7 @@ def test_too_many_opens():
             for i in range(500):
                 fd = os.open('/this.pyc', os.O_RDONLY, 0777)
                 open_files.append(fd)
-        except OSError, e:
+        except OSError as e:
             # We expect to get EMFILE, for opening too many files.
             if e.errno != errno.EMFILE:
                 print "OSError: %s!" % (e.errno,)
@@ -208,7 +208,7 @@ def test_fstat():
             compare(st[7], fs[7], 7)
             compare(st[8], fs[8], 8)
             compare(st[9], fs[9], 9)
-        except OSError, e:
+        except OSError as e:
             print "OSError: %s" % (e.errno,)
         print "All ok!"
         return 0
@@ -249,6 +249,9 @@ def test_lseek():
     assert error == ""
 
 def test_getuid():
+    if not hasattr(os, 'getuid'):
+        py.test.skip("posix only")
+
     def entry_point(argv):
         import os
         print "uid is %s" % os.getuid()

@@ -1,16 +1,65 @@
 from rpython.annotator import model as annmodel
 from rpython.rlib.objectmodel import _hash_float
 from rpython.rlib.rarithmetic import base_int
-from rpython.rlib.rfloat import formatd
 from rpython.rlib import jit
 from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.error import TyperError
-from rpython.rtyper.lltypesystem.lltype import (Signed, Unsigned,
-    SignedLongLong, UnsignedLongLong, Bool, Float)
-from rpython.rtyper.rmodel import FloatRepr, IntegerRepr, BoolRepr, log
-from rpython.rtyper.rstr import AbstractStringRepr
+from rpython.rtyper.lltypesystem.lltype import (Signed, Bool, Float)
+from rpython.rtyper.rmodel import Repr
 from rpython.tool.pairtype import pairtype
 
+class FloatRepr(Repr):
+    lowleveltype = Float
+
+    def convert_const(self, value):
+        if not isinstance(value, (int, base_int, float)):  # can be bool too
+            raise TyperError("not a float: %r" % (value,))
+        return float(value)
+
+    def get_ll_eq_function(self):
+        return None
+    get_ll_gt_function = get_ll_eq_function
+    get_ll_lt_function = get_ll_eq_function
+    get_ll_ge_function = get_ll_eq_function
+    get_ll_le_function = get_ll_eq_function
+
+    def get_ll_hash_function(self):
+        return _hash_float
+
+    def rtype_bool(_, hop):
+        vlist = hop.inputargs(Float)
+        return hop.genop('float_is_true', vlist, resulttype=Bool)
+
+    def rtype_neg(_, hop):
+        vlist = hop.inputargs(Float)
+        return hop.genop('float_neg', vlist, resulttype=Float)
+
+    def rtype_pos(_, hop):
+        vlist = hop.inputargs(Float)
+        return vlist[0]
+
+    def rtype_abs(_, hop):
+        vlist = hop.inputargs(Float)
+        return hop.genop('float_abs', vlist, resulttype=Float)
+
+    def rtype_int(_, hop):
+        vlist = hop.inputargs(Float)
+        # int(x) never raises in RPython, you need to use
+        # rarithmetic.ovfcheck_float_to_int() if you want this
+        hop.exception_cannot_occur()
+        return hop.genop('cast_float_to_int', vlist, resulttype=Signed)
+
+    def rtype_float(_, hop):
+        vlist = hop.inputargs(Float)
+        hop.exception_cannot_occur()
+        return vlist[0]
+
+    @jit.elidable
+    def ll_str(self, f):
+        from rpython.rlib.rfloat import formatd
+        return llstr(formatd(f, 'f', 6))
+
+float_repr = FloatRepr()
 
 class __extend__(annmodel.SomeFloat):
     def rtyper_makerepr(self, rtyper):
@@ -18,9 +67,6 @@ class __extend__(annmodel.SomeFloat):
 
     def rtyper_makekey(self):
         return self.__class__,
-
-
-float_repr = FloatRepr()
 
 
 class __extend__(pairtype(FloatRepr, FloatRepr)):
@@ -75,11 +121,6 @@ class __extend__(pairtype(FloatRepr, FloatRepr)):
     def rtype_ge(_, hop):
         return _rtype_compare_template(hop, 'ge')
 
-class __extend__(pairtype(AbstractStringRepr, FloatRepr)):
-    def rtype_mod(_, hop):
-        from rpython.rtyper.lltypesystem.rstr import do_stringformat
-        return do_stringformat(hop, [(hop.args_v[1], hop.args_r[1])])
-
 #Helpers FloatRepr,FloatRepr
 
 def _rtype_template(hop, func):
@@ -90,104 +131,6 @@ def _rtype_compare_template(hop, func):
     vlist = hop.inputargs(Float, Float)
     return hop.genop('float_'+func, vlist, resulttype=Bool)
 
-
-class __extend__(FloatRepr):
-
-    def convert_const(self, value):
-        if not isinstance(value, (int, base_int, float)):  # can be bool too
-            raise TyperError("not a float: %r" % (value,))
-        return float(value)
-
-    def get_ll_eq_function(self):
-        return None
-    get_ll_gt_function = get_ll_eq_function
-    get_ll_lt_function = get_ll_eq_function
-    get_ll_ge_function = get_ll_eq_function
-    get_ll_le_function = get_ll_eq_function
-
-    def get_ll_hash_function(self):
-        return _hash_float
-
-    def rtype_bool(_, hop):
-        vlist = hop.inputargs(Float)
-        return hop.genop('float_is_true', vlist, resulttype=Bool)
-
-    def rtype_neg(_, hop):
-        vlist = hop.inputargs(Float)
-        return hop.genop('float_neg', vlist, resulttype=Float)
-
-    def rtype_pos(_, hop):
-        vlist = hop.inputargs(Float)
-        return vlist[0]
-
-    def rtype_abs(_, hop):
-        vlist = hop.inputargs(Float)
-        return hop.genop('float_abs', vlist, resulttype=Float)
-
-    def rtype_int(_, hop):
-        vlist = hop.inputargs(Float)
-        # int(x) never raises in RPython, you need to use
-        # rarithmetic.ovfcheck_float_to_int() if you want this
-        hop.exception_cannot_occur()
-        return hop.genop('cast_float_to_int', vlist, resulttype=Signed)
-
-    def rtype_float(_, hop):
-        vlist = hop.inputargs(Float)
-        hop.exception_cannot_occur()
-        return vlist[0]
-
-    @jit.elidable
-    def ll_str(self, f):
-        return llstr(formatd(f, 'f', 6))
-
-#
-# _________________________ Conversions _________________________
-
-class __extend__(pairtype(IntegerRepr, FloatRepr)):
-    def convert_from_to((r_from, r_to), v, llops):
-        if r_from.lowleveltype == Unsigned and r_to.lowleveltype == Float:
-            log.debug('explicit cast_uint_to_float')
-            return llops.genop('cast_uint_to_float', [v], resulttype=Float)
-        if r_from.lowleveltype == Signed and r_to.lowleveltype == Float:
-            log.debug('explicit cast_int_to_float')
-            return llops.genop('cast_int_to_float', [v], resulttype=Float)
-        if r_from.lowleveltype == SignedLongLong and r_to.lowleveltype == Float:
-            log.debug('explicit cast_longlong_to_float')
-            return llops.genop('cast_longlong_to_float', [v], resulttype=Float)
-        if r_from.lowleveltype == UnsignedLongLong and r_to.lowleveltype == Float:
-            log.debug('explicit cast_ulonglong_to_float')
-            return llops.genop('cast_ulonglong_to_float', [v], resulttype=Float)
-        return NotImplemented
-
-class __extend__(pairtype(FloatRepr, IntegerRepr)):
-    def convert_from_to((r_from, r_to), v, llops):
-        if r_from.lowleveltype == Float and r_to.lowleveltype == Unsigned:
-            log.debug('explicit cast_float_to_uint')
-            return llops.genop('cast_float_to_uint', [v], resulttype=Unsigned)
-        if r_from.lowleveltype == Float and r_to.lowleveltype == Signed:
-            log.debug('explicit cast_float_to_int')
-            return llops.genop('cast_float_to_int', [v], resulttype=Signed)
-        if r_from.lowleveltype == Float and r_to.lowleveltype == SignedLongLong:
-            log.debug('explicit cast_float_to_longlong')
-            return llops.genop('cast_float_to_longlong', [v], resulttype=SignedLongLong)
-        if r_from.lowleveltype == Float and r_to.lowleveltype == UnsignedLongLong:
-            log.debug('explicit cast_float_to_ulonglong')
-            return llops.genop('cast_float_to_ulonglong', [v], resulttype=UnsignedLongLong)
-        return NotImplemented
-
-class __extend__(pairtype(BoolRepr, FloatRepr)):
-    def convert_from_to((r_from, r_to), v, llops):
-        if r_from.lowleveltype == Bool and r_to.lowleveltype == Float:
-            log.debug('explicit cast_bool_to_float')
-            return llops.genop('cast_bool_to_float', [v], resulttype=Float)
-        return NotImplemented
-
-class __extend__(pairtype(FloatRepr, BoolRepr)):
-    def convert_from_to((r_from, r_to), v, llops):
-        if r_from.lowleveltype == Float and r_to.lowleveltype == Bool:
-            log.debug('explicit cast_float_to_bool')
-            return llops.genop('float_is_true', [v], resulttype=Bool)
-        return NotImplemented
 
 # ______________________________________________________________________
 # Support for r_singlefloat and r_longfloat from rpython.rlib.rarithmetic

@@ -1,12 +1,50 @@
-import sys, os, binascii, imp, shutil
-from . import __version__
+#
+# DEPRECATED: implementation for ffi.verify()
+#
+import sys, os, binascii, shutil, io
+from . import __version_verifier_modules__
 from . import ffiplatform
+
+if sys.version_info >= (3, 3):
+    import importlib.machinery
+    def _extension_suffixes():
+        return importlib.machinery.EXTENSION_SUFFIXES[:]
+else:
+    import imp
+    def _extension_suffixes():
+        return [suffix for suffix, _, type in imp.get_suffixes()
+                if type == imp.C_EXTENSION]
+
+
+if sys.version_info >= (3,):
+    NativeIO = io.StringIO
+else:
+    class NativeIO(io.BytesIO):
+        def write(self, s):
+            if isinstance(s, unicode):
+                s = s.encode('ascii')
+            super(NativeIO, self).write(s)
+
+def _hack_at_distutils():
+    # Windows-only workaround for some configurations: see
+    # https://bugs.python.org/issue23246 (Python 2.7 with 
+    # a specific MS compiler suite download)
+    if sys.platform == "win32":
+        try:
+            import setuptools    # for side-effects, patches distutils
+        except ImportError:
+            pass
 
 
 class Verifier(object):
 
     def __init__(self, ffi, preamble, tmpdir=None, modulename=None,
-                 ext_package=None, tag='', force_generic_engine=False, **kwds):
+                 ext_package=None, tag='', force_generic_engine=False,
+                 source_extension='.c', flags=None, relative_to=None, **kwds):
+        if ffi._parser._uses_new_feature:
+            raise ffiplatform.VerificationError(
+                "feature not supported with ffi.verify(), but only "
+                "with ffi.set_source(): %s" % (ffi._parser._uses_new_feature,))
         self.ffi = ffi
         self.preamble = preamble
         if not modulename:
@@ -14,14 +52,15 @@ class Verifier(object):
         vengine_class = _locate_engine_class(ffi, force_generic_engine)
         self._vengine = vengine_class(self)
         self._vengine.patch_extension_kwds(kwds)
-        self.kwds = kwds
+        self.flags = flags
+        self.kwds = self.make_relative_to(kwds, relative_to)
         #
         if modulename:
             if tag:
                 raise TypeError("can't specify both 'modulename' and 'tag'")
         else:
-            key = '\x00'.join([sys.version[:3], __version__, preamble,
-                               flattened_kwds] +
+            key = '\x00'.join([sys.version[:3], __version_verifier_modules__,
+                               preamble, flattened_kwds] +
                               ffi._cdefsources)
             if sys.version_info >= (3,):
                 key = key.encode('utf-8')
@@ -33,7 +72,7 @@ class Verifier(object):
                                               k1, k2)
         suffix = _get_so_suffixes()[0]
         self.tmpdir = tmpdir or _caller_dir_pycache()
-        self.sourcefilename = os.path.join(self.tmpdir, modulename + '.c')
+        self.sourcefilename = os.path.join(self.tmpdir, modulename + source_extension)
         self.modulefilename = os.path.join(self.tmpdir, modulename + suffix)
         self.ext_package = ext_package
         self._has_source = False
@@ -86,6 +125,7 @@ class Verifier(object):
         return basename
 
     def get_extension(self):
+        _hack_at_distutils() # backward compatibility hack
         if not self._has_source:
             with self.ffi._lock:
                 if not self._has_source:
@@ -96,6 +136,20 @@ class Verifier(object):
 
     def generates_python_module(self):
         return self._vengine._gen_python_module
+
+    def make_relative_to(self, kwds, relative_to):
+        if relative_to and os.path.dirname(relative_to):
+            dirname = os.path.dirname(relative_to)
+            kwds = kwds.copy()
+            for key in ffiplatform.LIST_OF_FILE_NAMES:
+                if key in kwds:
+                    lst = kwds[key]
+                    if not isinstance(lst, (list, tuple)):
+                        raise TypeError("keyword '%s' should be a list or tuple"
+                                        % (key,))
+                    lst = [os.path.join(dirname, fn) for fn in lst]
+                    kwds[key] = lst
+        return kwds
 
     # ----------
 
@@ -118,19 +172,36 @@ class Verifier(object):
         self._vengine.collect_types()
         self._has_module = True
 
-    def _write_source(self, file=None):
-        must_close = (file is None)
-        if must_close:
-            _ensure_dir(self.sourcefilename)
-            file = open(self.sourcefilename, 'w')
+    def _write_source_to(self, file):
         self._vengine._f = file
         try:
             self._vengine.write_source_to_f()
         finally:
             del self._vengine._f
-            if must_close:
-                file.close()
-        if must_close:
+
+    def _write_source(self, file=None):
+        if file is not None:
+            self._write_source_to(file)
+        else:
+            # Write our source file to an in memory file.
+            f = NativeIO()
+            self._write_source_to(f)
+            source_data = f.getvalue()
+
+            # Determine if this matches the current file
+            if os.path.exists(self.sourcefilename):
+                with open(self.sourcefilename, "r") as fp:
+                    needs_written = not (fp.read() == source_data)
+            else:
+                needs_written = True
+
+            # Actually write the file out if it doesn't match
+            if needs_written:
+                _ensure_dir(self.sourcefilename)
+                with open(self.sourcefilename, "w") as fp:
+                    fp.write(source_data)
+
+            # Set this flag
             self._has_source = True
 
     def _compile_module(self):
@@ -148,7 +219,10 @@ class Verifier(object):
 
     def _load_library(self):
         assert self._has_module
-        return self._vengine.load_library()
+        if self.flags is not None:
+            return self._vengine.load_library(self.flags)
+        else:
+            return self._vengine.load_library()
 
 # ____________________________________________________________
 
@@ -181,6 +255,9 @@ _TMPDIR = None
 def _caller_dir_pycache():
     if _TMPDIR:
         return _TMPDIR
+    result = os.environ.get('CFFI_TMPDIR')
+    if result:
+        return result
     filename = sys._getframe(2).f_code.co_filename
     return os.path.abspath(os.path.join(os.path.dirname(filename),
                            '__pycache__'))
@@ -222,11 +299,7 @@ def cleanup_tmpdir(tmpdir=None, keep_so=False):
             pass
 
 def _get_so_suffixes():
-    suffixes = []
-    for suffix, mode, type in imp.get_suffixes():
-        if type == imp.C_EXTENSION:
-            suffixes.append(suffix)
-
+    suffixes = _extension_suffixes()
     if not suffixes:
         # bah, no C_EXTENSION available.  Occurs on pypy without cpyext
         if sys.platform == 'win32':

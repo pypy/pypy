@@ -322,7 +322,7 @@ containing test:
     >>> test.lineno + e2.lineno
     26
 
-If the docstring contains inconsistant leading whitespace in the
+If the docstring contains inconsistent leading whitespace in the
 expected output of an example, then `DocTest` will raise a ValueError:
 
     >>> docstring = r'''
@@ -951,7 +951,7 @@ the exception is in the output, but this will fail under Python 2:
         HTTPException: message
     TestResults(failed=1, attempted=2)
 
-But in Python 2 the module path is not included, an therefore a test must look
+But in Python 2 the module path is not included, and therefore a test must look
 like the following test to succeed in Python 2. But that test will fail under
 Python 3.
 
@@ -1018,6 +1018,33 @@ But IGNORE_EXCEPTION_DETAIL does not allow a mismatch in the exception type:
         ...
         ValueError: message
     TestResults(failed=1, attempted=1)
+
+If the exception does not have a message, you can still use
+IGNORE_EXCEPTION_DETAIL to normalize the modules between Python 2 and 3:
+
+    >>> def f(x):
+    ...     r'''
+    ...     >>> from Queue import Empty
+    ...     >>> raise Empty() #doctest: +IGNORE_EXCEPTION_DETAIL
+    ...     Traceback (most recent call last):
+    ...     foo.bar.Empty
+    ...     '''
+    >>> test = doctest.DocTestFinder().find(f)[0]
+    >>> doctest.DocTestRunner(verbose=False).run(test)
+    TestResults(failed=0, attempted=2)
+
+Note that a trailing colon doesn't matter either:
+
+    >>> def f(x):
+    ...     r'''
+    ...     >>> from Queue import Empty
+    ...     >>> raise Empty() #doctest: +IGNORE_EXCEPTION_DETAIL
+    ...     Traceback (most recent call last):
+    ...     foo.bar.Empty:
+    ...     '''
+    >>> test = doctest.DocTestFinder().find(f)[0]
+    >>> doctest.DocTestRunner(verbose=False).run(test)
+    TestResults(failed=0, attempted=2)
 
 If an exception is raised but not expected, then it is reported as an
 unexpected exception:
@@ -2540,6 +2567,34 @@ bothering with the current sys.stdout encoding.
     >>> doctest._encoding = saved_encoding
     >>> doctest.master = None  # Reset master.
     >>> sys.argv = save_argv
+"""
+
+def test_lineendings(): r"""
+*nix systems use \n line endings, while Windows systems use \r\n.  Python
+handles this using universal newline mode for reading files.  Let's make
+sure doctest does so (issue 8473) by creating temporary test files using each
+of the two line disciplines.  One of the two will be the "wrong" one for the
+platform the test is run on.
+
+Windows line endings first:
+
+    >>> import tempfile, os
+    >>> fn = tempfile.mktemp()
+    >>> with open(fn, 'wb') as f:
+    ...     f.write('Test:\r\n\r\n  >>> x = 1 + 1\r\n\r\nDone.\r\n')
+    >>> doctest.testfile(fn, module_relative=False, verbose=False)
+    TestResults(failed=0, attempted=1)
+    >>> os.remove(fn)
+
+And now *nix line endings:
+
+    >>> fn = tempfile.mktemp()
+    >>> with open(fn, 'wb') as f:
+    ...     f.write('Test:\n\n  >>> x = 1 + 1\n\nDone.\n')
+    >>> doctest.testfile(fn, module_relative=False, verbose=False)
+    TestResults(failed=0, attempted=1)
+    >>> os.remove(fn)
+
 """
 
 # old_test1, ... used to live in doctest.py, but cluttered it.  Note

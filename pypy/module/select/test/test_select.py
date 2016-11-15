@@ -85,17 +85,18 @@ class _AppTestSelect:
                 assert owtd == [writeend]
                 total_out += writeend.send(b'x' * 512)
             total_in = 0
-            while True:
-                iwtd, owtd, ewtd = select.select([readend], [], [], 0)
+            while total_in < total_out:
+                iwtd, owtd, ewtd = select.select([readend], [], [], 5)
                 assert owtd == ewtd == []
-                if iwtd == []:
-                    break
-                assert iwtd == [readend]
+                assert iwtd == [readend]    # there is more expected
                 data = readend.recv(4096)
                 assert len(data) > 0
                 assert data == b'x' * len(data)
                 total_in += len(data)
             assert total_in == total_out
+            iwtd, owtd, ewtd = select.select([readend], [], [], 0)
+            assert owtd == ewtd == []
+            assert iwtd == []    # there is not more expected
         finally:
             writeend.close()
             readend.close()
@@ -198,6 +199,16 @@ class _AppTestSelect:
         finally:
             writeend.close()
 
+    def test_select_descr_out_of_bounds(self):
+        import sys, select
+        raises(ValueError, select.select, [-1], [], [])
+        raises(ValueError, select.select, [], [-2], [])
+        raises(ValueError, select.select, [], [], [-3])
+        if sys.platform != 'win32':
+            raises(ValueError, select.select, [2000000000], [], [])
+            raises(ValueError, select.select, [], [2000000000], [])
+            raises(ValueError, select.select, [], [], [2000000000])
+
     def test_poll(self):
         import select
         if not hasattr(select, 'poll'):
@@ -218,22 +229,27 @@ class _AppTestSelect:
             skip("no select.poll() on this platform")
         pollster = select.poll()
         pollster.register(1)
-        exc = raises(OverflowError, pollster.register, 0, 32768) # SHRT_MAX + 1
-        assert str(exc.value) == 'signed short integer is greater than maximum'
+        raises(OverflowError, pollster.register, 0, -1)
+        raises(OverflowError, pollster.register, 0, 1 << 64)
+        pollster.register(0, 32768) # SHRT_MAX + 1
         exc = raises(OverflowError, pollster.register, 0, -32768 - 1)
-        assert str(exc.value) == 'signed short integer is less than minimum'
-        raises(OverflowError, pollster.register, 0, 65535) # USHRT_MAX + 1
+        assert "unsigned" in str(exc.value)
+        pollster.register(0, 65535) # USHRT_MAX
+        raises(OverflowError, pollster.register, 0, 65536) # USHRT_MAX + 1
         raises(OverflowError, pollster.poll, 2147483648) # INT_MAX +  1
         raises(OverflowError, pollster.poll, -2147483648 - 1)
         raises(OverflowError, pollster.poll, 4294967296) # UINT_MAX + 1
         exc = raises(TypeError, pollster.poll, '123')
         assert str(exc.value) == 'timeout must be an integer or None'
 
+        raises(OverflowError, pollster.modify, 1, -1)
+        raises(OverflowError, pollster.modify, 1, 1 << 64)
+
 
 class AppTestSelectWithPipes(_AppTestSelect):
     "Use a pipe to get pairs of file descriptors"
     spaceconfig = {
-        "usemodules": ["select", "rctime", "thread"]
+        "usemodules": ["select", "time", "thread"]
     }
 
     def setup_class(cls):
@@ -270,7 +286,7 @@ class AppTestSelectWithPipes(_AppTestSelect):
 
             t = thread.start_new_thread(pollster.poll, ())
             try:
-                time.sleep(0.1)
+                time.sleep(0.3)
                 for i in range(5): print '',  # to release GIL untranslated
                 # trigger ufds array reallocation
                 for fd in rfds:
@@ -281,13 +297,26 @@ class AppTestSelectWithPipes(_AppTestSelect):
             finally:
                 # and make the call to poll() from the thread return
                 os.write(w, b'spam')
-                time.sleep(0.1)
+                time.sleep(0.3)
                 for i in range(5): print '',  # to release GIL untranslated
         finally:
             os.close(r)
             os.close(w)
             for fd in rfds:
                 os.close(fd)
+
+    def test_resize_list_in_select(self):
+        import select
+        class Foo(object):
+            def fileno(self):
+                if len(l) < 100:
+                    l.append(Foo())
+                return 0
+        l = [Foo()]
+        select.select(l, (), (), 0)
+        assert 1 <= len(l) <= 100    
+        # ^^^ CPython gives 100, PyPy gives 1.  I think both are OK as
+        # long as there is no crash.
 
 
 class AppTestSelectWithSockets(_AppTestSelect):
@@ -296,8 +325,12 @@ class AppTestSelectWithSockets(_AppTestSelect):
     so we start our own server.
     """
     spaceconfig = {
-        "usemodules": ["select", "_socket", "rctime", "thread"],
+        "usemodules": ["select", "_socket", "time", "thread"],
     }
+
+    import os
+    if os.uname()[4] == 's390x':
+        py.test.skip("build bot for s390x cannot open sockets")
 
     def w_make_server(self):
         import socket

@@ -52,7 +52,7 @@ class _CDataMeta(type):
     def get_ffi_argtype(self):
         if self._ffiargtype:
             return self._ffiargtype
-        self._ffiargtype = _shape_to_ffi_type(self._ffiargshape)
+        self._ffiargtype = _shape_to_ffi_type(self._ffiargshape_)
         return self._ffiargtype
 
     def _CData_output(self, resbuffer, base=None, index=-1):
@@ -82,6 +82,37 @@ class _CDataMeta(type):
 
     def in_dll(self, dll, name):
         return self.from_address(dll._handle.getaddressindll(name))
+
+    def from_buffer(self, obj, offset=0):
+        size = self._sizeofinstances()
+        buf = buffer(obj, offset, size)
+        if len(buf) < size:
+            raise ValueError(
+                "Buffer size too small (%d instead of at least %d bytes)"
+                % (len(buf) + offset, size + offset))
+        raw_addr = buf._pypy_raw_address()
+        result = self.from_address(raw_addr)
+        result._ensure_objects()['ffffffff'] = obj
+        return result
+
+    def from_buffer_copy(self, obj, offset=0):
+        size = self._sizeofinstances()
+        buf = buffer(obj, offset, size)
+        if len(buf) < size:
+            raise ValueError(
+                "Buffer size too small (%d instead of at least %d bytes)"
+                % (len(buf) + offset, size + offset))
+        result = self()
+        dest = result._buffer.buffer
+        try:
+            raw_addr = buf._pypy_raw_address()
+        except ValueError:
+            _rawffi.rawstring2charp(dest, buf)
+        else:
+            from ctypes import memmove
+            memmove(dest, raw_addr, size)
+        return result
+
 
 class CArgObject(object):
     """ simple wrapper around buffer, just for the case of freeing
@@ -136,7 +167,7 @@ class _CData(object):
         else:
             return self.value
 
-    def __buffer__(self):
+    def __buffer__(self, flags):
         return buffer(self._buffer)
 
     def _get_b_base(self):
@@ -168,10 +199,13 @@ def alignment(tp):
     return tp._alignmentofinstances()
 
 @builtinify
-def byref(cdata):
+def byref(cdata, offset=0):
     # "pointer" is imported at the end of this module to avoid circular
     # imports
-    return pointer(cdata)
+    ptr = pointer(cdata)
+    if offset != 0:
+        ptr._buffer[0] += offset
+    return ptr
 
 def cdata_from_address(self, address):
     # fix the address: turn it into as unsigned, in case it's a negative number

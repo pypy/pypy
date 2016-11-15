@@ -1,4 +1,5 @@
 import py, os, sys
+
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator import platform
@@ -49,7 +50,7 @@ def compile_extension_module(space, modname, symbols, **kwds):
 
     modname = modname.split('.')[-1]
     eci = ExternalCompilationInfo(
-        export_symbols=['init%s' % (modname,)]+symbols,
+        #export_symbols=['init%s' % (modname,)]+symbols,
         include_dirs=api.include_dirs,
         **kwds
         )
@@ -65,8 +66,7 @@ def compile_extension_module(space, modname, symbols, **kwds):
     return str(pydname)
 
 class AppTestCrossing(AppTestCpythonExtensionBase):
-    spaceconfig = dict(usemodules=['cpyext', 'cppyy', 'thread', '_rawffi',
-                                   'array', 'itertools', 'rctime', 'binascii'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools', 'cpyext'])
 
     def setup_class(cls):
         AppTestCpythonExtensionBase.setup_class.im_func(cls)
@@ -74,7 +74,7 @@ class AppTestCrossing(AppTestCpythonExtensionBase):
         # to allow the generated extension module be loaded first)
         cls.w_test_dct    = cls.space.wrap(test_dct)
         cls.w_pre_imports = cls.space.appexec([], """():
-            import cppyy, ctypes""")    # prevents leak-checking complaints on ctypes
+            import cppyy, cpyext, ctypes""")    # prevents leak-checking complaints on ctypes
 
     def setup_method(self, func):
         AppTestCpythonExtensionBase.setup_method.im_func(self, func)
@@ -89,7 +89,8 @@ class AppTestCrossing(AppTestCpythonExtensionBase):
             #include <Python.h>
             %(body)s
 
-            void init%(name)s(void) {
+            PyMODINIT_FUNC
+            init%(name)s(void) {
             %(init)s
             }
             """ % dict(name=name, init=init, body=body)

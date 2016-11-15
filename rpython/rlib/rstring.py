@@ -6,8 +6,9 @@ from rpython.annotator.model import (SomeObject, SomeString, s_None, SomeChar,
     SomeInteger, SomeUnicodeCodePoint, SomeUnicodeString, SomePBC)
 from rpython.rtyper.llannotation import SomePtr
 from rpython.rlib import jit
-from rpython.rlib.objectmodel import newlist_hint, specialize
-from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rlib.objectmodel import newlist_hint, resizelist_hint, specialize, not_rpython
+from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT as BLOOM_WIDTH
+from rpython.rlib.buffer import Buffer
 from rpython.rlib.unicodedata import unicodedb_5_2_0 as unicodedb
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool.pairtype import pairtype
@@ -24,7 +25,7 @@ def _isspace(char):
         return unicodedb.isspace(ord(char))
 
 
-@specialize.argtype(0)
+@specialize.argtype(0, 1)
 def split(value, by=None, maxsplit=-1):
     if by is None:
         length = len(value)
@@ -55,10 +56,13 @@ def split(value, by=None, maxsplit=-1):
             i = j + 1
         return res
 
+    if isinstance(value, unicode):
+        assert isinstance(by, unicode)
     if isinstance(value, str):
         assert isinstance(by, str)
-    else:
-        assert isinstance(by, unicode)
+    if isinstance(value, list):
+        assert isinstance(by, str)
+
     bylen = len(by)
     if bylen == 0:
         raise ValueError("empty separator")
@@ -67,16 +71,16 @@ def split(value, by=None, maxsplit=-1):
     if bylen == 1:
         # fast path: uses str.rfind(character) and str.count(character)
         by = by[0]    # annotator hack: string -> char
-        count = value.count(by)
-        if 0 <= maxsplit < count:
-            count = maxsplit
-        res = newlist_hint(count + 1)
-        while count > 0:
-            next = value.find(by, start)
+        cnt = count(value, by, 0, len(value))
+        if 0 <= maxsplit < cnt:
+            cnt = maxsplit
+        res = newlist_hint(cnt + 1)
+        while cnt > 0:
+            next = find(value, by, start, len(value))
             assert next >= 0 # cannot fail due to the value.count above
             res.append(value[start:next])
             start = next + bylen
-            count -= 1
+            cnt -= 1
         res.append(value[start:len(value)])
         return res
 
@@ -86,9 +90,10 @@ def split(value, by=None, maxsplit=-1):
         res = []
 
     while maxsplit != 0:
-        next = value.find(by, start)
+        next = find(value, by, start, len(value))
         if next < 0:
             break
+        assert start >= 0
         res.append(value[start:next])
         start = next + bylen
         maxsplit -= 1   # NB. if it's already < 0, it stays < 0
@@ -97,7 +102,7 @@ def split(value, by=None, maxsplit=-1):
     return res
 
 
-@specialize.argtype(0)
+@specialize.argtype(0, 1)
 def rsplit(value, by=None, maxsplit=-1):
     if by is None:
         res = []
@@ -133,10 +138,13 @@ def rsplit(value, by=None, maxsplit=-1):
         res.reverse()
         return res
 
+    if isinstance(value, unicode):
+        assert isinstance(by, unicode)
     if isinstance(value, str):
         assert isinstance(by, str)
-    else:
-        assert isinstance(by, unicode)
+    if isinstance(value, list):
+        assert isinstance(by, str)
+
     if maxsplit > 0:
         res = newlist_hint(min(maxsplit + 1, len(value)))
     else:
@@ -147,7 +155,7 @@ def rsplit(value, by=None, maxsplit=-1):
         raise ValueError("empty separator")
 
     while maxsplit != 0:
-        next = value.rfind(by, 0, end)
+        next = rfind(value, by, 0, end)
         if next < 0:
             break
         res.append(value[next + bylen:end])
@@ -159,19 +167,19 @@ def rsplit(value, by=None, maxsplit=-1):
     return res
 
 
-@specialize.argtype(0)
+@specialize.argtype(0, 1)
 @jit.elidable
 def replace(input, sub, by, maxsplit=-1):
     if isinstance(input, str):
-        assert isinstance(sub, str)
-        assert isinstance(by, str)
         Builder = StringBuilder
-    else:
-        assert isinstance(sub, unicode)
-        assert isinstance(by, unicode)
+    elif isinstance(input, unicode):
         Builder = UnicodeBuilder
+    else:
+        assert isinstance(input, list)
+        Builder = ByteListBuilder
     if maxsplit == 0:
         return input
+
 
     if not sub:
         upper = len(input)
@@ -195,12 +203,12 @@ def replace(input, sub, by, maxsplit=-1):
         builder.append_slice(input, upper, len(input))
     else:
         # First compute the exact result size
-        count = input.count(sub)
-        if count > maxsplit and maxsplit > 0:
-            count = maxsplit
+        cnt = count(input, sub, 0, len(input))
+        if cnt > maxsplit and maxsplit > 0:
+            cnt = maxsplit
         diff_len = len(by) - len(sub)
         try:
-            result_size = ovfcheck(diff_len * count)
+            result_size = ovfcheck(diff_len * cnt)
             result_size = ovfcheck(result_size + len(input))
         except OverflowError:
             raise
@@ -210,7 +218,7 @@ def replace(input, sub, by, maxsplit=-1):
         sublen = len(sub)
 
         while maxsplit != 0:
-            next = input.find(sub, start)
+            next = find(input, sub, start, len(input))
             if next < 0:
                 break
             builder.append_slice(input, start, next)
@@ -235,7 +243,7 @@ def _normalize_start_end(length, start, end):
         end = length
     return start, end
 
-@specialize.argtype(0)
+@specialize.argtype(0, 1)
 @jit.elidable
 def startswith(u_self, prefix, start=0, end=sys.maxint):
     length = len(u_self)
@@ -248,7 +256,7 @@ def startswith(u_self, prefix, start=0, end=sys.maxint):
             return False
     return True
 
-@specialize.argtype(0)
+@specialize.argtype(0, 1)
 @jit.elidable
 def endswith(u_self, suffix, start=0, end=sys.maxint):
     length = len(u_self)
@@ -260,6 +268,138 @@ def endswith(u_self, suffix, start=0, end=sys.maxint):
         if u_self[begin+i] != suffix[i]:
             return False
     return True
+
+@specialize.argtype(0, 1)
+def find(value, other, start, end):
+    if ((isinstance(value, str) and isinstance(other, str)) or
+        (isinstance(value, unicode) and isinstance(other, unicode))):
+        return value.find(other, start, end)
+    return _search(value, other, start, end, SEARCH_FIND)
+
+@specialize.argtype(0, 1)
+def rfind(value, other, start, end):
+    if ((isinstance(value, str) and isinstance(other, str)) or
+        (isinstance(value, unicode) and isinstance(other, unicode))):
+        return value.rfind(other, start, end)
+    return _search(value, other, start, end, SEARCH_RFIND)
+
+@specialize.argtype(0, 1)
+def count(value, other, start, end):
+    if ((isinstance(value, str) and isinstance(other, str)) or
+        (isinstance(value, unicode) and isinstance(other, unicode))):
+        return value.count(other, start, end)
+    return _search(value, other, start, end, SEARCH_COUNT)
+
+# -------------- substring searching helper ----------------
+# XXX a lot of code duplication with lltypesystem.rstr :-(
+
+SEARCH_COUNT = 0
+SEARCH_FIND = 1
+SEARCH_RFIND = 2
+
+def bloom_add(mask, c):
+    return mask | (1 << (ord(c) & (BLOOM_WIDTH - 1)))
+
+def bloom(mask, c):
+    return mask & (1 << (ord(c) & (BLOOM_WIDTH - 1)))
+
+@specialize.argtype(0, 1)
+def _search(value, other, start, end, mode):
+    if start < 0:
+        start = 0
+    if end > len(value):
+        end = len(value)
+    if start > end:
+        if mode == SEARCH_COUNT:
+            return 0
+        return -1
+
+    count = 0
+    n = end - start
+    m = len(other)
+
+    if m == 0:
+        if mode == SEARCH_COUNT:
+            return end - start + 1
+        elif mode == SEARCH_RFIND:
+            return end
+        else:
+            return start
+
+    w = n - m
+
+    if w < 0:
+        if mode == SEARCH_COUNT:
+            return 0
+        return -1
+
+    mlast = m - 1
+    skip = mlast - 1
+    mask = 0
+
+    if mode != SEARCH_RFIND:
+        for i in range(mlast):
+            mask = bloom_add(mask, other[i])
+            if other[i] == other[mlast]:
+                skip = mlast - i - 1
+        mask = bloom_add(mask, other[mlast])
+
+        i = start - 1
+        while i + 1 <= start + w:
+            i += 1
+            if value[i + m - 1] == other[m - 1]:
+                for j in range(mlast):
+                    if value[i + j] != other[j]:
+                        break
+                else:
+                    if mode != SEARCH_COUNT:
+                        return i
+                    count += 1
+                    i += mlast
+                    continue
+
+                if i + m < len(value):
+                    c = value[i + m]
+                else:
+                    c = '\0'
+                if not bloom(mask, c):
+                    i += m
+                else:
+                    i += skip
+            else:
+                if i + m < len(value):
+                    c = value[i + m]
+                else:
+                    c = '\0'
+                if not bloom(mask, c):
+                    i += m
+    else:
+        mask = bloom_add(mask, other[0])
+        for i in range(mlast, 0, -1):
+            mask = bloom_add(mask, other[i])
+            if other[i] == other[0]:
+                skip = i - 1
+
+        i = start + w + 1
+        while i - 1 >= start:
+            i -= 1
+            if value[i] == other[0]:
+                for j in xrange(mlast, 0, -1):
+                    if value[i + j] != other[j]:
+                        break
+                else:
+                    return i
+                if i - 1 >= 0 and not bloom(mask, value[i - 1]):
+                    i -= m
+                else:
+                    i -= skip
+            else:
+                if i - 1 >= 0 and not bloom(mask, value[i - 1]):
+                    i -= m
+
+    if mode != SEARCH_COUNT:
+        return -1
+    return count
 
 # -------------- numeric parsing support --------------------
 
@@ -350,61 +490,121 @@ class NumberStringParser:
         else:
             return -1
 
+    def prev_digit(self):
+        # After exhausting all n digits in next_digit(), you can walk them
+        # again in reverse order by calling prev_digit() exactly n times
+        i = self.i - 1
+        assert i >= 0
+        self.i = i
+        c = self.s[i]
+        digit = ord(c)
+        if '0' <= c <= '9':
+            digit -= ord('0')
+        elif 'A' <= c <= 'Z':
+            digit = (digit - ord('A')) + 10
+        elif 'a' <= c <= 'z':
+            digit = (digit - ord('a')) + 10
+        else:
+            raise AssertionError
+        return digit
+
 # -------------- public API ---------------------------------
 
 INIT_SIZE = 100 # XXX tweak
 
 
 class AbstractStringBuilder(object):
+    # This is not the real implementation!
+
+    @not_rpython
     def __init__(self, init_size=INIT_SIZE):
-        self.l = []
-        self.size = 0
+        self._l = []
+        self._size = 0
 
+    @not_rpython
     def _grow(self, size):
-        try:
-            self.size = ovfcheck(self.size + size)
-        except OverflowError:
-            raise MemoryError
+        self._size += size
 
+    @not_rpython
     def append(self, s):
-        assert isinstance(s, self.tp)
-        self.l.append(s)
+        assert isinstance(s, self._tp)
+        self._l.append(s)
         self._grow(len(s))
 
+    @not_rpython
     def append_slice(self, s, start, end):
-        assert isinstance(s, self.tp)
+        assert isinstance(s, self._tp)
         assert 0 <= start <= end <= len(s)
         s = s[start:end]
-        self.l.append(s)
+        self._l.append(s)
         self._grow(len(s))
 
+    @not_rpython
     def append_multiple_char(self, c, times):
-        assert isinstance(c, self.tp)
-        self.l.append(c * times)
+        assert isinstance(c, self._tp)
+        self._l.append(c * times)
         self._grow(times)
 
+    @not_rpython
     def append_charpsize(self, s, size):
         assert size >= 0
         l = []
         for i in xrange(size):
             l.append(s[i])
-        self.l.append(self.tp("").join(l))
+        self._l.append(self._tp("").join(l))
         self._grow(size)
 
+    @not_rpython
     def build(self):
-        return self.tp("").join(self.l)
+        result = self._tp("").join(self._l)
+        assert len(result) == self._size
+        self._l = [result]
+        return result
 
+    @not_rpython
     def getlength(self):
-        return len(self.build())
+        return self._size
 
 
 class StringBuilder(AbstractStringBuilder):
-    tp = str
+    _tp = str
 
 
 class UnicodeBuilder(AbstractStringBuilder):
-    tp = unicode
+    _tp = unicode
 
+class ByteListBuilder(object):
+    def __init__(self, init_size=INIT_SIZE):
+        assert init_size >= 0
+        self.l = newlist_hint(init_size)
+
+    @specialize.argtype(1)
+    def append(self, s):
+        l = self.l
+        for c in s:
+            l.append(c)
+
+    @specialize.argtype(1)
+    def append_slice(self, s, start, end):
+        l = self.l
+        for i in xrange(start, end):
+            l.append(s[i])
+
+    def append_multiple_char(self, c, times):
+        assert isinstance(c, str)
+        self.l.extend([c[0]] * times)
+
+    def append_charpsize(self, s, size):
+        assert size >= 0
+        l = self.l
+        for i in xrange(size):
+            l.append(s[i])
+
+    def build(self):
+        return self.l
+
+    def getlength(self):
+        return len(self.l)
 
 # ------------------------------------------------------------
 # ----------------- implementation details -------------------
@@ -446,6 +646,9 @@ class SomeStringBuilder(SomeObject):
     def rtyper_makekey(self):
         return self.__class__,
 
+    def noneify(self):
+        return self
+
 
 class SomeUnicodeBuilder(SomeObject):
     def method_append(self, s_str):
@@ -483,6 +686,9 @@ class SomeUnicodeBuilder(SomeObject):
     def rtyper_makekey(self):
         return self.__class__,
 
+    def noneify(self):
+        return self
+
 
 class BaseEntry(object):
     def compute_result_annotation(self, s_init_size=None):
@@ -500,34 +706,32 @@ class StringBuilderEntry(BaseEntry, ExtRegistryEntry):
     _about_ = StringBuilder
     use_unicode = False
 
-
 class UnicodeBuilderEntry(BaseEntry, ExtRegistryEntry):
     _about_ = UnicodeBuilder
     use_unicode = True
 
+class __extend__(pairtype(SomeStringBuilder, SomeStringBuilder)):
 
-class __extend__(pairtype(SomeStringBuilder, SomePBC)):
-    def union((sb, p)):
-        assert p.const is None
+    def union((obj1, obj2)):
+        return obj1
+
+class __extend__(pairtype(SomeUnicodeBuilder, SomeUnicodeBuilder)):
+
+    def union((obj1, obj2)):
+        return obj1
+
+class PrebuiltStringBuilderEntry(ExtRegistryEntry):
+    _type_ = StringBuilder
+
+    def compute_annotation(self):
         return SomeStringBuilder()
 
+class PrebuiltUnicodeBuilderEntry(ExtRegistryEntry):
+    _type_ = UnicodeBuilder
 
-class __extend__(pairtype(SomePBC, SomeStringBuilder)):
-    def union((p, sb)):
-        assert p.const is None
-        return SomeStringBuilder()
-
-
-class __extend__(pairtype(SomeUnicodeBuilder, SomePBC)):
-    def union((sb, p)):
-        assert p.const is None
+    def compute_annotation(self):
         return SomeUnicodeBuilder()
 
-
-class __extend__(pairtype(SomePBC, SomeUnicodeBuilder)):
-    def union((p, sb)):
-        assert p.const is None
-        return SomeUnicodeBuilder()
 
 #___________________________________________________________________
 # Support functions for SomeString.no_nul

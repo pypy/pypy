@@ -5,18 +5,24 @@ import traceback
 
 import py
 
-from rpython.flowspace.model import (FunctionGraph, Constant, Variable,
-    c_last_exception)
+from rpython.flowspace.model import (FunctionGraph, Constant, Variable)
 from rpython.rlib import rstackovf
 from rpython.rlib.objectmodel import (ComputedIntSymbolic, CDefinedIntSymbolic,
     Symbolic)
 # intmask is used in an exec'd code block
 from rpython.rlib.rarithmetic import (ovfcheck, is_valid_int, intmask,
     r_uint, r_longlong, r_ulonglong, r_longlonglong)
-from rpython.rtyper.lltypesystem import lltype, llmemory, lloperation, llheap, rclass
+from rpython.rtyper.lltypesystem import lltype, llmemory, lloperation, llheap
+from rpython.rtyper import rclass
+from rpython.tool.ansi_print import AnsiLogger
 
 
-log = py.log.Producer('llinterp')
+# by default this logger's output is disabled.
+# e.g. tests can then switch on logging to get more help
+# for failing tests
+log = AnsiLogger('llinterp')
+log.output_disabled = True
+
 
 class LLException(Exception):
     def __init__(self, *args):
@@ -41,8 +47,12 @@ class LLFatalError(Exception):
     def __str__(self):
         return ': '.join([str(x) for x in self.args])
 
+class LLAssertFailure(Exception):
+    pass
+
+
 def type_name(etype):
-    return ''.join(etype.name).rstrip('\x00')
+    return ''.join(etype.name.chars)
 
 class LLInterpreter(object):
     """ low level interpreter working with concrete values. """
@@ -75,13 +85,13 @@ class LLInterpreter(object):
         try:
             try:
                 retval = llframe.eval()
-            except LLException, e:
+            except LLException as e:
                 log.error("LLEXCEPTION: %s" % (e, ))
                 self.print_traceback()
                 if self.tracer:
                     self.tracer.dump('LLException: %s\n' % (e,))
                 raise
-            except Exception, e:
+            except Exception as e:
                 if getattr(e, '_go_through_llinterp_uncaught_', False):
                     raise
                 log.error("AN ERROR OCCURED: %s" % (e, ))
@@ -132,20 +142,41 @@ class LLInterpreter(object):
         for line in lines:
             log.traceback(line)
 
-    def find_roots(self):
+    def get_tlobj(self):
+        try:
+            return self._tlobj
+        except AttributeError:
+            from rpython.rtyper.lltypesystem import rffi
+            PERRNO = rffi.CArrayPtr(rffi.INT)
+            fake_p_errno = lltype.malloc(PERRNO.TO, 1, flavor='raw', zero=True,
+                                         track_allocation=False)
+            self._tlobj = {'RPY_TLOFS_p_errno': fake_p_errno,
+                           #'thread_ident': ...,
+                           }
+            return self._tlobj
+
+    def find_roots(self, is_minor=False):
         """Return a list of the addresses of the roots."""
         #log.findroots("starting")
         roots = []
-        for frame in self.frame_stack:
+        for frame in reversed(self.frame_stack):
             #log.findroots("graph", frame.graph.name)
             frame.find_roots(roots)
+            # If a call is done with 'is_minor=True', we can stop after the
+            # first frame in the stack that was already seen by the previous
+            # call with 'is_minor=True'.  (We still need to trace that frame,
+            # but not its callers.)
+            if is_minor:
+                if getattr(frame, '_find_roots_already_seen', False):
+                    break
+                frame._find_roots_already_seen = True
         return roots
 
     def find_exception(self, exc):
         assert isinstance(exc, LLException)
         klass, inst = exc.args[0], exc.args[1]
         for cls in enumerate_exceptions_top_down():
-            if "".join(klass.name).rstrip("\0") == cls.__name__:
+            if "".join(klass.name.chars) == cls.__name__:
                 return cls
         raise ValueError("couldn't match exception, maybe it"
                       " has RPython attributes like OSError?")
@@ -270,17 +301,16 @@ class LLFrame(object):
             is None, values is the concrete return value.
         """
         self.curr_block = block
-        catch_exception = block.exitswitch == c_last_exception
         e = None
 
         try:
             for i, op in enumerate(block.operations):
                 self.curr_operation_index = i
                 self.eval_operation(op)
-        except LLException, e:
-            if not (catch_exception and op is block.operations[-1]):
+        except LLException as e:
+            if op is not block.raising_op:
                 raise
-        except RuntimeError, e:
+        except RuntimeError as e:
             rstackovf.check_stack_overflow()
             # xxx fish fish fish for proper etype and evalue to use
             rtyper = self.llinterpreter.typer
@@ -290,7 +320,7 @@ class LLFrame(object):
             evalue = exdata.get_standard_ll_exc_instance(rtyper, classdef)
             etype = exdata.fn_type_of_exc_inst(evalue)
             e = LLException(etype, evalue)
-            if not (catch_exception and op is block.operations[-1]):
+            if op is not block.raising_op:
                 raise e
 
         # determine nextblock and/or return value
@@ -332,7 +362,7 @@ class LLFrame(object):
             # single-exit block
             assert len(block.exits) == 1
             link = block.exits[0]
-        elif catch_exception:
+        elif block.canraise:
             link = block.exits[0]
             if e:
                 exdata = self.llinterpreter.typer.exceptiondata
@@ -386,7 +416,7 @@ class LLFrame(object):
                 vals.insert(0, operation.result.concretetype)
             try:
                 retval = ophandler(*vals)
-            except LLException, e:
+            except LLException as e:
                 # safety check check that the operation is allowed to raise that
                 # exception
                 if operation.opname in lloperation.LL_OPERATIONS:
@@ -441,21 +471,17 @@ class LLFrame(object):
             extraargs = ()
         typer = self.llinterpreter.typer
         exdata = typer.exceptiondata
-        if isinstance(exc, OSError):
-            self.op_direct_call(exdata.fn_raise_OSError, exc.errno)
-            assert False, "op_direct_call above should have raised"
-        else:
-            evalue = exdata.get_standard_ll_exc_instance_by_class(exc.__class__)
-            etype = self.op_direct_call(exdata.fn_type_of_exc_inst, evalue)
+        evalue = exdata.get_standard_ll_exc_instance_by_class(exc.__class__)
+        etype = self.op_direct_call(exdata.fn_type_of_exc_inst, evalue)
         raise LLException(etype, evalue, *extraargs)
 
     def invoke_callable_with_pyexceptions(self, fptr, *args):
-        obj = self.llinterpreter.typer.type_system.deref(fptr)
+        obj = fptr._obj
         try:
             return obj._callable(*args)
-        except LLException, e:
+        except LLException as e:
             raise
-        except Exception, e:
+        except Exception as e:
             if getattr(e, '_go_through_llinterp_uncaught_', False):
                 raise
             if getattr(obj, '_debugexc', False):
@@ -492,7 +518,8 @@ class LLFrame(object):
         track(*ll_objects)
 
     def op_debug_assert(self, x, msg):
-        assert x, msg
+        if not x:
+            raise LLAssertFailure(msg)
 
     def op_debug_fatalerror(self, ll_msg, ll_exc=None):
         msg = ''.join(ll_msg.chars)
@@ -507,6 +534,9 @@ class LLFrame(object):
             return pythonfunction(*args_ll)
         except:
             self.make_llexception()
+
+    def op_debug_forked(self, *args):
+        raise NotImplementedError
 
     def op_debug_start_traceback(self, *args):
         pass    # xxx write debugging code here?
@@ -526,7 +556,7 @@ class LLFrame(object):
     def op_jit_marker(self, *args):
         pass
 
-    def op_jit_record_known_class(self, *args):
+    def op_jit_record_exact_class(self, *args):
         pass
 
     def op_jit_conditional_call(self, *args):
@@ -625,7 +655,7 @@ class LLFrame(object):
             array[index] = item
 
     def perform_call(self, f, ARGS, args):
-        fobj = self.llinterpreter.typer.type_system.deref(f)
+        fobj = f._obj
         has_callable = getattr(fobj, '_callable', None) is not None
         if hasattr(fobj, 'graph'):
             graph = fobj.graph
@@ -643,14 +673,14 @@ class LLFrame(object):
         return frame.eval()
 
     def op_direct_call(self, f, *args):
-        FTYPE = self.llinterpreter.typer.type_system.derefType(lltype.typeOf(f))
+        FTYPE = lltype.typeOf(f).TO
         return self.perform_call(f, FTYPE.ARGS, args)
 
     def op_indirect_call(self, f, *args):
         graphs = args[-1]
         args = args[:-1]
         if graphs is not None:
-            obj = self.llinterpreter.typer.type_system.deref(f)
+            obj = f._obj
             if hasattr(obj, 'graph'):
                 assert obj.graph in graphs
         else:
@@ -682,18 +712,6 @@ class LLFrame(object):
         except MemoryError:
             self.make_llexception()
 
-    def op_malloc_nonmovable(self, TYPE, flags):
-        flavor = flags['flavor']
-        assert flavor == 'gc'
-        zero = flags.get('zero', False)
-        return self.heap.malloc_nonmovable(TYPE, zero=zero)
-
-    def op_malloc_nonmovable_varsize(self, TYPE, flags, size):
-        flavor = flags['flavor']
-        assert flavor == 'gc'
-        zero = flags.get('zero', False)
-        return self.heap.malloc_nonmovable(TYPE, size, zero=zero)
-
     def op_free(self, obj, flags):
         assert flags['flavor'] == 'raw'
         track_allocation = flags.get('track_allocation', True)
@@ -701,6 +719,15 @@ class LLFrame(object):
 
     def op_gc_add_memory_pressure(self, size):
         self.heap.add_memory_pressure(size)
+
+    def op_gc_fq_next_dead(self, fq_tag):
+        return self.heap.gc_fq_next_dead(fq_tag)
+
+    def op_gc_fq_register(self, fq_tag, obj):
+        self.heap.gc_fq_register(fq_tag, obj)
+
+    def op_gc_gettypeid(self, obj):
+        return lloperation.llop.combine_ushort(lltype.Signed, self.heap.gettypeid(obj), 0)
 
     def op_shrink_array(self, obj, smallersize):
         return self.heap.shrink_array(obj, smallersize)
@@ -742,6 +769,10 @@ class LLFrame(object):
         return lltype.cast_opaque_ptr(RESTYPE, obj)
     op_cast_opaque_ptr.need_result_type = True
 
+    def op_length_of_simple_gcarray_from_opaque(self, obj):
+        checkptr(obj)
+        return lltype.length_of_simple_gcarray_from_opaque(obj)
+
     def op_cast_ptr_to_adr(self, ptr):
         checkptr(ptr)
         return llmemory.cast_ptr_to_adr(ptr)
@@ -757,17 +788,21 @@ class LLFrame(object):
     def op_weakref_create(self, v_obj):
         def objgetter():    # special support for gcwrapper.py
             return self.getval(v_obj)
+        assert self.llinterpreter.typer.getconfig().translation.rweakref
         return self.heap.weakref_create_getlazy(objgetter)
     op_weakref_create.specialform = True
 
     def op_weakref_deref(self, PTRTYPE, obj):
+        assert self.llinterpreter.typer.getconfig().translation.rweakref
         return self.heap.weakref_deref(PTRTYPE, obj)
     op_weakref_deref.need_result_type = True
 
     def op_cast_ptr_to_weakrefptr(self, obj):
+        assert self.llinterpreter.typer.getconfig().translation.rweakref
         return llmemory.cast_ptr_to_weakrefptr(obj)
 
     def op_cast_weakrefptr_to_ptr(self, PTRTYPE, obj):
+        assert self.llinterpreter.typer.getconfig().translation.rweakref
         return llmemory.cast_weakrefptr_to_ptr(PTRTYPE, obj)
     op_cast_weakrefptr_to_ptr.need_result_type = True
 
@@ -859,23 +894,22 @@ class LLFrame(object):
     def op_gc_stack_bottom(self):
         pass       # marker for trackgcroot.py
 
+    def op_gc_pin(self, obj):
+        addr = llmemory.cast_ptr_to_adr(obj)
+        return self.heap.pin(addr)
+
+    def op_gc_unpin(self, obj):
+        addr = llmemory.cast_ptr_to_adr(obj)
+        self.heap.unpin(addr)
+
+    def op_gc__is_pinned(self, obj):
+        addr = llmemory.cast_ptr_to_adr(obj)
+        return self.heap._is_pinned(addr)
+
     def op_gc_detach_callback_pieces(self):
         raise NotImplementedError("gc_detach_callback_pieces")
     def op_gc_reattach_callback_pieces(self):
         raise NotImplementedError("gc_reattach_callback_pieces")
-
-    def op_gc_shadowstackref_new(self):   # stacklet+shadowstack
-        raise NotImplementedError("gc_shadowstackref_new")
-    def op_gc_shadowstackref_context(self):
-        raise NotImplementedError("gc_shadowstackref_context")
-    def op_gc_save_current_state_away(self):
-        raise NotImplementedError("gc_save_current_state_away")
-    def op_gc_forget_current_state(self):
-        raise NotImplementedError("gc_forget_current_state")
-    def op_gc_restore_state_from(self):
-        raise NotImplementedError("gc_restore_state_from")
-    def op_gc_start_fresh_new_state(self):
-        raise NotImplementedError("gc_start_fresh_new_state")
 
     def op_gc_get_type_info_group(self):
         raise NotImplementedError("gc_get_type_info_group")
@@ -901,12 +935,33 @@ class LLFrame(object):
     def op_gc_typeids_z(self):
         raise NotImplementedError("gc_typeids_z")
 
+    def op_gc_typeids_list(self):
+        raise NotImplementedError("gc_typeids_list")
+
     def op_gc_gcflag_extra(self, subopnum, *args):
         return self.heap.gcflag_extra(subopnum, *args)
 
+    def op_gc_rawrefcount_init(self, *args):
+        raise NotImplementedError("gc_rawrefcount_init")
+
+    def op_gc_rawrefcount_to_obj(self, *args):
+        raise NotImplementedError("gc_rawrefcount_to_obj")
+
+    def op_gc_rawrefcount_from_obj(self, *args):
+        raise NotImplementedError("gc_rawrefcount_from_obj")
+
+    def op_gc_rawrefcount_create_link_pyobj(self, *args):
+        raise NotImplementedError("gc_rawrefcount_create_link_pyobj")
+
+    def op_gc_rawrefcount_create_link_pypy(self, *args):
+        raise NotImplementedError("gc_rawrefcount_create_link_pypy")
+
+    def op_do_malloc_fixedsize(self):
+        raise NotImplementedError("do_malloc_fixedsize")
     def op_do_malloc_fixedsize_clear(self):
         raise NotImplementedError("do_malloc_fixedsize_clear")
-
+    def op_do_malloc_varsize(self):
+        raise NotImplementedError("do_malloc_varsize")
     def op_do_malloc_varsize_clear(self):
         raise NotImplementedError("do_malloc_varsize_clear")
 
@@ -918,6 +973,20 @@ class LLFrame(object):
 
     def op_stack_current(self):
         return 0
+
+    def op_threadlocalref_addr(self):
+        return _address_of_thread_local()
+
+    def op_threadlocalref_get(self, RESTYPE, offset):
+        return self.op_raw_load(RESTYPE, _address_of_thread_local(), offset)
+    op_threadlocalref_get.need_result_type = True
+
+    def op_threadlocalref_acquire(self, prev):
+        raise NotImplementedError
+    def op_threadlocalref_release(self, prev):
+        raise NotImplementedError
+    def op_threadlocalref_enum(self, prev):
+        raise NotImplementedError
 
     # __________________________________________________________
     # operations on addresses
@@ -951,6 +1020,9 @@ class LLFrame(object):
         checkadr(toaddr)
         llmemory.raw_memcopy(fromaddr, toaddr, size)
 
+    def op_raw_memset(self, addr, byte, size):
+        raise NotImplementedError
+
     op_raw_memmove = op_raw_memcopy # this is essentially the same here
 
     def op_raw_load(self, RESTYPE, addr, offset):
@@ -961,6 +1033,9 @@ class LLFrame(object):
             ll_p = rffi.cast(rffi.CArrayPtr(RESTYPE),
                              rffi.ptradd(ll_p, offset))
             value = ll_p[0]
+        elif getattr(addr, 'is_fake_thread_local_addr', False):
+            assert type(offset) is CDefinedIntSymbolic
+            value = self.llinterpreter.get_tlobj()[offset.expr]
         else:
             assert offset.TYPE == RESTYPE
             value = getattr(addr, str(RESTYPE).lower())[offset.repeat]
@@ -981,6 +1056,9 @@ class LLFrame(object):
             ll_p = rffi.cast(rffi.CArrayPtr(ARGTYPE),
                              rffi.ptradd(ll_p, offset))
             ll_p[0] = value
+        elif getattr(addr, 'is_fake_thread_local_addr', False):
+            assert type(offset) is CDefinedIntSymbolic
+            self.llinterpreter.get_tlobj()[offset.expr] = value
         else:
             assert offset.TYPE == ARGTYPE
             getattr(addr, str(ARGTYPE).lower())[offset.repeat] = value
@@ -998,91 +1076,34 @@ class LLFrame(object):
     # ____________________________________________________________
     # Overflow-detecting variants
 
-    def op_int_neg_ovf(self, x):
-        assert is_valid_int(x)
+    def op_int_add_ovf(self, x, y):
+        assert isinstance(x, (int, long, llmemory.AddressOffset))
+        assert isinstance(y, (int, long, llmemory.AddressOffset))
         try:
-            return ovfcheck(-x)
+            return ovfcheck(x + y)
         except OverflowError:
             self.make_llexception()
-
-    def op_int_abs_ovf(self, x):
-        assert is_valid_int(x)
-        try:
-            return ovfcheck(abs(x))
-        except OverflowError:
-            self.make_llexception()
-
-    def op_int_lshift_ovf(self, x, y):
-        assert is_valid_int(x)
-        assert is_valid_int(y)
-        try:
-            return ovfcheck(x << y)
-        except OverflowError:
-            self.make_llexception()
-
-    def _makefunc2(fn, operator, xtype, ytype=None):
-        import sys
-        d = sys._getframe(1).f_locals
-        if ytype is None:
-            ytype = xtype
-        if '_ovf' in fn:
-            checkfn = 'ovfcheck'
-        elif fn.startswith('op_int_'):
-            checkfn = 'intmask'
-        else:
-            checkfn = ''
-        if operator == '//':
-            code = '''r = %(checkfn)s(x // y)
-                if x^y < 0 and x%%y != 0:
-                    r += 1
-                return r
-                ''' % locals()
-        elif operator == '%':
-            ## overflow check on % does not work with emulated int
-            code = '''%(checkfn)s(x // y)
-                r = x %% y
-                if x^y < 0 and x%%y != 0:
-                    r -= y
-                return r
-                ''' % locals()
-        else:
-            code = 'return %(checkfn)s(x %(operator)s y)' % locals()
-        exec py.code.Source("""
-        def %(fn)s(self, x, y):
-            assert isinstance(x, %(xtype)s)
-            assert isinstance(y, %(ytype)s)
-            try:
-                %(code)s
-            except (OverflowError, ValueError, ZeroDivisionError):
-                self.make_llexception()
-        """ % locals()).compile() in globals(), d
-
-    _makefunc2('op_int_add_ovf', '+', '(int, long, llmemory.AddressOffset)')
-    _makefunc2('op_int_mul_ovf', '*', '(int, long, llmemory.AddressOffset)', '(int, long)')
-    _makefunc2('op_int_sub_ovf',          '-',  '(int, long)')
-    _makefunc2('op_int_floordiv_ovf',     '//', '(int, long)')  # XXX negative args
-    _makefunc2('op_int_floordiv_zer',     '//', '(int, long)')  # can get off-by-one
-    _makefunc2('op_int_floordiv_ovf_zer', '//', '(int, long)')  # (see op_int_floordiv)
-    _makefunc2('op_int_mod_ovf',          '%',  '(int, long)')
-    _makefunc2('op_int_mod_zer',          '%',  '(int, long)')
-    _makefunc2('op_int_mod_ovf_zer',      '%',  '(int, long)')
-
-    _makefunc2('op_uint_floordiv_zer',    '//', 'r_uint')
-    _makefunc2('op_uint_mod_zer',         '%',  'r_uint')
-
-    _makefunc2('op_llong_floordiv_zer',   '//', 'r_longlong')
-    _makefunc2('op_llong_mod_zer',        '%',  'r_longlong')
-
-    _makefunc2('op_ullong_floordiv_zer',  '//', 'r_ulonglong')
-    _makefunc2('op_ullong_mod_zer',       '%',  'r_ulonglong')
-
-    _makefunc2('op_lllong_floordiv_zer',   '//', 'r_longlonglong')
-    _makefunc2('op_lllong_mod_zer',        '%',  'r_longlonglong')
 
     def op_int_add_nonneg_ovf(self, x, y):
         if isinstance(y, int):
             assert y >= 0
         return self.op_int_add_ovf(x, y)
+
+    def op_int_sub_ovf(self, x, y):
+        assert isinstance(x, (int, long))
+        assert isinstance(y, (int, long))
+        try:
+            return ovfcheck(x - y)
+        except OverflowError:
+            self.make_llexception()
+
+    def op_int_mul_ovf(self, x, y):
+        assert isinstance(x, (int, long, llmemory.AddressOffset))
+        assert isinstance(y, (int, long, llmemory.AddressOffset))
+        try:
+            return ovfcheck(x * y)
+        except OverflowError:
+            self.make_llexception()
 
     def op_int_is_true(self, x):
         # special case
@@ -1302,9 +1323,6 @@ class _address_of_local_var_accessor(object):
             return llmemory.fakeaddress(addr.ptr._obj._ptr)
         return addr
 
-
-# by default we route all logging messages to nothingness
-# e.g. tests can then switch on logging to get more help
-# for failing tests
-from rpython.tool.ansi_print import ansi_log
-py.log.setconsumer('llinterp', ansi_log)
+class _address_of_thread_local(object):
+    _TYPE = llmemory.Address
+    is_fake_thread_local_addr = True

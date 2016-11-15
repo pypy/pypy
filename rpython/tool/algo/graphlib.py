@@ -182,6 +182,8 @@ def break_cycles(vertices, edges):
     """Enumerates a reasonably minimal set of edges that must be removed to
     make the graph acyclic."""
 
+    import py; py.test.skip("break_cycles() is not used any more")
+
     # the approach is as follows: starting from each root, find some set
     # of cycles using a simple depth-first search. Then break the
     # edge that is part of the most cycles.  Repeat.

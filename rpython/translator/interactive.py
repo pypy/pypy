@@ -1,5 +1,6 @@
 from rpython.translator.translator import TranslationContext
 from rpython.translator import driver
+from rpython.rlib.entrypoint import export_symbol
 
 
 DEFAULTS = {
@@ -14,7 +15,7 @@ class Translation(object):
         self.driver = driver.TranslationDriver(overrides=DEFAULTS)
         self.config = self.driver.config
 
-        self.entry_point = entry_point
+        self.entry_point = export_symbol(entry_point)
         self.context = TranslationContext(config=self.config)
 
         policy = kwds.pop('policy', None)
@@ -31,12 +32,6 @@ class Translation(object):
         self.context.viewcg()
 
     def ensure_setup(self, argtypes=None, policy=None):
-        standalone = argtypes is None
-        if standalone:
-            assert argtypes is None
-        else:
-            if argtypes is None:
-                argtypes = []
         self.driver.setup(self.entry_point, argtypes, policy,
                           empty_translator=self.context)
         self.ann_argtypes = argtypes

@@ -1,17 +1,24 @@
-## ----------------------------------------------------------------------------
-## dict strategy (see dictmultiobject.py)
+"""dict implementation specialized for keyword argument dicts.
 
-from rpython.rlib import rerased, jit
+Based on two lists containing unwrapped key value pairs.
+"""
+
+from rpython.rlib import jit, rerased, objectmodel
+
 from pypy.objspace.std.dictmultiobject import (
     BytesDictStrategy, DictStrategy, EmptyDictStrategy, ObjectDictStrategy,
     create_iterator_classes)
+
+
+def _wrapkey(space, key):
+    return space.wrap(key)
 
 
 class EmptyKwargsDictStrategy(EmptyDictStrategy):
     def switch_to_bytes_strategy(self, w_dict):
         strategy = self.space.fromcache(KwargsDictStrategy)
         storage = strategy.get_empty_storage()
-        w_dict.strategy = strategy
+        w_dict.set_strategy(strategy)
         w_dict.dstorage = storage
 
 
@@ -21,7 +28,7 @@ class KwargsDictStrategy(DictStrategy):
     unerase = staticmethod(unerase)
 
     def wrap(self, key):
-        return self.space.wrap(key)
+        return _wrapkey(self.space, key)
 
     def unwrap(self, wrapped):
         return self.space.str_w(wrapped)
@@ -117,16 +124,14 @@ class KwargsDictStrategy(DictStrategy):
     def items(self, w_dict):
         space = self.space
         keys, values_w = self.unerase(w_dict.dstorage)
-        result = []
-        for i in range(len(keys)):
-            result.append(space.newtuple([self.wrap(keys[i]), values_w[i]]))
-        return result
+        return [space.newtuple([self.wrap(keys[i]), values_w[i]])
+                for i in range(len(keys))]
 
     def popitem(self, w_dict):
         keys, values_w = self.unerase(w_dict.dstorage)
         key = keys.pop()
         w_value = values_w.pop()
-        return (self.wrap(key), w_value)
+        return self.wrap(key), w_value
 
     def clear(self, w_dict):
         w_dict.dstorage = self.get_empty_storage()
@@ -137,7 +142,7 @@ class KwargsDictStrategy(DictStrategy):
         d_new = strategy.unerase(strategy.get_empty_storage())
         for i in range(len(keys)):
             d_new[self.wrap(keys[i])] = values_w[i]
-        w_dict.strategy = strategy
+        w_dict.set_strategy(strategy)
         w_dict.dstorage = strategy.erase(d_new)
 
     def switch_to_bytes_strategy(self, w_dict):
@@ -147,7 +152,7 @@ class KwargsDictStrategy(DictStrategy):
         d_new = strategy.unerase(storage)
         for i in range(len(keys)):
             d_new[keys[i]] = values_w[i]
-        w_dict.strategy = strategy
+        w_dict.set_strategy(strategy)
         w_dict.dstorage = storage
 
     def view_as_kwargs(self, w_dict):
@@ -160,22 +165,29 @@ class KwargsDictStrategy(DictStrategy):
     def getitervalues(self, w_dict):
         return iter(self.unerase(w_dict.dstorage)[1])
 
-    def getiteritems(self, w_dict):
-        keys = self.unerase(w_dict.dstorage)[0]
-        return iter(range(len(keys)))
+    def getiteritems_with_hash(self, w_dict):
+        keys, values_w = self.unerase(w_dict.dstorage)
+        return ZipItemsWithHash(keys, values_w)
 
-    def wrapkey(space, key):
-        return space.wrap(key)
+    wrapkey = _wrapkey
 
 
-def next_item(self):
-    strategy = self.strategy
-    assert isinstance(strategy, KwargsDictStrategy)
-    for i in self.iterator:
-        keys, values_w = strategy.unerase(
-            self.dictimplementation.dstorage)
-        return self.space.wrap(keys[i]), values_w[i]
-    else:
-        return None, None
+class ZipItemsWithHash(object):
+    def __init__(self, list1, list2):
+        assert len(list1) == len(list2)
+        self.list1 = list1
+        self.list2 = list2
+        self.i = 0
 
-create_iterator_classes(KwargsDictStrategy, override_next_item=next_item)
+    def __iter__(self):
+        return self
+
+    def next(self):
+        i = self.i
+        if i >= len(self.list1):
+            raise StopIteration
+        self.i = i + 1
+        key = self.list1[i]
+        return (key, self.list2[i], objectmodel.compute_hash(key))
+
+create_iterator_classes(KwargsDictStrategy)

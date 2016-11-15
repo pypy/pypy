@@ -2,12 +2,12 @@ from inspect import CO_VARARGS, CO_VARKEYWORDS
 
 import py
 from pypy.interpreter import gateway, pycode
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 
 try:
-    from _pytest.assertion.newinterpret import interpret
+    from _pytest.assertion.reinterpret import reinterpret as interpret
 except ImportError:
-    from _pytest.assertion.oldinterpret import interpret
+    from _pytest.assertion.newinterpret import interpret
 
 # ____________________________________________________________
 
@@ -58,12 +58,15 @@ class AppFrame(py.code.Frame):
         self.w_locals = space.getattr(pyframe, space.wrap('f_locals'))
         self.f_locals = self.w_locals   # for py.test's recursion detection
 
+    def get_w_globals(self):
+        return self.w_globals
+
     def eval(self, code, **vars):
         space = self.space
         for key, w_value in vars.items():
             space.setitem(self.w_locals, space.wrap(key), w_value)
         if isinstance(code, str):
-            return space.eval(code, self.w_globals, self.w_locals)
+            return space.eval(code, self.get_w_globals(), self.w_locals)
         pyc = pycode.PyCode._from_code(space, code)
         return pyc.exec_host_bytecode(self.w_globals, self.w_locals)
     exec_ = eval
@@ -71,7 +74,7 @@ class AppFrame(py.code.Frame):
     def repr(self, w_value):
         try:
             return self.space.unwrap(self.space.repr(w_value))
-        except Exception, e:
+        except Exception as e:
             return "<Sorry, exception while trying to do repr, %r>"%e
 
     def is_true(self, w_value):
@@ -99,6 +102,7 @@ class AppExceptionInfo(py.code.ExceptionInfo):
         debug_excs = getattr(operr, 'debug_excs', [])
         if debug_excs:
             self._excinfo = debug_excs[0]
+        self.value = self.operr.errorstr(self.space)  # XXX
 
     def __repr__(self):
         return "<AppExceptionInfo %s>" % self.operr.errorstr(self.space)
@@ -228,15 +232,15 @@ def pypyraises(space, w_ExpectedException, w_expr, __args__):
     args_w, kwds_w = __args__.unpack()
     if space.isinstance_w(w_expr, space.w_str):
         if args_w:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("raises() takes no argument "
-                                            "after a string expression"))
+            raise oefmt(space.w_TypeError,
+                        "raises() takes no argument after a string expression")
         expr = space.unwrap(w_expr)
         source = py.code.Source(expr)
         frame = space.getexecutioncontext().gettopframe()
         w_locals = frame.getdictscope()
         pycode = frame.pycode
-        filename = "<%s:%s>" %(pycode.co_filename, frame.f_lineno)
+        filename = "<%s:%s>" %(pycode.co_filename,
+                               space.int_w(frame.fget_f_lineno(space)))
         lines = [x + "\n" for x in expr.split("\n")]
         py.std.linecache.cache[filename] = (1, None, lines, filename)
         w_locals = space.call_method(w_locals, 'copy')
@@ -246,21 +250,20 @@ def pypyraises(space, w_ExpectedException, w_expr, __args__):
         #if filename.endswith("pyc"):
         #    filename = filename[:-1]
         try:
-            space.exec_(str(source), frame.w_globals, w_locals,
+            space.exec_(str(source), frame.get_w_globals(), w_locals,
                         filename=filename)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, w_ExpectedException):
                 return _exc_info(space, e)
             raise
     else:
         try:
             space.call_args(w_expr, __args__)
-        except OperationError, e:
+        except OperationError as e:
             if e.match(space, w_ExpectedException):
                 return _exc_info(space, e)
             raise
-    raise OperationError(space.w_AssertionError,
-                         space.wrap("DID NOT RAISE"))
+    raise oefmt(space.w_AssertionError, "DID NOT RAISE")
 
 app_raises = gateway.interp2app_temp(pypyraises)
 
@@ -278,6 +281,6 @@ def raises_w(space, w_ExpectedException, *args, **kwds):
         if not value.match(space, w_ExpectedException):
             raise type, value, tb
         return excinfo
-    except py.test.raises.Exception, e:
+    except py.test.raises.Exception as e:
         e.tbindex = getattr(e, 'tbindex', -1) - 1
         raise

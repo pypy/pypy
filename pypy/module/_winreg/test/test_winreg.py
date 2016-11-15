@@ -40,7 +40,7 @@ class AppTestFfi:
         cls.w_tmpfilename = space.wrap(str(udir.join('winreg-temp')))
 
         test_data = [
-            ("Int Value", 45, _winreg.REG_DWORD),
+            ("Int Value", 0xFEDCBA98, _winreg.REG_DWORD),
             ("Str Value", "A string Value", _winreg.REG_SZ),
             ("Unicode Value", u"A unicode Value", _winreg.REG_SZ),
             ("Str Expand", "The path is %path%", _winreg.REG_EXPAND_SZ),
@@ -127,7 +127,7 @@ class AppTestFfi:
         import errno
         try:
             QueryInfoKey(0)
-        except EnvironmentError, e:
+        except EnvironmentError as e:
             assert e.winerror == 6
             assert e.errno == errno.EBADF
             # XXX translations...
@@ -137,28 +137,38 @@ class AppTestFfi:
             assert 0, "Did not raise"
 
     def test_SetValueEx(self):
-        from _winreg import CreateKey, SetValueEx
+        from _winreg import CreateKey, SetValueEx, REG_BINARY, REG_DWORD
         key = CreateKey(self.root_key, self.test_key_name)
         sub_key = CreateKey(key, "sub_key")
+        SetValueEx(sub_key, 'Int Value', 0, REG_DWORD, None)
+        SetValueEx(sub_key, 'Int Value', 0, REG_DWORD, 45)
         for name, value, type in self.test_data:
             SetValueEx(sub_key, name, 0, type, value)
+        exc = raises(TypeError, SetValueEx, sub_key, 'test_name', None,
+                                            REG_BINARY, memoryview('abc'))
+        assert str(exc.value) == ("Objects of type 'memoryview' can not "
+                                  "be used as binary registry values")
 
     def test_readValues(self):
         from _winreg import OpenKey, EnumValue, QueryValueEx, EnumKey
+        from _winreg import REG_SZ, REG_EXPAND_SZ
         key = OpenKey(self.root_key, self.test_key_name)
         sub_key = OpenKey(key, "sub_key")
         index = 0
         while 1:
             try:
                 data = EnumValue(sub_key, index)
-            except EnvironmentError, e:
+            except EnvironmentError as e:
                 break
             assert data in self.test_data
             index = index + 1
         assert index == len(self.test_data)
 
         for name, value, type in self.test_data:
-            assert QueryValueEx(sub_key, name) == (value, type)
+            result = QueryValueEx(sub_key, name)
+            assert result == (value, type)
+            if type == REG_SZ or type == REG_EXPAND_SZ:
+                assert isinstance(result[0], unicode)     # not string
 
         assert EnumKey(key, 0) == "sub_key"
         raises(EnvironmentError, EnumKey, key, 1)
@@ -221,7 +231,7 @@ class AppTestFfi:
         from _winreg import EnumValue, QueryValueEx, HKEY_PERFORMANCE_DATA
         try:
             EnumValue(HKEY_PERFORMANCE_DATA, 0)
-        except WindowsError, e:
+        except WindowsError as e:
             import errno
             if e.errno in (errno.EPERM, errno.EACCES):
                 skip("access denied to registry key "

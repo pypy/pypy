@@ -6,7 +6,13 @@ import py
 import sys, os, re, runpy, subprocess
 from rpython.tool.udir import udir
 from contextlib import contextmanager
-from pypy.conftest import pypydir
+from pypy import pypydir
+from lib_pypy._pypy_interact import irc_header
+
+try:
+    import __pypy__
+except ImportError:
+    __pypy__ = None
 
 banner = sys.version.splitlines()[0]
 
@@ -70,6 +76,11 @@ crashing_demo_script = getscript("""
     print 'Goodbye2'   # should not be reached
     """)
 
+script_with_future = getscript("""
+    from __future__ import division
+    from __future__ import print_function
+    """)
+
 
 class TestParseCommandLine:
     def check_options(self, options, sys_argv, **expected):
@@ -105,6 +116,8 @@ class TestParseCommandLine:
             sys.argv[:] = saved_sys_argv
             sys.stdout = saved_sys_stdout
             sys.stderr = saved_sys_stderr
+            if __pypy__:
+                __pypy__.set_debug(True)
 
     def test_all_combinations_I_can_think_of(self):
         self.check([], {}, sys_argv=[''], run_stdin=True)
@@ -132,7 +145,7 @@ class TestParseCommandLine:
         self.check(['-S', '-tO', '--info'], {}, output_contains='translation')
         self.check(['-S', '-tO', '--version'], {}, output_contains='Python')
         self.check(['-S', '-tOV'], {}, output_contains='Python')
-        self.check(['--jit', 'foobar', '-S'], {}, sys_argv=[''],
+        self.check(['--jit', 'off', '-S'], {}, sys_argv=[''],
                    run_stdin=True, no_site=1)
         self.check(['-c', 'pass'], {}, sys_argv=['-c'], run_command='pass')
         self.check(['-cpass'], {}, sys_argv=['-c'], run_command='pass')
@@ -166,6 +179,11 @@ class TestParseCommandLine:
         self.check([], {'PYTHONNOUSERSITE': '1'}, sys_argv=[''], run_stdin=True, no_user_site=1)
         self.check([], {'PYTHONUNBUFFERED': '1'}, sys_argv=[''], run_stdin=True, unbuffered=1)
         self.check([], {'PYTHONVERBOSE': '1'}, sys_argv=[''], run_stdin=True, verbose=1)
+        self.check([], {'PYTHONOPTIMIZE': '1'}, sys_argv=[''], run_stdin=True, optimize=1)
+        self.check([], {'PYTHONOPTIMIZE': '0'}, sys_argv=[''], run_stdin=True, optimize=1)
+        self.check([], {'PYTHONOPTIMIZE': '10'}, sys_argv=[''], run_stdin=True, optimize=10)
+        self.check(['-O'], {'PYTHONOPTIMIZE': '10'}, sys_argv=[''], run_stdin=True, optimize=10)
+        self.check(['-OOO'], {'PYTHONOPTIMIZE': 'abc'}, sys_argv=[''], run_stdin=True, optimize=3)
 
     def test_sysflags(self):
         flags = (
@@ -202,6 +220,13 @@ class TestParseCommandLine:
         expected = {"no_user_site": True}
         self.check(['-c', 'pass'], {}, sys_argv=['-c'], run_command='pass', **expected)
 
+    def test_track_resources(self, monkeypatch):
+        myflag = [False]
+        def pypy_set_track_resources(flag):
+            myflag[0] = flag
+        monkeypatch.setattr(sys, 'pypy_set_track_resources', pypy_set_track_resources, raising=False)
+        self.check(['-X', 'track-resources'], {}, sys_argv=[''], run_stdin=True)
+        assert myflag[0] == True
 
 class TestInteraction:
     """
@@ -211,7 +236,7 @@ class TestInteraction:
     def _spawn(self, *args, **kwds):
         try:
             import pexpect
-        except ImportError, e:
+        except ImportError as e:
             py.test.skip(str(e))
         else:
             # Version is of the style "0.999" or "2.1".  Older versions of
@@ -259,6 +284,22 @@ class TestInteraction:
         child.expect('>>> ')
         child.sendline("'' in sys.path")
         child.expect("True")
+
+    def test_yes_irc_topic(self, monkeypatch):
+        monkeypatch.setenv('PYPY_IRC_TOPIC', '1')
+        child = self.spawn([])
+        child.expect(irc_header)   # banner
+
+    def test_maybe_irc_topic(self):
+        import sys
+        pypy_version_info = getattr(sys, 'pypy_version_info', sys.version_info)
+        irc_topic = pypy_version_info[3] != 'final'
+        child = self.spawn([])
+        child.expect('>>>')   # banner
+        if irc_topic:
+            assert irc_header in child.before
+        else:
+            assert irc_header not in child.before
 
     def test_help(self):
         # test that -h prints the usage, including the name of the executable
@@ -415,6 +456,31 @@ class TestInteraction:
             assert index == 1      # no traceback
         finally:
             os.environ['PYTHONSTARTUP'] = old
+
+    def test_future_in_executed_script(self):
+        child = self.spawn(['-i', script_with_future])
+        child.expect('>>> ')
+        child.sendline('x=1; print(x/2, 3/4)')
+        child.expect('0.5 0.75')
+
+    def test_future_in_python_startup(self, monkeypatch):
+        monkeypatch.setenv('PYTHONSTARTUP', script_with_future)
+        child = self.spawn([])
+        child.expect('>>> ')
+        child.sendline('x=1; print(x/2, 3/4)')
+        child.expect('0.5 0.75')
+
+    def test_future_in_cmd(self):
+        child = self.spawn(['-i', '-c', 'from __future__ import division'])
+        child.expect('>>> ')
+        child.sendline('x=1; x/2; 3/4')
+        child.expect('0.5')
+        child.expect('0.75')
+
+    def test_cmd_co_name(self):
+        child = self.spawn(['-c',
+                    'import sys; print sys._getframe(0).f_code.co_name'])
+        child.expect('<module>')
 
     def test_ignore_python_inspect(self):
         os.environ['PYTHONINSPECT_'] = '1'
@@ -579,9 +645,7 @@ class TestNonInteractive:
     def run_with_status_code(self, cmdline, senddata='', expect_prompt=False,
             expect_banner=False, python_flags='', env=None):
         if os.name == 'nt':
-            try:
-                import __pypy__
-            except:
+            if __pypy__ is None:
                 py.test.skip('app_main cannot run on non-pypy for windows')
         cmdline = '%s %s "%s" %s' % (sys.executable, python_flags,
                                      app_main, cmdline)
@@ -920,6 +984,7 @@ class AppTestAppMain:
         # ----------------------------------------
         from pypy.module.sys.version import CPYTHON_VERSION, PYPY_VERSION
         cpy_ver = '%d.%d' % CPYTHON_VERSION[:2]
+        from lib_pypy._pypy_interact import irc_header
 
         goal_dir = os.path.dirname(app_main)
         # build a directory hierarchy like which contains both bin/pypy-c and
@@ -927,7 +992,7 @@ class AppTestAppMain:
         prefix = udir.join('pathtest').ensure(dir=1)
         fake_exe = 'bin/pypy-c'
         if sys.platform == 'win32':
-            fake_exe += '.exe'
+            fake_exe = 'pypy-c.exe'
         fake_exe = prefix.join(fake_exe).ensure(file=1)
         expected_path = [str(prefix.join(subdir).ensure(dir=1))
                          for subdir in ('lib_pypy',
@@ -939,6 +1004,7 @@ class AppTestAppMain:
         self.w_fake_exe = self.space.wrap(str(fake_exe))
         self.w_expected_path = self.space.wrap(expected_path)
         self.w_trunkdir = self.space.wrap(os.path.dirname(pypydir))
+        self.w_is_release = self.space.wrap(PYPY_VERSION[3] == "final")
 
         self.w_tmp_dir = self.space.wrap(tmp_dir)
 
@@ -953,18 +1019,34 @@ class AppTestAppMain:
         old_sys_path = sys.path[:]
         old_cwd = os.getcwd()
 
-        sys.path.append(self.goal_dir)
         # make sure cwd does not contain a stdlib
         if self.tmp_dir.startswith(self.trunkdir):
             skip('TMPDIR is inside the PyPy source')
-        os.chdir(self.tmp_dir)
+        sys.path.append(self.goal_dir)
         tmp_pypy_c = os.path.join(self.tmp_dir, 'pypy-c')
         try:
-            import app_main
-            app_main.setup_bootstrap_path(tmp_pypy_c)  # stdlib not found
-            assert sys.executable == ''
-            assert sys.path == old_sys_path + [self.goal_dir]
+            os.chdir(self.tmp_dir)
 
+            # If we are running PyPy with a libpypy-c, the following
+            # lines find the stdlib anyway.  Otherwise, it is not found.
+            expected_found = (
+                getattr(sys, 'pypy_translation_info', {})
+                .get('translation.shared'))
+
+            import app_main
+            app_main.setup_bootstrap_path(tmp_pypy_c)
+            assert sys.executable == ''
+            if not expected_found:
+                assert sys.path == old_sys_path + [self.goal_dir]
+
+            app_main.setup_bootstrap_path(self.fake_exe)
+            if not sys.platform == 'win32':
+                # an existing file is always 'executable' on windows
+                assert sys.executable == ''      # not executable!
+                if not expected_found:
+                    assert sys.path == old_sys_path + [self.goal_dir]
+
+            os.chmod(self.fake_exe, 0755)
             app_main.setup_bootstrap_path(self.fake_exe)
             assert sys.executable == self.fake_exe
             assert self.goal_dir not in sys.path
@@ -973,7 +1055,8 @@ class AppTestAppMain:
             if newpath[0].endswith('__extensions__'):
                 newpath = newpath[1:]
             # we get at least 'expected_path', and maybe more (e.g.plat-linux2)
-            assert newpath[:len(self.expected_path)] == self.expected_path
+            if not expected_found:
+                assert newpath[:len(self.expected_path)] == self.expected_path
         finally:
             sys.path[:] = old_sys_path
             os.chdir(old_cwd)

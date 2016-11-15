@@ -76,6 +76,31 @@ class TestGenerator(BaseRtypingTest):
         res = self.interpret(f, [])
         assert res == 358
 
+    @py.test.mark.xfail
+    def test_different_exception(self):
+        def h(c):
+            if c == 8:
+                raise ValueError
+        def g(c):
+            try:
+                h(c)
+            except Exception as e:
+                if isinstance(e, ValueError):
+                    raise
+                raise StopIteration
+            yield c
+
+        def f(x):
+            try:
+                for x in g(x):
+                    pass
+            except ValueError:
+                return -5
+            return 5
+        assert f(8) == -5
+        res = self.interpret(f, [8])
+        assert res == -5
+
     def test_iterating_generator(self):
         def f():
             yield 1
@@ -88,3 +113,21 @@ class TestGenerator(BaseRtypingTest):
             return s
         res = self.interpret(g, [])
         assert res == 6
+
+    def test_generator_with_unreachable_yields(self):
+        def f(n):
+            if n < 0:
+                yield 42
+            yield n
+            if n < 0:
+                yield 43
+            yield n
+            if n < 0:
+                yield 44
+        def main(n):
+            y = 0
+            for x in f(abs(n)):
+                y += x
+            return y
+        res = self.interpret(main, [-100])
+        assert res == 200

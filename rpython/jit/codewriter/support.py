@@ -14,7 +14,8 @@ from rpython.rtyper.lltypesystem import rlist as rlist_ll
 from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.llinterp import LLInterpreter
-from rpython.rtyper.lltypesystem import lltype, rclass, rffi, llmemory, rstr as ll_rstr, rdict as ll_rdict
+from rpython.rtyper.lltypesystem import lltype, rffi, llmemory, rstr as ll_rstr, rdict as ll_rdict
+from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem import rordereddict
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem.module import ll_math
@@ -97,8 +98,9 @@ def autodetect_jit_markers_redvars(graph):
             op.args.extend(reds_v)
             if jitdriver.numreds is None:
                 jitdriver.numreds = len(reds_v)
-            else:
-                assert jitdriver.numreds == len(reds_v), 'inconsistent number of reds_v'
+            elif jitdriver.numreds != len(reds_v):
+                raise AssertionError("there are multiple jit_merge_points "
+                                     "with the same jitdriver")
 
 def split_before_jit_merge_point(graph, portalblock, portalopindex):
     """Split the block just before the 'jit_merge_point',
@@ -106,7 +108,7 @@ def split_before_jit_merge_point(graph, portalblock, portalopindex):
     """
     # split the block just before the jit_merge_point()
     if portalopindex > 0:
-        link = split_block(None, portalblock, portalopindex)
+        link = split_block(portalblock, portalopindex)
         portalblock = link.target
     portalop = portalblock.operations[0]
     # split again, this time enforcing the order of the live vars
@@ -114,7 +116,7 @@ def split_before_jit_merge_point(graph, portalblock, portalopindex):
     assert portalop.opname == 'jit_marker'
     assert portalop.args[0].value == 'jit_merge_point'
     greens_v, reds_v = decode_hp_hint_args(portalop)
-    link = split_block(None, portalblock, 0, greens_v + reds_v)
+    link = split_block(portalblock, 0, greens_v + reds_v)
     return link.target
 
 def sort_vars(args_v):
@@ -180,11 +182,11 @@ def _ll_0_newlist(LIST):
     return LIST.ll_newlist(0)
 def _ll_1_newlist(LIST, count):
     return LIST.ll_newlist(count)
-def _ll_2_newlist(LIST, count, item):
-    return rlist.ll_alloc_and_set(LIST, count, item)
 _ll_0_newlist.need_result_type = True
 _ll_1_newlist.need_result_type = True
-_ll_2_newlist.need_result_type = True
+
+_ll_1_newlist_clear = rlist._ll_alloc_and_clear
+_ll_1_newlist_clear.need_result_type = True
 
 def _ll_1_newlist_hint(LIST, hint):
     return LIST.ll_newlist_hint(hint)
@@ -229,55 +231,42 @@ def _ll_1_gc_id(ptr):
     return llop.gc_id(lltype.Signed, ptr)
 
 
+def _ll_1_gc_pin(ptr):
+    return llop.gc_pin(lltype.Bool, ptr)
+
+def _ll_1_gc_unpin(ptr):
+    llop.gc_unpin(lltype.Void, ptr)
+
+
 @oopspec("jit.force_virtual(inst)")
 def _ll_1_jit_force_virtual(inst):
     return llop.jit_force_virtual(lltype.typeOf(inst), inst)
 
 
-def _ll_2_int_floordiv_ovf_zer(x, y):
-    if y == 0:
-        raise ZeroDivisionError
-    if x == -sys.maxint - 1 and y == -1:
-        raise OverflowError
-    return llop.int_floordiv(lltype.Signed, x, y)
-
-def _ll_2_int_floordiv_ovf(x, y):
-    if x == -sys.maxint - 1 and y == -1:
-        raise OverflowError
-    return llop.int_floordiv(lltype.Signed, x, y)
-
-def _ll_2_int_floordiv_zer(x, y):
-    if y == 0:
-        raise ZeroDivisionError
-    return llop.int_floordiv(lltype.Signed, x, y)
-
-def _ll_2_int_mod_ovf_zer(x, y):
-    if y == 0:
-        raise ZeroDivisionError
-    if x == -sys.maxint - 1 and y == -1:
-        raise OverflowError
-    return llop.int_mod(lltype.Signed, x, y)
-
-def _ll_2_int_mod_ovf(x, y):
-    if x == -sys.maxint - 1 and y == -1:
-        raise OverflowError
-    return llop.int_mod(lltype.Signed, x, y)
-
-def _ll_2_int_mod_zer(x, y):
-    if y == 0:
-        raise ZeroDivisionError
-    return llop.int_mod(lltype.Signed, x, y)
-
-def _ll_2_int_lshift_ovf(x, y):
-    result = x << y
-    if (result >> y) != x:
-        raise OverflowError
-    return result
-
 def _ll_1_int_abs(x):
     # this version doesn't branch
     mask = x >> (LONG_BIT - 1)
     return (x ^ mask) - mask
+
+
+def _ll_2_int_floordiv(x, y):
+    # this is used only if the RPython program uses llop.int_floordiv()
+    # explicitly.  For 'a // b', see _handle_int_special() in jtransform.py.
+    # This is the reverse of rpython.rtyper.rint.ll_int_py_div(), i.e.
+    # the same logic as rpython.rtyper.lltypesystem.opimpl.op_int_floordiv
+    # but written in a no-branch style.
+    r = x // y
+    p = r * y
+    # the JIT knows that if x and y are both positive, this is just 'r'
+    return r + (((x ^ y) >> (LONG_BIT - 1)) & (p != x))
+
+def _ll_2_int_mod(x, y):
+    # same comments as _ll_2_int_floordiv()
+    r = x % y
+    # the JIT knows that if x and y are both positive, this doesn't change 'r'
+    r -= y & (((x ^ y) & (r | -r)) >> (LONG_BIT - 1))
+    return r
+
 
 def _ll_1_cast_uint_to_float(x):
     # XXX on 32-bit platforms, this should be done using cast_longlong_to_float
@@ -288,6 +277,10 @@ def _ll_1_cast_float_to_uint(x):
     # XXX on 32-bit platforms, this should be done using cast_float_to_longlong
     # (which is a residual call right now in the x86 backend)
     return llop.cast_float_to_uint(lltype.Unsigned, x)
+
+def _ll_0_ll_read_timestamp():
+    from rpython.rlib import rtimer
+    return rtimer.read_timestamp()
 
 
 # math support
@@ -440,52 +433,12 @@ def _ll_1_llong_abs(xll):
     else:
         return xll
 
-def _ll_2_llong_floordiv(xll, yll):
-    return llop.llong_floordiv(lltype.SignedLongLong, xll, yll)
-
-def _ll_2_llong_floordiv_zer(xll, yll):
-    if yll == 0:
-        raise ZeroDivisionError
-    return llop.llong_floordiv(lltype.SignedLongLong, xll, yll)
-
-def _ll_2_llong_mod(xll, yll):
-    return llop.llong_mod(lltype.SignedLongLong, xll, yll)
-
-def _ll_2_llong_mod_zer(xll, yll):
-    if yll == 0:
-        raise ZeroDivisionError
-    return llop.llong_mod(lltype.SignedLongLong, xll, yll)
-
-def _ll_2_ullong_floordiv(xll, yll):
-    return llop.ullong_floordiv(lltype.UnsignedLongLong, xll, yll)
-
-def _ll_2_ullong_floordiv_zer(xll, yll):
-    if yll == 0:
-        raise ZeroDivisionError
-    return llop.ullong_floordiv(lltype.UnsignedLongLong, xll, yll)
-
-def _ll_2_ullong_mod(xll, yll):
-    return llop.ullong_mod(lltype.UnsignedLongLong, xll, yll)
-
-def _ll_2_ullong_mod_zer(xll, yll):
-    if yll == 0:
-        raise ZeroDivisionError
-    return llop.ullong_mod(lltype.UnsignedLongLong, xll, yll)
-
-def _ll_2_uint_mod(xll, yll):
-    return llop.uint_mod(lltype.Unsigned, xll, yll)
-
 
 # in the following calls to builtins, the JIT is allowed to look inside:
 inline_calls_to = [
-    ('int_floordiv_ovf_zer', [lltype.Signed, lltype.Signed], lltype.Signed),
-    ('int_floordiv_ovf',     [lltype.Signed, lltype.Signed], lltype.Signed),
-    ('int_floordiv_zer',     [lltype.Signed, lltype.Signed], lltype.Signed),
-    ('int_mod_ovf_zer',      [lltype.Signed, lltype.Signed], lltype.Signed),
-    ('int_mod_ovf',          [lltype.Signed, lltype.Signed], lltype.Signed),
-    ('int_mod_zer',          [lltype.Signed, lltype.Signed], lltype.Signed),
-    ('int_lshift_ovf',       [lltype.Signed, lltype.Signed], lltype.Signed),
     ('int_abs',              [lltype.Signed],                lltype.Signed),
+    ('int_floordiv',         [lltype.Signed, lltype.Signed], lltype.Signed),
+    ('int_mod',              [lltype.Signed, lltype.Signed], lltype.Signed),
     ('ll_math.ll_math_sqrt', [lltype.Float],                 lltype.Float),
 ]
 
@@ -507,18 +460,7 @@ class LLtypeHelpers:
     _ll_1_dict_values.need_result_type = True
     _ll_1_dict_items .need_result_type = True
 
-    _dictnext_keys   = staticmethod(ll_rdict.ll_dictnext_group['keys'])
-    _dictnext_values = staticmethod(ll_rdict.ll_dictnext_group['values'])
-    _dictnext_items  = staticmethod(ll_rdict.ll_dictnext_group['items'])
-
-    def _ll_1_dictiter_nextkeys(iter):
-        return LLtypeHelpers._dictnext_keys(None, iter)
-    def _ll_1_dictiter_nextvalues(iter):
-        return LLtypeHelpers._dictnext_values(None, iter)
-    def _ll_1_dictiter_nextitems(RES, iter):
-        return LLtypeHelpers._dictnext_items(lltype.Ptr(RES), iter)
-    _ll_1_dictiter_nextitems.need_result_type = True
-
+    _ll_1_dictiter_next = ll_rdict._ll_dictnext
     _ll_1_dict_resize = ll_rdict.ll_dict_resize
 
     # ---------- ordered dict ----------
@@ -534,18 +476,7 @@ class LLtypeHelpers:
     _ll_1_odict_values.need_result_type = True
     _ll_1_odict_items .need_result_type = True
 
-    _odictnext_keys   = staticmethod(rordereddict.ll_dictnext_group['keys'])
-    _odictnext_values = staticmethod(rordereddict.ll_dictnext_group['values'])
-    _odictnext_items  = staticmethod(rordereddict.ll_dictnext_group['items'])
-
-    def _ll_1_odictiter_nextkeys(iter):
-        return LLtypeHelpers._odictnext_keys(None, iter)
-    def _ll_1_odictiter_nextvalues(iter):
-        return LLtypeHelpers._odictnext_values(None, iter)
-    def _ll_1_odictiter_nextitems(RES, iter):
-        return LLtypeHelpers._odictnext_items(lltype.Ptr(RES), iter)
-    _ll_1_odictiter_nextitems.need_result_type = True
-
+    _ll_1_odictiter_next = rordereddict._ll_dictnext
     _ll_1_odict_resize = rordereddict.ll_dict_resize
 
     # ---------- strings and unicode ----------
@@ -651,6 +582,14 @@ class LLtypeHelpers:
                 return lltype.malloc(ARRAY, n, flavor='raw', zero=zero,
                                      add_memory_pressure=add_memory_pressure,
                                      track_allocation=track_allocation)
+            name = '_ll_1_raw_malloc_varsize'
+            if zero:
+                name += '_zero'
+            if add_memory_pressure:
+                name += '_mpressure'
+            if not track_allocation:
+                name += '_notrack'
+            _ll_1_raw_malloc_varsize.func_name = name
             return _ll_1_raw_malloc_varsize
         return build_ll_1_raw_malloc_varsize
 
@@ -679,6 +618,14 @@ class LLtypeHelpers:
                 return lltype.malloc(STRUCT, flavor='raw', zero=zero,
                                      add_memory_pressure=add_memory_pressure,
                                      track_allocation=track_allocation)
+            name = '_ll_0_raw_malloc_fixedsize'
+            if zero:
+                name += '_zero'
+            if add_memory_pressure:
+                name += '_mpressure'
+            if not track_allocation:
+                name += '_notrack'
+            _ll_0_raw_malloc_fixedsize.func_name = name
             return _ll_0_raw_malloc_fixedsize
         return build_ll_0_raw_malloc_fixedsize
 
@@ -711,6 +658,10 @@ class LLtypeHelpers:
         build_raw_free_builder())
     build_ll_1_raw_free_no_track_allocation = (
         build_raw_free_builder(track_allocation=False))
+
+    def _ll_1_threadlocalref_get(TP, offset):
+        return llop.threadlocalref_get(TP, offset)
+    _ll_1_threadlocalref_get.need_result_type = 'exact'   # don't deref
 
     def _ll_1_weakref_create(obj):
         return llop.weakref_create(llmemory.WeakRefPtr, obj)
@@ -823,8 +774,18 @@ def builtin_func_for_spec(rtyper, oopspec_name, ll_args, ll_res,
     s_result = lltype_to_annotation(ll_res)
     impl = setup_extra_builtin(rtyper, oopspec_name, len(args_s), extra)
     if getattr(impl, 'need_result_type', False):
-        bk = rtyper.annotator.bookkeeper
-        args_s.insert(0, annmodel.SomePBC([bk.getdesc(deref(ll_res))]))
+        if hasattr(rtyper, 'annotator'):
+            bk = rtyper.annotator.bookkeeper
+            ll_restype = ll_res
+            if impl.need_result_type != 'exact':
+                ll_restype = deref(ll_restype)
+            desc = bk.getdesc(ll_restype)
+        else:
+            class TestingDesc(object):
+                knowntype = int
+                pyobj = None
+            desc = TestingDesc()
+        args_s.insert(0, annmodel.SomePBC([desc]))
     #
     if hasattr(rtyper, 'annotator'):  # regular case
         mixlevelann = MixLevelHelperAnnotator(rtyper)

@@ -1,10 +1,8 @@
 import sys
-from rpython.translator.c.support import USESLOTS # set to False if necessary while refactoring
 from rpython.translator.c.support import cdecl
 from rpython.translator.c.support import llvalue_from_constant, gen_assignments
 from rpython.translator.c.support import c_string_constant, barebonearray
-from rpython.flowspace.model import Variable, Constant
-from rpython.flowspace.model import c_last_exception, copygraph
+from rpython.flowspace.model import Variable, Constant, mkentrymap
 from rpython.rtyper.lltypesystem.lltype import (Ptr, Void, Bool, Signed, Unsigned,
     SignedLongLong, Float, UnsignedLongLong, Char, UniChar, ContainerType,
     Array, FixedSizeArray, ForwardReference, FuncType)
@@ -13,11 +11,22 @@ from rpython.rtyper.lltypesystem.llmemory import Address
 from rpython.translator.backendopt.ssa import SSI_to_SSA
 from rpython.translator.backendopt.innerloop import find_inner_loops
 from rpython.tool.identity_dict import identity_dict
+from rpython.rlib.objectmodel import CDefinedIntSymbolic
 
 
 LOCALVAR = 'l_%s'
 
 KEEP_INLINED_GRAPHS = False
+
+def make_funcgen(graph, db, exception_policy, functionname):
+    graph._seen_by_the_backend = True
+    # apply the exception transformation
+    if db.exctransformer:
+        db.exctransformer.create_exception_handling(graph)
+    # apply the gc transformation
+    if db.gctransformer:
+        db.gctransformer.transform_graph(graph)
+    return FunctionCodeGenerator(graph, db, exception_policy, functionname)
 
 class FunctionCodeGenerator(object):
     """
@@ -25,33 +34,14 @@ class FunctionCodeGenerator(object):
     from a flow graph.
     """
 
-    if USESLOTS:
-        __slots__ = """graph db gcpolicy
-                       exception_policy
-                       more_ll_values
-                       vars all_cached_consts
-                       illtypes
-                       functionname
-                       blocknum
-                       innerloops
-                       oldgraph""".split()
-
-    def __init__(self, graph, db, exception_policy=None, functionname=None):
-        graph._seen_by_the_backend = True
+    def __init__(self, graph, db, exception_policy, functionname):
         self.graph = graph
         self.db = db
         self.gcpolicy = db.gcpolicy
         self.exception_policy = exception_policy
         self.functionname = functionname
-        # apply the exception transformation
-        if self.db.exctransformer:
-            self.db.exctransformer.create_exception_handling(self.graph)
-        # apply the gc transformation
-        if self.db.gctransformer:
-            self.db.gctransformer.transform_graph(self.graph)
-        #self.graph.show()
-        self.collect_var_and_types()
 
+        self.collect_var_and_types()
         for v in self.vars:
             T = v.concretetype
             # obscure: skip forward references and hope for the best
@@ -84,12 +74,6 @@ class FunctionCodeGenerator(object):
                     self.more_ll_values.append(link.llexitcase)
                 elif link.exitcase is not None:
                     mix.append(Constant(link.exitcase))
-        if self.exception_policy == "CPython":
-            v, exc_cleanup_ops = self.graph.exc_cleanup
-            mix.append(v)
-            for cleanupop in exc_cleanup_ops:
-                mix.extend(cleanupop.args)
-                mix.append(cleanupop.result)
 
         uniquemix = []
         seen = identity_dict()
@@ -99,20 +83,7 @@ class FunctionCodeGenerator(object):
                 seen[v] = True
         self.vars = uniquemix
 
-    def name(self, cname):  #virtual
-        return cname
-
-    def patch_graph(self, copy_graph):
-        graph = self.graph
-        if self.db.gctransformer and self.db.gctransformer.inline:
-            if copy_graph:
-                graph = copygraph(graph, shallow=True)
-            self.db.gctransformer.inline_helpers(graph)
-        return graph
-
     def implementation_begin(self):
-        self.oldgraph = self.graph
-        self.graph = self.patch_graph(copy_graph=True)
         SSI_to_SSA(self.graph)
         self.collect_var_and_types()
         self.blocknum = {}
@@ -138,8 +109,6 @@ class FunctionCodeGenerator(object):
         self.vars = None
         self.blocknum = None
         self.innerloops = None
-        self.graph = self.oldgraph
-        del self.oldgraph
 
     def argnames(self):
         return [LOCALVAR % v.name for v in self.graph.getargs()]
@@ -178,7 +147,7 @@ class FunctionCodeGenerator(object):
             else:
                 return self.db.get(value)
         else:
-            raise TypeError, "expr(%r)" % (v,)
+            raise TypeError("expr(%r)" % (v,))
 
     # ____________________________________________________________
 
@@ -204,17 +173,36 @@ class FunctionCodeGenerator(object):
 
     def cfunction_body(self):
         graph = self.graph
-        yield 'goto block0;'    # to avoid a warning "this label is not used"
 
-        # generate the body of each block
+        # Locate blocks with a single predecessor, which can be written
+        # inline in place of a "goto":
+        entrymap = mkentrymap(graph)
+        self.inlinable_blocks = {
+            block for block in entrymap if len(entrymap[block]) == 1}
+
+        yield ''
+        for line in self.gen_goto(graph.startblock):
+            yield line
+
+        # Only blocks left are those that have more than one predecessor.
         for block in graph.iterblocks():
+            if block in self.inlinable_blocks:
+                continue
+            for line in self.gen_block(block):
+                yield line
+
+    def gen_block(self, block):
+        if 1:      # (preserve indentation)
             myblocknum = self.blocknum[block]
-            yield ''
-            yield 'block%d:' % myblocknum
+            if block in self.inlinable_blocks:
+                # debug comment
+                yield '/* block%d: (inlined) */' % myblocknum
+            else:
+                yield 'block%d:' % myblocknum
             if block in self.innerloops:
                 for line in self.gen_while_loop_hack(block):
                     yield line
-                continue
+                return
             for i, op in enumerate(block.operations):
                 for line in self.gen_op(op):
                     yield line
@@ -225,14 +213,14 @@ class FunctionCodeGenerator(object):
                 if self.exception_policy != "exc_helper":
                     yield 'RPY_DEBUG_RETURN();'
                 yield 'return %s;' % retval
-                continue
+                return
             elif block.exitswitch is None:
                 # single-exit block
                 assert len(block.exits) == 1
                 for op in self.gen_link(block.exits[0]):
                     yield op
             else:
-                assert block.exitswitch != c_last_exception
+                assert not block.canraise
                 # block ending in a switch on a value
                 TYPE = self.lltypemap(block.exitswitch)
                 if TYPE == Bool:
@@ -247,8 +235,6 @@ class FunctionCodeGenerator(object):
                         yield '}'
                     link = block.exits[0]
                     assert link.exitcase in (False, True)
-                    #yield 'assert(%s == %s);' % (self.expr(block.exitswitch),
-                    #                       self.genc.nameofvalue(link.exitcase, ct))
                     for op in self.gen_link(link):
                         yield op
                 elif TYPE in (Signed, Unsigned, SignedLongLong,
@@ -267,7 +253,7 @@ class FunctionCodeGenerator(object):
                     # Emit default case
                     yield 'default:'
                     if defaultlink is None:
-                        yield '\tassert(!"bad switch!!");'
+                        yield '\tassert(!"bad switch!!"); abort();'
                     else:
                         for op in self.gen_link(defaultlink):
                             yield '\t' + op
@@ -289,17 +275,30 @@ class FunctionCodeGenerator(object):
             assignments.append((a2typename, dest, src))
         for line in gen_assignments(assignments):
             yield line
-        label = 'block%d' % self.blocknum[link.target]
-        if link.target in self.innerloops:
-            loop = self.innerloops[link.target]
+        for line in self.gen_goto(link.target, link):
+            yield line
+
+    def gen_goto(self, target, link=None):
+        """Recursively expand block with inlining or goto.
+
+        Blocks that have only one predecessor are inlined directly, all others
+        are reached via goto.
+        """
+        label = 'block%d' % self.blocknum[target]
+        if target in self.innerloops:
+            loop = self.innerloops[target]
             if link is loop.links[-1]:   # link that ends a loop
                 label += '_back'
-        yield 'goto %s;' % label
+        if target in self.inlinable_blocks:
+            for line in self.gen_block(target):
+                yield line
+        else:
+            yield 'goto %s;' % label
 
     def gen_op(self, op):
         macro = 'OP_%s' % op.opname.upper()
         line = None
-        if op.opname.startswith('gc_'):
+        if op.opname.startswith('gc_') and op.opname != 'gc_load_indexed':
             meth = getattr(self.gcpolicy, macro, None)
             if meth:
                 line = meth(self, op)
@@ -652,6 +651,11 @@ class FunctionCodeGenerator(object):
     OP_CAST_ADR_TO_PTR = OP_CAST_POINTER
     OP_CAST_OPAQUE_PTR = OP_CAST_POINTER
 
+    def OP_LENGTH_OF_SIMPLE_GCARRAY_FROM_OPAQUE(self, op):
+        return ('%s = *(long *)(((char *)%s) + sizeof(struct pypy_header0));'
+                '  /* length_of_simple_gcarray_from_opaque */'
+            % (self.expr(op.result), self.expr(op.args[0])))
+
     def OP_CAST_INT_TO_PTR(self, op):
         TYPE = self.lltypemap(op.result)
         typename = self.db.gettype(TYPE)
@@ -702,6 +706,19 @@ class FunctionCodeGenerator(object):
         typename = cdecl(self.db.gettype(TYPE).replace('@', '*@'), '')
         return (
           "%(result)s = ((%(typename)s) (((char *)%(addr)s) + %(offset)s))[0];"
+          % locals())
+
+    def OP_GC_LOAD_INDEXED(self, op):
+        addr = self.expr(op.args[0])
+        index = self.expr(op.args[1])
+        scale = self.expr(op.args[2])
+        base_ofs = self.expr(op.args[3])
+        result = self.expr(op.result)
+        TYPE = op.result.concretetype
+        typename = cdecl(self.db.gettype(TYPE).replace('@', '*@'), '')
+        return (
+          "%(result)s = ((%(typename)s) (((char *)%(addr)s) + "
+          "%(base_ofs)s + %(scale)s * %(index)s))[0];"
           % locals())
 
     def OP_CAST_PRIMITIVE(self, op):
@@ -791,6 +808,13 @@ class FunctionCodeGenerator(object):
     def OP_DEBUG_STOP(self, op):
         return self._op_debug('PYPY_DEBUG_STOP', op.args[0])
 
+    def OP_HAVE_DEBUG_PRINTS_FOR(self, op):
+        arg = op.args[0]
+        assert isinstance(arg, Constant) and isinstance(arg.value, str)
+        string_literal = c_string_constant(arg.value)
+        return '%s = pypy_have_debug_prints_for(%s);' % (
+            self.expr(op.result), string_literal)
+
     def OP_DEBUG_ASSERT(self, op):
         return 'RPyAssert(%s, %s);' % (self.expr(op.args[0]),
                                        c_string_constant(op.args[1].value))
@@ -850,6 +874,12 @@ class FunctionCodeGenerator(object):
     def OP_JIT_FFI_SAVE_RESULT(self, op):
         return '/* JIT_FFI_SAVE_RESULT %s */' % op
 
+    def OP_JIT_ENTER_PORTAL_FRAME(self, op):
+        return '/* JIT_ENTER_PORTAL_FRAME %s */' % op
+
+    def OP_JIT_LEAVE_PORTAL_FRAME(self, op):
+        return '/* JIT_LEAVE_PORTAL_FRAME %s */' % op
+
     def OP_GET_GROUP_MEMBER(self, op):
         typename = self.db.gettype(op.result.concretetype)
         return '%s = (%s)_OP_GET_GROUP_MEMBER(%s, %s);' % (
@@ -869,14 +899,11 @@ class FunctionCodeGenerator(object):
 
     def getdebugfunctionname(self):
         name = self.functionname
-        if not name:
-            return "?"
         if name.startswith('pypy_g_'):
             name = name[7:]
         return name
 
     def OP_DEBUG_RECORD_TRACEBACK(self, op):
-        #if self.functionname is None, we print "?" as the argument */
         return 'PYPY_DEBUG_RECORD_TRACEBACK("%s");' % (
             self.getdebugfunctionname(),)
 
@@ -900,4 +927,19 @@ class FunctionCodeGenerator(object):
         else:
             return None    # use the default
 
-assert not USESLOTS or '__dict__' not in dir(FunctionCodeGenerator)
+    def OP_THREADLOCALREF_GET(self, op):
+        typename = self.db.gettype(op.result.concretetype)
+        if isinstance(op.args[0], Constant):
+            assert isinstance(op.args[0].value, CDefinedIntSymbolic)
+            fieldname = op.args[0].value.expr
+            assert fieldname.startswith('RPY_TLOFS_')
+            fieldname = fieldname[10:]
+            return '%s = (%s)RPY_THREADLOCALREF_GET(%s);' % (
+                self.expr(op.result),
+                cdecl(typename, ''),
+                fieldname)
+        else:
+            return 'OP_THREADLOCALREF_GET_NONCONST(%s, %s, %s);' % (
+                cdecl(typename, ''),
+                self.expr(op.args[0]),
+                self.expr(op.result))

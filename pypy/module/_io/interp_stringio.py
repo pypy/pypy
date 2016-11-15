@@ -86,12 +86,11 @@ class W_StringIO(W_TextIOBase):
         initval = space.unicode_w(w_initval)
         size = len(initval)
         self.resize_buffer(size)
-        self.buf = [c for c in initval]
+        self.buf = list(initval)
         pos = space.getindex_w(w_pos, space.w_TypeError)
         if pos < 0:
-            raise OperationError(space.w_ValueError,
-                space.wrap("position value cannot be negative")
-            )
+            raise oefmt(space.w_ValueError,
+                        "position value cannot be negative")
         self.pos = pos
         if not space.is_w(w_dict, space.w_None):
             if not space.isinstance_w(w_dict, space.w_dict):
@@ -203,9 +202,7 @@ class W_StringIO(W_TextIOBase):
         elif mode == 0 and pos < 0:
             raise oefmt(space.w_ValueError, "negative seek position: %d", pos)
         elif mode != 0 and pos != 0:
-            raise OperationError(space.w_IOError,
-                space.wrap("Can't do nonzero cur-relative seeks")
-            )
+            raise oefmt(space.w_IOError, "Can't do nonzero cur-relative seeks")
 
         # XXX: this makes almost no sense, but its how CPython does it.
         if mode == 1:
@@ -264,8 +261,7 @@ class W_StringIO(W_TextIOBase):
 
 
 W_StringIO.typedef = TypeDef(
-    'StringIO', W_TextIOBase.typedef,
-    __module__ = "_io",
+    '_io.StringIO', W_TextIOBase.typedef,
     __new__  = generic_new_descr(W_StringIO),
     __init__ = interp2app(W_StringIO.descr_init),
     __getstate__ = interp2app(W_StringIO.descr_getstate),

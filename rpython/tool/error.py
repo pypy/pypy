@@ -8,11 +8,7 @@ import py
 
 from rpython.flowspace.model import Variable
 from rpython.rlib import jit
-from rpython.tool.ansi_print import ansi_log
 
-
-log = py.log.Producer("error")
-py.log.setconsumer("error", ansi_log)
 
 SHOW_TRACEBACK = False
 SHOW_ANNOTATIONS = True
@@ -106,8 +102,8 @@ def format_blocked_annotation_error(annotator, blocked_blocks):
 def format_simple_call(annotator, oper, msg):
     msg.append("Occurred processing the following simple_call:")
     try:
-        descs = annotator.bindings[oper.args[0]].descriptions
-    except (KeyError, AttributeError), e:
+        descs = annotator.binding(oper.args[0]).descriptions
+    except (KeyError, AttributeError) as e:
         msg.append("      (%s getting at the binding!)" % (
             e.__class__.__name__,))
         return
@@ -162,6 +158,8 @@ def debug(drv, use_pdb=True):
 
 @jit.elidable
 def offset2lineno(c, stopat):
+    # even position in lnotab denote byte increments, odd line increments.
+    # see dis.findlinestarts in the python std. library for more details
     tab = c.co_lnotab
     line = c.co_firstlineno
     addr = 0

@@ -183,8 +183,9 @@ def test_os_stat_raises_winerror():
     def call_stat():
         try:
             os.stat("nonexistentdir/nonexistentfile")
-        except WindowsError, e:
+        except WindowsError as e:
             return e.winerror
+        return 0    
     f = compile(call_stat, [])
     res = f()
     expected = call_stat()
@@ -298,8 +299,8 @@ def test_chdir():
         return os.getcwd()
     f1 = compile(does_stuff, [str])
     if os.name == 'nt':
-        assert f1(os.environment['TEMP']) == os.path.realpath(os.environment['TEMP'])
-    else:    
+        assert f1(os.environ['TEMP']) == os.path.realpath(os.environ['TEMP'])
+    else:
         assert f1('/tmp') == os.path.realpath('/tmp')
 
 def test_mkdir_rmdir():
@@ -537,6 +538,8 @@ if hasattr(os, 'kill'):
     def test_kill_to_send_sigusr1():
         import signal
         from rpython.rlib import rsignal
+        if not 'SIGUSR1' in dir(signal):
+            py.test.skip("no SIGUSR1 available")
         def does_stuff():
             rsignal.pypysig_setflag(signal.SIGUSR1)
             os.kill(os.getpid(), signal.SIGUSR1)
@@ -609,7 +612,7 @@ if hasattr(os, 'getlogin'):
 
         try:
             expected = os.getlogin()
-        except OSError, e:
+        except OSError as e:
             py.test.skip("the underlying os.getlogin() failed: %s" % e)
         f1 = compile(does_stuff, [])
         assert f1() == expected
@@ -627,7 +630,7 @@ def _real_getenv(var):
     elif output.startswith('T'):
         return output[1:]
     else:
-        raise ValueError, 'probing for env var returned %r' % (output,)
+        raise ValueError('probing for env var returned %r' % (output,))
 
 def test_dictlike_environ_getitem():
     def fn(s):

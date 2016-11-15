@@ -11,15 +11,28 @@ def parse_code_data(arg):
     filename = None
     bytecode_no = 0
     bytecode_name = None
-    m = re.search('<code object ([<>\w]+)[\.,] file \'(.+?)\'[\.,] line (\d+)> #(\d+) (\w+)',
-                  arg)
+    mask = 0
+    # generic format: the numbers are 'startlineno-currentlineno',
+    # and this function returns currentlineno as the value
+    # 'bytecode_no = currentlineno ^ -1': i.e. it abuses bytecode_no,
+    # which doesn't make sense in the generic format, as a negative
+    # number
+    m = re.match(r'(.+?);(.+?):(\d+)-(\d+)~(.*)', arg)
+    if m is not None:
+        mask = -1
+    else:
+        # PyPy2 format: bytecode_no is really a bytecode index,
+        # which must be turned into a real line number by parsing the
+        # source file
+        m = re.search(r'<code object ([<>\w]+)[\.,] file \'(.+?)\'[\.,] '
+                      r'line (\d+)> #(\d+) (\w+)', arg)
     if m is None:
         # a non-code loop, like StrLiteralSearch or something
         if arg:
             bytecode_name = arg
     else:
         name, filename, lineno, bytecode_no, bytecode_name = m.groups()
-    return name, bytecode_name, filename, int(lineno), int(bytecode_no)
+    return name, bytecode_name, filename, int(lineno), int(bytecode_no) ^ mask
 
 class Op(object):
     bridge = None
@@ -27,7 +40,7 @@ class Op(object):
     asm = None
     failargs = ()
 
-    def __init__(self, name, args, res, descr):
+    def __init__(self, name, args, res, descr, failargs=None):
         self.name = name
         self.args = args
         self.res = res
@@ -35,6 +48,21 @@ class Op(object):
         self._is_guard = name.startswith('guard_')
         if self._is_guard:
             self.guard_no = int(self.descr[len('<Guard0x'):-1], 16)
+        self.failargs = failargs
+
+    def as_json(self):
+        d = {
+            'name': self.name,
+            'args': self.args,
+            'res': self.res,
+        }
+        if self.descr is not None:
+            d['descr'] = self.descr
+        if self.bridge is not None:
+            d['bridge'] = self.bridge.as_json()
+        if self.asm is not None:
+            d['asm'] = self.asm
+        return d
 
     def setfailargs(self, failargs):
         self.failargs = failargs
@@ -78,15 +106,19 @@ class SimpleParser(OpParser):
         if backend_dump is not None:
             raw_asm = self._asm_disassemble(backend_dump.decode('hex'),
                                             backend_tp, dump_start)
+            # additional mess: if the backend_dump starts with a series
+            # of zeros, raw_asm's first regular line is *after* that,
+            # after a line saying "...".  So we assume that start==dump_start
+            # if this parameter was passed.
             asm = []
-            start = 0
+            start = dump_start
             for elem in raw_asm:
                 if len(elem.split("\t")) < 3:
                     continue
                 e = elem.split("\t")
                 adr = e[0]
                 v = elem   # --- more compactly:  " ".join(e[2:])
-                if not start:
+                if not start:     # only if 'dump_start' is left at 0
                     start = int(adr.strip(":"), 16)
                 ofs = int(adr.strip(":"), 16) - start
                 if ofs >= 0:
@@ -112,9 +144,9 @@ class SimpleParser(OpParser):
                     op.asm = '\n'.join([asm[i][1] for i in range(asm_index, end_index)])
         return loop
 
-    def _asm_disassemble(self, d, origin_addr, tp):
+    def _asm_disassemble(self, d, tp, origin_addr):
         from rpython.jit.backend.tool.viewcode import machine_code_dump
-        return list(machine_code_dump(d, tp, origin_addr))
+        return list(machine_code_dump(d, origin_addr, tp))
 
     @classmethod
     def parse_from_input(cls, input, **kwds):
@@ -141,10 +173,16 @@ class SimpleParser(OpParser):
     def box_for_var(self, res):
         return res
 
-    def create_op(self, opnum, args, res, descr):
-        return self.Op(intern(opname[opnum].lower()), args, res, descr)
+    def create_op(self, opnum, args, res, descr, fail_args):
+        return self.Op(intern(opname[opnum].lower()), args, res,
+                       descr, fail_args)
 
+    def create_op_no_result(self, opnum, args, descr, fail_args):
+        return self.Op(intern(opname[opnum].lower()), args, None,
+                       descr, fail_args)
 
+    def update_memo(self, val, name):
+        pass
 
 class NonCodeError(Exception):
     pass
@@ -170,8 +208,9 @@ class TraceForOpcode(object):
              self.startlineno, self.bytecode_no) = parsed
         self.operations = operations
         self.storage = storage
+        generic_format = (self.bytecode_no < 0)
         self.code = storage.disassemble_code(self.filename, self.startlineno,
-                                             self.name)
+                                             self.name, generic_format)
 
     def repr(self):
         if self.filename is None:
@@ -188,7 +227,7 @@ class TraceForOpcode(object):
     def getopcode(self):
         if self.code is None:
             return None
-        return self.code.map[self.bytecode_no]
+        return self.code.get_opcode_from_info(self)
 
     def getlineno(self):
         code = self.getopcode()
@@ -202,7 +241,7 @@ class TraceForOpcode(object):
     line_starts_here = property(getline_starts_here)
 
     def __repr__(self):
-        return "[%s]" % ", ".join([repr(op) for op in self.operations])
+        return "[%s\n]" % "\n    ".join([repr(op) for op in self.operations])
 
     def pretty_print(self, out):
         pass
@@ -361,40 +400,54 @@ def adjust_bridges(loop, bridges):
             i += 1
     return res
 
-
-def import_log(logname, ParserCls=SimpleParser):
-    log = parse_log_file(logname)
+def parse_addresses(part, callback=None):
     hex_re = '0x(-?[\da-f]+)'
     addrs = {}
-    for entry in extract_category(log, 'jit-backend-addr'):
-        m = re.search('bootstrap ' + hex_re, entry)
+    if callback is None:
+        def callback(addr, stop_addr, bootstrap_addr, name, code_name):
+            addrs.setdefault(bootstrap_addr, []).append(name)
+    for entry in part:
+        m = re.search('has address %(hex)s to %(hex)s \(bootstrap %(hex)s' %
+                      {'hex': hex_re}, entry)
         if not m:
             # a bridge
-            m = re.search('has address ' + hex_re, entry)
+            m = re.search('has address ' + hex_re + ' to ' + hex_re, entry)
             addr = int(m.group(1), 16)
+            bootstrap_addr = addr
+            stop_addr = int(m.group(2), 16)
             entry = entry.lower()
             m = re.search('guard ' + hex_re, entry)
             name = 'guard ' + m.group(1)
+            code_name = 'bridge'
         else:
             name = entry[:entry.find('(') - 1].lower()
             addr = int(m.group(1), 16)
-        addrs.setdefault(addr, []).append(name)
+            stop_addr = int(m.group(2), 16)
+            bootstrap_addr = int(m.group(3), 16)
+            code_name = entry[entry.find('(') + 1:m.span(0)[0] - 2]
+        callback(addr, stop_addr, bootstrap_addr, name, code_name)
+    return addrs
+
+def import_log(logname, ParserCls=SimpleParser):
+    log = parse_log_file(logname)
+    addrs = parse_addresses(extract_category(log, 'jit-backend-addr'))
     from rpython.jit.backend.tool.viewcode import World
     world = World()
     for entry in extract_category(log, 'jit-backend-dump'):
         world.parse(entry.splitlines(True))
     dumps = {}
     for r in world.ranges:
-        if r.addr in addrs and addrs[r.addr]:
-            name = addrs[r.addr].pop(0) # they should come in order
-            data = r.data.encode('hex')       # backward compatibility
-            dumps[name] = (world.backend_name, r.addr, data)
+        for pos1 in range(r.addr, r.addr + len(r.data)):
+            if pos1 in addrs and addrs[pos1]:
+                name = addrs[pos1].pop(0) # they should come in order
+                data = r.data.encode('hex')
+                dumps[name] = (world.backend_name, r.addr, data)
     loops = []
     cat = extract_category(log, 'jit-log-opt')
     if not cat:
-        extract_category(log, 'jit-log-rewritten')
+        cat = extract_category(log, 'jit-log-rewritten')
     if not cat:
-        extract_category(log, 'jit-log-noopt')        
+        cat = extract_category(log, 'jit-log-noopt')        
     for entry in cat:
         parser = ParserCls(entry, None, {}, 'lltype', None,
                            nonstrict=True)

@@ -22,7 +22,7 @@ class PdbPlusShow(pdb.Pdb):
         self.reset()
         while t.tb_next is not None:
             t = t.tb_next
-        self.interaction(t.tb_frame, t)        
+        self.interaction(t.tb_frame, t)
 
     def preloop(self):
         if not hasattr(sys.stdout, 'isatty') or not sys.stdout.isatty():
@@ -83,7 +83,7 @@ class PdbPlusShow(pdb.Pdb):
 
     def do_find(self, arg):
         """find obj [as var]
-find dotted named obj, possibly using prefixing with some packages 
+find dotted named obj, possibly using prefixing with some packages
 in pypy (see help pypyprefixes); the result is assigned to var or _."""
         objarg, var = self._parse_modif(arg)
         obj = self._getobj(objarg)
@@ -112,7 +112,7 @@ in pypy (see help pypyprefixes); the result is assigned to var or _."""
         try:
             return self.translator.annotator.bookkeeper.getuniqueclassdef(cls)
         except Exception:
-            print "*** cannot get classdef: likely specialized class: %s" % cls
+            print "*** cannot get classdef: %s" % cls
             return None
 
     def _make_flt(self, expr):
@@ -171,8 +171,8 @@ the candidate desc; the result list is assigned to var or _."""
 show graph for obj, obj can be an expression or a dotted name
 (in which case prefixing with some packages in pypy is tried (see help pypyprefixes)).
 if obj is a function or method, the localized call graph is shown;
-if obj is a class or ClassDef the class definition graph is shown"""            
-        from rpython.annotator.classdef import ClassDef
+if obj is a class or ClassDef the class definition graph is shown"""
+        from rpython.annotator.classdesc import ClassDef
         from rpython.translator.tool import graphpage
         translator = self.translator
         obj = self._getobj(arg)
@@ -195,6 +195,30 @@ if obj is a class or ClassDef the class definition graph is shown"""
             print "*** Nothing to do"
             return
         self._show(page)
+
+    def do_findv(self, varname):
+        """ findv [varname]
+find a stack frame that has a certain variable (the default is "graph")
+"""
+        if not varname:
+            varname = "graph"
+        printfr = self.print_stack_entry
+        self.print_stack_entry = lambda *args: None
+        try:
+            num = 0
+            while self.curindex:
+                frame = self.curframe
+                if varname in frame.f_locals:
+                    printfr(self.stack[self.curindex])
+                    print "%s = %s" % (varname, frame.f_locals[varname])
+                    return
+                num += 1
+                self.do_up(None)
+            print "no %s found" % (varname, )
+            for i in range(num):
+                self.do_down(None)
+        finally:
+            del self.print_stack_entry
 
     def _attrs(self, arg, pr):
         arg, expr = self._parse_modif(arg, 'match')
@@ -290,11 +314,12 @@ the list of the read positions functions is set to var or _."""
             obj = self._getcdef(obj)
             if obj is None:
                 return
+        bk = self.translator.annotator.bookkeeper
         attrs = obj.attrs
         if attrname not in attrs:
             print "*** bogus:", attrname
             return
-        pos = attrs[attrname].read_locations
+        pos = bk.getattr_locations(obj.classdesc, attrname)
         if not pos:
             return
         flt = self._make_flt(expr)
@@ -320,18 +345,18 @@ the list of the read positions functions is set to var or _."""
                         for arg in op.args:
                             print "%s: %s" % (arg, self.translator.annotator.binding(arg)),
                         print
-                        
+
                     r[func] = True
         except self.GiveUp:
             return
         self._setvar(var, r.keys())
-            
+
 
     def do_flowg(self, arg):
         """flowg obj
 show flow graph for function obj, obj can be an expression or a dotted name
-(in which case prefixing with some packages in pypy is tried (see help pypyprefixes))"""            
-        from rpython.translator.tool import graphpage                        
+(in which case prefixing with some packages in pypy is tried (see help pypyprefixes))"""
+        from rpython.translator.tool import graphpage
         obj = self._getobj(arg)
         if obj is None:
             return
@@ -361,7 +386,7 @@ show flow graph for function obj, obj can be an expression or a dotted name
         """callg obj
 show localized call-graph for function obj, obj can be an expression or a dotted name
 (in which case prefixing with some packages in pypy is tried (see help pypyprefixes))"""
-        from rpython.translator.tool import graphpage                        
+        from rpython.translator.tool import graphpage
         obj = self._getobj(arg)
         if obj is None:
             return
@@ -379,7 +404,7 @@ show localized call-graph for function obj, obj can be an expression or a dotted
     def do_classhier(self, arg):
         """classhier
 show class hierarchy graph"""
-        from rpython.translator.tool import graphpage           
+        from rpython.translator.tool import graphpage
         self._show(graphpage.ClassHierarchyPage(self.translator))
 
     def do_callgraph(self, arg):
@@ -417,7 +442,7 @@ show the program's call graph"""
             fn(*args)
             pass # for debugger to land
         except bdb.BdbQuit:
-            pass    
+            pass
 
 
 def pdbcatch(f):

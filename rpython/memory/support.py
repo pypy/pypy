@@ -2,6 +2,9 @@ from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rlib.objectmodel import free_non_gc_object, we_are_translated
 from rpython.rlib.debug import ll_assert
 from rpython.tool.identity_dict import identity_dict
+from rpython.rtyper.rclass import NONGCOBJECTPTR
+from rpython.rtyper.annlowlevel import cast_nongc_instance_to_base_ptr
+from rpython.rtyper.annlowlevel import cast_base_ptr_to_nongc_instance
 
 
 def mangle_hash(i):
@@ -58,7 +61,30 @@ def get_chunk_manager(chunk_size=DEFAULT_CHUNK_SIZE, cache={}):
 
     unused_chunks = FreeList()
     cache[chunk_size] = unused_chunks, null_chunk
-    return unused_chunks, null_chunk
+
+    def partition(array, left, right):
+        last_item = array[right]
+        pivot = last_item
+        storeindex = left
+        for i in range(left, right):
+            if array[i] >= pivot:
+                array[i], array[storeindex] = array[storeindex], array[i]
+                storeindex += 1
+        # Move pivot to its final place
+        array[storeindex], array[right] = last_item, array[storeindex]
+        return storeindex
+
+    def quicksort(array, left, right):
+        # sort array[left:right+1] (i.e. bounds included)
+        if right > left:
+            pivotnewindex = partition(array, left, right)
+            quicksort(array, left, pivotnewindex - 1)
+            quicksort(array, pivotnewindex + 1, right)
+
+    def sort_chunk(chunk, size):
+        quicksort(chunk.items, 0, size - 1)
+        
+    return unused_chunks, null_chunk, sort_chunk
 
 
 def get_address_stack(chunk_size=DEFAULT_CHUNK_SIZE, cache={}):
@@ -67,7 +93,7 @@ def get_address_stack(chunk_size=DEFAULT_CHUNK_SIZE, cache={}):
     except KeyError:
         pass
 
-    unused_chunks, null_chunk = get_chunk_manager(chunk_size)
+    unused_chunks, null_chunk, sort_chunk = get_chunk_manager(chunk_size)
 
     class AddressStack(object):
         _alloc_flavor_ = "raw"
@@ -174,6 +200,13 @@ def get_address_stack(chunk_size=DEFAULT_CHUNK_SIZE, cache={}):
                 chunk.items[count] = got
                 got = next
 
+        def sort(self):
+            """Sorts the items in the AddressStack.  They must not be more
+            than one chunk of them.  This results in a **reverse** order,
+            so that the first pop()ped items are the smallest ones."""
+            ll_assert(self.chunk.next == null_chunk, "too big for sorting")
+            sort_chunk(self.chunk, self.used_in_last_chunk)
+
     cache[chunk_size] = AddressStack
     return AddressStack
 
@@ -261,6 +294,9 @@ def get_address_deque(chunk_size=DEFAULT_CHUNK_SIZE, cache={}):
                 unused_chunks.put(cur)
                 cur = next
             free_non_gc_object(self)
+
+        def _was_freed(self):
+            return False    # otherwise, the __class__ changes
 
     cache[chunk_size] = AddressDeque
     return AddressDeque

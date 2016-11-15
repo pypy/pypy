@@ -6,8 +6,8 @@ class Module(MixedModule):
     }
 
     interpleveldefs = {
-        'SocketType':  'interp_socket.W_RSocket',
-        'socket'    :  'interp_socket.W_RSocket',
+        'SocketType':  'interp_socket.W_Socket',
+        'socket'    :  'interp_socket.W_Socket',
         'error'     :  'interp_socket.get_error(space, "error")',
         'herror'    :  'interp_socket.get_error(space, "herror")',
         'gaierror'  :  'interp_socket.get_error(space, "gaierror")',
@@ -17,6 +17,10 @@ class Module(MixedModule):
     def startup(self, space):
         from rpython.rlib.rsocket import rsocket_startup
         rsocket_startup()
+
+    def shutdown(self, space):
+        from pypy.module._socket.interp_socket import close_all_sockets
+        close_all_sockets(space)
 
     def buildloaders(cls):
         from rpython.rlib import rsocket

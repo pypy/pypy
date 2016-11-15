@@ -1,4 +1,3 @@
-#! /usr/bin/env python
 """Test script for the dumbdbm module
    Original by Roger E. Masse
 """
@@ -38,11 +37,9 @@ class DumbDBMTestCase(unittest.TestCase):
         self.read_helper(f)
         f.close()
 
+    @unittest.skipUnless(hasattr(os, 'chmod'), 'os.chmod not available')
+    @unittest.skipUnless(hasattr(os, 'umask'), 'os.umask not available')
     def test_dumbdbm_creation_mode(self):
-        # On platforms without chmod, don't do anything.
-        if not (hasattr(os, 'chmod') and hasattr(os, 'umask')):
-            return
-
         try:
             old_umask = os.umask(0002)
             f = dumbdbm.open(_fname, 'c', 0637)
@@ -164,6 +161,14 @@ class DumbDBMTestCase(unittest.TestCase):
             got.sort()
             self.assertEqual(expected, got)
             f.close()
+
+    def test_eval(self):
+        with open(_fname + '.dir', 'w') as stream:
+            stream.write("str(__import__('sys').stdout.write('Hacked!')), 0\n")
+        with test_support.captured_stdout() as stdout:
+            with self.assertRaises(ValueError):
+                dumbdbm.open(_fname).close()
+            self.assertEqual(stdout.getvalue(), '')
 
     def tearDown(self):
         _delete_files()

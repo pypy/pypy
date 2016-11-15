@@ -165,6 +165,16 @@ class BaseThreadedNetworkedTests(unittest.TestCase):
                               self.imap_class, *server.server_address)
 
 
+    def test_linetoolong(self):
+        class TooLongHandler(SimpleIMAPHandler):
+            def handle(self):
+                # Send a very long response line
+                self.wfile.write('* OK ' + imaplib._MAXLINE*'x' + '\r\n')
+
+        with self.reaped_server(TooLongHandler) as server:
+            self.assertRaises(imaplib.IMAP4.error,
+                              self.imap_class, *server.server_address)
+
 class ThreadedNetworkedTests(BaseThreadedNetworkedTests):
 
     server_class = SocketServer.TCPServer
@@ -176,6 +186,9 @@ class ThreadedNetworkedTestsSSL(BaseThreadedNetworkedTests):
 
     server_class = SecureTCPServer
     imap_class = IMAP4_SSL
+
+    def test_linetoolong(self):
+        raise unittest.SkipTest("test is not reliable on 2.7; see issue 20118")
 
 
 class RemoteIMAPTest(unittest.TestCase):
@@ -236,5 +249,4 @@ def test_main():
 
 
 if __name__ == "__main__":
-    support.use_resources = ['network']
     test_main()

@@ -1,6 +1,7 @@
 from rpython.rlib import rgc, jit, types
-from rpython.rlib.debug import ll_assert
+from rpython.rtyper.debug import ll_assert
 from rpython.rlib.signature import signature
+from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem import rstr
 from rpython.rtyper.lltypesystem.lltype import (GcForwardReference, Ptr, GcArray,
      GcStruct, Void, Signed, malloc, typeOf, nullptr, typeMethod)
@@ -57,7 +58,7 @@ class BaseListRepr(AbstractBaseListRepr):
         elif variant == ("reversed",):
             return ReversedListIteratorRepr(self)
         else:
-            raise NotImplementedError(variant)
+            raise TyperError("unsupported %r iterator over a list" % (variant,))
 
     def get_itemarray_lowleveltype(self):
         ITEM = self.item_repr.lowleveltype

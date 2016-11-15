@@ -1,14 +1,17 @@
-"""
-Python control flow graph generation and bytecode assembly.
-"""
+"""Python control flow graph generation and bytecode assembly."""
 
-from pypy.interpreter.astcompiler import ast, symtable
-from pypy.interpreter import pycode
+import os
+from rpython.rlib import rfloat
+from rpython.rlib.objectmodel import we_are_translated
+
+from pypy.interpreter.astcompiler import ast, misc, symtable
+from pypy.interpreter.error import OperationError
+from pypy.interpreter.pycode import PyCode
 from pypy.tool import stdlib_opcode as ops
 
-from pypy.interpreter.error import OperationError
-from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib import rfloat
+
+class StackDepthComputationError(Exception):
+    pass
 
 
 class Instruction(object):
@@ -21,14 +24,12 @@ class Instruction(object):
         self.has_jump = False
 
     def size(self):
-        """Return the size of bytes of this instruction when it is encoded."""
+        """Return the size of bytes of this instruction when it is
+        encoded.
+        """
         if self.opcode >= ops.HAVE_ARGUMENT:
-            if self.arg > 0xFFFF:
-                return 6
-            else:
-                return 3
-        else:
-            return 1
+            return (6 if self.arg > 0xFFFF else 3)
+        return 1
 
     def jump_to(self, target, absolute=False):
         """Indicate the target this jump instruction.
@@ -54,16 +55,18 @@ class Instruction(object):
 class Block(object):
     """A basic control flow block.
 
-    It has one entry point and several possible exit points.  Its instructions
-    may be jumps to other blocks, or if control flow reaches the end of the
-    block, it continues to next_block.
+    It has one entry point and several possible exit points.  Its
+    instructions may be jumps to other blocks, or if control flow
+    reaches the end of the block, it continues to next_block.
     """
+
+    marked = False
+    have_return = False
+    auto_inserted_return = False
 
     def __init__(self):
         self.instructions = []
         self.next_block = None
-        self.marked = False
-        self.have_return = False
 
     def _post_order_see(self, stack, nextblock):
         if nextblock.marked == 0:
@@ -71,10 +74,10 @@ class Block(object):
             stack.append(nextblock)
 
     def post_order(self):
-        """Return this block and its children in post order.
-        This means that the graph of blocks is first cleaned up to
-        ignore back-edges, thus turning it into a DAG.  Then the DAG
-        is linearized.  For example:
+        """Return this block and its children in post order.  This means
+        that the graph of blocks is first cleaned up to ignore
+        back-edges, thus turning it into a DAG.  Then the DAG is
+        linearized.  For example:
 
                    A --> B -\           =>     [A, D, B, C]
                      \-> D ---> C
@@ -105,7 +108,9 @@ class Block(object):
         return resultblocks
 
     def code_size(self):
-        """Return the encoded size of all the instructions in this block."""
+        """Return the encoded size of all the instructions in this
+        block.
+        """
         i = 0
         for instr in self.instructions:
             i += instr.size()
@@ -140,6 +145,7 @@ def _make_index_dict_filter(syms, flag):
             result[name] = i
             i += 1
     return result
+
 
 def _list_to_dict(l, offset=0):
     result = {}
@@ -283,6 +289,8 @@ class PythonCodeMaker(ast.ASTVisitor):
             for w_item in space.fixedview(obj):
                 result_w.append(self._make_key(w_item))
             w_key = space.newtuple(result_w[:])
+        elif isinstance(obj, PyCode):
+            w_key = space.newtuple([obj, w_type, space.id(obj)])
         else:
             w_key = space.newtuple([obj, w_type])
         return w_key
@@ -300,11 +308,11 @@ class PythonCodeMaker(ast.ASTVisitor):
     def _resolve_block_targets(self, blocks):
         """Compute the arguments of jump instructions."""
         last_extended_arg_count = 0
-        # The reason for this loop is extended jumps.  EXTENDED_ARG extends the
-        # bytecode size, so it might invalidate the offsets we've already given.
-        # Thus we have to loop until the number of extended args is stable.  Any
-        # extended jump at all is extremely rare, so performance is not too
-        # concerning.
+        # The reason for this loop is extended jumps.  EXTENDED_ARG
+        # extends the bytecode size, so it might invalidate the offsets
+        # we've already given.  Thus we have to loop until the number of
+        # extended args is stable.  Any extended jump at all is
+        # extremely rare, so performance is not too concerning.
         while True:
             extended_arg_count = 0
             offset = 0
@@ -330,7 +338,8 @@ class PythonCodeMaker(ast.ASTVisitor):
                                     instr.opcode = ops.JUMP_ABSOLUTE
                                     absolute = True
                                 elif target_op == ops.RETURN_VALUE:
-                                    # Replace JUMP_* to a RETURN into just a RETURN
+                                    # Replace JUMP_* to a RETURN into
+                                    # just a RETURN
                                     instr.opcode = ops.RETURN_VALUE
                                     instr.arg = 0
                                     instr.has_jump = False
@@ -345,7 +354,8 @@ class PythonCodeMaker(ast.ASTVisitor):
                         instr.arg = jump_arg
                         if jump_arg > 0xFFFF:
                             extended_arg_count += 1
-            if extended_arg_count == last_extended_arg_count and not force_redo:
+            if (extended_arg_count == last_extended_arg_count and
+                not force_redo):
                 break
             else:
                 last_extended_arg_count = extended_arg_count
@@ -360,12 +370,14 @@ class PythonCodeMaker(ast.ASTVisitor):
         while True:
             try:
                 w_key = space.next(w_iter)
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_StopIteration):
                     raise
                 break
             w_index = space.getitem(w_consts, w_key)
-            consts_w[space.int_w(w_index)] = space.getitem(w_key, first)
+            w_constant = space.getitem(w_key, first)
+            w_constant = misc.intern_if_common_string(space, w_constant)
+            consts_w[space.int_w(w_index)] = w_constant
         return consts_w
 
     def _get_code_flags(self):
@@ -375,13 +387,18 @@ class PythonCodeMaker(ast.ASTVisitor):
     def _stacksize(self, blocks):
         """Compute co_stacksize."""
         for block in blocks:
-            block.initial_depth = 0
+            block.initial_depth = -99
+        blocks[0].initial_depth = 0
         # Assumes that it is sufficient to walk the blocks in 'post-order'.
         # This means we ignore all back-edges, but apart from that, we only
         # look into a block when all the previous blocks have been done.
         self._max_depth = 0
         for block in blocks:
-            self._do_stack_depth_walk(block)
+            depth = self._do_stack_depth_walk(block)
+            if block.auto_inserted_return and depth != 0:
+                os.write(2, "StackDepthComputationError in %s at %s:%s\n" % (
+                    self.compile_info.filename, self.name, self.first_lineno))
+                raise StackDepthComputationError   # fatal error
         return self._max_depth
 
     def _next_stack_depth_walk(self, nextblock, depth):
@@ -390,29 +407,40 @@ class PythonCodeMaker(ast.ASTVisitor):
 
     def _do_stack_depth_walk(self, block):
         depth = block.initial_depth
-        done = False
+        if depth == -99:     # this block is never reached, skip
+             return 0
         for instr in block.instructions:
             depth += _opcode_stack_effect(instr.opcode, instr.arg)
+            assert depth >= 0
             if depth >= self._max_depth:
                 self._max_depth = depth
+            jump_op = instr.opcode
             if instr.has_jump:
                 target_depth = depth
-                jump_op = instr.opcode
                 if jump_op == ops.FOR_ITER:
                     target_depth -= 2
                 elif (jump_op == ops.SETUP_FINALLY or
                       jump_op == ops.SETUP_EXCEPT or
                       jump_op == ops.SETUP_WITH):
-                    target_depth += 3
+                    if jump_op == ops.SETUP_WITH:
+                        target_depth -= 1     # ignore the w_result just pushed
+                    target_depth += 3         # add [exc_type, exc, unroller]
                     if target_depth > self._max_depth:
                         self._max_depth = target_depth
+                elif (jump_op == ops.JUMP_IF_TRUE_OR_POP or
+                      jump_op == ops.JUMP_IF_FALSE_OR_POP):
+                    depth -= 1
                 self._next_stack_depth_walk(instr.jump[0], target_depth)
                 if jump_op == ops.JUMP_ABSOLUTE or jump_op == ops.JUMP_FORWARD:
                     # Nothing more can occur.
-                    done = True
                     break
-        if block.next_block and not done:
-            self._next_stack_depth_walk(block.next_block, depth)
+            elif jump_op == ops.RETURN_VALUE or jump_op == ops.RAISE_VARARGS:
+                # Nothing more can occur.
+                break
+        else:
+            if block.next_block:
+                self._next_stack_depth_walk(block.next_block, depth)
+        return depth
 
     def _build_lnotab(self, blocks):
         """Build the line number table for tracebacks and tracing."""
@@ -430,15 +458,16 @@ class PythonCodeMaker(ast.ASTVisitor):
                         continue
                     addr = offset - current_off
                     # Python assumes that lineno always increases with
-                    # increasing bytecode address (lnotab is unsigned char).
-                    # Depending on when SET_LINENO instructions are emitted this
-                    # is not always true.  Consider the code:
+                    # increasing bytecode address (lnotab is unsigned
+                    # char).  Depending on when SET_LINENO instructions
+                    # are emitted this is not always true.  Consider the
+                    # code:
                     #     a = (1,
                     #          b)
-                    # In the bytecode stream, the assignment to "a" occurs after
-                    # the loading of "b".  This works with the C Python compiler
-                    # because it only generates a SET_LINENO instruction for the
-                    # assignment.
+                    # In the bytecode stream, the assignment to "a"
+                    # occurs after the loading of "b".  This works with
+                    # the C Python compiler because it only generates a
+                    # SET_LINENO instruction for the assignment.
                     if line or addr:
                         while addr > 255:
                             push(chr(255))
@@ -464,6 +493,7 @@ class PythonCodeMaker(ast.ASTVisitor):
             if self.add_none_to_final_return:
                 self.load_const(self.space.w_None)
             self.emit_op(ops.RETURN_VALUE)
+            self.current_block.auto_inserted_return = True
         # Set the first lineno if it is not already explicitly set.
         if self.first_lineno == -1:
             if self.first_block.instructions:
@@ -481,22 +511,22 @@ class PythonCodeMaker(ast.ASTVisitor):
         free_names = _list_from_dict(self.free_vars, len(cell_names))
         flags = self._get_code_flags() | self.compile_info.flags
         bytecode = ''.join([block.get_code() for block in blocks])
-        return pycode.PyCode(self.space,
-                             self.argcount,
-                             len(self.var_names),
-                             stack_depth,
-                             flags,
-                             bytecode,
-                             list(consts_w),
-                             names,
-                             var_names,
-                             self.compile_info.filename,
-                             self.name,
-                             self.first_lineno,
-                             lnotab,
-                             free_names,
-                             cell_names,
-                             self.compile_info.hidden_applevel)
+        return PyCode(self.space,
+                      self.argcount,
+                      len(self.var_names),
+                      stack_depth,
+                      flags,
+                      bytecode,
+                      list(consts_w),
+                      names,
+                      var_names,
+                      self.compile_info.filename,
+                      self.name,
+                      self.first_lineno,
+                      lnotab,
+                      free_names,
+                      cell_names,
+                      self.compile_info.hidden_applevel)
 
 
 def _list_from_dict(d, offset=0):
@@ -507,141 +537,142 @@ def _list_from_dict(d, offset=0):
 
 
 _static_opcode_stack_effects = {
-    ops.NOP : 0,
-    ops.STOP_CODE : 0,
+    ops.NOP: 0,
+    ops.STOP_CODE: 0,
 
-    ops.POP_TOP : -1,
-    ops.ROT_TWO : 0,
-    ops.ROT_THREE : 0,
-    ops.ROT_FOUR : 0,
-    ops.DUP_TOP : 1,
+    ops.POP_TOP: -1,
+    ops.ROT_TWO: 0,
+    ops.ROT_THREE: 0,
+    ops.ROT_FOUR: 0,
+    ops.DUP_TOP: 1,
 
-    ops.UNARY_POSITIVE : 0,
-    ops.UNARY_NEGATIVE : 0,
-    ops.UNARY_NOT : 0,
-    ops.UNARY_CONVERT : 0,
-    ops.UNARY_INVERT : 0,
+    ops.UNARY_POSITIVE: 0,
+    ops.UNARY_NEGATIVE: 0,
+    ops.UNARY_NOT: 0,
+    ops.UNARY_CONVERT: 0,
+    ops.UNARY_INVERT: 0,
 
-    ops.LIST_APPEND : -1,
-    ops.SET_ADD : -1,
-    ops.MAP_ADD : -2,
-    ops.STORE_MAP : -2,
+    ops.LIST_APPEND: -1,
+    ops.SET_ADD: -1,
+    ops.MAP_ADD: -2,
+    ops.STORE_MAP: -2,
 
-    ops.BINARY_POWER : -1,
-    ops.BINARY_MULTIPLY : -1,
-    ops.BINARY_DIVIDE : -1,
-    ops.BINARY_MODULO : -1,
-    ops.BINARY_ADD : -1,
-    ops.BINARY_SUBTRACT : -1,
-    ops.BINARY_SUBSCR : -1,
-    ops.BINARY_FLOOR_DIVIDE : -1,
-    ops.BINARY_TRUE_DIVIDE : -1,
-    ops.BINARY_LSHIFT : -1,
-    ops.BINARY_RSHIFT : -1,
-    ops.BINARY_AND : -1,
-    ops.BINARY_OR : -1,
-    ops.BINARY_XOR : -1,
+    ops.BINARY_POWER: -1,
+    ops.BINARY_MULTIPLY: -1,
+    ops.BINARY_DIVIDE: -1,
+    ops.BINARY_MODULO: -1,
+    ops.BINARY_ADD: -1,
+    ops.BINARY_SUBTRACT: -1,
+    ops.BINARY_SUBSCR: -1,
+    ops.BINARY_FLOOR_DIVIDE: -1,
+    ops.BINARY_TRUE_DIVIDE: -1,
+    ops.BINARY_LSHIFT: -1,
+    ops.BINARY_RSHIFT: -1,
+    ops.BINARY_AND: -1,
+    ops.BINARY_OR: -1,
+    ops.BINARY_XOR: -1,
 
-    ops.INPLACE_FLOOR_DIVIDE : -1,
-    ops.INPLACE_TRUE_DIVIDE : -1,
-    ops.INPLACE_ADD : -1,
-    ops.INPLACE_SUBTRACT : -1,
-    ops.INPLACE_MULTIPLY : -1,
-    ops.INPLACE_DIVIDE : -1,
-    ops.INPLACE_MODULO : -1,
-    ops.INPLACE_POWER : -1,
-    ops.INPLACE_LSHIFT : -1,
-    ops.INPLACE_RSHIFT : -1,
-    ops.INPLACE_AND : -1,
-    ops.INPLACE_OR : -1,
-    ops.INPLACE_XOR : -1,
+    ops.INPLACE_FLOOR_DIVIDE: -1,
+    ops.INPLACE_TRUE_DIVIDE: -1,
+    ops.INPLACE_ADD: -1,
+    ops.INPLACE_SUBTRACT: -1,
+    ops.INPLACE_MULTIPLY: -1,
+    ops.INPLACE_DIVIDE: -1,
+    ops.INPLACE_MODULO: -1,
+    ops.INPLACE_POWER: -1,
+    ops.INPLACE_LSHIFT: -1,
+    ops.INPLACE_RSHIFT: -1,
+    ops.INPLACE_AND: -1,
+    ops.INPLACE_OR: -1,
+    ops.INPLACE_XOR: -1,
 
-    ops.SLICE+0 : 1,
-    ops.SLICE+1 : 0,
-    ops.SLICE+2 : 0,
-    ops.SLICE+3 : -1,
-    ops.STORE_SLICE+0 : -2,
-    ops.STORE_SLICE+1 : -3,
-    ops.STORE_SLICE+2 : -3,
-    ops.STORE_SLICE+3 : -4,
-    ops.DELETE_SLICE+0 : -1,
-    ops.DELETE_SLICE+1 : -2,
-    ops.DELETE_SLICE+2 : -2,
-    ops.DELETE_SLICE+3 : -3,
+    ops.SLICE+0: 0,
+    ops.SLICE+1: -1,
+    ops.SLICE+2: -1,
+    ops.SLICE+3: -2,
+    ops.STORE_SLICE+0: -2,
+    ops.STORE_SLICE+1: -3,
+    ops.STORE_SLICE+2: -3,
+    ops.STORE_SLICE+3: -4,
+    ops.DELETE_SLICE+0: -1,
+    ops.DELETE_SLICE+1: -2,
+    ops.DELETE_SLICE+2: -2,
+    ops.DELETE_SLICE+3: -3,
 
-    ops.STORE_SUBSCR : -2,
-    ops.DELETE_SUBSCR : -2,
+    ops.STORE_SUBSCR: -3,
+    ops.DELETE_SUBSCR: -2,
 
-    ops.GET_ITER : 0,
-    ops.FOR_ITER : 1,
-    ops.BREAK_LOOP : 0,
-    ops.CONTINUE_LOOP : 0,
-    ops.SETUP_LOOP : 0,
+    ops.GET_ITER: 0,
+    ops.FOR_ITER: 1,
+    ops.BREAK_LOOP: 0,
+    ops.CONTINUE_LOOP: 0,
+    ops.SETUP_LOOP: 0,
 
-    ops.PRINT_EXPR : -1,
-    ops.PRINT_ITEM : -1,
-    ops.PRINT_NEWLINE : 0,
-    ops.PRINT_ITEM_TO : -2,
-    ops.PRINT_NEWLINE_TO : -1,
+    ops.PRINT_EXPR: -1,
+    ops.PRINT_ITEM: -1,
+    ops.PRINT_NEWLINE: 0,
+    ops.PRINT_ITEM_TO: -2,
+    ops.PRINT_NEWLINE_TO: -1,
 
-    ops.WITH_CLEANUP : -1,
-    ops.POP_BLOCK : 0,
-    ops.END_FINALLY : -1,
-    ops.SETUP_WITH : 1,
-    ops.SETUP_FINALLY : 0,
-    ops.SETUP_EXCEPT : 0,
+    ops.WITH_CLEANUP: -1,
+    ops.POP_BLOCK: 0,
+    ops.END_FINALLY: -3,     # assume always 3: we pretend that SETUP_FINALLY
+                             # pushes 3.  In truth, it would only push 1 and
+                             # the corresponding END_FINALLY only pops 1.
+    ops.SETUP_WITH: 1,
+    ops.SETUP_FINALLY: 0,
+    ops.SETUP_EXCEPT: 0,
 
-    ops.LOAD_LOCALS : 1,
-    ops.RETURN_VALUE : -1,
-    ops.EXEC_STMT : -3,
-    ops.YIELD_VALUE : 0,
-    ops.BUILD_CLASS : -2,
-    ops.BUILD_MAP : 1,
-    ops.BUILD_SET : 1,
-    ops.COMPARE_OP : -1,
+    ops.LOAD_LOCALS: 1,
+    ops.RETURN_VALUE: -1,
+    ops.EXEC_STMT: -3,
+    ops.YIELD_VALUE: 0,
+    ops.BUILD_CLASS: -2,
+    ops.BUILD_MAP: 1,
+    ops.COMPARE_OP: -1,
 
-    ops.LOOKUP_METHOD : 1,
+    ops.LOOKUP_METHOD: 1,
 
-    ops.LOAD_NAME : 1,
-    ops.STORE_NAME : -1,
-    ops.DELETE_NAME : 0,
+    ops.LOAD_NAME: 1,
+    ops.STORE_NAME: -1,
+    ops.DELETE_NAME: 0,
 
-    ops.LOAD_FAST : 1,
-    ops.STORE_FAST : -1,
-    ops.DELETE_FAST : 0,
+    ops.LOAD_FAST: 1,
+    ops.STORE_FAST: -1,
+    ops.DELETE_FAST: 0,
 
-    ops.LOAD_ATTR : 0,
-    ops.STORE_ATTR : -2,
-    ops.DELETE_ATTR : -1,
+    ops.LOAD_ATTR: 0,
+    ops.STORE_ATTR: -2,
+    ops.DELETE_ATTR: -1,
 
-    ops.LOAD_GLOBAL : 1,
-    ops.STORE_GLOBAL : -1,
-    ops.DELETE_GLOBAL : 0,
+    ops.LOAD_GLOBAL: 1,
+    ops.STORE_GLOBAL: -1,
+    ops.DELETE_GLOBAL: 0,
 
-    ops.LOAD_CLOSURE : 1,
-    ops.LOAD_DEREF : 1,
-    ops.STORE_DEREF : -1,
+    ops.LOAD_CLOSURE: 1,
+    ops.LOAD_DEREF: 1,
+    ops.STORE_DEREF: -1,
 
-    ops.LOAD_CONST : 1,
+    ops.LOAD_CONST: 1,
 
-    ops.IMPORT_STAR : -1,
-    ops.IMPORT_NAME : -1,
-    ops.IMPORT_FROM : 1,
+    ops.IMPORT_STAR: -1,
+    ops.IMPORT_NAME: -1,
+    ops.IMPORT_FROM: 1,
 
-    ops.JUMP_FORWARD : 0,
-    ops.JUMP_ABSOLUTE : 0,
-    ops.JUMP_IF_TRUE_OR_POP : 0,
-    ops.JUMP_IF_FALSE_OR_POP : 0,
-    ops.POP_JUMP_IF_TRUE : -1,
-    ops.POP_JUMP_IF_FALSE : -1,
-    ops.JUMP_IF_NOT_DEBUG : 0,
+    ops.JUMP_FORWARD: 0,
+    ops.JUMP_ABSOLUTE: 0,
+    ops.JUMP_IF_TRUE_OR_POP: 0,
+    ops.JUMP_IF_FALSE_OR_POP: 0,
+    ops.POP_JUMP_IF_TRUE: -1,
+    ops.POP_JUMP_IF_FALSE: -1,
+    ops.JUMP_IF_NOT_DEBUG: 0,
 
     ops.BUILD_LIST_FROM_ARG: 1,
 }
 
 
 def _compute_UNPACK_SEQUENCE(arg):
-    return arg + 1
+    return arg - 1
 
 def _compute_DUP_TOPX(arg):
     return arg
@@ -650,6 +681,9 @@ def _compute_BUILD_TUPLE(arg):
     return 1 - arg
 
 def _compute_BUILD_LIST(arg):
+    return 1 - arg
+
+def _compute_BUILD_SET(arg):
     return 1 - arg
 
 def _compute_MAKE_CLOSURE(arg):

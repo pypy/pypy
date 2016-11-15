@@ -1,11 +1,10 @@
 from rpython.flowspace.model import Variable, Constant, Block, Link
 from rpython.flowspace.model import SpaceOperation, copygraph
 from rpython.flowspace.model import checkgraph
-from rpython.flowspace.model import c_last_exception
 from rpython.translator.backendopt.support import log
 from rpython.translator.simplify import join_blocks
 from rpython.translator.unsimplify import varoftype
-from rpython.rtyper.typesystem import getfunctionptr
+from rpython.rtyper.lltypesystem.lltype import getfunctionptr
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
 
@@ -338,10 +337,10 @@ class MallocVirtualizer(object):
         graphbuilder.start_from_a_malloc(graph, block, op.result)
         try:
             graphbuilder.propagate_specializations()
-        except CannotVirtualize, e:
+        except CannotVirtualize as e:
             self.logresult(op, 'failed', e)
             return False
-        except ForcedInline, e:
+        except ForcedInline as e:
             self.logresult(op, 'forces inlining', e)
             self.inline_and_remove[graph] = op
             self.inline_and_remove_seen[graph, op] = True
@@ -397,11 +396,11 @@ class MallocVirtualizer(object):
         self.specialized_graphs[key] = ('call', specgraph)
         try:
             graphbuilder.propagate_specializations()
-        except ForcedInline, e:
+        except ForcedInline as e:
             if self.verbose:
                 log.mallocv('%s inlined: %s' % (graph.name, e))
             self.specialized_graphs[key] = ('inline', None)
-        except CannotVirtualize, e:
+        except CannotVirtualize as e:
             if self.verbose:
                 log.mallocv('%s failing: %s' % (graph.name, e))
             self.specialized_graphs[key] = ('fail', None)
@@ -534,7 +533,7 @@ class GraphBuilder(object):
             return None
 
     def has_exception_catching(self, catchingframe):
-        if catchingframe.sourceblock.exitswitch != c_last_exception:
+        if not catchingframe.sourceblock.canraise:
             return False
         else:
             operations = catchingframe.sourceblock.operations
@@ -711,7 +710,7 @@ class BlockSpecializer(object):
         self.specblock.exitswitch = self.rename_nonvirtual(block.exitswitch,
                                                            'exitswitch')
         links = block.exits
-        catch_exc = self.specblock.exitswitch == c_last_exception
+        catch_exc = self.specblock.canraise
 
         if not catch_exc and isinstance(self.specblock.exitswitch, Constant):
             # constant-fold the switch
@@ -1037,7 +1036,7 @@ def try_fold_operation(opname, args_v, RESTYPE):
         pass
     except (KeyboardInterrupt, SystemExit):
         raise
-    except Exception, e:
+    except Exception as e:
         pass
         #log.WARNING('constant-folding %s%r:' % (opname, args_v))
         #log.WARNING('  %s: %s' % (e.__class__.__name__, e))

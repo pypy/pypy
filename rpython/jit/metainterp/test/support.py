@@ -9,7 +9,9 @@ from rpython.jit.metainterp.optimizeopt import ALL_OPTS_DICT
 from rpython.jit.metainterp import pyjitpl, history, jitexc
 from rpython.jit.codewriter.policy import JitPolicy
 from rpython.jit.codewriter import codewriter, longlong
+from rpython.jit.backend.llsupport.vector_ext import VectorExt
 from rpython.rlib.rfloat import isnan
+from rpython.rlib.jit import ENABLE_ALL_OPTS
 from rpython.translator.backendopt.all import backend_optimizations
 
 
@@ -36,6 +38,9 @@ def _get_jitcodes(testself, CPUClass, func, values,
             from rpython.rtyper.annlowlevel import llhelper
             return llhelper(FUNCPTR, func)
 
+        def get_unique_id(self, *args):
+            return 0
+
         def get_location_str(self, args):
             return 'location'
 
@@ -48,6 +53,7 @@ def _get_jitcodes(testself, CPUClass, func, values,
 
         trace_limit = sys.maxint
         enable_opts = ALL_OPTS_DICT
+        vec = True
 
     if kwds.pop('disable_optimizations', False):
         FakeWarmRunnerState.enable_opts = {}
@@ -59,6 +65,10 @@ def _get_jitcodes(testself, CPUClass, func, values,
     testself.all_graphs = graphs
     result_kind = history.getkind(graphs[0].getreturnvar().concretetype)[0]
 
+
+    class FakeJitDriver:
+        name = 'fakejitdriver'
+
     class FakeJitDriverSD:
         num_green_args = 0
         portal_graph = graphs[0]
@@ -66,8 +76,10 @@ def _get_jitcodes(testself, CPUClass, func, values,
         greenfield_info = None
         result_type = result_kind
         portal_runner_ptr = "???"
+        vec = False
+        jitdriver = FakeJitDriver()
 
-    stats = history.Stats()
+    stats = history.Stats(None)
     cpu = CPUClass(rtyper, stats, None, False)
     cw = codewriter.CodeWriter(cpu, [FakeJitDriverSD()])
     cw.debug = True
@@ -93,6 +105,7 @@ def _get_jitcodes(testself, CPUClass, func, values,
         testself.finish_setup_for_interp_operations()
     #
     cw.make_jitcodes(verbose=True)
+    return stats
 
 def _run_with_blackhole(testself, args):
     from rpython.jit.metainterp.blackhole import BlackholeInterpBuilder
@@ -119,11 +132,14 @@ def _run_with_blackhole(testself, args):
     blackholeinterp.run()
     return blackholeinterp._final_result_anytype()
 
-def _run_with_pyjitpl(testself, args):
+def _run_with_pyjitpl(testself, args, stats):
     cw = testself.cw
     opt = history.Options(listops=True)
     metainterp_sd = pyjitpl.MetaInterpStaticData(cw.cpu, opt)
+    stats.metainterp_sd = metainterp_sd
     metainterp_sd.finish_setup(cw)
+    metainterp_sd.finish_setup_descrs()
+
     [jitdriver_sd] = metainterp_sd.jitdrivers_sd
     metainterp = pyjitpl.MetaInterp(metainterp_sd, jitdriver_sd)
     testself.metainterp = metainterp
@@ -150,60 +166,99 @@ def _run_with_machine_code(testself, args):
     faildescr = cpu.get_latest_descr(deadframe)
     assert faildescr.__class__.__name__.startswith('DoneWithThisFrameDescr')
     if metainterp.jitdriver_sd.result_type == history.INT:
-        return cpu.get_int_value(deadframe, 0)
+        return deadframe, cpu.get_int_value(deadframe, 0)
     elif metainterp.jitdriver_sd.result_type == history.REF:
-        return cpu.get_ref_value(deadframe, 0)
+        return deadframe, cpu.get_ref_value(deadframe, 0)
     elif metainterp.jitdriver_sd.result_type == history.FLOAT:
-        return cpu.get_float_value(deadframe, 0)
+        return deadframe, cpu.get_float_value(deadframe, 0)
     else:
-        return None
+        return deadframe, None
 
 
 class JitMixin:
     basic = True
+    enable_opts = ENABLE_ALL_OPTS
+
+
+    # Basic terminology: the JIT produces "loops" and "bridges".
+    # Bridges are always attached to failing guards.  Every loop is
+    # the "trunk" of a tree of compiled code, which is formed by first
+    # compiling a loop and then incrementally adding some number of
+    # bridges to it.  Each loop and each bridge ends with either a
+    # FINISH or a JUMP instruction (the name "loop" is not really
+    # adapted any more).  The JUMP instruction jumps to any LABEL
+    # pseudo-instruction, which can be anywhere, within the same tree
+    # or another one.
 
     def check_resops(self, expected=None, **check):
-        get_stats().check_resops(expected=expected, **check)
+        """Check the instructions in all loops and bridges, ignoring
+        the ones that end in FINISH.  Either pass a dictionary (then
+        the check must match exactly), or some keyword arguments (then
+        the check is only about the instructions named)."""
+        if self.enable_opts == ENABLE_ALL_OPTS:
+            get_stats().check_resops(expected=expected, **check)
 
     def check_simple_loop(self, expected=None, **check):
-        get_stats().check_simple_loop(expected=expected, **check)
+        """Useful in the simplest case when we have only one loop
+        ending with a jump back to itself and possibly a few bridges.
+        Only the operations within the loop formed by that single jump
+        will be counted; the bridges are all ignored.  If several loops
+        were compiled, complains."""
+        if self.enable_opts == ENABLE_ALL_OPTS:
+            get_stats().check_simple_loop(expected=expected, **check)
 
     def check_trace_count(self, count): # was check_loop_count
-        # The number of traces compiled
-        assert get_stats().compiled_count == count
+        """Check the number of loops and bridges compiled."""
+        if self.enable_opts == ENABLE_ALL_OPTS:
+            assert get_stats().compiled_count == count
 
     def check_trace_count_at_most(self, count):
-        assert get_stats().compiled_count <= count
+        """Check the number of loops and bridges compiled."""
+        if self.enable_opts == ENABLE_ALL_OPTS:
+            assert get_stats().compiled_count <= count
 
     def check_jitcell_token_count(self, count): # was check_tree_loop_count
-        assert len(get_stats().jitcell_token_wrefs) == count
+        """This should check the number of independent trees of code.
+        (xxx it is not 100% clear that the count is correct)"""
+        if self.enable_opts == ENABLE_ALL_OPTS:
+            assert len(get_stats().jitcell_token_wrefs) == count
 
     def check_target_token_count(self, count):
-        tokens = get_stats().get_all_jitcell_tokens()
-        n = sum([len(t.target_tokens) for t in tokens])
-        assert n == count
+        """(xxx unknown)"""
+        if self.enable_opts == ENABLE_ALL_OPTS:
+            tokens = get_stats().get_all_jitcell_tokens()
+            n = sum([len(t.target_tokens) for t in tokens])
+            assert n == count
 
     def check_enter_count(self, count):
-        assert get_stats().enter_count == count
+        """Check the number of times pyjitpl ran.  (Every time, it
+        should have produced either one loop or one bridge, or aborted;
+        but it is not 100% clear that this is still correct in the
+        presence of unrolling.)"""
+        if self.enable_opts == ENABLE_ALL_OPTS:
+            assert get_stats().enter_count == count
 
     def check_enter_count_at_most(self, count):
-        assert get_stats().enter_count <= count
-
-    def check_jumps(self, maxcount):
-        return # FIXME
-        assert get_stats().exec_jumps <= maxcount
+        """Check the number of times pyjitpl ran."""
+        if self.enable_opts == ENABLE_ALL_OPTS:
+            assert get_stats().enter_count <= count
 
     def check_aborted_count(self, count):
-        assert get_stats().aborted_count == count
+        """Check the number of times pyjitpl was aborted."""
+        if self.enable_opts == ENABLE_ALL_OPTS:
+            assert get_stats().aborted_count == count
 
     def check_aborted_count_at_least(self, count):
-        assert get_stats().aborted_count >= count
+        """Check the number of times pyjitpl was aborted."""
+        if self.enable_opts == ENABLE_ALL_OPTS:
+            assert get_stats().aborted_count >= count
 
     def meta_interp(self, *args, **kwds):
         kwds['CPUClass'] = self.CPUClass
-        kwds['type_system'] = self.type_system
         if "backendopt" not in kwds:
             kwds["backendopt"] = False
+        if "enable_opts" not in kwds and hasattr(self, 'enable_opts'):
+            kwds['enable_opts'] = self.enable_opts
         old = codewriter.CodeWriter.debug
         try:
             codewriter.CodeWriter.debug = True
@@ -213,14 +268,15 @@ class JitMixin:
 
     def interp_operations(self, f, args, **kwds):
         # get the JitCodes for the function f
-        _get_jitcodes(self, self.CPUClass, f, args, **kwds)
+        stats = _get_jitcodes(self, self.CPUClass, f, args, **kwds)
         # try to run it with blackhole.py
         result1 = _run_with_blackhole(self, args)
         # try to run it with pyjitpl.py
-        result2 = _run_with_pyjitpl(self, args)
+        result2 = _run_with_pyjitpl(self, args, stats)
         assert result1 == result2 or isnan(result1) and isnan(result2)
         # try to run it by running the code compiled just before
-        result3 = _run_with_machine_code(self, args)
+        df, result3 = _run_with_machine_code(self, args)
+        self._lastframe = df
         assert result1 == result3 or result3 == NotImplemented or isnan(result1) and isnan(result3)
         #
         if (longlong.supports_longlong and
@@ -241,8 +297,10 @@ class JitMixin:
 
 
 class LLJitMixin(JitMixin):
-    type_system = 'lltype'
     CPUClass = runner.LLGraphCPU
+
+    def supports_vector_ext(self):
+        return True
 
     @staticmethod
     def Ptr(T):
@@ -273,6 +331,5 @@ class _Foo:
 def noConst(x):
     """Helper function for tests, returning 'x' as a BoxInt/BoxPtr
     even if it is a ConstInt/ConstPtr."""
-    f1 = _Foo(); f2 = _Foo()
-    f1.x = x; f2.x = 0
-    return f1.x
+    from rpython.rlib import jit
+    return jit.hint(x, force_no_const=True)

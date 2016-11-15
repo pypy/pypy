@@ -76,7 +76,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty, descr_get_dict,
     descr_set_dict, descr_del_dict)
 from pypy.interpreter.gateway import interp2app
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib import rwin32
 
 
@@ -157,7 +157,8 @@ class W_BaseException(W_Root):
 
     def setdict(self, space, w_dict):
         if not space.isinstance_w(w_dict, space.w_dict):
-            raise OperationError(space.w_TypeError, space.wrap("setting exceptions's dictionary to a non-dict"))
+            raise oefmt(space.w_TypeError,
+                        "setting exceptions's dictionary to a non-dict")
         self.w_dict = w_dict
 
     def descr_reduce(self, space):
@@ -177,8 +178,7 @@ class W_BaseException(W_Root):
             if w_msg is not None:
                 return w_msg
         if self.w_message is None:
-            raise OperationError(space.w_AttributeError,
-                                 space.wrap("message was deleted"))
+            raise oefmt(space.w_AttributeError, "message was deleted")
         msg = "BaseException.message has been deprecated as of Python 2.6"
         space.warn(space.wrap(msg), space.w_DeprecationWarning)
         return self.w_message
@@ -191,7 +191,7 @@ class W_BaseException(W_Root):
         if w_dict is not None:
             try:
                 space.delitem(w_dict, space.wrap("message"))
-            except OperationError, e:
+            except OperationError as e:
                 if not e.match(space, space.w_KeyError):
                     raise
         self.w_message = None
@@ -207,9 +207,8 @@ def _new(cls, basecls=None):
     return interp2app(descr_new_base_exception)
 
 W_BaseException.typedef = TypeDef(
-    'BaseException',
+    'exceptions.BaseException',
     __doc__ = W_BaseException.__doc__,
-    __module__ = 'exceptions',
     __new__ = _new(W_BaseException),
     __init__ = interp2app(W_BaseException.descr_init),
     __str__ = interp2app(W_BaseException.descr_str),
@@ -244,10 +243,9 @@ def _new_exception(name, base, docstring, **kwargs):
     for k, v in kwargs.items():
         kwargs[k] = interp2app(v.__get__(None, realbase))
     W_Exc.typedef = TypeDef(
-        name,
+        'exceptions.' + name,
         base.typedef,
         __doc__ = W_Exc.__doc__,
-        __module__ = 'exceptions',
         **kwargs
     )
     W_Exc.typedef.applevel_subclasses_base = realbase
@@ -280,10 +278,10 @@ W_UnicodeError = _new_exception('UnicodeError', W_ValueError,
 
 class W_UnicodeTranslateError(W_UnicodeError):
     """Unicode translation error."""
-    object = None
-    start = None
-    end = None
-    reason = None
+    w_object = None
+    w_start = None
+    w_end = None
+    w_reason = None
 
     def descr_init(self, space, w_object, w_start, w_end, w_reason):
         # typechecking
@@ -301,6 +299,8 @@ class W_UnicodeTranslateError(W_UnicodeError):
 
     def descr_str(self, space):
         return space.appexec([space.wrap(self)], r"""(self):
+            if self.object is None:
+                return ""
             if self.end == self.start + 1:
                 badchar = ord(self.object[self.start])
                 if badchar <= 0xff:
@@ -312,10 +312,9 @@ class W_UnicodeTranslateError(W_UnicodeError):
         """)
 
 W_UnicodeTranslateError.typedef = TypeDef(
-    'UnicodeTranslateError',
+    'exceptions.UnicodeTranslateError',
     W_UnicodeError.typedef,
     __doc__ = W_UnicodeTranslateError.__doc__,
-    __module__ = 'exceptions',
     __new__ = _new(W_UnicodeTranslateError),
     __init__ = interp2app(W_UnicodeTranslateError.descr_init),
     __str__ = interp2app(W_UnicodeTranslateError.descr_str),
@@ -396,10 +395,9 @@ class W_EnvironmentError(W_StandardError):
         return W_BaseException.descr_str(self, space)
 
 W_EnvironmentError.typedef = TypeDef(
-    'EnvironmentError',
+    'exceptions.EnvironmentError',
     W_StandardError.typedef,
     __doc__ = W_EnvironmentError.__doc__,
-    __module__ = 'exceptions',
     __new__ = _new(W_EnvironmentError),
     __reduce__ = interp2app(W_EnvironmentError.descr_reduce),
     __init__ = interp2app(W_EnvironmentError.descr_init),
@@ -453,10 +451,9 @@ class W_WindowsError(W_OSError):
         _winerror_to_errno, _default_errno = {}, 22 # EINVAL
 
 W_WindowsError.typedef = TypeDef(
-    "WindowsError",
+    "exceptions.WindowsError",
     W_OSError.typedef,
     __doc__  = W_WindowsError.__doc__,
-    __module__ = 'exceptions',
     __new__  = _new(W_WindowsError),
     __init__ = interp2app(W_WindowsError.descr_init),
     __str__  = interp2app(W_WindowsError.descr_str),
@@ -557,14 +554,13 @@ class W_SyntaxError(W_StandardError):
             return W_StandardError.descr_repr(self, space)
 
 W_SyntaxError.typedef = TypeDef(
-    'SyntaxError',
+    'exceptions.SyntaxError',
     W_StandardError.typedef,
     __new__ = _new(W_SyntaxError),
     __init__ = interp2app(W_SyntaxError.descr_init),
     __str__ = interp2app(W_SyntaxError.descr_str),
     __repr__ = interp2app(W_SyntaxError.descr_repr),
     __doc__ = W_SyntaxError.__doc__,
-    __module__ = 'exceptions',
     msg      = readwrite_attrproperty_w('w_msg', W_SyntaxError),
     filename = readwrite_attrproperty_w('w_filename', W_SyntaxError),
     lineno   = readwrite_attrproperty_w('w_lineno', W_SyntaxError),
@@ -593,12 +589,11 @@ class W_SystemExit(W_BaseException):
         W_BaseException.descr_init(self, space, args_w)
 
 W_SystemExit.typedef = TypeDef(
-    'SystemExit',
+    'exceptions.SystemExit',
     W_BaseException.typedef,
     __new__ = _new(W_SystemExit),
     __init__ = interp2app(W_SystemExit.descr_init),
     __doc__ = W_SystemExit.__doc__,
-    __module__ = 'exceptions',
     code    = readwrite_attrproperty_w('w_code', W_SystemExit)
 )
 
@@ -649,6 +644,8 @@ class W_UnicodeDecodeError(W_UnicodeError):
 
     def descr_str(self, space):
         return space.appexec([self], """(self):
+            if self.object is None:
+                return ""
             if self.end == self.start + 1:
                 return "'%s' codec can't decode byte 0x%02x in position %d: %s"%(
                     self.encoding,
@@ -658,10 +655,9 @@ class W_UnicodeDecodeError(W_UnicodeError):
         """)
 
 W_UnicodeDecodeError.typedef = TypeDef(
-    'UnicodeDecodeError',
+    'exceptions.UnicodeDecodeError',
     W_UnicodeError.typedef,
     __doc__ = W_UnicodeDecodeError.__doc__,
-    __module__ = 'exceptions',
     __new__ = _new(W_UnicodeDecodeError),
     __init__ = interp2app(W_UnicodeDecodeError.descr_init),
     __str__ = interp2app(W_UnicodeDecodeError.descr_str),
@@ -738,6 +734,8 @@ class W_UnicodeEncodeError(W_UnicodeError):
 
     def descr_str(self, space):
         return space.appexec([self], r"""(self):
+            if self.object is None:
+                return ""
             if self.end == self.start + 1:
                 badchar = ord(self.object[self.start])
                 if badchar <= 0xff:
@@ -753,10 +751,9 @@ class W_UnicodeEncodeError(W_UnicodeError):
         """)
 
 W_UnicodeEncodeError.typedef = TypeDef(
-    'UnicodeEncodeError',
+    'exceptions.UnicodeEncodeError',
     W_UnicodeError.typedef,
     __doc__ = W_UnicodeEncodeError.__doc__,
-    __module__ = 'exceptions',
     __new__ = _new(W_UnicodeEncodeError),
     __init__ = interp2app(W_UnicodeEncodeError.descr_init),
     __str__ = interp2app(W_UnicodeEncodeError.descr_str),

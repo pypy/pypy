@@ -14,13 +14,19 @@ class AppTestBasic:
         d[5].append(44)
         assert l == [42, 43] and l2 == [44]
 
+    def test_module(self):
+        from _collections import defaultdict
+        assert repr(defaultdict) in (
+            "<class 'collections.defaultdict'>",   # on PyPy
+            "<type 'collections.defaultdict'>")    # on CPython
+
     def test_keyerror_without_factory(self):
         from _collections import defaultdict
         for d1 in [defaultdict(), defaultdict(None)]:
             for key in ['foo', (1,)]:
                 try:
                     d1[key]
-                except KeyError, err:
+                except KeyError as err:
                     assert err.args[0] == key
                 else:
                     assert 0, "expected KeyError"
@@ -54,3 +60,25 @@ class AppTestBasic:
         assert len(d2) == 1
         assert d2[2] == 3
         assert d2[3] == 42
+
+    def test_no_dict(self):
+        import _collections
+        assert not hasattr(_collections.defaultdict(), '__dict__')
+
+    def test_no_setattr(self):
+        import _collections
+        class D(_collections.defaultdict):
+            def __setattr__(self, attr, name):
+                raise AssertionError
+        d = D(int)
+        assert d['5'] == 0
+        d['6'] += 3
+        assert d['6'] == 3
+
+    def test_default_factory(self):
+        import _collections
+        f = lambda: 42
+        d = _collections.defaultdict(f)
+        assert d.default_factory is f
+        d.default_factory = lambda: 43
+        assert d['5'] == 43

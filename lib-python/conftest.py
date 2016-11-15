@@ -17,7 +17,7 @@ from pypy.interpreter.main import run_string, run_file
 from pypy.conftest import option as pypy_option
 
 from pypy.tool.pytest import appsupport
-from pypy.tool.pytest.confpath import pypydir, rpythondir, testdir, testresultdir
+from pypy.tool.pytest.confpath import pypydir, testdir, testresultdir
 from rpython.config.parse import parse_info
 
 pytest_plugins = "resultlog",
@@ -59,7 +59,7 @@ class RegrTest:
     def __init__(self, basename, core=False, compiler=None, usemodules='',
                  skip=None):
         self.basename = basename
-        self._usemodules = usemodules.split() + ['signal', 'rctime', 'itertools', '_socket']
+        self._usemodules = usemodules.split() + ['signal', 'time', 'itertools', '_socket']
         self._compiler = compiler
         self.core = core
         self.skip = skip
@@ -157,8 +157,7 @@ testmap = [
     RegrTest('test_codecmaps_tw.py', usemodules='_multibytecodec'),
     RegrTest('test_codecs.py', core=True, usemodules='_multibytecodec'),
     RegrTest('test_codeop.py', core=True),
-    RegrTest('test_coding.py', core=True),
-    RegrTest('test_coercion.py', core=True),
+    RegrTest('test_coercion.py', core=True, usemodules='struct'),
     RegrTest('test_collections.py', usemodules='binascii struct'),
     RegrTest('test_colorsys.py'),
     RegrTest('test_commands.py'),
@@ -205,6 +204,7 @@ testmap = [
     RegrTest('test_email.py'),
     RegrTest('test_email_codecs.py'),
     RegrTest('test_email_renamed.py'),
+    RegrTest('test_ensurepip.py'),
     RegrTest('test_enumerate.py', core=True),
     RegrTest('test_eof.py', core=True),
     RegrTest('test_epoll.py'),
@@ -265,6 +265,7 @@ testmap = [
     RegrTest('test_imageop.py'),
     RegrTest('test_imaplib.py'),
     RegrTest('test_imgfile.py'),
+    RegrTest('test_imghdr.py'),
     RegrTest('test_imp.py', core=True, usemodules='thread'),
     RegrTest('test_import.py', core=True),
     RegrTest('test_importhooks.py', core=True),
@@ -301,7 +302,7 @@ testmap = [
     RegrTest('test_memoryio.py'),
     RegrTest('test_memoryview.py'),
     RegrTest('test_md5.py'),
-    RegrTest('test_mhlib.py'),
+    RegrTest('test_mhlib.py', usemodules='binascii struct'),
     RegrTest('test_mimetools.py'),
     RegrTest('test_mimetypes.py'),
     RegrTest('test_MimeWriter.py', core=False, usemodules='binascii'),
@@ -326,15 +327,14 @@ testmap = [
     RegrTest('test_openpty.py'),
     RegrTest('test_operator.py', core=True),
     RegrTest('test_optparse.py'),
+    RegrTest('test_ordered_dict.py'),
     RegrTest('test_os.py', core=True),
     RegrTest('test_ossaudiodev.py'),
     RegrTest('test_parser.py', skip="slowly deprecating compiler"),
     RegrTest('test_pdb.py'),
     RegrTest('test_peepholer.py'),
     RegrTest('test_pep247.py'),
-    RegrTest('test_pep263.py'),
     RegrTest('test_pep277.py'),
-    RegrTest('test_pep292.py'),
     RegrTest('test_pep352.py'),
     RegrTest('test_pickle.py', core=True),
     RegrTest('test_pickletools.py', core=False),
@@ -397,6 +397,8 @@ testmap = [
     RegrTest('test_socketserver.py', usemodules='thread'),
     RegrTest('test_softspace.py', core=True),
     RegrTest('test_sort.py', core=True),
+    RegrTest('test_source_encoding.py'),
+    RegrTest('test_spwd.py'),
     RegrTest('test_sqlite.py', usemodules="thread _rawffi zlib"),
     RegrTest('test_ssl.py', usemodules='_ssl _socket select'),
     RegrTest('test_startfile.py'),
@@ -435,6 +437,7 @@ testmap = [
     RegrTest('test_threading_local.py', usemodules="thread", core=True),
     RegrTest('test_threadsignals.py', usemodules="thread"),
     RegrTest('test_time.py', core=True),
+    RegrTest('test_timeit.py'),
     RegrTest('test_timeout.py'),
     RegrTest('test_tk.py'),
     RegrTest('test_tokenize.py'),
@@ -445,6 +448,7 @@ testmap = [
     RegrTest('test_ttk_guionly.py'),
     RegrTest('test_ttk_textonly.py'),
     RegrTest('test_tuple.py', core=True),
+    RegrTest('test_turtle.py'),
     RegrTest('test_typechecks.py'),
     RegrTest('test_types.py', core=True),
     RegrTest('test_ucn.py'),
@@ -543,8 +547,6 @@ class RunFileExternal(py.test.collect.File):
 # invoking in a separate process: py.py TESTFILE
 #
 import os
-import time
-import getpass
 
 class ReallyRunFileExternal(py.test.collect.Item):
     class ExternalFailure(Exception):
@@ -559,7 +561,7 @@ class ReallyRunFileExternal(py.test.collect.Item):
             watchdog_name = 'watchdog_nt.py'
         else:
             watchdog_name = 'watchdog.py'
-        watchdog_script = rpythondir.join('tool', watchdog_name)
+        watchdog_script = pypydir.join('tool', watchdog_name)
 
         regr_script = pypydir.join('tool', 'pytest',
                                    'run-script', 'regrverbose.py')
@@ -663,17 +665,11 @@ class ReallyRunFileExternal(py.test.collect.Item):
             timedout = test_stderr.rfind("KeyboardInterrupt") != -1
         if test_stderr.rfind(26*"=" + "skipped" + 26*"=") != -1:
             skipped = True
-        outcome = 'OK'
         if not exit_status:
             # match "FAIL" but not e.g. "FAILURE", which is in the output of a
             # test in test_zipimport_support.py
             if re.search(r'\bFAIL\b', test_stdout) or re.search('[^:]ERROR', test_stderr):
-                outcome = 'FAIL'
                 exit_status = 2
-        elif timedout:
-            outcome = "T/O"
-        else:
-            outcome = "ERR"
 
         return skipped, exit_status, test_stdout, test_stderr
 

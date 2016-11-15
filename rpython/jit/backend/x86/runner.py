@@ -7,22 +7,27 @@ from rpython.jit.backend.x86.regalloc import gpr_reg_mgr_cls, xmm_reg_mgr_cls
 from rpython.jit.backend.x86.profagent import ProfileAgent
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
 from rpython.jit.backend.x86 import regloc
+from rpython.jit.backend.x86.vector_ext import X86VectorExt
 
 import sys
-
-from rpython.tool.ansi_print import ansi_log
-log = py.log.Producer('jitbackend')
-py.log.setconsumer('jitbackend', ansi_log)
 
 
 class AbstractX86CPU(AbstractLLCPU):
     debug = True
     supports_floats = True
     supports_singlefloats = True
+    supports_cond_call_value = True
 
     dont_keepalive_stuff = False # for tests
     with_threads = False
     frame_reg = regloc.ebp
+
+    vector_ext = None
+
+    # can an ISA instruction handle a factor to the offset?
+    load_supported_factors = (1,2,4,8)
+
+    HAS_CODEMAP = True
 
     from rpython.jit.backend.x86.arch import JITFRAME_FIXED_SIZE
     all_reg_indexes = gpr_reg_mgr_cls.all_reg_indexes
@@ -49,12 +54,6 @@ class AbstractX86CPU(AbstractLLCPU):
     def set_debug(self, flag):
         return self.assembler.set_debug(flag)
 
-    def get_failargs_limit(self):
-        if self.opts is not None:
-            return self.opts.failargs_limit
-        else:
-            return 1000
-
     def setup(self):
         self.assembler = Assembler386(self, self.translate_support_code)
 
@@ -67,6 +66,8 @@ class AbstractX86CPU(AbstractLLCPU):
     @rgc.no_release_gil
     def setup_once(self):
         self.profile_agent.startup()
+        if self.HAS_CODEMAP:
+            self.codemap.setup()
         self.assembler.setup_once()
 
     @rgc.no_release_gil
@@ -91,23 +92,12 @@ class AbstractX86CPU(AbstractLLCPU):
         lines = machine_code_dump(data, addr, self.backend_name, label_list)
         print ''.join(lines)
 
-    def compile_loop(self, inputargs, operations, looptoken, log=True,
-                     name='', logger=None):
-        return self.assembler.assemble_loop(inputargs, operations, looptoken, log,
-                                            name, logger)
-
     def compile_bridge(self, faildescr, inputargs, operations,
                        original_loop_token, log=True, logger=None):
         clt = original_loop_token.compiled_loop_token
         clt.compiling_a_bridge()
         return self.assembler.assemble_bridge(faildescr, inputargs, operations,
                                               original_loop_token, log, logger)
-
-    def clear_latest_values(self, count):
-        setitem = self.assembler.fail_boxes_ptr.setitem
-        null = lltype.nullptr(llmemory.GCREF.TO)
-        for index in range(count):
-            setitem(index, null)
 
     def cast_ptr_to_int(x):
         adr = llmemory.cast_ptr_to_adr(x)
@@ -130,9 +120,10 @@ class AbstractX86CPU(AbstractLLCPU):
         looptoken.compiled_loop_token.invalidate_positions = []
 
     def get_all_loop_runs(self):
+        asm = self.assembler
         l = lltype.malloc(LOOP_RUN_CONTAINER,
-                          len(self.assembler.loop_run_counters))
-        for i, ll_s in enumerate(self.assembler.loop_run_counters):
+                          len(asm.loop_run_counters))
+        for i, ll_s in enumerate(asm.loop_run_counters):
             l[i].type = ll_s.type
             l[i].number = ll_s.number
             l[i].counter = ll_s.i
@@ -157,6 +148,7 @@ class CPU386_NO_SSE2(CPU386):
     supports_longlong = False
 
 class CPU_X86_64(AbstractX86CPU):
+    vector_ext = X86VectorExt()
     backend_name = 'x86_64'
     NUM_REGS = 16
     CALLEE_SAVE_REGISTERS = [regloc.ebx, regloc.r12, regloc.r13, regloc.r14, regloc.r15]

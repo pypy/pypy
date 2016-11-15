@@ -2,6 +2,7 @@ from rpython.flowspace.model import (Constant, Variable, Block, Link,
      copygraph, SpaceOperation, checkgraph)
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.nonconst import NonConstant
+from rpython.rlib import rgil
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
@@ -9,7 +10,7 @@ from rpython.memory.gctransform.framework import (
      BaseFrameworkGCTransformer, BaseRootWalker)
 from rpython.rtyper.llannotation import SomeAddress
 from rpython.rtyper.rbuiltin import gen_cast
-from rpython.translator.unsimplify import copyvar, varoftype
+from rpython.translator.unsimplify import varoftype
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 import sys
 
@@ -139,7 +140,7 @@ class AsmGcRootFrameworkGCTransformer(BaseFrameworkGCTransformer):
         block1 = Block([])
         reloadedvars = []
         for v, c_p in zip(block2.inputargs, sra):
-            v = copyvar(None, v)
+            v = v.copy()
             if isinstance(v.concretetype, lltype.Ptr):
                 w = varoftype(llmemory.Address)
             else:
@@ -339,9 +340,10 @@ class AsmStackRootWalker(BaseRootWalker):
         # called first, to initialize self.belongs_to_current_thread.
         assert not hasattr(self, 'gc_detach_callback_pieces_ptr')
 
-    def walk_stack_roots(self, collect_stack_root):
+    def walk_stack_roots(self, collect_stack_root, is_minor=False):
         gcdata = self.gcdata
         gcdata._gc_collect_stack_root = collect_stack_root
+        gcdata._gc_collect_is_minor = is_minor
         pypy_asm_stackwalk(llhelper(ASM_CALLBACK_PTR, self._asm_callback),
                            gcrootanchor)
 
@@ -356,14 +358,24 @@ class AsmStackRootWalker(BaseRootWalker):
         initialframedata = anchor.address[1]
         stackscount = 0
         while initialframedata != anchor:     # while we have not looped back
-            self.fill_initial_frame(curframe, initialframedata)
-            # Loop over all the frames in the stack
-            while self.walk_to_parent_frame(curframe, otherframe):
-                swap = curframe
-                curframe = otherframe    # caller becomes callee
-                otherframe = swap
+            self.walk_frames(curframe, otherframe, initialframedata)
             # Then proceed to the next piece of stack
             initialframedata = initialframedata.address[1]
+            stackscount += 1
+        #
+        # for the JIT: rpy_fastgil may contain an extra framedata
+        rpy_fastgil = rgil.gil_fetch_fastgil().signed[0]
+        if rpy_fastgil != 1:
+            ll_assert(rpy_fastgil != 0, "walk_stack_from doesn't have the GIL")
+            initialframedata = rffi.cast(llmemory.Address, rpy_fastgil)
+            #
+            # very rare issue: initialframedata.address[0] is uninitialized
+            # in this case, but "retaddr = callee.frame_address.address[0]"
+            # reads it.  If it happens to be exactly a valid return address
+            # inside the C code, then bad things occur.
+            initialframedata.address[0] = llmemory.NULL
+            #
+            self.walk_frames(curframe, otherframe, initialframedata)
             stackscount += 1
         #
         expected = rffi.stackcounter.stacks_counter
@@ -373,6 +385,14 @@ class AsmStackRootWalker(BaseRootWalker):
         ll_assert(not (stackscount > expected), "stacks counter corruption?")
         lltype.free(otherframe, flavor='raw')
         lltype.free(curframe, flavor='raw')
+
+    def walk_frames(self, curframe, otherframe, initialframedata):
+        self.fill_initial_frame(curframe, initialframedata)
+        # Loop over all the frames in the stack
+        while self.walk_to_parent_frame(curframe, otherframe):
+            swap = curframe
+            curframe = otherframe    # caller becomes callee
+            otherframe = swap
 
     def fill_initial_frame(self, curframe, initialframedata):
         # Read the information provided by initialframedata
@@ -456,6 +476,13 @@ class AsmStackRootWalker(BaseRootWalker):
             if gc.points_to_valid_gc_object(addr):
                 collect_stack_root(gc, addr)
         #
+        # small hack: the JIT reserves THREADLOCAL_OFS's last bit for
+        # us.  We use it to store an "already traced past this frame"
+        # flag.
+        if self._with_jit and self.gcdata._gc_collect_is_minor:
+            if self.mark_jit_frame_can_stop(callee):
+                return False
+        #
         # track where the caller_frame saved the registers from its own
         # caller
         #
@@ -499,15 +526,15 @@ class AsmStackRootWalker(BaseRootWalker):
             from rpython.jit.backend.llsupport.jitframe import STACK_DEPTH_OFS
 
             tid = self.gc.get_possibly_forwarded_type_id(ebp_in_caller)
-            ll_assert(rffi.cast(lltype.Signed, tid) ==
-                      rffi.cast(lltype.Signed, self.frame_tid),
-                      "found a stack frame that does not belong "
-                      "anywhere I know, bug in asmgcc")
-            # fish the depth
-            extra_stack_depth = (ebp_in_caller + STACK_DEPTH_OFS).signed[0]
-            extra_stack_depth //= rffi.sizeof(lltype.Signed)
-            self._shape_decompressor.setjitframe(extra_stack_depth)
-            return
+            if (rffi.cast(lltype.Signed, tid) ==
+                    rffi.cast(lltype.Signed, self.frame_tid)):
+                # fish the depth
+                extra_stack_depth = (ebp_in_caller + STACK_DEPTH_OFS).signed[0]
+                ll_assert((extra_stack_depth & (rffi.sizeof(lltype.Signed) - 1))
+                           == 0, "asmgcc: misaligned extra_stack_depth")
+                extra_stack_depth //= rffi.sizeof(lltype.Signed)
+                self._shape_decompressor.setjitframe(extra_stack_depth)
+                return
         llop.debug_fatalerror(lltype.Void, "cannot find gc roots!")
 
     def getlocation(self, callee, ebp_in_caller, location):
@@ -533,6 +560,19 @@ class AsmStackRootWalker(BaseRootWalker):
             return ebp_in_caller + offset
         else:  # kind == LOC_EBP_MINUS:   at -N(%ebp)
             return ebp_in_caller - offset
+
+    def mark_jit_frame_can_stop(self, callee):
+        location = self._shape_decompressor.get_threadlocal_loc()
+        if location == LOC_NOWHERE:
+            return False
+        addr = self.getlocation(callee, llmemory.NULL, location)
+        #
+        x = addr.signed[0]
+        if x & 1:
+            return True            # this JIT stack frame is already marked!
+        else:
+            addr.signed[0] = x | 1    # otherwise, mark it but don't stop
+            return False
 
 
 LOC_REG       = 0
@@ -593,7 +633,7 @@ def sort_gcmap(gcmapstart, gcmapend):
     qsort(gcmapstart,
           rffi.cast(rffi.SIZE_T, count),
           rffi.cast(rffi.SIZE_T, arrayitemsize),
-          llhelper(QSORT_CALLBACK_PTR, _compare_gcmap_entries))
+          c_compare_gcmap_entries)
 
 def replace_dead_entries_with_nulls(start, end):
     # replace the dead entries (null value) with a null key.
@@ -620,17 +660,6 @@ if sys.platform == 'win32':
 else:
     def win32_follow_gcmap_jmp(start, end):
         pass
-
-def _compare_gcmap_entries(addr1, addr2):
-    key1 = addr1.address[0]
-    key2 = addr2.address[0]
-    if key1 < key2:
-        result = -1
-    elif key1 == key2:
-        result = 0
-    else:
-        result = 1
-    return rffi.cast(rffi.INT, result)
 
 # ____________________________________________________________
 
@@ -715,6 +744,17 @@ class ShapeDecompressor:
             llop.debug_fatalerror(lltype.Void, "asmgcroot: invalid index")
             return 0   # annotator fix
 
+    def get_threadlocal_loc(self):
+        index = self.jit_index
+        if index < 0:
+            return LOC_NOWHERE     # case "outside the jit"
+        else:
+            # case "in the jit"
+            from rpython.jit.backend.x86.arch import THREADLOCAL_OFS, WORD
+            return (LOC_ESP_PLUS |
+                    ((THREADLOCAL_OFS // WORD + self.extra_stack_depth) << 2))
+
+
 # ____________________________________________________________
 
 #
@@ -770,7 +810,20 @@ gcrootanchor.prev = gcrootanchor
 gcrootanchor.next = gcrootanchor
 c_gcrootanchor = Constant(gcrootanchor, ASM_FRAMEDATA_HEAD_PTR)
 
-eci = ExternalCompilationInfo(pre_include_bits=['#define PYPY_USE_ASMGCC'])
+eci = ExternalCompilationInfo(compile_extra=['-DPYPY_USE_ASMGCC'],
+                              post_include_bits=["""
+static int pypy_compare_gcmap_entries(const void *addr1, const void *addr2)
+{
+    char *key1 = * (char * const *) addr1;
+    char *key2 = * (char * const *) addr2;
+    if (key1 < key2)
+        return -1;
+    else if (key1 == key2)
+        return 0;
+    else
+        return 1;
+}
+"""])
 
 pypy_asm_stackwalk = rffi.llexternal('pypy_asm_stackwalk',
                                      [ASM_CALLBACK_PTR,
@@ -798,6 +851,10 @@ c_asm_nocollect = Constant(pypy_asm_nocollect, lltype.typeOf(pypy_asm_nocollect)
 
 QSORT_CALLBACK_PTR = lltype.Ptr(lltype.FuncType([llmemory.Address,
                                                  llmemory.Address], rffi.INT))
+c_compare_gcmap_entries = rffi.llexternal('pypy_compare_gcmap_entries',
+                                          [llmemory.Address, llmemory.Address],
+                                          rffi.INT, compilation_info=eci,
+                                          _nowrapper=True, sandboxsafe=True)
 qsort = rffi.llexternal('qsort',
                         [llmemory.Address,
                          rffi.SIZE_T,

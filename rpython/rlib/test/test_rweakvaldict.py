@@ -1,4 +1,5 @@
 import py
+from rpython.annotator.model import UnionError
 from rpython.rlib import rgc
 from rpython.rlib.rweakref import RWeakValueDictionary
 from rpython.rtyper.test.test_llinterp import interpret
@@ -137,10 +138,78 @@ def test_rpython_merge_RWeakValueDictionary2():
     f(1)
     interpret(f, [1])
 
+
+@py.test.mark.xfail(
+    reason="may fail with AssertionError, depending on annotation order")
+def test_rpython_merge_RWeakValueDictionary3():
     def g(x):
         if x:
             d = RWeakValueDictionary(str, X)
         else:
             d = RWeakValueDictionary(str, Y)
         d.set("x", X())
-    py.test.raises(Exception, interpret, g, [1])
+
+    with py.test.raises(UnionError):
+        interpret(g, [1])
+
+
+def test_rpython_RWeakValueDictionary_or_None():
+    def g(d, key):
+        if d is None:
+            return None
+        return d.get(key)
+    def f(n):
+        x = X()
+        if n:
+            d = None
+        else:
+            d = RWeakValueDictionary(str, X)
+            d.set("a", x)
+        return g(d, "a") is x
+    assert f(0)
+    assert interpret(f, [0])
+    assert not f(1)
+    assert not interpret(f, [1])
+
+
+def test_bogus_makekey():
+    class X: pass
+    class Y: pass
+    def g():
+        X(); Y()
+        RWeakValueDictionary(str, X).get("foobar")
+        RWeakValueDictionary(int, Y).get(42)
+    interpret(g, [])
+
+def test_key_instance():
+    class K(object):
+        pass
+    keys = [K(), K(), K()]
+
+    def g(d):
+        assert d.get(keys[3]) is None
+        x1 = X(); x2 = X(); x3 = X()
+        d.set(keys[0], x1)
+        d.set(keys[1], x2)
+        d.set(keys[2], x3)
+        assert d.get(keys[0]) is x1
+        assert d.get(keys[1]) is x2
+        assert d.get(keys[2]) is x3
+        assert d.get(keys[3]) is None
+        return x1, x3    # x2 dies
+    def f():
+        keys.append(K())
+        d = RWeakValueDictionary(K, X)
+        x1, x3 = g(d)
+        rgc.collect(); rgc.collect()
+        assert d.get(keys[0]) is x1
+        assert d.get(keys[1]) is None
+        assert d.get(keys[2]) is x3
+        assert d.get(keys[3]) is None
+        d.set(keys[0], None)
+        assert d.get(keys[0]) is None
+        assert d.get(keys[1]) is None
+        assert d.get(keys[2]) is x3
+        assert d.get(keys[3]) is None
+    f()
+    interpret(f, [])

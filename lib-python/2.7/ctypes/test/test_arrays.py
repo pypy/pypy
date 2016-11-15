@@ -2,6 +2,8 @@ import unittest
 from ctypes import *
 from test.test_support import impl_detail
 
+from ctypes.test import need_symbol
+
 formats = "bBhHiIlLqQfd"
 
 # c_longdouble commented out for PyPy, look at the commend in test_longdouble
@@ -33,20 +35,24 @@ class ArrayTestCase(unittest.TestCase):
             self.assertEqual(len(ia), alen)
 
             # slot values ok?
-            values = [ia[i] for i in range(len(init))]
+            values = [ia[i] for i in range(alen)]
             self.assertEqual(values, init)
+
+            # out-of-bounds accesses should be caught
+            with self.assertRaises(IndexError): ia[alen]
+            with self.assertRaises(IndexError): ia[-alen-1]
 
             # change the items
             from operator import setitem
             new_values = range(42, 42+alen)
             [setitem(ia, n, new_values[n]) for n in range(alen)]
-            values = [ia[i] for i in range(len(init))]
+            values = [ia[i] for i in range(alen)]
             self.assertEqual(values, new_values)
 
             # are the items initialized to 0?
             ia = int_array()
-            values = [ia[i] for i in range(len(init))]
-            self.assertEqual(values, [0] * len(init))
+            values = [ia[i] for i in range(alen)]
+            self.assertEqual(values, [0] * alen)
 
             # Too many initializers should be caught
             self.assertRaises(IndexError, int_array, *range(alen*2))
@@ -98,8 +104,8 @@ class ArrayTestCase(unittest.TestCase):
         self.assertEqual(values, [1, 2, 3, 4, 5])
 
     def test_classcache(self):
-        self.assertTrue(not ARRAY(c_int, 3) is ARRAY(c_int, 4))
-        self.assertTrue(ARRAY(c_int, 3) is ARRAY(c_int, 3))
+        self.assertIsNot(ARRAY(c_int, 3), ARRAY(c_int, 4))
+        self.assertIs(ARRAY(c_int, 3), ARRAY(c_int, 3))
 
     def test_from_address(self):
         # Failed with 0.9.8, reported by JUrner
@@ -112,20 +118,16 @@ class ArrayTestCase(unittest.TestCase):
         self.assertEqual(sz[1:4:2], "o")
         self.assertEqual(sz.value, "foo")
 
-    try:
-        create_unicode_buffer
-    except NameError:
-        pass
-    else:
-        def test_from_addressW(self):
-            p = create_unicode_buffer("foo")
-            sz = (c_wchar * 3).from_address(addressof(p))
-            self.assertEqual(sz[:], "foo")
-            self.assertEqual(sz[::], "foo")
-            self.assertEqual(sz[::-1], "oof")
-            self.assertEqual(sz[::3], "f")
-            self.assertEqual(sz[1:4:2], "o")
-            self.assertEqual(sz.value, "foo")
+    @need_symbol('create_unicode_buffer')
+    def test_from_addressW(self):
+        p = create_unicode_buffer("foo")
+        sz = (c_wchar * 3).from_address(addressof(p))
+        self.assertEqual(sz[:], "foo")
+        self.assertEqual(sz[::], "foo")
+        self.assertEqual(sz[::-1], "oof")
+        self.assertEqual(sz[::3], "f")
+        self.assertEqual(sz[1:4:2], "o")
+        self.assertEqual(sz.value, "foo")
 
     def test_cache(self):
         # Array types are cached internally in the _ctypes extension,
@@ -139,7 +141,7 @@ class ArrayTestCase(unittest.TestCase):
         # Create a new array type based on it:
         t1 = my_int * 1
         t2 = my_int * 1
-        self.assertTrue(t1 is t2)
+        self.assertIs(t1, t2)
 
 if __name__ == '__main__':
     unittest.main()

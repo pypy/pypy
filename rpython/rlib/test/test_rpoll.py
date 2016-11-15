@@ -3,26 +3,42 @@ import errno
 import py
 
 from rpython.rlib.rsocket import *
-from rpython.rlib.rpoll import select
-try:
-    from rpython.rlib.rpoll import poll
-except ImportError:
-    py.test.skip('no poll available on this platform')
+from rpython.rlib.rpoll import *
 from rpython.rtyper.test.test_llinterp import interpret
+
+if os.name == 'nt':
+    has_poll = False
+else:
+    has_poll = True
+
 
 def setup_module(mod):
     rsocket_startup()
+
 
 def one_in_event(events, fd):
     assert len(events) == 1
     assert events[0][0] == fd
     assert events[0][1] & POLLIN
 
+
 def one_out_event(events, fd):
     assert len(events) == 1
     assert events[0][0] == fd
     assert events[0][1] & POLLOUT
 
+
+@py.test.mark.skipif('has_poll')
+def test_no_poll():
+    try:
+        poll
+    except NameError:
+        pass
+    else:
+        assert False
+
+
+@py.test.mark.skipif('not has_poll')
 def test_simple():
     serv = RSocket(AF_INET, SOCK_STREAM)
     serv.bind(INETAddress('127.0.0.1', INADDR_ANY))
@@ -65,9 +81,9 @@ def test_simple():
     servconn.close()
     serv.close()
 
+
+@py.test.mark.skipif('not has_poll')
 def test_exchange():
-    if not poll:
-        py.test.skip('poll not available for this platform')
     serv = RSocket(AF_INET, SOCK_STREAM)
     serv.bind(INETAddress('127.0.0.1', INADDR_ANY))
     serv.listen(1)
@@ -150,6 +166,7 @@ def test_select():
     f()
     interpret(f, [])
 
+
 def test_select_timeout():
     if os.name == 'nt':
         py.test.skip('cannot select on file handles on windows')
@@ -163,10 +180,16 @@ def test_select_timeout():
     interpret(f, [])
 
 
-def test_translate():
+def test_translate_select():
     from rpython.translator.c.test.test_genc import compile
+    def func():
+        select([], [], [], 0.0)
+    compile(func, [])
 
+
+@py.test.mark.skipif('not has_poll')
+def test_translate_poll():
+    from rpython.translator.c.test.test_genc import compile
     def func():
         poll({})
-
     compile(func, [])

@@ -1,7 +1,8 @@
 #include "Python.h"
 /* Initialize this module. */
 
-void inittest_import_module(void)
+PyMODINIT_FUNC
+inittest_import_module(void)
 {
 	PyObject *m, *d;
 

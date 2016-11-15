@@ -6,7 +6,7 @@ to app-level with apropriate interface
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from rpython.rtyper.lltypesystem import lltype, rffi
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.module._rawffi.interp_rawffi import segfault_exception
 from pypy.module._rawffi.interp_rawffi import W_DataShape, W_DataInstance
 from pypy.module._rawffi.interp_rawffi import unwrap_value, wrap_value
@@ -15,7 +15,7 @@ from pypy.module._rawffi.interp_rawffi import size_alignment
 from pypy.module._rawffi.interp_rawffi import unpack_shape_with_length
 from pypy.module._rawffi.interp_rawffi import read_ptr, write_ptr
 from rpython.rlib.rarithmetic import r_uint
-from rpython.rlib import rgc
+from rpython.rlib import rgc, clibffi
 
 
 class W_Array(W_DataShape):
@@ -43,9 +43,8 @@ class W_Array(W_DataShape):
             items_w = space.unpackiterable(w_items)
             iterlength = len(items_w)
             if iterlength > length:
-                raise OperationError(space.w_ValueError,
-                                     space.wrap("too many items for specified"
-                                                " array length"))
+                raise oefmt(space.w_ValueError,
+                            "too many items for specified array length")
             for num in range(iterlength):
                 w_item = items_w[num]
                 unwrap_value(space, write_ptr, result.ll_buffer, num,
@@ -84,14 +83,11 @@ W_Array.typedef.acceptable_as_base_class = False
 
 class W_ArrayInstance(W_DataInstance):
     def __init__(self, space, shape, length, address=r_uint(0)):
-        # Workaround for a strange behavior of libffi: make sure that
-        # we always have at least 8 bytes.  For W_ArrayInstances that are
-        # used as the result value of a function call, ffi_call() writes
-        # 8 bytes into it even if the function's result type asks for less.
-        # This strange behavior is documented.
         memsize = shape.size * length
-        if memsize < 8:
-            memsize = 8
+        # For W_ArrayInstances that are used as the result value of a
+        # function call, ffi_call() writes 8 bytes into it even if the
+        # function's result type asks for less.
+        memsize = clibffi.adjust_return_size(memsize)
         W_DataInstance.__init__(self, space, memsize, address)
         self.length = length
         self.shape = shape
@@ -115,7 +111,7 @@ class W_ArrayInstance(W_DataInstance):
     def descr_setitem(self, space, w_index, w_value):
         try:
             num = space.int_w(w_index)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_TypeError):
                 raise
             self.setslice(space, w_index, w_value)
@@ -133,7 +129,7 @@ class W_ArrayInstance(W_DataInstance):
     def descr_getitem(self, space, w_index):
         try:
             num = space.int_w(w_index)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(space, space.w_TypeError):
                 raise
             return self.getslice(space, w_index)
@@ -155,12 +151,10 @@ class W_ArrayInstance(W_DataInstance):
 
     def decodeslice(self, space, w_slice):
         if not space.isinstance_w(w_slice, space.w_slice):
-            raise OperationError(space.w_TypeError,
-                                 space.wrap('index must be int or slice'))
+            raise oefmt(space.w_TypeError, "index must be int or slice")
         letter = self.shape.itemcode
         if letter != 'c':
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("only 'c' arrays support slicing"))
+            raise oefmt(space.w_TypeError, "only 'c' arrays support slicing")
         w_start = space.getattr(w_slice, space.wrap('start'))
         w_stop = space.getattr(w_slice, space.wrap('stop'))
         w_step = space.getattr(w_slice, space.wrap('step'))
@@ -176,11 +170,9 @@ class W_ArrayInstance(W_DataInstance):
         if not space.is_w(w_step, space.w_None):
             step = space.int_w(w_step)
             if step != 1:
-                raise OperationError(space.w_ValueError,
-                                     space.wrap("no step support"))
+                raise oefmt(space.w_ValueError, "no step support")
         if not (0 <= start <= stop <= self.length):
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("slice out of bounds"))
+            raise oefmt(space.w_ValueError, "slice out of bounds")
         if not self.ll_buffer:
             raise segfault_exception(space, "accessing a freed array")
         return start, stop
@@ -189,14 +181,13 @@ class W_ArrayInstance(W_DataInstance):
         start, stop = self.decodeslice(space, w_slice)
         ll_buffer = self.ll_buffer
         result = [ll_buffer[i] for i in range(start, stop)]
-        return space.wrap(''.join(result))
+        return space.newbytes(''.join(result))
 
     def setslice(self, space, w_slice, w_value):
         start, stop = self.decodeslice(space, w_slice)
-        value = space.bufferstr_w(w_value)
+        value = space.str_w(w_value)
         if start + len(value) != stop:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("cannot resize array"))
+            raise oefmt(space.w_ValueError, "cannot resize array")
         ll_buffer = self.ll_buffer
         for i in range(len(value)):
             ll_buffer[start + i] = value[i]

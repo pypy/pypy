@@ -1,6 +1,9 @@
 # ____________________________________________________________
 
 import sys
+assert __version__ == "1.9.0", ("This test_c.py file is for testing a version"
+                                " of cffi that differs from the one that we"
+                                " get from 'import _cffi_backend'")
 if sys.version_info < (3,):
     type_or_class = "type"
     mandatory_b_prefix = ''
@@ -74,8 +77,8 @@ def test_new_primitive_type():
     assert repr(p) == "<ctype 'signed char'>"
 
 def check_dir(p, expected):
-    got = set(name for name in dir(p) if not name.startswith('_'))
-    assert got == set(expected)
+    got = [name for name in dir(p) if not name.startswith('_')]
+    assert got == sorted(expected)
 
 def test_inspect_primitive_type():
     p = new_primitive_type("signed char")
@@ -138,9 +141,13 @@ def test_float_types():
     INF = 1E200 * 1E200
     for name in ["float", "double"]:
         p = new_primitive_type(name)
-        assert bool(cast(p, 0))
+        assert bool(cast(p, 0)) is False      # since 1.7
+        assert bool(cast(p, -0.0)) is False   # since 1.7
+        assert bool(cast(p, 1e-42)) is True
+        assert bool(cast(p, -1e-42)) is True
         assert bool(cast(p, INF))
         assert bool(cast(p, -INF))
+        assert bool(cast(p, float("nan")))
         assert int(cast(p, -150)) == -150
         assert int(cast(p, 61.91)) == 61
         assert long(cast(p, 61.91)) == 61
@@ -199,7 +206,8 @@ def test_complex_types():
 
 def test_character_type():
     p = new_primitive_type("char")
-    assert bool(cast(p, '\x00'))
+    assert bool(cast(p, 'A')) is True
+    assert bool(cast(p, '\x00')) is False    # since 1.7
     assert cast(p, '\x00') != cast(p, -17*256)
     assert int(cast(p, 'A')) == 65
     assert long(cast(p, 'A')) == 65
@@ -397,7 +405,7 @@ def test_cmp_none():
 def test_invalid_indexing():
     p = new_primitive_type("int")
     x = cast(p, 42)
-    py.test.raises(TypeError, "p[0]")
+    py.test.raises(TypeError, "x[0]")
 
 def test_default_str():
     BChar = new_primitive_type("char")
@@ -567,6 +575,19 @@ def test_array_sub():
     py.test.raises(TypeError, "a - q")
     e = py.test.raises(TypeError, "q - a")
     assert str(e.value) == "cannot subtract cdata 'short *' and cdata 'int *'"
+
+def test_ptr_sub_unaligned():
+    BInt = new_primitive_type("int")
+    BIntPtr = new_pointer_type(BInt)
+    a = cast(BIntPtr, 1240)
+    for bi in range(1430, 1438):
+        b = cast(BIntPtr, bi)
+        if ((bi - 1240) % size_of_int()) == 0:
+            assert b - a == (bi - 1240) // size_of_int()
+            assert a - b == (1240 - bi) // size_of_int()
+        else:
+            py.test.raises(ValueError, "b - a")
+            py.test.raises(ValueError, "a - b")
 
 def test_cast_primitive_from_cdata():
     p = new_primitive_type("int")
@@ -1030,11 +1051,12 @@ def test_cannot_pass_struct_with_array_of_length_0():
     BInt = new_primitive_type("int")
     BArray0 = new_array_type(new_pointer_type(BInt), 0)
     BStruct = new_struct_type("struct foo")
+    BStructP = new_pointer_type(BStruct)
     complete_struct_or_union(BStruct, [('a', BArray0)])
-    py.test.raises(NotImplementedError, new_function_type,
-                   (BStruct,), BInt, False)
-    py.test.raises(NotImplementedError, new_function_type,
-                   (BInt,), BStruct, False)
+    BFunc = new_function_type((BStruct,), BInt, False)
+    py.test.raises(NotImplementedError, cast(BFunc, 123), cast(BStructP, 123))
+    BFunc2 = new_function_type((BInt,), BStruct, False)
+    py.test.raises(NotImplementedError, cast(BFunc2, 123), 123)
 
 def test_call_function_9():
     BInt = new_primitive_type("int")
@@ -1059,9 +1081,13 @@ def test_cannot_call_with_a_autocompleted_struct():
     complete_struct_or_union(BStruct, [('c', BDouble, -1, 8),
                                        ('a', BSChar, -1, 2),
                                        ('b', BSChar, -1, 0)])
-    e = py.test.raises(TypeError, new_function_type, (BStruct,), BDouble)
-    msg ='cannot pass as an argument a struct that was completed with verify()'
-    assert msg in str(e.value)
+    BFunc = new_function_type((BStruct,), BDouble)   # internally not callable
+    dummy_func = cast(BFunc, 42)
+    e = py.test.raises(NotImplementedError, dummy_func, "?")
+    msg = ("ctype \'struct foo\' not supported as argument (it is a struct "
+           'declared with "...;", but the C calling convention may depend on '
+           'the missing fields)')
+    assert str(e.value) == msg
 
 def test_new_charp():
     BChar = new_primitive_type("char")
@@ -1165,6 +1191,14 @@ def test_callback_exception():
     BShort = new_primitive_type("short")
     BFunc = new_function_type((BShort,), BShort, False)
     f = callback(BFunc, Zcb1, -42)
+    #
+    seen = []
+    oops_result = None
+    def oops(*args):
+        seen.append(args)
+        return oops_result
+    ff = callback(BFunc, Zcb1, -42, oops)
+    #
     orig_stderr = sys.stderr
     orig_getline = linecache.getline
     try:
@@ -1174,7 +1208,7 @@ def test_callback_exception():
         assert sys.stderr.getvalue() == ''
         assert f(10000) == -42
         assert matches(sys.stderr.getvalue(), """\
-From callback <function$Zcb1 at 0x$>:
+From cffi callback <function$Zcb1 at 0x$>:
 Traceback (most recent call last):
   File "$", line $, in Zcb1
     $
@@ -1186,9 +1220,62 @@ ValueError: 42
         bigvalue = 20000
         assert f(bigvalue) == -42
         assert matches(sys.stderr.getvalue(), """\
-From callback <function$Zcb1 at 0x$>:
+From cffi callback <function$Zcb1 at 0x$>:
 Trying to convert the result back to C:
 OverflowError: integer 60000 does not fit 'short'
+""")
+        sys.stderr = cStringIO.StringIO()
+        bigvalue = 20000
+        assert len(seen) == 0
+        assert ff(bigvalue) == -42
+        assert sys.stderr.getvalue() == ""
+        assert len(seen) == 1
+        exc, val, tb = seen[0]
+        assert exc is OverflowError
+        assert str(val) == "integer 60000 does not fit 'short'"
+        #
+        sys.stderr = cStringIO.StringIO()
+        bigvalue = 20000
+        del seen[:]
+        oops_result = 81
+        assert ff(bigvalue) == 81
+        oops_result = None
+        assert sys.stderr.getvalue() == ""
+        assert len(seen) == 1
+        exc, val, tb = seen[0]
+        assert exc is OverflowError
+        assert str(val) == "integer 60000 does not fit 'short'"
+        #
+        sys.stderr = cStringIO.StringIO()
+        bigvalue = 20000
+        del seen[:]
+        oops_result = "xy"     # not None and not an int!
+        assert ff(bigvalue) == -42
+        oops_result = None
+        assert matches(sys.stderr.getvalue(), """\
+From cffi callback <function$Zcb1 at 0x$>:
+Trying to convert the result back to C:
+OverflowError: integer 60000 does not fit 'short'
+
+During the call to 'onerror', another exception occurred:
+
+TypeError: $integer$
+""")
+        #
+        sys.stderr = cStringIO.StringIO()
+        seen = "not a list"    # this makes the oops() function crash
+        assert ff(bigvalue) == -42
+        assert matches(sys.stderr.getvalue(), """\
+From cffi callback <function$Zcb1 at 0x$>:
+Trying to convert the result back to C:
+OverflowError: integer 60000 does not fit 'short'
+
+During the call to 'onerror', another exception occurred:
+
+Traceback (most recent call last):
+  File "$", line $, in oops
+    $
+AttributeError: 'str' object has no attribute 'append'
 """)
     finally:
         sys.stderr = orig_stderr
@@ -1805,7 +1892,8 @@ def test_invalid_function_result_types():
     new_function_type((), new_pointer_type(BFunc))
     BUnion = new_union_type("union foo_u")
     complete_struct_or_union(BUnion, [])
-    py.test.raises(NotImplementedError, new_function_type, (), BUnion)
+    BFunc = new_function_type((), BUnion)
+    py.test.raises(NotImplementedError, cast(BFunc, 123))
     py.test.raises(TypeError, new_function_type, (), BArray)
 
 def test_struct_return_in_func():
@@ -2093,8 +2181,7 @@ def test_cannot_dereference_void():
     p = cast(BVoidP, 123456)
     py.test.raises(TypeError, "p[0]")
     p = cast(BVoidP, 0)
-    if 'PY_DOT_PY' in globals(): py.test.skip("NULL crashes early on py.py")
-    py.test.raises(TypeError, "p[0]")
+    py.test.raises((TypeError, RuntimeError), "p[0]")
 
 def test_iter():
     BInt = new_primitive_type("int")
@@ -2246,9 +2333,6 @@ def test_errno_callback():
     assert get_errno() == 89
     f(); f()
     assert get_errno() == 77
-
-def test_abi():
-    assert isinstance(FFI_DEFAULT_ABI, int)
 
 def test_cast_to_array():
     # not valid in C!  extension to get a non-owning <cdata 'int[3]'>
@@ -2441,6 +2525,25 @@ def test_nested_anonymous_struct():
     assert d[2][1].bitshift == -1
     assert d[2][1].bitsize == -1
 
+def test_nested_anonymous_struct_2():
+    BInt = new_primitive_type("int")
+    BStruct = new_struct_type("struct foo")
+    BInnerUnion = new_union_type("union bar")
+    complete_struct_or_union(BInnerUnion, [('a1', BInt, -1),
+                                           ('a2', BInt, -1)])
+    complete_struct_or_union(BStruct, [('b1', BInt, -1),
+                                       ('', BInnerUnion, -1),
+                                       ('b2', BInt, -1)])
+    assert sizeof(BInnerUnion) == sizeof(BInt)
+    assert sizeof(BStruct) == sizeof(BInt) * 3
+    fields = [(name, fld.offset, fld.flags) for (name, fld) in BStruct.fields]
+    assert fields == [
+        ('b1', 0 * sizeof(BInt), 0),
+        ('a1', 1 * sizeof(BInt), 0),
+        ('a2', 1 * sizeof(BInt), 1),
+        ('b2', 2 * sizeof(BInt), 0),
+    ]
+
 def test_sizeof_union():
     # a union has the largest alignment of its members, and a total size
     # that is the largest of its items *possibly further aligned* if
@@ -2492,7 +2595,8 @@ def test_bool():
     BBoolP = new_pointer_type(BBool)
     assert int(cast(BBool, False)) == 0
     assert int(cast(BBool, True)) == 1
-    assert bool(cast(BBool, False)) is True    # warning!
+    assert bool(cast(BBool, False)) is False    # since 1.7
+    assert bool(cast(BBool, True)) is True
     assert int(cast(BBool, 3)) == 1
     assert int(cast(BBool, long(3))) == 1
     assert int(cast(BBool, long(10)**4000)) == 1
@@ -2525,13 +2629,32 @@ def test_typeoffsetof():
                                        ('a2', BChar, -1),
                                        ('a3', BChar, -1)])
     py.test.raises(TypeError, typeoffsetof, BStructPtr, None)
-    assert typeoffsetof(BStruct, None) == (BStruct, 0)
+    py.test.raises(TypeError, typeoffsetof, BStruct, None)
     assert typeoffsetof(BStructPtr, 'a1') == (BChar, 0)
     assert typeoffsetof(BStruct, 'a1') == (BChar, 0)
     assert typeoffsetof(BStructPtr, 'a2') == (BChar, 1)
     assert typeoffsetof(BStruct, 'a3') == (BChar, 2)
+    assert typeoffsetof(BStructPtr, 'a2', 0) == (BChar, 1)
+    assert typeoffsetof(BStruct, u+'a3') == (BChar, 2)
+    py.test.raises(TypeError, typeoffsetof, BStructPtr, 'a2', 1)
     py.test.raises(KeyError, typeoffsetof, BStructPtr, 'a4')
     py.test.raises(KeyError, typeoffsetof, BStruct, 'a5')
+    py.test.raises(TypeError, typeoffsetof, BStruct, 42)
+    py.test.raises(TypeError, typeoffsetof, BChar, 'a1')
+
+def test_typeoffsetof_array():
+    BInt = new_primitive_type("int")
+    BIntP = new_pointer_type(BInt)
+    BArray = new_array_type(BIntP, None)
+    py.test.raises(TypeError, typeoffsetof, BArray, None)
+    py.test.raises(TypeError, typeoffsetof, BArray, 'a1')
+    assert typeoffsetof(BArray, 51) == (BInt, 51 * size_of_int())
+    assert typeoffsetof(BIntP, 51) == (BInt, 51 * size_of_int())
+    assert typeoffsetof(BArray, -51) == (BInt, -51 * size_of_int())
+    MAX = sys.maxsize // size_of_int()
+    assert typeoffsetof(BArray, MAX) == (BInt, MAX * size_of_int())
+    assert typeoffsetof(BIntP, MAX) == (BInt, MAX * size_of_int())
+    py.test.raises(OverflowError, typeoffsetof, BArray, MAX + 1)
 
 def test_typeoffsetof_no_bitfield():
     BInt = new_primitive_type("int")
@@ -2551,17 +2674,26 @@ def test_rawaddressof():
     assert repr(p) == "<cdata 'struct foo *' owning 3 bytes>"
     s = p[0]
     assert repr(s) == "<cdata 'struct foo' owning 3 bytes>"
-    a = rawaddressof(BStructPtr, s)
+    a = rawaddressof(BStructPtr, s, 0)
     assert repr(a).startswith("<cdata 'struct foo *' 0x")
-    py.test.raises(TypeError, rawaddressof, BStruct, s)
-    b = rawaddressof(BCharP, s)
+    py.test.raises(TypeError, rawaddressof, BStruct, s, 0)
+    b = rawaddressof(BCharP, s, 0)
     assert b == cast(BCharP, p)
-    c = rawaddressof(BStructPtr, a)
+    c = rawaddressof(BStructPtr, a, 0)
     assert c == a
-    py.test.raises(TypeError, rawaddressof, BStructPtr, cast(BChar, '?'))
+    py.test.raises(TypeError, rawaddressof, BStructPtr, cast(BChar, '?'), 0)
     #
     d = rawaddressof(BCharP, s, 1)
     assert d == cast(BCharP, p) + 1
+    #
+    e = cast(BCharP, 109238)
+    f = rawaddressof(BCharP, e, 42)
+    assert f == e + 42
+    #
+    BCharA = new_array_type(BCharP, None)
+    e = newp(BCharA, 50)
+    f = rawaddressof(BCharP, e, 42)
+    assert f == e + 42
 
 def test_newp_signed_unsigned_char():
     BCharArray = new_array_type(
@@ -2586,10 +2718,19 @@ def test_newp_from_bytearray_doesnt_work():
     BCharArray = new_array_type(
         new_pointer_type(new_primitive_type("char")), None)
     py.test.raises(TypeError, newp, BCharArray, bytearray(b"foo"))
-    p = newp(BCharArray, 4)
-    buffer(p)[:] = bytearray(b"foo\x00")
-    assert len(p) == 4
-    assert list(p) == [b"f", b"o", b"o", b"\x00"]
+    p = newp(BCharArray, 5)
+    buffer(p)[:] = bytearray(b"foo.\x00")
+    assert len(p) == 5
+    assert list(p) == [b"f", b"o", b"o", b".", b"\x00"]
+    p[1:3] = bytearray(b"XY")
+    assert list(p) == [b"f", b"X", b"Y", b".", b"\x00"]
+
+def test_string_assignment_to_byte_array():
+    BByteArray = new_array_type(
+        new_pointer_type(new_primitive_type("unsigned char")), None)
+    p = newp(BByteArray, 5)
+    p[0:3] = bytearray(b"XYZ")
+    assert list(p) == [ord("X"), ord("Y"), ord("Z"), 0, 0]
 
 # XXX hack
 if sys.version_info >= (3,):
@@ -2686,6 +2827,14 @@ def test_FILE_object():
     assert data == b"Xhello\n"
     posix.close(fdr)
 
+def test_errno_saved():
+    set_errno(42)
+    # a random function that will reset errno to 0 (at least on non-windows)
+    import os; os.stat('.')
+    #
+    res = get_errno()
+    assert res == 42
+
 def test_GetLastError():
     if sys.platform != "win32":
         py.test.skip("GetLastError(): only for Windows")
@@ -2718,7 +2867,16 @@ def test_GetLastError():
 def test_nonstandard_integer_types():
     for typename in ['int8_t', 'uint8_t', 'int16_t', 'uint16_t', 'int32_t',
                      'uint32_t', 'int64_t', 'uint64_t', 'intptr_t',
-                     'uintptr_t', 'ptrdiff_t', 'size_t', 'ssize_t']:
+                     'uintptr_t', 'ptrdiff_t', 'size_t', 'ssize_t',
+                     'int_least8_t',  'uint_least8_t',
+                     'int_least16_t', 'uint_least16_t',
+                     'int_least32_t', 'uint_least32_t',
+                     'int_least64_t', 'uint_least64_t',
+                     'int_fast8_t',  'uint_fast8_t',
+                     'int_fast16_t', 'uint_fast16_t',
+                     'int_fast32_t', 'uint_fast32_t',
+                     'int_fast64_t', 'uint_fast64_t',
+                     'intmax_t', 'uintmax_t']:
         new_primitive_type(typename)    # works
 
 def test_cannot_convert_unicode_to_charp():
@@ -3003,17 +3161,19 @@ def test_struct_array_no_length():
     assert d[1][0] == 'y'
     assert d[1][1].type is BArray
     assert d[1][1].offset == size_of_int()
-    assert d[1][1].bitshift == -1
+    assert d[1][1].bitshift == -2
     assert d[1][1].bitsize == -1
     #
     p = newp(new_pointer_type(BStruct))
     p.x = 42
     assert p.x == 42
-    assert typeof(p.y) is BIntP
+    assert typeof(p.y) is BArray
+    assert len(p.y) == 0
     assert p.y == cast(BIntP, p) + 1
     #
     p = newp(new_pointer_type(BStruct), [100])
     assert p.x == 100
+    assert len(p.y) == 0
     #
     # Tests for
     #    ffi.new("struct_with_var_array *", [field.., [the_array_items..]])
@@ -3028,6 +3188,10 @@ def test_struct_array_no_length():
             p.y[0] = 200
             assert p.y[2] == 0
             p.y[2] = 400
+        assert len(p.y) == 3
+        assert len(p[0].y) == 3
+        assert len(buffer(p)) == sizeof(BInt) * 4
+        assert sizeof(p[0]) == sizeof(BInt) * 4
         plist.append(p)
     for i in range(20):
         p = plist[i]
@@ -3035,13 +3199,31 @@ def test_struct_array_no_length():
         assert p.y[0] == 200
         assert p.y[1] == i
         assert p.y[2] == 400
-        assert list(p.y[0:3]) == [200, i, 400]
+        assert list(p.y) == [200, i, 400]
     #
     # the following assignment works, as it normally would, for any array field
-    p.y = [500, 600]
-    assert list(p.y[0:3]) == [500, 600, 400]
+    p.y = [501, 601]
+    assert list(p.y) == [501, 601, 400]
+    p[0].y = [500, 600]
+    assert list(p[0].y) == [500, 600, 400]
+    assert repr(p) == "<cdata 'foo *' owning %d bytes>" % (
+        sizeof(BStruct) + 3 * sizeof(BInt),)
+    assert repr(p[0]) == "<cdata 'foo' owning %d bytes>" % (
+        sizeof(BStruct) + 3 * sizeof(BInt),)
+    assert sizeof(p[0]) == sizeof(BStruct) + 3 * sizeof(BInt)
+    #
+    # from a non-owning pointer, we can't get the length
+    q = cast(new_pointer_type(BStruct), p)
+    assert q.y[0] == 500
+    assert q[0].y[0] == 500
+    py.test.raises(TypeError, len, q.y)
+    py.test.raises(TypeError, len, q[0].y)
+    assert typeof(q.y) is BIntP
+    assert typeof(q[0].y) is BIntP
+    assert sizeof(q[0]) == sizeof(BStruct)
     #
     # error cases
+    py.test.raises(IndexError, "p.y[4]")
     py.test.raises(TypeError, "p.y = cast(BIntP, 0)")
     py.test.raises(TypeError, "p.y = 15")
     py.test.raises(TypeError, "p.y = None")
@@ -3105,6 +3287,33 @@ def test_struct_array_no_length_explicit_position():
         assert p.x[4] == 50
         assert p.x[5] == 60
         assert p.x[6] == 70
+
+def test_struct_array_not_aligned():
+    # struct a { int x; char y; char z[]; };
+    # ends up of size 8, but 'z' is at offset 5
+    BChar = new_primitive_type("char")
+    BInt = new_primitive_type("int")
+    BCharP = new_pointer_type(BChar)
+    BArray = new_array_type(BCharP, None)
+    BStruct = new_struct_type("foo")
+    complete_struct_or_union(BStruct, [('x', BInt),
+                                       ('y', BChar),
+                                       ('z', BArray)])
+    assert sizeof(BStruct) == 2 * size_of_int()
+    def offsetof(BType, fieldname):
+        return typeoffsetof(BType, fieldname)[1]
+    base = offsetof(BStruct, 'z')
+    assert base == size_of_int() + 1
+    #
+    p = newp(new_pointer_type(BStruct), {'z': 3})
+    assert sizeof(p[0]) == base + 3
+    q = newp(new_pointer_type(BStruct), {'z': size_of_int()})
+    assert sizeof(q) == size_of_ptr()
+    assert sizeof(q[0]) == base + size_of_int()
+    assert len(p.z) == 3
+    assert len(p[0].z) == 3
+    assert len(q.z) == size_of_int()
+    assert len(q[0].z) == size_of_int()
 
 def test_ass_slice():
     BChar = new_primitive_type("char")
@@ -3186,6 +3395,350 @@ def test_packed_with_bitfields():
                              ('a2', BChar, 5)],
                    None, -1, -1, SF_PACKED)
 
-def test_version():
-    # this test is here mostly for PyPy
-    assert __version__ == "0.8.2"
+def test_from_buffer():
+    import array
+    a = array.array('H', [10000, 20000, 30000])
+    BChar = new_primitive_type("char")
+    BCharP = new_pointer_type(BChar)
+    BCharA = new_array_type(BCharP, None)
+    c = from_buffer(BCharA, a)
+    assert typeof(c) is BCharA
+    assert len(c) == 6
+    assert repr(c) == "<cdata 'char[]' buffer len 6 from 'array.array' object>"
+    p = new_pointer_type(new_primitive_type("unsigned short"))
+    cast(p, c)[1] += 500
+    assert list(a) == [10000, 20500, 30000]
+
+def test_from_buffer_not_str_unicode():
+    BChar = new_primitive_type("char")
+    BCharP = new_pointer_type(BChar)
+    BCharA = new_array_type(BCharP, None)
+    p1 = from_buffer(BCharA, b"foo")
+    assert p1 == from_buffer(BCharA, b"foo")
+    import gc; gc.collect()
+    assert p1 == from_buffer(BCharA, b"foo")
+    py.test.raises(TypeError, from_buffer, BCharA, u+"foo")
+    try:
+        from __builtin__ import buffer
+    except ImportError:
+        pass
+    else:
+        # from_buffer(buffer(b"foo")) does not work, because it's not
+        # implemented on pypy; only from_buffer(b"foo") works.
+        py.test.raises(TypeError, from_buffer, BCharA, buffer(b"foo"))
+        py.test.raises(TypeError, from_buffer, BCharA, buffer(u+"foo"))
+    try:
+        from __builtin__ import memoryview
+    except ImportError:
+        pass
+    else:
+        py.test.raises(TypeError, from_buffer, BCharA, memoryview(b"foo"))
+
+def test_from_buffer_bytearray():
+    a = bytearray(b"xyz")
+    BChar = new_primitive_type("char")
+    BCharP = new_pointer_type(BChar)
+    BCharA = new_array_type(BCharP, None)
+    p = from_buffer(BCharA, a)
+    assert typeof(p) is BCharA
+    assert len(p) == 3
+    assert repr(p) == "<cdata 'char[]' buffer len 3 from 'bytearray' object>"
+    assert p[2] == b"z"
+    p[2] = b"."
+    assert a[2] == ord(".")
+    a[2] = ord("?")
+    assert p[2] == b"?"
+
+def test_from_buffer_more_cases():
+    try:
+        from _cffi_backend import _testbuff
+    except ImportError:
+        py.test.skip("not for pypy")
+    BChar = new_primitive_type("char")
+    BCharP = new_pointer_type(BChar)
+    BCharA = new_array_type(BCharP, None)
+    #
+    def check1(bufobj, expected):
+        c = from_buffer(BCharA, bufobj)
+        assert typeof(c) is BCharA
+        if sys.version_info >= (3,):
+            expected = [bytes(c, "ascii") for c in expected]
+        assert list(c) == list(expected)
+    #
+    def check(methods, expected, expected_for_memoryview=None):
+        if sys.version_info >= (3,):
+            if methods <= 7:
+                return
+            if expected_for_memoryview is not None:
+                expected = expected_for_memoryview
+        class X(object):
+            pass
+        _testbuff(X, methods)
+        bufobj = X()
+        check1(bufobj, expected)
+        try:
+            from __builtin__ import buffer
+            bufobjb = buffer(bufobj)
+        except (TypeError, ImportError):
+            pass
+        else:
+            check1(bufobjb, expected)
+        try:
+            bufobjm = memoryview(bufobj)
+        except (TypeError, NameError):
+            pass
+        else:
+            check1(bufobjm, expected_for_memoryview or expected)
+    #
+    check(1, "RDB")
+    check(2, "WRB")
+    check(4, "CHB")
+    check(8, "GTB")
+    check(16, "ROB")
+    #
+    check(1 | 2,  "RDB")
+    check(1 | 4,  "RDB")
+    check(2 | 4,  "CHB")
+    check(1 | 8,  "RDB", "GTB")
+    check(1 | 16, "RDB", "ROB")
+    check(2 | 8,  "WRB", "GTB")
+    check(2 | 16, "WRB", "ROB")
+    check(4 | 8,  "CHB", "GTB")
+    check(4 | 16, "CHB", "ROB")
+
+def test_memmove():
+    Short = new_primitive_type("short")
+    ShortA = new_array_type(new_pointer_type(Short), None)
+    Char = new_primitive_type("char")
+    CharA = new_array_type(new_pointer_type(Char), None)
+    p = newp(ShortA, [-1234, -2345, -3456, -4567, -5678])
+    memmove(p, p + 1, 4)
+    assert list(p) == [-2345, -3456, -3456, -4567, -5678]
+    p[2] = 999
+    memmove(p + 2, p, 6)
+    assert list(p) == [-2345, -3456, -2345, -3456, 999]
+    memmove(p + 4, newp(CharA, b"\x71\x72"), 2)
+    if sys.byteorder == 'little':
+        assert list(p) == [-2345, -3456, -2345, -3456, 0x7271]
+    else:
+        assert list(p) == [-2345, -3456, -2345, -3456, 0x7172]
+
+def test_memmove_buffer():
+    import array
+    Short = new_primitive_type("short")
+    ShortA = new_array_type(new_pointer_type(Short), None)
+    a = array.array('H', [10000, 20000, 30000])
+    p = newp(ShortA, 5)
+    memmove(p, a, 6)
+    assert list(p) == [10000, 20000, 30000, 0, 0]
+    memmove(p + 1, a, 6)
+    assert list(p) == [10000, 10000, 20000, 30000, 0]
+    b = array.array('h', [-1000, -2000, -3000])
+    memmove(b, a, 4)
+    assert b.tolist() == [10000, 20000, -3000]
+    assert a.tolist() == [10000, 20000, 30000]
+    p[0] = 999
+    p[1] = 998
+    p[2] = 997
+    p[3] = 996
+    p[4] = 995
+    memmove(b, p, 2)
+    assert b.tolist() == [999, 20000, -3000]
+    memmove(b, p + 2, 4)
+    assert b.tolist() == [997, 996, -3000]
+    p[2] = -p[2]
+    p[3] = -p[3]
+    memmove(b, p + 2, 6)
+    assert b.tolist() == [-997, -996, 995]
+
+def test_memmove_readonly_readwrite():
+    SignedChar = new_primitive_type("signed char")
+    SignedCharA = new_array_type(new_pointer_type(SignedChar), None)
+    p = newp(SignedCharA, 5)
+    memmove(p, b"abcde", 3)
+    assert list(p) == [ord("a"), ord("b"), ord("c"), 0, 0]
+    memmove(p, bytearray(b"ABCDE"), 2)
+    assert list(p) == [ord("A"), ord("B"), ord("c"), 0, 0]
+    py.test.raises((TypeError, BufferError), memmove, b"abcde", p, 3)
+    ba = bytearray(b"xxxxx")
+    memmove(dest=ba, src=p, n=3)
+    assert ba == bytearray(b"ABcxx")
+    memmove(ba, b"EFGH", 4)
+    assert ba == bytearray(b"EFGHx")
+
+def test_memmove_sign_check():
+    SignedChar = new_primitive_type("signed char")
+    SignedCharA = new_array_type(new_pointer_type(SignedChar), None)
+    p = newp(SignedCharA, 5)
+    py.test.raises(ValueError, memmove, p, p + 1, -1)   # not segfault
+
+def test_memmove_bad_cdata():
+    BInt = new_primitive_type("int")
+    p = cast(BInt, 42)
+    py.test.raises(TypeError, memmove, p, bytearray(b'a'), 1)
+    py.test.raises(TypeError, memmove, bytearray(b'a'), p, 1)
+
+def test_dereference_null_ptr():
+    BInt = new_primitive_type("int")
+    BIntPtr = new_pointer_type(BInt)
+    p = cast(BIntPtr, 0)
+    py.test.raises(RuntimeError, "p[0]")
+    py.test.raises(RuntimeError, "p[0] = 42")
+    py.test.raises(RuntimeError, "p[42]")
+    py.test.raises(RuntimeError, "p[42] = -1")
+
+def test_mixup():
+    BStruct1 = new_struct_type("foo")
+    BStruct2 = new_struct_type("foo")   # <= same name as BStruct1
+    BStruct3 = new_struct_type("bar")
+    BStruct1Ptr = new_pointer_type(BStruct1)
+    BStruct2Ptr = new_pointer_type(BStruct2)
+    BStruct3Ptr = new_pointer_type(BStruct3)
+    BStruct1PtrPtr = new_pointer_type(BStruct1Ptr)
+    BStruct2PtrPtr = new_pointer_type(BStruct2Ptr)
+    BStruct3PtrPtr = new_pointer_type(BStruct3Ptr)
+    pp1 = newp(BStruct1PtrPtr)
+    pp2 = newp(BStruct2PtrPtr)
+    pp3 = newp(BStruct3PtrPtr)
+    pp1[0] = pp1[0]
+    e = py.test.raises(TypeError, "pp3[0] = pp1[0]")
+    assert str(e.value).startswith("initializer for ctype 'bar *' must be a ")
+    assert str(e.value).endswith(", not cdata 'foo *'")
+    e = py.test.raises(TypeError, "pp2[0] = pp1[0]")
+    assert str(e.value) == ("initializer for ctype 'foo *' appears indeed to "
+                            "be 'foo *', but the types are different (check "
+                            "that you are not e.g. mixing up different ffi "
+                            "instances)")
+
+def test_stdcall_function_type():
+    assert FFI_CDECL == FFI_DEFAULT_ABI
+    try:
+        stdcall = FFI_STDCALL
+    except NameError:
+        stdcall = FFI_DEFAULT_ABI
+    BInt = new_primitive_type("int")
+    BFunc = new_function_type((BInt, BInt), BInt, False, stdcall)
+    if stdcall != FFI_DEFAULT_ABI:
+        assert repr(BFunc) == "<ctype 'int(__stdcall *)(int, int)'>"
+    else:
+        assert repr(BFunc) == "<ctype 'int(*)(int, int)'>"
+
+def test_get_common_types():
+    d = {}
+    _get_common_types(d)
+    assert d['bool'] == '_Bool'
+
+def test_unpack():
+    BChar = new_primitive_type("char")
+    BArray = new_array_type(new_pointer_type(BChar), 10)   # char[10]
+    p = newp(BArray, b"abc\x00def")
+    p0 = p
+    assert unpack(p, 10) == b"abc\x00def\x00\x00\x00"
+    assert unpack(p+1, 5) == b"bc\x00de"
+    BWChar = new_primitive_type("wchar_t")
+    BArray = new_array_type(new_pointer_type(BWChar), 10)   # wchar_t[10]
+    p = newp(BArray, u"abc\x00def")
+    assert unpack(p, 10) == u"abc\x00def\x00\x00\x00"
+
+    for typename, samples in [
+            ("uint8_t",  [0, 2**8-1]),
+            ("uint16_t", [0, 2**16-1]),
+            ("uint32_t", [0, 2**32-1]),
+            ("uint64_t", [0, 2**64-1]),
+            ("int8_t",  [-2**7, 2**7-1]),
+            ("int16_t", [-2**15, 2**15-1]),
+            ("int32_t", [-2**31, 2**31-1]),
+            ("int64_t", [-2**63, 2**63-1]),
+            ("_Bool", [0, 1]),
+            ("float", [0.0, 10.5]),
+            ("double", [12.34, 56.78]),
+            ]:
+        BItem = new_primitive_type(typename)
+        BArray = new_array_type(new_pointer_type(BItem), 10)
+        p = newp(BArray, samples)
+        result = unpack(p, len(samples))
+        assert result == samples
+        for i in range(len(samples)):
+            assert result[i] == p[i] and type(result[i]) is type(p[i])
+    #
+    BInt = new_primitive_type("int")
+    py.test.raises(TypeError, unpack, p)
+    py.test.raises(TypeError, unpack, b"foobar", 6)
+    py.test.raises(TypeError, unpack, cast(BInt, 42), 1)
+    #
+    BPtr = new_pointer_type(BInt)
+    random_ptr = cast(BPtr, -424344)
+    other_ptr = cast(BPtr, 54321)
+    BArray = new_array_type(new_pointer_type(BPtr), None)
+    lst = unpack(newp(BArray, [random_ptr, other_ptr]), 2)
+    assert lst == [random_ptr, other_ptr]
+    #
+    BFunc = new_function_type((BInt, BInt), BInt, False)
+    BFuncPtr = new_pointer_type(BFunc)
+    lst = unpack(newp(new_array_type(BFuncPtr, None), 2), 2)
+    assert len(lst) == 2
+    assert not lst[0] and not lst[1]
+    assert typeof(lst[0]) is BFunc
+    #
+    BStruct = new_struct_type("foo")
+    BStructPtr = new_pointer_type(BStruct)
+    e = py.test.raises(ValueError, unpack, cast(BStructPtr, 42), 5)
+    assert str(e.value) == "'foo *' points to items of unknown size"
+    complete_struct_or_union(BStruct, [('a1', BInt, -1),
+                                       ('a2', BInt, -1)])
+    array_of_structs = newp(new_array_type(BStructPtr, None), [[4,5], [6,7]])
+    lst = unpack(array_of_structs, 2)
+    assert typeof(lst[0]) is BStruct
+    assert lst[0].a1 == 4 and lst[1].a2 == 7
+    #
+    py.test.raises(RuntimeError, unpack, cast(new_pointer_type(BChar), 0), 0)
+    py.test.raises(RuntimeError, unpack, cast(new_pointer_type(BChar), 0), 10)
+    #
+    py.test.raises(ValueError, unpack, p0, -1)
+    py.test.raises(ValueError, unpack, p, -1)
+
+def test_cdata_dir():
+    BInt = new_primitive_type("int")
+    p = cast(BInt, 42)
+    check_dir(p, [])
+    p = newp(new_array_type(new_pointer_type(BInt), None), 5)
+    check_dir(p, [])
+    BStruct = new_struct_type("foo")
+    p = cast(new_pointer_type(BStruct), 0)
+    check_dir(p, [])    # opaque
+    complete_struct_or_union(BStruct, [('a2', BInt, -1),
+                                       ('a1', BInt, -1)])
+    check_dir(p, ['a1', 'a2'])   # always sorted
+    p = newp(new_pointer_type(BStruct), None)
+    check_dir(p, ['a1', 'a2'])
+    check_dir(p[0], ['a1', 'a2'])
+    pp = newp(new_pointer_type(new_pointer_type(BStruct)), p)
+    check_dir(pp, [])
+    check_dir(pp[0], ['a1', 'a2'])
+    check_dir(pp[0][0], ['a1', 'a2'])
+
+def test_char_pointer_conversion():
+    import warnings
+    assert __version__.startswith(("1.8", "1.9")), (
+        "consider turning the warning into an error")
+    BCharP = new_pointer_type(new_primitive_type("char"))
+    BIntP = new_pointer_type(new_primitive_type("int"))
+    BVoidP = new_pointer_type(new_void_type())
+    z1 = cast(BCharP, 0)
+    z2 = cast(BIntP, 0)
+    z3 = cast(BVoidP, 0)
+    with warnings.catch_warnings(record=True) as w:
+        newp(new_pointer_type(BIntP), z1)    # warn
+        assert len(w) == 1
+        newp(new_pointer_type(BVoidP), z1)   # fine
+        assert len(w) == 1
+        newp(new_pointer_type(BCharP), z2)   # warn
+        assert len(w) == 2
+        newp(new_pointer_type(BVoidP), z2)   # fine
+        assert len(w) == 2
+        newp(new_pointer_type(BCharP), z3)   # fine
+        assert len(w) == 2
+        newp(new_pointer_type(BIntP), z3)    # fine
+        assert len(w) == 2
+    # check that the warnings are associated with lines in this file
+    assert w[1].lineno == w[0].lineno + 4

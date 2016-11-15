@@ -8,6 +8,8 @@ class AppBridgeCache(object):
     w__commastring = None
     w_array_repr = None
     w_array_str = None
+    w__usefields = None
+    w_partition = None
 
     def __init__(self, space):
         pass

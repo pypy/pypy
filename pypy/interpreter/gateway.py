@@ -21,9 +21,8 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.signature import Signature
 from pypy.interpreter.baseobjspace import (W_Root, ObjSpace, SpaceCache,
     DescrMismatch)
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.function import ClassMethod, FunctionWithFixedCode
-from rpython.rlib import rstackovf
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_longlong, r_int, r_ulonglong, r_uint
 from rpython.tool.sourcetools import func_with_new_name, compile2
@@ -53,10 +52,24 @@ class SignatureBuilder(object):
 
 #________________________________________________________________
 
+
+class Unwrapper(object):
+    """A base class for custom unwrap_spec items.
+
+    Subclasses must override unwrap().
+    """
+    def _freeze_(self):
+        return True
+
+    def unwrap(self, space, w_value):
+        """NOT_RPYTHON"""
+        raise NotImplementedError
+
+
 class UnwrapSpecRecipe(object):
     "NOT_RPYTHON"
 
-    bases_order = [W_Root, ObjSpace, Arguments, object]
+    bases_order = [W_Root, ObjSpace, Arguments, Unwrapper, object]
 
     def dispatch(self, el, *args):
         if isinstance(el, str):
@@ -150,7 +163,16 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
     def visit_c_short(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
+    def visit_c_ushort(self, el, app_sig):
+        self.checked_space_method(el, app_sig)
+
+    def visit_c_uid_t(self, el, app_sig):
+        self.checked_space_method(el, app_sig)
+
     def visit_truncatedint_w(self, el, app_sig):
+        self.checked_space_method(el, app_sig)
+
+    def visit__Unwrapper(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
     def visit__ObjSpace(self, el, app_sig):
@@ -212,6 +234,10 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
         self.run_args.append("space.descr_self_interp_w(%s, %s)" %
                              (self.use(typ), self.scopenext()))
 
+    def visit__Unwrapper(self, typ):
+        self.run_args.append("%s().unwrap(space, %s)" %
+                             (self.use(typ), self.scopenext()))
+
     def visit__ObjSpace(self, el):
         self.run_args.append('space')
 
@@ -266,6 +292,12 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
 
     def visit_c_short(self, typ):
         self.run_args.append("space.c_short_w(%s)" % (self.scopenext(),))
+
+    def visit_c_ushort(self, typ):
+        self.run_args.append("space.c_ushort_w(%s)" % (self.scopenext(),))
+
+    def visit_c_uid_t(self, typ):
+        self.run_args.append("space.c_uid_t_w(%s)" % (self.scopenext(),))
 
     def visit_truncatedint_w(self, typ):
         self.run_args.append("space.truncatedint_w(%s)" % (self.scopenext(),))
@@ -352,6 +384,10 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
         self.unwrap.append("space.descr_self_interp_w(%s, %s)" %
                            (self.use(typ), self.nextarg()))
 
+    def visit__Unwrapper(self, typ):
+        self.unwrap.append("%s().unwrap(space, %s)" %
+                           (self.use(typ), self.nextarg()))
+
     def visit__ObjSpace(self, el):
         if self.finger > 1:
             raise FastFuncNotSupported
@@ -405,6 +441,12 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
 
     def visit_c_short(self, typ):
         self.unwrap.append("space.c_short_w(%s)" % (self.nextarg(),))
+
+    def visit_c_ushort(self, typ):
+        self.unwrap.append("space.c_ushort_w(%s)" % (self.nextarg(),))
+
+    def visit_c_uid_t(self, typ):
+        self.unwrap.append("space.c_uid_t_w(%s)" % (self.nextarg(),))
 
     def visit_truncatedint_w(self, typ):
         self.unwrap.append("space.truncatedint_w(%s)" % (self.nextarg(),))
@@ -553,7 +595,10 @@ class BuiltinCode(Code):
 
         # First extract the signature from the (CPython-level) code object
         from pypy.interpreter import pycode
-        argnames, varargname, kwargname = pycode.cpython_code_signature(func.func_code)
+        sig = pycode.cpython_code_signature(func.func_code)
+        argnames = sig.argnames
+        varargname = sig.varargname
+        kwargname = sig.kwargname
         self._argnames = argnames
 
         if unwrap_spec is None:
@@ -577,7 +622,9 @@ class BuiltinCode(Code):
         app_sig = SignatureBuilder(func)
 
         UnwrapSpec_Check(orig_sig).apply_over(unwrap_spec, app_sig)
-        self.sig = argnames, varargname, kwargname = app_sig.signature()
+        self.sig = app_sig.signature()
+        argnames = self.sig.argnames
+        varargname = self.sig.varargname
 
         self.minargs = len(argnames)
         if varargname:
@@ -601,6 +648,17 @@ class BuiltinCode(Code):
                 elif unwrap_spec == [ObjSpace, W_Root, Arguments]:
                     self.__class__ = BuiltinCodePassThroughArguments1
                     self.func__args__ = func
+                elif unwrap_spec == [self_type, ObjSpace, Arguments]:
+                    self.__class__ = BuiltinCodePassThroughArguments1
+                    miniglobals = {'func': func, 'self_type': self_type}
+                    d = {}
+                    source = """if 1:
+                        def _call(space, w_obj, args):
+                            self = space.descr_self_interp_w(self_type, w_obj)
+                            return func(self, space, args)
+                        \n"""
+                    exec compile2(source) in miniglobals, d
+                    self.func__args__ = d['_call']
             else:
                 self.__class__ = globals()['BuiltinCode%d' % arity]
                 setattr(self, 'fastfunc_%d' % arity, fastfunc)
@@ -641,7 +699,7 @@ class BuiltinCode(Code):
                                                   self.descrmismatch_op,
                                                   self.descr_reqcls,
                                                   args)
-        except Exception, e:
+        except Exception as e:
             self.handle_exception(space, e)
             w_result = None
         if w_result is None:
@@ -653,17 +711,11 @@ class BuiltinCode(Code):
             if not we_are_translated():
                 raise
             raise e
-        except KeyboardInterrupt:
-            raise OperationError(space.w_KeyboardInterrupt,
-                                 space.w_None)
-        except MemoryError:
-            raise OperationError(space.w_MemoryError, space.w_None)
-        except rstackovf.StackOverflow, e:
-            rstackovf.check_stack_overflow()
-            raise OperationError(space.w_RuntimeError,
-                                space.wrap("maximum recursion depth exceeded"))
-        except RuntimeError:   # not on top of py.py
-            raise OperationError(space.w_RuntimeError, space.w_None)
+        except OperationError:
+            raise
+        except Exception as e:      # general fall-back
+            from pypy.interpreter import error
+            raise error.get_converted_unexpected_exception(space, e)
 
 # (verbose) performance hack below
 
@@ -680,7 +732,7 @@ class BuiltinCodePassThroughArguments0(BuiltinCode):
                                                   self.descrmismatch_op,
                                                   self.descr_reqcls,
                                                   args)
-        except Exception, e:
+        except Exception as e:
             self.handle_exception(space, e)
             w_result = None
         if w_result is None:
@@ -701,7 +753,7 @@ class BuiltinCodePassThroughArguments1(BuiltinCode):
                                                   self.descrmismatch_op,
                                                   self.descr_reqcls,
                                                   args.prepend(w_obj))
-        except Exception, e:
+        except Exception as e:
             self.handle_exception(space, e)
             w_result = None
         if w_result is None:
@@ -717,9 +769,8 @@ class BuiltinCode0(BuiltinCode):
         try:
             w_result = self.fastfunc_0(space)
         except DescrMismatch:
-            raise OperationError(space.w_SystemError,
-                                 space.wrap("unexpected DescrMismatch error"))
-        except Exception, e:
+            raise oefmt(space.w_SystemError, "unexpected DescrMismatch error")
+        except Exception as e:
             self.handle_exception(space, e)
             w_result = None
         if w_result is None:
@@ -739,7 +790,7 @@ class BuiltinCode1(BuiltinCode):
                                           self.descrmismatch_op,
                                           self.descr_reqcls,
                                           Arguments(space, [w1]))
-        except Exception, e:
+        except Exception as e:
             self.handle_exception(space, e)
             w_result = None
         if w_result is None:
@@ -759,7 +810,7 @@ class BuiltinCode2(BuiltinCode):
                                           self.descrmismatch_op,
                                           self.descr_reqcls,
                                           Arguments(space, [w1, w2]))
-        except Exception, e:
+        except Exception as e:
             self.handle_exception(space, e)
             w_result = None
         if w_result is None:
@@ -779,7 +830,7 @@ class BuiltinCode3(BuiltinCode):
                                           self.descrmismatch_op,
                                           self.descr_reqcls,
                                           Arguments(space, [w1, w2, w3]))
-        except Exception, e:
+        except Exception as e:
             self.handle_exception(space, e)
             w_result = None
         if w_result is None:
@@ -800,7 +851,7 @@ class BuiltinCode4(BuiltinCode):
                                           self.descr_reqcls,
                                           Arguments(space,
                                                     [w1, w2, w3, w4]))
-        except Exception, e:
+        except Exception as e:
             self.handle_exception(space, e)
             w_result = None
         if w_result is None:
@@ -895,11 +946,11 @@ class interp2app(W_Root):
                     "use unwrap_spec(...=WrappedDefault(default))" % (
                     self._code.identifier, name, defaultval))
                 defs_w.append(None)
-            else:
+            elif name != '__args__' and name != 'args_w':
                 defs_w.append(space.wrap(defaultval))
         if self._code._unwrap_spec:
             UNDEFINED = object()
-            alldefs_w = [UNDEFINED] * len(self._code.sig[0])
+            alldefs_w = [UNDEFINED] * len(self._code.sig.argnames)
             if defs_w:
                 alldefs_w[-len(defs_w):] = defs_w
             code = self._code
@@ -916,7 +967,7 @@ class interp2app(W_Root):
                     assert isinstance(w_default, W_Root)
                     assert argname.startswith('w_')
                     argname = argname[2:]
-                    j = self._code.sig[0].index(argname)
+                    j = self._code.sig.argnames.index(argname)
                     assert alldefs_w[j] in (UNDEFINED, None)
                     alldefs_w[j] = w_default
             first_defined = 0
@@ -1074,7 +1125,9 @@ def appdef(source, applevel=ApplevelClass, filename=None):
                            return x+y
                     ''')
     """
+    prefix = ""
     if not isinstance(source, str):
+        flags = source.__code__.co_flags
         source = py.std.inspect.getsource(source).lstrip()
         while source.startswith(('@py.test.mark.', '@pytest.mark.')):
             # these decorators are known to return the same function
@@ -1083,12 +1136,21 @@ def appdef(source, applevel=ApplevelClass, filename=None):
             source = source[source.find('\n') + 1:].lstrip()
         assert source.startswith("def "), "can only transform functions"
         source = source[4:]
+        import __future__
+        if flags & __future__.CO_FUTURE_DIVISION:
+            prefix += "from __future__ import division\n"
+        if flags & __future__.CO_FUTURE_ABSOLUTE_IMPORT:
+            prefix += "from __future__ import absolute_import\n"
+        if flags & __future__.CO_FUTURE_PRINT_FUNCTION:
+            prefix += "from __future__ import print_function\n"
+        if flags & __future__.CO_FUTURE_UNICODE_LITERALS:
+            prefix += "from __future__ import unicode_literals\n"
     p = source.find('(')
     assert p >= 0
     funcname = source[:p].strip()
     source = source[p:]
     assert source.strip()
-    funcsource = "def %s%s\n" % (funcname, source)
+    funcsource = prefix + "def %s%s\n" % (funcname, source)
     #for debugging of wrong source code: py.std.parser.suite(funcsource)
     a = applevel(funcsource, filename=filename)
     return a.interphook(funcname)

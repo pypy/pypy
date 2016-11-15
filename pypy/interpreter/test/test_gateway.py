@@ -1,17 +1,20 @@
-
 # -*- coding: utf-8 -*-
 
+from __future__ import division, print_function  # for test_app2interp_future
 from pypy.interpreter import gateway, argument
 from pypy.interpreter.gateway import ObjSpace, W_Root, WrappedDefault
 from pypy.interpreter.signature import Signature
+from pypy.interpreter.error import OperationError
 import py
 import sys
+
 
 class FakeFunc(object):
     def __init__(self, space, name):
         self.space = space
         self.name = name
         self.defs_w = []
+
 
 class TestBuiltinCode:
     def test_signature(self):
@@ -89,8 +92,8 @@ class TestBuiltinCode:
         w_result = code.funcrun(FakeFunc(self.space, "c"), args)
         assert self.space.eq_w(w_result, w(1020))
 
-class TestGateway:
 
+class TestGateway:
     def test_app2interp(self):
         w = self.space.wrap
         def app_g3(a, b):
@@ -116,6 +119,14 @@ class TestGateway:
         assert self.space.int_w(gg(self.space, w(3), args)) == 23
         args = gateway.Arguments(self.space, [w(6)], ['hello', 'world'], [w(7), w(8)])
         assert self.space.int_w(gg(self.space, w(3), args)) == 213
+
+    def test_app2interp_future(self):
+        w = self.space.wrap
+        def app_g3(a, b):
+            print(end='')
+            return a / b
+        g3 = gateway.app2interp_temp(app_g3)
+        assert self.space.eq_w(g3(self.space, w(1), w(4),), w(0.25))
 
     def test_interp2app(self):
         space = self.space
@@ -519,6 +530,23 @@ class TestGateway:
         raises(gateway.OperationError, space.call_function, w_app_g3_u,
                w(42))
 
+    def test_interp2app_unwrap_spec_unwrapper(self):
+        space = self.space
+        class Unwrapper(gateway.Unwrapper):
+            def unwrap(self, space, w_value):
+                return space.int_w(w_value)
+
+        w = space.wrap
+        def g3_u(space, value):
+            return space.wrap(value + 1)
+        app_g3_u = gateway.interp2app_temp(g3_u,
+                                         unwrap_spec=[gateway.ObjSpace,
+                                                      Unwrapper])
+        assert self.space.eq_w(
+            space.call_function(w(app_g3_u), w(42)), w(43))
+        raises(gateway.OperationError, space.call_function,
+               w(app_g3_u), w(None))
+
     def test_interp2app_classmethod(self):
         space = self.space
         w = space.wrap
@@ -616,7 +644,7 @@ class TestGateway:
         w_app_f = self.space.wrap(app_f)
 
         assert isinstance(w_app_f.code, gateway.BuiltinCode2)
-        
+
         called = []
         fastcall_2 = w_app_f.code.fastcall_2
         def witness_fastcall_2(space, w_func, w_a, w_b):
@@ -716,6 +744,22 @@ class TestGateway:
             never_called
         py.test.raises(AssertionError, space.wrap, gateway.interp2app_temp(g))
 
+    def test_unwrap_spec_default_applevel_bug2(self):
+        space = self.space
+        def g(space, w_x, w_y=None, __args__=None):
+            return w_x
+        w_g = space.wrap(gateway.interp2app_temp(g))
+        w_42 = space.call_function(w_g, space.wrap(42))
+        assert space.int_w(w_42) == 42
+        py.test.raises(gateway.OperationError, space.call_function, w_g)
+        #
+        def g(space, w_x, w_y=None, args_w=None):
+            return w_x
+        w_g = space.wrap(gateway.interp2app_temp(g))
+        w_42 = space.call_function(w_g, space.wrap(42))
+        assert space.int_w(w_42) == 42
+        py.test.raises(gateway.OperationError, space.call_function, w_g)
+
     def test_interp2app_doc(self):
         space = self.space
         def f(space, w_x):
@@ -728,6 +772,42 @@ class TestGateway:
         w_g = space.wrap(gateway.interp2app_temp(g, doc='bar'))
         assert space.unwrap(space.getattr(w_g, space.wrap('__doc__'))) == 'bar'
 
+    def test_system_error(self):
+        py.test.skip("we don't wrap a random exception inside SystemError "
+                     "when untranslated, because it makes testing harder")
+        class UnexpectedException(Exception):
+            pass
+        space = self.space
+        def g(space):
+            raise UnexpectedException
+        w_g = space.wrap(gateway.interp2app_temp(g))
+        e = py.test.raises(OperationError, space.appexec, [w_g], """(my_g):
+            my_g()
+        """)
+        err = str(e.value)
+        assert 'SystemError' in err
+        assert ('unexpected internal exception (please '
+                'report a bug): UnexpectedException') in err
+
+    def test_system_error_2(self):
+        py.test.skip("we don't wrap a random exception inside SystemError "
+                     "when untranslated, because it makes testing harder")
+        class UnexpectedException(Exception):
+            pass
+        space = self.space
+        def g(space):
+            raise UnexpectedException
+        w_g = space.wrap(gateway.interp2app_temp(g))
+        w_msg = space.appexec([w_g], """(my_g):
+            try:
+                my_g()
+            except SystemError as e:
+                return str(e)
+        """)
+        err = space.str_w(w_msg)
+        assert ('unexpected internal exception (please '
+                'report a bug): UnexpectedException') in err
+
 
 class AppTestPyTestMark:
     @py.test.mark.unlikely_to_exist
@@ -736,7 +816,6 @@ class AppTestPyTestMark:
 
 
 class TestPassThroughArguments:
-
     def test_pass_trough_arguments0(self):
         space = self.space
 
@@ -832,12 +911,33 @@ y = a.m(33)
         assert len(called) == 1
         assert isinstance(called[0], argument.Arguments)
 
+    def test_pass_trough_arguments_method(self):
+        space = self.space
+
+        called = []
+
+        class W_Something(W_Root):
+            def f(self, space, __args__):
+                called.append(__args__)
+                a_w, _ = __args__.unpack()
+                return space.newtuple([space.wrap('f')]+a_w)
+
+        w_f = space.wrap(gateway.interp2app_temp(W_Something.f))
+
+        w_self = space.wrap(W_Something())
+        args = argument.Arguments(space, [space.wrap(7)])
+
+        w_res = space.call_obj_args(w_f, w_self, args)
+        assert space.is_true(space.eq(w_res, space.wrap(('f', 7))))
+
+        # white-box check for opt
+        assert called[0] is args
+
 
 class AppTestKeywordsToBuiltinSanity(object):
-
     def test_type(self):
         class X(object):
-            def __init__(self, **kw):
+            def __init__(myself, **kw):
                 pass
         clash = type.__call__.func_code.co_varnames[0]
 
@@ -852,7 +952,6 @@ class AppTestKeywordsToBuiltinSanity(object):
 
         X(**{clash: 33})
         object.__new__(X, **{clash: 33})
-
 
     def test_dict_new(self):
         clash = dict.__new__.func_code.co_varnames[0]
@@ -873,4 +972,3 @@ class AppTestKeywordsToBuiltinSanity(object):
 
         d.update(**{clash: 33})
         dict.update(d, **{clash: 33})
-

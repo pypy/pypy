@@ -8,8 +8,6 @@ class RStringIO(object):
     The fastest path through this code is for the case of a bunch of write()
     followed by getvalue().
     """
-    _mixin_ = True        # for interp_stringio.py
-
     def __init__(self):
         self.init()
 
@@ -73,6 +71,7 @@ class RStringIO(object):
         self.__strings.append(buffer)
 
     def __slow_write(self, buffer):
+        assert buffer is not None # help annotator
         p = self.__pos
         assert p >= 0
         endp = p + len(buffer)
@@ -126,19 +125,19 @@ class RStringIO(object):
         assert result >= 0
         return result
 
-    def read(self, n=-1):
+    def read(self, size=-1):
         p = self.__pos
-        if p == 0 and n < 0:
+        if p == 0 and size < 0:
             self.__pos = AT_END
             return self.getvalue()     # reading everything
-        if p == AT_END or n == 0:
+        if p == AT_END or size == 0:
             return ''
         assert p >= 0
         self.__copy_into_bigbuffer()
         mysize = len(self.__bigbuffer)
         count = mysize - p
-        if n >= 0:
-            count = min(n, count)
+        if size >= 0:
+            count = min(size, count)
         if count <= 0:
             return ''
         if p == 0 and count == mysize:

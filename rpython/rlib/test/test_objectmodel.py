@@ -1,7 +1,13 @@
+from collections import OrderedDict
 import py
-from rpython.rlib.objectmodel import *
-from rpython.rlib import types
-from rpython.annotator import model
+from rpython.rlib.objectmodel import (
+    r_dict, UnboxedValue, Symbolic, compute_hash, compute_identity_hash,
+    compute_unique_id, current_object_addr_as_int, we_are_translated,
+    prepare_dict_update, reversed_dict, specialize, enforceargs, newlist_hint,
+    resizelist_hint, is_annotation_constant, always_inline, NOT_CONSTANT,
+    iterkeys_with_hash, iteritems_with_hash, contains_with_hash,
+    setitem_with_hash, getitem_with_hash, delitem_with_hash, import_from_mixin,
+    fetch_translated_config, try_inline)
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.test.test_llinterp import interpret
@@ -71,9 +77,9 @@ def test_recursive_r_dict_repr():
     rdic = r_dict(operator.eq, hash)
     rdic['x'] = rdic
     assert str(rdic) == "r_dict({'x': r_dict({...})})"
-    assert repr(rdic)== "r_dict({'x': r_dict({...})})"
+    assert repr(rdic) == "r_dict({'x': r_dict({...})})"
 
-def test_r_dict():
+def func_r_dict():
     # NB. this test function is also annotated/rtyped by the next tests
     d = r_dict(strange_key_eq, strange_key_hash)
     return play_with_r_dict(d)
@@ -81,10 +87,11 @@ def test_r_dict():
 class Strange:
     def key_eq(strange, key1, key2):
         return key1[0] == key2[0]   # only the 1st character is relevant
+
     def key_hash(strange, key):
         return ord(key[0])
 
-def test_r_dict_bm():
+def func_r_dict_bm():
     # NB. this test function is also annotated by the next tests
     strange = Strange()
     d = r_dict(strange.key_eq, strange.key_hash)
@@ -93,7 +100,7 @@ def test_r_dict_bm():
 def test_annotate_r_dict():
     t = TranslationContext()
     a = t.buildannotator()
-    a.build_types(test_r_dict, [])
+    a.build_types(func_r_dict, [])
     #t.view()
     graph = graphof(t, strange_key_eq)
     assert a.binding(graph.getargs()[0]).knowntype == str
@@ -104,7 +111,7 @@ def test_annotate_r_dict():
 def test_annotate_r_dict_bm():
     t = TranslationContext()
     a = t.buildannotator()
-    a.build_types(test_r_dict_bm, [])
+    a.build_types(func_r_dict_bm, [])
     #t.view()
     strange_key_eq = Strange.key_eq.im_func
     strange_key_hash = Strange.key_hash.im_func
@@ -112,17 +119,18 @@ def test_annotate_r_dict_bm():
     Strange_def = a.bookkeeper.getuniqueclassdef(Strange)
 
     graph = graphof(t, strange_key_eq)
-    assert a.binding(graph.getargs()[0]).knowntype == Strange_def
+    assert a.binding(graph.getargs()[0]).classdef == Strange_def
     assert a.binding(graph.getargs()[1]).knowntype == str
     assert a.binding(graph.getargs()[2]).knowntype == str
     graph = graphof(t, strange_key_hash)
-    assert a.binding(graph.getargs()[0]).knowntype == Strange_def
+    assert a.binding(graph.getargs()[0]).classdef == Strange_def
     assert a.binding(graph.getargs()[1]).knowntype == str
 
 
 def test_unboxed_value():
     class Base(object):
         __slots__ = ()
+
     class C(Base, UnboxedValue):
         __slots__ = 'smallint'
 
@@ -195,7 +203,7 @@ def test_current_object_addr_as_int():
 class TestObjectModel(BaseRtypingTest):
 
     def test_we_are_translated(self):
-        assert we_are_translated() == False
+        assert we_are_translated() is False
 
         def fn():
             return we_are_translated()
@@ -203,11 +211,11 @@ class TestObjectModel(BaseRtypingTest):
         assert res is True
 
     def test_rtype_r_dict(self):
-        res = self.interpret(test_r_dict, [])
+        res = self.interpret(func_r_dict, [])
         assert res is True
 
     def test_rtype_r_dict_bm(self):
-        res = self.interpret(test_r_dict_bm, [])
+        res = self.interpret(func_r_dict_bm, [])
         assert res is True
 
     def test_rtype_constant_r_dicts(self):
@@ -289,24 +297,27 @@ class TestObjectModel(BaseRtypingTest):
 
     def test_access_in_try(self):
         h = lambda x: 1
-        eq = lambda x,y: x==y
+        eq = lambda x, y: x == y
+
         def f(d):
             try:
                 return d[2]
             except ZeroDivisionError:
                 return 42
             return -1
+
         def g(n):
             d = r_dict(eq, h)
             d[1] = n
-            d[2] = 2*n
+            d[2] = 2 * n
             return f(d)
+
         res = self.interpret(g, [3])
         assert res == 6
 
     def test_access_in_try_set(self):
         h = lambda x: 1
-        eq = lambda x,y: x==y
+        eq = lambda x, y: x == y
         def f(d):
             try:
                 d[2] = 77
@@ -321,12 +332,43 @@ class TestObjectModel(BaseRtypingTest):
         res = self.interpret(g, [3])
         assert res == 77
 
+    def test_prepare_dict_update(self):
+        def g(n):
+            d = {}
+            prepare_dict_update(d, n)
+            return 42
+        res = self.interpret(g, [3])
+        assert res == 42     # "did not crash"
+
+    def test_prepare_dict_update_2(self):
+        def g(n):
+            d = OrderedDict()
+            prepare_dict_update(d, n)
+            return 42
+        res = self.interpret(g, [3])
+        assert res == 42     # "did not crash"
+
+    def test_reversed_dict(self):
+        d1 = {2: 3, 4: 5, 6: 7}
+        def g():
+            n1 = 0
+            for key in d1:
+                n1 = n1 * 10 + key
+            n2 = 0
+            for key in reversed_dict(d1):
+                n2 = n2 * 10 + key
+            return n1 * 10000 + n2
+        got = str(g())
+        assert len(got) == 7 and got[3] == '0' and got[:3] == got[6:3:-1]
+        got = str(self.interpret(g, []))
+        assert len(got) == 7 and got[3] == '0' and got[:3] == got[6:3:-1]
+
     def test_compute_hash(self):
         class Foo(object):
             pass
         def f(i):
             assert compute_hash(i) == compute_hash(42)
-            assert compute_hash(i+1.0) == compute_hash(43.0)
+            assert compute_hash(i + 1.0) == compute_hash(43.0)
             assert compute_hash("Hello" + str(i)) == compute_hash("Hello42")
             if i == 42:
                 p = None
@@ -341,13 +383,11 @@ class TestObjectModel(BaseRtypingTest):
             assert compute_hash(INFINITY) == 314159
             assert compute_hash(-INFINITY) == -271828
             assert compute_hash(NAN) == 0
-            return i*2
+            return i * 2
         res = self.interpret(f, [42])
         assert res == 84
 
     def test_isconstant(self):
-        from rpython.rlib.objectmodel import is_annotation_constant, specialize
-
         @specialize.arg_or_var(0)
         def f(arg):
             if is_annotation_constant(arg):
@@ -364,7 +404,7 @@ class TestObjectModel(BaseRtypingTest):
         def f():
             x = [1]
             y = ['b']
-            objectmodel.keepalive_until_here(x,y)
+            objectmodel.keepalive_until_here(x, y)
             return 1
 
         res = self.interpret(f, [])
@@ -378,8 +418,8 @@ class TestObjectModel(BaseRtypingTest):
         def f(i):
             assert compute_hash(None) == 0
             assert compute_hash(i) == h_42
-            assert compute_hash(i+1.0) == h_43_dot_0
-            assert compute_hash((i+3)/6.0) == h_7_dot_5
+            assert compute_hash(i + 1.0) == h_43_dot_0
+            assert compute_hash((i + 3) / 6.0) == h_7_dot_5
             assert compute_hash("Hello" + str(i)) == h_Hello42
             if i == 42:
                 p = None
@@ -388,17 +428,24 @@ class TestObjectModel(BaseRtypingTest):
             assert compute_hash(p) == h_None
             assert compute_hash(("world", None, i, 7.5)) == h_tuple
             assert compute_hash(q) == h_q
-            return i*2
-        h_42       = compute_hash(42)
+            return i * 2
+        h_42 = compute_hash(42)
         h_43_dot_0 = compute_hash(43.0)
-        h_7_dot_5  = compute_hash(7.5)
-        h_Hello42  = compute_hash("Hello42")
-        h_None     = compute_hash(None)
-        h_tuple    = compute_hash(("world", None, 42, 7.5))
-        h_q        = compute_hash(q)
+        h_7_dot_5 = compute_hash(7.5)
+        h_Hello42 = compute_hash("Hello42")
+        h_None = compute_hash(None)
+        h_tuple = compute_hash(("world", None, 42, 7.5))
+        h_q = compute_hash(q)
 
         res = self.interpret(f, [42])
         assert res == 84
+
+    def test_fetch_translated_config(self):
+        assert fetch_translated_config() is None
+        def f():
+            return fetch_translated_config().translation.continuation
+        res = self.interpret(f, [])
+        assert res is False
 
 
 def test_specialize_decorator():
@@ -430,17 +477,29 @@ def test_enforceargs_decorator():
     assert exc.value.message == "f argument 'b' must be of type <type 'str'>"
     py.test.raises(TypeError, "f('hello', 'world', 3)")
 
+def test_always_inline():
+    @always_inline
+    def f(a, b, c):
+        return a, b, c
+    assert f._always_inline_ is True
+
+def test_try_inline():
+    @try_inline
+    def f(a, b, c):
+        return a, b, c
+    assert f._always_inline_ == "try"
+
 
 def test_enforceargs_defaults():
     @enforceargs(int, int)
     def f(a, b=40):
-        return a+b
+        return a + b
     assert f(2) == 42
 
 def test_enforceargs_keywords():
     @enforceargs(b=int)
     def f(a, b, c):
-        return a+b
+        return a + b
     assert f._annenforceargs_ == (None, int, None)
 
 def test_enforceargs_int_float_promotion():
@@ -474,7 +533,7 @@ def test_enforceargs_no_typecheck():
     def f(a, b, c):
         return a, b, c
     assert f._annenforceargs_ == (int, str, None)
-    assert f(1, 2, 3) == (1, 2, 3) # no typecheck
+    assert f(1, 2, 3) == (1, 2, 3)  # no typecheck
 
 def test_enforceargs_translates():
     from rpython.rtyper.lltypesystem import lltype
@@ -484,6 +543,18 @@ def test_enforceargs_translates():
     graph = getgraph(f, [int, int])
     TYPES = [v.concretetype for v in graph.getargs()]
     assert TYPES == [lltype.Signed, lltype.Float]
+
+def test_enforceargs_not_constant():
+    from rpython.translator.translator import TranslationContext, graphof
+    @enforceargs(NOT_CONSTANT)
+    def f(a):
+        return a
+    def f42():
+        return f(42)
+    t = TranslationContext()
+    a = t.buildannotator()
+    s = a.build_types(f42, [])
+    assert not hasattr(s, 'const')
 
 
 def getgraph(f, argtypes):
@@ -502,39 +573,36 @@ def getgraph(f, argtypes):
 
 
 def test_newlist():
-    from rpython.annotator.model import SomeInteger
     def f(z):
         x = newlist_hint(sizehint=38)
         if z < 0:
             x.append(1)
         return len(x)
 
-    graph = getgraph(f, [SomeInteger()])
+    graph = getgraph(f, [int])
     for llop in graph.startblock.operations:
         if llop.opname == 'malloc_varsize':
             break
     assert llop.args[2].value == 38
 
 def test_newlist_nonconst():
-    from rpython.annotator.model import SomeInteger
     def f(z):
         x = newlist_hint(sizehint=z)
         return len(x)
 
-    graph = getgraph(f, [SomeInteger()])
+    graph = getgraph(f, [int])
     for llop in graph.startblock.operations:
         if llop.opname == 'malloc_varsize':
             break
     assert llop.args[2] is graph.startblock.inputargs[0]
 
 def test_resizelist_hint():
-    from rpython.annotator.model import SomeInteger
     def f(z):
         x = []
         resizelist_hint(x, 39)
         return len(x)
 
-    graph = getgraph(f, [SomeInteger()])
+    graph = getgraph(f, [int])
     for _, op in graph.iterblockops():
         if op.opname == 'direct_call':
             break
@@ -552,41 +620,144 @@ def test_resizelist_hint_len():
     r = interpret(f, [29])
     assert r == 1
 
+def test_iterkeys_with_hash():
+    def f(i):
+        d = {i + .0: 5, i + .5: 6}
+        total = 0
+        for k, h in iterkeys_with_hash(d):
+            total += k * h
+        total -= (i + 0.0) * compute_hash(i + 0.0)
+        total -= (i + 0.5) * compute_hash(i + 0.5)
+        return total
+
+    assert f(29) == 0.0
+    r = interpret(f, [29])
+    assert r == 0.0
+
+def test_iteritems_with_hash():
+    def f(i):
+        d = {i + .0: 5, i + .5: 6}
+        total = 0
+        for k, v, h in iteritems_with_hash(d):
+            total += k * h * v
+        total -= (i + 0.0) * compute_hash(i + 0.0) * 5
+        total -= (i + 0.5) * compute_hash(i + 0.5) * 6
+        return total
+
+    assert f(29) == 0.0
+    r = interpret(f, [29])
+    assert r == 0.0
+
+def test_contains_with_hash():
+    def f(i):
+        d = {i + .5: 5}
+        assert contains_with_hash(d, i + .5, compute_hash(i + .5))
+        assert not contains_with_hash(d, i + .3, compute_hash(i + .3))
+        return 0
+
+    f(29)
+    interpret(f, [29])
+
+def test_setitem_with_hash():
+    def f(i):
+        d = {}
+        setitem_with_hash(d, i + .5, compute_hash(i + .5), 42)
+        setitem_with_hash(d, i + .6, compute_hash(i + .6), -612)
+        return d[i + .5]
+
+    assert f(29) == 42
+    res = interpret(f, [27])
+    assert res == 42
+
+def test_getitem_with_hash():
+    def f(i):
+        d = {i + .5: 42, i + .6: -612}
+        return getitem_with_hash(d, i + .5, compute_hash(i + .5))
+
+    assert f(29) == 42
+    res = interpret(f, [27])
+    assert res == 42
+
+def test_delitem_with_hash():
+    def f(i):
+        d = {i + .5: 42, i + .6: -612}
+        delitem_with_hash(d, i + .5, compute_hash(i + .5))
+        try:
+            delitem_with_hash(d, i + .5, compute_hash(i + .5))
+        except KeyError:
+            pass
+        else:
+            raise AssertionError
+        return 0
+
+    f(29)
+    interpret(f, [27])
+
+def test_rdict_with_hash():
+    def f(i):
+        d = r_dict(strange_key_eq, strange_key_hash)
+        h = strange_key_hash("abc")
+        assert h == strange_key_hash("aXX") and strange_key_eq("abc", "aXX")
+        setitem_with_hash(d, "abc", h, i)
+        assert getitem_with_hash(d, "aXX", h) == i
+        try:
+            getitem_with_hash(d, "bYY", strange_key_hash("bYY"))
+        except KeyError:
+            pass
+        else:
+            raise AssertionError
+        return 0
+
+    assert f(29) == 0
+    interpret(f, [27])
+
 def test_import_from_mixin():
     class M:    # old-style
-        def f(self): pass
+        def f(self):
+            pass
     class A:    # old-style
         import_from_mixin(M)
     assert A.f.im_func is not M.f.im_func
 
     class M(object):
-        def f(self): pass
+        def f(self):
+            pass
     class A:    # old-style
         import_from_mixin(M)
     assert A.f.im_func is not M.f.im_func
 
     class M:    # old-style
-        def f(self): pass
+        def f(self):
+            pass
     class A(object):
         import_from_mixin(M)
     assert A.f.im_func is not M.f.im_func
 
     class M(object):
-        def f(self): pass
+        def f(self):
+            pass
     class A(object):
         import_from_mixin(M)
     assert A.f.im_func is not M.f.im_func
 
     class MBase(object):
-        a = 42; b = 43; c = 1000
-        def f(self): return "hi"
-        def g(self): return self.c - 1
+        a = 42
+        b = 43
+        c = 1000
+        def f(self):
+            return "hi"
+        def g(self):
+            return self.c - 1
+
     class M(MBase):
         a = 84
-        def f(self): return "there"
+        def f(self):
+            return "there"
+
     class A(object):
         import_from_mixin(M)
         c = 88
+
     assert A.f.im_func is not M.f.im_func
     assert A.f.im_func is not MBase.f.im_func
     assert A.g.im_func is not MBase.g.im_func
@@ -600,7 +771,7 @@ def test_import_from_mixin():
         class B(object):
             a = 63
             import_from_mixin(M)
-    except Exception, e:
+    except Exception as e:
         assert ("would overwrite the value already defined locally for 'a'"
                 in str(e))
     else:
@@ -635,3 +806,42 @@ def test_import_from_mixin():
         import_from_mixin(M)
     assert A.f is not M.f
     assert A.f.__module__ != M.f.__module__
+
+
+def test_import_from_mixin_immutable_fields():
+    class A(object):
+        _immutable_fields_ = ['a']
+
+    class B(object):
+        _immutable_fields_ = ['b']
+        import_from_mixin(A)
+
+    assert B._immutable_fields_ == ['b', 'a']
+    assert A._immutable_fields_ == ['a']
+
+    class B(object):
+        import_from_mixin(A)
+
+    assert B._immutable_fields_ == ['a']
+
+    class C(A):
+        _immutable_fields_ = ['c']
+
+    class B(object):
+        import_from_mixin(C)
+
+    assert B._immutable_fields_ == ['c', 'a']
+
+    class B(object):
+        _immutable_fields_ = ['b']
+        import_from_mixin(C)
+
+    assert B._immutable_fields_ == ['b', 'c', 'a']
+
+    class B(object):
+        _immutable_fields_ = ['b']
+
+    class BA(B):
+        import_from_mixin(C)
+
+    assert BA._immutable_fields_ == ['c', 'a']

@@ -9,6 +9,8 @@ import sys
 import types
 import math
 import inspect
+from collections import OrderedDict
+
 from rpython.tool.sourcetools import rpython_wrapper, func_with_new_name
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.flowspace.specialcase import register_flow_sc
@@ -112,6 +114,8 @@ class _Specialize(object):
 
 specialize = _Specialize()
 
+NOT_CONSTANT = object()      # to use in enforceargs()
+
 def enforceargs(*types_, **kwds):
     """ Decorate a function with forcing of RPython-level types on arguments.
     None means no enforcing.
@@ -122,7 +126,7 @@ def enforceargs(*types_, **kwds):
     """
     typecheck = kwds.pop('typecheck', True)
     if types_ and kwds:
-        raise TypeError, 'Cannot mix positional arguments and keywords'
+        raise TypeError('Cannot mix positional arguments and keywords')
 
     if not typecheck:
         def decorator(f):
@@ -177,7 +181,7 @@ def enforceargs(*types_, **kwds):
                 if not s_expected.contains(s_argtype):
                     msg = "%s argument %r must be of type %s" % (
                         f.func_name, srcargs[i], expected_type)
-                    raise TypeError, msg
+                    raise TypeError(msg)
         #
         template = """
             def {name}({arglist}):
@@ -201,6 +205,30 @@ def enforceargs(*types_, **kwds):
         return result
     return decorator
 
+def always_inline(func):
+    """ mark the function as to-be-inlined by the RPython optimizations (not
+    the JIT!), no matter its size."""
+    func._always_inline_ = True
+    return func
+
+def dont_inline(func):
+    """ mark the function as never-to-be-inlined by the RPython optimizations
+    (not the JIT!), no matter its size."""
+    func._dont_inline_ = True
+    return func
+
+def try_inline(func):
+    """ tell the RPython inline (not the JIT!), to try to inline this function,
+    no matter its size."""
+    func._always_inline_ = 'try'
+    return func
+
+def not_rpython(func):
+    """ mark a function as not rpython. the translation process will raise an
+    error if it encounters the function. """
+    # test is in annotator/test/test_annrpython.py
+    func._not_rpython_ = True
+    return func
 
 
 # ____________________________________________________________
@@ -266,12 +294,14 @@ class CDefinedIntSymbolic(Symbolic):
         return lltype.Signed
 
 malloc_zero_filled = CDefinedIntSymbolic('MALLOC_ZERO_FILLED', default=0)
-running_on_llinterp = CDefinedIntSymbolic('RUNNING_ON_LLINTERP', default=1)
-# running_on_llinterp is meant to have the value 0 in all backends
+_translated_to_c = CDefinedIntSymbolic('1 /*_translated_to_c*/', default=0)
+
+def we_are_translated_to_c():
+    return we_are_translated() and _translated_to_c
 
 # ____________________________________________________________
 
-def instantiate(cls):
+def instantiate(cls, nonmovable=False):
     "Create an empty instance of 'cls'."
     if isinstance(cls, type):
         return cls.__new__(cls)
@@ -285,6 +315,20 @@ def we_are_translated():
 def sc_we_are_translated(ctx):
     return Constant(True)
 
+def register_replacement_for(replaced_function, sandboxed_name=None):
+    def wrap(func):
+        from rpython.rtyper.extregistry import ExtRegistryEntry
+        class ExtRegistry(ExtRegistryEntry):
+            _about_ = replaced_function
+            def compute_annotation(self):
+                if sandboxed_name:
+                    config = self.bookkeeper.annotator.translator.config
+                    if config.translation.sandbox:
+                        func._sandbox_external_name = sandboxed_name
+                        func._dont_inline_ = True
+                return self.bookkeeper.immutablevalue(func)
+        return func
+    return wrap
 
 def keepalive_until_here(*values):
     pass
@@ -311,6 +355,25 @@ class Entry(ExtRegistryEntry):
 def int_to_bytearray(i):
     # XXX this can be made more efficient in the future
     return bytearray(str(i))
+
+def fetch_translated_config():
+    """Returns the config that is current when translating.
+    Returns None if not translated.
+    """
+    return None
+
+class Entry(ExtRegistryEntry):
+    _about_ = fetch_translated_config
+
+    def compute_result_annotation(self):
+        config = self.bookkeeper.annotator.translator.config
+        return self.bookkeeper.immutablevalue(config)
+
+    def specialize_call(self, hop):
+        from rpython.rtyper.lltypesystem import lltype
+        translator = hop.rtyper.annotator.translator
+        hop.exception_cannot_occur()
+        return hop.inputconst(lltype.Void, translator.config)
 
 # ____________________________________________________________
 
@@ -449,6 +512,8 @@ def current_object_addr_as_int(x):
 
 # ----------
 
+HASH_ALGORITHM = "rpython"  # XXX Is there a better name?
+
 def _hash_string(s):
     """The algorithm behind compute_hash() for a string or a unicode."""
     from rpython.rlib.rarithmetic import intmask
@@ -487,8 +552,9 @@ def _hash_float(f):
     return intmask(x)
 TAKE_NEXT = float(2**31)
 
+@not_rpython
 def _hash_tuple(t):
-    """NOT_RPYTHON.  The algorithm behind compute_hash() for a tuple.
+    """The algorithm behind compute_hash() for a tuple.
     It is modelled after the old algorithm of Python 2.3, which is
     a bit faster than the one introduced by Python 2.4.  We assume
     that nested tuples are very uncommon in RPython, making the bad
@@ -576,24 +642,12 @@ class Entry(ExtRegistryEntry):
 # ____________________________________________________________
 
 def hlinvoke(repr, llcallable, *args):
-    raise TypeError, "hlinvoke is meant to be rtyped and not called direclty"
-
-def invoke_around_extcall(before, after):
-    """Call before() before any external function call, and after() after.
-    At the moment only one pair before()/after() can be registered at a time.
-    """
-    # NOTE: the hooks are cleared during translation!  To be effective
-    # in a compiled program they must be set at run-time.
-    from rpython.rtyper.lltypesystem import rffi
-    rffi.aroundstate.before = before
-    rffi.aroundstate.after = after
-    # the 'aroundstate' contains regular function and not ll pointers to them,
-    # but let's call llhelper() anyway to force their annotation
-    from rpython.rtyper.annlowlevel import llhelper
-    llhelper(rffi.AroundFnPtr, before)
-    llhelper(rffi.AroundFnPtr, after)
+    raise TypeError("hlinvoke is meant to be rtyped and not called direclty")
 
 def is_in_callback():
+    """Returns True if we're currently in a callback *or* if there are
+    multiple threads around.
+    """
     from rpython.rtyper.lltypesystem import rffi
     return rffi.stackcounter.stacks_counter > 1
 
@@ -628,6 +682,30 @@ class UnboxedValue(object):
             return getattr(self, self.__class__.__slots__)
         else:
             return getattr(self, self.__class__.__slots__[0])
+
+# ____________________________________________________________
+
+def likely(condition):
+    assert isinstance(condition, bool)
+    return condition
+
+def unlikely(condition):
+    assert isinstance(condition, bool)
+    return condition
+
+class Entry(ExtRegistryEntry):
+    _about_ = (likely, unlikely)
+
+    def compute_result_annotation(self, s_x):
+        from rpython.annotator import model as annmodel
+        return annmodel.SomeBool()
+
+    def specialize_call(self, hop):
+        from rpython.rtyper.lltypesystem import lltype
+        vlist = hop.inputargs(lltype.Bool)
+        hop.exception_cannot_occur()
+        return hop.genop(self.instance.__name__, vlist,
+                         resulttype=lltype.Bool)
 
 # ____________________________________________________________
 
@@ -715,8 +793,6 @@ class r_dict(object):
 
 class r_ordereddict(r_dict):
     def _newdict(self):
-        from collections import OrderedDict
-
         return OrderedDict()
 
 class _r_dictkey(object):
@@ -739,11 +815,91 @@ class _r_dictkey(object):
     def __repr__(self):
         return repr(self.key)
 
-class _r_dictkey_with_hash(_r_dictkey):
-    def __init__(self, dic, key, hash):
-        self.dic = dic
-        self.key = key
-        self.hash = hash
+
+@specialize.call_location()
+def prepare_dict_update(dict, n_elements):
+    """RPython hint that the given dict (or r_dict) will soon be
+    enlarged by n_elements."""
+    if we_are_translated():
+        dict._prepare_dict_update(n_elements)
+        # ^^ call an extra method that doesn't exist before translation
+
+@specialize.call_location()
+def reversed_dict(d):
+    """Equivalent to reversed(ordered_dict), but works also for
+    regular dicts."""
+    # note that there is also __pypy__.reversed_dict(), which we could
+    # try to use here if we're not translated and running on top of pypy,
+    # but that seems a bit pointless
+    if not we_are_translated():
+        d = d.keys()
+    return reversed(d)
+
+def _expected_hash(d, key):
+    if isinstance(d, r_dict):
+        return d.key_hash(key)
+    else:
+        return compute_hash(key)
+
+def _iterkeys_with_hash_untranslated(d):
+    for k in d:
+        yield (k, _expected_hash(d, k))
+
+@specialize.call_location()
+def iterkeys_with_hash(d):
+    """Iterates (key, hash) pairs without recomputing the hash."""
+    if not we_are_translated():
+        return _iterkeys_with_hash_untranslated(d)
+    return d.iterkeys_with_hash()
+
+def _iteritems_with_hash_untranslated(d):
+    for k, v in d.iteritems():
+        yield (k, v, _expected_hash(d, k))
+
+@specialize.call_location()
+def iteritems_with_hash(d):
+    """Iterates (key, value, keyhash) triples without recomputing the hash."""
+    if not we_are_translated():
+        return _iteritems_with_hash_untranslated(d)
+    return d.iteritems_with_hash()
+
+@specialize.call_location()
+def contains_with_hash(d, key, h):
+    """Same as 'key in d'.  The extra argument is the hash.  Use this only
+    if you got the hash just now from some other ..._with_hash() function."""
+    if not we_are_translated():
+        assert _expected_hash(d, key) == h
+        return key in d
+    return d.contains_with_hash(key, h)
+
+@specialize.call_location()
+def setitem_with_hash(d, key, h, value):
+    """Same as 'd[key] = value'.  The extra argument is the hash.  Use this only
+    if you got the hash just now from some other ..._with_hash() function."""
+    if not we_are_translated():
+        assert _expected_hash(d, key) == h
+        d[key] = value
+        return
+    d.setitem_with_hash(key, h, value)
+
+@specialize.call_location()
+def getitem_with_hash(d, key, h):
+    """Same as 'd[key]'.  The extra argument is the hash.  Use this only
+    if you got the hash just now from some other ..._with_hash() function."""
+    if not we_are_translated():
+        assert _expected_hash(d, key) == h
+        return d[key]
+    return d.getitem_with_hash(key, h)
+
+@specialize.call_location()
+def delitem_with_hash(d, key, h):
+    """Same as 'del d[key]'.  The extra argument is the hash.  Use this only
+    if you got the hash just now from some other ..._with_hash() function."""
+    if not we_are_translated():
+        assert _expected_hash(d, key) == h
+        del d[key]
+        return
+    d.delitem_with_hash(key, h)
 
 # ____________________________________________________________
 
@@ -762,10 +918,14 @@ def import_from_mixin(M, special_methods=['__init__', '__del__']):
     flatten = {}
     caller = sys._getframe(1)
     caller_name = caller.f_globals.get('__name__')
+    immutable_fields = []
     for base in inspect.getmro(M):
         if base is object:
             continue
         for key, value in base.__dict__.items():
+            if key == '_immutable_fields_':
+                immutable_fields.extend(value)
+                continue
             if key.startswith('__') and key.endswith('__'):
                 if key not in special_methods:
                     continue
@@ -791,4 +951,9 @@ def import_from_mixin(M, special_methods=['__init__', '__del__']):
         if key in target:
             raise Exception("import_from_mixin: would overwrite the value "
                             "already defined locally for %r" % (key,))
+        if key == '_mixin_':
+            raise Exception("import_from_mixin(M): class M should not "
+                            "have '_mixin_ = True'")
         target[key] = value
+    if immutable_fields:
+        target['_immutable_fields_'] = target.get('_immutable_fields_', []) + immutable_fields

@@ -9,7 +9,7 @@ from rpython.rtyper.lltypesystem.llmemory import (Address, AddressOffset,
     ArrayLengthOffset, GCHeaderOffset, GCREF, AddressAsInt)
 from rpython.rtyper.lltypesystem.lltype import (Signed, SignedLongLong, Unsigned,
     UnsignedLongLong, Float, SingleFloat, LongFloat, Char, UniChar, Bool, Void,
-    FixedSizeArray, Ptr, cast_opaque_ptr, typeOf)
+    FixedSizeArray, Ptr, cast_opaque_ptr, typeOf, _uninitialized)
 from rpython.rtyper.lltypesystem.llarena import RoundedUpForAllocation
 from rpython.rtyper.tool.rffi_platform import memory_alignment
 from rpython.translator.c.support import cdecl, barebonearray
@@ -89,7 +89,7 @@ def name_signed(value, db):
             return '((Signed)%s)' % name_address(value.adr, db)
         else:
             raise Exception("unimplemented symbolic %r" % value)
-    if value is None:
+    if value is None or isinstance(value, _uninitialized):
         assert not db.completed
         return None
     if value == -sys.maxint-1:   # blame C

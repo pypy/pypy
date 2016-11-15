@@ -5,6 +5,7 @@ from pypy.module._codecs import interp_codecs
 
 @specialize.memo()
 def decode_error_handler(space):
+    # Fast version of the "strict" errors handler.
     def raise_unicode_exception_decode(errors, encoding, msg, s,
                                        startingpos, endingpos):
         raise OperationError(space.w_UnicodeDecodeError,
@@ -15,17 +16,17 @@ def decode_error_handler(space):
                                              space.wrap(msg)]))
     return raise_unicode_exception_decode
 
-@specialize.memo()
-def encode_error_handler(space):
-    def raise_unicode_exception_encode(errors, encoding, msg, u,
-                                       startingpos, endingpos):
-        raise OperationError(space.w_UnicodeEncodeError,
-                             space.newtuple([space.wrap(encoding),
-                                             space.wrap(u),
-                                             space.wrap(startingpos),
-                                             space.wrap(endingpos),
-                                             space.wrap(msg)]))
-    return raise_unicode_exception_encode
+class RUnicodeEncodeError(Exception):
+    def __init__(self, encoding, object, start, end, reason):
+        self.encoding = encoding
+        self.object = object
+        self.start = start
+        self.end = end
+        self.reason = reason
+
+def raise_unicode_exception_encode(errors, encoding, msg, u,
+                                   startingpos, endingpos):
+    raise RUnicodeEncodeError(encoding, u, startingpos, endingpos, msg)
 
 # ____________________________________________________________
 
@@ -57,7 +58,10 @@ def decode_utf8(space, string):
     return result
 
 def encode_utf8(space, uni):
+    # Note that this function never raises UnicodeEncodeError,
+    # since surrogate pairs are allowed.
+    # This is not the case with Python3.
     return runicode.unicode_encode_utf_8(
         uni, len(uni), "strict",
-        errorhandler=encode_error_handler(space),
+        errorhandler=raise_unicode_exception_encode,
         allow_surrogates=True)

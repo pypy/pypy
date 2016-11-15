@@ -1,5 +1,6 @@
 from rpython.rtyper.lltypesystem.lltype import Ptr, GcStruct, Signed, malloc, Void
 from rpython.rtyper.rrange import AbstractRangeRepr, AbstractRangeIteratorRepr
+from rpython.rtyper.error import TyperError
 
 # ____________________________________________________________
 #
@@ -59,7 +60,10 @@ class RangeRepr(AbstractRangeRepr):
         self.ll_newrange = ll_newrange
         self.ll_newrangest = ll_newrangest
 
-    def make_iterator_repr(self):
+    def make_iterator_repr(self, variant=None):
+        if variant is not None:
+            raise TyperError("unsupported %r iterator over a range list" %
+                             (variant,))
         return RangeIteratorRepr(self)
 
 

@@ -127,16 +127,8 @@ def spawn_handler():
         return spawn_graphserver_handler((host, port))
 
 def spawn_local_handler():
-    if hasattr(sys, 'pypy_objspaceclass'):
-        # if 'python' is actually PyPy, e.g. in a virtualenv, then
-        # try hard to find a real CPython
-        try:
-            python = subprocess.check_output(
-                'env -i $SHELL -l -c "which python"', shell=True).strip()
-        except subprocess.CalledProcessError:
-            # did not work, fall back to 'python'
-            python = 'python'
-    else:
+    python = os.getenv('PYPY_PYGAME_PYTHON')
+    if not python:
         python = sys.executable
     args = [python, '-u', GRAPHSERVER, '--stdio']
     p = subprocess.Popen(args,

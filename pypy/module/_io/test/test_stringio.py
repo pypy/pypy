@@ -146,11 +146,6 @@ class AppTestStringIO:
         exc_info = raises(TypeError, sio.write, 3)
         assert "int" in exc_info.value.args[0]
 
-    def test_module(self):
-        import io
-
-        assert io.StringIO.__module__ == "_io"
-
     def test_newline_none(self):
         import io
 

@@ -1,20 +1,5 @@
 import gc
-from rpython.rlib.rweaklist import RWeakListMixin, _reduced_value as reduced_value
-
-
-def test_reduced_value():
-    assert reduced_value(0) == 0
-    assert reduced_value(1) == 0
-    assert reduced_value(2) == 1
-    assert reduced_value(3) == 0
-    assert reduced_value(4) == 2
-    assert reduced_value(5) == 1
-    assert reduced_value(6) == 3
-    assert reduced_value(7) == 0
-    assert reduced_value(8) == 4
-    assert reduced_value(9) == 2
-    assert reduced_value(10) == 5
-    assert reduced_value(11) == 1
+from rpython.rlib.rweaklist import RWeakListMixin, INITIAL_SIZE
 
 
 class A(object):
@@ -25,29 +10,30 @@ def test_simple():
     a1 = A(); a2 = A()
     wlist = RWeakListMixin(); wlist.initialize()
     i = wlist.add_handle(a1)
-    assert i == 0
+    assert i == INITIAL_SIZE - 1
     i = wlist.reserve_next_handle_index()
-    assert i == 1
+    assert i == INITIAL_SIZE - 2
     wlist.store_handle(i, a2)
-    assert wlist.fetch_handle(0) is a1
-    assert wlist.fetch_handle(1) is a2
+    assert wlist.fetch_handle(INITIAL_SIZE - 1) is a1
+    assert wlist.fetch_handle(INITIAL_SIZE - 2) is a2
     #
     del a2
     for i in range(5):
         gc.collect()
-        if wlist.fetch_handle(1) is None:
+        if wlist.fetch_handle(INITIAL_SIZE - 2) is None:
             break
     else:
-        raise AssertionError("handle(1) did not disappear")
-    assert wlist.fetch_handle(0) is a1
+        raise AssertionError("second handle() did not disappear")
+    assert wlist.fetch_handle(INITIAL_SIZE - 1) is a1
 
 def test_reuse():
     alist = [A() for i in range(200)]
     wlist = RWeakListMixin(); wlist.initialize()
+    mapping = []
     for i in range(200):
         j = wlist.reserve_next_handle_index()
-        assert j == i
-        wlist.store_handle(i, alist[i])
+        mapping.append(j)
+        wlist.store_handle(j, alist[i])
     #
     del alist[1::2]
     del alist[1::2]
@@ -57,8 +43,8 @@ def test_reuse():
     for i in range(5):
         gc.collect()
     #
-    for i in range(200):
-        a = wlist.fetch_handle(i)
+    for i, j in enumerate(mapping):
+        a = wlist.fetch_handle(j)
         if i % 32 == 0:
             assert a is alist[i // 32]
         else:
@@ -67,6 +53,7 @@ def test_reuse():
     maximum = -1
     for i in range(200):
         j = wlist.reserve_next_handle_index()
+        assert wlist.fetch_handle(j) is None
         maximum = max(maximum, j)
         wlist.store_handle(j, A())
-    assert maximum <= 240
+    assert maximum < 256

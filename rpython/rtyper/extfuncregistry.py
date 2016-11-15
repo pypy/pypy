@@ -2,20 +2,16 @@
 
 from rpython.rtyper.extfunc import register_external
 
+# Register replacement functions for builtin functions
+from rpython.rlib import rposix, rposix_stat, rposix_environ
+from rpython.rlib import rtime
+
 # ___________________________
 # math functions
 
 import math
 from rpython.rtyper.lltypesystem.module import ll_math
-from rpython.rtyper.module import ll_os
-from rpython.rtyper.module import ll_time
 from rpython.rlib import rfloat
-try:
-    import termios
-except ImportError:
-    pass
-else:
-    from rpython.rtyper.module import ll_termios
 
 # the following functions all take one float, return one float
 # and are part of math.h
@@ -60,4 +56,3 @@ for module, methods in _register:
                           export_name='ll_math.%s' % method_name,
                           sandboxsafe=True,
                           llimpl=getattr(ll_math, method_name))
-

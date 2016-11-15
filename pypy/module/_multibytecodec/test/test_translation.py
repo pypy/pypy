@@ -1,8 +1,11 @@
 from pypy.module._multibytecodec import c_codecs
 from rpython.translator.c.test import test_standalone
+from rpython.config.translationoption import get_combined_translation_config
 
 
 class TestTranslation(test_standalone.StandaloneTests):
+    config = get_combined_translation_config(translating=True)
+    config.translation.gc = 'boehm'
 
     def test_translation(self):
         #

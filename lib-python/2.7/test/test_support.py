@@ -19,7 +19,6 @@ import UserDict
 import re
 import time
 import struct
-import _testcapi
 import sysconfig
 try:
     import thread
@@ -29,7 +28,8 @@ except ImportError:
 __all__ = ["Error", "TestFailed", "ResourceDenied", "import_module",
            "verbose", "use_resources", "max_memuse", "record_original_stdout",
            "get_original_stdout", "unload", "unlink", "rmtree", "forget",
-           "is_resource_enabled", "requires", "find_unused_port", "bind_port",
+           "is_resource_enabled", "requires", "requires_mac_ver",
+           "find_unused_port", "bind_port",
            "fcmp", "have_unicode", "is_jython", "TESTFN", "HOST", "FUZZ",
            "SAVEDCWD", "temp_cwd", "findfile", "sortdict", "check_syntax_error",
            "open_urlresource", "check_warnings", "check_py3k_warnings",
@@ -37,10 +37,10 @@ __all__ = ["Error", "TestFailed", "ResourceDenied", "import_module",
            "captured_stdout", "TransientResource", "transient_internet",
            "run_with_locale", "set_memlimit", "bigmemtest", "bigaddrspacetest",
            "BasicTestRunner", "run_unittest", "run_doctest", "threading_setup",
-           "threading_cleanup", "reap_children", "cpython_only",
+           "threading_cleanup", "reap_threads", "start_threads", "cpython_only",
            "check_impl_detail", "get_attribute", "py3k_bytes",
            "import_fresh_module", "threading_cleanup", "reap_children",
-           "strip_python_stderr"]
+           "strip_python_stderr", "IPV6_ENABLED", "run_with_tz"]
 
 class Error(Exception):
     """Base class for regression test exceptions."""
@@ -271,24 +271,123 @@ def forget(modname):
         # is exited) but there is a .pyo file.
         unlink(os.path.join(dirname, modname + os.extsep + 'pyo'))
 
+# Check whether a gui is actually available
+def _is_gui_available():
+    if hasattr(_is_gui_available, 'result'):
+        return _is_gui_available.result
+    reason = None
+    if sys.platform.startswith('win'):
+        # if Python is running as a service (such as the buildbot service),
+        # gui interaction may be disallowed
+        import ctypes
+        import ctypes.wintypes
+        UOI_FLAGS = 1
+        WSF_VISIBLE = 0x0001
+        class USEROBJECTFLAGS(ctypes.Structure):
+            _fields_ = [("fInherit", ctypes.wintypes.BOOL),
+                        ("fReserved", ctypes.wintypes.BOOL),
+                        ("dwFlags", ctypes.wintypes.DWORD)]
+        dll = ctypes.windll.user32
+        h = dll.GetProcessWindowStation()
+        if not h:
+            raise ctypes.WinError()
+        uof = USEROBJECTFLAGS()
+        needed = ctypes.wintypes.DWORD()
+        res = dll.GetUserObjectInformationW(h,
+            UOI_FLAGS,
+            ctypes.byref(uof),
+            ctypes.sizeof(uof),
+            ctypes.byref(needed))
+        if not res:
+            raise ctypes.WinError()
+        if not bool(uof.dwFlags & WSF_VISIBLE):
+            reason = "gui not available (WSF_VISIBLE flag not set)"
+    elif sys.platform == 'darwin':
+        # The Aqua Tk implementations on OS X can abort the process if
+        # being called in an environment where a window server connection
+        # cannot be made, for instance when invoked by a buildbot or ssh
+        # process not running under the same user id as the current console
+        # user.  To avoid that, raise an exception if the window manager
+        # connection is not available.
+        from ctypes import cdll, c_int, pointer, Structure
+        from ctypes.util import find_library
+
+        app_services = cdll.LoadLibrary(find_library("ApplicationServices"))
+
+        if app_services.CGMainDisplayID() == 0:
+            reason = "gui tests cannot run without OS X window manager"
+        else:
+            class ProcessSerialNumber(Structure):
+                _fields_ = [("highLongOfPSN", c_int),
+                            ("lowLongOfPSN", c_int)]
+            psn = ProcessSerialNumber()
+            psn_p = pointer(psn)
+            if (  (app_services.GetCurrentProcess(psn_p) < 0) or
+                  (app_services.SetFrontProcess(psn_p) < 0) ):
+                reason = "cannot run without OS X gui process"
+
+    # check on every platform whether tkinter can actually do anything
+    if not reason:
+        try:
+            from Tkinter import Tk
+            root = Tk()
+            root.update()
+            root.destroy()
+        except Exception as e:
+            err_string = str(e)
+            if len(err_string) > 50:
+                err_string = err_string[:50] + ' [...]'
+            reason = 'Tk unavailable due to {}: {}'.format(type(e).__name__,
+                                                           err_string)
+
+    _is_gui_available.reason = reason
+    _is_gui_available.result = not reason
+
+    return _is_gui_available.result
+
 def is_resource_enabled(resource):
-    """Test whether a resource is enabled.  Known resources are set by
-    regrtest.py."""
-    return use_resources is not None and resource in use_resources
+    """Test whether a resource is enabled.
+
+    Known resources are set by regrtest.py.  If not running under regrtest.py,
+    all resources are assumed enabled unless use_resources has been set.
+    """
+    return use_resources is None or resource in use_resources
 
 def requires(resource, msg=None):
-    """Raise ResourceDenied if the specified resource is not available.
-
-    If the caller's module is __main__ then automatically return True.  The
-    possibility of False being returned occurs when regrtest.py is executing."""
-    # see if the caller's module is __main__ - if so, treat as if
-    # the resource was set
-    if sys._getframe(1).f_globals.get("__name__") == "__main__":
-        return
+    """Raise ResourceDenied if the specified resource is not available."""
+    if resource == 'gui' and not _is_gui_available():
+        raise ResourceDenied(_is_gui_available.reason)
     if not is_resource_enabled(resource):
         if msg is None:
             msg = "Use of the `%s' resource not enabled" % resource
         raise ResourceDenied(msg)
+
+def requires_mac_ver(*min_version):
+    """Decorator raising SkipTest if the OS is Mac OS X and the OS X
+    version if less than min_version.
+
+    For example, @requires_mac_ver(10, 5) raises SkipTest if the OS X version
+    is lesser than 10.5.
+    """
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kw):
+            if sys.platform == 'darwin':
+                version_txt = platform.mac_ver()[0]
+                try:
+                    version = tuple(map(int, version_txt.split('.')))
+                except ValueError:
+                    pass
+                else:
+                    if version < min_version:
+                        min_version_txt = '.'.join(map(str, min_version))
+                        raise unittest.SkipTest(
+                            "Mac OS X %s or higher required, not %s"
+                            % (min_version_txt, version_txt))
+            return func(*args, **kw)
+        wrapper.min_version = min_version
+        return wrapper
+    return decorator
 
 
 # Don't use "localhost", since resolving it uses the DNS under recent
@@ -377,15 +476,51 @@ def bind_port(sock, host=HOST):
                 raise TestFailed("tests should never set the SO_REUSEADDR "   \
                                  "socket option on TCP/IP sockets!")
         if hasattr(socket, 'SO_REUSEPORT'):
-            if sock.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT) == 1:
-                raise TestFailed("tests should never set the SO_REUSEPORT "   \
-                                 "socket option on TCP/IP sockets!")
+            try:
+                if sock.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT) == 1:
+                    raise TestFailed("tests should never set the SO_REUSEPORT "   \
+                                     "socket option on TCP/IP sockets!")
+            except EnvironmentError:
+                # Python's socket module was compiled using modern headers
+                # thus defining SO_REUSEPORT but this process is running
+                # under an older kernel that does not support SO_REUSEPORT.
+                pass
         if hasattr(socket, 'SO_EXCLUSIVEADDRUSE'):
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
 
     sock.bind((host, 0))
     port = sock.getsockname()[1]
     return port
+
+def _is_ipv6_enabled():
+    """Check whether IPv6 is enabled on this host."""
+    if socket.has_ipv6:
+        sock = None
+        try:
+            sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+            sock.bind((HOSTv6, 0))
+            return True
+        except socket.error:
+            pass
+        finally:
+            if sock:
+                sock.close()
+    return False
+
+IPV6_ENABLED = _is_ipv6_enabled()
+
+def system_must_validate_cert(f):
+    """Skip the test on TLS certificate validation failures."""
+    @functools.wraps(f)
+    def dec(*args, **kwargs):
+        try:
+            f(*args, **kwargs)
+        except IOError as e:
+            if "CERTIFICATE_VERIFY_FAILED" in str(e):
+                raise unittest.SkipTest("system does not contain "
+                                        "necessary certificates")
+            raise
+    return dec
 
 FUZZ = 1e-6
 
@@ -420,13 +555,64 @@ PIPE_MAX_SIZE = 4 * 1024 * 1024 + 1
 # for a discussion of this number).
 SOCK_MAX_SIZE = 16 * 1024 * 1024 + 1
 
+is_jython = sys.platform.startswith('java')
+
 try:
     unicode
     have_unicode = True
 except NameError:
     have_unicode = False
 
-is_jython = sys.platform.startswith('java')
+requires_unicode = unittest.skipUnless(have_unicode, 'no unicode support')
+
+def u(s):
+    return unicode(s, 'unicode-escape')
+
+# FS_NONASCII: non-ASCII Unicode character encodable by
+# sys.getfilesystemencoding(), or None if there is no such character.
+FS_NONASCII = None
+if have_unicode:
+    for character in (
+        # First try printable and common characters to have a readable filename.
+        # For each character, the encoding list are just example of encodings able
+        # to encode the character (the list is not exhaustive).
+
+        # U+00E6 (Latin Small Letter Ae): cp1252, iso-8859-1
+        unichr(0x00E6),
+        # U+0130 (Latin Capital Letter I With Dot Above): cp1254, iso8859_3
+        unichr(0x0130),
+        # U+0141 (Latin Capital Letter L With Stroke): cp1250, cp1257
+        unichr(0x0141),
+        # U+03C6 (Greek Small Letter Phi): cp1253
+        unichr(0x03C6),
+        # U+041A (Cyrillic Capital Letter Ka): cp1251
+        unichr(0x041A),
+        # U+05D0 (Hebrew Letter Alef): Encodable to cp424
+        unichr(0x05D0),
+        # U+060C (Arabic Comma): cp864, cp1006, iso8859_6, mac_arabic
+        unichr(0x060C),
+        # U+062A (Arabic Letter Teh): cp720
+        unichr(0x062A),
+        # U+0E01 (Thai Character Ko Kai): cp874
+        unichr(0x0E01),
+
+        # Then try more "special" characters. "special" because they may be
+        # interpreted or displayed differently depending on the exact locale
+        # encoding and the font.
+
+        # U+00A0 (No-Break Space)
+        unichr(0x00A0),
+        # U+20AC (Euro Sign)
+        unichr(0x20AC),
+    ):
+        try:
+            character.encode(sys.getfilesystemencoding())\
+                     .decode(sys.getfilesystemencoding())
+        except UnicodeError:
+            pass
+        else:
+            FS_NONASCII = character
+            break
 
 # Filename used for testing
 if os.name == 'java':
@@ -483,6 +669,33 @@ TESTFN = "{}_{}_tmp".format(TESTFN, os.getpid())
 SAVEDCWD = os.getcwd()
 
 @contextlib.contextmanager
+def change_cwd(path, quiet=False):
+    """Return a context manager that changes the current working directory.
+
+    Arguments:
+
+      path: the directory to use as the temporary current working directory.
+
+      quiet: if False (the default), the context manager raises an exception
+        on error.  Otherwise, it issues only a warning and keeps the current
+        working directory the same.
+
+    """
+    saved_dir = os.getcwd()
+    try:
+        os.chdir(path)
+    except OSError:
+        if not quiet:
+            raise
+        warnings.warn('tests may fail, unable to change CWD to: ' + path,
+                      RuntimeWarning, stacklevel=3)
+    try:
+        yield os.getcwd()
+    finally:
+        os.chdir(saved_dir)
+
+
+@contextlib.contextmanager
 def temp_cwd(name='tempcwd', quiet=False):
     """
     Context manager that creates a temporary directory and set it as CWD.
@@ -492,7 +705,8 @@ def temp_cwd(name='tempcwd', quiet=False):
     the CWD, an error is raised.  If it's True, only a warning is raised
     and the original CWD is used.
     """
-    if have_unicode and isinstance(name, unicode):
+    if (have_unicode and isinstance(name, unicode) and
+        not os.path.supports_unicode_filenames):
         try:
             name = name.encode(sys.getfilesystemencoding() or 'ascii')
         except UnicodeEncodeError:
@@ -968,6 +1182,7 @@ _TPFLAGS_HAVE_GC = 1<<14
 _TPFLAGS_HEAPTYPE = 1<<9
 
 def check_sizeof(test, o, size):
+    import _testcapi
     result = sys.getsizeof(o)
     # add GC header size
     if ((type(o) == type) and (o.__flags__ & _TPFLAGS_HEAPTYPE) or\
@@ -1010,6 +1225,39 @@ def run_with_locale(catstr, *locales):
                 if locale and orig_locale:
                     locale.setlocale(category, orig_locale)
         inner.func_name = func.func_name
+        inner.__doc__ = func.__doc__
+        return inner
+    return decorator
+
+#=======================================================================
+# Decorator for running a function in a specific timezone, correctly
+# resetting it afterwards.
+
+def run_with_tz(tz):
+    def decorator(func):
+        def inner(*args, **kwds):
+            try:
+                tzset = time.tzset
+            except AttributeError:
+                raise unittest.SkipTest("tzset required")
+            if 'TZ' in os.environ:
+                orig_tz = os.environ['TZ']
+            else:
+                orig_tz = None
+            os.environ['TZ'] = tz
+            tzset()
+
+            # now run the function, resetting the tz on exceptions
+            try:
+                return func(*args, **kwds)
+            finally:
+                if orig_tz is None:
+                    del os.environ['TZ']
+                else:
+                    os.environ['TZ'] = orig_tz
+                time.tzset()
+
+        inner.__name__ = func.__name__
         inner.__doc__ = func.__doc__
         return inner
     return decorator
@@ -1132,6 +1380,8 @@ def _id(obj):
     return obj
 
 def requires_resource(resource):
+    if resource == 'gui' and not _is_gui_available():
+        return unittest.skip(_is_gui_available.reason)
     if is_resource_enabled(resource):
         return _id
     else:
@@ -1370,6 +1620,39 @@ def reap_children():
                 break
 
 @contextlib.contextmanager
+def start_threads(threads, unlock=None):
+    threads = list(threads)
+    started = []
+    try:
+        try:
+            for t in threads:
+                t.start()
+                started.append(t)
+        except:
+            if verbose:
+                print("Can't start %d threads, only %d threads started" %
+                      (len(threads), len(started)))
+            raise
+        yield
+    finally:
+        if unlock:
+            unlock()
+        endtime = starttime = time.time()
+        for timeout in range(1, 16):
+            endtime += 60
+            for t in started:
+                t.join(max(endtime - time.time(), 0.01))
+            started = [t for t in started if t.isAlive()]
+            if not started:
+                break
+            if verbose:
+                print('Unable to join %d threads during a period of '
+                      '%d minutes' % (len(started), timeout))
+    started = [t for t in started if t.isAlive()]
+    if started:
+        raise AssertionError('Unable to join %d threads' % len(started))
+
+@contextlib.contextmanager
 def swap_attr(obj, attr, new_val):
     """Temporary swap out an attribute with a new object.
 
@@ -1426,3 +1709,21 @@ def strip_python_stderr(stderr):
     """
     stderr = re.sub(br"\[\d+ refs\]\r?\n?$", b"", stderr).strip()
     return stderr
+
+
+def check_free_after_iterating(test, iter, cls, args=()):
+    class A(cls):
+        def __del__(self):
+            done[0] = True
+            try:
+                next(it)
+            except StopIteration:
+                pass
+
+    done = [False]
+    it = iter(A(*args))
+    # Issue 26494: Shouldn't crash
+    test.assertRaises(StopIteration, next, it)
+    # The sequence should be deallocated just after the end of iterating
+    gc_collect()
+    test.assertTrue(done[0])

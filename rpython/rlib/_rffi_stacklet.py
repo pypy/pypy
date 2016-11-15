@@ -3,7 +3,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform
 from rpython.rlib.rarithmetic import is_emulated_long
-from rpython.conftest import cdir
+from rpython.translator import cdir
 
 
 cdir = py.path.local(cdir)
@@ -19,14 +19,6 @@ if 'masm' in dir(eci.platform): # Microsoft compiler
     else:
         asmsrc = 'switch_x86_msvc.asm'
     eci.separate_module_files += (cdir / 'src' / 'stacklet' / asmsrc, )
-    eci.export_symbols += (
-        'stacklet_newthread',
-        'stacklet_deletethread',
-        'stacklet_new',
-        'stacklet_switch',
-        'stacklet_destroy',
-        '_stacklet_translate_pointer',
-        )
 
 rffi_platform.verify_eci(eci.convert_sources_to_files())
 

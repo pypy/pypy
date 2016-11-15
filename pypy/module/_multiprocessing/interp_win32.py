@@ -4,7 +4,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
-from pypy.interpreter.error import OperationError, wrap_windowserror
+from pypy.interpreter.error import oefmt, wrap_windowserror
 from pypy.interpreter.function import StaticMethod
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.module._multiprocessing.interp_connection import w_handle
@@ -17,7 +17,7 @@ CONSTANTS = """
     NMPWAIT_WAIT_FOREVER
     ERROR_PIPE_CONNECTED ERROR_SEM_TIMEOUT ERROR_PIPE_BUSY
     ERROR_NO_SYSTEM_RESOURCES ERROR_BROKEN_PIPE ERROR_MORE_DATA
-    ERROR_ALREADY_EXISTS
+    ERROR_ALREADY_EXISTS ERROR_NO_DATA
 """.split()
 
 class CConfig:
@@ -41,20 +41,24 @@ _CreateNamedPipe = rwin32.winexternal(
         rwin32.DWORD, rwin32.DWORD, rwin32.DWORD,
         rwin32.DWORD, rwin32.DWORD, rwin32.DWORD,
         rffi.VOIDP],
-    rwin32.HANDLE)
+    rwin32.HANDLE,
+    save_err=rffi.RFFI_SAVE_LASTERROR)
 
 _ConnectNamedPipe = rwin32.winexternal(
-    'ConnectNamedPipe', [rwin32.HANDLE, rffi.VOIDP], rwin32.BOOL)
+    'ConnectNamedPipe', [rwin32.HANDLE, rffi.VOIDP], rwin32.BOOL,
+    save_err=rffi.RFFI_SAVE_LASTERROR)
 
 _SetNamedPipeHandleState = rwin32.winexternal(
     'SetNamedPipeHandleState', [
         rwin32.HANDLE,
         rwin32.LPDWORD, rwin32.LPDWORD, rwin32.LPDWORD],
-    rwin32.BOOL)
+    rwin32.BOOL,
+    save_err=rffi.RFFI_SAVE_LASTERROR)
 
 _WaitNamedPipe = rwin32.winexternal(
     'WaitNamedPipeA', [rwin32.LPCSTR, rwin32.DWORD],
-    rwin32.BOOL)
+    rwin32.BOOL,
+    save_err=rffi.RFFI_SAVE_LASTERROR)
 
 _PeekNamedPipe = rwin32.winexternal(
     'PeekNamedPipe', [
@@ -62,31 +66,36 @@ _PeekNamedPipe = rwin32.winexternal(
         rffi.VOIDP,
         rwin32.DWORD,
         rwin32.LPDWORD, rwin32.LPDWORD, rwin32.LPDWORD],
-    rwin32.BOOL) 
+    rwin32.BOOL,
+    save_err=rffi.RFFI_SAVE_LASTERROR)
 
 _CreateFile = rwin32.winexternal(
     'CreateFileA', [
         rwin32.LPCSTR,
         rwin32.DWORD, rwin32.DWORD, rffi.VOIDP,
         rwin32.DWORD, rwin32.DWORD, rwin32.HANDLE],
-    rwin32.HANDLE)
+    rwin32.HANDLE,
+    save_err=rffi.RFFI_SAVE_LASTERROR)
 
 _WriteFile = rwin32.winexternal(
     'WriteFile', [
         rwin32.HANDLE,
         rffi.VOIDP, rwin32.DWORD,
         rwin32.LPDWORD, rffi.VOIDP],
-    rwin32.BOOL)
+    rwin32.BOOL,
+    save_err=rffi.RFFI_SAVE_LASTERROR)
 
 _ReadFile = rwin32.winexternal(
     'ReadFile', [
         rwin32.HANDLE,
         rffi.VOIDP, rwin32.DWORD,
         rwin32.LPDWORD, rffi.VOIDP],
-    rwin32.BOOL)
+    rwin32.BOOL,
+    save_err=rffi.RFFI_SAVE_LASTERROR)
 
 _ExitProcess = rwin32.winexternal(
-    'ExitProcess', [rffi.UINT], lltype.Void)
+    'ExitProcess', [rffi.UINT], lltype.Void,
+    save_err=rffi.RFFI_SAVE_LASTERROR)
 
 _GetTickCount = rwin32.winexternal(
     'GetTickCount', [], rwin32.DWORD)
@@ -97,10 +106,10 @@ _Sleep = rwin32.winexternal(
 def CloseHandle(space, w_handle):
     handle = handle_w(space, w_handle)
     if not rwin32.CloseHandle(handle):
-        raise wrap_windowserror(space, rwin32.lastWindowsError())
+        raise wrap_windowserror(space, rwin32.lastSavedWindowsError())
 
 def GetLastError(space):
-    return space.wrap(rwin32.GetLastError())
+    return space.wrap(rwin32.GetLastError_saved())
 
 # __________________________________________________________
 # functions for the "win32" namespace
@@ -111,14 +120,13 @@ def CreateNamedPipe(space, name, openmode, pipemode, maxinstances,
                     outputsize, inputsize, timeout, w_security):
     security = space.int_w(w_security)
     if security:
-        raise OperationError(space.w_NotImplementedError,
-                             space.wrap("expected a NULL pointer"))
+        raise oefmt(space.w_NotImplementedError, "expected a NULL pointer")
     handle = _CreateNamedPipe(
         name, openmode, pipemode, maxinstances,
         outputsize, inputsize, timeout, rffi.NULL)
 
     if handle == rwin32.INVALID_HANDLE_VALUE:
-        raise wrap_windowserror(space, rwin32.lastWindowsError())
+        raise wrap_windowserror(space, rwin32.lastSavedWindowsError())
 
     return w_handle(space, handle)
 
@@ -126,10 +134,9 @@ def ConnectNamedPipe(space, w_handle, w_overlapped):
     handle = handle_w(space, w_handle)
     overlapped = space.int_w(w_overlapped)
     if overlapped:
-        raise OperationError(space.w_NotImplementedError,
-                             space.wrap("expected a NULL pointer"))
+        raise oefmt(space.w_NotImplementedError, "expected a NULL pointer")
     if not _ConnectNamedPipe(handle, rffi.NULL):
-        raise wrap_windowserror(space, rwin32.lastWindowsError())
+        raise wrap_windowserror(space, rwin32.lastSavedWindowsError())
 
 def SetNamedPipeHandleState(space, w_handle, w_pipemode, w_maxinstances,
                             w_timeout):
@@ -149,7 +156,7 @@ def SetNamedPipeHandleState(space, w_handle, w_pipemode, w_maxinstances,
             statep[2] = rffi.ptradd(state, 2)
         if not _SetNamedPipeHandleState(handle, statep[0], statep[1],
                                         statep[2]):
-            raise wrap_windowserror(space, rwin32.lastWindowsError())
+            raise wrap_windowserror(space, rwin32.lastSavedWindowsError())
     finally:
         lltype.free(state, flavor='raw')
         lltype.free(statep, flavor='raw')
@@ -158,7 +165,7 @@ def SetNamedPipeHandleState(space, w_handle, w_pipemode, w_maxinstances,
 def WaitNamedPipe(space, name, timeout):
     # Careful: zero means "default value specified by CreateNamedPipe()"
     if not _WaitNamedPipe(name, timeout):
-        raise wrap_windowserror(space, rwin32.lastWindowsError())
+        raise wrap_windowserror(space, rwin32.lastSavedWindowsError())
 
 @unwrap_spec(filename=str, access=r_uint, share=r_uint,
              disposition=r_uint, flags=r_uint)
@@ -167,14 +174,13 @@ def CreateFile(space, filename, access, share, w_security,
     security = space.int_w(w_security)
     templatefile = space.int_w(w_templatefile)
     if security or templatefile:
-        raise OperationError(space.w_NotImplementedError,
-                             space.wrap("expected a NULL pointer"))
+        raise oefmt(space.w_NotImplementedError, "expected a NULL pointer")
 
     handle = _CreateFile(filename, access, share, rffi.NULL,
                          disposition, flags, rwin32.NULL_HANDLE)
 
     if handle == rwin32.INVALID_HANDLE_VALUE:
-        raise wrap_windowserror(space, rwin32.lastWindowsError())
+        raise wrap_windowserror(space, rwin32.lastSavedWindowsError())
 
     return w_handle(space, handle)
 

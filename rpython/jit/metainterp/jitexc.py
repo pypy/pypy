@@ -1,6 +1,7 @@
 from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
 from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
-from rpython.rtyper.lltypesystem import lltype, rclass
+from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper import rclass
 from rpython.rtyper.llinterp import LLException
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.codewriter import longlong
@@ -59,6 +60,14 @@ class ContinueRunningNormally(JitException):
         return 'ContinueRunningNormally(%s, %s, %s, %s, %s, %s)' % (
             self.green_int, self.green_ref, self.green_float,
             self.red_int, self.red_ref, self.red_float)
+
+class NotAVectorizeableLoop(JitException):
+    def __str__(self):
+        return 'NotAVectorizeableLoop()'
+
+class NotAProfitableLoop(JitException):
+    def __str__(self):
+        return 'NotAProfitableLoop()'
 
 
 def _get_standard_error(rtyper, Class):

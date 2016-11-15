@@ -1,8 +1,9 @@
 # The TkApp class.
 
-from .tklib import tklib, tkffi
+from .tklib_cffi import ffi as tkffi, lib as tklib
 from . import TclError
-from .tclobj import TclObject, FromObj, AsObj, TypeCache
+from .tclobj import (TclObject, FromObj, FromTclString, AsObj, TypeCache,
+                     FromBignumObj, FromWideIntObj)
 
 import contextlib
 import sys
@@ -25,6 +26,8 @@ class _DummyLock(object):
 def varname_converter(input):
     if isinstance(input, TclObject):
         return input.string
+    if b'\0' in input:
+        raise ValueError("NUL character in string")
     return input
 
 
@@ -55,7 +58,7 @@ class _CommandData(object):
         assert self.app.interp == interp
         with self.app._tcl_lock_released():
             try:
-                args = [tkffi.string(arg) for arg in argv[1:argc]]
+                args = [FromTclString(tkffi.string(arg)) for arg in argv[1:argc]]
                 result = self.func(*args)
                 obj = AsObj(result)
                 tklib.Tcl_SetObjResult(interp, obj)
@@ -94,7 +97,7 @@ class TkApp(object):
 
         if not self.threaded:
             # TCL is not thread-safe, calls needs to be serialized.
-            self._tcl_lock = threading.Lock()
+            self._tcl_lock = threading.RLock()
         else:
             self._tcl_lock = _DummyLock()
 
@@ -139,6 +142,7 @@ class TkApp(object):
 
         Tcl_AppInit(self)
         # EnableEventHook()
+        self._typeCache.add_extra_types(self)
         return self
 
     def __del__(self):
@@ -436,12 +440,90 @@ class TkApp(object):
             tklib.Tcl_Free(argv[0])
 
     def getboolean(self, s):
-        if isinstance(s, int):
-            return s
+        if isinstance(s, (int, long)):
+            return bool(s)
+        if isinstance(s, unicode):
+            s = str(s)
+        if '\x00' in s:
+            raise TypeError
         v = tkffi.new("int*")
         res = tklib.Tcl_GetBoolean(self.interp, s, v)
         if res == tklib.TCL_ERROR:
             self.raiseTclError()
+        return bool(v[0])
+
+    def getint(self, s):
+        if isinstance(s, (int, long)):
+            return s
+        if isinstance(s, unicode):
+            s = str(s)
+        if '\x00' in s:
+            raise TypeError
+        if tklib.HAVE_LIBTOMMATH or tklib.HAVE_WIDE_INT_TYPE:
+            value = tklib.Tcl_NewStringObj(s, -1)
+            if not value:
+                self.raiseTclError()
+            try:
+                if tklib.HAVE_LIBTOMMATH:
+                    return FromBignumObj(self, value)
+                else:
+                    return FromWideIntObj(self, value)
+            finally:
+                tklib.Tcl_DecrRefCount(value)
+        else:
+            v = tkffi.new("int*")
+            res = tklib.Tcl_GetInt(self.interp, s, v)
+            if res == tklib.TCL_ERROR:
+                self.raiseTclError()
+            return v[0]
+
+    def getdouble(self, s):
+        if isinstance(s, float):
+            return s
+        if isinstance(s, unicode):
+            s = str(s)
+        if '\x00' in s:
+            raise TypeError
+        v = tkffi.new("double*")
+        res = tklib.Tcl_GetDouble(self.interp, s, v)
+        if res == tklib.TCL_ERROR:
+            self.raiseTclError()
+        return v[0]
+
+    def exprboolean(self, s):
+        if '\x00' in s:
+            raise TypeError
+        v = tkffi.new("int*")
+        res = tklib.Tcl_ExprBoolean(self.interp, s, v)
+        if res == tklib.TCL_ERROR:
+            self.raiseTclError()
+        return v[0]
+
+    def exprlong(self, s):
+        if '\x00' in s:
+            raise TypeError
+        v = tkffi.new("long*")
+        res = tklib.Tcl_ExprLong(self.interp, s, v)
+        if res == tklib.TCL_ERROR:
+            self.raiseTclError()
+        return v[0]
+
+    def exprdouble(self, s):
+        if '\x00' in s:
+            raise TypeError
+        v = tkffi.new("double*")
+        res = tklib.Tcl_ExprDouble(self.interp, s, v)
+        if res == tklib.TCL_ERROR:
+            self.raiseTclError()
+        return v[0]
+
+    def exprstring(self, s):
+        if '\x00' in s:
+            raise TypeError
+        res = tklib.Tcl_ExprString(self.interp, s)
+        if res == tklib.TCL_ERROR:
+            self.raiseTclError()
+        return tkffi.string(tklib.Tcl_GetStringResult(self.interp))
 
     def mainloop(self, threshold):
         self._check_tcl_appartment()
@@ -467,3 +549,13 @@ class TkApp(object):
 
     def quit(self):
         self.quitMainLoop = True
+
+    def _createbytearray(self, buf):
+        """Convert Python string or any buffer compatible object to Tcl
+        byte-array object.  Use it to pass binary data (e.g. image's
+        data) to Tcl/Tk commands."""
+        cdata = tkffi.new("char[]", buf)
+        res = tklib.Tcl_NewByteArrayObj(cdata, len(buf))
+        if not res:
+            self.raiseTclError()
+        return TclObject(res)

@@ -35,6 +35,8 @@ public:
     virtual base_class* cycle(base_class* b) { return b; }
     virtual base_class* clone() { return new base_class; }
 
+    virtual void* mask(void* p) { return p; }
+
 public:
     int m_b;
     double m_db;

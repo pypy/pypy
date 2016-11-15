@@ -225,6 +225,12 @@ class AppTestItertools:
             assert it.next() == x
         raises(StopIteration, it.next)
 
+        # CPython implementation allows floats
+        it = itertools.islice([1, 2, 3, 4, 5], 0.0, 3.0, 2.0)
+        for x in [1, 3]:
+            assert it.next() == x
+        raises(StopIteration, it.next)
+
         it = itertools.islice([1, 2, 3], 0, None)
         for x in [1, 2, 3]:
             assert it.next() == x
@@ -236,6 +242,19 @@ class AppTestItertools:
         assert list(itertools.islice(xrange(10), None)) == range(10)
         assert list(itertools.islice(xrange(10), None,None)) == range(10)
         assert list(itertools.islice(xrange(10), None,None,None)) == range(10)
+
+        # check source iterator is not referenced from islice()
+        # after the latter has been exhausted
+        import weakref
+        for args in [(1,), (None,), (0, None, 2)]:
+            it = (x for x in (1, 2, 3))
+            wr = weakref.ref(it)
+            it = itertools.islice(it, *args)
+            assert wr() is not None
+            list(it)  # exhaust the iterator
+            import gc; gc.collect()
+            assert wr() is None
+            raises(StopIteration, next, it)
 
     def test_islice_dropitems_exact(self):
         import itertools
@@ -413,7 +432,7 @@ class AppTestItertools:
             args = [()] * x + [None] + [()] * (9 - x)
             try:
                 itertools.izip(*args)
-            except TypeError, e:
+            except TypeError as e:
                 assert str(e).find("#" + str(x + 1) + " ") >= 0
             else:
                 fail("TypeError expected")
@@ -682,6 +701,48 @@ class AppTestItertools:
         assert x == 'b'
         x = d.next()
         assert x == 'b'
+
+    def test_tee_defines_copy(self):
+        import itertools
+        a, b = itertools.tee('abc')
+        c = b.__copy__()
+        assert list(a) == ['a', 'b', 'c']
+        assert list(b) == ['a', 'b', 'c']
+        assert list(c) == ['a', 'b', 'c']
+        a, = itertools.tee('abc', 1)
+        x = a.next()
+        assert x == 'a'
+        b = a.__copy__()
+        x = a.next()
+        assert x == 'b'
+        x = b.next()
+        assert x == 'b'
+
+    def test_tee_function_uses_copy(self):
+        import itertools
+        class MyIterator(object):
+            def __iter__(self):
+                return self
+            def next(self):
+                raise NotImplementedError
+            def __copy__(self):
+                return iter('def')
+        my = MyIterator()
+        a, = itertools.tee(my, 1)
+        assert a is my
+        a, b = itertools.tee(my)
+        assert a is my
+        assert b is not my
+        assert list(b) == ['d', 'e', 'f']
+        # this gives AttributeError because it tries to call
+        # my.__copy__().__copy__() and there isn't one
+        raises(AttributeError, itertools.tee, my, 3)
+
+    def test_tee_function_empty(self):
+        import itertools
+        assert itertools.tee('abc', 0) == ()
+        a, = itertools.tee('abc', 1)
+        assert itertools.tee(a, 0) == ()
 
 
 class AppTestItertools26:
@@ -1072,3 +1133,18 @@ class AppTestItertools27:
                 assert list(itertools.islice(c2, 3)) == expected
                 c3 = pickle.loads(pickle.dumps(c))
                 assert list(itertools.islice(c3, 3)) == expected
+
+    def test_islice_attack(self):
+        import itertools
+        class Iterator(object):
+            first = True
+            def __iter__(self):
+                return self
+            def next(self):
+                if self.first:
+                    self.first = False
+                    list(islice)
+                return 52
+        myiter = Iterator()
+        islice = itertools.islice(myiter, 5, 8)
+        raises(StopIteration, islice.next)

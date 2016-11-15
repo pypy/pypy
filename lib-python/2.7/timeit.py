@@ -13,7 +13,7 @@ Command line usage:
 
 Options:
   -n/--number N: how many times to execute 'statement' (default: see below)
-  -r/--repeat N: how many times to repeat the timer (default 3)
+  -r/--repeat N: how many times to repeat the timer (default 7)
   -s/--setup S: statement to be executed once initially (default 'pass')
   -t/--time: use time.time() (default on Unix)
   -c/--clock: use time.clock() (default on Windows)
@@ -53,19 +53,16 @@ instructions.
 """
 
 import gc
+import math
+import os
 import sys
 import time
-try:
-    import itertools
-except ImportError:
-    # Must be an older Python version (see timeit() below)
-    itertools = None
 
 __all__ = ["Timer"]
 
 dummy_src_name = "<timeit-src>"
 default_number = 1000000
-default_repeat = 3
+default_repeat = 7
 
 if sys.platform == "win32":
     # On Windows, the best timer is time.clock()
@@ -78,10 +75,11 @@ else:
 # in Timer.__init__() depend on setup being indented 4 spaces and stmt
 # being indented 8 spaces.
 template = """
-def inner(_it, _timer):
+def inner(_it, _timer%(init)s):
     %(setup)s
     _t0 = _timer()
-    for _i in _it:
+    while _it > 0:
+        _it -= 1
         %(stmt)s
     _t1 = _timer()
     return _t1 - _t0
@@ -96,7 +94,8 @@ def _template_func(setup, func):
     def inner(_it, _timer, _func=func):
         setup()
         _t0 = _timer()
-        for _i in _it:
+        while _it > 0:
+            _it -= 1
             _func()
         _t1 = _timer()
         return _t1 - _t0
@@ -123,19 +122,36 @@ class Timer:
         self.timer = timer
         ns = {}
         if isinstance(stmt, basestring):
+            # Check that the code can be compiled outside a function
+            if isinstance(setup, basestring):
+                compile(setup, dummy_src_name, "exec")
+                compile(setup + '\n' + stmt, dummy_src_name, "exec")
+            else:
+                compile(stmt, dummy_src_name, "exec")
             stmt = reindent(stmt, 8)
             if isinstance(setup, basestring):
                 setup = reindent(setup, 4)
-                src = template % {'stmt': stmt, 'setup': setup}
+                src = template % {'stmt': stmt, 'setup': setup, 'init': ''}
             elif hasattr(setup, '__call__'):
-                src = template % {'stmt': stmt, 'setup': '_setup()'}
+                src = template % {'stmt': stmt, 'setup': '_setup()',
+                                  'init': ', _setup=_setup'}
                 ns['_setup'] = setup
             else:
                 raise ValueError("setup is neither a string nor callable")
             self.src = src # Save for traceback display
-            code = compile(src, dummy_src_name, "exec")
-            exec code in globals(), ns
-            self.inner = ns["inner"]
+            def make_inner():
+                # PyPy tweak: recompile the source code each time before
+                # calling inner(). There are situations like Issue #1776
+                # where PyPy tries to reuse the JIT code from before,
+                # but that's not going to work: the first thing the
+                # function does is the "-s" statement, which may declare
+                # new classes (here a namedtuple). We end up with
+                # bridges from the inner loop; more and more of them
+                # every time we call inner().
+                code = compile(src, dummy_src_name, "exec")
+                exec code in globals(), ns
+                return ns["inner"]
+            self.make_inner = make_inner
         elif hasattr(stmt, '__call__'):
             self.src = None
             if isinstance(setup, basestring):
@@ -144,7 +160,8 @@ class Timer:
                     exec _setup in globals(), ns
             elif not hasattr(setup, '__call__'):
                 raise ValueError("setup is neither a string nor callable")
-            self.inner = _template_func(setup, stmt)
+            inner = _template_func(setup, stmt)
+            self.make_inner = lambda: inner
         else:
             raise ValueError("stmt is neither a string nor callable")
 
@@ -185,15 +202,12 @@ class Timer:
         to one million.  The main statement, the setup statement and
         the timer function to be used are passed to the constructor.
         """
-        if itertools:
-            it = itertools.repeat(None, number)
-        else:
-            it = [None] * number
+        inner = self.make_inner()
         gcold = gc.isenabled()
         if '__pypy__' not in sys.builtin_module_names:
             gc.disable()    # only do that on CPython
         try:
-            timing = self.inner(it, self.timer)
+            timing = inner(number, self.timer)
         finally:
             if gcold:
                 gc.enable()
@@ -235,10 +249,10 @@ def repeat(stmt="pass", setup="pass", timer=default_timer,
     """Convenience function to create Timer object and call repeat method."""
     return Timer(stmt, setup, timer).repeat(repeat, number)
 
-def main(args=None):
+def main(args=None, _wrap_timer=None):
     """Main program, used when run as a script.
 
-    The optional argument specifies the command line to be parsed,
+    The optional 'args' argument specifies the command line to be parsed,
     defaulting to sys.argv[1:].
 
     The return value is an exit code to be passed to sys.exit(); it
@@ -247,9 +261,14 @@ def main(args=None):
     When an exception happens during timing, a traceback is printed to
     stderr and the return value is 1.  Exceptions at other times
     (including the template compilation) are not caught.
+
+    '_wrap_timer' is an internal interface used for unit testing.  If it
+    is not None, it must be a callable that accepts a timer function
+    and returns another timer function (used for unit testing).
     """
     if args is None:
         args = sys.argv[1:]
+    origargs = args
     import getopt
     try:
         opts, args = getopt.getopt(args, "n:s:r:tcvh",
@@ -266,6 +285,7 @@ def main(args=None):
     repeat = default_repeat
     verbose = 0
     precision = 3
+    units = {"sec": 1, "msec": 1e3, "usec": 1e6, "ns": 1e9}
     for o, a in opts:
         if o in ("-n", "--number"):
             number = int(a)
@@ -287,15 +307,25 @@ def main(args=None):
             print __doc__,
             return 0
     setup = "\n".join(setup) or "pass"
+
+    print "WARNING: timeit is a very unreliable tool. use perf or something else for real measurements"
+    executable = os.path.basename(sys.executable)
+    print "%s -m pip install perf" % executable
+    print "%s -m perf timeit %s" % (
+        executable,
+        " ".join([(arg if arg.startswith("-") else repr(arg))
+                        for arg in origargs]), )
+    print "-" * 60
     # Include the current directory, so that local imports work (sys.path
     # contains the directory of this script, rather than the current
     # directory)
-    import os
     sys.path.insert(0, os.curdir)
+    if _wrap_timer is not None:
+        timer = _wrap_timer(timer)
     t = Timer(stmt, setup, timer)
     if number == 0:
         # determine number so that 0.2 <= total time < 2.0
-        for i in range(1, 10):
+        for i in range(0, 10):
             number = 10**i
             try:
                 x = t.timeit(number)
@@ -307,24 +337,34 @@ def main(args=None):
             if x >= 0.2:
                 break
     try:
-        r = t.repeat(repeat, number)
+        timings = t.repeat(repeat, number)
     except:
         t.print_exc()
         return 1
-    best = min(r)
     if verbose:
-        print "raw times:", " ".join(["%.*g" % (precision, x) for x in r])
-    print "%d loops," % number,
-    usec = best * 1e6 / number
-    if usec < 1000:
-        print "best of %d: %.*g usec per loop" % (repeat, precision, usec)
-    else:
-        msec = usec / 1000
-        if msec < 1000:
-            print "best of %d: %.*g msec per loop" % (repeat, precision, msec)
-        else:
-            sec = msec / 1000
-            print "best of %d: %.*g sec per loop" % (repeat, precision, sec)
+        print "raw times:", " ".join(["%.*g" % (precision, x) for x in timings])
+
+    timings = [dt / number for dt in timings]
+
+    def _avg(l):
+        return math.fsum(l) / len(l)
+    def _stdev(l):
+        avg = _avg(l)
+        return (math.fsum([(x - avg) ** 2 for x in l]) / len(l)) ** 0.5
+
+    average = _avg(timings)
+
+    scales = [(scale, unit) for unit, scale in units.items()]
+    scales.sort()
+    for scale, time_unit in scales:
+        if average * scale >= 1.0:
+             break
+
+    stdev = _stdev(timings)
+    print("%s loops, average of %d: %.*g +- %.*g %s per loop (using standard deviation)"
+          % (number, repeat,
+             precision, average * scale,
+             precision, stdev * scale, time_unit))
     return None
 
 if __name__ == "__main__":

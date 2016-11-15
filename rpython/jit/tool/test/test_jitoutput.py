@@ -21,7 +21,7 @@ def test_really_run():
 
     cap = py.io.StdCaptureFD()
     try:
-        ll_meta_interp(f, [10], CPUClass=runner.LLGraphCPU, type_system='lltype',
+        ll_meta_interp(f, [10], CPUClass=runner.LLGraphCPU,
                        ProfilerClass=Profiler)
     finally:
         out, err = cap.reset()
@@ -38,8 +38,8 @@ def test_really_run():
     assert info.ops.total == 2
     assert info.recorded_ops.total == 2
     assert info.recorded_ops.calls == 0
-    assert info.guards == 1
-    assert info.opt_ops == 13
+    assert info.guards == 2
+    assert info.opt_ops == 11
     assert info.opt_guards == 2
     assert info.forcings == 0
 
@@ -52,6 +52,7 @@ recorded ops:           6
 guards:                 1
 opt ops:                6
 opt guards:             1
+opt guards shared:      1
 forcings:               1
 abort: trace too long:  10
 abort: compiling:       11
@@ -61,6 +62,8 @@ abort: force quasi-immut: 3
 nvirtuals:              13
 nvholes:                14
 nvreused:               15
+vecopt tried:           12
+vecopt success:         4
 Total # of loops:       100
 Total # of bridges:     300
 Freed # of loops:       99
@@ -88,3 +91,5 @@ def test_parse():
     assert info.nvirtuals == 13
     assert info.nvholes == 14
     assert info.nvreused == 15
+    assert info.vecopt_tried == 12
+    assert info.vecopt_success == 4

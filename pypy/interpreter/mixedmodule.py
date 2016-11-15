@@ -3,17 +3,17 @@ from pypy.interpreter.function import Function, BuiltinFunction
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root
-import os, sys
+import sys
 
 class MixedModule(Module):
     applevel_name = None
-    expose__file__attribute = True
 
     # The following attribute is None as long as the module has not been
     # imported yet, and when it has been, it is mod.__dict__.items() just
     # after startup().
     w_initialdict = None
     lazy = False
+    submodule_name = None
 
     def __init__(self, space, w_name):
         """ NOT_RPYTHON """
@@ -31,6 +31,8 @@ class MixedModule(Module):
             space = self.space
             name = space.unwrap(self.w_name)
             for sub_name, module_cls in self.submodules.iteritems():
+                if module_cls.submodule_name is None:
+                    module_cls.submodule_name = sub_name
                 module_name = space.wrap("%s.%s" % (name, sub_name))
                 m = module_cls(space, module_name)
                 m.install()
@@ -53,9 +55,12 @@ class MixedModule(Module):
         if self.w_initialdict is None:
             Module.init(self, space)
             if not self.lazy and self.w_initialdict is None:
-                self.w_initialdict = space.call_method(self.w_dict, 'items')
+                self.save_module_content_for_future_reload()
 
+    def save_module_content_for_future_reload(self):
+        self.w_initialdict = self.space.call_method(self.w_dict, 'items')
 
+    @classmethod
     def get_applevel_name(cls):
         """ NOT_RPYTHON """
         if cls.applevel_name is not None:
@@ -63,7 +68,6 @@ class MixedModule(Module):
         else:
             pkgroot = cls.__module__
             return pkgroot.split('.')[-1]
-    get_applevel_name = classmethod(get_applevel_name)
 
     def get(self, name):
         space = self.space
@@ -98,7 +102,7 @@ class MixedModule(Module):
             # be normal Functions to get the correct binding behaviour
             func = w_value
             if (isinstance(func, Function) and
-                type(func) is not BuiltinFunction):
+                    type(func) is not BuiltinFunction):
                 try:
                     bltin = func._builtinversion_
                 except AttributeError:
@@ -110,14 +114,13 @@ class MixedModule(Module):
             space.setitem(self.w_dict, w_name, w_value)
             return w_value
 
-
     def getdict(self, space):
         if self.lazy:
             for name in self.loaders:
                 w_value = self.get(name)
                 space.setitem(self.w_dict, space.new_interned_str(name), w_value)
             self.lazy = False
-            self.w_initialdict = space.call_method(self.w_dict, 'items')
+            self.save_module_content_for_future_reload()
         return self.w_dict
 
     def _cleanup_(self):
@@ -126,6 +129,7 @@ class MixedModule(Module):
         self.startup_called = False
         self._frozen = True
 
+    @classmethod
     def buildloaders(cls):
         """ NOT_RPYTHON """
         if not hasattr(cls, 'loaders'):
@@ -134,17 +138,15 @@ class MixedModule(Module):
             cls.loaders = loaders = {}
             pkgroot = cls.__module__
             appname = cls.get_applevel_name()
+            if cls.submodule_name is not None:
+                appname += '.%s' % (cls.submodule_name,)
             for name, spec in cls.interpleveldefs.items():
                 loaders[name] = getinterpevalloader(pkgroot, spec)
             for name, spec in cls.appleveldefs.items():
                 loaders[name] = getappfileloader(pkgroot, appname, spec)
             assert '__file__' not in loaders
-            if cls.expose__file__attribute:
-                loaders['__file__'] = cls.get__file__
             if '__doc__' not in loaders:
                 loaders['__doc__'] = cls.get__doc__
-
-    buildloaders = classmethod(buildloaders)
 
     def extra_interpdef(self, name, spec):
         cls = self.__class__
@@ -154,43 +156,21 @@ class MixedModule(Module):
         w_obj = loader(space)
         space.setattr(space.wrap(self), space.wrap(name), w_obj)
 
-    def get__file__(cls, space):
-        """ NOT_RPYTHON.
-        return the __file__ attribute of a MixedModule
-        which is the root-directory for the various
-        applevel and interplevel snippets that make
-        up the module.
-        """
-        try:
-            fname = cls._fname
-        except AttributeError:
-            pkgroot = cls.__module__
-            mod = __import__(pkgroot, None, None, ['__doc__'])
-            fname = mod.__file__
-            assert os.path.basename(fname).startswith('__init__.py')
-            # make it clear that it's not really the interp-level module
-            # at this path that we are seeing, but an app-level version of it
-            fname = os.path.dirname(fname)
-            cls._fname = fname
-        return space.wrap(fname)
-
-    get__file__ = classmethod(get__file__)
-
+    @classmethod
     def get__doc__(cls, space):
         return space.wrap(cls.__doc__)
-    get__doc__ = classmethod(get__doc__)
 
 
 def getinterpevalloader(pkgroot, spec):
     """ NOT_RPYTHON """
     def ifileloader(space):
-        d = {'space' : space}
+        d = {'space':space}
         # EVIL HACK (but it works, and this is not RPython :-)
         while 1:
             try:
                 value = eval(spec, d)
-            except NameError, ex:
-                name = ex.args[0].split("'")[1] # super-Evil
+            except NameError as ex:
+                name = ex.args[0].split("'")[1]  # super-Evil
                 if name in d:
                     raise   # propagate the NameError
                 try:

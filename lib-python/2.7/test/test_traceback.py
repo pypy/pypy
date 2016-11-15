@@ -1,12 +1,12 @@
 """Test cases for traceback module"""
 
-from _testcapi import traceback_print
 from StringIO import StringIO
 import sys
 import unittest
 from imp import reload
-from test.test_support import run_unittest, Error
-from test.test_support import impl_detail, check_impl_detail
+from test.test_support import (run_unittest, is_jython, Error, cpython_only,
+                               captured_output)
+from test.test_support import check_impl_detail, impl_detail
 
 import traceback
 
@@ -35,6 +35,9 @@ class TracebackCases(unittest.TestCase):
 
     def syntax_error_bad_indentation(self):
         compile("def spam():\n  print 1\n print 2", "?", "exec")
+
+    def syntax_error_bad_indentation2(self):
+        compile(" print(2)", "?", "exec")
 
     def test_caret(self):
         err = self.get_exception_format(self.syntax_error_with_caret,
@@ -115,6 +118,16 @@ def test():
                 os.unlink(os.path.join(testdir, f))
             os.rmdir(testdir)
 
+        err = self.get_exception_format(self.syntax_error_bad_indentation2,
+                                        IndentationError)
+        self.assertEqual(len(err), 4)
+        self.assertEqual(err[1].strip(), "print(2)")
+        self.assertIn("^", err[2])
+        if check_impl_detail():
+            self.assertEqual(err[1].find("p"), err[2].find("^"))
+        if check_impl_detail(pypy=True):
+            self.assertEqual(err[1].find("2)") + 1, err[2].find("^"))
+
     def test_base_exception(self):
         # Test that exceptions derived from BaseException are formatted right
         e = KeyboardInterrupt()
@@ -175,7 +188,9 @@ def test():
 
 class TracebackFormatTests(unittest.TestCase):
 
+    @cpython_only
     def test_traceback_format(self):
+        from _testcapi import traceback_print
         try:
             raise KeyError('blah')
         except KeyError:
@@ -199,9 +214,53 @@ class TracebackFormatTests(unittest.TestCase):
         self.assertTrue(location.startswith('  File'))
         self.assertTrue(source_line.startswith('    raise'))
 
+    def test_print_stack(self):
+        def prn():
+            traceback.print_stack()
+        with captured_output("stderr") as stderr:
+            prn()
+        lineno = prn.__code__.co_firstlineno
+        file = prn.__code__.co_filename
+        self.assertEqual(stderr.getvalue().splitlines()[-4:], [
+            '  File "%s", line %d, in test_print_stack' % (file, lineno+3),
+            '    prn()',
+            '  File "%s", line %d, in prn' % (file, lineno+1),
+            '    traceback.print_stack()',
+        ])
+
+    def test_format_stack(self):
+        def fmt():
+            return traceback.format_stack()
+        result = fmt()
+        lineno = fmt.__code__.co_firstlineno
+        file = fmt.__code__.co_filename
+        self.assertEqual(result[-2:], [
+            '  File "%s", line %d, in test_format_stack\n'
+            '    result = fmt()\n' % (file, lineno+2),
+            '  File "%s", line %d, in fmt\n'
+            '    return traceback.format_stack()\n' % (file, lineno+1),
+        ])
+
+
+class MiscTracebackCases(unittest.TestCase):
+    #
+    # Check non-printing functions in traceback module
+    #
+
+    def test_extract_stack(self):
+        def extract():
+            return traceback.extract_stack()
+        result = extract()
+        lineno = extract.__code__.co_firstlineno
+        file = extract.__code__.co_filename
+        self.assertEqual(result[-2:], [
+            (file, lineno+2, 'test_extract_stack', 'result = extract()'),
+            (file, lineno+1, 'extract', 'return traceback.extract_stack()'),
+        ])
+
 
 def test_main():
-    run_unittest(TracebackCases, TracebackFormatTests)
+    run_unittest(TracebackCases, TracebackFormatTests, MiscTracebackCases)
 
 
 if __name__ == "__main__":

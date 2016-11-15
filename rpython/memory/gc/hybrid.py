@@ -167,7 +167,7 @@ class HybridGC(GenerationGC):
                                                 llmemory.GCREF)
         return self.malloc_varsize_slowpath(typeid, length)
 
-    def malloc_varsize_slowpath(self, typeid, length, force_nonmovable=False):
+    def malloc_varsize_slowpath(self, typeid, length):
         # For objects that are too large, or when the nursery is exhausted.
         # In order to keep malloc_varsize_clear() as compact as possible,
         # we recompute what we need in this slow path instead of passing
@@ -185,7 +185,7 @@ class HybridGC(GenerationGC):
             nonlarge_max = self.nonlarge_gcptrs_max
         else:
             nonlarge_max = self.nonlarge_max
-        if force_nonmovable or raw_malloc_usage(totalsize) > nonlarge_max:
+        if raw_malloc_usage(totalsize) > nonlarge_max:
             result = self.malloc_varsize_marknsweep(totalsize)
             flags = self.GCFLAGS_FOR_NEW_EXTERNAL_OBJECTS | GCFLAG_UNVISITED
         else:
@@ -196,17 +196,6 @@ class HybridGC(GenerationGC):
         return llmemory.cast_adr_to_ptr(result+size_gc_header, llmemory.GCREF)
 
     malloc_varsize_slowpath._dont_inline_ = True
-
-    def malloc_varsize_nonmovable(self, typeid, length):
-        return self.malloc_varsize_slowpath(typeid, length, True)
-
-    def malloc_nonmovable(self, typeid, length, zero):
-        # helper for testing, same as GCBase.malloc
-        if self.is_varsize(typeid):
-            gcref = self.malloc_varsize_slowpath(typeid, length, True)
-        else:
-            raise NotImplementedError("Not supported")
-        return llmemory.cast_ptr_to_adr(gcref)
 
     def can_move(self, addr):
         tid = self.header(addr).tid
@@ -554,6 +543,3 @@ class HybridGC(GenerationGC):
                   "gen3: unexpected GCFLAG_UNVISITED")
         ll_assert((tid & GCFLAG_AGE_MASK) == GCFLAG_AGE_MAX,
                   "gen3: wrong age field")
-
-    def can_malloc_nonmovable(self):
-        return True

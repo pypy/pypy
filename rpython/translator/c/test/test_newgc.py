@@ -2,6 +2,8 @@ import gc
 import inspect
 import os
 import sys
+import subprocess
+import random
 
 import py
 
@@ -22,7 +24,6 @@ class UsingFrameworkTest(object):
     removetypeptr = False
     taggedpointers = False
     GC_CAN_MOVE = False
-    GC_CAN_MALLOC_NONMOVABLE = True
     GC_CAN_SHRINK_ARRAY = False
 
     _isolated_func = None
@@ -51,8 +52,8 @@ class UsingFrameworkTest(object):
             t.viewcg()
         exename = t.compile()
 
-        def run(s, i):
-            data = py.process.cmdexec("%s %s %d" % (exename, s, i))
+        def run(s, i, runner=subprocess.check_output):
+            data = runner([str(exename), str(s), str(i)])
             data = data.strip()
             if data == 'MEMORY-ERROR':
                 raise MemoryError
@@ -69,7 +70,7 @@ class UsingFrameworkTest(object):
             if not fullname.startswith('define'):
                 continue
             keyword = option.keyword
-            if keyword.startswith('test_'):
+            if keyword.startswith('test_') and not keyword.endswith(':'):
                 keyword = keyword[len('test_'):]
                 if keyword not in fullname:
                     continue
@@ -93,6 +94,7 @@ class UsingFrameworkTest(object):
                     funcs1.append(func)
             assert name not in name_to_func
             name_to_func[name] = len(name_to_func)
+        assert name_to_func
 
         def allfuncs(name, arg):
             num = name_to_func[name]
@@ -116,11 +118,11 @@ class UsingFrameworkTest(object):
             cls.c_allfuncs.close_isolate()
             cls.c_allfuncs = None
 
-    def run(self, name, *args):
+    def run(self, name, *args, **kwds):
         if not args:
             args = (-1, )
         print 'Running %r)' % name
-        res = self.c_allfuncs(name, *args)
+        res = self.c_allfuncs(name, *args, **kwds)
         num = self.name_to_func[name]
         if self.funcsstr[num]:
             return res
@@ -406,7 +408,7 @@ class UsingFrameworkTest(object):
                 try:
                     g()
                 except:
-                    os.write(1, "hallo")
+                    pass #os.write(1, "hallo")
         def f1(i):
             if i:
                 raise TypeError
@@ -444,19 +446,14 @@ class UsingFrameworkTest(object):
     def define_custom_trace(cls):
         from rpython.rtyper.annlowlevel import llhelper
         #
-        S = lltype.GcStruct('S', ('x', llmemory.Address), rtti=True)
+        S = lltype.GcStruct('S', ('x', llmemory.Address))
         offset_of_x = llmemory.offsetof(S, 'x')
-        def customtrace(obj, prev):
-            if not prev:
-                return obj + offset_of_x
-            else:
-                return llmemory.NULL
-        CUSTOMTRACEFUNC = lltype.FuncType([llmemory.Address, llmemory.Address],
-                                          llmemory.Address)
-        customtraceptr = llhelper(lltype.Ptr(CUSTOMTRACEFUNC), customtrace)
-        lltype.attachRuntimeTypeInfo(S, customtraceptr=customtraceptr)
+        def customtrace(gc, obj, callback, arg):
+            gc._trace_callback(callback, arg, obj + offset_of_x)
+        lambda_customtrace = lambda: customtrace
         #
         def setup():
+            rgc.register_custom_trace_hook(S, lambda_customtrace)
             s = lltype.nullptr(S)
             for i in range(10000):
                 t = lltype.malloc(S)
@@ -477,6 +474,31 @@ class UsingFrameworkTest(object):
 
     def test_custom_trace(self):
         res = self.run('custom_trace', 0)
+        assert res == 10000
+
+    def define_custom_light_finalizer(cls):
+        from rpython.rtyper.annlowlevel import llhelper
+        #
+        T = lltype.Struct('T', ('count', lltype.Signed))
+        t = lltype.malloc(T, zero=True, immortal=True, flavor='raw')
+        #
+        S = lltype.GcStruct('S', rtti=True)
+        def customlightfinlz(addr):
+            t.count += 1
+        lambda_customlightfinlz = lambda: customlightfinlz
+        #
+        def setup():
+            rgc.register_custom_light_finalizer(S, lambda_customlightfinlz)
+            for i in range(10000):
+                lltype.malloc(S)
+        def f(n):
+            setup()
+            llop.gc__collect(lltype.Void)
+            return t.count
+        return f
+
+    def test_custom_light_finalizer(self):
+        res = self.run('custom_light_finalizer', 0)
         assert res == 10000
 
     def define_weakref(cls):
@@ -675,11 +697,15 @@ class UsingFrameworkTest(object):
             p_a2 = rffi.cast(rffi.VOIDPP, ll_args[1])[0]
             a1 = rffi.cast(rffi.SIGNEDP, p_a1)[0]
             a2 = rffi.cast(rffi.SIGNEDP, p_a2)[0]
-            res = rffi.cast(rffi.INTP, ll_res)
+            # related to libffi issue on s390x, we MUST
+            # overwrite the full ffi result which is 64 bit
+            # if not, this leaves garbage in the return value
+            # and qsort does not sort correctly
+            res = rffi.cast(rffi.SIGNEDP, ll_res)
             if a1 > a2:
-                res[0] = rffi.cast(rffi.INT, 1)
+                res[0] = 1
             else:
-                res[0] = rffi.cast(rffi.INT, -1)
+                res[0] = -1
 
         def f():
             libc = CDLL(get_libc_name())
@@ -687,7 +713,7 @@ class UsingFrameworkTest(object):
                                               ffi_size_t, ffi_type_pointer],
                                     ffi_type_void)
 
-            ptr = CallbackFuncPtr([ffi_type_pointer, ffi_type_pointer],
+            ptr = CallbackFuncPtr([ffi_type_pointer, ffi_type_pointer, ffi_type_pointer],
                                   ffi_type_sint, callback)
 
             TP = rffi.CArray(lltype.Signed)
@@ -720,25 +746,6 @@ class UsingFrameworkTest(object):
 
     def test_can_move(self):
         assert self.run('can_move') == self.GC_CAN_MOVE
-
-    def define_malloc_nonmovable(cls):
-        TP = lltype.GcArray(lltype.Char)
-        def func():
-            try:
-                a = rgc.malloc_nonmovable(TP, 3)
-                rgc.collect()
-                if a:
-                    assert not rgc.can_move(a)
-                    return 1
-                return 0
-            except Exception:
-                return 2
-
-        return func
-
-    def test_malloc_nonmovable(self):
-        res = self.run('malloc_nonmovable')
-        assert res == self.GC_CAN_MALLOC_NONMOVABLE
 
     def define_resizable_buffer(cls):
         from rpython.rtyper.lltypesystem.rstr import STR
@@ -1123,6 +1130,8 @@ class UsingFrameworkTest(object):
             #
             fd1 = os.open(filename1, os.O_WRONLY | os.O_CREAT, 0666)
             fd2 = os.open(filename2, os.O_WRONLY | os.O_CREAT, 0666)
+            # try to ensure we get twice the exact same output below
+            gc.collect(); gc.collect(); gc.collect()
             rgc.dump_rpy_heap(fd1)
             rgc.dump_rpy_heap(fd2)      # try twice in a row
             keepalive_until_here(s2)
@@ -1170,6 +1179,10 @@ class UsingFrameworkTest(object):
             fd = os.open(filename, open_flags, 0666)
             os.write(fd, s)
             os.close(fd)
+            #
+            a = rgc.get_typeids_list()
+            assert len(a) > 1
+            assert 0 < rffi.cast(lltype.Signed, a[1]) < 10000
             return 0
 
         return fn
@@ -1212,12 +1225,59 @@ class UsingFrameworkTest(object):
     def test_gcflag_extra(self):
         self.run("gcflag_extra")
 
+    def define_check_zero_works(self):
+        S = lltype.GcStruct("s", ('x', lltype.Signed))
+        S2 = lltype.GcStruct("s2", ('parent',
+                                    lltype.Struct("s1", ("x", lltype.Signed))),
+                                    ('y', lltype.Signed))
+        A = lltype.GcArray(lltype.Signed)
+        B = lltype.GcStruct("b", ('x', lltype.Signed),
+                                 ('y', lltype.Array(lltype.Signed)))
+
+        def fn():
+            s = lltype.malloc(S, zero=True)
+            assert s.x == 0
+            s2 = lltype.malloc(S2, zero=True)
+            assert s2.parent.x == 0
+            a = lltype.malloc(A, 3, zero=True)
+            assert a[2] == 0
+            # XXX not supported right now in gctransform/framework.py:
+            #b = lltype.malloc(B, 3, zero=True)
+            #assert len(b.y) == 3
+            #assert b.x == 0
+            #assert b.y[0] == b.y[1] == b.y[2] == 0
+            return 0
+        return fn
+
+    def test_check_zero_works(self):
+        self.run("check_zero_works")
+
+    def define_long_chain_of_instances(self):
+        class A(object):
+            def __init__(self, next):
+                self.next = next
+        a = None
+        for i in range(1500):
+            a = A(a)
+
+        def fn():
+            i = 0
+            x = a
+            while x is not None:
+                i += 1
+                x = x.next
+            return i
+        return fn
+
+    def test_long_chain_of_instances(self):
+        res = self.run("long_chain_of_instances")
+        assert res == 1500
+        
 
 class TestSemiSpaceGC(UsingFrameworkTest, snippet.SemiSpaceGCTestDefines):
     gcpolicy = "semispace"
     should_be_moving = True
     GC_CAN_MOVE = True
-    GC_CAN_MALLOC_NONMOVABLE = False
     GC_CAN_SHRINK_ARRAY = True
 
     # for snippets
@@ -1361,27 +1421,99 @@ class TestSemiSpaceGC(UsingFrameworkTest, snippet.SemiSpaceGCTestDefines):
         assert res == ' '.join([''.join(map(chr, range(33, 33+length)))
                                 for length in range(1, 51)])
 
+    def definestr_string_builder_multiple_builds_2(cls):
+        def fn(_):
+            got = []
+            for j in range(3, 76, 5):
+                s = StringBuilder()
+                for i in range(j):
+                    s.append(chr(33+i))
+                    gc.collect()
+                got.append(s.build())
+            return ' '.join(got)
+        return fn
+
+    def test_string_builder_multiple_builds_2(self):
+        res = self.run('string_builder_multiple_builds_2')
+        assert res == ' '.join([''.join(map(chr, range(33, 33+length)))
+                                for length in range(3, 76, 5)])
+
     def define_nursery_hash_base(cls):
+        from rpython.rlib.debug import debug_print
+        
         class A:
             pass
         def fn():
             objects = []
             hashes = []
             for i in range(200):
+                debug_print("starting nursery collection", i)
                 rgc.collect(0)     # nursery-only collection, if possible
+                debug_print("finishing nursery collection", i)
                 obj = A()
                 objects.append(obj)
                 hashes.append(compute_identity_hash(obj))
             unique = {}
+            debug_print("objects", len(objects))
             for i in range(len(objects)):
+                debug_print(i)
                 assert compute_identity_hash(objects[i]) == hashes[i]
+                debug_print("storing in dict")
                 unique[hashes[i]] = None
+                debug_print("done")
+            debug_print("finished")
             return len(unique)
         return fn
 
     def test_nursery_hash_base(self):
         res = self.run('nursery_hash_base')
         assert res >= 195
+
+    def define_extra_item_after_alloc(cls):
+        from rpython.rtyper.lltypesystem import rstr
+        # all STR objects should be allocated with enough space for
+        # one extra char.  Check this with our GCs.  Use strings of 8,
+        # 16 and 24 chars because if the extra char is missing,
+        # writing to it is likely to cause corruption in nearby
+        # structures.
+        sizes = [random.choice([8, 16, 24]) for i in range(100)]
+        A = lltype.Struct('A', ('x', lltype.Signed))
+        prebuilt = [(rstr.mallocstr(sz),
+                     lltype.malloc(A, flavor='raw', immortal=True))
+                        for sz in sizes]
+        k = 0
+        for i, (s, a) in enumerate(prebuilt):
+            a.x = i
+            for i in range(len(s.chars)):
+                k += 1
+                if k == 256:
+                    k = 1
+                s.chars[i] = chr(k)
+
+        def check(lst):
+            hashes = []
+            for i, (s, a) in enumerate(lst):
+                assert a.x == i
+                rgc.ll_write_final_null_char(s)
+            for i, (s, a) in enumerate(lst):
+                assert a.x == i     # check it was not overwritten
+        def fn():
+            check(prebuilt)
+            lst1 = []
+            for i, sz in enumerate(sizes):
+                s = rstr.mallocstr(sz)
+                a = lltype.malloc(A, flavor='raw')
+                a.x = i
+                lst1.append((s, a))
+            check(lst1)
+            for _, a in lst1:
+                lltype.free(a, flavor='raw')
+            return 42
+        return fn
+
+    def test_extra_item_after_alloc(self):
+        res = self.run('extra_item_after_alloc')
+        assert res == 42
 
 
 class TestGenerationalGC(TestSemiSpaceGC):
@@ -1392,7 +1524,6 @@ class TestGenerationalGC(TestSemiSpaceGC):
 class TestHybridGC(TestGenerationalGC):
     gcpolicy = "hybrid"
     should_be_moving = True
-    GC_CAN_MALLOC_NONMOVABLE = True
 
     def test_gc_set_max_heap_size(self):
         py.test.skip("not implemented")
@@ -1405,7 +1536,6 @@ class TestHybridGCRemoveTypePtr(TestHybridGC):
 class TestMiniMarkGC(TestSemiSpaceGC):
     gcpolicy = "minimark"
     should_be_moving = True
-    GC_CAN_MALLOC_NONMOVABLE = True
     GC_CAN_SHRINK_ARRAY = True
 
     def test_gc_heap_stats(self):
@@ -1445,15 +1575,13 @@ class TestMiniMarkGC(TestSemiSpaceGC):
 
         class A:
             def __init__(self):
-                self.ctx = lltype.malloc(ropenssl.EVP_MD_CTX.TO,
-                    flavor='raw')
                 digest = ropenssl.EVP_get_digestbyname('sha1')
+                self.ctx = ropenssl.EVP_MD_CTX_new()
                 ropenssl.EVP_DigestInit(self.ctx, digest)
                 rgc.add_memory_pressure(ropenssl.HASH_MALLOC_SIZE + 64)
 
             def __del__(self):
-                ropenssl.EVP_MD_CTX_cleanup(self.ctx)
-                lltype.free(self.ctx, flavor='raw')
+                ropenssl.EVP_MD_CTX_free(self.ctx)
         #A() --- can't call it here?? get glibc crashes on tannit64
         def f():
             am1 = am2 = am3 = None
@@ -1469,9 +1597,113 @@ class TestMiniMarkGC(TestSemiSpaceGC):
         res = self.run("nongc_opaque_attached_to_gc")
         assert res == 0
 
+    def define_limited_memory(self):
+        class A(object):
+            def __init__(self, next):
+                self.next = next
+        def g(i):
+            a = None
+            while i != 0:
+                a = A(a)
+                i -= 1
+            return 0
+        def f(i):
+            try:
+                return g(i)
+            except MemoryError:
+                g(20)       # allocate some more stuff, but exit
+                return 42
+        return f
+
+    def test_limited_memory(self):
+        import random
+        #
+        def myrunner(args):
+            env = os.environ.copy()
+            env['PYPY_GC_MAX'] = '%dKB' % gcmax
+            return subprocess.check_output(args, env=env)
+        #
+        for i in range(10):
+            gcmax = random.randrange(50000, 100000)
+            print gcmax
+            res = self.run("limited_memory", -1, runner=myrunner)
+            assert res == 42
+
 
 class TestIncrementalMiniMarkGC(TestMiniMarkGC):
     gcpolicy = "incminimark"
+
+    def define_random_pin(self):
+        class A:
+            foo = None
+            bar = '..'
+        def f():
+            alist = [A()]
+            slist = ['..']
+            i = 0
+            j = 0
+            k = 0
+            while i < 400000:
+                k = (k * 1291 + i) % 4603
+                a = A()
+                if k < 1000:
+                    alist.append(a)
+                elif k < 2000:
+                    j = (i * k)
+                    alist[j % len(alist)].foo = alist[(j+i) % len(alist)]
+                elif k < 3000:
+                    alist[i % len(alist)].bar = slist[(j+i) % len(slist)]
+                elif k < 4000:
+                    slist.append(chr(i & 255) + chr(k & 255))
+                elif k < 4100 and len(alist) > 1:
+                    drop = alist.pop()
+                    alist[i % len(alist)] = drop
+                elif k < 4200 and len(slist) > 1:
+                    drop = slist.pop()
+                    slist[i % len(slist)] = drop
+                elif k < 4300:
+                    rgc.pin(slist[i % len(slist)])      # <------ pin!
+                keepalive_until_here(a)
+                i += 1
+            n = 0
+            m = 0
+            for i in range(len(alist)):
+                a = alist[i]
+                if a.foo is None:
+                    n -= 1
+                else:
+                    n += ord(a.foo.bar[0])
+                    m += ord(a.foo.bar[1])
+            return m - n
+        assert f() == 28495
+        return f
+
+    def test_random_pin(self):
+        res = self.run("random_pin")
+        assert res == 28495
+
+    define_limited_memory_linux = TestMiniMarkGC.define_limited_memory.im_func
+
+    def test_limited_memory_linux(self):
+        if not sys.platform.startswith('linux'):
+            py.test.skip("linux only")
+        #
+        import random
+        #
+        def myrunner(args):
+            args1 = ['/bin/bash', '-c', 'ulimit -v %d && %s' %
+                     (ulimitv, ' '.join(args),)]
+            popen = subprocess.Popen(args1, stderr=subprocess.PIPE)
+            _, child_stderr = popen.communicate()
+            assert popen.wait() == 134     # aborted
+            assert 'out of memory:' in child_stderr
+            return '42'
+        #
+        for i in range(10):
+            ulimitv = random.randrange(50000, 100000)
+            print ulimitv
+            res = self.run("limited_memory_linux", -1, runner=myrunner)
+            assert res == 42
 
 
 # ____________________________________________________________________

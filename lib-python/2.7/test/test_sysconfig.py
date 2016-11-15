@@ -8,7 +8,7 @@ import subprocess
 from copy import copy, deepcopy
 
 from test.test_support import (run_unittest, TESTFN, unlink, get_attribute,
-                               import_module)
+                               import_module, check_impl_detail)
 
 import sysconfig
 from sysconfig import (get_paths, get_platform, get_config_vars,
@@ -255,6 +255,16 @@ class TestSysConfig(unittest.TestCase):
         wanted = ('nt', 'nt_user', 'os2', 'os2_home', 'osx_framework_user',
                   'posix_home', 'posix_prefix', 'posix_user', 'pypy')
         self.assertEqual(get_scheme_names(), wanted)
+
+    @unittest.skipIf(check_impl_detail(pypy=True),
+                     'Test is not PyPy compatible')
+    @unittest.skipIf(sys.platform.startswith('win'),
+                     'Test is not Windows compatible')
+    def test_get_makefile_filename(self):
+        makefile = sysconfig.get_makefile_filename()
+        self.assertTrue(os.path.isfile(makefile), makefile)
+        # Issue 22199
+        self.assertEqual(sysconfig._get_makefile_filename(), makefile)
 
     def test_symlink(self):
         # Issue 7880

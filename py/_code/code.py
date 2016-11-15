@@ -594,7 +594,7 @@ class FormattedExcinfo(object):
 class TerminalRepr:
     def __str__(self):
         s = self.__unicode__()
-        if sys.version_info[0] < 3:
+        if sys.version_info[0] < 3 and isinstance(s, unicode):
             s = s.encode('utf-8')
         return s
 

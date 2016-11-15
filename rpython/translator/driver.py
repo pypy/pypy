@@ -10,12 +10,13 @@ from rpython.annotator.listdef import s_list_of_strings
 from rpython.annotator import policy as annpolicy
 from rpython.tool.udir import udir
 from rpython.rlib.debug import debug_start, debug_print, debug_stop
-from rpython.rlib.entrypoint import secondary_entrypoints
+from rpython.rlib.entrypoint import secondary_entrypoints,\
+     annotated_jit_entrypoints
 
 import py
-from rpython.tool.ansi_print import ansi_log
-log = py.log.Producer("translation")
-py.log.setconsumer("translation", ansi_log)
+from rpython.tool.ansi_print import AnsiLogger
+
+log = AnsiLogger("translation")
 
 
 def taskdef(deps, title, new_state=None, expected_states=[],
@@ -66,14 +67,16 @@ class TranslationDriver(SimpleTaskEngine):
                  disable=[],
                  exe_name=None, extmod_name=None,
                  config=None, overrides=None):
+        from rpython.config import translationoption
         self.timer = Timer()
         SimpleTaskEngine.__init__(self)
 
         self.log = log
 
         if config is None:
-            from rpython.config.translationoption import get_combined_translation_config
-            config = get_combined_translation_config(translating=True)
+            config = translationoption.get_combined_translation_config(translating=True)
+        # XXX patch global variable with translation config
+        translationoption._GLOBAL_TRANSLATIONCONFIG = config
         self.config = config
         if overrides is not None:
             self.config.override(overrides)
@@ -200,9 +203,8 @@ class TranslationDriver(SimpleTaskEngine):
                 try:
                     points = secondary_entrypoints[key]
                 except KeyError:
-                    raise KeyError(
-                        "Entrypoints not found. I only know the keys %r." %
-                        (", ".join(secondary_entrypoints.keys()), ))
+                    raise KeyError("Entrypoint %r not found (not in %r)" %
+                                   (key, secondary_entrypoints.keys()))
                 self.secondary_entrypoints.extend(points)
 
         self.translator.driver_instrument_result = self.instrument_result
@@ -234,9 +236,9 @@ class TranslationDriver(SimpleTaskEngine):
             if os.WIFEXITED(status):
                 status = os.WEXITSTATUS(status)
                 if status != 0:
-                    raise Exception, "instrumentation child failed: %d" % status
+                    raise Exception("instrumentation child failed: %d" % status)
             else:
-                raise Exception, "instrumentation child aborted"
+                raise Exception("instrumentation child aborted")
             import array, struct
             n = datafile.size()//struct.calcsize('L')
             datafile = datafile.open('rb')
@@ -379,7 +381,7 @@ class TranslationDriver(SimpleTaskEngine):
         """ Run all backend optimizations - lltype version
         """
         from rpython.translator.backendopt.all import backend_optimizations
-        backend_optimizations(self.translator)
+        backend_optimizations(self.translator, replace_we_are_jitted=True)
 
 
     STACKCHECKINSERTION = 'stackcheckinsertion_lltype'
@@ -396,8 +398,8 @@ class TranslationDriver(SimpleTaskEngine):
             from rpython.translator.platform import CompilationError
             try:
                 configure_boehm(self.translator.platform)
-            except CompilationError, e:
-                i = 'Boehm GC not installed.  Try e.g. "translate.py --gc=hybrid"'
+            except CompilationError as e:
+                i = 'Boehm GC not installed.  Try e.g. "translate.py --gc=minimark"'
                 raise Exception(str(e) + '\n' + i)
 
     @taskdef([STACKCHECKINSERTION, '?'+BACKENDOPT, RTYPE, '?annotate'],
@@ -416,10 +418,11 @@ class TranslationDriver(SimpleTaskEngine):
             from rpython.translator.c.genc import CStandaloneBuilder
             cbuilder = CStandaloneBuilder(self.translator, self.entry_point,
                                           config=self.config,
-                      secondary_entrypoints=self.secondary_entrypoints)
+                      secondary_entrypoints=
+                      self.secondary_entrypoints + annotated_jit_entrypoints)
         else:
             from rpython.translator.c.dlltool import CLibraryBuilder
-            functions = [(self.entry_point, None)] + self.secondary_entrypoints
+            functions = [(self.entry_point, None)] + self.secondary_entrypoints + annotated_jit_entrypoints
             cbuilder = CLibraryBuilder(self.translator, self.entry_point,
                                        functions=functions,
                                        name='libtesting',
@@ -456,11 +459,14 @@ class TranslationDriver(SimpleTaskEngine):
             shutil_copy(str(fname), str(dstname))
             self.log.info('Static data info written to %s' % dstname)
 
-    def compute_exe_name(self):
+    def compute_exe_name(self, suffix=''):
         newexename = self.exe_name % self.get_info()
         if '/' not in newexename and '\\' not in newexename:
             newexename = './' + newexename
-        return py.path.local(newexename)
+        newname = py.path.local(newexename)
+        if suffix:
+            newname = newname.new(purebasename = newname.purebasename + suffix)
+        return newname
 
     def create_exe(self):
         """ Copy the compiled executable into current directory, which is
@@ -476,13 +482,28 @@ class TranslationDriver(SimpleTaskEngine):
                 shutil_copy(str(soname), str(newsoname))
                 self.log.info("copied: %s" % (newsoname,))
                 if sys.platform == 'win32':
-                    # the import library is named python27.lib, according
-                    # to the pragma in pyconfig.h
-                    libname = str(newsoname.dirpath().join('python27.lib'))
-                    shutil.copyfile(str(soname.new(ext='lib')), libname)
-                    self.log.info("copied: %s" % (libname,))
+                    # Copy pypyw.exe
+                    newexename = mkexename(self.compute_exe_name(suffix='w'))
+                    exe = py.path.local(exename)
+                    exename = exe.new(purebasename=exe.purebasename + 'w')
+                    shutil_copy(str(exename), str(newexename))
+                    # for pypy, the import library is renamed and moved to
+                    # libs/python32.lib, according to the pragma in pyconfig.h
+                    libname = self.config.translation.libname
+                    oldlibname = soname.new(ext='lib')
+                    if not libname:
+                        libname = oldlibname.basename
+                        libname = str(newsoname.dirpath().join(libname))
+                    shutil.copyfile(str(oldlibname), libname)
+                    self.log.info("copied: %s to %s" % (oldlibname, libname,))
+                    # the pdb file goes in the same place as pypy(w).exe
+                    ext_to_copy = ['pdb',]
+                    for ext in ext_to_copy:
+                        name = soname.new(ext=ext)
+                        newname = newexename.new(basename=soname.basename)
+                        shutil.copyfile(str(name), str(newname.new(ext=ext)))
+                        self.log.info("copied: %s" % (newname,))
             self.c_entryp = newexename
-        self.log.info('usession directory: %s' % (udir,))
         self.log.info("created: %s" % (self.c_entryp,))
 
     @taskdef(['source_c'], "Compiling c source")
@@ -505,7 +526,6 @@ class TranslationDriver(SimpleTaskEngine):
     @taskdef([STACKCHECKINSERTION, '?'+BACKENDOPT, RTYPE], "LLInterpreting")
     def task_llinterpret_lltype(self):
         from rpython.rtyper.llinterp import LLInterpreter
-        py.log.setconsumer("llinterp operation", None)
 
         translator = self.translator
         interp = LLInterpreter(translator.rtyper)
@@ -515,7 +535,7 @@ class TranslationDriver(SimpleTaskEngine):
                               self.extra.get('get_llinterp_args',
                                              lambda: [])())
 
-        log.llinterpret.event("result -> %s" % v)
+        log.llinterpret("result -> %s" % v)
 
     def proceed(self, goals):
         if not goals:
@@ -528,18 +548,20 @@ class TranslationDriver(SimpleTaskEngine):
             goals = [goals]
         goals.extend(self.extra_goals)
         goals = self.backend_select_goals(goals)
-        return self._execute(goals, task_skip = self._maybe_skip())
+        result = self._execute(goals, task_skip = self._maybe_skip())
+        self.log.info('usession directory: %s' % (udir,))
+        return result
 
-    @staticmethod
-    def from_targetspec(targetspec_dic, config=None, args=None,
+    @classmethod
+    def from_targetspec(cls, targetspec_dic, config=None, args=None,
                         empty_translator=None,
                         disable=[],
                         default_goal=None):
         if args is None:
             args = []
 
-        driver = TranslationDriver(config=config, default_goal=default_goal,
-                                   disable=disable)
+        driver = cls(config=config, default_goal=default_goal,
+                     disable=disable)
         target = targetspec_dic['target']
         spec = target(driver, args)
 

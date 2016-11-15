@@ -49,7 +49,7 @@ def excepthook_failsafe(exctype, value):
     except:
         return False    # got an exception again... ignore, report the original
 
-def exit(exitcode=0):
+def exit(exitcode=None):
     """Exit the interpreter by raising SystemExit(exitcode).
 If the exitcode is omitted or None, it defaults to zero (i.e., success).
 If the exitcode is numeric, it will be used as the system exit status.
@@ -70,11 +70,11 @@ def callstats():
     return None
 
 copyright_str = """
-Copyright 2003-2014 PyPy development team.
+Copyright 2003-2016 PyPy development team.
 All Rights Reserved.
 For further information, see <http://pypy.org>
 
-Portions Copyright (c) 2001-2014 Python Software Foundation.
+Portions Copyright (c) 2001-2016 Python Software Foundation.
 All Rights Reserved.
 
 Portions Copyright (c) 2000 BeOpen.com.

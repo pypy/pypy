@@ -1,10 +1,10 @@
 import time
 
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.baseobjspace import W_Root
-from rpython.rlib.rarithmetic import r_uint, intmask
+from rpython.rlib.rarithmetic import r_uint, intmask, widen
 from rpython.rlib import rbigint, rrandom, rstring
 
 
@@ -54,17 +54,15 @@ class W_Random(W_Root):
     def getstate(self, space):
         state = [None] * (rrandom.N + 1)
         for i in range(rrandom.N):
-            state[i] = space.newint(intmask(self._rnd.state[i]))
-        state[rrandom.N] = space.newint(self._rnd.index)
+            state[i] = space.wrap(widen(self._rnd.state[i]))
+        state[rrandom.N] = space.newlong(self._rnd.index)
         return space.newtuple(state)
 
     def setstate(self, space, w_state):
         if not space.isinstance_w(w_state, space.w_tuple):
-            errstring = space.wrap("state vector must be tuple")
-            raise OperationError(space.w_TypeError, errstring)
+            raise oefmt(space.w_TypeError, "state vector must be tuple")
         if space.len_w(w_state) != rrandom.N + 1:
-            errstring = space.wrap("state vector is the wrong size")
-            raise OperationError(space.w_ValueError, errstring)
+            raise oefmt(space.w_ValueError, "state vector is the wrong size")
         w_zero = space.newint(0)
         # independent of platfrom, since the below condition is only
         # true on 32 bit platforms anyway
@@ -75,7 +73,10 @@ class W_Random(W_Root):
                 w_item = space.add(w_item, w_add)
             self._rnd.state[i] = space.uint_w(w_item)
         w_item = space.getitem(w_state, space.newint(rrandom.N))
-        self._rnd.index = space.int_w(w_item)
+        index = space.int_w(w_item)
+        if index < 0 or index > rrandom.N:
+            raise oefmt(space.w_ValueError, "invalid state")
+        self._rnd.index = index
 
     def jumpahead(self, space, w_n):
         if space.isinstance_w(w_n, space.w_long):
@@ -88,8 +89,8 @@ class W_Random(W_Root):
     @unwrap_spec(k=int)
     def getrandbits(self, space, k):
         if k <= 0:
-            strerror = space.wrap("number of bits must be greater than zero")
-            raise OperationError(space.w_ValueError, strerror)
+            raise oefmt(space.w_ValueError,
+                        "number of bits must be greater than zero")
         bytes = ((k - 1) // 32 + 1) * 4
         bytesarray = rstring.StringBuilder(bytes)
         for i in range(0, bytes, 4):

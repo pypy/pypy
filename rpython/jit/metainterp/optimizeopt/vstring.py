@@ -1,11 +1,14 @@
 from rpython.jit.codewriter.effectinfo import EffectInfo
-from rpython.jit.metainterp.history import (BoxInt, Const, ConstInt, ConstPtr,
-    get_const_ptr_for_string, get_const_ptr_for_unicode, BoxPtr, REF, INT)
-from rpython.jit.metainterp.optimizeopt import optimizer, virtualize
+from rpython.jit.metainterp.history import (Const, ConstInt, ConstPtr,
+    get_const_ptr_for_string, get_const_ptr_for_unicode, REF, INT,
+    DONT_CHANGE)
+from rpython.jit.metainterp.optimizeopt import optimizer
 from rpython.jit.metainterp.optimizeopt.optimizer import CONST_0, CONST_1
 from rpython.jit.metainterp.optimizeopt.optimizer import llhelper, REMOVED
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
-from rpython.jit.metainterp.resoperation import rop, ResOperation
+from rpython.jit.metainterp.resoperation import rop, ResOperation,\
+     AbstractResOp
+from rpython.jit.metainterp.optimizeopt import info
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper import annlowlevel
@@ -45,99 +48,117 @@ mode_unicode = StrOrUnicode(rstr.UNICODE, annlowlevel.hlunicode, u'', unichr,
 # ____________________________________________________________
 
 
-class __extend__(optimizer.OptValue):
-    """New methods added to the base class OptValue for this file."""
 
-    def getstrlen(self, string_optimizer, mode, lengthbox):
-        if mode is mode_string:
-            s = self.get_constant_string_spec(mode_string)
+class StrPtrInfo(info.AbstractVirtualPtrInfo):
+    #_attrs_ = ('length', 'lenbound', 'lgtop', 'mode', '_cached_vinfo', '_is_virtual')
+
+    lenbound = None
+    lgtop = None
+    _cached_vinfo = None
+
+    def __init__(self, mode, is_virtual=False, length=-1):
+        self.length = length
+        self._is_virtual = is_virtual
+        self.mode = mode
+        self.length = length
+
+    def getlenbound(self, mode):
+        from rpython.jit.metainterp.optimizeopt import intutils
+
+        if self.lenbound is None:
+            if self.length == -1:
+                self.lenbound = intutils.IntBound(0, intutils.MAXINT)
+            else:
+                self.lenbound = intutils.ConstIntBound(self.length)
+        return self.lenbound
+
+    @specialize.arg(2)
+    def get_constant_string_spec(self, string_optimizer, mode):
+        return None # can't be constant
+
+    def force_box(self, op, optforce):
+        if not self.is_virtual():
+            return op
+        if self.mode is mode_string:
+            s = self.get_constant_string_spec(optforce, mode_string)
             if s is not None:
-                return ConstInt(len(s))
+                c_s = get_const_ptr_for_string(s)
+                optforce.get_box_replacement(op).set_forwarded(c_s)
+                return c_s
         else:
-            s = self.get_constant_string_spec(mode_unicode)
+            s = self.get_constant_string_spec(optforce, mode_unicode)
             if s is not None:
-                return ConstInt(len(s))
-        if string_optimizer is None:
-            return None
-        self.ensure_nonnull()
-        box = self.force_box(string_optimizer)
-        if lengthbox is None:
-            lengthbox = BoxInt()
-        string_optimizer.emit_operation(ResOperation(mode.STRLEN, [box], lengthbox))
-        return lengthbox
+                c_s = get_const_ptr_for_unicode(s)
+                optforce.get_box_replacement(op).set_forwarded(c_s)
+                return c_s
+        self._is_virtual = False
+        lengthbox = self.getstrlen(op, optforce.optimizer.optstring, self.mode)
+        newop = ResOperation(self.mode.NEWSTR, [lengthbox])
+        if not we_are_translated():
+            newop.name = 'FORCE'
+        optforce.emit_extra(newop)
+        newop = optforce.getlastop()
+        newop.set_forwarded(self)
+        op = optforce.get_box_replacement(op)
+        op.set_forwarded(newop)
+        optstring = optforce.optimizer.optstring
+        self.initialize_forced_string(op, optstring, op, CONST_0, self.mode)
+        return newop
 
-    @specialize.arg(1)
-    def get_constant_string_spec(self, mode):
-        if self.is_constant():
-            s = self.box.getref(lltype.Ptr(mode.LLTYPE))
-            return mode.hlstr(s)
-        else:
-            return None
+    def initialize_forced_string(self, op, string_optimizer, targetbox,
+                                 offsetbox, mode):
+        return self.string_copy_parts(op, string_optimizer, targetbox,
+                                      offsetbox, mode)
 
-    def string_copy_parts(self, string_optimizer, targetbox, offsetbox, mode):
+    def getstrlen(self, op, string_optimizer, mode, create_ops=True):
+        if self.lgtop is not None:
+            return self.lgtop
+        assert not self.is_virtual()
+        if not create_ops:
+            return None
+        lengthop = ResOperation(mode.STRLEN, [op])
+        lengthop.set_forwarded(self.getlenbound(mode))
+        self.lgtop = lengthop
+        string_optimizer.emit_extra(lengthop)
+        return lengthop
+
+    def make_guards(self, op, short, optimizer):
+        info.AbstractVirtualPtrInfo.make_guards(self, op, short, optimizer)
+        if self.lenbound and self.lenbound.lower >= 1:
+            if self.mode is mode_string:
+                lenop = ResOperation(rop.STRLEN, [op])
+            else:
+                assert self.mode is mode_unicode
+                lenop = ResOperation(rop.UNICODELEN, [op])
+            short.append(lenop)
+            self.lenbound.make_guards(lenop, short, optimizer)
+
+    def string_copy_parts(self, op, string_optimizer, targetbox, offsetbox,
+                          mode):
         # Copies the pointer-to-string 'self' into the target string
         # given by 'targetbox', at the specified offset.  Returns the offset
         # at the end of the copy.
-        lengthbox = self.getstrlen(string_optimizer, mode, None)
-        srcbox = self.force_box(string_optimizer)
+        lengthbox = self.getstrlen(op, string_optimizer, mode)
+        srcbox = self.force_box(op, string_optimizer)
         return copy_str_content(string_optimizer, srcbox, targetbox,
                                 CONST_0, offsetbox, lengthbox, mode)
+     
+class VStringPlainInfo(StrPtrInfo):
+    #_attrs_ = ('mode', '_is_virtual')
 
+    _chars = None
+    
+    def __init__(self, mode, is_virtual, length):
+        if length != -1:
+            self._chars = [None] * length
+        StrPtrInfo.__init__(self, mode, is_virtual, length)
 
-class VAbstractStringValue(virtualize.AbstractVirtualValue):
-    _attrs_ = ('mode',)
-
-    def __init__(self, keybox, source_op, mode):
-        virtualize.AbstractVirtualValue.__init__(self, keybox,
-                                                 source_op)
-        self.mode = mode
-
-    def _really_force(self, optforce):
-        if self.mode is mode_string:
-            s = self.get_constant_string_spec(mode_string)
-            if s is not None:
-                c_s = get_const_ptr_for_string(s)
-                self.make_constant(c_s)
-                return
-        else:
-            s = self.get_constant_string_spec(mode_unicode)
-            if s is not None:
-                c_s = get_const_ptr_for_unicode(s)
-                self.make_constant(c_s)
-                return
-        assert self.source_op is not None
-        self.box = box = self.source_op.result
-        lengthbox = self.getstrlen(optforce, self.mode, None)
-        op = ResOperation(self.mode.NEWSTR, [lengthbox], box)
-        if not we_are_translated():
-            op.name = 'FORCE'
-        optforce.emit_operation(op)
-        self.initialize_forced_string(optforce, box, CONST_0, self.mode)
-
-    def initialize_forced_string(self, string_optimizer, targetbox,
-                                 offsetbox, mode):
-        return self.string_copy_parts(string_optimizer, targetbox,
-                                      offsetbox, mode)
-
-
-class VStringPlainValue(VAbstractStringValue):
-    """A string built with newstr(const)."""
-    _lengthbox = None     # cache only
-
-    def setup(self, size):
-        # in this list, None means: "it's probably uninitialized so far,
-        # but maybe it was actually filled."  So to handle this case,
-        # strgetitem cannot be virtual-ized and must be done as a residual
-        # operation.  By contrast, any non-None value means: we know it
-        # is initialized to this value; strsetitem() there makes no sense.
-        # Also, as long as self.is_virtual(), then we know that no-one else
-        # could have written to the string, so we know that in this case
-        # "None" corresponds to "really uninitialized".
-        assert size <= MAX_CONST_LEN
-        self._chars = [None] * size
+    def strsetitem(self, index, op, cf=None, optheap=None):
+        self._chars[index] = op
 
     def shrink(self, length):
         assert length >= 0
+        self.length = length
         del self._chars[length:]
 
     def setup_slice(self, longerlist, start, stop):
@@ -145,209 +166,212 @@ class VStringPlainValue(VAbstractStringValue):
         self._chars = longerlist[start:stop]
         # slice the 'longerlist', which may also contain Nones
 
-    def getstrlen(self, _, mode, lengthbox):
-        if self._lengthbox is None:
-            self._lengthbox = ConstInt(len(self._chars))
-        return self._lengthbox
+    def strgetitem(self, index, optheap=None):
+        return self._chars[index]
 
-    def getitem(self, index):
-        return self._chars[index]     # may return None!
+    def is_virtual(self):
+        return self._is_virtual
 
-    def setitem(self, index, charvalue):
-        assert self.is_virtual()
-        assert isinstance(charvalue, optimizer.OptValue)
-        assert self._chars[index] is None, (
-            "setitem() on an already-initialized location")
-        self._chars[index] = charvalue
+    def getstrlen(self, op, string_optimizer, mode, create_ops=True):
+        if self.lgtop is None:
+            self.lgtop = ConstInt(len(self._chars))
+        return self.lgtop
 
-    def is_completely_initialized(self):
-        for c in self._chars:
-            if c is None:
-                return False
-        return True
-
-    @specialize.arg(1)
-    def get_constant_string_spec(self, mode):
+    @specialize.arg(2)
+    def get_constant_string_spec(self, optforce, mode):
         for c in self._chars:
             if c is None or not c.is_constant():
                 return None
-        return mode.emptystr.join([mode.chr(c.box.getint())
+        return mode.emptystr.join([mode.chr(c.getint())
                                    for c in self._chars])
 
-    def string_copy_parts(self, string_optimizer, targetbox, offsetbox, mode):
-        if not self.is_virtual() and not self.is_completely_initialized():
-            return VAbstractStringValue.string_copy_parts(
-                self, string_optimizer, targetbox, offsetbox, mode)
+    def string_copy_parts(self, op, string_optimizer, targetbox, offsetbox,
+                          mode):
+        if not self.is_virtual():
+            return StrPtrInfo.string_copy_parts(self, op, string_optimizer,
+                                                targetbox, offsetbox, mode)
         else:
-            return self.initialize_forced_string(string_optimizer, targetbox,
-                                                 offsetbox, mode)
+            return self.initialize_forced_string(op, string_optimizer,
+                                                 targetbox, offsetbox, mode)
 
-    def initialize_forced_string(self, string_optimizer, targetbox,
+    def initialize_forced_string(self, op, string_optimizer, targetbox,
                                  offsetbox, mode):
         for i in range(len(self._chars)):
-            assert isinstance(targetbox, BoxPtr)   # ConstPtr never makes sense
-            charvalue = self.getitem(i)
-            if charvalue is not None:
-                charbox = charvalue.force_box(string_optimizer)
-                if not (isinstance(charbox, Const) and
-                        charbox.same_constant(CONST_0)):
-                    op = ResOperation(mode.STRSETITEM, [targetbox,
-                                                        offsetbox,
-                                                        charbox],
-                                      None)
-                    string_optimizer.emit_operation(op)
+            assert not isinstance(targetbox, Const) # ConstPtr never makes sense
+            charbox = self.strgetitem(i) # can't be virtual
+            if charbox is not None:
+                op = ResOperation(mode.STRSETITEM, [targetbox,
+                                                    offsetbox,
+                                                    charbox])
+                string_optimizer.emit_extra(op)
             offsetbox = _int_add(string_optimizer, offsetbox, CONST_1)
         return offsetbox
 
-    def get_args_for_fail(self, modifier):
-        if self.box is None and not modifier.already_seen_virtual(self.keybox):
-            charboxes = []
-            for value in self._chars:
-                if value is not None:
-                    box = value.get_key_box()
-                else:
-                    box = None
-                charboxes.append(box)
-            modifier.register_virtual_fields(self.keybox, charboxes)
-            for value in self._chars:
-                if value is not None:
-                    value.get_args_for_fail(modifier)
+    def _visitor_walk_recursive(self, instbox, visitor, optimizer):
+        visitor.register_virtual_fields(instbox, self._chars)
 
-    def _make_virtual(self, modifier):
-        return modifier.make_vstrplain(self.mode is mode_unicode)
+    @specialize.argtype(1)
+    def visitor_dispatch_virtual_type(self, visitor):
+        return visitor.visit_vstrplain(self.mode is mode_unicode)
 
+class VStringSliceInfo(StrPtrInfo):
+    length = -1
+    start = None
+    lgtop = None
+    s = None
+    
+    def __init__(self, s, start, length, mode):
+        self.s = s
+        self.start = start
+        self.lgtop = length
+        self.mode = mode
+        self._is_virtual = True
 
-class VStringConcatValue(VAbstractStringValue):
-    """The concatenation of two other strings."""
-    _attrs_ = ('left', 'right', 'lengthbox')
+    def is_virtual(self):
+        return self._is_virtual
 
-    lengthbox = None     # or the computed length
+    def string_copy_parts(self, op, string_optimizer, targetbox, offsetbox,
+                          mode):
+        return copy_str_content(string_optimizer, self.s, targetbox,
+                                self.start, offsetbox, self.lgtop, mode)
 
-    def setup(self, left, right):
-        self.left = left
-        self.right = right
-
-    def getstrlen(self, string_optimizer, mode, lengthbox):
-        if self.lengthbox is None:
-            len1box = self.left.getstrlen(string_optimizer, mode, None)
-            if len1box is None:
-                return None
-            len2box = self.right.getstrlen(string_optimizer, mode, None)
-            if len2box is None:
-                return None
-            self.lengthbox = _int_add(string_optimizer, len1box, len2box)
-            # ^^^ may still be None, if string_optimizer is None
-        return self.lengthbox
-
-    @specialize.arg(1)
-    def get_constant_string_spec(self, mode):
-        s1 = self.left.get_constant_string_spec(mode)
-        if s1 is None:
-            return None
-        s2 = self.right.get_constant_string_spec(mode)
-        if s2 is None:
-            return None
-        return s1 + s2
-
-    def string_copy_parts(self, string_optimizer, targetbox, offsetbox, mode):
-        offsetbox = self.left.string_copy_parts(string_optimizer, targetbox,
-                                                offsetbox, mode)
-        offsetbox = self.right.string_copy_parts(string_optimizer, targetbox,
-                                                 offsetbox, mode)
-        return offsetbox
-
-    def get_args_for_fail(self, modifier):
-        if self.box is None and not modifier.already_seen_virtual(self.keybox):
-            # we don't store the lengthvalue in guards, because the
-            # guard-failed code starts with a regular STR_CONCAT again
-            leftbox = self.left.get_key_box()
-            rightbox = self.right.get_key_box()
-            modifier.register_virtual_fields(self.keybox, [leftbox, rightbox])
-            self.left.get_args_for_fail(modifier)
-            self.right.get_args_for_fail(modifier)
-
-    def _make_virtual(self, modifier):
-        return modifier.make_vstrconcat(self.mode is mode_unicode)
-
-
-class VStringSliceValue(VAbstractStringValue):
-    """A slice."""
-    _attrs_ = ('vstr', 'vstart', 'vlength')
-
-    def setup(self, vstr, vstart, vlength):
-        self.vstr = vstr
-        self.vstart = vstart
-        self.vlength = vlength
-
-    def getstrlen(self, optforce, mode, lengthbox):
-        return self.vlength.force_box(optforce)
-
-    @specialize.arg(1)
-    def get_constant_string_spec(self, mode):
-        if self.vstart.is_constant() and self.vlength.is_constant():
-            s1 = self.vstr.get_constant_string_spec(mode)
+    @specialize.arg(2)
+    def get_constant_string_spec(self, string_optimizer, mode):
+        vstart = string_optimizer.getintbound(self.start)
+        vlength = string_optimizer.getintbound(self.lgtop)
+        if vstart.is_constant() and vlength.is_constant():
+            vstr = string_optimizer.getptrinfo(self.s)
+            s1 = vstr.get_constant_string_spec(string_optimizer, mode)
             if s1 is None:
                 return None
-            start = self.vstart.box.getint()
-            length = self.vlength.box.getint()
+            start = vstart.getint()
+            length = vlength.getint()
             assert start >= 0
             assert length >= 0
             return s1[start : start + length]
         return None
 
-    def string_copy_parts(self, string_optimizer, targetbox, offsetbox, mode):
-        lengthbox = self.getstrlen(string_optimizer, mode, None)
-        return copy_str_content(string_optimizer,
-                                self.vstr.force_box(string_optimizer), targetbox,
-                                self.vstart.force_box(string_optimizer), offsetbox,
-                                lengthbox, mode)
+    def getstrlen(self, op, string_optimizer, mode, create_ops=True):
+        return self.lgtop
 
-    def get_args_for_fail(self, modifier):
-        if self.box is None and not modifier.already_seen_virtual(self.keybox):
-            boxes = [self.vstr.get_key_box(),
-                     self.vstart.get_key_box(),
-                     self.vlength.get_key_box()]
-            modifier.register_virtual_fields(self.keybox, boxes)
-            self.vstr.get_args_for_fail(modifier)
-            self.vstart.get_args_for_fail(modifier)
-            self.vlength.get_args_for_fail(modifier)
+    def _visitor_walk_recursive(self, instbox, visitor, optimizer):
+        boxes = [self.s, self.start, self.lgtop]
+        visitor.register_virtual_fields(instbox, boxes)
+        opinfo = optimizer.getptrinfo(self.s)
+        if opinfo and opinfo.is_virtual():
+            opinfo.visitor_walk_recursive(self.s, visitor, optimizer)
 
-    def _make_virtual(self, modifier):
-        return modifier.make_vstrslice(self.mode is mode_unicode)
+    @specialize.argtype(1)
+    def visitor_dispatch_virtual_type(self, visitor):
+        return visitor.visit_vstrslice(self.mode is mode_unicode)
+
+class VStringConcatInfo(StrPtrInfo):
+    #_attrs_ = ('mode', 'vleft', 'vright', '_is_virtual')
+
+    vleft = None
+    vright = None
+    _is_virtual = False
+    
+    def __init__(self, mode, vleft, vright, is_virtual):
+        self.vleft = vleft
+        self.vright = vright
+        StrPtrInfo.__init__(self, mode, is_virtual)
+
+    def is_virtual(self):
+        return self._is_virtual
+
+    def getstrlen(self, op, string_optimizer, mode, create_ops=True):
+        if self.lgtop is not None:
+            return self.lgtop
+        lefti = string_optimizer.getptrinfo(self.vleft)
+        len1box = lefti.getstrlen(self.vleft, string_optimizer, mode,
+                                  create_ops)
+        if len1box is None:
+            return None
+        righti = string_optimizer.getptrinfo(self.vright)
+        len2box = righti.getstrlen(self.vright, string_optimizer, mode,
+                                   create_ops)
+        if len2box is None:
+            return None
+        self.lgtop = _int_add(string_optimizer, len1box, len2box, create_ops)
+            # ^^^ may still be None, if string_optimizer is None
+        return self.lgtop
+
+    @specialize.arg(2)
+    def get_constant_string_spec(self, string_optimizer, mode):
+        ileft = string_optimizer.getptrinfo(self.vleft)
+        s1 = ileft.get_constant_string_spec(string_optimizer, mode)
+        if s1 is None:
+            return None
+        iright = string_optimizer.getptrinfo(self.vright)
+        s2 = iright.get_constant_string_spec(string_optimizer, mode)
+        if s2 is None:
+            return None
+        return s1 + s2
+
+    def string_copy_parts(self, op, string_optimizer, targetbox, offsetbox,
+                          mode):
+        lefti = string_optimizer.getptrinfo(self.vleft)
+        offsetbox = lefti.string_copy_parts(self.vleft, string_optimizer,
+                                            targetbox, offsetbox, mode)
+        righti = string_optimizer.getptrinfo(self.vright)
+        offsetbox = righti.string_copy_parts(self.vright, string_optimizer,
+                                             targetbox, offsetbox, mode)
+        return offsetbox
+
+    def _visitor_walk_recursive(self, instbox, visitor, optimizer):
+        # we don't store the lengthvalue in guards, because the
+        # guard-failed code starts with a regular STR_CONCAT again
+        leftbox = self.vleft
+        rightbox = self.vright
+        visitor.register_virtual_fields(instbox, [leftbox, rightbox])
+        leftinfo = optimizer.getptrinfo(leftbox)
+        rightinfo = optimizer.getptrinfo(rightbox)
+        if leftinfo and leftinfo.is_virtual():
+            leftinfo.visitor_walk_recursive(leftbox, visitor, optimizer)
+        if rightinfo and rightinfo.is_virtual():
+            rightinfo.visitor_walk_recursive(rightbox, visitor, optimizer)
+
+    @specialize.argtype(1)
+    def visitor_dispatch_virtual_type(self, visitor):
+        return visitor.visit_vstrconcat(self.mode is mode_unicode)
 
 
 def copy_str_content(string_optimizer, srcbox, targetbox,
-                     srcoffsetbox, offsetbox, lengthbox, mode, need_next_offset=True):
-    if isinstance(srcbox, ConstPtr) and isinstance(srcoffsetbox, Const):
+                     srcoffsetbox, offsetbox, lengthbox, mode,
+                     need_next_offset=True):
+    srcbox = string_optimizer.get_box_replacement(srcbox)
+    srcoffset = string_optimizer.getintbound(srcoffsetbox)
+    lgt = string_optimizer.getintbound(lengthbox)
+    if isinstance(srcbox, ConstPtr) and srcoffset.is_constant():
         M = 5
     else:
         M = 2
-    if isinstance(lengthbox, ConstInt) and lengthbox.value <= M:
+    if lgt.is_constant() and lgt.getint() <= M:
         # up to M characters are done "inline", i.e. with STRGETITEM/STRSETITEM
         # instead of just a COPYSTRCONTENT.
-        for i in range(lengthbox.value):
-            charbox = _strgetitem(string_optimizer, srcbox, srcoffsetbox, mode)
+        for i in range(lgt.getint()):
+            charbox = string_optimizer.strgetitem(None, srcbox, srcoffsetbox,
+                                                  mode)
             srcoffsetbox = _int_add(string_optimizer, srcoffsetbox, CONST_1)
-            assert isinstance(targetbox, BoxPtr)   # ConstPtr never makes sense
-            string_optimizer.emit_operation(ResOperation(mode.STRSETITEM, [targetbox,
-                                                                           offsetbox,
-                                                                           charbox],
-                                              None))
+            assert not isinstance(targetbox, Const)# ConstPtr never makes sense
+            string_optimizer.emit_extra(ResOperation(mode.STRSETITEM,
+                    [targetbox, offsetbox, charbox]))
             offsetbox = _int_add(string_optimizer, offsetbox, CONST_1)
     else:
         if need_next_offset:
             nextoffsetbox = _int_add(string_optimizer, offsetbox, lengthbox)
         else:
             nextoffsetbox = None
-        assert isinstance(targetbox, BoxPtr)   # ConstPtr never makes sense
+        assert not isinstance(targetbox, Const)   # ConstPtr never makes sense
         op = ResOperation(mode.COPYSTRCONTENT, [srcbox, targetbox,
                                                 srcoffsetbox, offsetbox,
-                                                lengthbox], None)
-        string_optimizer.emit_operation(op)
+                                                lengthbox])
+        string_optimizer.emit_extra(op)
         offsetbox = nextoffsetbox
     return offsetbox
 
-def _int_add(string_optimizer, box1, box2):
+def _int_add(string_optimizer, box1, box2, create_ops=True):
     if isinstance(box1, ConstInt):
         if box1.value == 0:
             return box2
@@ -355,11 +379,11 @@ def _int_add(string_optimizer, box1, box2):
             return ConstInt(box1.value + box2.value)
     elif isinstance(box2, ConstInt) and box2.value == 0:
         return box1
-    if string_optimizer is None:
+    if not create_ops:
         return None
-    resbox = BoxInt()
-    string_optimizer.emit_operation(ResOperation(rop.INT_ADD, [box1, box2], resbox))
-    return resbox
+    op = ResOperation(rop.INT_ADD, [box1, box2])
+    string_optimizer.send_extra_operation(op)
+    return op
 
 def _int_sub(string_optimizer, box1, box2):
     if isinstance(box2, ConstInt):
@@ -367,137 +391,157 @@ def _int_sub(string_optimizer, box1, box2):
             return box1
         if isinstance(box1, ConstInt):
             return ConstInt(box1.value - box2.value)
-    resbox = BoxInt()
-    string_optimizer.emit_operation(ResOperation(rop.INT_SUB, [box1, box2], resbox))
-    return resbox
+    op = ResOperation(rop.INT_SUB, [box1, box2])
+    string_optimizer.send_extra_operation(op)
+    return op
 
 def _strgetitem(string_optimizer, strbox, indexbox, mode, resbox=None):
     if isinstance(strbox, ConstPtr) and isinstance(indexbox, ConstInt):
         if mode is mode_string:
             s = strbox.getref(lltype.Ptr(rstr.STR))
-            return ConstInt(ord(s.chars[indexbox.getint()]))
+            resnewbox = ConstInt(ord(s.chars[indexbox.getint()]))
         else:
             s = strbox.getref(lltype.Ptr(rstr.UNICODE))
-            return ConstInt(ord(s.chars[indexbox.getint()]))
+            resnewbox = ConstInt(ord(s.chars[indexbox.getint()]))
+        if resbox is not None:
+            string_optimizer.make_equal_to(resbox, resnewbox)
+        return resnewbox
     if resbox is None:
-        resbox = BoxInt()
-    string_optimizer.emit_operation(ResOperation(mode.STRGETITEM, [strbox, indexbox],
-                                                 resbox))
+        resbox = ResOperation(mode.STRGETITEM, [strbox, indexbox])
+    else:
+        resbox = string_optimizer.replace_op_with(resbox, mode.STRGETITEM,
+                                                  [strbox, indexbox])
+    string_optimizer.emit_extra(resbox)
     return resbox
 
 
 class OptString(optimizer.Optimization):
     "Handling of strings and unicodes."
 
-    def make_vstring_plain(self, box, source_op, mode):
-        vvalue = VStringPlainValue(box, source_op, mode)
-        self.make_equal_to(box, vvalue)
+    def setup(self):
+        self.optimizer.optstring = self
+
+    def propagate_forward(self, op):
+        return dispatch_opt(self, op)
+
+    def propagate_postprocess(self, op):
+        return dispatch_postprocess(self, op)
+
+    def make_vstring_plain(self, op, mode, length):
+        vvalue = VStringPlainInfo(mode, True, length)
+        op = self.replace_op_with(op, op.getopnum())
+        op.set_forwarded(vvalue)
         return vvalue
 
-    def make_vstring_concat(self, box, source_op, mode):
-        vvalue = VStringConcatValue(box, source_op, mode)
-        self.make_equal_to(box, vvalue)
+    def make_vstring_concat(self, op, mode, vleft, vright):
+        vvalue = VStringConcatInfo(mode, vleft, vright, True)
+        op = self.replace_op_with(op, op.getopnum())
+        op.set_forwarded(vvalue)
         return vvalue
 
-    def make_vstring_slice(self, box, source_op, mode):
-        vvalue = VStringSliceValue(box, source_op, mode)
-        self.make_equal_to(box, vvalue)
+    def make_vstring_slice(self, op, strbox, startbox, mode, lengthbox):
+        vvalue = VStringSliceInfo(strbox, startbox, lengthbox, mode)
+        op = self.replace_op_with(op, op.getopnum())
+        op.set_forwarded(vvalue)
         return vvalue
 
     def optimize_NEWSTR(self, op):
-        self._optimize_NEWSTR(op, mode_string)
+        return self._optimize_NEWSTR(op, mode_string)
     def optimize_NEWUNICODE(self, op):
-        self._optimize_NEWSTR(op, mode_unicode)
+        return self._optimize_NEWSTR(op, mode_unicode)
 
     def _optimize_NEWSTR(self, op, mode):
         length_box = self.get_constant_box(op.getarg(0))
         if length_box and length_box.getint() <= MAX_CONST_LEN:
-            # if the original 'op' did not have a ConstInt as argument,
-            # build a new one with the ConstInt argument
-            if not isinstance(op.getarg(0), ConstInt):
-                op = ResOperation(mode.NEWSTR, [length_box], op.result)
-            vvalue = self.make_vstring_plain(op.result, op, mode)
-            vvalue.setup(length_box.getint())
+            assert not op.get_forwarded()
+            self.make_vstring_plain(op, mode, length_box.getint())
         else:
-            self.getvalue(op.result).ensure_nonnull()
-            self.emit_operation(op)
-            self.pure(mode.STRLEN, [op.result], op.getarg(0))
+            self.make_nonnull_str(op, mode)
+            return self.emit(op)
+
+    def postprocess_NEWSTR(self, op):
+        self.pure_from_args(mode_string.STRLEN, [op], op.getarg(0))
+
+    def postprocess_NEWUNICODE(self, op):
+        self.pure_from_args(mode_unicode.STRLEN, [op], op.getarg(0))
 
     def optimize_STRSETITEM(self, op):
-        value = self.getvalue(op.getarg(0))
-        assert not value.is_constant() # strsetitem(ConstPtr) never makes sense
-        if value.is_virtual() and isinstance(value, VStringPlainValue):
+        opinfo = self.getptrinfo(op.getarg(0))
+        if opinfo:
+            assert not opinfo.is_constant()
+            # strsetitem(ConstPtr) never makes sense
+        if opinfo and opinfo.is_virtual():
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
-                value.setitem(indexbox.getint(), self.getvalue(op.getarg(2)))
+                opinfo.strsetitem(indexbox.getint(),
+                                  self.get_box_replacement(op.getarg(2)))
                 return
-        value.ensure_nonnull()
-        self.emit_operation(op)
+        self.make_nonnull(op.getarg(0))
+        return self.emit(op)
 
     optimize_UNICODESETITEM = optimize_STRSETITEM
 
     def optimize_STRGETITEM(self, op):
-        self._optimize_STRGETITEM(op, mode_string)
+        return self._optimize_STRGETITEM(op, mode_string)
     def optimize_UNICODEGETITEM(self, op):
-        self._optimize_STRGETITEM(op, mode_unicode)
+        return self._optimize_STRGETITEM(op, mode_unicode)
 
     def _optimize_STRGETITEM(self, op, mode):
-        value = self.getvalue(op.getarg(0))
-        vindex = self.getvalue(op.getarg(1))
-        vresult = self.strgetitem(value, vindex, mode, op.result)
-        if op.result in self.optimizer.values:
-            assert self.getvalue(op.result) is vresult
-        else:
-            self.make_equal_to(op.result, vresult)
+        self.strgetitem(op, op.getarg(0), op.getarg(1), mode)
 
-    def strgetitem(self, value, vindex, mode, resbox=None):
-        value.ensure_nonnull()
+    def strgetitem(self, op, s, index, mode):
+        self.make_nonnull_str(s, mode)
+        sinfo = self.getptrinfo(s)
         #
-        if value.is_virtual() and isinstance(value, VStringSliceValue):
-            fullindexbox = _int_add(self,
-                                    value.vstart.force_box(self),
-                                    vindex.force_box(self))
-            value = value.vstr
-            vindex = self.getvalue(fullindexbox)
+        if isinstance(sinfo, VStringSliceInfo) and sinfo.is_virtual(): # slice
+            index = _int_add(self.optimizer, sinfo.start, index)
+            s = sinfo.s
+            sinfo = self.getptrinfo(sinfo.s)
         #
-        if isinstance(value, VStringPlainValue):  # even if no longer virtual
+        if isinstance(sinfo, VStringPlainInfo):
+            # even if no longer virtual
+            vindex = self.getintbound(index)
             if vindex.is_constant():
-                result = value.getitem(vindex.box.getint())
+                result = sinfo.strgetitem(vindex.getint())
                 if result is not None:
+                    if op is not None:
+                        self.make_equal_to(op, result)
                     return result
         #
-        if isinstance(value, VStringConcatValue) and vindex.is_constant():
-            len1box = value.left.getstrlen(self, mode, None)
+        vindex = self.getintbound(index)
+        if isinstance(sinfo, VStringConcatInfo) and vindex.is_constant():
+            leftinfo = self.getptrinfo(sinfo.vleft)
+            len1box = leftinfo.getstrlen(sinfo.vleft, self, mode)
             if isinstance(len1box, ConstInt):
-                index = vindex.box.getint()
+                raw_index = vindex.getint()
                 len1 = len1box.getint()
-                if index < len1:
-                    return self.strgetitem(value.left, vindex, mode)
+                if raw_index < len1:
+                    return self.strgetitem(op, sinfo.vleft, index, mode)
                 else:
-                    vindex = optimizer.ConstantValue(ConstInt(index - len1))
-                    return self.strgetitem(value.right, vindex, mode)
+                    index = ConstInt(raw_index - len1)
+                    return self.strgetitem(op, sinfo.vright, index, mode)
         #
-        resbox = _strgetitem(self, value.force_box(self), vindex.force_box(self), mode, resbox)
-        return self.getvalue(resbox)
+        return _strgetitem(self, s, index, mode, op)
 
     def optimize_STRLEN(self, op):
-        self._optimize_STRLEN(op, mode_string)
+        return self._optimize_STRLEN(op, mode_string)
     def optimize_UNICODELEN(self, op):
-        self._optimize_STRLEN(op, mode_unicode)
+        return self._optimize_STRLEN(op, mode_unicode)
 
     def _optimize_STRLEN(self, op, mode):
-        value = self.getvalue(op.getarg(0))
-        lengthbox = value.getstrlen(self, mode, op.result)
-        if op.result in self.optimizer.values:
-            assert self.getvalue(op.result) is self.getvalue(lengthbox)
-        elif op.result is not lengthbox:
-            self.make_equal_to(op.result, self.getvalue(lengthbox))
+        opinfo = self.getptrinfo(op.getarg(0))
+        if opinfo:
+            lgtop = opinfo.getstrlen(op, self, mode, False)
+            if lgtop is not None:
+                self.make_equal_to(op, lgtop)
+                return
+        return self.emit(op)
 
     def optimize_COPYSTRCONTENT(self, op):
-        self._optimize_COPYSTRCONTENT(op, mode_string)
+        return self._optimize_COPYSTRCONTENT(op, mode_string)
 
     def optimize_COPYUNICODECONTENT(self, op):
-        self._optimize_COPYSTRCONTENT(op, mode_unicode)
+        return self._optimize_COPYSTRCONTENT(op, mode_unicode)
 
     def _optimize_COPYSTRCONTENT(self, op, mode):
         # args: src dst srcstart dststart length
@@ -506,44 +550,39 @@ class OptString(optimizer.Optimization):
         assert op.getarg(2).type == INT
         assert op.getarg(3).type == INT
         assert op.getarg(4).type == INT
-        src = self.getvalue(op.getarg(0))
-        dst = self.getvalue(op.getarg(1))
-        srcstart = self.getvalue(op.getarg(2))
-        dststart = self.getvalue(op.getarg(3))
-        length = self.getvalue(op.getarg(4))
-        dst_virtual = (isinstance(dst, VStringPlainValue) and dst.is_virtual())
+        src = self.getptrinfo(op.getarg(0))
+        dst = self.getptrinfo(op.getarg(1))
+        srcstart = self.getintbound(op.getarg(2))
+        dststart = self.getintbound(op.getarg(3))
+        length = self.getintbound(op.getarg(4))
+        dst_virtual = (isinstance(dst, VStringPlainInfo) and dst.is_virtual())
 
-        if length.is_constant() and length.box.getint() == 0:
+        if length.is_constant() and length.getint() == 0:
             return
-        elif ((src.is_virtual() or src.is_constant()) and
+        elif ((str and (src.is_virtual() or src.is_constant())) and
               srcstart.is_constant() and dststart.is_constant() and
               length.is_constant() and
-              (length.force_box(self).getint() < 20 or ((src.is_virtual() or src.is_constant()) and dst_virtual))):
-            src_start = srcstart.force_box(self).getint()
-            dst_start = dststart.force_box(self).getint()
-            actual_length = length.force_box(self).getint()
+              (length.getint() < 20 or ((src.is_virtual() or src.is_constant()) and dst_virtual))):
+            src_start = srcstart.getint()
+            dst_start = dststart.getint()
+            actual_length = length.getint()
             for index in range(actual_length):
-                vresult = self.strgetitem(src, optimizer.ConstantValue(ConstInt(index + src_start)), mode)
+                vresult = self.strgetitem(None, op.getarg(0),
+                                          ConstInt(index + src_start), mode)
                 if dst_virtual:
-                    dst.setitem(index + dst_start, vresult)
+                    dst.strsetitem(index + dst_start, vresult)
                 else:
                     new_op = ResOperation(mode.STRSETITEM, [
-                        dst.force_box(self),
-                        ConstInt(index + dst_start),
-                        vresult.force_box(self),
-                    ], None)
-                    self.emit_operation(new_op)
+                        op.getarg(1), ConstInt(index + dst_start),
+                        vresult,
+                    ])
+                    self.emit_extra(new_op)
         else:
-            copy_str_content(self,
-                src.force_box(self),
-                dst.force_box(self),
-                srcstart.force_box(self),
-                dststart.force_box(self),
-                length.force_box(self),
-                mode, need_next_offset=False
-            )
+            copy_str_content(self, op.getarg(0), op.getarg(1), op.getarg(2),
+                             op.getarg(3), op.getarg(4), mode,
+                             need_next_offset=False)
 
-    def optimize_CALL(self, op):
+    def optimize_CALL_I(self, op):
         # dispatch based on 'oopspecindex' to a method that handles
         # specifically the given oopspec call.  For non-oopspec calls,
         # oopspecindex is just zero.
@@ -552,13 +591,15 @@ class OptString(optimizer.Optimization):
         if oopspecindex != EffectInfo.OS_NONE:
             for value, meth in opt_call_oopspec_ops:
                 if oopspecindex == value:      # a match with the OS_STR_xxx
-                    if meth(self, op, mode_string):
-                        return
+                    handled, newop = meth(self, op, mode_string)
+                    if handled:
+                        return newop
                     break
                 if oopspecindex == value + EffectInfo._OS_offset_uni:
                     # a match with the OS_UNI_xxx
-                    if meth(self, op, mode_unicode):
-                        return
+                    handled, newop = meth(self, op, mode_unicode)
+                    if handled:
+                        return newop
                     break
             if oopspecindex == EffectInfo.OS_STR2UNICODE:
                 if self.opt_call_str_STR2UNICODE(op):
@@ -566,183 +607,238 @@ class OptString(optimizer.Optimization):
             if oopspecindex == EffectInfo.OS_SHRINK_ARRAY:
                 if self.opt_call_SHRINK_ARRAY(op):
                     return
-        self.emit_operation(op)
-
-    optimize_CALL_PURE = optimize_CALL
+        return self.emit(op)
+    optimize_CALL_R = optimize_CALL_I
+    optimize_CALL_F = optimize_CALL_I
+    optimize_CALL_N = optimize_CALL_I
+    optimize_CALL_PURE_I = optimize_CALL_I
+    optimize_CALL_PURE_R = optimize_CALL_I
+    optimize_CALL_PURE_F = optimize_CALL_I
+    optimize_CALL_PURE_N = optimize_CALL_I
 
     def optimize_GUARD_NO_EXCEPTION(self, op):
         if self.last_emitted_operation is REMOVED:
             return
-        self.emit_operation(op)
+        return self.emit(op)
 
     def opt_call_str_STR2UNICODE(self, op):
         # Constant-fold unicode("constant string").
         # More generally, supporting non-constant but virtual cases is
         # not obvious, because of the exception UnicodeDecodeError that
         # can be raised by ll_str2unicode()
-        varg = self.getvalue(op.getarg(1))
-        s = varg.get_constant_string_spec(mode_string)
+        varg = self.getptrinfo(op.getarg(1))
+        s = None
+        if varg:
+            s = varg.get_constant_string_spec(self, mode_string)
         if s is None:
             return False
         try:
             u = unicode(s)
         except UnicodeDecodeError:
             return False
-        self.make_constant(op.result, get_const_ptr_for_unicode(u))
+        self.make_constant(op, get_const_ptr_for_unicode(u))
         self.last_emitted_operation = REMOVED
         return True
 
     def opt_call_stroruni_STR_CONCAT(self, op, mode):
-        vleft = self.getvalue(op.getarg(1))
-        vright = self.getvalue(op.getarg(2))
-        vleft.ensure_nonnull()
-        vright.ensure_nonnull()
-        value = self.make_vstring_concat(op.result, op, mode)
-        value.setup(vleft, vright)
-        return True
+        self.make_nonnull_str(op.getarg(1), mode)
+        self.make_nonnull_str(op.getarg(2), mode)
+        self.make_vstring_concat(op, mode,
+                                 self.get_box_replacement(op.getarg(1)),
+                                 self.get_box_replacement(op.getarg(2)))
+        self.last_emitted_operation = REMOVED
+        return True, None
 
     def opt_call_stroruni_STR_SLICE(self, op, mode):
-        vstr = self.getvalue(op.getarg(1))
-        vstart = self.getvalue(op.getarg(2))
-        vstop = self.getvalue(op.getarg(3))
+        self.make_nonnull_str(op.getarg(1), mode)
+        vstr = self.getptrinfo(op.getarg(1))
+        vstart = self.getintbound(op.getarg(2))
+        vstop = self.getintbound(op.getarg(3))
         #
-        #if (isinstance(vstr, VStringPlainValue) and vstart.is_constant()
+        #---The following looks reasonable, but see test_str_slice_bug:
+        #   the problem is what occurs if the source string has been forced
+        #   but still contains None in its _chars
+        #if (isinstance(vstr, VStringPlainInfo) and vstart.is_constant()
         #    and vstop.is_constant()):
-        #    value = self.make_vstring_plain(op.result, op, mode)
-        #    value.setup_slice(vstr._chars, vstart.box.getint(),
-        #                      vstop.box.getint())
-        #    return True
+        #    value = self.make_vstring_plain(op, mode, -1)
+        #    value.setup_slice(vstr._chars, vstart.getint(),
+        #                      vstop.getint())
+        #    return True, None
         #
-        vstr.ensure_nonnull()
-        lengthbox = _int_sub(self, vstop.force_box(self),
-                                   vstart.force_box(self))
+        startbox = op.getarg(2)
+        strbox = op.getarg(1)
+        lengthbox = _int_sub(self.optimizer, op.getarg(3), op.getarg(2))
         #
-        if isinstance(vstr, VStringSliceValue):
+        if isinstance(vstr, VStringSliceInfo):
             # double slicing  s[i:j][k:l]
-            vintermediate = vstr
-            vstr = vintermediate.vstr
-            startbox = _int_add(self,
-                                vintermediate.vstart.force_box(self),
-                                vstart.force_box(self))
-            vstart = self.getvalue(startbox)
+            strbox = vstr.s
+            startbox = _int_add(self.optimizer, vstr.start, startbox)
         #
-        value = self.make_vstring_slice(op.result, op, mode)
-        value.setup(vstr, vstart, self.getvalue(lengthbox))
-        return True
+        self.make_vstring_slice(op, strbox, startbox, mode, lengthbox)
+        self.last_emitted_operation = REMOVED
+        return True, None
 
+    @specialize.arg(2)
     def opt_call_stroruni_STR_EQUAL(self, op, mode):
-        v1 = self.getvalue(op.getarg(1))
-        v2 = self.getvalue(op.getarg(2))
+        arg1 = self.get_box_replacement(op.getarg(1))
+        arg2 = self.get_box_replacement(op.getarg(2))
+        i1 = self.getptrinfo(arg1)
+        i2 = self.getptrinfo(arg2)
         #
-        l1box = v1.getstrlen(None, mode, None)
-        l2box = v2.getstrlen(None, mode, None)
+        if i1:
+            l1box = i1.getstrlen(arg1, self, mode, create_ops=False)
+        else:
+            l1box = None
+        if i2:
+            l2box = i2.getstrlen(arg2, self, mode, create_ops=False)
+        else:
+            l2box = None
         if (l1box is not None and l2box is not None and
             isinstance(l1box, ConstInt) and
             isinstance(l2box, ConstInt) and
             l1box.value != l2box.value):
             # statically known to have a different length
-            self.make_constant(op.result, CONST_0)
-            return True
+            self.make_constant(op, CONST_0)
+            return True, None
         #
-        if self.handle_str_equal_level1(v1, v2, op.result, mode):
-            return True
-        if self.handle_str_equal_level1(v2, v1, op.result, mode):
-            return True
-        if self.handle_str_equal_level2(v1, v2, op.result, mode):
-            return True
-        if self.handle_str_equal_level2(v2, v1, op.result, mode):
-            return True
+        handled, result = self.handle_str_equal_level1(arg1, arg2, op, mode)
+        if handled:
+            return True, result
+        handled, result = self.handle_str_equal_level1(arg2, arg1, op, mode)
+        if handled:
+            return True, result
+        handled, result = self.handle_str_equal_level2(arg1, arg2, op, mode)
+        if handled:
+            return True, result
+        handled, result = self.handle_str_equal_level2(arg2, arg1, op, mode)
+        if handled:
+            return True, result
         #
-        if v1.is_nonnull() and v2.is_nonnull():
+        if i1 and i1.is_nonnull() and i2 and i2.is_nonnull():
             if l1box is not None and l2box is not None and l1box.same_box(l2box):
                 do = EffectInfo.OS_STREQ_LENGTHOK
             else:
                 do = EffectInfo.OS_STREQ_NONNULL
-            self.generate_modified_call(do, [v1.force_box(self),
-                                             v2.force_box(self)], op.result, mode)
-            return True
-        return False
+            return True, self.generate_modified_call(do, [arg1, arg2], op, mode)
+        return False, None
 
-    def handle_str_equal_level1(self, v1, v2, resultbox, mode):
-        l2box = v2.getstrlen(None, mode, None)
+    def handle_str_equal_level1(self, arg1, arg2, resultop, mode):
+        i1 = self.getptrinfo(arg1)
+        i2 = self.getptrinfo(arg2)
+        l2box = None
+        l1box = None
+        if i2:
+            l2box = i2.getstrlen(arg2, self, mode, create_ops=False)
         if isinstance(l2box, ConstInt):
             if l2box.value == 0:
-                lengthbox = v1.getstrlen(self, mode, None)
-                seo = self.optimizer.send_extra_operation
-                seo(ResOperation(rop.INT_EQ, [lengthbox, CONST_0], resultbox))
-                return True
+                if i1 and i1.is_nonnull():
+                    self.make_nonnull_str(arg1, mode)
+                    i1 = self.getptrinfo(arg1)
+                    lengthbox = i1.getstrlen(arg1, self, mode)
+                else:
+                    lengthbox = None
+                if lengthbox is not None:
+                    seo = self.optimizer.send_extra_operation
+                    op = self.replace_op_with(resultop, rop.INT_EQ,
+                                              [lengthbox, CONST_0],
+                                              descr=DONT_CHANGE)
+                    seo(op)
+                    return True, None
             if l2box.value == 1:
-                l1box = v1.getstrlen(None, mode, None)
+                if i1:
+                    l1box = i1.getstrlen(arg1, self, mode, False)
                 if isinstance(l1box, ConstInt) and l1box.value == 1:
                     # comparing two single chars
-                    vchar1 = self.strgetitem(v1, optimizer.CVAL_ZERO, mode)
-                    vchar2 = self.strgetitem(v2, optimizer.CVAL_ZERO, mode)
+                    vchar1 = self.strgetitem(None, arg1, optimizer.CONST_0,
+                                             mode)
+                    vchar2 = self.strgetitem(None, arg2, optimizer.CONST_0,
+                                             mode)
                     seo = self.optimizer.send_extra_operation
-                    seo(ResOperation(rop.INT_EQ, [vchar1.force_box(self),
-                                                  vchar2.force_box(self)],
-                                     resultbox))
-                    return True
-                if isinstance(v1, VStringSliceValue):
-                    vchar = self.strgetitem(v2, optimizer.CVAL_ZERO, mode)
-                    do = EffectInfo.OS_STREQ_SLICE_CHAR
-                    self.generate_modified_call(do, [v1.vstr.force_box(self),
-                                                     v1.vstart.force_box(self),
-                                                     v1.vlength.force_box(self),
-                                                     vchar.force_box(self)],
-                                                resultbox, mode)
-                    return True
-        #
-        if v2.is_null():
-            if v1.is_nonnull():
-                self.make_constant(resultbox, CONST_0)
-                return True
-            if v1.is_null():
-                self.make_constant(resultbox, CONST_1)
-                return True
-            op = ResOperation(rop.PTR_EQ, [v1.force_box(self),
-                                           llhelper.CONST_NULL],
-                              resultbox)
-            self.emit_operation(op)
-            return True
-        #
-        return False
-
-    def handle_str_equal_level2(self, v1, v2, resultbox, mode):
-        l2box = v2.getstrlen(None, mode, None)
-        if isinstance(l2box, ConstInt):
-            if l2box.value == 1:
-                vchar = self.strgetitem(v2, optimizer.CVAL_ZERO, mode)
-                if v1.is_nonnull():
-                    do = EffectInfo.OS_STREQ_NONNULL_CHAR
-                else:
-                    do = EffectInfo.OS_STREQ_CHECKNULL_CHAR
-                self.generate_modified_call(do, [v1.force_box(self),
-                                                 vchar.force_box(self)], resultbox,
+                    op = self.optimizer.replace_op_with(resultop, rop.INT_EQ,
+                                [vchar1, vchar2], descr=DONT_CHANGE)
+                    seo(op)
+                    return True, None
+                if isinstance(i1, VStringSliceInfo):
+                    vchar = self.strgetitem(None, arg2, optimizer.CONST_0,
                                             mode)
-                return True
+                    do = EffectInfo.OS_STREQ_SLICE_CHAR
+                    return True, self.generate_modified_call(do, [i1.s, i1.start,
+                                                                  i1.lgtop, vchar],
+                                                             resultop, mode)
         #
-        if v1.is_virtual() and isinstance(v1, VStringSliceValue):
-            if v2.is_nonnull():
+        if i2 and i2.is_null():
+            if i1 and i1.is_nonnull():
+                self.make_constant(resultop, CONST_0)
+                return True, None
+            if i1 and i1.is_null():
+                self.make_constant(resultop, CONST_1)
+                return True, None
+            op = self.optimizer.replace_op_with(resultop, rop.PTR_EQ,
+                                                [arg1, llhelper.CONST_NULL],
+                                                descr=DONT_CHANGE)
+            return True, self.emit(op)
+        #
+        return False, None
+
+    def handle_str_equal_level2(self, arg1, arg2, resultbox, mode):
+        i1 = self.getptrinfo(arg1)
+        i2 = self.getptrinfo(arg2)
+        l2box = None
+        if i2:
+            l2box = i2.getstrlen(arg1, self, mode, create_ops=False)
+        if l2box:
+            l2info = self.getintbound(l2box)
+            if l2info.is_constant():
+                if l2info.getint() == 1:
+                    vchar = self.strgetitem(None, arg2, optimizer.CONST_0, mode)
+                    if i1 and i1.is_nonnull():
+                        do = EffectInfo.OS_STREQ_NONNULL_CHAR
+                    else:
+                        do = EffectInfo.OS_STREQ_CHECKNULL_CHAR
+                    return True, self.generate_modified_call(do, [arg1, vchar],
+                                                             resultbox, mode)
+            #
+        if isinstance(i1, VStringSliceInfo) and i1.is_virtual():
+            if i2 and i2.is_nonnull():
                 do = EffectInfo.OS_STREQ_SLICE_NONNULL
             else:
                 do = EffectInfo.OS_STREQ_SLICE_CHECKNULL
-            self.generate_modified_call(do, [v1.vstr.force_box(self),
-                                             v1.vstart.force_box(self),
-                                             v1.vlength.force_box(self),
-                                             v2.force_box(self)], resultbox, mode)
-            return True
-        return False
+            return True, self.generate_modified_call(do, [i1.s, i1.start, i1.lgtop,
+                                                          arg2], resultbox, mode)
+        return False, None
+
+    def opt_call_stroruni_STR_CMP(self, op, mode):
+        i1 = self.getptrinfo(op.getarg(1))
+        i2 = self.getptrinfo(op.getarg(2))
+        if not i1 or not i2:
+            return False, None
+        l1box = i1.getstrlen(None, self, mode, False)
+        l2box = i2.getstrlen(None, self, mode, False)
+        if (l1box is not None and l2box is not None and
+            isinstance(l1box, ConstInt) and
+            isinstance(l2box, ConstInt) and
+            l1box.getint() == l2box.getint() == 1):
+            # comparing two single chars
+            char1 = self.strgetitem(None, op.getarg(1), optimizer.CONST_0, mode)
+            char2 = self.strgetitem(None, op.getarg(2), optimizer.CONST_0, mode)
+            seo = self.optimizer.send_extra_operation
+            op = self.replace_op_with(op, rop.INT_SUB, [char1, char2],
+                                      descr=DONT_CHANGE)
+            seo(op)
+            return True, None
+        return False, None
 
     def opt_call_SHRINK_ARRAY(self, op):
-        v1 = self.getvalue(op.getarg(1))
-        v2 = self.getvalue(op.getarg(2))
+        i1 = self.getptrinfo(op.getarg(1))
+        i2 = self.getintbound(op.getarg(2))
         # If the index is constant, if the argument is virtual (we only support
         # VStringPlainValue for now) we can optimize away the call.
-        if v2.is_constant() and v1.is_virtual() and isinstance(v1, VStringPlainValue):
-            length = v2.box.getint()
-            v1.shrink(length)
+        if (i2 and i2.is_constant() and i1 and i1.is_virtual() and
+            isinstance(i1, VStringPlainInfo)):
+            length = i2.getint()
+            i1.shrink(length)
             self.last_emitted_operation = REMOVED
-            self.make_equal_to(op.result, v1)
+            self.make_equal_to(op, op.getarg(1))
             return True
         return False
 
@@ -750,16 +846,15 @@ class OptString(optimizer.Optimization):
         oopspecindex += mode.OS_offset
         cic = self.optimizer.metainterp_sd.callinfocollection
         calldescr, func = cic.callinfo_for_oopspec(oopspecindex)
-        op = ResOperation(rop.CALL, [ConstInt(func)] + args, result,
-                          descr=calldescr)
-        self.emit_operation(op)
-
-    def propagate_forward(self, op):
-        dispatch_opt(self, op)
+        op = self.optimizer.replace_op_with(result, rop.CALL_I,
+                                            [ConstInt(func)] + args,
+                                            descr=calldescr)
+        return self.emit(op)
 
 
 dispatch_opt = make_dispatcher_method(OptString, 'optimize_',
-        default=OptString.emit_operation)
+                                      default=OptString.emit)
+dispatch_postprocess = make_dispatcher_method(OptString, 'postprocess_')
 
 
 def _findall_call_oopspec():

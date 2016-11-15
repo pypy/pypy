@@ -14,17 +14,17 @@ from rpython.rlib.rarithmetic import (
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rfloat import DBL_MANT_DIG
 from rpython.rlib.rstring import (
-    InvalidBaseError, ParseStringError, ParseStringOverflowError)
+    ParseStringError, ParseStringOverflowError)
 from rpython.tool.sourcetools import func_renamer, func_with_new_name
 
 from pypy.interpreter import typedef
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
+from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std import newformat
-from pypy.objspace.std.model import (
-    BINARY_OPS, CMP_OPS, COMMUTATIVE_OPS, IDTAG_INT)
-from pypy.objspace.std.stdtypedef import StdTypeDef
+from pypy.objspace.std.util import (
+    BINARY_OPS, CMP_OPS, COMMUTATIVE_OPS, IDTAG_INT, IDTAG_SHIFT, wrap_parsestringerror)
 
 SENTINEL = object()
 
@@ -46,7 +46,7 @@ class W_AbstractIntObject(W_Root):
         if self.user_overridden_class:
             return None
         b = space.bigint_w(self)
-        b = b.lshift(3).or_(rbigint.fromint(IDTAG_INT))
+        b = b.lshift(IDTAG_SHIFT).int_or_(IDTAG_INT)
         return space.newlong_from_rbigint(b)
 
     def int(self, space):
@@ -249,11 +249,17 @@ def _pow(space, iv, iw, iz):
     ix = 1
     while iw > 0:
         if iw & 1:
-            ix = ovfcheck(ix * temp)
+            try:
+                ix = ovfcheck(ix * temp)
+            except OverflowError:
+                raise
         iw >>= 1   # Shift exponent down by 1 bit
         if iw == 0:
             break
-        temp = ovfcheck(temp * temp) # Square the value of temp
+        try:
+            temp = ovfcheck(temp * temp) # Square the value of temp
+        except OverflowError:
+            raise
         if iz:
             # If we did a multiplication, perform a modulo
             ix %= iz
@@ -309,17 +315,17 @@ class W_IntObject(W_AbstractIntObject):
 
     def __init__(self, intval):
         assert is_valid_int(intval)
-        self.intval = intval
+        self.intval = int(intval)
 
     def __repr__(self):
         """representation for debugging purposes"""
         return "%s(%d)" % (self.__class__.__name__, self.intval)
 
     def int_w(self, space, allow_conversion=True):
-        return int(self.intval)
+        return self.intval
 
     def _int_w(self, space):
-        return int(self.intval)
+        return self.intval
 
     unwrap = _int_w
 
@@ -356,11 +362,13 @@ class W_IntObject(W_AbstractIntObject):
         return _new_int(space, w_inttype, w_x, w_base)
 
     def descr_hash(self, space):
-        # unlike CPython, we don't special-case the value -1 in most of
-        # our hash functions, so there is not much sense special-casing
-        # it here either.  Make sure this is consistent with the hash of
-        # floats and longs.
-        return self.int(space)
+        # For compatibility with CPython, we special-case -1
+        # Make sure this is consistent with the hash of floats and longs.
+        # The complete list of built-in types whose hash should be
+        # consistent is: int, long, bool, float, complex.
+        h = self.intval
+        h -= (h == -1)  # No explicit condition, to avoid JIT bridges
+        return wrapint(space, h)
 
     def _int(self, space):
         return self.int(space)
@@ -385,9 +393,7 @@ class W_IntObject(W_AbstractIntObject):
         return space.newtuple([self, w_other])
 
     def descr_long(self, space):
-        # XXX: should try smalllong
-        from pypy.objspace.std.longobject import W_LongObject
-        return W_LongObject.fromint(space, self.intval)
+        return space.newlong(self.intval)
 
     def descr_nonzero(self, space):
         return space.newbool(self.intval != 0)
@@ -427,9 +433,11 @@ class W_IntObject(W_AbstractIntObject):
 
     def descr_bit_length(self, space):
         val = self.intval
-        if val < 0:
-            val = -val
         bits = 0
+        if val < 0:
+            # warning, "-val" overflows here
+            val = -((val + 1) >> 1)
+            bits = 1
         while val:
             bits += 1
             val >>= 1
@@ -600,6 +608,16 @@ class W_IntObject(W_AbstractIntObject):
         _divmod, ovf2small=_divmod_ovf2small)
 
 
+def setup_prebuilt(space):
+    if space.config.objspace.std.withprebuiltint:
+        W_IntObject.PREBUILT = []
+        for i in range(space.config.objspace.std.prebuiltintfrom,
+                       space.config.objspace.std.prebuiltintto):
+            W_IntObject.PREBUILT.append(W_IntObject(i))
+    else:
+        W_IntObject.PREBUILT = None
+
+
 def wrapint(space, x):
     if not space.config.objspace.std.withprebuiltint:
         return W_IntObject(x)
@@ -619,15 +637,6 @@ def wrapint(space, x):
     # reused.  (we could use a prefetch hint if we had that)
     w_res.intval = x
     return w_res
-
-
-def wrap_parsestringerror(space, e, w_source):
-    if isinstance(e, InvalidBaseError):
-        w_msg = space.wrap(e.msg)
-    else:
-        w_msg = space.wrap('%s: %s' % (e.msg,
-                                       space.str_w(space.repr(w_source))))
-    return OperationError(space.w_ValueError, w_msg)
 
 
 def _recover_with_smalllong(space):
@@ -673,7 +682,11 @@ def _new_int(space, w_inttype, w_x, w_base=None):
             w_obj = w_value
             if space.lookup(w_obj, '__int__') is None:
                 w_obj = space.trunc(w_obj)
-            w_obj = space.int(w_obj)
+                if not (space.isinstance_w(w_obj, space.w_int) or
+                        space.isinstance_w(w_obj, space.w_long)):
+                    w_obj = space.int(w_obj)
+            else:
+                w_obj = space.int(w_obj)
             # 'int(x)' should return what x.__int__() returned, which should
             # be an int or long or a subclass thereof.
             if space.is_w(w_inttype, space.w_int):
@@ -692,7 +705,7 @@ def _new_int(space, w_inttype, w_x, w_base=None):
         else:
             # If object supports the buffer interface
             try:
-                buf = space.buffer_w(w_value)
+                buf = space.charbuf_w(w_value)
             except OperationError as e:
                 if not e.match(space, space.w_TypeError):
                     raise
@@ -700,8 +713,7 @@ def _new_int(space, w_inttype, w_x, w_base=None):
                             "int() argument must be a string or a number, "
                             "not '%T'", w_value)
             else:
-                value, w_longval = _string_to_int_or_long(space, w_value,
-                                                          buf.as_str())
+                value, w_longval = _string_to_int_or_long(space, w_value, buf)
     else:
         base = space.int_w(w_base)
 
@@ -732,7 +744,7 @@ def _new_int(space, w_inttype, w_x, w_base=None):
         return w_obj
 
 
-W_IntObject.typedef = StdTypeDef("int",
+W_IntObject.typedef = TypeDef("int",
     __doc__ = """int(x=0) -> int or long
 int(x, base=10) -> int or long
 

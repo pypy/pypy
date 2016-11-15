@@ -1,5 +1,5 @@
-from rpython.annotator.model import s_ImpossibleValue
-from rpython.annotator.model import SomeInteger, s_Bool, unionof
+from rpython.annotator.model import (
+    s_ImpossibleValue, SomeInteger, s_Bool, union)
 from rpython.annotator.listdef import ListItem
 from rpython.rlib.objectmodel import compute_hash
 
@@ -34,8 +34,8 @@ class DictKey(ListItem):
 
     def update_rdict_annotations(self, s_eqfn, s_hashfn, other=None):
         assert self.custom_eq_hash
-        s_eqfn = unionof(s_eqfn, self.s_rdict_eqfn)
-        s_hashfn = unionof(s_hashfn, self.s_rdict_hashfn)
+        s_eqfn = union(s_eqfn, self.s_rdict_eqfn)
+        s_hashfn = union(s_hashfn, self.s_rdict_hashfn)
         self.s_rdict_eqfn = s_eqfn
         self.s_rdict_hashfn = s_hashfn
         self.emulate_rdict_calls(other=other)
@@ -90,26 +90,13 @@ class DictDef(object):
         self.dictkey.itemof[self] = True
         self.dictvalue = DictValue(bookkeeper, s_value)
         self.dictvalue.itemof[self] = True
-        self.bookkeeper = bookkeeper
         self.force_non_null = force_non_null
 
-    def read_key(self, position_key=None):
-        if position_key is None:
-            if self.bookkeeper is None:   # for tests
-                from rpython.annotator.bookkeeper import getbookkeeper
-                position_key = getbookkeeper().position_key
-            else:
-                position_key = self.bookkeeper.position_key
+    def read_key(self, position_key):
         self.dictkey.read_locations[position_key] = True
         return self.dictkey.s_value
 
-    def read_value(self, position_key=None):
-        if position_key is None:
-            if self.bookkeeper is None:   # for tests
-                from rpython.annotator.bookkeeper import getbookkeeper
-                position_key = getbookkeeper().position_key
-            else:
-                position_key = self.bookkeeper.position_key
+    def read_value(self, position_key):
         self.dictvalue.read_locations[position_key] = True
         return self.dictvalue.s_value
 

@@ -1,5 +1,5 @@
 import os
-from rpython.flowspace.model import Constant, const
+from rpython.flowspace.model import Constant
 
 SPECIAL_CASES = {}
 
@@ -13,6 +13,16 @@ def register_flow_sc(func):
     def decorate(sc_func):
         SPECIAL_CASES[func] = sc_func
     return decorate
+
+def redirect_function(srcfunc, dstfuncname):
+    @register_flow_sc(srcfunc)
+    def sc_redirected_function(ctx, *args_w):
+        components = dstfuncname.split('.')
+        obj = __import__('.'.join(components[:-1]))
+        for name in components[1:]:
+            obj = getattr(obj, name)
+        return ctx.appcall(obj, *args_w)
+
 
 @register_flow_sc(__import__)
 def sc_import(ctx, *args_w):
@@ -30,12 +40,6 @@ def sc_locals(_, *args):
         "pytest.ini from the root of the PyPy repository into your "
         "own project.")
 
-@register_flow_sc(isinstance)
-def sc_isinstance(ctx, w_instance, w_type):
-    if w_instance.foldable() and w_type.foldable():
-        return const(isinstance(w_instance.value, w_type.value))
-    return ctx.appcall(isinstance, w_instance, w_type)
-
 @register_flow_sc(getattr)
 def sc_getattr(ctx, w_obj, w_index, w_default=None):
     if w_default is not None:
@@ -44,26 +48,23 @@ def sc_getattr(ctx, w_obj, w_index, w_default=None):
         from rpython.flowspace.operation import op
         return op.getattr(w_obj, w_index).eval(ctx)
 
-@register_flow_sc(open)
-def sc_open(ctx, *args_w):
-    from rpython.rlib.rfile import create_file
-    return ctx.appcall(create_file, *args_w)
+# _________________________________________________________________________
 
-@register_flow_sc(os.fdopen)
-def sc_os_fdopen(ctx, *args_w):
-    from rpython.rlib.rfile import create_fdopen_rfile
-    return ctx.appcall(create_fdopen_rfile, *args_w)
+redirect_function(open,       'rpython.rlib.rfile.create_file')
+redirect_function(os.fdopen,  'rpython.rlib.rfile.create_fdopen_rfile')
+redirect_function(os.tmpfile, 'rpython.rlib.rfile.create_temp_rfile')
 
-@register_flow_sc(os.tmpfile)
-def sc_os_tmpfile(ctx):
-    from rpython.rlib.rfile import create_temp_rfile
-    return ctx.appcall(create_temp_rfile)
+# on top of PyPy only: 'os.remove != os.unlink'
+# (on CPython they are '==', but not identical either)
+redirect_function(os.remove,  'os.unlink')
 
-@register_flow_sc(os.remove)
-def sc_os_remove(ctx, *args_w):
-    # on top of PyPy only: 'os.remove != os.unlink'
-    # (on CPython they are '==', but not identical either)
-    return ctx.appcall(os.unlink, *args_w)
+redirect_function(os.path.isdir,   'rpython.rlib.rpath.risdir')
+redirect_function(os.path.isabs,   'rpython.rlib.rpath.risabs')
+redirect_function(os.path.normpath,'rpython.rlib.rpath.rnormpath')
+redirect_function(os.path.abspath, 'rpython.rlib.rpath.rabspath')
+redirect_function(os.path.join,    'rpython.rlib.rpath.rjoin')
+if hasattr(os.path, 'splitdrive'):
+    redirect_function(os.path.splitdrive, 'rpython.rlib.rpath.rsplitdrive')
 
 # _________________________________________________________________________
 # a simplified version of the basic printing routines, for RPython programs
@@ -76,6 +77,7 @@ def rpython_print_item(s):
     for c in s:
         buf.append(c)
     buf.append(' ')
+rpython_print_item._annenforceargs_ = (str,)
 
 def rpython_print_newline():
     buf = stdoutbuffer.linebuf

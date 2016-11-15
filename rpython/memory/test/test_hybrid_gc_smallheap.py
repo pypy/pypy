@@ -10,7 +10,6 @@ class TestHybridGCSmallHeap(GCTest):
     from rpython.memory.gc.hybrid import HybridGC as GCClass
     GC_CAN_MOVE = False # with this size of heap, stuff gets allocated
                         # in 3rd gen.
-    GC_CAN_MALLOC_NONMOVABLE = True
     GC_PARAMS = {'space_size': 48*WORD,
                  'min_nursery_size': 12*WORD,
                  'nursery_size': 12*WORD,
@@ -51,6 +50,3 @@ class TestHybridGCSmallHeap(GCTest):
                     return i
         res = self.interpret(f, [200])
         assert res == 401
-
-    def test_malloc_nonmovable_fixsize(self):
-        py.test.skip("Not supported")

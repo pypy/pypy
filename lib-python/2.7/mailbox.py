@@ -1,5 +1,3 @@
-#! /usr/bin/env python
-
 """Read/write support for Maildir, mbox, MH, Babyl, and MMDF mailboxes."""
 
 # Notes for authors of new mailbox subclasses:
@@ -721,10 +719,14 @@ class _singlefileMailbox(Mailbox):
 
     def close(self):
         """Flush and close the mailbox."""
-        self.flush()
-        if self._locked:
-            self.unlock()
-        self._file.close()  # Sync has been done by self.flush() above.
+        try:
+            self.flush()
+        finally:
+            try:
+                if self._locked:
+                    self.unlock()
+            finally:
+                self._file.close()  # Sync has been done by self.flush() above.
 
     def _lookup(self, key=None):
         """Return (start, stop) or raise KeyError."""
@@ -1772,7 +1774,7 @@ class BabylMessage(Message):
     """Message with Babyl-specific properties."""
 
     def __init__(self, message=None):
-        """Initialize an BabylMessage instance."""
+        """Initialize a BabylMessage instance."""
         self._labels = []
         self._visible = Message()
         Message.__init__(self, message)

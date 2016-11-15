@@ -2,14 +2,13 @@ import py
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
 from rpython.jit.metainterp.history import ResOperation, TargetToken,\
      JitCellToken
-from rpython.jit.metainterp.history import (BoxInt, BoxPtr, ConstInt,
-                                            ConstPtr, Box,
+from rpython.jit.metainterp.history import (ConstInt, ConstPtr, Const,
                                             BasicFailDescr, BasicFinalDescr)
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.backend.x86.arch import WORD
 from rpython.jit.backend.x86.rx86 import fits_in_32bits
 from rpython.jit.backend.llsupport import symbolic
-from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.resoperation import rop, InputArgInt, InputArgRef
 from rpython.jit.metainterp.executor import execute
 from rpython.jit.backend.test.runner_test import LLtypeBackendTest
 from rpython.jit.tool.oparser import parse
@@ -30,12 +29,17 @@ class TestX86(LLtypeBackendTest):
     # for the individual tests see
     # ====> ../../test/runner_test.py
 
-    add_loop_instructions = ['mov', 'add', 'test', 'je', 'jmp']
     if WORD == 4:
-        bridge_loop_instructions = ['cmp', 'jge', 'mov', 'mov', 'call', 'jmp']
+        add_loop_instructions = ('mov; '
+                                 'lea; '    # a nop, for the label
+                                 'add; test; je; jmp;')   # plus some padding
+        bridge_loop_instructions = 'cmp; jge; mov; mov; call; jmp;'
     else:
-        bridge_loop_instructions = ['cmp', 'jge', 'mov', 'mov', 'mov', 'mov',
-                                    'call', 'mov', 'jmp']
+        add_loop_instructions = ('mov; '
+                                 'nop; '    # for the label
+                                 'add; test; je; jmp;')   # plus some padding
+        bridge_loop_instructions = (
+            'cmp; jge; mov;( movabs;)? mov; mov(abs)?; call; mov(abs)?; jmp;')
 
     def get_cpu(self):
         cpu = CPU(rtyper=None, stats=FakeStats())
@@ -44,25 +48,25 @@ class TestX86(LLtypeBackendTest):
 
     def test_execute_ptr_operation(self):
         cpu = self.cpu
-        u = lltype.malloc(U)
-        u_box = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, u))
+        u_box, _, _ = self.alloc_instance(U)
+        u = u_box.getref(lltype.Ptr(U))
         ofs = cpu.fielddescrof(S, 'value')
         assert self.execute_operation(rop.SETFIELD_GC,
-                                      [u_box, BoxInt(3)],
+                                      [u_box, InputArgInt(3)],
                                      'void', ofs) == None
         assert u.parent.parent.value == 3
         u.parent.parent.value += 100
-        assert (self.execute_operation(rop.GETFIELD_GC, [u_box], 'int', ofs)
-                .value == 103)
+        assert (self.execute_operation(rop.GETFIELD_GC_I, [u_box], 'int', ofs)
+                 == 103)
 
     def test_unicode(self):
         ofs = symbolic.get_field_token(rstr.UNICODE, 'chars', False)[0]
         u = rstr.mallocunicode(13)
         for i in range(13):
             u.chars[i] = unichr(ord(u'a') + i)
-        b = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, u))
+        b = InputArgRef(lltype.cast_opaque_ptr(llmemory.GCREF, u))
         r = self.execute_operation(rop.UNICODEGETITEM, [b, ConstInt(2)], 'int')
-        assert r.value == ord(u'a') + 2
+        assert r == ord(u'a') + 2
         self.execute_operation(rop.UNICODESETITEM, [b, ConstInt(2),
                                                     ConstInt(ord(u'z'))],
                                'void')
@@ -71,7 +75,7 @@ class TestX86(LLtypeBackendTest):
 
     @staticmethod
     def _resbuf(res, item_tp=ctypes.c_long):
-        return ctypes.cast(res.value._obj.intval, ctypes.POINTER(item_tp))
+        return ctypes.cast(res._obj.intval, ctypes.POINTER(item_tp))
 
     def test_allocations(self):
         py.test.skip("rewrite or kill")
@@ -95,7 +99,7 @@ class TestX86(LLtypeBackendTest):
 
         # ------------------------------------------------------------
 
-        res = self.execute_operation(rop.NEWSTR, [BoxInt(7)], 'ref')
+        res = self.execute_operation(rop.NEWSTR, [InputArgInt(7)], 'ref')
         assert allocs[0] == 7 + ofs + WORD
         resbuf = self._resbuf(res)
         assert resbuf[ofs/WORD] == 7
@@ -114,7 +118,7 @@ class TestX86(LLtypeBackendTest):
 
         # ------------------------------------------------------------
 
-        res = self.execute_operation(rop.NEW_ARRAY, [BoxInt(10)],
+        res = self.execute_operation(rop.NEW_ARRAY, [InputArgInt(10)],
                                          'ref', descr)
         assert allocs[0] == 10*WORD + ofs + WORD
         resbuf = self._resbuf(res)
@@ -126,13 +130,13 @@ class TestX86(LLtypeBackendTest):
         ofs_items = symbolic.get_field_token(STR.chars, 'items', False)[0]
 
         res = self.execute_operation(rop.NEWSTR, [ConstInt(10)], 'ref')
-        self.execute_operation(rop.STRSETITEM, [res, ConstInt(2), ConstInt(ord('d'))], 'void')
+        self.execute_operation(rop.STRSETITEM, [InputArgRef(res), ConstInt(2), ConstInt(ord('d'))], 'void')
         resbuf = self._resbuf(res, ctypes.c_char)
         assert resbuf[ofs + ofs_items + 2] == 'd'
-        self.execute_operation(rop.STRSETITEM, [res, BoxInt(2), ConstInt(ord('z'))], 'void')
+        self.execute_operation(rop.STRSETITEM, [InputArgRef(res), InputArgInt(2), ConstInt(ord('z'))], 'void')
         assert resbuf[ofs + ofs_items + 2] == 'z'
-        r = self.execute_operation(rop.STRGETITEM, [res, BoxInt(2)], 'int')
-        assert r.value == ord('z')
+        r = self.execute_operation(rop.STRGETITEM, [InputArgRef(res), InputArgInt(2)], 'int')
+        assert r == ord('z')
 
     def test_arrayitems(self):
         TP = lltype.GcArray(lltype.Signed)
@@ -143,35 +147,35 @@ class TestX86(LLtypeBackendTest):
                                      'ref', descr)
         resbuf = self._resbuf(res)
         assert resbuf[ofs/WORD] == 10
-        self.execute_operation(rop.SETARRAYITEM_GC, [res,
-                                                     ConstInt(2), BoxInt(38)],
+        self.execute_operation(rop.SETARRAYITEM_GC, [InputArgRef(res),
+                                                     ConstInt(2), InputArgInt(38)],
                                'void', descr)
         assert resbuf[itemsofs/WORD + 2] == 38
 
-        self.execute_operation(rop.SETARRAYITEM_GC, [res,
-                                                     BoxInt(3), BoxInt(42)],
+        self.execute_operation(rop.SETARRAYITEM_GC, [InputArgRef(res),
+                                                     InputArgInt(3), InputArgInt(42)],
                                'void', descr)
         assert resbuf[itemsofs/WORD + 3] == 42
 
-        r = self.execute_operation(rop.GETARRAYITEM_GC, [res, ConstInt(2)],
+        r = self.execute_operation(rop.GETARRAYITEM_GC_I, [InputArgRef(res), ConstInt(2)],
                                    'int', descr)
-        assert r.value == 38
-        r = self.execute_operation(rop.GETARRAYITEM_GC, [res.constbox(),
-                                                         BoxInt(2)],
+        assert r == 38
+        r = self.execute_operation(rop.GETARRAYITEM_GC_I, [ConstPtr(res),
+                                                         InputArgInt(2)],
                                    'int', descr)
-        assert r.value == 38
-        r = self.execute_operation(rop.GETARRAYITEM_GC, [res.constbox(),
+        assert r == 38
+        r = self.execute_operation(rop.GETARRAYITEM_GC_I, [ConstPtr(res),
                                                          ConstInt(2)],
                                    'int', descr)
-        assert r.value == 38
-        r = self.execute_operation(rop.GETARRAYITEM_GC, [res,
-                                                         BoxInt(2)],
+        assert r == 38
+        r = self.execute_operation(rop.GETARRAYITEM_GC_I, [InputArgRef(res),
+                                                         InputArgInt(2)],
                                    'int', descr)
-        assert r.value == 38
+        assert r == 38
 
-        r = self.execute_operation(rop.GETARRAYITEM_GC, [res, BoxInt(3)],
+        r = self.execute_operation(rop.GETARRAYITEM_GC_I, [InputArgRef(res), InputArgInt(3)],
                                    'int', descr)
-        assert r.value == 42
+        assert r == 42
 
     def test_arrayitems_not_int(self):
         TP = lltype.GcArray(lltype.Char)
@@ -181,18 +185,19 @@ class TestX86(LLtypeBackendTest):
         res = self.execute_operation(rop.NEW_ARRAY, [ConstInt(10)],
                                      'ref', descr)
         resbuf = self._resbuf(res, ctypes.c_char)
+        res = InputArgRef(res)
         assert resbuf[ofs] == chr(10)
         for i in range(10):
             self.execute_operation(rop.SETARRAYITEM_GC, [res,
-                                                   ConstInt(i), BoxInt(i)],
+                                                   ConstInt(i), InputArgInt(i)],
                                    'void', descr)
         for i in range(10):
             assert resbuf[itemsofs + i] == chr(i)
         for i in range(10):
-            r = self.execute_operation(rop.GETARRAYITEM_GC, [res,
+            r = self.execute_operation(rop.GETARRAYITEM_GC_I, [res,
                                                              ConstInt(i)],
                                          'int', descr)
-            assert r.value == i
+            assert r == i
 
     def test_getfield_setfield(self):
         TP = lltype.GcStruct('x', ('s', lltype.Signed),
@@ -202,8 +207,8 @@ class TestX86(LLtypeBackendTest):
                              ('c1', lltype.Char),
                              ('c2', lltype.Char),
                              ('c3', lltype.Char))
-        res = self.execute_operation(rop.NEW, [],
-                                     'ref', self.cpu.sizeof(TP))
+        res = InputArgRef(self.execute_operation(rop.NEW, [],
+                                     'ref', self.cpu.sizeof(TP)))
         ofs_s = self.cpu.fielddescrof(TP, 's')
         ofs_i = self.cpu.fielddescrof(TP, 'i')
         #ofs_f = self.cpu.fielddescrof(TP, 'f')
@@ -217,16 +222,16 @@ class TestX86(LLtypeBackendTest):
         #self.execute_operation(rop.SETFIELD_GC, [res, ofs_f, 1e100], 'void')
         # XXX we don't support shorts (at all)
         #self.execute_operation(rop.SETFIELD_GC, [res, ofs_u, ConstInt(5)], 'void')
-        s = self.execute_operation(rop.GETFIELD_GC, [res], 'int', ofs_s)
-        assert s.value == 3
-        self.execute_operation(rop.SETFIELD_GC, [res, BoxInt(3)], 'void',
+        s = self.execute_operation(rop.GETFIELD_GC_I, [res], 'int', ofs_s)
+        assert s == 3
+        self.execute_operation(rop.SETFIELD_GC, [res, InputArgInt(3)], 'void',
                                ofs_s)
-        s = self.execute_operation(rop.GETFIELD_GC, [res], 'int', ofs_s)
-        assert s.value == 3
+        s = self.execute_operation(rop.GETFIELD_GC_I, [res], 'int', ofs_s)
+        assert s == 3
 
-        self.execute_operation(rop.SETFIELD_GC, [res, BoxInt(1234)], 'void', ofs_i)
-        i = self.execute_operation(rop.GETFIELD_GC, [res], 'int', ofs_i)
-        assert i.value == 1234
+        self.execute_operation(rop.SETFIELD_GC, [res, InputArgInt(1234)], 'void', ofs_i)
+        i = self.execute_operation(rop.GETFIELD_GC_I, [res], 'int', ofs_i)
+        assert i == 1234
 
         #u = self.execute_operation(rop.GETFIELD_GC, [res, ofs_u], 'int')
         #assert u.value == 5
@@ -236,12 +241,12 @@ class TestX86(LLtypeBackendTest):
                                ofsc3)
         self.execute_operation(rop.SETFIELD_GC, [res, ConstInt(2)], 'void',
                                ofsc2)
-        c = self.execute_operation(rop.GETFIELD_GC, [res], 'int', ofsc1)
-        assert c.value == 1
-        c = self.execute_operation(rop.GETFIELD_GC, [res], 'int', ofsc2)
-        assert c.value == 2
-        c = self.execute_operation(rop.GETFIELD_GC, [res], 'int', ofsc3)
-        assert c.value == 3
+        c = self.execute_operation(rop.GETFIELD_GC_I, [res], 'int', ofsc1)
+        assert c == 1
+        c = self.execute_operation(rop.GETFIELD_GC_I, [res], 'int', ofsc2)
+        assert c == 2
+        c = self.execute_operation(rop.GETFIELD_GC_I, [res], 'int', ofsc3)
+        assert c == 3
 
     def test_bug_setfield_64bit(self):
         if WORD == 4:
@@ -260,84 +265,111 @@ class TestX86(LLtypeBackendTest):
                                'void', ofsi)
         assert p.i == 3**33
 
+    def test_getfield_64bit_offset(self):
+        if WORD == 4:
+            py.test.skip("only for 64 bits")
+        TP = lltype.Struct('S', ('i', lltype.Signed))
+        p = lltype.malloc(TP, flavor='raw')
+        p.i = 0x123456789ABC
+        offset = 3**33
+        val = rffi.cast(lltype.Signed, rffi.cast(lltype.Signed, p) - offset)
+        res = self.execute_operation(rop.GC_LOAD_I,
+                                     [InputArgInt(val),
+                                      ConstInt(offset),
+                                      ConstInt(WORD)],
+                                     'int')
+        assert res == 0x123456789ABC
+        lltype.free(p, flavor='raw')
+
+    def test_and_mask_common_patterns(self):
+        cases = [8, 16, 24]
+        if WORD == 8:
+            cases.append(32)
+        for i in cases:
+            box = InputArgInt(0xAAAAAAAAAAAA)
+            res = self.execute_operation(rop.INT_AND,
+                                         [box, ConstInt(2 ** i - 1)],
+                                         'int')
+            assert res == 0xAAAAAAAAAAAA & (2 ** i - 1)
+
     def test_nullity_with_guard(self):
         allops = [rop.INT_IS_TRUE]
         guards = [rop.GUARD_TRUE, rop.GUARD_FALSE]
         p = lltype.cast_opaque_ptr(llmemory.GCREF,
                                    lltype.malloc(lltype.GcStruct('x')))
         nullptr = lltype.nullptr(llmemory.GCREF.TO)
-        f = BoxInt()
+        f = InputArgInt()
         for op in allops:
             for guard in guards:
                 if op == rop.INT_IS_TRUE:
-                    bp = BoxInt(1)
-                    n = BoxInt(0)
+                    bp = InputArgInt(1)
+                    n = InputArgInt(0)
                 else:
-                    bp = BoxPtr(p)
-                    n = BoxPtr(nullptr)
+                    bp = InputArgRef(p)
+                    n = InputArgRef(nullptr)
                 for b in (bp, n):
-                    i1 = BoxInt(1)
+                    i1 = ResOperation(rop.SAME_AS_I, [ConstInt(1)])
+                    f = ResOperation(op, [b])
                     ops = [
-                        ResOperation(rop.SAME_AS, [ConstInt(1)], i1),
-                        ResOperation(op, [b], f),
-                        ResOperation(guard, [f], None,
+                        i1,
+                        f,
+                        ResOperation(guard, [f],
                                      descr=BasicFailDescr()),
-                        ResOperation(rop.FINISH, [ConstInt(0)], None,
+                        ResOperation(rop.FINISH, [ConstInt(0)],
                                      descr=BasicFinalDescr()),
                         ]
                     ops[-2].setfailargs([i1])
                     looptoken = JitCellToken()
                     self.cpu.compile_loop([b], ops, looptoken)
-                    deadframe = self.cpu.execute_token(looptoken, b.value)
+                    deadframe = self.cpu.execute_token(looptoken, b.getint())
                     result = self.cpu.get_int_value(deadframe, 0)
                     if guard == rop.GUARD_FALSE:
                         assert result == execute(self.cpu, None,
-                                                 op, None, b).value
+                                                 op, None, b)
                     else:
                         assert result != execute(self.cpu, None,
-                                                 op, None, b).value
+                                                 op, None, b)
 
 
     def test_stuff_followed_by_guard(self):
-        boxes = [(BoxInt(1), BoxInt(0)),
-                 (BoxInt(0), BoxInt(1)),
-                 (BoxInt(1), BoxInt(1)),
-                 (BoxInt(-1), BoxInt(1)),
-                 (BoxInt(1), BoxInt(-1)),
-                 (ConstInt(1), BoxInt(0)),
-                 (ConstInt(0), BoxInt(1)),
-                 (ConstInt(1), BoxInt(1)),
-                 (ConstInt(-1), BoxInt(1)),
-                 (ConstInt(1), BoxInt(-1)),
-                 (BoxInt(1), ConstInt(0)),
-                 (BoxInt(0), ConstInt(1)),
-                 (BoxInt(1), ConstInt(1)),
-                 (BoxInt(-1), ConstInt(1)),
-                 (BoxInt(1), ConstInt(-1))]
+        boxes = [(InputArgInt(1), InputArgInt(0)),
+                 (InputArgInt(0), InputArgInt(1)),
+                 (InputArgInt(1), InputArgInt(1)),
+                 (InputArgInt(-1), InputArgInt(1)),
+                 (InputArgInt(1), InputArgInt(-1)),
+                 (ConstInt(1), InputArgInt(0)),
+                 (ConstInt(0), InputArgInt(1)),
+                 (ConstInt(1), InputArgInt(1)),
+                 (ConstInt(-1), InputArgInt(1)),
+                 (ConstInt(1), InputArgInt(-1)),
+                 (InputArgInt(1), ConstInt(0)),
+                 (InputArgInt(0), ConstInt(1)),
+                 (InputArgInt(1), ConstInt(1)),
+                 (InputArgInt(-1), ConstInt(1)),
+                 (InputArgInt(1), ConstInt(-1))]
         guards = [rop.GUARD_FALSE, rop.GUARD_TRUE]
         all = [rop.INT_EQ, rop.INT_NE, rop.INT_LE, rop.INT_LT, rop.INT_GT,
                rop.INT_GE, rop.UINT_GT, rop.UINT_LT, rop.UINT_LE, rop.UINT_GE]
         for a, b in boxes:
             for guard in guards:
                 for op in all:
-                    res = BoxInt()
-                    i1 = BoxInt(1)
+                    i1 = ResOperation(rop.SAME_AS_I, [ConstInt(1)])
+                    res = ResOperation(op, [a, b])
                     ops = [
-                        ResOperation(rop.SAME_AS, [ConstInt(1)], i1),
-                        ResOperation(op, [a, b], res),
-                        ResOperation(guard, [res], None,
+                        i1, res,
+                        ResOperation(guard, [res],
                                      descr=BasicFailDescr()),
-                        ResOperation(rop.FINISH, [ConstInt(0)], None,
+                        ResOperation(rop.FINISH, [ConstInt(0)],
                                      descr=BasicFinalDescr()),
                         ]
                     ops[-2].setfailargs([i1])
-                    inputargs = [i for i in (a, b) if isinstance(i, Box)]
+                    inputargs = [i for i in (a, b) if not isinstance(i, Const)]
                     looptoken = JitCellToken()
                     self.cpu.compile_loop(inputargs, ops, looptoken)
-                    inputvalues = [box.value for box in inputargs]
+                    inputvalues = [box.getint() for box in inputargs]
                     deadframe = self.cpu.execute_token(looptoken, *inputvalues)
                     result = self.cpu.get_int_value(deadframe, 0)
-                    expected = execute(self.cpu, None, op, None, a, b).value
+                    expected = execute(self.cpu, None, op, None, a, b)
                     if guard == rop.GUARD_FALSE:
                         assert result == expected
                     else:
@@ -352,9 +384,9 @@ class TestX86(LLtypeBackendTest):
                 self.functions.append((name, address, size))
         self.cpu.profile_agent = agent = FakeProfileAgent()
 
-        i0 = BoxInt()
-        i1 = BoxInt()
-        i2 = BoxInt()
+        i0 = InputArgInt()
+        i1 = InputArgInt()
+        i2 = InputArgInt()
         targettoken = TargetToken()
         faildescr1 = BasicFailDescr(1)
         faildescr2 = BasicFailDescr(2)
@@ -383,8 +415,8 @@ class TestX86(LLtypeBackendTest):
         assert loopaddress <= looptoken._ll_loop_code
         assert loopsize >= 40 # randomish number
 
-        i1b = BoxInt()
-        i3 = BoxInt()
+        i1b = InputArgInt()
+        i3 = InputArgInt()
         bridge = [
             ResOperation(rop.INT_LE, [i1b, ConstInt(19)], i3),
             ResOperation(rop.GUARD_TRUE, [i3], None, descr=faildescr2),
@@ -409,97 +441,103 @@ class TestX86(LLtypeBackendTest):
 
     def test_ops_offset(self):
         from rpython.rlib import debug
-        i0 = BoxInt()
-        i1 = BoxInt()
-        i2 = BoxInt()
         looptoken = JitCellToken()
         targettoken = TargetToken()
-        operations = [
-            ResOperation(rop.LABEL, [i0], None, descr=targettoken),
-            ResOperation(rop.INT_ADD, [i0, ConstInt(1)], i1),
-            ResOperation(rop.INT_LE, [i1, ConstInt(9)], i2),
-            ResOperation(rop.JUMP, [i1], None, descr=targettoken),
-            ]
-        inputargs = [i0]
+        loop = parse("""
+        [i0]
+        label(i0, descr=targettoken)
+        i1 = int_add(i0, 1)
+        i2 = int_le(i1, 9)
+        jump(i1, descr=targettoken)
+        """, namespace=locals())
         debug._log = dlog = debug.DebugLog()
-        info = self.cpu.compile_loop(inputargs, operations, looptoken)
+        info = self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         ops_offset = info.ops_offset
         debug._log = None
         #
         assert ops_offset is looptoken._x86_ops_offset
         # 2*increment_debug_counter + ops + None
-        assert len(ops_offset) == 2 + len(operations) + 1
-        assert (ops_offset[operations[0]] <=
-                ops_offset[operations[1]] <=
-                ops_offset[operations[2]] <=
+        assert len(ops_offset) == 2 + len(loop.operations) + 1
+        assert (ops_offset[loop.operations[0]] <=
+                ops_offset[loop.operations[1]] <=
+                ops_offset[loop.operations[2]] <=
                 ops_offset[None])
 
     def test_calling_convention(self, monkeypatch):
         if WORD != 4:
             py.test.skip("32-bit only test")
         from rpython.jit.backend.x86.regloc import eax, edx
-        from rpython.jit.backend.x86 import codebuf
+        from rpython.jit.backend.x86 import codebuf, callbuilder
         from rpython.jit.codewriter.effectinfo import EffectInfo
         from rpython.rlib.libffi import types, clibffi
         had_stdcall = hasattr(clibffi, 'FFI_STDCALL')
         if not had_stdcall:    # not running on Windows, but we can still test
             monkeypatch.setattr(clibffi, 'FFI_STDCALL', 12345, raising=False)
+            monkeypatch.setattr(callbuilder, 'stdcall_or_cdecl', True)
+        else:
+            assert callbuilder.stdcall_or_cdecl
         #
-        for ffi in [clibffi.FFI_DEFAULT_ABI, clibffi.FFI_STDCALL]:
+        for real_ffi, reported_ffi in [
+               (clibffi.FFI_DEFAULT_ABI, clibffi.FFI_DEFAULT_ABI),
+               (clibffi.FFI_STDCALL, clibffi.FFI_DEFAULT_ABI),
+               (clibffi.FFI_STDCALL, clibffi.FFI_STDCALL)]:
             cpu = self.cpu
             mc = codebuf.MachineCodeBlockWrapper()
             mc.MOV_rs(eax.value, 4)      # argument 1
             mc.MOV_rs(edx.value, 40)     # argument 10
             mc.SUB_rr(eax.value, edx.value)     # return arg1 - arg10
-            if ffi == clibffi.FFI_DEFAULT_ABI:
+            if real_ffi == clibffi.FFI_DEFAULT_ABI:
                 mc.RET()
             else:
                 mc.RET16_i(40)
-            rawstart = mc.materialize(cpu.asmmemmgr, [])
+            rawstart = mc.materialize(cpu, [])
             #
             calldescr = cpu._calldescr_dynamic_for_tests([types.slong] * 10,
                                                          types.slong)
-            calldescr.get_call_conv = lambda: ffi      # <==== hack
+            calldescr.get_call_conv = lambda: reported_ffi      # <==== hack
             # ^^^ we patch get_call_conv() so that the test also makes sense
             #     on Linux, because clibffi.get_call_conv() would always
             #     return FFI_DEFAULT_ABI on non-Windows platforms.
             funcbox = ConstInt(rawstart)
-            i1 = BoxInt()
-            i2 = BoxInt()
-            i3 = BoxInt()
-            i4 = BoxInt()
-            i5 = BoxInt()
-            i6 = BoxInt()
+            i1 = InputArgInt()
+            i2 = InputArgInt()
             c = ConstInt(-1)
             faildescr = BasicFailDescr(1)
+            cz = ConstInt(0)
             # we must call it repeatedly: if the stack pointer gets increased
             # by 40 bytes by the STDCALL call, and if we don't expect it,
             # then we are going to get our stack emptied unexpectedly by
             # several repeated calls
             ops = [
-            ResOperation(rop.CALL_RELEASE_GIL,
-                         [funcbox, i1, c, c, c, c, c, c, c, c, i2],
-                         i3, descr=calldescr),
-            ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+            ResOperation(rop.CALL_RELEASE_GIL_I,
+                         [cz, funcbox, i1, c, c, c, c, c, c, c, c, i2],
+                         descr=calldescr),
+            ResOperation(rop.GUARD_NOT_FORCED, [], descr=faildescr),
 
-            ResOperation(rop.CALL_RELEASE_GIL,
-                         [funcbox, i1, c, c, c, c, c, c, c, c, i2],
-                         i4, descr=calldescr),
-            ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+            ResOperation(rop.CALL_RELEASE_GIL_I,
+                         [cz, funcbox, i1, c, c, c, c, c, c, c, c, i2],
+                         descr=calldescr),
+            ResOperation(rop.GUARD_NOT_FORCED, [], descr=faildescr),
 
-            ResOperation(rop.CALL_RELEASE_GIL,
-                         [funcbox, i1, c, c, c, c, c, c, c, c, i2],
-                         i5, descr=calldescr),
-            ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+            ResOperation(rop.CALL_RELEASE_GIL_I,
+                         [cz, funcbox, i1, c, c, c, c, c, c, c, c, i2],
+                         descr=calldescr),
+            ResOperation(rop.GUARD_NOT_FORCED, [], descr=faildescr),
 
-            ResOperation(rop.CALL_RELEASE_GIL,
-                         [funcbox, i1, c, c, c, c, c, c, c, c, i2],
-                         i6, descr=calldescr),
-            ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+            ResOperation(rop.CALL_RELEASE_GIL_I,
+                         [cz, funcbox, i1, c, c, c, c, c, c, c, c, i2],
+                         descr=calldescr),
+            ResOperation(rop.GUARD_NOT_FORCED, [], descr=faildescr),
+            ]
+            i3 = ops[0]
+            i4 = ops[2]
+            i5 = ops[4]
+            i6 = ops[6]
 
-            ResOperation(rop.GUARD_FALSE, [i3], None,
+            ops += [
+            ResOperation(rop.GUARD_FALSE, [i3],
                          descr=BasicFailDescr(0)),
-            ResOperation(rop.FINISH, [], None,
+            ResOperation(rop.FINISH, [],
                          descr=BasicFinalDescr(1))
             ]
             ops[-2].setfailargs([i3, i4, i5, i6])
@@ -552,11 +590,11 @@ class TestDebuggingAssembler(object):
             self.cpu.compile_loop(ops.inputargs, ops.operations, looptoken)
             self.cpu.execute_token(looptoken, 0)
             # check debugging info
-            struct = self.cpu.assembler.loop_run_counters[0]
+            struct = self.cpu.assembler.get_loop_run_counters(0)
             assert struct.i == 1
-            struct = self.cpu.assembler.loop_run_counters[1]
+            struct = self.cpu.assembler.get_loop_run_counters(1)
             assert struct.i == 1
-            struct = self.cpu.assembler.loop_run_counters[2]
+            struct = self.cpu.assembler.get_loop_run_counters(2)
             assert struct.i == 9
             self.cpu.finish_once()
         finally:

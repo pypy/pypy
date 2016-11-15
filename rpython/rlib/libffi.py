@@ -4,16 +4,21 @@ This whole file is DEPRECATED.  Use jit_libffi.py instead.
 from __future__ import with_statement
 
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize, enforceargs
 from rpython.rlib.rarithmetic import intmask, r_uint, r_singlefloat, r_longlong
 from rpython.rlib import jit
 from rpython.rlib import clibffi
 from rpython.rlib.clibffi import FUNCFLAG_CDECL, FUNCFLAG_STDCALL, \
-        AbstractFuncPtr, push_arg_as_ffiptr, c_ffi_call, FFI_TYPE_STRUCT
+        AbstractFuncPtr, push_arg_as_ffiptr, c_ffi_call, FFI_TYPE_STRUCT, \
+        adjust_return_size
 from rpython.rlib.rdynload import dlopen, dlclose, dlsym, dlsym_byordinal
 from rpython.rlib.rdynload import DLLHANDLE
 
 import os
+import sys
+
+_BIG_ENDIAN = sys.byteorder == 'big'
 
 class types(object):
     """
@@ -42,6 +47,8 @@ class types(object):
         cls.ulonglong = clibffi.cast_type_to_ffitype(rffi.ULONGLONG)
         cls.signed = clibffi.cast_type_to_ffitype(rffi.SIGNED)
         cls.wchar_t = clibffi.cast_type_to_ffitype(lltype.UniChar)
+        # XXX long double support: clibffi.ffi_type_longdouble, but then
+        # XXX fix the whole rest of this file to add a case for long double
         del cls._import
 
     @staticmethod
@@ -109,11 +116,11 @@ IS_32_BIT = (r_uint.BITS == 32)
 def _check_type(TYPE):
     if isinstance(TYPE, lltype.Ptr):
         if TYPE.TO._gckind != 'raw':
-            raise TypeError, "Can only push raw values to C, not 'gc'"
+            raise TypeError("Can only push raw values to C, not 'gc'")
         # XXX probably we should recursively check for struct fields here,
         # lets just ignore that for now
         if isinstance(TYPE.TO, lltype.Array) and 'nolength' not in TYPE.TO._hints:
-            raise TypeError, "Can only push to C arrays without length info"
+            raise TypeError("Can only push to C arrays without length info")
 
 
 class ArgChain(object):
@@ -136,7 +143,7 @@ class ArgChain(object):
         elif TYPE is rffi.FLOAT:
             cls = SingleFloatArg
         else:
-            raise TypeError, 'Unsupported argument type: %s' % TYPE
+            raise TypeError('Unsupported argument type: %s' % TYPE)
         self._append(cls(val))
         return self
 
@@ -210,6 +217,8 @@ class LongLongArg(AbstractArg):
 
 # ======================================================================
 
+NARROW_INTEGER_TYPES = unrolling_iterable([rffi.CHAR, rffi.SIGNEDCHAR,
+    rffi.UCHAR, rffi.SHORT, rffi.USHORT, rffi.INT, rffi.UINT])
 
 class Func(AbstractFuncPtr):
 
@@ -247,8 +256,8 @@ class Func(AbstractFuncPtr):
         # assuming that argchain is completely virtual.
         self = jit.promote(self)
         if argchain.numargs != len(self.argtypes):
-            raise TypeError, 'Wrong number of arguments: %d expected, got %d' %\
-                (len(self.argtypes), argchain.numargs)
+            raise TypeError('Wrong number of arguments: %d expected, got %d' %
+                (len(self.argtypes), argchain.numargs))
         ll_args = self._prepare()
         i = 0
         arg = argchain.first
@@ -262,7 +271,12 @@ class Func(AbstractFuncPtr):
             res = self._do_call_raw(self.funcsym, ll_args)
         elif _fits_into_signed(RESULT):
             assert not types.is_struct(self.restype)
-            res = self._do_call_int(self.funcsym, ll_args)
+            for res in NARROW_INTEGER_TYPES:
+                if RESULT is res:
+                    res = self._do_call_int(self.funcsym, ll_args, RESULT)
+                    break
+            else:
+                res = self._do_call_int(self.funcsym, ll_args, rffi.SIGNED)
         elif RESULT is rffi.DOUBLE:
             return self._do_call_float(self.funcsym, ll_args)
         elif RESULT is rffi.FLOAT:
@@ -273,7 +287,7 @@ class Func(AbstractFuncPtr):
         elif RESULT is lltype.Void:
             return self._do_call_void(self.funcsym, ll_args)
         else:
-            raise TypeError, 'Unsupported result type: %s' % RESULT
+            raise TypeError('Unsupported result type: %s' % RESULT)
         #
         return rffi.cast(RESULT, res)
 
@@ -324,8 +338,9 @@ class Func(AbstractFuncPtr):
 
     #@jit.oopspec('libffi_call_int(self, funcsym, ll_args)')
     @jit.dont_look_inside
-    def _do_call_int(self, funcsym, ll_args):
-        return self._do_call(funcsym, ll_args, rffi.SIGNED)
+    @specialize.arg(3)
+    def _do_call_int(self, funcsym, ll_args, TP):
+        return rffi.cast(rffi.SIGNED, self._do_call(funcsym, ll_args, TP))
 
     #@jit.oopspec('libffi_call_float(self, funcsym, ll_args)')
     @jit.dont_look_inside
@@ -367,10 +382,10 @@ class Func(AbstractFuncPtr):
     @specialize.arg(3)
     def _do_call(self, funcsym, ll_args, RESULT):
         # XXX: check len(args)?
-        ll_result = lltype.nullptr(rffi.CCHARP.TO)
+        ll_result = lltype.nullptr(rffi.VOIDP.TO)
         if self.restype != types.void:
-            ll_result = lltype.malloc(rffi.CCHARP.TO,
-                                      intmask(self.restype.c_size),
+            size = adjust_return_size(intmask(self.restype.c_size))
+            ll_result = lltype.malloc(rffi.VOIDP.TO, size,
                                       flavor='raw')
         ffires = c_ffi_call(self.ll_cif,
                             self.funcsym,
@@ -378,14 +393,20 @@ class Func(AbstractFuncPtr):
                             rffi.cast(rffi.VOIDPP, ll_args))
         if RESULT is not lltype.Void:
             TP = lltype.Ptr(rffi.CArray(RESULT))
-            buf = rffi.cast(TP, ll_result)
             if types.is_struct(self.restype):
                 assert RESULT == rffi.SIGNED
                 # for structs, we directly return the buffer and transfer the
                 # ownership
+                buf = rffi.cast(TP, ll_result)
                 res = rffi.cast(RESULT, buf)
             else:
-                res = buf[0]
+                if _BIG_ENDIAN and types.getkind(self.restype) in ('i','u'):
+                    ptr = ll_result
+                    n = rffi.sizeof(lltype.Signed) - self.restype.c_size
+                    ptr = rffi.ptradd(ptr, n)
+                    res = rffi.cast(TP, ptr)[0]
+                else:
+                    res = rffi.cast(TP, ll_result)[0]
         else:
             res = None
         self._free_buffers(ll_result, ll_args)
@@ -430,11 +451,14 @@ class CDLL(object):
 
     def getpointer_by_ordinal(self, name, argtypes, restype,
                               flags=FUNCFLAG_CDECL):
-        return Func('by_ordinal', argtypes, restype, 
+        return Func('by_ordinal', argtypes, restype,
                     dlsym_byordinal(self.lib, name),
                     flags=flags, keepalive=self)
     def getaddressindll(self, name):
         return dlsym(self.lib, name)
+
+    def getidentifier(self):
+        return rffi.cast(lltype.Unsigned, self.lib)
 
 if os.name == 'nt':
     class WinDLL(CDLL):

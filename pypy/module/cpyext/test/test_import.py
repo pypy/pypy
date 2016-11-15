@@ -1,6 +1,6 @@
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
-from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi
 
 class TestImport(BaseApiTest):
     def test_import(self, space, api):
@@ -21,7 +21,7 @@ class TestImport(BaseApiTest):
     def test_getmoduledict(self, space, api):
         testmod = "_functools"
         w_pre_dict = api.PyImport_GetModuleDict()
-        assert not space.is_true(space.contains(w_pre_dict, space.wrap(testmod)))
+        assert not space.contains_w(w_pre_dict, space.wrap(testmod))
 
         with rffi.scoped_str2charp(testmod) as modname:
             w_module = api.PyImport_ImportModule(modname)
@@ -29,7 +29,7 @@ class TestImport(BaseApiTest):
             assert w_module
 
         w_dict = api.PyImport_GetModuleDict()
-        assert space.is_true(space.contains(w_dict, space.wrap(testmod)))
+        assert space.contains_w(w_dict, space.wrap(testmod))
 
     def test_reload(self, space, api):
         stat = api.PyImport_Import(space.wrap("stat"))
@@ -39,10 +39,9 @@ class TestImport(BaseApiTest):
 
 class AppTestImportLogic(AppTestCpythonExtensionBase):
     def test_import_logic(self):
-        skip("leak?")
-        path = self.import_module(name='test_import_module', load_it=False)
-        import sys
-        sys.path.append(path)
+        import sys, os
+        path = self.compile_module('test_import_module',
+            source_files=[os.path.join(self.here, 'test_import_module.c')])
+        sys.path.append(os.path.dirname(path))
         import test_import_module
         assert test_import_module.TEST is None
-

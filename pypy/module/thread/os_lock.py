@@ -8,32 +8,29 @@ from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.error import OperationError
-from rpython.rlib.rarithmetic import r_longlong
+from pypy.interpreter.error import oefmt
+from rpython.rlib.rarithmetic import r_longlong, ovfcheck_float_to_longlong
 
-
-LONGLONG_MAX = r_longlong(2 ** (r_longlong.BITS-1) - 1)
-TIMEOUT_MAX = LONGLONG_MAX
 
 RPY_LOCK_FAILURE, RPY_LOCK_ACQUIRED, RPY_LOCK_INTR = range(3)
 
 def parse_acquire_args(space, blocking, timeout):
     if not blocking and timeout != -1.0:
-        raise OperationError(space.w_ValueError, space.wrap(
-                "can't specify a timeout for a non-blocking call"))
+        raise oefmt(space.w_ValueError,
+                    "can't specify a timeout for a non-blocking call")
     if timeout < 0.0 and timeout != -1.0:
-        raise OperationError(space.w_ValueError, space.wrap(
-                "timeout value must be strictly positive"))
+        raise oefmt(space.w_ValueError,
+                    "timeout value must be strictly positive")
     if not blocking:
         microseconds = 0
     elif timeout == -1.0:
         microseconds = -1
     else:
         timeout *= 1e6
-        if timeout > float(TIMEOUT_MAX):
-            raise OperationError(space.w_OverflowError, space.wrap(
-                    "timeout value is too large"))
-        microseconds = r_longlong(timeout)
+        try:
+            microseconds = ovfcheck_float_to_longlong(timeout)
+        except OverflowError:
+            raise oefmt(space.w_OverflowError, "timeout value is too large")
     return microseconds
 
 
@@ -46,7 +43,8 @@ def acquire_timed(space, lock, microseconds):
             # Run signal handlers if we were interrupted
             space.getexecutioncontext().checksignals()
             if microseconds >= 0:
-                microseconds = r_longlong(endtime - (time.time() * 1e6))
+                microseconds = r_longlong((endtime - (time.time() * 1e6))
+                                          + 0.999)
                 # Check for negative values, since those mean block
                 # forever
                 if microseconds <= 0:

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 
 class AppTestOperator:
     def test_equality(self):
@@ -9,13 +10,16 @@ class AppTestOperator:
         class A(object):
             getx = operator.attrgetter('x')
             get3 = operator.itemgetter(3)
+            callx = operator.methodcaller("append", "x")
         a = A()
         a.x = 5
         assert a.getx(a) == 5
         assert a.get3("foobar") == "b"
         assert a.getx(*(a,)) == 5
         assert a.get3(obj="foobar") == "b"
-        
+        l = []
+        a.callx(l)
+        assert l == ["x"]
 
     def test_getter_multiple_gest(self):
         import operator
@@ -29,7 +33,8 @@ class AppTestOperator:
         a.z = 'Z'
 
         assert operator.attrgetter('x','z','y')(a) == ('X', 'Z', 'Y')
-        raises(TypeError, operator.attrgetter('x', (), 'y'), a)
+        e = raises(TypeError, operator.attrgetter('x', (), 'y'), a)
+        assert str(e.value) == "attribute name must be a string, not 'tuple'"
 
         data = map(str, range(20))
         assert operator.itemgetter(2,10,5)(data) == ('2', '10', '5')
@@ -43,7 +48,13 @@ class AppTestOperator:
         a.name = "hello"
         a.child = A()
         a.child.name = "world"
+        a.child.foo = "bar"
         assert attrgetter("child.name")(a) == "world"
+        assert attrgetter("child.name", "child.foo")(a) == ("world", "bar")
+
+    def test_attrgetter_type(self):
+        from operator import attrgetter
+        assert type(attrgetter("child.name")) is attrgetter
 
     def test_concat(self):
         class Seq1:
@@ -139,6 +150,35 @@ class AppTestOperator:
         assert operator.repeat(a, 0) == []
         raises(TypeError, operator.repeat, 6, 7)
 
+    def test_isMappingType(self):
+        import operator
+        assert not operator.isMappingType([])
+        assert operator.isMappingType(dict())
+        class M:
+            def __getitem__(self, key):
+                return 42
+        assert operator.isMappingType(M())
+        del M.__getitem__
+        assert not operator.isMappingType(M())
+        class M(object):
+            def __getitem__(self, key):
+                return 42
+        assert operator.isMappingType(M())
+        del M.__getitem__
+        assert not operator.isMappingType(M())
+        class M:
+            def __getitem__(self, key):
+                return 42
+            def __getslice__(self, key):
+                return 42
+        assert operator.isMappingType(M())
+        class M(object):
+            def __getitem__(self, key):
+                return 42
+            def __getslice__(self, key):
+                return 42
+        assert not operator.isMappingType(M())
+
     def test_isSequenceType(self):
         import operator
 
@@ -150,6 +190,19 @@ class AppTestOperator:
         assert not operator.isSequenceType(3)
         class Dict(dict): pass
         assert not operator.isSequenceType(Dict())
+
+    def test_isXxxType_more(self):
+        import operator
+
+        assert not operator.isSequenceType(list)
+        assert not operator.isSequenceType(dict)
+        assert not operator.isSequenceType({})
+        assert not operator.isMappingType(list)
+        assert not operator.isMappingType(dict)
+        assert not operator.isMappingType([])
+        assert not operator.isMappingType(())
+        assert not operator.isNumberType(int)
+        assert not operator.isNumberType(float)
 
     def test_inplace(self):
         import operator
@@ -195,4 +248,125 @@ class AppTestOperator:
         import operator
         assert operator.index(42) == 42
         assert operator.__index__(42) == 42
-        raises(TypeError, operator.index, "abc")
+        exc = raises(TypeError, operator.index, "abc")
+        assert str(exc.value) == "'str' object cannot be interpreted as an index"
+
+    def test_index_int_subclass(self):
+        import operator
+        class myint(int):
+            def __index__(self):
+                return 13289
+        assert operator.index(myint(7)) == 7
+
+    def test_compare_digest(self):
+        import operator
+
+        # Testing input type exception handling
+        a, b = 100, 200
+        raises(TypeError, operator._compare_digest, a, b)
+        a, b = 100, b"foobar"
+        raises(TypeError, operator._compare_digest, a, b)
+        a, b = b"foobar", 200
+        raises(TypeError, operator._compare_digest, a, b)
+        a, b = u"foobar", b"foobar"
+        raises(TypeError, operator._compare_digest, a, b)
+        a, b = b"foobar", u"foobar"
+        raises(TypeError, operator._compare_digest, a, b)
+
+        # Testing bytes of different lengths
+        a, b = b"foobar", b"foo"
+        assert not operator._compare_digest(a, b)
+        a, b = b"\xde\xad\xbe\xef", b"\xde\xad"
+        assert not operator._compare_digest(a, b)
+
+        # Testing bytes of same lengths, different values
+        a, b = b"foobar", b"foobaz"
+        assert not operator._compare_digest(a, b)
+        a, b = b"\xde\xad\xbe\xef", b"\xab\xad\x1d\xea"
+        assert not operator._compare_digest(a, b)
+
+        # Testing bytes of same lengths, same values
+        a, b = b"foobar", b"foobar"
+        assert operator._compare_digest(a, b)
+        a, b = b"\xde\xad\xbe\xef", b"\xde\xad\xbe\xef"
+        assert operator._compare_digest(a, b)
+
+        # Testing bytearrays of same lengths, same values
+        a, b = bytearray(b"foobar"), bytearray(b"foobar")
+        assert operator._compare_digest(a, b)
+
+        # Testing bytearrays of diffeent lengths
+        a, b = bytearray(b"foobar"), bytearray(b"foo")
+        assert not operator._compare_digest(a, b)
+
+        # Testing bytearrays of same lengths, different values
+        a, b = bytearray(b"foobar"), bytearray(b"foobaz")
+        assert not operator._compare_digest(a, b)
+
+        # Testing byte and bytearray of same lengths, same values
+        a, b = bytearray(b"foobar"), b"foobar"
+        assert operator._compare_digest(a, b)
+        assert operator._compare_digest(b, a)
+
+        # Testing byte bytearray of diffeent lengths
+        a, b = bytearray(b"foobar"), b"foo"
+        assert not operator._compare_digest(a, b)
+        assert not operator._compare_digest(b, a)
+
+        # Testing byte and bytearray of same lengths, different values
+        a, b = bytearray(b"foobar"), b"foobaz"
+        assert not operator._compare_digest(a, b)
+        assert not operator._compare_digest(b, a)
+
+        # Testing str of same lengths
+        a, b = "foobar", "foobar"
+        assert operator._compare_digest(a, b)
+
+        # Testing str of diffeent lengths
+        a, b = "foo", "foobar"
+        assert not operator._compare_digest(a, b)
+
+        # Testing bytes of same lengths, different values
+        a, b = "foobar", "foobaz"
+        assert not operator._compare_digest(a, b)
+
+        # Testing error cases
+        a, b = u"foobar", b"foobar"
+        raises(TypeError, operator._compare_digest, a, b)
+        a, b = b"foobar", u"foobar"
+        raises(TypeError, operator._compare_digest, a, b)
+        a, b = b"foobar", 1
+        raises(TypeError, operator._compare_digest, a, b)
+        a, b = 100, 200
+        raises(TypeError, operator._compare_digest, a, b)
+        a, b = "fooä", "fooä"
+        assert operator._compare_digest(a, b)
+
+        # subclasses are supported by ignore __eq__
+        class mystr(str):
+            def __eq__(self, other):
+                return False
+
+        a, b = mystr("foobar"), mystr("foobar")
+        assert operator._compare_digest(a, b)
+        a, b = mystr("foobar"), "foobar"
+        assert operator._compare_digest(a, b)
+        a, b = mystr("foobar"), mystr("foobaz")
+        assert not operator._compare_digest(a, b)
+
+        class mybytes(bytes):
+            def __eq__(self, other):
+                return False
+
+        a, b = mybytes(b"foobar"), mybytes(b"foobar")
+        assert operator._compare_digest(a, b)
+        a, b = mybytes(b"foobar"), b"foobar"
+        assert operator._compare_digest(a, b)
+        a, b = mybytes(b"foobar"), mybytes(b"foobaz")
+        assert not operator._compare_digest(a, b)
+
+    def test_compare_digest_unicode(self):
+        import operator
+        assert operator._compare_digest(u'asd', u'asd')
+        assert not operator._compare_digest(u'asd', u'qwe')
+        raises(TypeError, operator._compare_digest, u'asd', b'qwe')

@@ -1,17 +1,18 @@
 from rpython.jit.backend.llsupport import jitframe
-from rpython.jit.backend.llsupport.memcpy import memcpy_fn
+from rpython.jit.backend.llsupport.memcpy import memcpy_fn, memset_fn
 from rpython.jit.backend.llsupport.symbolic import WORD
+from rpython.jit.backend.llsupport.codemap import CodemapBuilder
 from rpython.jit.metainterp.history import (INT, REF, FLOAT, JitCellToken,
-    ConstInt, BoxInt, AbstractFailDescr)
+    ConstInt, AbstractFailDescr, VECTOR)
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.rlib import rgc
-from rpython.rlib.debug import (debug_start, debug_stop, have_debug_prints,
+from rpython.rlib.debug import (debug_start, debug_stop, have_debug_prints_for,
                                 debug_print)
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib.objectmodel import specialize, compute_unique_id
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref, llhelper
 from rpython.rtyper.lltypesystem import rffi, lltype
-
+from rpython.rlib.rjitlog import rjitlog as jl
 
 DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER',
     # 'b'ridge, 'l'abel or # 'e'ntry point
@@ -20,20 +21,27 @@ DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER',
     ('number', lltype.Signed)
 )
 
-
 class GuardToken(object):
-    def __init__(self, cpu, gcmap, faildescr, failargs, fail_locs, exc,
-                 frame_depth, is_guard_not_invalidated, is_guard_not_forced):
+    def __init__(self, cpu, gcmap, faildescr, failargs, fail_locs,
+                 guard_opnum, frame_depth, faildescrindex):
         assert isinstance(faildescr, AbstractFailDescr)
         self.cpu = cpu
         self.faildescr = faildescr
+        self.faildescrindex = faildescrindex
         self.failargs = failargs
         self.fail_locs = fail_locs
         self.gcmap = self.compute_gcmap(gcmap, failargs,
                                         fail_locs, frame_depth)
-        self.exc = exc
-        self.is_guard_not_invalidated = is_guard_not_invalidated
-        self.is_guard_not_forced = is_guard_not_forced
+        self.guard_opnum = guard_opnum
+
+    def guard_not_invalidated(self):
+        return self.guard_opnum == rop.GUARD_NOT_INVALIDATED
+
+    def must_save_exception(self):
+        guard_opnum = self.guard_opnum
+        return (guard_opnum == rop.GUARD_EXCEPTION or
+                guard_opnum == rop.GUARD_NO_EXCEPTION or
+                guard_opnum == rop.GUARD_NOT_FORCED)
 
     def compute_gcmap(self, gcmap, failargs, fail_locs, frame_depth):
         # note that regalloc has a very similar compute, but
@@ -63,8 +71,14 @@ class BaseAssembler(object):
     def __init__(self, cpu, translate_support_code=False):
         self.cpu = cpu
         self.memcpy_addr = 0
+        self.memset_addr = 0
         self.rtyper = cpu.rtyper
+        # do not rely on this attribute if you test for jitlog
         self._debug = False
+        self.loop_run_counters = []
+
+    def stitch_bridge(self, faildescr, target):
+        raise NotImplementedError
 
     def setup_once(self):
         # the address of the function called by 'new'
@@ -78,7 +92,8 @@ class BaseAssembler(object):
             self.gc_size_of_header = gc_ll_descr.gcheaderbuilder.size_gc_header
         else:
             self.gc_size_of_header = WORD # for tests
-        self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
+        self.memcpy_addr = rffi.cast(lltype.Signed, memcpy_fn)
+        self.memset_addr = rffi.cast(lltype.Signed, memset_fn)
         self._build_failure_recovery(False, withfloats=False)
         self._build_failure_recovery(True, withfloats=False)
         self._build_wb_slowpath(False)
@@ -106,25 +121,61 @@ class BaseAssembler(object):
                 kind='unicode')
         else:
             self.malloc_slowpath_unicode = None
-        self.cond_call_slowpath = [self._build_cond_call_slowpath(False, False),
-                                   self._build_cond_call_slowpath(False, True),
-                                   self._build_cond_call_slowpath(True, False),
-                                   self._build_cond_call_slowpath(True, True)]
+        lst = [0, 0, 0, 0]
+        lst[0] = self._build_cond_call_slowpath(False, False)
+        lst[1] = self._build_cond_call_slowpath(False, True)
+        if self.cpu.supports_floats:
+            lst[2] = self._build_cond_call_slowpath(True, False)
+            lst[3] = self._build_cond_call_slowpath(True, True)
+        self.cond_call_slowpath = lst
 
         self._build_stack_check_slowpath()
         self._build_release_gil(gc_ll_descr.gcrootmap)
+        # do not rely on the attribute _debug for jitlog
         if not self._debug:
             # if self._debug is already set it means that someone called
             # set_debug by hand before initializing the assembler. Leave it
             # as it is
-            debug_start('jit-backend-counts')
-            self.set_debug(have_debug_prints())
-            debug_stop('jit-backend-counts')
+            should_debug = have_debug_prints_for('jit-backend-counts')
+            self.set_debug(should_debug)
         # when finishing, we only have one value at [0], the rest dies
         self.gcmap_for_finish = lltype.malloc(jitframe.GCMAP, 1,
                                               flavor='raw',
                                               track_allocation=False)
         self.gcmap_for_finish[0] = r_uint(1)
+
+    def setup(self, looptoken):
+        if self.cpu.HAS_CODEMAP:
+            self.codemap_builder = CodemapBuilder()
+        self._finish_gcmap = lltype.nullptr(jitframe.GCMAP)
+
+    def setup_gcrefs_list(self, allgcrefs):
+        self._allgcrefs = allgcrefs
+        self._allgcrefs_faildescr_next = 0
+
+    def teardown_gcrefs_list(self):
+        self._allgcrefs = None
+
+    def get_gcref_from_faildescr(self, descr):
+        """This assumes that it is called in order for all faildescrs."""
+        search = cast_instance_to_gcref(descr)
+        while not _safe_eq(
+                self._allgcrefs[self._allgcrefs_faildescr_next], search):
+            self._allgcrefs_faildescr_next += 1
+            assert self._allgcrefs_faildescr_next < len(self._allgcrefs)
+        return self._allgcrefs_faildescr_next
+
+    def get_asmmemmgr_blocks(self, looptoken):
+        clt = looptoken.compiled_loop_token
+        if clt.asmmemmgr_blocks is None:
+            clt.asmmemmgr_blocks = []
+        return clt.asmmemmgr_blocks
+
+    def get_asmmemmgr_gcreftracers(self, looptoken):
+        clt = looptoken.compiled_loop_token
+        if clt.asmmemmgr_gcreftracers is None:
+            clt.asmmemmgr_gcreftracers = []
+        return clt.asmmemmgr_gcreftracers
 
     def set_debug(self, v):
         r = self._debug
@@ -141,38 +192,54 @@ class BaseAssembler(object):
         else:
             coeff = 2
         for pos in descr.rd_locs:
-            if pos == -1:
+            pos = rffi.cast(lltype.Signed, pos)
+            if pos == 0xFFFF:
                 continue
-            elif pos < GPR_REGS * WORD:
-                locs.append(self.cpu.gen_regs[pos // WORD])
-            elif pos < (GPR_REGS + XMM_REGS * coeff) * WORD:
-                pos = (pos // WORD - GPR_REGS) // coeff
+            elif pos < GPR_REGS:
+                locs.append(self.cpu.gen_regs[pos])
+            elif pos < GPR_REGS + XMM_REGS * coeff:
+                pos = (pos - GPR_REGS) // coeff
                 locs.append(self.cpu.float_regs[pos])
             else:
-                i = pos // WORD - self.cpu.JITFRAME_FIXED_SIZE
+                i = pos - self.cpu.JITFRAME_FIXED_SIZE
                 assert i >= 0
                 tp = inputargs[input_i].type
-                locs.append(self.new_stack_loc(i, pos, tp))
+                locs.append(self.new_stack_loc(i, tp))
             input_i += 1
         return locs
+
+    _previous_rd_locs = []
 
     def store_info_on_descr(self, startspos, guardtok):
         withfloats = False
         for box in guardtok.failargs:
-            if box is not None and box.type == FLOAT:
+            if box is not None and \
+               (box.type == FLOAT or box.type == VECTOR):
                 withfloats = True
                 break
-        exc = guardtok.exc
+        exc = guardtok.must_save_exception()
         target = self.failure_recovery_code[exc + 2 * withfloats]
-        fail_descr = cast_instance_to_gcref(guardtok.faildescr)
-        fail_descr = rffi.cast(lltype.Signed, fail_descr)
+        faildescrindex = guardtok.faildescrindex
         base_ofs = self.cpu.get_baseofs_of_frame_field()
-        positions = [0] * len(guardtok.fail_locs)
+        #
+        # in practice, about 2/3rd of 'positions' lists that we build are
+        # exactly the same as the previous one, so share the lists to
+        # conserve memory
+        if len(self._previous_rd_locs) == len(guardtok.fail_locs):
+            positions = self._previous_rd_locs     # tentatively
+            shared = True
+        else:
+            positions = [rffi.cast(rffi.USHORT, 0)] * len(guardtok.fail_locs)
+            shared = False
+        #
         for i, loc in enumerate(guardtok.fail_locs):
             if loc is None:
-                positions[i] = -1
+                position = 0xFFFF
             elif loc.is_stack():
-                positions[i] = loc.value - base_ofs
+                assert (loc.value & (WORD - 1)) == 0, \
+                    "store_info_on_descr: misaligned"
+                position = (loc.value - base_ofs) // WORD
+                assert 0 < position < 0xFFFF, "store_info_on_descr: overflow!"
             else:
                 assert loc is not self.cpu.frame_reg # for now
                 if self.cpu.IS_64_BIT:
@@ -180,18 +247,51 @@ class BaseAssembler(object):
                 else:
                     coeff = 2
                 if loc.is_float():
-                    v = len(self.cpu.gen_regs) + loc.value * coeff
+                    position = len(self.cpu.gen_regs) + loc.value * coeff
                 else:
-                    v = self.cpu.all_reg_indexes[loc.value]
-                positions[i] = v * WORD
+                    position = self.cpu.all_reg_indexes[loc.value]
+
+            if shared:
+                if (rffi.cast(lltype.Signed, self._previous_rd_locs[i]) ==
+                    rffi.cast(lltype.Signed, position)):
+                    continue   # still equal
+                positions = positions[:]
+                shared = False
+            positions[i] = rffi.cast(rffi.USHORT, position)
+        self._previous_rd_locs = positions
         # write down the positions of locs
         guardtok.faildescr.rd_locs = positions
-        # we want the descr to keep alive
-        guardtok.faildescr.rd_loop_token = self.current_clt
-        return fail_descr, target
+        return faildescrindex, target
 
-    def call_assembler(self, op, guard_op, argloc, vloc, result_loc, tmploc):
-        self._store_force_index(guard_op)
+    def enter_portal_frame(self, op):
+        if self.cpu.HAS_CODEMAP:
+            self.codemap_builder.enter_portal_frame(op.getarg(0).getint(),
+                                                    op.getarg(1).getint(),
+                                                    self.mc.get_relative_pos())
+
+    def leave_portal_frame(self, op):
+        if self.cpu.HAS_CODEMAP:
+            self.codemap_builder.leave_portal_frame(op.getarg(0).getint(),
+                                                    self.mc.get_relative_pos())
+
+    def call_assembler(self, op, argloc, vloc, result_loc, tmploc):
+        """
+            * argloc: location of the frame argument that we're passing to
+                      the called assembler (this is the first return value
+                      of locs_for_call_assembler())
+
+            * vloc:   location of the virtualizable (not in a register;
+                      this is the optional second return value of
+                      locs_for_call_assembler(), or imm(0) if none returned)
+
+            * result_loc: location of op.result (which is not be
+                          confused with the next one)
+
+            * tmploc: location where the actual call to the other piece
+                      of assembler will return its jitframe result
+                      (which is always a REF), before the helper may be
+                      called
+        """
         descr = op.getdescr()
         assert isinstance(descr, JitCellToken)
         #
@@ -202,11 +302,11 @@ class BaseAssembler(object):
         self._call_assembler_emit_call(self.imm(descr._ll_function_addr),
                                         argloc, tmploc)
 
-        if op.result is None:
+        if op.type == 'v':
             assert result_loc is None
             value = self.cpu.done_with_this_frame_descr_void
         else:
-            kind = op.result.type
+            kind = op.type
             if kind == INT:
                 assert result_loc is tmploc
                 value = self.cpu.done_with_this_frame_descr_int
@@ -219,7 +319,8 @@ class BaseAssembler(object):
                 raise AssertionError(kind)
 
         gcref = cast_instance_to_gcref(value)
-        rgc._make_sure_does_not_move(gcref)
+        if gcref:
+            rgc._make_sure_does_not_move(gcref)    # but should be prebuilt
         value = rffi.cast(lltype.Signed, gcref)
         je_location = self._call_assembler_check_descr(value, tmploc)
         #
@@ -239,20 +340,15 @@ class BaseAssembler(object):
         #
         # Here we join Path A and Path B again
         self._call_assembler_patch_jmp(jmp_location)
-        # XXX here should be emitted guard_not_forced, but due
-        #     to incompatibilities in how it's done, we leave it for the
-        #     caller to deal with
+
+    def get_loop_run_counters(self, index):
+        return self.loop_run_counters[index]
 
     @specialize.argtype(1)
     def _inject_debugging_code(self, looptoken, operations, tp, number):
-        if self._debug:
-            s = 0
-            for op in operations:
-                s += op.getopnum()
-
+        if self._debug or jl.jitlog_enabled():
             newoperations = []
-            self._append_debugging_code(newoperations, tp, number,
-                                        None)
+            self._append_debugging_code(newoperations, tp, number, None)
             for op in operations:
                 newoperations.append(op)
                 if op.getopnum() == rop.LABEL:
@@ -265,12 +361,11 @@ class BaseAssembler(object):
         counter = self._register_counter(tp, number, token)
         c_adr = ConstInt(rffi.cast(lltype.Signed, counter))
         operations.append(
-            ResOperation(rop.INCREMENT_DEBUG_COUNTER, [c_adr], None))
+            ResOperation(rop.INCREMENT_DEBUG_COUNTER, [c_adr]))
 
     def _register_counter(self, tp, number, token):
-        # YYY very minor leak -- we need the counters to stay alive
-        # forever, just because we want to report them at the end
-        # of the process
+        # XXX the numbers here are ALMOST unique, but not quite, use a counter
+        #     or something
         struct = lltype.malloc(DEBUG_COUNTER, flavor='raw',
                                track_allocation=False)
         struct.i = 0
@@ -280,47 +375,87 @@ class BaseAssembler(object):
         else:
             assert token
             struct.number = compute_unique_id(token)
+        # YYY very minor leak -- we need the counters to stay alive
+        # forever, just because we want to report them at the end
+        # of the process
         self.loop_run_counters.append(struct)
         return struct
 
     def finish_once(self):
         if self._debug:
+            # TODO remove the old logging system when jitlog is complete
             debug_start('jit-backend-counts')
-            for i in range(len(self.loop_run_counters)):
+            length = len(self.loop_run_counters)
+            for i in range(length):
                 struct = self.loop_run_counters[i]
                 if struct.type == 'l':
                     prefix = 'TargetToken(%d)' % struct.number
-                elif struct.type == 'b':
-                    prefix = 'bridge ' + str(struct.number)
                 else:
-                    prefix = 'entry ' + str(struct.number)
+                    num = struct.number
+                    if num == -1:
+                        num = '-1'
+                    else:
+                        num = str(r_uint(num))
+                    if struct.type == 'b':
+                        prefix = 'bridge %s' % num
+                    else:
+                        prefix = 'entry %s' % num
                 debug_print(prefix + ':' + str(struct.i))
             debug_stop('jit-backend-counts')
 
-    @staticmethod
-    @rgc.no_collect
-    def _release_gil_asmgcc(css):
-        # similar to trackgcroot.py:pypy_asm_stackwalk, first part
-        from rpython.memory.gctransform import asmgcroot
-        new = rffi.cast(asmgcroot.ASM_FRAMEDATA_HEAD_PTR, css)
-        next = asmgcroot.gcrootanchor.next
-        new.next = next
-        new.prev = asmgcroot.gcrootanchor
-        asmgcroot.gcrootanchor.next = new
-        next.prev = new
-        # and now release the GIL
-        before = rffi.aroundstate.before
-        if before:
-            before()
+        self.flush_trace_counters()
+
+    def flush_trace_counters(self):
+        # this is always called, the jitlog knows if it is enabled
+        length = len(self.loop_run_counters)
+        for i in range(length):
+            struct = self.loop_run_counters[i]
+            # only log if it has been executed
+            if struct.i > 0:
+                jl._log_jit_counter(struct)
+            # reset the counter, flush in a later point in time will
+            # add up the counters!
+            struct.i = 0
+        # here would be the point to free some counters
+        # see YYY comment above! but first we should run this every once in a while
+        # not just when jitlog_disable is called
 
     @staticmethod
     @rgc.no_collect
-    def _reacquire_gil_asmgcc(css):
-        # first reacquire the GIL
-        after = rffi.aroundstate.after
-        if after:
-            after()
-        # similar to trackgcroot.py:pypy_asm_stackwalk, second part
+    def _reacquire_gil_asmgcc(css, old_rpy_fastgil):
+        # Before doing an external call, 'rpy_fastgil' is initialized to
+        # be equal to css.  This function is called if we find out after
+        # the call that it is no longer equal to css.  See description
+        # in translator/c/src/thread_pthread.c.
+
+        # XXX some duplicated logic here, but note that rgil.acquire()
+        # does more than just RPyGilAcquire()
+        if old_rpy_fastgil == 0:
+            # this case occurs if some other thread stole the GIL but
+            # released it again.  What occurred here is that we changed
+            # 'rpy_fastgil' from 0 to 1, thus successfully reaquiring the
+            # GIL.
+            pass
+
+        elif old_rpy_fastgil == 1:
+            # 'rpy_fastgil' was (and still is) locked by someone else.
+            # We need to wait for the regular mutex.
+            from rpython.rlib import rgil
+            rgil.acquire()
+        else:
+            # stole the GIL from a different thread that is also
+            # currently in an external call from the jit.  Attach
+            # the 'old_rpy_fastgil' into the chained list.
+            from rpython.memory.gctransform import asmgcroot
+            oth = rffi.cast(asmgcroot.ASM_FRAMEDATA_HEAD_PTR, old_rpy_fastgil)
+            next = asmgcroot.gcrootanchor.next
+            oth.next = next
+            oth.prev = asmgcroot.gcrootanchor
+            asmgcroot.gcrootanchor.next = oth
+            next.prev = oth
+
+        # similar to trackgcroot.py:pypy_asm_stackwalk, second part:
+        # detach the 'css' from the chained list
         from rpython.memory.gctransform import asmgcroot
         old = rffi.cast(asmgcroot.ASM_FRAMEDATA_HEAD_PTR, css)
         prev = old.prev
@@ -330,42 +465,27 @@ class BaseAssembler(object):
 
     @staticmethod
     @rgc.no_collect
-    def _release_gil_shadowstack():
-        before = rffi.aroundstate.before
-        if before:
-            before()
-
-    @staticmethod
-    @rgc.no_collect
     def _reacquire_gil_shadowstack():
-        after = rffi.aroundstate.after
-        if after:
-            after()
+        # Simplified version of _reacquire_gil_asmgcc(): in shadowstack mode,
+        # 'rpy_fastgil' contains only zero or non-zero, and this is only
+        # called when the old value stored in 'rpy_fastgil' was non-zero
+        # (i.e. still locked, must wait with the regular mutex)
+        from rpython.rlib import rgil
+        rgil.acquire()
 
-    @staticmethod
-    def _no_op():
-        pass
-
-    _NOARG_FUNC = lltype.Ptr(lltype.FuncType([], lltype.Void))
-    _CLOSESTACK_FUNC = lltype.Ptr(lltype.FuncType([rffi.LONGP],
-                                                  lltype.Void))
+    _REACQGIL0_FUNC = lltype.Ptr(lltype.FuncType([], lltype.Void))
+    _REACQGIL2_FUNC = lltype.Ptr(lltype.FuncType([rffi.CCHARP, lltype.Signed],
+                                                 lltype.Void))
 
     def _build_release_gil(self, gcrootmap):
-        if gcrootmap is None:
-            releasegil_func = llhelper(self._NOARG_FUNC, self._no_op)
-            reacqgil_func = llhelper(self._NOARG_FUNC, self._no_op)
-        elif gcrootmap.is_shadow_stack:
-            releasegil_func = llhelper(self._NOARG_FUNC,
-                                       self._release_gil_shadowstack)
-            reacqgil_func = llhelper(self._NOARG_FUNC,
+        if gcrootmap is None or gcrootmap.is_shadow_stack:
+            reacqgil_func = llhelper(self._REACQGIL0_FUNC,
                                      self._reacquire_gil_shadowstack)
+            self.reacqgil_addr = self.cpu.cast_ptr_to_int(reacqgil_func)
         else:
-            releasegil_func = llhelper(self._CLOSESTACK_FUNC,
-                                       self._release_gil_asmgcc)
-            reacqgil_func = llhelper(self._CLOSESTACK_FUNC,
+            reacqgil_func = llhelper(self._REACQGIL2_FUNC,
                                      self._reacquire_gil_asmgcc)
-        self.releasegil_addr  = self.cpu.cast_ptr_to_int(releasegil_func)
-        self.reacqgil_addr = self.cpu.cast_ptr_to_int(reacqgil_func)
+            self.reacqgil_addr = self.cpu.cast_ptr_to_int(reacqgil_func)
 
     def _is_asmgcc(self):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
@@ -379,3 +499,8 @@ def debug_bridge(descr_number, rawstart, codeendpos):
                     r_uint(rawstart + codeendpos)))
     debug_stop("jit-backend-addr")
 
+def _safe_eq(x, y):
+    try:
+        return x == y
+    except AttributeError:    # minor mess
+        return False

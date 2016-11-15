@@ -143,6 +143,11 @@ def copy_all(io1, io2):
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
+        if len(sys.argv) == 1:
+            # start locally
+            import sshgraphserver
+            sshgraphserver.ssh_graph_server(['LOCAL'])
+            sys.exit(0)
         print >> sys.stderr, __doc__
         sys.exit(2)
     if sys.argv[1] == '--stdio':
@@ -160,15 +165,14 @@ if __name__ == '__main__':
                     " | instructions in dotviewer/sshgraphserver.py\n")
             try:
                 import pygame
-            except ImportError:
-                f.seek(0)
-                f.truncate()
-                print >> f, "ImportError"
-                print >> f, " | Pygame is not installed; either install it, or"
-                print >> f, help
-            else:
                 if isinstance(e, pygame.error):
                     print >> f, help
+            except Exception, e:
+                f.seek(0)
+                f.truncate()
+                print >> f, "%s: %s" % (e.__class__.__name__, e)
+                print >> f, " | Pygame is not installed; either install it, or"
+                print >> f, help
             io.sendmsg(msgstruct.MSG_ERROR, f.getvalue())
     else:
         listen_server(sys.argv[1])

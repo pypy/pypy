@@ -7,7 +7,7 @@ class AppTestExceptionComp:
 
     def test_exception(self):
         try:
-            raise TypeError, "nothing"
+            raise TypeError("nothing")
         except TypeError:
             pass
         except:
@@ -15,7 +15,7 @@ class AppTestExceptionComp:
 
     def test_exceptionfail(self):
         try:
-            raise TypeError, "nothing"
+            raise TypeError("nothing")
         except KeyError:
             self.fail("Different exceptions match.")
         except TypeError:
@@ -47,7 +47,7 @@ class AppTestExceptionComp:
         class UserExcept(Exception):
             pass
         try:
-            raise UserExcept, "nothing"
+            raise UserExcept("nothing")
         except UserExcept:
             pass
         except:

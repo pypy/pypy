@@ -3,6 +3,7 @@ from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.objectmodel import enforceargs
+from rpython.rlib import rgc
 
 SIZEOFSIGNED = rffi.sizeof(lltype.Signed)
 IS_32BIT = (SIZEOFSIGNED == 4)
@@ -45,8 +46,10 @@ JITFRAMEINFOPTR = lltype.Ptr(JITFRAMEINFO)
 # detailed explanation how it is on your architecture
 
 def jitframe_allocate(frame_info):
-    frame = lltype.malloc(JITFRAME, frame_info.jfi_frame_depth, zero=True)
+    rgc.register_custom_trace_hook(JITFRAME, lambda_jitframe_trace)
+    frame = lltype.malloc(JITFRAME, frame_info.jfi_frame_depth)
     frame.jf_frame_info = frame_info
+    frame.jf_extra_stack_depth = 0
     return frame
 
 def jitframe_resolve(frame):
@@ -79,8 +82,6 @@ JITFRAME.become(lltype.GcStruct(
     ('jf_guard_exc', llmemory.GCREF),
     # in case the frame got reallocated, we have to forward it somewhere
     ('jf_forward', lltype.Ptr(JITFRAME)),
-    # absolutely useless field used to make up for tracing hooks inflexibilities
-    ('jf_gc_trace_state', lltype.Signed),
     # the actual frame
     ('jf_frame', lltype.Array(lltype.Signed)),
     # note that we keep length field, because it's crucial to have the data
@@ -104,75 +105,38 @@ SIGN_SIZE = llmemory.sizeof(lltype.Signed)
 UNSIGN_SIZE = llmemory.sizeof(lltype.Unsigned)
 STACK_DEPTH_OFS = getofs('jf_extra_stack_depth')
 
-def jitframe_trace(obj_addr, prev):
-    if prev == llmemory.NULL:
-        (obj_addr + getofs('jf_gc_trace_state')).signed[0] = -1
-        return obj_addr + getofs('jf_descr')
-    fld = (obj_addr + getofs('jf_gc_trace_state')).signed[0]
-    if fld < 0:
-        if fld == -1:
-            (obj_addr + getofs('jf_gc_trace_state')).signed[0] = -2
-            return obj_addr + getofs('jf_force_descr')
-        elif fld == -2:
-            (obj_addr + getofs('jf_gc_trace_state')).signed[0] = -3
-            return obj_addr + getofs('jf_savedata')
-        elif fld == -3:
-            (obj_addr + getofs('jf_gc_trace_state')).signed[0] = -4
-            return obj_addr + getofs('jf_guard_exc')
-        elif fld == -4:
-            (obj_addr + getofs('jf_gc_trace_state')).signed[0] = -5
-            return obj_addr + getofs('jf_forward')
-        else:
-            if not (obj_addr + getofs('jf_gcmap')).address[0]:
-                return llmemory.NULL    # done
-            else:
-                fld = 0    # fall-through
-    # bit pattern
-    # decode the pattern
+def jitframe_trace(gc, obj_addr, callback, arg):
+    gc._trace_callback(callback, arg, obj_addr + getofs('jf_descr'))
+    gc._trace_callback(callback, arg, obj_addr + getofs('jf_force_descr'))
+    gc._trace_callback(callback, arg, obj_addr + getofs('jf_savedata'))
+    gc._trace_callback(callback, arg, obj_addr + getofs('jf_guard_exc'))
+    gc._trace_callback(callback, arg, obj_addr + getofs('jf_forward'))
+
     if IS_32BIT:
-        # 32 possible bits
-        state = fld & 0x1f
-        no = fld >> 5
         MAX = 32
     else:
-        # 64 possible bits
-        state = fld & 0x3f
-        no = fld >> 6
         MAX = 64
     gcmap = (obj_addr + getofs('jf_gcmap')).address[0]
+    if not gcmap:
+        return      # done
     gcmap_lgt = (gcmap + GCMAPLENGTHOFS).signed[0]
+    no = 0
     while no < gcmap_lgt:
         cur = (gcmap + GCMAPBASEOFS + UNSIGN_SIZE * no).unsigned[0]
-        while not (cur & (1 << state)):
-            state += 1
-            if state == MAX:
-                no += 1
-                state = 0
-                break      # next iteration of the outermost loop
-        else:
-            # found it
-            index = no * SIZEOFSIGNED * 8 + state
-            # save new state
-            state += 1
-            if state == MAX:
-                no += 1
-                state = 0
-            if IS_32BIT:
-                new_state = state | (no << 5)
-            else:
-                new_state = state | (no << 6)
-            (obj_addr + getofs('jf_gc_trace_state')).signed[0] = new_state
-            # sanity check
-            frame_lgt = (obj_addr + getofs('jf_frame') + LENGTHOFS).signed[0]
-            ll_assert(index < frame_lgt, "bogus frame field get")
-            return (obj_addr + getofs('jf_frame') + BASEITEMOFS + SIGN_SIZE *
-                    (index))
-    return llmemory.NULL
-
-CUSTOMTRACEFUNC = lltype.FuncType([llmemory.Address, llmemory.Address],
-                                  llmemory.Address)
-jitframe_trace_ptr = llhelper(lltype.Ptr(CUSTOMTRACEFUNC), jitframe_trace)
-
-lltype.attachRuntimeTypeInfo(JITFRAME, customtraceptr=jitframe_trace_ptr)
+        bitindex = 0
+        while bitindex < MAX:
+            if cur & (1 << bitindex):
+                # the 'bitindex' is set in 'cur'
+                index = no * SIZEOFSIGNED * 8 + bitindex
+                # sanity check
+                frame_lgt = (obj_addr + getofs('jf_frame') + LENGTHOFS) \
+                    .signed[0]
+                ll_assert(index < frame_lgt, "bogus frame field get")
+                gc._trace_callback(callback, arg,
+                                   obj_addr + getofs('jf_frame') +
+                                   BASEITEMOFS + SIGN_SIZE * index)
+            bitindex += 1
+        no += 1
+lambda_jitframe_trace = lambda: jitframe_trace
 
 JITFRAMEPTR = lltype.Ptr(JITFRAME)

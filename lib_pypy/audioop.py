@@ -1,12 +1,11 @@
-from __future__ import division
 import __builtin__ as builtins
 import math
 import struct
 from fractions import gcd
-from ctypes import create_string_buffer
+from _audioop_cffi import ffi, lib
 
 
-_buffer = buffer
+_buffer = memoryview
 
 
 class error(Exception):
@@ -22,6 +21,17 @@ def _check_params(length, size):
     _check_size(size)
     if length % size != 0:
         raise error("not a whole number of frames")
+
+
+def _check_state(state):
+    if state is None:
+        valpred = 0
+        index = 0
+    else:
+        valpred, index = state
+        if not (-0x8000 <= valpred < 0x8000 and 0 <= index < 89):
+            raise ValueError("bad state")
+    return (valpred, index)
 
 
 def _sample_count(cp, size):
@@ -149,7 +159,7 @@ def rms(cp, size):
 def _sum2(cp1, cp2, length):
     size = 2
     return sum(getsample(cp1, size, i) * getsample(cp2, size, i)
-               for i in range(length))
+               for i in range(length)) + 0.0
 
 
 def findfit(cp1, cp2):
@@ -328,13 +338,14 @@ def mul(cp, size, factor):
     _check_params(len(cp), size)
     clip = _get_clipfn(size)
 
-    result = create_string_buffer(len(cp))
+    rv = ffi.new("unsigned char[]", len(cp))
+    result = ffi.buffer(rv)
 
     for i, sample in enumerate(_get_samples(cp, size)):
         sample = clip(int(sample * factor))
         _put_sample(result, size, i, sample)
 
-    return result.raw
+    return result[:]
 
 
 def tomono(cp, size, fac1, fac2):
@@ -343,7 +354,8 @@ def tomono(cp, size, fac1, fac2):
 
     sample_count = _sample_count(cp, size)
 
-    result = create_string_buffer(len(cp) // 2)
+    rv = ffi.new("unsigned char[]", len(cp) // 2)
+    result = ffi.buffer(rv)
 
     for i in range(0, sample_count, 2):
         l_sample = getsample(cp, size, i)
@@ -354,7 +366,7 @@ def tomono(cp, size, fac1, fac2):
 
         _put_sample(result, size, i // 2, sample)
 
-    return result.raw
+    return result[:]
 
 
 def tostereo(cp, size, fac1, fac2):
@@ -362,19 +374,9 @@ def tostereo(cp, size, fac1, fac2):
 
     sample_count = _sample_count(cp, size)
 
-    result = create_string_buffer(len(cp) * 2)
-    clip = _get_clipfn(size)
-
-    for i in range(sample_count):
-        sample = _get_sample(cp, size, i)
-
-        l_sample = clip(sample * fac1)
-        r_sample = clip(sample * fac2)
-
-        _put_sample(result, size, i * 2, l_sample)
-        _put_sample(result, size, i * 2 + 1, r_sample)
-
-    return result.raw
+    rv = ffi.new("unsigned char[]", len(cp) * 2)
+    lib.tostereo(rv, cp, len(cp), size, fac1, fac2)
+    return ffi.buffer(rv)[:]
 
 
 def add(cp1, cp2, size):
@@ -383,42 +385,34 @@ def add(cp1, cp2, size):
     if len(cp1) != len(cp2):
         raise error("Lengths should be the same")
 
-    clip = _get_clipfn(size)
-    sample_count = _sample_count(cp1, size)
-    result = create_string_buffer(len(cp1))
-
-    for i in range(sample_count):
-        sample1 = getsample(cp1, size, i)
-        sample2 = getsample(cp2, size, i)
-
-        sample = clip(sample1 + sample2)
-
-        _put_sample(result, size, i, sample)
-
-    return result.raw
+    rv = ffi.new("unsigned char[]", len(cp1))
+    lib.add(rv, cp1, cp2, len(cp1), size)
+    return ffi.buffer(rv)[:]
 
 
 def bias(cp, size, bias):
     _check_params(len(cp), size)
 
-    result = create_string_buffer(len(cp))
+    rv = ffi.new("unsigned char[]", len(cp))
+    result = ffi.buffer(rv)
 
     for i, sample in enumerate(_get_samples(cp, size)):
         sample = _overflow(sample + bias, size)
         _put_sample(result, size, i, sample)
 
-    return result.raw
+    return result[:]
 
 
 def reverse(cp, size):
     _check_params(len(cp), size)
     sample_count = _sample_count(cp, size)
 
-    result = create_string_buffer(len(cp))
+    rv = ffi.new("unsigned char[]", len(cp))
+    result = ffi.buffer(rv)
     for i, sample in enumerate(_get_samples(cp, size)):
         _put_sample(result, size, sample_count - i - 1, sample)
 
-    return result.raw
+    return result[:]
 
 
 def lin2lin(cp, size, size2):
@@ -429,7 +423,8 @@ def lin2lin(cp, size, size2):
         return cp
 
     new_len = (len(cp) // size) * size2
-    result = create_string_buffer(new_len)
+    rv = ffi.new("unsigned char[]", new_len)
+    result = ffi.buffer(rv)
 
     for i in range(_sample_count(cp, size)):
         sample = _get_sample(cp, size, i)
@@ -444,7 +439,7 @@ def lin2lin(cp, size, size2):
         sample = _overflow(sample, size2)
         _put_sample(result, size2, i, sample)
 
-    return result.raw
+    return result[:]
 
 
 def ratecv(cp, size, nchannels, inrate, outrate, state, weightA=1, weightB=0):
@@ -470,12 +465,14 @@ def ratecv(cp, size, nchannels, inrate, outrate, state, weightA=1, weightB=0):
     d = gcd(inrate, outrate)
     inrate //= d
     outrate //= d
-
-    prev_i = [0] * nchannels
-    cur_i = [0] * nchannels
+    d = gcd(weightA, weightB)
+    weightA //= d
+    weightB //= d
 
     if state is None:
         d = -outrate
+        prev_i = ffi.new('int[]', nchannels)
+        cur_i = ffi.new('int[]', nchannels)
     else:
         d, samps = state
 
@@ -483,70 +480,94 @@ def ratecv(cp, size, nchannels, inrate, outrate, state, weightA=1, weightB=0):
             raise error("illegal state argument")
 
         prev_i, cur_i = zip(*samps)
-        prev_i, cur_i = list(prev_i), list(cur_i)
+        prev_i = ffi.new('int[]', prev_i)
+        cur_i = ffi.new('int[]', cur_i)
+    state_d = ffi.new('int[]', (d,))
 
     q = frame_count // inrate
     ceiling = (q + 1) * outrate
     nbytes = ceiling * bytes_per_frame
 
-    result = create_string_buffer(nbytes)
+    rv = ffi.new("unsigned char[]", nbytes)
+    trim_index = lib.ratecv(rv, cp, frame_count, size,
+                            nchannels, inrate, outrate,
+                            state_d, prev_i, cur_i,
+                            weightA, weightB)
+    result = ffi.buffer(rv)[:trim_index]
+    d = state_d[0]
+    samps = zip(prev_i, cur_i)
+    return (result, (d, tuple(samps)))
 
-    samples = _get_samples(cp, size)
-    out_i = 0
-    while True:
-        while d < 0:
-            if frame_count == 0:
-                samps = zip(prev_i, cur_i)
-                retval = result.raw
 
-                # slice off extra bytes
-                trim_index = (out_i * bytes_per_frame) - len(retval)
-                retval = retval[:trim_index]
+def _get_lin_samples(cp, size):
+    for sample in _get_samples(cp, size):
+        if size == 1:
+            yield sample << 8
+        elif size == 2:
+            yield sample
+        elif size == 4:
+            yield sample >> 16
 
-                return (retval, (d, tuple(samps)))
 
-            for chan in range(nchannels):
-                prev_i[chan] = cur_i[chan]
-                cur_i[chan] = next(samples)
-
-                cur_i[chan] = (
-                    (weightA * cur_i[chan] + weightB * prev_i[chan])
-                    // (weightA + weightB)
-                )
-
-            frame_count -= 1
-            d += outrate
-
-        while d >= 0:
-            for chan in range(nchannels):
-                cur_o = (
-                    (prev_i[chan] * d + cur_i[chan] * (outrate - d))
-                    // outrate
-                )
-                _put_sample(result, size, out_i, _overflow(cur_o, size))
-                out_i += 1
-                d -= inrate
+def _put_lin_sample(result, size, i, sample):
+    if size == 1:
+        sample >>= 8
+    elif size == 2:
+        pass
+    elif size == 4:
+        sample <<= 16
+    _put_sample(result, size, i, sample)
 
 
 def lin2ulaw(cp, size):
-    raise NotImplementedError()
+    _check_params(len(cp), size)
+    rv = ffi.new("unsigned char[]", _sample_count(cp, size))
+    for i, sample in enumerate(_get_lin_samples(cp, size)):
+        rv[i] = lib.st_14linear2ulaw(sample)
+    return ffi.buffer(rv)[:]
 
 
 def ulaw2lin(cp, size):
-    raise NotImplementedError()
+    _check_size(size)
+    rv = ffi.new("unsigned char[]", len(cp) * size)
+    result = ffi.buffer(rv)
+    for i, value in enumerate(cp):
+        sample = lib.st_ulaw2linear16(ord(value))
+        _put_lin_sample(result, size, i, sample)
+    return result[:]
 
 
 def lin2alaw(cp, size):
-    raise NotImplementedError()
+    _check_params(len(cp), size)
+    rv = ffi.new("unsigned char[]", _sample_count(cp, size))
+    for i, sample in enumerate(_get_lin_samples(cp, size)):
+        rv[i] = lib.st_linear2alaw(sample)
+    return ffi.buffer(rv)[:]
 
 
 def alaw2lin(cp, size):
-    raise NotImplementedError()
+    _check_size(size)
+    rv = ffi.new("unsigned char[]", len(cp) * size)
+    result = ffi.buffer(rv)
+    for i, value in enumerate(cp):
+        sample = lib.st_alaw2linear16(ord(value))
+        _put_lin_sample(result, size, i, sample)
+    return result[:]
 
 
 def lin2adpcm(cp, size, state):
-    raise NotImplementedError()
+    _check_params(len(cp), size)
+    state = _check_state(state)
+    rv = ffi.new("unsigned char[]", len(cp) // size // 2)
+    state_ptr = ffi.new("int[]", state)
+    lib.lin2adcpm(rv, cp, len(cp), size, state_ptr)
+    return ffi.buffer(rv)[:], tuple(state_ptr)
 
 
 def adpcm2lin(cp, size, state):
-    raise NotImplementedError()
+    _check_size(size)
+    state = _check_state(state)
+    rv = ffi.new("unsigned char[]", len(cp) * size * 2)
+    state_ptr = ffi.new("int[]", state)
+    lib.adcpm2lin(rv, cp, len(cp), size, state_ptr)
+    return ffi.buffer(rv)[:], tuple(state_ptr)

@@ -75,18 +75,36 @@ static int cmp_compare(PyObject *self, PyObject *other) {
 
 PyTypeObject OldCmpType = {
     PyVarObject_HEAD_INIT(NULL, 0)
-    "comparisons.OldCmpType",                       /* tp_name */
-    sizeof(CmpObject),                              /* tp_basicsize */
-    0,                                              /* tp_itemsize */
-    0,                                              /* tp_dealloc */
-    0,                                              /* tp_print */
-    0,                                              /* tp_getattr */
-    0,                                              /* tp_setattr */
-    (cmpfunc)cmp_compare,                           /* tp_compare */
+    "comparisons.OldCmpType",             /* tp_name */
+    sizeof(CmpObject),                    /* tp_basicsize */
+    0,                                    /* tp_itemsize */
+    0,                                    /* tp_dealloc */
+    0,                                    /* tp_print */
+    0,                                    /* tp_getattr */
+    0,                                    /* tp_setattr */
+    (cmpfunc)cmp_compare,                 /* tp_compare */
+    0,                                    /*tp_repr*/
+    0,                                    /*tp_as_number*/
+    0,                                    /*tp_as_sequence*/
+    0,                                    /*tp_as_mapping*/
+    0,                                    /*tp_hash */
+    0,                                    /*tp_call*/
+    0,                                    /*tp_str*/
+    0,                                    /*tp_getattro*/
+    0,                                    /*tp_setattro*/
+    0,                                    /*tp_as_buffer*/
+    Py_TPFLAGS_DEFAULT,                   /*tp_flags*/
+    "Compare objects", /* tp_doc */
 };
 
+#ifdef __GNUC__
+extern __attribute__((visibility("default")))
+#else
+extern __declspec(dllexport)
+#endif
 
-void initcomparisons(void)
+PyMODINIT_FUNC
+initcomparisons(void)
 {
     PyObject *m, *d;
 
@@ -94,6 +112,8 @@ void initcomparisons(void)
         return;
     if (PyType_Ready(&OldCmpType) < 0)
         return;
+    CmpType.tp_new = PyType_GenericNew;
+    OldCmpType.tp_new = PyType_GenericNew;
     m = Py_InitModule("comparisons", NULL);
     if (m == NULL)
         return;

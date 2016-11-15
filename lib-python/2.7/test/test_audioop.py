@@ -2,7 +2,7 @@ import audioop
 import sys
 import unittest
 import struct
-from test.test_support import run_unittest, impl_detail
+from test.test_support import run_unittest
 
 
 formats = {
@@ -183,7 +183,6 @@ class TestAudioop(unittest.TestCase):
         self.assertEqual(audioop.lin2lin(datas[4], 4, 2),
             packs[2](0, 0x1234, 0x4567, -0x4568, 0x7fff, -0x8000, -1))
 
-    @impl_detail(pypy=False)
     def test_adpcm2lin(self):
         self.assertEqual(audioop.adpcm2lin(b'\x07\x7f\x7f', 1, None),
                          (b'\x00\x00\x00\xff\x00\xff', (-179, 40)))
@@ -198,7 +197,6 @@ class TestAudioop(unittest.TestCase):
             self.assertEqual(audioop.adpcm2lin(b'\0' * 5, w, None),
                              (b'\0' * w * 10, (0, 0)))
 
-    @impl_detail(pypy=False)
     def test_lin2adpcm(self):
         self.assertEqual(audioop.lin2adpcm(datas[1], 1, None),
                          (b'\x07\x7f\x7f', (-221, 39)))
@@ -212,7 +210,21 @@ class TestAudioop(unittest.TestCase):
             self.assertEqual(audioop.lin2adpcm(b'\0' * w * 10, w, None),
                              (b'\0' * 5, (0, 0)))
 
-    @impl_detail(pypy=False)
+    def test_invalid_adpcm_state(self):
+        # state must be a tuple or None, not an integer
+        self.assertRaises(TypeError, audioop.adpcm2lin, b'\0', 1, 555)
+        self.assertRaises(TypeError, audioop.lin2adpcm, b'\0', 1, 555)
+        # Issues #24456, #24457: index out of range
+        self.assertRaises(ValueError, audioop.adpcm2lin, b'\0', 1, (0, -1))
+        self.assertRaises(ValueError, audioop.adpcm2lin, b'\0', 1, (0, 89))
+        self.assertRaises(ValueError, audioop.lin2adpcm, b'\0', 1, (0, -1))
+        self.assertRaises(ValueError, audioop.lin2adpcm, b'\0', 1, (0, 89))
+        # value out of range
+        self.assertRaises(ValueError, audioop.adpcm2lin, b'\0', 1, (-0x8001, 0))
+        self.assertRaises(ValueError, audioop.adpcm2lin, b'\0', 1, (0x8000, 0))
+        self.assertRaises(ValueError, audioop.lin2adpcm, b'\0', 1, (-0x8001, 0))
+        self.assertRaises(ValueError, audioop.lin2adpcm, b'\0', 1, (0x8000, 0))
+
     def test_lin2alaw(self):
         self.assertEqual(audioop.lin2alaw(datas[1], 1),
                          b'\xd5\x87\xa4\x24\xaa\x2a\x5a')
@@ -221,7 +233,6 @@ class TestAudioop(unittest.TestCase):
         self.assertEqual(audioop.lin2alaw(datas[4], 4),
                          b'\xd5\x87\xa4\x24\xaa\x2a\x55')
 
-    @impl_detail(pypy=False)
     def test_alaw2lin(self):
         encoded = b'\x00\x03\x24\x2a\x51\x54\x55\x58\x6b\x71\x7f'\
                   b'\x80\x83\xa4\xaa\xd1\xd4\xd5\xd8\xeb\xf1\xff'
@@ -236,7 +247,6 @@ class TestAudioop(unittest.TestCase):
             decoded = audioop.alaw2lin(encoded, w)
             self.assertEqual(audioop.lin2alaw(decoded, w), encoded)
 
-    @impl_detail(pypy=False)
     def test_lin2ulaw(self):
         self.assertEqual(audioop.lin2ulaw(datas[1], 1),
                          b'\xff\xad\x8e\x0e\x80\x00\x67')
@@ -245,7 +255,6 @@ class TestAudioop(unittest.TestCase):
         self.assertEqual(audioop.lin2ulaw(datas[4], 4),
                          b'\xff\xad\x8e\x0e\x80\x00\x7e')
 
-    @impl_detail(pypy=False)
     def test_ulaw2lin(self):
         encoded = b'\x00\x0e\x28\x3f\x57\x6a\x76\x7c\x7e\x7f'\
                   b'\x80\x8e\xa8\xbf\xd7\xea\xf6\xfc\xfe\xff'
@@ -286,6 +295,9 @@ class TestAudioop(unittest.TestCase):
                              (b'', (-2, ((0, 0),))))
             self.assertEqual(audioop.ratecv(datas[w], w, 1, 8000, 8000, None)[0],
                              datas[w])
+            self.assertEqual(audioop.ratecv(datas[w], w, 1, 8000, 8000, None, 1, 0)[0],
+                             datas[w])
+
         state = None
         d1, state = audioop.ratecv(b'\x00\x01\x02', 1, 1, 8000, 16000, state)
         d2, state = audioop.ratecv(b'\x00\x01\x02', 1, 1, 8000, 16000, state)
@@ -300,6 +312,18 @@ class TestAudioop(unittest.TestCase):
                 d += d1
             self.assertEqual(d, d0)
             self.assertEqual(state, state0)
+
+        expected = {
+            1: packs[1](0, 0x0d, 0x37, -0x26, 0x55, -0x4b, -0x14),
+            2: packs[2](0, 0x0da7, 0x3777, -0x2630, 0x5673, -0x4a64, -0x129a),
+            4: packs[4](0, 0x0da740da, 0x37777776, -0x262fc962,
+                        0x56740da6, -0x4a62fc96, -0x1298bf26),
+        }
+        for w in 1, 2, 4:
+            self.assertEqual(audioop.ratecv(datas[w], w, 1, 8000, 8000, None, 3, 1)[0],
+                             expected[w])
+            self.assertEqual(audioop.ratecv(datas[w], w, 1, 8000, 8000, None, 30, 10)[0],
+                             expected[w])
 
     def test_reverse(self):
         for w in 1, 2, 4:
@@ -360,7 +384,6 @@ class TestAudioop(unittest.TestCase):
         self.assertRaises(audioop.error,
             audioop.findmax, ''.join( chr(x) for x in xrange(256)), -2392392)
 
-    @impl_detail(pypy=False)
     def test_issue7673(self):
         state = None
         for data, size in INVALID_DATA:
@@ -385,7 +408,6 @@ class TestAudioop(unittest.TestCase):
             self.assertRaises(audioop.error, audioop.lin2alaw, data, size)
             self.assertRaises(audioop.error, audioop.lin2adpcm, data, size, state)
 
-    @impl_detail(pypy=False)
     def test_wrongsize(self):
         data = b'abcdefgh'
         state = None

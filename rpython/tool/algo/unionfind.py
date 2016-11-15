@@ -72,19 +72,16 @@ class UnionFind(object):
         if rep1 is rep2:
             return new1 or new2, rep1, info1
 
-        w1 = self.weight[rep1]
-        w2 = self.weight[rep2]
-
-        w = w1 + w2
-
-        if w1 < w2:
-            rep1, rep2, info1, info2, = rep2, rep1, info2, info1
-
         if info1 is not None:
             info1.absorb(info2)
 
-        self.link_to_parent[rep2] = rep1
+        w1 = self.weight[rep1]
+        w2 = self.weight[rep2]
+        w = w1 + w2
+        if w1 < w2:
+            rep1, rep2 = rep2, rep1
 
+        self.link_to_parent[rep2] = rep1
         del self.weight[rep2]
         del self.root_info[rep2]
 

@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-struct _RPyString_dump_t {
+static struct _RPyString_dump_t {
 	struct _RPyString_dump_t *next;
 	char data[1];
 } *_RPyString_dump = NULL;
@@ -35,12 +35,4 @@ void RPyString_FreeCache(void)
 		_RPyString_dump = dump->next;
 		free(dump);
 	}
-}
-
-RPyString *RPyString_FromString(char *buf)
-{
-	int length = strlen(buf);
-	RPyString *rps = RPyString_New(length);
-	memcpy(rps->rs_chars.items, buf, length);
-	return rps;
 }

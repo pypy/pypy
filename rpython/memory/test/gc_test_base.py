@@ -3,10 +3,11 @@ import sys
 
 from rpython.memory import gcwrapper
 from rpython.memory.test import snippet
+from rpython.rtyper import llinterp
 from rpython.rtyper.test.test_llinterp import get_interpreter
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, keepalive_until_here
 from rpython.rlib.objectmodel import compute_unique_id
 from rpython.rlib import rgc
 from rpython.rlib.rstring import StringBuilder
@@ -15,30 +16,27 @@ from rpython.rlib.rarithmetic import LONG_BIT
 WORD = LONG_BIT // 8
 
 
-def stdout_ignore_ll_functions(msg):
-    strmsg = str(msg)
-    if "evaluating" in strmsg and "ll_" in strmsg:
-        return
-    print >>sys.stdout, strmsg
+## def stdout_ignore_ll_functions(msg):
+##     strmsg = str(msg)
+##     if "evaluating" in strmsg and "ll_" in strmsg:
+##         return
+##     print >>sys.stdout, strmsg
 
 
 class GCTest(object):
     GC_PARAMS = {}
     GC_CAN_MOVE = False
-    GC_CAN_MALLOC_NONMOVABLE = True
     GC_CAN_SHRINK_ARRAY = False
     GC_CAN_SHRINK_BIG_ARRAY = False
     BUT_HOW_BIG_IS_A_BIG_STRING = 3*WORD
     WREF_IS_INVALID_BEFORE_DEL_IS_CALLED = False
 
     def setup_class(cls):
-        cls._saved_logstate = py.log._getstate()
-        py.log.setconsumer("llinterp", py.log.STDOUT)
-        py.log.setconsumer("llinterp frame", stdout_ignore_ll_functions)
-        py.log.setconsumer("llinterp operation", None)
+        # switch on logging of interp to show more info on failing tests
+        llinterp.log.output_disabled = False
 
     def teardown_class(cls):
-        py.log._setstate(cls._saved_logstate)
+        llinterp.log.output_disabled = True
 
     def interpret(self, func, values, **kwds):
         interp, graph = get_interpreter(func, values, **kwds)
@@ -130,7 +128,7 @@ class GCTest(object):
         assert res == concat(100)
         #assert simulator.current_size - curr < 16000 * INT_SIZE / 4
 
-    def test_finalizer(self):
+    def test_destructor(self):
         class B(object):
             pass
         b = B()
@@ -154,7 +152,7 @@ class GCTest(object):
         res = self.interpret(f, [5])
         assert res == 6
 
-    def test_finalizer_calls_malloc(self):
+    def test_old_style_finalizer(self):
         class B(object):
             pass
         b = B()
@@ -165,10 +163,7 @@ class GCTest(object):
                 self.id = b.nextid
                 b.nextid += 1
             def __del__(self):
-                b.num_deleted += 1
-                C()
-        class C(A):
-            def __del__(self):
+                llop.gc__collect(lltype.Void)
                 b.num_deleted += 1
         def f(x):
             a = A()
@@ -176,6 +171,152 @@ class GCTest(object):
             while i < x:
                 i += 1
                 a = A()
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            return b.num_deleted
+        res = self.interpret(f, [5])
+        assert res == 6
+
+    def test_finalizer(self):
+        class B(object):
+            pass
+        b = B()
+        b.nextid = 0
+        b.num_deleted = 0
+        class A(object):
+            def __init__(self):
+                self.id = b.nextid
+                b.nextid += 1
+                fq.register_finalizer(self)
+        class FQ(rgc.FinalizerQueue):
+            Class = A
+            def finalizer_trigger(self):
+                while self.next_dead() is not None:
+                    b.num_deleted += 1
+        fq = FQ()
+        def f(x):
+            a = A()
+            i = 0
+            while i < x:
+                i += 1
+                a = A()
+            a = None
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            return b.num_deleted
+        res = self.interpret(f, [5])
+        assert res == 6
+
+    def test_finalizer_delaying_next_dead(self):
+        class B(object):
+            pass
+        b = B()
+        b.nextid = 0
+        class A(object):
+            def __init__(self):
+                self.id = b.nextid
+                b.nextid += 1
+                fq.register_finalizer(self)
+        class FQ(rgc.FinalizerQueue):
+            Class = A
+            def finalizer_trigger(self):
+                b.triggered += 1
+        fq = FQ()
+        def g():     # indirection to avoid leaking the result for too long
+            A()
+        def f(x):
+            b.triggered = 0
+            g()
+            i = 0
+            while i < x:
+                i += 1
+                g()
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            assert b.triggered > 0
+            g(); g()     # two more
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            num_deleted = 0
+            while fq.next_dead() is not None:
+                num_deleted += 1
+            return num_deleted + 1000 * b.triggered
+        res = self.interpret(f, [5])
+        assert res in (3008, 4008, 5008), "res == %d" % (res,)
+
+    def test_finalizer_two_queues_in_sequence(self):
+        class B(object):
+            pass
+        b = B()
+        b.nextid = 0
+        b.num_deleted_1 = 0
+        b.num_deleted_2 = 0
+        class A(object):
+            def __init__(self):
+                self.id = b.nextid
+                b.nextid += 1
+                fq1.register_finalizer(self)
+        class FQ1(rgc.FinalizerQueue):
+            Class = A
+            def finalizer_trigger(self):
+                while True:
+                    a = self.next_dead()
+                    if a is None:
+                        break
+                    b.num_deleted_1 += 1
+                    fq2.register_finalizer(a)
+        class FQ2(rgc.FinalizerQueue):
+            Class = A
+            def finalizer_trigger(self):
+                while self.next_dead() is not None:
+                    b.num_deleted_2 += 1
+        fq1 = FQ1()
+        fq2 = FQ2()
+        def f(x):
+            A()
+            i = 0
+            while i < x:
+                i += 1
+                A()
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            return b.num_deleted_1 + b.num_deleted_2 * 1000
+        res = self.interpret(f, [5])
+        assert res == 6006
+
+    def test_finalizer_calls_malloc(self):
+        class B(object):
+            pass
+        b = B()
+        b.nextid = 0
+        b.num_deleted = 0
+        class A(object):
+            def __init__(self):
+                self.id = b.nextid
+                b.nextid += 1
+                fq.register_finalizer(self)
+        class C(A):
+            pass
+        class FQ(rgc.FinalizerQueue):
+            Class = A
+            def finalizer_trigger(self):
+                while True:
+                    a = self.next_dead()
+                    if a is None:
+                        break
+                    b.num_deleted += 1
+                    if not isinstance(a, C):
+                        C()
+        fq = FQ()
+        def f(x):
+            a = A()
+            i = 0
+            while i < x:
+                i += 1
+                a = A()
+            a = None
             llop.gc__collect(lltype.Void)
             llop.gc__collect(lltype.Void)
             return b.num_deleted
@@ -192,15 +333,21 @@ class GCTest(object):
             def __init__(self):
                 self.id = b.nextid
                 b.nextid += 1
-            def __del__(self):
-                b.num_deleted += 1
-                llop.gc__collect(lltype.Void)
+                fq.register_finalizer(self)
+        class FQ(rgc.FinalizerQueue):
+            Class = A
+            def finalizer_trigger(self):
+                while self.next_dead() is not None:
+                    b.num_deleted += 1
+                    llop.gc__collect(lltype.Void)
+        fq = FQ()
         def f(x):
             a = A()
             i = 0
             while i < x:
                 i += 1
                 a = A()
+            a = None
             llop.gc__collect(lltype.Void)
             llop.gc__collect(lltype.Void)
             return b.num_deleted
@@ -217,20 +364,29 @@ class GCTest(object):
             def __init__(self):
                 self.id = b.nextid
                 b.nextid += 1
-            def __del__(self):
-                b.num_deleted += 1
-                b.a = self
+                fq.register_finalizer(self)
+        class FQ(rgc.FinalizerQueue):
+            Class = A
+            def finalizer_trigger(self):
+                while True:
+                    a = self.next_dead()
+                    if a is None:
+                        break
+                    b.num_deleted += 1
+                    b.a = a
+        fq = FQ()
         def f(x):
             a = A()
             i = 0
             while i < x:
                 i += 1
                 a = A()
+            a = None
             llop.gc__collect(lltype.Void)
             llop.gc__collect(lltype.Void)
             aid = b.a.id
             b.a = None
-            # check that __del__ is not called again
+            # check that finalizer_trigger() is not called again
             llop.gc__collect(lltype.Void)
             llop.gc__collect(lltype.Void)
             return b.num_deleted * 10 + aid + 100 * (b.a is None)
@@ -238,26 +394,20 @@ class GCTest(object):
         assert 160 <= res <= 165
 
     def test_custom_trace(self):
-        from rpython.rtyper.annlowlevel import llhelper
         from rpython.rtyper.lltypesystem import llmemory
         from rpython.rtyper.lltypesystem.llarena import ArenaError
         #
         S = lltype.GcStruct('S', ('x', llmemory.Address),
-                                 ('y', llmemory.Address), rtti=True)
+                                 ('y', llmemory.Address))
         T = lltype.GcStruct('T', ('z', lltype.Signed))
         offset_of_x = llmemory.offsetof(S, 'x')
-        def customtrace(obj, prev):
-            if not prev:
-                return obj + offset_of_x
-            else:
-                return llmemory.NULL
-        CUSTOMTRACEFUNC = lltype.FuncType([llmemory.Address, llmemory.Address],
-                                          llmemory.Address)
-        customtraceptr = llhelper(lltype.Ptr(CUSTOMTRACEFUNC), customtrace)
-        lltype.attachRuntimeTypeInfo(S, customtraceptr=customtraceptr)
+        def customtrace(gc, obj, callback, arg):
+            gc._trace_callback(callback, arg, obj + offset_of_x)
+        lambda_customtrace = lambda: customtrace
         #
         for attrname in ['x', 'y']:
             def setup():
+                rgc.register_custom_trace_hook(S, lambda_customtrace)
                 s1 = lltype.malloc(S)
                 tx = lltype.malloc(T)
                 tx.z = 42
@@ -298,7 +448,7 @@ class GCTest(object):
         res = self.interpret(f, [])
         assert res
 
-    def test_weakref_to_object_with_finalizer(self):
+    def test_weakref_to_object_with_destructor(self):
         import weakref
         class A(object):
             count = 0
@@ -308,6 +458,32 @@ class GCTest(object):
                 a.count += 1
         def g():
             b = B()
+            return weakref.ref(b)
+        def f():
+            ref = g()
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            result = a.count == 1 and (ref() is None)
+            return result
+        res = self.interpret(f, [])
+        assert res
+
+    def test_weakref_to_object_with_finalizer(self):
+        import weakref
+        class A(object):
+            count = 0
+        a = A()
+        class B(object):
+            pass
+        class FQ(rgc.FinalizerQueue):
+            Class = B
+            def finalizer_trigger(self):
+                while self.next_dead() is not None:
+                    a.count += 1
+        fq = FQ()
+        def g():
+            b = B()
+            fq.register_finalizer(b)
             return weakref.ref(b)
         def f():
             ref = g()
@@ -337,23 +513,32 @@ class GCTest(object):
         res = self.interpret(f, [])
         assert res
 
-    def test_cycle_with_weakref_and_del(self):
+    def test_cycle_with_weakref_and_finalizer(self):
         import weakref
         class A(object):
             count = 0
         a = A()
         class B(object):
-            def __del__(self):
-                # when __del__ is called, the weakref to c should be dead
-                if self.ref() is None:
-                    a.count += 10  # ok
-                else:
-                    a.count = 666  # not ok
+            pass
+        class FQ(rgc.FinalizerQueue):
+            Class = B
+            def finalizer_trigger(self):
+                while True:
+                    b = self.next_dead()
+                    if b is None:
+                        break
+                    # when we are here, the weakref to c should be dead
+                    if b.ref() is None:
+                        a.count += 10  # ok
+                    else:
+                        a.count = 666  # not ok
+        fq = FQ()
         class C(object):
             pass
         def g():
             c = C()
             c.b = B()
+            fq.register_finalizer(c.b)
             ref = weakref.ref(c)
             c.b.ref = ref
             return ref
@@ -373,23 +558,32 @@ class GCTest(object):
         a = A()
         expected_invalid = self.WREF_IS_INVALID_BEFORE_DEL_IS_CALLED
         class B(object):
-            def __del__(self):
-                # when __del__ is called, the weakref to myself is still valid
+            pass
+        class FQ(rgc.FinalizerQueue):
+            Class = B
+            def finalizer_trigger(self):
+                # when we are here, the weakref to myself is still valid
                 # in RPython with most GCs.  However, this can lead to strange
                 # bugs with incminimark.  https://bugs.pypy.org/issue1687
                 # So with incminimark, we expect the opposite.
-                if expected_invalid:
-                    if self.ref() is None:
-                        a.count += 10  # ok
+                while True:
+                    b = self.next_dead()
+                    if b is None:
+                        break
+                    if expected_invalid:
+                        if b.ref() is None:
+                            a.count += 10  # ok
+                        else:
+                            a.count = 666  # not ok
                     else:
-                        a.count = 666  # not ok
-                else:
-                    if self.ref() is self:
-                        a.count += 10  # ok
-                    else:
-                        a.count = 666  # not ok
+                        if b.ref() is b:
+                            a.count += 10  # ok
+                        else:
+                            a.count = 666  # not ok
+        fq = FQ()
         def g():
             b = B()
+            fq.register_finalizer(b)
             ref = weakref.ref(b)
             b.ref = ref
             return ref
@@ -407,10 +601,19 @@ class GCTest(object):
         class A(object):
             pass
         class B(object):
-            def __del__(self):
-                self.wref().x += 1
+            pass
+        class FQ(rgc.FinalizerQueue):
+            Class = B
+            def finalizer_trigger(self):
+                while True:
+                    b = self.next_dead()
+                    if b is None:
+                        break
+                    b.wref().x += 1
+        fq = FQ()
         def g(a):
             b = B()
+            fq.register_finalizer(b)
             b.wref = weakref.ref(a)
             # the only way to reach this weakref is via B, which is an
             # object with finalizer (but the weakref itself points to
@@ -456,9 +659,14 @@ class GCTest(object):
             def __init__(self):
                 self.id = b.nextid
                 b.nextid += 1
-            def __del__(self):
-                b.num_deleted += 1
-                b.all.append(D(b.num_deleted))
+                fq.register_finalizer(self)
+        class FQ(rgc.FinalizerQueue):
+            Class = A
+            def finalizer_trigger(self):
+                while self.next_dead() is not None:
+                    b.num_deleted += 1
+                    b.all.append(D(b.num_deleted))
+        fq = FQ()
         class D(object):
             # make a big object that does not use malloc_varsize
             def __init__(self, x):
@@ -469,6 +677,7 @@ class GCTest(object):
             i = 0
             all = [None] * x
             a = A()
+            del a
             while i < x:
                 d = D(i)
                 all[i] = d
@@ -489,15 +698,24 @@ class GCTest(object):
             def __init__(self):
                 self.id = b.nextid
                 b.nextid += 1
-            def __del__(self):
-                llop.gc__collect(lltype.Void)
-                b.num_deleted += 1
-                C()
-                C()
+                fq.register_finalizer(self)
         class C(A):
-            def __del__(self):
-                b.num_deleted += 1
-                b.num_deleted_c += 1
+            pass
+        class FQ(rgc.FinalizerQueue):
+            Class = A
+            def finalizer_trigger(self):
+                while True:
+                    a = self.next_dead()
+                    if a is None:
+                        break
+                    llop.gc__collect(lltype.Void)
+                    b.num_deleted += 1
+                    if isinstance(a, C):
+                        b.num_deleted_c += 1
+                    else:
+                        C()
+                        C()
+        fq = FQ()
         def f(x, y):
             persistent_a1 = A()
             persistent_a2 = A()
@@ -614,33 +832,57 @@ class GCTest(object):
             return rgc.can_move(lltype.malloc(TP, 1))
         assert self.interpret(func, []) == self.GC_CAN_MOVE
 
-
-    def test_malloc_nonmovable(self):
-        TP = lltype.GcArray(lltype.Char)
+    def test_trace_array_of_structs(self):
+        R = lltype.GcStruct('R', ('i', lltype.Signed))
+        S1 = lltype.GcArray(('p1', lltype.Ptr(R)))
+        S2 = lltype.GcArray(('p1', lltype.Ptr(R)),
+                            ('p2', lltype.Ptr(R)))
+        S3 = lltype.GcArray(('p1', lltype.Ptr(R)),
+                            ('p2', lltype.Ptr(R)),
+                            ('p3', lltype.Ptr(R)))
         def func():
-            a = rgc.malloc_nonmovable(TP, 3)
-            if a:
-                assert not rgc.can_move(a)
-                return 1
-            return 0
-
-        assert self.interpret(func, []) == int(self.GC_CAN_MALLOC_NONMOVABLE)
-
-    def test_malloc_nonmovable_fixsize(self):
-        S = lltype.GcStruct('S', ('x', lltype.Float))
-        TP = lltype.GcStruct('T', ('s', lltype.Ptr(S)))
-        def func():
-            try:
-                a = rgc.malloc_nonmovable(TP)
-                rgc.collect()
-                if a:
-                    assert not rgc.can_move(a)
-                    return 1
-                return 0
-            except Exception:
-                return 2
-
-        assert self.interpret(func, []) == int(self.GC_CAN_MALLOC_NONMOVABLE)
+            s1 = lltype.malloc(S1, 2)
+            s1[0].p1 = lltype.malloc(R)
+            s1[1].p1 = lltype.malloc(R)
+            s2 = lltype.malloc(S2, 2)
+            s2[0].p1 = lltype.malloc(R)
+            s2[0].p2 = lltype.malloc(R)
+            s2[1].p1 = lltype.malloc(R)
+            s2[1].p2 = lltype.malloc(R)
+            s3 = lltype.malloc(S3, 2)
+            s3[0].p1 = lltype.malloc(R)
+            s3[0].p2 = lltype.malloc(R)
+            s3[0].p3 = lltype.malloc(R)
+            s3[1].p1 = lltype.malloc(R)
+            s3[1].p2 = lltype.malloc(R)
+            s3[1].p3 = lltype.malloc(R)
+            s1[0].p1.i = 100
+            s1[1].p1.i = 101
+            s2[0].p1.i = 102
+            s2[0].p2.i = 103
+            s2[1].p1.i = 104
+            s2[1].p2.i = 105
+            s3[0].p1.i = 106
+            s3[0].p2.i = 107
+            s3[0].p3.i = 108
+            s3[1].p1.i = 109
+            s3[1].p2.i = 110
+            s3[1].p3.i = 111
+            rgc.collect()
+            return ((s1[0].p1.i == 100) +
+                    (s1[1].p1.i == 101) +
+                    (s2[0].p1.i == 102) +
+                    (s2[0].p2.i == 103) +
+                    (s2[1].p1.i == 104) +
+                    (s2[1].p2.i == 105) +
+                    (s3[0].p1.i == 106) +
+                    (s3[0].p2.i == 107) +
+                    (s3[0].p3.i == 108) +
+                    (s3[1].p1.i == 109) +
+                    (s3[1].p2.i == 110) +
+                    (s3[1].p3.i == 111))
+        res = self.interpret(func, [])
+        assert res == 12
 
     def test_shrink_array(self):
         from rpython.rtyper.lltypesystem.rstr import STR
@@ -791,6 +1033,72 @@ class GCTest(object):
             assert rgc.get_gcflag_extra(a1) == False
             assert rgc.get_gcflag_extra(a2) == False
         self.interpret(fn, [])
+    
+    def test_register_custom_trace_hook(self):
+        S = lltype.GcStruct('S', ('x', lltype.Signed))
+        called = []
+
+        def trace_hook(gc, obj, callback, arg):
+            called.append("called")
+        lambda_trace_hook = lambda: trace_hook
+
+        def f():
+            rgc.register_custom_trace_hook(S, lambda_trace_hook)
+            s = lltype.malloc(S)
+            rgc.collect()
+            keepalive_until_here(s)
+
+        self.interpret(f, [])
+        assert called # not empty, can contain more than one item
+
+    def test_pinning(self):
+        def fn(n):
+            s = str(n)
+            if not rgc.can_move(s):
+                return 13
+            res = int(rgc.pin(s))
+            if res:
+                rgc.unpin(s)
+            return res
+
+        res = self.interpret(fn, [10])
+        if not self.GCClass.moving_gc:
+            assert res == 13
+        elif self.GCClass.can_usually_pin_objects:
+            assert res == 1
+        else:
+            assert res == 0 or res == 13
+
+    def test__is_pinned(self):
+        def fn(n):
+            from rpython.rlib.debug import debug_print
+            s = str(n)
+            if not rgc.can_move(s):
+                return 13
+            res = int(rgc.pin(s))
+            if res:
+                res += int(rgc._is_pinned(s))
+                rgc.unpin(s)
+            return res
+
+        res = self.interpret(fn, [10])
+        if not self.GCClass.moving_gc:
+            assert res == 13
+        elif self.GCClass.can_usually_pin_objects:
+            assert res == 2
+        else:
+            assert res == 0 or res == 13
+
+    def test_gettypeid(self):
+        class A(object):
+            pass
+        
+        def fn():
+            a = A()
+            return rgc.get_typeid(a)
+
+        self.interpret(fn, [])
+
 
 from rpython.rlib.objectmodel import UnboxedValue
 

@@ -10,7 +10,8 @@ import os
 import sys
 import time
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+pypy_path = os.path.join(os.path.dirname(__file__), '..', '..')
+sys.path.insert(0, os.path.abspath(pypy_path))
 
 from pypy.tool import option
 from pypy.interpreter import main, interactive, error, gateway

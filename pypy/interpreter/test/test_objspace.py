@@ -86,7 +86,7 @@ class TestObjSpace:
         """)
         try:
             space.unpackiterable(w_a)
-        except OperationError, o:
+        except OperationError as o:
             if not o.match(space, space.w_ZeroDivisionError):
                 raise Exception("DID NOT RAISE")
         else:
@@ -237,7 +237,7 @@ class TestObjSpace:
                             self.space.getindex_w, w_instance2, self.space.w_IndexError)
         try:
             self.space.getindex_w(self.space.w_tuple, None, "foobar")
-        except OperationError, e:
+        except OperationError as e:
             assert e.match(self.space, self.space.w_TypeError)
             assert "foobar" in e.errorstr(self.space)
         else:
@@ -373,8 +373,82 @@ class TestModuleMinimal:
         config = make_config(None)
         space = make_objspace(config)
         w_executable = space.wrap('executable')
-        assert space.str_w(space.getattr(space.sys, w_executable)) == 'py.py'
+        assert space.findattr(space.sys, w_executable) is None
         space.setattr(space.sys, w_executable, space.wrap('foobar'))
         assert space.str_w(space.getattr(space.sys, w_executable)) == 'foobar'
         space.startup()
         assert space.str_w(space.getattr(space.sys, w_executable)) == 'foobar'
+
+    def test_interned_strings_are_weak(self):
+        import weakref, gc, random
+        space = self.space
+        assert space.config.translation.rweakref
+        w1 = space.new_interned_str("abcdef")
+        w2 = space.new_interned_str("abcdef")
+        assert w2 is w1
+        #
+        # check that 'w1' goes away if we don't hold a reference to it
+        rw1 = weakref.ref(w1)
+        del w1, w2
+        i = 10
+        while rw1() is not None:
+            i -= 1
+            assert i >= 0
+            gc.collect()
+        #
+        s = "foobar%r" % random.random()
+        w0 = space.wrap(s)
+        w1 = space.new_interned_w_str(w0)
+        assert w1 is w0
+        w2 = space.new_interned_w_str(w0)
+        assert w2 is w0
+        w3 = space.wrap(s)
+        assert w3 is not w0
+        w4 = space.new_interned_w_str(w3)
+        assert w4 is w0
+        #
+        # check that 'w0' goes away if we don't hold a reference to it
+        # (even if we hold a reference to 'w3')
+        rw0 = weakref.ref(w0)
+        del w0, w1, w2, w4
+        i = 10
+        while rw0() is not None:
+            i -= 1
+            assert i >= 0
+            gc.collect()
+
+    def test_exitfunc_catches_exceptions(self):
+        from pypy.tool.pytest.objspace import maketestobjspace
+        space = maketestobjspace()
+        space.appexec([], """():
+            import sys
+            sys.exitfunc = lambda: this_is_an_unknown_name
+        """)
+        space.finish()
+        # assert that we reach this point without getting interrupted
+        # by the OperationError(NameError)
+
+    def test_format_traceback(self):
+        from pypy.tool.pytest.objspace import maketestobjspace
+        from pypy.interpreter.gateway import interp2app
+        #
+        def format_traceback(space):
+            return space.format_traceback()
+        #
+        space = maketestobjspace()
+        w_format_traceback = space.wrap(interp2app(format_traceback))
+        w_tb = space.appexec([w_format_traceback], """(format_traceback):
+            def foo():
+                return bar()
+            def bar():
+                return format_traceback()
+            return foo()
+        """)
+        tb = space.str_w(w_tb)
+        expected = '\n'.join([
+            '  File "?", line 6, in anonymous',  # this is the appexec code object
+            '  File "?", line 3, in foo',
+            '  File "?", line 5, in bar',
+            ''
+        ])
+        assert tb == expected

@@ -3,27 +3,29 @@ import sys
 
 from rpython.rlib import rgc
 from rpython.rlib.rstring import StringBuilder
+from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.platform import platform as compiler, CompilationError
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 
 if compiler.name == "msvc":
-    libname = 'zlib1' # since version 1.1.4 and later, see http://www.zlib.net/DLL_FAQ.txt
+    libname = 'zlib' # use the static lib, not zlib1 which is dll import lib
+    testonly_libraries = ['zlib1']
 else:
     libname = 'z'
+    testonly_libraries = []
 eci = ExternalCompilationInfo(
         libraries=[libname],
-        includes=['zlib.h']
+        includes=['zlib.h'],
+        testonly_libraries = testonly_libraries
     )
-try:
-    eci = rffi_platform.configure_external_library(
-        libname, eci,
-        [dict(prefix='zlib-'),
-         ])
-except CompilationError:
-    raise ImportError("Could not find a zlib library")
+eci = rffi_platform.configure_external_library(
+    libname, eci,
+    [dict(prefix='zlib-'),
+     ])
 
 
 constantnames = '''
@@ -32,7 +34,7 @@ constantnames = '''
     Z_NO_FLUSH  Z_FINISH  Z_SYNC_FLUSH  Z_FULL_FLUSH
     MAX_WBITS  MAX_MEM_LEVEL
     Z_BEST_SPEED  Z_BEST_COMPRESSION  Z_DEFAULT_COMPRESSION
-    Z_FILTERED  Z_HUFFMAN_ONLY  Z_DEFAULT_STRATEGY
+    Z_FILTERED  Z_HUFFMAN_ONLY  Z_DEFAULT_STRATEGY Z_NEED_DICT
     '''.split()
 
 class SimpleCConfig:
@@ -160,6 +162,10 @@ def _inflateInit2(stream, wbits):
     result = _inflateInit2_(stream, wbits, ZLIB_VERSION, size)
     return result
 
+_deflateSetDictionary = zlib_external('deflateSetDictionary', [z_stream_p, Bytefp, uInt], rffi.INT)
+_inflateSetDictionary = zlib_external('inflateSetDictionary', [z_stream_p, Bytefp, uInt], rffi.INT)
+_zlibVersion = zlib_external('zlibVersion', [], rffi.CCHARP)
+
 # ____________________________________________________________
 
 CRC32_DEFAULT_START = 0
@@ -169,27 +175,40 @@ def crc32(string, start=CRC32_DEFAULT_START):
     Compute the CRC32 checksum of the string, possibly with the given
     start value, and return it as a unsigned 32 bit integer.
     """
-    bytes = rffi.get_nonmovingbuffer(string)
-    try:
+    with rffi.scoped_nonmovingbuffer(string) as bytes:
         checksum = _crc32(start, rffi.cast(Bytefp, bytes), len(string))
-    finally:
-        rffi.free_nonmovingbuffer(string, bytes)
     return checksum
 
 
 ADLER32_DEFAULT_START = 1
 
+def deflateSetDictionary(stream, string):
+    with rffi.scoped_nonmovingbuffer(string) as buf:
+        err = _deflateSetDictionary(stream, rffi.cast(Bytefp, buf), len(string))
+    if err == Z_STREAM_ERROR:
+        raise RZlibError("Parameter is invalid or the stream state is inconsistent")
+
+def inflateSetDictionary(stream, string):
+    with rffi.scoped_nonmovingbuffer(string) as buf:
+        err = _inflateSetDictionary(stream, rffi.cast(Bytefp, buf), len(string))
+    if err == Z_STREAM_ERROR:
+        raise RZlibError("Parameter is invalid or the stream state is inconsistent")
+    elif err == Z_DATA_ERROR:
+        raise RZlibError("The given dictionary doesn't match the expected one")
+
+    
 def adler32(string, start=ADLER32_DEFAULT_START):
     """
     Compute the Adler-32 checksum of the string, possibly with the given
     start value, and return it as a unsigned 32 bit integer.
     """
-    bytes = rffi.get_nonmovingbuffer(string)
-    try:
+    with rffi.scoped_nonmovingbuffer(string) as bytes:
         checksum = _adler32(start, rffi.cast(Bytefp, bytes), len(string))
-    finally:
-        rffi.free_nonmovingbuffer(string, bytes)
     return checksum
+
+def zlibVersion():
+    """Return the runtime version of zlib library"""
+    return rffi.charp2str(_zlibVersion())
 
 # ____________________________________________________________
 
@@ -305,7 +324,8 @@ def compress(stream, data, flush=Z_NO_FLUSH):
     return data
 
 
-def decompress(stream, data, flush=Z_SYNC_FLUSH, max_length=sys.maxint):
+def decompress(stream, data, flush=Z_SYNC_FLUSH, max_length=sys.maxint,
+               zdict=None):
     """
     Feed more data into an inflate stream.  Returns a tuple (string,
     finished, unused_data_length).  The string contains (a part of) the
@@ -331,7 +351,7 @@ def decompress(stream, data, flush=Z_SYNC_FLUSH, max_length=sys.maxint):
         should_finish = False
     while_doing = "while decompressing data"
     data, err, avail_in = _operate(stream, data, flush, max_length, _inflate,
-                                   while_doing)
+                                   while_doing, zdict=zdict)
     if should_finish:
         # detect incomplete input
         rffi.setintfield(stream, 'c_avail_in', 0)
@@ -342,13 +362,12 @@ def decompress(stream, data, flush=Z_SYNC_FLUSH, max_length=sys.maxint):
     return data, finished, avail_in
 
 
-def _operate(stream, data, flush, max_length, cfunc, while_doing):
+def _operate(stream, data, flush, max_length, cfunc, while_doing, zdict=None):
     """Common code for compress() and decompress().
     """
     # Prepare the input buffer for the stream
-    with lltype.scoped_alloc(rffi.CCHARP.TO, len(data)) as inbuf:
-        for i in xrange(len(data)):
-            inbuf[i] = data[i]
+    assert data is not None # XXX seems to be sane assumption, however not for sure
+    with rffi.scoped_nonmovingbuffer(data) as inbuf:
         stream.c_next_in = rffi.cast(Bytefp, inbuf)
         rffi.setintfield(stream, 'c_avail_in', len(data))
 
@@ -370,6 +389,10 @@ def _operate(stream, data, flush, max_length, cfunc, while_doing):
                 max_length -= bufsize
                 rffi.setintfield(stream, 'c_avail_out', bufsize)
                 err = cfunc(stream, flush)
+                if err == Z_NEED_DICT and zdict is not None:
+                    inflateSetDictionary(stream, zdict)
+                    # repeat the call to inflate
+                    err = cfunc(stream, flush)
                 if err == Z_OK or err == Z_STREAM_END:
                     # accumulate data into 'result'
                     avail_out = rffi.cast(lltype.Signed, stream.c_avail_out)

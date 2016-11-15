@@ -2,7 +2,8 @@ from rpython.flowspace.model import Constant
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem.lltype import Signed, Void, Ptr
 from rpython.rtyper.rlist import dum_nocheck, dum_checkidx
-from rpython.rtyper.rmodel import Repr, IntegerRepr, IteratorRepr
+from rpython.rtyper.rmodel import Repr, IteratorRepr
+from rpython.rtyper.rint import IntegerRepr
 from rpython.tool.pairtype import pairtype
 
 
@@ -198,8 +199,11 @@ class EnumerateIteratorRepr(IteratorRepr):
         self.r_baseiter = r_baseiter
         self.lowleveltype = r_baseiter.lowleveltype
         # only supports for now enumerate() on sequence types whose iterators
-        # have a method ll_getnextindex.  It's easy to add one for most
-        # iterator types, but I didn't do it so far.
+        # have a method ll_getnextindex.  It could be added for most
+        # iterator types, but it's a bit messy for no clear benefit.
+        if not hasattr(r_baseiter, 'll_getnextindex'):
+            raise TyperError("not implemented for now: enumerate(x) where x "
+                             "is not a regular list (got %r)" % (r_baseiter,))
         self.ll_getnextindex = r_baseiter.ll_getnextindex
 
     def rtype_next(self, hop):

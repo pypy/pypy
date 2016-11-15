@@ -1,4 +1,5 @@
 from rpython.rtyper.lltypesystem import rffi
+from rpython.translator import cdir
 from rpython.rlib.clibffi import get_libc_name
 from rpython.rlib.libffi import types
 from rpython.rlib.libffi import CDLL
@@ -18,11 +19,8 @@ class BaseAppTestFFI(object):
         c_file = udir.ensure("test__ffi", dir=1).join("foolib.c")
         # automatically collect the C source from the docstrings of the tests
         snippets = ["""
-        #ifdef _WIN32
-        #define DLLEXPORT __declspec(dllexport)
-        #else
-        #define DLLEXPORT
-        #endif
+        #include "src/precommondefs.h"
+        #define DLLEXPORT RPY_EXPORTED
         """]
         for name in dir(cls):
             if name.startswith('test_'):
@@ -33,7 +31,7 @@ class BaseAppTestFFI(object):
                     snippets.append(meth.__doc__)
         #
         c_file.write(py.code.Source('\n'.join(snippets)))
-        eci = ExternalCompilationInfo(export_symbols=[])
+        eci = ExternalCompilationInfo(include_dirs=[cdir])
         return str(platform.compile([c_file], eci, 'x', standalone=False))
 
     def setup_class(cls):
@@ -578,7 +576,7 @@ class AppTestFFI(BaseAppTestFFI):
         pow = libm.getfunc('pow', [types.double, types.double], types.double)
         try:
             pow(2, 3)
-        except ValueError, e:
+        except ValueError as e:
             assert e.message.startswith('Procedure called with')
         else:
             assert 0, 'test must assert, wrong calling convention'
@@ -599,7 +597,7 @@ class AppTestFFI(BaseAppTestFFI):
         wrong_sleep = wrong_kernel.getfunc('Sleep', [types.uint], types.void)
         try:
             wrong_sleep(10)
-        except ValueError, e:
+        except ValueError as e:
             assert e.message.startswith('Procedure called with')
         else:
             assert 0, 'test must assert, wrong calling convention'
@@ -615,7 +613,7 @@ class AppTestFFI(BaseAppTestFFI):
                 [types.double, types.double], types.double, FUNCFLAG_STDCALL)
         try:
             wrong_pow(2, 3) == 8
-        except ValueError, e:
+        except ValueError as e:
             assert e.message.startswith('Procedure called with')
         else:
             assert 0, 'test must assert, wrong calling convention'
@@ -645,3 +643,21 @@ class AppTestFFI(BaseAppTestFFI):
         f_name = libfoo.getfunc('AAA_first_ordinal_function', [], types.sint)
         f_ordinal = libfoo.getfunc(1, [], types.sint)
         assert f_name.getaddr() == f_ordinal.getaddr()
+
+    def test_cdll_as_integer(self):
+        import _rawffi
+        from _rawffi.alt import CDLL
+        libfoo = CDLL(self.libfoo_name)
+        A = _rawffi.Array('i')
+        a = A(1, autofree=True)
+        a[0] = libfoo      # should cast libfoo to int/long automatically
+
+    def test_windll_as_integer(self):
+        if not self.iswin32:
+            skip("windows specific")
+        import _rawffi
+        from _rawffi.alt import WinDLL
+        libm = WinDLL(self.libm_name)
+        A = _rawffi.Array('i')
+        a = A(1, autofree=True)
+        a[0] = libm        # should cast libm to int/long automatically

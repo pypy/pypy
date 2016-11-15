@@ -19,7 +19,7 @@ def get_code(regexp, flags=0, allargs=False):
     from . import sre_compile
     try:
         sre_compile.compile(regexp, flags)
-    except GotIt, e:
+    except GotIt as e:
         pass
     else:
         raise ValueError("did not reach _sre.compile()!")

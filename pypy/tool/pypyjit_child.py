@@ -10,10 +10,6 @@ def run_child(glob, loc):
     graph = loc['graph']
     interp.malloc_check = False
 
-    def returns_null(T, *args, **kwds):
-        return lltype.nullptr(T)
-    interp.heap.malloc_nonmovable = returns_null     # XXX
-
     from rpython.jit.backend.llgraph.runner import LLGraphCPU
     #LLtypeCPU.supports_floats = False     # for now
     apply_jit(interp, graph, LLGraphCPU)

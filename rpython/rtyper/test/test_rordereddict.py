@@ -1,16 +1,18 @@
-
 import py
-try:
-    from collections import OrderedDict
-except ImportError:     # Python 2.6
-    py.test.skip("requires collections.OrderedDict")
+from collections import OrderedDict
+
+from hypothesis import settings
+from hypothesis.stateful import run_state_machine_as_test
+
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem import rordereddict, rstr
 from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.annlowlevel import llstr, hlstr
-from rpython.rtyper.test.test_rdict import BaseTestRDict
+from rpython.rtyper.test.test_rdict import (
+    BaseTestRDict, MappingSpace, MappingSM)
 from rpython.rlib import objectmodel
 
+rodct = rordereddict
 
 def get_indexes(ll_d):
     return ll_d.indexes._obj.container._as_ptr()
@@ -71,7 +73,7 @@ class TestRDictDirect(object):
             for j in range(i):
                 assert rordereddict.ll_dict_getitem(ll_d, llstr(str(j))) == j
             rordereddict.ll_dict_setitem(ll_d, llstr(str(i)), i)
-        assert ll_d.num_items == 20
+        assert ll_d.num_live_items == 20
         for i in range(20):
             assert rordereddict.ll_dict_getitem(ll_d, llstr(str(i))) == i
 
@@ -84,7 +86,7 @@ class TestRDictDirect(object):
             rordereddict.ll_dict_setitem(ll_d, llstr(str(i)), i)
             if i % 2 != 0:
                 rordereddict.ll_dict_delitem(ll_d, llstr(str(i)))
-        assert ll_d.num_items == 10
+        assert ll_d.num_live_items == 10
         for i in range(0, 20, 2):
             assert rordereddict.ll_dict_getitem(ll_d, llstr(str(i))) == i
 
@@ -115,11 +117,18 @@ class TestRDictDirect(object):
         rordereddict.ll_dict_setitem(ll_d, llstr("b"), 2)
         rordereddict.ll_dict_setitem(ll_d, llstr("c"), 3)
         rordereddict.ll_dict_setitem(ll_d, llstr("d"), 4)
-        assert len(get_indexes(ll_d)) == 8
         rordereddict.ll_dict_setitem(ll_d, llstr("e"), 5)
         rordereddict.ll_dict_setitem(ll_d, llstr("f"), 6)
-        assert len(get_indexes(ll_d)) == 32
-        for item in ['a', 'b', 'c', 'd', 'e', 'f']:
+        rordereddict.ll_dict_setitem(ll_d, llstr("g"), 7)
+        rordereddict.ll_dict_setitem(ll_d, llstr("h"), 8)
+        rordereddict.ll_dict_setitem(ll_d, llstr("i"), 9)
+        rordereddict.ll_dict_setitem(ll_d, llstr("j"), 10)
+        assert len(get_indexes(ll_d)) == 16
+        rordereddict.ll_dict_setitem(ll_d, llstr("k"), 11)
+        rordereddict.ll_dict_setitem(ll_d, llstr("l"), 12)
+        rordereddict.ll_dict_setitem(ll_d, llstr("m"), 13)
+        assert len(get_indexes(ll_d)) == 64
+        for item in 'abcdefghijklm':
             assert rordereddict.ll_dict_getitem(ll_d, llstr(item)) == ord(item) - ord('a') + 1
 
     def test_dict_grow_cleanup(self):
@@ -129,7 +138,7 @@ class TestRDictDirect(object):
         for i in range(40):
             rordereddict.ll_dict_setitem(ll_d, lls, i)
             rordereddict.ll_dict_delitem(ll_d, lls)
-        assert ll_d.num_used_items <= 10
+        assert ll_d.num_ever_used_items <= 10
 
     def test_dict_iteration(self):
         DICT = self._get_str_dict()
@@ -138,12 +147,12 @@ class TestRDictDirect(object):
         rordereddict.ll_dict_setitem(ll_d, llstr("j"), 2)
         ITER = rordereddict.get_ll_dictiter(lltype.Ptr(DICT))
         ll_iter = rordereddict.ll_dictiter(ITER, ll_d)
-        ll_iterkeys = rordereddict.ll_dictnext_group['keys']
-        next = ll_iterkeys(lltype.Signed, ll_iter)
-        assert hlstr(next) == "k"
-        next = ll_iterkeys(lltype.Signed, ll_iter)
-        assert hlstr(next) == "j"
-        py.test.raises(StopIteration, ll_iterkeys, lltype.Signed, ll_iter)
+        ll_dictnext = rordereddict._ll_dictnext
+        num = ll_dictnext(ll_iter)
+        assert hlstr(ll_d.entries[num].key) == "k"
+        num = ll_dictnext(ll_iter)
+        assert hlstr(ll_d.entries[num].key) == "j"
+        py.test.raises(StopIteration, ll_dictnext, ll_iter)
 
     def test_popitem(self):
         DICT = self._get_str_dict()
@@ -159,6 +168,38 @@ class TestRDictDirect(object):
         assert hlstr(ll_elem.item0) == "k"
         assert ll_elem.item1 == 1
         py.test.raises(KeyError, rordereddict.ll_dict_popitem, TUP, ll_d)
+
+    def test_popitem_first(self):
+        DICT = self._get_str_dict()
+        ll_d = rordereddict.ll_newdict(DICT)
+        rordereddict.ll_dict_setitem(ll_d, llstr("k"), 1)
+        rordereddict.ll_dict_setitem(ll_d, llstr("j"), 2)
+        rordereddict.ll_dict_setitem(ll_d, llstr("m"), 3)
+        ITER = rordereddict.get_ll_dictiter(lltype.Ptr(DICT))
+        for expected in ["k", "j", "m"]:
+            ll_iter = rordereddict.ll_dictiter(ITER, ll_d)
+            num = rordereddict._ll_dictnext(ll_iter)
+            ll_key = ll_d.entries[num].key
+            assert hlstr(ll_key) == expected
+            rordereddict.ll_dict_delitem(ll_d, ll_key)
+        ll_iter = rordereddict.ll_dictiter(ITER, ll_d)
+        py.test.raises(StopIteration, rordereddict._ll_dictnext, ll_iter)
+
+    def test_popitem_first_bug(self):
+        DICT = self._get_str_dict()
+        ll_d = rordereddict.ll_newdict(DICT)
+        rordereddict.ll_dict_setitem(ll_d, llstr("k"), 1)
+        rordereddict.ll_dict_setitem(ll_d, llstr("j"), 1)
+        rordereddict.ll_dict_delitem(ll_d, llstr("k"))
+        ITER = rordereddict.get_ll_dictiter(lltype.Ptr(DICT))
+        ll_iter = rordereddict.ll_dictiter(ITER, ll_d)
+        num = rordereddict._ll_dictnext(ll_iter)
+        ll_key = ll_d.entries[num].key
+        assert hlstr(ll_key) == "j"
+        assert ll_d.lookup_function_no == 4    # 1 free item found at the start
+        rordereddict.ll_dict_delitem(ll_d, llstr("j"))
+        assert ll_d.num_ever_used_items == 0
+        assert ll_d.lookup_function_no == 0    # reset
 
     def test_direct_enter_and_del(self):
         def eq(a, b):
@@ -190,7 +231,7 @@ class TestRDictDirect(object):
         rordereddict.ll_dict_setitem(ll_d, llstr("j"), 1)
         rordereddict.ll_dict_setitem(ll_d, llstr("l"), 1)
         rordereddict.ll_dict_clear(ll_d)
-        assert ll_d.num_items == 0
+        assert ll_d.num_live_items == 0
 
     def test_get(self):
         DICT = self._get_str_dict()
@@ -251,6 +292,16 @@ class TestRDictDirect(object):
         assert rordereddict.ll_dict_pop_default(ll_d, llstr("k"), 40) == 40
         assert rordereddict.ll_dict_pop_default(ll_d, llstr("j"), 39) == 39
 
+    def test_bug_remove_deleted_items(self):
+        DICT = self._get_str_dict()
+        ll_d = rordereddict.ll_newdict(DICT)
+        for i in range(15):
+            rordereddict.ll_dict_setitem(ll_d, llstr(chr(i)), 5)
+        for i in range(15):
+            rordereddict.ll_dict_delitem(ll_d, llstr(chr(i)))
+        rordereddict.ll_prepare_dict_update(ll_d, 7)
+        # used to get UninitializedMemoryAccess
+
 class TestRDictDirectDummyKey(TestRDictDirect):
     class dummykeyobj:
         ll_dummy_value = llstr("dupa")
@@ -268,6 +319,10 @@ class TestOrderedRDict(BaseTestRDict):
     def newdict2():
         return OrderedDict()
 
+    @staticmethod
+    def new_r_dict(myeq, myhash):
+        return objectmodel.r_ordereddict(myeq, myhash)
+
     def test_two_dicts_with_different_value_types(self):
         def func(i):
             d1 = OrderedDict()
@@ -278,69 +333,49 @@ class TestOrderedRDict(BaseTestRDict):
         res = self.interpret(func, [5])
         assert res == 6
 
-    def test_dict_with_SHORT_keys(self):
-        py.test.skip("I don't want to edit this file on two branches")
 
-    def test_memoryerror_should_not_insert(self):
-        py.test.skip("I don't want to edit this file on two branches")
+class ODictSpace(MappingSpace):
+    MappingRepr = rodct.OrderedDictRepr
+    new_reference = OrderedDict
+    ll_getitem = staticmethod(rodct.ll_dict_getitem)
+    ll_setitem = staticmethod(rodct.ll_dict_setitem)
+    ll_delitem = staticmethod(rodct.ll_dict_delitem)
+    ll_len = staticmethod(rodct.ll_dict_len)
+    ll_contains = staticmethod(rodct.ll_dict_contains)
+    ll_copy = staticmethod(rodct.ll_dict_copy)
+    ll_clear = staticmethod(rodct.ll_dict_clear)
+
+    def newdict(self, repr):
+        return rodct.ll_newdict(repr.DICT)
+
+    def get_keys(self):
+        DICT = lltype.typeOf(self.l_dict).TO
+        ITER = rordereddict.get_ll_dictiter(lltype.Ptr(DICT))
+        ll_iter = rordereddict.ll_dictiter(ITER, self.l_dict)
+        ll_dictnext = rordereddict._ll_dictnext
+        keys_ll = []
+        while True:
+            try:
+                num = ll_dictnext(ll_iter)
+                keys_ll.append(self.l_dict.entries[num].key)
+            except StopIteration:
+                break
+        return keys_ll
+
+    def fullcheck(self):
+        # overridden to also check key order
+        assert self.ll_len(self.l_dict) == len(self.reference)
+        keys_ll = self.get_keys()
+        assert len(keys_ll) == len(self.reference)
+        for key, ll_key in zip(self.reference, keys_ll):
+            assert self.ll_key(key) == ll_key
+            assert (self.ll_getitem(self.l_dict, self.ll_key(key)) ==
+                self.ll_value(self.reference[key]))
 
 
-    def test_r_dict(self):
-        class FooError(Exception):
-            pass
-        def myeq(n, m):
-            return n == m
-        def myhash(n):
-            if n < 0:
-                raise FooError
-            return -n
-        def f(n):
-            d = objectmodel.r_ordereddict(myeq, myhash)
-            for i in range(10):
-                d[i] = i*i
-            try:
-                value1 = d[n]
-            except FooError:
-                value1 = 99
-            try:
-                value2 = n in d
-            except FooError:
-                value2 = 99
-            try:
-                value3 = d[-n]
-            except FooError:
-                value3 = 99
-            try:
-                value4 = (-n) in d
-            except FooError:
-                value4 = 99
-            return (value1 * 1000000 +
-                    value2 * 10000 +
-                    value3 * 100 +
-                    value4)
-        res = self.interpret(f, [5])
-        assert res == 25019999
+class ODictSM(MappingSM):
+    Space = ODictSpace
 
-    def test_dict_popitem_hash(self):
-        def deq(n, m):
-            return n == m
-        def dhash(n):
-            return ~n
-        def func():
-            d = objectmodel.r_ordereddict(deq, dhash)
-            d[5] = 2
-            d[6] = 3
-            k1, v1 = d.popitem()
-            assert len(d) == 1
-            k2, v2 = d.popitem()
-            try:
-                d.popitem()
-            except KeyError:
-                pass
-            else:
-                assert 0, "should have raised KeyError"
-            assert len(d) == 0
-            return k1*1000 + v1*100 + k2*10 + v2
-
-        res = self.interpret(func, [])
-        assert res in [5263, 6352]
+def test_hypothesis():
+    run_state_machine_as_test(
+        ODictSM, settings(max_examples=500, stateful_step_count=100))

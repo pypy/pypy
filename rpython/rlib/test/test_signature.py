@@ -19,7 +19,7 @@ def annotate_at(f, policy=None):
 def sigof(a, f):
     # returns [param1, param2, ..., ret]
     g = graphof(a.translator, f)
-    return [a.bindings[v] for v in g.startblock.inputargs] + [a.bindings[g.getreturnvar()]]
+    return [a.binding(v) for v in g.startblock.inputargs] + [a.binding(g.getreturnvar())]
 
 def getsig(f, policy=None):
     a = annotate_at(f, policy=policy)

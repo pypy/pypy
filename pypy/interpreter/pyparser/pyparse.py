@@ -1,17 +1,15 @@
-from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.pyparser import future, parser, pytokenizer, pygram, error
 from pypy.interpreter.astcompiler import consts
 
+def recode_to_utf8(space, bytes, encoding):
+    w_text = space.call_method(space.wrap(bytes), "decode",
+                               space.wrap(encoding))
+    if not space.isinstance_w(w_text, space.w_unicode):
+        raise error.SyntaxError("codec did not return a unicode object")
+    w_recoded = space.call_method(w_text, "encode", space.wrap("utf-8"))
+    return space.str_w(w_recoded)
 
-_recode_to_utf8 = gateway.applevel(r'''
-    def _recode_to_utf8(text, encoding):
-        return unicode(text, encoding).encode("utf-8")
-''').interphook('_recode_to_utf8')
-
-def recode_to_utf8(space, text, encoding):
-    return space.str_w(_recode_to_utf8(space, space.wrap(text),
-                                          space.wrap(encoding)))
 def _normalize_encoding(encoding):
     """returns normalized name for <encoding>
 
@@ -36,14 +34,14 @@ def _normalize_encoding(encoding):
 def _check_for_encoding(s):
     eol = s.find('\n')
     if eol < 0:
-        return _check_line_for_encoding(s)
-    enc = _check_line_for_encoding(s[:eol])
-    if enc:
+        return _check_line_for_encoding(s)[0]
+    enc, again = _check_line_for_encoding(s[:eol])
+    if enc or not again:
         return enc
     eol2 = s.find('\n', eol + 1)
     if eol2 < 0:
-        return _check_line_for_encoding(s[eol + 1:])
-    return _check_line_for_encoding(s[eol + 1:eol2])
+        return _check_line_for_encoding(s[eol + 1:])[0]
+    return _check_line_for_encoding(s[eol + 1:eol2])[0]
 
 
 def _check_line_for_encoding(line):
@@ -53,8 +51,8 @@ def _check_line_for_encoding(line):
         if line[i] == '#':
             break
         if line[i] not in ' \t\014':
-            return None
-    return pytokenizer.match_encoding_declaration(line[i:])
+            return None, False  # Not a comment, don't read the second line.
+    return pytokenizer.match_encoding_declaration(line[i:]), True
 
 
 class CompileInfo(object):
@@ -120,7 +118,7 @@ class PythonParser(parser.Parser):
             if enc is not None and enc not in ('utf-8', 'iso-8859-1'):
                 try:
                     textsrc = recode_to_utf8(self.space, textsrc, enc)
-                except OperationError, e:
+                except OperationError as e:
                     # if the codec is not found, LookupError is raised.  we
                     # check using 'is_w' not to mask potential IndexError or
                     # KeyError
@@ -166,10 +164,10 @@ class PythonParser(parser.Parser):
                 for tp, value, lineno, column, line in tokens:
                     if self.add_token(tp, value, lineno, column, line):
                         break
-            except error.TokenError, e:
+            except error.TokenError as e:
                 e.filename = compile_info.filename
                 raise
-            except parser.ParseError, e:
+            except parser.ParseError as e:
                 # Catch parse errors, pretty them up and reraise them as a
                 # SyntaxError.
                 new_err = error.IndentationError

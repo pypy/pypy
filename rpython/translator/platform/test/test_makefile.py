@@ -44,6 +44,7 @@ class TestMakefile(object):
         assert res.returncode == 0        
     
     def test_900_files(self):
+        tmpdir = udir.join('test_900_files').ensure(dir=1)
         txt = '#include <stdio.h>\n'
         for i in range(900):
             txt += 'int func%03d();\n' % i
@@ -52,11 +53,11 @@ class TestMakefile(object):
             txt += '    j += func%03d();\n' % i
         txt += '    printf("%d\\n", j);\n'
         txt += '    return 0;};\n'
-        cfile = udir.join('test_900_files.c')
+        cfile = tmpdir.join('test_900_files.c')
         cfile.write(txt)
         cfiles = [cfile]
         for i in range(900):
-            cfile2 = udir.join('implement%03d.c' %i)
+            cfile2 = tmpdir.join('implement%03d.c' %i)
             cfile2.write('''
                 int func%03d()
             {
@@ -64,10 +65,10 @@ class TestMakefile(object):
             }
             ''' % (i, i))
             cfiles.append(cfile2)
-        mk = self.platform.gen_makefile(cfiles, ExternalCompilationInfo(), path=udir)
+        mk = self.platform.gen_makefile(cfiles, ExternalCompilationInfo(), path=tmpdir)
         mk.write()
         self.platform.execute_makefile(mk)
-        res = self.platform.execute(udir.join('test_900_files'))
+        res = self.platform.execute(tmpdir.join('test_900_files'))
         self.check_res(res, '%d\n' %sum(range(900)))
 
     def test_precompiled_headers(self):

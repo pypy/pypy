@@ -2,7 +2,6 @@
 import py
 import sys
 from pypy.objspace.std import intobject as iobj
-from pypy.objspace.std.multimethod import FailedToImplement
 from rpython.rlib.rarithmetic import r_uint, is_valid_int
 from rpython.rlib.rbigint import rbigint
 
@@ -296,7 +295,11 @@ class TestW_IntObject:
         assert self.space.unwrap(result) == hex(x)
 
 
-class AppTestInt:
+class AppTestInt(object):
+    def test_hash(self):
+        assert hash(-1) == (-1).__hash__() == -2
+        assert hash(-2) == (-2).__hash__() == -2
+
     def test_conjugate(self):
         assert (1).conjugate() == 1
         assert (-1).conjugate() == -1
@@ -455,11 +458,11 @@ class AppTestInt:
                 return None
         inst = a()
         raises(TypeError, int, inst)
-        assert inst.ar == True 
+        assert inst.ar == True
 
         class b(object):
-            pass 
-        raises((AttributeError,TypeError), int, b()) 
+            pass
+        raises((AttributeError,TypeError), int, b())
 
     def test_special_long(self):
         class a(object):
@@ -498,6 +501,17 @@ class AppTestInt:
                 return Integral()
         assert int(TruncReturnsNonInt()) == 42
 
+    def test_trunc_returns_int_subclass(self):
+        class Classic:
+            pass
+        for base in object, Classic:
+            class TruncReturnsNonInt(base):
+                def __trunc__(self):
+                    return True
+            n = int(TruncReturnsNonInt())
+            assert n == 1
+            assert type(n) is bool
+
     def test_int_before_string(self):
         class Integral(str):
             def __int__(self):
@@ -522,10 +536,19 @@ class AppTestInt:
             (10, 4),
             (150, 8),
             (-1, 1),
+            (-2, 2),
+            (-3, 2),
+            (-4, 3),
             (-10, 4),
             (-150, 8),
         ]:
             assert val.bit_length() == bits
+
+    def test_bit_length_max(self):
+        import sys
+        val = -sys.maxint-1
+        bits = 32 if val == -2147483648 else 64
+        assert val.bit_length() == bits
 
     def test_int_real(self):
         class A(int): pass
@@ -583,6 +606,12 @@ class AppTestInt:
              "a = x / 7; b = operator.truediv(x, 7)", ns)
         assert ns['a'] == 9007199254740991.0
         assert ns['b'] == 9007199254740991.0
+
+    def test_int_of_bool(self):
+        x = int(False)
+        assert x == 0
+        assert type(x) is int
+        assert str(x) == "0"
 
 
 class AppTestIntShortcut(AppTestInt):

@@ -32,7 +32,7 @@ alias = {
     'Niklaus Haldimann': ['nik'],
     'Alexander Schremmer': ['xoraxax'],
     'Anders Hammarquist': ['iko'],
-    'David Edelsohn': ['edelsoh', 'edelsohn'],
+    'David Edelsohn': ['edelsoh', 'edelsohn','opassembler.py'],
     'Niko Matsakis': ['niko'],
     'Jakub Gustak': ['jlg'],
     'Guido Wesdorp': ['guido'],
@@ -67,6 +67,17 @@ alias = {
     'Edd Barrett': ['edd'],
     'Manuel Jacob': ['mjacob'],
     'Rami Chowdhury': ['necaris'],
+    'Stanislaw Halik':['w31rd0'],
+    'Wenzhu Man':['wenzhu man', 'wenzhuman'],
+    'Anton Gulenko':['anton gulenko', 'anton_gulenko'],
+    'Richard Lancaster':['richardlancaster'],
+    'William Leslie':['William ML Leslie'],
+    'Spenser Bauman':['Spenser Andrew Bauman'],
+    'Raffael Tfirst':['raffael.tfirst@gmail.com'],
+    'timo':['timo@eistee.fritz.box'],
+    'Jasper Schulz':['Jasper.Schulz'],
+    'Aaron Gallagher':['"Aaron Gallagher'],
+    'Yasir Suhail':['yasirs'],
     }
 
 alias_map = {}

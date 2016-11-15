@@ -106,25 +106,21 @@ class CGIHTTPRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     def run_cgi(self):
         """Execute a CGI script."""
         dir, rest = self.cgi_info
-
-        i = rest.find('/')
+        path = dir + '/' + rest
+        i = path.find('/', len(dir)+1)
         while i >= 0:
-            nextdir = rest[:i]
-            nextrest = rest[i+1:]
+            nextdir = path[:i]
+            nextrest = path[i+1:]
 
             scriptdir = self.translate_path(nextdir)
             if os.path.isdir(scriptdir):
                 dir, rest = nextdir, nextrest
-                i = rest.find('/')
+                i = path.find('/', len(dir)+1)
             else:
                 break
 
         # find an explicit query string, if present.
-        i = rest.rfind('?')
-        if i >= 0:
-            rest, query = rest[:i], rest[i+1:]
-        else:
-            query = ''
+        rest, _, query = rest.partition('?')
 
         # dissect the part after the directory name into a script name &
         # a possible additional path, to be stored in PATH_INFO.
@@ -308,13 +304,15 @@ def _url_collapse_path(path):
     The utility of this function is limited to is_cgi method and helps
     preventing some security attacks.
 
-    Returns: A tuple of (head, tail) where tail is everything after the final /
-    and head is everything before it.  Head will always start with a '/' and,
-    if it contains anything else, never have a trailing '/'.
+    Returns: The reconstituted URL, which will always start with a '/'.
 
     Raises: IndexError if too many '..' occur within the path.
 
     """
+    # Query component should not be involved.
+    path, _, query = path.partition('?')
+    path = urllib.unquote(path)
+
     # Similar to os.path.split(os.path.normpath(path)) but specific to URL
     # path semantics rather than local operating system semantics.
     path_parts = path.split('/')
@@ -334,6 +332,9 @@ def _url_collapse_path(path):
                 tail_part = ''
     else:
         tail_part = ''
+
+    if query:
+        tail_part = '?'.join((tail_part, query))
 
     splitpath = ('/' + '/'.join(head_parts), tail_part)
     collapsed_path = "/".join(splitpath)

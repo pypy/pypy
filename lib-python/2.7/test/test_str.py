@@ -1,8 +1,11 @@
-
+import unittest
 import struct
 import sys
 from test import test_support, string_tests
 
+
+class StrSubclass(str):
+    pass
 
 class StrTest(
     string_tests.CommonTest,
@@ -107,15 +110,18 @@ class StrTest(
         self.assertEqual(str(Foo6("bar")), "foos")
         self.assertEqual(str(Foo7("bar")), "foos")
         self.assertEqual(str(Foo8("foo")), "foofoo")
+        self.assertIs(type(str(Foo8("foo"))), Foo8)
+        self.assertEqual(StrSubclass(Foo8("foo")), "foofoo")
+        self.assertIs(type(StrSubclass(Foo8("foo"))), StrSubclass)
         self.assertEqual(str(Foo9("foo")), "string")
         self.assertEqual(unicode(Foo9("foo")), u"not unicode")
 
+    # This test only affects 32-bit platforms because expandtabs can only take
+    # an int as the max value, not a 64-bit C long.  If expandtabs is changed
+    # to take a 64-bit long, this test should apply to all platforms.
+    @unittest.skipIf(sys.maxint > (1 << 32) or struct.calcsize('P') != 4,
+                     'only applies to 32-bit platforms')
     def test_expandtabs_overflows_gracefully(self):
-        # This test only affects 32-bit platforms because expandtabs can only take
-        # an int as the max value, not a 64-bit C long.  If expandtabs is changed
-        # to take a 64-bit long, this test should apply to all platforms.
-        if sys.maxint > (1 << 32) or struct.calcsize('P') != 4:
-            return
         self.assertRaises(OverflowError, 't\tt\t'.expandtabs, sys.maxint)
 
     def test__format__(self):
@@ -427,6 +433,11 @@ class StrTest(
         self.assertEqual('{}{f}'.format(4, f='test'), '4test')
         self.assertEqual('{:{f}}{g}{}'.format(1, 3, g='g', f=2), ' 1g3')
         self.assertEqual('{f:{}}{}{g}'.format(2, 4, f=1, g='g'), ' 14g')
+
+    def test_format_c_overflow(self):
+        # issue #7267
+        self.assertRaises(OverflowError, '{0:c}'.format, -1)
+        self.assertRaises(OverflowError, '{0:c}'.format, 256)
 
     def test_buffer_is_readonly(self):
         self.assertRaises(TypeError, sys.stdin.readinto, b"")

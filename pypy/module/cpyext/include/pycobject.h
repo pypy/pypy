@@ -48,8 +48,8 @@ typedef struct {
 } PyCObject;
 #endif
 
-PyTypeObject *_Py_get_cobject_type(void);
- 
+PyAPI_FUNC(PyTypeObject *) _Py_get_cobject_type(void);
+
 #ifdef __cplusplus
 }
 #endif

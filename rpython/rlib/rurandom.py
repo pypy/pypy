@@ -5,11 +5,14 @@ from __future__ import with_statement
 import os, sys
 import errno
 
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib.objectmodel import not_rpython
+
+
 if sys.platform == 'win32':
     from rpython.rlib import rwin32
     from rpython.translator.tool.cbuild import ExternalCompilationInfo
     from rpython.rtyper.tool import rffi_platform
-    from rpython.rtyper.lltypesystem import lltype, rffi
 
     eci = ExternalCompilationInfo(
         includes = ['windows.h', 'wincrypt.h'],
@@ -33,17 +36,20 @@ if sys.platform == 'win32':
          rwin32.LPCSTR, rwin32.LPCSTR, rwin32.DWORD, rwin32.DWORD],
         rwin32.BOOL,
         calling_conv='win',
-        compilation_info=eci)
+        compilation_info=eci,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
 
     CryptGenRandom = rffi.llexternal(
         'CryptGenRandom',
         [HCRYPTPROV, rwin32.DWORD, rffi.CArrayPtr(rwin32.BYTE)],
         rwin32.BOOL,
         calling_conv='win',
-        compilation_info=eci)
+        compilation_info=eci,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
 
+    @not_rpython
     def init_urandom():
-        """NOT_RPYTHON
+        """
         Return an array of one HCRYPTPROV, initialized to NULL.
         It is filled automatically the first time urandom() is called.
         """
@@ -58,14 +64,14 @@ if sys.platform == 'win32':
             if not CryptAcquireContext(
                 context, None, None,
                 PROV_RSA_FULL, CRYPT_VERIFYCONTEXT):
-                raise rwin32.lastWindowsError("CryptAcquireContext")
+                raise rwin32.lastSavedWindowsError("CryptAcquireContext")
             provider = context[0]
         # TODO(win64) This is limited to 2**31
         with lltype.scoped_alloc(rffi.CArray(rwin32.BYTE), n,
                                  zero=True, # zero seed
                                  ) as buf:
             if not CryptGenRandom(provider, n, buf):
-                raise rwin32.lastWindowsError("CryptGenRandom")
+                raise rwin32.lastSavedWindowsError("CryptGenRandom")
 
             return rffi.charpsize2str(rffi.cast(rffi.CCHARP, buf), n)
 
@@ -80,20 +86,25 @@ elif 0:  # __VMS
                 raise ValueError("RAND_pseudo_bytes")
             return buf.str(n)
 else:  # Posix implementation
+    @not_rpython
     def init_urandom():
-        pass
+        return None
 
     def urandom(context, n):
         "Read n bytes from /dev/urandom."
         result = ''
         if n == 0:
             return result
+        # XXX should somehow cache the file descriptor.  It's a mess.
+        # CPython has a 99% solution and hopes for the remaining 1%
+        # not to occur.  For now, we just don't cache the file
+        # descriptor (any more... 6810f401d08e).
         fd = os.open("/dev/urandom", os.O_RDONLY, 0777)
         try:
             while n > 0:
                 try:
                     data = os.read(fd, n)
-                except OSError, e:
+                except OSError as e:
                     if e.errno != errno.EINTR:
                         raise
                     data = ''
@@ -102,4 +113,3 @@ else:  # Posix implementation
         finally:
             os.close(fd)
         return result
-

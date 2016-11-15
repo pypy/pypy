@@ -25,6 +25,12 @@ class AppTestTextIO:
         t = _io.TextIOWrapper(b)
         assert t.readable()
         assert t.seekable()
+        #
+        class CustomFile(object):
+            def isatty(self): return 'YES'
+            readable = writable = seekable = lambda self: False
+        t = _io.TextIOWrapper(CustomFile())
+        assert t.isatty() == 'YES'
 
     def test_default_implementations(self):
         import _io
@@ -51,6 +57,13 @@ class AppTestTextIO:
         raises(ValueError, f.close)
         raises(ValueError, f.detach)
         raises(ValueError, f.flush)
+
+        # Operations independent of the detached stream should still work
+        repr(f)
+        assert isinstance(f.encoding, str)
+        assert f.errors == "strict"
+        assert not f.line_buffering
+
         assert not b.closed
         b.close()
 
@@ -245,6 +258,16 @@ class AppTestTextIO:
         raises(TypeError, t.readline)
         t = _io.TextIOWrapper(NonbytesStream(u'a'))
         t.read() == u'a'
+
+    def test_uninitialized(self):
+        import _io
+        t = _io.TextIOWrapper.__new__(_io.TextIOWrapper)
+        del t
+        t = _io.TextIOWrapper.__new__(_io.TextIOWrapper)
+        raises(Exception, repr, t)
+        raises(ValueError, t.read, 0)
+        t.__init__(_io.BytesIO())
+        assert t.read(0) == u''
 
 
 class AppTestIncrementalNewlineDecoder:

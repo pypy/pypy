@@ -2,12 +2,19 @@
 Weakref support in RPython.  Basic regular weakrefs without callbacks
 are supported.  This file contains the following additions:
 a form of WeakKeyDictionary, and a limited version of WeakValueDictionary.
-LLType only for now!
 """
 
 import weakref
+from rpython.annotator.model import UnionError
 
-ref = weakref.ref    # basic regular weakrefs are supported in RPython
+
+# Basic regular weakrefs are supported in RPython.
+# Note that if 'translation.rweakref' is False, they will
+# still work, but be implemented as a strong reference.
+# This case is useful for developing new GCs, for example.
+
+ref = weakref.ref
+
 
 def has_weakref_support():
     return True      # returns False if --no-translation-rweakref
@@ -25,6 +32,9 @@ class RWeakValueDictionary(object):
     """A dictionary containing weak values."""
 
     def __init__(self, keyclass, valueclass):
+        """'keyclass' can be an RPython class or a type like 'int' or 'str'.
+        On the other hand, 'valueclass' must be an RPython class.
+        """
         self._dict = weakref.WeakValueDictionary()
         self._keyclass = keyclass
         self._valueclass = valueclass
@@ -99,13 +109,19 @@ class SomeWeakValueDict(annmodel.SomeObject):
         self.s_key = s_key
         self.valueclassdef = valueclassdef
 
+    def can_be_none(self):
+        return True
+
+    def noneify(self):
+        return self
+
     def rtyper_makerepr(self, rtyper):
         from rpython.rlib import _rweakvaldict
         return _rweakvaldict.WeakValueDictRepr(rtyper,
                                                rtyper.getrepr(self.s_key))
 
-    def rtyper_makekey_ex(self, rtyper):
-        return self.__class__,
+    def rtyper_makekey(self):
+        return self.__class__, self.s_key.rtyper_makekey(), self.valueclassdef
 
     def method_get(self, s_key):
         return annmodel.SomeInstance(self.valueclassdef, can_be_None=True)
@@ -117,7 +133,7 @@ class SomeWeakValueDict(annmodel.SomeObject):
 class __extend__(pairtype(SomeWeakValueDict, SomeWeakValueDict)):
     def union((s_wvd1, s_wvd2)):
         if s_wvd1.valueclassdef is not s_wvd2.valueclassdef:
-            return annmodel.SomeObject() # not the same class! complain...
+            raise UnionError(s_wvd1, s_wvd2, "not the same class!")
         s_key = annmodel.unionof(s_wvd1.s_key, s_wvd2.s_key)
         return SomeWeakValueDict(s_key, s_wvd1.valueclassdef)
 
@@ -126,7 +142,7 @@ class Entry(extregistry.ExtRegistryEntry):
 
     def compute_result_annotation(self, s_keyclass, s_valueclass):
         assert s_keyclass.is_constant()
-        s_key = self.bookkeeper.immutablevalue(s_keyclass.const())
+        s_key = self.bookkeeper.valueoftype(s_keyclass.const)
         return SomeWeakValueDict(
             s_key,
             _getclassdef(s_valueclass))
@@ -142,7 +158,7 @@ class Entry(extregistry.ExtRegistryEntry):
         bk = self.bookkeeper
         x = self.instance
         return SomeWeakValueDict(
-            bk.immutablevalue(x._keyclass()),
+            bk.valueoftype(x._keyclass),
             bk.getuniqueclassdef(x._valueclass))
 
 def _getclassdef(s_instance):
@@ -164,8 +180,8 @@ class SomeWeakKeyDict(annmodel.SomeObject):
         from rpython.rlib import _rweakkeydict
         return _rweakkeydict.WeakKeyDictRepr(rtyper)
 
-    def rtyper_makekey_ex(self, rtyper):
-        return self.__class__,
+    def rtyper_makekey(self):
+        return self.__class__, self.keyclassdef, self.valueclassdef
 
     def method_get(self, s_key):
         assert isinstance(s_key, annmodel.SomeInstance)
@@ -182,9 +198,9 @@ class SomeWeakKeyDict(annmodel.SomeObject):
 class __extend__(pairtype(SomeWeakKeyDict, SomeWeakKeyDict)):
     def union((s_wkd1, s_wkd2)):
         if s_wkd1.keyclassdef is not s_wkd2.keyclassdef:
-            return SomeObject() # not the same key class! complain...
+            raise UnionError(s_wkd1, s_wkd2, "not the same key class!")
         if s_wkd1.valueclassdef is not s_wkd2.valueclassdef:
-            return SomeObject() # not the same value class! complain...
+            raise UnionError(s_wkd1, s_wkd2, "not the same value class!")
         return SomeWeakKeyDict(s_wkd1.keyclassdef, s_wkd1.valueclassdef)
 
 class Entry(extregistry.ExtRegistryEntry):

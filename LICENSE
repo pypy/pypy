@@ -3,8 +3,8 @@ License
 
 Except when otherwise stated (look for LICENSE files in directories or
 information at the beginning of each file) all software and documentation in
-the 'rpython', 'pypy', 'ctype_configure', 'dotviewer', 'demo', and 'lib_pypy'
-directories is licensed as follows: 
+the 'rpython', 'pypy', 'ctype_configure', 'dotviewer', 'demo', 'lib_pypy',
+'py', and '_pytest' directories is licensed as follows: 
 
     The MIT License
 
@@ -28,261 +28,361 @@ directories is licensed as follows:
     DEALINGS IN THE SOFTWARE.
 
 
-PyPy Copyright holders 2003-2014
+PyPy Copyright holders 2003-2016
 ----------------------------------- 
 
 Except when otherwise stated (look for LICENSE files or information at
 the beginning of each file) the files in the 'pypy' directory are each
 copyrighted by one or more of the following people and organizations:    
 
-    Armin Rigo
-    Maciej Fijalkowski
-    Carl Friedrich Bolz
-    Antonio Cuni
-    Amaury Forgeot d'Arc
-    Samuele Pedroni
-    Alex Gaynor
-    Michael Hudson
-    David Schneider
-    Holger Krekel
-    Christian Tismer
-    Hakan Ardo
-    Benjamin Peterson
-    Matti Picus
-    Philip Jenvey
-    Anders Chrigstrom
-    Brian Kearns
-    Eric van Riet Paap
-    Richard Emslie
-    Alexander Schremmer
-    Wim Lavrijsen
-    Dan Villiom Podlaski Christiansen
-    Manuel Jacob
-    Lukas Diekmann
-    Sven Hager
-    Anders Lehmann
-    Aurelien Campeas
-    Niklaus Haldimann
-    Ronan Lamy
-    Camillo Bruni
-    Laura Creighton
-    Toon Verwaest
-    Leonardo Santagada
-    Seo Sanghyeon
-    Justin Peel
-    Ronny Pfannschmidt
-    David Edelsohn
-    Anders Hammarquist
-    Jakub Gustak
-    Guido Wesdorp
-    Lawrence Oluyede
-    Bartosz Skowron
-    Daniel Roberts
-    Niko Matsakis
-    Adrien Di Mascio
-    Ludovic Aubry
-    Alexander Hesse
-    Jacob Hallen
-    Romain Guillebert
-    Jason Creighton
-    Alex Martelli
-    Michal Bendowski
-    Jan de Mooij
-    Michael Foord
-    Stephan Diehl
-    Stefan Schwarzer
-    Valentino Volonghi
-    Tomek Meka
-    Patrick Maupin
-    stian
-    Bob Ippolito
-    Bruno Gola
-    Jean-Paul Calderone
-    Timo Paulssen
-    Alexandre Fayolle
-    Simon Burton
-    Marius Gedminas
-    John Witulski
-    Greg Price
-    Dario Bertini
-    Mark Pearse
-    Simon Cross
-    Konstantin Lopuhin
-    Andreas Stührk
-    Jean-Philippe St. Pierre
-    Guido van Rossum
-    Pavel Vinogradov
-    Paul deGrandis
-    Ilya Osadchiy
-    Adrian Kuhn
-    Boris Feigin
-    tav
-    Georg Brandl
-    Bert Freudenberg
-    Stian Andreassen
-    Stefano Rivera
-    Wanja Saatkamp
-    Gerald Klix
-    Mike Blume
-    Taavi Burns
-    Oscar Nierstrasz
-    David Malcolm
-    Eugene Oden
-    Henry Mason
-    Preston Timmons
-    Jeff Terrace
-    David Ripton
-    Dusty Phillips
-    Lukas Renggli
-    Guenter Jantzen
-    Tobias Oberstein
-    Remi Meier
-    Ned Batchelder
-    Amit Regmi
-    Ben Young
-    Nicolas Chauvat
-    Andrew Durdin
-    Michael Schneider
-    Nicholas Riley
-    Jason Chu
-    Igor Trindade Oliveira
-    Jeremy Thurgood
-    Rocco Moretti
-    Gintautas Miliauskas
-    Michael Twomey
-    Lucian Branescu Mihaila
-    Tim Felgentreff
-    Tyler Wade
-    Gabriel Lavoie
-    Olivier Dormond
-    Jared Grubb
-    Karl Bartel
-    Brian Dorsey
-    Victor Stinner
-    Stuart Williams
-    Jasper Schulz
-    Toby Watson
-    Antoine Pitrou
-    Aaron Iles
-    Michael Cheng
-    Justas Sadzevicius
-    Gasper Zejn
-    Neil Shepperd
-    Mikael Schönenberg
-    Elmo Mäntynen
-    Tobias Pape
-    Jonathan David Riehl
-    Stanislaw Halik
-    Anders Qvist
-    Chirag Jadwani
-    Beatrice During
-    Alex Perry
-    Vincent Legoll
-    Alan McIntyre
-    Alexander Sedov
-    Corbin Simpson
-    Christopher Pope
-    Laurence Tratt
-    Guillebert Romain
-    Christian Tismer 
-    Dan Stromberg
-    Stefano Parmesan
-    Christian Hudon
-    Alexis Daboville
-    Jens-Uwe Mager
-    Carl Meyer
-    Karl Ramm
-    Pieter Zieschang
-    Gabriel
-    Paweł Piotr Przeradowski
-    Andrew Dalke
-    Sylvain Thenault
-    Nathan Taylor
-    Vladimir Kryachko
-    Jacek Generowicz
-    Alejandro J. Cura
-    Jacob Oscarson
-    Travis Francis Athougies
-    Kristjan Valur Jonsson
-    Neil Blakey-Milner
-    Lutz Paelike
-    Lucio Torre
-    Lars Wassermann
-    Henrik Vendelbo
-    Dan Buch
-    Miguel de Val Borro
-    Artur Lisiecki
-    Sergey Kishchenko
-    Ignas Mikalajunas
-    Christoph Gerum
-    Martin Blais
-    Lene Wagner
-    Tomo Cocoa
-    Andrews Medina
-    roberto@goyle
-    William Leslie
-    Bobby Impollonia
-    timo@eistee.fritz.box
-    Andrew Thompson
-    Yusei Tahara
-    Roberto De Ioris
-    Juan Francisco Cantero Hurtado
-    Godefroid Chappelle
-    Joshua Gilbert
-    Dan Colish
-    Christopher Armstrong
-    Michael Hudson-Doyle
-    Anders Sigfridsson
-    Yasir Suhail
-    Floris Bruynooghe
-    Akira Li
-    Gustavo Niemeyer
-    Stephan Busemann
-    Anna Katrina Dominguez
-    Christian Muirhead
-    James Lan
-    shoma hosaka
-    Daniel Neuhäuser
-    Buck Golemon
-    Konrad Delong
-    Dinu Gherman
-    Chris Lambacher
-    coolbutuseless@gmail.com
-    Jim Baker
-    Rodrigo Araújo
-    Armin Ronacher
-    Brett Cannon
-    yrttyr
-    Zooko Wilcox-O Hearn
-    Tomer Chachamu
-    Christopher Groskopf
-    opassembler.py
-    Antony Lee
-    Jim Hunziker
-    Markus Unterwaditzer
-    Even Wiik Thomassen
-    jbs
-    soareschen
-    Flavio Percoco
-    Kristoffer Kleine
-    yasirs
-    Michael Chermside
-    Anna Ravencroft
-    Andrew Chambers
-    Julien Phalip
-    Dan Loewenherz
+  Armin Rigo
+  Maciej Fijalkowski
+  Carl Friedrich Bolz
+  Amaury Forgeot d'Arc
+  Antonio Cuni
+  Samuele Pedroni
+  Matti Picus
+  Alex Gaynor
+  Philip Jenvey
+  Ronan Lamy
+  Brian Kearns
+  Richard Plangger
+  Michael Hudson
+  Manuel Jacob
+  David Schneider
+  Holger Krekel
+  Christian Tismer
+  Hakan Ardo
+  Benjamin Peterson
+  Anders Chrigstrom
+  Eric van Riet Paap
+  Wim Lavrijsen
+  Richard Emslie
+  Alexander Schremmer
+  Dan Villiom Podlaski Christiansen
+  Remi Meier
+  Lukas Diekmann
+  Sven Hager
+  Anders Lehmann
+  Aurelien Campeas
+  Niklaus Haldimann
+  Camillo Bruni
+  Laura Creighton
+  Romain Guillebert
+  Toon Verwaest
+  Leonardo Santagada
+  Seo Sanghyeon
+  Ronny Pfannschmidt
+  Justin Peel
+  Raffael Tfirst
+  David Edelsohn
+  Anders Hammarquist
+  Jakub Gustak
+  Gregor Wegberg
+  Guido Wesdorp
+  Lawrence Oluyede
+  Bartosz Skowron
+  Daniel Roberts
+  Niko Matsakis
+  Adrien Di Mascio
+  Alexander Hesse
+  Ludovic Aubry
+  Jacob Hallen
+  Jason Creighton
+  Mark Young
+  Alex Martelli
+  Spenser Bauman
+  Michal Bendowski
+  stian
+  Jan de Mooij
+  Tyler Wade
+  Vincent Legoll
+  Michael Foord
+  Stephan Diehl
+  Stefan Schwarzer
+  Valentino Volonghi
+  Tomek Meka
+  Stefano Rivera
+  Patrick Maupin
+  Devin Jeanpierre
+  Bob Ippolito
+  Bruno Gola
+  David Malcolm
+  Jean-Paul Calderone
+  Timo Paulssen
+  Edd Barrett
+  Squeaky
+  Marius Gedminas
+  Alexandre Fayolle
+  Simon Burton
+  Martin Matusiak
+  Nicolas Truessel
+  Konstantin Lopuhin
+  Wenzhu Man
+  John Witulski
+  Laurence Tratt
+  Ivan Sichmann Freitas
+  Greg Price
+  Dario Bertini
+  Mark Pearse
+  Simon Cross
+  Jeremy Thurgood
+  Andreas Stührk
+  Tobias Pape
+  Jean-Philippe St. Pierre
+  Guido van Rossum
+  Pavel Vinogradov
+  Paweł Piotr Przeradowski
+  Paul deGrandis
+  Ilya Osadchiy
+  marky1991
+  Tobias Oberstein
+  Adrian Kuhn
+  Boris Feigin
+  tav
+  Taavi Burns
+  Georg Brandl
+  Bert Freudenberg
+  Stian Andreassen
+  Wanja Saatkamp
+  Gerald Klix
+  Mike Blume
+  Oscar Nierstrasz
+  Stefan H. Muller
+  Rami Chowdhury
+  Eugene Oden
+  Henry Mason
+  Vasily Kuznetsov
+  Preston Timmons
+  David Ripton
+  Jeff Terrace
+  Tim Felgentreff
+  Dusty Phillips
+  Lukas Renggli
+  Guenter Jantzen
+  William Leslie
+  Ned Batchelder
+  Anton Gulenko
+  Amit Regmi
+  Ben Young
+  Jasper Schulz
+  Nicolas Chauvat
+  Andrew Durdin
+  Andrew Chambers
+  Sergey Matyunin
+  Michael Schneider
+  Nicholas Riley
+  Jason Chu
+  Igor Trindade Oliveira
+  Yichao Yu
+  Rocco Moretti
+  Gintautas Miliauskas
+  Michael Twomey
+  Lucian Branescu Mihaila
+  anatoly techtonik
+  Gabriel Lavoie
+  Olivier Dormond
+  Jared Grubb
+  Karl Bartel
+  Wouter van Heyst
+  Brian Dorsey
+  Victor Stinner
+  Andrews Medina
+  Sebastian Pawluś
+  Stuart Williams
+  Daniel Patrick
+  Aaron Iles
+  Toby Watson
+  Antoine Pitrou
+  Christian Hudon
+  Michael Cheng
+  Justas Sadzevicius
+  Gasper Zejn
+  Neil Shepperd
+  Stanislaw Halik
+  Mikael Schönenberg
+  Berkin Ilbeyi
+  Faye Zhao
+  Elmo Mäntynen
+  Jonathan David Riehl
+  Anders Qvist
+  Corbin Simpson
+  Chirag Jadwani
+  Beatrice During
+  Alex Perry
+  Vaibhav Sood
+  Alan McIntyre
+  Reuben Cummings
+  Alexander Sedov
+  p_zieschang@yahoo.de
+  Attila Gobi
+  Christopher Pope
+  Aaron Gallagher
+  Florin Papa
+  Christian Tismer 
+  Marc Abramowitz
+  Dan Stromberg
+  Arjun Naik
+  Valentina Mukhamedzhanova
+  Stefano Parmesan
+  touilleMan
+  Alexis Daboville
+  Jens-Uwe Mager
+  Carl Meyer
+  Karl Ramm
+  Pieter Zieschang
+  Gabriel
+  Lukas Vacek
+  Kunal Grover
+  Andrew Dalke
+  Sylvain Thenault
+  Jakub Stasiak
+  Nathan Taylor
+  Vladimir Kryachko
+  Omer Katz
+  Mark Williams
+  Jacek Generowicz
+  Alejandro J. Cura
+  Jacob Oscarson
+  Travis Francis Athougies
+  Ryan Gonzalez
+  Ian Foote
+  Kristjan Valur Jonsson
+  David Lievens
+  Neil Blakey-Milner
+  Lutz Paelike
+  Lucio Torre
+  Lars Wassermann
+  Philipp Rustemeuer
+  Henrik Vendelbo
+  Richard Lancaster
+  Yasir Suhail
+  Dan Buch
+  Miguel de Val Borro
+  Artur Lisiecki
+  Sergey Kishchenko
+  Ignas Mikalajunas
+  Alecsandru Patrascu
+  Christoph Gerum
+  Martin Blais
+  Lene Wagner
+  Catalin Gabriel Manciu
+  Tomo Cocoa
+  Kim Jin Su
+  rafalgalczynski@gmail.com
+  Toni Mattis
+  Amber Brown
+  Lucas Stadler
+  Julian Berman
+  Markus Holtermann
+  roberto@goyle
+  Yury V. Zaytsev
+  Anna Katrina Dominguez
+  Bobby Impollonia
+  Vasantha Ganesh K
+  Andrew Thompson
+  florinpapa
+  Yusei Tahara
+  Aaron Tubbs
+  Ben Darnell
+  Roberto De Ioris
+  Logan Chien
+  Juan Francisco Cantero Hurtado
+  Ruochen Huang
+  Jeong YunWon
+  Godefroid Chappelle
+  Joshua Gilbert
+  Dan Colish
+  Christopher Armstrong
+  Michael Hudson-Doyle
+  Anders Sigfridsson
+  Nikolay Zinov
+  Jason Michalski
+  Floris Bruynooghe
+  Laurens Van Houtven
+  Akira Li
+  Gustavo Niemeyer
+  Stephan Busemann
+  Rafał Gałczyński
+  Matt Bogosian
+  timo
+  Christian Muirhead
+  Berker Peksag
+  James Lan
+  Volodymyr Vladymyrov
+  shoma hosaka
+  Ben Mather
+  Niclas Olofsson
+  Matthew Miller
+  Rodrigo Araújo
+  halgari
+  Boglarka Vezer
+  Chris Pressey
+  Buck Golemon
+  Diana Popa
+  Konrad Delong
+  Dinu Gherman
+  Chris Lambacher
+  coolbutuseless@gmail.com
+  Daniil Yarancev
+  Jim Baker
+  Dan Crosta
+  Nikolaos-Digenis Karagiannis
+  James Robert
+  Armin Ronacher
+  Brett Cannon
+  Donald Stufft
+  yrttyr
+  aliceinwire
+  OlivierBlanvillain
+  Dan Sanders
+  Zooko Wilcox-O Hearn
+  Tomer Chachamu
+  Christopher Groskopf
+  Asmo Soinio
+  jiaaro
+  Mads Kiilerich
+  Antony Lee
+  Jason Madden
+  Daniel Neuh�user
+  reubano@gmail.com
+  Yaroslav Fedevych
+  Jim Hunziker
+  Markus Unterwaditzer
+  Even Wiik Thomassen
+  jbs
+  squeaky
+  soareschen
+  Jonas Pfannschmidt
+  Kurt Griffiths
+  Mike Bayer
+  Stefan Marr
+  Flavio Percoco
+  Kristoffer Kleine
+  Michael Chermside
+  Anna Ravencroft
+  pizi
+  remarkablerocket
+  Andrey Churin
+  Zearin
+  Eli Stevens
+  Tobias Diaz
+  Julien Phalip
+  Roman Podoliaka
+  Dan Loewenherz
+  werat
 
-    Heinrich-Heine University, Germany 
-    Open End AB (formerly AB Strakt), Sweden
-    merlinux GmbH, Germany 
-    tismerysoft GmbH, Germany 
-    Logilab Paris, France 
-    DFKI GmbH, Germany 
-    Impara, Germany
-    Change Maker, Sweden 
-    University of California Berkeley, USA
-    Google Inc.
-    King's College London
+  Heinrich-Heine University, Germany 
+  Open End AB (formerly AB Strakt), Sweden
+  merlinux GmbH, Germany 
+  tismerysoft GmbH, Germany 
+  Logilab Paris, France 
+  DFKI GmbH, Germany 
+  Impara, Germany
+  Change Maker, Sweden 
+  University of California Berkeley, USA
+  Google Inc.
+  King's College London
 
 The PyPy Logo as used by http://speed.pypy.org and others was created
 by Samuel Reis and is distributed on terms of Creative Commons Share Alike
@@ -294,8 +394,7 @@ License for 'lib-python/2.7'
 Except when otherwise stated (look for LICENSE files or copyright/license
 information at the beginning of each file) the files in the 'lib-python/2.7'
 directory are all copyrighted by the Python Software Foundation and licensed
-under the Python Software License of which you can find a copy here:
-http://www.python.org/doc/Copyright.html 
+under the terms that you can find here: https://docs.python.org/2/license.html
 
 License for 'pypy/module/unicodedata/'
 ======================================
@@ -328,6 +427,53 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-Detailled license information is contained in the NOTICE file in the
+Detailed license information is contained in the NOTICE file in the
 directory.
 
+
+Licenses and Acknowledgements for Incorporated Software
+=======================================================
+
+This section is an incomplete, but growing list of licenses and
+acknowledgements for third-party software incorporated in the PyPy
+distribution.
+
+License for 'Tcl/Tk'
+--------------------
+
+This copy of PyPy contains library code that may, when used, result in
+the Tcl/Tk library to be loaded.  PyPy also includes code that may be
+regarded as being a copy of some parts of the Tcl/Tk header files.
+You may see a copy of the License for Tcl/Tk in the file
+`lib_pypy/_tkinter/license.terms` included here.
+
+License for 'bzip2'
+-------------------
+
+This copy of PyPy may be linked (dynamically or statically) with the
+bzip2 library.  You may see a copy of the License for bzip2/libbzip2 at
+
+    http://www.bzip.org/1.0.5/bzip2-manual-1.0.5.html
+
+License for 'openssl'
+---------------------
+
+This copy of PyPy may be linked (dynamically or statically) with the
+openssl library.  You may see a copy of the License for OpenSSL at
+
+    https://www.openssl.org/source/license.html
+
+License for 'gdbm'
+------------------
+
+The gdbm module includes code from gdbm.h, which is distributed under
+the terms of the GPL license version 2 or any later version.  Thus the
+gdbm module, provided in the file lib_pypy/gdbm.py, is redistributed
+under the terms of the GPL license as well.
+
+License for 'rpython/rlib/rvmprof/src'
+--------------------------------------
+
+The code is based on gperftools. You may see a copy of the License for it at
+
+    https://github.com/gperftools/gperftools/blob/master/COPYING

@@ -1,6 +1,6 @@
 from rpython.annotator import model as annmodel
 from rpython.rtyper.lltypesystem import lltype
-from rpython.rtyper.rmodel import IntegerRepr
+from rpython.rtyper.rint import IntegerRepr
 from rpython.rtyper.rstr import AbstractStringRepr
 from rpython.tool.pairtype import pairtype
 

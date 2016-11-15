@@ -1,9 +1,4 @@
-import py
-from pypy.objspace.std.complexobject import W_ComplexObject, \
-    pow__Complex_Complex_ANY
-from pypy.objspace.std import complextype as cobjtype
-from pypy.objspace.std.multimethod import FailedToImplement
-from pypy.objspace.std import StdObjSpace
+from pypy.objspace.std.complexobject import W_ComplexObject, _split_complex
 
 EPS = 1e-9
 
@@ -21,7 +16,7 @@ class TestW_ComplexObject:
             _t_complex(r,i)
 
     def test_parse_complex(self):
-        f = cobjtype._split_complex
+        f = _split_complex
         def test_cparse(cnum, realnum, imagnum):
             result = f(cnum)
             assert len(result) == 2
@@ -76,15 +71,13 @@ class TestW_ComplexObject:
         assert _powi((0.0,1.0),2) == (-1.0,0.0)
         c = W_ComplexObject(0.0,1.0)
         p = W_ComplexObject(2.0,0.0)
-        r = pow__Complex_Complex_ANY(self.space,c,p,self.space.wrap(None))
+        r = c.descr_pow(self.space, p, self.space.wrap(None))
         assert r.realval == -1.0
         assert r.imagval == 0.0
 
 
 class AppTestAppComplexTest:
-    spaceconfig = {
-        "usemodules": ["binascii", "rctime"]
-    }
+    spaceconfig = {'usemodules': ['binascii', 'time', 'struct']}
 
     def w_check_div(self, x, y):
         """Compute complex z=x*y, and check that z/x==y and z/y==x."""
@@ -168,6 +161,12 @@ class AppTestAppComplexTest:
     def test_coerce(self):
         raises(OverflowError, complex.__coerce__, 1+1j, 1L<<10000)
 
+    def test_convert(self):
+        exc = raises(TypeError, complex.__int__, 3j)
+        assert str(exc.value) == "can't convert complex to int"
+        exc = raises(TypeError, complex.__float__, 3j)
+        assert str(exc.value) == "can't convert complex to float"
+
     def test_richcompare(self):
         assert complex.__lt__(1+1j, None) is NotImplemented
         assert complex.__eq__(1+1j, 2+2j) is False
@@ -183,6 +182,14 @@ class AppTestAppComplexTest:
         assert not large == (5+0j)
         assert (5+0j) != large
         assert large != (5+0j)
+
+    def test_richcompare_numbers(self):
+        for n in 8, 8L, 0.01:
+            assert complex.__eq__(n+0j, n)
+            assert not complex.__ne__(n+0j, n)
+            assert not complex.__eq__(complex(n, n), n)
+            assert complex.__ne__(complex(n, n), n)
+            raises(TypeError, complex.__lt__, n+0j, n)
 
     def test_richcompare_boundaries(self):
         z = 9007199254740992+0j
@@ -308,6 +315,8 @@ class AppTestAppComplexTest:
         assert self.almost_equal(complex("-1"), -1)
         assert self.almost_equal(complex("+1"), +1)
         assert self.almost_equal(complex(" ( +3.14-6J ) "), 3.14-6j)
+        exc = raises(ValueError, complex, " ( +3.14- 6J ) ")
+        assert str(exc.value) == "complex() arg is a malformed string"
 
         class complex2(complex):
             pass
@@ -383,7 +392,6 @@ class AppTestAppComplexTest:
         #
         assert cmath.polar(1) == (1.0, 0.0)
         raises(TypeError, "cmath.polar(Obj(1))")
-        
 
     def test_hash(self):
         for x in xrange(-30, 30):
@@ -403,7 +411,9 @@ class AppTestAppComplexTest:
         assert j(100 + 0j) == 100 + 0j
         assert isinstance(j(100), j)
         assert j(100L + 0j) == 100 + 0j
-        assert j("100 + 0j") == 100 + 0j
+        assert j("100+0j") == 100 + 0j
+        exc = raises(ValueError, j, "100 + 0j")
+        assert str(exc.value) == "complex() arg is a malformed string"
         x = j(1+0j)
         x.foo = 42
         assert x.foo == 42
@@ -601,3 +611,7 @@ class AppTestAppComplexTest:
 
     def test_complex_two_arguments(self):
         raises(TypeError, complex, 5, None)
+
+    def test_hash_minus_one(self):
+        assert hash(-1.0 + 0j) == -2
+        assert (-1.0 + 0j).__hash__() == -2

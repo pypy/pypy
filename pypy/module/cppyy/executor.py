@@ -1,6 +1,6 @@
 import sys
 
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import jit_libffi
@@ -35,8 +35,8 @@ class FunctionExecutor(object):
         pass
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
-        raise OperationError(space.w_TypeError,
-                             space.wrap('return type not available or supported'))
+        raise oefmt(space.w_TypeError,
+                    "return type not available or supported")
 
     def execute_libffi(self, space, cif_descr, funcaddr, buffer):
         from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
@@ -53,17 +53,12 @@ class PtrTypeExecutor(FunctionExecutor):
         if hasattr(space, "fake"):
             raise NotImplementedError
         lresult = capi.c_call_l(space, cppmethod, cppthis, num_args, args)
-        address = rffi.cast(rffi.ULONG, lresult)
+        ptrval = rffi.cast(rffi.ULONG, lresult)
         arr = space.interp_w(W_Array, unpack_simple_shape(space, space.wrap(self.typecode)))
-        if address == 0:
-            # TODO: fix this hack; fromaddress() will allocate memory if address
-            # is null and there seems to be no way around it (ll_buffer can not
-            # be touched directly)
-            nullarr = arr.fromaddress(space, address, 0)
-            assert isinstance(nullarr, W_ArrayInstance)
-            nullarr.free(space)
-            return nullarr
-        return arr.fromaddress(space, address, sys.maxint)
+        if ptrval == 0:
+            from pypy.module.cppyy import interp_cppyy
+            return interp_cppyy.get_nullptr(space)
+        return arr.fromaddress(space, ptrval, sys.maxint)
 
 
 class VoidExecutor(FunctionExecutor):
@@ -144,7 +139,7 @@ class ConstructorExecutor(FunctionExecutor):
         from pypy.module.cppyy import interp_cppyy
         newthis = capi.c_constructor(space, cppmethod, cpptype, num_args, args)
         assert lltype.typeOf(newthis) == capi.C_OBJECT
-        return space.wrap(newthis)
+        return space.wrap(rffi.cast(rffi.LONG, newthis))   # really want ptrdiff_t here
 
 
 class InstancePtrExecutor(FunctionExecutor):
@@ -160,7 +155,8 @@ class InstancePtrExecutor(FunctionExecutor):
         from pypy.module.cppyy import interp_cppyy
         long_result = capi.c_call_l(space, cppmethod, cppthis, num_args, args)
         ptr_result = rffi.cast(capi.C_OBJECT, long_result)
-        return interp_cppyy.wrap_cppobject(space, ptr_result, self.cppclass)
+        pyres = interp_cppyy.wrap_cppobject(space, ptr_result, self.cppclass)
+        return pyres
 
     def execute_libffi(self, space, cif_descr, funcaddr, buffer):
         jit_libffi.jit_ffi_call(cif_descr, funcaddr, buffer)
@@ -189,7 +185,7 @@ class InstanceExecutor(InstancePtrExecutor):
         long_result = capi.c_call_o(space, cppmethod, cppthis, num_args, args, self.cppclass)
         ptr_result = rffi.cast(capi.C_OBJECT, long_result)
         return interp_cppyy.wrap_cppobject(space, ptr_result, self.cppclass,
-                                           do_cast=False, python_owns=True)
+                                           do_cast=False, python_owns=True, fresh=True)
 
     def execute_libffi(self, space, cif_descr, funcaddr, buffer):
         from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
@@ -205,6 +201,13 @@ class StdStringExecutor(InstancePtrExecutor):
     def execute_libffi(self, space, cif_descr, funcaddr, buffer):
         from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
         raise FastCallNotPossible
+
+class StdStringRefExecutor(InstancePtrExecutor):
+
+    def __init__(self, space, cppclass):
+        from pypy.module.cppyy import interp_cppyy
+        cppclass = interp_cppyy.scope_byname(space, capi.std_string_name)
+        InstancePtrExecutor.__init__(self, space, cppclass)
 
 
 class PyObjectExecutor(PtrTypeExecutor):
@@ -295,12 +298,12 @@ _executors["void"]                = VoidExecutor
 _executors["void*"]               = PtrTypeExecutor
 _executors["const char*"]         = CStringExecutor
 
-# special cases
+# special cases (note: 'string' aliases added below)
 _executors["constructor"]         = ConstructorExecutor
 
 _executors["std::basic_string<char>"]         = StdStringExecutor
-_executors["const std::basic_string<char>&"]  = StdStringExecutor
-_executors["std::basic_string<char>&"]        = StdStringExecutor    # TODO: shouldn't copy
+_executors["const std::basic_string<char>&"]  = StdStringRefExecutor
+_executors["std::basic_string<char>&"]        = StdStringRefExecutor
 
 _executors["PyObject*"]           = PyObjectExecutor
 
@@ -363,7 +366,11 @@ def _add_aliased_executors():
     "NOT_RPYTHON"
     aliases = (
         ("const char*",                     "char*"),
+
         ("std::basic_string<char>",         "string"),
+        ("const std::basic_string<char>&",  "const string&"),
+        ("std::basic_string<char>&",        "string&"),
+
         ("PyObject*",                       "_object*"),
     )
 

@@ -79,7 +79,7 @@ class AppTestIntObject(AppTestCpythonExtensionBase):
             ("newEnum", "METH_VARARGS",
              """
                 EnumObject *enumObj;
-                long intval;
+                int intval;
                 PyObject *name;
 
                 if (!PyArg_ParseTuple(args, "Oi", &name, &intval))
@@ -99,6 +99,7 @@ class AppTestIntObject(AppTestCpythonExtensionBase):
              """),
             ],
             prologue="""
+            #include "structmember.h"
             typedef struct
             {
                 PyObject_HEAD
@@ -119,8 +120,7 @@ class AppTestIntObject(AppTestCpythonExtensionBase):
             };
 
             PyTypeObject Enum_Type = {
-                PyObject_HEAD_INIT(0)
-                /*ob_size*/             0,
+                PyVarObject_HEAD_INIT(NULL, 0)
                 /*tp_name*/             "Enum",
                 /*tp_basicsize*/        sizeof(EnumObject),
                 /*tp_itemsize*/         0,
@@ -150,7 +150,7 @@ class AppTestIntObject(AppTestCpythonExtensionBase):
                 /*tp_methods*/          0,
                 /*tp_members*/          enum_members,
                 /*tp_getset*/           0,
-                /*tp_base*/             &PyInt_Type,
+                /*tp_base*/             0, /* set to &PyInt_Type in init function for MSVC */
                 /*tp_dict*/             0,
                 /*tp_descr_get*/        0,
                 /*tp_descr_set*/        0,
@@ -159,7 +159,9 @@ class AppTestIntObject(AppTestCpythonExtensionBase):
                 /*tp_alloc*/            0,
                 /*tp_new*/              0
             };
-            """)
+            """, more_init = '''
+            Enum_Type.tp_base = &PyInt_Type;
+            ''')
 
         a = module.newEnum("ULTIMATE_ANSWER", 42)
         assert type(a).__name__ == "Enum"
@@ -173,12 +175,13 @@ class AppTestIntObject(AppTestCpythonExtensionBase):
                 ("test_int", "METH_NOARGS",
                 """
                 PyObject * obj = PyInt_FromLong(42);
+                PyObject * val;
                 if (!PyInt_Check(obj)) {
                     Py_DECREF(obj);
                     PyErr_SetNone(PyExc_ValueError);
                     return NULL;
                 }
-                PyObject * val = PyInt_FromLong(((PyIntObject *)obj)->ob_ival);
+                val = PyInt_FromLong(((PyIntObject *)obj)->ob_ival);
                 Py_DECREF(obj);
                 return val;
                 """
@@ -187,3 +190,17 @@ class AppTestIntObject(AppTestCpythonExtensionBase):
         i = mod.test_int()
         assert isinstance(i, int)
         assert i == 42
+
+    def test_int_macros(self):
+        mod = self.import_extension('foo', [
+                ("test_macros", "METH_NOARGS",
+                """
+                PyObject * obj = PyInt_FromLong(42);
+                PyIntObject * i = (PyIntObject*)obj;
+                PyInt_AS_LONG(obj);
+                PyInt_AS_LONG(i);
+                Py_RETURN_NONE;
+                """
+                ),
+                ])
+

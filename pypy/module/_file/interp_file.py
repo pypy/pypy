@@ -8,10 +8,11 @@ from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.rstring import StringBuilder
 from pypy.module._file.interp_stream import W_AbstractStream, StreamErrors
 from pypy.module.posix.interp_posix import dispatch_filename
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
     interp_attrproperty, make_weakref_descr, interp_attrproperty_w)
 from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.baseobjspace import BufferInterfaceNotFound
 from pypy.interpreter.streamutil import wrap_streamerror, wrap_oserror_as_ioerror
 
 
@@ -30,30 +31,38 @@ class W_File(W_AbstractStream):
     w_name   = None
     mode     = "<uninitialized file>"
     binary   = False
+    readable = False
+    writable = False
     softspace= 0     # Required according to file object docs
     encoding = None
     errors   = None
     fd       = -1
     cffi_fileobj = None    # pypy/module/_cffi_backend
+    w_tb     = None  # String representation of the traceback at creation time
 
     newlines = 0     # Updated when the stream is closed
 
     def __init__(self, space):
         self.space = space
+        self.register_finalizer(space)
+        if self.space.sys.track_resources:
+            self.w_tb = self.space.format_traceback()
 
-    def __del__(self):
+    def _finalize_(self):
         # assume that the file and stream objects are only visible in the
-        # thread that runs __del__, so no race condition should be possible
-        self.clear_all_weakrefs()
-        if self.stream is not None:
-            self.enqueue_for_destruction(self.space, W_File.destructor,
-                                         'close() method of ')
-
-    def destructor(self):
-        assert isinstance(self, W_File)
+        # thread that runs _finalize_, so no race condition should be
+        # possible and no locking is done here.
+        if self.stream is None:
+            return
+        if self.space.sys.track_resources:
+            w_repr = self.space.repr(self)
+            str_repr = self.space.str_w(w_repr)
+            w_msg = self.space.wrap("WARNING: unclosed file: " + str_repr)
+            self.space.resource_warning(w_msg, self.w_tb)
+        #
         try:
             self.direct_close()
-        except StreamErrors, e:
+        except StreamErrors as e:
             operr = wrap_streamerror(self.space, e, self.w_name)
             raise operr
 
@@ -61,6 +70,12 @@ class W_File(W_AbstractStream):
         self.fd = fd
         self.mode = mode
         self.binary = "b" in mode
+        if 'r' in mode or 'U' in mode:
+            self.readable = True
+        if 'w' in mode or 'a' in mode:
+            self.writable = True
+        if '+' in mode:
+            self.readable = self.writable = True
         if w_name is not None:
             self.w_name = w_name
         self.stream = stream
@@ -85,9 +100,16 @@ class W_File(W_AbstractStream):
 
     def check_closed(self):
         if self.stream is None:
-            raise OperationError(self.space.w_ValueError,
-                self.space.wrap("I/O operation on closed file")
-            )
+            raise oefmt(self.space.w_ValueError,
+                        "I/O operation on closed file")
+
+    def check_readable(self):
+        if not self.readable:
+            raise oefmt(self.space.w_IOError, "File not open for reading")
+
+    def check_writable(self):
+        if not self.writable:
+            raise oefmt(self.space.w_IOError, "File not open for writing")
 
     def getstream(self):
         """Return self.stream or raise an app-level ValueError if missing
@@ -118,7 +140,11 @@ class W_File(W_AbstractStream):
         stream = dispatch_filename(streamio.open_file_as_stream)(
             self.space, w_name, mode, buffering, signal_checker(self.space))
         fd = stream.try_to_find_file_descriptor()
-        self.check_not_dir(fd)
+        try:
+            self.check_not_dir(fd)
+        except:
+            stream.close()
+            raise
         self.fdopenstream(stream, fd, mode)
 
     def direct___enter__(self):
@@ -176,6 +202,7 @@ class W_File(W_AbstractStream):
     @unwrap_spec(n=int)
     def direct_read(self, n=-1):
         stream = self.getstream()
+        self.check_readable()
         if n < 0:
             return stream.readall()
         else:
@@ -183,11 +210,16 @@ class W_File(W_AbstractStream):
             while n > 0:
                 try:
                     data = stream.read(n)
-                except OSError, e:
+                except OSError as e:
                     # a special-case only for read() (similar to CPython, which
                     # also loses partial data with other methods): if we get
                     # EAGAIN after already some data was received, return it.
-                    if is_wouldblock_error(e):
+                    # Note that we can get EAGAIN while there is buffered data
+                    # waiting; read that too.
+                    if is_wouldblock_error(e.errno):
+                        m = stream.count_buffered_bytes()
+                        if m > 0:
+                            result.append(stream.read(min(n, m)))
                         got = result.build()
                         if len(got) > 0:
                             return got
@@ -201,6 +233,7 @@ class W_File(W_AbstractStream):
     @unwrap_spec(size=int)
     def direct_readline(self, size=-1):
         stream = self.getstream()
+        self.check_readable()
         if size < 0:
             return stream.readline()
         else:
@@ -209,11 +242,13 @@ class W_File(W_AbstractStream):
             while size > 0:
                 # "peeks" on the underlying stream to see how many chars
                 # we can safely read without reading past an end-of-line
-                peeked = stream.peek()
-                pn = peeked.find("\n", 0, size)
+                startindex, peeked = stream.peek()
+                assert 0 <= startindex <= len(peeked)
+                endindex = startindex + size
+                pn = peeked.find("\n", startindex, endindex)
                 if pn < 0:
-                    pn = min(size-1, len(peeked))
-                c = stream.read(pn + 1)
+                    pn = min(endindex - 1, len(peeked))
+                c = stream.read(pn - startindex + 1)
                 if not c:
                     break
                 result.append(c)
@@ -225,6 +260,7 @@ class W_File(W_AbstractStream):
     @unwrap_spec(size=int)
     def direct_readlines(self, size=0):
         stream = self.getstream()
+        self.check_readable()
         # this is implemented as: .read().split('\n')
         # except that it keeps the \n in the resulting strings
         if size <= 0:
@@ -258,6 +294,7 @@ class W_File(W_AbstractStream):
 
     def direct_truncate(self, w_size=None):  # note: a wrapped size!
         stream = self.getstream()
+        self.check_writable()
         space = self.space
         if space.is_none(w_size):
             size = stream.tell()
@@ -267,9 +304,19 @@ class W_File(W_AbstractStream):
 
     def direct_write(self, w_data):
         space = self.space
-        if not self.binary and space.isinstance_w(w_data, space.w_unicode):
-            w_data = space.call_method(w_data, "encode", space.wrap(self.encoding), space.wrap(self.errors))
-        data = space.bufferstr_w(w_data)
+        self.check_writable()
+        if self.binary:
+            data = space.getarg_w('s*', w_data).as_str()
+        else:
+            if space.isinstance_w(w_data, space.w_unicode):
+                w_errors = w_encoding = None
+                if self.encoding:
+                    w_encoding = space.wrap(self.encoding)
+                if self.errors:
+                    w_errors = space.wrap(self.errors)
+                w_data = space.call_method(w_data, "encode",
+                                           w_encoding, w_errors)
+            data = space.charbuf_w(w_data)
         self.do_direct_write(data)
 
     def do_direct_write(self, data):
@@ -285,6 +332,10 @@ class W_File(W_AbstractStream):
         self.getstream()    # check if the file is still open
         return os.isatty(self.fd)
 
+    def direct_readinto(self, w_rwbuffer):
+        from pypy.module._file.readinto import direct_readinto
+        return direct_readinto(self, w_rwbuffer)
+
     # ____________________________________________________________
     #
     # The 'file_' methods are the one exposed to app-level.
@@ -292,8 +343,8 @@ class W_File(W_AbstractStream):
     def file_fdopen(self, fd, mode="r", buffering=-1):
         try:
             self.direct_fdopen(fd, mode, buffering)
-        except StreamErrors, e:
-            raise wrap_streamerror(self.space, e, self.w_name)
+        except OSError as e:
+            raise wrap_oserror(self.space, e)
 
     _exposed_method_names = []
 
@@ -377,6 +428,9 @@ If the size argument is negative or omitted, read until EOF is reached.
 Notice that when in non-blocking mode, less data than what was requested
 may be returned, even if no size parameter was given.""")
 
+    _decl(locals(), "readinto",
+        """readinto(buf) -> length.  Read into the given read-write buffer.""")
+
     _decl(locals(), "readline",
         """readline([size]) -> next line from the file, as a string.
 
@@ -455,25 +509,23 @@ producing strings. This is equivalent to calling write() for each string."""
 
         space = self.space
         self.check_closed()
-        w_iterator = space.iter(w_lines)
-        while True:
-            try:
-                w_line = space.next(w_iterator)
-            except OperationError, e:
-                if not e.match(space, space.w_StopIteration):
-                    raise
-                break  # done
+        self.check_writable()
+        lines = space.fixedview(w_lines)
+        for i, w_line in enumerate(lines):
+            if not space.isinstance_w(w_line, space.w_str):
+                try:
+                    if self.binary:
+                        line = w_line.readbuf_w(space).as_str()
+                    else:
+                        line = w_line.charbuf_w(space)
+                except BufferInterfaceNotFound:
+                    raise oefmt(space.w_TypeError,
+                                "writelines() argument must be a sequence of "
+                                "strings")
+                else:
+                    lines[i] = space.wrap(line)
+        for w_line in lines:
             self.file_write(w_line)
-
-    def file_readinto(self, w_rwbuffer):
-        """readinto() -> Undocumented.  Don't use this; it may go away."""
-        # XXX not the most efficient solution as it doesn't avoid the copying
-        space = self.space
-        rwbuffer = space.rwbuffer_w(w_rwbuffer)
-        w_data = self.file_read(rwbuffer.getlength())
-        data = space.str_w(w_data)
-        rwbuffer.setslice(0, data)
-        return space.wrap(len(data))
 
 
 # ____________________________________________________________
@@ -560,7 +612,6 @@ Note:  open() is an alias for file().
                               cls=W_File,
                               doc="Support for 'print'."),
     __repr__ = interp2app(W_File.file__repr__),
-    readinto = interp2app(W_File.file_readinto),
     writelines = interp2app(W_File.file_writelines),
     __exit__ = interp2app(W_File.file__exit__),
     __weakref__ = make_weakref_descr(W_File),
@@ -571,7 +622,7 @@ Note:  open() is an alias for file().
 # ____________________________________________________________
 
 def wrap_list_of_str(space, lst):
-    return space.newlist([space.wrap(s) for s in lst])
+    return space.newlist_bytes(lst)
 
 class FileState:
     def __init__(self, space):
@@ -589,10 +640,10 @@ def signal_checker(space):
 MAYBE_EAGAIN      = getattr(errno, 'EAGAIN',      None)
 MAYBE_EWOULDBLOCK = getattr(errno, 'EWOULDBLOCK', None)
 
-def is_wouldblock_error(e):
-    if MAYBE_EAGAIN is not None and e.errno == MAYBE_EAGAIN:
+def is_wouldblock_error(errno):
+    if MAYBE_EAGAIN is not None and errno == MAYBE_EAGAIN:
         return True
-    if MAYBE_EWOULDBLOCK is not None and e.errno == MAYBE_EWOULDBLOCK:
+    if MAYBE_EWOULDBLOCK is not None and errno == MAYBE_EWOULDBLOCK:
         return True
     return False
 

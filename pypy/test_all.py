@@ -26,5 +26,21 @@ if __name__ == '__main__':
     #Add toplevel repository dir to sys.path
     sys.path.insert(0,os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
     import pytest
-    import pytest_cov
-    sys.exit(pytest.main(plugins=[pytest_cov]))
+    if sys.platform == 'win32':
+        #Try to avoid opeing a dialog box if one of the tests causes a system error
+        # We do this in runner.py, but buildbots run twisted which ruins inheritance
+        # in windows subprocesses.
+        import ctypes
+        winapi = ctypes.windll.kernel32
+        SetErrorMode = winapi.SetErrorMode
+        SetErrorMode.argtypes=[ctypes.c_int]
+
+        SEM_FAILCRITICALERRORS = 1
+        SEM_NOGPFAULTERRORBOX  = 2
+        SEM_NOOPENFILEERRORBOX = 0x8000
+        flags = SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | SEM_NOOPENFILEERRORBOX
+        #Since there is no GetErrorMode, do a double Set
+        old_mode = SetErrorMode(flags)
+        SetErrorMode(old_mode | flags)
+
+    sys.exit(pytest.main())

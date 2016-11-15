@@ -1,7 +1,7 @@
 from rpython.translator.backendopt.finalizer import FinalizerAnalyzer
 from rpython.rtyper.lltypesystem import lltype, llmemory, llheap
-from rpython.rtyper import llinterp
-from rpython.rtyper.annlowlevel import llhelper
+from rpython.rtyper import llinterp, rclass
+from rpython.rtyper.annlowlevel import llhelper, cast_nongc_instance_to_adr
 from rpython.memory import gctypelayout
 from rpython.flowspace.model import Constant
 
@@ -15,6 +15,7 @@ class GCManagedHeap(object):
                            chunk_size      = 10,
                            translated_to_c = False,
                            **GC_PARAMS)
+        self.translator = translator
         self.gc.set_root_walker(LLInterpRootWalker(self))
         self.gc.DEBUG = True
         self.llinterp = llinterp
@@ -29,7 +30,12 @@ class GCManagedHeap(object):
                                                lltype2vtable,
                                                self.llinterp)
         self.get_type_id = layoutbuilder.get_type_id
-        layoutbuilder.initialize_gc_query_function(self.gc)
+        gcdata = layoutbuilder.initialize_gc_query_function(self.gc)
+        self.gcdata = gcdata
+
+        self.finalizer_queue_indexes = {}
+        self.finalizer_handlers = []
+        self.update_finalizer_handlers()
 
         constants = collect_constants(flowgraphs)
         for obj in constants:
@@ -38,7 +44,24 @@ class GCManagedHeap(object):
 
         self.constantroots = layoutbuilder.addresses_of_static_ptrs
         self.constantrootsnongc = layoutbuilder.addresses_of_static_ptrs_in_nongc
+        self.prepare_custom_trace_funcs(gcdata)
         self._all_prebuilt_gc = layoutbuilder.all_prebuilt_gc
+
+    def prepare_custom_trace_funcs(self, gcdata):
+        custom_trace_funcs = self.llinterp.typer.custom_trace_funcs
+
+        def custom_trace(obj, typeid, callback, arg):
+            for TP, func in custom_trace_funcs:
+                if typeid == self.get_type_id(TP):
+                    func(self.gc, obj, callback, arg)
+                    return
+            else:
+                assert False
+        
+        for TP, func in custom_trace_funcs:
+            gcdata._has_got_custom_trace(self.get_type_id(TP))
+
+        self.gc.custom_trace_dispatcher = custom_trace
 
     # ____________________________________________________________
     #
@@ -57,15 +80,8 @@ class GCManagedHeap(object):
             return lltype.malloc(TYPE, n, flavor=flavor, zero=zero,
                                  track_allocation=track_allocation)
 
-    def malloc_nonmovable(self, TYPE, n=None, zero=False):
-        typeid = self.get_type_id(TYPE)
-        if not self.gc.can_malloc_nonmovable():
-            return lltype.nullptr(TYPE)
-        addr = self.gc.malloc_nonmovable(typeid, n, zero=zero)
-        result = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(TYPE))
-        if not self.gc.malloc_zero_filled:
-            gctypelayout.zero_gc_pointers(result)
-        return result
+    def gettypeid(self, obj):
+        return self.get_type_id(lltype.typeOf(obj).TO)
 
     def add_memory_pressure(self, size):
         if hasattr(self.gc, 'raw_malloc_memory_pressure'):
@@ -122,6 +138,15 @@ class GCManagedHeap(object):
     def can_move(self, addr):
         return self.gc.can_move(addr)
 
+    def pin(self, addr):
+        return self.gc.pin(addr)
+
+    def unpin(self, addr):
+        self.gc.unpin(addr)
+
+    def _is_pinned(self, addr):
+        return self.gc._is_pinned(addr)
+
     def weakref_create_getlazy(self, objgetter):
         # we have to be lazy in reading the llinterp variable containing
         # the 'obj' pointer, because the gc.malloc() call below could
@@ -165,6 +190,58 @@ class GCManagedHeap(object):
                 hdr.tid |= self.gc.gcflag_extra
         return (hdr.tid & self.gc.gcflag_extra) != 0
 
+    def thread_run(self):
+        pass
+
+    def _get_finalizer_trigger(self, fq):
+        graph = self.translator._graphof(fq.finalizer_trigger.im_func)
+        def ll_trigger():
+            try:
+                self.llinterp.eval_graph(graph, [None], recursive=True)
+            except llinterp.LLException:
+                raise RuntimeError(
+                    "finalizer_trigger() raised an exception, shouldn't happen")
+        return ll_trigger
+
+    def update_finalizer_handlers(self):
+        handlers = self.finalizer_handlers
+        ll_handlers = lltype.malloc(gctypelayout.FIN_HANDLER_ARRAY,
+                                    len(handlers), immortal=True)
+        for i in range(len(handlers)):
+            fq, deque = handlers[i]
+            ll_handlers[i].deque = cast_nongc_instance_to_adr(deque)
+            ll_handlers[i].trigger = llhelper(
+                lltype.Ptr(gctypelayout.FIN_TRIGGER_FUNC),
+                self._get_finalizer_trigger(fq))
+        self.gcdata.finalizer_handlers = llmemory.cast_ptr_to_adr(ll_handlers)
+
+    def get_finalizer_queue_index(self, fq_tag):
+        assert 'FinalizerQueue TAG' in fq_tag.expr
+        fq = fq_tag.default
+        try:
+            index = self.finalizer_queue_indexes[fq]
+        except KeyError:
+            index = len(self.finalizer_handlers)
+            self.finalizer_queue_indexes[fq] = index
+            deque = self.gc.AddressDeque()
+            self.finalizer_handlers.append((fq, deque))
+            self.update_finalizer_handlers()
+        return index
+
+    def gc_fq_next_dead(self, fq_tag):
+        index = self.get_finalizer_queue_index(fq_tag)
+        deque = self.finalizer_handlers[index][1]
+        if deque.non_empty():
+            obj = deque.popleft()
+        else:
+            obj = llmemory.NULL
+        return llmemory.cast_adr_to_ptr(obj, rclass.OBJECTPTR)
+
+    def gc_fq_register(self, fq_tag, ptr):
+        index = self.get_finalizer_queue_index(fq_tag)
+        ptr = lltype.cast_opaque_ptr(llmemory.GCREF, ptr)
+        self.gc.register_finalizer(index, ptr)
+
 # ____________________________________________________________
 
 class LLInterpRootWalker:
@@ -175,7 +252,8 @@ class LLInterpRootWalker:
 
     def walk_roots(self, collect_stack_root,
                    collect_static_in_prebuilt_nongc,
-                   collect_static_in_prebuilt_gc):
+                   collect_static_in_prebuilt_gc,
+                   is_minor=False):
         gcheap = self.gcheap
         gc = gcheap.gc
         if collect_static_in_prebuilt_gc:
@@ -187,7 +265,7 @@ class LLInterpRootWalker:
                 if self.gcheap.gc.points_to_valid_gc_object(addrofaddr):
                     collect_static_in_prebuilt_nongc(gc, addrofaddr)
         if collect_stack_root:
-            for addrofaddr in gcheap.llinterp.find_roots():
+            for addrofaddr in gcheap.llinterp.find_roots(is_minor):
                 if self.gcheap.gc.points_to_valid_gc_object(addrofaddr):
                     collect_stack_root(gc, addrofaddr)
 
@@ -205,7 +283,7 @@ class DirectRunLayoutBuilder(gctypelayout.TypeLayoutBuilder):
         self.llinterp = llinterp
         super(DirectRunLayoutBuilder, self).__init__(GCClass, lltype2vtable)
 
-    def make_finalizer_funcptr_for_type(self, TYPE):
+    def make_destructor_funcptr_for_type(self, TYPE):
         from rpython.memory.gctransform.support import get_rtti
         rtti = get_rtti(TYPE)
         if rtti is not None and hasattr(rtti._obj, 'destructor_funcptr'):
@@ -216,15 +294,17 @@ class DirectRunLayoutBuilder(gctypelayout.TypeLayoutBuilder):
             return None, False
 
         t = self.llinterp.typer.annotator.translator
-        light = not FinalizerAnalyzer(t).analyze_light_finalizer(destrgraph)
-        def ll_finalizer(addr):
+        is_light = not FinalizerAnalyzer(t).analyze_light_finalizer(destrgraph)
+
+        def ll_destructor(addr):
             try:
                 v = llmemory.cast_adr_to_ptr(addr, DESTR_ARG)
                 self.llinterp.eval_graph(destrgraph, [v], recursive=True)
             except llinterp.LLException:
                 raise RuntimeError(
-                    "a finalizer raised an exception, shouldn't happen")
-        return llhelper(gctypelayout.GCData.FINALIZER, ll_finalizer), light
+                    "a destructor raised an exception, shouldn't happen")
+        return (llhelper(gctypelayout.GCData.CUSTOM_FUNC_PTR, ll_destructor),
+                is_light)
 
     def make_custom_trace_funcptr_for_type(self, TYPE):
         from rpython.memory.gctransform.support import get_rtti

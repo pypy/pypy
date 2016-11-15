@@ -12,9 +12,11 @@ class Module(MixedModule):
         '_template_byname'       : 'interp_cppyy.template_byname',
         '_std_string_name'       : 'interp_cppyy.std_string_name',
         '_set_class_generator'   : 'interp_cppyy.set_class_generator',
+        '_set_function_generator': 'interp_cppyy.set_function_generator',
         '_register_class'        : 'interp_cppyy.register_class',
         '_is_static'             : 'interp_cppyy.is_static',
-        'CPPInstance'            : 'interp_cppyy.W_CPPInstance',
+        '_get_nullptr'           : 'interp_cppyy.get_nullptr',
+        'CPPInstanceBase'        : 'interp_cppyy.W_CPPInstance',
         'addressof'              : 'interp_cppyy.addressof',
         'bind_object'            : 'interp_cppyy.bind_object',
     }
@@ -23,6 +25,7 @@ class Module(MixedModule):
         '_init_pythonify'        : 'pythonify._init_pythonify',
         'load_reflection_info'   : 'pythonify.load_reflection_info',
         'add_pythonization'      : 'pythonify.add_pythonization',
+        'Template'               : 'pythonify.CPPTemplate',
     }
 
     def __init__(self, space, *args):

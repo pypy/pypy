@@ -8,6 +8,7 @@
   <class name="z_" />
 
   <function name="globalAddOneToInt" />
+  <function name="installableAddOneToInt" />
 
   <namespace name="ns_example01" />
   <function name="ns_example01::globalAddOneToInt" />

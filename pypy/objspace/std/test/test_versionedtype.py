@@ -1,7 +1,6 @@
 from pypy.objspace.std.test import test_typeobject
 
 class TestVersionedType(test_typeobject.TestTypeObject):
-    spaceconfig = {"objspace.std.withtypeversion": True}
 
     def get_three_classes(self):
         space = self.space
@@ -210,7 +209,54 @@ class TestVersionedType(test_typeobject.TestTypeObject):
         assert w_A.version_tag() is atag
         assert space.int_w(space.getattr(w_A, w_x)) == 4
 
+    def test_no_cell_when_writing_same_value(self):
+        space = self.space
+        w_x = space.wrap("x")
+        w_A, w_B, w_C = self.get_three_classes()
+        atag = w_A.version_tag()
+        w_val = space.newint(1)
+        space.setattr(w_A, w_x, w_val)
+        space.setattr(w_A, w_x, w_val)
+        w_val1 = w_A._getdictvalue_no_unwrapping(space, "x")
+        assert w_val1 is w_val
 
-class AppTestVersionedType(test_typeobject.AppTestTypeObject):
-    spaceconfig = {"objspace.std.withtypeversion": True}
+    def test_int_cells(self):
+        space = self.space
+        w_x = space.wrap("x")
+        w_A, w_B, w_C = self.get_three_classes()
+        atag = w_A.version_tag()
+        space.setattr(w_A, w_x, space.newint(1))
+        assert w_A.version_tag() is not atag
+        assert space.int_w(space.getattr(w_A, w_x)) == 1
+
+        atag = w_A.version_tag()
+        space.setattr(w_A, w_x, space.newint(2))
+        assert w_A.version_tag() is not atag
+        assert space.int_w(space.getattr(w_A, w_x)) == 2
+        cell = w_A._getdictvalue_no_unwrapping(space, "x")
+        assert cell.intvalue == 2
+
+        atag = w_A.version_tag()
+        space.setattr(w_A, w_x, space.newint(3))
+        assert w_A.version_tag() is atag
+        assert space.int_w(space.getattr(w_A, w_x)) == 3
+        assert cell.intvalue == 3
+
+        space.setattr(w_A, w_x, space.newint(4))
+        assert w_A.version_tag() is atag
+        assert space.int_w(space.getattr(w_A, w_x)) == 4
+        assert cell.intvalue == 4
+
+    def test_int_cell_turns_into_cell(self):
+        space = self.space
+        w_x = space.wrap("x")
+        w_A, w_B, w_C = self.get_three_classes()
+        atag = w_A.version_tag()
+        space.setattr(w_A, w_x, space.newint(1))
+        space.setattr(w_A, w_x, space.newint(2))
+        space.setattr(w_A, w_x, space.newfloat(2.2))
+        cell = w_A._getdictvalue_no_unwrapping(space, "x")
+        assert space.float_w(cell.w_value) == 2.2
+
+
 

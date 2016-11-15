@@ -2,7 +2,7 @@ from rpython.rlib import rgc
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.interpreter.error import wrap_oserror, OperationError
+from pypy.interpreter.error import oefmt, wrap_oserror
 from rpython.rlib.objectmodel import we_are_translated
 
 
@@ -41,33 +41,9 @@ def unwrap(space, w_obj):
     return gcref
 
 def missing_operation(space):
-    return OperationError(space.w_NotImplementedError,
-                          space.wrap("operation not implemented by this GC"))
+    return oefmt(space.w_NotImplementedError,
+                 "operation not implemented by this GC")
 
-# ____________________________________________________________
-
-def clear_gcflag_extra(fromlist):
-    pending = fromlist[:]
-    while pending:
-        gcref = pending.pop()
-        if rgc.get_gcflag_extra(gcref):
-            rgc.toggle_gcflag_extra(gcref)
-            pending.extend(rgc.get_rpy_referents(gcref))
-
-def do_get_objects():
-    roots = [gcref for gcref in rgc.get_rpy_roots() if gcref]
-    pending = roots[:]
-    result_w = []
-    while pending:
-        gcref = pending.pop()
-        if not rgc.get_gcflag_extra(gcref):
-            rgc.toggle_gcflag_extra(gcref)
-            w_obj = try_cast_gcref_to_w_root(gcref)
-            if w_obj is not None:
-                result_w.append(w_obj)
-            pending.extend(rgc.get_rpy_referents(gcref))
-    clear_gcflag_extra(roots)
-    return result_w
 
 # ____________________________________________________________
 
@@ -116,8 +92,8 @@ def do_get_referrers(w_arg):
                 break
     # done.  Clear flags carefully
     rgc.toggle_gcflag_extra(gcarg)
-    clear_gcflag_extra(roots)
-    clear_gcflag_extra([gcarg])
+    rgc.clear_gcflag_extra(roots)
+    rgc.clear_gcflag_extra([gcarg])
     return result_w
 
 # ____________________________________________________________
@@ -189,8 +165,7 @@ def get_objects(space):
     """Return a list of all app-level objects."""
     if not rgc.has_gcflag_extra():
         raise missing_operation(space)
-    result_w = do_get_objects()
-    rgc.assert_no_more_gcflags()
+    result_w = rgc.do_get_objects(try_cast_gcref_to_w_root)
     return space.newlist(result_w)
 
 def get_referents(space, args_w):
@@ -219,7 +194,7 @@ def get_referrers(space, args_w):
 def _dump_rpy_heap(space, fd):
     try:
         ok = rgc.dump_rpy_heap(fd)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
     if not ok:
         raise missing_operation(space)
@@ -228,3 +203,8 @@ def get_typeids_z(space):
     a = rgc.get_typeids_z()
     s = ''.join([a[i] for i in range(len(a))])
     return space.wrap(s)
+
+def get_typeids_list(space):
+    l = rgc.get_typeids_list()
+    list_w = [space.wrap(l[i]) for i in range(len(l))]
+    return space.newlist(list_w)

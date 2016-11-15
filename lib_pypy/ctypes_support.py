@@ -1,4 +1,3 @@
-
 """ This file provides some support for things like standard_c_lib and
 errno access, as portable as possible
 """
@@ -22,14 +21,14 @@ if sys.platform == 'win32':
     standard_c_lib._errno.argtypes = None
     def _where_is_errno():
         return standard_c_lib._errno()
-    
+
 elif sys.platform in ('linux2', 'freebsd6'):
     standard_c_lib.__errno_location.restype = ctypes.POINTER(ctypes.c_int)
     standard_c_lib.__errno_location.argtypes = None
     def _where_is_errno():
         return standard_c_lib.__errno_location()
 
-elif sys.platform in ('darwin', 'freebsd7', 'freebsd8', 'freebsd9'):
+elif sys.platform == 'darwin' or sys.platform.startswith('freebsd'):
     standard_c_lib.__error.restype = ctypes.POINTER(ctypes.c_int)
     standard_c_lib.__error.argtypes = None
     def _where_is_errno():
@@ -42,5 +41,3 @@ def get_errno():
 def set_errno(value):
     errno_p = _where_is_errno()
     errno_p.contents.value = value
-
-

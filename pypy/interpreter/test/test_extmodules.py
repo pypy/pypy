@@ -64,5 +64,5 @@ class AppTestExtModules(object):
     @pytest.mark.skipif("config.option.runappdirect")
     def test_import(self):
         import extmod
-        assert extmod.__file__.endswith('extmod')
+        assert not hasattr(extmod, '__file__')
         assert type(extmod.time()) is float

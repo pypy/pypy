@@ -1,14 +1,15 @@
-"""
-String formatting routines.
-"""
+"""String formatting routines"""
 import sys
-from pypy.interpreter.error import OperationError, oefmt
+
 from rpython.rlib import jit
-from rpython.rlib.rfloat import formatd, DTSF_ALT, isnan, isinf
+from rpython.rlib.rarithmetic import INT_MAX
+from rpython.rlib.rfloat import DTSF_ALT, formatd, isnan, isinf
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.rarithmetic import INT_MAX
 from rpython.tool.sourcetools import func_with_new_name
+from rpython.rlib.objectmodel import specialize
+
+from pypy.interpreter.error import OperationError, oefmt
 
 
 class BaseStringFormatter(object):
@@ -28,27 +29,24 @@ class BaseStringFormatter(object):
         try:
             w_result = self.values_w[self.values_pos]
         except IndexError:
-            space = self.space
-            raise OperationError(space.w_TypeError, space.wrap(
-                'not enough arguments for format string'))
+            raise oefmt(self.space.w_TypeError,
+                        "not enough arguments for format string")
         else:
             self.values_pos += 1
             return w_result
 
     def checkconsumed(self):
         if self.values_pos < len(self.values_w) and self.w_valuedict is None:
-            space = self.space
-            raise OperationError(space.w_TypeError,
-               space.wrap('not all arguments converted '
-                            'during string formatting'))
+            raise oefmt(self.space.w_TypeError,
+                        "not all arguments converted during string formatting")
 
     def std_wp_int(self, r, prefix='', keep_zero=False):
         # use self.prec to add some '0' on the left of the number
         if self.prec >= 0:
             if self.prec > 1000:
-                raise OperationError(
-                    self.space.w_OverflowError, self.space.wrap(
-                    'formatted integer is too long (precision too large?)'))
+                raise oefmt(self.space.w_OverflowError,
+                            "formatted integer is too long (precision too "
+                            "large?)")
             sign = r[0] == '-'
             padding = self.prec - (len(r)-int(sign))
             if padding > 0:
@@ -170,9 +168,7 @@ def make_formatter_subclass(do_unicode):
             try:
                 return self.fmt[self.fmtpos]
             except IndexError:
-                space = self.space
-                raise OperationError(space.w_ValueError,
-                                     space.wrap("incomplete format"))
+                raise oefmt(self.space.w_ValueError, "incomplete format")
 
         # Only shows up if we've already started inlining format(), so just
         # unconditionally unroll this.
@@ -188,8 +184,7 @@ def make_formatter_subclass(do_unicode):
                     c = fmt[i]
                 except IndexError:
                     space = self.space
-                    raise OperationError(space.w_ValueError,
-                                         space.wrap("incomplete format key"))
+                    raise oefmt(space.w_ValueError, "incomplete format key")
                 if c == ')':
                     pcount -= 1
                     if pcount == 0:
@@ -204,8 +199,7 @@ def make_formatter_subclass(do_unicode):
             # return the value corresponding to a key in the input dict
             space = self.space
             if self.w_valuedict is None:
-                raise OperationError(space.w_TypeError,
-                                     space.wrap("format requires a mapping"))
+                raise oefmt(space.w_TypeError, "format requires a mapping")
             w_key = space.wrap(key)
             return space.getitem(self.w_valuedict, w_key)
 
@@ -347,10 +341,11 @@ def make_formatter_subclass(do_unicode):
                 s = space.str_w(w_s)
             else:
                 s = c
-            msg = "unsupported format character '%s' (0x%x) at index %d" % (
-                s, ord(c), self.fmtpos - 1)
-            raise OperationError(space.w_ValueError, space.wrap(msg))
+            raise oefmt(space.w_ValueError,
+                        "unsupported format character '%s' (%s) at index %d",
+                        s, hex(ord(c)), self.fmtpos - 1)
 
+        @specialize.argtype(1)
         def std_wp(self, r):
             length = len(r)
             if do_unicode and isinstance(r, str):
@@ -376,9 +371,21 @@ def make_formatter_subclass(do_unicode):
             if padding > 0:
                 result.append_multiple_char(const(' '), padding)
             # add any remaining padding at the right
-        std_wp._annspecialcase_ = 'specialize:argtype(1)'
 
         def std_wp_number(self, r, prefix=''):
+            result = self.result
+            if len(prefix) == 0 and len(r) >= self.width:
+                # this is strictly a fast path: no prefix, and no padding
+                # needed.  It is more efficient code both in the non-jit
+                # case (less testing stuff) and in the jit case (uses only
+                # result.append(), and no startswith() if not f_sign and
+                # not f_blank).
+                if self.f_sign and not r.startswith('-'):
+                    result.append(const('+'))
+                elif self.f_blank and not r.startswith('-'):
+                    result.append(const(' '))
+                result.append(const(r))
+                return
             # add a '+' or ' ' sign if necessary
             sign = r.startswith('-')
             if not sign:
@@ -391,7 +398,6 @@ def make_formatter_subclass(do_unicode):
             # do the padding requested by self.width and the flags,
             # without building yet another RPython string but directly
             # by pushing the pad character into self.result
-            result = self.result
             padding = self.width - len(r) - len(prefix)
             if padding <= 0:
                 padding = 0
@@ -422,9 +428,8 @@ def make_formatter_subclass(do_unicode):
             space = self.space
             w_impl = space.lookup(w_value, '__str__')
             if w_impl is None:
-                raise OperationError(space.w_TypeError,
-                                     space.wrap("operand does not support "
-                                                "unary str"))
+                raise oefmt(space.w_TypeError,
+                            "operand does not support unary str")
             w_result = space.get_and_call_function(w_impl, w_value)
             if space.isinstance_w(w_result,
                                               space.w_unicode):
@@ -457,16 +462,14 @@ def make_formatter_subclass(do_unicode):
             if space.isinstance_w(w_value, space.w_str):
                 s = space.str_w(w_value)
                 if len(s) != 1:
-                    raise OperationError(space.w_TypeError,
-                                         space.wrap("%c requires int or char"))
+                    raise oefmt(space.w_TypeError, "%c requires int or char")
                 self.std_wp(s)
             elif space.isinstance_w(w_value, space.w_unicode):
                 if not do_unicode:
                     raise NeedUnicodeFormattingError
                 ustr = space.unicode_w(w_value)
                 if len(ustr) != 1:
-                    raise OperationError(space.w_TypeError,
-                                      space.wrap("%c requires int or unichar"))
+                    raise oefmt(space.w_TypeError, "%c requires int or unichar")
                 self.std_wp(ustr)
             else:
                 n = space.int_w(w_value)
@@ -474,15 +477,15 @@ def make_formatter_subclass(do_unicode):
                     try:
                         c = unichr(n)
                     except ValueError:
-                        raise OperationError(space.w_OverflowError,
-                            space.wrap("unicode character code out of range"))
+                        raise oefmt(space.w_OverflowError,
+                                    "unicode character code out of range")
                     self.std_wp(c)
                 else:
                     try:
                         s = chr(n)
-                    except ValueError:  # chr(out-of-range)
-                        raise OperationError(space.w_OverflowError,
-                            space.wrap("character code not in range(256)"))
+                    except ValueError:
+                        raise oefmt(space.w_OverflowError,
+                                    "character code not in range(256)")
                     self.std_wp(s)
 
     return StringFormatter
@@ -549,11 +552,19 @@ def format_num_helper_generator(fmt, digits):
         try:
             w_value = maybe_int(space, w_value)
         except OperationError:
-            w_value = space.long(w_value)
+            try:
+                w_value = space.long(w_value)
+            except OperationError as operr:
+                if operr.match(space, space.w_TypeError):
+                    raise oefmt(
+                        space.w_TypeError,
+                        "%s format: a number is required, not %T", fmt, w_value)
+                else:
+                    raise
         try:
             value = space.int_w(w_value)
             return fmt % (value,)
-        except OperationError, operr:
+        except OperationError as operr:
             if not operr.match(space, space.w_OverflowError):
                 raise
             num = space.bigint_w(w_value)

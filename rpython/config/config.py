@@ -361,7 +361,7 @@ class IntOption(Option):
     def setoption(self, config, value, who):
         try:
             super(IntOption, self).setoption(config, int(value), who)
-        except TypeError, e:
+        except TypeError as e:
             raise ConfigError(*e.args)
 
 
@@ -382,7 +382,7 @@ class FloatOption(Option):
     def setoption(self, config, value, who):
         try:
             super(FloatOption, self).setoption(config, float(value), who)
-        except TypeError, e:
+        except TypeError as e:
             raise ConfigError(*e.args)
 
 
@@ -399,7 +399,7 @@ class StrOption(Option):
     def setoption(self, config, value, who):
         try:
             super(StrOption, self).setoption(config, value, who)
-        except TypeError, e:
+        except TypeError as e:
             raise ConfigError(*e.args)
 
 
@@ -537,7 +537,7 @@ class ConfigUpdate(object):
         try:
             value = self.convert_from_cmdline(value)
             self.config.setoption(self.option._name, value, who='cmdline')
-        except ConfigError, e:
+        except ConfigError as e:
             # This OptionValueError is going to exit the translate.py process.
             # Now is the last chance to print the warnings, which might give
             # more information...  hack.

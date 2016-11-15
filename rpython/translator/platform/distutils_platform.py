@@ -127,14 +127,6 @@ class DistutilsPlatform(Platform):
         for cfile in self.cfilenames:
             cfile = py.path.local(cfile)
             compile_extra = self.compile_extra[:]
-            # -frandom-seed is only to try to be as reproducable as possible
-            if 0 and self.fix_gcc_random_seed:
-                compile_extra.append('-frandom-seed=%s' % (cfile.basename,))
-                # XXX horrible workaround for a bug of profiling in gcc on
-                # OS X with functions containing a direct call to fork()
-                if '/*--no-profiling-for-this-file!--*/' in cfile.read():
-                    compile_extra = [arg for arg in compile_extra
-                                     if not arg.startswith('-fprofile-')]
 
             old = cfile.dirpath().chdir()
             try:

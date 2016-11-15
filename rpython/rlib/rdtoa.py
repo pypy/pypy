@@ -1,7 +1,7 @@
 from __future__ import with_statement
 from rpython.rlib import rfloat
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.conftest import cdir
+from rpython.translator import cdir
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib import jit
 from rpython.rlib.rstring import StringBuilder
@@ -32,10 +32,6 @@ eci = ExternalCompilationInfo(
     includes = ['src/dtoa.h'],
     libraries = [],
     separate_module_sources = [source_file],
-    export_symbols = ['_PyPy_dg_strtod',
-                      '_PyPy_dg_dtoa',
-                      '_PyPy_dg_freedtoa',
-                      ],
     )
 
 # dtoa.c is limited to 'int', so we refuse to pass it
@@ -60,21 +56,23 @@ def strtod(input):
         raise MemoryError
     end_ptr = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
     try:
-        ll_input = rffi.str2charp(input)
+        # note: don't use the class scoped_view_charp here, it
+        # break some tests because this function is used by the GC
+        ll_input, flag = rffi.get_nonmovingbuffer_final_null(input)
         try:
             result = dg_strtod(ll_input, end_ptr)
 
             endpos = (rffi.cast(lltype.Signed, end_ptr[0]) -
                       rffi.cast(lltype.Signed, ll_input))
-
-            if endpos == 0 or endpos < len(input):
-                raise ValueError("invalid input at position %d" % (endpos,))
-
-            return result
         finally:
-            rffi.free_charp(ll_input)
+            rffi.free_nonmovingbuffer(input, ll_input, flag)
     finally:
         lltype.free(end_ptr, flavor='raw')
+
+    if endpos == 0 or endpos < len(input):
+        raise ValueError("invalid input at position %d" % (endpos,))
+
+    return result
 
 lower_special_strings = ['inf', '+inf', '-inf', 'nan']
 upper_special_strings = ['INF', '+INF', '-INF', 'NAN']

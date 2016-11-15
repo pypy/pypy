@@ -4,7 +4,9 @@ from rpython.rlib.debug import (check_annotation, make_sure_not_resized,
                              debug_print, debug_start, debug_stop,
                              have_debug_prints, debug_offset, debug_flush,
                              check_nonneg, IntegerCanBeNegative,
-                             mark_dict_non_null)
+                             mark_dict_non_null,
+                             check_list_of_chars,
+                             NotAListOfChars)
 from rpython.rlib import debug
 from rpython.rtyper.test.test_llinterp import interpret, gengraph
 
@@ -53,6 +55,15 @@ def test_make_sure_not_resized():
     py.test.raises(ListChangeUnallowed, interpret, f, [],
                    list_comprehension_operations=True)
 
+def test_make_sure_not_resized_annorder():
+    def f(n):
+        if n > 5:
+            result = None
+        else:
+            result = [1,2,3]
+        make_sure_not_resized(result)
+    interpret(f, [10])
+
 def test_mark_dict_non_null():
     def f():
         d = {"ac": "bx"}
@@ -63,40 +74,74 @@ def test_mark_dict_non_null():
     assert sorted(graph.returnblock.inputargs[0].concretetype.TO.entries.TO.OF._flds.keys()) == ['key', 'value']
 
 
-class DebugTests(object):
+def test_check_list_of_chars():
+    def f(x):
+        result = []
+        check_list_of_chars(result)
+        result = [chr(x), 'a']
+        check_list_of_chars(result)
+        result = [unichr(x)]
+        check_list_of_chars(result)
+        return result
 
-    def test_debug_print_start_stop(self):
-        def f(x):
-            debug_start("mycat")
-            debug_print("foo", 2, "bar", x)
-            debug_stop("mycat")
-            debug_flush() # does nothing
-            debug_offset() # should not explode at least
-            return have_debug_prints()
+    interpret(f, [3])
 
+    def g(x):
+        result = ['a', 'b', 'c', '']
+        check_list_of_chars(result)
+        return x
+
+    py.test.raises(NotAListOfChars, "interpret(g, [3])")
+
+
+def test_debug_print_start_stop():
+    def f(x):
+        debug_start("mycat")
+        debug_print("foo", 2, "bar", x)
+        debug_stop("mycat")
+        debug_flush()  # does nothing
+        debug_offset()  # should not explode at least
+        return have_debug_prints()
+
+    try:
+        debug._log = dlog = debug.DebugLog()
+        res = f(3)
+        assert res is True
+    finally:
+        debug._log = None
+    assert dlog == [("mycat", [('debug_print', 'foo', 2, 'bar', 3)])]
+
+    try:
+        debug._log = dlog = debug.DebugLog()
+        res = interpret(f, [3])
+        assert res is True
+    finally:
+        debug._log = None
+    assert dlog == [("mycat", [('debug_print', 'foo', 2, 'bar', 3)])]
+
+
+def test_debug_print_traceback():
+    from rpython.translator.c.test.test_genc import compile
+    from rpython.rtyper.lltypesystem import lltype
+    from rpython.rtyper.lltypesystem.lloperation import llop
+
+    def ggg(n):
+        if n < 10:
+            ggg(n + 1)
+        else:
+            raise ValueError
+    def recovery():
+        llop.debug_print_traceback(lltype.Void)
+    recovery._dont_inline_ = True
+    def fff():
         try:
-            debug._log = dlog = debug.DebugLog()
-            res = f(3)
-            assert res == True
-        finally:
-            debug._log = None
-        assert dlog == [
-            ("mycat", [
-                ('debug_print', 'foo', 2, 'bar', 3),
-                ]),
-            ]
+            ggg(0)
+        except:
+            recovery()
 
-        try:
-            debug._log = dlog = debug.DebugLog()
-            res = self.interpret(f, [3])
-            assert res == True
-        finally:
-            debug._log = None
-        assert dlog == [
-            ("mycat", [
-                ('debug_print', 'foo', 2, 'bar', 3),
-                ]),
-            ]
-
-    def interpret(self, f, args):
-        return interpret(f, args, type_system='lltype')
+    fn = compile(fff, [], return_stderr=True)
+    stderr = fn()
+    assert 'RPython traceback:\n' in stderr
+    assert stderr.count('entry_point') == 1
+    assert stderr.count('ggg') == 11
+    assert stderr.count('recovery') == 0

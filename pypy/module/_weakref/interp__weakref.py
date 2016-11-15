@@ -1,9 +1,10 @@
 import py
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import interp2app, ObjSpace
 from pypy.interpreter.typedef import TypeDef
-from rpython.rlib import jit
+from pypy.interpreter.executioncontext import AsyncAction, report_error
+from rpython.rlib import jit, rgc
 from rpython.rlib.rshrinklist import AbstractShrinkList
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rweakref import dead_ref
@@ -16,9 +17,12 @@ class WRefShrinkList(AbstractShrinkList):
 
 
 class WeakrefLifeline(W_Root):
+    typedef = None
+
     cached_weakref  = None
     cached_proxy    = None
     other_refs_weak = None
+    has_callbacks   = False
 
     def __init__(self, space):
         self.space = space
@@ -99,31 +103,10 @@ class WeakrefLifeline(W_Root):
                     return w_ref
         return space.w_None
 
-
-class WeakrefLifelineWithCallbacks(WeakrefLifeline):
-
-    def __init__(self, space, oldlifeline=None):
-        self.space = space
-        if oldlifeline is not None:
-            self.cached_weakref = oldlifeline.cached_weakref
-            self.cached_proxy = oldlifeline.cached_proxy
-            self.other_refs_weak = oldlifeline.other_refs_weak
-
-    def __del__(self):
-        """This runs when the interp-level object goes away, and allows
-        its lifeline to go away.  The purpose of this is to activate the
-        callbacks even if there is no __del__ method on the interp-level
-        W_Root subclass implementing the object.
-        """
-        if self.other_refs_weak is None:
-            return
-        items = self.other_refs_weak.items()
-        for i in range(len(items)-1, -1, -1):
-            w_ref = items[i]()
-            if w_ref is not None and w_ref.w_callable is not None:
-                w_ref.enqueue_for_destruction(self.space,
-                                              W_WeakrefBase.activate_callback,
-                                              'weakref callback of ')
+    def enable_callbacks(self):
+        if not self.has_callbacks:
+            self.space.finalizer_queue.register_finalizer(self)
+            self.has_callbacks = True
 
     @jit.dont_look_inside
     def make_weakref_with_callback(self, w_subtype, w_obj, w_callable):
@@ -131,6 +114,7 @@ class WeakrefLifelineWithCallbacks(WeakrefLifeline):
         w_ref = space.allocate_instance(W_Weakref, w_subtype)
         W_Weakref.__init__(w_ref, space, w_obj, w_callable)
         self.append_wref_to(w_ref)
+        self.enable_callbacks()
         return w_ref
 
     @jit.dont_look_inside
@@ -141,18 +125,43 @@ class WeakrefLifelineWithCallbacks(WeakrefLifeline):
         else:
             w_proxy = W_Proxy(space, w_obj, w_callable)
         self.append_wref_to(w_proxy)
+        self.enable_callbacks()
         return w_proxy
+
+    def _finalize_(self):
+        """This is called at the end, if enable_callbacks() was invoked.
+        It activates the callbacks.
+        """
+        if self.other_refs_weak is None:
+            return
+        #
+        # If this is set, then we're in the 'gc.disable()' mode.  In that
+        # case, don't invoke the callbacks now.
+        if self.space.user_del_action.gc_disabled(self):
+            return
+        #
+        items = self.other_refs_weak.items()
+        self.other_refs_weak = None
+        for i in range(len(items)-1, -1, -1):
+            w_ref = items[i]()
+            if w_ref is not None and w_ref.w_callable is not None:
+                try:
+                    w_ref.activate_callback()
+                except Exception as e:
+                    report_error(self.space, e,
+                                 "weakref callback ", w_ref.w_callable)
+
 
 # ____________________________________________________________
 
 
 class W_WeakrefBase(W_Root):
-    def __init__(w_self, space, w_obj, w_callable):
+    def __init__(self, space, w_obj, w_callable):
         assert w_callable is not space.w_None    # should be really None
-        w_self.space = space
+        self.space = space
         assert w_obj is not None
-        w_self.w_obj_weak = weakref.ref(w_obj)
-        w_self.w_callable = w_callable
+        self.w_obj_weak = weakref.ref(w_obj)
+        self.w_callable = w_callable
 
     @jit.dont_look_inside
     def dereference(self):
@@ -162,9 +171,8 @@ class W_WeakrefBase(W_Root):
     def clear(self):
         self.w_obj_weak = dead_ref
 
-    def activate_callback(w_self):
-        assert isinstance(w_self, W_WeakrefBase)
-        w_self.space.call_function(w_self.w_callable, w_self)
+    def activate_callback(self):
+        self.space.call_function(self.w_callable, self)
 
     def descr__repr__(self, space):
         w_obj = self.dereference()
@@ -181,23 +189,25 @@ class W_WeakrefBase(W_Root):
 
 
 class W_Weakref(W_WeakrefBase):
-    def __init__(w_self, space, w_obj, w_callable):
-        W_WeakrefBase.__init__(w_self, space, w_obj, w_callable)
-        w_self.w_hash = None
+    def __init__(self, space, w_obj, w_callable):
+        W_WeakrefBase.__init__(self, space, w_obj, w_callable)
+        self.w_hash = None
 
     def descr__init__weakref(self, space, w_obj, w_callable=None,
                              __args__=None):
         if __args__.arguments_w:
-            raise OperationError(space.w_TypeError, space.wrap(
-                "__init__ expected at most 2 arguments"))
+            raise oefmt(space.w_TypeError,
+                        "__init__ expected at most 2 arguments")
+        if __args__.keywords:
+            raise oefmt(space.w_TypeError,
+                        "ref() does not take keyword arguments")
 
     def descr_hash(self):
         if self.w_hash is not None:
             return self.w_hash
         w_obj = self.dereference()
         if w_obj is None:
-            raise OperationError(self.space.w_TypeError,
-                                 self.space.wrap("weak object has gone away"))
+            raise oefmt(self.space.w_TypeError, "weak object has gone away")
         self.w_hash = self.space.hash(w_obj)
         return self.w_hash
 
@@ -228,33 +238,16 @@ def getlifeline(space, w_obj):
         w_obj.setweakref(space, lifeline)
     return lifeline
 
-def getlifelinewithcallbacks(space, w_obj):
-    lifeline = w_obj.getweakref()
-    if not isinstance(lifeline, WeakrefLifelineWithCallbacks):  # or None
-        oldlifeline = lifeline
-        lifeline = WeakrefLifelineWithCallbacks(space, oldlifeline)
-        w_obj.setweakref(space, lifeline)
-    return lifeline
-
-
-def get_or_make_weakref(space, w_subtype, w_obj):
-    return getlifeline(space, w_obj).get_or_make_weakref(w_subtype, w_obj)
-
-
-def make_weakref_with_callback(space, w_subtype, w_obj, w_callable):
-    lifeline = getlifelinewithcallbacks(space, w_obj)
-    return lifeline.make_weakref_with_callback(w_subtype, w_obj, w_callable)
-
 
 def descr__new__weakref(space, w_subtype, w_obj, w_callable=None,
                         __args__=None):
     if __args__.arguments_w:
-        raise OperationError(space.w_TypeError, space.wrap(
-            "__new__ expected at most 2 arguments"))
+        raise oefmt(space.w_TypeError, "__new__ expected at most 2 arguments")
+    lifeline = getlifeline(space, w_obj)
     if space.is_none(w_callable):
-        return get_or_make_weakref(space, w_subtype, w_obj)
+        return lifeline.get_or_make_weakref(w_subtype, w_obj)
     else:
-        return make_weakref_with_callback(space, w_subtype, w_obj, w_callable)
+        return lifeline.make_weakref_with_callback(w_subtype, w_obj, w_callable)
 
 W_Weakref.typedef = TypeDef("weakref",
     __doc__ = """A weak reference to an object 'obj'.  A 'callback' can be given,
@@ -302,8 +295,7 @@ def getweakrefs(space, w_obj):
 
 class W_Proxy(W_WeakrefBase):
     def descr__hash__(self, space):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("unhashable type"))
+        raise oefmt(space.w_TypeError, "unhashable type")
 
 class W_CallableProxy(W_Proxy):
     def descr__call__(self, space, __args__):
@@ -311,33 +303,22 @@ class W_CallableProxy(W_Proxy):
         return space.call_args(w_obj, __args__)
 
 
-def get_or_make_proxy(space, w_obj):
-    return getlifeline(space, w_obj).get_or_make_proxy(w_obj)
-
-
-def make_proxy_with_callback(space, w_obj, w_callable):
-    lifeline = getlifelinewithcallbacks(space, w_obj)
-    return lifeline.make_proxy_with_callback(w_obj, w_callable)
-
-
 def proxy(space, w_obj, w_callable=None):
     """Create a proxy object that weakly references 'obj'.
 'callback', if given, is called with the proxy as an argument when 'obj'
 is about to be finalized."""
+    lifeline = getlifeline(space, w_obj)
     if space.is_none(w_callable):
-        return get_or_make_proxy(space, w_obj)
+        return lifeline.get_or_make_proxy(w_obj)
     else:
-        return make_proxy_with_callback(space, w_obj, w_callable)
+        return lifeline.make_proxy_with_callback(w_obj, w_callable)
 
 def descr__new__proxy(space, w_subtype, w_obj, w_callable=None):
-    raise OperationError(
-        space.w_TypeError,
-        space.wrap("cannot create 'weakproxy' instances"))
+    raise oefmt(space.w_TypeError, "cannot create 'weakproxy' instances")
 
 def descr__new__callableproxy(space, w_subtype, w_obj, w_callable=None):
-    raise OperationError(
-        space.w_TypeError,
-        space.wrap("cannot create 'weakcallableproxy' instances"))
+    raise oefmt(space.w_TypeError,
+                "cannot create 'weakcallableproxy' instances")
 
 
 def force(space, proxy):
@@ -345,14 +326,13 @@ def force(space, proxy):
         return proxy
     w_obj = proxy.dereference()
     if w_obj is None:
-        raise OperationError(
-            space.w_ReferenceError,
-            space.wrap("weakly referenced object no longer exists"))
+        raise oefmt(space.w_ReferenceError,
+                    "weakly referenced object no longer exists")
     return w_obj
 
 proxy_typedef_dict = {}
 callable_proxy_typedef_dict = {}
-special_ops = {'repr': True, 'userdel': True, 'hash': True}
+special_ops = {'repr': True, 'hash': True}
 
 for opname, _, arity, special_methods in ObjSpace.MethodTable:
     if opname in special_ops or not special_methods:

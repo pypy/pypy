@@ -1,6 +1,5 @@
 import py
 from pypy.config import pypyoption, makerestdoc
-from pypy.doc.config.confrest import all_optiondescrs
 from rpython.config import translationoption, config
 
 all_optiondescrs = [pypyoption.pypy_optiondescription,

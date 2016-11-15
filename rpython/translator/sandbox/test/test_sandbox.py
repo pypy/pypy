@@ -2,29 +2,51 @@ import py
 import sys, os, time
 import struct
 import subprocess
+import signal
 
 from rpython.rtyper.lltypesystem import rffi
 from rpython.translator.interactive import Translation
 from rpython.translator.sandbox.sandlib import read_message, write_message
 from rpython.translator.sandbox.sandlib import write_exception
 
+if hasattr(signal, 'alarm'):
+    _orig_read_message = read_message
+
+    def _timed_out(*args):
+        raise EOFError("timed out waiting for data")
+
+    def read_message(f):
+        signal.signal(signal.SIGALRM, _timed_out)
+        signal.alarm(20)
+        try:
+            return _orig_read_message(f)
+        finally:
+            signal.alarm(0)
+            signal.signal(signal.SIGALRM, signal.SIG_DFL)
+
 def expect(f, g, fnname, args, result, resulttype=None):
-    msg = read_message(f, timeout=10.0)
+    msg = read_message(f)
     assert msg == fnname
-    msg = read_message(f, timeout=10.0)
+    msg = read_message(f)
     assert msg == args
+    assert [type(x) for x in msg] == [type(x) for x in args]
     if isinstance(result, Exception):
         write_exception(g, result)
     else:
         write_message(g, 0)
         write_message(g, result, resulttype)
-        g.flush()
+    g.flush()
 
 def compile(f, gc='ref'):
     t = Translation(f, backend='c', sandbox=True, gc=gc,
                     check_str_without_nul=True)
     return str(t.compile())
 
+def run_in_subprocess(exe):
+    popen = subprocess.Popen(exe, stdin=subprocess.PIPE,
+                             stdout=subprocess.PIPE,
+                             stderr=subprocess.STDOUT)
+    return popen.stdin, popen.stdout
 
 def test_open_dup():
     def entry_point(argv):
@@ -35,9 +57,9 @@ def test_open_dup():
         return 0
 
     exe = compile(entry_point)
-    g, f = os.popen2(exe, "t", 0)
+    g, f = run_in_subprocess(exe)
     expect(f, g, "ll_os.ll_os_open", ("/tmp/foobar", os.O_RDONLY, 0777), 77)
-    expect(f, g, "ll_os.ll_os_dup",  (77,), 78)
+    expect(f, g, "ll_os.ll_os_dup",  (77, True), 78)
     g.close()
     tail = f.read()
     f.close()
@@ -55,7 +77,7 @@ def test_read_write():
         return 0
 
     exe = compile(entry_point)
-    g, f = os.popen2(exe, "t", 0)
+    g, f = run_in_subprocess(exe)
     expect(f, g, "ll_os.ll_os_open",  ("/tmp/foobar", os.O_RDONLY, 0777), 77)
     expect(f, g, "ll_os.ll_os_read",  (77, 123), "he\x00llo")
     expect(f, g, "ll_os.ll_os_write", (77, "world\x00!\x00"), 42)
@@ -72,8 +94,8 @@ def test_dup2_access():
         return 1 - y
 
     exe = compile(entry_point)
-    g, f = os.popen2(exe, "t", 0)
-    expect(f, g, "ll_os.ll_os_dup2",   (34, 56), None)
+    g, f = run_in_subprocess(exe)
+    expect(f, g, "ll_os.ll_os_dup2",   (34, 56, True), None)
     expect(f, g, "ll_os.ll_os_access", ("spam", 77), True)
     g.close()
     tail = f.read()
@@ -85,13 +107,16 @@ def test_stat_ftruncate():
     from rpython.rlib.rarithmetic import r_longlong
     r0x12380000007 = r_longlong(0x12380000007)
 
+    if not hasattr(os, 'ftruncate'):
+        py.test.skip("posix only")
+
     def entry_point(argv):
         st = os.stat("somewhere")
         os.ftruncate(st.st_mode, st.st_size)  # nonsense, just to see outside
         return 0
 
     exe = compile(entry_point)
-    g, f = os.popen2(exe, "t", 0)
+    g, f = run_in_subprocess(exe)
     st = os.stat_result((55, 0, 0, 0, 0, 0, 0x12380000007, 0, 0, 0))
     expect(f, g, "ll_os.ll_os_stat", ("somewhere",), st,
            resulttype = RESULTTYPE_STATRESULT)
@@ -108,9 +133,9 @@ def test_time():
         return 0
 
     exe = compile(entry_point)
-    g, f = os.popen2(exe, "t", 0)
+    g, f = run_in_subprocess(exe)
     expect(f, g, "ll_time.ll_time_time", (), 3.141592)
-    expect(f, g, "ll_os.ll_os_dup", (3141,), 3)
+    expect(f, g, "ll_os.ll_os_dup", (3141, True), 3)
     g.close()
     tail = f.read()
     f.close()
@@ -123,9 +148,9 @@ def test_getcwd():
         return 0
 
     exe = compile(entry_point)
-    g, f = os.popen2(exe, "t", 0)
+    g, f = run_in_subprocess(exe)
     expect(f, g, "ll_os.ll_os_getcwd", (), "/tmp/foo/bar")
-    expect(f, g, "ll_os.ll_os_dup", (len("/tmp/foo/bar"),), 3)
+    expect(f, g, "ll_os.ll_os_dup", (len("/tmp/foo/bar"), True), 3)
     g.close()
     tail = f.read()
     f.close()
@@ -135,12 +160,12 @@ def test_oserror():
     def entry_point(argv):
         try:
             os.stat("somewhere")
-        except OSError, e:
+        except OSError as e:
             os.close(e.errno)    # nonsense, just to see outside
         return 0
 
     exe = compile(entry_point)
-    g, f = os.popen2(exe, "t", 0)
+    g, f = run_in_subprocess(exe)
     expect(f, g, "ll_os.ll_os_stat", ("somewhere",), OSError(6321, "egg"))
     expect(f, g, "ll_os.ll_os_close", (6321,), None)
     g.close()
@@ -185,14 +210,11 @@ def test_segfault_1():
         return int(x.m)
 
     exe = compile(entry_point)
-    g, f, e = os.popen3(exe, "t", 0)
+    g, f = run_in_subprocess(exe)
     g.close()
     tail = f.read()
     f.close()
-    assert tail == ""
-    errors = e.read()
-    e.close()
-    assert 'Invalid RPython operation' in errors
+    assert 'Invalid RPython operation' in tail
 
 def test_segfault_2():
     py.test.skip("hum, this is one example, but we need to be very careful")
@@ -270,6 +292,21 @@ def test_unsafe_mmap():
     assert tail == ""
     rescode = pipe.wait()
     assert rescode == 0
+
+def test_environ_items():
+    def entry_point(argv):
+        print os.environ.items()
+        return 0
+
+    exe = compile(entry_point)
+    g, f = run_in_subprocess(exe)
+    expect(f, g, "ll_os.ll_os_envitems", (), [])
+    expect(f, g, "ll_os.ll_os_write", (1, "[]\n"), 3)
+    g.close()
+    tail = f.read()
+    f.close()
+    assert tail == ""
+
 
 class TestPrintedResults:
 

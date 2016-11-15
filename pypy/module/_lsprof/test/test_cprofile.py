@@ -1,6 +1,6 @@
 class AppTestCProfile(object):
     spaceconfig = {
-        "usemodules": ['_lsprof', 'rctime'],
+        "usemodules": ['_lsprof', 'time'],
     }
 
     def setup_class(cls):
@@ -10,6 +10,48 @@ class AppTestCProfile(object):
     def test_repr(self):
         import _lsprof
         assert repr(_lsprof.Profiler) == "<type '_lsprof.Profiler'>"
+
+    def test_builtins(self):
+        import _lsprof
+        prof = _lsprof.Profiler()
+        lst = []
+        prof.enable()
+        lst.append(len(lst))
+        prof.disable()
+        stats = prof.getstats()
+        expected = (
+            "<len>",
+            "<method 'append' of 'list' objects>",
+            "<method 'disable' of '_lsprof.Profiler' objects>",
+        )
+        for entry in stats:
+            assert entry.code in expected
+
+    def test_builtins_callers(self):
+        import _lsprof
+        prof = _lsprof.Profiler(subcalls=True)
+        lst = []
+        def f1():
+            lst.append(len(lst))
+        prof.enable(subcalls=True)
+        f1()
+        prof.disable()
+        stats = prof.getstats()
+        expected = (
+            "<len>",
+            "<method 'append' of 'list' objects>",
+        )
+        by_id = set()
+        for entry in stats:
+            if entry.code == f1.__code__:
+                assert len(entry.calls) == 2
+                for subentry in entry.calls:
+                    assert subentry.code in expected
+                    by_id.add(id(subentry.code))
+            elif entry.code in expected:
+                by_id.add(id(entry.code))
+        #  :-(  cProfile.py relies on the id() of the strings...
+        assert len(by_id) == len(expected)
 
     def test_direct(self):
         import _lsprof
@@ -37,10 +79,8 @@ class AppTestCProfile(object):
         stats = prof.getstats()
         entries = {}
         for entry in stats:
-            if not hasattr(entry.code, 'co_name'):
-                print entry.code
-            else:
-                entries[entry.code.co_name] = entry
+            assert hasattr(entry.code, 'co_name')
+            entries[entry.code.co_name] = entry
         efoo = entries['foo']
         assert efoo.callcount == 2
         assert efoo.reccallcount == 1
@@ -104,8 +144,8 @@ class AppTestCProfile(object):
         entries = {}
         for entry in stats:
             entries[entry.code] = entry
-        efoo = entries[foo.func_code]
-        ebar = entries[bar.func_code]
+        efoo = entries[foo.__code__]
+        ebar = entries[bar.__code__]
         assert 0.9 < efoo.totaltime < 2.9
         # --- cannot test .inlinetime, because it does not include
         # --- the time spent doing the call to time.time()
@@ -179,12 +219,12 @@ class AppTestCProfile(object):
                             lines.remove(line)
                             break
                     else:
-                        print 'NOT FOUND:', pattern.rstrip('\n')
-                        print '--- GOT ---'
-                        print got
-                        print
-                        print '--- EXPECTED ---'
-                        print expected
+                        print('NOT FOUND: %s' % pattern.rstrip('\n'))
+                        print('--- GOT ---')
+                        print(got)
+                        print('')
+                        print('--- EXPECTED ---')
+                        print(expected)
                         assert False
                 assert not lines
         finally:

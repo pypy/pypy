@@ -1,12 +1,13 @@
-=================================================
-Papers, talks and related projects 
-=================================================
+Papers, talks and related projects
+==================================
 
 Papers
-----------------------------------
+------
 
 *Articles about PyPy published so far, most recent first:* (bibtex_ file)
 
+* `A Way Forward in Parallelising Dynamic Languages`_,
+  R. Meier, A. Rigo
 
 * `Runtime Feedback in a Meta-Tracing JIT for Efficient Dynamic Languages`_,
   C.F. Bolz, A. Cuni, M. Fijalkowski, M. Leuschel, S. Pedroni, A. Rigo
@@ -43,7 +44,7 @@ Papers
 * `Automatic generation of JIT compilers for dynamic languages in .NET`_,
   D. Ancona, C.F. Bolz, A. Cuni and A. Rigo
 
-* `EU Reports`_: a list of all the reports we produced until 2007 for the
+* :doc:`EU Reports <index-report>`: a list of all the reports we produced until 2007 for the
   European Union sponsored part of PyPy.  Notably, it includes:
 
 * `Core Object Optimization Results`_, PyPy Team
@@ -71,36 +72,42 @@ Papers
 
 
 .. _bibtex: https://bitbucket.org/pypy/extradoc/raw/tip/talk/bibtex.bib
-.. _`Runtime Feedback in a Meta-Tracing JIT for Efficient Dynamic Languages`: https://bitbucket.org/pypy/extradoc/raw/extradoc/talk/icooolps2011/jit-hints.pdf
-.. _`Allocation Removal by Partial Evaluation in a Tracing JIT`: https://bitbucket.org/pypy/extradoc/raw/extradoc/talk/pepm2011/bolz-allocation-removal.pdf
-.. _`Towards a Jitting VM for Prolog Execution`: http://www.stups.uni-duesseldorf.de/mediawiki/images/a/a7/Pub-BoLeSch2010.pdf
-.. _`High performance implementation of Python for CLI/.NET with JIT compiler generation for dynamic languages`: http://buildbot.pypy.org/misc/antocuni-thesis.pdf
-.. _`How to *not* write Virtual Machines for Dynamic Languages`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/dyla2007/dyla.pdf
+.. _A Way Forward in Parallelising Dynamic Languages: https://bitbucket.org/pypy/extradoc/raw/extradoc/talk/icooolps2014/position-paper.pdf
+.. _Runtime Feedback in a Meta-Tracing JIT for Efficient Dynamic Languages: https://bitbucket.org/pypy/extradoc/raw/extradoc/talk/icooolps2011/jit-hints.pdf
+.. _Allocation Removal by Partial Evaluation in a Tracing JIT: https://bitbucket.org/pypy/extradoc/raw/extradoc/talk/pepm2011/bolz-allocation-removal.pdf
+.. _Towards a Jitting VM for Prolog Execution: http://www.stups.uni-duesseldorf.de/mediawiki/images/a/a7/Pub-BoLeSch2010.pdf
+.. _High performance implementation of Python for CLI/.NET with JIT compiler generation for dynamic languages: http://buildbot.pypy.org/misc/antocuni-thesis.pdf
+.. _How to *not* write Virtual Machines for Dynamic Languages: https://bitbucket.org/pypy/extradoc/raw/tip/talk/dyla2007/dyla.pdf
 .. _`Tracing the Meta-Level: PyPy's Tracing JIT Compiler`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/icooolps2009/bolz-tracing-jit.pdf
 .. _`Faster than C#: Efficient Implementation of Dynamic Languages on .NET`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/icooolps2009-dotnet/cli-jit.pdf
-.. _`Automatic JIT Compiler Generation with Runtime Partial Evaluation`: http://wwwold.cobra.cs.uni-duesseldorf.de/thesis/final-master.pdf
+.. _Automatic JIT Compiler Generation with Runtime Partial Evaluation: http://stups.hhu.de/mediawiki/images/b/b9/Master_bolz.pdf
 .. _`RPython: A Step towards Reconciling Dynamically and Statically Typed OO Languages`: http://www.disi.unige.it/person/AnconaD/papers/DynamicLanguages_abstracts.html#AACM-DLS07
-.. _`EU Reports`: index-report.html
-.. _`Hardware Transactional Memory Support for Lightweight Dynamic Language Evolution`: http://sabi.net/nriley/pubs/dls6-riley.pdf
+.. _EU Reports: index-report.html
+.. _Hardware Transactional Memory Support for Lightweight Dynamic Language Evolution: http://sabi.net/nriley/pubs/dls6-riley.pdf
 .. _`PyGirl: Generating Whole-System VMs from High-Level Prototypes using PyPy`: http://scg.unibe.ch/archive/papers/Brun09cPyGirl.pdf
-.. _`Representation-Based Just-in-Time Specialization and the Psyco Prototype for Python`: http://psyco.sourceforge.net/psyco-pepm-a.ps.gz
-.. _`Back to the Future in One Week -- Implementing a Smalltalk VM in PyPy`: http://dx.doi.org/10.1007/978-3-540-89275-5_7
-.. _`Automatic generation of JIT compilers for dynamic languages in .NET`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ecoop2009/main.pdf
-.. _`Core Object Optimization Results`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D06.1_Core_Optimizations-2007-04-30.pdf
-.. _`Compiling Dynamic Language Implementations`: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D05.1_Publish_on_translating_a_very-high-level_description.pdf
+.. _Representation-Based Just-in-Time Specialization and the Psyco Prototype for Python: http://psyco.sourceforge.net/psyco-pepm-a.ps.gz
+.. _Back to the Future in One Week -- Implementing a Smalltalk VM in PyPy: http://dx.doi.org/10.1007/978-3-540-89275-5_7
+.. _Automatic generation of JIT compilers for dynamic languages in .NET: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ecoop2009/main.pdf
+.. _Core Object Optimization Results: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D06.1_Core_Optimizations-2007-04-30.pdf
+.. _Compiling Dynamic Language Implementations: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D05.1_Publish_on_translating_a_very-high-level_description.pdf
 
 
-Talks and Presentations 
-----------------------------------
+Talks and Presentations
+-----------------------
+
+*This part is no longer updated.*  The complete list is here__ (in
+alphabetical order).
+
+.. __: https://bitbucket.org/pypy/extradoc/src/extradoc/talk/
 
 Talks in 2010
-+++++++++++++
+~~~~~~~~~~~~~
 
 * `PyCon 2010`_.
 
 
 Talks in 2009
-+++++++++++++
+~~~~~~~~~~~~~
 
 * `RuPy 2009`_.
 
@@ -115,7 +122,7 @@ Talks in 2009
 
 
 Talks in 2008
-+++++++++++++
+~~~~~~~~~~~~~
 
 * Talk `at PyCon Poland 08`_.  In Polish.
 
@@ -143,7 +150,7 @@ Talks in 2008
 
 
 Talks in 2007
-+++++++++++++
+~~~~~~~~~~~~~
 
 * Our "road show" tour of the United States: presentations `at IBM`__
   and `at Google`__.
@@ -180,7 +187,7 @@ Talks in 2007
 
 
 Talks in 2006
-+++++++++++++
+~~~~~~~~~~~~~
 
 * `Warsaw 2006`_.
 
@@ -188,21 +195,21 @@ Talks in 2006
 
 * `PyPy's VM Approach`_ talk, given by Armin Rigo at the Dynamic Languages
   Symposium at OOPSLA'06 (Portland OR), and by Samuele Pedroni at Intel
-  Hillsboro (OR)  (October). The talk presents the paper 
-  `PyPy's approach to virtual machine construction`_ accepted for 
+  Hillsboro (OR)  (October). The talk presents the paper
+  `PyPy's approach to virtual machine construction`_ accepted for
   the symposium.
 
 * `PyPy Status`_ talk, given by Samuele Pedroni at the Vancouner
-  Python Workshop 2006 (August). 
+  Python Workshop 2006 (August).
 
-* `Trouble in Paradise`_: the Open Source Project PyPy, 
+* `Trouble in Paradise`_: the Open Source Project PyPy,
   EU-funding and Agile Practices talk, by Bea During at
   Agile 2006 (experience report).
 
 *  `Sprint Driven Development`_, Agile Methodologies in a
    Distributed Open Source Project (PyPy) talk, by Bea During
    at XP 2006 (experience report).
-      
+
 * `Kill -1`_: process refactoring in the PyPy project talk, by Bea During
   at the Agile track/Europython 2006.
 
@@ -216,19 +223,19 @@ Talks in 2006
   stating the status of the project.
 
 * Very similar to the EuroPython intro talk (but somewhat older) is the
-  `PyPy intro`_ talk, given by Michael Hudson at ACCU 2006 (April) 
+  `PyPy intro`_ talk, given by Michael Hudson at ACCU 2006 (April)
 
 * `PyPy development method`_ talk, given by Bea During and
-  Holger Krekel at Pycon2006 
+  Holger Krekel at Pycon2006
+
 
 Talks in 2005
-+++++++++++++
+~~~~~~~~~~~~~
 
+* `PyPy - the new Python implementation on the block`_,
+  given by Carl Friedrich Bolz and Holger Krekel at the
+  22nd Chaos Communication Conference in Berlin, Dec. 2005.
 
-* `PyPy - the new Python implementation on the block`_, 
-  given by Carl Friedrich Bolz and Holger Krekel at the 
-  22nd Chaos Communication Conference in Berlin, Dec. 2005. 
-  
 * `Open Source, EU-Funding and Agile Methods`_, given by Holger Krekel
   and Bea During at the 22nd Chaos Communication Conference in Berlin, Dec. 2005
 
@@ -238,85 +245,88 @@ Talks in 2005
 
 * `PyCon 2005`_ animated slices, mostly reporting on the translator status.
 
-* `py lib slides`_ from the py lib talk at PyCon 2005 
-  (py is used as a support/testing library for PyPy). 
+* `py lib slides`_ from the py lib talk at PyCon 2005
+  (py is used as a support/testing library for PyPy).
+
 
 Talks in 2004
-+++++++++++++
+~~~~~~~~~~~~~
 
 * `EU funding for FOSS`_ talk on Chaos Communication
-  Conference in Berlin, Dec 2004. 
+  Conference in Berlin, Dec 2004.
+
 
 Talks in 2003
-+++++++++++++
+~~~~~~~~~~~~~
 
-* oscon2003-paper_ an early paper presented at Oscon 2003 describing 
-  what the PyPy project is about and why you should care. 
+* oscon2003-paper_ an early paper presented at Oscon 2003 describing
+  what the PyPy project is about and why you should care.
 
 * `Architecture introduction slides`_ a mostly up-to-date
-  introduction for the Amsterdam PyPy-Sprint Dec 2003. 
+  introduction for the Amsterdam PyPy-Sprint Dec 2003.
 
-.. _`PyCon 2010`: http://morepypy.blogspot.com/2010/02/pycon-2010-report.html
-.. _`RuPy 2009`: http://morepypy.blogspot.com/2009/11/pypy-on-rupy-2009.html
-.. _`PyPy 3000`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ep2006/pypy3000.txt
-.. _`What can PyPy do for you`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ep2006/usecases-slides.txt
-.. _`PyPy introduction at EuroPython 2006`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ep2006/intro.pdf
-.. _`PyPy - the new Python implementation on the block`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/22c3/hpk-tech.txt
-.. _`PyPy development method`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pycon2006/method_talk.txt
-.. _`PyPy intro`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/accu2006/accu-2006.pdf 
+
+.. _PyCon 2010: http://morepypy.blogspot.com/2010/02/pycon-2010-report.html
+.. _RuPy 2009: http://morepypy.blogspot.com/2009/11/pypy-on-rupy-2009.html
+.. _PyPy 3000: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ep2006/pypy3000.txt
+.. _What can PyPy do for you: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ep2006/usecases-slides.txt
+.. _PyPy introduction at EuroPython 2006: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ep2006/intro.pdf
+.. _PyPy - the new Python implementation on the block: https://bitbucket.org/pypy/extradoc/raw/tip/talk/22c3/hpk-tech.txt
+.. _PyPy development method: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pycon2006/method_talk.txt
+.. _PyPy intro: https://bitbucket.org/pypy/extradoc/raw/tip/talk/accu2006/accu-2006.pdf
 .. _oscon2003-paper: https://bitbucket.org/pypy/extradoc/raw/tip/talk/oscon2003-paper.txt
-.. _`Architecture introduction slides`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/amsterdam-sprint-intro.pdf
-.. _`EU funding for FOSS`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/2004-21C3-pypy-EU-hpk.pdf
-.. _`py lib slides`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/2005-pycon-py.pdf
-.. _`PyCon 2005`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pypy-talk-pycon2005/README.txt
-.. _`Trouble in Paradise`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/agile2006/during-oss-sprints_talk.pdf
-.. _`Sprint Driven Development`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/xp2006/during-xp2006-sprints.pdf
-.. _`Kill -1`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ep2006/kill_1_agiletalk.pdf
-.. _`Open Source, EU-Funding and Agile Methods`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/22c3/agility.pdf
-.. _`PyPy Status`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/vancouver/
-.. _`Sprinting the PyPy way`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ep2005/pypy_sprinttalk_ep2005bd.pdf
-.. _`PyPy's VM Approach`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/dls2006/
-.. _`PyPy's approach to virtual machine construction`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/dls2006/pypy-vm-construction.pdf
-.. _`EuroPython talks 2009`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ep2009/
-.. _`PyCon talks 2009`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pycon2009/
-.. _`Wroclaw (Poland) presentation`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/wroclaw2009/talk.pdf
-.. _`PyPy talk at OpenBossa 09`: http://morepypy.blogspot.com/2009/03/pypy-talk-at-openbossa-09.html
-.. _`at SFI 08`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/sfi2008/
-.. _`at PyCon Poland 08`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pyconpl-2008/talk.pdf
-.. _`The PyPy Project and You`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/osdc2008/osdc08.pdf
-.. _`EuroPython talks 2008`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ep2008/
-.. _`Maemo summit`: http://morepypy.blogspot.com/2008/09/pypypython-at-maemo-summit.html
-.. _`PyCon UK 2008 - JIT`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pycon-uk-2008/jit/pypy-vm.pdf
-.. _`PyCon UK 2008 - Status`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pycon-uk-2008/status/status.pdf
-.. _`PyCon Italy 2008`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pycon-italy-2008/pypy-vm.pdf
-.. _`RuPy 2008`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/rupy2008/
-.. _`RuPy 2007`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/rupy2007/
-.. _`PyCon 2008`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pycon2008/
-.. _`ESUG 2007`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/esug2007/
-.. _`Bern (Switzerland) 2007`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/bern2007/
-.. _`PyCon UK 2007`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pyconuk07/
+.. _Architecture introduction slides: https://bitbucket.org/pypy/extradoc/raw/tip/talk/amsterdam-sprint-intro.pdf
+.. _EU funding for FOSS: https://bitbucket.org/pypy/extradoc/raw/tip/talk/2004-21C3-pypy-EU-hpk.pdf
+.. _py lib slides: https://bitbucket.org/pypy/extradoc/raw/tip/talk/2005-pycon-py.pdf
+.. _PyCon 2005: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pypy-talk-pycon2005/README.txt
+.. _Trouble in Paradise: https://bitbucket.org/pypy/extradoc/raw/tip/talk/agile2006/during-oss-sprints_talk.pdf
+.. _Sprint Driven Development: https://bitbucket.org/pypy/extradoc/raw/tip/talk/xp2006/during-xp2006-sprints.pdf
+.. _Kill -1: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ep2006/kill_1_agiletalk.pdf
+.. _Open Source, EU-Funding and Agile Methods: https://bitbucket.org/pypy/extradoc/raw/tip/talk/22c3/agility.pdf
+.. _PyPy Status: https://bitbucket.org/pypy/extradoc/raw/tip/talk/vancouver/
+.. _Sprinting the PyPy way: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ep2005/pypy_sprinttalk_ep2005bd.pdf
+.. _PyPy's VM Approach: https://bitbucket.org/pypy/extradoc/raw/tip/talk/dls2006/
+.. _PyPy's approach to virtual machine construction: https://bitbucket.org/pypy/extradoc/raw/tip/talk/dls2006/pypy-vm-construction.pdf
+.. _EuroPython talks 2009: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ep2009/
+.. _PyCon talks 2009: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pycon2009/
+.. _Wroclaw (Poland) presentation: https://bitbucket.org/pypy/extradoc/raw/tip/talk/wroclaw2009/talk.pdf
+.. _PyPy talk at OpenBossa 09: http://morepypy.blogspot.com/2009/03/pypy-talk-at-openbossa-09.html
+.. _at SFI 08: https://bitbucket.org/pypy/extradoc/raw/tip/talk/sfi2008/
+.. _at PyCon Poland 08: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pyconpl-2008/talk.pdf
+.. _The PyPy Project and You: https://bitbucket.org/pypy/extradoc/raw/tip/talk/osdc2008/osdc08.pdf
+.. _EuroPython talks 2008: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ep2008/
+.. _Maemo summit: http://morepypy.blogspot.com/2008/09/pypypython-at-maemo-summit.html
+.. _PyCon UK 2008 - JIT: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pycon-uk-2008/jit/pypy-vm.pdf
+.. _PyCon UK 2008 - Status: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pycon-uk-2008/status/status.pdf
+.. _PyCon Italy 2008: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pycon-italy-2008/pypy-vm.pdf
+.. _RuPy 2008: https://bitbucket.org/pypy/extradoc/raw/tip/talk/rupy2008/
+.. _RuPy 2007: https://bitbucket.org/pypy/extradoc/raw/tip/talk/rupy2007/
+.. _PyCon 2008: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pycon2008/
+.. _ESUG 2007: https://bitbucket.org/pypy/extradoc/raw/tip/talk/esug2007/
+.. _Bern (Switzerland) 2007: https://bitbucket.org/pypy/extradoc/raw/tip/talk/bern2007/
+.. _PyCon UK 2007: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pyconuk07/
 .. _Dresden: https://bitbucket.org/pypy/extradoc/raw/tip/talk/dresden/
-.. _`EuroPython 2007`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ep2007/
-.. _`Bad Honnef 2007`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/badhonnef2007/talk.pdf
-.. _`Dzug talk`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/dzug2007/dzug2007.txt
-.. _`PyCon 2007`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pycon2007/
-.. _`PyCon - Uno 2007`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pycon-uno2007/pycon07.pdf
-.. _`Warsaw 2007`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/warsaw2007/
-.. _`Warsaw 2006`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/warsaw2006/
-.. _`Tokyo 2006`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/tokyo/
+.. _EuroPython 2007: https://bitbucket.org/pypy/extradoc/raw/tip/talk/ep2007/
+.. _Bad Honnef 2007: https://bitbucket.org/pypy/extradoc/raw/tip/talk/badhonnef2007/talk.pdf
+.. _Dzug talk: https://bitbucket.org/pypy/extradoc/raw/tip/talk/dzug2007/dzug2007.txt
+.. _PyCon 2007: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pycon2007/
+.. _PyCon - Uno 2007: https://bitbucket.org/pypy/extradoc/raw/tip/talk/pycon-uno2007/pycon07.pdf
+.. _Warsaw 2007: https://bitbucket.org/pypy/extradoc/raw/tip/talk/warsaw2007/
+.. _Warsaw 2006: https://bitbucket.org/pypy/extradoc/raw/tip/talk/warsaw2006/
+.. _Tokyo 2006: https://bitbucket.org/pypy/extradoc/raw/tip/talk/tokyo/
 
 
-Related projects 
-----------------------------------
+Related projects
+----------------
 
 * TraceMonkey_ is using a tracing JIT, similar to the tracing
   JITs generated by our (in-progress) JIT generator.
 
 * Dynamo_ showcased `transparent dynamic optimization`_
-  generating an optimized version of a binary program at runtime. 
+  generating an optimized version of a binary program at runtime.
 
 * Tailoring Dynamo_ to interpreter implementations and challenges -
-  Gregory Sullivan et. al., 
+  Gregory Sullivan et. al.,
   `Dynamic Native Optimization of Native Interpreters`_. IVME 03. 2003.
 
 * Stackless_ is a recursion-free version of Python.
@@ -326,20 +336,20 @@ Related projects
 * JikesRVM_ a research dynamic optimizing Java VM written in Java.
 
 * `Squeak`_ is a Smalltalk-80 implementation written in
-  Smalltalk, being used in `Croquet`_, an experimental 
-  distributed multi-user/multi-programmer virtual world. 
+  Smalltalk, being used in `Croquet`_, an experimental
+  distributed multi-user/multi-programmer virtual world.
 
-* `LLVM`_ the low level virtual machine project. 
+* `LLVM`_ the low level virtual machine project.
 
-* `CLR under the hood`_ (powerpoint, works with open office) gives 
-  a good introduction to the underlying models of Microsoft's Common 
-  Language Runtime, the Intermediate Language, JIT and GC issues. 
-  
+* `CLR under the hood`_ (powerpoint, works with open office) gives
+  a good introduction to the underlying models of Microsoft's Common
+  Language Runtime, the Intermediate Language, JIT and GC issues.
+
 * spyweb translates Python programs to Scheme. (site unavailable)
 
 * Jython_ is a Python implementation in Java.
 
-* IronPython_ a new Python implementation compiling Python into 
+* IronPython_ a new Python implementation compiling Python into
   Microsoft's Common Language Runtime (CLR) Intermediate Language (IL).
 
 * Tunes_ is not entirely unrelated.  The web site changed a lot, but a
@@ -347,18 +357,17 @@ Related projects
   through it is a lot of fun.
 
 .. _TraceMonkey: https://wiki.mozilla.org/JavaScript:TraceMonkey
-.. _`CLR under the hood`: http://download.microsoft.com/download/2/4/d/24dfac0e-fec7-4252-91b9-fb2310603f14/CLRUnderTheHood.BradA.ppt
-.. _Stackless: http://stackless.com 
+.. _CLR under the hood: http://download.microsoft.com/download/2/4/d/24dfac0e-fec7-4252-91b9-fb2310603f14/CLRUnderTheHood.BradA.ppt
+.. _Stackless: http://stackless.com
 .. _Psyco: http://psyco.sourceforge.net
 .. _Jython: http://www.jython.org
-.. _`Squeak`: http://www.squeak.org/
-.. _`Croquet`: http://www.opencroquet.org/
-.. _`transparent dynamic optimization`: http://www.hpl.hp.com/techreports/1999/HPL-1999-77.pdf
+.. _Squeak: http://www.squeak.org/
+.. _Croquet: http://www.opencroquet.org/
+.. _transparent dynamic optimization: http://www.hpl.hp.com/techreports/1999/HPL-1999-77.pdf
 .. _Dynamo: http://www.hpl.hp.com/techreports/1999/HPL-1999-78.pdf
-.. _testdesign: coding-guide.html#test-design
 .. _LLVM: http://llvm.org/
 .. _IronPython: http://ironpython.codeplex.com/
-.. _`Dynamic Native Optimization of Native Interpreters`: http://people.csail.mit.edu/gregs/dynamorio.html
+.. _Dynamic Native Optimization of Native Interpreters: http://people.csail.mit.edu/gregs/dynamorio.html
 .. _JikesRVM: http://jikesrvm.org/
 .. _Tunes: http://tunes.org
-.. _`old Tunes Wiki`: http://buildbot.pypy.org/misc/cliki.tunes.org/
+.. _old Tunes Wiki: http://buildbot.pypy.org/misc/cliki.tunes.org/

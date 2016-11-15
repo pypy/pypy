@@ -1,12 +1,14 @@
 from rpython.rlib.rstring import StringBuilder
+from rpython.rlib import objectmodel
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.typedef import TypeDef, interp2app
 from pypy.interpreter.typedef import interp_attrproperty_w, interp_attrproperty
 from pypy.module._csv.interp_csv import _build_dialect
 from pypy.module._csv.interp_csv import (QUOTE_MINIMAL, QUOTE_ALL,
                                          QUOTE_NONNUMERIC, QUOTE_NONE)
+from pypy.objspace.std.util import wrap_parsestringerror
 
 (START_RECORD, START_FIELD, ESCAPED_CHAR, IN_FIELD,
  IN_QUOTED_FIELD, ESCAPE_IN_QUOTED_FIELD, QUOTE_IN_QUOTED_FIELD,
@@ -24,13 +26,12 @@ class W_Reader(W_Root):
     def iter_w(self):
         return self.space.wrap(self)
 
+    @objectmodel.dont_inline
     def error(self, msg):
         space = self.space
-        msg = 'line %d: %s' % (self.line_num, msg)
         w_module = space.getbuiltinmodule('_csv')
         w_error = space.getattr(w_module, space.wrap('Error'))
-        raise OperationError(w_error, space.wrap(msg))
-    error._dont_inline_ = True
+        raise oefmt(w_error, "line %d: %s", self.line_num, msg)
 
     def add_char(self, field_builder, c):
         assert field_builder is not None
@@ -48,7 +49,6 @@ class W_Reader(W_Root):
             try:
                 ff = string_to_float(field)
             except ParseStringError as e:
-                from pypy.objspace.std.intobject import wrap_parsestringerror
                 raise wrap_parsestringerror(space, e, space.wrap(field))
             w_obj = space.wrap(ff)
         else:
@@ -66,7 +66,7 @@ class W_Reader(W_Root):
         while True:
             try:
                 w_line = space.next(self.w_iter)
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(space, space.w_StopIteration):
                     if (field_builder is not None and
                             state != START_RECORD and state != EAT_CRNL and
@@ -245,8 +245,7 @@ def csv_reader(space, w_iterator, w_dialect=None,
     return W_Reader(space, dialect, w_iter)
 
 W_Reader.typedef = TypeDef(
-        'reader',
-        __module__ = '_csv',
+        '_csv.reader',
         dialect = interp_attrproperty_w('dialect', W_Reader),
         line_num = interp_attrproperty('line_num', W_Reader),
         __iter__ = interp2app(W_Reader.iter_w),

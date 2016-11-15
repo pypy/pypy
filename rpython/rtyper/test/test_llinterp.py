@@ -2,7 +2,7 @@ from __future__ import with_statement
 import py
 import sys
 from rpython.rtyper.lltypesystem.lltype import typeOf, Void, malloc, free
-from rpython.rtyper.llinterp import LLInterpreter, LLException
+from rpython.rtyper.llinterp import LLInterpreter, LLException, log
 from rpython.rtyper.rmodel import inputconst
 from rpython.rtyper.annlowlevel import hlstr, llhelper
 from rpython.rtyper.exceptiondata import UnknownException
@@ -13,34 +13,22 @@ from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rlib.rarithmetic import r_uint, ovfcheck
 from rpython.tool import leakfinder
 from rpython.conftest import option
-
+from rpython.rtyper.rtyper import llinterp_backend
 
 # switch on logging of interp to show more info on failing tests
-
 def setup_module(mod):
-    mod.logstate = py.log._getstate()
-    py.log.setconsumer("llinterp", py.log.STDOUT)
-
+    log.output_disabled = False
 def teardown_module(mod):
-    py.log._setstate(mod.logstate)
+    log.output_disabled = True
 
-
-
-def timelog(prefix, call, *args, **kwds):
-    #import time
-    #print prefix, "...",
-    #start = time.time()
-    res = call(*args, **kwds)
-    #elapsed = time.time() - start
-    #print "%.2f secs" % (elapsed,)
-    return res
 
 def gengraph(func, argtypes=[], viewbefore='auto', policy=None,
              backendopt=False, config=None, **extraconfigopts):
     t = TranslationContext(config=config)
     t.config.set(**extraconfigopts)
     a = t.buildannotator(policy=policy)
-    timelog("annotating", a.build_types, func, argtypes, main_entry_point=True)
+    a.build_types(func, argtypes, main_entry_point=True)
+    a.validate()
     if viewbefore == 'auto':
         viewbefore = getattr(option, 'view', False)
     if viewbefore:
@@ -48,13 +36,14 @@ def gengraph(func, argtypes=[], viewbefore='auto', policy=None,
         t.view()
     global typer # we need it for find_exception
     typer = t.buildrtyper()
-    timelog("rtyper-specializing", typer.specialize)
+    typer.backend = llinterp_backend
+    typer.specialize()
     #t.view()
-    timelog("checking graphs", t.checkgraphs)
+    t.checkgraphs()
     if backendopt:
         from rpython.translator.backendopt.all import backend_optimizations
         backend_optimizations(t)
-        timelog("checking graphs", t.checkgraphs)
+        t.checkgraphs()
         if viewbefore:
             t.view()
     desc = t.annotator.bookkeeper.getdesc(func)
@@ -68,8 +57,7 @@ def clear_tcache():
     _tcache.clear()
 
 def get_interpreter(func, values, view='auto', viewbefore='auto', policy=None,
-                    type_system="lltype", backendopt=False, config=None,
-                    **extraconfigopts):
+                    backendopt=False, config=None, **extraconfigopts):
     extra_key = [(key, value) for key, value in extraconfigopts.iteritems()]
     extra_key.sort()
     extra_key = tuple(extra_key)
@@ -102,10 +90,8 @@ def get_interpreter(func, values, view='auto', viewbefore='auto', policy=None,
     return interp, graph
 
 def interpret(func, values, view='auto', viewbefore='auto', policy=None,
-              type_system="lltype", backendopt=False, config=None,
-              malloc_check=True, **kwargs):
+              backendopt=False, config=None, malloc_check=True, **kwargs):
     interp, graph = get_interpreter(func, values, view, viewbefore, policy,
-                                    type_system=type_system,
                                     backendopt=backendopt, config=config,
                                     **kwargs)
     if not malloc_check:
@@ -121,15 +107,14 @@ def interpret(func, values, view='auto', viewbefore='auto', policy=None,
     return result
 
 def interpret_raises(exc, func, values, view='auto', viewbefore='auto',
-                     policy=None, type_system="lltype",
+                     policy=None,
                      backendopt=False):
     interp, graph  = get_interpreter(func, values, view, viewbefore, policy,
-                                     type_system=type_system,
                                      backendopt=backendopt)
     info = py.test.raises(LLException, "interp.eval_graph(graph, values)")
     try:
         got = interp.find_exception(info.value)
-    except ValueError, message:
+    except ValueError as message:
         got = 'None %r' % message
     assert got is exc, "wrong exception type, expected %r got %r" % (exc, got)
 

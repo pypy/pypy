@@ -2,7 +2,7 @@ import py
 import os
 from subprocess import Popen, PIPE
 import rpython
-rpythondir = os.path.dirname(os.path.abspath(rpython.__file__))
+rpythondir = os.path.dirname(os.path.realpath(rpython.__file__))
 rpythonroot = os.path.dirname(rpythondir)
 default_retval = '?', '?'
 
@@ -10,9 +10,8 @@ def maywarn(err, repo_type='Mercurial'):
     if not err:
         return
 
-    from rpython.tool.ansi_print import ansi_log
-    log = py.log.Producer("version")
-    py.log.setconsumer("version", ansi_log)
+    from rpython.tool.ansi_print import AnsiLogger
+    log = AnsiLogger("version")
     log.WARNING('Errors getting %s information: %s' % (repo_type, err))
 
 def get_repo_version_info(hgexe=None, root=rpythonroot):
@@ -49,7 +48,7 @@ def _get_hg_version(hgexe, root):
     try:
         p = Popen([str(hgexe), 'version', '-q'],
                   stdout=PIPE, stderr=PIPE, env=env)
-    except OSError, e:
+    except OSError as e:
         maywarn(e)
         return default_retval
 
@@ -107,7 +106,7 @@ def _get_git_version(root):
             [str(gitexe), 'rev-parse', 'HEAD'],
             stdout=PIPE, stderr=PIPE, cwd=root
             )
-    except OSError, e:
+    except OSError as e:
         maywarn(e, 'Git')
         return default_retval
     if p.wait() != 0:

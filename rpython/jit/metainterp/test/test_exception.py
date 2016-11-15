@@ -2,7 +2,9 @@ import py, sys
 from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.rlib.jit import JitDriver, dont_look_inside
 from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT, intmask
+from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.jit.codewriter.policy import StopAtXPolicy
+from rpython.rtyper.lltypesystem import lltype, rffi
 
 
 class ExceptionTests:
@@ -15,7 +17,7 @@ class ExceptionTests:
         def f(n):
             try:
                 return g(n)
-            except MyError, e:
+            except MyError as e:
                 return e.n + 10
         res = self.interp_operations(f, [9])
         assert res == 8
@@ -43,6 +45,33 @@ class ExceptionTests:
         def check(n):
             if n % 2:
                 raise ValueError
+
+        def f(n):
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n)
+                myjitdriver.jit_merge_point(n=n)
+                try:
+                    check(n)
+                    n -= 1
+                except ValueError:
+                    n -= 3
+            return n
+
+        res = self.meta_interp(f, [20], policy=StopAtXPolicy(check))
+        assert res == f(20)
+        res = self.meta_interp(f, [21], policy=StopAtXPolicy(check))
+        assert res == f(21)
+
+    def test_bridge_from_guard_exception_may_force(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n'])
+
+        c_time = rffi.llexternal("time", [lltype.Signed], lltype.Signed)
+
+        def check(n):
+            if n % 2:
+                raise ValueError
+            if n == 100000:
+                c_time(0)
 
         def f(n):
             while n > 0:
@@ -112,7 +141,7 @@ class ExceptionTests:
             try:
                 b(n)
                 return 0
-            except MyError, e:
+            except MyError as e:
                 return e.n
         def f(n):
             return a(n)
@@ -132,7 +161,7 @@ class ExceptionTests:
                 myjitdriver.jit_merge_point(n=n)
                 try:
                     check(n, 0)
-                except MyError, e:
+                except MyError as e:
                     n = check(e.n, 1)
             return n
         assert f(53) == -2
@@ -261,7 +290,7 @@ class ExceptionTests:
                     myjitdriver.can_enter_jit(n=n)
                     myjitdriver.jit_merge_point(n=n)
                     n = n - check(n)
-            except MyError, e:
+            except MyError as e:
                 return e.n
         assert f(53) == -2
         res = self.meta_interp(f, [53], policy=StopAtXPolicy(check))
@@ -488,7 +517,7 @@ class ExceptionTests:
         def f(n):
             try:
                 portal(n)
-            except SomeException, e:
+            except SomeException as e:
                 return 3
             return 2
 
@@ -507,7 +536,7 @@ class ExceptionTests:
         def main(n):
             try:
                 f(n)
-            except MyError, e:
+            except MyError as e:
                 return e.n
 
         res = self.meta_interp(main, [41], repeat=7)
@@ -543,7 +572,7 @@ class ExceptionTests:
             try:
                 f(n)
                 return 3
-            except MyError, e:
+            except MyError as e:
                 return e.n
             except ValueError:
                 return 8
@@ -554,11 +583,14 @@ class ExceptionTests:
 
     def test_overflowerror_escapes(self):
         def g(x):
-            return ovfcheck(x + 1)
+            try:
+                return ovfcheck(x + 1)
+            except OverflowError:
+                raise
         def f(x):
             try:
                 return g(x)
-            except Exception, e:
+            except Exception as e:
                 if isinstance(e, OverflowError):
                     return -42
                 raise
@@ -610,6 +642,52 @@ class ExceptionTests:
             return i
         res = self.meta_interp(f, [0], inline=True)
         assert res == 30
+
+    def test_catch_different_class(self):
+        def g(i):
+            if i < 0:
+                raise KeyError
+            return i
+        def f(i):
+            MyError(i)
+            try:
+                return g(i)
+            except MyError as e:
+                return e.n
+        res = self.interp_operations(f, [5], backendopt=True)
+        assert res == 5
+
+    def test_guard_no_exception_incorrectly_removed_from_bridge(self):
+        myjitdriver = JitDriver(greens=[], reds=['i'])
+        @dont_look_inside
+        def do(n):
+            if n > 7:
+                raise ValueError
+            if n > 1:
+                return n
+            raise IndexError
+        def f(i):
+            while i > 0:
+                myjitdriver.jit_merge_point(i=i)
+                f = str(i) + str(i)
+                # ^^^ this sticks a CALL_R in the resume data, inserted
+                # at the start of a bridge *before* the guard_no_exception.
+                # Some optimization step then thinks, correctly, that the
+                # CALL_R cannot raise and kills the guard_no_exception...
+                # As a result, the final IndexError we get for i == 1 is
+                # not caught here and escapes.  It causes issue #2132.
+                try:
+                    do(i)
+                except ValueError:
+                    pass
+                except IndexError:
+                    pass
+                i -= 1
+                keepalive_until_here(f)
+            return 10101
+        assert f(14) == 10101
+        res = self.meta_interp(f, [14])
+        assert res == 10101
 
 
 class MyError(Exception):

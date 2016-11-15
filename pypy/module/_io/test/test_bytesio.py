@@ -38,6 +38,8 @@ class AppTestBytesIO:
         f = _io.BytesIO()
         assert f.write("") == 0
         assert f.write("hello") == 5
+        exc = raises(TypeError, f.write, u"lo")
+        assert str(exc.value) == "'unicode' does not have the buffer interface"
         import gc; gc.collect()
         assert f.getvalue() == "hello"
         f.close()
@@ -97,6 +99,14 @@ class AppTestBytesIO:
         a2 = bytearray('testing')
         assert b.readinto(a1) == 1
         assert b.readinto(a2) == 4
+        exc = raises(TypeError, b.readinto, u"hello")
+        assert str(exc.value) == "cannot use unicode as modifiable buffer"
+        exc = raises(TypeError, b.readinto, buffer(b"hello"))
+        assert str(exc.value) == "must be read-write buffer, not buffer"
+        exc = raises(TypeError, b.readinto, buffer(bytearray("hello")))
+        assert str(exc.value) == "must be read-write buffer, not buffer"
+        exc = raises(TypeError, b.readinto, memoryview(b"hello"))
+        assert str(exc.value) == "must be read-write buffer, not memoryview"
         b.close()
         assert a1 == "h"
         assert a2 == "elloing"

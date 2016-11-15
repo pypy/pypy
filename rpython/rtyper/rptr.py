@@ -1,17 +1,17 @@
-from rpython.annotator import model as annmodel
 from rpython.rtyper.llannotation import (
     SomePtr, SomeInteriorPtr, SomeLLADTMeth, lltype_to_annotation)
 from rpython.flowspace import model as flowmodel
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem import lltype
-from rpython.rtyper.rmodel import Repr, IntegerRepr
+from rpython.rtyper.rmodel import Repr
+from rpython.rtyper.rint import IntegerRepr
 from rpython.tool.pairtype import pairtype
 
 
 class __extend__(SomePtr):
     def rtyper_makerepr(self, rtyper):
-        return PtrRepr(self.ll_ptrtype)
+        return PtrRepr(self.ll_ptrtype, rtyper)
 
     def rtyper_makekey(self):
         return self.__class__, self.ll_ptrtype
@@ -26,9 +26,11 @@ class __extend__(SomeInteriorPtr):
 
 class PtrRepr(Repr):
 
-    def __init__(self, ptrtype):
+    def __init__(self, ptrtype, rtyper=None):
         assert isinstance(ptrtype, lltype.Ptr)
         self.lowleveltype = ptrtype
+        if rtyper is not None:
+            self.rtyper = rtyper    # only for _convert_const_ptr()
 
     def ll_str(self, p):
         from rpython.rtyper.lltypesystem.rstr import ll_str
@@ -106,17 +108,20 @@ class PtrRepr(Repr):
                          resulttype = self.lowleveltype.TO.RESULT)
 
     def rtype_call_args(self, hop):
-        from rpython.rtyper.rbuiltin import call_args_expand
-        hop, _ = call_args_expand(hop, takes_kwds=False)
-        hop.swap_fst_snd_args()
-        hop.r_s_popfirstarg()
-        return self.rtype_simple_call(hop)
+        raise TyperError("kwds args not supported")
+
+    def convert_const(self, value):
+        if hasattr(value, '_convert_const_ptr'):
+            assert hasattr(self, 'rtyper')
+            return value._convert_const_ptr(self)
+        return Repr.convert_const(self, value)
+
 
 class __extend__(pairtype(PtrRepr, PtrRepr)):
     def convert_from_to((r_ptr1, r_ptr2), v, llop):
-        assert r_ptr1.lowleveltype == r_ptr2.lowleveltype
-        return v
-
+        if r_ptr1.lowleveltype == r_ptr2.lowleveltype:
+            return v
+        return NotImplemented
 
 class __extend__(pairtype(PtrRepr, IntegerRepr)):
 

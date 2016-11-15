@@ -5,7 +5,7 @@ Some convenience macros for gdb.  If you have pypy in your path, you can simply 
 
 Or, alternatively:
 
-(gdb) python execfile('/path/to/gdb_pypy.py')
+(gdb) python exec(open('/path/to/gdb_pypy.py').read())
 """
 
 import re
@@ -55,10 +55,10 @@ def lookup(val, suffix):
 
 class RPyType(Command):
     """
-    Prints the RPython type of the expression (remember to dereference it!)
+    Prints the RPython type of the expression.
     E.g.:
 
-    (gdb) rpy_type *l_v123
+    (gdb) rpy_type l_v123
     GcStruct pypy.foo.Bar { super, inst_xxx, inst_yyy }
     """
 
@@ -73,23 +73,34 @@ class RPyType(Command):
 
     def invoke(self, arg, from_tty):
         # some magic code to automatically reload the python file while developing
-        from pypy.tool import gdb_pypy
         try:
-            reload(gdb_pypy)
+            from pypy.tool import gdb_pypy
+            try:
+                reload(gdb_pypy)
+            except:
+                import imp
+                imp.reload(gdb_pypy)
+            gdb_pypy.RPyType.prog2typeids = self.prog2typeids # persist the cache
+            self.__class__ = gdb_pypy.RPyType
+            result = self.do_invoke(arg, from_tty)
+            if not isinstance(result, str):
+                result = result.decode('latin-1')
+            print(result)
         except:
-            import imp
-            imp.reload(gdb_pypy)
-        gdb_pypy.RPyType.prog2typeids = self.prog2typeids # persist the cache
-        self.__class__ = gdb_pypy.RPyType
-        print (self.do_invoke(arg, from_tty).decode('latin-1'))
+            import traceback
+            traceback.print_exc()
 
     def do_invoke(self, arg, from_tty):
         try:
             offset = int(arg)
         except ValueError:
             obj = self.gdb.parse_and_eval(arg)
+            if obj.type.code == self.gdb.TYPE_CODE_PTR:
+                obj = obj.dereference()
             hdr = lookup(obj, '_gcheader')
             tid = hdr['h_tid']
+            if tid == -42:      # forwarded?
+                return 'Forwarded'
             if sys.maxsize < 2**32:
                 offset = tid & 0xFFFF     # 32bit
             else:
@@ -100,7 +111,7 @@ class RPyType(Command):
         if offset in typeids:
             return typeids[offset]
         else:
-            return 'Cannot find the type with offset %d' % offset
+            return 'Cannot find the type with offset 0x%x' % offset
 
     def get_typeids(self):
         try:
@@ -123,11 +134,15 @@ class RPyType(Command):
         vname = 'pypy_g_rpython_memory_gctypelayout_GCData.gcd_inst_typeids_z'
         length = int(self.gdb.parse_and_eval('*(long*)%s' % vname))
         vstart = '(char*)(((long*)%s)+1)' % vname
-        with tempfile.NamedTemporaryFile('rb') as fobj:
+        fname = tempfile.mktemp()
+        try:
             self.gdb.execute('dump binary memory %s %s %s+%d' %
-                             (fobj.name, vstart, vstart, length))
-            data = fobj.read()
-        return TypeIdsMap(zlib.decompress(data).splitlines(True), self.gdb)
+                             (fname, vstart, vstart, length))
+            with open(fname, 'rb') as fobj:
+                data = fobj.read()
+            return TypeIdsMap(zlib.decompress(data).splitlines(True), self.gdb)
+        finally:
+            os.remove(fname)
 
 
 class TypeIdsMap(object):
@@ -238,6 +253,8 @@ class RPyListPrinter(object):
     fields
     """
 
+    recursive = False
+
     def __init__(self, val):
         self.val = val
 
@@ -245,29 +262,49 @@ class RPyListPrinter(object):
     def lookup(cls, val, gdb=None):
         t = val.type
         if (is_ptr(t, gdb) and t.target().tag is not None and
-            re.match(r'pypy_list\d*', t.target().tag)):
+            re.match(r'pypy_(list|array)\d*', t.target().tag)):
             return cls(val)
         return None
 
     def to_string(self):
-        length = int(self.val['l_length'])
-        array = self.val['l_items']
-        allocated = int(array['length'])
-        items = array['items']
-        itemlist = []
-        for i in range(length):
-            item = items[i]
-            itemlist.append(str(item))
-        str_items = ', '.join(itemlist)
-        return 'r[%s] (len=%d, alloc=%d)' % (str_items, length, allocated)
+        t = self.val.type
+        if t.target().tag.startswith(r'pypy_array'):
+            if not self.val:
+                return 'r(null_array)'
+            length = int(self.val['length'])
+            items = self.val['items']
+            allocstr = ''
+        else:
+            if not self.val:
+                return 'r(null_list)'
+            length = int(self.val['l_length'])
+            array = self.val['l_items']
+            allocated = int(array['length'])
+            items = array['items']
+            allocstr = ', alloc=%d' % allocated
+        if RPyListPrinter.recursive:
+            str_items = '...'
+        else:
+            RPyListPrinter.recursive = True
+            try:
+                itemlist = []
+                for i in range(min(length, MAX_DISPLAY_LENGTH)):
+                    item = items[i]
+                    itemlist.append(str(item))    # may recurse here
+                if length > MAX_DISPLAY_LENGTH:
+                    itemlist.append("...")
+                str_items = ', '.join(itemlist)
+            finally:
+                RPyListPrinter.recursive = False
+        return 'r[%s] (len=%d%s)' % (str_items, length, allocstr)
 
 
 try:
     import gdb
     RPyType() # side effects
-    gdb.pretty_printers += [
+    gdb.pretty_printers = [
         RPyStringPrinter.lookup,
         RPyListPrinter.lookup
-        ]
+        ] + gdb.pretty_printers
 except ImportError:
     pass

@@ -1,4 +1,4 @@
-import os, random, struct
+import sys, os, random, struct
 import py
 from rpython.jit.backend.x86 import rx86
 from rpython.rlib.rarithmetic import intmask
@@ -32,6 +32,12 @@ class CodeCheckerMixin(object):
 
     def done(self):
         assert len(self.expected) == self.index
+
+    def stack_frame_size_delta(self, delta):
+        pass   # ignored
+
+    def check_stack_size_at_ret(self):
+        pass   # ignored
 
 def hexdump(s):
     return ' '.join(["%02X" % ord(c) for c in s])
@@ -183,15 +189,21 @@ class TestRx86_32(object):
         g = open(inputname, 'w')
         g.write('\x09.string "%s"\n' % BEGIN_TAG)
         #
-        if instrname == 'MOVD' and self.WORD == 8:
-            instrname = 'MOVQ'
+        if instrname == 'MOVDQ':
+            if self.WORD == 8:
+                instrname = 'MOVQ'
+            else:
+                instrname = 'MOVD'
             if argmodes == 'xb':
                 py.test.skip('"as" uses an undocumented alternate encoding??')
+            if argmodes == 'xx' and self.WORD != 8:
+                instrname = 'MOVQ'
         #
         for args in args_lists:
             suffix = ""
             if (argmodes and not self.is_xmm_insn
-                         and not instrname.startswith('FSTP')):
+                         and not instrname.startswith('FSTP')
+                         and not instrname.startswith('FLD')):
                 suffix = suffixes[self.WORD]
             # Special case: On 64-bit CPUs, rx86 assumes 64-bit integer
             # operands when converting to/from floating point, so we need to
@@ -245,6 +257,9 @@ class TestRx86_32(object):
         g.close()
         error = [line for line in got.splitlines() if 'error' in line.lower()]
         if error:
+            if (sys.maxint <= 2**32 and
+                    'no compiled in support for x86_64' in error[0]):
+                py.test.skip(error)
             raise Exception("Assembler got an error: %r" % error[0])
         error = [line for line in got.splitlines()
                  if 'warning' in line.lower()]
@@ -267,6 +282,8 @@ class TestRx86_32(object):
         if modes:
             tests = self.get_all_tests()
             m = modes[0]
+            if m == 'p' and self.WORD == 4:
+                return []
             lst = tests[m]()
             random.shuffle(lst)
             if methname == 'PSRAD_xi' and m == 'i':
@@ -313,9 +330,21 @@ class TestRx86_32(object):
                 # CALL_j is actually relative, so tricky to test
                 (instrname == 'CALL' and argmodes == 'j') or
                 # SET_ir must be tested manually
-                (instrname == 'SET' and argmodes == 'ir')
+                (instrname == 'SET' and argmodes == 'ir') or
+                # MULTIBYTE_NOPs can't easily be tested the same way
+                (instrname == 'MULTIBYTE')
         )
 
+    def should_skip_instruction_bit32(self, instrname, argmodes):
+        if self.WORD != 8:
+            # those are tested in the 64 bit test case
+            return (
+                # the test suite uses 64 bit registers instead of 32 bit...
+                (instrname == 'PEXTRQ') or
+                (instrname == 'PINSRQ')
+            )
+
+        return False
 
 
     def complete_test(self, methname):
@@ -324,7 +353,8 @@ class TestRx86_32(object):
         else:
             instrname, argmodes = methname, ''
 
-        if self.should_skip_instruction(instrname, argmodes):
+        if self.should_skip_instruction(instrname, argmodes) or \
+           self.should_skip_instruction_bit32(instrname, argmodes):
             print "Skipping %s" % methname
             return
 
@@ -357,6 +387,21 @@ class TestRx86_32(object):
             instr_suffix = suffixes[self.WORD] + ' *'
         else:
             instr_suffix = None
+
+        if instrname.find('EXTR') != -1 or \
+           instrname.find('INSR') != -1 or \
+           instrname.find('INSERT') != -1 or \
+           instrname.find('EXTRACT') != -1 or \
+           instrname.find('SRLDQ') != -1 or \
+           instrname.find('SHUF') != -1 or \
+           instrname.find('PBLEND') != -1 or \
+           instrname.find('CMPP') != -1:
+            realargmodes = []
+            for mode in argmodes:
+                if mode == 'i':
+                    mode = 'i8'
+                realargmodes.append(mode)
+            argmodes = realargmodes
 
         print "Testing %s with argmodes=%r" % (instrname, argmodes)
         self.methname = methname

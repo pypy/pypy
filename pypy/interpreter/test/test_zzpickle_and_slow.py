@@ -3,7 +3,7 @@ from pypy import conftest
 from pypy.interpreter import gateway
 from rpython.rlib.jit import non_virtual_ref, vref_None
 
-class AppTestSlow:    
+class AppTestSlow:
     spaceconfig = dict(usemodules=['itertools'])
 
     def setup_class(cls):
@@ -64,7 +64,7 @@ def _attach_helpers(space):
     space.setitem(space.builtin.w_dict,
                   space.wrap('read_exc_type'),
                   space.wrap(read_exc_type_gw))
-    
+
 def _detach_helpers(space):
     space.delitem(space.builtin.w_dict,
                   space.wrap('hide_top_frame'))
@@ -92,7 +92,7 @@ class AppTestInterpObjectPickling:
         pckl = pickle.dumps(code)
         result = pickle.loads(pckl)
         assert code == result
-    
+
     def test_pickle_global_func(self):
         import new
         mod = new.module('mod')
@@ -109,7 +109,7 @@ class AppTestInterpObjectPickling:
             assert func is result
         finally:
             del sys.modules['mod']
-    
+
     def test_pickle_not_imported_module(self):
         import new
         mod = new.module('mod')
@@ -119,13 +119,13 @@ class AppTestInterpObjectPickling:
         result = pickle.loads(pckl)
         assert mod.__name__ == result.__name__
         assert mod.__dict__ == result.__dict__
-    
+
     def test_pickle_builtin_func(self):
         import pickle
         pckl = pickle.dumps(map)
         result = pickle.loads(pckl)
         assert map is result
-    
+
     def test_pickle_non_top_reachable_func(self):
         def func():
             return 42
@@ -142,7 +142,7 @@ class AppTestInterpObjectPickling:
         assert func.func_dict     == result.func_dict
         assert func.func_doc      == result.func_doc
         assert func.func_globals  == result.func_globals
-    
+
     def test_pickle_cell(self):
         def g():
             x = [42]
@@ -171,7 +171,7 @@ class AppTestInterpObjectPickling:
         f1     = f()
         saved = hide_top_frame(f1)
         pckl   = pickle.dumps(f1)
-        restore_top_frame(f1, saved) 
+        restore_top_frame(f1, saved)
         f2     = pickle.loads(pckl)
 
         assert type(f1) is type(f2)
@@ -223,7 +223,7 @@ class AppTestInterpObjectPickling:
         f1     = f()
         saved = hide_top_frame(f1)
         pckl   = pickle.dumps(f1)
-        restore_top_frame(f1, saved) 
+        restore_top_frame(f1, saved)
         f2     = pickle.loads(pckl)
 
     def test_frame_setstate_crash(self):
@@ -257,21 +257,21 @@ class AppTestInterpObjectPickling:
         pckl   = pickle.dumps(mod)
         result = pickle.loads(pckl)
         assert mod is result
-    
+
     def test_pickle_moduledict(self):
         import pickle
         moddict  = pickle.__dict__
         pckl     = pickle.dumps(moddict)
         result   = pickle.loads(pckl)
         assert moddict is result
-    
+
     def test_pickle_bltins_module(self):
         import pickle
         mod  = __builtins__
         pckl     = pickle.dumps(mod)
         result   = pickle.loads(pckl)
         assert mod is result
-    
+
     def test_pickle_buffer(self):
         skip("Can't pickle buffer objects on top of CPython either.  "
              "Do we really need it?")
@@ -280,14 +280,14 @@ class AppTestInterpObjectPickling:
         pckl     = pickle.dumps(a)
         result   = pickle.loads(pckl)
         assert a == result
-    
+
     def test_pickle_complex(self):
         import pickle
         a = complex(1.23,4.567)
         pckl     = pickle.dumps(a)
         result   = pickle.loads(pckl)
         assert a == result
-    
+
     def test_pickle_method(self):
         class myclass(object):
             def f(self):
@@ -308,7 +308,7 @@ class AppTestInterpObjectPickling:
             assert method() == result()
         finally:
             del sys.modules['mod']
-    
+
     def test_pickle_staticmethod(self):
         class myclass(object):
             def f():
@@ -319,7 +319,7 @@ class AppTestInterpObjectPickling:
         pckl     = pickle.dumps(method)
         result   = pickle.loads(pckl)
         assert method() == result()
-    
+
     def test_pickle_classmethod(self):
         class myclass(object):
             def f(cls):
@@ -337,7 +337,7 @@ class AppTestInterpObjectPickling:
             assert method() == result()
         finally:
             del sys.modules['mod']
-    
+
     def test_pickle_sequenceiter(self):
         '''
         In PyPy there is no distinction here between listiterator and
@@ -367,6 +367,14 @@ class AppTestInterpObjectPickling:
         raises(TypeError, len, liter)
         assert list(liter) == list(result)
 
+    def test_pickle_reversesequenceiter_stopped(self):
+        import pickle
+        iter = reversed([])
+        raises(StopIteration, next, iter)
+        pckl   = pickle.dumps(iter)
+        result = pickle.loads(pckl)
+        raises(StopIteration, next, result)
+
     # This test used to be marked xfail and it tried to test for the past
     # support of pickling dictiter objects.
     def test_pickle_dictiter(self):
@@ -388,17 +396,36 @@ class AppTestInterpObjectPickling:
         assert type(r) is type(result)
         assert list(r) == list(result)
 
+    def test_pickle_reversed_stopped(self):
+        import pickle
+        class IE(object):
+            def __len__(self):
+                return 1
+            def __getitem__(self, i):
+                raise IndexError
+        for it in (), IE():
+            iter = reversed(it)
+            raises(StopIteration, next, iter)
+            pckl   = pickle.dumps(iter)
+            result = pickle.loads(pckl)
+            raises(StopIteration, next, result)
+
     def test_pickle_enum(self):
         import pickle
-        e      = enumerate(range(10))
+        e = enumerate(range(100, 106))
         e.next()
         e.next()
         pckl   = pickle.dumps(e)
         result = pickle.loads(pckl)
-        e.next()
-        result.next()
+        res = e.next()
+        assert res == (2, 102)
+        res = result.next()
+        assert res == (2, 102)
         assert type(e) is type(result)
-        assert list(e) == list(result)
+        res = list(e)
+        assert res == [(3, 103), (4, 104), (5, 105)]
+        res = list(result)
+        assert res == [(3, 103), (4, 104), (5, 105)]
 
     def test_pickle_xrangeiter(self):
         import pickle
@@ -491,6 +518,22 @@ class AppTestInterpObjectPickling:
         assert pack.mod is result
 
 
+    def test_pickle_generator_crash(self):
+        import pickle
+
+        def f():
+            yield 0
+
+        x = f()
+        x.next()
+        try:
+            x.next()
+        except StopIteration:
+            y = pickle.loads(pickle.dumps(x))
+        assert 'finished' in y.__name__
+        assert 'finished' in repr(y)
+        assert y.gi_code is None
+
 class AppTestGeneratorCloning:
 
     def setup_class(cls):
@@ -499,7 +542,7 @@ class AppTestGeneratorCloning:
                 def f(): yield 42
                 f().__reduce__()
             """)
-        except TypeError, e:
+        except TypeError as e:
             if 'pickle generator' not in str(e):
                 raise
             py.test.skip("Frames can't be __reduce__()-ed")

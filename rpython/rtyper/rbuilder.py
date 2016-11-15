@@ -55,6 +55,9 @@ class AbstractStringBuilderRepr(Repr):
         return hop.gendirectcall(self.ll_bool, *vlist)
 
     def convert_const(self, value):
-        if not value is None:
-            raise TypeError("Prebuilt builedrs that are not none unsupported")
-        return self.empty()
+        if value is None:
+            return self.empty()
+        s = value.build()
+        ll_obj = self.ll_new(len(s))
+        self.ll_append(ll_obj, self.convert_to_ll(s))
+        return ll_obj

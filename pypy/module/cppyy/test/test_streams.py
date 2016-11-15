@@ -12,7 +12,7 @@ def setup_module(mod):
         raise OSError("'make' failed (see stderr)")
 
 class AppTestSTDStreams:
-    spaceconfig = dict(usemodules=['cppyy'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
         cls.w_test_dct  = cls.space.wrap(test_dct)

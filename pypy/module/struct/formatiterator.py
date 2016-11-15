@@ -1,3 +1,5 @@
+from rpython.rlib.rarithmetic import (r_uint, r_ulonglong, r_longlong,
+                                      maxint, intmask)
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rstring import StringBuilder
@@ -8,7 +10,6 @@ from pypy.interpreter.error import OperationError
 
 
 class PackFormatIterator(FormatIterator):
-
     def __init__(self, space, args_w, size):
         self.space = space
         self.args_w = args_w
@@ -66,26 +67,30 @@ class PackFormatIterator(FormatIterator):
             w_index = w_obj
         else:
             w_index = None
-            w_index_method = space.lookup(w_obj, "__index__")
-            if w_index_method is not None:
+            if space.lookup(w_obj, '__index__'):
                 try:
                     w_index = space.index(w_obj)
-                except OperationError, e:
+                except OperationError as e:
                     if not e.match(space, space.w_TypeError):
                         raise
                     pass
+            if w_index is None and space.lookup(w_obj, '__int__'):
+                if space.isinstance_w(w_obj, space.w_float):
+                    msg = "integer argument expected, got float"
+                else:
+                    msg = "integer argument expected, got non-integer" \
+                          " (implicit conversion using __int__ is deprecated)"
+                space.warn(space.wrap(msg), space.w_DeprecationWarning)
+                w_index = space.int(w_obj)   # wrapped float -> wrapped int or long
             if w_index is None:
-                w_index = self._maybe_float(w_obj)
-        return getattr(space, meth)(w_index)
-
-    def _maybe_float(self, w_obj):
-        space = self.space
-        if space.isinstance_w(w_obj, space.w_float):
-            msg = "struct: integer argument expected, got float"
-        else:
-            msg = "integer argument expected, got non-integer"
-        space.warn(space.wrap(msg), space.w_DeprecationWarning)
-        return space.int(w_obj)   # wrapped float -> wrapped int or long
+                raise StructError("cannot convert argument to integer")
+        method = getattr(space, meth)
+        try:
+            return method(w_index)
+        except OperationError as e:
+            if e.match(self.space, self.space.w_OverflowError):
+                raise StructError("argument out of range")
+            raise
 
     def accept_bool_arg(self):
         w_obj = self.accept_obj_arg()
@@ -101,15 +106,20 @@ class PackFormatIterator(FormatIterator):
 
     def accept_float_arg(self):
         w_obj = self.accept_obj_arg()
-        return self.space.float_w(w_obj)
+        try:
+            return self.space.float_w(w_obj)
+        except OperationError as e:
+            if e.match(self.space, self.space.w_TypeError):
+                raise StructError("required argument is not a float")
+            raise
 
 
 class UnpackFormatIterator(FormatIterator):
-
-    def __init__(self, space, input):
+    def __init__(self, space, buf):
         self.space = space
-        self.input = input
-        self.inputpos = 0
+        self.buf = buf
+        self.length = buf.getlength()
+        self.pos = 0
         self.result_w = []     # list of wrapped objects
 
     # See above comment on operate.
@@ -124,20 +134,43 @@ class UnpackFormatIterator(FormatIterator):
     _operate_is_specialized_ = True
 
     def align(self, mask):
-        self.inputpos = (self.inputpos + mask) & ~mask
+        self.pos = (self.pos + mask) & ~mask
 
     def finished(self):
-        if self.inputpos != len(self.input):
+        if self.pos != self.length:
             raise StructError("unpack str size too long for format")
 
     def read(self, count):
-        end = self.inputpos + count
-        if end > len(self.input):
+        end = self.pos + count
+        if end > self.length:
             raise StructError("unpack str size too short for format")
-        s = self.input[self.inputpos : end]
-        self.inputpos = end
+        s = self.buf.getslice(self.pos, end, 1, count)
+        self.pos = end
         return s
 
     @specialize.argtype(1)
     def appendobj(self, value):
-        self.result_w.append(self.space.wrap(value))
+        # CPython tries hard to return int objects whenever it can, but
+        # space.wrap returns a long if we pass a r_uint, r_ulonglong or
+        # r_longlong. So, we need special care in those cases.
+        is_unsigned = (isinstance(value, r_uint) or
+                       isinstance(value, r_ulonglong))
+        if is_unsigned and value <= maxint:
+            w_value = self.space.wrap(intmask(value))
+        elif isinstance(value, r_longlong) and -maxint-1 <= value <= maxint:
+            w_value = self.space.wrap(intmask(value))
+        else:
+            # generic type, just use space.wrap
+            w_value = self.space.wrap(value)
+        #
+        self.result_w.append(w_value)
+
+    def get_pos(self):
+        return self.pos
+
+    def get_buffer_as_string_maybe(self):
+        string, pos = self.buf.as_str_and_offset_maybe()
+        return string, pos+self.pos
+
+    def skip(self, size):
+        self.read(size) # XXX, could avoid taking the slice

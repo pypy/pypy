@@ -132,7 +132,7 @@ class FakeSpace(object):
         return w_obj
     interp_w._annspecialcase_ = 'specialize:arg(1)'
 
-    def buffer_w(self, w_obj):
+    def getarg_w(self, code, w_obj):    # for retrieving buffers
         return FakeBuffer(w_obj)
 
     def exception_match(self, typ, sub):

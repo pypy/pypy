@@ -33,9 +33,11 @@ def install_jitdriver(name, **kwds):
     setattr(AbstractMatchContext, 'jitdriver_' + name, jitdriver)
 
 def install_jitdriver_spec(name, **kwds):
+    from rpython.rlib.rsre.rsre_core import BufMatchContext
     from rpython.rlib.rsre.rsre_core import StrMatchContext
     from rpython.rlib.rsre.rsre_core import UnicodeMatchContext
-    for prefix, concreteclass in [('Str', StrMatchContext),
+    for prefix, concreteclass in [('Buf', BufMatchContext),
+                                  ('Str', StrMatchContext),
                                   ('Uni', UnicodeMatchContext)]:
         jitdriver = RSreJitDriver(prefix + name, **kwds)
         setattr(concreteclass, 'jitdriver_' + name, jitdriver)

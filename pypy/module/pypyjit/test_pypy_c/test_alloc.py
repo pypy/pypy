@@ -7,10 +7,11 @@ class TestAlloc(BaseTestPyPyC):
                           [2 ** n - 1 for n in range(26)])
 
     def test_newstr_constant_size(self):
-        for size in TestAlloc.SIZES:
+        for size in sorted(TestAlloc.SIZES):
             yield self.newstr_constant_size, size
 
     def newstr_constant_size(self, size):
+        print 'size =', size
         src = """if 1:
                     N = %(size)d
                     part_a = 'a' * N

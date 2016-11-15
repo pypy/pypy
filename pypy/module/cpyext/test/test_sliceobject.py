@@ -15,10 +15,10 @@ class TestSliceObject(BaseApiTest):
         def get_indices(w_start, w_stop, w_step, length):
             w_slice = space.newslice(w_start, w_stop, w_step)
             values = lltype.malloc(Py_ssize_tP.TO, 4, flavor='raw')
-            
-            res = api.PySlice_GetIndicesEx(w_slice, 100, values, 
-                rffi.ptradd(values, 1), 
-                rffi.ptradd(values, 2), 
+
+            res = api.PySlice_GetIndicesEx(w_slice, 100, values,
+                rffi.ptradd(values, 1),
+                rffi.ptradd(values, 2),
                 rffi.ptradd(values, 3))
             assert res == 0
             rv = values[0], values[1], values[2], values[3]
@@ -31,9 +31,9 @@ class TestSliceObject(BaseApiTest):
         def get_indices(w_start, w_stop, w_step, length):
             w_slice = space.newslice(w_start, w_stop, w_step)
             values = lltype.malloc(Py_ssize_tP.TO, 3, flavor='raw')
-            
-            res = api.PySlice_GetIndices(w_slice, 100, values, 
-                rffi.ptradd(values, 1), 
+
+            res = api.PySlice_GetIndices(w_slice, 100, values,
+                rffi.ptradd(values, 1),
                 rffi.ptradd(values, 2))
             assert res == 0
             rv = values[0], values[1], values[2]
@@ -47,7 +47,7 @@ class AppTestSliceMembers(AppTestCpythonExtensionBase):
             ("clone", "METH_O",
              """
                  PySliceObject *slice = (PySliceObject *)args;
-                 if (slice->ob_type != &PySlice_Type) {
+                 if (Py_TYPE(slice) != &PySlice_Type) {
                      PyErr_SetNone(PyExc_ValueError);
                      return NULL;
                  }

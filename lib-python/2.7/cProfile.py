@@ -161,7 +161,7 @@ def label(code):
 # ____________________________________________________________
 
 def main():
-    import os, sys
+    import os, sys, types
     from optparse import OptionParser
     usage = "cProfile.py [-o output_file_path] [-s sort] scriptfile [arg] ..."
     parser = OptionParser(usage=usage)
@@ -184,12 +184,10 @@ def main():
         sys.path.insert(0, os.path.dirname(progname))
         with open(progname, 'rb') as fp:
             code = compile(fp.read(), progname, 'exec')
-        globs = {
-            '__file__': progname,
-            '__name__': '__main__',
-            '__package__': None,
-        }
-        runctx(code, globs, None, options.outfile, options.sort)
+        mainmod = types.ModuleType('__main__')
+        mainmod.__file__ = progname
+        mainmod.__package__ = None
+        runctx(code, mainmod.__dict__, None, options.outfile, options.sort)
     else:
         parser.print_usage()
     return parser

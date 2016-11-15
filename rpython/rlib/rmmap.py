@@ -10,7 +10,7 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import rposix
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.rarithmetic import intmask
 
@@ -70,13 +70,20 @@ if _POSIX:
     CConfig.MREMAP_MAYMOVE = (
         rffi_platform.DefinedConstantInteger("MREMAP_MAYMOVE"))
     CConfig.has_mremap = rffi_platform.Has('mremap(NULL, 0, 0, 0)')
-    # a dirty hack, this is probably a macro
+    CConfig.has_madvise = rffi_platform.Has('madvise(NULL, 0, 0)')
+    # ^^ both are a dirty hack, this is probably a macro
+
+    CConfig.MADV_DONTNEED = (
+        rffi_platform.DefinedConstantInteger('MADV_DONTNEED'))
+    CConfig.MADV_FREE = (
+        rffi_platform.DefinedConstantInteger('MADV_FREE'))
 
 elif _MS_WINDOWS:
     constant_names = ['PAGE_READONLY', 'PAGE_READWRITE', 'PAGE_WRITECOPY',
                       'FILE_MAP_READ', 'FILE_MAP_WRITE', 'FILE_MAP_COPY',
                       'DUPLICATE_SAME_ACCESS', 'MEM_COMMIT', 'MEM_RESERVE',
-                      'MEM_RELEASE', 'PAGE_EXECUTE_READWRITE', 'PAGE_NOACCESS']
+                      'MEM_RELEASE', 'PAGE_EXECUTE_READWRITE', 'PAGE_NOACCESS',
+                      'MEM_RESET']
     for name in constant_names:
         setattr(CConfig, name, rffi_platform.ConstantInteger(name))
 
@@ -108,13 +115,16 @@ if rffi.sizeof(off_t) > rffi.sizeof(lltype.Signed):
 else:
     HAVE_LARGEFILE_SUPPORT = False
 
-def external(name, args, result, **kwargs):
+def external(name, args, result, save_err_on_unsafe=0, save_err_on_safe=0,
+             **kwargs):
     unsafe = rffi.llexternal(name, args, result,
                              compilation_info=CConfig._compilation_info_,
+                             save_err=save_err_on_unsafe,
                              **kwargs)
     safe = rffi.llexternal(name, args, result,
                            compilation_info=CConfig._compilation_info_,
                            sandboxsafe=True, releasegil=False,
+                           save_err=save_err_on_safe,
                            **kwargs)
     return unsafe, safe
 
@@ -134,21 +144,27 @@ PTR = rffi.CCHARP
 
 if _CYGWIN:
     # XXX: macro=True hack for newer versions of Cygwin (as of 12/2012)
-    c_malloc, _ = external('malloc', [size_t], PTR, macro=True)
-    c_free, _ = external('free', [PTR], lltype.Void, macro=True)
+    _, c_malloc_safe = external('malloc', [size_t], PTR, macro=True)
+    _, c_free_safe = external('free', [PTR], lltype.Void, macro=True)
 
 c_memmove, _ = external('memmove', [PTR, PTR, size_t], lltype.Void)
 
 if _POSIX:
     has_mremap = cConfig['has_mremap']
+    has_madvise = cConfig['has_madvise']
     c_mmap, c_mmap_safe = external('mmap', [PTR, size_t, rffi.INT, rffi.INT,
-                                   rffi.INT, off_t], PTR, macro=True)
+                                   rffi.INT, off_t], PTR, macro=True,
+                                   save_err_on_unsafe=rffi.RFFI_SAVE_ERRNO)
     # 'mmap' on linux32 is a macro that calls 'mmap64'
     _, c_munmap_safe = external('munmap', [PTR, size_t], rffi.INT)
-    c_msync, _ = external('msync', [PTR, size_t, rffi.INT], rffi.INT)
+    c_msync, _ = external('msync', [PTR, size_t, rffi.INT], rffi.INT,
+                          save_err_on_unsafe=rffi.RFFI_SAVE_ERRNO)
     if has_mremap:
         c_mremap, _ = external('mremap',
                                [PTR, size_t, size_t, rffi.ULONG], PTR)
+    if has_madvise:
+        _, c_madvise_safe = external('madvise', [PTR, size_t, rffi.INT],
+                                     rffi.INT, _nowrapper=True)
 
     # this one is always safe
     _pagesize = rffi_platform.getintegerfunctionresult('getpagesize',
@@ -196,11 +212,20 @@ elif _MS_WINDOWS:
     SYSTEM_INFO_P = lltype.Ptr(SYSTEM_INFO)
 
     GetSystemInfo, _ = winexternal('GetSystemInfo', [SYSTEM_INFO_P], lltype.Void)
-    GetFileSize, _ = winexternal('GetFileSize', [HANDLE, LPDWORD], DWORD)
+    GetFileSize, _ = winexternal('GetFileSize', [HANDLE, LPDWORD], DWORD,
+                                 save_err=rffi.RFFI_SAVE_LASTERROR)
     GetCurrentProcess, _ = winexternal('GetCurrentProcess', [], HANDLE)
-    DuplicateHandle, _ = winexternal('DuplicateHandle', [HANDLE, HANDLE, HANDLE, LPHANDLE, DWORD, BOOL, DWORD], BOOL)
-    CreateFileMapping, _ = winexternal('CreateFileMappingA', [HANDLE, rwin32.LPSECURITY_ATTRIBUTES, DWORD, DWORD, DWORD, LPCSTR], HANDLE)
-    MapViewOfFile, _ = winexternal('MapViewOfFile', [HANDLE, DWORD, DWORD, DWORD, SIZE_T], LPCSTR)##!!LPVOID)
+    DuplicateHandle, _ = winexternal('DuplicateHandle',
+                                     [HANDLE, HANDLE, HANDLE, LPHANDLE, DWORD,
+                                      BOOL, DWORD], BOOL,
+                                     save_err=rffi.RFFI_SAVE_LASTERROR)
+    CreateFileMapping, _ = winexternal('CreateFileMappingA',
+                                       [HANDLE, rwin32.LPSECURITY_ATTRIBUTES,
+                                        DWORD, DWORD, DWORD, LPCSTR], HANDLE,
+                                       save_err=rffi.RFFI_SAVE_LASTERROR)
+    MapViewOfFile, _ = winexternal('MapViewOfFile', [HANDLE, DWORD, DWORD,
+                                                     DWORD, SIZE_T], LPCSTR,
+                                   save_err=rffi.RFFI_SAVE_LASTERROR) ##!!LPVOID
     _, UnmapViewOfFile_safe = winexternal('UnmapViewOfFile', [LPCSTR], BOOL)
     FlushViewOfFile, _ = winexternal('FlushViewOfFile', [LPCSTR, SIZE_T], BOOL)
     SetFilePointer, _ = winexternal('SetFilePointer', [HANDLE, LONG, PLONG, DWORD], DWORD)
@@ -208,15 +233,18 @@ elif _MS_WINDOWS:
     VirtualAlloc, VirtualAlloc_safe = winexternal('VirtualAlloc',
                                [rffi.VOIDP, rffi.SIZE_T, DWORD, DWORD],
                                rffi.VOIDP)
+    _, _VirtualAlloc_safe_no_wrapper = winexternal('VirtualAlloc',
+                               [rffi.VOIDP, rffi.SIZE_T, DWORD, DWORD],
+                               rffi.VOIDP, _nowrapper=True)
     _, _VirtualProtect_safe = winexternal('VirtualProtect',
                                   [rffi.VOIDP, rffi.SIZE_T, DWORD, LPDWORD],
                                   BOOL)
+    @specialize.ll()
     def VirtualProtect(addr, size, mode, oldmode_ptr):
         return _VirtualProtect_safe(addr,
                                rffi.cast(rffi.SIZE_T, size),
                                rffi.cast(DWORD, mode),
                                oldmode_ptr)
-    VirtualProtect._annspecialcase_ = 'specialize:ll'
     VirtualFree, VirtualFree_safe = winexternal('VirtualFree',
                               [rffi.VOIDP, rffi.SIZE_T, DWORD], BOOL)
 
@@ -250,7 +278,7 @@ elif _MS_WINDOWS:
             # so we need to check the last error also
             INVALID_FILE_SIZE = -1
             if low == INVALID_FILE_SIZE:
-                err = rwin32.GetLastError()
+                err = rwin32.GetLastError_saved()
                 if err:
                     raise WindowsError(err, "mmap")
             return low, high
@@ -323,10 +351,10 @@ class MMap(object):
                 self.unmap()
                 self.setdata(NODATA, 0)
             if self.map_handle != INVALID_HANDLE:
-                rwin32.CloseHandle(self.map_handle)
+                rwin32.CloseHandle_no_err(self.map_handle)
                 self.map_handle = INVALID_HANDLE
             if self.file_handle != INVALID_HANDLE:
-                rwin32.CloseHandle(self.file_handle)
+                rwin32.CloseHandle_no_err(self.file_handle)
                 self.file_handle = INVALID_HANDLE
         elif _POSIX:
             self.closed = True
@@ -501,7 +529,7 @@ class MMap(object):
             elif _POSIX:
                 res = c_msync(start, size, MS_SYNC)
                 if res == -1:
-                    errno = rposix.get_errno()
+                    errno = rposix.get_saved_errno()
                     raise OSError(errno, os.strerror(errno))
 
         return 0
@@ -531,7 +559,7 @@ class MMap(object):
         elif _MS_WINDOWS:
             # disconnect the mapping
             self.unmap()
-            rwin32.CloseHandle(self.map_handle)
+            rwin32.CloseHandle_no_err(self.map_handle)
 
             # move to the desired EOF position
             if _64BIT:
@@ -568,9 +596,9 @@ class MMap(object):
                     charp = rffi.cast(LPCSTR, data)
                     self.setdata(charp, newsize)
                     return
-            winerror = rwin32.lastWindowsError()
+            winerror = rwin32.lastSavedWindowsError()
             if self.map_handle:
-                rwin32.CloseHandle(self.map_handle)
+                rwin32.CloseHandle_no_err(self.map_handle)
             self.map_handle = INVALID_HANDLE
             raise winerror
 
@@ -671,7 +699,7 @@ if _POSIX:
         #     to be annotated with a non-constant pointer.
         res = c_mmap(NonConstant(NULL), map_size, prot, flags, fd, offset)
         if res == rffi.cast(PTR, -1):
-            errno = rposix.get_errno()
+            errno = rposix.get_saved_errno()
             raise OSError(errno, os.strerror(errno))
 
         m.setdata(res, map_size)
@@ -705,11 +733,14 @@ if _POSIX:
         so the memory has the executable bit set and gets allocated
         internally in case of a sandboxed process.
         """
+        from errno import ENOMEM
+        from rpython.rlib import debug
+
         if _CYGWIN:
             # XXX: JIT memory should be using mmap MAP_PRIVATE with
             #      PROT_EXEC but Cygwin's fork() fails.  mprotect()
             #      cannot be used, but seems to be unnecessary there.
-            res = c_malloc(map_size)
+            res = c_malloc_safe(map_size)
             if res == rffi.cast(PTR, 0):
                 raise MemoryError
             return res
@@ -719,6 +750,14 @@ if _POSIX:
             # are passed a non-zero address.  Try again.
             res = alloc_hinted(rffi.cast(PTR, 0), map_size)
             if res == rffi.cast(PTR, -1):
+                # ENOMEM simply raises MemoryError, but other errors are fatal
+                if rposix.get_saved_errno() != ENOMEM:
+                    debug.fatalerror_notb(
+                        "Got an unexpected error trying to allocate some "
+                        "memory for the JIT (tried to do mmap() with "
+                        "PROT_EXEC|PROT_READ|PROT_WRITE).  This can be caused "
+                        "by a system policy like PAX.  You need to find how "
+                        "to work around the policy on your system.")
                 raise MemoryError
         else:
             hint.pos += map_size
@@ -726,9 +765,42 @@ if _POSIX:
     alloc._annenforceargs_ = (int,)
 
     if _CYGWIN:
-        free = c_free
+        free = c_free_safe
     else:
         free = c_munmap_safe
+
+    if sys.platform.startswith('linux'):
+        assert has_madvise
+        assert MADV_DONTNEED is not None
+        if MADV_FREE is None:
+            MADV_FREE = 8     # from the kernel sources of Linux >= 4.5
+        class CanUseMadvFree:
+            ok = -1
+        can_use_madv_free = CanUseMadvFree()
+        def madvise_free(addr, map_size):
+            # We don't know if we are running on a recent enough kernel
+            # that supports MADV_FREE.  Check that at runtime: if the
+            # first call to madvise(MADV_FREE) fails, we assume it's
+            # because of EINVAL and we fall back to MADV_DONTNEED.
+            if can_use_madv_free.ok != 0:
+                res = c_madvise_safe(rffi.cast(PTR, addr),
+                                     rffi.cast(size_t, map_size),
+                                     rffi.cast(rffi.INT, MADV_FREE))
+                if can_use_madv_free.ok == -1:
+                    can_use_madv_free.ok = (rffi.cast(lltype.Signed, res) == 0)
+            if can_use_madv_free.ok == 0:
+                c_madvise_safe(rffi.cast(PTR, addr),
+                               rffi.cast(size_t, map_size),
+                               rffi.cast(rffi.INT, MADV_DONTNEED))
+    elif has_madvise and not (MADV_FREE is MADV_DONTNEED is None):
+        use_flag = MADV_FREE if MADV_FREE is not None else MADV_DONTNEED
+        def madvise_free(addr, map_size):
+            c_madvise_safe(rffi.cast(PTR, addr),
+                           rffi.cast(size_t, map_size),
+                           rffi.cast(rffi.INT, use_flag))
+    else:
+        def madvise_free(addr, map_size):
+            "No madvise() on this platform"
 
 elif _MS_WINDOWS:
     def mmap(fileno, length, tagname="", access=_ACCESS_DEFAULT, offset=0):
@@ -807,7 +879,7 @@ elif _MS_WINDOWS:
                                       False, # inherited by child procs?
                                       DUPLICATE_SAME_ACCESS) # options
                 if not res:
-                    raise rwin32.lastWindowsError()
+                    raise rwin32.lastSavedWindowsError()
                 m.file_handle = handle_ref[0]
             finally:
                 lltype.free(handle_ref, flavor='raw')
@@ -850,9 +922,9 @@ elif _MS_WINDOWS:
                 charp = rffi.cast(LPCSTR, data)
                 m.setdata(charp, map_size)
                 return m
-        winerror = rwin32.lastWindowsError()
+        winerror = rwin32.lastSavedWindowsError()
         if m.map_handle:
-            rwin32.CloseHandle(m.map_handle)
+            rwin32.CloseHandle_no_err(m.map_handle)
         m.map_handle = INVALID_HANDLE
         raise winerror
 
@@ -882,4 +954,11 @@ elif _MS_WINDOWS:
     def free(ptr, map_size):
         VirtualFree_safe(ptr, 0, MEM_RELEASE)
 
-# register_external here?
+    def madvise_free(addr, map_size):
+        r = _VirtualAlloc_safe_no_wrapper(
+            rffi.cast(rffi.VOIDP, addr),
+            rffi.cast(rffi.SIZE_T, map_size),
+            rffi.cast(DWORD, MEM_RESET),
+            rffi.cast(DWORD, PAGE_READWRITE))
+        #from rpython.rlib import debug
+        #debug.debug_print("madvise_free:", r)

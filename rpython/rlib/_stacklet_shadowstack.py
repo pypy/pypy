@@ -1,103 +1,184 @@
 from rpython.rlib import _rffi_stacklet as _c
 from rpython.rlib.debug import ll_assert
-from rpython.rtyper.annlowlevel import llhelper
-from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rlib import rgc
+from rpython.rtyper.annlowlevel import llhelper, MixLevelHelperAnnotator
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.tool.staticmethods import StaticMethods
+from rpython.annotator import model as annmodel
+from rpython.rtyper.llannotation import lltype_to_annotation
 
 
-NULL_SUSPSTACK = lltype.nullptr(llmemory.GCREF.TO)
+#
+# A GC wrapper around the C stacklet handles, with additionally a
+# copy of the shadowstack (for all stacklets different than the main)
+#
+STACKLET = lltype.GcStruct('Stacklet',
+                           ('s_handle', _c.handle),
+                           ('s_sscopy', llmemory.Address),
+                           rtti=True)
+STACKLET_PTR = lltype.Ptr(STACKLET)
+NULL_STACKLET = lltype.nullptr(STACKLET)
 
 
-def _new_callback(h, arg):
-    # We still have the old shadowstack active at this point; save it
-    # away, and start a fresh new one
-    oldsuspstack = gcrootfinder.oldsuspstack
-    h = llmemory.cast_ptr_to_adr(h)
-    llop.gc_save_current_state_away(lltype.Void,
-                                    oldsuspstack, h)
-    llop.gc_start_fresh_new_state(lltype.Void)
-    gcrootfinder.oldsuspstack = NULL_SUSPSTACK
-    #
-    newsuspstack = gcrootfinder.callback(oldsuspstack, arg)
-    #
-    # Finishing this stacklet.
-    gcrootfinder.oldsuspstack = NULL_SUSPSTACK
-    gcrootfinder.newsuspstack = newsuspstack
-    h = llop.gc_shadowstackref_context(llmemory.Address, newsuspstack)
-    return llmemory.cast_adr_to_ptr(h, _c.handle)
+def complete_destrptr(gctransformer):
+    translator = gctransformer.translator
+    mixlevelannotator = MixLevelHelperAnnotator(translator.rtyper)
+    args_s = [lltype_to_annotation(STACKLET_PTR)]
+    s_result = annmodel.s_None
+    destrptr = mixlevelannotator.delayedfunction(stacklet_destructor,
+                                                 args_s, s_result)
+    mixlevelannotator.finish()
+    lltype.attachRuntimeTypeInfo(STACKLET, destrptr=destrptr)
 
-def prepare_old_suspstack():
-    if not gcrootfinder.oldsuspstack:   # else reuse the one still there
-        _allocate_old_suspstack()
+# Note: it's important that this is a light finalizer, otherwise
+# the GC will call it but still expect the object to stay around for
+# a while---and it can't stay around, because s_sscopy points to
+# freed nonsense and customtrace() will crash
+@rgc.must_be_light_finalizer
+def stacklet_destructor(stacklet):
+    sscopy = stacklet.s_sscopy
+    if sscopy:
+        llmemory.raw_free(sscopy)
+    h = stacklet.s_handle
+    if h:
+        _c.destroy(h)
 
-def _allocate_old_suspstack():
-    suspstack = llop.gc_shadowstackref_new(llmemory.GCREF)
-    gcrootfinder.oldsuspstack = suspstack
-_allocate_old_suspstack._dont_inline_ = True
 
-def get_result_suspstack(h):
-    # Now we are in the target, after the switch() or the new().
-    # Note that this whole module was carefully written in such a way as
-    # not to invoke pushing/popping things off the shadowstack at
-    # unexpected moments...
-    oldsuspstack = gcrootfinder.oldsuspstack
-    newsuspstack = gcrootfinder.newsuspstack
-    gcrootfinder.oldsuspstack = NULL_SUSPSTACK
-    gcrootfinder.newsuspstack = NULL_SUSPSTACK
+SIZEADDR = llmemory.sizeof(llmemory.Address)
+
+def customtrace(gc, obj, callback, arg):
+    stacklet = llmemory.cast_adr_to_ptr(obj, STACKLET_PTR)
+    sscopy = stacklet.s_sscopy
+    if sscopy:
+        length_bytes = sscopy.signed[0]
+        while length_bytes > 0:
+            addr = sscopy + length_bytes
+            gc._trace_callback(callback, arg, addr)
+            length_bytes -= SIZEADDR
+lambda_customtrace = lambda: customtrace
+
+def sscopy_detach_shadow_stack():
+    base = llop.gc_adr_of_root_stack_base(llmemory.Address).address[0]
+    top = llop.gc_adr_of_root_stack_top(llmemory.Address).address[0]
+    length_bytes = top - base
+    result = llmemory.raw_malloc(SIZEADDR + length_bytes)
+    if result:
+        result.signed[0] = length_bytes
+        llmemory.raw_memcopy(base, result + SIZEADDR, length_bytes)
+        llop.gc_adr_of_root_stack_top(llmemory.Address).address[0] = base
+    return result
+
+def sscopy_attach_shadow_stack(sscopy):
+    base = llop.gc_adr_of_root_stack_base(llmemory.Address).address[0]
+    ll_assert(llop.gc_adr_of_root_stack_top(llmemory.Address).address[0]==base,
+              "attach_shadow_stack: ss is not empty?")
+    length_bytes = sscopy.signed[0]
+    llmemory.raw_memcopy(sscopy + SIZEADDR, base, length_bytes)
+    llop.gc_adr_of_root_stack_top(llmemory.Address).address[0] = (
+        base + length_bytes)
+    llmemory.raw_free(sscopy)
+
+def alloc_stacklet():
+    new_stacklet = lltype.malloc(STACKLET)
+    new_stacklet.s_handle = _c.null_handle
+    new_stacklet.s_sscopy = llmemory.NULL
+    return new_stacklet
+
+def attach_handle_on_stacklet(stacklet, h):
+    ll_assert(stacklet.s_handle == _c.null_handle, "attach stacklet 1: garbage")
+    ll_assert(stacklet.s_sscopy == llmemory.NULL,  "attach stacklet 2: garbage")
     if not h:
         raise MemoryError
-    # We still have the old shadowstack active at this point; save it
-    # away, and restore the new one
-    if oldsuspstack:
-        ll_assert(not _c.is_empty_handle(h),"unexpected empty stacklet handle")
-        h = llmemory.cast_ptr_to_adr(h)
-        llop.gc_save_current_state_away(lltype.Void, oldsuspstack, h)
+    elif _c.is_empty_handle(h):
+        ll_assert(gcrootfinder.sscopy == llmemory.NULL,
+                  "empty_handle but sscopy != NULL")
+        return NULL_STACKLET
     else:
-        ll_assert(_c.is_empty_handle(h),"unexpected non-empty stacklet handle")
-        llop.gc_forget_current_state(lltype.Void)
+        # This is a return that gave us a real handle.  Store it.
+        stacklet.s_handle = h
+        stacklet.s_sscopy = gcrootfinder.sscopy
+        ll_assert(gcrootfinder.sscopy != llmemory.NULL,
+                  "!empty_handle but sscopy == NULL")
+        gcrootfinder.sscopy = llmemory.NULL
+        llop.gc_writebarrier(lltype.Void, llmemory.cast_ptr_to_adr(stacklet))
+        return stacklet
+
+def consume_stacklet(stacklet):
+    h = stacklet.s_handle
+    ll_assert(bool(h), "consume_stacklet: null handle")
+    stacklet.s_handle = _c.null_handle
+    stacklet.s_sscopy = llmemory.NULL
+    return h
+
+def _new_callback(h, arg):
+    # There is a fresh stacklet object waiting on the gcrootfinder,
+    # so populate it with data that represents the parent suspended
+    # stacklet and detach the stacklet object from gcrootfinder.
+    stacklet = gcrootfinder.fresh_stacklet
+    gcrootfinder.fresh_stacklet = NULL_STACKLET
+    ll_assert(stacklet != NULL_STACKLET, "_new_callback: NULL #1")
+    stacklet = attach_handle_on_stacklet(stacklet, h)
+    ll_assert(stacklet != NULL_STACKLET, "_new_callback: NULL #2")
     #
-    llop.gc_restore_state_from(lltype.Void, newsuspstack)
+    # Call the main function provided by the (RPython) user.
+    stacklet = gcrootfinder.runfn(stacklet, arg)
     #
-    # From this point on, 'newsuspstack' is consumed and done, its
-    # shadow stack installed as the current one.  It should not be
-    # used any more.  For performance, we avoid it being deallocated
-    # by letting it be reused on the next switch.
-    gcrootfinder.oldsuspstack = newsuspstack
-    # Return.
-    return oldsuspstack
+    # Here, 'stacklet' points to the target stacklet to which we want
+    # to jump to next.  Read the 'handle' and forget about the
+    # stacklet object.
+    gcrootfinder.sscopy = llmemory.NULL
+    return consume_stacklet(stacklet)
+
+def _new(thread_handle, arg):
+    # No shadowstack manipulation here (no usage of gc references)
+    sscopy = sscopy_detach_shadow_stack()
+    gcrootfinder.sscopy = sscopy
+    if not sscopy:
+        return _c.null_handle
+    h = _c.new(thread_handle, llhelper(_c.run_fn, _new_callback), arg)
+    sscopy_attach_shadow_stack(sscopy)
+    return h
+_new._dont_inline_ = True
+
+def _switch(h):
+    # No shadowstack manipulation here (no usage of gc references)
+    sscopy = sscopy_detach_shadow_stack()
+    gcrootfinder.sscopy = sscopy
+    if not sscopy:
+        return _c.null_handle
+    h = _c.switch(h)
+    sscopy_attach_shadow_stack(sscopy)
+    return h
+_switch._dont_inline_ = True
 
 
-class StackletGcRootFinder:
-    __metaclass__ = StaticMethods
+class StackletGcRootFinder(object):
+    fresh_stacklet = NULL_STACKLET
 
+    @staticmethod
     def new(thrd, callback, arg):
-        gcrootfinder.callback = callback
+        rgc.register_custom_trace_hook(STACKLET, lambda_customtrace)
+        result_stacklet = alloc_stacklet()
+        gcrootfinder.fresh_stacklet = alloc_stacklet()
+        gcrootfinder.runfn = callback
         thread_handle = thrd._thrd
-        prepare_old_suspstack()
-        h = _c.new(thread_handle, llhelper(_c.run_fn, _new_callback), arg)
-        return get_result_suspstack(h)
-    new._dont_inline_ = True
+        h = _new(thread_handle, arg)
+        return attach_handle_on_stacklet(result_stacklet, h)
 
-    def switch(suspstack):
-        # suspstack has a handle to target, i.e. where to switch to
-        ll_assert(suspstack != gcrootfinder.oldsuspstack,
-                  "stacklet: invalid use")
-        gcrootfinder.newsuspstack = suspstack
-        h = llop.gc_shadowstackref_context(llmemory.Address, suspstack)
-        h = llmemory.cast_adr_to_ptr(h, _c.handle)
-        prepare_old_suspstack()
-        h = _c.switch(h)
-        return get_result_suspstack(h)
-    switch._dont_inline_ = True
+    @staticmethod
+    def switch(stacklet):
+        # 'stacklet' has a handle to target, i.e. where to switch to
+        h = consume_stacklet(stacklet)
+        h = _switch(h)
+        return attach_handle_on_stacklet(stacklet, h)
 
-    def is_empty_handle(suspstack):
-        return not suspstack
+    @staticmethod
+    def is_empty_handle(stacklet):
+        return not stacklet
 
+    @staticmethod
     def get_null_handle():
-        return NULL_SUSPSTACK
+        return NULL_STACKLET
 
 
 gcrootfinder = StackletGcRootFinder()
-gcrootfinder.oldsuspstack = NULL_SUSPSTACK
-gcrootfinder.newsuspstack = NULL_SUSPSTACK

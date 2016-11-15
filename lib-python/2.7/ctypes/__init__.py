@@ -1,6 +1,3 @@
-######################################################################
-#  This file should be kept compatible with Python 2.3, see PEP 291. #
-######################################################################
 """create and manipulate C data types in Python"""
 
 import os as _os, sys as _sys
@@ -389,12 +386,13 @@ class CDLL(object):
             func.__name__ = name_or_ordinal
         return func
 
-class PyDLL(CDLL):
-    """This class represents the Python library itself.  It allows to
-    access Python API functions.  The GIL is not released, and
-    Python exceptions are handled correctly.
-    """
-    _func_flags_ = _FUNCFLAG_CDECL | _FUNCFLAG_PYTHONAPI
+# Not in PyPy
+#class PyDLL(CDLL):
+#    """This class represents the Python library itself.  It allows
+#    accessing Python API functions.  The GIL is not released, and
+#    Python exceptions are handled correctly.
+#    """
+#    _func_flags_ = _FUNCFLAG_CDECL | _FUNCFLAG_PYTHONAPI
 
 if _os.name in ("nt", "ce"):
 
@@ -447,15 +445,8 @@ class LibraryLoader(object):
         return self._dlltype(name)
 
 cdll = LibraryLoader(CDLL)
-pydll = LibraryLoader(PyDLL)
-
-if _os.name in ("nt", "ce"):
-    pythonapi = PyDLL("python dll", None, _sys.dllhandle)
-elif _sys.platform == "cygwin":
-    pythonapi = PyDLL("libpython%d.%d.dll" % _sys.version_info[:2])
-else:
-    pythonapi = PyDLL(None)
-
+# not on PyPy
+#pydll = LibraryLoader(PyDLL)
 
 if _os.name in ("nt", "ce"):
     windll = LibraryLoader(WinDLL)

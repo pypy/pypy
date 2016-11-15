@@ -7,30 +7,30 @@ from os.path import pardir, realpath
 
 _INSTALL_SCHEMES = {
     'posix_prefix': {
-        'stdlib': '{base}/lib/python{py_version_short}',
-        'platstdlib': '{platbase}/lib/python{py_version_short}',
-        'purelib': '{base}/lib/python{py_version_short}/site-packages',
-        'platlib': '{platbase}/lib/python{py_version_short}/site-packages',
-        'include': '{base}/include/python{py_version_short}',
-        'platinclude': '{platbase}/include/python{py_version_short}',
+        'stdlib': '{base}/lib/{implementation_lower}{py_version_short}',
+        'platstdlib': '{platbase}/lib/{implementation_lower}{py_version_short}',
+        'purelib': '{base}/lib/{implementation_lower}{py_version_short}/site-packages',
+        'platlib': '{platbase}/lib/{implementation_lower}{py_version_short}/site-packages',
+        'include': '{base}/include/{implementation_lower}{py_version_short}',
+        'platinclude': '{platbase}/include/{implementation_lower}{py_version_short}',
         'scripts': '{base}/bin',
         'data': '{base}',
         },
     'posix_home': {
-        'stdlib': '{base}/lib/python',
-        'platstdlib': '{base}/lib/python',
-        'purelib': '{base}/lib/python',
-        'platlib': '{base}/lib/python',
-        'include': '{base}/include/python',
-        'platinclude': '{base}/include/python',
+        'stdlib': '{base}/lib/{implementation_lower}',
+        'platstdlib': '{base}/lib/{implementation_lower}',
+        'purelib': '{base}/lib/{implementation_lower}',
+        'platlib': '{base}/lib/{implementation_lower}',
+        'include': '{base}/include/{implementation_lower}',
+        'platinclude': '{base}/include/{implementation_lower}',
         'scripts': '{base}/bin',
         'data'   : '{base}',
         },
     'pypy': {
-        'stdlib': '{base}/lib-python/{py_version_short}',
-        'platstdlib': '{base}/lib-python/{py_version_short}',
-        'purelib': '{base}/lib-python/{py_version_short}',
-        'platlib': '{base}/lib-python/{py_version_short}',
+        'stdlib': '{base}/lib-{implementation_lower}/{py_version_short}',
+        'platstdlib': '{base}/lib-{implementation_lower}/{py_version_short}',
+        'purelib': '{base}/lib-{implementation_lower}/{py_version_short}',
+        'platlib': '{base}/lib-{implementation_lower}/{py_version_short}',
         'include': '{base}/include',
         'platinclude': '{base}/include',
         'scripts': '{base}/bin',
@@ -57,37 +57,37 @@ _INSTALL_SCHEMES = {
         'data'   : '{base}',
         },
     'os2_home': {
-        'stdlib': '{userbase}/lib/python{py_version_short}',
-        'platstdlib': '{userbase}/lib/python{py_version_short}',
-        'purelib': '{userbase}/lib/python{py_version_short}/site-packages',
-        'platlib': '{userbase}/lib/python{py_version_short}/site-packages',
-        'include': '{userbase}/include/python{py_version_short}',
+        'stdlib': '{userbase}/lib/{implementation_lower}{py_version_short}',
+        'platstdlib': '{userbase}/lib/{implementation_lower}{py_version_short}',
+        'purelib': '{userbase}/lib/{implementation_lower}{py_version_short}/site-packages',
+        'platlib': '{userbase}/lib/{implementation_lower}{py_version_short}/site-packages',
+        'include': '{userbase}/include/{implementation_lower}{py_version_short}',
         'scripts': '{userbase}/bin',
         'data'   : '{userbase}',
         },
     'nt_user': {
-        'stdlib': '{userbase}/Python{py_version_nodot}',
-        'platstdlib': '{userbase}/Python{py_version_nodot}',
-        'purelib': '{userbase}/Python{py_version_nodot}/site-packages',
-        'platlib': '{userbase}/Python{py_version_nodot}/site-packages',
-        'include': '{userbase}/Python{py_version_nodot}/Include',
+        'stdlib': '{userbase}/{implementation}{py_version_nodot}',
+        'platstdlib': '{userbase}/{implementation}{py_version_nodot}',
+        'purelib': '{userbase}/{implementation}{py_version_nodot}/site-packages',
+        'platlib': '{userbase}/{implementation}{py_version_nodot}/site-packages',
+        'include': '{userbase}/{implementation}{py_version_nodot}/Include',
         'scripts': '{userbase}/Scripts',
         'data'   : '{userbase}',
         },
     'posix_user': {
-        'stdlib': '{userbase}/lib/python{py_version_short}',
-        'platstdlib': '{userbase}/lib/python{py_version_short}',
-        'purelib': '{userbase}/lib/python{py_version_short}/site-packages',
-        'platlib': '{userbase}/lib/python{py_version_short}/site-packages',
-        'include': '{userbase}/include/python{py_version_short}',
+        'stdlib': '{userbase}/lib/{implementation_lower}{py_version_short}',
+        'platstdlib': '{userbase}/lib/{implementation_lower}{py_version_short}',
+        'purelib': '{userbase}/lib/{implementation_lower}{py_version_short}/site-packages',
+        'platlib': '{userbase}/lib/{implementation_lower}{py_version_short}/site-packages',
+        'include': '{userbase}/include/{implementation_lower}{py_version_short}',
         'scripts': '{userbase}/bin',
         'data'   : '{userbase}',
         },
     'osx_framework_user': {
-        'stdlib': '{userbase}/lib/python',
-        'platstdlib': '{userbase}/lib/python',
-        'purelib': '{userbase}/lib/python/site-packages',
-        'platlib': '{userbase}/lib/python/site-packages',
+        'stdlib': '{userbase}/lib/{implementation_lower}',
+        'platstdlib': '{userbase}/lib/{implementation_lower}',
+        'purelib': '{userbase}/lib/{implementation_lower}/site-packages',
+        'platlib': '{userbase}/lib/{implementation_lower}/site-packages',
         'include': '{userbase}/include',
         'scripts': '{userbase}/bin',
         'data'   : '{userbase}',
@@ -103,6 +103,11 @@ _PREFIX = os.path.normpath(sys.prefix)
 _EXEC_PREFIX = os.path.normpath(sys.exec_prefix)
 _CONFIG_VARS = None
 _USER_BASE = None
+
+def _get_implementation():
+    if '__pypy__' in sys.builtin_module_names:
+        return 'PyPy'
+    return 'Python'
 
 def _safe_realpath(path):
     try:
@@ -285,17 +290,21 @@ def _parse_makefile(filename, vars=None):
     return vars
 
 
-def _get_makefile_filename():
+def get_makefile_filename():
+    """Return the path of the Makefile."""
     if _PYTHON_BUILD:
         return os.path.join(_PROJECT_BASE, "Makefile")
     return os.path.join(get_path('platstdlib'), "config", "Makefile")
+
+# Issue #22199: retain undocumented private name for compatibility
+_get_makefile_filename = get_makefile_filename
 
 def _generate_posix_vars():
     """Generate the Python module containing build-time variables."""
     import pprint
     vars = {}
     # load the installed Makefile:
-    makefile = _get_makefile_filename()
+    makefile = get_makefile_filename()
     try:
         _parse_makefile(makefile, vars)
     except IOError, e:
@@ -475,6 +484,8 @@ def get_config_vars(*args):
         _CONFIG_VARS['base'] = _PREFIX
         _CONFIG_VARS['platbase'] = _EXEC_PREFIX
         _CONFIG_VARS['projectbase'] = _PROJECT_BASE
+        _CONFIG_VARS['implementation'] = _get_implementation()
+        _CONFIG_VARS['implementation_lower'] = _get_implementation().lower()
 
         if os.name in ('nt', 'os2'):
             _init_non_posix(_CONFIG_VARS)
@@ -512,6 +523,13 @@ def get_config_vars(*args):
         if sys.platform == 'darwin':
             import _osx_support
             _osx_support.customize_config_vars(_CONFIG_VARS)
+
+        # PyPy:
+        import imp
+        for suffix, mode, type_ in imp.get_suffixes():
+            if type_ == imp.C_EXTENSION:
+                _CONFIG_VARS['SOABI'] = suffix.split('.')[1]
+                break        
 
     if args:
         vals = []
@@ -644,6 +662,8 @@ def _main():
     _print_dict('Paths', get_paths())
     print
     _print_dict('Variables', get_config_vars())
+    print
+    _print_dict('User', get_paths('%s_user' % os.name))
 
 
 if __name__ == '__main__':

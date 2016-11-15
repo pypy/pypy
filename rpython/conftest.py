@@ -1,10 +1,8 @@
-from os.path import *
 import py, pytest
 from rpython.tool import leakfinder
 
 pytest_plugins = 'rpython.tool.pytest.expecttest'
 
-cdir = realpath(join(dirname(__file__), 'translator', 'c'))
 option = None
 
 def braindead_deindent(self):
@@ -42,6 +40,9 @@ def pytest_addoption(parser):
     group.addoption('--viewloops', action="store_true",
            default=False, dest="viewloops",
            help="show only the compiled loops")
+    group.addoption('--viewdeps', action="store_true",
+           default=False, dest="viewdeps",
+           help="show the dependencies that have been constructed from a trace")
 
 
 def pytest_pycollect_makeitem(__multicall__,collector, name, obj):
@@ -81,7 +82,13 @@ class LeakFinder:
             return
         if (not getattr(item.obj, 'dont_track_allocations', False)
             and leakfinder.TRACK_ALLOCATIONS):
-            item._pypytest_leaks = leakfinder.stop_tracking_allocations(False)
+            kwds = {}
+            try:
+                kwds['do_collection'] = item.track_allocations_collect
+            except AttributeError:
+                pass
+            item._pypytest_leaks = leakfinder.stop_tracking_allocations(False,
+                                                                        **kwds)
         else:            # stop_tracking_allocations() already called
             item._pypytest_leaks = None
 

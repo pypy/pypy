@@ -17,7 +17,7 @@ class AppTestGenerator:
             yield 1
             assert g.gi_running
         g = f()
-        assert g.gi_code is f.func_code
+        assert g.gi_code is f.__code__
         assert g.__name__ == 'f'
         assert g.gi_frame is not None
         assert not g.gi_running
@@ -26,7 +26,7 @@ class AppTestGenerator:
         raises(StopIteration, g.next)
         assert not g.gi_running
         assert g.gi_frame is None
-        assert g.gi_code is f.func_code
+        assert g.gi_code is f.__code__
         assert g.__name__ == 'f'
 
     def test_generator3(self):
@@ -57,12 +57,14 @@ class AppTestGenerator:
         def f():
             yield 2
         g = f()
+        # two arguments version
         raises(NameError, g.throw, NameError, "Error")
 
     def test_throw2(self):
         def f():
             yield 2
         g = f()
+        # single argument version
         raises(NameError, g.throw, NameError("Error"))
 
     def test_throw3(self):
@@ -221,7 +223,8 @@ class AppTestGenerator:
         def f():
             yield 1
         g = f()
-        raises(TypeError, g.send, 1)
+        raises(TypeError, g.send)     # one argument required
+        raises(TypeError, g.send, 1)  # not started, must send None
 
     def test_generator_explicit_stopiteration(self):
         def f():
@@ -279,3 +282,34 @@ res = f()
             yield 1
             raise StopIteration
         assert tuple(f()) == (1,)
+
+    def test_exception_is_cleared_by_yield(self):
+        def f():
+            try:
+                foobar
+            except NameError:
+                yield 5
+                raise    # should raise "no active exception to re-raise"
+        gen = f()
+        next(gen)  # --> 5
+        try:
+            next(gen)
+        except TypeError:
+            pass
+
+
+def test_should_not_inline(space):
+    from pypy.interpreter.generator import should_not_inline
+    w_co = space.appexec([], '''():
+        def g(x):
+            yield x + 5
+        return g.__code__
+    ''')
+    assert should_not_inline(w_co) == False
+    w_co = space.appexec([], '''():
+        def g(x):
+            yield x + 5
+            yield x + 6
+        return g.__code__
+    ''')
+    assert should_not_inline(w_co) == True

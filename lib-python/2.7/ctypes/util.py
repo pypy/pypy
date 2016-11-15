@@ -1,6 +1,3 @@
-######################################################################
-#  This file should be kept compatible with Python 2.3, see PEP 291. #
-######################################################################
 import sys, os
 
 # find_library(name) returns the pathname of a library, or None.
@@ -86,9 +83,10 @@ if os.name == "posix" and sys.platform == "darwin":
 
 elif os.name == "posix":
     # Andreas Degert's find functions, using gcc, /sbin/ldconfig, objdump
-    import re, tempfile, errno
+    import re, errno
 
     def _findLib_gcc(name):
+        import tempfile
         expr = r'[^\(\)\s]*lib%s\.[^\(\)\s]*' % re.escape(name)
         fdout, ccout = tempfile.mkstemp()
         os.close(fdout)
@@ -137,16 +135,13 @@ elif os.name == "posix":
             cmd = 'if ! type objdump >/dev/null 2>&1; then exit 10; fi;' \
                   "objdump -p -j .dynamic 2>/dev/null " + f
             f = os.popen(cmd)
-            dump = f.read()
-            rv = f.close()
+            try:
+                dump = f.read()
+            finally:
+                rv = f.close()
             if rv == 10:
                 raise OSError, 'objdump command not found'
-            f = os.popen(cmd)
-            try:
-                data = f.read()
-            finally:
-                f.close()
-            res = re.search(r'\sSONAME\s+([^\s]+)', data)
+            res = re.search(r'\sSONAME\s+([^\s]+)', dump)
             if not res:
                 return None
             return res.group(1)
@@ -177,7 +172,7 @@ elif os.name == "posix":
             res = re.findall(expr, data)
             if not res:
                 return _get_soname(_findLib_gcc(name))
-            res.sort(cmp= lambda x,y: cmp(_num_version(x), _num_version(y)))
+            res.sort(key=_num_version)
             return res[-1]
 
     elif sys.platform == "sunos5":
@@ -191,6 +186,7 @@ elif os.name == "posix":
             else:
                 cmd = 'env LC_ALL=C /usr/bin/crle 2>/dev/null'
 
+            paths = None
             for line in os.popen(cmd).readlines():
                 line = line.strip()
                 if line.startswith('Default Library Path (ELF):'):
@@ -228,7 +224,7 @@ elif os.name == "posix":
 
             # XXX assuming GLIBC's ldconfig (with option -p)
             expr = r'\s+(lib%s\.[^\s]+)\s+\(%s' % (re.escape(name), abi_type)
-            f = os.popen('/sbin/ldconfig -p 2>/dev/null')
+            f = os.popen('LC_ALL=C LANG=C /sbin/ldconfig -p 2>/dev/null')
             try:
                 data = f.read()
             finally:

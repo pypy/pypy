@@ -19,7 +19,7 @@ def getrinputs(rtyper, graph):
 
 def getrresult(rtyper, graph):
     """Return the repr of the result variable of the 'graph'."""
-    if graph.getreturnvar() in rtyper.annotator.bindings:
+    if graph.getreturnvar().annotation is not None:
         return rtyper.bindingrepr(graph.getreturnvar())
     else:
         return lltype.Void
@@ -31,7 +31,7 @@ def getsig(rtyper, graph):
             getrinputs(rtyper, graph),
             getrresult(rtyper, graph))
 
-def callparse(rtyper, graph, hop, opname, r_self=None):
+def callparse(rtyper, graph, hop, r_self=None):
     """Parse the arguments of 'hop' when calling the given 'graph'.
     """
     rinputs = getrinputs(rtyper, graph)
@@ -43,6 +43,7 @@ def callparse(rtyper, graph, hop, opname, r_self=None):
     else:
         start = 0
         rinputs[0] = r_self
+    opname = hop.spaceop.opname
     if opname == "simple_call":
         arguments =  ArgumentsForRtype(args_h(start))
     elif opname == "call_args":
@@ -57,8 +58,9 @@ def callparse(rtyper, graph, hop, opname, r_self=None):
             defs_h.append(ConstHolder(x))
     try:
         holders = arguments.match_signature(signature, defs_h)
-    except ArgErr, e:
-        raise TyperError, "signature mismatch: %s" % e.getmsg(graph.name)
+    except ArgErr as e:
+        raise TyperError("signature mismatch: %s: %s" % (
+            graph.name, e.getmsg()))
 
     assert len(holders) == len(rinputs), "argument parsing mismatch"
     vlist = []

@@ -21,12 +21,8 @@ class UnixCCompilerTestCase(unittest.TestCase):
         sys.platform = self._backup_platform
         sysconfig.get_config_var = self._backup_get_config_var
 
+    @unittest.skipIf(sys.platform == 'win32', "can't test on Windows")
     def test_runtime_libdir_option(self):
-
-        # not tested under windows
-        if sys.platform == 'win32':
-            return
-
         # Issue#5900
         #
         # Ensure RUNPATH is added to extension modules with RPATH if
@@ -139,7 +135,7 @@ class UnixCCompilerTestCase(unittest.TestCase):
         self.assertEqual(self.cc.linker_so[0], 'my_cc')
 
     @unittest.skipUnless(sys.platform == 'darwin', 'test only relevant for OS X')
-    def test_osx_explict_ldshared(self):
+    def test_osx_explicit_ldshared(self):
         # Issue #18080:
         # ensure that setting CC env variable does not change
         #   explicit LDSHARED setting for linker

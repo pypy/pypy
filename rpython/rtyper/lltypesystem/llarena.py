@@ -1,6 +1,7 @@
-import array, weakref
+import array
 from rpython.rtyper.lltypesystem import llmemory
 from rpython.rlib.rarithmetic import is_valid_int
+from rpython.rtyper.lltypesystem.lloperation import llop
 
 
 # An "arena" is a large area of memory which can hold a number of
@@ -16,8 +17,6 @@ class ArenaError(Exception):
     pass
 
 class Arena(object):
-    object_arena_location = {}     # {container: (arena, offset)}
-    old_object_arena_location = weakref.WeakKeyDictionary()
     _count_arenas = 0
 
     def __init__(self, nbytes, zero):
@@ -49,11 +48,11 @@ class Arena(object):
                 assert offset >= stop, "object overlaps cleared area"
             else:
                 obj = ptr._obj
-                _dictdel(Arena.object_arena_location, obj)
+                obj.__arena_location__[0] = False   # no longer valid
                 del self.objectptrs[offset]
                 del self.objectsizes[offset]
                 obj._free()
-        if zero:
+        if zero in (1, 2):
             initialbyte = "0"
         else:
             initialbyte = "#"
@@ -111,8 +110,7 @@ class Arena(object):
         self.objectptrs[offset] = objaddr.ptr
         self.objectsizes[offset] = bytes
         container = objaddr.ptr._obj
-        Arena.object_arena_location[container] = self, offset
-        Arena.old_object_arena_location[container] = self, offset
+        container.__arena_location__ = [True, self, offset]
 
     def shrink_obj(self, offset, newsize):
         oldbytes = self.objectsizes[offset]
@@ -203,12 +201,12 @@ class fakearenaaddress(llmemory.fakeaddress):
             return None, None
         obj = other.ptr._obj
         innerobject = False
-        while obj not in Arena.object_arena_location:
+        while not getattr(obj, '__arena_location__', (False,))[0]:
             obj = obj._parentstructure()
             if obj is None:
                 return None, None     # not found in the arena
             innerobject = True
-        arena, offset = Arena.object_arena_location[obj]
+        _, arena, offset = obj.__arena_location__
         if innerobject:
             # 'obj' is really inside the object allocated from the arena,
             # so it's likely that its address "should be" a bit larger than
@@ -272,24 +270,14 @@ def getfakearenaaddress(addr):
 def _oldobj_to_address(obj):
     obj = obj._normalizedcontainer(check=False)
     try:
-        arena, offset = Arena.old_object_arena_location[obj]
-    except KeyError:
+        _, arena, offset = obj.__arena_location__
+    except AttributeError:
         if obj._was_freed():
             msg = "taking address of %r, but it was freed"
         else:
             msg = "taking address of %r, but it is not in an arena"
         raise RuntimeError(msg % (obj,))
     return arena.getaddr(offset)
-
-def _dictdel(d, key):
-    # hack
-    try:
-        del d[key]
-    except KeyError:
-        items = d.items()
-        d.clear()
-        d.update(items)
-        del d[key]
 
 class RoundedUpForAllocation(llmemory.AddressOffset):
     """A size that is rounded up in order to preserve alignment of objects
@@ -346,6 +334,9 @@ def arena_reset(arena_addr, size, zero):
       * 0: don't fill the area with zeroes
       * 1: clear, optimized for a very large area of memory
       * 2: clear, optimized for a small or medium area of memory
+      * 3: fill with garbage
+      * 4: large area of memory that can benefit from MADV_FREE
+             (i.e. contains garbage, may be zero-filled or not)
     """
     arena_addr = getfakearenaaddress(arena_addr)
     arena_addr.arena.reset(zero, arena_addr.offset, size)
@@ -421,16 +412,19 @@ if os.name == 'posix':
             self.pagesize = 0
         def _cleanup_(self):
             self.pagesize = 0
+        def get(self):
+            pagesize = self.pagesize
+            if pagesize == 0:
+                pagesize = rffi.cast(lltype.Signed, legacy_getpagesize())
+                self.pagesize = pagesize
+            return pagesize
+
     posixpagesize = PosixPageSize()
 
     def clear_large_memory_chunk(baseaddr, size):
         from rpython.rlib import rmmap
 
-        pagesize = posixpagesize.pagesize
-        if pagesize == 0:
-            pagesize = rffi.cast(lltype.Signed, legacy_getpagesize())
-            posixpagesize.pagesize = pagesize
-
+        pagesize = posixpagesize.get()
         if size > 2 * pagesize:
             lowbits = rffi.cast(lltype.Signed, baseaddr) & (pagesize - 1)
             if lowbits:     # clear the initial misaligned part, if any
@@ -453,6 +447,24 @@ else:
     # Or it might be enough to decommit the pages and recommit
     # them immediately.
     clear_large_memory_chunk = llmemory.raw_memclear
+
+    class PosixPageSize:
+        def get(self):
+            from rpython.rlib import rmmap
+            return rmmap.PAGESIZE
+    posixpagesize = PosixPageSize()
+
+def madvise_arena_free(baseaddr, size):
+    from rpython.rlib import rmmap
+
+    pagesize = posixpagesize.get()
+    baseaddr = rffi.cast(lltype.Signed, baseaddr)
+    aligned_addr = (baseaddr + pagesize - 1) & ~(pagesize - 1)
+    size -= (aligned_addr - baseaddr)
+    if size >= pagesize:
+        rmmap.madvise_free(rffi.cast(rmmap.PTR, aligned_addr),
+                           size & ~(pagesize - 1))
+
 
 if os.name == "posix":
     from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -518,6 +530,10 @@ def llimpl_arena_reset(arena_addr, size, zero):
     if zero:
         if zero == 1:
             clear_large_memory_chunk(arena_addr, size)
+        elif zero == 3:
+            llop.raw_memset(lltype.Void, arena_addr, ord('#'), size)
+        elif zero == 4:
+            madvise_arena_free(arena_addr, size)
         else:
             llmemory.raw_memclear(arena_addr, size)
 llimpl_arena_reset._always_inline_ = True

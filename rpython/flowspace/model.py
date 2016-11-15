@@ -10,29 +10,6 @@ from rpython.tool.uid import uid, Hashable
 from rpython.tool.sourcetools import PY_IDENTIFIER, nice_repr_for_func
 
 
-"""
-    memory size before and after introduction of __slots__
-    using targetpypymain with -no-c
-
-    slottified          annotation  ann+genc
-    -------------------------------------------
-    nothing             321 MB      442 MB
-    Var/Const/SpaceOp   205 MB      325 MB
-    + Link              189 MB      311 MB
-    + Block             185 MB      304 MB
-
-    Dropping Variable.instances and using
-    just an instancenames dict brought
-    annotation down to 160 MB.
-    Computing the Variable.renamed attribute
-    and dropping Variable.instancenames
-    got annotation down to 109 MB.
-    Probably an effect of less fragmentation.
-"""
-
-__metaclass__ = type
-
-
 class FunctionGraph(object):
     def __init__(self, name, startblock, return_var=None):
         self.name = name  # function name (possibly mangled already)
@@ -163,6 +140,12 @@ class Link(object):
             newlink.llexitcase = self.llexitcase
         return newlink
 
+    def replace(self, mapping):
+        def rename(v):
+            if v is not None:
+                return v.replace(mapping)
+        return self.copy(rename)
+
     def settarget(self, targetblock):
         assert len(self.args) == len(targetblock.inputargs), (
             "output args mismatch")
@@ -173,7 +156,7 @@ class Link(object):
 
     def show(self):
         from rpython.translator.tool.graphpage import try_show
-        try_show(self)
+        return try_show(self)
 
     view = show
 
@@ -188,6 +171,9 @@ class Block(object):
         self.exitswitch = None            # a variable or
                                           #  Constant(last_exception), see below
         self.exits = []                   # list of Link(s)
+
+    def is_final_block(self):
+        return self.operations == ()      # return or except block
 
     def at(self):
         if self.operations and self.operations[0].offset >= 0:
@@ -213,6 +199,15 @@ class Block(object):
             txt = "%s(%s)" % (txt, self.exitswitch)
         return txt
 
+    @property
+    def canraise(self):
+        return self.exitswitch is c_last_exception
+
+    @property
+    def raising_op(self):
+        if self.canraise:
+            return self.operations[-1]
+
     def getvariables(self):
         "Return all variables mentioned in this Block."
         result = self.inputargs[:]
@@ -229,15 +224,12 @@ class Block(object):
         return uniqueitems([w for w in result if isinstance(w, Constant)])
 
     def renamevariables(self, mapping):
-        for a in mapping:
-            assert isinstance(a, Variable), a
-        self.inputargs = [mapping.get(a, a) for a in self.inputargs]
-        for op in self.operations:
-            op.args = [mapping.get(a, a) for a in op.args]
-            op.result = mapping.get(op.result, op.result)
-        self.exitswitch = mapping.get(self.exitswitch, self.exitswitch)
+        self.inputargs = [a.replace(mapping) for a in self.inputargs]
+        self.operations = [op.replace(mapping) for op in self.operations]
+        if self.exitswitch is not None:
+            self.exitswitch = self.exitswitch.replace(mapping)
         for link in self.exits:
-            link.args = [mapping.get(a, a) for a in link.args]
+            link.args = [a.replace(mapping) for a in link.args]
 
     def closeblock(self, *exits):
         assert self.exits == [], "block already closed"
@@ -250,9 +242,9 @@ class Block(object):
 
     def show(self):
         from rpython.translator.tool.graphpage import try_show
-        try_show(self)
+        return try_show(self)
 
-    def get_graph(self):
+    def _slowly_get_graph(self):
         import gc
         pending = [self]   # pending blocks
         seen = {self: True, None: True}
@@ -273,7 +265,7 @@ class Block(object):
 
 
 class Variable(object):
-    __slots__ = ["_name", "_nr", "concretetype"]
+    __slots__ = ["_name", "_nr", "annotation", "concretetype"]
 
     dummyname = 'v'
     namesdict = {dummyname: (dummyname, 0)}
@@ -296,6 +288,7 @@ class Variable(object):
     def __init__(self, name=None):
         self._name = self.dummyname
         self._nr = -1
+        self.annotation = None
         # numbers are bound lazily, when the name is requested
         if name is not None:
             self.rename(name)
@@ -334,6 +327,17 @@ class Variable(object):
     def foldable(self):
         return False
 
+    def copy(self):
+        """Make a copy of the Variable, preserving annotations and concretetype."""
+        newvar = Variable(self)
+        newvar.annotation = self.annotation
+        if hasattr(self, 'concretetype'):
+            newvar.concretetype = self.concretetype
+        return newvar
+
+    def replace(self, mapping):
+        return mapping.get(self, self)
+
 
 class Constant(Hashable):
     __slots__ = ["concretetype"]
@@ -361,6 +365,9 @@ class Constant(Hashable):
         else:
             # cannot count on it not mutating at runtime!
             return False
+
+    def replace(self, mapping):
+        return self
 
 
 class FSException(object):
@@ -437,8 +444,8 @@ class SpaceOperation(object):
                                 ", ".join(map(repr, self.args)))
 
     def replace(self, mapping):
-        newargs = [mapping.get(arg, arg) for arg in self.args]
-        newresult = mapping.get(self.result, self.result)
+        newargs = [arg.replace(mapping) for arg in self.args]
+        newresult = self.result.replace(mapping)
         return type(self)(self.opname, newargs, newresult, self.offset)
 
 class Atom(object):
@@ -606,11 +613,11 @@ def checkgraph(graph):
                 assert len(block.exits) <= 1
                 if block.exits:
                     assert block.exits[0].exitcase is None
-            elif block.exitswitch == Constant(last_exception):
+            elif block.canraise:
                 assert len(block.operations) >= 1
                 # check if an exception catch is done on a reasonable
                 # operation
-                assert block.operations[-1].opname not in ("keepalive",
+                assert block.raising_op.opname not in ("keepalive",
                                                            "cast_pointer",
                                                            "same_as")
                 assert len(block.exits) >= 2
@@ -673,7 +680,7 @@ def checkgraph(graph):
             assert len(allexitcases) == len(block.exits)
             vars_previous_blocks.update(vars)
 
-    except AssertionError, e:
+    except AssertionError as e:
         # hack for debug tools only
         #graph.show()  # <== ENABLE THIS TO SEE THE BROKEN GRAPH
         if block and not hasattr(e, '__annotator_block'):

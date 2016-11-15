@@ -23,6 +23,7 @@ from pypy.objspace.std.mapdict import LOOKUP_METHOD_mapdict, \
 
 
 def LOOKUP_METHOD(f, nameindex, *ignored):
+    from pypy.objspace.std.typeobject import MutableCell
     #   stack before                 after
     #  --------------    --fast-method----fallback-case------------
     #
@@ -33,7 +34,7 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
     space = f.space
     w_obj = f.popvalue()
 
-    if space.config.objspace.std.withmapdict and not jit.we_are_jitted():
+    if not jit.we_are_jitted():
         # mapdict has an extra-fast version of this function
         if LOOKUP_METHOD_mapdict(f, nameindex, w_obj):
             return
@@ -44,7 +45,18 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
     w_type = space.type(w_obj)
     if w_type.has_object_getattribute():
         name = space.str_w(w_name)
-        w_descr = w_type.lookup(name)
+        # bit of a mess to use these internal functions, but it allows the
+        # mapdict caching below to work without an additional lookup
+        version_tag = w_type.version_tag()
+        if version_tag is None:
+            _, w_descr = w_type._lookup_where(name)
+            w_descr_cell = None
+        else:
+            _, w_descr_cell = w_type._pure_lookup_where_with_method_cache(
+                name, version_tag)
+            w_descr = w_descr_cell
+            if isinstance(w_descr, MutableCell):
+                w_descr = w_descr.unwrap_cell(space)
         if w_descr is None:
             # this handles directly the common case
             #   module.function(args..)
@@ -59,11 +71,11 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
                     # nothing in the instance
                     f.pushvalue(w_descr)
                     f.pushvalue(w_obj)
-                    if (space.config.objspace.std.withmapdict and
-                            not jit.we_are_jitted()):
+                    if not jit.we_are_jitted():
                         # let mapdict cache stuff
                         LOOKUP_METHOD_mapdict_fill_cache_method(
-                            space, f.getcode(), name, nameindex, w_obj, w_type)
+                            space, f.getcode(), name, nameindex, w_obj, w_type,
+                            w_descr_cell)
                     return
     if w_value is None:
         w_value = space.getattr(w_obj, w_name)
@@ -81,7 +93,8 @@ def CALL_METHOD(f, oparg, *ignored):
     if not n_kwargs:
         w_callable = f.peekvalue(n_args + (2 * n_kwargs) + 1)
         try:
-            w_result = f.space.call_valuestack(w_callable, n, f)
+            w_result = f.space.call_valuestack(
+                    w_callable, n, f, methodcall=w_self is not None)
         finally:
             f.dropvalues(n_args + 2)
     else:
@@ -98,11 +111,13 @@ def CALL_METHOD(f, oparg, *ignored):
             keywords_w[n_kwargs] = w_value
 
         arguments = f.popvalues(n)    # includes w_self if it is not None
-        args = f.argument_factory(arguments, keywords, keywords_w, None, None)
+        args = f.argument_factory(
+                arguments, keywords, keywords_w, None, None,
+                methodcall=w_self is not None)
         if w_self is None:
             f.popvalue()    # removes w_self, which is None
         w_callable = f.popvalue()
-        if f.is_being_profiled and function.is_builtin_code(w_callable):
+        if f.get_is_being_profiled() and function.is_builtin_code(w_callable):
             w_result = f.space.call_args_and_c_profile(f, w_callable, args)
         else:
             w_result = f.space.call_args(w_callable, args)

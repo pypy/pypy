@@ -1,32 +1,41 @@
-from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from pypy.interpreter.error import OperationError, wrap_oserror, oefmt
-from rpython.rlib import rpoll
 import errno
 
+from rpython.rlib import _rsocket_rffi as _c, rpoll
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib import objectmodel
+
+from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
+from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
+from pypy.interpreter.typedef import TypeDef
+
 defaultevents = rpoll.POLLIN | rpoll.POLLOUT | rpoll.POLLPRI
+
 
 class Cache:
     def __init__(self, space):
         self.w_error = space.new_exception_class("select.error")
 
+
 def poll(space):
     """Returns a polling object, which supports registering and
-unregistering file descriptors, and then polling them for I/O events."""
+    unregistering file descriptors, and then polling them for I/O
+    events.
+    """
     return Poll()
+
 
 class Poll(W_Root):
     def __init__(self):
         self.fddict = {}
         self.running = False
 
-    @unwrap_spec(events="c_short")
+    @unwrap_spec(events="c_ushort")
     def register(self, space, w_fd, events=defaultevents):
         fd = space.c_filedescriptor_w(w_fd)
         self.fddict[fd] = events
 
-    @unwrap_spec(events=int)
+    @unwrap_spec(events="c_ushort")
     def modify(self, space, w_fd, events):
         fd = space.c_filedescriptor_w(w_fd)
         if fd not in self.fddict:
@@ -39,8 +48,7 @@ class Poll(W_Root):
         try:
             del self.fddict[fd]
         except KeyError:
-            raise OperationError(space.w_KeyError,
-                                 space.wrap(fd)) # XXX should this maybe be w_fd?
+            raise OperationError(space.w_KeyError, space.wrap(fd))
 
     @unwrap_spec(w_timeout=WrappedDefault(None))
     def poll(self, space, w_timeout):
@@ -54,7 +62,7 @@ class Poll(W_Root):
                 w_timeout = space.int(w_timeout)
             except OperationError:
                 raise oefmt(space.w_TypeError,
-                    "timeout must be an integer or None")
+                            "timeout must be an integer or None")
             timeout = space.c_int_w(w_timeout)
 
         if self.running:
@@ -62,7 +70,7 @@ class Poll(W_Root):
         self.running = True
         try:
             retval = rpoll.poll(self.fddict, timeout)
-        except rpoll.PollError, e:
+        except rpoll.PollError as e:
             w_errortype = space.fromcache(Cache).w_error
             message = e.get_msg()
             raise OperationError(w_errortype,
@@ -84,22 +92,21 @@ Poll.typedef = TypeDef('select.poll', **pollmethods)
 
 # ____________________________________________________________
 
-
-from rpython.rlib import _rsocket_rffi as _c
-from rpython.rtyper.lltypesystem import lltype, rffi
-
-
+@objectmodel.always_inline  # get rid of the tuple result
 def _build_fd_set(space, list_w, ll_list, nfds):
     _c.FD_ZERO(ll_list)
     fdlist = []
     for w_f in list_w:
         fd = space.c_filedescriptor_w(w_f)
         if fd > nfds:
+            if _c.MAX_FD_SIZE is not None and fd >= _c.MAX_FD_SIZE:
+                raise oefmt(space.w_ValueError,
+                            "file descriptor out of range in select()")
             nfds = fd
         _c.FD_SET(fd, ll_list)
         fdlist.append(fd)
     return fdlist, nfds
-_build_fd_set._always_inline_ = True    # get rid of the tuple result
+
 
 def _unbuild_fd_set(space, list_w, fdlist, ll_list, reslist_w):
     for i in range(len(fdlist)):
@@ -107,11 +114,10 @@ def _unbuild_fd_set(space, list_w, fdlist, ll_list, reslist_w):
         if _c.FD_ISSET(fd, ll_list):
             reslist_w.append(list_w[i])
 
+
 def _call_select(space, iwtd_w, owtd_w, ewtd_w,
                  ll_inl, ll_outl, ll_errl, ll_timeval):
-    fdlistin  = None
-    fdlistout = None
-    fdlisterr = None
+    fdlistin = fdlistout = fdlisterr = None
     nfds = -1
     if ll_inl:
         fdlistin, nfds = _build_fd_set(space, iwtd_w, ll_inl, nfds)
@@ -143,7 +149,8 @@ def _call_select(space, iwtd_w, owtd_w, ewtd_w,
                            space.newlist(resout_w),
                            space.newlist(reserr_w)])
 
-@unwrap_spec(w_timeout = WrappedDefault(None))
+
+@unwrap_spec(w_timeout=WrappedDefault(None))
 def select(space, w_iwtd, w_owtd, w_ewtd, w_timeout):
     """Wait until one or more file descriptors are ready for some kind of I/O.
 The first three arguments are sequences of file descriptors to be waited for:
@@ -166,16 +173,16 @@ that are ready.
 On Windows, only sockets are supported; on Unix, all file descriptors.
 """
 
-    iwtd_w = space.listview(w_iwtd)
-    owtd_w = space.listview(w_owtd)
-    ewtd_w = space.listview(w_ewtd)
+    iwtd_w = space.unpackiterable(w_iwtd)
+    owtd_w = space.unpackiterable(w_owtd)
+    ewtd_w = space.unpackiterable(w_ewtd)
 
     if space.is_w(w_timeout, space.w_None):
         timeout = -1.0
     else:
         timeout = space.float_w(w_timeout)
 
-    ll_inl  = lltype.nullptr(_c.fd_set.TO)
+    ll_inl = lltype.nullptr(_c.fd_set.TO)
     ll_outl = lltype.nullptr(_c.fd_set.TO)
     ll_errl = lltype.nullptr(_c.fd_set.TO)
     ll_timeval = lltype.nullptr(_c.timeval)
@@ -199,7 +206,11 @@ On Windows, only sockets are supported; on Unix, all file descriptors.
         return _call_select(space, iwtd_w, owtd_w, ewtd_w,
                             ll_inl, ll_outl, ll_errl, ll_timeval)
     finally:
-        if ll_timeval: lltype.free(ll_timeval, flavor='raw')
-        if ll_errl:    lltype.free(ll_errl, flavor='raw')
-        if ll_outl:    lltype.free(ll_outl, flavor='raw')
-        if ll_inl:     lltype.free(ll_inl, flavor='raw')
+        if ll_timeval:
+            lltype.free(ll_timeval, flavor='raw')
+        if ll_errl:
+            lltype.free(ll_errl, flavor='raw')
+        if ll_outl:
+            lltype.free(ll_outl, flavor='raw')
+        if ll_inl:
+            lltype.free(ll_inl, flavor='raw')

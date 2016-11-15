@@ -1,9 +1,18 @@
+import sys
+
 from pypy.module._multiprocessing.interp_semaphore import (
     RECURSIVE_MUTEX, SEMAPHORE)
 
 
 class AppTestSemaphore:
-    spaceconfig = dict(usemodules=('_multiprocessing', 'thread'))
+    spaceconfig = dict(usemodules=('_multiprocessing', 'thread',
+                                   'signal', 'select',
+                                   'binascii', 'struct'))
+
+    if sys.platform == 'win32':
+        spaceconfig['usemodules'] += ('_rawffi',)
+    else:
+        spaceconfig['usemodules'] += ('fcntl',)
 
     def setup_class(cls):
         cls.w_SEMAPHORE = cls.space.wrap(SEMAPHORE)

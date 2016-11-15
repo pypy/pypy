@@ -3,7 +3,7 @@
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, interpindirect2app
 from pypy.interpreter.error import OperationError
-from pypy.objspace.std.stdtypedef import StdTypeDef
+from pypy.interpreter.typedef import TypeDef
 
 
 class W_AbstractSeqIterObject(W_Root):
@@ -30,10 +30,6 @@ class W_AbstractSeqIterObject(W_Root):
         raise NotImplementedError
 
     def descr_reduce(self, space):
-        """
-        XXX to do: remove this __reduce__ method and do
-        a registration with copy_reg, instead.
-        """
         from pypy.interpreter.mixedmodule import MixedModule
         w_mod = space.getbuiltinmodule('_pickle_support')
         mod = space.interp_w(MixedModule, w_mod)
@@ -44,7 +40,7 @@ class W_AbstractSeqIterObject(W_Root):
     def descr_length_hint(self, space):
         return self.getlength(space)
 
-W_AbstractSeqIterObject.typedef = StdTypeDef(
+W_AbstractSeqIterObject.typedef = TypeDef(
     "sequenceiterator",
     __doc__ = '''iter(collection) -> iterator
 iter(callable, sentinel) -> iterator
@@ -68,7 +64,7 @@ class W_SeqIterObject(W_AbstractSeqIterObject):
             raise OperationError(space.w_StopIteration, space.w_None)
         try:
             w_item = space.getitem(self.w_seq, space.wrap(self.index))
-        except OperationError, e:
+        except OperationError as e:
             self.w_seq = None
             if not e.match(space, space.w_IndexError):
                 raise
@@ -121,53 +117,48 @@ class W_FastTupleIterObject(W_AbstractSeqIterObject):
 class W_ReverseSeqIterObject(W_Root):
     def __init__(self, space, w_seq, index=-1):
         self.w_seq = w_seq
-        self.w_len = space.len(w_seq)
-        self.index = space.int_w(self.w_len) + index
+        self.index = space.len_w(w_seq) + index
 
     def descr_reduce(self, space):
-        """
-        XXX to do: remove this __reduce__ method and do
-        a registration with copy_reg, instead.
-        """
         from pypy.interpreter.mixedmodule import MixedModule
         w_mod = space.getbuiltinmodule('_pickle_support')
         mod = space.interp_w(MixedModule, w_mod)
         new_inst = mod.get('reverseseqiter_new')
-        tup = [self.w_seq, space.wrap(self.index)]
+        w_seq = space.w_None if self.w_seq is None else self.w_seq
+        tup = [w_seq, space.wrap(self.index)]
         return space.newtuple([new_inst, space.newtuple(tup)])
 
     def descr_length_hint(self, space):
-        if self.w_seq is None:
-            return space.wrap(0)
-        index = self.index + 1
-        w_length = space.len(self.w_seq)
-        # if length of sequence is less than index :exhaust iterator
-        if space.is_true(space.gt(space.wrap(self.index), w_length)):
-            w_len = space.wrap(0)
-            self.w_seq = None
-        else:
-            w_len = space.wrap(index)
-        if space.is_true(space.lt(w_len, space.wrap(0))):
-            w_len = space.wrap(0)
-        return w_len
+        length = self.index + 1
+        if self.w_seq is None or space.len_w(self.w_seq) < length:
+            length = 0
+        return space.wrap(length)
 
     def descr_iter(self, space):
         return self
 
     def descr_next(self, space):
-        if self.w_seq is None or self.index < 0:
-            raise OperationError(space.w_StopIteration, space.w_None)
-        try:
-            w_item = space.getitem(self.w_seq, space.wrap(self.index))
-            self.index -= 1
-        except OperationError, e:
-            self.w_seq = None
-            if not e.match(space, space.w_IndexError):
-                raise
-            raise OperationError(space.w_StopIteration, space.w_None)
-        return w_item
+        if self.index >= 0:
+            w_index = space.wrap(self.index)
+            try:
+                w_item = space.getitem(self.w_seq, w_index)
+            except OperationError as e:
+                # Done
+                self.index = -1
+                self.w_seq = None
+                if not e.match(space, space.w_IndexError):
+                    raise
+                raise OperationError(space.w_StopIteration, space.w_None)
+            else:
+                self.index -= 1
+                return w_item
 
-W_ReverseSeqIterObject.typedef = StdTypeDef(
+        # Done
+        self.index = -1
+        self.w_seq = None
+        raise OperationError(space.w_StopIteration, space.w_None)
+
+W_ReverseSeqIterObject.typedef = TypeDef(
     "reversesequenceiterator",
     __iter__ = interp2app(W_ReverseSeqIterObject.descr_iter),
     next = interp2app(W_ReverseSeqIterObject.descr_next),

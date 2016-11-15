@@ -44,11 +44,14 @@ class EmptyProfiler(BaseProfiler):
         pass
 
     def get_counter(self, num):
-        return -1.0
+        return 0
+
+    def get_times(self, num):
+        return 0.0
 
 class Profiler(BaseProfiler):
     initialized = False
-    timer = time.time
+    timer = staticmethod(time.time)
     starttime = 0
     t1 = 0
     times = None
@@ -109,10 +112,13 @@ class Profiler(BaseProfiler):
             return self.cpu.tracker.total_freed_bridges
         return self.counters[num]
 
+    def get_times(self, num):
+        return self.times[num]
+
     def count_ops(self, opnum, kind=Counters.OPS):
-        from rpython.jit.metainterp.resoperation import rop
+        from rpython.jit.metainterp.resoperation import OpHelpers
         self.counters[kind] += 1
-        if opnum == rop.CALL and kind == Counters.RECORDED_OPS:
+        if OpHelpers.is_call(opnum) and kind == Counters.RECORDED_OPS:
             self.calls += 1
 
     def print_stats(self):
@@ -137,6 +143,7 @@ class Profiler(BaseProfiler):
         self._print_intline("guards", cnt[Counters.GUARDS])
         self._print_intline("opt ops", cnt[Counters.OPT_OPS])
         self._print_intline("opt guards", cnt[Counters.OPT_GUARDS])
+        self._print_intline("opt guards shared", cnt[Counters.OPT_GUARDS_SHARED])
         self._print_intline("forcings", cnt[Counters.OPT_FORCINGS])
         self._print_intline("abort: trace too long",
                             cnt[Counters.ABORT_TOO_LONG])
@@ -148,6 +155,8 @@ class Profiler(BaseProfiler):
         self._print_intline("nvirtuals", cnt[Counters.NVIRTUALS])
         self._print_intline("nvholes", cnt[Counters.NVHOLES])
         self._print_intline("nvreused", cnt[Counters.NVREUSED])
+        self._print_intline("vecopt tried", cnt[Counters.OPT_VECTORIZE_TRY])
+        self._print_intline("vecopt success", cnt[Counters.OPT_VECTORIZED])
         cpu = self.cpu
         if cpu is not None:   # for some tests
             self._print_intline("Total # of loops",

@@ -72,7 +72,7 @@ class AppTestUnicodeString:
         check(u', '.join(['a', 'b']), u'a, b')
         try:
             u''.join([u'a', 2, 3])
-        except TypeError, e:
+        except TypeError as e:
             assert 'sequence item 1' in str(e)
         else:
             raise Exception("DID NOT RAISE")
@@ -174,6 +174,24 @@ class AppTestUnicodeString:
         raises(ValueError, 'abc'.rsplit, u'')
         assert u'  a b c  '.rsplit(None, 0) == [u'  a b c']
         assert u''.rsplit('aaa') == [u'']
+
+    def test_split_rsplit_str_unicode(self):
+        x = 'abc'.split(u'b')
+        assert x == [u'a', u'c']
+        assert map(type, x) == [unicode, unicode]
+        x = 'abc'.rsplit(u'b')
+        assert x == [u'a', u'c']
+        assert map(type, x) == [unicode, unicode]
+        x = 'abc'.split(u'\u4321')
+        assert x == [u'abc']
+        assert map(type, x) == [unicode]
+        x = 'abc'.rsplit(u'\u4321')
+        assert x == [u'abc']
+        assert map(type, x) == [unicode]
+        raises(UnicodeDecodeError, '\x80'.split, u'a')
+        raises(UnicodeDecodeError, '\x80'.split, u'')
+        raises(UnicodeDecodeError, '\x80'.rsplit, u'a')
+        raises(UnicodeDecodeError, '\x80'.rsplit, u'')
 
     def test_center(self):
         s=u"a b"
@@ -314,6 +332,23 @@ class AppTestUnicodeString:
         assert u'xyzzyhelloxyzzy'.strip(u'xyz') == u'hello'
         assert u'xyzzyhelloxyzzy'.lstrip('xyz') == u'helloxyzzy'
         assert u'xyzzyhelloxyzzy'.rstrip(u'xyz') == u'xyzzyhello'
+        exc = raises(TypeError, s.strip, buffer(' '))
+        assert str(exc.value) == 'strip arg must be None, unicode or str'
+        exc = raises(TypeError, s.rstrip, buffer(' '))
+        assert str(exc.value) == 'rstrip arg must be None, unicode or str'
+        exc = raises(TypeError, s.lstrip, buffer(' '))
+        assert str(exc.value) == 'lstrip arg must be None, unicode or str'
+
+    def test_strip_str_unicode(self):
+        x = "--abc--".strip(u"-")
+        assert (x, type(x)) == (u"abc", unicode)
+        x = "--abc--".lstrip(u"-")
+        assert (x, type(x)) == (u"abc--", unicode)
+        x = "--abc--".rstrip(u"-")
+        assert (x, type(x)) == (u"--abc", unicode)
+        raises(UnicodeDecodeError, "\x80".strip, u"")
+        raises(UnicodeDecodeError, "\x80".lstrip, u"")
+        raises(UnicodeDecodeError, "\x80".rstrip, u"")
 
     def test_long_from_unicode(self):
         assert long(u'12345678901234567890') == 12345678901234567890
@@ -379,6 +414,14 @@ class AppTestUnicodeString:
         assert u'ab'.startswith(u'b', 1) is True
         assert u'abc'.startswith(u'bc', 1, 2) is False
         assert u'abc'.startswith(u'c', -1, 4) is True
+
+    def test_startswith_too_large(self):
+        assert u'ab'.startswith(u'b', 1) is True
+        assert u'ab'.startswith(u'', 2) is True
+        assert u'ab'.startswith(u'', 3) is True   # not False
+        assert u'ab'.endswith(u'b', 1) is True
+        assert u'ab'.endswith(u'', 2) is True
+        assert u'ab'.endswith(u'', 3) is True   # not False
 
     def test_startswith_tuples(self):
         assert u'hello'.startswith((u'he', u'ha'))
@@ -456,6 +499,10 @@ class AppTestUnicodeString:
         if sys.maxint > (1 << 32):
             skip("Wrong platform")
         raises((OverflowError, MemoryError), u't\tt\t'.expandtabs, sys.maxint)
+
+    def test_expandtabs_0(self):
+        assert u'x\ty'.expandtabs(0) == u'xy'
+        assert u'x\ty'.expandtabs(-42) == u'xy'
 
     def test_translate(self):
         assert u'bbbc' == u'abababc'.translate({ord('a'):None})
@@ -599,6 +646,13 @@ class AppTestUnicodeString:
         raises(ValueError, S.rpartition, u'')
         raises(TypeError, S.rpartition, None)
 
+    def test_partition_str_unicode(self):
+        x = 'abbbd'.rpartition(u'bb')
+        assert x == (u'ab', u'bb', u'd')
+        assert map(type, x) == [unicode, unicode, unicode]
+        raises(UnicodeDecodeError, '\x80'.partition, u'')
+        raises(UnicodeDecodeError, '\x80'.rpartition, u'')
+
     def test_mul(self):
         zero = 0
         assert type(u'' * zero) == type(zero * u'') == unicode
@@ -646,18 +700,38 @@ class AppTestUnicodeString:
     def test_rfind_corner_case(self):
         assert u'abc'.rfind('', 4) == -1
 
+    def test_find_index_str_unicode(self):
+        assert 'abcdefghiabc'.find(u'bc') == 1
+        assert 'abcdefghiabc'.rfind(u'abc') == 9
+        raises(UnicodeDecodeError, '\x80'.find, u'')
+        raises(UnicodeDecodeError, '\x80'.rfind, u'')
+        assert 'abcdefghiabc'.index(u'bc') == 1
+        assert 'abcdefghiabc'.rindex(u'abc') == 9
+        raises(UnicodeDecodeError, '\x80'.index, u'')
+        raises(UnicodeDecodeError, '\x80'.rindex, u'')
+
     def test_count(self):
         assert u"".count(u"x") ==0
         assert u"".count(u"") ==1
         assert u"Python".count(u"") ==7
         assert u"ab aaba".count(u"ab") ==2
-        assert 'aaa'.count('a') == 3
-        assert 'aaa'.count('b') == 0
-        assert 'aaa'.count('a', -1) == 1
-        assert 'aaa'.count('a', -10) == 3
-        assert 'aaa'.count('a', 0, -1) == 2
-        assert 'aaa'.count('a', 0, -10) == 0
-        assert 'ababa'.count('aba') == 1
+        assert u'aaa'.count(u'a') == 3
+        assert u'aaa'.count(u'b') == 0
+        assert u'aaa'.count(u'a', -1) == 1
+        assert u'aaa'.count(u'a', -10) == 3
+        assert u'aaa'.count(u'a', 0, -1) == 2
+        assert u'aaa'.count(u'a', 0, -10) == 0
+        assert u'ababa'.count(u'aba') == 1
+
+    def test_count_str_unicode(self):
+        assert 'aaa'.count(u'a') == 3
+        assert 'aaa'.count(u'b') == 0
+        assert 'aaa'.count(u'a', -1) == 1
+        assert 'aaa'.count(u'a', -10) == 3
+        assert 'aaa'.count(u'a', 0, -1) == 2
+        assert 'aaa'.count(u'a', 0, -10) == 0
+        assert 'ababa'.count(u'aba') == 1
+        raises(UnicodeDecodeError, '\x80'.count, u'')
 
     def test_swapcase(self):
         assert u'\xe4\xc4\xdf'.swapcase() == u'\xc4\xe4\xdf'
@@ -674,7 +748,9 @@ class AppTestUnicodeString:
         assert 'abc'.__add__(u'def') == u'abcdef'
         assert u'abc'.__add__(u'def') == u'abcdef'
         assert u'abc'.__add__('def') == u'abcdef'
-        # xxx CPython has no str.__radd__ and no unicode.__radd__
+        assert u'abc'.__rmod__(u'%s') == u'abc'
+        ret = u'abc'.__rmod__('%s')
+        raises(AttributeError, "u'abc'.__radd__(u'def')")
 
     def test_str_unicode_concat_overrides(self):
         "Test from Jython about being bug-compatible with CPython."
@@ -879,6 +955,11 @@ class AppTestUnicodeString:
         assert repr("%s" % u) == "u'__unicode__ overridden'"
         assert repr("{}".format(u)) == "'__unicode__ overridden'"
 
+    def test_format_c_overflow(self):
+        import sys
+        raises(OverflowError, u'{0:c}'.format, -1)
+        raises(OverflowError, u'{0:c}'.format, sys.maxunicode + 1)
+
     def test_replace_with_buffer(self):
         assert u'abc'.replace(buffer('b'), buffer('e')) == u'aec'
         assert u'abc'.replace(buffer('b'), u'e') == u'aec'
@@ -907,10 +988,12 @@ class AppTestUnicodeString:
         assert not u'a'.isnumeric()
         assert u'\u2460'.isnumeric() # CIRCLED DIGIT ONE
 
-    def test_replace_autoconvert(self):
+    def test_replace_str_unicode(self):
         res = 'one!two!three!'.replace(u'!', u'@', 1)
         assert res == u'one@two!three!'
         assert type(res) == unicode
+        raises(UnicodeDecodeError, '\x80'.replace, 'a', u'b')
+        raises(UnicodeDecodeError, '\x80'.replace, u'a', 'b')
 
     def test_join_subclass(self):
         class UnicodeSubclass(unicode):
@@ -922,3 +1005,10 @@ class AppTestUnicodeString:
         assert u''.join([s1]) is not s1
         s2 = StrSubclass(u'a')
         assert u''.join([s2]) is not s2
+
+    def test_encoding_and_errors_cant_be_none(self):
+        raises(TypeError, "''.decode(None)")
+        raises(TypeError, "u''.encode(None)")
+        raises(TypeError, "unicode('', encoding=None)")
+        raises(TypeError, 'u"".encode("utf-8", None)')
+

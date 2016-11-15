@@ -6,19 +6,28 @@ import sys
 import time
 import random
 import unittest
-from test import test_support
+from test import test_support as support
 try:
     import thread
     import threading
 except ImportError:
     thread = None
     threading = None
-import _testcapi
+# Skip this test if the _testcapi module isn't available.
+_testcapi = support.import_module('_testcapi')
+
+class CAPITest(unittest.TestCase):
+
+    @support.impl_detail("Currently broken on pypy", pypy=False)
+    def test_buildvalue_N(self):
+        _testcapi.test_buildvalue_N()
+
 
 skips = []
-if test_support.check_impl_detail(pypy=True):
+if support.check_impl_detail(pypy=True):
     skips += [
             'test_broken_memoryview',
+            'test_buildvalue_N',
             'test_capsule',
             'test_lazy_hash_inheritance',
             'test_widechar',
@@ -51,7 +60,7 @@ class TestPendingCalls(unittest.TestCase):
             #this busy loop is where we expect to be interrupted to
             #run our callbacks.  Note that callbacks are only run on the
             #main thread
-            if False and test_support.verbose:
+            if False and support.verbose:
                 print "(%i)"%(len(l),),
             for i in xrange(1000):
                 a = i*i
@@ -60,7 +69,7 @@ class TestPendingCalls(unittest.TestCase):
             count += 1
             self.assertTrue(count < 10000,
                 "timeout waiting for %i callbacks, got %i"%(n, len(l)))
-        if False and test_support.verbose:
+        if False and support.verbose:
             print "(%i)"%(len(l),)
 
     def test_pendingcalls_threaded(self):
@@ -76,15 +85,11 @@ class TestPendingCalls(unittest.TestCase):
         context.lock = threading.Lock()
         context.event = threading.Event()
 
-        for i in range(context.nThreads):
-            t = threading.Thread(target=self.pendingcalls_thread, args = (context,))
-            t.start()
-            threads.append(t)
-
-        self.pendingcalls_wait(context.l, n, context)
-
-        for t in threads:
-            t.join()
+        threads = [threading.Thread(target=self.pendingcalls_thread,
+                                    args=(context,))
+                   for i in range(context.nThreads)]
+        with support.start_threads(threads):
+            self.pendingcalls_wait(context.l, n, context)
 
     def pendingcalls_thread(self, context):
         try:
@@ -93,7 +98,7 @@ class TestPendingCalls(unittest.TestCase):
             with context.lock:
                 context.nFinished += 1
                 nFinished = context.nFinished
-                if False and test_support.verbose:
+                if False and support.verbose:
                     print "finished threads: ", nFinished
             if nFinished == context.nThreads:
                 context.event.set()
@@ -112,7 +117,7 @@ class TestPendingCalls(unittest.TestCase):
 @unittest.skipUnless(threading and thread and 'TestThreadState' not in skips, 'Threading required for this test.')
 class TestThreadState(unittest.TestCase):
 
-    @test_support.reap_threads
+    @support.reap_threads
     def test_thread_state(self):
         # some extra thread-state tests driven via _testcapi
         def target():
@@ -138,14 +143,14 @@ def test_main():
     for name in dir(_testcapi):
         if name.startswith('test_') and name not in skips:
             test = getattr(_testcapi, name)
-            if test_support.verbose:
+            if support.verbose:
                 print "internal", name
             try:
                 test()
             except _testcapi.error:
-                raise test_support.TestFailed, sys.exc_info()[1]
+                raise support.TestFailed, sys.exc_info()[1]
 
-    test_support.run_unittest(TestPendingCalls, TestThreadState)
+    support.run_unittest(CAPITest, TestPendingCalls, TestThreadState)
 
 if __name__ == "__main__":
     test_main()

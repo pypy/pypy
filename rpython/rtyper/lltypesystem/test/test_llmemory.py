@@ -649,3 +649,13 @@ def test_cast_adr_to_int():
     #assert cast_int_to_adr(i) == adr -- depends on ll2ctypes details
     i = cast_adr_to_int(NULL, mode="forced")
     assert is_valid_int(i) and i == 0
+
+def test_cast_gcref_to_int():
+    A = lltype.GcArray(Address)
+    def f():
+        ptr = lltype.malloc(A, 10)
+        gcref = lltype.cast_opaque_ptr(GCREF, ptr)
+        adr = lltype.cast_ptr_to_int(gcref)
+        assert adr == lltype.cast_ptr_to_int(ptr)
+    f()
+    interpret(f, [])

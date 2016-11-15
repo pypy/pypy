@@ -18,7 +18,7 @@ def rtype(fn, signature):
     if option.view:
         t.view()
     return t, graph
-    
+
 
 def check_inlining(t, graph, args, result):
     callgraph, caller_candidates = find_malloc_removal_candidates(t, t.graphs)
@@ -61,7 +61,7 @@ def test_multiple_calls():
         pass
     class B(A):
         pass
-    def g2(b, i): 
+    def g2(b, i):
         b.i = h(i)
     def g1(a, b, i):
         a.b = b
@@ -123,7 +123,7 @@ def test_tuple():
     fgraph = graphof(t, f)
     hgraph = graphof(t, h)
     assert callgraph == {graph: {fgraph: True}, fgraph: {hgraph:  True}}
-    
+
 def test_indirect_call():
     class A(object):
         pass
@@ -169,14 +169,17 @@ def test_pystone():
     t, graph = rtype(entrypoint, [int])
     total0 = preparation(t, t.graphs, heuristic=heuristic)
     total = clever_inlining_and_malloc_removal(t)
-    assert total == 5     # XXX total0 appears to vary
+    assert total in (6, 7)     # XXX total0 appears to vary
+    # we get 6 before fbace1f687b0, but 7 afterwards on some
+    # platforms, probably because rtime.clock() now contains
+    # a fall-back path
 
 def test_richards():
     from rpython.translator.goal.richards import entry_point
     t, graph = rtype(entry_point, [int])
     total0 = preparation(t, t.graphs)
     total = clever_inlining_and_malloc_removal(t)
-    assert total0 + total == 9
+    assert total0 + total == 10
 
 def test_loop():
     l = [10, 12, 15, 1]

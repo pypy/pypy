@@ -3,9 +3,9 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (cpython_api, CANNOT_FAIL, Py_ssize_t,
                                     build_type_checkers)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
-from pypy.module.cpyext.pyobject import Py_DecRef, PyObject, borrow_from
+from pypy.module.cpyext.pyobject import Py_DecRef, PyObject, make_ref
 from pypy.objspace.std.listobject import W_ListObject
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 
 
 PyList_Check, PyList_CheckExact = build_type_checkers("List")
@@ -21,6 +21,25 @@ def PyList_New(space, len):
     """
     return space.newlist([None] * len)
 
+@cpython_api([rffi.VOIDP, Py_ssize_t, PyObject], PyObject, error=CANNOT_FAIL,
+             result_borrowed=True)
+def PyList_SET_ITEM(space, w_list, index, w_item):
+    """Macro form of PyList_SetItem() without error checking. This is normally
+    only used to fill in new lists where there is no previous content.
+
+    This function "steals" a reference to item, and, unlike PyList_SetItem(),
+    does not discard a reference to any item that it being replaced; any
+    reference in list at position i will be leaked.
+    """
+    assert isinstance(w_list, W_ListObject)
+    assert 0 <= index < w_list.length()
+    # Deliberately leak, so that it can be safely decref'd.
+    make_ref(space, w_list.getitem(index))
+    Py_DecRef(space, w_item)
+    w_list.setitem(index, w_item)
+    return w_item
+
+
 @cpython_api([PyObject, Py_ssize_t, PyObject], rffi.INT_real, error=-1)
 def PyList_SetItem(space, w_list, index, w_item):
     """Set the item at index index in list to item.  Return 0 on success
@@ -33,12 +52,11 @@ def PyList_SetItem(space, w_list, index, w_item):
     if not isinstance(w_list, W_ListObject):
         PyErr_BadInternalCall(space)
     if index < 0 or index >= w_list.length():
-        raise OperationError(space.w_IndexError, space.wrap(
-            "list assignment index out of range"))
+        raise oefmt(space.w_IndexError, "list assignment index out of range")
     w_list.setitem(index, w_item)
     return 0
 
-@cpython_api([PyObject, Py_ssize_t], PyObject)
+@cpython_api([PyObject, Py_ssize_t], PyObject, result_borrowed=True)
 def PyList_GetItem(space, w_list, index):
     """Return the object at position pos in the list pointed to by p.  The
     position must be positive, indexing from the end of the list is not
@@ -46,11 +64,12 @@ def PyList_GetItem(space, w_list, index):
     IndexError exception."""
     if not isinstance(w_list, W_ListObject):
         PyErr_BadInternalCall(space)
-    wrappeditems = w_list.getitems()
-    if index < 0 or index >= len(wrappeditems):
-        raise OperationError(space.w_IndexError, space.wrap(
-            "list index out of range"))
-    return borrow_from(w_list, wrappeditems[index])
+    if index < 0 or index >= w_list.length():
+        raise oefmt(space.w_IndexError, "list index out of range")
+    w_list.ensure_object_strategy()  # make sure we can return a borrowed obj
+    # XXX ^^^ how does this interact with CPyListStrategy?
+    w_res = w_list.getitem(index)
+    return w_res     # borrowed ref
 
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
@@ -65,10 +84,10 @@ def PyList_Insert(space, w_list, index, w_item):
     """Insert the item item into list list in front of index index.  Return
     0 if successful; return -1 and set an exception if unsuccessful.
     Analogous to list.insert(index, item)."""
-    space.call_method(w_list, "insert", space.wrap(index), w_item)
+    space.call_method(space.w_list, "insert", w_list, space.wrap(index), w_item)
     return 0
 
-@cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
+@cpython_api([rffi.VOIDP], Py_ssize_t, error=CANNOT_FAIL)
 def PyList_GET_SIZE(space, w_list):
     """Macro form of PyList_Size() without error checking.
     """
@@ -82,8 +101,7 @@ def PyList_Size(space, ref):
     len(list) on a list object.
     """
     if not PyList_Check(space, ref):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("expected list object"))
+        raise oefmt(space.w_TypeError, "expected list object")
     return PyList_GET_SIZE(space, ref)
 
 @cpython_api([PyObject], PyObject)
@@ -98,7 +116,7 @@ def PyList_Sort(space, w_list):
     failure.  This is equivalent to list.sort()."""
     if not isinstance(w_list, W_ListObject):
         PyErr_BadInternalCall(space)
-    space.call_method(w_list, "sort")
+    space.call_method(space.w_list, "sort", w_list)
     return 0
 
 @cpython_api([PyObject], rffi.INT_real, error=-1)
@@ -107,7 +125,7 @@ def PyList_Reverse(space, w_list):
     failure.  This is the equivalent of list.reverse()."""
     if not isinstance(w_list, W_ListObject):
         PyErr_BadInternalCall(space)
-    space.call_method(w_list, "reverse")
+    space.call_method(space.w_list, "reverse", w_list)
     return 0
 
 @cpython_api([PyObject, Py_ssize_t, Py_ssize_t], PyObject)

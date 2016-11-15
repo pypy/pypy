@@ -1,7 +1,9 @@
+import sys
 from rpython.jit.metainterp.typesystem import deref, fieldType, arrayItem
-from rpython.rtyper.lltypesystem.rclass import OBJECT
+from rpython.rtyper.rclass import OBJECT
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.translator.backendopt.graphanalyze import BoolGraphAnalyzer
+from rpython.tool.algo import bitstring
 
 
 class EffectInfo(object):
@@ -11,10 +13,11 @@ class EffectInfo(object):
     EF_ELIDABLE_CANNOT_RAISE           = 0 #elidable function (and cannot raise)
     EF_LOOPINVARIANT                   = 1 #special: call it only once per loop
     EF_CANNOT_RAISE                    = 2 #a function which cannot raise
-    EF_ELIDABLE_CAN_RAISE              = 3 #elidable function (but can raise)
-    EF_CAN_RAISE                       = 4 #normal function (can raise)
-    EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE = 5 #can raise and force virtualizables
-    EF_RANDOM_EFFECTS                  = 6 #can do whatever
+    EF_ELIDABLE_OR_MEMORYERROR         = 3 #elidable, can only raise MemoryError
+    EF_ELIDABLE_CAN_RAISE              = 4 #elidable function (but can raise)
+    EF_CAN_RAISE                       = 5 #normal function (can raise)
+    EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE = 6 #can raise and force virtualizables
+    EF_RANDOM_EFFECTS                  = 7 #can do whatever
 
     # the 'oopspecindex' field is one of the following values:
     OS_NONE                     = 0    # normal case, no oopspec
@@ -22,6 +25,13 @@ class EffectInfo(object):
     OS_STR2UNICODE              = 2    # "str.str2unicode"
     OS_SHRINK_ARRAY             = 3    # rgc.ll_shrink_array
     OS_DICT_LOOKUP              = 4    # ll_dict_lookup
+    OS_THREADLOCALREF_GET       = 5    # llop.threadlocalref_get
+    OS_NOT_IN_TRACE             = 8    # for calls not recorded in the jit trace
+    #
+    OS_INT_PY_DIV               = 12   # python signed division (neg. corrected)
+    OS_INT_UDIV                 = 13   # regular unsigned division
+    OS_INT_PY_MOD               = 14   # python signed modulo (neg. corrected)
+    OS_INT_UMOD                 = 15   # regular unsigned modulo
     #
     OS_STR_CONCAT               = 22   # "stroruni.concat"
     OS_STR_SLICE                = 23   # "stroruni.slice"
@@ -33,6 +43,7 @@ class EffectInfo(object):
     OS_STREQ_NONNULL_CHAR       = 29   # s1 == char  (assert s1!=NULL)
     OS_STREQ_CHECKNULL_CHAR     = 30   # s1!=NULL and s1==char
     OS_STREQ_LENGTHOK           = 31   # s1 == s2    (assert len(s1)==len(s2))
+    OS_STR_CMP                  = 32   # "stroruni.cmp"
     #
     OS_UNI_CONCAT               = 42   #
     OS_UNI_SLICE                = 43   #
@@ -44,6 +55,7 @@ class EffectInfo(object):
     OS_UNIEQ_NONNULL_CHAR       = 49   #   (must be the same amount as for
     OS_UNIEQ_CHECKNULL_CHAR     = 50   #   STR, in the same order)
     OS_UNIEQ_LENGTHOK           = 51   #
+    OS_UNI_CMP                  = 52
     _OS_offset_uni              = OS_UNI_CONCAT - OS_STR_CONCAT
     #
     OS_LIBFFI_CALL              = 62
@@ -76,6 +88,7 @@ class EffectInfo(object):
     OS_LLONG_U_TO_FLOAT         = 94
     #
     OS_MATH_SQRT                = 100
+    OS_MATH_READ_TIMESTAMP      = 101
     #
     OS_RAW_MALLOC_VARSIZE_CHAR  = 110
     OS_RAW_FREE                 = 111
@@ -90,7 +103,10 @@ class EffectInfo(object):
     _OS_CANRAISE = set([
         OS_NONE, OS_STR2UNICODE, OS_LIBFFI_CALL, OS_RAW_MALLOC_VARSIZE_CHAR,
         OS_JIT_FORCE_VIRTUAL, OS_SHRINK_ARRAY, OS_DICT_LOOKUP,
+        OS_NOT_IN_TRACE,
     ])
+
+    _NO_CALL_RELEASE_GIL_TARGET = (llmemory.NULL, 0)
 
     def __new__(cls, readonly_descrs_fields, readonly_descrs_arrays,
                 readonly_descrs_interiorfields,
@@ -99,63 +115,133 @@ class EffectInfo(object):
                 extraeffect=EF_CAN_RAISE,
                 oopspecindex=OS_NONE,
                 can_invalidate=False,
-                call_release_gil_target=llmemory.NULL,
-                extradescrs=None):
-        key = (frozenset_or_none(readonly_descrs_fields),
-               frozenset_or_none(readonly_descrs_arrays),
-               frozenset_or_none(readonly_descrs_interiorfields),
-               frozenset_or_none(write_descrs_fields),
-               frozenset_or_none(write_descrs_arrays),
-               frozenset_or_none(write_descrs_interiorfields),
+                call_release_gil_target=_NO_CALL_RELEASE_GIL_TARGET,
+                extradescrs=None,
+                can_collect=True,
+                call_shortcut=None):
+        readonly_descrs_fields = frozenset_or_none(readonly_descrs_fields)
+        readonly_descrs_arrays = frozenset_or_none(readonly_descrs_arrays)
+        readonly_descrs_interiorfields = frozenset_or_none(
+                                              readonly_descrs_interiorfields)
+        write_descrs_fields = frozenset_or_none(write_descrs_fields)
+        write_descrs_arrays = frozenset_or_none(write_descrs_arrays)
+        write_descrs_interiorfields = frozenset_or_none(
+                                              write_descrs_interiorfields)
+        key = (readonly_descrs_fields,
+               readonly_descrs_arrays,
+               readonly_descrs_interiorfields,
+               write_descrs_fields,
+               write_descrs_arrays,
+               write_descrs_interiorfields,
                extraeffect,
                oopspecindex,
-               can_invalidate)
-        if call_release_gil_target:
+               can_invalidate,
+               can_collect,
+               call_shortcut)
+        tgt_func, tgt_saveerr = call_release_gil_target
+        if tgt_func:
             key += (object(),)    # don't care about caching in this case
         if key in cls._cache:
             return cls._cache[key]
         if extraeffect == EffectInfo.EF_RANDOM_EFFECTS:
             assert readonly_descrs_fields is None
             assert readonly_descrs_arrays is None
+            assert readonly_descrs_interiorfields is None
             assert write_descrs_fields is None
             assert write_descrs_arrays is None
+            assert write_descrs_interiorfields is None
         else:
             assert readonly_descrs_fields is not None
             assert readonly_descrs_arrays is not None
+            assert readonly_descrs_interiorfields is not None
             assert write_descrs_fields is not None
             assert write_descrs_arrays is not None
+            assert write_descrs_interiorfields is not None
         result = object.__new__(cls)
-        result.readonly_descrs_fields = readonly_descrs_fields
-        result.readonly_descrs_arrays = readonly_descrs_arrays
-        result.readonly_descrs_interiorfields = readonly_descrs_interiorfields
+        # the frozensets "._readonly_xxx" and "._write_xxx" should not be
+        # translated.
+        result._readonly_descrs_fields = readonly_descrs_fields
+        result._readonly_descrs_arrays = readonly_descrs_arrays
+        result._readonly_descrs_interiorfields = readonly_descrs_interiorfields
         if extraeffect == EffectInfo.EF_LOOPINVARIANT or \
            extraeffect == EffectInfo.EF_ELIDABLE_CANNOT_RAISE or \
+           extraeffect == EffectInfo.EF_ELIDABLE_OR_MEMORYERROR or \
            extraeffect == EffectInfo.EF_ELIDABLE_CAN_RAISE:
-            result.write_descrs_fields = []
-            result.write_descrs_arrays = []
-            result.write_descrs_interiorfields = []
+            # Ignore the writes.  Note that this ignores also writes with
+            # no corresponding reads (rarely the case, but possible).
+            result._write_descrs_fields = frozenset()
+            result._write_descrs_arrays = frozenset()
+            result._write_descrs_interiorfields = frozenset()
         else:
-            result.write_descrs_fields = write_descrs_fields
-            result.write_descrs_arrays = write_descrs_arrays
-            result.write_descrs_interiorfields = write_descrs_interiorfields
+            result._write_descrs_fields = write_descrs_fields
+            result._write_descrs_arrays = write_descrs_arrays
+            result._write_descrs_interiorfields = write_descrs_interiorfields
+        # initialized later, in compute_bitstrings()
+        # (the goal of this is to make sure we don't build new EffectInfo
+        # instances after compute_bitstrings() is called)
+        result.bitstring_readonly_descrs_fields = Ellipsis
+        result.bitstring_readonly_descrs_arrays = Ellipsis
+        result.bitstring_readonly_descrs_interiorfields = Ellipsis
+        result.bitstring_write_descrs_fields = Ellipsis
+        result.bitstring_write_descrs_arrays = Ellipsis
+        result.bitstring_write_descrs_interiorfields = Ellipsis
+        #
         result.extraeffect = extraeffect
         result.can_invalidate = can_invalidate
+        result.can_collect = can_collect
         result.oopspecindex = oopspecindex
         result.extradescrs = extradescrs
         result.call_release_gil_target = call_release_gil_target
-        if result.check_can_raise():
+        result.call_shortcut = call_shortcut
+        if result.check_can_raise(ignore_memoryerror=True):
             assert oopspecindex in cls._OS_CANRAISE
+
+        if (result._write_descrs_arrays is not None and
+            len(result._write_descrs_arrays) == 1):
+            # this is used only for ARRAYCOPY operations
+            [result.single_write_descr_array] = result._write_descrs_arrays
+        else:
+            result.single_write_descr_array = None
+
         cls._cache[key] = result
         return result
 
-    def check_can_raise(self):
-        return self.extraeffect > self.EF_CANNOT_RAISE
+    def check_readonly_descr_field(self, fielddescr):
+        return bitstring.bitcheck(self.bitstring_readonly_descrs_fields,
+                                  fielddescr.ei_index)
+    def check_write_descr_field(self, fielddescr):
+        return bitstring.bitcheck(self.bitstring_write_descrs_fields,
+                                  fielddescr.ei_index)
+    def check_readonly_descr_array(self, arraydescr):
+        return bitstring.bitcheck(self.bitstring_readonly_descrs_arrays,
+                                  arraydescr.ei_index)
+    def check_write_descr_array(self, arraydescr):
+        return bitstring.bitcheck(self.bitstring_write_descrs_arrays,
+                                  arraydescr.ei_index)
+    def check_readonly_descr_interiorfield(self, interiorfielddescr):
+        # NOTE: this is not used so far
+        return bitstring.bitcheck(self.bitstring_readonly_descrs_interiorfields,
+                                  interiorfielddescr.ei_index)
+    def check_write_descr_interiorfield(self, interiorfielddescr):
+        # NOTE: this is not used so far
+        return bitstring.bitcheck(self.bitstring_write_descrs_interiorfields,
+                                  interiorfielddescr.ei_index)
+
+    def check_can_raise(self, ignore_memoryerror=False):
+        if ignore_memoryerror:
+            return self.extraeffect > self.EF_ELIDABLE_OR_MEMORYERROR
+        else:
+            return self.extraeffect > self.EF_CANNOT_RAISE
 
     def check_can_invalidate(self):
         return self.can_invalidate
 
+    def check_can_collect(self):
+        return self.can_collect
+
     def check_is_elidable(self):
         return (self.extraeffect == self.EF_ELIDABLE_CAN_RAISE or
+                self.extraeffect == self.EF_ELIDABLE_OR_MEMORYERROR or
                 self.extraeffect == self.EF_ELIDABLE_CANNOT_RAISE)
 
     def check_forces_virtual_or_virtualizable(self):
@@ -165,7 +251,14 @@ class EffectInfo(object):
         return self.extraeffect >= self.EF_RANDOM_EFFECTS
 
     def is_call_release_gil(self):
-        return bool(self.call_release_gil_target)
+        tgt_func, tgt_saveerr = self.call_release_gil_target
+        return bool(tgt_func)
+
+    def __repr__(self):
+        more = ''
+        if self.oopspecindex:
+            more = ' OS=%r' % (self.oopspecindex,)
+        return '<EffectInfo 0x%x: EF=%r%s>' % (id(self), self.extraeffect, more)
 
 
 def frozenset_or_none(x):
@@ -182,8 +275,11 @@ def effectinfo_from_writeanalyze(effects, cpu,
                                  extraeffect=EffectInfo.EF_CAN_RAISE,
                                  oopspecindex=EffectInfo.OS_NONE,
                                  can_invalidate=False,
-                                 call_release_gil_target=llmemory.NULL,
-                                 extradescr=None):
+                                 call_release_gil_target=
+                                     EffectInfo._NO_CALL_RELEASE_GIL_TARGET,
+                                 extradescr=None,
+                                 can_collect=True,
+                                 call_shortcut=None):
     from rpython.translator.backendopt.writeanalyze import top_set
     if effects is top_set or extraeffect == EffectInfo.EF_RANDOM_EFFECTS:
         readonly_descrs_fields = None
@@ -258,6 +354,9 @@ def effectinfo_from_writeanalyze(effects, cpu,
             else:
                 assert 0
     #
+    if extraeffect >= EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE:
+        can_collect = True
+    #
     return EffectInfo(readonly_descrs_fields,
                       readonly_descrs_arrays,
                       readonly_descrs_interiorfields,
@@ -268,7 +367,9 @@ def effectinfo_from_writeanalyze(effects, cpu,
                       oopspecindex,
                       can_invalidate,
                       call_release_gil_target,
-                      extradescr)
+                      extradescr,
+                      can_collect,
+                      call_shortcut)
 
 def consider_struct(TYPE, fieldname):
     if fieldType(TYPE, fieldname) is lltype.Void:
@@ -291,6 +392,24 @@ def consider_array(ARRAY):
 
 # ____________________________________________________________
 
+
+class CallShortcut(object):
+    def __init__(self, argnum, fielddescr):
+        self.argnum = argnum
+        self.fielddescr = fielddescr
+
+    def __eq__(self, other):
+        return (isinstance(other, CallShortcut) and
+                self.argnum == other.argnum and
+                self.fielddescr == other.fielddescr)
+    def __ne__(self, other):
+        return not (self == other)
+    def __hash__(self):
+        return hash((self.argnum, self.fielddescr))
+
+# ____________________________________________________________
+
+
 class VirtualizableAnalyzer(BoolGraphAnalyzer):
     def analyze_simple_operation(self, op, graphinfo):
         return op.opname in ('jit_force_virtualizable',
@@ -301,15 +420,11 @@ class QuasiImmutAnalyzer(BoolGraphAnalyzer):
         return op.opname == 'jit_force_quasi_immutable'
 
 class RandomEffectsAnalyzer(BoolGraphAnalyzer):
-    def analyze_external_call(self, op, seen=None):
-        try:
-            funcobj = op.args[0].value._obj
-            if funcobj.random_effects_on_gcobjs:
-                return True
-        except (AttributeError, lltype.DelayedPointer):
-            return True   # better safe than sorry
+    def analyze_external_call(self, funcobj, seen=None):
+        if funcobj.random_effects_on_gcobjs:
+            return True
         return super(RandomEffectsAnalyzer, self).analyze_external_call(
-            op, seen)
+            funcobj, seen)
 
     def analyze_simple_operation(self, op, graphinfo):
         return False
@@ -357,3 +472,88 @@ class CallInfoCollection(object):
         assert funcptr
         return funcptr
     funcptr_for_oopspec._annspecialcase_ = 'specialize:arg(1)'
+
+# ____________________________________________________________
+
+def compute_bitstrings(all_descrs):
+    # Compute the bitstrings in the EffectInfo,
+    # bitstring_{readonly,write}_descrs_{fieldd,arrays,interiordescrs},
+    # and for each FieldDescrs and ArrayDescrs compute 'ei_index'.
+    # Each bit in the bitstrings says whether this Descr is present in
+    # this EffectInfo or not.  We try to share the value of 'ei_index'
+    # across multiple Descrs if they always give the same answer (in
+    # PyPy, it reduces the length of the bitstrings from 4000+ to
+    # 373).
+    from rpython.jit.codewriter.policy import log
+
+    log("compute_bitstrings:")
+    effectinfos = []
+    descrs = {'fields': set(), 'arrays': set(), 'interiorfields': set()}
+    for descr in all_descrs:
+        if hasattr(descr, 'get_extra_info'):
+            ei = descr.get_extra_info()
+            if ei is None:
+                continue
+            if ei._readonly_descrs_fields is None:
+                for key in descrs:
+                    assert getattr(ei, '_readonly_descrs_' + key) is None
+                    assert getattr(ei, '_write_descrs_' + key) is None
+                    setattr(ei, 'bitstring_readonly_descrs_' + key, None)
+                    setattr(ei, 'bitstring_write_descrs_' + key, None)
+            else:
+                effectinfos.append(ei)
+                for key in descrs:
+                    descrs[key].update(getattr(ei, '_readonly_descrs_' + key))
+                    descrs[key].update(getattr(ei, '_write_descrs_' + key))
+        else:
+            descr.ei_index = sys.maxint
+    log("  %d effectinfos:" % (len(effectinfos),))
+    for key in sorted(descrs):
+        log("    %d descrs for %s" % (len(descrs[key]), key))
+
+    seen = set()
+    for key in descrs:
+        all_sets = []
+        for descr in descrs[key]:
+            eisetr = [ei for ei in effectinfos
+                         if descr in getattr(ei, '_readonly_descrs_' + key)]
+            eisetw = [ei for ei in effectinfos
+                         if descr in getattr(ei, '_write_descrs_' + key)]
+            # these are the set of all ei such that this descr is in
+            # ei._readonly_descrs or ei._write_descrs
+            eisetr = frozenset(eisetr)
+            eisetw = frozenset(eisetw)
+            all_sets.append((descr, eisetr, eisetw))
+
+        # heuristic to reduce the total size of the bitstrings: start with
+        # numbering the descrs that are seen in many EffectInfos.  If instead,
+        # by lack of chance, such a descr had a high number, then all these
+        # EffectInfos' bitstrings would need to store the same high number.
+        def size_of_both_sets((d, r, w)):
+            return len(r) + len(w)
+        all_sets.sort(key=size_of_both_sets, reverse=True)
+
+        mapping = {}
+        for (descr, eisetr, eisetw) in all_sets:
+            assert descr.ei_index == sys.maxint    # not modified yet
+            descr.ei_index = mapping.setdefault((eisetr, eisetw), len(mapping))
+
+        for ei in effectinfos:
+            bitstrr = [descr.ei_index
+                           for descr in getattr(ei, '_readonly_descrs_' + key)]
+            bitstrw = [descr.ei_index
+                           for descr in getattr(ei, '_write_descrs_' + key)]
+            assert sys.maxint not in bitstrr
+            assert sys.maxint not in bitstrw
+            bitstrr = bitstring.make_bitstring(bitstrr)
+            bitstrw = bitstring.make_bitstring(bitstrw)
+            setattr(ei, 'bitstring_readonly_descrs_' + key, bitstrr)
+            setattr(ei, 'bitstring_write_descrs_' + key, bitstrw)
+            seen.add(bitstrr)
+            seen.add(bitstrw)
+
+    if seen:
+        mean_length = float(sum(len(x) for x in seen)) / len(seen)
+        max_length = max(len(x) for x in seen)
+        log("-> %d bitstrings, mean length %.1f, max length %d" % (
+            len(seen), mean_length, max_length))

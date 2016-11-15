@@ -1,50 +1,47 @@
 import weakref
 from rpython.rlib.rweakref import dead_ref
 
-
-def _reduced_value(s):
-    while True:
-        divide = s & 1
-        s >>= 1
-        if not divide:
-            return s
+INITIAL_SIZE = 4
 
 
 class RWeakListMixin(object):
+    """A mixin base class.  A collection that weakly maps indexes to objects.
+    After an object goes away, its index is marked free and will be reused
+    by some following add_handle() call.  So add_handle() might not append
+    the object at the end of the list, but can put it anywhere.
+
+    See also rpython.rlib.rshrinklist.
+    """
     _mixin_ = True
 
     def initialize(self):
-        self.handles = []
-        self.look_distance = 0
+        self.handles = [dead_ref] * INITIAL_SIZE
+        self.free_list = range(INITIAL_SIZE)
 
     def get_all_handles(self):
         return self.handles
 
     def reserve_next_handle_index(self):
-        # The reservation ordering done here is tweaked for pypy's
-        # memory allocator.  We look from index 'look_distance'.
-        # Look_distance increases from 0.  But we also look at
-        # "look_distance/2" or "/4" or "/8", etc.  If we find that one
-        # of these secondary locations is free, we assume it's because
-        # there was recently a minor collection; so we reset
-        # look_distance to 0 and start again from the lowest locations.
-        length = len(self.handles)
-        for d in range(self.look_distance, length):
-            if self.handles[d]() is None:
-                self.look_distance = d + 1
-                return d
-            s = _reduced_value(d)
-            if self.handles[s]() is None:
-                break
-        # restart from the beginning
-        for d in range(0, length):
-            if self.handles[d]() is None:
-                self.look_distance = d + 1
-                return d
-        # full! extend, but don't use '+=' here
-        self.handles = self.handles + [dead_ref] * (length // 3 + 5)
-        self.look_distance = length + 1
-        return length
+        # (this algorithm should be amortized constant-time)
+        # get the next 'free_list' entry, if any
+        free_list = self.free_list
+        try:
+            return free_list.pop()
+        except IndexError:
+            pass
+        # slow path: collect all now-free handles in 'free_list'
+        handles = self.handles
+        for i in range(len(handles)):
+            if handles[i]() is None:
+                free_list.append(i)
+        # double the size of the self.handles list, but don't do that
+        # if there are more than 66% of handles free already
+        if len(free_list) * 3 < len(handles) * 2:
+            free_list.extend(range(len(handles), len(handles) * 2))
+            # don't use '+=' on 'self.handles'
+            self.handles = handles = handles + [dead_ref] * len(handles)
+        #
+        return free_list.pop()
 
     def add_handle(self, content):
         index = self.reserve_next_handle_index()

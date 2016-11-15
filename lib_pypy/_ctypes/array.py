@@ -9,7 +9,7 @@ class ArrayMeta(_CDataMeta):
     def __new__(self, name, cls, typedict):
         res = type.__new__(self, name, cls, typedict)
         if '_type_' in typedict:
-            ffiarray = _rawffi.Array(typedict['_type_']._ffishape)
+            ffiarray = _rawffi.Array(typedict['_type_']._ffishape_)
             res._ffiarray = ffiarray
             subletter = getattr(typedict['_type_'], '_type_', None)
             if subletter == 'c':
@@ -58,8 +58,8 @@ class ArrayMeta(_CDataMeta):
                 res.value = property(getvalue, setvalue)
                 
             if '_length_' in typedict:
-                res._ffishape = (ffiarray, typedict['_length_'])
-                res._fficompositesize = res._sizeofinstances()
+                res._ffishape_ = (ffiarray, typedict['_length_'])
+                res._fficompositesize_ = res._sizeofinstances()
         else:
             res._ffiarray = None
         return res
@@ -156,7 +156,7 @@ def array_slice_getitem(self, index):
 
 class Array(_CData):
     __metaclass__ = ArrayMeta
-    _ffiargshape = 'P'
+    _ffiargshape_ = 'P'
 
     def __init__(self, *args):
         if not hasattr(self, '_buffer'):
@@ -191,13 +191,13 @@ class Array(_CData):
         if ensure_objects(cobj) is not None:
             store_reference(self, index, cobj._objects)
         arg = cobj._get_buffer_value()
-        if self._type_._fficompositesize is None:
+        if self._type_._fficompositesize_ is None:
             self._buffer[index] = arg
             # something more sophisticated, cannot set field directly
         else:
             from ctypes import memmove
             dest = self._buffer.itemaddress(index)
-            memmove(dest, arg, self._type_._fficompositesize)
+            memmove(dest, arg, self._type_._fficompositesize_)
 
     def __getitem__(self, index):
         if isinstance(index, slice):

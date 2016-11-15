@@ -1,4 +1,5 @@
 import py, os, sys
+
 from pypy.module.cppyy import interp_cppyy, executor
 
 
@@ -8,6 +9,7 @@ test_dct = str(currpath.join("example01Dict.so"))
 def setup_module(mod):
     if sys.platform == 'win32':
         py.test.skip("win32 not supported so far")
+    import pypy.module.cppyy.capi.loadable_capi as lcapi
     err = os.system("cd '%s' && make example01Dict.so" % currpath)
     if err:
         raise OSError("'make' failed (see stderr)")
@@ -28,7 +30,7 @@ class TestCPPYYImplementation:
 
 
 class AppTestCPPYY:
-    spaceconfig = dict(usemodules=['cppyy'])
+    spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
         cls.w_example01, cls.w_payload = cls.space.unpackiterable(cls.space.appexec([], """():

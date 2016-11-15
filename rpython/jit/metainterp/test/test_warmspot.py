@@ -13,7 +13,8 @@ class Exit(Exception):
         self.result = result
 
 
-class WarmspotTests(object):
+class TestLLWarmspot(LLJitMixin):
+    CPUClass = runner.LLGraphCPU
 
     def test_basic(self):
         mydriver = JitDriver(reds=['a'],
@@ -44,7 +45,7 @@ class WarmspotTests(object):
         def main(a):
             try:
                 interpreter_loop(a)
-            except Exit, e:
+            except Exit as e:
                 return e.result
 
         res = self.meta_interp(main, [1])
@@ -558,17 +559,29 @@ class WarmspotTests(object):
         assert res == 7 - 3
         self.check_trace_count(2)
 
+    def test_jitdriver_single_jit_merge_point(self):
+        jitdriver = JitDriver(greens=[], reds='auto')
+        def g1(n):
+            jitdriver.jit_merge_point()
+            return n
+        def g2():
+            jitdriver.jit_merge_point()
+        def f(n):
+            if n:
+                g1(n)
+            else:
+                g2()
+        e = py.test.raises(AssertionError, self.meta_interp, f, [42])
+        assert str(e.value) == ("there are multiple jit_merge_points "
+                                "with the same jitdriver")
 
-class TestLLWarmspot(WarmspotTests, LLJitMixin):
-    CPUClass = runner.LLGraphCPU
-    type_system = 'lltype'
 
 class TestWarmspotDirect(object):
     def setup_class(cls):
         from rpython.jit.metainterp.typesystem import llhelper
         from rpython.jit.codewriter.support import annotate
         from rpython.jit.metainterp.warmspot import WarmRunnerDesc
-        from rpython.rtyper.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
+        from rpython.rtyper.rclass import OBJECT, OBJECT_VTABLE
         from rpython.rtyper.lltypesystem import lltype, llmemory
         exc_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
         cls.exc_vtable = exc_vtable
@@ -597,8 +610,7 @@ class TestWarmspotDirect(object):
                 self._no = no
 
         class FakeDescr:
-            def as_vtable_size_descr(self):
-                return self
+            pass
 
         class FakeCPU(object):
             supports_floats = False
@@ -610,6 +622,9 @@ class TestWarmspotDirect(object):
 
             class tracker:
                 pass
+
+            def setup_descrs(self):
+                return []
 
             def get_latest_descr(self, deadframe):
                 assert isinstance(deadframe, FakeDeadFrame)
@@ -659,7 +674,7 @@ class TestWarmspotDirect(object):
         assert jd._assembler_call_helper(FakeDeadFrame(1), 0) == 10
         try:
             jd._assembler_call_helper(FakeDeadFrame(3), 0)
-        except LLException, lle:
+        except LLException as lle:
             assert lle[0] == self.exc_vtable
         else:
             py.test.fail("DID NOT RAISE")

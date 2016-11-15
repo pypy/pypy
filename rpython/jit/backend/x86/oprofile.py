@@ -2,7 +2,7 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib.rposix import get_errno
+from rpython.rlib import rposix
 from rpython.jit.backend.x86 import profagent
 
 class OProfileError(Exception):
@@ -26,19 +26,22 @@ else:
         "op_open_agent",
         [],
         AGENT,
-        compilation_info=eci)
+        compilation_info=eci,
+        save_err=rffi.RFFI_SAVE_ERRNO)
     op_close_agent = rffi.llexternal(
         "op_close_agent",
         [AGENT],
         rffi.INT,
-        compilation_info=eci)
+        compilation_info=eci,
+        save_err=rffi.RFFI_SAVE_ERRNO)
     # arguments are:
     # agent, symbol_name, address in memory, address in memory again, size
     op_write_native_code = rffi.llexternal(
         "op_write_native_code",
         [AGENT, rffi.CCHARP, uint64_t, rffi.VOIDP, rffi.UINT],
         rffi.INT,
-        compilation_info=eci)
+        compilation_info=eci,
+        save_err=rffi.RFFI_SAVE_ERRNO)
 
 
 class OProfileAgent(profagent.ProfileAgent):
@@ -48,7 +51,7 @@ class OProfileAgent(profagent.ProfileAgent):
             return
         agent = op_open_agent()
         if not agent:
-            raise OProfileError(get_errno(), "startup")
+            raise OProfileError(rposix.get_saved_errno(), "startup")
         self.agent = agent
 
     def shutdown(self):
@@ -56,7 +59,7 @@ class OProfileAgent(profagent.ProfileAgent):
             return
         success = op_close_agent(self.agent)
         if success != 0:
-            raise OProfileError(get_errno(), "shutdown")
+            raise OProfileError(rposix.get_saved_errno(), "shutdown")
 
     def native_code_written(self, name, address, size):
         assert size > 0
@@ -65,4 +68,4 @@ class OProfileAgent(profagent.ProfileAgent):
         uaddress = rffi.cast(rffi.ULONG, address)
         success = op_write_native_code(self.agent, name, uaddress, rffi.cast(rffi.VOIDP, 0), size)
         if success != 0:
-            raise OProfileError(get_errno(), "write")
+            raise OProfileError(rposix.get_saved_errno(), "write")

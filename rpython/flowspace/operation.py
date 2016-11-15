@@ -1,5 +1,5 @@
 """
-This module defines all the SpaceOeprations used in rpython.flowspace.
+This module defines all the SpaceOperations used in rpython.flowspace.
 """
 
 import __builtin__
@@ -7,13 +7,15 @@ import __future__
 import operator
 import sys
 import types
-from rpython.tool.pairtype import pair
+from rpython.tool.pairtype import pair, DoubleDispatchRegistry
 from rpython.rlib.unroll import unrolling_iterable, _unroller
 from rpython.tool.sourcetools import compile2
 from rpython.flowspace.model import (Constant, WrapException, const, Variable,
                                      SpaceOperation)
 from rpython.flowspace.specialcase import register_flow_sc
-from rpython.annotator.model import SomeTuple
+from rpython.annotator.model import (
+    SomeTuple, AnnotatorError, read_can_only_throw)
+from rpython.annotator.argument import ArgumentsForTranslation
 from rpython.flowspace.specialcase import SPECIAL_CASES
 
 
@@ -53,6 +55,13 @@ class HLOperationMeta(type):
         type.__init__(cls, name, bases, attrdict)
         if hasattr(cls, 'opname'):
             setattr(op, cls.opname, cls)
+        if cls.dispatch == 1:
+            cls._registry = {}
+            cls._transform = {}
+        elif cls.dispatch == 2:
+            cls._registry = DoubleDispatchRegistry()
+            cls._transform = DoubleDispatchRegistry()
+
 
 class HLOperation(SpaceOperation):
     __metaclass__ = HLOperationMeta
@@ -67,8 +76,8 @@ class HLOperation(SpaceOperation):
         self.offset = -1
 
     def replace(self, mapping):
-        newargs = [mapping.get(arg, arg) for arg in self.args]
-        newresult = mapping.get(self.result, self.result)
+        newargs = [arg.replace(mapping) for arg in self.args]
+        newresult = self.result.replace(mapping)
         newop = type(self)(*newargs)
         newop.result = newresult
         newop.offset = self.offset
@@ -89,11 +98,21 @@ class HLOperation(SpaceOperation):
     def constfold(self):
         return None
 
-    def consider(self, annotator, *argcells):
-        consider_meth = getattr(annotator, 'consider_op_' + self.opname, None)
-        if not consider_meth:
-            raise Exception("unknown op: %r" % op)
-        return consider_meth(*argcells)
+    def consider(self, annotator):
+        args_s = [annotator.annotation(arg) for arg in self.args]
+        spec = type(self).get_specialization(*args_s)
+        return spec(annotator, *self.args)
+
+    def get_can_only_throw(self, annotator):
+        return None
+
+    def get_transformer(self, *args_s):
+        return lambda *args: None
+
+    def transform(self, annotator):
+        args_s = [annotator.annotation(arg) for arg in self.args]
+        transformer = self.get_transformer(*args_s)
+        return transformer(annotator, *self.args)
 
 class PureOperation(HLOperation):
     pure = True
@@ -140,16 +159,102 @@ class OverflowingOperation(PureOperation):
 class SingleDispatchMixin(object):
     dispatch = 1
 
-    def consider(self, annotator, arg, *other_args):
-        impl = getattr(arg, self.opname)
-        return impl(*other_args)
+    @classmethod
+    def register(cls, Some_cls):
+        def decorator(func):
+            cls._registry[Some_cls] = func
+            return func
+        return decorator
+
+    @classmethod
+    def _dispatch(cls, Some_cls):
+        for c in Some_cls.__mro__:
+            try:
+                return cls._registry[c]
+            except KeyError:
+                pass
+        raise AnnotatorError("Unknown operation")
+
+    def get_can_only_throw(self, annotator):
+        args_s = [annotator.annotation(v) for v in self.args]
+        spec = type(self).get_specialization(*args_s)
+        return read_can_only_throw(spec, args_s[0])
+
+    @classmethod
+    def get_specialization(cls, s_arg, *_ignored):
+        try:
+            impl = getattr(s_arg, cls.opname)
+
+            def specialized(annotator, arg, *other_args):
+                return impl(*[annotator.annotation(x) for x in other_args])
+            try:
+                specialized.can_only_throw = impl.can_only_throw
+            except AttributeError:
+                pass
+            return specialized
+        except AttributeError:
+            return cls._dispatch(type(s_arg))
+
+    @classmethod
+    def register_transform(cls, Some_cls):
+        def decorator(func):
+            cls._transform[Some_cls] = func
+            return func
+        return decorator
+
+    @classmethod
+    def get_transformer(cls, s_arg, *_ignored):
+        for c in type(s_arg).__mro__:
+            try:
+                return cls._transform[c]
+            except KeyError:
+                pass
+        return lambda *args: None
+
 
 class DoubleDispatchMixin(object):
     dispatch = 2
 
-    def consider(self, annotator, arg1, arg2, *other_args):
-        impl = getattr(pair(arg1, arg2), self.opname)
-        return impl(*other_args)
+    @classmethod
+    def register(cls, Some1, Some2):
+        def decorator(func):
+            cls._registry[Some1, Some2] = func
+            return func
+        return decorator
+
+    @classmethod
+    def get_specialization(cls, s_arg1, s_arg2, *_ignored):
+        try:
+            impl = getattr(pair(s_arg1, s_arg2), cls.opname)
+
+            def specialized(annotator, arg1, arg2, *other_args):
+                return impl(*[annotator.annotation(x) for x in other_args])
+            try:
+                specialized.can_only_throw = impl.can_only_throw
+            except AttributeError:
+                pass
+            return specialized
+        except AttributeError:
+            return cls._registry[type(s_arg1), type(s_arg2)]
+
+    def get_can_only_throw(self, annotator):
+        args_s = [annotator.annotation(v) for v in self.args]
+        spec = type(self).get_specialization(*args_s)
+        return read_can_only_throw(spec, args_s[0], args_s[1])
+
+    @classmethod
+    def register_transform(cls, Some1, Some2):
+        def decorator(func):
+            cls._transform[Some1, Some2] = func
+            return func
+        return decorator
+
+    @classmethod
+    def get_transformer(cls, s_arg1, s_arg2, *_ignored):
+        try:
+            return cls._transform[type(s_arg1), type(s_arg2)]
+        except KeyError:
+            return lambda *args: None
 
 
 def add_operator(name, arity, dispatch=None, pyfunc=None, pure=False, ovf=False):
@@ -293,6 +398,7 @@ add_operator('is_', 2, dispatch=2, pure=True)
 add_operator('id', 1, dispatch=1, pyfunc=id)
 add_operator('type', 1, dispatch=1, pyfunc=new_style_type, pure=True)
 add_operator('issubtype', 2, dispatch=1, pyfunc=issubclass, pure=True)  # not for old-style classes
+add_operator('isinstance', 2, dispatch=1, pyfunc=isinstance, pure=True)
 add_operator('repr', 1, dispatch=1, pyfunc=repr, pure=True)
 add_operator('str', 1, dispatch=1, pyfunc=str, pure=True)
 add_operator('format', 2, pyfunc=unsupported)
@@ -302,8 +408,6 @@ add_operator('setattr', 3, dispatch=1, pyfunc=setattr)
 add_operator('delattr', 2, dispatch=1, pyfunc=delattr)
 add_operator('getitem', 2, dispatch=2, pure=True)
 add_operator('getitem_idx', 2, dispatch=2, pure=True)
-add_operator('getitem_key', 2, dispatch=2, pure=True)
-add_operator('getitem_idx_key', 2, dispatch=2, pure=True)
 add_operator('setitem', 3, dispatch=2)
 add_operator('delitem', 2, dispatch=2)
 add_operator('getslice', 3, dispatch=1, pyfunc=do_getslice, pure=True)
@@ -367,21 +471,22 @@ add_operator('yield_', 1)
 add_operator('newslice', 3)
 add_operator('hint', None, dispatch=1)
 
-class Contains(PureOperation):
+class Contains(SingleDispatchMixin, PureOperation):
     opname = 'contains'
     arity = 2
     pyfunc = staticmethod(operator.contains)
 
-    # XXX "contains" clash with SomeObject method
-    def consider(self, annotator, seq, elem):
-        return seq.op_contains(elem)
+    # XXX "contains" clashes with SomeObject method
+    @classmethod
+    def get_specialization(cls, s_seq, s_elem):
+        return cls._dispatch(type(s_seq))
 
 
 class NewDict(HLOperation):
     opname = 'newdict'
     canraise = []
 
-    def consider(self, annotator, *args):
+    def consider(self, annotator):
         return annotator.bookkeeper.newdict()
 
 
@@ -390,16 +495,25 @@ class NewTuple(PureOperation):
     pyfunc = staticmethod(lambda *args: args)
     canraise = []
 
-    def consider(self, annotator, *args):
-        return SomeTuple(items=args)
+    def consider(self, annotator):
+        return SomeTuple(items=[annotator.annotation(arg) for arg in self.args])
 
 
 class NewList(HLOperation):
     opname = 'newlist'
     canraise = []
 
-    def consider(self, annotator, *args):
-        return annotator.bookkeeper.newlist(*args)
+    def consider(self, annotator):
+        return annotator.bookkeeper.newlist(
+                *[annotator.annotation(arg) for arg in self.args])
+
+
+class NewSlice(HLOperation):
+    opname = 'newslice'
+    canraise = []
+
+    def consider(self, annotator):
+        raise AnnotatorError("Cannot use extended slicing in rpython")
 
 
 class Pow(PureOperation):
@@ -433,7 +547,7 @@ class Next(SingleDispatchMixin, HLOperation):
     opname = 'next'
     arity = 1
     can_overflow = False
-    canraise = []
+    canraise = [StopIteration, RuntimeError]
     pyfunc = staticmethod(next)
 
     def eval(self, ctx):
@@ -449,9 +563,7 @@ class Next(SingleDispatchMixin, HLOperation):
                 else:
                     ctx.replace_in_stack(it, next_unroller)
                     return const(v)
-        w_item = ctx.do_op(self)
-        ctx.guessexception([StopIteration, RuntimeError], force=True)
-        return w_item
+        return HLOperation.eval(self, ctx)
 
 class GetAttr(SingleDispatchMixin, HLOperation):
     opname = 'getattr'
@@ -461,6 +573,10 @@ class GetAttr(SingleDispatchMixin, HLOperation):
     pyfunc = staticmethod(getattr)
 
     def constfold(self):
+        from rpython.flowspace.flowcontext import FlowingError
+        if len(self.args) == 3:
+            raise FlowingError(
+                "getattr() with three arguments not supported: %s" % (self,))
         w_obj, w_name = self.args
         # handling special things like sys
         if (w_obj in NOT_REALLY_CONST and
@@ -471,7 +587,6 @@ class GetAttr(SingleDispatchMixin, HLOperation):
             try:
                 result = getattr(obj, name)
             except Exception as e:
-                from rpython.flowspace.flowcontext import FlowingError
                 etype = e.__class__
                 msg = "getattr(%s, %s) always raises %s: %s" % (
                     obj, name, etype, e)
@@ -511,6 +626,9 @@ class SimpleCall(SingleDispatchMixin, CallOp):
                 return sc(ctx, *args_w)
         return ctx.do_op(self)
 
+    def build_args(self, args_s):
+        return ArgumentsForTranslation(list(args_s))
+
 
 class CallArgs(SingleDispatchMixin, CallOp):
     opname = 'call_args'
@@ -528,6 +646,10 @@ class CallArgs(SingleDispatchMixin, CallOp):
                 raise FlowingError(
                     "should not call %r with keyword arguments" % (fn,))
         return ctx.do_op(self)
+
+    def build_args(self, args_s):
+        return ArgumentsForTranslation.fromshape(args_s[0].const,
+                                                list(args_s[1:]))
 
 
 # Other functions that get directly translated to SpaceOperators
@@ -556,8 +678,6 @@ op_appendices = {
 # the annotator tests
 op.getitem.canraise = [IndexError, KeyError, Exception]
 op.getitem_idx.canraise = [IndexError, KeyError, Exception]
-op.getitem_key.canraise = [IndexError, KeyError, Exception]
-op.getitem_idx_key.canraise = [IndexError, KeyError, Exception]
 op.setitem.canraise = [IndexError, KeyError, Exception]
 op.delitem.canraise = [IndexError, KeyError, Exception]
 op.contains.canraise = [Exception]    # from an r_dict

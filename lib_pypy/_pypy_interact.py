@@ -3,8 +3,10 @@
 import sys
 import os
 
+irc_header = "And now for something completely different"
 
-def interactive_console(mainmodule=None, quiet=False):
+
+def interactive_console(mainmodule=None, quiet=False, future_flags=0):
     # set sys.{ps1,ps2} just before invoking the interactive interpreter. This
     # mimics what CPython does in pythonrun.c
     if not hasattr(sys, 'ps1'):
@@ -15,8 +17,7 @@ def interactive_console(mainmodule=None, quiet=False):
     if not quiet:
         try:
             from _pypy_irc_topic import some_topic
-            text = "And now for something completely different: ``%s''" % (
-                some_topic(),)
+            text = "%s: ``%s''" % ( irc_header, some_topic())
             while len(text) >= 80:
                 i = text[:80].rfind(' ')
                 print(text[:i])
@@ -36,15 +37,17 @@ def interactive_console(mainmodule=None, quiet=False):
             raise ImportError
         from pyrepl.simple_interact import run_multiline_interactive_console
     except ImportError:
-        run_simple_interactive_console(mainmodule)
+        run_simple_interactive_console(mainmodule, future_flags=future_flags)
     else:
-        run_multiline_interactive_console(mainmodule)
+        run_multiline_interactive_console(mainmodule, future_flags=future_flags)
 
-def run_simple_interactive_console(mainmodule):
+def run_simple_interactive_console(mainmodule, future_flags=0):
     import code
     if mainmodule is None:
         import __main__ as mainmodule
     console = code.InteractiveConsole(mainmodule.__dict__, filename='<stdin>')
+    if future_flags:
+        console.compile.compiler.flags |= future_flags
     # some parts of code.py are copied here because it seems to be impossible
     # to start an interactive console without printing at least one line
     # of banner

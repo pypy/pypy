@@ -13,7 +13,7 @@ class AppTestTraceBackAttributes:
         # XXX why is this called newstring?
         import sys
         def f():
-            raise TypeError, "hello"
+            raise TypeError("hello")
 
         def g():
             f()
@@ -23,7 +23,7 @@ class AppTestTraceBackAttributes:
         except:
             typ,val,tb = sys.exc_info()
         else:
-            raise AssertionError, "should have raised"
+            raise AssertionError("should have raised")
         assert hasattr(tb, 'tb_frame')
         assert hasattr(tb, 'tb_lasti')
         assert hasattr(tb, 'tb_lineno')
@@ -127,10 +127,7 @@ class TestTypeDef:
                         """ % (slots, methodname, checks[0], checks[1],
                                checks[2], checks[3]))
         subclasses = {}
-        for key, subcls in typedef._subclass_cache.items():
-            if key[0] is not space.config:
-                continue
-            cls = key[1]
+        for cls, subcls in typedef._unique_subclass_cache.items():
             subclasses.setdefault(cls, {})
             prevsubcls = subclasses[cls].setdefault(subcls.__name__, subcls)
             assert subcls is prevsubcls
@@ -186,35 +183,20 @@ class TestTypeDef:
         class W_Level1(W_Root):
             def __init__(self, space1):
                 assert space1 is space
-            def __del__(self):
+                self.register_finalizer(space)
+            def _finalize_(self):
                 space.call_method(w_seen, 'append', space.wrap(1))
-        class W_Level2(W_Root):
-            def __init__(self, space1):
-                assert space1 is space
-            def __del__(self):
-                self.enqueue_for_destruction(space, W_Level2.destructormeth,
-                                             'FOO ')
-            def destructormeth(self):
-                space.call_method(w_seen, 'append', space.wrap(2))
         W_Level1.typedef = typedef.TypeDef(
             'level1',
             __new__ = typedef.generic_new_descr(W_Level1))
-        W_Level2.typedef = typedef.TypeDef(
-            'level2',
-            __new__ = typedef.generic_new_descr(W_Level2))
         #
         w_seen = space.newlist([])
         W_Level1(space)
         gc.collect(); gc.collect()
-        assert space.unwrap(w_seen) == [1]
-        #
-        w_seen = space.newlist([])
-        W_Level2(space)
-        gc.collect(); gc.collect()
         assert space.str_w(space.repr(w_seen)) == "[]"  # not called yet
         ec = space.getexecutioncontext()
         self.space.user_del_action.perform(ec, None)
-        assert space.unwrap(w_seen) == [2]
+        assert space.unwrap(w_seen) == [1]   # called by user_del_action
         #
         w_seen = space.newlist([])
         self.space.appexec([self.space.gettypeobject(W_Level1.typedef)],
@@ -236,29 +218,17 @@ class TestTypeDef:
             A4()
         """)
         gc.collect(); gc.collect()
-        assert space.unwrap(w_seen) == [4, 1]
+        assert space.unwrap(w_seen) == [4, 1]    # user __del__, and _finalize_
         #
         w_seen = space.newlist([])
-        self.space.appexec([self.space.gettypeobject(W_Level2.typedef)],
+        self.space.appexec([self.space.gettypeobject(W_Level1.typedef)],
         """(level2):
             class A5(level2):
                 pass
             A5()
         """)
         gc.collect(); gc.collect()
-        assert space.unwrap(w_seen) == [2]
-        #
-        w_seen = space.newlist([])
-        self.space.appexec([self.space.gettypeobject(W_Level2.typedef),
-                            w_seen],
-        """(level2, seen):
-            class A6(level2):
-                def __del__(self):
-                    seen.append(6)
-            A6()
-        """)
-        gc.collect(); gc.collect()
-        assert space.unwrap(w_seen) == [6, 2]
+        assert space.unwrap(w_seen) == [1]     # _finalize_ only
 
     def test_multiple_inheritance(self):
         class W_A(W_Root):
@@ -341,6 +311,48 @@ class TestTypeDef:
         assert space.is_true(space.ne(w_a, w_b))
         assert not space.is_true(space.ne(w_b, w_c))
 
+    def test_class_attr(self):
+        class W_SomeType(W_Root):
+            pass
+
+        seen = []
+        def make_me(space):
+            seen.append(1)
+            return space.wrap("foobar")
+
+        W_SomeType.typedef = typedef.TypeDef(
+            'some_type',
+            abc = typedef.ClassAttr(make_me)
+            )
+        assert seen == []
+        self.space.appexec([W_SomeType()], """(x):
+            assert type(x).abc == "foobar"
+            assert x.abc == "foobar"
+            assert type(x).abc == "foobar"
+        """)
+        assert seen == [1]
+
+    def test_mapdict_number_of_slots(self):
+        space = self.space
+        a, b, c = space.unpackiterable(space.appexec([], """():
+            class A(object):
+                pass
+            a = A()
+            a.x = 1
+            class B:
+                pass
+            b = B()
+            b.x = 1
+            class C(int):
+                pass
+            c = C(1)
+            c.x = 1
+            return a, b, c
+        """), 3)
+        assert not hasattr(a, "storage")
+        assert not hasattr(b, "storage")
+        assert hasattr(c, "storage")
+
 class AppTestTypeDef:
 
     def setup_class(cls):
@@ -379,6 +391,7 @@ class AppTestTypeDef:
         assert bm.im_class is B
         assert bm.__doc__ == "aaa"
         assert bm.x == 3
+        assert type(bm).__doc__ == "instancemethod(function, instance, class)\n\nCreate an instance method object."
         raises(AttributeError, setattr, bm, 'x', 15)
         l = []
         assert l.append.__self__ is l
@@ -387,3 +400,16 @@ class AppTestTypeDef:
         # because it's a regular method, and .__objclass__
         # differs from .im_class in case the method is
         # defined in some parent class of l's actual class
+
+    def test_classmethod_im_class(self):
+        class Foo(object):
+            @classmethod
+            def bar(cls):
+                pass
+        assert Foo.bar.im_class is type
+
+    def test_func_closure(self):
+        x = 2
+        def f():
+            return x
+        assert f.__closure__[0].cell_contents is x

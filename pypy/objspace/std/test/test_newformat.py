@@ -184,6 +184,20 @@ class BaseStringFormatTests:
         format_string = self.s("{{{}:.6f}}").format(sys.maxsize + 1)
         raises(ValueError, "format(2.34, format_string)")
 
+    def test_format_null_fill_char(self):
+        assert self.s('{0:\x00<6s}').format('foo') == 'foo' + '\x00' * 3
+        assert self.s('{0:\x01<6s}').format('foo') == 'foo' + '\x01' * 3
+        assert self.s('{0:\x00^6s}').format('foo') == '\x00foo\x00\x00'
+
+        assert self.s('{0:\x00<6}').format(3) == '3' + '\x00' * 5
+        assert self.s('{0:\x01<6}').format(3) == '3' + '\x01' * 5
+
+        assert self.s('{0:\x00<6}').format(3.14) == '3.14' + '\x00' * 2
+        assert self.s('{0:\x01<6}').format(3.14) == '3.14' + '\x01' * 2
+
+        assert self.s('{0:\x00<12}').format(3+2.0j) == '(3+2j)' + '\x00' * 6
+        assert self.s('{0:\x01<12}').format(3+2.0j) == '(3+2j)' + '\x01' * 6
+
 
 class AppTestUnicodeFormat(BaseStringFormatTests):
     def setup_class(cls):
@@ -201,7 +215,9 @@ class AppTestUnicodeFormat(BaseStringFormatTests):
         assert self.s("{!r}").format(x()) == self.s("32")
 
     def test_non_latin1_key(self):
-        raises(KeyError, self.s("{\u1000}").format)
+        raises(KeyError, u"{\u1000}".format)
+        d = {u"\u1000": u"foo"}
+        assert u"{\u1000}".format(**d) == u"foo"
 
 
 class AppTestStringFormat(BaseStringFormatTests):
@@ -358,6 +374,7 @@ class AppTestFloatFormatting:
         try:
             assert locale.format('%g', x, grouping=True) == '1,234.57'
             assert format(x, 'n') == '1,234.57'
+            assert format(12345678901234, 'n') == '12,345,678,901,234'
         finally:
             locale.setlocale(locale.LC_NUMERIC, 'C')
 

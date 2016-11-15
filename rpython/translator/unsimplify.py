@@ -2,22 +2,12 @@ from rpython.flowspace.model import (Variable, Constant, Block, Link,
     SpaceOperation, c_last_exception, checkgraph)
 
 
-def copyvar(annotator, v):
-    """Make a copy of the Variable v, preserving annotations and concretetype."""
-    assert isinstance(v, Variable)
-    newvar = Variable(v)
-    if annotator is not None and v in annotator.bindings:
-        annotator.transfer_binding(newvar, v)
-    if hasattr(v, 'concretetype'):
-        newvar.concretetype = v.concretetype
-    return newvar
-
 def varoftype(concretetype, name=None):
     var = Variable(name)
     var.concretetype = concretetype
     return var
 
-def insert_empty_block(annotator, link, newops=[]):
+def insert_empty_block(link, newops=[]):
     """Insert and return a new block along the given link."""
     vars = {}
     for v in link.args:
@@ -31,7 +21,7 @@ def insert_empty_block(annotator, link, newops=[]):
     vars = [v for v, keep in vars.items() if keep]
     mapping = {}
     for v in vars:
-        mapping[v] = copyvar(annotator, v)
+        mapping[v] = v.copy()
     newblock = Block(vars)
     newblock.operations.extend(newops)
     newblock.closeblock(Link(link.args, link.target))
@@ -40,8 +30,8 @@ def insert_empty_block(annotator, link, newops=[]):
     link.target = newblock
     return newblock
 
-def insert_empty_startblock(annotator, graph):
-    vars = [copyvar(annotator, v) for v in graph.startblock.inputargs]
+def insert_empty_startblock(graph):
+    vars = [v.copy() for v in graph.startblock.inputargs]
     newblock = Block(vars)
     newblock.closeblock(Link(vars, graph.startblock))
     graph.startblock = newblock
@@ -51,7 +41,7 @@ def starts_with_empty_block(graph):
             and graph.startblock.exitswitch is None
             and graph.startblock.exits[0].args == graph.getargs())
 
-def split_block(annotator, block, index, _forcelink=None):
+def split_block(block, index, _forcelink=None):
     """return a link where prevblock is the block leading up but excluding the
     index'th operation and target is a new block with the neccessary variables
     passed on.
@@ -72,7 +62,7 @@ def split_block(annotator, block, index, _forcelink=None):
         if var in vars_produced_in_new_block:
             return var
         if var not in varmap:
-            varmap[var] = copyvar(annotator, var)
+            varmap[var] = var.copy()
         return varmap[var]
     moved_operations = block.operations[index:]
     new_moved_ops = []
@@ -146,7 +136,7 @@ def call_initial_function(translator, initial_func, annhelper=None):
         annhelper.finish()
 
     entry_point = translator.entry_point_graph
-    args = [copyvar(translator.annotator, v) for v in entry_point.getargs()]
+    args = [v.copy() for v in entry_point.getargs()]
     extrablock = Block(args)
     v_none = varoftype(lltype.Void)
     newop = SpaceOperation('direct_call', [c_initial_func], v_none)
@@ -169,7 +159,7 @@ def call_final_function(translator, final_func, annhelper=None):
         annhelper.finish()
 
     entry_point = translator.entry_point_graph
-    v = copyvar(translator.annotator, entry_point.getreturnvar())
+    v = entry_point.getreturnvar().copy()
     extrablock = Block([v])
     v_none = varoftype(lltype.Void)
     newop = SpaceOperation('direct_call', [c_final_func], v_none)

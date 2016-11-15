@@ -9,8 +9,9 @@ from rpython.rtyper.lltypesystem.lltype import (
     Void, Signed, Bool, Ptr, GcStruct, malloc, typeOf, nullptr)
 from rpython.rtyper.lltypesystem.rstr import LLHelpers
 from rpython.rtyper.rstr import AbstractStringRepr
-from rpython.rtyper.rmodel import (Repr, IntegerRepr, inputconst, IteratorRepr,
+from rpython.rtyper.rmodel import (Repr, inputconst, IteratorRepr,
     externalvsinternal)
+from rpython.rtyper.rint import IntegerRepr
 from rpython.tool.pairtype import pairtype
 
 
@@ -18,9 +19,9 @@ class __extend__(annmodel.SomeTuple):
     def rtyper_makerepr(self, rtyper):
         return TupleRepr(rtyper, [rtyper.getrepr(s_item) for s_item in self.items])
 
-    def rtyper_makekey_ex(self, rtyper):
-        keys = [rtyper.makekey(s_item) for s_item in self.items]
-        return tuple([self.__class__]+keys)
+    def rtyper_makekey(self):
+        keys = [s_item.rtyper_makekey() for s_item in self.items]
+        return tuple([self.__class__] + keys)
 
 
 _gen_eq_function_cache = {}
@@ -209,7 +210,10 @@ class TupleRepr(Repr):
 
     ll_str = property(gen_str_function)
 
-    def make_iterator_repr(self):
+    def make_iterator_repr(self, variant=None):
+        if variant is not None:
+            raise TyperError("unsupported %r iterator over a tuple" %
+                             (variant,))
         if len(self.items_r) == 1:
             # subclasses are supposed to set the IteratorRepr attribute
             return self.IteratorRepr(self)

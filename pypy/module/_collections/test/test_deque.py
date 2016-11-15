@@ -4,6 +4,8 @@ class AppTestBasic:
 
     def test_basics(self):
         from _collections import deque
+        assert deque.__module__ == 'collections'
+
         d = deque(xrange(-5125, -5000))
         d.__init__(xrange(200))
         for i in xrange(200, 400):

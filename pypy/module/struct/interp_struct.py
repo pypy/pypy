@@ -1,15 +1,35 @@
 from rpython.rlib import jit
+from rpython.rlib.buffer import SubBuffer
 from rpython.rlib.rstruct.error import StructError, StructOverflowError
 from rpython.rlib.rstruct.formatiterator import CalcSizeFormatIterator
-from rpython.tool.sourcetools import func_with_new_name
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.module.struct.formatiterator import (
     PackFormatIterator, UnpackFormatIterator
 )
+
+
+class Cache:
+    def __init__(self, space):
+        self.error = space.new_exception_class("struct.error", space.w_Exception)
+
+
+def get_error(space):
+    return space.fromcache(Cache).error
+
+
+def _calcsize(space, format):
+    fmtiter = CalcSizeFormatIterator()
+    try:
+        fmtiter.interpret(format)
+    except StructOverflowError as e:
+        raise OperationError(space.w_OverflowError, space.wrap(e.msg))
+    except StructError as e:
+        raise OperationError(get_error(space), space.wrap(e.msg))
+    return fmtiter.totalsize
 
 
 @unwrap_spec(format=str)
@@ -17,20 +37,7 @@ def calcsize(space, format):
     return space.wrap(_calcsize(space, format))
 
 
-def _calcsize(space, format):
-    fmtiter = CalcSizeFormatIterator()
-    try:
-        fmtiter.interpret(format)
-    except StructOverflowError, e:
-        raise OperationError(space.w_OverflowError, space.wrap(e.msg))
-    except StructError, e:
-        w_module = space.getbuiltinmodule('struct')
-        w_error = space.getattr(w_module, space.wrap('error'))
-        raise OperationError(w_error, space.wrap(e.msg))
-    return fmtiter.totalsize
-
-@unwrap_spec(format=str)
-def pack(space, format, args_w):
+def _pack(space, format, args_w):
     if jit.isconstant(format):
         size = _calcsize(space, format)
     else:
@@ -38,27 +45,64 @@ def pack(space, format, args_w):
     fmtiter = PackFormatIterator(space, args_w, size)
     try:
         fmtiter.interpret(format)
-    except StructOverflowError, e:
+    except StructOverflowError as e:
         raise OperationError(space.w_OverflowError, space.wrap(e.msg))
-    except StructError, e:
-        w_module = space.getbuiltinmodule('struct')
-        w_error = space.getattr(w_module, space.wrap('error'))
-        raise OperationError(w_error, space.wrap(e.msg))
-    return space.wrap(fmtiter.result.build())
+    except StructError as e:
+        raise OperationError(get_error(space), space.wrap(e.msg))
+    return fmtiter.result.build()
 
 
-@unwrap_spec(format=str, input='bufferstr')
-def unpack(space, format, input):
-    fmtiter = UnpackFormatIterator(space, input)
+@unwrap_spec(format=str)
+def pack(space, format, args_w):
+    return space.wrap(_pack(space, format, args_w))
+
+
+# XXX inefficient
+@unwrap_spec(format=str, offset=int)
+def pack_into(space, format, w_buffer, offset, args_w):
+    res = _pack(space, format, args_w)
+    buf = space.getarg_w('w*', w_buffer)
+    if offset < 0:
+        offset += buf.getlength()
+    size = len(res)
+    if offset < 0 or (buf.getlength() - offset) < size:
+        raise oefmt(get_error(space),
+                    "pack_into requires a buffer of at least %d bytes",
+                    size)
+    buf.setslice(offset, res)
+
+
+def _unpack(space, format, buf):
+    fmtiter = UnpackFormatIterator(space, buf)
     try:
         fmtiter.interpret(format)
-    except StructOverflowError, e:
+    except StructOverflowError as e:
         raise OperationError(space.w_OverflowError, space.wrap(e.msg))
-    except StructError, e:
-        w_module = space.getbuiltinmodule('struct')
-        w_error = space.getattr(w_module, space.wrap('error'))
-        raise OperationError(w_error, space.wrap(e.msg))
+    except StructError as e:
+        raise OperationError(get_error(space), space.wrap(e.msg))
     return space.newtuple(fmtiter.result_w[:])
+
+
+@unwrap_spec(format=str)
+def unpack(space, format, w_str):
+    buf = space.getarg_w('s*', w_str)
+    return _unpack(space, format, buf)
+
+
+@unwrap_spec(format=str, offset=int)
+def unpack_from(space, format, w_buffer, offset=0):
+    size = _calcsize(space, format)
+    buf = space.getarg_w('z*', w_buffer)
+    if buf is None:
+        raise oefmt(get_error(space), "unpack_from requires a buffer argument")
+    if offset < 0:
+        offset += buf.getlength()
+    if offset < 0 or (buf.getlength() - offset) < size:
+        raise oefmt(get_error(space),
+                    "unpack_from requires a buffer of at least %d bytes",
+                    size)
+    buf = SubBuffer(buf, offset, size)
+    return _unpack(space, format, buf)
 
 
 class W_Struct(W_Root):
@@ -74,21 +118,19 @@ class W_Struct(W_Root):
         W_Struct.__init__(self, space, format)
         return self
 
-    def wrap_struct_method(name):
-        def impl(self, space, __args__):
-            w_module = space.getbuiltinmodule('struct')
-            w_method = space.getattr(w_module, space.wrap(name))
-            return space.call_obj_args(
-                w_method, space.wrap(self.format), __args__
-            )
+    def descr_pack(self, space, args_w):
+        return pack(space, jit.promote_string(self.format), args_w)
 
-        return func_with_new_name(impl, 'descr_' + name)
+    @unwrap_spec(offset=int)
+    def descr_pack_into(self, space, w_buffer, offset, args_w):
+        return pack_into(space, jit.promote_string(self.format), w_buffer, offset, args_w)
 
-    descr_pack = wrap_struct_method("pack")
-    descr_unpack = wrap_struct_method("unpack")
-    descr_pack_into = wrap_struct_method("pack_into")
-    descr_unpack_from = wrap_struct_method("unpack_from")
+    def descr_unpack(self, space, w_str):
+        return unpack(space, jit.promote_string(self.format), w_str)
 
+    @unwrap_spec(offset=int)
+    def descr_unpack_from(self, space, w_buffer, offset=0):
+        return unpack_from(space, jit.promote_string(self.format), w_buffer, offset)
 
 W_Struct.typedef = TypeDef("Struct",
     __new__=interp2app(W_Struct.descr__new__.im_func),
@@ -100,3 +142,6 @@ W_Struct.typedef = TypeDef("Struct",
     pack_into=interp2app(W_Struct.descr_pack_into),
     unpack_from=interp2app(W_Struct.descr_unpack_from),
 )
+
+def clearcache(space):
+    """No-op on PyPy"""

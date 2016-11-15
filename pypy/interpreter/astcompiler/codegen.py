@@ -527,7 +527,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_jump(ops.JUMP_ABSOLUTE, loop, True)
             if test_constant == optimize.CONST_NOT_CONST:
                 self.use_next_block(anchor)
-                self.emit_op(ops.POP_BLOCK)
+            self.emit_op(ops.POP_BLOCK)
             self.pop_frame_block(F_BLOCK_LOOP, loop)
             self.visit_sequence(wh.orelse)
             self.use_next_block(end)
@@ -564,7 +564,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_jump(ops.JUMP_FORWARD, end)
             self.use_next_block(next_except)
         self.emit_op(ops.END_FINALLY)   # this END_FINALLY will always re-raise
-        self.is_dead_code()
         self.use_next_block(otherwise)
         self.visit_sequence(te.orelse)
         self.use_next_block(end)

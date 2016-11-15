@@ -4,19 +4,20 @@ PyCode instances have the same co_xxx arguments as CPython code objects.
 The bytecode interpreter itself is implemented by the PyFrame class.
 """
 
-import dis, imp, struct, types, new, sys
+import dis, imp, struct, types, new, sys, os
 
 from pypy.interpreter import eval
 from pypy.interpreter.signature import Signature
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.astcompiler.consts import (
     CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS, CO_NESTED,
     CO_GENERATOR, CO_KILL_DOCSTRING, CO_YIELD_INSIDE_TRY)
 from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask, r_longlong
 from rpython.rlib.objectmodel import compute_hash
 from rpython.rlib import jit
+from rpython.rlib.debug import debug_start, debug_stop, debug_print
 
 
 class BytecodeCorruption(Exception):
@@ -36,28 +37,31 @@ default_magic = (0xf303 + 7) | 0x0a0d0000               # this PyPy's magic
 
 # cpython_code_signature helper
 def cpython_code_signature(code):
-    "([list-of-arg-names], vararg-name-or-None, kwarg-name-or-None)."
+    """Return a Signature instance."""
     argcount = code.co_argcount
+    varnames = code.co_varnames
     assert argcount >= 0     # annotator hint
-    argnames = list(code.co_varnames[:argcount])
+    argnames = list(varnames[:argcount])
     if code.co_flags & CO_VARARGS:
-        varargname = code.co_varnames[argcount]
+        varargname = varnames[argcount]
         argcount += 1
     else:
         varargname = None
-    if code.co_flags & CO_VARKEYWORDS:
-        kwargname = code.co_varnames[argcount]
-        argcount += 1
-    else:
-        kwargname = None
+    kwargname = varnames[argcount] if code.co_flags & CO_VARKEYWORDS else None
     return Signature(argnames, varargname, kwargname)
 
+class CodeHookCache(object):
+    def __init__(self, space):
+        self._code_hook = None
 
 class PyCode(eval.Code):
     "CPython-style code objects."
-    _immutable_ = True
-    _immutable_fields_ = ["co_consts_w[*]", "co_names_w[*]", "co_varnames[*]",
-                          "co_freevars[*]", "co_cellvars[*]", "_args_as_cellvars[*]"]
+    _immutable_fields_ = ["_signature", "co_argcount", "co_cellvars[*]",
+                          "co_code", "co_consts_w[*]", "co_filename",
+                          "co_firstlineno", "co_flags", "co_freevars[*]",
+                          "co_lnotab", "co_names_w[*]", "co_nlocals",
+                          "co_stacksize", "co_varnames[*]",
+                          "_args_as_cellvars[*]", "w_globals?"]
 
     def __init__(self, space,  argcount, nlocals, stacksize, flags,
                      code, consts, names, varnames, filename,
@@ -82,12 +86,35 @@ class PyCode(eval.Code):
         self.co_name = name
         self.co_firstlineno = firstlineno
         self.co_lnotab = lnotab
+        # store the first globals object that the code object is run in in
+        # here. if a frame is run in that globals object, it does not need to
+        # store it at all
+        self.w_globals = None
         self.hidden_applevel = hidden_applevel
         self.magic = magic
         self._signature = cpython_code_signature(self)
         self._initialize()
+        self._init_ready()
+        self.new_code_hook()
+
+    def frame_stores_global(self, w_globals):
+        if self.w_globals is None:
+            self.w_globals = w_globals
+            return False
+        if self.w_globals is w_globals:
+            return False
+        return True
+
+    def new_code_hook(self):
+        code_hook = self.space.fromcache(CodeHookCache)._code_hook
+        if code_hook is not None:
+            try:
+                self.space.call_function(code_hook, self)
+            except OperationError as e:
+                e.write_unraisable(self.space, "new_code_hook()")
 
     def _initialize(self):
+        from pypy.objspace.std.mapdict import init_mapdict_cache
         if self.co_cellvars:
             argcount = self.co_argcount
             assert argcount >= 0     # annotator hint
@@ -123,14 +150,29 @@ class PyCode(eval.Code):
 
         self._compute_flatcall()
 
-        if self.space.config.objspace.std.withmapdict:
-            from pypy.objspace.std.mapdict import init_mapdict_cache
-            init_mapdict_cache(self)
+        init_mapdict_cache(self)
+
+    def _init_ready(self):
+        "This is a hook for the vmprof module, which overrides this method."
 
     def _cleanup_(self):
         if (self.magic == cpython_magic and
             '__pypy__' not in sys.builtin_module_names):
             raise Exception("CPython host codes should not be rendered")
+        # When translating PyPy, freeze the file name
+        #     <builtin>/lastdirname/basename.py
+        # instead of freezing the complete translation-time path.
+        filename = self.co_filename
+        if filename.startswith('<builtin>'):
+            return
+        filename = filename.lstrip('<').rstrip('>')
+        if filename.lower().endswith('.pyc'):
+            filename = filename[:-1]
+        basename = os.path.basename(filename)
+        lastdirname = os.path.basename(os.path.dirname(filename))
+        if lastdirname:
+            basename = '%s/%s' % (lastdirname, basename)
+        self.co_filename = '<builtin>/%s' % (basename,)
 
     co_names = property(lambda self: [self.space.unwrap(w_name) for w_name in self.co_names_w]) # for trace
 
@@ -189,7 +231,7 @@ class PyCode(eval.Code):
         # speed hack
         fresh_frame = jit.hint(frame, access_directly=True,
                                       fresh_virtualizable=True)
-        args.parse_into_scope(None, fresh_frame.locals_stack_w, func.name,
+        args.parse_into_scope(None, fresh_frame.locals_cells_stack_w, func.name,
                               sig, func.defs_w)
         fresh_frame.init_cells()
         return frame.run()
@@ -201,7 +243,7 @@ class PyCode(eval.Code):
         # speed hack
         fresh_frame = jit.hint(frame, access_directly=True,
                                       fresh_virtualizable=True)
-        args.parse_into_scope(w_obj, fresh_frame.locals_stack_w, func.name,
+        args.parse_into_scope(w_obj, fresh_frame.locals_cells_stack_w, func.name,
                               sig, func.defs_w)
         fresh_frame.init_cells()
         return frame.run()
@@ -332,14 +374,13 @@ class PyCode(eval.Code):
                           lnotab, w_freevars=None, w_cellvars=None,
                           magic=default_magic):
         if argcount < 0:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("code: argcount must not be negative"))
+            raise oefmt(space.w_ValueError,
+                        "code: argcount must not be negative")
         if nlocals < 0:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("code: nlocals must not be negative"))
+            raise oefmt(space.w_ValueError,
+                        "code: nlocals must not be negative")
         if not space.isinstance_w(w_constants, space.w_tuple):
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("Expected tuple for constants"))
+            raise oefmt(space.w_TypeError, "Expected tuple for constants")
         consts_w = space.fixedview(w_constants)
         names = unpack_str_tuple(space, w_names)
         varnames = unpack_str_tuple(space, w_varnames)
@@ -367,14 +408,14 @@ class PyCode(eval.Code):
             w(self.co_nlocals),
             w(self.co_stacksize),
             w(self.co_flags),
-            w(self.co_code),
+            space.newbytes(self.co_code),
             space.newtuple(self.co_consts_w),
             space.newtuple(self.co_names_w),
             space.newtuple([w(v) for v in self.co_varnames]),
             w(self.co_filename),
             w(self.co_name),
             w(self.co_firstlineno),
-            w(self.co_lnotab),
+            space.newbytes(self.co_lnotab),
             space.newtuple([w(v) for v in self.co_freevars]),
             space.newtuple([w(v) for v in self.co_cellvars]),
             w(self.magic),
@@ -384,6 +425,9 @@ class PyCode(eval.Code):
     def get_repr(self):
         return "<code object %s, file '%s', line %d>" % (
             self.co_name, self.co_filename, self.co_firstlineno)
+
+    def __repr__(self):
+        return self.get_repr()
 
     def repr(self, space):
         return space.wrap(self.get_repr())

@@ -22,7 +22,7 @@ Main tools for achieving this is:
   * py.test - automated testing
   * Mercurial - version control
   * Transparent communication and documentation (mailinglists, IRC, tutorials
-    etc etc) 
+    etc etc)
 
 
 Sprint driven development:
@@ -33,7 +33,7 @@ What is a sprint and why are we sprinting?
 Originally the sprint methodology used in the Python community grew from
 practices within Zope3 development. The  definition of a sprint is "two-day or
 three-day focused development session, in which developers pair off together
-in a room and focus on building a particular subsystem". 
+in a room and focus on building a particular subsystem".
 
 Other typical sprint factors:
 
@@ -91,7 +91,7 @@ during conferences like PyCon and EuroPython, the team will have an easier
 task of recruiting new talents to the team. It also vitalizes the community
 and increases the contact between the different Python implementation
 projects.
- 
+
 As always with methodologies you have to adapt them to fit your project (and
 not the other way around which is much too common). The PyPy team have been
 sprinting since early 2003 and have done 22  sprints so far, 19 in Europe, 2
@@ -100,7 +100,7 @@ team and those are the one we are summarizing here.
 
 
 How is it done?
-+++++++++++++++
+~~~~~~~~~~~~~~~
 
 There are several aspects of a sprint. In the PyPy team we focus on:
 1. Content (goal)
@@ -171,7 +171,7 @@ There are several aspects of a sprint. In the PyPy team we focus on:
    (or even better: in between so that the memory is fresh) a sprint report is
    written by one of the developers and updated to codespeak, this is a kind
    of summary of the entire sprint and it tells of the work done and the
-   people involved. 
+   people involved.
 
    One very important strategy when planning the venue is cost
    efficiency. Keeping accommodation and food/travel costs as low as possible
@@ -181,18 +181,18 @@ There are several aspects of a sprint. In the PyPy team we focus on:
    (travel expenses and accommodation) and because most of the funding is so
    called matched funding we pay for most of our expenses in our own
    organizations and companies anyway.
- 
+
 
 4. Process - a typical PyPy sprint is 7 days with a break day in the
    middle. Usually sprinters show up the day before the sprint starts. The
-   first day has a start up meeting, with tutorials if there are participants 
+   first day has a start up meeting, with tutorials if there are participants
    new to the project or if some new tool or feature have been implemented. A
    short presentation of the participants and their background and
    expectations is also good to do. Unfortunately there is always time spent
    the first day, mostly in the morning when people arrive to get the internet
    and server infrastructure up and running. That is why we are, through
-   documentation_, trying to get participants to set up the tools and
-   configurations needed before they arrive to the sprint.
+   :ref:`documentation <getting-started-index>`, trying to get participants to
+   set up the tools and configurations needed before they arrive to the sprint.
 
    Approximate hours being held are 10-17, but people tend to stay longer to
    code during the evenings. A short status meeting starts up the day and work
@@ -224,10 +224,8 @@ There are several aspects of a sprint. In the PyPy team we focus on:
     some middle ground - thus increases the importance of feedback.
 
 
-.. _documentation: getting-started.html
-
 Can I join in?
-++++++++++++++
+~~~~~~~~~~~~~~
 
 Of course. Just follow the work on pypy-dev and if you specifically are
 interested in information about our sprints - subscribe to
@@ -236,4 +234,3 @@ pypy-sprint@codespeak.net and read the news on codespeak for announcements etc.
 If you think we should sprint in your town - send us an email - we are very
 interested in using sprints as away of making contact with active developers
 (Python/compiler design etc)!
-

@@ -52,7 +52,7 @@
         : "0"(x), "g"(y)     /* inputs  */      \
         : "cc", "memory")    /* clobber */
 
-extern void op_int_overflowed(void)
+RPY_EXTERN void op_int_overflowed(void)
      asm ("_op_int_overflowed")
      __attribute__((used));
 
@@ -104,5 +104,8 @@ static void _PyPy_set_387controlword(unsigned short cw) {
 
 #ifdef PYPY_X86_CHECK_SSE2
 #define PYPY_X86_CHECK_SSE2_DEFINED
-extern void pypy_x86_check_sse2(void);
+RPY_EXTERN void pypy_x86_check_sse2(void);
 #endif
+
+
+#define RPy_YieldProcessor()  asm("pause")

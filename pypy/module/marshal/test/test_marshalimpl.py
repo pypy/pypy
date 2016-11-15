@@ -43,6 +43,8 @@ class AppTestMarshalMore:
         s = marshal.dumps(array.array('c', 'asd'))
         t = marshal.loads(s)
         assert type(t) is str and t == 'asd'
+        exc = raises(ValueError, marshal.dumps, memoryview('asd'))
+        assert str(exc.value) == "unmarshallable object"
 
     def test_unmarshal_evil_long(self):
         import marshal
@@ -62,20 +64,23 @@ def test_long_more(space):
     import marshal, struct
 
     class FakeM:
+        # NOTE: marshal is platform independent, running this test must assume
+        # that self.seen gets values from the endianess of the marshal module.
+        # (which is little endian!)
         def __init__(self):
             self.seen = []
         def start(self, code):
             self.seen.append(code)
         def put_int(self, value):
-            self.seen.append(struct.pack("i", value))
+            self.seen.append(struct.pack("<i", value))
         def put_short(self, value):
-            self.seen.append(struct.pack("h", value))
+            self.seen.append(struct.pack("<h", value))
 
     def _marshal_check(x):
         expected = marshal.dumps(long(x))
         w_obj = space.wraplong(x)
         m = FakeM()
-        space.marshal_w(w_obj, m)
+        interp_marshal.marshal(space, w_obj, m)
         assert ''.join(m.seen) == expected
         #
         u = interp_marshal.StringUnmarshaller(space, space.wrap(expected))

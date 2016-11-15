@@ -15,7 +15,6 @@ from pypy.module._cffi_backend.ctypeobj import W_CType
 
 class W_Library(W_Root):
     _immutable_ = True
-    handle = rffi.cast(DLLHANDLE, 0)
 
     def __init__(self, space, filename, flags):
         self.space = space
@@ -24,11 +23,12 @@ class W_Library(W_Root):
                 filename = "<None>"
             try:
                 self.handle = dlopen(ll_libname, flags)
-            except DLOpenError, e:
+            except DLOpenError as e:
                 raise wrap_dlopenerror(space, e, filename)
         self.name = filename
+        self.register_finalizer(space)
 
-    def __del__(self):
+    def _finalize_(self):
         h = self.handle
         if h != rffi.cast(DLLHANDLE, 0):
             self.handle = rffi.cast(DLLHANDLE, 0)
@@ -85,14 +85,13 @@ class W_Library(W_Root):
 
 
 W_Library.typedef = TypeDef(
-    'Library',
-    __module__ = '_cffi_backend',
+    '_cffi_backend.Library',
     __repr__ = interp2app(W_Library.repr),
     load_function = interp2app(W_Library.load_function),
     read_variable = interp2app(W_Library.read_variable),
     write_variable = interp2app(W_Library.write_variable),
     )
-W_Library.acceptable_as_base_class = False
+W_Library.typedef.acceptable_as_base_class = False
 
 
 @unwrap_spec(filename="str_or_None", flags=int)

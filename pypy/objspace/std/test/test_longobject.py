@@ -25,7 +25,6 @@ class TestW_LongObject:
         space.raises_w(space.w_OverflowError, space.float_w, w_big)
 
     def test_rint_variants(self):
-        py.test.skip("XXX broken!")
         from rpython.rtyper.tool.rfficache import platform
         space = self.space
         for r in platform.numbertype_to_rclass.values():
@@ -36,8 +35,8 @@ class TestW_LongObject:
             for x in values:
                 if not r.SIGNED:
                     x &= r.MASK
-                w_obj = space.wrap(r(x))
-                assert space.bigint_w(w_obj).eq(rbigint.fromint(x))
+                w_obj = space.newlong_from_rarith_int(r(x))
+                assert space.bigint_w(w_obj).eq(rbigint.fromlong(x))
 
 
 class AppTestLong:
@@ -228,7 +227,7 @@ class AppTestLong:
     def test_hash(self):
         # ints have the same hash as equal longs
         for i in range(-4, 14):
-            assert hash(i) == hash(long(i))
+            assert hash(i) == hash(long(i)) == long(i).__hash__()
         # might check too much -- it's ok to change the hashing algorithm
         assert hash(123456789L) == 123456789
         assert hash(1234567890123456789L) in (
@@ -285,6 +284,17 @@ class AppTestLong:
             def __int__(self):
                 return 42
         raises(TypeError, long, B())
+
+        class LongSubclass(long):
+            pass
+        class ReturnsLongSubclass(object):
+            def __long__(self):
+                return LongSubclass(42L)
+        n = long(ReturnsLongSubclass())
+        assert n == 42
+        assert type(n) is LongSubclass
+
+    def test_trunc_returns(self):
         # but!: (blame CPython 2.7)
         class Integral(object):
             def __int__(self):
@@ -292,7 +302,18 @@ class AppTestLong:
         class TruncReturnsNonLong(object):
             def __trunc__(self):
                 return Integral()
-        assert long(TruncReturnsNonLong()) == 42
+        n = long(TruncReturnsNonLong())
+        assert type(n) is long
+        assert n == 42
+
+        class LongSubclass(long):
+            pass
+        class TruncReturnsNonInt(object):
+            def __trunc__(self):
+                return LongSubclass(42)
+        n = long(TruncReturnsNonInt())
+        assert n == 42
+        assert type(n) is LongSubclass
 
     def test_long_before_string(self):
         class A(str):
@@ -358,3 +379,10 @@ class AppTestLong:
         assert 3L.__coerce__(4L) == (3L, 4L)
         assert 3L.__coerce__(4) == (3, 4)
         assert 3L.__coerce__(object()) == NotImplemented
+
+    def test_linear_long_base_16(self):
+        # never finishes if long(_, 16) is not linear-time
+        size = 100000
+        n = "a" * size
+        expected = (2 << (size * 4)) // 3
+        assert long(n, 16) == expected

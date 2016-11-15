@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rlib.rarithmetic import r_singlefloat
@@ -21,8 +21,8 @@ class BoolTypeMixin(object):
     def _unwrap_object(self, space, w_obj):
         arg = space.c_int_w(w_obj)
         if arg != False and arg != True:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("boolean value should be bool, or integer 1 or 0"))
+            raise oefmt(space.w_ValueError,
+                        "boolean value should be bool, or integer 1 or 0")
         return arg
 
     def _wrap_object(self, space, obj):
@@ -41,16 +41,15 @@ class CharTypeMixin(object):
         if space.isinstance_w(w_value, space.w_int):
             ival = space.c_int_w(w_value)
             if ival < 0 or 256 <= ival:
-                raise OperationError(space.w_ValueError,
-                                     space.wrap("char arg not in range(256)"))
+                raise oefmt(space.w_ValueError, "char arg not in range(256)")
 
             value = rffi.cast(rffi.CHAR, space.c_int_w(w_value))
         else:
             value = space.str_w(w_value)
 
         if len(value) != 1:  
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("char expected, got string of size %d" % len(value)))
+            raise oefmt(space.w_ValueError,
+                        "char expected, got string of size %d", len(value))
         return value[0] # turn it into a "char" to the annotator
 
 class ShortTypeMixin(object):
@@ -102,7 +101,7 @@ class LongTypeMixin(object):
     _immutable_fields_ = ['libffitype', 'c_type', 'c_ptrtype']
 
     libffitype  = jit_libffi.types.slong
-    c_type      =  rffi.LONG
+    c_type      = rffi.LONG
     c_ptrtype   = rffi.LONGP
 
     def _unwrap_object(self, space, w_obj):

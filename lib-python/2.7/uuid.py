@@ -44,6 +44,7 @@ Typical usage:
     UUID('00010203-0405-0607-0809-0a0b0c0d0e0f')
 """
 
+import os
 import struct
 
 __author__ = 'Ka-Ping Yee <ping@zesty.ca>'
@@ -310,51 +311,98 @@ class UUID(object):
 
     version = property(get_version)
 
-def _find_mac(command, args, hw_identifiers, get_index):
+def _popen(command, args):
     import os
-    for dir in ['', '/sbin/', '/usr/sbin']:
+    path = os.environ.get("PATH", os.defpath).split(os.pathsep)
+    path.extend(('/sbin', '/usr/sbin'))
+    for dir in path:
         executable = os.path.join(dir, command)
-        if not os.path.exists(executable):
-            continue
+        if (os.path.exists(executable) and
+            os.access(executable, os.F_OK | os.X_OK) and
+            not os.path.isdir(executable)):
+            break
+    else:
+        return None
+    # LC_ALL to ensure English output, 2>/dev/null to prevent output on
+    # stderr (Note: we don't have an example where the words we search for
+    # are actually localized, but in theory some system could do so.)
+    cmd = 'LC_ALL=C %s %s 2>/dev/null' % (executable, args)
+    return os.popen(cmd)
 
-        try:
-            # LC_ALL to get English output, 2>/dev/null to
-            # prevent output on stderr
-            cmd = 'LC_ALL=C %s %s 2>/dev/null' % (executable, args)
-            with os.popen(cmd) as pipe:
-                for line in pipe:
-                    words = line.lower().split()
-                    for i in range(len(words)):
-                        if words[i] in hw_identifiers:
-                            return int(
-                                words[get_index(i)].replace(':', ''), 16)
-        except IOError:
-            continue
-    return None
+def _find_mac(command, args, hw_identifiers, get_index):
+    try:
+        pipe = _popen(command, args)
+        if not pipe:
+            return
+        with pipe:
+            for line in pipe:
+                words = line.lower().rstrip().split()
+                for i in range(len(words)):
+                    if words[i] in hw_identifiers:
+                        try:
+                            word = words[get_index(i)]
+                            mac = int(word.replace(':', ''), 16)
+                            if mac:
+                                return mac
+                        except (ValueError, IndexError):
+                            # Virtual interfaces, such as those provided by
+                            # VPNs, do not have a colon-delimited MAC address
+                            # as expected, but a 16-byte HWAddr separated by
+                            # dashes. These should be ignored in favor of a
+                            # real MAC address
+                            pass
+    except IOError:
+        pass
 
 def _ifconfig_getnode():
     """Get the hardware address on Unix by running ifconfig."""
-
     # This works on Linux ('' or '-a'), Tru64 ('-av'), but not all Unixes.
     for args in ('', '-a', '-av'):
         mac = _find_mac('ifconfig', args, ['hwaddr', 'ether'], lambda i: i+1)
         if mac:
             return mac
 
-    import socket
-    ip_addr = socket.gethostbyname(socket.gethostname())
+def _arp_getnode():
+    """Get the hardware address on Unix by running arp."""
+    import os, socket
+    try:
+        ip_addr = socket.gethostbyname(socket.gethostname())
+    except EnvironmentError:
+        return None
 
     # Try getting the MAC addr from arp based on our IP address (Solaris).
-    mac = _find_mac('arp', '-an', [ip_addr], lambda i: -1)
-    if mac:
-        return mac
+    return _find_mac('arp', '-an', [ip_addr], lambda i: -1)
 
+def _lanscan_getnode():
+    """Get the hardware address on Unix by running lanscan."""
     # This might work on HP-UX.
-    mac = _find_mac('lanscan', '-ai', ['lan0'], lambda i: 0)
-    if mac:
-        return mac
+    return _find_mac('lanscan', '-ai', ['lan0'], lambda i: 0)
 
-    return None
+def _netstat_getnode():
+    """Get the hardware address on Unix by running netstat."""
+    # This might work on AIX, Tru64 UNIX and presumably on IRIX.
+    try:
+        pipe = _popen('netstat', '-ia')
+        if not pipe:
+            return
+        with pipe:
+            words = pipe.readline().rstrip().split()
+            try:
+                i = words.index('Address')
+            except ValueError:
+                return
+            for line in pipe:
+                try:
+                    words = line.rstrip().split()
+                    word = words[i]
+                    if len(word) == 17 and word.count(':') == 5:
+                        mac = int(word.replace(':', ''), 16)
+                        if mac:
+                            return mac
+                except (ValueError, IndexError):
+                    pass
+    except OSError:
+        pass
 
 def _ipconfig_getnode():
     """Get the hardware address on Windows by running ipconfig.exe."""
@@ -372,13 +420,11 @@ def _ipconfig_getnode():
             pipe = os.popen(os.path.join(dir, 'ipconfig') + ' /all')
         except IOError:
             continue
-        else:
+        with pipe:
             for line in pipe:
                 value = line.split(':')[-1].strip().lower()
                 if re.match('([0-9a-f][0-9a-f]-){5}[0-9a-f][0-9a-f]', value):
                     return int(value.replace('-', ''), 16)
-        finally:
-            pipe.close()
 
 def _netbios_getnode():
     """Get the hardware address on Windows using NetBIOS calls.
@@ -412,27 +458,27 @@ def _netbios_getnode():
 # Thanks to Thomas Heller for ctypes and for his help with its use here.
 
 # If ctypes is available, use it to find system routines for UUID generation.
-_uuid_generate_random = _uuid_generate_time = _UuidCreate = None
+_uuid_generate_time = _UuidCreate = None
 try:
     import ctypes, ctypes.util
+    import sys
 
     # The uuid_generate_* routines are provided by libuuid on at least
     # Linux and FreeBSD, and provided by libc on Mac OS X.
-    for libname in ['uuid', 'c']:
+    _libnames = ['uuid']
+    if not sys.platform.startswith('win'):
+        _libnames.append('c')
+    for libname in _libnames:
         try:
             lib = ctypes.CDLL(ctypes.util.find_library(libname))
         except:
             continue
-        if hasattr(lib, 'uuid_generate_random'):
-            _uuid_generate_random = lib.uuid_generate_random
-            _uuid_generate_random.argtypes = [ctypes.c_char * 16]
-            _uuid_generate_random.restype = None
         if hasattr(lib, 'uuid_generate_time'):
             _uuid_generate_time = lib.uuid_generate_time
             _uuid_generate_time.argtypes = [ctypes.c_char * 16]
             _uuid_generate_time.restype = None
-            if _uuid_generate_random is not None:
-                break  # found everything we were looking for
+            break
+    del _libnames
 
     # The uuid_generate_* functions are broken on MacOS X 10.5, as noted
     # in issue #8621 the function generates the same sequence of values
@@ -441,11 +487,10 @@ try:
     #
     # Assume that the uuid_generate functions are broken from 10.5 onward,
     # the test can be adjusted when a later version is fixed.
-    import sys
     if sys.platform == 'darwin':
         import os
         if int(os.uname()[2].split('.')[0]) >= 9:
-            _uuid_generate_random = _uuid_generate_time = None
+            _uuid_generate_time = None
 
     # On Windows prior to 2000, UuidCreate gives a UUID containing the
     # hardware address.  On Windows 2000 and later, UuidCreate makes a
@@ -503,7 +548,8 @@ def getnode():
     if sys.platform == 'win32':
         getters = [_windll_getnode, _netbios_getnode, _ipconfig_getnode]
     else:
-        getters = [_unixdll_getnode, _ifconfig_getnode]
+        getters = [_unixdll_getnode, _ifconfig_getnode, _arp_getnode,
+                   _lanscan_getnode, _netstat_getnode]
 
     for getter in getters + [_random_getnode]:
         try:
@@ -558,21 +604,7 @@ def uuid3(namespace, name):
 
 def uuid4():
     """Generate a random UUID."""
-
-    # When the system provides a version-4 UUID generator, use it.
-    if _uuid_generate_random:
-        _buffer = ctypes.create_string_buffer(16)
-        _uuid_generate_random(_buffer)
-        return UUID(bytes=_buffer.raw)
-
-    # Otherwise, get randomness from urandom or the 'random' module.
-    try:
-        import os
-        return UUID(bytes=os.urandom(16), version=4)
-    except:
-        import random
-        bytes = [chr(random.randrange(256)) for i in range(16)]
-        return UUID(bytes=bytes, version=4)
+    return UUID(bytes=os.urandom(16), version=4)
 
 def uuid5(namespace, name):
     """Generate a UUID from the SHA-1 hash of a namespace UUID and a name."""

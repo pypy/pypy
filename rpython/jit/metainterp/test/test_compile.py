@@ -4,24 +4,35 @@ from rpython.jit.metainterp.history import INT
 from rpython.jit.metainterp.compile import compile_loop
 from rpython.jit.metainterp.compile import compile_tmp_callback
 from rpython.jit.metainterp import jitexc
+from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.jit.metainterp import jitprof, typesystem, compile
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
-from rpython.jit.tool.oparser import parse
+from rpython.jit.tool.oparser import parse, convert_loop_to_trace
 from rpython.jit.metainterp.optimizeopt import ALL_OPTS_DICT
 
 class FakeCPU(object):
+    supports_guard_gc_type = True
+    
+    class Storage:
+        pass
+    
     class tracker:
         pass
 
     ts = typesystem.llhelper
     def __init__(self):
         self.seen = []
-    def compile_loop(self, inputargs, operations, token, log=True, name='',
+    def compile_loop(self, inputargs, operations, token, jd_id=0,
+                     unique_id=0, log=True, name='',
                      logger=None):
+        token.compiled_loop_token = self.Storage()
         self.seen.append((inputargs, operations, token))
 
 class FakeLogger(object):
-    def log_loop(self, inputargs, operations, number=0, type=None, ops_offset=None, name=''):
+    def log_loop(self, inputargs, operations, number=0, type=None, ops_offset=None, name='', memo=None):
+        pass
+
+    def log_loop_from_trace(self, *args, **kwds):
         pass
 
     def repr_of_resop(self, op):
@@ -34,19 +45,23 @@ class FakeState(object):
     def attach_unoptimized_bridge_from_interp(*args):
         pass
 
+    def get_unique_id(*args):
+        return 0
+
     def get_location_str(self, args):
         return 'location'
 
 class FakeGlobalData(object):
-    loopnumbering = 0
+    pass
 
 class FakeMetaInterpStaticData(object):
-
+    all_descrs = []
     logger_noopt = FakeLogger()
     logger_ops = FakeLogger()
     config = get_combined_translation_config(translating=True)
+    jitlog = jl.JitLogger()
 
-    stats = Stats()
+    stats = Stats(None)
     profiler = jitprof.EmptyProfiler()
     warmrunnerdesc = None
     def log(self, msg, event_kind=None):
@@ -54,22 +69,25 @@ class FakeMetaInterpStaticData(object):
 
 class FakeMetaInterp:
     call_pure_results = {}
+    box_names_memo = {}
     class jitdriver_sd:
+        index = 0
         warmstate = FakeState()
         virtualizable_info = None
+        vec = False
 
 def test_compile_loop():
     cpu = FakeCPU()
     staticdata = FakeMetaInterpStaticData()
     staticdata.cpu = cpu
-    staticdata.globaldata = FakeGlobalData()
-    staticdata.globaldata.loopnumbering = 1
+    staticdata.jitlog = jl.JitLogger(cpu)
+    staticdata.jitlog.trace_id = 1
     #
     loop = parse('''
     [p1]
-    i1 = getfield_gc(p1, descr=valuedescr)
+    i1 = getfield_gc_i(p1, descr=valuedescr)
     i2 = int_add(i1, 1)
-    p2 = new_with_vtable(ConstClass(node_vtable))
+    p2 = new_with_vtable(descr=nodesize)
     setfield_gc(p2, i2, descr=valuedescr)
     jump(p2)
     ''', namespace=LLtypeMixin.__dict__.copy())
@@ -78,21 +96,19 @@ def test_compile_loop():
     metainterp.staticdata = staticdata
     metainterp.cpu = cpu
     metainterp.history = History()
-    metainterp.history.operations = loop.operations[:-1]
-    metainterp.history.inputargs = loop.inputargs[:]
-    cpu.tracker._all_size_descrs_with_vtable = (
-        LLtypeMixin.cpu.tracker._all_size_descrs_with_vtable)
+    t = convert_loop_to_trace(loop, staticdata)
+    metainterp.history.inputargs = t.inputargs
+    metainterp.history.trace = t
     #
     greenkey = 'faked'
-    target_token = compile_loop(metainterp, greenkey, 0,
-                                loop.inputargs,
-                                loop.operations[-1].getarglist(),
+    target_token = compile_loop(metainterp, greenkey, (0, 0, 0),
+                                t.inputargs,
+                                [t._mapping[x] for x in loop.operations[-1].getarglist()],
                                 None)
     jitcell_token = target_token.targeting_jitcell_token
     assert jitcell_token == target_token.original_jitcell_token
     assert jitcell_token.target_tokens == [target_token]
-    assert jitcell_token.number == 1
-    assert staticdata.globaldata.loopnumbering == 2
+    assert jitcell_token.number == 2
     #
     assert len(cpu.seen) == 1
     assert cpu.seen[0][2] == jitcell_token
@@ -101,7 +117,6 @@ def test_compile_loop():
 
 
 def test_compile_tmp_callback():
-    from rpython.jit.codewriter import heaptracker
     from rpython.jit.backend.llgraph import runner
     from rpython.rtyper.lltypesystem import lltype, llmemory
     from rpython.rtyper.annlowlevel import llhelper
@@ -150,7 +165,7 @@ def test_compile_tmp_callback():
     fail_descr = cpu.get_latest_descr(deadframe)
     try:
         fail_descr.handle_fail(deadframe, FakeMetaInterpSD(), None)
-    except jitexc.ExitFrameWithExceptionRef, e:
+    except jitexc.ExitFrameWithExceptionRef as e:
         assert lltype.cast_opaque_ptr(lltype.Ptr(EXC), e.value) == llexc
     else:
         assert 0, "should have raised"

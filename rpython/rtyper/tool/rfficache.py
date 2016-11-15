@@ -14,7 +14,7 @@ def ask_gcc(question, add_source="", ignore_errors=False):
     from rpython.translator.platform import platform
     includes = ['stdlib.h', 'stdio.h', 'sys/types.h']
     if platform.name != 'msvc':
-        includes += ['inttypes.h']
+        includes += ['inttypes.h', 'stddef.h']
     include_string = "\n".join(["#include <%s>" % i for i in includes])
     c_source = py.code.Source('''
     // includes
@@ -51,6 +51,18 @@ def sizeof_c_types(typenames_c, **kwds):
         assert answer[0] == "sizeof " + c_typename
         result.append(int(answer[1]))
     return result
+
+def signof_c_type(c_typename, **kwds):
+    question = 'printf("sign %s=%%d\\n", ((%s) -1) <= (%s)0);' % (c_typename,
+                                                                  c_typename,
+                                                                  c_typename)
+    answer = ask_gcc(question, **kwds).strip()
+    if answer == 'sign %s=0' % (c_typename,):
+        return False
+    if answer == 'sign %s=1' % (c_typename,):
+        return True
+    raise ValueError(answer)
+
 
 class Platform:
     def __init__(self):

@@ -17,18 +17,6 @@ import sys
 import subprocess
 from bisect import bisect_left
 
-# don't use rpython.tool.udir here to avoid removing old usessions which
-# might still contain interesting executables
-udir = py.path.local.make_numbered_dir(prefix='viewcode-', keep=2)
-tmpfile = str(udir.join('dump.tmp'))
-
-# hack hack
-import rpython.tool
-mod = new.module('rpython.tool.udir')
-mod.udir = udir
-sys.modules['rpython.tool.udir'] = mod
-rpython.tool.udir = mod
-
 # ____________________________________________________________
 # Some support code from Psyco.  There is more over there,
 # I am porting it in a lazy fashion...  See py-utils/xam.py
@@ -40,7 +28,7 @@ class ObjdumpNotFound(Exception):
     pass
 
 def find_objdump():
-    exe = ('objdump', 'gobjdump')
+    exe = ('objdump', 'gobjdump', 'objdump.exe')
     path = os.environ['PATH'].split(os.pathsep)
     for e in exe:
         for p in path:
@@ -60,9 +48,19 @@ def machine_code_dump(data, originaddr, backend_name, label_list=None):
         'i386': 'i386',
         'arm': 'arm',
         'arm_32': 'arm',
+        'ppc' : 'powerpc:common64',
+        'ppc-64' : 'powerpc:common64',
+        's390x': 's390:64-bit',
+    }
+    machine_endianness = {
+        # default value: 'little'
+        'ppc' : sys.byteorder,     # i.e. same as the running machine...
+        'ppc-64' : sys.byteorder,     # i.e. same as the running machine...
+        's390x' : sys.byteorder,     # i.e. same as the running machine...
     }
     cmd = find_objdump()
     objdump = ('%(command)s -b binary -m %(machine)s '
+               '--endian=%(endianness)s '
                '--disassembler-options=intel-mnemonics '
                '--adjust-vma=%(origin)d -D %(file)s')
     #
@@ -74,6 +72,7 @@ def machine_code_dump(data, originaddr, backend_name, label_list=None):
         'file': tmpfile,
         'origin': originaddr,
         'machine': objdump_machine_option[backend_name],
+        'endianness': machine_endianness.get(backend_name, 'little'),
     }, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = p.communicate()
     assert not p.returncode, ('Encountered an error running objdump: %s' %
@@ -438,6 +437,18 @@ class _PageContent:
 # ____________________________________________________________
 
 if __name__ == '__main__':
+    # don't use rpython.tool.udir here to avoid removing old usessions which
+    # might still contain interesting executables
+    udir = py.path.local.make_numbered_dir(prefix='viewcode-', keep=2)
+    tmpfile = str(udir.join('dump.tmp'))
+
+    # hack hack
+    import rpython.tool
+    mod = new.module('rpython.tool.udir')
+    mod.udir = udir
+    sys.modules['rpython.tool.udir'] = mod
+    rpython.tool.udir = mod
+
     if '--text' in sys.argv:
         sys.argv.remove('--text')
         showgraph = False
@@ -463,3 +474,7 @@ if __name__ == '__main__':
         world.show(showtext=True)
     else:
         world.showtextonly()
+else:
+    from rpython.tool.udir import udir
+    tmpfile = str(udir.join('dump.tmp'))
+    

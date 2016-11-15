@@ -1,25 +1,62 @@
+import sys
+from contextlib import contextmanager
+import signal
+
 from rpython.translator.translator import TranslationContext
+from rpython.annotator.model import (
+    SomeInteger, SomeString, SomeChar, SomeUnicodeString, SomeUnicodeCodePoint)
+from rpython.annotator.dictdef import DictKey, DictValue
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rtyper import rint
-from rpython.rtyper.lltypesystem import rdict, rstr
+from rpython.rtyper.lltypesystem import rdict
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rlib.objectmodel import r_dict
 from rpython.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
 
 import py
-py.log.setconsumer("rtyper", py.log.STDOUT)
+from hypothesis import settings
+from hypothesis.strategies import (
+    builds, sampled_from, binary, just, integers, text, characters, tuples)
+from hypothesis.stateful import GenericStateMachine, run_state_machine_as_test
 
-def not_really_random():
-    """A random-ish generator, which also generates nice patterns from time to time.
-    Could be useful to detect problems associated with specific usage patterns."""
-    import random
-    x = random.random()
-    print 'random seed: %r' % (x,)
-    for i in range(12000):
-        r = 3.4 + i/20000.0
-        x = r*x - x*x
-        assert 0 <= x < 4
-        yield x
+def ann2strategy(s_value):
+    if isinstance(s_value, SomeChar):
+        return builds(chr, integers(min_value=0, max_value=255))
+    elif isinstance(s_value, SomeString):
+        if s_value.can_be_None:
+            return binary() | just(None)
+        else:
+            return binary()
+    elif isinstance(s_value, SomeUnicodeCodePoint):
+        return characters()
+    elif isinstance(s_value, SomeUnicodeString):
+        if s_value.can_be_None:
+            return text() | just(None)
+        else:
+            return text()
+    elif isinstance(s_value, SomeInteger):
+        return integers(min_value=~sys.maxint, max_value=sys.maxint)
+    else:
+        raise TypeError("Cannot convert annotation %s to a strategy" % s_value)
+
+
+if hasattr(signal, 'alarm'):
+    @contextmanager
+    def signal_timeout(n):
+        """A flaky context manager that throws an exception if the body of the
+        `with` block runs for longer than `n` seconds.
+        """
+        def handler(signum, frame):
+            raise RuntimeError('timeout')
+        signal.signal(signal.SIGALRM, handler)
+        signal.alarm(n)
+        try:
+            yield
+        finally:
+            signal.alarm(0)
+else:
+    @contextmanager
+    def signal_timeout(n):
+        yield
 
 
 class BaseTestRDict(BaseRtypingTest):
@@ -199,9 +236,8 @@ class BaseTestRDict(BaseRtypingTest):
 
     def test_dict_copy(self):
         def func():
-            # XXX this does not work if we use chars, only!
             dic = self.newdict()
-            dic['ab'] = 1
+            dic['a'] = 1
             dic['b'] = 2
             d2 = dic.copy()
             ok = 1
@@ -238,6 +274,16 @@ class BaseTestRDict(BaseRtypingTest):
             dic[' 4'] = 1000
             dic[' 8'] = 200
             keys = dic.keys()
+            return ord(keys[0][1]) + ord(keys[1][1]) - 2*ord('0') + len(keys)
+        res = self.interpret(func, ())#, view=True)
+        assert res == 14
+
+    def test_list_dict(self):
+        def func():
+            dic = self.newdict()
+            dic[' 4'] = 1000
+            dic[' 8'] = 200
+            keys = list(dic)
             return ord(keys[0][1]) + ord(keys[1][1]) - 2*ord('0') + len(keys)
         res = self.interpret(func, ())#, view=True)
         assert res == 14
@@ -868,6 +914,81 @@ class BaseTestRDict(BaseRtypingTest):
         res = self.interpret(func, [])
         assert lltype.typeOf(res.item0) == lltype.typeOf(res.item1)
 
+    def test_r_dict(self):
+        class FooError(Exception):
+            pass
+        def myeq(n, m):
+            return n == m
+        def myhash(n):
+            if n < 0:
+                raise FooError
+            return -n
+        def f(n):
+            d = self.new_r_dict(myeq, myhash)
+            for i in range(10):
+                d[i] = i*i
+            try:
+                value1 = d[n]
+            except FooError:
+                value1 = 99
+            try:
+                value2 = n in d
+            except FooError:
+                value2 = 99
+            try:
+                value3 = d[-n]
+            except FooError:
+                value3 = 99
+            try:
+                value4 = (-n) in d
+            except FooError:
+                value4 = 99
+            return (value1 * 1000000 +
+                    value2 * 10000 +
+                    value3 * 100 +
+                    value4)
+        res = self.interpret(f, [5])
+        assert res == 25019999
+
+    def test_r_dict_popitem_hash(self):
+        def deq(n, m):
+            return n == m
+        def dhash(n):
+            return ~n
+        def func():
+            d = self.new_r_dict(deq, dhash)
+            d[5] = 2
+            d[6] = 3
+            k1, v1 = d.popitem()
+            assert len(d) == 1
+            k2, v2 = d.popitem()
+            try:
+                d.popitem()
+            except KeyError:
+                pass
+            else:
+                assert 0, "should have raised KeyError"
+            assert len(d) == 0
+            return k1*1000 + v1*100 + k2*10 + v2
+
+        res = self.interpret(func, [])
+        assert res in [5263, 6352]
+
+    def test_prebuilt_r_dict(self):
+        def deq(n, m):
+            return (n & 3) == (m & 3)
+        def dhash(n):
+            return n & 3
+        d = self.new_r_dict(deq, dhash)
+        d[0x123] = "abcd"
+        d[0x231] = "efgh"
+        def func():
+            return d[0x348973] + d[0x12981]
+
+        res = self.interpret(func, [])
+        res = self.ll_to_string(res)
+        assert res == "abcdefgh"
+
 
 class TestRDict(BaseTestRDict):
     @staticmethod
@@ -877,6 +998,10 @@ class TestRDict(BaseTestRDict):
     @staticmethod
     def newdict2():
         return {}
+
+    @staticmethod
+    def new_r_dict(myeq, myhash):
+        return r_dict(myeq, myhash)
 
     def test_two_dicts_with_different_value_types(self):
         def func(i):
@@ -910,33 +1035,12 @@ class TestRDict(BaseTestRDict):
         s_BA_dic = s.items[1]
 
         r_AB_dic = rtyper.getrepr(s_AB_dic)
-        r_BA_dic = rtyper.getrepr(s_AB_dic)
+        r_BA_dic = rtyper.getrepr(s_BA_dic)
 
         assert r_AB_dic.lowleveltype == r_BA_dic.lowleveltype
 
 
-    def test_dict_resize(self):
-        # XXX we no longer automatically resize on 'del'.  We need to
-        # hack a bit in this test to trigger a resize by continuing to
-        # fill the dict's table while keeping the actual size very low
-        # in order to force a resize to shrink the table back
-        def func(want_empty):
-            d = self.newdict()
-            for i in range(rdict.DICT_INITSIZE << 1):
-                d[chr(ord('a') + i)] = i
-            if want_empty:
-                for i in range(rdict.DICT_INITSIZE << 1):
-                    del d[chr(ord('a') + i)]
-                for i in range(rdict.DICT_INITSIZE << 3):
-                    d[chr(ord('A') - i)] = i
-                    del d[chr(ord('A') - i)]
-            return d
-        res = self.interpret(func, [0])
-        assert len(res.entries) > rdict.DICT_INITSIZE
-        res = self.interpret(func, [1])
-        assert len(res.entries) == rdict.DICT_INITSIZE
-
-    def test_opt_nullkeymarker(self):
+    def test_opt_dummykeymarker(self):
         def f():
             d = {"hello": None}
             d["world"] = None
@@ -944,10 +1048,9 @@ class TestRDict(BaseTestRDict):
         res = self.interpret(f, [])
         assert res.item0 == True
         DICT = lltype.typeOf(res.item1).TO
-        assert not hasattr(DICT.entries.TO.OF, 'f_everused')# non-None string keys
-        assert not hasattr(DICT.entries.TO.OF, 'f_valid')   # strings have a dummy
+        assert not hasattr(DICT.entries.TO.OF, 'f_valid')   # strs have a dummy
 
-    def test_opt_nullvaluemarker(self):
+    def test_opt_dummyvaluemarker(self):
         def f(n):
             d = {-5: "abcd"}
             d[123] = "def"
@@ -955,28 +1058,7 @@ class TestRDict(BaseTestRDict):
         res = self.interpret(f, [-5])
         assert res.item0 == 4
         DICT = lltype.typeOf(res.item1).TO
-        assert not hasattr(DICT.entries.TO.OF, 'f_everused')# non-None str values
         assert not hasattr(DICT.entries.TO.OF, 'f_valid')   # strs have a dummy
-
-    def test_opt_nonullmarker(self):
-        class A:
-            pass
-        def f(n):
-            if n > 5:
-                a = A()
-            else:
-                a = None
-            d = {a: -5441}
-            d[A()] = n+9872
-            return d[a], d
-        res = self.interpret(f, [-5])
-        assert res.item0 == -5441
-        DICT = lltype.typeOf(res.item1).TO
-        assert hasattr(DICT.entries.TO.OF, 'f_everused') # can-be-None A instances
-        assert not hasattr(DICT.entries.TO.OF, 'f_valid')# with a dummy A instance
-
-        res = self.interpret(f, [6])
-        assert res.item0 == -5441
 
     def test_opt_nonnegint_dummy(self):
         def f(n):
@@ -988,7 +1070,6 @@ class TestRDict(BaseTestRDict):
         assert res.item0 == 1
         assert res.item1 == 24
         DICT = lltype.typeOf(res.item2).TO
-        assert hasattr(DICT.entries.TO.OF, 'f_everused') # all ints can be zero
         assert not hasattr(DICT.entries.TO.OF, 'f_valid')# nonneg int: dummy -1
 
     def test_opt_no_dummy(self):
@@ -1001,7 +1082,6 @@ class TestRDict(BaseTestRDict):
         assert res.item0 == 1
         assert res.item1 == -24
         DICT = lltype.typeOf(res.item2).TO
-        assert hasattr(DICT.entries.TO.OF, 'f_everused') # all ints can be zero
         assert hasattr(DICT.entries.TO.OF, 'f_valid')    # no dummy available
 
     def test_opt_boolean_has_no_dummy(self):
@@ -1014,7 +1094,6 @@ class TestRDict(BaseTestRDict):
         assert res.item0 == 1
         assert res.item1 is True
         DICT = lltype.typeOf(res.item2).TO
-        assert hasattr(DICT.entries.TO.OF, 'f_everused') # all ints can be zero
         assert hasattr(DICT.entries.TO.OF, 'f_valid')    # no dummy available
 
     def test_opt_multiple_identical_dicts(self):
@@ -1032,66 +1111,6 @@ class TestRDict(BaseTestRDict):
         # all three dicts should use the same low-level type
         assert lltype.typeOf(res.item1) == lltype.typeOf(res.item2)
         assert lltype.typeOf(res.item1) == lltype.typeOf(res.item3)
-
-    def test_r_dict(self):
-        class FooError(Exception):
-            pass
-        def myeq(n, m):
-            return n == m
-        def myhash(n):
-            if n < 0:
-                raise FooError
-            return -n
-        def f(n):
-            d = r_dict(myeq, myhash)
-            for i in range(10):
-                d[i] = i*i
-            try:
-                value1 = d[n]
-            except FooError:
-                value1 = 99
-            try:
-                value2 = n in d
-            except FooError:
-                value2 = 99
-            try:
-                value3 = d[-n]
-            except FooError:
-                value3 = 99
-            try:
-                value4 = (-n) in d
-            except FooError:
-                value4 = 99
-            return (value1 * 1000000 +
-                    value2 * 10000 +
-                    value3 * 100 +
-                    value4)
-        res = self.interpret(f, [5])
-        assert res == 25019999
-
-    def test_dict_popitem_hash(self):
-        def deq(n, m):
-            return n == m
-        def dhash(n):
-            return ~n
-        def func():
-            d = r_dict(deq, dhash)
-            d[5] = 2
-            d[6] = 3
-            k1, v1 = d.popitem()
-            assert len(d) == 1
-            k2, v2 = d.popitem()
-            try:
-                d.popitem()
-            except KeyError:
-                pass
-            else:
-                assert 0, "should have raised KeyError"
-            assert len(d) == 0
-            return k1*1000 + v1*100 + k2*10 + v2
-
-        res = self.interpret(func, [])
-        assert res in [5263, 6352]
 
     def test_nonnull_hint(self):
         def eq(a, b):
@@ -1112,182 +1131,131 @@ class TestRDict(BaseTestRDict):
         DICT = lltype.typeOf(llres.item1)
         assert sorted(DICT.TO.entries.TO.OF._flds) == ['f_hash', 'key', 'value']
 
-    def test_deleted_entry_reusage_with_colliding_hashes(self):
-        def lowlevelhash(value):
-            p = rstr.mallocstr(len(value))
-            for i in range(len(value)):
-                p.chars[i] = value[i]
-            return rstr.LLHelpers.ll_strhash(p)
 
-        def func(c1, c2):
-            c1 = chr(c1)
-            c2 = chr(c2)
-            d = self.newdict()
-            d[c1] = 1
-            d[c2] = 2
-            del d[c1]
-            return d[c2]
+class Action(object):
+    def __init__(self, method, args):
+        self.method = method
+        self.args = args
 
-        char_by_hash = {}
-        base = rdict.DICT_INITSIZE
-        for y in range(0, 256):
-            y = chr(y)
-            y_hash = lowlevelhash(y) % base
-            char_by_hash.setdefault(y_hash, []).append(y)
+    def execute(self, space):
+        getattr(space, self.method)(*self.args)
 
-        x, y = char_by_hash[0][:2]   # find a collision
+    def __repr__(self):
+        return "space.%s(%s)" % (self.method, ', '.join(map(repr, self.args)))
 
-        res = self.interpret(func, [ord(x), ord(y)])
-        assert res == 2
+class PseudoRTyper:
+    cache_dummy_values = {}
 
-        def func2(c1, c2):
-            c1 = chr(c1)
-            c2 = chr(c2)
-            d = self.newdict()
-            d[c1] = 1
-            d[c2] = 2
-            del d[c1]
-            d[c1] = 3
-            return d
+# XXX: None keys crash the test, but translation sort-of allows it
+keytypes_s = [
+    SomeString(), SomeInteger(), SomeChar(),
+    SomeUnicodeString(), SomeUnicodeCodePoint()]
+st_keys = sampled_from(keytypes_s)
+st_values = sampled_from(keytypes_s + [SomeString(can_be_None=True)])
 
-        res = self.interpret(func2, [ord(x), ord(y)])
-        for i in range(len(res.entries)):
-            assert not (res.entries.everused(i) and not res.entries.valid(i))
-
-        def func3(c0, c1, c2, c3, c4, c5, c6, c7):
-            d = self.newdict()
-            c0 = chr(c0) ; d[c0] = 1; del d[c0]
-            c1 = chr(c1) ; d[c1] = 1; del d[c1]
-            c2 = chr(c2) ; d[c2] = 1; del d[c2]
-            c3 = chr(c3) ; d[c3] = 1; del d[c3]
-            c4 = chr(c4) ; d[c4] = 1; del d[c4]
-            c5 = chr(c5) ; d[c5] = 1; del d[c5]
-            c6 = chr(c6) ; d[c6] = 1; del d[c6]
-            c7 = chr(c7) ; d[c7] = 1; del d[c7]
-            return d
-
-        if rdict.DICT_INITSIZE != 8:
-            py.test.skip("make dict tests more indepdent from initsize")
-        res = self.interpret(func3, [ord(char_by_hash[i][0])
-                                   for i in range(rdict.DICT_INITSIZE)])
-        count_frees = 0
-        for i in range(len(res.entries)):
-            if not res.entries.everused(i):
-                count_frees += 1
-        assert count_frees >= 3
-
-class TestStress:
-
-    def test_stress(self):
-        from rpython.annotator.dictdef import DictKey, DictValue
-        from rpython.annotator import model as annmodel
-        dictrepr = rdict.DictRepr(None, rint.signed_repr, rint.signed_repr,
-                                  DictKey(None, annmodel.SomeInteger()),
-                                  DictValue(None, annmodel.SomeInteger()))
+class MappingSpace(object):
+    def __init__(self, s_key, s_value):
+        self.s_key = s_key
+        self.s_value = s_value
+        rtyper = PseudoRTyper()
+        r_key = s_key.rtyper_makerepr(rtyper)
+        r_value = s_value.rtyper_makerepr(rtyper)
+        dictrepr = self.MappingRepr(rtyper, r_key, r_value,
+                        DictKey(None, s_key),
+                        DictValue(None, s_value))
         dictrepr.setup()
-        l_dict = rdict.ll_newdict(dictrepr.DICT)
-        referencetable = [None] * 400
-        referencelength = 0
-        value = 0
+        self.l_dict = self.newdict(dictrepr)
+        self.reference = self.new_reference()
+        self.ll_key = r_key.convert_const
+        self.ll_value = r_value.convert_const
 
-        def complete_check():
-            for n, refvalue in zip(range(len(referencetable)), referencetable):
-                try:
-                    gotvalue = rdict.ll_dict_getitem(l_dict, n)
-                except KeyError:
-                    assert refvalue is None
-                else:
-                    assert gotvalue == refvalue
+    def setitem(self, key, value):
+        ll_key = self.ll_key(key)
+        ll_value = self.ll_value(value)
+        self.ll_setitem(self.l_dict, ll_key, ll_value)
+        self.reference[key] = value
+        assert self.ll_contains(self.l_dict, ll_key)
 
-        for x in not_really_random():
-            n = int(x*100.0)    # 0 <= x < 400
-            op = repr(x)[-1]
-            if op <= '2' and referencetable[n] is not None:
-                rdict.ll_dict_delitem(l_dict, n)
-                referencetable[n] = None
-                referencelength -= 1
-            elif op <= '6':
-                rdict.ll_dict_setitem(l_dict, n, value)
-                if referencetable[n] is None:
-                    referencelength += 1
-                referencetable[n] = value
-                value += 1
-            else:
-                try:
-                    gotvalue = rdict.ll_dict_getitem(l_dict, n)
-                except KeyError:
-                    assert referencetable[n] is None
-                else:
-                    assert gotvalue == referencetable[n]
-            if 1.38 <= x <= 1.39:
-                complete_check()
-                print 'current dict length:', referencelength
-            assert l_dict.num_items == referencelength
-        complete_check()
+    def delitem(self, key):
+        ll_key = self.ll_key(key)
+        self.ll_delitem(self.l_dict, ll_key)
+        del self.reference[key]
+        assert not self.ll_contains(self.l_dict, ll_key)
 
-    def test_stress_2(self):
-        yield self.stress_combination, True,  False
-        yield self.stress_combination, False, True
-        yield self.stress_combination, False, False
-        yield self.stress_combination, True,  True
+    def copydict(self):
+        self.l_dict = self.ll_copy(self.l_dict)
+        assert self.ll_len(self.l_dict) == len(self.reference)
 
-    def stress_combination(self, key_can_be_none, value_can_be_none):
-        from rpython.rtyper.lltypesystem.rstr import string_repr
-        from rpython.annotator.dictdef import DictKey, DictValue
-        from rpython.annotator import model as annmodel
+    def cleardict(self):
+        self.ll_clear(self.l_dict)
+        self.reference.clear()
+        assert self.ll_len(self.l_dict) == 0
 
-        print
-        print "Testing combination with can_be_None: keys %s, values %s" % (
-            key_can_be_none, value_can_be_none)
+    def fullcheck(self):
+        assert self.ll_len(self.l_dict) == len(self.reference)
+        for key, value in self.reference.iteritems():
+            assert (self.ll_getitem(self.l_dict, self.ll_key(key)) ==
+                self.ll_value(value))
 
-        class PseudoRTyper:
-            cache_dummy_values = {}
-        dictrepr = rdict.DictRepr(PseudoRTyper(), string_repr, string_repr,
-                       DictKey(None, annmodel.SomeString(key_can_be_none)),
-                       DictValue(None, annmodel.SomeString(value_can_be_none)))
-        dictrepr.setup()
-        print dictrepr.lowleveltype
-        for key, value in dictrepr.DICTENTRY._adtmeths.items():
-            print '    %s = %s' % (key, value)
-        l_dict = rdict.ll_newdict(dictrepr.DICT)
-        referencetable = [None] * 400
-        referencelength = 0
-        values = not_really_random()
-        keytable = [string_repr.convert_const("foo%d" % n)
-                    for n in range(len(referencetable))]
+class MappingSM(GenericStateMachine):
+    def __init__(self):
+        self.space = None
 
-        def complete_check():
-            for n, refvalue in zip(range(len(referencetable)), referencetable):
-                try:
-                    gotvalue = rdict.ll_dict_getitem(l_dict, keytable[n])
-                except KeyError:
-                    assert refvalue is None
-                else:
-                    assert gotvalue == refvalue
+    def st_setitem(self):
+        return builds(Action,
+            just('setitem'), tuples(self.st_keys, self.st_values))
 
-        for x in not_really_random():
-            n = int(x*100.0)    # 0 <= x < 400
-            op = repr(x)[-1]
-            if op <= '2' and referencetable[n] is not None:
-                rdict.ll_dict_delitem(l_dict, keytable[n])
-                referencetable[n] = None
-                referencelength -= 1
-            elif op <= '6':
-                ll_value = string_repr.convert_const(str(values.next()))
-                rdict.ll_dict_setitem(l_dict, keytable[n], ll_value)
-                if referencetable[n] is None:
-                    referencelength += 1
-                referencetable[n] = ll_value
-            else:
-                try:
-                    gotvalue = rdict.ll_dict_getitem(l_dict, keytable[n])
-                except KeyError:
-                    assert referencetable[n] is None
-                else:
-                    assert gotvalue == referencetable[n]
-            if 1.38 <= x <= 1.39:
-                complete_check()
-                print 'current dict length:', referencelength
-            assert l_dict.num_items == referencelength
-        complete_check()
+    def st_updateitem(self):
+        return builds(Action,
+            just('setitem'),
+            tuples(sampled_from(self.space.reference), self.st_values))
 
+    def st_delitem(self):
+        return builds(Action,
+            just('delitem'), tuples(sampled_from(self.space.reference)))
+
+    def steps(self):
+        if not self.space:
+            return builds(Action, just('setup'), tuples(st_keys, st_values))
+        global_actions = [Action('copydict', ()), Action('cleardict', ())]
+        if self.space.reference:
+            return (
+                self.st_setitem() | sampled_from(global_actions) |
+                self.st_updateitem() | self.st_delitem())
+        else:
+            return (self.st_setitem() | sampled_from(global_actions))
+
+    def execute_step(self, action):
+        if action.method == 'setup':
+            self.space = self.Space(*action.args)
+            self.st_keys = ann2strategy(self.space.s_key)
+            self.st_values = ann2strategy(self.space.s_value)
+            return
+        with signal_timeout(10):  # catches infinite loops
+            action.execute(self.space)
+
+    def teardown(self):
+        if self.space:
+            self.space.fullcheck()
+
+
+class DictSpace(MappingSpace):
+    MappingRepr = rdict.DictRepr
+    new_reference = dict
+    ll_getitem = staticmethod(rdict.ll_dict_getitem)
+    ll_setitem = staticmethod(rdict.ll_dict_setitem)
+    ll_delitem = staticmethod(rdict.ll_dict_delitem)
+    ll_len = staticmethod(rdict.ll_dict_len)
+    ll_contains = staticmethod(rdict.ll_contains)
+    ll_copy = staticmethod(rdict.ll_copy)
+    ll_clear = staticmethod(rdict.ll_clear)
+
+    def newdict(self, repr):
+        return rdict.ll_newdict(repr.DICT)
+
+class DictSM(MappingSM):
+    Space = DictSpace
+
+def test_hypothesis():
+    run_state_machine_as_test(
+        DictSM, settings(max_examples=500, stateful_step_count=100))

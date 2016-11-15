@@ -177,6 +177,10 @@ class AppTestW_SpecialisedTupleObject:
 
         assert hash(a) == hash((1L, 2L)) == hash((1.0, 2.0)) == hash((1.0, 2L))
 
+        x = (-1, -1)
+        y = tuple([-1, -1])
+        assert hash(x) == hash(y)
+
     def test_getitem(self):
         t = (5, 3)
         assert (t)[0] == 5
@@ -221,6 +225,13 @@ class AppTestW_SpecialisedTupleObject:
         assert type(t[0]) is I
         t = (F(42), F(43))
         assert type(t[0]) is F
+
+    def test_bug_tuples_of_nans(self):
+        N = float('nan')
+        T = (N, N)
+        assert N in T
+        assert T == (N, N)
+        assert (0.0, 0.0) == (-0.0, -0.0)
 
 
 class AppTestAll(test_tupleobject.AppTestW_TupleObject):

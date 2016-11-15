@@ -57,16 +57,24 @@ class ResultLog(object):
         self.config = config
         self.logfile = logfile # preferably line buffered
 
-    def write_log_entry(self, testpath, lettercode, longrepr):
-        py.builtin.print_("%s %s" % (lettercode, testpath), file=self.logfile)
+    def write_log_entry(self, testpath, lettercode, longrepr, sections=None):
+        _safeprint("%s %s" % (lettercode, testpath), file=self.logfile)
         for line in longrepr.splitlines():
-            py.builtin.print_(" %s" % line, file=self.logfile)
+            _safeprint(" %s" % line, file=self.logfile)
+        if sections is not None and (
+                lettercode in ('E', 'F')):    # to limit the size of logs
+            for title, content in sections:
+                _safeprint(" ---------- %s ----------" % (title,),
+                           file=self.logfile)
+                for line in content.splitlines():
+                    _safeprint(" %s" % line, file=self.logfile)
 
     def log_outcome(self, report, lettercode, longrepr):
         testpath = getattr(report, 'nodeid', None)
         if testpath is None:
             testpath = report.fspath
-        self.write_log_entry(testpath, lettercode, longrepr)
+        self.write_log_entry(testpath, lettercode, longrepr,
+                             getattr(report, 'sections', None))
 
     def pytest_runtest_logreport(self, report):
         if report.when != "call" and report.passed:
@@ -102,3 +110,8 @@ class ResultLog(object):
         if path is None:
             path = "cwd:%s" % py.path.local()
         self.write_log_entry(path, '!', str(excrepr))
+
+def _safeprint(s, file):
+    if isinstance(s, unicode):
+        s = s.encode('utf-8')
+    py.builtin.print_(s, file=file)

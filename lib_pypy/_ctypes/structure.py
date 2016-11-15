@@ -1,3 +1,4 @@
+import sys
 import _rawffi
 from _ctypes.basics import _CData, _CDataMeta, keepalive_key,\
      store_reference, ensure_objects, CArgObject
@@ -35,9 +36,9 @@ def names_and_fields(self, _fields_, superclass, anonymous_fields=None):
     rawfields = []
     for f in all_fields:
         if len(f) > 2:
-            rawfields.append((f[0], f[1]._ffishape, f[2]))
+            rawfields.append((f[0], f[1]._ffishape_, f[2]))
         else:
-            rawfields.append((f[0], f[1]._ffishape))
+            rawfields.append((f[0], f[1]._ffishape_))
 
     _set_shape(self, rawfields, self._is_union)
 
@@ -47,8 +48,8 @@ def names_and_fields(self, _fields_, superclass, anonymous_fields=None):
         value = field[1]
         is_bitfield = (len(field) == 3)
         fields[name] = Field(name,
-                             self._ffistruct.fieldoffset(name),
-                             self._ffistruct.fieldsize(name),
+                             self._ffistruct_.fieldoffset(name),
+                             self._ffistruct_.fieldsize(name),
                              value, i, is_bitfield)
 
     if anonymous_fields:
@@ -57,32 +58,35 @@ def names_and_fields(self, _fields_, superclass, anonymous_fields=None):
             name = field[0]
             value = field[1]
             is_bitfield = (len(field) == 3)
-            startpos = self._ffistruct.fieldoffset(name)
+            startpos = self._ffistruct_.fieldoffset(name)
             if name in anonymous_fields:
-                for subname in value._names:
+                for subname in value._names_:
                     resnames.append(subname)
                     subfield = getattr(value, subname)
                     relpos = startpos + subfield.offset
                     subvalue = subfield.ctype
                     fields[subname] = Field(subname,
                                             relpos, subvalue._sizeofinstances(),
-                                            subvalue, i, is_bitfield)
+                                            subvalue, i, is_bitfield,
+                                            inside_anon_field=fields[name])
             else:
                 resnames.append(name)
         names = resnames
-    self._names = names
+    self._names_ = names
     for name, field in fields.items():
         setattr(self, name, field)
 
 
 class Field(object):
-    def __init__(self, name, offset, size, ctype, num, is_bitfield):
+    def __init__(self, name, offset, size, ctype, num, is_bitfield,
+                 inside_anon_field=None):
         self.__dict__['name'] = name
         self.__dict__['offset'] = offset
         self.__dict__['size'] = size
         self.__dict__['ctype'] = ctype
         self.__dict__['num'] = num
         self.__dict__['is_bitfield'] = is_bitfield
+        self.__dict__['inside_anon_field'] = inside_anon_field
 
     def __setattr__(self, name, value):
         raise AttributeError(name)
@@ -94,6 +98,8 @@ class Field(object):
     def __get__(self, obj, cls=None):
         if obj is None:
             return self
+        if self.inside_anon_field is not None:
+            return getattr(self.inside_anon_field.__get__(obj), self.name)
         if self.is_bitfield:
             # bitfield member, use direct access
             return obj._buffer.__getattr__(self.name)
@@ -104,6 +110,9 @@ class Field(object):
             return fieldtype._CData_output(suba, obj, offset)
 
     def __set__(self, obj, value):
+        if self.inside_anon_field is not None:
+            setattr(self.inside_anon_field.__get__(obj), self.name, value)
+            return
         fieldtype = self.ctype
         cobj = fieldtype.from_param(value)
         key = keepalive_key(self.num)
@@ -113,19 +122,19 @@ class Field(object):
         elif ensure_objects(cobj) is not None:
             store_reference(obj, key, cobj._objects)
         arg = cobj._get_buffer_value()
-        if fieldtype._fficompositesize is not None:
+        if fieldtype._fficompositesize_ is not None:
             from ctypes import memmove
             dest = obj._buffer.fieldaddress(self.name)
-            memmove(dest, arg, fieldtype._fficompositesize)
+            memmove(dest, arg, fieldtype._fficompositesize_)
         else:
             obj._buffer.__setattr__(self.name, arg)
 
 
 def _set_shape(tp, rawfields, is_union=False):
-    tp._ffistruct = _rawffi.Structure(rawfields, is_union,
+    tp._ffistruct_ = _rawffi.Structure(rawfields, is_union,
                                       getattr(tp, '_pack_', 0))
-    tp._ffiargshape = tp._ffishape = (tp._ffistruct, 1)
-    tp._fficompositesize = tp._ffistruct.size
+    tp._ffiargshape_ = tp._ffishape_ = (tp._ffistruct_, 1)
+    tp._fficompositesize_ = tp._ffistruct_.size
 
 
 def struct_setattr(self, name, value):
@@ -178,16 +187,18 @@ class StructOrUnionMeta(_CDataMeta):
         instance = StructOrUnion.__new__(self)
         if isinstance(address, _rawffi.StructureInstance):
             address = address.buffer
-        instance.__dict__['_buffer'] = self._ffistruct.fromaddress(address)
+        # fix the address: turn it into as unsigned, in case it is negative
+        address = address & (sys.maxint * 2 + 1)
+        instance.__dict__['_buffer'] = self._ffistruct_.fromaddress(address)
         return instance
 
     def _sizeofinstances(self):
-        if not hasattr(self, '_ffistruct'):
+        if not hasattr(self, '_ffistruct_'):
             return 0
-        return self._ffistruct.size
+        return self._ffistruct_.size
 
     def _alignmentofinstances(self):
-        return self._ffistruct.alignment
+        return self._ffistruct_.alignment
 
     def from_param(self, value):
         if isinstance(value, tuple):
@@ -200,7 +211,7 @@ class StructOrUnionMeta(_CDataMeta):
 
     def _CData_output(self, resarray, base=None, index=-1):
         res = StructOrUnion.__new__(self)
-        ffistruct = self._ffistruct.fromaddress(resarray.buffer)
+        ffistruct = self._ffistruct_.fromaddress(resarray.buffer)
         res.__dict__['_buffer'] = ffistruct
         res.__dict__['_base'] = base
         res.__dict__['_index'] = index
@@ -218,18 +229,18 @@ class StructOrUnion(_CData):
     __metaclass__ = StructOrUnionMeta
 
     def __new__(cls, *args, **kwds):
-        self = super(_CData, cls).__new__(cls, *args, **kwds)
+        self = super(_CData, cls).__new__(cls)
         if '_abstract_' in cls.__dict__:
             raise TypeError("abstract class")
-        if hasattr(cls, '_ffistruct'):
-            self.__dict__['_buffer'] = self._ffistruct(autofree=True)
+        if hasattr(cls, '_ffistruct_'):
+            self.__dict__['_buffer'] = self._ffistruct_(autofree=True)
         return self
 
     def __init__(self, *args, **kwds):
         type(self)._make_final()
-        if len(args) > len(self._names):
+        if len(args) > len(self._names_):
             raise TypeError("too many initializers")
-        for name, arg in zip(self._names, args):
+        for name, arg in zip(self._names_, args):
             if name in kwds:
                 raise TypeError("duplicate value for argument %r" % (
                     name,))
@@ -241,7 +252,7 @@ class StructOrUnion(_CData):
         """Return a _rawffi array of length 1 whose address is the same as
         the address of the field 'name' of self."""
         address = self._buffer.fieldaddress(name)
-        A = _rawffi.Array(fieldtype._ffishape)
+        A = _rawffi.Array(fieldtype._ffishape_)
         return A.fromaddress(address, 1)
 
     def _get_buffer_for_param(self):

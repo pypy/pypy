@@ -5,12 +5,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#  if 0   /* disabled */
-void op_int_overflowed(void)
-{
-  FAIL_OVF("integer operation");
-}
-#  endif
 
 #  ifdef PYPY_X86_CHECK_SSE2
 void pypy_x86_check_sse2(void)

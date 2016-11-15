@@ -1,6 +1,6 @@
 import py
 
-import os, sys
+import os, sys, subprocess
 
 import pypy
 from pypy.interpreter import gateway
@@ -9,7 +9,7 @@ from pypy.tool.ann_override import PyPyAnnotatorPolicy
 from rpython.config.config import to_optparse, make_dict, SUPPRESS_USAGE
 from rpython.config.config import ConflictConfigError
 from pypy.tool.option import make_objspace
-from pypy.conftest import pypydir
+from pypy import pypydir
 from rpython.rlib import rthread
 from pypy.module.thread import os_thread
 
@@ -21,7 +21,10 @@ except NameError:
     this_dir = os.path.dirname(sys.argv[0])
 
 def debug(msg):
-    os.write(2, "debug: " + msg + '\n')
+    try:
+        os.write(2, "debug: " + msg + '\n')
+    except OSError:
+        pass     # bah, no working stderr :-(
 
 # __________  Entry point  __________
 
@@ -30,9 +33,12 @@ def create_entry_point(space, w_dict):
     if w_dict is not None: # for tests
         w_entry_point = space.getitem(w_dict, space.wrap('entry_point'))
         w_run_toplevel = space.getitem(w_dict, space.wrap('run_toplevel'))
-        w_call_finish_gateway = space.wrap(gateway.interp2app(call_finish))
-        w_call_startup_gateway = space.wrap(gateway.interp2app(call_startup))
+        w_initstdio = space.getitem(w_dict, space.wrap('initstdio'))
         withjit = space.config.objspace.usemodules.pypyjit
+    else:
+        w_initstdio = space.appexec([], """():
+            return lambda unbuffered: None
+        """)
 
     def entry_point(argv):
         if withjit:
@@ -53,7 +59,7 @@ def create_entry_point(space, w_dict):
             argv = argv[:1] + argv[3:]
         try:
             try:
-                space.call_function(w_run_toplevel, w_call_startup_gateway)
+                space.startup()
                 w_executable = space.wrap(argv[0])
                 w_argv = space.newlist([space.wrap(s) for s in argv[1:]])
                 w_exitcode = space.call_function(w_entry_point, w_executable, w_argv)
@@ -62,15 +68,15 @@ def create_entry_point(space, w_dict):
             ##    from pypy.interpreter import main, interactive, error
             ##    con = interactive.PyPyConsole(space)
             ##    con.interact()
-            except OperationError, e:
+            except OperationError as e:
                 debug("OperationError:")
                 debug(" operror-type: " + e.w_type.getname(space))
                 debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
                 return 1
         finally:
             try:
-                space.call_function(w_run_toplevel, w_call_finish_gateway)
-            except OperationError, e:
+                space.finish()
+            except OperationError as e:
                 debug("OperationError:")
                 debug(" operror-type: " + e.w_type.getname(space))
                 debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
@@ -80,98 +86,102 @@ def create_entry_point(space, w_dict):
     # register the minimal equivalent of running a small piece of code. This
     # should be used as sparsely as possible, just to register callbacks
 
-    from rpython.rlib.entrypoint import entrypoint, RPython_StartupCode
+    from rpython.rlib.entrypoint import entrypoint_highlevel
     from rpython.rtyper.lltypesystem import rffi, lltype
-    from rpython.rtyper.lltypesystem.lloperation import llop
 
-    w_pathsetter = space.appexec([], """():
-    def f(path):
-        import sys
-        sys.path[:] = path
-    return f
-    """)
-
-    @entrypoint('main', [rffi.CCHARP, rffi.INT], c_name='pypy_setup_home')
+    @entrypoint_highlevel('main', [rffi.CCHARP, rffi.INT],
+                          c_name='pypy_setup_home')
     def pypy_setup_home(ll_home, verbose):
         from pypy.module.sys.initpath import pypy_find_stdlib
         verbose = rffi.cast(lltype.Signed, verbose)
-        if ll_home:
-            home = rffi.charp2str(ll_home)
+        if ll_home and ord(ll_home[0]):
+            home1 = rffi.charp2str(ll_home)
+            home = os.path.join(home1, 'x') # <- so that 'll_home' can be
+                                            # directly the root directory
         else:
-            home = pypydir
+            home1 = "pypy's shared library location"
+            home = '*'
         w_path = pypy_find_stdlib(space, home)
         if space.is_none(w_path):
             if verbose:
-                debug("Failed to find library based on pypy_find_stdlib")
-            return 1
+                debug("pypy_setup_home: directories 'lib-python' and 'lib_pypy'"
+                      " not found in %s or in any parent directory" % home1)
+            return rffi.cast(rffi.INT, 1)
         space.startup()
-        space.call_function(w_pathsetter, w_path)
-        # import site
+        must_leave = space.threadlocals.try_enter_thread(space)
         try:
-            import_ = space.getattr(space.getbuiltinmodule('__builtin__'),
-                                    space.wrap('__import__'))
-            space.call_function(import_, space.wrap('site'))
-            return 0
-        except OperationError, e:
+            # initialize sys.{path,executable,stdin,stdout,stderr}
+            # (in unbuffered mode, to avoid troubles) and import site
+            space.appexec([w_path, space.wrap(home), w_initstdio],
+            r"""(path, home, initstdio):
+                import sys
+                sys.path[:] = path
+                sys.executable = home
+                initstdio(unbuffered=True)
+                try:
+                    import site
+                except Exception as e:
+                    sys.stderr.write("'import site' failed:\n")
+                    import traceback
+                    traceback.print_exc()
+            """)
+            return rffi.cast(rffi.INT, 0)
+        except OperationError as e:
             if verbose:
                 debug("OperationError:")
                 debug(" operror-type: " + e.w_type.getname(space))
                 debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
-            return -1
+            return rffi.cast(rffi.INT, -1)
+        finally:
+            if must_leave:
+                space.threadlocals.leave_thread(space)
 
-    @entrypoint('main', [rffi.CCHARP], c_name='pypy_execute_source')
+    @entrypoint_highlevel('main', [rffi.CCHARP], c_name='pypy_execute_source')
     def pypy_execute_source(ll_source):
-        after = rffi.aroundstate.after
-        if after: after()
+        return pypy_execute_source_ptr(ll_source, 0)
+
+    @entrypoint_highlevel('main', [rffi.CCHARP, lltype.Signed],
+                          c_name='pypy_execute_source_ptr')
+    def pypy_execute_source_ptr(ll_source, ll_ptr):
         source = rffi.charp2str(ll_source)
-        res = _pypy_execute_source(source)
-        before = rffi.aroundstate.before
-        if before: before()
+        res = _pypy_execute_source(source, ll_ptr)
         return rffi.cast(rffi.INT, res)
 
-    @entrypoint('main', [rffi.CCHARP, lltype.Signed],
-                c_name='pypy_execute_source_ptr')
-    def pypy_execute_source_ptr(ll_source, ll_ptr):
-        after = rffi.aroundstate.after
-        if after: after()
-        source = rffi.charp2str(ll_source)
-        space.setitem(w_globals, space.wrap('c_argument'),
-                      space.wrap(ll_ptr))
-        res = _pypy_execute_source(source)
-        before = rffi.aroundstate.before
-        if before: before()
-        return rffi.cast(rffi.INT, res)        
-
-    @entrypoint('main', [], c_name='pypy_init_threads')
+    @entrypoint_highlevel('main', [], c_name='pypy_init_threads')
     def pypy_init_threads():
         if not space.config.objspace.usemodules.thread:
             return
         os_thread.setup_threads(space)
-        before = rffi.aroundstate.before
-        if before: before()
 
-    @entrypoint('main', [], c_name='pypy_thread_attach')
+    @entrypoint_highlevel('main', [], c_name='pypy_thread_attach')
     def pypy_thread_attach():
         if not space.config.objspace.usemodules.thread:
             return
         os_thread.setup_threads(space)
         os_thread.bootstrapper.acquire(space, None, None)
+        # XXX this doesn't really work.  Don't use os.fork(), and
+        # if your embedder program uses fork(), don't use any PyPy
+        # code in the fork
         rthread.gc_thread_start()
         os_thread.bootstrapper.nbthreads += 1
         os_thread.bootstrapper.release()
-        before = rffi.aroundstate.before
-        if before: before()
 
-    w_globals = space.newdict()
-    space.setitem(w_globals, space.wrap('__builtins__'),
-                  space.builtin_modules['__builtin__'])
-
-    def _pypy_execute_source(source):
+    def _pypy_execute_source(source, c_argument):
         try:
-            compiler = space.createcompiler()
-            stmt = compiler.compile(source, 'c callback', 'exec', 0)
-            stmt.exec_code(space, w_globals, w_globals)
-        except OperationError, e:
+            w_globals = space.newdict(module=True)
+            space.setitem(w_globals, space.wrap('__builtins__'),
+                          space.builtin_modules['__builtin__'])
+            space.setitem(w_globals, space.wrap('c_argument'),
+                          space.wrap(c_argument))
+            space.appexec([space.wrap(source), w_globals], """(src, glob):
+                import sys
+                stmt = compile(src, 'c callback', 'exec')
+                if not hasattr(sys, '_pypy_execute_source'):
+                    sys._pypy_execute_source = []
+                sys._pypy_execute_source.append(glob)
+                exec stmt in glob
+            """)
+        except OperationError as e:
             debug("OperationError:")
             debug(" operror-type: " + e.w_type.getname(space))
             debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
@@ -184,11 +194,6 @@ def create_entry_point(space, w_dict):
                          'pypy_thread_attach': pypy_thread_attach,
                          'pypy_setup_home': pypy_setup_home}
 
-def call_finish(space):
-    space.finish()
-
-def call_startup(space):
-    space.startup()
 
 # _____ Define and setup target ___
 
@@ -214,23 +219,6 @@ class PyPyTarget(object):
         # set up the objspace optimizations based on the --opt argument
         from pypy.config.pypyoption import set_pypy_opt_level
         set_pypy_opt_level(config, translateconfig.opt)
-
-        # as of revision 27081, multimethod.py uses the InstallerVersion1 by default
-        # because it is much faster both to initialize and run on top of CPython.
-        # The InstallerVersion2 is optimized for making a translator-friendly
-        # structure for low level backends. However, InstallerVersion1 is still
-        # preferable for high level backends, so we patch here.
-
-        from pypy.objspace.std import multimethod
-        if config.objspace.std.multimethods == 'mrd':
-            assert multimethod.InstallerVersion1.instance_counter == 0,\
-                   'The wrong Installer version has already been instatiated'
-            multimethod.Installer = multimethod.InstallerVersion2
-        elif config.objspace.std.multimethods == 'doubledispatch':
-            # don't rely on the default, set again here
-            assert multimethod.InstallerVersion2.instance_counter == 0,\
-                   'The wrong Installer version has already been instatiated'
-            multimethod.Installer = multimethod.InstallerVersion1
 
     def print_help(self, config):
         self.opt_parser(config).print_help()
@@ -258,6 +246,22 @@ class PyPyTarget(object):
             enable_translationmodules(config)
 
         config.translation.suggest(check_str_without_nul=True)
+        config.translation.suggest(shared=True)
+        config.translation.suggest(icon=os.path.join(this_dir, 'pypy.ico'))
+        if config.translation.shared:
+            if config.translation.output is not None:
+                raise Exception("Cannot use the --output option with PyPy "
+                                "when --shared is on (it is by default). "
+                                "See issue #1971.")
+            if (config.translation.profopt is not None
+                    and not config.translation.noprofopt):
+                raise Exception("Cannot use the --profopt option "
+                                "when --shared is on (it is by default). "
+                                "See issue #2398.")
+        if sys.platform == 'win32':
+            libdir = thisdir.join('..', '..', 'libs')
+            libdir.ensure(dir=1)
+            config.translation.libname = str(libdir.join('python27.lib'))
 
         if config.translation.thread:
             config.objspace.usemodules.thread = True
@@ -293,7 +297,6 @@ class PyPyTarget(object):
 
         if config.translation.sandbox:
             config.objspace.lonepycfiles = False
-            config.objspace.usepycfiles = False
 
         config.translating = True
 
@@ -305,18 +308,40 @@ class PyPyTarget(object):
         options = make_dict(config)
         wrapstr = 'space.wrap(%r)' % (options)
         pypy.module.sys.Module.interpleveldefs['pypy_translation_info'] = wrapstr
+        if config.objspace.usemodules._cffi_backend:
+            self.hack_for_cffi_modules(driver)
 
         return self.get_entry_point(config)
 
+    def hack_for_cffi_modules(self, driver):
+        # HACKHACKHACK
+        # ugly hack to modify target goal from compile_* to build_cffi_imports
+        # this should probably get cleaned up and merged with driver.create_exe
+        from rpython.tool.runsubprocess import run_subprocess
+        from rpython.translator.driver import taskdef
+        import types
+
+        compile_goal, = driver.backend_select_goals(['compile'])
+        @taskdef([compile_goal], "Create cffi bindings for modules")
+        def task_build_cffi_imports(self):
+            ''' Use cffi to compile cffi interfaces to modules'''
+            filename = os.path.join(pypydir, 'tool', 'build_cffi_imports.py')
+            status, out, err = run_subprocess(str(driver.compute_exe_name()),
+                                              [filename])
+            sys.stdout.write(out)
+            sys.stderr.write(err)
+            # otherwise, ignore errors
+        driver.task_build_cffi_imports = types.MethodType(task_build_cffi_imports, driver)
+        driver.tasks['build_cffi_imports'] = driver.task_build_cffi_imports, [compile_goal]
+        driver.default_goal = 'build_cffi_imports'
+        # HACKHACKHACK end
+
     def jitpolicy(self, driver):
-        from pypy.module.pypyjit.policy import PyPyJitPolicy, pypy_hooks
+        from pypy.module.pypyjit.policy import PyPyJitPolicy
+        from pypy.module.pypyjit.hooks import pypy_hooks
         return PyPyJitPolicy(pypy_hooks)
 
     def get_entry_point(self, config):
-        from pypy.tool.lib_pypy import import_from_lib_pypy
-        rebuild = import_from_lib_pypy('ctypes_config_cache/rebuild')
-        rebuild.try_rebuild()
-
         space = make_objspace(config)
 
         # manually imports app_main.py
@@ -326,7 +351,7 @@ class PyPyTarget(object):
         w_dict = app.getwdict(space)
         entry_point, _ = create_entry_point(space, w_dict)
 
-        return entry_point, None, PyPyAnnotatorPolicy(single_space = space)
+        return entry_point, None, PyPyAnnotatorPolicy()
 
     def interface(self, ns):
         for name in ['take_options', 'handle_config', 'print_help', 'target',

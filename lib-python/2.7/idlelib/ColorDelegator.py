@@ -2,7 +2,6 @@ import time
 import re
 import keyword
 import __builtin__
-from Tkinter import *
 from idlelib.Delegator import Delegator
 from idlelib.configHandler import idleConf
 
@@ -16,6 +15,9 @@ def make_pat():
     kw = r"\b" + any("KEYWORD", keyword.kwlist) + r"\b"
     builtinlist = [str(name) for name in dir(__builtin__)
                                         if not name.startswith('_')]
+    # We don't know whether "print" is a function or a keyword,
+    # so we always treat is as a keyword (the most common case).
+    builtinlist.remove('print')
     # self.file = file("file") :
     # 1st 'file' colorized normal, 2nd as builtin, 3rd as string
     builtin = r"([^.'\"\\#]\b|^)" + any("BUILTIN", builtinlist) + r"\b"
@@ -31,7 +33,6 @@ def make_pat():
 
 prog = re.compile(make_pat(), re.S)
 idprog = re.compile(r"\s+(\w+)", re.S)
-asprog = re.compile(r".*?\b(as)\b")
 
 class ColorDelegator(Delegator):
 
@@ -39,7 +40,6 @@ class ColorDelegator(Delegator):
         Delegator.__init__(self)
         self.prog = prog
         self.idprog = idprog
-        self.asprog = asprog
         self.LoadTagDefs()
 
     def setdelegate(self, delegate):
@@ -62,7 +62,7 @@ class ColorDelegator(Delegator):
         self.tag_raise('sel')
 
     def LoadTagDefs(self):
-        theme = idleConf.GetOption('main','Theme','name')
+        theme = idleConf.CurrentTheme()
         self.tagdefs = {
             "COMMENT": idleConf.GetHighlight(theme, "comment"),
             "KEYWORD": idleConf.GetHighlight(theme, "keyword"),
@@ -71,7 +71,6 @@ class ColorDelegator(Delegator):
             "DEFINITION": idleConf.GetHighlight(theme, "definition"),
             "SYNC": {'background':None,'foreground':None},
             "TODO": {'background':None,'foreground':None},
-            "BREAK": idleConf.GetHighlight(theme, "break"),
             "ERROR": idleConf.GetHighlight(theme, "error"),
             # The following is used by ReplaceDialog:
             "hit": idleConf.GetHighlight(theme, "hit"),
@@ -213,22 +212,6 @@ class ColorDelegator(Delegator):
                                     self.tag_add("DEFINITION",
                                                  head + "+%dc" % a,
                                                  head + "+%dc" % b)
-                            elif value == "import":
-                                # color all the "as" words on same line, except
-                                # if in a comment; cheap approximation to the
-                                # truth
-                                if '#' in chars:
-                                    endpos = chars.index('#')
-                                else:
-                                    endpos = len(chars)
-                                while True:
-                                    m1 = self.asprog.match(chars, b, endpos)
-                                    if not m1:
-                                        break
-                                    a, b = m1.span(1)
-                                    self.tag_add("KEYWORD",
-                                                 head + "+%dc" % a,
-                                                 head + "+%dc" % b)
                     m = self.prog.search(chars, m.end())
                 if "SYNC" in self.tag_names(next + "-1c"):
                     head = next
@@ -252,17 +235,24 @@ class ColorDelegator(Delegator):
         for tag in self.tagdefs.keys():
             self.tag_remove(tag, "1.0", "end")
 
-def main():
+def _color_delegator(parent):  # htest #
+    from Tkinter import Toplevel, Text
     from idlelib.Percolator import Percolator
-    root = Tk()
-    root.wm_protocol("WM_DELETE_WINDOW", root.quit)
-    text = Text(background="white")
+
+    top = Toplevel(parent)
+    top.title("Test ColorDelegator")
+    top.geometry("200x100+%d+%d" % (parent.winfo_rootx() + 200,
+                  parent.winfo_rooty() + 150))
+    source = "if somename: x = 'abc' # comment\nprint\n"
+    text = Text(top, background="white")
     text.pack(expand=1, fill="both")
+    text.insert("insert", source)
     text.focus_set()
+
     p = Percolator(text)
     d = ColorDelegator()
     p.insertfilter(d)
-    root.mainloop()
 
 if __name__ == "__main__":
-    main()
+    from idlelib.idle_test.htest import run
+    run(_color_delegator)

@@ -1,8 +1,13 @@
-from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
-from pypy.module._socket.interp_socket import converted_error, W_RSocket, addr_as_object, ipaddr_from_object
 from rpython.rlib import rsocket
 from rpython.rlib.rsocket import SocketError, INVALID_SOCKET
-from pypy.interpreter.error import OperationError
+from rpython.rlib.rarithmetic import intmask
+
+from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
+from pypy.module._socket.interp_socket import (
+    converted_error, W_Socket, addr_as_object, ipaddr_from_object
+)
+
 
 def gethostname(space):
     """gethostname() -> string
@@ -11,7 +16,7 @@ def gethostname(space):
     """
     try:
         res = rsocket.gethostname()
-    except SocketError, e:
+    except SocketError as e:
         raise converted_error(space, e)
     return space.wrap(res)
 
@@ -24,7 +29,7 @@ def gethostbyname(space, host):
     try:
         addr = rsocket.gethostbyname(host)
         ip = addr.get_host()
-    except SocketError, e:
+    except SocketError as e:
         raise converted_error(space, e)
     return space.wrap(ip)
 
@@ -44,7 +49,7 @@ def gethostbyname_ex(space, host):
     """
     try:
         res = rsocket.gethostbyname_ex(host)
-    except SocketError, e:
+    except SocketError as e:
         raise converted_error(space, e)
     return common_wrapgethost(space, res)
 
@@ -57,7 +62,7 @@ def gethostbyaddr(space, host):
     """
     try:
         res = rsocket.gethostbyaddr(host)
-    except SocketError, e:
+    except SocketError as e:
         raise converted_error(space, e)
     return common_wrapgethost(space, res)
 
@@ -75,7 +80,7 @@ def getservbyname(space, name, w_proto):
         proto = space.str_w(w_proto)
     try:
         port = rsocket.getservbyname(name, proto)
-    except SocketError, e:
+    except SocketError as e:
         raise converted_error(space, e)
     return space.wrap(port)
 
@@ -93,12 +98,11 @@ def getservbyport(space, port, w_proto):
         proto = space.str_w(w_proto)
 
     if port < 0 or port > 0xffff:
-        raise OperationError(space.w_ValueError, space.wrap(
-            "getservbyport: port must be 0-65535."))
+        raise oefmt(space.w_ValueError, "getservbyport: port must be 0-65535.")
 
     try:
         service = rsocket.getservbyport(port, proto)
-    except SocketError, e:
+    except SocketError as e:
         raise converted_error(space, e)
     return space.wrap(service)
 
@@ -110,7 +114,7 @@ def getprotobyname(space, name):
     """
     try:
         proto = rsocket.getprotobyname(name)
-    except SocketError, e:
+    except SocketError as e:
         raise converted_error(space, e)
     return space.wrap(proto)
 
@@ -122,7 +126,7 @@ def getnameinfo(space, w_sockaddr, flags):
     try:
         addr = ipaddr_from_object(space, w_sockaddr)
         host, servport = rsocket.getnameinfo(addr, flags)
-    except SocketError, e:
+    except SocketError as e:
         raise converted_error(space, e)
     return space.newtuple([space.wrap(host), space.wrap(servport)])
 
@@ -134,10 +138,10 @@ def fromfd(space, fd, family, type, proto=0):
     The remaining arguments are the same as for socket().
     """
     try:
-        sock = rsocket.fromfd(fd, family, type, proto, W_RSocket)
-    except SocketError, e:
+        sock = rsocket.fromfd(fd, family, type, proto)
+    except SocketError as e:
         raise converted_error(space, e)
-    return space.wrap(sock)
+    return space.wrap(W_Socket(space, sock))
 
 @unwrap_spec(family=int, type=int, proto=int)
 def socketpair(space, family=rsocket.socketpair_default_family,
@@ -151,10 +155,13 @@ def socketpair(space, family=rsocket.socketpair_default_family,
     AF_UNIX if defined on the platform; otherwise, the default is AF_INET.
     """
     try:
-        sock1, sock2 = rsocket.socketpair(family, type, proto, W_RSocket)
-    except SocketError, e:
+        sock1, sock2 = rsocket.socketpair(family, type, proto)
+    except SocketError as e:
         raise converted_error(space, e)
-    return space.newtuple([space.wrap(sock1), space.wrap(sock2)])
+    return space.newtuple([
+        space.wrap(W_Socket(space, sock1)),
+        space.wrap(W_Socket(space, sock2))
+    ])
 
 # The following 4 functions refuse all negative numbers, like CPython 2.6.
 # They could also check that the argument is not too large, but CPython 2.6
@@ -165,7 +172,7 @@ def ntohs(space, x):
 
     Convert a 16-bit integer from network to host byte order.
     """
-    return space.wrap(rsocket.ntohs(x))
+    return space.wrap(rsocket.ntohs(intmask(x)))
 
 @unwrap_spec(x="c_uint")
 def ntohl(space, x):
@@ -181,7 +188,7 @@ def htons(space, x):
 
     Convert a 16-bit integer from host to network byte order.
     """
-    return space.wrap(rsocket.htons(x))
+    return space.wrap(rsocket.htons(intmask(x)))
 
 @unwrap_spec(x="c_uint")
 def htonl(space, x):
@@ -200,9 +207,9 @@ def inet_aton(space, ip):
     """
     try:
         buf = rsocket.inet_aton(ip)
-    except SocketError, e:
+    except SocketError as e:
         raise converted_error(space, e)
-    return space.wrap(buf)
+    return space.newbytes(buf)
 
 @unwrap_spec(packed=str)
 def inet_ntoa(space, packed):
@@ -212,7 +219,7 @@ def inet_ntoa(space, packed):
     """
     try:
         ip = rsocket.inet_ntoa(packed)
-    except SocketError, e:
+    except SocketError as e:
         raise converted_error(space, e)
     return space.wrap(ip)
 
@@ -225,9 +232,9 @@ def inet_pton(space, family, ip):
     """
     try:
         buf = rsocket.inet_pton(family, ip)
-    except SocketError, e:
+    except SocketError as e:
         raise converted_error(space, e)
-    return space.wrap(buf)
+    return space.newbytes(buf)
 
 @unwrap_spec(family=int, packed=str)
 def inet_ntop(space, family, packed):
@@ -237,11 +244,11 @@ def inet_ntop(space, family, packed):
     """
     try:
         ip = rsocket.inet_ntop(family, packed)
-    except SocketError, e:
+    except SocketError as e:
         raise converted_error(space, e)
-    except ValueError, e:     # XXX the message is lost in RPython
-        raise OperationError(space.w_ValueError,
-                  space.wrap(str(e)))
+    except ValueError:
+        raise oefmt(space.w_ValueError,
+                    "invalid length of packed IP address string")
     return space.wrap(ip)
 
 @unwrap_spec(family=int, socktype=int, proto=int, flags=int)
@@ -256,14 +263,13 @@ def getaddrinfo(space, w_host, w_port,
     if space.is_w(w_host, space.w_None):
         host = None
     elif space.isinstance_w(w_host, space.w_str):
-        host = space.str_w(w_host)
+        host = space.bytes_w(w_host)
     elif space.isinstance_w(w_host, space.w_unicode):
         w_shost = space.call_method(w_host, "encode", space.wrap("idna"))
-        host = space.str_w(w_shost)
+        host = space.bytes_w(w_shost)
     else:
-        raise OperationError(space.w_TypeError,
-                             space.wrap(
-            "getaddrinfo() argument 1 must be string or None"))
+        raise oefmt(space.w_TypeError,
+                    "getaddrinfo() argument 1 must be string or None")
 
     # port can be None, int or string
     if space.is_w(w_port, space.w_None):
@@ -271,15 +277,14 @@ def getaddrinfo(space, w_host, w_port,
     elif space.isinstance_w(w_port, space.w_int) or space.isinstance_w(w_port, space.w_long):
         port = str(space.int_w(w_port))
     elif space.isinstance_w(w_port, space.w_str):
-        port = space.str_w(w_port)
+        port = space.bytes_w(w_port)
     else:
-        raise OperationError(space.w_TypeError,
-                             space.wrap(
-            "getaddrinfo() argument 2 must be integer or string"))
+        raise oefmt(space.w_TypeError,
+                    "getaddrinfo() argument 2 must be integer or string")
     try:
         lst = rsocket.getaddrinfo(host, port, family, socktype,
                                   proto, flags)
-    except SocketError, e:
+    except SocketError as e:
         raise converted_error(space, e)
     lst1 = [space.newtuple([space.wrap(family),
                             space.wrap(socktype),
@@ -307,6 +312,5 @@ def setdefaulttimeout(space, w_timeout):
     else:
         timeout = space.float_w(w_timeout)
         if timeout < 0.0:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap('Timeout value out of range'))
+            raise oefmt(space.w_ValueError, "Timeout value out of range")
     rsocket.setdefaulttimeout(timeout)

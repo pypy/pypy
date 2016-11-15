@@ -5,27 +5,34 @@ The Bookkeeper class.
 from __future__ import absolute_import
 
 import sys, types, inspect, weakref
+from contextlib import contextmanager
+from collections import OrderedDict
 
 from rpython.flowspace.model import Constant
-from rpython.annotator.model import (SomeOrderedDict,
-    SomeString, SomeChar, SomeFloat, unionof, SomeInstance, SomeDict,
-    SomeBuiltin, SomePBC, SomeInteger, TLS, SomeUnicodeCodePoint,
-    s_None, s_ImpossibleValue, SomeBool, SomeTuple,
+from rpython.annotator.model import (
+    SomeOrderedDict, SomeString, SomeChar, SomeFloat, unionof, SomeInstance,
+    SomeDict, SomeBuiltin, SomePBC, SomeInteger, TLS, SomeUnicodeCodePoint,
+    s_None, s_ImpossibleValue, SomeBool, SomeTuple, SomeException,
     SomeImpossibleValue, SomeUnicodeString, SomeList, HarmlesslyBlocked,
-    SomeWeakRef, SomeByteArray, SomeConstantType)
-from rpython.rtyper.llannotation import (
-    SomeAddress, SomePtr, SomeLLADTMeth, lltype_to_annotation)
-from rpython.annotator.classdef import InstanceSource, ClassDef
+    SomeWeakRef, SomeByteArray, SomeConstantType, SomeProperty)
+from rpython.annotator.classdesc import ClassDef, ClassDesc
 from rpython.annotator.listdef import ListDef, ListItem
 from rpython.annotator.dictdef import DictDef
 from rpython.annotator import description
 from rpython.annotator.signature import annotationoftype
-from rpython.annotator.argument import ArgumentsForTranslation
-from rpython.rlib.objectmodel import r_dict, Symbolic
+from rpython.annotator.argument import simple_args
+from rpython.rlib.objectmodel import r_dict, r_ordereddict, Symbolic
 from rpython.tool.algo.unionfind import UnionFind
-from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper import extregistry
 
+
+BUILTIN_ANALYZERS = {}
+
+def analyzer_for(func):
+    def wrapped(ann_func):
+        BUILTIN_ANALYZERS[func] = ann_func
+        return ann_func
+    return wrapped
 
 class Bookkeeper(object):
     """The log of choices that have been made while analysing the operations.
@@ -37,7 +44,7 @@ class Bookkeeper(object):
 
     def __setstate__(self, dic):
         self.__dict__.update(dic) # normal action
-        delayed_imports()
+        self.register_builtins()
 
     def __init__(self, annotator):
         self.annotator = annotator
@@ -60,8 +67,15 @@ class Bookkeeper(object):
         self.external_class_cache = {}      # cache of ExternalType classes
 
         self.needs_generic_instantiate = {}
+        self.thread_local_fields = set()
 
-        delayed_imports()
+        self.register_builtins()
+
+    def register_builtins(self):
+        import rpython.annotator.builtin  # for side-effects
+        from rpython.annotator.exception import standardexceptions
+        for cls in standardexceptions:
+            self.getuniqueclassdef(cls)
 
     def enter(self, position_key):
         """Start of an operation.
@@ -75,37 +89,32 @@ class Bookkeeper(object):
         del TLS.bookkeeper
         del self.position_key
 
-    def compute_at_fixpoint(self):
-        # getbookkeeper() needs to work during this function, so provide
-        # one with a dummy position
-        self.enter(None)
+    @contextmanager
+    def at_position(self, pos):
+        """A context manager calling `self.enter()` and `self.leave()`"""
+        if hasattr(self, 'position_key') and pos is None:
+            yield
+            return
+        self.enter(pos)
         try:
-            def call_sites():
-                newblocks = self.annotator.added_blocks
-                if newblocks is None:
-                    newblocks = self.annotator.annotated  # all of them
-                binding = self.annotator.binding
-                for block in newblocks:
-                    for op in block.operations:
-                        if op.opname in ('simple_call', 'call_args'):
-                            yield op
-
-                        # some blocks are partially annotated
-                        if binding(op.result, None) is None:
-                            break   # ignore the unannotated part
-
-            for call_op in call_sites():
-                self.consider_call_site(call_op)
-
-            for pbc, args_s in self.emulated_pbc_calls.itervalues():
-                self.consider_call_site_for_pbc(pbc, 'simple_call',
-                                                args_s, s_ImpossibleValue, None)
-            self.emulated_pbc_calls = {}
+            yield
         finally:
             self.leave()
 
-        # sanity check: no flags attached to heap stored instances
+    def compute_at_fixpoint(self):
+        # getbookkeeper() needs to work during this function, so provide
+        # one with a dummy position
+        with self.at_position(None):
+            for call_op in self.annotator.call_sites():
+                self.consider_call_site(call_op)
 
+            for pbc, args_s in self.emulated_pbc_calls.itervalues():
+                args = simple_args(args_s)
+                pbc.consider_call_site(args, s_ImpossibleValue, None)
+            self.emulated_pbc_calls = {}
+
+    def check_no_flags_on_instances(self):
+        # sanity check: no flags attached to heap stored instances
         seen = set()
 
         def check_no_flags(s_value_or_def):
@@ -137,35 +146,30 @@ class Bookkeeper(object):
             check_no_flags(clsdef)
 
     def consider_call_site(self, call_op):
-        binding = self.annotator.binding
-        s_callable = binding(call_op.args[0])
-        args_s = [binding(arg) for arg in call_op.args[1:]]
+        from rpython.rtyper.llannotation import SomeLLADTMeth, lltype_to_annotation
+        annotation = self.annotator.annotation
+        s_callable = annotation(call_op.args[0])
+        args_s = [annotation(arg) for arg in call_op.args[1:]]
         if isinstance(s_callable, SomeLLADTMeth):
             adtmeth = s_callable
             s_callable = self.immutablevalue(adtmeth.func)
             args_s = [lltype_to_annotation(adtmeth.ll_ptrtype)] + args_s
         if isinstance(s_callable, SomePBC):
-            s_result = binding(call_op.result, s_ImpossibleValue)
-            self.consider_call_site_for_pbc(s_callable, call_op.opname, args_s,
-                                            s_result, call_op)
-
-    def consider_call_site_for_pbc(self, s_callable, opname, args_s, s_result,
-                                   call_op):
-        descs = list(s_callable.descriptions)
-        if not descs:
-            return
-        family = descs[0].getcallfamily()
-        args = self.build_args(opname, args_s)
-        s_callable.getKind().consider_call_site(self, family, descs, args,
-                                                s_result, call_op)
+            s_result = annotation(call_op.result)
+            if s_result is None:
+                s_result = s_ImpossibleValue
+            args = call_op.build_args(args_s)
+            s_callable.consider_call_site(args, s_result, call_op)
 
     def getuniqueclassdef(self, cls):
-        """Get the ClassDef associated with the given user cls.
-        Avoid using this!  It breaks for classes that must be specialized.
-        """
+        """Get the ClassDef associated with the given user cls."""
         assert cls is not object
         desc = self.getdesc(cls)
         return desc.getuniqueclassdef()
+
+    def new_exception(self, exc_classes):
+        clsdefs = {self.getuniqueclassdef(cls) for cls in exc_classes}
+        return SomeException(clsdefs)
 
     def getlistdef(self, **flags_if_new):
         """Get the ListDef associated with the current position."""
@@ -223,7 +227,8 @@ class Bookkeeper(object):
                 x = int(x)
                 result = SomeInteger(nonneg = x>=0)
             else:
-                raise Exception("seeing a prebuilt long (value %s)" % hex(x))
+                # XXX: better error reporting?
+                raise ValueError("seeing a prebuilt long (value %s)" % hex(x))
         elif issubclass(tp, str): # py.lib uses annotated str subclasses
             no_nul = not '\x00' in x
             if len(x) == 1:
@@ -231,10 +236,11 @@ class Bookkeeper(object):
             else:
                 result = SomeString(no_nul=no_nul)
         elif tp is unicode:
+            no_nul = not u'\x00' in x
             if len(x) == 1:
-                result = SomeUnicodeCodePoint()
+                result = SomeUnicodeCodePoint(no_nul=no_nul)
             else:
-                result = SomeUnicodeString()
+                result = SomeUnicodeString(no_nul=no_nul)
         elif tp is bytearray:
             result = SomeByteArray()
         elif tp is tuple:
@@ -252,21 +258,23 @@ class Bookkeeper(object):
                     result.listdef.generalize(self.immutablevalue(e))
                 result.const_box = key
                 return result
-        elif tp is dict or tp is r_dict or tp is SomeOrderedDict.knowntype:
-            if tp is SomeOrderedDict.knowntype:
-                cls = SomeOrderedDict
-            else:
-                cls = SomeDict
+        elif (tp is dict or tp is r_dict or
+              tp is OrderedDict or tp is r_ordereddict):
             key = Constant(x)
             try:
                 return self.immutable_cache[key]
             except KeyError:
+                if tp is OrderedDict or tp is r_ordereddict:
+                    cls = SomeOrderedDict
+                else:
+                    cls = SomeDict
+                is_r_dict = issubclass(tp, r_dict)
                 result = cls(DictDef(self,
                                         s_ImpossibleValue,
                                         s_ImpossibleValue,
-                                        is_r_dict = tp is r_dict))
+                                        is_r_dict = is_r_dict))
                 self.immutable_cache[key] = result
-                if tp is r_dict:
+                if is_r_dict:
                     s_eqfn = self.immutablevalue(x.key_eq)
                     s_hashfn = self.immutablevalue(x.key_hash)
                     result.dictdef.dictkey.update_rdict_annotations(s_eqfn,
@@ -291,16 +299,14 @@ class Bookkeeper(object):
                 s1 = self.immutablevalue(x1)
                 assert isinstance(s1, SomeInstance)
                 result = SomeWeakRef(s1.classdef)
+        elif tp is property:
+            return SomeProperty(x)
         elif ishashable(x) and x in BUILTIN_ANALYZERS:
             _module = getattr(x,"__module__","unknown")
             result = SomeBuiltin(BUILTIN_ANALYZERS[x], methodname="%s.%s" % (_module, x.__name__))
         elif extregistry.is_registered(x):
             entry = extregistry.lookup(x)
             result = entry.compute_annotation_bk(self)
-        elif isinstance(x, lltype._ptr):
-            result = SomePtr(lltype.typeOf(x))
-        elif isinstance(x, llmemory.fakeaddress):
-            result = SomeAddress()
         elif tp is type:
             result = SomeConstantType(x, self)
         elif callable(x):
@@ -329,8 +335,9 @@ class Bookkeeper(object):
                  and x.__class__.__module__ != '__builtin__':
             if hasattr(x, '_cleanup_'):
                 x._cleanup_()
-            self.see_mutable(x)
-            result = SomeInstance(self.getuniqueclassdef(x.__class__))
+            classdef = self.getuniqueclassdef(x.__class__)
+            classdef.see_instance(x)
+            result = SomeInstance(classdef)
         elif x is None:
             return s_None
         else:
@@ -346,18 +353,19 @@ class Bookkeeper(object):
         #  * a user-defined bound or unbound method object
         #  * a frozen pre-built constant (with _freeze_() == True)
         #  * a bound method of a frozen pre-built constant
+        obj_key = Constant(pyobj)
         try:
-            return self.descs[pyobj]
+            return self.descs[obj_key]
         except KeyError:
             if isinstance(pyobj, types.FunctionType):
                 result = description.FunctionDesc(self, pyobj)
             elif isinstance(pyobj, (type, types.ClassType)):
                 if pyobj is object:
-                    raise Exception, "ClassDesc for object not supported"
+                    raise Exception("ClassDesc for object not supported")
                 if pyobj.__module__ == '__builtin__': # avoid making classdefs for builtin types
                     result = self.getfrozen(pyobj)
                 else:
-                    result = description.ClassDesc(self, pyobj)
+                    result = ClassDesc(self, pyobj)
             elif isinstance(pyobj, types.MethodType):
                 if pyobj.im_self is None:   # unbound
                     return self.getdesc(pyobj.im_func)
@@ -370,11 +378,11 @@ class Bookkeeper(object):
                         self.getdesc(pyobj.im_self))            # frozendesc
                 else: # regular method
                     origincls, name = origin_of_meth(pyobj)
-                    self.see_mutable(pyobj.im_self)
+                    classdef = self.getuniqueclassdef(pyobj.im_class)
+                    classdef.see_instance(pyobj.im_self)
                     assert pyobj == getattr(pyobj.im_self, name), (
                         "%r is not %s.%s ??" % (pyobj, pyobj.im_self, name))
                     # emulate a getattr to make sure it's on the classdef
-                    classdef = self.getuniqueclassdef(pyobj.im_class)
                     classdef.find_attribute(name)
                     result = self.getmethoddesc(
                         self.getdesc(pyobj.im_func),            # funcdesc
@@ -392,17 +400,8 @@ class Bookkeeper(object):
                         msg = "unexpected prebuilt constant"
                     raise Exception("%s: %r" % (msg, pyobj))
                 result = self.getfrozen(pyobj)
-            self.descs[pyobj] = result
+            self.descs[obj_key] = result
             return result
-
-    def have_seen(self, x):
-        # this might need to expand some more.
-        if x in self.descs:
-            return True
-        elif (x.__class__, x) in self.seen_mutable:
-            return True
-        else:
-            return False
 
     def getfrozen(self, pyobj):
         return description.FrozenDesc(self, pyobj)
@@ -419,17 +418,6 @@ class Bookkeeper(object):
                                             selfclassdef, name, flags)
             self.methoddescs[key] = result
             return result
-
-    def see_mutable(self, x):
-        key = (x.__class__, x)
-        if key in self.seen_mutable:
-            return
-        clsdef = self.getuniqueclassdef(x.__class__)
-        self.seen_mutable[key] = True
-        self.event('mutable', x)
-        source = InstanceSource(self, x)
-        for attr in source.all_instance_attributes():
-            clsdef.add_source_for_attribute(attr, source) # can trigger reflowing
 
     def valueoftype(self, t):
         return annotationoftype(t, self)
@@ -450,9 +438,6 @@ class Bookkeeper(object):
         attr = s_attr.const
 
         descs = list(pbc.descriptions)
-        if not descs:
-            return s_ImpossibleValue
-
         first = descs[0]
         if len(descs) == 1:
             return first.s_read_attribute(attr)
@@ -488,24 +473,33 @@ class Bookkeeper(object):
 
         return s_result
 
+    def getattr_locations(self, clsdesc, attrname):
+        attrdef = clsdesc.classdef.find_attribute(attrname)
+        return attrdef.read_locations
+
+    def record_getattr(self, clsdesc, attrname):
+        locations = self.getattr_locations(clsdesc, attrname)
+        locations.add(self.position_key)
+
+    def update_attr(self, clsdef, attrdef):
+        locations = self.getattr_locations(clsdef.classdesc, attrdef.name)
+        for position in locations:
+            self.annotator.reflowfromposition(position)
+        attrdef.validate(homedef=clsdef)
+
     def pbc_call(self, pbc, args, emulated=None):
         """Analyse a call to a SomePBC() with the given args (list of
         annotations).
         """
-        descs = list(pbc.descriptions)
-        if not descs:
-            return s_ImpossibleValue
-        first = descs[0]
-        first.mergecallfamilies(*descs[1:])
-
         if emulated is None:
             whence = self.position_key
             # fish the existing annotation for the result variable,
             # needed by some kinds of specialization.
             fn, block, i = self.position_key
             op = block.operations[i]
-            s_previous_result = self.annotator.binding(op.result,
-                                                       s_ImpossibleValue)
+            s_previous_result = self.annotator.annotation(op.result)
+            if s_previous_result is None:
+                s_previous_result = s_ImpossibleValue
         else:
             if emulated is True:
                 whence = None
@@ -514,20 +508,34 @@ class Bookkeeper(object):
             op = None
             s_previous_result = s_ImpossibleValue
 
-        def schedule(graph, inputcells):
-            return self.annotator.recursivecall(graph, whence, inputcells)
-
         results = []
-        for desc in descs:
-            results.append(desc.pycall(schedule, args, s_previous_result, op))
+        for desc in pbc.descriptions:
+            results.append(desc.pycall(whence, args, s_previous_result, op))
         s_result = unionof(*results)
         return s_result
 
     def emulate_pbc_call(self, unique_key, pbc, args_s, replace=[], callback=None):
-        emulate_enter = not hasattr(self, 'position_key')
-        if emulate_enter:
-            self.enter(None)
-        try:
+        """For annotating some operation that causes indirectly a Python
+        function to be called.  The annotation of the function is "pbc",
+        and the list of annotations of arguments is "args_s".
+
+        Can be called in various contexts, but from compute_annotation()
+        or compute_result_annotation() of an ExtRegistryEntry, call it
+        with both "unique_key" and "callback" set to
+        "self.bookkeeper.position_key".  If there are several calls from
+        the same operation, they need their own "unique_key", like
+        (position_key, "first") and (position_key, "second").
+
+        In general, "unique_key" should somehow uniquely identify where
+        the call is in the source code, and "callback" can be either a
+        position_key to reflow from when we see more general results,
+        or a real callback function that will be called with arguments
+        # "(annotator, called_graph)" whenever the result is generalized.
+
+        "replace" can be set to a list of old unique_key values to
+        forget now, because the given "unique_key" replaces them.
+        """
+        with self.at_position(None):
             emulated_pbc_calls = self.emulated_pbc_calls
             prev = [unique_key]
             prev.extend(replace)
@@ -536,41 +544,12 @@ class Bookkeeper(object):
                     del emulated_pbc_calls[other_key]
             emulated_pbc_calls[unique_key] = pbc, args_s
 
-            args = self.build_args("simple_call", args_s)
+            args = simple_args(args_s)
             if callback is None:
                 emulated = True
             else:
                 emulated = callback
             return self.pbc_call(pbc, args, emulated=emulated)
-        finally:
-            if emulate_enter:
-                self.leave()
-
-    def _find_current_op(self, opname=None, arity=None, pos=None, s_type=None):
-        """ Find operation that is currently being annotated. Do some
-        sanity checks to see whether the correct op was found."""
-        # XXX XXX HACK HACK HACK
-        fn, block, i = self.position_key
-        op = block.operations[i]
-        if opname is not None:
-            assert op.opname == opname
-        if arity is not None:
-            assert len(op.args) == arity
-        if pos is not None:
-            assert self.annotator.binding(op.args[pos]) == s_type
-        return op
-
-    def build_args(self, op, args_s):
-        if op == "simple_call":
-            return ArgumentsForTranslation(list(args_s))
-        elif op == "call_args":
-            return ArgumentsForTranslation.fromshape(
-                    args_s[0].const, # shape
-                    list(args_s[1:]))
-
-    def ondegenerated(self, what, s_value, where=None, called_from_graph=None):
-        self.annotator.ondegenerated(what, s_value, where=where,
-                                     called_from_graph=called_from_graph)
 
     def whereami(self):
         return self.annotator.whereami(self.position_key)
@@ -591,7 +570,7 @@ def origin_of_meth(boundmeth):
         for name, value in dict.iteritems():
             if value is func:
                 return cls, name
-    raise Exception, "could not match bound-method to attribute name: %r" % (boundmeth,)
+    raise Exception("could not match bound-method to attribute name: %r" % (boundmeth,))
 
 def ishashable(x):
     try:
@@ -600,6 +579,7 @@ def ishashable(x):
         return False
     else:
         return True
+
 # get current bookkeeper
 
 def getbookkeeper():
@@ -610,7 +590,5 @@ def getbookkeeper():
     except AttributeError:
         return None
 
-def delayed_imports():
-    # import ordering hack
-    global BUILTIN_ANALYZERS
-    from rpython.annotator.builtin import BUILTIN_ANALYZERS
+def immutablevalue(x):
+    return getbookkeeper().immutablevalue(x)

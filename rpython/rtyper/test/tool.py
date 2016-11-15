@@ -3,25 +3,29 @@ from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.test.test_llinterp import gengraph, interpret, interpret_raises
 
 class BaseRtypingTest(object):
-    type_system = 'lltype'
     FLOAT_PRECISION = 8
 
-    def gengraph(self, func, argtypes=[], viewbefore='auto', policy=None,
+    @staticmethod
+    def gengraph(func, argtypes=[], viewbefore='auto', policy=None,
              backendopt=False, config=None):
         return gengraph(func, argtypes, viewbefore, policy,
                         backendopt=backendopt, config=config)
 
-    def interpret(self, fn, args, **kwds):
-        return interpret(fn, args, type_system=self.type_system, **kwds)
+    @staticmethod
+    def interpret(fn, args, **kwds):
+        return interpret(fn, args, **kwds)
 
-    def interpret_raises(self, exc, fn, args, **kwds):
-        return interpret_raises(exc, fn, args, type_system=self.type_system, **kwds)
+    @staticmethod
+    def interpret_raises(exc, fn, args, **kwds):
+        return interpret_raises(exc, fn, args, **kwds)
 
-    def float_eq(self, x, y):
+    @staticmethod
+    def float_eq(x, y):
         return x == y
 
-    def float_eq_approx(self, x, y):
-        maxError = 10**-self.FLOAT_PRECISION
+    @classmethod
+    def float_eq_approx(cls, x, y):
+        maxError = 10**-cls.FLOAT_PRECISION
         if abs(x-y) < maxError:
             return True
 
@@ -32,45 +36,66 @@ class BaseRtypingTest(object):
 
         return relativeError < maxError
 
-    def is_of_type(self, x, type_):
+    @staticmethod
+    def is_of_type(x, type_):
         return type(x) is type_
 
-    def _skip_llinterpreter(self, reason):
+    @staticmethod
+    def _skip_llinterpreter(reason):
         py.test.skip("lltypesystem doesn't support %s, yet" % reason)
 
-    def ll_to_string(self, s):
+    @staticmethod
+    def ll_to_string(s):
         if not s:
             return None
         return ''.join(s.chars)
 
-    def ll_to_unicode(self, s):
+    @staticmethod
+    def ll_to_unicode(s):
         return u''.join(s.chars)
 
-    def string_to_ll(self, s):
-        from rpython.rtyper.module.support import LLSupport
-        return LLSupport.to_rstr(s)
+    @staticmethod
+    def string_to_ll(s):
+        from rpython.rtyper.lltypesystem.rstr import STR, mallocstr
+        if s is None:
+            return lltype.nullptr(STR)
+        p = mallocstr(len(s))
+        for i in range(len(s)):
+            p.chars[i] = s[i]
+        return p
 
-    def unicode_to_ll(self, s):
-        from rpython.rtyper.module.support import LLSupport
-        return LLSupport.to_runicode(s)
+    @staticmethod
+    def unicode_to_ll(s):
+        from rpython.rtyper.lltypesystem.rstr import UNICODE, mallocunicode
+        if s is None:
+            return lltype.nullptr(UNICODE)
+        p = mallocunicode(len(s))
+        for i in range(len(s)):
+            p.chars[i] = s[i]
+        return p
 
-    def ll_to_list(self, l):
+    @staticmethod
+    def ll_to_list(l):
         r = []
         items = l.ll_items()
         for i in range(l.ll_length()):
             r.append(items[i])
         return r
 
-    def ll_unpack_tuple(self, t, length):
+    @staticmethod
+    def ll_unpack_tuple(t, length):
         return tuple([getattr(t, 'item%d' % i) for i in range(length)])
 
-    def get_callable(self, fnptr):
+    @staticmethod
+    def get_callable(fnptr):
         return fnptr._obj._callable
 
-    def class_name(self, value):
-        return "".join(value.super.typeptr.name)[:-1]
+    @staticmethod
+    def class_name(value):
+        return ''.join(value.super.typeptr.name.chars)
 
-    def read_attr(self, value, attr_name):
+    @staticmethod
+    def read_attr(value, attr_name):
         value = value._obj
         while value is not None:
             attr = getattr(value, "inst_" + attr_name, None)
@@ -80,6 +105,7 @@ class BaseRtypingTest(object):
                 return attr
         raise AttributeError()
 
-    def is_of_instance_type(self, val):
+    @staticmethod
+    def is_of_instance_type(val):
         T = lltype.typeOf(val)
         return isinstance(T, lltype.Ptr) and isinstance(T.TO, lltype.GcStruct)

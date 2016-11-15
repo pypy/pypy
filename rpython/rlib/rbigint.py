@@ -4,7 +4,7 @@ from rpython.rlib.rarithmetic import most_neg_value_of_same_type
 from rpython.rlib.rfloat import isinf, isnan
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.debug import make_sure_not_resized, check_regular_int
-from rpython.rlib.objectmodel import we_are_translated, specialize
+from rpython.rlib.objectmodel import we_are_translated, specialize, not_rpython
 from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper import extregistry
@@ -44,6 +44,25 @@ else:
 MASK = int((1 << SHIFT) - 1)
 FLOAT_MULTIPLIER = float(1 << SHIFT)
 
+# For BIGINT and INT mix.
+#
+# The VALID range of an int is different than a valid range of a bigint of length one.
+# -1 << LONG_BIT is actually TWO digits, because they are stored without the sign.
+if SHIFT == LONG_BIT - 1:
+    MIN_INT_VALUE = -1 << SHIFT
+    def int_in_valid_range(x):
+        if x == MIN_INT_VALUE:
+            return False
+        return True
+else:
+    # Means we don't have INT128 on 64bit.
+    def int_in_valid_range(x):
+        if x > MASK or x < -MASK:
+            return False
+        return True
+
+int_in_valid_range._always_inline_ = True
+
 # Debugging digit array access.
 #
 # False == no checking at all
@@ -71,17 +90,16 @@ KARATSUBA_SQUARE_CUTOFF = 2 * KARATSUBA_CUTOFF
 
 FIVEARY_CUTOFF = 8
 
-
+@specialize.argtype(0)
 def _mask_digit(x):
     return UDIGIT_MASK(x & MASK)
-_mask_digit._annspecialcase_ = 'specialize:argtype(0)'
 
 def _widen_digit(x):
     return rffi.cast(LONG_TYPE, x)
 
+@specialize.argtype(0)
 def _store_digit(x):
     return rffi.cast(STORE_TYPE, x)
-_store_digit._annspecialcase_ = 'specialize:argtype(0)'
 
 def _load_unsigned_digit(x):
     return rffi.cast(UNSIGNED_TYPE, x)
@@ -131,14 +149,14 @@ class rbigint(object):
         self.sign = sign
 
     # __eq__ and __ne__ method exist for testingl only, they are not RPython!
+    @not_rpython
     def __eq__(self, other):
-        # NOT_RPYTHON
         if not isinstance(other, rbigint):
             return NotImplemented
         return self.eq(other)
 
+    @not_rpython
     def __ne__(self, other):
-        # NOT_RPYTHON
         return not (self == other)
 
     def digit(self, x):
@@ -157,11 +175,11 @@ class rbigint(object):
         return _load_unsigned_digit(self._digits[x])
     udigit._always_inline_ = True
 
+    @specialize.argtype(2)
     def setdigit(self, x, val):
         val = _mask_digit(val)
         assert val >= 0
         self._digits[x] = _store_digit(val)
-    setdigit._annspecialcase_ = 'specialize:argtype(2)'
     setdigit._always_inline_ = True
 
     def numdigits(self):
@@ -177,7 +195,7 @@ class rbigint(object):
 
         if intval < 0:
             sign = -1
-            ival = r_uint(-intval)
+            ival = -r_uint(intval)
         elif intval > 0:
             sign = 1
             ival = r_uint(intval)
@@ -200,8 +218,8 @@ class rbigint(object):
         return NULLRBIGINT
 
     @staticmethod
+    @not_rpython
     def fromlong(l):
-        "NOT_RPYTHON"
         return rbigint(*args_from_long(l))
 
     @staticmethod
@@ -278,7 +296,7 @@ class rbigint(object):
         if not s:
             return NULLRBIGINT
 
-        if byteorder != BYTEORDER:
+        if byteorder == 'big':
             msb = ord(s[0])
             itr = range(len(s)-1, -1, -1)
         else:
@@ -318,7 +336,7 @@ class rbigint(object):
         if not signed and self.sign == -1:
             raise InvalidSignednessError()
 
-        bswap = byteorder != BYTEORDER
+        bswap = byteorder == 'big'
         d = _widen_digit(0)
         j = 0
         imax = self.numdigits()
@@ -384,27 +402,35 @@ class rbigint(object):
                 digits = ''.join([digits[i] for i in range(length-1, -1, -1)])
         return digits
 
-    @jit.elidable
     def toint(self):
         """
         Get an integer from a bigint object.
         Raises OverflowError if overflow occurs.
         """
-        x = self._touint_helper()
-        # Haven't lost any bits, but if the sign bit is set we're in
-        # trouble *unless* this is the min negative number.  So,
-        # trouble iff sign bit set && (positive || some bit set other
-        # than the sign bit).
-        sign = self.sign
-        if intmask(x) < 0 and (sign > 0 or (x << 1) != 0):
+        if self.numdigits() > MAX_DIGITS_THAT_CAN_FIT_IN_INT:
             raise OverflowError
-        return intmask(intmask(x) * sign)
+        return self._toint_helper()
+
+    @jit.elidable
+    def _toint_helper(self):
+        x = self._touint_helper()
+        # Haven't lost any bits so far
+        if self.sign >= 0:
+            res = intmask(x)
+            if res < 0:
+                raise OverflowError
+        else:
+            # Use "-" on the unsigned number, not on the signed number.
+            # This is needed to produce valid C code.
+            res = intmask(-x)
+            if res >= 0:
+                raise OverflowError
+        return res
 
     @jit.elidable
     def tolonglong(self):
         return _AsLongLong(self)
 
-    @jit.look_inside
     def tobool(self):
         return self.sign != 0
 
@@ -422,8 +448,7 @@ class rbigint(object):
             prev = x
             x = (x << SHIFT) + self.udigit(i)
             if (x >> SHIFT) != prev:
-                raise OverflowError(
-                        "long int too large to convert to unsigned int (%d, %d)" % (x >> SHIFT, prev))
+                raise OverflowError("long int too large to convert to unsigned int")
             i -= 1
         return x
 
@@ -482,9 +507,24 @@ class rbigint(object):
             i += 1
         return True
 
-    @jit.look_inside
+    @jit.elidable
+    def int_eq(self, other):
+        """ eq with int """
+        
+        if not int_in_valid_range(other):
+            # Fallback to Long. 
+            return self.eq(rbigint.fromint(other))
+
+        if self.numdigits() > 1:
+            return False
+
+        return (self.sign * self.digit(0)) == other
+
     def ne(self, other):
         return not self.eq(other)
+
+    def int_ne(self, other):
+        return not self.int_eq(other)
 
     @jit.elidable
     def lt(self, other):
@@ -521,17 +561,60 @@ class rbigint(object):
             i -= 1
         return False
 
-    @jit.look_inside
+    @jit.elidable
+    def int_lt(self, other):
+        """ lt where other is an int """
+
+        if not int_in_valid_range(other):
+            # Fallback to Long.
+            return self.lt(rbigint.fromint(other))
+
+        osign = 1
+        if other == 0:
+            osign = 0
+        elif other < 0:
+            osign = -1
+ 
+        if self.sign > osign:
+            return False
+        elif self.sign < osign:
+            return True
+
+        digits = self.numdigits()
+        
+        if digits > 1:
+            if osign == 1:
+                return False
+            else:
+                return True
+
+        d1 = self.sign * self.digit(0)
+        if d1 < other:
+            return True
+        return False
+
     def le(self, other):
         return not other.lt(self)
 
-    @jit.look_inside
+    def int_le(self, other):
+        # Alternative that might be faster, reimplant this. as a check with other + 1. But we got to check for overflow
+        # or reduce valid range.
+
+        if self.int_eq(other):
+            return True
+        return self.int_lt(other)
+
     def gt(self, other):
         return other.lt(self)
 
-    @jit.look_inside
+    def int_gt(self, other):
+        return not self.int_le(other)
+
     def ge(self, other):
         return not self.lt(other)
+
+    def int_ge(self, other):
+        return not self.int_lt(other)
 
     @jit.elidable
     def hash(self):
@@ -551,15 +634,50 @@ class rbigint(object):
         return result
 
     @jit.elidable
+    def int_add(self, other):
+        if not int_in_valid_range(other):
+            # Fallback to long.
+            return self.add(rbigint.fromint(other))
+        elif self.sign == 0:
+            return rbigint.fromint(other)
+        elif other == 0:
+            return self
+
+        sign = -1 if other < 0 else 1
+        if self.sign == sign:
+            result = _x_int_add(self, other)
+        else:
+            result = _x_int_sub(self, other)
+            result.sign *= -1
+        result.sign *= sign
+        return result
+
+    @jit.elidable
     def sub(self, other):
         if other.sign == 0:
             return self
-        if self.sign == 0:
+        elif self.sign == 0:
             return rbigint(other._digits[:other.size], -other.sign, other.size)
-        if self.sign == other.sign:
+        elif self.sign == other.sign:
             result = _x_sub(self, other)
         else:
             result = _x_add(self, other)
+        result.sign *= self.sign
+        return result
+
+    @jit.elidable
+    def int_sub(self, other):
+        if not int_in_valid_range(other):
+            # Fallback to long.
+            return self.sub(rbigint.fromint(other))
+        elif other == 0:
+            return self
+        elif self.sign == 0:
+            return rbigint.fromint(-other)
+        elif self.sign == (-1 if other < 0 else 1):
+            result = _x_int_sub(self, other)
+        else:
+            result = _x_int_add(self, other)
         result.sign *= self.sign
         return result
 
@@ -609,6 +727,37 @@ class rbigint(object):
         return result
 
     @jit.elidable
+    def int_mul(self, b):
+        if not int_in_valid_range(b):
+            # Fallback to long.
+            return self.mul(rbigint.fromint(b))
+
+        if self.sign == 0 or b == 0:
+            return NULLRBIGINT
+
+        asize = self.numdigits()
+        digit = abs(b)
+        bsign = -1 if b < 0 else 1
+
+        if digit == 1:
+            return rbigint(self._digits[:self.size], self.sign * bsign, asize)
+        elif asize == 1:
+            res = self.widedigit(0) * digit
+            carry = res >> SHIFT
+            if carry:
+                return rbigint([_store_digit(res & MASK), _store_digit(carry)], self.sign * bsign, 2)
+            else:
+                return rbigint([_store_digit(res & MASK)], self.sign * bsign, 1)
+
+        elif digit & (digit - 1) == 0:
+            result = self.lqshift(ptwotable[digit])
+        else:
+            result = _muladd1(self, digit)
+
+        result.sign = self.sign * bsign
+        return result
+
+    @jit.elidable
     def truediv(self, other):
         div = _bigint_true_divide(self, other)
         return div
@@ -626,11 +775,10 @@ class rbigint(object):
         if mod.sign * other.sign == -1:
             if div.sign == 0:
                 return ONENEGATIVERBIGINT
-            div = div.sub(ONERBIGINT)
+            div = div.int_sub(1)
 
         return div
 
-    @jit.look_inside
     def div(self, other):
         return self.floordiv(other)
 
@@ -649,7 +797,7 @@ class rbigint(object):
                     return ONENEGATIVERBIGINT if other.sign == -1 else ONERBIGINT
                 return NULLRBIGINT
             elif digit & (digit - 1) == 0:
-                mod = self.and_(rbigint([_store_digit(digit - 1)], 1, 1))
+                mod = self.int_and_(digit - 1)
             else:
                 # Perform
                 size = self.numdigits() - 1
@@ -669,6 +817,48 @@ class rbigint(object):
             div, mod = _divrem(self, other)
         if mod.sign * other.sign == -1:
             mod = mod.add(other)
+        return mod
+
+    @jit.elidable
+    def int_mod(self, other):
+        if self.sign == 0:
+            return NULLRBIGINT
+
+        elif not int_in_valid_range(other):
+            # Fallback to long.
+            return self.mod(rbigint.fromint(other))
+
+        elif other != 0:
+            digit = abs(other)
+            if digit == 1:
+                return NULLRBIGINT
+            elif digit == 2:
+                modm = self.digit(0) & 1
+                if modm:
+                    return ONENEGATIVERBIGINT if other < 0 else ONERBIGINT
+                return NULLRBIGINT
+            elif digit & (digit - 1) == 0:
+                mod = self.int_and_(digit - 1)
+            else:
+                # Perform
+                size = self.numdigits() - 1
+                if size > 0:
+                    rem = self.widedigit(size)
+                    size -= 1
+                    while size >= 0:
+                        rem = ((rem << SHIFT) + self.widedigit(size)) % digit
+                        size -= 1
+                else:
+                    rem = self.digit(0) % digit
+
+                if rem == 0:
+                    return NULLRBIGINT
+                mod = rbigint([_store_digit(rem)], -1 if self.sign < 0 else 1, 1)
+        else:
+            raise ZeroDivisionError("long division or modulo by zero")
+
+        if mod.sign * (-1 if other < 0 else 1) == -1:
+            mod = mod.int_add(other)
         return mod
 
     @jit.elidable
@@ -694,7 +884,7 @@ class rbigint(object):
             mod = mod.add(w)
             if div.sign == 0:
                 return ONENEGATIVERBIGINT, mod
-            div = div.sub(ONERBIGINT)
+            div = div.int_sub(1)
         return div, mod
 
     @jit.elidable
@@ -852,7 +1042,7 @@ class rbigint(object):
         if self.sign == 0:
             return ONENEGATIVERBIGINT
 
-        ret = self.add(ONERBIGINT)
+        ret = self.int_add(1)
         ret.sign = -ret.sign
         return ret
 
@@ -997,12 +1187,24 @@ class rbigint(object):
         return _bitwise(self, '&', other)
 
     @jit.elidable
+    def int_and_(self, other):
+        return _int_bitwise(self, '&', other)
+
+    @jit.elidable
     def xor(self, other):
         return _bitwise(self, '^', other)
 
     @jit.elidable
+    def int_xor(self, other):
+        return _int_bitwise(self, '^', other)
+
+    @jit.elidable
     def or_(self, other):
         return _bitwise(self, '|', other)
+
+    @jit.elidable
+    def int_or_(self, other):
+        return _int_bitwise(self, '|', other)
 
     @jit.elidable
     def oct(self):
@@ -1020,13 +1222,16 @@ class rbigint(object):
         # base is supposed to be positive or 0.0, which means we use e
         if base == 10.0:
             return _loghelper(math.log10, self)
+        if base == 2.0:
+            from rpython.rlib import rfloat
+            return _loghelper(rfloat.log2, self)
         ret = _loghelper(math.log, self)
         if base != 0.0:
             ret /= math.log(base)
         return ret
 
+    @not_rpython
     def tolong(self):
-        "NOT_RPYTHON"
         l = 0L
         digits = list(self._digits)
         digits.reverse()
@@ -1084,6 +1289,11 @@ _jmapping = [(5 * SHIFT) % 5,
              (2 * SHIFT) % 5,
              (1 * SHIFT) % 5]
 
+
+# if the bigint has more digits than this, it cannot fit into an int
+MAX_DIGITS_THAT_CAN_FIT_IN_INT = rbigint.fromint(-sys.maxint - 1).numdigits()
+
+
 #_________________________________________________________________
 
 # Helper Functions
@@ -1102,6 +1312,7 @@ def _help_mult(x, y, c):
 
     return res
 
+@specialize.argtype(0)
 def digits_from_nonneg_long(l):
     digits = []
     while True:
@@ -1109,8 +1320,8 @@ def digits_from_nonneg_long(l):
         l = l >> SHIFT
         if not l:
             return digits[:] # to make it non-resizable
-digits_from_nonneg_long._annspecialcase_ = "specialize:argtype(0)"
 
+@specialize.argtype(0)
 def digits_for_most_neg_long(l):
     # This helper only works if 'l' is the most negative integer of its
     # type, which in base 2 looks like: 1000000..0000
@@ -1125,8 +1336,8 @@ def digits_for_most_neg_long(l):
     assert l & MASK == l
     digits.append(_store_digit(l))
     return digits[:] # to make it non-resizable
-digits_for_most_neg_long._annspecialcase_ = "specialize:argtype(0)"
 
+@specialize.argtype(0)
 def args_from_rarith_int1(x):
     if x > 0:
         return digits_from_nonneg_long(x), 1
@@ -1138,16 +1349,15 @@ def args_from_rarith_int1(x):
     else:
         # the most negative integer! hacks needed...
         return digits_for_most_neg_long(x), -1
-args_from_rarith_int1._annspecialcase_ = "specialize:argtype(0)"
 
+@specialize.argtype(0)
 def args_from_rarith_int(x):
     return args_from_rarith_int1(widen(x))
-args_from_rarith_int._annspecialcase_ = "specialize:argtype(0)"
 # ^^^ specialized by the precise type of 'x', which is typically a r_xxx
 #     instance from rlib.rarithmetic
 
+@not_rpython
 def args_from_long(x):
-    "NOT_RPYTHON"
     if x >= 0:
         if x == 0:
             return [NULLDIGIT], 0
@@ -1173,6 +1383,25 @@ def _x_add(a, b):
         z.setdigit(i, carry)
         carry >>= SHIFT
         i += 1
+    while i < size_a:
+        carry += a.udigit(i)
+        z.setdigit(i, carry)
+        carry >>= SHIFT
+        i += 1
+    z.setdigit(i, carry)
+    z._normalize()
+    return z
+
+def _x_int_add(a, b):
+    """ Add the absolute values of one bigint and one integer. """
+    size_a = a.numdigits()
+
+    z = rbigint([NULLDIGIT] * (size_a + 1), 1)
+    i = UDIGIT_TYPE(1)
+    carry = a.udigit(0) + abs(b)
+    z.setdigit(0, carry)
+    carry >>= SHIFT
+
     while i < size_a:
         carry += a.udigit(i)
         z.setdigit(i, carry)
@@ -1217,6 +1446,42 @@ def _x_sub(a, b):
         borrow >>= SHIFT
         #borrow &= 1 # Keep only one sign bit
         i += 1
+    while i < size_a:
+        borrow = a.udigit(i) - borrow
+        z.setdigit(i, borrow)
+        borrow >>= SHIFT
+        #borrow &= 1
+        i += 1
+
+    assert borrow == 0
+    z._normalize()
+    return z
+
+def _x_int_sub(a, b):
+    """ Subtract the absolute values of two integers. """
+
+    size_a = a.numdigits()
+
+    bdigit = abs(b)
+
+    if size_a == 1:
+        # Find highest digit where a and b differ:
+        adigit = a.digit(0)
+
+        if adigit == bdigit:
+            return NULLRBIGINT
+    
+        return rbigint.fromint(adigit - bdigit)
+
+    z = rbigint([NULLDIGIT] * size_a, 1, size_a)
+    i = _load_unsigned_digit(1)
+    # The following assumes unsigned arithmetic
+    # works modulo 2**N for some N>SHIFT.
+    borrow = a.udigit(0) - bdigit
+    z.setdigit(0, borrow)
+    borrow >>= SHIFT
+    #borrow &= 1 # Keep only one sign bit
+
     while i < size_a:
         borrow = a.udigit(i) - borrow
         z.setdigit(i, borrow)
@@ -1644,6 +1909,7 @@ def _v_isub(x, xofs, m, y, n):
         i += 1
     return borrow
 
+@specialize.argtype(2)
 def _muladd1(a, n, extra=0):
     """Multiply by a single digit and add a single digit, ignoring the sign.
     """
@@ -1661,7 +1927,7 @@ def _muladd1(a, n, extra=0):
     z.setdigit(i, carry)
     z._normalize()
     return z
-_muladd1._annspecialcase_ = "specialize:argtype(2)"
+
 def _v_lshift(z, a, m, d):
     """ Shift digit vector a[0:m] d bits left, with 0 <= d < SHIFT. Put
         * result in z[0:m], and return the d bits shifted out of the top.
@@ -1913,6 +2179,7 @@ def _AsDouble(n):
         ad = -ad
     return ad
 
+@specialize.arg(0)
 def _loghelper(func, arg):
     """
     A decent logarithm is easy to compute even for huge bigints, but libm can't
@@ -1930,7 +2197,6 @@ def _loghelper(func, arg):
     # CAUTION:  e*SHIFT may overflow using int arithmetic,
     # so force use of double. */
     return func(x) + (e * float(SHIFT) * func(2.0))
-_loghelper._annspecialcase_ = 'specialize:arg(0)'
 
 # ____________________________________________________________
 
@@ -2254,6 +2520,7 @@ def _format(x, digits, prefix='', suffix=''):
     return output.build()
 
 
+@specialize.arg(1)
 def _bitwise(a, op, b): # '&', '|', '^'
     """ Bitwise and/or/xor operations """
 
@@ -2333,8 +2600,90 @@ def _bitwise(a, op, b): # '&', '|', '^'
         return z
 
     return z.invert()
-_bitwise._annspecialcase_ = "specialize:arg(1)"
 
+@specialize.arg(1)
+def _int_bitwise(a, op, b): # '&', '|', '^'
+    """ Bitwise and/or/xor operations """
+
+    if not int_in_valid_range(b):
+        # Fallback to long.
+        return _bitwise(a, op, rbigint.fromint(b))
+
+    if a.sign < 0:
+        a = a.invert()
+        maska = MASK
+    else:
+        maska = 0
+    if b < 0:
+        b = ~b
+        maskb = MASK
+    else:
+        maskb = 0
+
+    negz = 0
+    if op == '^':
+        if maska != maskb:
+            maska ^= MASK
+            negz = -1
+    elif op == '&':
+        if maska and maskb:
+            op = '|'
+            maska ^= MASK
+            maskb ^= MASK
+            negz = -1
+    elif op == '|':
+        if maska or maskb:
+            op = '&'
+            maska ^= MASK
+            maskb ^= MASK
+            negz = -1
+
+    # JRH: The original logic here was to allocate the result value (z)
+    # as the longer of the two operands.  However, there are some cases
+    # where the result is guaranteed to be shorter than that: AND of two
+    # positives, OR of two negatives: use the shorter number.  AND with
+    # mixed signs: use the positive number.  OR with mixed signs: use the
+    # negative number.  After the transformations above, op will be '&'
+    # iff one of these cases applies, and mask will be non-0 for operands
+    # whose length should be ignored.
+
+    size_a = a.numdigits()
+    if op == '&':
+        if maska:
+            size_z = 1
+        else:
+            if maskb:
+                size_z = size_a
+            else:
+                size_z = 1
+    else:
+        size_z = size_a
+
+    z = rbigint([NULLDIGIT] * size_z, 1, size_z)
+    i = 0
+    while i < size_z:
+        if i < size_a:
+            diga = a.digit(i) ^ maska
+        else:
+            diga = maska
+        if i == 0:
+            digb = b ^ maskb
+        else:
+            digb = maskb
+
+        if op == '&':
+            z.setdigit(i, diga & digb)
+        elif op == '|':
+            z.setdigit(i, diga | digb)
+        elif op == '^':
+            z.setdigit(i, diga ^ digb)
+        i += 1
+
+    z._normalize()
+    if negz == 0:
+        return z
+
+    return z.invert()
 
 ULONGLONG_BOUND = r_ulonglong(1L << (r_longlong.BITS-1))
 LONGLONG_MIN = r_longlong(-(1L << (r_longlong.BITS-1)))
@@ -2453,8 +2802,10 @@ def _decimalstr_to_bigint(s):
 
 def parse_digit_string(parser):
     # helper for fromstr
-    a = rbigint()
     base = parser.base
+    if (base & (base - 1)) == 0:
+        return parse_string_from_binary_base(parser)
+    a = rbigint()
     digitmax = BASE_MAX[base]
     tens, dig = 1, 0
     while True:
@@ -2470,3 +2821,52 @@ def parse_digit_string(parser):
             tens *= base
     a.sign *= parser.sign
     return a
+
+def parse_string_from_binary_base(parser):
+    # The point to this routine is that it takes time linear in the number of
+    # string characters.
+    from rpython.rlib.rstring import ParseStringError
+
+    base = parser.base
+    if   base ==  2: bits_per_char = 1
+    elif base ==  4: bits_per_char = 2
+    elif base ==  8: bits_per_char = 3
+    elif base == 16: bits_per_char = 4
+    elif base == 32: bits_per_char = 5
+    else:
+        raise AssertionError
+
+    # n <- total number of bits needed, while moving 'parser' to the end
+    n = 0
+    while parser.next_digit() >= 0:
+        n += 1
+
+    # b <- number of Python digits needed, = ceiling(n/SHIFT). */
+    try:
+        b = ovfcheck(n * bits_per_char)
+        b = ovfcheck(b + (SHIFT - 1))
+    except OverflowError:
+        raise ParseStringError("long string too large to convert")
+    b = (b // SHIFT) or 1
+    z = rbigint([NULLDIGIT] * b, sign=parser.sign)
+
+    # Read string from right, and fill in long from left; i.e.,
+    # from least to most significant in both.
+    accum = _widen_digit(0)
+    bits_in_accum = 0
+    pdigit = 0
+    for _ in range(n):
+        k = parser.prev_digit()
+        accum |= _widen_digit(k) << bits_in_accum
+        bits_in_accum += bits_per_char
+        if bits_in_accum >= SHIFT:
+            z.setdigit(pdigit, accum)
+            pdigit += 1
+            assert pdigit <= b
+            accum >>= SHIFT
+            bits_in_accum -= SHIFT
+
+    if bits_in_accum:
+        z.setdigit(pdigit, accum)
+    z._normalize()
+    return z

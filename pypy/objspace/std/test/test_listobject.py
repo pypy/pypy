@@ -432,6 +432,8 @@ class TestW_ListObject(object):
 
 
 class AppTestListObject(object):
+    #spaceconfig = {"objspace.std.withliststrategies": True}  # it's the default
+
     def setup_class(cls):
         import platform
         import sys
@@ -440,6 +442,11 @@ class AppTestListObject(object):
         cls.w_on_cpython = cls.space.wrap(on_cpython)
         cls.w_on_arm = cls.space.wrap(platform.machine().startswith('arm'))
         cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
+
+    def test_doc(self):
+        assert list.__doc__ == "list() -> new empty list\nlist(iterable) -> new list initialized from iterable's items"
+        assert list.__new__.__doc__ == "T.__new__(S, ...) -> a new object with type S, a subtype of T"
+        assert list.__init__.__doc__ == "x.__init__(...) initializes x; see help(type(x)) for signature"
 
     def test_getstrategyfromlist_w(self):
         l0 = ["a", "2", "a", True]
@@ -495,6 +502,34 @@ class AppTestListObject(object):
         assert not l.__contains__(-3)
         assert not l.__contains__(-20)
         assert not l.__contains__(-21)
+
+        logger = []
+
+        class Foo(object):
+
+            def __init__(self, value, name=None):
+                self.value = value
+                self.name = name or value
+
+            def __repr__(self):
+                return '<Foo %s>' % self.name
+
+            def __eq__(self, other):
+                logger.append((self, other))
+                return self.value == other.value
+
+        foo1, foo2, foo3 = Foo(1), Foo(2), Foo(3)
+        foo42 = Foo(42)
+        foo_list = [foo1, foo2, foo3]
+        foo42 in foo_list
+        logger_copy = logger[:]  # prevent re-evaluation during pytest error print
+        assert logger_copy == [(foo42, foo1), (foo42, foo2), (foo42, foo3)]
+
+        del logger[:]
+        foo2_bis = Foo(2, '2 bis')
+        foo2_bis in foo_list
+        logger_copy = logger[:]  # prevent re-evaluation during pytest error print
+        assert logger_copy == [(foo2_bis, foo1), (foo2_bis, foo2)]
 
     def test_call_list(self):
         assert list('') == []
@@ -971,7 +1006,10 @@ class AppTestListObject(object):
 
         c = [0.0, 2.2, 4.4]
         assert c.index(0) == 0.0
-        raises(ValueError, c.index, 3)
+        e = raises(ValueError, c.index, 3)
+        import sys
+        if sys.version_info[:2] == (2, 7):     # CPython 2.7, PyPy
+            assert str(e.value) == '3 is not in list'
 
     def test_index_cpython_bug(self):
         if self.on_cpython:
@@ -1223,7 +1261,9 @@ class AppTestListObject(object):
         assert l == [0.0, 1.1, 3.3, 4.4]
         l = [0.0, 3.3, 5.5]
         raises(ValueError, c.remove, 2)
-        raises(ValueError, c.remove, 2.2)
+        e = raises(ValueError, c.remove, 2.2)
+        if not self.on_cpython:
+            assert str(e.value) == 'list.remove(): 2.2 is not in list'
 
     def test_reverse(self):
         c = list('hello world')
@@ -1478,6 +1518,16 @@ class AppTestListObject(object):
             def __iter__(self):
                 yield "ok"
         assert list(U(u"don't see me")) == ["ok"]
+        #
+        class S(str):
+            def __getitem__(self, index):
+                return str.__getitem__(self, index).upper()
+        assert list(S("abc")) == list("ABC")
+        #
+        class U(unicode):
+            def __getitem__(self, index):
+                return unicode.__getitem__(self, index).upper()
+        assert list(U(u"abc")) == list(u"ABC")
 
     def test_extend_from_nonempty_list_with_subclasses(self):
         l = ["hi!"]
@@ -1503,6 +1553,20 @@ class AppTestListObject(object):
         l.extend(U(u"don't see me"))
         #
         assert l == ["hi!", "okT", "okL", "okL", "okS", "okU"]
+        #
+        class S(str):
+            def __getitem__(self, index):
+                return str.__getitem__(self, index).upper()
+        l = []
+        l.extend(S("abc"))
+        assert l == list("ABC")
+        #
+        class U(unicode):
+            def __getitem__(self, index):
+                return unicode.__getitem__(self, index).upper()
+        l = []
+        l.extend(U(u"abc"))
+        assert l == list(u"ABC")
 
     def test_no_len_on_range_iter(self):
         iterable = range(10)
@@ -1555,12 +1619,29 @@ class AppTestListObject(object):
         assert l[::11] == [-sys.maxint, item11]
         assert item11 in l[::11]
 
-
-class AppTestListObjectWithRangeList(AppTestListObject):
-    """Run the list object tests with range lists enabled. Tests should go in
-    AppTestListObject so they can be run -A against CPython as well.
-    """
-    spaceconfig = {"objspace.std.withrangelist": True}
+    def test_bug_list_of_nans(self):
+        N = float('nan')
+        L1 = [N, 'foo']       # general object strategy
+        assert N in L1
+        assert L1.index(N) == 0
+        assert L1 == [N, 'foo']
+        # our float list strategy needs to consider NaNs are equal!
+        L2 = [N, 0.0]         # float strategy
+        assert N in L2
+        assert L2.index(N) == 0
+        assert L2.index(-0.0) == 1
+        assert L2 == [N, -0.0]
+        # same with the int-or-float list strategy
+        L3 = [N, 0.0, -0.0, 0]
+        assert N in L3
+        assert L3.index(N) == 0
+        for i in [1, 2, 3]:
+            assert L3[i] == 0
+            assert L3[i] == 0.0
+            assert L3[i] == -0.0
+            assert L3.index(0, i) == i
+            assert L3.index(0.0, i) == i
+            assert L3.index(-0.0, i) == i
 
 
 class AppTestRangeListForcing:
@@ -1569,7 +1650,7 @@ class AppTestRangeListForcing:
     from AppTestListObjectWithRangeList so we don't silently overwrite tests
     with the same names.
     """
-    spaceconfig = {"objspace.std.withrangelist": True}
+    spaceconfig = {"objspace.std.withliststrategies": True}
 
     def setup_class(cls):
         if cls.runappdirect:

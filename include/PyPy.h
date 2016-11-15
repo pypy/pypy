@@ -2,7 +2,11 @@
 #define _PYPY_H_
 
 /* This header is meant to be included in programs that use PyPy as an
-   embedded library. */
+   embedded library.
+
+   NOTE: this is deprecated.  Instead, use cffi's embedding support:
+   http://cffi.readthedocs.org/en/latest/embedding.html
+*/
 
 #ifdef __cplusplus
 extern "C" {
@@ -51,6 +55,12 @@ int pypy_execute_source(char *source);
    Useful for passing pointers to arbitrary structs that contain callbacks
    to register */
 int pypy_execute_source_ptr(char *source, void* ptr);
+
+
+/* Windows hackery */
+#if defined(_MSC_VER)
+#  pragma comment(lib,"python27.lib")
+#endif
 
 
 #ifdef __cplusplus

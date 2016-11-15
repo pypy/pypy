@@ -2,9 +2,8 @@
 
 After ToolTip.py, which uses ideas gleaned from PySol
 Used by the CallTips IDLE extension.
-
 """
-from Tkinter import *
+from Tkinter import Toplevel, Label, LEFT, SOLID, TclError
 
 HIDE_VIRTUAL_EVENT_NAME = "<<calltipwindow-hide>>"
 HIDE_SEQUENCES = ("<Key-Escape>", "<FocusOut>")
@@ -48,13 +47,7 @@ class CallTip:
     def showtip(self, text, parenleft, parenright):
         """Show the calltip, bind events which will close it and reposition it.
         """
-        # truncate overly long calltip
-        if len(text) >= 79:
-            textlines = text.splitlines()
-            for i, line in enumerate(textlines):
-                if len(line) > 79:
-                    textlines[i] = line[:75] + ' ...'
-            text = '\n'.join(textlines)
+        # Only called in CallTips, where lines are truncated
         self.text = text
         if self.tipwindow or not self.text:
             return
@@ -79,6 +72,7 @@ class CallTip:
                            background="#ffffe0", relief=SOLID, borderwidth=1,
                            font = self.widget['font'])
         self.label.pack()
+        tw.lift()  # work around bug in Tk 8.5.18+ (issue #24570)
 
         self.checkhideid = self.widget.bind(CHECKHIDE_VIRTUAL_EVENT_NAME,
                                             self.checkhide_event)
@@ -139,37 +133,29 @@ class CallTip:
         return bool(self.tipwindow)
 
 
+def _calltip_window(parent):  # htest #
+    from Tkinter import Toplevel, Text, LEFT, BOTH
 
-###############################
-#
-# Test Code
-#
-class container: # Conceptually an editor_window
-    def __init__(self):
-        root = Tk()
-        text = self.text = Text(root)
-        text.pack(side=LEFT, fill=BOTH, expand=1)
-        text.insert("insert", "string.split")
-        root.update()
-        self.calltip = CallTip(text)
+    top = Toplevel(parent)
+    top.title("Test calltips")
+    top.geometry("200x100+%d+%d" % (parent.winfo_rootx() + 200,
+                  parent.winfo_rooty() + 150))
+    text = Text(top)
+    text.pack(side=LEFT, fill=BOTH, expand=1)
+    text.insert("insert", "string.split")
+    top.update()
+    calltip = CallTip(text)
 
-        text.event_add("<<calltip-show>>", "(")
-        text.event_add("<<calltip-hide>>", ")")
-        text.bind("<<calltip-show>>", self.calltip_show)
-        text.bind("<<calltip-hide>>", self.calltip_hide)
-
-        text.focus_set()
-        root.mainloop()
-
-    def calltip_show(self, event):
-        self.calltip.showtip("Hello world")
-
-    def calltip_hide(self, event):
-        self.calltip.hidetip()
-
-def main():
-    # Test code
-    c=container()
+    def calltip_show(event):
+        calltip.showtip("(s=Hello world)", "insert", "end")
+    def calltip_hide(event):
+        calltip.hidetip()
+    text.event_add("<<calltip-show>>", "(")
+    text.event_add("<<calltip-hide>>", ")")
+    text.bind("<<calltip-show>>", calltip_show)
+    text.bind("<<calltip-hide>>", calltip_hide)
+    text.focus_set()
 
 if __name__=='__main__':
-    main()
+    from idlelib.idle_test.htest import run
+    run(_calltip_window)

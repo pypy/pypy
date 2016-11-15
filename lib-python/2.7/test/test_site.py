@@ -26,8 +26,13 @@ else:
 
 if site.ENABLE_USER_SITE and not os.path.isdir(site.USER_SITE):
     # need to add user site directory for tests
-    os.makedirs(site.USER_SITE)
-    site.addsitedir(site.USER_SITE)
+    try:
+        os.makedirs(site.USER_SITE)
+        site.addsitedir(site.USER_SITE)
+    except OSError as exc:
+        raise unittest.SkipTest('unable to create user site directory (%r): %s'
+                                % (site.USER_SITE, exc))
+
 
 class HelperFunctionsTests(unittest.TestCase):
     """Tests for helper functions.
@@ -347,6 +352,7 @@ class ImportSideEffectTests(unittest.TestCase):
             self.assertNotIn(path, seen_paths)
             seen_paths.add(path)
 
+    @unittest.skip('test not implemented')
     def test_add_build_dir(self):
         # Test that the build directory's Modules directory is used when it
         # should be.

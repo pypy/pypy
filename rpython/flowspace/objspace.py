@@ -1,24 +1,31 @@
 """Implements the main interface for flow graph creation: build_flow().
 """
 
-from inspect import CO_NEWLOCALS
+from inspect import CO_NEWLOCALS, isgeneratorfunction
 
-from rpython.flowspace.model import Variable, checkgraph
+from rpython.flowspace.model import checkgraph
 from rpython.flowspace.bytecode import HostCode
 from rpython.flowspace.flowcontext import (FlowContext, fixeggblocks)
 from rpython.flowspace.generator import (tweak_generator_graph,
-        bootstrap_generator)
+        make_generator_entry_graph)
 from rpython.flowspace.pygraph import PyGraph
 
 
 def _assert_rpythonic(func):
     """Raise ValueError if ``func`` is obviously not RPython"""
+    try:
+        func.func_code.co_cellvars
+    except AttributeError:
+        raise ValueError("%r is not RPython: it is likely an unexpected "
+                         "built-in function or type" % (func,))
+    if getattr(func, "_not_rpython_", False):
+        raise ValueError("%r is tagged as @not_rpython" % (func,))
     if func.func_doc and func.func_doc.lstrip().startswith('NOT_RPYTHON'):
         raise ValueError("%r is tagged as NOT_RPYTHON" % (func,))
     if func.func_code.co_cellvars:
         raise ValueError(
 """RPython functions cannot create closures
-Possible casues:
+Possible causes:
     Function is inner function
     Function uses generator expressions
     Lambda expressions
@@ -30,23 +37,17 @@ in %r""" % (func,))
 
 def build_flow(func):
     """
-    Create the flow graph for the function.
+    Create the flow graph (in SSA form) for the function.
     """
     _assert_rpythonic(func)
-    code = HostCode._from_code(func.func_code)
-    if (code.is_generator and
+    if (isgeneratorfunction(func) and
             not hasattr(func, '_generator_next_method_of_')):
-        graph = PyGraph(func, code)
-        block = graph.startblock
-        for name, w_value in zip(code.co_varnames, block.framestate.mergeable):
-            if isinstance(w_value, Variable):
-                w_value.rename(name)
-        return bootstrap_generator(graph)
+        return make_generator_entry_graph(func)
+    code = HostCode._from_code(func.func_code)
     graph = PyGraph(func, code)
     ctx = FlowContext(graph, code)
     ctx.build_flow()
     fixeggblocks(graph)
-    checkgraph(graph)
     if code.is_generator:
         tweak_generator_graph(graph)
     return graph

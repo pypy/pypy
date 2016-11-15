@@ -1,75 +1,62 @@
+from collections import OrderedDict
+
 from rpython.annotator import model as annmodel
 from rpython.flowspace.model import Constant
 from rpython.rlib import rarithmetic, objectmodel
 from rpython.rtyper import raddress, rptr, extregistry, rrange
 from rpython.rtyper.error import TyperError
-from rpython.rtyper.lltypesystem import lltype, llmemory, rclass
-from rpython.rtyper.lltypesystem.rdict import rtype_r_dict
+from rpython.rtyper.lltypesystem import lltype, llmemory, rstr
+from rpython.rtyper import rclass
 from rpython.rtyper.rmodel import Repr
 from rpython.tool.pairtype import pairtype
 
 
+BUILTIN_TYPER = {}
+
+def typer_for(func):
+    def wrapped(rtyper_func):
+        BUILTIN_TYPER[func] = rtyper_func
+        return rtyper_func
+    return wrapped
+
+
 class __extend__(annmodel.SomeBuiltin):
     def rtyper_makerepr(self, rtyper):
-        if self.s_self is None:
-            # built-in function case
-            if not self.is_constant():
-                raise TyperError("non-constant built-in function!")
-            return BuiltinFunctionRepr(self.const)
-        else:
-            # built-in method case
-            assert self.methodname is not None
-            result = BuiltinMethodRepr(rtyper, self.s_self, self.methodname)
-            return result
+        if not self.is_constant():
+            raise TyperError("non-constant built-in function!")
+        return BuiltinFunctionRepr(self.const)
+
     def rtyper_makekey(self):
-        if self.s_self is None:
-            # built-in function case
+        const = getattr(self, 'const', None)
+        if extregistry.is_registered(const):
+            const = extregistry.lookup(const)
+        return self.__class__, const
 
-            const = getattr(self, 'const', None)
+class __extend__(annmodel.SomeBuiltinMethod):
+    def rtyper_makerepr(self, rtyper):
+        assert self.methodname is not None
+        result = BuiltinMethodRepr(rtyper, self.s_self, self.methodname)
+        return result
 
-            if extregistry.is_registered(const):
-                const = extregistry.lookup(const)
+    def rtyper_makekey(self):
+        # NOTE: we hash by id of self.s_self here.  This appears to be
+        # necessary because it ends up in hop.args_s[0] in the method call,
+        # and there is no telling what information the called
+        # rtype_method_xxx() will read from that hop.args_s[0].
+        # See test_method_join in test_rbuiltin.
+        # There is no problem with self.s_self being garbage-collected and
+        # its id reused, because the BuiltinMethodRepr keeps a reference
+        # to it.
+        return (self.__class__, self.methodname, id(self.s_self))
 
-            return self.__class__, const
-        else:
-            # built-in method case
-            # NOTE: we hash by id of self.s_self here.  This appears to be
-            # necessary because it ends up in hop.args_s[0] in the method call,
-            # and there is no telling what information the called
-            # rtype_method_xxx() will read from that hop.args_s[0].
-            # See test_method_join in test_rbuiltin.
-            # There is no problem with self.s_self being garbage-collected and
-            # its id reused, because the BuiltinMethodRepr keeps a reference
-            # to it.
-            return (self.__class__, self.methodname, id(self.s_self))
-
-def call_args_expand(hop, takes_kwds = True):
+def call_args_expand(hop):
     hop = hop.copy()
     from rpython.annotator.argument import ArgumentsForTranslation
     arguments = ArgumentsForTranslation.fromshape(
             hop.args_s[1].const, # shape
             range(hop.nb_args-2))
-    if arguments.w_stararg is not None:
-        # expand the *arg in-place -- it must be a tuple
-        from rpython.rtyper.rtuple import TupleRepr
-        if arguments.w_stararg != hop.nb_args - 3:
-            raise TyperError("call pattern too complex")
-        hop.nb_args -= 1
-        v_tuple = hop.args_v.pop()
-        s_tuple = hop.args_s.pop()
-        r_tuple = hop.args_r.pop()
-        if not isinstance(r_tuple, TupleRepr):
-            raise TyperError("*arg must be a tuple")
-        for i in range(len(r_tuple.items_r)):
-            v_item = r_tuple.getitem_internal(hop.llops, v_tuple, i)
-            hop.nb_args += 1
-            hop.args_v.append(v_item)
-            hop.args_s.append(s_tuple.items[i])
-            hop.args_r.append(r_tuple.items_r[i])
-
+    assert arguments.w_stararg is None
     keywords = arguments.keywords
-    if not takes_kwds and keywords:
-        raise TyperError("kwds args not supported")
     # prefix keyword arguments with 'i_'
     kwds_i = {}
     for key in keywords:
@@ -133,7 +120,7 @@ class BuiltinMethodRepr(Repr):
         self.lowleveltype = self.self_repr.lowleveltype
 
     def convert_const(self, obj):
-        return self.self_repr.convert_const(get_builtin_method_self(obj))
+        return self.self_repr.convert_const(obj.__self__)
 
     def rtype_simple_call(self, hop):
         # methods: look up the rtype_method_xxx()
@@ -148,7 +135,7 @@ class BuiltinMethodRepr(Repr):
         assert hop2.args_r[0] is self
         if isinstance(hop2.args_v[0], Constant):
             c = hop2.args_v[0].value    # get object from bound method
-            c = get_builtin_method_self(c)
+            c = c.__self__
             hop2.args_v[0] = Constant(c)
         hop2.args_s[0] = self.s_self
         hop2.args_r[0] = self.self_repr
@@ -177,22 +164,18 @@ def parse_kwds(hop, *argspec_i_r):
             result.append(hop.inputarg(r, arg=i))
         else:
             result.append(None)
-    hop.nb_args -= len(lst)
+    del hop.args_v[hop.nb_args - len(lst):]
     return result
-
-def get_builtin_method_self(x):
-    try:
-        return x.__self__   # on top of CPython
-    except AttributeError:
-        return x.im_self    # on top of PyPy
 
 # ____________________________________________________________
 
+@typer_for(bool)
 def rtype_builtin_bool(hop):
     # not called any more?
     assert hop.nb_args == 1
     return hop.args_r[0].rtype_bool(hop)
 
+@typer_for(int)
 def rtype_builtin_int(hop):
     if isinstance(hop.args_s[0], annmodel.SomeString):
         assert 1 <= hop.nb_args <= 2
@@ -200,24 +183,30 @@ def rtype_builtin_int(hop):
     assert hop.nb_args == 1
     return hop.args_r[0].rtype_int(hop)
 
+@typer_for(float)
 def rtype_builtin_float(hop):
     assert hop.nb_args == 1
     return hop.args_r[0].rtype_float(hop)
 
+@typer_for(chr)
 def rtype_builtin_chr(hop):
     assert hop.nb_args == 1
     return hop.args_r[0].rtype_chr(hop)
 
+@typer_for(unichr)
 def rtype_builtin_unichr(hop):
     assert hop.nb_args == 1
     return hop.args_r[0].rtype_unichr(hop)
 
+@typer_for(unicode)
 def rtype_builtin_unicode(hop):
     return hop.args_r[0].rtype_unicode(hop)
 
+@typer_for(bytearray)
 def rtype_builtin_bytearray(hop):
     return hop.args_r[0].rtype_bytearray(hop)
 
+@typer_for(list)
 def rtype_builtin_list(hop):
     return hop.args_r[0].rtype_bltn_list(hop)
 
@@ -229,16 +218,20 @@ def rtype_builtin_list(hop):
 
 #def rtype_r_dict(hop): see rdict.py
 
+@typer_for(rarithmetic.intmask)
 def rtype_intmask(hop):
     hop.exception_cannot_occur()
     vlist = hop.inputargs(lltype.Signed)
     return vlist[0]
 
+@typer_for(rarithmetic.longlongmask)
 def rtype_longlongmask(hop):
     hop.exception_cannot_occur()
     vlist = hop.inputargs(lltype.SignedLongLong)
     return vlist[0]
 
+
+@typer_for(min)
 def rtype_builtin_min(hop):
     v1, v2 = hop.inputargs(hop.r_result, hop.r_result)
     hop.exception_cannot_occur()
@@ -249,50 +242,69 @@ def ll_min(i1, i2):
         return i1
     return i2
 
+
+@typer_for(max)
 def rtype_builtin_max(hop):
     v1, v2 = hop.inputargs(hop.r_result, hop.r_result)
     hop.exception_cannot_occur()
     return hop.gendirectcall(ll_max, v1, v2)
-
-
-def rtype_builtin_reversed(hop):
-    hop.exception_cannot_occur()
-    return hop.r_result.newiter(hop)
-
 
 def ll_max(i1, i2):
     if i1 > i2:
         return i1
     return i2
 
-def rtype_Exception__init__(hop):
-    hop.exception_cannot_occur()
 
+@typer_for(reversed)
+def rtype_builtin_reversed(hop):
+    hop.exception_cannot_occur()
+    return hop.r_result.newiter(hop)
+
+
+@typer_for(getattr(object.__init__, 'im_func', object.__init__))
 def rtype_object__init__(hop):
     hop.exception_cannot_occur()
 
-def rtype_OSError__init__(hop):
+
+@typer_for(getattr(EnvironmentError.__init__, 'im_func',
+                   EnvironmentError.__init__))
+def rtype_EnvironmentError__init__(hop):
     hop.exception_cannot_occur()
-    if hop.nb_args == 2:
-        raise TyperError("OSError() should not be called with "
-                         "a single argument")
-    if hop.nb_args >= 3:
-        v_self = hop.args_v[0]
-        r_self = hop.args_r[0]
+    v_self = hop.args_v[0]
+    r_self = hop.args_r[0]
+    if hop.nb_args <= 2:
+        v_errno = hop.inputconst(lltype.Signed, 0)
+        if hop.nb_args == 2:
+            v_strerror = hop.inputarg(rstr.string_repr, arg=1)
+            r_self.setfield(v_self, 'strerror', v_strerror, hop.llops)
+    else:
         v_errno = hop.inputarg(lltype.Signed, arg=1)
-        r_self.setfield(v_self, 'errno', v_errno, hop.llops)
+        v_strerror = hop.inputarg(rstr.string_repr, arg=2)
+        r_self.setfield(v_self, 'strerror', v_strerror, hop.llops)
+        if hop.nb_args >= 4:
+            v_filename = hop.inputarg(rstr.string_repr, arg=3)
+            r_self.setfield(v_self, 'filename', v_filename, hop.llops)
+    r_self.setfield(v_self, 'errno', v_errno, hop.llops)
 
-def rtype_WindowsError__init__(hop):
-    hop.exception_cannot_occur()
-    if hop.nb_args == 2:
-        raise TyperError("WindowsError() should not be called with "
-                         "a single argument")
-    if hop.nb_args >= 3:
-        v_self = hop.args_v[0]
-        r_self = hop.args_r[0]
-        v_error = hop.inputarg(lltype.Signed, arg=1)
-        r_self.setfield(v_self, 'winerror', v_error, hop.llops)
+try:
+    WindowsError
+except NameError:
+    pass
+else:
+    @typer_for(
+        getattr(WindowsError.__init__, 'im_func', WindowsError.__init__))
+    def rtype_WindowsError__init__(hop):
+        hop.exception_cannot_occur()
+        if hop.nb_args == 2:
+            raise TyperError("WindowsError() should not be called with "
+                            "a single argument")
+        if hop.nb_args >= 3:
+            v_self = hop.args_v[0]
+            r_self = hop.args_r[0]
+            v_error = hop.inputarg(lltype.Signed, arg=1)
+            r_self.setfield(v_self, 'winerror', v_error, hop.llops)
 
+@typer_for(objectmodel.hlinvoke)
 def rtype_hlinvoke(hop):
     _, s_repr = hop.r_s_popfirstarg()
     r_callable = s_repr.const
@@ -327,37 +339,16 @@ def rtype_hlinvoke(hop):
 
     return hop.dispatch()
 
-rtype_builtin_range = rrange.rtype_builtin_range
-rtype_builtin_xrange = rrange.rtype_builtin_xrange
-rtype_builtin_enumerate = rrange.rtype_builtin_enumerate
+typer_for(range)(rrange.rtype_builtin_range)
+typer_for(xrange)(rrange.rtype_builtin_xrange)
+typer_for(enumerate)(rrange.rtype_builtin_enumerate)
 
 
-# collect all functions
-import __builtin__
-BUILTIN_TYPER = {}
-for name, value in globals().items():
-    if name.startswith('rtype_builtin_'):
-        original = getattr(__builtin__, name[14:])
-        BUILTIN_TYPER[original] = value
-
-BUILTIN_TYPER[getattr(OSError.__init__, 'im_func', OSError.__init__)] = (
-    rtype_OSError__init__)
-
-try:
-    WindowsError
-except NameError:
-    pass
-else:
-    BUILTIN_TYPER[
-        getattr(WindowsError.__init__, 'im_func', WindowsError.__init__)] = (
-        rtype_WindowsError__init__)
-
-BUILTIN_TYPER[getattr(object.__init__, 'im_func', object.__init__)] = (
-    rtype_object__init__)
 # annotation of low-level types
 
+@typer_for(lltype.malloc)
 def rtype_malloc(hop, i_flavor=None, i_zero=None, i_track_allocation=None,
-                 i_add_memory_pressure=None):
+                 i_add_memory_pressure=None, i_nonmovable=None):
     assert hop.args_s[0].is_constant()
     vlist = [hop.inputarg(lltype.Void, arg=0)]
     opname = 'malloc'
@@ -366,9 +357,10 @@ def rtype_malloc(hop, i_flavor=None, i_zero=None, i_track_allocation=None,
         (i_flavor, lltype.Void),
         (i_zero, None),
         (i_track_allocation, None),
-        (i_add_memory_pressure, None))
+        (i_add_memory_pressure, None),
+        (i_nonmovable, None))
     (v_flavor, v_zero, v_track_allocation,
-     v_add_memory_pressure) = kwds_v
+     v_add_memory_pressure, v_nonmovable) = kwds_v
     flags = {'flavor': 'gc'}
     if v_flavor is not None:
         flags['flavor'] = v_flavor.value
@@ -378,6 +370,8 @@ def rtype_malloc(hop, i_flavor=None, i_zero=None, i_track_allocation=None,
         flags['track_allocation'] = v_track_allocation.value
     if i_add_memory_pressure is not None:
         flags['add_memory_pressure'] = v_add_memory_pressure.value
+    if i_nonmovable is not None:
+        flags['nonmovable'] = v_nonmovable
     vlist.append(hop.inputconst(lltype.Void, flags))
 
     assert 1 <= hop.nb_args <= 2
@@ -389,6 +383,7 @@ def rtype_malloc(hop, i_flavor=None, i_zero=None, i_track_allocation=None,
     hop.exception_is_here()
     return hop.genop(opname, vlist, resulttype=hop.r_result.lowleveltype)
 
+@typer_for(lltype.free)
 def rtype_free(hop, i_flavor, i_track_allocation=None):
     vlist = [hop.inputarg(hop.args_r[0], arg=0)]
     v_flavor, v_track_allocation = parse_kwds(hop,
@@ -404,6 +399,7 @@ def rtype_free(hop, i_flavor, i_track_allocation=None):
     hop.exception_cannot_occur()
     hop.genop('free', vlist)
 
+@typer_for(lltype.render_immortal)
 def rtype_render_immortal(hop, i_track_allocation=None):
     vlist = [hop.inputarg(hop.args_r[0], arg=0)]
     v_track_allocation = parse_kwds(hop,
@@ -412,10 +408,15 @@ def rtype_render_immortal(hop, i_track_allocation=None):
     if i_track_allocation is None or v_track_allocation.value:
         hop.genop('track_alloc_stop', vlist)
 
+@typer_for(lltype.typeOf)
+@typer_for(lltype.nullptr)
+@typer_for(lltype.getRuntimeTypeInfo)
+@typer_for(lltype.Ptr)
 def rtype_const_result(hop):
     hop.exception_cannot_occur()
     return hop.inputconst(hop.r_result.lowleveltype, hop.s_result.const)
 
+@typer_for(lltype.cast_pointer)
 def rtype_cast_pointer(hop):
     assert hop.args_s[0].is_constant()
     assert isinstance(hop.args_r[1], rptr.PtrRepr)
@@ -424,6 +425,7 @@ def rtype_cast_pointer(hop):
     return hop.genop('cast_pointer', [v_input],    # v_type implicit in r_result
                      resulttype = hop.r_result.lowleveltype)
 
+@typer_for(lltype.cast_opaque_ptr)
 def rtype_cast_opaque_ptr(hop):
     assert hop.args_s[0].is_constant()
     assert isinstance(hop.args_r[1], rptr.PtrRepr)
@@ -432,6 +434,15 @@ def rtype_cast_opaque_ptr(hop):
     return hop.genop('cast_opaque_ptr', [v_input], # v_type implicit in r_result
                      resulttype = hop.r_result.lowleveltype)
 
+@typer_for(lltype.length_of_simple_gcarray_from_opaque)
+def rtype_length_of_simple_gcarray_from_opaque(hop):
+    assert isinstance(hop.args_r[0], rptr.PtrRepr)
+    v_opaque_ptr, = hop.inputargs(hop.args_r[0])
+    hop.exception_cannot_occur()
+    return hop.genop('length_of_simple_gcarray_from_opaque', [v_opaque_ptr],
+                     resulttype = hop.r_result.lowleveltype)
+
+@typer_for(lltype.direct_fieldptr)
 def rtype_direct_fieldptr(hop):
     assert isinstance(hop.args_r[0], rptr.PtrRepr)
     assert hop.args_s[1].is_constant()
@@ -440,6 +451,7 @@ def rtype_direct_fieldptr(hop):
     return hop.genop('direct_fieldptr', vlist,
                      resulttype=hop.r_result.lowleveltype)
 
+@typer_for(lltype.direct_arrayitems)
 def rtype_direct_arrayitems(hop):
     assert isinstance(hop.args_r[0], rptr.PtrRepr)
     vlist = hop.inputargs(hop.args_r[0])
@@ -447,6 +459,7 @@ def rtype_direct_arrayitems(hop):
     return hop.genop('direct_arrayitems', vlist,
                      resulttype=hop.r_result.lowleveltype)
 
+@typer_for(lltype.direct_ptradd)
 def rtype_direct_ptradd(hop):
     assert isinstance(hop.args_r[0], rptr.PtrRepr)
     vlist = hop.inputargs(hop.args_r[0], lltype.Signed)
@@ -454,6 +467,7 @@ def rtype_direct_ptradd(hop):
     return hop.genop('direct_ptradd', vlist,
                      resulttype=hop.r_result.lowleveltype)
 
+@typer_for(lltype.cast_primitive)
 def rtype_cast_primitive(hop):
     assert hop.args_s[0].is_constant()
     TGT = hop.args_s[0].const
@@ -472,19 +486,19 @@ _cast_to_Signed = {
     }
 _cast_from_Signed = {
     lltype.Signed:         None,
-    lltype.Bool:           'int_is_true',
     lltype.Char:           'cast_int_to_char',
     lltype.UniChar:        'cast_int_to_unichar',
     lltype.Float:          'cast_int_to_float',
     lltype.Unsigned:       'cast_int_to_uint',
     lltype.SignedLongLong: 'cast_int_to_longlong',
     }
+
 def gen_cast(llops, TGT, v_value):
     ORIG = v_value.concretetype
     if ORIG == TGT:
         return v_value
     if (isinstance(TGT, lltype.Primitive) and
-        isinstance(ORIG, lltype.Primitive)):
+            isinstance(ORIG, lltype.Primitive)):
         if ORIG in _cast_to_Signed and TGT in _cast_from_Signed:
             op = _cast_to_Signed[ORIG]
             if op:
@@ -493,24 +507,25 @@ def gen_cast(llops, TGT, v_value):
             if op:
                 v_value = llops.genop(op, [v_value], resulttype=TGT)
             return v_value
+        elif ORIG is lltype.Signed and TGT is lltype.Bool:
+            return llops.genop('int_is_true', [v_value], resulttype=lltype.Bool)
         else:
             # use the generic operation if there is no alternative
             return llops.genop('cast_primitive', [v_value], resulttype=TGT)
     elif isinstance(TGT, lltype.Ptr):
         if isinstance(ORIG, lltype.Ptr):
             if (isinstance(TGT.TO, lltype.OpaqueType) or
-                isinstance(ORIG.TO, lltype.OpaqueType)):
-                return llops.genop('cast_opaque_ptr', [v_value],
-                                                              resulttype = TGT)
+                    isinstance(ORIG.TO, lltype.OpaqueType)):
+                return llops.genop('cast_opaque_ptr', [v_value], resulttype=TGT)
             else:
-                return llops.genop('cast_pointer', [v_value], resulttype = TGT)
+                return llops.genop('cast_pointer', [v_value], resulttype=TGT)
         elif ORIG == llmemory.Address:
-            return llops.genop('cast_adr_to_ptr', [v_value], resulttype = TGT)
+            return llops.genop('cast_adr_to_ptr', [v_value], resulttype=TGT)
         elif isinstance(ORIG, lltype.Primitive):
             v_value = gen_cast(llops, lltype.Signed, v_value)
             return llops.genop('cast_int_to_ptr', [v_value], resulttype=TGT)
     elif TGT == llmemory.Address and isinstance(ORIG, lltype.Ptr):
-        return llops.genop('cast_ptr_to_adr', [v_value], resulttype = TGT)
+        return llops.genop('cast_ptr_to_adr', [v_value], resulttype=TGT)
     elif isinstance(TGT, lltype.Primitive):
         if isinstance(ORIG, lltype.Ptr):
             v_value = llops.genop('cast_ptr_to_int', [v_value],
@@ -524,68 +539,53 @@ def gen_cast(llops, TGT, v_value):
         return gen_cast(llops, TGT, v_value)
     raise TypeError("don't know how to cast from %r to %r" % (ORIG, TGT))
 
+@typer_for(lltype.cast_ptr_to_int)
 def rtype_cast_ptr_to_int(hop):
     assert isinstance(hop.args_r[0], rptr.PtrRepr)
     vlist = hop.inputargs(hop.args_r[0])
     hop.exception_cannot_occur()
     return hop.genop('cast_ptr_to_int', vlist,
-                     resulttype = lltype.Signed)
+                     resulttype=lltype.Signed)
 
+@typer_for(lltype.cast_int_to_ptr)
 def rtype_cast_int_to_ptr(hop):
     assert hop.args_s[0].is_constant()
     v_type, v_input = hop.inputargs(lltype.Void, lltype.Signed)
     hop.exception_cannot_occur()
     return hop.genop('cast_int_to_ptr', [v_input],
-                     resulttype = hop.r_result.lowleveltype)
+                     resulttype=hop.r_result.lowleveltype)
 
+@typer_for(lltype.identityhash)
 def rtype_identity_hash(hop):
     vlist = hop.inputargs(hop.args_r[0])
     hop.exception_cannot_occur()
     return hop.genop('gc_identityhash', vlist, resulttype=lltype.Signed)
 
+@typer_for(lltype.runtime_type_info)
 def rtype_runtime_type_info(hop):
     assert isinstance(hop.args_r[0], rptr.PtrRepr)
     vlist = hop.inputargs(hop.args_r[0])
     hop.exception_cannot_occur()
     return hop.genop('runtime_type_info', vlist,
-                     resulttype = hop.r_result.lowleveltype)
-
-BUILTIN_TYPER[lltype.malloc] = rtype_malloc
-BUILTIN_TYPER[lltype.free] = rtype_free
-BUILTIN_TYPER[lltype.render_immortal] = rtype_render_immortal
-BUILTIN_TYPER[lltype.cast_primitive] = rtype_cast_primitive
-BUILTIN_TYPER[lltype.cast_pointer] = rtype_cast_pointer
-BUILTIN_TYPER[lltype.cast_opaque_ptr] = rtype_cast_opaque_ptr
-BUILTIN_TYPER[lltype.direct_fieldptr] = rtype_direct_fieldptr
-BUILTIN_TYPER[lltype.direct_arrayitems] = rtype_direct_arrayitems
-BUILTIN_TYPER[lltype.direct_ptradd] = rtype_direct_ptradd
-BUILTIN_TYPER[lltype.cast_ptr_to_int] = rtype_cast_ptr_to_int
-BUILTIN_TYPER[lltype.cast_int_to_ptr] = rtype_cast_int_to_ptr
-BUILTIN_TYPER[lltype.typeOf] = rtype_const_result
-BUILTIN_TYPER[lltype.nullptr] = rtype_const_result
-BUILTIN_TYPER[lltype.identityhash] = rtype_identity_hash
-BUILTIN_TYPER[lltype.getRuntimeTypeInfo] = rtype_const_result
-BUILTIN_TYPER[lltype.Ptr] = rtype_const_result
-BUILTIN_TYPER[lltype.runtime_type_info] = rtype_runtime_type_info
-BUILTIN_TYPER[rarithmetic.intmask] = rtype_intmask
-BUILTIN_TYPER[rarithmetic.longlongmask] = rtype_longlongmask
-
-BUILTIN_TYPER[objectmodel.hlinvoke] = rtype_hlinvoke
+                     resulttype=hop.r_result.lowleveltype)
 
 
 # _________________________________________________________________
 # memory addresses
 
+@typer_for(llmemory.raw_malloc)
 def rtype_raw_malloc(hop):
     v_size, = hop.inputargs(lltype.Signed)
     hop.exception_cannot_occur()
     return hop.genop('raw_malloc', [v_size], resulttype=llmemory.Address)
 
+@typer_for(llmemory.raw_malloc_usage)
 def rtype_raw_malloc_usage(hop):
     v_size, = hop.inputargs(lltype.Signed)
     hop.exception_cannot_occur()
     return hop.genop('raw_malloc_usage', [v_size], resulttype=lltype.Signed)
 
+@typer_for(llmemory.raw_free)
 def rtype_raw_free(hop):
     s_addr = hop.args_s[0]
     if s_addr.is_null_address():
@@ -594,6 +594,7 @@ def rtype_raw_free(hop):
     hop.exception_cannot_occur()
     return hop.genop('raw_free', [v_addr])
 
+@typer_for(llmemory.raw_memcopy)
 def rtype_raw_memcopy(hop):
     for s_addr in hop.args_s[:2]:
         if s_addr.is_null_address():
@@ -602,6 +603,7 @@ def rtype_raw_memcopy(hop):
     hop.exception_cannot_occur()
     return hop.genop('raw_memcopy', v_list)
 
+@typer_for(llmemory.raw_memclear)
 def rtype_raw_memclear(hop):
     s_addr = hop.args_s[0]
     if s_addr.is_null_address():
@@ -610,23 +612,19 @@ def rtype_raw_memclear(hop):
     hop.exception_cannot_occur()
     return hop.genop('raw_memclear', v_list)
 
-BUILTIN_TYPER[llmemory.raw_malloc] = rtype_raw_malloc
-BUILTIN_TYPER[llmemory.raw_malloc_usage] = rtype_raw_malloc_usage
-BUILTIN_TYPER[llmemory.raw_free] = rtype_raw_free
-BUILTIN_TYPER[llmemory.raw_memclear] = rtype_raw_memclear
-BUILTIN_TYPER[llmemory.raw_memcopy] = rtype_raw_memcopy
 
+@typer_for(llmemory.offsetof)
 def rtype_offsetof(hop):
     TYPE, field = hop.inputargs(lltype.Void, lltype.Void)
     hop.exception_cannot_occur()
     return hop.inputconst(lltype.Signed,
                           llmemory.offsetof(TYPE.value, field.value))
 
-BUILTIN_TYPER[llmemory.offsetof] = rtype_offsetof
 
 # _________________________________________________________________
 # non-gc objects
 
+@typer_for(objectmodel.free_non_gc_object)
 def rtype_free_non_gc_object(hop):
     hop.exception_cannot_occur()
     vinst, = hop.inputargs(hop.args_r[0])
@@ -636,32 +634,32 @@ def rtype_free_non_gc_object(hop):
     cflags = hop.inputconst(lltype.Void, flags)
     return hop.genop('free', [vinst, cflags])
 
-BUILTIN_TYPER[objectmodel.free_non_gc_object] = rtype_free_non_gc_object
 
-# keepalive_until_here
-
+@typer_for(objectmodel.keepalive_until_here)
 def rtype_keepalive_until_here(hop):
     hop.exception_cannot_occur()
     for v in hop.args_v:
         hop.genop('keepalive', [v], resulttype=lltype.Void)
     return hop.inputconst(lltype.Void, None)
 
-BUILTIN_TYPER[objectmodel.keepalive_until_here] = rtype_keepalive_until_here
 
+@typer_for(llmemory.cast_ptr_to_adr)
 def rtype_cast_ptr_to_adr(hop):
     vlist = hop.inputargs(hop.args_r[0])
     assert isinstance(vlist[0].concretetype, lltype.Ptr)
     hop.exception_cannot_occur()
     return hop.genop('cast_ptr_to_adr', vlist,
-                     resulttype = llmemory.Address)
+                     resulttype=llmemory.Address)
 
+@typer_for(llmemory.cast_adr_to_ptr)
 def rtype_cast_adr_to_ptr(hop):
     assert isinstance(hop.args_r[0], raddress.AddressRepr)
     adr, TYPE = hop.inputargs(hop.args_r[0], lltype.Void)
     hop.exception_cannot_occur()
     return hop.genop('cast_adr_to_ptr', [adr],
-                     resulttype = TYPE.value)
+                     resulttype=TYPE.value)
 
+@typer_for(llmemory.cast_adr_to_int)
 def rtype_cast_adr_to_int(hop):
     assert isinstance(hop.args_r[0], raddress.AddressRepr)
     adr = hop.inputarg(hop.args_r[0], arg=0)
@@ -672,49 +670,38 @@ def rtype_cast_adr_to_int(hop):
     hop.exception_cannot_occur()
     return hop.genop('cast_adr_to_int',
                      [adr, hop.inputconst(lltype.Void, mode)],
-                     resulttype = lltype.Signed)
+                     resulttype=lltype.Signed)
 
+@typer_for(llmemory.cast_int_to_adr)
 def rtype_cast_int_to_adr(hop):
     v_input, = hop.inputargs(lltype.Signed)
     hop.exception_cannot_occur()
     return hop.genop('cast_int_to_adr', [v_input],
-                     resulttype = llmemory.Address)
+                     resulttype=llmemory.Address)
 
 
-BUILTIN_TYPER[llmemory.cast_ptr_to_adr] = rtype_cast_ptr_to_adr
-BUILTIN_TYPER[llmemory.cast_adr_to_ptr] = rtype_cast_adr_to_ptr
-BUILTIN_TYPER[llmemory.cast_adr_to_int] = rtype_cast_adr_to_int
-BUILTIN_TYPER[llmemory.cast_int_to_adr] = rtype_cast_int_to_adr
-
-def rtype_builtin_isinstance(hop):
-    hop.exception_cannot_occur()
-    if hop.s_result.is_constant():
-        return hop.inputconst(lltype.Bool, hop.s_result.const)
-
-    if hop.args_s[1].is_constant() and hop.args_s[1].const == list:
-        if hop.args_s[0].knowntype != list:
-            raise TyperError("isinstance(x, list) expects x to be known statically to be a list or None")
-        rlist = hop.args_r[0]
-        vlist = hop.inputarg(rlist, arg=0)
-        cnone = hop.inputconst(rlist, None)
-        return hop.genop('ptr_ne', [vlist, cnone], resulttype=lltype.Bool)
-
-    assert isinstance(hop.args_r[0], rclass.InstanceRepr)
-    return hop.args_r[0].rtype_isinstance(hop)
-
-def rtype_instantiate(hop):
+@typer_for(objectmodel.instantiate)
+def rtype_instantiate(hop, i_nonmovable=None):
     hop.exception_cannot_occur()
     s_class = hop.args_s[0]
     assert isinstance(s_class, annmodel.SomePBC)
+    v_nonmovable, = parse_kwds(hop, (i_nonmovable, None))
+    nonmovable = (i_nonmovable is not None and v_nonmovable.value)
     if len(s_class.descriptions) != 1:
         # instantiate() on a variable class
+        if nonmovable:
+            raise TyperError("instantiate(x, nonmovable=True) cannot be used "
+                             "if x is not a constant class")
         vtypeptr, = hop.inputargs(rclass.get_type_repr(hop.rtyper))
         r_class = hop.args_r[0]
         return r_class._instantiate_runtime_class(hop, vtypeptr,
                                                   hop.r_result.lowleveltype)
     classdef = s_class.any_description().getuniqueclassdef()
-    return rclass.rtype_new_instance(hop.rtyper, classdef, hop.llops)
+    return rclass.rtype_new_instance(hop.rtyper, classdef, hop.llops,
+                                     nonmovable=nonmovable)
 
+
+@typer_for(hasattr)
 def rtype_builtin_hasattr(hop):
     hop.exception_cannot_occur()
     if hop.s_result.is_constant():
@@ -722,14 +709,17 @@ def rtype_builtin_hasattr(hop):
 
     raise TyperError("hasattr is only suported on a constant")
 
-def rtype_ordered_dict(hop):
-    from rpython.rtyper.lltypesystem.rordereddict import ll_newdict
-
+@typer_for(OrderedDict)
+@typer_for(objectmodel.r_dict)
+@typer_for(objectmodel.r_ordereddict)
+def rtype_dict_constructor(hop, i_force_non_null=None):
+    # 'i_force_non_null' is ignored here; if it has any effect, it
+    # has already been applied to 'hop.r_result'
     hop.exception_cannot_occur()
     r_dict = hop.r_result
     cDICT = hop.inputconst(lltype.Void, r_dict.DICT)
-    v_result = hop.gendirectcall(ll_newdict, cDICT)
-    if hasattr(r_dict, 'r_dict_eqfn'):
+    v_result = hop.gendirectcall(r_dict.ll_newdict, cDICT)
+    if r_dict.custom_eq_hash:
         v_eqfn = hop.inputarg(r_dict.r_rdict_eqfn, arg=0)
         v_hashfn = hop.inputarg(r_dict.r_rdict_hashfn, arg=1)
         if r_dict.r_rdict_eqfn.lowleveltype != lltype.Void:
@@ -740,46 +730,48 @@ def rtype_ordered_dict(hop):
             hop.genop('setfield', [v_result, cname, v_hashfn])
     return v_result
 
-BUILTIN_TYPER[objectmodel.instantiate] = rtype_instantiate
-BUILTIN_TYPER[isinstance] = rtype_builtin_isinstance
-BUILTIN_TYPER[hasattr] = rtype_builtin_hasattr
-BUILTIN_TYPER[objectmodel.r_dict] = rtype_r_dict
-BUILTIN_TYPER[annmodel.SomeOrderedDict.knowntype] = rtype_ordered_dict
-BUILTIN_TYPER[objectmodel.r_ordereddict] = rtype_ordered_dict
-
 # _________________________________________________________________
 # weakrefs
 
 import weakref
 from rpython.rtyper.lltypesystem import llmemory
 
+@typer_for(llmemory.weakref_create)
+@typer_for(weakref.ref)
 def rtype_weakref_create(hop):
-    # Note: this code also works for the RPython-level calls 'weakref.ref(x)'.
-    vlist = hop.inputargs(hop.args_r[0])
-    hop.exception_cannot_occur()
-    return hop.genop('weakref_create', vlist, resulttype=llmemory.WeakRefPtr)
+    from rpython.rtyper.rweakref import BaseWeakRefRepr
 
+    v_inst, = hop.inputargs(hop.args_r[0])
+    hop.exception_cannot_occur()
+    if isinstance(hop.r_result, BaseWeakRefRepr):
+        return hop.r_result._weakref_create(hop, v_inst)
+    else:
+        # low-level <PtrRepr * WeakRef>
+        assert hop.rtyper.getconfig().translation.rweakref
+        return hop.genop('weakref_create', [v_inst],
+                         resulttype=llmemory.WeakRefPtr)
+
+@typer_for(llmemory.weakref_deref)
 def rtype_weakref_deref(hop):
+    assert hop.rtyper.getconfig().translation.rweakref
     c_ptrtype, v_wref = hop.inputargs(lltype.Void, hop.args_r[1])
     assert v_wref.concretetype == llmemory.WeakRefPtr
     hop.exception_cannot_occur()
     return hop.genop('weakref_deref', [v_wref], resulttype=c_ptrtype.value)
 
+@typer_for(llmemory.cast_ptr_to_weakrefptr)
 def rtype_cast_ptr_to_weakrefptr(hop):
+    assert hop.rtyper.getconfig().translation.rweakref
     vlist = hop.inputargs(hop.args_r[0])
     hop.exception_cannot_occur()
     return hop.genop('cast_ptr_to_weakrefptr', vlist,
                      resulttype=llmemory.WeakRefPtr)
 
+@typer_for(llmemory.cast_weakrefptr_to_ptr)
 def rtype_cast_weakrefptr_to_ptr(hop):
+    assert hop.rtyper.getconfig().translation.rweakref
     c_ptrtype, v_wref = hop.inputargs(lltype.Void, hop.args_r[1])
     assert v_wref.concretetype == llmemory.WeakRefPtr
     hop.exception_cannot_occur()
     return hop.genop('cast_weakrefptr_to_ptr', [v_wref],
                      resulttype=c_ptrtype.value)
-
-BUILTIN_TYPER[weakref.ref] = rtype_weakref_create
-BUILTIN_TYPER[llmemory.weakref_create] = rtype_weakref_create
-BUILTIN_TYPER[llmemory.weakref_deref] = rtype_weakref_deref
-BUILTIN_TYPER[llmemory.cast_ptr_to_weakrefptr] = rtype_cast_ptr_to_weakrefptr
-BUILTIN_TYPER[llmemory.cast_weakrefptr_to_ptr] = rtype_cast_weakrefptr_to_ptr

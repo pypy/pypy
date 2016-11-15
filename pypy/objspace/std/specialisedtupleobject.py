@@ -1,10 +1,11 @@
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from pypy.objspace.std.tupleobject import W_AbstractTupleObject
 from pypy.objspace.std.util import negate
-from rpython.rlib.objectmodel import compute_hash
+from rpython.rlib.objectmodel import compute_hash, specialize
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.tool.sourcetools import func_with_new_name
+from rpython.rlib.longlong2float import float2longlong
 
 
 class NotSpecialised(Exception):
@@ -61,6 +62,11 @@ def make_specialised_class(typetuple):
                 value = getattr(self, 'value%s' % i)
                 if typetuple[i] == object:
                     y = space.int_w(space.hash(value))
+                elif typetuple[i] == int:
+                    # mimic cpythons behavior of a hash value of -2 for -1
+                    y = value
+                    if y == -1:
+                        y = -2
                 elif typetuple[i] == float:
                     # get the correct hash for float which is an
                     # integer & other less frequent cases
@@ -97,6 +103,11 @@ def make_specialised_class(typetuple):
                         return space.w_False
                 else:
                     if myval != otherval:
+                        if typetuple[i] == float:
+                            # issue with NaNs, which should be equal here
+                            if (float2longlong(myval) ==
+                                float2longlong(otherval)):
+                                continue
                         return space.w_False
             return space.w_True
 
@@ -111,8 +122,7 @@ def make_specialised_class(typetuple):
                     if typetuple[i] != object:
                         value = space.wrap(value)
                     return value
-            raise OperationError(space.w_IndexError,
-                                 space.wrap("tuple index out of range"))
+            raise oefmt(space.w_IndexError, "tuple index out of range")
 
     cls.__name__ = ('W_SpecialisedTupleObject_' +
                     ''.join([t.__name__[0] for t in typetuple]))
@@ -140,3 +150,62 @@ def makespecialisedtuple(space, list_w):
         return Cls_oo(space, w_arg1, w_arg2)
     else:
         raise NotSpecialised
+
+# --------------------------------------------------
+# Special code based on list strategies to implement zip(),
+# here with two list arguments only.  This builds a zipped
+# list that differs from what the app-level code would build:
+# if the source lists contain sometimes ints/floats and
+# sometimes not, here we will use uniformly 'Cls_oo' instead
+# of using 'Cls_ii' or 'Cls_ff' for the elements that match.
+# This is a trade-off, but it looks like a good idea to keep
+# the list uniform for the JIT---not to mention, it is much
+# faster to move the decision out of the loop.
+
+@specialize.arg(1)
+def _build_zipped_spec(space, Cls, lst1, lst2):
+    length = min(len(lst1), len(lst2))
+    return [Cls(space, space.wrap(lst1[i]),
+                       space.wrap(lst2[i])) for i in range(length)]
+
+def _build_zipped_spec_oo(space, w_list1, w_list2):
+    strat1 = w_list1.strategy
+    strat2 = w_list2.strategy
+    length = min(strat1.length(w_list1), strat2.length(w_list2))
+    return [Cls_oo(space, strat1.getitem(w_list1, i),
+                          strat2.getitem(w_list2, i)) for i in range(length)]
+
+def _build_zipped_unspec(space, w_list1, w_list2):
+    strat1 = w_list1.strategy
+    strat2 = w_list2.strategy
+    length = min(strat1.length(w_list1), strat2.length(w_list2))
+    return [space.newtuple([strat1.getitem(w_list1, i),
+                            strat2.getitem(w_list2, i)]) for i in range(length)]
+
+def specialized_zip_2_lists(space, w_list1, w_list2):
+    from pypy.objspace.std.listobject import W_ListObject
+    if type(w_list1) is not W_ListObject or type(w_list2) is not W_ListObject:
+        raise oefmt(space.w_TypeError, "expected two exact lists")
+
+    if space.config.objspace.std.withspecialisedtuple:
+        intlist1 = w_list1.getitems_int()
+        if intlist1 is not None:
+            intlist2 = w_list2.getitems_int()
+            if intlist2 is not None:
+                lst_w = _build_zipped_spec(space, Cls_ii, intlist1, intlist2)
+                return space.newlist(lst_w)
+        else:
+            floatlist1 = w_list1.getitems_float()
+            if floatlist1 is not None:
+                floatlist2 = w_list2.getitems_float()
+                if floatlist2 is not None:
+                    lst_w = _build_zipped_spec(space, Cls_ff, floatlist1,
+                                                              floatlist2)
+                    return space.newlist(lst_w)
+
+        lst_w = _build_zipped_spec_oo(space, w_list1, w_list2)
+        return space.newlist(lst_w)
+
+    else:
+        lst_w = _build_zipped_unspec(space, w_list1, w_list2)
+        return space.newlist(lst_w)

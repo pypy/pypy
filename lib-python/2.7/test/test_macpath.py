@@ -29,6 +29,26 @@ class MacPathTestCase(unittest.TestCase):
         self.assertEqual(split(":conky:mountpoint:"),
                           (':conky:mountpoint', ''))
 
+    def test_join(self):
+        join = macpath.join
+        self.assertEqual(join('a', 'b'), ':a:b')
+        self.assertEqual(join(':a', 'b'), ':a:b')
+        self.assertEqual(join(':a:', 'b'), ':a:b')
+        self.assertEqual(join(':a::', 'b'), ':a::b')
+        self.assertEqual(join(':a', '::b'), ':a::b')
+        self.assertEqual(join('a', ':'), ':a:')
+        self.assertEqual(join('a:', ':'), 'a:')
+        self.assertEqual(join('a', ''), ':a:')
+        self.assertEqual(join('a:', ''), 'a:')
+        self.assertEqual(join('', ''), '')
+        self.assertEqual(join('', 'a:b'), 'a:b')
+        self.assertEqual(join('', 'a', 'b'), ':a:b')
+        self.assertEqual(join('a:b', 'c'), 'a:b:c')
+        self.assertEqual(join('a:b', ':c'), 'a:b:c')
+        self.assertEqual(join('a', ':b', ':c'), ':a:b:c')
+        self.assertEqual(join('a', 'b:'), 'b:')
+        self.assertEqual(join('a:', 'b:'), 'b:')
+
     def test_splitext(self):
         splitext = macpath.splitext
         self.assertEqual(splitext(":foo.ext"), (':foo', '.ext'))
@@ -39,6 +59,7 @@ class MacPathTestCase(unittest.TestCase):
         self.assertEqual(splitext(""), ('', ''))
         self.assertEqual(splitext("foo.bar.ext"), ('foo.bar', '.ext'))
 
+    @test_support.requires_unicode
     def test_normpath(self):
         # Issue 5827: Make sure normpath preserves unicode
         for path in (u'', u'.', u'/', u'\\', u':', u'///foo/.//bar//'):

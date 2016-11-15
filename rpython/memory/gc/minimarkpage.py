@@ -2,7 +2,7 @@ import sys
 from rpython.rtyper.lltypesystem import lltype, llmemory, llarena, rffi
 from rpython.rlib.rarithmetic import LONG_BIT, r_uint
 from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib.debug import ll_assert
+from rpython.rlib.debug import ll_assert, fatalerror
 
 WORD = LONG_BIT // 8
 NULL = llmemory.NULL
@@ -294,7 +294,7 @@ class ArenaCollection(object):
         # be a page-aligned address
         arena_base = llarena.arena_malloc(self.arena_size, False)
         if not arena_base:
-            raise MemoryError("couldn't allocate the next arena")
+            out_of_memory("out of memory: couldn't allocate the next arena")
         arena_end = arena_base + self.arena_size
         #
         # 'firstpage' points to the first unused page
@@ -395,6 +395,7 @@ class ArenaCollection(object):
                 if arena.nfreepages == arena.totalpages:
                     #
                     # The whole arena is empty.  Free it.
+                    llarena.arena_reset(arena.base, self.arena_size, 4)
                     llarena.arena_free(arena.base)
                     lltype.free(arena, flavor='raw', track_allocation=False)
                     #
@@ -593,3 +594,10 @@ def _dummy_size(size):
     if isinstance(size, int):
         size = llmemory.sizeof(lltype.Char) * size
     return size
+
+def out_of_memory(errmsg):
+    """Signal a fatal out-of-memory error and abort.  For situations where
+    it is hard to write and test code that would handle a MemoryError
+    exception gracefully.
+    """
+    fatalerror(errmsg)

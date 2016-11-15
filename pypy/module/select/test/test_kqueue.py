@@ -4,7 +4,7 @@ import py
 import sys
 
 class AppTestKqueue(object):
-    spaceconfig = dict(usemodules=["select", "_socket", "posix", "rctime"])
+    spaceconfig = dict(usemodules=["select", "_socket", "posix", "time"])
 
     def setup_class(cls):
         if not 'bsd' in sys.platform and \
@@ -102,7 +102,7 @@ class AppTestKqueue(object):
         client.setblocking(False)
         try:
             client.connect(("127.0.0.1", server_socket.getsockname()[1]))
-        except socket.error, e:
+        except socket.error as e:
             assert e.args[0] == errno.EINPROGRESS
         else:
             assert False, "EINPROGRESS not raised"

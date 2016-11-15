@@ -24,7 +24,6 @@ def test_jit_ffi_call():
     cd.atypes = atypes
     cd.exchange_size = 64    # 64 bytes of exchange data
     cd.exchange_result = 24
-    cd.exchange_result_libffi = 24
     cd.exchange_args[0] = 16
     #
     jit_ffi_prep_cif(cd)

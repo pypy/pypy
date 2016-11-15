@@ -3,16 +3,16 @@
 """
 
 import py
-from rpython.jit.metainterp.history import BoxInt, ConstInt,\
-     BoxPtr, ConstPtr, BasicFailDescr, JitCellToken, TargetToken
-from rpython.jit.metainterp.resoperation import rop, ResOperation
-from rpython.jit.backend.llsupport.descr import GcCache
+from rpython.jit.metainterp.history import BasicFailDescr, JitCellToken,\
+     TargetToken
+from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.backend.llsupport.regalloc import is_comparison_or_ovf_op
 from rpython.jit.tool.oparser import parse
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.annlowlevel import llhelper
-from rpython.rtyper.lltypesystem import rclass, rstr
+from rpython.rtyper.lltypesystem import rstr
+from rpython.rtyper import rclass
 from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.effectinfo import EffectInfo
 
@@ -86,11 +86,9 @@ class BaseTestRegalloc(object):
                                    EffectInfo.MOST_GENERAL)
 
     namespace = locals().copy()
-    type_system = 'lltype'
 
     def parse(self, s, boxkinds=None, namespace=None):
         return parse(s, self.cpu, namespace or self.namespace,
-                     type_system=self.type_system,
                      boxkinds=boxkinds)
 
     def interpret(self, ops, args, run=True, namespace=None):
@@ -218,14 +216,14 @@ class TestRegallocSimple(BaseTestRegalloc):
     def test_exception_bridge_no_exception(self):
         ops = '''
         [i0]
-        i1 = same_as(1)
-        call(ConstClass(raising_fptr), i0, descr=raising_calldescr)
+        i1 = same_as_i(1)
+        call_n(ConstClass(raising_fptr), i0, descr=raising_calldescr)
         guard_exception(ConstClass(zero_division_error)) [i1]
         finish(0)
         '''
         bridge_ops = '''
         [i3]
-        i2 = same_as(2)
+        i2 = same_as_i(2)
         guard_no_exception() [i2]
         finish(1)
         '''
@@ -381,7 +379,7 @@ class TestRegallocSimple(BaseTestRegalloc):
     def test_bug_wrong_stack_adj(self):
         ops = '''
         [i0, i1, i2, i3, i4, i5, i6, i7, i8]
-        i9 = same_as(0)
+        i9 = same_as_i(0)
         guard_true(i0) [i9, i0, i1, i2, i3, i4, i5, i6, i7, i8]
         finish(1)
         '''
@@ -389,7 +387,7 @@ class TestRegallocSimple(BaseTestRegalloc):
         assert self.getint(0) == 0
         bridge_ops = '''
         [i9, i0, i1, i2, i3, i4, i5, i6, i7, i8]
-        call(ConstClass(raising_fptr), 0, descr=raising_calldescr)
+        call_n(ConstClass(raising_fptr), 0, descr=raising_calldescr)
         guard_true(i9) [i0, i1, i2, i3, i4, i5, i6, i7, i8]
         finish()
         '''
@@ -414,7 +412,7 @@ class TestRegallocCompOps(BaseTestRegalloc):
     def test_cmp_op_0(self):
         ops = '''
         [i0, i3]
-        i1 = same_as(1)
+        i1 = same_as_i(1)
         i2 = int_lt(i0, 100)
         guard_true(i3) [i1, i2]
         i4 = int_neg(i2)
@@ -498,22 +496,6 @@ class TestRegallocMoreRegisters(BaseTestRegalloc):
         self.interpret(ops, [s, ord('a')])
         assert s[1] == 'a'
 
-    def test_division_optimized(self):
-        ops = '''
-        [i7, i6]
-        label(i7, i6, descr=targettoken)
-        i18 = int_floordiv(i7, i6)
-        i19 = int_xor(i7, i6)
-        i21 = int_lt(i19, 0)
-        i22 = int_mod(i7, i6)
-        i23 = int_is_true(i22)
-        i24 = int_eq(i6, 4)
-        guard_false(i24) [i18]
-        jump(i18, i6, descr=targettoken)
-        '''
-        self.interpret(ops, [10, 4])
-        assert self.getint(0) == 2
-        # FIXME: Verify that i19 - i23 are removed
 
 class TestRegallocFloats(BaseTestRegalloc):
     def setup_class(cls):
@@ -524,7 +506,7 @@ class TestRegallocFloats(BaseTestRegalloc):
         ops = '''
         [f0, f1]
         f2 = float_add(f0, f1)
-        i0 = same_as(0)
+        i0 = same_as_i(0)
         guard_true(i0) [f2, f0, f1]
         finish()
         '''
@@ -536,7 +518,7 @@ class TestRegallocFloats(BaseTestRegalloc):
         [f0, f1, f2, f3, f4, f5, f6, f7, f8]
         f9 = float_add(f0, f1)
         f10 = float_add(f8, 3.5)
-        i0 = same_as(0)
+        i0 = same_as_i(0)
         guard_true(i0) [f9, f10, f2, f3, f4, f5, f6, f7, f8]
         finish()
         '''

@@ -13,23 +13,22 @@ from rpython.tool.udir import udir
 
 class CodeWriter(object):
     callcontrol = None    # for tests
-    debug = False
+    debug = True
 
     def __init__(self, cpu=None, jitdrivers_sd=[]):
         self.cpu = cpu
         self.assembler = Assembler()
         self.callcontrol = CallControl(cpu, jitdrivers_sd)
-        self._seen_files = set()
 
     def transform_func_to_jitcode(self, func, values):
         """For testing."""
         rtyper = support.annotate(func, values)
         graph = rtyper.annotator.translator.graphs[0]
         jitcode = JitCode("test")
-        self.transform_graph_to_jitcode(graph, jitcode, True)
+        self.transform_graph_to_jitcode(graph, jitcode, True, 0)
         return jitcode
 
-    def transform_graph_to_jitcode(self, graph, jitcode, verbose):
+    def transform_graph_to_jitcode(self, graph, jitcode, verbose, index):
         """Transform a graph into a JitCode containing the same bytecode
         in a different format.
         """
@@ -49,7 +48,7 @@ class CodeWriter(object):
         # which means mostly producing a linear list of operations and
         # inserting jumps or conditional jumps.  This is a list of tuples
         # of the shape ("opname", arg1, ..., argN) or (Label(...),).
-        ssarepr = flatten_graph(graph, regallocs)
+        ssarepr = flatten_graph(graph, regallocs, cpu=self.callcontrol.cpu)
         #
         # step 3b: compute the liveness around certain operations
         compute_liveness(ssarepr)
@@ -59,6 +58,7 @@ class CodeWriter(object):
         # constants are cast to their normalized type (Signed, GCREF or
         # Float).
         self.assembler.assemble(ssarepr, jitcode)
+        jitcode.index = index
         #
         # print the resulting assembler
         if self.debug:
@@ -68,14 +68,16 @@ class CodeWriter(object):
         log.info("making JitCodes...")
         self.callcontrol.grab_initial_jitcodes()
         count = 0
+        all_jitcodes = []
         for graph, jitcode in self.callcontrol.enum_pending_graphs():
-            self.transform_graph_to_jitcode(graph, jitcode, verbose)
+            self.transform_graph_to_jitcode(graph, jitcode, verbose, len(all_jitcodes))
+            all_jitcodes.append(jitcode)
             count += 1
             if not count % 500:
                 log.info("Produced %d jitcodes" % count)
         self.assembler.finished(self.callcontrol.callinfocollection)
-        heaptracker.finish_registering(self.cpu)
         log.info("there are %d JitCode instances." % count)
+        return all_jitcodes
 
     def setup_vrefinfo(self, vrefinfo):
         # must be called at most once
@@ -107,8 +109,7 @@ class CodeWriter(object):
         # escape <lambda> names for windows
         name = name.replace('<lambda>', '_(lambda)_')
         extra = ''
-        while name+extra in self._seen_files:
+        while dir.join(name+extra).check():
             i += 1
             extra = '.%d' % i
-        self._seen_files.add(name+extra)
         dir.join(name+extra).write(format_assembler(ssarepr))

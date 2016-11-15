@@ -5,7 +5,8 @@ import sys
 import os
 import errno
 
-from pypy.interpreter.error import OperationError, exception_from_errno
+from pypy.interpreter.error import (
+    OperationError, exception_from_saved_errno, oefmt)
 from pypy.interpreter.executioncontext import (AsyncAction, AbstractActionFlag,
     PeriodicAsyncAction)
 from pypy.interpreter.gateway import unwrap_spec
@@ -63,19 +64,25 @@ class CheckSignalAction(PeriodicAsyncAction):
         AsyncAction.__init__(self, space)
         self.pending_signal = -1
         self.fire_in_another_thread = False
-        if self.space.config.objspace.usemodules.thread:
-            from pypy.module.thread import gil
-            gil.after_thread_switch = self._after_thread_switch
 
-    @rgc.no_collect
-    def _after_thread_switch(self):
-        if self.fire_in_another_thread:
-            if self.space.threadlocals.signals_enabled():
-                self.fire_in_another_thread = False
-                self.space.actionflag.rearm_ticker()
-                # this occurs when we just switched to the main thread
-                # and there is a signal pending: we force the ticker to
-                # -1, which should ensure perform() is called quickly.
+        @rgc.no_collect
+        def _after_thread_switch():
+            if self.fire_in_another_thread:
+                if self.space.threadlocals.signals_enabled():
+                    self.fire_in_another_thread = False
+                    self.space.actionflag.rearm_ticker()
+                    # this occurs when we just switched to the main thread
+                    # and there is a signal pending: we force the ticker to
+                    # -1, which should ensure perform() is called quickly.
+        self._after_thread_switch = _after_thread_switch
+        # ^^^ so that 'self._after_thread_switch' can be annotated as a
+        # constant
+
+    def startup(self, space):
+        # this is translated
+        if space.config.objspace.usemodules.thread:
+            from rpython.rlib import rgil
+            rgil.invoke_after_thread_switch(self._after_thread_switch)
 
     def perform(self, executioncontext, frame):
         self._poll_for_signals()
@@ -166,18 +173,25 @@ def default_int_handler(space, w_signum, w_frame):
     The default handler for SIGINT installed by Python.
     It raises KeyboardInterrupt.
     """
-    raise OperationError(space.w_KeyboardInterrupt,
-                         space.w_None)
+    raise OperationError(space.w_KeyboardInterrupt, space.w_None)
 
 
 @jit.dont_look_inside
 @unwrap_spec(timeout=int)
 def alarm(space, timeout):
+    """alarm(seconds)
+
+    Arrange for SIGALRM to arrive after the given number of seconds.
+    """
     return space.wrap(c_alarm(timeout))
 
 
 @jit.dont_look_inside
 def pause(space):
+    """pause()
+
+    Wait until a signal arrives.
+    """
     c_pause()
     return space.w_None
 
@@ -185,8 +199,7 @@ def pause(space):
 def check_signum_in_range(space, signum):
     if 1 <= signum < NSIG:
         return
-    raise OperationError(space.w_ValueError,
-                         space.wrap("signal number out of range"))
+    raise oefmt(space.w_ValueError, "signal number out of range")
 
 
 @jit.dont_look_inside
@@ -204,12 +217,11 @@ def signal(space, signum, w_handler):
     the first is the signal number, the second is the interrupted stack frame.
     """
     if WIN32 and signum not in signal_values:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("invalid signal value"))
+        raise oefmt(space.w_ValueError, "invalid signal value")
     if not space.threadlocals.signals_enabled():
-        raise OperationError(space.w_ValueError,
-                             space.wrap("signal only works in main thread "
-                                 "or with __pypy__.thread.enable_signals()"))
+        raise oefmt(space.w_ValueError,
+                    "signal only works in main thread or with "
+                    "__pypy__.thread.enable_signals()")
     check_signum_in_range(space, signum)
 
     if space.eq_w(w_handler, space.wrap(SIG_DFL)):
@@ -218,9 +230,8 @@ def signal(space, signum, w_handler):
         pypysig_ignore(signum)
     else:
         if not space.is_true(space.callable(w_handler)):
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("'handler' must be a callable "
-                                            "or SIG_DFL or SIG_IGN"))
+            raise oefmt(space.w_TypeError,
+                        "'handler' must be a callable or SIG_DFL or SIG_IGN")
         pypysig_setflag(signum)
 
     handlers_w = _get_handlers(space)
@@ -239,26 +250,31 @@ def set_wakeup_fd(space, fd):
     The fd must be non-blocking.
     """
     if not space.threadlocals.signals_enabled():
-        raise OperationError(
-            space.w_ValueError,
-            space.wrap("set_wakeup_fd only works in main thread "
-                       "or with __pypy__.thread.enable_signals()"))
+        raise oefmt(space.w_ValueError,
+                    "set_wakeup_fd only works in main thread or with "
+                    "__pypy__.thread.enable_signals()")
     if fd != -1:
         try:
             os.fstat(fd)
-        except OSError, e:
+        except OSError as e:
             if e.errno == errno.EBADF:
-                raise OperationError(space.w_ValueError, space.wrap("invalid fd"))
-    old_fd = pypysig_set_wakeup_fd(fd)
+                raise oefmt(space.w_ValueError, "invalid fd")
+    old_fd = pypysig_set_wakeup_fd(fd, True)
     return space.wrap(intmask(old_fd))
 
 
 @jit.dont_look_inside
 @unwrap_spec(signum=int, flag=int)
 def siginterrupt(space, signum, flag):
+    """siginterrupt(sig, flag) -> None
+
+    change system call restart behaviour: if flag is False, system calls
+    will be restarted when interrupted by signal sig, else system calls
+    will be interrupted.
+    """
     check_signum_in_range(space, signum)
     if rffi.cast(lltype.Signed, c_siginterrupt(signum, flag)) < 0:
-        errno = rposix.get_errno()
+        errno = rposix.get_saved_errno()
         raise OperationError(space.w_RuntimeError, space.wrap(errno))
 
 
@@ -311,7 +327,7 @@ def setitimer(space, which, first, interval=0):
 
             ret = c_setitimer(which, new, old)
             if ret != 0:
-                raise exception_from_errno(space, get_itimer_error(space))
+                raise exception_from_saved_errno(space, get_itimer_error(space))
 
             return itimer_retval(space, old[0])
 
