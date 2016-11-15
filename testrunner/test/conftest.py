@@ -1,6 +1,8 @@
+import pytest
 
-def pytest_runtest_makereport(__multicall__, item):
-    report = __multicall__.execute()
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item):
+    report = yield
     if 'out' in item.funcargs:
         report.sections.append(('out', item.funcargs['out'].read()))
     return report

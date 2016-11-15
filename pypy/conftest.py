@@ -159,7 +159,8 @@ class LazyObjSpaceGetter(object):
         return space
 
 
-def pytest_runtest_setup(__multicall__, item):
+@pytest.hookimpl(tryfirst=True)
+def pytest_runtest_setup(item):
     if isinstance(item, py.test.collect.Function):
         appclass = item.getparent(py.test.Class)
         if appclass is not None:
@@ -171,8 +172,6 @@ def pytest_runtest_setup(__multicall__, item):
             else:
                 appclass.obj.space = LazyObjSpaceGetter()
             appclass.obj.runappdirect = option.runappdirect
-
-    __multicall__.execute()
 
 
 def pytest_ignore_collect(path):
