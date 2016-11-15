@@ -66,7 +66,6 @@ class PyFrame(W_Root):
     f_generator_wref         = rweakref.dead_ref  # for generators/coroutines
     f_generator_nowref       = None               # (only one of the two attrs)
     last_instr               = -1
-    last_exception           = None
     f_backref                = jit.vref_None
     
     escaped                  = False  # see mark_as_escaped()
@@ -328,10 +327,6 @@ class PyFrame(W_Root):
                                             executioncontext)
             finally:
                 executioncontext.return_trace(self, w_exitvalue)
-            # it used to say self.last_exception = None
-            # this is now done by the code in pypyjit module
-            # since we don't want to invalidate the virtualizable
-            # for no good reason
             got_exception = False
         finally:
             executioncontext.leave(self, w_exitvalue, got_exception)
@@ -881,33 +876,6 @@ class PyFrame(W_Root):
 
     def fdel_f_trace(self, space):
         self.getorcreatedebug().w_f_trace = None
-
-    def fget_f_exc_type(self, space):
-        if self.last_exception is not None:
-            f = self.f_backref()
-            while f is not None and f.last_exception is None:
-                f = f.f_backref()
-            if f is not None:
-                return f.last_exception.w_type
-        return space.w_None
-
-    def fget_f_exc_value(self, space):
-        if self.last_exception is not None:
-            f = self.f_backref()
-            while f is not None and f.last_exception is None:
-                f = f.f_backref()
-            if f is not None:
-                return f.last_exception.get_w_value(space)
-        return space.w_None
-
-    def fget_f_exc_traceback(self, space):
-        if self.last_exception is not None:
-            f = self.f_backref()
-            while f is not None and f.last_exception is None:
-                f = f.f_backref()
-            if f is not None:
-                return space.wrap(f.last_exception.get_traceback())
-        return space.w_None
 
     def fget_f_restricted(self, space):
         if space.config.objspace.honor__builtins__:

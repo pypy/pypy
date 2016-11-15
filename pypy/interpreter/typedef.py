@@ -464,7 +464,7 @@ def generic_new_descr(W_Type):
 from pypy.interpreter.eval import Code
 from pypy.interpreter.pycode import PyCode, CO_VARARGS, CO_VARKEYWORDS
 from pypy.interpreter.pyframe import PyFrame
-from pypy.interpreter.pyopcode import SuspendedUnroller, W_OperationError
+from pypy.interpreter.pyopcode import SuspendedUnroller
 from pypy.interpreter.module import Module
 from pypy.interpreter.function import (Function, Method, StaticMethod,
     ClassMethod, BuiltinFunction, descr_function_get)
@@ -616,9 +616,6 @@ PyFrame.typedef = TypeDef('frame',
     f_lasti = GetSetProperty(PyFrame.fget_f_lasti),
     f_trace = GetSetProperty(PyFrame.fget_f_trace, PyFrame.fset_f_trace,
                              PyFrame.fdel_f_trace),
-    f_exc_type = GetSetProperty(PyFrame.fget_f_exc_type),
-    f_exc_value = GetSetProperty(PyFrame.fget_f_exc_value),
-    f_exc_traceback = GetSetProperty(PyFrame.fget_f_exc_traceback),
     f_restricted = GetSetProperty(PyFrame.fget_f_restricted),
     f_code = GetSetProperty(PyFrame.fget_code),
     f_locals = GetSetProperty(PyFrame.fget_getdictscope),
@@ -878,8 +875,8 @@ NotImplemented.typedef.acceptable_as_base_class = False
 SuspendedUnroller.typedef = TypeDef("SuspendedUnroller")
 SuspendedUnroller.typedef.acceptable_as_base_class = False
 
-W_OperationError.typedef = TypeDef("OperationError",
-    __reduce__ = interp2app(W_OperationError.descr_reduce),
-    __setstate__ = interp2app(W_OperationError.descr_setstate),
-)
-W_OperationError.typedef.acceptable_as_base_class = False
+## W_OperationError.typedef = TypeDef("OperationError",
+##     __reduce__ = interp2app(W_OperationError.descr_reduce),
+##     __setstate__ = interp2app(W_OperationError.descr_setstate),
+## )
+## W_OperationError.typedef.acceptable_as_base_class = False

@@ -28,6 +28,10 @@ class ExecutionContext(object):
     def __init__(self, space):
         self.space = space
         self.topframeref = jit.vref_None
+        # this is exposed to app-level as 'sys.exc_info()'.  At any point in
+        # time it is the exception caught by the topmost 'except ... as e:'
+        # app-level block.
+        self.sys_exc_operror = None
         self.w_tracefunc = None
         self.is_tracing = 0
         self.compiler = space.createcompiler()
@@ -230,23 +234,10 @@ class ExecutionContext(object):
         # NOTE: the result is not the wrapped sys.exc_info() !!!
 
         """
-        return self.gettopframe()._exc_info_unroll(self.space)
+        return self.sys_exc_operror
 
     def set_sys_exc_info(self, operror):
-        frame = self.gettopframe_nohidden()
-        if frame:     # else, the exception goes nowhere and is lost
-            frame.last_exception = operror
-
-    def clear_sys_exc_info(self):
-        # Find the frame out of which sys_exc_info() would return its result,
-        # and hack this frame's last_exception to become the cleared
-        # OperationError (which is different from None!).
-        frame = self.gettopframe_nohidden()
-        while frame:
-            if frame.last_exception is not None:
-                frame.last_exception = get_cleared_operation_error(self.space)
-                break
-            frame = self.getnextframe_nohidden(frame)
+        self.sys_exc_operror = operror
 
     @jit.dont_look_inside
     def settrace(self, w_func):
@@ -356,7 +347,6 @@ class ExecutionContext(object):
                     event == 'c_exception'):
                 return
 
-            last_exception = frame.last_exception
             if event == 'leaveframe':
                 event = 'return'
 
@@ -372,7 +362,6 @@ class ExecutionContext(object):
                     raise
 
             finally:
-                frame.last_exception = last_exception
                 self.is_tracing -= 1
 
     def checksignals(self):
