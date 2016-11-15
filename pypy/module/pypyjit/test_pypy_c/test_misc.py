@@ -141,7 +141,9 @@ class TestMisc(BaseTestPyPyC):
         log = self.run(main, [1000])
         assert log.result == 1000 * 999 / 2
         loop, = log.loops_by_filename(self.filepath)
-        assert loop.match("""
+        assert loop.match(self.RANGE_ITER_STEP_1)
+
+    RANGE_ITER_STEP_1 = """
             guard_not_invalidated?
             # W_IntRangeStepOneIterator.next()
             i16 = int_lt(i11, i12)
@@ -164,9 +166,12 @@ class TestMisc(BaseTestPyPyC):
             guard_no_overflow(descr=...)
             --TICK--
             jump(..., descr=...)
-        """)
+        """
 
     def test_range_iter_normal(self):
+        # Difference: range(n) => range(1, n).
+        # This difference doesn't really change anything in pypy3.5,
+        # but it used to in pypy2.7.
         def main(n):
             def g(n):
                 return range(n)
@@ -180,26 +185,7 @@ class TestMisc(BaseTestPyPyC):
         log = self.run(main, [1000])
         assert log.result == 1000 * 999 / 2
         loop, = log.loops_by_filename(self.filepath)
-        assert loop.match("""
-            guard_not_invalidated?
-            i16 = int_ge(i11, i12)
-            guard_false(i16, descr=...)
-            i17 = int_mul(i11, i14)
-            i18 = int_add(i15, i17)
-            i20 = int_add(i11, 1)
-            setfield_gc(p4, i20, descr=<.* .*W_AbstractSeqIterObject.inst_index .*>)
-            guard_not_invalidated?
-            i21 = force_token()
-            i95 = int_sub(i9, 1)
-            i23 = int_lt(i18, 0)
-            guard_false(i23, descr=...)
-            i25 = int_ge(i18, i9)
-            guard_false(i25, descr=...)
-            i27 = int_add_ovf(i7, i18)
-            guard_no_overflow(descr=...)
-            --TICK--
-            jump(..., descr=...)
-        """)
+        assert loop.match(self.RANGE_ITER_STEP_1)
 
     def test_chain_of_guards(self):
         src = """
