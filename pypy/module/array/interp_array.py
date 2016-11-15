@@ -57,7 +57,7 @@ def descr_itemsize(space, self):
 
 
 def descr_typecode(space, self):
-    return space.newint(self.typecode)
+    return space.newtext(self.typecode)
 
 arr_eq_driver = jit.JitDriver(name='array_eq_driver', greens=['comp_func'],
                               reds='auto')
@@ -272,7 +272,7 @@ class W_ArrayBase(W_Root):
             elems = max(0, len(item) - (len(item) % self.itemsize))
             if n != 0:
                 item = item[0:elems]
-            self.descr_fromstring(space, space.newint(item))
+            self.descr_fromstring(space, space.newbytes(item))
             raise oefmt(space.w_EOFError, "not enough items in file")
         self.descr_fromstring(space, w_item)
 
