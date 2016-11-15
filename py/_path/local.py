@@ -1,15 +1,16 @@
 """
 local path implementation.
 """
+from __future__ import with_statement
+
 from contextlib import contextmanager
-import sys, os, re, atexit
+import sys, os, re, atexit, io
 import py
 from py._path import common
+from py._path.common import iswin32
 from stat import S_ISLNK, S_ISDIR, S_ISREG
 
-from os.path import abspath, normpath, isabs, exists, isdir, isfile, islink
-
-iswin32 = sys.platform == "win32" or (getattr(os, '_name', False) == 'nt')
+from os.path import abspath, normpath, isabs, exists, isdir, isfile, islink, dirname
 
 if sys.version_info > (3,0):
     def map_as_list(func, iter):
@@ -151,7 +152,7 @@ class LocalPath(FSBase):
         elif isinstance(path, py.builtin._basestring):
             if expanduser:
                 path = os.path.expanduser(path)
-            self.strpath = abspath(normpath(path))
+            self.strpath = abspath(path)
         else:
             raise ValueError("can only pass None, Path instances "
                              "or non-empty strings to LocalPath")
@@ -303,6 +304,16 @@ class LocalPath(FSBase):
                         raise ValueError("invalid part specification %r" % name)
         return res
 
+    def dirpath(self, *args, **kwargs):
+        """ return the directory path joined with any given path arguments.  """
+        if not kwargs:
+            path = object.__new__(self.__class__)
+            path.strpath = dirname(self.strpath)
+            if args:
+                path = path.join(*args)
+            return path
+        return super(LocalPath, self).dirpath(*args, **kwargs)
+
     def join(self, *args, **kwargs):
         """ return a new path by appending all 'args' as path
         components.  if abs=1 is used restart from root if any
@@ -330,13 +341,15 @@ class LocalPath(FSBase):
         obj.strpath = normpath(strpath)
         return obj
 
-    def open(self, mode='r', ensure=False):
+    def open(self, mode='r', ensure=False, encoding=None):
         """ return an opened file with the given mode.
 
         If ensure is True, create parent directories if needed.
         """
         if ensure:
             self.dirpath().ensure(dir=1)
+        if encoding:
+            return py.error.checked_call(io.open, self.strpath, mode, encoding=encoding)
         return py.error.checked_call(open, self.strpath, mode)
 
     def _fastjoin(self, name):
@@ -433,6 +446,24 @@ class LocalPath(FSBase):
         p = self.join(*args)
         py.error.checked_call(os.mkdir, getattr(p, "strpath", p))
         return p
+
+    def write_binary(self, data, ensure=False):
+        """ write binary data into path.   If ensure is True create
+        missing parent directories.
+        """
+        if ensure:
+            self.dirpath().ensure(dir=1)
+        with self.open('wb') as f:
+            f.write(data)
+
+    def write_text(self, data, encoding, ensure=False):
+        """ write text data into path using the specified encoding.
+        If ensure is True create missing parent directories.
+        """
+        if ensure:
+            self.dirpath().ensure(dir=1)
+        with self.open('w', encoding=encoding) as f:
+            f.write(data)
 
     def write(self, data, mode='w', ensure=False):
         """ write data into path.   If ensure is True create
@@ -549,35 +580,6 @@ class LocalPath(FSBase):
         """ return string representation of the Path. """
         return self.strpath
 
-    def pypkgpath(self, pkgname=None):
-        """ return the Python package path by looking for a
-            pkgname.  If pkgname is None look for the last
-            directory upwards which still contains an __init__.py
-            and whose basename is python-importable.
-            Return None if a pkgpath can not be determined.
-        """
-        pkgpath = None
-        for parent in self.parts(reverse=True):
-            if pkgname is None:
-                if parent.check(file=1):
-                    continue
-                if not isimportable(parent.basename):
-                    break
-                if parent.join('__init__.py').check():
-                    pkgpath = parent
-                    continue
-                return pkgpath
-            else:
-                if parent.basename == pkgname:
-                    return parent
-        return pkgpath
-
-    def _prependsyspath(self, path):
-        s = str(path)
-        if s != sys.path[0]:
-            #print "prepending to sys.path", s
-            sys.path.insert(0, s)
-
     def chmod(self, mode, rec=0):
         """ change permissions to the given mode. If mode is an
             integer it directly encodes the os-specific modes.
@@ -590,33 +592,61 @@ class LocalPath(FSBase):
                 py.error.checked_call(os.chmod, str(x), mode)
         py.error.checked_call(os.chmod, str(self), mode)
 
+    def pypkgpath(self):
+        """ return the Python package path by looking for the last
+        directory upwards which still contains an __init__.py.
+        Return None if a pkgpath can not be determined.
+        """
+        pkgpath = None
+        for parent in self.parts(reverse=True):
+            if parent.isdir():
+                if not parent.join('__init__.py').exists():
+                    break
+                if not isimportable(parent.basename):
+                    break
+                pkgpath = parent
+        return pkgpath
+
+    def _ensuresyspath(self, ensuremode, path):
+        if ensuremode:
+            s = str(path)
+            if ensuremode == "append":
+                if s not in sys.path:
+                    sys.path.append(s)
+            else:
+                if s != sys.path[0]:
+                    sys.path.insert(0, s)
+
     def pyimport(self, modname=None, ensuresyspath=True):
         """ return path as an imported python module.
-            if modname is None, look for the containing package
-            and construct an according module name.
-            The module will be put/looked up in sys.modules.
+
+        If modname is None, look for the containing package
+        and construct an according module name.
+        The module will be put/looked up in sys.modules.
+        if ensuresyspath is True then the root dir for importing
+        the file (taking __init__.py files into account) will
+        be prepended to sys.path if it isn't there already.
+        If ensuresyspath=="append" the root dir will be appended
+        if it isn't already contained in sys.path.
+        if ensuresyspath is False no modification of syspath happens.
         """
         if not self.check():
             raise py.error.ENOENT(self)
-        #print "trying to import", self
+
         pkgpath = None
         if modname is None:
             pkgpath = self.pypkgpath()
             if pkgpath is not None:
-                if ensuresyspath:
-                    self._prependsyspath(pkgpath.dirpath())
-                __import__(pkgpath.basename)
-                pkg = sys.modules[pkgpath.basename]
-                names = self.new(ext='').relto(pkgpath.dirpath())
-                names = names.split(self.sep)
-                if names and names[-1] == "__init__":
+                pkgroot = pkgpath.dirpath()
+                names = self.new(ext="").relto(pkgroot).split(self.sep)
+                if names[-1] == "__init__":
                     names.pop()
                 modname = ".".join(names)
             else:
-                # no package scope, still make it possible
-                if ensuresyspath:
-                    self._prependsyspath(self.dirpath())
+                pkgroot = self.dirpath()
                 modname = self.purebasename
+
+            self._ensuresyspath(ensuresyspath, pkgroot)
             __import__(modname)
             mod = sys.modules[modname]
             if self.basename == "__init__.py":
@@ -630,7 +660,6 @@ class LocalPath(FSBase):
             if modfile.endswith(os.path.sep + "__init__.py"):
                 if self.basename != "__init__.py":
                     modfile = modfile[:-12]
-
             try:
                 issame = self.samefile(modfile)
             except py.error.ENOENT:
@@ -700,9 +729,10 @@ class LocalPath(FSBase):
                                  for path in paths]
                 else:
                     paths = py.std.os.environ['PATH'].split(':')
-            tryadd = ['']
+            tryadd = []
             if iswin32:
                 tryadd += os.environ['PATHEXT'].split(os.pathsep)
+            tryadd.append("")
 
             for x in paths:
                 for addext in tryadd:
@@ -876,8 +906,6 @@ def copychunked(src, dest):
         fsrc.close()
 
 def isimportable(name):
-    if name:
-        if not (name[0].isalpha() or name[0] == '_'):
-            return False
-        name= name.replace("_", '')
+    if name and (name[0].isalpha() or name[0] == '_'):
+        name = name.replace("_", '')
         return not name or name.isalnum()
