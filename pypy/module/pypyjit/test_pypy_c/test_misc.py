@@ -143,13 +143,21 @@ class TestMisc(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
             guard_not_invalidated?
-            i16 = int_ge(i11, i12)
-            guard_false(i16, descr=...)
+            # W_IntRangeStepOneIterator.next()
+            i16 = int_lt(i11, i12)
+            guard_true(i16, descr=...)
             i20 = int_add(i11, 1)
-            setfield_gc(p4, i20, descr=<.* .*W_AbstractSeqIterObject.inst_index .*>)
+            setfield_gc(p4, i20, descr=<.* .*W_IntRangeIterator.inst_current .*>)
             guard_not_invalidated?
             i21 = force_token()
             i88 = int_sub(i9, 1)
+
+            # Compared with pypy2, we get these two operations extra.
+            # I think the reason is that W_IntRangeStepOneIterator is used
+            # for any 'start' value, which might be negative.
+            i89 = int_lt(i11, 0)
+            guard_false(i89, descr=...)
+
             i25 = int_ge(i11, i9)
             guard_false(i25, descr=...)
             i27 = int_add_ovf(i7, i11)
