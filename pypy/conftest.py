@@ -46,7 +46,8 @@ def pytest_addoption(parser):
             default=False, dest="raise_operr",
             help="Show the interp-level OperationError in app-level tests")
 
-def pytest_funcarg__space(request):
+@pytest.fixture(scope='function')
+def space(request):
     from pypy.tool.pytest.objspace import gettestobjspace
     spaceconfig = getattr(request.cls, 'spaceconfig', {})
     return gettestobjspace(**spaceconfig)
