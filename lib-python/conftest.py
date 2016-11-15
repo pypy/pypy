@@ -17,7 +17,7 @@ from pypy.interpreter.main import run_string, run_file
 from pypy.conftest import option as pypy_option
 
 from pypy.tool.pytest import appsupport
-from pypy.tool.pytest.confpath import pypydir, rpythondir, testdir, testresultdir
+from pypy.tool.pytest.confpath import pypydir, testdir, testresultdir
 from rpython.config.parse import parse_info
 
 pytest_plugins = "resultlog",
@@ -561,7 +561,7 @@ class ReallyRunFileExternal(py.test.collect.Item):
             watchdog_name = 'watchdog_nt.py'
         else:
             watchdog_name = 'watchdog.py'
-        watchdog_script = rpythondir.join('tool', watchdog_name)
+        watchdog_script = pypydir.join('tool', watchdog_name)
 
         regr_script = pypydir.join('tool', 'pytest',
                                    'run-script', 'regrverbose.py')
