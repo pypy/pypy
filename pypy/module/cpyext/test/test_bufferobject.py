@@ -25,7 +25,7 @@ class AppTestBufferObject(AppTestCpythonExtensionBase):
              """
                  char *ptr;
                  Py_ssize_t size;
-                 if (PyObject_AsCharBuffer(args, &ptr, &size) < 0)
+                 if (PyObject_AsCharBuffer(args, (const char **)&ptr, &size) < 0)
                      return NULL;
                  return PyString_FromStringAndSize(ptr, size);
              """)

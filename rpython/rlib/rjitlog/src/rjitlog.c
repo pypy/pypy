@@ -45,11 +45,11 @@ void jitlog_try_init_using_env(void) {
     filename = getenv("JITLOG");
 
     if (filename && filename[0]) {
-        // mode is 775
+        // mode is 644
 #ifdef _WIN32
-        int mode = _S_IWRITE | _S_IREAD | _S_IEXEC;
+        int mode = _S_IWRITE | _S_IREAD;
 #else        
-        mode_t mode = S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH;
+        mode_t mode = 0644;
 #endif
         jitlog_fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, mode);
         if (jitlog_fd == -1) {

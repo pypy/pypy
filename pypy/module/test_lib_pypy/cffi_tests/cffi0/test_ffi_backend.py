@@ -283,10 +283,20 @@ class TestBitfield:
         ffi.cdef("struct foo_s { int x; int a[]; };")
         p = ffi.new("struct foo_s *", [100, [200, 300, 400]])
         assert p.x == 100
-        assert ffi.typeof(p.a) is ffi.typeof("int *")   # no length available
+        assert ffi.typeof(p.a) is ffi.typeof("int[]")
+        assert len(p.a) == 3                            # length recorded
         assert p.a[0] == 200
         assert p.a[1] == 300
         assert p.a[2] == 400
+        assert list(p.a) == [200, 300, 400]
+        q = ffi.cast("struct foo_s *", p)
+        assert q.x == 100
+        assert ffi.typeof(q.a) is ffi.typeof("int *")   # no length recorded
+        py.test.raises(TypeError, len, q.a)
+        assert q.a[0] == 200
+        assert q.a[1] == 300
+        assert q.a[2] == 400
+        py.test.raises(TypeError, list, q.a)
 
     @pytest.mark.skipif("sys.platform != 'win32'")
     def test_getwinerror(self):

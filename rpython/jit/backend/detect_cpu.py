@@ -13,7 +13,6 @@ class ProcessorAutodetectError(Exception):
 MODEL_X86         = 'x86'
 MODEL_X86_NO_SSE2 = 'x86-without-sse2'
 MODEL_X86_64      = 'x86-64'
-MODEL_X86_64_SSE4 = 'x86-64-sse4'
 MODEL_ARM         = 'arm'
 MODEL_PPC_64      = 'ppc-64'
 MODEL_S390_64     = 's390x'
@@ -81,9 +80,6 @@ def detect_model_from_host_platform():
         from rpython.jit.backend.x86 import detect_feature as feature
         if sys.maxint == 2**63-1:
             result = MODEL_X86_64
-            # has sse 2 at least
-            if feature.detect_sse4_1():
-                result = MODEL_X86_64_SSE4
         else:
             assert sys.maxint == 2**31-1
             if feature.detect_sse2():
@@ -120,8 +116,6 @@ def getcpuclassname(backend_name="auto"):
         return "rpython.jit.backend.x86.runner", "CPU386_NO_SSE2"
     elif backend_name == MODEL_X86_64:
         return "rpython.jit.backend.x86.runner", "CPU_X86_64"
-    elif backend_name == MODEL_X86_64_SSE4:
-        return "rpython.jit.backend.x86.runner", "CPU_X86_64_SSE4"
     elif backend_name == MODEL_ARM:
         return "rpython.jit.backend.arm.runner", "CPU_ARM"
     elif backend_name == MODEL_PPC_64:
@@ -145,7 +139,6 @@ def getcpufeatures(backend_name="auto"):
         MODEL_X86: ['floats', 'singlefloats', 'longlong'],
         MODEL_X86_NO_SSE2: ['longlong'],
         MODEL_X86_64: ['floats', 'singlefloats'],
-        MODEL_X86_64_SSE4: ['floats', 'singlefloats'],
         MODEL_ARM: ['floats', 'singlefloats', 'longlong'],
         MODEL_PPC_64: ['floats'],
         MODEL_S390_64: ['floats'],

@@ -302,7 +302,8 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
         history.cut(cut_at)
         return None
 
-    if ((warmstate.vec and jitdriver_sd.vec) or warmstate.vec_all):
+    if ((warmstate.vec and jitdriver_sd.vec) or warmstate.vec_all) and \
+        metainterp.cpu.vector_ext and metainterp.cpu.vector_ext.is_enabled():
         from rpython.jit.metainterp.optimizeopt.vector import optimize_vector
         loop_info, loop_ops = optimize_vector(trace, metainterp_sd,
                                               jitdriver_sd, warmstate,
@@ -327,7 +328,7 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
         metainterp_sd.logger_ops.log_short_preamble([],
             label_token.short_preamble, metainterp.box_names_memo)
     loop.operations = ([start_label] + preamble_ops + loop_info.extra_same_as +
-                       [loop_info.label_op] + loop_ops)
+                       loop_info.extra_before_label + [loop_info.label_op] + loop_ops)
     if not we_are_translated():
         loop.check_consistency()
     send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop",

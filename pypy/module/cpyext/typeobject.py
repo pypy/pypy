@@ -288,7 +288,7 @@ def update_all_slots(space, w_type, pto):
         if len(slot_names) == 1:
             if not getattr(pto, slot_names[0]):
                 setattr(pto, slot_names[0], slot_func_helper)
-        elif (w_type.getname(space) in ('list', 'tuple') and
+        elif ((w_type is space.w_list or w_type is space.w_tuple) and
               slot_names[0] == 'c_tp_as_number'):
             # XXX hack - hwo can we generalize this? The problem is method
             # names like __mul__ map to more than one slot, and we have no

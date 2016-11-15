@@ -1,6 +1,6 @@
 from pypy.module.cpyext.api import (cpython_api, Py_buffer, CANNOT_FAIL,
                          Py_MAX_FMT, Py_MAX_NDIMS, build_type_checkers, Py_ssize_tP)
-from pypy.module.cpyext.pyobject import PyObject, make_ref, incref
+from pypy.module.cpyext.pyobject import PyObject, make_ref, incref, from_ref
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import widen
 from pypy.objspace.std.memoryobject import W_MemoryView
@@ -132,11 +132,22 @@ def PyBuffer_IsContiguous(space, view, fort):
 def PyMemoryView_FromObject(space, w_obj):
     return space.call_method(space.builtin, "memoryview", w_obj)
 
+@cpython_api([lltype.Ptr(Py_buffer)], PyObject)
+def PyMemoryView_FromBuffer(space, view):
+    """Create a memoryview object wrapping the given buffer-info structure view.
+    The memoryview object then owns the buffer, which means you shouldn't
+    try to release it yourself: it will be released on deallocation of the
+    memoryview object."""
+    w_obj = from_ref(space, view.c_obj)
+    if isinstance(w_obj, W_MemoryView):
+        return w_obj
+    return space.call_method(space.builtin, "memoryview", w_obj)
+
 @cpython_api([PyObject], PyObject)
 def PyMemoryView_GET_BASE(space, w_obj):
     # return the obj field of the Py_buffer created by PyMemoryView_GET_BUFFER
     # XXX needed for numpy on py3k
-    raise NotImplementedError('PyMemoryView_GET_BUFFER')
+    raise NotImplementedError('PyMemoryView_GET_BASE')
 
 @cpython_api([PyObject], lltype.Ptr(Py_buffer), error=CANNOT_FAIL)
 def PyMemoryView_GET_BUFFER(space, w_obj):
