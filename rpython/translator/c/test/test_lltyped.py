@@ -1,4 +1,4 @@
-import py
+import py, random
 from rpython.rtyper.lltypesystem.lltype import *
 from rpython.rtyper.lltypesystem import rffi
 from rpython.translator.c.test.test_genc import compile
@@ -236,7 +236,9 @@ class TestLowLevelType(object):
 
         fn = self.getcompiled(llf, [int])
         res = fn(0x33)
-        assert res in [0x10203033, 0x33203040]
+        assert res in [0x10203033, 0x33203040,
+                       # big endian 64 bit machine
+                       0x3300000010203040]
 
     def test_sizeof_void_array(self):
         from rpython.rtyper.lltypesystem import llmemory
@@ -252,28 +254,6 @@ class TestLowLevelType(object):
         res1 = fn(1)
         res2 = fn(0)
         assert res1 == res2
-
-    def test_null_padding(self):
-        py.test.skip("we no longer pad our RPython strings with a final NUL")
-        from rpython.rtyper.lltypesystem import llmemory
-        from rpython.rtyper.lltypesystem import rstr
-        chars_offset = llmemory.FieldOffset(rstr.STR, 'chars') + \
-                       llmemory.ArrayItemsOffset(rstr.STR.chars)
-        # sadly, there's no way of forcing this to fail if the strings
-        # are allocated in a region of memory such that they just
-        # happen to get a NUL byte anyway :/ (a debug build will
-        # always fail though)
-        def trailing_byte(s):
-            adr_s = llmemory.cast_ptr_to_adr(s)
-            return (adr_s + chars_offset).char[len(s)]
-        def f(x):
-            r = 0
-            for i in range(x):
-                r += ord(trailing_byte(' '*(100-x*x)))
-            return r
-        fn = self.getcompiled(f, [int])
-        res = fn(10)
-        assert res == 0
 
     def test_cast_primitive(self):
         def f(x):
@@ -1021,3 +1001,49 @@ class TestLowLevelType(object):
         assert fn(r_longlong(1)) == True
         assert fn(r_longlong(256)) == True
         assert fn(r_longlong(2**32)) == True
+
+    def test_extra_item_after_alloc(self):
+        from rpython.rlib import rgc
+        from rpython.rtyper.lltypesystem import lltype
+        from rpython.rtyper.lltypesystem import rstr
+        # all STR objects should be allocated with enough space for one
+        # extra char.  Check this for prebuilt strings, and for dynamically
+        # allocated ones with the default GC for tests.  Use strings of 8,
+        # 16 and 24 chars because if the extra char is missing, writing to it
+        # is likely to cause corruption in nearby structures.
+        sizes = [random.choice([8, 16, 24]) for i in range(100)]
+        A = lltype.Struct('A', ('x', lltype.Signed))
+        prebuilt = [(rstr.mallocstr(sz),
+                     lltype.malloc(A, flavor='raw', immortal=True))
+                        for sz in sizes]
+        k = 0
+        for i, (s, a) in enumerate(prebuilt):
+            a.x = i
+            for i in range(len(s.chars)):
+                k += 1
+                if k == 256:
+                    k = 1
+                s.chars[i] = chr(k)
+
+        def check(lst):
+            hashes = []
+            for i, (s, a) in enumerate(lst):
+                assert a.x == i
+                rgc.ll_write_final_null_char(s)
+            for i, (s, a) in enumerate(lst):
+                assert a.x == i     # check it was not overwritten
+        def f():
+            check(prebuilt)
+            lst1 = []
+            for i, sz in enumerate(sizes):
+                s = rstr.mallocstr(sz)
+                a = lltype.malloc(A, flavor='raw')
+                a.x = i
+                lst1.append((s, a))
+            check(lst1)
+            for _, a in lst1:
+                lltype.free(a, flavor='raw')
+            return 42
+
+        fn = self.getcompiled(f, [])
+        assert fn() == 42

@@ -48,7 +48,6 @@ class LowLevelDatabase(object):
         self.delayedfunctionptrs = []
         self.completedcontainers = 0
         self.containerstats = {}
-        self.helpers = OrderedDict()
 
         # late_initializations is for when the value you want to
         # assign to a constant object is something C doesn't think is
@@ -286,7 +285,7 @@ class LowLevelDatabase(object):
         finish_callbacks = []
         if self.gctransformer:
             finish_callbacks.append(('GC transformer: finished helpers',
-                                     self.gctransformer.finish_helpers))
+                                     self.gctransformer.get_finish_helpers()))
             finish_callbacks.append(('GC transformer: finished tables',
                                      self.gctransformer.get_finish_tables()))
 

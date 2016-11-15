@@ -1,11 +1,6 @@
 import sys
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 
-if sys.maxint == 2147483647:
-    SHIFT = 31
-else:
-    SHIFT = 63
-
 # XXX review the <Call> descrs to replace some EF=5 with EF=4 (elidable)
 
 
@@ -28,10 +23,7 @@ class TestString(BaseTestPyPyC):
             guard_true(i14, descr=...)
             guard_not_invalidated(descr=...)
             i16 = int_eq(i6, %d)
-            i15 = int_mod(i6, i10)
-            i17 = int_rshift(i15, %d)
-            i18 = int_and(i10, i17)
-            i19 = int_add(i15, i18)
+            i19 = call_i(ConstClass(ll_int_py_mod__Signed_Signed), i6, i10, descr=<Calli . ii EF=0 OS=14>)
             i21 = int_lt(i19, 0)
             guard_false(i21, descr=...)
             i22 = int_ge(i19, i10)
@@ -49,7 +41,7 @@ class TestString(BaseTestPyPyC):
             i34 = int_add(i6, 1)
             --TICK--
             jump(..., descr=...)
-        """ % (-sys.maxint-1, SHIFT))
+        """ % (-sys.maxint-1,))
 
     def test_long(self):
         def main(n):
@@ -62,19 +54,25 @@ class TestString(BaseTestPyPyC):
         log = self.run(main, [1100], import_site=True)
         assert log.result == main(1100)
         loop, = log.loops_by_filename(self.filepath)
+        if sys.maxint > 2**32:
+            args = (63, -3689348814741910323, 3)
+        else:
+            args = (31, -858993459, 3)
         assert loop.match("""
             i11 = int_lt(i6, i7)
             guard_true(i11, descr=...)
             guard_not_invalidated(descr=...)
             i13 = int_eq(i6, %d)         # value provided below
-            i15 = int_mod(i6, 10)
-            i17 = int_rshift(i15, %d)    # value provided below
-            i18 = int_and(10, i17)
-            i19 = int_add(i15, i18)
-            i21 = int_lt(i19, 0)
-            guard_false(i21, descr=...)
-            i22 = int_ge(i19, 10)
-            guard_false(i22, descr=...)
+
+            # "mod 10" block:
+            i79 = int_rshift(i6, %d)
+            i80 = int_xor(i6, i79)
+            i82 = uint_mul_high(i80, %d)
+            i84 = uint_rshift(i82, %d)
+            i85 = int_xor(i84, i79)
+            i87 = int_mul(i85, 10)
+            i19 = int_sub(i6, i87)
+
             i23 = strgetitem(p10, i19)
             p25 = newstr(1)
             strsetitem(p25, 0, i23)
@@ -89,7 +87,7 @@ class TestString(BaseTestPyPyC):
             guard_no_overflow(descr=...)
             --TICK--
             jump(..., descr=...)
-        """ % (-sys.maxint-1, SHIFT))
+        """ % ((-sys.maxint-1,)+args))
 
     def test_str_mod(self):
         def main(n):

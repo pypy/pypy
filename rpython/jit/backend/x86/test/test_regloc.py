@@ -152,7 +152,7 @@ class Test64Bits:
             py.test.skip()
 
     def test_reuse_scratch_register(self):
-        base_addr = 0xFEDCBA9876543210
+        base_addr = intmask(0xFEDCBA9876543210)
         cb = LocationCodeBuilder64()
         cb.begin_reuse_scratch_register()
         cb.MOV(ecx, heap(SEGMENT_NO, base_addr))
@@ -172,7 +172,7 @@ class Test64Bits:
     # ------------------------------------------------------------
 
     def test_64bit_address_1(self):
-        base_addr = 0xFEDCBA9876543210
+        base_addr = intmask(0xFEDCBA9876543210)
         cb = LocationCodeBuilder64()
         cb.CMP(ecx, AddressLoc(SEGMENT_FS, ImmedLoc(0), ImmedLoc(0),
                                0, base_addr))
@@ -187,7 +187,7 @@ class Test64Bits:
         assert cb.getvalue() == expected_instructions
 
     def test_64bit_address_2(self):
-        base_addr = 0xFEDCBA9876543210
+        base_addr = intmask(0xFEDCBA9876543210)
         cb = LocationCodeBuilder64()
         cb.MOV(ecx, AddressLoc(SEGMENT_FS, ImmedLoc(0), edx, 3, base_addr))
         # this case is a CMP_ra
@@ -201,7 +201,7 @@ class Test64Bits:
         assert cb.getvalue() == expected_instructions
 
     def test_64bit_address_3(self):
-        base_addr = 0xFEDCBA9876543210
+        base_addr = intmask(0xFEDCBA9876543210)
         cb = LocationCodeBuilder64()
         cb.MOV(ecx, AddressLoc(SEGMENT_FS, edx, ImmedLoc(0), 0, base_addr))
         # this case is a CMP_rm
@@ -217,7 +217,7 @@ class Test64Bits:
         assert cb.getvalue() == expected_instructions
 
     def test_64bit_address_4(self):
-        base_addr = 0xFEDCBA9876543210
+        base_addr = intmask(0xFEDCBA9876543210)
         cb = LocationCodeBuilder64()
         cb.begin_reuse_scratch_register()
         assert cb._reuse_scratch_register is True
@@ -240,7 +240,7 @@ class Test64Bits:
     # ------------------------------------------------------------
 
     def test_MOV_64bit_constant_into_r11(self):
-        base_constant = 0xFEDCBA9876543210
+        base_constant = intmask(0xFEDCBA9876543210)
         cb = LocationCodeBuilder64()
         cb.MOV(r11, imm(base_constant))
 
@@ -251,7 +251,7 @@ class Test64Bits:
         assert cb.getvalue() == expected_instructions
 
     def test_MOV_64bit_constant_into_rax(self):
-        base_constant = 0xFEDCBA9876543210
+        base_constant = intmask(0xFEDCBA9876543210)
         cb = LocationCodeBuilder64()
         cb.MOV(eax, imm(base_constant))
 
@@ -262,7 +262,7 @@ class Test64Bits:
         assert cb.getvalue() == expected_instructions
 
     def test_MOV_64bit_address_into_r11(self):
-        base_addr = 0xFEDCBA9876543210
+        base_addr = intmask(0xFEDCBA9876543210)
         cb = LocationCodeBuilder64()
         cb.MOV(r11, heap(SEGMENT_FS, base_addr))
 
@@ -276,7 +276,7 @@ class Test64Bits:
 
     def test_MOV_immed32_into_64bit_address_1(self):
         immed = -0x01234567
-        base_addr = 0xFEDCBA9876543210
+        base_addr = intmask(0xFEDCBA9876543210)
         cb = LocationCodeBuilder64()
         cb.MOV(AddressLoc(SEGMENT_FS, ImmedLoc(0), ImmedLoc(0), 0, base_addr),
                ImmedLoc(immed))
@@ -292,7 +292,7 @@ class Test64Bits:
 
     def test_MOV_immed32_into_64bit_address_2(self):
         immed = -0x01234567
-        base_addr = 0xFEDCBA9876543210
+        base_addr = intmask(0xFEDCBA9876543210)
         cb = LocationCodeBuilder64()
         cb.MOV(AddressLoc(SEGMENT_FS, ImmedLoc(0), edx, 3, base_addr),
                ImmedLoc(immed))
@@ -308,7 +308,7 @@ class Test64Bits:
 
     def test_MOV_immed32_into_64bit_address_3(self):
         immed = -0x01234567
-        base_addr = 0xFEDCBA9876543210
+        base_addr = intmask(0xFEDCBA9876543210)
         cb = LocationCodeBuilder64()
         cb.MOV(AddressLoc(SEGMENT_FS, edx, ImmedLoc(0), 0, base_addr),
                ImmedLoc(immed))
@@ -326,7 +326,7 @@ class Test64Bits:
 
     def test_MOV_immed32_into_64bit_address_4(self):
         immed = -0x01234567
-        base_addr = 0xFEDCBA9876543210
+        base_addr = intmask(0xFEDCBA9876543210)
         cb = LocationCodeBuilder64()
         cb.MOV(AddressLoc(SEGMENT_FS, edx, esi, 2, base_addr), ImmedLoc(immed))
         # this case is a MOV_ai
@@ -345,7 +345,7 @@ class Test64Bits:
 
     def test_MOV_immed64_into_64bit_address_1(self):
         immed = 0x0123456789ABCDEF
-        base_addr = 0xFEDCBA9876543210
+        base_addr = intmask(0xFEDCBA9876543210)
         cb = LocationCodeBuilder64()
         cb.MOV(AddressLoc(SEGMENT_FS, ImmedLoc(0), ImmedLoc(0), 0, base_addr),
                ImmedLoc(immed))
@@ -367,7 +367,7 @@ class Test64Bits:
 
     def test_MOV_immed64_into_64bit_address_2(self):
         immed = 0x0123456789ABCDEF
-        base_addr = 0xFEDCBA9876543210
+        base_addr = intmask(0xFEDCBA9876543210)
         cb = LocationCodeBuilder64()
         cb.MOV(AddressLoc(SEGMENT_FS, ImmedLoc(0), edx, 3, base_addr),
                ImmedLoc(immed))
@@ -389,7 +389,7 @@ class Test64Bits:
 
     def test_MOV_immed64_into_64bit_address_3(self):
         immed = 0x0123456789ABCDEF
-        base_addr = 0xFEDCBA9876543210
+        base_addr = intmask(0xFEDCBA9876543210)
         cb = LocationCodeBuilder64()
         cb.MOV(AddressLoc(SEGMENT_FS, eax, ImmedLoc(0), 0, base_addr),
                ImmedLoc(immed))
@@ -413,7 +413,7 @@ class Test64Bits:
 
     def test_MOV_immed64_into_64bit_address_4(self):
         immed = 0x0123456789ABCDEF
-        base_addr = 0xFEDCBA9876543210
+        base_addr = intmask(0xFEDCBA9876543210)
         cb = LocationCodeBuilder64()
         cb.MOV(AddressLoc(SEGMENT_FS, edx, eax, 2, base_addr), ImmedLoc(immed))
         # this case is a MOV_ai

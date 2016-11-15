@@ -1,6 +1,6 @@
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.executioncontext import AsyncAction
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.annlowlevel import llhelper
@@ -52,8 +52,9 @@ class State:
             self.clear_exception()
             raise operror
         if always:
-            raise OperationError(self.space.w_SystemError, self.space.wrap(
-                "Function returned an error result without setting an exception"))
+            raise oefmt(self.space.w_SystemError,
+                        "Function returned an error result without setting an "
+                        "exception")
 
     def build_api(self, space):
         """NOT_RPYTHON
@@ -147,10 +148,10 @@ class PyObjDeallocAction(AsyncAction):
     """
 
     def perform(self, executioncontext, frame):
-        from pypy.module.cpyext.pyobject import PyObject, _Py_Dealloc
+        from pypy.module.cpyext.pyobject import PyObject, decref
 
         while True:
             py_obj = rawrefcount.next_dead(PyObject)
             if not py_obj:
                 break
-            _Py_Dealloc(self.space, py_obj)
+            decref(self.space, py_obj)

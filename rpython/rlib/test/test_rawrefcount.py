@@ -116,7 +116,7 @@ class TestRawRefCount:
         assert rawrefcount.next_dead(PyObject) == lltype.nullptr(PyObjectS)
         assert rawrefcount._o_list == []
         assert wr_p() is None
-        assert ob.c_ob_refcnt == 0
+        assert ob.c_ob_refcnt == 1       # from the pending list
         assert ob.c_ob_pypy_link == 0
         lltype.free(ob, flavor='raw')
 
@@ -173,7 +173,7 @@ class TestRawRefCount:
         assert rawrefcount._d_list == [ob]
         assert rawrefcount._p_list == []
         assert wr_p() is None
-        assert ob.c_ob_refcnt == 0
+        assert ob.c_ob_refcnt == 1       # from _d_list
         assert ob.c_ob_pypy_link == 0
         lltype.free(ob, flavor='raw')
 

@@ -48,6 +48,7 @@ def test_framework_simple(gc="minimark"):
 
     cbuild = CStandaloneBuilder(t, entrypoint, t.config,
                                 gcpolicy=gcpolicy)
+    cbuild.make_entrypoint_wrapper = False
     db = cbuild.build_database()
     entrypointptr = cbuild.getentrypointptr()
     entrygraph = entrypointptr._obj.graph
@@ -129,6 +130,7 @@ def test_no_collect(gc="minimark"):
     t.config.translation.gc = gc
     cbuild = CStandaloneBuilder(t, entrypoint, t.config,
                                 gcpolicy=gcpolicy)
+    cbuild.make_entrypoint_wrapper = False
     db = cbuild.build_database()
 
 def test_no_collect_stm():
@@ -161,6 +163,7 @@ def test_no_collect_detection(gc="minimark"):
     t.config.translation.gc = gc
     cbuild = CStandaloneBuilder(t, entrypoint, t.config,
                                 gcpolicy=gcpolicy)
+    cbuild.make_entrypoint_wrapper = False
     with py.test.raises(Exception) as f:
         cbuild.build_database()
     expected = "'no_collect' function can trigger collection: <function g at "
@@ -189,6 +192,7 @@ def test_custom_trace_function_no_collect():
     t.config.translation.gc = "minimark"
     cbuild = CStandaloneBuilder(t, entrypoint, t.config,
                                 gcpolicy=FrameworkGcPolicy2)
+    cbuild.make_entrypoint_wrapper = False
     with py.test.raises(Exception) as f:
         cbuild.build_database()
     assert 'can cause the GC to be called' in str(f.value)
@@ -285,6 +289,7 @@ def test_remove_duplicate_write_barrier(gc="minimark"):
     t.config.translation.gc = gc
     cbuild = CStandaloneBuilder(t, g, t.config,
                                 gcpolicy=gcpolicy)
+    cbuild.make_entrypoint_wrapper = False
     db = cbuild.build_database()
 
     ff = graphof(t, f)

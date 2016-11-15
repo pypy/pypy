@@ -1735,7 +1735,6 @@ order (MRO) for bases """
             ("__reversed__", reversed, empty_seq, set(), {}),
             ("__length_hint__", list, zero, set(),
              {"__iter__" : iden, "next" : stop}),
-            ("__sizeof__", sys.getsizeof, zero, set(), {}),
             ("__instancecheck__", do_isinstance, return_true, set(), {}),
             ("__missing__", do_dict_missing, some_number,
              set(("__class__",)), {}),
@@ -1747,6 +1746,8 @@ order (MRO) for bases """
             ("__format__", format, format_impl, set(), {}),
             ("__dir__", dir, empty_seq, set(), {}),
             ]
+        if test_support.check_impl_detail():
+            specials.append(("__sizeof__", sys.getsizeof, zero, set(), {}))
 
         class Checker(object):
             def __getattr__(self, attr, test=self):
@@ -1768,10 +1769,6 @@ order (MRO) for bases """
                 raise MyException
 
         for name, runner, meth_impl, ok, env in specials:
-            if name == '__length_hint__' or name == '__sizeof__':
-                if not test_support.check_impl_detail():
-                    continue
-
             class X(Checker):
                 pass
             for attr, obj in env.iteritems():
@@ -3744,7 +3741,7 @@ order (MRO) for bases """
         b.a = a
         z = deepcopy(a) # This blew up before
 
-    def test_unintialized_modules(self):
+    def test_uninitialized_modules(self):
         # Testing uninitialized module objects...
         from types import ModuleType as M
         m = M.__new__(M)
@@ -4086,6 +4083,37 @@ order (MRO) for bases """
         else:
             assert 0, "best_base calculation found wanting"
 
+    def test_unsubclassable_types(self):
+        with self.assertRaises(TypeError):
+            class X(types.NoneType):
+                pass
+        with self.assertRaises(TypeError):
+            class X(object, types.NoneType):
+                pass
+        with self.assertRaises(TypeError):
+            class X(types.NoneType, object):
+                pass
+        class O(object):
+            pass
+        with self.assertRaises(TypeError):
+            class X(O, types.NoneType):
+                pass
+        with self.assertRaises(TypeError):
+            class X(types.NoneType, O):
+                pass
+
+        class X(object):
+            pass
+        with self.assertRaises(TypeError):
+            X.__bases__ = types.NoneType,
+        with self.assertRaises(TypeError):
+            X.__bases__ = object, types.NoneType
+        with self.assertRaises(TypeError):
+            X.__bases__ = types.NoneType, object
+        with self.assertRaises(TypeError):
+            X.__bases__ = O, types.NoneType
+        with self.assertRaises(TypeError):
+            X.__bases__ = types.NoneType, O
 
     def test_mutable_bases_with_failing_mro(self):
         # Testing mutable bases with failing mro...
@@ -4693,6 +4721,7 @@ order (MRO) for bases """
         for o in gc.get_objects():
             self.assertIsNot(type(o), X)
 
+
 class DictProxyTests(unittest.TestCase):
     def setUp(self):
         class C(object):
@@ -4758,6 +4787,26 @@ class PTypesLongInitTest(unittest.TestCase):
         type.mro(tuple)
 
 
+class PicklingTests(unittest.TestCase):
+
+    def test_issue24097(self):
+        # Slot name is freed inside __getattr__ and is later used.
+        class S(str):  # Not interned
+            pass
+        class A(object):
+            __slotnames__ = [S('spam')]
+            def __getattr__(self, attr):
+                if attr == 'spam':
+                    A.__slotnames__[:] = [S('spam')]
+                    return 42
+                else:
+                    raise AttributeError
+
+        import copy_reg
+        expected = (copy_reg.__newobj__, (A,), ({}, {'spam': 42}), None, None)
+        self.assertEqual(A().__reduce__(2), expected)
+
+
 def test_main():
     deprecations = [(r'complex divmod\(\), // and % are deprecated$',
                      DeprecationWarning)]
@@ -4769,7 +4818,8 @@ def test_main():
     with test_support.check_warnings(*deprecations):
         # Run all local test cases, with PTypesLongInitTest first.
         test_support.run_unittest(PTypesLongInitTest, OperatorsTest,
-                                  ClassPropertiesAndMethods, DictProxyTests)
+                                  ClassPropertiesAndMethods, DictProxyTests,
+                                  PicklingTests)
 
 if __name__ == "__main__":
     test_main()

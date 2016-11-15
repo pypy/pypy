@@ -511,7 +511,7 @@ class StringTests:
         def f(n):
             while n < 21:
                 driver.jit_merge_point(n=n)
-                promote_string(str(n % 3))
+                promote_string(str(n & 3))
                 n += 1
             return 0
 

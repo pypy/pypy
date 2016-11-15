@@ -15,21 +15,21 @@ class W_STType(W_Root):
 
     @specialize.arg(3)
     def _build_app_tree(self, space, node, seq_maker, with_lineno, with_column):
-        if node.children is not None:
-            seq_w = [None]*(len(node.children) + 1)
+        if node.num_children():
+            seq_w = [None]*(node.num_children() + 1)
             seq_w[0] = space.wrap(node.type)
-            for i in range(1, len(node.children) + 1):
-                seq_w[i] = self._build_app_tree(space, node.children[i - 1],
+            for i in range(1, node.num_children() + 1):
+                seq_w[i] = self._build_app_tree(space, node.get_child(i - 1),
                                                 seq_maker, with_lineno,
                                                 with_column)
         else:
             seq_w = [None]*(2 + with_lineno + with_column)
             seq_w[0] = space.wrap(node.type)
-            seq_w[1] = space.wrap(node.value)
+            seq_w[1] = space.wrap(node.get_value())
             if with_lineno:
-                seq_w[2] = space.wrap(node.lineno)
+                seq_w[2] = space.wrap(node.get_lineno())
             if with_column:
-                seq_w[3] = space.wrap(node.column)
+                seq_w[3] = space.wrap(node.get_column())
         return seq_maker(seq_w)
 
     def descr_issuite(self, space):
@@ -54,10 +54,10 @@ class W_STType(W_Root):
         try:
             ast = ast_from_node(space, self.tree, info)
             result = compile_ast(space, ast, info)
-        except error.IndentationError, e:
+        except error.IndentationError as e:
             raise OperationError(space.w_IndentationError,
                                  e.wrap_info(space))
-        except error.SyntaxError, e:
+        except error.SyntaxError as e:
             raise OperationError(space.w_SyntaxError,
                                  e.wrap_info(space))
         return space.wrap(result)
@@ -76,10 +76,10 @@ def parse_python(space, source, mode):
     parser = pyparse.PythonParser(space)
     try:
         tree = parser.parse_source(source, info)
-    except error.IndentationError, e:
+    except error.IndentationError as e:
         raise OperationError(space.w_IndentationError,
                              e.wrap_info(space))
-    except error.SyntaxError, e:
+    except error.SyntaxError as e:
         raise OperationError(space.w_SyntaxError,
                              e.wrap_info(space))
     return space.wrap(W_STType(tree, mode))

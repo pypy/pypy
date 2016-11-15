@@ -14,9 +14,15 @@ from rpython.rlib.rarithmetic import (ovfcheck, is_valid_int, intmask,
     r_uint, r_longlong, r_ulonglong, r_longlonglong)
 from rpython.rtyper.lltypesystem import lltype, llmemory, lloperation, llheap
 from rpython.rtyper import rclass
+from rpython.tool.ansi_print import AnsiLogger
 
 
-log = py.log.Producer('llinterp')
+# by default this logger's output is disabled.
+# e.g. tests can then switch on logging to get more help
+# for failing tests
+log = AnsiLogger('llinterp')
+log.output_disabled = True
+
 
 class LLException(Exception):
     def __init__(self, *args):
@@ -91,13 +97,13 @@ class LLInterpreter(object):
         try:
             try:
                 retval = llframe.eval()
-            except LLException, e:
+            except LLException as e:
                 log.error("LLEXCEPTION: %s" % (e, ))
                 self.print_traceback()
                 if self.tracer:
                     self.tracer.dump('LLException: %s\n' % (e,))
                 raise
-            except Exception, e:
+            except Exception as e:
                 if getattr(e, '_go_through_llinterp_uncaught_', False):
                     raise
                 log.error("AN ERROR OCCURED: %s" % (e, ))
@@ -313,10 +319,10 @@ class LLFrame(object):
             for i, op in enumerate(block.operations):
                 self.curr_operation_index = i
                 self.eval_operation(op)
-        except LLException, e:
+        except LLException as e:
             if op is not block.raising_op:
                 raise
-        except RuntimeError, e:
+        except RuntimeError as e:
             rstackovf.check_stack_overflow()
             # xxx fish fish fish for proper etype and evalue to use
             rtyper = self.llinterpreter.typer
@@ -422,7 +428,7 @@ class LLFrame(object):
                 vals.insert(0, operation.result.concretetype)
             try:
                 retval = ophandler(*vals)
-            except LLException, e:
+            except LLException as e:
                 # safety check check that the operation is allowed to raise that
                 # exception
                 if operation.opname in lloperation.LL_OPERATIONS:
@@ -485,9 +491,9 @@ class LLFrame(object):
         obj = fptr._obj
         try:
             return obj._callable(*args)
-        except LLException, e:
+        except LLException as e:
             raise
-        except Exception, e:
+        except Exception as e:
             if getattr(e, '_go_through_llinterp_uncaught_', False):
                 raise
             if getattr(obj, '_debugexc', False):
@@ -726,6 +732,12 @@ class LLFrame(object):
     def op_gc_add_memory_pressure(self, size):
         self.heap.add_memory_pressure(size)
 
+    def op_gc_fq_next_dead(self, fq_tag):
+        return self.heap.gc_fq_next_dead(fq_tag)
+
+    def op_gc_fq_register(self, fq_tag, obj):
+        self.heap.gc_fq_register(fq_tag, obj)
+
     def op_gc_gettypeid(self, obj):
         return lloperation.llop.combine_ushort(lltype.Signed, self.heap.gettypeid(obj), 0)
 
@@ -795,17 +807,21 @@ class LLFrame(object):
     def op_weakref_create(self, v_obj):
         def objgetter():    # special support for gcwrapper.py
             return self.getval(v_obj)
+        assert self.llinterpreter.typer.getconfig().translation.rweakref
         return self.heap.weakref_create_getlazy(objgetter)
     op_weakref_create.specialform = True
 
     def op_weakref_deref(self, PTRTYPE, obj):
+        assert self.llinterpreter.typer.getconfig().translation.rweakref
         return self.heap.weakref_deref(PTRTYPE, obj)
     op_weakref_deref.need_result_type = True
 
     def op_cast_ptr_to_weakrefptr(self, obj):
+        assert self.llinterpreter.typer.getconfig().translation.rweakref
         return llmemory.cast_ptr_to_weakrefptr(obj)
 
     def op_cast_weakrefptr_to_ptr(self, PTRTYPE, obj):
+        assert self.llinterpreter.typer.getconfig().translation.rweakref
         return llmemory.cast_weakrefptr_to_ptr(PTRTYPE, obj)
     op_cast_weakrefptr_to_ptr.need_result_type = True
 
@@ -1142,91 +1158,34 @@ class LLFrame(object):
     # ____________________________________________________________
     # Overflow-detecting variants
 
-    def op_int_neg_ovf(self, x):
-        assert is_valid_int(x)
+    def op_int_add_ovf(self, x, y):
+        assert isinstance(x, (int, long, llmemory.AddressOffset))
+        assert isinstance(y, (int, long, llmemory.AddressOffset))
         try:
-            return ovfcheck(-x)
+            return ovfcheck(x + y)
         except OverflowError:
             self.make_llexception()
-
-    def op_int_abs_ovf(self, x):
-        assert is_valid_int(x)
-        try:
-            return ovfcheck(abs(x))
-        except OverflowError:
-            self.make_llexception()
-
-    def op_int_lshift_ovf(self, x, y):
-        assert is_valid_int(x)
-        assert is_valid_int(y)
-        try:
-            return ovfcheck(x << y)
-        except OverflowError:
-            self.make_llexception()
-
-    def _makefunc2(fn, operator, xtype, ytype=None):
-        import sys
-        d = sys._getframe(1).f_locals
-        if ytype is None:
-            ytype = xtype
-        if '_ovf' in fn:
-            checkfn = 'ovfcheck'
-        elif fn.startswith('op_int_'):
-            checkfn = 'intmask'
-        else:
-            checkfn = ''
-        if operator == '//':
-            code = '''r = %(checkfn)s(x // y)
-                if x^y < 0 and x%%y != 0:
-                    r += 1
-                return r
-                ''' % locals()
-        elif operator == '%':
-            ## overflow check on % does not work with emulated int
-            code = '''%(checkfn)s(x // y)
-                r = x %% y
-                if x^y < 0 and x%%y != 0:
-                    r -= y
-                return r
-                ''' % locals()
-        else:
-            code = 'return %(checkfn)s(x %(operator)s y)' % locals()
-        exec py.code.Source("""
-        def %(fn)s(self, x, y):
-            assert isinstance(x, %(xtype)s)
-            assert isinstance(y, %(ytype)s)
-            try:
-                %(code)s
-            except (OverflowError, ValueError, ZeroDivisionError):
-                self.make_llexception()
-        """ % locals()).compile() in globals(), d
-
-    _makefunc2('op_int_add_ovf', '+', '(int, long, llmemory.AddressOffset)')
-    _makefunc2('op_int_mul_ovf', '*', '(int, long, llmemory.AddressOffset)', '(int, long)')
-    _makefunc2('op_int_sub_ovf',          '-',  '(int, long)')
-    _makefunc2('op_int_floordiv_ovf',     '//', '(int, long)')  # XXX negative args
-    _makefunc2('op_int_floordiv_zer',     '//', '(int, long)')  # can get off-by-one
-    _makefunc2('op_int_floordiv_ovf_zer', '//', '(int, long)')  # (see op_int_floordiv)
-    _makefunc2('op_int_mod_ovf',          '%',  '(int, long)')
-    _makefunc2('op_int_mod_zer',          '%',  '(int, long)')
-    _makefunc2('op_int_mod_ovf_zer',      '%',  '(int, long)')
-
-    _makefunc2('op_uint_floordiv_zer',    '//', 'r_uint')
-    _makefunc2('op_uint_mod_zer',         '%',  'r_uint')
-
-    _makefunc2('op_llong_floordiv_zer',   '//', 'r_longlong')
-    _makefunc2('op_llong_mod_zer',        '%',  'r_longlong')
-
-    _makefunc2('op_ullong_floordiv_zer',  '//', 'r_ulonglong')
-    _makefunc2('op_ullong_mod_zer',       '%',  'r_ulonglong')
-
-    _makefunc2('op_lllong_floordiv_zer',   '//', 'r_longlonglong')
-    _makefunc2('op_lllong_mod_zer',        '%',  'r_longlonglong')
 
     def op_int_add_nonneg_ovf(self, x, y):
         if isinstance(y, int):
             assert y >= 0
         return self.op_int_add_ovf(x, y)
+
+    def op_int_sub_ovf(self, x, y):
+        assert isinstance(x, (int, long))
+        assert isinstance(y, (int, long))
+        try:
+            return ovfcheck(x - y)
+        except OverflowError:
+            self.make_llexception()
+
+    def op_int_mul_ovf(self, x, y):
+        assert isinstance(x, (int, long, llmemory.AddressOffset))
+        assert isinstance(y, (int, long, llmemory.AddressOffset))
+        try:
+            return ovfcheck(x * y)
+        except OverflowError:
+            self.make_llexception()
 
     def op_int_is_true(self, x):
         # special case
@@ -1449,10 +1408,3 @@ class _address_of_local_var_accessor(object):
 class _address_of_thread_local(object):
     _TYPE = llmemory.Address
     is_fake_thread_local_addr = True
-
-
-# by default we route all logging messages to nothingness
-# e.g. tests can then switch on logging to get more help
-# for failing tests
-from rpython.tool.ansi_print import ansi_log
-py.log.setconsumer('llinterp', ansi_log)

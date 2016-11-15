@@ -7,6 +7,7 @@ from rpython.memory.support import DEFAULT_CHUNK_SIZE
 from rpython.memory.support import get_address_stack, get_address_deque
 from rpython.memory.support import AddressDict, null_address_dict
 from rpython.rtyper.lltypesystem.llmemory import NULL, raw_malloc_usage
+from rpython.rtyper.annlowlevel import cast_adr_to_nongc_instance
 
 TYPEID_MAP = lltype.GcStruct('TYPEID_MAP', ('count', lltype.Signed),
                              ('size', lltype.Signed),
@@ -38,8 +39,15 @@ class GCBase(object):
     def setup(self):
         # all runtime mutable values' setup should happen here
         # and in its overriden versions! for the benefit of test_transformed_gc
-        self.finalizer_lock_count = 0
-        self.run_finalizers = self.AddressDeque()
+        self.finalizer_lock = False
+        self.run_old_style_finalizers = self.AddressDeque()
+
+    def mark_finalizer_to_run(self, fq_index, obj):
+        if fq_index == -1:   # backward compatibility with old-style finalizer
+            self.run_old_style_finalizers.append(obj)
+            return
+        handlers = self.finalizer_handlers()
+        self._adr2deque(handlers[fq_index].deque).append(obj)
 
     def post_setup(self):
         # More stuff that needs to be initialized when the GC is already
@@ -62,8 +70,9 @@ class GCBase(object):
 
     def set_query_functions(self, is_varsize, has_gcptr_in_varsize,
                             is_gcarrayofgcptr,
-                            getfinalizer,
-                            getlightfinalizer,
+                            finalizer_handlers,
+                            destructor_or_custom_trace,
+                            is_old_style_finalizer,
                             offsets_to_gc_pointers,
                             fixed_size, varsize_item_sizes,
                             varsize_offset_to_variable_part,
@@ -76,8 +85,9 @@ class GCBase(object):
                             fast_path_tracing,
                             has_gcptr,
                             cannot_pin):
-        self.getfinalizer = getfinalizer
-        self.getlightfinalizer = getlightfinalizer
+        self.finalizer_handlers = finalizer_handlers
+        self.destructor_or_custom_trace = destructor_or_custom_trace
+        self.is_old_style_finalizer = is_old_style_finalizer
         self.is_varsize = is_varsize
         self.has_gcptr_in_varsize = has_gcptr_in_varsize
         self.is_gcarrayofgcptr = is_gcarrayofgcptr
@@ -138,8 +148,10 @@ class GCBase(object):
         the four malloc_[fixed,var]size[_clear]() functions.
         """
         size = self.fixed_size(typeid)
-        needs_finalizer = bool(self.getfinalizer(typeid))
-        finalizer_is_light = bool(self.getlightfinalizer(typeid))
+        needs_finalizer = (bool(self.destructor_or_custom_trace(typeid))
+                           and not self.has_custom_trace(typeid))
+        finalizer_is_light = (needs_finalizer and
+                              not self.is_old_style_finalizer(typeid))
         contains_weakptr = self.weakpointer_offset(typeid) >= 0
         assert not (needs_finalizer and contains_weakptr)
         if self.is_varsize(typeid):
@@ -174,7 +186,7 @@ class GCBase(object):
     def can_move(self, addr):
         return False
 
-    def malloc_fixedsize_nonmovable(self, typeid):
+    def malloc_fixed_or_varsize_nonmovable(self, typeid, length):
         raise MemoryError
 
     def pin(self, addr):
@@ -329,8 +341,43 @@ class GCBase(object):
         callback2, attrname = _convert_callback_formats(callback)    # :-/
         setattr(self, attrname, arg)
         self.root_walker.walk_roots(callback2, callback2, callback2)
-        self.run_finalizers.foreach(callback, arg)
+        self.enum_pending_finalizers(callback, arg)
     enumerate_all_roots._annspecialcase_ = 'specialize:arg(1)'
+
+    def enum_pending_finalizers(self, callback, arg):
+        self.run_old_style_finalizers.foreach(callback, arg)
+        handlers = self.finalizer_handlers()
+        i = 0
+        while i < len(handlers):
+            self._adr2deque(handlers[i].deque).foreach(callback, arg)
+            i += 1
+    enum_pending_finalizers._annspecialcase_ = 'specialize:arg(1)'
+
+    def _copy_pending_finalizers_deque(self, deque, copy_fn):
+        tmp = self.AddressDeque()
+        while deque.non_empty():
+            obj = deque.popleft()
+            tmp.append(copy_fn(obj))
+        while tmp.non_empty():
+            deque.append(tmp.popleft())
+        tmp.delete()
+
+    def copy_pending_finalizers(self, copy_fn):
+        "NOTE: not very efficient, but only for SemiSpaceGC and subclasses"
+        self._copy_pending_finalizers_deque(
+            self.run_old_style_finalizers, copy_fn)
+        handlers = self.finalizer_handlers()
+        i = 0
+        while i < len(handlers):
+            h = handlers[i]
+            self._copy_pending_finalizers_deque(
+                self._adr2deque(h.deque), copy_fn)
+            i += 1
+
+    def call_destructor(self, obj):
+        destructor = self.destructor_or_custom_trace(self.get_type_id(obj))
+        ll_assert(bool(destructor), "no destructor found")
+        destructor(obj)
 
     def debug_check_consistency(self):
         """To use after a collection.  If self.DEBUG is set, this
@@ -370,19 +417,25 @@ class GCBase(object):
     def debug_check_object(self, obj):
         pass
 
+    def _adr2deque(self, adr):
+        return cast_adr_to_nongc_instance(self.AddressDeque, adr)
+
     def execute_finalizers(self):
-        self.finalizer_lock_count += 1
+        if self.finalizer_lock:
+            return  # the outer invocation of execute_finalizers() will do it
+        self.finalizer_lock = True
         try:
-            while self.run_finalizers.non_empty():
-                if self.finalizer_lock_count > 1:
-                    # the outer invocation of execute_finalizers() will do it
-                    break
-                obj = self.run_finalizers.popleft()
-                finalizer = self.getfinalizer(self.get_type_id(obj))
-                assert finalizer
-                finalizer(obj)
+            handlers = self.finalizer_handlers()
+            i = 0
+            while i < len(handlers):
+                if self._adr2deque(handlers[i].deque).non_empty():
+                    handlers[i].trigger()
+                i += 1
+            while self.run_old_style_finalizers.non_empty():
+                obj = self.run_old_style_finalizers.popleft()
+                self.call_destructor(obj)
         finally:
-            self.finalizer_lock_count -= 1
+            self.finalizer_lock = False
 
 
 class MovingGCBase(GCBase):

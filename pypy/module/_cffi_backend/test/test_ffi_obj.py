@@ -331,6 +331,25 @@ class AppTestFFIObj:
             gc.collect()
         assert seen == [1]
 
+    def test_ffi_gc_disable(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        p = ffi.new("int *", 123)
+        raises(TypeError, ffi.gc, p, None)
+        seen = []
+        q1 = ffi.gc(p, lambda p: seen.append(1))
+        q2 = ffi.gc(q1, lambda p: seen.append(2))
+        import gc; gc.collect()
+        assert seen == []
+        assert ffi.gc(q1, None) is None
+        del q1, q2
+        for i in range(5):
+            if seen:
+                break
+            import gc
+            gc.collect()
+        assert seen == [2]
+
     def test_ffi_new_allocator_1(self):
         import _cffi_backend as _cffi1_backend
         ffi = _cffi1_backend.FFI()
@@ -476,3 +495,23 @@ class AppTestFFIObj:
         for i in range(5):
             raises(ValueError, ffi.init_once, do_init, "tag")
             assert seen == [1] * (i + 1)
+
+    def test_unpack(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        p = ffi.new("char[]", b"abc\x00def")
+        assert ffi.unpack(p+1, 7) == b"bc\x00def\x00"
+        p = ffi.new("int[]", [-123456789])
+        assert ffi.unpack(p, 1) == [-123456789]
+
+    def test_bug_1(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        q = ffi.new("char[]", b"abcd")
+        p = ffi.cast("char(*)(void)", q)
+        raises(TypeError, ffi.string, p)
+
+    def test_negative_array_size(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        raises(ffi.error, ffi.cast, "int[-5]", 0)

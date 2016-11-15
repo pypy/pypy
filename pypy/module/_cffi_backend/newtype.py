@@ -181,16 +181,14 @@ def new_array_type(space, w_ctptr, w_length):
     else:
         length = space.getindex_w(w_length, space.w_OverflowError)
         if length < 0:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("negative array length"))
+            raise oefmt(space.w_ValueError, "negative array length")
     return _new_array_type(space, w_ctptr, length)
 
 @jit.elidable
 def _new_array_type(space, w_ctptr, length):
     _setup_wref(rweakref.has_weakref_support())
     if not isinstance(w_ctptr, ctypeptr.W_CTypePointer):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("first arg must be a pointer ctype"))
+        raise oefmt(space.w_TypeError, "first arg must be a pointer ctype")
     arrays = w_ctptr._array_types
     if arrays is None:
         arrays = rweakref.RWeakValueDictionary(int, ctypearray.W_CTypeArray)
@@ -212,8 +210,8 @@ def _new_array_type(space, w_ctptr, length):
         try:
             arraysize = ovfcheck(length * ctitem.size)
         except OverflowError:
-            raise OperationError(space.w_OverflowError,
-                space.wrap("array size would overflow a ssize_t"))
+            raise oefmt(space.w_OverflowError,
+                        "array size would overflow a ssize_t")
         extra = '[%d]' % length
     #
     ctype = ctypearray.W_CTypeArray(space, w_ctptr, length, arraysize, extra)
@@ -290,9 +288,9 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
     sflags = complete_sflags(sflags)
     if (not isinstance(w_ctype, ctypestruct.W_CTypeStructOrUnion)
             or w_ctype.size >= 0):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("first arg must be a non-initialized"
-                                        " struct or union ctype"))
+        raise oefmt(space.w_TypeError,
+                    "first arg must be a non-initialized struct or union "
+                    "ctype")
 
     is_union = isinstance(w_ctype, ctypestruct.W_CTypeUnion)
     alignment = 1
@@ -310,8 +308,7 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
         w_field = fields_w[i]
         field_w = space.fixedview(w_field)
         if not (2 <= len(field_w) <= 4):
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("bad field descr"))
+            raise oefmt(space.w_TypeError, "bad field descr")
         fname = space.str_w(field_w[0])
         ftype = space.interp_w(ctypeobj.W_CType, field_w[1])
         fbitsize = -1
@@ -348,10 +345,15 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
         if alignment < falign and do_align:
             alignment = falign
         #
+        if is_union and i > 0:
+            fflags = ctypestruct.W_CField.BF_IGNORE_IN_CTOR
+        else:
+            fflags = 0
+        #
         if fbitsize < 0:
             # not a bitfield: common case
 
-            if isinstance(ftype, ctypearray.W_CTypeArray) and ftype.length==0:
+            if isinstance(ftype, ctypearray.W_CTypeArray) and ftype.length<=0:
                 bs_flag = ctypestruct.W_CField.BS_EMPTY_ARRAY
             else:
                 bs_flag = ctypestruct.W_CField.BS_REGULAR
@@ -375,7 +377,7 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
                 for name, srcfld in ftype._fields_dict.items():
                     srcfield2names[srcfld] = name
                 for srcfld in ftype._fields_list:
-                    fld = srcfld.make_shifted(boffset // 8)
+                    fld = srcfld.make_shifted(boffset // 8, fflags)
                     fields_list.append(fld)
                     try:
                         fields_dict[srcfield2names[srcfld]] = fld
@@ -385,7 +387,8 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
                 w_ctype._custom_field_pos = True
             else:
                 # a regular field
-                fld = ctypestruct.W_CField(ftype, boffset // 8, bs_flag, -1)
+                fld = ctypestruct.W_CField(ftype, boffset // 8, bs_flag, -1,
+                                           fflags)
                 fields_list.append(fld)
                 fields_dict[fname] = fld
 
@@ -492,7 +495,7 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
                     bitshift = 8 * ftype.size - fbitsize- bitshift
 
                 fld = ctypestruct.W_CField(ftype, field_offset_bytes,
-                                           bitshift, fbitsize)
+                                           bitshift, fbitsize, fflags)
                 fields_list.append(fld)
                 fields_dict[fname] = fld
 
@@ -564,14 +567,13 @@ def new_enum_type(space, name, w_enumerators, w_enumvalues, w_basectype):
     enumerators_w = space.fixedview(w_enumerators)
     enumvalues_w  = space.fixedview(w_enumvalues)
     if len(enumerators_w) != len(enumvalues_w):
-        raise OperationError(space.w_ValueError,
-                             space.wrap("tuple args must have the same size"))
+        raise oefmt(space.w_ValueError, "tuple args must have the same size")
     enumerators = [space.str_w(w) for w in enumerators_w]
     #
     if (not isinstance(w_basectype, ctypeprim.W_CTypePrimitiveSigned) and
         not isinstance(w_basectype, ctypeprim.W_CTypePrimitiveUnsigned)):
-        raise OperationError(space.w_TypeError,
-              space.wrap("expected a primitive signed or unsigned base type"))
+        raise oefmt(space.w_TypeError,
+                    "expected a primitive signed or unsigned base type")
     #
     lvalue = lltype.malloc(rffi.CCHARP.TO, w_basectype.size, flavor='raw')
     try:
@@ -601,8 +603,8 @@ def new_function_type(space, w_fargs, w_fresult, ellipsis=0,
     fargs = []
     for w_farg in space.fixedview(w_fargs):
         if not isinstance(w_farg, ctypeobj.W_CType):
-            raise OperationError(space.w_TypeError,
-                space.wrap("first arg must be a tuple of ctype objects"))
+            raise oefmt(space.w_TypeError,
+                        "first arg must be a tuple of ctype objects")
         if isinstance(w_farg, ctypearray.W_CTypeArray):
             w_farg = w_farg.ctptr
         fargs.append(w_farg)

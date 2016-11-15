@@ -1,3 +1,5 @@
+from rpython.rlib.rarithmetic import (r_uint, r_ulonglong, r_longlong,
+                                      maxint, intmask)
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rstring import StringBuilder
@@ -68,7 +70,7 @@ class PackFormatIterator(FormatIterator):
             if space.lookup(w_obj, '__index__'):
                 try:
                     w_index = space.index(w_obj)
-                except OperationError, e:
+                except OperationError as e:
                     if not e.match(space, space.w_TypeError):
                         raise
                     pass
@@ -148,7 +150,20 @@ class UnpackFormatIterator(FormatIterator):
 
     @specialize.argtype(1)
     def appendobj(self, value):
-        self.result_w.append(self.space.wrap(value))
+        # CPython tries hard to return int objects whenever it can, but
+        # space.wrap returns a long if we pass a r_uint, r_ulonglong or
+        # r_longlong. So, we need special care in those cases.
+        is_unsigned = (isinstance(value, r_uint) or
+                       isinstance(value, r_ulonglong))
+        if is_unsigned and value <= maxint:
+            w_value = self.space.wrap(intmask(value))
+        elif isinstance(value, r_longlong) and -maxint-1 <= value <= maxint:
+            w_value = self.space.wrap(intmask(value))
+        else:
+            # generic type, just use space.wrap
+            w_value = self.space.wrap(value)
+        #
+        self.result_w.append(w_value)
 
     def get_pos(self):
         return self.pos

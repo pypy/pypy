@@ -106,18 +106,17 @@ def _build_dialect(space, w_dialect, w_delimiter, w_doublequote,
 
     # validate options
     if not (0 <= tmp_quoting < 4):
-        raise OperationError(space.w_TypeError,
-                             space.wrap('bad "quoting" value'))
+        raise oefmt(space.w_TypeError, 'bad "quoting" value')
 
     if dialect.delimiter == '\0':
-        raise OperationError(space.w_TypeError,
-                             space.wrap('"delimiter" must be a 1-character string'))
+        raise oefmt(space.w_TypeError,
+                    '"delimiter" must be a 1-character string')
 
     if space.is_w(w_quotechar, space.w_None) and w_quoting is None:
         tmp_quoting = QUOTE_NONE
     if tmp_quoting != QUOTE_NONE and dialect.quotechar == '\0':
-        raise OperationError(space.w_TypeError,
-                        space.wrap('quotechar must be set if quoting enabled'))
+        raise oefmt(space.w_TypeError,
+                    "quotechar must be set if quoting enabled")
     dialect.quoting = tmp_quoting
     return dialect
 

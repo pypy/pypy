@@ -36,6 +36,7 @@ static int volatile pypysig_occurred = 0;
 /* pypysig_occurred is only an optimization: it tells if any
    pypysig_flags could be set. */
 static int wakeup_fd = -1;
+static int wakeup_with_nul_byte = 1;
 
 #undef pypysig_getaddr_occurred
 void *pypysig_getaddr_occurred(void)
@@ -105,7 +106,14 @@ static void signal_setflag_handler(int signum)
 #else
         int res;
 #endif
-        res = write(wakeup_fd, "\0", 1);
+	if (wakeup_with_nul_byte)
+	{
+	    res = write(wakeup_fd, "\0", 1);
+	} else {
+	    unsigned char byte = (unsigned char)signum;
+	    res = write(wakeup_fd, &byte, 1);
+	}
+
         /* the return value is ignored here */
       }
 }
@@ -156,9 +164,10 @@ int pypysig_poll(void)
   return -1;  /* no pending signal */
 }
 
-int pypysig_set_wakeup_fd(int fd)
+int pypysig_set_wakeup_fd(int fd, int with_nul_byte)
 {
   int old_fd = wakeup_fd;
   wakeup_fd = fd;
+  wakeup_with_nul_byte = with_nul_byte;
   return old_fd;
 }

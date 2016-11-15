@@ -24,14 +24,14 @@ typedef struct prof_stacktrace_s {
     char padding[sizeof(long) - 1];
     char marker;
     long count, depth;
-    void *stack[];
+    intptr_t stack[];
 } prof_stacktrace_s;
 
 
 RPY_EXTERN
 char *vmprof_init(int fd, double interval, char *interp_name)
 {
-    if (interval < 1e-6 || interval >= 1.0)
+    if (!(interval >= 1e-6 && interval < 1.0))   /* also if it is NaN */
         return "bad value for 'interval'";
     prepare_interval_usec = (int)(interval * 1000000.0);
 
@@ -82,6 +82,10 @@ static int get_stack_trace(vmprof_stack_t* stack, intptr_t *result, int max_dept
     int n = 0;
     intptr_t addr = 0;
     int bottom_jitted = 0;
+
+    if (stack == NULL)
+        return 0;
+
     // check if the pc is in JIT
 #ifdef PYPY_JIT_CODEMAP
     if (pypy_find_codemap_at_addr((intptr_t)pc, &addr)) {
@@ -111,7 +115,12 @@ static int get_stack_trace(vmprof_stack_t* stack, intptr_t *result, int max_dept
 #ifndef RPYTHON_LL2CTYPES
 static vmprof_stack_t *get_vmprof_stack(void)
 {
-    return RPY_THREADLOCALREF_GET(vmprof_tl_stack);
+    struct pypy_threadlocal_s *tl;
+    _OP_THREADLOCALREF_ADDR_SIGHANDLER(tl);
+    if (tl == NULL)
+        return NULL;
+    else
+        return tl->vmprof_tl_stack;
 }
 #else
 static vmprof_stack_t *get_vmprof_stack(void)
@@ -119,3 +128,19 @@ static vmprof_stack_t *get_vmprof_stack(void)
     return 0;
 }
 #endif
+
+RPY_EXTERN
+intptr_t vmprof_get_traceback(void *stack, void *ucontext,
+                              intptr_t *result_p, intptr_t result_length)
+{
+    int n;
+#ifdef _WIN32
+    intptr_t pc = 0;   /* XXX implement me */
+#else
+    intptr_t pc = ucontext ? GetPC((ucontext_t *)ucontext) : 0;
+#endif
+    if (stack == NULL)
+        stack = get_vmprof_stack();
+    n = get_stack_trace(stack, result_p, result_length - 2, pc);
+    return (intptr_t)n;
+}

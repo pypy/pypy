@@ -1,5 +1,6 @@
-import py
+import py, sys
 from rpython.rlib.objectmodel import instantiate
+from rpython.rlib.rarithmetic import intmask
 from rpython.jit.metainterp.optimizeopt.test.test_util import (
     LLtypeMixin, BaseTest, FakeMetaInterpStaticData, convert_old_style_to_targets)
 from rpython.jit.metainterp.history import TargetToken, JitCellToken
@@ -12,62 +13,7 @@ from rpython.jit.metainterp.resoperation import rop, ResOperation, InputArgInt,\
      OpHelpers, InputArgRef
 from rpython.jit.metainterp.resumecode import unpack_numbering
 from rpython.rlib.rarithmetic import LONG_BIT
-from rpython.jit.tool.oparser import parse
-
-class FakeJitCode(object):
-    index = 0
-
-def test_store_final_boxes_in_guard():
-    from rpython.jit.metainterp.compile import ResumeGuardDescr
-    from rpython.jit.metainterp.resume import tag, TAGBOX
-    b0 = InputArgInt()
-    b1 = InputArgInt()
-    opt = optimizeopt.Optimizer(FakeMetaInterpStaticData(LLtypeMixin.cpu),
-                                None, None)
-    op = ResOperation(rop.GUARD_TRUE, [ConstInt(1)], None)
-    # setup rd data
-    fi0 = resume.FrameInfo(None, FakeJitCode(), 11)
-    snapshot0 = resume.Snapshot(None, [b0])
-    op.rd_snapshot = resume.TopSnapshot(snapshot0, [], [b1])
-    op.rd_frame_info_list = resume.FrameInfo(fi0, FakeJitCode(), 33)
-    #
-    opt.store_final_boxes_in_guard(op, [])
-    fdescr = op.getdescr()
-    #if op.getfailargs() == [b0, b1]:
-    #    assert list(fdescr.rd_numb.nums)      == [tag(1, TAGBOX)]
-    #    assert list(fdescr.rd_numb.prev.nums) == [tag(0, TAGBOX)]
-    #else:
-    #    assert op.getfailargs() == [b1, b0]
-    #    assert list(fdescr.rd_numb.nums)      == [tag(0, TAGBOX)]
-    #    assert list(fdescr.rd_numb.prev.nums) == [tag(1, TAGBOX)]
-    assert fdescr.rd_virtuals is None
-    assert fdescr.rd_consts == []
-
-def test_sharing_field_lists_of_virtual():
-    py.test.skip("needs to be rewritten")
-    class FakeOptimizer(object):
-        class optimizer(object):
-            class cpu(object):
-                pass
-    opt = FakeOptimizer()
-    virt1 = virtualize.AbstractVirtualStructValue(opt, None)
-    lst1 = virt1._get_field_descr_list()
-    assert lst1 == []
-    lst2 = virt1._get_field_descr_list()
-    assert lst1 is lst2
-    virt1.setfield(LLtypeMixin.valuedescr, optimizeopt.OptValue(None))
-    lst3 = virt1._get_field_descr_list()
-    assert lst3 == [LLtypeMixin.valuedescr]
-    lst4 = virt1._get_field_descr_list()
-    assert lst3 is lst4
-
-    virt2 = virtualize.AbstractVirtualStructValue(opt, None)
-    lst5 = virt2._get_field_descr_list()
-    assert lst5 is lst1
-    virt2.setfield(LLtypeMixin.valuedescr, optimizeopt.OptValue(None))
-    lst6 = virt1._get_field_descr_list()
-    assert lst6 is lst3
-
+from rpython.jit.tool.oparser import parse, convert_loop_to_trace
 
 # ____________________________________________________________
 
@@ -77,16 +23,15 @@ class BaseTestBasic(BaseTest):
     enable_opts = "intbounds:rewrite:virtualize:string:earlyforce:pure:heap"
 
     def optimize_loop(self, ops, optops, call_pure_results=None):
-        loop = self.parse(ops, postprocess=self.postprocess)
+        loop = self.parse(ops)
         token = JitCellToken()
-        label_op = ResOperation(rop.LABEL, loop.inputargs,
-                                descr=TargetToken(token))
         if loop.operations[-1].getopnum() == rop.JUMP:
             loop.operations[-1].setdescr(token)
         exp = parse(optops, namespace=self.namespace.copy())
         expected = convert_old_style_to_targets(exp, jump=True)
         call_pure_results = self._convert_call_pure_results(call_pure_results)
-        compile_data = compile.SimpleCompileData(label_op, loop.operations,
+        trace = convert_loop_to_trace(loop, FakeMetaInterpStaticData(self.cpu))
+        compile_data = compile.SimpleCompileData(trace,
                                                  call_pure_results)
         info, ops = self._do_optimize_loop(compile_data)
         label_op = ResOperation(rop.LABEL, info.inputargs)
@@ -1905,12 +1850,23 @@ class BaseTestOptimizeBasic(BaseTestBasic):
 
         ops = """
         [i0]
-        i1 = int_floordiv(0, i0)
+        i1 = int_mul(0, i0)
         jump(i1)
         """
         expected = """
         [i0]
         jump(0)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i0]
+        i1 = int_mul(1, i0)
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(i0)
         """
         self.optimize_loop(ops, expected)
 
@@ -2085,8 +2041,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
             if varname not in virtuals:
                 if strict:
                     assert box.same_box(oparse.getvar(varname))
-                else:
-                    assert box.getvalue() == oparse.getvar(varname).getvalue()
             else:
                 tag, resolved, fieldstext = virtuals[varname]
                 if tag[0] == 'virtual':
@@ -4169,21 +4123,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
 
     # ----------
     def optimize_strunicode_loop_extradescrs(self, ops, optops):
-        class FakeCallInfoCollection:
-            def callinfo_for_oopspec(self, oopspecindex):
-                calldescrtype = type(LLtypeMixin.strequaldescr)
-                effectinfotype = type(LLtypeMixin.strequaldescr.get_extra_info())
-                for value in LLtypeMixin.__dict__.values():
-                    if isinstance(value, calldescrtype):
-                        extra = value.get_extra_info()
-                        if (extra and isinstance(extra, effectinfotype) and
-                            extra.oopspecindex == oopspecindex):
-                            # returns 0 for 'func' in this test
-                            return value, 0
-                raise AssertionError("not found: oopspecindex=%d" %
-                                     oopspecindex)
-        #
-        self.callinfocollection = FakeCallInfoCollection()
         self.optimize_strunicode_loop(ops, optops)
 
     def test_str_equal_noop1(self):
@@ -4700,102 +4639,95 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_strunicode_loop(ops, expected)
 
-    def test_intmod_bounds(self):
+    def test_intdiv_bounds(self):
         ops = """
         [i0, i1]
-        i2 = int_mod(i0, 12)
-        i3 = int_gt(i2, 12)
+        i4 = int_ge(i1, 3)
+        guard_true(i4) []
+        i2 = call_pure_i(321, i0, i1, descr=int_py_div_descr)
+        i3 = int_add_ovf(i2, 50)
+        guard_no_overflow() []
+        jump(i3, i1)
+        """
+        expected = """
+        [i0, i1]
+        i4 = int_ge(i1, 3)
+        guard_true(i4) []
+        i2 = call_i(321, i0, i1, descr=int_py_div_descr)
+        i3 = int_add(i2, 50)
+        jump(i3, i1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_intmod_bounds(self):
+        from rpython.jit.metainterp.optimizeopt.intdiv import magic_numbers
+        ops = """
+        [i0, i1]
+        i2 = call_pure_i(321, i0, 12, descr=int_py_mod_descr)
+        i3 = int_ge(i2, 12)
         guard_false(i3) []
-        i4 = int_lt(i2, -12)
+        i4 = int_lt(i2, 0)
         guard_false(i4) []
-        i5 = int_mod(i1, -12)
-        i6 = int_lt(i5, -12)
+        i5 = call_pure_i(321, i1, -12, descr=int_py_mod_descr)
+        i6 = int_le(i5, -12)
         guard_false(i6) []
-        i7 = int_gt(i5, 12)
+        i7 = int_gt(i5, 0)
         guard_false(i7) []
         jump(i2, i5)
         """
+        kk, ii = magic_numbers(12)
         expected = """
         [i0, i1]
-        i2 = int_mod(i0, 12)
-        i5 = int_mod(i1, -12)
+        i4 = int_rshift(i0, %d)
+        i6 = int_xor(i0, i4)
+        i8 = uint_mul_high(i6, %d)
+        i9 = uint_rshift(i8, %d)
+        i10 = int_xor(i9, i4)
+        i11 = int_mul(i10, 12)
+        i2 = int_sub(i0, i11)
+        i5 = call_i(321, i1, -12, descr=int_py_mod_descr)
         jump(i2, i5)
-        """
+        """ % (63 if sys.maxint > 2**32 else 31, intmask(kk), ii)
         self.optimize_loop(ops, expected)
 
-        # This the sequence of resoperations that is generated for a Python
-        # app-level int % int.  When the modulus is constant and when i0
-        # is known non-negative it should be optimized to a single int_mod.
+        # same as above (2nd case), but all guards are shifted by one so
+        # that they must stay
+        ops = """
+        [i9]
+        i1 = escape_i()
+        i5 = call_pure_i(321, i1, -12, descr=int_py_mod_descr)
+        i6 = int_le(i5, -11)
+        guard_false(i6) []
+        i7 = int_gt(i5, -1)
+        guard_false(i7) []
+        jump(i5)
+        """
+        self.optimize_loop(ops, ops.replace('call_pure_i', 'call_i'))
+
+        # 'n % power-of-two' can always be turned into int_and(), even
+        # if n is possibly negative.  That's by we handle 'int_py_mod'
+        # and not C-like mod.
         ops = """
         [i0]
-        i5 = int_ge(i0, 0)
-        guard_true(i5) []
-        i1 = int_mod(i0, 42)
-        i2 = int_rshift(i1, %d)
-        i3 = int_and(42, i2)
-        i4 = int_add(i1, i3)
-        finish(i4)
-        """ % (LONG_BIT-1)
-        expected = """
-        [i0]
-        i5 = int_ge(i0, 0)
-        guard_true(i5) []
-        i1 = int_mod(i0, 42)
+        i1 = call_pure_i(321, i0, 8, descr=int_py_mod_descr)
         finish(i1)
         """
-        self.optimize_loop(ops, expected)
-
-        # 'n % power-of-two' can be turned into int_and(); at least that's
-        # easy to do now if n is known to be non-negative.
-        ops = """
-        [i0]
-        i5 = int_ge(i0, 0)
-        guard_true(i5) []
-        i1 = int_mod(i0, 8)
-        i2 = int_rshift(i1, %d)
-        i3 = int_and(42, i2)
-        i4 = int_add(i1, i3)
-        finish(i4)
-        """ % (LONG_BIT-1)
         expected = """
         [i0]
-        i5 = int_ge(i0, 0)
-        guard_true(i5) []
         i1 = int_and(i0, 7)
         finish(i1)
-        """
-        self.optimize_loop(ops, expected)
-
-    def test_intmod_bounds_harder(self):
-        py.test.skip("harder")
-        # Of course any 'maybe-negative % power-of-two' can be turned into
-        # int_and(), but that's a bit harder to detect here because it turns
-        # into several operations, and of course it is wrong to just turn
-        # int_mod(i0, 16) into int_and(i0, 15).
-        ops = """
-        [i0]
-        i1 = int_mod(i0, 16)
-        i2 = int_rshift(i1, %d)
-        i3 = int_and(16, i2)
-        i4 = int_add(i1, i3)
-        finish(i4)
-        """ % (LONG_BIT-1)
-        expected = """
-        [i0]
-        i4 = int_and(i0, 15)
-        finish(i4)
         """
         self.optimize_loop(ops, expected)
 
     def test_intmod_bounds_bug1(self):
         ops = """
         [i0]
-        i1 = int_mod(i0, %d)
+        i1 = call_pure_i(321, i0, %d, descr=int_py_mod_descr)
         i2 = int_eq(i1, 0)
         guard_false(i2) []
         finish()
         """ % (-(1<<(LONG_BIT-1)),)
-        self.optimize_loop(ops, ops)
+        self.optimize_loop(ops, ops.replace('call_pure_i', 'call_i'))
 
     def test_bounded_lazy_setfield(self):
         ops = """
@@ -5256,6 +5188,25 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, ops)
 
+    def test_int_and_positive(self):
+        ops = """
+        [i0, i1]
+        i2 = int_ge(i1, 0)
+        guard_true(i2) []
+        i3 = int_and(i0, i1)
+        i4 = int_ge(i3, 0)
+        guard_true(i4) []
+        jump(i3)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_ge(i1, 0)
+        guard_true(i2) []
+        i3 = int_and(i0, i1)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_int_or_cmp_above_bounds(self):
         ops = """
         [p0,p1]
@@ -5319,6 +5270,47 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         jump(i2)
         """
         self.optimize_loop(ops, ops)
+
+    def test_int_xor_positive_is_positive(self):
+        ops = """
+        [i0, i1]
+        i2 = int_lt(i0, 0)
+        guard_false(i2) []
+        i3 = int_lt(i1, 0)
+        guard_false(i3) []
+        i4 = int_xor(i0, i1)
+        i5 = int_lt(i4, 0)
+        guard_false(i5) []
+        jump(i4, i0)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_lt(i0, 0)
+        guard_false(i2) []
+        i3 = int_lt(i1, 0)
+        guard_false(i3) []
+        i4 = int_xor(i0, i1)
+        jump(i4, i0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_positive_rshift_bits_minus_1(self):
+        ops = """
+        [i0]
+        i2 = int_lt(i0, 0)
+        guard_false(i2) []
+        i3 = int_rshift(i2, %d)
+        escape_n(i3)
+        jump(i0)
+        """ % (LONG_BIT - 1,)
+        expected = """
+        [i0]
+        i2 = int_lt(i0, 0)
+        guard_false(i2) []
+        escape_n(0)
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
 
     def test_int_or_same_arg(self):
         ops = """

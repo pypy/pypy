@@ -95,15 +95,19 @@ class SimpleParser(OpParser):
         if backend_dump is not None:
             raw_asm = self._asm_disassemble(backend_dump.decode('hex'),
                                             backend_tp, dump_start)
+            # additional mess: if the backend_dump starts with a series
+            # of zeros, raw_asm's first regular line is *after* that,
+            # after a line saying "...".  So we assume that start==dump_start
+            # if this parameter was passed.
             asm = []
-            start = 0
+            start = dump_start
             for elem in raw_asm:
                 if len(elem.split("\t")) < 3:
                     continue
                 e = elem.split("\t")
                 adr = e[0]
                 v = " ".join(e[2:])
-                if not start:
+                if not start:     # only if 'dump_start' is left at 0
                     start = int(adr.strip(":"), 16)
                 ofs = int(adr.strip(":"), 16)
                 # add symbols to addresses:
@@ -140,8 +144,8 @@ class SimpleParser(OpParser):
                         for i in range(asm_index, end_index)])
         return loop
 
-    def _asm_disassemble(self, d, origin_addr, tp):
-        return list(machine_code_dump(d, tp, origin_addr))
+    def _asm_disassemble(self, d, tp, origin_addr):
+        return list(machine_code_dump(d, origin_addr, tp))
 
     @classmethod
     def parse_from_input(cls, input, **kwds):
@@ -438,10 +442,11 @@ def import_log(logname, ParserCls=SimpleParser):
     dumps = {}
     symbols = world.symbols
     for r in world.ranges:
-        if r.addr in addrs and addrs[r.addr]:
-            name = addrs[r.addr].pop(0) # they should come in order
-            data = r.data.encode('hex')       # backward compatibility
-            dumps[name] = (world.backend_name, r.addr, data)
+        for pos1 in range(r.addr, r.addr + len(r.data)):
+            if pos1 in addrs and addrs[pos1]:
+                name = addrs[pos1].pop(0) # they should come in order
+                data = r.data.encode('hex')
+                dumps[name] = (world.backend_name, r.addr, data)
     loops = []
     cat = extract_category(log, 'jit-log-opt')
     if not cat:

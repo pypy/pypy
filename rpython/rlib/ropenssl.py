@@ -57,8 +57,19 @@ eci = ExternalCompilationInfo(
         '#define pypy_GENERAL_NAME_dirn(name) (name->d.dirn)',
         '#define pypy_GENERAL_NAME_uri(name) (name->d.uniformResourceIdentifier)',
         '#define pypy_GENERAL_NAME_pop_free(names) (sk_GENERAL_NAME_pop_free(names, GENERAL_NAME_free))',
-        '#define pypy_X509_OBJECT_data_x509(obj) (obj->data.x509)',
         '#define pypy_DIST_POINT_fullname(obj) (obj->distpoint->name.fullname)',
+        # Backwards compatibility for functions introduced in 1.1
+        '#if (OPENSSL_VERSION_NUMBER < 0x10100000) || defined(LIBRESSL_VERSION_NUMBER)\n'
+        '#  define COMP_get_name(meth) (meth->name)\n'
+        '#  define COMP_get_type(meth) (meth->type)\n'
+        '#  define X509_NAME_ENTRY_set(ne) (ne->set)\n'
+        '#  define X509_OBJECT_get0_X509(obj) (obj->data.x509)\n'
+        '#  define X509_OBJECT_get_type(obj) (obj->type)\n'
+        '#  define X509_STORE_get0_objects(store) (store->objs)\n'
+        '#  define X509_STORE_get0_param(store) (store->param)\n'
+        '#else\n'
+        '#  define OPENSSL_NO_SSL2\n'
+        '#endif',
     ],
 )
 
@@ -88,6 +99,7 @@ class CConfigBootstrap:
             "OPENSSL_EXPORT_VAR_AS_FUNCTION")
     OPENSSL_VERSION_NUMBER = rffi_platform.ConstantInteger(
         "OPENSSL_VERSION_NUMBER")
+    LIBRESSL = rffi_platform.Defined("LIBRESSL_VERSION_NUMBER")
 
 cconfig = rffi_platform.configure(CConfigBootstrap)
 if cconfig["OPENSSL_EXPORT_VAR_AS_FUNCTION"]:
@@ -95,7 +107,10 @@ if cconfig["OPENSSL_EXPORT_VAR_AS_FUNCTION"]:
 else:
     ASN1_ITEM_EXP = ASN1_ITEM
 OPENSSL_VERSION_NUMBER = cconfig["OPENSSL_VERSION_NUMBER"]
+LIBRESSL = cconfig["LIBRESSL"]
+OPENSSL_1_1 = OPENSSL_VERSION_NUMBER >= 0x10100000 and not LIBRESSL
 HAVE_TLSv1_2 = OPENSSL_VERSION_NUMBER >= 0x10001000
+
 
 class CConfig:
     _compilation_info_ = eci
@@ -126,6 +141,10 @@ class CConfig:
         "SSL_OP_NO_COMPRESSION")
     SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS = rffi_platform.ConstantInteger(
         "SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS")
+    SSL_OP_CIPHER_SERVER_PREFERENCE = rffi_platform.ConstantInteger(
+        "SSL_OP_CIPHER_SERVER_PREFERENCE")
+    SSL_OP_SINGLE_DH_USE = rffi_platform.ConstantInteger(
+        "SSL_OP_SINGLE_DH_USE")
     HAS_SNI = rffi_platform.Defined("SSL_CTRL_SET_TLSEXT_HOSTNAME")
     HAS_NPN = rffi_platform.Defined("OPENSSL_NPN_NEGOTIATED")
     SSL_VERIFY_NONE = rffi_platform.ConstantInteger("SSL_VERIFY_NONE")
@@ -190,28 +209,10 @@ class CConfig:
     OBJ_NAME_TYPE_MD_METH = rffi_platform.ConstantInteger(
         "OBJ_NAME_TYPE_MD_METH")
 
-    if OPENSSL_VERSION_NUMBER >= 0x10001000:
-        X509_st = rffi_platform.Struct(
-            'struct x509_st',
-            [('crldp', stack_st_DIST_POINT)])
-
     # Some structures, with only the fields used in the _ssl module
-    X509_name_entry_st = rffi_platform.Struct('struct X509_name_entry_st',
-                                              [('set', rffi.INT)])
     asn1_string_st = rffi_platform.Struct('struct asn1_string_st',
                                           [('length', rffi.INT),
                                            ('data', rffi.CCHARP)])
-    X509_extension_st = rffi_platform.Struct(
-        'struct X509_extension_st',
-        [('value', ASN1_STRING)])
-    x509_store_st = rffi_platform.Struct(
-        'struct x509_store_st',
-        [('objs', stack_st_X509_OBJECT),
-         ('param', X509_VERIFY_PARAM)])
-    x509_object_st = rffi_platform.Struct(
-        'struct x509_object_st',
-        [('type', rffi.INT)])
-
     X509_LU_X509 = rffi_platform.ConstantInteger("X509_LU_X509")
     X509_LU_CRL = rffi_platform.ConstantInteger("X509_LU_CRL")
 
@@ -224,22 +225,12 @@ class CConfig:
     GENERAL_NAME_st = rffi_platform.Struct(
         'struct GENERAL_NAME_st',
         [('type', rffi.INT)])
-    EVP_MD_st = rffi_platform.Struct(
-        'EVP_MD',
-        [('md_size', rffi.INT),
-         ('block_size', rffi.INT)])
-    EVP_MD_SIZE = rffi_platform.SizeOf('EVP_MD')
-    EVP_MD_CTX_SIZE = rffi_platform.SizeOf('EVP_MD_CTX')
 
     OBJ_NAME_st = rffi_platform.Struct(
         'OBJ_NAME',
         [('alias', rffi.INT),
          ('name', rffi.CCHARP),
          ])
-
-    COMP_METHOD_st = rffi_platform.Struct(
-        'struct comp_method_st',
-        [('type', rffi.INT),])
 
     ACCESS_DESCRIPTION_st = rffi_platform.Struct(
         'struct ACCESS_DESCRIPTION_st',
@@ -255,14 +246,12 @@ SSL_CTX = rffi.COpaquePtr('SSL_CTX')
 SSL_CIPHER = rffi.COpaquePtr('SSL_CIPHER')
 SSL = rffi.COpaquePtr('SSL')
 BIO = rffi.COpaquePtr('BIO')
-if OPENSSL_VERSION_NUMBER >= 0x10001000:
-    X509 = rffi.CArrayPtr(X509_st)
-else:
-    X509 = rffi.COpaquePtr('X509')
-X509_NAME_ENTRY = rffi.CArrayPtr(X509_name_entry_st)
-X509_EXTENSION = rffi.CArrayPtr(X509_extension_st)
-X509_STORE = rffi.CArrayPtr(x509_store_st)
-X509_OBJECT = lltype.Ptr(x509_object_st)
+X509 = rffi.COpaquePtr('X509')
+X509_OBJECT = rffi.COpaquePtr('X509_OBJECT')
+COMP_METHOD = rffi.COpaquePtr('COMP_METHOD')
+X509_NAME_ENTRY = rffi.COpaquePtr('X509_NAME_ENTRY')
+X509_EXTENSION = rffi.COpaquePtr('X509_EXTENSION')
+X509_STORE = rffi.COpaquePtr('X509_STORE')
 X509V3_EXT_METHOD = rffi.CArrayPtr(v3_ext_method)
 ASN1_STRING.TO.become(asn1_string_st)
 ASN1_TIME = rffi.COpaquePtr('ASN1_TIME')
@@ -270,8 +259,8 @@ ASN1_INTEGER = rffi.COpaquePtr('ASN1_INTEGER')
 GENERAL_NAMES = rffi.COpaquePtr('GENERAL_NAMES')
 GENERAL_NAME.TO.become(GENERAL_NAME_st)
 OBJ_NAME = rffi.CArrayPtr(OBJ_NAME_st)
-COMP_METHOD = rffi.CArrayPtr(COMP_METHOD_st)
 ACCESS_DESCRIPTION = rffi.CArrayPtr(ACCESS_DESCRIPTION_st)
+
 
 HAVE_OPENSSL_RAND = OPENSSL_VERSION_NUMBER >= 0x0090500f
 HAVE_OPENSSL_FINISHED = OPENSSL_VERSION_NUMBER >= 0x0090500f
@@ -294,8 +283,10 @@ def ssl_external(name, argtypes, restype, **kw):
     globals()['libssl_' + name] = external(
         name, argtypes, restype, **kw)
 
-ssl_external('SSL_load_error_strings', [], lltype.Void)
-ssl_external('SSL_library_init', [], rffi.INT)
+ssl_external('SSL_load_error_strings', [], lltype.Void,
+    macro=OPENSSL_1_1 or None)
+ssl_external('SSL_library_init', [], rffi.INT,
+    macro=OPENSSL_1_1 or None)
 ssl_external('CRYPTO_num_locks', [], rffi.INT)
 ssl_external('CRYPTO_set_locking_callback',
              [lltype.Ptr(lltype.FuncType(
@@ -307,6 +298,8 @@ ssl_external('CRYPTO_set_id_callback',
 
 if HAVE_OPENSSL_RAND:
     ssl_external('RAND_add', [rffi.CCHARP, rffi.INT, rffi.DOUBLE], lltype.Void)
+    ssl_external('RAND_bytes', [rffi.UCHARP, rffi.INT], rffi.INT)
+    ssl_external('RAND_pseudo_bytes', [rffi.UCHARP, rffi.INT], rffi.INT)
     ssl_external('RAND_status', [], rffi.INT)
     if HAVE_OPENSSL_RAND_EGD:
         ssl_external('RAND_egd', [rffi.CCHARP], rffi.INT)
@@ -319,7 +312,11 @@ if HAVE_TLSv1_2:
     ssl_external('TLSv1_2_method', [], SSL_METHOD)
 ssl_external('SSLv2_method', [], SSL_METHOD)
 ssl_external('SSLv3_method', [], SSL_METHOD)
-ssl_external('SSLv23_method', [], SSL_METHOD)
+# Windows note: fails in untranslated tests if the following function is
+# made 'macro=True'.  Not sure I want to dig into the reason for that mess.
+libssl_TLS_method = external(
+    'TLS_method' if OPENSSL_1_1 else 'SSLv23_method',
+    [], SSL_METHOD)
 ssl_external('SSL_CTX_use_PrivateKey_file', [SSL_CTX, rffi.CCHARP, rffi.INT], rffi.INT,
              save_err=rffi.RFFI_FULL_ERRNO_ZERO)
 ssl_external('SSL_CTX_use_certificate_chain_file', [SSL_CTX, rffi.CCHARP], rffi.INT,
@@ -348,7 +345,7 @@ ssl_external('SSL_CTX_set_tlsext_servername_callback', [SSL_CTX, servername_cb],
              lltype.Void, macro=True)
 ssl_external('SSL_CTX_set_tlsext_servername_arg', [SSL_CTX, rffi.VOIDP], lltype.Void, macro=True)
 ssl_external('SSL_CTX_set_tmp_ecdh', [SSL_CTX, EC_KEY], lltype.Void, macro=True)
-if OPENSSL_VERSION_NUMBER >= 0x10002000:
+if OPENSSL_VERSION_NUMBER >= 0x10002000 and not OPENSSL_1_1:
     ssl_external('SSL_CTX_set_ecdh_auto', [SSL_CTX, rffi.INT], lltype.Void,
                  macro=True)
 else:
@@ -394,6 +391,8 @@ ssl_external('X509_NAME_entry_count', [X509_NAME], rffi.INT)
 ssl_external('X509_NAME_get_entry', [X509_NAME, rffi.INT], X509_NAME_ENTRY)
 ssl_external('X509_NAME_ENTRY_get_object', [X509_NAME_ENTRY], ASN1_OBJECT)
 ssl_external('X509_NAME_ENTRY_get_data', [X509_NAME_ENTRY], ASN1_STRING)
+ssl_external('X509_NAME_ENTRY_set', [X509_NAME_ENTRY], rffi.INT,
+    macro=(not OPENSSL_1_1) or None)
 ssl_external('i2d_X509', [X509, rffi.CCHARPP], rffi.INT, save_err=SAVE_ERR)
 ssl_external('X509_free', [X509], lltype.Void, releasegil=False)
 ssl_external('X509_check_ca', [X509], rffi.INT)
@@ -405,11 +404,16 @@ ssl_external('X509_get_ext_by_NID', [X509, rffi.INT, rffi.INT], rffi.INT)
 ssl_external('X509_get_ext', [X509, rffi.INT], X509_EXTENSION)
 ssl_external('X509_get_ext_d2i', [X509, rffi.INT, rffi.VOIDP, rffi.VOIDP], rffi.VOIDP)
 ssl_external('X509V3_EXT_get', [X509_EXTENSION], X509V3_EXT_METHOD)
+ssl_external('X509_EXTENSION_get_data', [X509_EXTENSION], ASN1_STRING)
 
 ssl_external('X509_VERIFY_PARAM_get_flags', [X509_VERIFY_PARAM], rffi.ULONG)
 ssl_external('X509_VERIFY_PARAM_set_flags', [X509_VERIFY_PARAM, rffi.ULONG], rffi.INT)
 ssl_external('X509_VERIFY_PARAM_clear_flags', [X509_VERIFY_PARAM, rffi.ULONG], rffi.INT)
 ssl_external('X509_STORE_add_cert', [X509_STORE, X509], rffi.INT)
+ssl_external('X509_STORE_get0_objects', [X509_STORE], stack_st_X509_OBJECT,
+    macro=bool(not OPENSSL_1_1) or None)
+ssl_external('X509_STORE_get0_param', [X509_STORE], X509_VERIFY_PARAM,
+    macro=bool(not OPENSSL_1_1) or None)
 
 ssl_external('X509_get_default_cert_file_env', [], rffi.CCHARP)
 ssl_external('X509_get_default_cert_file', [], rffi.CCHARP)
@@ -446,8 +450,14 @@ ssl_external('sk_X509_OBJECT_num', [stack_st_X509_OBJECT], rffi.INT,
              macro=True)
 ssl_external('sk_X509_OBJECT_value', [stack_st_X509_OBJECT, rffi.INT],
              X509_OBJECT, macro=True)
-ssl_external('pypy_X509_OBJECT_data_x509', [X509_OBJECT], X509,
-             macro=True)
+ssl_external('X509_OBJECT_get0_X509', [X509_OBJECT], X509,
+             macro=bool(not OPENSSL_1_1) or None)
+ssl_external('X509_OBJECT_get_type', [X509_OBJECT], rffi.INT,
+             macro=bool(not OPENSSL_1_1) or None)
+ssl_external('COMP_get_name', [COMP_METHOD], rffi.CCHARP,
+             macro=bool(not OPENSSL_1_1) or None)
+ssl_external('COMP_get_type', [COMP_METHOD], rffi.INT,
+             macro=bool(not OPENSSL_1_1) or None)
 ssl_external('sk_DIST_POINT_num', [stack_st_DIST_POINT], rffi.INT,
              macro=True)
 ssl_external('sk_DIST_POINT_value', [stack_st_DIST_POINT, rffi.INT], DIST_POINT,
@@ -465,6 +475,7 @@ ssl_external('AUTHORITY_INFO_ACCESS_free', [AUTHORITY_INFO_ACCESS], lltype.Void)
 ssl_external('GENERAL_NAME_print', [BIO, GENERAL_NAME], rffi.INT)
 ssl_external('pypy_GENERAL_NAME_dirn', [GENERAL_NAME], X509_NAME,
              macro=True)
+
 ssl_external('pypy_GENERAL_NAME_uri', [GENERAL_NAME], ASN1_IA5STRING,
              macro=True)
 
@@ -488,8 +499,12 @@ ssl_external('ERR_GET_REASON', [rffi.ULONG], rffi.INT, macro=True)
 # with the GIL held, and so is allowed to run in a RPython __del__ method.
 ssl_external('SSL_free', [SSL], lltype.Void, releasegil=False)
 ssl_external('SSL_CTX_free', [SSL_CTX], lltype.Void, releasegil=False)
-ssl_external('CRYPTO_free', [rffi.VOIDP], lltype.Void)
-libssl_OPENSSL_free = libssl_CRYPTO_free
+if OPENSSL_1_1:
+    ssl_external('OPENSSL_free', [rffi.VOIDP], lltype.Void, macro=True)
+else:
+    ssl_external('CRYPTO_free', [rffi.VOIDP], lltype.Void)
+    libssl_OPENSSL_free = libssl_CRYPTO_free
+    del libssl_CRYPTO_free
 
 ssl_external('SSL_write', [SSL, rffi.CCHARP, rffi.INT], rffi.INT,
              save_err=SAVE_ERR)
@@ -553,10 +568,11 @@ if HAS_ALPN:
             SSL, rffi.CCHARPP, rffi.UINTP], lltype.Void)
 
 EVP_MD_CTX = rffi.COpaquePtr('EVP_MD_CTX', compilation_info=eci)
-EVP_MD     = lltype.Ptr(EVP_MD_st)
+EVP_MD = rffi.COpaquePtr('EVP_MD')
 
 OpenSSL_add_all_digests = external(
-    'OpenSSL_add_all_digests', [], lltype.Void)
+    'OpenSSL_add_all_digests', [], lltype.Void,
+    macro=OPENSSL_1_1 or None)
 EVP_get_digestbyname = external(
     'EVP_get_digestbyname',
     [rffi.CCHARP], EVP_MD)
@@ -569,10 +585,25 @@ EVP_DigestUpdate = external(
 EVP_DigestFinal = external(
     'EVP_DigestFinal',
     [EVP_MD_CTX, rffi.CCHARP, rffi.VOIDP], rffi.INT)
+EVP_MD_size = external(
+    'EVP_MD_size', [EVP_MD], rffi.INT)
+EVP_MD_block_size = external(
+    'EVP_MD_block_size', [EVP_MD], rffi.INT)
 EVP_MD_CTX_copy = external(
     'EVP_MD_CTX_copy', [EVP_MD_CTX, EVP_MD_CTX], rffi.INT)
-EVP_MD_CTX_cleanup = external(
-    'EVP_MD_CTX_cleanup', [EVP_MD_CTX], rffi.INT, releasegil=False)
+EVP_MD_CTX_new = external(
+    'EVP_MD_CTX_new' if OPENSSL_1_1 else 'EVP_MD_CTX_create',
+    [], EVP_MD_CTX)
+EVP_MD_CTX_free = external(
+    'EVP_MD_CTX_free' if OPENSSL_1_1 else 'EVP_MD_CTX_destroy',
+    [EVP_MD_CTX], lltype.Void, releasegil=False)
+
+if OPENSSL_1_1:
+    PKCS5_PBKDF2_HMAC = external('PKCS5_PBKDF2_HMAC', [
+        rffi.CCHARP, rffi.INT, rffi.CCHARP, rffi.INT, rffi.INT, EVP_MD,
+        rffi.INT, rffi.CCHARP], rffi.INT)
+else:
+    PKCS5_PBKDF2_HMAC = None
 
 OBJ_NAME_CALLBACK = lltype.Ptr(lltype.FuncType(
         [OBJ_NAME, rffi.VOIDP], lltype.Void))
@@ -583,13 +614,8 @@ OBJ_NAME_do_all = external(
 # Used for adding memory pressure. Last number is an (under?)estimate of
 # EVP_PKEY_CTX's size.
 # XXX: Make a better estimate here
-HASH_MALLOC_SIZE = EVP_MD_SIZE + EVP_MD_CTX_SIZE \
+HASH_MALLOC_SIZE = 120 + 48 \
         + rffi.sizeof(EVP_MD) * 2 + 208
-
-OBJ_NAME_CALLBACK = lltype.Ptr(lltype.FuncType(
-        [OBJ_NAME, rffi.VOIDP], lltype.Void))
-OBJ_NAME_do_all = external(
-    'OBJ_NAME_do_all', [rffi.INT, OBJ_NAME_CALLBACK, rffi.VOIDP], lltype.Void)
 
 def init_ssl():
     libssl_SSL_load_error_strings()

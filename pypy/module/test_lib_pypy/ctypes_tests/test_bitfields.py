@@ -195,7 +195,7 @@ class TestBitField:
     def get_except(self, func, *args, **kw):
         try:
             func(*args, **kw)
-        except Exception, detail:
+        except Exception as detail:
             import traceback
             traceback.print_exc()
             return detail.__class__, str(detail)

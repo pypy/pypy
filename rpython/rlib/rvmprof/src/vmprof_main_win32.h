@@ -101,7 +101,7 @@ int vmprof_snapshot_thread(struct pypy_threadlocal_s *p, prof_stacktrace_s *stac
     depth = get_stack_trace(p->vmprof_tl_stack,
                      stack->stack, MAX_STACK_DEPTH-2, ctx.Eip);
     stack->depth = depth;
-    stack->stack[depth++] = (void*)p->thread_ident;
+    stack->stack[depth++] = p->thread_ident;
     stack->count = 1;
     stack->marker = MARKER_STACKTRACE;
     ResumeThread(hThread);

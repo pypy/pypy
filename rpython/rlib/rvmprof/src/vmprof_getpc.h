@@ -43,9 +43,6 @@
 
 #ifndef BASE_GETPC_H_
 #define BASE_GETPC_H_
-
-#include "vmprof_config.h"
-
 // On many linux systems, we may need _GNU_SOURCE to get access to
 // the defined constants that define the register we want to see (eg
 // REG_EIP).  Note this #define must come first!
@@ -54,8 +51,11 @@
 // It will cause problems for FreeBSD though!, because it turns off
 // the needed __BSD_VISIBLE.
 #ifdef __APPLE__
+#include <limits.h>
 #define _XOPEN_SOURCE 500
 #endif
+
+#include "vmprof_config.h"
 
 #include <string.h>         // for memcmp
 #if defined(HAVE_SYS_UCONTEXT_H)
@@ -65,6 +65,10 @@
 #elif defined(HAVE_CYGWIN_SIGNAL_H)
 #include <cygwin/signal.h>
 typedef ucontext ucontext_t;
+#elif defined(HAVE_SIGNAL_H)
+#include <signal.h>
+#else
+#  error "don't know how to get the pc on this platform"
 #endif
 
 
@@ -111,13 +115,8 @@ struct CallUnrollInfo {
 // PC_FROM_UCONTEXT in config.h.  The only thing we need to do here,
 // then, is to do the magic call-unrolling for systems that support it.
 
-#if defined(__linux) && defined(__i386) && defined(__GNUC__)
-intptr_t GetPC(ucontext_t *signal_ucontext) {
-  return signal_ucontext->uc_mcontext.gregs[REG_EIP];
-}
-
-// Special case #2: Windows, which has to do something totally different.
-#elif defined(_WIN32) || defined(__CYGWIN__) || defined(__CYGWIN32__) || defined(__MINGW32__)
+// Special case Windows, which has to do something totally different.
+#if defined(_WIN32) || defined(__CYGWIN__) || defined(__CYGWIN32__) || defined(__MINGW32__)
 // If this is ever implemented, probably the way to do it is to have
 // profiler.cc use a high-precision timer via timeSetEvent:
 //    http://msdn2.microsoft.com/en-us/library/ms712713.aspx
@@ -140,14 +139,10 @@ intptr_t GetPC(ucontext_t *signal_ucontext) {
 // Normal cases.  If this doesn't compile, it's probably because
 // PC_FROM_UCONTEXT is the empty string.  You need to figure out
 // the right value for your system, and add it to the list in
-// configure.ac (or set it manually in your config.h).
+// vmrpof_config.h
 #else
 intptr_t GetPC(ucontext_t *signal_ucontext) {
-#ifdef __APPLE__
-  return (signal_ucontext->uc_mcontext->__ss.__rip);
-#else
   return signal_ucontext->PC_FROM_UCONTEXT;   // defined in config.h
-#endif
 }
 
 #endif

@@ -83,9 +83,8 @@ translate_optiondescr = OptionDescription("translate", "XXX", [
 ])
 
 import optparse
-from rpython.tool.ansi_print import ansi_log
-log = py.log.Producer("translation")
-py.log.setconsumer("translation", ansi_log)
+from rpython.tool.ansi_print import AnsiLogger
+log = AnsiLogger("translation")
 
 def load_target(targetspec):
     log.info("Translating target as defined by %s" % targetspec)
@@ -214,6 +213,7 @@ def log_config(config, header="config used"):
         log.WARNING(warning)
 
 def main():
+    sys.setrecursionlimit(2000)  # PyPy can't translate within cpython's 1k limit
     targetspec_dic, translateconfig, config, args = parse_options_and_load_target()
     from rpython.translator import translator
     from rpython.translator import driver

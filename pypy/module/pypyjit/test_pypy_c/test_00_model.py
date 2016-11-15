@@ -65,7 +65,10 @@ class BaseTestPyPyC(object):
         cmdline.append(str(self.filepath))
         #
         env = os.environ.copy()
+        # TODO old logging system
         env['PYPYLOG'] = self.log_string + ':' + str(logfile)
+        jitlogfile = str(logfile) + '.jlog'
+        env['JITLOG'] = str(jitlogfile)
         pipe = subprocess.Popen(cmdline,
                                 env=env,
                                 stdout=subprocess.PIPE,
@@ -76,9 +79,12 @@ class BaseTestPyPyC(object):
                 pipe.returncode,))
         if stderr.startswith('SKIP:'):
             py.test.skip(stderr)
-        if stderr.startswith('debug_alloc.h:'):   # lldebug builds
-            stderr = ''
+        #if stderr.startswith('debug_alloc.h:'):   # lldebug builds
+        #    stderr = ''
         #assert not stderr
+        if stderr:
+            print '*** stderr of the subprocess: ***'
+            print stderr
         #
         if discard_stdout_before_last_line:
             stdout = stdout.splitlines(True)[-1]
@@ -89,6 +95,7 @@ class BaseTestPyPyC(object):
         log = Log(rawtraces)
         log.result = eval(stdout)
         log.logfile = str(logfile)
+        log.jitlogfile = jitlogfile
         #
         summaries  = logparser.extract_category(rawlog, 'jit-summary')
         if len(summaries) > 0:
@@ -267,7 +274,7 @@ class TestOpMatcher_(object):
             [i0]
             i1 = int_add(i0, 1)
             i2 = int_sub(i1, 10)
-            i3 = int_floordiv(i2, 100)
+            i3 = int_xor(i2, 100)
             i4 = int_mul(i1, 1000)
             jump(i4)
         """
@@ -303,7 +310,7 @@ class TestOpMatcher_(object):
             [i0]
             i1 = int_add(i0, 1)
             i2 = int_sub(i1, 10)
-            i3 = int_floordiv(i2, 100)
+            i3 = int_xor(i2, 100)
             i4 = int_mul(i1, 1000)
             jump(i4)
         """

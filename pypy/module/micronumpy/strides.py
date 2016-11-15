@@ -1,14 +1,13 @@
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import oefmt
 from rpython.rlib import jit
-from pypy.module.micronumpy import support, constants as NPY
+from pypy.module.micronumpy import constants as NPY
 from pypy.module.micronumpy.base import W_NDimArray
 
 
 # structures to describe slicing
 
 class BaseChunk(object):
-    _attrs_ = ['step','out_dim']
-    pass
+    _attrs_ = ['step', 'out_dim']
 
 
 class Chunk(BaseChunk):
@@ -36,6 +35,7 @@ class Chunk(BaseChunk):
 class IntegerChunk(BaseChunk):
     input_dim = 1
     out_dim = 0
+
     def __init__(self, w_idx):
         self.w_idx = w_idx
 
@@ -70,6 +70,7 @@ class NewAxisChunk(Chunk):
 class EllipsisChunk(BaseChunk):
     input_dim = 0
     out_dim = 0
+
     def __init__(self):
         pass
 
@@ -80,6 +81,7 @@ class EllipsisChunk(BaseChunk):
 class BooleanChunk(BaseChunk):
     input_dim = 1
     out_dim = 1
+
     def __init__(self, w_idx):
         self.w_idx = w_idx
 
@@ -97,22 +99,19 @@ def new_view(space, w_arr, chunks):
         # filter by axis dim
         filtr = chunks[dim]
         assert isinstance(filtr, BooleanChunk) 
+        # XXX this creates a new array, and fails in setitem
         w_arr = w_arr.getitem_filter(space, filtr.w_idx, axis=dim)
         arr = w_arr.implementation
         chunks[dim] = SliceChunk(space.newslice(space.wrap(0), 
-                                 space.wrap(-1), space.w_None))
+                                 space.w_None, space.w_None))
         r = calculate_slice_strides(space, arr.shape, arr.start,
                  arr.get_strides(), arr.get_backstrides(), chunks)
     else:
         r = calculate_slice_strides(space, arr.shape, arr.start,
                      arr.get_strides(), arr.get_backstrides(), chunks)
     shape, start, strides, backstrides = r
-    w_ret = W_NDimArray.new_slice(space, start, strides[:], backstrides[:],
+    return W_NDimArray.new_slice(space, start, strides[:], backstrides[:],
                                  shape[:], arr, w_arr)
-    if dim == 0:
-        # Do not return a view
-        return w_ret.descr_copy(space, space.wrap(w_ret.get_order()))
-    return w_ret
 
 @jit.unroll_safe
 def _extend_shape(old_shape, chunks):
@@ -230,17 +229,14 @@ def shape_agreement(space, shape1, w_arr2, broadcast_down=True):
                 return ",".join([str(x) for x in shape])
             else:
                 return '%d,' % shape[0]
-        raise OperationError(space.w_ValueError,
-            space.wrap("operands could not be broadcast together with shapes (%s) (%s)" % (
-                format_shape(shape1), format_shape(shape2)),
-            )
-        )
+        raise oefmt(space.w_ValueError,
+                    "operands could not be broadcast together with shapes "
+                    "(%s) (%s)", format_shape(shape1), format_shape(shape2))
     if not broadcast_down and len([x for x in ret if x != 1]) > len([x for x in shape2 if x != 1]):
-        raise OperationError(space.w_ValueError,
-            space.wrap("unbroadcastable shape (%s) cannot be broadcasted to (%s)" % (
-                ",".join([str(x) for x in shape1]),
-                ",".join([str(x) for x in shape2]),
-            ))
+        raise oefmt(space.w_ValueError,
+                    "unbroadcastable shape (%s) cannot be broadcasted to (%s)",
+                    ",".join([str(x) for x in shape1]),
+                    ",".join([str(x) for x in shape2])
         )
     return ret
 
@@ -291,8 +287,8 @@ def _shape_agreement(shape1, shape2):
             indices2[i + rshift] = False
         else:
             return []
-            #raise OperationError(space.w_ValueError, space.wrap(
-            #    "frames are not aligned"))
+            #raise oefmt(space.w_ValueError,
+            #    "frames are not aligned")
     for i in range(m - n):
         endshape[i] = remainder[i]
     return endshape
@@ -327,8 +323,8 @@ def get_shape_from_iterable(space, old_size, w_iterable):
             new_shape[neg_dim] = old_size / new_size
             new_size *= new_shape[neg_dim]
     if new_size != old_size:
-        raise OperationError(space.w_ValueError,
-                space.wrap("total size of new array must be unchanged"))
+        raise oefmt(space.w_ValueError,
+                    "total size of new array must be unchanged")
     return new_shape
 
 

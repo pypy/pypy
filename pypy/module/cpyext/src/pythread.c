@@ -15,6 +15,17 @@ PyThread_get_thread_ident(void)
 #endif
 }
 
+static int initialized;
+
+void
+PyThread_init_thread(void)
+{
+    if (initialized)
+        return;
+    initialized = 1;
+    /*PyThread__init_thread(); a NOP on modern platforms */
+}
+
 PyThread_type_lock
 PyThread_allocate_lock(void)
 {
@@ -51,6 +62,13 @@ void
 PyThread_release_lock(PyThread_type_lock lock)
 {
     RPyThreadReleaseLock((struct RPyOpaque_ThreadLock*)lock);
+}
+
+long
+PyThread_start_new_thread(void (*func)(void *), void *arg)
+{
+    PyThread_init_thread();
+    return RPyThreadStartEx(func, arg);
 }
 
 

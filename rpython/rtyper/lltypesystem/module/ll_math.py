@@ -136,8 +136,7 @@ def ll_math_isfinite(y):
     # Floats are awesome (bis).
     if use_library_isinf_isnan and not jit.we_are_jitted():
         return bool(_lib_finite(y))
-    z = 0.0 * y
-    return z == z       # i.e.: z is not a NaN
+    return (y - y) == 0.0    # (y - y) is NaN if y is an infinite or NaN
 
 
 ll_math_floor = math_floor

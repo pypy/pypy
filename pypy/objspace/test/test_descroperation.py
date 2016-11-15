@@ -25,7 +25,7 @@ class Test_DescrOperation:
             pass
         return Base, Sub""")
         w_base, w_sub = space.unpackiterable(w_tup)
-        assert space.is_true(space.issubtype(w_sub, w_base))
+        assert space.issubtype_w(w_sub, w_base)
         w_inst = space.call_function(w_sub)
         assert space.isinstance_w(w_inst, w_base)
 
@@ -149,7 +149,7 @@ class AppTest_Descroperation:
             def __setslice__(self, start, stop, sequence):
                 ops.append((start, stop, sequence))
             def __setitem__(self, key, value):
-                raise AssertionError, key
+                raise AssertionError(key)
             def __len__(self):
                 return 100
 
@@ -174,7 +174,7 @@ class AppTest_Descroperation:
             def __delslice__(self, start, stop):
                 ops.append((start, stop))
             def __delitem__(self, key):
-                raise AssertionError, key
+                raise AssertionError(key)
             def __len__(self):
                 return 100
 
@@ -582,7 +582,7 @@ class AppTest_Descroperation:
     def test_mod_failure(self):
         try:
             [] % 3
-        except TypeError, e:
+        except TypeError as e:
             assert '%' in str(e)
         else:
             assert False, "did not raise"

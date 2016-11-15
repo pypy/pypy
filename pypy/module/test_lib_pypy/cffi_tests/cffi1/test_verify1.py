@@ -547,7 +547,8 @@ def test_struct_array_no_length():
                      "int bar(struct foo_s *f) { return f->a[14]; }\n")
     assert ffi.sizeof('struct foo_s') == 19 * ffi.sizeof('int')
     s = ffi.new("struct foo_s *")
-    assert ffi.typeof(s.a) is ffi.typeof('int *')   # because no length
+    assert ffi.typeof(s.a) is ffi.typeof('int[]')   # implicit max length
+    assert len(s.a) == 18  # max length, computed from the size and start offset
     s.a[14] = 4242
     assert lib.bar(s) == 4242
     # with no declared length, out-of-bound accesses are not detected
@@ -577,10 +578,15 @@ def test_struct_array_c99_1():
     ffi.verify("struct foo_s { int x; int a[]; };")
     assert ffi.sizeof('struct foo_s') == 1 * ffi.sizeof('int')
     s = ffi.new("struct foo_s *", [424242, 4])
-    assert ffi.sizeof(s[0]) == 1 * ffi.sizeof('int')   # the same in C
+    assert ffi.sizeof(ffi.typeof(s[0])) == 1 * ffi.sizeof('int')
+    assert ffi.sizeof(s[0]) == 5 * ffi.sizeof('int')
+    # ^^^ explanation: if you write in C: "char x[5];", then
+    # "sizeof(x)" will evaluate to 5.  The behavior above is
+    # a generalization of that to "struct foo_s[len(a)=5] x;"
+    # if you could do that in C.
     assert s.a[3] == 0
     s = ffi.new("struct foo_s *", [424242, [-40, -30, -20, -10]])
-    assert ffi.sizeof(s[0]) == 1 * ffi.sizeof('int')
+    assert ffi.sizeof(s[0]) == 5 * ffi.sizeof('int')
     assert s.a[3] == -10
     s = ffi.new("struct foo_s *")
     assert ffi.sizeof(s[0]) == 1 * ffi.sizeof('int')
@@ -595,10 +601,10 @@ def test_struct_array_c99_2():
     ffi.verify("struct foo_s { int x, y; int a[]; };")
     assert ffi.sizeof('struct foo_s') == 2 * ffi.sizeof('int')
     s = ffi.new("struct foo_s *", [424242, 4])
-    assert ffi.sizeof(s[0]) == 2 * ffi.sizeof('int')
+    assert ffi.sizeof(s[0]) == 6 * ffi.sizeof('int')
     assert s.a[3] == 0
     s = ffi.new("struct foo_s *", [424242, [-40, -30, -20, -10]])
-    assert ffi.sizeof(s[0]) == 2 * ffi.sizeof('int')
+    assert ffi.sizeof(s[0]) == 6 * ffi.sizeof('int')
     assert s.a[3] == -10
     s = ffi.new("struct foo_s *")
     assert ffi.sizeof(s[0]) == 2 * ffi.sizeof('int')
@@ -695,25 +701,14 @@ def test_nonfull_enum():
     assert ffi.string(ffi.cast('enum ee', 11)) == "EE2"
     assert ffi.string(ffi.cast('enum ee', -10)) == "EE3"
     #
-    # try again
-    ffi.verify("enum ee { EE1=10, EE2, EE3=-10, EE4 };")
-    assert ffi.string(ffi.cast('enum ee', 11)) == "EE2"
-    #
     assert ffi.typeof("enum ee").relements == {'EE1': 10, 'EE2': 11, 'EE3': -10}
     assert ffi.typeof("enum ee").elements == {10: 'EE1', 11: 'EE2', -10: 'EE3'}
 
 def test_full_enum():
     ffi = FFI()
     ffi.cdef("enum ee { EE1, EE2, EE3 };")
-    ffi.verify("enum ee { EE1, EE2, EE3 };")
-    py.test.raises(VerificationError, ffi.verify, "enum ee { EE1, EE2 };")
-    # disabled: for now, we always accept and fix transparently constant values
-    #e = py.test.raises(VerificationError, ffi.verify,
-    #                   "enum ee { EE1, EE3, EE2 };")
-    #assert str(e.value) == 'enum ee: EE2 has the real value 2, not 1'
-    # extra items cannot be seen and have no bad consequence anyway
-    lib = ffi.verify("enum ee { EE1, EE2, EE3, EE4 };")
-    assert lib.EE3 == 2
+    lib = ffi.verify("enum ee { EE1, EE2, EE3 };")
+    assert [lib.EE1, lib.EE2, lib.EE3] == [0, 1, 2]
 
 def test_enum_usage():
     ffi = FFI()

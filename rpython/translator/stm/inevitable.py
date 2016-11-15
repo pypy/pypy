@@ -87,6 +87,7 @@ INCOMPATIBLE_OPS = set([
     'gc_rawrefcount_from_obj', 'gc_rawrefcount_init',
     'gc_rawrefcount_create_link_pyobj', 'gc_rawrefcount_create_link_pypy',
     'gc_rawrefcount_to_obj',
+    'gc_bit', 'gc_fq_next_dead', 'gc_fq_register',
     ])
 
 # These operations always turn the transaction inevitable.

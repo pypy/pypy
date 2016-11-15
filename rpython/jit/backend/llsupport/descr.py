@@ -21,6 +21,30 @@ class GcCache(object):
         self._cache_call = {}
         self._cache_interiorfield = {}
 
+    def setup_descrs(self):
+        all_descrs = []
+        for k, v in self._cache_size.iteritems():
+            v.descr_index = len(all_descrs)
+            all_descrs.append(v)
+        for k, v in self._cache_field.iteritems():
+            for k1, v1 in v.iteritems():
+                v1.descr_index = len(all_descrs)
+                all_descrs.append(v1)
+        for k, v in self._cache_array.iteritems():
+            v.descr_index = len(all_descrs)
+            all_descrs.append(v)
+        for k, v in self._cache_arraylen.iteritems():
+            v.descr_index = len(all_descrs)
+            all_descrs.append(v)
+        for k, v in self._cache_call.iteritems():
+            v.descr_index = len(all_descrs)
+            all_descrs.append(v)
+        for k, v in self._cache_interiorfield.iteritems():
+            v.descr_index = len(all_descrs)
+            all_descrs.append(v)
+        assert len(all_descrs) < 2**15
+        return all_descrs
+
     def init_size_descr(self, STRUCT, sizedescr):
         pass
 
@@ -278,7 +302,7 @@ class ArrayDescr(ArrayOrFieldDescr):
     def __init__(self, basesize, itemsize, lendescr, flag,
                  stm_dont_track_raw_accesses=False,
                  is_pure=False, concrete_type='\x00'):
-        self.basesize = basesize
+        self.basesize = basesize    # this includes +1 for STR
         self.itemsize = itemsize
         self.lendescr = lendescr    # or None, if no length
         self.flag = flag
@@ -709,11 +733,10 @@ def get_call_descr(gccache, ARGS, RESULT, extrainfo=None):
 
 def unpack_arraydescr(arraydescr):
     assert isinstance(arraydescr, ArrayDescr)
-    ofs = arraydescr.basesize
+    ofs = arraydescr.basesize    # this includes +1 for STR
     size = arraydescr.itemsize
     sign = arraydescr.is_item_signed()
     return size, ofs, sign
-
 
 def unpack_fielddescr(fielddescr):
     assert isinstance(fielddescr, FieldDescr)

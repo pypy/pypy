@@ -30,14 +30,14 @@ def _curses_setupterm_null(fd):
     # NOT_RPYTHON
     try:
         _curses.setupterm(None, fd)
-    except _curses.error, e:
+    except _curses.error as e:
         raise curses_error(e.args[0])
 
 def _curses_setupterm(termname, fd):
     # NOT_RPYTHON
     try:
         _curses.setupterm(termname, fd)
-    except _curses.error, e:
+    except _curses.error as e:
         raise curses_error(e.args[0])
 
 @unwrap_spec(fd=int)
@@ -52,7 +52,7 @@ def setupterm(space, w_termname=None, fd=-1):
             _curses_setupterm_null(fd)
         else:
             _curses_setupterm(space.str_w(w_termname), fd)
-    except curses_error, e:
+    except curses_error as e:
         raise convert_error(space, e)
 
 class TermError(Exception):
@@ -62,7 +62,7 @@ def _curses_tigetstr(capname):
     # NOT_RPYTHON
     try:
         res = _curses.tigetstr(capname)
-    except _curses.error, e:
+    except _curses.error as e:
         raise curses_error(e.args[0])
     if res is None:
         raise TermError
@@ -72,7 +72,7 @@ def _curses_tparm(s, args):
     # NOT_RPYTHON
     try:
         return _curses.tparm(s, *args)
-    except _curses.error, e:
+    except _curses.error as e:
         raise curses_error(e.args[0])
 
 @unwrap_spec(capname=str)
@@ -81,14 +81,14 @@ def tigetstr(space, capname):
         result = _curses_tigetstr(capname)
     except TermError:
         return space.w_None
-    except curses_error, e:
+    except curses_error as e:
         raise convert_error(space, e)
-    return space.wrap(result)
+    return space.newbytes(result)
 
 @unwrap_spec(s=str)
 def tparm(space, s, args_w):
     args = [space.int_w(a) for a in args_w]
     try:
-        return space.wrap(_curses_tparm(s, args))
-    except curses_error, e:
+        return space.newbytes(_curses_tparm(s, args))
+    except curses_error as e:
         raise convert_error(space, e)

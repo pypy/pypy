@@ -34,6 +34,22 @@ def test_getlower():
     assert rsre_char.getlower(UPPER_PI, SRE_FLAG_LOCALE | SRE_FLAG_UNICODE) \
                                                          == UPPER_PI
 
+def test_getupper():
+    assert rsre_char.getupper(ord('A'), 0) == ord('A')
+    assert rsre_char.getupper(ord('b'), 0) == ord('B')
+    assert rsre_char.getupper(10, 0) == 10
+    assert rsre_char.getupper(LOWER_PI, 0) == LOWER_PI
+    #
+    assert rsre_char.getupper(ord('a'), SRE_FLAG_UNICODE) == ord('A')
+    assert rsre_char.getupper(ord('2'), SRE_FLAG_UNICODE) == ord('2')
+    assert rsre_char.getupper(10, SRE_FLAG_UNICODE) == 10
+    assert rsre_char.getupper(LOWER_PI, SRE_FLAG_UNICODE) == UPPER_PI
+    #
+    assert rsre_char.getupper(LOWER_PI, SRE_FLAG_LOCALE) == LOWER_PI
+    assert rsre_char.getupper(LOWER_PI, SRE_FLAG_LOCALE | SRE_FLAG_UNICODE) \
+                                                         == LOWER_PI
+
+
 def test_is_word():
     assert rsre_char.is_word(ord('A'))
     assert rsre_char.is_word(ord('_'))
@@ -128,6 +144,10 @@ def test_category():
     assert     cat(CHCODES["category_uni_not_digit"], DINGBAT_CIRCLED)
 
 
+class Ctx:
+    def __init__(self, pattern):
+        self.pattern = pattern
+
 def test_general_category():
     from rpython.rlib.unicodedata import unicodedb
 
@@ -137,12 +157,12 @@ def test_general_category():
         pat_neg = [70, ord(cat) | 0x80, 0]
         for c in positive:
             assert unicodedb.category(ord(c)).startswith(cat)
-            assert rsre_char.check_charset(pat_pos, 0, ord(c))
-            assert not rsre_char.check_charset(pat_neg, 0, ord(c))
+            assert rsre_char.check_charset(Ctx(pat_pos), 0, ord(c))
+            assert not rsre_char.check_charset(Ctx(pat_neg), 0, ord(c))
         for c in negative:
             assert not unicodedb.category(ord(c)).startswith(cat)
-            assert not rsre_char.check_charset(pat_pos, 0, ord(c))
-            assert rsre_char.check_charset(pat_neg, 0, ord(c))
+            assert not rsre_char.check_charset(Ctx(pat_pos), 0, ord(c))
+            assert rsre_char.check_charset(Ctx(pat_neg), 0, ord(c))
 
     def cat2num(cat):
         return ord(cat[0]) | (ord(cat[1]) << 8)
@@ -153,17 +173,17 @@ def test_general_category():
         pat_neg = [70, cat2num(cat) | 0x80, 0]
         for c in positive:
             assert unicodedb.category(ord(c)) == cat
-            assert rsre_char.check_charset(pat_pos, 0, ord(c))
-            assert not rsre_char.check_charset(pat_neg, 0, ord(c))
+            assert rsre_char.check_charset(Ctx(pat_pos), 0, ord(c))
+            assert not rsre_char.check_charset(Ctx(pat_neg), 0, ord(c))
         for c in negative:
             assert unicodedb.category(ord(c)) != cat
-            assert not rsre_char.check_charset(pat_pos, 0, ord(c))
-            assert rsre_char.check_charset(pat_neg, 0, ord(c))
+            assert not rsre_char.check_charset(Ctx(pat_pos), 0, ord(c))
+            assert rsre_char.check_charset(Ctx(pat_neg), 0, ord(c))
 
     # test for how the common 'L&' pattern might be compiled
     pat = [70, cat2num('Lu'), 70, cat2num('Ll'), 70, cat2num('Lt'), 0]
-    assert rsre_char.check_charset(pat, 0, 65)    # Lu
-    assert rsre_char.check_charset(pat, 0, 99)    # Ll
-    assert rsre_char.check_charset(pat, 0, 453)   # Lt
-    assert not rsre_char.check_charset(pat, 0, 688)    # Lm
-    assert not rsre_char.check_charset(pat, 0, 5870)   # Nl
+    assert rsre_char.check_charset(Ctx(pat), 0, 65)    # Lu
+    assert rsre_char.check_charset(Ctx(pat), 0, 99)    # Ll
+    assert rsre_char.check_charset(Ctx(pat), 0, 453)   # Lt
+    assert not rsre_char.check_charset(Ctx(pat), 0, 688)    # Lm
+    assert not rsre_char.check_charset(Ctx(pat), 0, 5870)   # Nl

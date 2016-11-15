@@ -1497,6 +1497,47 @@ class TestRPBC(BaseRtypingTest):
         res = self.interpret(f, [2])
         assert res == False
 
+    def test_is_among_functions_2(self):
+        def g1(): pass
+        def g2(): pass
+        def f(n):
+            if n > 5:
+                g = g2
+            else:
+                g = g1
+            g()
+            return g is g2
+        res = self.interpret(f, [2])
+        assert res == False
+        res = self.interpret(f, [8])
+        assert res == True
+
+    def test_is_among_functions_3(self):
+        def g0(): pass
+        def g1(): pass
+        def g2(): pass
+        def g3(): pass
+        def g4(): pass
+        def g5(): pass
+        def g6(): pass
+        def g7(): pass
+        glist = [g0, g1, g2, g3, g4, g5, g6, g7]
+        def f(n):
+            if n > 5:
+                g = g2
+            else:
+                g = g1
+            h = glist[n]
+            g()
+            h()
+            return g is h
+        res = self.interpret(f, [2])
+        assert res == False
+        res = self.interpret(f, [1])
+        assert res == True
+        res = self.interpret(f, [6])
+        assert res == False
+
     def test_shrink_pbc_set(self):
         def g1():
             return 10
@@ -1687,6 +1728,23 @@ class TestRPBC(BaseRtypingTest):
             return 42
         res = self.interpret(f, [])
         assert res == 42
+
+    def test_equality_of_frozen_pbcs_inside_data_structures(self):
+        class A:
+            def _freeze_(self):
+                return True
+        a1 = A()
+        a2 = A()
+        def f():
+            return [a1] == [a1]
+        def g(i):
+            x1 = [a1, a2][i]
+            x2 = [a1, a2][i]
+            return (x1,) == (x2,)
+        res = self.interpret(f, [])
+        assert res == True
+        res = self.interpret(g, [1])
+        assert res == True
 
 # ____________________________________________________________
 
@@ -1946,6 +2004,60 @@ class TestSmallFuncSets(TestRPBC):
     def interpret(self, fn, args, **kwds):
         kwds['config'] = self.config
         return TestRPBC.interpret(fn, args, **kwds)
+
+    def test_class_missing_base_method_should_crash(self):
+        class Base(object):
+            pass   # no method 'm' here
+        class A(Base):
+            def m(self):
+                return 42
+        class B(Base):
+            def m(self):
+                return 63
+        def g(n):
+            if n == 1:
+                return A()
+            elif n == 2:
+                return B()
+            else:
+                return Base()
+        def f(n):
+            return g(n).m()
+
+        assert self.interpret(f, [1]) == 42
+        assert self.interpret(f, [2]) == 63
+        e = py.test.raises(ValueError, self.interpret, f, [3])
+        assert str(e.value).startswith(r"exit case '\xff' not found")
+
+    @py.test.mark.parametrize('limit', [3, 5])
+    def test_conversion_table(self, limit):
+        # with limit==3, check conversion from Char to Ptr(Func).
+        # with limit>3, check conversion from Char to Char.
+        def f1():
+            return 111
+        def f2():
+            return 222
+        def f3():
+            return 333
+        def g(n):
+            if n & 1:
+                return f1
+            else:
+                return f2
+        def f(n):
+            x = g(n)    # can be f1 or f2
+            if n > 10:
+                x = f3  # now can be f1 or f2 or f3
+            return x()
+
+        from rpython.config.translationoption import get_combined_translation_config
+        self.config = get_combined_translation_config(translating=True)
+        self.config.translation.withsmallfuncsets = limit
+        assert self.interpret(f, [3]) == 111
+        assert self.interpret(f, [4]) == 222
+        assert self.interpret(f, [13]) == 333
+        assert self.interpret(f, [14]) == 333
+
 
 def test_smallfuncsets_basic():
     from rpython.translator.translator import TranslationContext, graphof

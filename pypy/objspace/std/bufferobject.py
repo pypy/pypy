@@ -32,6 +32,10 @@ class W_Buffer(W_Root):
     def charbuf_w(self, space):
         return self.buf.as_str()
 
+    def descr_getbuffer(self, space, w_flags):
+        space.check_buf_flags(space.int_w(w_flags), self.buf.readonly)
+        return self
+
     @staticmethod
     @unwrap_spec(offset=int, size=int)
     def descr_new_buffer(space, w_subtype, w_object, offset=0, size=-1):
@@ -135,7 +139,7 @@ class W_Buffer(W_Root):
         return space.wrap(rffi.cast(lltype.Signed, ptr))
 
 W_Buffer.typedef = TypeDef(
-    "buffer",
+    "buffer", None, None, "read-write",
     __doc__ = """\
 buffer(object [, offset[, size]])
 
@@ -160,6 +164,7 @@ extend to the end of the target object (or with the specified size).
     __mul__ = interp2app(W_Buffer.descr_mul),
     __rmul__ = interp2app(W_Buffer.descr_mul),
     __repr__ = interp2app(W_Buffer.descr_repr),
+    __buffer__ = interp2app(W_Buffer.descr_getbuffer),
     _pypy_raw_address = interp2app(W_Buffer.descr_pypy_raw_address),
 )
 W_Buffer.typedef.acceptable_as_base_class = False

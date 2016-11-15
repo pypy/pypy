@@ -328,8 +328,8 @@ class TraceTestCase(unittest.TestCase):
 
     def test_13_genexp(self):
         if self.using_gc:
-            test_support.gc_collect()
             gc.enable()
+            test_support.gc_collect()
         try:
             self.run_test(generator_example)
             # issue1265: if the trace function contains a generator,
@@ -396,6 +396,15 @@ class TraceTestCase(unittest.TestCase):
             [(0, 'call'),
              (257, 'line'),
              (257, 'return')])
+
+    def test_17_none_f_trace(self):
+        # Issue 20041: fix TypeError when f_trace is set to None.
+        def func():
+            sys._getframe().f_trace = None
+            lineno = 2
+        self.run_and_compare(func,
+            [(0, 'call'),
+             (1, 'line')])
 
 
 class RaisingTraceFuncTestCase(unittest.TestCase):

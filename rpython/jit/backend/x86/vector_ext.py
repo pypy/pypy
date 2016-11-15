@@ -9,13 +9,15 @@ from rpython.jit.backend.x86.regloc import (FrameLoc, RegLoc, ConstFloatLoc,
     ebp, r8, r9, r10, r11, r12, r13, r14, r15, xmm0, xmm1, xmm2, xmm3, xmm4,
     xmm5, xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14,
     X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG, AddressLoc)
-from rpython.jit.backend.llsupport.regalloc import (get_scale, valid_addressing_size)
+from rpython.jit.backend.llsupport.vector_ext import VectorExt
+from rpython.jit.backend.llsupport.regalloc import (get_scale, TempVar,
+    NoVariableToSpill)
 from rpython.jit.metainterp.resoperation import (rop, ResOperation,
         VectorOp, VectorGuardOp)
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, always_inline
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem import lltype
-from rpython.jit.backend.x86 import rx86
+from rpython.jit.backend.x86 import rx86, detect_feature
 
 # duplicated for easy migration, def in assembler.py as well
 # DUP START
@@ -32,8 +34,35 @@ def not_implemented(msg):
     raise NotImplementedError(msg)
 # DUP END
 
+class TempVector(TempVar):
+    def __init__(self, type):
+        self.type = type
+    def is_vector(self):
+        return True
+    def __repr__(self):
+        return "<TempVector at %s>" % (id(self),)
+
+class TempInt(TempVar):
+    type = INT
+
+    def __repr__(self):
+        return "<TempInt at %s>" % (id(self),)
+
+class X86VectorExt(VectorExt):
+
+    should_align_unroll = True
+
+    def setup_once(self, asm):
+        if detect_feature.detect_sse4_1():
+            self.enable(16, accum=True)
+            asm.setup_once_vector()
+        self._setup = True
+
 class VectorAssemblerMixin(object):
     _mixin_ = True
+
+    def setup_once_vector(self):
+        pass
 
     def genop_guard_vec_guard_true(self, guard_op, guard_token, locs, resloc):
         self.implement_guard(guard_token)
@@ -48,7 +77,9 @@ class VectorAssemblerMixin(object):
         assert isinstance(arg, VectorOp)
         size = arg.bytesize
         temp = X86_64_XMM_SCRATCH_REG
-        load = arg.bytesize * arg.count - self.cpu.vector_register_size
+        ve = self.cpu.vector_ext
+        assert ve is not None # MUST hold, optimize_vector is never entered if vector_ext is entered
+        load = arg.bytesize * arg.count - ve.register_size
         assert load <= 0
         if true:
             self.mc.PXOR(temp, temp)
@@ -99,26 +130,35 @@ class VectorAssemblerMixin(object):
             # the upper elements will be lost if saved to the stack!
             scalar_arg = accum_info.getoriginal()
             assert isinstance(vector_loc, RegLoc)
-            if not isinstance(scalar_loc, RegLoc):
-                scalar_loc = regalloc.force_allocate_reg(scalar_arg)
             assert scalar_arg is not None
+            orig_scalar_loc = scalar_loc
+            tmpvar = None
+            if not isinstance(scalar_loc, RegLoc):
+                # scalar loc might live in memory, use scratch register and save it back later
+                if scalar_arg.type == FLOAT:
+                    scalar_loc = X86_64_XMM_SCRATCH_REG
+                else:
+                    tmpvar = TempInt()
+                    scalar_loc = regalloc.rm.try_allocate_reg(tmpvar)
+                self.mov(orig_scalar_loc, scalar_loc)
             if accum_info.accum_operation == '+':
                 self._accum_reduce_sum(scalar_arg, vector_loc, scalar_loc)
             elif accum_info.accum_operation == '*':
                 self._accum_reduce_mul(scalar_arg, vector_loc, scalar_loc)
             else:
                 not_implemented("accum operator %s not implemented" %
-                                            (accum_info.accum_operation))
+                                            (accum_info.accum_operation)) 
+            if tmpvar:
+                regalloc.rm.possibly_free_var(tmpvar)
+            if scalar_loc is not orig_scalar_loc:
+                self.mov(scalar_loc, orig_scalar_loc)
             accum_info = accum_info.next()
 
     def _accum_reduce_mul(self, arg, accumloc, targetloc):
-        scratchloc = X86_64_XMM_SCRATCH_REG
-        self.mov(accumloc, scratchloc)
+        self.mov(accumloc, targetloc)
         # swap the two elements
-        self.mc.SHUFPD_xxi(scratchloc.value, scratchloc.value, 0x01)
-        self.mc.MULSD(accumloc, scratchloc)
-        if accumloc is not targetloc:
-            self.mov(accumloc, targetloc)
+        self.mc.SHUFPD_xxi(targetloc.value, targetloc.value, 0x01)
+        self.mc.MULSD(targetloc, accumloc)
 
     def _accum_reduce_sum(self, arg, accumloc, targetloc):
         # Currently the accumulator can ONLY be the biggest
@@ -139,32 +179,16 @@ class VectorAssemblerMixin(object):
 
         not_implemented("reduce sum for %s not impl." % arg)
 
-    def _genop_vec_getarrayitem(self, op, arglocs, resloc, segment):
-        # considers item scale (raw_load does not)
-        base_loc, ofs_loc, size_loc, ofs, integer_loc, aligned_loc = arglocs
-        scale = get_scale(size_loc.value)
-        src_addr = addr_add(segment, base_loc, ofs_loc, ofs.value, scale)
+    def _genop_vec_load(self, op, arglocs, resloc, segment):
+        base_loc, ofs_loc, size_loc, scale, ofs, integer_loc = arglocs
+        src_addr = addr_add(segment, base_loc, ofs_loc, ofs.value, scale.value)
         self._vec_load(resloc, src_addr, integer_loc.value,
-                       size_loc.value, aligned_loc.value)
+                       size_loc.value, False)
 
-    def genop_vec_getarrayitem_raw_i(self, op, arglocs, resloc):
-        return self._genop_vec_getarrayitem(op, arglocs, resloc, self.SEGMENT_NO)
-    genop_vec_getarrayitem_raw_f = genop_vec_getarrayitem_raw_i
+    genop_vec_load_i = _genop_vec_load
+    genop_vec_load_f = _genop_vec_load
 
-    def genop_vec_getarrayitem_gc_i(self, op, arglocs, resloc):
-        return self._genop_vec_getarrayitem(op, arglocs, resloc, self.SEGMENT_GC)
-    genop_vec_getarrayitem_gc_f = genop_vec_getarrayitem_gc_i
-
-    def _genop_vec_raw_load(self, op, arglocs, resloc, segment):
-        base_loc, ofs_loc, size_loc, ofs, integer_loc, aligned_loc = arglocs
-        src_addr = addr_add(segment, base_loc, ofs_loc, ofs.value, 0)
-        self._vec_load(resloc, src_addr, integer_loc.value,
-                       size_loc.value, aligned_loc.value)
-
-    def genop_vec_raw_load_i(self, op, arglocs, resloc):
-        return self._genop_vec_raw_load(op, arglocs, resloc, self.SEGMENT_NO)
-    genop_vec_raw_load_f = genop_vec_raw_load_i
-
+    @always_inline
     def _vec_load(self, resloc, src_addr, integer, itemsize, aligned):
         if integer:
             if aligned:
@@ -177,24 +201,14 @@ class VectorAssemblerMixin(object):
             elif itemsize == 8:
                 self.mc.MOVUPD(resloc, src_addr)
 
-    def _genop_discard_vec_setarrayitem(self, op, arglocs, segment):
-        # considers item scale (raw_store does not)
-        base_loc, ofs_loc, value_loc, size_loc, baseofs, integer_loc, aligned_loc = arglocs
-        scale = get_scale(size_loc.value)
-        dest_loc = addr_add(segment, base_loc, ofs_loc, baseofs.value, scale)
+    def genop_discard_vec_store(self, op, arglocs, segment):
+        base_loc, ofs_loc, value_loc, size_loc, scale,\
+                baseofs, integer_loc = arglocs
+        dest_loc = addr_add(segment, base_loc, ofs_loc, baseofs.value, scale.value)
         self._vec_store(dest_loc, value_loc, integer_loc.value,
-                        size_loc.value, aligned_loc.value)
+                        size_loc.value, False)
 
-    def genop_discard_vec_setarrayitem_raw(self, op, arglocs):
-        return self._genop_discard_vec_setarrayitem(op, arglocs, self.SEGMENT_NO)
-    genop_discard_vec_setarrayitem_gc = genop_discard_vec_setarrayitem_raw
-
-    def genop_discard_vec_raw_store(self, op, arglocs):
-        base_loc, ofs_loc, value_loc, size_loc, baseofs, integer_loc, aligned_loc = arglocs
-        dest_loc = addr_add(self.SEGMENT_NO, base_loc, ofs_loc, baseofs.value, 0)
-        self._vec_store(dest_loc, value_loc, integer_loc.value,
-                        size_loc.value, aligned_loc.value)
-
+    @always_inline
     def _vec_store(self, dest_loc, value_loc, integer, itemsize, aligned):
         if integer:
             if aligned:
@@ -263,6 +277,8 @@ class VectorAssemblerMixin(object):
     def genop_vec_int_xor(self, op, arglocs, resloc):
         self.mc.PXOR(resloc, arglocs[0])
 
+    genop_vec_float_xor = genop_vec_int_xor
+
     genop_vec_float_arith = """
     def genop_vec_float_{type}(self, op, arglocs, resloc):
         loc0, loc1, itemsize_loc = arglocs
@@ -305,29 +321,50 @@ class VectorAssemblerMixin(object):
             self.mc.XORPD(src, heap(self.SEGMENT_NO, self.float_const_neg_addr))
 
     def genop_vec_float_eq(self, op, arglocs, resloc):
-        _, rhsloc, sizeloc = arglocs
+        lhsloc, rhsloc, sizeloc = arglocs
         size = sizeloc.value
         if size == 4:
-            self.mc.CMPPS_xxi(resloc.value, rhsloc.value, 0) # 0 means equal
+            self.mc.CMPPS_xxi(lhsloc.value, rhsloc.value, 0) # 0 means equal
         else:
-            self.mc.CMPPD_xxi(resloc.value, rhsloc.value, 0)
+            self.mc.CMPPD_xxi(lhsloc.value, rhsloc.value, 0)
+        self.flush_vec_cc(rx86.Conditions["E"], lhsloc, resloc, sizeloc.value)
+
+    def flush_vec_cc(self, rev_cond, lhsloc, resloc, size):
+        # After emitting an instruction that leaves a boolean result in
+        # a condition code (cc), call this.  In the common case, result_loc
+        # will be set to SPP by the regalloc, which in this case means
+        # "propagate it between this operation and the next guard by keeping
+        # it in the cc".  In the uncommon case, result_loc is another
+        # register, and we emit a load from the cc into this register.
+
+        if resloc is ebp:
+            self.guard_success_cc = rev_cond
+        else:
+            assert lhsloc is xmm0
+            maskloc = X86_64_XMM_SCRATCH_REG
+            self.mc.MOVAPD(maskloc, heap(self.element_ones[get_scale(size)]))
+            self.mc.PXOR(resloc, resloc)
+            # note that resloc contains true false for each element by the last compare operation
+            self.mc.PBLENDVB_xx(resloc.value, maskloc.value)
 
     def genop_vec_float_ne(self, op, arglocs, resloc):
-        _, rhsloc, sizeloc = arglocs
+        lhsloc, rhsloc, sizeloc = arglocs
         size = sizeloc.value
         # b(100) == 1 << 2 means not equal
         if size == 4:
-            self.mc.CMPPS_xxi(resloc.value, rhsloc.value, 1 << 2)
+            self.mc.CMPPS_xxi(lhsloc.value, rhsloc.value, 1 << 2)
         else:
-            self.mc.CMPPD_xxi(resloc.value, rhsloc.value, 1 << 2)
+            self.mc.CMPPD_xxi(lhsloc.value, rhsloc.value, 1 << 2)
+        self.flush_vec_cc(rx86.Conditions["NE"], lhsloc, resloc, sizeloc.value)
 
     def genop_vec_int_eq(self, op, arglocs, resloc):
-        _, rhsloc, sizeloc = arglocs
+        lhsloc, rhsloc, sizeloc = arglocs
         size = sizeloc.value
-        self.mc.PCMPEQ(resloc, rhsloc, size)
+        self.mc.PCMPEQ(lhsloc, rhsloc, size)
+        self.flush_vec_cc(rx86.Conditions["E"], lhsloc, resloc, sizeloc.value)
 
     def genop_vec_int_ne(self, op, arglocs, resloc):
-        _, rhsloc, sizeloc = arglocs
+        lhsloc, rhsloc, sizeloc = arglocs
         size = sizeloc.value
         self.mc.PCMPEQ(resloc, rhsloc, size)
         temp = X86_64_XMM_SCRATCH_REG
@@ -338,6 +375,7 @@ class VectorAssemblerMixin(object):
         # 11 11 11 11
         # ----------- pxor
         # 00 11 00 00
+        self.flush_vec_cc(rx86.Conditions["NE"], lhsloc, resloc, sizeloc.value)
 
     def genop_vec_int_signext(self, op, arglocs, resloc):
         srcloc, sizeloc, tosizeloc = arglocs
@@ -514,6 +552,8 @@ class VectorAssemblerMixin(object):
                             self.mc.SHUFPD_xxi(resloc.value, resloc.value, 1)
                             self.mc.UNPCKHPD(resloc, srcloc)
                         # if they are equal nothing is to be done
+        else:
+            not_implemented("pack/unpack for size %d" % size)
 
     genop_vec_unpack_f = genop_vec_pack_f
 
@@ -532,47 +572,43 @@ class VectorAssemblerMixin(object):
 class VectorRegallocMixin(object):
     _mixin_ = True
 
-    def _consider_vec_getarrayitem(self, op):
+    def _consider_vec_load(self, op):
         descr = op.getdescr()
         assert isinstance(descr, ArrayDescr)
         assert not descr.is_array_of_pointers() and \
                not descr.is_array_of_structs()
-        itemsize, ofs, _ = unpack_arraydescr(descr)
+        itemsize, _, _ = unpack_arraydescr(descr)
         integer = not (descr.is_array_of_floats() or descr.getconcrete_type() == FLOAT)
-        aligned = False
         args = op.getarglist()
+        scale = get_scale(op.getarg(2).getint())
+        ofs = op.getarg(3).getint()
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
         ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
         result_loc = self.force_allocate_reg(op)
-        self.perform(op, [base_loc, ofs_loc, imm(itemsize), imm(ofs),
-                          imm(integer), imm(aligned)], result_loc)
+        self.perform(op, [base_loc, ofs_loc, imm(itemsize), imm(scale),
+                          imm(ofs), imm(integer)], result_loc)
 
-    consider_vec_getarrayitem_raw_i = _consider_vec_getarrayitem
-    consider_vec_getarrayitem_raw_f = _consider_vec_getarrayitem
-    consider_vec_getarrayitem_gc_i = _consider_vec_getarrayitem
-    consider_vec_getarrayitem_gc_f = _consider_vec_getarrayitem
-    consider_vec_raw_load_i = _consider_vec_getarrayitem
-    consider_vec_raw_load_f = _consider_vec_getarrayitem
+    consider_vec_load_i = _consider_vec_load
+    consider_vec_load_f = _consider_vec_load
 
-    def _consider_vec_setarrayitem(self, op):
+    def consider_vec_store(self, op):
+        # TODO
         descr = op.getdescr()
         assert isinstance(descr, ArrayDescr)
         assert not descr.is_array_of_pointers() and \
                not descr.is_array_of_structs()
-        itemsize, ofs, _ = unpack_arraydescr(descr)
+        itemsize, _, _ = unpack_arraydescr(descr)
         args = op.getarglist()
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
         value_loc = self.make_sure_var_in_reg(op.getarg(2), args)
         ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
+        scale = get_scale(op.getarg(3).getint())
+        ofs = op.getarg(4).getint()
 
-        integer = not (descr.is_array_of_floats() or descr.getconcrete_type() == FLOAT)
-        aligned = False
-        self.perform_discard(op, [base_loc, ofs_loc, value_loc,
-                                 imm(itemsize), imm(ofs), imm(integer), imm(aligned)])
-
-    consider_vec_setarrayitem_raw = _consider_vec_setarrayitem
-    consider_vec_setarrayitem_gc = _consider_vec_setarrayitem
-    consider_vec_raw_store = _consider_vec_setarrayitem
+        integer = not (descr.is_array_of_floats() or \
+                       descr.getconcrete_type() == FLOAT)
+        self.perform_discard(op, [base_loc, ofs_loc, value_loc, imm(itemsize),
+                                  imm(scale), imm(ofs), imm(integer)])
 
     def consider_vec_arith(self, op):
         lhs = op.getarg(0)
@@ -616,9 +652,64 @@ class VectorRegallocMixin(object):
         lhs = op.getarg(0)
         assert isinstance(lhs, VectorOp)
         args = op.getarglist()
+        # we need to use xmm0
+        lhsloc = self.enforce_var_in_vector_reg(op.getarg(0), args, selected_reg=xmm0)
         rhsloc = self.make_sure_var_in_reg(op.getarg(1), args)
-        lhsloc = self.xrm.force_result_in_reg(op, op.getarg(0), args)
-        self.perform(op, [lhsloc, rhsloc, imm(lhs.bytesize)], lhsloc)
+        resloc = self.force_allocate_vector_reg_or_cc(op)
+        self.perform(op, [lhsloc, rhsloc, imm(lhs.bytesize)], resloc)
+
+    def enforce_var_in_vector_reg(self, arg, forbidden_vars, selected_reg):
+        """ Enforce the allocation in a specific register. This can even be a forbidden
+            register. If it is forbidden, it will be moved to another register.
+            Use with caution, currently this is only used for the vectorization backend
+            instructions.
+        """
+        xrm = self.xrm
+        curloc = self.loc(arg)
+        if curloc is selected_reg:
+            # nothing to do, it is already in the correct register
+            return selected_reg
+        if selected_reg not in xrm.free_regs:
+            # we need to move some registers
+            variable = None
+            candidate_to_spill = None
+            for var, reg in self.xrm.reg_bindings.items():
+                if reg is selected_reg:
+                    variable = var
+                else:
+                    if var not in forbidden_vars:
+                        candidate_to_spill = var
+            # do we have a free register?
+            if len(xrm.free_regs) == 0:
+                # spill a non forbidden variable
+                if not candidate_to_spill:
+                    raise NoVariableToSpill
+                reg = xrm.reg_bindings[candidate_to_spill]
+                xrm._spill_var(candidate_to_spill, forbidden_vars, None)
+                xrm.free_regs.append(reg)
+            loc = xrm.free_regs.pop()
+            self.assembler.mov(selected_reg, loc)
+            reg = xrm.reg_bindings.get(arg, None)
+            if reg:
+                xrm.free_regs.append(reg)
+                self.assembler.mov(reg, selected_reg)
+            xrm.reg_bindings[arg] = selected_reg
+            xrm.reg_bindings[variable] = loc
+
+            return selected_reg
+        return self.make_sure_var_in_reg(arg, forbidden_vars, selected_reg=selected_reg)
+
+    def force_allocate_vector_reg_or_cc(self, var):
+        assert var.type == INT
+        if self.next_op_can_accept_cc(self.operations, self.rm.position):
+            # hack: return the ebp location to mean "lives in CC".  This
+            # ebp will not actually be used, and the location will be freed
+            # after the next op as usual.
+            self.xrm.force_allocate_frame_reg(var)
+            return ebp
+        else:
+            # else, return a regular register (not ebp).
+            return self.xrm.force_allocate_reg(var)
 
     consider_vec_float_ne = consider_vec_float_eq
     consider_vec_int_eq = consider_vec_float_eq
@@ -627,6 +718,7 @@ class VectorRegallocMixin(object):
     consider_vec_int_and = consider_vec_logic
     consider_vec_int_or = consider_vec_logic
     consider_vec_int_xor = consider_vec_logic
+    consider_vec_float_xor = consider_vec_logic
     del consider_vec_logic
 
     def consider_vec_pack_i(self, op):

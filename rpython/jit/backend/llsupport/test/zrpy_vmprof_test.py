@@ -8,7 +8,6 @@ from rpython.translator.translator import TranslationContext
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.rlib.rweaklist import RWeakListMixin
 
-
 class CompiledVmprofTest(CCompiledMixin):
     CPUClass = getcpuclass()
 
@@ -35,7 +34,7 @@ class CompiledVmprofTest(CCompiledMixin):
 
         try:
             rvmprof.register_code_object_class(MyCode, get_name)
-        except rvmprof.VMProfPlatformUnsupported, e:
+        except rvmprof.VMProfPlatformUnsupported as e:
             py.test.skip(str(e))
 
         def get_unique_id(code):

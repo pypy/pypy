@@ -62,16 +62,15 @@ def strtod(input):
 
             endpos = (rffi.cast(lltype.Signed, end_ptr[0]) -
                       rffi.cast(lltype.Signed, ll_input))
-
-            if endpos == 0 or endpos < len(input):
-                raise ValueError("invalid input at position %d" % (endpos,))
-
-            return result
         finally:
             lltype.free(end_ptr, flavor='raw')
     finally:
         rffi.free_charp(ll_input)
 
+    if endpos == 0 or endpos < len(input):
+        raise ValueError("invalid input at position %d" % (endpos,))
+
+    return result
 
 lower_special_strings = ['inf', '+inf', '-inf', 'nan']
 upper_special_strings = ['INF', '+INF', '-INF', 'NAN']

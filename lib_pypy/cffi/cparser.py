@@ -29,7 +29,8 @@ _r_int_literal = re.compile(r"-?0?x?[0-9a-f]+[lu]*$", re.IGNORECASE)
 _r_stdcall1 = re.compile(r"\b(__stdcall|WINAPI)\b")
 _r_stdcall2 = re.compile(r"[(]\s*(__stdcall|WINAPI)\b")
 _r_cdecl = re.compile(r"\b__cdecl\b")
-_r_extern_python = re.compile(r'\bextern\s*"Python"\s*.')
+_r_extern_python = re.compile(r'\bextern\s*"'
+                              r'(Python|Python\s*\+\s*C|C\s*\+\s*Python)"\s*.')
 _r_star_const_space = re.compile(       # matches "* const "
     r"[*]\s*((const|volatile|restrict)\b\s*)+")
 
@@ -88,6 +89,12 @@ def _preprocess_extern_python(csource):
     #     void __cffi_extern_python_start;
     #     int foo(int);
     #     void __cffi_extern_python_stop;
+    #
+    # input: `extern "Python+C" int foo(int);`
+    # output:
+    #     void __cffi_extern_python_plus_c_start;
+    #     int foo(int);
+    #     void __cffi_extern_python_stop;
     parts = []
     while True:
         match = _r_extern_python.search(csource)
@@ -98,7 +105,10 @@ def _preprocess_extern_python(csource):
         #print ''.join(parts)+csource
         #print '=>'
         parts.append(csource[:match.start()])
-        parts.append('void __cffi_extern_python_start; ')
+        if 'C' in match.group(1):
+            parts.append('void __cffi_extern_python_plus_c_start; ')
+        else:
+            parts.append('void __cffi_extern_python_start; ')
         if csource[endpos] == '{':
             # grouping variant
             closing = csource.find('}', endpos)
@@ -302,7 +312,7 @@ class Parser(object):
                 break
         #
         try:
-            self._inside_extern_python = False
+            self._inside_extern_python = '__cffi_extern_python_stop'
             for decl in iterator:
                 if isinstance(decl, pycparser.c_ast.Decl):
                     self._parse_decl(decl)
@@ -322,8 +332,10 @@ class Parser(object):
                         realtype = model.unknown_ptr_type(decl.name)
                     else:
                         realtype, quals = self._get_type_and_quals(
-                            decl.type, name=decl.name)
+                            decl.type, name=decl.name, partial_length_ok=True)
                     self._declare('typedef ' + decl.name, realtype, quals=quals)
+                elif decl.__class__.__name__ == 'Pragma':
+                    pass    # skip pragma, only in pycparser 2.15
                 else:
                     raise api.CDefError("unrecognized construct", decl)
         except api.FFIError as e:
@@ -376,8 +388,10 @@ class Parser(object):
         tp = self._get_type_pointer(tp, quals)
         if self._options.get('dllexport'):
             tag = 'dllexport_python '
-        elif self._inside_extern_python:
+        elif self._inside_extern_python == '__cffi_extern_python_start':
             tag = 'extern_python '
+        elif self._inside_extern_python == '__cffi_extern_python_plus_c_start':
+            tag = 'extern_python_plus_c '
         else:
             tag = 'function '
         self._declare(tag + decl.name, tp)
@@ -421,11 +435,9 @@ class Parser(object):
                     # hack: `extern "Python"` in the C source is replaced
                     # with "void __cffi_extern_python_start;" and
                     # "void __cffi_extern_python_stop;"
-                    self._inside_extern_python = not self._inside_extern_python
-                    assert self._inside_extern_python == (
-                        decl.name == '__cffi_extern_python_start')
+                    self._inside_extern_python = decl.name
                 else:
-                    if self._inside_extern_python:
+                    if self._inside_extern_python !='__cffi_extern_python_stop':
                         raise api.CDefError(
                             "cannot declare constants or "
                             "variables with 'extern \"Python\"'")
@@ -771,11 +783,14 @@ class Parser(object):
                 exprnode.name in self._int_constants):
             return self._int_constants[exprnode.name]
         #
-        if partial_length_ok:
-            if (isinstance(exprnode, pycparser.c_ast.ID) and
+        if (isinstance(exprnode, pycparser.c_ast.ID) and
                     exprnode.name == '__dotdotdotarray__'):
+            if partial_length_ok:
                 self._partial_length = True
                 return '...'
+            raise api.FFIError(":%d: unsupported '[...]' here, cannot derive "
+                               "the actual array length in this context"
+                               % exprnode.coord.line)
         #
         raise api.FFIError(":%d: unsupported expression: expected a "
                            "simple numeric constant" % exprnode.coord.line)

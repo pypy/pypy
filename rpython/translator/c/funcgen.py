@@ -2,7 +2,7 @@ import sys
 from rpython.translator.c.support import cdecl
 from rpython.translator.c.support import llvalue_from_constant, gen_assignments
 from rpython.translator.c.support import c_string_constant, barebonearray
-from rpython.flowspace.model import Variable, Constant
+from rpython.flowspace.model import Variable, Constant, mkentrymap
 from rpython.rtyper.lltypesystem.lltype import (Ptr, Void, Bool, Signed, Unsigned,
     SignedLongLong, Float, UnsignedLongLong, Char, UniChar, ContainerType,
     Array, FixedSizeArray, ForwardReference, FuncType)
@@ -186,17 +186,36 @@ class FunctionCodeGenerator(object):
                 yield 'rewind_jmp_prepareframe(&rjbuf1);'
         #
         graph = self.graph
-        yield 'goto block0;'    # to avoid a warning "this label is not used"
 
-        # generate the body of each block
+        # Locate blocks with a single predecessor, which can be written
+        # inline in place of a "goto":
+        entrymap = mkentrymap(graph)
+        self.inlinable_blocks = {
+            block for block in entrymap if len(entrymap[block]) == 1}
+
+        yield ''
+        for line in self.gen_goto(graph.startblock):
+            yield line
+
+        # Only blocks left are those that have more than one predecessor.
         for block in graph.iterblocks():
+            if block in self.inlinable_blocks:
+                continue
+            for line in self.gen_block(block):
+                yield line
+
+    def gen_block(self, block):
+        if 1:      # (preserve indentation)
             myblocknum = self.blocknum[block]
-            yield ''
-            yield 'block%d:' % myblocknum
+            if block in self.inlinable_blocks:
+                # debug comment
+                yield '/* block%d: (inlined) */' % myblocknum
+            else:
+                yield 'block%d:' % myblocknum
             if block in self.innerloops:
                 for line in self.gen_while_loop_hack(block):
                     yield line
-                continue
+                return
             for i, op in enumerate(block.operations):
                 for line in self.gen_op(op):
                     yield line
@@ -210,7 +229,7 @@ class FunctionCodeGenerator(object):
                 if self.exception_policy != "exc_helper":
                     yield 'RPY_DEBUG_RETURN();'
                 yield 'return %s;' % retval
-                continue
+                return
             elif block.exitswitch is None:
                 # single-exit block
                 assert len(block.exits) == 1
@@ -272,12 +291,25 @@ class FunctionCodeGenerator(object):
             assignments.append((a2typename, dest, src))
         for line in gen_assignments(assignments):
             yield line
-        label = 'block%d' % self.blocknum[link.target]
-        if link.target in self.innerloops:
-            loop = self.innerloops[link.target]
+        for line in self.gen_goto(link.target, link):
+            yield line
+
+    def gen_goto(self, target, link=None):
+        """Recursively expand block with inlining or goto.
+
+        Blocks that have only one predecessor are inlined directly, all others
+        are reached via goto.
+        """
+        label = 'block%d' % self.blocknum[target]
+        if target in self.innerloops:
+            loop = self.innerloops[target]
             if link is loop.links[-1]:   # link that ends a loop
                 label += '_back'
-        yield 'goto %s;' % label
+        if target in self.inlinable_blocks:
+            for line in self.gen_block(target):
+                yield line
+        else:
+            yield 'goto %s;' % label
 
     def _is_stm(self):
         return getattr(self.db.translator, 'stm_transformation_applied', False)

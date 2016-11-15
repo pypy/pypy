@@ -62,6 +62,12 @@ class AppTestDeque:
             raises(IndexError, d.remove, 'c')
             assert len(d) == 0
 
+    def test_deque_unhashable(self):
+        from collections import Hashable
+        d = self.get_deque()
+        raises(TypeError, hash, d)
+        assert not isinstance(d, Hashable)
+
 class AppTestDequeExtra:
 
     spaceconfig = dict(usemodules=('binascii', 'struct',))

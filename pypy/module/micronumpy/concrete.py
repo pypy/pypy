@@ -1,9 +1,10 @@
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import oefmt
 from rpython.rlib import jit, rgc
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib.listsort import make_timsort_class
 from rpython.rlib.buffer import Buffer
 from rpython.rlib.debug import make_sure_not_resized
+from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rawstorage import alloc_raw_storage, free_raw_storage, \
     raw_storage_getitem, raw_storage_setitem, RAW_STORAGE
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
@@ -251,13 +252,13 @@ class BaseConcreteArray(object):
             w_idx = w_idx.get_scalar_value().item(space)
             if not space.isinstance_w(w_idx, space.w_int) and \
                     not space.isinstance_w(w_idx, space.w_bool):
-                raise OperationError(space.w_IndexError, space.wrap(
-                    "arrays used as indices must be of integer (or boolean) type"))
+                raise oefmt(space.w_IndexError,
+                            "arrays used as indices must be of integer (or "
+                            "boolean) type")
             return [IntegerChunk(w_idx), EllipsisChunk()]
         elif space.is_w(w_idx, space.w_None):
             return [NewAxisChunk(), EllipsisChunk()]
         result = []
-        i = 0
         has_ellipsis = False
         has_filter = False
         for w_item in space.fixedview(w_idx):
@@ -273,7 +274,6 @@ class BaseConcreteArray(object):
                 result.append(NewAxisChunk())
             elif space.isinstance_w(w_item, space.w_slice):
                 result.append(SliceChunk(w_item))
-                i += 1
             elif isinstance(w_item, W_NDimArray) and w_item.get_dtype().is_bool():
                 if has_filter:
                     # in CNumPy, the support for this is incomplete
@@ -286,7 +286,6 @@ class BaseConcreteArray(object):
                 result.append(IntegerChunk(w_item.descr_int(space)))
             else:
                 result.append(IntegerChunk(w_item))
-                i += 1
         if not has_ellipsis:
             result.append(EllipsisChunk())
         return result
@@ -298,7 +297,14 @@ class BaseConcreteArray(object):
         except IndexError:
             # not a single result
             chunks = self._prepare_slice_args(space, w_index)
-            return new_view(space, orig_arr, chunks)
+            copy = False
+            if isinstance(chunks[0], BooleanChunk):
+                # numpy compatibility
+                copy = True
+            w_ret = new_view(space, orig_arr, chunks)
+            if copy:
+                w_ret = w_ret.descr_copy(space, space.wrap(w_ret.get_order()))
+            return w_ret
 
     def descr_setitem(self, space, orig_arr, w_index, w_value):
         try:
@@ -372,7 +378,25 @@ class BaseConcreteArray(object):
     def __exit__(self, typ, value, traceback):
         keepalive_until_here(self)
 
-    def get_buffer(self, space, readonly):
+    def get_buffer(self, space, flags):
+        errtype = space.w_ValueError # should be BufferError, numpy does this instead
+        if ((flags & space.BUF_C_CONTIGUOUS) == space.BUF_C_CONTIGUOUS and 
+                not self.flags & NPY.ARRAY_C_CONTIGUOUS):
+           raise oefmt(errtype, "ndarray is not C-contiguous")
+        if ((flags & space.BUF_F_CONTIGUOUS) == space.BUF_F_CONTIGUOUS and 
+                not self.flags & NPY.ARRAY_F_CONTIGUOUS):
+           raise oefmt(errtype, "ndarray is not Fortran contiguous")
+        if ((flags & space.BUF_ANY_CONTIGUOUS) == space.BUF_ANY_CONTIGUOUS and
+                not (self.flags & NPY.ARRAY_F_CONTIGUOUS and 
+                     self.flags & NPY.ARRAY_C_CONTIGUOUS)):
+           raise oefmt(errtype, "ndarray is not contiguous")
+        if ((flags & space.BUF_STRIDES) != space.BUF_STRIDES and
+                not self.flags & NPY.ARRAY_C_CONTIGUOUS):
+           raise oefmt(errtype, "ndarray is not C-contiguous")
+        if ((flags & space.BUF_WRITABLE) == space.BUF_WRITABLE and
+            not self.flags & NPY.ARRAY_WRITEABLE):
+           raise oefmt(errtype, "buffer source array is read-only")
+        readonly = not (flags & space.BUF_WRITABLE) == space.BUF_WRITABLE
         return ArrayBuffer(self, readonly)
 
     def astype(self, space, dtype, order, copy=True):
@@ -557,8 +581,7 @@ class ConcreteNonWritableArrayWithBase(ConcreteArrayWithBase):
         self.flags &= ~ NPY.ARRAY_WRITEABLE
 
     def descr_setitem(self, space, orig_array, w_index, w_value):
-        raise OperationError(space.w_ValueError, space.wrap(
-            "assignment destination is read-only"))
+        raise oefmt(space.w_ValueError, "assignment destination is read-only")
 
 
 class NonWritableArray(ConcreteArray):
@@ -569,8 +592,7 @@ class NonWritableArray(ConcreteArray):
         self.flags &= ~ NPY.ARRAY_WRITEABLE
 
     def descr_setitem(self, space, orig_array, w_index, w_value):
-        raise OperationError(space.w_ValueError, space.wrap(
-            "assignment destination is read-only"))
+        raise oefmt(space.w_ValueError, "assignment destination is read-only")
 
 
 class SliceArray(BaseConcreteArray):
@@ -664,8 +686,7 @@ class NonWritableSliceArray(SliceArray):
         self.flags &= ~NPY.ARRAY_WRITEABLE
 
     def descr_setitem(self, space, orig_array, w_index, w_value):
-        raise OperationError(space.w_ValueError, space.wrap(
-            "assignment destination is read-only"))
+        raise oefmt(space.w_ValueError, "assignment destination is read-only")
 
 
 class VoidBoxStorage(BaseConcreteArray):
@@ -693,6 +714,7 @@ class ArrayBuffer(Buffer):
                  index + self.impl.start)
 
     def setitem(self, index, v):
+        # XXX what if self.readonly?
         raw_storage_setitem(self.impl.storage, index + self.impl.start,
                             rffi.cast(lltype.Char, v))
 
@@ -702,3 +724,22 @@ class ArrayBuffer(Buffer):
     def get_raw_address(self):
         from rpython.rtyper.lltypesystem import rffi
         return rffi.ptradd(self.impl.storage, self.impl.start)
+
+    def getformat(self):
+        sb = StringBuilder()
+        self.impl.dtype.getformat(sb)
+        return sb.build()
+
+    def getitemsize(self):
+        return self.impl.dtype.elsize
+
+    def getndim(self):
+        return len(self.impl.shape)
+
+    def getshape(self):
+        return self.impl.shape
+
+    def getstrides(self):
+        return self.impl.strides
+
+

@@ -123,6 +123,7 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             return result;
             ''')
         assert 'foo\0bar\0baz' == pybuffer('foo\0bar\0baz')
+        assert 'foo\0bar\0baz' == pybuffer(bytearray('foo\0bar\0baz'))
 
 
     def test_pyarg_parse_string_old_buffer(self):
@@ -138,6 +139,12 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             return result;
             ''')
         assert 'foo\0bar\0baz' == pybuffer(buffer('foo\0bar\0baz'))
+        import sys
+        if '__pypy__' not in sys.builtin_module_names:
+            class A(object):
+                def __buffer__(self, flags):
+                    return buffer('123')
+            assert pybuffer(A()) == '123'
 
 
     def test_pyarg_parse_string_fails(self):
@@ -148,7 +155,6 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
         pybuffer = self.import_parser(
             '''
             Py_buffer buf1, buf2, buf3;
-            PyObject *result;
             if (!PyArg_ParseTuple(args, "s*s*s*", &buf1, &buf2, &buf3)) {
                 return NULL;
             }

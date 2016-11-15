@@ -71,6 +71,7 @@
 
 #  define SIZEOF_INT        4
 #  define SIZEOF_LONG       4
+#  define SIZEOF_SIGNED     4
 #  define SIZEOF_LONG_LONG  8
 
 /******************** 64-bit support ********************/
@@ -86,6 +87,7 @@
 
 #    define SIZEOF_INT        4
 #    define SIZEOF_LONG       8
+#    define SIZEOF_SIGNED     8
 #    define SIZEOF_LONG_LONG  8
 
 /******************** Win-64 support ********************/
@@ -99,6 +101,7 @@
 
 #    define SIZEOF_INT        4
 #    define SIZEOF_LONG       4
+#    define SIZEOF_SIGNED     8
 #    define SIZEOF_LONG_LONG  8
 
 #  endif

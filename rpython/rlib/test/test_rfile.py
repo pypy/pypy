@@ -271,15 +271,25 @@ class TestFile(BaseRtypingTest):
 
         def f():
             f = open(fname, "w+")
-            f.write("xxx")
+            f.write("abcdef")
             f.seek(0)
-            assert f.read() == "xxx"
-            try:
-                f.seek(0, 42)
-            except IOError as e:
-                assert e.errno == errno.EINVAL
-            else:
-                assert False
+            assert f.read() == "abcdef"
+            f.seek(1)
+            assert f.read() == "bcdef"
+            f.seek(2)
+            f.seek(-2, 2)
+            assert f.read() == "ef"
+            f.seek(2)
+            f.seek(-1, 1)
+            assert f.read() == "bcdef"
+            #---is the following behavior interesting in RPython?
+            #---I claim not, and it doesn't work on Windows
+            #try:
+            #    f.seek(0, 42)
+            #except IOError as e:
+            #    assert e.errno == errno.EINVAL
+            #else:
+            #    assert False
             f.close()
 
         f()

@@ -842,8 +842,10 @@ def typeOf(val):
         if tp is long:
             if -maxint-1 <= val <= maxint:
                 return Signed
-            else:
+            elif longlongmask(val) == val:
                 return SignedLongLong
+            else:
+                raise OverflowError("integer %r is out of bounds" % (val,))
         if tp is bool:
             return Bool
         if issubclass(tp, base_int):
@@ -1963,14 +1965,29 @@ class _array(_parentable):
         return 0, stop
 
     def getitem(self, index, uninitialized_ok=False):
-        v = self.items[index]
+        try:
+            v = self.items[index]
+        except IndexError:
+            if (index == len(self.items) and uninitialized_ok == 2 and
+                self._TYPE._hints.get('extra_item_after_alloc')):
+                # special case: reading the extra final char returns
+                # an uninitialized, if 'uninitialized_ok==2'
+                return _uninitialized(self._TYPE.OF)
+            raise
         if isinstance(v, _uninitialized) and not uninitialized_ok:
             raise UninitializedMemoryAccess("%r[%s]"%(self, index))
         return v
 
     def setitem(self, index, value):
         assert typeOf(value) == self._TYPE.OF
-        self.items[index] = value
+        try:
+            self.items[index] = value
+        except IndexError:
+            if (index == len(self.items) and value == '\x00' and
+                self._TYPE._hints.get('extra_item_after_alloc')):
+                # special case: writing NULL to the extra final char
+                return
+            raise
 
 assert not '__dict__' in dir(_array)
 assert not '__dict__' in dir(_struct)
@@ -2217,7 +2234,8 @@ class _opaque(_parentable):
 
 
 def malloc(T, n=None, flavor='gc', immortal=False, zero=False,
-           track_allocation=True, add_memory_pressure=False):
+           track_allocation=True, add_memory_pressure=False,
+           nonmovable=False):
     assert flavor in ('gc', 'raw')
     if zero or immortal:
         initialization = 'example'
@@ -2243,7 +2261,8 @@ def malloc(T, n=None, flavor='gc', immortal=False, zero=False,
 
 @analyzer_for(malloc)
 def ann_malloc(s_T, s_n=None, s_flavor=None, s_zero=None,
-               s_track_allocation=None, s_add_memory_pressure=None):
+               s_track_allocation=None, s_add_memory_pressure=None,
+               s_nonmovable=None):
     assert (s_n is None or s_n.knowntype == int
             or issubclass(s_n.knowntype, base_int))
     assert s_T.is_constant()
@@ -2261,6 +2280,7 @@ def ann_malloc(s_T, s_n=None, s_flavor=None, s_zero=None,
         assert s_track_allocation is None or s_track_allocation.is_constant()
         assert (s_add_memory_pressure is None or
                 s_add_memory_pressure.is_constant())
+        assert s_nonmovable is None or s_nonmovable.is_constant()
         # not sure how to call malloc() for the example 'p' in the
         # presence of s_extraargs
         r = SomePtr(Ptr(s_T.const))

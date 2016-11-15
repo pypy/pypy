@@ -5,6 +5,7 @@ from pypy.module.cpyext.api import (cpython_struct, Py_ssize_t, Py_ssize_tP,
     Py_TPFLAGS_READYING, Py_TPFLAGS_READY, Py_TPFLAGS_HEAPTYPE)
 from pypy.module.cpyext.pyobject import PyObject, make_ref, from_ref
 from pypy.module.cpyext.modsupport import PyMethodDef
+from pypy.module.cpyext.api import Py_bufferP
 
 
 P, FT, PyO = Ptr, FuncType, PyObject
@@ -58,8 +59,7 @@ readbufferproc = P(FT([PyO, Py_ssize_t, rffi.VOIDPP], Py_ssize_t))
 writebufferproc = P(FT([PyO, Py_ssize_t, rffi.VOIDPP], Py_ssize_t))
 segcountproc = P(FT([PyO, Py_ssize_tP], Py_ssize_t))
 charbufferproc = P(FT([PyO, Py_ssize_t, rffi.CCHARPP], Py_ssize_t))
-## We don't support new buffer interface for now
-getbufferproc = rffi.VOIDP
+getbufferproc = P(FT([PyO, Py_bufferP, rffi.INT_real], rffi.INT_real))
 releasebufferproc = rffi.VOIDP
 
 

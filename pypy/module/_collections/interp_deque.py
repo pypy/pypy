@@ -4,8 +4,9 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib.debug import check_nonneg
+from rpython.rlib.objectmodel import specialize
 
 
 # A `dequeobject` is composed of a doubly-linked list of `block` nodes.
@@ -76,9 +77,8 @@ class W_Deque(W_Root):
 
     def checklock(self, lock):
         if lock is not self.lock:
-            raise OperationError(
-                self.space.w_RuntimeError,
-                self.space.wrap("deque mutated during iteration"))
+            raise oefmt(self.space.w_RuntimeError,
+                        "deque mutated during iteration")
 
     def init(self, w_iterable=None, w_maxlen=None):
         space = self.space
@@ -169,7 +169,7 @@ class W_Deque(W_Root):
         while True:
             try:
                 w_obj = space.next(w_iter)
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(space, space.w_StopIteration):
                     break
                 raise
@@ -191,7 +191,7 @@ class W_Deque(W_Root):
         while True:
             try:
                 w_obj = space.next(w_iter)
-            except OperationError, e:
+            except OperationError as e:
                 if e.match(space, space.w_StopIteration):
                     break
                 raise
@@ -200,8 +200,7 @@ class W_Deque(W_Root):
     def pop(self):
         "Remove and return the rightmost element."
         if self.len == 0:
-            msg = "pop from an empty deque"
-            raise OperationError(self.space.w_IndexError, self.space.wrap(msg))
+            raise oefmt(self.space.w_IndexError, "pop from an empty deque")
         self.len -= 1
         ri = self.rightindex
         w_obj = self.rightblock.data[ri]
@@ -224,8 +223,7 @@ class W_Deque(W_Root):
     def popleft(self):
         "Remove and return the leftmost element."
         if self.len == 0:
-            msg = "pop from an empty deque"
-            raise OperationError(self.space.w_IndexError, self.space.wrap(msg))
+            raise oefmt(self.space.w_IndexError, "pop from an empty deque")
         self.len -= 1
         li = self.leftindex
         w_obj = self.leftblock.data[li]
@@ -263,8 +261,7 @@ class W_Deque(W_Root):
             if index >= BLOCKLEN:
                 block = block.rightlink
                 index = 0
-        raise OperationError(space.w_ValueError,
-                             space.wrap("deque.remove(x): x not in deque"))
+        raise oefmt(space.w_ValueError, "deque.remove(x): x not in deque")
 
     def reverse(self):
         "Reverse *IN PLACE*."
@@ -320,12 +317,12 @@ class W_Deque(W_Root):
             w_currently_in_repr = ec._py_repr = space.newdict()
         return dequerepr(space, w_currently_in_repr, space.wrap(self))
 
+    @specialize.arg(2)
     def compare(self, w_other, op):
         space = self.space
         if not isinstance(w_other, W_Deque):
             return space.w_NotImplemented
         return space.compare_by_iteration(space.wrap(self), w_other, op)
-    compare._annspecialcase_ = 'specialize:arg(2)'
 
     def lt(self, w_other):
         return self.compare(w_other, 'lt')
@@ -371,8 +368,7 @@ class W_Deque(W_Root):
             b, i = self.locate(start)
             return b.data[i]
         else:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("deque[:] is not supported"))
+            raise oefmt(space.w_TypeError, "deque[:] is not supported")
 
     def setitem(self, w_index, w_newobj):
         space = self.space
@@ -381,8 +377,7 @@ class W_Deque(W_Root):
             b, i = self.locate(start)
             b.data[i] = w_newobj
         else:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("deque[:] is not supported"))
+            raise oefmt(space.w_TypeError, "deque[:] is not supported")
 
     def delitem(self, w_index):
         space = self.space
@@ -390,26 +385,23 @@ class W_Deque(W_Root):
         if step == 0:  # index only
             self.del_item(start)
         else:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("deque[:] is not supported"))
+            raise oefmt(space.w_TypeError, "deque[:] is not supported")
 
     def copy(self):
         "Return a shallow copy of a deque."
         space = self.space
-        w_self = space.wrap(self)
         if self.maxlen == sys.maxint:
-            return space.call_function(space.type(w_self), w_self)
+            return space.call_function(space.type(self), self)
         else:
-            return space.call_function(space.type(w_self), w_self,
+            return space.call_function(space.type(self), self,
                                        space.wrap(self.maxlen))
 
     def reduce(self):
         "Return state information for pickling."
         space = self.space
-        w_self = space.wrap(self)
-        w_type = space.type(w_self)
-        w_dict = space.findattr(w_self, space.wrap('__dict__'))
-        w_list = space.call_function(space.w_list, w_self)
+        w_type = space.type(self)
+        w_dict = space.findattr(self, space.wrap('__dict__'))
+        w_list = space.call_function(space.w_list, self)
         if w_dict is None:
             if self.maxlen == sys.maxint:
                 result = [
@@ -520,13 +512,12 @@ class W_DequeIter(W_Root):
         return self.space.wrap(self.counter)
 
     def next(self):
+        space = self.space
         if self.lock is not self.deque.lock:
             self.counter = 0
-            raise OperationError(
-                self.space.w_RuntimeError,
-                self.space.wrap("deque mutated during iteration"))
+            raise oefmt(space.w_RuntimeError, "deque mutated during iteration")
         if self.counter == 0:
-            raise OperationError(self.space.w_StopIteration, self.space.w_None)
+            raise OperationError(space.w_StopIteration, space.w_None)
         self.counter -= 1
         ri = self.index
         w_x = self.block.data[ri]
@@ -563,13 +554,12 @@ class W_DequeRevIter(W_Root):
         return self.space.wrap(self.counter)
 
     def next(self):
+        space = self.space
         if self.lock is not self.deque.lock:
             self.counter = 0
-            raise OperationError(
-                self.space.w_RuntimeError,
-                self.space.wrap("deque mutated during iteration"))
+            raise oefmt(space.w_RuntimeError, "deque mutated during iteration")
         if self.counter == 0:
-            raise OperationError(self.space.w_StopIteration, self.space.w_None)
+            raise OperationError(space.w_StopIteration, space.w_None)
         self.counter -= 1
         ri = self.index
         w_x = self.block.data[ri]

@@ -2,7 +2,8 @@ import py
 import sys
 
 class AppTestWin32:
-    spaceconfig = dict(usemodules=('_multiprocessing',))
+    spaceconfig = dict(usemodules=('_multiprocessing',
+                                   'signal', '_rawffi', 'binascii'))
 
     def setup_class(cls):
         if sys.platform != "win32":
@@ -39,7 +40,7 @@ class AppTestWin32:
 
         try:
             win32.ConnectNamedPipe(readhandle, win32.NULL)
-        except WindowsError, e:
+        except WindowsError as e:
             if e.args[0] != win32.ERROR_PIPE_CONNECTED:
                 raise
 

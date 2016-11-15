@@ -3,7 +3,7 @@ import py
 import sys, os
 from rpython.rlib import exports
 from rpython.rtyper.lltypesystem.lltype import getfunctionptr
-from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import lltype
 from rpython.tool import runsubprocess
 from rpython.tool.nullpath import NullPyPathLocal
 from rpython.tool.udir import udir
@@ -274,6 +274,7 @@ class CStandaloneBuilder(CBuilder):
     executable_name = None
     shared_library_name = None
     _entrypoint_wrapper = None
+    make_entrypoint_wrapper = True    # for tests
 
     def getprofbased(self):
         profbased = None
@@ -295,10 +296,14 @@ class CStandaloneBuilder(CBuilder):
         if retval and self.translator.platform.name == 'msvc':
             raise ValueError('Cannot do profile based optimization on MSVC,'
                     'it is not supported in free compiler version')
+        return retval
 
     def getentrypointptr(self):
         # XXX check that the entrypoint has the correct
         # signature:  list-of-strings -> int
+        if not self.make_entrypoint_wrapper:
+            bk = self.translator.annotator.bookkeeper
+            return getfunctionptr(bk.getdesc(self.entrypoint).getuniquegraph())
         if self._entrypoint_wrapper is not None:
             return self._entrypoint_wrapper
         #
@@ -309,6 +314,10 @@ class CStandaloneBuilder(CBuilder):
         entrypoint = self.entrypoint
         #
         def entrypoint_wrapper(argc, argv):
+            """This is a wrapper that takes "Signed argc" and "char **argv"
+            like the C main function, and puts them inside an RPython list
+            of strings before invoking the real entrypoint() function.
+            """
             list = [""] * argc
             i = 0
             while i < argc:
@@ -444,14 +453,11 @@ class CStandaloneBuilder(CBuilder):
             mk.definition('PROFOPT', profopt)
 
         rules = [
-            ('clean', '', 'rm -f $(OBJECTS) $(DEFAULT_TARGET) $(TARGET) $(GCMAPFILES) $(ASMFILES) *.gc?? ../module_cache/*.gc??'),
-            ('clean_noprof', '', 'rm -f $(OBJECTS) $(DEFAULT_TARGET) $(TARGET) $(GCMAPFILES) $(ASMFILES)'),
             ('debug', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT" debug_target'),
             ('debug_exc', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DDO_LOG_EXC" debug_target'),
             ('debug_mem', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DPYPY_USE_TRIVIAL_MALLOC" debug_target'),
             ('llsafer', '', '$(MAKE) CFLAGS="-O2 -DRPY_LL_ASSERT" $(DEFAULT_TARGET)'),
             ('lldebug', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DRPY_LL_ASSERT" debug_target'),
-            ('lldebug0','', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -O0 -DMAX_STACK_SIZE=8192000 -DRPY_ASSERT -DRPY_LL_ASSERT" debug_target'),
             ('debug_stm','', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -O0 -DRPY_ASSERT -DRPY_LL_ASSERT -DRPY_STM_ASSERT -DSTM_DEBUGPRINT" debug_target'),
             ('profile', '', '$(MAKE) CFLAGS="-g -O1 -pg $(CFLAGS) -fno-omit-frame-pointer" LDFLAGS="-pg $(LDFLAGS)" $(DEFAULT_TARGET)'),
             ]
@@ -466,14 +472,27 @@ class CStandaloneBuilder(CBuilder):
         for rule in rules:
             mk.rule(*rule)
 
+        if self.translator.platform.name == 'msvc':
+            mk.rule('lldebug0','', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -Od -DMAX_STACK_SIZE=8192000 -DRPY_ASSERT -DRPY_LL_ASSERT" debug_target'),
+            wildcards = '..\*.obj ..\*.pdb ..\*.lib ..\*.dll ..\*.manifest ..\*.exp *.pch'
+            cmd =  r'del /s %s $(DEFAULT_TARGET) $(TARGET) $(GCMAPFILES) $(ASMFILES)' % wildcards
+            mk.rule('clean', '',  cmd + ' *.gc?? ..\module_cache\*.gc??')
+            mk.rule('clean_noprof', '', cmd)
+        else:
+            mk.rule('lldebug0','', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -O0 -DMAX_STACK_SIZE=8192000 -DRPY_ASSERT -DRPY_LL_ASSERT" debug_target'),
+            mk.rule('clean', '', 'rm -f $(OBJECTS) $(DEFAULT_TARGET) $(TARGET) $(GCMAPFILES) $(ASMFILES) *.gc?? ../module_cache/*.gc??')
+            mk.rule('clean_noprof', '', 'rm -f $(OBJECTS) $(DEFAULT_TARGET) $(TARGET) $(GCMAPFILES) $(ASMFILES)')
+
         #XXX: this conditional part is not tested at all
         if self.config.translation.gcrootfinder == 'asmgcc':
             if self.translator.platform.name == 'msvc':
                 raise Exception("msvc no longer supports asmgcc")
+            _extra = ''
             if self.config.translation.shared:
-                mk.definition('DEBUGFLAGS', '-O2 -fomit-frame-pointer -g -fPIC')
-            else:
-                mk.definition('DEBUGFLAGS', '-O2 -fomit-frame-pointer -g')
+                _extra = ' -fPIC'
+            _extra += ' -fdisable-tree-fnsplit'   # seems to help
+            mk.definition('DEBUGFLAGS',
+                '-O2 -fomit-frame-pointer -g'+ _extra)
 
             if self.config.translation.shared:
                 mk.definition('PYPY_MAIN_FUNCTION', "pypy_main_startup")
@@ -528,7 +547,7 @@ class CStandaloneBuilder(CBuilder):
                 else:
                     mk.definition('DEBUGFLAGS', '-O1 -g')
         if self.translator.platform.name == 'msvc':
-            mk.rule('debug_target', '$(DEFAULT_TARGET)', 'rem')
+            mk.rule('debug_target', '$(DEFAULT_TARGET) $(WTARGET)', 'rem')
         else:
             mk.rule('debug_target', '$(DEFAULT_TARGET)', '#')
         mk.write()
@@ -603,6 +622,11 @@ class SourceGenerator:
                         relpypath = localpath.relto(pypkgpath.dirname)
                         assert relpypath, ("%r should be relative to %r" %
                             (localpath, pypkgpath.dirname))
+                        if len(relpypath.split(os.path.sep)) > 2:
+                            # pypy detail to agregate the c files by directory,
+                            # since the enormous number of files was causing
+                            # memory issues linking on win32
+                            return os.path.split(relpypath)[0] + '.c'
                         return relpypath.replace('.py', '.c')
             return None
         if hasattr(node.obj, 'graph'):

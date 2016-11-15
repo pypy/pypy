@@ -12,6 +12,19 @@ class Logger(object):
         self.metainterp_sd = metainterp_sd
         self.guard_number = guard_number
 
+    def log_loop_from_trace(self, trace, memo):
+        if not have_debug_prints():
+            return
+        inputargs, ops = self._unpack_trace(trace)
+        self.log_loop(inputargs, ops, memo=memo)
+
+    def _unpack_trace(self, trace):
+        ops = []
+        i = trace.get_iter()
+        while not i.done():
+            ops.append(i.next())
+        return i.inputargs, ops
+
     def log_loop(self, inputargs, operations, number=0, type=None,
                  ops_offset=None, name='', memo=None):
         if type is None:
@@ -82,8 +95,12 @@ class Logger(object):
         debug_stop("jit-log-short-preamble")
         return logops
 
-    def log_abort_loop(self, inputargs, operations, memo=None):
+    def log_abort_loop(self, trace, memo=None):
         debug_start("jit-abort-log")
+        if not have_debug_prints():
+            debug_stop("jit-abort-log")
+            return
+        inputargs, operations = self._unpack_trace(trace)
         logops = self._log_operations(inputargs, operations, ops_offset=None,
                                       memo=memo)
         debug_stop("jit-abort-log")
@@ -176,12 +193,16 @@ class LogOperations(object):
             s = s.replace(',', '.') # we use comma for argument splitting
             s2 = ''
             for box in args[1:]:
-                s2 += ', %d' % box.getint()
+                if isinstance(box, ConstInt):
+                    s2 += ', %d' % box.getint()
+                else:
+                    s2 += ', box'
             return "jit_debug('%s'%s)%s" % (s, s2, stmloc)
         if ops_offset is None:
             offset = -1
         else:
-            offset = ops_offset.get(op, -1)
+            final_op = op.get_box_replacement()
+            offset = ops_offset.get(final_op, -1)
         if offset == -1:
             s_offset = ""
         else:

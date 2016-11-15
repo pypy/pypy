@@ -221,6 +221,9 @@ class RPythonTyper(object):
         blockcount = 0
         self.annmixlevel = None
         while True:
+            # make sure all reprs so far have had their setup() called
+            self.call_all_setups(all_threads=True)
+
             # look for blocks not specialized yet
             pending = [block for block in self.annotator.annotated
                              if block not in self.already_seen]
@@ -271,9 +274,6 @@ class RPythonTyper(object):
                 self.log.event('left transactional mode')
                 blockcount += len(pending)
                 self.already_seen.update(dict.fromkeys(pending, True))
-
-            # make sure all reprs so far have had their setup() called
-            self.call_all_setups(all_threads=True)
 
         self.log.event('-=- specialized %d%s blocks -=-' % (
             blockcount, newtext))

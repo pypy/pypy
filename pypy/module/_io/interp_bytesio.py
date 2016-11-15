@@ -32,12 +32,12 @@ class W_BytesIO(W_BufferedIOBase):
     def read_w(self, space, w_size=None):
         self._check_closed(space)
         size = convert_size(space, w_size)
-        return space.wrap(self.read(size))
+        return space.newbytes(self.read(size))
 
     def readline_w(self, space, w_limit=None):
         self._check_closed(space)
         limit = convert_size(space, w_limit)
-        return space.wrap(self.readline(limit))
+        return space.newbytes(self.readline(limit))
 
     def read1_w(self, space, w_size):
         return self.read_w(space, w_size)
@@ -70,8 +70,7 @@ class W_BytesIO(W_BufferedIOBase):
             size = space.r_longlong_w(w_size)
 
         if size < 0:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "negative size value"))
+            raise oefmt(space.w_ValueError, "negative size value")
 
         self.truncate(size)
         if size == pos:
@@ -82,7 +81,7 @@ class W_BytesIO(W_BufferedIOBase):
 
     def getvalue_w(self, space):
         self._check_closed(space)
-        return space.wrap(self.getvalue())
+        return space.newbytes(self.getvalue())
 
     def tell_w(self, space):
         self._check_closed(space)
@@ -94,16 +93,13 @@ class W_BytesIO(W_BufferedIOBase):
 
         if whence == 0:
             if pos < 0:
-                raise OperationError(space.w_ValueError, space.wrap(
-                    "negative seek value"))
+                raise oefmt(space.w_ValueError, "negative seek value")
         elif whence == 1:
             if pos > sys.maxint - self.tell():
-                raise OperationError(space.w_OverflowError, space.wrap(
-                    "new position too large"))
+                raise oefmt(space.w_OverflowError, "new position too large")
         elif whence == 2:
             if pos > sys.maxint - self.getsize():
-                raise OperationError(space.w_OverflowError, space.wrap(
-                    "new position too large"))
+                raise oefmt(space.w_OverflowError, "new position too large")
         else:
             raise oefmt(space.w_ValueError,
                         "whence must be between 0 and 2, not %d", whence)
@@ -132,7 +128,7 @@ class W_BytesIO(W_BufferedIOBase):
     def getstate_w(self, space):
         self._check_closed(space)
         return space.newtuple([
-            space.wrap(self.getvalue()),
+            space.newbytes(self.getvalue()),
             space.wrap(self.tell()),
             self.getdict(space)])
 
@@ -148,8 +144,8 @@ class W_BytesIO(W_BufferedIOBase):
         self.write_w(space, w_content)
         pos = space.int_w(w_pos)
         if pos < 0:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "position value cannot be negative"))
+            raise oefmt(space.w_ValueError,
+                        "position value cannot be negative")
         self.seek(pos)
         if not space.is_w(w_dict, space.w_None):
             space.call_method(self.getdict(space), "update", w_dict)

@@ -16,7 +16,7 @@ from pypy.module.micronumpy.base import W_NDimArray
 from rpython.jit.backend.detect_cpu import getcpuclass
 
 CPU = getcpuclass()
-if not CPU.vector_extension:
+if not CPU.vector_ext:
     py.test.skip("this cpu %s has no implemented vector backend" % CPU)
 
 def get_profiler():
@@ -29,7 +29,7 @@ class TestNumpyJit(LLJitMixin):
     interp = None
 
     def setup_method(self, method):
-        if not self.CPUClass.vector_extension:
+        if not self.CPUClass.vector_ext:
             py.test.skip("needs vector extension to run (for now)")
 
     def assert_float_equal(self, f1, f2, delta=0.0001):
@@ -418,9 +418,7 @@ class TestNumpyJit(LLJitMixin):
     def test_sum_float_to_int16(self):
         result = self.run("sum_float_to_int16")
         assert result == sum(range(30))
-        # one can argue that this is not desired,
-        # but unpacking exactly hits savings = 0
-        self.check_vectorized(1, 1)
+
     def define_sum_float_to_int32():
         return """
         a = |30|
@@ -429,7 +427,6 @@ class TestNumpyJit(LLJitMixin):
     def test_sum_float_to_int32(self):
         result = self.run("sum_float_to_int32")
         assert result == sum(range(30))
-        self.check_vectorized(1, 1)
 
     def define_sum_float_to_float32():
         return """

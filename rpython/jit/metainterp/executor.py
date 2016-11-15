@@ -9,7 +9,7 @@ from rpython.jit.metainterp.history import check_descr
 from rpython.jit.metainterp.history import INT, REF, FLOAT, VOID, AbstractDescr
 from rpython.jit.metainterp.history import ConstInt, ConstFloat, ConstPtr
 from rpython.jit.metainterp import resoperation
-from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.resoperation import rop, opname
 from rpython.jit.metainterp.blackhole import BlackholeInterpreter, NULL
 from rpython.jit.codewriter import longlong
 
@@ -51,28 +51,28 @@ def _do_call(cpu, metainterp, argboxes, descr, rettype):
     if rettype == INT:
         try:
             result = cpu.bh_call_i(func, args_i, args_r, args_f, descr)
-        except Exception, e:
+        except Exception as e:
             metainterp.execute_raised(e)
             result = 0
         return result
     if rettype == REF:
         try:
             result = cpu.bh_call_r(func, args_i, args_r, args_f, descr)
-        except Exception, e:
+        except Exception as e:
             metainterp.execute_raised(e)
             result = NULL
         return result
     if rettype == FLOAT:
         try:
             result = cpu.bh_call_f(func, args_i, args_r, args_f, descr)
-        except Exception, e:
+        except Exception as e:
             metainterp.execute_raised(e)
             result = longlong.ZEROF
         return result
     if rettype == VOID:
         try:
             cpu.bh_call_v(func, args_i, args_r, args_f, descr)
-        except Exception, e:
+        except Exception as e:
             metainterp.execute_raised(e)
         return None
     raise AssertionError("bad rettype")
@@ -100,6 +100,18 @@ def do_cond_call(cpu, metainterp, argboxes, descr):
     condbox = argboxes[0]
     if condbox.getint():
         do_call_n(cpu, metainterp, argboxes[1:], descr)
+
+def do_cond_call_value_i(cpu, metainterp, argboxes, descr):
+    value = argboxes[0].getint()
+    if value == 0:
+        value = do_call_i(cpu, metainterp, argboxes[1:], descr)
+    return value
+
+def do_cond_call_value_r(cpu, metainterp, argboxes, descr):
+    value = argboxes[0].getref_base()
+    if not value:
+        value = do_call_r(cpu, metainterp, argboxes[1:], descr)
+    return value
 
 def do_getarrayitem_gc_i(cpu, _, arraybox, indexbox, arraydescr):
     array = arraybox.getref_base()
@@ -265,7 +277,7 @@ def do_raw_store(cpu, _, addrbox, offsetbox, valuebox, arraydescr):
         cpu.bh_raw_store_i(addr, offset, valuebox.getint(), arraydescr)
 
 def do_raw_load(cpu, _, addrbox, offsetbox, arraydescr):
-    raise Exception("implement me")
+    raise Exception("implement me")    
     xxx
     addr = addrbox.getint()
     offset = offsetbox.getint()
@@ -352,7 +364,8 @@ def do_keepalive(cpu, _, x):
 
 def _make_execute_list():
     execute_by_num_args = {}
-    for key, value in rop.__dict__.items():
+    for key in opname.values():
+        value = getattr(rop, key)
         if not key.startswith('_'):
             if (rop._FINAL_FIRST <= value <= rop._FINAL_LAST or
                 rop._GUARD_FIRST <= value <= rop._GUARD_LAST):
@@ -385,7 +398,6 @@ def _make_execute_list():
                     execute[value] = globals()[name]
                     continue
             #
-            #
             # If missing, fallback to the bhimpl_xxx() method of the
             # blackhole interpreter.  This only works if there is a
             # method of the exact same name and it accepts simple
@@ -404,6 +416,8 @@ def _make_execute_list():
                          rop.CALL_ASSEMBLER_I,
                          rop.CALL_ASSEMBLER_N,
                          rop.INCREMENT_DEBUG_COUNTER,
+                         rop.COND_CALL_VALUE_R,
+                         rop.COND_CALL_VALUE_I,
                          rop.COND_CALL_GC_WB,
                          rop.COND_CALL_GC_WB_ARRAY,
                          rop.ZERO_ARRAY,
@@ -421,31 +435,31 @@ def _make_execute_list():
                          rop.CALL_RELEASE_GIL_F,
                          rop.CALL_RELEASE_GIL_N,
                          rop.QUASIIMMUT_FIELD,
-                         rop.CALL_MALLOC_GC,
+                         rop.CHECK_MEMORY_ERROR,
                          rop.CALL_MALLOC_NURSERY,
                          rop.CALL_MALLOC_NURSERY_VARSIZE,
                          rop.CALL_MALLOC_NURSERY_VARSIZE_FRAME,
                          rop.NURSERY_PTR_INCREMENT,
                          rop.LABEL,
                          rop.STM_READ,
+                         rop.ESCAPE_I,
+                         rop.ESCAPE_N,
+                         rop.ESCAPE_R,
+                         rop.ESCAPE_F,
+                         rop.FORCE_SPILL,
                          rop.SAVE_EXC_CLASS,
                          rop.SAVE_EXCEPTION,
                          rop.RESTORE_EXCEPTION,
-                         rop.VEC_RAW_LOAD_I,
-                         rop.VEC_RAW_LOAD_F,
-                         rop.VEC_RAW_STORE,
-                         rop.VEC_GETARRAYITEM_RAW_I,
-                         rop.VEC_GETARRAYITEM_RAW_F,
-                         rop.VEC_SETARRAYITEM_RAW,
-                         rop.VEC_GETARRAYITEM_GC_I,
-                         rop.VEC_GETARRAYITEM_GC_F,
-                         rop.VEC_SETARRAYITEM_GC,
+                         rop.VEC_LOAD_I,
+                         rop.VEC_LOAD_F,
                          rop.GC_LOAD_I,
                          rop.GC_LOAD_R,
                          rop.GC_LOAD_F,
                          rop.GC_LOAD_INDEXED_R,
+                         rop.VEC_STORE,
                          rop.GC_STORE,
                          rop.GC_STORE_INDEXED,
+                         rop.LOAD_FROM_GC_TABLE,
                          ):      # list of opcodes never executed by pyjitpl
                 continue
             if rop._VEC_PURE_FIRST <= value <= rop._VEC_PURE_LAST:
@@ -555,7 +569,7 @@ def constant_from_op(op):
         return ConstFloat(op.getfloatstorage())
 
 unrolled_range = unrolling_iterable(range(rop._LAST))
-
+    
 def execute_nonspec_const(cpu, metainterp, opnum, argboxes, descr=None,
                           type='i'):
     for num in unrolled_range:
@@ -566,7 +580,7 @@ def execute_nonspec_const(cpu, metainterp, opnum, argboxes, descr=None,
 
 @specialize.arg(2)
 def _execute_arglist(cpu, metainterp, opnum, argboxes, descr=None):
-    arity = resoperation.oparity[opnum]
+    arity = resoperation.oparity[opnum]    
     assert arity == -1 or len(argboxes) == arity
     if resoperation.opwithdescr[opnum]:
         check_descr(descr)

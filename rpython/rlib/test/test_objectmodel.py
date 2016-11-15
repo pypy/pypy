@@ -7,7 +7,7 @@ from rpython.rlib.objectmodel import (
     resizelist_hint, is_annotation_constant, always_inline, NOT_CONSTANT,
     iterkeys_with_hash, iteritems_with_hash, contains_with_hash,
     setitem_with_hash, getitem_with_hash, delitem_with_hash, import_from_mixin,
-    fetch_translated_config)
+    fetch_translated_config, try_inline)
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.test.test_llinterp import interpret
@@ -483,6 +483,13 @@ def test_always_inline():
         return a, b, c
     assert f._always_inline_ is True
 
+def test_try_inline():
+    @try_inline
+    def f(a, b, c):
+        return a, b, c
+    assert f._always_inline_ == "try"
+
+
 def test_enforceargs_defaults():
     @enforceargs(int, int)
     def f(a, b=40):
@@ -764,7 +771,7 @@ def test_import_from_mixin():
         class B(object):
             a = 63
             import_from_mixin(M)
-    except Exception, e:
+    except Exception as e:
         assert ("would overwrite the value already defined locally for 'a'"
                 in str(e))
     else:

@@ -162,7 +162,8 @@ class StringMethods(object):
             buffer = _get_buffer(space, w_sub)
             res = count(value, buffer, start, end)
 
-        return space.wrap(max(res, 0))
+        assert res >= 0
+        return space.wrap(res)
 
     def descr_decode(self, space, w_encoding=None, w_errors=None):
         from pypy.objspace.std.unicodeobject import (
@@ -609,12 +610,15 @@ class StringMethods(object):
     def descr_startswith(self, space, w_prefix, w_start=None, w_end=None):
         (value, start, end) = self._convert_idx_params(space, w_start, w_end)
         if space.isinstance_w(w_prefix, space.w_tuple):
-            for w_prefix in space.fixedview(w_prefix):
-                if self._startswith(space, value, w_prefix, start, end):
-                    return space.w_True
-            return space.w_False
+            return self._startswith_tuple(space, value, w_prefix, start, end)
         return space.newbool(self._startswith(space, value, w_prefix, start,
                                               end))
+
+    def _startswith_tuple(self, space, value, w_prefix, start, end):
+        for w_prefix in space.fixedview(w_prefix):
+            if self._startswith(space, value, w_prefix, start, end):
+                return space.w_True
+        return space.w_False
 
     def _startswith(self, space, value, w_prefix, start, end):
         prefix = self._op_val(space, w_prefix)
@@ -629,12 +633,15 @@ class StringMethods(object):
     def descr_endswith(self, space, w_suffix, w_start=None, w_end=None):
         (value, start, end) = self._convert_idx_params(space, w_start, w_end)
         if space.isinstance_w(w_suffix, space.w_tuple):
-            for w_suffix in space.fixedview(w_suffix):
-                if self._endswith(space, value, w_suffix, start, end):
-                    return space.w_True
-            return space.w_False
+            return self._endswith_tuple(space, value, w_suffix, start, end)
         return space.newbool(self._endswith(space, value, w_suffix, start,
                                             end))
+
+    def _endswith_tuple(self, space, value, w_suffix, start, end):
+        for w_suffix in space.fixedview(w_suffix):
+            if self._endswith(space, value, w_suffix, start, end):
+                return space.w_True
+        return space.w_False
 
     def _endswith(self, space, value, w_prefix, start, end):
         prefix = self._op_val(space, w_prefix)
@@ -642,10 +649,10 @@ class StringMethods(object):
             return self._starts_ends_overflow(prefix)
         return endswith(value, prefix, start, end)
 
-    def _strip(self, space, w_chars, left, right):
+    def _strip(self, space, w_chars, left, right, name='strip'):
         "internal function called by str_xstrip methods"
         value = self._val(space)
-        chars = self._op_val(space, w_chars)
+        chars = self._op_val(space, w_chars, strict=name)
 
         lpos = 0
         rpos = len(value)
@@ -682,17 +689,17 @@ class StringMethods(object):
     def descr_strip(self, space, w_chars=None):
         if space.is_none(w_chars):
             return self._strip_none(space, left=1, right=1)
-        return self._strip(space, w_chars, left=1, right=1)
+        return self._strip(space, w_chars, left=1, right=1, name='strip')
 
     def descr_lstrip(self, space, w_chars=None):
         if space.is_none(w_chars):
             return self._strip_none(space, left=1, right=0)
-        return self._strip(space, w_chars, left=1, right=0)
+        return self._strip(space, w_chars, left=1, right=0, name='lstrip')
 
     def descr_rstrip(self, space, w_chars=None):
         if space.is_none(w_chars):
             return self._strip_none(space, left=0, right=1)
-        return self._strip(space, w_chars, left=0, right=1)
+        return self._strip(space, w_chars, left=0, right=1, name='rstrip')
 
     def descr_swapcase(self, space):
         selfvalue = self._val(space)
@@ -795,5 +802,3 @@ def _descr_getslice_slowpath(selfvalue, start, step, sl):
 
 def _get_buffer(space, w_obj):
     return space.buffer_w(w_obj, space.BUF_SIMPLE)
-
-

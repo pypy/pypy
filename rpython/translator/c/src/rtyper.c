@@ -46,15 +46,3 @@ void RPyString_FreeCache(void)
 		free(dump);
 	}
 }
-
-RPyString *RPyString_FromString(char *buf)
-{
-	int i, length = strlen(buf);
-	RPyString *rps = RPyString_New(length);
-	/* can't use memcpy() in case of stm */
-	for (i = 0; i < length; i++) {
-	    rps->rs_chars.items[i] = buf[i];
-            rpy_duck();
-        }
-	return rps;
-}

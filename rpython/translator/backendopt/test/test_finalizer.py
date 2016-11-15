@@ -35,31 +35,6 @@ class TestFinalizerAnalyzer(object):
         r = self.analyze(f, [])
         assert not r
 
-def test_various_ops():
-    from rpython.flowspace.model import SpaceOperation, Constant
-
-    X = lltype.Ptr(lltype.GcStruct('X'))
-    Z = lltype.Ptr(lltype.Struct('Z'))
-    S = lltype.GcStruct('S', ('x', lltype.Signed),
-                        ('y', X),
-                        ('z', Z))
-    v1 = varoftype(lltype.Bool)
-    v2 = varoftype(lltype.Signed)
-    f = FinalizerAnalyzer(None)
-    r = f.analyze(SpaceOperation('cast_int_to_bool', [v2],
-                                                       v1))
-    assert not r
-    v1 = varoftype(lltype.Ptr(S))
-    v2 = varoftype(lltype.Signed)
-    v3 = varoftype(X)
-    v4 = varoftype(Z)
-    ## assert not f.analyze(SpaceOperation('bare_setfield', [v1, Constant('x'),
-    ##                                                       v2], None))
-    assert     f.analyze(SpaceOperation('bare_setfield', [v1, Constant('y'),
-                                                          v3], None))
-    ## assert not f.analyze(SpaceOperation('bare_setfield', [v1, Constant('z'),
-    ##                                                       v4], None))
-
     def test_malloc(self):
         S = lltype.GcStruct('S')
 
@@ -90,6 +65,22 @@ def test_various_ops():
     def test_c_call(self):
         C = rffi.CArray(lltype.Signed)
         c = rffi.llexternal('x', [lltype.Ptr(C)], lltype.Signed)
+
+        def g():
+            p = lltype.malloc(C, 3, flavor='raw')
+            f(p)
+
+        def f(p):
+            c(rffi.ptradd(p, 0))
+            lltype.free(p, flavor='raw')
+
+        r = self.analyze(g, [], f, backendopt=True)
+        assert r
+
+    def test_c_call_without_release_gil(self):
+        C = rffi.CArray(lltype.Signed)
+        c = rffi.llexternal('x', [lltype.Ptr(C)], lltype.Signed,
+                            releasegil=False)
 
         def g():
             p = lltype.malloc(C, 3, flavor='raw')
@@ -131,3 +122,30 @@ def test_various_ops():
             pass
         self.analyze(g, []) # did not explode
         py.test.raises(FinalizerError, self.analyze, f, [])
+
+
+def test_various_ops():
+    from rpython.flowspace.model import SpaceOperation, Constant
+
+    X = lltype.Ptr(lltype.GcStruct('X'))
+    Z = lltype.Ptr(lltype.Struct('Z'))
+    S = lltype.GcStruct('S', ('x', lltype.Signed),
+                        ('y', X),
+                        ('z', Z))
+    v1 = varoftype(lltype.Bool)
+    v2 = varoftype(lltype.Signed)
+    f = FinalizerAnalyzer(None)
+    r = f.analyze(SpaceOperation('cast_int_to_bool', [v2],
+                                                       v1))
+    assert not r
+    v1 = varoftype(lltype.Ptr(S))
+    v2 = varoftype(lltype.Signed)
+    v3 = varoftype(X)
+    v4 = varoftype(Z)
+    assert not f.analyze(SpaceOperation('bare_setfield', [v1, Constant('x'),
+                                                          v2], None))
+    assert     f.analyze(SpaceOperation('bare_setfield', [v1, Constant('y'),
+                                                          v3], None))
+    assert not f.analyze(SpaceOperation('bare_setfield', [v1, Constant('z'),
+                                                          v4], None))
+

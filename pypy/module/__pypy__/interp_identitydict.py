@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.baseobjspace import W_Root
@@ -35,9 +35,9 @@ class W_IdentityDict(W_Root):
             raise OperationError(space.w_KeyError, w_key)
 
     def descr_iter(self, space):
-        raise OperationError(space.w_TypeError,
-            space.wrap("'identity_dict' object does not support iteration; "
-                       "iterate over x.keys()"))
+        raise oefmt(space.w_TypeError,
+                    "'identity_dict' object does not support iteration; "
+                    "iterate over x.keys()")
 
     def get(self, space, w_key, w_default=None):
         if w_default is None:

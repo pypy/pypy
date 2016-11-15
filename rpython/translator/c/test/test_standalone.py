@@ -17,6 +17,7 @@ from rpython.annotator.listdef import s_list_of_strings
 from rpython.tool.udir import udir
 from rpython.translator import cdir
 from rpython.conftest import option
+from rpython.rlib.jit import JitDriver
 
 def setup_module(module):
     if os.name == 'nt':
@@ -85,7 +86,7 @@ class TestStandalone(StandaloneTests):
         #
         # verify that the executable re-export symbols, but not too many
         if sys.platform.startswith('linux') and not kwds.get('shared', False):
-            seen_main = False
+            seen = set()
             g = os.popen("objdump -T '%s'" % builder.executable_name, 'r')
             for line in g:
                 if not line.strip():
@@ -95,8 +96,8 @@ class TestStandalone(StandaloneTests):
                 name = line.split()[-1]
                 if name.startswith('__'):
                     continue
+                seen.add(name)
                 if name == 'main':
-                    seen_main = True
                     continue
                 if name == 'pypy_debug_file':     # ok to export this one
                     continue
@@ -108,7 +109,9 @@ class TestStandalone(StandaloneTests):
                         "declaration of this C function or global variable"
                         % (name,))
             g.close()
-            assert seen_main, "did not see 'main' exported"
+            # list of symbols that we *want* to be exported:
+            for name in ['main', 'pypy_debug_file', 'rpython_startup_code']:
+                assert name in seen, "did not see '%r' exported" % name
         #
         return t, builder
 
@@ -127,9 +130,9 @@ class TestStandalone(StandaloneTests):
 
         # Verify that the generated C files have sane names:
         gen_c_files = [str(f) for f in cbuilder.extrafiles]
-        for expfile in ('rpython_rlib_rposix.c',
-                        'rpython_rtyper_lltypesystem_rstr.c',
-                        'rpython_translator_c_test_test_standalone.c'):
+        for expfile in ('rpython_rlib.c',
+                        'rpython_rtyper_lltypesystem.c',
+                        'rpython_translator_c_test.c'):
             assert cbuilder.targetdir.join(expfile) in gen_c_files
 
     def test_print(self):
@@ -625,9 +628,10 @@ class TestStandalone(StandaloneTests):
         lines = [line for line in lines if 'll_deallocator' not in line]
         idx = lines.index('Fatal RPython error: ValueError')   # assert found
         lines = lines[:idx+1]
-        assert len(lines) >= 4
-        l0, l1, l2 = lines[-4:-1]
+        assert len(lines) >= 5
+        l0, lx, l1, l2 = lines[-5:-1]
         assert l0 == 'RPython traceback:'
+        # lx is a bit strange with reference counting, ignoring it
         assert re.match(r'  File "\w+.c", line \d+, in entry_point', l1)
         assert re.match(r'  File "\w+.c", line \d+, in g', l2)
         #
@@ -637,8 +641,9 @@ class TestStandalone(StandaloneTests):
         lines2 = [line for line in lines2 if 'll_deallocator' not in line]
         idx = lines2.index('Fatal RPython error: KeyError')    # assert found
         lines2 = lines2[:idx+1]
-        l0, l1, l2 = lines2[-4:-1]
+        l0, lx, l1, l2 = lines2[-5:-1]
         assert l0 == 'RPython traceback:'
+        # lx is a bit strange with reference counting, ignoring it
         assert re.match(r'  File "\w+.c", line \d+, in entry_point', l1)
         assert re.match(r'  File "\w+.c", line \d+, in g', l2)
         assert lines2[-2] != lines[-2]    # different line number
@@ -667,9 +672,10 @@ class TestStandalone(StandaloneTests):
         lines = [line for line in lines if 'll_deallocator' not in line]
         idx = lines.index('Fatal RPython error: KeyError')    # assert found
         lines = lines[:idx+1]
-        assert len(lines) >= 5
-        l0, l1, l2, l3 = lines[-5:-1]
+        assert len(lines) >= 6
+        l0, lx, l1, l2, l3 = lines[-6:-1]
         assert l0 == 'RPython traceback:'
+        # lx is a bit strange with reference counting, ignoring it
         assert re.match(r'  File "\w+.c", line \d+, in entry_point', l1)
         assert re.match(r'  File "\w+.c", line \d+, in h', l2)
         assert re.match(r'  File "\w+.c", line \d+, in g', l3)
@@ -706,9 +712,10 @@ class TestStandalone(StandaloneTests):
         lines = [line for line in lines if 'll_deallocator' not in line]
         idx = lines.index('Fatal RPython error: KeyError')     # assert found
         lines = lines[:idx+1]
-        assert len(lines) >= 5
-        l0, l1, l2, l3 = lines[-5:-1]
+        assert len(lines) >= 6
+        l0, lx, l1, l2, l3 = lines[-6:-1]
         assert l0 == 'RPython traceback:'
+        # lx is a bit strange with reference counting, ignoring it
         assert re.match(r'  File "\w+.c", line \d+, in entry_point', l1)
         assert re.match(r'  File "\w+.c", line \d+, in h', l2)
         assert re.match(r'  File "\w+.c", line \d+, in g', l3)
@@ -744,9 +751,10 @@ class TestStandalone(StandaloneTests):
         lines = [line for line in lines if 'll_deallocator' not in line]
         idx = lines.index('Fatal RPython error: ValueError')    # assert found
         lines = lines[:idx+1]
-        assert len(lines) >= 5
-        l0, l1, l2, l3 = lines[-5:-1]
+        assert len(lines) >= 6
+        l0, lx, l1, l2, l3 = lines[-6:-1]
         assert l0 == 'RPython traceback:'
+        # lx is a bit strange with reference counting, ignoring it
         assert re.match(r'  File "\w+.c", line \d+, in entry_point', l1)
         assert re.match(r'  File "\w+.c", line \d+, in h', l2)
         assert re.match(r'  File "\w+.c", line \d+, in raiseme', l3)
@@ -1183,7 +1191,7 @@ class TestThread(object):
             print >> sys.stderr, 'Trying with %d KB of stack...' % (test_kb,),
             try:
                 data = cbuilder.cmdexec(str(test_kb * 1024))
-            except Exception, e:
+            except Exception as e:
                 if e.__class__ is not Exception:
                     raise
                 print >> sys.stderr, 'segfault'

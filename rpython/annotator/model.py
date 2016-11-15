@@ -44,6 +44,7 @@ class State(object):
     # A global attribute :-(  Patch it with 'True' to enable checking of
     # the no_nul attribute...
     check_str_without_nul = False
+    allow_int_to_float = True
 STATE = State()
 
 try:
@@ -52,6 +53,8 @@ except ImportError:
     class TlsClass(object):
         pass
 TLS = TlsClass()
+TLS.allow_int_to_float = True
+TLS.check_str_without_nul = False
 
 
 class SomeObject(object):
@@ -757,6 +760,7 @@ def unionof(*somevalues):
                 s1 = pair(s1, s2).union()
     else:
         # this is just a performance shortcut
+        # XXX: This is a lie! Grep for no_side_effects_in_union and weep.
         if s1 != s2:
             s1 = pair(s1, s2).union()
     return s1

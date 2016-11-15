@@ -1,4 +1,4 @@
-from pypy.conftest import pypydir
+from pypy import pypydir
 from rpython.tool.udir import udir
 import py
 import sys
@@ -70,7 +70,7 @@ class TestCurses(object):
         f.write(source)
         child = self.spawn(['--withmod-_minimal_curses', str(f)])
         child.expect('ok!')
-        
+
 class TestCCurses(object):
     """ Test compiled version
     """

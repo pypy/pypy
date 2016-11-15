@@ -4,7 +4,7 @@ from rpython.rlib.rarithmetic import most_neg_value_of_same_type
 from rpython.rlib.rfloat import isinf, isnan
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.debug import make_sure_not_resized, check_regular_int
-from rpython.rlib.objectmodel import we_are_translated, specialize
+from rpython.rlib.objectmodel import we_are_translated, specialize, not_rpython
 from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper import extregistry
@@ -90,16 +90,16 @@ KARATSUBA_SQUARE_CUTOFF = 2 * KARATSUBA_CUTOFF
 
 FIVEARY_CUTOFF = 8
 
+@specialize.argtype(0)
 def _mask_digit(x):
     return UDIGIT_MASK(x & MASK)
-_mask_digit._annspecialcase_ = 'specialize:argtype(0)'
 
 def _widen_digit(x):
     return rffi.cast(LONG_TYPE, x)
 
+@specialize.argtype(0)
 def _store_digit(x):
     return rffi.cast(STORE_TYPE, x)
-_store_digit._annspecialcase_ = 'specialize:argtype(0)'
 
 def _load_unsigned_digit(x):
     return rffi.cast(UNSIGNED_TYPE, x)
@@ -149,14 +149,14 @@ class rbigint(object):
         self.sign = sign
 
     # __eq__ and __ne__ method exist for testingl only, they are not RPython!
+    @not_rpython
     def __eq__(self, other):
-        # NOT_RPYTHON
         if not isinstance(other, rbigint):
             return NotImplemented
         return self.eq(other)
 
+    @not_rpython
     def __ne__(self, other):
-        # NOT_RPYTHON
         return not (self == other)
 
     def digit(self, x):
@@ -175,11 +175,11 @@ class rbigint(object):
         return _load_unsigned_digit(self._digits[x])
     udigit._always_inline_ = True
 
+    @specialize.argtype(2)
     def setdigit(self, x, val):
         val = _mask_digit(val)
         assert val >= 0
         self._digits[x] = _store_digit(val)
-    setdigit._annspecialcase_ = 'specialize:argtype(2)'
     setdigit._always_inline_ = True
 
     def numdigits(self):
@@ -218,8 +218,8 @@ class rbigint(object):
         return NULLRBIGINT
 
     @staticmethod
+    @not_rpython
     def fromlong(l):
-        "NOT_RPYTHON"
         return rbigint(*args_from_long(l))
 
     @staticmethod
@@ -296,7 +296,7 @@ class rbigint(object):
         if not s:
             return NULLRBIGINT
 
-        if byteorder != BYTEORDER:
+        if byteorder == 'big':
             msb = ord(s[0])
             itr = range(len(s)-1, -1, -1)
         else:
@@ -336,7 +336,7 @@ class rbigint(object):
         if not signed and self.sign == -1:
             raise InvalidSignednessError()
 
-        bswap = byteorder != BYTEORDER
+        bswap = byteorder == 'big'
         d = _widen_digit(0)
         j = 0
         imax = self.numdigits()
@@ -1222,13 +1222,16 @@ class rbigint(object):
         # base is supposed to be positive or 0.0, which means we use e
         if base == 10.0:
             return _loghelper(math.log10, self)
+        if base == 2.0:
+            from rpython.rlib import rfloat
+            return _loghelper(rfloat.log2, self)
         ret = _loghelper(math.log, self)
         if base != 0.0:
             ret /= math.log(base)
         return ret
 
+    @not_rpython
     def tolong(self):
-        "NOT_RPYTHON"
         l = 0L
         digits = list(self._digits)
         digits.reverse()
@@ -1309,6 +1312,7 @@ def _help_mult(x, y, c):
 
     return res
 
+@specialize.argtype(0)
 def digits_from_nonneg_long(l):
     digits = []
     while True:
@@ -1316,8 +1320,8 @@ def digits_from_nonneg_long(l):
         l = l >> SHIFT
         if not l:
             return digits[:] # to make it non-resizable
-digits_from_nonneg_long._annspecialcase_ = "specialize:argtype(0)"
 
+@specialize.argtype(0)
 def digits_for_most_neg_long(l):
     # This helper only works if 'l' is the most negative integer of its
     # type, which in base 2 looks like: 1000000..0000
@@ -1332,8 +1336,8 @@ def digits_for_most_neg_long(l):
     assert l & MASK == l
     digits.append(_store_digit(l))
     return digits[:] # to make it non-resizable
-digits_for_most_neg_long._annspecialcase_ = "specialize:argtype(0)"
 
+@specialize.argtype(0)
 def args_from_rarith_int1(x):
     if x > 0:
         return digits_from_nonneg_long(x), 1
@@ -1345,16 +1349,15 @@ def args_from_rarith_int1(x):
     else:
         # the most negative integer! hacks needed...
         return digits_for_most_neg_long(x), -1
-args_from_rarith_int1._annspecialcase_ = "specialize:argtype(0)"
 
+@specialize.argtype(0)
 def args_from_rarith_int(x):
     return args_from_rarith_int1(widen(x))
-args_from_rarith_int._annspecialcase_ = "specialize:argtype(0)"
 # ^^^ specialized by the precise type of 'x', which is typically a r_xxx
 #     instance from rlib.rarithmetic
 
+@not_rpython
 def args_from_long(x):
-    "NOT_RPYTHON"
     if x >= 0:
         if x == 0:
             return [NULLDIGIT], 0
@@ -1906,6 +1909,7 @@ def _v_isub(x, xofs, m, y, n):
         i += 1
     return borrow
 
+@specialize.argtype(2)
 def _muladd1(a, n, extra=0):
     """Multiply by a single digit and add a single digit, ignoring the sign.
     """
@@ -1923,7 +1927,7 @@ def _muladd1(a, n, extra=0):
     z.setdigit(i, carry)
     z._normalize()
     return z
-_muladd1._annspecialcase_ = "specialize:argtype(2)"
+
 def _v_lshift(z, a, m, d):
     """ Shift digit vector a[0:m] d bits left, with 0 <= d < SHIFT. Put
         * result in z[0:m], and return the d bits shifted out of the top.
@@ -2175,6 +2179,7 @@ def _AsDouble(n):
         ad = -ad
     return ad
 
+@specialize.arg(0)
 def _loghelper(func, arg):
     """
     A decent logarithm is easy to compute even for huge bigints, but libm can't
@@ -2192,7 +2197,6 @@ def _loghelper(func, arg):
     # CAUTION:  e*SHIFT may overflow using int arithmetic,
     # so force use of double. */
     return func(x) + (e * float(SHIFT) * func(2.0))
-_loghelper._annspecialcase_ = 'specialize:arg(0)'
 
 # ____________________________________________________________
 
@@ -2516,6 +2520,7 @@ def _format(x, digits, prefix='', suffix=''):
     return output.build()
 
 
+@specialize.arg(1)
 def _bitwise(a, op, b): # '&', '|', '^'
     """ Bitwise and/or/xor operations """
 
@@ -2595,8 +2600,8 @@ def _bitwise(a, op, b): # '&', '|', '^'
         return z
 
     return z.invert()
-_bitwise._annspecialcase_ = "specialize:arg(1)"
 
+@specialize.arg(1)
 def _int_bitwise(a, op, b): # '&', '|', '^'
     """ Bitwise and/or/xor operations """
 
@@ -2679,7 +2684,6 @@ def _int_bitwise(a, op, b): # '&', '|', '^'
         return z
 
     return z.invert()
-_int_bitwise._annspecialcase_ = "specialize:arg(1)"
 
 ULONGLONG_BOUND = r_ulonglong(1L << (r_longlong.BITS-1))
 LONGLONG_MIN = r_longlong(-(1L << (r_longlong.BITS-1)))

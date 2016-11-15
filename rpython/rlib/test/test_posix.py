@@ -1,4 +1,4 @@
-import py
+import py.test
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.annlowlevel import hlstr
 from rpython.tool.udir import udir
@@ -58,7 +58,7 @@ class TestPosix(BaseRtypingTest):
         assert res
 
     def test_times(self):
-        import py; py.test.skip("llinterp does not like tuple returns")
+        py.test.skip("llinterp does not like tuple returns")
         from rpython.rtyper.test.test_llinterp import interpret
         times = interpret(lambda: posix.times(), ())
         assert isinstance(times, tuple)
@@ -119,21 +119,21 @@ class TestPosix(BaseRtypingTest):
         res = self.interpret(f,[fi,20])
         assert self.ll_to_string(res) == text
 
-    if hasattr(os, 'chown'):
-        def test_chown(self):
-            f = open(path, "w")
-            f.write("xyz")
-            f.close()
-            def f():
-                try:
-                    posix.chown(path, os.getuid(), os.getgid())
-                    return 1
-                except OSError:
-                    return 2
+    @py.test.mark.skipif("not hasattr(os, 'chown')")
+    def test_chown(self):
+        f = open(path, "w")
+        f.write("xyz")
+        f.close()
+        def f():
+            try:
+                posix.chown(path, os.getuid(), os.getgid())
+                return 1
+            except OSError:
+                return 2
 
-            assert self.interpret(f, []) == 1
-            os.unlink(path)
-            assert self.interpret(f, []) == 2
+        assert self.interpret(f, []) == 1
+        os.unlink(path)
+        assert self.interpret(f, []) == 2
 
     def test_close(self):
         def f(fi):
@@ -144,70 +144,70 @@ class TestPosix(BaseRtypingTest):
         res = self.interpret(f,[fi])
         py.test.raises( OSError, os.fstat, fi)
 
-    if hasattr(os, 'ftruncate'):
-        def test_ftruncate(self):
-            def f(fi,len):
-                os.ftruncate(fi,len)
-            fi = os.open(path,os.O_RDWR,0777)
-            func = self.interpret(f,[fi,6])
-            assert os.fstat(fi).st_size == 6
+    @py.test.mark.skipif("not hasattr(os, 'ftruncate')")
+    def test_ftruncate(self):
+        def f(fi,len):
+            os.ftruncate(fi,len)
+        fi = os.open(path,os.O_RDWR,0777)
+        func = self.interpret(f,[fi,6])
+        assert os.fstat(fi).st_size == 6
 
-    if hasattr(os, 'getuid'):
-        def test_getuid(self):
-            def f():
-                return os.getuid()
-            assert self.interpret(f, []) == f()
+    @py.test.mark.skipif("not hasattr(os, 'getuid')")
+    def test_getuid(self):
+        def f():
+            return os.getuid()
+        assert self.interpret(f, []) == f()
 
-    if hasattr(os, 'getgid'):
-        def test_getgid(self):
-            def f():
-                return os.getgid()
-            assert self.interpret(f, []) == f()
+    @py.test.mark.skipif("not hasattr(os, 'getgid')")
+    def test_getgid(self):
+        def f():
+            return os.getgid()
+        assert self.interpret(f, []) == f()
 
-    if hasattr(os, 'setuid'):
-        def test_os_setuid(self):
-            def f():
-                os.setuid(os.getuid())
-                return os.getuid()
-            assert self.interpret(f, []) == f()
+    @py.test.mark.skipif("not hasattr(os, 'setuid')")
+    def test_os_setuid(self):
+        def f():
+            os.setuid(os.getuid())
+            return os.getuid()
+        assert self.interpret(f, []) == f()
 
-    if hasattr(os, 'sysconf'):
-        def test_os_sysconf(self):
-            def f(i):
-                return os.sysconf(i)
-            assert self.interpret(f, [13]) == f(13)
+    @py.test.mark.skipif("not hasattr(os, 'sysconf')")
+    def test_os_sysconf(self):
+        def f(i):
+            return os.sysconf(i)
+        assert self.interpret(f, [13]) == f(13)
 
-    if hasattr(os, 'confstr'):
-        def test_os_confstr(self):
-            def f(i):
-                try:
-                    return os.confstr(i)
-                except OSError:
-                    return "oooops!!"
-            some_value = os.confstr_names.values()[-1]
-            res = self.interpret(f, [some_value])
-            assert hlstr(res) == f(some_value)
-            res = self.interpret(f, [94781413])
-            assert hlstr(res) == "oooops!!"
+    @py.test.mark.skipif("not hasattr(os, 'confstr')")
+    def test_os_confstr(self):
+        def f(i):
+            try:
+                return os.confstr(i)
+            except OSError:
+                return "oooops!!"
+        some_value = os.confstr_names.values()[-1]
+        res = self.interpret(f, [some_value])
+        assert hlstr(res) == f(some_value)
+        res = self.interpret(f, [94781413])
+        assert hlstr(res) == "oooops!!"
 
-    if hasattr(os, 'pathconf'):
-        def test_os_pathconf(self):
-            def f(i):
-                return os.pathconf("/tmp", i)
-            i = os.pathconf_names["PC_NAME_MAX"]
-            some_value = self.interpret(f, [i])
-            assert some_value >= 31
+    @py.test.mark.skipif("not hasattr(os, 'pathconf')")
+    def test_os_pathconf(self):
+        def f(i):
+            return os.pathconf("/tmp", i)
+        i = os.pathconf_names["PC_NAME_MAX"]
+        some_value = self.interpret(f, [i])
+        assert some_value >= 31
 
-    if hasattr(os, 'chroot'):
-        def test_os_chroot(self):
-            def f():
-                try:
-                    os.chroot('!@$#!#%$#^#@!#!$$#^')
-                except OSError:
-                    return 1
-                return 0
+    @py.test.mark.skipif("not hasattr(os, 'chroot')")
+    def test_os_chroot(self):
+        def f():
+            try:
+                os.chroot('!@$#!#%$#^#@!#!$$#^')
+            except OSError:
+                return 1
+            return 0
 
-            assert self.interpret(f, []) == 1
+        assert self.interpret(f, []) == 1
 
     def test_os_wstar(self):
         from rpython.rlib import rposix
@@ -221,84 +221,84 @@ class TestPosix(BaseRtypingTest):
                 res = self.interpret(fun, [value])
                 assert res == fun(value)
 
-    if hasattr(os, 'getgroups'):
-        def test_getgroups(self):
-            def f():
-                return os.getgroups()
-            ll_a = self.interpret(f, [])
-            assert self.ll_to_list(ll_a) == f()
+    @py.test.mark.skipif("not hasattr(os, 'getgroups')")
+    def test_getgroups(self):
+        def f():
+            return os.getgroups()
+        ll_a = self.interpret(f, [])
+        assert self.ll_to_list(ll_a) == f()
 
-    if hasattr(os, 'setgroups'):
-        def test_setgroups(self):
-            def f():
-                try:
-                    os.setgroups(os.getgroups())
-                except OSError:
-                    pass
-            self.interpret(f, [])
+    @py.test.mark.skipif("not hasattr(os, 'setgroups')")
+    def test_setgroups(self):
+        def f():
+            try:
+                os.setgroups(os.getgroups())
+            except OSError:
+                pass
+        self.interpret(f, [])
 
-    if hasattr(os, 'initgroups'):
-        def test_initgroups(self):
-            def f():
-                try:
-                    os.initgroups('sUJJeumz', 4321)
-                except OSError:
-                    return 1
-                return 0
-            res = self.interpret(f, [])
-            assert res == 1
+    @py.test.mark.skipif("not hasattr(os, 'initgroups')")
+    def test_initgroups(self):
+        def f():
+            try:
+                os.initgroups('sUJJeumz', 4321)
+            except OSError:
+                return 1
+            return 0
+        res = self.interpret(f, [])
+        assert res == 1
 
-    if hasattr(os, 'tcgetpgrp'):
-        def test_tcgetpgrp(self):
-            def f(fd):
-                try:
-                    return os.tcgetpgrp(fd)
-                except OSError:
-                    return 42
-            res = self.interpret(f, [9999])
-            assert res == 42
+    @py.test.mark.skipif("not hasattr(os, 'tcgetpgrp')")
+    def test_tcgetpgrp(self):
+        def f(fd):
+            try:
+                return os.tcgetpgrp(fd)
+            except OSError:
+                return 42
+        res = self.interpret(f, [9999])
+        assert res == 42
 
-    if hasattr(os, 'tcsetpgrp'):
-        def test_tcsetpgrp(self):
-            def f(fd, pgrp):
-                try:
-                    os.tcsetpgrp(fd, pgrp)
-                except OSError:
-                    return 1
-                return 0
-            res = self.interpret(f, [9999, 1])
-            assert res == 1
+    @py.test.mark.skipif("not hasattr(os, 'tcsetpgrp')")
+    def test_tcsetpgrp(self):
+        def f(fd, pgrp):
+            try:
+                os.tcsetpgrp(fd, pgrp)
+            except OSError:
+                return 1
+            return 0
+        res = self.interpret(f, [9999, 1])
+        assert res == 1
 
-    if hasattr(os, 'getresuid'):
-        def test_getresuid(self):
-            def f():
-                a, b, c = os.getresuid()
-                return a + b * 37 + c * 1291
-            res = self.interpret(f, [])
+    @py.test.mark.skipif("not hasattr(os, 'getresuid')")
+    def test_getresuid(self):
+        def f():
             a, b, c = os.getresuid()
-            assert res == a + b * 37 + c * 1291
+            return a + b * 37 + c * 1291
+        res = self.interpret(f, [])
+        a, b, c = os.getresuid()
+        assert res == a + b * 37 + c * 1291
 
-    if hasattr(os, 'getresgid'):
-        def test_getresgid(self):
-            def f():
-                a, b, c = os.getresgid()
-                return a + b * 37 + c * 1291
-            res = self.interpret(f, [])
+    @py.test.mark.skipif("not hasattr(os, 'getresgid')")
+    def test_getresgid(self):
+        def f():
             a, b, c = os.getresgid()
-            assert res == a + b * 37 + c * 1291
+            return a + b * 37 + c * 1291
+        res = self.interpret(f, [])
+        a, b, c = os.getresgid()
+        assert res == a + b * 37 + c * 1291
 
-    if hasattr(os, 'setresuid'):
-        def test_setresuid(self):
-            def f():
-                a, b, c = os.getresuid()
-                a = (a + 1) - 1
-                os.setresuid(a, b, c)
-            self.interpret(f, [])
+    @py.test.mark.skipif("not hasattr(os, 'setresuid')")
+    def test_setresuid(self):
+        def f():
+            a, b, c = os.getresuid()
+            a = (a + 1) - 1
+            os.setresuid(a, b, c)
+        self.interpret(f, [])
 
-    if hasattr(os, 'setresgid'):
-        def test_setresgid(self):
-            def f():
-                a, b, c = os.getresgid()
-                a = (a + 1) - 1
-                os.setresgid(a, b, c)
-            self.interpret(f, [])
+    @py.test.mark.skipif("not hasattr(os, 'setresgid')")
+    def test_setresgid(self):
+        def f():
+            a, b, c = os.getresgid()
+            a = (a + 1) - 1
+            os.setresgid(a, b, c)
+        self.interpret(f, [])

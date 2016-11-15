@@ -89,25 +89,19 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
         rawmode += "+"
 
     if universal and (writing or appending):
-        raise OperationError(space.w_ValueError,
-            space.wrap("can't use U and writing mode at once")
-        )
+        raise oefmt(space.w_ValueError, "can't use U and writing mode at once")
     if text and binary:
-        raise OperationError(space.w_ValueError,
-            space.wrap("can't have text and binary mode at once")
-        )
+        raise oefmt(space.w_ValueError,
+                    "can't have text and binary mode at once")
     if reading + writing + appending > 1:
-        raise OperationError(space.w_ValueError,
-            space.wrap("must have exactly one of read/write/append mode")
-        )
+        raise oefmt(space.w_ValueError,
+                    "must have exactly one of read/write/append mode")
     if binary and encoding is not None:
-        raise OperationError(space.w_ValueError,
-            space.wrap("binary mode doesn't take an encoding argument")
-        )
+        raise oefmt(space.w_ValueError,
+                    "binary mode doesn't take an encoding argument")
     if binary and newline is not None:
-        raise OperationError(space.w_ValueError,
-            space.wrap("binary mode doesn't take a newline argument")
-        )
+        raise oefmt(space.w_ValueError,
+                    "binary mode doesn't take a newline argument")
     w_raw = space.call_function(
         space.gettypefor(W_FileIO), w_file, space.wrap(rawmode), space.wrap(closefd)
     )
@@ -132,15 +126,11 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
                     buffering = st.st_blksize
 
     if buffering < 0:
-        raise OperationError(space.w_ValueError,
-            space.wrap("invalid buffering size")
-        )
+        raise oefmt(space.w_ValueError, "invalid buffering size")
 
     if buffering == 0:
         if not binary:
-            raise OperationError(space.w_ValueError,
-                space.wrap("can't have unbuffered text I/O")
-            )
+            raise oefmt(space.w_ValueError, "can't have unbuffered text I/O")
         return w_raw
 
     if updating:

@@ -527,7 +527,7 @@ class OpMatcher(object):
                     #else: optional operation
                     iter_ops.revert_one()
                     continue       # try to match with the next exp_op
-            except InvalidMatch, e:
+            except InvalidMatch as e:
                 e.opindex = iter_ops.index - 1
                 raise
 
@@ -545,7 +545,7 @@ class OpMatcher(object):
         expected_ops = self.parse_ops(expected_src)
         try:
             self.match_loop(expected_ops, ignore_ops)
-        except InvalidMatch, e:
+        except InvalidMatch as e:
             print '@' * 40
             print "Loops don't match"
             print "================="

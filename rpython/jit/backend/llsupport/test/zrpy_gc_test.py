@@ -198,7 +198,7 @@ class BaseFrameworkTests(object):
             cls.cbuilder = compile(get_entry(allfuncs), cls.gc,
                                    gcrootfinder=cls.gcrootfinder, jit=True,
                                    thread=True)
-        except ConfigError, e:        
+        except ConfigError as e:        
             assert str(e).startswith('invalid value asmgcc')
             py.test.skip('asmgcc not supported')
         finally:

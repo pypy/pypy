@@ -16,6 +16,7 @@ class AbstractCPU(object):
     # Boxes and Consts are BoxFloats and ConstFloats.
     supports_singlefloats = False
     supports_guard_gc_type = False
+    supports_cond_call_value = False
 
     propagate_exception_descr = None
 
@@ -229,8 +230,6 @@ class AbstractCPU(object):
         raise NotImplementedError
     def bh_newunicode(self, length):
         raise NotImplementedError
-    def bh_new_raw_buffer(self, size):
-        raise NotImplementedError
 
     def bh_arraylen_gc(self, array, arraydescr):
         raise NotImplementedError
@@ -285,7 +284,8 @@ class AbstractCPU(object):
 
 class CompiledLoopToken(object):
     asmmemmgr_blocks = None
-    asmmemmgr_gcroots = 0
+    asmmemmgr_gcreftracers = None
+
     _stm_redirection = lltype.nullptr(llmemory.GCREF.TO)
 
     def __init__(self, cpu, number):

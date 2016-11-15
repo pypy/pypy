@@ -205,9 +205,7 @@ class CTypesGenericPtr(CTypesData):
 
     def __nonzero__(self):
         return bool(self._address)
-    
-    def __bool__(self):
-        return bool(self._address)
+    __bool__ = __nonzero__
 
     @classmethod
     def _to_ctypes(cls, value):
@@ -460,6 +458,12 @@ class CTypesBackend(object):
                         return x._value
                     raise TypeError("character expected, got %s" %
                                     type(x).__name__)
+                def __nonzero__(self):
+                    return ord(self._value) != 0
+            else:
+                def __nonzero__(self):
+                    return self._value != 0
+            __bool__ = __nonzero__
 
             if kind == 'float':
                 @staticmethod
@@ -992,6 +996,45 @@ class CTypesBackend(object):
     def callback(self, BType, source, error, onerror):
         assert onerror is None   # XXX not implemented
         return BType(source, error)
+
+    _weakref_cache_ref = None
+
+    def gcp(self, cdata, destructor):
+        if self._weakref_cache_ref is None:
+            import weakref
+            class MyRef(weakref.ref):
+                def __eq__(self, other):
+                    myref = self()
+                    return self is other or (
+                        myref is not None and myref is other())
+                def __ne__(self, other):
+                    return not (self == other)
+                def __hash__(self):
+                    try:
+                        return self._hash
+                    except AttributeError:
+                        self._hash = hash(self())
+                        return self._hash
+            self._weakref_cache_ref = {}, MyRef
+        weak_cache, MyRef = self._weakref_cache_ref
+
+        if destructor is None:
+            try:
+                del weak_cache[MyRef(cdata)]
+            except KeyError:
+                raise TypeError("Can remove destructor only on a object "
+                                "previously returned by ffi.gc()")
+            return None
+
+        def remove(k):
+            cdata, destructor = weak_cache.pop(k, (None, None))
+            if destructor is not None:
+                destructor(cdata)
+
+        new_cdata = self.cast(self.typeof(cdata), cdata)
+        assert new_cdata is not cdata
+        weak_cache[MyRef(new_cdata, remove)] = (cdata, destructor)
+        return new_cdata
 
     typeof = type
 

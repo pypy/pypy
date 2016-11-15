@@ -1,11 +1,11 @@
 
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimization
-from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.resoperation import rop, OpHelpers
 
 
 def is_raw_free(op, opnum):
-    if not op.is_real_call():
+    if not OpHelpers.is_real_call(opnum):
         return False
     einfo = op.getdescr().get_extra_info()
     return einfo.oopspecindex == EffectInfo.OS_RAW_FREE
@@ -26,7 +26,7 @@ class OptEarlyForce(Optimization):
 
             for arg in op.getarglist():
                 self.optimizer.force_box(arg, self)
-        self.emit_operation(op)
+        return self.emit(op)
 
     def setup(self):
         self.optimizer.optearlyforce = self

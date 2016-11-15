@@ -7,6 +7,7 @@ from rpython.rlib import objectmodel, unroll
 from rpython.rtyper.extfunc import register_external
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rlib.objectmodel import not_rpython
 
 
 class CConfig:
@@ -25,7 +26,7 @@ del float_constants, int_constants, const
 
 globals().update(rffi_platform.configure(CConfig))
 
-INVALID_MSG = "invalid literal for float()"
+INVALID_MSG = "could not convert string to float"
 
 def string_to_float(s):
     """
@@ -187,16 +188,17 @@ try:
     # Try to get math functions added in 2.6.
     from math import isinf, isnan, copysign, acosh, asinh, atanh, log1p
 except ImportError:
+    @not_rpython
     def isinf(x):
-        "NOT_RPYTHON"
         return x == INFINITY or x == -INFINITY
 
+    @not_rpython
     def isnan(v):
-        "NOT_RPYTHON"
         return v != v
 
+    @not_rpython
     def copysign(x, y):
-        """NOT_RPYTHON. Return x with the sign of y"""
+        """Return x with the sign of y"""
         if x < 0.:
             x = -x
         if y > 0. or (y == 0. and math.atan2(y, -1.) > 0.):
@@ -208,8 +210,8 @@ except ImportError:
     _2_to_p28 = 268435456.0; # 2**28
     _ln2 = 6.93147180559945286227E-01
 
+    @not_rpython
     def acosh(x):
-        "NOT_RPYTHON"
         if isnan(x):
             return NAN
         if x < 1.:
@@ -227,8 +229,8 @@ except ImportError:
         t = x - 1.0
         return log1p(t + math.sqrt(2. * t + t * t))
 
+    @not_rpython
     def asinh(x):
-        "NOT_RPYTHON"
         absx = abs(x)
         if not isfinite(x):
             return x
@@ -243,8 +245,8 @@ except ImportError:
             w = log1p(absx + t / (1. + math.sqrt(1. + t)))
         return copysign(w, x)
 
+    @not_rpython
     def atanh(x):
-        "NOT_RPYTHON"
         if isnan(x):
             return x
         absx = abs(x)
@@ -259,8 +261,8 @@ except ImportError:
             t = .5 * log1p((absx + absx) / (1. - absx))
         return copysign(t, x)
 
+    @not_rpython
     def log1p(x):
-        "NOT_RPYTHON"
         if abs(x) < DBL_EPSILON // 2.:
             return x
         elif -.5 <= x <= 1.:
@@ -272,14 +274,43 @@ except ImportError:
 try:
     from math import expm1 # Added in Python 2.7.
 except ImportError:
+    @not_rpython
     def expm1(x):
-        "NOT_RPYTHON"
         if abs(x) < .7:
             u = math.exp(x)
             if u == 1.:
                 return x
             return (u - 1.) * x / math.log(u)
         return math.exp(x) - 1.
+
+def log2(x):
+    # Uses an algorithm that should:
+    #   (a) produce exact results for powers of 2, and
+    #   (b) be monotonic, assuming that the system log is monotonic.
+    if not isfinite(x):
+        if isnan(x):
+            return x  # log2(nan) = nan
+        elif x > 0.0:
+            return x  # log2(+inf) = +inf
+        else:
+            # log2(-inf) = nan, invalid-operation
+            raise ValueError("math domain error")
+
+    if x > 0.0:
+        if 0:  # HAVE_LOG2
+            return math.log2(x)
+        m, e = math.frexp(x)
+        # We want log2(m * 2**e) == log(m) / log(2) + e.  Care is needed when
+        # x is just greater than 1.0: in that case e is 1, log(m) is negative,
+        # and we get significant cancellation error from the addition of
+        # log(m) / log(2) to e.  The slight rewrite of the expression below
+        # avoids this problem.
+        if x >= 1.0:
+            return math.log(2.0 * m) / math.log(2.0) + (e - 1)
+        else:
+            return math.log(m) / math.log(2.0) + e
+    else:
+        raise ValueError("math domain error")
 
 def round_away(x):
     # round() from libm, which is not available on all platforms!
@@ -290,8 +321,8 @@ def round_away(x):
         r = math.floor(absx)
     return copysign(r, x)
 
+@not_rpython
 def isfinite(x):
-    "NOT_RPYTHON"
     return not isinf(x) and not isnan(x)
 
 def float_as_rbigint_ratio(value):

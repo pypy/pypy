@@ -4,18 +4,16 @@ from pypy.objspace.std.mapdict import *
 class Config:
     class objspace:
         class std:
-            withsmalldicts = False
             withcelldict = False
-            withmethodcache = False
-            withidentitydict = False
-            withmapdict = True
+            methodcachesizeexp = 11
+            withmethodcachecounter = False
 
 space = FakeSpace()
 space.config = Config
 
 class Class(object):
     def __init__(self, hasdict=True):
-        self.hasdict = True
+        self.hasdict = hasdict
         if hasdict:
             self.terminator = DictTerminator(space, self)
         else:
@@ -24,9 +22,16 @@ class Class(object):
     def instantiate(self, sp=None):
         if sp is None:
             sp = space
-        result = Object()
+        if self.hasdict:
+            result = Object()
+        else:
+            result = ObjectWithoutDict()
         result.user_setup(sp, self)
         return result
+
+class ObjectWithoutDict(ObjectWithoutDict):
+    class typedef:
+        hasdict = False
 
 class Object(Object):
     class typedef:
@@ -431,6 +436,9 @@ def test_slots_no_dict():
     assert obj.getslotvalue(b) == 60
     assert obj.storage == [50, 60]
     assert not obj.setdictvalue(space, "a", 70)
+    assert obj.getdict(space) is None
+    assert obj.getdictvalue(space, "a") is None
+
 
 def test_getdict():
     cls = Class()
@@ -591,15 +599,20 @@ def test_setdict():
 
 
 def test_specialized_class():
+    from pypy.objspace.std.mapdict import _make_storage_mixin_size_n
     from pypy.objspace.std.objectobject import W_ObjectObject
-    classes = memo_get_subclass_of_correct_size(space, W_ObjectObject)
+    classes = [_make_storage_mixin_size_n(i) for i in range(2, 10)]
     w1 = W_Root()
     w2 = W_Root()
     w3 = W_Root()
     w4 = W_Root()
     w5 = W_Root()
     w6 = W_Root()
-    for objectcls in classes:
+    for mixin in classes:
+        class objectcls(W_ObjectObject):
+            objectmodel.import_from_mixin(BaseUserClassMapdict)
+            objectmodel.import_from_mixin(MapdictDictSupport)
+            objectmodel.import_from_mixin(mixin)
         cls = Class()
         obj = objectcls()
         obj.user_setup(space, cls)
@@ -646,7 +659,6 @@ def test_specialized_class():
 # XXX write more
 
 class AppTestWithMapDict(object):
-    spaceconfig = {"objspace.std.withmapdict": True}
 
     def test_simple(self):
         class A(object):
@@ -863,8 +875,7 @@ class AppTestWithMapDict(object):
 
 
 class AppTestWithMapDictAndCounters(object):
-    spaceconfig = {"objspace.std.withmapdict": True,
-                   "objspace.std.withmethodcachecounter": True}
+    spaceconfig = {"objspace.std.withmethodcachecounter": True}
 
     def setup_class(cls):
         from pypy.interpreter import gateway
@@ -1176,6 +1187,20 @@ class AppTestWithMapDictAndCounters(object):
         got = a.method()
         assert got == 43
 
+    def test_dict_order(self):
+        # the __dict__ order is not strictly enforced, but in
+        # simple cases like that, we want to follow the order of
+        # creation of the attributes
+        class A(object):
+            pass
+        a = A()
+        a.x = 5
+        a.z = 6
+        a.y = 7
+        assert list(a.__dict__) == ['x', 'z', 'y']
+        assert a.__dict__.values() == [5, 6, 7]
+        assert list(a.__dict__.iteritems()) == [('x', 5), ('z', 6), ('y', 7)]
+
     def test_bug_method_change(self):
         class A(object):
             def method(self):
@@ -1210,9 +1235,44 @@ class AppTestWithMapDictAndCounters(object):
         got = x.a
         assert got == 'd'
 
+    def test_bug_builtin_types_callmethod(self):
+        import sys
+        class D(type(sys)):
+            def mymethod(self):
+                return "mymethod"
+
+        def foobar():
+            return "foobar"
+
+        d = D('d')
+        res1 = d.mymethod()
+        d.mymethod = foobar
+        res2 = d.mymethod()
+        assert res1 == "mymethod"
+        assert res2 == "foobar"
+
+    def test_bug_builtin_types_load_attr(self):
+        import sys
+        class D(type(sys)):
+            def mymethod(self):
+                return "mymethod"
+
+        def foobar():
+            return "foobar"
+
+        d = D('d')
+        m = d.mymethod
+        res1 = m()
+        d.mymethod = foobar
+        m = d.mymethod
+        res2 = m()
+        assert res1 == "mymethod"
+        assert res2 == "foobar"
+
+
+
 class AppTestGlobalCaching(AppTestWithMapDict):
-    spaceconfig = {"objspace.std.withmethodcachecounter": True,
-                   "objspace.std.withmapdict": True}
+    spaceconfig = {"objspace.std.withmethodcachecounter": True}
 
     def test_mix_classes(self):
         import __pypy__
@@ -1269,8 +1329,7 @@ class AppTestGlobalCaching(AppTestWithMapDict):
             assert 0, "failed: got %r" % ([got[1] for got in seen],)
 
 class TestDictSubclassShortcutBug(object):
-    spaceconfig = {"objspace.std.withmapdict": True,
-                   "objspace.std.withmethodcachecounter": True}
+    spaceconfig = {"objspace.std.withmethodcachecounter": True}
 
     def test_bug(self):
         w_dict = self.space.appexec([], """():

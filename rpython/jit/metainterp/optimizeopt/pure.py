@@ -1,9 +1,35 @@
-from rpython.jit.metainterp.optimizeopt.optimizer import Optimization, REMOVED
+from rpython.jit.metainterp.optimizeopt.optimizer import (
+    Optimization, OptimizationResult, REMOVED)
 from rpython.jit.metainterp.resoperation import rop, OpHelpers, AbstractResOp,\
      ResOperation
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.optimizeopt.shortpreamble import PreambleOp
 from rpython.jit.metainterp.optimize import SpeculativeError
+
+
+class DefaultOptimizationResult(OptimizationResult):
+    def __init__(self, opt, op, save, nextop):
+        OptimizationResult.__init__(self, opt, op)
+        self.save = save
+        self.nextop = nextop
+
+    def callback(self):
+        self._callback(self.op, self.save, self.nextop)
+
+    def _callback(self, op, save, nextop):
+        if rop.returns_bool_result(op.opnum):
+            self.opt.getintbound(op).make_bool()
+        if save:
+            recentops = self.opt.getrecentops(op.getopnum())
+            recentops.add(op)
+        if nextop:
+            self.opt.emit_extra(nextop)
+
+
+class CallPureOptimizationResult(OptimizationResult):
+    def callback(self):
+        self.opt.call_pure_positions.append(
+            len(self.opt.optimizer._newoperations) - 1)
 
 
 class RecentPureOps(object):
@@ -72,11 +98,14 @@ class OptPure(Optimization):
         self.extra_call_pure = []
 
     def propagate_forward(self, op):
-        dispatch_opt(self, op)
+        return dispatch_opt(self, op)
+
+    def propagate_postprocess(self, op):
+        dispatch_postprocess(self, op)
 
     def optimize_default(self, op):
-        canfold = op.is_always_pure()
-        if op.is_ovf():
+        canfold = rop.is_always_pure(op.opnum)
+        if rop.is_ovf(op.opnum):
             self.postponed_op = op
             return
         if self.postponed_op:
@@ -109,14 +138,7 @@ class OptPure(Optimization):
                 return
 
         # otherwise, the operation remains
-        self.emit_operation(op)
-        if op.returns_bool_result():
-            self.getintbound(op).make_bool()
-        if save:
-            recentops = self.getrecentops(op.getopnum())
-            recentops.add(op)
-        if nextop:
-            self.emit_operation(nextop)
+        return self.emit_result(DefaultOptimizationResult(self, op, save, nextop))
 
     def getrecentops(self, opnum):
         if rop._OVF_FIRST <= opnum <= rop._OVF_LAST:
@@ -159,9 +181,7 @@ class OptPure(Optimization):
         # replace CALL_PURE with just CALL
         opnum = OpHelpers.call_for_descr(op.getdescr())
         newop = self.optimizer.replace_op_with(op, opnum)
-        self.emit_operation(newop)
-        self.call_pure_positions.append(
-            len(self.optimizer._newoperations) - 1)
+        return self.emit_result(CallPureOptimizationResult(self, newop))
 
     optimize_CALL_PURE_R = optimize_CALL_PURE_I
     optimize_CALL_PURE_F = optimize_CALL_PURE_I
@@ -191,7 +211,7 @@ class OptPure(Optimization):
             # it was a CALL_PURE that was killed; so we also kill the
             # following GUARD_NO_EXCEPTION
             return
-        self.emit_operation(op)
+        return self.emit(op)
 
     def flush(self):
         assert self.postponed_op is None
@@ -221,9 +241,9 @@ class OptPure(Optimization):
     def produce_potential_short_preamble_ops(self, sb):
         ops = self.optimizer._newoperations
         for i, op in enumerate(ops):
-            if op.is_always_pure():
+            if rop.is_always_pure(op.opnum):
                 sb.add_pure_op(op)
-            if op.is_ovf() and ops[i + 1].getopnum() == rop.GUARD_NO_OVERFLOW:
+            if rop.is_ovf(op.opnum) and ops[i + 1].getopnum() == rop.GUARD_NO_OVERFLOW:
                 sb.add_pure_op(op)
         for i in self.call_pure_positions:
             op = ops[i]
@@ -232,8 +252,9 @@ class OptPure(Optimization):
 
             effectinfo = op.getdescr().get_extra_info()
             if not effectinfo.check_can_raise(ignore_memoryerror=True):
-                assert op.is_call()
+                assert rop.is_call(op.opnum)
                 sb.add_pure_op(op)
 
 dispatch_opt = make_dispatcher_method(OptPure, 'optimize_',
                                       default=OptPure.optimize_default)
+dispatch_postprocess = make_dispatcher_method(OptPure, 'postprocess_')

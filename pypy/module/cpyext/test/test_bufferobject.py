@@ -1,4 +1,4 @@
-from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import lltype
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.api import PyObject
@@ -25,7 +25,7 @@ class AppTestBufferObject(AppTestCpythonExtensionBase):
              """
                  char *ptr;
                  Py_ssize_t size;
-                 if (PyObject_AsCharBuffer(args, &ptr, &size) < 0)
+                 if (PyObject_AsCharBuffer(args, (const char **)&ptr, &size) < 0)
                      return NULL;
                  return PyString_FromStringAndSize(ptr, size);
              """)
@@ -50,6 +50,8 @@ class AppTestBufferObject(AppTestCpythonExtensionBase):
         raises(AttributeError, getattr, b, 'x')
 
     def test_array_buffer(self):
+        if self.runappdirect:
+            skip('PyBufferObject not available outside buffer object.c')
         module = self.import_extension('foo', [
             ("roundtrip", "METH_O",
              """

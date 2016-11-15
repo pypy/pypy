@@ -5,7 +5,6 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.pyobject import (
     PyObject, make_ref, from_ref, Py_DecRef, make_typedescr)
 from pypy.module.cpyext.frameobject import PyFrameObject
-from rpython.rlib.unroll import unrolling_iterable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.pytraceback import PyTraceback
 from pypy.interpreter import pycode
@@ -46,5 +45,5 @@ def traceback_dealloc(space, py_obj):
     py_traceback = rffi.cast(PyTracebackObject, py_obj)
     Py_DecRef(space, rffi.cast(PyObject, py_traceback.c_tb_next))
     Py_DecRef(space, rffi.cast(PyObject, py_traceback.c_tb_frame))
-    from pypy.module.cpyext.object import PyObject_dealloc
-    PyObject_dealloc(space, py_obj)
+    from pypy.module.cpyext.object import _dealloc
+    _dealloc(space, py_obj)

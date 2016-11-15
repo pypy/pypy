@@ -21,6 +21,10 @@ class BaseLinux(BasePosix):
     so_ext = 'so'
     so_prefixes = ('lib', '')
 
+    if platform.machine() == 's390x':
+        from rpython.translator.platform.arch import s390x
+        cflags = s390x.update_cflags(cflags)
+
     def _args_for_shared(self, args):
         return ['-shared'] + args
 

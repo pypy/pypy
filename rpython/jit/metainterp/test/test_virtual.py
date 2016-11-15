@@ -1,8 +1,8 @@
 import py
-from rpython.rlib.jit import JitDriver, promote, dont_look_inside
+from rpython.rlib.jit import JitDriver, promote, dont_look_inside, set_param
 from rpython.rlib.objectmodel import compute_unique_id
 from rpython.jit.codewriter.policy import StopAtXPolicy
-from rpython.jit.metainterp.test.support import LLJitMixin
+from rpython.jit.metainterp.test.support import LLJitMixin, get_stats
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem.lloperation import llop
@@ -964,6 +964,82 @@ class VirtualTests:
         assert res == f(32)
         self.check_aborted_count(0)
         self.check_target_token_count(4)
+
+    def test_avoid_preamble(self):
+        driver = JitDriver(greens=[], reds=['i', 'val'])
+        class X(object):
+            def __init__(self, v):
+                self.v = v
+
+        class Box(object):
+            def __init__(self, v):
+                self.unbox = v
+
+        mask = -2
+        const = Box(X(5))
+        def f():
+            # Prevent all retracing of side exits. Ensures that the unroll
+            # optimizer will attempt to jump to either the preamble or loop.
+            set_param(driver, 'retrace_limit', -1)
+            set_param(driver, 'threshold', 1)
+            val   = X(0)
+            i     = 0
+            const.unbox = X(5)
+            while i < 17:
+                driver.can_enter_jit(i=i, val=val)
+                driver.jit_merge_point(i=i, val=val)
+                # Logical & rather than comparison to confuse range analysis.
+                # Test only succeeds on the first 2 iterations
+                if i & -2 == 0:
+                    val = const.unbox
+                else:
+                    val = X(i)
+                i += 1
+            return 0
+
+        self.meta_interp(f, [])
+
+        # With retracing disable, there will be one optimized loop expecting a
+        # non-virtual X object. The side exit creates a virtual object which must
+        # be allocated to jump to the optimized trace.
+        self.check_resops(jump=3, label=2, new_with_vtable=2)
+        self.check_target_token_count(2)
+        self.check_trace_count(3)
+
+    def test_conflated_virtual_states(self):
+        # All cases are covered when forcing one component of the virtual state
+        # also forces an as yet unseen component.
+        # i.e. expect [NotVirtual, Virtual] and given a pair of aliasing virtual
+        # objects
+        driver = JitDriver(greens=[], reds=['i', 'v1', 'v2'])
+        class Box(object):
+            def __init__(self, v):
+                self.v = v
+
+        class X(object):
+            def __init__(self, v):
+                self.v = v
+
+        const = Box(X(0))
+        def f():
+            set_param(None, 'retrace_limit', -1)
+            set_param(None, 'threshold', 1)
+            i = 0
+            v1 = X(0)
+            v2 = X(0)
+            const.v = X(0)
+            while i < 17:
+                driver.jit_merge_point(i=i, v1=v1, v2=v2)
+                driver.can_enter_jit(i=i, v1=v1, v2=v2)
+                if i & 1 == 0:
+                    v1 = const.v
+                    v2 = X(i)
+                else:
+                    v1 = v2 = X(i)
+                i += 1
+            return None
+        self.meta_interp(f, [])
+        # assert did not crash
 
 
 class VirtualMiscTests:

@@ -6,7 +6,8 @@ The rest, dealing with variables in optimized ways, is in nestedscope.py.
 
 from rpython.rlib import jit, rstackovf, rstm
 from rpython.rlib.debug import check_nonneg
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import (we_are_translated, always_inline,
+        dont_inline)
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.tool.sourcetools import func_with_new_name
 
@@ -70,9 +71,9 @@ class __extend__(pyframe.PyFrame):
     def handle_bytecode(self, co_code, next_instr, ec):
         try:
             next_instr = self.dispatch_bytecode(co_code, next_instr, ec)
-        except OperationError, operr:
+        except OperationError as operr:
             next_instr = self.handle_operation_error(ec, operr)
-        except RaiseWithExplicitTraceback, e:
+        except RaiseWithExplicitTraceback as e:
             next_instr = self.handle_operation_error(ec, e.operr,
                                                      attach_tb=False)
         except KeyboardInterrupt:
@@ -81,7 +82,7 @@ class __extend__(pyframe.PyFrame):
         except MemoryError:
             next_instr = self.handle_asynchronous_error(ec,
                 self.space.w_MemoryError)
-        except rstackovf.StackOverflow, e:
+        except rstackovf.StackOverflow as e:
             # Note that this case catches AttributeError!
             rstackovf.check_stack_overflow()
             next_instr = self.handle_asynchronous_error(ec,
@@ -120,7 +121,7 @@ class __extend__(pyframe.PyFrame):
                     finally:
                         if trace is not None:
                             self.getorcreatedebug().w_f_trace = trace
-                except OperationError, e:
+                except OperationError as e:
                     operr = e
             pytraceback.record_application_traceback(
                 self.space, operr, self, self.last_instr)
@@ -489,20 +490,20 @@ class __extend__(pyframe.PyFrame):
         # of oparg failed to produce an integer which is annotated as non-neg
         check_nonneg(oparg)
 
+    @always_inline
     def LOAD_FAST(self, varindex, next_instr):
         # access a local variable directly
         w_value = self.locals_cells_stack_w[varindex]
         if w_value is None:
             self._load_fast_failed(varindex)
         self.pushvalue(w_value)
-    LOAD_FAST._always_inline_ = True
 
+    @dont_inline
     def _load_fast_failed(self, varindex):
         varname = self.getlocalvarname(varindex)
         raise oefmt(self.space.w_UnboundLocalError,
                     "local variable '%s' referenced before assignment",
                     varname)
-    _load_fast_failed._dont_inline_ = True
 
     def LOAD_CONST(self, constindex, next_instr):
         w_const = self.getconstant_w(constindex)
@@ -745,25 +746,16 @@ class __extend__(pyframe.PyFrame):
         unroller = SContinueLoop(startofloop)
         return self.unrollstack_and_jump(unroller)
 
-    @jit.unroll_safe
     def RAISE_VARARGS(self, nbargs, next_instr):
         space = self.space
         if nbargs == 0:
-            frame = self
-            while frame:
-                if frame.last_exception is not None:
-                    operror = frame.last_exception
-                    break
-                frame = frame.f_backref()
-            else:
-                raise OperationError(space.w_TypeError,
-                    space.wrap("raise: no active exception to re-raise"))
-            if operror.w_type is space.w_None:
-                raise OperationError(space.w_TypeError,
-                    space.wrap("raise: the exception to re-raise was cleared"))
+            last_operr = self._exc_info_unroll(space, for_hidden=True)
+            if last_operr is None:
+                raise oefmt(space.w_TypeError,
+                            "No active exception to reraise")
             # re-raise, no new traceback obj will be attached
-            self.last_exception = operror
-            raise RaiseWithExplicitTraceback(operror)
+            self.last_exception = last_operr
+            raise RaiseWithExplicitTraceback(last_operr)
 
         w_value = w_traceback = space.w_None
         if nbargs >= 3:
@@ -859,7 +851,7 @@ class __extend__(pyframe.PyFrame):
         w_varname = self.getname_w(varindex)
         try:
             self.space.delitem(self.getorcreatedebug().w_locals, w_varname)
-        except OperationError, e:
+        except OperationError as e:
             # catch KeyErrors and turn them into NameErrors
             if not e.match(self.space, self.space.w_KeyError):
                 raise
@@ -903,6 +895,7 @@ class __extend__(pyframe.PyFrame):
                 return
         self.LOAD_GLOBAL(nameindex, next_instr)    # fall-back
 
+    @always_inline
     def _load_global(self, varname):
         w_value = self.space.finditem_str(self.get_w_globals(), varname)
         if w_value is None:
@@ -911,16 +904,15 @@ class __extend__(pyframe.PyFrame):
             if w_value is None:
                 self._load_global_failed(varname)
         return w_value
-    _load_global._always_inline_ = True
 
+    @dont_inline
     def _load_global_failed(self, varname):
         raise oefmt(self.space.w_NameError,
                     "global name '%s' is not defined", varname)
-    _load_global_failed._dont_inline_ = True
 
+    @always_inline
     def LOAD_GLOBAL(self, nameindex, next_instr):
         self.pushvalue(self._load_global(self.getname_u(nameindex)))
-    LOAD_GLOBAL._always_inline_ = True
 
     def DELETE_FAST(self, varindex, next_instr):
         if self.locals_cells_stack_w[varindex] is None:
@@ -954,18 +946,17 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(space.newlist([], sizehint=length_hint))
         self.pushvalue(last_val)
 
+    @always_inline
     def LOAD_ATTR(self, nameindex, next_instr):
         "obj.attributename"
         w_obj = self.popvalue()
-        if (self.space.config.objspace.std.withmapdict and
-                not jit.we_are_jitted()):
+        if not jit.we_are_jitted():
             from pypy.objspace.std.mapdict import LOAD_ATTR_caching
             w_value = LOAD_ATTR_caching(self.getcode(), w_obj, nameindex)
         else:
             w_attributename = self.getname_w(nameindex)
             w_value = self.space.getattr(w_obj, w_attributename)
         self.pushvalue(w_value)
-    LOAD_ATTR._always_inline_ = True
 
     @jit.unroll_safe
     def cmp_exc_match(self, w_1, w_2):
@@ -1019,7 +1010,7 @@ class __extend__(pyframe.PyFrame):
         try:
             if space.int_w(w_flag) == -1:
                 w_flag = None
-        except OperationError, e:
+        except OperationError as e:
             if e.async(space):
                 raise
 
@@ -1056,7 +1047,7 @@ class __extend__(pyframe.PyFrame):
         w_module = self.peekvalue()
         try:
             w_obj = self.space.getattr(w_module, w_name)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(self.space, self.space.w_AttributeError):
                 raise
             raise oefmt(self.space.w_ImportError,
@@ -1115,7 +1106,7 @@ class __extend__(pyframe.PyFrame):
         w_iterator = self.peekvalue()
         try:
             w_nextitem = self.space.next(w_iterator)
-        except OperationError, e:
+        except OperationError as e:
             if not e.match(self.space, self.space.w_StopIteration):
                 raise
             # iterator exhausted
@@ -1126,7 +1117,7 @@ class __extend__(pyframe.PyFrame):
         return next_instr
 
     def FOR_LOOP(self, oparg, next_instr):
-        raise BytecodeCorruption, "old opcode, no longer in use"
+        raise BytecodeCorruption("old opcode, no longer in use")
 
     def SETUP_LOOP(self, offsettoend, next_instr):
         block = LoopBlock(self, next_instr + offsettoend, self.lastblock)

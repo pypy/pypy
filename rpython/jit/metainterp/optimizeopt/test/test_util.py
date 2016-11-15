@@ -10,17 +10,18 @@ from rpython.jit.backend.llgraph import runner
 from rpython.jit.metainterp.history import (TreeLoop, AbstractDescr,
                                             JitCellToken, TargetToken)
 from rpython.jit.metainterp.optimizeopt.util import sort_descrs, equaloplists
-from rpython.jit.codewriter.effectinfo import EffectInfo
+from rpython.jit.codewriter.effectinfo import EffectInfo, compute_bitstrings
 from rpython.jit.metainterp.logger import LogOperations
-from rpython.jit.tool.oparser import OpParser, pure_parse
+from rpython.jit.tool.oparser import OpParser, pure_parse, convert_loop_to_trace
 from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
 from rpython.jit.metainterp import compile, resume, history
 from rpython.jit.metainterp.jitprof import EmptyProfiler
 from rpython.jit.metainterp.counter import DeterministicJitCounter
 from rpython.config.translationoption import get_combined_translation_config
 from rpython.jit.metainterp.resoperation import (rop, ResOperation,
-        InputArgRef, AbstractValue)
+        InputArgRef, AbstractValue, OpHelpers)
 from rpython.jit.metainterp.optimizeopt.util import args_dict
+from rpython.rlib.rjitlog import rjitlog as jl
 
 
 def test_sort_descrs():
@@ -101,6 +102,8 @@ class LLtypeMixin(object):
     node_vtable_adr2 = llmemory.cast_ptr_to_adr(node_vtable2)
     node_vtable3 = lltype.malloc(OBJECT_VTABLE, immortal=True)
     node_vtable3.name = rclass.alloc_array_name('node3')
+    node_vtable3.subclassrange_min = 3
+    node_vtable3.subclassrange_max = 3
     node_vtable_adr3 = llmemory.cast_ptr_to_adr(node_vtable3)
     cpu = runner.LLGraphCPU(None)
 
@@ -421,7 +424,42 @@ class LLtypeMixin(object):
     jvr_vtable_adr = llmemory.cast_ptr_to_adr(jit_virtual_ref_vtable)
     vref_descr = cpu.sizeof(vrefinfo.JIT_VIRTUAL_REF, jit_virtual_ref_vtable)
 
+    FUNC = lltype.FuncType([lltype.Signed, lltype.Signed], lltype.Signed)
+    ei = EffectInfo([], [], [], [], [], [], EffectInfo.EF_ELIDABLE_CANNOT_RAISE,
+                    can_invalidate=False,
+                    oopspecindex=EffectInfo.OS_INT_PY_DIV)
+    int_py_div_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, ei)
+    ei = EffectInfo([], [], [], [], [], [], EffectInfo.EF_ELIDABLE_CANNOT_RAISE,
+                    can_invalidate=False,
+                    oopspecindex=EffectInfo.OS_INT_UDIV)
+    int_udiv_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, ei)
+    ei = EffectInfo([], [], [], [], [], [], EffectInfo.EF_ELIDABLE_CANNOT_RAISE,
+                    can_invalidate=False,
+                    oopspecindex=EffectInfo.OS_INT_PY_MOD)
+    int_py_mod_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, ei)
+
     namespace = locals()
+
+
+class FakeCallInfoCollection:
+    def callinfo_for_oopspec(self, oopspecindex):
+        calldescrtype = type(LLtypeMixin.strequaldescr)
+        effectinfotype = type(LLtypeMixin.strequaldescr.get_extra_info())
+        for value in LLtypeMixin.__dict__.values():
+            if isinstance(value, calldescrtype):
+                extra = value.get_extra_info()
+                if (extra and isinstance(extra, effectinfotype) and
+                    extra.oopspecindex == oopspecindex):
+                    # returns 0 for 'func' in this test
+                    return value, 0
+        raise AssertionError("not found: oopspecindex=%d" %
+                             oopspecindex)
+
+    calldescr_udiv = LLtypeMixin.int_udiv_descr
+    #calldescr_umod = LLtypeMixin.int_umod_descr
+
+LLtypeMixin.callinfocollection = FakeCallInfoCollection()
+
 
 # ____________________________________________________________
 
@@ -441,6 +479,7 @@ class FakeJitDriverStaticData(object):
     vec = False
 
 class FakeMetaInterpStaticData(object):
+    all_descrs = []
 
     def __init__(self, cpu):
         self.cpu = cpu
@@ -448,10 +487,15 @@ class FakeMetaInterpStaticData(object):
         self.options = Fake()
         self.globaldata = Fake()
         self.config = get_combined_translation_config(translating=True)
+        self.jitlog = jl.JitLogger()
 
     class logger_noopt:
         @classmethod
         def log_loop(*args, **kwds):
+            pass
+
+        @classmethod
+        def log_loop_from_trace(*args, **kwds):
             pass
 
     class logger_ops:
@@ -501,23 +545,14 @@ class BaseTest(object):
                                None, False, postprocess)
         return self.oparse.parse()
 
-    def postprocess(self, op):
-        class FakeJitCode(object):
-            index = 0
-
-        if op.is_guard():
-            op.rd_snapshot = resume.TopSnapshot(
-                resume.Snapshot(None, op.getfailargs()), [], [])
-            op.rd_frame_info_list = resume.FrameInfo(None, FakeJitCode(), 11)
-
     def add_guard_future_condition(self, res):
         # invent a GUARD_FUTURE_CONDITION to not have to change all tests
         if res.operations[-1].getopnum() == rop.JUMP:
-            guard = ResOperation(rop.GUARD_FUTURE_CONDITION, [], None)
-            guard.rd_snapshot = resume.TopSnapshot(None, [], [])
+            guard = ResOperation(rop.GUARD_FUTURE_CONDITION, [])
             res.operations.insert(-1, guard)
 
-    def assert_equal(self, optimized, expected, text_right=None):
+    @staticmethod
+    def assert_equal(optimized, expected, text_right=None):
         from rpython.jit.metainterp.optimizeopt.util import equaloplists
         assert len(optimized.inputargs) == len(expected.inputargs)
         remap = {}
@@ -537,6 +572,7 @@ class BaseTest(object):
             metainterp_sd.callinfocollection = self.callinfocollection
         if hasattr(self, 'stm'):
             metainterp_sd.config.translation.stm = self.stm
+        compute_bitstrings(self.cpu.fetch_all_descrs())
         #
         compile_data.enable_opts = self.enable_opts
         state = optimize_trace(metainterp_sd, None, compile_data)
@@ -552,23 +588,43 @@ class BaseTest(object):
             call_pure_results[list(k)] = v
         return call_pure_results
 
-    def unroll_and_optimize(self, loop, call_pure_results=None):
+    def convert_values(self, inpargs, values):
+        from rpython.jit.metainterp.history import IntFrontendOp, RefFrontendOp
+        if values:
+            r = []
+            for arg, v in zip(inpargs, values):
+                if arg.type == 'i':
+                    n = IntFrontendOp(0)
+                    if v is not None:
+                        n.setint(v)
+                else:
+                    n = RefFrontendOp(0)
+                    if v is not None:
+                        n.setref_base(v)
+                    assert arg.type == 'r'
+                r.append(n)
+            return r
+        return inpargs
+
+    def unroll_and_optimize(self, loop, call_pure_results=None,
+                            jump_values=None):
         self.add_guard_future_condition(loop)
         jump_op = loop.operations[-1]
         assert jump_op.getopnum() == rop.JUMP
-        ops = loop.operations[:-1]
-        jump_op.setdescr(JitCellToken())
-        start_label = ResOperation(rop.LABEL, loop.inputargs,
-                                   jump_op.getdescr())
-        end_label = jump_op.copy_and_change(opnum=rop.LABEL)
+        celltoken = JitCellToken()
+        runtime_boxes = self.pack_into_boxes(jump_op, jump_values)
+        jump_op.setdescr(celltoken)
+        #start_label = ResOperation(rop.LABEL, loop.inputargs,
+        #                           descr=jump_op.getdescr())
+        #end_label = jump_op.copy_and_change(opnum=rop.LABEL)
         call_pure_results = self._convert_call_pure_results(call_pure_results)
-        preamble_data = compile.LoopCompileData(start_label, end_label, ops,
+        t = convert_loop_to_trace(loop, FakeMetaInterpStaticData(self.cpu))
+        preamble_data = compile.LoopCompileData(t, runtime_boxes,
                                                 call_pure_results)
         start_state, preamble_ops = self._do_optimize_loop(preamble_data)
         preamble_data.forget_optimization_info()
-        loop_data = compile.UnrolledLoopData(start_label, jump_op,
-                                             ops, start_state,
-                                             call_pure_results)
+        loop_data = compile.UnrolledLoopData(preamble_data.trace,
+            celltoken, start_state, call_pure_results)
         loop_info, ops = self._do_optimize_loop(loop_data)
         preamble = TreeLoop('preamble')
         preamble.inputargs = start_state.renamed_inputargs
@@ -580,13 +636,16 @@ class BaseTest(object):
         return Info(preamble, loop_info.target_token.short_preamble,
                     start_state.virtual_state)
 
-    def set_values(self, ops, jump_values=None):
-        jump_op = ops[-1]
+    def pack_into_boxes(self, jump_op, jump_values):
         assert jump_op.getopnum() == rop.JUMP
+        r = []
         if jump_values is not None:
+            assert len(jump_values) == len(jump_op.getarglist())
             for i, v in enumerate(jump_values):
                 if v is not None:
-                    jump_op.getarg(i).setref_base(v)
+                    r.append(InputArgRef(v))
+                else:
+                    r.append(None)
         else:
             for i, box in enumerate(jump_op.getarglist()):
                 if box.type == 'r' and not box.is_constant():
@@ -594,9 +653,10 @@ class BaseTest(object):
                     # object here.  If you need something different, you
                     # need to pass a 'jump_values' argument to e.g.
                     # optimize_loop()
-                    box.setref_base(self.nodefulladdr)
-
-
+                    r.append(InputArgRef(self.nodefulladdr))
+                else:
+                    r.append(None)
+        return r
 
 class FakeDescr(compile.ResumeGuardDescr):
     def clone_if_mutable(self):

@@ -18,6 +18,7 @@ class LLInterpedTranformerTests:
         t = rtype(f, [s_list_of_strings])
         # XXX we shouldn't need an actual gcpolicy here.
         cbuild = CStandaloneBuilder(t, f, t.config, gcpolicy=self.gcpolicy)
+        cbuild.make_entrypoint_wrapper = False
         cbuild.build_database()
         graph = cbuild.getentrypointptr()._obj.graph
         llinterp = LLInterpreter(t.rtyper)

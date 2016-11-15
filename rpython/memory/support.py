@@ -3,6 +3,9 @@ from rpython.rlib.objectmodel import free_non_gc_object, we_are_translated
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.debug import ll_assert
 from rpython.tool.identity_dict import identity_dict
+from rpython.rtyper.rclass import NONGCOBJECTPTR
+from rpython.rtyper.annlowlevel import cast_nongc_instance_to_base_ptr
+from rpython.rtyper.annlowlevel import cast_base_ptr_to_nongc_instance
 
 
 def mangle_hash(i):
@@ -308,6 +311,9 @@ def get_address_deque(chunk_size=DEFAULT_CHUNK_SIZE, multithread=False,
                 unused_chunks.put(cur)
                 cur = next
             free_non_gc_object(self)
+
+        def _was_freed(self):
+            return False    # otherwise, the __class__ changes
 
     cache[chunk_size, multithread] = AddressDeque
     return AddressDeque

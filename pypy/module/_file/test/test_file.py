@@ -1,5 +1,6 @@
 from __future__ import with_statement
-import py, os, errno
+import pytest, os, errno
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 
 def getfile(space):
     return space.appexec([], """():
@@ -10,13 +11,24 @@ def getfile(space):
             return file
     """)
 
+# the following function is used e.g. in test_resource_warning
+@unwrap_spec(regex=str, s=str)
+def regex_search(space, regex, s):
+    import re
+    import textwrap
+    regex = textwrap.dedent(regex).strip()
+    m = re.search(regex, s)
+    m = bool(m)
+    return space.wrap(m)
+
 class AppTestFile(object):
     spaceconfig = dict(usemodules=("_file",))
 
     def setup_class(cls):
         cls.w_temppath = cls.space.wrap(
-            str(py.test.ensuretemp("fileimpl").join("foo.txt")))
+            str(pytest.ensuretemp("fileimpl").join("foo.txt")))
         cls.w_file = getfile(cls.space)
+        cls.w_regex_search = cls.space.wrap(interp2app(regex_search))
 
     def test_simple(self):
         f = self.file(self.temppath, "w")
@@ -151,7 +163,7 @@ class AppTestFile(object):
     def test_oserror_has_filename(self):
         try:
             f = self.file("file that is clearly not there")
-        except IOError, e:
+        except IOError as e:
             assert e.filename == 'file that is clearly not there'
         else:
             raise Exception("did not raise")
@@ -206,6 +218,9 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
         assert exc.value.filename == os.curdir
 
     def test_encoding_errors(self):
+        import sys
+        if '__pypy__' not in sys.builtin_module_names:
+            pytest.skip("pypy only test")
         import _file
 
         with self.file(self.temppath, "w") as f:
@@ -254,6 +269,71 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
         if '__pypy__' in sys.builtin_module_names:
             assert repr(self.temppath) in g.getvalue()
 
+    @pytest.mark.skipif("config.option.runappdirect")
+    def test_track_resources(self):
+        import os, gc, sys, cStringIO
+        if '__pypy__' not in sys.builtin_module_names:
+            skip("pypy specific test")
+        def fn(flag1, flag2, do_close=False):
+            sys.pypy_set_track_resources(flag1)
+            f = self.file(self.temppath, 'w')
+            sys.pypy_set_track_resources(flag2)
+            buf = cStringIO.StringIO()
+            preverr = sys.stderr
+            try:
+                sys.stderr = buf
+                if do_close:
+                    f.close()
+                del f
+                gc.collect() # force __del__ to be called
+            finally:
+                sys.stderr = preverr
+                sys.pypy_set_track_resources(False)
+            return buf.getvalue()
+
+        # check with track_resources disabled
+        assert fn(False, False) == ""
+        #
+        # check that we don't get the warning if we actually close the file
+        assert fn(False, False, do_close=True) == ""
+        #
+        # check with track_resources enabled
+        msg = fn(True, True)
+        assert self.regex_search(r"""
+        WARNING: unclosed file: <open file .*>
+        Created at \(most recent call last\):
+          File ".*", line .*, in test_track_resources
+          File ".*", line .*, in fn
+        """, msg)
+        #
+        # check with track_resources enabled in the destructor BUT with a
+        # file which was created when track_resources was disabled
+        msg = fn(False, True)
+        assert self.regex_search("WARNING: unclosed file: <open file .*>", msg)
+        assert "Created at" not in msg
+
+    @pytest.mark.skipif("config.option.runappdirect")
+    def test_track_resources_dont_crash(self):
+        import os, gc, sys, cStringIO
+        if '__pypy__' not in sys.builtin_module_names:
+            skip("pypy specific test")
+        #
+        # try hard to create a code object whose co_filename points to an
+        # EXISTING file, so that traceback.py tries to open it when formatting
+        # the stacktrace
+        f = open(self.temppath, 'w')
+        f.close()
+        co = compile('open(r"%s")' % self.temppath, self.temppath, 'exec')
+        sys.pypy_set_track_resources(True)
+        try:
+            # this exec used to fail, because space.format_traceback tried to
+            # recurively open a file, causing an infinite recursion. For the
+            # purpose of this test, it is enough that it actually finishes
+            # without errors
+            exec co
+        finally:
+            sys.pypy_set_track_resources(False)
+
     def test_truncate(self):
         f = self.file(self.temppath, "w")
         f.write("foo")
@@ -285,6 +365,8 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
             from posix import openpty, fdopen, write, close
         except ImportError:
             skip('no openpty on this platform')
+        if 'gnukfreebsd' in sys.platform:
+            skip('close() hangs forever on kFreeBSD')
         read_fd, write_fd = openpty()
         write(write_fd, 'Abc\n')
         close(write_fd)
@@ -311,7 +393,7 @@ class AppTestNonblocking(object):
         cls.old_read = os.read
 
         if cls.runappdirect:
-            py.test.skip("works with internals of _file impl on py.py")
+            pytest.skip("works with internals of _file impl on py.py")
         def read(fd, n=None):
             if fd != 424242:
                 return cls.old_read(fd, n)
@@ -350,9 +432,9 @@ class AppTestConcurrency(object):
 
     def setup_class(cls):
         if not cls.runappdirect:
-            py.test.skip("likely to deadlock when interpreted by py.py")
+            pytest.skip("likely to deadlock when interpreted by py.py")
         cls.w_temppath = cls.space.wrap(
-            str(py.test.ensuretemp("fileimpl").join("concurrency.txt")))
+            str(pytest.ensuretemp("fileimpl").join("concurrency.txt")))
         cls.w_file = getfile(cls.space)
 
     def test_concurrent_writes(self):
@@ -463,7 +545,7 @@ class AppTestFile25:
 
     def setup_class(cls):
         cls.w_temppath = cls.space.wrap(
-            str(py.test.ensuretemp("fileimpl").join("foo.txt")))
+            str(pytest.ensuretemp("fileimpl").join("foo.txt")))
         cls.w_file = getfile(cls.space)
 
     def test___enter__(self):

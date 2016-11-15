@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
+from pypy.interpreter.error import oefmt, wrap_oserror
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.pycode import CodeHookCache
 from pypy.interpreter.pyframe import PyFrame
@@ -37,22 +37,25 @@ def reset_method_cache_counter(space):
     cache = space.fromcache(MethodCache)
     cache.misses = {}
     cache.hits = {}
-    if space.config.objspace.std.withmapdict:
-        cache = space.fromcache(MapAttrCache)
-        cache.misses = {}
-        cache.hits = {}
+    cache = space.fromcache(MapAttrCache)
+    cache.misses = {}
+    cache.hits = {}
 
 @unwrap_spec(name=str)
 def mapdict_cache_counter(space, name):
     """Return a tuple (index_cache_hits, index_cache_misses) for lookups
     in the mapdict cache with the given attribute name."""
     assert space.config.objspace.std.withmethodcachecounter
-    assert space.config.objspace.std.withmapdict
     cache = space.fromcache(MapAttrCache)
     return space.newtuple([space.newint(cache.hits.get(name, 0)),
                            space.newint(cache.misses.get(name, 0))])
 
 def builtinify(space, w_func):
+    """To implement at app-level modules that are, in CPython,
+    implemented in C: this decorator protects a function from being ever
+    bound like a method.  Useful because some tests do things like put
+    a "built-in" function on a class and access it via the instance.
+    """
     from pypy.interpreter.function import Function, BuiltinFunction
     func = space.interp_w(Function, w_func)
     bltn = BuiltinFunction(func)
@@ -76,14 +79,16 @@ def get_hidden_tb(space):
 def lookup_special(space, w_obj, meth):
     """Lookup up a special method on an object."""
     if space.is_oldstyle_instance(w_obj):
-        w_msg = space.wrap("this doesn't do what you want on old-style classes")
-        raise OperationError(space.w_TypeError, w_msg)
+        raise oefmt(space.w_TypeError,
+                    "this doesn't do what you want on old-style classes")
     w_descr = space.lookup(w_obj, meth)
     if w_descr is None:
         return space.w_None
     return space.get(w_descr, w_obj)
 
-def do_what_I_mean(space):
+def do_what_I_mean(space, w_crash=None):
+    if not space.is_none(w_crash):
+        raise ValueError    # RPython-level, uncaught
     return space.wrap(42)
 
 
@@ -99,8 +104,7 @@ def strategy(space, w_obj):
     elif isinstance(w_obj, W_BaseSetObject):
         name = w_obj.strategy.__class__.__name__
     else:
-        raise OperationError(space.w_TypeError,
-                             space.wrap("expecting dict or list or set object"))
+        raise oefmt(space.w_TypeError, "expecting dict or list or set object")
     return space.wrap(name)
 
 
@@ -108,7 +112,7 @@ def strategy(space, w_obj):
 def validate_fd(space, fd):
     try:
         rposix.validate_fd(fd)
-    except OSError, e:
+    except OSError as e:
         raise wrap_oserror(space, e)
 
 def get_console_cp(space):
@@ -121,8 +125,7 @@ def get_console_cp(space):
 @unwrap_spec(sizehint=int)
 def resizelist_hint(space, w_iterable, sizehint):
     if not isinstance(w_iterable, W_ListObject):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("arg 1 must be a 'list'"))
+        raise oefmt(space.w_TypeError, "arg 1 must be a 'list'")
     w_iterable._resize_hint(sizehint)
 
 @unwrap_spec(sizehint=int)
@@ -168,3 +171,22 @@ def decode_long(space, string, byteorder='little', signed=1):
     except InvalidEndiannessError:
         raise oefmt(space.w_ValueError, "invalid byteorder argument")
     return space.newlong_from_rbigint(result)
+
+def _promote(space, w_obj):
+    """ Promote the first argument of the function and return it. Promote is by
+    value for ints, floats, strs, unicodes (but not subclasses thereof) and by
+    reference otherwise.  (Unicodes not supported right now.)
+
+    This function is experimental!"""
+    from rpython.rlib import jit
+    if space.is_w(space.type(w_obj), space.w_int):
+        jit.promote(space.int_w(w_obj))
+    elif space.is_w(space.type(w_obj), space.w_float):
+        jit.promote(space.float_w(w_obj))
+    elif space.is_w(space.type(w_obj), space.w_str):
+        jit.promote_string(space.str_w(w_obj))
+    elif space.is_w(space.type(w_obj), space.w_unicode):
+        raise oefmt(space.w_TypeError, "promoting unicode unsupported")
+    else:
+        jit.promote(w_obj)
+    return w_obj

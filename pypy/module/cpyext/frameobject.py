@@ -46,8 +46,8 @@ def frame_dealloc(space, py_obj):
     Py_DecRef(space, py_code)
     Py_DecRef(space, py_frame.c_f_globals)
     Py_DecRef(space, py_frame.c_f_locals)
-    from pypy.module.cpyext.object import PyObject_dealloc
-    PyObject_dealloc(space, py_obj)
+    from pypy.module.cpyext.object import _dealloc
+    _dealloc(space, py_obj)
 
 def frame_realize(space, py_obj):
     """
@@ -67,7 +67,8 @@ def frame_realize(space, py_obj):
     track_reference(space, py_obj, w_obj)
     return w_obj
 
-@cpython_api([PyThreadState, PyCodeObject, PyObject, PyObject], PyFrameObject)
+@cpython_api([PyThreadState, PyCodeObject, PyObject, PyObject], PyFrameObject,
+             result_is_ll=True)
 def PyFrame_New(space, tstate, w_code, w_globals, w_locals):
     typedescr = get_typedescr(PyFrame.typedef)
     py_obj = typedescr.allocate(space, space.gettypeobject(PyFrame.typedef))

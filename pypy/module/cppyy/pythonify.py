@@ -175,7 +175,7 @@ def make_pycppclass(scope, class_name, final_class_name, cppclass):
          "__new__"      : make_new(class_name),
          }
     pycppclass = metacpp(class_name, _drop_cycles(bases), d)
- 
+
     # cache result early so that the class methods can find the class itself
     setattr(scope, final_class_name, pycppclass)
 
@@ -192,13 +192,10 @@ def make_pycppclass(scope, class_name, final_class_name, cppclass):
     for dm_name in cppclass.get_datamember_names():
         cppdm = cppclass.get_datamember(dm_name)
 
-        # here, setattr() can not be used, because a data member can shadow one in
-        # its base class, resulting in the __set__() of its base class being called
-        # by setattr(); so, store directly on the dictionary
-        pycppclass.__dict__[dm_name] = cppdm
+        setattr(pycppclass, dm_name, cppdm)
         import cppyy
         if cppyy._is_static(cppdm):     # TODO: make this a method of cppdm
-            metacpp.__dict__[dm_name] = cppdm
+            setattr(metacpp, dm_name, cppdm)
 
     # the call to register will add back-end specific pythonizations and thus
     # needs to run first, so that the generic pythonizations can use them
@@ -413,7 +410,7 @@ def load_reflection_info(name):
         lib = cppyy._load_dictionary(name)
         _loaded_dictionaries[name] = lib
         return lib
-    
+
 def _init_pythonify():
     # cppyy should not be loaded at the module level, as that will trigger a
     # call to space.getbuiltinmodule(), which will cause cppyy to be loaded

@@ -1,8 +1,7 @@
 import py
 
 class AppTest(object):
-    spaceconfig = {"objspace.usemodules.select": False,
-                   "objspace.std.withrangelist": True}
+    spaceconfig = {"objspace.usemodules.select": False}
 
     def setup_class(cls):
         if cls.runappdirect:
@@ -61,6 +60,7 @@ class AppTest(object):
         import __pypy__
         import sys
 
+        result = [False]
         @__pypy__.hidden_applevel
         def test_hidden_with_tb():
             def not_hidden(): 1/0
@@ -69,9 +69,11 @@ class AppTest(object):
                 assert sys.exc_info() == (None, None, None)
                 tb = __pypy__.get_hidden_tb()
                 assert tb.tb_frame.f_code.co_name == 'not_hidden'
-                return True
+                result[0] = True
+                raise
             else: return False
-        assert test_hidden_with_tb()
+        raises(ZeroDivisionError, test_hidden_with_tb)
+        assert result[0]
 
     def test_lookup_special(self):
         from __pypy__ import lookup_special
@@ -90,6 +92,7 @@ class AppTest(object):
         from __pypy__ import do_what_I_mean
         x = do_what_I_mean()
         assert x == 42
+        raises(SystemError, do_what_I_mean, 1)
 
     def test_list_strategy(self):
         from __pypy__ import strategy

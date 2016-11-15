@@ -13,9 +13,9 @@ class ProcessorAutodetectError(Exception):
 MODEL_X86         = 'x86'
 MODEL_X86_NO_SSE2 = 'x86-without-sse2'
 MODEL_X86_64      = 'x86-64'
-MODEL_X86_64_SSE4 = 'x86-64-sse4'
 MODEL_ARM         = 'arm'
 MODEL_PPC_64      = 'ppc-64'
+MODEL_S390_64     = 's390x'
 # don't use '_' in the model strings; they are replaced by '-'
 
 
@@ -27,13 +27,14 @@ def detect_model_from_c_compiler():
         MODEL_ARM:    ['__arm__', '__thumb__','_M_ARM_EP'],
         MODEL_X86:    ['i386', '__i386', '__i386__', '__i686__','_M_IX86'],
         MODEL_PPC_64: ['__powerpc64__'],
+        MODEL_S390_64:['__s390x__'],
     }
     for k, v in mapping.iteritems():
         for macro in v:
             if not getdefined(macro, ''):
                 continue
             return k
-    raise ProcessorAutodetectError, "Cannot detect processor using compiler macros"
+    raise ProcessorAutodetectError("Cannot detect processor using compiler macros")
 
 
 def detect_model_from_host_platform():
@@ -50,7 +51,7 @@ def detect_model_from_host_platform():
         # assume we have 'uname'
         mach = os.popen('uname -m', 'r').read().strip()
         if not mach:
-            raise ProcessorAutodetectError, "cannot run 'uname -m'"
+            raise ProcessorAutodetectError("cannot run 'uname -m'")
     #
     result ={'i386': MODEL_X86,
             'i486': MODEL_X86,
@@ -59,26 +60,26 @@ def detect_model_from_host_platform():
             'i86pc': MODEL_X86,    # Solaris/Intel
             'x86': MODEL_X86,      # Apple
             'Power Macintosh': MODEL_PPC_64,
+            'powerpc': MODEL_PPC_64, # freebsd
             'ppc64': MODEL_PPC_64,
             'ppc64le': MODEL_PPC_64,
             'x86_64': MODEL_X86,
             'amd64': MODEL_X86,    # freebsd
             'AMD64': MODEL_X86,    # win64
+            'armv8l': MODEL_ARM,   # 32-bit ARMv8
             'armv7l': MODEL_ARM,
             'armv6l': MODEL_ARM,
             'arm': MODEL_ARM,      # freebsd
+            's390x': MODEL_S390_64
             }.get(mach)
 
     if result is None:
-        raise ProcessorAutodetectError, "unknown machine name %s" % mach
+        raise ProcessorAutodetectError("unknown machine name %s" % mach)
     #
     if result.startswith('x86'):
         from rpython.jit.backend.x86 import detect_feature as feature
         if sys.maxint == 2**63-1:
             result = MODEL_X86_64
-            # has sse 2 at least
-            if feature.detect_sse4_1():
-                result = MODEL_X86_64_SSE4
         else:
             assert sys.maxint == 2**31-1
             if feature.detect_sse2():
@@ -88,7 +89,6 @@ def detect_model_from_host_platform():
             if feature.detect_x32_mode():
                 raise ProcessorAutodetectError(
                     'JITting in x32 mode is not implemented')
-
     #
     if result.startswith('arm'):
         from rpython.jit.backend.arm.detect import detect_float
@@ -116,14 +116,14 @@ def getcpuclassname(backend_name="auto"):
         return "rpython.jit.backend.x86.runner", "CPU386_NO_SSE2"
     elif backend_name == MODEL_X86_64:
         return "rpython.jit.backend.x86.runner", "CPU_X86_64"
-    elif backend_name == MODEL_X86_64_SSE4:
-        return "rpython.jit.backend.x86.runner", "CPU_X86_64_SSE4"
     elif backend_name == MODEL_ARM:
         return "rpython.jit.backend.arm.runner", "CPU_ARM"
     elif backend_name == MODEL_PPC_64:
         return "rpython.jit.backend.ppc.runner", "PPC_CPU"
+    elif backend_name == MODEL_S390_64:
+        return "rpython.jit.backend.zarch.runner", "CPU_S390_64"
     else:
-        raise ProcessorAutodetectError, (
+        raise ProcessorAutodetectError(
             "we have no JIT backend for this cpu: '%s'" % backend_name)
 
 def getcpuclass(backend_name="auto"):
@@ -139,9 +139,9 @@ def getcpufeatures(backend_name="auto"):
         MODEL_X86: ['floats', 'singlefloats', 'longlong'],
         MODEL_X86_NO_SSE2: ['longlong'],
         MODEL_X86_64: ['floats', 'singlefloats'],
-        MODEL_X86_64_SSE4: ['floats', 'singlefloats'],
         MODEL_ARM: ['floats', 'singlefloats', 'longlong'],
-        MODEL_PPC_64: [], # we don't even have PPC directory, so no
+        MODEL_PPC_64: ['floats'],
+        MODEL_S390_64: ['floats'],
     }[backend_name]
 
 if __name__ == '__main__':

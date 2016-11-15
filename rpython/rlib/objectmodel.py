@@ -211,6 +211,25 @@ def always_inline(func):
     func._always_inline_ = True
     return func
 
+def dont_inline(func):
+    """ mark the function as never-to-be-inlined by the RPython optimizations
+    (not the JIT!), no matter its size."""
+    func._dont_inline_ = True
+    return func
+
+def try_inline(func):
+    """ tell the RPython inline (not the JIT!), to try to inline this function,
+    no matter its size."""
+    func._always_inline_ = 'try'
+    return func
+
+def not_rpython(func):
+    """ mark a function as not rpython. the translation process will raise an
+    error if it encounters the function. """
+    # test is in annotator/test/test_annrpython.py
+    func._not_rpython_ = True
+    return func
+
 
 # ____________________________________________________________
 
@@ -280,6 +299,10 @@ class CDefinedIntSymbolic(Symbolic):
         return lltype.Signed
 
 malloc_zero_filled = CDefinedIntSymbolic('MALLOC_ZERO_FILLED', default=0)
+_translated_to_c = CDefinedIntSymbolic('1 /*_translated_to_c*/', default=0)
+
+def we_are_translated_to_c():
+    return we_are_translated() and _translated_to_c
 
 # ____________________________________________________________
 
@@ -494,6 +517,8 @@ def current_object_addr_as_int(x):
 
 # ----------
 
+HASH_ALGORITHM = "rpython"  # XXX Is there a better name?
+
 def _hash_string(s):
     """The algorithm behind compute_hash() for a string or a unicode."""
     from rpython.rlib.rarithmetic import intmask
@@ -532,8 +557,9 @@ def _hash_float(f):
     return intmask(x)
 TAKE_NEXT = float(2**31)
 
+@not_rpython
 def _hash_tuple(t):
-    """NOT_RPYTHON.  The algorithm behind compute_hash() for a tuple.
+    """The algorithm behind compute_hash() for a tuple.
     It is modelled after the old algorithm of Python 2.3, which is
     a bit faster than the one introduced by Python 2.4.  We assume
     that nested tuples are very uncommon in RPython, making the bad

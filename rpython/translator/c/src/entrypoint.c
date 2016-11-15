@@ -27,7 +27,7 @@ int pypy_main_function(int argc, char *argv[]) __attribute__((__noinline__));
 #  include "forwarddecl.h"
 # endif
 
-#if defined(MS_WINDOWS) && defined(RPY_SANDBOXED)
+#if defined(MS_WINDOWS)
 #  include <stdio.h>
 #  include <fcntl.h>
 #  include <io.h>
@@ -37,6 +37,7 @@ int pypy_main_function(int argc, char *argv[]) __attribute__((__noinline__));
 # include <src/thread.h>
 #endif
 
+RPY_EXPORTED
 void rpython_startup_code(void)
 {
 #ifdef RPY_WITH_GIL
@@ -62,9 +63,10 @@ int pypy_main_function(int argc, char *argv[])
     char *errmsg;
     int i, exitcode;
 
-#if defined(MS_WINDOWS) && defined(RPY_SANDBOXED)
+#if defined(MS_WINDOWS)
     _setmode(0, _O_BINARY);
     _setmode(1, _O_BINARY);
+    _setmode(2, _O_BINARY);
 #endif
 
 #ifdef RPY_WITH_GIL

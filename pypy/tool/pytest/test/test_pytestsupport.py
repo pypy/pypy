@@ -37,7 +37,7 @@ def test_myexception(space):
                   build_pytest_assertion(space))
     try:
         f.call_args(Arguments(None, []))
-    except OperationError, e:
+    except OperationError as e:
         assert e.match(space, space.w_AssertionError)
         assert space.unwrap(space.str(e.get_w_value(space))) == 'assert 42 == 43'
     else:
@@ -49,25 +49,25 @@ def app_test_exception():
     except AssertionError:
         pass
     else:
-        raise AssertionError, "app level AssertionError mixup!"
+        raise AssertionError("app level AssertionError mixup!")
 
 def app_test_exception_with_message():
     try:
         assert 0, "Failed"
-    except AssertionError, e:
+    except AssertionError as e:
         assert e.msg == "Failed"
 
 def app_test_comparison():
     try:
         assert 3 > 4
-    except AssertionError, e:
+    except AssertionError as e:
         assert "3 > 4" in e.msg
 
 
 def test_appexecinfo(space):
     try:
         space.appexec([], "(): raise ValueError")
-    except OperationError, e:
+    except OperationError as e:
         appex = AppExceptionInfo(space, e)
     else:
         py.test.fail("did not raise!")

@@ -12,7 +12,9 @@ if sys.version_info < (2, 7):
 def create_venv(name):
     tmpdir = udir.join(name)
     try:
-        subprocess.check_call(['virtualenv', '--distribute',
+        subprocess.check_call(['virtualenv', 
+            #'--never-download', <= could be added, but causes failures
+            # in random cases on random machines
                                '-p', os.path.abspath(sys.executable),
                                str(tmpdir)])
     except OSError as e:
@@ -147,3 +149,28 @@ class TestZIntegration(object):
         p = snip_setuptools_verify2.C.getpwuid(0)
         assert snip_setuptools_verify2.ffi.string(p.pw_name) == b"root"
         ''')
+
+    def test_set_py_limited_api(self):
+        from cffi.setuptools_ext import _set_py_limited_api
+        try:
+            import setuptools
+        except ImportError as e:
+            py.test.skip(str(e))
+        orig_version = setuptools.__version__
+        try:
+            setuptools.__version__ = '26.0.0'
+            from setuptools import Extension
+
+            kwds = _set_py_limited_api(Extension, {})
+            assert kwds['py_limited_api'] == True
+
+            setuptools.__version__ = '25.0'
+            kwds = _set_py_limited_api(Extension, {})
+            assert not kwds
+
+            setuptools.__version__ = 'development'
+            kwds = _set_py_limited_api(Extension, {})
+            assert kwds['py_limited_api'] == True
+
+        finally:
+            setuptools.__version__ = orig_version
