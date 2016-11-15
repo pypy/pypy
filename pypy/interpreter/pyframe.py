@@ -962,7 +962,12 @@ class PyFrame(W_Root):
 
         # clear the locals, including the cell/free vars, and the stack
         for i in range(len(self.locals_cells_stack_w)):
-            self.locals_cells_stack_w[i] = None
+            w_oldvalue = self.locals_cells_stack_w[i]
+            if isinstance(w_oldvalue, Cell):
+                w_newvalue = Cell()
+            else:
+                w_newvalue = None
+            self.locals_cells_stack_w[i] = w_newvalue
         self.valuestackdepth = 0
 
     def _convert_unexpected_exception(self, e):
