@@ -326,7 +326,7 @@ class TestMisc(BaseTestPyPyC):
                     return -1
                 return a-b
             #
-            total = sys.maxint - 2147483647
+            total = sys.maxsize - 2147483647
             for i in range(100000):
                 total += f(i, 5)
             #
