@@ -2889,8 +2889,10 @@ else:
                 # will be full and the call will block
                 buf = bytearray(8192)
                 def fill_buffer():
+                    i = 0
                     while True:
                         s.send(buf)
+                        i += 1
                 self.assertRaises((ssl.SSLWantWriteError,
                                    ssl.SSLWantReadError), fill_buffer)
 

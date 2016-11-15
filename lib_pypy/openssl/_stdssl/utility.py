@@ -33,3 +33,6 @@ def _str_to_ffi_buffer(view, zeroterm=False):
         else:
             return ffi.from_buffer(view)
 
+def _str_from_buf(buf):
+    return ffi.string(buf).decode('utf-8')
+

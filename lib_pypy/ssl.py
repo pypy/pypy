@@ -1,9 +1,3 @@
-# This file exposes the Standard Library API for the ssl module
-
-#from openssl._stdssl import (_PROTOCOL_NAMES, _OPENSSL_API_VERSION)
-#from openssl._stdssl import _ssl
-#from openssl._stdssl import *
-
 # Wrapper module for _ssl, providing some additional facilities
 # implemented in Python.  Written by Bill Janssen.
 
@@ -151,6 +145,7 @@ from socket import socket, AF_INET, SOCK_STREAM, create_connection
 from socket import SOL_SOCKET, SO_TYPE
 import base64        # for DER-to-PEM translation
 import errno
+import warnings
 
 
 socket_error = OSError  # keep that public name in module namespace
@@ -411,12 +406,16 @@ class SSLContext(_SSLContext):
 
     def _load_windows_store_certs(self, storename, purpose):
         certs = bytearray()
-        for cert, encoding, trust in enum_certificates(storename):
-            # CA certs are never PKCS#7 encoded
-            if encoding == "x509_asn":
-                if trust is True or purpose.oid in trust:
-                    certs.extend(cert)
-        self.load_verify_locations(cadata=certs)
+        try:
+            for cert, encoding, trust in enum_certificates(storename):
+                # CA certs are never PKCS#7 encoded
+                if encoding == "x509_asn":
+                    if trust is True or purpose.oid in trust:
+                        certs.extend(cert)
+        except PermissionError:
+            warnings.warn("unable to enumerate Windows certificate store")
+        if certs:
+            self.load_verify_locations(cadata=certs)
         return certs
 
     def load_default_certs(self, purpose=Purpose.SERVER_AUTH):
@@ -566,7 +565,7 @@ class SSLObject:
         server hostame is set."""
         return self._sslobj.server_hostname
 
-    def read(self, len=0, buffer=None):
+    def read(self, len=1024, buffer=None):
         """Read up to 'len' bytes from the SSL object and return them.
 
         If 'buffer' is provided, read into this buffer and return the number of
@@ -575,7 +574,7 @@ class SSLObject:
         if buffer is not None:
             v = self._sslobj.read(len, buffer)
         else:
-            v = self._sslobj.read(len or 1024)
+            v = self._sslobj.read(len)
         return v
 
     def write(self, data):
@@ -781,7 +780,7 @@ class SSLSocket(socket):
             # EAGAIN.
             self.getpeername()
 
-    def read(self, len=0, buffer=None):
+    def read(self, len=1024, buffer=None):
         """Read up to LEN bytes and return them.
         Return zero-length string on EOF."""
 
