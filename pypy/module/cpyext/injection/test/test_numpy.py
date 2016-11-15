@@ -44,7 +44,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         for i in range(100):
             a[i] = i
         b = a * a
-        assert b[10] == 100.0 + 42.0
+        assert b[10] == 100.0 + 3.0 + 42.0
 
     def test_injected_op(self):
         np = self.import_module(name='numpy.core.multiarray',
@@ -54,3 +54,8 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
             a[i] = i
         b = a * a
         assert b[10] == 100.0
+        b = a * 2
+        assert b[5] == 10.0
+        b = 2 * a
+        assert b[5] == 10.0
+        

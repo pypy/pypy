@@ -66,6 +66,8 @@ def injected_getitem(space, w_self, index):
     data = rffi.cast(rffi.DOUBLEP, py_obj.data)
     return W_Float64Object(data[index])
 
+internal_arr1 = lltype.malloc(rffi.DOUBLEP.TO, 1, flavor='raw', immortal=True)
+internal_arr2 = lltype.malloc(rffi.DOUBLEP.TO, 1, flavor='raw', immortal=True)
 def injected_op(space, w_self, w_other, op):
     # translate array_op in multiarray.c from c to rpython
     if isinstance(w_self, W_ArrayObject):
@@ -73,16 +75,16 @@ def injected_op(space, w_self, w_other, op):
         data1 = rffi.cast(rffi.DOUBLEP, arr1.data)
         n1 = arr1.dimensions[0]
     else:
-        # XXX this should be a pointer to a float, not a list
-        data1 = [space.float_w(w_self),]
+        data1 = internal_arr1
+        data1[0] = space.float_w(w_self)
         n1 = 1
     if isinstance(w_other, W_ArrayObject):
         arr2 = rffi.cast(PyArrayObject, w_other.pyobj)
         data2 = rffi.cast(rffi.DOUBLEP, arr2.data)
         n2 = arr2.dimensions[0]
     else:
-        # XXX this should be a pointer to a float, not a list
-        data2 = [space.float_w(w_other),]
+        data2 = internal_arr2
+        data2[0] = space.float_w(w_other)
         n2 = 1
     if not (n1 == n2 or n1 == 1 or n2 == 1):
         raise oefmt(space.w_ValueError, 'dimension mismatch')
@@ -93,8 +95,8 @@ def injected_op(space, w_self, w_other, op):
     r = rffi.cast(rffi.DOUBLEP, ret.pyobj.data)
     i1 = 0; i2 = 0
     for j in range(m):
-        if i1 > n1: i1 = 0
-        if i2 > n2: i2 = 0
+        if i1 >= n1: i1 = 0
+        if i2 >= n2: i2 = 0
         if op == 'mul':
             r[j] = data1[i1] * data2[i2]
         elif op == 'add':
@@ -127,13 +129,17 @@ injected_methods = {
     '__add__': interp2app(injected_add),
     '__sub__': interp2app(injected_sub),
     '__div__': interp2app(injected_div),
+    '__rmul__': interp2app(injected_mul),
+    '__radd__': interp2app(injected_add),
+    '__rsub__': interp2app(injected_sub),
+    '__rdiv__': interp2app(injected_div),
 }
 
 def inject_operator(space, name, dict_w, pto):
     assert name == 'numpy.ndarray'
     org = space.fromcache(Original)
     org.w_original_getitem = dict_w['__getitem__']
-    org.w_original_getitem = dict_w['__mul__']
+    org.w_original_mul = dict_w['__mul__']
     for key, w_value in org.injected_methods_w:
         dict_w[key] = w_value
     return W_ArrayObject.typedef

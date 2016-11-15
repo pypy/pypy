@@ -295,6 +295,7 @@ array_op(PyObject* obj1, PyObject* obj2, enum kOP op)
         if (PyErr_Occurred())
             return NULL;
         v1 = &tmp1;
+        n1 = 1;
     }
     if (obj2->ob_type == &PyArray_Type)
     {
@@ -307,8 +308,9 @@ array_op(PyObject* obj1, PyObject* obj2, enum kOP op)
         if (PyErr_Occurred())
             return NULL;
         v2 = &tmp2;
+        n2 = 1;
     }
-    if (!(n1 == n2 || n1 == 1 || n2 == 1))
+    if ( !(n1 == n2 || n1 == 1 || n2 == 1))
     {
         PyErr_SetString(PyExc_ValueError, "dimension mismatch");
         return NULL;
@@ -326,19 +328,19 @@ array_op(PyObject* obj1, PyObject* obj2, enum kOP op)
         switch (op)
         {
             case MULT:
-                r[j] = v1[i1] * v2[i2];
+                r[j] = v1[i1] * v2[i2] + 3;
                 break;
             case ADD:
-                r[j] = v1[i1] + v2[i2];
+                r[j] = v1[i1] + v2[i2] + 3;
                 break;
             case SUB:
-                r[j] = v1[i1] - v2[i2];
+                r[j] = v1[i1] - v2[i2] + 3;
                 break;
             case DIV:
                 if (v2[i2] == 0)
                     r[j] = Py_NAN;
                 else
-                    r[j] = v1[i1] / v2[i2];
+                    r[j] = v1[i1] / v2[i2] + 3;
                 break;
         }
     } 
