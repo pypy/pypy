@@ -233,7 +233,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         else:
             def w_import_module(self, name, init=None, body='', filename=None,
                     include_dirs=None, PY_SSIZE_T_CLEAN=False):
-                from extbuild import get_sys_info_app
+                from pypy.tool.cpyext.extbuild import get_sys_info_app
                 sys_info = get_sys_info_app(self.udir)
                 return sys_info.import_module(
                     name, init=init, body=body, filename=filename,
@@ -243,7 +243,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
 
             def w_import_extension(self, modname, functions, prologue="",
                 include_dirs=None, more_init="", PY_SSIZE_T_CLEAN=False):
-                from extbuild import get_sys_info_app
+                from pypy.tool.cpyext.extbuild import get_sys_info_app
                 sys_info = get_sys_info_app(self.udir)
                 return sys_info.import_extension(
                     modname, functions, prologue=prologue,
@@ -253,14 +253,14 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
 
             def w_compile_module(self, name,
                     source_files=None, source_strings=None):
-                from extbuild import get_sys_info_app
+                from pypy.tool.cpyext.extbuild import get_sys_info_app
                 sys_info = get_sys_info_app(self.udir)
                 return sys_info.compile_extension_module(name,
                     source_files=source_files, source_strings=source_strings)
             cls.w_compile_module = w_compile_module
 
             def w_load_module(self, mod, name):
-                from extbuild import get_sys_info_app
+                from pypy.tool.cpyext.extbuild import get_sys_info_app
                 sys_info = get_sys_info_app(self.udir)
                 return sys_info.load_module(mod, name)
             cls.w_load_module = w_load_module

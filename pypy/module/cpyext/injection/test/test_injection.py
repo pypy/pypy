@@ -1,10 +1,13 @@
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.pyobject import _has_a_pyobj
 from pypy.interpreter.gateway import interp2app
+from pypy.conftest import option
 
 class AppTestTypeObject(AppTestCpythonExtensionBase):
 
     def setup_class(cls):
+        if option.runappdirect:
+            skip('untranslated only')
         def is_there_an_pyobj_version(space, w_obj):
             if _has_a_pyobj(space, w_obj):
                 return space.w_True
