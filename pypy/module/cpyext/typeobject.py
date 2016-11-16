@@ -503,9 +503,13 @@ def subtype_dealloc(space, obj):
     base = pto
     this_func_ptr = llhelper(subtype_dealloc.api_func.functype,
             subtype_dealloc.api_func.get_wrapper(space))
-    while base.c_tp_dealloc == this_func_ptr:
+    w_obj = from_ref(space, rffi.cast(PyObject, base))
+    # see comment in userslot.slot_tp_new, this call can also infinitely recurse if
+    # called with a c-extension type that inherits from a non-c-extension type
+    while base.c_tp_dealloc == this_func_ptr or w_obj.is_cpytype():
         base = base.c_tp_base
         assert base
+        w_obj = from_ref(space, rffi.cast(PyObject, base))
     dealloc = base.c_tp_dealloc
     # XXX call tp_del if necessary
     generic_cpy_call(space, dealloc, obj)
