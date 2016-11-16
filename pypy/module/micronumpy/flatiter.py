@@ -40,14 +40,14 @@ class W_FlatIterator(W_NDimArray):
         self.implementation = FakeArrayImplementation(self.base)
 
     def descr_base(self, space):
-        return space.wrap(self.base)
+        return self.base
 
     def descr_index(self, space):
-        return space.wrap(self.state.index)
+        return space.newint(self.state.index)
 
     def descr_coords(self, space):
         coords = self.iter.indices(self.state)
-        return space.newtuple([space.wrap(c) for c in coords])
+        return space.newtuple([space.newint(c) for c in coords])
 
     def descr_iter(self):
         return self

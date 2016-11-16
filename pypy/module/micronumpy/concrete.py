@@ -303,7 +303,7 @@ class BaseConcreteArray(object):
                 copy = True
             w_ret = new_view(space, orig_arr, chunks)
             if copy:
-                w_ret = w_ret.descr_copy(space, space.wrap(w_ret.get_order()))
+                w_ret = w_ret.descr_copy(space, space.newint(w_ret.get_order()))
             return w_ret
 
     def descr_setitem(self, space, orig_arr, w_index, w_value):

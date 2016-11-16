@@ -19,10 +19,10 @@ def syntax_warning(space, msg, fn, lineno, offset):
 
     If the user has set this warning to raise an error, a SyntaxError will be
     raised."""
-    w_msg = space.wrap(msg)
+    w_msg = space.newtext(msg)
     w_filename = space.wrap(fn)
-    w_lineno = space.wrap(lineno)
-    w_offset = space.wrap(offset)
+    w_lineno = space.newint(lineno)
+    w_offset = space.newint(offset)
     _emit_syntax_warning(space, w_msg, w_filename, w_lineno, w_offset)
 
 

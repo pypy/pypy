@@ -876,13 +876,13 @@ class W_UfuncGeneric(W_Ufunc):
         w_op_dtypes = space.w_None
         for tf in need_to_cast:
             if tf:
-                w_casting = space.wrap('safe')
-                w_op_dtypes = space.newtuple([space.wrap(d) for d in dtypes])
-                
+                w_casting = space.newtext('safe')
+                w_op_dtypes = space.newtuple([d for d in dtypes])
+
         w_flags = space.w_None # NOT 'external_loop', we do coalescing by core_num_dims
-        w_ro = space.newtuple([space.wrap('readonly'), space.wrap('copy')])
-        w_rw = space.newtuple([space.wrap('readwrite'), space.wrap('updateifcopy')])
-        
+        w_ro = space.newtuple([space.newtext('readonly'), space.newtext('copy')])
+        w_rw = space.newtuple([space.newtext('readwrite'), space.newtext('updateifcopy')])
+
         w_op_flags = space.newtuple([w_ro] * len(inargs) + [w_rw] * len(outargs))
         w_op_axes = space.w_None
 

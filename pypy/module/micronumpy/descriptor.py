@@ -281,7 +281,7 @@ class W_Dtype(W_Root):
                     substr = ["(", space.str_w(space.str(
                         subdtype.subdtype.descr_get_descr(space, style='descr_subdtype'))),
                         ', ',
-                        space.str_w(space.repr(space.newtuple([space.wrap(s) for s in subdtype.shape]))),
+                        space.str_w(space.repr(space.newtuple([space.newint(s) for s in subdtype.shape]))),
                         "),"]
                 else:
                     substr = ["'", subdtype.get_str(ignore=''), "',"]
@@ -366,12 +366,12 @@ class W_Dtype(W_Root):
         return space.newbool(self.is_native())
 
     def descr_get_base(self, space):
-        return space.wrap(self.base)
+        return self.base
 
     def descr_get_subdtype(self, space):
         if self.subdtype is None:
             return space.w_None
-        return space.newtuple([space.wrap(self.subdtype),
+        return space.newtuple([self.subdtype,
                                self.descr_get_shape(space)])
 
     def descr_get_shape(self, space):
@@ -594,7 +594,7 @@ class W_Dtype(W_Root):
 
     def runpack_str(self, space, s):
         if self.is_str_or_unicode():
-            return self.coerce(space, space.wrap(s))
+            return self.coerce(space, space.newbytes(s))
         return self.itemtype.runpack_str(space, s, self.is_native())
 
     def store(self, arr, i, offset, value):
@@ -943,8 +943,8 @@ def dtype_from_spec(space, w_spec, alignment):
             raise
         # handle only simple cases for testing
         if space.isinstance_w(w_spec, space.w_str):
-            spec = [s.strip() for s in space.str_w(w_spec).split(',')]
-            w_lst = space.newlist([space.wrap(s) for s in spec]) 
+            spec = [s.strip() for s in space.text_w(w_spec).split(',')]
+            w_lst = space.newlist([space.newtext(s) for s in spec]) 
     if not space.isinstance_w(w_lst, space.w_list) or space.len_w(w_lst) < 1:
         raise oefmt(space.w_RuntimeError,
                     "_commastring is not returning a list with len >= 1")
@@ -1066,9 +1066,9 @@ def make_new_dtype(space, w_subtype, w_dtype, alignment, copy=False, w_shape=Non
     if space.isinstance_w(w_dtype, w_subtype):
         return w_dtype
     if space.isinstance_w(w_dtype, space.w_unicode):
-        w_dtype = space.wrap(space.str_w(w_dtype))  # may raise if invalid
-    if space.isinstance_w(w_dtype, space.w_str):
-        name = space.str_w(w_dtype)
+        w_dtype = space.newbytes(space.text_w(w_dtype))  # may raise if invalid
+    if space.isinstance_w(w_dtype, space.w_bytes):
+        name = space.bytes_w(w_dtype)
         if _check_for_commastring(name):
             return _set_metadata_and_copy(space, w_metadata,
                                 dtype_from_spec(space, w_dtype, alignment))
@@ -1454,17 +1454,17 @@ class DtypeCache(object):
         }
         w_typeinfo = space.newdict()
         for k, v in typeinfo_partial.iteritems():
-            space.setitem(w_typeinfo, space.wrap(k), space.gettypefor(v))
+            space.setitem(w_typeinfo, space.newtext(k), space.gettypefor(v))
         for k, dtype in typeinfo_full.iteritems():
             itembits = dtype.elsize * 8
             if k in ('INTP', 'UINTP'):
                 char = getattr(NPY, k + 'LTR')
             else:
                 char = dtype.char
-            items_w = [space.wrap(char),
-                       space.wrap(dtype.num),
-                       space.wrap(itembits),
-                       space.wrap(dtype.itemtype.get_element_size())]
+            items_w = [space.newtext(char),
+                       space.newint(dtype.num),
+                       space.newint(itembits),
+                       space.newint(dtype.itemtype.get_element_size())]
             if dtype.is_int():
                 if dtype.is_bool():
                     w_maxobj = space.newint(1)
@@ -1478,7 +1478,7 @@ class DtypeCache(object):
                     w_minobj = space.newint(0)
                 items_w = items_w + [w_maxobj, w_minobj]
             items_w = items_w + [dtype.w_box_type]
-            space.setitem(w_typeinfo, space.wrap(k), space.newtuple(items_w))
+            space.setitem(w_typeinfo, space.newtext(k), space.newtuple(items_w))
         self.w_typeinfo = w_typeinfo
 
 

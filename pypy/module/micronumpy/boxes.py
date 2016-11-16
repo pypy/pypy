@@ -68,7 +68,7 @@ class Box(object):
         scalar = multiarray.get("scalar")
 
         ret = space.newtuple([scalar, space.newtuple(
-            [space.wrap(self._get_dtype(space)), space.wrap(self.raw_str())])])
+            [self._get_dtype(space), space.newtext(self.raw_str())])])
         return ret
 
 

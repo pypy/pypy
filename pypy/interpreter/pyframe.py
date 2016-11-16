@@ -425,7 +425,6 @@ class PyFrame(W_Root):
     @jit.dont_look_inside
     def _reduce_state(self, space):
         from pypy.module._pickle_support import maker # helper fns
-        w = space.wrap
         nt = space.newtuple
 
         if self.get_w_f_trace() is None:
@@ -447,26 +446,26 @@ class PyFrame(W_Root):
 
         d = self.getorcreatedebug()
         tup_state = [
-            w(self.f_backref()),
-            w(self.get_builtin()),
-            w(self.pycode),
+            self.f_backref(),
+            self.get_builtin(),
+            self.pycode,
             w_locals_cells_stack,
             w_blockstack,
             w_exc_value, # last_exception
             w_tb,        #
             self.get_w_globals(),
-            w(self.last_instr),
-            w(self.frame_finished_execution),
-            w(f_lineno),
+            space.newint(self.last_instr),
+            space.newbool(self.frame_finished_execution),
+            space.newint(f_lineno),
             space.w_None,           #XXX placeholder for f_locals
 
             #f_restricted requires no additional data!
             space.w_None,
 
-            w(d.instr_lb),
-            w(d.instr_ub),
-            w(d.instr_prev_plus_one),
-            w(self.valuestackdepth),
+            space.newint(d.instr_lb),
+            space.newint(d.instr_ub),
+            space.newint(d.instr_prev_plus_one),
+            space.newint(self.valuestackdepth),
             ]
         return nt(tup_state)
 

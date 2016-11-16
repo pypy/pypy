@@ -292,7 +292,7 @@ class PyPyTarget(object):
         # obscure hack to stuff the translation options into the translated PyPy
         import pypy.module.sys
         options = make_dict(config)
-        wrapstr = 'space.newtext(%r)' % (options)
+        wrapstr = 'space.wrap(%r)' % (options) # import time
         pypy.module.sys.Module.interpleveldefs['pypy_translation_info'] = wrapstr
         if config.objspace.usemodules._cffi_backend:
             self.hack_for_cffi_modules(driver)
