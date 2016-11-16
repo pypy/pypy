@@ -1003,7 +1003,8 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         import datetime
         module = self.import_module(name='foo3')
         module.footype("X", (object,), {})
-        module.datetimetype(1, 1, 1)
+        a = module.datetimetype(1, 1, 1)
+        assert isinstance(a, module.datetimetype)
 
     def test_app_subclass_of_c_type(self):
         import sys

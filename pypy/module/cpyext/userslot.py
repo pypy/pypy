@@ -30,8 +30,20 @@ def slot_sq_item(space, w_obj, index):
 
 @cpython_api([PyTypeObjectPtr, PyObject, PyObject], PyObject, header=None)
 def slot_tp_new(space, w_type, w_args, w_kwds):
-    w_impl = space.getattr(w_type, space.wrap('__new__'))
-    import pdb;pdb.set_trace()
+    # XXX problem - we need to find the actual __new__ function to call.
+    #     but we have no 'self' argument. Theoretically, self will be
+    #     w_type, but if w_type is a subclass of self, and w_type has a
+    #     __new__ function that calls super().__new__, and that call ends
+    #     up here, we will get infinite recursion. Prevent the recursion
+    #     in the simple case (from cython) where w_type is a cpytype, but
+    #     we know (since we are in this function) that self is not a cpytype
+    from pypy.module.cpyext.typeobject import W_PyCTypeObject
+    w_type0 = w_type
+    w_mro = space.listview(space.getattr(w_type0, space.wrap('__mro__')))
+    while w_type0.is_cpytype():
+        w_type0 = w_mro[1]
+        w_mro = space.listview(space.getattr(w_type0, space.wrap('__mro__')))
+    w_impl = space.getattr(w_type0, space.wrap('__new__'))
     args = Arguments(space, [w_type],
                      w_stararg=w_args, w_starstararg=w_kwds)
     return space.call_args(w_impl, args)

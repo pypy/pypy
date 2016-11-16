@@ -309,6 +309,8 @@ def update_all_slots(space, w_type, pto):
                     STRUCT_TYPE = PySequenceMethods
                 elif slot_names[0] == 'c_tp_as_buffer':
                     STRUCT_TYPE = PyBufferProcs
+                elif slot_names[0] == 'c_tp_as_mapping':
+                    STRUCT_TYPE = PyMappingMethods
                 else:
                     raise AssertionError(
                         "Structure not allocated: %s" % (slot_names[0],))
