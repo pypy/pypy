@@ -9,6 +9,10 @@ pkgpath = py.path.local(__file__).dirpath().join(os.pardir)
 srcpath = pkgpath.join("src")
 incpath = pkgpath.join("include")
 
+# require local translator path to pickup common defs
+from rpython.translator import cdir
+translator_c_dir = py.path.local(cdir)
+
 import commands
 (config_stat, incdir) = commands.getstatusoutput("root-config --incdir")
 
@@ -39,7 +43,7 @@ std_string_name = 'std::basic_string<char>'
 
 eci = ExternalCompilationInfo(
     separate_module_files=[srcpath.join("reflexcwrapper.cxx")],
-    include_dirs=[incpath] + rootincpath,
+    include_dirs=[incpath, translator_c_dir] + rootincpath,
     includes=["reflexcwrapper.h"],
     library_dirs=rootlibpath,
     libraries=["Reflex"],
