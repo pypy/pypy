@@ -19,3 +19,7 @@ Backport rpython changes made directly on the py3k and py3.5 branches.
 Any uncaught RPython exception (from a PyPy bug) is turned into an
 app-level SystemError.  This should improve the lot of users hitting an
 uncaught RPython error.
+
+.. branch: union-side-effects-2
+
+Try to improve the consistency of RPython annotation unions.

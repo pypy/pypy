@@ -90,6 +90,10 @@ modules, recursively).
 Do CPython Extension modules work with PyPy?
 --------------------------------------------
 
+**First note that some Linux distributions (e.g. Ubuntu, Debian) split
+PyPy into several packages.  If you installed a package called "pypy",
+then you may also need to install "pypy-dev" for the following to work.**
+
 We have experimental support for CPython extension modules, so
 they run with minor changes.  This has been a part of PyPy since
 the 1.4 release, but support is still in beta phase.  CPython
