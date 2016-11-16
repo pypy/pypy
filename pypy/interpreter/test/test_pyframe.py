@@ -148,30 +148,6 @@ class AppTestPyFrame:
         assert f1bis is f1
         assert f0.f_back is f1
 
-    def test_f_exc_xxx(self):
-        import sys
-
-        class OuterException(Exception):
-            pass
-        class InnerException(Exception):
-            pass
-
-        def g(exc_info):
-            f = sys._getframe()
-            assert f.f_exc_type is None
-            assert f.f_exc_value is None
-            assert f.f_exc_traceback is None
-            try:
-                raise InnerException
-            except:
-                assert f.f_exc_type is exc_info[0]
-                assert f.f_exc_value is exc_info[1]
-                assert f.f_exc_traceback is exc_info[2]
-        try:
-            raise OuterException
-        except:
-            g(sys.exc_info())
-
     def test_virtualref_through_traceback(self):
         import sys
         def g():

@@ -457,6 +457,9 @@ class PyFrame(W_Root):
 
     @jit.dont_look_inside
     def descr__reduce__(self, space):
+        # DEAD CODE AHEAD: frame.__reduce__() has been removed.
+        # Either re-add at some point, or kill this code.
+        dead_code
         from pypy.interpreter.mixedmodule import MixedModule
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)
@@ -467,6 +470,8 @@ class PyFrame(W_Root):
 
     @jit.dont_look_inside
     def _reduce_state(self, space):
+        # DEAD CODE AHEAD: frame.__reduce__() has been removed.
+        dead_code
         from pypy.module._pickle_support import maker # helper fns
         w = space.wrap
         nt = space.newtuple
@@ -515,6 +520,9 @@ class PyFrame(W_Root):
 
     @jit.dont_look_inside
     def descr__setstate__(self, space, w_args):
+        # DEAD CODE AHEAD: frame.__reduce__() has been removed.
+        # Either re-add at some point, or kill this code.
+        dead_code
         from pypy.module._pickle_support import maker # helper fns
         from pypy.interpreter.pycode import PyCode
         from pypy.interpreter.module import Module
@@ -882,23 +890,6 @@ class PyFrame(W_Root):
             return space.wrap(self.builtin is not space.builtin)
         return space.w_False
 
-    @jit.unroll_safe
-    @specialize.arg(2)
-    def _exc_info_unroll(self, space, for_hidden=False):
-        """Return the most recent OperationError being handled in the
-        call stack
-        """
-        frame = self
-        while frame:
-            last = frame.last_exception
-            if last is not None:
-                if last is get_cleared_operation_error(self.space):
-                    break
-                if for_hidden or not frame.hide():
-                    return last
-            frame = frame.f_backref()
-        return None
-
     def get_generator(self):
         if self.space.config.translation.rweakref:
             return self.f_generator_wref()
@@ -906,10 +897,9 @@ class PyFrame(W_Root):
             return self.f_generator_nowref
 
     def descr_clear(self, space):
+        """F.clear(): clear most references held by the frame"""
         # Clears a random subset of the attributes (e.g. the fast
-        # locals, but not f_locals).  Also clears last_exception, which
-        # is not quite like CPython when it clears f_exc_* (however
-        # there might not be an observable difference).
+        # locals, but not f_locals).
         if not self.frame_finished_execution:
             if not self._is_generator_or_coroutine():
                 raise oefmt(space.w_RuntimeError,
@@ -923,7 +913,6 @@ class PyFrame(W_Root):
                 # awaited" in this case too.  Does it make any sense?
                 gen.descr_close()
 
-        self.last_exception = None
         debug = self.getdebug()
         if debug is not None:
             debug.w_f_trace = None
@@ -937,6 +926,7 @@ class PyFrame(W_Root):
                 w_newvalue = None
             self.locals_cells_stack_w[i] = w_newvalue
         self.valuestackdepth = 0
+        self.lastblock = None    # the FrameBlock chained list
 
     def _convert_unexpected_exception(self, e):
         from pypy.interpreter import error

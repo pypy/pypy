@@ -22,6 +22,7 @@ class GeneratorOrCoroutine(W_Root):
         self._qualname = qualname   # may be null, use get_qualname()
         if self.pycode.co_flags & CO_YIELD_INSIDE_TRY:
             self.register_finalizer(self.space)
+        self.saved_operr = None
 
     def get_name(self):
         # 'name' is a byte string that is valid utf-8
@@ -46,6 +47,7 @@ class GeneratorOrCoroutine(W_Root):
                            unicode(addrstring)))
 
     def descr__reduce__(self, space):
+        # DEAD CODE, see frame.__reduce__
         from pypy.interpreter.mixedmodule import MixedModule
         w_mod = space.getbuiltinmodule('_pickle_support')
         mod = space.interp_w(MixedModule, w_mod)
@@ -61,6 +63,7 @@ class GeneratorOrCoroutine(W_Root):
                                space.newtuple(tup)])
 
     def descr__setstate__(self, space, w_args):
+        # DEAD CODE, see frame.__reduce__
         from rpython.rlib.objectmodel import instantiate
         args_w = space.unpackiterable(w_args)
         w_framestate, w_running = args_w
@@ -136,6 +139,10 @@ return next yielded value or raise StopIteration."""
         space = self.space
         if self.running:
             raise oefmt(space.w_ValueError, "%s already executing", self.KIND)
+        ec = space.getexecutioncontext()
+        current_exc_info = ec.sys_exc_info()
+        if self.saved_operr is not None:
+            ec.set_sys_exc_info(self.saved_operr)
         self.running = True
         try:
             w_result = frame.execute_frame(self, w_arg_or_err)
@@ -150,6 +157,8 @@ return next yielded value or raise StopIteration."""
         finally:
             frame.f_backref = jit.vref_None
             self.running = False
+            self.saved_operr = ec.sys_exc_info()
+            ec.set_sys_exc_info(current_exc_info)
         return w_result
 
     def resume_execute_frame(self, frame, w_arg_or_err):
@@ -162,7 +171,7 @@ return next yielded value or raise StopIteration."""
             try:
                 self.next_yield_from(frame, w_yf, w_arg_or_err)
             except OperationError as operr:
-                operr.record_context(space, frame)
+                operr.record_context(space, space.getexecutioncontext())
                 return frame.handle_generator_error(operr)
             # Normal case: the call above raises Yield.
             # We reach this point if the iterable is exhausted.
@@ -226,7 +235,7 @@ return next yielded value or raise StopIteration."""
                                 space.wrap("%s raised StopIteration" %
                                            self.KIND))
             e2.chain_exceptions(space, e)
-            e2.record_context(space, self.frame)
+            e2.record_context(space, space.getexecutioncontext())
             raise e2
         else:
             space.warn(space.wrap(u"generator '%s' raised StopIteration"

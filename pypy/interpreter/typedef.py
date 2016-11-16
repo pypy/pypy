@@ -607,8 +607,8 @@ PyCode.typedef = TypeDef('code',
 PyCode.typedef.acceptable_as_base_class = False
 
 PyFrame.typedef = TypeDef('frame',
-    __reduce__ = interp2app(PyFrame.descr__reduce__),
-    __setstate__ = interp2app(PyFrame.descr__setstate__),
+    #__reduce__ = interp2app(PyFrame.descr__reduce__),  --- logic not updated
+    #__setstate__ = interp2app(PyFrame.descr__setstate__),
     clear = interp2app(PyFrame.descr_clear),
     f_builtins = GetSetProperty(PyFrame.fget_f_builtins),
     f_lineno = GetSetProperty(PyFrame.fget_f_lineno, PyFrame.fset_f_lineno),
@@ -784,8 +784,8 @@ assert not PyTraceback.typedef.acceptable_as_base_class  # no __new__
 
 GeneratorIterator.typedef = TypeDef("generator",
     __repr__   = interp2app(GeneratorIterator.descr__repr__),
-    __reduce__   = interp2app(GeneratorIterator.descr__reduce__),
-    __setstate__ = interp2app(GeneratorIterator.descr__setstate__),
+    #__reduce__   = interp2app(GeneratorIterator.descr__reduce__),
+    #__setstate__ = interp2app(GeneratorIterator.descr__setstate__),
     __next__   = interp2app(GeneratorIterator.descr_next,
                             descrmismatch='__next__'),
     send       = interp2app(GeneratorIterator.descr_send,

@@ -63,10 +63,7 @@ class __extend__(pyframe.PyFrame):
         try:
             while True:
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
-        except Return:
-            self.last_exception = None
-            return self.popvalue()
-        except Yield:
+        except ExitFrame:
             return self.popvalue()
 
     def handle_bytecode(self, co_code, next_instr, ec):
@@ -746,11 +743,13 @@ class __extend__(pyframe.PyFrame):
             self.setdictscope(w_locals)
 
     def POP_EXCEPT(self, oparg, next_instr):
-        pass    # no-op for now: done by the END_FINALLY that follows anyway
+        block = self.pop_block()
+        assert isinstance(block, SysExcInfoRestorer)
+        block.cleanupstack(self)   # restores ec.sys_exc_operror
 
     def POP_BLOCK(self, oparg, next_instr):
         block = self.pop_block()
-        block.cleanup(self)  # the block knows how to clean up the value stack
+        block.pop_block(self)  # the block knows how to clean up the value stack
 
     def save_and_change_sys_exc_info(self, operationerr):
         ec = self.space.getexecutioncontext()
@@ -774,7 +773,7 @@ class __extend__(pyframe.PyFrame):
 
         block = self.pop_block()
         assert isinstance(block, SysExcInfoRestorer)
-        block.cleanupstack()   # restores ec.sys_exc_operror
+        block.cleanupstack(self)   # restores ec.sys_exc_operror
 
         w_top = self.popvalue()
         if self.space.is_w(w_top, self.space.w_None):
@@ -1161,41 +1160,28 @@ class __extend__(pyframe.PyFrame):
         if isinstance(w_unroller, SApplicationException):
             # app-level exception
             operr = w_unroller.operr
-            # this looks again like the kind of code we have. except that it's a call, not a block
-            old_last_exception = self.last_exception
-            self.last_exception = operr
             w_traceback = self.space.wrap(operr.get_traceback())
-            try:
-                w_res = self.call_contextmanager_exit_function(
-                    w_exitfunc,
-                    operr.w_type,
-                    operr.get_w_value(self.space),
-                    w_traceback)
-            except:
-                self.last_exception = old_last_exception
-                raise
-            # push a marker that also contains the old_last_exception,
-            # which must be restored as 'self.last_exception' but only
-            # in WITH_CLEANUP_FINISH
-            self.pushvalue(SApplicationException(old_last_exception))
+            w_res = self.call_contextmanager_exit_function(
+                w_exitfunc,
+                operr.w_type,
+                operr.get_w_value(self.space),
+                w_traceback)
         else:
             w_res = self.call_contextmanager_exit_function(
                 w_exitfunc,
                 self.space.w_None,
                 self.space.w_None,
                 self.space.w_None)
-            self.pushvalue(self.space.w_None)
         self.pushvalue(w_res)
+        # in the stack now:  [w_res, w_unroller-or-w_None..]
 
     def WITH_CLEANUP_FINISH(self, oparg, next_instr):
         w_suppress = self.popvalue()
-        w_marker = self.popvalue()
-        if isinstance(w_marker, SApplicationException):
-            self.last_exception = w_marker.operr    # may be None
-            if self.space.is_true(w_suppress):
-                # __exit__() returned True -> Swallow the exception.
-                self.settopvalue(self.space.w_None)
+        if self.space.is_true(w_suppress):
+            # __exit__() returned True -> Swallow the exception.
+            self.settopvalue(self.space.w_None)
         # this is always followed by END_FINALLY
+        # in the stack now: [w_unroller-or-w_None..]
 
     @jit.unroll_safe
     def call_function(self, oparg, w_starstar=None, has_vararg=False):
@@ -1476,8 +1462,8 @@ class __extend__(pyframe.PyFrame):
 
     def SETUP_ASYNC_WITH(self, offsettoend, next_instr):
         res = self.popvalue()
-        block = WithBlock(self.valuestackdepth,
-                          next_instr + offsettoend, self.lastblock)
+        block = FinallyBlock(self.valuestackdepth,
+                             next_instr + offsettoend, self.lastblock)
         self.lastblock = block
         self.pushvalue(res)
 
@@ -1559,12 +1545,15 @@ class __extend__(pyframe.PyFrame):
 
 ### ____________________________________________________________ ###
 
+class ExitFrame(Exception):
+    pass
 
-class Return(Exception):
+
+class Return(ExitFrame):
     """Raised when exiting a frame via a 'return' statement."""
 
 
-class Yield(Exception):
+class Yield(ExitFrame):
     """Raised when exiting a frame via a 'yield' statement."""
 
 
@@ -1656,7 +1645,7 @@ class FrameBlock(object):
     def cleanupstack(self, frame):
         frame.dropvaluesuntil(self.valuestackdepth)
 
-    def cleanup(self, frame):
+    def pop_block(self, frame):
         "Clean up a frame when we normally exit the block."
         self.cleanupstack(frame)
 
@@ -1706,6 +1695,9 @@ class SysExcInfoRestorer(FrameBlock):
     def __init__(self, operr, previous):
         self.operr = operr
         self.previous = previous
+
+    def pop_block(self, frame):
+        assert False # never called
 
     def handle(self, frame, unroller):
         assert False # never called
@@ -1762,6 +1754,10 @@ class FinallyBlock(FrameBlock):
         # saving the old value in a custom type of FrameBlock
         frame.save_and_change_sys_exc_info(operationerr)
         return r_uint(self.handlerposition)   # jump to the handler
+
+    def pop_block(self, frame):
+        self.cleanupstack(frame)
+        frame.save_and_change_sys_exc_info(None)
 
 
 block_classes = {'SYS_EXC_INFO_RESTORER': SysExcInfoRestorer,

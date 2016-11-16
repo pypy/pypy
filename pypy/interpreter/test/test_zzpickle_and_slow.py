@@ -351,6 +351,7 @@ class AppTestInterpObjectPickling:
         assert list(result) == [2,3,4]
 
     def test_pickle_generator(self):
+        skip("not supported any more for now")
         self.skip_on_cpython()
         import types
         mod = types.ModuleType('mod')
@@ -375,6 +376,7 @@ class AppTestInterpObjectPickling:
             del sys.modules['mod']
 
     def test_pickle_generator_blk(self):
+        skip("not supported any more for now")
         self.skip_on_cpython()
         # same as above but with the generator inside a block
         import types
@@ -448,6 +450,7 @@ class AppTestInterpObjectPickling:
 
 
     def test_pickle_generator_crash(self):
+        skip("not supported any more for now")
         self.skip_on_cpython()
         import pickle
 
@@ -464,7 +467,7 @@ class AppTestInterpObjectPickling:
         assert 'finished' in repr(y)
         assert y.gi_code is None
 
-class AppTestGeneratorCloning:
+class XAppTestGeneratorCloning:
 
     def setup_class(cls):
         try:
@@ -528,7 +531,7 @@ class AppTestGeneratorCloning:
             raises(StopIteration, next, g3)
             raises(StopIteration, next, g4)
 
-class AppTestFramePickling(object):
+class XAppTestFramePickling(object):
     pytestmark = py.test.mark.skipif("config.option.runappdirect")
     spaceconfig = {
         "usemodules": ["struct"]

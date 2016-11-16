@@ -226,7 +226,6 @@ class ExecutionContext(object):
             self._trace(frame, 'exception', None, operationerr)
         #operationerr.print_detailed_traceback(self.space)
 
-    @jit.dont_look_inside
     def sys_exc_info(self):
         """Implements sys.exc_info().
         Return an OperationError instance or None.
