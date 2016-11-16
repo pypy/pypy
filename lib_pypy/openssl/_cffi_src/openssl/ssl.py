@@ -26,6 +26,7 @@ static const long Cryptography_HAS_GET_SERVER_TMP_KEY;
 static const long Cryptography_HAS_SSL_CTX_SET_CLIENT_CERT_ENGINE;
 static const long Cryptography_HAS_SSL_CTX_CLEAR_OPTIONS;
 static const long Cryptography_HAS_NPN_NEGOTIATED;
+static const long Cryptography_NO_TLSEXT;
 
 static const long Cryptography_OPENSSL_NPN_NEGOTIATED;
 
@@ -692,6 +693,12 @@ long (*SSL_get_server_tmp_key)(SSL *, EVP_PKEY **) = NULL;
 static const long Cryptography_HAS_SSL_CTX_SET_CLIENT_CERT_ENGINE = 1;
 
 static const long Cryptography_HAS_SSL_CTX_CLEAR_OPTIONS = 1;
+
+#ifdef OPENSSL_NO_TLSEXT
+static const long Cryptography_NO_TLSEXT = 0;
+#else
+static const long Cryptography_NO_TLSEXT = 1;
+#endif
 
 #ifdef OPENSSL_NPN_NEGOTIATED
 static const long Cryptography_OPENSSL_NPN_NEGOTIATED = OPENSSL_NPN_NEGOTIATED;

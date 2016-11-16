@@ -78,3 +78,9 @@ syntax: regexp
 ^.hypothesis/
 ^release/
 ^rpython/_cache$
+^lib_pypy/_.*cffi.*.c$
+^lib_pypy/_.*cffi.*.o$
+^lib_pypy/_.*cffi.*.so$
+^lib_pypy/_openssl.c$
+^lib_pypy/_openssl.o$
+^lib_pypy/_openssl.*.so$
