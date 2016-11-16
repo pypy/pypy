@@ -79,6 +79,25 @@ class AppTestRaise:
             assert sys.exc_info()[0] is ValueError
         assert sys.exc_info() == (None, None, None)
 
+    def test_revert_exc_info_2_finally(self):
+        import sys
+        assert sys.exc_info() == (None, None, None)
+        try:
+            try:
+                raise ValueError
+            finally:
+                try:
+                    try:
+                        raise IndexError
+                    finally:
+                        assert sys.exc_info()[0] is IndexError
+                except IndexError:
+                    pass
+                assert sys.exc_info()[0] is ValueError
+        except ValueError:
+            pass
+        assert sys.exc_info() == (None, None, None)
+
     def test_reraise_1(self):
         raises(IndexError, """
             import sys
