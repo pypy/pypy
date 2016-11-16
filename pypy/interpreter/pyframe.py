@@ -21,7 +21,7 @@ from pypy.tool import stdlib_opcode
 
 # Define some opcodes used
 for op in '''DUP_TOP POP_TOP SETUP_LOOP SETUP_EXCEPT SETUP_FINALLY SETUP_WITH
-POP_BLOCK END_FINALLY'''.split():
+SETUP_ASYNC_WITH POP_BLOCK END_FINALLY'''.split():
     globals()[op] = stdlib_opcode.opmap[op]
 HAVE_ARGUMENT = stdlib_opcode.HAVE_ARGUMENT
 
@@ -455,136 +455,6 @@ class PyFrame(W_Root):
                 self.space, arguments, keywords, keywords_w, w_star,
                 w_starstar, methodcall=methodcall)
 
-    @jit.dont_look_inside
-    def descr__reduce__(self, space):
-        # DEAD CODE AHEAD: frame.__reduce__() has been removed.
-        # Either re-add at some point, or kill this code.
-        dead_code
-        from pypy.interpreter.mixedmodule import MixedModule
-        w_mod    = space.getbuiltinmodule('_pickle_support')
-        mod      = space.interp_w(MixedModule, w_mod)
-        new_inst = mod.get('frame_new')
-        w_tup_state = self._reduce_state(space)
-        nt = space.newtuple
-        return nt([new_inst, nt([]), w_tup_state])
-
-    @jit.dont_look_inside
-    def _reduce_state(self, space):
-        # DEAD CODE AHEAD: frame.__reduce__() has been removed.
-        dead_code
-        from pypy.module._pickle_support import maker # helper fns
-        w = space.wrap
-        nt = space.newtuple
-
-        if self.get_w_f_trace() is None:
-            f_lineno = self.get_last_lineno()
-        else:
-            f_lineno = self.getorcreatedebug().f_lineno
-
-        nlocals = self.pycode.co_nlocals
-        values_w = self.locals_cells_stack_w
-        w_locals_cells_stack = maker.slp_into_tuple_with_nulls(space, values_w)
-
-        w_blockstack = nt([block._get_state_(space) for block in self.get_blocklist()])
-        if self.last_exception is None:
-            w_exc_value = space.w_None
-            w_tb = space.w_None
-        else:
-            w_exc_value = self.last_exception.get_w_value(space)
-            w_tb = w(self.last_exception.get_traceback())
-
-        d = self.getorcreatedebug()
-        tup_state = [
-            w(self.f_backref()),
-            w(self.get_builtin()),
-            w(self.pycode),
-            w_locals_cells_stack,
-            w_blockstack,
-            w_exc_value, # last_exception
-            w_tb,        #
-            self.get_w_globals(),
-            w(self.last_instr),
-            w(self.frame_finished_execution),
-            w(f_lineno),
-            space.w_None,           #XXX placeholder for f_locals
-
-            #f_restricted requires no additional data!
-            space.w_None,
-
-            w(d.instr_lb),
-            w(d.instr_ub),
-            w(d.instr_prev_plus_one),
-            w(self.valuestackdepth),
-            ]
-        return nt(tup_state)
-
-    @jit.dont_look_inside
-    def descr__setstate__(self, space, w_args):
-        # DEAD CODE AHEAD: frame.__reduce__() has been removed.
-        # Either re-add at some point, or kill this code.
-        dead_code
-        from pypy.module._pickle_support import maker # helper fns
-        from pypy.interpreter.pycode import PyCode
-        from pypy.interpreter.module import Module
-        args_w = space.unpackiterable(w_args, 17)
-        w_f_back, w_builtin, w_pycode, w_locals_cells_stack, w_blockstack, w_exc_value, w_tb,\
-            w_globals, w_last_instr, w_finished, w_f_lineno, w_f_locals, \
-            w_f_trace, w_instr_lb, w_instr_ub, w_instr_prev_plus_one, w_stackdepth = args_w
-
-        new_frame = self
-        pycode = space.interp_w(PyCode, w_pycode)
-
-        values_w = maker.slp_from_tuple_with_nulls(space, w_locals_cells_stack)
-        nfreevars = len(pycode.co_freevars)
-        closure = None
-        if nfreevars:
-            base = pycode.co_nlocals + len(pycode.co_cellvars)
-            closure = values_w[base: base + nfreevars]
-
-        # do not use the instance's __init__ but the base's, because we set
-        # everything like cells from here
-        # XXX hack
-        from pypy.interpreter.function import Function
-        outer_func = Function(space, None, closure=closure,
-                             forcename="fake")
-        PyFrame.__init__(self, space, pycode, w_globals, outer_func)
-        f_back = space.interp_w(PyFrame, w_f_back, can_be_None=True)
-        new_frame.f_backref = jit.non_virtual_ref(f_back)
-
-        if space.config.objspace.honor__builtins__:
-            new_frame.builtin = space.interp_w(Module, w_builtin)
-        else:
-            assert space.interp_w(Module, w_builtin) is space.builtin
-        new_frame.set_blocklist([unpickle_block(space, w_blk)
-                                 for w_blk in space.unpackiterable(w_blockstack)])
-        self.locals_cells_stack_w = values_w[:]
-        valuestackdepth = space.int_w(w_stackdepth)
-        if not self._check_stack_index(valuestackdepth):
-            raise oefmt(space.w_ValueError, "invalid stackdepth")
-        assert valuestackdepth >= 0
-        self.valuestackdepth = valuestackdepth
-        if space.is_w(w_exc_value, space.w_None):
-            new_frame.last_exception = None
-        else:
-            from pypy.interpreter.pytraceback import PyTraceback
-            tb = space.interp_w(PyTraceback, w_tb)
-            new_frame.last_exception = OperationError(space.type(w_exc_value),
-                                                      w_exc_value, tb
-                                                      )
-        new_frame.last_instr = space.int_w(w_last_instr)
-        new_frame.frame_finished_execution = space.is_true(w_finished)
-        d = new_frame.getorcreatedebug()
-        d.f_lineno = space.int_w(w_f_lineno)
-
-        if space.is_w(w_f_trace, space.w_None):
-            d.w_f_trace = None
-        else:
-            d.w_f_trace = w_f_trace
-
-        d.instr_lb = space.int_w(w_instr_lb)   #the three for tracing
-        d.instr_ub = space.int_w(w_instr_ub)
-        d.instr_prev_plus_one = space.int_w(w_instr_prev_plus_one)
-
     def hide(self):
         return self.pycode.hidden_applevel
 
@@ -729,7 +599,7 @@ class PyFrame(W_Root):
             return space.wrap(self.getorcreatedebug().f_lineno)
 
     def fset_f_lineno(self, space, w_new_lineno):
-        "Returns the line number of the instruction currently being executed."
+        "Change the line number of the instruction currently being executed."
         try:
             new_lineno = space.int_w(w_new_lineno)
         except OperationError:
@@ -768,35 +638,41 @@ class PyFrame(W_Root):
                         "can't jump to 'except' line as there's no exception")
 
         # Don't jump into or out of a finally block.
-        f_lasti_setup_addr = -1
-        new_lasti_setup_addr = -1
-        blockstack = []
+        # Unlike CPython, we can't jump into or out of an except block
+        # either---there would be a mess with SysExcInfoRestorer.
+        f_lasti_handler_addr = -1
+        new_lasti_handler_addr = -1
+        blockstack = [-1]    # list of odd length:
+                             #   * addr of most recent outermost handler
+                             # [ * addr of start of outermost block
+                             #   * addr of most recent handler in that block 
+                             #       (last two items repeated) ]
         addr = 0
         while addr < len(code):
             op = ord(code[addr])
-            if op in (SETUP_LOOP, SETUP_EXCEPT, SETUP_FINALLY, SETUP_WITH):
-                blockstack.append([addr, False])
+            if op in (SETUP_LOOP, SETUP_EXCEPT, SETUP_FINALLY, SETUP_WITH,
+                      SETUP_ASYNC_WITH):
+                blockstack.append(addr)
+                blockstack.append(-1)
             elif op == POP_BLOCK:
-                setup_op = ord(code[blockstack[-1][0]])
-                if setup_op == SETUP_FINALLY or setup_op == SETUP_WITH:
-                    blockstack[-1][1] = True
-                else:
-                    blockstack.pop()
-            elif op == END_FINALLY:
-                if len(blockstack) > 0:
-                    setup_op = ord(code[blockstack[-1][0]])
-                    if setup_op == SETUP_FINALLY or setup_op == SETUP_WITH:
-                        blockstack.pop()
+                assert len(blockstack) >= 3
+                blockstack.pop()
+                setup_op = ord(code[blockstack.pop()])
+                if setup_op != SETUP_LOOP:
+                    blockstack[-1] = addr
+            elif op == END_FINALLY:    # "async for" nests blocks
+                blockstack[-1] = -1    # strangely, careful here
 
             if addr == new_lasti or addr == self.last_instr:
-                for ii in range(len(blockstack)):
-                    setup_addr, in_finally = blockstack[~ii]
-                    if in_finally:
-                        if addr == new_lasti:
-                            new_lasti_setup_addr = setup_addr
-                        if addr == self.last_instr:
-                            f_lasti_setup_addr = setup_addr
-                        break
+                ii = len(blockstack) - 1
+                while ii > 0 and blockstack[ii] == -1:
+                    ii -= 2
+                assert ii >= 0
+                handler_addr = blockstack[ii]
+                if addr == new_lasti:
+                    new_lasti_setup_addr = handler_addr
+                if addr == self.last_instr:
+                    f_lasti_setup_addr = handler_addr
 
             if op >= HAVE_ARGUMENT:
                 addr += 3
@@ -805,11 +681,15 @@ class PyFrame(W_Root):
 
         assert len(blockstack) == 0
 
-        if new_lasti_setup_addr != f_lasti_setup_addr:
+        if new_lasti_handler_addr != f_lasti_handler_addr:
             raise oefmt(space.w_ValueError,
-                        "can't jump into or out of a 'finally' block %d -> %d",
-                        f_lasti_setup_addr, new_lasti_setup_addr)
+                        "can't jump into or out of an 'expect' or "
+                        "'finally' block (%d -> %d)",
+                        f_lasti_handler_addr, new_lasti_setup_addr)
 
+        # now we know we're not jumping into or out of a place which
+        # needs a SysExcInfoRestorer.  Check that we're not jumping
+        # *into* a block, but only (potentially) out of some blocks.
         if new_lasti < self.last_instr:
             min_addr = new_lasti
             max_addr = self.last_instr
@@ -817,42 +697,40 @@ class PyFrame(W_Root):
             min_addr = self.last_instr
             max_addr = new_lasti
 
-        delta_iblock = min_delta_iblock = 0
+        delta_iblock = min_delta_iblock = 0    # see below for comment
         addr = min_addr
         while addr < max_addr:
             op = ord(code[addr])
 
-            if op in (SETUP_LOOP, SETUP_EXCEPT, SETUP_FINALLY, SETUP_WITH):
+            if op in (SETUP_LOOP, SETUP_EXCEPT, SETUP_FINALLY, SETUP_WITH,
+                      SETUP_ASYNC_WITH):
                 delta_iblock += 1
             elif op == POP_BLOCK:
                 delta_iblock -= 1
                 if delta_iblock < min_delta_iblock:
                     min_delta_iblock = delta_iblock
 
-            if op >= stdlib_opcode.HAVE_ARGUMENT:
+            if op >= HAVE_ARGUMENT:
                 addr += 3
             else:
                 addr += 1
 
-        f_iblock = 0
-        block = self.lastblock
-        while block:
-            f_iblock += 1
-            block = block.previous
-        min_iblock = f_iblock + min_delta_iblock
+        # 'min_delta_iblock' is <= 0; its absolute value is the number of
+        # blocks we exit.  'go_iblock' is the delta number of blocks
+        # between the last_instr and the new_lasti, in this order.
         if new_lasti > self.last_instr:
-            new_iblock = f_iblock + delta_iblock
+            go_iblock = delta_iblock
         else:
-            new_iblock = f_iblock - delta_iblock
+            go_iblock = -delta_iblock
 
-        if new_iblock > min_iblock:
+        if go_iblock > min_delta_iblock:
             raise oefmt(space.w_ValueError,
                         "can't jump into the middle of a block")
+        assert go_iblock <= 0
 
-        while f_iblock > new_iblock:
+        for ii in range(-go_iblock):
             block = self.pop_block()
-            block.cleanup(self)
-            f_iblock -= 1
+            block.cleanupstack(self)
 
         self.getorcreatedebug().f_lineno = new_lineno
         self.last_instr = new_lasti

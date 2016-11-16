@@ -46,44 +46,6 @@ class GeneratorOrCoroutine(W_Root):
                            self.get_qualname(),
                            unicode(addrstring)))
 
-    def descr__reduce__(self, space):
-        # DEAD CODE, see frame.__reduce__
-        from pypy.interpreter.mixedmodule import MixedModule
-        w_mod = space.getbuiltinmodule('_pickle_support')
-        mod = space.interp_w(MixedModule, w_mod)
-        new_inst = mod.get(self.KIND + '_new')
-        w = space.wrap
-        if self.frame:
-            w_frame = self.frame._reduce_state(space)
-        else:
-            w_frame = space.w_None
-
-        tup = [w_frame, w(self.running)]
-        return space.newtuple([new_inst, space.newtuple([]),
-                               space.newtuple(tup)])
-
-    def descr__setstate__(self, space, w_args):
-        # DEAD CODE, see frame.__reduce__
-        from rpython.rlib.objectmodel import instantiate
-        args_w = space.unpackiterable(w_args)
-        w_framestate, w_running = args_w
-        if space.is_w(w_framestate, space.w_None):
-            self.frame = None
-            self.space = space
-            self.pycode = None
-            self._name = None
-            self._qualname = None
-        else:
-            frame = instantiate(space.FrameClass)   # XXX fish
-            frame.descr__setstate__(space, w_framestate)
-            if isinstance(self, GeneratorIterator):
-                GeneratorIterator.__init__(self, frame)
-            elif isinstance(self, Coroutine):
-                Coroutine.__init__(self, frame)
-            else:
-                assert False
-        self.running = self.space.is_true(w_running)
-
     def descr_send(self, w_arg):
         """send(arg) -> send 'arg' into generator/coroutine,
 return next yielded value or raise StopIteration."""

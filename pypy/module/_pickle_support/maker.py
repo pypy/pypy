@@ -69,10 +69,6 @@ def intrangeiter_new(space, current, remaining, step):
     new_iter = W_IntRangeIterator(space, current, remaining, step)
     return space.wrap(new_iter)
 
-def operationerror_new(space):
-    from pypy.interpreter.pyopcode import W_OperationError
-    return W_OperationError(None)
-
 @unwrap_spec(identifier=str)
 def builtin_code(space, identifier):
     from pypy.interpreter import gateway

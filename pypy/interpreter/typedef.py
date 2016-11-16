@@ -810,8 +810,8 @@ assert not GeneratorIterator.typedef.acceptable_as_base_class  # no __new__
 
 Coroutine.typedef = TypeDef("coroutine",
     __repr__   = interp2app(Coroutine.descr__repr__),
-    __reduce__   = interp2app(Coroutine.descr__reduce__),
-    __setstate__ = interp2app(Coroutine.descr__setstate__),
+    #__reduce__   = interp2app(Coroutine.descr__reduce__),
+    #__setstate__ = interp2app(Coroutine.descr__setstate__),
     send       = interp2app(Coroutine.descr_send,
                             descrmismatch='send'),
     throw      = interp2app(Coroutine.descr_throw,
