@@ -9,6 +9,7 @@ from rpython.jit.metainterp.optimizeopt import ALL_OPTS_DICT
 from rpython.jit.metainterp import pyjitpl, history, jitexc
 from rpython.jit.codewriter.policy import JitPolicy
 from rpython.jit.codewriter import codewriter, longlong
+from rpython.jit.backend.llsupport.vector_ext import VectorExt
 from rpython.rlib.rfloat import isnan
 from rpython.rlib.jit import ENABLE_ALL_OPTS
 from rpython.translator.backendopt.all import backend_optimizations
@@ -297,6 +298,9 @@ class JitMixin:
 
 class LLJitMixin(JitMixin):
     CPUClass = runner.LLGraphCPU
+
+    def supports_vector_ext(self):
+        return True
 
     @staticmethod
     def Ptr(T):

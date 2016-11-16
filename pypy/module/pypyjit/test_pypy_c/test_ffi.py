@@ -418,7 +418,7 @@ class Test__ffi(BaseTestPyPyC):
         guard_no_exception(descr=...)
         i112 = int_signext(i160, 2)
         setfield_gc(p167, ConstPtr(ptr85), descr=<FieldP pypy.module._cffi_backend.cdataobj.W_CData.inst_ctype .+>)
-        setfield_gc(p167, -1, descr=<FieldS pypy.module._cffi_backend.cdataobj.W_CDataNewOwning.inst_length .+>)
+        setfield_gc(p167, -1, descr=<FieldS pypy.module._cffi_backend.cdataobj.W_CDataNewOwning.inst_allocated_length .+>)
         i114 = int_ne(i160, i112)
         guard_false(i114, descr=...)
         --TICK--

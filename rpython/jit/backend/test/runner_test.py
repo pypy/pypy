@@ -2662,7 +2662,8 @@ class LLtypeBackendTest(BaseBackendTest):
         """, namespace=locals())
         looptoken = JitCellToken()
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
-        deadframe = self.cpu.execute_token(looptoken, 20.25)
+        x = longlong.getfloatstorage(20.25)
+        deadframe = self.cpu.execute_token(looptoken, x)
         fail = self.cpu.get_latest_descr(deadframe)
         assert fail.identifier == 0
         frame = self.cpu.get_ref_value(deadframe, 0)
@@ -2671,7 +2672,8 @@ class LLtypeBackendTest(BaseBackendTest):
         if not getattr(self.cpu, 'is_llgraph', False):
             assert frame == deadframe
         deadframe2 = self.cpu.force(frame)
-        assert self.cpu.get_float_value(deadframe2, 0) == 22.75
+        x = self.cpu.get_float_value(deadframe2, 0)
+        assert longlong.getrealfloat(x) == 22.75
 
     def test_call_to_c_function(self):
         from rpython.rlib.libffi import CDLL, types, ArgChain, FUNCFLAG_CDECL

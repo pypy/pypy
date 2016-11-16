@@ -643,3 +643,21 @@ class AppTestFFI(BaseAppTestFFI):
         f_name = libfoo.getfunc('AAA_first_ordinal_function', [], types.sint)
         f_ordinal = libfoo.getfunc(1, [], types.sint)
         assert f_name.getaddr() == f_ordinal.getaddr()
+
+    def test_cdll_as_integer(self):
+        import _rawffi
+        from _rawffi.alt import CDLL
+        libfoo = CDLL(self.libfoo_name)
+        A = _rawffi.Array('i')
+        a = A(1, autofree=True)
+        a[0] = libfoo      # should cast libfoo to int/long automatically
+
+    def test_windll_as_integer(self):
+        if not self.iswin32:
+            skip("windows specific")
+        import _rawffi
+        from _rawffi.alt import WinDLL
+        libm = WinDLL(self.libm_name)
+        A = _rawffi.Array('i')
+        a = A(1, autofree=True)
+        a[0] = libm        # should cast libm to int/long automatically

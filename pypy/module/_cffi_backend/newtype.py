@@ -353,7 +353,7 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
         if fbitsize < 0:
             # not a bitfield: common case
 
-            if isinstance(ftype, ctypearray.W_CTypeArray) and ftype.length==0:
+            if isinstance(ftype, ctypearray.W_CTypeArray) and ftype.length<=0:
                 bs_flag = ctypestruct.W_CField.BS_EMPTY_ARRAY
             else:
                 bs_flag = ctypestruct.W_CField.BS_REGULAR

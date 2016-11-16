@@ -503,6 +503,7 @@ class UnrollInfo(BasicLoopInfo):
         self.label_op = label_op
         self.extra_same_as = extra_same_as
         self.quasi_immutable_deps = quasi_immutable_deps
+        self.extra_before_label = []
 
     def final(self):
         return True

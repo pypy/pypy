@@ -1,8 +1,10 @@
 import py
 from pypy.interpreter import executioncontext
+from pypy.interpreter.error import OperationError
 
-class Finished(Exception):
-    pass
+class Finished(OperationError):
+    def __init__(self):
+        OperationError.__init__(self, "exception_class", "exception_value")
 
 
 class TestExecutionContext:

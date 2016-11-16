@@ -457,6 +457,9 @@ class CDLL(object):
     def getaddressindll(self, name):
         return dlsym(self.lib, name)
 
+    def getidentifier(self):
+        return rffi.cast(lltype.Unsigned, self.lib)
+
 if os.name == 'nt':
     class WinDLL(CDLL):
         def getpointer(self, name, argtypes, restype, flags=FUNCFLAG_STDCALL):

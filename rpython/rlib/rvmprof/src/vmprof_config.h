@@ -22,6 +22,8 @@
   #define PC_FROM_UCONTEXT uc_mcontext.arm_ip
 #elif defined(__linux) && defined(__i386) && defined(__GNUC__)
   #define PC_FROM_UCONTEXT uc_mcontext.gregs[REG_EIP]
+#elif defined(__s390x__)
+  #define PC_FROM_UCONTEXT uc_mcontext.psw.addr
 #else
   /* linux, gnuc */
   #define PC_FROM_UCONTEXT uc_mcontext.gregs[REG_RIP]

@@ -35,7 +35,7 @@ an outout-buffering stream.
 # return value of tell(), but not as argument to read().
 
 import os, sys, errno
-from rpython.rlib.objectmodel import specialize, we_are_translated
+from rpython.rlib.objectmodel import specialize, we_are_translated, not_rpython
 from rpython.rlib.rarithmetic import r_longlong, intmask
 from rpython.rlib import rposix, nonconst, _rsocket_rffi as _c
 from rpython.rlib.rstring import StringBuilder
@@ -394,8 +394,8 @@ class DiskFile(Stream):
 class MMapFile(Stream):
     """Standard I/O basis stream using mmap."""
 
+    @not_rpython
     def __init__(self, fd, mmapaccess):
-        """NOT_RPYTHON"""
         self.fd = fd
         self.access = mmapaccess
         self.pos = 0
@@ -1157,8 +1157,8 @@ class CallbackReadFilter(Stream):
 class DecodingInputFilter(Stream):
     """Filtering input stream that decodes an encoded file."""
 
+    @not_rpython
     def __init__(self, base, encoding="utf8", errors="strict"):
-        """NOT_RPYTHON"""
         self.base = base
         self.do_read = base.read
         self.encoding = encoding
@@ -1203,8 +1203,8 @@ class DecodingInputFilter(Stream):
 class EncodingOutputFilter(Stream):
     """Filtering output stream that writes to an encoded file."""
 
+    @not_rpython
     def __init__(self, base, encoding="utf8", errors="strict"):
-        """NOT_RPYTHON"""
         self.base = base
         self.do_write = base.write
         self.encoding = encoding

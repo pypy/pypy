@@ -334,6 +334,8 @@ class Parser(object):
                         realtype, quals = self._get_type_and_quals(
                             decl.type, name=decl.name, partial_length_ok=True)
                     self._declare('typedef ' + decl.name, realtype, quals=quals)
+                elif decl.__class__.__name__ == 'Pragma':
+                    pass    # skip pragma, only in pycparser 2.15
                 else:
                     raise api.CDefError("unrecognized construct", decl)
         except api.FFIError as e:

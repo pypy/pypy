@@ -66,6 +66,7 @@ def _init_posix():
     g['SO'] = [s[0] for s in imp.get_suffixes() if s[2] == imp.C_EXTENSION][0]
     g['LIBDIR'] = os.path.join(sys.prefix, 'lib')
     g['CC'] = "gcc -pthread" # -pthread might not be valid on OS/X, check
+    g['OPT'] = "" 
 
     global _config_vars
     _config_vars = g
