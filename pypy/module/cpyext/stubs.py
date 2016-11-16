@@ -1476,18 +1476,6 @@ def PyFrozenSet_Check(space, p):
     raise NotImplementedError
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyAnySet_Check(space, p):
-    """Return true if p is a set object, a frozenset object, or an
-    instance of a subtype."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyAnySet_CheckExact(space, p):
-    """Return true if p is a set object or a frozenset object but
-    not an instance of a subtype."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyFrozenSet_CheckExact(space, p):
     """Return true if p is a frozenset object but not an instance of a
     subtype."""
