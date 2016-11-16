@@ -1,6 +1,7 @@
-import py
 import sys
 from inspect import CO_VARARGS, CO_VARKEYWORDS
+
+import py
 
 builtin_repr = repr
 
@@ -9,13 +10,13 @@ reprlib = py.builtin._tryimport('repr', 'reprlib')
 if sys.version_info[0] >= 3:
     from traceback import format_exception_only
 else:
-    from py._code._py2traceback import format_exception_only
+    from ._py2traceback import format_exception_only
 
 class Code(object):
     """ wrapper around Python code objects """
     def __init__(self, rawcode):
         if not hasattr(rawcode, "co_filename"):
-            rawcode = py.code.getrawcode(rawcode)
+            rawcode = getrawcode(rawcode)
         try:
             self.filename = rawcode.co_filename
             self.firstlineno = rawcode.co_firstlineno - 1
@@ -44,17 +45,18 @@ class Code(object):
 
     @property
     def fullsource(self):
-        """ return a py.code.Source object for the full source file of the code
+        """ return a _pytest._code.Source object for the full source file of the code
         """
-        from py._code import source
+        from _pytest._code import source
         full, _ = source.findsource(self.raw)
         return full
 
     def source(self):
-        """ return a py.code.Source object for the code object's source only
+        """ return a _pytest._code.Source object for the code object's source only
         """
         # return source only for that part of code
-        return py.code.Source(self.raw)
+        import _pytest._code
+        return _pytest._code.Source(self.raw)
 
     def getargs(self, var=False):
         """ return a tuple with the argument names for the code object
@@ -79,13 +81,14 @@ class Frame(object):
         self.f_globals = frame.f_globals
         self.f_locals = frame.f_locals
         self.raw = frame
-        self.code = py.code.Code(frame.f_code)
+        self.code = Code(frame.f_code)
 
     @property
     def statement(self):
         """ statement this frame is at """
+        import _pytest._code
         if self.code.fullsource is None:
-            return py.code.Source("")
+            return _pytest._code.Source("")
         return self.code.fullsource.getstatement(self.lineno)
 
     def eval(self, code, **vars):
@@ -146,7 +149,8 @@ class TracebackEntry(object):
 
     @property
     def frame(self):
-        return py.code.Frame(self._rawentry.tb_frame)
+        import _pytest._code
+        return _pytest._code.Frame(self._rawentry.tb_frame)
 
     @property
     def relline(self):
@@ -157,7 +161,7 @@ class TracebackEntry(object):
 
     @property
     def statement(self):
-        """ py.code.Source object for the current statement """
+        """ _pytest._code.Source object for the current statement """
         source = self.frame.code.fullsource
         return source.getstatement(self.lineno)
 
@@ -173,10 +177,11 @@ class TracebackEntry(object):
     def reinterpret(self):
         """Reinterpret the failing statement and returns a detailed information
            about what operations are performed."""
+        from _pytest.assertion.reinterpret import reinterpret
         if self.exprinfo is None:
-            source = str(self.statement).strip()
-            x = py.code._reinterpret(source, self.frame, should_fail=True)
-            if not isinstance(x, str):
+            source = py.builtin._totext(self.statement).strip()
+            x = reinterpret(source, self.frame, should_fail=True)
+            if not py.builtin._istext(x):
                 raise TypeError("interpret returned non-string %r" % (x,))
             self.exprinfo = x
         return self.exprinfo
@@ -189,7 +194,7 @@ class TracebackEntry(object):
         """ return failing source code. """
         # we use the passed in astcache to not reparse asttrees
         # within exception info printing
-        from py._code.source import getstatementrange_ast
+        from _pytest._code.source import getstatementrange_ast
         source = self.frame.code.fullsource
         if source is None:
             return None
@@ -289,11 +294,11 @@ class Traceback(list):
     def filter(self, fn=lambda x: not x.ishidden()):
         """ return a Traceback instance with certain items removed
 
-            fn is a function that gets a single argument, a TracebackItem
+            fn is a function that gets a single argument, a TracebackEntry
             instance, and should return True when the item should be added
             to the Traceback, False when not
 
-            by default this removes all the TracebackItems which are hidden
+            by default this removes all the TracebackEntries which are hidden
             (see ishidden() above)
         """
         return Traceback(filter(fn, self))
@@ -309,7 +314,7 @@ class Traceback(list):
         return self[-1]
 
     def recursionindex(self):
-        """ return the index of the frame/TracebackItem where recursion
+        """ return the index of the frame/TracebackEntry where recursion
             originates if appropriate, None if no recursion occurred
         """
         cache = {}
@@ -341,6 +346,7 @@ class ExceptionInfo(object):
     """
     _striptext = ''
     def __init__(self, tup=None, exprinfo=None):
+        import _pytest._code
         if tup is None:
             tup = sys.exc_info()
             if exprinfo is None and isinstance(tup[1], AssertionError):
@@ -358,8 +364,8 @@ class ExceptionInfo(object):
         self.tb = tup[2]
         #: the exception type name
         self.typename = self.type.__name__
-        #: the exception traceback (py.code.Traceback instance)
-        self.traceback = py.code.Traceback(self.tb)
+        #: the exception traceback (_pytest._code.Traceback instance)
+        self.traceback = _pytest._code.Traceback(self.tb)
 
     def __repr__(self):
         return "<ExceptionInfo %s tblen=%d>" % (self.typename, len(self.traceback))
@@ -368,7 +374,7 @@ class ExceptionInfo(object):
         """ return the exception as a string
 
             when 'tryshort' resolves to True, and the exception is a
-            py.code._AssertionError, only the actual exception part of
+            _pytest._code._AssertionError, only the actual exception part of
             the exception representation is returned (so 'AssertionError: ' is
             removed from the beginning)
         """
@@ -469,9 +475,10 @@ class FormattedExcinfo(object):
 
     def get_source(self, source, line_index=-1, excinfo=None, short=False):
         """ return formatted and marked up source lines. """
+        import _pytest._code
         lines = []
         if source is None or line_index >= len(source.lines):
-            source = py.code.Source("???")
+            source = _pytest._code.Source("???")
             line_index = 0
         if line_index < 0:
             line_index += len(source)
@@ -525,9 +532,10 @@ class FormattedExcinfo(object):
             return ReprLocals(lines)
 
     def repr_traceback_entry(self, entry, excinfo=None):
+        import _pytest._code
         source = self._getentrysource(entry)
         if source is None:
-            source = py.code.Source("???")
+            source = _pytest._code.Source("???")
             line_index = 0
         else:
             # entry.getfirstlinesource() can be -1, should be 0 on jython
@@ -571,9 +579,8 @@ class FormattedExcinfo(object):
         if self.tbfilter:
             traceback = traceback.filter()
         recursionindex = None
-        if excinfo.errisinstance(RuntimeError):
-            if "maximum recursion depth exceeded" in str(excinfo.value):
-                recursionindex = traceback.recursionindex()
+        if is_recursion_error(excinfo):
+            recursionindex = traceback.recursionindex()
         last = traceback[-1]
         entries = []
         extraline = None
@@ -594,7 +601,7 @@ class FormattedExcinfo(object):
 class TerminalRepr:
     def __str__(self):
         s = self.__unicode__()
-        if sys.version_info[0] < 3 and isinstance(s, unicode):
+        if sys.version_info[0] < 3:
             s = s.encode('utf-8')
         return s
 
@@ -635,7 +642,6 @@ class ReprTraceback(TerminalRepr):
 
     def toterminal(self, tw):
         # the entries might have different styles
-        last_style = None
         for i, entry in enumerate(self.reprentries):
             if entry.style == "long":
                 tw.line("")
@@ -753,14 +759,15 @@ oldbuiltins = {}
 def patch_builtins(assertion=True, compile=True):
     """ put compile and AssertionError builtins to Python's builtins. """
     if assertion:
-        from py._code import assertion
+        from _pytest.assertion import reinterpret
         l = oldbuiltins.setdefault('AssertionError', [])
         l.append(py.builtin.builtins.AssertionError)
-        py.builtin.builtins.AssertionError = assertion.AssertionError
+        py.builtin.builtins.AssertionError = reinterpret.AssertionError
     if compile:
+        import _pytest._code
         l = oldbuiltins.setdefault('compile', [])
         l.append(py.builtin.builtins.compile)
-        py.builtin.builtins.compile = py.code.compile
+        py.builtin.builtins.compile = _pytest._code.compile
 
 def unpatch_builtins(assertion=True, compile=True):
     """ remove compile and AssertionError builtins from Python builtins. """
@@ -785,3 +792,14 @@ def getrawcode(obj, trycall=True):
                     return x
         return obj
 
+if sys.version_info[:2] >= (3, 5):  # RecursionError introduced in 3.5
+    def is_recursion_error(excinfo):
+        return excinfo.errisinstance(RecursionError)  # noqa
+else:
+    def is_recursion_error(excinfo):
+        if not excinfo.errisinstance(RuntimeError):
+            return False
+        try:
+            return "maximum recursion depth exceeded" in str(excinfo.value)
+        except UnicodeError:
+            return False

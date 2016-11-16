@@ -1,4 +1,6 @@
 from __future__ import generators
+
+from bisect import bisect_right
 import sys
 import inspect, tokenize
 import py
@@ -226,8 +228,9 @@ def getfslineno(obj):
     """ Return source location (path, lineno) for the given object.
     If the source cannot be determined return ("", -1)
     """
+    import _pytest._code
     try:
-        code = py.code.Code(obj)
+        code = _pytest._code.Code(obj)
     except TypeError:
         try:
             fn = (py.std.inspect.getsourcefile(obj) or
@@ -264,7 +267,8 @@ def findsource(obj):
     return source, lineno
 
 def getsource(obj, **kwargs):
-    obj = py.code.getrawcode(obj)
+    import _pytest._code
+    obj = _pytest._code.getrawcode(obj)
     try:
         strsrc = inspect.getsource(obj)
     except IndentationError:
@@ -314,45 +318,28 @@ def deindent(lines, offset=None):
     return newlines
 
 
-def get_statement_startend(lineno, nodelist):
-    from bisect import bisect_right
-    # lineno starts at 0
-    nextlineno = None
-    while 1:
-        lineno_list = [x.lineno-1 for x in nodelist] # ast indexes start at 1
-        #print lineno_list, [vars(x) for x in nodelist]
-        insert_index = bisect_right(lineno_list, lineno)
-        if insert_index >= len(nodelist):
-            insert_index -= 1
-        elif lineno < (nodelist[insert_index].lineno - 1) and insert_index > 0:
-            insert_index -= 1
-            assert lineno >= (nodelist[insert_index].lineno - 1)
-        nextnode = nodelist[insert_index]
-
-        try:
-            nextlineno = nodelist[insert_index+1].lineno - 1
-        except IndexError:
-            pass
-        lastnodelist = nodelist
-        nodelist = getnodelist(nextnode)
-        if not nodelist:
-            start, end = nextnode.lineno-1, nextlineno
-            start = min(lineno, start)
-            assert start <= lineno  and (end is None or lineno < end)
-            return start, end
-
-def getnodelist(node):
-    import _ast
+def get_statement_startend2(lineno, node):
+    import ast
+    # flatten all statements and except handlers into one lineno-list
+    # AST's line numbers start indexing at 1
     l = []
-    #print "node", node, "fields", node._fields, "lineno", getattr(node, "lineno", 0) - 1
-    for subname in "test", "type", "body", "handlers", "orelse", "finalbody":
-        attr = getattr(node, subname, None)
-        if attr is not None:
-            if isinstance(attr, list):
-                l.extend(attr)
-            elif hasattr(attr, "lineno"):
-                l.append(attr)
-    return l
+    for x in ast.walk(node):
+        if isinstance(x, _ast.stmt) or isinstance(x, _ast.ExceptHandler):
+            l.append(x.lineno - 1)
+            for name in "finalbody", "orelse":
+                val = getattr(x, name, None)
+                if val:
+                    # treat the finally/orelse part as its own statement
+                    l.append(val[0].lineno - 1 - 1)
+    l.sort()
+    insert_index = bisect_right(l, lineno)
+    start = l[insert_index - 1]
+    if insert_index >= len(l):
+        end = None
+    else:
+        end = l[insert_index]
+    return start, end
+
 
 def getstatementrange_ast(lineno, source, assertion=False, astnode=None):
     if astnode is None:
@@ -364,10 +351,9 @@ def getstatementrange_ast(lineno, source, assertion=False, astnode=None):
         except ValueError:
             start, end = getstatementrange_old(lineno, source, assertion)
             return None, start, end
-    start, end = get_statement_startend(lineno, getnodelist(astnode))
+    start, end = get_statement_startend2(lineno, astnode)
     # we need to correct the end:
     # - ast-parsing strips comments
-    # - else statements do not have a separate lineno
     # - there might be empty lines
     # - we might have lesser indented code blocks at the end
     if end is None:
@@ -383,15 +369,15 @@ def getstatementrange_ast(lineno, source, assertion=False, astnode=None):
         try:
             for tok in tokenize.generate_tokens(lambda: next(it)):
                 block_finder.tokeneater(*tok)
-        except (inspect.EndOfBlock, IndentationError) as e:
+        except (inspect.EndOfBlock, IndentationError):
             end = block_finder.last + start
-        #except Exception:
-        #    pass
+        except Exception:
+            pass
 
-    # the end might still point to a comment, correct it
+    # the end might still point to a comment or empty line, correct it
     while end:
         line = source.lines[end - 1].lstrip()
-        if line.startswith("#"):
+        if line.startswith("#") or not line:
             end -= 1
         else:
             break
