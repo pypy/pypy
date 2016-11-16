@@ -5,9 +5,10 @@ test suite on top of PyPy
 
 """
 import py
+import pytest
 import sys
-import pypy
 import re
+import pypy
 from pypy.interpreter.gateway import ApplevelClass
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.module import Module as PyPyModule
@@ -517,16 +518,16 @@ def pytest_configure(config):
     for x in testmap:
         cache[x.basename] = x
 
-def pytest_collect_file(path, parent, __multicall__):
-    # don't collect files except through this hook
-    # implemented by clearing the list of to-be-called
-    # remaining hook methods
-    __multicall__.methods[:] = []
-    regrtest = parent.config._basename2spec.get(path.basename, None)
-    if regrtest is None:
-        return
-    if path.dirpath() != testdir:
-        return
+def pytest_ignore_collect(path, config):
+    if path.isfile():
+        regrtest = config._basename2spec.get(path.basename, None)
+        if regrtest is None or path.dirpath() != testdir:
+            return True
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_pycollect_makemodule(path, parent):
+    config = parent.config
+    regrtest = config._basename2spec[path.basename]
     return RunFileExternal(path.basename, parent=parent, regrtest=regrtest)
 
 class RunFileExternal(py.test.collect.File):
