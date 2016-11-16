@@ -127,7 +127,9 @@ def customize_compiler(compiler):
         setattr(compiler, executable, command)
 
     if compiler.compiler_type == "unix":
-        compiler.compiler_so.extend(['-O2', '-fPIC', '-Wimplicit'])
+        # compiler_so can be c++ which has no -Wimplicit
+        #compiler.compiler_so.extend(['-O2', '-fPIC', '-Wimplicit'])
+        compiler.compiler_so.extend(['-O2', '-fPIC'])
         compiler.shared_lib_extension = get_config_var('SO')
         if "CPPFLAGS" in os.environ:
             cppflags = shlex.split(os.environ["CPPFLAGS"])
