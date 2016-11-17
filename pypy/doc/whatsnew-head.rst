@@ -14,3 +14,7 @@ uncaught RPython error.
 .. branch: union-side-effects-2
 
 Try to improve the consistency of RPython annotation unions.
+
+.. branch: clean-exported-state
+
+Clean-ups in the jit optimizeopt
