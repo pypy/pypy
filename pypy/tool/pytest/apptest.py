@@ -212,6 +212,7 @@ class AppTestFunction(py.test.collect.Function):
 
     def execute_appex(self, space, target, *args):
         self.space = space
+        space.getexecutioncontext().set_sys_exc_info(None)
         try:
             target(*args)
         except OperationError as e:
