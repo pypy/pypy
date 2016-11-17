@@ -775,3 +775,17 @@ def f(x):
 """, d)
         f = d['f']
         raises(RuntimeError, next, f(5))
+
+    def test_generator_stop_cause(self):
+        d = {}
+        exec("""from __future__ import generator_stop
+
+def gen1():
+    yield 42
+""", d)
+        my_gen = d['gen1']()
+        assert next(my_gen) == 42
+        stop_exc = StopIteration('spam')
+        e = raises(RuntimeError, my_gen.throw, StopIteration, stop_exc, None)
+        assert e.value.__cause__ is stop_exc
+        assert e.value.__context__ is stop_exc

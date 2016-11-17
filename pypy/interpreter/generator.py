@@ -226,6 +226,7 @@ return next yielded value or raise StopIteration."""
                                 space.wrap("%s raised StopIteration" %
                                            self.KIND))
             e2.chain_exceptions(space, e)
+            e2.set_cause(space, e.get_w_value(space))
             e2.record_context(space, self.frame)
             raise e2
         else:
