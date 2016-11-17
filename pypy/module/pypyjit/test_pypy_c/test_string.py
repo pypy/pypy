@@ -179,7 +179,7 @@ class TestString(BaseTestPyPyC):
         import codecs
 
         def main(n):
-            for i in xrange(n):
+            for i in range(n):
                 codecs.lookup('utf8')
             return i
         """, [1000])
@@ -197,7 +197,7 @@ class TestString(BaseTestPyPyC):
     def test_decode_ascii(self):
         log = self.run("""
         def main(n):
-            for i in xrange(n):
+            for i in range(n):
                 unicode(str(i))
             return i
         """, [1000])

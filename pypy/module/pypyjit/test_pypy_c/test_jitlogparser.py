@@ -14,12 +14,12 @@ class TestLogParser(BaseTestPyPyC):
     def test(self):
         def fn_with_bridges(N):
             def is_prime(x):
-                for y in xrange(2, x):
+                for y in range(2, x):
                     if x % y == 0:
                         return False
                 return True
             result = 0
-            for x in xrange(N):
+            for x in range(N):
                 if x % 3 == 0:
                     result += 5
                 elif x % 5 == 0:

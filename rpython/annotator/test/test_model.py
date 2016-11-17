@@ -1,5 +1,8 @@
 import pytest
 
+from hypothesis import given, assume, settings
+from hypothesis import strategies as st
+
 from rpython.flowspace.model import Variable
 from rpython.flowspace.operation import op
 from rpython.translator.translator import TranslationContext
@@ -67,11 +70,11 @@ def test_commonbase_simple():
     except TypeError:    # if A0 is also a new-style class, e.g. in PyPy
         class B3(A0, object):
             pass
-    assert commonbase(A1,A2) is A0
-    assert commonbase(A1,A0) is A0
-    assert commonbase(A1,A1) is A1
-    assert commonbase(A2,B2) is object
-    assert commonbase(A2,B3) is A0
+    assert commonbase(A1, A2) is A0
+    assert commonbase(A1, A0) is A0
+    assert commonbase(A1, A1) is A1
+    assert commonbase(A2, B2) is object
+    assert commonbase(A2, B3) is A0
 
 def test_list_union():
     listdef1 = ListDef('dummy', SomeInteger(nonneg=True))
@@ -101,6 +104,93 @@ def test_nan():
     assert f1.contains(f1)
     assert f2.contains(f1)
     assert f1.contains(f2)
+
+def const_float(x):
+    s = SomeFloat()
+    s.const = x
+    return s
+
+def const_int(n):
+    s = SomeInteger(nonneg=(n >= 0))
+    s.const = n
+    return s
+
+def const_str(x):
+    no_nul = not '\x00' in x
+    if len(x) == 1:
+        result = SomeChar(no_nul=no_nul)
+    else:
+        result = SomeString(no_nul=no_nul)
+    result.const = x
+    return result
+
+def const_unicode(x):
+    no_nul = not u'\x00' in x
+    if len(x) == 1:
+        result = SomeUnicodeCodePoint(no_nul=no_nul)
+    else:
+        result = SomeUnicodeString(no_nul=no_nul)
+    result.const = x
+    return result
+
+def compatible(s1, s2):
+    try:
+        union(s1, s2)
+    except UnionError:
+        return False
+    return True
+
+def compatible_pair(pair_s):
+    return compatible(*pair_s)
+
+st_float = st.just(SomeFloat()) | st.builds(const_float, st.floats())
+st_int = st.one_of(st.builds(SomeInteger, st.booleans(), st.booleans()),
+                   st.builds(const_int, st.integers()))
+st_bool = st.sampled_from([s_Bool, s_True, s_False])
+st_numeric = st.one_of(st_float, st_int, st_bool)
+st_str = (st.builds(SomeString, st.booleans(), st.booleans())
+          | st.builds(const_str, st.binary()))
+st_unicode = (st.builds(SomeUnicodeString, st.booleans(), st.booleans())
+              | st.builds(const_unicode, st.text()))
+st_simple = st.one_of(st_numeric, st_str, st_unicode, st.just(s_ImpossibleValue), st.just(s_None))
+
+def valid_unions(st_ann):
+    """From a strategy generating annotations, create a strategy returning
+    unions of these annotations."""
+    pairs = st.tuples(st_ann, st_ann)
+    return pairs.filter(compatible_pair).map(lambda t: union(*t))
+
+
+st_annotation = st.recursive(st_simple,
+    lambda st_ann: valid_unions(st_ann) | st.builds(SomeTuple, st.lists(st_ann)),
+    max_leaves=3)
+
+@given(s=st_annotation)
+def test_union_unary(s):
+    assert union(s, s) == s
+    assert union(s_ImpossibleValue, s) == s
+
+@given(s1=st_annotation, s2=st_annotation)
+def test_commutativity_of_union_compatibility(s1, s2):
+    assert compatible(s1, s2) == compatible(s2, s1)
+
+@given(st_annotation, st_annotation)
+def test_union_commutative(s1, s2):
+    try:
+        s_union = union(s1, s2)
+    except UnionError:
+        assume(False)
+    assert union(s2, s1) == s_union
+    assert s_union.contains(s1)
+    assert s_union.contains(s2)
+
+@pytest.mark.xfail
+@settings(max_examples=500)
+@given(st_annotation, st_annotation, st_annotation)
+def test_union_associative(s1, s2, s3):
+    assume(compatible(s1, s2) and compatible(union(s1, s2), s3))
+    assert union(union(s1, s2), s3) == union(s1, union(s2, s3))
+
 
 def compile_function(function, annotation=[]):
     t = TranslationContext()
@@ -146,14 +236,14 @@ def test_SomeException_union(annotator):
     someinst = lambda cls, **kw: SomeInstance(bk.getuniqueclassdef(cls), **kw)
     s_inst = someinst(Exception)
     s_exc = bk.new_exception([ValueError, IndexError])
-    assert unionof(s_exc, s_inst) == s_inst
-    assert unionof(s_inst, s_exc) == s_inst
-    s_nullable = unionof(s_None, bk.new_exception([ValueError]))
+    assert union(s_exc, s_inst) == s_inst
+    assert union(s_inst, s_exc) == s_inst
+    s_nullable = union(s_None, bk.new_exception([ValueError]))
     assert isinstance(s_nullable, SomeInstance)
     assert s_nullable.can_be_None
     s_exc1 = bk.new_exception([ValueError])
     s_exc2 = bk.new_exception([IndexError])
-    unionof(s_exc1, s_exc2) == unionof(s_exc2, s_exc1)
+    union(s_exc1, s_exc2) == union(s_exc2, s_exc1)
 
 def contains_s(s_a, s_b):
     if s_b is None:

@@ -17,6 +17,7 @@ def _py_abspath(path):
     that will leave paths from jython jars alone
     """
     if path.startswith('__pyclasspath__'):
+
         return path
     else:
         return os.path.abspath(path)
@@ -41,7 +42,7 @@ def initpkg(pkgname, exportdefs, attr=dict()):
     if hasattr(oldmod, "__dict__"):
         oldmod.__dict__.update(d)
     mod = ApiModule(pkgname, exportdefs, implprefix=pkgname, attr=d)
-    sys.modules[pkgname]  = mod
+    sys.modules[pkgname] = mod
 
 def importobj(modpath, attrname):
     module = __import__(modpath, None, None, ['__doc__'])
@@ -72,11 +73,11 @@ class ApiModule(ModuleType):
         self.__implprefix__ = implprefix or name
         if attr:
             for name, val in attr.items():
-                #print "setting", self.__name__, name, val
+                # print "setting", self.__name__, name, val
                 setattr(self, name, val)
         for name, importspec in importspec.items():
             if isinstance(importspec, dict):
-                subname = '%s.%s'%(self.__name__, name)
+                subname = '%s.%s' % (self.__name__, name)
                 apimod = ApiModule(subname, importspec, implprefix)
                 sys.modules[subname] = apimod
                 setattr(self, name, apimod)
@@ -88,7 +89,7 @@ class ApiModule(ModuleType):
                     modpath = implprefix + modpath
 
                 if not attrname:
-                    subname = '%s.%s'%(self.__name__, name)
+                    subname = '%s.%s' % (self.__name__, name)
                     apimod = AliasModule(subname, modpath)
                     sys.modules[subname] = apimod
                     if '.' not in name:
@@ -108,7 +109,7 @@ class ApiModule(ModuleType):
 
     def __makeattr(self, name):
         """lazily compute value for name or raise AttributeError if unknown."""
-        #print "makeattr", self.__name__, name
+        # print "makeattr", self.__name__, name
         target = None
         if '__onfirstaccess__' in self.__map__:
             target = self.__map__.pop('__onfirstaccess__')
@@ -126,7 +127,7 @@ class ApiModule(ModuleType):
             try:
                 del self.__map__[name]
             except KeyError:
-                pass # in a recursive-import situation a double-del can happen
+                pass  # in a recursive-import situation a double-del can happen
             return result
 
     __getattr__ = __makeattr
@@ -166,7 +167,10 @@ def AliasModule(modname, modpath, attrname=None):
             return '<AliasModule %r for %r>' % (modname, x)
 
         def __getattribute__(self, name):
-            return getattr(getmod(), name)
+            try:
+                return getattr(getmod(), name)
+            except ImportError:
+                return None
 
         def __setattr__(self, name, value):
             setattr(getmod(), name, value)

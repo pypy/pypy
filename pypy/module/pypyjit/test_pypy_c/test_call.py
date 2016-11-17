@@ -403,7 +403,7 @@ class TestCall(BaseTestPyPyC):
         def main(n):
             i = 1
             while i < n:
-                i += len(xrange(i+1)) - i
+                i += len(range(i+1)) - i
             return i
 
         log = self.run(main, [10000])
