@@ -5,21 +5,21 @@ import socket
 import weakref
 from _openssl import ffi
 from _openssl import lib
-from openssl._stdssl.certificate import (_test_decode_cert,
+from _cffi_ssl._stdssl.certificate import (_test_decode_cert,
     _decode_certificate, _certificate_to_der)
-from openssl._stdssl.utility import (_str_with_len, _bytes_with_len,
+from _cffi_ssl._stdssl.utility import (_str_with_len, _bytes_with_len,
     _str_to_ffi_buffer, _str_from_buf, _cstr_decode_fs)
-from openssl._stdssl.error import (ssl_error, pyssl_error,
+from _cffi_ssl._stdssl.error import (ssl_error, pyssl_error,
         SSLError, SSLZeroReturnError, SSLWantReadError,
         SSLWantWriteError, SSLSyscallError,
         SSLEOFError)
-from openssl._stdssl.error import (SSL_ERROR_NONE,
+from _cffi_ssl._stdssl.error import (SSL_ERROR_NONE,
         SSL_ERROR_SSL, SSL_ERROR_WANT_READ, SSL_ERROR_WANT_WRITE,
         SSL_ERROR_WANT_X509_LOOKUP, SSL_ERROR_SYSCALL,
         SSL_ERROR_ZERO_RETURN, SSL_ERROR_WANT_CONNECT,
         SSL_ERROR_EOF, SSL_ERROR_NO_SOCKET, SSL_ERROR_INVALID_ERROR_CODE,
         pyerr_write_unraisable)
-from openssl._stdssl import error
+from _cffi_ssl._stdssl import error
 
 OPENSSL_VERSION = ffi.string(lib.OPENSSL_VERSION_TEXT).decode('utf-8')
 OPENSSL_VERSION_NUMBER = lib.OPENSSL_VERSION_NUMBER

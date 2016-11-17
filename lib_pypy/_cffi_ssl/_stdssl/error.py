@@ -3,7 +3,8 @@ import traceback
 from _openssl import ffi
 from _openssl import lib
 
-from openssl._stdssl.utility import _string_from_asn1, _str_to_ffi_buffer, _str_from_buf
+from _cffi_ssl._stdssl.utility import _string_from_asn1, _str_to_ffi_buffer, _str_from_buf
+from _cffi_ssl._stdssl.errorcodes import _error_codes, _lib_codes
 
 SSL_ERROR_NONE = 0
 SSL_ERROR_SSL = 1
@@ -55,8 +56,6 @@ def ssl_error(errstr, errcode=0):
 ERR_CODES_TO_NAMES = {}
 ERR_NAMES_TO_CODES = {}
 LIB_CODES_TO_NAMES = {}
-
-from openssl._stdssl.errorcodes import _error_codes, _lib_codes
 
 for mnemo, library, reason in _error_codes:
     key = (library, reason)

@@ -3,8 +3,8 @@ import base64
 import textwrap
 from _openssl import ffi
 from _openssl import lib
-from openssl._stdssl.utility import _string_from_asn1, _str_with_len, _bytes_with_len
-from openssl._stdssl.error import ssl_error, pyssl_error
+from _cffi_ssl._stdssl.utility import _string_from_asn1, _str_with_len, _bytes_with_len
+from _cffi_ssl._stdssl.error import ssl_error, pyssl_error
 
 X509_NAME_MAXLEN = 256
 
