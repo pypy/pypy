@@ -98,6 +98,10 @@ lib.SSL_library_init()
 # TODO threads?
 lib.OpenSSL_add_all_algorithms()
 
+def check_signals():
+    # TODO PyErr_CheckSignal equivalent for pypy?
+    pass
+
 def _socket_timeout(s):
     if s is None:
         return 0.0
@@ -218,13 +222,14 @@ class _SSLSocket(object):
         if sock:
             lib.SSL_set_fd(ssl, sock.fileno())
         else:
-            raise NotImplementedError("implement _SSLSocket inbio, outbio params")
-            # /* BIOs are reference counted and SSL_set_bio borrows our reference.
-            #  * To prevent a double free in memory_bio_dealloc() we need to take an
-            #  * extra reference here. */
-            # CRYPTO_add(&inbio->bio->references, 1, CRYPTO_LOCK_BIO);
-            # CRYPTO_add(&outbio->bio->references, 1, CRYPTO_LOCK_BIO);
-            # SSL_set_bio(self->ssl, inbio->bio, outbio->bio);
+            # BIOs are reference counted and SSL_set_bio borrows our reference.
+            # To prevent a double free in memory_bio_dealloc() we need to take an
+            # extra reference here.
+            irefaddr = lib.Cryptography_bio_references(inbio.bio);
+            orefaddr = lib.Cryptography_bio_references(outbio.bio);
+            lib.CRYPTO_add(irefaddr, 1, lib.CRYPTO_LOCK_BIO)
+            lib.CRYPTO_add(orefaddr, 1, lib.CRYPTO_LOCK_BIO)
+            lib.SSL_set_bio(self.ssl, inbio.bio, outbio.bio)
 
         mode = lib.SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER
         if lib.SSL_MODE_AUTO_RETRY:
@@ -287,12 +292,17 @@ class _SSLSocket(object):
 
     @context.setter
     def context(self, value):
-        self.ctx = value
+        if isinstance(value, _SSLContext):
+            if not HAS_SNI:
+                raise NotImplementedError("setting a socket's "
+                        "context is not supported by your OpenSSL library")
+            self.ctx = value
+            lib.SSL_set_SSL_CTX(self.ssl, self.ctx.ctx);
+        else:
+            raise TypeError("The value must be a SSLContext")
 
     def do_handshake(self):
-        sock = self.get_socket_or_None()
-        if sock is None:
-            raise ssl_error("Underlying socket connection gone", SSL_ERROR_NO_SOCKET)
+        sock = self.get_socket_or_connection_gone()
         ssl = self.ssl
         timeout = _socket_timeout(sock)
         if sock:
@@ -313,8 +323,7 @@ class _SSLSocket(object):
             err = lib.SSL_get_error(ssl, ret)
             # end allow threads
 
-            #if (PyErr_CheckSignals())
-            #    goto error;
+            check_signals()
 
             if has_timeout:
                 # REIVIEW monotonic clock?
@@ -399,8 +408,7 @@ class _SSLSocket(object):
             err = lib.SSL_get_error(self.ssl, length)
             #PySSL_END_ALLOW_THREADS
 
-            # TODO if (PyErr_CheckSignals())
-            # TODO     goto error;
+            check_signals()
 
             if has_timeout:
                 # TODO monotonic clock
@@ -428,14 +436,12 @@ class _SSLSocket(object):
             raise pyssl_error(self, length)
 
     def read(self, length, buffer_into=None):
-        sock = self.get_socket_or_None()
         ssl = self.ssl
 
         if length < 0 and buffer_into is None:
             raise ValueError("size should not be negative")
 
-        if sock is None:
-            raise ssl_error("Underlying socket connection gone", SSL_ERROR_NO_SOCKET)
+        sock = self.get_socket_or_connection_gone()
 
         if not buffer_into:
             dest = _buffer_new(length)
@@ -467,9 +473,7 @@ class _SSLSocket(object):
             err = lib.SSL_get_error(self.ssl, count);
             #PySSL_END_ALLOW_THREADS
 
-            # TODO
-            #if (PyErr_CheckSignals())
-            #    goto error;
+            check_signals()
 
             if has_timeout:
                 timeout = deadline - time.time() # TODO ? _PyTime_GetMonotonicClock();
@@ -512,9 +516,10 @@ class _SSLSocket(object):
 
     def shared_ciphers(self):
         sess = lib.SSL_get_session(self.ssl)
-
+        if sess == ffi.NULL:
+            return None
         ciphers = lib.Cryptography_get_ssl_session_ciphers(sess)
-        if sess is None or ciphers == ffi.NULL:
+        if ciphers == ffi.NULL:
             return None
         res = []
         count = lib.sk_SSL_CIPHER_num(ciphers)
@@ -559,18 +564,28 @@ class _SSLSocket(object):
         return self.socket()
 
     def get_socket_or_connection_gone(self):
+        """ There are three states:
+            1) self.socket is None (In C that would mean: self->Socket == NULL)
+            2) self.socket() is None (-> The socket is gone)
+            3) self.socket() is not None
+            This method returns True if there is not weakref object allocated
+        """
         if self.socket is None:
+            return None
+        sock = self.socket()
+        if not sock:
             raise ssl_error("Underlying socket connection gone", SSL_ERROR_NO_SOCKET)
-        return self.socket()
+        return sock
 
     def shutdown(self):
         sock = self.get_socket_or_None()
         nonblocking = False
         ssl = self.ssl
 
-        if sock is not None:
+        if self.socket is not None:
             # Guard against closed socket
-            if sock.fileno() < 0:
+            sock = self.socket()
+            if sock is None or sock.fileno() < 0:
                 raise ssl_error("Underlying socket connection gone", SSL_ERROR_NO_SOCKET)
 
             timeout = _socket_timeout(sock)
@@ -1129,7 +1144,6 @@ class _SSLContext(object):
                     "is not in the current OpenSSL library.")
         if callback is None:
             lib.SSL_CTX_set_tlsext_servername_callback(self.ctx, ffi.NULL)
-            self.set_hostname = None
             self._set_hostname_handle = None
             return
         if not callable(callback):
@@ -1160,6 +1174,16 @@ class _SSLContext(object):
             lib.SSL_CTX_set_next_proto_select_cb(self.ctx, select_npn_callback, handle)
         else:
             raise NotImplementedError("The NPN extension requires OpenSSL 1.0.1 or later.")
+
+    def _wrap_bio(self, incoming, outgoing, server_side, server_hostname):
+        # server_hostname is either None (or absent), or to be encoded
+        # using the idna encoding.
+        hostname = None
+        if server_hostname is not None:
+            hostname = server_hostname.encode("idna")
+
+        sock = _SSLSocket._new__ssl_socket(self, None, server_side, hostname, incoming, outgoing)
+        return sock
 
 
 
@@ -1360,15 +1384,16 @@ RAND_add = lib.RAND_add
 def _RAND_bytes(count, pseudo):
     if count < 0:
         raise ValueError("num must be positive")
-    buf = ffi.new("unsigned char[]", b"\x00"*count)
+    buf = ffi.new("unsigned char[%d]" % count)
     if pseudo:
         ok = lib.RAND_pseudo_bytes(buf, count)
         if ok == 1 or ok == 0:
-            return (ffi.string(buf), ok == 1)
+            _bytes = _bytes_with_len(buf, count)
+            return (_bytes, ok == 1)
     else:
         ok = lib.RAND_bytes(buf, count)
         if ok == 1:
-            return ffi.string(buf)
+            return _bytes_with_len(buf, count)
     raise ssl_error(None, errcode=lib.ERR_get_error())
 
 def RAND_pseudo_bytes(count):
