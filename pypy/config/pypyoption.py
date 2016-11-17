@@ -36,7 +36,7 @@ working_modules.update([
     "_socket", "unicodedata", "mmap", "fcntl", "_locale", "pwd",
     "select", "zipimport", "_lsprof", "crypt", "signal", "_rawffi", "termios",
     "zlib", "bz2", "struct", "_hashlib", "_md5", "_minimal_curses",
-    "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
+    "thread", "itertools", "pyexpat", "cpyext", "array",
     "binascii", "_multiprocessing", '_warnings', "_collections",
     "_multibytecodec", "_continuation", "_cffi_backend",
     "_csv", "_pypyjson", "_posixsubprocess", # "cppyy", "micronumpy"
@@ -118,7 +118,6 @@ module_import_dependencies = {
     "zlib"      : ["rpython.rlib.rzlib"],
     "bz2"       : ["pypy.module.bz2.interp_bz2"],
     "pyexpat"   : ["pypy.module.pyexpat.interp_pyexpat"],
-    "_ssl"      : ["pypy.module._ssl.interp_ssl"],
     "_hashlib"  : ["pypy.module._ssl.interp_ssl"],
     "_minimal_curses": ["pypy.module._minimal_curses.fficurses"],
     "_continuation": ["rpython.rlib.rstacklet"],
