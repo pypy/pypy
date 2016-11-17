@@ -110,6 +110,7 @@ testmap = [
     RegrTest('test_asdl_parser.py'),
     RegrTest('test_ast.py', core=True, usemodules='struct'),
     RegrTest('test_asynchat.py', usemodules='select fcntl'),
+    RegrTest('test_asyncio'),
     RegrTest('test_asyncore.py', usemodules='select fcntl'),
     RegrTest('test_atexit.py', core=True),
     RegrTest('test_audioop.py'),
@@ -199,7 +200,7 @@ testmap = [
     RegrTest('test_dynamic.py'),
     RegrTest('test_dynamicclassattribute.py'),
     RegrTest('test_eintr.py'),
-    RegrTest('test_email', skip="XXX is a directory"),
+    RegrTest('test_email'),
     RegrTest('test_ensurepip.py'),
     RegrTest('test_enum.py'),
     RegrTest('test_enumerate.py', core=True),
@@ -258,8 +259,9 @@ testmap = [
     RegrTest('test_idle.py'),
     RegrTest('test_imaplib.py'),
     RegrTest('test_imghdr.py'),
+    RegrTest('test_import'),
+    RegrTest('test_importlib', skip='XXX segfaults'),
     RegrTest('test_imp.py', core=True, usemodules='thread'),
-    RegrTest('test_importlib', 'XXX is a directory'),
     RegrTest('test_index.py'),
     RegrTest('test_inspect.py', usemodules="struct unicodedata"),
     RegrTest('test_int.py', core=True),
@@ -271,7 +273,7 @@ testmap = [
     RegrTest('test_iter.py', core=True),
     RegrTest('test_iterlen.py', core=True, usemodules="_collections itertools"),
     RegrTest('test_itertools.py', core=True, usemodules="itertools struct"),
-    RegrTest('test_json', skip="XXX is a directory"),
+    RegrTest('test_json'),
     RegrTest('test_keyword.py'),
     RegrTest('test_keywordonlyarg.py'),
     RegrTest('test_kqueue.py'),
@@ -437,9 +439,10 @@ testmap = [
     RegrTest('test_tix.py'),
     RegrTest('test_tk.py'),
     RegrTest('test_tokenize.py'),
-    RegrTest('test_trace.py'),
+    RegrTest('test_tools', skip="CPython internal details"),
     RegrTest('test_traceback.py', core=True),
     RegrTest('test_tracemalloc.py'),
+    RegrTest('test_trace.py'),
     RegrTest('test_ttk_guionly.py'),
     RegrTest('test_ttk_textonly.py'),
     RegrTest('test_tuple.py', core=True),
@@ -470,6 +473,7 @@ testmap = [
     RegrTest('test_venv.py', usemodules="struct"),
     RegrTest('test_wait3.py', usemodules="thread"),
     RegrTest('test_wait4.py', usemodules="thread"),
+    RegrTest('test_warnings'),
     RegrTest('test_wave.py'),
     RegrTest('test_weakref.py', core=True, usemodules='_weakref'),
     RegrTest('test_weakset.py'),
@@ -513,10 +517,22 @@ def pytest_configure(config):
         cache[x.basename] = x
 
 def pytest_ignore_collect(path, config):
+    if path.basename == '__init__.py':
+        return False
     if path.isfile():
         regrtest = config._basename2spec.get(path.basename, None)
         if regrtest is None or path.dirpath() != testdir:
             return True
+
+def pytest_collect_file(path, parent):
+    if path.basename == '__init__.py':
+        # handle the RegrTest for the whole subpackage here
+        pkg_path = path.dirpath()
+        regrtest = parent.config._basename2spec.get(pkg_path.basename, None)
+        if pkg_path.dirpath() == testdir and regrtest:
+            return RunFileExternal(
+                pkg_path.basename, parent=parent, regrtest=regrtest)
+
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_pycollect_makemodule(path, parent):

@@ -59,6 +59,7 @@ class TestProgram(object):
                     testRunner=None, testLoader=loader.defaultTestLoader,
                     exit=True, verbosity=1, failfast=None, catchbreak=None,
                     buffer=None, warnings=None, *, tb_locals=False):
+        print('TestProgram()')
         if isinstance(module, str):
             self.module = __import__(module)
             for part in module.split('.')[1:]:
@@ -74,6 +75,7 @@ class TestProgram(object):
         self.verbosity = verbosity
         self.buffer = buffer
         self.tb_locals = tb_locals
+        print('1')
         if warnings is None and not sys.warnoptions:
             # even if DeprecationWarnings are ignored by default
             # print them anyway unless other warnings settings are
@@ -90,7 +92,9 @@ class TestProgram(object):
         self.testRunner = testRunner
         self.testLoader = testLoader
         self.progName = os.path.basename(argv[0])
+        print('parsing')
         self.parseArgs(argv)
+        print('running')
         self.runTests()
 
     def usageExit(self, msg=None):
@@ -111,6 +115,7 @@ class TestProgram(object):
             print(MODULE_EXAMPLES % {'prog': self.progName})
 
     def parseArgs(self, argv):
+        print('in parseArgs()')
         self._initArgParsers()
         if self.module is None:
             if len(argv) > 1 and argv[1].lower() == 'discover':
@@ -137,12 +142,15 @@ class TestProgram(object):
             self.testNames = (self.defaultTest,)
         else:
             self.testNames = list(self.defaultTest)
+        print('creating tests')
         self.createTests()
 
     def createTests(self):
         if self.testNames is None:
+            print('loading from module', self.module)
             self.test = self.testLoader.loadTestsFromModule(self.module)
         else:
+            print('loading', self.testNames, 'from', self.module)
             self.test = self.testLoader.loadTestsFromNames(self.testNames,
                                                            self.module)
 
@@ -228,6 +236,7 @@ class TestProgram(object):
         self.test = loader.discover(self.start, self.pattern, self.top)
 
     def runTests(self):
+        print('in runTests()')
         if self.catchbreak:
             installHandler()
         if self.testRunner is None:
