@@ -15,6 +15,8 @@ uncaught RPython error.
 
 Try to improve the consistency of RPython annotation unions.
 
+.. branch: pytest-2.9.2
+
 .. branch: clean-exported-state
 
 Clean-ups in the jit optimizeopt
