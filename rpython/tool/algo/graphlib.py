@@ -180,14 +180,20 @@ def is_acyclic(vertices, edges):
                 raise CycleFound
             if w in unvisited:
                 del unvisited[w]
-                visit(w)
+                yield visit(w)
         del visiting[vertex]
     try:
         unvisited = vertices.copy()
         while unvisited:
             visiting = {}
             root = unvisited.popitem()[0]
-            visit(root)
+            pending = [visit(root)]
+            while pending:
+                generator = pending[-1]
+                try:
+                    pending.append(next(generator))
+                except StopIteration:
+                    pending.pop()
     except CycleFound:
         return False
     else:
