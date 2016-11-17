@@ -191,7 +191,9 @@ def _log_any(space, w_x, base):
     try:
         try:
             x = _get_double(space, w_x)
-        except OverflowError:
+        except OperationError as e:
+            if not e.match(space, space.w_OverflowError):
+                raise
             if not space.isinstance_w(w_x, space.w_int):
                 raise
             # special case to support log(extremely-large-long)
