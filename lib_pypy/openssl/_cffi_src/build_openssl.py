@@ -7,7 +7,7 @@ from __future__ import absolute_import, division, print_function
 import os
 import sys
 
-from openssl._cffi_src.utils import (
+from _cffi_src.utils import (
     build_ffi_for_binding, compiler_type, extra_link_args
 )
 

@@ -139,7 +139,7 @@ def _create_tuple_for_X509_NAME(xname):
         entry = lib.X509_NAME_get_entry(xname, index_counter);
 
         # check to see if we've gotten to a new RDN
-        _set = lib.X509_NAME_ENTRY_set(entry)
+        _set = lib.Cryptography_X509_NAME_ENTRY_set(entry)
         if rdn_level >= 0:
             if rdn_level != _set:
                 dn.append(tuple(rdn))

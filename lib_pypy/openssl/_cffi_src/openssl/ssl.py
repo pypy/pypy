@@ -137,16 +137,14 @@ static const long TLS_ST_OK;
 typedef ... SSL_METHOD;
 typedef ... SSL_CTX;
 
-
 typedef ... SSL_SESSION;
 typedef ... SSL;
 
-typedef ... Cryptography_STACK_OF_SSL_CIPHER;
-
 static const long TLSEXT_NAMETYPE_host_name;
 
-typedef ... COMP_METHOD;
 typedef ... SSL_CIPHER;
+typedef ... Cryptography_STACK_OF_SSL_CIPHER;
+typedef ... COMP_METHOD;
 """
 
 FUNCTIONS = """
