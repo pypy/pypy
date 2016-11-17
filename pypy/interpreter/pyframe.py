@@ -324,8 +324,6 @@ class PyFrame(W_Root):
                 raise
             except Exception as e:      # general fall-back
                 raise self._convert_unexpected_exception(e)
-                w_exitvalue = self.dispatch(self.pycode, next_instr,
-                                            executioncontext)
             finally:
                 executioncontext.return_trace(self, w_exitvalue)
             # it used to say self.last_exception = None
