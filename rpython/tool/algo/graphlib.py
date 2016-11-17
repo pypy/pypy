@@ -25,18 +25,27 @@ def make_edge_dict(edge_list):
     return edges
 
 def depth_first_search(root, vertices, edges):
-    seen = {}
+    seen = set([root])
     result = []
-    def visit(vertex):
-        result.append(('start', vertex))
-        seen[vertex] = True
-        for edge in edges[vertex]:
-            w = edge.target
-            if w in vertices and w not in seen:
-                visit(w)
-        result.append(('stop', vertex))
-    visit(root)
-    return result
+    stack = []
+    while True:
+        result.append(('start', root))
+        stack.append((root, iter(edges[root])))
+        while True:
+            vertex, iterator = stack[-1]
+            try:
+                edge = next(iterator)
+            except StopIteration:
+                stack.pop()
+                result.append(('stop', vertex))
+                if not stack:
+                    return result
+            else:
+                w = edge.target
+                if w in vertices and w not in seen:
+                    seen.add(w)
+                    root = w
+                    break
 
 def vertices_reachable_from(root, vertices, edges):
     for event, v in depth_first_search(root, vertices, edges):
