@@ -172,7 +172,8 @@ if 1:
         f.write('\n'.join(defs))
         f.write('def %s():\n' % target_name)
         f.write('\n'.join(source))
-        f.write("\n%s()\n" % target_name)
+        f.write("\ntry:\n    %s()\n" % target_name)
+        f.write('finally:\n    print("===aefwuiheawiu===")')
     helper_dir = os.path.join(pypydir, 'tool', 'cpyext')
     env = os.environ.copy()
     env['PYTHONPATH'] = helper_dir
@@ -186,6 +187,8 @@ if 1:
                      (python_, usemodules))
     elif res > 0:
         raise AssertionError("Subprocess failed:\n" + stderr)
+    elif "===aefwuiheawiu===" not in stdout:
+        raise AssertionError("%r crashed:\n%s" % (python_, stderr))
 
 
 def extract_docstring_if_empty_function(fn):
