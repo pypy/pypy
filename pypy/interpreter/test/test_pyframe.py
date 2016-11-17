@@ -87,6 +87,40 @@ class AppTestPyFrame:
         sys.settrace(None)
         # assert did not crash
 
+    def test_f_lineno_set_2(self):
+        counter = [0]
+        errors = []
+
+        def tracer(f, event, *args):
+            if event == 'line':
+                counter[0] += 1
+                if counter[0] == 2:
+                    try:
+                        f.f_lineno += 2
+                    except ValueError as e:
+                        errors.append(e)
+            return tracer
+
+        # obscure: call open beforehand, py3k's open invokes some app
+        # level code that confuses our tracing (likely due to the
+        # testing env, otherwise it's not a problem)
+        f = open(self.tempfile1, 'w')
+        def function():
+            try:
+                raise ValueError
+            except ValueError:
+                x = 42
+            return x
+
+        import sys
+        sys.settrace(tracer)
+        x = function()
+        sys.settrace(None)
+        assert x == 42
+        assert len(errors) == 1
+        assert str(errors[0]).startswith(
+            "can't jump into or out of an 'expect' or 'finally' block")
+
     def test_f_lineno_set_firstline(self):
         r"""
         seen = []

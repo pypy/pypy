@@ -655,7 +655,9 @@ class PyFrame(W_Root):
                 blockstack.append(addr)
                 blockstack.append(-1)
             elif op == POP_BLOCK:
-                assert len(blockstack) >= 3
+                if len(blockstack) < 3:
+                    raise oefmt(space.w_SystemError,
+                                "blocks not properly nested in this bytecode")
                 blockstack.pop()
                 setup_op = ord(code[blockstack.pop()])
                 if setup_op != SETUP_LOOP:
@@ -670,22 +672,24 @@ class PyFrame(W_Root):
                 assert ii >= 0
                 handler_addr = blockstack[ii]
                 if addr == new_lasti:
-                    new_lasti_setup_addr = handler_addr
+                    new_lasti_handler_addr = handler_addr
                 if addr == self.last_instr:
-                    f_lasti_setup_addr = handler_addr
+                    f_lasti_handler_addr = handler_addr
 
             if op >= HAVE_ARGUMENT:
                 addr += 3
             else:
                 addr += 1
 
-        assert len(blockstack) == 0
+        if len(blockstack) != 1:
+            raise oefmt(space.w_SystemError,
+                        "blocks not properly nested in this bytecode")
 
         if new_lasti_handler_addr != f_lasti_handler_addr:
             raise oefmt(space.w_ValueError,
                         "can't jump into or out of an 'expect' or "
                         "'finally' block (%d -> %d)",
-                        f_lasti_handler_addr, new_lasti_setup_addr)
+                        f_lasti_handler_addr, new_lasti_handler_addr)
 
         # now we know we're not jumping into or out of a place which
         # needs a SysExcInfoRestorer.  Check that we're not jumping
