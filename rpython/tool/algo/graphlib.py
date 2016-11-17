@@ -106,13 +106,20 @@ def all_cycles(root, vertices, edges):
             for edge in edges[v]:
                 if edge.target in vertices:
                     edgestack.append(edge)
-                    visit(edge.target)
+                    yield visit(edge.target)
                     edgestack.pop()
             stackpos[v] = None
         else:
             if stackpos[v] is not None:   # back-edge
                 result.append(edgestack[stackpos[v]:])
-    visit(root)
+
+    pending = [visit(root)]
+    while pending:
+        generator = pending[-1]
+        try:
+            pending.append(next(generator))
+        except StopIteration:
+            pending.pop()
     return result        
 
 
