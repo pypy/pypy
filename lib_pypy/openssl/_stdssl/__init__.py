@@ -8,7 +8,7 @@ from _openssl import lib
 from openssl._stdssl.certificate import (_test_decode_cert,
     _decode_certificate, _certificate_to_der)
 from openssl._stdssl.utility import (_str_with_len, _bytes_with_len,
-    _str_to_ffi_buffer, _str_from_buf)
+    _str_to_ffi_buffer, _str_from_buf, _cstr_decode_fs)
 from openssl._stdssl.error import (ssl_error, pyssl_error,
         SSLError, SSLZeroReturnError, SSLWantReadError,
         SSLWantWriteError, SSLSyscallError,
@@ -17,8 +17,9 @@ from openssl._stdssl.error import (SSL_ERROR_NONE,
         SSL_ERROR_SSL, SSL_ERROR_WANT_READ, SSL_ERROR_WANT_WRITE,
         SSL_ERROR_WANT_X509_LOOKUP, SSL_ERROR_SYSCALL,
         SSL_ERROR_ZERO_RETURN, SSL_ERROR_WANT_CONNECT,
-        SSL_ERROR_EOF, SSL_ERROR_NO_SOCKET, SSL_ERROR_INVALID_ERROR_CODE)
-
+        SSL_ERROR_EOF, SSL_ERROR_NO_SOCKET, SSL_ERROR_INVALID_ERROR_CODE,
+        pyerr_write_unraisable)
+from openssl._stdssl import error
 
 OPENSSL_VERSION = ffi.string(lib.OPENSSL_VERSION_TEXT).decode('utf-8')
 OPENSSL_VERSION_NUMBER = lib.OPENSSL_VERSION_NUMBER
@@ -85,6 +86,12 @@ if HAS_TLS_UNIQUE:
 else:
     CHANNEL_BINDING_TYPES = []
 
+for name in error.SSL_AD_NAMES:
+    lib_attr = 'SSL_AD_' + name
+    attr = 'ALERT_DESCRIPTION_' + name
+    if hasattr(lib, lib_attr):
+        globals()[attr] = getattr(lib, lib_attr)
+
 # init open ssl
 lib.SSL_load_error_strings()
 lib.SSL_library_init()
@@ -103,6 +110,7 @@ class PasswordInfo(object):
     callable = None
     password = None
     operationerror = None
+    handle = None
 PWINFO_STORAGE = {}
 
 def _Cryptography_pem_password_cb(buf, size, rwflag, userdata):
@@ -258,8 +266,8 @@ class _SSLSocket(object):
         self._owner = None
         self.server_hostname = None
         self.socket = None
-        self.alpn_protocols = ffi.NULL
-        self.npn_protocols = ffi.NULL
+        #self.alpn_protocols = ffi.NULL
+        #self.npn_protocols = ffi.NULL
 
     @property
     def owner(self):
@@ -710,7 +718,7 @@ for name in SSL_CTX_STATS_NAMES:
 class _SSLContext(object):
     __slots__ = ('ctx', '_check_hostname', 'servername_callback',
                  'alpn_protocols', 'npn_protocols', 'set_hostname',
-                 '_set_hostname_handle')
+                 '_set_hostname_handle', '_npn_protocols_handle')
 
     def __new__(cls, protocol):
         self = object.__new__(cls)
@@ -861,8 +869,6 @@ class _SSLContext(object):
         pw_info = PasswordInfo()
         index = -1
         if password is not None:
-            index = _thread.get_ident()
-            PWINFO_STORAGE[index] = pw_info
 
             if callable(password):
                 pw_info.callable = password
@@ -872,9 +878,11 @@ class _SSLContext(object):
                 else:
                     raise TypeError("password should be a string or callable")
 
-            handle = ffi.new_handle(pw_info) # XXX MUST NOT be garbage collected
+            pw_info.handle = ffi.new_handle(pw_info)
+            index = _thread.get_ident()
+            PWINFO_STORAGE[index] = pw_info
             lib.SSL_CTX_set_default_passwd_cb(self.ctx, Cryptography_pem_password_cb)
-            lib.SSL_CTX_set_default_passwd_cb_userdata(self.ctx, handle)
+            lib.SSL_CTX_set_default_passwd_cb_userdata(self.ctx, pw_info.handle)
 
         try:
             ffi.errno = 0
@@ -908,7 +916,7 @@ class _SSLContext(object):
 
             ret = lib.SSL_CTX_check_private_key(self.ctx)
             if ret != 1:
-                raise _ssl_seterror(None, -1)
+                raise ssl_error(None)
         finally:
             if index >= 0:
                 del PWINFO_STORAGE[index]
@@ -1033,6 +1041,7 @@ class _SSLContext(object):
         return {'x509': x509, 'x509_ca': x509_ca, 'crl': crl}
 
 
+#    REVIEW, how to do that properly
 #    def _finalize_(self):
 #        ctx = self.ctx
 #        if ctx:
@@ -1125,8 +1134,8 @@ class _SSLContext(object):
             return
         if not callable(callback):
             raise TypeError("not a callable object")
-        self.set_hostname = callback
-        self._set_hostname_handle = ffi.new_handle(self)
+        scb = ServernameCallback(callback, self)
+        self._set_hostname_handle = ffi.new_handle(scb)
         lib.Cryptography_SSL_CTX_set_tlsext_servername_callback(self.ctx, _servername_callback)
         lib.Cryptography_SSL_CTX_set_tlsext_servername_arg(self.ctx, self._set_hostname_handle)
 
@@ -1146,6 +1155,7 @@ class _SSLContext(object):
         if HAS_NPN:
             self.npn_protocols = ffi.from_buffer(protos)
             handle = ffi.new_handle(self)
+            self._npn_protocols_handle = handle # track a reference to the handle
             lib.SSL_CTX_set_next_protos_advertised_cb(self.ctx, advertise_npn_callback, handle)
             lib.SSL_CTX_set_next_proto_select_cb(self.ctx, select_npn_callback, handle)
         else:
@@ -1156,20 +1166,21 @@ class _SSLContext(object):
 if HAS_SNI and not lib.Cryptography_NO_TLSEXT:
     @ffi.callback("int(SSL*,int*,void*)")
     def _servername_callback(s, al, arg):
-        ssl_ctx = ffi.from_handle(arg)
+        scb = ffi.from_handle(arg)
+        ssl_ctx = scb.ctx
         servername = lib.SSL_get_servername(s, lib.TLSEXT_NAMETYPE_host_name)
-    #ifdef WITH_THREAD
-        # TODO PyGILState_STATE gstate = PyGILState_Ensure();
-    #endif
+        set_hostname = scb.callback
+        #ifdef WITH_THREAD
+            # TODO PyGILState_STATE gstate = PyGILState_Ensure();
+        #endif
 
-        if ssl_ctx.set_hostname is None:
+        if set_hostname is None:
             #/* remove race condition in this the call back while if removing the
             # * callback is in progress */
-    #ifdef WITH_THREAD
-            # TODO PyGILState_Release(gstate);
-    #endif
+            #ifdef WITH_THREAD
+                    # TODO PyGILState_Release(gstate);
+            #endif
             return lib.SSL_TLSEXT_ERR_OK
-        #}
 
         ssl = ffi.from_handle(lib.SSL_get_app_data(s))
         assert isinstance(ssl, _SSLSocket)
@@ -1192,10 +1203,9 @@ if HAS_SNI and not lib.Cryptography_NO_TLSEXT:
 
         if servername == ffi.NULL:
             try:
-                result = ssl_ctx.set_hostname(ssl_socket, None, ssl_ctx)
-            except:
-                # TODO
-                #        PyErr_WriteUnraisable(ssl_ctx->set_hostname);
+                result = set_hostname(ssl_socket, None, ssl_ctx)
+            except Exception as e:
+                pyerr_write_unraisable(e, set_hostname)
                 al[0] = lib.SSL_AD_HANDSHAKE_FAILURE
                 return lib.SSL_TLSEXT_ERR_ALERT_FATAL
         else:
@@ -1203,31 +1213,44 @@ if HAS_SNI and not lib.Cryptography_NO_TLSEXT:
 
             try:
                 servername_idna = servername.decode("idna")
-            except UnicodeDecodeError:
-                raise # TODO?
-    #            PyErr_WriteUnraisable(servername_o);
+            except UnicodeDecodeError as e:
+                pyerr_write_unraisable(e, servername)
 
             try:
-                result = ssl_ctx.set_hostname(ssl_socket, servername_idna, ssl_ctx)
-            except:
-                # TODO
-                #        PyErr_WriteUnraisable(ssl_ctx->set_hostname);
+                result = set_hostname(ssl_socket, servername_idna, ssl_ctx)
+            except Exception as e:
+                pyerr_write_unraisable(e, set_hostname)
                 al[0] = lib.SSL_AD_HANDSHAKE_FAILURE
                 return lib.SSL_TLSEXT_ERR_ALERT_FATAL
 
         if result is not None:
+            # this is just a poor man's emulation:
+            # in CPython this works a bit different, it calls all the way
+            # down from PyLong_AsLong to _PyLong_FromNbInt which raises
+            # a TypeError if there is no nb_int slot filled.
             try:
-                al[0] = int(result)
-            except:
-    #                PyErr_WriteUnraisable(result);
-               al[0] = lib.SSL_AD_INTERNAL_ERROR
-               return lib.SSL_TLSEXT_ERR_ALERT_FATAL
+                if isinstance(result, int):
+                    al[0] = result
+                else:
+                    if result is not None:
+                        if hasattr(result,'__int__'):
+                            al[0] = result.__int__()
+                            return lib.SSL_TLSEXT_ERR_ALERT_FATAL
+                    # needed because sys.exec_info is used in pyerr_write_unraisable
+                    raise TypeError("an integer is required (got type %s)" % result)
+            except TypeError as e:
+                pyerr_write_unraisable(e, result)
+                al[0] = lib.SSL_AD_INTERNAL_ERROR
+            return lib.SSL_TLSEXT_ERR_ALERT_FATAL
         else:
             # TODO gil state release?
             return lib.SSL_TLSEXT_ERR_OK
 
 class ServernameCallback(object):
-    ctx = None
+    def __init__(self, callback, ctx):
+        self.callback = callback
+        self.ctx = ctx
+
 SERVERNAME_CALLBACKS = weakref.WeakValueDictionary()
 TEST = None
 
@@ -1287,13 +1310,13 @@ class MemoryBIO(object):
         """Whether the memory BIO is at EOF."""
         return lib.BIO_ctrl_pending(self.bio) == 0 and self.eof_written
 
-    def write(self, _bytes):
+    def write(self, strlike):
         INT_MAX = 2**31-1
-        if isinstance(_bytes, memoryview):
-            # REVIEW pypy does not support from_buffer of a memoryview
-            # copies the data!
-            _bytes = bytes(_bytes)
-        buf = ffi.from_buffer(_bytes)
+        if isinstance(strlike, memoryview):
+            # FIXME pypy must support get_raw_address for
+            # StringBuffer to remove this case!
+            strlike = strlike.tobytes()
+        buf = ffi.from_buffer(strlike)
         if len(buf) > INT_MAX:
             raise OverflowError("string longer than %d bytes", INT_MAX)
 
@@ -1346,7 +1369,7 @@ def _RAND_bytes(count, pseudo):
         ok = lib.RAND_bytes(buf, count)
         if ok == 1:
             return ffi.string(buf)
-    raise ssl_error("", errcode=lib.ERR_get_error())
+    raise ssl_error(None, errcode=lib.ERR_get_error())
 
 def RAND_pseudo_bytes(count):
     return _RAND_bytes(count, True)
@@ -1357,19 +1380,6 @@ def RAND_bytes(count):
 def RAND_add(view, entropy):
     buf = _str_to_ffi_buffer(view)
     lib.RAND_add(buf, len(buf), entropy)
-
-
-def _cstr_decode_fs(buf):
-#define CONVERT(info, target) { \
-#        const char *tmp = (info); \
-#        target = NULL; \
-#        if (!tmp) { Py_INCREF(Py_None); target = Py_None; } \
-#        else if ((target = PyUnicode_DecodeFSDefault(tmp)) == NULL) { \
-#            target = PyBytes_FromString(tmp); } \
-#        if (!target) goto error; \
-#    }
-    # REVIEW
-    return ffi.string(buf).decode(sys.getfilesystemencoding())
 
 def get_default_verify_paths():
 
@@ -1385,7 +1395,6 @@ def get_default_verify_paths():
     odir = _cstr_decode_fs(lib.X509_get_default_cert_dir())
     if odir is None:
         return odir
-
     return (ofile_env, ofile, odir_env, odir);
 
 @ffi.callback("int(SSL*,unsigned char **,unsigned char *,const unsigned char *,unsigned int,void *)")
@@ -1395,28 +1404,28 @@ def select_alpn_callback(ssl, out, outlen, client_protocols, client_protocols_le
                                  ffi.cast("unsigned char*",ctx.alpn_protocols), len(ctx.alpn_protocols),
                                  client_protocols, client_protocols_len)
 
-@ffi.callback("int(SSL*,unsigned char **,unsigned char *,const unsigned char *,unsigned int,void *)")
-def select_npn_callback(ssl, out, outlen, server_protocols, server_protocols_len, args):
-    ctx = ffi.from_handle(args)
-    return do_protocol_selection(0, out, outlen, server_protocols, server_protocols_len,
-                                 ffi.cast("unsigned char*",ctx.npn_protocols), len(ctx.npn_protocols))
-
-
-@ffi.callback("int(SSL*,const unsigned char**, unsigned int*, void*)")
-def advertise_npn_callback(ssl, data, length, args):
-    ctx = ffi.from_handle(args)
-
-    if not ctx.npn_protocols:
-        data[0] = ffi.new("unsigned char*", b"")
-        length[0] = 0
-    else:
-        data[0] = ffi.cast("unsigned char*",ctx.npn_protocols)
-        length[0] = len(ctx.npn_protocols)
-
-    return lib.SSL_TLSEXT_ERR_OK
-
-
 if lib.Cryptography_HAS_NPN_NEGOTIATED:
+    @ffi.callback("int(SSL*,unsigned char **,unsigned char *,const unsigned char *,unsigned int,void *)")
+    def select_npn_callback(ssl, out, outlen, server_protocols, server_protocols_len, args):
+        ctx = ffi.from_handle(args)
+        return do_protocol_selection(0, out, outlen, server_protocols, server_protocols_len,
+                                     ffi.cast("unsigned char*",ctx.npn_protocols), len(ctx.npn_protocols))
+
+
+    @ffi.callback("int(SSL*,const unsigned char**, unsigned int*, void*)")
+    def advertise_npn_callback(ssl, data, length, args):
+        ctx = ffi.from_handle(args)
+
+        if not ctx.npn_protocols:
+            data[0] = ffi.new("unsigned char*", b"")
+            length[0] = 0
+        else:
+            data[0] = ffi.cast("unsigned char*",ctx.npn_protocols)
+            length[0] = len(ctx.npn_protocols)
+
+        return lib.SSL_TLSEXT_ERR_OK
+
+
     def do_protocol_selection(alpn, out, outlen, server_protocols, server_protocols_len,
                                                  client_protocols, client_protocols_len):
         if client_protocols == ffi.NULL:

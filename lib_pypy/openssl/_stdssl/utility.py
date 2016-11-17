@@ -1,3 +1,4 @@
+import sys
 from _openssl import ffi
 from _openssl import lib
 
@@ -35,4 +36,16 @@ def _str_to_ffi_buffer(view, zeroterm=False):
 
 def _str_from_buf(buf):
     return ffi.string(buf).decode('utf-8')
+
+def _cstr_decode_fs(buf):
+#define CONVERT(info, target) { \
+#        const char *tmp = (info); \
+#        target = NULL; \
+#        if (!tmp) { Py_INCREF(Py_None); target = Py_None; } \
+#        else if ((target = PyUnicode_DecodeFSDefault(tmp)) == NULL) { \
+#            target = PyBytes_FromString(tmp); } \
+#        if (!target) goto error; \
+#    }
+    # REVIEW
+    return ffi.string(buf).decode(sys.getfilesystemencoding())
 
