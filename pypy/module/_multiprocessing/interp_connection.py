@@ -2,6 +2,7 @@ import sys
 from errno import EINTR
 
 from rpython.rlib import rpoll, rsocket
+from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.lltypesystem import lltype, rffi
 
@@ -29,7 +30,10 @@ class State(object):
             w_builtins, '__import__', space.wrap("pickle"))
 
 def BufferTooShort(space, w_data):
-    w_BufferTooShort = space.fromcache(State).w_BufferTooShort
+    state = space.fromcache(State)
+    if not we_are_translated() and not hasattr(state, 'w_BufferTooShort'):
+        state.init(space)   # xxx for test/test_connection.py
+    w_BufferTooShort = state.w_BufferTooShort
     return OperationError(w_BufferTooShort, w_data)
 
 def w_handle(space, handle):
