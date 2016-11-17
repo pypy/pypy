@@ -3,8 +3,9 @@ from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.typedef import GetSetProperty
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, oefmt
+from pypy.objspace.std.sliceobject import unwrap_start_stop
 from rpython.rlib.debug import check_nonneg
 from rpython.rlib.objectmodel import specialize
 
@@ -48,7 +49,9 @@ class Block(object):
         self.data = [None] * BLOCKLEN
 
 class Lock(object):
-    pass
+    """This is not a lock.  It is a marker to detect concurrent
+    modifications (including in the single-threaded case).
+    """
 
 # ------------------------------------------------------------
 
@@ -340,31 +343,16 @@ class W_Deque(W_Root):
     def iter(self):
         return W_DequeIter(self)
 
-    def index(self, w_x, w_start=None, w_stop=None):
+    @unwrap_spec(w_start=WrappedDefault(0), w_stop=WrappedDefault(sys.maxint))
+    def index(self, w_x, w_start, w_stop):
         space = self.space
         w_iter = space.iter(self)
         _len = self.len
-        start = 0
-        stop = _len
         lock = self.getlock()
 
-        if w_start is not None:
-            start = space.int_w(w_start)
-            if start < 0:
-                start += _len
-            if start < 0:
-                start = 0
-            elif start > _len:
-                start = _len
+        start, stop = unwrap_start_stop(space, _len, w_start, w_stop)
 
-        if w_stop is not None:
-            stop = space.int_w(w_stop)
-            if stop < 0:
-                stop += _len
-            if 0 <= stop > _len:
-                stop = _len
-
-        for i in range(0, stop):
+        for i in range(0, min(_len, stop)):
             try:
                 w_obj = space.next(w_iter)
                 if i < start:

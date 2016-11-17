@@ -416,4 +416,4 @@ class AppTestBasic:
         import sys
         elements = 'ABCDEFGHI'
         d = deque([-2, -1, 0, 0, 1, 2])
-        assert a.index(0, -4*sys.maxsize, 4*sys.maxsize) == 2
+        assert d.index(0, -4*sys.maxsize, 4*sys.maxsize) == 2
