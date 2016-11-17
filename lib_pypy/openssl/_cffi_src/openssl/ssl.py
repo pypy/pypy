@@ -248,8 +248,6 @@ size_t SSL_get_peer_finished(const SSL *, void *, size_t);
 Cryptography_STACK_OF_X509_NAME *SSL_load_client_CA_file(const char *);
 
 const char *SSL_get_servername(const SSL *, const int);
-//long SSL_CTX_callback_ctrl(SSL_CTX *, int, void (*)(void));
-//long SSL_CTX_ctrl(SSL_CTX *, int, long, void *);
 """
 
 MACROS = """

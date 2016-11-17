@@ -26,7 +26,7 @@ def _create_tuple_for_attribute(name, value):
     return (name, value)
 
 def _get_aia_uri(certificate, nid):
-    info = lib._X509_get_ext_d2i(certificate, lib.NID_info_access, ffi.NULL, ffi.NULL)
+    info = lib.X509_get_ext_d2i(certificate, lib.NID_info_access, ffi.NULL, ffi.NULL)
     if (info == ffi.NULL):
         return None;
     if lib.sk_ACCESS_DESCRIPTION_num(info) == 0:
@@ -244,16 +244,12 @@ def _decode_certificate(certificate):
 
 
 def _get_crl_dp(certificate):
-#    STACK_OF(DIST_POINT) *dps;
-#    int i, j;
-#    PyObject *lst, *res = NULL;
-#
     if lib.OPENSSL_VERSION_NUMBER < 0x10001000:
         dps = lib.X509_get_ext_d2i(certificate, lib.NID_crl_distribution_points, ffi.NULL, ffi.NULL)
     else:
         # Calls x509v3_cache_extensions and sets up crldp
         lib.X509_check_ca(certificate)
-        dps = lib._X509_get_crldp(certificate)
+        dps = lib.Cryptography_X509_get_crldp(certificate)
     if dps is ffi.NULL:
         return None
 
