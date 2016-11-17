@@ -84,7 +84,7 @@ def create_package(basedir, options, _fake=False):
     if not _fake and not pypy_runs(pypy_c):
         raise OSError("Running %r failed!" % (str(pypy_c),))
     if not options.no_cffi:
-        failures = create_cffi_import_libraries(pypy_c, options, basedir)
+        failures = create_cffi_import_libraries(str(pypy_c), options, str(basedir))
         for key, module in failures:
             print >>sys.stderr, """!!!!!!!!!!\nBuilding {0} bindings failed.
                 You can either install development headers package,
