@@ -21,7 +21,7 @@ cffi_build_scripts = {
     "xx": None,    # for testing: 'None' should be completely ignored
     }
 
-def create_cffi_import_libraries(pypy_c, options, basedir, only):
+def create_cffi_import_libraries(pypy_c, options, basedir, only=None):
     from rpython.tool.runsubprocess import run_subprocess
 
     shutil.rmtree(str(join(basedir,'lib_pypy','__pycache__')),
