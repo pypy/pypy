@@ -314,6 +314,7 @@ class AppTestBinascii(object):
     def test_crc_hqx(self):
         for input, initial, expected in [
             (b"", 0, 0),
+            (b'', 0x12345, 0x2345),
             (b"", 123, 123),
             (b"hello", 321, 28955),
             (b"world", 65535, 12911),

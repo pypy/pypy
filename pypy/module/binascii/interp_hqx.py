@@ -240,7 +240,7 @@ crctab_hqx = [
 @unwrap_spec(data='bufferstr', oldcrc=int)
 def crc_hqx(space, data, oldcrc):
     "Compute hqx CRC incrementally."
-    crc = oldcrc
+    crc = oldcrc & 0xffff
     for c in data:
         crc = ((crc << 8) & 0xff00) ^ crctab_hqx[((crc >> 8) & 0xff) ^ ord(c)]
     return space.wrap(crc)
