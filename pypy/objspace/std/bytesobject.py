@@ -102,32 +102,32 @@ class W_AbstractBytesObject(W_Root):
         """x.__str__() <==> str(x)"""
 
     def descr_capitalize(self, space):
-        """S.capitalize() -> string
+        """B.capitalize() -> copy of B
 
-        Return a capitalized version of S, i.e. make the first character
+        Return a capitalized version of B, i.e. make the first character
         have upper case and the rest lower case.
         """
 
     @unwrap_spec(width=int, w_fillchar=WrappedDefault(' '))
     def descr_center(self, space, width, w_fillchar):
-        """S.center(width[, fillchar]) -> string
+        """B.center(width[, fillchar]) -> copy of B
 
-        Return S centered in a string of length width. Padding is
+        Return B centered in a string of length width. Padding is
         done using the specified fill character (default is a space).
         """
 
     def descr_count(self, space, w_sub, w_start=None, w_end=None):
-        """S.count(sub[, start[, end]]) -> int
+        """B.count(sub[, start[, end]]) -> int
 
         Return the number of non-overlapping occurrences of substring sub in
-        string S[start:end].  Optional arguments start and end are interpreted
+        string B[start:end].  Optional arguments start and end are interpreted
         as in slice notation.
         """
 
     def descr_decode(self, space, w_encoding=None, w_errors=None):
-        """S.decode(encoding=None, errors='strict') -> object
+        """B.decode(encoding=None, errors='strict') -> object
 
-        Decode S using the codec registered for encoding. encoding defaults
+        Decode B using the codec registered for encoding. encoding defaults
         to the default encoding. errors may be given to set a different error
         handling scheme. Default is 'strict' meaning that encoding errors raise
         a UnicodeDecodeError. Other possible values are 'ignore' and 'replace'
@@ -136,172 +136,171 @@ class W_AbstractBytesObject(W_Root):
         """
 
     def descr_endswith(self, space, w_suffix, w_start=None, w_end=None):
-        """S.endswith(suffix[, start[, end]]) -> bool
+        """B.endswith(suffix[, start[, end]]) -> bool
 
-        Return True if S ends with the specified suffix, False otherwise.
-        With optional start, test S beginning at that position.
-        With optional end, stop comparing S at that position.
-        suffix can also be a tuple of strings to try.
+        Return True if B ends with the specified suffix, False otherwise.
+        With optional start, test B beginning at that position.
+        With optional end, stop comparing B at that position.
+        suffix can also be a tuple of bytes to try.
         """
 
     @unwrap_spec(tabsize=int)
     def descr_expandtabs(self, space, tabsize=8):
-        """S.expandtabs([tabsize]) -> string
+        """B.expandtabs([tabsize]) -> copy of B
 
-        Return a copy of S where all tab characters are expanded using spaces.
+        Return a copy of B where all tab characters are expanded using spaces.
         If tabsize is not given, a tab size of 8 characters is assumed.
         """
 
     def descr_find(self, space, w_sub, w_start=None, w_end=None):
-        """S.find(sub[, start[, end]]) -> int
+        """B.find(sub[, start[, end]]) -> int
 
-        Return the lowest index in S where substring sub is found,
-        such that sub is contained within S[start:end].  Optional
+        Return the lowest index in B where substring sub is found,
+        such that sub is contained within B[start:end].  Optional
         arguments start and end are interpreted as in slice notation.
 
         Return -1 on failure.
         """
 
     def descr_index(self, space, w_sub, w_start=None, w_end=None):
-        """S.index(sub[, start[, end]]) -> int
+        """B.index(sub[, start[, end]]) -> int
 
-        Like S.find() but raise ValueError when the substring is not found.
+        Like B.find() but raise ValueError when the substring is not found.
         """
 
     def descr_isalnum(self, space):
-        """S.isalnum() -> bool
+        """B.isalnum() -> bool
 
-        Return True if all characters in S are alphanumeric
-        and there is at least one character in S, False otherwise.
+        Return True if all characters in B are alphanumeric
+        and there is at least one character in B, False otherwise.
         """
 
     def descr_isalpha(self, space):
-        """S.isalpha() -> bool
+        """B.isalpha() -> bool
 
-        Return True if all characters in S are alphabetic
-        and there is at least one character in S, False otherwise.
+        Return True if all characters in B are alphabetic
+        and there is at least one character in B, False otherwise.
         """
 
     def descr_isdigit(self, space):
-        """S.isdigit() -> bool
+        """B.isdigit() -> bool
 
-        Return True if all characters in S are digits
-        and there is at least one character in S, False otherwise.
+        Return True if all characters in B are digits
+        and there is at least one character in B, False otherwise.
         """
 
     def descr_islower(self, space):
-        """S.islower() -> bool
+        """B.islower() -> bool
 
-        Return True if all cased characters in S are lowercase and there is
-        at least one cased character in S, False otherwise.
+        Return True if all cased characters in B are lowercase and there is
+        at least one cased character in B, False otherwise.
         """
 
     def descr_isspace(self, space):
-        """S.isspace() -> bool
+        """B.isspace() -> bool
 
-        Return True if all characters in S are whitespace
-        and there is at least one character in S, False otherwise.
+        Return True if all characters in B are whitespace
+        and there is at least one character in B, False otherwise.
         """
 
     def descr_istitle(self, space):
-        """S.istitle() -> bool
+        """B.istitle() -> bool
 
-        Return True if S is a titlecased string and there is at least one
-        character in S, i.e. uppercase characters may only follow uncased
+        Return True if B is a titlecased string and there is at least one
+        character in B, i.e. uppercase characters may only follow uncased
         characters and lowercase characters only cased ones. Return False
         otherwise.
         """
 
     def descr_isupper(self, space):
-        """S.isupper() -> bool
+        """B.isupper() -> bool
 
-        Return True if all cased characters in S are uppercase and there is
-        at least one cased character in S, False otherwise.
+        Return True if all cased characters in B are uppercase and there is
+        at least one cased character in B, False otherwise.
         """
 
     def descr_join(self, space, w_list):
-        """S.join(iterable) -> string
+        """B.join(iterable) -> bytes
 
-        Return a string which is the concatenation of the strings in the
-        iterable.  The separator between elements is S.
+        Return a bytes object which is the concatenation of the bytes in the
+        iterable.  The separator between elements is B.
         """
 
     @unwrap_spec(width=int, w_fillchar=WrappedDefault(' '))
     def descr_ljust(self, space, width, w_fillchar):
-        """S.ljust(width[, fillchar]) -> string
+        """B.ljust(width[, fillchar]) -> copy of B
 
-        Return S left-justified in a string of length width. Padding is
+        Return B left-justified in a string of length width. Padding is
         done using the specified fill character (default is a space).
         """
 
     def descr_lower(self, space):
-        """S.lower() -> string
+        """B.lower() -> copy of B
 
-        Return a copy of the string S converted to lowercase.
+        Return a copy of the string B converted to lowercase.
         """
 
     def descr_lstrip(self, space, w_chars=None):
-        """S.lstrip([chars]) -> string or unicode
+        """B.lstrip([chars]) -> copy of B
 
-        Return a copy of the string S with leading whitespace removed.
+        Return a copy of the string B with leading whitespace removed.
         If chars is given and not None, remove characters in chars instead.
-        If chars is unicode, S will be converted to unicode before stripping
         """
 
     def descr_partition(self, space, w_sub):
-        """S.partition(sep) -> (head, sep, tail)
+        """B.partition(sep) -> (head, sep, tail)
 
-        Search for the separator sep in S, and return the part before it,
+        Search for the separator sep in B, and return the part before it,
         the separator itself, and the part after it.  If the separator is not
-        found, return S and two empty strings.
+        found, return B and two empty bytes objects.
         """
 
     @unwrap_spec(count=int)
     def descr_replace(self, space, w_old, w_new, count=-1):
-        """S.replace(old, new[, count]) -> string
+        """B.replace(old, new[, count]) -> copy of B
 
-        Return a copy of string S with all occurrences of substring
+        Return a copy of string B with all occurrences of substring
         old replaced by new.  If the optional argument count is
         given, only the first count occurrences are replaced.
         """
 
     def descr_rfind(self, space, w_sub, w_start=None, w_end=None):
-        """S.rfind(sub[, start[, end]]) -> int
+        """B.rfind(sub[, start[, end]]) -> int
 
-        Return the highest index in S where substring sub is found,
-        such that sub is contained within S[start:end].  Optional
+        Return the highest index in B where substring sub is found,
+        such that sub is contained within B[start:end].  Optional
         arguments start and end are interpreted as in slice notation.
 
         Return -1 on failure.
         """
 
     def descr_rindex(self, space, w_sub, w_start=None, w_end=None):
-        """S.rindex(sub[, start[, end]]) -> int
+        """B.rindex(sub[, start[, end]]) -> int
 
-        Like S.rfind() but raise ValueError when the substring is not found.
+        Like B.rfind() but raise ValueError when the substring is not found.
         """
 
     @unwrap_spec(width=int, w_fillchar=WrappedDefault(' '))
     def descr_rjust(self, space, width, w_fillchar):
-        """S.rjust(width[, fillchar]) -> string
+        """B.rjust(width[, fillchar]) -> copy of B
 
-        Return S right-justified in a string of length width. Padding is
+        Return B right-justified in a string of length width. Padding is
         done using the specified fill character (default is a space).
         """
 
     def descr_rpartition(self, space, w_sub):
-        """S.rpartition(sep) -> (head, sep, tail)
+        """B.rpartition(sep) -> (head, sep, tail)
 
-        Search for the separator sep in S, starting at the end of S, and return
+        Search for the separator sep in B, starting at the end of B, and return
         the part before it, the separator itself, and the part after it.  If
-        the separator is not found, return two empty strings and S.
+        the separator is not found, return two empty bytes objects and B.
         """
 
     @unwrap_spec(maxsplit=int)
     def descr_rsplit(self, space, w_sep=None, maxsplit=-1):
-        """S.rsplit(sep=None, maxsplit=-1) -> list of strings
+        """B.rsplit(sep=None, maxsplit=-1) -> list of bytes objects
 
-        Return a list of the words in the string S, using sep as the
+        Return a list of the words in the string B, using sep as the
         delimiter string, starting at the end of the string and working
         to the front.  If maxsplit is given, at most maxsplit splits are
         done. If sep is not specified or is None, any whitespace string
@@ -309,18 +308,17 @@ class W_AbstractBytesObject(W_Root):
         """
 
     def descr_rstrip(self, space, w_chars=None):
-        """S.rstrip([chars]) -> string or unicode
+        """B.rstrip([chars]) -> copy of B
 
-        Return a copy of the string S with trailing whitespace removed.
+        Return a copy of the string B with trailing whitespace removed.
         If chars is given and not None, remove characters in chars instead.
-        If chars is unicode, S will be converted to unicode before stripping
         """
 
     @unwrap_spec(maxsplit=int)
     def descr_split(self, space, w_sep=None, maxsplit=-1):
-        """S.split(sep=None, maxsplit=-1) -> list of strings
+        """B.split(sep=None, maxsplit=-1) -> list of bytes objects
 
-        Return a list of the words in the string S, using sep as the
+        Return a list of the words in the string B, using sep as the
         delimiter string.  If maxsplit is given, at most maxsplit
         splits are done. If sep is not specified or is None, any
         whitespace string is a separator and empty strings are removed
@@ -329,50 +327,49 @@ class W_AbstractBytesObject(W_Root):
 
     @unwrap_spec(keepends=bool)
     def descr_splitlines(self, space, keepends=False):
-        """S.splitlines(keepends=False) -> list of strings
+        """B.splitlines(keepends=False) -> list of bytes objects
 
-        Return a list of the lines in S, breaking at line boundaries.
+        Return a list of the lines in B, breaking at line boundaries.
         Line breaks are not included in the resulting list unless keepends
         is given and true.
         """
 
     def descr_startswith(self, space, w_prefix, w_start=None, w_end=None):
-        """S.startswith(prefix[, start[, end]]) -> bool
+        """B.startswith(prefix[, start[, end]]) -> bool
 
-        Return True if S starts with the specified prefix, False otherwise.
-        With optional start, test S beginning at that position.
-        With optional end, stop comparing S at that position.
-        prefix can also be a tuple of strings to try.
+        Return True if B starts with the specified prefix, False otherwise.
+        With optional start, test B beginning at that position.
+        With optional end, stop comparing B at that position.
+        prefix can also be a tuple of bytes to try.
         """
 
     def descr_strip(self, space, w_chars=None):
-        """S.strip([chars]) -> string or unicode
+        """B.strip([chars]) -> copy of B
 
-        Return a copy of the string S with leading and trailing
+        Return a copy of the string B with leading and trailing
         whitespace removed.
         If chars is given and not None, remove characters in chars instead.
-        If chars is unicode, S will be converted to unicode before stripping
         """
 
     def descr_swapcase(self, space):
-        """S.swapcase() -> string
+        """B.swapcase() -> copy of B
 
-        Return a copy of the string S with uppercase characters
+        Return a copy of the string B with uppercase characters
         converted to lowercase and vice versa.
         """
 
     def descr_title(self, space):
-        """S.title() -> string
+        """B.title() -> copy of B
 
-        Return a titlecased version of S, i.e. words start with uppercase
+        Return a titlecased version of B, i.e. words start with uppercase
         characters, all remaining cased characters have lowercase.
         """
 
     @unwrap_spec(w_deletechars=WrappedDefault(''))
     def descr_translate(self, space, w_table, w_deletechars):
-        """S.translate(table[, deletechars]) -> string
+        """B.translate(table[, deletechars]) -> copy of B
 
-        Return a copy of the string S, where all characters occurring
+        Return a copy of the string B, where all characters occurring
         in the optional argument deletechars are removed, and the
         remaining characters have been mapped through the given
         translation table, which must be a string of length 256 or None.
@@ -381,21 +378,21 @@ class W_AbstractBytesObject(W_Root):
         """
 
     def descr_upper(self, space):
-        """S.upper() -> string
+        """B.upper() -> copy of B
 
-        Return a copy of the string S converted to uppercase.
+        Return a copy of the string B converted to uppercase.
         """
 
     @unwrap_spec(width=int)
     def descr_zfill(self, space, width):
-        """S.zfill(width) -> string
+        """B.zfill(width) -> copy of B
 
-        Pad a numeric string S with zeros on the left, to fill a field
-        of the specified width. The string S is never truncated.
+        Pad a numeric string B with zeros on the left, to fill a field
+        of the specified width. The string B is never truncated.
         """
 
     def descr_mod(self, space, w_values):
-        """S % values -> string
+        """B % values -> bytes
 
         Format bytes objects
         """
