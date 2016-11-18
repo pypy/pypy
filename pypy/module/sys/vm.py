@@ -107,8 +107,7 @@ def exc_info_with_tb(space):
         return space.newtuple([operror.w_type, operror.get_w_value(space),
                                space.wrap(operror.get_traceback())])
 
-def exc_info_without_tb(space, frame):
-    operror = frame.last_exception
+def exc_info_without_tb(space, operror):
     return space.newtuple([operror.w_type, operror.get_w_value(space),
                            space.w_None])
 
@@ -152,10 +151,11 @@ def exc_info_direct(space, frame):
                         if space.int_w(w_constant) <= 2:
                             need_all_three_args = False
     #
-    if need_all_three_args or frame.last_exception is None or frame.hide():
+    operror = space.getexecutioncontext().sys_exc_info()
+    if need_all_three_args or operror is None or frame.hide():
         return exc_info_with_tb(space)
     else:
-        return exc_info_without_tb(space, frame)
+        return exc_info_without_tb(space, operror)
 
 def exc_clear(space):
     """Clear global information on the current exception.  Subsequent calls

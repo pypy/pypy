@@ -22,5 +22,4 @@ class Module(MixedModule):
         'intrangeiter_new': 'maker.intrangeiter_new',
         'builtin_code': 'maker.builtin_code',
         'builtin_function' : 'maker.builtin_function',
-        'operationerror_new': 'maker.operationerror_new',
     }

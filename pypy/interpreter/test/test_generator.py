@@ -457,6 +457,46 @@ res = f()
         assert closed == [True]
         """
 
+    def test_exc_info_in_generator(self):
+        import sys
+        def g():
+            try:
+                raise ValueError
+            except ValueError:
+                yield sys.exc_info()[0]
+                yield sys.exc_info()[0]
+        try:
+            raise IndexError
+        except IndexError:
+            gen = g()
+            assert sys.exc_info()[0] is IndexError
+            assert next(gen) is ValueError
+            assert sys.exc_info()[0] is IndexError
+            assert next(gen) is ValueError
+            assert sys.exc_info()[0] is IndexError
+            raises(StopIteration, next, gen)
+            assert sys.exc_info()[0] is IndexError
+
+    def test_exc_info_in_generator_2(self):
+        import sys
+        def g():
+            yield sys.exc_info()[0]
+            try:
+                raise LookupError
+            except LookupError:
+                yield sys.exc_info()[0]
+            yield sys.exc_info()[0]
+        try:
+            raise IndexError
+        except IndexError:
+            gen = g()     # the IndexError is not captured at all
+        try:
+            raise ValueError
+        except ValueError:
+            assert next(gen) is ValueError
+            assert next(gen) is LookupError
+            assert next(gen) is ValueError
+
 
 def test_should_not_inline(space):
     from pypy.interpreter.generator import should_not_inline

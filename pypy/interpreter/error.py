@@ -333,13 +333,12 @@ class OperationError(Exception):
             tb = tb.next
         self._application_traceback = tb
 
-    def record_context(self, space, frame):
-        """Record a __context__ for this exception if one exists,
-        searching from the current frame.
+    def record_context(self, space, ec):
+        """Record a __context__ for this exception if one exists.
         """
         if self._context_recorded:
             return
-        last = frame._exc_info_unroll(space)
+        last = ec.sys_exc_info()
         try:
             if last is not None:
                 self.chain_exceptions(space, last)
