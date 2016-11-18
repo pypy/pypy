@@ -934,3 +934,7 @@ class AppTestBytesObject:
         e = raises(TypeError, b'abc'.__getitem__, b'd')
         assert str(e.value).startswith(
             'byte indices must be integers or slices')
+
+    def test_constructor_typeerror(self):
+        raises(TypeError, bytes, b'', 'ascii')
+        raises(TypeError, bytes, '')

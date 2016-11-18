@@ -580,3 +580,7 @@ class AppTestBytesArray:
             assert not b.endswith(bb)
             assert not b.endswith((bb, bb))
             assert bytearray.maketrans(bb, bb)
+
+    def test_constructor_typeerror(self):
+        raises(TypeError, bytearray, b'', 'ascii')
+        raises(TypeError, bytearray, '')

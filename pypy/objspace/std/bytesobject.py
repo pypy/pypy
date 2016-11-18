@@ -530,7 +530,8 @@ class W_BytesObject(W_AbstractBytesObject):
     def descr_new(space, w_stringtype, w_source=None, encoding=None,
                   errors=None):
         if (w_source and space.is_w(space.type(w_source), space.w_bytes) and
-            space.is_w(w_stringtype, space.w_bytes)):
+            space.is_w(w_stringtype, space.w_bytes) and encoding is None
+            and errors is None):
             return w_source
         value = newbytesdata_w(space, w_source, encoding, errors)
         w_obj = space.allocate_instance(W_BytesObject, w_stringtype)
@@ -687,13 +688,28 @@ def getbytevalue(space, w_value):
     return chr(value)
 
 def newbytesdata_w(space, w_source, encoding, errors):
-    # None value
-    if w_source is None:
-        if encoding is not None or errors is not None:
+    # Unicode with encoding
+    if w_source is not None and space.isinstance_w(w_source, space.w_unicode):
+        if encoding is None:
+            raise oefmt(space.w_TypeError,
+                        "string argument without an encoding")
+        from pypy.objspace.std.unicodeobject import encode_object
+        w_source = encode_object(space, w_source, encoding, errors)
+        # and continue with the encoded string
+    elif encoding is not None or errors is not None:
+        if w_source is None:
             raise oefmt(space.w_TypeError,
                         "encoding or errors without string argument")
+        raise oefmt(space.w_TypeError,
+               "encoding or errors without string argument (got '%T' instead)",
+               w_source)
+    # None value
+    if w_source is None:
         return b""
-    # Some object with __bytes__ special method
+    # Fast-path for bytes
+    if space.isinstance_w(w_source, space.w_str):
+        return space.bytes_w(w_source)
+    # Some other object with a __bytes__ special method
     w_bytes_method = space.lookup(w_source, "__bytes__")
     if w_bytes_method is not None:
         w_bytes = space.get_and_call_function(w_bytes_method, w_source)
@@ -711,19 +727,7 @@ def newbytesdata_w(space, w_source, encoding, errors):
     else:
         if count < 0:
             raise oefmt(space.w_ValueError, "negative count")
-        if encoding is not None or errors is not None:
-            raise oefmt(space.w_TypeError,
-                        "encoding or errors without string argument")
         return '\0' * count
-    # Unicode with encoding
-    if space.isinstance_w(w_source, space.w_unicode):
-        if encoding is None:
-            raise RuntimeError
-            raise oefmt(space.w_TypeError,
-                        "string argument without an encoding")
-        from pypy.objspace.std.unicodeobject import encode_object
-        w_source = encode_object(space, w_source, encoding, errors)
-        # and continue with the encoded string
 
     return _convert_from_buffer_or_iterable(space, w_source)
 
