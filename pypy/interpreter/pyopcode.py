@@ -1019,14 +1019,25 @@ class __extend__(pyframe.PyFrame):
     def IMPORT_FROM(self, nameindex, next_instr):
         w_name = self.getname_w(nameindex)
         w_module = self.peekvalue()
+        self.pushvalue(self.import_from(w_module, w_name))
+
+    def import_from(self, w_module, w_name):
+        space = self.space
         try:
-            w_obj = self.space.getattr(w_module, w_name)
+            return space.getattr(w_module, w_name)
         except OperationError as e:
-            if not e.match(self.space, self.space.w_AttributeError):
+            if not e.match(space, space.w_AttributeError):
                 raise
-            raise oefmt(self.space.w_ImportError,
-                        "cannot import name %R", w_name)
-        self.pushvalue(w_obj)
+            try:
+                w_pkgname = space.getattr(
+                    w_module, space.newunicode(u'__name__'))
+                w_fullname = space.newunicode(u'%s.%s' %
+                    (space.unicode_w(w_pkgname), space.unicode_w(w_name)))
+                return space.getitem(space.sys.get('modules'), w_fullname)
+            except OperationError:
+                raise oefmt(
+                    space.w_ImportError, "cannot import name %R", w_name)
+
 
     def YIELD_VALUE(self, oparg, next_instr):
         raise Yield
