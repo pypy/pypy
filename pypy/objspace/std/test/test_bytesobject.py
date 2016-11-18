@@ -931,3 +931,8 @@ class AppTestBytesObject:
         raises(TypeError, 'b"%b" % "hello world"')
         assert b'%b %b' % (b'a', bytearray(b'f f e')) == b'a f f e'
         """
+
+    def test_getitem_error_message(self):
+        e = raises(TypeError, b'abc'.__getitem__, b'd')
+        assert str(e.value).startswith(
+            'byte indices must be integers or slices')

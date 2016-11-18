@@ -27,6 +27,8 @@ from pypy.objspace.std.formatting import mod_format, FORMAT_BYTEARRAY
 
 class W_BytearrayObject(W_Root):
     import_from_mixin(StringMethods)
+    _KIND1 = "bytearray"
+    _KIND2 = "bytearray"
 
     def __init__(self, data):
         check_list_of_chars(data)

@@ -552,3 +552,8 @@ class AppTestBytesArray:
     def test___alloc__(self):
         # pypy: always returns len()+1; cpython: may be bigger
         assert bytearray(b'123456').__alloc__() >= 7
+
+    def test_getitem_error_message(self):
+        e = raises(TypeError, bytearray(b'abc').__getitem__, b'd')
+        assert str(e.value).startswith(
+            'bytearray indices must be integers or slices')

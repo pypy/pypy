@@ -400,6 +400,8 @@ class W_AbstractBytesObject(W_Root):
 class W_BytesObject(W_AbstractBytesObject):
     import_from_mixin(StringMethods)
     _immutable_fields_ = ['_value']
+    _KIND1 = "byte"
+    _KIND2 = "bytes"
 
     def __init__(self, str):
         assert str is not None
@@ -424,7 +426,7 @@ class W_BytesObject(W_AbstractBytesObject):
 
     def writebuf_w(self, space):
         raise oefmt(space.w_TypeError,
-                    "Cannot use string as modifiable buffer")
+                    "Cannot use bytes as modifiable buffer")
 
     def descr_getbuffer(self, space, w_flags):
         #from pypy.objspace.std.bufferobject import W_Buffer
@@ -437,7 +439,7 @@ class W_BytesObject(W_AbstractBytesObject):
     def ord(self, space):
         if len(self._value) != 1:
             raise oefmt(space.w_TypeError,
-                        "ord() expected a character, but string of length %d "
+                        "ord() expected a character, but bytes of length %d "
                         "found", len(self._value))
         return space.wrap(ord(self._value[0]))
 
@@ -756,7 +758,7 @@ def _convert_from_buffer_or_iterable(space, w_source):
 
     if space.isinstance_w(w_source, space.w_unicode):
         raise oefmt(space.w_TypeError,
-                    "cannot convert unicode object to bytes")
+                    "cannot convert a (unicode) str object to bytes")
 
     # sequence of bytes
     w_iter = space.iter(w_source)
