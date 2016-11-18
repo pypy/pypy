@@ -548,3 +548,7 @@ class AppTestBytesArray:
 
     def test_format_bytes(self):
         assert bytearray(b'<%s>') % b'abc' == b'<abc>'
+
+    def test___alloc__(self):
+        # pypy: always returns len()+1; cpython: may be bigger
+        assert bytearray(b'123456').__alloc__() >= 7
