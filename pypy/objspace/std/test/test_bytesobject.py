@@ -887,8 +887,7 @@ class AppTestBytesObject:
             assert b.rsplit(bb)
             assert b.split(bb[:1])
             assert b.rsplit(bb[:1])
-            assert b.join((bb, bb)) # cpython accepts bytes and
-                                    # bytearray only, not buffer
+            assert b.join((bb, bb))  # accepts memoryview() since CPython 3.4/5
             assert bb in b
             assert b.find(bb)
             assert b.rfind(bb)
@@ -900,7 +899,6 @@ class AppTestBytesObject:
             assert not b.endswith(bb)
             assert not b.endswith((bb, bb))
             assert bytes.maketrans(bb, bb)
-            assert bytearray.maketrans(bb, bb)
 
     def test_constructor_dont_convert_int(self):
         class A(object):

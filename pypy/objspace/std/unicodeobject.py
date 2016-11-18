@@ -457,9 +457,6 @@ class W_UnicodeObject(W_Root):
     def _join_return_one(self, space, w_obj):
         return space.is_w(space.type(w_obj), space.w_unicode)
 
-    def _join_check_item(self, space, w_obj):
-        return not space.isinstance_w(w_obj, space.w_unicode)
-
     def descr_casefold(self, space):
         value = self._val(space)
         builder = self._builder(len(value))

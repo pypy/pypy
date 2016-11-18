@@ -649,15 +649,6 @@ class W_BytesObject(W_AbstractBytesObject):
     def _join_return_one(self, space, w_obj):
         return space.is_w(space.type(w_obj), space.w_str)
 
-    def _join_check_item(self, space, w_obj):
-        try:
-            self._op_val(space, w_obj)
-        except OperationError as e:
-            if not e.match(space, space.w_TypeError):
-                raise
-            return True
-        return False
-
     def descr_lower(self, space):
         return W_BytesObject(self._value.lower())
 

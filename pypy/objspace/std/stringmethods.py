@@ -407,13 +407,17 @@ class StringMethods(object):
         unwrapped = newlist_hint(size)
         for i in range(size):
             w_s = list_w[i]
-            if self._join_check_item(space, w_s):
+            try:
+                next_string = self._op_val(space, w_s)
+            except OperationError as e:
+                if not e.match(space, space.w_TypeError):
+                    raise
                 raise oefmt(space.w_TypeError,
                             "sequence item %d: expected %s, %T found",
                             i, self._generic_name(), w_s)
             # XXX Maybe the extra copy here is okay? It was basically going to
             #     happen anyway, what with being placed into the builder
-            unwrapped.append(self._op_val(space, w_s))
+            unwrapped.append(next_string)
             prealloc_size += len(unwrapped[i])
 
         sb = self._builder(prealloc_size)

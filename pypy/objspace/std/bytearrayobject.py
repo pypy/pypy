@@ -150,10 +150,6 @@ class W_BytearrayObject(W_Root):
     def _join_return_one(self, space, w_obj):
         return False
 
-    def _join_check_item(self, space, w_obj):
-        return not (space.isinstance_w(w_obj, space.w_bytes) or
-                    space.isinstance_w(w_obj, space.w_bytearray))
-
     def ord(self, space):
         if len(self.data) != 1:
             raise oefmt(space.w_TypeError,

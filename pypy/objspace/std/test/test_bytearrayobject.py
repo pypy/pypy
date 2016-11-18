@@ -557,3 +557,26 @@ class AppTestBytesArray:
         e = raises(TypeError, bytearray(b'abc').__getitem__, b'd')
         assert str(e.value).startswith(
             'bytearray indices must be integers or slices')
+
+    def test_compatibility(self):
+        # see comments in test_bytesobject.test_compatibility
+        b = bytearray(b'hello world')
+        b2 = b'ello'
+        #not testing result, just lack of TypeError
+        for bb in (b2, bytearray(b2), memoryview(b2)):
+            assert b.split(bb)
+            assert b.rsplit(bb)
+            assert b.split(bb[:1])
+            assert b.rsplit(bb[:1])
+            assert b.join((bb, bb))
+            assert bb in b
+            assert b.find(bb)
+            assert b.rfind(bb)
+            assert b.strip(bb)
+            assert b.rstrip(bb)
+            assert b.lstrip(bb)
+            assert not b.startswith(bb)
+            assert not b.startswith((bb, bb))
+            assert not b.endswith(bb)
+            assert not b.endswith((bb, bb))
+            assert bytearray.maketrans(bb, bb)
