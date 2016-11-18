@@ -1,5 +1,5 @@
 import re, random, py
-from rpython.rlib.rsre import rsre_core
+from rpython.rlib.rsre import rsre_core, rsre_char
 from rpython.rlib.rsre.rpy import get_code, VERSION
 
 
@@ -299,3 +299,12 @@ class TestMatch:
         assert rsre_core.fullmatch(r, "ab")
         r = get_code(r"(?!a)..")
         assert not rsre_core.fullmatch(r, "ab")
+
+    def test_range_ignore(self):
+        from rpython.rlib.unicodedata import unicodedb
+        rsre_char.set_unicode_db(unicodedb)
+        #
+        r = get_code(u"[\U00010428-\U0001044f]", re.I)
+        assert r.count(27) == 1       # OPCODE_RANGE
+        r[r.index(27)] = 32           # => OPCODE_RANGE_IGNORE
+        assert rsre_core.match(r, u"\U00010428")

@@ -1,8 +1,17 @@
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
-
+from pypy.conftest import option
 
 class AppTestArrayModule(AppTestCpythonExtensionBase):
-    enable_leak_checking = False
+    enable_leak_checking = True
+
+    def setup_class(cls):
+        from rpython.tool.udir import udir
+        AppTestCpythonExtensionBase.setup_class.im_func(cls)
+        if option.runappdirect:
+            cls.w_udir = str(udir)
+        else:
+            cls.w_udir = cls.space.wrap(str(udir))
+
 
     def test_basic(self):
         module = self.import_module(name='array')
@@ -90,6 +99,7 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         assert res == [2, 4, 6]
 
     def test_subclass(self):
+        import struct
         module = self.import_module(name='array')
         class Sub(module.array):
             pass
@@ -98,3 +108,37 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         res = [1, 2, 3] * arr
         assert res == [1, 2, 3, 1, 2, 3]
         
+        val = module.readbuffer_as_string(arr)
+        assert val == struct.pack('i', 2)
+
+    def test_unicode_readbuffer(self):
+        # Not really part of array, refactor
+        import struct
+        module = self.import_module(name='array')
+        val = module.readbuffer_as_string('abcd')
+        assert val == 'abcd'
+        val = module.readbuffer_as_string(u'\u03a3')
+        assert val is not None
+
+    def test_readinto(self):
+        module = self.import_module(name='array')
+        a = module.array('c')
+        a.fromstring('0123456789')
+        filename = self.udir + "/_test_file"
+        f = open(filename, 'w+b')
+        f.write('foobar')
+        f.seek(0)
+        n = f.readinto(a)
+        f.close()
+        assert n == 6
+        assert len(a) == 10
+        assert a.tostring() == 'foobar6789'
+
+    def test_iowrite(self):
+        module = self.import_module(name='array')
+        from io import BytesIO
+        a = module.array('c')
+        a.fromstring('0123456789')
+        fd = BytesIO()
+        # only test that it works
+        fd.write(a)

@@ -2,6 +2,7 @@ import py, weakref
 from rpython.jit.backend import model
 from rpython.jit.backend.llgraph import support
 from rpython.jit.backend.llsupport import symbolic
+from rpython.jit.backend.llsupport.vector_ext import VectorExt
 from rpython.jit.metainterp.history import AbstractDescr
 from rpython.jit.metainterp.history import Const, getkind
 from rpython.jit.metainterp.history import INT, REF, FLOAT, VOID
@@ -17,7 +18,7 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper import rclass
 
 from rpython.rlib.clibffi import FFI_DEFAULT_ABI
-from rpython.rlib.rarithmetic import ovfcheck, r_uint, r_ulonglong
+from rpython.rlib.rarithmetic import ovfcheck, r_uint, r_ulonglong, intmask
 from rpython.rlib.objectmodel import Symbolic
 
 class LLAsmInfo(object):
@@ -328,10 +329,11 @@ class LLGraphCPU(model.AbstractCPU):
     supports_cond_call_value = True
     translate_support_code = False
     is_llgraph = True
-    vector_extension = True
-    vector_register_size = 16 # in bytes
-    vector_horizontal_operations = True
-    vector_pack_slots = True
+    vector_ext = VectorExt()
+    vector_ext.enable(16, accum=True)
+    vector_ext.setup_once = lambda asm: asm
+    load_supported_factors = (1,2,4,8)
+    assembler = None
 
     def __init__(self, rtyper, stats=None, *ignored_args, **kwds):
         model.AbstractCPU.__init__(self)
@@ -838,6 +840,11 @@ class LLGraphCPU(model.AbstractCPU):
     vector_arith_code = """
     def bh_vec_{0}_{1}(self, vx, vy, count):
         assert len(vx) == len(vy) == count
+        return [intmask(_vx {2} _vy) for _vx,_vy in zip(vx,vy)]
+    """
+    vector_float_arith_code = """
+    def bh_vec_{0}_{1}(self, vx, vy, count):
+        assert len(vx) == len(vy) == count
         return [_vx {2} _vy for _vx,_vy in zip(vx,vy)]
     """
     exec py.code.Source(vector_arith_code.format('int','add','+')).compile()
@@ -845,11 +852,12 @@ class LLGraphCPU(model.AbstractCPU):
     exec py.code.Source(vector_arith_code.format('int','mul','*')).compile()
     exec py.code.Source(vector_arith_code.format('int','and','&')).compile()
     exec py.code.Source(vector_arith_code.format('int','or','|')).compile()
-    exec py.code.Source(vector_arith_code.format('float','add','+')).compile()
-    exec py.code.Source(vector_arith_code.format('float','sub','-')).compile()
-    exec py.code.Source(vector_arith_code.format('float','mul','*')).compile()
-    exec py.code.Source(vector_arith_code.format('float','truediv','/')).compile()
-    exec py.code.Source(vector_arith_code.format('float','eq','==')).compile()
+
+    exec py.code.Source(vector_float_arith_code.format('float','add','+')).compile()
+    exec py.code.Source(vector_float_arith_code.format('float','sub','-')).compile()
+    exec py.code.Source(vector_float_arith_code.format('float','mul','*')).compile()
+    exec py.code.Source(vector_float_arith_code.format('float','truediv','/')).compile()
+    exec py.code.Source(vector_float_arith_code.format('float','eq','==')).compile()
 
     def bh_vec_float_neg(self, vx, count):
         return [e * -1 for e in vx]
@@ -877,6 +885,9 @@ class LLGraphCPU(model.AbstractCPU):
     def bh_vec_int_xor(self, vx, vy, count):
         return [int(x) ^ int(y) for x,y in zip(vx,vy)]
 
+    def bh_vec_float_xor(self, vx, vy, count):
+        return [0.0 for x,y in zip(vx,vy)] # just used for clearing the vector register
+
     def bh_vec_cast_float_to_singlefloat(self, vx, count):
         from rpython.rlib.rarithmetic import r_singlefloat
         return [longlong.singlefloat2int(r_singlefloat(longlong.getrealfloat(v)))
@@ -885,9 +896,6 @@ class LLGraphCPU(model.AbstractCPU):
     def bh_vec_cast_singlefloat_to_float(self, vx, count):
         return [longlong.getfloatstorage(float(longlong.int2singlefloat(v)))
                 for v in vx]
-
-        a = float(a)
-        return longlong.getfloatstorage(a)
 
     def bh_vec_cast_float_to_int(self, vx, count):
         return [int(x) for x in vx]
@@ -928,50 +936,31 @@ class LLGraphCPU(model.AbstractCPU):
     def bh_vec_int_signext(self, vx, ext, count):
         return [heaptracker.int_signext(_vx, ext) for _vx in vx]
 
-    def build_getarrayitem(func):
-        def method(self, struct, offset, descr, _count):
+    def build_load(func):
+        def load(self, struct, offset, scale, disp, descr, _count):
             values = []
-            count = self.vector_register_size // descr.get_item_size_in_bytes()
+            count = self.vector_ext.vec_size() // descr.get_item_size_in_bytes()
             assert _count == count
             assert count > 0
+            adr = support.addr_add_bytes(struct, (offset * scale + disp))
+            a = support.cast_arg(lltype.Ptr(descr.A), adr)
+            array = a._obj
             for i in range(count):
-                val = func(self, struct, offset + i, descr)
+                val = support.cast_result(descr.A.OF, array.getitem(i))
                 values.append(val)
             return values
-        return method
+        return load
 
-    bh_vec_getarrayitem_gc_i = build_getarrayitem(bh_getarrayitem_gc)
-    bh_vec_getarrayitem_gc_f = build_getarrayitem(bh_getarrayitem_gc)
-    bh_vec_getarrayitem_raw_i = build_getarrayitem(bh_getarrayitem_raw)
-    bh_vec_getarrayitem_raw_f = build_getarrayitem(bh_getarrayitem_raw)
-    del build_getarrayitem
+    bh_vec_load_i = build_load(bh_getarrayitem_raw)
+    bh_vec_load_f = build_load(bh_getarrayitem_raw)
+    del build_load
 
-    def _bh_vec_raw_load(self, struct, offset, descr, _count):
-        values = []
-        stride = descr.get_item_size_in_bytes()
-        count = self.vector_register_size // descr.get_item_size_in_bytes()
-        assert _count == count
-        assert count > 0
-        for i in range(count):
-            val = self.bh_raw_load(struct, offset + i*stride, descr)
-            values.append(val)
-        return values
-
-    bh_vec_raw_load_i = _bh_vec_raw_load
-    bh_vec_raw_load_f = _bh_vec_raw_load
-
-    def bh_vec_raw_store(self, struct, offset, newvalues, descr, count):
-        stride = descr.get_item_size_in_bytes()
+    def bh_vec_store(self, struct, offset, newvalues, scale, disp, descr, count):
+        adr = support.addr_add_bytes(struct, offset * scale + disp)
+        a = support.cast_arg(lltype.Ptr(descr.A), adr)
+        array = a._obj
         for i,n in enumerate(newvalues):
-            self.bh_raw_store(struct, offset + i*stride, n, descr)
-
-    def bh_vec_setarrayitem_raw(self, struct, offset, newvalues, descr, count):
-        for i,n in enumerate(newvalues):
-            self.bh_setarrayitem_raw(struct, offset + i, n, descr)
-
-    def bh_vec_setarrayitem_gc(self, struct, offset, newvalues, descr, count):
-        for i,n in enumerate(newvalues):
-            self.bh_setarrayitem_gc(struct, offset + i, n, descr)
+            array.setitem(i, support.cast_arg(descr.A.OF, n))
 
     def store_fail_descr(self, deadframe, descr):
         pass # I *think*
@@ -1570,7 +1559,7 @@ def _setup():
             if opname.startswith('vec_'):
                 # pre vector op
                 count = self.current_op.count
-                assert count >= 1
+                assert count >= 0
                 new_args = new_args + (count,)
             result = getattr(self.cpu, 'bh_' + opname)(*new_args)
             if isinstance(result, list):

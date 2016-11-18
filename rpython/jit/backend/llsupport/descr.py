@@ -681,7 +681,6 @@ def unpack_arraydescr(arraydescr):
     sign = arraydescr.is_item_signed()
     return size, ofs, sign
 
-
 def unpack_fielddescr(fielddescr):
     assert isinstance(fielddescr, FieldDescr)
     ofs = fielddescr.offset

@@ -1865,6 +1865,8 @@ class MetaInterpStaticData(object):
             self.jitlog.setup_once()
             debug_print(self.jit_starting_line)
             self.cpu.setup_once()
+            if self.cpu.vector_ext:
+                self.cpu.vector_ext.setup_once(self.cpu.assembler)
             if not self.profiler.initialized:
                 self.profiler.start()
                 self.profiler.initialized = True
@@ -1974,6 +1976,8 @@ class MetaInterp(object):
         self.aborted_tracing_greenkey = None
 
     def retrace_needed(self, trace, exported_state):
+        if not we_are_translated():
+            exported_state._check_no_forwarding()
         self.partial_trace = trace
         self.retracing_from = self.potential_retrace_position
         self.exported_state = exported_state

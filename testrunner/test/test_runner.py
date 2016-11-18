@@ -84,14 +84,14 @@ class TestRunHelper(object):
 
     def test_timeout_syscall(self, out):
         res = runner.run([sys.executable, "-c", "import socket; s=s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); s.bind(('', 0)); s.recv(1000)"], '.', out, timeout=3)
-        assert res == -999        
+        assert res == -999
 
     def test_timeout_success(self, out):
         res = runner.run([sys.executable, "-c", "print 42"], '.',
                          out, timeout=2)
         assert res == 0
         out = out.read()
-        assert out == "42\n"        
+        assert out == "42\n"
 
 
 class TestExecuteTest(object):
@@ -100,7 +100,7 @@ class TestExecuteTest(object):
         cls.real_run = (runner.run,)
         cls.called = []
         cls.exitcode = [0]
-        
+
         def fake_run(args, cwd, out, timeout):
             cls.called = (args, cwd, out, timeout)
             return cls.exitcode[0]
@@ -123,7 +123,7 @@ class TestExecuteTest(object):
 
                     'test_one']
 
-        assert self.called == (expected, '/wd', 'out', 'secs')        
+        assert self.called == (expected, '/wd', 'out', 'secs')
         assert res == 0
 
     def test_explicit_win32(self):
@@ -141,7 +141,7 @@ class TestExecuteTest(object):
                     #'--junitxml=LOGFILE.junit',
                     'test_one']
         assert self.called[0] == expected
-        assert self.called == (expected, '/wd', 'out', 'secs')        
+        assert self.called == (expected, '/wd', 'out', 'secs')
         assert res == 0
 
     def test_error(self):
@@ -193,14 +193,14 @@ class RunnerTests(object):
         cls.real_invoke_in_thread = (runner.invoke_in_thread,)
         if not cls.with_thread:
             runner.invoke_in_thread = lambda func, args: func(*args)
-        
+
         cls.udir = py.path.local.make_numbered_dir(prefix='usession-runner-',
                                               keep=3)
         cls.manydir = cls.udir.join('many').ensure(dir=1)
 
         cls.udir.join("conftest.py").write("pytest_plugins = 'resultlog'\n")
 
-        def fill_test_dir(test_dir, fromdir='normal'):       
+        def fill_test_dir(test_dir, fromdir='normal'):
             for p in py.path.local(__file__).dirpath(
                 'examples', fromdir).listdir("*.py"):
                 p.copy(test_dir.join('test_'+p.basename))
@@ -210,7 +210,7 @@ class RunnerTests(object):
         cls.one_test_dir = cls.manydir.join('one')
 
         fill_test_dir(test_normal_dir0)
-        
+
 
         test_normal_dir1 = cls.manydir.join('two', 'test_normal1').ensure(dir=1)
         test_normal_dir2 = cls.manydir.join('two', 'pkg',
@@ -235,8 +235,8 @@ class RunnerTests(object):
 
         run_param = runner.RunParam(self.one_test_dir)
         run_param.test_driver = test_driver
-        run_param.parallel_runs = 3        
-        
+        run_param.parallel_runs = 3
+
         res = runner.execute_tests(run_param, ['test_normal'], log, out)
 
         assert res
@@ -248,10 +248,10 @@ class RunnerTests(object):
 
         log = log.getvalue()
         assert '\r\n' not in log
-        assert '\n' in log        
+        assert '\n' in log
         log_lines = log.splitlines()
 
-        assert ". test_normal/test_example.py::test_one" in log_lines
+        assert ". test_example.py::test_one" in log_lines
         nfailures = 0
         noutcomes = 0
         for line in log_lines:
@@ -273,7 +273,7 @@ class RunnerTests(object):
         run_param.test_driver = test_driver
         run_param.parallel_runs = 3
         run_param.dry_run = True
-        
+
         res = runner.execute_tests(run_param, ['test_normal'], log, out)
 
         assert not res
@@ -282,11 +282,11 @@ class RunnerTests(object):
 
         out_lines = out.getvalue().splitlines()
 
-        assert len(out_lines) == 5
+        assert len(out_lines) == 7
 
-        assert out_lines[2].startswith("++ starting")
-        assert out_lines[4].startswith("run [")
-        for line in out_lines[2:]:
+        assert 'starting' in out_lines[4]
+        assert out_lines[6].startswith("run [")
+        for line in out_lines[4:]:
             assert "test_normal" in line
 
     def test_many_dirs(self):
@@ -307,7 +307,7 @@ class RunnerTests(object):
         testdirs = []
         run_param.collect_testdirs(testdirs)
         alltestdirs = testdirs[:]
-        
+
         res = runner.execute_tests(run_param, testdirs, log, out)
 
         assert res
@@ -366,7 +366,7 @@ class RunnerTests(object):
 
     def test_run_bad_get_test_driver(self):
         test_driver = [pytest_script]
-        
+
         log = cStringIO.StringIO()
         out = cStringIO.StringIO()
 
@@ -399,7 +399,7 @@ class TestRunnerNoThreads(RunnerTests):
             real_collect_one_testdir(testdirs, reldir, tests)
 
         run_param.collect_one_testdir = witness_collect_one_testdir
-        
+
         run_param.collect_testdirs(res)
 
         assert res == ['test_normal']
@@ -412,10 +412,10 @@ class TestRunnerNoThreads(RunnerTests):
         run_param.collect_one_testdir = real_collect_one_testdir
         res = []
         run_param = runner.RunParam(self.two_test_dir)
-        
+
         run_param.collect_testdirs(res)
 
-        assert sorted(res) == ['pkg/test_normal2', 'test_normal1']        
+        assert sorted(res) == ['pkg/test_normal2', 'test_normal1']
 
 
 class TestRunner(RunnerTests):

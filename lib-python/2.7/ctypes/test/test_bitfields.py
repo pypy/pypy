@@ -2,6 +2,7 @@ from ctypes import *
 from ctypes.test import need_symbol, xfail
 import unittest
 import os
+import sys
 
 import ctypes
 import _ctypes_test
@@ -279,7 +280,6 @@ class BitFieldTest(unittest.TestCase):
         x.c = 2
         self.assertEqual(b.tostring(), b'\xef\xcd\xab\x21')
 
-    @xfail
     @need_symbol('c_uint32')
     def test_uint32_swap_big_endian(self):
         # Issue #23319
@@ -294,6 +294,12 @@ class BitFieldTest(unittest.TestCase):
         x.b = 1
         x.c = 2
         self.assertEqual(b.tostring(), b'\xab\xcd\xef\x12')
+
+    # see issue #1213, on big endian it fails for the little endian case
+    if sys.byteorder == 'little':
+        test_uint32_swap_big_endian = xfail(test_uint32_swap_big_endian)
+    elif sys.byteorder == 'big':
+        test_uint32_swap_little_endian = xfail(test_uint32_swap_little_endian)
 
 if __name__ == "__main__":
     unittest.main()

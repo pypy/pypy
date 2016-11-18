@@ -59,6 +59,17 @@ class TestPosixFunction:
         compile(f, (str, float))(str(fname), t1)
         assert t1 == os.stat(str(fname)).st_mtime
 
+    def test_utime_negative_fraction(self):
+        def f(fname, t1):
+            os.utime(fname, (t1, t1))
+
+        fname = udir.join('test_utime_negative_fraction.txt')
+        fname.ensure()
+        t1 = -123.75
+        compile(f, (str, float))(str(fname), t1)
+        got = os.stat(str(fname)).st_mtime
+        assert got == -123 or got == -123.75
+
     @win_only
     def test__getfullpathname(self):
         posix = __import__(os.name)
@@ -459,11 +470,18 @@ class BasePosixUnicodeOrAscii:
         assert rposix.is_valid_fd(fd) == 0
 
     def test_putenv(self):
+        from rpython.rlib import rposix_environ
+
         def f():
             rposix.putenv(self.path, self.path)
             rposix.unsetenv(self.path)
 
-        interpret(f, []) # does not crash
+        interpret(f, [],     # does not crash
+                  malloc_check=rposix_environ.REAL_UNSETENV)
+        # If we have a real unsetenv(), check that it frees the string
+        # kept alive by putenv().  Otherwise, we can't check that,
+        # because unsetenv() will keep another string alive itself.
+    test_putenv.dont_track_allocations = True
 
 
 class TestPosixAscii(BasePosixUnicodeOrAscii):
@@ -593,6 +611,9 @@ def test_set_inheritable():
 def test_SetNonInheritableCache():
     cache = rposix.SetNonInheritableCache()
     fd1, fd2 = os.pipe()
+    if sys.platform == 'win32':
+        rposix.set_inheritable(fd1, True)
+        rposix.set_inheritable(fd2, True)
     assert rposix.get_inheritable(fd1) == True
     assert rposix.get_inheritable(fd1) == True
     assert cache.cached_inheritable == -1
@@ -605,6 +626,40 @@ def test_SetNonInheritableCache():
     os.close(fd1)
     os.close(fd2)
 
+def test_dup_dup2_non_inheritable():
+    for preset in [False, True]:
+        fd1, fd2 = os.pipe()
+        rposix.set_inheritable(fd1, preset)
+        rposix.set_inheritable(fd2, preset)
+        fd3 = rposix.dup(fd1, True)
+        assert rposix.get_inheritable(fd3) == True
+        fd4 = rposix.dup(fd1, False)
+        assert rposix.get_inheritable(fd4) == False
+        rposix.dup2(fd2, fd4, False)
+        assert rposix.get_inheritable(fd4) == False
+        rposix.dup2(fd2, fd3, True)
+        assert rposix.get_inheritable(fd3) == True
+        os.close(fd1)
+        os.close(fd2)
+        os.close(fd3)
+        os.close(fd4)
+
 def test_sync():
     if sys.platform != 'win32':
         rposix.sync()
+
+def test_cpu_count():
+    cc = rposix.cpu_count()
+    assert cc >= 1
+
+@rposix_requires('set_status_flags')
+def test_set_status_flags():
+    fd1, fd2 = os.pipe()
+    try:
+        flags = rposix.get_status_flags(fd1)
+        assert flags & rposix.O_NONBLOCK == 0
+        rposix.set_status_flags(fd1, flags | rposix.O_NONBLOCK)
+        assert rposix.get_status_flags(fd1) & rposix.O_NONBLOCK != 0
+    finally:
+        os.close(fd1)
+        os.close(fd2)

@@ -1356,15 +1356,15 @@ class BackendTests:
         assert ffi.getctype("e1*") == 'e1 *'
 
     def test_opaque_enum(self):
+        import warnings
         ffi = FFI(backend=self.Backend())
         ffi.cdef("enum foo;")
-        from cffi import __version_info__
-        if __version_info__ < (1, 8):
-            py.test.skip("re-enable me in version 1.8")
-        e = py.test.raises(CDefError, ffi.cast, "enum foo", -1)
-        assert str(e.value) == (
-            "'enum foo' has no values explicitly defined: refusing to guess "
-            "which integer type it is meant to be (unsigned/signed, int/long)")
+        with warnings.catch_warnings(record=True) as log:
+            n = ffi.cast("enum foo", -1)
+            assert int(n) == 0xffffffff
+        assert str(log[0].message) == (
+            "'enum foo' has no values explicitly defined; "
+            "guessing that it is equivalent to 'unsigned int'")
 
     def test_new_ctype(self):
         ffi = FFI(backend=self.Backend())

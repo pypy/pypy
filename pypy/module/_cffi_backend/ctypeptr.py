@@ -165,7 +165,7 @@ class W_CTypePtrBase(W_CTypePtrOrArray):
                     "will be forbidden in the future (check that the types "
                     "are as you expect; use an explicit ffi.cast() if they "
                     "are correct)" % (other.name, self.name))
-                space.warn(space.wrap(msg), space.w_UserWarning, stacklevel=1)
+                space.warn(space.wrap(msg), space.w_UserWarning)
             else:
                 raise self._convert_error("compatible pointer", w_ob)
 
@@ -211,13 +211,16 @@ class W_CTypePointer(W_CTypePtrBase):
             # a W_CDataPtrToStruct object which has a strong reference
             # to a W_CDataNewOwning that really contains the structure.
             #
-            if not space.is_w(w_init, space.w_None):
-                ctitem.force_lazy_struct()
-                if ctitem._with_var_array:
+            varsize_length = -1
+            ctitem.force_lazy_struct()
+            if ctitem._with_var_array:
+                if not space.is_w(w_init, space.w_None):
                     datasize = ctitem.convert_struct_from_object(
                         lltype.nullptr(rffi.CCHARP.TO), w_init, datasize)
+                varsize_length = datasize
             #
-            cdatastruct = allocator.allocate(space, datasize, ctitem)
+            cdatastruct = allocator.allocate(space, datasize, ctitem,
+                                             length=varsize_length)
             ptr = cdatastruct.unsafe_escaping_ptr()
             cdata = cdataobj.W_CDataPtrToStructOrUnion(space, ptr,
                                                        self, cdatastruct)

@@ -23,7 +23,6 @@ from pypy.interpreter.baseobjspace import (W_Root, ObjSpace, SpaceCache,
     DescrMismatch)
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.function import ClassMethod, FunctionWithFixedCode
-from rpython.rlib import rstackovf
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_longlong, r_int, r_ulonglong, r_uint
 from rpython.tool.sourcetools import func_with_new_name, compile2
@@ -714,16 +713,11 @@ class BuiltinCode(Code):
             if not we_are_translated():
                 raise
             raise e
-        except KeyboardInterrupt:
-            raise OperationError(space.w_KeyboardInterrupt, space.w_None)
-        except MemoryError:
-            raise OperationError(space.w_MemoryError, space.w_None)
-        except rstackovf.StackOverflow as e:
-            rstackovf.check_stack_overflow()
-            raise oefmt(space.w_RuntimeError,
-                        "maximum recursion depth exceeded")
-        except RuntimeError:   # not on top of py.py
-            raise OperationError(space.w_RuntimeError, space.w_None)
+        except OperationError:
+            raise
+        except Exception as e:      # general fall-back
+            from pypy.interpreter import error
+            raise error.get_converted_unexpected_exception(space, e)
 
 # (verbose) performance hack below
 

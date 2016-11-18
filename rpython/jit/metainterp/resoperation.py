@@ -52,6 +52,10 @@ class AbstractValue(object):
         llop.debug_print(lltype.Void, "setting forwarded on:", self.__class__.__name__)
         raise SettingForwardedOnAbstractValue()
 
+    def clear_forwarded(self):
+        if self.get_forwarded() is not None:
+            self.set_forwarded(None)
+
     @specialize.arg(1)
     def get_box_replacement(op, not_const=False):
         # Read the chain "op, op._forwarded, op._forwarded._forwarded..."
@@ -994,6 +998,7 @@ _oplist = [
     '_VEC_ARITHMETIC_LAST',
     'VEC_FLOAT_EQ/2b/i',
     'VEC_FLOAT_NE/2b/i',
+    'VEC_FLOAT_XOR/2/f',
     'VEC_INT_IS_TRUE/1b/i',
     'VEC_INT_NE/2b/i',
     'VEC_INT_EQ/2b/i',
@@ -1074,11 +1079,9 @@ _oplist = [
 
     '_RAW_LOAD_FIRST',
     'GETARRAYITEM_GC/2d/rfi',
-    'VEC_GETARRAYITEM_GC/2d/fi',
     'GETARRAYITEM_RAW/2d/fi',
-    'VEC_GETARRAYITEM_RAW/2d/fi',
     'RAW_LOAD/2d/fi',
-    'VEC_RAW_LOAD/2d/fi',
+    'VEC_LOAD/4d/fi',
     '_RAW_LOAD_LAST',
 
     'GETINTERIORFIELD_GC/2d/rfi',
@@ -1111,11 +1114,9 @@ _oplist = [
     'INCREMENT_DEBUG_COUNTER/1/n',
     '_RAW_STORE_FIRST',
     'SETARRAYITEM_GC/3d/n',
-    'VEC_SETARRAYITEM_GC/3d/n',
     'SETARRAYITEM_RAW/3d/n',
-    'VEC_SETARRAYITEM_RAW/3d/n',
     'RAW_STORE/3d/n',
-    'VEC_RAW_STORE/3d/n',
+    'VEC_STORE/5d/n',
     '_RAW_STORE_LAST',
     'SETINTERIORFIELD_GC/3d/n',
     'SETINTERIORFIELD_RAW/3d/n',    # right now, only used by tests
@@ -1187,6 +1188,14 @@ _cast_ops = {
     'INT_SIGNEXT': ('i', 0, 'i', 0, 0),
     'VEC_INT_SIGNEXT': ('i', 0, 'i', 0, 0),
 }
+
+import platform
+if not platform.machine().startswith('x86'):
+    # Uh, that should be moved to vector_ext really!
+    _cast_ops['CAST_FLOAT_TO_INT'] = ('f', 8, 'i', 8, 2)
+    _cast_ops['VEC_CAST_FLOAT_TO_INT'] = ('f', 8, 'i', 8, 2)
+    _cast_ops['CAST_INT_TO_FLOAT'] = ('i', 8, 'f', 8, 2)
+    _cast_ops['VEC_CAST_INT_TO_FLOAT'] = ('i', 8, 'f', 8, 2)
 
 # ____________________________________________________________
 
@@ -1703,19 +1712,19 @@ _opboolreflex = {
     rop.PTR_NE: rop.PTR_NE,
 }
 _opvector = {
-    rop.RAW_LOAD_I:         rop.VEC_RAW_LOAD_I,
-    rop.RAW_LOAD_F:         rop.VEC_RAW_LOAD_F,
-    rop.GETARRAYITEM_RAW_I: rop.VEC_GETARRAYITEM_RAW_I,
-    rop.GETARRAYITEM_RAW_F: rop.VEC_GETARRAYITEM_RAW_F,
-    rop.GETARRAYITEM_GC_I: rop.VEC_GETARRAYITEM_GC_I,
-    rop.GETARRAYITEM_GC_F: rop.VEC_GETARRAYITEM_GC_F,
+    rop.RAW_LOAD_I:         rop.VEC_LOAD_I,
+    rop.RAW_LOAD_F:         rop.VEC_LOAD_F,
+    rop.GETARRAYITEM_RAW_I: rop.VEC_LOAD_I,
+    rop.GETARRAYITEM_RAW_F: rop.VEC_LOAD_F,
+    rop.GETARRAYITEM_GC_I: rop.VEC_LOAD_I,
+    rop.GETARRAYITEM_GC_F: rop.VEC_LOAD_F,
     # note that there is no _PURE operation for vector operations.
     # reason: currently we do not care if it is pure or not!
-    rop.GETARRAYITEM_GC_PURE_I: rop.VEC_GETARRAYITEM_GC_I,
-    rop.GETARRAYITEM_GC_PURE_F: rop.VEC_GETARRAYITEM_GC_F,
-    rop.RAW_STORE:        rop.VEC_RAW_STORE,
-    rop.SETARRAYITEM_RAW: rop.VEC_SETARRAYITEM_RAW,
-    rop.SETARRAYITEM_GC: rop.VEC_SETARRAYITEM_GC,
+    rop.GETARRAYITEM_GC_PURE_I: rop.VEC_LOAD_I,
+    rop.GETARRAYITEM_GC_PURE_F: rop.VEC_LOAD_F,
+    rop.RAW_STORE:        rop.VEC_STORE,
+    rop.SETARRAYITEM_RAW: rop.VEC_STORE,
+    rop.SETARRAYITEM_GC: rop.VEC_STORE,
 
     rop.INT_ADD:   rop.VEC_INT_ADD,
     rop.INT_SUB:   rop.VEC_INT_SUB,

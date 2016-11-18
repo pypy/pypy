@@ -45,3 +45,12 @@ def fatalerror_notb(msg):
 fatalerror_notb._dont_inline_ = True
 fatalerror_notb._jit_look_inside_ = False
 fatalerror_notb._annenforceargs_ = [str]
+
+def debug_print_traceback():
+    # print to stderr the RPython traceback of the last caught exception,
+    # but without interrupting the program
+    from rpython.rtyper.lltypesystem import lltype
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    llop.debug_print_traceback(lltype.Void)
+debug_print_traceback._dont_inline_ = True
+debug_print_traceback._jit_look_inside_ = False

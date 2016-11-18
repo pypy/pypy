@@ -17,7 +17,7 @@ from rpython.rtyper.rint import IntegerRepr
 from rpython.rtyper.error import TyperError
 
 from rpython.rlib._os_support import _preferred_traits, string_traits
-from rpython.rlib.objectmodel import specialize, we_are_translated
+from rpython.rlib.objectmodel import specialize, we_are_translated, not_rpython
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.rarithmetic import intmask
@@ -240,9 +240,9 @@ class __extend__(pairtype(StatResultRepr, IntegerRepr)):
 
 s_StatResult = SomeStatResult()
 
-
+@not_rpython
 def make_stat_result(tup):
-    """NOT_RPYTHON: Turn a tuple into an os.stat_result object."""
+    """Turn a tuple into an os.stat_result object."""
     assert len(tup) == len(STAT_FIELDS)
     assert float not in [type(x) for x in tup]
     positional = []
@@ -641,6 +641,7 @@ if _WIN32:
 
     @specialize.arg(0)
     def win32_xstat(traits, path, traverse=False):
+        # XXX 'traverse' is ignored
         win32traits = make_win32_traits(traits)
         with lltype.scoped_alloc(
                 win32traits.WIN32_FILE_ATTRIBUTE_DATA) as data:

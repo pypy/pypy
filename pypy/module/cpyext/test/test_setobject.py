@@ -41,11 +41,19 @@ class TestTupleObject(BaseApiTest):
         api.PySet_Clear(w_set)
         assert space.len_w(w_set) == 0
 
-    def test_anyset_checkexact(self, space, api):
+    def test_anyset_check(self, space, api):
         w_set = api.PySet_New(space.wrap([1, 2, 3, 4]))
         w_frozenset = space.newfrozenset([space.wrap(i) for i in [1, 2, 3, 4]])
         assert api.PyAnySet_CheckExact(w_set)
         assert api.PyAnySet_CheckExact(w_frozenset)
+        assert api.PyAnySet_Check(w_set)
+        assert api.PyAnySet_Check(w_frozenset)
+        w_instance = space.appexec([], """():
+            class MySet(set):
+                pass
+            return MySet()
+        """)
+        assert api.PyAnySet_Check(w_instance)
 
 class AppTestSetObject(AppTestCpythonExtensionBase):
     def test_set_macro_cast(self):

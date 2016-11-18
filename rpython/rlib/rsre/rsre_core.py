@@ -3,7 +3,7 @@ from rpython.rlib.debug import check_nonneg
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.rsre import rsre_char
 from rpython.tool.sourcetools import func_with_new_name
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, not_rpython
 from rpython.rlib import jit
 from rpython.rlib.rsre.rsre_jit import install_jitdriver, install_jitdriver_spec
 
@@ -40,6 +40,7 @@ OPCODE_REPEAT             = 28
 OPCODE_REPEAT_ONE         = 29
 #OPCODE_SUBPATTERN        = 30
 OPCODE_MIN_REPEAT_ONE     = 31
+OPCODE_RANGE_IGNORE       = 32
 
 # not used by Python itself
 OPCODE_UNICODE_GENERAL_CATEGORY = 70
@@ -120,16 +121,18 @@ class AbstractMatchContext(object):
         assert result >= 0
         return result
 
+    @not_rpython
     def str(self, index):
-        """NOT_RPYTHON: Must be overridden in a concrete subclass.
+        """Must be overridden in a concrete subclass.
         The tag ^^^ here is used to generate a translation-time crash
         if there is a call to str() that is indirect.  All calls must
         be direct for performance reasons; you need to specialize the
         caller with @specializectx."""
         raise NotImplementedError
 
+    @not_rpython
     def lowstr(self, index):
-        """NOT_RPYTHON: Similar to str()."""
+        """Similar to str()."""
         raise NotImplementedError
 
     def get_mark(self, gid):
@@ -640,8 +643,7 @@ def sre_match(ctx, ppos, ptr, marks):
         elif op == OPCODE_IN:
             # match set member (or non_member)
             # <IN> <skip> <set>
-            if ptr >= ctx.end or not rsre_char.check_charset(ctx.pattern,
-                                                             ppos+1,
+            if ptr >= ctx.end or not rsre_char.check_charset(ctx, ppos+1,
                                                              ctx.str(ptr)):
                 return
             ppos += ctx.pat(ppos)
@@ -650,8 +652,7 @@ def sre_match(ctx, ppos, ptr, marks):
         elif op == OPCODE_IN_IGNORE:
             # match set member (or non_member), ignoring case
             # <IN> <skip> <set>
-            if ptr >= ctx.end or not rsre_char.check_charset(ctx.pattern,
-                                                             ppos+1,
+            if ptr >= ctx.end or not rsre_char.check_charset(ctx, ppos+1,
                                                              ctx.lowstr(ptr)):
                 return
             ppos += ctx.pat(ppos)
@@ -871,10 +872,10 @@ def match_ANY_ALL(ctx, ptr, ppos):
     return True    # match anything (including a newline)
 @specializectx
 def match_IN(ctx, ptr, ppos):
-    return rsre_char.check_charset(ctx.pattern, ppos+2, ctx.str(ptr))
+    return rsre_char.check_charset(ctx, ppos+2, ctx.str(ptr))
 @specializectx
 def match_IN_IGNORE(ctx, ptr, ppos):
-    return rsre_char.check_charset(ctx.pattern, ppos+2, ctx.lowstr(ptr))
+    return rsre_char.check_charset(ctx, ppos+2, ctx.lowstr(ptr))
 @specializectx
 def match_LITERAL(ctx, ptr, ppos):
     return ctx.str(ptr) == ctx.pat(ppos+1)
@@ -1134,7 +1135,7 @@ def charset_search(ctx, base):
     while start < ctx.end:
         ctx.jitdriver_CharsetSearch.jit_merge_point(ctx=ctx, start=start,
                                                     base=base)
-        if rsre_char.check_charset(ctx.pattern, 5, ctx.str(start)):
+        if rsre_char.check_charset(ctx, 5, ctx.str(start)):
             if sre_match(ctx, base, start, None) is not None:
                 ctx.match_start = start
                 return True

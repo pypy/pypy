@@ -140,7 +140,6 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             ''')
         assert 'foo\0bar\0baz' == pybuffer(buffer('foo\0bar\0baz'))
 
-
     def test_pyarg_parse_string_fails(self):
         """
         Test the failing case of PyArg_ParseTuple(): it must not keep

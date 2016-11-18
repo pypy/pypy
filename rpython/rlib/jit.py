@@ -3,7 +3,7 @@ import sys
 import py
 
 from rpython.rlib.nonconst import NonConstant
-from rpython.rlib.objectmodel import CDefinedIntSymbolic, keepalive_until_here, specialize
+from rpython.rlib.objectmodel import CDefinedIntSymbolic, keepalive_until_here, specialize, not_rpython
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool.sourcetools import rpython_wrapper
@@ -573,14 +573,11 @@ PARAMETER_DOCS = {
     'enable_opts': 'INTERNAL USE ONLY (MAY NOT WORK OR LEAD TO CRASHES): '
                    'optimizations to enable, or all = %s' % ENABLE_ALL_OPTS,
     'max_unroll_recursion': 'how many levels deep to unroll a recursive function',
-    'vec': 'turn on the vectorization optimization (vecopt). requires sse4.1',
-    'vec_all': 'try to vectorize trace loops that occur outside of the numpy library.',
-    'vec_cost': 'threshold for which traces to bail. 0 means the costs.',
-    'vec_length': 'the amount of instructions allowed in "all" traces.',
-    'vec_ratio': 'an integer (0-10 transfored into a float by X / 10.0) statements that have vector equivalents '
-                 'divided by the total number of trace instructions.',
-    'vec_guard_ratio': 'an integer (0-10 transfored into a float by X / 10.0) divided by the'
-                       ' total number of trace instructions.',
+    'vec': 'turn on the vectorization optimization (vecopt). ' \
+           'Supports x86 (SSE 4.1), powerpc (SVX), s390x SIMD',
+    'vec_cost': 'threshold for which traces to bail. Unpacking increases the counter,'\
+                ' vector operation decrease the cost',
+    'vec_all': 'try to vectorize trace loops that occur outside of the numpypy library',
 }
 
 PARAMETERS = {'threshold': 1039, # just above 1024, prime
@@ -599,9 +596,6 @@ PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'vec': 0,
               'vec_all': 0,
               'vec_cost': 0,
-              'vec_length': 60,
-              'vec_ratio': 2,
-              'vec_guard_ratio': 5,
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.items())
 
@@ -620,14 +614,14 @@ class JitDriver(object):
     inline_jit_merge_point = False
     _store_last_enter_jit = None
 
+    @not_rpython
     def __init__(self, greens=None, reds=None, virtualizables=None,
                  get_jitcell_at=None, set_jitcell_at=None,
                  get_printable_location=None, confirm_enter_jit=None,
                  can_never_inline=None, should_unroll_one_iteration=None,
                  name='jitdriver', check_untranslated=True, vectorize=False,
                  get_unique_id=None, is_recursive=False, get_location=None):
-        """ NOT_RPYTHON
-            get_location:
+        """get_location:
               The return value is designed to provide enough information to express the
               state of an interpreter when invoking jit_merge_point.
               For a bytecode interperter such as PyPy this includes, filename, line number,

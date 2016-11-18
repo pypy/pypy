@@ -146,6 +146,27 @@ class TestAnnotateTestCase:
         # result should be an integer
         assert s.knowntype == int
 
+    def test_not_rpython(self):
+        def g(x):
+            """ NOT_RPYTHON """
+            return eval(x)
+        def f(x):
+            return g(str(x))
+        a = self.RPythonAnnotator()
+        with py.test.raises(ValueError):
+            a.build_types(f, [int])
+
+    def test_not_rpython_decorator(self):
+        from rpython.rlib.objectmodel import not_rpython
+        @not_rpython
+        def g(x):
+            return eval(x)
+        def f(x):
+            return g(str(x))
+        a = self.RPythonAnnotator()
+        with py.test.raises(ValueError):
+            a.build_types(f, [int])
+
     def test_lists(self):
         a = self.RPythonAnnotator()
         end_cell = a.build_types(snippet.poor_man_rev_range, [int])

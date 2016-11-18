@@ -4,7 +4,7 @@ from rpython.rlib.rarithmetic import most_neg_value_of_same_type
 from rpython.rlib.rfloat import isinf, isnan
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.debug import make_sure_not_resized, check_regular_int
-from rpython.rlib.objectmodel import we_are_translated, specialize
+from rpython.rlib.objectmodel import we_are_translated, specialize, not_rpython
 from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper import extregistry
@@ -148,14 +148,14 @@ class rbigint(object):
         self.sign = sign
 
     # __eq__ and __ne__ method exist for testingl only, they are not RPython!
+    @not_rpython
     def __eq__(self, other):
-        # NOT_RPYTHON
         if not isinstance(other, rbigint):
             return NotImplemented
         return self.eq(other)
 
+    @not_rpython
     def __ne__(self, other):
-        # NOT_RPYTHON
         return not (self == other)
 
     def digit(self, x):
@@ -217,8 +217,8 @@ class rbigint(object):
         return NULLRBIGINT
 
     @staticmethod
+    @not_rpython
     def fromlong(l):
-        "NOT_RPYTHON"
         return rbigint(*args_from_long(l))
 
     @staticmethod
@@ -1229,8 +1229,8 @@ class rbigint(object):
             ret /= math.log(base)
         return ret
 
+    @not_rpython
     def tolong(self):
-        "NOT_RPYTHON"
         l = 0L
         digits = list(self._digits)
         digits.reverse()
@@ -1355,8 +1355,8 @@ def args_from_rarith_int(x):
 # ^^^ specialized by the precise type of 'x', which is typically a r_xxx
 #     instance from rlib.rarithmetic
 
+@not_rpython
 def args_from_long(x):
-    "NOT_RPYTHON"
     if x >= 0:
         if x == 0:
             return [NULLDIGIT], 0
