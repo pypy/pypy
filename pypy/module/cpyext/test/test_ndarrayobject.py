@@ -235,9 +235,9 @@ class AppTestNDArray(AppTestCpythonExtensionBase):
         if cls.runappdirect:
             try:
                 import numpy
-                cls.w_numpy_include = [numpy.get_include()]
-            except:
+            except ImportError:
                 skip('numpy not importable')
+            cls.w_numpy_include = [numpy.get_include()]
         else:
             numpy_incl = os.path.abspath(os.path.dirname(__file__) +
                                          '/../include/_numpypy')
@@ -308,9 +308,6 @@ class AppTestNDArray(AppTestCpythonExtensionBase):
                 ),
                 ], include_dirs=self.numpy_include,
                    prologue='''
-                #ifdef PYPY_VERSION
-                    #include <pypy_numpy.h>
-                #endif
                 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
                 #include <numpy/arrayobject.h>
                 #ifdef PYPY_VERSION
@@ -353,9 +350,6 @@ class AppTestNDArray(AppTestCpythonExtensionBase):
                 '''),
                 ], include_dirs=self.numpy_include,
                    prologue='''
-                #ifdef PYPY_VERSION
-                    #include <pypy_numpy.h>
-                #endif
                 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
                 #include <numpy/arrayobject.h>
                 ''',
@@ -411,9 +405,6 @@ class AppTestNDArray(AppTestCpythonExtensionBase):
                 """),
                 ], include_dirs=self.numpy_include,
                    prologue='''
-                #ifdef PYPY_VERSION
-                    #include <pypy_numpy.h>
-                #endif
                 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
                 #include <numpy/arrayobject.h>
                 #ifndef PYPY_VERSION
