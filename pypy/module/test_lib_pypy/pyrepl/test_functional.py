@@ -9,7 +9,9 @@ import sys
 
 def pytest_funcarg__child(request):
     try:
-        pexpect = pytest.importorskip('pexpect')
+        import pexpect
+    except ImportError:
+        pytest.skip("no pexpect module")
     except SyntaxError:
         pytest.skip('pexpect wont work on py3k')
     child = pexpect.spawn(sys.executable, ['-S'], timeout=10)
