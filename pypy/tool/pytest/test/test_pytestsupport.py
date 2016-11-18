@@ -21,7 +21,13 @@ def test_AppFrame(space):
     co = PyCode._from_code(space, somefunc.func_code)
     pyframe = space.FrameClass(space, co, space.newdict(), None)
     runner = AppFrame(space, pyframe)
-    interpret("f = lambda x: x+1", runner, should_fail=False)
+    # XXX the following, in two calls to interpret(), no longer seems to
+    # work---the name 'f' is not defined in the second call.  We must
+    # build the 'f' manually with a space.appexec().
+    #interpret("f = lambda x: x+1", runner, should_fail=False)
+    space.appexec([runner.get_w_globals()], """(dict):
+        dict['f'] = lambda x: x+1
+    """)
     msg = interpret("assert isinstance(f(2), float)", runner)
     assert msg.startswith("assert isinstance(3, float)\n"
                           " +  where 3 = ")
