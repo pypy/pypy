@@ -182,6 +182,12 @@ class AppTestConnectedSSL:
             return s
             """)
 
+    def teardown_method(self, method):
+        # pytest may keep some objects alive.
+        # So do some clean-up now without waiting for them to die
+        from ..interp_ssl import SOCKET_STORAGE
+        SOCKET_STORAGE._dict.clear()
+
     def test_connect(self):
         import socket, gc
         ss = socket.ssl(self.s)
@@ -484,7 +490,7 @@ class AppTestSSLError:
             c = _socket.socket()
             c.connect(s.getsockname())
             c.setblocking(False)
-            
+
             c = ctx._wrap_socket(c, False)
             try:
                 exc = raises(_ssl.SSLWantReadError, c.do_handshake)

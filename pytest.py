@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # PYTHON_ARGCOMPLETE_OK
 """
 pytest: unit and functional testing with Python.
