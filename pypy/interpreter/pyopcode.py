@@ -795,7 +795,6 @@ class __extend__(pyframe.PyFrame):
         block = self.lastblock
         while block is not None:
             if isinstance(block, SysExcInfoRestorer):
-                import pdb; pdb.set_trace()
                 return True
             block = block.previous
         return False
