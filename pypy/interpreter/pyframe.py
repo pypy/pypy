@@ -647,51 +647,43 @@ class PyFrame(W_Root):
             raise oefmt(space.w_ValueError,
                         "can't jump to 'except' line as there's no exception")
 
-        # Don't jump into or out of a finally block.
-        # Unlike CPython, we can't jump into or out of an except block
-        # either---there would be a mess with SysExcInfoRestorer.
+        # Don't jump inside or out of an except or a finally block.
+        # Note that CPython doesn't check except blocks,
+        # but that results in crashes (tested on 3.5.2+).
         f_lasti_handler_addr = -1
         new_lasti_handler_addr = -1
-        blockstack = [-1]    # list of odd length:
-                             #   * addr of most recent outermost handler
-                             # [ * addr of start of outermost block
-                             #   * addr of most recent handler in that block 
-                             #       (last two items repeated) ]
+        blockstack = []     # current blockstack (addresses of SETUP_*)
+        endblock = [-1]     # current finally/except block stack
         addr = 0
         while addr < len(code):
             op = ord(code[addr])
             if op in (SETUP_LOOP, SETUP_EXCEPT, SETUP_FINALLY, SETUP_WITH,
                       SETUP_ASYNC_WITH):
                 blockstack.append(addr)
-                blockstack.append(-1)
             elif op == POP_BLOCK:
-                if len(blockstack) < 3:
+                if len(blockstack) == 0:
                     raise oefmt(space.w_SystemError,
-                                "blocks not properly nested in this bytecode")
-                blockstack.pop()
+                           "POP_BLOCK not properly nested in this bytecode")
                 setup_op = ord(code[blockstack.pop()])
                 if setup_op != SETUP_LOOP:
-                    blockstack[-1] = addr
-            elif op == END_FINALLY:    # "async for" nests blocks
-                blockstack[-1] = -1    # strangely, careful here
+                    endblock.append(addr)
+            elif op == END_FINALLY:
+                if len(endblock) <= 1:
+                    raise oefmt(space.w_SystemError,
+                           "END_FINALLY not properly nested in this bytecode")
+                endblock.pop()
 
-            if addr == new_lasti or addr == self.last_instr:
-                ii = len(blockstack) - 1
-                while ii > 0 and blockstack[ii] == -1:
-                    ii -= 2
-                assert ii >= 0
-                handler_addr = blockstack[ii]
-                if addr == new_lasti:
-                    new_lasti_handler_addr = handler_addr
-                if addr == self.last_instr:
-                    f_lasti_handler_addr = handler_addr
+            if addr == new_lasti:
+                new_lasti_handler_addr = endblock[-1]
+            if addr == self.last_instr:
+                f_lasti_handler_addr = endblock[-1]
 
             if op >= HAVE_ARGUMENT:
                 addr += 3
             else:
                 addr += 1
 
-        if len(blockstack) != 1:
+        if len(blockstack) != 0 or len(endblock) != 1:
             raise oefmt(space.w_SystemError,
                         "blocks not properly nested in this bytecode")
 

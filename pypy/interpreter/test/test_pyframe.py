@@ -121,6 +121,30 @@ class AppTestPyFrame:
         assert str(errors[0]).startswith(
             "can't jump into or out of an 'expect' or 'finally' block")
 
+    def test_f_lineno_set_3(self):
+        def jump_in_nested_finally(output):
+            try:
+                output.append(2)
+            finally:
+                output.append(4)
+                try:
+                    output.append(6)
+                finally:
+                    output.append(8)
+                output.append(9)
+        output = []
+
+        def tracer(f, event, *args):
+            if event == 'line' and len(output) == 1:
+                f.f_lineno += 5
+            return tracer
+
+        import sys
+        sys.settrace(tracer)
+        jump_in_nested_finally(output)
+        sys.settrace(None)
+        assert output == [2, 9]
+
     def test_f_lineno_set_firstline(self):
         r"""
         seen = []
