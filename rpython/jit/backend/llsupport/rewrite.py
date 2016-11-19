@@ -613,8 +613,11 @@ class GcRewriterAssembler(object):
             return
         cs = effectinfo.call_shortcut
         ptr_box = op.getarg(1 + cs.argnum)
-        value_box = self.emit_getfield(ptr_box, descr=cs.fielddescr,
-                                       raw=(ptr_box.type == 'i'))
+        if cs.fielddescr is not None:
+            value_box = self.emit_getfield(ptr_box, descr=cs.fielddescr,
+                                           raw=(ptr_box.type == 'i'))
+        else:
+            value_box = ptr_box
         self.replace_op_with(op, ResOperation(cond_call_opnum,
                                               [value_box] + op.getarglist(),
                                               descr=descr))
