@@ -757,7 +757,8 @@ class __extend__(pyframe.PyFrame):
         block = SysExcInfoRestorer(last_exception, self.lastblock)
         self.lastblock = block
         if operationerr is not None:   # otherwise, don't change sys_exc_info
-            ec.set_sys_exc_info(operationerr)
+            if not self.hide():
+                ec.set_sys_exc_info(operationerr)
 
     def end_finally(self):
         # unlike CPython, there are two statically distinct cases: the
