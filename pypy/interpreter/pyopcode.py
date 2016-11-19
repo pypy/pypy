@@ -790,6 +790,16 @@ class __extend__(pyframe.PyFrame):
             assert w_unroller is not None
             return w_unroller
 
+    @jit.unroll_safe
+    def _any_except_or_finally_handler(self):
+        block = self.lastblock
+        while block is not None:
+            if isinstance(block, SysExcInfoRestorer):
+                import pdb; pdb.set_trace()
+                return True
+            block = block.previous
+        return False
+
     def LOAD_BUILD_CLASS(self, oparg, next_instr):
         w_build_class = self.get_builtin().getdictvalue(
             self.space, '__build_class__')

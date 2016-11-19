@@ -105,6 +105,7 @@ return next yielded value or raise StopIteration."""
         current_exc_info = ec.sys_exc_info()
         if self.saved_operr is not None:
             ec.set_sys_exc_info(self.saved_operr)
+            self.saved_operr = None
         self.running = True
         try:
             w_result = frame.execute_frame(self, w_arg_or_err)
@@ -119,7 +120,11 @@ return next yielded value or raise StopIteration."""
         finally:
             frame.f_backref = jit.vref_None
             self.running = False
-            self.saved_operr = ec.sys_exc_info()
+            # note: this is not perfectly correct: see
+            # test_exc_info_in_generator_4.  But it's simpler and
+            # bug-to-bug compatible with CPython 3.5.
+            if frame._any_except_or_finally_handler():
+                self.saved_operr = ec.sys_exc_info()
             ec.set_sys_exc_info(current_exc_info)
         return w_result
 

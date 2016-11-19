@@ -497,6 +497,40 @@ res = f()
             assert next(gen) is LookupError
             assert next(gen) is ValueError
 
+    def test_exc_info_in_generator_3(self):
+        import sys
+        def g():
+            yield sys.exc_info()[0]
+            yield sys.exc_info()[0]
+            yield sys.exc_info()[0]
+        gen = g()
+        try:
+            raise IndexError
+        except IndexError:
+            assert next(gen) is IndexError
+        assert next(gen) is None
+        try:
+            raise ValueError
+        except ValueError:
+            assert next(gen) is ValueError
+
+    def test_exc_info_in_generator_4(self):
+        skip("buggy behavior, both in CPython and in PyPy")
+        import sys
+        def g():
+            try:
+                raise ValueError
+            except ValueError:
+                yield 1
+            assert sys.exc_info() == (None, None, None)
+            yield 2
+        gen = g()
+        try:
+            raise IndexError
+        except IndexError:
+            assert next(gen) is 1
+        assert next(gen) is 2
+
 
 def test_should_not_inline(space):
     from pypy.interpreter.generator import should_not_inline
