@@ -11,11 +11,12 @@ def subproc_run(*args):
     # similar to testdir.inline_run(), but running a subprocess to avoid
     # confusion.  Parses the standard output of test_all.py, so somehow
     # dependent on how it looks like.
+    cur_dir = str(py.path.local(__file__).dirpath())
     test_all = py.path.local(__file__).dirpath('..', '..', '..', 'test_all.py')
     args = [sys.executable, str(test_all), "-v"] + map(str, args)
     print '=========>', args
     passed, failed = [], []
-    popen = subprocess.Popen(args, stdout=subprocess.PIPE)
+    popen = subprocess.Popen(args, stdout=subprocess.PIPE, cwd=cur_dir)
     output, _ = popen.communicate()
 
     for line in output.splitlines(False):
