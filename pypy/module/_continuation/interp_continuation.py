@@ -42,6 +42,7 @@ class W_Continulet(W_Root):
         bottomframe.locals_cells_stack_w[3] = w_kwds
         bottomframe.last_exception = get_cleared_operation_error(space)
         self.bottomframe = bottomframe
+        self.saved_exception = None
         #
         global_state.origin = self
         self.sthread = sthread
@@ -227,6 +228,8 @@ global_state.clear()
 def new_stacklet_callback(h, arg):
     self = global_state.origin
     self.h = h
+    self.saved_exception = self.sthread.ec.sys_exc_info()
+    self.sthread.ec.set_sys_exc_info(None)
     global_state.clear()
     try:
         frame = self.bottomframe
@@ -248,9 +251,12 @@ def post_switch(sthread, h):
     self.h, origin.h = origin.h, h
     #
     current = sthread.ec.topframeref
+    saved_exc = sthread.ec.sys_exc_info()
     sthread.ec.topframeref = self.bottomframe.f_backref
+    sthread.ec.set_sys_exc_info(self.saved_exception)
     self.bottomframe.f_backref = origin.bottomframe.f_backref
     origin.bottomframe.f_backref = current
+    origin.saved_exception = saved_exc
     #
     return get_result()
 
