@@ -364,6 +364,8 @@ class AppTestBasic:
             d.insert(i, 'a')
             assert 'a' in d
             assert 'b' not in d
+            assert d.__contains__('a')
+            assert not d.__contains__('b')
             assert d.index('a') == i
         d = deque(range(10))
         d.insert(-1, 500)

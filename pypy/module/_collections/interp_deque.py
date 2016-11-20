@@ -284,8 +284,7 @@ class W_Deque(W_Root):
         self.modified()
         return w_obj
 
-    def remove(self, w_x):
-        "Remove first occurrence of value."
+    def _find(self, w_x):
         space = self.space
         block = self.leftblock
         index = self.leftindex
@@ -295,14 +294,25 @@ class W_Deque(W_Root):
             equal = space.eq_w(w_item, w_x)
             self.checklock(lock)
             if equal:
-                self.del_item(i)
-                return
+                return i
             # Advance the block/index pair
             index += 1
             if index >= BLOCKLEN:
                 block = block.rightlink
                 index = 0
-        raise oefmt(space.w_ValueError, "deque.remove(x): x not in deque")
+        return -1
+
+    def remove(self, w_x):
+        "Remove first occurrence of value."
+        i = self._find(w_x)
+        if i < 0:
+            raise oefmt(self.space.w_ValueError,
+                        "deque.remove(x): x not in deque")
+        self.del_item(i)
+
+    def contains(self, w_x):
+        i = self._find(w_x)
+        return self.space.newbool(i >= 0)
 
     def reverse(self):
         "Reverse *IN PLACE*."
@@ -582,6 +592,7 @@ Build an ordered collection accessible from endpoints only.""",
     __imul__ = interp2app(W_Deque.imul),
     __rmul__ = interp2app(W_Deque.rmul),
     maxlen = GetSetProperty(W_Deque.get_maxlen),
+    __contains__ = interp2app(W_Deque.contains),
 )
 
 # ------------------------------------------------------------
