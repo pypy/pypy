@@ -618,6 +618,15 @@ class AppTestPyFrame:
         #
         raises(StopIteration, next, gen)
 
+    def test_frame_clear_really(self):
+        import sys
+        def f(x):
+            return sys._getframe()
+        frame = f(42)
+        assert frame.f_locals['x'] == 42
+        frame.clear()
+        assert frame.f_locals == {}
+
     def test_throw_trace_bug(self):
         import sys
         def f():

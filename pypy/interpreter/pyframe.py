@@ -782,8 +782,10 @@ class PyFrame(W_Root):
 
     def descr_clear(self, space):
         """F.clear(): clear most references held by the frame"""
-        # Clears a random subset of the attributes (e.g. the fast
-        # locals, but not f_locals).
+        # Clears a random subset of the attributes: the local variables
+        # and the w_locals.  Note that CPython doesn't clear f_locals
+        # (which can create leaks) but it's hard to notice because
+        # the next Python-level read of 'frame.f_locals' will clear it.
         if not self.frame_finished_execution:
             if not self._is_generator_or_coroutine():
                 raise oefmt(space.w_RuntimeError,
@@ -800,6 +802,8 @@ class PyFrame(W_Root):
         debug = self.getdebug()
         if debug is not None:
             debug.w_f_trace = None
+            if debug.w_locals is not None:
+                debug.w_locals = space.newdict()
 
         # clear the locals, including the cell/free vars, and the stack
         for i in range(len(self.locals_cells_stack_w)):
