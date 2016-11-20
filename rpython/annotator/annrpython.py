@@ -265,15 +265,14 @@ class RPythonAnnotator(object):
     #___ interface for annotator.bookkeeper _______
 
     def recursivecall(self, graph, whence, inputcells):
-        if isinstance(whence, tuple):
+        if whence is not None:
             parent_graph, parent_block, parent_index = whence
             tag = parent_block, parent_index
             self.translator.update_call_graph(parent_graph, graph, tag)
-        # self.notify[graph.returnblock] is a set of call
-        # points to this func which triggers a reflow whenever the
-        # return block of this graph has been analysed.
-        returnpositions = self.notify.setdefault(graph.returnblock, set())
-        if whence is not None:
+            # self.notify[graph.returnblock] is a set of call
+            # points to this func which triggers a reflow whenever the
+            # return block of this graph has been analysed.
+            returnpositions = self.notify.setdefault(graph.returnblock, set())
             returnpositions.add(whence)
 
         # generalize the function's input arguments
