@@ -547,10 +547,8 @@ class Bookkeeper(object):
         (position_key, "first") and (position_key, "second").
 
         In general, "unique_key" should somehow uniquely identify where
-        the call is in the source code, and "callback" can be either a
-        position_key to reflow from when we see more general results,
-        or a real callback function that will be called with arguments
-        # "(annotator, called_graph)" whenever the result is generalized.
+        the call is in the source code, and "callback" is a
+        position_key to reflow from when we see more general results.
 
         "replace" can be set to a list of old unique_key values to
         forget now, because the given "unique_key" replaces them.

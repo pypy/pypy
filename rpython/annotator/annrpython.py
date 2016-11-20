@@ -313,17 +313,12 @@ class RPythonAnnotator(object):
             parent_graph, parent_block, parent_index = whence
             tag = parent_block, parent_index
             self.translator.update_call_graph(parent_graph, graph, tag)
-        # self.notify[graph.returnblock] is a dictionary of call
+        # self.notify[graph.returnblock] is a set of call
         # points to this func which triggers a reflow whenever the
         # return block of this graph has been analysed.
-        callpositions = self.notify.setdefault(graph.returnblock, {})
+        returnpositions = self.notify.setdefault(graph.returnblock, set())
         if whence is not None:
-            if callable(whence):
-                def callback():
-                    whence(self, graph)
-            else:
-                callback = whence
-            callpositions[callback] = True
+            returnpositions.add(whence)
 
         # generalize the function's input arguments
         self.addpendingblock(graph, graph.startblock, inputcells)
@@ -574,12 +569,8 @@ class RPythonAnnotator(object):
                 self.follow_link(graph, link, constraints)
 
         if block in self.notify:
-            # reflow from certain positions when this block is done
-            for callback in self.notify[block]:
-                if isinstance(callback, tuple):
-                    self.reflowfromposition(callback) # callback is a position
-                else:
-                    callback()
+            for position in self.notify[block]:
+                self.reflowfromposition(position)
 
 
     def follow_link(self, graph, link, constraints):
