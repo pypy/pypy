@@ -42,12 +42,12 @@ class W_Continulet(W_Root):
         bottomframe.locals_cells_stack_w[3] = w_kwds
         bottomframe.last_exception = get_cleared_operation_error(space)
         self.bottomframe = bottomframe
-        self.saved_exception = None
         #
         global_state.origin = self
         self.sthread = sthread
+        saved_exception = pre_switch(sthread)
         h = sthread.new(new_stacklet_callback)
-        post_switch(sthread, h)
+        post_switch(sthread, h, saved_exception)
 
     def switch(self, w_to):
         sthread = self.sthread
@@ -83,8 +83,9 @@ class W_Continulet(W_Root):
             # double switch: the final destination is to.h
             global_state.destination = to
         #
+        saved_exception = pre_switch(sthread)
         h = sthread.switch(global_state.destination.h)
-        return post_switch(sthread, h)
+        return post_switch(sthread, h, saved_exception)
 
     @unwrap_spec(w_value = WrappedDefault(None),
                  w_to = WrappedDefault(None))
@@ -228,8 +229,6 @@ global_state.clear()
 def new_stacklet_callback(h, arg):
     self = global_state.origin
     self.h = h
-    self.saved_exception = self.sthread.ec.sys_exc_info()
-    self.sthread.ec.set_sys_exc_info(None)
     global_state.clear()
     try:
         frame = self.bottomframe
@@ -243,7 +242,12 @@ def new_stacklet_callback(h, arg):
     global_state.destination = self
     return self.h
 
-def post_switch(sthread, h):
+def pre_switch(sthread):
+    saved_exception = sthread.ec.sys_exc_info()
+    sthread.ec.set_sys_exc_info(None)
+    return saved_exception
+
+def post_switch(sthread, h, saved_exception):
     origin = global_state.origin
     self = global_state.destination
     global_state.origin = None
@@ -251,12 +255,10 @@ def post_switch(sthread, h):
     self.h, origin.h = origin.h, h
     #
     current = sthread.ec.topframeref
-    saved_exc = sthread.ec.sys_exc_info()
     sthread.ec.topframeref = self.bottomframe.f_backref
-    sthread.ec.set_sys_exc_info(self.saved_exception)
+    sthread.ec.set_sys_exc_info(saved_exception)
     self.bottomframe.f_backref = origin.bottomframe.f_backref
     origin.bottomframe.f_backref = current
-    origin.saved_exception = saved_exc
     #
     return get_result()
 

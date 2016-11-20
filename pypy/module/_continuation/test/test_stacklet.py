@@ -708,3 +708,32 @@ class AppTestStacklet(BaseAppTest):
 
         continulet.switch(c1, to=c2)
         raises(error, continulet.switch, c1, to=c2)
+
+    def test_exc_info_save_restore(self):
+        from _continuation import continulet
+        import sys
+        main = []
+
+        def f(c):
+            print("in f... 222")
+            try:
+                raise ValueError('fun')
+            except:
+                print("333")
+                exc_info = sys.exc_info()
+                print("444")
+                c17650 = continulet(h)
+                bd50.switch(to=c17650)
+                print("back in f...")
+                assert exc_info == sys.exc_info()
+
+        def h(c):
+            print("in h... 555")
+            assert sys.exc_info() == (None, None, None)
+            print("666")
+
+        main = continulet.__new__(continulet)
+        print(111)
+        bd50 = continulet(f)
+        main.switch(to=bd50)
+        print(999)
