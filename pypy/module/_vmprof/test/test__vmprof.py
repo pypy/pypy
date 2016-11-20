@@ -1,4 +1,3 @@
-
 from rpython.tool.udir import udir
 from pypy.tool.pytest.objspace import gettestobjspace
 

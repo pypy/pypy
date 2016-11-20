@@ -140,7 +140,11 @@ class W_File(W_AbstractStream):
         stream = dispatch_filename(streamio.open_file_as_stream)(
             self.space, w_name, mode, buffering, signal_checker(self.space))
         fd = stream.try_to_find_file_descriptor()
-        self.check_not_dir(fd)
+        try:
+            self.check_not_dir(fd)
+        except:
+            stream.close()
+            raise
         self.fdopenstream(stream, fd, mode)
 
     def direct___enter__(self):

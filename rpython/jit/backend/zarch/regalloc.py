@@ -6,7 +6,8 @@ from rpython.jit.backend.zarch.arch import WORD
 from rpython.jit.codewriter import longlong
 from rpython.jit.backend.zarch.locations import imm, get_fp_offset, imm0, imm1
 from rpython.jit.metainterp.history import (Const, ConstInt, ConstFloat, ConstPtr,
-                                            INT, REF, FLOAT, VOID)
+                                            INT, REF, FLOAT, VOID,
+                                            AbstractFailDescr)
 from rpython.jit.metainterp.history import JitCellToken, TargetToken
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.backend.zarch import locations as l
@@ -53,6 +54,12 @@ class TempFloat(TempVar):
 
     def __repr__(self):
         return "<TempFloat at %s>" % (id(self),)
+
+class TempVector(TempVar):
+    type = 'V'
+
+    def __repr__(self):
+        return "<TempVector at %s>" % (id(self),)
 
 
 class FPRegisterManager(RegisterManager):
@@ -108,6 +115,45 @@ class FPRegisterManager(RegisterManager):
         reg = self.force_allocate_reg(box, forbidden_vars=self.temp_boxes, selected_reg=selected_reg)
         self.temp_boxes.append(box)
         return reg
+
+class VectorRegisterManager(RegisterManager):
+    all_regs              = r.MANAGED_VECTOR_REGS
+    box_types             = [FLOAT, INT]
+    save_around_call_regs = [] # calling not allowed in vectorized traces!
+    assert set(save_around_call_regs).issubset(all_regs)
+    pool = None
+
+    def __init__(self, longevity, frame_manager=None, assembler=None):
+        RegisterManager.__init__(self, longevity, frame_manager, assembler)
+
+    def call_result_location(self, v):
+        return None
+
+    def convert_to_imm(self, c):
+        return l.pool(self.assembler.pool.get_offset(c), float=True)
+
+    def ensure_reg_or_pool(self, box):
+        if isinstance(box, Const):
+            offset = self.assembler.pool.get_offset(box)
+            return l.pool(offset, float=True)
+        else:
+            assert box in self.temp_boxes
+            loc = self.make_sure_var_in_reg(box,
+                    forbidden_vars=self.temp_boxes)
+        return loc
+
+    def ensure_reg(self, box):
+        assert box in self.temp_boxes
+        loc = self.make_sure_var_in_reg(box,
+                forbidden_vars=self.temp_boxes)
+        return loc
+
+    def get_scratch_reg(self, selected_reg=None):
+        box = TempVector()
+        reg = self.force_allocate_reg(box, forbidden_vars=self.temp_boxes, selected_reg=selected_reg)
+        self.temp_boxes.append(box)
+        return reg
+
 
 
 class ZARCHRegisterManager(RegisterManager):
@@ -389,8 +435,9 @@ class ZARCHFrameManager(FrameManager):
         assert isinstance(loc, l.StackLocation)
         return loc.position
 
+from rpython.jit.backend.zarch import vector_ext
 
-class Regalloc(BaseRegalloc):
+class Regalloc(BaseRegalloc, vector_ext.VectorRegalloc):
 
     def __init__(self, assembler=None):
         self.cpu = assembler.cpu
@@ -415,6 +462,9 @@ class Regalloc(BaseRegalloc):
         self.fprm = FPRegisterManager(self.longevity, frame_manager = self.fm,
                                       assembler = self.assembler)
         self.fprm.pool = self.assembler.pool
+        self.vrm = VectorRegisterManager(self.longevity, frame_manager = self.fm,
+                                         assembler = self.assembler)
+        self.vrm.pool = self.assembler.pool
         return operations
 
     def prepare_loop(self, inputargs, operations, looptoken, allgcrefs):
@@ -470,13 +520,17 @@ class Regalloc(BaseRegalloc):
         self.fm.finish_binding()
         self.rm._check_invariants()
         self.fprm._check_invariants()
+        self.vrm._check_invariants()
 
     def get_final_frame_depth(self):
         return self.fm.get_frame_depth()
 
     def possibly_free_var(self, var):
         if var is not None:
-            if var.type == FLOAT:
+            if var.is_vector():
+                if var.type != VOID:
+                    self.vrm.possibly_free_var(var)
+            elif var.type == FLOAT:
                 self.fprm.possibly_free_var(var)
             else:
                 self.rm.possibly_free_var(var)
@@ -533,6 +587,7 @@ class Regalloc(BaseRegalloc):
             self.assembler.mc.mark_op(op)
             self.rm.position = i
             self.fprm.position = i
+            self.vrm.position = i
             opnum = op.getopnum()
             if rop.has_no_side_effect(opnum) and op not in self.longevity:
                 i += 1
@@ -541,7 +596,10 @@ class Regalloc(BaseRegalloc):
             #
             for j in range(op.numargs()):
                 box = op.getarg(j)
-                if box.type != FLOAT:
+                if box.is_vector():
+                    if box.type != VOID:
+                        self.vrm.temp_boxes.append(box)
+                elif box.type != FLOAT:
                     self.rm.temp_boxes.append(box)
                 else:
                     self.fprm.temp_boxes.append(box)
@@ -555,13 +613,15 @@ class Regalloc(BaseRegalloc):
             self.possibly_free_var(op)
             self.rm._check_invariants()
             self.fprm._check_invariants()
+            self.vrm._check_invariants()
             if self.assembler.mc.get_relative_pos() > self.limit_loop_break:
-                self.assembler.break_long_loop()
+                self.assembler.break_long_loop(self)
                 self.limit_loop_break = (self.assembler.mc.get_relative_pos() +
                                              LIMIT_LOOP_BREAK)
             i += 1
         assert not self.rm.reg_bindings
         assert not self.fprm.reg_bindings
+        assert not self.vrm.reg_bindings
         self.flush_loop()
         self.assembler.mc.mark_op(None) # end of the loop
         self.operations = None
@@ -595,7 +655,9 @@ class Regalloc(BaseRegalloc):
         return gcmap
 
     def loc(self, var):
-        if var.type == FLOAT:
+        if var.is_vector():
+            return self.vrm.loc(var)
+        elif var.type == FLOAT:
             return self.fprm.loc(var)
         else:
             return self.rm.loc(var)
@@ -677,6 +739,7 @@ class Regalloc(BaseRegalloc):
         # temporary boxes and all the current operation's arguments
         self.rm.free_temp_vars()
         self.fprm.free_temp_vars()
+        self.vrm.free_temp_vars()
 
     def compute_hint_frame_locations(self, operations):
         # optimization only: fill in the 'hint_frame_locations' dictionary
@@ -1099,6 +1162,17 @@ class Regalloc(BaseRegalloc):
         # generate_quick_failure() produces up to 14 instructions per guard
         self.limit_loop_break -= 14 * 4
         #
+        # specifically for vecopt
+        descr = op.getdescr()
+        assert isinstance(descr, AbstractFailDescr)
+        if descr.rd_vector_info:
+            accuminfo = descr.rd_vector_info
+            while accuminfo:
+                i = accuminfo.getpos_in_failargs()+1
+                accuminfo.location = args[i]
+                loc = self.loc(accuminfo.getoriginal())
+                args[i] = loc
+                accuminfo = accuminfo.next()
         return args
 
     def load_condition_into_cc(self, box):
@@ -1138,6 +1212,7 @@ class Regalloc(BaseRegalloc):
 
     def prepare_guard_not_forced_2(self, op):
         self.rm.before_call(op.getfailargs(), save_all_regs=True)
+        self.fprm.before_call(op.getfailargs(), save_all_regs=True)
         arglocs = self._prepare_guard(op)
         return arglocs
 

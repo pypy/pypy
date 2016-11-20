@@ -13,6 +13,7 @@ __revision__ = "$Id: sysconfig.py 85358 2010-10-10 09:54:59Z antoine.pitrou $"
 import sys
 import os
 import shlex
+import imp
 
 from distutils.errors import DistutilsPlatformError
 
@@ -62,10 +63,10 @@ def _init_posix():
     """Initialize the module as appropriate for POSIX systems."""
     g = {}
     g['EXE'] = ""
-    g['SO'] = ".so"
-    g['SOABI'] = g['SO'].rsplit('.')[0]
+    g['SO'] = [s[0] for s in imp.get_suffixes() if s[2] == imp.C_EXTENSION][0]
     g['LIBDIR'] = os.path.join(sys.prefix, 'lib')
     g['CC'] = "gcc -pthread" # -pthread might not be valid on OS/X, check
+    g['OPT'] = "" 
 
     global _config_vars
     _config_vars = g
@@ -75,8 +76,7 @@ def _init_nt():
     """Initialize the module as appropriate for NT"""
     g = {}
     g['EXE'] = ".exe"
-    g['SO'] = ".pyd"
-    g['SOABI'] = g['SO'].rsplit('.')[0]
+    g['SO'] = [s[0] for s in imp.get_suffixes() if s[2] == imp.C_EXTENSION][0]
 
     global _config_vars
     _config_vars = g
@@ -127,7 +127,9 @@ def customize_compiler(compiler):
         setattr(compiler, executable, command)
 
     if compiler.compiler_type == "unix":
-        compiler.compiler_so.extend(['-O2', '-fPIC', '-Wimplicit'])
+        # compiler_so can be c++ which has no -Wimplicit
+        #compiler.compiler_so.extend(['-O2', '-fPIC', '-Wimplicit'])
+        compiler.compiler_so.extend(['-O2', '-fPIC'])
         compiler.shared_lib_extension = get_config_var('SO')
         if "CPPFLAGS" in os.environ:
             cppflags = shlex.split(os.environ["CPPFLAGS"])

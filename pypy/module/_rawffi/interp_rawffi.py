@@ -9,6 +9,7 @@ from rpython.rlib.clibffi import *
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib.objectmodel import specialize
 import rpython.rlib.rposix as rposix
 
 _MS_WINDOWS = os.name == "nt"
@@ -223,14 +224,17 @@ class W_CDLL(W_Root):
             raise oefmt(space.w_ValueError, "Cannot find symbol %s", name)
         return space.wrap(address_as_uint)
 
-@unwrap_spec(name='str_or_None')
-def descr_new_cdll(space, w_type, name):
+def open_cdll(space, name):
     try:
-        cdll = CDLL(name)
+        return CDLL(name)
     except DLOpenError as e:
-        raise wrap_dlopenerror(space, e, name)
+        raise wrap_dlopenerror(space, e, name or "<None>")
     except OSError as e:
         raise wrap_oserror(space, e)
+
+@unwrap_spec(name='str_or_None')
+def descr_new_cdll(space, w_type, name):
+    cdll = open_cdll(space, name)
     return space.wrap(W_CDLL(space, name, cdll))
 
 W_CDLL.typedef = TypeDef(
@@ -255,6 +259,7 @@ unroll_letters_for_floats = unrolling_iterable(TYPEMAP_FLOAT_LETTERS)
 
 _ARM = rffi_platform.getdefined('__arm__', '')
 
+@specialize.arg(2)
 def read_ptr(ptr, ofs, TP):
     T = lltype.Ptr(rffi.CArray(TP))
     for c in unroll_letters_for_floats:
@@ -274,8 +279,8 @@ def read_ptr(ptr, ofs, TP):
                 return ptr_val
     else:
         return rffi.cast(T, ptr)[ofs]
-read_ptr._annspecialcase_ = 'specialize:arg(2)'
 
+@specialize.argtype(2)
 def write_ptr(ptr, ofs, value):
     TP = lltype.typeOf(value)
     T = lltype.Ptr(rffi.CArray(TP))
@@ -296,7 +301,6 @@ def write_ptr(ptr, ofs, value):
                 return
     else:
         rffi.cast(T, ptr)[ofs] = value
-write_ptr._annspecialcase_ = 'specialize:argtype(2)'
 
 def segfault_exception(space, reason):
     w_mod = space.getbuiltinmodule("_rawffi")
@@ -374,14 +378,15 @@ class W_DataInstance(W_Root):
     def getrawsize(self):
         raise NotImplementedError("abstract base class")
 
+@specialize.arg(0)
 def unwrap_truncate_int(TP, space, w_arg):
     if space.isinstance_w(w_arg, space.w_int):
         return rffi.cast(TP, space.int_w(w_arg))
     else:
         return rffi.cast(TP, space.bigint_w(w_arg).ulonglongmask())
-unwrap_truncate_int._annspecialcase_ = 'specialize:arg(0)'
 
 
+@specialize.arg(1)
 def unwrap_value(space, push_func, add_arg, argdesc, letter, w_arg):
     if letter in TYPEMAP_PTR_LETTERS:
         # check for NULL ptr
@@ -422,10 +427,10 @@ def unwrap_value(space, push_func, add_arg, argdesc, letter, w_arg):
                 return
         else:
             raise oefmt(space.w_TypeError, "cannot directly write value")
-unwrap_value._annspecialcase_ = 'specialize:arg(1)'
 
 ll_typemap_iter = unrolling_iterable(LL_TYPEMAP.items())
 
+@specialize.arg(1)
 def wrap_value(space, func, add_arg, argdesc, letter):
     for c, ll_type in ll_typemap_iter:
         if letter == c:
@@ -437,7 +442,6 @@ def wrap_value(space, func, add_arg, argdesc, letter):
             else:
                 return space.wrap(func(add_arg, argdesc, ll_type))
     raise oefmt(space.w_TypeError, "cannot directly read value")
-wrap_value._annspecialcase_ = 'specialize:arg(1)'
 
 NARROW_INTEGER_TYPES = 'cbhiBIH?'
 
@@ -619,10 +623,7 @@ if _MS_WINDOWS:
 
 def get_libc(space):
     name = get_libc_name()
-    try:
-        cdll = CDLL(name)
-    except OSError as e:
-        raise wrap_oserror(space, e)
+    cdll = open_cdll(space, name)
     return space.wrap(W_CDLL(space, name, cdll))
 
 def get_errno(space):

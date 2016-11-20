@@ -1486,7 +1486,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert d[1] == 12
 
     def test_sum(self):
-        from numpy import array, zeros, float16, complex64, str_
+        from numpy import array, zeros, float16, complex64, str_, isscalar, add
         a = array(range(5))
         assert a.sum() == 10
         assert a[:4].sum() == 6
@@ -1514,6 +1514,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert c.imag == 5
 
         assert list(zeros((0, 2)).sum(axis=1)) == []
+
+        a = array([1, 2, 3, 4]).sum()
+        s = isscalar(a)
+        assert s is True
+        a = add.reduce([1.0, 2, 3, 4])
+        s = isscalar(a)
+        assert s is True,'%r is not a scalar' % type(a)
 
     def test_reduce_nd(self):
         from numpy import arange, array
@@ -3667,6 +3674,28 @@ class AppTestSupport(BaseNumpyAppTest):
         z = np.array(y)
         assert z.dtype == 'O'
         assert (z == x).all()
+
+        dt1 = np.dtype(
+             [('a', 'b'), ('b', 'i'), ('sub', np.dtype('b,i')), ('c', 'i')],
+             align=True)
+        x = np.arange(dt1.itemsize, dtype=np.int8).view(dt1)
+        y = memoryview(x)
+        if '__pypy__' in sys.builtin_module_names:
+            assert y.format == 'T{b:a:xxxi:b:T{b:f0:i:f1:}:sub:xxxi:c:}'
+        else:
+            assert y.format == 'T{b:a:xxxi:b:T{b:f0:=i:f1:}:sub:xxx@i:c:}'
+ 
+
+        dt1 = np.dtype(
+             [('a', 'b'), ('b', 'i'), ('sub', np.dtype('b,i')), ('c', 'i')],
+             align=True)
+        x = np.arange(dt1.itemsize, dtype=np.int8).view(dt1)
+        y = memoryview(x)
+        if '__pypy__' in sys.builtin_module_names:
+            assert y.format == 'T{b:a:xxxi:b:T{b:f0:i:f1:}:sub:xxxi:c:}'
+        else:
+            assert y.format == 'T{b:a:xxxi:b:T{b:f0:=i:f1:}:sub:xxx@i:c:}'
+ 
 
     def test_fromstring(self):
         import sys

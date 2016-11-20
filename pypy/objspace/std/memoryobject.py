@@ -131,9 +131,13 @@ class W_MemoryView(W_Root):
         return space.newbool(bool(self.buf.readonly))
 
     def w_get_shape(self, space):
+        if self.buf.getndim() == 0:
+            return space.w_None
         return space.newtuple([space.wrap(x) for x in self.buf.getshape()])
 
     def w_get_strides(self, space):
+        if self.buf.getndim() == 0:
+            return space.w_None
         return space.newtuple([space.wrap(x) for x in self.buf.getstrides()])
 
     def w_get_suboffsets(self, space):

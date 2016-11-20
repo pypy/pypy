@@ -4558,3 +4558,20 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         self.meta_interp(f, [])
         self.check_resops(guard_nonnull=0)
 
+    def test_loop_before_main_loop(self):
+        fdriver = JitDriver(greens=[], reds='auto')
+        gdriver = JitDriver(greens=[], reds='auto')
+        def f(i, j):
+            while j > 0:   # this loop unrolls because it is in the same
+                j -= 1     # function as a jit_merge_point()
+            while i > 0:
+                fdriver.jit_merge_point()
+                i -= 1
+        def g(i, j, k):
+            while k > 0:
+                gdriver.jit_merge_point()
+                f(i, j)
+                k -= 1
+
+        self.meta_interp(g, [5, 5, 5])
+        self.check_resops(guard_true=10)   # 5 unrolled, plus 5 unrelated

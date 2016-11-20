@@ -710,6 +710,12 @@ class RaisingCallOperationWrongGuardException(BaseCallOperation):
 
 # 6. a conditional call (for now always with no exception raised)
 class CondCallOperation(BaseCallOperation):
+
+    def filter(self, builder):
+        if not builder.cpu.supports_cond_call_value and \
+           self.opnum == rop.COND_CALL_VALUE_I:
+            raise test_random.CannotProduceOperation
+
     def produce_into(self, builder, r):
         fail_subset = builder.subset_of_intvars(r)
         if self.opnum == rop.COND_CALL:

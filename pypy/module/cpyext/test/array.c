@@ -2394,14 +2394,29 @@ static PyTypeObject PyArrayIter_Type = {
     (iternextfunc)arrayiter_next,               /* tp_iternext */
     0,                                          /* tp_methods */
 };
+static PyObject *
+readbuffer_as_string(PyObject *self, PyObject *args)
+{
+    PyObject *obj;
+    const void *ptr;
+    Py_ssize_t size;
+
+    if (!PyArg_ParseTuple(args, "O", &obj)) {
+        return NULL;
+    }
+    if (PyObject_AsReadBuffer(obj, &ptr, &size) < 0)
+        return NULL;
+    return PyString_FromStringAndSize((char*)ptr, size);
+}
+
 
 
 /*********************** Install Module **************************/
 
-/* No functions in array module. */
 static PyMethodDef a_methods[] = {
     {"_reconstruct",   (PyCFunction)_reconstruct, METH_VARARGS, NULL},
     {"switch_multiply",   (PyCFunction)switch_multiply, METH_NOARGS, NULL},
+    {"readbuffer_as_string",   (PyCFunction)readbuffer_as_string, METH_VARARGS, NULL},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 

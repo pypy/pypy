@@ -9,6 +9,7 @@ from rpython.jit.backend.zarch.helper.regalloc import (check_imm,
 from rpython.jit.metainterp.history import (ConstInt)
 from rpython.jit.backend.zarch.codebuilder import ZARCHGuardToken, InstrBuilder
 from rpython.jit.backend.llsupport import symbolic, jitframe
+from rpython.rlib.rjitlog import rjitlog as jl
 import rpython.jit.backend.zarch.conditions as c
 import rpython.jit.backend.zarch.registers as r
 import rpython.jit.backend.zarch.locations as l
@@ -1155,6 +1156,8 @@ class ForceOpAssembler(object):
         mc.load_imm(r.SCRATCH, target)
         mc.BCR(c.ANY, r.SCRATCH)
         mc.copy_to_raw_memory(oldadr)
+        #
+        jl.redirect_assembler(oldlooptoken, newlooptoken, newlooptoken.number)
 
 
 class MiscOpAssembler(object):

@@ -323,7 +323,7 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
         # the stacktrace
         f = open(self.temppath, 'w')
         f.close()
-        co = compile('open("%s")' % self.temppath, self.temppath, 'exec')
+        co = compile('open(r"%s")' % self.temppath, self.temppath, 'exec')
         sys.pypy_set_track_resources(True)
         try:
             # this exec used to fail, because space.format_traceback tried to

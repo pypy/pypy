@@ -8,7 +8,7 @@ import pypy.module.cpyext.api     # side-effect of pre-importing it
 
 @unwrap_spec(cdef=str, module_name=str, source=str)
 def prepare(space, cdef, module_name, source, w_includes=None,
-            w_extra_source=None):
+            w_extra_source=None, w_min_version=None):
     try:
         import cffi
         from cffi import FFI            # <== the system one, which
@@ -16,8 +16,13 @@ def prepare(space, cdef, module_name, source, w_includes=None,
         from cffi import ffiplatform
     except ImportError:
         py.test.skip("system cffi module not found or older than 1.0.0")
-    if cffi.__version_info__ < (1, 4, 0):
-        py.test.skip("system cffi module needs to be at least 1.4.0")
+    if w_min_version is None:
+        min_version = (1, 4, 0)
+    else:
+        min_version = tuple(space.unwrap(w_min_version))
+    if cffi.__version_info__ < min_version:
+        py.test.skip("system cffi module needs to be at least %s, got %s" % (
+            min_version, cffi.__version_info__))
     space.appexec([], """():
         import _cffi_backend     # force it to be initialized
     """)
@@ -403,11 +408,14 @@ class AppTestRecompiler:
             'test_misdeclared_field_1',
             "struct foo_s { int a[6]; };")
         assert ffi.sizeof("struct foo_s") == 24  # found by the actual C code
-        p = ffi.new("struct foo_s *")
-        # lazily build the fields and boom:
-        e = raises(ffi.error, getattr, p, "a")
-        assert str(e.value).startswith("struct foo_s: wrong size for field 'a' "
-                                       "(cdef says 20, but C compiler says 24)")
+        try:
+            # lazily build the fields and boom:
+            p = ffi.new("struct foo_s *")
+            p.a
+            assert False, "should have raised"
+        except ffi.error as e:
+            assert str(e).startswith("struct foo_s: wrong size for field 'a' "
+                                     "(cdef says 20, but C compiler says 24)")
 
     def test_open_array_in_struct(self):
         ffi, lib = self.prepare(
@@ -415,8 +423,10 @@ class AppTestRecompiler:
             'test_open_array_in_struct',
             "struct foo_s { int b; int a[]; };")
         assert ffi.sizeof("struct foo_s") == 4
-        p = ffi.new("struct foo_s *", [5, [10, 20, 30]])
+        p = ffi.new("struct foo_s *", [5, [10, 20, 30, 40]])
         assert p.a[2] == 30
+        assert ffi.sizeof(p) == ffi.sizeof("void *")
+        assert ffi.sizeof(p[0]) == 5 * ffi.sizeof("int")
 
     def test_math_sin_type(self):
         ffi, lib = self.prepare(
@@ -949,12 +959,25 @@ class AppTestRecompiler:
             "struct foo_s { int x; int a[5][8]; int y; };")
         assert ffi.sizeof('struct foo_s') == 42 * ffi.sizeof('int')
         s = ffi.new("struct foo_s *")
+        assert ffi.typeof(s.a) == ffi.typeof("int[5][8]")
         assert ffi.sizeof(s.a) == 40 * ffi.sizeof('int')
         assert s.a[4][7] == 0
         raises(IndexError, 's.a[4][8]')
         raises(IndexError, 's.a[5][0]')
         assert ffi.typeof(s.a) == ffi.typeof("int[5][8]")
         assert ffi.typeof(s.a[0]) == ffi.typeof("int[8]")
+
+    def test_struct_array_guess_length_3(self):
+        ffi, lib = self.prepare(
+            "struct foo_s { int a[][...]; };",
+            'test_struct_array_guess_length_3',
+            "struct foo_s { int x; int a[5][7]; int y; };")
+        assert ffi.sizeof('struct foo_s') == 37 * ffi.sizeof('int')
+        s = ffi.new("struct foo_s *")
+        assert ffi.typeof(s.a) == ffi.typeof("int[][7]")
+        assert s.a[4][6] == 0
+        raises(IndexError, 's.a[4][7]')
+        assert ffi.typeof(s.a[0]) == ffi.typeof("int[7]")
 
     def test_global_var_array_2(self):
         ffi, lib = self.prepare(
@@ -1790,3 +1813,28 @@ class AppTestRecompiler:
                                 "void f(void) { }")
         assert lib.f.__get__(42) is lib.f
         assert lib.f.__get__(42, int) is lib.f
+
+    def test_typedef_array_dotdotdot(self):
+        ffi, lib = self.prepare("""
+            typedef int foo_t[...], bar_t[...];
+            int gv[...];
+            typedef int mat_t[...][...];
+            typedef int vmat_t[][...];
+            """,
+            "test_typedef_array_dotdotdot", """
+            typedef int foo_t[50], bar_t[50];
+            int gv[23];
+            typedef int mat_t[6][7];
+            typedef int vmat_t[][8];
+        """, min_version=(1, 8, 4))
+        assert ffi.sizeof("foo_t") == 50 * ffi.sizeof("int")
+        assert ffi.sizeof("bar_t") == 50 * ffi.sizeof("int")
+        assert len(ffi.new("foo_t")) == 50
+        assert len(ffi.new("bar_t")) == 50
+        assert ffi.sizeof(lib.gv) == 23 * ffi.sizeof("int")
+        assert ffi.sizeof("mat_t") == 6 * 7 * ffi.sizeof("int")
+        assert len(ffi.new("mat_t")) == 6
+        assert len(ffi.new("mat_t")[3]) == 7
+        raises(ffi.error, ffi.sizeof, "vmat_t")
+        p = ffi.new("vmat_t", 4)
+        assert ffi.sizeof(p[3]) == 8 * ffi.sizeof("int")

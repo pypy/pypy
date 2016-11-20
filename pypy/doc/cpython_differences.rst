@@ -469,7 +469,16 @@ Miscellaneous
   these concerns also exist on CPython, just less so.  For this reason
   we explicitly don't implement ``sys.getsizeof()``.
 
+* The ``timeit`` module behaves differently under PyPy: it prints the average
+  time and the standard deviation, instead of the minimum, since the minimum is
+  often misleading.
+
+* The ``get_config_vars`` method of ``sysconfig`` and ``distutils.sysconfig``
+  are not complete. On POSIX platforms, CPython fishes configuration variables
+  from the Makefile used to build the interpreter. PyPy should bake the values
+  in during compilation, but does not do that yet.
 
 .. _`is ignored in PyPy`: http://bugs.python.org/issue14621
 .. _`little point`: http://events.ccc.de/congress/2012/Fahrplan/events/5152.en.html
 .. _`#2072`: https://bitbucket.org/pypy/pypy/issue/2072/
+

@@ -646,6 +646,9 @@ class SingleFrozenPBCRepr(Repr):
     def ll_str(self, x):
         return self.getstr()
 
+    def get_ll_eq_function(self):
+        return None
+
 
 class MultipleFrozenPBCReprBase(CanBeNull, Repr):
     def convert_const(self, pbc):
@@ -653,6 +656,9 @@ class MultipleFrozenPBCReprBase(CanBeNull, Repr):
             return self.null_instance()
         frozendesc = self.rtyper.annotator.bookkeeper.getdesc(pbc)
         return self.convert_desc(frozendesc)
+
+    def get_ll_eq_function(self):
+        return None
 
 class MultipleUnrelatedFrozenPBCRepr(MultipleFrozenPBCReprBase):
     """For a SomePBC of frozen PBCs that have no common access set.
