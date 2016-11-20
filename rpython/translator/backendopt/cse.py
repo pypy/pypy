@@ -38,24 +38,21 @@ def can_fold(op):
     return getattr(llop, op.opname).canfold
 
 class Cache(object):
-    def __init__(self, variable_families, analyzer, new_unions=None,
+    def __init__(self, variable_families, analyzer,
                  purecache=None, heapcache=None):
         if purecache is None:
             purecache = {}
         if heapcache is None:
             heapcache = {}
-        if new_unions is None:
-            new_unions = unionfind.UnionFind()
         # (opname, concretetype of result, args) -> previous (life) result
         self.purecache = purecache
         self.heapcache = heapcache
         self.variable_families = variable_families
         self.analyzer = analyzer
-        self.new_unions = new_unions
 
     def copy(self):
         return Cache(
-                self.variable_families, self.analyzer, self.new_unions,
+                self.variable_families, self.analyzer,
                 self.purecache.copy(),
                 self.heapcache.copy())
 
@@ -70,7 +67,6 @@ class Cache(object):
         # _var_rep.
         if not isinstance(var, Variable):
             return var
-        var = self.new_unions.find_rep(var)
         return self.variable_families.find_rep(var)
 
     def _key_with_replacement(self, key, index, var):
@@ -211,7 +207,7 @@ class Cache(object):
                 newres = self._merge_results(tuples, results, backedges)
                 heapcache[key] = newres
         return Cache(
-                self.variable_families, self.analyzer, self.new_unions,
+                self.variable_families, self.analyzer,
                 purecache, heapcache)
 
     def _clear_heapcache_for(self, concretetype, fieldname):
@@ -248,7 +244,9 @@ class Cache(object):
         assert op.result.concretetype == res.concretetype
         op.opname = 'same_as'
         op.args = [res]
-        self.new_unions.union(res, op.result)
+        # now that we know that the variables are the same, just merge them in
+        # variable_families too
+        self.variable_families.union(res, op.result)
 
     def cse_block(self, block):
         """ perform common subexpression elimination on block. """
@@ -313,8 +311,9 @@ class Cache(object):
             if op.opname == "cast_pointer":
                 # cast_pointer is a pretty strange operation! it introduces
                 # more aliases, that confuse the CSE pass. Therefore we unify
-                # the two variables in new_unions, to improve the folding.
-                self.new_unions.union(op.args[0], op.result)
+                # the two variables in variable_families, to improve the
+                # folding.
+                self.variable_families.union(op.args[0], op.result)
                 # don't do anything further
                 continue
             if not can_fold_op:
