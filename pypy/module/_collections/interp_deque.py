@@ -178,11 +178,12 @@ class W_Deque(W_Root):
                 raise
             self.append(w_obj)
 
-    def add(self, w_iterable):
+    def add(self, w_deque):
+        deque = self.space.interp_w(W_Deque, w_deque)
         copy = W_Deque(self.space)
         copy.maxlen = self.maxlen
         copy.extend(self.iter())
-        copy.extend(w_iterable)
+        copy.extend(deque.iter())
         return self.space.wrap(copy)
 
     def iadd(self, w_iterable):

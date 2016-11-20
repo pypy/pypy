@@ -122,6 +122,10 @@ class AppTestBasic:
         d2 = deque([3,4,5])
         assert d1 + d2 == deque([1,2,3,3,4,5])
 
+    def test_cannot_add_list(self):
+        from _collections import deque
+        raises(TypeError, "deque([2]) + [3]")
+
     def test_iadd(self):
         from _collections import deque
         d = deque('a')
