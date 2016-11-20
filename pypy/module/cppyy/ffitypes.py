@@ -26,7 +26,7 @@ class BoolTypeMixin(object):
         return arg
 
     def _wrap_object(self, space, obj):
-        return space.wrap(bool(ord(rffi.cast(rffi.CHAR, obj))))
+        return space.newbool(bool(ord(rffi.cast(rffi.CHAR, obj))))
 
 class CharTypeMixin(object):
     _mixin_     = True
@@ -153,7 +153,7 @@ class FloatTypeMixin(object):
         return r_singlefloat(space.float_w(w_obj))
 
     def _wrap_object(self, space, obj):
-        return space.wrap(float(obj))
+        return space.newfloat(float(obj))
 
 class DoubleTypeMixin(object):
     _mixin_     = True

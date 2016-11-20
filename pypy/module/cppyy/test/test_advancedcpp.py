@@ -18,8 +18,8 @@ class AppTestADVANCEDCPP:
     spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
-        cls.w_test_dct = cls.space.wrap(test_dct)
-        cls.w_capi_identity = cls.space.wrap(capi.identify())
+        cls.w_test_dct = cls.space.newtext(test_dct)
+        cls.w_capi_identity = cls.space.newtext(capi.identify())
         cls.w_advanced = cls.space.appexec([], """():
             import cppyy
             return cppyy.load_reflection_info(%r)""" % (test_dct, ))

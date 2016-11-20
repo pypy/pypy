@@ -55,7 +55,7 @@ with rffi.scoped_str2charp('libHist.so') as ll_libname:
 
 eci = ExternalCompilationInfo(
     separate_module_files=[srcpath.join("cintcwrapper.cxx")],
-    include_dirs=[incpath] + rootincpath,
+    include_dirs=[incpath, translator_c_dir] + rootincpath,
     includes=["cintcwrapper.h"],
     library_dirs=rootlibpath,
     libraries=["Hist", "Core", "Cint"],
@@ -167,7 +167,7 @@ def tf1_tf1(space, w_self, args_w):
         memory_regulator.register(cppself)
 
         # tie all the life times to the TF1 instance
-        space.setattr(w_self, space.wrap('_callback'), w_callback)
+        space.setattr(w_self, space.newtext('_callback'), w_callback)
 
         # by definition for __init__
         return None
@@ -249,9 +249,9 @@ def ttree_Branch(space, w_self, args_w):
 def activate_branch(space, w_branch):
     w_branches = space.call_method(w_branch, "GetListOfBranches")
     for i in range(space.r_longlong_w(space.call_method(w_branches, "GetEntriesFast"))):
-        w_b = space.call_method(w_branches, "At", space.wrap(i))
+        w_b = space.call_method(w_branches, "At", space.newlong(i))
         activate_branch(space, w_b)
-    space.call_method(w_branch, "SetStatus", space.wrap(1))
+    space.call_method(w_branch, "SetStatus", space.newint(1))
     space.call_method(w_branch, "ResetReadEntry")
 
 c_ttree_GetEntry = rffi.llexternal(
@@ -277,7 +277,7 @@ def ttree_getattr(space, w_self, args_w):
 
     # try the saved cdata (for builtin types)
     try:
-        w_cdata = space.getattr(w_self, space.wrap('_'+attr))
+        w_cdata = space.getattr(w_self, space.newtext('_'+attr))
         from pypy.module._cffi_backend import cdataobj
         cdata = space.interp_w(cdataobj.W_CData, w_cdata, can_be_None=False)
         return cdata.convert_to_object()
@@ -302,15 +302,15 @@ def ttree_getattr(space, w_self, args_w):
         klass = interp_cppyy.scope_byname(space, space.str_w(w_klassname))
         w_obj = klass.construct()
         # 0x10000 = kDeleteObject; reset because we own the object
-        space.call_method(w_branch, "ResetBit", space.wrap(0x10000))
+        space.call_method(w_branch, "ResetBit", space.newint(0x10000))
         space.call_method(w_branch, "SetObject", w_obj)
-        space.call_method(w_branch, "GetEntry", space.wrap(entry))
+        space.call_method(w_branch, "GetEntry", space.newlong(entry))
         space.setattr(w_self, args_w[0], w_obj)
         return w_obj
     else:
         # builtin data
         w_leaf = space.call_method(w_self, "GetLeaf", args_w[0])
-        space.call_method(w_branch, "GetEntry", space.wrap(entry))
+        space.call_method(w_branch, "GetEntry", space.newlong(entry))
 
         # location
         w_address = space.call_method(w_leaf, "GetValuePointer")
@@ -329,7 +329,7 @@ def ttree_getattr(space, w_self, args_w):
         cdata = cdataobj.W_CData(space, address, newtype.new_primitive_type(space, typename))
 
         # cache result
-        space.setattr(w_self, space.wrap('_'+attr), space.wrap(cdata))
+        space.setattr(w_self, space.newtext('_'+attr), space.wrap(cdata))
         return space.getattr(w_self, args_w[0])
 
 class W_TTreeIter(W_Root):
@@ -343,7 +343,7 @@ class W_TTreeIter(W_Root):
         self.maxentry = space.r_longlong_w(space.call_method(w_tree, "GetEntriesFast"))
 
         space = self.space = tree.space          # holds the class cache in State
-        space.call_method(w_tree, "SetBranchStatus", space.wrap("*"), space.wrap(0))
+        space.call_method(w_tree, "SetBranchStatus", space.newtext("*"), space.newint(0))
 
     def iter_w(self):
         return self.space.wrap(self)
@@ -397,7 +397,7 @@ def pythonize(space, name, w_pycppclass):
         _method_alias(space, w_pycppclass, "__len__", "GetSize")
 
     elif name == "TF1":
-        space.setattr(w_pycppclass, space.wrap("__init__"), _pythonizations["tf1_tf1"])
+        space.setattr(w_pycppclass, space.newtext("__init__"), _pythonizations["tf1_tf1"])
 
     elif name == "TFile":
         _method_alias(space, w_pycppclass, "__getattr__", "Get")
@@ -415,9 +415,9 @@ def pythonize(space, name, w_pycppclass):
     elif name == "TTree":
         _method_alias(space, w_pycppclass, "_unpythonized_Branch", "Branch")
 
-        space.setattr(w_pycppclass, space.wrap("Branch"),      _pythonizations["ttree_Branch"])
-        space.setattr(w_pycppclass, space.wrap("__iter__"),    _pythonizations["ttree_iter"])
-        space.setattr(w_pycppclass, space.wrap("__getattr__"), _pythonizations["ttree_getattr"])
+        space.setattr(w_pycppclass, space.newtext("Branch"),      _pythonizations["ttree_Branch"])
+        space.setattr(w_pycppclass, space.newtext("__iter__"),    _pythonizations["ttree_iter"])
+        space.setattr(w_pycppclass, space.newtext("__getattr__"), _pythonizations["ttree_getattr"])
 
     elif name[0:8] == "TVectorT":    # TVectorT<> template
         _method_alias(space, w_pycppclass, "__len__", "GetNoElements")

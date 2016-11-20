@@ -17,8 +17,8 @@ class AppTestFRAGILE:
     spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
-        cls.w_test_dct  = cls.space.wrap(test_dct)
-        cls.w_identity = cls.space.wrap(capi.identify())
+        cls.w_test_dct  = cls.space.newtext(test_dct)
+        cls.w_identity = cls.space.newtext(capi.identify())
         cls.w_fragile = cls.space.appexec([], """():
             import cppyy
             return cppyy.load_reflection_info(%r)""" % (test_dct, ))

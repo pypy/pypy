@@ -15,8 +15,8 @@ class AppTestDATATYPES:
     spaceconfig = dict(usemodules=['cppyy', '_rawffi', 'itertools'])
 
     def setup_class(cls):
-        cls.w_N = cls.space.wrap(5)  # should be imported from the dictionary
-        cls.w_test_dct  = cls.space.wrap(test_dct)
+        cls.w_N = cls.space.newint(5)  # should be imported from the dictionary
+        cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_datatypes = cls.space.appexec([], """():
             import cppyy
             return cppyy.load_reflection_info(%r)""" % (test_dct, ))
