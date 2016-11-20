@@ -557,28 +557,6 @@ class TestStoreSink(object):
             return len(l)
         self.check(f, [int], fullopts=True, getarraysize=0)
 
-    def test_remove_duplicate_elidable_call(self):
-        @jit.elidable
-        def p(x):
-            return x + 1
-
-        def f(x):
-            return p(x) + p(x)
-
-        self.check(f, [int], direct_call=1)
-
-    def test_remove_duplicate_elidable_call_raises(self):
-        @jit.elidable
-        def p(x):
-            return x + 1
-
-        def f(x):
-            try:
-                return p(x) + p(x)
-            except IndexError:
-                return -5
-
-        self.check(f, [int], direct_call=2)
 
 def fakevar(name='v'):
     var = Variable(name)

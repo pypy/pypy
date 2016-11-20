@@ -301,18 +301,7 @@ class Cache(object):
 
             can_fold_op = can_fold(op)
             has_side_effects_op = has_side_effects(op)
-            if op.opname == "direct_call":
-                funcobj = op.args[0].value._obj
-                func = getattr(funcobj, '_callable', None)
-                elidable = getattr(func, "_elidable_function_", False)
-                if elidable:
-                    # can't hash pointers, so use the graph directly
-                    key = ("direct_call", op.result.concretetype,
-                           (funcobj.graph, ) +
-                               tuple([self._var_rep(arg)
-                                   for arg in op.args[1:]]))
-                    can_fold_op = True
-            elif can_fold_op:
+            if can_fold_op:
                 key = (op.opname, op.result.concretetype,
                        tuple([self._var_rep(arg) for arg in op.args]))
 
