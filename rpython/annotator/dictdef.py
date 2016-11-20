@@ -1,5 +1,5 @@
 from rpython.annotator.model import (
-    s_ImpossibleValue, SomeInteger, s_Bool, union)
+    s_ImpossibleValue, SomeInteger, s_Bool, union, AnnotatorError)
 from rpython.annotator.listdef import ListItem
 from rpython.rlib.objectmodel import compute_hash
 
@@ -51,23 +51,19 @@ class DictKey(ListItem):
 
         s_key = self.s_value
 
-        def check_eqfn(annotator, graph):
-            s = annotator.binding(graph.getreturnvar())
-            assert s_Bool.contains(s), (
+        s = self.bookkeeper.emulate_pbc_call(
+            myeq, self.s_rdict_eqfn, [s_key, s_key], replace=replace_othereq)
+        if not s_Bool.contains(s):
+            raise AnnotatorError(
                 "the custom eq function of an r_dict must return a boolean"
                 " (got %r)" % (s,))
-        self.bookkeeper.emulate_pbc_call(myeq, self.s_rdict_eqfn, [s_key, s_key],
-                                         replace=replace_othereq,
-                                         callback = check_eqfn)
 
-        def check_hashfn(annotator, graph):
-            s = annotator.binding(graph.getreturnvar())
-            assert SomeInteger().contains(s), (
+        s = self.bookkeeper.emulate_pbc_call(
+            myhash, self.s_rdict_hashfn, [s_key], replace=replace_otherhash)
+        if not SomeInteger().contains(s):
+            raise AnnotatorError(
                 "the custom hash function of an r_dict must return an integer"
                 " (got %r)" % (s,))
-        self.bookkeeper.emulate_pbc_call(myhash, self.s_rdict_hashfn, [s_key],
-                                         replace=replace_otherhash,
-                                         callback = check_hashfn)
 
 
 class DictValue(ListItem):
