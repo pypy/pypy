@@ -174,6 +174,12 @@ class AppTestConnectedSSL:
             return s
             """)
 
+    def teardown_method(self, method):
+        # pytest may keep some objects alive.
+        # So do some clean-up now without waiting for them to die
+        from ..interp_ssl import SOCKET_STORAGE
+        SOCKET_STORAGE._dict.clear()
+
     def test_connect(self):
         import ssl, gc
         ss = ssl.wrap_socket(self.s)

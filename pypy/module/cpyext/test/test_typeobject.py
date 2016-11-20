@@ -979,8 +979,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             ("getCounter", "METH_VARARGS",
              """
                 return PyLong_FromLong(foo_counter);
-             """)], prologue=
-            """
+             """)], prologue="""
             typedef struct {
                 PyObject_HEAD
                 int someval[99];

@@ -24,8 +24,19 @@ CONST_ZERO_FLOAT = Const._new(0.0)
 llhelper.CONST_NULLREF = llhelper.CONST_NULL
 REMOVED = AbstractResOp()
 
+def check_no_forwarding(lsts):
+    for lst in lsts:
+        for op in lst:
+            assert op.get_forwarded() is None
+
 class LoopInfo(object):
     label_op = None
+
+    def _check_no_forwarding(self):
+        pass
+
+    def forget_optimization_info(self):
+        pass
 
 class BasicLoopInfo(LoopInfo):
     def __init__(self, inputargs, quasi_immutable_deps, jump_op):
@@ -555,7 +566,8 @@ class Optimizer(Optimization):
         return (BasicLoopInfo(trace.inputargs, self.quasi_immutable_deps, last_op),
                 self._newoperations)
 
-    def _clean_optimization_info(self, lst):
+    @staticmethod
+    def _clean_optimization_info(lst):
         for op in lst:
             if op.get_forwarded() is not None:
                 op.set_forwarded(None)
