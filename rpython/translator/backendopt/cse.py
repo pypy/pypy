@@ -1,3 +1,9 @@
+""" A very simple common subexpression elimination pass. It's a very simple
+forward pass, that simply eliminates operations that were executed in all paths
+leading to the current block. Information flows strictly forward, using a cache
+of already seen operations. Caches are merged at control flow merges.
+
+No loop invariant code motion occurs (yet). """
 import collections
 
 from rpython.translator.backendopt import support
@@ -40,6 +46,7 @@ class Cache(object):
             heapcache = {}
         if new_unions is None:
             new_unions = unionfind.UnionFind()
+        # (opname, concretetype of result, args) -> previous (life) result
         self.purecache = purecache
         self.heapcache = heapcache
         self.variable_families = variable_families
@@ -61,6 +68,8 @@ class Cache(object):
         # the *cache dictionaries, never to actually put any new variable into
         # the graph, because the concretetypes can change when calling
         # _var_rep.
+        if not isinstance(var, Variable):
+            return var
         var = self.new_unions.find_rep(var)
         return self.variable_families.find_rep(var)
 
@@ -71,6 +80,9 @@ class Cache(object):
         return (opname, concretetype, tuple(listargs))
 
     def _find_new_res(self, results):
+        """ merges a list of results into a new variable. If all the results
+        are the same, just use that, in which case it's not necessary to pass
+        it along any links either. """
         # helper function for _merge_results
         first = self._var_rep(results[0])
         newres = None
@@ -101,17 +113,27 @@ class Cache(object):
             backedge.args.append(newres)
         return newres
 
-    def merge(self, firstlink, tuples, backedges):
+    def _merge(self, firstlink, tuples, backedges):
+        """ The core algorithm of merging: actually merge many caches. """
         purecache = {}
         block = firstlink.target
-        # copy all operations that exist in *all* blocks over. need to add a new
-        # inputarg if the result is really a variable
+        # copy all operations that exist in *all* blocks over.
 
         # note that a backedge is not a problem for regular pure operations:
         # since the argument is a phi node iff it is not loop invariant,
         # copying things over is always save (yay SSA form!)
 
-        # try non-straight merges
+        # try non-straight merges: they are merges where the operands are
+        # different in the previous blocks, but where the arguments themselves
+        # are merged into a new variable in the target block
+        # this is code like this:
+        # if <cond>
+        #     x = i + 1
+        #     a = i
+        # else:
+        #     y = j + 1
+        #     a = j
+        # here, a + 1 is redundant, and can be replaced by the merge of x and y
         for argindex in range(len(block.inputargs)):
             inputarg = block.inputargs[argindex]
             # bit slow, but probably ok
@@ -136,8 +158,9 @@ class Cache(object):
                     newres = self._merge_results(tuples, results, backedges)
                     purecache[newkey] = newres
 
+        # the simple case: the operation is really performed on the *same*
+        # operands. This is the case if the key exists in all other caches
         for key, res in self.purecache.iteritems():
-            # "straight" merge: the variable is in all other caches
             results = [res]
             for link, cache in tuples[1:]:
                 val = cache.purecache.get(key, None)
@@ -228,10 +251,7 @@ class Cache(object):
         self.new_unions.union(res, op.result)
 
     def cse_block(self, block):
-        def representative_arg(arg):
-            if isinstance(arg, Variable):
-                return self._var_rep(arg)
-            return arg
+        """ perform common subexpression elimination on block. """
         added_same_as = 0
         for opindex in range(len(block.operations) - block.canraise):
             op = block.operations[opindex]
@@ -239,7 +259,7 @@ class Cache(object):
             if op.opname == 'getfield':
                 fieldname = op.args[1].value
                 concretetype = op.args[0].concretetype
-                arg0 = representative_arg(op.args[0])
+                arg0 = self._var_rep(op.args[0])
                 key = (arg0, op.args[0].concretetype, fieldname)
                 res = self.heapcache.get(key, None)
                 if res is not None:
@@ -250,20 +270,20 @@ class Cache(object):
                 continue
             if op.opname == 'setfield':
                 concretetype = op.args[0].concretetype
-                target = representative_arg(op.args[0])
+                target = self._var_rep(op.args[0])
                 fieldname = op.args[1].value
                 key = (target, concretetype, fieldname)
                 res = self.heapcache.get(key, None)
                 if (res is not None and
-                        representative_arg(res) ==
-                                representative_arg(op.args[2])):
+                        self._var_rep(res) ==
+                                self._var_rep(op.args[2])):
                     # writing the same value that's already there
                     op.opname = "same_as"
                     op.args = [Constant("not needed setfield", lltype.Void)]
                     added_same_as += 1
                     continue
                 self._clear_heapcache_for(concretetype, fieldname)
-                self.heapcache[target, concretetype, fieldname] = op.args[2]
+                self.heapcache[key] = op.args[2]
                 continue
             if op.opname == "jit_force_virtualizable":
                 T = op.args[0].concretetype
@@ -276,7 +296,7 @@ class Cache(object):
             if op.opname == "malloc_varsize":
                 # we can remember the size of the malloced object
                 key = ("getarraysize", lltype.Signed,
-                       (representative_arg(op.result), ))
+                       (self._var_rep(op.result), ))
                 self.purecache[key] = op.args[2]
 
             can_fold_op = can_fold(op)
@@ -289,12 +309,12 @@ class Cache(object):
                     # can't hash pointers, so use the graph directly
                     key = ("direct_call", op.result.concretetype,
                            (funcobj.graph, ) +
-                               tuple([representative_arg(arg)
+                               tuple([self._var_rep(arg)
                                    for arg in op.args[1:]]))
                     can_fold_op = True
             elif can_fold_op:
                 key = (op.opname, op.result.concretetype,
-                       tuple([representative_arg(arg) for arg in op.args]))
+                       tuple([self._var_rep(arg) for arg in op.args]))
 
 
             if has_side_effects_op:
@@ -318,21 +338,26 @@ class Cache(object):
                 self.purecache[key] = op.result
         return added_same_as
 
-def _merge(tuples, variable_families, analyzer, loop_blocks, backedges):
-    if not tuples:
-        return Cache(variable_families, analyzer)
-    if len(tuples) == 1:
-        (link, cache), = tuples
-        result = cache.copy()
-    else:
-        firstlink, firstcache = tuples[0]
-        result = firstcache.merge(firstlink, tuples, backedges)
-    if loop_blocks:
-        # for all blocks in the loop, clean the heapcache for their effects
-        # that way, loop-invariant reads can be removed, if no one writes to
-        # anything that can alias with them.
-        result._clear_heapcache_for_loop_blocks(loop_blocks)
-    return result
+    @staticmethod
+    def merge(tuples, variable_families, analyzer, loop_blocks, backedges):
+        """ merge list of
+        (incoming link, cache in that link's prevblock)
+        tuples into one new cache that holds in the target block.
+        """
+        if not tuples:
+            return Cache(variable_families, analyzer)
+        if len(tuples) == 1:
+            (link, cache), = tuples
+            result = cache.copy()
+        else:
+            firstlink, firstcache = tuples[0]
+            result = firstcache._merge(firstlink, tuples, backedges)
+        if loop_blocks:
+            # for all blocks in the loop, clean the heapcache for their effects
+            # that way, loop-invariant reads can be removed, if no one writes to
+            # anything that can alias with them.
+            result._clear_heapcache_for_loop_blocks(loop_blocks)
+        return result
 
 def compute_reachability_no_backedges(graph, backedges):
     reachable = {}
@@ -374,25 +399,27 @@ def loop_blocks(graph, backedges, entrymap):
         result[block] = loop_blocks
     return result
 
-    loop_blocks = support.find_loop_blocks(graph)
-    result = {}
-    for loop_block, start in loop_blocks.iteritems():
-        result.setdefault(start, []).append(loop_block)
-    return result
-
 class CSE(object):
     def __init__(self, translator):
         self.translator = translator
         self.analyzer = WriteAnalyzer(translator)
 
     def transform(self, graph):
+        """ Perform CSE on graph. """
+        # this optimization really works on SSA graphs. don't transform the
+        # graph, but use the data flow analysis of SSA to figure out which SSI
+        # variables would be the same SSA variable
         variable_families = ssa.DataFlowFamilyBuilder(graph).get_variable_families()
         entrymap = mkentrymap(graph)
         backedges = support.find_backedges(graph)
         loops = loop_blocks(graph, backedges, entrymap)
         todo = collections.deque([graph.startblock])
+
+        # map blocks to a list of
+        # (incoming link, cache in that link's prevblock)
         caches_to_merge = collections.defaultdict(list)
         done = set()
+        enqueued = {graph.startblock}
 
         added_same_as = 0
 
@@ -404,21 +431,24 @@ class CSE(object):
                                     if link in backedges]
 
             if not block.is_final_block():
-                cache = _merge(
+                cache = Cache.merge(
                     caches_to_merge[block], variable_families, self.analyzer,
                     loops.get(block, None), current_backedges)
                 added_same_as += cache.cse_block(block)
             else:
-                cache = Cache(variable_families, self.analyzer)
+                cache = None
             done.add(block)
-            # add all target blocks where all predecessors are already done
+            # add all target blocks where all predecessors are already done,
+            # or are backedges
             for exit in block.exits:
                 for lnk in entrymap[exit.target]:
                     if lnk.prevblock not in done and lnk not in backedges:
                         break
                 else:
-                    if exit.target not in done and exit.target not in todo: # XXX
+                    if exit.target not in done and exit.target not in enqueued:
                         todo.append(exit.target)
+                        enqueued.add(exit.target)
+                assert cache is not None # final blocks don't have exits
                 caches_to_merge[exit.target].append((exit, cache))
         simplify.transform_dead_op_vars(graph)
         if added_same_as:
