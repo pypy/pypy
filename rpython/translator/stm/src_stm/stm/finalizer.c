@@ -17,8 +17,8 @@ static void init_finalizers(struct finalizers_s *f)
     f->objects_with_finalizers = list_create();
     f->probably_young_objects_with_finalizers = list_create();
     f->run_finalizers = list_create();
-    f->running_next = NULL;
     f->lock = 0;
+    f->running_trigger_now = NULL;
 }
 
 static void setup_finalizer(void)
@@ -75,16 +75,10 @@ static void _commit_finalizers(void)
            'g_finalizers.run_finalizers', dropping any initial NULLs
            (finalizers already called) */
         struct list_s *src = STM_PSEGMENT->finalizers->run_finalizers;
-        uintptr_t frm = 0;
-        if (STM_PSEGMENT->finalizers->running_next != NULL) {
-            frm = *STM_PSEGMENT->finalizers->running_next;
-            assert(frm <= list_count(src));
-            *STM_PSEGMENT->finalizers->running_next = (uintptr_t)-1;
-        }
-        if (frm < list_count(src)) {
+        if (list_count(src)) {
             g_finalizers.run_finalizers = list_extend(
                 g_finalizers.run_finalizers,
-                src, frm);
+                src, 0);
         }
     }
     LIST_FREE(STM_PSEGMENT->finalizers->run_finalizers);
@@ -108,14 +102,15 @@ static void abort_finalizers(struct stm_priv_segment_info_s *pseg)
 {
     /* like _commit_finalizers(), but forget everything from the
        current transaction */
-    if (pseg->finalizers->running_next != NULL) {
-        *pseg->finalizers->running_next = (uintptr_t)-1;
-    }
     LIST_FREE(pseg->finalizers->run_finalizers);
     LIST_FREE(pseg->finalizers->objects_with_finalizers);
     LIST_FREE(pseg->finalizers->probably_young_objects_with_finalizers);
     // re-init
     init_finalizers(pseg->finalizers);
+
+    // if we were running triggers, release the lock:
+    if (g_finalizers.running_trigger_now == pseg)
+        g_finalizers.running_trigger_now = NULL;
 
     /* call the light finalizers for objects that are about to
        be forgotten from the current transaction */
@@ -494,15 +489,17 @@ static void mark_visit_from_finalizer_pending(void)
         getfield on *dying obj*).
 */
 
-static bool _trigger_finalizer_queues(struct finalizers_s *f)
+static void _trigger_finalizer_queues(struct finalizers_s *f)
 {
     /* runs triggers of finalizer queues that have elements in the queue. May
-       run outside of a transaction, as triggers should be safe to call(?)
+       NOT run outside of a transaction, but triggers never leave the
+       transactional zone.
 
-       returns true if there are old-style finalizers to run */
+       returns true if there are also old-style finalizers to run */
+    assert(in_transaction(STM_PSEGMENT->pub.running_thread));
 
-    bool trigger_oldstyle = false;
-    bool *to_trigger = calloc(g_finalizer_triggers.count, sizeof(bool));
+    bool *to_trigger = (bool*)alloca(g_finalizer_triggers.count * sizeof(bool));
+    memset(to_trigger, 0, g_finalizer_triggers.count * sizeof(bool));
 
     while (__sync_lock_test_and_set(&f->lock, 1) != 0) {
         /* somebody is adding more finalizers (_commit_finalizer()) */
@@ -513,10 +510,7 @@ static bool _trigger_finalizer_queues(struct finalizers_s *f)
     for (int i = 0; i < count; i += 2) {
         int qindex = (int)list_item(f->run_finalizers, i + 1);
         dprintf(("qindex=%d\n", qindex));
-        if (qindex == -1)
-            trigger_oldstyle = true;
-        else
-            to_trigger[qindex] = true;
+        to_trigger[qindex] = true;
     }
 
     __sync_lock_release(&f->lock);
@@ -525,22 +519,20 @@ static bool _trigger_finalizer_queues(struct finalizers_s *f)
     for (int i = 0; i < g_finalizer_triggers.count; i++) {
         if (to_trigger[i]) {
             dprintf(("invoke-finalizer-trigger(qindex=%d)\n", i));
-            // XXX: check that triggers *really* cannot touch GC-memory,
-            // otherwise, this needs to run in an (inevitable) transaction
-#ifndef NDEBUG
-            char *old_gs_register = STM_SEGMENT->segment_base;
-            set_gs_register(NULL);
-#endif
             g_finalizer_triggers.triggers[i]();
-#ifndef NDEBUG
-            set_gs_register(old_gs_register);
-#endif
         }
     }
+}
 
-    free(to_trigger);
-
-    return trigger_oldstyle;
+static bool _has_oldstyle_finalizers(struct finalizers_s *f)
+{
+    int count = list_count(f->run_finalizers);
+    for (int i = 0; i < count; i += 2) {
+        int qindex = (int)list_item(f->run_finalizers, i + 1);
+        if (qindex == -1)
+            return true;
+    }
+    return false;
 }
 
 static void _invoke_local_finalizers()
@@ -548,10 +540,27 @@ static void _invoke_local_finalizers()
     /* called inside a transaction; invoke local triggers, process old-style
      * local finalizers */
     dprintf(("invoke_local_finalizers %lu\n", list_count(STM_PSEGMENT->finalizers->run_finalizers)));
-    if (list_is_empty(STM_PSEGMENT->finalizers->run_finalizers))
+    if (list_is_empty(STM_PSEGMENT->finalizers->run_finalizers)
+        && list_is_empty(g_finalizers.run_finalizers))
         return;
 
-    if (!_trigger_finalizer_queues(STM_PSEGMENT->finalizers))
+    struct stm_priv_segment_info_s *pseg = get_priv_segment(STM_SEGMENT->segment_num);
+    //try to run local triggers
+    if (STM_PSEGMENT->finalizers->running_trigger_now == NULL) {
+        // we are not recursively running them
+        STM_PSEGMENT->finalizers->running_trigger_now = pseg;
+        _trigger_finalizer_queues(STM_PSEGMENT->finalizers);
+        STM_PSEGMENT->finalizers->running_trigger_now = NULL;
+    }
+
+    // try to run global triggers
+    if (__sync_lock_test_and_set(&g_finalizers.running_trigger_now, pseg) == NULL) {
+        // nobody is already running these triggers (recursively)
+        _trigger_finalizer_queues(&g_finalizers);
+        g_finalizers.running_trigger_now = NULL;
+    }
+
+    if (!_has_oldstyle_finalizers(STM_PSEGMENT->finalizers))
         return; // no oldstyle to run
 
     object_t *obj;
@@ -560,25 +569,25 @@ static void _invoke_local_finalizers()
     }
 }
 
-
 static void _invoke_general_finalizers(stm_thread_local_t *tl)
 {
     /* called between transactions
-     * run old-style finalizers (q_index=-1) and run triggers for all finalizer
+     * triggers not called here, since all should have been called already in _invoke_local_finalizers!
+     * run old-style finalizers (q_index=-1)
      * queues that are not empty. */
     dprintf(("invoke_general_finalizers %lu\n", list_count(g_finalizers.run_finalizers)));
     if (list_is_empty(g_finalizers.run_finalizers))
         return;
 
-    if (!_trigger_finalizer_queues(&g_finalizers))
-        return; // no oldstyle finalizers to run
+    if (!_has_oldstyle_finalizers(&g_finalizers))
+        return; // no oldstyle to run
 
     // run old-style finalizers:
-    dprintf(("invoke-oldstyle-finalizers\n"));
     rewind_jmp_buf rjbuf;
     stm_rewind_jmp_enterframe(tl, &rjbuf);
     _stm_start_transaction(tl);
 
+    dprintf(("invoke_oldstyle_finalizers %lu\n", list_count(g_finalizers.run_finalizers)));
     object_t *obj;
     while ((obj = stm_next_to_finalize(-1)) != NULL) {
         assert(STM_PSEGMENT->transaction_state == TS_INEVITABLE);

@@ -6,10 +6,10 @@
 /* see deal_with_objects_with_finalizers() for explanation of these fields */
 struct finalizers_s {
     long lock;
+    struct stm_priv_segment_info_s * running_trigger_now; /* our PSEG, if we are running triggers */
     struct list_s *objects_with_finalizers;
-    struct list_s *probably_young_objects_with_finalizers;
+    struct list_s *probably_young_objects_with_finalizers; /* empty on g_finalizers! */
     struct list_s *run_finalizers;
-    uintptr_t *running_next;
 };
 
 static void mark_visit_from_finalizer_pending(void);
@@ -46,8 +46,7 @@ static void _invoke_local_finalizers(void);
 
 
 #define exec_local_finalizers()  do {                   \
-    if (!list_is_empty(STM_PSEGMENT->finalizers->run_finalizers)) \
-        _invoke_local_finalizers();  \
+     _invoke_local_finalizers();                     \
 } while (0)
 
 #endif
