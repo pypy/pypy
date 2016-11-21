@@ -75,6 +75,9 @@ def setup_directory_structure(cls):
              abs_sys    = "import sys",
              struct     = "inpackage = 1",
              errno      = "",
+             # Python 3 note: this __future__ has no effect any more,
+             # kept around for testing and to avoid increasing the diff
+             # with PyPy2
              absolute   = "from __future__ import absolute_import\nimport struct",
              relative_b = "from __future__ import absolute_import\nfrom . import struct",
              relative_c = "from __future__ import absolute_import\nfrom .struct import inpackage",
@@ -597,7 +600,7 @@ class AppTestImport(BaseFSEncodeTest):
         imp.reload(sys)
 
         assert sys.path is oldpath
-        assert 'settrace' in dir(sys)
+        assert 'settrace' not in dir(sys)    # at least on CPython 3.5.2
 
     def test_reload_builtin_doesnt_clear(self):
         import imp
@@ -657,16 +660,15 @@ class AppTestImport(BaseFSEncodeTest):
             assert False, 'should not work'
 
     def test_cache_from_source(self):
-        import imp
+        import imp, sys
+        tag = sys.implementation.cache_tag
         pycfile = imp.cache_from_source('a/b/c.py')
-        assert pycfile.startswith('a/b/__pycache__/c.pypy3-')
-        assert pycfile.endswith('.pyc')
-        assert imp.source_from_cache('a/b/__pycache__/c.pypy3-17.pyc'
+        assert pycfile == 'a/b/__pycache__/c.%s.pyc' % tag
+        assert imp.source_from_cache('a/b/__pycache__/c.%s.pyc' % tag
                                      ) == 'a/b/c.py'
         raises(ValueError, imp.source_from_cache, 'a/b/c.py')
 
     def test_invalid_pathname(self):
-        skip("This test fails on CPython 3.3, but passes on CPython 3.4+")
         import imp
         import pkg
         import os
@@ -906,6 +908,10 @@ class TestPycStuff:
             stream.close()
 
     def test_pyc_magic_changes(self):
+        # skipped: for now, PyPy generates only one kind of .pyc file
+        # per version.  Different versions should differ in
+        # sys.implementation.cache_tag, which means that they'll look up
+        # different .pyc files anyway.  See test_get_tag() in test_app.py.
         py.test.skip("For now, PyPy generates only one kind of .pyc files")
         # test that the pyc files produced by a space are not reimportable
         # from another, if they differ in what opcodes they support
