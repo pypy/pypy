@@ -2,7 +2,7 @@ import pypy.module.cppyy.capi as capi
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
+from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty, interp_attrproperty_w
 from pypy.interpreter.baseobjspace import W_Root
 
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
@@ -957,7 +957,7 @@ class W_CPPClass(W_CPPScope):
 
 W_CPPClass.typedef = TypeDef(
     'CPPClass',
-    type_name = interp_attrproperty('name', W_CPPClass),
+    type_name = interp_attrproperty('name', W_CPPClass, wrapfn="newtext"),
     get_base_names = interp2app(W_CPPClass.get_base_names),
     get_method_names = interp2app(W_CPPClass.get_method_names),
     get_overload = interp2app(W_CPPClass.get_overload, unwrap_spec=['self', str]),
@@ -984,7 +984,7 @@ class W_ComplexCPPClass(W_CPPClass):
 
 W_ComplexCPPClass.typedef = TypeDef(
     'ComplexCPPClass',
-    type_name = interp_attrproperty('name', W_CPPClass),
+    type_name = interp_attrproperty('name', W_CPPClass, wrapfn="newtext"),
     get_base_names = interp2app(W_ComplexCPPClass.get_base_names),
     get_method_names = interp2app(W_ComplexCPPClass.get_method_names),
     get_overload = interp2app(W_ComplexCPPClass.get_overload, unwrap_spec=['self', str]),
@@ -1165,7 +1165,7 @@ class W_CPPInstance(W_Root):
 
 W_CPPInstance.typedef = TypeDef(
     'CPPInstance',
-    cppclass = interp_attrproperty('cppclass', cls=W_CPPInstance),
+    cppclass = interp_attrproperty_w('cppclass', cls=W_CPPInstance),
     _python_owns = GetSetProperty(W_CPPInstance.fget_python_owns, W_CPPInstance.fset_python_owns),
     __init__ = interp2app(W_CPPInstance.instance__init__),
     __eq__ = interp2app(W_CPPInstance.instance__eq__),
