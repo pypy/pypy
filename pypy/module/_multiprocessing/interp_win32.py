@@ -109,7 +109,7 @@ def CloseHandle(space, w_handle):
         raise wrap_windowserror(space, rwin32.lastSavedWindowsError())
 
 def GetLastError(space):
-    return space.wrap(rwin32.GetLastError_saved())
+    return space.newint(rwin32.GetLastError_saved())
 
 # __________________________________________________________
 # functions for the "win32" namespace

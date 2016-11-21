@@ -66,11 +66,11 @@ CertFreeCRLContext = external(
 
 def w_certEncodingType(space, encodingType):
     if encodingType == X509_ASN_ENCODING:
-        return space.wrap("x509_asn")
+        return space.newtext("x509_asn")
     elif encodingType == PKCS_7_ASN_ENCODING:
-        return space.wrap("pkcs_7_asn")
+        return space.newtext("pkcs_7_asn")
     else:
-        return space.wrap(encodingType)
+        return space.newtext(encodingType)
 
 def w_parseKeyUsage(space, pCertCtx, flags):
     with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as size_ptr:
