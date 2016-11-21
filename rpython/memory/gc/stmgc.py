@@ -60,6 +60,21 @@ class StmGC(MovingGCBase):
         # we implement differently anyway.  So directly call GCBase.setup().
         GCBase.setup(self)
 
+    def enumerate_pending_finalizers(self, callback, arg):
+        raise NotImplementedError
+
+    def copy_pending_finalizers(self, copy_fn):
+        raise NotImplementedError
+
+    def _copy_pending_finalizers_deque(self, deque, copy_fn):
+        raise NotImplementedError
+
+    def execute_finalizers(self):
+        raise NotImplementedError
+
+    def mark_finalizers_to_run(self, fq_index, obj):
+        raise NotImplementedError
+
     def init_gc_object_immortal(self, addr, typeid16, flags=0):
         assert flags == 0
         assert isinstance(typeid16, llgroup.GroupMemberOffset)
@@ -81,11 +96,14 @@ class StmGC(MovingGCBase):
             rawsize = 16     # minimum size (test usually constant-folded)
         if contains_weakptr:    # check constant-folded
             return llop.stm_allocate_weakref(llmemory.GCREF, rawsize, typeid16)
+        obj = llop.stm_allocate_tid(llmemory.GCREF, rawsize, typeid16)
         if needs_finalizer:
             if is_finalizer_light:
-                return llop.stm_allocate_f_light(llmemory.GCREF, rawsize, typeid16)
-            return llop.stm_allocate_finalizer(llmemory.GCREF, rawsize, typeid16)
-        return llop.stm_allocate_tid(llmemory.GCREF, rawsize, typeid16)
+                llop.stm_enable_destructor(lltype.Void, obj)
+            else:
+                # old-style finalizer: queue_index = -1
+                self.register_finalizer(-1, obj)
+        return obj
 
     def malloc_varsize(self, typeid16, length, size, itemsize,
                              offset_to_length):
@@ -96,6 +114,8 @@ class StmGC(MovingGCBase):
         llop.stm_set_into_obj(lltype.Void, result, offset_to_length, length)
         return result
 
+    def register_finalizer(self, fq_index, gcobj):
+        llop.stm_enable_finalizer(lltype.Void, fq_index, gcobj)
 
     def can_optimize_clean_setarrayitems(self):
         return False

@@ -44,6 +44,9 @@ ALWAYS_ALLOW_OPERATIONS = set([
     'track_alloc_start', 'track_alloc_stop',
     'threadlocalref_acquire', 'threadlocalref_enum', 'threadlocalref_release',
     'jit_enter_portal_frame', 'jit_leave_portal_frame',
+
+    'gc_fq_next_dead', # -> stm_next_to_finalize()
+    'gc_fq_register', # -> stm_register_finalizer()
     ])
 ALWAYS_ALLOW_OPERATIONS |= set(lloperation.enum_tryfold_ops())
 
@@ -87,7 +90,7 @@ INCOMPATIBLE_OPS = set([
     'gc_rawrefcount_from_obj', 'gc_rawrefcount_init',
     'gc_rawrefcount_create_link_pyobj', 'gc_rawrefcount_create_link_pypy',
     'gc_rawrefcount_to_obj',
-    'gc_bit', 'gc_fq_next_dead', 'gc_fq_register',
+    'gc_bit',
     ])
 
 # These operations always turn the transaction inevitable.

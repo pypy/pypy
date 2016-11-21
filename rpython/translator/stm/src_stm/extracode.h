@@ -39,7 +39,7 @@ void pypy_stm_setup_prebuilt(void)
     }
 
     stmcb_finalizer = &_stm_call_finalizer;
-    stmcb_light_finalizer = &_stm_call_finalizer;
+    stmcb_destructor = &_stm_call_finalizer;
 }
 
 void pypy_stm_register_thread_local(void)

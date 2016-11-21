@@ -859,6 +859,12 @@ def gen_startupcode(f, database):
 
     if database.with_stm:
         print >> f, '\tpypy_stm_setup();'
+        triggers = database.gctransformer.get_stm_finalizer_triggers()
+        print >> f, '\tstm_finalizer_trigger_fn fq_triggers[%s] = {%s};' % (
+            len(triggers),
+            ", ".join(["pypy_g_" + t._obj._name for t in triggers]))
+        print >> f, '\tstm_setup_finalizer_queues(%s, fq_triggers);' % (
+            len(triggers), )
 
     for line in database.gcpolicy.gc_startup_code():
         print >> f,"\t" + line

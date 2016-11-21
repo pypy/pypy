@@ -892,7 +892,8 @@ def make_string_mappings(strtype):
         lldata = llstrtype(data)
         count = len(data)
 
-        if we_are_translated_to_c() and not rgc.can_move(data):
+        if we_are_translated_to_c() and not rgc.can_move(data) and not rgc.stm_is_enabled():
+            # for STM, the cast_ptr_to_adr would switch address spaces (XXX)
             flag = '\x04'
         else:
             if we_are_translated_to_c() and not rgc.stm_is_enabled() and rgc.pin(data):

@@ -551,7 +551,7 @@ class TestSTMTranslated(CompiledSTMTests):
                 'File "<bla/br/project/foobaz.py", line 81,'
                 ' in some_extremely_longish_a> (#0)\n') in data
 
-    def test_finalizer(self):
+    def test_oldstyle_finalizer(self):
         class Counter:
             num = 0
         g_counter = Counter()
@@ -589,6 +589,41 @@ class TestSTMTranslated(CompiledSTMTests):
         t, cbuilder = self.compile(main)
         data, err = cbuilder.cmdexec('', err=True)
         assert '<del>' in err
+
+    def test_newstyle_finalizer(self):
+        class space: pass
+        class A: pass
+        s = space()
+        s.triggered = 0
+        #
+        class FQ(rgc.FinalizerQueue):
+            Class = A
+            def finalizer_trigger(self):
+                s.triggered += 1
+        fq = FQ()
+        #
+        def g():
+            fq.register_finalizer(A())
+        #
+        def main(argv):
+            a1 = A()
+            fq.register_finalizer(a1)
+            g()
+            rgc.collect()
+            print 'queues triggered:', s.triggered
+            s1_ = fq.next_dead()
+            print 'next_dead:', s1_
+            s2_ = fq.next_dead()
+            print 'next_dead:', s2_
+            objectmodel.keepalive_until_here(a1)
+            return 0
+        #
+        t, cbuilder = self.compile(main)
+        data = cbuilder.cmdexec('')
+        assert 'queues triggered: 1\n' in data
+        assert 'next_dead: <A object' in data
+        assert 'next_dead: NULL\n' in data
+
 
     def test_hashtable(self):
         class X(object):

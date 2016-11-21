@@ -13,6 +13,7 @@ from rpython.rtyper.annlowlevel import llhelper
 from rpython.translator.backendopt.support import var_needsgc
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib import rstm
+from rpython.memory.gctransform.support import ll_report_finalizer_error
 
 
 VISIT_FPTR = StmGC.VISIT_FPTR
@@ -107,7 +108,7 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
         #
         def pypy_stmcb_fetch_finalizer(typeid):
             typeid = lltype.cast_primitive(llgroup.HALFWORD, typeid)
-            return llmemory.cast_ptr_to_adr(gc.getfinalizer(typeid))
+            return llmemory.cast_ptr_to_adr(gc.destructor_or_custom_trace(typeid))
         pypy_stmcb_fetch_finalizer.c_name = (
             "pypy_stmcb_fetch_finalizer")
         self.autoregister_ptrs.append(
@@ -199,6 +200,37 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
         self.default(hop)
         self.pop_roots(hop, livevars)
 
+    def get_finalizer_queue_index(self, hop):
+        fq_tag = hop.spaceop.args[0].value
+        assert 'FinalizerQueue TAG' in fq_tag.expr
+        fq = fq_tag.default
+        try:
+            index = self.finalizer_queue_indexes[fq]
+        except KeyError:
+            index = len(self.finalizer_queue_indexes)
+            assert index == len(self.finalizer_handlers)
+            #
+            def ll_finalizer_trigger():
+                try:
+                    fq.finalizer_trigger()
+                except Exception as e:
+                    ll_report_finalizer_error(e)
+            ll_trigger = self.annotate_finalizer(ll_finalizer_trigger, [],
+                                                 lltype.Void)
+            #
+            # STM: no next_dead, no deque
+            self.finalizer_handlers.append((llmemory.NULL, ll_trigger, llmemory.NULL))
+            self.finalizer_queue_indexes[fq] = index
+        return index
+
+    def gct_gc_fq_next_dead(self, hop):
+        index = self.get_finalizer_queue_index(hop)
+        c_index = rmodel.inputconst(lltype.Signed, index)
+        v_adr = hop.genop("stm_next_to_finalize", [c_index],
+                          resultvar=hop.spaceop.result)
+
+    def get_stm_finalizer_triggers(self):
+        return [ll_trigger for (_, ll_trigger, _) in self.finalizer_handlers]
 
     # sync with lloperation.py:
     # These operations need roots pushed around their execution.
@@ -222,6 +254,12 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
     gct_stm_queue_put                = _gct_with_roots_pushed
     gct_stm_queue_join               = _gct_with_roots_pushed
     gct_stm_allocate_preexisting     = _gct_with_roots_pushed
+
+
+    # not called directly:
+    gct_stm_enable_destructor = None
+    gct_stm_enable_finalizer  = None
+    gct_stm_next_to_finalize  = None
 
 
     def gct_stm_malloc_nonmovable(self, hop):

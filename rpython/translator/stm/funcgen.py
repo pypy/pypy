@@ -94,24 +94,19 @@ def stm_allocate_weakref(funcgen, op):
     return ('%s = (rpygcchar_t *)stm_allocate_weakref(%s); ' % (result, arg_size) +
             '((rpyobj_t *)%s)->tid = %s;' % (result, arg_type_id))
 
-def stm_allocate_finalizer(funcgen, op):
-    arg_size    = funcgen.expr(op.args[0])
-    arg_type_id = funcgen.expr(op.args[1])
-    result      = funcgen.expr(op.result)
-    # XXX NULL returns?
-    return ('%s = (rpygcchar_t *)stm_allocate_with_finalizer(%s); ' % (
-        result, arg_size) +
-            '((rpyobj_t *)%s)->tid = %s;' % (result, arg_type_id))
+def stm_enable_destructor(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    return 'stm_enable_destructor((object_t *)%s);' % (arg0,)
 
-def stm_allocate_f_light(funcgen, op):
-    arg_size    = funcgen.expr(op.args[0])
-    arg_type_id = funcgen.expr(op.args[1])
-    result      = funcgen.expr(op.result)
-    # XXX NULL returns?
-    return ('%s = (rpygcchar_t *)stm_allocate(%s); ' % (
-        result, arg_size) +
-            '((rpyobj_t *)%s)->tid = %s;\n' % (result, arg_type_id) +
-            'stm_enable_light_finalizer((object_t *)%s);' % (result,))
+def stm_enable_finalizer(funcgen, op):
+    arg_qindex = funcgen.expr(op.args[0])
+    arg_obj    = funcgen.expr(op.args[1])
+    return 'stm_enable_finalizer((int)%s, (object_t *)%s);' % (arg_qindex, arg_obj)
+
+def stm_next_to_finalize(funcgen, op):
+    arg_qindex = funcgen.expr(op.args[0])
+    result     = funcgen.expr(op.result)
+    return '%s = (rpygcchar_t *)stm_next_to_finalize((int)%s);' % (result, arg_qindex)
 
 def stm_allocate_preexisting(funcgen, op):
     arg_size   = funcgen.expr(op.args[0])
