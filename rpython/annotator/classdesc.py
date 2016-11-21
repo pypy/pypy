@@ -701,7 +701,7 @@ class ClassDesc(Desc):
             self._init_classdef()
         return self.classdef
 
-    def pycall(self, whence, args, s_previous_result, v_result, op=None):
+    def pycall(self, whence, args, v_result, op=None):
         from rpython.annotator.model import SomeInstance, SomeImpossibleValue
         classdef = self.getuniqueclassdef()
         s_instance = SomeInstance(classdef)

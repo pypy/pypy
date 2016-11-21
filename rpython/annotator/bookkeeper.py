@@ -493,25 +493,23 @@ class Bookkeeper(object):
         """
         if emulated is None:
             whence = self.position_key
-            # fish the existing annotation for the result variable,
-            # needed by some kinds of specialization.
-            fn, block, i = self.position_key
-            op = block.operations[i]
-            s_previous_result = self.annotator.annotation(op.result)
-            if s_previous_result is None:
-                s_previous_result = s_ImpossibleValue
+        elif emulated is True:
+            whence = None
         else:
-            if emulated is True:
-                whence = None
-            else:
-                whence = emulated # callback case
-            op = None
-            s_previous_result = s_ImpossibleValue
+            whence = emulated
 
-        v_result = self.annotator.get_result_var(whence) if whence is not None else None
+        if whence is not None:
+            fn, block, i = whence
+            op = block.operations[i]
+            v_result = op.result
+            self.annotator.var_def[v_result] = whence
+        else:
+            op = None
+            v_result = None
+
         results = []
         for desc in pbc.descriptions:
-            results.append(desc.pycall(whence, args, s_previous_result, v_result, op))
+            results.append(desc.pycall(whence, args, v_result, op))
         s_result = unionof(*results)
         return s_result
 
