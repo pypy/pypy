@@ -15,6 +15,8 @@ corresponding to the original creator's erase function.  Otherwise, segfault.
 """
 
 import sys
+from collections import defaultdict
+
 from rpython.annotator import model as annmodel
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.llannotation import lltype_to_annotation
@@ -48,34 +50,29 @@ class ErasingPairIdentity(object):
     def __deepcopy__(self, memo):
         return self
 
-    def _getdict(self, bk):
-        try:
-            dict = bk._erasing_pairs_tunnel
-        except AttributeError:
-            dict = bk._erasing_pairs_tunnel = {}
-        return dict
+class IdentityDesc(object):
+    def __init__(self, bookkeeper):
+        self.bookkeeper = bookkeeper
+        self.s_input = annmodel.s_ImpossibleValue
+        self.reflowpositions = {}
 
-    def enter_tunnel(self, bookkeeper, s_obj):
-        dict = self._getdict(bookkeeper)
-        s_previousobj, reflowpositions = dict.setdefault(
-            self, (annmodel.s_ImpossibleValue, {}))
-        s_obj = annmodel.unionof(s_previousobj, s_obj)
-        if s_obj != s_previousobj:
-            dict[self] = (s_obj, reflowpositions)
-            for position in reflowpositions:
-                bookkeeper.annotator.reflowfromposition(position)
+    def enter_tunnel(self, s_obj):
+        s_obj = annmodel.unionof(self.s_input, s_obj)
+        if s_obj != self.s_input:
+            self.s_input = s_obj
+            for position in self.reflowpositions:
+                self.bookkeeper.annotator.reflowfromposition(position)
 
-    def leave_tunnel(self, bookkeeper):
-        dict = self._getdict(bookkeeper)
-        s_obj, reflowpositions = dict.setdefault(
-            self, (annmodel.s_ImpossibleValue, {}))
-        reflowpositions[bookkeeper.position_key] = True
-        return s_obj
+    def leave_tunnel(self):
+        self.reflowpositions[self.bookkeeper.position_key] = True
+        return self.s_input
 
-    def get_input_annotation(self, bookkeeper):
-        dict = self._getdict(bookkeeper)
-        s_obj, _ = dict[self]
-        return s_obj
+def _get_desc(bk, identity):
+    try:
+        descs = bk._erasing_pairs_descs
+    except AttributeError:
+        descs = bk._erasing_pairs_descs = defaultdict(lambda: IdentityDesc(bk))
+    return descs[identity]
 
 _identity_for_ints = ErasingPairIdentity("int")
 
@@ -94,21 +91,23 @@ def new_erasing_pair(name):
         _about_ = erase
 
         def compute_result_annotation(self, s_obj):
-            identity.enter_tunnel(self.bookkeeper, s_obj)
+            desc = _get_desc(self.bookkeeper, identity)
+            desc.enter_tunnel(s_obj)
             return _some_erased()
 
         def specialize_call(self, hop):
             bk = hop.rtyper.annotator.bookkeeper
-            s_obj = identity.get_input_annotation(bk)
+            desc = _get_desc(bk, identity)
             hop.exception_cannot_occur()
-            return _rtype_erase(hop, s_obj)
+            return _rtype_erase(hop, desc.s_input)
 
     class Entry(ExtRegistryEntry):
         _about_ = unerase
 
         def compute_result_annotation(self, s_obj):
             assert _some_erased().contains(s_obj)
-            return identity.leave_tunnel(self.bookkeeper)
+            desc = _get_desc(self.bookkeeper, identity)
+            return desc.leave_tunnel()
 
         def specialize_call(self, hop):
             hop.exception_cannot_occur()
@@ -130,6 +129,7 @@ class Erased(object):
     def __init__(self, x, identity):
         self._x = x
         self._identity = identity
+
     def __repr__(self):
         return "Erased(%r, %r)" % (self._x, self._identity)
 
@@ -140,7 +140,7 @@ class Erased(object):
             assert config.translation.taggedpointers, "need to enable tagged pointers to use erase_int"
             return lltype.cast_int_to_ptr(r_self.lowleveltype, value._x * 2 + 1)
         bk = r_self.rtyper.annotator.bookkeeper
-        s_obj = value._identity.get_input_annotation(bk)
+        s_obj = _get_desc(bk, value._identity).s_input
         r_obj = r_self.rtyper.getrepr(s_obj)
         if r_obj.lowleveltype is lltype.Void:
             return lltype.nullptr(r_self.lowleveltype.TO)
@@ -182,9 +182,9 @@ class Entry(ExtRegistryEntry):
     _type_ = Erased
 
     def compute_annotation(self):
-        identity = self.instance._identity
+        desc = _get_desc(self.bookkeeper, self.instance._identity)
         s_obj = self.bookkeeper.immutablevalue(self.instance._x)
-        identity.enter_tunnel(self.bookkeeper, s_obj)
+        desc.enter_tunnel(s_obj)
         return _some_erased()
 
 # annotation and rtyping support
