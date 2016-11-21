@@ -64,6 +64,8 @@ class StandaloneTests(object):
             t.config.translation.icon = os.path.join(os.path.dirname(__file__),
                                                      local_icon)
 
+        t.config.translation.lldebug = debug
+
         if entrypoints is not None:
             kwds = {'secondary_entrypoints': [(i, None) for i in entrypoints]}
         else:
