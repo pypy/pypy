@@ -312,7 +312,7 @@ class FunctionDesc(Desc):
         else:
             return self.specializer(self, inputcells)
 
-    def pycall(self, whence, args, s_previous_result, op=None):
+    def pycall(self, whence, args, s_previous_result, v_result, op=None):
         inputcells = self.parse_arguments(args)
         result = self.specialize(inputcells, op)
         if isinstance(result, FunctionGraph):
@@ -323,7 +323,7 @@ class FunctionDesc(Desc):
             # recreate the args object because inputcells may have been changed
             new_args = args.unmatch_signature(self.signature, inputcells)
             inputcells = self.parse_arguments(new_args, graph)
-            result = annotator.recursivecall(graph, whence, inputcells)
+            result = annotator.recursivecall(graph, whence, inputcells, v_result)
             signature = getattr(self.pyobj, '_signature_', None)
             if signature:
                 sigresult = enforce_signature_return(self, signature[1], result)
@@ -437,9 +437,9 @@ class MethodDesc(Desc):
         s_instance = SomeInstance(self.selfclassdef, flags=self.flags)
         return args.prepend(s_instance)
 
-    def pycall(self, whence, args, s_previous_result, op=None):
+    def pycall(self, whence, args, s_previous_result, v_result, op=None):
         func_args = self.func_args(args)
-        return self.funcdesc.pycall(whence, func_args, s_previous_result, op)
+        return self.funcdesc.pycall(whence, func_args, s_previous_result, v_result, op)
 
     def get_graph(self, args, op):
         func_args = self.func_args(args)
@@ -617,9 +617,9 @@ class MethodOfFrozenDesc(Desc):
         s_self = SomePBC([self.frozendesc])
         return args.prepend(s_self)
 
-    def pycall(self, whence, args, s_previous_result, op=None):
+    def pycall(self, whence, args, s_previous_result, v_result, op=None):
         func_args = self.func_args(args)
-        return self.funcdesc.pycall(whence, func_args, s_previous_result, op)
+        return self.funcdesc.pycall(whence, func_args, s_previous_result, v_result, op)
 
     def get_graph(self, args, op):
         func_args = self.func_args(args)

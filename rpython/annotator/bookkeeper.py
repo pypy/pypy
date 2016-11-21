@@ -508,9 +508,10 @@ class Bookkeeper(object):
             op = None
             s_previous_result = s_ImpossibleValue
 
+        v_result = self.annotator.get_result_var(whence) if whence is not None else None
         results = []
         for desc in pbc.descriptions:
-            results.append(desc.pycall(whence, args, s_previous_result, op))
+            results.append(desc.pycall(whence, args, s_previous_result, v_result, op))
         s_result = unionof(*results)
         return s_result
 

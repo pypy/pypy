@@ -270,17 +270,20 @@ class RPythonAnnotator(object):
         tag = parent_block, parent_index
         self.translator.update_call_graph(parent_graph, graph, tag)
 
+    def get_result_var(self, position_key):
+        _, block, index = position_key
+        op = block.operations[index]
+        v_result = op.result
+        self.var_def[v_result] = position_key
+        return v_result
 
-    def recursivecall(self, graph, whence, inputcells):
+
+    def recursivecall(self, graph, whence, inputcells, v_result):
         if whence is not None:
             self.record_call(graph, whence)
-            _, block, index = whence
-            op = block.operations[index]
-            v_result = op.result
-            self.var_def[v_result] = whence
-            # self.notify[graph.returnblock] is a set of call
-            # points to this func which triggers a reflow whenever the
-            # return block of this graph has been analysed.
+        if v_result is not None:
+            # self.notify[graph.returnblock] is a set of variables to update
+            # whenever the return block of this graph has been analysed.
             returnvars = self.notify.setdefault(graph.returnblock, set())
             returnvars.add(v_result)
 
