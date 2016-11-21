@@ -220,15 +220,15 @@ def getwindowsversion(space):
     info = rwin32.GetVersionEx()
     w_windows_version_info = app.wget(space, "windows_version_info")
     raw_version = space.newtuple([
-        space.wrap(info[0]),
-        space.wrap(info[1]),
-        space.wrap(info[2]),
-        space.wrap(info[3]),
-        space.wrap(info[4]),
-        space.wrap(info[5]),
-        space.wrap(info[6]),
-        space.wrap(info[7]),
-        space.wrap(info[8]),
+        space.newint(info[0]),
+        space.newint(info[1]),
+        space.newint(info[2]),
+        space.newint(info[3]),
+        space.newtext(info[4]),
+        space.newint(info[5]),
+        space.newint(info[6]),
+        space.newint(info[7]),
+        space.newint(info[8]),
     ])
     return space.call_function(w_windows_version_info, raw_version)
 

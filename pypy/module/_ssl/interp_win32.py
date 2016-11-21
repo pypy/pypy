@@ -95,7 +95,7 @@ def w_parseKeyUsage(space, pCertCtx, flags):
             for i in range(usage.c_cUsageIdentifier):
                 if not usage.c_rgpszUsageIdentifier[i]:
                     continue
-                result_w[i] = space.wrap(rffi.charp2str(
+                result_w[i] = space.newtext(rffi.charp2str(
                     usage.c_rgpszUsageIdentifier[i]))
             return space.newset(result_w)
 
