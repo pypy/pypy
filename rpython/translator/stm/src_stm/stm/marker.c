@@ -1,6 +1,7 @@
 /* Imported by rpython/translator/stm/import_stmgc.py */
 #ifndef _STM_CORE_H_
 # error "must be compiled via stmgc.c"
+# include "core.h"  // silence flymake
 #endif
 
 static bool marker_fetch(stm_thread_local_t *tl, stm_loc_marker_t *out_marker)

@@ -1,4 +1,9 @@
 /* Imported by rpython/translator/stm/import_stmgc.py */
+#ifndef _STM_NURSERY_H_
+#define _STM_NURSERY_H_
+#include <stdint.h>
+#include <stdbool.h>
+
 #define NSE_SIGPAUSE   _STM_NSE_SIGNAL_MAX
 #define NSE_SIGABORT   _STM_NSE_SIGNAL_ABORT
 
@@ -44,3 +49,11 @@ static inline bool will_allocate_in_nursery(size_t size_rounded_up) {
 
 #define must_abort()   is_abort(STM_SEGMENT->nursery_end)
 static object_t *find_shadow(object_t *obj);
+
+
+#define GCWORD_MOVED  ((object_t *) -1)
+static inline bool _is_young(object_t *obj);
+static inline struct object_s *mark_loc(object_t *obj);
+static inline bool _is_from_same_transaction(object_t *obj);
+
+#endif

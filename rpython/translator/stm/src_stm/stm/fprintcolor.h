@@ -1,7 +1,11 @@
 /* Imported by rpython/translator/stm/import_stmgc.py */
+#ifndef _FPRINTCOLOR_H
+#define _FPRINTCOLOR_H
+
 /* ------------------------------------------------------------ */
 #ifdef STM_DEBUGPRINT
 /* ------------------------------------------------------------ */
+
 
 #include <stdarg.h>
 
@@ -40,3 +44,5 @@ static int threadcolor_printf(const char *format, ...)
 __attribute__((unused))
 static void stm_fatalerror(const char *format, ...)
      __attribute__((format (printf, 1, 2), noreturn));
+
+#endif

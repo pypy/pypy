@@ -710,13 +710,13 @@ static inline void stm_leave_transactional_zone(stm_thread_local_t *tl) {
 void stm_force_transaction_break(stm_thread_local_t *tl);
 
 
-/* Support for light finalizers.  This is a simple version of
+/* Support for destructors.  This is a simple version of
    finalizers that guarantees not to do anything fancy, like not
    resurrecting objects. */
-extern void (*stmcb_light_finalizer)(object_t *);
-void stm_enable_light_finalizer(object_t *);
+extern void (*stmcb_destructor)(object_t *);
+void stm_enable_destructor(object_t *);
 
-/* Support for regular finalizers.  Unreachable objects with
+/* XXX: Support for regular finalizers.  Unreachable objects with
    finalizers are kept alive, as well as everything they point to, and
    stmcb_finalizer() is called after the major GC.  If there are
    several objects with finalizers that reference each other in a
@@ -730,8 +730,14 @@ void stm_enable_light_finalizer(object_t *);
    transaction.  For older objects, the finalizer is called from a
    random thread between regular transactions, in a new custom
    transaction. */
-extern void (*stmcb_finalizer)(object_t *);
-object_t *stm_allocate_with_finalizer(ssize_t size_rounded_up);
+typedef void (*stm_finalizer_trigger_fn)(void);
+void (*stmcb_finalizer)(object_t *);
+void stm_setup_finalizer_queues(int number, stm_finalizer_trigger_fn *triggers);
+void stm_enable_finalizer(int queue_index, object_t *obj);
+
+/* Returns the next object that supposedly died and should have its finalizer
+   called. XXX: This function turns the transaction inevitable. */
+object_t *stm_next_to_finalize(int queue_index);
 
 
 /* dummies for now: */
@@ -742,7 +748,7 @@ static inline void stm_flush_timing(stm_thread_local_t *tl, int verbose) {}
    'object_t *'.  Note that the type 'stm_hashtable_t' is not an
    object type at all; you need to allocate and free it explicitly.
    If you want to embed the hashtable inside an 'object_t' you
-   probably need a light finalizer to do the freeing. */
+   probably need a destructor to do the freeing. */
 typedef struct stm_hashtable_s stm_hashtable_t;
 typedef TLPREFIX struct stm_hashtable_entry_s stm_hashtable_entry_t;
 
@@ -797,8 +803,8 @@ void stm_hashtable_iter_tracefn(stm_hashtable_table_t *table,
 /* Queues.  The items you put() and get() back are in random order.
    Like hashtables, the type 'stm_queue_t' is not an object type at
    all; you need to allocate and free it explicitly.  If you want to
-   embed the queue inside an 'object_t' you probably need a light
-   finalizer to do the freeing. */
+   embed the queue inside an 'object_t' you probably need a destructor
+   to do the freeing. */
 typedef struct stm_queue_s stm_queue_t;
 
 stm_queue_t *stm_queue_create(void);

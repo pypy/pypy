@@ -1,4 +1,8 @@
 /* Imported by rpython/translator/stm/import_stmgc.py */
+#ifndef _STM_GCPAGE_H_
+#define _STM_GCPAGE_H_
+#include <stdbool.h>
+
 /* Granularity when grabbing more unused pages: take 20 at a time */
 #define GCPAGE_NUM_PAGES   20
 
@@ -22,3 +26,9 @@ static void major_collection_now_at_safe_point(void);
 static void major_collection_with_mutex(void);
 static bool largemalloc_keep_object_at(char *data);   /* for largemalloc.c */
 static bool smallmalloc_keep_object_at(char *data);   /* for smallmalloc.c */
+
+static inline bool mark_visited_test(object_t *obj);
+static bool is_overflow_obj_safe(struct stm_priv_segment_info_s *pseg, object_t *obj);
+static void mark_visit_possibly_overflow_object(object_t *obj, struct stm_priv_segment_info_s *pseg);
+
+#endif

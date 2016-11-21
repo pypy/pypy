@@ -1,5 +1,11 @@
 /* Imported by rpython/translator/stm/import_stmgc.py */
+#ifndef _STMGC_H
+# error "must be compiled via stmgc.c"
+# include "../stmgc.h"  // silence flymake
+#endif
+
 #define _STM_CORE_H_
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -7,7 +13,8 @@
 #include <errno.h>
 #include <pthread.h>
 #include <signal.h>
-
+#include <stdbool.h>
+#include "list.h"
 
 /************************************************************/
 
@@ -139,9 +146,9 @@ struct stm_priv_segment_info_s {
     pthread_t running_pthread;
 #endif
 
-    /* light finalizers */
-    struct list_s *young_objects_with_light_finalizers;
-    struct list_s *old_objects_with_light_finalizers;
+    /* destructors */
+    struct list_s *young_objects_with_destructors;
+    struct list_s *old_objects_with_destructors;
 
     /* regular finalizers (objs from the current transaction only) */
     struct finalizers_s *finalizers;

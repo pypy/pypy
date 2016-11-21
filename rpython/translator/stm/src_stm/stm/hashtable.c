@@ -40,7 +40,7 @@ References
 
 Inspired by: http://ppl.stanford.edu/papers/podc011-bronson.pdf
 */
-
+#include <stdint.h>
 
 uint32_t stm_hashtable_entry_userdata;
 

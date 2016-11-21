@@ -1,6 +1,7 @@
 /* Imported by rpython/translator/stm/import_stmgc.py */
 #ifndef _STM_CORE_H_
 # error "must be compiled via stmgc.c"
+# include "core.h"  // silence flymake
 #endif
 /* This contains a lot of inspiration from malloc() in the GNU C Library.
    More precisely, this is (a subset of) the part that handles large

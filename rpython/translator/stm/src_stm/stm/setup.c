@@ -1,9 +1,12 @@
 /* Imported by rpython/translator/stm/import_stmgc.py */
 #ifndef _STM_CORE_H_
 # error "must be compiled via stmgc.c"
+# include "core.h"  // for auto-completion
 #endif
 #include <signal.h>
 #include <fcntl.h>           /* For O_* constants */
+#include "signal_handler.h"
+#include "fprintcolor.h"
 
 static void setup_mmap(char *reason)
 {
@@ -99,8 +102,8 @@ void stm_setup(void)
         pr->nursery_objects_shadows = tree_create();
         pr->callbacks_on_commit_and_abort[0] = tree_create();
         pr->callbacks_on_commit_and_abort[1] = tree_create();
-        pr->young_objects_with_light_finalizers = list_create();
-        pr->old_objects_with_light_finalizers = list_create();
+        pr->young_objects_with_destructors = list_create();
+        pr->old_objects_with_destructors = list_create();
 
         pr->last_commit_log_entry = &commit_log_root;
         pr->overflow_number = GCFLAG_OVERFLOW_NUMBER_bit0 * i;
@@ -144,19 +147,19 @@ void stm_teardown(void)
     for (i = 0; i < NB_SEGMENTS; i++) {
         struct stm_priv_segment_info_s *pr = get_priv_segment(i);
         assert(list_is_empty(pr->objects_pointing_to_nursery));
-        list_free(pr->objects_pointing_to_nursery);
-        list_free(pr->old_objects_with_cards_set);
-        list_free(pr->modified_old_objects);
+        LIST_FREE(pr->objects_pointing_to_nursery);
+        LIST_FREE(pr->old_objects_with_cards_set);
+        LIST_FREE(pr->modified_old_objects);
         assert(list_is_empty(pr->large_overflow_objects));
-        list_free(pr->large_overflow_objects);
-        list_free(pr->young_weakrefs);
-        list_free(pr->old_weakrefs);
+        LIST_FREE(pr->large_overflow_objects);
+        LIST_FREE(pr->young_weakrefs);
+        LIST_FREE(pr->old_weakrefs);
         tree_free(pr->young_outside_nursery);
         tree_free(pr->nursery_objects_shadows);
         tree_free(pr->callbacks_on_commit_and_abort[0]);
         tree_free(pr->callbacks_on_commit_and_abort[1]);
-        list_free(pr->young_objects_with_light_finalizers);
-        list_free(pr->old_objects_with_light_finalizers);
+        LIST_FREE(pr->young_objects_with_destructors);
+        LIST_FREE(pr->old_objects_with_destructors);
         if (pr->active_queues) tree_free(pr->active_queues);
     }
 
