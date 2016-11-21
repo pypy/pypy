@@ -3,8 +3,8 @@ import time
 import _thread
 import socket
 import weakref
-from _openssl import ffi
-from _openssl import lib
+from _pypy_openssl import ffi
+from _pypy_openssl import lib
 from _cffi_ssl._stdssl.certificate import (_test_decode_cert,
     _decode_certificate, _certificate_to_der)
 from _cffi_ssl._stdssl.utility import (_str_with_len, _bytes_with_len,
@@ -37,7 +37,7 @@ del ver, version_info, status, patch, fix, minor, major
 HAS_ECDH = bool(lib.Cryptography_HAS_ECDH)
 HAS_SNI = bool(lib.Cryptography_HAS_TLSEXT_HOSTNAME)
 HAS_ALPN = bool(lib.Cryptography_HAS_ALPN)
-HAS_NPN = lib.Cryptography_HAS_NPN_NEGOTIATED
+HAS_NPN = bool(lib.OPENSSL_NPN_NEGOTIATED)
 HAS_TLS_UNIQUE = True
 
 CLIENT = 0
@@ -225,10 +225,8 @@ class _SSLSocket(object):
             # BIOs are reference counted and SSL_set_bio borrows our reference.
             # To prevent a double free in memory_bio_dealloc() we need to take an
             # extra reference here.
-            irefaddr = lib.Cryptography_bio_references(inbio.bio);
-            orefaddr = lib.Cryptography_bio_references(outbio.bio);
-            lib.CRYPTO_add(irefaddr, 1, lib.CRYPTO_LOCK_BIO)
-            lib.CRYPTO_add(orefaddr, 1, lib.CRYPTO_LOCK_BIO)
+            lib.BIO_up_ref(inbio.bio);
+            lib.BIO_up_ref(outbio.bio);
             lib.SSL_set_bio(self.ssl, inbio.bio, outbio.bio)
 
         mode = lib.SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER
@@ -271,8 +269,6 @@ class _SSLSocket(object):
         self._owner = None
         self.server_hostname = None
         self.socket = None
-        #self.alpn_protocols = ffi.NULL
-        #self.npn_protocols = ffi.NULL
 
     @property
     def owner(self):
@@ -515,10 +511,7 @@ class _SSLSocket(object):
             return _str_with_len(out[0], outlen[0]);
 
     def shared_ciphers(self):
-        sess = lib.SSL_get_session(self.ssl)
-        if sess == ffi.NULL:
-            return None
-        ciphers = lib.Cryptography_get_ssl_session_ciphers(sess)
+        ciphers = lib.SSL_get_ciphers(self.ssl)
         if ciphers == ffi.NULL:
             return None
         res = []
@@ -732,7 +725,8 @@ for name in SSL_CTX_STATS_NAMES:
 
 class _SSLContext(object):
     __slots__ = ('ctx', '_check_hostname', 'servername_callback',
-                 'alpn_protocols', 'npn_protocols', 'set_hostname',
+                 'alpn_protocols', '_alpn_protocols_handle',
+                 'npn_protocols', 'set_hostname',
                  '_set_hostname_handle', '_npn_protocols_handle')
 
     def __new__(cls, protocol):
@@ -758,7 +752,6 @@ class _SSLContext(object):
             raise ssl_error("failed to allocate SSL context")
 
         self._check_hostname = False
-        # TODO self.register_finalizer(space)
 
         # Defaults
         lib.SSL_CTX_set_verify(self.ctx, lib.SSL_VERIFY_NONE, ffi.NULL)
@@ -775,7 +768,7 @@ class _SSLContext(object):
             # OpenSSL 1.0.2+), or use prime256v1 by default.
             # This is Apache mod_ssl's initialization
             # policy, so we should be safe.
-            if lib.Cryptography_HAS_ECDH_SET_CURVE:
+            if lib.Cryptography_HAS_SET_ECDH_AUTO:
                 lib.SSL_CTX_set_ecdh_auto(self.ctx, 1)
             else:
                 key = lib.EC_KEY_new_by_curve_name(lib.NID_X9_62_prime256v1)
@@ -834,7 +827,7 @@ class _SSLContext(object):
     @property
     def verify_flags(self):
         store = lib.SSL_CTX_get_cert_store(self.ctx)
-        param = lib._X509_STORE_get0_param(store)
+        param = lib.X509_STORE_get0_param(store)
         flags = lib.X509_VERIFY_PARAM_get_flags(param)
         return int(flags)
 
@@ -842,16 +835,16 @@ class _SSLContext(object):
     def verify_flags(self, value):
         new_flags = int(value)
         store = lib.SSL_CTX_get_cert_store(self.ctx);
-        param = lib._X509_STORE_get0_param(store)
+        param = lib.X509_STORE_get0_param(store)
         flags = lib.X509_VERIFY_PARAM_get_flags(param);
         clear = flags & ~new_flags;
         set = ~flags & new_flags;
         if clear:
-            param = lib._X509_STORE_get0_param(store)
+            param = lib.X509_STORE_get0_param(store)
             if not lib.X509_VERIFY_PARAM_clear_flags(param, clear):
                 raise ssl_error(None, 0)
         if set:
-            param = lib._X509_STORE_get0_param(store)
+            param = lib.X509_STORE_get0_param(store)
             if not lib.X509_VERIFY_PARAM_set_flags(param, set):
                 raise ssl_error(None, 0)
 
@@ -1036,17 +1029,17 @@ class _SSLContext(object):
         x509 = 0
         x509_ca = 0
         crl = 0
-        objs = store.objs
+        objs = lib.X509_STORE_get0_objects(store)
         count = lib.sk_X509_OBJECT_num(objs)
         for i in range(count):
             obj = lib.sk_X509_OBJECT_value(objs, i)
-            _type = lib.Cryptography_X509_OBJECT_get_type(obj)
-            if _type == lib.Cryptography_X509_LU_X509:
+            _type = lib.X509_OBJECT_get_type(obj)
+            if _type == lib.X509_LU_X509:
                 x509 += 1
-                cert = lib.Cryptography_X509_OBJECT_data_x509(obj)
+                cert = lib.X509_OBJECT_get0_X509(obj)
                 if lib.X509_check_ca(cert):
                     x509_ca += 1
-            elif _type == lib.Cryptography_X509_LU_CRL:
+            elif _type == lib.X509_LU_CRL:
                 crl += 1
             else:
                 # Ignore X509_LU_FAIL, X509_LU_RETRY, X509_LU_PKEY.
@@ -1056,12 +1049,14 @@ class _SSLContext(object):
         return {'x509': x509, 'x509_ca': x509_ca, 'crl': crl}
 
 
-#    REVIEW, how to do that properly
-#    def _finalize_(self):
-#        ctx = self.ctx
-#        if ctx:
-#            self.ctx = lltype.nullptr(SSL_CTX.TO)
-#            libssl_SSL_CTX_free(ctx)
+    def __del__(self):
+        # REVIEW, is this done properly? In RPython the a finalizer
+        # function is added
+        ctx = self.ctx
+        if ctx:
+            self.ctx = None
+            lib.SSL_CTX_free(ctx)
+
 
     def session_stats(self):
         stats = {}
@@ -1106,16 +1101,16 @@ class _SSLContext(object):
         binary_mode = bool(binary_form)
         _list = []
         store = lib.SSL_CTX_get_cert_store(self.ctx)
-        objs = store.objs
+        objs = lib.X509_STORE_get0_objects(store)
         count = lib.sk_X509_OBJECT_num(objs)
         for i in range(count):
             obj = lib.sk_X509_OBJECT_value(objs, i)
-            _type = lib.Cryptography_X509_OBJECT_get_type(obj)
-            if _type != lib.Cryptography_X509_LU_X509:
+            _type = lib.X509_OBJECT_get_type(obj)
+            if _type != lib.X509_LU_X509:
                 # not a x509 cert
                 continue
             # CA for any purpose
-            cert = lib.Cryptography_X509_OBJECT_data_x509(obj)
+            cert = lib.X509_OBJECT_get0_X509(obj)
             if not lib.X509_check_ca(cert):
                 continue
             if binary_mode:
@@ -1138,7 +1133,7 @@ class _SSLContext(object):
             lib.EC_KEY_free(key)
 
     def set_servername_callback(self, callback):
-        if not HAS_SNI or lib.Cryptography_NO_TLSEXT:
+        if not HAS_SNI or lib.Cryptography_OPENSSL_NO_TLSEXT:
             raise NotImplementedError("The TLS extension servername callback, "
                     "SSL_CTX_set_tlsext_servername_callback, "
                     "is not in the current OpenSSL library.")
@@ -1150,8 +1145,8 @@ class _SSLContext(object):
             raise TypeError("not a callable object")
         scb = ServernameCallback(callback, self)
         self._set_hostname_handle = ffi.new_handle(scb)
-        lib.Cryptography_SSL_CTX_set_tlsext_servername_callback(self.ctx, _servername_callback)
-        lib.Cryptography_SSL_CTX_set_tlsext_servername_arg(self.ctx, self._set_hostname_handle)
+        lib.SSL_CTX_set_tlsext_servername_callback(self.ctx, _servername_callback)
+        lib.SSL_CTX_set_tlsext_servername_arg(self.ctx, self._set_hostname_handle)
 
     def _set_alpn_protocols(self, protos):
         if HAS_ALPN:
@@ -1160,7 +1155,7 @@ class _SSLContext(object):
 
             if lib.SSL_CTX_set_alpn_protos(self.ctx,ffi.cast("unsigned char*", protocols), length):
                 return MemoryError()
-            handle = ffi.new_handle(self)
+            self._alpn_protocols_handle = handle = ffi.new_handle(self)
             lib.SSL_CTX_set_alpn_select_cb(self.ctx, select_alpn_callback, handle)
         else:
             raise NotImplementedError("The ALPN extension requires OpenSSL 1.0.2 or later.")
@@ -1187,7 +1182,7 @@ class _SSLContext(object):
 
 
 
-if HAS_SNI and not lib.Cryptography_NO_TLSEXT:
+if HAS_SNI and not lib.Cryptography_OPENSSL_NO_TLSEXT:
     @ffi.callback("int(SSL*,int*,void*)")
     def _servername_callback(s, al, arg):
         scb = ffi.from_handle(arg)
@@ -1386,13 +1381,15 @@ def _RAND_bytes(count, pseudo):
         raise ValueError("num must be positive")
     buf = ffi.new("unsigned char[%d]" % count)
     if pseudo:
-        ok = lib.RAND_pseudo_bytes(buf, count)
+        # note by reaperhulk, RAND_pseudo_bytes is deprecated in 3.6 already,
+        # it is totally fine to just call RAND_bytes instead
+        ok = lib.RAND_bytes(buf, count)
         if ok == 1 or ok == 0:
             _bytes = _bytes_with_len(buf, count)
             return (_bytes, ok == 1)
     else:
         ok = lib.RAND_bytes(buf, count)
-        if ok == 1:
+        if ok == 1 or (pseudo and ok == 0):
             return _bytes_with_len(buf, count)
     raise ssl_error(None, errcode=lib.ERR_get_error())
 
@@ -1429,7 +1426,7 @@ def select_alpn_callback(ssl, out, outlen, client_protocols, client_protocols_le
                                  ffi.cast("unsigned char*",ctx.alpn_protocols), len(ctx.alpn_protocols),
                                  client_protocols, client_protocols_len)
 
-if lib.Cryptography_HAS_NPN_NEGOTIATED:
+if lib.OPENSSL_NPN_NEGOTIATED:
     @ffi.callback("int(SSL*,unsigned char **,unsigned char *,const unsigned char *,unsigned int,void *)")
     def select_npn_callback(ssl, out, outlen, server_protocols, server_protocols_len, args):
         ctx = ffi.from_handle(args)
@@ -1463,7 +1460,7 @@ if lib.Cryptography_HAS_NPN_NEGOTIATED:
         ret = lib.SSL_select_next_proto(out, outlen,
                                         server_protocols, server_protocols_len,
                                         client_protocols, client_protocols_len);
-        if alpn and ret != lib.Cryptography_OPENSSL_NPN_NEGOTIATED:
+        if alpn and ret != lib.OPENSSL_NPN_NEGOTIATED:
             return lib.SSL_TLSEXT_ERR_NOACK
 
         return lib.SSL_TLSEXT_ERR_OK

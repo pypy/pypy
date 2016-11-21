@@ -1,6 +1,6 @@
 import sys
-from _openssl import ffi
-from _openssl import lib
+from _pypy_openssl import ffi
+from _pypy_openssl import lib
 
 def _string_from_asn1(asn1):
     data = lib.ASN1_STRING_data(asn1)

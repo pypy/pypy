@@ -26,9 +26,7 @@ static const long Cryptography_HAS_GET_SERVER_TMP_KEY;
 static const long Cryptography_HAS_SSL_CTX_SET_CLIENT_CERT_ENGINE;
 static const long Cryptography_HAS_SSL_CTX_CLEAR_OPTIONS;
 static const long Cryptography_HAS_NPN_NEGOTIATED;
-static const long Cryptography_NO_TLSEXT;
-
-static const long Cryptography_OPENSSL_NPN_NEGOTIATED;
+static const long Cryptography_OPENSSL_NO_TLSEXT;
 
 /* Internally invented symbol to tell us if SNI is supported */
 static const long Cryptography_HAS_TLSEXT_HOSTNAME;
@@ -134,6 +132,8 @@ static const long SSL3_RANDOM_SIZE;
 static const long TLS_ST_BEFORE;
 static const long TLS_ST_OK;
 
+static const long OPENSSL_NPN_NEGOTIATED;
+
 typedef ... SSL_METHOD;
 typedef ... SSL_CTX;
 
@@ -196,7 +196,6 @@ int SSL_renegotiate(SSL *);
 int SSL_renegotiate_pending(SSL *);
 const char *SSL_get_cipher_list(const SSL *, int);
 Cryptography_STACK_OF_SSL_CIPHER *SSL_get_ciphers(const SSL *);
-Cryptography_STACK_OF_SSL_CIPHER * Cryptography_get_ssl_session_ciphers(const SSL_SESSION *);
 
 /*  context */
 void SSL_CTX_free(SSL_CTX *);
@@ -691,17 +690,9 @@ static const long Cryptography_HAS_SSL_CTX_SET_CLIENT_CERT_ENGINE = 1;
 static const long Cryptography_HAS_SSL_CTX_CLEAR_OPTIONS = 1;
 
 #ifdef OPENSSL_NO_TLSEXT
-static const long Cryptography_NO_TLSEXT = 1;
+static const long Cryptography_OPENSSL_NO_TLSEXT = 1;
 #else
-static const long Cryptography_NO_TLSEXT = 0;
-#endif
-
-#ifdef OPENSSL_NPN_NEGOTIATED
-static const long Cryptography_OPENSSL_NPN_NEGOTIATED = OPENSSL_NPN_NEGOTIATED;
-static const long Cryptography_HAS_NPN_NEGOTIATED = 1;
-#else
-static const long Cryptography_OPENSSL_NPN_NEGOTIATED = 0;
-static const long Cryptography_HAS_NPN_NEGOTIATED = 0;
+static const long Cryptography_OPENSSL_NO_TLSEXT = 0;
 #endif
 
 /* in OpenSSL 1.1.0 the SSL_ST values were renamed to TLS_ST and several were
@@ -723,7 +714,12 @@ static const long TLS_ST_BEFORE = 0;
 static const long TLS_ST_OK = 0;
 #endif
 
-Cryptography_STACK_OF_SSL_CIPHER * Cryptography_get_ssl_session_ciphers(const SSL_SESSION *s) {
-    return s->ciphers;
-}
+/* This define is available in 1.0.1+ so we can remove this when we drop
+   support for 1.0.0 */
+#ifdef OPENSSL_NPN_NEGOTIATED
+static const long Cryptography_HAS_NPN_NEGOTIATED = 1;
+#else
+static const long OPENSSL_NPN_NEGOTIATED = -1;
+static const long Cryptography_HAS_NPN_NEGOTIATED = 0;
+#endif
 """

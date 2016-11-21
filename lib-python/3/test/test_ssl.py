@@ -1738,6 +1738,10 @@ class NetworkedBIOTests(unittest.TestCase):
         return ret
 
     def test_handshake(self):
+        # NOTE: this test has been modified, CPython in newer versions
+        # removed the ability to get the shared ciphers of the session, but
+        # they always return the cipher of the ssl context. This test is fully
+        # removed in later versions
         with support.transient_internet(REMOTE_HOST):
             sock = socket.socket(socket.AF_INET)
             sock.connect((REMOTE_HOST, 443))
@@ -1750,13 +1754,13 @@ class NetworkedBIOTests(unittest.TestCase):
             sslobj = ctx.wrap_bio(incoming, outgoing, False, REMOTE_HOST)
             self.assertIs(sslobj._sslobj.owner, sslobj)
             self.assertIsNone(sslobj.cipher())
-            self.assertIsNone(sslobj.shared_ciphers())
+            #self.assertIsNone(sslobj.shared_ciphers())
             self.assertRaises(ValueError, sslobj.getpeercert)
             if 'tls-unique' in ssl.CHANNEL_BINDING_TYPES:
                 self.assertIsNone(sslobj.get_channel_binding('tls-unique'))
             self.ssl_io_loop(sock, incoming, outgoing, sslobj.do_handshake)
             self.assertTrue(sslobj.cipher())
-            self.assertIsNone(sslobj.shared_ciphers())
+            #self.assertIsNone(sslobj.shared_ciphers())
             self.assertTrue(sslobj.getpeercert())
             if 'tls-unique' in ssl.CHANNEL_BINDING_TYPES:
                 self.assertTrue(sslobj.get_channel_binding('tls-unique'))
@@ -3282,18 +3286,31 @@ else:
             self.assertIn("TypeError", stderr.getvalue())
 
         def test_shared_ciphers(self):
+            # NOTE: This test case has been copied from master (~3.6)
+            # reason is the method SSL_get_ciphers (before that it used
+            # get_ciphers of the session which is not public)
             server_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
             server_context.load_cert_chain(SIGNED_CERTFILE)
             client_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
             client_context.verify_mode = ssl.CERT_REQUIRED
             client_context.load_verify_locations(SIGNING_CA)
-            client_context.set_ciphers("RC4")
-            server_context.set_ciphers("AES:RC4")
+            if ssl.OPENSSL_VERSION_INFO >= (1, 0, 2):
+                client_context.set_ciphers("AES128:AES256")
+                server_context.set_ciphers("AES256")
+                alg1 = "AES256"
+                alg2 = "AES-256"
+            else:
+                client_context.set_ciphers("AES:3DES")
+                server_context.set_ciphers("3DES")
+                alg1 = "3DES"
+                alg2 = "DES-CBC3"
+
             stats = server_params_test(client_context, server_context)
             ciphers = stats['server_shared_ciphers'][0]
             self.assertGreater(len(ciphers), 0)
             for name, tls_version, bits in ciphers:
-                self.assertIn("RC4", name.split("-"))
+                if not alg1 in name.split("-") and alg2 not in name:
+                    self.fail(name)
 
         def test_read_write_after_close_raises_valuerror(self):
             context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)

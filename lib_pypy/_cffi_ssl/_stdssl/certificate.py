@@ -1,8 +1,8 @@
 import warnings
 import base64
 import textwrap
-from _openssl import ffi
-from _openssl import lib
+from _pypy_openssl import ffi
+from _pypy_openssl import lib
 from _cffi_ssl._stdssl.utility import _string_from_asn1, _str_with_len, _bytes_with_len
 from _cffi_ssl._stdssl.error import ssl_error, pyssl_error
 
@@ -30,7 +30,7 @@ def _get_aia_uri(certificate, nid):
     if (info == ffi.NULL):
         return None;
     if lib.sk_ACCESS_DESCRIPTION_num(info) == 0:
-        lib.AUTHORITY_INFO_ACCESS_free(info)
+        lib.sk_ACCESS_DESCRIPTION_free(info)
         return None
 
     lst = []
@@ -44,7 +44,7 @@ def _get_aia_uri(certificate, nid):
         uri = ad.location.d.uniformResourceIdentifier
         ostr = _str_with_len(uri.data, uri.length)
         lst.append(ostr)
-    lib.AUTHORITY_INFO_ACCESS_free(info)
+    lib.sk_ACCESS_DESCRIPTION_free(info)
 
     # convert to tuple or None
     if len(lst) == 0: return None
@@ -244,12 +244,9 @@ def _decode_certificate(certificate):
 
 
 def _get_crl_dp(certificate):
-    if lib.OPENSSL_VERSION_NUMBER < 0x10001000:
-        dps = lib.X509_get_ext_d2i(certificate, lib.NID_crl_distribution_points, ffi.NULL, ffi.NULL)
-    else:
-        # Calls x509v3_cache_extensions and sets up crldp
+    if lib.OPENSSL_VERSION_NUMBER >= 0x10001000:
         lib.X509_check_ca(certificate)
-        dps = lib.Cryptography_X509_get_crldp(certificate)
+    dps = lib.X509_get_ext_d2i(certificate, lib.NID_crl_distribution_points, ffi.NULL, ffi.NULL)
     if dps is ffi.NULL:
         return None
 

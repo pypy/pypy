@@ -1,7 +1,7 @@
 import sys
 import traceback
-from _openssl import ffi
-from _openssl import lib
+from _pypy_openssl import ffi
+from _pypy_openssl import lib
 
 from _cffi_ssl._stdssl.utility import _string_from_asn1, _str_to_ffi_buffer, _str_from_buf
 from _cffi_ssl._stdssl.errorcodes import _error_codes, _lib_codes
