@@ -19,4 +19,4 @@ class Module(MixedModule):
 
     def startup(self, space):
         w_meth_names = fetch_names(space)
-        space.setattr(self, space.wrap('openssl_md_meth_names'), w_meth_names)
+        space.setattr(self, space.newtext('openssl_md_meth_names'), w_meth_names)

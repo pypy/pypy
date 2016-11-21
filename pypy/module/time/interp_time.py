@@ -300,11 +300,11 @@ def _init_timezone(space):
                 daylight = int(janzone != julyzone)
                 tzname = [janname, julyname]
 
-    _set_module_object(space, "timezone", space.wrap(timezone))
-    _set_module_object(space, 'daylight', space.wrap(daylight))
-    tzname_w = [space.wrap(tzname[0]), space.wrap(tzname[1])]
+    _set_module_object(space, "timezone", space.newint(timezone))
+    _set_module_object(space, 'daylight', space.newint(daylight))
+    tzname_w = [space.newtext(tzname[0]), space.newtext(tzname[1])]
     _set_module_object(space, 'tzname', space.newtuple(tzname_w))
-    _set_module_object(space, 'altzone', space.wrap(altzone))
+    _set_module_object(space, 'altzone', space.newint(altzone))
 
 def _get_error_msg():
     errno = rposix.get_saved_errno()
