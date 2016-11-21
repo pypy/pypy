@@ -21,11 +21,12 @@ from rpython.jit.backend.x86 import rx86, detect_feature
 
 # duplicated for easy migration, def in assembler.py as well
 # DUP START
-def addr_add(segment, reg_or_imm1, reg_or_imm2, offset=0, scale=0):
-    return AddressLoc(segment, reg_or_imm1, reg_or_imm2, scale, offset)
+# XXX: STM
+def addr_add(reg_or_imm1, reg_or_imm2, offset=0, scale=0):
+    return AddressLoc(rx86.SEGMENT_NO, reg_or_imm1, reg_or_imm2, scale, offset)
 
-def heap(segment, addr):
-    return AddressLoc(segment, ImmedLoc(addr), imm0, 0, 0)
+def heap(addr):
+    return AddressLoc(rx86.SEGMENT_NO, ImmedLoc(addr), imm0, 0, 0)
 
 def not_implemented(msg):
     msg = '[x86/vector_ext] %s\n' % msg
@@ -179,9 +180,9 @@ class VectorAssemblerMixin(object):
 
         not_implemented("reduce sum for %s not impl." % arg)
 
-    def _genop_vec_load(self, op, arglocs, resloc, segment):
+    def _genop_vec_load(self, op, arglocs, resloc):
         base_loc, ofs_loc, size_loc, scale, ofs, integer_loc = arglocs
-        src_addr = addr_add(segment, base_loc, ofs_loc, ofs.value, scale.value)
+        src_addr = addr_add(base_loc, ofs_loc, ofs.value, scale.value)
         self._vec_load(resloc, src_addr, integer_loc.value,
                        size_loc.value, False)
 
@@ -201,10 +202,10 @@ class VectorAssemblerMixin(object):
             elif itemsize == 8:
                 self.mc.MOVUPD(resloc, src_addr)
 
-    def genop_discard_vec_store(self, op, arglocs, segment):
+    def genop_discard_vec_store(self, op, arglocs):
         base_loc, ofs_loc, value_loc, size_loc, scale,\
                 baseofs, integer_loc = arglocs
-        dest_loc = addr_add(segment, base_loc, ofs_loc, baseofs.value, scale.value)
+        dest_loc = addr_add(base_loc, ofs_loc, baseofs.value, scale.value)
         self._vec_store(dest_loc, value_loc, integer_loc.value,
                         size_loc.value, False)
 
@@ -308,17 +309,17 @@ class VectorAssemblerMixin(object):
         src, sizeloc = arglocs
         size = sizeloc.value
         if size == 4:
-            self.mc.ANDPS(src, heap(self.SEGMENT_NO, self.single_float_const_abs_addr))
+            self.mc.ANDPS(src, heap(self.single_float_const_abs_addr))
         elif size == 8:
-            self.mc.ANDPD(src, heap(self.SEGMENT_NO, self.float_const_abs_addr))
+            self.mc.ANDPD(src, heap(self.float_const_abs_addr))
 
     def genop_vec_float_neg(self, op, arglocs, resloc):
         src, sizeloc = arglocs
         size = sizeloc.value
         if size == 4:
-            self.mc.XORPS(src, heap(self.SEGMENT_NO, self.single_float_const_neg_addr))
+            self.mc.XORPS(src, heap(self.single_float_const_neg_addr))
         elif size == 8:
-            self.mc.XORPD(src, heap(self.SEGMENT_NO, self.float_const_neg_addr))
+            self.mc.XORPD(src, heap(self.float_const_neg_addr))
 
     def genop_vec_float_eq(self, op, arglocs, resloc):
         lhsloc, rhsloc, sizeloc = arglocs
@@ -430,7 +431,7 @@ class VectorAssemblerMixin(object):
         size = sizeloc.value
         if size == 1:
             self.mc.PINSRB_xri(resloc.value, srcloc.value, 0)
-            self.mc.PSHUFB(resloc, heap(self.SEGMENT_NO, self.expand_byte_mask_addr))
+            self.mc.PSHUFB(resloc, heap(self.expand_byte_mask_addr))
         elif size == 2:
             self.mc.PINSRW_xri(resloc.value, srcloc.value, 0)
             self.mc.PINSRW_xri(resloc.value, srcloc.value, 4)

@@ -7,7 +7,7 @@ from rpython.jit.metainterp.history import (AbstractFailDescr, INT, REF, FLOAT,
         Const, VOID)
 from rpython.jit.metainterp.compile import ResumeGuardDescr
 from rpython.rlib.rjitlog import rjitlog as jl
-from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rtyper import rclass
@@ -2243,8 +2243,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                              guardtok.faildescr, regalloc)
         #
         faildescrindex, target = self.store_info_on_descr(startpos, guardtok)
-        if self.cpu.gc_ll_descr.stm:XXX
-            self._generate_quick_failure_stm(fail_descr, target, guardtok)
+        if self.cpu.gc_ll_descr.stm:
+            self._generate_quick_failure_stm(faildescrindex, target, guardtok)
         else:
             if IS_X86_64:
                 self.mc.PUSH_p(0)     # %rip-relative
@@ -2255,11 +2255,11 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             self.mc.JMP(imm(target))
         return startpos
 
-    def _generate_quick_failure_stm(self, fail_descr, target, guardtok):
+    def _generate_quick_failure_stm(self, faildescrindex, target, guardtok):
         assert IS_X86_64
         # we could maybe store the data directly on the faildescr.
         p = rstm.allocate_nonmovable(STM_GUARD_FAILURE)
-        p.fail_descr = fail_descr
+        p.faildescrindex = faildescrindex
         p.jump_target = target
         p.gcmap = guardtok.gcmap
         assert not guardtok.faildescr._x86_stm_guard_failure
@@ -2390,7 +2390,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             # other fields, which we load and copy into the jf_descr and
             # jf_gcmap fields of the frame.
             ofs_fail_descr = (
-                llmemory.offsetof(STM_GUARD_FAILURE, 'fail_descr') -
+                llmemory.offsetof(STM_GUARD_FAILURE, 'failindex') -
                 llmemory.offsetof(STM_GUARD_FAILURE, 'jump_target'))
             ofs_gcmap = (
                 llmemory.offsetof(STM_GUARD_FAILURE, 'gcmap') -
@@ -2930,7 +2930,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         # needed.
         if restore_eax:
             v = gpr_reg_mgr_cls.all_reg_indexes[eax.value]
-            self.mc.MOV_rb(eax.value, v * WORD + base_ofs)
+            addr = (self.SEGMENT_FRAME, v * WORD + base_ofs)
+            self.mc.MOV_rb(eax.value, addr)
         #
         offset = self.mc.get_relative_pos() - jmp_adr
         assert 0 < offset <= 127
@@ -3247,7 +3248,7 @@ class BridgeAlreadyCompiled(Exception):
 
 STM_GUARD_FAILURE = lltype.GcStruct(
     "STM_GUARD_FAILURE",
-    ("fail_descr", lltype.Signed),
+    ("faildescrindex", lltype.Signed),
     ("jump_target", lltype.Signed),
     ("gcmap", lltype.Ptr(jitframe.GCMAP)))
 AbstractFailDescr._x86_stm_guard_failure = lltype.nullptr(STM_GUARD_FAILURE)

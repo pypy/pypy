@@ -20,10 +20,14 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         self.read_barrier_applied = {}
 
     def other_operation(self, op):
+        # if op.get_forwarded():
+        #     op = op.get_forwarded()
         opnum = op.getopnum()
         if opnum == rop.INCREMENT_DEBUG_COUNTER:
             self.emit_op(op)
             return
+
+        assert op != rop.VEC_STORE # VEC things are not supported yet
         # ----------  transaction breaks  ----------
         if opnum == rop.STM_HINT_COMMIT_SOON:
             self.emitting_an_operation_that_can_collect()
@@ -37,20 +41,19 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             self.emit_op(op)
             return
         # ----------  pure operations, guards  ----------
-        if op.is_always_pure() or op.is_guard() or op.is_ovf():
+        if rop.is_always_pure(opnum) or rop.is_guard(opnum) or rop.is_ovf(opnum):
             self.emit_op(op)
             return
         # # ----------  non-pure getfields  ----------
         if opnum in (rop.GETARRAYITEM_GC_I, rop.GETARRAYITEM_GC_F,
                      rop.GETARRAYITEM_GC_R,
-                     rop.VEC_GETARRAYITEM_GC_I, rop.VEC_GETARRAYITEM_GC_F,
                      rop.GETINTERIORFIELD_GC_I,
                      rop.GETINTERIORFIELD_GC_F, rop.GETINTERIORFIELD_GC_R):
             #self.handle_getfields(op)
             self.emit_op(op)
             return
         # ----------  calls  ----------
-        if op.is_call():
+        if rop.is_call(opnum):
             self.next_op_may_be_in_new_transaction()
             #
             if opnum in (rop.CALL_RELEASE_GIL_I,
@@ -84,10 +87,8 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         # ----------  raw getfields and setfields and arrays  ----------
         if opnum in (rop.GETFIELD_RAW_F, rop.GETFIELD_RAW_I,
                      rop.GETFIELD_RAW_R, rop.SETFIELD_RAW,
-                     rop.VEC_GETARRAYITEM_RAW_F, rop.VEC_GETARRAYITEM_RAW_I,
                      rop.GETARRAYITEM_RAW_F, rop.GETARRAYITEM_RAW_I,
-                     rop.SETARRAYITEM_RAW,
-                     rop.VEC_SETARRAYITEM_RAW):
+                     rop.SETARRAYITEM_RAW,):
             if self.maybe_handle_raw_accesses(op):
                 return
         # ----------  labels  ----------
@@ -108,7 +109,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         # ----------  fall-back  ----------
         # Check that none of the ops handled here can collect.
         # This is not done by the fallback here
-        assert not op.is_call() and not op.is_malloc()
+        assert not rop.is_call(opnum) and not rop.is_malloc(opnum)
         self.fallback_inevitable(op)
 
     def handle_call_assembler(self, op):
@@ -131,7 +132,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             self, op, ptr_box, index_box, itemsize, factor, offset, sign, type)
         ptr_box = newop.getarg(0)
         if op:
-            is_pure = op.is_always_pure()
+            is_pure = rop.is_always_pure(op.getopnum())
             if not is_pure and isinstance(op, ResOpWithDescr):
                 is_pure = OpHelpers.is_pure_with_descr(op.getopnum(), op.getdescr())
             if (ptr_box.type == 'r'  # not raw

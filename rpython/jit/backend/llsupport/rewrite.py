@@ -344,9 +344,7 @@ class GcRewriterAssembler(object):
                 if op.getopnum() == rop.SETINTERIORFIELD_GC:
                     self.handle_write_barrier_setinteriorfield(op)
                     continue
-                if op.getopnum() in (rop.SETARRAYITEM_GC, rop.VEC_SETARRAYITEM_GC):
-                    # VEC_SETARRAYITEM_GC never writes references, but we need it
-                    # for STM
+                if op.getopnum() == rop.SETARRAYITEM_GC:
                     self.consider_setarrayitem_gc(op)
                     self.handle_write_barrier_setarrayitem(op)
                     continue

@@ -25,7 +25,6 @@ def test_all_operations_with_gc_in_their_name():
             rop._OVF_FIRST <= opnum <= rop._OVF_LAST):
             words.append(name)
     # extra op names where it's ok if stmrewrite doesn't mention them:
-    words.append('CALL_MALLOC_GC')
     words.append('COND_CALL_GC_WB')
     words.append('COND_CALL_GC_WB_ARRAY')
     # these are handled by rewrite.py (sometimes with some overridden code
@@ -56,6 +55,13 @@ def test_all_operations_with_gc_in_their_name():
     words.append('VEC_RAW_LOAD_F')
     words.append('RAW_STORE')
     words.append('VEC_RAW_STORE')
+    words.append('ESCAPE_F')
+    words.append('ESCAPE_I')
+    words.append('ESCAPE_R')
+    words.append('ESCAPE_N')
+    words.append('FORCE_SPILL')
+    words.append('VEC_LOAD_F')
+    words.append('VEC_LOAD_I')
     # these should be processed by the front-end and not reach this point
     words.append('VIRTUAL_REF')
     words.append('VIRTUAL_REF_FINISH')
@@ -127,6 +133,7 @@ class TestStm(RewriteTests):
         for inev in (True, False):
             class fakeextrainfo:
                 oopspecindex = 0
+                call_shortcut = None
                 def call_needs_inevitable(self):
                     return inev
 
@@ -469,6 +476,7 @@ class TestStm(RewriteTests):
         # and/or could use the L category
         class fakeextrainfo:
             oopspecindex = 0
+            call_shortcut = None
             def call_needs_inevitable(self):
                 return False
         T = rffi.CArrayPtr(rffi.TIME_T)
@@ -659,7 +667,7 @@ class TestStm(RewriteTests):
         """, """
             [p1, i2, i3]
             cond_call_gc_wb(p1, descr=wbdescr)
-            gc_store_indexed(p1,i2,i3,1,%(strdescr.basesize)d,1)
+            gc_store_indexed(p1,i2,i3,1,%(strdescr.basesize-1)d,1)
             gc_store_indexed(p1,i2,i3,%(unicodedescr.itemsize)d,%(unicodedescr.basesize)d,%(unicodedescr.itemsize)d)
             jump()
         """)
@@ -677,7 +685,7 @@ class TestStm(RewriteTests):
             gc_store(p1, %(strlendescr.offset)s,  i3, %(strlendescr.field_size)s)
             gc_store(p1, 0, 0, %(strhashdescr.field_size)s)
             cond_call_gc_wb(p1, descr=wbdescr)
-            gc_store_indexed(p1,i2,i3,1,%(strdescr.basesize)d,1)
+            gc_store_indexed(p1,i2,i3,1,%(strdescr.basesize-1)d,1)
             gc_store_indexed(p1,i2,i3,%(unicodedescr.itemsize)d,%(unicodedescr.basesize)d,%(unicodedescr.itemsize)d)
             jump()
         """)
@@ -690,7 +698,7 @@ class TestStm(RewriteTests):
             jump()
         """, """
             [p1, i2, i3]
-            i4 = gc_load_indexed_i(p1,i2,1,%(strdescr.basesize)d,1)
+            i4 = gc_load_indexed_i(p1,i2,1,%(strdescr.basesize-1)d,1)
             i5 = gc_load_indexed_i(p1,i2,%(unicodedescr.itemsize)d,%(unicodedescr.basesize)d,%(unicodedescr.itemsize)d)
             jump()
         """)
@@ -832,6 +840,7 @@ class TestStm(RewriteTests):
     def test_call_force(self):
         class fakeextrainfo:
             oopspecindex=0
+            call_shortcut = None
             def call_needs_inevitable(self):
                 return False
         T = rffi.CArrayPtr(rffi.TIME_T)
@@ -1140,12 +1149,13 @@ class TestStm(RewriteTests):
             jump(i0)
         """, """
             [i0]
-            p0 = call_malloc_gc(ConstClass(malloc_array_nonstandard), \
+
+            p0 = call_r(ConstClass(malloc_array_nonstandard), \
                                 64, 8,                                \
                                 %(nonstd_descr.lendescr.offset)d,     \
                                 6464, i0,                             \
                                 descr=malloc_array_nonstandard_descr)
-
+            check_memory_error(p0)
             jump(i0)
         """, nonstd_descr=nonstd_descr)
 
@@ -1157,10 +1167,10 @@ class TestStm(RewriteTests):
             jump()
         """, """
             []
-            p0 = call_malloc_gc(ConstClass(malloc_array), 1,  \
+            p0 = call_r(ConstClass(malloc_array), 1,  \
                                 %(bdescr.tid)d, 103,          \
                                 descr=malloc_array_descr)
-
+            check_memory_error(p0)
             jump()
         """)
 
@@ -1194,10 +1204,10 @@ class TestStm(RewriteTests):
             jump()
         """, """
             []
-            p0 = call_malloc_gc(ConstClass(malloc_array), 1, \
+            p0 = call_r(ConstClass(malloc_array), 1, \
                                 %(bdescr.tid)d, 20000000,    \
                                 descr=malloc_array_descr)
-
+            check_memory_error(p0)
             jump()
         """)
 
@@ -1219,8 +1229,9 @@ class TestStm(RewriteTests):
             p0 = new_with_vtable(descr=o_descr)
         """, """
             [p1]
-            p0 = call_malloc_gc(ConstClass(malloc_big_fixedsize), 104, 9315, \
+            p0 = call_r(ConstClass(malloc_big_fixedsize), 104, 9315, \
                                 descr=malloc_big_fixedsize_descr)
+            check_memory_error(p0)
             gc_store(p0, 0, ConstClass(o_vtable), %(vtable_descr.field_size)s)
         """)
 
@@ -1235,13 +1246,13 @@ class TestStm(RewriteTests):
         """, """
             [i2]
             p0 = call_malloc_nursery(                                \
-                      %(strdescr.basesize + 16 * strdescr.itemsize + \
+                      %(strdescr.basesize + 15 * strdescr.itemsize + \
                         unicodedescr.basesize + 10 * unicodedescr.itemsize)d)
             $INIT(p0,unicodedescr)
             gc_store(p0, %(strlendescr.offset)s, 14, %(strlendescr.field_size)s)
             gc_store(p0, 0, 0, %(strhashdescr.field_size)s)
 
-            p1 = nursery_ptr_increment(p0, %(strdescr.basesize + 16 * strdescr.itemsize)d)
+            p1 = nursery_ptr_increment(p0, %(strdescr.basesize + 15 * strdescr.itemsize)d)
             $INIT(p1, unicodedescr)
             gc_store(p1, %(unicodelendescr.offset)s, 10, %(strlendescr.field_size)s)
             gc_store(p1, 0, 0, %(unicodehashdescr.field_size)s)
@@ -1271,7 +1282,7 @@ class TestStm(RewriteTests):
                                 %(cdescr.basesize + 5 * cdescr.itemsize)d)
             $INIT(p1,cdescr)
             gc_store(p1, 0, 5, %(clendescr.field_size)s)
-            zero_array(p1, 0, 5, descr=cdescr)
+            %(zero_array('p1', 0, 5, 'cdescr', cdescr))s
             label(p1, i2, p3)
             cond_call_gc_wb_array(p1, i2, descr=wbdescr)
             gc_store_indexed(p1, i2, p3, %(cdescr.itemsize)s, %(cdescr.basesize)s, %(cdescr.itemsize)s)
@@ -1279,6 +1290,7 @@ class TestStm(RewriteTests):
 
     def test_transaction_break_makes_size_unknown(self):
         class fakeextrainfo:
+            call_shortcut = None
             def call_needs_inevitable(self):
                 return False
         T = rffi.CArrayPtr(rffi.TIME_T)

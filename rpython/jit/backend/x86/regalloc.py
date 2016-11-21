@@ -1495,7 +1495,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             temp_loc = index_loc
             shift = get_scale(itemsize)
         assert isinstance(ofs_loc, ImmedLoc)
-        return AddressLoc(base_loc, temp_loc, shift, ofs_loc.value)
+        return AddressLoc(self.assembler.SEGMENT_NO, base_loc, temp_loc, shift, ofs_loc.value)
 
     def consider_zero_array(self, op):
         _, baseofs, _ = unpack_arraydescr(op.getdescr())
