@@ -624,6 +624,68 @@ class TestSTMTranslated(CompiledSTMTests):
         assert 'next_dead: <A object' in data
         assert 'next_dead: NULL\n' in data
 
+    def test_newstyle_finalizer2(self):
+        class space: pass
+        class A: pass
+        class B: pass
+        class C: pass
+        s = space()
+        s.triggered = []
+        #
+        class FQA(rgc.FinalizerQueue):
+            Class = A
+            def finalizer_trigger(self):
+                s.triggered.append("A")
+        class FQB(rgc.FinalizerQueue):
+            Class = B
+            def finalizer_trigger(self):
+                s.triggered.append("B")
+        class FQC(rgc.FinalizerQueue):
+            Class = C
+            def finalizer_trigger(self):
+                s.triggered.append("C")
+        fqa = FQA()
+        fqb = FQB()
+        fqc = FQC()
+        #
+        def g():
+            fqa.register_finalizer(A())
+            fqb.register_finalizer(B())
+            fqc.register_finalizer(C())
+        #
+        def main(argv):
+            a1 = A()
+            b1 = B()
+            c1 = C()
+            fqa.register_finalizer(a1)
+            fqb.register_finalizer(b1)
+            fqc.register_finalizer(c1)
+            g()
+            rgc.collect()
+            print 'queues triggered:', s.triggered
+            for i in range(2):
+                s1_ = fqa.next_dead()
+                print 'next_dead a:', s1_
+                s1_ = fqb.next_dead()
+                print 'next_dead b:', s1_
+                s1_ = fqc.next_dead()
+                print 'next_dead c:', s1_
+
+            objectmodel.keepalive_until_here(a1)
+            objectmodel.keepalive_until_here(b1)
+            objectmodel.keepalive_until_here(c1)
+            return 0
+        #
+        t, cbuilder = self.compile(main)
+        data = cbuilder.cmdexec('')
+        assert 'queues triggered: [A, B, C]\n' in data
+        assert 'next_dead a: <A object' in data
+        assert 'next_dead b: <B object' in data
+        assert 'next_dead c: <C object' in data
+        assert 'next_dead a: NULL\n' in data
+        assert 'next_dead b: NULL\n' in data
+        assert 'next_dead c: NULL\n' in data
+
 
     def test_hashtable(self):
         class X(object):

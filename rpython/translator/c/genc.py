@@ -862,7 +862,7 @@ def gen_startupcode(f, database):
         triggers = database.gctransformer.get_stm_finalizer_triggers()
         print >> f, '\tstm_finalizer_trigger_fn fq_triggers[%s] = {%s};' % (
             len(triggers),
-            ", ".join(["pypy_g_" + t._obj._name for t in triggers]))
+            ", ".join([database.get(t) for t in triggers]))
         print >> f, '\tstm_setup_finalizer_queues(%s, fq_triggers);' % (
             len(triggers), )
 
