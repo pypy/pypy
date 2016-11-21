@@ -60,7 +60,7 @@ def get_nullptr(space):
         nullarr = arr.fromaddress(space, rffi.cast(rffi.ULONG, 0), 0)
         assert isinstance(nullarr, W_ArrayInstance)
         nullarr.free(space)
-        state.w_nullptr = space.wrap(nullarr)
+        state.w_nullptr = nullarr
     return state.w_nullptr
 
 @unwrap_spec(name=str)
@@ -1069,7 +1069,7 @@ class W_CPPInstance(W_Root):
 
     def _get_as_builtin(self):
         try:
-            return self.space.call_method(self.space.wrap(self), "_cppyy_as_builtin")
+            return self.space.call_method(self, "_cppyy_as_builtin")
         except OperationError as e:
             if not (e.match(self.space, self.space.w_TypeError) or
                     e.match(self.space, self.space.w_AttributeError)):

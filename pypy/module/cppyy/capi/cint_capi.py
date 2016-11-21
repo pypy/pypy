@@ -329,7 +329,7 @@ def ttree_getattr(space, w_self, args_w):
         cdata = cdataobj.W_CData(space, address, newtype.new_primitive_type(space, typename))
 
         # cache result
-        space.setattr(w_self, space.newtext('_'+attr), space.wrap(cdata))
+        space.setattr(w_self, space.newtext('_'+attr), cdata)
         return space.getattr(w_self, args_w[0])
 
 class W_TTreeIter(W_Root):
@@ -346,7 +346,7 @@ class W_TTreeIter(W_Root):
         space.call_method(w_tree, "SetBranchStatus", space.newtext("*"), space.newint(0))
 
     def iter_w(self):
-        return self.space.wrap(self)
+        return self
 
     def next_w(self):
         if self.current == self.maxentry:
@@ -383,11 +383,11 @@ def register_pythonizations(space):
     ]
 
     for f in allfuncs:
-        _pythonizations[f.__name__] = space.wrap(interp2app(f))
+        _pythonizations[f.__name__] = interp2app(f).spacebind(space)
 
 def _method_alias(space, w_pycppclass, m1, m2):
-    space.setattr(w_pycppclass, space.wrap(m1),
-                  space.getattr(w_pycppclass, space.wrap(m2)))
+    space.setattr(w_pycppclass, space.newtext(m1),
+                  space.getattr(w_pycppclass, space.newtext(m2)))
 
 # callback coming in when app-level bound classes have been created
 def pythonize(space, name, w_pycppclass):
