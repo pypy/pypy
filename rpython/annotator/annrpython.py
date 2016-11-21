@@ -38,6 +38,7 @@ class RPythonAnnotator(object):
         self.notify = {}        # {block: {positions-to-reflow-from-when-done}}
         self.fixed_graphs = {}  # set of graphs not to annotate again
         self.blocked_blocks = {} # set of {blocked_block: (graph, index)}
+        self.var_def = {}
         # --- the following information is recorded for debugging ---
         self.blocked_graphs = {} # set of graphs that have blocked blocks
         # --- end of debugging information ---
@@ -264,16 +265,24 @@ class RPythonAnnotator(object):
 
     #___ interface for annotator.bookkeeper _______
 
+    def record_call(self, graph, whence):
+        parent_graph, parent_block, parent_index = whence
+        tag = parent_block, parent_index
+        self.translator.update_call_graph(parent_graph, graph, tag)
+
+
     def recursivecall(self, graph, whence, inputcells):
         if whence is not None:
-            parent_graph, parent_block, parent_index = whence
-            tag = parent_block, parent_index
-            self.translator.update_call_graph(parent_graph, graph, tag)
+            self.record_call(graph, whence)
+            _, block, index = whence
+            op = block.operations[index]
+            v_result = op.result
+            self.var_def[v_result] = whence
             # self.notify[graph.returnblock] is a set of call
             # points to this func which triggers a reflow whenever the
             # return block of this graph has been analysed.
-            returnpositions = self.notify.setdefault(graph.returnblock, set())
-            returnpositions.add(whence)
+            returnvars = self.notify.setdefault(graph.returnblock, set())
+            returnvars.add(v_result)
 
         # generalize the function's input arguments
         self.addpendingblock(graph, graph.startblock, inputcells)
@@ -286,6 +295,10 @@ class RPythonAnnotator(object):
             # the function didn't reach any return statement so far.
             # (some functions actually never do, they always raise exceptions)
             return s_ImpossibleValue
+
+    def update_var(self, v):
+        position_key = self.var_def[v]
+        self.reflowfromposition(position_key)
 
     def reflowfromposition(self, position_key):
         graph, block, index = position_key
@@ -514,9 +527,8 @@ class RPythonAnnotator(object):
                 self.follow_link(graph, link, constraints)
 
         if block in self.notify:
-            for position in self.notify[block]:
-                self.reflowfromposition(position)
-
+            for v in self.notify[block]:
+                self.update_var(v)
 
     def follow_link(self, graph, link, constraints):
         assert not (isinstance(link.exitcase, (types.ClassType, type)) and
