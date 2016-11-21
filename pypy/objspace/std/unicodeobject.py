@@ -79,9 +79,14 @@ class W_UnicodeObject(W_Root):
 
     def identifier_w(self, space):
         try:
-            # call the elidable function, with a jit.call_shortcut in case
-            # self._utf8 is already computed
-            identifier = g_identifier_w(self, space)
+            if jit.isconstant(self._value):
+                # constantly encode that unicode string; don't try
+                # to access the cache _utf8 at all
+                identifier = self._value.encode('utf-8')
+            else:
+                # call the elidable function, with a jit.call_shortcut in case
+                # self._utf8 is already computed
+                identifier = g_identifier_w(self, space)
         except UnicodeEncodeError:
             # bah, this is just to get an official app-level
             # UnicodeEncodeError
