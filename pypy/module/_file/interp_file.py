@@ -8,7 +8,6 @@ from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.rstring import StringBuilder
 from pypy.module._file.interp_stream import W_AbstractStream, StreamErrors
 from pypy.module.posix.interp_posix import dispatch_filename
-from pypy.module.sys.interp_encoding import getdefaultencoding
 from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
     interp_attrproperty, make_weakref_descr, interp_attrproperty_w)
@@ -495,17 +494,12 @@ the file on disk reflects the data written."""
         else:
             if space.isinstance_w(w_data, space.w_unicode):
                 # note: "encode" is called before we acquire the lock
-                # for this file, which is done in file_write_str()
-                if self.encoding:
-                    w_encoding = space.wrap(self.encoding)
-                else:
-                    w_encoding = getdefaultencoding(space)
-                if self.errors:
-                    w_errors = space.wrap(self.errors)
-                else:
-                    w_errors = space.wrap("strict")
-                w_data = space.call_method(w_data, "encode",
-                                           w_encoding, w_errors)
+                # for this file, which is done in file_write_str().
+                # Direct access to unicodeobject because we don't want
+                # to call user-defined "encode" methods here.
+                from pypy.objspace.std.unicodeobject import encode_object
+                w_data = encode_object(space, w_data, self.encoding,
+                                       self.errors)
             data = space.charbuf_w(w_data)
         self.file_write_str(data)
 
