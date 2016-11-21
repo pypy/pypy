@@ -119,7 +119,7 @@ def create_entry_point(space, w_dict):
         try:
             # initialize sys.{path,executable,stdin,stdout,stderr}
             # (in unbuffered mode, to avoid troubles) and import site
-            space.appexec([w_path, space.wrap(home), w_initstdio],
+            space.appexec([w_path, space.wrap_fsdecoded(home), w_initstdio],
             r"""(path, home, initstdio):
                 import sys
                 sys.path[:] = path
