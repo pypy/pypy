@@ -1015,7 +1015,9 @@ class AppTestImportHooks(object):
         sys.meta_path.insert(0, Importer())
         try:
             import math
-            assert len(tried_imports) == 1
+            # the above line may trigger extra imports, like _operator
+            # from app_math.py.  The first one should be 'math'.
+            assert len(tried_imports) >= 1
             package_name = '.'.join(__name__.split('.')[:-1])
             if package_name:
                 assert tried_imports[0][0] == package_name + ".math"
