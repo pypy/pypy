@@ -1133,7 +1133,8 @@ class _SSLContext(object):
             lib.EC_KEY_free(key)
 
     def set_servername_callback(self, callback):
-        if not HAS_SNI or lib.Cryptography_OPENSSL_NO_TLSEXT:
+        # cryptography constraint: OPENSSL_NO_TLSEXT will never be set!
+        if not HAS_SNI:
             raise NotImplementedError("The TLS extension servername callback, "
                     "SSL_CTX_set_tlsext_servername_callback, "
                     "is not in the current OpenSSL library.")
@@ -1182,7 +1183,8 @@ class _SSLContext(object):
 
 
 
-if HAS_SNI and not lib.Cryptography_OPENSSL_NO_TLSEXT:
+# cryptography constraint: OPENSSL_NO_TLSEXT will never be set!
+if HAS_SNI:
     @ffi.callback("int(SSL*,int*,void*)")
     def _servername_callback(s, al, arg):
         scb = ffi.from_handle(arg)
