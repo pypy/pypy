@@ -106,7 +106,8 @@ def stm_enable_finalizer(funcgen, op):
 def stm_next_to_finalize(funcgen, op):
     arg_qindex = funcgen.expr(op.args[0])
     result     = funcgen.expr(op.result)
-    return '%s = (rpygcchar_t *)stm_next_to_finalize((int)%s);' % (result, arg_qindex)
+    restype    = funcgen.db.gettype(op.result.concretetype)[:-1]
+    return '%s = (%s)stm_next_to_finalize((int)%s);' % (result, restype, arg_qindex)
 
 def stm_allocate_preexisting(funcgen, op):
     arg_size   = funcgen.expr(op.args[0])
