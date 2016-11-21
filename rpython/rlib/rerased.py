@@ -40,7 +40,6 @@ def unerase_int(y):
 
 
 class ErasingPairIdentity(object):
-
     def __init__(self, name):
         self.name = name
 
@@ -54,17 +53,20 @@ class IdentityDesc(object):
     def __init__(self, bookkeeper):
         self.bookkeeper = bookkeeper
         self.s_input = annmodel.s_ImpossibleValue
-        self.reflowpositions = {}
+        self.updatevars = set()
 
     def enter_tunnel(self, s_obj):
         s_obj = annmodel.unionof(self.s_input, s_obj)
         if s_obj != self.s_input:
             self.s_input = s_obj
-            for position in self.reflowpositions:
-                self.bookkeeper.annotator.reflowfromposition(position)
+            ann = self.bookkeeper.annotator
+            for v in self.updatevars:
+                ann.update_var(v)
 
     def leave_tunnel(self):
-        self.reflowpositions[self.bookkeeper.position_key] = True
+        bk = self.bookkeeper
+        v = bk.annotator.get_result_var(bk.position_key)
+        self.updatevars.add(v)
         return self.s_input
 
 def _get_desc(bk, identity):
