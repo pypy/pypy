@@ -401,7 +401,7 @@ class Test__ffi(BaseTestPyPyC):
             };
             """)
 
-            for i in xrange(n):
+            for i in range(n):
                 ffi.new("struct s *", [i, i, i])
 
         log = self.run(main, [300])

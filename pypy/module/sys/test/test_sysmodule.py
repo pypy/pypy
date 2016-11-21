@@ -908,12 +908,15 @@ class AppTestSysExcInfoDirect:
     def test_call_in_subfunction(self):
         import sys
         def g():
-            # this case is not optimized, because we need to search the
-            # frame chain.  it's probably not worth the complications
+            # new in PyPy3: this case is optimized as well, now that we
+            # don't need to search the frame chain.  This can be
+            # regarded as an advantage of the PyPy3 sys_exc_info stored
+            # on the ExecutionContext: although it forces the exception
+            # itself more often, it forces frames less often.
             return sys.exc_info()[1]
         e = KeyError("boom")
         try:
             raise e
         except:
             assert g() is e
-    test_call_in_subfunction.expected = 'n'
+    test_call_in_subfunction.expected = 'y'

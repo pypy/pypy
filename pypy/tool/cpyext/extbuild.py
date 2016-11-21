@@ -86,8 +86,11 @@ class SystemCompilationInfo(object):
     def import_extension(self, modname, functions, prologue="",
             include_dirs=None, more_init="", PY_SSIZE_T_CLEAN=False):
         body = prologue + make_methods(functions, modname)
-        init = """PyObject *mod = PyModule_Create(&moduledef);"""
+        init = """PyObject *mod = PyModule_Create(&moduledef);
+               """
         if more_init:
+            init += """#define INITERROR return NULL
+                    """
             init += more_init
         init += "\nreturn mod;"
         return self.import_module(

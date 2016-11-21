@@ -45,8 +45,9 @@ class W_Continulet(W_Root):
         #
         global_state.origin = self
         self.sthread = sthread
+        saved_exception = pre_switch(sthread)
         h = sthread.new(new_stacklet_callback)
-        post_switch(sthread, h)
+        post_switch(sthread, h, saved_exception)
 
     def switch(self, w_to):
         sthread = self.sthread
@@ -82,8 +83,9 @@ class W_Continulet(W_Root):
             # double switch: the final destination is to.h
             global_state.destination = to
         #
+        saved_exception = pre_switch(sthread)
         h = sthread.switch(global_state.destination.h)
-        return post_switch(sthread, h)
+        return post_switch(sthread, h, saved_exception)
 
     @unwrap_spec(w_value = WrappedDefault(None),
                  w_to = WrappedDefault(None))
@@ -240,7 +242,12 @@ def new_stacklet_callback(h, arg):
     global_state.destination = self
     return self.h
 
-def post_switch(sthread, h):
+def pre_switch(sthread):
+    saved_exception = sthread.ec.sys_exc_info()
+    sthread.ec.set_sys_exc_info(None)
+    return saved_exception
+
+def post_switch(sthread, h, saved_exception):
     origin = global_state.origin
     self = global_state.destination
     global_state.origin = None
@@ -249,6 +256,7 @@ def post_switch(sthread, h):
     #
     current = sthread.ec.topframeref
     sthread.ec.topframeref = self.bottomframe.f_backref
+    sthread.ec.set_sys_exc_info(saved_exception)
     self.bottomframe.f_backref = origin.bottomframe.f_backref
     origin.bottomframe.f_backref = current
     #

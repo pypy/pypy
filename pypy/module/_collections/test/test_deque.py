@@ -122,6 +122,10 @@ class AppTestBasic:
         d2 = deque([3,4,5])
         assert d1 + d2 == deque([1,2,3,3,4,5])
 
+    def test_cannot_add_list(self):
+        from _collections import deque
+        raises(TypeError, "deque([2]) + [3]")
+
     def test_iadd(self):
         from _collections import deque
         d = deque('a')
@@ -364,6 +368,8 @@ class AppTestBasic:
             d.insert(i, 'a')
             assert 'a' in d
             assert 'b' not in d
+            assert d.__contains__('a')
+            assert not d.__contains__('b')
             assert d.index('a') == i
         d = deque(range(10))
         d.insert(-1, 500)
@@ -416,4 +422,4 @@ class AppTestBasic:
         import sys
         elements = 'ABCDEFGHI'
         d = deque([-2, -1, 0, 0, 1, 2])
-        assert a.index(0, -4*sys.maxsize, 4*sys.maxsize) == 2
+        assert d.index(0, -4*sys.maxsize, 4*sys.maxsize) == 2

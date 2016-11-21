@@ -887,8 +887,7 @@ class AppTestBytesObject:
             assert b.rsplit(bb)
             assert b.split(bb[:1])
             assert b.rsplit(bb[:1])
-            assert b.join((bb, bb)) # cpython accepts bytes and
-                                    # bytearray only, not buffer
+            assert b.join((bb, bb))  # accepts memoryview() since CPython 3.4/5
             assert bb in b
             assert b.find(bb)
             assert b.rfind(bb)
@@ -900,7 +899,6 @@ class AppTestBytesObject:
             assert not b.endswith(bb)
             assert not b.endswith((bb, bb))
             assert bytes.maketrans(bb, bb)
-            assert bytearray.maketrans(bb, bb)
 
     def test_constructor_dont_convert_int(self):
         class A(object):
@@ -931,3 +929,12 @@ class AppTestBytesObject:
         raises(TypeError, 'b"%b" % "hello world"')
         assert b'%b %b' % (b'a', bytearray(b'f f e')) == b'a f f e'
         """
+
+    def test_getitem_error_message(self):
+        e = raises(TypeError, b'abc'.__getitem__, b'd')
+        assert str(e.value).startswith(
+            'byte indices must be integers or slices')
+
+    def test_constructor_typeerror(self):
+        raises(TypeError, bytes, b'', 'ascii')
+        raises(TypeError, bytes, '')

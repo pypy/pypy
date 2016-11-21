@@ -128,6 +128,10 @@ def setup_directory_structure(cls):
              a = '',
              b = '',
              c = '')
+    setuppkg('circular',
+             circ1="from . import circ2",
+             circ2="from . import circ1")
+
     p = setuppkg("encoded",
              # actually a line 2, setuppkg() sets up a line1
              line2 = "# encoding: iso-8859-1\n",
@@ -179,7 +183,7 @@ def _teardown(space, w_saved_modules):
 
 class AppTestImport(BaseFSEncodeTest):
     spaceconfig = {
-        "usemodules": ['_md5', 'time', 'struct', '_pypyjson'],
+        "usemodules": ['_md5', 'time', 'struct'],
     }
 
     def setup_class(cls):
@@ -509,6 +513,9 @@ class AppTestImport(BaseFSEncodeTest):
         ns = dict(__package__=object())
         check_absolute()
         raises(TypeError, check_relative)
+
+    def test_relative_circular(self):
+        import circular.circ1  # doesn't fail
 
     def test_import_function(self):
         # More tests for __import__

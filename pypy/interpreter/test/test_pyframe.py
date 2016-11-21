@@ -87,6 +87,64 @@ class AppTestPyFrame:
         sys.settrace(None)
         # assert did not crash
 
+    def test_f_lineno_set_2(self):
+        counter = [0]
+        errors = []
+
+        def tracer(f, event, *args):
+            if event == 'line':
+                counter[0] += 1
+                if counter[0] == 2:
+                    try:
+                        f.f_lineno += 2
+                    except ValueError as e:
+                        errors.append(e)
+            return tracer
+
+        # obscure: call open beforehand, py3k's open invokes some app
+        # level code that confuses our tracing (likely due to the
+        # testing env, otherwise it's not a problem)
+        f = open(self.tempfile1, 'w')
+        def function():
+            try:
+                raise ValueError
+            except ValueError:
+                x = 42
+            return x
+
+        import sys
+        sys.settrace(tracer)
+        x = function()
+        sys.settrace(None)
+        assert x == 42
+        assert len(errors) == 1
+        assert str(errors[0]).startswith(
+            "can't jump into or out of an 'expect' or 'finally' block")
+
+    def test_f_lineno_set_3(self):
+        def jump_in_nested_finally(output):
+            try:
+                output.append(2)
+            finally:
+                output.append(4)
+                try:
+                    output.append(6)
+                finally:
+                    output.append(8)
+                output.append(9)
+        output = []
+
+        def tracer(f, event, *args):
+            if event == 'line' and len(output) == 1:
+                f.f_lineno += 5
+            return tracer
+
+        import sys
+        sys.settrace(tracer)
+        jump_in_nested_finally(output)
+        sys.settrace(None)
+        assert output == [2, 9]
+
     def test_f_lineno_set_firstline(self):
         r"""
         seen = []
@@ -147,30 +205,6 @@ class AppTestPyFrame:
         assert f1.f_code.co_name == 'main'
         assert f1bis is f1
         assert f0.f_back is f1
-
-    def test_f_exc_xxx(self):
-        import sys
-
-        class OuterException(Exception):
-            pass
-        class InnerException(Exception):
-            pass
-
-        def g(exc_info):
-            f = sys._getframe()
-            assert f.f_exc_type is None
-            assert f.f_exc_value is None
-            assert f.f_exc_traceback is None
-            try:
-                raise InnerException
-            except:
-                assert f.f_exc_type is exc_info[0]
-                assert f.f_exc_value is exc_info[1]
-                assert f.f_exc_traceback is exc_info[2]
-        try:
-            raise OuterException
-        except:
-            g(sys.exc_info())
 
     def test_virtualref_through_traceback(self):
         import sys
@@ -583,6 +617,15 @@ class AppTestPyFrame:
         assert a2ref() is None, "stack not cleared"
         #
         raises(StopIteration, next, gen)
+
+    def test_frame_clear_really(self):
+        import sys
+        def f(x):
+            return sys._getframe()
+        frame = f(42)
+        assert frame.f_locals['x'] == 42
+        frame.clear()
+        assert frame.f_locals == {}
 
     def test_throw_trace_bug(self):
         import sys

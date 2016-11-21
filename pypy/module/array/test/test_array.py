@@ -182,7 +182,22 @@ class AppTestArray(object):
             b = self.array(t, b'\x00' * a.itemsize * 2)
             assert len(b) == 2 and b[0] == 0 and b[1] == 0
             if t in 'bB':
-                raises(BufferError, a.frombytes, a)
+                old_items = a.tolist()
+                try:
+                    a.frombytes(a)
+                except BufferError:
+                    # CPython behavior:
+                    # "cannot resize an array that is exporting buffers"
+                    # This is the general error we get when we try to
+                    # resize the array while a buffer to that array is
+                    # alive.
+                    assert a.tolist() == old_items
+                else:
+                    # PyPy behavior: we can't reasonably implement that.
+                    # It's harder to crash PyPy in this case, but not
+                    # impossible, because of get_raw_address().  Too
+                    # bad I suppose.
+                    assert a.tolist() == old_items * 2
             else:
                 raises(TypeError, a.frombytes, a)
 

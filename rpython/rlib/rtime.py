@@ -173,6 +173,12 @@ if _WIN32:
     state = State()
 
 HAS_CLOCK_GETTIME = (CLOCK_MONOTONIC is not None)
+if sys.platform == 'darwin':
+    HAS_CLOCK_GETTIME = False
+    # ^^^ https://bitbucket.org/pypy/pypy/issues/2432 and others
+    # (change it manually if you *know* you want to build and run on
+    # OS/X 10.12 or later)
+
 if HAS_CLOCK_GETTIME:
     # Linux and other POSIX systems with clock_gettime()
     # TIMESPEC:

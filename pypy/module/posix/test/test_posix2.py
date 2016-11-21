@@ -558,11 +558,10 @@ class AppTestPosix:
 
     def test_utime(self):
         os = self.posix
-        from os.path import join
         # XXX utimes & float support
-        path = join(self.pdir, "test_utime.txt")
-        fh = open(path, "w")
-        fh.write("x")
+        path = self.path2 + "test_utime.txt"
+        fh = open(path, "wb")
+        fh.write(b"x")
         fh.close()
         from time import time, sleep
         t0 = time()
@@ -907,53 +906,51 @@ class AppTestPosix:
 
     if hasattr(os, 'chown'):
         def test_chown(self):
+            my_path = self.path2 + 'test_chown'
             os = self.posix
-            os.unlink(self.path)
-            raises(OSError, os.chown, self.path, os.getuid(), os.getgid())
-            f = open(self.path, "w")
-            f.write("this is a test")
-            f.close()
-            os.chown(self.path, os.getuid(), os.getgid())
+            raises(OSError, os.chown, my_path, os.getuid(), os.getgid())
+            open(my_path, 'w').close()
+            os.chown(my_path, os.getuid(), os.getgid())
 
     if hasattr(os, 'lchown'):
         def test_lchown(self):
+            my_path = self.path2 + 'test_lchown'
             os = self.posix
-            os.unlink(self.path)
-            raises(OSError, os.lchown, self.path, os.getuid(), os.getgid())
-            os.symlink('foobar', self.path)
-            os.lchown(self.path, os.getuid(), os.getgid())
+            raises(OSError, os.lchown, my_path, os.getuid(), os.getgid())
+            os.symlink('foobar', my_path)
+            os.lchown(my_path, os.getuid(), os.getgid())
 
     if hasattr(os, 'fchown'):
         def test_fchown(self):
+            my_path = self.path2 + 'test_fchown'
             os = self.posix
-            f = open(self.path, "w")
+            f = open(my_path, "w")
             os.fchown(f.fileno(), os.getuid(), os.getgid())
             f.close()
 
     if hasattr(os, 'chmod'):
         def test_chmod(self):
             import sys
+            my_path = self.path2 + 'test_chmod'
             os = self.posix
-            os.unlink(self.path)
-            raises(OSError, os.chmod, self.path, 0o600)
-            f = open(self.path, "w")
-            f.write("this is a test")
-            f.close()
+            raises(OSError, os.chmod, my_path, 0o600)
+            open(my_path, "w").close()
             if sys.platform == 'win32':
-                os.chmod(self.path, 0o400)
-                assert (os.stat(self.path).st_mode & 0o600) == 0o400
+                os.chmod(my_path, 0o400)
+                assert (os.stat(my_path).st_mode & 0o600) == 0o400
             else:
-                os.chmod(self.path, 0o200)
-                assert (os.stat(self.path).st_mode & 0o777) == 0o200
+                os.chmod(my_path, 0o200)
+                assert (os.stat(my_path).st_mode & 0o777) == 0o200
 
     if hasattr(os, 'fchmod'):
         def test_fchmod(self):
+            my_path = self.path2 + 'test_fchmod'
             os = self.posix
-            f = open(self.path, "w")
+            f = open(my_path, "w")
             os.fchmod(f.fileno(), 0o200)
             assert (os.fstat(f.fileno()).st_mode & 0o777) == 0o200
             f.close()
-            assert (os.stat(self.path).st_mode & 0o777) == 0o200
+            assert (os.stat(my_path).st_mode & 0o777) == 0o200
 
     if hasattr(os, 'mkfifo'):
         def test_mkfifo(self):

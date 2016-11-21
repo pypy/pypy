@@ -155,18 +155,7 @@ class StdObjSpace(ObjSpace):
             try:
                 unicode_x = x.decode('ascii')
             except UnicodeDecodeError:
-                # poor man's x.decode('ascii', 'replace'), since it's not
-                # supported by RPython
-                if not we_are_translated():
-                    print 'WARNING: space.wrap() called on a non-ascii byte string: %r' % x
-                lst = []
-                for ch in x:
-                    ch = ord(ch)
-                    if ch > 127:
-                        lst.append(u'\ufffd')
-                    else:
-                        lst.append(unichr(ch))
-                unicode_x = u''.join(lst)
+                unicode_x = self._wrap_ascii_replace(x)
             return self.newunicode(unicode_x)
         if isinstance(x, unicode):
             return self.newunicode(x)
@@ -190,6 +179,22 @@ class StdObjSpace(ObjSpace):
             else:
                 return W_LongObject.fromrarith_int(x)
         return self._wrap_not_rpython(x)
+
+    def _wrap_ascii_replace(self, x):
+        # XXX should disappear soon?
+        # poor man's x.decode('ascii', 'replace'), since it's not
+        # supported by RPython
+        if not we_are_translated():
+            print 'WARNING: space.wrap() called on a non-ascii byte string: %r' % x
+        lst = []
+        for ch in x:
+            ch = ord(ch)
+            if ch > 127:
+                lst.append(u'\ufffd')
+            else:
+                lst.append(unichr(ch))
+        unicode_x = u''.join(lst)
+        return unicode_x
 
     def _wrap_not_rpython(self, x):
         "NOT_RPYTHON"

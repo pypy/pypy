@@ -116,6 +116,9 @@ class StringMethods(object):
 
     descr_rmul = descr_mul
 
+    _KIND1 = "string"
+    _KIND2 = "string"
+
     def descr_getitem(self, space, w_index):
         if isinstance(w_index, W_SliceObject):
             selfvalue = self._val(space)
@@ -130,7 +133,7 @@ class StringMethods(object):
                 ret = _descr_getslice_slowpath(selfvalue, start, step, sl)
                 return self._new_from_list(ret)
 
-        index = space.getindex_w(w_index, space.w_IndexError, "string")
+        index = space.getindex_w(w_index, space.w_IndexError, self._KIND1)
         return self._getitem_result(space, index)
 
     def _getitem_result(self, space, index):
@@ -140,7 +143,7 @@ class StringMethods(object):
         try:
             character = selfvalue[index]
         except IndexError:
-            raise oefmt(space.w_IndexError, "string index out of range")
+            raise oefmt(space.w_IndexError, self._KIND1 + " index out of range")
         from pypy.objspace.std.bytesobject import W_BytesObject
         if isinstance(self, W_BytesObject):
             return space.wrap(ord(character))
@@ -274,7 +277,7 @@ class StringMethods(object):
 
         if res < 0:
             raise oefmt(space.w_ValueError,
-                        "substring not found in string.index")
+                        "substring not found in " + self._KIND2 + ".index")
         return space.wrap(res)
 
     def descr_rindex(self, space, w_sub, w_start=None, w_end=None):
@@ -288,7 +291,7 @@ class StringMethods(object):
 
         if res < 0:
             raise oefmt(space.w_ValueError,
-                        "substring not found in string.rindex")
+                        "substring not found in " + self._KIND2 + ".rindex")
         return space.wrap(res)
 
     @specialize.arg(2)
@@ -404,13 +407,17 @@ class StringMethods(object):
         unwrapped = newlist_hint(size)
         for i in range(size):
             w_s = list_w[i]
-            if self._join_check_item(space, w_s):
+            try:
+                next_string = self._op_val(space, w_s)
+            except OperationError as e:
+                if not e.match(space, space.w_TypeError):
+                    raise
                 raise oefmt(space.w_TypeError,
                             "sequence item %d: expected %s, %T found",
                             i, self._generic_name(), w_s)
             # XXX Maybe the extra copy here is okay? It was basically going to
             #     happen anyway, what with being placed into the builder
-            unwrapped.append(self._op_val(space, w_s))
+            unwrapped.append(next_string)
             prealloc_size += len(unwrapped[i])
 
         sb = self._builder(prealloc_size)

@@ -26,7 +26,6 @@ PyFrame._virtualizable_ = ['last_instr', 'pycode',
                            'valuestackdepth',
                            'locals_cells_stack_w[*]',
                            'debugdata',
-                           'last_exception',
                            'lastblock',
                            'w_globals',
                            ]
@@ -98,7 +97,6 @@ class __extend__(PyFrame):
             jit.hint(self, force_virtualizable=True)
             return w_result
         except Return:
-            self.last_exception = None
             return self.popvalue()
 
     def jump_absolute(self, jumpto, ec):

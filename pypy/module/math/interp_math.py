@@ -189,12 +189,17 @@ def degrees(space, w_x):
 def _log_any(space, w_x, base):
     # base is supposed to be positive or 0.0, which means we use e
     try:
-        if space.isinstance_w(w_x, space.w_int):
+        try:
+            x = _get_double(space, w_x)
+        except OperationError as e:
+            if not e.match(space, space.w_OverflowError):
+                raise
+            if not space.isinstance_w(w_x, space.w_int):
+                raise
             # special case to support log(extremely-large-long)
             num = space.bigint_w(w_x)
             result = num.log(base)
         else:
-            x = _get_double(space, w_x)
             if base == 10.0:
                 result = math.log10(x)
             elif base == 2.0:

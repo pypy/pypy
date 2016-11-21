@@ -1095,7 +1095,6 @@ class ByteArrayTest(BaseBytesTest, unittest.TestCase):
         self.assertEqual(b, b1)
         self.assertTrue(b is b1)
 
-    @test.support.impl_detail("undocumented bytes.__alloc__()")
     def test_alloc(self):
         b = bytearray()
         alloc = b.__alloc__()

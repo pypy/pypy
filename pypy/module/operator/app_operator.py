@@ -91,11 +91,14 @@ class itemgetter(object):
 
 
 class methodcaller(object):
-    def __init__(self, method_name, *args, **kwargs):
+    def __init__(*args, **kwargs):
+        if len(args) < 2:
+            raise TypeError("methodcaller() called with not enough arguments")
+        self, method_name = args[:2]
         if not isinstance(method_name, str):
             raise TypeError("method name must be a string")
         self._method_name = method_name
-        self._args = args
+        self._args = args[2:]
         self._kwargs = kwargs
 
     def __call__(self, obj):

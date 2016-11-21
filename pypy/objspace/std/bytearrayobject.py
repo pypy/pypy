@@ -27,6 +27,8 @@ from pypy.objspace.std.formatting import mod_format, FORMAT_BYTEARRAY
 
 class W_BytearrayObject(W_Root):
     import_from_mixin(StringMethods)
+    _KIND1 = "bytearray"
+    _KIND2 = "bytearray"
 
     def __init__(self, data):
         check_list_of_chars(data)
@@ -147,10 +149,6 @@ class W_BytearrayObject(W_Root):
 
     def _join_return_one(self, space, w_obj):
         return False
-
-    def _join_check_item(self, space, w_obj):
-        return not (space.isinstance_w(w_obj, space.w_bytes) or
-                    space.isinstance_w(w_obj, space.w_bytearray))
 
     def ord(self, space):
         if len(self.data) != 1:
@@ -452,6 +450,9 @@ class W_BytearrayObject(W_Root):
         assert isinstance(self, W_BytearrayObject)
         return self._getitem_result(space, index)
 
+    def descr_alloc(self, space):
+        return space.wrap(self._len() + 1)
+
 
 # ____________________________________________________________
 # helpers for slow paths, moved out because they contain loops
@@ -552,7 +553,9 @@ class BytearrayDocstrings:
     def __alloc__():
         """B.__alloc__() -> int
 
-        Return the number of bytes actually allocated.
+        CPython compatibility: return len(B) + 1.
+        (The allocated size might be bigger, but getting it is
+        involved and may create pointless compatibility troubles.)
         """
 
     def __contains__():
@@ -967,6 +970,7 @@ class BytearrayDocstrings:
 
     def hex():
         """B.hex() -> unicode
+
         Return a string object containing two hexadecimal digits
         for each byte in the instance B.
         """
@@ -1124,6 +1128,8 @@ W_BytearrayObject.typedef = TypeDef(
                          doc=BytearrayDocstrings.copy.__doc__),
     hex = interp2app(W_BytearrayObject.descr_hex,
                            doc=BytearrayDocstrings.hex.__doc__),
+    __alloc__ = interp2app(W_BytearrayObject.descr_alloc,
+                           doc=BytearrayDocstrings.__alloc__.__doc__),
 )
 W_BytearrayObject.typedef.flag_sequence_bug_compat = True
 

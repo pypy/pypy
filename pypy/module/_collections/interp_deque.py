@@ -3,8 +3,9 @@ from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.typedef import GetSetProperty
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, oefmt
+from pypy.objspace.std.sliceobject import unwrap_start_stop
 from rpython.rlib.debug import check_nonneg
 from rpython.rlib.objectmodel import specialize
 
@@ -48,7 +49,9 @@ class Block(object):
         self.data = [None] * BLOCKLEN
 
 class Lock(object):
-    pass
+    """This is not a lock.  It is a marker to detect concurrent
+    modifications (including in the single-threaded case).
+    """
 
 # ------------------------------------------------------------
 
@@ -175,11 +178,12 @@ class W_Deque(W_Root):
                 raise
             self.append(w_obj)
 
-    def add(self, w_iterable):
+    def add(self, w_deque):
+        deque = self.space.interp_w(W_Deque, w_deque)
         copy = W_Deque(self.space)
         copy.maxlen = self.maxlen
         copy.extend(self.iter())
-        copy.extend(w_iterable)
+        copy.extend(deque.iter())
         return self.space.wrap(copy)
 
     def iadd(self, w_iterable):
@@ -281,8 +285,7 @@ class W_Deque(W_Root):
         self.modified()
         return w_obj
 
-    def remove(self, w_x):
-        "Remove first occurrence of value."
+    def _find(self, w_x):
         space = self.space
         block = self.leftblock
         index = self.leftindex
@@ -292,14 +295,25 @@ class W_Deque(W_Root):
             equal = space.eq_w(w_item, w_x)
             self.checklock(lock)
             if equal:
-                self.del_item(i)
-                return
+                return i
             # Advance the block/index pair
             index += 1
             if index >= BLOCKLEN:
                 block = block.rightlink
                 index = 0
-        raise oefmt(space.w_ValueError, "deque.remove(x): x not in deque")
+        return -1
+
+    def remove(self, w_x):
+        "Remove first occurrence of value."
+        i = self._find(w_x)
+        if i < 0:
+            raise oefmt(self.space.w_ValueError,
+                        "deque.remove(x): x not in deque")
+        self.del_item(i)
+
+    def contains(self, w_x):
+        i = self._find(w_x)
+        return self.space.newbool(i >= 0)
 
     def reverse(self):
         "Reverse *IN PLACE*."
@@ -340,31 +354,16 @@ class W_Deque(W_Root):
     def iter(self):
         return W_DequeIter(self)
 
-    def index(self, w_x, w_start=None, w_stop=None):
+    @unwrap_spec(w_start=WrappedDefault(0), w_stop=WrappedDefault(sys.maxint))
+    def index(self, w_x, w_start, w_stop):
         space = self.space
         w_iter = space.iter(self)
         _len = self.len
-        start = 0
-        stop = _len
         lock = self.getlock()
 
-        if w_start is not None:
-            start = space.int_w(w_start)
-            if start < 0:
-                start += _len
-            if start < 0:
-                start = 0
-            elif start > _len:
-                start = _len
+        start, stop = unwrap_start_stop(space, _len, w_start, w_stop)
 
-        if w_stop is not None:
-            stop = space.int_w(w_stop)
-            if stop < 0:
-                stop += _len
-            if 0 <= stop > _len:
-                stop = _len
-
-        for i in range(0, stop):
+        for i in range(0, min(_len, stop)):
             try:
                 w_obj = space.next(w_iter)
                 if i < start:
@@ -594,6 +593,7 @@ Build an ordered collection accessible from endpoints only.""",
     __imul__ = interp2app(W_Deque.imul),
     __rmul__ = interp2app(W_Deque.rmul),
     maxlen = GetSetProperty(W_Deque.get_maxlen),
+    __contains__ = interp2app(W_Deque.contains),
 )
 
 # ------------------------------------------------------------
