@@ -244,7 +244,7 @@ def convert_member_defs(space, dict_w, members, w_type):
 def update_all_slots(space, w_type, pto):
     # fill slots in pto
     # Not very sure about it, but according to
-    # test_call_tp_dealloc_when_created_from_python, we should not
+    # test_call_tp_dealloc, we should not
     # overwrite slots that are already set: these ones are probably
     # coming from a parent C type.
 

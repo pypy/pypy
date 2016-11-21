@@ -29,6 +29,7 @@ from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.backend.ppc import callbuilder
 from rpython.rlib.rarithmetic import r_uint
+from rpython.jit.backend.ppc.vector_ext import VectorAssembler
 from rpython.rlib.rjitlog import rjitlog as jl
 
 class IntOpAssembler(object):
@@ -1329,7 +1330,8 @@ class OpAssembler(IntOpAssembler, GuardOpAssembler,
                   MiscOpAssembler, FieldOpAssembler,
                   StrOpAssembler, CallOpAssembler,
                   UnicodeOpAssembler, ForceOpAssembler,
-                  AllocOpAssembler, FloatOpAssembler):
+                  AllocOpAssembler, FloatOpAssembler,
+                  VectorAssembler):
     _mixin_ = True
 
     def nop(self):

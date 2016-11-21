@@ -1,7 +1,10 @@
 """ interactive debugging with PDB, the Python Debugger. """
-
-import pytest, py
+from __future__ import absolute_import
+import pdb
 import sys
+
+import pytest
+
 
 def pytest_addoption(parser):
     group = parser.getgroup("general")
@@ -16,50 +19,43 @@ def pytest_configure(config):
     if config.getvalue("usepdb"):
         config.pluginmanager.register(PdbInvoke(), 'pdbinvoke')
 
-    old_trace = py.std.pdb.set_trace
+    old = (pdb.set_trace, pytestPDB._pluginmanager)
     def fin():
-        py.std.pdb.set_trace = old_trace
-    py.std.pdb.set_trace = pytest.set_trace
+        pdb.set_trace, pytestPDB._pluginmanager = old
+        pytestPDB._config = None
+    pdb.set_trace = pytest.set_trace
+    pytestPDB._pluginmanager = config.pluginmanager
+    pytestPDB._config = config
     config._cleanup.append(fin)
 
 class pytestPDB:
     """ Pseudo PDB that defers to the real pdb. """
-    item = None
-    collector = None
+    _pluginmanager = None
+    _config = None
 
     def set_trace(self):
         """ invoke PDB set_trace debugging, dropping any IO capturing. """
+        import _pytest.config
         frame = sys._getframe().f_back
-        item = self.item or self.collector
-
-        if item is not None:
-            capman = item.config.pluginmanager.getplugin("capturemanager")
-            out, err = capman.suspendcapture()
-            if hasattr(item, 'outerr'):
-                item.outerr = (item.outerr[0] + out, item.outerr[1] + err)
-            tw = py.io.TerminalWriter()
+        if self._pluginmanager is not None:
+            capman = self._pluginmanager.getplugin("capturemanager")
+            if capman:
+                capman.suspendcapture(in_=True)
+            tw = _pytest.config.create_terminal_writer(self._config)
             tw.line()
             tw.sep(">", "PDB set_trace (IO-capturing turned off)")
-        py.std.pdb.Pdb().set_trace(frame)
+            self._pluginmanager.hook.pytest_enter_pdb(config=self._config)
+        pdb.Pdb().set_trace(frame)
 
-def pdbitem(item):
-    pytestPDB.item = item
-pytest_runtest_setup = pytest_runtest_call = pytest_runtest_teardown = pdbitem
-
-@pytest.mark.tryfirst
-def pytest_make_collect_report(__multicall__, collector):
-    try:
-        pytestPDB.collector = collector
-        return __multicall__.execute()
-    finally:
-        pytestPDB.collector = None
-
-def pytest_runtest_makereport():
-    pytestPDB.item = None
 
 class PdbInvoke:
     def pytest_exception_interact(self, node, call, report):
-        return _enter_pdb(node, call.excinfo, report)
+        capman = node.config.pluginmanager.getplugin("capturemanager")
+        if capman:
+            out, err = capman.suspendcapture(in_=True)
+            sys.stdout.write(out)
+            sys.stdout.write(err)
+        _enter_pdb(node, call.excinfo, report)
 
     def pytest_internalerror(self, excrepr, excinfo):
         for line in str(excrepr).split("\n"):
@@ -87,7 +83,8 @@ def _enter_pdb(node, excinfo, rep):
 def _postmortem_traceback(excinfo):
     # A doctest.UnexpectedException is not useful for post_mortem.
     # Use the underlying exception instead:
-    if isinstance(excinfo.value, py.std.doctest.UnexpectedException):
+    from doctest import UnexpectedException
+    if isinstance(excinfo.value, UnexpectedException):
         return excinfo.value.exc_info[2]
     else:
         return excinfo._excinfo[2]
@@ -101,7 +98,6 @@ def _find_last_non_hidden_frame(stack):
 
 
 def post_mortem(t):
-    pdb = py.std.pdb
     class Pdb(pdb.Pdb):
         def get_stack(self, f, t):
             stack, i = pdb.Pdb.get_stack(self, f, t)

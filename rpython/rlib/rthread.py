@@ -5,7 +5,7 @@ import py, sys
 from rpython.rlib import jit, rgc
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.objectmodel import we_are_translated, specialize
-from rpython.rlib.objectmodel import CDefinedIntSymbolic
+from rpython.rlib.objectmodel import CDefinedIntSymbolic, not_rpython
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.extregistry import ExtRegistryEntry
@@ -37,8 +37,8 @@ def llexternal(name, args, result, **kwds):
     return rffi.llexternal(name, args, result, compilation_info=eci,
                            **kwds)
 
+@not_rpython
 def _emulated_start_new_thread(func):
-    "NOT_RPYTHON"
     import thread
     try:
         ident = thread.start_new_thread(func, ())
@@ -319,8 +319,9 @@ def gc_thread_after_fork(result_of_fork, opaqueaddr):
 
 
 class ThreadLocalField(object):
+    @not_rpython
     def __init__(self, FIELDTYPE, fieldname, loop_invariant=False):
-        "NOT_RPYTHON: must be prebuilt"
+        "must be prebuilt"
         try:
             from thread import _local
         except ImportError:
@@ -328,7 +329,7 @@ class ThreadLocalField(object):
                 pass
         self.FIELDTYPE = FIELDTYPE
         self.fieldname = fieldname
-        self.local = _local()      # <- NOT_RPYTHON
+        self.local = _local()      # <- not rpython
         zero = rffi.cast(FIELDTYPE, 0)
         offset = CDefinedIntSymbolic('RPY_TLOFS_%s' % self.fieldname,
                                      default='?')
@@ -381,8 +382,9 @@ class ThreadLocalReference(ThreadLocalField):
     # leak the objects when a thread finishes; see threadlocal.c.)
     _COUNT = 1
 
+    @not_rpython
     def __init__(self, Cls, loop_invariant=False):
-        "NOT_RPYTHON: must be prebuilt"
+        "must be prebuilt"
         self.Cls = Cls
         unique_id = ThreadLocalReference._COUNT
         ThreadLocalReference._COUNT += 1
@@ -454,8 +456,9 @@ if _win32:
     tlfield_rpy_lasterror = ThreadLocalField(rwin32.DWORD, "rpy_lasterror")
     tlfield_alt_lasterror = ThreadLocalField(rwin32.DWORD, "alt_lasterror")
 
+@not_rpython
 def _threadlocalref_seeme(field):
-    "NOT_RPYTHON"
+    pass
 
 class _Entry(ExtRegistryEntry):
     _about_ = _threadlocalref_seeme

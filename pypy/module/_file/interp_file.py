@@ -302,24 +302,7 @@ class W_File(W_AbstractStream):
             size = space.r_longlong_w(w_size)
         stream.truncate(size)
 
-    def direct_write(self, w_data):
-        space = self.space
-        self.check_writable()
-        if self.binary:
-            data = space.getarg_w('s*', w_data).as_str()
-        else:
-            if space.isinstance_w(w_data, space.w_unicode):
-                w_errors = w_encoding = None
-                if self.encoding:
-                    w_encoding = space.newtext(self.encoding)
-                if self.errors:
-                    w_errors = space.newtext(self.errors)
-                w_data = space.call_method(w_data, "encode",
-                                           w_encoding, w_errors)
-            data = space.charbuf_w(w_data)
-        self.do_direct_write(data)
-
-    def do_direct_write(self, data):
+    def direct_write_str(self, data):
         self.softspace = 0
         self.getstream().write(data)
 
@@ -349,7 +332,7 @@ class W_File(W_AbstractStream):
     _exposed_method_names = []
 
     def _decl(class_scope, name, docstring,
-              wrapresult="space.newtext(result)"):
+              wrapresult="space.newtext(result)", exposed=True):
         # hack hack to build a wrapper around the direct_xxx methods.
         # The wrapper adds lock/unlock calls and a wraps
         # the result, conversion of stream errors to OperationErrors,
@@ -389,7 +372,8 @@ class W_File(W_AbstractStream):
         exec str(src) in globals(), class_scope
         if unwrap_spec is not None:
             class_scope['file_' + name].unwrap_spec = unwrap_spec
-        class_scope['_exposed_method_names'].append(name)
+        if exposed:
+            class_scope['_exposed_method_names'].append(name)
 
 
     _decl(locals(), "__init__", """Opens a file.""",
@@ -476,13 +460,9 @@ Note that not all file objects are seekable.""",
 Size defaults to the current file position, as returned by tell().""",
         wrapresult="space.w_None")
 
-    _decl(locals(), "write",
-        """write(str) -> None.  Write string str to file.
-
-Note that due to buffering, flush() or close() may be needed before
-the file on disk reflects the data written.""",
-        wrapresult="space.w_None")
-
+    _decl(locals(), "write_str", "Interp-level only, see file_write()",
+          exposed=False,
+          wrapresult="space.w_None")
     _decl(locals(), "__iter__",
         """Iterating over files, as in 'for line in f:', returns each line of
 the file one by one.""",
@@ -513,6 +493,27 @@ optimizations previously implemented in the xreadlines module.""",
             return '?'
         else:
             return space.str_w(space.repr(w_name))
+
+    def file_write(self, w_data):
+        """write(str) -> None.  Write string str to file.
+
+Note that due to buffering, flush() or close() may be needed before
+the file on disk reflects the data written."""
+        space = self.space
+        self.check_writable()
+        if self.binary:
+            data = space.getarg_w('s*', w_data).as_str()
+        else:
+            if space.isinstance_w(w_data, space.w_unicode):
+                # note: "encode" is called before we acquire the lock
+                # for this file, which is done in file_write_str().
+                # Direct access to unicodeobject because we don't want
+                # to call user-defined "encode" methods here.
+                from pypy.objspace.std.unicodeobject import encode_object
+                w_data = encode_object(space, w_data, self.encoding,
+                                       self.errors)
+            data = space.charbuf_w(w_data)
+        self.file_write_str(data)
 
     def file_writelines(self, w_lines):
         """writelines(sequence_of_strings) -> None.  Write the strings to the file.
@@ -628,6 +629,7 @@ Note:  open() is an alias for file().
                               cls=W_File,
                               doc="Support for 'print'."),
     __repr__ = interp2app(W_File.file__repr__),
+    write      = interp2app(W_File.file_write),
     writelines = interp2app(W_File.file_writelines),
     __exit__ = interp2app(W_File.file__exit__),
     __weakref__ = make_weakref_descr(W_File),

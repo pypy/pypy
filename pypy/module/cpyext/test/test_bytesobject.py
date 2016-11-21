@@ -350,7 +350,6 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
                 PyObject * obj;
                 char * data;
                 int len;
-                PyType_Ready(&PyStringArrType_Type);
 
                 data = PyString_AS_STRING(args);
                 len = PyString_GET_SIZE(args);
@@ -434,6 +433,7 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
                 PyStringArrType_Type.tp_flags = Py_TPFLAGS_DEFAULT|Py_TPFLAGS_BASETYPE;
                 PyStringArrType_Type.tp_itemsize = sizeof(char);
                 PyStringArrType_Type.tp_base = &PyString_Type;
+                if (PyType_Ready(&PyStringArrType_Type) < 0) INITERROR;
             ''')
 
         a = module.newsubstr('abc')

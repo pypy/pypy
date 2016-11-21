@@ -9,8 +9,8 @@
   Philip Jenvey
   Ronan Lamy
   Brian Kearns
-  Michael Hudson
   Richard Plangger
+  Michael Hudson
   Manuel Jacob
   David Schneider
   Holger Krekel
@@ -54,10 +54,10 @@
   Jason Creighton
   Mark Young
   Alex Martelli
+  Spenser Bauman
   Michal Bendowski
   stian
   Jan de Mooij
-  Spenser Bauman
   Tyler Wade
   Vincent Legoll
   Michael Foord
@@ -65,13 +65,13 @@
   Stefan Schwarzer
   Valentino Volonghi
   Tomek Meka
+  Stefano Rivera
   Patrick Maupin
   Devin Jeanpierre
   Bob Ippolito
   Bruno Gola
   David Malcolm
   Jean-Paul Calderone
-  Stefano Rivera
   Timo Paulssen
   Edd Barrett
   Squeaky
@@ -89,12 +89,12 @@
   Dario Bertini
   Mark Pearse
   Simon Cross
+  Jeremy Thurgood
   Andreas Stührk
   Tobias Pape
   Jean-Philippe St. Pierre
   Guido van Rossum
   Pavel Vinogradov
-  Jeremy Thurgood
   Paweł Piotr Przeradowski
   Paul deGrandis
   Ilya Osadchiy
@@ -128,10 +128,11 @@
   Anton Gulenko
   Amit Regmi
   Ben Young
-  Sergey Matyunin
+  Jasper Schulz
   Nicolas Chauvat
   Andrew Durdin
   Andrew Chambers
+  Sergey Matyunin
   Michael Schneider
   Nicholas Riley
   Jason Chu
@@ -147,17 +148,16 @@
   Jared Grubb
   Karl Bartel
   Wouter van Heyst
-  Sebastian Pawluś
   Brian Dorsey
   Victor Stinner
   Andrews Medina
+  Sebastian Pawluś
   Stuart Williams
   Daniel Patrick
-  Jasper Schulz
-  Christian Hudon
+  Aaron Iles
   Toby Watson
   Antoine Pitrou
-  Aaron Iles
+  Christian Hudon
   Michael Cheng
   Justas Sadzevicius
   Gasper Zejn
@@ -165,8 +165,8 @@
   Stanislaw Halik
   Mikael Schönenberg
   Berkin Ilbeyi
-  Elmo Mäntynen
   Faye Zhao
+  Elmo Mäntynen
   Jonathan David Riehl
   Anders Qvist
   Corbin Simpson
@@ -175,11 +175,12 @@
   Alex Perry
   Vaibhav Sood
   Alan McIntyre
+  Reuben Cummings
   Alexander Sedov
   p_zieschang@yahoo.de
   Attila Gobi
-  Jasper.Schulz
   Christopher Pope
+  Aaron Gallagher
   Florin Papa
   Christian Tismer 
   Marc Abramowitz
@@ -196,7 +197,6 @@
   Gabriel
   Lukas Vacek
   Kunal Grover
-  Aaron Gallagher
   Andrew Dalke
   Sylvain Thenault
   Jakub Stasiak
@@ -219,6 +219,7 @@
   Philipp Rustemeuer
   Henrik Vendelbo
   Richard Lancaster
+  Yasir Suhail
   Dan Buch
   Miguel de Val Borro
   Artur Lisiecki
@@ -231,6 +232,7 @@
   Catalin Gabriel Manciu
   Tomo Cocoa
   Kim Jin Su
+  rafalgalczynski@gmail.com
   Toni Mattis
   Amber Brown
   Lucas Stadler
@@ -258,9 +260,7 @@
   Michael Hudson-Doyle
   Anders Sigfridsson
   Nikolay Zinov
-  Yasir Suhail
   Jason Michalski
-  rafalgalczynski@gmail.com
   Floris Bruynooghe
   Laurens Van Houtven
   Akira Li
@@ -274,10 +274,10 @@
   James Lan
   Volodymyr Vladymyrov
   shoma hosaka
-  Daniel Neuhäuser
   Ben Mather
   Niclas Olofsson
-  "Aaron Gallagher
+  Matthew Miller
+  Rodrigo Araújo
   halgari
   Boglarka Vezer
   Chris Pressey
@@ -287,8 +287,9 @@
   Dinu Gherman
   Chris Lambacher
   coolbutuseless@gmail.com
+  Daniil Yarancev
   Jim Baker
-  Rodrigo Araújo
+  Dan Crosta
   Nikolaos-Digenis Karagiannis
   James Robert
   Armin Ronacher
@@ -302,13 +303,11 @@
   Tomer Chachamu
   Christopher Groskopf
   Asmo Soinio
-  Stefan Marr
   jiaaro
   Mads Kiilerich
-  opassembler.py
-  JohnDoe
   Antony Lee
   Jason Madden
+  Daniel Neuh�user
   reubano@gmail.com
   Yaroslav Fedevych
   Jim Hunziker
@@ -316,25 +315,24 @@
   Even Wiik Thomassen
   jbs
   squeaky
-  Zearin
   soareschen
   Jonas Pfannschmidt
   Kurt Griffiths
   Mike Bayer
-  Matthew Miller
+  Stefan Marr
   Flavio Percoco
   Kristoffer Kleine
-  yasirs
   Michael Chermside
   Anna Ravencroft
   pizi
   remarkablerocket
   Andrey Churin
-  Dan Crosta
+  Zearin
   Eli Stevens
   Tobias Diaz
   Julien Phalip
   Roman Podoliaka
   Dan Loewenherz
   werat
-  hgattic
+
+

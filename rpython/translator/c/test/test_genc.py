@@ -53,7 +53,8 @@ def parse_ulonglong(a):
                                            unsigned_ffffffff)
 
 def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
-            annotatorpolicy=None, thread=False, **kwds):
+            annotatorpolicy=None, thread=False,
+            return_stderr=False, **kwds):
     argtypes_unroll = unrolling_iterable(enumerate(argtypes))
 
     for argtype in argtypes:
@@ -139,7 +140,8 @@ def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
 
         stdout = t.driver.cbuilder.cmdexec(
             " ".join([llrepr_in(arg) for arg in args]),
-            expect_crash=(expected_exception_name is not None))
+            expect_crash=(expected_exception_name is not None),
+            err=return_stderr)
         #
         if expected_exception_name is not None:
             stdout, stderr = stdout
@@ -154,6 +156,8 @@ def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
             assert lastline == expected or prevline == expected
             return None
 
+        if return_stderr:
+            stdout, stderr = stdout
         output(stdout)
         stdout, lastline, empty = stdout.rsplit('\n', 2)
         assert empty == ''
@@ -168,6 +172,8 @@ def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
         else:
             assert mallocs - frees in expected_extra_mallocs
         #
+        if return_stderr:
+            return stderr
         if ll_res in [lltype.Signed, lltype.Unsigned, lltype.SignedLongLong,
                       lltype.UnsignedLongLong]:
             return int(res)

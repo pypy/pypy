@@ -223,6 +223,13 @@ def try_inline(func):
     func._always_inline_ = 'try'
     return func
 
+def not_rpython(func):
+    """ mark a function as not rpython. the translation process will raise an
+    error if it encounters the function. """
+    # test is in annotator/test/test_annrpython.py
+    func._not_rpython_ = True
+    return func
+
 
 # ____________________________________________________________
 
@@ -288,9 +295,14 @@ class CDefinedIntSymbolic(Symbolic):
 
 malloc_zero_filled = CDefinedIntSymbolic('MALLOC_ZERO_FILLED', default=0)
 _translated_to_c = CDefinedIntSymbolic('1 /*_translated_to_c*/', default=0)
+_rpy_assert_value = CDefinedIntSymbolic('RPY_ASSERT_VALUE', default=1)
 
 def we_are_translated_to_c():
     return we_are_translated() and _translated_to_c
+
+def we_are_debug():
+    """ Returns True when not translated or translated with debugging enabled. """
+    return not we_are_translated() or (_translated_to_c and _rpy_assert_value)
 
 # ____________________________________________________________
 
@@ -545,8 +557,9 @@ def _hash_float(f):
     return intmask(x)
 TAKE_NEXT = float(2**31)
 
+@not_rpython
 def _hash_tuple(t):
-    """NOT_RPYTHON.  The algorithm behind compute_hash() for a tuple.
+    """The algorithm behind compute_hash() for a tuple.
     It is modelled after the old algorithm of Python 2.3, which is
     a bit faster than the one introduced by Python 2.4.  We assume
     that nested tuples are very uncommon in RPython, making the bad

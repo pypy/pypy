@@ -120,7 +120,7 @@ class StreamReaderWriter(AbstractReaderWriter):
 
 class DirectStreamWriter(StreamReaderWriter):
     def write(self, data):
-        self.file.do_direct_write(data)
+        self.file.direct_write_str(data)
 
 class DirectStreamReader(StreamReaderWriter):
     def read(self, n):
