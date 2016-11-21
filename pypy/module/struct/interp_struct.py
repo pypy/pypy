@@ -134,8 +134,8 @@ class W_Struct(W_Root):
 
 W_Struct.typedef = TypeDef("Struct",
     __new__=interp2app(W_Struct.descr__new__.im_func),
-    format=interp_attrproperty("format", cls=W_Struct),
-    size=interp_attrproperty("size", cls=W_Struct),
+    format=interp_attrproperty("format", cls=W_Struct, wrapfn="newbytes"),
+    size=interp_attrproperty("size", cls=W_Struct, wrapfn="newint"),
 
     pack=interp2app(W_Struct.descr_pack),
     unpack=interp2app(W_Struct.descr_unpack),

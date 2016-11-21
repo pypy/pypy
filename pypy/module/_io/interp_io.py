@@ -34,7 +34,8 @@ W_BlockingIOError.typedef = TypeDef(
                "I/O stream"),
     __new__  = generic_new_descr(W_BlockingIOError),
     __init__ = interp2app(W_BlockingIOError.descr_init),
-    characters_written = interp_attrproperty('written', W_BlockingIOError),
+    characters_written = interp_attrproperty('written', W_BlockingIOError,
+        wrapfn="newint"),
     )
 
 DEFAULT_BUFFER_SIZE = 8 * 1024

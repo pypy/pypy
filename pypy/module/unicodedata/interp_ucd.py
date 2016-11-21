@@ -322,7 +322,8 @@ for methodname in """
 
 UCD.typedef = TypeDef("unicodedata.UCD",
                       __doc__ = "",
-                      unidata_version = interp_attrproperty('version', UCD),
+                      unidata_version = interp_attrproperty('version', UCD,
+                          wrapfn="newtext"),
                       **methods)
 
 ucd_3_2_0 = UCD(unicodedb_3_2_0)

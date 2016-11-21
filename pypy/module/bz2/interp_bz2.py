@@ -699,7 +699,8 @@ class W_BZ2Decompressor(W_Root):
 W_BZ2Decompressor.typedef = TypeDef("BZ2Decompressor",
     __doc__ = W_BZ2Decompressor.__doc__,
     __new__ = interp2app(descr_decompressor__new__),
-    unused_data = interp_attrproperty("unused_data", W_BZ2Decompressor),
+    unused_data = interp_attrproperty("unused_data", W_BZ2Decompressor,
+        wrapfn="newbytes"),
     decompress = interp2app(W_BZ2Decompressor.decompress),
 )
 

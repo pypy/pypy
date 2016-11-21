@@ -1199,8 +1199,10 @@ W_Ufunc.typedef = TypeDef("numpy.ufunc",
 
     identity = GetSetProperty(W_Ufunc.descr_get_identity),
     accumulate = interp2app(W_Ufunc.descr_accumulate),
-    nin = interp_attrproperty("nin", cls=W_Ufunc),
-    nout = interp_attrproperty("nout", cls=W_Ufunc),
+    nin = interp_attrproperty("nin", cls=W_Ufunc,
+        wrapfn="newint"),
+    nout = interp_attrproperty("nout", cls=W_Ufunc,
+        wrapfn="newint"),
     nargs = interp_attrproperty("nargs", cls=W_Ufunc),
     signature = interp_attrproperty("signature", cls=W_Ufunc),
 

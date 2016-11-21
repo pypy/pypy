@@ -242,7 +242,8 @@ W_CDLL.typedef = TypeDef(
     __new__     = interp2app(descr_new_cdll),
     ptr         = interp2app(W_CDLL.ptr),
     getaddressindll = interp2app(W_CDLL.getaddressindll),
-    name        = interp_attrproperty('name', W_CDLL),
+    name        = interp_attrproperty('name', W_CDLL,
+        wrapfn="newtext_or_none"),
     __doc__     = """ C Dynamically loaded library
 use CDLL(libname) to create a handle to a C library (the argument is processed
 the same way as dlopen processes it). On such a library you can call:

@@ -199,7 +199,7 @@ WrappedOp.typedef = TypeDef(
     __new__ = interp2app(descr_new_resop),
     __repr__ = interp2app(WrappedOp.descr_repr),
     name = GetSetProperty(WrappedOp.descr_name),
-    offset = interp_attrproperty("offset", cls=WrappedOp),
+    offset = interp_attrproperty("offset", cls=WrappedOp, wrapfn="newint"),
 )
 WrappedOp.typedef.acceptable_as_base_class = False
 
@@ -209,8 +209,8 @@ GuardOp.typedef = TypeDef(
     __new__ = interp2app(descr_new_guardop),
     __repr__ = interp2app(GuardOp.descr_repr),
     name = GetSetProperty(GuardOp.descr_name),
-    offset = interp_attrproperty("offset", cls=GuardOp),
-    hash = interp_attrproperty("hash", cls=GuardOp),
+    offset = interp_attrproperty("offset", cls=GuardOp, wrapfn="newint"),
+    hash = interp_attrproperty("hash", cls=GuardOp, wrapfn="newint"),
     )
 GuardOp.typedef.acceptable_as_base_class = False
 
@@ -226,9 +226,9 @@ DebugMergePoint.typedef = TypeDef(
     bytecode_no = GetSetProperty(DebugMergePoint.get_bytecode_no,
                                  doc="offset in the bytecode"),
     call_depth = interp_attrproperty("call_depth", cls=DebugMergePoint,
-                                     doc="Depth of calls within this loop"),
+                                     doc="Depth of calls within this loop", wrapfn="newint"),
     call_id = interp_attrproperty("call_id", cls=DebugMergePoint,
-                     doc="Number of applevel function traced in this loop"),
+                     doc="Number of applevel function traced in this loop", wrapfn="newint"),
     jitdriver_name = GetSetProperty(DebugMergePoint.get_jitdriver_name,
                      doc="Name of the jitdriver 'pypyjit' in the case "
                                     "of the main interpreter loop"),
@@ -311,7 +311,8 @@ W_JitLoopInfo.typedef = TypeDef(
     __doc__ = W_JitLoopInfo.__doc__,
     __new__ = interp2app(descr_new_jit_loop_info),
     jitdriver_name = interp_attrproperty('jd_name', cls=W_JitLoopInfo,
-                       doc="Name of the JitDriver, pypyjit for the main one"),
+                       doc="Name of the JitDriver, pypyjit for the main one",
+                       wrapfn="newtext"),
     greenkey = interp_attrproperty_w('w_green_key', cls=W_JitLoopInfo,
                doc="Representation of place where the loop was compiled. "
                     "In the case of the main interpreter loop, it's a triplet "
@@ -319,15 +320,19 @@ W_JitLoopInfo.typedef = TypeDef(
     operations = interp_attrproperty_w('w_ops', cls=W_JitLoopInfo, doc=
                                        "List of operations in this loop."),
     loop_no = interp_attrproperty('loop_no', cls=W_JitLoopInfo, doc=
-                                  "Loop cardinal number"),
+                                  "Loop cardinal number",
+                                  wrapfn="newint"),
     bridge_no = GetSetProperty(W_JitLoopInfo.descr_get_bridge_no,
                                doc="bridge number (if a bridge)"),
     type = interp_attrproperty('type', cls=W_JitLoopInfo,
-                               doc="Loop type"),
+                               doc="Loop type",
+                               wrapfn="newtext"),
     asmaddr = interp_attrproperty('asmaddr', cls=W_JitLoopInfo,
-                                  doc="Address of machine code"),
+                                  doc="Address of machine code",
+                                  wrapfn="newint"),
     asmlen = interp_attrproperty('asmlen', cls=W_JitLoopInfo,
-                                  doc="Length of machine code"),
+                                  doc="Length of machine code",
+                                  wrapfn="newint"),
     __repr__ = interp2app(W_JitLoopInfo.descr_repr),
 )
 W_JitLoopInfo.typedef.acceptable_as_base_class = False

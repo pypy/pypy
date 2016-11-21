@@ -138,8 +138,8 @@ W_FunctionWrapper.typedef = TypeDef(
         'FFIFunctionWrapper',
         __repr__ = interp2app(W_FunctionWrapper.descr_repr),
         __call__ = interp2app(W_FunctionWrapper.descr_call),
-        __name__ = interp_attrproperty('fnname', cls=W_FunctionWrapper),
-        __module__ = interp_attrproperty('modulename', cls=W_FunctionWrapper),
+        __name__ = interp_attrproperty('fnname', cls=W_FunctionWrapper, wrapfn="newtext"),
+        __module__ = interp_attrproperty('modulename', cls=W_FunctionWrapper, wrapfn="newtext"),
         __doc__ = GetSetProperty(W_FunctionWrapper.descr_get_doc),
         __get__ = interp2app(W_FunctionWrapper.descr_get),
         )

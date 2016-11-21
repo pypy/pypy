@@ -406,9 +406,11 @@ W_SRE_Pattern.typedef = TypeDef(
     split        = interp2app(W_SRE_Pattern.split_w),
     sub          = interp2app(W_SRE_Pattern.sub_w),
     subn         = interp2app(W_SRE_Pattern.subn_w),
-    flags        = interp_attrproperty('flags', W_SRE_Pattern),
+    flags        = interp_attrproperty('flags', W_SRE_Pattern,
+        wrapfn="newint"),
     groupindex   = interp_attrproperty_w('w_groupindex', W_SRE_Pattern),
-    groups       = interp_attrproperty('num_groups', W_SRE_Pattern),
+    groups       = interp_attrproperty('num_groups', W_SRE_Pattern,
+        wrapfn="newint"),
     pattern      = interp_attrproperty_w('w_pattern', W_SRE_Pattern),
 )
 W_SRE_Pattern.typedef.acceptable_as_base_class = False
@@ -587,7 +589,7 @@ W_SRE_Match.typedef = TypeDef(
     span         = interp2app(W_SRE_Match.span_w),
     expand       = interp2app(W_SRE_Match.expand_w),
     #
-    re           = interp_attrproperty('srepat', W_SRE_Match),
+    re           = interp_attrproperty_w('srepat', W_SRE_Match),
     string       = GetSetProperty(W_SRE_Match.fget_string),
     pos          = GetSetProperty(W_SRE_Match.fget_pos),
     endpos       = GetSetProperty(W_SRE_Match.fget_endpos),
@@ -649,6 +651,6 @@ W_SRE_Scanner.typedef = TypeDef(
     next     = interp2app(W_SRE_Scanner.next_w),
     match    = interp2app(W_SRE_Scanner.match_w),
     search   = interp2app(W_SRE_Scanner.search_w),
-    pattern  = interp_attrproperty('srepat', W_SRE_Scanner),
+    pattern  = interp_attrproperty_w('srepat', W_SRE_Scanner),
 )
 W_SRE_Scanner.typedef.acceptable_as_base_class = False

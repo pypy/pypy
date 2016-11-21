@@ -347,8 +347,8 @@ Decompress.typedef = TypeDef(
     __new__ = interp2app(Decompress___new__),
     decompress = interp2app(Decompress.decompress),
     flush = interp2app(Decompress.flush),
-    unused_data = interp_attrproperty('unused_data', Decompress),
-    unconsumed_tail = interp_attrproperty('unconsumed_tail', Decompress),
+    unused_data = interp_attrproperty('unused_data', Decompress, wrapfn="newbytes"),
+    unconsumed_tail = interp_attrproperty('unconsumed_tail', Decompress, wrapfn="newbytes"),
     __doc__ = """decompressobj([wbits]) -- Return a decompressor object.
 
 Optional arg wbits is the window buffer size.

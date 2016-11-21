@@ -1045,7 +1045,8 @@ W_TextIOWrapper.typedef = TypeDef(
     truncate = interp2app(W_TextIOWrapper.truncate_w),
     close = interp2app(W_TextIOWrapper.close_w),
 
-    line_buffering = interp_attrproperty("line_buffering", W_TextIOWrapper),
+    line_buffering = interp_attrproperty("line_buffering", W_TextIOWrapper,
+        wrapfn="newint"),
     readable = interp2app(W_TextIOWrapper.readable_w),
     writable = interp2app(W_TextIOWrapper.writable_w),
     seekable = interp2app(W_TextIOWrapper.seekable_w),

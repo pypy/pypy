@@ -449,7 +449,8 @@ W_FileIO.typedef = TypeDef(
     fileno = interp2app(W_FileIO.fileno_w),
     isatty = interp2app(W_FileIO.isatty_w),
     name = interp_member_w('w_name', cls=W_FileIO),
-    closefd = interp_attrproperty('closefd', cls=W_FileIO),
+    closefd = interp_attrproperty('closefd', cls=W_FileIO,
+        wrapfn="newbool"),
     mode = GetSetProperty(W_FileIO.descr_get_mode),
     )
 

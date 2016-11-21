@@ -249,7 +249,8 @@ W_PyCFunctionObject.typedef = TypeDef(
     __call__ = interp2app(cfunction_descr_call),
     __doc__ = GetSetProperty(W_PyCFunctionObject.get_doc),
     __module__ = interp_attrproperty_w('w_module', cls=W_PyCFunctionObject),
-    __name__ = interp_attrproperty('name', cls=W_PyCFunctionObject),
+    __name__ = interp_attrproperty('name', cls=W_PyCFunctionObject,
+        wrapfn="newtext_or_none"),
     )
 W_PyCFunctionObject.typedef.acceptable_as_base_class = False
 
@@ -257,7 +258,8 @@ W_PyCMethodObject.typedef = TypeDef(
     'method',
     __get__ = interp2app(cmethod_descr_get),
     __call__ = interp2app(cmethod_descr_call),
-    __name__ = interp_attrproperty('name', cls=W_PyCMethodObject),
+    __name__ = interp_attrproperty('name', cls=W_PyCMethodObject,
+        wrapfn="newtext_or_none"),
     __objclass__ = interp_attrproperty_w('w_objclass', cls=W_PyCMethodObject),
     __repr__ = interp2app(W_PyCMethodObject.descr_method_repr),
     )
@@ -267,7 +269,8 @@ W_PyCClassMethodObject.typedef = TypeDef(
     'classmethod',
     __get__ = interp2app(cclassmethod_descr_get),
     __call__ = interp2app(cmethod_descr_call),
-    __name__ = interp_attrproperty('name', cls=W_PyCClassMethodObject),
+    __name__ = interp_attrproperty('name', cls=W_PyCClassMethodObject,
+        wrapfn="newtext_or_none"),
     __objclass__ = interp_attrproperty_w('w_objclass',
                                          cls=W_PyCClassMethodObject),
     __repr__ = interp2app(W_PyCClassMethodObject.descr_method_repr),
@@ -279,8 +282,10 @@ W_PyCWrapperObject.typedef = TypeDef(
     'wrapper_descriptor',
     __call__ = interp2app(cwrapper_descr_call),
     __get__ = interp2app(cmethod_descr_get),
-    __name__ = interp_attrproperty('method_name', cls=W_PyCWrapperObject),
-    __doc__ = interp_attrproperty('doc', cls=W_PyCWrapperObject),
+    __name__ = interp_attrproperty('method_name', cls=W_PyCWrapperObject,
+        wrapfn="newtext_or_none"),
+    __doc__ = interp_attrproperty('doc', cls=W_PyCWrapperObject,
+        wrapfn="newtext_or_none"),
     __objclass__ = interp_attrproperty_w('w_objclass', cls=W_PyCWrapperObject),
     __repr__ = interp2app(W_PyCWrapperObject.descr_method_repr),
     # XXX missing: __getattribute__
