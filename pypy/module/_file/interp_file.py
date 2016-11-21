@@ -8,6 +8,7 @@ from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.rstring import StringBuilder
 from pypy.module._file.interp_stream import W_AbstractStream, StreamErrors
 from pypy.module.posix.interp_posix import dispatch_filename
+from pypy.module.sys.interp_encoding import getdefaultencoding
 from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
     interp_attrproperty, make_weakref_descr, interp_attrproperty_w)
@@ -309,11 +310,14 @@ class W_File(W_AbstractStream):
             data = space.getarg_w('s*', w_data).as_str()
         else:
             if space.isinstance_w(w_data, space.w_unicode):
-                w_errors = w_encoding = None
                 if self.encoding:
                     w_encoding = space.wrap(self.encoding)
+                else:
+                    w_encoding = getdefaultencoding(space)
                 if self.errors:
                     w_errors = space.wrap(self.errors)
+                else:
+                    w_errors = space.wrap("strict")
                 w_data = space.call_method(w_data, "encode",
                                            w_encoding, w_errors)
             data = space.charbuf_w(w_data)
