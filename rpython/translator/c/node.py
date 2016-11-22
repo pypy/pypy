@@ -3,7 +3,7 @@ from rpython.rtyper.lltypesystem.lltype import (Struct, Array, FixedSizeArray,
     Void, OpaqueType, Float, RuntimeTypeInfo, getRuntimeTypeInfo, Char,
     _subarray)
 from rpython.rtyper.lltypesystem import llmemory, llgroup
-from rpython.translator.c.funcgen import make_funcgen
+from rpython.translator.c.funcgen import make_funcgen, StaticNullPtrDereference
 from rpython.translator.c.support import USESLOTS # set to False if necessary while refactoring
 from rpython.translator.c.support import cdecl, forward_cdecl, somelettersfrom
 from rpython.translator.c.support import c_char_array_constant, barebonearray
@@ -167,6 +167,8 @@ class StructDefNode(NodeWithDependencies):
         return '%s.%s' % (baseexpr, fldname)
 
     def ptr_access_expr(self, baseexpr, fldname, baseexpr_is_const=False):
+        if baseexpr == 'NULL':
+            raise StaticNullPtrDereference('RPyField(NULL, %s)' % fldname)
         fldname = self.c_struct_field_name(fldname)
         if baseexpr_is_const:
             return '%s->%s' % (baseexpr, fldname)
@@ -269,6 +271,8 @@ class ArrayDefNode(NodeWithDependencies):
     access_expr_varindex = access_expr
 
     def ptr_access_expr(self, baseexpr, index, dummy=False):
+        if baseexpr == 'NULL':
+            raise StaticNullPtrDereference('RPyItem(NULL, ..)')
         assert 0 <= index <= sys.maxint, "invalid constant index %r" % (index,)
         return self.itemindex_access_expr(baseexpr, index)
 
@@ -373,6 +377,8 @@ class BareBoneArrayDefNode(NodeWithDependencies):
 
     def ptr_access_expr(self, baseexpr, index, dummy=False):
         assert 0 <= index <= sys.maxint, "invalid constant index %r" % (index,)
+        if baseexpr == 'NULL':
+            raise StaticNullPtrDereference('RPyBareItem(NULL, ..)')
         return self.itemindex_access_expr(baseexpr, index)
 
     def itemindex_access_expr(self, baseexpr, indexexpr):
@@ -423,6 +429,8 @@ class FixedSizeArrayDefNode(NodeWithDependencies):
         if not (0 <= index < self.FIXEDARRAY.length):
             raise IndexError("refusing to generate a statically out-of-bounds"
                              " array indexing")
+        if baseexpr == 'NULL':
+            raise StaticNullPtrDereference('NULL[..]')
         return '%s[%d]' % (baseexpr, index)
 
     ptr_access_expr = access_expr

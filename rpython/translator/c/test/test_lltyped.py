@@ -947,6 +947,21 @@ class TestLowLevelType(object):
         fn = self.getcompiled(f, [int])
         assert fn(6) == 6
 
+    def test_static_nullptr_deref(self):
+        aptr = nullptr(rffi.CArray(Signed))
+        S = Struct('S', ('len', Signed))
+        sptr = nullptr(S)
+        def f(n):
+            if n > 10:
+                # never reached, or so we hope
+                i = aptr[0]
+                i += sptr.len
+                return i
+            return n
+
+        fn = self.getcompiled(f, [int])
+        assert fn(6) == 6
+
     def test_likely_unlikely(self):
         from rpython.rlib.objectmodel import likely, unlikely
 
