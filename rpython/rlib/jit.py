@@ -1194,10 +1194,19 @@ class Entry(ExtRegistryEntry):
         return hop.gendirectcall(ll_record_exact_class, v_inst, v_cls)
 
 def _jit_conditional_call(condition, function, *args):
-    pass
+    pass           # special-cased below
 
 @specialize.call_location()
 def conditional_call(condition, function, *args):
+    """Does the same as:
+
+         if condition:
+             function(*args)
+
+    but is better for the JIT, in case the condition is often false
+    but could be true occasionally.  It allows the JIT to always produce
+    bridge-free code.  The function is never looked inside.
+    """
     if we_are_jitted():
         _jit_conditional_call(condition, function, *args)
     else:
@@ -1205,21 +1214,58 @@ def conditional_call(condition, function, *args):
             function(*args)
 conditional_call._always_inline_ = True
 
+def _jit_conditional_call_value(value, function, *args):
+    return value    # special-cased below
+
+@specialize.call_location()
+def conditional_call_value(value, function, *args):
+    """Does the same as:
+
+        if not value:
+            value = function(*args)
+        return value
+
+    For the JIT.  Allows one branch which doesn't create a bridge,
+    typically used for caching.  The function must be @elidable.
+    The value and the function's return type must match and cannot
+    be a float.
+    """
+    if we_are_jitted():
+        return _jit_conditional_call_value(value, function, *args)
+    else:
+        if not value:
+            value = function(*args)
+        return value
+conditional_call_value._always_inline_ = True
+
 class ConditionalCallEntry(ExtRegistryEntry):
-    _about_ = _jit_conditional_call
+    _about_ = _jit_conditional_call, _jit_conditional_call_value
 
     def compute_result_annotation(self, *args_s):
-        self.bookkeeper.emulate_pbc_call(self.bookkeeper.position_key,
-                                         args_s[1], args_s[2:])
+        s_res = self.bookkeeper.emulate_pbc_call(self.bookkeeper.position_key,
+                                                 args_s[1], args_s[2:])
+        if self.instance == _jit_conditional_call_value:
+            from rpython.annotator import model as annmodel
+            return annmodel.unionof(s_res, args_s[0])
 
     def specialize_call(self, hop):
         from rpython.rtyper.lltypesystem import lltype
 
-        args_v = hop.inputargs(lltype.Bool, lltype.Void, *hop.args_r[2:])
+        if self.instance == _jit_conditional_call:
+            opname = 'jit_conditional_call'
+            COND = lltype.Bool
+            resulttype = None
+        elif self.instance == _jit_conditional_call_value:
+            opname = 'jit_conditional_call_value'
+            COND = hop.r_result
+            resulttype = hop.r_result.lowleveltype
+        else:
+            assert False
+        args_v = hop.inputargs(COND, lltype.Void, *hop.args_r[2:])
         args_v[1] = hop.args_r[1].get_concrete_llfn(hop.args_s[1],
                                                     hop.args_s[2:], hop.spaceop)
         hop.exception_is_here()
-        return hop.genop('jit_conditional_call', args_v)
+        return hop.genop(opname, args_v, resulttype=resulttype)
 
 def enter_portal_frame(unique_id):
     """call this when starting to interpret a function. calling this is not
