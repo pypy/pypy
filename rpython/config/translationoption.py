@@ -184,7 +184,7 @@ translation_optiondescription = OptionDescription(
     BoolOption("brokentypes",
                "Allow unsafe type unions in the annotator for "
                "backwards compatibility.",
-               default=True,
+               default=False,
                cmdline='--broken-types'),
     IntOption("withsmallfuncsets",
               "Represent groups of less funtions than this as indices into an array",
