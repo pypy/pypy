@@ -43,8 +43,8 @@ def load_cffi1_module(space, name, path, initptr):
     module = Module(space, w_name)
     if path is not None:
         module.setdictvalue(space, '__file__', space.newtext(path))
-    module.setdictvalue(space, 'ffi', space.newtext(ffi))
-    module.setdictvalue(space, 'lib', space.newtext(lib))
+    module.setdictvalue(space, 'ffi', ffi)
+    module.setdictvalue(space, 'lib', lib)
     w_modules_dict = space.sys.get('modules')
-    space.setitem(w_modules_dict, w_name, space.newtext(module))
-    space.setitem(w_modules_dict, space.newtext(name + '.lib'), space.newtext(lib))
+    space.setitem(w_modules_dict, w_name, module)
+    space.setitem(w_modules_dict, space.newtext(name + '.lib'), lib)

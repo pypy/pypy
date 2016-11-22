@@ -79,4 +79,4 @@ def raw_encode_basestring_ascii(space, w_string):
                 sb.append(HEX[s2 & 0x0f])
 
     res = sb.build()
-    return space.wrap(res)
+    return space.newtext(res)

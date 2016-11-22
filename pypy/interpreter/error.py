@@ -557,6 +557,6 @@ def get_converted_unexpected_exception(space, e):
             # when untranslated, we don't wrap into an app-level
             # SystemError (this makes debugging tests harder)
             raise
-        return OperationError(space.w_SystemError, space.wrap(
+        return OperationError(space.w_SystemError, space.newtext(
             "unexpected internal exception (please report a bug): %r%s" %
             (e, extra)))

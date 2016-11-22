@@ -33,7 +33,7 @@ def create_entry_point(space, w_dict):
     if w_dict is not None: # for tests
         w_entry_point = space.getitem(w_dict, space.newtext('entry_point'))
         w_run_toplevel = space.getitem(w_dict, space.newtext('run_toplevel'))
-        w_initstdio = space.getitem(w_dict, space.wrap('initstdio'))
+        w_initstdio = space.getitem(w_dict, space.newtext('initstdio'))
         withjit = space.config.objspace.usemodules.pypyjit
     else:
         w_initstdio = space.appexec([], """():
@@ -112,7 +112,7 @@ def create_entry_point(space, w_dict):
         try:
             # initialize sys.{path,executable,stdin,stdout,stderr}
             # (in unbuffered mode, to avoid troubles) and import site
-            space.appexec([w_path, space.wrap(home), w_initstdio],
+            space.appexec([w_path, space.newtext(home), w_initstdio],
             r"""(path, home, initstdio):
                 import sys
                 sys.path[:] = path

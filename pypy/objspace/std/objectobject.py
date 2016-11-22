@@ -98,7 +98,7 @@ def descr__new__(space, w_type, __args__):
             w_parent_init is not space.w_object):
             # 2.7: warn about excess arguments when both methods are
             # overridden
-            space.warn(space.wrap("object() takes no parameters"),
+            space.warn(space.newtext("object() takes no parameters"),
                        space.w_DeprecationWarning, 1)
         elif (w_parent_new is not space.w_object or
               w_parent_init is space.w_object):
@@ -122,7 +122,7 @@ def descr__init__(space, w_obj, __args__):
             w_parent_new is not space.w_object):
             # 2.7: warn about excess arguments when both methods are
             # overridden
-            space.warn(space.wrap("object.__init__() takes no parameters"),
+            space.warn(space.newtext("object.__init__() takes no parameters"),
                        space.w_DeprecationWarning, 1)
         elif (w_parent_init is not space.w_object or
               w_parent_new is space.w_object):

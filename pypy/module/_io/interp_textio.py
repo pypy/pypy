@@ -908,7 +908,7 @@ class W_TextIOWrapper(W_TextIOBase):
                                              space.bytes_w(w_chunk))
 
             w_decoded = space.call_method(self.w_decoder, "decode",
-                                          w_chunk, space.newbool(cookie.need_eof))
+                                          w_chunk, space.newbool(bool(cookie.need_eof)))
             check_decoded(space, w_decoded)
             self._set_decoded_chars(space.unicode_w(w_decoded))
 

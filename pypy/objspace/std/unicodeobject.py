@@ -1,7 +1,8 @@
 """The builtin unicode implementation"""
 
 from rpython.rlib.objectmodel import (
-    compute_hash, compute_unique_id, import_from_mixin)
+    compute_hash, compute_unique_id, import_from_mixin,
+    enforceargs)
 from rpython.rlib.buffer import StringBuffer
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rlib.runicode import (
@@ -29,6 +30,7 @@ class W_UnicodeObject(W_Root):
     import_from_mixin(StringMethods)
     _immutable_fields_ = ['_value']
 
+    @enforceargs(uni=unicode)
     def __init__(self, unistr):
         assert isinstance(unistr, unicode)
         self._value = unistr

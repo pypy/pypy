@@ -342,7 +342,7 @@ class W_CDLL(W_Root):
         return space.newint(address_as_uint)
 
     def getidentifier(self, space):
-        return space.wrap(self.cdll.getidentifier())
+        return space.newint(self.cdll.getidentifier())
 
 @unwrap_spec(name='str_or_None', mode=int)
 def descr_new_cdll(space, w_type, name, mode=-1):

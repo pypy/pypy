@@ -82,7 +82,7 @@ class Poll(W_Root):
         retval_w = []
         for fd, revents in retval:
             retval_w.append(space.newtuple([space.newint(fd),
-                                            space.newtext(revents)]))
+                                            space.newint(revents)]))
         return space.newlist(retval_w)
 
 pollmethods = {}

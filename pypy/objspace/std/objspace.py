@@ -8,7 +8,7 @@ from pypy.objspace.descroperation import DescrOperation, raiseattrerror
 from rpython.rlib.objectmodel import instantiate, specialize, is_annotation_constant
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.rarithmetic import base_int, widen, is_valid_int
-from rpython.rlib.objectmodel import import_from_mixin
+from rpython.rlib.objectmodel import import_from_mixin, enforceargs
 from rpython.rlib import jit
 
 # Object imports
@@ -340,6 +340,7 @@ class StdObjSpace(ObjSpace):
         return self.newtext(s)
 
     def newunicode(self, uni):
+        assert uni is not None
         assert isinstance(uni, unicode)
         return W_UnicodeObject(uni)
 

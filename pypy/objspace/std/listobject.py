@@ -2001,6 +2001,7 @@ class UnicodeListStrategy(ListStrategy):
     _none_value = None
 
     def wrap(self, stringval):
+        assert stringval is not None
         return self.space.newunicode(stringval)
 
     def unwrap(self, w_string):
