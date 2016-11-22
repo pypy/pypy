@@ -14,7 +14,10 @@ from rpython.annotator import unaryop, binaryop  # for side-effects
 @pytest.fixture()
 def annotator():
     t = TranslationContext()
-    return t.buildannotator()
+    t.config.translation.brokentypes = False
+    ann = t.buildannotator()
+    ann._setup_union_hacks()
+    return ann
 
 
 listdef1 = ListDef(None, SomeTuple([SomeInteger(nonneg=True), SomeString()]))

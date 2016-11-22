@@ -45,6 +45,7 @@ class State(object):
     # the no_nul attribute...
     check_str_without_nul = False
     allow_int_to_float = True
+    allow_bad_unions = False
 TLS = State()
 
 class SomeObject(object):

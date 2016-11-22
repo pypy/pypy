@@ -436,14 +436,16 @@ class __extend__(pairtype(SomeString, SomeObject),
 class __extend__(pairtype(SomeFloat, SomeFloat)):
 
     def union((flt1, flt2)):
-        if not TLS.allow_int_to_float:
+        if not TLS.allow_bad_unions or not TLS.allow_int_to_float:
             # in this mode, if one of the two is actually the
             # subclass SomeInteger, complain
             if isinstance(flt1, SomeInteger) or isinstance(flt2, SomeInteger):
                 raise UnionError(flt1, flt2)
         return SomeFloat()
 
-    add = sub = mul = union
+    def add((flt1, flt2)):
+        return SomeFloat()
+    sub = mul = add
 
     def div((flt1, flt2)):
         return SomeFloat()

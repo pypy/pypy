@@ -50,7 +50,9 @@ class RPythonAnnotator(object):
         if bookkeeper is None:
             bookkeeper = Bookkeeper(self)
         self.bookkeeper = bookkeeper
-        self.allow_bad_unions = True  # temporary feature flag, see config.translation.brokentypes
+        # temporary feature flag, see config.translation.brokentypes
+        # defaults to True in real translations
+        self.allow_bad_unions = False
 
     def __getstate__(self):
         attrs = """translator pendingblocks annotated links_followed
@@ -76,15 +78,18 @@ class RPythonAnnotator(object):
         # make input arguments and set their type
         args_s = [self.typeannotation(t) for t in input_arg_types]
 
-        # XXX hack
-        annmodel.TLS.check_str_without_nul = (
-            self.translator.config.translation.check_str_without_nul)
+        self._setup_union_hacks()  # XXX
 
         flowgraph, inputs_s = self.get_call_parameters(function, args_s, policy)
 
         if main_entry_point:
             self.translator.entry_point_graph = flowgraph
         return self.build_graph_types(flowgraph, inputs_s, complete_now=complete_now)
+
+    def _setup_union_hacks(self):
+        annmodel.TLS.check_str_without_nul = (
+            self.translator.config.translation.check_str_without_nul)
+        annmodel.TLS.allow_bad_unions = self.allow_bad_unions
 
     def get_call_parameters(self, function, args_s, policy):
         desc = self.bookkeeper.getdesc(function)
@@ -101,9 +106,7 @@ class RPythonAnnotator(object):
         if policy is None:
             from rpython.annotator.policy import AnnotatorPolicy
             policy = AnnotatorPolicy()
-            # XXX hack
-            annmodel.TLS.check_str_without_nul = (
-                self.translator.config.translation.check_str_without_nul)
+            self._setup_union_hacks()  # XXX
         graph, inputcells = self.get_call_parameters(function, args_s, policy)
         self.build_graph_types(graph, inputcells, complete_now=False)
         self.complete_helpers(policy)
