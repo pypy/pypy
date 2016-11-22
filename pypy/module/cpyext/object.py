@@ -252,7 +252,10 @@ def PyObject_Repr(space, w_obj):
 def PyObject_Format(space, w_obj, w_format_spec):
     if w_format_spec is None:
         w_format_spec = space.wrap('')
-    return space.call_method(w_obj, '__format__', w_format_spec)
+    w_ret = space.call_method(w_obj, '__format__', w_format_spec)
+    if space.isinstance_w(w_format_spec, space.w_unicode):
+        return space.unicode_from_object(w_ret)
+    return w_ret
 
 @cpython_api([PyObject], PyObject)
 def PyObject_Unicode(space, w_obj):

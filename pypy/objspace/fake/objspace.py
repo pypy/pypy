@@ -330,6 +330,9 @@ class FakeObjSpace(ObjSpace):
     def unicode_from_object(self, w_obj):
         return w_some_obj()
 
+    def encode_unicode_object(self, w_unicode, encoding, errors):
+        return w_some_obj()
+
     def _try_fetch_pycode(self, w_func):
         return None
 
