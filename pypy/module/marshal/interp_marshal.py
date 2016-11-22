@@ -120,7 +120,7 @@ class StreamReaderWriter(AbstractReaderWriter):
 
 class DirectStreamWriter(StreamReaderWriter):
     def write(self, data):
-        self.file.do_direct_write(data)
+        self.file.direct_write_str(data)
 
 class DirectStreamReader(StreamReaderWriter):
     def read(self, n):
@@ -225,15 +225,6 @@ class Marshaller(_Base):
 
     def dump_w_obj(self, w_obj):
         space = self.space
-        if space.type(w_obj).is_heaptype():
-            try:
-                buf = space.readbuf_w(w_obj)
-            except OperationError as e:
-                if not e.match(space, space.w_TypeError):
-                    raise
-                self.raise_exc("unmarshallable object")
-            else:
-                w_obj = space.newbuffer(buf)
         try:
             self.put_w_obj(w_obj)
         except rstackovf.StackOverflow:

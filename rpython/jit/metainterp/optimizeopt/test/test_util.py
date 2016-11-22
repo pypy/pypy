@@ -21,6 +21,7 @@ from rpython.config.translationoption import get_combined_translation_config
 from rpython.jit.metainterp.resoperation import (rop, ResOperation,
         InputArgRef, AbstractValue, OpHelpers)
 from rpython.jit.metainterp.optimizeopt.util import args_dict
+from rpython.rlib.rjitlog import rjitlog as jl
 
 
 def test_sort_descrs():
@@ -101,6 +102,8 @@ class LLtypeMixin(object):
     node_vtable_adr2 = llmemory.cast_ptr_to_adr(node_vtable2)
     node_vtable3 = lltype.malloc(OBJECT_VTABLE, immortal=True)
     node_vtable3.name = rclass.alloc_array_name('node3')
+    node_vtable3.subclassrange_min = 3
+    node_vtable3.subclassrange_max = 3
     node_vtable_adr3 = llmemory.cast_ptr_to_adr(node_vtable3)
     cpu = runner.LLGraphCPU(None)
 
@@ -484,6 +487,7 @@ class FakeMetaInterpStaticData(object):
         self.options = Fake()
         self.globaldata = Fake()
         self.config = get_combined_translation_config(translating=True)
+        self.jitlog = jl.JitLogger()
 
     class logger_noopt:
         @classmethod
@@ -569,6 +573,7 @@ class BaseTest(object):
         #
         compile_data.enable_opts = self.enable_opts
         state = optimize_trace(metainterp_sd, None, compile_data)
+        state[0]._check_no_forwarding()
         return state
 
     def _convert_call_pure_results(self, d):
@@ -617,7 +622,7 @@ class BaseTest(object):
         start_state, preamble_ops = self._do_optimize_loop(preamble_data)
         preamble_data.forget_optimization_info()
         loop_data = compile.UnrolledLoopData(preamble_data.trace,
-            celltoken, start_state, call_pure_results)
+            celltoken, start_state, runtime_boxes, call_pure_results)
         loop_info, ops = self._do_optimize_loop(loop_data)
         preamble = TreeLoop('preamble')
         preamble.inputargs = start_state.renamed_inputargs

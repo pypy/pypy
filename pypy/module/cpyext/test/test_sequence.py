@@ -78,6 +78,17 @@ class TestSequence(BaseApiTest):
         assert api.PySequence_SetSlice(w_t, 1, 1, space.wrap((3,))) == 0
         assert space.eq_w(w_t, space.wrap([1, 3, 5]))
 
+    def test_get_slice_fast(self, space, api):
+        w_t = space.wrap([1, 2, 3, 4, 5])
+        api.PySequence_Fast(w_t, "foo") # converts
+        assert space.unwrap(api.PySequence_GetSlice(w_t, 2, 4)) == [3, 4]
+        assert space.unwrap(api.PySequence_GetSlice(w_t, 1, -1)) == [2, 3, 4]
+
+        assert api.PySequence_DelSlice(w_t, 1, 4) == 0
+        assert space.eq_w(w_t, space.wrap([1, 5]))
+        assert api.PySequence_SetSlice(w_t, 1, 1, space.wrap((3,))) == 0
+        assert space.eq_w(w_t, space.wrap([1, 3, 5]))
+
     def test_iter(self, space, api):
         w_t = space.wrap((1, 2))
         w_iter = api.PySeqIter_New(w_t)
@@ -226,18 +237,61 @@ class TestCPyListStrategy(BaseApiTest):
         assert space.int_w(space.len(w_l)) == 10
 
 
-class XAppTestSequenceObject(AppTestCpythonExtensionBase):
-    def test_sequenceobject(self):
+class AppTestSequenceObject(AppTestCpythonExtensionBase):
+    def test_fast(self):
         module = self.import_extension('foo', [
             ("test_fast_sequence", "METH_VARARGS",
              """
-                PyObject * o = PyTuple_GetItem(args, 0);
+                int size, i;
+                PyTypeObject * common_type;
+                PyObject *foo, **objects;
+                PyObject * seq = PyTuple_GetItem(args, 0);
                 /* XXX assert it is a tuple */
-                PyObject *foo = PySequence_Fast(o, "some string");
-                PyObject ** res = PySequence_Fast_ITEMS(foo);
-                /* XXX do some kind of test on res */
-                /* XXX now what? who manages res's refcount? */
+                if (seq == NULL)
+                    Py_RETURN_NONE;
+                foo = PySequence_Fast(seq, "some string");
+                objects = PySequence_Fast_ITEMS(foo);
+                size = PySequence_Fast_GET_SIZE(seq);
+                common_type = size > 0 ? Py_TYPE(objects[0]) : NULL;
+                for (i = 1; i < size; ++i) {
+                    if (Py_TYPE(objects[i]) != common_type) {
+                        common_type = NULL;
+                        break;
+                    }
+                }
+                Py_DECREF(foo);
+                Py_DECREF(common_type);
                 return PyBool_FromLong(1);
              """)])
-        assert module.test_fast_sequence([1, 2, 3, 4])
+        s = [1, 2, 3, 4]
+        assert module.test_fast_sequence(s[0:-1])
+        assert module.test_fast_sequence(s[::-1])
+
+    def test_fast_keyerror(self):
+        module = self.import_extension('foo', [
+            ("test_fast_sequence", "METH_VARARGS",
+             """
+                PyObject *foo;
+                PyObject * seq = PyTuple_GetItem(args, 0);
+                if (seq == NULL)
+                    Py_RETURN_NONE;
+                foo = PySequence_Fast(seq, "Could not convert object to sequence");
+                if (foo != NULL)
+                {
+                    return foo;
+                }
+                if (PyErr_ExceptionMatches(PyExc_KeyError)) {
+                    PyErr_Clear();
+                    return PyBool_FromLong(1);
+                }
+                return NULL;
+             """)])
+        class Map(object):
+            def __len__(self):
+                return 1
+
+            def __getitem__(self, index):
+                raise KeyError()
+
+        assert module.test_fast_sequence(Map()) is True
 

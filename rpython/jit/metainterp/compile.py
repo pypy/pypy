@@ -6,6 +6,8 @@ from rpython.rlib.debug import debug_start, debug_stop, debug_print, have_debug_
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib import rstack
 from rpython.rlib.jit import JitDebugInfo, Counters, dont_look_inside
+from rpython.rlib.rjitlog import rjitlog as jl
+from rpython.rlib.objectmodel import compute_unique_id
 from rpython.conftest import option
 
 from rpython.jit.metainterp.resoperation import ResOperation, rop,\
@@ -106,7 +108,7 @@ class UnrolledLoopData(CompileData):
     """
     log_noopt = False
 
-    def __init__(self, trace, celltoken, state,
+    def __init__(self, trace, celltoken, state, runtime_boxes,
                  call_pure_results=None, enable_opts=None,
                  inline_short_preamble=True):
         self.trace = trace
@@ -115,6 +117,8 @@ class UnrolledLoopData(CompileData):
         self.state = state
         self.call_pure_results = call_pure_results
         self.inline_short_preamble = inline_short_preamble
+        assert runtime_boxes is not None
+        self.runtime_boxes = runtime_boxes
 
     def optimize(self, metainterp_sd, jitdriver_sd, optimizations, unroll):
         from rpython.jit.metainterp.optimizeopt.unroll import UnrollOptimizer
@@ -122,7 +126,11 @@ class UnrolledLoopData(CompileData):
         assert unroll # we should not be here if it's disabled
         opt = UnrollOptimizer(metainterp_sd, jitdriver_sd, optimizations)
         return opt.optimize_peeled_loop(self.trace, self.celltoken, self.state,
-            self.call_pure_results, self.inline_short_preamble)
+            self.runtime_boxes, self.call_pure_results, self.inline_short_preamble)
+
+    def forget_optimization_info(self):
+        self.state.forget_optimization_info()
+        CompileData.forget_optimization_info(self)
 
 def show_procedures(metainterp_sd, procedure=None, error=None):
     # debugging
@@ -217,6 +225,7 @@ def compile_simple_loop(metainterp, greenkey, trace, runtime_args, enable_opts,
         loop_info, ops = optimize_trace(metainterp_sd, jitdriver_sd,
                                         data, metainterp.box_names_memo)
     except InvalidLoop:
+        metainterp_sd.jitlog.trace_aborted()
         trace.cut_at(cut_at)
         return None
     loop = create_empty_loop(metainterp)
@@ -250,7 +259,10 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
     history = metainterp.history
     trace = history.trace
     warmstate = jitdriver_sd.warmstate
-
+    #
+    metainterp_sd.jitlog.start_new_trace(metainterp_sd,
+            faildescr=None, entry_bridge=False)
+    #
     enable_opts = jitdriver_sd.warmstate.enable_opts
     if try_disabling_unroll:
         if 'unroll' not in enable_opts:
@@ -275,6 +287,7 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
                                                    preamble_data,
                                                    metainterp.box_names_memo)
     except InvalidLoop:
+        metainterp_sd.jitlog.trace_aborted()
         history.cut(cut_at)
         return None
 
@@ -283,7 +296,7 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
     start_descr = TargetToken(jitcell_token,
                               original_jitcell_token=jitcell_token)
     jitcell_token.target_tokens = [start_descr]
-    loop_data = UnrolledLoopData(trace, jitcell_token, start_state,
+    loop_data = UnrolledLoopData(trace, jitcell_token, start_state, jumpargs,
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts)
     try:
@@ -291,10 +304,12 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
                                              loop_data,
                                              metainterp.box_names_memo)
     except InvalidLoop:
+        metainterp_sd.jitlog.trace_aborted()
         history.cut(cut_at)
         return None
 
-    if ((warmstate.vec and jitdriver_sd.vec) or warmstate.vec_all):
+    if ((warmstate.vec and jitdriver_sd.vec) or warmstate.vec_all) and \
+        metainterp.cpu.vector_ext and metainterp.cpu.vector_ext.is_enabled():
         from rpython.jit.metainterp.optimizeopt.vector import optimize_vector
         loop_info, loop_ops = optimize_vector(trace, metainterp_sd,
                                               jitdriver_sd, warmstate,
@@ -319,7 +334,7 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
         metainterp_sd.logger_ops.log_short_preamble([],
             label_token.short_preamble, metainterp.box_names_memo)
     loop.operations = ([start_label] + preamble_ops + loop_info.extra_same_as +
-                       [loop_info.label_op] + loop_ops)
+                       loop_info.extra_before_label + [loop_info.label_op] + loop_ops)
     if not we_are_translated():
         loop.check_consistency()
     send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop",
@@ -340,7 +355,10 @@ def compile_retrace(metainterp, greenkey, start,
     metainterp_sd = metainterp.staticdata
     jitdriver_sd = metainterp.jitdriver_sd
     history = metainterp.history
-
+    #
+    metainterp_sd.jitlog.start_new_trace(metainterp_sd,
+            faildescr=resumekey, entry_bridge=False)
+    #
     loop_jitcell_token = metainterp.get_procedure_token(greenkey)
     assert loop_jitcell_token
 
@@ -348,7 +366,7 @@ def compile_retrace(metainterp, greenkey, start,
     history.record(rop.JUMP, jumpargs[:], None, descr=loop_jitcell_token)
     enable_opts = jitdriver_sd.warmstate.enable_opts
     call_pure_results = metainterp.call_pure_results
-    loop_data = UnrolledLoopData(trace, loop_jitcell_token, start_state,
+    loop_data = UnrolledLoopData(trace, loop_jitcell_token, start_state, jumpargs,
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts)
     try:
@@ -360,6 +378,7 @@ def compile_retrace(metainterp, greenkey, start,
         history.cut(cut)
         history.record(rop.JUMP, jumpargs[:], None, descr=loop_jitcell_token)
         loop_data = UnrolledLoopData(trace, loop_jitcell_token, start_state,
+                                     jumpargs,
                                      call_pure_results=call_pure_results,
                                      enable_opts=enable_opts,
                                      inline_short_preamble=False)
@@ -368,6 +387,7 @@ def compile_retrace(metainterp, greenkey, start,
                                                  loop_data,
                                                  metainterp.box_names_memo)
         except InvalidLoop:
+            metainterp_sd.jitlog.trace_aborted()
             history.cut(cut)
             return None
 
@@ -476,28 +496,34 @@ def propagate_original_jitcell_token(trace):
 
 def do_compile_loop(jd_id, unique_id, metainterp_sd, inputargs, operations,
                     looptoken, log=True, name='', memo=None):
+    # legacy
     metainterp_sd.logger_ops.log_loop(inputargs, operations, -2,
                                       'compiling', None, name, memo)
+    _log = metainterp_sd.jitlog.log_trace(jl.MARK_TRACE_OPT, metainterp_sd, None)
+    _log.write(inputargs, operations)
     return metainterp_sd.cpu.compile_loop(inputargs,
                                           operations, looptoken,
                                           jd_id=jd_id, unique_id=unique_id,
                                           log=log, name=name,
-                                          logger=metainterp_sd.logger_ops)
+                                          logger=metainterp_sd.jitlog)
 
 def do_compile_bridge(metainterp_sd, faildescr, inputargs, operations,
                       original_loop_token, log=True, memo=None):
+    # legacy
     metainterp_sd.logger_ops.log_bridge(inputargs, operations, "compiling",
                                         memo=memo)
+    _log = metainterp_sd.jitlog.log_trace(jl.MARK_TRACE_OPT, metainterp_sd, None)
+    _log.write(inputargs, operations)
     assert isinstance(faildescr, AbstractFailDescr)
     return metainterp_sd.cpu.compile_bridge(faildescr, inputargs, operations,
                                             original_loop_token, log=log,
-                                            logger=metainterp_sd.logger_ops)
+                                            logger=metainterp_sd.jitlog)
 
 def forget_optimization_info(lst, reset_values=False):
     for item in lst:
         item.set_forwarded(None)
         # XXX we should really do it, but we need to remember the values
-        #     somehoe for ContinueRunningNormally
+        #     somehow for ContinueRunningNormally
         if reset_values:
             item.reset_value()
 
@@ -511,9 +537,7 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type,
         patch_new_loop_to_load_virtualizable_fields(loop, jitdriver_sd, vable)
 
     original_jitcell_token = loop.original_jitcell_token
-    globaldata = metainterp_sd.globaldata
-    original_jitcell_token.number = n = globaldata.loopnumbering
-    globaldata.loopnumbering += 1
+    original_jitcell_token.number = n = metainterp_sd.jitlog.trace_id
 
     if not we_are_translated():
         show_procedures(metainterp_sd, loop)
@@ -531,6 +555,7 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type,
     operations = get_deep_immutable_oplist(loop.operations)
     metainterp_sd.profiler.start_backend()
     debug_start("jit-backend")
+    log = have_debug_prints() or jl.jitlog_enabled()
     try:
         loopname = jitdriver_sd.warmstate.get_location_str(greenkey)
         unique_id = jitdriver_sd.warmstate.get_unique_id(greenkey)
@@ -538,7 +563,7 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type,
                                   loop.inputargs,
                                   operations, original_jitcell_token,
                                   name=loopname,
-                                  log=have_debug_prints(),
+                                  log=log,
                                   memo=memo)
     finally:
         debug_stop("jit-backend")
@@ -582,10 +607,11 @@ def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
     operations = get_deep_immutable_oplist(operations)
     metainterp_sd.profiler.start_backend()
     debug_start("jit-backend")
+    log = have_debug_prints() or jl.jitlog_enabled()
     try:
         asminfo = do_compile_bridge(metainterp_sd, faildescr, inputargs,
                                     operations,
-                                    original_loop_token, have_debug_prints(),
+                                    original_loop_token, log,
                                     memo)
     finally:
         debug_stop("jit-backend")
@@ -620,23 +646,28 @@ class DoneWithThisFrameDescrVoid(_DoneWithThisFrameDescr):
         raise jitexc.DoneWithThisFrameVoid()
 
 class DoneWithThisFrameDescrInt(_DoneWithThisFrameDescr):
+    def get_result(self, cpu, deadframe):
+        return cpu.get_int_value(deadframe, 0)
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         assert jitdriver_sd.result_type == history.INT
-        result = metainterp_sd.cpu.get_int_value(deadframe, 0)
-        raise jitexc.DoneWithThisFrameInt(result)
+        cpu = metainterp_sd.cpu
+        raise jitexc.DoneWithThisFrameInt(self.get_result(cpu, deadframe))
 
 class DoneWithThisFrameDescrRef(_DoneWithThisFrameDescr):
+    def get_result(self, cpu, deadframe):
+        return cpu.get_ref_value(deadframe, 0)
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         assert jitdriver_sd.result_type == history.REF
         cpu = metainterp_sd.cpu
-        result = cpu.get_ref_value(deadframe, 0)
-        raise jitexc.DoneWithThisFrameRef(cpu, result)
+        raise jitexc.DoneWithThisFrameRef(cpu, self.get_result(cpu, deadframe))
 
 class DoneWithThisFrameDescrFloat(_DoneWithThisFrameDescr):
+    def get_result(self, cpu, deadframe):
+        return cpu.get_float_value(deadframe, 0)
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         assert jitdriver_sd.result_type == history.FLOAT
-        result = metainterp_sd.cpu.get_float_value(deadframe, 0)
-        raise jitexc.DoneWithThisFrameFloat(result)
+        cpu = metainterp_sd.cpu
+        raise jitexc.DoneWithThisFrameFloat(self.get_result(cpu, deadframe))
 
 class ExitFrameWithExceptionDescrRef(_DoneWithThisFrameDescr):
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
@@ -1015,7 +1046,7 @@ class ResumeFromInterpDescr(ResumeDescr):
 
 def compile_trace(metainterp, resumekey, runtime_boxes):
     """Try to compile a new bridge leading from the beginning of the history
-    to some existging place.
+    to some existing place.
     """
 
     from rpython.jit.metainterp.optimizeopt import optimize_trace
@@ -1028,6 +1059,11 @@ def compile_trace(metainterp, resumekey, runtime_boxes):
 
     metainterp_sd = metainterp.staticdata
     jitdriver_sd = metainterp.jitdriver_sd
+    #
+    jd_name = jitdriver_sd.jitdriver.name
+    metainterp_sd.jitlog.start_new_trace(metainterp_sd,
+            faildescr=resumekey, entry_bridge=False, jd_name=jd_name)
+    #
     if isinstance(resumekey, ResumeAtPositionDescr):
         inline_short_preamble = False
     else:
@@ -1052,6 +1088,7 @@ def compile_trace(metainterp, resumekey, runtime_boxes):
         info, newops = optimize_trace(metainterp_sd, jitdriver_sd,
                                       data, metainterp.box_names_memo)
     except InvalidLoop:
+        metainterp_sd.jitlog.trace_aborted()
         #pdb.post_mortem(sys.exc_info()[2])
         debug_print("compile_new_bridge: got an InvalidLoop")
         # XXX I am fairly convinced that optimize_bridge cannot actually raise
@@ -1093,6 +1130,10 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redargtypes,
     version of the code may end up replacing it.
     """
     jitcell_token = make_jitcell_token(jitdriver_sd)
+    #
+    # record the target of a temporary callback to the interpreter
+    jl.tmp_callback(jitcell_token)
+    #
     nb_red_args = jitdriver_sd.num_red_args
     assert len(redargtypes) == nb_red_args
     inputargs = []
@@ -1128,6 +1169,7 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redargtypes,
     operations[1].setfailargs([])
     operations = get_deep_immutable_oplist(operations)
     cpu.compile_loop(inputargs, operations, jitcell_token, log=False)
+
     if memory_manager is not None:    # for tests
         memory_manager.keep_loop_alive(jitcell_token)
     return jitcell_token

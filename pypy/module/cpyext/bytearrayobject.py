@@ -25,54 +25,10 @@ from pypy.module.cpyext.pyobject import (
 
 PyByteArrayObjectStruct = lltype.ForwardReference()
 PyByteArrayObject = lltype.Ptr(PyByteArrayObjectStruct)
-PyByteArrayObjectFields = PyVarObjectFields 
-#    (("ob_exports", rffi.INT), ("ob_alloc", rffi.LONG), ("ob_bytes", rffi.CCHARP))
+PyByteArrayObjectFields = PyVarObjectFields
 cpython_struct("PyByteArrayObject", PyByteArrayObjectFields, PyByteArrayObjectStruct)
 
-@bootstrap_function
-def init_bytearrayobject(space):
-    "Type description of PyByteArrayObject"
-    #make_typedescr(space.w_bytearray.layout.typedef,
-    #               basestruct=PyByteArrayObject.TO,
-    #               attach=bytearray_attach,
-    #               dealloc=bytearray_dealloc,
-    #               realize=bytearray_realize)
-
 PyByteArray_Check, PyByteArray_CheckExact = build_type_checkers("ByteArray", "w_bytearray")
-
-# XXX dead code to be removed
-#def bytearray_attach(space, py_obj, w_obj):
-#    """
-#    Fills a newly allocated PyByteArrayObject with the given bytearray object
-#    """
-#    py_ba = rffi.cast(PyByteArrayObject, py_obj)
-#    py_ba.c_ob_size = len(space.str_w(w_obj))
-#    py_ba.c_ob_bytes = lltype.nullptr(rffi.CCHARP.TO)
-#    py_ba.c_ob_exports = rffi.cast(rffi.INT, 0)
-
-#def bytearray_realize(space, py_obj):
-#    """
-#    Creates the bytearray in the interpreter. 
-#    """
-#    py_ba = rffi.cast(PyByteArrayObject, py_obj)
-#    if not py_ba.c_ob_bytes:
-#        py_ba.c_buffer = lltype.malloc(rffi.CCHARP.TO, py_ba.c_ob_size + 1,
-#                                    flavor='raw', zero=True)
-#    s = rffi.charpsize2str(py_ba.c_ob_bytes, py_ba.c_ob_size)
-#    w_obj = space.wrap(s)
-#    py_ba.c_ob_exports = rffi.cast(rffi.INT, 0)
-#    track_reference(space, py_obj, w_obj)
-#    return w_obj
-
-#@cpython_api([PyObject], lltype.Void, header=None)
-#def bytearray_dealloc(space, py_obj):
-#    """Frees allocated PyByteArrayObject resources.
-#    """
-#    py_ba = rffi.cast(PyByteArrayObject, py_obj)
-#    if py_ba.c_ob_bytes:
-#        lltype.free(py_ba.c_ob_bytes, flavor="raw")
-#    from pypy.module.cpyext.object import PyObject_dealloc
-#    PyObject_dealloc(space, py_obj)
 
 #_______________________________________________________________________
 
@@ -90,9 +46,9 @@ def PyByteArray_FromStringAndSize(space, char_p, length):
     """Create a new bytearray object from string and its length, len.  On
     failure, NULL is returned."""
     if char_p:
-        w_s = space.wrap(rffi.charpsize2str(char_p, length))
+        w_s = space.newbytes(rffi.charpsize2str(char_p, length))
     else:
-        w_s = space.wrap(length)
+        w_s = space.newint(length)
     w_buffer = space.call_function(space.w_bytearray, w_s)
     return make_ref(space, w_buffer)
 
@@ -124,7 +80,7 @@ def PyByteArray_Resize(space, w_obj, newlen):
     if space.isinstance_w(w_obj, space.w_bytearray):
         oldlen = space.len_w(w_obj)
         if newlen > oldlen:
-            space.call_method(w_obj, 'extend', space.wrap('\x00' * (newlen - oldlen)))
+            space.call_method(w_obj, 'extend', space.newbytes('\x00' * (newlen - oldlen)))
         elif oldlen > newlen:
             assert newlen >= 0
             space.delslice(w_obj, space.wrap(newlen), space.wrap(oldlen))

@@ -1,10 +1,22 @@
-=========================
-What's new in PyPy2.7 5.3+
-=========================
+==========================
+What's new in PyPy2.7 5.6+
+==========================
 
-.. this is a revision shortly after release-pypy2.7-v5.3
-.. startrev: 873218a739f1
+.. this is a revision shortly after release-pypy2.7-v5.6
+.. startrev: 7e9787939641
 
-.. branch: fix-gen-dfa
+.. branch: rpython-error-to-systemerror
 
-Resolves an issue with the generator script to build the dfa for Python syntax.
+Any uncaught RPython exception (from a PyPy bug) is turned into an
+app-level SystemError.  This should improve the lot of users hitting an
+uncaught RPython error.
+
+.. branch: union-side-effects-2
+
+Try to improve the consistency of RPython annotation unions.
+
+.. branch: pytest-2.9.2
+
+.. branch: clean-exported-state
+
+Clean-ups in the jit optimizeopt

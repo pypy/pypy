@@ -48,7 +48,10 @@ class GcLLDescription(GcCache):
         anything, it must be an optional MemoryError.
         """
         FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, RESULT))
-        descr = get_call_descr(self, ARGS, RESULT)
+        # Note: the call may invoke the GC, which may run finalizers.
+        # Finalizers are constrained in what they can do, but we can't
+        # really express that in a useful way here.
+        descr = get_call_descr(self, ARGS, RESULT, EffectInfo.MOST_GENERAL)
         setattr(self, funcname, func)
         setattr(self, funcname + '_FUNCPTR', FUNCPTR)
         setattr(self, funcname + '_descr', descr)

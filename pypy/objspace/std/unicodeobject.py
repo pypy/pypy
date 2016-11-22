@@ -18,6 +18,7 @@ from pypy.objspace.std import newformat
 from pypy.objspace.std.basestringtype import basestring_typedef
 from pypy.objspace.std.formatting import mod_format
 from pypy.objspace.std.stringmethods import StringMethods
+from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT
 
 __all__ = ['W_UnicodeObject', 'wrapunicode', 'plain_str2unicode',
            'encode_object', 'decode_object', 'unicode_from_object',
@@ -52,12 +53,26 @@ class W_UnicodeObject(W_Root):
             return True
         if self.user_overridden_class or w_other.user_overridden_class:
             return False
-        return space.unicode_w(self) is space.unicode_w(w_other)
+        s1 = space.unicode_w(self)
+        s2 = space.unicode_w(w_other)
+        if len(s2) > 1:
+            return s1 is s2
+        else:            # strings of len <= 1 are unique-ified
+            return s1 == s2
 
     def immutable_unique_id(self, space):
         if self.user_overridden_class:
             return None
-        return space.wrap(compute_unique_id(space.unicode_w(self)))
+        s = space.unicode_w(self)
+        if len(s) > 1:
+            uid = compute_unique_id(s)
+        else:            # strings of len <= 1 are unique-ified
+            if len(s) == 1:
+                base = ~ord(s[0])      # negative base values
+            else:
+                base = 257       # empty unicode string: base value 257
+            uid = (base << IDTAG_SHIFT) | IDTAG_SPECIAL
+        return space.wrap(uid)
 
     def str_w(self, space):
         return space.str_w(space.str(self))
@@ -109,11 +124,14 @@ class W_UnicodeObject(W_Root):
         return True
 
     @staticmethod
-    def _op_val(space, w_other):
+    def _op_val(space, w_other, strict=None):
         if isinstance(w_other, W_UnicodeObject):
             return w_other._value
         if space.isinstance_w(w_other, space.w_str):
             return unicode_from_string(space, w_other)._value
+        if strict:
+            raise oefmt(space.w_TypeError,
+                "%s arg must be None, unicode or str", strict)
         return unicode_from_encoded_object(
             space, w_other, None, "strict")._value
 
@@ -300,6 +318,9 @@ class W_UnicodeObject(W_Root):
 
     def descr_mod(self, space, w_values):
         return mod_format(space, self, w_values, do_unicode=True)
+
+    def descr_rmod(self, space, w_values):
+        return mod_format(space, w_values, self, do_unicode=True)
 
     def descr_translate(self, space, w_table):
         selfvalue = self._value
@@ -614,6 +635,9 @@ class UnicodeDocstrings:
 
     def __mod__():
         """x.__mod__(y) <==> x%y"""
+
+    def __rmod__():
+        """x.__rmod__(y) <==> y%x"""
 
     def __mul__():
         """x.__mul__(n) <==> x*n"""
@@ -1078,6 +1102,8 @@ W_UnicodeObject.typedef = TypeDef(
                             doc=UnicodeDocstrings.__format__.__doc__),
     __mod__ = interp2app(W_UnicodeObject.descr_mod,
                          doc=UnicodeDocstrings.__mod__.__doc__),
+    __rmod__ = interp2app(W_UnicodeObject.descr_rmod,
+                         doc=UnicodeDocstrings.__rmod__.__doc__),
     __getnewargs__ = interp2app(W_UnicodeObject.descr_getnewargs,
                                 doc=UnicodeDocstrings.__getnewargs__.__doc__),
     _formatter_parser = interp2app(W_UnicodeObject.descr_formatter_parser),

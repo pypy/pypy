@@ -29,6 +29,8 @@ from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.backend.ppc import callbuilder
 from rpython.rlib.rarithmetic import r_uint
+from rpython.jit.backend.ppc.vector_ext import VectorAssembler
+from rpython.rlib.rjitlog import rjitlog as jl
 
 class IntOpAssembler(object):
         
@@ -994,6 +996,7 @@ class StrOpAssembler(object):
             basesize, itemsize, _ = symbolic.get_array_token(rstr.STR,
                                         self.cpu.translate_support_code)
             assert itemsize == 1
+            basesize -= 1     # for the extra null character
             scale = 0
 
         self._emit_load_for_copycontent(r.r0, src_ptr_loc, src_ofs_loc, scale)
@@ -1025,9 +1028,8 @@ class AllocOpAssembler(object):
 
     _mixin_ = True
 
-    def emit_call_malloc_gc(self, op, arglocs, regalloc):
-        self._emit_call(op, arglocs)
-        self.propagate_memoryerror_if_r3_is_null()
+    def emit_check_memory_error(self, op, arglocs, regalloc):
+        self.propagate_memoryerror_if_reg_is_null(arglocs[0])
 
     def emit_call_malloc_nursery(self, op, arglocs, regalloc):
         # registers r.RES and r.RSZ are allocated for this call
@@ -1321,13 +1323,15 @@ class ForceOpAssembler(object):
         mc = PPCBuilder()
         mc.b_abs(target)
         mc.copy_to_raw_memory(oldadr)
+        jl.redirect_assembler(oldlooptoken, newlooptoken, newlooptoken.number)
 
 
 class OpAssembler(IntOpAssembler, GuardOpAssembler,
                   MiscOpAssembler, FieldOpAssembler,
                   StrOpAssembler, CallOpAssembler,
                   UnicodeOpAssembler, ForceOpAssembler,
-                  AllocOpAssembler, FloatOpAssembler):
+                  AllocOpAssembler, FloatOpAssembler,
+                  VectorAssembler):
     _mixin_ = True
 
     def nop(self):

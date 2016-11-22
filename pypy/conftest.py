@@ -46,7 +46,8 @@ def pytest_addoption(parser):
             default=False, dest="raise_operr",
             help="Show the interp-level OperationError in app-level tests")
 
-def pytest_funcarg__space(request):
+@pytest.fixture(scope='function')
+def space(request):
     from pypy.tool.pytest.objspace import gettestobjspace
     spaceconfig = getattr(request.cls, 'spaceconfig', {})
     return gettestobjspace(**spaceconfig)
@@ -75,6 +76,20 @@ def pytest_sessionstart(session):
 
 def pytest_pycollect_makemodule(path, parent):
     return PyPyModule(path, parent)
+
+def is_applevel(item):
+    from pypy.tool.pytest.apptest import AppTestFunction
+    return isinstance(item, AppTestFunction)
+
+def pytest_collection_modifyitems(config, items):
+    if config.option.runappdirect:
+        return
+    for item in items:
+        if isinstance(item, py.test.Function):
+            if is_applevel(item):
+                item.add_marker('applevel')
+            else:
+                item.add_marker('interplevel')
 
 class PyPyModule(py.test.collect.Module):
     """ we take care of collecting classes both at app level
@@ -110,9 +125,6 @@ class PyPyModule(py.test.collect.Module):
             if name.startswith('AppTest'):
                 from pypy.tool.pytest.apptest import AppClassCollector
                 return AppClassCollector(name, parent=self)
-            else:
-                from pypy.tool.pytest.inttest import IntClassCollector
-                return IntClassCollector(name, parent=self)
 
         elif hasattr(obj, 'func_code') and self.funcnamefilter(name):
             if name.startswith('app_test_'):
@@ -120,11 +132,7 @@ class PyPyModule(py.test.collect.Module):
                     "generator app level functions? you must be joking"
                 from pypy.tool.pytest.apptest import AppTestFunction
                 return AppTestFunction(name, parent=self)
-            elif obj.func_code.co_flags & 32: # generator function
-                return pytest.Generator(name, parent=self)
-            else:
-                from pypy.tool.pytest.inttest import IntTestFunction
-                return IntTestFunction(name, parent=self)
+        return super(PyPyModule, self).makeitem(name, obj)
 
 def skip_on_missing_buildoption(**ropts):
     __tracebackhide__ = True
@@ -151,29 +159,19 @@ class LazyObjSpaceGetter(object):
         return space
 
 
-def pytest_runtest_setup(__multicall__, item):
+@pytest.hookimpl(tryfirst=True)
+def pytest_runtest_setup(item):
     if isinstance(item, py.test.collect.Function):
-        appclass = item.getparent(PyPyClassCollector)
+        appclass = item.getparent(py.test.Class)
         if appclass is not None:
             # Make cls.space and cls.runappdirect available in tests.
             spaceconfig = getattr(appclass.obj, 'spaceconfig', None)
             if spaceconfig is not None:
                 from pypy.tool.pytest.objspace import gettestobjspace
                 appclass.obj.space = gettestobjspace(**spaceconfig)
+            else:
+                appclass.obj.space = LazyObjSpaceGetter()
             appclass.obj.runappdirect = option.runappdirect
-
-    __multicall__.execute()
-
-
-class PyPyClassCollector(py.test.collect.Class):
-    # All pypy Test classes have a "space" member.
-    def setup(self):
-        cls = self.obj
-        if not hasattr(cls, 'spaceconfig'):
-            cls.space = LazyObjSpaceGetter()
-        else:
-            assert hasattr(cls, 'space') # set by pytest_runtest_setup
-        super(PyPyClassCollector, self).setup()
 
 
 def pytest_ignore_collect(path):

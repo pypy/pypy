@@ -90,7 +90,7 @@ class W_CTypeStructOrUnion(W_CType):
         self.force_lazy_struct()
         space = self.space
         try:
-            cfield = self._fields_dict[fieldname]
+            cfield = self._getcfield_const(fieldname)
         except KeyError:
             raise OperationError(space.w_KeyError, space.wrap(fieldname))
         if cfield.bitshift >= 0:
@@ -105,9 +105,6 @@ class W_CTypeStructOrUnion(W_CType):
                 return True
         return False
 
-    def _check_only_one_argument_for_union(self, w_ob):
-        pass
-
     def convert_from_object(self, cdata, w_ob):
         if not self._copy_from_same(cdata, w_ob):
             self.convert_struct_from_object(cdata, w_ob, optvarsize=-1)
@@ -117,19 +114,24 @@ class W_CTypeStructOrUnion(W_CType):
     )
     def convert_struct_from_object(self, cdata, w_ob, optvarsize):
         self.force_lazy_struct()
-        self._check_only_one_argument_for_union(w_ob)
 
         space = self.space
         if (space.isinstance_w(w_ob, space.w_list) or
             space.isinstance_w(w_ob, space.w_tuple)):
             lst_w = space.listview(w_ob)
-            if len(lst_w) > len(self._fields_list):
-                raise oefmt(space.w_ValueError,
-                            "too many initializers for '%s' (got %d)",
-                            self.name, len(lst_w))
-            for i in range(len(lst_w)):
-                optvarsize = self._fields_list[i].write_v(cdata, lst_w[i],
+            j = 0
+            for w_obj in lst_w:
+                try:
+                    while (self._fields_list[j].flags &
+                               W_CField.BF_IGNORE_IN_CTOR):
+                        j += 1
+                except IndexError:
+                    raise oefmt(space.w_ValueError,
+                                "too many initializers for '%s' (got %d)",
+                                self.name, len(lst_w))
+                optvarsize = self._fields_list[j].write_v(cdata, w_obj,
                                                           optvarsize)
+                j += 1
             return optvarsize
 
         elif space.isinstance_w(w_ob, space.w_dict):
@@ -185,14 +187,6 @@ class W_CTypeStruct(W_CTypeStructOrUnion):
 class W_CTypeUnion(W_CTypeStructOrUnion):
     kind = "union"
 
-    def _check_only_one_argument_for_union(self, w_ob):
-        space = self.space
-        n = space.int_w(space.len(w_ob))
-        if n > 1:
-            raise oefmt(space.w_ValueError,
-                        "initializer for '%s': %d items given, but only one "
-                        "supported (use a dict if needed)", self.name, n)
-
 
 class W_CField(W_Root):
     _immutable_ = True
@@ -200,20 +194,23 @@ class W_CField(W_Root):
     BS_REGULAR     = -1
     BS_EMPTY_ARRAY = -2
 
-    def __init__(self, ctype, offset, bitshift, bitsize):
+    BF_IGNORE_IN_CTOR = 0x01
+
+    def __init__(self, ctype, offset, bitshift, bitsize, flags):
         self.ctype = ctype
         self.offset = offset
         self.bitshift = bitshift # >= 0: bitshift; or BS_REGULAR/BS_EMPTY_ARRAY
         self.bitsize = bitsize
+        self.flags = flags       # BF_xxx
 
     def is_bitfield(self):
         return self.bitshift >= 0
 
-    def make_shifted(self, offset):
+    def make_shifted(self, offset, fflags):
         return W_CField(self.ctype, offset + self.offset,
-                        self.bitshift, self.bitsize)
+                        self.bitshift, self.bitsize, self.flags | fflags)
 
-    def read(self, cdata):
+    def read(self, cdata, w_cdata):
         cdata = rffi.ptradd(cdata, self.offset)
         if self.bitshift == self.BS_REGULAR:
             return self.ctype.convert_to_object(cdata)
@@ -221,6 +218,14 @@ class W_CField(W_Root):
             from pypy.module._cffi_backend import ctypearray
             ctype = self.ctype
             assert isinstance(ctype, ctypearray.W_CTypeArray)
+            structobj = w_cdata.get_structobj()
+            if structobj is not None:
+                # variable-length array
+                size = structobj.allocated_length - self.offset
+                if size >= 0:
+                    arraylen = size // ctype.ctitem.size
+                    return cdataobj.W_CDataSliced(ctype.space, cdata, ctype,
+                                                  arraylen)
             return cdataobj.W_CData(ctype.space, cdata, ctype.ctptr)
         else:
             return self.convert_bitfield_to_object(cdata)
@@ -341,5 +346,6 @@ W_CField.typedef = TypeDef(
     offset = interp_attrproperty('offset', W_CField),
     bitshift = interp_attrproperty('bitshift', W_CField),
     bitsize = interp_attrproperty('bitsize', W_CField),
+    flags = interp_attrproperty('flags', W_CField),
     )
 W_CField.typedef.acceptable_as_base_class = False

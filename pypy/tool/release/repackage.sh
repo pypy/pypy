@@ -1,9 +1,9 @@
 # Edit these appropriately before running this script
 maj=5
-min=3
+min=6
 rev=0
-branchname=release-$maj.x  # ==OR== release-$maj.$min.x
-tagname=release-$maj.$min.$rev  # ==OR== release-$maj.$min
+branchname=release-pypy2.7-5.x # ==OR== release-$maj.x  # ==OR== release-$maj.$min.x
+tagname=release-pypy2.7-v$maj.$min.$rev  # ==OR== release-$maj.$min
 
 echo checking hg log -r $branchname
 hg log -r $branchname || exit 1
@@ -34,17 +34,19 @@ for plat in linux linux64 linux-armhf-raspbian linux-armhf-raring linux-armel os
 plat=win32
 wget http://buildbot.pypy.org/nightly/$branchname/pypy-c-jit-latest-$plat.zip
 unzip pypy-c-jit-latest-$plat.zip
+rm pypy-c-jit-latest-$plat.zip
 mv pypy-c-jit-*-$plat $rel-$plat
-zip -r $rel-$plat.zip $rel-$plat
+zip -rq $rel-$plat.zip $rel-$plat
 rm -rf $rel-$plat
 
-# Do this after creating a tag, note the untarred directory is pypy-pypy-<hash>
+# Requires a valid $tagname, note the untarred directory is pypy-pypy-<hash>
 # so make sure there is not another one
 wget https://bitbucket.org/pypy/pypy/get/$tagname.tar.bz2
 tar -xf $tagname.tar.bz2
+rm $tagname.tar.bz2
 mv pypy-pypy-* $rel-src
 tar --owner=root --group=root --numeric-owner -cjf $rel-src.tar.bz2 $rel-src
-zip -r $rel-src.zip $rel-src
+zip -rq $rel-src.zip $rel-src
 rm -rf $rel-src
 
 # Print out the md5, sha1, sha256

@@ -254,7 +254,7 @@ class __extend__(W_NDimArray):
                 idx = space.str_w(w_idx)
                 return self.getfield(space, idx)
         if space.is_w(w_idx, space.w_Ellipsis):
-            return self
+            return self.descr_view(space, space.type(self))
         elif isinstance(w_idx, W_NDimArray) and w_idx.get_dtype().is_bool():
             if w_idx.ndims() > 0:
                 w_ret = self.getitem_filter(space, w_idx)
@@ -805,19 +805,19 @@ class __extend__(W_NDimArray):
         return w_result
 
     def buffer_w(self, space, flags):
-        return self.implementation.get_buffer(space, True)
+        return self.implementation.get_buffer(space, flags)
 
     def readbuf_w(self, space):
-        return self.implementation.get_buffer(space, True)
+        return self.implementation.get_buffer(space, space.BUF_FULL_RO)
 
     def writebuf_w(self, space):
-        return self.implementation.get_buffer(space, False)
+        return self.implementation.get_buffer(space, space.BUF_FULL)
 
     def charbuf_w(self, space):
-        return self.implementation.get_buffer(space, True).as_str()
+        return self.implementation.get_buffer(space, space.BUF_FULL_RO).as_str()
 
     def descr_get_data(self, space):
-        return space.newbuffer(self.implementation.get_buffer(space, False))
+        return space.newbuffer(self.implementation.get_buffer(space, space.BUF_FULL))
 
     @unwrap_spec(offset=int, axis1=int, axis2=int)
     def descr_diagonal(self, space, offset=0, axis1=0, axis2=1):

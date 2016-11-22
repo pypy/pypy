@@ -142,7 +142,7 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
                     2000, 6, 6, 6, 6, 6, 6, Py_None,
                     PyDateTimeAPI->DateTimeType);
              """),
-        ])
+        ], prologue='#include "datetime.h"\n')
         import datetime
         assert module.new_date() == datetime.date(2000, 6, 6)
         assert module.new_time() == datetime.time(6, 6, 6, 6)
@@ -176,13 +176,15 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
              """),
             ("test_datetime_macros", "METH_NOARGS",
              """
+                 PyObject* obj;
+                 PyDateTime_DateTime *dt;
                  PyDateTime_IMPORT;
                  if (!PyDateTimeAPI) {
                      PyErr_SetString(PyExc_RuntimeError, "No PyDateTimeAPI");
                      return NULL;
                  }
-                 PyObject* obj = PyDateTime_FromDateAndTime(2000, 6, 6, 6, 6, 6, 6);
-                 PyDateTime_DateTime* dt = (PyDateTime_DateTime*)obj;
+                 obj = PyDateTime_FromDateAndTime(2000, 6, 6, 6, 6, 6, 6);
+                 dt = (PyDateTime_DateTime*)obj;
 
                  PyDateTime_GET_YEAR(obj);
                  PyDateTime_GET_YEAR(dt);
@@ -209,13 +211,15 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
              """),
             ("test_time_macros", "METH_NOARGS",
              """
+                 PyObject* obj;
+                 PyDateTime_Time* t;
                  PyDateTime_IMPORT;
                  if (!PyDateTimeAPI) {
                      PyErr_SetString(PyExc_RuntimeError, "No PyDateTimeAPI");
                      return NULL;
                  }
-                 PyObject* obj = PyTime_FromTime(6, 6, 6, 6);
-                 PyDateTime_Time* t = (PyDateTime_Time*)obj;
+                 obj = PyTime_FromTime(6, 6, 6, 6);
+                 t = (PyDateTime_Time*)obj;
 
                  PyDateTime_TIME_GET_HOUR(obj);
                  PyDateTime_TIME_GET_HOUR(t);
@@ -233,14 +237,19 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
              """),
             ("test_delta_macros", "METH_NOARGS",
              """
+                 PyObject* obj;
+                 PyDateTime_Delta* delta;
                  PyDateTime_IMPORT;
                  if (!PyDateTimeAPI) {
                      PyErr_SetString(PyExc_RuntimeError, "No PyDateTimeAPI");
                      return NULL;
                  }
-                 PyObject* obj = PyDelta_FromDSU(6, 6, 6);
-                 PyDateTime_Delta* delta = (PyDateTime_Delta*)obj;
+                 obj = PyDelta_FromDSU(6, 6, 6);
+                 delta = (PyDateTime_Delta*)obj;
 
+#if defined(PYPY_VERSION) || PY_VERSION_HEX >= 0x03030000
+                 // These macros are only defined in CPython 3.x and PyPy.
+                 // See: http://bugs.python.org/issue13727
                  PyDateTime_DELTA_GET_DAYS(obj);
                  PyDateTime_DELTA_GET_DAYS(delta);
 
@@ -249,10 +258,10 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
 
                  PyDateTime_DELTA_GET_MICROSECONDS(obj);
                  PyDateTime_DELTA_GET_MICROSECONDS(delta);
-
+#endif
                  return obj;
              """),
-            ])
+            ], prologue='#include "datetime.h"\n')
         import datetime
         assert module.test_date_macros() == datetime.date(2000, 6, 6)
         assert module.test_datetime_macros() == datetime.datetime(

@@ -64,7 +64,7 @@ class CheckSignalAction(PeriodicAsyncAction):
         AsyncAction.__init__(self, space)
         self.pending_signal = -1
         self.fire_in_another_thread = False
-        #
+
         @rgc.no_collect
         def _after_thread_switch():
             if self.fire_in_another_thread:
@@ -179,11 +179,19 @@ def default_int_handler(space, w_signum, w_frame):
 @jit.dont_look_inside
 @unwrap_spec(timeout=int)
 def alarm(space, timeout):
+    """alarm(seconds)
+
+    Arrange for SIGALRM to arrive after the given number of seconds.
+    """
     return space.wrap(c_alarm(timeout))
 
 
 @jit.dont_look_inside
 def pause(space):
+    """pause()
+
+    Wait until a signal arrives.
+    """
     c_pause()
     return space.w_None
 
@@ -251,13 +259,19 @@ def set_wakeup_fd(space, fd):
         except OSError as e:
             if e.errno == errno.EBADF:
                 raise oefmt(space.w_ValueError, "invalid fd")
-    old_fd = pypysig_set_wakeup_fd(fd)
+    old_fd = pypysig_set_wakeup_fd(fd, True)
     return space.wrap(intmask(old_fd))
 
 
 @jit.dont_look_inside
 @unwrap_spec(signum=int, flag=int)
 def siginterrupt(space, signum, flag):
+    """siginterrupt(sig, flag) -> None
+
+    change system call restart behaviour: if flag is False, system calls
+    will be restarted when interrupted by signal sig, else system calls
+    will be interrupted.
+    """
     check_signum_in_range(space, signum)
     if rffi.cast(lltype.Signed, c_siginterrupt(signum, flag)) < 0:
         errno = rposix.get_saved_errno()

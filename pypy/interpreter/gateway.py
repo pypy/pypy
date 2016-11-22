@@ -23,7 +23,6 @@ from pypy.interpreter.baseobjspace import (W_Root, ObjSpace, SpaceCache,
     DescrMismatch)
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.function import ClassMethod, FunctionWithFixedCode
-from rpython.rlib import rstackovf
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_longlong, r_int, r_ulonglong, r_uint
 from rpython.tool.sourcetools import func_with_new_name, compile2
@@ -167,6 +166,9 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
     def visit_c_ushort(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
+    def visit_c_uid_t(self, el, app_sig):
+        self.checked_space_method(el, app_sig)
+
     def visit_truncatedint_w(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
@@ -293,6 +295,9 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
 
     def visit_c_ushort(self, typ):
         self.run_args.append("space.c_ushort_w(%s)" % (self.scopenext(),))
+
+    def visit_c_uid_t(self, typ):
+        self.run_args.append("space.c_uid_t_w(%s)" % (self.scopenext(),))
 
     def visit_truncatedint_w(self, typ):
         self.run_args.append("space.truncatedint_w(%s)" % (self.scopenext(),))
@@ -439,6 +444,9 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
 
     def visit_c_ushort(self, typ):
         self.unwrap.append("space.c_ushort_w(%s)" % (self.nextarg(),))
+
+    def visit_c_uid_t(self, typ):
+        self.unwrap.append("space.c_uid_t_w(%s)" % (self.nextarg(),))
 
     def visit_truncatedint_w(self, typ):
         self.unwrap.append("space.truncatedint_w(%s)" % (self.nextarg(),))
@@ -587,7 +595,10 @@ class BuiltinCode(Code):
 
         # First extract the signature from the (CPython-level) code object
         from pypy.interpreter import pycode
-        argnames, varargname, kwargname = pycode.cpython_code_signature(func.func_code)
+        sig = pycode.cpython_code_signature(func.func_code)
+        argnames = sig.argnames
+        varargname = sig.varargname
+        kwargname = sig.kwargname
         self._argnames = argnames
 
         if unwrap_spec is None:
@@ -611,7 +622,9 @@ class BuiltinCode(Code):
         app_sig = SignatureBuilder(func)
 
         UnwrapSpec_Check(orig_sig).apply_over(unwrap_spec, app_sig)
-        self.sig = argnames, varargname, kwargname = app_sig.signature()
+        self.sig = app_sig.signature()
+        argnames = self.sig.argnames
+        varargname = self.sig.varargname
 
         self.minargs = len(argnames)
         if varargname:
@@ -698,16 +711,11 @@ class BuiltinCode(Code):
             if not we_are_translated():
                 raise
             raise e
-        except KeyboardInterrupt:
-            raise OperationError(space.w_KeyboardInterrupt, space.w_None)
-        except MemoryError:
-            raise OperationError(space.w_MemoryError, space.w_None)
-        except rstackovf.StackOverflow as e:
-            rstackovf.check_stack_overflow()
-            raise oefmt(space.w_RuntimeError,
-                        "maximum recursion depth exceeded")
-        except RuntimeError:   # not on top of py.py
-            raise OperationError(space.w_RuntimeError, space.w_None)
+        except OperationError:
+            raise
+        except Exception as e:      # general fall-back
+            from pypy.interpreter import error
+            raise error.get_converted_unexpected_exception(space, e)
 
 # (verbose) performance hack below
 
@@ -942,7 +950,7 @@ class interp2app(W_Root):
                 defs_w.append(space.wrap(defaultval))
         if self._code._unwrap_spec:
             UNDEFINED = object()
-            alldefs_w = [UNDEFINED] * len(self._code.sig[0])
+            alldefs_w = [UNDEFINED] * len(self._code.sig.argnames)
             if defs_w:
                 alldefs_w[-len(defs_w):] = defs_w
             code = self._code
@@ -959,7 +967,7 @@ class interp2app(W_Root):
                     assert isinstance(w_default, W_Root)
                     assert argname.startswith('w_')
                     argname = argname[2:]
-                    j = self._code.sig[0].index(argname)
+                    j = self._code.sig.argnames.index(argname)
                     assert alldefs_w[j] in (UNDEFINED, None)
                     alldefs_w[j] = w_default
             first_defined = 0

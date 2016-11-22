@@ -39,6 +39,10 @@
 #define PY_SIZE_MAX ((size_t)-1)
 #endif
 
+/* CPython needs this for the c-extension datetime, which is pure python on PyPy 
+   downstream packages assume it is here (Pandas for instance) */
+#include <time.h> 
+
 /* uintptr_t is the C9X name for an unsigned integral type such that a
  * legitimate void* can be cast to uintptr_t and then back to void* again
  * without loss of information.  Similarly for intptr_t, wrt a signed
@@ -63,13 +67,6 @@ typedef PY_LONG_LONG        Py_intptr_t;
 #else
 #   error "Python needs a typedef for Py_uintptr_t in pyport.h."
 #endif /* HAVE_UINTPTR_T */
-
-/* Py_hash_t is the same size as a pointer. */
-#define SIZEOF_PY_HASH_T SIZEOF_SIZE_T
-typedef Py_ssize_t Py_hash_t;
-/* Py_uhash_t is the unsigned equivalent needed to calculate numeric hash. */
-#define SIZEOF_PY_UHASH_T SIZEOF_SIZE_T
-typedef size_t Py_uhash_t;
 
 
 /*******************************

@@ -22,6 +22,7 @@ from rpython.rlib.rarithmetic import intmask, is_valid_int
 from rpython.jit.backend.detect_cpu import autodetect
 from rpython.jit.backend.llsupport import jitframe
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
+from rpython.jit.backend.llsupport.llmodel import MissingLatestDescrError
 from rpython.jit.backend.llsupport.rewrite import GcRewriterAssembler
 
 
@@ -2388,7 +2389,7 @@ class LLtypeBackendTest(BaseBackendTest):
             f2 = longlong.getfloatstorage(3.4)
             frame = self.cpu.execute_token(looptoken, 1, 0, 1, 2, 3, 4, 5, f1, f2)
             assert not called
-            for j in range(5):
+            for j in range(6):
                 assert self.cpu.get_int_value(frame, j) == j
             assert longlong.getrealfloat(self.cpu.get_float_value(frame, 6)) == 1.2
             assert longlong.getrealfloat(self.cpu.get_float_value(frame, 7)) == 3.4
@@ -2445,6 +2446,54 @@ class LLtypeBackendTest(BaseBackendTest):
             frame = self.cpu.execute_token(looptoken, arg1, arg2_if_true,
                                            67, 89)
             assert called == [(67, 89)]
+
+    def test_cond_call_value(self):
+        if not self.cpu.supports_cond_call_value:
+            py.test.skip("missing supports_cond_call_value")
+
+        def func_int(*args):
+            called.append(args)
+            return len(args) * 100 + 1000
+
+        for i in range(5):
+            called = []
+
+            FUNC = self.FuncType([lltype.Signed] * i, lltype.Signed)
+            func_ptr = llhelper(lltype.Ptr(FUNC), func_int)
+            calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                             EffectInfo.MOST_GENERAL)
+
+            ops = '''
+            [i0, i1, i2, i3, i4, i5, i6, f0, f1]
+            i15 = cond_call_value_i(i1, ConstClass(func_ptr), %s)
+            guard_false(i0, descr=faildescr) [i1,i2,i3,i4,i5,i6,i15, f0,f1]
+            finish(i15)
+            ''' % ', '.join(['i%d' % (j + 2) for j in range(i)] +
+                            ["descr=calldescr"])
+            loop = parse(ops, namespace={'faildescr': BasicFailDescr(),
+                                         'func_ptr': func_ptr,
+                                         'calldescr': calldescr})
+            looptoken = JitCellToken()
+            self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+            f1 = longlong.getfloatstorage(1.2)
+            f2 = longlong.getfloatstorage(3.4)
+            frame = self.cpu.execute_token(looptoken, 1, 50, 1, 2, 3, 4, 5,
+                                           f1, f2)
+            assert not called
+            assert [self.cpu.get_int_value(frame, j) for j in range(7)] == [
+                        50, 1, 2, 3, 4, 5, 50]
+            assert longlong.getrealfloat(
+                        self.cpu.get_float_value(frame, 7)) == 1.2
+            assert longlong.getrealfloat(
+                        self.cpu.get_float_value(frame, 8)) == 3.4
+            #
+            frame = self.cpu.execute_token(looptoken, 1, 0, 1, 2, 3, 4, 5,
+                                           f1, f2)
+            assert called == [(1, 2, 3, 4)[:i]]
+            assert [self.cpu.get_int_value(frame, j) for j in range(7)] == [
+                        0, 1, 2, 3, 4, 5, i * 100 + 1000]
+            assert longlong.getrealfloat(self.cpu.get_float_value(frame, 7)) == 1.2
+            assert longlong.getrealfloat(self.cpu.get_float_value(frame, 8)) == 3.4
 
     def test_force_operations_returning_void(self):
         values = []
@@ -2597,6 +2646,34 @@ class LLtypeBackendTest(BaseBackendTest):
             assert frame == deadframe
         deadframe2 = self.cpu.force(frame)
         assert self.cpu.get_int_value(deadframe2, 0) == 30
+
+    def test_guard_not_forced_2_float(self):
+        cpu = self.cpu
+        if not cpu.supports_floats:
+            py.test.skip("requires floats")
+        faildescr = BasicFailDescr(1)
+        finaldescr = BasicFinalDescr(0)
+        loop = parse("""
+        [f0]
+        f1 = float_add(f0, 2.5)
+        p2 = force_token()
+        guard_not_forced_2(descr=faildescr) [f1]
+        finish(p2, descr=finaldescr)
+        """, namespace=locals())
+        looptoken = JitCellToken()
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        x = longlong.getfloatstorage(20.25)
+        deadframe = self.cpu.execute_token(looptoken, x)
+        fail = self.cpu.get_latest_descr(deadframe)
+        assert fail.identifier == 0
+        frame = self.cpu.get_ref_value(deadframe, 0)
+        # actually, we should get the same pointer in 'frame' and 'deadframe'
+        # but it is not the case on LLGraph
+        if not getattr(self.cpu, 'is_llgraph', False):
+            assert frame == deadframe
+        deadframe2 = self.cpu.force(frame)
+        x = self.cpu.get_float_value(deadframe2, 0)
+        assert longlong.getrealfloat(x) == 22.75
 
     def test_call_to_c_function(self):
         from rpython.rlib.libffi import CDLL, types, ArgChain, FUNCFLAG_CDECL
@@ -2825,6 +2902,7 @@ class LLtypeBackendTest(BaseBackendTest):
         from rpython.rlib.rarithmetic import r_singlefloat
         from rpython.translator.c import primitive
 
+
         def same_as_for_box(b):
             if b.type == 'i':
                 return rop.SAME_AS_I
@@ -2835,6 +2913,8 @@ class LLtypeBackendTest(BaseBackendTest):
 
         cpu = self.cpu
         rnd = random.Random(525)
+        seed = py.test.config.option.randomseed
+        print("random seed %d" % seed)
 
         ALL_TYPES = [
             (types.ulong,  lltype.Unsigned),
@@ -4387,6 +4467,12 @@ class LLtypeBackendTest(BaseBackendTest):
                         [funcbox, boxfloat(arg)],
                          'float', descr=calldescr)
             assert longlong.getrealfloat(res) == expected
+
+    def test_check_memory_error(self):
+        self.execute_operation(
+                       rop.CHECK_MEMORY_ERROR, [InputArgInt(12345)], 'void')
+        py.test.raises(MissingLatestDescrError, self.execute_operation,
+                       rop.CHECK_MEMORY_ERROR, [InputArgInt(0)], 'void')
 
     def test_compile_loop_with_target(self):
         looptoken = JitCellToken()

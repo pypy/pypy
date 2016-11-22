@@ -2,7 +2,7 @@
 import unittest
 from idlelib import FormatParagraph as fp
 from idlelib.EditorWindow import EditorWindow
-from Tkinter import Tk, Text, TclError
+from Tkinter import Tk, Text
 from test.test_support import requires
 
 
@@ -276,10 +276,9 @@ class FormatEventTest(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
+        del cls.text, cls.formatter
         cls.root.destroy()
         del cls.root
-        del cls.text
-        del cls.formatter
 
     def test_short_line(self):
         self.text.insert('1.0', "Short line\n")

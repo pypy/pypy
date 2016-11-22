@@ -268,6 +268,7 @@ class GuardStrengthenOpt(object):
         if user_code:
             self.eliminate_array_bound_checks(info, loop)
 
+
     def emit_operation(self, op):
         self.renamer.rename(op)
         self._newoperations.append(op)

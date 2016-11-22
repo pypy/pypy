@@ -138,6 +138,7 @@ class CallBuilderX86(AbstractCallBuilder):
             # shadowstack: change 'rpy_fastgil' to 0 (it should be
             # non-zero right now).
             self.change_extra_stack_depth = False
+            # ^^ note that set_extra_stack_depth() in this case is a no-op
             css_value = imm(0)
         else:
             from rpython.memory.gctransform import asmgcroot

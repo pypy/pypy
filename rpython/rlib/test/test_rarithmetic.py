@@ -2,6 +2,7 @@ from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.rlib.rarithmetic import *
 from rpython.rlib.rstring import ParseStringError, ParseStringOverflowError
+from hypothesis import given, strategies
 import sys
 import py
 
@@ -393,6 +394,23 @@ def test_int_between():
     assert not int_between(1, 2, 2)
     assert not int_between(1, 1, 1)
 
+def test_int_force_ge_zero():
+    assert int_force_ge_zero(42) == 42
+    assert int_force_ge_zero(0) == 0
+    assert int_force_ge_zero(-42) == 0
+
+@given(strategies.integers(min_value=0, max_value=sys.maxint),
+       strategies.integers(min_value=1, max_value=sys.maxint))
+def test_int_c_div_mod(x, y):
+    assert int_c_div(~x, y) == -(abs(~x) // y)
+    assert int_c_div( x,-y) == -(x // y)
+    if (x, y) == (sys.maxint, 1):
+        py.test.skip("would overflow")
+    assert int_c_div(~x,-y) == +(abs(~x) // y)
+    for x1 in [x, ~x]:
+        for y1 in [y, -y]:
+            assert int_c_div(x1, y1) * y1 + int_c_mod(x1, y1) == x1
+
 # these can't be prebuilt on 32bit
 U1 = r_ulonglong(0x0102030405060708L)
 U2 = r_ulonglong(0x0807060504030201L)
@@ -584,3 +602,76 @@ class TestExplicitIntsizes:
 
         assert r_uint64(self._64_umax) + r_uint64(1) == r_uint64(0)
         assert r_uint64(0) - r_uint64(1) == r_uint64(self._64_umax)
+
+
+def test_operation_with_float():
+    def f(x):
+        assert r_longlong(x) + 0.5 == 43.5
+        assert r_longlong(x) - 0.5 == 42.5
+        assert r_longlong(x) * 0.5 == 21.5
+        assert r_longlong(x) / 0.8 == 53.75
+    f(43)
+    interpret(f, [43])
+
+def test_int64_plus_int32():
+    assert r_uint64(1234567891234) + r_uint32(1) == r_uint64(1234567891235)
+
+def test_fallback_paths():
+
+    def make(pattern):
+        def method(self, other, *extra):
+            if extra:
+                assert extra == (None,)   # for 'pow'
+            if type(other) is long:
+                return pattern % other
+            else:
+                return NotImplemented
+        return method
+
+    class A(object):
+        __add__  = make("a+%d")
+        __radd__ = make("%d+a")
+        __sub__  = make("a-%d")
+        __rsub__ = make("%d-a")
+        __mul__  = make("a*%d")
+        __rmul__ = make("%d*a")
+        __div__  = make("a/%d")
+        __rdiv__ = make("%d/a")
+        __floordiv__  = make("a//%d")
+        __rfloordiv__ = make("%d//a")
+        __mod__  = make("a%%%d")
+        __rmod__ = make("%d%%a")
+        __and__  = make("a&%d")
+        __rand__ = make("%d&a")
+        __or__   = make("a|%d")
+        __ror__  = make("%d|a")
+        __xor__  = make("a^%d")
+        __rxor__ = make("%d^a")
+        __pow__  = make("a**%d")
+        __rpow__ = make("%d**a")
+
+    a = A()
+    assert r_uint32(42) + a == "42+a"
+    assert a + r_uint32(42) == "a+42"
+    assert r_uint32(42) - a == "42-a"
+    assert a - r_uint32(42) == "a-42"
+    assert r_uint32(42) * a == "42*a"
+    assert a * r_uint32(42) == "a*42"
+    assert r_uint32(42) / a == "42/a"
+    assert a / r_uint32(42) == "a/42"
+    assert r_uint32(42) // a == "42//a"
+    assert a // r_uint32(42) == "a//42"
+    assert r_uint32(42) % a == "42%a"
+    assert a % r_uint32(42) == "a%42"
+    py.test.raises(TypeError, "a << r_uint32(42)")
+    py.test.raises(TypeError, "r_uint32(42) << a")
+    py.test.raises(TypeError, "a >> r_uint32(42)")
+    py.test.raises(TypeError, "r_uint32(42) >> a")
+    assert r_uint32(42) & a == "42&a"
+    assert a & r_uint32(42) == "a&42"
+    assert r_uint32(42) | a == "42|a"
+    assert a | r_uint32(42) == "a|42"
+    assert r_uint32(42) ^ a == "42^a"
+    assert a ^ r_uint32(42) == "a^42"
+    assert r_uint32(42) ** a == "42**a"
+    assert a ** r_uint32(42) == "a**42"

@@ -6,7 +6,7 @@
 #
 import sys, weakref
 from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.rlib.objectmodel import we_are_translated, specialize
+from rpython.rlib.objectmodel import we_are_translated, specialize, not_rpython
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rlib import rgc
 
@@ -23,8 +23,9 @@ def _build_pypy_link(p):
     return res
 
 
+@not_rpython
 def init(dealloc_trigger_callback=None):
-    """NOT_RPYTHON: set up rawrefcount with the GC.  This is only used
+    """set up rawrefcount with the GC.  This is only used
     for tests; it should not be called at all during translation.
     """
     global _p_list, _o_list, _adr2pypy, _pypy2ob, _pypy2ob_rev
@@ -37,8 +38,9 @@ def init(dealloc_trigger_callback=None):
     _d_list = []
     _dealloc_trigger_callback = dealloc_trigger_callback
 
+@not_rpython
 def create_link_pypy(p, ob):
-    "NOT_RPYTHON: a link where the PyPy object contains some or all the data"
+    "a link where the PyPy object contains some or all the data"
     #print 'create_link_pypy\n\t%s\n\t%s' % (p, ob)
     assert p not in _pypy2ob
     assert ob._obj not in _pypy2ob_rev
@@ -48,8 +50,9 @@ def create_link_pypy(p, ob):
     _pypy2ob_rev[ob._obj] = p
     _p_list.append(ob)
 
+@not_rpython
 def create_link_pyobj(p, ob):
-    """NOT_RPYTHON: a link where the PyObject contains all the data.
+    """a link where the PyObject contains all the data.
        from_obj() will not work on this 'p'."""
     #print 'create_link_pyobj\n\t%s\n\t%s' % (p, ob)
     assert p not in _pypy2ob
@@ -58,8 +61,8 @@ def create_link_pyobj(p, ob):
     ob.c_ob_pypy_link = _build_pypy_link(p)
     _o_list.append(ob)
 
+@not_rpython
 def from_obj(OB_PTR_TYPE, p):
-    "NOT_RPYTHON"
     ob = _pypy2ob.get(p)
     if ob is None:
         return lltype.nullptr(OB_PTR_TYPE.TO)
@@ -67,8 +70,8 @@ def from_obj(OB_PTR_TYPE, p):
     assert _pypy2ob_rev[ob._obj] is p
     return ob
 
+@not_rpython
 def to_obj(Class, ob):
-    "NOT_RPYTHON"
     link = ob.c_ob_pypy_link
     if link == 0:
         return None
@@ -76,8 +79,9 @@ def to_obj(Class, ob):
     assert isinstance(p, Class)
     return p
 
+@not_rpython
 def next_dead(OB_PTR_TYPE):
-    """NOT_RPYTHON.  When the GC runs, it finds some pyobjs to be dead
+    """When the GC runs, it finds some pyobjs to be dead
     but cannot immediately dispose of them (it doesn't know how to call
     e.g. tp_dealloc(), and anyway calling it immediately would cause all
     sorts of bugs).  So instead, it stores them in an internal list,
@@ -89,8 +93,9 @@ def next_dead(OB_PTR_TYPE):
     assert lltype.typeOf(ob) == OB_PTR_TYPE
     return ob
 
+@not_rpython
 def _collect(track_allocation=True):
-    """NOT_RPYTHON: for tests only.  Emulates a GC collection.
+    """for tests only.  Emulates a GC collection.
     Will invoke dealloc_trigger_callback() once if there are objects
     whose _Py_Dealloc() should be called.
     """

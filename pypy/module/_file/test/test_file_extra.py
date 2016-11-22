@@ -667,3 +667,20 @@ class AppTestAFewExtra:
         f2.close()
         s2.close()
         s1.close()
+
+    def test_close_fd_if_dir_check_fails(self):
+        from errno import EMFILE
+        for i in range(1700):
+            try:
+                open('/')
+            except IOError as e:
+                assert e.errno != EMFILE
+            else:
+                assert False
+
+    @py.test.mark.skipif("os.name != 'posix'")
+    def test_dont_close_fd_if_dir_check_fails_in_fdopen(self):
+        import posix
+        fd = posix.open('/', posix.O_RDONLY)
+        raises(IOError, posix.fdopen, fd)
+        posix.close(fd)

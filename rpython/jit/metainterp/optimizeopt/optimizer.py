@@ -11,6 +11,8 @@ from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.typesystem import llhelper
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.debug import debug_print
+from rpython.rtyper import rclass
+from rpython.rtyper.lltypesystem import llmemory
 from rpython.jit.metainterp.optimize import SpeculativeError
 
 
@@ -22,8 +24,19 @@ CONST_ZERO_FLOAT = Const._new(0.0)
 llhelper.CONST_NULLREF = llhelper.CONST_NULL
 REMOVED = AbstractResOp()
 
+def check_no_forwarding(lsts):
+    for lst in lsts:
+        for op in lst:
+            assert op.get_forwarded() is None
+
 class LoopInfo(object):
     label_op = None
+
+    def _check_no_forwarding(self):
+        pass
+
+    def forget_optimization_info(self):
+        pass
 
 class BasicLoopInfo(LoopInfo):
     def __init__(self, inputargs, quasi_immutable_deps, jump_op):
@@ -31,12 +44,22 @@ class BasicLoopInfo(LoopInfo):
         self.jump_op = jump_op
         self.quasi_immutable_deps = quasi_immutable_deps
         self.extra_same_as = []
+        self.extra_before_label = []
 
     def final(self):
         return True
 
     def post_loop_compilation(self, loop, jitdriver_sd, metainterp, jitcell_token):
         pass
+
+
+class OptimizationResult(object):
+    def __init__(self, opt, op):
+        self.opt = opt
+        self.op = op
+
+    def callback(self):
+        self.opt.propagate_postprocess(self.op)
 
 
 class Optimization(object):
@@ -46,15 +69,29 @@ class Optimization(object):
     def __init__(self):
         pass # make rpython happy
 
-    def send_extra_operation(self, op):
-        self.optimizer.send_extra_operation(op)
+    def send_extra_operation(self, op, opt=None):
+        self.optimizer.send_extra_operation(op, opt)
 
     def propagate_forward(self, op):
         raise NotImplementedError
 
+    def propagate_postprocess(self, op):
+        pass
+
     def emit_operation(self, op):
-        self.last_emitted_operation = op
-        self.next_optimization.propagate_forward(op)
+        assert False, "This should never be called."
+
+    def emit(self, op):
+        return self.emit_result(OptimizationResult(self, op))
+
+    def emit_result(self, opt_result):
+        self.last_emitted_operation = opt_result.op
+        return opt_result
+
+    def emit_extra(self, op, emit=True):
+        if emit:
+            self.emit(op)
+        self.send_extra_operation(op, self.next_optimization)
 
     def getintbound(self, op):
         assert op.type == 'i'
@@ -224,9 +261,6 @@ class Optimization(object):
     def produce_potential_short_preamble_ops(self, potential_ops):
         pass
 
-    def forget_numberings(self):
-        self.optimizer.forget_numberings()
-
     def _can_optimize_call_pure(self, op):
         arg_consts = []
         for i in range(op.numargs()):
@@ -288,7 +322,7 @@ class Optimizer(Optimization):
             optimizations = []
             self.first_optimization = self
 
-        self.optimizations  = optimizations
+        self.optimizations = optimizations
 
     def force_op_from_preamble(self, op):
         return op
@@ -324,10 +358,6 @@ class Optimizer(Optimization):
     def produce_potential_short_preamble_ops(self, sb):
         for opt in self.optimizations:
             opt.produce_potential_short_preamble_ops(sb)
-
-    def forget_numberings(self):
-        self.metainterp_sd.profiler.count(jitprof.Counters.OPT_FORCINGS)
-        self.resumedata_memo.forget_numberings()
 
     def getinfo(self, op):
         if op.type == 'r':
@@ -522,7 +552,7 @@ class Optimizer(Optimization):
             if op.getopnum() in (rop.FINISH, rop.JUMP):
                 last_op = op
                 break
-            self.first_optimization.propagate_forward(op)
+            self.send_extra_operation(op)
             trace.kill_cache_at(deadranges[i + trace.start_index])
             if op.type != 'v':
                 i += 1
@@ -530,24 +560,42 @@ class Optimizer(Optimization):
         if flush:
             self.flush()
             if last_op:
-                self.first_optimization.propagate_forward(last_op)
+                self.send_extra_operation(last_op)
         self.resumedata_memo.update_counters(self.metainterp_sd.profiler)
-        
+
         return (BasicLoopInfo(trace.inputargs, self.quasi_immutable_deps, last_op),
                 self._newoperations)
 
-    def _clean_optimization_info(self, lst):
+    @staticmethod
+    def _clean_optimization_info(lst):
         for op in lst:
             if op.get_forwarded() is not None:
                 op.set_forwarded(None)
 
-    def send_extra_operation(self, op):
-        self.first_optimization.propagate_forward(op)
+    def send_extra_operation(self, op, opt=None):
+        if opt is None:
+            opt = self.first_optimization
+        opt_results = []
+        while opt is not None:
+            opt_result = opt.propagate_forward(op)
+            if opt_result is None:
+                op = None
+                break
+            opt_results.append(opt_result)
+            op = opt_result.op
+            opt = opt.next_optimization
+        for opt_result in reversed(opt_results):
+            opt_result.callback()
 
     def propagate_forward(self, op):
         dispatch_opt(self, op)
 
-    def emit_operation(self, op):
+    def emit_extra(self, op, emit=True):
+        # no forwarding, because we're at the end of the chain
+        self.emit(op)
+
+    def emit(self, op):
+        # this actually emits the operation instead of forwarding it
         if rop.returns_bool_result(op.opnum):
             self.getintbound(op).make_bool()
         self._emit_operation(op)
@@ -699,7 +747,7 @@ class Optimizer(Optimization):
         modifier = resume.ResumeDataVirtualAdder(self, descr, op, self.trace,
                                                  self.resumedata_memo)
         try:
-            newboxes = modifier.finish(self, pendingfields)
+            newboxes = modifier.finish(pendingfields)
             if (newboxes is not None and
                 len(newboxes) > self.metainterp_sd.options.failargs_limit):
                 raise resume.TagOverflow
@@ -738,7 +786,7 @@ class Optimizer(Optimization):
         return op
 
     def optimize_default(self, op):
-        self.emit_operation(op)
+        self.emit(op)
 
     def constant_fold(self, op):
         self.protect_speculative_operation(op)
@@ -799,6 +847,21 @@ class Optimizer(Optimization):
         if not (0 <= index < arraylength):
             raise SpeculativeError
 
+    @staticmethod
+    def _check_subclass(vtable1, vtable2): # checks that vtable1 is a subclass of vtable2
+        known_class = llmemory.cast_adr_to_ptr(
+            llmemory.cast_int_to_adr(vtable1),
+            rclass.CLASSTYPE)
+        expected_class = llmemory.cast_adr_to_ptr(
+            llmemory.cast_int_to_adr(vtable2),
+            rclass.CLASSTYPE)
+        # note: the test is for a range including 'max', but 'max'
+        # should never be used for actual classes.  Including it makes
+        # it easier to pass artificial tests.
+        return (expected_class.subclassrange_min
+                <= known_class.subclassrange_min
+                <= expected_class.subclassrange_max)
+
     def is_virtual(self, op):
         if op.type == 'r':
             opinfo = self.getptrinfo(op)
@@ -807,92 +870,6 @@ class Optimizer(Optimization):
             opinfo = self.getrawptrinfo(op)
             return opinfo is not None and opinfo.is_virtual()
         return False
-
-    def pure_reverse(self, op):
-        import sys
-        if self.optpure is None:
-            return
-        optpure = self.optpure
-        if op.getopnum() == rop.INT_ADD:
-            arg0 = op.getarg(0)
-            arg1 = op.getarg(1)
-            optpure.pure_from_args(rop.INT_ADD, [arg1, arg0], op)
-            # Synthesize the reverse op for optimize_default to reuse
-            optpure.pure_from_args(rop.INT_SUB, [op, arg1], arg0)
-            optpure.pure_from_args(rop.INT_SUB, [op, arg0], arg1)
-            if isinstance(arg0, ConstInt):
-                # invert the constant
-                i0 = arg0.getint()
-                if i0 == -sys.maxint - 1:
-                    return
-                inv_arg0 = ConstInt(-i0)
-            elif isinstance(arg1, ConstInt):
-                # commutative
-                i0 = arg1.getint()
-                if i0 == -sys.maxint - 1:
-                    return
-                inv_arg0 = ConstInt(-i0)
-                arg1 = arg0
-            else:
-                return
-            optpure.pure_from_args(rop.INT_SUB, [arg1, inv_arg0], op)
-            optpure.pure_from_args(rop.INT_SUB, [arg1, op], inv_arg0)
-            optpure.pure_from_args(rop.INT_ADD, [op, inv_arg0], arg1)
-            optpure.pure_from_args(rop.INT_ADD, [inv_arg0, op], arg1)
-
-        elif op.getopnum() == rop.INT_SUB:
-            arg0 = op.getarg(0)
-            arg1 = op.getarg(1)
-            optpure.pure_from_args(rop.INT_ADD, [op, arg1], arg0)
-            optpure.pure_from_args(rop.INT_SUB, [arg0, op], arg1)
-            if isinstance(arg1, ConstInt):
-                # invert the constant
-                i1 = arg1.getint()
-                if i1 == -sys.maxint - 1:
-                    return
-                inv_arg1 = ConstInt(-i1)
-                optpure.pure_from_args(rop.INT_ADD, [arg0, inv_arg1], op)
-                optpure.pure_from_args(rop.INT_ADD, [inv_arg1, arg0], op)
-                optpure.pure_from_args(rop.INT_SUB, [op, inv_arg1], arg0)
-                optpure.pure_from_args(rop.INT_SUB, [op, arg0], inv_arg1)
-        elif op.getopnum() == rop.FLOAT_MUL:
-            optpure.pure_from_args(rop.FLOAT_MUL,
-                                   [op.getarg(1), op.getarg(0)], op)
-        elif op.getopnum() == rop.FLOAT_NEG:
-            optpure.pure_from_args(rop.FLOAT_NEG, [op], op.getarg(0))
-        elif op.getopnum() == rop.CAST_INT_TO_PTR:
-            optpure.pure_from_args(rop.CAST_PTR_TO_INT, [op], op.getarg(0))
-        elif op.getopnum() == rop.CAST_PTR_TO_INT:
-            optpure.pure_from_args(rop.CAST_INT_TO_PTR, [op], op.getarg(0))
-
-    #def optimize_GUARD_NO_OVERFLOW(self, op):
-    #    # otherwise the default optimizer will clear fields, which is unwanted
-    #    # in this case
-    #    self.emit_operation(op)
-    # FIXME: Is this still needed?
-
-    def optimize_DEBUG_MERGE_POINT(self, op):
-        self.emit_operation(op)
-
-    def optimize_JIT_DEBUG(self, op):
-        self.emit_operation(op)
-
-    def optimize_STRGETITEM(self, op):
-        indexb = self.getintbound(op.getarg(1))
-        if indexb.is_constant():
-            pass
-            #raise Exception("implement me")
-            #arrayvalue = self.getvalue(op.getarg(0))
-            #arrayvalue.make_len_gt(MODE_STR, op.getdescr(), indexvalue.box.getint())
-        self.optimize_default(op)
-
-    def optimize_UNICODEGETITEM(self, op):
-        indexb = self.getintbound(op.getarg(1))
-        if indexb.is_constant():
-            #arrayvalue = self.getvalue(op.getarg(0))
-            #arrayvalue.make_len_gt(MODE_UNICODE, op.getdescr(), indexvalue.box.getint())
-            pass
-        self.optimize_default(op)
 
     # These are typically removed already by OptRewrite, but it can be
     # dissabled and unrolling emits some SAME_AS ops to setup the

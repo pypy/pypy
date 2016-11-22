@@ -310,11 +310,15 @@ class W_CData(W_Root):
                             self.ctype.name, ct.name)
             #
             itemsize = ct.ctitem.size
-            if itemsize <= 0:
-                itemsize = 1
             with self as ptr1, w_other as ptr2:
                 diff = (rffi.cast(lltype.Signed, ptr1) -
-                        rffi.cast(lltype.Signed, ptr2)) // itemsize
+                        rffi.cast(lltype.Signed, ptr2))
+            if itemsize > 1:
+                if diff % itemsize:
+                    raise oefmt(space.w_ValueError,
+                        "pointer subtraction: the distance between the two "
+                        "pointers is not a multiple of the item size")
+                diff //= itemsize
             return space.wrap(diff)
         #
         return self._add_or_sub(w_other, -1)
@@ -325,7 +329,7 @@ class W_CData(W_Root):
     def getattr(self, w_attr):
         cfield = self.getcfield(w_attr)
         with self as ptr:
-            w_res = cfield.read(ptr)
+            w_res = cfield.read(ptr, self)
         return w_res
 
     def setattr(self, w_attr, w_value):
@@ -428,6 +432,9 @@ class W_CData(W_Root):
         lst = ct.cdata_dir()
         return space.newlist([space.wrap(s) for s in lst])
 
+    def get_structobj(self):
+        return None
+
 
 class W_CDataMem(W_CData):
     """This is used only by the results of cffi.cast('int', x)
@@ -449,28 +456,36 @@ class W_CDataNewOwning(W_CData):
     by newp().  They create and free their own memory according to an
     allocator."""
 
-    # the 'length' is either >= 0 for arrays, or -1 for pointers.
-    _attrs_ = ['length']
-    _immutable_fields_ = ['length']
+    # the 'allocated_length' is >= 0 for arrays; for var-sized
+    # structures it is the total size in bytes; otherwise it is -1.
+    _attrs_ = ['allocated_length']
+    _immutable_fields_ = ['allocated_length']
 
     def __init__(self, space, cdata, ctype, length=-1):
         W_CData.__init__(self, space, cdata, ctype)
-        self.length = length
+        self.allocated_length = length
 
     def _repr_extra(self):
         return self._repr_extra_owning()
 
     def _sizeof(self):
         ctype = self.ctype
-        if self.length >= 0:
+        if self.allocated_length >= 0:
             from pypy.module._cffi_backend import ctypearray
-            assert isinstance(ctype, ctypearray.W_CTypeArray)
-            return self.length * ctype.ctitem.size
+            if isinstance(ctype, ctypearray.W_CTypeArray):
+                return self.allocated_length * ctype.ctitem.size
+            else:
+                return self.allocated_length    # var-sized struct size
         else:
             return ctype.size
 
     def get_array_length(self):
-        return self.length
+        from pypy.module._cffi_backend import ctypearray
+        assert isinstance(self.ctype, ctypearray.W_CTypeArray)
+        return self.allocated_length
+
+    def get_structobj(self):
+        return self
 
 
 class W_CDataNewStd(W_CDataNewOwning):
@@ -504,11 +519,18 @@ class W_CDataPtrToStructOrUnion(W_CData):
         self.structobj = structobj
 
     def _repr_extra(self):
-        return self._repr_extra_owning()
+        return self.structobj._repr_extra_owning()
 
     def _do_getitem(self, ctype, i):
         assert i == 0
         return self.structobj
+
+    def get_structobj(self):
+        structobj = self.structobj
+        if isinstance(structobj, W_CDataNewOwning):
+            return structobj
+        else:
+            return None
 
 
 class W_CDataSliced(W_CData):

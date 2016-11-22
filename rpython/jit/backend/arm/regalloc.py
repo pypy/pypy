@@ -594,8 +594,9 @@ class Regalloc(BaseRegalloc):
         resloc = self.after_call(op)
         return resloc
 
-    def prepare_op_call_malloc_gc(self, op, fcond):
-        return self._prepare_call(op)
+    def prepare_op_check_memory_error(self, op, fcond):
+        argloc = self.make_sure_var_in_reg(op.getarg(0))
+        return [argloc]
 
     def _prepare_llong_binop_xx(self, op, fcond):
         # arg 0 is the address of the function
@@ -901,6 +902,8 @@ class Regalloc(BaseRegalloc):
         size_box = op.getarg(0)
         assert isinstance(size_box, ConstInt)
         size = size_box.getint()
+        # hint: try to move unrelated registers away from r0 and r1 now
+        self.rm.spill_or_move_registers_before_call([r.r0, r.r1])
 
         self.rm.force_allocate_reg(op, selected_reg=r.r0)
         t = TempInt()
@@ -924,6 +927,7 @@ class Regalloc(BaseRegalloc):
         # sizeloc must be in a register, but we can free it now
         # (we take care explicitly of conflicts with r0 or r1)
         sizeloc = self.rm.make_sure_var_in_reg(size_box)
+        self.rm.spill_or_move_registers_before_call([r.r0, r.r1]) # sizeloc safe
         self.rm.possibly_free_var(size_box)
         #
         self.rm.force_allocate_reg(op, selected_reg=r.r0)
@@ -951,6 +955,11 @@ class Regalloc(BaseRegalloc):
         arraydescr = op.getdescr()
         length_box = op.getarg(2)
         assert not isinstance(length_box, Const) # we cannot have a const here!
+        # can only use spill_or_move_registers_before_call() as a hint if
+        # we are sure that length_box stays alive and won't be freed now
+        # (it should always be the case, see below, but better safe than sorry)
+        if self.rm.stays_alive(length_box):
+            self.rm.spill_or_move_registers_before_call([r.r0, r.r1])
         # the result will be in r0
         self.rm.force_allocate_reg(op, selected_reg=r.r0)
         # we need r1 as a temporary
@@ -993,6 +1002,9 @@ class Regalloc(BaseRegalloc):
     prepare_op_cond_call_gc_wb_array = prepare_op_cond_call_gc_wb
 
     def prepare_op_cond_call(self, op, fcond):
+        # XXX don't force the arguments to be loaded in specific
+        # locations before knowing if we can take the fast path
+        # XXX add cond_call_value support
         assert 2 <= op.numargs() <= 4 + 2
         tmpreg = self.get_scratch_reg(INT, selected_reg=r.r4)
         v = op.getarg(1)
@@ -1055,6 +1067,7 @@ class Regalloc(BaseRegalloc):
 
     def prepare_op_guard_not_forced_2(self, op, fcond):
         self.rm.before_call(op.getfailargs(), save_all_regs=True)
+        self.vfprm.before_call(op.getfailargs(), save_all_regs=True)
         fail_locs = self._prepare_guard(op)
         self.assembler.store_force_descr(op, fail_locs[1:], fail_locs[0].value)
         self.possibly_free_vars(op.getfailargs())

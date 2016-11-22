@@ -16,7 +16,6 @@
 #  include "structdef.h"
 #  include "src/threadlocal.h"
 #  include "rvmprof.h"
-
 #endif
 
 

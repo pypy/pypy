@@ -1,5 +1,6 @@
 import new
 from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.executioncontext import report_error
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.baseobjspace import W_Root
@@ -38,6 +39,8 @@ def descr_classobj_new(space, w_subtype, w_name, w_bases, w_dict):
 
 
 class W_ClassObject(W_Root):
+    _immutable_fields_ = ['bases_w?[*]', 'w_dict?']
+
     def __init__(self, space, w_name, bases, w_dict):
         self.name = space.str_w(w_name)
         make_sure_not_resized(bases)
@@ -75,6 +78,7 @@ class W_ClassObject(W_Root):
                             "__bases__ items must be classes")
         self.bases_w = bases_w
 
+    @jit.unroll_safe
     def is_subclass_of(self, other):
         assert isinstance(other, W_ClassObject)
         if self is other:
@@ -313,7 +317,7 @@ class W_InstanceObject(W_Root):
         # This method ignores the instance dict and the __getattr__.
         # Returns None if not found.
         assert isinstance(name, str)
-        w_value = self.w_class.lookup(space, name)
+        w_value = jit.promote(self.w_class).lookup(space, name)
         if w_value is None:
             return None
         w_descr_get = space.lookup(w_value, '__get__')
@@ -568,6 +572,9 @@ class W_InstanceObject(W_Root):
             return space.call_function(w_func)
 
         w_truncated = space.trunc(self)
+        if (space.isinstance_w(w_truncated, space.w_int) or
+            space.isinstance_w(w_truncated, space.w_long)):
+            return w_truncated
         # int() needs to return an int
         try:
             return space.int(w_truncated)
@@ -650,9 +657,13 @@ class W_InstanceObject(W_Root):
         if w_func is None:
             w_func = self.getattr_from_class(space, '__del__')
         if w_func is not None:
-            if self.space.user_del_action.gc_disabled(self):
+            if space.user_del_action.gc_disabled(self):
                 return
-            space.call_function(w_func)
+            try:
+                space.call_function(w_func)
+            except Exception as e:
+                # report this came from __del__ vs a generic finalizer
+                report_error(space, e, "method __del__ of ", self)
 
     def descr_exit(self, space, w_type, w_value, w_tb):
         w_func = self.getattr(space, '__exit__', False)

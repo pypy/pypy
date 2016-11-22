@@ -143,14 +143,3 @@ nonmovable, possibly making a copy of it first.
 Finish the work already partially merged in cpyext-for-merge. Adds support
 for ByteArrayObject using the nonmovable-list, which also enables
 buffer(bytearray(<some-list>)) 
-
-.. branch: z196-support
-
-Fixes a critical issue in the register allocator and extends support on s390x.
-PyPy runs and translates on the s390x revisions z10 (released February 2008, experimental)
-and z196 (released August 2010) in addition to zEC12 and z13.
-To target e.g. z196 on a zEC12 machine supply CFLAGS="-march=z196" to your shell environment.
-
-.. branch: s390x-5.3-catchup
-
-Implement the backend related changes for s390x.

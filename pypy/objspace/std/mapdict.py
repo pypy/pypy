@@ -221,7 +221,6 @@ class AbstractAttribute(object):
         stack_index = 0
         while True:
             current = self
-            number_to_readd = 0
             number_to_readd, attr = self._find_branch_to_move_into(name, index)
             # we found the attributes further up, need to save the
             # previous values of the attributes we passed
@@ -831,65 +830,83 @@ def materialize_r_dict(space, obj, dict_w):
     new_obj = map.materialize_r_dict(space, obj, dict_w)
     obj._set_mapdict_storage_and_map(new_obj.storage, new_obj.map)
 
-class MapDictIteratorKeys(BaseKeyIterator):
-    def __init__(self, space, strategy, w_dict):
-        BaseKeyIterator.__init__(self, space, strategy, w_dict)
+
+class IteratorMixin(object):
+
+    def _init(self, strategy, w_dict):
         w_obj = strategy.unerase(w_dict.dstorage)
         self.w_obj = w_obj
-        self.orig_map = self.curr_map = w_obj._get_mapdict_map()
+        self.orig_map = curr_map = w_obj._get_mapdict_map()
+        # We enumerate non-lazily the attributes, and store them in the
+        # 'attrs' list.  We then walk that list in opposite order.  This
+        # gives an ordering that is more natural (roughly corresponding
+        # to oldest-first) than the one we get in the direct algorithm
+        # (from leaves to root, looks like backward order).  See issue
+        # #2426: it should improve the performance of code like
+        # copy.copy().
+        attrs = []
+        while True:
+            curr_map = curr_map.search(DICT)
+            if curr_map is None:
+                break
+            attrs.append(curr_map.name)
+            curr_map = curr_map.back
+        self.attrs = attrs
+
+
+class MapDictIteratorKeys(BaseKeyIterator):
+    objectmodel.import_from_mixin(IteratorMixin)
+
+    def __init__(self, space, strategy, w_dict):
+        BaseKeyIterator.__init__(self, space, strategy, w_dict)
+        self._init(strategy, w_dict)
 
     def next_key_entry(self):
         assert isinstance(self.w_dict.get_strategy(), MapDictStrategy)
         if self.orig_map is not self.w_obj._get_mapdict_map():
             return None
-        if self.curr_map:
-            curr_map = self.curr_map.search(DICT)
-            if curr_map:
-                self.curr_map = curr_map.back
-                attr = curr_map.name
-                w_attr = self.space.wrap(attr)
-                return w_attr
+        attrs = self.attrs
+        if len(attrs) > 0:
+            attr = attrs.pop()
+            w_attr = self.space.wrap(attr)
+            return w_attr
         return None
 
 
 class MapDictIteratorValues(BaseValueIterator):
+    objectmodel.import_from_mixin(IteratorMixin)
+
     def __init__(self, space, strategy, w_dict):
         BaseValueIterator.__init__(self, space, strategy, w_dict)
-        w_obj = strategy.unerase(w_dict.dstorage)
-        self.w_obj = w_obj
-        self.orig_map = self.curr_map = w_obj._get_mapdict_map()
+        self._init(strategy, w_dict)
 
     def next_value_entry(self):
         assert isinstance(self.w_dict.get_strategy(), MapDictStrategy)
         if self.orig_map is not self.w_obj._get_mapdict_map():
             return None
-        if self.curr_map:
-            curr_map = self.curr_map.search(DICT)
-            if curr_map:
-                self.curr_map = curr_map.back
-                attr = curr_map.name
-                return self.w_obj.getdictvalue(self.space, attr)
+        attrs = self.attrs
+        if len(attrs) > 0:
+            attr = attrs.pop()
+            return self.w_obj.getdictvalue(self.space, attr)
         return None
 
 
 class MapDictIteratorItems(BaseItemIterator):
+    objectmodel.import_from_mixin(IteratorMixin)
+
     def __init__(self, space, strategy, w_dict):
         BaseItemIterator.__init__(self, space, strategy, w_dict)
-        w_obj = strategy.unerase(w_dict.dstorage)
-        self.w_obj = w_obj
-        self.orig_map = self.curr_map = w_obj._get_mapdict_map()
+        self._init(strategy, w_dict)
 
     def next_item_entry(self):
         assert isinstance(self.w_dict.get_strategy(), MapDictStrategy)
         if self.orig_map is not self.w_obj._get_mapdict_map():
             return None, None
-        if self.curr_map:
-            curr_map = self.curr_map.search(DICT)
-            if curr_map:
-                self.curr_map = curr_map.back
-                attr = curr_map.name
-                w_attr = self.space.wrap(attr)
-                return w_attr, self.w_obj.getdictvalue(self.space, attr)
+        attrs = self.attrs
+        if len(attrs) > 0:
+            attr = attrs.pop()
+            w_attr = self.space.wrap(attr)
+            return w_attr, self.w_obj.getdictvalue(self.space, attr)
         return None, None
 
 
@@ -993,7 +1010,8 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
             if index != INVALID:
                 attr = map.find_map_attr(attrname, index)
                 if attr is not None:
-                    # Note that if map.terminator is a DevolvedDictTerminator,
+                    # Note that if map.terminator is a DevolvedDictTerminator
+                    # or the class provides its own dict, not using mapdict, then:
                     # map.find_map_attr will always return None if index==DICT.
                     _fill_cache(pycode, nameindex, map, version_tag, attr.storageindex)
                     return w_obj._mapdict_read_storage(attr.storageindex)
@@ -1015,6 +1033,12 @@ def LOOKUP_METHOD_mapdict(f, nameindex, w_obj):
 
 def LOOKUP_METHOD_mapdict_fill_cache_method(space, pycode, name, nameindex,
                                             w_obj, w_type, w_method):
+    # if the layout has a dict itself, then mapdict is not used for normal
+    # attributes. Then the cache won't be able to spot changes to the dict.
+    # Thus we don't cache. see test_bug_builtin_types_callmethod
+    if w_type.layout.typedef.hasdict:
+        return
+
     if w_method is None or isinstance(w_method, MutableCell):
         # don't cache the MutableCell XXX could be fixed
         return

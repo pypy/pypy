@@ -345,10 +345,15 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
         if alignment < falign and do_align:
             alignment = falign
         #
+        if is_union and i > 0:
+            fflags = ctypestruct.W_CField.BF_IGNORE_IN_CTOR
+        else:
+            fflags = 0
+        #
         if fbitsize < 0:
             # not a bitfield: common case
 
-            if isinstance(ftype, ctypearray.W_CTypeArray) and ftype.length==0:
+            if isinstance(ftype, ctypearray.W_CTypeArray) and ftype.length<=0:
                 bs_flag = ctypestruct.W_CField.BS_EMPTY_ARRAY
             else:
                 bs_flag = ctypestruct.W_CField.BS_REGULAR
@@ -372,7 +377,7 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
                 for name, srcfld in ftype._fields_dict.items():
                     srcfield2names[srcfld] = name
                 for srcfld in ftype._fields_list:
-                    fld = srcfld.make_shifted(boffset // 8)
+                    fld = srcfld.make_shifted(boffset // 8, fflags)
                     fields_list.append(fld)
                     try:
                         fields_dict[srcfield2names[srcfld]] = fld
@@ -382,7 +387,8 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
                 w_ctype._custom_field_pos = True
             else:
                 # a regular field
-                fld = ctypestruct.W_CField(ftype, boffset // 8, bs_flag, -1)
+                fld = ctypestruct.W_CField(ftype, boffset // 8, bs_flag, -1,
+                                           fflags)
                 fields_list.append(fld)
                 fields_dict[fname] = fld
 
@@ -489,7 +495,7 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
                     bitshift = 8 * ftype.size - fbitsize- bitshift
 
                 fld = ctypestruct.W_CField(ftype, field_offset_bytes,
-                                           bitshift, fbitsize)
+                                           bitshift, fbitsize, fflags)
                 fields_list.append(fld)
                 fields_dict[fname] = fld
 

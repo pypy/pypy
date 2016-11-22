@@ -5,7 +5,12 @@ typedef struct {
         npy_bool obval;
 } PyBoolScalarObject;
 
-static int import_array(){return 0;};
-static int _import_array(){return 0;};
-static int _import_math(){return 0;};
+#if PY_VERSION_HEX >= 0x03000000
+#define NUMPY_IMPORT_ARRAY_RETVAL NULL
+#else
+#define NUMPY_IMPORT_ARRAY_RETVAL
+#endif
+
+#define import_array() {return NUMPY_IMPORT_ARRAY_RETVAL;}
+
 

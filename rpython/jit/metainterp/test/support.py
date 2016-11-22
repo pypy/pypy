@@ -9,6 +9,7 @@ from rpython.jit.metainterp.optimizeopt import ALL_OPTS_DICT
 from rpython.jit.metainterp import pyjitpl, history, jitexc
 from rpython.jit.codewriter.policy import JitPolicy
 from rpython.jit.codewriter import codewriter, longlong
+from rpython.jit.backend.llsupport.vector_ext import VectorExt
 from rpython.rlib.rfloat import isnan
 from rpython.rlib.jit import ENABLE_ALL_OPTS
 from rpython.translator.backendopt.all import backend_optimizations
@@ -64,6 +65,10 @@ def _get_jitcodes(testself, CPUClass, func, values,
     testself.all_graphs = graphs
     result_kind = history.getkind(graphs[0].getreturnvar().concretetype)[0]
 
+
+    class FakeJitDriver:
+        name = 'fakejitdriver'
+
     class FakeJitDriverSD:
         num_green_args = 0
         portal_graph = graphs[0]
@@ -72,6 +77,7 @@ def _get_jitcodes(testself, CPUClass, func, values,
         result_type = result_kind
         portal_runner_ptr = "???"
         vec = False
+        jitdriver = FakeJitDriver()
 
     stats = history.Stats(None)
     cpu = CPUClass(rtyper, stats, None, False)
@@ -292,6 +298,9 @@ class JitMixin:
 
 class LLJitMixin(JitMixin):
     CPUClass = runner.LLGraphCPU
+
+    def supports_vector_ext(self):
+        return True
 
     @staticmethod
     def Ptr(T):

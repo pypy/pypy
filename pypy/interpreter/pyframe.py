@@ -1,6 +1,7 @@
 """ PyFrame class implementation with the interpreter main loop.
 """
 
+import sys
 from rpython.rlib import jit
 from rpython.rlib.debug import make_sure_not_resized, check_nonneg
 from rpython.rlib.jit import hint
@@ -264,25 +265,26 @@ class PyFrame(W_Root):
         try:
             executioncontext.call_trace(self)
             #
-            if operr is not None:
-                ec = self.space.getexecutioncontext()
-                next_instr = self.handle_operation_error(ec, operr)
-                self.last_instr = intmask(next_instr - 1)
-            else:
-                # Execution starts just after the last_instr.  Initially,
-                # last_instr is -1.  After a generator suspends it points to
-                # the YIELD_VALUE instruction.
-                next_instr = r_uint(self.last_instr + 1)
-                if next_instr != 0:
-                    self.pushvalue(w_inputvalue)
-            #
             try:
+                if operr is not None:
+                    ec = self.space.getexecutioncontext()
+                    next_instr = self.handle_operation_error(ec, operr)
+                    self.last_instr = intmask(next_instr - 1)
+                else:
+                    # Execution starts just after the last_instr.  Initially,
+                    # last_instr is -1.  After a generator suspends it points to
+                    # the YIELD_VALUE instruction.
+                    next_instr = r_uint(self.last_instr + 1)
+                    if next_instr != 0:
+                        self.pushvalue(w_inputvalue)
                 w_exitvalue = self.dispatch(self.pycode, next_instr,
                                             executioncontext)
-            except Exception:
-                executioncontext.return_trace(self, self.space.w_None)
+            except OperationError:
                 raise
-            executioncontext.return_trace(self, w_exitvalue)
+            except Exception as e:      # general fall-back
+                raise self._convert_unexpected_exception(e)
+            finally:
+                executioncontext.return_trace(self, w_exitvalue)
             # it used to say self.last_exception = None
             # this is now done by the code in pypyjit module
             # since we don't want to invalidate the virtualizable
@@ -406,11 +408,14 @@ class PyFrame(W_Root):
             depth -= 1
         self.valuestackdepth = finaldepth
 
-    def make_arguments(self, nargs):
-        return Arguments(self.space, self.peekvalues(nargs))
+    def make_arguments(self, nargs, methodcall=False):
+        return Arguments(
+                self.space, self.peekvalues(nargs), methodcall=methodcall)
 
-    def argument_factory(self, arguments, keywords, keywords_w, w_star, w_starstar):
-        return Arguments(self.space, arguments, keywords, keywords_w, w_star, w_starstar)
+    def argument_factory(self, arguments, keywords, keywords_w, w_star, w_starstar, methodcall=False):
+        return Arguments(
+                self.space, arguments, keywords, keywords_w, w_star,
+                w_starstar, methodcall=methodcall)
 
     @jit.dont_look_inside
     def descr__reduce__(self, space):
@@ -882,6 +887,14 @@ class PyFrame(W_Root):
                     return last
             frame = frame.f_backref()
         return None
+
+    def _convert_unexpected_exception(self, e):
+        from pypy.interpreter import error
+
+        operr = error.get_converted_unexpected_exception(self.space, e)
+        pytraceback.record_application_traceback(
+            self.space, operr, self, self.last_instr)
+        raise operr
 
 # ____________________________________________________________
 

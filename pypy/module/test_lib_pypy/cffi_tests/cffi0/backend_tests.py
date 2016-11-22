@@ -1356,15 +1356,15 @@ class BackendTests:
         assert ffi.getctype("e1*") == 'e1 *'
 
     def test_opaque_enum(self):
+        import warnings
         ffi = FFI(backend=self.Backend())
         ffi.cdef("enum foo;")
-        from cffi import __version_info__
-        if __version_info__ < (1, 8):
-            py.test.skip("re-enable me in version 1.8")
-        e = py.test.raises(CDefError, ffi.cast, "enum foo", -1)
-        assert str(e.value) == (
-            "'enum foo' has no values explicitly defined: refusing to guess "
-            "which integer type it is meant to be (unsigned/signed, int/long)")
+        with warnings.catch_warnings(record=True) as log:
+            n = ffi.cast("enum foo", -1)
+            assert int(n) == 0xffffffff
+        assert str(log[0].message) == (
+            "'enum foo' has no values explicitly defined; "
+            "guessing that it is equivalent to 'unsigned int'")
 
     def test_new_ctype(self):
         ffi = FFI(backend=self.Backend())
@@ -1415,6 +1415,7 @@ class BackendTests:
         assert p.b == 12
         assert p.c == 14
         assert p.d == 14
+        py.test.raises(ValueError, ffi.new, "struct foo_s *", [0, 0, 0, 0])
 
     def test_nested_field_offset_align(self):
         ffi = FFI(backend=self.Backend())
@@ -1454,14 +1455,42 @@ class BackendTests:
         assert p.b == 0
         assert p.c == 14
         assert p.d == 14
-        p = ffi.new("union foo_u *", {'b': 12})
-        assert p.a == 0
+        p = ffi.new("union foo_u *", {'a': -63, 'b': 12})
+        assert p.a == -63
         assert p.b == 12
-        assert p.c == 0
-        assert p.d == 0
-        # we cannot specify several items in the dict, even though
-        # in theory in this particular case it would make sense
-        # to give both 'a' and 'b'
+        assert p.c == -63
+        assert p.d == -63
+        p = ffi.new("union foo_u *", [123, 456])
+        assert p.a == 123
+        assert p.b == 456
+        assert p.c == 123
+        assert p.d == 123
+        py.test.raises(ValueError, ffi.new, "union foo_u *", [0, 0, 0])
+
+    def test_nested_anonymous_struct_2(self):
+        ffi = FFI(backend=self.Backend())
+        ffi.cdef("""
+            struct foo_s {
+                int a;
+                union { int b; union { int c, d; }; };
+                int e;
+            };
+        """)
+        assert ffi.sizeof("struct foo_s") == 3 * SIZE_OF_INT
+        p = ffi.new("struct foo_s *", [11, 22, 33])
+        assert p.a == 11
+        assert p.b == p.c == p.d == 22
+        assert p.e == 33
+        py.test.raises(ValueError, ffi.new, "struct foo_s *", [11, 22, 33, 44])
+        FOO = ffi.typeof("struct foo_s")
+        fields = [(name, fld.offset, fld.flags) for (name, fld) in FOO.fields]
+        assert fields == [
+            ('a', 0 * SIZE_OF_INT, 0),
+            ('b', 1 * SIZE_OF_INT, 0),
+            ('c', 1 * SIZE_OF_INT, 1),
+            ('d', 1 * SIZE_OF_INT, 1),
+            ('e', 2 * SIZE_OF_INT, 0),
+        ]
 
     def test_cast_to_array_type(self):
         ffi = FFI(backend=self.Backend())
@@ -1479,6 +1508,7 @@ class BackendTests:
             assert p1[0] == 123
             seen.append(1)
         q = ffi.gc(p, destructor)
+        assert ffi.typeof(q) is ffi.typeof(p)
         import gc; gc.collect()
         assert seen == []
         del q

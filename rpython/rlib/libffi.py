@@ -47,6 +47,8 @@ class types(object):
         cls.ulonglong = clibffi.cast_type_to_ffitype(rffi.ULONGLONG)
         cls.signed = clibffi.cast_type_to_ffitype(rffi.SIGNED)
         cls.wchar_t = clibffi.cast_type_to_ffitype(lltype.UniChar)
+        # XXX long double support: clibffi.ffi_type_longdouble, but then
+        # XXX fix the whole rest of this file to add a case for long double
         del cls._import
 
     @staticmethod
@@ -454,6 +456,9 @@ class CDLL(object):
                     flags=flags, keepalive=self)
     def getaddressindll(self, name):
         return dlsym(self.lib, name)
+
+    def getidentifier(self):
+        return rffi.cast(lltype.Unsigned, self.lib)
 
 if os.name == 'nt':
     class WinDLL(CDLL):

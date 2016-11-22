@@ -90,6 +90,10 @@ modules, recursively).
 Do CPython Extension modules work with PyPy?
 --------------------------------------------
 
+**First note that some Linux distributions (e.g. Ubuntu, Debian) split
+PyPy into several packages.  If you installed a package called "pypy",
+then you may also need to install "pypy-dev" for the following to work.**
+
 We have experimental support for CPython extension modules, so
 they run with minor changes.  This has been a part of PyPy since
 the 1.4 release, but support is still in beta phase.  CPython
@@ -335,3 +339,90 @@ privileges:
 
 This will disable SELinux's protection and allow PyPy to configure correctly.
 Be sure to enable it again if you need it!
+
+
+How should I report a bug?
+--------------------------
+
+Our bug tracker is here: https://bitbucket.org/pypy/pypy/issues/
+
+Missing features or incompatibilities with CPython are considered
+bugs, and they are welcome.  (See also our list of `known
+incompatibilities`__.)
+
+.. __: http://pypy.org/compat.html
+
+For bugs of the kind "I'm getting a PyPy crash or a strange
+exception", please note that: **We can't do anything without
+reproducing the bug ourselves**.  We cannot do anything with
+tracebacks from gdb, or core dumps.  This is not only because the
+standard PyPy is compiled without debug symbols.  The real reason is
+that a C-level traceback is usually of no help at all in PyPy.
+Debugging PyPy can be annoying.
+
+`This is a clear and useful bug report.`__  (Admittedly, sometimes
+the problem is really hard to reproduce, but please try to.)
+
+.. __: https://bitbucket.org/pypy/pypy/issues/2363/segfault-in-gc-pinned-object-in
+
+In more details:
+
+* First, please give the exact PyPy version, and the OS.
+
+* It might help focus our search if we know if the bug can be
+  reproduced on a "``pypy --jit off``" or not.  If "``pypy --jit
+  off``" always works, then the problem might be in the JIT.
+  Otherwise, we know we can ignore that part.
+
+* If you got the bug using only Open Source components, please give a
+  step-by-step guide that we can follow to reproduce the problem
+  ourselves.  Don't assume we know anything about any program other
+  than PyPy.  We would like a guide that we can follow point by point
+  (without guessing or having to figure things out)
+  on a machine similar to yours, starting from a bare PyPy, until we
+  see the same problem.  (If you can, you can try to reduce the number
+  of steps and the time it needs to run, but that is not mandatory.)
+
+* If the bug involves Closed Source components, or just too many Open
+  Source components to install them all ourselves, then maybe you can
+  give us some temporary ssh access to a machine where the bug can be
+  reproduced.  Or, maybe we can download a VirtualBox or VMWare
+  virtual machine where the problem occurs.
+
+* If giving us access would require us to use tools other than ssh,
+  make appointments, or sign a NDA, then we can consider a commerical
+  support contract for a small sum of money.
+
+* If even that is not possible for you, then sorry, we can't help.
+
+Of course, you can try to debug the problem yourself, and we can help
+you get started if you ask on the #pypy IRC channel, but be prepared:
+debugging an annoying PyPy problem usually involves quite a lot of gdb
+in auto-generated C code, and at least some knowledge about the
+various components involved, from PyPy's own RPython source code to
+the GC and possibly the JIT.
+
+
+Why doesn't PyPy move to GitHub, Gitlab, ...?
+----------------------------------------------
+
+We've been quite happy with bitbucket.org. Moving version control systems and
+hosting is a lot of hard work: On the one hand, PyPy's mercurial history is
+long and gnarly. On the other hand, all our infrastructure (buildbots,
+benchmarking, etc) would have to be adapted. So unless somebody steps up and
+volunteers to do all that work, it will likely not happen.
+
+
+What is needed for Windows 64 support of PyPy?
+-----------------------------------------------
+
+First, please note that the Windows 32 PyPy binary works just fine on Windows
+64. The only problem is that it only supports up to 4GB of heap per process.
+
+As to real Windows 64 support: Currently we don't have an active PyPy developer
+whose main development platform is Windows. So if you are interested in getting
+Windows 64 support, we encourage you to volunteer `to make it happen`_! Another
+option would be to pay some PyPy developers to implement Windows 64 support,
+but so far there doesn't seem to be an overwhelming commercial interest in it.
+
+.. _`to make it happen`: windows.html#what-is-missing-for-a-full-64-bit-translation

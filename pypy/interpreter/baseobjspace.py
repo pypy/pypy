@@ -207,24 +207,36 @@ class W_Root(object):
 
     def buffer_w(self, space, flags):
         w_impl = space.lookup(self, '__buffer__')
+        if w_impl is None:
+            # cpyext types that may have only old buffer interface
+            w_impl = space.lookup(self, '__wbuffer__')
         if w_impl is not None:
-            w_result = space.get_and_call_function(w_impl, self)
+            w_result = space.get_and_call_function(w_impl, self, 
+                                        space.newint(flags))
             if space.isinstance_w(w_result, space.w_buffer):
                 return w_result.buffer_w(space, flags)
         raise BufferInterfaceNotFound
 
     def readbuf_w(self, space):
-        w_impl = space.lookup(self, '__buffer__')
+        # cpyext types that may have old buffer protocol
+        w_impl = space.lookup(self, '__rbuffer__')
+        if w_impl is None:
+            w_impl = space.lookup(self, '__buffer__')
         if w_impl is not None:
-            w_result = space.get_and_call_function(w_impl, self)
+            w_result = space.get_and_call_function(w_impl, self,
+                                        space.newint(space.BUF_FULL_RO))
             if space.isinstance_w(w_result, space.w_buffer):
                 return w_result.readbuf_w(space)
         raise BufferInterfaceNotFound
 
     def writebuf_w(self, space):
-        w_impl = space.lookup(self, '__buffer__')
+        # cpyext types that may have old buffer protocol
+        w_impl = space.lookup(self, '__wbuffer__')
+        if w_impl is None:
+            w_impl = space.lookup(self, '__buffer__')
         if w_impl is not None:
-            w_result = space.get_and_call_function(w_impl, self)
+            w_result = space.get_and_call_function(w_impl, self,
+                                        space.newint(space.BUF_FULL))
             if space.isinstance_w(w_result, space.w_buffer):
                 return w_result.writebuf_w(space)
         raise BufferInterfaceNotFound
@@ -232,7 +244,8 @@ class W_Root(object):
     def charbuf_w(self, space):
         w_impl = space.lookup(self, '__buffer__')
         if w_impl is not None:
-            w_result = space.get_and_call_function(w_impl, self)
+            w_result = space.get_and_call_function(w_impl, self,
+                                        space.newint(space.BUF_FULL_RO))
             if space.isinstance_w(w_result, space.w_buffer):
                 return w_result.charbuf_w(space)
         raise BufferInterfaceNotFound
@@ -371,12 +384,12 @@ class DescrMismatch(Exception):
 class BufferInterfaceNotFound(Exception):
     pass
 
+@specialize.memo()
 def wrappable_class_name(Class):
     try:
         return Class.typedef.name
     except AttributeError:
         return 'internal subclass of %s' % (Class.__name__,)
-wrappable_class_name._annspecialcase_ = 'specialize:memo'
 
 class CannotHaveLock(Exception):
     """Raised by space.allocate_lock() if we're translating."""
@@ -825,12 +838,13 @@ class ObjSpace(object):
             assert type(s) is str
         return self.interned_strings.get(s) is not None
 
+    @specialize.arg(1)
     def descr_self_interp_w(self, RequiredClass, w_obj):
         if not isinstance(w_obj, RequiredClass):
             raise DescrMismatch()
         return w_obj
-    descr_self_interp_w._annspecialcase_ = 'specialize:arg(1)'
 
+    @specialize.arg(1)
     def interp_w(self, RequiredClass, w_obj, can_be_None=False):
         """
         Unwrap w_obj, checking that it is an instance of the required internal
@@ -845,7 +859,6 @@ class ObjSpace(object):
                         wrappable_class_name(RequiredClass),
                         w_obj.getclass(self))
         return w_obj
-    interp_w._annspecialcase_ = 'specialize:arg(1)'
 
     def unpackiterable(self, w_iterable, expected_length=-1):
         """Unpack an iterable into a real (interpreter-level) list.
@@ -853,13 +866,11 @@ class ObjSpace(object):
         Raise an OperationError(w_ValueError) if the length is wrong."""
         w_iterator = self.iter(w_iterable)
         if expected_length == -1:
-            # xxx special hack for speed
-            from pypy.interpreter.generator import GeneratorIterator
-            if isinstance(w_iterator, GeneratorIterator):
+            if self.is_generator(w_iterator):
+                # special hack for speed
                 lst_w = []
                 w_iterator.unpack_into(lst_w)
                 return lst_w
-            # /xxx
             return self._unpackiterable_unknown_length(w_iterator, w_iterable)
         else:
             lst_w = self._unpackiterable_known_length(w_iterator,
@@ -1034,7 +1045,7 @@ class ObjSpace(object):
         return (None, None)
 
     def newlist_bytes(self, list_s):
-        return self.newlist([self.wrap(s) for s in list_s])
+        return self.newlist([self.newbytes(s) for s in list_s])
 
     def newlist_unicode(self, list_u):
         return self.newlist([self.wrap(u) for u in list_u])
@@ -1111,7 +1122,8 @@ class ObjSpace(object):
         args = Arguments(self, list(args_w))
         return self.call_args(w_func, args)
 
-    def call_valuestack(self, w_func, nargs, frame):
+    def call_valuestack(self, w_func, nargs, frame, methodcall=False):
+        # methodcall is only used for better error messages in argument.py
         from pypy.interpreter.function import Function, Method, is_builtin_code
         if frame.get_is_being_profiled() and is_builtin_code(w_func):
             # XXX: this code is copied&pasted :-( from the slow path below
@@ -1128,13 +1140,15 @@ class ObjSpace(object):
                     # reuse callable stack place for w_inst
                     frame.settopvalue(w_inst, nargs)
                     nargs += 1
+                    methodcall = True
                 elif nargs > 0 and (
                     self.abstract_isinstance_w(frame.peekvalue(nargs-1),   #    :-(
                                                w_func.w_class)):
                     w_func = w_func.w_function
 
             if isinstance(w_func, Function):
-                return w_func.funccall_valuestack(nargs, frame)
+                return w_func.funccall_valuestack(
+                        nargs, frame, methodcall=methodcall)
             # end of hack for performance
 
         args = frame.make_arguments(nargs)
@@ -1172,6 +1186,10 @@ class ObjSpace(object):
         # xxx hack hack hack
         from pypy.module.__builtin__.interp_classobj import W_InstanceObject
         return isinstance(w_obj, W_InstanceObject)
+
+    def is_generator(self, w_obj):
+        from pypy.interpreter.generator import GeneratorIterator
+        return isinstance(w_obj, GeneratorIterator)
 
     def callable(self, w_obj):
         if self.lookup(w_obj, "__call__") is not None:
@@ -1216,11 +1234,11 @@ class ObjSpace(object):
     # These methods are patched with the full logic by the __builtin__
     # module when it is loaded
 
-    def abstract_issubclass_w(self, w_cls1, w_cls2):
+    def abstract_issubclass_w(self, w_cls1, w_cls2, allow_override=False):
         # Equivalent to 'issubclass(cls1, cls2)'.
         return self.issubtype_w(w_cls1, w_cls2)
 
-    def abstract_isinstance_w(self, w_obj, w_cls):
+    def abstract_isinstance_w(self, w_obj, w_cls, allow_override=False):
         # Equivalent to 'isinstance(obj, cls)'.
         return self.isinstance_w(w_obj, w_cls)
 
@@ -1284,6 +1302,7 @@ class ObjSpace(object):
             self.setitem(w_globals, w_key, self.wrap(self.builtin))
         return statement.exec_code(self, w_globals, w_locals)
 
+    @specialize.arg(2)
     def appexec(self, posargs_w, source):
         """ return value from executing given source at applevel.
             EXPERIMENTAL. The source must look like
@@ -1295,7 +1314,6 @@ class ObjSpace(object):
         w_func = self.fromcache(AppExecCache).getorbuild(source)
         args = Arguments(self, list(posargs_w))
         return self.call_args(w_func, args)
-    appexec._annspecialcase_ = 'specialize:arg(2)'
 
     def _next_or_none(self, w_it):
         try:
@@ -1305,6 +1323,7 @@ class ObjSpace(object):
                 raise
             return None
 
+    @specialize.arg(3)
     def compare_by_iteration(self, w_iterable1, w_iterable2, op):
         w_it1 = self.iter(w_iterable1)
         w_it2 = self.iter(w_iterable2)
@@ -1327,7 +1346,6 @@ class ObjSpace(object):
                 if op == 'gt': return self.gt(w_x1, w_x2)
                 if op == 'ge': return self.ge(w_x1, w_x2)
                 assert False, "bad value for op"
-    compare_by_iteration._annspecialcase_ = 'specialize:arg(3)'
 
     def decode_index(self, w_index_or_slice, seqlength):
         """Helper for custom sequence implementations
@@ -1424,6 +1442,9 @@ class ObjSpace(object):
     BUF_FORMAT   = 0x0004
     BUF_ND       = 0x0008
     BUF_STRIDES  = 0x0010 | BUF_ND
+    BUF_C_CONTIGUOUS = 0x0020 | BUF_STRIDES
+    BUF_F_CONTIGUOUS = 0x0040 | BUF_STRIDES
+    BUF_ANY_CONTIGUOUS = 0x0080 | BUF_STRIDES
     BUF_INDIRECT = 0x0100 | BUF_STRIDES
 
     BUF_CONTIG_RO = BUF_ND
@@ -1533,7 +1554,7 @@ class ObjSpace(object):
         # unclear if there is any use at all for getting the bytes in
         # the unicode buffer.)
         try:
-            return self.str_w(w_obj)
+            return self.bytes_w(w_obj)
         except OperationError as e:
             if not e.match(self, self.w_TypeError):
                 raise
@@ -1703,6 +1724,23 @@ class ObjSpace(object):
                 "Python int too large for C unsigned short")
         return value
 
+    def c_uid_t_w(self, w_obj):
+        # xxx assumes that uid_t and gid_t are a C unsigned int.
+        # Equivalent to space.c_uint_w(), with the exception that
+        # it also accepts -1 and converts that to UINT_MAX, which
+        # is (uid_t)-1.  And values smaller than -1 raise
+        # OverflowError, not ValueError.
+        try:
+            return self.c_uint_w(w_obj)
+        except OperationError as e:
+            if e.match(self, self.w_ValueError):
+                # ValueError: cannot convert negative integer to unsigned
+                if self.int_w(w_obj) == -1:
+                    return UINT_MAX
+                raise oefmt(self.w_OverflowError,
+                            "user/group id smaller than minimum (-1)")
+            raise
+
     def truncatedint_w(self, w_obj, allow_conversion=True):
         # Like space.gateway_int_w(), but return the integer truncated
         # instead of raising OverflowError.  For obscure cases only.
@@ -1763,6 +1801,40 @@ class ObjSpace(object):
             import _warnings
             _warnings.warn(msg, warningcls, stacklevel=stacklevel)
         """)
+
+    def resource_warning(self, w_msg, w_tb):
+        self.appexec([w_msg, w_tb],
+                     """(msg, tb):
+            import sys
+            print >> sys.stderr, msg
+            if tb:
+                print >> sys.stderr, "Created at (most recent call last):"
+                print >> sys.stderr, tb
+        """)
+
+    def format_traceback(self):
+        # we need to disable track_resources before calling the traceback
+        # module. Else, it tries to open more files to format the traceback,
+        # the file constructor will call space.format_traceback etc., in an
+        # inifite recursion
+        flag = self.sys.track_resources
+        self.sys.track_resources = False
+        try:
+            return self.appexec([],
+                         """():
+                import sys, traceback
+                # the "1" is because we don't want to show THIS code
+                # object in the traceback
+                try:
+                    f = sys._getframe(1)
+                except ValueError:
+                    # this happens if you call format_traceback at the very beginning
+                    # of startup, when there is no bottom code object
+                    return '<no stacktrace available>'
+                return "".join(traceback.format_stack(f))
+            """)
+        finally:
+            self.sys.track_resources = flag
 
 
 class AppExecCache(SpaceCache):
@@ -1916,6 +1988,7 @@ ObjSpace.ExceptionTable = [
     'ZeroDivisionError',
     'RuntimeWarning',
     'PendingDeprecationWarning',
+    'UserWarning',
 ]
 
 if sys.platform.startswith("win"):

@@ -248,6 +248,26 @@ def _ll_1_int_abs(x):
     mask = x >> (LONG_BIT - 1)
     return (x ^ mask) - mask
 
+
+def _ll_2_int_floordiv(x, y):
+    # this is used only if the RPython program uses llop.int_floordiv()
+    # explicitly.  For 'a // b', see _handle_int_special() in jtransform.py.
+    # This is the reverse of rpython.rtyper.rint.ll_int_py_div(), i.e.
+    # the same logic as rpython.rtyper.lltypesystem.opimpl.op_int_floordiv
+    # but written in a no-branch style.
+    r = x // y
+    p = r * y
+    # the JIT knows that if x and y are both positive, this is just 'r'
+    return r + (((x ^ y) >> (LONG_BIT - 1)) & (p != x))
+
+def _ll_2_int_mod(x, y):
+    # same comments as _ll_2_int_floordiv()
+    r = x % y
+    # the JIT knows that if x and y are both positive, this doesn't change 'r'
+    r -= y & (((x ^ y) & (r | -r)) >> (LONG_BIT - 1))
+    return r
+
+
 def _ll_1_cast_uint_to_float(x):
     # XXX on 32-bit platforms, this should be done using cast_longlong_to_float
     # (which is a residual call right now in the x86 backend)
@@ -417,6 +437,8 @@ def _ll_1_llong_abs(xll):
 # in the following calls to builtins, the JIT is allowed to look inside:
 inline_calls_to = [
     ('int_abs',              [lltype.Signed],                lltype.Signed),
+    ('int_floordiv',         [lltype.Signed, lltype.Signed], lltype.Signed),
+    ('int_mod',              [lltype.Signed, lltype.Signed], lltype.Signed),
     ('ll_math.ll_math_sqrt', [lltype.Float],                 lltype.Float),
 ]
 
@@ -560,6 +582,14 @@ class LLtypeHelpers:
                 return lltype.malloc(ARRAY, n, flavor='raw', zero=zero,
                                      add_memory_pressure=add_memory_pressure,
                                      track_allocation=track_allocation)
+            name = '_ll_1_raw_malloc_varsize'
+            if zero:
+                name += '_zero'
+            if add_memory_pressure:
+                name += '_mpressure'
+            if not track_allocation:
+                name += '_notrack'
+            _ll_1_raw_malloc_varsize.func_name = name
             return _ll_1_raw_malloc_varsize
         return build_ll_1_raw_malloc_varsize
 
@@ -588,6 +618,14 @@ class LLtypeHelpers:
                 return lltype.malloc(STRUCT, flavor='raw', zero=zero,
                                      add_memory_pressure=add_memory_pressure,
                                      track_allocation=track_allocation)
+            name = '_ll_0_raw_malloc_fixedsize'
+            if zero:
+                name += '_zero'
+            if add_memory_pressure:
+                name += '_mpressure'
+            if not track_allocation:
+                name += '_notrack'
+            _ll_0_raw_malloc_fixedsize.func_name = name
             return _ll_0_raw_malloc_fixedsize
         return build_ll_0_raw_malloc_fixedsize
 

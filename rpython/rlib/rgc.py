@@ -5,7 +5,7 @@ import types
 
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated, enforceargs, specialize
-from rpython.rlib.objectmodel import CDefinedIntSymbolic
+from rpython.rlib.objectmodel import CDefinedIntSymbolic, not_rpython
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype, llmemory
 
@@ -422,8 +422,9 @@ class FinalizerQueue(object):
         else:
             self._untranslated_register_finalizer(obj)
 
+    @not_rpython
     def _get_tag(self):
-        "NOT_RPYTHON: special-cased below"
+        "special-cased below"
 
     def _reset(self):
         import collections
@@ -530,14 +531,14 @@ class FqTagEntry(ExtRegistryEntry):
 # ____________________________________________________________
 
 
+@not_rpython
 def get_rpy_roots():
-    "NOT_RPYTHON"
     # Return the 'roots' from the GC.
     # The gc typically returns a list that ends with a few NULL_GCREFs.
     return [_GcRef(x) for x in gc.get_objects()]
 
+@not_rpython
 def get_rpy_referents(gcref):
-    "NOT_RPYTHON"
     x = gcref._x
     if isinstance(x, list):
         d = x
@@ -583,8 +584,8 @@ class AddMemoryPressureEntry(ExtRegistryEntry):
                          resulttype=lltype.Void)
 
 
+@not_rpython
 def get_rpy_memory_usage(gcref):
-    "NOT_RPYTHON"
     # approximate implementation using CPython's type info
     Class = type(gcref._x)
     size = Class.__basicsize__
@@ -592,8 +593,8 @@ def get_rpy_memory_usage(gcref):
         size += Class.__itemsize__ * len(gcref._x)
     return size
 
+@not_rpython
 def get_rpy_type_index(gcref):
-    "NOT_RPYTHON"
     from rpython.rlib.rarithmetic import intmask
     Class = gcref._x.__class__
     return intmask(id(Class))
@@ -607,33 +608,33 @@ def cast_gcref_to_int(gcref):
     else:
         return id(gcref._x)
 
+@not_rpython
 def dump_rpy_heap(fd):
-    "NOT_RPYTHON"
     raise NotImplementedError
 
+@not_rpython
 def get_typeids_z():
-    "NOT_RPYTHON"
     raise NotImplementedError
 
+@not_rpython
 def get_typeids_list():
-    "NOT_RPYTHON"
     raise NotImplementedError
 
+@not_rpython
 def has_gcflag_extra():
-    "NOT_RPYTHON"
     return True
 has_gcflag_extra._subopnum = 1
 
 _gcflag_extras = set()
 
+@not_rpython
 def get_gcflag_extra(gcref):
-    "NOT_RPYTHON"
     assert gcref   # not NULL!
     return gcref in _gcflag_extras
 get_gcflag_extra._subopnum = 2
 
+@not_rpython
 def toggle_gcflag_extra(gcref):
-    "NOT_RPYTHON"
     assert gcref   # not NULL!
     try:
         _gcflag_extras.remove(gcref)
@@ -801,12 +802,12 @@ class Entry(ExtRegistryEntry):
         return hop.genop('gc_get_rpy_type_index', vlist,
                          resulttype = hop.r_result)
 
+@not_rpython
 def _is_rpy_instance(gcref):
-    "NOT_RPYTHON"
     raise NotImplementedError
 
+@not_rpython
 def _get_llcls_from_cls(Class):
-    "NOT_RPYTHON"
     raise NotImplementedError
 
 class Entry(ExtRegistryEntry):
@@ -1268,3 +1269,26 @@ def ll_nonmovable_raw_ptr_for_resizable_list(ll_list):
     ptr = lltype.direct_arrayitems(array)
     # ptr is a Ptr(FixedSizeArray(Char, 1)).  Cast it to a rffi.CCHARP
     return rffi.cast(rffi.CCHARP, ptr)
+
+@jit.dont_look_inside
+@no_collect
+@specialize.ll()
+def ll_write_final_null_char(s):
+    """'s' is a low-level STR; writes a terminating NULL character after
+    the other characters in 's'.  Warning, this only works because of
+    the 'extra_item_after_alloc' hack inside the definition of STR.
+    """
+    from rpython.rtyper.lltypesystem import rffi
+    PSTR = lltype.typeOf(s)
+    assert has_final_null_char(PSTR) == 1
+    n = llmemory.offsetof(PSTR.TO, 'chars')
+    n += llmemory.itemoffsetof(PSTR.TO.chars, 0)
+    n = llmemory.raw_malloc_usage(n)
+    n += len(s.chars)
+    # no GC operation from here!
+    ptr = rffi.cast(rffi.CCHARP, s)
+    ptr[n] = '\x00'
+
+@specialize.memo()
+def has_final_null_char(PSTR):
+    return PSTR.TO.chars._hints.get('extra_item_after_alloc', 0)

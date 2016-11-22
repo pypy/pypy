@@ -198,6 +198,9 @@ class W_Weakref(W_WeakrefBase):
         if __args__.arguments_w:
             raise oefmt(space.w_TypeError,
                         "__init__ expected at most 2 arguments")
+        if __args__.keywords:
+            raise oefmt(space.w_TypeError,
+                        "ref() does not take keyword arguments")
 
     def descr_hash(self):
         if self.w_hash is not None:

@@ -400,11 +400,14 @@ def test_misdeclared_field_1():
         pass    # ok, fail during compilation already (e.g. C++)
     else:
         assert ffi.sizeof("struct foo_s") == 24  # found by the actual C code
-        p = ffi.new("struct foo_s *")
-        # lazily build the fields and boom:
-        e = py.test.raises(ffi.error, "p.a")
-        assert str(e.value).startswith("struct foo_s: wrong size for field 'a' "
-                                       "(cdef says 20, but C compiler says 24)")
+        try:
+            # lazily build the fields and boom:
+            p = ffi.new("struct foo_s *")
+            p.a
+            assert False, "should have raised"
+        except ffi.error as e:
+            assert str(e).startswith("struct foo_s: wrong size for field 'a' "
+                                     "(cdef says 20, but C compiler says 24)")
 
 def test_open_array_in_struct():
     ffi = FFI()
@@ -412,8 +415,10 @@ def test_open_array_in_struct():
     verify(ffi, 'test_open_array_in_struct',
            "struct foo_s { int b; int a[]; };")
     assert ffi.sizeof("struct foo_s") == 4
-    p = ffi.new("struct foo_s *", [5, [10, 20, 30]])
+    p = ffi.new("struct foo_s *", [5, [10, 20, 30, 40]])
     assert p.a[2] == 30
+    assert ffi.sizeof(p) == ffi.sizeof("void *")
+    assert ffi.sizeof(p[0]) == 5 * ffi.sizeof("int")
 
 def test_math_sin_type():
     ffi = FFI()
@@ -852,9 +857,12 @@ def test_unpack_args():
     assert str(e2.value) == "foo0() takes no arguments (2 given)"
     assert str(e3.value) == "foo1() takes exactly one argument (0 given)"
     assert str(e4.value) == "foo1() takes exactly one argument (2 given)"
-    assert str(e5.value) == "foo2() takes exactly 2 arguments (0 given)"
-    assert str(e6.value) == "foo2() takes exactly 2 arguments (1 given)"
-    assert str(e7.value) == "foo2() takes exactly 2 arguments (3 given)"
+    assert str(e5.value) in ["foo2 expected 2 arguments, got 0",
+                             "foo2() takes exactly 2 arguments (0 given)"]
+    assert str(e6.value) in ["foo2 expected 2 arguments, got 1",
+                             "foo2() takes exactly 2 arguments (1 given)"]
+    assert str(e7.value) in ["foo2 expected 2 arguments, got 3",
+                             "foo2() takes exactly 2 arguments (3 given)"]
 
 def test_address_of_function():
     ffi = FFI()
@@ -996,6 +1004,7 @@ def test_struct_array_guess_length_2():
                  "struct foo_s { int x; int a[5][8]; int y; };")
     assert ffi.sizeof('struct foo_s') == 42 * ffi.sizeof('int')
     s = ffi.new("struct foo_s *")
+    assert ffi.typeof(s.a) == ffi.typeof("int[5][8]")
     assert ffi.sizeof(s.a) == 40 * ffi.sizeof('int')
     assert s.a[4][7] == 0
     py.test.raises(IndexError, 's.a[4][8]')
@@ -1010,7 +1019,7 @@ def test_struct_array_guess_length_3():
                  "struct foo_s { int x; int a[5][7]; int y; };")
     assert ffi.sizeof('struct foo_s') == 37 * ffi.sizeof('int')
     s = ffi.new("struct foo_s *")
-    assert ffi.typeof(s.a) == ffi.typeof("int(*)[7]")
+    assert ffi.typeof(s.a) == ffi.typeof("int[][7]")
     assert s.a[4][6] == 0
     py.test.raises(IndexError, 's.a[4][7]')
     assert ffi.typeof(s.a[0]) == ffi.typeof("int[7]")
@@ -1916,3 +1925,91 @@ def test_bool_in_cpp():
     ffi.cdef("bool f(void);")
     lib = verify(ffi, "test_bool_in_cpp", "char f(void) { return 2; }")
     assert lib.f() == 1
+
+def test_bool_in_cpp_2():
+    ffi = FFI()
+    ffi.cdef('int add(int a, int b);')
+    lib = verify(ffi, "test_bool_bug_cpp", '''
+        typedef bool _Bool;  /* there is a Windows header with this line */
+        int add(int a, int b)
+        {
+            return a + b;
+        }''', source_extension='.cpp')
+    c = lib.add(2, 3)
+    assert c == 5
+
+def test_struct_field_opaque():
+    ffi = FFI()
+    ffi.cdef("struct a { struct b b; };")
+    e = py.test.raises(TypeError, verify,
+                       ffi, "test_struct_field_opaque", "?")
+    assert str(e.value) == ("struct a: field 'a.b' is of an opaque"
+                            " type (not declared in cdef())")
+    ffi = FFI()
+    ffi.cdef("struct a { struct b b[2]; };")
+    e = py.test.raises(TypeError, verify,
+                       ffi, "test_struct_field_opaque", "?")
+    assert str(e.value) == ("struct a: field 'a.b' is of an opaque"
+                            " type (not declared in cdef())")
+    ffi = FFI()
+    ffi.cdef("struct a { struct b b[]; };")
+    e = py.test.raises(TypeError, verify,
+                       ffi, "test_struct_field_opaque", "?")
+    assert str(e.value) == ("struct a: field 'a.b' is of an opaque"
+                            " type (not declared in cdef())")
+
+def test_function_arg_opaque():
+    py.test.skip("can currently declare a function with an opaque struct "
+                 "as argument, but AFAICT it's impossible to call it later")
+
+def test_function_returns_opaque():
+    ffi = FFI()
+    ffi.cdef("struct a foo(int);")
+    e = py.test.raises(TypeError, verify,
+                       ffi, "test_function_returns_opaque", "?")
+    assert str(e.value) == ("function foo: 'struct a' is used as result type,"
+                            " but is opaque")
+
+def test_function_returns_union():
+    ffi = FFI()
+    ffi.cdef("union u1 { int a, b; }; union u1 f1(int);")
+    lib = verify(ffi, "test_function_returns_union", """
+        union u1 { int a, b; };
+        static union u1 f1(int x) { union u1 u; u.b = x; return u; }
+    """)
+    assert lib.f1(51).a == 51
+
+def test_function_returns_partial_struct():
+    ffi = FFI()
+    ffi.cdef("struct aaa { int a; ...; }; struct aaa f1(int);")
+    lib = verify(ffi, "test_function_returns_partial_struct", """
+        struct aaa { int b, a, c; };
+        static struct aaa f1(int x) { struct aaa s = {0}; s.a = x; return s; }
+    """)
+    assert lib.f1(52).a == 52
+
+def test_typedef_array_dotdotdot():
+    ffi = FFI()
+    ffi.cdef("""
+        typedef int foo_t[...], bar_t[...];
+        int gv[...];
+        typedef int mat_t[...][...];
+        typedef int vmat_t[][...];
+        """)
+    lib = verify(ffi, "test_typedef_array_dotdotdot", """
+        typedef int foo_t[50], bar_t[50];
+        int gv[23];
+        typedef int mat_t[6][7];
+        typedef int vmat_t[][8];
+    """)
+    assert ffi.sizeof("foo_t") == 50 * ffi.sizeof("int")
+    assert ffi.sizeof("bar_t") == 50 * ffi.sizeof("int")
+    assert len(ffi.new("foo_t")) == 50
+    assert len(ffi.new("bar_t")) == 50
+    assert ffi.sizeof(lib.gv) == 23 * ffi.sizeof("int")
+    assert ffi.sizeof("mat_t") == 6 * 7 * ffi.sizeof("int")
+    assert len(ffi.new("mat_t")) == 6
+    assert len(ffi.new("mat_t")[3]) == 7
+    py.test.raises(ffi.error, ffi.sizeof, "vmat_t")
+    p = ffi.new("vmat_t", 4)
+    assert ffi.sizeof(p[3]) == 8 * ffi.sizeof("int")

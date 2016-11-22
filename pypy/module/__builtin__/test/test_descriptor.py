@@ -20,6 +20,12 @@ class AppTestBuiltinApp:
         x = Static(1)
         assert isinstance(x, Static)
 
+        class C(Static):
+            def __init__(self, callable):
+                super(C, self).__init__(callable)
+        y = C(1)
+        assert isinstance(y, C)
+
     def test_classmethod(self):
         class C(object):
             def f(cls, stuff):
@@ -41,8 +47,14 @@ class AppTestBuiltinApp:
         x = Classm(1)
         assert isinstance(x, Classm)
 
+        class C(Classm):
+            def __init__(self, callable):
+                super(C, self).__init__(callable)
+        y = C(1)
+        assert isinstance(y, C)
+
     def test_property_simple(self):
-        
+
         class a(object):
             def _get(self): return 42
             def _set(self, value): raise AttributeError
@@ -98,7 +110,7 @@ class AppTestBuiltinApp:
             assert message.startswith('super(type, obj): obj must be an instance or subtype of type')
 
     def test_super_various(self):
-        
+
         class A(object):
             def meth(self, a):
                 return "A(%r)" % a
@@ -250,6 +262,24 @@ class AppTestBuiltinApp:
         assert super(B, B()).__thisclass__ is B
         assert super(A, B()).__thisclass__ is A
 
+    def test_super_self_selfclass(self):
+        class A(object):
+            pass
+        class B(A):
+            pass
+        b = B()
+        assert super(A, b).__self__ is b
+        assert super(A).__self__ is None
+        assert super(A, b).__self_class__ is B
+        assert super(A).__self_class__ is None
+
+    def test_super_repr(self):
+        class A(object):
+            def __repr__(self):
+                return super(A, self).__repr__() + '!'
+        assert repr(A()).endswith('>!')
+        assert repr(super(A, A())) == "<super: <class 'A'>, <A object>>"
+
     def test_property_docstring(self):
         assert property.__doc__.startswith('property')
 
@@ -334,10 +364,10 @@ class AppTestBuiltinApp:
 
     def test_property_subclass_with_init(self):
         l = []
-        
+
         def x(self):
             l.append('x')
-        
+
         class P(property):
             def __init__(self):
                 property.__init__(self, x)

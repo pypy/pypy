@@ -122,9 +122,9 @@ class W_BaseConnection(W_Root):
             space, self.BUFFER_SIZE, maxlength)
         try:
             if newbuf:
-                return space.wrap(rffi.charpsize2str(newbuf, res))
+                return space.newbytes(rffi.charpsize2str(newbuf, res))
             else:
-                return space.wrap(rffi.charpsize2str(self.buffer, res))
+                return space.newbytes(rffi.charpsize2str(self.buffer, res))
         finally:
             if newbuf:
                 rffi.free_charp(newbuf)
@@ -138,7 +138,7 @@ class W_BaseConnection(W_Root):
             space, length - offset, PY_SSIZE_T_MAX)
         try:
             if newbuf:
-                raise BufferTooShort(space, space.wrap(
+                raise BufferTooShort(space, space.newbytes(
                     rffi.charpsize2str(newbuf, res)))
             rwbuffer.setslice(offset, rffi.charpsize2str(self.buffer, res))
         finally:
@@ -166,9 +166,9 @@ class W_BaseConnection(W_Root):
             space, self.BUFFER_SIZE, PY_SSIZE_T_MAX)
         try:
             if newbuf:
-                w_received = space.wrap(rffi.charpsize2str(newbuf, res))
+                w_received = space.newbytes(rffi.charpsize2str(newbuf, res))
             else:
-                w_received = space.wrap(rffi.charpsize2str(self.buffer, res))
+                w_received = space.newbytes(rffi.charpsize2str(self.buffer, res))
         finally:
             if newbuf:
                 rffi.free_charp(newbuf)
@@ -401,21 +401,20 @@ class W_PipeConnection(W_BaseConnection):
             _WriteFile, ERROR_NO_SYSTEM_RESOURCES)
         from rpython.rlib import rwin32
 
-        charp = rffi.str2charp(buf)
-        written_ptr = lltype.malloc(rffi.CArrayPtr(rwin32.DWORD).TO, 1,
-                                    flavor='raw')
-        try:
-            result = _WriteFile(
-                self.handle, rffi.ptradd(charp, offset),
-                size, written_ptr, rffi.NULL)
+        with rffi.scoped_view_charp(buf) as charp:
+            written_ptr = lltype.malloc(rffi.CArrayPtr(rwin32.DWORD).TO, 1,
+                                        flavor='raw')
+            try:
+                result = _WriteFile(
+                    self.handle, rffi.ptradd(charp, offset),
+                    size, written_ptr, rffi.NULL)
 
-            if (result == 0 and
-                rwin32.GetLastError_saved() == ERROR_NO_SYSTEM_RESOURCES):
-                raise oefmt(space.w_ValueError,
-                            "Cannot send %d bytes over connection", size)
-        finally:
-            rffi.free_charp(charp)
-            lltype.free(written_ptr, flavor='raw')
+                if (result == 0 and
+                    rwin32.GetLastError_saved() == ERROR_NO_SYSTEM_RESOURCES):
+                    raise oefmt(space.w_ValueError,
+                                "Cannot send %d bytes over connection", size)
+            finally:
+                lltype.free(written_ptr, flavor='raw')
 
     def do_recv_string(self, space, buflength, maxlength):
         from pypy.module._multiprocessing.interp_win32 import (

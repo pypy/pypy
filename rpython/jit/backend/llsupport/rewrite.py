@@ -1,5 +1,5 @@
 from rpython.rlib import rgc
-from rpython.rlib.objectmodel import we_are_translated, r_dict
+from rpython.rlib.objectmodel import we_are_translated, r_dict, always_inline
 from rpython.rlib.rarithmetic import ovfcheck, highest_bit
 from rpython.rtyper.lltypesystem import llmemory, lltype, rstr
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
@@ -11,10 +11,11 @@ from rpython.jit.codewriter import heaptracker
 from rpython.jit.backend.llsupport.symbolic import (WORD,
         get_array_token)
 from rpython.jit.backend.llsupport.descr import SizeDescr, ArrayDescr,\
-     FLAG_POINTER
+     FLAG_POINTER, CallDescr
 from rpython.jit.metainterp.history import JitCellToken
 from rpython.jit.backend.llsupport.descr import (unpack_arraydescr,
         unpack_fielddescr, unpack_interiorfielddescr)
+from rpython.rtyper.lltypesystem.lloperation import llop
 
 FLAG_ARRAY = 0
 FLAG_STR = 1
@@ -26,7 +27,8 @@ class BridgeExceptionNotFirst(Exception):
 class GcRewriterAssembler(object):
     """ This class performs the following rewrites on the list of operations:
 
-     - Turn all NEW_xxx to either a CALL_MALLOC_GC, or a CALL_MALLOC_NURSERY
+     - Turn all NEW_xxx to either a CALL_R/CHECK_MEMORY_ERROR,
+       or a CALL_MALLOC_NURSERY,
        followed by SETFIELDs in order to initialize their GC fields.  The
        two advantages of CALL_MALLOC_NURSERY is that it inlines the common
        path, and we need only one such operation to allocate several blocks
@@ -156,32 +158,12 @@ class GcRewriterAssembler(object):
         index_box = op.getarg(1)
         self.emit_gc_load_or_indexed(op, ptr_box, index_box, itemsize, itemsize, ofs, sign)
 
-    def handle_rawload(self, op):
-        itemsize, ofs, sign = unpack_arraydescr(op.getdescr())
-        ptr_box = op.getarg(0)
-        index_box = op.getarg(1)
-        self.emit_gc_load_or_indexed(op, ptr_box, index_box, itemsize, 1, ofs, sign)
-
     def _emit_mul_if_factor_offset_not_supported(self, index_box,
                                                  factor, offset):
-        # Returns (factor, offset, index_box) where index_box is either
-        # a non-constant BoxInt or None.
-        if isinstance(index_box, ConstInt):
-            return 1, index_box.value * factor + offset, None
-        else:
-            if factor != 1 and factor not in self.cpu.load_supported_factors:
-                # the factor is supported by the cpu
-                # x & (x - 1) == 0 is a quick test for power of 2
-                assert factor > 0
-                if (factor & (factor - 1)) == 0:
-                    index_box = ResOperation(rop.INT_LSHIFT,
-                            [index_box, ConstInt(highest_bit(factor))])
-                else:
-                    index_box = ResOperation(rop.INT_MUL,
-                            [index_box, ConstInt(factor)])
-                self.emit_op(index_box)
-                factor = 1
-            return factor, offset, index_box
+        factor, offset, new_index_box, emit = cpu_simplify_scale(self.cpu, index_box, factor, offset)
+        if emit:
+            self.emit_op(new_index_box)
+        return factor, offset, new_index_box
 
     def emit_gc_load_or_indexed(self, op, ptr_box, index_box, itemsize,
                                 factor, offset, sign, type='i'):
@@ -213,14 +195,6 @@ class GcRewriterAssembler(object):
         NOT_SIGNED = 0
         CINT_ZERO = ConstInt(0)
         opnum = op.getopnum()
-        #if opnum == rop.CALL_MALLOC_NURSERY_VARSIZE:
-        #    v_length = op.getarg(2)
-        #    scale = op.getarg(1).getint()
-        #    if scale not in self.cpu.load_supported_factors:
-        #        scale, offset, v_length = \
-        #                self._emit_mul_if_factor_offset_not_supported(v_length, scale, 0)
-        #        op.setarg(1, ConstInt(scale))
-        #        op.setarg(2, v_length)
         if rop.is_getarrayitem(opnum) or \
            opnum in (rop.GETARRAYITEM_RAW_I,
                      rop.GETARRAYITEM_RAW_F):
@@ -292,6 +266,7 @@ class GcRewriterAssembler(object):
             basesize, itemsize, ofs_length = get_array_token(rstr.STR,
                                                  self.cpu.translate_support_code)
             assert itemsize == 1
+            basesize -= 1     # for the extra null character
             self.emit_gc_load_or_indexed(op, op.getarg(0), op.getarg(1),
                                          itemsize, itemsize, basesize, NOT_SIGNED)
         elif opnum == rop.UNICODEGETITEM:
@@ -303,6 +278,7 @@ class GcRewriterAssembler(object):
             basesize, itemsize, ofs_length = get_array_token(rstr.STR,
                                                  self.cpu.translate_support_code)
             assert itemsize == 1
+            basesize -= 1     # for the extra null character
             self.emit_gc_store_or_indexed(op, op.getarg(0), op.getarg(1), op.getarg(2),
                                          itemsize, itemsize, basesize)
         elif opnum == rop.UNICODESETITEM:
@@ -327,7 +303,11 @@ class GcRewriterAssembler(object):
         self._changed_op = None
         for i in range(len(operations)):
             op = operations[i]
-            assert op.get_forwarded() is None
+            if op.get_forwarded():
+                msg = '[rewrite] operations at %d has forwarded info %s\n' % (i, op.repr({}))
+                if we_are_translated():
+                    llop.debug_print(lltype.Void, msg)
+                raise NotImplementedError(msg)
             if op.getopnum() == rop.DEBUG_MERGE_POINT:
                 continue
             if op is self._changed_op:
@@ -367,7 +347,9 @@ class GcRewriterAssembler(object):
                     self.consider_setfield_gc(op)
                 elif op.getopnum() == rop.SETARRAYITEM_GC:
                     self.consider_setarrayitem_gc(op)
-            # ---------- call assembler -----------
+            # ---------- calls -----------
+            if OpHelpers.is_plain_call(op.getopnum()):
+                self.expand_call_shortcut(op)
             if OpHelpers.is_call_assembler(op.getopnum()):
                 self.handle_call_assembler(op)
                 continue
@@ -613,6 +595,33 @@ class GcRewriterAssembler(object):
         self.emit_gc_store_or_indexed(None, ptr, ConstInt(0), value,
                                       size, 1, ofs)
 
+    def expand_call_shortcut(self, op):
+        if not self.cpu.supports_cond_call_value:
+            return
+        descr = op.getdescr()
+        if descr is None:
+            return
+        assert isinstance(descr, CallDescr)
+        effectinfo = descr.get_extra_info()
+        if effectinfo is None or effectinfo.call_shortcut is None:
+            return
+        if op.type == 'r':
+            cond_call_opnum = rop.COND_CALL_VALUE_R
+        elif op.type == 'i':
+            cond_call_opnum = rop.COND_CALL_VALUE_I
+        else:
+            return
+        cs = effectinfo.call_shortcut
+        ptr_box = op.getarg(1 + cs.argnum)
+        if cs.fielddescr is not None:
+            value_box = self.emit_getfield(ptr_box, descr=cs.fielddescr,
+                                           raw=(ptr_box.type == 'i'))
+        else:
+            value_box = ptr_box
+        self.replace_op_with(op, ResOperation(cond_call_opnum,
+                                              [value_box] + op.getarglist(),
+                                              descr=descr))
+
     def handle_call_assembler(self, op):
         descrs = self.gc_ll_descr.getframedescrs(self.cpu)
         loop_token = op.getdescr()
@@ -715,16 +724,17 @@ class GcRewriterAssembler(object):
         self._delayed_zero_setfields.clear()
 
     def _gen_call_malloc_gc(self, args, v_result, descr):
-        """Generate a CALL_MALLOC_GC with the given args."""
+        """Generate a CALL_R/CHECK_MEMORY_ERROR with the given args."""
         self.emitting_an_operation_that_can_collect()
-        op = ResOperation(rop.CALL_MALLOC_GC, args, descr=descr)
+        op = ResOperation(rop.CALL_R, args, descr=descr)
         self.replace_op_with(v_result, op)
         self.emit_op(op)
+        self.emit_op(ResOperation(rop.CHECK_MEMORY_ERROR, [op]))
         # In general, don't add v_result to write_barrier_applied:
         # v_result might be a large young array.
 
     def gen_malloc_fixedsize(self, size, typeid, v_result):
-        """Generate a CALL_MALLOC_GC(malloc_fixedsize_fn, ...).
+        """Generate a CALL_R(malloc_fixedsize_fn, ...).
         Used on Boehm, and on the framework GC for large fixed-size
         mallocs.  (For all I know this latter case never occurs in
         practice, but better safe than sorry.)
@@ -744,7 +754,7 @@ class GcRewriterAssembler(object):
         self.remember_write_barrier(v_result)
 
     def gen_boehm_malloc_array(self, arraydescr, v_num_elem, v_result):
-        """Generate a CALL_MALLOC_GC(malloc_array_fn, ...) for Boehm."""
+        """Generate a CALL_R(malloc_array_fn, ...) for Boehm."""
         addr = self.gc_ll_descr.get_malloc_fn_addr('malloc_array')
         self._gen_call_malloc_gc([ConstInt(addr),
                                   ConstInt(arraydescr.basesize),
@@ -755,7 +765,7 @@ class GcRewriterAssembler(object):
                                  self.gc_ll_descr.malloc_array_descr)
 
     def gen_malloc_array(self, arraydescr, v_num_elem, v_result):
-        """Generate a CALL_MALLOC_GC(malloc_array_fn, ...) going either
+        """Generate a CALL_R(malloc_array_fn, ...) going either
         to the standard or the nonstandard version of the function."""
         #
         if (arraydescr.basesize == self.gc_ll_descr.standard_array_basesize
@@ -782,13 +792,13 @@ class GcRewriterAssembler(object):
         self._gen_call_malloc_gc(args, v_result, calldescr)
 
     def gen_malloc_str(self, v_num_elem, v_result):
-        """Generate a CALL_MALLOC_GC(malloc_str_fn, ...)."""
+        """Generate a CALL_R(malloc_str_fn, ...)."""
         addr = self.gc_ll_descr.get_malloc_fn_addr('malloc_str')
         self._gen_call_malloc_gc([ConstInt(addr), v_num_elem], v_result,
                                  self.gc_ll_descr.malloc_str_descr)
 
     def gen_malloc_unicode(self, v_num_elem, v_result):
-        """Generate a CALL_MALLOC_GC(malloc_unicode_fn, ...)."""
+        """Generate a CALL_R(malloc_unicode_fn, ...)."""
         addr = self.gc_ll_descr.get_malloc_fn_addr('malloc_unicode')
         self._gen_call_malloc_gc([ConstInt(addr), v_num_elem], v_result,
                                  self.gc_ll_descr.malloc_unicode_descr)
@@ -803,10 +813,6 @@ class GcRewriterAssembler(object):
              arraydescr.lendescr.offset != gc_descr.standard_array_length_ofs)):
             return False
         self.emitting_an_operation_that_can_collect()
-        #scale = itemsize
-        #if scale not in self.cpu.load_supported_factors:
-        #    scale, offset, v_length = \
-        #            self._emit_mul_if_factor_offset_not_supported(v_length, scale, 0)
         op = ResOperation(rop.CALL_MALLOC_NURSERY_VARSIZE,
                           [ConstInt(kind), ConstInt(itemsize), v_length],
                           descr=arraydescr)
@@ -985,3 +991,24 @@ class GcRewriterAssembler(object):
             self._newops.append(load_op)
             self.gcrefs_recently_loaded[index] = load_op
         return load_op
+
+@always_inline
+def cpu_simplify_scale(cpu, index_box, factor, offset):
+    # Returns (factor, offset, index_box, [ops]) where index_box is either
+    # a non-constant BoxInt or None.
+    if isinstance(index_box, ConstInt):
+        return 1, index_box.value * factor + offset, None, False
+    else:
+        if factor != 1 and factor not in cpu.load_supported_factors:
+            # the factor is supported by the cpu
+            # x & (x - 1) == 0 is a quick test for power of 2
+            assert factor > 0
+            if (factor & (factor - 1)) == 0:
+                index_box = ResOperation(rop.INT_LSHIFT,
+                        [index_box, ConstInt(highest_bit(factor))])
+            else:
+                index_box = ResOperation(rop.INT_MUL,
+                        [index_box, ConstInt(factor)])
+            return 1, offset, index_box, True
+        return factor, offset, index_box, False
+

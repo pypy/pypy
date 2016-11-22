@@ -37,7 +37,7 @@ default_magic = (0xf303 + 7) | 0x0a0d0000               # this PyPy's magic
 
 # cpython_code_signature helper
 def cpython_code_signature(code):
-    "([list-of-arg-names], vararg-name-or-None, kwarg-name-or-None)."
+    """Return a Signature instance."""
     argcount = code.co_argcount
     varnames = code.co_varnames
     assert argcount >= 0     # annotator hint
@@ -408,14 +408,14 @@ class PyCode(eval.Code):
             w(self.co_nlocals),
             w(self.co_stacksize),
             w(self.co_flags),
-            w(self.co_code),
+            space.newbytes(self.co_code),
             space.newtuple(self.co_consts_w),
             space.newtuple(self.co_names_w),
             space.newtuple([w(v) for v in self.co_varnames]),
             w(self.co_filename),
             w(self.co_name),
             w(self.co_firstlineno),
-            w(self.co_lnotab),
+            space.newbytes(self.co_lnotab),
             space.newtuple([w(v) for v in self.co_freevars]),
             space.newtuple([w(v) for v in self.co_cellvars]),
             w(self.magic),

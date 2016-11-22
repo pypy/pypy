@@ -3,9 +3,10 @@ from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import W_Root, SpaceCache
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.function import Function, StaticMethod
-from pypy.interpreter.typedef import weakref_descr, GetSetProperty,\
-     descr_get_dict, dict_descr, Member, TypeDef
+from pypy.interpreter.typedef import (
+    weakref_descr, GetSetProperty, dict_descr, Member, TypeDef)
 from pypy.interpreter.astcompiler.misc import mangle
+from pypy.module.__builtin__ import abstractinst
 
 from rpython.rlib.jit import (promote, elidable_promote, we_are_jitted,
      elidable, dont_look_inside, unroll_safe)
@@ -101,9 +102,10 @@ class Layout(object):
     """
     _immutable_ = True
 
-    def __init__(self, typedef, nslots, base_layout=None):
+    def __init__(self, typedef, nslots, newslotnames=[], base_layout=None):
         self.typedef = typedef
         self.nslots = nslots
+        self.newslotnames = newslotnames[:]    # make a fixed-size list
         self.base_layout = base_layout
 
     def issublayout(self, parent):
@@ -112,6 +114,12 @@ class Layout(object):
             if self is None:
                 return False
         return True
+
+    def expand(self, hasdict, weakrefable):
+        """Turn this Layout into a tuple.  If two classes get equal
+        tuples, it means their instances have a fully compatible layout."""
+        return (self.typedef, self.newslotnames, self.base_layout,
+                hasdict, weakrefable)
 
 
 # possible values of compares_by_identity_status
@@ -288,8 +296,7 @@ class W_TypeObject(W_Root):
 
     # compute a tuple that fully describes the instance layout
     def get_full_instance_layout(self):
-        layout = self.layout
-        return (layout, self.hasdict, self.weakrefable)
+        return self.layout.expand(self.hasdict, self.weakrefable)
 
     def compute_default_mro(self):
         return compute_C3_mro(self.space, self)
@@ -345,7 +352,7 @@ class W_TypeObject(W_Root):
     def deldictvalue(self, space, key):
         if self.lazyloaders:
             self._cleanup_()    # force un-lazification
-        if not self.is_heaptype():
+        if not (self.is_heaptype() or self.is_cpytype()):
             raise oefmt(space.w_TypeError,
                         "can't delete attributes on type object '%N'", self)
         try:
@@ -484,12 +491,12 @@ class W_TypeObject(W_Root):
                 self.getdictvalue(self.space, attr)
             del self.lazyloaders
 
-    def getdict(self, space): # returning a dict-proxy!
-        from pypy.objspace.std.dictproxyobject import DictProxyStrategy
+    def getdict(self, space):
+        from pypy.objspace.std.classdict import ClassDictStrategy
         from pypy.objspace.std.dictmultiobject import W_DictObject
         if self.lazyloaders:
             self._cleanup_()    # force un-lazification
-        strategy = space.fromcache(DictProxyStrategy)
+        strategy = space.fromcache(ClassDictStrategy)
         storage = strategy.erase(self)
         return W_DictObject(space, strategy, storage)
 
@@ -671,25 +678,34 @@ class W_TypeObject(W_Root):
 
 
 def descr__new__(space, w_typetype, w_name, w_bases=None, w_dict=None):
-    "This is used to create user-defined classes only."
-    # XXX check types
-
+    """This is used to create user-defined classes only."""
     w_typetype = _precheck_for_new(space, w_typetype)
 
     # special case for type(x)
-    if (space.is_w(space.type(w_typetype), space.w_type) and w_bases is None and
-        w_dict is None):
+    if (space.is_w(space.type(w_typetype), space.w_type) and
+        w_bases is None and w_dict is None):
         return space.type(w_name)
-    else:
-        return _create_new_type(space, w_typetype, w_name, w_bases, w_dict)
+    return _create_new_type(space, w_typetype, w_name, w_bases, w_dict)
+
+
+def _check_new_args(space, w_name, w_bases, w_dict):
+    if w_bases is None or w_dict is None:
+        raise oefmt(space.w_TypeError, "type() takes 1 or 3 arguments")
+    if not space.isinstance_w(w_name, space.w_str):
+        raise oefmt(space.w_TypeError,
+                    "type() argument 1 must be string, not %T", w_name)
+    if not space.isinstance_w(w_bases, space.w_tuple):
+        raise oefmt(space.w_TypeError,
+                    "type() argument 2 must be tuple, not %T", w_bases)
+    if not space.isinstance_w(w_dict, space.w_dict):
+        raise oefmt(space.w_TypeError,
+                    "type() argument 3 must be dict, not %T", w_dict)
 
 
 def _create_new_type(space, w_typetype, w_name, w_bases, w_dict):
     # this is in its own function because we want the special case 'type(x)'
     # above to be seen by the jit.
-    if w_bases is None or w_dict is None:
-        raise oefmt(space.w_TypeError, "type() takes 1 or 3 arguments")
-
+    _check_new_args(space, w_name, w_bases, w_dict)
     bases_w = space.fixedview(w_bases)
 
     w_winner = w_typetype
@@ -715,6 +731,8 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict):
 
     name = space.str_w(w_name)
     assert isinstance(name, str)
+    if '\x00' in name:
+        raise oefmt(space.w_ValueError, "type name must not contain null characters")
     dict_w = {}
     dictkeys_w = space.listview(w_dict)
     for w_key in dictkeys_w:
@@ -730,6 +748,16 @@ def _precheck_for_new(space, w_type):
     if not isinstance(w_type, W_TypeObject):
         raise oefmt(space.w_TypeError, "X is not a type object (%T)", w_type)
     return w_type
+
+
+def descr__init__(space, w_type, __args__):
+    if __args__.keywords:
+        raise oefmt(space.w_TypeError,
+                    "type.__init__() takes no keyword arguments")
+    if len(__args__.arguments_w) not in (1, 3):
+        raise oefmt(space.w_TypeError,
+                    "type.__init__() takes 1 or 3 arguments")
+
 
 # ____________________________________________________________
 
@@ -747,9 +775,13 @@ def descr_set__name__(space, w_type, w_value):
     w_type = _check(space, w_type)
     if not w_type.is_heaptype():
         raise oefmt(space.w_TypeError, "can't set %N.__name__", w_type)
+    if not space.isinstance_w(w_value, space.w_str):
+        raise oefmt(space.w_TypeError,
+                    "can only assign string to %N.__name__, not '%T'",
+                    w_type, w_value)
     name = space.str_w(w_value)
     if '\x00' in name:
-        raise oefmt(space.w_ValueError, "__name__ must not contain null bytes")
+        raise oefmt(space.w_ValueError, "type name must not contain null characters")
     w_type.name = name
 
 def descr_get__mro__(space, w_type):
@@ -899,21 +931,32 @@ def descr___subclasses__(space, w_type):
 
 # ____________________________________________________________
 
-@gateway.unwrap_spec(w_obj=W_TypeObject, w_sub=W_TypeObject)
+@gateway.unwrap_spec(w_obj=W_TypeObject)
 def type_issubtype(w_obj, space, w_sub):
-    return space.newbool(w_sub.issubtype(w_obj))
+    return space.newbool(
+        abstractinst.p_recursive_issubclass_w(space, w_sub, w_obj))
 
 @gateway.unwrap_spec(w_obj=W_TypeObject)
 def type_isinstance(w_obj, space, w_inst):
-    return space.newbool(space.type(w_inst).issubtype(w_obj))
+    return space.newbool(
+        abstractinst.p_recursive_isinstance_type_w(space, w_inst, w_obj))
+
+def type_get_dict(space, w_cls):
+    w_cls = _check(space, w_cls)
+    from pypy.objspace.std.dictproxyobject import W_DictProxyObject
+    w_dict = w_cls.getdict(space)
+    if w_dict is None:
+        return space.w_None
+    return W_DictProxyObject(w_dict)
 
 W_TypeObject.typedef = TypeDef("type",
     __new__ = gateway.interp2app(descr__new__),
+    __init__ = gateway.interp2app(descr__init__),
     __name__ = GetSetProperty(descr_get__name__, descr_set__name__),
     __bases__ = GetSetProperty(descr_get__bases__, descr_set__bases__),
     __base__ = GetSetProperty(descr__base),
     __mro__ = GetSetProperty(descr_get__mro__),
-    __dict__ = GetSetProperty(descr_get_dict),
+    __dict__=GetSetProperty(type_get_dict),
     __doc__ = GetSetProperty(descr__doc),
     mro = gateway.interp2app(descr_mro),
     __flags__ = GetSetProperty(descr__flags),
@@ -990,11 +1033,15 @@ def copy_flags_from_bases(w_self, w_bestbase):
         w_self.weakrefable = w_self.weakrefable or w_base.weakrefable
     return hasoldstylebase
 
+
 def create_all_slots(w_self, hasoldstylebase, w_bestbase, force_new_layout):
+    from pypy.objspace.std.listobject import StringSort
+
     base_layout = w_bestbase.layout
     index_next_extra_slot = base_layout.nslots
     space = w_self.space
     dict_w = w_self.dict_w
+    newslotnames = []
     if '__slots__' not in dict_w:
         wantdict = True
         wantweakref = True
@@ -1020,8 +1067,22 @@ def create_all_slots(w_self, hasoldstylebase, w_bestbase, force_new_layout):
                                 "__weakref__ slot disallowed: we already got one")
                 wantweakref = True
             else:
-                index_next_extra_slot = create_slot(w_self, slot_name,
-                                                    index_next_extra_slot)
+                newslotnames.append(slot_name)
+        # Sort the list of names collected so far
+        sorter = StringSort(newslotnames, len(newslotnames))
+        sorter.sort()
+        # Try to create all slots in order.  The creation of some of
+        # them might silently fail; then we delete the name from the
+        # list.  At the end, 'index_next_extra_slot' has been advanced
+        # by the final length of 'newslotnames'.
+        i = 0
+        while i < len(newslotnames):
+            if create_slot(w_self, newslotnames[i], index_next_extra_slot):
+                index_next_extra_slot += 1
+                i += 1
+            else:
+                del newslotnames[i]
+    #
     wantdict = wantdict or hasoldstylebase
     if wantdict:
         create_dict_slot(w_self)
@@ -1030,11 +1091,12 @@ def create_all_slots(w_self, hasoldstylebase, w_bestbase, force_new_layout):
     if '__del__' in dict_w:
         w_self.hasuserdel = True
     #
+    assert index_next_extra_slot == base_layout.nslots + len(newslotnames)
     if index_next_extra_slot == base_layout.nslots and not force_new_layout:
         return base_layout
     else:
         return Layout(base_layout.typedef, index_next_extra_slot,
-                      base_layout=base_layout)
+                      newslotnames, base_layout=base_layout)
 
 def create_slot(w_self, slot_name, index_next_extra_slot):
     space = w_self.space
@@ -1047,9 +1109,10 @@ def create_slot(w_self, slot_name, index_next_extra_slot):
         slot_name = space.str_w(space.new_interned_str(slot_name))
         # in cpython it is ignored less, but we probably don't care
         member = Member(index_next_extra_slot, slot_name, w_self)
-        index_next_extra_slot += 1
         w_self.dict_w[slot_name] = space.wrap(member)
-    return index_next_extra_slot
+        return True
+    else:
+        return False
 
 def create_dict_slot(w_self):
     if not w_self.hasdict:

@@ -1770,7 +1770,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_virtual_raw_malloc_basic(self):
         ops = """
         [i1]
-        i2 = call_i('malloc', 10, descr=raw_malloc_descr)
+        i2 = call_i(12345, 10, descr=raw_malloc_descr)   # 12345 = malloc func
         guard_no_exception() []
         setarrayitem_raw(i2, 0, i1, descr=rawarraydescr)
         i3 = getarrayitem_raw_i(i2, 0, descr=rawarraydescr)
@@ -1787,7 +1787,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [i1]
         i5 = int_mul(10, 1)
-        i2 = call_i('malloc', i5, descr=raw_malloc_descr)
+        i2 = call_i(12345, i5, descr=raw_malloc_descr)
         guard_no_exception() []
         setarrayitem_raw(i2, 0, i1, descr=rawarraydescr)
         i3 = getarrayitem_raw_i(i2, 0, descr=rawarraydescr)
@@ -1803,7 +1803,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_virtual_raw_malloc_force(self):
         ops = """
         [i1]
-        i2 = call_i('malloc', 20, descr=raw_malloc_descr)
+        i2 = call_i(12345, 20, descr=raw_malloc_descr)
         guard_no_exception() []
         setarrayitem_raw(i2, 0, i1, descr=rawarraydescr_char)
         setarrayitem_raw(i2, 2, 456, descr=rawarraydescr_char)
@@ -1817,8 +1817,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         expected = """
         [i1]
         label(i1)
-        i2 = call_i('malloc', 20, descr=raw_malloc_descr)
-        #guard_no_exception() []  # XXX should appear
+        i2 = call_i(12345, 20, descr=raw_malloc_descr)
+        check_memory_error(i2)
         raw_store(i2, 0, i1, descr=rawarraydescr_char)
         raw_store(i2, 1, 123, descr=rawarraydescr_char)
         raw_store(i2, 2, 456, descr=rawarraydescr_char)
@@ -1832,7 +1832,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_virtual_raw_malloc_invalid_write_force(self):
         ops = """
         [i1]
-        i2 = call_i('malloc', 10, descr=raw_malloc_descr)
+        i2 = call_i(12345, 10, descr=raw_malloc_descr)
         guard_no_exception() []
         setarrayitem_raw(i2, 0, i1, descr=rawarraydescr)
         label(i1) # we expect the buffer to be forced *after* the label
@@ -1843,8 +1843,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         expected = """
         [i1]
         label(i1)
-        i2 = call_i('malloc', 10, descr=raw_malloc_descr)
-        #guard_no_exception() []  # XXX should appear
+        i2 = call_i(12345, 10, descr=raw_malloc_descr)
+        check_memory_error(i2)
         raw_store(i2, 0, i1, descr=rawarraydescr)
         setarrayitem_raw(i2, 2, 456, descr=rawarraydescr_char)
         call_n('free', i2, descr=raw_free_descr)
@@ -1855,7 +1855,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_virtual_raw_malloc_invalid_read_force(self):
         ops = """
         [i1]
-        i2 = call_i('malloc', 10, descr=raw_malloc_descr)
+        i2 = call_i(12345, 10, descr=raw_malloc_descr)
         guard_no_exception() []
         setarrayitem_raw(i2, 0, i1, descr=rawarraydescr)
         label(i1) # we expect the buffer to be forced *after* the label
@@ -1866,8 +1866,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         expected = """
         [i1]
         label(i1)
-        i2 = call_i('malloc', 10, descr=raw_malloc_descr)
-        #guard_no_exception() []  # XXX should appear
+        i2 = call_i(12345, 10, descr=raw_malloc_descr)
+        check_memory_error(i2)
         raw_store(i2, 0, i1, descr=rawarraydescr)
         i3 = getarrayitem_raw_i(i2, 0, descr=rawarraydescr_char)
         call_n('free', i2, descr=raw_free_descr)
@@ -1878,7 +1878,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_virtual_raw_slice(self):
         ops = """
         [i0, i1]
-        i2 = call_i('malloc', 10, descr=raw_malloc_descr)
+        i2 = call_i(12345, 10, descr=raw_malloc_descr)
         guard_no_exception() []
         setarrayitem_raw(i2, 0, 42, descr=rawarraydescr_char)
         i3 = int_add(i2, 1) # get a slice of the original buffer
@@ -1898,7 +1898,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_virtual_raw_slice_of_a_raw_slice(self):
         ops = """
         [i0, i1]
-        i2 = call_i('malloc', 10, descr=raw_malloc_descr)
+        i2 = call_i(12345, 10, descr=raw_malloc_descr)
         guard_no_exception() []
         i3 = int_add(i2, 1) # get a slice of the original buffer
         i4 = int_add(i3, 1) # get a slice of a slice
@@ -1916,7 +1916,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_virtual_raw_slice_force(self):
         ops = """
         [i0, i1]
-        i2 = call_i('malloc', 10, descr=raw_malloc_descr)
+        i2 = call_i(12345, 10, descr=raw_malloc_descr)
         guard_no_exception() []
         setarrayitem_raw(i2, 0, 42, descr=rawarraydescr_char)
         i3 = int_add(i2, 1) # get a slice of the original buffer
@@ -1929,8 +1929,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i0, i1]
         label(i0, i1)
         # these ops are generated by VirtualRawBufferValue._really_force
-        i2 = call_i('malloc', 10, descr=raw_malloc_descr)
-        #guard_no_exception() []  # XXX should appear
+        i2 = call_i(12345, 10, descr=raw_malloc_descr)
+        check_memory_error(i2)
         raw_store(i2, 0, 42, descr=rawarraydescr_char)
         raw_store(i2, 5, 4242, descr=rawarraydescr_char)
         # this is generated by VirtualRawSliceValue._really_force
@@ -1946,7 +1946,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i1 = getarrayitem_raw_i(i0, 0, descr=rawarraydescr)
         i2 = int_add(i1, 1)
         call_n('free', i0, descr=raw_free_descr)
-        i3 = call_i('malloc', 10, descr=raw_malloc_descr)
+        i3 = call_i(12345, 10, descr=raw_malloc_descr)
         guard_no_exception() []
         setarrayitem_raw(i3, 0, i2, descr=rawarraydescr)
         label(i2)
@@ -1958,8 +1958,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i2 = int_add(i1, 1)
         call_n('free', i0, descr=raw_free_descr)
         label(i2)
-        i3 = call_i('malloc', 10, descr=raw_malloc_descr)
-        #guard_no_exception() []  # XXX should appear
+        i3 = call_i(12345, 10, descr=raw_malloc_descr)
+        check_memory_error(i3)
         raw_store(i3, 0, i2, descr=rawarraydescr)
         jump(i3)
         """
@@ -1968,7 +1968,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_virtual_raw_store_raw_load(self):
         ops = """
         [i1]
-        i0 = call_i('malloc', 10, descr=raw_malloc_descr)
+        i0 = call_i(12345, 10, descr=raw_malloc_descr)
         guard_no_exception() []
         raw_store(i0, 0, i1, descr=rawarraydescr)
         i2 = raw_load_i(i0, 0, descr=rawarraydescr)
@@ -1986,7 +1986,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_virtual_raw_store_getarrayitem_raw(self):
         ops = """
         [f1]
-        i0 = call_i('malloc', 16, descr=raw_malloc_descr)
+        i0 = call_i(12345, 16, descr=raw_malloc_descr)
         guard_no_exception() []
         raw_store(i0, 8, f1, descr=rawarraydescr_float)
         f2 = getarrayitem_raw_f(i0, 1, descr=rawarraydescr_float)
@@ -2004,7 +2004,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_virtual_setarrayitem_raw_raw_load(self):
         ops = """
         [f1]
-        i0 = call_i('malloc', 16, descr=raw_malloc_descr)
+        i0 = call_i(12345, 16, descr=raw_malloc_descr)
         guard_no_exception() []
         setarrayitem_raw(i0, 1, f1, descr=rawarraydescr_float)
         f2 = raw_load_f(i0, 8, descr=rawarraydescr_float)
@@ -2022,7 +2022,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_virtual_raw_buffer_forced_but_slice_not_forced(self):
         ops = """
         [f1]
-        i0 = call_i('malloc', 16, descr=raw_malloc_descr)
+        i0 = call_i(12345, 16, descr=raw_malloc_descr)
         guard_no_exception() []
         i1 = int_add(i0, 8)
         escape_n(i0)
@@ -2031,7 +2031,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         [f1]
-        i0 = call_i('malloc', 16, descr=raw_malloc_descr)
+        i0 = call_i(12345, 16, descr=raw_malloc_descr)
+        check_memory_error(i0)
         escape_n(i0)
         i1 = int_add(i0, 8)
         setarrayitem_raw(i1, 0, f1, descr=rawarraydescr_float)
@@ -7591,7 +7592,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [i0]
         p1 = new_with_vtable(descr=nodesize)
-        cond_call(1, 123, p1, descr=clear_vable)
+        cond_call(i0, 123, p1, descr=clear_vable)
         jump(i0)
         """
         expected = """
@@ -8802,14 +8803,22 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [i1]
         i0 = call_i(123, 10, descr=raw_malloc_descr)
+        guard_no_exception() []
         jump(i0)
         """
-        self.optimize_loop(ops, ops)
+        expected = """
+        [i1]
+        i0 = call_i(123, 10, descr=raw_malloc_descr)
+        check_memory_error(i0)
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
 
     def test_raw_buffer_int_is_true(self):
         ops = """
         [iinp]
         i0 = call_i(123, 10, descr=raw_malloc_descr)
+        guard_no_exception() []
         i1 = int_is_true(i0)
         guard_true(i1) []
         i2 = int_is_zero(i0)
@@ -8819,6 +8828,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         expected = """
         [i2]
         i0 = call_i(123, 10, descr=raw_malloc_descr)
+        check_memory_error(i0)
         jump(i0)
         """
         self.optimize_loop(ops, expected)
@@ -8876,7 +8886,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_resume_forced_raw_ptr(self):
         ops = """
         [i0]
-        i = call_i('malloc', 10, descr=raw_malloc_descr)
+        i = call_i(12345, 10, descr=raw_malloc_descr)
+        guard_no_exception() []
         is = int_add(i, 8)
         escape_n(i)
         i1 = int_add(i0, 1)
@@ -8887,7 +8898,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         [i0]
-        i = call_i('malloc', 10, descr=raw_malloc_descr)
+        i = call_i(12345, 10, descr=raw_malloc_descr)
+        check_memory_error(i)
         escape_n(i)
         i1 = int_add(i0, 1)
         i2 = int_lt(i1, 100)
@@ -8954,7 +8966,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_pending_setfield_delayed_malloc(self):
         ops = """
         [i0, p0]
-        i2 = call_i('malloc', 10, descr=raw_malloc_descr)
+        i2 = call_i(12345, 10, descr=raw_malloc_descr)
+        guard_no_exception() []
         setarrayitem_raw(i2, 0, 13, descr=rawarraydescr)
         setfield_gc(p0, i2, descr=valuedescr)
         i1 = int_add(i0, 1)
@@ -8975,13 +8988,21 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_raw_buffer_ptr_info_intbounds_bug(self):
         ops = """
         []
-        i2 = call_i('malloc', 10, descr=raw_malloc_descr)
+        i2 = call_i(12345, 10, descr=raw_malloc_descr)
+        guard_no_exception() []
+        guard_value(i2, 12345) []
+        jump()
+        """
+        expected = """
+        []
+        i2 = call_i(12345, 10, descr=raw_malloc_descr)
+        check_memory_error(i2)
         guard_value(i2, 12345) []
         jump()
         """
         # getting InvalidLoop would be a good idea, too.
         # (this test was written to show it would previously crash)
-        self.optimize_loop(ops, ops)
+        self.optimize_loop(ops, expected)
 
     def test_unroll_constant_null_1(self):
         ops = """

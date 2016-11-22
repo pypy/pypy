@@ -293,7 +293,7 @@ def output(name, dfa_class, dfa, states):
         i = 0
         for k, v in sorted(state.items()):
             i += 1
-            if k == '\x00default':
+            if k == DEFAULT:
                 k = "automata.DEFAULT"
             else:
                 k = repr(k)

@@ -1,5 +1,8 @@
 import py
+import pytest
+import platform
 import re
+import sys
 from rpython.jit.metainterp import resoperation as rop
 from rpython.jit.metainterp.history import AbstractDescr, AbstractFailDescr
 from rpython.jit.metainterp.history import ConstInt
@@ -90,12 +93,16 @@ def test_get_deep_immutable_oplist():
 
 VARI = rop.InputArgInt()
 VARF = rop.InputArgFloat()
-@py.test.mark.parametrize('opnum,args,kwargs', 
-    [ (rop.rop.INT_SIGNEXT, [VARI, ConstInt(2)], {'from': INT_WORD, 'to': 2, 'cast_to': ('i', 2) }),
-      (rop.rop.CAST_FLOAT_TO_INT, [VARF], {'from': 8, 'to': 4}),
-      (rop.rop.CAST_SINGLEFLOAT_TO_FLOAT, [VARI], {'from': 4, 'to': 8}),
-      (rop.rop.CAST_FLOAT_TO_SINGLEFLOAT, [VARF], {'from': 8, 'to': 4}),
-    ])
+args = [ (rop.rop.INT_SIGNEXT, [VARI, ConstInt(2)], {'from': INT_WORD, 'to': 2, 'cast_to': ('i', 2) }),
+         (rop.rop.CAST_FLOAT_TO_INT, [VARF], {'from': 8, 'to': 4}),
+         (rop.rop.CAST_SINGLEFLOAT_TO_FLOAT, [VARI], {'from': 4, 'to': 8}),
+         (rop.rop.CAST_FLOAT_TO_SINGLEFLOAT, [VARF], {'from': 8, 'to': 4}),
+        ]
+if not platform.machine().startswith('x86'):
+    del args[1]
+    args.append((rop.rop.CAST_FLOAT_TO_INT, [VARF], {'from': 8, 'to': 8}))
+@py.test.mark.parametrize('opnum,args,kwargs', args)
+@pytest.mark.skipif("sys.maxint == 2**31-1")
 def test_cast_ops(opnum, args, kwargs):
     op = rop.ResOperation(opnum, args)
     assert op.is_typecast()
@@ -103,6 +110,7 @@ def test_cast_ops(opnum, args, kwargs):
     assert op.cast_to_bytesize() == kwargs['to']
     if 'cast_to' in kwargs:
         assert op.cast_to() == kwargs['cast_to']
+del args
 
 def test_unpack_1():
     op = rop.ResOperation(rop.rop.VEC_UNPACK_I,
@@ -117,7 +125,8 @@ def test_load_singlefloat():
     args = [rop.InputArgInt(), ConstInt(0)]
     baseop = rop.ResOperation(rop.rop.RAW_LOAD_I, args, descr=descr)
     baseop.set_forwarded(rop.VectorizationInfo(baseop))
-    op = rop.VecOperation(rop.rop.VEC_RAW_LOAD_I, args, baseop, 4, descr=descr)
+    op = rop.VecOperation(rop.rop.VEC_LOAD_I, args + [ConstInt(1), ConstInt(0)],
+                          baseop, 4, descr=descr)
     assert (op.type, op.datatype, op.bytesize, op.is_vector()) == ('i', 'i', 4, True)
 
 def test_vec_store():
@@ -126,7 +135,8 @@ def test_vec_store():
     args = [rop.InputArgRef(), ConstInt(0), vec]
     baseop = rop.ResOperation(rop.rop.RAW_STORE,  args, descr=descr)
     baseop.set_forwarded(rop.VectorizationInfo(baseop))
-    op = rop.VecOperation(rop.rop.VEC_RAW_STORE, args, baseop, 2, descr=descr)
+    op = rop.VecOperation(rop.rop.VEC_STORE, args + [ConstInt(1), ConstInt(0)],
+                          baseop, 2, descr=descr)
     assert (op.type, op.datatype, op.bytesize, op.is_vector()) == ('v', 'v', 8, True)
 
 def test_vec_guard():

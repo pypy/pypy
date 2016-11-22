@@ -19,7 +19,6 @@ from pypy.interpreter.executioncontext import (ExecutionContext, ActionFlag,
     UserDelAction)
 from pypy.interpreter.pyframe import PyFrame
 
-
 class BogusBytecode(Exception):
     pass
 
@@ -383,6 +382,9 @@ class FakeSpace(ObjSpace):
         # XXX even the hacks have hacks
         if s == 'size': # used in _array() but never called by tests
             return IntObject(0)
+        if s == '__buffer__':
+            # descr___buffer__ does not exist on W_Root
+            return self.w_None
         return getattr(w_obj, 'descr_' + s)(self, *args)
 
     @specialize.arg(1)
@@ -457,6 +459,9 @@ class DictObject(W_Root):
 
     def getdictvalue(self, space, key):
         return self.items[key]
+
+    def descr_memoryview(self, space, buf):
+        raise oefmt(space.w_TypeError, "error")
 
 class IterDictObject(W_Root):
     def __init__(self, space, w_dict):

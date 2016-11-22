@@ -106,9 +106,12 @@ def default_identity_hash(space, w_obj):
 # So we create a few interp-level subclasses of W_XxxObject, which add
 # some combination of features. This is done using mapdict.
 
-# we need two subclasses of the app-level type, one to add mapdict, and then one
-# to add del to not slow down the GC.
+# Note that nowadays, we need not "a few" but only one subclass.  It
+# adds mapdict, which flexibly allows all features.  We handle the
+# presence or absence of an app-level '__del__' by calling
+# register_finalizer() or not.
 
+@specialize.memo()
 def get_unique_interplevel_subclass(space, cls):
     "NOT_RPYTHON: initialization-time only"
     assert cls.typedef.acceptable_as_base_class
@@ -119,7 +122,6 @@ def get_unique_interplevel_subclass(space, cls):
         assert cls not in _unique_subclass_cache
         _unique_subclass_cache[cls] = subcls
         return subcls
-get_unique_interplevel_subclass._annspecialcase_ = "specialize:memo"
 _unique_subclass_cache = {}
 
 def _getusercls(cls, reallywantdict=False):
@@ -203,7 +205,8 @@ def _make_descr_typecheck_wrapper(tag, func, extraargs, cls, use_closure):
     name = func.__name__
     extra = ', '.join(extraargs)
     from pypy.interpreter import pycode
-    argnames, _, _ = pycode.cpython_code_signature(func.func_code)
+    sig = pycode.cpython_code_signature(func.func_code)
+    argnames = sig.argnames
     if use_closure:
         if argnames[1] == 'space':
             args = "closure, space, obj"
@@ -685,15 +688,17 @@ It can be called either on the class (e.g. C.f()) or on an instance
 (e.g. C().f()).  The instance is ignored except for its class.""",
     __get__ = interp2app(StaticMethod.descr_staticmethod_get),
     __new__ = interp2app(StaticMethod.descr_staticmethod__new__.im_func),
+    __init__=interp2app(StaticMethod.descr_init),
     __func__= interp_attrproperty_w('w_function', cls=StaticMethod),
     )
 
 ClassMethod.typedef = TypeDef(
     'classmethod',
-    __new__ = interp2app(ClassMethod.descr_classmethod__new__.im_func),
-    __get__ = interp2app(ClassMethod.descr_classmethod_get),
-    __func__= interp_attrproperty_w('w_function', cls=ClassMethod),
-    __doc__ = """classmethod(function) -> class method
+    __new__=interp2app(ClassMethod.descr_classmethod__new__.im_func),
+    __init__=interp2app(ClassMethod.descr_init),
+    __get__=interp2app(ClassMethod.descr_classmethod_get),
+    __func__=interp_attrproperty_w('w_function', cls=ClassMethod),
+    __doc__="""classmethod(function) -> class method
 
 Convert a function to be a class method.
 

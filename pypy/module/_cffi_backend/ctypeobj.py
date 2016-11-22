@@ -19,7 +19,6 @@ class W_CType(W_Root):
     # XXX this could be improved with an elidable method get_size()
     # that raises in case it's still -1...
 
-    cast_anything = False
     is_primitive_integer = False
     is_nonfunc_pointer_or_array = False
     is_indirect_arg_for_call_python = False
@@ -83,7 +82,7 @@ class W_CType(W_Root):
         raise oefmt(space.w_TypeError, "cannot initialize cdata '%s'",
                     self.name)
 
-    def convert_argument_from_object(self, cdata, w_ob):
+    def convert_argument_from_object(self, cdata, w_ob, keepalives, i):
         self.convert_from_object(cdata, w_ob)
         return False
 
