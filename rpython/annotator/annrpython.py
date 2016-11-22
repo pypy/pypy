@@ -50,6 +50,7 @@ class RPythonAnnotator(object):
         if bookkeeper is None:
             bookkeeper = Bookkeeper(self)
         self.bookkeeper = bookkeeper
+        self.allow_bad_unions = True  # temporary feature flag, see config.translation.brokentypes
 
     def __getstate__(self):
         attrs = """translator pendingblocks annotated links_followed

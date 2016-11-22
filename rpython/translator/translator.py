@@ -68,6 +68,7 @@ class TranslationContext(object):
             raise ValueError("we already have an annotator")
         from rpython.annotator.annrpython import RPythonAnnotator
         self.annotator = RPythonAnnotator(self, policy=policy)
+        self.annotator.allow_bad_unions = self.config.translation.brokentypes
         return self.annotator
 
     def buildrtyper(self):

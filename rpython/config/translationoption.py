@@ -181,6 +181,11 @@ translation_optiondescription = OptionDescription(
                "attempt to pre-allocate the list",
                default=False,
                cmdline='--listcompr'),
+    BoolOption("brokentypes",
+               "Allow unsafe type unions in the annotator for "
+               "backwards compatibility.",
+               default=True,
+               cmdline='--broken-types'),
     IntOption("withsmallfuncsets",
               "Represent groups of less funtions than this as indices into an array",
                default=0),
