@@ -20,14 +20,12 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         self.read_barrier_applied = {}
 
     def other_operation(self, op):
-        # if op.get_forwarded():
-        #     op = op.get_forwarded()
         opnum = op.getopnum()
         if opnum == rop.INCREMENT_DEBUG_COUNTER:
             self.emit_op(op)
             return
 
-        assert op != rop.VEC_STORE # VEC things are not supported yet
+        assert opnum != rop.VEC_STORE # VEC things are not supported yet
         # ----------  transaction breaks  ----------
         if opnum == rop.STM_HINT_COMMIT_SOON:
             self.emitting_an_operation_that_can_collect()

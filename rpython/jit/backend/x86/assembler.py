@@ -854,6 +854,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.patch_jump_for_descr(faildescr, rawstart)
 
     def _patch_jump_to(self, adr_jump_offset, adr_new_target):
+        xxx
         assert adr_jump_offset != 0
         offset = adr_new_target - (adr_jump_offset + 5)
         mc = codebuf.MachineCodeBlockWrapper()
@@ -2390,7 +2391,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             # other fields, which we load and copy into the jf_descr and
             # jf_gcmap fields of the frame.
             ofs_fail_descr = (
-                llmemory.offsetof(STM_GUARD_FAILURE, 'failindex') -
+                llmemory.offsetof(STM_GUARD_FAILURE, 'faildescrindex') -
                 llmemory.offsetof(STM_GUARD_FAILURE, 'jump_target'))
             ofs_gcmap = (
                 llmemory.offsetof(STM_GUARD_FAILURE, 'gcmap') -

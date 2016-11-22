@@ -11,6 +11,18 @@ GCREFTRACER = lltype.GcStruct(
     rtti=True)
 
 def gcrefs_trace(gc, obj_addr, callback, arg):
+    if rgc.stm_is_enabled():
+        # alternative version that doesn't cast obj_addr to a GC obj,
+        # as this would mean a change of address space...
+        addr = (obj_addr + llmemory.offsetof(GCREFTRACER, 'array_base_addr')).address[0]
+        length = (obj_addr + llmemory.offsetof(GCREFTRACER, 'array_length')).signed[0]
+        i = 0
+        while i < length:
+            p = addr + i * WORD
+            gc._trace_callback(callback, arg, p)
+            i += 1
+        return
+    #
     obj = llmemory.cast_adr_to_ptr(obj_addr, lltype.Ptr(GCREFTRACER))
     i = 0
     length = obj.array_length
