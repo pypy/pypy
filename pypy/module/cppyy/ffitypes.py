@@ -9,6 +9,17 @@ from rpython.rlib import jit_libffi, rfloat
 # sets of jit_libffi, rffi, and different space unwrapping calls. To get the
 # right mixin, a non-RPython function typeid() is used.
 
+class BaseIntTypeMixin(object):
+    _mixin_     = True
+    _immutable_fields_ = ['wrapper']
+
+    wrapper     = 'newint'
+
+class BaseLongTypeMixin(object):
+    _mixin_     = True
+    _immutable_fields_ = ['wrapper']
+
+    wrapper     = 'newlong'
 
 class BoolTypeMixin(object):
     _mixin_     = True
@@ -35,6 +46,7 @@ class CharTypeMixin(object):
     libffitype  = jit_libffi.types.schar
     c_type      = rffi.CHAR
     c_ptrtype   = rffi.CCHARP           # there's no such thing as rffi.CHARP
+    wrapper     = 'newbytes'
 
     def _unwrap_object(self, space, w_value):
         # allow int to pass to char and make sure that str is of length 1
@@ -52,7 +64,7 @@ class CharTypeMixin(object):
                         "char expected, got string of size %d", len(value))
         return value[0] # turn it into a "char" to the annotator
 
-class ShortTypeMixin(object):
+class ShortTypeMixin(BaseIntTypeMixin):
     _mixin_     = True
     _immutable_fields_ = ['libffitype', 'c_type', 'c_ptrtype']
 
@@ -63,7 +75,7 @@ class ShortTypeMixin(object):
     def _unwrap_object(self, space, w_obj):
         return rffi.cast(rffi.SHORT, space.int_w(w_obj))
 
-class UShortTypeMixin(object):
+class UShortTypeMixin(BaseIntTypeMixin):
     _mixin_     = True
     _immutable_fields_ = ['libffitype', 'c_type', 'c_ptrtype']
 
@@ -74,7 +86,7 @@ class UShortTypeMixin(object):
     def _unwrap_object(self, space, w_obj):
         return rffi.cast(self.c_type, space.int_w(w_obj))
 
-class IntTypeMixin(object):
+class IntTypeMixin(BaseIntTypeMixin):
     _mixin_     = True
     _immutable_fields_ = ['libffitype', 'c_type', 'c_ptrtype']
 
@@ -85,7 +97,7 @@ class IntTypeMixin(object):
     def _unwrap_object(self, space, w_obj):
         return rffi.cast(self.c_type, space.c_int_w(w_obj))
 
-class UIntTypeMixin(object):
+class UIntTypeMixin(BaseLongTypeMixin):
     _mixin_     = True
     _immutable_fields_ = ['libffitype', 'c_type', 'c_ptrtype']
 
@@ -96,7 +108,7 @@ class UIntTypeMixin(object):
     def _unwrap_object(self, space, w_obj):
         return rffi.cast(self.c_type, space.uint_w(w_obj))
 
-class LongTypeMixin(object):
+class LongTypeMixin(BaseLongTypeMixin):
     _mixin_     = True
     _immutable_fields_ = ['libffitype', 'c_type', 'c_ptrtype']
 
@@ -107,7 +119,9 @@ class LongTypeMixin(object):
     def _unwrap_object(self, space, w_obj):
         return space.int_w(w_obj)
 
-class ULongTypeMixin(object):
+# TODO: check ULong limits; actually, they fail if this is
+#  an BaseLongTypeMixin (i.e. use of space.ewlong) ... why??
+class ULongTypeMixin(BaseIntTypeMixin):
     _mixin_     = True
     _immutable_fields_ = ['libffitype', 'c_type', 'c_ptrtype']
 
@@ -118,7 +132,7 @@ class ULongTypeMixin(object):
     def _unwrap_object(self, space, w_obj):
         return space.uint_w(w_obj)
 
-class LongLongTypeMixin(object):
+class LongLongTypeMixin(BaseLongTypeMixin):
     _mixin_     = True
     _immutable_fields_ = ['libffitype', 'c_type', 'c_ptrtype']
 
@@ -129,7 +143,7 @@ class LongLongTypeMixin(object):
     def _unwrap_object(self, space, w_obj):
         return space.r_longlong_w(w_obj)
 
-class ULongLongTypeMixin(object):
+class ULongLongTypeMixin(BaseLongTypeMixin):
     _mixin_     = True
     _immutable_fields_ = ['libffitype', 'c_type', 'c_ptrtype']
 
@@ -162,6 +176,7 @@ class DoubleTypeMixin(object):
     libffitype  = jit_libffi.types.double
     c_type      = rffi.DOUBLE
     c_ptrtype   = rffi.DOUBLEP
+    wrapper     = 'newfloat'
     typecode    = 'd'
 
     def _unwrap_object(self, space, w_obj):

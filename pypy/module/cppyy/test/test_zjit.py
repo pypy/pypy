@@ -71,6 +71,10 @@ class FakeInt(FakeBase):
     typename = "int"
     def __init__(self, val):
         self.val = val
+class FakeLong(FakeBase):
+    typename = "long"
+    def __init__(self, val):
+        self.val = val
 class FakeFloat(FakeBase):
     typename = "float"
     def __init__(self, val):
@@ -145,16 +149,7 @@ class FakeSpace(object):
     def issequence_w(self, w_obj):
         return True
 
-    @specialize.argtype(1)
     def wrap(self, obj):
-        if isinstance(obj, int):
-            return FakeInt(obj)
-        if isinstance(obj, float):
-            return FakeFloat(obj)
-        if isinstance(obj, str):
-            return FakeString(obj)
-        if isinstance(obj, rffi.r_int):
-            return FakeInt(int(obj))
         assert 0
 
     @specialize.argtype(1)
@@ -163,11 +158,11 @@ class FakeSpace(object):
 
     @specialize.argtype(1)
     def newint(self, obj):
-        return FakeInt(obj)
+        return FakeInt(rarithmetic.intmask(obj))
 
     @specialize.argtype(1)
     def newlong(self, obj):
-        return FakeInt(obj)
+        return FakeLong(rarithmetic.intmask(obj))
 
     @specialize.argtype(1)
     def newfloat(self, obj):
@@ -207,7 +202,9 @@ class FakeSpace(object):
         return w_obj.val
 
     def uint_w(self, w_obj):
-        assert isinstance(w_obj, FakeInt)
+        if isinstance(w_obj, FakeInt):
+            return rarithmetic.r_uint(w_obj.val)
+        assert isinstance(w_obj, FakeLong)
         return rarithmetic.r_uint(w_obj.val)
 
     def str_w(self, w_obj):
