@@ -701,7 +701,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
             # legacy
             if logger.logger_ops:
-                logger.logger_ops.log_loop(inputargs, operations, 0,
+                logger.logger_ops.log_loop(inputargs, operations, looptoken.number,
                                            "rewritten", name=loopname,
                                            ops_offset=ops_offset)
 
