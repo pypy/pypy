@@ -854,7 +854,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.patch_jump_for_descr(faildescr, rawstart)
 
     def _patch_jump_to(self, adr_jump_offset, adr_new_target):
-        xxx
         assert adr_jump_offset != 0
         offset = adr_new_target - (adr_jump_offset + 5)
         mc = codebuf.MachineCodeBlockWrapper()
@@ -2245,7 +2244,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         #
         faildescrindex, target = self.store_info_on_descr(startpos, guardtok)
         if self.cpu.gc_ll_descr.stm:
-            self._generate_quick_failure_stm(faildescrindex, target, guardtok)
+            self._generate_quick_failure_stm(target, guardtok)
         else:
             if IS_X86_64:
                 self.mc.PUSH_p(0)     # %rip-relative
@@ -2256,11 +2255,13 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             self.mc.JMP(imm(target))
         return startpos
 
-    def _generate_quick_failure_stm(self, faildescrindex, target, guardtok):
+    def _generate_quick_failure_stm(self, target, guardtok):
         assert IS_X86_64
         # we could maybe store the data directly on the faildescr.
         p = rstm.allocate_nonmovable(STM_GUARD_FAILURE)
-        p.faildescrindex = faildescrindex
+        # store directly a reference to the faildescr. could also generate
+        # code to load with faildescrindex from gcrefs-table
+        p.fail_descr = cast_instance_to_gcref(guardtok.faildescr)
         p.jump_target = target
         p.gcmap = guardtok.gcmap
         assert not guardtok.faildescr._x86_stm_guard_failure
@@ -2391,7 +2392,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             # other fields, which we load and copy into the jf_descr and
             # jf_gcmap fields of the frame.
             ofs_fail_descr = (
-                llmemory.offsetof(STM_GUARD_FAILURE, 'faildescrindex') -
+                llmemory.offsetof(STM_GUARD_FAILURE, 'fail_descr') -
                 llmemory.offsetof(STM_GUARD_FAILURE, 'jump_target'))
             ofs_gcmap = (
                 llmemory.offsetof(STM_GUARD_FAILURE, 'gcmap') -
@@ -3249,7 +3250,7 @@ class BridgeAlreadyCompiled(Exception):
 
 STM_GUARD_FAILURE = lltype.GcStruct(
     "STM_GUARD_FAILURE",
-    ("faildescrindex", lltype.Signed),
+    ("fail_descr", llmemory.GCREF),
     ("jump_target", lltype.Signed),
     ("gcmap", lltype.Ptr(jitframe.GCMAP)))
 AbstractFailDescr._x86_stm_guard_failure = lltype.nullptr(STM_GUARD_FAILURE)

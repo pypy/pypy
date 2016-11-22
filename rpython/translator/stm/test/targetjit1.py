@@ -55,6 +55,7 @@ class ThreadRunner(object):
                 jitdriver.jit_merge_point(self=self)
                 glob.node = Node(self.value, glob.node)
                 self.value += 1
+                print self.index, ":", self.value
         finally:
             self.finished_lock.release()
 
