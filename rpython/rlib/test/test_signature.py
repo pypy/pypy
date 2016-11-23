@@ -257,7 +257,7 @@ def test_any_as_argument():
         return x + y
     @signature(types.int(), returns=types.float())
     def g(x):
-        return f(x, x)
+        return f(x + 0.5, x)
     sig = getsig(g)
     assert sig == [model.SomeInteger(), model.SomeFloat()]
 
@@ -267,11 +267,12 @@ def test_any_as_argument():
     sig = getsig(g)
     assert sig == [model.SomeFloat(), model.SomeFloat()]
 
-    @signature(types.str(), returns=types.int())
+    @signature(types.str(), returns=types.float())
     def cannot_add_string(x):
         return f(x, 2)
-    exc = py.test.raises(model.AnnotatorError, annotate_at, cannot_add_string).value
-    assert 'Blocked block' in str(exc)
+    with py.test.raises(model.AnnotatorError) as excinfo:
+        annotate_at(cannot_add_string)
+    assert 'Blocked block' in str(excinfo.value)
 
 def test_return_any():
     @signature(types.int(), returns=types.any())

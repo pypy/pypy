@@ -502,13 +502,6 @@ def test_enforceargs_keywords():
         return a + b
     assert f._annenforceargs_ == (None, int, None)
 
-def test_enforceargs_int_float_promotion():
-    @enforceargs(float)
-    def f(x):
-        return x
-    # in RPython there is an implicit int->float promotion
-    assert f(42) == 42
-
 def test_enforceargs_None_string():
     @enforceargs(str, unicode)
     def f(a, b):
@@ -540,7 +533,7 @@ def test_enforceargs_translates():
     @enforceargs(int, float)
     def f(a, b):
         return a, b
-    graph = getgraph(f, [int, int])
+    graph = getgraph(f, [int, float])
     TYPES = [v.concretetype for v in graph.getargs()]
     assert TYPES == [lltype.Signed, lltype.Float]
 
@@ -623,7 +616,7 @@ def test_resizelist_hint_len():
 def test_iterkeys_with_hash():
     def f(i):
         d = {i + .0: 5, i + .5: 6}
-        total = 0
+        total = 0.
         for k, h in iterkeys_with_hash(d):
             total += k * h
         total -= (i + 0.0) * compute_hash(i + 0.0)
@@ -637,7 +630,7 @@ def test_iterkeys_with_hash():
 def test_iteritems_with_hash():
     def f(i):
         d = {i + .0: 5, i + .5: 6}
-        total = 0
+        total = 0.
         for k, v, h in iteritems_with_hash(d):
             total += k * h * v
         total -= (i + 0.0) * compute_hash(i + 0.0) * 5

@@ -549,7 +549,7 @@ class Frozen(object):
     1, sys.maxint, 1.5, 'a', 'abc', u'abc', None, [],
     lambda: None,
     {1.23: 'abc'},
-    (1, 'x', [2, 3.],),
+    (1, 'x', [2, 3],),
     Frozen(),])
 def test_typeOf_const(x):
     a = RPythonAnnotator()
