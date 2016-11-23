@@ -168,11 +168,11 @@ class OptPure(Optimization):
         # CALL_PURE.
         for pos in self.call_pure_positions:
             old_op = self.optimizer._newoperations[pos]
-            if self.optimize_call_pure_old(op, old_op):
+            if self.optimize_call_pure_old(op, old_op, start_index):
                 return
         if self.extra_call_pure:
             for i, old_op in enumerate(self.extra_call_pure):
-                if self.optimize_call_pure_old(op, old_op):
+                if self.optimize_call_pure_old(op, old_op, start_index):
                     if isinstance(old_op, PreambleOp):
                         old_op = self.optimizer.force_op_from_preamble(old_op)
                         self.extra_call_pure[i] = old_op
@@ -196,11 +196,12 @@ class OptPure(Optimization):
         return self.optimize_call_pure(op, start_index=1)
     optimize_COND_CALL_VALUE_R = optimize_COND_CALL_VALUE_I
 
-    def optimize_call_pure_old(self, op, old_op):
+    def optimize_call_pure_old(self, op, old_op, start_index):
         if (op.numargs() != old_op.numargs() or
             op.getdescr() is not old_op.getdescr()):
             return False
-        for i, box in enumerate(old_op.getarglist()):
+        for i in range(start_index, old_op.numargs()):
+            box = old_op.getarg(i)
             if not self.get_box_replacement(op.getarg(i)).same_box(box):
                 break
         else:

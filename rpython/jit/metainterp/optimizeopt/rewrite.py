@@ -597,14 +597,7 @@ class OptRewrite(Optimization):
         return self.emit(op)
 
     def optimize_COND_CALL_VALUE_I(self, op):
-        # this removes a COND_CALL_VALUE with all constant arguments
-        # (ignoring the 'value' in arg0)
-        result = self._can_optimize_call_pure(op, start_index=1)
-        if result is not None:
-            self.make_constant(op, result)
-            self.last_emitted_operation = REMOVED
-            return
-        # otherwise, look if we know the nullness of the first argument
+        # look if we know the nullness of the first argument
         info = self.getnullness(op.getarg(0))
         if info == INFO_NONNULL:
             self.make_equal_to(op, op.getarg(0))
