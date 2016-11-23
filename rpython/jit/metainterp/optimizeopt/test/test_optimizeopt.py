@@ -4,6 +4,7 @@ from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.lltypesystem import lltype
 from rpython.jit.metainterp import compile, resume
 from rpython.jit.metainterp.history import AbstractDescr, ConstInt, TreeLoop
+from rpython.jit.metainterp.history import ConstPtr
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt import build_opt_chain
 from rpython.jit.metainterp.optimizeopt.test.test_util import (
@@ -8726,6 +8727,22 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p3)
         """
         self.optimize_loop(ops, expected)
+
+    def test_cond_call_r3(self):
+        arg_consts = [ConstInt(i) for i in (123, 4, 5, 6)]
+        call_pure_results = {tuple(arg_consts): ConstPtr(self.myptr)}
+        ops = """
+        [p1]
+        p2 = cond_call_value_r(p1, 123, 4, 5, 6, descr=plain_r_calldescr)
+        p3 = escape_r(p2)
+        jump(p3)
+        """
+        expected = """
+        [p1]
+        p3 = escape_r(ConstPtr(myptr))
+        jump(p3)
+        """
+        self.optimize_loop(ops, expected, call_pure_results=call_pure_results)
 
     def test_hippyvm_unroll_bug(self):
         ops = """

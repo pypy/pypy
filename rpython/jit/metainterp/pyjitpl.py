@@ -3098,7 +3098,7 @@ class MetaInterp(object):
             return resbox_as_const
         # not all constants (so far): turn CALL into CALL_PURE, which might
         # be either removed later by optimizeopt or turned back into CALL.
-        arg_consts = [executor.constant_from_op(a) for a in argboxes]
+        arg_consts = [executor.constant_from_op(a) for a in normargboxes]
         self.call_pure_results[arg_consts] = resbox_as_const
         if is_cond_value:
             return op       # but COND_CALL_VALUE remains
