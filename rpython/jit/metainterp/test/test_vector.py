@@ -478,7 +478,7 @@ class VectorizeTests(object):
             va = lltype.malloc(T, d, flavor='raw', zero=True)
             for i in range(d):
                 va[i] = value
-            r = 0
+            r = 0.
             i = 0
             k = d + 2
             # in this case a guard k <= d is inserted which fails right away!

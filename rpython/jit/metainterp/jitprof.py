@@ -52,8 +52,8 @@ class EmptyProfiler(BaseProfiler):
 class Profiler(BaseProfiler):
     initialized = False
     timer = staticmethod(time.time)
-    starttime = 0
-    t1 = 0
+    starttime = 0.
+    t1 = 0.
     times = None
     counters = None
     calls = 0
@@ -63,7 +63,7 @@ class Profiler(BaseProfiler):
     def start(self):
         self.starttime = self.timer()
         self.t1 = self.starttime
-        self.times = [0, 0]
+        self.times = [0., 0.]
         self.counters = [0] * (Counters.ncounters - _CPU_LINES)
         self.calls = 0
         self.current = []

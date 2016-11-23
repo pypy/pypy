@@ -41,7 +41,7 @@ def test_interpreted():
             ll = float2longlong(f1)
             return longlong2float(ll)
         except Exception:
-            return 500
+            return 500.
 
     for x in enum_floats():
         res = interpret(f, [x])

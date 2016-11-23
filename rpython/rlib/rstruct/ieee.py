@@ -68,7 +68,7 @@ def float_unpack(Q, size):
             exp = r_ulonglong(0x7ff) << 52
             sign = r_ulonglong(sign) << 63
             if MANT_DIG < 53:
-                mant = r_ulonglong(mant) << (53 - MANT_DIG) 
+                mant = r_ulonglong(mant) << (53 - MANT_DIG)
             if mant == 0:
                 result = rfloat.NAN
             else:
@@ -77,11 +77,11 @@ def float_unpack(Q, size):
             return result
     elif exp == 0:
         # subnormal or zero
-        result = math.ldexp(mant, MIN_EXP - MANT_DIG)
+        result = math.ldexp(float(mant), MIN_EXP - MANT_DIG)
     else:
         # normal: add implicit one value
         mant += one << MANT_DIG - 1
-        result = math.ldexp(mant, exp + MIN_EXP - MANT_DIG - 1)
+        result = math.ldexp(float(mant), exp + MIN_EXP - MANT_DIG - 1)
     return -result if sign else result
 
 def float_unpack80(QQ, size):
