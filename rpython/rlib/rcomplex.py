@@ -70,11 +70,11 @@ def c_div(x, y): #x/y
 
 def c_pow(x, y):
     (r1, i1), (r2, i2) = x, y
-    if i1 == 0 and i2 == 0 and r1 > 0:
+    if i1 == 0. and i2 == 0. and r1 > 0.:
         rr = math.pow(r1, r2)
         ir = 0.
     elif r2 == 0.0 and i2 == 0.0:
-        rr, ir = 1, 0
+        rr, ir = 1., 0.
     elif r1 == 1.0 and i1 == 0.0:
         rr, ir = (1.0, 0.0)
     elif r1 == 0.0 and i1 == 0.0:
@@ -108,22 +108,22 @@ def c_sqrt(x, y):
     Method: use symmetries to reduce to the case when x = z.real and y
     = z.imag are nonnegative.  Then the real part of the result is
     given by
-    
+
       s = sqrt((x + hypot(x, y))/2)
-    
+
     and the imaginary part is
-    
+
       d = (y/2)/s
-    
+
     If either x or y is very large then there's a risk of overflow in
     computation of the expression x + hypot(x, y).  We can avoid this
     by rewriting the formula for s as:
-    
+
       s = 2*sqrt(x/8 + hypot(x/8, y/8))
-    
+
     This costs us two extra multiplications/divisions, but avoids the
     overhead of checking for x and y large.
-    
+
     If both x and y are subnormal then hypot(x, y) may also be
     subnormal, so will lack full precision.  We solve this by rescaling
     x and y by a sufficiently large power of 2 to ensure that x and y

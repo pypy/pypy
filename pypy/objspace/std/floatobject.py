@@ -336,7 +336,7 @@ class W_FloatObject(W_Root):
                     raise oefmt(space.w_OverflowError, "too large")
                 else:
                     lsb = max(top_exp, rfloat.DBL_MIN_EXP) - rfloat.DBL_MANT_DIG
-                    value = 0
+                    value = 0.
                     if exp >= lsb:
                         for j in range(total_digits - 1, -1, -1):
                             value = 16.0 * value + _hex_digit(s, j, co_end,

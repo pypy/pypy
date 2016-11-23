@@ -341,7 +341,7 @@ def fsum(space, w_iterable):
     if partials:
         hi = partials[-1]
         j = 0
-        lo = 0
+        lo = 0.0
         for j in range(len(partials) - 2, -1, -1):
             v = hi
             y = partials[j]

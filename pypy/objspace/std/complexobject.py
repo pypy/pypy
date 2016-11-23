@@ -220,7 +220,7 @@ class W_ComplexObject(W_Root):
         div = math.floor(w_div.realval)
         w_mod = self.sub(
             W_ComplexObject(other.realval * div, other.imagval * div))
-        return (W_ComplexObject(div, 0), w_mod)
+        return (W_ComplexObject(div, 0.), w_mod)
 
     def pow(self, other):
         rr, ir = rcomplex.c_pow(self.as_tuple(), other.as_tuple())

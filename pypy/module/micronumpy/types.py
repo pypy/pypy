@@ -454,8 +454,8 @@ class Bool(BaseType, Primitive):
             return Float64(self.space).box(self.unbox(v))
         # numpy 1.10 compatibility
         raise oefmt(self.space.w_TypeError, "ufunc casting failure")
-            
-            
+
+
 
 class Integer(Primitive):
     _mixin_ = True
@@ -1058,9 +1058,9 @@ class Float(Primitive):
     def logaddexp2(self, v1, v2):
         tmp = v1 - v2
         if tmp > 0:
-            return v1 + self.npy_log2_1p(math.pow(2, -tmp))
+            return v1 + self.npy_log2_1p(math.pow(2., -tmp))
         if tmp <= 0:
-            return v2 + self.npy_log2_1p(math.pow(2, tmp))
+            return v2 + self.npy_log2_1p(math.pow(2., tmp))
         else:
             return v1 + v2
 
@@ -1179,11 +1179,11 @@ class ComplexFloating(object):
         imag_str += 'j'
 
         # (0+2j) => 2j
-        if real == 0 and math.copysign(1, real) == 1:
+        if real == 0. and math.copysign(1., real) == 1.:
             return imag_str
 
         real_str = str_format(real)
-        op = '+' if imag >= 0 or rfloat.isnan(imag) else ''
+        op = '+' if imag >= 0. or rfloat.isnan(imag) else ''
         return ''.join(['(', real_str, op, imag_str, ')'])
 
     def runpack_str(self, space, s, native):
@@ -1501,13 +1501,13 @@ class ComplexFloating(object):
             return rfloat.NAN, 0
         if v[0] == 0.0:
             if v[1] == 0:
-                return 0, 0
+                return 0., 0
             if v[1] > 0:
-                return 1, 0
-            return -1, 0
+                return 1., 0
+            return -1., 0
         if v[0] > 0:
-            return 1, 0
-        return -1, 0
+            return 1., 0
+        return -1., 0
 
     def fmax(self, v1, v2):
         if self.ge(v1, v2) or self.isnan(v2):
