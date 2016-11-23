@@ -184,11 +184,10 @@ def make_pycppclass(scope, class_name, final_class_name, cppclass):
 
     # add all data members to the dictionary of the class to be created, and
     # static ones also to the meta class (needed for property setters)
-    import cppyy # for _is_static (FIXME)
     for name in cppclass.get_datamember_names():
         cppdm = cppclass.get_datamember(name)
         d_class[name] = cppdm
-        if cppyy._is_static(cppdm):     # TODO: make this a method of cppdm
+        if cppdm.is_static():
             d_meta[name] = cppdm
 
     # create a meta class to allow properties (for static data write access)
@@ -254,7 +253,7 @@ def get_pycppitem(scope, name):
         try:
             cppdm = scope._cpp_proxy.get_datamember(name)
             setattr(scope, name, cppdm)
-            if cppyy._is_static(cppdm): # TODO: make this a method of cppdm
+            if cppdm.is_static():
                 setattr(scope.__class__, name, cppdm)
             pycppitem = getattr(scope, name)      # gets actual property value
         except AttributeError:

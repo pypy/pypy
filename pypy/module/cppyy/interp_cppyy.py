@@ -653,8 +653,8 @@ class W_CPPDataMember(W_Root):
         self.converter = converter.get_converter(self.space, type_name, '')
         self.offset = offset
 
-    def get_returntype(self):
-        return self.space.wrap(self.converter.name)
+    def is_static(self):
+        return self.space.w_False
 
     def _get_offset(self, cppinstance):
         if cppinstance:
@@ -683,13 +683,16 @@ class W_CPPDataMember(W_Root):
 
 W_CPPDataMember.typedef = TypeDef(
     'CPPDataMember',
-    get_returntype = interp2app(W_CPPDataMember.get_returntype),
+    is_static = interp2app(W_CPPDataMember.is_static),
     __get__ = interp2app(W_CPPDataMember.get),
     __set__ = interp2app(W_CPPDataMember.set),
 )
 W_CPPDataMember.typedef.acceptable_as_base_class = False
 
 class W_CPPStaticData(W_CPPDataMember):
+    def is_static(self):
+        return self.space.w_True
+
     @jit.elidable_promote()
     def _get_offset(self, cppinstance):
         return self.offset
@@ -703,7 +706,7 @@ class W_CPPStaticData(W_CPPDataMember):
 
 W_CPPStaticData.typedef = TypeDef(
     'CPPStaticData',
-    get_returntype = interp2app(W_CPPStaticData.get_returntype),
+    is_static = interp2app(W_CPPStaticData.is_static),
     __get__ = interp2app(W_CPPStaticData.get),
     __set__ = interp2app(W_CPPStaticData.set),
 )
