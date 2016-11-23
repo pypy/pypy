@@ -331,12 +331,34 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
                  PyHeapTypeObject *heaptype = (PyHeapTypeObject *)args;
                  Py_INCREF(heaptype->ht_name);
                  return heaptype->ht_name;
+             '''),
+            ("setattr", "METH_O",
              '''
-             )
+                int ret;
+                PyObject* name = PyString_FromString("mymodule");
+                PyObject *obj = PyType_Type.tp_alloc(&PyType_Type, 0);
+                PyHeapTypeObject *type = (PyHeapTypeObject*)obj;
+                if ((type->ht_type.tp_flags & Py_TPFLAGS_HEAPTYPE) == 0)
+                {
+                    PyErr_SetString(PyExc_ValueError,
+                                    "Py_TPFLAGS_HEAPTYPE not set");
+                    return NULL;
+                }
+                type->ht_type.tp_name = ((PyTypeObject*)args)->tp_name;
+                PyType_Ready(&type->ht_type);
+                ret = PyObject_SetAttrString((PyObject*)&type->ht_type,
+                                    "__module__", name);
+                Py_DECREF(name);
+                if (ret < 0)
+                    return NULL;
+                return PyLong_FromLong(ret);
+             '''),
             ])
         class C(object):
             pass
         assert module.name_by_heaptype(C) == "C"
+        assert module.setattr(C) == 0
+
 
     def test_type_dict(self):
         foo = self.import_module("foo")
