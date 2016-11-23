@@ -760,6 +760,9 @@ VOIDPP = CArrayPtr(VOIDP)
 
 # char *
 CCHARP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True}))
+CCHARP_STM_NOTRACK = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True,
+                                        'stm_dont_track_raw_accesses': True}))
+
 
 # const char *
 CONST_CCHARP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True,

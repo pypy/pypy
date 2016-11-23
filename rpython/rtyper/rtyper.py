@@ -241,7 +241,7 @@ class RPythonTyper(object):
             try:
               import transaction
             except ImportError:
-
+              previous_percentage = 0
               # specialize all blocks in the 'pending' list
               for block in pending:
                 blockcount += 1

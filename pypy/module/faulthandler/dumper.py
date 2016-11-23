@@ -9,7 +9,7 @@ from pypy.module.faulthandler.cintf import pypy_faulthandler_write_uint
 
 MAX_STRING_LENGTH = 500
 
-global_buf = lltype.malloc(rffi.CCHARP.TO, MAX_STRING_LENGTH, flavor='raw',
+global_buf = lltype.malloc(rffi.CCHARP_STM_NOTRACK.TO, MAX_STRING_LENGTH, flavor='raw',
                            immortal=True, zero=True)
 
 def _dump(fd, s):

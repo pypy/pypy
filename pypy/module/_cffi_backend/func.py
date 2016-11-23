@@ -179,7 +179,7 @@ def get_raw_address_of_string(space, w_x):
     rawbytes = cache.wdict.get(w_x)
     if rawbytes is None:
         data = space.str_w(w_x)
-        if we_are_translated() and not rgc.can_move(data):
+        if we_are_translated() and not rgc.can_move(data) and not rgc.stm_is_enabled():
             lldata = llstr(data)
             data_start = (llmemory.cast_ptr_to_adr(lldata) +
                           rffi.offsetof(STR, 'chars') +

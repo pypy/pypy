@@ -22,7 +22,7 @@ def direct_llexternal(*args, **kwargs):
 
 
 DUMP_CALLBACK = lltype.Ptr(lltype.FuncType(
-                     [rffi.INT, rffi.SIGNEDP, lltype.Signed], lltype.Void))
+                     [rffi.INT, rffi.SIGNEDP_STM_NOTRACK, lltype.Signed], lltype.Void))
 
 pypy_faulthandler_setup = direct_llexternal(
     'pypy_faulthandler_setup', [DUMP_CALLBACK], rffi.CCHARP)
@@ -40,11 +40,13 @@ pypy_faulthandler_is_enabled = direct_llexternal(
     'pypy_faulthandler_is_enabled', [], rffi.INT)
 
 pypy_faulthandler_write = direct_llexternal(
-    'pypy_faulthandler_write', [rffi.INT, rffi.CCHARP], lltype.Void)
+    'pypy_faulthandler_write', [rffi.INT, rffi.CCHARP_STM_NOTRACK], lltype.Void,
+    transactionsafe=True)
 
 pypy_faulthandler_write_uint = direct_llexternal(
     'pypy_faulthandler_write_uint', [rffi.INT, lltype.Unsigned, rffi.INT],
-                                    lltype.Void)
+                                    lltype.Void,
+    transactionsafe=True)
 
 pypy_faulthandler_dump_traceback = direct_llexternal(
     'pypy_faulthandler_dump_traceback',
