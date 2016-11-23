@@ -162,43 +162,44 @@ def make_pycppclass(scope, class_name, final_class_name, cppclass):
         except KeyError:
             pass
 
-    # create a meta class to allow properties (for static data write access)
-    metabases = [type(base) for base in bases]
-    metacpp = type(CPPClass)(class_name+'_meta', _drop_cycles(metabases), {})
+    # prepare dictionary for meta class
+    d_meta = {}
 
-    # create the python-side C++ class representation
+    # prepare dictionary for python-side C++ class representation
     def dispatch(self, name, signature):
         cppol = cppclass.dispatch(name, signature)
         return types.MethodType(make_method(name, cppol), self, type(self))
-    d = {"_cpp_proxy"   : cppclass,
+    d_class = {"_cpp_proxy"   : cppclass,
          "__dispatch__" : dispatch,
          "__new__"      : make_new(class_name),
          }
-    pycppclass = metacpp(class_name, _drop_cycles(bases), d)
- 
-    # cache result early so that the class methods can find the class itself
-    setattr(scope, final_class_name, pycppclass)
 
     # insert (static) methods into the class dictionary
-    for meth_name in cppclass.get_method_names():
-        cppol = cppclass.get_overload(meth_name)
+    for name in cppclass.get_method_names():
+        cppol = cppclass.get_overload(name)
         if cppol.is_static():
-            setattr(pycppclass, meth_name, make_static_function(meth_name, cppol))
+            d_class[name] = make_static_function(name, cppol)
         else:
-            setattr(pycppclass, meth_name, make_method(meth_name, cppol))
+            d_class[name] = make_method(name, cppol)
 
     # add all data members to the dictionary of the class to be created, and
     # static ones also to the meta class (needed for property setters)
-    for dm_name in cppclass.get_datamember_names():
-        cppdm = cppclass.get_datamember(dm_name)
-
-        # here, setattr() can not be used, because a data member can shadow one in
-        # its base class, resulting in the __set__() of its base class being called
-        # by setattr(); so, store directly on the dictionary
-        pycppclass.__dict__[dm_name] = cppdm
-        import cppyy
+    import cppyy # for _is_static (FIXME)
+    for name in cppclass.get_datamember_names():
+        cppdm = cppclass.get_datamember(name)
+        d_class[name] = cppdm
         if cppyy._is_static(cppdm):     # TODO: make this a method of cppdm
-            metacpp.__dict__[dm_name] = cppdm
+            d_meta[name] = cppdm
+
+    # create a meta class to allow properties (for static data write access)
+    metabases = [type(base) for base in bases]
+    metacpp = type(CPPClass)(class_name+'_meta', _drop_cycles(metabases), d_meta)
+
+    # create the python-side C++ class
+    pycppclass = metacpp(class_name, _drop_cycles(bases), d_class)
+
+    # store the class on its outer scope
+    setattr(scope, final_class_name, pycppclass)
 
     # the call to register will add back-end specific pythonizations and thus
     # needs to run first, so that the generic pythonizations can use them
@@ -414,7 +415,7 @@ def load_reflection_info(name):
         lib = cppyy._load_dictionary(name)
         _loaded_dictionaries[name] = lib
         return lib
-    
+
 def _init_pythonify():
     # cppyy should not be loaded at the module level, as that will trigger a
     # call to space.getbuiltinmodule(), which will cause cppyy to be loaded
