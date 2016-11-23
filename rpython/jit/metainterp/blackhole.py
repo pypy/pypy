@@ -1507,6 +1507,9 @@ class BlackholeInterpreter(object):
     @arguments("cpu", "r", "r", "i", "i", "i")
     def bhimpl_copystrcontent(cpu, src, dst, srcstart, dststart, length):
         cpu.bh_copystrcontent(src, dst, srcstart, dststart, length)
+    @arguments("cpu", "r", returns="i")
+    def bhimpl_strhash(cpu, string):
+        return cpu.bh_strhash(string)
 
     @arguments("cpu", "i", returns="r")
     def bhimpl_newunicode(cpu, length):
@@ -1523,6 +1526,9 @@ class BlackholeInterpreter(object):
     @arguments("cpu", "r", "r", "i", "i", "i")
     def bhimpl_copyunicodecontent(cpu, src, dst, srcstart, dststart, length):
         cpu.bh_copyunicodecontent(src, dst, srcstart, dststart, length)
+    @arguments("cpu", "r", returns="i")
+    def bhimpl_unicodehash(cpu, unicode):
+        return cpu.bh_unicodehash(unicode)
 
     @arguments("i", "i")
     def bhimpl_rvmprof_code(leaving, unique_id):

@@ -1163,6 +1163,14 @@ class MIFrame(object):
         self.execute(rop.UNICODESETITEM, unicodebox, indexbox, newcharbox)
 
     @arguments("box")
+    def opimpl_strhash(self, strbox):
+        return self.execute(rop.STRHASH, strbox)
+
+    @arguments("box")
+    def opimpl_unicodehash(self, unicodebox):
+        return self.execute(rop.UNICODEHASH, unicodebox)
+
+    @arguments("box")
     def opimpl_newstr(self, lengthbox):
         return self.execute(rop.NEWSTR, lengthbox)
 

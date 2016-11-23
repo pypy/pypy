@@ -1097,6 +1097,8 @@ _oplist = [
     '_MALLOC_LAST',
     'FORCE_TOKEN/0/r',    # historical name; nowadays, returns the jitframe
     'VIRTUAL_REF/2/r',    # removed before it's passed to the backend
+    'STRHASH/1/i',        # only reading the .hash field, might be zero so far
+    'UNICODEHASH/1/i',    #  "
     # this one has no *visible* side effect, since the virtualizable
     # must be forced, however we need to execute it anyway
     '_NOSIDEEFFECT_LAST', # ----- end of no_side_effect operations -----

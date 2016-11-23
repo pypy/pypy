@@ -788,6 +788,9 @@ class LLGraphCPU(model.AbstractCPU):
         assert 0 <= dststart <= dststart + length <= len(dst.chars)
         rstr.copy_string_contents(src, dst, srcstart, dststart, length)
 
+    def bh_strhash(self, s):
+        return s._obj.container.hash
+
     def bh_newunicode(self, length):
         return lltype.cast_opaque_ptr(llmemory.GCREF,
                                       lltype.malloc(rstr.UNICODE, length,
@@ -809,6 +812,9 @@ class LLGraphCPU(model.AbstractCPU):
         assert 0 <= srcstart <= srcstart + length <= len(src.chars)
         assert 0 <= dststart <= dststart + length <= len(dst.chars)
         rstr.copy_unicode_contents(src, dst, srcstart, dststart, length)
+
+    def bh_unicodehash(self, s):
+        return s._obj.container.hash
 
     def bh_new(self, sizedescr):
         return lltype.cast_opaque_ptr(llmemory.GCREF,

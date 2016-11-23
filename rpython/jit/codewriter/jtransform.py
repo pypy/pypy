@@ -789,12 +789,20 @@ class Transformer(object):
                                                 arrayfielddescr,
                                                 arraydescr)
             return []
+        # check for the string or unicode hash field
+        STRUCT = v_inst.concretetype.TO
+        if STRUCT == rstr.STR:
+            assert c_fieldname.value == 'hash'
+            return SpaceOperation('strhash', [v_inst], op.result)
+        elif STRUCT == rstr.UNICODE:
+            assert c_fieldname.value == 'hash'
+            return SpaceOperation('unicodehash', [v_inst], op.result)
         # check for _immutable_fields_ hints
-        immut = v_inst.concretetype.TO._immutable_field(c_fieldname.value)
+        immut = STRUCT._immutable_field(c_fieldname.value)
         need_live = False
         if immut:
             if (self.callcontrol is not None and
-                self.callcontrol.could_be_green_field(v_inst.concretetype.TO,
+                self.callcontrol.could_be_green_field(STRUCT,
                                                       c_fieldname.value)):
                 pure = '_greenfield'
                 need_live = True
@@ -802,10 +810,9 @@ class Transformer(object):
                 pure = '_pure'
         else:
             pure = ''
-        self.check_field_access(v_inst.concretetype.TO)
-        argname = getattr(v_inst.concretetype.TO, '_gckind', 'gc')
-        descr = self.cpu.fielddescrof(v_inst.concretetype.TO,
-                                      c_fieldname.value)
+        self.check_field_access(STRUCT)
+        argname = getattr(STRUCT, '_gckind', 'gc')
+        descr = self.cpu.fielddescrof(STRUCT, c_fieldname.value)
         kind = getkind(RESULT)[0]
         if argname != 'gc':
             assert argname == 'raw'
@@ -822,7 +829,7 @@ class Transformer(object):
         if immut in (IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY):
             op1.opname += "_pure"
             descr1 = self.cpu.fielddescrof(
-                v_inst.concretetype.TO,
+                STRUCT,
                 quasiimmut.get_mutate_field_name(c_fieldname.value))
             return [SpaceOperation('-live-', [], None),
                    SpaceOperation('record_quasiimmut_field',
