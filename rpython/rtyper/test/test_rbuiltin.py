@@ -132,17 +132,11 @@ class TestRbuiltin(BaseRtypingTest):
         assert self.interpret(fn, (1.9, 2.)) == 1.9
         assert self.interpret(fn, (1.5, -1.4)) == -1.4
 
-    def test_float_int_min(self):
-        def fn(i, j):
-            return min(i, j)
-        assert self.interpret(fn, (1.9, 2)) == 1.9
-        assert self.interpret(fn, (1.5, -1)) == -1
-
     def test_float_max(self):
         def fn(i, j):
             return max(i,j)
         assert self.interpret(fn, (1.0, 2.)) == 2
-        assert self.interpret(fn, (1.1, -1)) == 1.1
+        assert self.interpret(fn, (1.1, -1.)) == 1.1
 
     def test_builtin_math_floor(self):
         def fn(f):
@@ -165,18 +159,18 @@ class TestRbuiltin(BaseRtypingTest):
     def test_builtin_math_frexp(self):
         def fn(f):
             return math.frexp(f)
-        for x in (.5, 1, 1.5, 10/3.0):
+        for x in (.5, 1., 1.5, 10/3.0):
             for y in (1, -1):
                 res = self.interpret(fn, [x*y])
                 mantissa, exponent = math.frexp(x*y)
-                assert (self.float_eq(res.item0, mantissa) and
-                        self.float_eq(res.item1, exponent))
+                assert self.float_eq(res.item0, mantissa)
+                assert res.item1 == exponent
 
     def test_builtin_math_ldexp(self):
         def fn(a, b):
             return math.ldexp(a, b)
-        assert self.interpret(fn, [1, 2]) == 4
-        self.interpret_raises(OverflowError, fn, [1, 100000])
+        assert self.interpret(fn, [1., 2]) == 4
+        self.interpret_raises(OverflowError, fn, [1., 100000])
 
     def test_builtin_math_modf(self):
         def fn(f):

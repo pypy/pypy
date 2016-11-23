@@ -1038,7 +1038,7 @@ class TestRPBC(BaseRtypingTest):
         fr3 = Freezing()
         fr1.value = 10
         fr2.value = 5
-        fr3.value = 2.5
+        fr3.value = 3
         def pick12(i):
             if i > 0:
                 return fr1
@@ -1056,8 +1056,8 @@ class TestRPBC(BaseRtypingTest):
         for i in [0, 5, 10]:
             res = self.interpret(f, [i])
             item0, item1 = self.ll_unpack_tuple(res, 2)
-            assert type(item0) is int   # precise
-            assert type(item1) in (float, int)  # we get int on JS
+            assert type(item0) is int
+            assert type(item1) is int
             assert item0 == f(i)[0]
             assert item1 == f(i)[1]
 
@@ -1068,7 +1068,7 @@ class TestRPBC(BaseRtypingTest):
         class fr3(base): pass
         fr1.value = 10
         fr2.value = 5
-        fr3.value = 2.5
+        fr3.value = 3
         def pick12(i):
             if i > 0:
                 return fr1
@@ -1086,8 +1086,8 @@ class TestRPBC(BaseRtypingTest):
         for i in [0, 5, 10]:
             res = self.interpret(f, [i])
             item0, item1 = self.ll_unpack_tuple(res, 2)
-            assert type(item0) is int   # precise
-            assert type(item1) in (float, int)  # we get int on JS
+            assert type(item0) is int
+            assert type(item1) is int
             assert item0 == f(i)[0]
             assert item1 == f(i)[1]
 

@@ -150,9 +150,9 @@ class TestRfloat(BaseRtypingTest):
         from rpython.rlib import rfloat
         def fn(x, y):
             return rfloat.copysign(x, y)
-        assert self.interpret(fn, [42, -1]) == -42
-        assert self.interpret(fn, [42, -0.0]) == -42
-        assert self.interpret(fn, [42, 0.0]) == 42
+        assert self.interpret(fn, [42., -1.]) == -42.
+        assert self.interpret(fn, [42., -0.]) == -42.
+        assert self.interpret(fn, [42., 0.]) == 42.
 
     def test_rstring_to_float(self):
         from rpython.rlib.rfloat import rstring_to_float
