@@ -1335,6 +1335,16 @@ class rop(object):
         return rop.CALL_N
 
     @staticmethod
+    def call_pure_for_type(tp):
+        if tp == 'i':
+            return rop.CALL_PURE_I
+        elif tp == 'r':
+            return rop.CALL_PURE_R
+        elif tp == 'f':
+            return rop.CALL_PURE_F
+        return rop.CALL_PURE_N
+
+    @staticmethod
     def is_guard(opnum):
         return rop._GUARD_FIRST <= opnum <= rop._GUARD_LAST
 

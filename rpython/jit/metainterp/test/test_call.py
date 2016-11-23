@@ -131,7 +131,7 @@ class CallTest(object):
         assert res == -1
         # optimizer: the COND_CALL_VALUE is turned into a regular
         # CALL_PURE, which itself becomes a CALL
-        self.check_resops(call_pure_i=0, cond_call_pure_i=0, call_i=2,
+        self.check_resops(call_pure_i=0, cond_call_value_i=0, call_i=2,
                           int_sub=2)
 
     def test_cond_call_constant_in_optimizer_3(self):

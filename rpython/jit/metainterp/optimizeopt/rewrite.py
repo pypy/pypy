@@ -611,7 +611,7 @@ class OptRewrite(Optimization):
             self.last_emitted_operation = REMOVED
             return
         if info == INFO_NULL:
-            opnum = OpHelpers.call_for_type(op.type)
+            opnum = OpHelpers.call_pure_for_type(op.type)
             op = self.replace_op_with(op, opnum, args=op.getarglist()[1:])
         return self.emit(op)
     optimize_COND_CALL_VALUE_R = optimize_COND_CALL_VALUE_I
