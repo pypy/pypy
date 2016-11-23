@@ -725,7 +725,7 @@ double cppyy_call_d(cppyy_method_t method, cppyy_object_t self, int nargs, void*
     return result;
 }
 
-char* cppyy_call_s(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
+char* cppyy_call_s(cppyy_method_t method, cppyy_object_t self, int nargs, void* args, size_t* /* length */) {
     char* result = 0;
     const long idx = (long)method;
     if (idx == s_methods["static_example01::staticStrcpy_cchar*"]) {
@@ -759,8 +759,8 @@ cppyy_object_t cppyy_constructor(cppyy_method_t method, cppyy_type_t handle, int
     return (cppyy_object_t)result;
 }
 
-cppyy_methptrgetter_t cppyy_get_methptr_getter(cppyy_type_t /* handle */, cppyy_index_t /* method_index */) {
-    return (cppyy_methptrgetter_t)0;
+cppyy_funcaddr_t cppyy_get_function_address(cppyy_scope_t /* scope */, cppyy_index_t /* idx */) {
+    return (cppyy_funcaddr_t)0;
 }
 
 
@@ -790,7 +790,11 @@ size_t cppyy_function_arg_typeoffset() {
 /* scope reflection information ------------------------------------------- */
 int cppyy_is_namespace(cppyy_scope_t /* handle */) {
     return 0;
-}   
+}
+
+int cppyy_is_abstract(cppyy_type_t /* type) */) {
+    return 0;
+}
 
 int cppyy_is_enum(const char* /* type_name */) {
     return 0;
@@ -942,9 +946,9 @@ void cppyy_free(void* ptr) {
     free(ptr);
 }
 
-cppyy_object_t cppyy_charp2stdstring(const char* str) {
-    void* arena = new char[sizeof(std::string)];
-    new (arena) std::string(str);
+cppyy_object_t cppyy_charp2stdstring(const char* str, size_t sz) {
+    void* arena = new char[sz];
+    new (arena) std::string(str, sz);
     return (cppyy_object_t)arena;
 }
 
