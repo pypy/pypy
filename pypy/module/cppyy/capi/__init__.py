@@ -9,8 +9,8 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 # the selection of the desired backend (default is Reflex).
 
 # choose C-API access method:
-from pypy.module.cppyy.capi.loadable_capi import *
-#from pypy.module.cppyy.capi.builtin_capi import *
+#from pypy.module.cppyy.capi.loadable_capi import *
+from pypy.module.cppyy.capi.builtin_capi import *
 
 from pypy.module.cppyy.capi.capi_types import C_OBJECT,\
     C_NULL_TYPE, C_NULL_OBJECT
