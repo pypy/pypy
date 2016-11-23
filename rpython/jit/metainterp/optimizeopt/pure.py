@@ -197,13 +197,17 @@ class OptPure(Optimization):
     optimize_COND_CALL_VALUE_R = optimize_COND_CALL_VALUE_I
 
     def optimize_call_pure_old(self, op, old_op, start_index):
-        if (op.numargs() != old_op.numargs() or
-            op.getdescr() is not old_op.getdescr()):
+        if op.getdescr() is not old_op.getdescr():
             return False
-        for i in range(start_index, old_op.numargs()):
+        # this will match a call_pure and a cond_call_value with
+        # the same function and arguments
+        j = start_index
+        old_start_index = OpHelpers.is_cond_call_value(old_op.opnum)
+        for i in range(old_start_index, old_op.numargs()):
             box = old_op.getarg(i)
-            if not self.get_box_replacement(op.getarg(i)).same_box(box):
+            if not self.get_box_replacement(op.getarg(j)).same_box(box):
                 break
+            j += 1
         else:
             # all identical
             # this removes a CALL_PURE that has the same (non-constant)
@@ -260,10 +264,17 @@ class OptPure(Optimization):
             # don't move call_pure_with_exception in the short preamble...
             # issue #2015
 
+            # Also, don't move cond_call_value in the short preamble.
+            # The issue there is that it's usually pointless to try to
+            # because the 'value' argument is typically not a loop
+            # invariant, and would really need to be in order to end up
+            # in the short preamble.  Maybe the code works anyway in the
+            # other rare case, but better safe than sorry and don't try.
             effectinfo = op.getdescr().get_extra_info()
             if not effectinfo.check_can_raise(ignore_memoryerror=True):
                 assert rop.is_call(op.opnum)
-                sb.add_pure_op(op)
+                if not OpHelpers.is_cond_call_value(op.opnum):
+                    sb.add_pure_op(op)
 
 dispatch_opt = make_dispatcher_method(OptPure, 'optimize_',
                                       default=OptPure.optimize_default)
