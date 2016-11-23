@@ -326,7 +326,6 @@ class LLGraphCPU(model.AbstractCPU):
     supports_longlong = r_uint is not r_ulonglong
     supports_singlefloats = True
     supports_guard_gc_type = True
-    supports_cond_call_value = True
     translate_support_code = False
     is_llgraph = True
     vector_ext = VectorExt()
