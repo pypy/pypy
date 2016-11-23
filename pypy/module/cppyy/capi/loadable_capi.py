@@ -25,11 +25,32 @@ std_string_name = 'std::basic_string<char>'
 
 class _Arg:         # poor man's union
     _immutable_ = True
-    def __init__(self, h = 0, l = -1, s = '', vp = rffi.cast(rffi.VOIDP, 0)):
+    def __init__(self, tc, h = 0, l = -1, s = '', p = rffi.cast(rffi.VOIDP, 0)):
+        self.tc      = tc
         self._handle = h
         self._long   = l
         self._string = s
-        self._voidp  = vp
+        self._voidp  = p
+
+class _ArgH(_Arg):
+    _immutable_ = True
+    def __init__(self, val):
+        _Arg.__init__(self, 'h', h = val)
+
+class _ArgL(_Arg):
+    _immutable_ = True
+    def __init__(self, val):
+        _Arg.__init__(self, 'l', l = val)
+
+class _ArgS(_Arg):
+    _immutable_ = True
+    def __init__(self, val):
+        _Arg.__init__(self, 's', s = val)
+
+class _ArgP(_Arg):
+    _immutable_ = True
+    def __init__(self, val):
+        _Arg.__init__(self, 'p', p = val)
 
 # For the loadable CAPI, the calls start and end in RPython. Therefore, the standard
 # _call of W_CTypeFunc, which expects wrapped objects, does not quite work: some
@@ -59,14 +80,18 @@ class W_RCTypeFunc(ctypefunc.W_CTypeFunc):
                 argtype = self.fargs[i]
                 # the following is clumsy, but the data types used as arguments are
                 # very limited, so it'll do for now
-                if isinstance(argtype, ctypeprim.W_CTypePrimitiveSigned):
+                if obj.tc == 'l':
+                    assert isinstance(argtype, ctypeprim.W_CTypePrimitiveSigned)
                     misc.write_raw_signed_data(data, rffi.cast(rffi.LONG, obj._long), argtype.size)
-                elif isinstance(argtype, ctypeprim.W_CTypePrimitiveUnsigned):
+                elif obj.tc == 'h':
+                    assert isinstance(argtype, ctypeprim.W_CTypePrimitiveUnsigned)
                     misc.write_raw_unsigned_data(data, rffi.cast(rffi.ULONG, obj._handle), argtype.size)
-                elif obj._voidp != rffi.cast(rffi.VOIDP, 0):
+                elif obj.tc == 'p':
+                    assert obj._voidp != rffi.cast(rffi.VOIDP, 0)
                     data = rffi.cast(rffi.VOIDPP, data)
                     data[0] = obj._voidp
                 else:    # only other use is sring
+                    assert obj.tc == 's'
                     n = len(obj._string)
                     assert raw_string == rffi.cast(rffi.CCHARP, 0)
                     # XXX could use rffi.get_nonmovingbuffer_final_null()
@@ -298,87 +323,87 @@ def c_load_dictionary(name):
 
 # name to opaque C++ scope representation ------------------------------------
 def c_num_scopes(space, cppscope):
-    return space.int_w(call_capi(space, 'num_scopes', [_Arg(h=cppscope.handle)]))
+    return space.int_w(call_capi(space, 'num_scopes', [_ArgH(cppscope.handle)]))
 def c_scope_name(space, cppscope, iscope):
-    args = [_Arg(h=cppscope.handle), _Arg(l=iscope)]
+    args = [_ArgH(cppscope.handle), _ArgL(iscope)]
     return charp2str_free(space, call_capi(space, 'scope_name', args))
 
 def c_resolve_name(space, name):
-    return charp2str_free(space, call_capi(space, 'resolve_name', [_Arg(s=name)]))
+    return charp2str_free(space, call_capi(space, 'resolve_name', [_ArgS(name)]))
 def c_get_scope_opaque(space, name):
-    return rffi.cast(C_SCOPE, space.uint_w(call_capi(space, 'get_scope', [_Arg(s=name)])))
+    return rffi.cast(C_SCOPE, space.uint_w(call_capi(space, 'get_scope', [_ArgS(name)])))
 def c_actual_class(space, cppclass, cppobj):
-    args = [_Arg(h=cppclass.handle), _Arg(h=cppobj)]
+    args = [_ArgH(cppclass.handle), _ArgH(cppobj)]
     return rffi.cast(C_TYPE, space.uint_w(call_capi(space, 'actual_class', args)))
 
 # memory management ----------------------------------------------------------
 def c_allocate(space, cppclass):
-    return _cdata_to_cobject(space, call_capi(space, 'allocate', [_Arg(h=cppclass.handle)]))
+    return _cdata_to_cobject(space, call_capi(space, 'allocate', [_ArgH(cppclass.handle)]))
 def c_deallocate(space, cppclass, cppobject):
-    call_capi(space, 'deallocate', [_Arg(h=cppclass.handle), _Arg(h=cppobject)])
+    call_capi(space, 'deallocate', [_ArgH(cppclass.handle), _ArgH(cppobject)])
 def c_destruct(space, cppclass, cppobject):
-    call_capi(space, 'destruct', [_Arg(h=cppclass.handle), _Arg(h=cppobject)])
+    call_capi(space, 'destruct', [_ArgH(cppclass.handle), _ArgH(cppobject)])
 
 # method/function dispatching ------------------------------------------------
 def c_call_v(space, cppmethod, cppobject, nargs, cargs):
-    args = [_Arg(h=cppmethod), _Arg(h=cppobject), _Arg(l=nargs), _Arg(vp=cargs)]
+    args = [_ArgH(cppmethod), _ArgH(cppobject), _ArgL(nargs), _ArgP(cargs)]
     call_capi(space, 'call_v', args)
 def c_call_b(space, cppmethod, cppobject, nargs, cargs):
-    args = [_Arg(h=cppmethod), _Arg(h=cppobject), _Arg(l=nargs), _Arg(vp=cargs)]
+    args = [_ArgH(cppmethod), _ArgH(cppobject), _ArgL(nargs), _ArgP(cargs)]
     return rffi.cast(rffi.UCHAR, space.c_uint_w(call_capi(space, 'call_b', args)))
 def c_call_c(space, cppmethod, cppobject, nargs, cargs):
-    args = [_Arg(h=cppmethod), _Arg(h=cppobject), _Arg(l=nargs), _Arg(vp=cargs)]
+    args = [_ArgH(cppmethod), _ArgH(cppobject), _ArgL(nargs), _ArgP(cargs)]
     return rffi.cast(rffi.CHAR, space.str_w(call_capi(space, 'call_c', args))[0])
 def c_call_h(space, cppmethod, cppobject, nargs, cargs):
-    args = [_Arg(h=cppmethod), _Arg(h=cppobject), _Arg(l=nargs), _Arg(vp=cargs)]
+    args = [_ArgH(cppmethod), _ArgH(cppobject), _ArgL(nargs), _ArgP(cargs)]
     return rffi.cast(rffi.SHORT, space.int_w(call_capi(space, 'call_h', args)))
 def c_call_i(space, cppmethod, cppobject, nargs, cargs):
-    args = [_Arg(h=cppmethod), _Arg(h=cppobject), _Arg(l=nargs), _Arg(vp=cargs)]
+    args = [_ArgH(cppmethod), _ArgH(cppobject), _ArgL(nargs), _ArgP(cargs)]
     return rffi.cast(rffi.INT, space.c_int_w(call_capi(space, 'call_i', args)))
 def c_call_l(space, cppmethod, cppobject, nargs, cargs):
-    args = [_Arg(h=cppmethod), _Arg(h=cppobject), _Arg(l=nargs), _Arg(vp=cargs)]
+    args = [_ArgH(cppmethod), _ArgH(cppobject), _ArgL(nargs), _ArgP(cargs)]
     return rffi.cast(rffi.LONG, space.int_w(call_capi(space, 'call_l', args)))
 def c_call_ll(space, cppmethod, cppobject, nargs, cargs):
-    args = [_Arg(h=cppmethod), _Arg(h=cppobject), _Arg(l=nargs), _Arg(vp=cargs)]
+    args = [_ArgH(cppmethod), _ArgH(cppobject), _ArgL(nargs), _ArgP(cargs)]
     return rffi.cast(rffi.LONGLONG, space.r_longlong_w(call_capi(space, 'call_ll', args)))
 def c_call_f(space, cppmethod, cppobject, nargs, cargs):
-    args = [_Arg(h=cppmethod), _Arg(h=cppobject), _Arg(l=nargs), _Arg(vp=cargs)]
+    args = [_ArgH(cppmethod), _ArgH(cppobject), _ArgL(nargs), _ArgP(cargs)]
     return rffi.cast(rffi.FLOAT, r_singlefloat(space.float_w(call_capi(space, 'call_f', args))))
 def c_call_d(space, cppmethod, cppobject, nargs, cargs):
-    args = [_Arg(h=cppmethod), _Arg(h=cppobject), _Arg(l=nargs), _Arg(vp=cargs)]
+    args = [_ArgH(cppmethod), _ArgH(cppobject), _ArgL(nargs), _ArgP(cargs)]
     return rffi.cast(rffi.DOUBLE, space.float_w(call_capi(space, 'call_d', args)))
 
 def c_call_r(space, cppmethod, cppobject, nargs, cargs):
-    args = [_Arg(h=cppmethod), _Arg(h=cppobject), _Arg(l=nargs), _Arg(vp=cargs)]
+    args = [_ArgH(cppmethod), _ArgH(cppobject), _ArgL(nargs), _ArgP(cargs)]
     return _cdata_to_ptr(space, call_capi(space, 'call_r', args))
 def c_call_s(space, cppmethod, cppobject, nargs, cargs):
     length = lltype.malloc(rffi.SIZE_TP.TO, 1, flavor='raw')
     try:
         w_cstr = call_capi(space, 'call_s',
-            [_Arg(h=cppmethod), _Arg(h=cppobject), _Arg(l=nargs), _Arg(vp=cargs),
-             _Arg(vp=rffi.cast(rffi.VOIDP, length))])
+            [_ArgH(cppmethod), _ArgH(cppobject), _ArgL(nargs), _ArgP(cargs),
+             _ArgP(rffi.cast(rffi.VOIDP, length))])
         cstr_len = intmask(length[0])
     finally:
         lltype.free(length, flavor='raw')
     return _cdata_to_ccharp(space, w_cstr), cstr_len
 
 def c_constructor(space, cppmethod, cppobject, nargs, cargs):
-    args = [_Arg(h=cppmethod), _Arg(h=cppobject), _Arg(l=nargs), _Arg(vp=cargs)]
+    args = [_ArgH(cppmethod), _ArgH(cppobject), _ArgL(nargs), _ArgP(cargs)]
     return _cdata_to_cobject(space, call_capi(space, 'constructor', args))
 def c_call_o(space, cppmethod, cppobject, nargs, cargs, cppclass):
-    args = [_Arg(h=cppmethod), _Arg(h=cppobject), _Arg(l=nargs), _Arg(vp=cargs), _Arg(h=cppclass.handle)]
+    args = [_ArgH(cppmethod), _ArgH(cppobject), _ArgL(nargs), _ArgP(cargs), _ArgH(cppclass.handle)]
     return _cdata_to_cobject(space, call_capi(space, 'call_o', args))
 
 def c_get_function_address(space, cppscope, index):
-    args = [_Arg(h=cppscope.handle), _Arg(l=index)]
+    args = [_ArgH(cppscope.handle), _ArgL(index)]
     return rffi.cast(C_FUNC_PTR,
         _cdata_to_ptr(space, call_capi(space, 'get_function_address', args)))
 
 # handling of function argument buffer ---------------------------------------
 def c_allocate_function_args(space, size):
-    return _cdata_to_ptr(space, call_capi(space, 'allocate_function_args', [_Arg(l=size)]))
+    return _cdata_to_ptr(space, call_capi(space, 'allocate_function_args', [_ArgL(size)]))
 def c_deallocate_function_args(space, cargs):
-    call_capi(space, 'deallocate_function_args', [_Arg(vp=cargs)])
+    call_capi(space, 'deallocate_function_args', [_ArgP(cargs)])
 def c_function_arg_sizeof(space):
     state = space.fromcache(State)
     return state.c_sizeof_farg
@@ -388,34 +413,34 @@ def c_function_arg_typeoffset(space):
 
 # scope reflection information -----------------------------------------------
 def c_is_namespace(space, scope):
-    return space.bool_w(call_capi(space, 'is_namespace', [_Arg(h=scope)]))
+    return space.bool_w(call_capi(space, 'is_namespace', [_ArgH(scope)]))
 def c_is_template(space, name):
-    return space.bool_w(call_capi(space, 'is_template', [_Arg(s=name)]))
+    return space.bool_w(call_capi(space, 'is_template', [_ArgS(name)]))
 def c_is_abstract(space, cpptype):
-    return space.bool_w(call_capi(space, 'is_abstract', [_Arg(h=cpptype)]))
+    return space.bool_w(call_capi(space, 'is_abstract', [_ArgH(cpptype)]))
 def c_is_enum(space, name):
-    return space.bool_w(call_capi(space, 'is_enum', [_Arg(s=name)]))
+    return space.bool_w(call_capi(space, 'is_enum', [_ArgS(name)]))
 
 # type/class reflection information ------------------------------------------
 def c_final_name(space, cpptype):
-    return charp2str_free(space, call_capi(space, 'final_name', [_Arg(h=cpptype)]))
+    return charp2str_free(space, call_capi(space, 'final_name', [_ArgH(cpptype)]))
 def c_scoped_final_name(space, cpptype):
-    return charp2str_free(space, call_capi(space, 'scoped_final_name', [_Arg(h=cpptype)]))
+    return charp2str_free(space, call_capi(space, 'scoped_final_name', [_ArgH(cpptype)]))
 def c_has_complex_hierarchy(space, handle):
-    return space.bool_w(call_capi(space, 'has_complex_hierarchy', [_Arg(h=handle)]))
+    return space.bool_w(call_capi(space, 'has_complex_hierarchy', [_ArgH(handle)]))
 def c_num_bases(space, cppclass):
-    return space.int_w(call_capi(space, 'num_bases', [_Arg(h=cppclass.handle)]))
+    return space.int_w(call_capi(space, 'num_bases', [_ArgH(cppclass.handle)]))
 def c_base_name(space, cppclass, base_index):
-    args = [_Arg(h=cppclass.handle), _Arg(l=base_index)]
+    args = [_ArgH(cppclass.handle), _ArgL(base_index)]
     return charp2str_free(space, call_capi(space, 'base_name', args))
 def c_is_subtype(space, derived, base):
     jit.promote(base)
     if derived == base:
         return bool(1)
-    return space.bool_w(call_capi(space, 'is_subtype', [_Arg(h=derived.handle), _Arg(h=base.handle)]))
+    return space.bool_w(call_capi(space, 'is_subtype', [_ArgH(derived.handle), _ArgH(base.handle)]))
 
 def _c_base_offset(space, derived_h, base_h, address, direction):
-    args = [_Arg(h=derived_h), _Arg(h=base_h), _Arg(h=address), _Arg(l=direction)]
+    args = [_ArgH(derived_h), _ArgH(base_h), _ArgH(address), _ArgL(direction)]
     return _cdata_to_ptrdiff_t(space, call_capi(space, 'base_offset', args))
 def c_base_offset(space, derived, base, address, direction):
     if derived == base:
@@ -426,13 +451,13 @@ def c_base_offset1(space, derived_h, base, address, direction):
 
 # method/function reflection information -------------------------------------
 def c_num_methods(space, cppscope):
-    args = [_Arg(h=cppscope.handle)]
+    args = [_ArgH(cppscope.handle)]
     return space.int_w(call_capi(space, 'num_methods', args))
 def c_method_index_at(space, cppscope, imethod):
-    args = [_Arg(h=cppscope.handle), _Arg(l=imethod)]
+    args = [_ArgH(cppscope.handle), _ArgL(imethod)]
     return space.int_w(call_capi(space, 'method_index_at', args))
 def c_method_indices_from_name(space, cppscope, name):
-    args = [_Arg(h=cppscope.handle), _Arg(s=name)]
+    args = [_ArgH(cppscope.handle), _ArgS(name)]
     indices = rffi.cast(C_INDEX_ARRAY,
                         _cdata_to_ptr(space, call_capi(space, 'method_indices_from_name', args)))
     if not indices:
@@ -448,91 +473,91 @@ def c_method_indices_from_name(space, cppscope, name):
     return py_indices
 
 def c_method_name(space, cppscope, index):
-    args = [_Arg(h=cppscope.handle), _Arg(l=index)]
+    args = [_ArgH(cppscope.handle), _ArgL(index)]
     return charp2str_free(space, call_capi(space, 'method_name', args))
 def c_method_result_type(space, cppscope, index):
-    args = [_Arg(h=cppscope.handle), _Arg(l=index)]
+    args = [_ArgH(cppscope.handle), _ArgL(index)]
     return charp2str_free(space, call_capi(space, 'method_result_type', args))
 def c_method_num_args(space, cppscope, index):
-    args = [_Arg(h=cppscope.handle), _Arg(l=index)]
+    args = [_ArgH(cppscope.handle), _ArgL(index)]
     return space.int_w(call_capi(space, 'method_num_args', args))
 def c_method_req_args(space, cppscope, index):
-    args = [_Arg(h=cppscope.handle), _Arg(l=index)]
+    args = [_ArgH(cppscope.handle), _ArgL(index)]
     return space.int_w(call_capi(space, 'method_req_args', args))
 def c_method_arg_type(space, cppscope, index, arg_index):
-    args = [_Arg(h=cppscope.handle), _Arg(l=index), _Arg(l=arg_index)]
+    args = [_ArgH(cppscope.handle), _ArgL(index), _ArgL(arg_index)]
     return charp2str_free(space, call_capi(space, 'method_arg_type', args))
 def c_method_arg_default(space, cppscope, index, arg_index):
-    args = [_Arg(h=cppscope.handle), _Arg(l=index), _Arg(l=arg_index)]
+    args = [_ArgH(cppscope.handle), _ArgL(index), _ArgL(arg_index)]
     return charp2str_free(space, call_capi(space, 'method_arg_default', args))
 def c_method_signature(space, cppscope, index):
-    args = [_Arg(h=cppscope.handle), _Arg(l=index)]
+    args = [_ArgH(cppscope.handle), _ArgL(index)]
     return charp2str_free(space, call_capi(space, 'method_signature', args))
 
 def c_method_is_template(space, cppscope, index):
-    args = [_Arg(h=cppscope.handle), _Arg(l=index)]
+    args = [_ArgH(cppscope.handle), _ArgL(index)]
     return space.bool_w(call_capi(space, 'method_is_template', args))
 def _c_method_num_template_args(space, cppscope, index):
-    args = [_Arg(h=cppscope.handle), _Arg(l=index)]
+    args = [_ArgH(cppscope.handle), _ArgL(index)]
     return space.int_w(call_capi(space, 'method_num_template_args', args)) 
 def c_template_args(space, cppscope, index):
     nargs = _c_method_num_template_args(space, cppscope, index)
-    arg1 = _Arg(h=cppscope.handle)
-    arg2 = _Arg(l=index)
+    arg1 = _ArgH(cppscope.handle)
+    arg2 = _ArgL(index)
     args = [c_resolve_name(space, charp2str_free(space,
-                call_capi(space, 'method_template_arg_name', [arg1, arg2, _Arg(l=iarg)]))
+                call_capi(space, 'method_template_arg_name', [arg1, arg2, _ArgL(iarg)]))
             ) for iarg in range(nargs)]
     return args
 
 def c_get_method(space, cppscope, index):
-    args = [_Arg(h=cppscope.handle), _Arg(l=index)]
+    args = [_ArgH(cppscope.handle), _ArgL(index)]
     return rffi.cast(C_METHOD, space.uint_w(call_capi(space, 'get_method', args)))
 def c_get_global_operator(space, nss, lc, rc, op):
     if nss is not None:
-        args = [_Arg(h=nss.handle), _Arg(h=lc.handle), _Arg(h=rc.handle), _Arg(s=op)]
+        args = [_ArgH(nss.handle), _ArgH(lc.handle), _ArgH(rc.handle), _ArgS(op)]
         return rffi.cast(WLAVC_INDEX, space.int_w(call_capi(space, 'get_global_operator', args)))
     return rffi.cast(WLAVC_INDEX, -1)
 
 # method properties ----------------------------------------------------------
 def c_is_constructor(space, cppclass, index):
-    args = [_Arg(h=cppclass.handle), _Arg(l=index)]
+    args = [_ArgH(cppclass.handle), _ArgL(index)]
     return space.bool_w(call_capi(space, 'is_constructor', args))
 def c_is_staticmethod(space, cppclass, index):
-    args = [_Arg(h=cppclass.handle), _Arg(l=index)]
+    args = [_ArgH(cppclass.handle), _ArgL(index)]
     return space.bool_w(call_capi(space, 'is_staticmethod', args))
 
 # data member reflection information -----------------------------------------
 def c_num_datamembers(space, cppscope):
-    return space.int_w(call_capi(space, 'num_datamembers', [_Arg(h=cppscope.handle)]))
+    return space.int_w(call_capi(space, 'num_datamembers', [_ArgH(cppscope.handle)]))
 def c_datamember_name(space, cppscope, datamember_index):
-    args = [_Arg(h=cppscope.handle), _Arg(l=datamember_index)]
+    args = [_ArgH(cppscope.handle), _ArgL(datamember_index)]
     return charp2str_free(space, call_capi(space, 'datamember_name', args))
 def c_datamember_type(space, cppscope, datamember_index):
-    args = [_Arg(h=cppscope.handle), _Arg(l=datamember_index)]
+    args = [_ArgH(cppscope.handle), _ArgL(datamember_index)]
     return  charp2str_free(space, call_capi(space, 'datamember_type', args))
 def c_datamember_offset(space, cppscope, datamember_index):
-    args = [_Arg(h=cppscope.handle), _Arg(l=datamember_index)]
+    args = [_ArgH(cppscope.handle), _ArgL(datamember_index)]
     return _cdata_to_ptrdiff_t(space, call_capi(space, 'datamember_offset', args))
 
 def c_datamember_index(space, cppscope, name):
-    args = [_Arg(h=cppscope.handle), _Arg(s=name)]
+    args = [_ArgH(cppscope.handle), _ArgS(name)]
     return space.int_w(call_capi(space, 'datamember_index', args))
 
 # data member properties -----------------------------------------------------
 def c_is_publicdata(space, cppscope, datamember_index):
-    args = [_Arg(h=cppscope.handle), _Arg(l=datamember_index)]
+    args = [_ArgH(cppscope.handle), _ArgL(datamember_index)]
     return space.bool_w(call_capi(space, 'is_publicdata', args))
 def c_is_staticdata(space, cppscope, datamember_index):
-    args = [_Arg(h=cppscope.handle), _Arg(l=datamember_index)]
+    args = [_ArgH(cppscope.handle), _ArgL(datamember_index)]
     return space.bool_w(call_capi(space, 'is_staticdata', args))
 
 # misc helpers ---------------------------------------------------------------
 def c_strtoll(space, svalue):
-    return space.r_longlong_w(call_capi(space, 'strtoll', [_Arg(s=svalue)]))
+    return space.r_longlong_w(call_capi(space, 'strtoll', [_ArgS(svalue)]))
 def c_strtoull(space, svalue):
-    return space.r_ulonglong_w(call_capi(space, 'strtoull', [_Arg(s=svalue)]))
+    return space.r_ulonglong_w(call_capi(space, 'strtoull', [_ArgS(svalue)]))
 def c_free(space, voidp):
-    call_capi(space, 'free', [_Arg(vp=voidp)])
+    call_capi(space, 'free', [_ArgP(voidp)])
 
 def charp2str_free(space, cdata):
     charp = rffi.cast(rffi.CCHARP, _cdata_to_ptr(space, cdata))
@@ -542,26 +567,26 @@ def charp2str_free(space, cdata):
 
 def c_charp2stdstring(space, svalue, sz):
     return _cdata_to_cobject(space, call_capi(space, 'charp2stdstring',
-        [_Arg(s=svalue), _Arg(h=rffi.cast(rffi.ULONG, sz))]))
+        [_ArgS(svalue), _ArgH(rffi.cast(rffi.ULONG, sz))]))
 def c_stdstring2charp(space, cppstr):
     sz = lltype.malloc(rffi.SIZE_TP.TO, 1, flavor='raw')
     try:
         w_cstr = call_capi(space, 'stdstring2charp',
-            [_Arg(h=cppstr), _Arg(vp=rffi.cast(rffi.VOIDP, sz))])
+            [_ArgH(cppstr), _ArgP(rffi.cast(rffi.VOIDP, sz))])
         cstr_len = intmask(sz[0])
     finally:
         lltype.free(sz, flavor='raw')
     return rffi.charpsize2str(_cdata_to_ccharp(space, w_cstr), cstr_len)
 def c_stdstring2stdstring(space, cppobject):
-    return _cdata_to_cobject(space, call_capi(space, 'stdstring2stdstring', [_Arg(h=cppobject)]))
+    return _cdata_to_cobject(space, call_capi(space, 'stdstring2stdstring', [_ArgH(cppobject)]))
 
 def c_stdvector_valuetype(space, pystr):
-    return charp2str_free(space, call_capi(space, 'stdvector_valuetype', [_Arg(s=pystr)]))
+    return charp2str_free(space, call_capi(space, 'stdvector_valuetype', [_ArgS(pystr)]))
 
 def c_stdvector_valuetype(space, pystr):
-    return charp2str_free(space, call_capi(space, 'stdvector_valuetype', [_Arg(s=pystr)]))
+    return charp2str_free(space, call_capi(space, 'stdvector_valuetype', [_ArgS(pystr)]))
 def c_stdvector_valuesize(space, pystr):
-    return _cdata_to_size_t(space, call_capi(space, 'stdvector_valuesize', [_Arg(s=pystr)]))
+    return _cdata_to_size_t(space, call_capi(space, 'stdvector_valuesize', [_ArgS(pystr)]))
 
 
 # TODO: factor these out ...
