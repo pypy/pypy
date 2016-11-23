@@ -39,10 +39,11 @@ def slot_tp_new(space, w_type, w_args, w_kwds):
     #     we know (since we are in this function) that self is not a cpytype
     from pypy.module.cpyext.typeobject import W_PyCTypeObject
     w_type0 = w_type
-    w_mro = space.listview(space.getattr(w_type0, space.wrap('__mro__')))
-    while w_type0.is_cpytype():
-        w_type0 = w_mro[1]
-        w_mro = space.listview(space.getattr(w_type0, space.wrap('__mro__')))
+    mro_w = space.listview(space.getattr(w_type0, space.wrap('__mro__')))
+    for w_m in mro_w[1:]:
+        if not w_type0.is_cpytype():
+            break
+        w_type0 = w_m
     w_impl = space.getattr(w_type0, space.wrap('__new__'))
     args = Arguments(space, [w_type],
                      w_stararg=w_args, w_starstararg=w_kwds)
