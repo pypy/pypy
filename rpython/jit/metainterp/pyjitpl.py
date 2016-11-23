@@ -1066,6 +1066,8 @@ class MIFrame(object):
     @arguments("box", "box", "boxes2", "descr", "orgpc")
     def _opimpl_conditional_call_value(self, valuebox, funcbox, argboxes,
                                        calldescr, pc):
+        if isinstance(valuebox, Const) and valuebox.nonnull():
+            return valuebox
         return self.do_conditional_call(valuebox, funcbox, argboxes,
                                         calldescr, pc, is_value=True)
 
