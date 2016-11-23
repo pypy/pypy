@@ -1221,20 +1221,27 @@ def _jit_conditional_call_value(value, function, *args):
 def conditional_call_value(value, function, *args):
     """Does the same as:
 
-        if not value:
+        if value == <0 or None>:
             value = function(*args)
         return value
 
     For the JIT.  Allows one branch which doesn't create a bridge,
     typically used for caching.  The function must be @elidable.
     The value and the function's return type must match and cannot
-    be a float.
+    be a float: they must be either regular 'int', or something
+    that turns into a pointer.
     """
     if we_are_jitted():
         return _jit_conditional_call_value(value, function, *args)
     else:
-        if not value:
-            value = function(*args)
+        if isinstance(value, int):
+            if value == 0:
+                value = function(*args)
+                assert isinstance(value, int)
+        else:
+            if value is None:
+                value = function(*args)
+                assert not isinstance(value, int)
         return value
 conditional_call_value._always_inline_ = True
 

@@ -77,6 +77,8 @@ class CallTest(object):
             l = jit.conditional_call_value(l, f, n)
             return len(l)
 
+        assert main(10) == 0
+        assert main(5) == 1
         assert self.interp_operations(main, [10]) == 0
         assert self.interp_operations(main, [5]) == 1
 
