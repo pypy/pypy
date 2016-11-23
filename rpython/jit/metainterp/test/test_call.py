@@ -83,21 +83,24 @@ class CallTest(object):
         assert self.interp_operations(main, [5]) == 1
 
     def test_cond_call_constant_in_pyjitpl(self):
+        @jit.elidable
         def f(a, b):
             return a + b
         def main(n):
             # this is completely constant-folded because the arguments
             # to f() are constants.
-            return jit.conditional_call_elidable(n, 23, f, 40, 2)
+            return jit.conditional_call_value(n, f, 40, 2)
 
-        assert main(12) == 12                            # because 12 != 23
-        assert self.interp_operations(main, [12]) == 12  # because 12 != 23
+        assert main(12) == 12
+        assert main(0) == 42
+        assert self.interp_operations(main, [12]) == 12
         self.check_operations_history(finish=1)   # empty history
-        assert self.interp_operations(main, [23]) == 42  # because 23 == 23
+        assert self.interp_operations(main, [0]) == 42
         self.check_operations_history(finish=1)   # empty history
 
     def test_cond_call_constant_in_optimizer(self):
         myjitdriver = jit.JitDriver(greens = ['m'], reds = ['n', 'p'])
+        @jit.elidable
         def externfn(x):
             return x - 3
         class V:
@@ -108,46 +111,48 @@ class CallTest(object):
                 myjitdriver.can_enter_jit(n=n, p=p, m=m)
                 myjitdriver.jit_merge_point(n=n, p=p, m=m)
                 v = V(m)
-                n -= jit.conditional_call_elidable(p, -42, externfn, v.value)
+                n -= jit.conditional_call_value(p, externfn, v.value)
             return n
-        res = self.meta_interp(f, [21, 5, -42])
+        res = self.meta_interp(f, [21, 5, 0])
         assert res == -1
-        # the COND_CALL_PURE is constant-folded away by optimizeopt.py
+        # the COND_CALL_VALUE is constant-folded away by optimizeopt.py
         self.check_resops(call_pure_i=0, cond_call_pure_i=0, call_i=0,
                           int_sub=2)
 
     def test_cond_call_constant_in_optimizer_2(self):
         myjitdriver = jit.JitDriver(greens = ['m'], reds = ['n', 'p'])
+        @jit.elidable
         def externfn(x):
             return 2
         def f(n, m, p):
             while n > 0:
                 myjitdriver.can_enter_jit(n=n, p=p, m=m)
                 myjitdriver.jit_merge_point(n=n, p=p, m=m)
-                assert p > 14
-                assert p < 16
-                n -= jit.conditional_call_elidable(p, 15, externfn, n)
+                assert p > -1
+                assert p < 1
+                n -= jit.conditional_call_value(p, externfn, n)
             return n
-        res = self.meta_interp(f, [21, 5, 15])
+        res = self.meta_interp(f, [21, 5, 0])
         assert res == -1
-        # optimizer: the COND_CALL_PURE is turned into a regular
-        # CALL_PURE, which itself becomes CALL
+        # optimizer: the COND_CALL_VALUE is turned into a regular
+        # CALL_PURE, which itself becomes a CALL
         self.check_resops(call_pure_i=0, cond_call_pure_i=0, call_i=2,
                           int_sub=2)
 
     def test_cond_call_constant_in_optimizer_3(self):
         myjitdriver = jit.JitDriver(greens = ['m'], reds = ['n', 'p'])
+        @jit.elidable
         def externfn(x):
             return 1
         def f(n, m, p):
             while n > 0:
                 myjitdriver.can_enter_jit(n=n, p=p, m=m)
                 myjitdriver.jit_merge_point(n=n, p=p, m=m)
-                assert p > 14
-                assert p < 16
+                assert p > -1
+                assert p < 1
                 n0 = n
-                n -= jit.conditional_call_elidable(p, 15, externfn, n0)
-                n -= jit.conditional_call_elidable(p, 15, externfn, n0)
+                n -= jit.conditional_call_value(p, externfn, n0)
+                n -= jit.conditional_call_value(p, externfn, n0)
             return n
         res = self.meta_interp(f, [21, 5, 15])
         assert res == -1
@@ -161,19 +166,20 @@ class CallTest(object):
         class X:
             def __init__(self, value):
                 self.value = value
-                self.triple = -1
+                self.triple = 0
+            @jit.elidable
             def _compute_triple(self):
                 self.triple = self.value * 3
                 return self.triple
             def get_triple(self):
-                return jit.conditional_call_elidable(self.triple, -1,
-                                                     X._compute_triple, self)
-        def main(n, initvalue):
+                return jit.conditional_call_value(self.triple,
+                                                  X._compute_triple, self)
+        def main(n):
             x = X(n)
-            x.triple = initvalue
             return x.get_triple() + x.get_triple()
 
-        assert self.interp_operations(main, [100, -1]) == 600
+        assert self.interp_operations(main, [100]) == 600
+        XXX
         self.check_operations_history(finish=1)   # empty history
 
 
