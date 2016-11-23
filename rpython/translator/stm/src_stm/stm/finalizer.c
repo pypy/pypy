@@ -70,30 +70,31 @@ static void _commit_finalizers(void)
         stm_spin_loop();
     }
 
-    if (!list_is_empty(STM_PSEGMENT->finalizers->run_finalizers)) {
+    struct finalizers_s *local_fs = STM_PSEGMENT->finalizers;
+    if (!list_is_empty(local_fs->run_finalizers)) {
         /* copy 'STM_PSEGMENT->finalizers->run_finalizers' into
            'g_finalizers.run_finalizers', dropping any initial NULLs
            (finalizers already called) */
-        struct list_s *src = STM_PSEGMENT->finalizers->run_finalizers;
+        struct list_s *src = local_fs->run_finalizers;
         if (list_count(src)) {
             g_finalizers.run_finalizers = list_extend(
                 g_finalizers.run_finalizers,
                 src, 0);
         }
     }
-    LIST_FREE(STM_PSEGMENT->finalizers->run_finalizers);
+    LIST_FREE(local_fs->run_finalizers);
 
     /* copy the whole 'STM_PSEGMENT->finalizers->objects_with_finalizers'
        into 'g_finalizers.objects_with_finalizers' */
     g_finalizers.objects_with_finalizers = list_extend(
         g_finalizers.objects_with_finalizers,
-        STM_PSEGMENT->finalizers->objects_with_finalizers, 0);
-    assert(list_is_empty(STM_PSEGMENT->finalizers->probably_young_objects_with_finalizers));
-    LIST_FREE(STM_PSEGMENT->finalizers->objects_with_finalizers);
-    LIST_FREE(STM_PSEGMENT->finalizers->probably_young_objects_with_finalizers);
+        local_fs->objects_with_finalizers, 0);
+    LIST_FREE(local_fs->objects_with_finalizers);
+    assert(list_is_empty(local_fs->probably_young_objects_with_finalizers));
+    LIST_FREE(local_fs->probably_young_objects_with_finalizers);
 
     // re-init
-    init_finalizers(STM_PSEGMENT->finalizers);
+    init_finalizers(local_fs);
 
     __sync_lock_release(&g_finalizers.lock);
 }
@@ -219,6 +220,7 @@ static void deal_with_old_objects_with_destructors(void)
     for (j = 1; j < NB_SEGMENTS; j++) {
         struct stm_priv_segment_info_s *pseg = get_priv_segment(j);
 
+        assert(list_is_empty(pseg->young_objects_with_destructors));
         struct list_s *lst = pseg->old_objects_with_destructors;
         long i, count = list_count(lst);
         lst->count = 0;
@@ -353,6 +355,7 @@ static struct list_s *mark_finalize_step1(
 
     struct list_s *marked = list_create();
 
+    assert(list_is_empty(f->probably_young_objects_with_finalizers));
     struct list_s *lst = f->objects_with_finalizers;
     long i, count = list_count(lst);
     lst->count = 0;
@@ -611,10 +614,11 @@ object_t* stm_next_to_finalize(int queue_index) {
                 /* no need to become inevitable for local ones */
                 /* Remove obj from list and return it. */
                 object_t *obj = (object_t*)list_item(lst, i);
-                if (i < count - 2) {
+                int remaining = count - i - 2;
+                if (remaining > 0) {
                     memmove(&lst->items[i],
                             &lst->items[i + 2],
-                            (count - 2) * sizeof(uintptr_t));
+                            remaining * sizeof(uintptr_t));
                 }
                 lst->count -= 2;
                 return obj;
@@ -629,9 +633,10 @@ object_t* stm_next_to_finalize(int queue_index) {
         stm_spin_loop();
     }
 
-    int count = list_count(g_finalizers.run_finalizers);
+    struct list_s *lst = g_finalizers.run_finalizers;
+    int count = list_count(lst);
     for (int i = 0; i < count; i += 2) {
-        int qindex = (int)list_item(g_finalizers.run_finalizers, i + 1);
+        int qindex = (int)list_item(lst, i + 1);
         if (qindex == queue_index) {
             /* XXX: become inevitable, bc. otherwise, we would need to keep
                around the original g_finalizers.run_finalizers to restore it
@@ -643,20 +648,21 @@ object_t* stm_next_to_finalize(int queue_index) {
                     /* avoid blocking here, waiting for another INEV transaction.
                        If we did that, application code could not proceed (start the
                        next transaction) and it will not be obvious from the profile
-                       why we were WAITing. */
+                       why we were WAITing. XXX: still true? */
                     __sync_lock_release(&g_finalizers.lock);
                     return NULL;
                 }
             }
 
             /* Remove obj from list and return it. */
-            object_t *obj = (object_t*)list_item(g_finalizers.run_finalizers, i);
-            if (i < count - 2) {
-                memmove(&g_finalizers.run_finalizers->items[i],
-                        &g_finalizers.run_finalizers->items[i + 2],
-                        (count - 2) * sizeof(uintptr_t));
+            object_t *obj = (object_t*)list_item(lst, i);
+            int remaining = count - i - 2;
+            if (remaining > 0) {
+                memmove(&lst->items[i],
+                        &lst->items[i + 2],
+                        remaining * sizeof(uintptr_t));
             }
-            g_finalizers.run_finalizers->count -= 2;
+            lst->count -= 2;
 
             __sync_lock_release(&g_finalizers.lock);
             return obj;
