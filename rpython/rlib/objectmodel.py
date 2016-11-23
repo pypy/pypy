@@ -323,6 +323,8 @@ def sc_we_are_translated(ctx):
 def register_replacement_for(replaced_function, sandboxed_name=None):
     def wrap(func):
         from rpython.rtyper.extregistry import ExtRegistryEntry
+        # to support calling func directly
+        func._sandbox_external_name = sandboxed_name
         class ExtRegistry(ExtRegistryEntry):
             _about_ = replaced_function
             def compute_annotation(self):
