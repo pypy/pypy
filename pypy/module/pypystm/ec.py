@@ -24,6 +24,5 @@ def initialize_execution_context(ec):
         ec._thread_local_dicts = rweakref.RWeakKeyDictionary(STMLocal, W_Root)
     else:
         ec._thread_local_dicts = FakeWeakKeyDictionary()
-    if ec.space.config.objspace.std.withmethodcache:
-        from pypy.objspace.std.typeobject import MethodCache
-        ec._methodcache = MethodCache(ec.space)
+    from pypy.objspace.std.typeobject import MethodCache
+    ec._methodcache = MethodCache(ec.space)
