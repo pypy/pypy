@@ -3,8 +3,6 @@ from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import jit
 
 import cling_capi as backend
-#import reflex_capi as backend
-#import cint_capi as backend
 
 from pypy.module.cppyy.capi.capi_types import C_SCOPE, C_TYPE, C_OBJECT,\
    C_METHOD, C_INDEX, C_INDEX_ARRAY, WLAVC_INDEX, C_FUNC_PTR
