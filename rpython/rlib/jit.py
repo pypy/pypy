@@ -1218,7 +1218,7 @@ def _jit_conditional_call_value(value, function, *args):
     return value    # special-cased below
 
 @specialize.call_location()
-def conditional_call_value(value, function, *args):
+def conditional_call_elidable(value, function, *args):
     """Does the same as:
 
         if value == <0 or None>:
@@ -1226,10 +1226,21 @@ def conditional_call_value(value, function, *args):
         return value
 
     For the JIT.  Allows one branch which doesn't create a bridge,
-    typically used for caching.  The function must be @elidable.
-    The value and the function's return type must match and cannot
-    be a float: they must be either regular 'int', or something
-    that turns into a pointer.
+    typically used for caching.  The value and the function's return
+    type must match and cannot be a float: they must be either regular
+    'int', or something that turns into a pointer.
+
+    Even if the function is not marked @elidable, it is still treated
+    mostly like one.  The only difference is that (in heapcache.py)
+    we don't assume this function won't change anything observable.
+    This is useful for caches, as you can write:
+
+        def _compute_and_cache(...):
+            self.cache = ...compute...
+            return self.cache
+
+        x = jit.conditional_call_elidable(self.cache, _compute_and_cache, ...)
+
     """
     if we_are_jitted():
         return _jit_conditional_call_value(value, function, *args)
@@ -1243,7 +1254,7 @@ def conditional_call_value(value, function, *args):
                 value = function(*args)
                 assert not isinstance(value, int)
         return value
-conditional_call_value._always_inline_ = True
+conditional_call_elidable._always_inline_ = True
 
 class ConditionalCallEntry(ExtRegistryEntry):
     _about_ = _jit_conditional_call, _jit_conditional_call_value
@@ -1253,10 +1264,6 @@ class ConditionalCallEntry(ExtRegistryEntry):
                                                  args_s[1], args_s[2:])
         if self.instance == _jit_conditional_call_value:
             from rpython.annotator import model as annmodel
-            func = args_s[1].const
-            assert getattr(func, '_elidable_function_', None), (
-                "%r used in jit.conditional_call_value() should be "
-                "@jit.elidable" % (func,))
             return annmodel.unionof(s_res, args_s[0])
 
     def specialize_call(self, hop):
