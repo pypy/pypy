@@ -24,7 +24,7 @@ class TestTypedTestCase(object):
     def test_inheritance2(self):
         def wrap():
             res = snippet.inheritance2()
-            return res == ((-12, -12.0), (3, 12.3))
+            return res == ((-12, -12), (3, 12))
         fn = self.getcompiled(wrap, [])
         assert fn()
 
@@ -84,6 +84,7 @@ class TestTypedTestCase(object):
         assert fn(4) == 789
         assert fn(5) == 101112
 
+    @py.test.mark.xfail(reason="need a test that doesn't require int-float unions")
     def test_type_conversion(self):
         # obfuscated test case specially for typer.insert_link_conversions()
         def type_conversion(n):
@@ -137,7 +138,7 @@ class TestTypedTestCase(object):
 
     def test_float_ops(self):
         def f(x):
-            return abs(math.pow(-x, 3) + 1)
+            return abs(math.pow(-x, 3.) + 1)
         fn = self.getcompiled(f, [float])
         assert fn(-4.5) == 92.125
         assert fn(4.5) == 90.125
@@ -145,7 +146,7 @@ class TestTypedTestCase(object):
     def test_memoryerror(self):
         def g(i):
             return [0] * i
-        
+
         def f(i):
             try:
                 lst = g(i)
@@ -505,7 +506,7 @@ class TestTypedTestCase(object):
         def func(x, y):
             z = x + y / 2.1 * x
             z = math.fmod(z, 60.0)
-            z = math.pow(z, 2)
+            z = math.pow(z, 2.)
             z = -z
             return int(z)
 
@@ -692,7 +693,7 @@ class TestTypedTestCase(object):
                 return f(n)
             except StackOverflow:
                 return -42
-        
+
         def f(n):
             if n == 0:
                 return 1
