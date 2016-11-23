@@ -875,6 +875,7 @@ def make_wrapper_second_level(space, argtypesw, restype,
         retval = fatal_value
         boxed_args = ()
         tb = None
+        state = space.fromcache(State)
         try:
             if not we_are_translated() and DEBUG_WRAPPER:
                 print >>sys.stderr, callable,
@@ -893,7 +894,6 @@ def make_wrapper_second_level(space, argtypesw, restype,
                 boxed_args += (arg_conv, )
             if pygilstate_ensure:
                 boxed_args += (args[-1], )
-            state = space.fromcache(State)
             try:
                 result = callable(space, *boxed_args)
                 if not we_are_translated() and DEBUG_WRAPPER:
@@ -939,6 +939,7 @@ def make_wrapper_second_level(space, argtypesw, restype,
         except Exception as e:
             unexpected_exception(pname, e, tb)
             _restore_gil_state(pygilstate_release, gilstate, gil_release, _gil_auto, tid)
+            state.check_and_raise_exception(always=True)
             return fatal_value
 
         assert lltype.typeOf(retval) == restype
