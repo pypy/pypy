@@ -465,7 +465,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 self.min_heap_size = float(min_heap_size)
             else:
                 # defaults to 8 times the nursery
-                self.min_heap_size = newsize * 8
+                self.min_heap_size = float(newsize) * 8
             #
             max_heap_size = env.read_uint_from_env('PYPY_GC_MAX')
             if max_heap_size > 0:
@@ -798,7 +798,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 # nursery. "Next area" in this case is the space between the
                 # pinned object in front of nusery_top and the pinned object
                 # after that. Graphically explained:
-                # 
+                #
                 #     |- allocating totalsize failed in this area
                 #     |     |- nursery_top
                 #     |     |    |- pinned object in front of nursery_top,
