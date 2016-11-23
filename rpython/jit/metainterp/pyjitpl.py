@@ -1059,7 +1059,18 @@ class MIFrame(object):
     @arguments("box", "box", "boxes2", "descr", "orgpc")
     def opimpl_conditional_call_ir_v(self, condbox, funcbox, argboxes,
                                      calldescr, pc):
+        if isinstance(condbox, ConstInt) and condbox.value == 0:
+            return   # so that the heapcache can keep argboxes virtual
         self.do_conditional_call(condbox, funcbox, argboxes, calldescr, pc)
+
+    @arguments("box", "box", "boxes2", "descr", "orgpc")
+    def _opimpl_conditional_call_value(self, valuebox, funcbox, argboxes,
+                                       calldescr, pc):
+        return self.do_conditional_call(valuebox, funcbox, argboxes,
+                                        calldescr, pc, is_value=True)
+
+    opimpl_conditional_call_value_ir_i = _opimpl_conditional_call_value
+    opimpl_conditional_call_value_ir_r = _opimpl_conditional_call_value
 
     @arguments("int", "boxes3", "boxes3", "orgpc")
     def _opimpl_recursive_call(self, jdindex, greenboxes, redboxes, pc):
@@ -1538,7 +1549,7 @@ class MIFrame(object):
                                                             descr=descr)
         if pure and not self.metainterp.last_exc_value and op:
             op = self.metainterp.record_result_of_call_pure(op, argboxes, descr,
-                patch_pos)
+                patch_pos, opnum)
             exc = exc and not isinstance(op, Const)
         if exc:
             if op is not None:
@@ -1712,16 +1723,21 @@ class MIFrame(object):
             else:
                 assert False
 
-    def do_conditional_call(self, condbox, funcbox, argboxes, descr, pc):
-        if isinstance(condbox, ConstInt) and condbox.value == 0:
-            return   # so that the heapcache can keep argboxes virtual
+    def do_conditional_call(self, condbox, funcbox, argboxes, descr, pc,
+                            is_value=False):
         allboxes = self._build_allboxes(funcbox, argboxes, descr)
         effectinfo = descr.get_extra_info()
         assert not effectinfo.check_forces_virtual_or_virtualizable()
         exc = effectinfo.check_can_raise()
-        pure = effectinfo.check_is_elidable()
-        return self.execute_varargs(rop.COND_CALL, [condbox] + allboxes, descr,
-                                    exc, pure)
+        if not is_value:
+            opnum = rop.COND_CALL
+        else:
+            opnum = OpHelpers.cond_call_value_for_descr(descr)
+        # COND_CALL cannot be pure (=elidable): it has no result.
+        # On the other hand, COND_CALL_VALUE is always calling a pure
+        # function.
+        return self.execute_varargs(opnum, [condbox] + allboxes, descr,
+                                    exc, pure=is_value)
 
     def _do_jit_force_virtual(self, allboxes, descr, pc):
         assert len(allboxes) == 2
@@ -3061,11 +3077,16 @@ class MetaInterp(object):
         debug_stop("jit-abort-longest-function")
         return max_jdsd, max_key
 
-    def record_result_of_call_pure(self, op, argboxes, descr, patch_pos):
+    def record_result_of_call_pure(self, op, argboxes, descr, patch_pos, opnum):
         """ Patch a CALL into a CALL_PURE.
         """
         resbox_as_const = executor.constant_from_op(op)
-        for argbox in argboxes:
+        is_cond_value = OpHelpers.is_cond_call_value(opnum)
+        if is_cond_value:
+            normargboxes = argboxes[1:]    # ingore the 'value' arg
+        else:
+            normargboxes = argboxes
+        for argbox in normargboxes:
             if not isinstance(argbox, Const):
                 break
         else:
@@ -3077,6 +3098,8 @@ class MetaInterp(object):
         # be either removed later by optimizeopt or turned back into CALL.
         arg_consts = [executor.constant_from_op(a) for a in argboxes]
         self.call_pure_results[arg_consts] = resbox_as_const
+        if is_cond_value:
+            return op       # but COND_CALL_VALUE remains
         opnum = OpHelpers.call_pure_for_descr(descr)
         self.history.cut(patch_pos)
         newop = self.history.record_nospec(opnum, argboxes, descr)

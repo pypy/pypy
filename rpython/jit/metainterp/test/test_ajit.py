@@ -4575,3 +4575,15 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
 
         self.meta_interp(g, [5, 5, 5])
         self.check_resops(guard_true=10)   # 5 unrolled, plus 5 unrelated
+
+    def test_conditional_call_value(self):
+        from rpython.rlib.jit import conditional_call_value
+        @elidable
+        def g(j):
+            return j + 5
+        def f(i, j):
+            return conditional_call_value(i, g, j)
+        res = self.interp_operations(f, [-42, 200])
+        assert res == -42
+        res = self.interp_operations(f, [0, 200])
+        assert res == 205

@@ -303,6 +303,7 @@ class TestJIT(BaseRtypingTest):
         mix.finish()
 
     def test_conditional_call_value(self):
+        @elidable
         def g(x, y):
             return x - y + 5
         def f(n, x, y):

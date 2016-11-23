@@ -1151,7 +1151,7 @@ _oplist = [
     '_CALL_FIRST',
     'CALL/*d/rfin',
     'COND_CALL/*d/n',   # a conditional call, with first argument as a condition
-    'COND_CALL_VALUE/*d/ri',  # same but returns a result; emitted by rewrite
+    'COND_CALL_VALUE/*d/ri',  # "return a0 or a1(a2, ..)", a1 elidable
     'CALL_ASSEMBLER/*d/rfin',  # call already compiled assembler
     'CALL_MAY_FORCE/*d/rfin',
     'CALL_LOOPINVARIANT/*d/rfin',
@@ -1272,6 +1272,15 @@ class rop(object):
             return rop.CALL_LOOPINVARIANT_F
         assert tp == 'v'
         return rop.CALL_LOOPINVARIANT_N
+
+    @staticmethod
+    def cond_call_value_for_descr(descr):
+        tp = descr.get_normalized_result_type()
+        if tp == 'i':
+            return rop.COND_CALL_VALUE_I
+        elif tp == 'r':
+            return rop.COND_CALL_VALUE_R
+        assert False, tp
 
     @staticmethod
     def getfield_pure_for_descr(descr):
@@ -1445,6 +1454,11 @@ class rop(object):
         return (opnum == rop.CALL_RELEASE_GIL_I or
                 opnum == rop.CALL_RELEASE_GIL_F or
                 opnum == rop.CALL_RELEASE_GIL_N)
+
+    @staticmethod
+    def is_cond_call_value(opnum):
+        return (opnum == rop.COND_CALL_VALUE_I or
+                opnum == rop.COND_CALL_VALUE_R)
 
     @staticmethod
     def is_ovf(opnum):

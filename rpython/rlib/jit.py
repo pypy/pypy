@@ -1246,6 +1246,9 @@ class ConditionalCallEntry(ExtRegistryEntry):
                                                  args_s[1], args_s[2:])
         if self.instance == _jit_conditional_call_value:
             from rpython.annotator import model as annmodel
+            func = args_s[1].const
+            # conditional_call_value(): function must be elidable
+            assert func._elidable_function_
             return annmodel.unionof(s_res, args_s[0])
 
     def specialize_call(self, hop):

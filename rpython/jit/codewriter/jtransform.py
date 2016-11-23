@@ -1569,7 +1569,7 @@ class Transformer(object):
             return []
         return getattr(self, 'handle_jit_marker__%s' % key)(op, jitdriver)
 
-    def rewrite_op_jit_conditional_call(self, op):
+    def _rewrite_op_cond_call(self, op, rewritten_opname):
         have_floats = False
         for arg in op.args:
             if getkind(arg.concretetype) == 'float':
@@ -1580,12 +1580,17 @@ class Transformer(object):
         callop = SpaceOperation('direct_call', op.args[1:], op.result)
         calldescr = self.callcontrol.getcalldescr(callop)
         assert not calldescr.get_extra_info().check_forces_virtual_or_virtualizable()
-        op1 = self.rewrite_call(op, 'conditional_call',
+        op1 = self.rewrite_call(op, rewritten_opname,
                                 op.args[:2], args=op.args[2:],
                                 calldescr=calldescr, force_ir=True)
         if self.callcontrol.calldescr_canraise(calldescr):
             op1 = [op1, SpaceOperation('-live-', [], None)]
         return op1
+
+    def rewrite_op_jit_conditional_call(self, op):
+        return self._rewrite_op_cond_call(op, 'conditional_call')
+    def rewrite_op_jit_conditional_call_value(self, op):
+        return self._rewrite_op_cond_call(op, 'conditional_call_value')
 
     def handle_jit_marker__jit_merge_point(self, op, jitdriver):
         assert self.portal_jd is not None, (
