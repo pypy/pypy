@@ -663,6 +663,14 @@ class AbstractLLCPU(AbstractCPU):
         u = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), string)
         return len(u.chars)
 
+    def bh_strhash(self, string):
+        s = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), string)
+        return s.hash
+
+    def bh_unicodehash(self, string):
+        u = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), string)
+        return u.hash
+
     def bh_strgetitem(self, string, index):
         s = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), string)
         return ord(s.chars[index])

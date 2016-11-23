@@ -9,7 +9,7 @@ from rpython.jit.metainterp.resoperation import ResOperation, rop, OpHelpers
 from rpython.jit.metainterp.typesystem import rd_eq, rd_hash
 from rpython.jit.codewriter import heaptracker
 from rpython.jit.backend.llsupport.symbolic import (WORD,
-        get_array_token)
+        get_field_token, get_array_token)
 from rpython.jit.backend.llsupport.descr import SizeDescr, ArrayDescr,\
      FLAG_POINTER, CallDescr
 from rpython.jit.metainterp.history import JitCellToken
@@ -262,6 +262,18 @@ class GcRewriterAssembler(object):
                                                  self.cpu.translate_support_code)
             self.emit_gc_load_or_indexed(op, op.getarg(0), ConstInt(0),
                                          WORD, 1, ofs_length, NOT_SIGNED)
+        elif opnum == rop.STRHASH:
+            offset, size = get_field_token(rstr.STR,
+                                        'hash', self.cpu.translate_support_code)
+            assert size == WORD
+            self.emit_gc_load_or_indexed(op, op.getarg(0), ConstInt(0),
+                                         WORD, 1, offset, sign=True)
+        elif opnum == rop.UNICODEHASH:
+            offset, size = get_field_token(rstr.UNICODE,
+                                        'hash', self.cpu.translate_support_code)
+            assert size == WORD
+            self.emit_gc_load_or_indexed(op, op.getarg(0), ConstInt(0),
+                                         WORD, 1, offset, sign=True)
         elif opnum == rop.STRGETITEM:
             basesize, itemsize, ofs_length = get_array_token(rstr.STR,
                                                  self.cpu.translate_support_code)
