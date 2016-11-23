@@ -53,6 +53,10 @@ class AbstractValue(object):
         llop.debug_print(lltype.Void, "setting forwarded on:", self.__class__.__name__)
         raise SettingForwardedOnAbstractValue()
 
+    def clear_forwarded(self):
+        if self.get_forwarded() is not None:
+            self.set_forwarded(None)
+
     @specialize.arg(1)
     def get_box_replacement(op, not_const=False):
         # Read the chain "op, op._forwarded, op._forwarded._forwarded..."
@@ -1196,6 +1200,8 @@ if not platform.machine().startswith('x86'):
     # Uh, that should be moved to vector_ext really!
     _cast_ops['CAST_FLOAT_TO_INT'] = ('f', 8, 'i', 8, 2)
     _cast_ops['VEC_CAST_FLOAT_TO_INT'] = ('f', 8, 'i', 8, 2)
+    _cast_ops['CAST_INT_TO_FLOAT'] = ('i', 8, 'f', 8, 2)
+    _cast_ops['VEC_CAST_INT_TO_FLOAT'] = ('i', 8, 'f', 8, 2)
 
 # ____________________________________________________________
 

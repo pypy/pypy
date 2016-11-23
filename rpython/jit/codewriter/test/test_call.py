@@ -496,6 +496,21 @@ def test_find_call_shortcut():
             r = b.foobar = 123
         return r
 
+    def f6(b):
+        if b is not None:
+            return b
+        return B()
+
+    def f7(c, a):
+        if a:
+            return a
+        return 123
+
+    def b_or_none(c):
+        if c > 15:
+            return B()
+        return None
+
     def f(a, c):
         b = B()
         f1(a, b, c)
@@ -504,6 +519,8 @@ def test_find_call_shortcut():
         r = lltype.malloc(RAW, flavor='raw')
         f4(r)
         f5(b)
+        f6(b_or_none(c))
+        f7(c, a)
 
     rtyper = support.annotate(f, [10, 20])
     f1_graph = rtyper.annotator.translator._graphof(f1)
@@ -516,6 +533,10 @@ def test_find_call_shortcut():
     assert cc.find_call_shortcut(f4_graph) == CallShortcut(0, "xdescr")
     f5_graph = rtyper.annotator.translator._graphof(f5)
     assert cc.find_call_shortcut(f5_graph) == CallShortcut(0, "foobardescr")
+    f6_graph = rtyper.annotator.translator._graphof(f6)
+    assert cc.find_call_shortcut(f6_graph) == CallShortcut(0, None)
+    f7_graph = rtyper.annotator.translator._graphof(f7)
+    assert cc.find_call_shortcut(f7_graph) == CallShortcut(1, None)
 
 def test_cant_find_call_shortcut():
     from rpython.jit.backend.llgraph.runner import LLGraphCPU

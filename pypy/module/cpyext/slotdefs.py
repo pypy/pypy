@@ -386,7 +386,10 @@ def wrap_getbuffer(space, w_self, w_args, func):
         size = pybuf.c_len
         ndim = widen(pybuf.c_ndim)
         shape =   [pybuf.c_shape[i]   for i in range(ndim)]
-        strides = [pybuf.c_strides[i] for i in range(ndim)]
+        if pybuf.c_strides:
+            strides = [pybuf.c_strides[i] for i in range(ndim)]
+        else:
+            strides = [1]
         if pybuf.c_format:
             format = rffi.charp2str(pybuf.c_format)
         else:

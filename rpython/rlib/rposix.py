@@ -656,7 +656,8 @@ if not _WIN32:
     c_readdir = external('readdir', [DIRP], DIRENTP,
                          macro=True, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
     c_closedir = external('closedir', [DIRP], rffi.INT, releasegil=False)
-    c_dirfd = external('dirfd', [DIRP], rffi.INT, releasegil=False)
+    c_dirfd = external('dirfd', [DIRP], rffi.INT, releasegil=False,
+                       macro=True)
     c_ioctl_voidp = external('ioctl', [rffi.INT, rffi.UINT, rffi.VOIDP], rffi.INT,
                          save_err=rffi.RFFI_SAVE_ERRNO)
 else:
@@ -680,21 +681,22 @@ def _listdir(dirp, rewind=False):
         raise OSError(error, "readdir failed")
     return result
 
-def fdlistdir(dirfd):
-    """
-    Like listdir(), except that the directory is specified as an open
-    file descriptor.
+if not _WIN32:
+    def fdlistdir(dirfd):
+        """
+        Like listdir(), except that the directory is specified as an open
+        file descriptor.
 
-    Note: fdlistdir() closes the file descriptor.  To emulate the
-    Python 3.x 'os.opendir(dirfd)', you must first duplicate the
-    file descriptor.
-    """
-    dirp = c_fdopendir(dirfd)
-    if not dirp:
-        error = get_saved_errno()
-        c_close(dirfd)
-        raise OSError(error, "opendir failed")
-    return _listdir(dirp, rewind=True)
+        Note: fdlistdir() closes the file descriptor.  To emulate the
+        Python 3.x 'os.opendir(dirfd)', you must first duplicate the
+        file descriptor.
+        """
+        dirp = c_fdopendir(dirfd)
+        if not dirp:
+            error = get_saved_errno()
+            c_close(dirfd)
+            raise OSError(error, "opendir failed")
+        return _listdir(dirp, rewind=True)
 
 @replace_os_function('listdir')
 @specialize.argtype(0)
@@ -1167,6 +1169,10 @@ else:
 @replace_os_function('pipe')
 def pipe(flags=0):
     # 'flags' might be ignored.  Check the result.
+    # The handles returned are always inheritable on Posix.
+    # The situation on Windows is not completely clear: I think
+    # it should always return non-inheritable handles, but CPython
+    # uses SECURITY_ATTRIBUTES to ensure that and we don't.
     if _WIN32:
         # 'flags' ignored
         ralloc = lltype.scoped_alloc(rwin32.LPHANDLE.TO, 1)
@@ -1869,7 +1875,9 @@ class EnvironExtRegistry(ControllerEntryForPrebuilt):
 # Support for f... and ...at families of POSIX functions
 
 class CConfig:
-    _compilation_info_ = eci
+    _compilation_info_ = eci.merge(ExternalCompilationInfo(
+        includes=['sys/statvfs.h'],
+    ))
     for _name in """faccessat fchdir fchmod fchmodat fchown fchownat fexecve
             fdopendir fpathconf fstat fstatat fstatvfs ftruncate
             futimens futimes futimesat linkat chflags lchflags lchmod lchown
@@ -2147,8 +2155,9 @@ if HAVE_MKNODAT:
         handle_posix_error('mknodat', error)
 
 
-eci_inheritable = eci.merge(ExternalCompilationInfo(
-    separate_module_sources=[r"""
+if not _WIN32:
+    eci_inheritable = eci.merge(ExternalCompilationInfo(
+        separate_module_sources=[r"""
 #include <errno.h>
 #include <sys/ioctl.h>
 
@@ -2201,10 +2210,6 @@ int rpy_get_inheritable(int fd)
 RPY_EXTERN
 int rpy_dup_noninheritable(int fd)
 {
-#ifdef _WIN32
-#error NotImplementedError
-#endif
-
 #ifdef F_DUPFD_CLOEXEC
     return fcntl(fd, F_DUPFD_CLOEXEC, 0);
 #else
@@ -2222,10 +2227,6 @@ int rpy_dup_noninheritable(int fd)
 RPY_EXTERN
 int rpy_dup2_noninheritable(int fd, int fd2)
 {
-#ifdef _WIN32
-#error NotImplementedError
-#endif
-
 #ifdef F_DUP2FD_CLOEXEC
     return fcntl(fd, F_DUP2FD_CLOEXEC, fd2);
 
@@ -2250,33 +2251,41 @@ int rpy_dup2_noninheritable(int fd, int fd2)
     return 0;
 #endif
 }
-    """ % {'HAVE_DUP3': HAVE_DUP3}],
-    post_include_bits=['RPY_EXTERN int rpy_set_inheritable(int, int);\n'
-                       'RPY_EXTERN int rpy_get_inheritable(int);\n'
-                       'RPY_EXTERN int rpy_dup_noninheritable(int);\n'
-                       'RPY_EXTERN int rpy_dup2_noninheritable(int, int);\n']))
+        """ % {'HAVE_DUP3': HAVE_DUP3}],
+        post_include_bits=['RPY_EXTERN int rpy_set_inheritable(int, int);\n'
+                           'RPY_EXTERN int rpy_get_inheritable(int);\n'
+                           'RPY_EXTERN int rpy_dup_noninheritable(int);\n'
+                           'RPY_EXTERN int rpy_dup2_noninheritable(int, int);\n'
+                           ]))
 
-c_set_inheritable = external('rpy_set_inheritable', [rffi.INT, rffi.INT],
-                             rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
-                             compilation_info=eci_inheritable)
-c_get_inheritable = external('rpy_get_inheritable', [rffi.INT],
-                             rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
-                             compilation_info=eci_inheritable)
-c_dup_noninheritable = external('rpy_dup_noninheritable', [rffi.INT],
-                                rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
-                                compilation_info=eci_inheritable)
-c_dup2_noninheritable = external('rpy_dup2_noninheritable', [rffi.INT,rffi.INT],
-                                 rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
-                                 compilation_info=eci_inheritable)
+    _c_set_inheritable = external('rpy_set_inheritable', [rffi.INT, rffi.INT],
+                                  rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
+                                  compilation_info=eci_inheritable)
+    _c_get_inheritable = external('rpy_get_inheritable', [rffi.INT],
+                                  rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
+                                  compilation_info=eci_inheritable)
+    c_dup_noninheritable = external('rpy_dup_noninheritable', [rffi.INT],
+                                    rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
+                                    compilation_info=eci_inheritable)
+    c_dup2_noninheritable = external('rpy_dup2_noninheritable', [rffi.INT,rffi.INT],
+                                     rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO,
+                                     compilation_info=eci_inheritable)
 
-def set_inheritable(fd, inheritable):
-    result = c_set_inheritable(fd, inheritable)
-    handle_posix_error('set_inheritable', result)
+    def set_inheritable(fd, inheritable):
+        result = _c_set_inheritable(fd, inheritable)
+        handle_posix_error('set_inheritable', result)
 
-def get_inheritable(fd):
-    res = c_get_inheritable(fd)
-    res = handle_posix_error('get_inheritable', res)
-    return res != 0
+    def get_inheritable(fd):
+        res = _c_get_inheritable(fd)
+        res = handle_posix_error('get_inheritable', res)
+        return res != 0
+
+else:
+    # _WIN32
+    from rpython.rlib.rwin32 import set_inheritable, get_inheritable
+    from rpython.rlib.rwin32 import c_dup_noninheritable
+    from rpython.rlib.rwin32 import c_dup2_noninheritable
+
 
 class SetNonInheritableCache(object):
     """Make one prebuilt instance of this for each path that creates
@@ -2316,20 +2325,20 @@ class ENoSysCache(object):
 
 _pipe2_syscall = ENoSysCache()
 
-post_include_bits=['RPY_EXTERN int _cpu_count(void);']
+post_include_bits=['RPY_EXTERN int rpy_cpu_count(void);']
 # cpu count for linux, windows and mac (+ bsds)
 # note that the code is copied from cpython and split up here
 if sys.platform.startswith('linux'):
     cpucount_eci = ExternalCompilationInfo(includes=["unistd.h"],
             separate_module_sources=["""
-            RPY_EXTERN int _cpu_count(void) {
+            RPY_EXTERN int rpy_cpu_count(void) {
                 return sysconf(_SC_NPROCESSORS_ONLN);
             }
             """], post_include_bits=post_include_bits)
 elif sys.platform == "win32":
     cpucount_eci = ExternalCompilationInfo(includes=["Windows.h"],
             separate_module_sources=["""
-        RPY_EXTERN int _cpu_count(void) {
+        RPY_EXTERN int rpy_cpu_count(void) {
             SYSTEM_INFO sysinfo;
             GetSystemInfo(&sysinfo);
             return sysinfo.dwNumberOfProcessors;
@@ -2338,7 +2347,7 @@ elif sys.platform == "win32":
 else:
     cpucount_eci = ExternalCompilationInfo(includes=["sys/types.h", "sys/sysctl.h"],
             separate_module_sources=["""
-            RPY_EXTERN int _cpu_count(void) {
+            RPY_EXTERN int rpy_cpu_count(void) {
                 int ncpu = 0;
             #if defined(__DragonFly__) || \
                 defined(__OpenBSD__)   || \
@@ -2356,7 +2365,7 @@ else:
             }
             """], post_include_bits=post_include_bits)
 
-_cpu_count = rffi.llexternal('_cpu_count', [], rffi.INT_real,
+_cpu_count = rffi.llexternal('rpy_cpu_count', [], rffi.INT_real,
                             compilation_info=cpucount_eci)
 
 def cpu_count():

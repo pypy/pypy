@@ -97,6 +97,13 @@ class RewriteTests(object):
         call_shortcut_descr = get_call_descr(self.gc_ll_descr,
             [lltype.Ptr(T)], lltype.Signed,
             effectinfo)
+        call_shortcut_2 = CallShortcut(0, None)
+        effectinfo_2 = EffectInfo(None, None, None, None, None, None,
+                                EffectInfo.EF_RANDOM_EFFECTS,
+                                call_shortcut=call_shortcut_2)
+        call_shortcut_descr_2 = get_call_descr(self.gc_ll_descr,
+            [lltype.Signed], lltype.Signed,
+            effectinfo_2)
         #
         A = lltype.GcArray(lltype.Signed)
         adescr = get_array_descr(self.gc_ll_descr, A)
@@ -1464,5 +1471,16 @@ class TestFramework(RewriteTests):
             [p0]
             i2 = gc_load_i(p0, %(tzdescr.offset)s, %(tzdescr.field_size)s)
             i1 = cond_call_value_i(i2, 123, p0, descr=call_shortcut_descr)
+            jump(i1)
+        """)
+
+    def test_handle_call_shortcut_2(self):
+        self.check_rewrite("""
+            [i0]
+            i1 = call_i(123, i0, descr=call_shortcut_descr_2)
+            jump(i1)
+        """, """
+            [i0]
+            i1 = cond_call_value_i(i0, 123, i0, descr=call_shortcut_descr_2)
             jump(i1)
         """)

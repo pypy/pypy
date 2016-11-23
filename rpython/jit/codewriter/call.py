@@ -396,15 +396,23 @@ class CallControl(object):
                    return y.field          if r: return r
         """
         block = graph.startblock
-        if len(block.operations) == 0:
-            return
-        op = block.operations[0]
-        if op.opname != 'getfield':
-            return
-        [v_inst, c_fieldname] = op.args
+        operations = block.operations
+        c_fieldname = None
+        if not operations:
+            v_inst = v_result = block.exitswitch
+        else:
+            op = operations[0]
+            if len(op.args) == 0:
+                return
+            if op.opname != 'getfield':  # check for this form:
+                v_inst = op.args[0]      #     if y is not None;
+                v_result = v_inst        #          return y
+            else:
+                operations = operations[1:]
+                [v_inst, c_fieldname] = op.args
+                v_result = op.result
         if not isinstance(v_inst, Variable):
             return
-        v_result = op.result
         if v_result.concretetype != graph.getreturnvar().concretetype:
             return
         if v_result.concretetype == lltype.Void:
@@ -417,7 +425,7 @@ class CallControl(object):
         PSTRUCT = v_inst.concretetype
         v_check = v_result
         fastcase = True
-        for op in block.operations[1:]:
+        for op in operations:
             if (op.opname in ('int_is_true', 'ptr_nonzero', 'same_as')
                     and v_check is op.args[0]):
                 v_check = op.result
@@ -447,5 +455,8 @@ class CallControl(object):
         if not link.target.is_final_block():
             return
 
-        fielddescr = self.cpu.fielddescrof(PSTRUCT.TO, c_fieldname.value)
+        if c_fieldname is not None:
+            fielddescr = self.cpu.fielddescrof(PSTRUCT.TO, c_fieldname.value)
+        else:
+            fielddescr = None
         return CallShortcut(argnum, fielddescr)

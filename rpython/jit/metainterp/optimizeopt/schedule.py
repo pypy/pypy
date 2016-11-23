@@ -14,6 +14,7 @@ from rpython.rlib.objectmodel import specialize, always_inline
 from rpython.jit.metainterp.jitexc import NotAVectorizeableLoop, NotAProfitableLoop
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem import lltype
+from rpython.rlib.debug import debug_print
 
 
 def forwarded_vecinfo(op):
@@ -315,11 +316,8 @@ class Scheduler(object):
 
 def failnbail_transformation(msg):
     msg = '%s\n' % msg
-    if we_are_translated():
-        llop.debug_print(lltype.Void, msg)
-    else:
-        import pdb; pdb.set_trace()
-    raise NotImplementedError(msg)
+    debug_print(msg)
+    raise NotAVectorizeableLoop
 
 def turn_into_vector(state, pack):
     """ Turn a pack into a vector instruction """

@@ -3,7 +3,10 @@ import py
 import ctypes
 from _ctypes import function
 
-_rawffi = py.test.importorskip("_rawffi")
+try:
+    import _rawffi
+except ImportError:
+    py.test.skip("app-level test only for PyPy")
 
 class TestErrno:
 
