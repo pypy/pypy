@@ -1731,15 +1731,25 @@ class MIFrame(object):
         effectinfo = descr.get_extra_info()
         assert not effectinfo.check_forces_virtual_or_virtualizable()
         exc = effectinfo.check_can_raise()
-        if not is_value:
-            opnum = rop.COND_CALL
-        else:
-            opnum = OpHelpers.cond_call_value_for_descr(descr)
+        allboxes = [condbox] + allboxes
         # COND_CALL cannot be pure (=elidable): it has no result.
         # On the other hand, COND_CALL_VALUE is always calling a pure
         # function.
-        return self.execute_varargs(opnum, [condbox] + allboxes, descr,
-                                    exc, pure=is_value)
+        if not is_value:
+            return self.execute_varargs(rop.COND_CALL, allboxes, descr,
+                                        exc, pure=False)
+        else:
+            opnum = OpHelpers.cond_call_value_for_descr(descr)
+            # work around the fact that execute_varargs() wants a
+            # constant for first argument
+            if opnum == rop.COND_CALL_VALUE_I:
+                return self.execute_varargs(rop.COND_CALL_VALUE_I, allboxes,
+                                            descr, exc, pure=True)
+            elif opnum == rop.COND_CALL_VALUE_R:
+                return self.execute_varargs(rop.COND_CALL_VALUE_R, allboxes,
+                                            descr, exc, pure=True)
+            else:
+                raise AssertionError
 
     def _do_jit_force_virtual(self, allboxes, descr, pc):
         assert len(allboxes) == 2
