@@ -510,7 +510,13 @@ class Bookkeeper(object):
         results = []
         for desc in pbc.descriptions:
             results.append(desc.pycall(whence, args, v_result, op))
-        s_result = unionof(*results)
+        # According to the fundamental annotation invariant, we should have
+        # unionof(*results).contains(v_result.annotation), but some
+        # specializers (e.g. argtype) don't respect that, so we make sure to
+        # return a generalisation of v_result.annotation.
+        s_result = v_result.annotation if v_result and v_result.annotation else s_ImpossibleValue
+        for result in results:
+            s_result = unionof(s_result, result)
         return s_result
 
     def emulate_pbc_call(self, unique_key, pbc, args_s, replace=[], callback=None):
