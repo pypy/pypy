@@ -103,6 +103,17 @@ class TestDictObject(BaseApiTest):
         api.PyDict_Update(w_d, w_d2)
         assert space.unwrap(w_d) == dict(a='b', c='d', e='f')
 
+    def test_update_doesnt_accept_list_of_tuples(self, space, api):
+        w_d = space.newdict()
+        space.setitem(w_d, space.wrap("a"), space.wrap("b"))
+
+        w_d2 = space.wrap([("c", "d"), ("e", "f")])
+
+        api.PyDict_Update(w_d, w_d2)
+        assert api.PyErr_Occurred() is space.w_AttributeError
+        api.PyErr_Clear()
+        assert space.unwrap(w_d) == dict(a='b') # unchanged
+
     def test_iter(self, space, api):
         w_dict = space.sys.getdict(space)
         py_dict = make_ref(space, w_dict)
@@ -203,3 +214,18 @@ class AppTestDictObject(AppTestCpythonExtensionBase):
              """),
             ])
         assert module.dict_proxy({'a': 1, 'b': 2}) == 2
+
+    def test_update(self):
+        module = self.import_extension('foo', [
+            ("update", "METH_VARARGS",
+             '''
+             if (PyDict_Update(PyTuple_GetItem(args, 0), PyTuple_GetItem(args, 1)))
+                return NULL;
+             Py_RETURN_NONE;
+             ''')])
+        d = {"a": 1}
+        module.update(d, {"c": 2})
+        assert d == dict(a=1, c=2)
+        d = {"a": 1}
+        raises(AttributeError, module.update, d, [("c", 2)])
+

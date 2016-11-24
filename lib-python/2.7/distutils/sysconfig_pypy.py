@@ -67,6 +67,7 @@ def _init_posix():
     g['LIBDIR'] = os.path.join(sys.prefix, 'lib')
     g['CC'] = "gcc -pthread" # -pthread might not be valid on OS/X, check
     g['OPT'] = "" 
+    g['VERSION'] = get_python_version()
 
     global _config_vars
     _config_vars = g
