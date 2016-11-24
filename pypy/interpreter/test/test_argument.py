@@ -120,8 +120,8 @@ class DummySpace(object):
             raise OperationError(AttributeError, name)
         return method(*args)
 
-    def lookup_in_type_where(self, cls, name):
-        return 'hopefully not needed', getattr(cls, name)
+    def lookup_in_type(self, cls, name):
+        return getattr(cls, name)
 
     def get_and_call_function(self, w_descr, w_obj, *args):
         return w_descr.__get__(w_obj)(*args)
