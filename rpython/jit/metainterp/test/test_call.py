@@ -276,6 +276,28 @@ class CallTest(object):
         res = self.meta_interp(f, [21, 5, 0])
         assert res == -1
 
+    def test_cond_call_raises(self):
+        myjitdriver = jit.JitDriver(greens = [], reds = ['n', 'p', 'm'])
+        def externfn(x, m):
+            if m == 1 or m == 1008:
+                raise ValueError
+            return x + m
+        def f(n, m, p):
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n, p=p, m=m)
+                myjitdriver.jit_merge_point(n=n, p=p, m=m)
+                try:
+                    p = jit.conditional_call_elidable(p, externfn, n, m)
+                    p -= (n + m)   # => zero again
+                except ValueError:
+                    m += 1000
+                m += 1
+                n -= 2
+            return n * m
+        assert f(21, 0, 0) == -2011
+        res = self.meta_interp(f, [21, 0, 0])
+        assert res == -2011
+
 
 class TestCall(LLJitMixin, CallTest):
     pass
