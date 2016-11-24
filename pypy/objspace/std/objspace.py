@@ -339,6 +339,10 @@ class StdObjSpace(ObjSpace):
         return w_type.lookup(name)
     lookup._annspecialcase_ = 'specialize:lookup'
 
+    def lookup_in_type(self, w_type, name):
+        w_src, w_descr = self.lookup_in_type_where(w_type, name)
+        return w_descr
+
     def lookup_in_type_where(self, w_type, name):
         return w_type.lookup_where(name)
     lookup_in_type_where._annspecialcase_ = 'specialize:lookup_in_type_where'
@@ -659,4 +663,4 @@ class StdObjSpace(ObjSpace):
     @specialize.arg(2, 3)
     def is_overloaded(self, w_obj, tp, method):
         return (self.lookup(w_obj, method) is not
-                self.lookup_in_type_where(tp, method)[1])
+                self.lookup_in_type(tp, method))
