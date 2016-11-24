@@ -7,6 +7,10 @@
 extern "C" {
 #endif
 
+typedef struct {
+    PyObject_HEAD
+    PyObject *ob_keys; /* a private place to put keys during PyDict_Next */
+} PyDictObject;
 
 #ifdef __cplusplus
 }
