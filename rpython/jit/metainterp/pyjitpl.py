@@ -1164,10 +1164,16 @@ class MIFrame(object):
 
     @arguments("box")
     def opimpl_strhash(self, strbox):
+        if isinstance(strbox, ConstPtr):
+            h = self.metainterp.cpu.bh_strhash(strbox.getref_base())
+            return ConstInt(h)
         return self.execute(rop.STRHASH, strbox)
 
     @arguments("box")
     def opimpl_unicodehash(self, unicodebox):
+        if isinstance(unicodebox, ConstPtr):
+            h = self.metainterp.cpu.bh_unicodehash(unicodebox.getref_base())
+            return ConstInt(h)
         return self.execute(rop.UNICODEHASH, unicodebox)
 
     @arguments("box")

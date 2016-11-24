@@ -15,11 +15,12 @@ from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.rtyper.llinterp import LLInterpreter, LLException
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
 from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rtyper.annlowlevel import hlstr, hlunicode
 from rpython.rtyper import rclass
 
 from rpython.rlib.clibffi import FFI_DEFAULT_ABI
 from rpython.rlib.rarithmetic import ovfcheck, r_uint, r_ulonglong, intmask
-from rpython.rlib.objectmodel import Symbolic
+from rpython.rlib.objectmodel import Symbolic, compute_hash
 
 class LLAsmInfo(object):
     def __init__(self, lltrace):
@@ -789,7 +790,8 @@ class LLGraphCPU(model.AbstractCPU):
         rstr.copy_string_contents(src, dst, srcstart, dststart, length)
 
     def bh_strhash(self, s):
-        return s._obj.container.hash
+        lls = s._obj.container
+        return compute_hash(hlstr(lls._as_ptr()))
 
     def bh_newunicode(self, length):
         return lltype.cast_opaque_ptr(llmemory.GCREF,
@@ -814,7 +816,8 @@ class LLGraphCPU(model.AbstractCPU):
         rstr.copy_unicode_contents(src, dst, srcstart, dststart, length)
 
     def bh_unicodehash(self, s):
-        return s._obj.container.hash
+        lls = s._obj.container
+        return compute_hash(hlunicode(lls._as_ptr()))
 
     def bh_new(self, sizedescr):
         return lltype.cast_opaque_ptr(llmemory.GCREF,

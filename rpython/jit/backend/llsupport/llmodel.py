@@ -3,8 +3,9 @@ from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rtyper.annlowlevel import llhelper, MixLevelHelperAnnotator
+from rpython.rtyper.annlowlevel import hlstr, hlunicode
 from rpython.rtyper.llannotation import lltype_to_annotation
-from rpython.rlib.objectmodel import we_are_translated, specialize
+from rpython.rlib.objectmodel import we_are_translated, specialize, compute_hash
 from rpython.jit.metainterp import history, compile
 from rpython.jit.metainterp.optimize import SpeculativeError
 from rpython.jit.codewriter import heaptracker, longlong
@@ -665,11 +666,11 @@ class AbstractLLCPU(AbstractCPU):
 
     def bh_strhash(self, string):
         s = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), string)
-        return s.hash
+        return compute_hash(hlstr(s))
 
     def bh_unicodehash(self, string):
         u = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), string)
-        return u.hash
+        return compute_hash(hlunicode(u))
 
     def bh_strgetitem(self, string, index):
         s = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), string)
