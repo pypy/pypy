@@ -206,7 +206,39 @@ class CallTest(object):
         # remaining: only the first call to get_triple(), as a call_i
         # because we know that x.triple == 0 here.  The remaining calls
         # are removed because equal to the first one.
-        self.check_resops(call_i=2, cond_call_value_i=0)
+        self.check_resops(call_i=2, cond_call_value_i=0,
+                          new_with_vtable=2)  # escapes: _compute_triple(self)
+
+    def test_cond_call_constant_in_optimizer_5(self):
+        def _compute_triple(value):
+            return value * 3
+        class X:
+            def __init__(self, value):
+                self.value = value
+                self.triple = 0
+            def get_triple(self):
+                res = jit.conditional_call_elidable(self.triple,
+                                                    _compute_triple, self.value)
+                self.triple = res
+                return res
+
+        myjitdriver = jit.JitDriver(greens = [], reds = 'auto')
+        def main(n):
+            total = 0
+            while n > 1:
+                myjitdriver.jit_merge_point()
+                x = X(n)
+                total += x.get_triple() + x.get_triple() + x.get_triple()
+                n -= 10
+            return total
+
+        res = self.meta_interp(main, [100])
+        assert res == main(100)
+        # remaining: only the first call to get_triple(), as a call_i
+        # because we know that x.triple == 0 here.  The remaining calls
+        # are removed because equal to the first one.
+        self.check_resops(call_i=2, cond_call_value_i=0,
+                          new_with_vtable=0)  # all virtual
 
     def test_cond_call_multiple_in_optimizer_1(self):
         # test called several times with the same arguments, but
