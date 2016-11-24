@@ -280,9 +280,12 @@ class RPythonAnnotator(object):
         tag = parent_block, parent_index
         self.translator.update_call_graph(parent_graph, graph, tag)
 
-    def get_result_var(self, position_key):
+    def get_op(self, position_key):
         _, block, index = position_key
-        op = block.operations[index]
+        return block.operations[index]
+
+    def get_result_var(self, position_key):
+        op = self.get_op(position_key)
         v_result = op.result
         self.var_def[v_result] = position_key
         return v_result

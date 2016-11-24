@@ -499,10 +499,8 @@ class Bookkeeper(object):
             whence = emulated
 
         if whence is not None:
-            fn, block, i = whence
-            op = block.operations[i]
-            v_result = op.result
-            self.annotator.var_def[v_result] = whence
+            op = self.annotator.get_op(whence)
+            v_result = self.annotator.get_result_var(whence)
         else:
             op = None
             v_result = None
