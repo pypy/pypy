@@ -67,7 +67,8 @@ class TranslationContext(object):
         if self.annotator is not None:
             raise ValueError("we already have an annotator")
         from rpython.annotator.annrpython import RPythonAnnotator
-        self.annotator = RPythonAnnotator(self, policy=policy)
+        self.annotator = RPythonAnnotator(
+            self, policy=policy, keepgoing=self.config.translation.keepgoing)
         self.annotator.allow_bad_unions = self.config.translation.brokentypes
         return self.annotator
 

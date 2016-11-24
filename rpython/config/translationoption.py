@@ -193,6 +193,10 @@ translation_optiondescription = OptionDescription(
                "When true, enable the use of tagged pointers. "
                "If false, use normal boxing",
                default=False),
+    BoolOption("keepgoing",
+               "Continue annotating when errors are encountered, and report "
+               "them all at the end of the annotation phase",
+               default=False, cmdline="--keepgoing"),
     BoolOption("lldebug",
                "If true, makes an lldebug build", default=False,
                cmdline="--lldebug"),
