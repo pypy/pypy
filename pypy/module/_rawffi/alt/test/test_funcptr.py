@@ -651,3 +651,13 @@ class AppTestFFI(BaseAppTestFFI):
         A = _rawffi.Array('i')
         a = A(1, autofree=True)
         a[0] = libfoo      # should cast libfoo to int/long automatically
+
+    def test_windll_as_integer(self):
+        if not self.iswin32:
+            skip("windows specific")
+        import _rawffi
+        from _rawffi.alt import WinDLL
+        libm = WinDLL(self.libm_name)
+        A = _rawffi.Array('i')
+        a = A(1, autofree=True)
+        a[0] = libm        # should cast libm to int/long automatically

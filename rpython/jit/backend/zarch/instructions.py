@@ -76,7 +76,6 @@ arith_mnemonic_codes = {
     'CLGRJ':   ('rie_b',  ['\xEC','\x65']),
     # compare and swap
     'CSG':     ('rsy_a', ['\xEB','\x30']),
-
 }
 
 logic_mnemonic_codes = {
@@ -340,7 +339,7 @@ vector_mnemonic_codes = {
     'VLVG':  ('vrs_b', ['\xE7','\x22']),
     'VLGV':  ('vrs_c', ['\xE7','\x21']),
 
-    # '': ('', ['','']),
+    'VSEG':  ('vrr_a', ['\xE7','\x5F'], 'v,v,m'),
 }
 
 all_mnemonic_codes.update(arith_mnemonic_codes)

@@ -1397,5 +1397,6 @@ class BaseTestVectorize(VecTestHelper):
             assert op not in dups
             dups.add(op)
 
+
 class TestLLtype(BaseTestVectorize, LLtypeMixin):
     pass

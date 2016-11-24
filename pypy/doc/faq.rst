@@ -90,6 +90,10 @@ modules, recursively).
 Do CPython Extension modules work with PyPy?
 --------------------------------------------
 
+**First note that some Linux distributions (e.g. Ubuntu, Debian) split
+PyPy into several packages.  If you installed a package called "pypy",
+then you may also need to install "pypy-dev" for the following to work.**
+
 We have experimental support for CPython extension modules, so
 they run with minor changes.  This has been a part of PyPy since
 the 1.4 release, but support is still in beta phase.  CPython
@@ -407,3 +411,18 @@ hosting is a lot of hard work: On the one hand, PyPy's mercurial history is
 long and gnarly. On the other hand, all our infrastructure (buildbots,
 benchmarking, etc) would have to be adapted. So unless somebody steps up and
 volunteers to do all that work, it will likely not happen.
+
+
+What is needed for Windows 64 support of PyPy?
+-----------------------------------------------
+
+First, please note that the Windows 32 PyPy binary works just fine on Windows
+64. The only problem is that it only supports up to 4GB of heap per process.
+
+As to real Windows 64 support: Currently we don't have an active PyPy developer
+whose main development platform is Windows. So if you are interested in getting
+Windows 64 support, we encourage you to volunteer `to make it happen`_! Another
+option would be to pay some PyPy developers to implement Windows 64 support,
+but so far there doesn't seem to be an overwhelming commercial interest in it.
+
+.. _`to make it happen`: windows.html#what-is-missing-for-a-full-64-bit-translation

@@ -373,6 +373,8 @@ W_WinDLL.typedef = TypeDef(
     __new__     = interp2app(descr_new_windll),
     getfunc     = interp2app(W_WinDLL.getfunc),
     getaddressindll = interp2app(W_WinDLL.getaddressindll),
+    __int__     = interp2app(W_CDLL.getidentifier),
+    __long__    = interp2app(W_CDLL.getidentifier),
     )
 
 # ========================================================================

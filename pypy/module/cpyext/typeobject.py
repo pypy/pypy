@@ -242,7 +242,7 @@ def convert_member_defs(space, dict_w, members, w_type):
 def update_all_slots(space, w_type, pto):
     # fill slots in pto
     # Not very sure about it, but according to
-    # test_call_tp_dealloc_when_created_from_python, we should not
+    # test_call_tp_dealloc, we should not
     # overwrite slots that are already set: these ones are probably
     # coming from a parent C type.
 
@@ -469,7 +469,7 @@ class W_PyCTypeObject(W_TypeObject):
         W_TypeObject.__init__(self, space, name,
             bases_w or [space.w_object], dict_w, force_new_layout=new_layout)
         self.flag_cpytype = True
-        self.flag_heaptype = False
+        self.flag_heaptype = pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE
         # if a sequence or a mapping, then set the flag to force it
         if pto.c_tp_as_sequence and pto.c_tp_as_sequence.c_sq_item:
             self.flag_map_or_seq = 'S'
@@ -852,14 +852,14 @@ def _type_realize(space, py_obj):
     w_obj = space.allocate_instance(W_PyCTypeObject, w_metatype)
     track_reference(space, py_obj, w_obj)
     # __init__ wraps all slotdefs functions from py_type via add_operators
-    w_obj.__init__(space, py_type) 
+    w_obj.__init__(space, py_type)
     w_obj.ready()
 
     finish_type_2(space, py_type, w_obj)
     base = py_type.c_tp_base
     if base:
         # XXX refactor - parts of this are done in finish_type_2 -> inherit_slots
-        if not py_type.c_tp_as_number: 
+        if not py_type.c_tp_as_number:
             py_type.c_tp_as_number = base.c_tp_as_number
             py_type.c_tp_flags |= base.c_tp_flags & Py_TPFLAGS_CHECKTYPES
             py_type.c_tp_flags |= base.c_tp_flags & Py_TPFLAGS_HAVE_INPLACEOPS

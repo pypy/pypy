@@ -1062,11 +1062,32 @@ def make_socket(fd, family, type, proto, SocketClass=RSocket):
     return result
 make_socket._annspecialcase_ = 'specialize:arg(4)'
 
-def sock_set_inheritable(fd, inheritable):
-    try:
-        rposix.set_inheritable(fd, inheritable)
-    except OSError as e:
-        raise CSocketError(e.errno)
+if _c.WIN32:
+    def sock_set_inheritable(fd, inheritable):
+        handle = rffi.cast(rwin32.HANDLE, fd)
+        try:
+            rwin32.set_handle_inheritable(handle, inheritable)
+        except WindowsError:
+            raise RSocketError("SetHandleInformation failed")   # xxx
+
+    def sock_get_inheritable(fd):
+        handle = rffi.cast(rwin32.HANDLE, fd)
+        try:
+            return rwin32.get_handle_inheritable(handle)
+        except WindowsError:
+            raise RSocketError("GetHandleInformation failed")   # xxx
+else:
+    def sock_set_inheritable(fd, inheritable):
+        try:
+            rposix.set_inheritable(fd, inheritable)
+        except OSError as e:
+            raise CSocketError(e.errno)
+
+    def sock_get_inheritable(fd):
+        try:
+            return rposix.get_inheritable(fd)
+        except OSError as e:
+            raise CSocketError(e.errno)
 
 class SocketError(Exception):
     applevelerrcls = 'error'

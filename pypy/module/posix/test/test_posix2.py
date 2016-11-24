@@ -1015,7 +1015,8 @@ class AppTestPosix:
             pid1, status1 = os.waitpid(pid, 0)
             assert pid1 == pid
             assert os.WIFEXITED(status1)
-            assert os.WEXITSTATUS(status1) == myprio + 3
+            expected = min(myprio + 3, 19)
+            assert os.WEXITSTATUS(status1) == expected
 
     if hasattr(os, 'symlink'):
         def test_symlink(self):
@@ -1156,12 +1157,19 @@ class AppTestEnvironment(object):
     def setup_class(cls):
         cls.w_path = space.wrap(str(path))
 
-    def test_environ(self):
-        import posix
-        assert posix.environ['PATH']
-        del posix.environ['PATH']
-        def fn(): posix.environ['PATH']
-        raises(KeyError, fn)
+    if sys.platform != 'win32':
+        def test_environ(self):
+            import posix
+            assert posix.environ['PATH']
+            del posix.environ['PATH']
+            def fn(): posix.environ['PATH']
+            raises(KeyError, fn)
+    else:
+        def test_environ(self):
+            import nt
+            assert 'ADLDJSSLDFKJSD' not in nt.environ
+            def fn(): nt.environ['ADLDJSSLDFKJSD']
+            raises(KeyError, fn)
 
     if hasattr(__import__(os.name), "unsetenv"):
         def test_unsetenv_nonexisting(self):
@@ -1183,6 +1191,8 @@ class AppTestEnvironment(object):
 
 class AppTestPosixUnicode:
     def setup_class(cls):
+        if sys.platform == 'win32':
+            py.test.skip("Posix-only tests")
         if cls.runappdirect:
             # Can't change encoding
             try:

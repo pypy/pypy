@@ -31,17 +31,24 @@ def _getdimensions():
 
 
 def get_terminal_width():
+    height = width = 0
     try:
         height, width = _getdimensions()
     except py.builtin._sysex:
         raise
     except:
-        # FALLBACK
+        # pass to fallback below
+        pass
+
+    if width == 0:
+        # FALLBACK:
+        # * some exception happened
+        # * or this is emacs terminal which reports (0,0)
         width = int(os.environ.get('COLUMNS', 80))
-    else:
-        # XXX the windows getdimensions may be bogus, let's sanify a bit
-        if width < 40:
-            width = 80
+
+    # XXX the windows getdimensions may be bogus, let's sanify a bit
+    if width < 40:
+        width = 80
     return width
 
 terminal_width = get_terminal_width()

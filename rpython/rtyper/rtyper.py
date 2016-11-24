@@ -78,7 +78,6 @@ class RPythonTyper(object):
             self.log.info(s)
         except:
             self.seed = 0
-        self.order = None
 
     def getconfig(self):
         return self.annotator.translator.config
@@ -218,15 +217,9 @@ class RPythonTyper(object):
                 r = random.Random(self.seed)
                 r.shuffle(pending)
 
-            if self.order:
-                tracking = self.order(self.annotator, pending)
-            else:
-                tracking = lambda block: None
-
             previous_percentage = 0
             # specialize all blocks in the 'pending' list
             for block in pending:
-                tracking(block)
                 blockcount += 1
                 self.specialize_block(block)
                 self.already_seen[block] = True

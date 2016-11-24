@@ -23,7 +23,8 @@ class RPythonAnnotator(object):
     """Block annotator for RPython.
     See description in doc/translation.txt."""
 
-    def __init__(self, translator=None, policy=None, bookkeeper=None):
+    def __init__(self, translator=None, policy=None, bookkeeper=None,
+            keepgoing=False):
         import rpython.rtyper.extfuncregistry # has side effects
 
         if translator is None:
@@ -51,6 +52,9 @@ class RPythonAnnotator(object):
         if bookkeeper is None:
             bookkeeper = Bookkeeper(self)
         self.bookkeeper = bookkeeper
+        self.keepgoing = keepgoing
+        self.failed_blocks = set()
+        self.errors = []
 
     def __getstate__(self):
         attrs = """translator pendingblocks annotated links_followed
@@ -206,6 +210,12 @@ class RPythonAnnotator(object):
         else:
             newgraphs = self.translator.graphs  #all of them
             got_blocked_blocks = False in self.annotated.values()
+        if self.failed_blocks:
+            text = ('Annotation failed, %s errors were recorded:' %
+                    len(self.errors))
+            text += '\n-----'.join(str(e) for e in self.errors)
+            raise annmodel.AnnotatorError(text)
+
         if got_blocked_blocks:
             for graph in self.blocked_graphs.values():
                 self.blocked_graphs[graph] = True
@@ -250,7 +260,7 @@ class RPythonAnnotator(object):
         if s_old is not None:
             if not s_value.contains(s_old):
                 log.WARNING("%s does not contain %s" % (s_value, s_old))
-                log.WARNING("%s" % annmodel.unionof(s_value, s_old))
+                log.WARNING("%s" % annmodel.union(s_value, s_old))
                 assert False
         arg.annotation = s_value
 
@@ -352,6 +362,8 @@ class RPythonAnnotator(object):
 
         #print '* processblock', block, cells
         self.annotated[block] = graph
+        if block in self.failed_blocks:
+            return
         if block in self.blocked_blocks:
             del self.blocked_blocks[block]
         try:
@@ -396,6 +408,10 @@ class RPythonAnnotator(object):
         except annmodel.UnionError as e:
             # Add source code to the UnionError
             e.source = '\n'.join(source_lines(graph, block, None, long=True))
+            if self.keepgoing:
+                self.errors.append(e)
+                self.failed_blocks.add(block)
+                return
             raise
         # if the merged cells changed, we must redo the analysis
         if unions != oldcells:
@@ -486,6 +502,10 @@ class RPythonAnnotator(object):
 
         except annmodel.AnnotatorError as e: # note that UnionError is a subclass
             e.source = gather_error(self, graph, block, i)
+            if self.keepgoing:
+                self.errors.append(e)
+                self.failed_blocks.add(block)
+                return
             raise
 
         else:

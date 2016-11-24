@@ -626,6 +626,10 @@ class StdObjSpace(ObjSpace):
         from pypy.objspace.std.unicodeobject import unicode_from_object
         return unicode_from_object(self, w_obj)
 
+    def encode_unicode_object(self, w_unicode, encoding, errors):
+        from pypy.objspace.std.unicodeobject import encode_object
+        return encode_object(self, w_unicode, encoding, errors)
+
     def call_method(self, w_obj, methname, *arg_w):
         return callmethod.call_method_opt(self, w_obj, methname, *arg_w)
 
