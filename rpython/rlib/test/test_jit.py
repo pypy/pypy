@@ -314,6 +314,24 @@ class TestJIT(BaseRtypingTest):
         res = self.interpret(f, [-42, 1000, 100])
         assert res == -42
 
+    def test_conditional_call_elidable_annotates_nonnull(self):
+        class X:
+            pass
+        def g(n):
+            return X()   # non-null
+        def f(x, n):
+            y = conditional_call_elidable(x, g, n)
+            return y     # now, y is known to be non-null, even if x can be
+        def main(n):
+            if n > 100:
+                x = X()
+            else:
+                x = None
+            return f(x, n)
+        t = TranslationContext()
+        s = t.buildannotator().build_types(main, [int])
+        assert s.can_be_None is False
+
     def test_enter_leave_portal_frame(self):
         from rpython.translator.interactive import Translation
         def g():
