@@ -4,7 +4,7 @@ from rpython.conftest import option
 from rpython.annotator.model import UnionError
 from rpython.rlib.jit import (hint, we_are_jitted, JitDriver, elidable_promote,
     JitHintError, oopspec, isconstant, conditional_call,
-    elidable, unroll_safe, dont_look_inside,
+    elidable, unroll_safe, dont_look_inside, conditional_call_elidable,
     enter_portal_frame, leave_portal_frame)
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.test.tool import BaseRtypingTest
@@ -301,6 +301,18 @@ class TestJIT(BaseRtypingTest):
         mix = MixLevelHelperAnnotator(t.rtyper)
         mix.getgraph(later, [annmodel.s_Bool], annmodel.s_None)
         mix.finish()
+
+    def test_conditional_call_elidable(self):
+        def g(x, y):
+            return x - y + 5
+        def f(n, x, y):
+            return conditional_call_elidable(n, g, x, y)
+        assert f(0, 1000, 100) == 905
+        res = self.interpret(f, [0, 1000, 100])
+        assert res == 905
+        assert f(-42, 1000, 100) == -42
+        res = self.interpret(f, [-42, 1000, 100])
+        assert res == -42
 
     def test_enter_leave_portal_frame(self):
         from rpython.translator.interactive import Translation
