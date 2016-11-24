@@ -181,6 +181,27 @@ class TestDictObject(BaseApiTest):
         raises(OperationError, space.call_method, w_proxy, 'clear')
         assert api.PyDictProxy_Check(w_proxy)
 
+    def test_typedict(self, space, api):
+        py_type = make_ref(space, space.w_type)
+        py_dict = py_type.c_ob_type.c_tp_dict
+        ppos = lltype.malloc(Py_ssize_tP.TO, 1, flavor='raw')
+
+        ppos[0] = 0
+        pkey = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
+        pvalue = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
+        try:
+            w_copy = space.newdict()
+            while api.PyDict_Next(py_dict, ppos, pkey, pvalue):
+                w_key = from_ref(space, pkey[0])
+                w_value = from_ref(space, pvalue[0])
+                space.setitem(w_copy, w_key, w_value)
+        finally:
+            lltype.free(ppos, flavor='raw')
+            lltype.free(pkey, flavor='raw')
+            lltype.free(pvalue, flavor='raw')
+        api.Py_DecRef(py_type) # release borrowed references
+        # do something with w_copy ?
+
 class AppTestDictObject(AppTestCpythonExtensionBase):
     def test_dictproxytype(self):
         module = self.import_extension('foo', [
