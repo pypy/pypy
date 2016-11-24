@@ -495,11 +495,10 @@ the file on disk reflects the data written."""
             if space.isinstance_w(w_data, space.w_unicode):
                 # note: "encode" is called before we acquire the lock
                 # for this file, which is done in file_write_str().
-                # Direct access to unicodeobject because we don't want
+                # Use a specific space method because we don't want
                 # to call user-defined "encode" methods here.
-                from pypy.objspace.std.unicodeobject import encode_object
-                w_data = encode_object(space, w_data, self.encoding,
-                                       self.errors)
+                w_data = space.encode_unicode_object(w_data,
+                     self.encoding, self.errors)
             data = space.charbuf_w(w_data)
         self.file_write_str(data)
 
