@@ -1243,7 +1243,13 @@ class ConditionalCallEntry(ExtRegistryEntry):
                                                  args_s[1], args_s[2:])
         if self.instance == _jit_conditional_call_value:
             from rpython.annotator import model as annmodel
-            return annmodel.unionof(s_res, args_s[0])
+            # the result is either s_res, i.e. the function result, or
+            # it is args_s[0]-but-not-none.  The "not-none" part is
+            # only useful for pointer-like types, but it means that
+            # args_s[0] could be NULL without the result of the whole
+            # conditional_call_elidable() necessarily returning a result
+            # that can be NULL.
+            return annmodel.unionof(s_res, args_s[0].nonnoneify())
 
     def specialize_call(self, hop):
         from rpython.rtyper.lltypesystem import lltype

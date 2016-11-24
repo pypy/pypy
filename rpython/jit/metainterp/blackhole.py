@@ -6,7 +6,7 @@ from rpython.jit.metainterp import jitexc
 from rpython.jit.metainterp.history import MissingValue
 from rpython.rlib import longlong2float
 from rpython.rlib.debug import ll_assert, make_sure_not_resized
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.rarithmetic import intmask, LONG_BIT, r_uint, ovfcheck
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
@@ -132,20 +132,8 @@ class BlackholeInterpBuilder(object):
                 elif argtype == 'I' or argtype == 'R' or argtype == 'F':
                     assert argcodes[next_argcode] == argtype
                     next_argcode = next_argcode + 1
-                    length = ord(code[position])
-                    position += 1
-                    value = []
-                    for i in range(length):
-                        index = ord(code[position+i])
-                        if   argtype == 'I': reg = self.registers_i[index]
-                        elif argtype == 'R': reg = self.registers_r[index]
-                        elif argtype == 'F': reg = self.registers_f[index]
-                        if not we_are_translated():
-                            assert not isinstance(reg, MissingValue), (
-                                name, self.jitcode, position)
-                        value.append(reg)
-                    make_sure_not_resized(value)
-                    position += length
+                    value = self._get_list_of_values(code, position, argtype)
+                    position += 1 + len(value)
                 elif argtype == 'self':
                     value = self
                 elif argtype == 'cpu':
@@ -1656,6 +1644,24 @@ class BlackholeInterpreter(object):
                 continue
             if box is not None:
                 self.setarg_f(i, box.getfloatstorage())
+
+    @specialize.arg(3)
+    def _get_list_of_values(self, code, position, argtype):
+        length = ord(code[position])
+        position += 1
+        value = []
+        for i in range(length):
+            index = ord(code[position+i])
+            if   argtype == 'I': reg = self.registers_i[index]
+            elif argtype == 'R': reg = self.registers_r[index]
+            elif argtype == 'F': reg = self.registers_f[index]
+            else: assert 0
+            if not we_are_translated():
+                assert not isinstance(reg, MissingValue), (
+                    name, self.jitcode, position)
+            value.append(reg)
+        make_sure_not_resized(value)
+        return value
 
 # ____________________________________________________________
 
