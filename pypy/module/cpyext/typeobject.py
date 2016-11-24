@@ -504,9 +504,15 @@ def subtype_dealloc(space, obj):
     this_func_ptr = llhelper(subtype_dealloc.api_func.functype,
             subtype_dealloc.api_func.get_wrapper(space))
     w_obj = from_ref(space, rffi.cast(PyObject, base))
-    # see comment in userslot.slot_tp_new, this call can also infinitely recurse if
-    # called with a c-extension type that inherits from a non-c-extension type
-    while base.c_tp_dealloc == this_func_ptr or w_obj.is_cpytype():
+    obj_not_cpytype = not w_obj.is_cpytype()
+    # see comment in userslot.slot_tp_new, this call can infinitely recurse
+    # We can only get into this function if tp_dealloc is being called on 
+    # a non-cpytype, which could or could not inherit from a cpytype
+    # So if the original obj is non-cpytype, climb the mro to the first non-cpytype,
+    # otherwise just make sure we are not calling ourselves again
+    #
+    # This logic might fail for complicated inheritance schemes.
+    while base.c_tp_dealloc == this_func_ptr or (obj_not_cpytype and w_obj.is_cpytype()):
         base = base.c_tp_base
         assert base
         w_obj = from_ref(space, rffi.cast(PyObject, base))

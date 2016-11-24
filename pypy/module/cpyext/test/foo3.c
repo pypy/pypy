@@ -21,6 +21,11 @@ PyObject* datetimetype_tp_new(PyTypeObject* metatype, PyObject* args, PyObject* 
     return newType;
 }
 
+void datetimetype_tp_dealloc(PyObject* self)
+{
+    return ((PyTypeObject*)typ)->tp_dealloc(self);
+}
+
 #define BASEFLAGS Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES
 
 PyTypeObject footype = {
@@ -76,7 +81,7 @@ PyTypeObject datetimetype = {
     /*tp_name*/             "foo3.datetimetype",
     /*tp_basicsize*/        sizeof(PyTypeObject),
     /*tp_itemsize*/         0,
-    /*tp_dealloc*/          0,
+    /*tp_dealloc*/          datetimetype_tp_dealloc,
     /*tp_print*/            0,
     /*tp_getattr*/          0,
     /*tp_setattr*/          0,

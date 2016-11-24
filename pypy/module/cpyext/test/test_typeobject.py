@@ -1211,6 +1211,5 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             self._check_type_object(FooType)
         class X(object):
             __metaclass__ = FooType
-        print repr(X)
         X()
 
