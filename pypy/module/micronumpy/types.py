@@ -894,7 +894,7 @@ class Float(Primitive):
     @simple_unary_op
     def exp2(self, v):
         try:
-            return math.pow(2, v)
+            return math.pow(2., v)
         except OverflowError:
             return rfloat.INFINITY
 
@@ -1587,7 +1587,7 @@ class ComplexFloating(object):
     @complex_unary_op
     def exp2(self, v):
         try:
-            return rcomplex.c_pow((2,0), v)
+            return rcomplex.c_pow((2., 0.), v)
         except OverflowError:
             return rfloat.INFINITY, rfloat.NAN
         except ValueError:
@@ -1752,7 +1752,7 @@ class ComplexFloating(object):
         try:
             return rcomplex.c_log(v[0] + 1, v[1])
         except OverflowError:
-            return -rfloat.INFINITY, 0
+            return -rfloat.INFINITY, 0.
         except ValueError:
             return rfloat.NAN, rfloat.NAN
 

@@ -365,7 +365,7 @@ class W_FloatObject(W_Root):
                                 value += 2 * half_eps
                                 mant_dig = rfloat.DBL_MANT_DIG
                                 if (top_exp == rfloat.DBL_MAX_EXP and
-                                    value == math.ldexp(2 * half_eps, mant_dig)):
+                                    value == math.ldexp(2 * float(half_eps), mant_dig)):
                                     raise oefmt(space.w_OverflowError, "too large")
                         value = math.ldexp(value, (exp + 4*key_digit))
         while i < length and s[i].isspace():
