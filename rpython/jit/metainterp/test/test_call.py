@@ -249,12 +249,32 @@ class CallTest(object):
                 p = jit.conditional_call_elidable(p, externfn, m)
                 n -= p
             return n
-        assert f(219, 5, 0) == -1
-        res = self.meta_interp(f, [219, 5, 0])
+        assert f(21, 5, 0) == -1
+        res = self.meta_interp(f, [21, 5, 0])
         assert res == -1
         self.check_resops(call_pure_i=0,
                           cond_call_value_i=2,   # ideally 1, but see above
                           int_sub=2)
+
+    def test_cond_call_in_blackhole(self):
+        myjitdriver = jit.JitDriver(greens = [], reds = ['n', 'p', 'm'])
+        def externfn(x):
+            return 2
+        def f(n, m, p):
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n, p=p, m=m)
+                myjitdriver.jit_merge_point(n=n, p=p, m=m)
+                if n > 6:    # will fail and finish in the blackhole
+                    pass
+                if jit.we_are_jitted():   # manually inline here
+                    p = jit._jit_conditional_call_value(p, externfn, m)
+                else:
+                    p = jit.conditional_call_elidable(p, externfn, m)
+                n -= p
+            return n
+        assert f(21, 5, 0) == -1
+        res = self.meta_interp(f, [21, 5, 0])
+        assert res == -1
 
 
 class TestCall(LLJitMixin, CallTest):

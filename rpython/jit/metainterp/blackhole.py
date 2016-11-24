@@ -1206,14 +1206,14 @@ class BlackholeInterpreter(object):
         if condition:
             cpu.bh_call_v(func, args_i, args_r, None, calldescr)
 
-    @arguments("cpu", "i", "i", "I", "R", "d")
+    @arguments("cpu", "i", "i", "I", "R", "d", returns="i")
     def bhimpl_conditional_call_value_ir_i(cpu, value, func, args_i, args_r,
                                            calldescr):
         if value == 0:
             value = cpu.bh_call_i(func, args_i, args_r, None, calldescr)
         return value
 
-    @arguments("cpu", "r", "i", "I", "R", "d")
+    @arguments("cpu", "r", "i", "I", "R", "d", returns="r")
     def bhimpl_conditional_call_value_ir_r(cpu, value, func, args_i, args_r,
                                            calldescr):
         if not value:
