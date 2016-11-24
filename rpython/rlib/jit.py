@@ -1191,7 +1191,7 @@ def conditional_call(condition, function, *args):
     else:
         if condition:
             function(*args)
-conditional_call._always_inline_ = True
+conditional_call._always_inline_ = 'try'
 
 def _jit_conditional_call_value(value, function, *args):
     return value    # special-cased below
@@ -1233,7 +1233,7 @@ def conditional_call_elidable(value, function, *args):
                 value = function(*args)
                 assert not isinstance(value, int)
         return value
-conditional_call_elidable._always_inline_ = True
+conditional_call_elidable._always_inline_ = 'try'
 
 class ConditionalCallEntry(ExtRegistryEntry):
     _about_ = _jit_conditional_call, _jit_conditional_call_value
