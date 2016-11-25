@@ -1038,14 +1038,34 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
 
     def prepare_cond_call(self, op):
         self.load_condition_into_cc(op.getarg(0))
-        locs = []
+        self.assembler.guard_success_cc = c.negate(
+            self.assembler.guard_success_cc)
+        # ^^^ if arg0==0, we jump over the next block of code (the call)
+        locs = [None]
         # support between 0 and 4 integer arguments
         assert 2 <= op.numargs() <= 2 + 4
         for i in range(1, op.numargs()):
             loc = self.loc(op.getarg(i))
             assert loc.type != FLOAT
             locs.append(loc)
-        return locs
+        return locs     # [None, function, args...]
+
+    def prepare_cond_call_value_i(self, op):
+        x = self.ensure_reg(op.getarg(0))
+        self.load_condition_into_cc(op.getarg(0))
+        self.rm.force_allocate_reg(op, selected_reg=x)   # spilled if survives
+        # ^^^ if arg0!=0, we jump over the next block of code (the call)
+        locs = [x]
+        # support between 0 and 4 integer arguments
+        assert 2 <= op.numargs() <= 2 + 4
+        for i in range(1, op.numargs()):
+            loc = self.loc(op.getarg(i))
+            assert loc.type != FLOAT
+            locs.append(loc)
+        return locs     # [res, function, args...]
+
+    prepare_cond_call_value_r = prepare_cond_call_value_i
+
 
 def notimplemented(self, op):
     msg = '[PPC/regalloc] %s not implemented\n' % op.getopname()

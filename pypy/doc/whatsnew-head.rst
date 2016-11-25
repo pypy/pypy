@@ -20,3 +20,12 @@ Try to improve the consistency of RPython annotation unions.
 .. branch: clean-exported-state
 
 Clean-ups in the jit optimizeopt
+
+.. branch: conditional_call_value_4
+
+Add jit.conditional_call_elidable(), a way to tell the JIT "conditonally
+call this function" returning a result.
+
+.. branch: desc-specialize
+
+Refactor FunctionDesc.specialize() and related code (RPython annotator).

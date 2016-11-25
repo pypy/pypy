@@ -438,6 +438,10 @@ class LLtypeMixin(object):
                     oopspecindex=EffectInfo.OS_INT_PY_MOD)
     int_py_mod_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, ei)
 
+    FUNC = lltype.FuncType([], llmemory.GCREF)
+    ei = EffectInfo([], [], [], [], [], [], EffectInfo.EF_ELIDABLE_CAN_RAISE)
+    plain_r_calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, ei)
+
     namespace = locals()
 
 

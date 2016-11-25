@@ -36,6 +36,7 @@ def init(dealloc_trigger_callback=None):
     _pypy2ob = {}
     _pypy2ob_rev = {}
     _d_list = []
+    _d_marker = None
     _dealloc_trigger_callback = dealloc_trigger_callback
 
 @not_rpython
@@ -60,6 +61,14 @@ def create_link_pyobj(p, ob):
     assert not ob.c_ob_pypy_link
     ob.c_ob_pypy_link = _build_pypy_link(p)
     _o_list.append(ob)
+
+@not_rpython
+def mark_deallocating(marker, ob):
+    """mark the PyObject as deallocating, by storing 'marker'
+    inside its ob_pypy_link field"""
+    assert ob._obj not in _pypy2ob_rev
+    assert not ob.c_ob_pypy_link
+    ob.c_ob_pypy_link = _build_pypy_link(marker)
 
 @not_rpython
 def from_obj(OB_PTR_TYPE, p):
@@ -221,7 +230,7 @@ class Entry(ExtRegistryEntry):
 
 
 class Entry(ExtRegistryEntry):
-    _about_ = (create_link_pypy, create_link_pyobj)
+    _about_ = (create_link_pypy, create_link_pyobj, mark_deallocating)
 
     def compute_result_annotation(self, s_p, s_ob):
         pass
@@ -231,6 +240,8 @@ class Entry(ExtRegistryEntry):
             name = 'gc_rawrefcount_create_link_pypy'
         elif self.instance is create_link_pyobj:
             name = 'gc_rawrefcount_create_link_pyobj'
+        elif self.instance is mark_deallocating:
+            name = 'gc_rawrefcount_mark_deallocating'
         v_p, v_ob = hop.inputargs(*hop.args_r)
         hop.exception_cannot_occur()
         hop.genop(name, [_unspec_p(hop, v_p), _unspec_ob(hop, v_ob)])
