@@ -67,7 +67,7 @@ def PyMember_GetOne(space, obj, w_member):
         w_result = PyString_FromString(space, result)
     elif member_type == T_CHAR:
         result = rffi.cast(rffi.CCHARP, addr)
-        w_result = space.wrap(result[0])
+        w_result = space.newtext(result[0])
     elif member_type == T_OBJECT:
         obj_ptr = rffi.cast(PyObjectP, addr)
         if obj_ptr[0]:

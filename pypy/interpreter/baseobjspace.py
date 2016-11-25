@@ -495,13 +495,13 @@ class ObjSpace(object):
         else:
             name = importname
 
-        mod = Module(self, self.wrap(name))
+        mod = Module(self, self.newtext(name))
         mod.install()
 
         return name
 
     def getbuiltinmodule(self, name, force_init=False, reuse=True):
-        w_name = self.wrap(name)
+        w_name = self.newtext(name)
         w_modules = self.sys.get('modules')
         if not force_init:
             assert reuse
@@ -527,7 +527,7 @@ class ObjSpace(object):
             if not reuse and w_mod.startup_called:
                 # create a copy of the module.  (see issue1514) eventlet
                 # patcher relies on this behaviour.
-                w_mod2 = self.wrap(Module(self, w_name))
+                w_mod2 = Module(self, w_name)
                 self.setitem(w_modules, w_name, w_mod2)
                 w_mod.getdict(self)  # unlazy w_initialdict
                 self.call_method(w_mod2.getdict(self), 'update',
@@ -583,26 +583,26 @@ class ObjSpace(object):
         "NOT_RPYTHON: only for initializing the space."
 
         from pypy.module.exceptions import Module
-        w_name = self.wrap('exceptions')
+        w_name = self.newtext('exceptions')
         self.exceptions_module = Module(self, w_name)
         self.exceptions_module.install()
 
         from pypy.module.sys import Module
-        w_name = self.wrap('sys')
+        w_name = self.newtext('sys')
         self.sys = Module(self, w_name)
         self.sys.install()
 
         from pypy.module.imp import Module
-        w_name = self.wrap('imp')
+        w_name = self.newtext('imp')
         mod = Module(self, w_name)
         mod.install()
 
         from pypy.module.__builtin__ import Module
-        w_name = self.wrap('__builtin__')
+        w_name = self.newtext('__builtin__')
         self.builtin = Module(self, w_name)
         w_builtin = self.wrap(self.builtin)
         w_builtin.install()
-        self.setitem(self.builtin.w_dict, self.wrap('__builtins__'), w_builtin)
+        self.setitem(self.builtin.w_dict, self.newtext('__builtins__'), w_builtin)
 
         bootstrap_modules = set(('sys', 'imp', '__builtin__', 'exceptions'))
         installed_builtin_modules = list(bootstrap_modules)
@@ -613,7 +613,7 @@ class ObjSpace(object):
         types_w = (self.get_builtin_types().items() +
                    exception_types_w.items())
         for name, w_type in types_w:
-            self.setitem(self.builtin.w_dict, self.wrap(name), w_type)
+            self.setitem(self.builtin.w_dict, self.newtext(name), w_type)
 
         # install mixed modules
         for mixedname in self.get_builtinmodule_to_install():
@@ -625,7 +625,7 @@ class ObjSpace(object):
             [self.wrap(fn) for fn in installed_builtin_modules])
 
         # force this value into the dict without unlazyfying everything
-        self.setitem(self.sys.w_dict, self.wrap('builtin_module_names'),
+        self.setitem(self.sys.w_dict, self.newtext('builtin_module_names'),
                      w_builtin_module_names)
 
     def get_builtin_types(self):
@@ -744,7 +744,7 @@ class ObjSpace(object):
     # may also override specific functions for performance.
 
     def not_(self, w_obj):
-        return self.wrap(not self.is_true(w_obj))
+        return self.newbool(not self.is_true(w_obj))
 
     def eq_w(self, w_obj1, w_obj2):
         """Implements equality with the double check 'x is y or x == y'."""
@@ -770,7 +770,7 @@ class ObjSpace(object):
         w_result = w_obj.immutable_unique_id(self)
         if w_result is None:
             # in the common case, returns an unsigned value
-            w_result = self.wrap(r_uint(compute_unique_id(w_obj)))
+            w_result = self.newint(r_uint(compute_unique_id(w_obj)))
         return w_result
 
     def hash_w(self, w_obj):
@@ -1056,13 +1056,13 @@ class ObjSpace(object):
         return self.newlist([self.newbytes(s) for s in list_s])
 
     def newlist_unicode(self, list_u):
-        return self.newlist([self.wrap(u) for u in list_u])
+        return self.newlist([self.newunicode(u) for u in list_u])
 
     def newlist_int(self, list_i):
-        return self.newlist([self.wrap(i) for i in list_i])
+        return self.newlist([self.newint(i) for i in list_i])
 
     def newlist_float(self, list_f):
-        return self.newlist([self.wrap(f) for f in list_f])
+        return self.newlist([self.newfloat(f) for f in list_f])
 
     def newlist_hint(self, sizehint):
         from pypy.objspace.std.listobject import make_empty_list_with_size
