@@ -468,7 +468,7 @@ def _fromstring_text(space, s, count, sep, length, dtype):
                 val = dtype.itemtype.default_fromstring(space)
             else:
                 try:
-                    val = dtype.coerce(space, space.wrap(piece))
+                    val = dtype.coerce(space, space.newtext(piece))
                 except OperationError as e:
                     if not e.match(space, space.w_ValueError):
                         raise
@@ -476,7 +476,7 @@ def _fromstring_text(space, s, count, sep, length, dtype):
                     while not gotit and len(piece) > 0:
                         piece = piece[:-1]
                         try:
-                            val = dtype.coerce(space, space.wrap(piece))
+                            val = dtype.coerce(space, space.newtext(piece))
                             gotit = True
                         except OperationError as e:
                             if not e.match(space, space.w_ValueError):

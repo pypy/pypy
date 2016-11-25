@@ -613,7 +613,8 @@ class W_VoidBox(W_FlexibleBox):
 
 class W_CharacterBox(W_FlexibleBox):
     def convert_to(self, space, dtype):
-        return dtype.coerce(space, space.wrap(self.raw_str()))
+        # XXX should be newbytes?
+        return dtype.coerce(space, space.newtext(self.raw_str()))
 
     def descr_len(self, space):
         return space.len(self.item(space))

@@ -409,9 +409,12 @@ class FakeSpace(ObjSpace):
     def newdict(self, module=True):
         return DictObject({})
 
+    @specialize.argtype(1)
     def newint(self, i):
         if isinstance(i, IntObject):
             return i
+        if isinstance(i, base_int):
+            return LongObject(i)
         return IntObject(i)
 
     def setitem(self, obj, index, value):

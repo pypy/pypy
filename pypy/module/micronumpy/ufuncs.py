@@ -1206,7 +1206,7 @@ W_Ufunc.typedef = TypeDef("numpy.ufunc",
     nargs = interp_attrproperty("nargs", cls=W_Ufunc,
         wrapfn="newint"),
     signature = interp_attrproperty("signature", cls=W_Ufunc,
-        wrapfn="newtext"),
+        wrapfn="newtext_or_none"),
 
     reduce = interp2app(W_Ufunc.descr_reduce),
     outer = interp2app(W_Ufunc.descr_outer),
