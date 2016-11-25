@@ -12,6 +12,7 @@ __revision__ = "$Id: sysconfig.py 85358 2010-10-10 09:54:59Z antoine.pitrou $"
 
 import sys
 import os
+import imp
 
 from distutils.errors import DistutilsPlatformError
 
