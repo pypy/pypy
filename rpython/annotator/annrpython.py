@@ -298,9 +298,17 @@ class RPythonAnnotator(object):
         successors = self.notify.setdefault(v_src, set())
         successors.add(v_target)
 
-    def update_var(self, v):
-        position_key = self.var_def[v]
-        self.reflowfromposition(position_key)
+    def notify_updated(self, v):
+        if v in self.notify:
+            for v2 in self.notify[v]:
+                self.update_var(v2, v.annotation)
+
+    def update_var(self, v, s_new):
+        if isinstance(v, Variable):
+            position_key = self.var_def[v]
+            self.reflowfromposition(position_key)
+        else:
+            v.require_update(self, s_new)
 
     def reflowfromposition(self, position_key):
         graph, block, index = position_key
@@ -386,11 +394,12 @@ class RPythonAnnotator(object):
         self.annotated[block] = False  # must re-flow
         self.blocked_blocks[block] = (graph, None)
 
-    def bindinputargs(self, graph, block, inputcells):
+    def bindinputargs(self, graph, block, inputs_s):
         # Create the initial bindings for the input args of a block.
-        assert len(block.inputargs) == len(inputcells)
-        for a, cell in zip(block.inputargs, inputcells):
-            self.setbinding(a, cell)
+        assert len(block.inputargs) == len(inputs_s)
+        for v, s_input in zip(block.inputargs, inputs_s):
+            self.setbinding(v, s_input)
+            self.notify_updated(v)
         self.annotated[block] = False  # must flowin.
         self.blocked_blocks[block] = (graph, None)
 
@@ -453,10 +462,6 @@ class RPythonAnnotator(object):
         return repr(graph) + blk + opid
 
     def flowin(self, graph, block):
-        for v in block.inputargs:
-            if v in self.notify:
-                for v2 in self.notify[v]:
-                    self.update_var(v2)
         try:
             i = 0
             while i < len(block.operations):
